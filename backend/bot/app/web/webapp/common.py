@@ -19,6 +19,7 @@ from bot.app.web.webapp.cache_helpers import (
     invalidate_webapp_user_caches as _invalidate_user_payload_caches,
 )
 from bot.middlewares.i18n import (
+    get_i18n_instance,
     is_valid_locale_language_code,
     normalize_locale_language_code,
 )
@@ -295,24 +296,22 @@ async def _ensure_cached_telegram_avatar(
 
 
 def _format_remaining(seconds: int, lang: str) -> str:
+    i18n = get_i18n_instance()
     if seconds <= 0:
-        if lang == "en":
-            return "Subscription inactive"
-        return "Подписка не активна"
+        return i18n.gettext(lang, "wa_home_subscription_inactive")
     days, rem = divmod(seconds, 86400)
     hours, rem = divmod(rem, 3600)
     minutes = rem // 60
-    if lang == "en":
-        if days > 0:
-            return f"{days} d. {hours} h."
-        if hours > 0:
-            return f"{hours} h. {minutes} min."
-        return f"{max(1, minutes)} min."
     if days > 0:
-        return f"{days} д. {hours} ч."
+        return i18n.gettext(lang, "wa_duration_days_hours", days=days, hours=hours)
     if hours > 0:
-        return f"{hours} ч. {minutes} мин."
-    return f"{max(1, minutes)} мин."
+        return i18n.gettext(
+            lang,
+            "wa_duration_hours_minutes",
+            hours=hours,
+            minutes=minutes,
+        )
+    return i18n.gettext(lang, "wa_duration_minutes", minutes=max(1, minutes))
 
 
 def _coerce_int_or_none(value: Any | None) -> int | None:
@@ -344,15 +343,14 @@ def _format_bytes(value: Any | None, *, zero_as_unlimited: bool = False) -> str:
 
 
 def _format_months_title(months: int, lang: str) -> str:
-    if lang == "en":
-        if months == 1:
-            return "1 month"
-        return f"{months} months"
     if months == 1:
-        return "1 месяц"
-    if 2 <= months <= 4:
-        return f"{months} месяца"
-    return f"{months} месяцев"
+        bucket = "one"
+    elif 2 <= months <= 4:
+        bucket = "few"
+    else:
+        bucket = "many"
+    unit = get_i18n_instance().gettext(lang, f"wa_sub_term_month_{bucket}")
+    return f"{months} {unit}"
 
 
 def _format_number_for_payload(value: Any) -> str:

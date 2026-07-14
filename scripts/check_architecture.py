@@ -10,6 +10,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = ROOT / "scripts" / "architecture_gates.json"
+CYRILLIC_RE = re.compile(r"[\u0400-\u04ff]")
+TRANSLATION_CALL_RE = re.compile(r"(?<![\w$])(t|at)\s*\(")
 
 
 def _load_config() -> dict:
@@ -35,6 +37,181 @@ def _iter_text_files(scope: str, extensions: set[str]) -> list[Path]:
     return [
         file for file in base.rglob("*") if file.is_file() and file.suffix.lower() in extensions
     ]
+
+
+def _find_call_end(text: str, opening_parenthesis: int) -> int | None:
+    depth = 0
+    quote: str | None = None
+    escaped = False
+    line_comment = False
+    block_comment = False
+    index = opening_parenthesis
+
+    while index < len(text):
+        char = text[index]
+        next_char = text[index + 1] if index + 1 < len(text) else ""
+
+        if line_comment:
+            if char == "\n":
+                line_comment = False
+        elif block_comment:
+            if char == "*" and next_char == "/":
+                block_comment = False
+                index += 1
+        elif quote is not None:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+        elif char == "/" and next_char == "/":
+            line_comment = True
+            index += 1
+        elif char == "/" and next_char == "*":
+            block_comment = True
+            index += 1
+        elif char in {'"', "'", "`"}:
+            quote = char
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return index
+
+        index += 1
+
+    return None
+
+
+def _split_top_level_arguments(text: str) -> list[str]:
+    arguments: list[str] = []
+    start = 0
+    depths = {"(": 0, "[": 0, "{": 0}
+    closing_to_opening = {")": "(", "]": "[", "}": "{"}
+    quote: str | None = None
+    escaped = False
+    line_comment = False
+    block_comment = False
+    index = 0
+
+    while index < len(text):
+        char = text[index]
+        next_char = text[index + 1] if index + 1 < len(text) else ""
+
+        if line_comment:
+            if char == "\n":
+                line_comment = False
+        elif block_comment:
+            if char == "*" and next_char == "/":
+                block_comment = False
+                index += 1
+        elif quote is not None:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+        elif char == "/" and next_char == "/":
+            line_comment = True
+            index += 1
+        elif char == "/" and next_char == "*":
+            block_comment = True
+            index += 1
+        elif char in {'"', "'", "`"}:
+            quote = char
+        elif char in depths:
+            depths[char] += 1
+        elif char in closing_to_opening:
+            depths[closing_to_opening[char]] -= 1
+        elif char == "," and not any(depths.values()):
+            arguments.append(text[start:index].strip())
+            start = index + 1
+
+        index += 1
+
+    arguments.append(text[start:].strip())
+    return arguments
+
+
+def _frontend_cyrillic_fallbacks(text: str) -> list[int]:
+    lines: list[int] = []
+    for match in TRANSLATION_CALL_RE.finditer(text):
+        opening_parenthesis = match.end() - 1
+        call_end = _find_call_end(text, opening_parenthesis)
+        if call_end is None:
+            continue
+        arguments = _split_top_level_arguments(text[opening_parenthesis + 1 : call_end])
+        if len(arguments) >= 3 and CYRILLIC_RE.search(arguments[2]):
+            lines.append(text.count("\n", 0, match.start()) + 1)
+    return lines
+
+
+def _python_cyrillic_literals(text: str) -> list[int]:
+    tree = ast.parse(text)
+    return sorted(
+        node.lineno
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and CYRILLIC_RE.search(node.value)
+    )
+
+
+def _check_cyrillic_fallbacks(cfg: dict, issues: list[str]) -> None:
+    checks = cfg.get("cyrillic_fallbacks")
+    if not checks:
+        return
+
+    scanners = {
+        "frontend_translation_calls": (
+            _frontend_cyrillic_fallbacks,
+            set(checks.get("frontend_translation_calls", {}).get("extensions", [])),
+        ),
+        "frontend_webapp_translation_calls": (
+            _frontend_cyrillic_fallbacks,
+            set(checks.get("frontend_webapp_translation_calls", {}).get("extensions", [])),
+        ),
+        "frontend_admin_payments_translation_calls": (
+            _frontend_cyrillic_fallbacks,
+            set(checks.get("frontend_admin_payments_translation_calls", {}).get("extensions", [])),
+        ),
+        "python_literals": (_python_cyrillic_literals, {".py"}),
+        "python_webapp_literals": (_python_cyrillic_literals, {".py"}),
+    }
+
+    for name, (scanner, extensions) in scanners.items():
+        rule = checks.get(name)
+        if not rule:
+            continue
+
+        findings: list[str] = []
+        for scope in rule.get("scopes", []):
+            for file in _iter_text_files(scope, extensions):
+                relative = _to_posix(file)
+                if _is_allowed(relative, rule.get("allowlist", [])):
+                    continue
+                try:
+                    lines = scanner(file.read_text(encoding="utf-8", errors="ignore"))
+                except SyntaxError as exc:
+                    issues.append(f"[cyrillic-fallbacks] Failed to parse {relative}: {exc}")
+                    continue
+                findings.extend(f"{relative}:{line}" for line in lines)
+
+        expected_count = int(rule.get("allowed_count", 0))
+        actual_count = len(findings)
+        if actual_count == expected_count:
+            continue
+
+        direction = "increased" if actual_count > expected_count else "decreased"
+        samples = ", ".join(findings[:5]) or "none"
+        issues.append(
+            f"[cyrillic-fallbacks] {name} count {direction}: expected {expected_count}, "
+            f"found {actual_count}. Keep fallbacks in English and Russian text in locales; "
+            f"update the ratchet after intentional cleanup. Samples: {samples}"
+        )
 
 
 def _string_value(node: ast.AST | None) -> str | None:
@@ -688,6 +865,7 @@ def main() -> int:
     issues: list[str] = []
 
     _check_module_size(config, issues)
+    _check_cyrillic_fallbacks(config, issues)
     _check_type_ignores(config, issues)
     _check_raw_json_response(config, issues)
     _check_loose_schemas(config, issues)

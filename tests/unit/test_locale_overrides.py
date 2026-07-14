@@ -5,6 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
+from bot.app.web.webapp import common as webapp_common
 from bot.app.web.webapp.common import _normalize_language
 from bot.keyboards.inline.user_keyboards import get_language_selection_keyboard
 from bot.middlewares.i18n import (
@@ -94,6 +95,23 @@ def _collect_locale_usage(
             if resolved_key in locale_keys:
                 usage.setdefault(resolved_key, set()).add(relative)
     return usage
+
+
+def test_webapp_duration_and_month_formatters_use_locale_catalog(monkeypatch) -> None:
+    i18n = JsonI18n(path=str(REPO_ROOT / "locales"), default="en")
+    monkeypatch.setattr(webapp_common, "get_i18n_instance", lambda: i18n)
+
+    assert webapp_common._format_remaining(0, "en") == "Subscription inactive"
+    assert webapp_common._format_remaining(0, "ru") == "Подписка не активна"
+    assert webapp_common._format_remaining(90061, "en") == "1 d. 1 h."
+    assert webapp_common._format_remaining(90061, "ru") == "1 д. 1 ч."
+    assert webapp_common._format_remaining(3661, "en") == "1 h. 1 min."
+    assert webapp_common._format_remaining(3661, "ru") == "1 ч. 1 мин."
+    assert webapp_common._format_remaining(30, "en") == "1 min."
+    assert webapp_common._format_remaining(30, "ru") == "1 мин."
+    assert webapp_common._format_months_title(1, "en") == "1 month"
+    assert webapp_common._format_months_title(3, "ru") == "3 месяца"
+    assert webapp_common._format_months_title(12, "ru") == "12 месяцев"
 
 
 def test_json_i18n_applies_locale_overrides(tmp_path):

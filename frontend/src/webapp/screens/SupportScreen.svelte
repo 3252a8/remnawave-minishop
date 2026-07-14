@@ -68,22 +68,22 @@
   const statusTabs = $derived([
     {
       value: "active",
-      label: t("wa_support_filter_active", {}, "Активные"),
+      label: t("wa_support_filter_active", {}, "Active"),
       count: counts?.active || 0,
     },
     {
       value: "awaiting_admin",
-      label: t("wa_support_status_awaiting_admin", {}, "Ждет админа"),
+      label: t("wa_support_status_awaiting_admin", {}, "Awaiting admin"),
       count: counts?.awaiting_admin || 0,
     },
     {
       value: "awaiting_user",
-      label: t("wa_support_status_awaiting_user", {}, "Ждет пользователя"),
+      label: t("wa_support_status_awaiting_user", {}, "Awaiting user"),
       count: counts?.awaiting_user || 0,
     },
     {
       value: "closed",
-      label: t("wa_support_status_closed", {}, "Закрытые"),
+      label: t("wa_support_status_closed", {}, "Closed"),
       count: counts?.closed || 0,
     },
   ]);

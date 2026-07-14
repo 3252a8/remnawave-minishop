@@ -72,6 +72,105 @@ def test_architecture_check_passes_empty_scopes(tmp_path, monkeypatch, capsys) -
     assert "Architecture checks passed." in output
 
 
+def test_cyrillic_fallback_guard_rejects_frontend_translation_fallback(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["cyrillic_fallbacks"] = {
+        "frontend_translation_calls": {
+            "scopes": ["frontend/src"],
+            "extensions": [".ts", ".svelte"],
+            "allowlist": [],
+            "allowed_count": 0,
+        }
+    }
+    _write(
+        tmp_path,
+        "frontend/src/example.ts",
+        'const label = t("example", {}, "Русский fallback");\n',
+    )
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 1
+    assert "[cyrillic-fallbacks]" in output
+    assert "frontend_translation_calls count increased" in output
+    assert "frontend/src/example.ts:1" in output
+
+
+def test_cyrillic_fallback_guard_accepts_english_translation_fallback(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["cyrillic_fallbacks"] = {
+        "frontend_translation_calls": {
+            "scopes": ["frontend/src"],
+            "extensions": [".ts", ".svelte"],
+            "allowlist": [],
+            "allowed_count": 0,
+        }
+    }
+    _write(
+        tmp_path,
+        "frontend/src/example.ts",
+        'const label = t("example", {}, "English fallback");\n',
+    )
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 0
+    assert "Architecture checks passed." in output
+
+
+def test_cyrillic_fallback_guard_rejects_backend_string_literal(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["cyrillic_fallbacks"] = {
+        "python_literals": {
+            "scopes": ["backend"],
+            "allowlist": [],
+            "allowed_count": 0,
+        }
+    }
+    _write(tmp_path, "backend/example.py", 'FALLBACK = "Русский fallback"\n')
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 1
+    assert "[cyrillic-fallbacks]" in output
+    assert "python_literals count increased" in output
+    assert "backend/example.py:1" in output
+
+
+def test_cyrillic_fallback_guard_requires_ratchet_update_after_cleanup(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["cyrillic_fallbacks"] = {
+        "python_literals": {
+            "scopes": ["backend"],
+            "allowlist": [],
+            "allowed_count": 1,
+        }
+    }
+    _write(tmp_path, "backend/example.py", 'FALLBACK = "English fallback"\n')
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 1
+    assert "python_literals count decreased" in output
+    assert "update the ratchet" in output
+
+
 def test_module_size_guard_rejects_new_oversized_modules(
     tmp_path,
     monkeypatch,

@@ -118,11 +118,7 @@ export function createActionsStore({
       errorRecord.message === "telegram_required" ||
       errorRecord.message === "disposable_email"
     ) {
-      return t(
-        "wa_trial_telegram_required_error",
-        {},
-        "Для активации пробного периода привяжите Telegram."
-      );
+      return t("wa_trial_telegram_required_error", {}, "Link Telegram to activate the trial.");
     }
     return stringField(errorRecord.message) || t("wa_trial_activation_failed");
   }
@@ -137,7 +133,7 @@ export function createActionsStore({
       return t(
         "wa_referral_welcome_telegram_required_error",
         {},
-        "Для получения реферального бонуса привяжите Telegram."
+        "Link Telegram to claim the referral bonus."
       );
     }
     return stringField(errorRecord.message) || t("wa_referral_welcome_claim_failed");

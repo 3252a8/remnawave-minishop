@@ -157,7 +157,7 @@
           </div>
         </dl>
       {:else if trialRequiresTelegram}
-        <h2>{t("wa_trial_telegram_required_title", {}, "Привяжите Telegram для триала")}</h2>
+        <h2>{t("wa_trial_telegram_required_title", {}, "Link Telegram to start trial")}</h2>
         <p>
           {t(
             "wa_trial_telegram_required_description",
@@ -166,13 +166,13 @@
                 daysLeft > 0 ? t("wa_trial_days_left", { days: daysLeft }, "{days} days") : "",
               traffic: trafficLabel,
             },
-            "Чтобы активировать пробный период, сначала привяжите Telegram."
+            "Link Telegram first to activate the trial."
           )}
         </p>
         <dl class="trial-activation-facts">
           {#if daysLeft > 0}
             <div>
-              <dt>{t("wa_trial_duration_label", {}, "Срок")}</dt>
+              <dt>{t("wa_trial_duration_label", {}, "Duration")}</dt>
               <dd>{t("wa_trial_days_left", { days: daysLeft }, "{days} days")}</dd>
             </div>
           {/if}
@@ -212,7 +212,7 @@
       >
         <AttentionDot />
         <Send size={18} />
-        {t("wa_trial_link_telegram_and_activate", {}, "Привязать и активировать")}
+        {t("wa_trial_link_telegram_and_activate", {}, "Link and activate")}
       </Button>
     {:else if trialError && canRequestTrial}
       <Button class="wide" onclick={activateTrial} disabled={trialBusy}>

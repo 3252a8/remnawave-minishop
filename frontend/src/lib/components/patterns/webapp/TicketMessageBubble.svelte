@@ -37,9 +37,7 @@
   );
   const roleLabel = $derived(
     isInternalNote
-      ? [authorName, t("wa_support_internal_note", {}, "Внутренняя заметка")]
-          .filter(Boolean)
-          .join(" / ")
+      ? [authorName, t("wa_support_internal_note", {}, "Internal note")].filter(Boolean).join(" / ")
       : authorName || t(`wa_support_role_${messageRole}`, {}, messageRole)
   );
   const timeLabel = $derived(formatTime(createdAt));

@@ -178,7 +178,7 @@
   }
   function premiumTrafficMetaLabel(sub: SubscriptionView = subscription) {
     return sub?.premium_is_limited
-      ? t("wa_premium_access_limited", {}, "Доступ к premium временно ограничен")
+      ? t("wa_premium_access_limited", {}, "Premium access is temporarily limited")
       : trafficResetLabel(sub);
   }
   function premiumServerLabels(sub: SubscriptionView) {
@@ -258,7 +258,7 @@
     t(
       "wa_subscription_remaining_countdown",
       { countdown: subscriptionEndCountdown },
-      `осталось: ${subscriptionEndCountdown}`
+      `left: ${subscriptionEndCountdown}`
     )
   );
   const subscriptionExpiringSoon = $derived(
@@ -271,7 +271,7 @@
   );
   const subscriptionTermDisplayText = $derived(
     subscriptionExpiringSoon
-      ? t("wa_subscription_expiring_soon", {}, "Скоро закончится!")
+      ? t("wa_subscription_expiring_soon", {}, "Ending soon!")
       : activeSubscriptionTermLabel(subscription)
   );
   const subscriptionEndDisplayText = $derived(
@@ -441,19 +441,19 @@
                 <div class="traffic-reset-detail-inner">
                   {#if trafficResetScheduled(subscription)}
                     <div class="traffic-reset-date-row">
-                      <small>{t("wa_traffic_next_reset_label", {}, "Следующий сброс")}</small>
+                      <small>{t("wa_traffic_next_reset_label", {}, "Next reset")}</small>
                       <strong>{trafficNextResetLabel(subscription)}</strong>
                     </div>
                   {:else}
                     <div class="traffic-reset-date-row">
-                      <small>{t("wa_traffic_reset_policy", {}, "Стратегия сброса трафика")}</small>
+                      <small>{t("wa_traffic_reset_policy", {}, "Traffic reset policy")}</small>
                       <strong>{trafficResetLabel(subscription)}</strong>
                     </div>
                     <p class="traffic-reset-note">
                       {t(
                         "wa_traffic_reset_none_details",
                         {},
-                        "Трафик не сбрасывается автоматически. Если тариф поддерживает докупку, можно добавить трафик отдельным пакетом."
+                        "Traffic does not reset automatically: available volume stays until you use it. If the tariff supports top-ups, you can add traffic with a separate package."
                       )}
                     </p>
                   {/if}
@@ -513,11 +513,11 @@
               >
                 <div class="traffic-reset-detail-inner">
                   <div class="traffic-reset-date-row">
-                    <small>{t("wa_traffic_next_reset_label", {}, "Следующий сброс")}</small>
+                    <small>{t("wa_traffic_next_reset_label", {}, "Next reset")}</small>
                     <strong>{premiumNextResetLabel(subscription)}</strong>
                   </div>
                   {#if premiumServerLabels(subscription).length}
-                    <small>{t("wa_premium_servers_scope_label", {}, "Лимит действует на")}</small>
+                    <small>{t("wa_premium_servers_scope_label", {}, "Limit applies to")}</small>
                     <div>
                       {#each premiumServerLabels(subscription).slice(0, 8) as label}
                         <span>{label}</span>
@@ -545,17 +545,17 @@
                 {t(
                   "wa_referral_welcome_telegram_required_title",
                   {},
-                  "Бонус ждёт привязки Telegram"
+                  "Your bonus is waiting for Telegram"
                 )}
               </strong>
-              <small>{t("wa_referral_program_title", {}, "Реферальная программа")}</small>
+              <small>{t("wa_referral_program_title", {}, "Referral program")}</small>
             </span>
           </div>
           <p class="trial-card-description">
             {t(
               "wa_referral_welcome_telegram_required_description",
               { days: Number(referral?.welcome_bonus_days || 0) },
-              "Привяжите Telegram, чтобы получить {days} бонусных дней за регистрацию по приглашению."
+              "Link Telegram to claim {days} bonus days for registering via an invite."
             )}
           </p>
           <Button
@@ -566,7 +566,7 @@
           >
             <AttentionDot />
             <Send size={18} />
-            {t("wa_referral_link_telegram_and_claim", {}, "Привязать и получить бонус")}
+            {t("wa_referral_link_telegram_and_claim", {}, "Link and claim bonus")}
           </Button>
         </Card>
       {/if}
@@ -576,7 +576,7 @@
           <div class="trial-card-head">
             <Gift size={22} />
             <span>
-              <strong>{t("wa_trial_offer_title", {}, "Можно начать с льготного периода")}</strong>
+              <strong>{t("wa_trial_offer_title", {}, "Start with a grace period")}</strong>
               <small>{t("wa_trial_title")}</small>
             </span>
           </div>
@@ -584,22 +584,22 @@
             {t(
               "wa_trial_offer_description",
               { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
-              "Активируйте триал: {duration} доступа и {traffic} для скачивания без оплаты."
+              "Activate a trial: {duration} of access and {traffic} available to download for free."
             )}
           </p>
           <div class="trial-card-facts">
             <span>
-              <small>{t("wa_trial_duration_label", {}, "Срок")}</small>
+              <small>{t("wa_trial_duration_label", {}, "Duration")}</small>
               <strong>{trialDurationLabel()}</strong>
             </span>
             <span>
-              <small>{t("wa_trial_download_traffic_label", {}, "Доступно для скачивания")}</small>
+              <small>{t("wa_trial_download_traffic_label", {}, "Available to download")}</small>
               <strong>{trialTrafficLabel()}</strong>
             </span>
           </div>
           <Button class="wide trial-card-action" onclick={activateTrial} disabled={trialBusy}>
             <Gift size={18} />
-            {t("wa_trial_try_free", {}, "Попробовать бесплатно")}
+            {t("wa_trial_try_free", {}, "Try for free")}
           </Button>
         </Card>
       {:else if trialRequiresTelegram}
@@ -608,7 +608,7 @@
             <Gift size={22} />
             <span>
               <strong>
-                {t("wa_trial_telegram_required_title", {}, "Привяжите Telegram для триала")}
+                {t("wa_trial_telegram_required_title", {}, "Link Telegram to start trial")}
               </strong>
               <small>{t("wa_trial_title")}</small>
             </span>
@@ -617,16 +617,16 @@
             {t(
               "wa_trial_telegram_required_description",
               { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
-              "Чтобы активировать триал на {duration} с лимитом {traffic}, сначала привяжите Telegram."
+              "To activate a {duration} trial with {traffic}, link Telegram first."
             )}
           </p>
           <div class="trial-card-facts">
             <span>
-              <small>{t("wa_trial_duration_label", {}, "Срок")}</small>
+              <small>{t("wa_trial_duration_label", {}, "Duration")}</small>
               <strong>{trialDurationLabel()}</strong>
             </span>
             <span>
-              <small>{t("wa_trial_download_traffic_label", {}, "Доступно для скачивания")}</small>
+              <small>{t("wa_trial_download_traffic_label", {}, "Available to download")}</small>
               <strong>{trialTrafficLabel()}</strong>
             </span>
           </div>
@@ -638,7 +638,7 @@
           >
             <AttentionDot />
             <Send size={18} />
-            {t("wa_trial_link_telegram_and_activate", {}, "Привязать и активировать")}
+            {t("wa_trial_link_telegram_and_activate", {}, "Link and activate")}
           </Button>
         </Card>
       {/if}

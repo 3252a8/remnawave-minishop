@@ -46,7 +46,7 @@
   );
   const title = $derived(
     payment
-      ? at("payment_detail_title", { id: payment.payment_id }, `Платёж #${payment.payment_id}`)
+      ? at("payment_detail_title", { id: payment.payment_id }, `Payment #${payment.payment_id}`)
       : ""
   );
   const description = $derived(
@@ -90,7 +90,7 @@
         at(
           "payment_detail_regular_traffic",
           { gb: formatGb(regularGb) },
-          `Основной: ${formatGb(regularGb)}`
+          `Regular: ${formatGb(regularGb)}`
         )
       );
     }
@@ -99,7 +99,7 @@
         at(
           "payment_detail_premium_traffic",
           { gb: formatGb(premiumGb) },
-          `Премиум: ${formatGb(premiumGb)}`
+          `Premium: ${formatGb(premiumGb)}`
         )
       );
     }
@@ -113,7 +113,7 @@
   }
 
   function copy(value: unknown): void {
-    paymentsStore.copyToClipboard(value, at("payment_detail_copied", {}, "Скопировано"));
+    paymentsStore.copyToClipboard(value, at("payment_detail_copied", {}, "Copied"));
   }
 
   function openUser(): void {
@@ -125,7 +125,7 @@
   function durationText(p: AdminPayment | null): string {
     const months = p?.subscription_duration_months;
     return present(months)
-      ? at("payment_detail_months_count", { count: months }, `${months} мес.`)
+      ? at("payment_detail_months_count", { count: months }, `${months} mo.`)
       : "";
   }
 
@@ -141,25 +141,25 @@
       copy: payment?.payment_id,
     },
     {
-      label: at("amount", {}, "Сумма"),
+      label: at("amount", {}, "Amount"),
       value: money(payment?.amount, payment?.currency),
     },
-    { label: at("status", {}, "Статус"), value: payment?.status },
+    { label: at("status", {}, "Status"), value: payment?.status },
     {
-      label: at("date", {}, "Дата"),
+      label: at("date", {}, "Date"),
       value: payment?.created_at ? fmtDate(payment.created_at) : "",
     },
     {
-      label: at("payment_detail_updated_at", {}, "Обновлён"),
+      label: at("payment_detail_updated_at", {}, "Updated"),
       value: payment?.updated_at ? fmtDate(payment.updated_at) : "",
     },
-    { label: at("description", {}, "Описание"), value: paymentDescription(payment) },
+    { label: at("description", {}, "Description"), value: paymentDescription(payment) },
   ] satisfies MetaRow[]);
 
   const providerRows = $derived([
-    { label: at("provider", {}, "Провайдер"), value: payment?.provider },
+    { label: at("provider", {}, "Provider"), value: payment?.provider },
     {
-      label: at("payment_detail_provider_payment_id", {}, "ID у провайдера"),
+      label: at("payment_detail_provider_payment_id", {}, "Provider ID"),
       value: payment?.provider_payment_id,
       copy: payment?.provider_payment_id,
     },
@@ -169,36 +169,36 @@
       copy: payment?.yookassa_payment_id,
     },
     {
-      label: at("payment_detail_idempotence_key", {}, "Ключ идемпотентности"),
+      label: at("payment_detail_idempotence_key", {}, "Idempotence key"),
       value: payment?.idempotence_key,
       copy: payment?.idempotence_key,
     },
   ] satisfies MetaRow[]);
 
   const purchaseRows = $derived([
-    { label: at("payment_detail_sale_mode", {}, "Тип продажи"), value: payment?.sale_mode },
-    { label: at("payment_detail_tariff_key", {}, "Тариф"), value: payment?.tariff_key },
+    { label: at("payment_detail_sale_mode", {}, "Sale type"), value: payment?.sale_mode },
+    { label: at("payment_detail_tariff_key", {}, "Tariff"), value: payment?.tariff_key },
     {
-      label: at("payment_detail_duration_months", {}, "Период"),
+      label: at("payment_detail_duration_months", {}, "Period"),
       value: durationText(payment),
     },
     {
-      label: at("payment_detail_traffic", {}, "Трафик"),
+      label: at("payment_detail_traffic", {}, "Traffic"),
       value: formatTrafficSplit(payment),
     },
     {
-      label: at("payment_detail_purchased_gb", {}, "Куплено GB"),
+      label: at("payment_detail_purchased_gb", {}, "Purchased GB"),
       value: purchasedGbText(payment),
     },
     {
-      label: at("payment_detail_hwid_devices", {}, "HWID-устройства"),
+      label: at("payment_detail_hwid_devices", {}, "HWID devices"),
       value: payment?.purchased_hwid_devices,
     },
-    { label: at("payment_detail_promo_code", {}, "Промокод"), value: payment?.promo_code },
+    { label: at("payment_detail_promo_code", {}, "Promo code"), value: payment?.promo_code },
   ] satisfies MetaRow[]);
 
   const userRows = $derived([
-    { label: at("user", {}, "Пользователь"), value: payment?.user_label },
+    { label: at("user", {}, "User"), value: payment?.user_label },
     { label: "User ID", value: payment?.user_id, copy: payment?.user_id },
     { label: "Telegram ID", value: payment?.telegram_id, copy: payment?.telegram_id },
   ] satisfies MetaRow[]);
@@ -208,7 +208,7 @@
   open={Boolean(openedPaymentId)}
   {title}
   {description}
-  closeLabel={at("close", {}, "Закрыть")}
+  closeLabel={at("close", {}, "Close")}
   onclose={closePayment}
   class="admin-dialog admin-payment-dialog"
 >
@@ -236,18 +236,18 @@
         <div class="admin-payment-stats">
           <div class="admin-payment-stat">
             <CreditCard size={15} />
-            <span>{at("payment_detail_provider", {}, "Провайдер")}</span>
+            <span>{at("payment_detail_provider", {}, "Provider")}</span>
             <strong>{display(payment.provider)}</strong>
           </div>
           <div class="admin-payment-stat">
             <CalendarDays size={15} />
-            <span>{at("date", {}, "Дата")}</span>
+            <span>{at("date", {}, "Date")}</span>
             <strong>{payment.created_at ? fmtDate(payment.created_at) : "—"}</strong>
           </div>
         </div>
 
         <div class="admin-subsection-title">
-          {at("payment_detail_user_section", {}, "Пользователь")}
+          {at("payment_detail_user_section", {}, "User")}
         </div>
         <ul class="admin-meta-list admin-payment-meta-list">
           {#each userRows as row}
@@ -258,7 +258,7 @@
                 <AdminButton
                   size="icon"
                   variant="icon"
-                  title={at("user_copy_tooltip", {}, "Скопировать")}
+                  title={at("user_copy_tooltip", {}, "Copy")}
                   onclick={() => copy(row.copy)}
                 >
                   <Copy size={14} />
@@ -270,18 +270,18 @@
 
         <AdminButton variant="ghost" onclick={openUser} disabled={!payment.user_id}>
           <User size={14} />
-          {at("payments_open_user", {}, "Открыть карточку пользователя")}
+          {at("payments_open_user", {}, "Open user card")}
         </AdminButton>
       </aside>
 
       <main class="admin-payment-main">
         {#if paymentDetailLoading && !openedPayment}
-          <p class="admin-muted">{at("loading", {}, "Загрузка...")}</p>
+          <p class="admin-muted">{at("loading", {}, "Loading…")}</p>
         {:else}
           <section class="admin-payment-panel">
             <div class="admin-payment-panel-head">
               <CreditCard size={16} />
-              <h3>{at("payment_detail_payment_section", {}, "Платёж")}</h3>
+              <h3>{at("payment_detail_payment_section", {}, "Payment")}</h3>
             </div>
             <ul class="admin-meta-list admin-payment-meta-list">
               {#each paymentRows as row}
@@ -292,7 +292,7 @@
                     <AdminButton
                       size="icon"
                       variant="icon"
-                      title={at("user_copy_tooltip", {}, "Скопировать")}
+                      title={at("user_copy_tooltip", {}, "Copy")}
                       onclick={() => copy(row.copy)}
                     >
                       <Copy size={14} />
@@ -306,7 +306,7 @@
           <section class="admin-payment-panel">
             <div class="admin-payment-panel-head">
               <Database size={16} />
-              <h3>{at("payment_detail_provider_section", {}, "Провайдер")}</h3>
+              <h3>{at("payment_detail_provider_section", {}, "Provider")}</h3>
             </div>
             <ul class="admin-meta-list admin-payment-meta-list">
               {#each providerRows as row}
@@ -317,7 +317,7 @@
                     <AdminButton
                       size="icon"
                       variant="icon"
-                      title={at("user_copy_tooltip", {}, "Скопировать")}
+                      title={at("user_copy_tooltip", {}, "Copy")}
                       onclick={() => copy(row.copy)}
                     >
                       <Copy size={14} />
@@ -331,7 +331,7 @@
           <section class="admin-payment-panel">
             <div class="admin-payment-panel-head">
               <Tag size={16} />
-              <h3>{at("payment_detail_purchase_section", {}, "Покупка")}</h3>
+              <h3>{at("payment_detail_purchase_section", {}, "Purchase")}</h3>
             </div>
             <ul class="admin-meta-list admin-payment-meta-list">
               {#each purchaseRows as row}
