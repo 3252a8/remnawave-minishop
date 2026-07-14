@@ -7086,6 +7086,12 @@
         "title": "WebAppSetPasswordPayload",
         "type": "object"
       },
+      "WebAppSubscriptionReissuePayload": {
+        "description": "Empty body for the subscription reissue action (extra keys ignored).",
+        "properties": {},
+        "title": "WebAppSubscriptionReissuePayload",
+        "type": "object"
+      },
       "WebAppTariffChangePayload": {
         "properties": {
           "mode": {
@@ -13214,6 +13220,9 @@
                         "subscription_purchase_description": {
                           "type": "string"
                         },
+                        "subscription_reissue_enabled": {
+                          "type": "boolean"
+                        },
                         "support_ticket_max_body_length": {
                           "type": "integer"
                         },
@@ -14393,6 +14402,59 @@
           }
         ],
         "summary": "Quote Promo",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/subscription/reissue": {
+      "post": {
+        "operationId": "post_subscription_reissue_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppSubscriptionReissuePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "email_sent": {
+                      "type": "boolean"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "email_sent"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Subscription Reissue",
         "tags": [
           "subscription"
         ]
