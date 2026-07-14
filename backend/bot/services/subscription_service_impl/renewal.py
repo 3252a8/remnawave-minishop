@@ -4,7 +4,12 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.payment_providers.shared import RecurringProviderService
+from bot.middlewares.i18n import get_i18n_instance
+from bot.payment_providers.shared import (
+    RecurringProviderService,
+    build_payment_description,
+    make_translator,
+)
 from config.tariffs_config import (
     default_currency_key_for_settings,
     default_payment_currency_code_for_settings,
@@ -190,6 +195,16 @@ class RenewalMixin(SubscriptionServiceMixinContract):
                 if value is not None:
                     metadata[f"hwid_{key}"] = str(value)
 
+        i18n = getattr(self, "i18n", None) or get_i18n_instance()
+        description = build_payment_description(
+            make_translator(
+                i18n,
+                str(getattr(self.settings, "DEFAULT_LANGUAGE", "en") or "en"),
+            ),
+            months=months,
+            sale_mode=sale_mode,
+        )
+
         result = await recurring_service.charge_saved_payment_method(
             RecurringChargeContext(
                 session=session,
@@ -200,7 +215,7 @@ class RenewalMixin(SubscriptionServiceMixinContract):
                 currency=currency,
                 months=int(months),
                 sale_mode=sale_mode,
-                description=f"Auto-renewal for {months} months",
+                description=description,
                 metadata=metadata,
                 hwid_quote=hwid_quote,
                 idempotence_key=_renewal_idempotence_key(

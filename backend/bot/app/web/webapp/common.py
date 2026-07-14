@@ -364,18 +364,6 @@ def _format_traffic_title(traffic_gb: float, lang: str) -> str:
     return f"{_format_number_for_payload(traffic_gb)} GB"
 
 
-def _traffic_payment_description(traffic_gb: float, lang: str) -> str:
-    if lang == "en":
-        return f"Traffic package {_format_traffic_title(traffic_gb, lang)}"
-    return f"Пакет трафика {_format_traffic_title(traffic_gb, lang)}"
-
-
-def _hwid_devices_payment_description(device_count: int, lang: str) -> str:
-    if lang == "en":
-        return f"HWID device package +{device_count}"
-    return f"Докупка устройств HWID +{device_count}"
-
-
 def _resolve_numeric_option_key(options: dict[Any, Any], target: float) -> Any | None:
     for key in options:
         try:
@@ -384,9 +372,3 @@ def _resolve_numeric_option_key(options: dict[Any, Any], target: float) -> Any |
         except (TypeError, ValueError):
             continue
     return None
-
-
-def _payment_description(months: int, lang: str) -> str:
-    if lang == "en":
-        return f"Subscription for {_format_months_title(months, lang)}"
-    return f"Подписка на {_format_months_title(months, lang)}"
