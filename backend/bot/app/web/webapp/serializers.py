@@ -242,6 +242,9 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             ),
             "traffic_mode": bool(settings.traffic_sale_mode),
             "my_devices_enabled": bool(settings.MY_DEVICES_SECTION_ENABLED),
+            "subscription_reissue_enabled": bool(
+                settings.SUBSCRIPTION_REISSUE_ENABLED and settings.email_auth_configured
+            ),
             "user_hwid_device_limit": (
                 int(settings.USER_HWID_DEVICE_LIMIT)
                 if settings.USER_HWID_DEVICE_LIMIT is not None

@@ -790,6 +790,7 @@ SETTINGS_MANIFEST: list[SettingField] = [
     ),
     # ─── Devices ───────────────────────────────────────────────────
     SettingField("MY_DEVICES_SECTION_ENABLED", "bool", "devices", "My Devices Section Enabled"),
+    SettingField("SUBSCRIPTION_REISSUE_ENABLED", "bool", "devices", "Subscription Reissue Enabled"),
     SettingField("USER_HWID_DEVICE_LIMIT", "int", "devices", "User HWID Device Limit", min=0),
     SettingField("USER_TRAFFIC_LIMIT_GB", "float", "devices", "User Traffic Limit Gb"),
     # ─── System ────────────────────────────────────────────────────

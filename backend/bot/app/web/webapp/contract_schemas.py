@@ -486,6 +486,7 @@ WEBAPP_SETTINGS_SCHEMA: dict[str, Any] = {
         "support_ticket_max_subject_length": INTEGER_SCHEMA,
         "traffic_mode": BOOLEAN_SCHEMA,
         "my_devices_enabled": BOOLEAN_SCHEMA,
+        "subscription_reissue_enabled": BOOLEAN_SCHEMA,
         "user_hwid_device_limit": NULLABLE_INTEGER_SCHEMA,
         "trial_enabled": BOOLEAN_SCHEMA,
         "trial_available": BOOLEAN_SCHEMA,
