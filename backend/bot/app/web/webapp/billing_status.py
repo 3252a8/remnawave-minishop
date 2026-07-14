@@ -24,25 +24,15 @@ from bot.app.web.webapp.common import (
 from bot.infra import events
 from bot.infra.event_payloads import PaymentCanceledPayload
 from bot.payment_providers.shared.common import detached_payment_snapshot
+from bot.payment_providers.yookassa.reconciliation import (
+    normalize_yookassa_payment_payload as _yookassa_payment_payload_for_processing,
+)
 from db.dal import payment_dal
 from db.models import Payment
 
 from .response_helpers import json_response
 
 logger = logging.getLogger(__name__)
-
-
-def _yookassa_payment_payload_for_processing(payload: dict[str, Any]) -> dict[str, Any]:
-    normalized = dict(payload or {})
-    if not isinstance(normalized.get("amount"), dict):
-        amount_value = normalized.get("amount_value")
-        amount_currency = normalized.get("amount_currency")
-        if amount_value is not None or amount_currency:
-            normalized["amount"] = {
-                "value": str(amount_value if amount_value is not None else 0),
-                "currency": amount_currency or "RUB",
-            }
-    return normalized
 
 
 def _payment_status_snapshot(payment: Any) -> SimpleNamespace:

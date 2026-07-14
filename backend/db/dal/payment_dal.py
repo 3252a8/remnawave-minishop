@@ -1,5 +1,7 @@
 import logging
-from datetime import UTC
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from sqlalchemy import Date, and_, case, cast, func, or_, update
@@ -14,6 +16,18 @@ logger = logging.getLogger(__name__)
 
 _PAYMENT_STATUS_SUCCEEDED = "succeeded"
 _PAYMENT_STATUS_PENDING_FINALIZATION = "succeeded_pending_finalization"
+_YOOKASSA_RECONCILABLE_STATUSES = (
+    "pending_yookassa",
+    "pending",
+    "waiting_for_capture",
+    _PAYMENT_STATUS_PENDING_FINALIZATION,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class YooKassaReconciliationCandidate:
+    payment_id: int
+    provider_payment_id: str
 
 
 def _normalize_payment_status(status: Any) -> str:
@@ -24,6 +38,163 @@ def _would_overwrite_succeeded_payment(current_status: Any, new_status: Any) -> 
     return (
         _normalize_payment_status(current_status) == _PAYMENT_STATUS_SUCCEEDED
         and _normalize_payment_status(new_status) != _PAYMENT_STATUS_SUCCEEDED
+    )
+
+
+def _decimal_order_value(value: Any) -> Decimal | None:
+    if value is None:
+        return None
+    try:
+        normalized = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return None
+    return normalized if normalized.is_finite() else None
+
+
+def _datetime_order_value(value: Any) -> datetime | None:
+    if not isinstance(value, datetime):
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
+def _validate_existing_provider_payment_order(
+    payment: Payment,
+    *,
+    user_id: int,
+    amount: float,
+    currency: str,
+    months: int,
+    provider: str,
+    sale_mode: str | None,
+    tariff_key: str | None,
+    purchased_gb: float | None,
+    purchased_hwid_devices: int | None,
+    hwid_valid_from: Any | None,
+    hwid_valid_until: Any | None,
+    hwid_pricing_period_months: int | None,
+    hwid_proration_ratio: float | None,
+    hwid_full_price: float | None,
+) -> None:
+    """Ensure a provider id cannot be rebound to a different entitlement."""
+    comparisons = {
+        "user_id": (int(getattr(payment, "user_id", 0)), int(user_id)),
+        "amount": (
+            _decimal_order_value(getattr(payment, "amount", None)),
+            _decimal_order_value(amount),
+        ),
+        "currency": (
+            str(getattr(payment, "currency", "") or "").strip().upper(),
+            str(currency or "").strip().upper(),
+        ),
+        "subscription_duration_months": (
+            getattr(payment, "subscription_duration_months", None),
+            months,
+        ),
+        "provider": (
+            str(getattr(payment, "provider", "") or "").strip().lower(),
+            str(provider or "").strip().lower(),
+        ),
+        "sale_mode": (
+            str(getattr(payment, "sale_mode", "") or "").strip() or None,
+            str(sale_mode or "").strip() or None,
+        ),
+        "tariff_key": (
+            str(getattr(payment, "tariff_key", "") or "").strip() or None,
+            str(tariff_key or "").strip() or None,
+        ),
+        "purchased_gb": (
+            _decimal_order_value(getattr(payment, "purchased_gb", None)),
+            _decimal_order_value(purchased_gb),
+        ),
+        "purchased_hwid_devices": (
+            getattr(payment, "purchased_hwid_devices", None),
+            purchased_hwid_devices,
+        ),
+        "hwid_valid_from": (
+            _datetime_order_value(getattr(payment, "hwid_valid_from", None)),
+            _datetime_order_value(hwid_valid_from),
+        ),
+        "hwid_valid_until": (
+            _datetime_order_value(getattr(payment, "hwid_valid_until", None)),
+            _datetime_order_value(hwid_valid_until),
+        ),
+        "hwid_pricing_period_months": (
+            getattr(payment, "hwid_pricing_period_months", None),
+            hwid_pricing_period_months,
+        ),
+        "hwid_proration_ratio": (
+            _decimal_order_value(getattr(payment, "hwid_proration_ratio", None)),
+            _decimal_order_value(hwid_proration_ratio),
+        ),
+        "hwid_full_price": (
+            _decimal_order_value(getattr(payment, "hwid_full_price", None)),
+            _decimal_order_value(hwid_full_price),
+        ),
+    }
+    mismatched = [field for field, (stored, expected) in comparisons.items() if stored != expected]
+    if mismatched:
+        raise ValueError(
+            "Provider payment id already belongs to a different order: " + ", ".join(mismatched)
+        )
+
+
+async def list_yookassa_reconciliation_candidates(
+    session: AsyncSession,
+    *,
+    limit: int = 100,
+    grace_seconds: int = 30,
+) -> list[YooKassaReconciliationCandidate]:
+    """Return old pending YooKassa orders that can be polled safely.
+
+    The provider identifier is persisted before an order becomes eligible.
+    ``updated_at`` is also used as the last-poll timestamp so a permanently
+    pending order cannot monopolize the front of a bounded batch.
+    """
+
+    cutoff = datetime.now(UTC) - timedelta(seconds=max(0, int(grace_seconds)))
+    provider_payment_id = func.coalesce(
+        Payment.yookassa_payment_id,
+        Payment.provider_payment_id,
+    )
+    last_activity_at = func.coalesce(Payment.updated_at, Payment.created_at)
+    stmt = (
+        select(Payment.payment_id, provider_payment_id)
+        .where(
+            func.lower(Payment.provider) == "yookassa",
+            func.lower(Payment.status).in_(_YOOKASSA_RECONCILABLE_STATUSES),
+            provider_payment_id.isnot(None),
+            last_activity_at <= cutoff,
+        )
+        .order_by(last_activity_at.asc(), Payment.payment_id.asc())
+        .limit(max(1, int(limit)))
+    )
+    rows = (await session.execute(stmt)).all()
+    return [
+        YooKassaReconciliationCandidate(
+            payment_id=int(payment_id),
+            provider_payment_id=str(remote_id),
+        )
+        for payment_id, remote_id in rows
+        if remote_id
+    ]
+
+
+async def mark_yookassa_reconciliation_checked(
+    session: AsyncSession,
+    payment_id: int,
+) -> None:
+    """Rotate an unresolved order to the back of the reconciliation queue."""
+
+    await session.execute(
+        update(Payment)
+        .where(
+            Payment.payment_id == payment_id,
+            func.lower(Payment.provider) == "yookassa",
+            func.lower(Payment.status).in_(_YOOKASSA_RECONCILABLE_STATUSES),
+        )
+        .values(updated_at=func.now())
     )
 
 
@@ -124,10 +295,15 @@ async def create_or_get_payment_record_by_idempotence_key(
 
 
 async def get_payment_by_provider_payment_id(
-    session: AsyncSession, provider_payment_id: str
+    session: AsyncSession,
+    provider_payment_id: str,
+    *,
+    fresh: bool = False,
 ) -> Payment | None:
     """Fetch a payment by provider-specific identifier."""
     stmt = select(Payment).where(Payment.provider_payment_id == provider_payment_id)
+    if fresh:
+        stmt = stmt.execution_options(populate_existing=True)
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -152,13 +328,30 @@ async def ensure_payment_with_provider_id(
     hwid_proration_ratio: float | None = None,
     hwid_full_price: float | None = None,
 ) -> Payment:
-    """Idempotently create a payment record for a provider event.
+    """Atomically create or validate one order for a provider payment id."""
+    remote_id = str(provider_payment_id or "").strip()
+    if not remote_id:
+        raise ValueError("provider_payment_id is required for payment creation.")
 
-    If a payment with the same provider_payment_id already exists, returns it.
-    Otherwise creates a new pending payment with provided data.
-    """
-    existing = await get_payment_by_provider_payment_id(session, provider_payment_id)
+    existing = await get_payment_by_provider_payment_id(session, remote_id, fresh=True)
     if existing:
+        _validate_existing_provider_payment_order(
+            existing,
+            user_id=user_id,
+            amount=amount,
+            currency=currency,
+            months=months,
+            provider=provider,
+            sale_mode=sale_mode,
+            tariff_key=tariff_key,
+            purchased_gb=purchased_gb,
+            purchased_hwid_devices=purchased_hwid_devices,
+            hwid_valid_from=hwid_valid_from,
+            hwid_valid_until=hwid_valid_until,
+            hwid_pricing_period_months=hwid_pricing_period_months,
+            hwid_proration_ratio=hwid_proration_ratio,
+            hwid_full_price=hwid_full_price,
+        )
         return existing
 
     pending_status = f"pending_{provider}" if provider else "pending"
@@ -169,7 +362,7 @@ async def ensure_payment_with_provider_id(
         "status": pending_status,
         "description": description,
         "subscription_duration_months": months,
-        "provider_payment_id": provider_payment_id,
+        "provider_payment_id": remote_id,
         "provider": provider,
     }
     optional_fields = {
@@ -186,7 +379,43 @@ async def ensure_payment_with_provider_id(
     payment_payload.update(
         {field: value for field, value in optional_fields.items() if value is not None}
     )
-    return await create_payment_record(session, payment_payload)
+    await _validate_payment_record_references(session, payment_payload)
+    stmt = (
+        pg_insert(Payment)
+        .values(**payment_payload)
+        .on_conflict_do_nothing(index_elements=[Payment.provider_payment_id])
+        .returning(Payment.payment_id)
+    )
+    result = await session.execute(stmt)
+    created = result.scalar_one_or_none() is not None
+
+    payment = await get_payment_by_provider_payment_id(session, remote_id, fresh=True)
+    if payment is None:
+        raise RuntimeError(f"Failed to load payment after claiming provider id {remote_id!r}.")
+    _validate_existing_provider_payment_order(
+        payment,
+        user_id=user_id,
+        amount=amount,
+        currency=currency,
+        months=months,
+        provider=provider,
+        sale_mode=sale_mode,
+        tariff_key=tariff_key,
+        purchased_gb=purchased_gb,
+        purchased_hwid_devices=purchased_hwid_devices,
+        hwid_valid_from=hwid_valid_from,
+        hwid_valid_until=hwid_valid_until,
+        hwid_pricing_period_months=hwid_pricing_period_months,
+        hwid_proration_ratio=hwid_proration_ratio,
+        hwid_full_price=hwid_full_price,
+    )
+    if created:
+        logger.info(
+            "Payment record %s created with provider payment id %s",
+            payment.payment_id,
+            remote_id,
+        )
+    return payment
 
 
 async def get_payment_by_db_id(

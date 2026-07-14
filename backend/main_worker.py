@@ -27,6 +27,7 @@ from bot.payment_providers.yookassa import (
     process_cancelled_payment,
     process_successful_payment,
 )
+from bot.payment_providers.yookassa.service import YooKassaService
 from bot.plugins import (
     PluginContext,
     QueueHandler,
@@ -40,6 +41,7 @@ from bot.services.event_reactions import register_core_reactions
 from bot.services.message_log_notifier import configure_message_log_notifier
 from bot.services.subscription_notification_worker import SubscriptionNotificationWorker
 from bot.services.tariff_worker import TariffTrafficWorker
+from bot.services.yookassa_reconciliation_worker import YooKassaReconciliationWorker
 from bot.utils.message_queue import init_queue_manager
 from config.settings import Settings, get_settings
 
@@ -268,6 +270,24 @@ def _subscription_notification_task(ctx: PluginContext) -> Coroutine[Any, Any, N
     ).run()
 
 
+async def _yookassa_reconciliation_task(ctx: PluginContext) -> None:
+    yookassa_service = ctx.get_service("yookassa_service", YooKassaService)
+    if yookassa_service is None:
+        logger.info("YooKassa reconciliation worker disabled: service is unavailable")
+        return
+    await YooKassaReconciliationWorker(
+        ctx.settings,
+        ctx.require_session_factory(),
+        yookassa_service,
+        ctx.require_bot(),
+        ctx.require_i18n(),
+        ctx.require_panel_service(),
+        ctx.require_subscription_service(),
+        ctx.require_referral_service(),
+        ctx.lknpd_service,
+    ).run()
+
+
 def _backup_worker_task(ctx: PluginContext) -> Coroutine[Any, Any, None]:
     return BackupWorker(
         ctx.settings,
@@ -286,6 +306,10 @@ def _core_worker_tasks() -> list[WorkerTaskSpec]:
         WorkerTaskSpec(
             name="SubscriptionNotificationWorker",
             factory=_subscription_notification_task,
+        ),
+        WorkerTaskSpec(
+            name="YooKassaReconciliationWorker",
+            factory=_yookassa_reconciliation_task,
         ),
         WorkerTaskSpec(name="BackupWorker", factory=_backup_worker_task),
         WorkerTaskSpec(name="PanelSyncLoop", factory=_panel_sync_loop),
