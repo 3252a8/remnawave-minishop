@@ -251,16 +251,32 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         panel_update_payload.update(self._panel_identity_payload_for_user(db_user))
 
         if panel_user_created_now and previous_panel_user_uuid is None and not active_sub:
-            updated_panel_user = {"uuid": panel_user_uuid, "shortUuid": panel_short_uuid}
+            # CREATE already requested the exact entitlement. Verify it with an
+            # uncached GET instead of fabricating a successful PATCH response.
+            panel_update_result = None
         else:
-            updated_panel_user = await self.panel_service.update_user_details_on_panel(
+            panel_update_result = await self.panel_service.update_user_details_on_panel(
                 panel_user_uuid, panel_update_payload
             )
-        if not updated_panel_user or updated_panel_user.get("error"):
+        updated_panel_user = await self._confirmed_panel_entitlement(
+            panel_user_uuid,
+            panel_update_result,
+            panel_update_payload,
+            source="traffic_package",
+        )
+        if updated_panel_user is None:
             logger.warning(
-                "Panel user details update FAILED for traffic package user %s. Response: %s",
+                "Panel entitlement verification FAILED for traffic package user %s. Response: %s",
                 panel_user_uuid,
-                updated_panel_user,
+                panel_update_result,
+            )
+            await self._compensate_failed_panel_user_creation(
+                session,
+                user_id=user_id,
+                panel_user_uuid=panel_user_uuid,
+                previous_panel_user_uuid=previous_panel_user_uuid,
+                panel_user_created_now=panel_user_created_now,
+                source="traffic entitlement verification",
             )
             return None
 
@@ -420,9 +436,15 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         except Exception:
             logger.exception("sync_main_traffic_limit_to_panel failed for user %s", user_id)
             return False
-        if not updated_panel or (isinstance(updated_panel, dict) and updated_panel.get("error")):
+        confirmed_panel_user = await self._confirmed_panel_entitlement(
+            db_user.panel_user_uuid,
+            updated_panel,
+            panel_payload,
+            source="sync_main_traffic_limit",
+        )
+        if confirmed_panel_user is None:
             logger.warning(
-                "sync_main_traffic_limit_to_panel panel update failed for user %s. Response: %s",
+                "sync_main_traffic_limit_to_panel verification failed for user %s. Response: %s",
                 user_id,
                 updated_panel,
             )

@@ -61,12 +61,18 @@ class FixedDateTime(datetime):
         return cls.fixed_now.astimezone(tz)
 
 
+async def _echo_panel_entitlement(panel_uuid, payload, *_args, **_kwargs):
+    return {**payload, "uuid": panel_uuid}
+
+
 class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
     async def test_hwid_limit_sync_pushes_effective_device_limit(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(), tmpdir)
             panel_service = AsyncMock(spec=PanelApiService)
-            panel_service.update_user_details_on_panel = AsyncMock(return_value={"response": {}})
+            panel_service.update_user_details_on_panel = AsyncMock(
+                side_effect=_echo_panel_entitlement
+            )
             service = SubscriptionService(settings, panel_service)
 
             db_user = SimpleNamespace(
@@ -115,7 +121,9 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(), tmpdir)
             panel_service = AsyncMock(spec=PanelApiService)
-            panel_service.update_user_details_on_panel = AsyncMock(return_value={"response": {}})
+            panel_service.update_user_details_on_panel = AsyncMock(
+                side_effect=_echo_panel_entitlement
+            )
             service = SubscriptionService(settings, panel_service)
 
             db_user = SimpleNamespace(
@@ -162,7 +170,9 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(), tmpdir)
             panel_service = AsyncMock(spec=PanelApiService)
-            panel_service.update_user_details_on_panel = AsyncMock(return_value={"response": {}})
+            panel_service.update_user_details_on_panel = AsyncMock(
+                side_effect=_echo_panel_entitlement
+            )
             service = SubscriptionService(settings, panel_service)
 
             db_user = SimpleNamespace(
@@ -209,7 +219,9 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(), tmpdir)
             panel_service = AsyncMock(spec=PanelApiService)
-            panel_service.update_user_details_on_panel = AsyncMock(return_value={"response": {}})
+            panel_service.update_user_details_on_panel = AsyncMock(
+                side_effect=_echo_panel_entitlement
+            )
             service = SubscriptionService(settings, panel_service)
 
             db_user = SimpleNamespace(
@@ -352,7 +364,9 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(), tmpdir)
             panel_service = AsyncMock(spec=PanelApiService)
-            panel_service.update_user_details_on_panel = AsyncMock(return_value={"response": {}})
+            panel_service.update_user_details_on_panel = AsyncMock(
+                side_effect=_echo_panel_entitlement
+            )
             service = SubscriptionService(settings, panel_service)
 
             db_user = SimpleNamespace(
@@ -405,7 +419,9 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(premium=True), tmpdir)
             panel_service = AsyncMock(spec=PanelApiService)
-            panel_service.update_user_details_on_panel = AsyncMock(return_value={"response": {}})
+            panel_service.update_user_details_on_panel = AsyncMock(
+                side_effect=_echo_panel_entitlement
+            )
             service = SubscriptionService(settings, panel_service)
 
             db_user = SimpleNamespace(
@@ -563,7 +579,9 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
                 USER_TRAFFIC_STRATEGY="MONTH",
             )
             panel_service = AsyncMock(spec=PanelApiService)
-            panel_service.update_user_details_on_panel = AsyncMock(return_value={"response": {}})
+            panel_service.update_user_details_on_panel = AsyncMock(
+                side_effect=_echo_panel_entitlement
+            )
             service = SubscriptionService(settings, panel_service)
 
             db_user = SimpleNamespace(
@@ -693,7 +711,9 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
                     ]
                 }
             )
-            panel_service.update_user_details_on_panel = AsyncMock(return_value={"response": {}})
+            panel_service.update_user_details_on_panel = AsyncMock(
+                side_effect=_echo_panel_entitlement
+            )
             service = SubscriptionService(settings, panel_service)
 
             db_user = SimpleNamespace(
@@ -783,7 +803,9 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(premium=True), tmpdir)
             panel_service = AsyncMock(spec=PanelApiService)
-            panel_service.update_user_details_on_panel = AsyncMock(return_value={"response": {}})
+            panel_service.update_user_details_on_panel = AsyncMock(
+                side_effect=_echo_panel_entitlement
+            )
             service = SubscriptionService(settings, panel_service)
 
             db_user = SimpleNamespace(

@@ -144,14 +144,20 @@ class TopupMixin(SubscriptionServiceMixinContract):
             )
         )
         panel_payload.update(self._panel_identity_payload_for_user(db_user))
-        updated_panel = await self.panel_service.update_user_details_on_panel(
+        panel_update_result = await self.panel_service.update_user_details_on_panel(
             db_user.panel_user_uuid, panel_payload
         )
-        if not updated_panel or updated_panel.get("error"):
+        confirmed_panel_user = await self._confirmed_panel_entitlement(
+            db_user.panel_user_uuid,
+            panel_update_result,
+            panel_payload,
+            source="regular_topup",
+        )
+        if confirmed_panel_user is None:
             logger.warning(
                 "Panel user details update FAILED for traffic top-up user %s. Response: %s",
                 user_id,
-                updated_panel,
+                panel_update_result,
             )
             return None
         await record_traffic_topup_best_effort(
@@ -416,9 +422,15 @@ class TopupMixin(SubscriptionServiceMixinContract):
         except Exception:
             logger.exception("admin_grant_topup: failed to push panel update for user %s", user_id)
             return None
-        if not updated_panel or (isinstance(updated_panel, dict) and updated_panel.get("error")):
+        confirmed_panel_user = await self._confirmed_panel_entitlement(
+            db_user.panel_user_uuid,
+            updated_panel,
+            panel_payload,
+            source="admin_regular_topup",
+        )
+        if confirmed_panel_user is None:
             logger.warning(
-                "admin_grant_topup: panel update failed for user %s. Response: %s",
+                "admin_grant_topup: panel verification failed for user %s. Response: %s",
                 user_id,
                 updated_panel,
             )
@@ -603,9 +615,13 @@ class TopupMixin(SubscriptionServiceMixinContract):
             payload,
             log_response=False,
         )
-        if not updated_panel:
-            return False
-        return not (isinstance(updated_panel, dict) and updated_panel.get("error"))
+        confirmed_panel_user = await self._confirmed_panel_entitlement(
+            panel_user_uuid,
+            updated_panel,
+            payload,
+            source=source,
+        )
+        return confirmed_panel_user is not None
 
     async def _panel_squads_match(
         self,

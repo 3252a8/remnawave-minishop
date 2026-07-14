@@ -211,9 +211,13 @@ class PanelApiUsersMixin:
         return all_users
 
     async def get_user_by_uuid(
-        self, user_uuid: str, log_response: bool = False
+        self,
+        user_uuid: str,
+        log_response: bool = False,
+        *,
+        use_cache: bool = True,
     ) -> dict[str, Any] | None:
-        if log_response or self._users_cache.ttl_seconds <= 0:
+        if not use_cache or log_response or self._users_cache.ttl_seconds <= 0:
             return await self._get_user_by_uuid_uncached(user_uuid, log_response=log_response)
         cached = await self._users_cache.get_or_load(
             f"uuid:{user_uuid}",

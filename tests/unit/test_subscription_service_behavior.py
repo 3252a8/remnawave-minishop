@@ -73,7 +73,12 @@ def _make_service(settings: Settings) -> SubscriptionService:
 
 
 async def _echo_panel_expiry(_panel_uuid, payload, *_args, **_kwargs):
-    return {"ok": True, "expireAt": payload.get("expireAt")}
+    return {
+        **payload,
+        "uuid": _panel_uuid,
+        "subscriptionUrl": "https://panel/sub",
+        "shortUuid": "short",
+    }
 
 
 class SubscriptionServiceCalculationTests(unittest.TestCase):
@@ -756,7 +761,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 }
             )
             service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value={"subscriptionUrl": "https://panel/sub", "shortUuid": "short"}
+                side_effect=_echo_panel_expiry
             )
             session = AsyncMock()
             db_user = SimpleNamespace(
@@ -877,7 +882,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 }
             )
             service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value={"subscriptionUrl": "https://panel/sub", "shortUuid": "short"}
+                side_effect=_echo_panel_expiry
             )
             session = AsyncMock()
             db_user = SimpleNamespace(
@@ -993,7 +998,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 }
             )
             service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value={"subscriptionUrl": "https://panel/sub", "shortUuid": "short"}
+                side_effect=_echo_panel_expiry
             )
             session = AsyncMock()
             db_user = SimpleNamespace(
@@ -1087,7 +1092,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 }
             )
             service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value={"ok": True}
+                side_effect=_echo_panel_expiry
             )
             session = AsyncMock()
             user = SimpleNamespace(
@@ -1409,7 +1414,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 return_value=("panel-user", "short-uuid", "short", False)
             )
             service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value={"subscriptionUrl": "https://panel/sub", "shortUuid": "short"}
+                side_effect=_echo_panel_expiry
             )
             service._send_payment_success_email = AsyncMock()
             now = datetime.now(UTC)
@@ -1586,19 +1591,18 @@ class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(panel_payload["externalSquadUuid"], "external-squad")
 
-    async def test_failed_new_bonus_panel_update_deletes_local_subscription(self):
+    async def test_wrong_new_bonus_create_state_deletes_local_and_panel_user(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(), tmpdir)
             service = _make_service(settings)
             service._get_or_create_panel_user_link_details = AsyncMock(
-                return_value=("panel-user", "short-uuid", "short", False)
+                return_value=("panel-user", "short-uuid", "short", True)
             )
-            service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value={"uuid": "panel-user", "expireAt": "2020-01-01T00:00:00.000Z"}
-            )
+            service.panel_service.update_user_details_on_panel = AsyncMock()
             service.panel_service.get_user_by_uuid = AsyncMock(
                 return_value={"uuid": "panel-user", "expireAt": "2020-01-01T00:00:00.000Z"}
             )
+            service.panel_service.delete_user_from_panel = AsyncMock(return_value=True)
             session = AsyncMock()
             rejected_sub = SimpleNamespace(
                 subscription_id=10,
@@ -1628,6 +1632,10 @@ class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
                     "bot.services.subscription_service_impl.lifecycle.subscription_dal.update_subscription",
                     AsyncMock(),
                 ) as update_subscription,
+                patch(
+                    "bot.services.subscription_service_impl.panel_identity.user_dal.update_user",
+                    AsyncMock(),
+                ) as update_user,
             ):
                 result = await service.extend_active_subscription_days(
                     session=session,
@@ -1641,6 +1649,13 @@ class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
             session.delete.assert_awaited_once_with(rejected_sub)
             session.flush.assert_awaited_once()
             update_subscription.assert_not_awaited()
+            service.panel_service.update_user_details_on_panel.assert_not_awaited()
+            service.panel_service.delete_user_from_panel.assert_awaited_once_with("panel-user")
+            update_user.assert_awaited_once_with(
+                session,
+                42,
+                {"panel_user_uuid": None},
+            )
 
     async def test_referral_extension_preserves_existing_tariff_limit(self):
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -2,7 +2,13 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from config.traffic_strategy import normalize_traffic_limit_strategy
+
 from ._typing import SubscriptionServiceMixinContract
+from .squad_overrides import (
+    normalize_panel_external_squad_uuid,
+    normalize_panel_internal_squad_uuids,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -89,66 +95,186 @@ class SubscriptionLifecyclePanelMixin(SubscriptionServiceMixinContract):
         actual = panel_expire_at if panel_expire_at.tzinfo else panel_expire_at.replace(tzinfo=UTC)
         return abs((actual - expected).total_seconds()) <= 1
 
+    @classmethod
+    def _panel_entitlement_mismatches(
+        cls,
+        panel_user: dict[str, Any] | None,
+        expected_payload: dict[str, Any],
+    ) -> list[str]:
+        if not isinstance(panel_user, dict):
+            return ["panel_user"]
+        if panel_user.get("error"):
+            return ["panel_error"]
+
+        mismatches: list[str] = []
+        if "uuid" in expected_payload:
+            actual_uuid = str(panel_user.get("uuid") or "").strip()
+            expected_uuid = str(expected_payload.get("uuid") or "").strip()
+            if actual_uuid != expected_uuid:
+                mismatches.append("uuid")
+
+        expected_expiry = expected_payload.get("expireAt")
+        if expected_expiry is not None:
+            if isinstance(expected_expiry, datetime):
+                expected_expiry_dt = expected_expiry
+            else:
+                try:
+                    expected_expiry_dt = datetime.fromisoformat(
+                        str(expected_expiry).replace("Z", "+00:00")
+                    )
+                except (TypeError, ValueError):
+                    expected_expiry_dt = None
+            if expected_expiry_dt is None or not cls._panel_expiry_matches(
+                panel_user.get("expireAt"),
+                expected_expiry_dt,
+            ):
+                mismatches.append("expireAt")
+
+        for field_name in ("trafficLimitBytes", "hwidDeviceLimit"):
+            if field_name not in expected_payload:
+                continue
+            actual_raw = panel_user.get(field_name)
+            expected_raw = expected_payload.get(field_name)
+            if actual_raw is None or expected_raw is None:
+                mismatches.append(field_name)
+                continue
+            try:
+                actual_value = int(actual_raw)
+                expected_value = int(expected_raw)
+            except (TypeError, ValueError):
+                mismatches.append(field_name)
+                continue
+            if actual_value != expected_value:
+                mismatches.append(field_name)
+
+        if "trafficLimitStrategy" in expected_payload:
+            actual_strategy = panel_user.get("trafficLimitStrategy")
+            if actual_strategy is None:
+                traffic_stats = panel_user.get("userTraffic")
+                if isinstance(traffic_stats, dict):
+                    actual_strategy = traffic_stats.get("trafficLimitStrategy")
+            if normalize_traffic_limit_strategy(
+                actual_strategy,
+                default=None,
+            ) != normalize_traffic_limit_strategy(
+                expected_payload.get("trafficLimitStrategy"),
+                default=None,
+            ):
+                mismatches.append("trafficLimitStrategy")
+
+        if "activeInternalSquads" in expected_payload:
+            actual_squads = normalize_panel_internal_squad_uuids(panel_user)
+            expected_squads = normalize_panel_internal_squad_uuids(
+                {"activeInternalSquads": expected_payload.get("activeInternalSquads")}
+            )
+            if actual_squads is None or set(actual_squads) != set(expected_squads or []):
+                mismatches.append("activeInternalSquads")
+
+        if "externalSquadUuid" in expected_payload:
+            actual_external_present, actual_external_uuid = normalize_panel_external_squad_uuid(
+                panel_user
+            )
+            expected_external_uuid = (
+                str(expected_payload.get("externalSquadUuid") or "").strip() or None
+            )
+            if not actual_external_present or actual_external_uuid != expected_external_uuid:
+                mismatches.append("externalSquadUuid")
+
+        if "status" in expected_payload:
+            actual_status = str(panel_user.get("status") or "").strip().upper()
+            expected_status = str(expected_payload.get("status") or "").strip().upper()
+            if actual_status != expected_status:
+                mismatches.append("status")
+
+        return mismatches
+
+    async def _get_panel_user_for_entitlement_verification(
+        self,
+        panel_user_uuid: str,
+    ) -> dict[str, Any] | None:
+        try:
+            try:
+                panel_user = await self.panel_service.get_user_by_uuid(
+                    panel_user_uuid,
+                    log_response=False,
+                    use_cache=False,
+                )
+            except TypeError:
+                try:
+                    panel_user = await self.panel_service.get_user_by_uuid(
+                        panel_user_uuid,
+                        log_response=False,
+                    )
+                except TypeError:
+                    panel_user = await self.panel_service.get_user_by_uuid(panel_user_uuid)
+        except Exception:
+            logger.exception(
+                "Failed to fetch panel user %s while verifying persisted entitlement.",
+                panel_user_uuid,
+            )
+            return None
+        return panel_user if isinstance(panel_user, dict) else None
+
+    async def _confirmed_panel_entitlement(
+        self,
+        panel_user_uuid: str,
+        panel_update_result: dict[str, Any] | None,
+        expected_payload: dict[str, Any],
+        *,
+        source: str,
+    ) -> dict[str, Any] | None:
+        expected_entitlement = {**expected_payload, "uuid": panel_user_uuid}
+        response_user = panel_update_result
+        if (
+            isinstance(response_user, dict)
+            and isinstance(response_user.get("response"), dict)
+            and not response_user.get("uuid")
+        ):
+            response_user = response_user["response"]
+
+        response_mismatches = self._panel_entitlement_mismatches(
+            response_user,
+            expected_entitlement,
+        )
+        if not response_mismatches:
+            return response_user
+
+        logger.info(
+            "Panel entitlement response requires persisted verification: source=%s "
+            "panel_uuid=%s mismatched_fields=%s",
+            source,
+            panel_user_uuid,
+            ",".join(response_mismatches),
+        )
+        persisted_user = await self._get_panel_user_for_entitlement_verification(panel_user_uuid)
+        persisted_mismatches = self._panel_entitlement_mismatches(
+            persisted_user,
+            expected_entitlement,
+        )
+        if not persisted_mismatches:
+            return persisted_user
+
+        logger.warning(
+            "Panel entitlement verification failed: source=%s panel_uuid=%s mismatched_fields=%s",
+            source,
+            panel_user_uuid,
+            ",".join(persisted_mismatches),
+        )
+        return None
+
     async def _panel_update_confirms_expiry(
         self,
         panel_user_uuid: str,
         panel_update_result: dict[str, Any] | None,
         expected_expire_at: datetime,
     ) -> bool:
-        if not panel_update_result:
-            return False
-        if isinstance(panel_update_result, dict):
-            if panel_update_result.get("error"):
-                return False
-            raw_expire_at = panel_update_result.get("expireAt")
-            if raw_expire_at and self._panel_expiry_matches(raw_expire_at, expected_expire_at):
-                return True
-
-            if raw_expire_at:
-                logger.warning(
-                    "Panel update response expiry mismatch for user %s: expireAt=%r "
-                    "expected=%s. Fetching panel user to verify persisted state.",
-                    panel_user_uuid,
-                    raw_expire_at,
-                    expected_expire_at.isoformat(),
-                )
-            else:
-                logger.info(
-                    "Panel update response for user %s did not include expireAt. "
-                    "Fetching panel user to verify persisted state.",
-                    panel_user_uuid,
-                )
-        else:
-            logger.warning(
-                "Panel update response for user %s had unexpected type %s. "
-                "Fetching panel user to verify persisted state.",
-                panel_user_uuid,
-                type(panel_update_result).__name__,
-            )
-
-        try:
-            try:
-                panel_user = await self.panel_service.get_user_by_uuid(
-                    panel_user_uuid,
-                    log_response=False,
-                )
-            except TypeError:
-                panel_user = await self.panel_service.get_user_by_uuid(panel_user_uuid)
-        except Exception:
-            logger.exception(
-                "Failed to verify panel expiry for user %s after update.",
-                panel_user_uuid,
-            )
-            return False
-
-        if not isinstance(panel_user, dict):
-            logger.warning(
-                "Panel expiry verification for user %s returned unexpected payload: %r",
-                panel_user_uuid,
-                panel_user,
-            )
-            return False
-        return self._panel_expiry_matches(panel_user.get("expireAt"), expected_expire_at)
+        confirmed = await self._confirmed_panel_entitlement(
+            panel_user_uuid,
+            panel_update_result,
+            {"expireAt": expected_expire_at},
+            source="expiry_update",
+        )
+        return confirmed is not None
 
     @staticmethod
     def _device_topup_renewal_available(

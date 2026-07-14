@@ -96,6 +96,10 @@ def _make_user():
     )
 
 
+async def _echo_panel_entitlement(panel_uuid, payload, *_args, **_kwargs):
+    return {**payload, "uuid": panel_uuid}
+
+
 class HwidDeviceTopupInputTests(unittest.IsolatedAsyncioTestCase):
     async def test_rejects_non_positive_device_count(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -426,7 +430,7 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
                 end_date=sub.end_date,
             )
             service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value={"ok": True}
+                side_effect=_echo_panel_entitlement
             )
             with (
                 patch(
@@ -491,7 +495,7 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
             )
             updated_sub = SimpleNamespace(subscription_id=11, end_date=sub.end_date)
             service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value={"ok": True}
+                side_effect=_echo_panel_entitlement
             )
             with (
                 patch(
@@ -542,7 +546,7 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
             user = _make_user()
             updated_sub = SimpleNamespace(subscription_id=11, end_date=renewed_end)
             service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value={"ok": True}
+                side_effect=_echo_panel_entitlement
             )
             with (
                 patch(
@@ -592,7 +596,7 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
         panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]
         self.assertEqual(panel_payload["hwidDeviceLimit"], 5)
 
-    async def test_panel_failure_returns_none_and_skips_audit(self):
+    async def test_panel_failure_returns_none_after_staging_audit_before_patch(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(tmpdir, _tariffs_config_payload())
             service = _make_service(settings)
@@ -634,7 +638,9 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
                     payment_db_id=1,
                 )
             self.assertIsNone(result)
-            create_purchase.assert_not_awaited()
+            # The payment finalizer rolls this transaction back when activation
+            # returns None; staging first prevents a post-PATCH DB failure window.
+            create_purchase.assert_awaited_once()
 
 
 if __name__ == "__main__":  # pragma: no cover

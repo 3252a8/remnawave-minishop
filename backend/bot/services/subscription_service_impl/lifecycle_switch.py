@@ -403,10 +403,23 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             )
         )
         panel_payload.update(self._panel_identity_payload_for_user(db_user))
-        updated_panel = await self.panel_service.update_user_details_on_panel(
+        panel_subscription_uuid = str(getattr(updated, "panel_subscription_uuid", "") or "").strip()
+        if panel_subscription_uuid:
+            await subscription_dal.deactivate_other_active_subscriptions(
+                session,
+                db_user.panel_user_uuid,
+                panel_subscription_uuid,
+            )
+        panel_update_result = await self.panel_service.update_user_details_on_panel(
             db_user.panel_user_uuid, panel_payload
         )
-        if not updated_panel or updated_panel.get("error"):
+        confirmed_panel_user = await self._confirmed_panel_entitlement(
+            db_user.panel_user_uuid,
+            panel_update_result,
+            panel_payload,
+            source="tariff_switch",
+        )
+        if confirmed_panel_user is None:
             # The tariff row is already swapped locally; if the panel rejects
             # the squad/limit update the user sees the new tariff in the app
             # but stays on the old squads on Remnawave. Surface the failure
@@ -415,16 +428,9 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 "Panel user details update FAILED for tariff switch user %s -> %s. Response: %s",
                 user_id,
                 target.key,
-                updated_panel,
+                panel_update_result,
             )
             return None
-        panel_subscription_uuid = str(getattr(updated, "panel_subscription_uuid", "") or "").strip()
-        if panel_subscription_uuid:
-            await subscription_dal.deactivate_other_active_subscriptions(
-                session,
-                db_user.panel_user_uuid,
-                panel_subscription_uuid,
-            )
         if converted_bytes:
             await record_traffic_topup_best_effort(
                 session,

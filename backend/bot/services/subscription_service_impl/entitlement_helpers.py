@@ -54,10 +54,6 @@ def bonus_provider_for_reason(reason: str) -> str:
     return "bonus"
 
 
-def created_panel_expiry_result(panel_user_uuid: str, expire_at: datetime) -> dict[str, str]:
-    return {"uuid": panel_user_uuid, "expireAt": expire_at.isoformat()}
-
-
 async def record_tariff_change_best_effort(
     session: AsyncSession,
     payload: dict[str, Any],

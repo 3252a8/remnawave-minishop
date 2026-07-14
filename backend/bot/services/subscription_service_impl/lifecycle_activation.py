@@ -504,16 +504,32 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         panel_update_payload.update(self._panel_identity_payload_for_user(db_user))
 
         if panel_user_created_now and previous_panel_user_uuid is None and not current_active_sub:
-            updated_panel_user = {"uuid": panel_user_uuid, "shortUuid": panel_short_uuid}
+            # CREATE already requested the exact entitlement. Verify it with an
+            # uncached GET instead of fabricating a successful PATCH response.
+            panel_update_result = None
         else:
-            updated_panel_user = await self.panel_service.update_user_details_on_panel(
+            panel_update_result = await self.panel_service.update_user_details_on_panel(
                 panel_user_uuid, panel_update_payload
             )
-        if not updated_panel_user or updated_panel_user.get("error"):
+        updated_panel_user = await self._confirmed_panel_entitlement(
+            panel_user_uuid,
+            panel_update_result,
+            panel_update_payload,
+            source="paid_activation",
+        )
+        if updated_panel_user is None:
             logger.warning(
-                "Panel user details update FAILED for paid sub user %s. Response: %s",
+                "Panel entitlement verification FAILED for paid sub user %s. Response: %s",
                 panel_user_uuid,
-                updated_panel_user,
+                panel_update_result,
+            )
+            await self._compensate_failed_panel_user_creation(
+                session,
+                user_id=user_id,
+                panel_user_uuid=panel_user_uuid,
+                previous_panel_user_uuid=previous_panel_user_uuid,
+                panel_user_created_now=panel_user_created_now,
+                source="paid entitlement verification",
             )
             return None
 
@@ -631,6 +647,14 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                     )
 
         initial_squads = self._panel_squads_for_tariff(initial_tariff)
+        create_options = entitlement_helpers.panel_user_create_options(
+            new_end_date_obj,
+            initial_traffic_limit,
+            self._period_tariff_traffic_strategy(),
+            initial_hwid_limit,
+            initial_squads,
+            self.settings.parsed_user_external_squad_uuid,
+        )
         (
             panel_uuid,
             panel_sub_uuid,
@@ -640,14 +664,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             session,
             user_id,
             user,
-            create_options=entitlement_helpers.panel_user_create_options(
-                new_end_date_obj,
-                initial_traffic_limit,
-                self._period_tariff_traffic_strategy(),
-                initial_hwid_limit,
-                initial_squads,
-                self.settings.parsed_user_external_squad_uuid,
-            ),
+            create_options=create_options,
         )
         if not panel_uuid or not panel_sub_uuid:
             logger.error(
@@ -905,20 +922,39 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 and panel_user_created_now
                 and previous_panel_user_uuid is None
             ):
-                panel_update_success = entitlement_helpers.created_panel_expiry_result(
-                    panel_uuid,
-                    new_end_date_obj,
+                # Confirm the persisted CREATE result through an uncached GET.
+                panel_update_result = None
+                expected_panel_payload = self._build_panel_update_payload(
+                    panel_user_uuid=panel_uuid,
+                    expire_at=new_end_date_obj,
+                    status="ACTIVE",
+                    traffic_limit_bytes=create_options.default_traffic_limit_bytes,
+                    traffic_limit_strategy=create_options.default_traffic_limit_strategy,
+                    hwid_device_limit=(
+                        create_options.hwid_device_limit
+                        if create_options.hwid_device_limit is not None
+                        else getattr(self.settings, "USER_HWID_DEVICE_LIMIT", None)
+                    ),
+                    include_default_squads=False,
                 )
+                expected_panel_payload["activeInternalSquads"] = list(
+                    create_options.specific_squad_uuids
+                )
+                if create_options.external_squad_uuid:
+                    expected_panel_payload["externalSquadUuid"] = create_options.external_squad_uuid
             else:
-                panel_update_success = await self.panel_service.update_user_details_on_panel(
+                panel_update_result = await self.panel_service.update_user_details_on_panel(
                     panel_uuid,
                     panel_update_payload,
                 )
-            if not await self._panel_update_confirms_expiry(
+                expected_panel_payload = panel_update_payload
+            confirmed_panel_user = await self._confirmed_panel_entitlement(
                 panel_uuid,
-                panel_update_success,
-                new_end_date_obj,
-            ):
+                panel_update_result,
+                expected_panel_payload,
+                source="subscription_bonus",
+            )
+            if confirmed_panel_user is None:
                 logger.warning(
                     "Panel expiry update failed for user %s panel_uuid=%s after %s bonus. "
                     "requested_expire_at=%s panel_response=%s. Reverting local bonus update.",
@@ -926,7 +962,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                     panel_uuid,
                     reason,
                     new_end_date_obj.isoformat(),
-                    panel_update_success,
+                    panel_update_result,
                 )
                 if created_new_subscription:
                     try:

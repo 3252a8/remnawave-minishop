@@ -237,6 +237,22 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(service._request.await_count, 3)
 
+    async def test_get_user_by_uuid_can_bypass_stale_cache_for_verification(self):
+        service = self._make_service()
+        service._request = AsyncMock(
+            side_effect=[
+                {"response": {"uuid": "user-uuid", "trafficLimitBytes": 100}},
+                {"response": {"uuid": "user-uuid", "trafficLimitBytes": 200}},
+            ]
+        )
+
+        cached = await service.get_user_by_uuid("user-uuid")
+        fresh = await service.get_user_by_uuid("user-uuid", use_cache=False)
+
+        self.assertEqual(cached["trafficLimitBytes"], 100)
+        self.assertEqual(fresh["trafficLimitBytes"], 200)
+        self.assertEqual(service._request.await_count, 2)
+
     async def test_get_user_by_uuid_lookup_returns_success_payload(self):
         service = self._make_service()
         service._request = AsyncMock(return_value={"response": {"uuid": "user-uuid"}})

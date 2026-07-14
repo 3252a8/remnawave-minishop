@@ -147,6 +147,15 @@ def _make_user():
     )
 
 
+def _panel_update_side_effect(panel_response):
+    async def update(panel_uuid, payload, *_args, **_kwargs):
+        if isinstance(panel_response, dict) and panel_response.get("ok") is True:
+            return {**payload, "uuid": panel_uuid}
+        return panel_response
+
+    return update
+
+
 class ActivateTopupPanelFailureTests(unittest.IsolatedAsyncioTestCase):
     """Regular (non-premium) period top-up. The bug was traffic.py:252 ignoring panel result."""
 
@@ -157,8 +166,9 @@ class ActivateTopupPanelFailureTests(unittest.IsolatedAsyncioTestCase):
             sub = _make_sub()
             user = _make_user()
 
+            service.panel_service.get_user_by_uuid = AsyncMock(return_value=None)
             service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value=panel_response
+                side_effect=_panel_update_side_effect(panel_response)
             )
             updated_sub = SimpleNamespace(end_date=sub.end_date, subscription_id=11)
 
@@ -229,8 +239,9 @@ class ActivatePremiumTopupPanelFailureTests(unittest.IsolatedAsyncioTestCase):
             )
             user = _make_user()
 
+            service.panel_service.get_user_by_uuid = AsyncMock(return_value=None)
             service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value=panel_response
+                side_effect=_panel_update_side_effect(panel_response)
             )
 
             with (
@@ -347,7 +358,13 @@ class SwitchTariffPanelFailureTests(unittest.IsolatedAsyncioTestCase):
     """Free tariff switch. The bug was lifecycle.py:121 ignoring panel result — the tariff_key
     flipped in the local DB while the panel kept the user on the old squad set."""
 
-    async def _run(self, *, panel_response, mode="recalc_days"):
+    async def _run(
+        self,
+        *,
+        panel_response,
+        mode="recalc_days",
+        panel_get_side_effect=None,
+    ):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(tmpdir)
             service = _make_service(settings)
@@ -363,8 +380,16 @@ class SwitchTariffPanelFailureTests(unittest.IsolatedAsyncioTestCase):
                 effective_monthly_price_rub=300,
             )
 
+            service.panel_service.get_user_by_uuid = AsyncMock(
+                side_effect=panel_get_side_effect,
+                return_value=None,
+            )
             service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value=panel_response
+                side_effect=(
+                    panel_response
+                    if callable(panel_response)
+                    else _panel_update_side_effect(panel_response)
+                )
             )
 
             with (
@@ -406,13 +431,13 @@ class SwitchTariffPanelFailureTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result)
         # tariff_changes audit row must NOT be inserted on panel failure.
         create_change.assert_not_awaited()
-        deactivate_other.assert_not_awaited()
+        deactivate_other.assert_awaited_once()
 
     async def test_returns_none_when_panel_returns_error_dict(self):
         result, create_change, deactivate_other = await self._run(panel_response={"error": True})
         self.assertIsNone(result)
         create_change.assert_not_awaited()
-        deactivate_other.assert_not_awaited()
+        deactivate_other.assert_awaited_once()
 
     async def test_returns_payload_when_panel_succeeds(self):
         result, create_change, deactivate_other = await self._run(panel_response={"ok": True})
@@ -420,6 +445,33 @@ class SwitchTariffPanelFailureTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["tariff_key"], "premium")
         self.assertEqual(deactivate_other.await_args.args[1:], ("panel-uuid", "panel-sub"))
         create_change.assert_awaited_once()
+
+    async def test_rejects_matching_expiry_with_stale_squads(self):
+        stale_state: dict = {}
+
+        async def stale_panel_update(panel_uuid, payload, *_args, **_kwargs):
+            stale_state.update(
+                {
+                    **payload,
+                    "uuid": panel_uuid,
+                    "activeInternalSquads": ["main-squad"],
+                }
+            )
+            return dict(stale_state)
+
+        async def panel_get(_panel_uuid, *_args, **kwargs):
+            if kwargs.get("use_cache") is False:
+                return dict(stale_state)
+            return None
+
+        result, create_change, deactivate_other = await self._run(
+            panel_response=stale_panel_update,
+            panel_get_side_effect=panel_get,
+        )
+
+        self.assertIsNone(result)
+        create_change.assert_not_awaited()
+        deactivate_other.assert_awaited_once()
 
     async def test_rejects_client_mode_not_offered_for_transition(self):
         result, create_change, deactivate_other = await self._run(
@@ -470,7 +522,7 @@ class SwitchTariffPanelFailureTests(unittest.IsolatedAsyncioTestCase):
                 }
             )
             service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value={"ok": True}
+                side_effect=_panel_update_side_effect({"ok": True})
             )
             session = MagicMock(spec=AsyncSession)
 
