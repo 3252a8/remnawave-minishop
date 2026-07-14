@@ -248,8 +248,8 @@ def remnashop_payment_gateway_overrides(
     overrides: dict[str, Any] = {}
     warnings = [
         (
-            f"Пропущена зашифрованная настройка Remnashop {gateway_type} '{path}': "
-            "APP_CRYPT_KEY не задан или некорректен"
+            f"Skipped encrypted Remnashop setting {gateway_type} '{path}': "
+            "APP_CRYPT_KEY is missing or invalid"
         )
         for path in skipped_secret_paths
     ]
@@ -266,8 +266,7 @@ def remnashop_payment_gateway_overrides(
         _add_override(overrides, "YOOKASSA_VAT_CODE", settings.get("vat_code"))
         if currency and currency != "RUB":
             warnings.append(
-                "YooKassa в Minishop поддерживает только RUB; "
-                f"в источнике указана валюта {currency}."
+                f"Minishop supports only RUB for YooKassa; the source currency is {currency}."
             )
         return _provider_mapping_result(gateway_type, ["yookassa"], overrides, warnings)
 
@@ -281,9 +280,9 @@ def remnashop_payment_gateway_overrides(
         _add_override(overrides, "CRYPTOPAY_TOKEN", settings.get("api_key"))
         if currency and currency != "RUB":
             warnings.append(
-                f"В Remnashop для CryptoPay указана валюта {currency}; Minishop управляет "
-                "валютой платежей через тарифы/default currency. Если нужен другой default, "
-                "настройте CRYPTOPAY_ASSET вручную."
+                f"Remnashop specifies the following currency for CryptoPay: {currency}; Minishop "
+                "manages payment currency through tariffs/default currency. Configure "
+                "CRYPTOPAY_ASSET manually if another default is needed."
             )
         return _provider_mapping_result(gateway_type, ["cryptopay"], overrides, warnings)
 
@@ -293,9 +292,9 @@ def remnashop_payment_gateway_overrides(
         _add_override(overrides, "HELEKET_API_KEY", settings.get("api_key"))
         if currency and currency != "RUB":
             warnings.append(
-                f"В Remnashop для Heleket указана валюта {currency}; Minishop управляет "
-                "валютой платежей через тарифы/default currency. Если нужен другой default, "
-                "настройте HELEKET_CURRENCY вручную."
+                f"Remnashop specifies the following currency for Heleket: {currency}; Minishop "
+                "manages payment currency through tariffs/default currency. Configure "
+                "HELEKET_CURRENCY manually if another default is needed."
             )
         return _provider_mapping_result(gateway_type, ["heleket"], overrides, warnings)
 
@@ -313,9 +312,10 @@ def remnashop_payment_gateway_overrides(
         )
         if currency and currency != "RUB":
             warnings.append(
-                f"В Remnashop для PayKilla указана валюта {currency}; Minishop управляет "
-                "валютой платежей через тарифы/default currency. Если нужен другой default, "
-                "настройте PAYKILLA_CURRENCY и PAYKILLA_PAYMENT_CURRENCIES вручную."
+                f"Remnashop specifies the following currency for PayKilla: {currency}; Minishop "
+                "manages payment currency through tariffs/default currency. Configure "
+                "PAYKILLA_CURRENCY and PAYKILLA_PAYMENT_CURRENCIES manually if another "
+                "default is needed."
             )
         return _provider_mapping_result(gateway_type, ["paykilla"], overrides, warnings)
 
@@ -328,8 +328,8 @@ def remnashop_payment_gateway_overrides(
         _add_override(overrides, "FREEKASSA_PAYMENT_IP", settings.get("customer_ip"))
         if settings.get("customer_email"):
             warnings.append(
-                "Remnashop сохранил FreeKassa customer_email, но в Minishop это не "
-                "настройка платежного провайдера."
+                "Remnashop stored FreeKassa customer_email, but Minishop does not expose it "
+                "as a payment-provider setting."
             )
         return _provider_mapping_result(gateway_type, ["freekassa"], overrides, warnings)
 
@@ -342,9 +342,9 @@ def remnashop_payment_gateway_overrides(
         _add_override(overrides, "PLATEGA_SBP_METHOD", settings.get("payment_method"))
         if currency and currency != "RUB":
             warnings.append(
-                f"В Remnashop для Platega указана валюта {currency}; Minishop управляет "
-                "валютой платежей через тарифы/default currency. Если нужна другая валюта, "
-                "настройте PLATEGA_SUPPORTED_CURRENCIES вручную."
+                f"Remnashop specifies the following currency for Platega: {currency}; Minishop "
+                "manages payment currency through tariffs/default currency. Configure "
+                "PLATEGA_SUPPORTED_CURRENCIES manually if another currency is needed."
             )
         return _provider_mapping_result(gateway_type, ["platega_sbp"], overrides, warnings)
 

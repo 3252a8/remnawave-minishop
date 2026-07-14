@@ -142,7 +142,7 @@ _PRESENTATION_MANIFEST = tuple(
 
 _CONFIG_MANIFEST = (
     ProviderManifestField(
-        "YOOKASSA_ENABLED", "bool", "Включена", subsection="YooKassa", attr="ENABLED"
+        "YOOKASSA_ENABLED", "bool", "Enabled", subsection="YooKassa", attr="ENABLED"
     ),
     ProviderManifestField(
         "YOOKASSA_SHOP_ID", "string", "Shop ID", subsection="YooKassa", attr="SHOP_ID"
@@ -161,7 +161,7 @@ _CONFIG_MANIFEST = (
     ProviderManifestField(
         "YOOKASSA_DEFAULT_RECEIPT_EMAIL",
         "string",
-        "Email для чека по умолчанию",
+        "Default receipt email",
         subsection="YooKassa",
         attr="DEFAULT_RECEIPT_EMAIL",
     ),
@@ -169,7 +169,7 @@ _CONFIG_MANIFEST = (
         "YOOKASSA_VAT_CODE",
         "int",
         "VAT code",
-        description="1..6 в зависимости от системы налогообложения",
+        description="1..6 depending on the tax system",
         subsection="YooKassa",
         min=1,
         max=6,
@@ -178,14 +178,14 @@ _CONFIG_MANIFEST = (
     ProviderManifestField(
         "YOOKASSA_AUTOPAYMENTS_ENABLED",
         "bool",
-        "Автоплатежи (recurring)",
+        "Recurring payments",
         subsection="YooKassa",
         attr="AUTOPAYMENTS_ENABLED",
     ),
     ProviderManifestField(
         "YOOKASSA_AUTOPAYMENTS_REQUIRE_CARD_BINDING",
         "bool",
-        "Принудительная привязка карты",
+        "Require card binding",
         subsection="YooKassa",
         attr="AUTOPAYMENTS_REQUIRE_CARD_BINDING",
     ),
@@ -196,11 +196,11 @@ SPEC = PaymentProviderSpec(
     id="yookassa",
     provider_key="yookassa",
     label="YooKassa",
-    webapp_label="ЮKassa",
-    webapp_labels={"ru": "ЮKassa", "en": "YooKassa"},
+    webapp_label="YooKassa",
+    webapp_labels={"ru": "YooKassa", "en": "YooKassa"},
     webapp_icon="CreditCard",
     logo_url="/provider-logos/yookassa.png",
-    telegram_labels={"ru": "ЮKassa", "en": "YooKassa"},
+    telegram_labels={"ru": "YooKassa", "en": "YooKassa"},
     telegram_emoji="💳",
     pending_status="pending_yookassa",
     enabled=lambda config: bool(getattr(config, "ENABLED", False)),

@@ -40,22 +40,22 @@
   class:is-dirty={trafficStrategyDirty}
 >
   <AdminSectionHeader
-    title={at("user_traffic_strategy_card_title", {}, "Сброс трафика")}
+    title={at("user_traffic_strategy_card_title", {}, "Traffic reset")}
     description={at(
       "user_traffic_strategy_card_hint",
       {},
-      "Индивидуальная стратегия Remnawave для period-подписки пользователя."
+      "Per-user Remnawave strategy for the user's period subscription."
     )}
   />
   <div class="admin-user-action-sheet-body admin-user-tariff-stack">
     <Label.Root class="admin-field-label admin-extend-field">
-      <span>{at("user_traffic_strategy_select_label", {}, "Стратегия")}</span>
+      <span>{at("user_traffic_strategy_select_label", {}, "Strategy")}</span>
       <AdminSelect
         class="admin-user-traffic-strategy-select"
         value={usersStore.trafficStrategyDraft}
         items={trafficStrategyItems}
-        placeholder={at("user_traffic_strategy_select_placeholder", {}, "Выберите стратегию")}
-        ariaLabel={at("user_traffic_strategy_select_label", {}, "Стратегия")}
+        placeholder={at("user_traffic_strategy_select_placeholder", {}, "Select strategy")}
+        ariaLabel={at("user_traffic_strategy_select_label", {}, "Strategy")}
         disabled={userActionBusy || !trafficStrategyEditable}
         onValueChange={selectTrafficStrategy}
       />
@@ -67,12 +67,12 @@
         {at(
           "user_traffic_strategy_current",
           { strategy: trafficStrategyCurrentLabel },
-          `Сейчас: ${trafficStrategyCurrentLabel}`
+          "Current: {strategy}"
         )}
       </span>
       <div class="admin-action-save-controls">
         {#if trafficStrategyDirty}
-          <AdminBadge variant="warning">{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge>
+          <AdminBadge variant="warning">{at("settings_badge_dirty", {}, "Changed")}</AdminBadge>
         {/if}
         <AdminButton
           variant="primary"
@@ -83,19 +83,19 @@
             !trafficStrategyDraftValid}
         >
           <RefreshCw size={14} />
-          {at("user_traffic_strategy_save", {}, "Сохранить стратегию")}
+          {at("user_traffic_strategy_save", {}, "Save strategy")}
         </AdminButton>
       </div>
     </div>
     <div class="admin-override-status-lines">
       {#if trafficStrategyDirty}
         <span class="admin-unsaved-hint">
-          {at("user_action_unsaved_hint", {}, "Есть несохранённые изменения")}
+          {at("user_action_unsaved_hint", {}, "Unsaved changes in this card")}
         </span>
       {/if}
       {#if !trafficStrategyDraftValid}
         <span class="admin-invalid-hint">
-          {at("user_traffic_strategy_invalid", {}, "Выберите доступную стратегию")}
+          {at("user_traffic_strategy_invalid", {}, "Select an available strategy")}
         </span>
       {/if}
       {#if !trafficStrategyEditable && trafficStrategyLockMessage}

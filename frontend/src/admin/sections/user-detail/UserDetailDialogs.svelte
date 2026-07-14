@@ -74,7 +74,7 @@
 
 <Dialog
   open={userReferralsOpen}
-  title={at("user_invitees_title", {}, "Приглашённые пользователи")}
+  title={at("user_invitees_title", {}, "Invited users")}
   description={openedUser
     ? at(
         "user_invitees_description",
@@ -82,7 +82,7 @@
         `${userDisplayName(openedUser)} · ${userReferralsTotal}`
       )
     : ""}
-  closeLabel={at("close", {}, "Закрыть")}
+  closeLabel={at("close", {}, "Close")}
   onclose={usersStore.closeUserReferrals}
   class="admin-dialog admin-user-referrals-dialog"
 >
@@ -90,9 +90,9 @@
     {#if userReferralsLoading}
       <AdminTableSkeleton
         headers={[
-          at("user_col_user", {}, "Пользователь"),
+          at("user_col_user", {}, "User"),
           "ID",
-          at("user_label_registration", {}, "Регистрация"),
+          at("user_label_registration", {}, "Registration"),
           "",
         ]}
         rows={5}
@@ -101,7 +101,7 @@
     {:else if !userReferralsRows.length}
       <AdminEmptyState tone="card">
         <span class="admin-muted"
-          >{at("user_invitees_empty", {}, "Пользователь пока никого не пригласил")}</span
+          >{at("user_invitees_empty", {}, "This user has not invited anyone yet.")}</span
         >
       </AdminEmptyState>
     {:else}
@@ -109,31 +109,31 @@
         <AdminTable class="admin-user-referrals-table">
           <thead>
             <tr>
-              <th>{at("user_col_user", {}, "Пользователь")}</th>
+              <th>{at("user_col_user", {}, "User")}</th>
               <th>ID</th>
-              <th>{at("user_label_registration", {}, "Регистрация")}</th>
+              <th>{at("user_label_registration", {}, "Registration")}</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {#each userReferralsRows as invitee (invitee.user_id)}
               <tr>
-                <td data-label={at("user_col_user", {}, "Пользователь")}>
+                <td data-label={at("user_col_user", {}, "User")}>
                   <span class="admin-referral-user-cell">
                     <strong>{userDisplayName(invitee)}</strong>
                     <small>{userSecondaryName(invitee)}</small>
                   </span>
                 </td>
                 <td class="admin-cell-mono" data-label="ID">{invitee.user_id}</td>
-                <td data-label={at("user_label_registration", {}, "Регистрация")}>
+                <td data-label={at("user_label_registration", {}, "Registration")}>
                   {fmtDateShort(invitee.registration_date)}
                 </td>
                 <td class="admin-referral-user-actions">
                   <AdminButton
                     size="icon"
                     variant="icon"
-                    title={at("user_open_related", {}, "Открыть карточку")}
-                    aria-label={at("user_open_related", {}, "Открыть карточку")}
+                    title={at("user_open_related", {}, "Open user card")}
+                    aria-label={at("user_open_related", {}, "Open user card")}
                     onclick={() => openRelatedUser(invitee)}
                   >
                     <ExternalLink size={14} />
@@ -151,14 +151,14 @@
         page={userReferralsPage}
         pageCount={userReferralsPageCount}
         total={userReferralsTotal}
-        pageLabel={at("page_short", {}, "Стр.")}
-        ofLabel={at("pagination_of", {}, "из")}
-        totalLabel={at("total", {}, "Всего")}
-        jumpLabel={at("page_short", {}, "Стр.")}
-        jumpAriaLabel={at("pagination_jump_aria", {}, "Перейти к странице")}
-        goLabel={at("pagination_go", {}, "Перейти")}
-        prevLabel={at("prev_page", {}, "Назад")}
-        nextLabel={at("next_page", {}, "Вперёд")}
+        pageLabel={at("page_short", {}, "Page")}
+        ofLabel={at("pagination_of", {}, "of")}
+        totalLabel={at("total", {}, "Total")}
+        jumpLabel={at("page_short", {}, "Page")}
+        jumpAriaLabel={at("pagination_jump_aria", {}, "Go to page")}
+        goLabel={at("pagination_go", {}, "Go")}
+        prevLabel={at("prev_page", {}, "Back")}
+        nextLabel={at("next_page", {}, "Next")}
         disabled={userReferralsLoading}
         onPageChange={(page) => usersStore.setUserReferralsPage(page)}
       />
@@ -168,8 +168,8 @@
 
 <Dialog
   open={avatarPreviewOpen}
-  title={avatarPreviewName || at("user_avatar_title", {}, "Аватар")}
-  closeLabel={at("close", {}, "Закрыть")}
+  title={avatarPreviewName || at("user_avatar_title", {}, "Avatar")}
+  closeLabel={at("close", {}, "Close")}
   onclose={closeAvatarPreview}
   class="admin-dialog admin-avatar-dialog"
 >
@@ -187,15 +187,11 @@
 
 <Dialog
   open={userMessageConfirmOpen}
-  title={at("user_msg_confirm_title", {}, "Отправить сообщение пользователю?")}
+  title={at("user_msg_confirm_title", {}, "Send message to user?")}
   description={openedUser
-    ? at(
-        "user_msg_confirm_recipient",
-        { name: userDisplayName(openedUser) },
-        `Получатель: ${userDisplayName(openedUser)}`
-      )
+    ? at("user_msg_confirm_recipient", { name: userDisplayName(openedUser) }, "Recipient: {name}")
     : ""}
-  closeLabel={at("close", {}, "Закрыть")}
+  closeLabel={at("close", {}, "Close")}
   onclose={() => usersStore.updateState({ userMessageConfirmOpen: false })}
   class="admin-dialog admin-user-message-confirm-dialog"
 >
@@ -204,7 +200,7 @@
   </ScrollArea>
   <div class="admin-dialog-actions">
     <AdminButton onclick={() => usersStore.updateState({ userMessageConfirmOpen: false })}
-      >{at("btn_cancel", {}, "Отмена")}</AdminButton
+      >{at("btn_cancel", {}, "Cancel")}</AdminButton
     >
     <AdminButton
       variant="primary"
@@ -212,28 +208,28 @@
       disabled={userActionBusy || !userMessageDraft.trim()}
     >
       <Send size={14} />
-      {at("btn_confirm_send", {}, "Подтвердить отправку")}
+      {at("btn_confirm_send", {}, "Confirm send")}
     </AdminButton>
   </div>
 </Dialog>
 
 <Dialog
   open={userBanConfirmOpen}
-  title={at("user_ban_confirm_title", {}, "Заблокировать пользователя?")}
+  title={at("user_ban_confirm_title", {}, "Ban user?")}
   description={openedUser
     ? at(
         "user_ban_confirm_subtitle",
         { name: userDisplayName(openedUser) },
-        `${userDisplayName(openedUser)} больше не сможет взаимодействовать с ботом. Действие можно отменить позже.`
+        "{name} will no longer be able to interact with the bot. This can be undone later."
       )
     : ""}
-  closeLabel={at("close", {}, "Закрыть")}
+  closeLabel={at("close", {}, "Close")}
   onclose={() => usersStore.updateState({ userBanConfirmOpen: false })}
   class="admin-dialog admin-user-ban-confirm-dialog"
 >
   <div class="admin-dialog-actions">
     <AdminButton onclick={() => usersStore.updateState({ userBanConfirmOpen: false })}
-      >{at("btn_cancel", {}, "Отмена")}</AdminButton
+      >{at("btn_cancel", {}, "Cancel")}</AdminButton
     >
     <AdminButton
       variant="danger"
@@ -241,20 +237,20 @@
       disabled={userActionBusy}
     >
       <UserMinus size={14} />
-      {at("btn_ban", {}, "Заблокировать")}
+      {at("btn_ban", {}, "Block user")}
     </AdminButton>
   </div>
 </Dialog>
 
 <Dialog
   open={userTariffHwidConfirmOpen}
-  title={at("user_tariff_hwid_confirm_title", {}, "Применить HWID-лимит тарифа?")}
+  title={at("user_tariff_hwid_confirm_title", {}, "Apply the tariff HWID limit?")}
   description={at(
     "user_tariff_hwid_confirm_subtitle",
     {},
-    "У пользователя задан ручной HWID-лимит. По умолчанию он будет сохранён после смены тарифа."
+    "This user has a manual HWID limit. By default it will be preserved after the tariff change."
   )}
-  closeLabel={at("close", {}, "Закрыть")}
+  closeLabel={at("close", {}, "Close")}
   onclose={() =>
     usersStore.updateState({
       userTariffHwidConfirmOpen: false,
@@ -264,11 +260,11 @@
 >
   <div class="admin-tariff-hwid-confirm-summary">
     <span>
-      {at("user_tariff_hwid_confirm_before", {}, "Было")}
+      {at("user_tariff_hwid_confirm_before", {}, "Before")}
       <strong>{tariffHwidCurrentLabel || "—"}</strong>
     </span>
     <span>
-      {at("user_tariff_hwid_confirm_after", {}, "Лимит тарифа")}
+      {at("user_tariff_hwid_confirm_after", {}, "Tariff limit")}
       <strong>{tariffHwidTargetLabel || "—"}</strong>
     </span>
   </div>
@@ -285,7 +281,7 @@
       disabled={userActionBusy}
     >
       <RefreshCw size={14} />
-      {at("user_tariff_hwid_confirm_keep", {}, "Сохранить текущий лимит")}
+      {at("user_tariff_hwid_confirm_keep", {}, "Keep current limit")}
     </AdminButton>
     <AdminButton
       onclick={() => {
@@ -298,30 +294,30 @@
       disabled={userActionBusy}
     >
       <RefreshCw size={14} />
-      {at("user_tariff_hwid_confirm_apply", {}, "Применить лимит тарифа")}
+      {at("user_tariff_hwid_confirm_apply", {}, "Apply tariff limit")}
     </AdminButton>
   </div>
 </Dialog>
 
 <Dialog
   open={userDeleteOpen}
-  title={at("user_delete_confirm_title", {}, "Удалить пользователя?")}
+  title={at("user_delete_confirm_title", {}, "Delete user?")}
   description={at(
     "user_delete_confirm_subtitle",
     {},
-    "Действие необратимо. Удалятся записи в БД бота и пользователь в Remnawave Panel."
+    "This action is irreversible. Bot database records and the Remnawave Panel user will be deleted."
   )}
-  closeLabel={at("close", {}, "Закрыть")}
+  closeLabel={at("close", {}, "Close")}
   onclose={() => usersStore.updateState({ userDeleteOpen: false })}
   class="admin-dialog admin-user-delete-dialog"
 >
   <div class="admin-form-row">
     <AdminButton onclick={() => usersStore.updateState({ userDeleteOpen: false })}
-      >{at("btn_cancel", {}, "Отмена")}</AdminButton
+      >{at("btn_cancel", {}, "Cancel")}</AdminButton
     >
     <AdminButton variant="danger" onclick={usersStore.deleteUser} disabled={userActionBusy}>
       <Trash2 size={14} />
-      {at("btn_confirm_delete", {}, "Подтвердить удаление")}
+      {at("btn_confirm_delete", {}, "Confirm deletion")}
     </AdminButton>
   </div>
 </Dialog>

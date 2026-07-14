@@ -21,8 +21,8 @@ from config.settings_models import (
 logger = logging.getLogger(__name__)
 
 DEFAULT_SUBSCRIPTION_PURCHASE_DESCRIPTION_RU = (
-    "Покупая или продлевая подписку, вы получаете доступ к VPN/прокси-сервису, "
-    "который помогает защищать ваше соединение и поддерживать стабильный доступ к сети."
+    "By buying or renewing a subscription, you get access to a VPN/proxy service "
+    "that helps protect your connection and keep your access stable."
 )
 DEFAULT_SUBSCRIPTION_PURCHASE_DESCRIPTION_EN = (
     "By buying or renewing a subscription, you get access to a VPN/proxy service "

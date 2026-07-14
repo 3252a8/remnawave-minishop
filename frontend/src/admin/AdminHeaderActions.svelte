@@ -43,9 +43,7 @@
   {#if active === "stats"}
     <AdminButton data-admin-action="sync-stats" onclick={onSyncStats} disabled={syncBusy}>
       <RefreshCw size={14} />
-      {syncBusy
-        ? at("btn_syncing", {}, "Синхронизация...")
-        : at("btn_sync", {}, "Синхронизировать")}
+      {syncBusy ? at("btn_syncing", {}, "Synchronizing...") : at("btn_sync", {}, "Synchronize")}
     </AdminButton>
   {/if}
   {#if active === "payments"}
@@ -56,25 +54,25 @@
   {#if active === "promos"}
     <AdminButton data-admin-action="create-code" variant="primary" onclick={onCreateCode}>
       <Plus size={14} />
-      {at("btn_create", {}, "Создать")}
+      {at("btn_create", {}, "Create")}
     </AdminButton>
   {/if}
   {#if active === "ads"}
     <AdminButton data-admin-action="create-ad" variant="primary" onclick={onCreateAd}>
       <Plus size={14} />
-      {at("btn_campaign", {}, "Кампания")}
+      {at("btn_campaign", {}, "Campaign")}
     </AdminButton>
   {/if}
   {#if active === "tariffs"}
     <AdminButton data-admin-action="create-tariff" variant="primary" onclick={onCreateTariff}>
       <Plus size={14} />
-      {at("btn_tariff", {}, "Тариф")}
+      {at("btn_tariff", {}, "Tariff")}
     </AdminButton>
   {/if}
   {#if active === "settings"}
     {#if dirtyCount}
       <AdminBadge variant="warning">
-        {at("settings_dirty_count", { count: dirtyCount }, "Изменений: " + dirtyCount)}
+        {at("settings_dirty_count", { count: dirtyCount }, "Changes: {count}")}
       </AdminBadge>
     {/if}
     <AdminButton
@@ -83,17 +81,13 @@
       disabled={!dirtyCount || settingsSaving}
     >
       <Save size={14} />
-      {settingsSaving ? at("btn_saving", {}, "Сохранение...") : at("btn_save", {}, "Сохранить")}
+      {settingsSaving ? at("btn_saving", {}, "Saving...") : at("btn_save", {}, "Save")}
     </AdminButton>
   {/if}
   {#if active === "translations"}
     {#if translationsDirtyCount}
       <AdminBadge variant="warning">
-        {at(
-          "settings_dirty_count",
-          { count: translationsDirtyCount },
-          "Изменений: " + translationsDirtyCount
-        )}
+        {at("settings_dirty_count", { count: translationsDirtyCount }, "Changes: {count}")}
       </AdminBadge>
     {/if}
     <AdminButton
@@ -102,7 +96,7 @@
       disabled={!translationsDirtyCount || translationsSaving}
     >
       <Save size={14} />
-      {translationsSaving ? at("btn_saving", {}, "Сохранение...") : at("btn_save", {}, "Сохранить")}
+      {translationsSaving ? at("btn_saving", {}, "Saving...") : at("btn_save", {}, "Save")}
     </AdminButton>
   {/if}
 </div>

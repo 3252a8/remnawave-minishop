@@ -466,7 +466,7 @@ export function createUsersStore({
 
   function copyToClipboard(
     text: string | null | undefined,
-    successMessage = at("link_copied", {}, "Скопировано")
+    successMessage = at("link_copied", {}, "Link copied")
   ) {
     if (!text) return;
     if (typeof navigator !== "undefined" && navigator?.clipboard?.writeText) {
@@ -513,7 +513,7 @@ export function createUsersStore({
           };
         });
         onToast(
-          banned ? at("user_banned", {}, "Заблокирован") : at("user_unbanned", {}, "Разблокирован")
+          banned ? at("user_banned", {}, "User banned") : at("user_unbanned", {}, "User unbanned")
         );
       } else onToast(adminErrorMessage(res, at));
     } finally {
@@ -532,13 +532,13 @@ export function createUsersStore({
       });
       if (res?.ok) {
         invalidateUsersQueries(s.openedUser.user_id);
-        onToast(at("message_sent", {}, "Отправлено"));
+        onToast(at("message_sent", {}, "Message sent"));
         applyState((st) => ({
           ...st,
           userMessageDraft: "",
           userMessageConfirmOpen: false,
         }));
-      } else onToast(adminErrorMessage(res, at, at("message_send_failed", {}, "Ошибка отправки")));
+      } else onToast(adminErrorMessage(res, at, at("message_send_failed", {}, "Could not send")));
     } finally {
       applyState((st) => ({ ...st, userActionBusy: false }));
     }
@@ -560,10 +560,10 @@ export function createUsersStore({
         method: "POST",
         body: JSON.stringify({ text: s.userMessageDraft }),
       });
-      if (res?.ok) onToast(at("message_preview_sent", {}, "Превью отправлено в Telegram"));
+      if (res?.ok) onToast(at("message_preview_sent", {}, "Preview sent to Telegram"));
       else
         onToast(
-          adminErrorMessage(res, at, at("message_preview_failed", {}, "Ошибка отправки превью"))
+          adminErrorMessage(res, at, at("message_preview_failed", {}, "Failed to send preview"))
         );
     } finally {
       applyState((st) => ({ ...st, userActionBusy: false }));
@@ -583,14 +583,10 @@ export function createUsersStore({
       );
       if (res?.ok) {
         invalidateUsersQueries(s.openedUser.user_id);
-        onToast(at("user_tg_profile_link_sent", {}, "Ссылка отправлена в Telegram"));
+        onToast(at("user_tg_profile_link_sent", {}, "Link sent to Telegram"));
       } else {
         onToast(
-          adminErrorMessage(
-            res,
-            at,
-            at("user_tg_profile_link_failed", {}, "Не удалось отправить ссылку")
-          )
+          adminErrorMessage(res, at, at("user_tg_profile_link_failed", {}, "Failed to send link"))
         );
       }
     } finally {
@@ -617,7 +613,7 @@ export function createUsersStore({
       });
       if (res?.ok) {
         invalidateUsersQueries(s.openedUser.user_id);
-        onToast(at("subscription_extended", { days }, `Продлено на ${days} д.`));
+        onToast(at("subscription_extended", { days }, "Subscription extended by {days} days"));
         await refreshOpenedUserDetail({
           resetTrafficStrategy: false,
           resetPremium: false,
@@ -680,7 +676,7 @@ export function createUsersStore({
       });
       if (res?.ok) {
         invalidateUsersQueries(s.openedUser.user_id);
-        onToast(at("trial_reset", {}, "Триал сброшен"));
+        onToast(at("trial_reset", {}, "Trial reset"));
         await refreshOpenedUserDetail({
           resetExtendTariff: false,
           resetTariffAction: false,
@@ -708,7 +704,7 @@ export function createUsersStore({
           ? 0
           : Number(bonusGbRaw);
       if (Number.isNaN(bonusGb) || bonusGb < 0) {
-        onToast(at("premium_override_invalid_bonus", {}, "Некорректное значение GB"));
+        onToast(at("premium_override_invalid_bonus", {}, "Invalid GB value"));
         return;
       }
       const res = await api(buildAdminUserActionPath(s.openedUser.user_id, "premium-override"), {
@@ -720,7 +716,7 @@ export function createUsersStore({
       });
       if (res?.ok) {
         invalidateUsersQueries(s.openedUser.user_id);
-        onToast(at("premium_override_saved", {}, "Премиум-оверрайд сохранён"));
+        onToast(at("premium_override_saved", {}, "✅ Premium override saved"));
         await refreshOpenedUserDetail({
           resetExtendTariff: false,
           resetTariffAction: false,
@@ -746,9 +742,7 @@ export function createUsersStore({
       const regularGb =
         regGbRaw === "" || regGbRaw === null || regGbRaw === undefined ? 0 : Number(regGbRaw);
       if (Number.isNaN(regularGb) || regularGb < 0) {
-        onToast(
-          at("regular_override_invalid_bonus", {}, "Некорректное значение GB для основного трафика")
-        );
+        onToast(at("regular_override_invalid_bonus", {}, "Invalid main traffic GB value"));
         return;
       }
       const res = await api(
@@ -763,7 +757,7 @@ export function createUsersStore({
       );
       if (res?.ok) {
         invalidateUsersQueries(s.openedUser.user_id);
-        onToast(at("regular_override_saved", {}, "Оверрайд основного трафика сохранён"));
+        onToast(at("regular_override_saved", {}, "Main traffic override saved"));
         await refreshOpenedUserDetail({
           resetExtendTariff: false,
           resetTariffAction: false,
@@ -795,7 +789,7 @@ export function createUsersStore({
       });
       if (res?.ok) {
         invalidateUsersQueries(s.openedUser.user_id);
-        onToast(at("user_traffic_strategy_saved", {}, "Стратегия сброса сохранена"));
+        onToast(at("user_traffic_strategy_saved", {}, "Traffic reset strategy saved"));
         await refreshOpenedUserDetail({
           resetExtendTariff: false,
           resetTariffAction: false,
@@ -825,11 +819,7 @@ export function createUsersStore({
         limit = Number(raw);
         if (!Number.isInteger(limit) || limit < 0 || limit > 1_000_000) {
           onToast(
-            at(
-              "hwid_limit_invalid",
-              {},
-              "Введите целое число устройств от 0 до 1 000 000 или включите безлимит"
-            )
+            at("hwid_limit_invalid", {}, "❌ Enter an integer device count from 0 to 1,000,000.")
           );
           return;
         }
@@ -844,7 +834,7 @@ export function createUsersStore({
       });
       if (res?.ok) {
         invalidateUsersQueries(s.openedUser.user_id);
-        onToast(at("hwid_limit_saved", {}, "Лимит устройств сохранён"));
+        onToast(at("hwid_limit_saved", {}, "✅ HWID device limit saved"));
         await refreshOpenedUserDetail({
           resetExtendTariff: false,
           resetTariffAction: false,
@@ -867,7 +857,9 @@ export function createUsersStore({
     const gbRaw = s.grantTrafficGbDraft;
     const gb = Number(gbRaw);
     if (!gbRaw || Number.isNaN(gb) || gb <= 0) {
-      onToast(at("traffic_grant_invalid_gb", {}, "Введите положительное число GB"));
+      onToast(
+        at("traffic_grant_invalid_gb", {}, "❌ Enter a positive number of GB (up to 1,000,000).")
+      );
       return;
     }
     const kind = s.grantTrafficKindDraft === "premium" ? "premium" : "regular";
@@ -887,12 +879,12 @@ export function createUsersStore({
             ? at(
                 "traffic_grant_premium_done",
                 toastParams,
-                `+${gb} ГБ премиум-трафика для ${user} (ID: ${userId})`
+                "✅ +{gb} GB of premium traffic granted to {user} (ID: {user_id})"
               )
             : at(
                 "traffic_grant_regular_done",
                 toastParams,
-                `+${gb} ГБ трафика для ${user} (ID: ${userId})`
+                "✅ +{gb} GB of regular traffic granted to {user} (ID: {user_id})"
               )
         );
         await refreshOpenedUserDetail({
@@ -920,7 +912,7 @@ export function createUsersStore({
       const res = await api(buildAdminUserPath(openedUser.user_id), { method: "DELETE" });
       if (res?.ok) {
         invalidateUsersQueries(openedUser.user_id);
-        onToast(at("user_deleted", {}, "Удален"));
+        onToast(at("user_deleted", {}, "User deleted"));
         applyState((st) => ({
           ...st,
           users: st.users.filter((u: AdminUser) => u.user_id !== openedUser.user_id),

@@ -26,37 +26,37 @@
   const grantTrafficKindItems = $derived([
     {
       value: "regular",
-      label: at("user_traffic_grant_kind_regular", {}, "Обычный"),
+      label: at("user_traffic_grant_kind_regular", {}, "Regular"),
     },
     {
       value: "premium",
-      label: at("user_traffic_grant_kind_premium", {}, "Премиум"),
+      label: at("user_traffic_grant_kind_premium", {}, "Premium"),
     },
   ]);
 </script>
 
 <section class="admin-user-action-sheet admin-user-action-sheet--traffic-grant">
   <AdminSectionHeader
-    title={at("user_traffic_grant_title", {}, "Выдать трафик")}
+    title={at("user_traffic_grant_title", {}, "Grant traffic")}
     description={at(
       "user_traffic_grant_hint",
       {},
-      "Зачисление ГБ на баланс пользователя — как при докупке, но без оплаты. Лимит и сквады в панели обновятся сразу."
+      "Adds GB to the user balance like a top-up, but without payment. The limit and squads update in the panel immediately."
     )}
   />
   <div class="admin-user-action-sheet-body admin-user-grant-stack">
     <Label.Root class="admin-field-label admin-extend-field">
-      <span>{at("user_traffic_grant_kind", {}, "Тип трафика")}</span>
+      <span>{at("user_traffic_grant_kind", {}, "Traffic type")}</span>
       <AdminSelect
         class="admin-grant-kind-select"
         value={usersStore.grantTrafficKindDraft}
         items={grantTrafficKindItems}
         onValueChange={selectGrantTrafficKind}
-        ariaLabel={at("user_traffic_grant_kind", {}, "Тип трафика")}
+        ariaLabel={at("user_traffic_grant_kind", {}, "Traffic type")}
       />
     </Label.Root>
     <Label.Root class="admin-field-label admin-extend-field">
-      <span>{at("user_traffic_grant_gb", {}, "ГБ к выдаче")}</span>
+      <span>{at("user_traffic_grant_gb", {}, "GB to grant")}</span>
       <div class="admin-extend-control">
         <Input
           class="input"
@@ -64,7 +64,7 @@
           min="0"
           step="1"
           placeholder="0"
-          aria-label={at("user_traffic_grant_gb", {}, "ГБ к выдаче")}
+          aria-label={at("user_traffic_grant_gb", {}, "GB to grant")}
           bind:value={usersStore.grantTrafficGbDraft}
         />
         <AdminButton
@@ -73,7 +73,7 @@
           disabled={userActionBusy || !grantTrafficGbValid}
         >
           <Plus size={14} />
-          {at("user_traffic_grant_submit", {}, "Выдать")}
+          {at("user_traffic_grant_submit", {}, "Grant")}
         </AdminButton>
       </div>
     </Label.Root>

@@ -669,7 +669,7 @@ _PRESENTATION_MANIFEST = tuple(
 
 _CONFIG_MANIFEST = (
     ProviderManifestField(
-        "CRYPTOPAY_ENABLED", "bool", "Включена", subsection="CryptoPay", attr="ENABLED"
+        "CRYPTOPAY_ENABLED", "bool", "Enabled", subsection="CryptoPay", attr="ENABLED"
     ),
     ProviderManifestField(
         "CRYPTOPAY_TOKEN", "string", "Token", subsection="CryptoPay", secret=True, attr="TOKEN"

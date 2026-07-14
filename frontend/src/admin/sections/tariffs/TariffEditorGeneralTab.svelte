@@ -25,8 +25,8 @@
   const panelSquads: PanelSquad[] = $derived(tariffsState.panelSquads || []);
   const tariffsCatalog: TariffsCatalog = $derived(tariffsState.tariffsCatalog);
   const billingModelOptions: SelectOption[] = $derived([
-    { value: "period", label: at("tariff_model_period_label", {}, "Период") },
-    { value: "traffic", label: at("tariff_model_traffic_label", {}, "Трафик") },
+    { value: "period", label: at("tariff_model_period_label", {}, "Period") },
+    { value: "traffic", label: at("tariff_model_traffic_label", {}, "Traffic") },
   ]);
   const panelSquadOptions: SelectOption[] = $derived(toPanelSquadOptions(panelSquads));
   const defaultCurrencyCode = $derived(getDefaultCurrencyCode(tariffsCatalog));
@@ -48,12 +48,12 @@
 <Tabs.Content value="general" class="admin-tabs-content">
   <div class="admin-form-row admin-form-row-2">
     <Label.Root class="admin-field-label">
-      <span>{at("tariff_label_key", {}, "Ключ тарифа")}</span>
+      <span>{at("tariff_label_key", {}, "Tariff key")}</span>
       <small
         >{at(
           "tariff_hint_key",
           {},
-          "Латиницей, без пробелов. Используется в платежах и подписках, менять после публикации не рекомендуется"
+          "Latin characters, no spaces. Used in payments and subscriptions; changing it after publication is not recommended"
         )}</small
       >
       <Input
@@ -66,22 +66,22 @@
     </Label.Root>
 
     <div class="admin-field-label">
-      <span>{at("tariff_label_model", {}, "Модель тарификации")}</span>
+      <span>{at("tariff_label_model", {}, "Billing model")}</span>
       <small
-        ><b>{at("tariff_model_period_label", {}, "Период")}</b> — {at(
+        ><b>{at("tariff_model_period_label", {}, "Period")}</b> — {at(
           "tariff_model_period_desc",
           {},
-          "пользователь покупает фиксированный срок (1/3/12 мес. и т.д.)"
-        )}. <b>{at("tariff_model_traffic_label", {}, "Трафик")}</b> — {at(
+          "the user buys a fixed period (1/3/12 months, etc.)"
+        )}. <b>{at("tariff_model_traffic_label", {}, "Traffic")}</b> — {at(
           "tariff_model_traffic_desc",
           {},
-          "пользователь покупает пакеты гигабайт по фиксированной цене за GB"
+          "the user buys gigabyte packages at a fixed price per GB"
         )}</small
       >
       <AdminSelect
         value={String(tariffDraft.billing_model || "period")}
         items={billingModelOptions}
-        ariaLabel={at("tariff_label_model", {}, "Модель")}
+        ariaLabel={at("tariff_label_model", {}, "Billing model")}
         onValueChange={setBillingModel}
       />
     </div>
@@ -99,14 +99,14 @@
     <Label.Root id="tariff-enabled-toggle-label" class="admin-action-label">
       <strong
         >{tariffDraft.enabled
-          ? at("tariff_visible", {}, "Тариф виден на витрине")
-          : at("tariff_hidden", {}, "Тариф скрыт от пользователей")}</strong
+          ? at("tariff_visible", {}, "Tariff is visible in the storefront")
+          : at("tariff_hidden", {}, "Tariff is hidden from users")}</strong
       >
       <small
         >{at(
           "tariff_enabled_hint",
           {},
-          "Выключенный тариф не показывается в боте/мини-аппе, но активные подписки на нём продолжают работать"
+          "A disabled tariff is hidden from the bot/Mini App, but active subscriptions on it keep working"
         )}</small
       >
     </Label.Root>
@@ -114,17 +114,17 @@
 
   <div class="admin-form-row admin-form-row-2">
     <Label.Root class="admin-field-label">
-      <span>{at("tariff_label_name_ru", {}, "Название · RU")}</span>
+      <span>{at("tariff_label_name_ru", {}, "Name - RU")}</span>
       <Input
         class="input"
         type="text"
-        placeholder={at("tariff_placeholder_name_ru", {}, "Стандарт")}
+        placeholder={at("tariff_placeholder_name_ru", {}, "Standard")}
         value={tariffDraft.nameRu}
         oninput={draftInputHandler(tariffsStore, "nameRu")}
       />
     </Label.Root>
     <Label.Root class="admin-field-label">
-      <span>{at("tariff_label_name_en", {}, "Название · EN")}</span>
+      <span>{at("tariff_label_name_en", {}, "Name - EN")}</span>
       <Input
         class="input"
         type="text"
@@ -137,17 +137,17 @@
 
   <div class="admin-form-row admin-form-row-2">
     <Label.Root class="admin-field-label">
-      <span>{at("tariff_label_desc_ru", {}, "Описание · RU")}</span>
+      <span>{at("tariff_label_desc_ru", {}, "Description - RU")}</span>
       <Input
         class="input"
         type="text"
-        placeholder={at("tariff_placeholder_desc_ru", {}, "Базовый набор серверов")}
+        placeholder={at("tariff_placeholder_desc_ru", {}, "Base server pool")}
         value={tariffDraft.descriptionRu}
         oninput={draftInputHandler(tariffsStore, "descriptionRu")}
       />
     </Label.Root>
     <Label.Root class="admin-field-label">
-      <span>{at("tariff_label_desc_en", {}, "Описание · EN")}</span>
+      <span>{at("tariff_label_desc_en", {}, "Description - EN")}</span>
       <Input
         class="input"
         type="text"
@@ -159,21 +159,21 @@
   </div>
 
   <div class="admin-field-label">
-    <span>{at("tariff_label_squads", {}, "Базовые Internal Squads")}</span>
+    <span>{at("tariff_label_squads", {}, "Base Internal Squads")}</span>
     <small
       >{panelSquadsLoading
-        ? at("loading_squads", {}, "Загружаю список из панели…")
+        ? at("loading_squads", {}, "Loading list from panel...")
         : at(
             "tariff_hint_squads",
             {},
-            "Сквады Remnawave, к которым подключается пользователь по этому тарифу. Выберите один или несколько"
+            "Remnawave squads this tariff connects the user to. Select one or more"
           )}</small
     >
     <AdminSelect
       bind:value={tariffsStore.selectedBaseSquad}
       items={panelSquadOptions}
-      placeholder={at("btn_add_squad", {}, "Добавить сквад")}
-      ariaLabel={at("btn_add_squad", {}, "Добавить основной сквад")}
+      placeholder={at("btn_add_squad", {}, "Add squad")}
+      ariaLabel={at("btn_add_squad", {}, "Add squad")}
       onValueChange={addBaseSquad}
     />
     <div class="admin-chip-list">
@@ -192,12 +192,12 @@
 
   <div class="admin-form-row admin-form-row-2">
     <Label.Root class="admin-field-label">
-      <span>{at("tariff_label_hwid", {}, "Лимит устройств (HWID)")}</span>
+      <span>{at("tariff_label_hwid", {}, "Device limit (HWID)")}</span>
       <small
         >{at(
           "tariff_hint_hwid",
           {},
-          "Сколько устройств может одновременно использовать подписку. Пусто — взять значение из .env, 0 — без ограничений"
+          "How many devices can use the subscription at the same time. Empty means use the .env value; 0 means unlimited"
         )}</small
       >
       <Input
@@ -211,12 +211,12 @@
     </Label.Root>
     {#if tariffDraft.billing_model === "period"}
       <Label.Root class="admin-field-label">
-        <span>{at("tariff_label_traffic_limit", {}, "Месячный лимит трафика, GB")}</span>
+        <span>{at("tariff_label_traffic_limit", {}, "Monthly traffic limit, GB")}</span>
         <small
           >{at(
             "tariff_hint_traffic_limit",
             {},
-            "Сколько GB включено в тариф на каждый месяц. 0 — безлимитный трафика. Сверху можно докупать пакеты на вкладке «Докупки»"
+            "How many GB are included every month. 0 means unlimited traffic. Extra packages can be sold on the Top-ups tab"
           )}</small
         >
         <Input
@@ -236,7 +236,7 @@
           >{at(
             "tariff_hint_conversion",
             {},
-            "По этому курсу остаток подписки пересчитывается в гигабайты при переходе пользователя с тарифа «Период» на «Трафик»"
+            "This rate converts the remaining subscription period to gigabytes when a user switches from Period to Traffic"
           )}</small
         >
         <Input

@@ -335,7 +335,7 @@ class Tariff(BaseModel):
         return self.descriptions.get(lang) or self.descriptions.get(fallback) or ""
 
     def premium_name(self, lang: str, fallback: str = "ru") -> str:
-        default = "Premium-серверы" if (lang or fallback) == "ru" else "Premium servers"
+        default = "Premium servers"
         return self.premium_names.get(lang) or self.premium_names.get(fallback) or default
 
     @property

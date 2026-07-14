@@ -126,6 +126,51 @@ def test_cyrillic_fallback_guard_accepts_english_translation_fallback(
     assert "Architecture checks passed." in output
 
 
+def test_cyrillic_source_guard_rejects_frontend_hardcoded_text(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["cyrillic_fallbacks"] = {
+        "frontend_source_lines": {
+            "scopes": ["frontend/src"],
+            "extensions": [".ts", ".svelte"],
+            "allowlist": [],
+            "allowed_count": 0,
+        }
+    }
+    _write(tmp_path, "frontend/src/example.ts", 'const label = "Русский текст";\n')
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 1
+    assert "frontend_source_lines count increased" in output
+    assert "frontend/src/example.ts:1" in output
+
+
+def test_cyrillic_source_guard_accepts_explicit_frontend_fixture(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["cyrillic_fallbacks"] = {
+        "frontend_source_lines": {
+            "scopes": ["frontend/src"],
+            "extensions": [".ts"],
+            "allowlist": ["frontend/src/fixtures/**"],
+            "allowed_count": 0,
+        }
+    }
+    _write(tmp_path, "frontend/src/fixtures/russian.ts", 'export const label = "Русский";\n')
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 0
+    assert "Architecture checks passed." in output
+
+
 def test_cyrillic_fallback_guard_rejects_backend_string_literal(
     tmp_path,
     monkeypatch,
@@ -146,6 +191,28 @@ def test_cyrillic_fallback_guard_rejects_backend_string_literal(
     assert result == 1
     assert "[cyrillic-fallbacks]" in output
     assert "python_literals count increased" in output
+    assert "backend/example.py:1" in output
+
+
+def test_cyrillic_source_guard_rejects_backend_comment(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["cyrillic_fallbacks"] = {
+        "python_source_lines": {
+            "scopes": ["backend"],
+            "allowlist": [],
+            "allowed_count": 0,
+        }
+    }
+    _write(tmp_path, "backend/example.py", "# Русский комментарий\nVALUE = 1\n")
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 1
+    assert "python_source_lines count increased" in output
     assert "backend/example.py:1" in output
 
 

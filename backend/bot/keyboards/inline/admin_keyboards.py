@@ -14,26 +14,26 @@ def get_admin_panel_keyboard(
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
 
-    # Статистика и мониторинг
+    # Statistics and monitoring
     builder.button(
         text=_(key="admin_stats_and_monitoring_section"),
         callback_data="admin_section:stats_monitoring",
     )
 
-    # Управление пользователями
+    # User management
     builder.button(
         text=_(key="admin_user_management_section"), callback_data="admin_section:user_management"
     )
 
-    # Промокоды и маркетинг
+    # Promo codes and marketing
     builder.button(
         text=_(key="admin_promo_marketing_section"), callback_data="admin_section:promo_marketing"
     )
 
-    # Реклама
+    # Advertising
     builder.button(text=_(key="admin_ads_section"), callback_data="admin_action:ads")
 
-    # Системные функции
+    # System functions
     builder.button(
         text=_(key="admin_system_functions_section"), callback_data="admin_section:system_functions"
     )

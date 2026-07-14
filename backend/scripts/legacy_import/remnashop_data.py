@@ -314,15 +314,15 @@ def remnashop_build_tariff_catalog(
             continue
         if plan_type == "DEVICES":
             warnings.append(
-                f"Пропущен тариф Remnashop только для устройств {plan_id or plan.get('name')}: "
-                "Minishop переносит лимиты устройств внутри тарифов, а не отдельными "
-                "тарифами устройств."
+                f"Skipped device-only Remnashop tariff {plan_id or plan.get('name')}: "
+                "Minishop migrates device limits inside tariffs instead of as separate "
+                "device tariffs."
             )
             continue
         if plan_type not in {"BOTH", "TRAFFIC", "UNLIMITED", "DURATION", "SUBSCRIPTION"}:
             warnings.append(
-                f"Пропущен неподдерживаемый тариф Remnashop {plan_id or plan.get('name')} "
-                f"с типом {plan_type or 'unknown'}."
+                f"Skipped unsupported Remnashop tariff {plan_id or plan.get('name')} "
+                f"with type {plan_type or 'unknown'}."
             )
             continue
 
@@ -332,8 +332,8 @@ def remnashop_build_tariff_catalog(
         enabled = _remnashop_plan_enabled(plan)
         if not enabled and _truthy(plan.get("is_active")):
             warnings.append(
-                f"Тариф Remnashop {plan_id or name} импортирован выключенным: у него есть "
-                "ограничения доступности, проверьте правила вручную."
+                f"Remnashop tariff {plan_id or name} was imported disabled because it has "
+                "availability restrictions; review the rules manually."
             )
 
         tariff: dict[str, Any] = {
@@ -346,17 +346,19 @@ def remnashop_build_tariff_catalog(
         }
         if plan.get("external_squad"):
             warnings.append(
-                f"У тарифа Remnashop {plan_id or name} задан "
+                f"Remnashop tariff {plan_id or name} has "
                 f"external_squad={plan.get('external_squad')}; "
-                "Minishop переносит только internal squads. Если нужна внешняя маршрутизация, "
-                "настройте ее вручную."
+                "Minishop only migrates internal squads. Configure external routing "
+                "manually if needed."
             )
 
         plan_durations = duration_rows_by_plan.get(plan_id or -1, [])
         if plan_type == "TRAFFIC":
             traffic_gb = _to_float(plan.get("traffic_limit"))
             if traffic_gb is None or traffic_gb <= 0:
-                warnings.append(f"Пропущен traffic-тариф {plan_id or name}: traffic_limit пустой.")
+                warnings.append(
+                    f"Skipped traffic tariff {plan_id or name}: traffic_limit is empty."
+                )
                 continue
             packages: dict[str, list[dict[str, float]]] = defaultdict(list)
             seen_packages: set[tuple[str, float, float]] = set()
@@ -372,7 +374,7 @@ def remnashop_build_tariff_catalog(
                     packages[currency].append({"gb": traffic_gb, "price": price})
             if not any(packages.values()):
                 warnings.append(
-                    f"Пропущен traffic-тариф {plan_id or name}: не найдены положительные цены."
+                    f"Skipped traffic tariff {plan_id or name}: no positive prices were found."
                 )
                 continue
             tariff.update(
@@ -399,8 +401,7 @@ def remnashop_build_tariff_catalog(
                     period_prices[currency][str(months)] = price
             if not enabled_periods:
                 warnings.append(
-                    f"Пропущен периодический тариф {plan_id or name}: "
-                    "не найдены оплачиваемые сроки."
+                    f"Skipped recurring tariff {plan_id or name}: no payable periods were found."
                 )
                 continue
             tariff.update(
@@ -427,8 +428,7 @@ def remnashop_build_tariff_catalog(
     )
     if default_tariff is None:
         warnings.append(
-            "Не удалось сгенерировать ни одного включенного тарифа Remnashop; "
-            "каталог тарифов пропущен."
+            "No enabled Remnashop tariffs could be generated; the tariff catalog was skipped."
         )
         return {"catalog": None, "tariff_map": tariff_map, "warnings": warnings}
 
@@ -440,7 +440,7 @@ def remnashop_build_tariff_catalog(
     try:
         TariffsConfig.model_validate(catalog)
     except Exception as exc:
-        warnings.append(f"Сгенерированный каталог тарифов Remnashop некорректен: {exc}")
+        warnings.append(f"The generated Remnashop tariff catalog is invalid: {exc}")
         return {"catalog": None, "tariff_map": tariff_map, "warnings": warnings}
 
     return {"catalog": catalog, "tariff_map": tariff_map, "warnings": warnings}
@@ -499,9 +499,9 @@ def remnashop_notification_overrides(notifications: Any) -> dict[str, Any]:
     }
     if len(distinct_targets) > 1:
         warnings.append(
-            "В Remnashop найдено несколько целей для уведомлений; Minishop использует один "
-            f"LOG_CHAT_ID. Импортирован route {selected['route']}, все routes сохранены "
-            "в заметках миграции."
+            "Multiple notification targets were found in Remnashop; Minishop uses one "
+            f"LOG_CHAT_ID. Imported route {selected['route']}; all routes were saved "
+            "in the migration notes."
         )
 
     return {"overrides": overrides, "route": selected, "warnings": warnings}

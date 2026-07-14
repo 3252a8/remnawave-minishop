@@ -93,10 +93,10 @@ async def promo_management_handler(
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
-    page_size = 10  # Количество промокодов на странице
+    page_size = 10  # Number of promo codes per page
     offset = page * page_size
 
-    # Получаем общее количество промокодов
+    # Get the total number of promo codes
     total_count = await promo_code_dal.get_promo_codes_count(session)
     total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 1
 
@@ -124,7 +124,7 @@ async def promo_management_handler(
             )
         )
 
-    # Добавляем кнопки пагинации если есть больше одной страницы
+    # Add pagination buttons when there is more than one page
     if total_pages > 1:
         pagination_buttons = []
         if page > 0:
@@ -143,7 +143,7 @@ async def promo_management_handler(
         if pagination_buttons:
             builder.row(*pagination_buttons)
 
-    # Добавляем кнопки экспорта и возврата
+    # Add export and back buttons
     builder.row(
         InlineKeyboardButton(
             text=_("admin_promo_export_csv_button"), callback_data="promo_export_all"
@@ -155,7 +155,7 @@ async def promo_management_handler(
         )
     )
 
-    # Формируем заголовок с информацией о страницах
+    # Build the header with pagination information
     title = _("admin_promo_management_title")
     if total_pages > 1:
         title += f"\n{_('admin_promo_list_page_info', current=page + 1, total=total_pages, count=total_count)}"  # noqa: E501
@@ -420,7 +420,7 @@ async def promo_export_all_handler(
             i18n.gettext(export_lang, "admin_promo_export_all_generating"), show_alert=True
         )
 
-        # Получаем все промокоды
+        # Get all promo codes
         all_promos = await promo_code_dal.get_all_promo_codes_with_details(
             session, limit=10000, offset=0
         )
@@ -451,11 +451,11 @@ async def promo_export_all_handler(
         )
 
         for promo in all_promos:
-            # Определяем статус
+            # Determine the status
             _status_emoji, status_text = get_promo_status_emoji_and_text(promo, i18n, export_lang)
             effects = PromoEffects.from_model(promo)
 
-            # Формируем данные для CSV
+            # Build CSV data
             row = [
                 promo.code,
                 summarize_effects(effects),
@@ -482,10 +482,10 @@ async def promo_export_all_handler(
 
         output.seek(0)
 
-        # Создаем файл для отправки
+        # Create the file to send
         filename = f"promo_codes_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.csv"
         file = types.BufferedInputFile(
-            output.getvalue().encode("utf-8-sig"),  # BOM для корректного отображения в Excel
+            output.getvalue().encode("utf-8-sig"),  # BOM for correct display in Excel
             filename=filename,
         )
 

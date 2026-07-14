@@ -305,7 +305,7 @@ class UserBotMenuTests(unittest.TestCase):
 
         text = _format_premium_usage_limit(active)
 
-        self.assertEqual(text, "1.25 GB из 26.00 GB")
+        self.assertEqual(text, "1.25 GB of 26.00 GB")
         self.assertNotIn("None", text)
 
     def test_payment_navigation_context_keeps_bot_menu_source(self):

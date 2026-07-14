@@ -314,7 +314,7 @@ export function createThemesStore({
           themesDir: String(data.themes_dir || ""),
         }));
       } else {
-        flash(adminErrorMessage(data, at, at("load_failed", {}, "Не удалось загрузить темы")));
+        flash(adminErrorMessage(data, at, at("load_failed", {}, "Failed to load data")));
       }
     } finally {
       updateState((s) => ({ ...s, themesLoading: false }));
@@ -339,11 +339,11 @@ export function createThemesStore({
           themesDirty: false,
           themesDir: String(data.themes_dir || s.themesDir),
         }));
-        if (!silent) flash(at("themes_saved", {}, "Темы сохранены"));
+        if (!silent) flash(at("themes_saved", {}, "Themes saved"));
         if (typeof onThemesSaved === "function") await onThemesSaved();
         return true;
       }
-      flash(adminErrorMessage(data, at, at("themes_save_failed", {}, "Не удалось сохранить")));
+      flash(adminErrorMessage(data, at, at("themes_save_failed", {}, "Failed to save themes")));
       return false;
     } finally {
       updateState((s) => ({ ...s, themesSaving: false }));
@@ -361,7 +361,7 @@ export function createThemesStore({
         body,
       });
       if (data?.ok) {
-        flash(at("appearance_logo_uploaded_pending", {}, "Логотип загружен и применен."));
+        flash(at("appearance_logo_uploaded_pending", {}, "Logo uploaded and applied."));
         return {
           logoUrl: String(data.logo_url || ""),
           faviconUrl: String(data.favicon_url || ""),
@@ -372,7 +372,7 @@ export function createThemesStore({
         adminErrorMessage(
           data,
           at,
-          at("appearance_logo_upload_failed", {}, "Не удалось загрузить логотип")
+          at("appearance_logo_upload_failed", {}, "Failed to upload logo")
         )
       );
       return null;
@@ -391,7 +391,7 @@ export function createThemesStore({
         body: JSON.stringify({ url: sourceUrl }),
       });
       if (data?.ok) {
-        flash(at("appearance_logo_uploaded_pending", {}, "Логотип загружен и применен."));
+        flash(at("appearance_logo_uploaded_pending", {}, "Logo uploaded and applied."));
         return {
           logoUrl: String(data.logo_url || ""),
           faviconUrl: String(data.favicon_url || ""),
@@ -402,7 +402,7 @@ export function createThemesStore({
         adminErrorMessage(
           data,
           at,
-          at("appearance_logo_upload_failed", {}, "Не удалось загрузить логотип")
+          at("appearance_logo_upload_failed", {}, "Failed to upload logo")
         )
       );
       return null;
@@ -422,14 +422,14 @@ export function createThemesStore({
         body,
       });
       if (data?.ok) {
-        flash(at("appearance_favicon_uploaded_pending", {}, "Favicon загружена и применена."));
+        flash(at("appearance_favicon_uploaded_pending", {}, "Favicon uploaded and applied."));
         return { faviconUrl: String(data.favicon_url || ""), persisted: data.persisted };
       }
       flash(
         adminErrorMessage(
           data,
           at,
-          at("appearance_favicon_upload_failed", {}, "Не удалось загрузить favicon")
+          at("appearance_favicon_upload_failed", {}, "Failed to upload favicon")
         )
       );
       return null;
@@ -448,14 +448,14 @@ export function createThemesStore({
         body: JSON.stringify({ url: sourceUrl }),
       });
       if (data?.ok) {
-        flash(at("appearance_favicon_uploaded_pending", {}, "Favicon загружена и применена."));
+        flash(at("appearance_favicon_uploaded_pending", {}, "Favicon uploaded and applied."));
         return { faviconUrl: String(data.favicon_url || ""), persisted: data.persisted };
       }
       flash(
         adminErrorMessage(
           data,
           at,
-          at("appearance_favicon_upload_failed", {}, "Не удалось загрузить favicon")
+          at("appearance_favicon_upload_failed", {}, "Failed to upload favicon")
         )
       );
       return null;

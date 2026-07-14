@@ -117,19 +117,19 @@ class _RemnashopTariffsSection(_RemnashopImporterBase):
             except (OSError, json.JSONDecodeError) as exc:
                 if self.on_conflict == "skip":
                     self.summary["warnings"].append(
-                        f"Запись каталога тарифов пропущена: {catalog_path} уже существует "
-                        f"и не читается: {exc}"
+                        f"Skipped tariff catalog write: {catalog_path} already exists "
+                        f"and is unreadable: {exc}"
                     )
                     self.summary["tariffs"]["catalog_write_skipped"] += 1
                     return None
                 self.summary["warnings"].append(
-                    f"Перезаписываем нечитаемый каталог тарифов {catalog_path}: {exc}"
+                    f"Overwriting unreadable tariff catalog {catalog_path}: {exc}"
                 )
 
         if await _path_exists(catalog_path) and self.on_conflict == "skip":
             self.summary["tariffs"]["catalog_write_skipped"] += 1
             self.summary["warnings"].append(
-                f"Запись каталога тарифов пропущена: {catalog_path} уже существует."
+                f"Skipped tariff catalog write: {catalog_path} already exists."
             )
             return None
 
@@ -137,9 +137,7 @@ class _RemnashopTariffsSection(_RemnashopImporterBase):
         try:
             TariffsConfig.model_validate(catalog)
         except Exception as exc:
-            self.summary["warnings"].append(
-                f"Пропущен некорректный объединенный каталог тарифов: {exc}"
-            )
+            self.summary["warnings"].append(f"Skipped invalid merged tariff catalog: {exc}")
             self.summary["tariffs"]["catalog_write_skipped"] += 1
             return None
 

@@ -85,7 +85,7 @@ def get_tariff_catalog_keyboard(
             else:
                 min_price = None
             if min_price is not None:
-                label = f"{label} от {min_price:g}"
+                label = f"{label} from {min_price:g}"
         else:
             if hasattr(tariff, "min_traffic_package"):
                 package = tariff.min_traffic_package(default_currency)
@@ -94,7 +94,7 @@ def get_tariff_catalog_keyboard(
             else:
                 package = None
             if package:
-                label = f"{label} от {package.price:g} / {package.gb:g} GB"
+                label = f"{label} from {package.price:g} / {package.gb:g} GB"
         builder.row(
             InlineKeyboardButton(
                 text=label,

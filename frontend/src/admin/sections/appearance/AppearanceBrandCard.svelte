@@ -272,17 +272,13 @@
 <article class="admin-card">
   <header class="admin-card-head">
     <div>
-      <h3>{at("appearance_brand_title", {}, "Логотип")}</h3>
-      <small>{at("appearance_brand_sub", {}, "Загрузите логотип файлом или по ссылке")}</small>
+      <h3>{at("appearance_brand_title", {}, "Logo")}</h3>
+      <small>{at("appearance_brand_sub", {}, "Upload a logo as a file or from a URL")}</small>
     </div>
     <div class="admin-editor-section-actions">
       {#if appearanceDirtyCount}
         <AdminBadge variant="warning">
-          {at(
-            "settings_dirty_count",
-            { count: appearanceDirtyCount },
-            `Изменений: ${appearanceDirtyCount}`
-          )}
+          {at("settings_dirty_count", { count: appearanceDirtyCount }, "Changes: {count}")}
         </AdminBadge>
       {/if}
       <AdminButton
@@ -293,8 +289,8 @@
       >
         <Save size={13} />
         {settingsSaving || themesSaving
-          ? at("btn_saving", {}, "Сохранение...")
-          : at("btn_save", {}, "Сохранить")}
+          ? at("btn_saving", {}, "Saving...")
+          : at("btn_save", {}, "Save")}
       </AdminButton>
     </div>
   </header>
@@ -331,7 +327,7 @@
           disabled={themesSaving}
         >
           <FileText size={13} />
-          {at("appearance_logo_upload_file", {}, "Загрузить файл")}
+          {at("appearance_logo_upload_file", {}, "Upload file")}
         </AdminButton>
         <div class="appearance-url-row">
           <Input
@@ -346,7 +342,7 @@
             onclick={uploadLogoFromUrl}
             disabled={themesSaving || !logoSourceUrl.trim()}
           >
-            {at("appearance_logo_upload_url", {}, "По ссылке")}
+            {at("appearance_logo_upload_url", {}, "From URL")}
           </AdminButton>
         </div>
       </section>
@@ -375,14 +371,14 @@
       <section class="appearance-control-card">
         <label class="appearance-switch">
           <Switch.Root
-            aria-label={at("appearance_use_custom_favicon", {}, "Использовать отдельную favicon")}
+            aria-label={at("appearance_use_custom_favicon", {}, "Use a separate favicon")}
             bind:checked={faviconUseCustomDraft}
             onCheckedChange={setCustomFavicon}
             class="admin-switch-root"
           >
             <Switch.Thumb class="admin-switch-thumb" />
           </Switch.Root>
-          <span>{at("appearance_use_custom_favicon", {}, "Использовать отдельную favicon")}</span>
+          <span>{at("appearance_use_custom_favicon", {}, "Use a separate favicon")}</span>
         </label>
         <FileInput
           bind:element={faviconFileInput}
@@ -397,7 +393,7 @@
           disabled={themesSaving}
         >
           <FileText size={13} />
-          {at("appearance_favicon_upload_file", {}, "Загрузить favicon")}
+          {at("appearance_favicon_upload_file", {}, "Upload favicon")}
         </AdminButton>
         <div class="appearance-url-row">
           <Input
@@ -412,7 +408,7 @@
             onclick={uploadFaviconFromUrl}
             disabled={themesSaving || !faviconSourceUrl.trim()}
           >
-            {at("appearance_favicon_upload_url", {}, "По ссылке")}
+            {at("appearance_favicon_upload_url", {}, "From URL")}
           </AdminButton>
         </div>
       </section>

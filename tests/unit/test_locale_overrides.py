@@ -168,7 +168,7 @@ def test_language_options_include_override_only_languages(tmp_path):
     options = i18n.language_options()
 
     assert [item["code"] for item in options] == ["ru", "en", "pt-br", "uk"]
-    assert options[-1]["label"] == "Українська"
+    assert options[-1]["label"] == "Ukrainian"
     assert options[-1]["base"] is False
 
 
@@ -185,7 +185,7 @@ def test_language_keyboard_includes_override_only_languages(tmp_path):
     buttons = [button for row in keyboard.inline_keyboard for button in row]
 
     assert any(button.callback_data == "set_lang_uk" for button in buttons)
-    assert any("Українська" in button.text and "✅" in button.text for button in buttons)
+    assert any("Ukrainian" in button.text and "✅" in button.text for button in buttons)
 
 
 def test_webapp_language_normalizer_accepts_valid_extra_languages():

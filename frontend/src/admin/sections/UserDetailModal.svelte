@@ -63,8 +63,8 @@
   let tariffsLoadRequested = $state(false);
 
   function pretty(val: unknown): string {
-    if (val === true) return at("yes", {}, "Да");
-    if (val === false) return at("no", {}, "Нет");
+    if (val === true) return at("yes", {}, "Yes");
+    if (val === false) return at("no", {}, "No");
     return String(val ?? "—");
   }
 
@@ -74,29 +74,29 @@
 
   function subscriptionDisplayLabel(sub: Record<string, unknown> | null | undefined): string {
     if (!sub) return "—";
-    if (isTrialSubscription(sub)) return at("user_subscription_trial", {}, "Триал");
+    if (isTrialSubscription(sub)) return at("user_subscription_trial", {}, "Trial");
     if (sub.display_label) return String(sub.display_label);
     return sub.tariff_name || sub.tariff_key
       ? String(sub.tariff_name || sub.tariff_key)
-      : at("user_history_no_tariff", {}, "Без тарифа");
+      : at("user_history_no_tariff", {}, "No tariff");
   }
 
   function trialSummaryText(trial: Record<string, unknown> | null | undefined): string {
-    if (!trial?.used) return at("user_trial_not_used", {}, "Не брал");
+    if (!trial?.used) return at("user_trial_not_used", {}, "Not used");
     const date = trial.latest_activated_at || trial.first_activated_at;
     const base = date
-      ? at("user_trial_used_at", { date: fmtDate(date) }, `Брал ${fmtDate(date)}`)
-      : at("user_trial_used", {}, "Брал");
-    return trial.active ? `${base} · ${at("user_trial_active", {}, "активен")}` : base;
+      ? at("user_trial_used_at", { date: fmtDate(date) }, "Used {date}")
+      : at("user_trial_used", {}, "Used");
+    return trial.active ? `${base} · ${at("user_trial_active", {}, "active")}` : base;
   }
 
   function hwidLimitLabel(sub: Record<string, unknown> | null | undefined): string {
     const rawBase = sub?.hwid_device_limit;
     const hasBase = rawBase !== null && rawBase !== undefined;
     const extra = Math.max(0, Number(sub?.extra_hwid_devices || 0));
-    if (!hasBase) return at("user_hwid_limit_default", {}, "Тарифный / default");
+    if (!hasBase) return at("user_hwid_limit_default", {}, "Tariff / default");
     const base = Number(rawBase);
-    if (base === 0) return at("user_hwid_limit_unlimited", {}, "Безлимит");
+    if (base === 0) return at("user_hwid_limit_unlimited", {}, "Unlimited");
     if (extra > 0) {
       return at(
         "user_hwid_limit_with_extra",
@@ -109,12 +109,12 @@
 
   function hwidBaseLimitLabel(value: unknown): string {
     if (value === null || value === undefined || value === "") {
-      return at("user_hwid_limit_default", {}, "Тарифный / default");
+      return at("user_hwid_limit_default", {}, "Tariff / default");
     }
     const limit = Number(value);
-    if (limit === 0) return at("user_hwid_limit_unlimited", {}, "Безлимит");
+    if (limit === 0) return at("user_hwid_limit_unlimited", {}, "Unlimited");
     if (Number.isFinite(limit)) return at("user_hwid_limit_count", { count: limit }, `${limit}`);
-    return at("user_hwid_limit_default", {}, "Тарифный / default");
+    return at("user_hwid_limit_default", {}, "Tariff / default");
   }
 
   function hwidBaseLimitKey(value: unknown): string {
@@ -127,9 +127,9 @@
     const connectedAt = detail?.last_vpn_connected_at;
     const status = detail?.vpn_connection_status;
     if (connectedAt) return fmtDate(connectedAt);
-    if (status === "never") return at("user_vpn_never_connected", {}, "Никогда");
+    if (status === "never") return at("user_vpn_never_connected", {}, "Never");
     if (status === "connected") {
-      return at("user_vpn_connected_no_time", {}, "Подключался, время неизвестно");
+      return at("user_vpn_connected_no_time", {}, "Connected, time unknown");
     }
     return "—";
   }
@@ -223,21 +223,21 @@
       return at(
         "user_traffic_strategy_locked_traffic",
         {},
-        "Для traffic-тарифов стратегия всегда NO_RESET. Сначала смените тариф на периодический."
+        "Traffic-package tariffs always use NO_RESET. Switch the user to a period tariff first."
       );
     }
     if (lockReason === "trial") {
       return at(
         "user_traffic_strategy_locked_trial",
         {},
-        "Для триала стратегия задаётся общей настройкой TRIAL_TRAFFIC_STRATEGY."
+        "Trial strategy is controlled by the global TRIAL_TRAFFIC_STRATEGY setting."
       );
     }
     if (lockReason === "panel_unavailable") {
       return at(
         "user_traffic_strategy_locked_panel",
         {},
-        "Текущее значение панели недоступно. Повторите после восстановления связи с Remnawave."
+        "The panel value is unavailable. Retry after Remnawave connectivity is restored."
       );
     }
     return "";
@@ -309,8 +309,8 @@
   );
   const openedUserTelegramProfileHint = $derived(
     openedUserTelegramProfileLinkKind === "id"
-      ? at("user_open_tg_profile_id_hint", {}, "Бот отправит кнопку профиля в Telegram")
-      : at("user_open_tg_profile_hint", {}, "Открыть профиль Telegram")
+      ? at("user_open_tg_profile_id_hint", {}, "The bot will send a profile button in Telegram.")
+      : at("user_open_tg_profile_hint", {}, "Open Telegram profile")
   );
 
   const tariffCatalogItems = $derived((tariffsState.tariffsCatalog?.tariffs || []) as Tariff[]);
@@ -384,30 +384,26 @@
   const trafficStrategyItems = $derived([
     {
       value: "NO_RESET",
-      label: at(
-        "settings_field_user_traffic_strategy_choice_no_reset",
-        {},
-        "Без автоматического сброса"
-      ),
+      label: at("settings_field_user_traffic_strategy_choice_no_reset", {}, "No automatic reset"),
     },
     {
       value: "DAY",
-      label: at("settings_field_user_traffic_strategy_choice_day", {}, "Каждый день"),
+      label: at("settings_field_user_traffic_strategy_choice_day", {}, "Every day"),
     },
     {
       value: "WEEK",
-      label: at("settings_field_user_traffic_strategy_choice_week", {}, "Каждую неделю"),
+      label: at("settings_field_user_traffic_strategy_choice_week", {}, "Every week"),
     },
     {
       value: "MONTH",
-      label: at("settings_field_user_traffic_strategy_choice_month", {}, "Каждый месяц"),
+      label: at("settings_field_user_traffic_strategy_choice_month", {}, "Every month"),
     },
     {
       value: "MONTH_ROLLING",
       label: at(
         "settings_field_user_traffic_strategy_choice_month_rolling",
         {},
-        "Месяц от даты сброса"
+        "Monthly from reset date"
       ),
     },
   ]);
@@ -526,7 +522,7 @@
     if (!openedUserTelegramProfileLink) {
       usersStore.copyToClipboard(
         String(openedUser?.telegram_id || ""),
-        at("user_tg_profile_unavailable", {}, "Ссылка на профиль Telegram недоступна")
+        at("user_tg_profile_unavailable", {}, "Telegram profile link is unavailable")
       );
       return;
     }

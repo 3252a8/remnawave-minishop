@@ -523,11 +523,11 @@ SPEC = PaymentProviderSpec(
     provider_key="telegram_stars",
     label="Telegram Stars",
     webapp_label="Telegram Stars",
-    webapp_labels={"ru": "Звёзды Telegram", "en": "Telegram Stars"},
+    webapp_labels={"ru": "Telegram Stars", "en": "Telegram Stars"},
     webapp_icon="Sparkles",
     info_url="https://telegram.org/",
     logo_url="/provider-logos/telegram-stars.png",
-    telegram_labels={"ru": "Звёзды Telegram", "en": "Telegram Stars"},
+    telegram_labels={"ru": "Telegram Stars", "en": "Telegram Stars"},
     pending_status="pending_stars",
     # Stars toggles stay on global Settings because stars_subscription_options
     # reads them together with STARS_PRICE_* fields.

@@ -20,15 +20,15 @@
 
 <section class="admin-user-action-sheet admin-user-action-sheet--telegram-message">
   <AdminSectionHeader
-    title={at("user_label_telegram_msg", {}, "Сообщение в Telegram")}
-    description={at("user_hint_telegram_msg", {}, "Поддерживается HTML-разметка Telegram")}
+    title={at("user_label_telegram_msg", {}, "Telegram Message")}
+    description={at("user_hint_telegram_msg", {}, "Telegram HTML formatting supported")}
   />
   <div class="admin-user-action-sheet-body">
     <Textarea
       class="admin-textarea"
       rows={3}
-      placeholder={at("user_placeholder_msg", {}, "Текст сообщения")}
-      ariaLabel={at("user_label_telegram_msg", {}, "Сообщение в Telegram")}
+      placeholder={at("user_placeholder_msg", {}, "Message text")}
+      ariaLabel={at("user_label_telegram_msg", {}, "Telegram Message")}
       bind:value={usersStore.userMessageDraft}
     />
     <div class="admin-message-actions">
@@ -37,7 +37,7 @@
         disabled={userActionBusy || !userMessageDraft.trim()}
       >
         <Eye size={14} />
-        {at("btn_preview_tg", {}, "Превью в Telegram")}
+        {at("btn_preview_tg", {}, "Preview in Telegram")}
       </AdminButton>
       <AdminButton
         variant="primary"
@@ -46,7 +46,7 @@
         disabled={userActionBusy || !userMessageDraft.trim()}
       >
         <Send size={14} />
-        {at("btn_send_msg", {}, "Отправить сообщение")}
+        {at("btn_send_msg", {}, "Send message")}
       </AdminButton>
     </div>
   </div>

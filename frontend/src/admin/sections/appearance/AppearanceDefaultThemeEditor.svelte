@@ -148,18 +148,18 @@
 <section class="appearance-theme-section">
   <header class="appearance-theme-section-head">
     <div>
-      <h4>{at("appearance_default_theme_title", {}, "Тема по-умолчанию")}</h4>
+      <h4>{at("appearance_default_theme_title", {}, "Default theme")}</h4>
       <small>
         {at(
           "appearance_default_theme_section_sub",
           {},
-          "Базовая тема приложения: темный и светлый режимы, цвета, шрифты и логотип."
+          "The app baseline theme: dark and light modes, colors, fonts, and logo scale."
         )}
       </small>
     </div>
     {#if isThemeDirty(defaultTheme)}
       <AdminBadge variant="warning">
-        {at("settings_badge_dirty", {}, "Изменено")}
+        {at("settings_badge_dirty", {}, "Changed")}
       </AdminBadge>
     {/if}
   </header>
@@ -174,7 +174,7 @@
       <button
         type="button"
         class="theme-card-select-hitbox"
-        aria-label={at("appearance_use_default_theme", {}, "Выбрать тему по-умолчанию")}
+        aria-label={at("appearance_use_default_theme", {}, "Select default theme")}
         aria-pressed={defaultThemeIsCurrent}
         disabled={themesSaving || defaultThemeIsCurrent}
         onclick={activateDefaultThemeFromClick}
@@ -183,14 +183,13 @@
         <div>
           <div class="default-theme-title">
             <Paintbrush size={17} />
-            <strong>{at("appearance_default_theme_title", {}, "Тема по-умолчанию")}</strong>
+            <strong>{at("appearance_default_theme_title", {}, "Default theme")}</strong>
             {#if defaultThemeIsCurrent}
               <AdminBadge variant="success">{at("status_current", {}, "Current")}</AdminBadge>
             {/if}
             <AdminBadge>{defaultVariantTitle(defaultVariant)}</AdminBadge>
             {#if isDefaultVariantDirty()}
-              <AdminBadge variant="warning">{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
-              >
+              <AdminBadge variant="warning">{at("settings_badge_dirty", {}, "Changed")}</AdminBadge>
             {/if}
             {#if defaultThemeIsCurrent}
               <span class="default-theme-check" aria-hidden="true">
@@ -204,13 +203,13 @@
           {#if !defaultThemeIsCurrent}
             <AdminButton size="sm" onclick={activateDefaultThemeFromClick} disabled={themesSaving}>
               <Check size={13} />
-              {at("appearance_use_default_theme", {}, "Выбрать тему по-умолчанию")}
+              {at("appearance_use_default_theme", {}, "Select default theme")}
             </AdminButton>
           {/if}
           <label class="appearance-switch appearance-mode-switch">
             <span>{at("appearance_default_dark", {}, "Dark")}</span>
             <Switch.Root
-              aria-label={at("appearance_default_variant", {}, "Вариант темы по умолчанию")}
+              aria-label={at("appearance_default_variant", {}, "Default theme variant")}
               checked={defaultVariant === "light"}
               onCheckedChange={setDefaultVariantFromSwitch}
               class="admin-switch-root"
@@ -228,7 +227,7 @@
 
       <div
         class="appearance-preset-row"
-        aria-label={at("appearance_default_presets", {}, "Пресеты темы по умолчанию")}
+        aria-label={at("appearance_default_presets", {}, "Default theme presets")}
       >
         {#each DEFAULT_THEME_PRESETS[defaultVariant] || [] as preset (preset.id)}
           <button
@@ -251,7 +250,7 @@
                 {at("appearance_font_ui", {}, "Interface")}
                 {#if isDefaultTokenDirty("font_sans")}
                   <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                   >
                 {/if}
               </span>
@@ -271,7 +270,7 @@
                 {at("appearance_font_brand", {}, "Brand")}
                 {#if isDefaultTokenDirty("font_logo")}
                   <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                   >
                 {/if}
               </span>
@@ -291,7 +290,7 @@
                 {at("appearance_font_mono", {}, "Mono")}
                 {#if isDefaultTokenDirty("font_mono")}
                   <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                   >
                 {/if}
               </span>
@@ -355,7 +354,7 @@
               {at("appearance_radius", {}, "Radius")}
               {#if isDefaultTokenDirty("radius")}
                 <AdminBadge variant="warning"
-                  >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                  >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                 >
               {/if}
             </span>
@@ -389,7 +388,7 @@
               {at("appearance_logo_desktop", {}, "Desktop logo")}
               {#if isThemeHomeLogoScaleDirty(defaultTheme, "desktop", defaultVariant)}
                 <AdminBadge variant="warning"
-                  >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                  >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                 >
               {/if}
             </span>
@@ -423,7 +422,7 @@
               {at("appearance_logo_mobile", {}, "Mobile logo")}
               {#if isThemeHomeLogoScaleDirty(defaultTheme, "mobile", defaultVariant)}
                 <AdminBadge variant="warning"
-                  >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                  >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                 >
               {/if}
             </span>
@@ -472,7 +471,7 @@
                     {tokenLabel}
                     {#if isDefaultTokenDirty(tokenKey)}
                       <AdminBadge variant="warning"
-                        >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                        >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                       >
                     {/if}
                   </span>
@@ -494,15 +493,11 @@
                     class="appearance-token-reset"
                     size="sm"
                     variant="ghost"
-                    title={at(
-                      "appearance_reset_token",
-                      { label: tokenLabel },
-                      `Сбросить ${tokenLabel}`
-                    )}
+                    title={at("appearance_reset_token", { label: tokenLabel }, "Reset {label}")}
                     aria-label={at(
                       "appearance_reset_token",
                       { label: tokenLabel },
-                      `Сбросить ${tokenLabel}`
+                      "Reset {label}"
                     )}
                     onclick={() => resetDefaultToken(tokenKey)}
                   >
@@ -517,7 +512,11 @@
     </section>
   {:else}
     <AdminEmptyState>
-      {at("themes_catalog_empty", {}, "Каталог тем пуст. Обновите список тем.")}
+      {at(
+        "themes_catalog_empty",
+        {},
+        "The catalog is empty. Add a theme folder to data/themes and refresh."
+      )}
     </AdminEmptyState>
   {/if}
 </section>

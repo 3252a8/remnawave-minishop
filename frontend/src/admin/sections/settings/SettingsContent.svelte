@@ -341,9 +341,7 @@
             <Switch.Thumb class="admin-switch-thumb" />
           </Switch.Root>
           <span
-            >{valueFor(field)
-              ? at("enabled", {}, "Включено")
-              : at("disabled", {}, "Выключено")}</span
+            >{valueFor(field) ? at("enabled", {}, "Enabled") : at("disabled", {}, "Disabled")}</span
           >
         </div>
       {:else if field.type === "color"}
@@ -448,7 +446,7 @@
         <AdminButton
           size="sm"
           variant="ghost"
-          aria-label={revealed ? at("hide", {}, "Скрыть") : at("show", {}, "Показать")}
+          aria-label={revealed ? at("hide", {}, "Hide") : at("show", {}, "Show")}
           onclick={() => toggleSecretReveal(field.key)}
         >
           {#if revealed}<EyeOff size={13} />{:else}<Eye size={13} />{/if}
@@ -465,7 +463,7 @@
       {#if isOverridden(field) || settingsDirty[field.key]}
         <AdminButton size="sm" variant="ghost" onclick={() => resetField(field)}>
           <X size={12} />
-          {at("reset", {}, "Сбросить")}
+          {at("reset", {}, "Reset")}
         </AdminButton>
       {/if}
     </div>
@@ -475,8 +473,8 @@
 {#if settingsLoading || !visibleSettingsSections.length}
   <AdminEmptyState
     >{settingsLoading
-      ? at("loading", {}, "Загрузка…")
-      : at("no_data", {}, "Нет данных")}</AdminEmptyState
+      ? at("loading", {}, "Loading…")
+      : at("no_data", {}, "No data")}</AdminEmptyState
   >
 {:else}
   <div class="admin-settings-search" onfocusout={handleSettingsSearchFocusOut}>
@@ -555,18 +553,18 @@
       {at(
         "settings_hint",
         {},
-        "Изменения в админке имеют приоритет над .env. Кнопка «Сбросить» возвращает значение из переменных окружения."
+        "Changes in the admin panel take precedence over .env. The 'Reset' button returns the value from environment variables."
       )}
     </p>
     <div style="display:flex; gap:8px;">
       <AdminButton size="sm" variant="ghost" onclick={toggleAllSections}>
         {settingsAllOpen
-          ? at("collapse_all", {}, "Свернуть всё")
-          : at("expand_all", {}, "Развернуть всё")}
+          ? at("collapse_all", {}, "Collapse all")
+          : at("expand_all", {}, "Expand all")}
       </AdminButton>
       {#if Object.keys(settingsDirty).length > 0}
         <AdminButton size="sm" variant="primary" onclick={saveSettings} disabled={settingsSaving}>
-          {settingsSaving ? at("saving", {}, "Сохранение...") : at("save", {}, "Сохранить")}
+          {settingsSaving ? at("saving", {}, "Saving...") : at("save", {}, "Save")}
         </AdminButton>
       {/if}
     </div>

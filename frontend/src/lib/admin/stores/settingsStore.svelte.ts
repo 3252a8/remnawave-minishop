@@ -207,7 +207,7 @@ export function createSettingsStore({ api, onToast, at }: SettingsStoreOptions):
         body: JSON.stringify(payload),
       });
       if (isOkResponse(res)) {
-        onToast(at("settings_saved", {}, "Настройки сохранены"));
+        onToast(at("settings_saved", {}, "Settings saved"));
         updateState((s) => ({ ...s, settingsDirty: {} }));
         if (onSettingsSaved) await onSettingsSaved({ updates, deletes });
         await loadSettings();
@@ -216,7 +216,7 @@ export function createSettingsStore({ api, onToast, at }: SettingsStoreOptions):
         const summary = Object.entries(res.errors)
           .map(([k, v]) => `${k}: ${v}`)
           .join("; ");
-        onToast(at("settings_validation_errors", { errors: summary }, `Ошибки: ${summary}`));
+        onToast(at("settings_validation_errors", { errors: summary }, "Errors: {errors}"));
       } else {
         const message = adminErrorMessage(res, at);
         onToast(at("settings_save_error", { error: message }, message));

@@ -85,48 +85,48 @@
   const statusTabs = $derived([
     {
       value: "active",
-      label: at("support_filter_active", {}, "Активные"),
+      label: at("support_filter_active", {}, "Active"),
       count: stats?.active || 0,
     },
     {
       value: "closed",
-      label: at("support_filter_closed", {}, "Закрытые"),
+      label: at("support_filter_closed", {}, "Closed"),
       count: stats?.closed || 0,
     },
   ]);
   const priorityFilterOptions = $derived([
-    { value: "all", label: at("support_filter_all_priorities", {}, "Любой приоритет") },
-    { value: "low", label: at("support_priority_low", {}, "Низкий") },
-    { value: "normal", label: at("support_priority_normal", {}, "Обычный") },
-    { value: "high", label: at("support_priority_high", {}, "Высокий") },
-    { value: "urgent", label: at("support_priority_urgent", {}, "Срочный") },
+    { value: "all", label: at("support_filter_all_priorities", {}, "Any priority") },
+    { value: "low", label: at("support_priority_low", {}, "Low") },
+    { value: "normal", label: at("support_priority_normal", {}, "Normal") },
+    { value: "high", label: at("support_priority_high", {}, "High") },
+    { value: "urgent", label: at("support_priority_urgent", {}, "Urgent") },
   ]);
   const categoryFilterOptions = $derived([
-    { value: "all", label: at("support_filter_all_categories", {}, "Все категории") },
-    { value: "billing", label: at("support_category_billing", {}, "Оплата") },
-    { value: "technical", label: at("support_category_technical", {}, "Техническое") },
-    { value: "account", label: at("support_category_account", {}, "Аккаунт") },
-    { value: "other", label: at("support_category_other", {}, "Другое") },
+    { value: "all", label: at("support_filter_all_categories", {}, "All categories") },
+    { value: "billing", label: at("support_category_billing", {}, "Billing") },
+    { value: "technical", label: at("support_category_technical", {}, "Technical") },
+    { value: "account", label: at("support_category_account", {}, "Account") },
+    { value: "other", label: at("support_category_other", {}, "Other") },
   ]);
   const sortOptions = $derived([
-    { value: "importance_desc", label: at("support_sort_importance_desc", {}, "Важные сверху") },
-    { value: "updated_desc", label: at("sort_updated_desc", {}, "Сначала новые") },
-    { value: "updated_asc", label: at("sort_updated_asc", {}, "Сначала старые") },
-    { value: "created_desc", label: at("sort_created_desc", {}, "Созданы недавно") },
-    { value: "created_asc", label: at("sort_created_asc", {}, "Созданы давно") },
+    { value: "importance_desc", label: at("support_sort_importance_desc", {}, "Most important") },
+    { value: "updated_desc", label: at("sort_updated_desc", {}, "Newest activity") },
+    { value: "updated_asc", label: at("sort_updated_asc", {}, "Oldest activity") },
+    { value: "created_desc", label: at("sort_created_desc", {}, "Newest created") },
+    { value: "created_asc", label: at("sort_created_asc", {}, "Oldest created") },
   ]);
   const ticketReady = $derived(Boolean(openedTicket && openedTicket.ticket_id === openedTicketId));
   const modalTitle = $derived(
     ticketReady
       ? openedTicket?.subject || ""
       : openedTicketId
-        ? at("support_ticket_number", { id: openedTicketId }, `Тикет #${openedTicketId}`)
-        : at("support_ticket_dialog", {}, "Диалог поддержки")
+        ? at("support_ticket_number", { id: openedTicketId }, "Ticket #{id}")
+        : at("support_ticket_dialog", {}, "Support conversation")
   );
   const modalDescription = $derived(
     ticketReady
-      ? at("support_ticket_number", { id: openedTicketId }, `Тикет #${openedTicketId}`)
-      : at("loading", {}, "Загрузка")
+      ? at("support_ticket_number", { id: openedTicketId }, "Ticket #{id}")
+      : at("loading", {}, "Loading…")
   );
   const openedTicketUser = $derived(openedTicket?.user || {});
   const openedTicketUserAvatarUrl = $derived(resolvedAvatarUrl(openedTicketUser));
@@ -216,7 +216,7 @@
     if (message?.author_name) return message.author_name;
     if (message?.author_role === "user") return ticketUserDisplayName();
     if (message?.author_role === "admin" && message?.author_user_id) {
-      return `${at("support_role_admin", {}, "Админ")} #${message.author_user_id}`;
+      return `${at("support_role_admin", {}, "Admin")} #${message.author_user_id}`;
     }
     return "";
   }
@@ -244,23 +244,23 @@
 </script>
 
 <div class="support-admin-layout">
-  <div class="support-admin-summary" aria-label={at("support_summary", {}, "Сводка поддержки")}>
+  <div class="support-admin-summary" aria-label={at("support_summary", {}, "Support summary")}>
     <span>
       <strong>{stats?.open || 0}</strong>
-      <small>{at("support_status_open", {}, "Открыт")}</small>
+      <small>{at("support_status_open", {}, "Open")}</small>
     </span>
     <span>
       <strong>{stats?.awaiting_admin || 0}</strong>
-      <small>{at("support_status_awaiting_admin", {}, "Ждет админа")}</small>
+      <small>{at("support_status_awaiting_admin", {}, "Awaiting admin")}</small>
     </span>
     <span>
       <strong>{stats?.total_unread_admin || 0}</strong>
-      <small>{at("support_unread", {}, "Непрочитано")}</small>
+      <small>{at("support_unread", {}, "Unread")}</small>
     </span>
   </div>
 
   <section class="support-admin-list-panel">
-    <div class="support-admin-ticket-tabs" aria-label={at("support_status", {}, "Статус")}>
+    <div class="support-admin-ticket-tabs" aria-label={at("support_status", {}, "Status")}>
       {#each statusTabs as tab (tab.value)}
         <button
           type="button"
@@ -279,7 +279,7 @@
         <Input
           class="input"
           type="search"
-          placeholder={at("support_search", {}, "Поиск")}
+          placeholder={at("support_search", {}, "Search")}
           value={filters.search}
           oninput={handleSearchInput}
           onkeydown={handleSearchKeydown}
@@ -290,29 +290,29 @@
         <AdminSelect
           value={filters.priority || "all"}
           items={priorityFilterOptions}
-          ariaLabel={at("support_priority", {}, "Приоритет")}
+          ariaLabel={at("support_priority", {}, "Priority")}
           onValueChange={priorityFilterChange}
         />
         <AdminSelect
           value={filters.category || "all"}
           items={categoryFilterOptions}
-          ariaLabel={at("support_category", {}, "Категория")}
+          ariaLabel={at("support_category", {}, "Category")}
           onValueChange={categoryFilterChange}
         />
         <AdminSelect
           value={filters.sort || "importance_desc"}
           items={sortOptions}
-          ariaLabel={at("sort", {}, "Сортировка")}
+          ariaLabel={at("sort", {}, "Sort")}
           onValueChange={sortFilterChange}
         />
         <AdminButton variant="primary" onclick={() => supportStore.loadList()}>
-          {at("apply", {}, "Применить")}
+          {at("apply", {}, "Apply")}
         </AdminButton>
       </div>
     </div>
 
     {#if loading}
-      <div class="support-ticket-list-skeleton" aria-label={at("loading", {}, "Загрузка")}>
+      <div class="support-ticket-list-skeleton" aria-label={at("loading", {}, "Loading…")}>
         );
         {#each Array(6) as _, index (index)}
           <article class="support-ticket-row-skeleton">
@@ -329,7 +329,7 @@
         {/each}
       </div>
     {:else if !tickets.length}
-      <div class="admin-empty-state">{at("support_empty", {}, "Тикетов пока нет")}</div>
+      <div class="admin-empty-state">{at("support_empty", {}, "No tickets yet")}</div>
     {:else}
       <ScrollArea class="support-inbox-list" maxHeight="none">
         <div class="support-inbox-list-inner">
@@ -351,7 +351,7 @@
   open={Boolean(openedTicketId)}
   title={modalTitle}
   description={modalDescription}
-  closeLabel={at("close", {}, "Закрыть")}
+  closeLabel={at("close", {}, "Close")}
   onclose={closeTicketModal}
   class="admin-dialog support-ticket-dialog"
 >
@@ -400,7 +400,7 @@
             {/each}
           {:else}
             <div class="admin-empty-state">
-              {at("support_no_messages", {}, "Сообщений пока нет")}
+              {at("support_no_messages", {}, "No messages yet")}
             </div>
           {/if}
         </div>

@@ -596,7 +596,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         """Autopay features are available only when YooKassa itself is enabled.
 
         Proxies into the YooKassaConfig BaseSettings model that lives in the
-        yookassa provider module вЂ” env-config is owned by the provider now.
+        yookassa provider module — env-config is owned by the provider now.
         """
         from bot.payment_providers import get_provider_bundle
 
@@ -611,7 +611,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         Ordered list of payment providers to show in the subscription payment keyboard.
 
         Honors PAYMENT_METHODS_ORDER from the env (user-controlled order), but
-        always appends any newly added provider that the user hasn't listed вЂ”
+        always appends any newly added provider that the user hasn't listed —
         otherwise upgrading to a release that adds, say, ``heleket`` would
         silently hide the new button until the operator manually updated their
         .env. Toggling the button on/off stays on the per-provider ENABLED
@@ -659,14 +659,14 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             if not slug:
                 continue
             if slug == "platega":
-                # Legacy slug вЂ” expand to the new sub-methods preserving order
+                # Legacy slug — expand to the new sub-methods preserving order
                 if "platega_sbp" not in methods:
                     methods.append("platega_sbp")
                 if "platega_crypto" not in methods:
                     methods.append("platega_crypto")
                 continue
             methods.append(slug)
-        # Append any registered spec that the operator didn't list вЂ” keeps
+        # Append any registered spec that the operator didn't list — keeps
         # newly shipped providers visible after an upgrade without forcing a
         # .env edit. Toggling the button is still controlled by ENABLED.
         for sid in spec_ids:

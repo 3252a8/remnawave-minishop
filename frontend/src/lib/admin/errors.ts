@@ -73,7 +73,7 @@ const ADMIN_ERROR_KEYS: Record<string, string> = {
 };
 
 export function adminErrorMessage(result: unknown, at: AdminTranslate, fallback = ""): string {
-  if (!result) return fallback || at("error", {}, "Ошибка");
+  if (!result) return fallback || at("error", {}, "Error");
 
   const payload = typeof result === "object" ? (result as AdminErrorPayload) : null;
   const code = typeof result === "string" ? result : String(payload?.error || result || "");
@@ -82,7 +82,7 @@ export function adminErrorMessage(result: unknown, at: AdminTranslate, fallback 
   const key = ADMIN_ERROR_KEYS[code];
 
   if (key) {
-    const base = at(key, {}, rawMessage || code || fallback || "Ошибка");
+    const base = at(key, {}, rawMessage || code || fallback || "Error");
     if (rawMessage && rawMessage !== code && rawMessage !== base) {
       return at(
         "error_with_details",
@@ -93,5 +93,5 @@ export function adminErrorMessage(result: unknown, at: AdminTranslate, fallback 
     return base;
   }
 
-  return rawMessage || code || fallback || at("error", {}, "Ошибка");
+  return rawMessage || code || fallback || at("error", {}, "Error");
 }

@@ -33,8 +33,8 @@ class _RemnashopUsersSection(_RemnashopTariffsSection):
     async def _upsert_legacy_referral_code(self, *, code: str, user_id: int) -> None:
         if len(code) > 128:
             self.summary["warnings"].append(
-                f"Пропущен слишком длинный legacy referral code пользователя {user_id}: "
-                f"{len(code)} символов"
+                f"Skipped an overlong legacy referral code for user {user_id}: "
+                f"{len(code)} characters"
             )
             return
         now = datetime.now(UTC)

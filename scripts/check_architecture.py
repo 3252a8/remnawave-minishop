@@ -160,6 +160,14 @@ def _python_cyrillic_literals(text: str) -> list[int]:
     )
 
 
+def _cyrillic_source_lines(text: str) -> list[int]:
+    return [
+        line_number
+        for line_number, line in enumerate(text.splitlines(), start=1)
+        if CYRILLIC_RE.search(line)
+    ]
+
+
 def _check_cyrillic_fallbacks(cfg: dict, issues: list[str]) -> None:
     checks = cfg.get("cyrillic_fallbacks")
     if not checks:
@@ -178,8 +186,15 @@ def _check_cyrillic_fallbacks(cfg: dict, issues: list[str]) -> None:
             _frontend_cyrillic_fallbacks,
             set(checks.get("frontend_admin_payments_translation_calls", {}).get("extensions", [])),
         ),
+        "frontend_source_lines": (
+            _cyrillic_source_lines,
+            set(checks.get("frontend_source_lines", {}).get("extensions", [])),
+        ),
         "python_literals": (_python_cyrillic_literals, {".py"}),
         "python_webapp_literals": (_python_cyrillic_literals, {".py"}),
+        "python_literal_exceptions": (_python_cyrillic_literals, {".py"}),
+        "python_source_lines": (_cyrillic_source_lines, {".py"}),
+        "python_source_exceptions": (_cyrillic_source_lines, {".py"}),
     }
 
     for name, (scanner, extensions) in scanners.items():

@@ -277,11 +277,11 @@
   }
 
   const markButtons: { mark: ToolbarMark; label: string; icon: string }[] = $derived([
-    { mark: "bold", label: at("broadcast_format_bold", {}, "Жирный"), icon: "B" },
-    { mark: "italic", label: at("broadcast_format_italic", {}, "Курсив"), icon: "I" },
-    { mark: "underline", label: at("broadcast_format_underline", {}, "Подчёркнутый"), icon: "U" },
-    { mark: "strike", label: at("broadcast_format_strike", {}, "Зачёркнутый"), icon: "S" },
-    { mark: "code", label: at("broadcast_format_code", {}, "Моноширинный"), icon: "</>" },
+    { mark: "bold", label: at("broadcast_format_bold", {}, "Bold"), icon: "B" },
+    { mark: "italic", label: at("broadcast_format_italic", {}, "Italic"), icon: "I" },
+    { mark: "underline", label: at("broadcast_format_underline", {}, "Underline"), icon: "U" },
+    { mark: "strike", label: at("broadcast_format_strike", {}, "Strikethrough"), icon: "S" },
+    { mark: "code", label: at("broadcast_format_code", {}, "Monospace"), icon: "</>" },
   ]);
 </script>
 
@@ -289,7 +289,7 @@
   <div
     class="broadcast-toolbar"
     role="toolbar"
-    aria-label={at("broadcast_toolbar", {}, "Форматирование")}
+    aria-label={at("broadcast_toolbar", {}, "Formatting")}
   >
     {#each markButtons as button (button.mark)}
       <button
@@ -309,8 +309,8 @@
       type="button"
       class="broadcast-tool"
       class:is-active={!sourceMode && active.codeBlock}
-      title={at("broadcast_format_pre", {}, "Блок кода")}
-      aria-label={at("broadcast_format_pre", {}, "Блок кода")}
+      title={at("broadcast_format_pre", {}, "Code block")}
+      aria-label={at("broadcast_format_pre", {}, "Code block")}
       data-broadcast-format="pre"
       onclick={handlePreButton}
     >
@@ -320,8 +320,8 @@
       type="button"
       class="broadcast-tool"
       class:is-active={!sourceMode && active.blockquote}
-      title={at("broadcast_format_quote", {}, "Цитата")}
-      aria-label={at("broadcast_format_quote", {}, "Цитата")}
+      title={at("broadcast_format_quote", {}, "Quote")}
+      aria-label={at("broadcast_format_quote", {}, "Quote")}
       data-broadcast-format="blockquote"
       onclick={handleQuoteButton}
     >
@@ -331,8 +331,8 @@
       type="button"
       class="broadcast-tool"
       class:is-active={!sourceMode && active.link}
-      title={at("broadcast_format_link", {}, "Ссылка")}
-      aria-label={at("broadcast_format_link", {}, "Ссылка")}
+      title={at("broadcast_format_link", {}, "Link")}
+      aria-label={at("broadcast_format_link", {}, "Link")}
       data-broadcast-format="link"
       onclick={handleLinkButton}
     >
@@ -347,7 +347,7 @@
         aria-expanded={shortcodesOpen}
         onclick={toggleShortcodes}
       >
-        {at("broadcast_insert_shortcode", {}, "{ } Шорткод")}
+        {at("broadcast_insert_shortcode", {}, "{ } Shortcode")}
       </button>
       {#if shortcodesOpen}
         <div class="broadcast-shortcode-list" role="listbox">
@@ -366,7 +366,7 @@
                     <span class="broadcast-shortcode-desc">{item.description || item.name}</span>
                     {#if item.cost === "panel"}
                       <span class="broadcast-shortcode-badge"
-                        >{at("broadcast_shortcode_panel_badge", {}, "панель")}</span
+                        >{at("broadcast_shortcode_panel_badge", {}, "panel")}</span
                       >
                     {/if}
                   </button>
@@ -374,7 +374,7 @@
               </div>
             {:else}
               <div class="broadcast-shortcode-empty">
-                {at("broadcast_shortcodes_loading", {}, "Загрузка...")}
+                {at("broadcast_shortcodes_loading", {}, "Loading...")}
               </div>
             {/if}
           </ScrollArea>
@@ -390,7 +390,7 @@
       onclick={() => void (sourceMode ? exitSourceMode() : enterSourceMode())}
     >
       {sourceMode
-        ? at("broadcast_source_mode_off", {}, "Редактор")
+        ? at("broadcast_source_mode_off", {}, "Editor")
         : at("broadcast_source_mode_on", {}, "HTML")}
     </button>
   </div>

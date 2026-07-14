@@ -39,20 +39,18 @@
   <section class="admin-editor-section">
     <header class="admin-editor-section-head">
       <div class="admin-editor-section-title">
-        <strong
-          >{at("tariff_hwid_packages_title", {}, "Пакеты дополнительных устройств (HWID)")}</strong
-        >
+        <strong>{at("tariff_hwid_packages_title", {}, "Extra device packages (HWID)")}</strong>
         <small
           >{at(
             "tariff_hwid_packages_subtitle",
             {},
-            "Расширяет лимит, указанный во вкладке «Основное». Каждая строка — пакет «+N устройств за N единиц валюты»"
+            'Extends the limit from the General tab. Each row is a "+N devices for N currency units" package'
           )}</small
         >
       </div>
       <div class="admin-editor-section-actions">
         <AdminButton size="sm" onclick={addHwidPackageRow}
-          ><Plus size={12} /> {at("tariff_btn_package", {}, "Пакет")}</AdminButton
+          ><Plus size={12} /> {at("tariff_btn_package", {}, "Package")}</AdminButton
         >
       </div>
     </header>
@@ -60,16 +58,16 @@
       <div class="admin-row-editor">
         <div class="admin-row-editor-line admin-row-editor-drag admin-row-editor-header">
           <span></span>
-          <span>{at("tariff_col_hwid_count", {}, "+ устройств")}</span>
+          <span>{at("tariff_col_hwid_count", {}, "+ devices")}</span>
           <span>{currencyPriceColumnLabel}</span>
-          <span>{at("tariff_col_price_stars_full", {}, "Цена, ⭐ Stars")}</span>
+          <span>{at("tariff_col_price_stars_full", {}, "Price, ⭐ Stars")}</span>
           <span></span>
         </div>
         <Sortable
           items={tariffDraft.hwidRows}
           class="admin-row-editor-line admin-row-editor-drag"
           getKey={draftRowKey}
-          handleLabel={at("tariff_package_reorder", {}, "Перетащите, чтобы изменить порядок")}
+          handleLabel={at("tariff_package_reorder", {}, "Drag to reorder")}
           onReorder={moveHwidRow}
         >
           {#snippet children(row: DraftRow, index: number)}
@@ -84,7 +82,7 @@
               aria-label={at(
                 "tariff_label_hwid_count_full",
                 {},
-                "Сколько устройств добавляет пакет"
+                "How many devices does this package add"
               )}
             />
             <Input
@@ -105,13 +103,13 @@
               placeholder="50"
               value={row.stars}
               oninput={draftRowInputHandler(tariffsStore, "hwidRows", index, "stars")}
-              aria-label={at("tariff_label_price_stars", {}, "Цена пакета в Telegram Stars")}
+              aria-label={at("tariff_label_price_stars", {}, "Price in Telegram Stars")}
             />
             <AdminButton
               size="sm"
               variant="danger"
               onclick={() => tariffsStore.removeDraftRow("hwidRows", index)}
-              aria-label={at("btn_delete", {}, "Удалить")}><Trash2 size={13} /></AdminButton
+              aria-label={at("btn_delete", {}, "Delete")}><Trash2 size={13} /></AdminButton
             >
           {/snippet}
         </Sortable>

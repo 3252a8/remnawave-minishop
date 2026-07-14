@@ -98,7 +98,7 @@ async def users_list_handler(
 
     except Exception as e:
         logger.error("Error displaying user list: %s", e)
-        await callback.answer("Ошибка отображения списка пользователей", show_alert=True)
+        await callback.answer(_("admin_users_display_error"), show_alert=True)
 
 
 async def user_search_prompt_handler(

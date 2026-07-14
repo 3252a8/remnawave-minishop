@@ -52,7 +52,7 @@ async def admin_user_avatar_route(request: web.Request) -> web.Response:
 
     Mirrors ``/api/account/avatar`` but takes a ``user_id`` from the URL
     and uses admin auth. Only the cached blob from
-    ``user_telegram_avatars`` is served вЂ” refreshing from Telegram is the
+    ``user_telegram_avatars`` is served — refreshing from Telegram is the
     job of the user-facing endpoint, so the admin list never blocks on a
     Telegram round-trip.
     """
@@ -572,12 +572,12 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
             avatar_user_ids.append(int(inviter.user_id))
         avatar_keys = await _bulk_user_avatar_keys(session, avatar_user_ids)
 
-        # Referral links вЂ” both the bot deep-link and the webapp deep-link.
+        # Referral links — both the bot deep-link and the webapp deep-link.
         referral_code: str | None = None
         try:
             referral_code = await user_dal.ensure_referral_code(session, user)
             await session.commit()
-        except Exception as exc_ref:  # pragma: no cover вЂ” defensive
+        except Exception as exc_ref:  # pragma: no cover — defensive
             logger.warning("Failed to ensure referral code for user %s: %s", target_id, exc_ref)
             await session.rollback()
 
@@ -615,7 +615,7 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
         referral_code,
     )
 
-    # Subscription page URL вЂ” the raw panel `subscriptionUrl` that the user
+    # Subscription page URL — the raw panel `subscriptionUrl` that the user
     # imports into their VPN client. May be missing if the user has never
     # been provisioned on the panel.
     subscription_url: str | None = None

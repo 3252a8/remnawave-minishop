@@ -571,21 +571,21 @@
 
   function sectionTitle(id: string): string {
     const map = {
-      general: "Общие",
+      general: "General",
       email: "Email",
       remnawave: "Remnawave Panel",
-      appearance: "Внешний вид",
-      pricing: "Тарифы и цены",
-      payments: "Платёжные системы",
-      trial: "Триал",
-      referral: "Реферальная программа",
-      notifications: "Уведомления",
-      backups: "Бэкапы",
-      support: "Поддержка",
-      devices: "Устройства",
+      appearance: "Appearance",
+      pricing: "Tariffs and pricing",
+      payments: "Payment systems",
+      trial: "Trial",
+      referral: "Referral program",
+      notifications: "Notifications",
+      backups: "Backups",
+      support: "Support",
+      devices: "Devices",
       subscription_guides: "Connection guides",
-      system: "Система",
-      migrations: "Миграции",
+      system: "System",
+      migrations: "Migrations",
     };
     return adminText(`settings_section_${id}`, {}, map[id as keyof typeof map] || id);
   }

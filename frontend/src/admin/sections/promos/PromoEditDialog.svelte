@@ -413,14 +413,14 @@
             >
               <header class="admin-editor-section-head">
                 <div class="admin-editor-section-title">
-                  <strong>{at("promo_section_links", {}, "Ссылки")}</strong>
+                  <strong>{at("promo_section_links", {}, "Links")}</strong>
                 </div>
               </header>
               <div class="admin-link-list admin-promo-link-list">
                 <div class="admin-link-row">
                   <div class="admin-link-row-meta">
                     <span class="admin-link-row-label">
-                      {at("promo_link_bot", {}, "Telegram-бот")}
+                      {at("promo_link_bot", {}, "Telegram bot")}
                     </span>
                     {#if promoEditing.bot_link}
                       <a
@@ -433,7 +433,7 @@
                       </a>
                     {:else}
                       <span class="admin-link-row-url admin-link-row-url-muted">
-                        {at("promo_link_unavailable", {}, "Недоступно")}
+                        {at("promo_link_unavailable", {}, "Unavailable")}
                       </span>
                     {/if}
                   </div>
@@ -441,8 +441,8 @@
                     <AdminButton
                       size="icon"
                       variant="icon"
-                      title={at("open", {}, "Открыть")}
-                      aria-label={at("open", {}, "Открыть")}
+                      title={at("open", {}, "Open")}
+                      aria-label={at("open", {}, "Open")}
                       disabled={!promoEditing.bot_link}
                       onclick={() => openPromoLink(promoEditing.bot_link)}
                     >
@@ -451,13 +451,13 @@
                     <AdminButton
                       size="icon"
                       variant="icon"
-                      title={at("copy", {}, "Скопировать")}
-                      aria-label={at("copy", {}, "Скопировать")}
+                      title={at("copy", {}, "Copy")}
+                      aria-label={at("copy", {}, "Copy")}
                       disabled={!promoEditing.bot_link}
                       onclick={() =>
                         promosStore.copyToClipboard(
                           promoEditing.bot_link,
-                          at("promo_link_copied", {}, "Ссылка скопирована")
+                          at("promo_link_copied", {}, "Link copied")
                         )}
                     >
                       <Copy size={14} />
@@ -468,7 +468,7 @@
                 <div class="admin-link-row">
                   <div class="admin-link-row-meta">
                     <span class="admin-link-row-label">
-                      {at("promo_link_webapp", {}, "Веб-приложение")}
+                      {at("promo_link_webapp", {}, "Web app")}
                     </span>
                     {#if promoEditing.webapp_link}
                       <a
@@ -481,7 +481,7 @@
                       </a>
                     {:else}
                       <span class="admin-link-row-url admin-link-row-url-muted">
-                        {at("promo_link_unavailable", {}, "Недоступно")}
+                        {at("promo_link_unavailable", {}, "Unavailable")}
                       </span>
                     {/if}
                   </div>
@@ -489,8 +489,8 @@
                     <AdminButton
                       size="icon"
                       variant="icon"
-                      title={at("open", {}, "Открыть")}
-                      aria-label={at("open", {}, "Открыть")}
+                      title={at("open", {}, "Open")}
+                      aria-label={at("open", {}, "Open")}
                       disabled={!promoEditing.webapp_link}
                       onclick={() => openPromoLink(promoEditing.webapp_link)}
                     >
@@ -499,13 +499,13 @@
                     <AdminButton
                       size="icon"
                       variant="icon"
-                      title={at("copy", {}, "Скопировать")}
-                      aria-label={at("copy", {}, "Скопировать")}
+                      title={at("copy", {}, "Copy")}
+                      aria-label={at("copy", {}, "Copy")}
                       disabled={!promoEditing.webapp_link}
                       onclick={() =>
                         promosStore.copyToClipboard(
                           promoEditing.webapp_link,
-                          at("promo_link_copied", {}, "Ссылка скопирована")
+                          at("promo_link_copied", {}, "Link copied")
                         )}
                     >
                       <Copy size={14} />

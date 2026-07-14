@@ -19,12 +19,12 @@
 
 <section class="admin-danger-zone">
   <header class="admin-danger-zone-head">
-    <strong>{at("user_danger_zone_title", {}, "Опасные действия")}</strong>
+    <strong>{at("user_danger_zone_title", {}, "Danger Zone")}</strong>
     <small
       >{at(
         "user_danger_zone_subtitle",
         {},
-        "Эти действия требуют подтверждения и (для удаления) необратимы"
+        "These actions require confirmation and (for deletion) are irreversible"
       )}</small
     >
   </header>
@@ -37,7 +37,7 @@
         disabled={userActionBusy}
       >
         <UserPlus size={14} />
-        {at("btn_unban", {}, "Разбанить пользователя")}
+        {at("btn_unban", {}, "Unblock user")}
       </AdminButton>
     {:else}
       <AdminButton
@@ -47,7 +47,7 @@
         disabled={userActionBusy}
       >
         <UserMinus size={14} />
-        {at("btn_ban", {}, "Заблокировать")}
+        {at("btn_ban", {}, "Block user")}
       </AdminButton>
     {/if}
     <AdminButton
@@ -57,7 +57,7 @@
       disabled={userActionBusy}
     >
       <Trash2 size={14} />
-      {at("btn_delete_account", {}, "Удалить аккаунт")}
+      {at("btn_delete_account", {}, "Delete account")}
     </AdminButton>
   </div>
 </section>

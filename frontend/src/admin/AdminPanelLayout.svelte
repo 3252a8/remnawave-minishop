@@ -250,7 +250,7 @@
     <button
       type="button"
       class="admin-sidebar-backdrop"
-      aria-label={at("close_menu", {}, "Закрыть меню")}
+      aria-label={at("close_menu", {}, "Close menu")}
       in:fade={sidebarBackdropFade()}
       out:fade={sidebarBackdropFade()}
       onclick={() => (sidebarOpen = false)}
@@ -261,23 +261,23 @@
       class="language-select-guard"
       class:language-select-guard--armed={adminLanguageClickGuardArmed}
       type="button"
-      aria-label={t("wa_close", {}, at("close", {}, "Закрыть"))}
+      aria-label={t("wa_close", {}, at("close", {}, "Close"))}
       onpointerdown={closeAdminLanguageFromGuard}
       onclick={closeAdminLanguageFromGuard}
     ></button>
   {/if}
-  <aside class="admin-sidebar" aria-label={at("sidebar_navigation", {}, "Навигация админки")}>
+  <aside class="admin-sidebar" aria-label={at("sidebar_navigation", {}, "Admin navigation")}>
     <div class="admin-sidebar-brand">
       <BrandMark class="admin-brand-mark" {brand} />
       <div>
         <strong class="admin-brand-title">{brandTitle}</strong>
-        <small>{at("panel_title", {}, "Админ-панель")}</small>
+        <small>{at("panel_title", {}, "Admin Panel")}</small>
       </div>
       <AdminButton
         variant="ghost"
         size="icon"
         onclick={onClose}
-        aria-label={at("exit", {}, "Выйти")}
+        aria-label={at("exit", {}, "Exit")}
       >
         <ArrowLeft size={16} />
       </AdminButton>
@@ -326,10 +326,10 @@
           >
             <Select.Trigger
               class="admin-language-trigger"
-              aria-label={t("wa_settings_language", {}, at("language", {}, "Язык"))}
+              aria-label={t("wa_settings_language", {}, at("language", {}, "Language"))}
             >
               <span>
-                <strong>{t("wa_settings_language", {}, at("language", {}, "Язык"))}</strong>
+                <strong>{t("wa_settings_language", {}, at("language", {}, "Language"))}</strong>
                 <small>
                   <span class="emoji-flag" aria-hidden="true"
                     >{currentLanguageOption?.flag || "🏳️"}</span
@@ -379,7 +379,7 @@
           type="button"
           class="admin-mobile-toggle"
           onclick={() => (sidebarOpen = !sidebarOpen)}
-          aria-label={at("menu", {}, "Меню")}
+          aria-label={at("menu", {}, "Menu")}
         >
           <Menu size={18} />
         </button>

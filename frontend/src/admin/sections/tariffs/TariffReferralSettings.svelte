@@ -97,12 +97,12 @@
 <article class="admin-card admin-tariff-settings-card">
   <header class="admin-card-head">
     <div>
-      <h3>{at("tariffs_referral_title", {}, "Реферальная программа")}</h3>
+      <h3>{at("tariffs_referral_title", {}, "Referral program")}</h3>
       <small>
         {at(
           "tariffs_referral_subtitle",
           {},
-          "Настройки приветственного бонуса, правил начисления и защиты от одноразовых email."
+          "Configure welcome bonus, grant rules, and disposable email protection."
         )}
       </small>
     </div>
@@ -116,16 +116,12 @@
       >
         {Number(valueForKey("REFERRAL_WELCOME_BONUS_DAYS", settingsDirty, settingsFieldMap) || 0) >
         0
-          ? at("enabled", {}, "Включено")
-          : at("disabled", {}, "Выключено")}
+          ? at("enabled", {}, "Enabled")
+          : at("disabled", {}, "Disabled")}
       </AdminBadge>
       {#if referralDirtyCount}
         <AdminBadge variant="warning">
-          {at(
-            "settings_dirty_count",
-            { count: referralDirtyCount },
-            `Изменений: ${referralDirtyCount}`
-          )}
+          {at("settings_dirty_count", { count: referralDirtyCount }, "Changes: {count}")}
         </AdminBadge>
         <AdminButton
           size="sm"
@@ -134,7 +130,7 @@
           disabled={settingsSaving}
         >
           <Save size={13} />
-          {settingsSaving ? at("btn_saving", {}, "Сохранение...") : at("btn_save", {}, "Сохранить")}
+          {settingsSaving ? at("btn_saving", {}, "Saving...") : at("btn_save", {}, "Save")}
         </AdminButton>
       {/if}
     </div>
@@ -148,12 +144,12 @@
       >
         <header class="admin-settings-field-group-head">
           <div class="admin-settings-field-group-head-copy">
-            <strong>{at("tariffs_referral_group_welcome", {}, "Приветственный бонус")}</strong>
+            <strong>{at("tariffs_referral_group_welcome", {}, "Welcome bonus")}</strong>
             <small>
               {at(
                 "tariffs_referral_group_welcome_hint",
                 {},
-                "Дни, которые получает приглашённый пользователь после регистрации по ссылке."
+                "Days granted to an invited user after registration via referral link."
               )}
             </small>
           </div>
@@ -162,7 +158,7 @@
               {at(
                 "settings_dirty_count",
                 { count: dirtyCount(REFERRAL_WELCOME_KEYS, settingsDirty) },
-                `Изменений: ${dirtyCount(REFERRAL_WELCOME_KEYS, settingsDirty)}`
+                "Changes: {count}"
               )}
             </AdminBadge>
           {/if}
@@ -174,10 +170,10 @@
           >
             <div class="admin-setting-meta">
               <strong>
-                {at("tariffs_referral_welcome_bonus_days", {}, "Приветственный бонус, дней")}
+                {at("tariffs_referral_welcome_bonus_days", {}, "Welcome bonus, days")}
                 {#if isSettingDirty("REFERRAL_WELCOME_BONUS_DAYS", settingsDirty)}
                   <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                   >
                 {/if}
               </strong>
@@ -199,7 +195,7 @@
                   onclick={() => resetSetting("REFERRAL_WELCOME_BONUS_DAYS")}
                 >
                   <X size={12} />
-                  {at("reset", {}, "Сбросить")}
+                  {at("reset", {}, "Reset")}
                 </AdminButton>
               {/if}
             </div>
@@ -217,11 +213,11 @@
                 {at(
                   "tariffs_referral_without_telegram",
                   {},
-                  "Начислять welcome bonus без Telegram"
+                  "Grant welcome bonus without Telegram"
                 )}
                 {#if isSettingDirty("REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED", settingsDirty)}
                   <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                   >
                 {/if}
               </strong>
@@ -233,7 +229,7 @@
                   aria-label={at(
                     "tariffs_referral_without_telegram",
                     {},
-                    "Начислять welcome bonus без Telegram"
+                    "Grant welcome bonus without Telegram"
                   )}
                   checked={boolValue(
                     "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
@@ -252,8 +248,8 @@
                     settingsDirty,
                     settingsFieldMap
                   )
-                    ? at("enabled", {}, "Включено")
-                    : at("disabled", {}, "Выключено")}</span
+                    ? at("enabled", {}, "Enabled")
+                    : at("disabled", {}, "Disabled")}</span
                 >
               </div>
               {#if isSettingDirty("REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED", settingsDirty)}
@@ -263,7 +259,7 @@
                   onclick={() => resetSetting("REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED")}
                 >
                   <X size={12} />
-                  {at("reset", {}, "Сбросить")}
+                  {at("reset", {}, "Reset")}
                 </AdminButton>
               {/if}
             </div>
@@ -277,12 +273,12 @@
       >
         <header class="admin-settings-field-group-head">
           <div class="admin-settings-field-group-head-copy">
-            <strong>{at("tariffs_referral_group_rules", {}, "Правила и антиабьюз")}</strong>
+            <strong>{at("tariffs_referral_group_rules", {}, "Rules and anti-abuse")}</strong>
             <small>
               {at(
                 "tariffs_referral_group_rules_hint",
                 {},
-                "Ограничения повторных бонусов и домены одноразовой почты для no-Telegram аккаунтов."
+                "Repeat-bonus limits and disposable email domains for no-Telegram accounts."
               )}
             </small>
           </div>
@@ -291,7 +287,7 @@
               {at(
                 "settings_dirty_count",
                 { count: dirtyCount(REFERRAL_RULE_KEYS, settingsDirty) },
-                `Изменений: ${dirtyCount(REFERRAL_RULE_KEYS, settingsDirty)}`
+                "Changes: {count}"
               )}
             </AdminBadge>
           {/if}
@@ -306,11 +302,11 @@
                 {at(
                   "tariffs_referral_one_bonus_per_referee",
                   {},
-                  "Бонусы только за первый платёж приглашённого"
+                  "Payment bonuses only on first invited-user payment"
                 )}
                 {#if isSettingDirty("REFERRAL_ONE_BONUS_PER_REFEREE", settingsDirty)}
                   <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                   >
                 {/if}
               </strong>
@@ -319,7 +315,7 @@
                 {at(
                   "tariffs_referral_one_bonus_per_referee_hint",
                   {},
-                  "Если включено, повторные покупки того же приглашённого пользователя больше не начисляют бонусы ни ему, ни пригласившему. Первый успешный платёж остаётся бонусным."
+                  "When enabled, later purchases by the same invited user do not grant referral bonuses to either side. The first successful payment still grants bonuses."
                 )}
               </small>
             </div>
@@ -329,7 +325,7 @@
                   aria-label={at(
                     "tariffs_referral_one_bonus_per_referee",
                     {},
-                    "Бонусы только за первый платёж приглашённого"
+                    "Payment bonuses only on first invited-user payment"
                   )}
                   checked={boolValue(
                     "REFERRAL_ONE_BONUS_PER_REFEREE",
@@ -344,8 +340,8 @@
                 </Switch.Root>
                 <span
                   >{boolValue("REFERRAL_ONE_BONUS_PER_REFEREE", settingsDirty, settingsFieldMap)
-                    ? at("enabled", {}, "Включено")
-                    : at("disabled", {}, "Выключено")}</span
+                    ? at("enabled", {}, "Enabled")
+                    : at("disabled", {}, "Disabled")}</span
                 >
               </div>
               {#if isSettingDirty("REFERRAL_ONE_BONUS_PER_REFEREE", settingsDirty)}
@@ -355,7 +351,7 @@
                   onclick={() => resetSetting("REFERRAL_ONE_BONUS_PER_REFEREE")}
                 >
                   <X size={12} />
-                  {at("reset", {}, "Сбросить")}
+                  {at("reset", {}, "Reset")}
                 </AdminButton>
               {/if}
             </div>
@@ -367,10 +363,10 @@
           >
             <div class="admin-setting-meta">
               <strong>
-                {at("tariffs_referral_disposable_domains", {}, "Disposable email домены")}
+                {at("tariffs_referral_disposable_domains", {}, "Disposable email domains")}
                 {#if isSettingDirty("DISPOSABLE_EMAIL_DOMAINS", settingsDirty)}
                   <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                   >
                 {/if}
               </strong>
@@ -379,7 +375,7 @@
                 {at(
                   "tariffs_referral_disposable_domains_hint",
                   {},
-                  "По одному домену на строку или через запятую. Поддомены тоже считаются совпадением."
+                  "One domain per line or comma-separated. Subdomains are treated as matches too."
                 )}
               </small>
             </div>
@@ -398,7 +394,7 @@
                   onclick={() => resetSetting("DISPOSABLE_EMAIL_DOMAINS")}
                 >
                   <X size={12} />
-                  {at("reset", {}, "Сбросить")}
+                  {at("reset", {}, "Reset")}
                 </AdminButton>
               {/if}
             </div>

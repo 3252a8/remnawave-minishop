@@ -20,46 +20,45 @@
 
   const MESSAGE_FALLBACKS: Record<string, string> = {
     data_dir_missing:
-      "Каталог data ({path}) не найден. Проверьте, что том data смонтирован в контейнер.",
+      "Data directory ({path}) not found. Make sure the data volume is mounted into the container.",
     data_dir_not_writable:
-      "Нет прав на запись в {path} — бэкапы, тарифы, логотипы и переводы не сохранятся.",
-    backups_dir_not_writable: "Каталог бэкапов {path} недоступен для записи.",
-    tariffs_config_invalid: "Файл тарифов {path} не читается: {error}",
-    locale_overrides_invalid: "Файл переводов {path} повреждён: {error}",
-    subscription_page_config_invalid: "Конфиг гайдов подписки не читается: {error}",
+      "No write access to {path} — backups, tariffs, logos and translations cannot be saved.",
+    backups_dir_not_writable: "Backups directory {path} is not writable.",
+    tariffs_config_invalid: "Tariffs file {path} cannot be read: {error}",
+    locale_overrides_invalid: "Translations file {path} is corrupted: {error}",
+    subscription_page_config_invalid: "Subscription guides config cannot be read: {error}",
     provider_not_configured:
-      "Провайдер {provider} включён, но не настроен — оплата через него не работает.",
+      "Provider {provider} is enabled but not configured — payments through it will not work.",
     provider_webhook_needs_base_url:
-      "Провайдеру {provider} нужен WEBHOOK_BASE_URL для приёма вебхуков, а он не задан.",
-    no_payment_methods: "Не включён ни один способ оплаты.",
+      "Provider {provider} requires WEBHOOK_BASE_URL for webhooks, but it is not set.",
+    no_payment_methods: "No payment method is enabled.",
     mini_app_url_missing:
-      "SUBSCRIPTION_MINI_APP_URL не задан — кнопка Mini App в боте не появится.",
-    mini_app_url_not_https:
-      "SUBSCRIPTION_MINI_APP_URL должен начинаться с https:// (сейчас {url}).",
+      "SUBSCRIPTION_MINI_APP_URL is not set — the Mini App button will not appear in the bot.",
+    mini_app_url_not_https: "SUBSCRIPTION_MINI_APP_URL must start with https:// (currently {url}).",
     redis_not_configured:
-      "REDIS_URL не задан — состояния диалогов бота и кэш не переживут перезапуск.",
-    smtp_incomplete: "SMTP настроен не полностью — вход по email работать не будет.",
+      "REDIS_URL is not set — bot dialog states and caches will not survive a restart.",
+    smtp_incomplete: "SMTP is partially configured — email login will not work.",
     proxy_not_trusted:
-      "Запросы приходят через прокси {remote}, которого нет в TRUSTED_PROXIES — вебхуки платёжных провайдеров могут отклоняться по IP.",
-    bot_token_invalid: "Telegram отверг BOT_TOKEN — бот не работает.",
-    telegram_api_error: "Не удалось обратиться к Telegram API: {error}",
-    telegram_webhook_missing: "Вебхук Telegram не установлен — бот не получает обновления.",
-    telegram_webhook_mismatch: "Вебхук Telegram указывает на {actual}, ожидается {expected}.",
-    telegram_webhook_error: "Telegram сообщает об ошибке доставки вебхука: {error}",
-    telegram_webhook_pending: "В очереди Telegram скопилось {count} необработанных обновлений.",
+      "Requests arrive through proxy {remote} which is not in TRUSTED_PROXIES — payment provider webhooks may be rejected by IP.",
+    bot_token_invalid: "Telegram rejected BOT_TOKEN — the bot is not working.",
+    telegram_api_error: "Failed to reach the Telegram API: {error}",
+    telegram_webhook_missing: "Telegram webhook is not set — the bot does not receive updates.",
+    telegram_webhook_mismatch: "Telegram webhook points to {actual}, expected {expected}.",
+    telegram_webhook_error: "Telegram reports a webhook delivery error: {error}",
+    telegram_webhook_pending: "{count} unprocessed updates are queued in Telegram.",
     panel_api_not_configured:
-      "PANEL_API_URL и PANEL_API_KEY не заданы — синхронизация и выдача подписок не работают.",
-    panel_api_unreachable: "Панель Remnawave недоступна по адресу {url}.",
+      "PANEL_API_URL and PANEL_API_KEY are not set — sync and subscription provisioning do not work.",
+    panel_api_unreachable: "Remnawave panel is unreachable at {url}.",
   };
 
   const SECTION_FALLBACK_LABELS: Record<string, string> = {
-    settings: "Настройки",
-    payments: "Платежи",
-    backups: "Бэкапы",
-    tariffs: "Тарифы",
-    appearance: "Внешний вид",
-    translations: "Переводы",
-    users: "Пользователи",
+    settings: "Settings",
+    payments: "Payments",
+    backups: "Backups",
+    tariffs: "Tariffs",
+    appearance: "Appearance",
+    translations: "Translations",
+    users: "Users",
   };
 
   function interpolate(template: string, params: Record<string, unknown> = {}): string {
@@ -99,7 +98,7 @@
     <div class="admin-config-alerts-head">
       <span class="admin-config-alerts-title">
         <TriangleAlert size={15} />
-        {at("health_title", {}, "Проблемы конфигурации")}
+        {at("health_title", {}, "Configuration issues")}
       </span>
       {#if isDashboard}
         <AdminButton
@@ -107,7 +106,7 @@
           disabled={healthLoading}
         >
           <RefreshCw size={13} />
-          {at("health_refresh", {}, "Проверить снова")}
+          {at("health_refresh", {}, "Check again")}
         </AdminButton>
       {/if}
     </div>

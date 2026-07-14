@@ -268,10 +268,8 @@ async def payment_method_view(
         )
 
         title = _format_saved_payment_method_title(_, sel.card_network, sel.card_last4, False)
-        added_at = (
-            sel.created_at.strftime("%Y-%m-%d") if getattr(sel, "created_at", None) else "вЂ”"
-        )
-        last_tx = "вЂ”"
+        added_at = sel.created_at.strftime("%Y-%m-%d") if getattr(sel, "created_at", None) else "—"
+        last_tx = "—"
         try:
             stmt = (
                 select(Payment)
@@ -301,9 +299,9 @@ async def payment_method_view(
         return
 
     added_at = (
-        billing.created_at.strftime("%Y-%m-%d") if getattr(billing, "created_at", None) else "вЂ”"
+        billing.created_at.strftime("%Y-%m-%d") if getattr(billing, "created_at", None) else "—"
     )
-    last_tx = "вЂ”"
+    last_tx = "—"
     try:
         stmt = (
             select(Payment)
@@ -432,7 +430,7 @@ async def payment_method_history(
                 "subscription_purchase_title", months=p.subscription_duration_months or 1
             )
         date_str = p.created_at.strftime("%Y-%m-%d") if p.created_at else "N/A"
-        return f"{date_str} вЂ” {title} вЂ” {p.amount:.2f} {p.currency}"
+        return f"{date_str} — {title} — {p.amount:.2f} {p.currency}"
 
     lines = [_format_item(p) for p in user_payments]
     text = _("payment_method_tx_history_title") + "\n\n" + "\n".join(lines)

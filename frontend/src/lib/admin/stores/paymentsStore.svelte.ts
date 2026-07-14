@@ -153,7 +153,7 @@ export function createPaymentsStore({
     const res = await api(buildAdminPaymentPath(paymentId));
     if (!isOkResponse(res)) {
       throw new AdminPaymentsError(
-        adminErrorMessage(res, at, at("payment_load_failed", {}, "Не удалось загрузить платёж")),
+        adminErrorMessage(res, at, at("payment_load_failed", {}, "Failed to load payment")),
         res
       );
     }
@@ -223,7 +223,7 @@ export function createPaymentsStore({
         state.openedPayment = result.payment || state.openedPayment;
       } else {
         onToast(
-          adminErrorMessage(res, at, at("payment_load_failed", {}, "Не удалось загрузить платёж"))
+          adminErrorMessage(res, at, at("payment_load_failed", {}, "Failed to load payment"))
         );
         state.openedPaymentId = null;
         state.openedPayment = null;
@@ -251,7 +251,7 @@ export function createPaymentsStore({
     if (wasOpen && !opts.skipPush) pushPaymentPath(null);
   }
 
-  function copyToClipboard(text: unknown, successMessage = at("copied", {}, "Скопировано")): void {
+  function copyToClipboard(text: unknown, successMessage = at("copied", {}, "Copied")): void {
     if (!text) return;
     if (typeof navigator !== "undefined" && navigator?.clipboard?.writeText) {
       navigator.clipboard.writeText(String(text)).then(

@@ -114,13 +114,13 @@ function isValidLanguageCode(value: string): boolean {
 
 function languageLabel(code: string): string {
   const labels: Record<string, string> = {
-    ru: "Русский",
+    ru: "Russian",
     en: "English",
     de: "Deutsch",
     es: "Español",
     fr: "Français",
     "pt-br": "Português (BR)",
-    uk: "Українська",
+    uk: "Ukrainian",
   };
   return labels[code] || code.toUpperCase();
 }

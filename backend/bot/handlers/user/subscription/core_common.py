@@ -29,6 +29,10 @@ class _TrafficPackages(Protocol):
     def for_currency(self, currency: str) -> Any: ...
 
 
+class _GetText(Protocol):
+    def __call__(self, key: str, **kwargs: object) -> str: ...
+
+
 class _PurchaseTariff(Protocol):
     billing_model: str
     traffic_packages: _TrafficPackages
@@ -161,7 +165,9 @@ def _event_user_id(event: types.Message | types.CallbackQuery) -> int:
     return int(message_from_user(event).id)
 
 
-def _format_premium_usage_limit(active: dict[str, object]) -> str:
+def _format_premium_usage_limit(active: dict[str, object], get_text: _GetText | None = None) -> str:
     used = _format_premium_bytes(active.get("premium_used_bytes"))
     limit = _format_premium_bytes(active.get("premium_limit_bytes"))
-    return f"{used} из {limit}"
+    if get_text is None:
+        return f"{used} of {limit}"
+    return get_text("premium_usage_of", used=used, limit=limit)

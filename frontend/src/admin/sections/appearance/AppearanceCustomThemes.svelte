@@ -64,18 +64,18 @@
 <section class="appearance-theme-section">
   <header class="appearance-theme-section-head">
     <div>
-      <h4>{at("appearance_custom_themes_title", {}, "Пользовательские темы")}</h4>
+      <h4>{at("appearance_custom_themes_title", {}, "Custom themes")}</h4>
       <small>
         {at(
           "appearance_custom_themes_sub",
           {},
-          "Отдельные темы из каталога: выбор активной темы, акцент, логотип и применение в админке."
+          "Separate catalog themes: active theme selection, accent, logo scale, and admin usage."
         )}
       </small>
     </div>
     {#if customThemes.some((theme) => isThemeDirty(theme))}
       <AdminBadge variant="warning">
-        {at("settings_badge_dirty", {}, "Изменено")}
+        {at("settings_badge_dirty", {}, "Changed")}
       </AdminBadge>
     {/if}
   </header>
@@ -98,7 +98,7 @@
             aria-label={at(
               "appearance_use_theme_named",
               { title: themeTitle(theme) },
-              `Выбрать ${themeTitle(theme)}`
+              "Select {title}"
             )}
             aria-pressed={isCurrent}
             disabled={themesSaving || isCurrent}
@@ -108,7 +108,7 @@
             <span class="admin-theme-card-title">
               <strong>{themeTitle(theme)}</strong>
               {#if isCurrent}
-                <AdminBadge variant="success">{at("status_current", {}, "Текущая")}</AdminBadge>
+                <AdminBadge variant="success">{at("status_current", {}, "Current")}</AdminBadge>
               {/if}
             </span>
             <small>{theme.key}</small>
@@ -125,7 +125,7 @@
               {at("appearance_theme_accent", {}, "Accent")}
               {#if isThemeTokenDirty(theme, "accent")}
                 <AdminBadge variant="warning"
-                  >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                  >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                 >
               {/if}
             </span>
@@ -135,14 +135,14 @@
               ariaLabel={at("appearance_theme_accent", {}, "Accent")}
               title={isThemeAccentSet(theme)
                 ? String(theme.tokens?.accent ?? "")
-                : at("appearance_theme_accent_empty", {}, "Не задан")}
+                : at("appearance_theme_accent_empty", {}, "Not set")}
               onclick={() => openThemeAccentPicker(theme)}
               oninput={themeAccentInputHandler(theme)}
             />
             <Input
               class="input appearance-color-text"
               type="text"
-              placeholder={at("appearance_theme_accent_placeholder", {}, "Не задан")}
+              placeholder={at("appearance_theme_accent_placeholder", {}, "Not set")}
               value={String(theme.tokens?.accent ?? "")}
               oninput={themeAccentInputHandler(theme)}
             />
@@ -158,10 +158,10 @@
               onCheckedChange={(checked) => toggleAdminTheme(theme, checked)}
             />
             <span>
-              {at("themes_use_in_admin", {}, "Использовать в админке")}
+              {at("themes_use_in_admin", {}, "Use in admin panel")}
               {#if isThemePropertyDirty(theme, "use_in_admin")}
                 <AdminBadge variant="warning"
-                  >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                  >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                 >
               {/if}
             </span>
@@ -171,10 +171,10 @@
             class:is-dirty={isThemeHomeLogoScaleDirty(theme, "desktop")}
           >
             <span class="appearance-logo-scale-label"
-              >{at("appearance_theme_home_logo_scale_desktop", {}, "Логотип на десктопе")}
+              >{at("appearance_theme_home_logo_scale_desktop", {}, "Desktop logo scale")}
               {#if isThemeHomeLogoScaleDirty(theme, "desktop")}
                 <AdminBadge variant="warning"
-                  >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                  >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                 >
               {/if}
             </span>
@@ -205,10 +205,10 @@
             class:is-dirty={isThemeHomeLogoScaleDirty(theme, "mobile")}
           >
             <span class="appearance-logo-scale-label"
-              >{at("appearance_theme_home_logo_scale_mobile", {}, "Логотип на мобильных")}
+              >{at("appearance_theme_home_logo_scale_mobile", {}, "Mobile logo scale")}
               {#if isThemeHomeLogoScaleDirty(theme, "mobile")}
                 <AdminBadge variant="warning"
-                  >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                  >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                 >
               {/if}
             </span>
@@ -237,7 +237,7 @@
           <div class="appearance-theme-actions">
             <AdminButton size="sm" variant="ghost" onclick={previewThemeClickHandler(theme)}>
               <ExternalLink size={13} />
-              {at("appearance_preview_theme", {}, "Предпросмотр")}
+              {at("appearance_preview_theme", {}, "Preview")}
             </AdminButton>
           </div>
           <span class="admin-theme-card-check" aria-hidden="true">
@@ -251,7 +251,7 @@
       {at(
         "appearance_custom_themes_empty",
         {},
-        "Пользовательских тем пока нет. Добавьте отдельную тему в каталог, если нужно выйти за рамки темы по-умолчанию."
+        "No custom themes yet. Add a separate theme to the catalog when you need more than the default theme."
       )}
     </AdminEmptyState>
   {/if}

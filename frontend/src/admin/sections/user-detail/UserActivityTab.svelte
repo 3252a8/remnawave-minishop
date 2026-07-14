@@ -24,7 +24,7 @@
     {at(
       "user_recent_payments_title",
       { count: (openedUserDetail.recent_payments || []).length },
-      `Последние платежи · ${(openedUserDetail.recent_payments || []).length}`
+      "Recent Payments · {count}"
     )}
   </div>
   {#if (openedUserDetail.recent_payments || []).length}
@@ -40,6 +40,6 @@
       {/each}
     </div>
   {:else}
-    <p class="admin-muted">{at("user_no_payments", {}, "Платежей нет")}</p>
+    <p class="admin-muted">{at("user_no_payments", {}, "No payments")}</p>
   {/if}
 </Tabs.Content>

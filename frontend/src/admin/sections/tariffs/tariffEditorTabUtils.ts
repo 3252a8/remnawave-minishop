@@ -71,17 +71,17 @@ export function defaultCurrencyCode(tariffsCatalog: TariffsCatalog): string {
 }
 
 export function currencyPriceColumnLabel(at: TranslateFn, currency: string): string {
-  return at("tariff_col_price_currency", { currency }, `Цена, ${currency}`);
+  return at("tariff_col_price_currency", { currency }, "Price, {currency}");
 }
 
 export function currencyPriceAriaLabel(at: TranslateFn, currency: string): string {
-  return at("tariff_label_price_currency", { currency }, `Цена в ${currency}`);
+  return at("tariff_label_price_currency", { currency }, "Price in {currency}");
 }
 
 export function conversionCurrencyLabel(at: TranslateFn, currency: string): string {
   return at(
     "tariff_label_conversion_currency",
     { currency },
-    `Курс конвертации, ${currency} за 1 GB`
+    "Conversion rate, {currency} per 1 GB"
   );
 }

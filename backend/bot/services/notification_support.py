@@ -92,10 +92,22 @@ class NotificationSupportMixin:
                 return InlineKeyboardButton(text=text, url=mini_app_link)
         return InlineKeyboardButton(text=text, url=webapp_url or fallback_url)
 
-    def _support_text(self, language: str | None, key: str, fallback: str) -> str:
-        if not self.i18n:
-            return fallback
-        return self.i18n.gettext(language or self.settings.DEFAULT_LANGUAGE, key) or fallback
+    def _support_text(
+        self,
+        language: str | None,
+        key: str,
+        fallback: str,
+        **kwargs: object,
+    ) -> str:
+        if self.i18n:
+            translated = self.i18n.gettext(
+                language or self.settings.DEFAULT_LANGUAGE,
+                key,
+                **kwargs,
+            )
+            if translated and translated != key:
+                return translated
+        return fallback.format(**kwargs)
 
     @staticmethod
     def _support_preview(body: str, limit: int = 700) -> str:
@@ -179,7 +191,11 @@ class NotificationSupportMixin:
         rows = [
             [
                 self._support_mini_app_button(
-                    text="Открыть тикет",
+                    text=self._support_text(
+                        self.settings.DEFAULT_LANGUAGE,
+                        "wa_support_open_ticket",
+                        "Open ticket",
+                    ),
                     path=ticket_path,
                     start_param=(
                         f"admin_ticket_{ticket.ticket_id}"
@@ -195,13 +211,24 @@ class NotificationSupportMixin:
             profile_row = []
             if getattr(user, "user_id", 0) and int(user.user_id) > 0:
                 profile_row.append(
-                    InlineKeyboardButton(text="Профиль", url=f"tg://user?id={user.user_id}")
+                    InlineKeyboardButton(
+                        text=self._support_text(
+                            self.settings.DEFAULT_LANGUAGE,
+                            "support_profile_button",
+                            "Profile",
+                        ),
+                        url=f"tg://user?id={user.user_id}",
+                    )
                 )
             user_card_path = f"/admin/users/{user.user_id}"
             if self._support_webapp_url(user_card_path):
                 profile_row.append(
                     self._support_mini_app_button(
-                        text="Карточка пользователя",
+                        text=self._support_text(
+                            self.settings.DEFAULT_LANGUAGE,
+                            "support_user_card_button",
+                            "User card",
+                        ),
                         path=user_card_path,
                         start_param=f"admin_user_{user.user_id}",
                         fallback_url=self._support_ticket_url(ticket.ticket_id, admin=True),
@@ -238,7 +265,7 @@ class NotificationSupportMixin:
         button_text = self._support_text(
             getattr(user, "language_code", None),
             "wa_support_open_ticket",
-            "Открыть тикет",
+            "Open ticket",
         )
         webapp_url = self._support_webapp_url(f"/support/{ticket.ticket_id}")
         if webapp_url:
@@ -298,16 +325,27 @@ class NotificationSupportMixin:
         )
         preview = self._support_preview(first_message)
         user_display = self._support_user_display(user)
-        message = (
-            f"🆘 <b>Новый тикет #{ticket.ticket_id}</b>\n"
-            f"{priority_emoji} <b>{hd.quote(ticket.priority)}</b> · {hd.quote(ticket.category)}\n\n"
-            f"<b>Пользователь</b>\n{hd.quote(user_display)}\nID: <code>{user.user_id}</code>\n\n"
-            f"<b>Подписка</b>\n"
-            f"{hd.quote(str(snapshot.get('tariff') or '—'))}, "
-            f"до {hd.quote(str(snapshot.get('end_date') or '—'))}, "
-            f"осталось {hd.quote(str(snapshot.get('remaining') or '—'))}\n"
-            f"статус: {hd.quote(str(snapshot.get('panel_status') or '—'))}\n\n"
-            f"<b>Текст обращения</b>\n{hd.quote(preview)}"
+        message = self._support_text(
+            self.settings.DEFAULT_LANGUAGE,
+            "support_admin_new_ticket_message",
+            (
+                "🆘 <b>New ticket #{ticket_id}</b>\n"
+                "{priority_emoji} <b>{priority}</b> · {category}\n\n"
+                "<b>User</b>\n{user}\nID: <code>{user_id}</code>\n\n"
+                "<b>Subscription</b>\n{tariff}, until {end_date}, remaining {remaining}\n"
+                "status: {status}\n\n<b>Message</b>\n{message}"
+            ),
+            ticket_id=ticket.ticket_id,
+            priority_emoji=priority_emoji,
+            priority=hd.quote(ticket.priority),
+            category=hd.quote(ticket.category),
+            user=hd.quote(user_display),
+            user_id=user.user_id,
+            tariff=hd.quote(str(snapshot.get("tariff") or "—")),
+            end_date=hd.quote(str(snapshot.get("end_date") or "—")),
+            remaining=hd.quote(str(snapshot.get("remaining") or "—")),
+            status=hd.quote(str(snapshot.get("panel_status") or "—")),
+            message=hd.quote(preview),
         )
         admin_keyboard = self._support_keyboard(ticket, user, admin=True)
         log_keyboard = self._support_keyboard(ticket, user, admin=True, web_app_buttons=False)
@@ -342,13 +380,24 @@ class NotificationSupportMixin:
         preview = self._support_preview(message.body)
         user_display = self._support_user_display(user)
         unread_line = (
-            f"\n<b>Unread:</b> {int(unread_count)}"
+            "\n"
+            + self._support_text(
+                self.settings.DEFAULT_LANGUAGE,
+                "support_admin_unread_count",
+                "<b>Unread:</b> {count}",
+                count=int(unread_count),
+            )
             if unread_count is not None and int(unread_count or 0) > 1
             else ""
         )
-        text = (
-            f"💬 <b>Ответ пользователя в тикете #{ticket.ticket_id}</b>\n"
-            f"{hd.quote(user_display)}{unread_line}\n\n{hd.quote(preview)}"
+        text = self._support_text(
+            self.settings.DEFAULT_LANGUAGE,
+            "support_admin_user_reply_message",
+            "💬 <b>User reply in ticket #{ticket_id}</b>\n{user}{unread}\n\n{message}",
+            ticket_id=ticket.ticket_id,
+            user=hd.quote(user_display),
+            unread=unread_line,
+            message=hd.quote(preview),
         )
         if send_telegram and getattr(self.settings, "LOG_SUPPORT", True):
             admin_keyboard = self._support_keyboard(ticket, user, admin=True)
@@ -374,7 +423,13 @@ class NotificationSupportMixin:
     ) -> None:
         preview = self._support_preview(message.body, limit=500)
         url = self._support_ticket_url(ticket.ticket_id, admin=False)
-        text = f"💬 <b>Новый ответ по тикету #{ticket.ticket_id}</b>\n\n{hd.quote(preview)}"
+        text = self._support_text(
+            getattr(user, "language_code", None),
+            "support_user_admin_reply_message",
+            "💬 <b>New reply in ticket #{ticket_id}</b>\n\n{message}",
+            ticket_id=ticket.ticket_id,
+            message=hd.quote(preview),
+        )
         keyboard = self._support_user_keyboard(ticket, user)
         if int(user.user_id) > 0:
             queue_manager = get_queue_manager()
@@ -411,7 +466,13 @@ class NotificationSupportMixin:
         self, ticket: SupportTicket, user: User, closing_admin: User | None
     ) -> None:
         url = self._support_ticket_url(ticket.ticket_id, admin=False)
-        text = f"✅ <b>Тикет #{ticket.ticket_id} закрыт</b>\n\n{hd.quote(ticket.subject)}"
+        text = self._support_text(
+            getattr(user, "language_code", None),
+            "support_user_ticket_closed_message",
+            "✅ <b>Ticket #{ticket_id} closed</b>\n\n{subject}",
+            ticket_id=ticket.ticket_id,
+            subject=hd.quote(ticket.subject),
+        )
         keyboard = self._support_user_keyboard(ticket, user)
         if int(user.user_id) > 0:
             queue_manager = get_queue_manager()

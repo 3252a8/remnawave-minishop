@@ -46,13 +46,13 @@
   });
   const adHeaders = $derived([
     at("id", {}, "ID"),
-    at("ads_col_source", {}, "Источник"),
-    at("ads_col_param", {}, "Параметр"),
-    at("ads_col_cost", {}, "Стоимость"),
-    at("ads_col_registrations", {}, "Регистрации"),
-    at("ads_col_conversions", {}, "Конверсии"),
-    at("ads_col_status", {}, "Статус"),
-    at("actions", {}, "Действия"),
+    at("ads_col_source", {}, "Source"),
+    at("ads_col_param", {}, "Parameter"),
+    at("ads_col_cost", {}, "Cost"),
+    at("ads_col_registrations", {}, "Registrations"),
+    at("ads_col_conversions", {}, "Conversions"),
+    at("ads_col_status", {}, "Status"),
+    at("actions", {}, "Actions"),
   ]);
 
   onMount(() => {
@@ -76,53 +76,53 @@
     />
   {:else if !ads.length}
     <AdminEmptyState tone="card"
-      ><span class="admin-muted">{at("ads_empty", {}, "Кампаний нет")}</span></AdminEmptyState
+      ><span class="admin-muted">{at("ads_empty", {}, "No campaigns found")}</span></AdminEmptyState
     >
   {:else}
     <AdminTable>
       <thead>
         <tr>
           <th>{at("id", {}, "ID")}</th>
-          <th>{at("ads_col_source", {}, "Источник")}</th>
-          <th>{at("ads_col_param", {}, "Параметр")}</th>
-          <th>{at("ads_col_cost", {}, "Стоимость")}</th>
-          <th>{at("ads_col_registrations", {}, "Регистрации")}</th>
-          <th>{at("ads_col_conversions", {}, "Конверсии")}</th>
-          <th>{at("ads_col_status", {}, "Статус")}</th>
-          <th class="admin-cell-actions">{at("actions", {}, "Действия")}</th>
+          <th>{at("ads_col_source", {}, "Source")}</th>
+          <th>{at("ads_col_param", {}, "Parameter")}</th>
+          <th>{at("ads_col_cost", {}, "Cost")}</th>
+          <th>{at("ads_col_registrations", {}, "Registrations")}</th>
+          <th>{at("ads_col_conversions", {}, "Conversions")}</th>
+          <th>{at("ads_col_status", {}, "Status")}</th>
+          <th class="admin-cell-actions">{at("actions", {}, "Actions")}</th>
         </tr>
       </thead>
       <tbody>
         {#each adRows as ad (ad.id)}
           <tr>
             <td class="admin-cell-id" data-label={at("id", {}, "ID")}>#{ad.id}</td>
-            <td data-label={at("ads_col_source", {}, "Источник")}>{ad.source}</td>
-            <td class="admin-cell-mono" data-label={at("ads_col_param", {}, "Параметр")}
+            <td data-label={at("ads_col_source", {}, "Source")}>{ad.source}</td>
+            <td class="admin-cell-mono" data-label={at("ads_col_param", {}, "Parameter")}
               >{ad.start_param}</td
             >
-            <td data-label={at("ads_col_cost", {}, "Стоимость")}>{fmtMoney(ad.cost)}</td>
-            <td data-label={at("ads_col_registrations", {}, "Регистрации")}
+            <td data-label={at("ads_col_cost", {}, "Cost")}>{fmtMoney(ad.cost)}</td>
+            <td data-label={at("ads_col_registrations", {}, "Registrations")}
               >{adStat(ad, "registrations")}</td
             >
-            <td data-label={at("ads_col_conversions", {}, "Конверсии")}
+            <td data-label={at("ads_col_conversions", {}, "Conversions")}
               >{adStat(ad, "conversions")}</td
             >
-            <td data-label={at("ads_col_status", {}, "Статус")}>
+            <td data-label={at("ads_col_status", {}, "Status")}>
               {#if ad.is_active}
-                <AdminBadge variant="success">{at("status_active", {}, "Активна")}</AdminBadge>
+                <AdminBadge variant="success">{at("status_active", {}, "Active")}</AdminBadge>
               {:else}
-                <AdminBadge variant="muted">{at("status_disabled", {}, "Выключена")}</AdminBadge>
+                <AdminBadge variant="muted">{at("status_disabled", {}, "Disabled")}</AdminBadge>
               {/if}
             </td>
-            <td class="admin-cell-actions" data-label={at("actions", {}, "Действия")}>
+            <td class="admin-cell-actions" data-label={at("actions", {}, "Actions")}>
               <AdminButton size="sm" onclick={() => adsStore.toggleAd(ad)}>
-                {ad.is_active ? at("btn_disable", {}, "Выкл") : at("btn_enable", {}, "Вкл")}
+                {ad.is_active ? at("btn_disable", {}, "Off") : at("btn_enable", {}, "On")}
               </AdminButton>
               <AdminButton
                 size="sm"
                 variant="danger"
-                title={at("btn_delete", {}, "Удалить")}
-                aria-label={at("btn_delete", {}, "Удалить")}
+                title={at("btn_delete", {}, "Delete")}
+                aria-label={at("btn_delete", {}, "Delete")}
                 onclick={() => adsStore.deleteAd(ad)}
               >
                 <Trash2 size={13} />
@@ -135,14 +135,14 @@
     {#if ads.length > ADS_PAGE_SIZE}
       <AdminPagination
         table={adsTable}
-        pageLabel={at("page_short", {}, "Стр.")}
-        ofLabel={at("pagination_of", {}, "из")}
-        totalLabel={at("total", {}, "Всего")}
-        jumpLabel={at("page_short", {}, "Стр.")}
-        jumpAriaLabel={at("pagination_jump_aria", {}, "Перейти к странице")}
-        goLabel={at("pagination_go", {}, "Перейти")}
-        prevLabel={at("back", {}, "Назад")}
-        nextLabel={at("next", {}, "Далее")}
+        pageLabel={at("page_short", {}, "Page")}
+        ofLabel={at("pagination_of", {}, "of")}
+        totalLabel={at("total", {}, "Total")}
+        jumpLabel={at("page_short", {}, "Page")}
+        jumpAriaLabel={at("pagination_jump_aria", {}, "Go to page")}
+        goLabel={at("pagination_go", {}, "Go")}
+        prevLabel={at("back", {}, "Back")}
+        nextLabel={at("next", {}, "Next")}
       />
     {/if}
   {/if}
@@ -150,14 +150,14 @@
 
 <Dialog
   open={adCreateOpen}
-  title={at("ad_create_title", {}, "Новая кампания")}
-  closeLabel={at("close", {}, "Закрыть")}
+  title={at("ad_create_title", {}, "New campaign")}
+  closeLabel={at("close", {}, "Close")}
   onclose={() => adsStore.setCreateOpen(false)}
   class="admin-dialog admin-dialog-compact admin-ad-dialog"
 >
   <div class="admin-form" data-dialog-content>
     <div class="admin-dialog-form-section">
-      <AdminField label={at("ad_label_source", {}, "Источник")}>
+      <AdminField label={at("ad_label_source", {}, "Source")}>
         <Input
           class="input"
           type="text"
@@ -168,8 +168,8 @@
         />
       </AdminField>
       <AdminField
-        label={at("ad_label_param", {}, "start-параметр")}
-        hint={at("ad_hint_param", {}, "Передаётся в /start, должен быть уникален")}
+        label={at("ad_label_param", {}, "start parameter")}
+        hint={at("ad_hint_param", {}, "Unique identifier for the referral link")}
       >
         <Input
           class="input"
@@ -182,7 +182,7 @@
       </AdminField>
     </div>
     <div class="admin-dialog-form-section">
-      <AdminField label={at("ad_label_cost", {}, "Стоимость, RUB")}>
+      <AdminField label={at("ad_label_cost", {}, "Cost, RUB")}>
         <Input
           class="input"
           type="number"
@@ -196,14 +196,14 @@
     </div>
     <div class="admin-dialog-actions">
       <AdminButton onclick={() => adsStore.setCreateOpen(false)}
-        >{at("btn_cancel", {}, "Отмена")}</AdminButton
+        >{at("btn_cancel", {}, "Cancel")}</AdminButton
       >
       <AdminButton
         variant="primary"
         onclick={adsStore.createAd}
         disabled={!adDraft.source.trim() || !adDraft.start_param.trim()}
       >
-        {at("btn_create", {}, "Создать")}
+        {at("btn_create", {}, "Create")}
       </AdminButton>
     </div>
   </div>

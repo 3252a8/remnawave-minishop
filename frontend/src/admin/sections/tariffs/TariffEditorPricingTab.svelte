@@ -51,18 +51,19 @@
     <section class="admin-editor-section">
       <header class="admin-editor-section-head">
         <div class="admin-editor-section-title">
-          <strong>{at("tariff_pricing_period_title", {}, "Периоды подписки и цены")}</strong>
+          <strong>{at("tariff_pricing_period_title", {}, "Subscription periods and prices")}</strong
+          >
           <small
             >{at(
               "tariff_pricing_period_subtitle",
               {},
-              "Каждая строка — отдельный вариант на витрине: за сколько месяцев пользователь платит и сколько это стоит"
+              "Each row is a separate storefront option: how many months the user pays for and how much it costs. Drag rows by the handle to set the period order in the bot and the web app"
             )}</small
           >
         </div>
         <AdminButton size="sm" onclick={addPeriodRow}>
           <Plus size={13} />
-          {at("tariff_btn_period", {}, "Период")}
+          {at("tariff_btn_period", {}, "Period")}
         </AdminButton>
       </header>
       {#if !tariffDraft.periodRows.length}
@@ -70,25 +71,25 @@
           {at(
             "tariff_pricing_empty",
             {},
-            "Добавьте хотя бы один период — без него тариф не появится на витрине."
+            "Add at least one period so the tariff appears in the storefront."
           )}
         </p>
       {:else}
         <div class="admin-row-editor">
           <div class="admin-row-editor-line admin-row-editor-period admin-row-editor-header">
             <span></span>
-            <span>{at("tariff_col_period_months", {}, "Срок, мес.")}</span>
+            <span>{at("tariff_col_period_months", {}, "Period, mo.")}</span>
             <span>{currencyPriceColumnLabel}</span>
-            <span>{at("tariff_col_price_stars_full", {}, "Цена, ⭐ Stars")}</span>
-            <span>{at("tariff_col_ref_inviter", {}, "Бонус приглашающему")}</span>
-            <span>{at("tariff_col_ref_referee", {}, "Бонус приглашённому")}</span>
+            <span>{at("tariff_col_price_stars_full", {}, "Price, ⭐ Stars")}</span>
+            <span>{at("tariff_col_ref_inviter", {}, "Inviter bonus")}</span>
+            <span>{at("tariff_col_ref_referee", {}, "Friend bonus")}</span>
             <span></span>
           </div>
           <Sortable
             items={tariffDraft.periodRows}
             class="admin-row-editor-line admin-row-editor-period"
             getKey={draftRowKey}
-            handleLabel={at("tariff_period_reorder", {}, "Перетащите, чтобы изменить порядок")}
+            handleLabel={at("tariff_period_reorder", {}, "Drag to reorder")}
             onReorder={movePeriodRow}
           >
             {#snippet children(row: DraftRow, index: number)}
@@ -99,7 +100,7 @@
                 placeholder="1"
                 value={row.months}
                 oninput={draftRowInputHandler(tariffsStore, "periodRows", index, "months")}
-                aria-label={at("tariff_col_period_months", {}, "Срок (месяцы)")}
+                aria-label={at("tariff_col_period_months", {}, "Period, mo.")}
               />
               <Input
                 class="input"
@@ -119,7 +120,7 @@
                 placeholder="150"
                 value={row.stars}
                 oninput={draftRowInputHandler(tariffsStore, "periodRows", index, "stars")}
-                aria-label={at("tariff_label_price_stars", {}, "Цена в Telegram Stars")}
+                aria-label={at("tariff_label_price_stars", {}, "Price in Telegram Stars")}
               />
               <Input
                 class="input"
@@ -134,7 +135,7 @@
                   index,
                   "referral_inviter"
                 )}
-                aria-label={at("tariff_label_ref_inviter", {}, "Бонус приглашающему")}
+                aria-label={at("tariff_label_ref_inviter", {}, "Inviter bonus, days")}
               />
               <Input
                 class="input"
@@ -149,13 +150,13 @@
                   index,
                   "referral_referee"
                 )}
-                aria-label={at("tariff_label_ref_referee", {}, "Бонус приглашённому")}
+                aria-label={at("tariff_label_ref_referee", {}, "Friend bonus, days")}
               />
               <AdminButton
                 size="sm"
                 variant="danger"
                 onclick={() => tariffsStore.removeDraftRow("periodRows", index)}
-                aria-label={at("btn_delete", {}, "Удалить")}
+                aria-label={at("btn_delete", {}, "Delete")}
               >
                 <Trash2 size={13} />
               </AdminButton>
@@ -168,18 +169,18 @@
     <section class="admin-editor-section">
       <header class="admin-editor-section-head">
         <div class="admin-editor-section-title">
-          <strong>{at("tariff_pricing_traffic_title", {}, "Пакеты трафика")}</strong>
+          <strong>{at("tariff_pricing_traffic_title", {}, "Traffic packages")}</strong>
           <small
             >{at(
               "tariff_pricing_traffic_subtitle",
               {},
-              "Базовая витрина для трафиковой модели. Каждая строка — пакет «N гигабайт за N единиц валюты»"
+              'Base storefront for the traffic model. Each row is an "N gigabytes for N currency units" package. Drag rows by the handle to set the package order in the bot and the web app'
             )}</small
           >
         </div>
         <div class="admin-editor-section-actions">
           <AdminButton size="sm" onclick={addTrafficRow}
-            ><Plus size={12} /> {at("tariff_btn_package", {}, "Пакет")}</AdminButton
+            ><Plus size={12} /> {at("tariff_btn_package", {}, "Package")}</AdminButton
           >
         </div>
       </header>
@@ -187,16 +188,16 @@
         <div class="admin-row-editor">
           <div class="admin-row-editor-line admin-row-editor-drag admin-row-editor-header">
             <span></span>
-            <span>{at("tariff_col_volume_gb", {}, "Объём, GB")}</span>
+            <span>{at("tariff_col_volume_gb", {}, "Volume, GB")}</span>
             <span>{currencyPriceColumnLabel}</span>
-            <span>{at("tariff_col_price_stars_full", {}, "Цена, ⭐ Stars")}</span>
+            <span>{at("tariff_col_price_stars_full", {}, "Price, ⭐ Stars")}</span>
             <span></span>
           </div>
           <Sortable
             items={tariffDraft.trafficRows}
             class="admin-row-editor-line admin-row-editor-drag"
             getKey={draftRowKey}
-            handleLabel={at("tariff_package_reorder", {}, "Перетащите, чтобы изменить порядок")}
+            handleLabel={at("tariff_package_reorder", {}, "Drag to reorder")}
             onReorder={moveTrafficRow}
           >
             {#snippet children(row: DraftRow, index: number)}
@@ -208,7 +209,7 @@
                 placeholder="50"
                 value={row.gb}
                 oninput={draftRowInputHandler(tariffsStore, "trafficRows", index, "gb")}
-                aria-label={at("tariff_col_volume_gb", {}, "Объём пакета в GB")}
+                aria-label={at("tariff_col_volume_gb", {}, "Volume, GB")}
               />
               <Input
                 class="input"
@@ -228,13 +229,13 @@
                 placeholder="150"
                 value={row.stars}
                 oninput={draftRowInputHandler(tariffsStore, "trafficRows", index, "stars")}
-                aria-label={at("tariff_label_price_stars", {}, "Цена пакета в Telegram Stars")}
+                aria-label={at("tariff_label_price_stars", {}, "Price in Telegram Stars")}
               />
               <AdminButton
                 size="sm"
                 variant="danger"
                 onclick={() => tariffsStore.removeDraftRow("trafficRows", index)}
-                aria-label={at("btn_delete", {}, "Удалить")}><Trash2 size={13} /></AdminButton
+                aria-label={at("btn_delete", {}, "Delete")}><Trash2 size={13} /></AdminButton
               >
             {/snippet}
           </Sortable>

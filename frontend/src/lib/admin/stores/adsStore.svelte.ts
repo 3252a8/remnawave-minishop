@@ -85,7 +85,7 @@ export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore 
     });
 
     if (isOkResponse(res)) {
-      onToast(at("ad_created", {}, "Кампания создана"));
+      onToast(at("ad_created", {}, "Campaign created"));
       state.adCreateOpen = false;
       state.adDraft = defaultAdDraft();
       await loadAds();
@@ -114,7 +114,7 @@ export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore 
     const res = await api(path, { method: "DELETE" });
     if (isOkResponse(res)) {
       ads = ads.filter((c) => c.id !== ad.id);
-      onToast(at("ad_deleted", {}, "Кампания удалена"));
+      onToast(at("ad_deleted", {}, "Campaign deleted"));
     } else {
       onToast(adminErrorMessage(res, at));
     }

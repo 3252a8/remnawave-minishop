@@ -33,8 +33,8 @@
   <Textarea
     bind:value
     rows={4}
-    placeholder={at("support_reply_placeholder", {}, "Ответ")}
-    ariaLabel={at("support_reply_placeholder", {}, "Ответ")}
+    placeholder={at("support_reply_placeholder", {}, "Reply")}
+    ariaLabel={at("support_reply_placeholder", {}, "Reply")}
     class="support-admin-composer-textarea"
   />
 
@@ -51,13 +51,13 @@
       </Switch.Root>
       <label id="support-internal-note-label" for="support-internal-note">
         <Lock size={14} />
-        <span>{at("support_internal_note", {}, "Внутренняя заметка")}</span>
+        <span>{at("support_internal_note", {}, "Internal note")}</span>
       </label>
     </div>
 
     <AdminButton variant="primary" disabled={sending || !value.trim()} onclick={submit}>
       {#if sending}<Spinner size="sm" />{:else}<Send size={14} />{/if}
-      {at("send", {}, "Отправить")}
+      {at("send", {}, "Send")}
     </AdminButton>
   </div>
 </div>

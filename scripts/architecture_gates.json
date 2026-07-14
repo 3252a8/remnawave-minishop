@@ -31,7 +31,7 @@
       "allowlist": [
         "frontend/src/**/*.test.ts"
       ],
-      "allowed_count": 994
+      "allowed_count": 0
     },
     "frontend_webapp_translation_calls": {
       "scopes": [
@@ -59,12 +59,69 @@
       "allowlist": [],
       "allowed_count": 0
     },
+    "frontend_source_lines": {
+      "scopes": [
+        "frontend/src"
+      ],
+      "extensions": [
+        ".ts",
+        ".svelte",
+        ".js"
+      ],
+      "allowlist": [
+        "frontend/src/**/*.test.ts",
+        "frontend/src/**/*.spec.ts",
+        "frontend/src/PreviewBoard.svelte",
+        "frontend/src/preview/**",
+        "frontend/src/lib/webapp/demoDataset.js",
+        "frontend/src/lib/webapp/mockApi/**",
+        "frontend/src/lib/webapp/previewMock/**"
+      ],
+      "allowed_count": 0
+    },
     "python_literals": {
       "scopes": [
         "backend"
       ],
+      "allowlist": [
+        "backend/bot/handlers/inline_mode.py",
+        "backend/bot/payment_providers/paykilla/config.py",
+        "backend/bot/utils/text_sanitizer.py",
+        "backend/db/migrator/chain_0001_0021.py"
+      ],
+      "allowed_count": 0
+    },
+    "python_literal_exceptions": {
+      "scopes": [
+        "backend/bot/handlers/inline_mode.py",
+        "backend/bot/payment_providers/paykilla/config.py",
+        "backend/bot/utils/text_sanitizer.py",
+        "backend/db/migrator/chain_0001_0021.py"
+      ],
       "allowlist": [],
-      "allowed_count": 461
+      "allowed_count": 123
+    },
+    "python_source_lines": {
+      "scopes": [
+        "backend"
+      ],
+      "allowlist": [
+        "backend/bot/handlers/inline_mode.py",
+        "backend/bot/payment_providers/paykilla/config.py",
+        "backend/bot/utils/text_sanitizer.py",
+        "backend/db/migrator/chain_0001_0021.py"
+      ],
+      "allowed_count": 0
+    },
+    "python_source_exceptions": {
+      "scopes": [
+        "backend/bot/handlers/inline_mode.py",
+        "backend/bot/payment_providers/paykilla/config.py",
+        "backend/bot/utils/text_sanitizer.py",
+        "backend/db/migrator/chain_0001_0021.py"
+      ],
+      "allowlist": [],
+      "allowed_count": 116
     },
     "python_webapp_literals": {
       "scopes": [

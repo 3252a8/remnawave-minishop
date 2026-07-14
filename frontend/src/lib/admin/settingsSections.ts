@@ -326,7 +326,7 @@ export function groupWebhook(fields: AdminSettingField[]): GroupWebhook {
 
 function providerLogoFallback(label: string): string {
   const words = label
-    .replace(/[^0-9A-Za-zА-Яа-яЁё]+/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim()
     .split(/\s+/)
     .filter(Boolean);
@@ -337,7 +337,7 @@ function providerLogoFallback(label: string): string {
       .join("")
       .toUpperCase();
   }
-  const compact = (words[0] || label).replace(/[^0-9A-Za-zА-Яа-яЁё]+/g, "");
+  const compact = (words[0] || label).replace(/[^\p{L}\p{N}]+/gu, "");
   return compact.slice(0, 2).toUpperCase() || "P";
 }
 

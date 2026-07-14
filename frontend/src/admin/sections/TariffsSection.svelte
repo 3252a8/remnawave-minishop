@@ -109,8 +109,8 @@
       const packages = tariff.traffic_packages?.[currency] || [];
       const first = packages[0];
       return first
-        ? `${first.gb} GB ${at("at", {}, "за")} ${fmtMoney(first.price, currencyCode)}`
-        : at("tariff_traffic_packages", {}, "Пакеты трафика");
+        ? `${first.gb} GB ${at("at", {}, "for")} ${fmtMoney(first.price, currencyCode)}`
+        : at("tariff_traffic_packages", {}, "Traffic packages");
     }
     const months = [...(tariff.enabled_periods || [])];
     return months
@@ -119,15 +119,15 @@
           (currency === "rub" ? tariff.prices_rub?.[String(month)] : undefined) ??
           tariff.prices?.[currency]?.[String(month)];
         const stars = tariff.prices_stars?.[String(month)];
-        if (rub) return `${month} ${at("months_short", {}, "мес.")} ${fmtMoney(rub, currencyCode)}`;
-        if (stars) return `${month} ${at("months_short", {}, "мес.")} ${stars} ⭐`;
-        return `${month} ${at("months_short", {}, "мес.")}`;
+        if (rub) return `${month} ${at("months_short", {}, "mo.")} ${fmtMoney(rub, currencyCode)}`;
+        if (stars) return `${month} ${at("months_short", {}, "mo.")} ${stars} ⭐`;
+        return `${month} ${at("months_short", {}, "mo.")}`;
       })
       .join(" · ");
   }
 
   function tariffUnlimitedLabel(): string {
-    return at("tariff_traffic_unlimited", {}, "Безлимит");
+    return at("tariff_traffic_unlimited", {}, "Unlimited");
   }
 
   function tariffGbLimitLabel(value: unknown): string {
@@ -210,10 +210,10 @@
   }
 
   function providerCurrencyLabel(provider: ProviderCurrencySupport): string {
-    if (provider.accepts_any_currency) return at("tariff_provider_any_currency", {}, "Любая");
+    if (provider.accepts_any_currency) return at("tariff_provider_any_currency", {}, "Any");
     return (
       (provider.currencies || []).map((currency) => String(currency).toUpperCase()).join(", ") ||
-      at("tariff_provider_not_declared", {}, "Не задано")
+      at("tariff_provider_not_declared", {}, "Not declared")
     );
   }
 
@@ -225,10 +225,10 @@
   }
 
   function providerCurrencyStatus(provider: ProviderCurrencySupport): string {
-    if (!provider.enabled) return at("disabled", {}, "Отключен");
-    if (!provider.configured) return at("status_not_configured", {}, "Не настроен");
-    if (provider.supports_default_currency) return at("tariff_currency_supported", {}, "Доступен");
-    return at("tariff_currency_unsupported", {}, "Заблокирован");
+    if (!provider.enabled) return at("disabled", {}, "Disabled");
+    if (!provider.configured) return at("status_not_configured", {}, "Not configured");
+    if (provider.supports_default_currency) return at("tariff_currency_supported", {}, "Available");
+    return at("tariff_currency_unsupported", {}, "Blocked");
   }
 
   function openProviderSettings(provider: ProviderCurrencySupport): void {
@@ -246,28 +246,28 @@
 </script>
 
 {#if tariffsLoading}
-  <AdminEmptyState>{at("loading", {}, "Загрузка…")}</AdminEmptyState>
+  <AdminEmptyState>{at("loading", {}, "Loading…")}</AdminEmptyState>
 {:else}
   <div class="admin-stat-grid">
     <div class="admin-stat-card">
-      <span class="admin-stat-label">{at("tariffs_stat_total", {}, "Всего тарифов")}</span>
+      <span class="admin-stat-label">{at("tariffs_stat_total", {}, "Total tariffs")}</span>
       <strong class="admin-stat-value">{tariffsCatalog.tariffs.length}</strong>
       <span class="admin-stat-trend"
-        >{at("tariffs_stat_enabled", {}, "Включено")}: {enabledTariffs.length}</span
+        >{at("tariffs_stat_enabled", {}, "Enabled")}: {enabledTariffs.length}</span
       >
     </div>
     <div class="admin-stat-card">
-      <span class="admin-stat-label">{at("tariffs_stat_default", {}, "По умолчанию")}</span>
+      <span class="admin-stat-label">{at("tariffs_stat_default", {}, "Default")}</span>
       <strong class="admin-stat-value">{tariffsCatalog.default_tariff || "—"}</strong>
       <span class="admin-stat-trend"
-        >{at("tariffs_stat_default_hint", {}, "Используется для новых подписок")}</span
+        >{at("tariffs_stat_default_hint", {}, "Used for new subscriptions")}</span
       >
     </div>
     <div class="admin-stat-card">
-      <span class="admin-stat-label">{at("tariffs_stat_disabled", {}, "Отключено")}</span>
+      <span class="admin-stat-label">{at("tariffs_stat_disabled", {}, "Disabled")}</span>
       <strong class="admin-stat-value">{disabledTariffs}</strong>
       <span class="admin-stat-trend"
-        >{at("tariffs_stat_disabled_hint", {}, "Скрыто с витрины")}</span
+        >{at("tariffs_stat_disabled_hint", {}, "Hidden from showcase")}</span
       >
     </div>
   </div>
@@ -295,12 +295,12 @@
       <article class="admin-card admin-tariff-currency-card">
         <header class="admin-card-head admin-tariff-panel-head">
           <div>
-            <h3>{at("tariffs_currency_title", {}, "Валюта каталога")}</h3>
+            <h3>{at("tariffs_currency_title", {}, "Catalog currency")}</h3>
             <small>
               {at(
                 "tariffs_currency_subtitle",
                 {},
-                "Цены тарифов и платёжные провайдеры проверяются по этой валюте."
+                "Tariff prices and payment providers are checked against this currency."
               )}
             </small>
           </div>
@@ -308,12 +308,12 @@
         </header>
         <div class="admin-card-body admin-tariff-currency-body">
           <div class="admin-tariff-currency-current">
-            <span>{at("tariffs_currency_current", {}, "Текущая валюта")}</span>
+            <span>{at("tariffs_currency_current", {}, "Current currency")}</span>
             <strong>{catalogCurrencyCode}</strong>
           </div>
           <div class="admin-tariff-catalog-bar">
             <label class="admin-field-label-compact admin-tariff-currency-field">
-              <span>{at("tariff_default_currency", {}, "Валюта оплаты")}</span>
+              <span>{at("tariff_default_currency", {}, "Payment currency")}</span>
               <Input
                 class="input admin-currency-input"
                 type="text"
@@ -331,9 +331,7 @@
                 disabled={tariffsSaving}
               >
                 <Save size={13} />
-                {tariffsSaving
-                  ? at("btn_saving", {}, "Сохранение...")
-                  : at("btn_save", {}, "Сохранить")}
+                {tariffsSaving ? at("btn_saving", {}, "Saving...") : at("btn_save", {}, "Save")}
               </AdminButton>
             {/if}
           </div>
@@ -343,12 +341,12 @@
       <article class="admin-card admin-tariff-providers-card">
         <header class="admin-card-head admin-tariff-panel-head">
           <div>
-            <h3>{at("tariffs_provider_title", {}, "Платёжные провайдеры")}</h3>
+            <h3>{at("tariffs_provider_title", {}, "Payment providers")}</h3>
             <small>
               {at(
                 "tariffs_provider_subtitle",
                 {},
-                "Здесь видно, какие провайдеры смогут принять текущую валюту каталога."
+                "Shows which providers can accept the current catalog currency."
               )}
             </small>
           </div>
@@ -357,14 +355,14 @@
               {at(
                 "tariffs_provider_available_count",
                 { count: providerSupportSummary.available },
-                "Доступно: {count}"
+                "Available: {count}"
               )}
             </AdminBadge>
             <AdminBadge variant="muted">
               {at(
                 "tariffs_provider_enabled_count",
                 { count: providerSupportSummary.enabled },
-                "Включено: {count}"
+                "Enabled: {count}"
               )}
             </AdminBadge>
             {#if providerSupportSummary.blocked}
@@ -372,7 +370,7 @@
                 {at(
                   "tariffs_provider_blocked_count",
                   { count: providerSupportSummary.blocked },
-                  "Не подходят: {count}"
+                  "Unsupported: {count}"
                 )}
               </AdminBadge>
             {/if}
@@ -407,7 +405,7 @@
             </div>
           {:else}
             <AdminEmptyState>
-              {at("tariffs_provider_empty", {}, "Данные по провайдерам пока не загружены.")}
+              {at("tariffs_provider_empty", {}, "Provider data has not been loaded yet.")}
             </AdminEmptyState>
           {/if}
         </div>
@@ -417,9 +415,9 @@
     <article class="admin-card admin-tariff-list-card">
       <header class="admin-card-head admin-tariff-list-head">
         <div>
-          <h3>{at("tariffs_title", {}, "Каталог тарифов")}</h3>
+          <h3>{at("tariffs_title", {}, "Tariff catalog")}</h3>
           <small>
-            {at("tariffs_catalog_subtitle", {}, "Периоды, цены, трафик и доступы пользователей.")}
+            {at("tariffs_catalog_subtitle", {}, "Periods, prices, traffic, and user access.")}
           </small>
           <code class="admin-tariff-path">{tariffsPath || "data/tariffs.json"}</code>
         </div>
@@ -430,7 +428,7 @@
             disabled={tariffsLoading || tariffsSaving}
           >
             <RefreshCw size={13} />
-            {at("btn_refresh", {}, "Обновить")}
+            {at("btn_refresh", {}, "Refresh")}
           </AdminButton>
           <AdminButton
             size="sm"
@@ -439,7 +437,7 @@
             disabled={tariffsLoading || tariffsSaving}
           >
             <Plus size={13} />
-            {at("btn_create_tariff", {}, "Создать тариф")}
+            {at("btn_create_tariff", {}, "Create Tariff")}
           </AdminButton>
         </div>
       </header>
@@ -449,7 +447,7 @@
             {at(
               "tariffs_catalog_empty",
               {},
-              "Каталог пуст. Добавьте первый тариф, после сохранения будет создан JSON-файл каталога."
+              "The catalog is empty. Add your first tariff; a catalog JSON file will be created after saving."
             )}
           </AdminEmptyState>
         {:else}
@@ -469,35 +467,35 @@
                     <code>{tariff.key}</code>
                   </div>
                   {#if tariff.enabled === false}
-                    <AdminBadge variant="muted">{at("status_disabled", {}, "Выключен")}</AdminBadge>
+                    <AdminBadge variant="muted">{at("status_disabled", {}, "Disabled")}</AdminBadge>
                   {:else}
-                    <AdminBadge variant="success">{at("status_active", {}, "Активен")}</AdminBadge>
+                    <AdminBadge variant="success">{at("status_active", {}, "Active")}</AdminBadge>
                   {/if}
                 </div>
                 <p>
                   {tariff.descriptions?.ru ||
                     tariff.descriptions?.en ||
-                    at("no_description", {}, "Без описания")}
+                    at("no_description", {}, "No description")}
                 </p>
                 <div class="admin-tariff-facts">
                   <span
                     >{tariff.billing_model === "traffic"
-                      ? at("tariff_model_traffic", {}, "Трафик")
-                      : at("tariff_model_periods", {}, "Периоды")}</span
+                      ? at("tariff_model_traffic", {}, "Traffic")
+                      : at("tariff_model_periods", {}, "Periods")}</span
                   >
                   <span>{tariffPriceSummary(tariff)}</span>
                   <span
                     >{at("tariff_squads", {}, "Squads")}: {(tariff.squad_uuids || []).length}</span
                   >
                   <span
-                    >{at("tariff_regular_traffic", {}, "Обычный трафик")}:
+                    >{at("tariff_regular_traffic", {}, "Standard traffic")}:
                     {tariffMonthlyTrafficLimit(tariff)}</span
                   >
                   <span
                     >{at("tariff_premium", {}, "Premium")}:
                     {tariffPremiumTrafficLimit(tariff)}</span
                   >
-                  <span>{at("tariff_devices", {}, "Устройства")}: {tariffDeviceLimit(tariff)}</span>
+                  <span>{at("tariff_devices", {}, "Devices")}: {tariffDeviceLimit(tariff)}</span>
                 </div>
                 <div class="admin-tariff-actions">
                   <AdminButton
@@ -505,7 +503,7 @@
                     size="sm"
                     onclick={() => tariffsStore.openEditTariff(tariff)}
                   >
-                    {at("btn_configure", {}, "Настроить")}
+                    {at("btn_configure", {}, "Configure")}
                   </AdminButton>
                   <AdminButton
                     size="sm"
@@ -513,8 +511,8 @@
                     disabled={tariffsSaving}
                   >
                     {tariff.enabled === false
-                      ? at("btn_enable", {}, "Включить")
-                      : at("btn_disable", {}, "Выключить")}
+                      ? at("btn_enable", {}, "On")
+                      : at("btn_disable", {}, "Off")}
                   </AdminButton>
                   <AdminButton
                     size="sm"
@@ -523,7 +521,7 @@
                       tariff.enabled === false ||
                       tariff.key === tariffsCatalog.default_tariff}
                   >
-                    {at("btn_set_default", {}, "По умолчанию")}
+                    {at("btn_set_default", {}, "Set Default")}
                   </AdminButton>
                   <AdminButton
                     data-admin-action="open-tariff-delete"
@@ -535,7 +533,7 @@
                         tariffDeleteOpen: true,
                       })}
                     disabled={tariffsSaving}
-                    aria-label={at("btn_delete_tariff", {}, "Удалить тариф")}
+                    aria-label={at("btn_delete_tariff", {}, "Delete Tariff")}
                   >
                     <Trash2 size={13} />
                   </AdminButton>
@@ -560,19 +558,15 @@
           onclick={() => (legacyTariffSettingsOpen = !legacyTariffSettingsOpen)}
         >
           <span class="admin-accordion-title">
-            {at("tariffs_legacy_title", {}, "Совместимость с legacy-тарифами")}
+            {at("tariffs_legacy_title", {}, "Legacy tariff compatibility")}
           </span>
           <span class="admin-accordion-meta">
             {at(
               "tariffs_legacy_subtitle",
               {},
-              "Старые периоды и пакеты трафика remnawave-tg-shop, которые используются только без JSON-каталога."
+              "Old remnawave-tg-shop periods and traffic packages used only when the JSON tariff catalog is not configured."
             )}{#if legacyDirtyCount}
-              · {at(
-                "settings_dirty_count",
-                { count: legacyDirtyCount },
-                `Изменений: ${legacyDirtyCount}`
-              )}{/if}
+              · {at("settings_dirty_count", { count: legacyDirtyCount }, "Changes: {count}")}{/if}
           </span>
           <ChevronRight size={16} class="admin-accordion-chev" />
         </button>
@@ -583,11 +577,7 @@
             {#if legacyDirtyCount}
               <div class="admin-editor-section-actions admin-tariff-settings-save-row">
                 <AdminBadge variant="warning">
-                  {at(
-                    "settings_dirty_count",
-                    { count: legacyDirtyCount },
-                    `Изменений: ${legacyDirtyCount}`
-                  )}
+                  {at("settings_dirty_count", { count: legacyDirtyCount }, "Changes: {count}")}
                 </AdminBadge>
                 <AdminButton
                   size="sm"
@@ -596,9 +586,7 @@
                   disabled={settingsSaving}
                 >
                   <Save size={13} />
-                  {settingsSaving
-                    ? at("btn_saving", {}, "Сохранение...")
-                    : at("btn_save", {}, "Сохранить")}
+                  {settingsSaving ? at("btn_saving", {}, "Saving...") : at("btn_save", {}, "Save")}
                 </AdminButton>
               </div>
             {/if}
@@ -622,10 +610,10 @@
             >
               <div class="admin-setting-meta">
                 <strong>
-                  {at("tariffs_legacy_refs", {}, "Старые ref-ссылки с ID пользователя")}
+                  {at("tariffs_legacy_refs", {}, "Legacy ref links with user ID")}
                   {#if settingsDirty.LEGACY_REFS}
                     <AdminBadge variant="warning"
-                      >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                      >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                     >
                   {/if}
                 </strong>
@@ -634,18 +622,14 @@
                   {at(
                     "tariffs_legacy_refs_hint",
                     {},
-                    "Принимать ссылки вида /start ref_<telegram_id>, где в payload записан Telegram/user ID пригласившего. Оставляйте включённым только для старых раздач ссылок."
+                    "Accept links like /start ref_<telegram_id>, where the payload contains the inviter's Telegram/user ID. Keep enabled only for old shared links."
                   )}
                 </small>
               </div>
               <div class="admin-setting-control">
                 <div class="admin-setting-switch">
                   <Switch.Root
-                    aria-label={at(
-                      "tariffs_legacy_refs",
-                      {},
-                      "Старые ref-ссылки с ID пользователя"
-                    )}
+                    aria-label={at("tariffs_legacy_refs", {}, "Legacy ref links with user ID")}
                     checked={boolValue("LEGACY_REFS", settingsDirty, settingsFieldMap)}
                     onCheckedChange={(checked) => setSetting("LEGACY_REFS", checked)}
                     class="admin-switch-root"
@@ -654,8 +638,8 @@
                   </Switch.Root>
                   <span
                     >{boolValue("LEGACY_REFS", settingsDirty, settingsFieldMap)
-                      ? at("enabled", {}, "Включено")
-                      : at("disabled", {}, "Выключено")}</span
+                      ? at("enabled", {}, "Enabled")
+                      : at("disabled", {}, "Disabled")}</span
                   >
                 </div>
                 {#if settingsDirty.LEGACY_REFS}
@@ -665,7 +649,7 @@
                     onclick={() => settingsStore.clearDirty("LEGACY_REFS")}
                   >
                     <X size={12} />
-                    {at("reset", {}, "Сбросить")}
+                    {at("reset", {}, "Reset")}
                   </AdminButton>
                 {/if}
               </div>

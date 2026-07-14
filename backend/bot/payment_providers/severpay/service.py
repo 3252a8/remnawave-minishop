@@ -574,7 +574,7 @@ _PRESENTATION_MANIFEST = tuple(
 
 _CONFIG_MANIFEST = (
     ProviderManifestField(
-        "SEVERPAY_ENABLED", "bool", "Включена", subsection="SeverPay", attr="ENABLED"
+        "SEVERPAY_ENABLED", "bool", "Enabled", subsection="SeverPay", attr="ENABLED"
     ),
     ProviderManifestField("SEVERPAY_MID", "int", "MID", subsection="SeverPay", attr="MID"),
     ProviderManifestField(

@@ -216,12 +216,12 @@
       >
         <header class="admin-settings-field-group-head">
           <div class="admin-settings-field-group-head-copy">
-            <strong>{at("tariffs_trial_group_switch", {}, "Доступ")}</strong>
+            <strong>{at("tariffs_trial_group_switch", {}, "Access")}</strong>
             <small>
               {at(
                 "tariffs_trial_group_switch_hint",
                 {},
-                "Включает или выключает выдачу пробного периода пользователям."
+                "Turns trial activation on or off for users."
               )}
             </small>
           </div>
@@ -230,7 +230,7 @@
               {at(
                 "settings_dirty_count",
                 { count: dirtyCount(TRIAL_SWITCH_KEYS, settingsDirty) },
-                `Изменений: ${dirtyCount(TRIAL_SWITCH_KEYS, settingsDirty)}`
+                "Changes: {count}"
               )}
             </AdminBadge>
           {/if}
@@ -242,10 +242,10 @@
           >
             <div class="admin-setting-meta">
               <strong>
-                {at("tariffs_trial_enabled", {}, "Триал включён")}
+                {at("tariffs_trial_enabled", {}, "Trial enabled")}
                 {#if isSettingDirty("TRIAL_ENABLED", settingsDirty)}
                   <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                   >
                 {/if}
               </strong>
@@ -254,7 +254,7 @@
             <div class="admin-setting-control">
               <div class="admin-setting-switch">
                 <Switch.Root
-                  aria-label={at("tariffs_trial_enabled", {}, "Триал включён")}
+                  aria-label={at("tariffs_trial_enabled", {}, "Trial enabled")}
                   checked={boolValue("TRIAL_ENABLED", settingsDirty, settingsFieldMap)}
                   onCheckedChange={(checked) => setSetting("TRIAL_ENABLED", checked)}
                   class="admin-switch-root"
@@ -263,8 +263,8 @@
                 </Switch.Root>
                 <span
                   >{boolValue("TRIAL_ENABLED", settingsDirty, settingsFieldMap)
-                    ? at("enabled", {}, "Включено")
-                    : at("disabled", {}, "Выключено")}</span
+                    ? at("enabled", {}, "Enabled")
+                    : at("disabled", {}, "Disabled")}</span
                 >
               </div>
               {#if isSettingDirty("TRIAL_ENABLED", settingsDirty)}
@@ -274,7 +274,7 @@
                   onclick={() => resetSetting("TRIAL_ENABLED")}
                 >
                   <X size={12} />
-                  {at("reset", {}, "Сбросить")}
+                  {at("reset", {}, "Reset")}
                 </AdminButton>
               {/if}
             </div>
@@ -285,10 +285,10 @@
           >
             <div class="admin-setting-meta">
               <strong>
-                {at("tariffs_trial_without_telegram_enabled", {}, "Триал без Telegram")}
+                {at("tariffs_trial_without_telegram_enabled", {}, "Trial without Telegram")}
                 {#if isSettingDirty("TRIAL_WITHOUT_TELEGRAM_ENABLED", settingsDirty)}
                   <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                   >
                 {/if}
               </strong>
@@ -300,7 +300,7 @@
                   aria-label={at(
                     "tariffs_trial_without_telegram_enabled",
                     {},
-                    "Триал без Telegram"
+                    "Trial without Telegram"
                   )}
                   checked={boolValue(
                     "TRIAL_WITHOUT_TELEGRAM_ENABLED",
@@ -315,8 +315,8 @@
                 </Switch.Root>
                 <span
                   >{boolValue("TRIAL_WITHOUT_TELEGRAM_ENABLED", settingsDirty, settingsFieldMap)
-                    ? at("enabled", {}, "Включено")
-                    : at("disabled", {}, "Выключено")}</span
+                    ? at("enabled", {}, "Enabled")
+                    : at("disabled", {}, "Disabled")}</span
                 >
               </div>
               {#if isSettingDirty("TRIAL_WITHOUT_TELEGRAM_ENABLED", settingsDirty)}
@@ -326,7 +326,7 @@
                   onclick={() => resetSetting("TRIAL_WITHOUT_TELEGRAM_ENABLED")}
                 >
                   <X size={12} />
-                  {at("reset", {}, "Сбросить")}
+                  {at("reset", {}, "Reset")}
                 </AdminButton>
               {/if}
             </div>
@@ -340,12 +340,12 @@
       >
         <header class="admin-settings-field-group-head">
           <div class="admin-settings-field-group-head-copy">
-            <strong>{at("tariffs_trial_group_general", {}, "Общие настройки")}</strong>
+            <strong>{at("tariffs_trial_group_general", {}, "General settings")}</strong>
             <small>
               {at(
                 "tariffs_trial_group_general_hint",
                 {},
-                "Длительность пробного доступа и объём трафика, который получает пользователь."
+                "Trial duration and traffic volume granted to the user."
               )}
             </small>
           </div>
@@ -354,7 +354,7 @@
               {at(
                 "settings_dirty_count",
                 { count: dirtyCount(TRIAL_GENERAL_KEYS, settingsDirty) },
-                `Изменений: ${dirtyCount(TRIAL_GENERAL_KEYS, settingsDirty)}`
+                "Changes: {count}"
               )}
             </AdminBadge>
           {/if}
@@ -366,10 +366,10 @@
           >
             <div class="admin-setting-meta">
               <strong>
-                {at("tariffs_trial_days", {}, "Длительность, дней")}
+                {at("tariffs_trial_days", {}, "Duration, days")}
                 {#if isSettingDirty("TRIAL_DURATION_DAYS", settingsDirty)}
                   <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                   >
                 {/if}
               </strong>
@@ -391,7 +391,7 @@
                   onclick={() => resetSetting("TRIAL_DURATION_DAYS")}
                 >
                   <X size={12} />
-                  {at("reset", {}, "Сбросить")}
+                  {at("reset", {}, "Reset")}
                 </AdminButton>
               {/if}
             </div>
@@ -402,10 +402,10 @@
           >
             <div class="admin-setting-meta">
               <strong>
-                {at("tariffs_trial_traffic", {}, "Лимит трафика, GB")}
+                {at("tariffs_trial_traffic", {}, "Traffic limit, GB")}
                 {#if isSettingDirty("TRIAL_TRAFFIC_LIMIT_GB", settingsDirty)}
                   <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                   >
                 {/if}
               </strong>
@@ -427,7 +427,7 @@
                   onclick={() => resetSetting("TRIAL_TRAFFIC_LIMIT_GB")}
                 >
                   <X size={12} />
-                  {at("reset", {}, "Сбросить")}
+                  {at("reset", {}, "Reset")}
                 </AdminButton>
               {/if}
             </div>
@@ -438,10 +438,10 @@
           >
             <div class="admin-setting-meta">
               <strong>
-                {at("tariffs_trial_premium_traffic", {}, "Лимит premium-трафика, GB")}
+                {at("tariffs_trial_premium_traffic", {}, "Premium traffic limit, GB")}
                 {#if isSettingDirty("TRIAL_PREMIUM_TRAFFIC_LIMIT_GB", settingsDirty)}
                   <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                   >
                 {/if}
               </strong>
@@ -463,7 +463,7 @@
                   onclick={() => resetSetting("TRIAL_PREMIUM_TRAFFIC_LIMIT_GB")}
                 >
                   <X size={12} />
-                  {at("reset", {}, "Сбросить")}
+                  {at("reset", {}, "Reset")}
                 </AdminButton>
               {/if}
             </div>
@@ -477,12 +477,12 @@
       >
         <header class="admin-settings-field-group-head">
           <div class="admin-settings-field-group-head-copy">
-            <strong>{at("tariffs_trial_group_reset", {}, "Сброс трафика")}</strong>
+            <strong>{at("tariffs_trial_group_reset", {}, "Traffic reset")}</strong>
             <small>
               {at(
                 "tariffs_trial_group_reset_hint",
                 {},
-                "Стратегия, по которой Remnawave обновляет лимит трафика для пробного периода."
+                "Strategy Remnawave uses to refresh the trial traffic limit."
               )}
             </small>
           </div>
@@ -491,7 +491,7 @@
               {at(
                 "settings_dirty_count",
                 { count: dirtyCount(TRIAL_RESET_KEYS, settingsDirty) },
-                `Изменений: ${dirtyCount(TRIAL_RESET_KEYS, settingsDirty)}`
+                "Changes: {count}"
               )}
             </AdminBadge>
           {/if}
@@ -503,10 +503,10 @@
           >
             <div class="admin-setting-meta">
               <strong>
-                {at("tariffs_trial_strategy", {}, "Стратегия сброса трафика")}
+                {at("tariffs_trial_strategy", {}, "Traffic reset strategy")}
                 {#if isSettingDirty("TRIAL_TRAFFIC_STRATEGY", settingsDirty)}
                   <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                   >
                 {/if}
               </strong>
@@ -520,7 +520,7 @@
                     "NO_RESET"
                 )}
                 items={TRAFFIC_STRATEGY_OPTIONS}
-                ariaLabel={at("tariffs_trial_strategy", {}, "Стратегия сброса трафика")}
+                ariaLabel={at("tariffs_trial_strategy", {}, "Traffic reset strategy")}
                 onValueChange={handleTrialTrafficStrategySelect}
               />
               {#if isSettingDirty("TRIAL_TRAFFIC_STRATEGY", settingsDirty)}
@@ -530,7 +530,7 @@
                   onclick={() => resetSetting("TRIAL_TRAFFIC_STRATEGY")}
                 >
                   <X size={12} />
-                  {at("reset", {}, "Сбросить")}
+                  {at("reset", {}, "Reset")}
                 </AdminButton>
               {/if}
             </div>
@@ -544,12 +544,12 @@
       >
         <header class="admin-settings-field-group-head">
           <div class="admin-settings-field-group-head-copy">
-            <strong>{at("tariffs_trial_group_squads", {}, "Сквады")}</strong>
+            <strong>{at("tariffs_trial_group_squads", {}, "Squads")}</strong>
             <small>
               {at(
                 "tariffs_trial_group_squads_hint",
                 {},
-                "Сквады, которые будут назначены пользователю при активации триала."
+                "Squads assigned to the user when trial access is activated."
               )}
             </small>
           </div>
@@ -558,7 +558,7 @@
               {at(
                 "settings_dirty_count",
                 { count: dirtyCount(TRIAL_SQUAD_KEYS, settingsDirty) },
-                `Изменений: ${dirtyCount(TRIAL_SQUAD_KEYS, settingsDirty)}`
+                "Changes: {count}"
               )}
             </AdminBadge>
           {/if}
@@ -570,10 +570,10 @@
           >
             <div class="admin-setting-meta">
               <strong>
-                {at("tariffs_trial_squads", {}, "Обычные Internal Squads для триала")}
+                {at("tariffs_trial_squads", {}, "Regular Trial Internal Squads")}
                 {#if isSettingDirty("TRIAL_SQUAD_UUIDS", settingsDirty)}
                   <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                   >
                 {/if}
               </strong>
@@ -582,7 +582,7 @@
                 {at(
                   "tariffs_trial_squads_hint",
                   {},
-                  "Эти сквады применяются при активации триала как обычный доступ. Если поле пустое, используются USER_SQUAD_UUIDS."
+                  "These squads are applied as regular trial access. Empty value falls back to USER_SQUAD_UUIDS."
                 )}
               </small>
             </div>
@@ -593,9 +593,9 @@
                   items={panelSquadOptions}
                   disabled={panelSquadsLoading || !panelSquadOptions.length}
                   placeholder={panelSquadsLoading
-                    ? at("loading", {}, "Загрузка...")
-                    : at("tariffs_trial_add_squad", {}, "Добавить сквад из панели")}
-                  ariaLabel={at("tariffs_trial_add_squad", {}, "Добавить сквад из панели")}
+                    ? at("loading", {}, "Loading…")
+                    : at("tariffs_trial_add_squad", {}, "Add squad from panel")}
+                  ariaLabel={at("tariffs_trial_add_squad", {}, "Add squad from panel")}
                   onValueChange={handleTrialSquadSelectChange}
                 />
               {/key}
@@ -606,7 +606,7 @@
                   onclick={() => resetSetting("TRIAL_SQUAD_UUIDS")}
                 >
                   <X size={12} />
-                  {at("reset", {}, "Сбросить")}
+                  {at("reset", {}, "Reset")}
                 </AdminButton>
               {/if}
               <div class="admin-chip-list">
@@ -625,10 +625,10 @@
           >
             <div class="admin-setting-meta">
               <strong>
-                {at("tariffs_trial_premium_squads", {}, "Premium Internal Squads для триала")}
+                {at("tariffs_trial_premium_squads", {}, "Trial Premium Internal Squads")}
                 {#if isSettingDirty("TRIAL_PREMIUM_SQUAD_UUIDS", settingsDirty)}
                   <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                   >
                 {/if}
               </strong>
@@ -637,7 +637,7 @@
                 {at(
                   "tariffs_trial_premium_squads_hint",
                   {},
-                  "Эти сквады добавляются к обычным сквадам триала. Если поле пустое, premium-доступ не выдаётся."
+                  "These squads are added to regular trial squads. Empty value disables premium access for trials."
                 )}
               </small>
             </div>
@@ -648,12 +648,12 @@
                   items={panelSquadOptions}
                   disabled={panelSquadsLoading || !panelSquadOptions.length}
                   placeholder={panelSquadsLoading
-                    ? at("loading", {}, "Загрузка...")
-                    : at("tariffs_trial_add_premium_squad", {}, "Добавить premium-сквад из панели")}
+                    ? at("loading", {}, "Loading…")
+                    : at("tariffs_trial_add_premium_squad", {}, "Add premium squad from panel")}
                   ariaLabel={at(
                     "tariffs_trial_add_premium_squad",
                     {},
-                    "Добавить premium-сквад из панели"
+                    "Add premium squad from panel"
                   )}
                   onValueChange={handleTrialPremiumSquadSelectChange}
                 />
@@ -665,7 +665,7 @@
                   onclick={() => resetSetting("TRIAL_PREMIUM_SQUAD_UUIDS")}
                 >
                   <X size={12} />
-                  {at("reset", {}, "Сбросить")}
+                  {at("reset", {}, "Reset")}
                 </AdminButton>
               {/if}
               <div class="admin-chip-list">

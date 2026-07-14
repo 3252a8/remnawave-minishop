@@ -371,7 +371,7 @@ def test_remnashop_crypto_provider_currency_is_not_imported_as_setting_override(
         "CRYPTOPAY_ENABLED": True,
         "CRYPTOPAY_TOKEN": "crypto-token",
     }
-    assert any("указана валюта USD" in warning for warning in cryptopay["warnings"])
+    assert any("currency for CryptoPay: USD" in warning for warning in cryptopay["warnings"])
 
     heleket = remnashop_payment_gateway_overrides(
         {
@@ -402,7 +402,7 @@ def test_remnashop_crypto_provider_currency_is_not_imported_as_setting_override(
         "PAYKILLA_SECRET_KEY": "secret",
     }
     assert "PAYKILLA_CURRENCY" not in paykilla["overrides"]
-    assert any("указана валюта USD" in warning for warning in paykilla["warnings"])
+    assert any("currency for PayKilla: USD" in warning for warning in paykilla["warnings"])
 
 
 def test_remnashop_unsupported_gateway_is_reported_without_overrides():

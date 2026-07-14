@@ -638,7 +638,7 @@ _PRESENTATION_MANIFEST = tuple(
 )
 
 _CONFIG_MANIFEST = (
-    ProviderManifestField("LAVA_ENABLED", "bool", "Включена", subsection="LAVA", attr="ENABLED"),
+    ProviderManifestField("LAVA_ENABLED", "bool", "Enabled", subsection="LAVA", attr="ENABLED"),
     ProviderManifestField("LAVA_SHOP_ID", "string", "Shop ID", subsection="LAVA", attr="SHOP_ID"),
     ProviderManifestField(
         "LAVA_SECRET_KEY",

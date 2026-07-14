@@ -696,7 +696,7 @@ _PRESENTATION_MANIFEST = tuple(
 
 _CONFIG_MANIFEST = (
     ProviderManifestField(
-        "FREEKASSA_ENABLED", "bool", "Включена", subsection="FreeKassa", attr="ENABLED"
+        "FREEKASSA_ENABLED", "bool", "Enabled", subsection="FreeKassa", attr="ENABLED"
     ),
     ProviderManifestField(
         "FREEKASSA_MERCHANT_ID", "string", "Merchant ID", subsection="FreeKassa", attr="MERCHANT_ID"
@@ -764,11 +764,11 @@ SPEC = PaymentProviderSpec(
     id="freekassa",
     provider_key="freekassa",
     label="FreeKassa",
-    webapp_label="FreeKassa / СБП",
-    webapp_labels={"ru": "FreeKassa / СБП", "en": "FreeKassa / SBP"},
+    webapp_label="FreeKassa / SBP",
+    webapp_labels={"ru": "FreeKassa / SBP", "en": "FreeKassa / SBP"},
     webapp_icon="Smartphone",
     logo_url="/provider-logos/freekassa.png",
-    telegram_labels={"ru": "СБП", "en": "SBP"},
+    telegram_labels={"ru": "SBP", "en": "SBP"},
     telegram_emoji="📱",
     pending_status="pending_freekassa",
     enabled=lambda config: bool(getattr(config, "ENABLED", False)),

@@ -63,7 +63,7 @@
         disabled={ticket.status === "closed"}
       >
         <CheckCheck size={14} />
-        {at("support_close_ticket", {}, "Закрыть тикет")}
+        {at("support_close_ticket", {}, "Close")}
       </AdminButton>
     </div>
 
@@ -71,19 +71,19 @@
       <AdminSelect
         value={ticket.status}
         items={statusOptions}
-        ariaLabel={at("support_status", {}, "Статус")}
+        ariaLabel={at("support_status", {}, "Status")}
         onValueChange={(value) => patch("status", value)}
       />
       <AdminSelect
         value={ticket.priority}
         items={priorityOptions}
-        ariaLabel={at("support_priority", {}, "Приоритет")}
+        ariaLabel={at("support_priority", {}, "Priority")}
         onValueChange={(value) => patch("priority", value)}
       />
       <AdminSelect
         value={ticket.category}
         items={categoryOptions}
-        ariaLabel={at("support_category", {}, "Категория")}
+        ariaLabel={at("support_category", {}, "Category")}
         onValueChange={(value) => patch("category", value)}
       />
     </div>
