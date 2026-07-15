@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getSettingsStore, getTariffsStore } from "$lib/admin/context";
-  import { Input } from "$components/ui/index.js";
+  import { Input, Sortable } from "$components/ui/index.js";
   import {
     ChevronRight,
     RefreshCw,
@@ -100,6 +100,14 @@
 
   function tariffName(tariff: Tariff): string {
     return tariff?.names?.ru || tariff?.names?.en || tariff?.key || "—";
+  }
+
+  function tariffSortKey(tariff: Tariff): string {
+    return tariff.key;
+  }
+
+  function handleTariffReorder(fromIndex: number, toIndex: number): void {
+    void tariffsStore.moveTariff(fromIndex, toIndex);
   }
 
   function tariffPriceSummary(tariff: Tariff): string {
@@ -272,152 +280,18 @@
     </div>
   </div>
 
-  <TariffTrialSettings
-    {at}
-    {settingsDirty}
-    {settingsFieldMap}
-    {settingsSaving}
-    {panelSquadOptions}
-    {panelSquadsLoading}
-    {onSettingsSaved}
-  />
-
-  <TariffReferralSettings
-    {at}
-    {settingsDirty}
-    {settingsFieldMap}
-    {settingsSaving}
-    {onSettingsSaved}
-  />
-
   <div class="admin-tariff-management">
-    <div class="admin-tariff-overview-grid">
-      <article class="admin-card admin-tariff-currency-card">
-        <header class="admin-card-head admin-tariff-panel-head">
-          <div>
-            <h3>{at("tariffs_currency_title", {}, "Catalog currency")}</h3>
-            <small>
-              {at(
-                "tariffs_currency_subtitle",
-                {},
-                "Tariff prices and payment providers are checked against this currency."
-              )}
-            </small>
-          </div>
-          <AdminBadge variant="muted">{catalogCurrencyCode}</AdminBadge>
-        </header>
-        <div class="admin-card-body admin-tariff-currency-body">
-          <div class="admin-tariff-currency-current">
-            <span>{at("tariffs_currency_current", {}, "Current currency")}</span>
-            <strong>{catalogCurrencyCode}</strong>
-          </div>
-          <div class="admin-tariff-catalog-bar">
-            <label class="admin-field-label-compact admin-tariff-currency-field">
-              <span>{at("tariff_default_currency", {}, "Payment currency")}</span>
-              <Input
-                class="input admin-currency-input"
-                type="text"
-                maxlength={12}
-                value={defaultCurrencyDraft}
-                oninput={handleDefaultCurrencyInput}
-                onkeydown={handleDefaultCurrencyKeydown}
-              />
-            </label>
-            {#if defaultCurrencyDirty}
-              <AdminButton
-                size="sm"
-                variant="primary"
-                onclick={saveDefaultCurrency}
-                disabled={tariffsSaving}
-              >
-                <Save size={13} />
-                {tariffsSaving ? at("btn_saving", {}, "Saving...") : at("btn_save", {}, "Save")}
-              </AdminButton>
-            {/if}
-          </div>
-        </div>
-      </article>
-
-      <article class="admin-card admin-tariff-providers-card">
-        <header class="admin-card-head admin-tariff-panel-head">
-          <div>
-            <h3>{at("tariffs_provider_title", {}, "Payment providers")}</h3>
-            <small>
-              {at(
-                "tariffs_provider_subtitle",
-                {},
-                "Shows which providers can accept the current catalog currency."
-              )}
-            </small>
-          </div>
-          <div class="admin-provider-summary">
-            <AdminBadge variant="success">
-              {at(
-                "tariffs_provider_available_count",
-                { count: providerSupportSummary.available },
-                "Available: {count}"
-              )}
-            </AdminBadge>
-            <AdminBadge variant="muted">
-              {at(
-                "tariffs_provider_enabled_count",
-                { count: providerSupportSummary.enabled },
-                "Enabled: {count}"
-              )}
-            </AdminBadge>
-            {#if providerSupportSummary.blocked}
-              <AdminBadge variant="warning">
-                {at(
-                  "tariffs_provider_blocked_count",
-                  { count: providerSupportSummary.blocked },
-                  "Unsupported: {count}"
-                )}
-              </AdminBadge>
-            {/if}
-          </div>
-        </header>
-        <div class="admin-card-body">
-          {#if providerCurrencySupport?.length}
-            <div class="admin-provider-currency-grid">
-              {#each providerCurrencySupport as provider}
-                {@const providerName = providerDisplayName(provider)}
-                <button
-                  type="button"
-                  class="admin-provider-currency"
-                  class:is-supported={provider.supports_default_currency &&
-                    provider.enabled &&
-                    provider.configured}
-                  class:is-unavailable={!provider.supports_default_currency ||
-                    !provider.enabled ||
-                    !provider.configured}
-                  title={providerName}
-                  onclick={() => openProviderSettings(provider)}
-                >
-                  <div class="admin-provider-currency-main">
-                    <strong>{providerName}</strong>
-                    <small>{providerCurrencyLabel(provider)}</small>
-                  </div>
-                  <AdminBadge variant={providerCurrencyVariant(provider)}>
-                    {providerCurrencyStatus(provider)}
-                  </AdminBadge>
-                </button>
-              {/each}
-            </div>
-          {:else}
-            <AdminEmptyState>
-              {at("tariffs_provider_empty", {}, "Provider data has not been loaded yet.")}
-            </AdminEmptyState>
-          {/if}
-        </div>
-      </article>
-    </div>
-
     <article class="admin-card admin-tariff-list-card">
       <header class="admin-card-head admin-tariff-list-head">
         <div>
           <h3>{at("tariffs_title", {}, "Tariff catalog")}</h3>
           <small>
             {at("tariffs_catalog_subtitle", {}, "Periods, prices, traffic, and user access.")}
+            {at(
+              "tariffs_order_hint",
+              {},
+              "Tariffs are offered at checkout in catalog order — drag the handle to reorder."
+            )}
           </small>
           <code class="admin-tariff-path">{tariffsPath || "data/tariffs.json"}</code>
         </div>
@@ -451,32 +325,39 @@
             )}
           </AdminEmptyState>
         {:else}
-          <div class="admin-tariff-grid">
-            {#each tariffsCatalog.tariffs as tariff}
+          <Sortable
+            items={tariffsCatalog.tariffs}
+            class="admin-tariff-sort-row"
+            getKey={tariffSortKey}
+            handleLabel={at("tariff_reorder", {}, "Drag to reorder tariffs")}
+            disabled={tariffsSaving}
+            onReorder={handleTariffReorder}
+          >
+            {#snippet children(tariff: Tariff)}
               <article class="admin-tariff-card" class:is-disabled={tariff.enabled === false}>
-                <div class="admin-tariff-top">
-                  <div>
-                    <div class="admin-tariff-title">
-                      <strong>{tariffName(tariff)}</strong>
-                      {#if tariff.key === tariffsCatalog.default_tariff}
-                        <AdminBadge variant="success"
-                          >{at("status_default", {}, "Default")}</AdminBadge
-                        >
-                      {/if}
-                    </div>
-                    <code>{tariff.key}</code>
+                <div class="admin-tariff-card-main">
+                  <div class="admin-tariff-title">
+                    <strong>{tariffName(tariff)}</strong>
+                    {#if tariff.key === tariffsCatalog.default_tariff}
+                      <AdminBadge variant="success"
+                        >{at("status_default", {}, "Default")}</AdminBadge
+                      >
+                    {/if}
+                    {#if tariff.enabled === false}
+                      <AdminBadge variant="muted"
+                        >{at("status_disabled", {}, "Disabled")}</AdminBadge
+                      >
+                    {:else}
+                      <AdminBadge variant="success">{at("status_active", {}, "Active")}</AdminBadge>
+                    {/if}
                   </div>
-                  {#if tariff.enabled === false}
-                    <AdminBadge variant="muted">{at("status_disabled", {}, "Disabled")}</AdminBadge>
-                  {:else}
-                    <AdminBadge variant="success">{at("status_active", {}, "Active")}</AdminBadge>
-                  {/if}
+                  <code>{tariff.key}</code>
+                  <p>
+                    {tariff.descriptions?.ru ||
+                      tariff.descriptions?.en ||
+                      at("no_description", {}, "No description")}
+                  </p>
                 </div>
-                <p>
-                  {tariff.descriptions?.ru ||
-                    tariff.descriptions?.en ||
-                    at("no_description", {}, "No description")}
-                </p>
                 <div class="admin-tariff-facts">
                   <span
                     >{tariff.billing_model === "traffic"
@@ -539,12 +420,140 @@
                   </AdminButton>
                 </div>
               </article>
+            {/snippet}
+          </Sortable>
+        {/if}
+      </div>
+    </article>
+
+    <article class="admin-card admin-tariff-providers-card">
+      <header class="admin-card-head admin-tariff-panel-head">
+        <div>
+          <h3>{at("tariffs_provider_title", {}, "Payment providers")}</h3>
+          <small>
+            {at(
+              "tariffs_provider_subtitle",
+              {},
+              "Shows which providers can accept the current catalog currency."
+            )}
+          </small>
+        </div>
+        <div class="admin-provider-summary">
+          <AdminBadge variant="success">
+            {at(
+              "tariffs_provider_available_count",
+              { count: providerSupportSummary.available },
+              "Available: {count}"
+            )}
+          </AdminBadge>
+          <AdminBadge variant="muted">
+            {at(
+              "tariffs_provider_enabled_count",
+              { count: providerSupportSummary.enabled },
+              "Enabled: {count}"
+            )}
+          </AdminBadge>
+          {#if providerSupportSummary.blocked}
+            <AdminBadge variant="warning">
+              {at(
+                "tariffs_provider_blocked_count",
+                { count: providerSupportSummary.blocked },
+                "Unsupported: {count}"
+              )}
+            </AdminBadge>
+          {/if}
+        </div>
+      </header>
+      <div class="admin-card-body admin-tariff-providers-body">
+        <div class="admin-tariff-currency-bar">
+          <div class="admin-tariff-currency-current">
+            <span>{at("tariffs_currency_title", {}, "Catalog currency")}</span>
+            <strong>{catalogCurrencyCode}</strong>
+          </div>
+          <div class="admin-tariff-currency-controls">
+            <label class="admin-field-label-compact admin-tariff-currency-field">
+              <span>{at("tariff_default_currency", {}, "Payment currency")}</span>
+              <Input
+                class="input admin-currency-input"
+                type="text"
+                maxlength={12}
+                value={defaultCurrencyDraft}
+                oninput={handleDefaultCurrencyInput}
+                onkeydown={handleDefaultCurrencyKeydown}
+              />
+            </label>
+            {#if defaultCurrencyDirty}
+              <AdminButton
+                size="sm"
+                variant="primary"
+                onclick={saveDefaultCurrency}
+                disabled={tariffsSaving}
+              >
+                <Save size={13} />
+                {tariffsSaving ? at("btn_saving", {}, "Saving...") : at("btn_save", {}, "Save")}
+              </AdminButton>
+            {/if}
+          </div>
+          <small class="admin-tariff-currency-hint">
+            {at(
+              "tariffs_currency_subtitle",
+              {},
+              "Tariff prices and payment providers are checked against this currency."
+            )}
+          </small>
+        </div>
+        {#if providerCurrencySupport?.length}
+          <div class="admin-provider-currency-grid">
+            {#each providerCurrencySupport as provider}
+              {@const providerName = providerDisplayName(provider)}
+              <button
+                type="button"
+                class="admin-provider-currency"
+                class:is-supported={provider.supports_default_currency &&
+                  provider.enabled &&
+                  provider.configured}
+                class:is-unavailable={!provider.supports_default_currency ||
+                  !provider.enabled ||
+                  !provider.configured}
+                title={providerName}
+                onclick={() => openProviderSettings(provider)}
+              >
+                <div class="admin-provider-currency-main">
+                  <strong>{providerName}</strong>
+                  <small>{providerCurrencyLabel(provider)}</small>
+                </div>
+                <AdminBadge variant={providerCurrencyVariant(provider)}>
+                  {providerCurrencyStatus(provider)}
+                </AdminBadge>
+              </button>
             {/each}
           </div>
+        {:else}
+          <AdminEmptyState>
+            {at("tariffs_provider_empty", {}, "Provider data has not been loaded yet.")}
+          </AdminEmptyState>
         {/if}
       </div>
     </article>
   </div>
+
+  <TariffTrialSettings
+    {at}
+    {settingsDirty}
+    {settingsFieldMap}
+    {settingsSaving}
+    {panelSquadOptions}
+    {panelSquadsLoading}
+    {onSettingsSaved}
+  />
+
+  <TariffReferralSettings
+    {at}
+    {settingsDirty}
+    {settingsFieldMap}
+    {settingsSaving}
+    {onSettingsSaved}
+  />
 
   <div class="admin-accordion admin-tariff-settings-accordion">
     <section class="admin-accordion-item admin-card admin-tariff-settings-card">

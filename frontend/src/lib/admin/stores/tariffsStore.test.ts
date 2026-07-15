@@ -92,6 +92,55 @@ describe("tariffsStore", () => {
     expect(toasts).toEqual(["tariff_saved"]);
   });
 
+  it("persists the reordered catalog when a tariff is moved", async () => {
+    const api = vi.fn(async (_path, options = {}) => {
+      const body = JSON.parse(options.body);
+      return {
+        ok: true,
+        exists: true,
+        path: "data/tariffs.json",
+        provider_currency_support: [],
+        catalog: body.catalog,
+      };
+    });
+    const { store, toasts } = makeStore(api);
+    const first = periodTariff();
+    const second = periodTariff({ key: "premium" });
+    const third = periodTariff({ key: "family" });
+    store.updateState({ tariffsCatalog: catalog([first, second, third]) });
+
+    await store.moveTariff(2, 0);
+
+    expect(api).toHaveBeenCalledWith("/admin/tariffs", {
+      method: "PUT",
+      body: expect.any(String),
+    });
+    const body = JSON.parse(api.mock.calls[0][1].body);
+    expect(body.catalog.tariffs.map((tariff: Tariff) => tariff.key)).toEqual([
+      "family",
+      "standard",
+      "premium",
+    ]);
+    expect(store.tariffsCatalog.tariffs.map((tariff) => tariff.key)).toEqual([
+      "family",
+      "standard",
+      "premium",
+    ]);
+    expect(toasts).toEqual(["tariff_order_updated"]);
+  });
+
+  it("ignores tariff moves with out-of-range or identical indices", async () => {
+    const api = vi.fn();
+    const { store } = makeStore(api);
+    store.updateState({ tariffsCatalog: catalog([periodTariff(), periodTariff({ key: "b" })]) });
+
+    await store.moveTariff(0, 0);
+    await store.moveTariff(-1, 1);
+    await store.moveTariff(0, 2);
+
+    expect(api).not.toHaveBeenCalled();
+  });
+
   it("persists HWID package rows even when transient UI data is not cloneable", async () => {
     const api = vi.fn(async (_path, options = {}) => {
       const body = JSON.parse(options.body);

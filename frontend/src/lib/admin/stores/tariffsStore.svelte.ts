@@ -68,6 +68,7 @@ export type TariffsStore = TariffsState & {
   openEditTariff: (tariff: Tariff) => void;
   saveTariffDraft: () => Promise<void>;
   toggleTariffEnabled: (tariff: Tariff) => Promise<void>;
+  moveTariff: (fromIndex: number, toIndex: number) => Promise<void>;
   setDefaultTariff: (key: string) => Promise<void>;
   setDefaultCurrency: (value: string) => Promise<void>;
   deleteTariff: () => Promise<void>;
@@ -149,6 +150,7 @@ export function createTariffsStore({
     openEditTariff,
     saveTariffDraft,
     toggleTariffEnabled,
+    moveTariff,
     setDefaultTariff,
     setDefaultCurrency,
     deleteTariff,
@@ -355,6 +357,28 @@ export function createTariffsStore({
     await persistTariffs(
       { ...cloneCatalog(catalog), default_tariff: defaultTariff, tariffs },
       at("tariff_status_updated", {}, "Tariff status updated")
+    );
+  }
+
+  async function moveTariff(fromIndex: number, toIndex: number): Promise<void> {
+    const s = readState();
+    if (s.tariffsSaving) return;
+    const catalog = snapshotForPayload(s.tariffsCatalog);
+    const tariffs = [...(catalog.tariffs || [])];
+    if (
+      fromIndex === toIndex ||
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      fromIndex >= tariffs.length ||
+      toIndex >= tariffs.length
+    ) {
+      return;
+    }
+    const [moved] = tariffs.splice(fromIndex, 1);
+    tariffs.splice(toIndex, 0, moved);
+    await persistTariffs(
+      { ...cloneCatalog(catalog), tariffs },
+      at("tariff_order_updated", {}, "Tariff order updated")
     );
   }
 
