@@ -2193,7 +2193,7 @@
   "admin_settings_field_my_devices_section_enabled_label": "My Devices Section Enabled",
   "admin_settings_field_user_hwid_device_limit_label": "User HWID Device Limit",
   "admin_settings_field_user_traffic_limit_gb_label": "User Traffic Limit Gb",
-  "admin_settings_field_user_traffic_strategy_label": "User Traffic Strategy",
+  "admin_settings_field_user_traffic_strategy_label": "Default Traffic Reset Strategy",
   "admin_settings_field_user_traffic_strategy_choice_no_reset": "No automatic reset",
   "admin_settings_field_user_traffic_strategy_choice_day": "Every day",
   "admin_settings_field_user_traffic_strategy_choice_week": "Every week",

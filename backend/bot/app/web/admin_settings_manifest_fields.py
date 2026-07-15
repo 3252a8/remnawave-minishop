@@ -30,6 +30,13 @@ SETTINGS_MANIFEST: list[SettingField] = [
         placeholder="RUB",
     ),
     SettingField(
+        "USER_TRAFFIC_STRATEGY",
+        "string",
+        "general",
+        "Default Traffic Reset Strategy",
+        choices=TRAFFIC_STRATEGY_CHOICES,
+    ),
+    SettingField(
         "SUPPORT_LINK",
         "url",
         "general",
@@ -737,13 +744,6 @@ SETTINGS_MANIFEST: list[SettingField] = [
     SettingField("MY_DEVICES_SECTION_ENABLED", "bool", "devices", "My Devices Section Enabled"),
     SettingField("USER_HWID_DEVICE_LIMIT", "int", "devices", "User HWID Device Limit", min=0),
     SettingField("USER_TRAFFIC_LIMIT_GB", "float", "devices", "User Traffic Limit Gb"),
-    SettingField(
-        "USER_TRAFFIC_STRATEGY",
-        "string",
-        "devices",
-        "User Traffic Strategy",
-        choices=TRAFFIC_STRATEGY_CHOICES,
-    ),
     # ─── System ────────────────────────────────────────────────────
     SettingField(
         "TELEGRAM_DROP_NON_PRIVATE_UPDATES",

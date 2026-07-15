@@ -2193,7 +2193,7 @@
   "admin_settings_field_my_devices_section_enabled_label": "Раздел «Мои устройства»",
   "admin_settings_field_user_hwid_device_limit_label": "Лимит устройств по умолчанию (0 = ∞)",
   "admin_settings_field_user_traffic_limit_gb_label": "Лимит трафика пользователя (ГБ)",
-  "admin_settings_field_user_traffic_strategy_label": "Стратегия сброса трафика",
+  "admin_settings_field_user_traffic_strategy_label": "Стратегия сброса трафика по-умолчанию",
   "admin_settings_field_user_traffic_strategy_choice_no_reset": "Без автоматического сброса",
   "admin_settings_field_user_traffic_strategy_choice_day": "Каждый день",
   "admin_settings_field_user_traffic_strategy_choice_week": "Каждую неделю",

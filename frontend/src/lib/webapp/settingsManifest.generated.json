@@ -61,6 +61,52 @@
         "updated_at": null
       },
       {
+        "key": "USER_TRAFFIC_STRATEGY",
+        "type": "string",
+        "section": "general",
+        "section_order": 1,
+        "subsection": null,
+        "label": "Default Traffic Reset Strategy",
+        "description": "",
+        "i18n_label_key": "admin_settings_field_user_traffic_strategy_label",
+        "i18n_description_key": null,
+        "i18n_subsection_key": null,
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": true,
+        "secret": false,
+        "choices": [
+          {
+            "value": "NO_RESET",
+            "label": "NO_RESET",
+            "i18n_label_key": "admin_settings_field_user_traffic_strategy_choice_no_reset"
+          },
+          {
+            "value": "DAY",
+            "label": "DAY",
+            "i18n_label_key": "admin_settings_field_user_traffic_strategy_choice_day"
+          },
+          {
+            "value": "WEEK",
+            "label": "WEEK",
+            "i18n_label_key": "admin_settings_field_user_traffic_strategy_choice_week"
+          },
+          {
+            "value": "MONTH",
+            "label": "MONTH",
+            "i18n_label_key": "admin_settings_field_user_traffic_strategy_choice_month"
+          },
+          {
+            "value": "MONTH_ROLLING",
+            "label": "MONTH_ROLLING",
+            "i18n_label_key": "admin_settings_field_user_traffic_strategy_choice_month_rolling"
+          }
+        ],
+        "value": "",
+        "overridden": false,
+        "updated_at": null
+      },
+      {
         "key": "SUPPORT_LINK",
         "type": "url",
         "section": "general",
@@ -9164,52 +9210,6 @@
         "placeholder": "",
         "optional": true,
         "secret": false,
-        "value": "",
-        "overridden": false,
-        "updated_at": null
-      },
-      {
-        "key": "USER_TRAFFIC_STRATEGY",
-        "type": "string",
-        "section": "devices",
-        "section_order": 10,
-        "subsection": null,
-        "label": "User Traffic Strategy",
-        "description": "",
-        "i18n_label_key": "admin_settings_field_user_traffic_strategy_label",
-        "i18n_description_key": null,
-        "i18n_subsection_key": null,
-        "i18n_placeholder_key": null,
-        "placeholder": "",
-        "optional": true,
-        "secret": false,
-        "choices": [
-          {
-            "value": "NO_RESET",
-            "label": "NO_RESET",
-            "i18n_label_key": "admin_settings_field_user_traffic_strategy_choice_no_reset"
-          },
-          {
-            "value": "DAY",
-            "label": "DAY",
-            "i18n_label_key": "admin_settings_field_user_traffic_strategy_choice_day"
-          },
-          {
-            "value": "WEEK",
-            "label": "WEEK",
-            "i18n_label_key": "admin_settings_field_user_traffic_strategy_choice_week"
-          },
-          {
-            "value": "MONTH",
-            "label": "MONTH",
-            "i18n_label_key": "admin_settings_field_user_traffic_strategy_choice_month"
-          },
-          {
-            "value": "MONTH_ROLLING",
-            "label": "MONTH_ROLLING",
-            "i18n_label_key": "admin_settings_field_user_traffic_strategy_choice_month_rolling"
-          }
-        ],
         "value": "",
         "overridden": false,
         "updated_at": null
