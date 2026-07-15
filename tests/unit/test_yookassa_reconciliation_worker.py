@@ -96,7 +96,10 @@ class YooKassaReconciliationWorkerTests(IsolatedAsyncioTestCase):
             await worker.tick()
 
         get_payment_info.assert_awaited_once_with("yk-42")
-        normalized_payload = process_success.await_args.args[2]
+        process_success.assert_awaited_once()
+        process_success_call = process_success.await_args
+        assert process_success_call is not None
+        normalized_payload = process_success_call.args[2]
         self.assertEqual(
             normalized_payload["amount"],
             {"value": "299.0", "currency": "RUB"},
