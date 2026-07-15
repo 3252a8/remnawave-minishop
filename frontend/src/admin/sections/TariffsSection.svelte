@@ -72,12 +72,6 @@
   const settingsDirty: SettingsDirtyState = $derived(settingsStore.settingsDirty || {});
   const settingsSaving = $derived(Boolean(settingsStore.settingsSaving));
 
-  const enabledTariffs: Tariff[] = $derived(
-    (tariffsCatalog.tariffs || []).filter((tariff) => tariff.enabled !== false)
-  );
-  const disabledTariffs = $derived(
-    Math.max(0, (tariffsCatalog.tariffs || []).length - enabledTariffs.length)
-  );
   const settingsFieldMap: Map<string, SettingField> = $derived(
     new Map(
       (settingsSections || [])
@@ -256,30 +250,6 @@
 {#if tariffsLoading}
   <AdminEmptyState>{at("loading", {}, "Loading…")}</AdminEmptyState>
 {:else}
-  <div class="admin-stat-grid">
-    <div class="admin-stat-card">
-      <span class="admin-stat-label">{at("tariffs_stat_total", {}, "Total tariffs")}</span>
-      <strong class="admin-stat-value">{tariffsCatalog.tariffs.length}</strong>
-      <span class="admin-stat-trend"
-        >{at("tariffs_stat_enabled", {}, "Enabled")}: {enabledTariffs.length}</span
-      >
-    </div>
-    <div class="admin-stat-card">
-      <span class="admin-stat-label">{at("tariffs_stat_default", {}, "Default")}</span>
-      <strong class="admin-stat-value">{tariffsCatalog.default_tariff || "—"}</strong>
-      <span class="admin-stat-trend"
-        >{at("tariffs_stat_default_hint", {}, "Used for new subscriptions")}</span
-      >
-    </div>
-    <div class="admin-stat-card">
-      <span class="admin-stat-label">{at("tariffs_stat_disabled", {}, "Disabled")}</span>
-      <strong class="admin-stat-value">{disabledTariffs}</strong>
-      <span class="admin-stat-trend"
-        >{at("tariffs_stat_disabled_hint", {}, "Hidden from showcase")}</span
-      >
-    </div>
-  </div>
-
   <div class="admin-tariff-management">
     <article class="admin-card admin-tariff-list-card">
       <header class="admin-card-head admin-tariff-list-head">
@@ -466,34 +436,28 @@
       </header>
       <div class="admin-card-body admin-tariff-providers-body">
         <div class="admin-tariff-currency-bar">
-          <div class="admin-tariff-currency-current">
+          <label class="admin-tariff-currency-field">
             <span>{at("tariffs_currency_title", {}, "Catalog currency")}</span>
-            <strong>{catalogCurrencyCode}</strong>
-          </div>
-          <div class="admin-tariff-currency-controls">
-            <label class="admin-field-label-compact admin-tariff-currency-field">
-              <span>{at("tariff_default_currency", {}, "Payment currency")}</span>
-              <Input
-                class="input admin-currency-input"
-                type="text"
-                maxlength={12}
-                value={defaultCurrencyDraft}
-                oninput={handleDefaultCurrencyInput}
-                onkeydown={handleDefaultCurrencyKeydown}
-              />
-            </label>
-            {#if defaultCurrencyDirty}
-              <AdminButton
-                size="sm"
-                variant="primary"
-                onclick={saveDefaultCurrency}
-                disabled={tariffsSaving}
-              >
-                <Save size={13} />
-                {tariffsSaving ? at("btn_saving", {}, "Saving...") : at("btn_save", {}, "Save")}
-              </AdminButton>
-            {/if}
-          </div>
+            <Input
+              class="input admin-currency-input"
+              type="text"
+              maxlength={12}
+              value={defaultCurrencyDraft}
+              oninput={handleDefaultCurrencyInput}
+              onkeydown={handleDefaultCurrencyKeydown}
+            />
+          </label>
+          {#if defaultCurrencyDirty}
+            <AdminButton
+              size="sm"
+              variant="primary"
+              onclick={saveDefaultCurrency}
+              disabled={tariffsSaving}
+            >
+              <Save size={13} />
+              {tariffsSaving ? at("btn_saving", {}, "Saving...") : at("btn_save", {}, "Save")}
+            </AdminButton>
+          {/if}
           <small class="admin-tariff-currency-hint">
             {at(
               "tariffs_currency_subtitle",
@@ -535,224 +499,228 @@
         {/if}
       </div>
     </article>
-  </div>
 
-  <TariffTrialSettings
-    {at}
-    {settingsDirty}
-    {settingsFieldMap}
-    {settingsSaving}
-    {panelSquadOptions}
-    {panelSquadsLoading}
-    {onSettingsSaved}
-  />
+    <TariffTrialSettings
+      {at}
+      {settingsDirty}
+      {settingsFieldMap}
+      {settingsSaving}
+      {panelSquadOptions}
+      {panelSquadsLoading}
+      {onSettingsSaved}
+    />
 
-  <TariffReferralSettings
-    {at}
-    {settingsDirty}
-    {settingsFieldMap}
-    {settingsSaving}
-    {onSettingsSaved}
-  />
+    <TariffReferralSettings
+      {at}
+      {settingsDirty}
+      {settingsFieldMap}
+      {settingsSaving}
+      {onSettingsSaved}
+    />
 
-  <div class="admin-accordion admin-tariff-settings-accordion">
-    <section class="admin-accordion-item admin-card admin-tariff-settings-card">
-      <div class="admin-accordion-header">
-        <button
-          type="button"
-          class="admin-accordion-trigger"
-          data-state={legacyTariffSettingsOpen ? "open" : "closed"}
-          aria-expanded={legacyTariffSettingsOpen}
-          aria-controls="admin-legacy-tariff-settings"
-          onclick={() => (legacyTariffSettingsOpen = !legacyTariffSettingsOpen)}
-        >
-          <span class="admin-accordion-title">
-            {at("tariffs_legacy_title", {}, "Legacy tariff compatibility")}
-          </span>
-          <span class="admin-accordion-meta">
-            {at(
-              "tariffs_legacy_subtitle",
-              {},
-              "Old remnawave-tg-shop periods and traffic packages used only when the JSON tariff catalog is not configured."
-            )}{#if legacyDirtyCount}
-              · {at("settings_dirty_count", { count: legacyDirtyCount }, "Changes: {count}")}{/if}
-          </span>
-          <ChevronRight size={16} class="admin-accordion-chev" />
-        </button>
-      </div>
-      {#if legacyTariffSettingsOpen}
-        <div id="admin-legacy-tariff-settings" class="admin-accordion-content" data-state="open">
-          <div class="admin-card-body">
-            {#if legacyDirtyCount}
-              <div class="admin-editor-section-actions admin-tariff-settings-save-row">
-                <AdminBadge variant="warning">
-                  {at("settings_dirty_count", { count: legacyDirtyCount }, "Changes: {count}")}
-                </AdminBadge>
-                <AdminButton
-                  size="sm"
-                  variant="primary"
-                  onclick={saveTariffSettings}
-                  disabled={settingsSaving}
-                >
-                  <Save size={13} />
-                  {settingsSaving ? at("btn_saving", {}, "Saving...") : at("btn_save", {}, "Save")}
-                </AdminButton>
-              </div>
-            {/if}
-            <div class="admin-settings-warning" role="status">
-              <TriangleAlert size={16} aria-hidden="true" />
-              <div class="admin-settings-warning-copy">
-                <strong>{at("settings_legacy_tariffs_warning_title", {}, "Legacy tariffs")}</strong>
-                <p>
-                  {at(
-                    "settings_legacy_tariffs_warning_body",
-                    {},
-                    "These settings are ignored when tariffs are configured in the dedicated Tariffs section."
-                  )}
-                </p>
-              </div>
-            </div>
-
-            <div
-              class="admin-setting admin-trial-setting-row"
-              class:is-dirty={Boolean(settingsDirty.LEGACY_REFS)}
-            >
-              <div class="admin-setting-meta">
-                <strong>
-                  {at("tariffs_legacy_refs", {}, "Legacy ref links with user ID")}
-                  {#if settingsDirty.LEGACY_REFS}
-                    <AdminBadge variant="warning"
-                      >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
-                    >
-                  {/if}
-                </strong>
-                <code>LEGACY_REFS</code>
-                <small>
-                  {at(
-                    "tariffs_legacy_refs_hint",
-                    {},
-                    "Accept links like /start ref_<telegram_id>, where the payload contains the inviter's Telegram/user ID. Keep enabled only for old shared links."
-                  )}
-                </small>
-              </div>
-              <div class="admin-setting-control">
-                <div class="admin-setting-switch">
-                  <Switch.Root
-                    aria-label={at("tariffs_legacy_refs", {}, "Legacy ref links with user ID")}
-                    checked={boolValue("LEGACY_REFS", settingsDirty, settingsFieldMap)}
-                    onCheckedChange={(checked) => setSetting("LEGACY_REFS", checked)}
-                    class="admin-switch-root"
-                  >
-                    <Switch.Thumb class="admin-switch-thumb" />
-                  </Switch.Root>
-                  <span
-                    >{boolValue("LEGACY_REFS", settingsDirty, settingsFieldMap)
-                      ? at("enabled", {}, "Enabled")
-                      : at("disabled", {}, "Disabled")}</span
-                  >
-                </div>
-                {#if settingsDirty.LEGACY_REFS}
+    <div class="admin-accordion admin-tariff-settings-accordion">
+      <section class="admin-accordion-item admin-card admin-tariff-settings-card">
+        <div class="admin-accordion-header">
+          <button
+            type="button"
+            class="admin-accordion-trigger"
+            data-state={legacyTariffSettingsOpen ? "open" : "closed"}
+            aria-expanded={legacyTariffSettingsOpen}
+            aria-controls="admin-legacy-tariff-settings"
+            onclick={() => (legacyTariffSettingsOpen = !legacyTariffSettingsOpen)}
+          >
+            <span class="admin-accordion-title">
+              {at("tariffs_legacy_title", {}, "Legacy tariff compatibility")}
+            </span>
+            <span class="admin-accordion-meta">
+              {at(
+                "tariffs_legacy_subtitle",
+                {},
+                "Old remnawave-tg-shop periods and traffic packages used only when the JSON tariff catalog is not configured."
+              )}{#if legacyDirtyCount}
+                · {at("settings_dirty_count", { count: legacyDirtyCount }, "Changes: {count}")}{/if}
+            </span>
+            <ChevronRight size={16} class="admin-accordion-chev" />
+          </button>
+        </div>
+        {#if legacyTariffSettingsOpen}
+          <div id="admin-legacy-tariff-settings" class="admin-accordion-content" data-state="open">
+            <div class="admin-card-body">
+              {#if legacyDirtyCount}
+                <div class="admin-editor-section-actions admin-tariff-settings-save-row">
+                  <AdminBadge variant="warning">
+                    {at("settings_dirty_count", { count: legacyDirtyCount }, "Changes: {count}")}
+                  </AdminBadge>
                   <AdminButton
                     size="sm"
-                    variant="ghost"
-                    onclick={() => settingsStore.clearDirty("LEGACY_REFS")}
+                    variant="primary"
+                    onclick={saveTariffSettings}
+                    disabled={settingsSaving}
                   >
-                    <X size={12} />
-                    {at("reset", {}, "Reset")}
+                    <Save size={13} />
+                    {settingsSaving
+                      ? at("btn_saving", {}, "Saving...")
+                      : at("btn_save", {}, "Save")}
                   </AdminButton>
-                {/if}
+                </div>
+              {/if}
+              <div class="admin-settings-warning" role="status">
+                <TriangleAlert size={16} aria-hidden="true" />
+                <div class="admin-settings-warning-copy">
+                  <strong
+                    >{at("settings_legacy_tariffs_warning_title", {}, "Legacy tariffs")}</strong
+                  >
+                  <p>
+                    {at(
+                      "settings_legacy_tariffs_warning_body",
+                      {},
+                      "These settings are ignored when tariffs are configured in the dedicated Tariffs section."
+                    )}
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <div class="admin-legacy-tariff-table">
-              <div class="admin-legacy-tariff-row admin-legacy-tariff-head">
-                <span>{at("tariffs_legacy_period", {}, "Period")}</span>
-                <span>{at("tariffs_legacy_enabled", {}, "Enabled")}</span>
-                <span>{at("payment_rub", {}, "RUB")}</span>
-                <span>{at("payment_stars", {}, "Stars")}</span>
-                <span>{at("tariffs_legacy_ref_inviter", {}, "Inviter")}</span>
-                <span>{at("tariffs_legacy_ref_referee", {}, "Friend")}</span>
-              </div>
-              {#each LEGACY_PERIODS as [months, enabledKey, rubKey, starsKey, inviterKey, refereeKey]}
-                <div class="admin-legacy-tariff-row">
-                  <strong>{months} {at("months_short", {}, "mo")}</strong>
+              <div
+                class="admin-setting admin-trial-setting-row"
+                class:is-dirty={Boolean(settingsDirty.LEGACY_REFS)}
+              >
+                <div class="admin-setting-meta">
+                  <strong>
+                    {at("tariffs_legacy_refs", {}, "Legacy ref links with user ID")}
+                    {#if settingsDirty.LEGACY_REFS}
+                      <AdminBadge variant="warning"
+                        >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
+                      >
+                    {/if}
+                  </strong>
+                  <code>LEGACY_REFS</code>
+                  <small>
+                    {at(
+                      "tariffs_legacy_refs_hint",
+                      {},
+                      "Accept links like /start ref_<telegram_id>, where the payload contains the inviter's Telegram/user ID. Keep enabled only for old shared links."
+                    )}
+                  </small>
+                </div>
+                <div class="admin-setting-control">
                   <div class="admin-setting-switch">
                     <Switch.Root
-                      aria-label={`${at("tariffs_legacy_enabled", {}, "Enabled")} ${months} ${at("months_short", {}, "mo")}`}
-                      checked={boolValue(enabledKey, settingsDirty, settingsFieldMap)}
-                      onCheckedChange={(checked) => setSetting(enabledKey, checked)}
+                      aria-label={at("tariffs_legacy_refs", {}, "Legacy ref links with user ID")}
+                      checked={boolValue("LEGACY_REFS", settingsDirty, settingsFieldMap)}
+                      onCheckedChange={(checked) => setSetting("LEGACY_REFS", checked)}
                       class="admin-switch-root"
                     >
                       <Switch.Thumb class="admin-switch-thumb" />
                     </Switch.Root>
+                    <span
+                      >{boolValue("LEGACY_REFS", settingsDirty, settingsFieldMap)
+                        ? at("enabled", {}, "Enabled")
+                        : at("disabled", {}, "Disabled")}</span
+                    >
                   </div>
-                  <Input
-                    class="input"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={inputValueForKey(rubKey)}
-                    oninput={settingInputHandler(rubKey)}
-                  />
-                  <Input
-                    class="input"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={inputValueForKey(starsKey)}
-                    oninput={settingInputHandler(starsKey)}
-                  />
-                  <Input
-                    class="input"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={inputValueForKey(inviterKey)}
-                    oninput={settingInputHandler(inviterKey)}
-                  />
-                  <Input
-                    class="input"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={inputValueForKey(refereeKey)}
-                    oninput={settingInputHandler(refereeKey)}
-                  />
+                  {#if settingsDirty.LEGACY_REFS}
+                    <AdminButton
+                      size="sm"
+                      variant="ghost"
+                      onclick={() => settingsStore.clearDirty("LEGACY_REFS")}
+                    >
+                      <X size={12} />
+                      {at("reset", {}, "Reset")}
+                    </AdminButton>
+                  {/if}
                 </div>
-              {/each}
-            </div>
+              </div>
 
-            <div class="admin-form-row admin-form-row-2 admin-legacy-traffic-row">
-              <label class="admin-field-label admin-field-label-compact">
-                <span>{at("tariffs_legacy_traffic_packages", {}, "Traffic packages")}</span>
-                <small>{at("tariffs_legacy_traffic_hint", {}, "Format: 10:199,50:799")}</small>
-                <Input
-                  class="input"
-                  type="text"
-                  value={inputValueForKey("TRAFFIC_PACKAGES")}
-                  oninput={settingInputHandler("TRAFFIC_PACKAGES")}
-                />
-              </label>
-              <label class="admin-field-label admin-field-label-compact">
-                <span
-                  >{at(
-                    "tariffs_legacy_stars_traffic_packages",
-                    {},
-                    "Traffic packages, Stars"
-                  )}</span
-                >
-                <small>{at("tariffs_legacy_traffic_hint", {}, "Format: 10:199,50:799")}</small>
-                <Input
-                  class="input"
-                  type="text"
-                  value={inputValueForKey("STARS_TRAFFIC_PACKAGES")}
-                  oninput={settingInputHandler("STARS_TRAFFIC_PACKAGES")}
-                />
-              </label>
+              <div class="admin-legacy-tariff-table">
+                <div class="admin-legacy-tariff-row admin-legacy-tariff-head">
+                  <span>{at("tariffs_legacy_period", {}, "Period")}</span>
+                  <span>{at("tariffs_legacy_enabled", {}, "Enabled")}</span>
+                  <span>{at("payment_rub", {}, "RUB")}</span>
+                  <span>{at("payment_stars", {}, "Stars")}</span>
+                  <span>{at("tariffs_legacy_ref_inviter", {}, "Inviter")}</span>
+                  <span>{at("tariffs_legacy_ref_referee", {}, "Friend")}</span>
+                </div>
+                {#each LEGACY_PERIODS as [months, enabledKey, rubKey, starsKey, inviterKey, refereeKey]}
+                  <div class="admin-legacy-tariff-row">
+                    <strong>{months} {at("months_short", {}, "mo")}</strong>
+                    <div class="admin-setting-switch">
+                      <Switch.Root
+                        aria-label={`${at("tariffs_legacy_enabled", {}, "Enabled")} ${months} ${at("months_short", {}, "mo")}`}
+                        checked={boolValue(enabledKey, settingsDirty, settingsFieldMap)}
+                        onCheckedChange={(checked) => setSetting(enabledKey, checked)}
+                        class="admin-switch-root"
+                      >
+                        <Switch.Thumb class="admin-switch-thumb" />
+                      </Switch.Root>
+                    </div>
+                    <Input
+                      class="input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={inputValueForKey(rubKey)}
+                      oninput={settingInputHandler(rubKey)}
+                    />
+                    <Input
+                      class="input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={inputValueForKey(starsKey)}
+                      oninput={settingInputHandler(starsKey)}
+                    />
+                    <Input
+                      class="input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={inputValueForKey(inviterKey)}
+                      oninput={settingInputHandler(inviterKey)}
+                    />
+                    <Input
+                      class="input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={inputValueForKey(refereeKey)}
+                      oninput={settingInputHandler(refereeKey)}
+                    />
+                  </div>
+                {/each}
+              </div>
+
+              <div class="admin-form-row admin-form-row-2 admin-legacy-traffic-row">
+                <label class="admin-field-label admin-field-label-compact">
+                  <span>{at("tariffs_legacy_traffic_packages", {}, "Traffic packages")}</span>
+                  <small>{at("tariffs_legacy_traffic_hint", {}, "Format: 10:199,50:799")}</small>
+                  <Input
+                    class="input"
+                    type="text"
+                    value={inputValueForKey("TRAFFIC_PACKAGES")}
+                    oninput={settingInputHandler("TRAFFIC_PACKAGES")}
+                  />
+                </label>
+                <label class="admin-field-label admin-field-label-compact">
+                  <span
+                    >{at(
+                      "tariffs_legacy_stars_traffic_packages",
+                      {},
+                      "Traffic packages, Stars"
+                    )}</span
+                  >
+                  <small>{at("tariffs_legacy_traffic_hint", {}, "Format: 10:199,50:799")}</small>
+                  <Input
+                    class="input"
+                    type="text"
+                    value={inputValueForKey("STARS_TRAFFIC_PACKAGES")}
+                    oninput={settingInputHandler("STARS_TRAFFIC_PACKAGES")}
+                  />
+                </label>
+              </div>
             </div>
           </div>
-        </div>
-      {/if}
-    </section>
+        {/if}
+      </section>
+    </div>
   </div>
 {/if}

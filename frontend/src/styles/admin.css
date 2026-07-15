@@ -3612,67 +3612,41 @@
 }
 
 .admin-tariff-currency-bar {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px 18px;
+  gap: 8px 14px;
   min-width: 0;
-  padding: 12px;
+  padding: 10px 12px;
   border: 1px solid var(--admin-border);
   border-radius: 8px;
   background: var(--admin-surface-2);
 }
 
-.admin-tariff-currency-current {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.admin-tariff-currency-current span {
-  color: var(--admin-muted);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.admin-tariff-currency-current strong {
-  color: var(--admin-text);
-  font-family: var(--font-mono);
-  font-size: 18px;
-  letter-spacing: 0;
-}
-
-.admin-tariff-currency-controls {
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 10px;
-  min-width: 0;
-}
-
 .admin-tariff-currency-hint {
-  grid-column: 1 / -1;
+  flex: 1 1 240px;
+  min-width: 0;
   color: var(--admin-muted);
   font-size: 12px;
   line-height: 1.4;
 }
 
 .admin-tariff-currency-field {
-  display: grid;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
-  gap: 8px;
 }
 
 .admin-tariff-currency-field > span {
   color: var(--admin-text);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .admin-currency-input {
-  width: 100%;
-  max-width: 160px;
+  width: 96px;
   text-transform: uppercase;
 }
 
@@ -3852,10 +3826,6 @@
   .admin-tariff-actions {
     justify-content: flex-start;
   }
-}
-
-.admin-tariff-settings-card {
-  margin-top: 14px;
 }
 
 .admin-tariff-settings-form {
@@ -4292,18 +4262,6 @@
 
   .admin-provider-summary {
     justify-content: flex-start;
-  }
-
-  .admin-tariff-currency-bar {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .admin-tariff-currency-controls {
-    justify-content: flex-start;
-  }
-
-  .admin-currency-input {
-    max-width: none;
   }
 
   .admin-provider-currency {
