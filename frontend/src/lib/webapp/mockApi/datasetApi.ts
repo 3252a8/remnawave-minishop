@@ -406,6 +406,7 @@ export function demoApiResponse(
       ticket.unread_admin_count = 0;
       return { ok: true };
     }
+    if (parts[5] === "typing") return { ok: true };
     if (parts[5] === "messages") {
       const body = jsonBody(options);
       const message = {
@@ -417,6 +418,8 @@ export function demoApiResponse(
         body: body.body || "",
         is_internal_note: Boolean(body.is_internal_note),
         created_at: new Date().toISOString(),
+        read_by_user_at: null,
+        read_by_admin_at: null,
       };
       messages.push(message);
       demoSupportMessages()[String(ticketId)] = messages;
@@ -434,6 +437,7 @@ export function demoApiResponse(
       ticket: clone(withDemoAvatarTicket(ticket)),
       messages: clone(messages),
       user_snapshot: userSnapshotForTicket(withDemoAvatarTicket(ticket) as typeof ticket),
+      peer_typing: false,
     };
   }
 
@@ -463,6 +467,8 @@ export function demoApiResponse(
         author_name: userName(user) || user.username || "Демо-пользователь",
         body: body.body || "",
         created_at: ticket.created_at,
+        read_by_user_at: null,
+        read_by_admin_at: null,
       },
     ];
     return { ok: true, ticket: clone(ticket) };
@@ -487,6 +493,7 @@ export function demoApiResponse(
       ticket.unread_user_count = 0;
       return { ok: true };
     }
+    if (parts[4] === "typing") return { ok: true };
     if (parts[4] === "messages") {
       const body = jsonBody(options);
       const user = DEV_MOCK.data.user || {};
@@ -498,6 +505,8 @@ export function demoApiResponse(
         author_name: userName(user) || user.username || "Демо-пользователь",
         body: body.body || "",
         created_at: new Date().toISOString(),
+        read_by_user_at: null,
+        read_by_admin_at: null,
       };
       messages.push(message);
       demoSupportMessages()[String(ticketId)] = messages;
@@ -506,7 +515,12 @@ export function demoApiResponse(
       ticket.status = "awaiting_admin";
       return { ok: true, ticket: clone(withDemoAvatarTicket(ticket)), message: clone(message) };
     }
-    return { ok: true, ticket: clone(withDemoAvatarTicket(ticket)), messages: clone(messages) };
+    return {
+      ok: true,
+      ticket: clone(withDemoAvatarTicket(ticket)),
+      messages: clone(messages),
+      peer_typing: false,
+    };
   }
   if (cleanPath === "/support/unread") {
     return {

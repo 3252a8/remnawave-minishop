@@ -1,6 +1,13 @@
 <script lang="ts">
   import BrandMark from "$lib/webapp/BrandMark.svelte";
-  import { LifeBuoy, Lock, MessageSquare, UserRound } from "$components/ui/icons.js";
+  import {
+    Check,
+    CheckCheck,
+    LifeBuoy,
+    Lock,
+    MessageSquare,
+    UserRound,
+  } from "$components/ui/icons.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type Props = {
@@ -12,6 +19,8 @@
     userAvatarUrl?: string;
     userInitials?: string;
     authorName?: string;
+    readByUserAt?: string | null;
+    readByAdminAt?: string | null;
     supportBrand?: Record<string, unknown>;
     t?: TranslateFn;
   };
@@ -25,6 +34,8 @@
     userAvatarUrl = "",
     userInitials = "",
     authorName = "",
+    readByUserAt = null,
+    readByAdminAt = null,
     supportBrand = {},
     t = (key, _params = {}, fallback = "") => fallback || key,
   }: Props = $props();
@@ -43,6 +54,13 @@
   const timeLabel = $derived(formatTime(createdAt));
   const showSupportAvatar = $derived(!isInternalNote && messageRole === "admin");
   const showUserAvatar = $derived(!isInternalNote && messageRole === "user");
+  const showReceipt = $derived(outgoing && !serviceMessage);
+  const messageRead = $derived(
+    messageRole === "user" ? Boolean(readByAdminAt) : Boolean(readByUserAt)
+  );
+  const receiptLabel = $derived(
+    t(messageRead ? "wa_support_message_read" : "wa_support_message_sent")
+  );
 
   function formatTime(value: string): string {
     if (!value) return "";
@@ -86,6 +104,16 @@
       <span class="ticket-message-author">{roleLabel}</span>
       {#if timeLabel}
         <time datetime={createdAt}>{timeLabel}</time>
+      {/if}
+      {#if showReceipt}
+        <span
+          class:ticket-message-receipt--read={messageRead}
+          class="ticket-message-receipt"
+          title={receiptLabel}
+          aria-label={receiptLabel}
+        >
+          {#if messageRead}<CheckCheck size={15} />{:else}<Check size={15} />{/if}
+        </span>
       {/if}
     </div>
 

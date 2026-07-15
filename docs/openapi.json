@@ -5415,6 +5415,19 @@
         "title": "SupportTrafficSnapshotOut",
         "type": "object"
       },
+      "SupportTypingIn": {
+        "properties": {
+          "typing": {
+            "title": "Typing",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "typing"
+        ],
+        "title": "SupportTypingIn",
+        "type": "object"
+      },
       "Tariff": {
         "properties": {
           "billing_model": {
@@ -9686,6 +9699,9 @@
                       "const": true,
                       "type": "boolean"
                     },
+                    "peer_typing": {
+                      "type": "boolean"
+                    },
                     "ticket": {
                       "$ref": "#/components/schemas/AdminSupportTicketOut"
                     },
@@ -9704,7 +9720,8 @@
                     "ok",
                     "ticket",
                     "messages",
-                    "user_snapshot"
+                    "user_snapshot",
+                    "peer_typing"
                   ],
                   "type": "object"
                 }
@@ -9899,6 +9916,65 @@
           }
         ],
         "summary": "Admin Support Ticket Read",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/support/tickets/{id}/typing": {
+      "post": {
+        "operationId": "post_admin_support_ticket_typing_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupportTypingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Support Ticket Typing",
         "tags": [
           "admin"
         ]
@@ -14392,6 +14468,9 @@
                       "const": true,
                       "type": "boolean"
                     },
+                    "peer_typing": {
+                      "type": "boolean"
+                    },
                     "ticket": {
                       "$ref": "#/components/schemas/SupportTicketOut"
                     }
@@ -14399,7 +14478,8 @@
                   "required": [
                     "ok",
                     "ticket",
-                    "messages"
+                    "messages",
+                    "peer_typing"
                   ],
                   "type": "object"
                 }
@@ -14533,6 +14613,65 @@
           }
         ],
         "summary": "Support Ticket Read",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/api/support/tickets/{id}/typing": {
+      "post": {
+        "operationId": "post_support_ticket_typing_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupportTypingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Support Ticket Typing",
         "tags": [
           "support"
         ]

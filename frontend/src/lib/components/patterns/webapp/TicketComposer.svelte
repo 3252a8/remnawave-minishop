@@ -10,6 +10,7 @@
     placeholder = "",
     sendLabel = "",
     onSend = () => {},
+    onTyping = () => {},
   }: {
     value?: string;
     maxLength?: number;
@@ -18,6 +19,7 @@
     placeholder?: string;
     sendLabel?: string;
     onSend?: (value: string) => void | Promise<void>;
+    onTyping?: (typing: boolean) => void;
   } = $props();
 
   function submit() {
@@ -30,6 +32,11 @@
     event.preventDefault();
     submit();
   }
+
+  function handleInput(event: Event) {
+    const target = event.currentTarget as HTMLTextAreaElement;
+    onTyping(Boolean(target.value.trim()));
+  }
 </script>
 
 <div class="ticket-composer">
@@ -41,6 +48,7 @@
     {placeholder}
     ariaLabel={placeholder}
     class="ticket-composer-textarea"
+    oninput={handleInput}
     onkeydown={handleKeydown}
   />
   <div class="ticket-composer-row">

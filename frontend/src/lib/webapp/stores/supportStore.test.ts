@@ -12,6 +12,7 @@ function makeSupportStore() {
         message: { message_id: 11, body: "Please help" },
       };
     }
+    if (path === "/support/tickets/7/typing") return { ok: true };
     if (path === "/support/unread") return { ok: true, unread: 0 };
     return { ok: true, tickets: [], counts: {} };
   });
@@ -42,5 +43,28 @@ describe("supportStore", () => {
     expect(replyCalls).toHaveLength(1);
     expect(results).toEqual([true, false]);
     expect(store.messages).toHaveLength(1);
+  });
+
+  it("signals typing without posting a ticket message", async () => {
+    const { api, store } = makeSupportStore();
+
+    store.notifyTyping(true);
+    await vi.waitFor(() =>
+      expect(api).toHaveBeenCalledWith("/support/tickets/7/typing", {
+        method: "POST",
+        body: JSON.stringify({ typing: true }),
+      })
+    );
+    store.notifyTyping(false);
+    await vi.waitFor(() =>
+      expect(api).toHaveBeenCalledWith("/support/tickets/7/typing", {
+        method: "POST",
+        body: JSON.stringify({ typing: false }),
+      })
+    );
+
+    expect(api.mock.calls.filter(([path]) => path === "/support/tickets/7/messages")).toHaveLength(
+      0
+    );
   });
 });

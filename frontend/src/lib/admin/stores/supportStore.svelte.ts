@@ -7,9 +7,11 @@ import {
   buildAdminSupportTicketMessagesPath,
   buildAdminSupportTicketPath,
   buildAdminSupportTicketReadPath,
+  buildAdminSupportTicketTypingPath,
   buildAdminSupportTicketsPath,
 } from "../../webapp/publicApi";
 import { withRoutePrefix } from "../../webapp/routes.js";
+import { createSupportTypingHeartbeat } from "../../webapp/supportTyping.js";
 import { adminErrorMessage } from "../errors.js";
 import { defineRawStateProperty } from "./rawStateProperty";
 import { snapshotForPayload } from "./snapshotForPayload.svelte";
@@ -53,6 +55,7 @@ export type AdminSupportState = {
   openedTicketId: number | null;
   openedTicket: SupportTicket | null;
   messages: SupportMessage[];
+  peerTyping: boolean;
   userSnapshot: SupportUser | null;
   detailLoading: boolean;
   sending: boolean;
@@ -76,6 +79,7 @@ export type AdminSupportStore = AdminSupportState & {
   openTicket(ticketId: TicketId, opts?: TicketViewOptions): Promise<void>;
   closeTicketView(opts?: TicketViewOptions): void;
   sendReply(body: string): Promise<boolean | undefined>;
+  notifyTyping(typing: boolean): void;
   patchTicket(updates: TicketPatch): Promise<void>;
   closeTicket(): void;
   toggleInternalNote(): void;
@@ -166,6 +170,7 @@ export function createAdminSupportStore({
     openedTicketId: null,
     openedTicket: null,
     userSnapshot: null,
+    peerTyping: false,
     detailLoading: false,
     sending: false,
     composerInternalNote: false,
@@ -205,6 +210,7 @@ export function createAdminSupportStore({
       openedTicket: state.openedTicket,
       messages,
       userSnapshot: state.userSnapshot,
+      peerTyping: state.peerTyping,
       detailLoading: state.detailLoading,
       sending: state.sending,
       composerInternalNote: state.composerInternalNote,
@@ -224,6 +230,15 @@ export function createAdminSupportStore({
   function currentOpenedTicketId() {
     return getSnapshot()?.openedTicketId || null;
   }
+
+  function postTicketTyping(ticketId: number, typing: boolean) {
+    return api(buildAdminSupportTicketTypingPath(ticketId), {
+      method: "POST",
+      body: JSON.stringify({ typing }),
+    });
+  }
+
+  const typingHeartbeat = createSupportTypingHeartbeat({ send: postTicketTyping });
 
   function lastMessageId(messages: SupportMessage[]) {
     const list = Array.isArray(messages) ? messages : [];
@@ -294,6 +309,7 @@ export function createAdminSupportStore({
         openedTicket: asTicket(payload.ticket),
         messages: nextMessages,
         userSnapshot: asUser(payload.user_snapshot),
+        peerTyping: Boolean(payload.peer_typing),
       };
     });
 
@@ -310,6 +326,7 @@ export function createAdminSupportStore({
   async function openTicket(ticketId: TicketId, opts: TicketViewOptions = {}) {
     const id = Number(ticketId);
     if (!id) return;
+    if (currentOpenedTicketId() && currentOpenedTicketId() !== id) typingHeartbeat.stop();
     updateState((s) => ({
       ...s,
       openedTicketId: id,
@@ -330,6 +347,7 @@ export function createAdminSupportStore({
                 openedTicket: asTicket(payload.ticket),
                 messages: asMessages(payload.messages),
                 userSnapshot: asUser(payload.user_snapshot),
+                peerTyping: Boolean(payload.peer_typing),
               }
             : s
         );
@@ -346,29 +364,30 @@ export function createAdminSupportStore({
   }
 
   function closeTicketView(opts: TicketViewOptions = {}) {
+    typingHeartbeat.stop();
     updateState((s) => ({
       ...s,
       openedTicketId: null,
       openedTicket: null,
       messages: [],
       userSnapshot: null,
+      peerTyping: false,
     }));
     clearTicketPollTimer();
     if (!opts.skipPush) pushTicketPath(null);
   }
 
   async function sendReply(body: string) {
-    let current: number | null = null;
-    let internal = false;
-    updateState((s) => {
-      current = s.openedTicketId;
-      internal = s.composerInternalNote;
-      return { ...s, sending: true };
-    });
+    const snapshot = getSnapshot();
+    if (snapshot.sending) return false;
+    const current = snapshot.openedTicketId;
+    const internal = snapshot.composerInternalNote;
+    updateState((s) => ({ ...s, sending: true }));
     if (!current) {
       updateState((s) => ({ ...s, sending: false }));
       return;
     }
+    typingHeartbeat.stop(current);
     try {
       const payload: TicketReplyPayload = snapshotForPayload({ body, is_internal_note: internal });
       const res = await api(buildAdminSupportTicketMessagesPath(current), {
@@ -394,6 +413,16 @@ export function createAdminSupportStore({
     } finally {
       updateState((s) => ({ ...s, sending: false }));
     }
+  }
+
+  function notifyTyping(typing: boolean) {
+    const snapshot = getSnapshot();
+    const ticketId = snapshot.openedTicketId;
+    if (!typing || !ticketId || snapshot.composerInternalNote) {
+      typingHeartbeat.stop(ticketId || undefined);
+      return;
+    }
+    typingHeartbeat.pulse(ticketId);
   }
 
   async function patchTicket(updates: TicketPatch) {
@@ -425,7 +454,9 @@ export function createAdminSupportStore({
   }
 
   function toggleInternalNote() {
-    updateState((s) => ({ ...s, composerInternalNote: !s.composerInternalNote }));
+    const nextInternal = !getSnapshot().composerInternalNote;
+    updateState((s) => ({ ...s, composerInternalNote: nextInternal }));
+    if (nextInternal) typingHeartbeat.stop(currentOpenedTicketId() || undefined);
   }
 
   function setFilter(key: keyof SupportFilters, value: string) {
@@ -536,6 +567,7 @@ export function createAdminSupportStore({
     clearTicketPollTimer();
     ticketPollInFlight = false;
     stopRealtimeListeners();
+    typingHeartbeat.stop();
   }
 
   return Object.assign(store, {
@@ -545,6 +577,7 @@ export function createAdminSupportStore({
     openTicket,
     closeTicketView,
     sendReply,
+    notifyTyping,
     patchTicket,
     closeTicket,
     toggleInternalNote,

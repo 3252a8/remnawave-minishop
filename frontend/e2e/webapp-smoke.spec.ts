@@ -373,6 +373,18 @@ async function assertUserTicketScrolling(page: Page, nav: Locator): Promise<void
   );
   const composer = page.locator(".support-ticket-screen .ticket-composer");
   await expect(composer).toBeVisible();
+  const readReceipt = page
+    .locator('.support-ticket-screen .ticket-message-receipt[title="Прочитано"]')
+    .first();
+  await expect(readReceipt).toBeVisible();
+  await expect(readReceipt.locator(".lucide-check-check")).toBeVisible();
+  await composer.locator("textarea").fill("Проверка статуса доставки");
+  await composer.getByRole("button").click();
+  const sentReceipt = page
+    .locator('.support-ticket-screen .ticket-message-receipt[title="Отправлено"]')
+    .last();
+  await expect(sentReceipt).toBeVisible();
+  await expect(sentReceipt.locator(".lucide-check")).toBeVisible();
   await page.waitForTimeout(220);
   await expect
     .poll(() => messageViewport.evaluate((element) => element.scrollHeight - element.clientHeight))
@@ -870,9 +882,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
     textarea.setSelectionRange(textarea.value.length, textarea.value.length);
   });
   await page.locator('[data-broadcast-format="link"]').click();
-  await expect(broadcastSource).toHaveValue(
-    '<b>{first_name}</b><a href="https://">https://</a>'
-  );
+  await expect(broadcastSource).toHaveValue('<b>{first_name}</b><a href="https://">https://</a>');
   await page.locator("[data-broadcast-source-toggle]").click();
   await expect(page.locator(".broadcast-surface .broadcast-chip").first()).toBeVisible();
 

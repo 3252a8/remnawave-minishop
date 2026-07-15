@@ -91,6 +91,7 @@ from .support import (
     support_ticket_detail_route,
     support_ticket_read_route,
     support_ticket_reply_route,
+    support_ticket_typing_route,
     support_tickets_route,
     support_unread_route,
 )
@@ -209,6 +210,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/api/support/tickets/{id:\\d+}", support_ticket_detail_route)
     app.router.add_post("/api/support/tickets/{id:\\d+}/messages", support_ticket_reply_route)
     app.router.add_post("/api/support/tickets/{id:\\d+}/read", support_ticket_read_route)
+    app.router.add_post("/api/support/tickets/{id:\\d+}/typing", support_ticket_typing_route)
     app.router.add_get("/api/support/unread", support_unread_route)
     app.router.add_get("/api/tariffs/topup-options", tariff_topup_options_route)
     app.router.add_get("/api/tariffs/change-options", tariff_change_options_route)

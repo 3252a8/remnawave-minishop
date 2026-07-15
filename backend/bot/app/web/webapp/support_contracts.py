@@ -1,7 +1,18 @@
 from __future__ import annotations
 
-from bot.app.web.route_contracts import INTEGER_SCHEMA, RouteContract, ok_envelope_with, schema_ref
-from bot.app.web.support_schemas import SupportCountsOut, SupportMessageOut, SupportTicketOut
+from bot.app.web.route_contracts import (
+    BOOLEAN_SCHEMA,
+    INTEGER_SCHEMA,
+    RouteContract,
+    ok_envelope_with,
+    schema_ref,
+)
+from bot.app.web.support_schemas import (
+    SupportCountsOut,
+    SupportMessageOut,
+    SupportTicketOut,
+    SupportTypingIn,
+)
 
 from .contract_schemas import user_contract
 from .payloads import CreateTicketPayload, TicketReplyPayload
@@ -32,6 +43,7 @@ SUPPORT_ROUTE_CONTRACTS: dict[str, RouteContract] = {
                     "type": "array",
                     "items": schema_ref(SupportMessageOut),
                 },
+                "peer_typing": BOOLEAN_SCHEMA,
             }
         ),
         models=(SupportMessageOut, SupportTicketOut),
@@ -47,6 +59,11 @@ SUPPORT_ROUTE_CONTRACTS: dict[str, RouteContract] = {
         models=(SupportMessageOut, SupportTicketOut, TicketReplyPayload),
     ),
     "support_ticket_read_route": user_contract(response_schema=ok_envelope_with()),
+    "support_ticket_typing_route": user_contract(
+        request_model=SupportTypingIn,
+        response_schema=ok_envelope_with(),
+        models=(SupportTypingIn,),
+    ),
     "support_unread_route": user_contract(
         response_schema=ok_envelope_with({"unread": INTEGER_SCHEMA}),
     ),

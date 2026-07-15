@@ -9,7 +9,7 @@
     SupportTicketHeader,
     SupportUserContextPanel,
   } from "$components/patterns/admin/index.js";
-  import { TicketMessageBubble } from "$components/patterns/webapp/index.js";
+  import { TicketMessageBubble, TypingIndicator } from "$components/patterns/webapp/index.js";
   import Dialog from "$components/ui/dialog.svelte";
   import { Search } from "$components/ui/icons.js";
   import { Input, ScrollArea, Skeleton } from "$components/ui/index.js";
@@ -65,6 +65,7 @@
   const openedTicketId: number | null = $derived(supportStore.openedTicketId || null);
   const openedTicket: SupportTicket | null = $derived(supportStore.openedTicket || null);
   const messages: SupportMessage[] = $derived(supportStore.messages || []);
+  const peerTyping = $derived(supportStore.peerTyping);
   const userSnapshot: SupportUser | null = $derived(supportStore.userSnapshot || null);
   const sending = $derived(Boolean(supportStore.sending));
   const composerInternalNote = $derived(Boolean(supportStore.composerInternalNote));
@@ -395,6 +396,8 @@
                 userAvatarUrl={openedTicketUserAvatarUrl}
                 userInitials={openedTicketUserInitials}
                 authorName={messageAuthorName(message)}
+                readByUserAt={message.read_by_user_at}
+                readByAdminAt={message.read_by_admin_at}
                 t={messageT}
               />
             {/each}
@@ -405,6 +408,9 @@
           {/if}
         </div>
       </ScrollArea>
+      {#if peerTyping}
+        <TypingIndicator label={at("support_user_typing", {}, "User is typing…")} />
+      {/if}
       <SupportComposer
         bind:value={reply}
         internal={composerInternalNote}
@@ -412,6 +418,7 @@
         {at}
         onToggleInternal={supportStore.toggleInternalNote}
         onSend={sendComposerReply}
+        onTyping={supportStore.notifyTyping}
       />
     </div>
   {/if}

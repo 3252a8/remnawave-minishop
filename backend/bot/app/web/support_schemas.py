@@ -7,7 +7,11 @@ from typing import Any
 
 from pydantic import ConfigDict
 
-from bot.app.web.http_contracts import HttpResponseModel
+from bot.app.web.http_contracts import HttpBodyModel, HttpResponseModel
+
+
+class SupportTypingIn(HttpBodyModel):
+    typing: bool
 
 
 class SupportCountsOut(HttpResponseModel):

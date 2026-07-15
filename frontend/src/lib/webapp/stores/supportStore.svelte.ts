@@ -7,6 +7,7 @@ import type {
   SupportTicketDetailResponse,
   SupportTicketReadResponse,
   SupportTicketReplyResponse,
+  SupportTicketTypingResponse,
   SupportTicketsResponse,
 } from "../publicApi";
 import {
@@ -14,9 +15,11 @@ import {
   buildSupportTicketMessagesPath,
   buildSupportTicketPath,
   buildSupportTicketReadPath,
+  buildSupportTicketTypingPath,
   buildSupportUnreadPath,
 } from "../publicApi";
 import { unwrap } from "../publicApi";
+import { createSupportTypingHeartbeat } from "../supportTyping.js";
 
 type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type TicketRecord = Record<string, unknown> & {
@@ -33,6 +36,8 @@ type MessageRecord = Record<string, unknown> & {
   created_at?: string;
   is_internal_note?: boolean;
   message_id?: number;
+  read_by_admin_at?: string | null;
+  read_by_user_at?: string | null;
 };
 type CountsRecord = {
   active: number;
@@ -47,6 +52,7 @@ export type SupportState = {
   openedTicketId: number | null;
   openedTicket: TicketRecord | null;
   messages: MessageRecord[];
+  peerTyping: boolean;
   unreadCount: number;
   unreadLoaded: boolean;
   unreadLoading: boolean;
@@ -65,6 +71,7 @@ export type SupportStore = SupportState & {
   openTicket(ticketId: number | string, opts?: TicketViewOptions): Promise<void>;
   closeTicketView(opts?: TicketViewOptions): void;
   sendReply(body: string): Promise<boolean>;
+  notifyTyping(typing: boolean): void;
   markRead(ticketId?: number | null, options?: RefreshUnreadOptions): Promise<void>;
   refreshUnread(options?: RefreshUnreadOptions): Promise<unknown>;
   setStatusFilter(status: string): void;
@@ -138,6 +145,7 @@ export function createSupportStore({
     openedTicketId: null,
     openedTicket: null,
     messages: [],
+    peerTyping: false,
     unreadCount: 0,
     unreadLoaded: false,
     unreadLoading: false,
@@ -154,6 +162,7 @@ export function createSupportStore({
     openTicket,
     closeTicketView,
     sendReply,
+    notifyTyping,
     markRead,
     refreshUnread,
     setStatusFilter,
@@ -208,6 +217,15 @@ export function createSupportStore({
       body: "{}",
     }) as Promise<SupportTicketReadResponse>;
   }
+
+  function postTicketTyping(id: number, typing: boolean): Promise<SupportTicketTypingResponse> {
+    return api(buildSupportTicketTypingPath(id), {
+      method: "POST",
+      body: JSON.stringify({ typing }),
+    });
+  }
+
+  const typingHeartbeat = createSupportTypingHeartbeat({ send: postTicketTyping });
 
   function updateUnreadBackoff(value: unknown, countEmptyPoll = false) {
     const next = Math.max(0, Number(value || 0));
@@ -308,6 +326,7 @@ export function createSupportStore({
         if (state.openedTicketId === id) {
           state.openedTicket = ticket;
           state.messages = arrayRecords(payload.messages) as MessageRecord[];
+          state.peerTyping = Boolean(payload.peer_typing);
         }
         if (currentOpenedTicketId() === id && Number(ticket.unread_user_count || 0) > 0) {
           await markRead(id, { silent: true });
@@ -341,6 +360,7 @@ export function createSupportStore({
   async function openTicket(ticketId: number | string, opts: TicketViewOptions = {}) {
     const id = Number(ticketId);
     if (!id) return;
+    if (state.openedTicketId && state.openedTicketId !== id) typingHeartbeat.stop();
     const keepOpenedTicket = state.openedTicket?.ticket_id === id;
     state.openedTicketId = id;
     state.openedTicket = keepOpenedTicket ? state.openedTicket : null;
@@ -364,6 +384,7 @@ export function createSupportStore({
         if (state.openedTicketId === id) {
           state.openedTicket = ticket;
           state.messages = arrayRecords(payload.messages) as MessageRecord[];
+          state.peerTyping = Boolean(payload.peer_typing);
         }
         if (currentOpenedTicketId() === id) await markRead(id);
       } else {
@@ -378,9 +399,11 @@ export function createSupportStore({
   }
 
   function closeTicketView(opts: TicketViewOptions = {}) {
+    typingHeartbeat.stop();
     state.openedTicketId = null;
     state.openedTicket = null;
     state.messages = [];
+    state.peerTyping = false;
     if (!opts.skipPush && typeof window !== "undefined" && window.location.protocol !== "file:") {
       const supportPath = withRoutePrefix("/support", routePrefix);
       if (window.location.pathname.startsWith(`${supportPath}/`)) {
@@ -401,6 +424,7 @@ export function createSupportStore({
       state.sending = false;
       return false;
     }
+    typingHeartbeat.stop(ticketId);
     try {
       const res = await postTicketReply(ticketId, { body });
       if (!res?.ok) throw res;
@@ -424,6 +448,16 @@ export function createSupportStore({
     } finally {
       state.sending = false;
     }
+  }
+
+  function notifyTyping(typing: boolean) {
+    const ticketId = currentOpenedTicketId();
+    const status = String(state.openedTicket?.status || "");
+    if (!typing || !ticketId || ["resolved", "closed"].includes(status)) {
+      typingHeartbeat.stop(ticketId || undefined);
+      return;
+    }
+    typingHeartbeat.pulse(ticketId);
   }
 
   async function markRead(ticketId: number | null = null, options: RefreshUnreadOptions = {}) {
@@ -560,6 +594,7 @@ export function createSupportStore({
     clearPollTimer();
     stopVisibilityListener();
     stopResumeListeners();
+    typingHeartbeat.stop();
     if (state.polling) state.polling = false;
   }
 

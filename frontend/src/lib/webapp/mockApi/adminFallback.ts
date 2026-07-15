@@ -666,6 +666,7 @@ export function adminFallbackResponse(
     const ticket = clone(
       supportTickets.find((item) => item.ticket_id === ticketId) || supportTickets[0]
     );
+    if (parts[5] === "typing") return { ok: true };
     if (parts[5] === "messages") {
       return {
         ok: true,
@@ -681,6 +682,8 @@ export function adminFallbackResponse(
             (JSON.parse(String(options?.body || "{}")) as DemoRecord)?.is_internal_note
           ),
           created_at: new Date().toISOString(),
+          read_by_user_at: null,
+          read_by_admin_at: null,
         },
       };
     }
@@ -720,6 +723,7 @@ export function adminFallbackResponse(
         regular_traffic: "12 GB / 500 GB",
         premium_traffic: "4 GB / 25 GB",
       },
+      peer_typing: false,
     };
   }
   if (cleanPath.startsWith("/admin/"))
