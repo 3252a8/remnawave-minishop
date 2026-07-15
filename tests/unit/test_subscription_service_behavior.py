@@ -177,6 +177,52 @@ class SubscriptionServiceCalculationTests(unittest.TestCase):
             28 * GIB,
         )
 
+    def test_period_tariff_strategy_overrides_global_and_legacy_tariff_falls_back(self):
+        payload = _tariffs_config_payload()
+        payload["tariffs"][0]["traffic_limit_strategy"] = "WEEK"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(payload, tmpdir, USER_TRAFFIC_STRATEGY="DAY")
+            service = _make_service(settings)
+
+            self.assertEqual(
+                service._period_tariff_traffic_strategy(
+                    settings.tariffs_config.require("standard")
+                ),
+                "WEEK",
+            )
+
+        payload["tariffs"][0].pop("traffic_limit_strategy")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(payload, tmpdir, USER_TRAFFIC_STRATEGY="DAY")
+            service = _make_service(settings)
+
+            self.assertEqual(
+                service._period_tariff_traffic_strategy(
+                    settings.tariffs_config.require("standard")
+                ),
+                "DAY",
+            )
+
+    def test_trial_premium_accounting_uses_trial_strategy(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                _tariffs_config_payload(),
+                tmpdir,
+                USER_TRAFFIC_STRATEGY="DAY",
+                TRIAL_TRAFFIC_STRATEGY="MONTH_ROLLING",
+            )
+            service = _make_service(settings)
+            trial_sub = SimpleNamespace(
+                tariff_key=None,
+                provider="trial",
+                status_from_panel="TRIAL",
+            )
+
+            self.assertEqual(
+                service._premium_traffic_strategy_for_subscription(trial_sub),
+                "MONTH_ROLLING",
+            )
+
 
 class SubscriptionServicePremiumAccessTests(unittest.IsolatedAsyncioTestCase):
     async def test_premium_access_hides_hidden_and_disabled_hosts(self):
@@ -744,8 +790,10 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
     async def test_period_purchase_after_traffic_starts_now_and_carries_remaining_package(
         self,
     ):
+        payload = _tariffs_config_payload()
+        payload["tariffs"][0]["traffic_limit_strategy"] = "WEEK"
         with tempfile.TemporaryDirectory() as tmpdir:
-            settings = _make_settings(_tariffs_config_payload(), tmpdir)
+            settings = _make_settings(payload, tmpdir)
             service = _make_service(settings)
             service._get_or_create_panel_user_link_details = AsyncMock(
                 return_value=("panel-user", "panel-sub", "short", False)
@@ -860,8 +908,13 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             self.assertLess(payload["end_date"], datetime(2099, 1, 1, tzinfo=UTC))
             self.assertEqual(payload["topup_balance_bytes"], 35 * GIB)
             self.assertEqual(payload["traffic_limit_bytes"], 135 * GIB)
+            create_options = service._get_or_create_panel_user_link_details.await_args.kwargs[
+                "create_options"
+            ]
+            self.assertEqual(create_options.default_traffic_limit_strategy, "WEEK")
             panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]
             self.assertEqual(panel_payload["trafficLimitBytes"], 135 * GIB)
+            self.assertEqual(panel_payload["trafficLimitStrategy"], "WEEK")
 
     async def test_traffic_purchase_after_period_does_not_carry_monthly_baseline(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1515,9 +1568,11 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
 
 class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
     async def test_promo_bonus_without_active_subscription_uses_default_tariff_squads(self):
+        payload = _tariffs_config_payload()
+        payload["tariffs"][0]["traffic_limit_strategy"] = "WEEK"
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(
-                _tariffs_config_payload(),
+                payload,
                 tmpdir,
                 USER_TRAFFIC_LIMIT_GB=999,
                 USER_EXTERNAL_SQUAD_UUID="external-squad",
@@ -1575,6 +1630,7 @@ class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
                 "create_options"
             ]
             self.assertEqual(create_options.default_traffic_limit_bytes, 100 * GIB)
+            self.assertEqual(create_options.default_traffic_limit_strategy, "WEEK")
             self.assertEqual(
                 create_options.specific_squad_uuids,
                 ("main-squad", "shared-squad", "premium-squad"),
@@ -1583,7 +1639,7 @@ class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
 
             panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]
             self.assertEqual(panel_payload["trafficLimitBytes"], 100 * GIB)
-            self.assertEqual(panel_payload["trafficLimitStrategy"], "NO_RESET")
+            self.assertEqual(panel_payload["trafficLimitStrategy"], "WEEK")
             self.assertEqual(panel_payload["hwidDeviceLimit"], 3)
             self.assertEqual(
                 panel_payload["activeInternalSquads"],

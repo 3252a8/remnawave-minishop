@@ -12,6 +12,7 @@ STARS_TARIFF_CURRENCY = "stars"
 
 Currency = str
 BillingModel = Literal["period", "traffic"]
+TrafficLimitStrategy = Literal["NO_RESET", "DAY", "WEEK", "MONTH", "MONTH_ROLLING"]
 
 
 def normalize_currency_key(value: Any, default: str = DEFAULT_TARIFF_CURRENCY) -> str:
@@ -184,6 +185,10 @@ class Tariff(BaseModel):
     enabled: bool = True
 
     monthly_gb: float | None = None
+    # None keeps legacy tariffs compatible with USER_TRAFFIC_STRATEGY. The
+    # admin editor writes an explicit value for new tariffs and whenever an
+    # administrator selects a tariff-specific strategy.
+    traffic_limit_strategy: TrafficLimitStrategy | None = None
     prices: dict[str, dict[str, float]] = Field(default_factory=dict)
     prices_rub: dict[str, float] = Field(default_factory=dict)
     prices_stars: dict[str, float] = Field(default_factory=dict)
@@ -272,6 +277,11 @@ class Tariff(BaseModel):
                     )
             return self
 
+        if self.traffic_limit_strategy is not None:
+            raise ValueError(
+                f"traffic tariff {self.key}: traffic_limit_strategy is only valid "
+                "for period tariffs"
+            )
         if not self.traffic_packages or not self.traffic_packages.has_any():
             raise ValueError(f"traffic tariff {self.key}: traffic_packages is required")
         if not self.traffic_packages.non_stars_currencies and self.conversion_rate_per_gb is None:

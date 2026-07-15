@@ -103,7 +103,7 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
         create_options = entitlement_helpers.panel_user_create_options(
             new_end_date_obj,
             initial_traffic_limit,
-            self._period_tariff_traffic_strategy(),
+            self._period_tariff_traffic_strategy(initial_tariff),
             initial_hwid_limit,
             initial_squads,
             self.settings.parsed_user_external_squad_uuid,
@@ -339,7 +339,7 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
                     else None
                 ),
                 traffic_limit_strategy=(
-                    self._period_tariff_traffic_strategy() if panel_tariff else None
+                    self._period_tariff_traffic_strategy(panel_tariff) if panel_tariff else None
                 ),
                 hwid_device_limit=(
                     self._effective_hwid_limit(

@@ -63,10 +63,15 @@ class _TrialPremiumTariff:
         squad_uuids: list[str],
         premium_squad_uuids: list[str],
         premium_monthly_bytes: int,
+        traffic_limit_strategy: str,
     ) -> None:
         self.squad_uuids = list(squad_uuids)
         self.premium_squad_uuids = list(premium_squad_uuids)
         self._premium_monthly_bytes = int(premium_monthly_bytes or 0)
+        self.traffic_limit_strategy = normalize_traffic_limit_strategy(
+            traffic_limit_strategy,
+            default="NO_RESET",
+        )
 
     @property
     def premium_monthly_bytes(self) -> int:
@@ -126,16 +131,17 @@ class TariffWorkerCoreMixin:
             logger.exception("TariffTrafficWorker: failed to load user language for %s", user_id)
         return str(self.settings.DEFAULT_LANGUAGE)
 
-    def _period_tariff_traffic_strategy(self) -> str:
+    def _period_tariff_traffic_strategy(self, tariff: Any | None = None) -> str:
         strategy_getter = getattr(
             self.subscription_service,
             "_period_tariff_traffic_strategy",
             None,
         )
         if callable(strategy_getter):
-            return str(strategy_getter())
+            return str(strategy_getter(tariff))
+        configured_strategy = getattr(tariff, "traffic_limit_strategy", None)
         return normalize_traffic_limit_strategy(
-            getattr(self.settings, "USER_TRAFFIC_STRATEGY", "MONTH"),
+            configured_strategy or getattr(self.settings, "USER_TRAFFIC_STRATEGY", "MONTH"),
             default="MONTH",
         )
 
@@ -160,12 +166,13 @@ class TariffWorkerCoreMixin:
         reset_available_bytes: int,
         user_lang: str,
         next_reset_at: datetime | None = None,
+        traffic_strategy: str | None = None,
     ) -> str:
         reset_at = next_reset_at
         if reset_at is None:
             reset_at = next_traffic_reset_after(
                 period_start_at,
-                self._period_tariff_traffic_strategy(),
+                traffic_strategy or self._period_tariff_traffic_strategy(),
             )
         if reset_at is None:
             return ""
@@ -187,10 +194,11 @@ class TariffWorkerCoreMixin:
         panel_user_data: dict[str, Any] | None,
         *,
         now: datetime | None = None,
+        fallback_strategy: str | None = None,
     ) -> datetime | None:
         return panel_next_traffic_reset_at(
             panel_user_data,
-            fallback_strategy=self._period_tariff_traffic_strategy(),
+            fallback_strategy=fallback_strategy or self._period_tariff_traffic_strategy(),
             now=now,
         )
 
@@ -495,4 +503,5 @@ class TariffWorkerCoreMixin:
             squad_uuids=regular_squads,
             premium_squad_uuids=premium_squads,
             premium_monthly_bytes=premium_baseline,
+            traffic_limit_strategy=self.settings.TRIAL_TRAFFIC_STRATEGY,
         )

@@ -81,7 +81,7 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
         )
         now = datetime.now(UTC)
         traffic_limit_strategy = (
-            self._period_tariff_traffic_strategy()
+            self._period_tariff_traffic_strategy(tariff)
             if billing_model_display == "period"
             else "NO_RESET"
         )
@@ -104,7 +104,7 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
         if premium_limit_bytes > 0 and not premium_unlimited_override:
             premium_next_reset_at = next_traffic_reset_after(
                 premium_period_start_at,
-                self._period_tariff_traffic_strategy(),
+                self._premium_traffic_strategy_for_subscription(local_active_sub),
                 now=now,
             )
         return {
@@ -368,7 +368,7 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             traffic_limit_strategy=(
                 "NO_RESET"
                 if target.billing_model == "traffic"
-                else self._period_tariff_traffic_strategy()
+                else self._period_tariff_traffic_strategy(target)
             ),
             hwid_device_limit=self._effective_hwid_limit(
                 panel_hwid_base_limit,

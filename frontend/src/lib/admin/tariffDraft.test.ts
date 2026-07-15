@@ -83,11 +83,13 @@ describe("tariffDraft", () => {
       referral_bonus_days_referee: { 1: 1 },
       squad_uuids: ["a", "b"],
       monthly_gb: 500,
+      traffic_limit_strategy: "WEEK",
       topup_packages: { rub: [{ gb: 10, price: 199 }] },
     };
 
     const draft = draftFromTariff(tariff, "rub");
     expect(draft.key).toBe("pro");
+    expect(draft.traffic_limit_strategy).toBe("WEEK");
     expect(draft.periodRows).toEqual([
       { months: 1, rub: 200, stars: 90, referral_inviter: 3, referral_referee: 1 },
       { months: 3, rub: 550, stars: "", referral_inviter: "", referral_referee: "" },
@@ -103,6 +105,7 @@ describe("tariffDraft", () => {
       prices_rub: { 1: 200, 3: 550 },
       prices_stars: { 1: 90, 3: 0 },
       monthly_gb: 500,
+      traffic_limit_strategy: "WEEK",
       topup_packages: { rub: [{ gb: 10, price: 199 }] },
     });
   });
@@ -117,12 +120,27 @@ describe("tariffDraft", () => {
       conversion_rate_rub_per_gb: "12.5",
     };
 
-    expect(tariffFromDraft(draft)).toMatchObject({
+    const tariff = tariffFromDraft(draft);
+    expect(tariff).toMatchObject({
       key: "traffic",
       billing_model: "traffic",
       traffic_packages: { rub: [{ gb: 25, price: 300 }] },
       conversion_rate_rub_per_gb: 12.5,
     });
+    expect(tariff).not.toHaveProperty("traffic_limit_strategy");
+  });
+
+  it("preserves the global fallback for legacy period tariffs without a strategy", () => {
+    const draft = draftFromTariff({
+      key: "legacy",
+      billing_model: "period",
+      monthly_gb: 100,
+      enabled_periods: [1],
+      prices_rub: { 1: 100 },
+    });
+
+    expect(draft.traffic_limit_strategy).toBe("");
+    expect(tariffFromDraft(draft)).not.toHaveProperty("traffic_limit_strategy");
   });
 
   it("normalizes uuid lists from arrays and text", () => {

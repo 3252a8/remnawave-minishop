@@ -59,7 +59,7 @@ class TariffWorkerPremiumMixin:
         PREMIUM_RESET_NOTICE_LEVEL: int
 
         async def _user_lang(self, session: AsyncSession, user_id: int) -> str: ...
-        def _period_tariff_traffic_strategy(self) -> str: ...
+        def _period_tariff_traffic_strategy(self, tariff: Any | None = None) -> str: ...
         def _usage_placeholders(self, used_bytes: int, limit_bytes: int) -> dict: ...
         def _traffic_next_reset_note(
             self,
@@ -70,12 +70,14 @@ class TariffWorkerPremiumMixin:
             reset_available_bytes: int,
             user_lang: str,
             next_reset_at: datetime | None = None,
+            traffic_strategy: str | None = None,
         ) -> str: ...
         def _panel_next_traffic_reset_at(
             self,
             panel_user_data: dict[str, Any] | None,
             *,
             now: datetime | None = None,
+            fallback_strategy: str | None = None,
         ) -> datetime | None: ...
         def _traffic_topup_markup(
             self, user_lang: str, kind: str
@@ -148,7 +150,7 @@ class TariffWorkerPremiumMixin:
         )
         effective_strategy = panel_traffic_limit_strategy(
             premium_panel_user_dict,
-            self._period_tariff_traffic_strategy(),
+            self._period_tariff_traffic_strategy(tariff),
         )
         is_trial_premium_tariff = bool(getattr(tariff, "key", "") == "trial")
         previous_premium_period_start = getattr(sub, "premium_period_start_at", None)
@@ -204,6 +206,7 @@ class TariffWorkerPremiumMixin:
         panel_next_reset_at = self._panel_next_traffic_reset_at(
             premium_panel_user_dict,
             now=now,
+            fallback_strategy=effective_strategy,
         )
 
         if not premium_unlimited_override:
@@ -744,6 +747,7 @@ class TariffWorkerPremiumMixin:
                 reset_available_bytes=self._premium_next_period_available_bytes(sub, tariff),
                 user_lang=user_lang,
                 next_reset_at=next_reset_at,
+                traffic_strategy=self._period_tariff_traffic_strategy(tariff),
             )
             text = _(
                 "traffic_warning_premium_depleted",
@@ -815,6 +819,7 @@ class TariffWorkerPremiumMixin:
                 reset_available_bytes=self._premium_next_period_available_bytes(sub, tariff),
                 user_lang=user_lang,
                 next_reset_at=next_reset_at,
+                traffic_strategy=self._period_tariff_traffic_strategy(tariff),
             )
             text = _(
                 "traffic_warning_premium_almost",

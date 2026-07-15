@@ -83,13 +83,36 @@ export const LEGACY_TARIFF_SETTING_KEYS = [
   "TRAFFIC_PACKAGES",
   "STARS_TRAFFIC_PACKAGES",
 ];
-export const TRAFFIC_STRATEGY_OPTIONS = [
-  { value: "NO_RESET", label: "NO_RESET" },
-  { value: "DAY", label: "DAY" },
-  { value: "WEEK", label: "WEEK" },
-  { value: "MONTH", label: "MONTH" },
-  { value: "MONTH_ROLLING", label: "MONTH_ROLLING" },
-];
+type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+
+export function trafficStrategyOptions(at: TranslateFn): SelectOption[] {
+  return [
+    {
+      value: "NO_RESET",
+      label: at("settings_field_user_traffic_strategy_choice_no_reset", {}, "No automatic reset"),
+    },
+    {
+      value: "DAY",
+      label: at("settings_field_user_traffic_strategy_choice_day", {}, "Every day"),
+    },
+    {
+      value: "WEEK",
+      label: at("settings_field_user_traffic_strategy_choice_week", {}, "Every week"),
+    },
+    {
+      value: "MONTH",
+      label: at("settings_field_user_traffic_strategy_choice_month", {}, "Every month"),
+    },
+    {
+      value: "MONTH_ROLLING",
+      label: at(
+        "settings_field_user_traffic_strategy_choice_month_rolling",
+        {},
+        "Monthly from reset date"
+      ),
+    },
+  ];
+}
 
 const PROVIDER_FALLBACK_LABELS = {
   cryptopay: "CryptoPay",

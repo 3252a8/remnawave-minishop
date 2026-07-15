@@ -392,7 +392,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             create_options=entitlement_helpers.panel_user_create_options(
                 final_end_date,
                 traffic_limit_bytes,
-                self._period_tariff_traffic_strategy(),
+                self._period_tariff_traffic_strategy(tariff),
                 effective_hwid_limit,
                 managed_squads,
                 self.settings.parsed_user_external_squad_uuid,
@@ -485,7 +485,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             expire_at=final_end_date,
             status="ACTIVE",
             traffic_limit_bytes=traffic_limit_bytes,
-            traffic_limit_strategy=self._period_tariff_traffic_strategy(),
+            traffic_limit_strategy=self._period_tariff_traffic_strategy(tariff),
             hwid_device_limit=effective_hwid_limit,
             include_default_squads=False,
         )

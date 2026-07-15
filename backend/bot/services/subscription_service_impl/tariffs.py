@@ -178,11 +178,32 @@ class TariffMixin(SubscriptionServiceMixinContract):
             return 0
         return int(tariff.premium_monthly_bytes + max(0, topup_balance_bytes))
 
-    def _period_tariff_traffic_strategy(self) -> str:
+    def _period_tariff_traffic_strategy(self, tariff: Tariff | None = None) -> str:
+        configured_strategy = getattr(tariff, "traffic_limit_strategy", None)
         return normalize_traffic_limit_strategy(
-            getattr(self.settings, "USER_TRAFFIC_STRATEGY", "MONTH"),
+            configured_strategy or getattr(self.settings, "USER_TRAFFIC_STRATEGY", "MONTH"),
             default="MONTH",
         )
+
+    def _tariff_for_subscription(self, sub: Any | None) -> Tariff | None:
+        tariff_key = str(getattr(sub, "tariff_key", "") or "").strip()
+        if not tariff_key:
+            return None
+        try:
+            return self._resolve_tariff(tariff_key)
+        except Exception:
+            logger.debug("Unable to resolve tariff %r for traffic strategy", tariff_key)
+            return None
+
+    def _premium_traffic_strategy_for_subscription(self, sub: Any | None) -> str:
+        provider = str(getattr(sub, "provider", "") or "").strip().lower()
+        status = str(getattr(sub, "status_from_panel", "") or "").strip().upper()
+        if provider == "trial" or status == "TRIAL":
+            return normalize_traffic_limit_strategy(
+                getattr(self.settings, "TRIAL_TRAFFIC_STRATEGY", "NO_RESET"),
+                default="NO_RESET",
+            )
+        return self._period_tariff_traffic_strategy(self._tariff_for_subscription(sub))
 
     def _premium_accounting_period_start(
         self,
@@ -192,7 +213,7 @@ class TariffMixin(SubscriptionServiceMixinContract):
         panel_user_data: dict[str, Any] | None = None,
     ) -> datetime:
         return traffic_accounting_period_start(
-            self._period_tariff_traffic_strategy(),
+            self._premium_traffic_strategy_for_subscription(sub),
             now,
             subscription_start_at=self._aware_utc(getattr(sub, "start_date", None)),
             previous_period_start_at=self._aware_utc(getattr(sub, "premium_period_start_at", None)),
@@ -208,7 +229,7 @@ class TariffMixin(SubscriptionServiceMixinContract):
         current_period_start = self._aware_utc(getattr(sub, "premium_period_start_at", None))
         if current_period_start is None:
             return False
-        strategy = self._period_tariff_traffic_strategy()
+        strategy = self._premium_traffic_strategy_for_subscription(sub)
         if traffic_period_starts_match(current_period_start, premium_period_start, strategy):
             return True
         no_reset_anchor = self._aware_utc(getattr(sub, "start_date", None))

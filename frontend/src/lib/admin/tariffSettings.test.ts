@@ -7,6 +7,7 @@ import {
   providerDisplayName,
   providerSettingsPath,
   summarizeProviderSupport,
+  trafficStrategyOptions,
   valueForKey,
   type SettingsDirtyState,
 } from "./tariffSettings";
@@ -58,5 +59,19 @@ describe("tariffSettings", () => {
     expect(
       providerSettingsPath({ provider_key: "custom_gateway" } as ProviderCurrencySupport)
     ).toEqual(["payments", "custom-gateway"]);
+  });
+
+  it("builds localized traffic strategy options shared by tariff, trial, and user forms", () => {
+    const options = trafficStrategyOptions((key, _params, fallback) => `ru:${fallback || key}`);
+
+    expect(options.map((option) => option.value)).toEqual([
+      "NO_RESET",
+      "DAY",
+      "WEEK",
+      "MONTH",
+      "MONTH_ROLLING",
+    ]);
+    expect(options[0].label).toBe("ru:No automatic reset");
+    expect(options[4].label).toBe("ru:Monthly from reset date");
   });
 });

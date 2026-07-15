@@ -5,6 +5,7 @@
   import { AdminSelect } from "$components/patterns/admin/index.js";
   import { X } from "$components/ui/icons.js";
   import { normalizeUuidList } from "$lib/admin/tariffDraft";
+  import { trafficStrategyOptions as buildTrafficStrategyOptions } from "$lib/admin/tariffSettings";
   import type { PanelSquad, TariffDraft, TariffsCatalog } from "$lib/admin/stores/tariffsStore";
   import {
     addDraftSquad,
@@ -28,6 +29,7 @@
     { value: "period", label: at("tariff_model_period_label", {}, "Period") },
     { value: "traffic", label: at("tariff_model_traffic_label", {}, "Traffic") },
   ]);
+  const trafficStrategyOptions: SelectOption[] = $derived(buildTrafficStrategyOptions(at));
   const panelSquadOptions: SelectOption[] = $derived(toPanelSquadOptions(panelSquads));
   const defaultCurrencyCode = $derived(getDefaultCurrencyCode(tariffsCatalog));
   const conversionCurrencyLabel = $derived(formatConversionCurrencyLabel(at, defaultCurrencyCode));
@@ -37,6 +39,13 @@
   }
 
   function setBillingModel(value: string): void {
+    if (
+      value === "period" &&
+      tariffDraft.billing_model !== "period" &&
+      !tariffDraft.traffic_limit_strategy
+    ) {
+      setDraftField("traffic_limit_strategy", "MONTH");
+    }
     setDraftField("billing_model", value);
   }
 
@@ -251,4 +260,24 @@
       </Label.Root>
     {/if}
   </div>
+
+  {#if tariffDraft.billing_model === "period"}
+    <div class="admin-field-label">
+      <span>{at("tariff_label_traffic_strategy", {}, "Traffic reset strategy")}</span>
+      <small
+        >{at(
+          "tariff_hint_traffic_strategy",
+          {},
+          "How often Remnawave resets the traffic counter for users on this tariff. The strategy is applied when the tariff is activated, renewed, or changed"
+        )}</small
+      >
+      <AdminSelect
+        value={String(tariffDraft.traffic_limit_strategy || "")}
+        items={trafficStrategyOptions}
+        placeholder={at("tariff_traffic_strategy_inherit", {}, "Use global USER_TRAFFIC_STRATEGY")}
+        ariaLabel={at("tariff_label_traffic_strategy", {}, "Traffic reset strategy")}
+        onValueChange={(value) => setDraftField("traffic_limit_strategy", value)}
+      />
+    </div>
+  {/if}
 </Tabs.Content>

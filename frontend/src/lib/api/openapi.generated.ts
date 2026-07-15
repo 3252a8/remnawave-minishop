@@ -4134,6 +4134,11 @@ export interface components {
       topup_always_available: boolean;
       /** @default null */
       topup_packages: components["schemas"]["PackageSet"] | null;
+      /**
+       * Traffic Limit Strategy
+       * @default null
+       */
+      traffic_limit_strategy: ("NO_RESET" | "DAY" | "WEEK" | "MONTH" | "MONTH_ROLLING") | null;
       /** @default null */
       traffic_packages: components["schemas"]["PackageSet"] | null;
     };

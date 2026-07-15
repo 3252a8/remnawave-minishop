@@ -5,7 +5,6 @@
   import { AdminBadge, AdminButton, AdminSelect } from "$components/patterns/admin/index.js";
   import { Switch } from "$components/ui/primitives.js";
   import {
-    TRAFFIC_STRATEGY_OPTIONS,
     TRIAL_GENERAL_KEYS,
     TRIAL_RESET_KEYS,
     TRIAL_SETTING_KEYS,
@@ -17,6 +16,7 @@
     inputValueForKey as resolveInputValueForKey,
     isSettingDirty as resolveIsSettingDirty,
     valueForKey as resolveValueForKey,
+    trafficStrategyOptions as buildTrafficStrategyOptions,
     type SelectOption,
     type SettingsDirtyState,
   } from "$lib/admin/tariffSettings";
@@ -52,6 +52,7 @@
   const trialDirtyCount = $derived(
     TRIAL_SETTING_KEYS.filter((key) => Boolean(settingsDirty[key])).length
   );
+  const trafficStrategyOptions = $derived(buildTrafficStrategyOptions(at));
 
   function valueForKey(
     key: string,
@@ -519,7 +520,7 @@
                   valueForKey("TRIAL_TRAFFIC_STRATEGY", settingsDirty, settingsFieldMap) ||
                     "NO_RESET"
                 )}
-                items={TRAFFIC_STRATEGY_OPTIONS}
+                items={trafficStrategyOptions}
                 ariaLabel={at("tariffs_trial_strategy", {}, "Traffic reset strategy")}
                 onValueChange={handleTrialTrafficStrategySelect}
               />

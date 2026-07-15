@@ -5630,6 +5630,25 @@
             ],
             "default": null
           },
+          "traffic_limit_strategy": {
+            "anyOf": [
+              {
+                "enum": [
+                  "NO_RESET",
+                  "DAY",
+                  "WEEK",
+                  "MONTH",
+                  "MONTH_ROLLING"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Traffic Limit Strategy"
+          },
           "traffic_packages": {
             "anyOf": [
               {

@@ -6,6 +6,7 @@
 
   import type { Tariff } from "$lib/admin/stores/tariffsStore";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
+  import { trafficStrategyOptions as buildTrafficStrategyOptions } from "$lib/admin/tariffSettings";
   import "./UserDetailModal.css";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -381,32 +382,7 @@
   const tariffHwidTargetLabel = $derived(
     hwidBaseLimitLabel(selectedTariffAction?.hwid_device_limit)
   );
-  const trafficStrategyItems = $derived([
-    {
-      value: "NO_RESET",
-      label: at("settings_field_user_traffic_strategy_choice_no_reset", {}, "No automatic reset"),
-    },
-    {
-      value: "DAY",
-      label: at("settings_field_user_traffic_strategy_choice_day", {}, "Every day"),
-    },
-    {
-      value: "WEEK",
-      label: at("settings_field_user_traffic_strategy_choice_week", {}, "Every week"),
-    },
-    {
-      value: "MONTH",
-      label: at("settings_field_user_traffic_strategy_choice_month", {}, "Every month"),
-    },
-    {
-      value: "MONTH_ROLLING",
-      label: at(
-        "settings_field_user_traffic_strategy_choice_month_rolling",
-        {},
-        "Monthly from reset date"
-      ),
-    },
-  ]);
+  const trafficStrategyItems = $derived(buildTrafficStrategyOptions(at));
   const trafficStrategyDraftValid = $derived(
     trafficStrategyItems.some((item) => item.value === trafficStrategyDraft)
   );

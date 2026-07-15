@@ -161,7 +161,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
         traffic_limit_strategy = panel_traffic_strategy
         if not traffic_limit_strategy:
             traffic_limit_strategy = (
-                self._period_tariff_traffic_strategy()
+                self._period_tariff_traffic_strategy(tariff)
                 if billing_model_display == "period"
                 else "NO_RESET"
             )
@@ -285,7 +285,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
         if local_active_sub and premium_limit_bytes > 0 and not premium_unlimited_override:
             premium_next_reset_at = next_traffic_reset_after(
                 premium_period_start_at,
-                self._period_tariff_traffic_strategy(),
+                self._premium_traffic_strategy_for_subscription(local_active_sub),
                 now=now,
             )
 
