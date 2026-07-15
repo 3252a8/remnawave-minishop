@@ -1,0 +1,180 @@
+x-app-env-file: &app_env_file
+  - ${APP_ENV_FILE:-.env}
+
+x-app-environment: &app_environment
+  IMAGE_TAG: ${IMAGE_TAG:-latest}
+  POSTGRES_HOST: postgres
+  REDIS_URL: redis://redis:6379/0
+  WEBHOOK_BASE_URL: https://${WEBHOOK_HOST:?set WEBHOOK_HOST in .env}
+  SUBSCRIPTION_MINI_APP_URL: https://${MINIAPP_HOST:?set MINIAPP_HOST in .env}/
+
+services:
+  postgres:
+    image: postgres:17.6
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - remnawave-minishop
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "PGPASSWORD=\"$$POSTGRES_PASSWORD\" psql -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -Atqc 'SELECT 1' | grep -qx 1",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+      start_interval: 1s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    networks:
+      - remnawave-minishop
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
+      start_interval: 1s
+
+  migrate:
+    image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
+    restart: "no"
+    command: ["python", "backend/main_migrate.py"]
+    env_file: *app_env_file
+    environment:
+      <<: *app_environment
+    volumes:
+      - ./data:/app/data
+    networks:
+      - remnawave-minishop
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  backend:
+    image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    # Real init (tini) as PID 1 so the healthcheck process is reaped instead of
+    # leaking a zombie every interval (python PID 1 does not reap orphans).
+    init: true
+    env_file: *app_env_file
+    environment:
+      <<: *app_environment
+      WEBAPP_ENABLED: ${WEBAPP_ENABLED:-true}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7}
+    volumes:
+      - ./data:/app/data
+      - ${COMPOSE_BACKUP_SOURCE:-.}:/app/compose-source:${COMPOSE_RESTORE_MODE:-rw}
+    networks:
+      - remnawave-minishop
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+      start_interval: 3s
+
+  worker:
+    image: 3252a8/remnawave-minishop-worker:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    init: true
+    env_file: *app_env_file
+    environment:
+      <<: *app_environment
+    volumes:
+      - ./data:/app/data
+      - ${COMPOSE_BACKUP_SOURCE:-.}:/app/compose-source:ro
+    networks:
+      - remnawave-minishop
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  frontend:
+    image: 3252a8/remnawave-minishop-frontend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    # Real init (tini) reaps wget healthcheck children (nginx master only waits
+    # on its own workers, not adopted orphans).
+    init: true
+    environment:
+      IMAGE_TAG: ${IMAGE_TAG:-latest}
+      FRONTEND_PUBLIC: https://${MINIAPP_HOST:?set MINIAPP_HOST in .env}/
+      WEBAPP_API_BASE_URL: ${WEBAPP_API_BASE_URL:-/api}
+      WEBAPP_BACKEND_UPSTREAM: ${WEBAPP_BACKEND_UPSTREAM:-http://backend:8081}
+      WEBAPP_BACKEND_UPSTREAM_HOST: ${WEBAPP_BACKEND_UPSTREAM_HOST:-backend}
+      MINISHOP_EDGE_TOKEN: ${MINISHOP_EDGE_TOKEN:-}
+      MINISHOP_EDGE_TOKEN_HEADER: ${MINISHOP_EDGE_TOKEN_HEADER:-X-Minishop-Edge-Token}
+    networks:
+      - remnawave-minishop
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health | grep -q ok"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+      start_interval: 2s
+
+  angie:
+    image: docker.angie.software/angie:templated
+    restart: unless-stopped
+    environment:
+      WEBHOOK_HOST: ${WEBHOOK_HOST:?set WEBHOOK_HOST in .env}
+      MINIAPP_HOST: ${MINIAPP_HOST:?set MINIAPP_HOST in .env}
+    ports:
+      - "${HTTP_BIND:-0.0.0.0:80}:80"
+      - "${HTTPS_BIND:-0.0.0.0:443}:443"
+    volumes:
+      # The templated image renders /etc/angie/templates/* with gomplate at
+      # startup, substituting {{.Env.*}} values into /etc/angie/angie.conf.
+      - ./angie.conf.template:/etc/angie/templates/angie.conf:ro
+      # ACME account key and issued certificates; without a volume every
+      # recreated container re-issues and may hit Let's Encrypt rate limits.
+      - angie-acme:/var/lib/angie/acme
+    networks:
+      - remnawave-minishop
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+
+networks:
+  remnawave-minishop:
+    name: ${COMPOSE_PROJECT_NAME:-remnawave-minishop}-network
+
+volumes:
+  postgres-data:
+    name: ${COMPOSE_PROJECT_NAME:-remnawave-minishop}-db-data
+  redis-data:
+    name: ${COMPOSE_PROJECT_NAME:-remnawave-minishop}-redis-data
+  angie-acme:
+    name: ${COMPOSE_PROJECT_NAME:-remnawave-minishop}-angie-acme

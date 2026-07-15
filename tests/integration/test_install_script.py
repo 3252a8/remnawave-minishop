@@ -149,7 +149,7 @@ def test_shell_installer_attaches_to_existing_nginx_or_caddy_containers():
     assert "container_mount_source" in script
     assert "ensure_target_network_exists" in script
     assert "connect_proxy_to_target_network" in script
-    assert "Другой запущенный Nginx или Caddy" in script
+    assert "Другой запущенный Nginx, Angie или Caddy" in script
     # Bridge-network proxies resolve compose service names dynamically.
     assert "resolver 127.0.0.11" in script
     assert "http://backend:8080" in script
@@ -158,6 +158,11 @@ def test_shell_installer_attaches_to_existing_nginx_or_caddy_containers():
     assert 'docker exec "$1" nginx -t' in script
     assert "caddy validate --config" in script
     assert "caddy reload --config" in script
+    # Angie containers get the same generic attach flow (nginx-compatible CLI).
+    assert "attach_generic_angie_proxy" in script
+    assert 'docker exec "$1" angie -t' in script
+    assert "angie -s reload" in script
+    assert "angie_container_httpd_host_dir" in script
     assert "strip_managed_block" in script
     assert "remnawave-minishop.conf" in script
 
@@ -180,6 +185,53 @@ def test_shell_installer_can_toggle_pangolin_newt_publication():
     assert "fosrl/newt:latest" in script
     # Disconnect keeps credentials for an easy reconnect.
     assert "оставлены в .env для быстрого повторного подключения" in script
+
+
+def test_shell_installer_supports_angie_auto_tls_profile():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert "Angie HTTPS - форк Nginx с автоматическими сертификатами (ACME)" in script
+    assert 'PROFILE_KEY="angie"' in script
+    assert "deploy/examples/angie/docker-compose.yml" in script
+    assert "deploy/examples/angie/angie.conf.template" in script
+    assert "deploy/examples/angie/.env.example" in script
+    # Angie shares the Caddy-style prompts: hostnames, binds and DNS preflight.
+    assert "caddy|angie|nginx|newt|egames)" in script
+    assert "caddy|angie|nginx)" in script
+    assert "caddy|angie|nginx|egames)" in script
+    # Post-start runtime validation covers the angie compose service.
+    assert "printf 'angie'" in script
+    # Pre-migration backups capture the Angie config alongside Caddy/Nginx ones.
+    assert "Caddyfile angie.conf.template nginx.conf.template" in script
+
+
+def test_angie_example_uses_native_acme_auto_tls():
+    example_dir = REPO_ROOT / "deploy" / "examples" / "angie"
+    compose = (example_dir / "docker-compose.yml").read_text(encoding="utf-8")
+    config = (example_dir / "angie.conf.template").read_text(encoding="utf-8")
+
+    # The templated image renders {{.Env.*}} placeholders from .env values.
+    assert "docker.angie.software/angie:templated" in compose
+    assert "./angie.conf.template:/etc/angie/templates/angie.conf:ro" in compose
+    # ACME account + certificates must survive container recreation.
+    assert "angie-acme:/var/lib/angie/acme" in compose
+    assert "name: ${COMPOSE_PROJECT_NAME:-remnawave-minishop}-angie-acme" in compose
+
+    assert "{{.Env.WEBHOOK_HOST}}" in config
+    assert "{{.Env.MINIAPP_HOST}}" in config
+    # acme_client requires a resolver; 127.0.0.11 is Docker's embedded DNS.
+    assert "resolver 127.0.0.11" in config
+    assert "acme_client webhooks" in config
+    assert "acme_client miniapp" in config
+    assert "ssl_certificate $acme_cert_webhooks;" in config
+    assert "ssl_certificate_key $acme_cert_key_webhooks;" in config
+    assert "ssl_certificate $acme_cert_miniapp;" in config
+    assert "ssl_certificate_key $acme_cert_key_miniapp;" in config
+    # Same routing planes as every other proxy example.
+    assert "server backend:8080;" in config
+    assert "server frontend:80;" in config
+    # Required for payment provider IP allowlists in webhook handlers.
+    assert "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;" in config
 
 
 def test_shell_installer_checks_dns_and_can_prepare_nginx_certificates():
@@ -240,7 +292,7 @@ def test_shell_installer_can_reset_target_database_before_remnashop_import():
 
 
 def test_deployment_examples_scope_named_volumes_to_compose_project():
-    for profile in ("caddy", "nginx", "newt", "no-proxy"):
+    for profile in ("caddy", "angie", "nginx", "newt", "no-proxy"):
         compose = (REPO_ROOT / "deploy" / "examples" / profile / "docker-compose.yml").read_text(
             encoding="utf-8"
         )
@@ -253,7 +305,7 @@ def test_deployment_examples_scope_named_volumes_to_compose_project():
 def test_postgres_healthchecks_validate_configured_credentials():
     compose_paths = [REPO_ROOT / "docker-compose.yml"] + [
         REPO_ROOT / "deploy" / "examples" / profile / "docker-compose.yml"
-        for profile in ("caddy", "nginx", "newt", "no-proxy")
+        for profile in ("caddy", "angie", "nginx", "newt", "no-proxy")
     ]
 
     for path in compose_paths:
