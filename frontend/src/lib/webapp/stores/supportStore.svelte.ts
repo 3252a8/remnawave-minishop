@@ -394,6 +394,7 @@ export function createSupportStore({
   }
 
   async function sendReply(body: string) {
+    if (state.sending) return false;
     const ticketId = state.openedTicketId;
     state.sending = true;
     if (!ticketId) {
