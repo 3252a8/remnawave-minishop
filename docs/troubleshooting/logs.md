@@ -53,7 +53,7 @@ docker compose logs -f frontend backend
 Где проверять конфигурацию:
 
 - frontend nginx: `deploy/docker/frontend/nginx.conf`;
-- внешний Caddy/Nginx: `deploy/examples/caddy/Caddyfile` или `deploy/examples/nginx/nginx.conf.template`;
+- внешний Caddy/Angie/Nginx: `deploy/examples/caddy/Caddyfile`, `deploy/examples/angie/angie.conf.template` или `deploy/examples/nginx/nginx.conf.template`;
 - домен Web App: `SUBSCRIPTION_MINI_APP_URL`, он должен быть публичным HTTPS URL frontend, без `/api`, `/auth` или webhook-пути;
 - WebApp-сервер backend: `WEBAPP_ENABLED=True`, `WEBAPP_SERVER_HOST=0.0.0.0`, `WEBAPP_SERVER_PORT=8081`.
 

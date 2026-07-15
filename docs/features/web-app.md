@@ -113,6 +113,7 @@ browser -> https://app.domain.com/api -> frontend nginx -> WEBAPP_BACKEND_UPSTRE
 Готовые варианты описаны в разделе [Развертывание](../getting-started/deployment.md#готовые-папки-запуска):
 
 - [Caddy](../getting-started/deployment.md#caddy-рекомендуемый-вариант) - автоматический HTTPS;
+- [Angie](../getting-started/deployment.md#angie) - автоматический HTTPS в Nginx-синтаксисе;
 - [Nginx](../getting-started/deployment.md#nginx) - сертификаты в соседней папке `ssl/`;
 - [Pangolin/Newt](../getting-started/deployment.md#pangolin--newt) - публикация без входящих портов на сервере приложения;
 - [без обратного прокси](../getting-started/deployment.md#без-обратного-прокси) - прямая публикация портов для проверки или внешней TLS-платформы.

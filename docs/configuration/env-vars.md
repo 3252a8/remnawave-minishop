@@ -26,7 +26,7 @@
 
 | Переменная | Где менять | Назначение |
 | --- | --- | --- |
-| `DEPLOYMENT_PROFILE` | install wizard | Информационный маркер выбранного профиля (`caddy`, `nginx`, `newt`, `no-proxy`, `egames`). Для `egames` последующие migration-only запуски понимают, что нужно переиспользовать существующий `eGamesAPI/remnawave-reverse-proxy` Nginx. |
+| `DEPLOYMENT_PROFILE` | install wizard | Информационный маркер выбранного профиля (`caddy`, `angie`, `nginx`, `newt`, `no-proxy`, `egames`). Для `egames` последующие migration-only запуски понимают, что нужно переиспользовать существующий `eGamesAPI/remnawave-reverse-proxy` Nginx. |
 | `APP_ENV_FILE` | CLI/Compose | Путь к env-файлу вместо `.env`. |
 | `IMAGE_TAG` | CLI/Compose | Тег Docker-образов. |
 | `FRONTEND_PORT` | `.env` / Compose | Хостовый порт frontend nginx. По умолчанию `8082`. |
@@ -56,7 +56,7 @@
 | `REDIS_URL` | Compose | Redis для FSM, кеша, rate-limit, очередей и locks. В Compose задается автоматически. |
 | `REDIS_KEY_PREFIX` | `.env` | Префикс Redis-ключей. |
 | `TRUSTED_PROXIES` | `.env` | IP/CIDR обратных прокси, которым доверяется `X-Forwarded-For`. По умолчанию включает loopback и private ranges для Docker/LAN/Kubernetes proxy. |
-| `HTTP_BIND` / `HTTPS_BIND` | Caddy Compose | Адреса публикации Caddy-варианта. |
+| `HTTP_BIND` / `HTTPS_BIND` | Caddy/Angie Compose | Адреса публикации Caddy- и Angie-вариантов. |
 | `NEWT_ID` / `NEWT_SECRET` | Dev Compose | Доступы Newt в dev-compose. |
 | `DEV_POSTGRES_PORT` | Dev Compose | Хостовый порт PostgreSQL единого dev stand для full-stack QA. По умолчанию `6768`. |
 
@@ -75,7 +75,7 @@
 `TRUSTED_PROXIES` нужен не только для логов: платежные webhook-обработчики с IP-фильтром
 сравнивают allowlist провайдера с client IP после обработки `X-Forwarded-For`. Если внешний
 proxy не передает этот заголовок или его IP не входит в `TRUSTED_PROXIES`, backend увидит IP
-proxy/Docker gateway и может отклонить валидный webhook. Для Caddy/Nginx/Newt из
+proxy/Docker gateway и может отклонить валидный webhook. Для Caddy/Angie/Nginx/Newt из
 `deploy/examples` дефолта достаточно; в кастомной инфраструктуре добавьте CIDR своего proxy
 или сузьте значение до конкретных proxy IP. Если webhook-домен проксируется через Cloudflare,
 backend безопасно использует `CF-Connecting-IP`, когда ближайший недоверенный hop принадлежит
