@@ -132,6 +132,35 @@ class YooKassaReconciliationWorkerTests(IsolatedAsyncioTestCase):
         session_factory.sessions[1].commit.assert_awaited_once()
         emit_success.assert_not_awaited()
 
+    async def test_unresolved_success_is_rotated_to_the_back_of_the_queue(self) -> None:
+        """A success the finalizer cannot resolve must not stay at the batch front."""
+        worker, _, session_factory = self._worker(_provider_payload())
+
+        with (
+            patch.object(
+                payment_dal,
+                "list_yookassa_reconciliation_candidates",
+                AsyncMock(return_value=[_candidate()]),
+            ),
+            patch.object(
+                payment_dal,
+                "mark_yookassa_reconciliation_checked",
+                AsyncMock(),
+            ) as mark_checked,
+            patch(
+                "bot.services.yookassa_reconciliation_worker.process_successful_payment",
+                AsyncMock(return_value=None),
+            ),
+            patch(
+                "bot.services.yookassa_reconciliation_worker.emit_yookassa_success_events",
+                AsyncMock(),
+            ) as emit_success,
+        ):
+            await worker.tick()
+
+        mark_checked.assert_awaited_once_with(session_factory.sessions[2], 42)
+        emit_success.assert_not_awaited()
+
     async def test_pending_payment_is_deferred_for_a_later_poll(self) -> None:
         worker, _, session_factory = self._worker(_provider_payload(status="pending", paid=False))
 

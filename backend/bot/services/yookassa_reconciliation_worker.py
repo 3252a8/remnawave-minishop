@@ -191,15 +191,18 @@ class YooKassaReconciliationWorker:
 
         provider_status = str(payload.get("status") or "").strip().lower()
         if provider_status == "succeeded" and payload.get("paid") is True:
-            await self._finalize_success(payload)
-            return
-        if provider_status in {"canceled", "cancelled"}:
-            await self._finalize_cancellation(payload)
-            return
+            finalized = await self._finalize_success(payload)
+        elif provider_status in {"canceled", "cancelled"}:
+            finalized = await self._finalize_cancellation(payload)
+        else:
+            finalized = False
+        if not finalized:
+            # Rotate candidates the finalizers could not resolve (validation
+            # failures that leave the local order untouched); otherwise they
+            # stay at the front of the bounded batch and starve the queue.
+            await self._defer_candidate(candidate.payment_id)
 
-        await self._defer_candidate(candidate.payment_id)
-
-    async def _finalize_success(self, payload: dict[str, Any]) -> None:
+    async def _finalize_success(self, payload: dict[str, Any]) -> bool:
         async with payment_processing_lock, self.session_factory() as session:
             try:
                 event_payload = await process_successful_payment(
@@ -219,8 +222,9 @@ class YooKassaReconciliationWorker:
                 raise
         if event_payload:
             await emit_yookassa_success_events(event_payload)
+        return event_payload is not None
 
-    async def _finalize_cancellation(self, payload: dict[str, Any]) -> None:
+    async def _finalize_cancellation(self, payload: dict[str, Any]) -> bool:
         async with payment_processing_lock, self.session_factory() as session:
             try:
                 event_payload = await process_cancelled_payment(
@@ -239,6 +243,7 @@ class YooKassaReconciliationWorker:
                 PaymentCanceledPayload.model_validate(event_payload),
                 exclude_unset=True,
             )
+        return event_payload is not None
 
     async def _defer_candidate(self, payment_id: int) -> None:
         async with self.session_factory() as session:
