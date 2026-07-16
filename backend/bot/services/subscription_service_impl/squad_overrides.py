@@ -248,6 +248,7 @@ class SquadOverrideMixin(SubscriptionServiceMixinContract):
         user_id: int,
         panel_user_uuid: str,
         managed_internal_squads: list[str] | None,
+        override_detection_managed_internal_squads: list[str] | None = None,
         panel_user_snapshot: dict[str, Any] | None = None,
         discover_panel_overrides: bool = True,
         fetch_panel_snapshot: bool = True,
@@ -267,7 +268,11 @@ class SquadOverrideMixin(SubscriptionServiceMixinContract):
                 session,
                 user_id=user_id,
                 panel_user_uuid=panel_user_uuid,
-                managed_internal_squads=managed_internal_squads,
+                managed_internal_squads=(
+                    override_detection_managed_internal_squads
+                    if override_detection_managed_internal_squads is not None
+                    else managed_internal_squads
+                ),
                 panel_user_snapshot=snapshot,
                 external_default_uuid=external_default_uuid,
             )

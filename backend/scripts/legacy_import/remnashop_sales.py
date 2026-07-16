@@ -153,14 +153,17 @@ class _RemnashopSalesSection(_RemnashopUsersSection):
                 self.summary["payments"]["skipped"] += 1
                 continue
 
+            provider = _provider_value(row.get("gateway_type"))
             provider_payment_id = f"{SOURCE}:{row.get('payment_id') or row.get('id')}"
             existing = (
                 await self.target.execute(
-                    select(Payment).where(Payment.provider_payment_id == provider_payment_id)
+                    select(Payment).where(
+                        Payment.provider == provider,
+                        Payment.provider_payment_id == provider_payment_id,
+                    )
                 )
             ).scalar_one_or_none()
 
-            provider = _provider_value(row.get("gateway_type"))
             plan_snapshot = _jsonish(row.get("plan_snapshot"))
             created_at = _as_utc(row.get("created_at"))
             sale_mode = remnashop_sale_mode(row.get("purchase_type"), plan_snapshot)

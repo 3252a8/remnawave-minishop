@@ -6,9 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra.grants import GrantContext, resolve_effective_grant
 from bot.services.payment_promo import consume_payment_promo, load_payment_promo_effects
-from db.dal import payment_dal, subscription_dal, tariff_dal, user_dal
+from db.dal import payment_dal, subscription_dal, user_dal
 
 from ._typing import SubscriptionServiceMixinContract
+from .entitlement_helpers import record_traffic_topup_best_effort
 
 logger = logging.getLogger(__name__)
 
@@ -143,17 +144,23 @@ class TopupMixin(SubscriptionServiceMixinContract):
             )
         )
         panel_payload.update(self._panel_identity_payload_for_user(db_user))
-        updated_panel = await self.panel_service.update_user_details_on_panel(
+        panel_update_result = await self.panel_service.update_user_details_on_panel(
             db_user.panel_user_uuid, panel_payload
         )
-        if not updated_panel or updated_panel.get("error"):
+        confirmed_panel_user = await self._confirmed_panel_entitlement(
+            db_user.panel_user_uuid,
+            panel_update_result,
+            panel_payload,
+            source="regular_topup",
+        )
+        if confirmed_panel_user is None:
             logger.warning(
                 "Panel user details update FAILED for traffic top-up user %s. Response: %s",
                 user_id,
-                updated_panel,
+                panel_update_result,
             )
             return None
-        await tariff_dal.create_traffic_topup(
+        await record_traffic_topup_best_effort(
             session,
             subscription_id=sub.subscription_id,
             payment_id=payment_db_id,
@@ -286,7 +293,6 @@ class TopupMixin(SubscriptionServiceMixinContract):
                 "tariff_key": tariff.key,
             },
         )
-
         desired_squads = self._panel_squads_for_tariff(
             tariff,
             include_premium=not premium_is_limited,
@@ -304,7 +310,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
                 user_id,
             )
             return None
-        await tariff_dal.create_traffic_topup(
+        await record_traffic_topup_best_effort(
             session,
             subscription_id=sub.subscription_id,
             payment_id=payment_db_id,
@@ -416,14 +422,20 @@ class TopupMixin(SubscriptionServiceMixinContract):
         except Exception:
             logger.exception("admin_grant_topup: failed to push panel update for user %s", user_id)
             return None
-        if not updated_panel or (isinstance(updated_panel, dict) and updated_panel.get("error")):
+        confirmed_panel_user = await self._confirmed_panel_entitlement(
+            db_user.panel_user_uuid,
+            updated_panel,
+            panel_payload,
+            source="admin_regular_topup",
+        )
+        if confirmed_panel_user is None:
             logger.warning(
-                "admin_grant_topup: panel update failed for user %s. Response: %s",
+                "admin_grant_topup: panel verification failed for user %s. Response: %s",
                 user_id,
                 updated_panel,
             )
             return None
-        await tariff_dal.create_traffic_topup(
+        await record_traffic_topup_best_effort(
             session,
             subscription_id=sub.subscription_id,
             payment_id=None,
@@ -531,7 +543,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
                 user_id,
             )
             return None
-        await tariff_dal.create_traffic_topup(
+        await record_traffic_topup_best_effort(
             session,
             subscription_id=sub.subscription_id,
             payment_id=None,
@@ -603,9 +615,13 @@ class TopupMixin(SubscriptionServiceMixinContract):
             payload,
             log_response=False,
         )
-        if not updated_panel:
-            return False
-        return not (isinstance(updated_panel, dict) and updated_panel.get("error"))
+        confirmed_panel_user = await self._confirmed_panel_entitlement(
+            panel_user_uuid,
+            updated_panel,
+            payload,
+            source=source,
+        )
+        return confirmed_panel_user is not None
 
     async def _panel_squads_match(
         self,

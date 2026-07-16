@@ -207,6 +207,20 @@ def test_server_status_url_is_admin_editable():
         assert field["i18n_label_key"] in _locale(language)
 
 
+def test_default_user_traffic_strategy_is_a_general_admin_setting():
+    manifest = _manifest_by_key()
+    field = manifest["USER_TRAFFIC_STRATEGY"]
+
+    assert field["type"] == "string"
+    assert field["section"] == "general"
+    assert field["section_order"] == 1
+    assert field["label"] == "Default Traffic Reset Strategy"
+    assert field["choices"]
+    label_key = field["i18n_label_key"]
+    assert _locale("ru")[label_key] == "Стратегия сброса трафика по-умолчанию"
+    assert _locale("en")[label_key] == "Default Traffic Reset Strategy"
+
+
 def test_telegram_bot_menu_toggle_is_general_admin_setting():
     manifest = _manifest_by_key()
     field = manifest["TELEGRAM_BOT_MENU_DISABLED"]

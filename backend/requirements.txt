@@ -72,7 +72,7 @@ multidict==6.7.1
     #   yarl
 netaddr==1.3.0
     # via yookassa
-pillow==12.2.0
+pillow==12.3.0
     # via -r backend/requirements.in
 propcache==0.5.2
     # via
@@ -97,7 +97,7 @@ python-dotenv==1.2.2
     # via
     #   -r backend/requirements.in
     #   pydantic-settings
-redis==7.4.1
+redis==8.0.1
     # via -r backend/requirements.in
 requests==2.34.2
     # via yookassa

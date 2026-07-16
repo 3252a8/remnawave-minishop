@@ -15,6 +15,7 @@ REMOVED_SCRIPT_PATH = REPO_ROOT / "scripts" / "migrate_to_minishop.sh"
 COMPOSE_FILES = (
     REPO_ROOT / "docker-compose.yml",
     REPO_ROOT / "deploy" / "examples" / "caddy" / "docker-compose.yml",
+    REPO_ROOT / "deploy" / "examples" / "angie" / "docker-compose.yml",
     REPO_ROOT / "deploy" / "examples" / "nginx" / "docker-compose.yml",
     REPO_ROOT / "deploy" / "examples" / "newt" / "docker-compose.yml",
     REPO_ROOT / "deploy" / "examples" / "no-proxy" / "docker-compose.yml",
@@ -186,6 +187,7 @@ class DocComposeFileReferencesTests(unittest.TestCase):
         for relpath in (
             "docker-compose.yml",
             "deploy/examples/caddy/docker-compose.yml",
+            "deploy/examples/angie/docker-compose.yml",
             "deploy/examples/nginx/docker-compose.yml",
             "deploy/examples/newt/docker-compose.yml",
             "deploy/examples/no-proxy/docker-compose.yml",

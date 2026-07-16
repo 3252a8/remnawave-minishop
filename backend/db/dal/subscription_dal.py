@@ -362,6 +362,10 @@ async def has_trial_blocking_subscription_for_user(session: AsyncSession, user_i
         .where(
             Subscription.user_id == user_id,
             or_(
+                Subscription.status_from_panel.is_(None),
+                Subscription.status_from_panel != "PANEL_UPDATE_FAILED",
+            ),
+            or_(
                 reset_at.is_(None),
                 and_(Subscription.is_active == True, Subscription.end_date > now_utc),
                 subscription_anchor > reset_at,

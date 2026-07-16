@@ -145,36 +145,36 @@
 
 {#snippet renderUserFilterControls()}
   <Label.Root class="admin-toolbar-field admin-users-filter-field">
-    <span class="admin-toolbar-field-label">{at("filter", {}, "Фильтр")}</span>
+    <span class="admin-toolbar-field-label">{at("filter", {}, "Filter")}</span>
     <AdminSelect
       value={usersFilter}
       items={USERS_FILTER_OPTIONS}
       class="admin-toolbar-select"
-      ariaLabel={at("filter", {}, "Фильтр")}
+      ariaLabel={at("filter", {}, "Filter")}
       onValueChange={updateUsersFilter}
     />
   </Label.Root>
 
   <Label.Root class="admin-toolbar-field admin-users-filter-field">
-    <span class="admin-toolbar-field-label">{at("panel_status", {}, "Статус панели")}</span>
+    <span class="admin-toolbar-field-label">{at("panel_status", {}, "Panel status")}</span>
     <AdminSelect
       value={usersPanelStatus}
       items={USERS_PANEL_STATUS_OPTIONS}
       class="admin-toolbar-select"
-      ariaLabel={at("panel_status", {}, "Статус панели")}
+      ariaLabel={at("panel_status", {}, "Panel status")}
       onValueChange={updateUsersPanelStatus}
     />
   </Label.Root>
 
   <Label.Root class="admin-toolbar-field admin-users-filter-field">
     <span class="admin-toolbar-field-label"
-      >{at("premium_traffic_filter_label", {}, "Премиум трафик")}</span
+      >{at("premium_traffic_filter_label", {}, "Premium traffic")}</span
     >
     <AdminSelect
       value={usersPremiumTraffic}
       items={USERS_PREMIUM_TRAFFIC_OPTIONS}
       class="admin-toolbar-select"
-      ariaLabel={at("premium_traffic_filter_label", {}, "Премиум трафик")}
+      ariaLabel={at("premium_traffic_filter_label", {}, "Premium traffic")}
       onValueChange={updateUsersPremiumTraffic}
     />
   </Label.Root>
@@ -182,7 +182,7 @@
 
 {#snippet renderActiveUserFilterChips()}
   {#if activeUsersFilterCount}
-    <div class="admin-users-filter-chips" aria-label={at("active_filters", {}, "Активные фильтры")}>
+    <div class="admin-users-filter-chips" aria-label={at("active_filters", {}, "Active filters")}>
       {#each activeUserFilterChips as chip (chip.key)}
         <span class="admin-users-filter-chip">
           <span class="admin-users-filter-chip-text">
@@ -191,7 +191,7 @@
           </span>
           <button
             type="button"
-            aria-label={at("clear_filter", { label: chip.label }, "Сбросить фильтр")}
+            aria-label={at("clear_filter", { label: chip.label }, "Clear {label}")}
             onclick={() => clearUsersFilter(chip.key)}
           >
             <X size={12} />
@@ -207,7 +207,7 @@
     <Input
       type="search"
       class="input"
-      placeholder={at("users_search_placeholder", {}, "ID, @username или email")}
+      placeholder={at("users_search_placeholder", {}, "ID, @username, or email")}
       value={usersQuery}
       oninput={handleUsersSearchInput}
       onkeydown={handleUsersSearchKeydown}
@@ -218,12 +218,12 @@
       onclick={() => {
         usersStore.updateState({ usersPage: 0 });
         usersStore.loadUsers();
-      }}>{at("find", {}, "Найти")}</AdminButton
+      }}>{at("find", {}, "Find")}</AdminButton
     >
     <AdminButton
       variant={activeUsersFilterCount ? "primary" : "default"}
       class="admin-users-filter-toggle"
-      aria-label={at("users_filters_open", {}, "Открыть фильтры")}
+      aria-label={at("users_filters_open", {}, "Open filters")}
       aria-haspopup="dialog"
       aria-expanded={usersFilterSheetOpen}
       onclick={() => {
@@ -231,7 +231,7 @@
       }}
     >
       <Sliders size={15} />
-      <span class="admin-users-filter-toggle-label">{at("filters", {}, "Фильтры")}</span>
+      <span class="admin-users-filter-toggle-label">{at("filters", {}, "Filters")}</span>
       {#if activeUsersFilterCount}
         <span class="admin-users-filter-count">{activeUsersFilterCount}</span>
       {/if}
@@ -240,42 +240,42 @@
 
   <div class="admin-toolbar-controls">
     <Label.Root class="admin-toolbar-field">
-      <span class="admin-toolbar-field-label">{at("filter", {}, "Фильтр")}</span>
+      <span class="admin-toolbar-field-label">{at("filter", {}, "Filter")}</span>
       <AdminSelect
         value={usersFilter}
         items={USERS_FILTER_OPTIONS}
         class="admin-toolbar-select"
-        ariaLabel={at("filter", {}, "Фильтр")}
+        ariaLabel={at("filter", {}, "Filter")}
         onValueChange={updateToolbarUsersFilter}
       />
     </Label.Root>
 
     <Label.Root class="admin-toolbar-field">
-      <span class="admin-toolbar-field-label">{at("panel_status", {}, "Статус панели")}</span>
+      <span class="admin-toolbar-field-label">{at("panel_status", {}, "Panel status")}</span>
       <AdminSelect
         value={usersPanelStatus}
         items={USERS_PANEL_STATUS_OPTIONS}
         class="admin-toolbar-select"
-        ariaLabel={at("panel_status", {}, "Статус панели")}
+        ariaLabel={at("panel_status", {}, "Panel status")}
         onValueChange={updateToolbarPanelStatus}
       />
     </Label.Root>
 
     <Label.Root class="admin-toolbar-field">
       <span class="admin-toolbar-field-label"
-        >{at("premium_traffic_filter_label", {}, "Премиум трафик")}</span
+        >{at("premium_traffic_filter_label", {}, "Premium traffic")}</span
       >
       <AdminSelect
         value={usersPremiumTraffic}
         items={USERS_PREMIUM_TRAFFIC_OPTIONS}
         class="admin-toolbar-select"
-        ariaLabel={at("premium_traffic_filter_label", {}, "Премиум трафик")}
+        ariaLabel={at("premium_traffic_filter_label", {}, "Premium traffic")}
         onValueChange={updateToolbarPremiumTraffic}
       />
     </Label.Root>
 
     <div class="admin-toolbar-summary">
-      <span class="admin-toolbar-field-label">{at("total", {}, "Всего")}</span>
+      <span class="admin-toolbar-field-label">{at("total", {}, "Total")}</span>
       <strong>{usersTotal}</strong>
     </div>
   </div>
@@ -286,9 +286,13 @@
 <Dialog
   open={usersFilterSheetOpen}
   class="admin-dialog admin-users-filter-dialog"
-  title={at("users_filters_title", {}, "Фильтры пользователей")}
-  description={at("users_filters_description", {}, "Уточните список пользователей")}
-  closeLabel={at("close_menu", {}, "Закрыть меню")}
+  title={at("users_filters_title", {}, "User filters")}
+  description={at(
+    "users_filters_description",
+    {},
+    "Refine the user list without leaving the table."
+  )}
+  closeLabel={at("close_menu", {}, "Close menu")}
   onclose={() => {
     usersFilterSheetOpen = false;
   }}
@@ -304,7 +308,7 @@
         disabled={activeUsersFilterCount === 0}
         onclick={resetUsersFilters}
       >
-        {at("reset", {}, "Сбросить")}
+        {at("reset", {}, "Reset")}
       </AdminButton>
       <AdminButton
         variant="primary"
@@ -312,7 +316,7 @@
           usersFilterSheetOpen = false;
         }}
       >
-        {at("done", {}, "Готово")}
+        {at("done", {}, "Done")}
       </AdminButton>
     </div>
   </div>
@@ -327,8 +331,7 @@
     />
   {:else if !usersTable.rows.length}
     <AdminEmptyState tone="card"
-      ><span class="admin-muted">{at("users_empty", {}, "Никого не найдено")}</span
-      ></AdminEmptyState
+      ><span class="admin-muted">{at("users_empty", {}, "No users found")}</span></AdminEmptyState
     >
   {:else}
     <AdminTable class="admin-users-table">
@@ -387,7 +390,7 @@
               }
             }}
           >
-            <td class="admin-users-cell-user" data-label={at("user", {}, "Пользователь")}>
+            <td class="admin-users-cell-user" data-label={at("user", {}, "User")}>
               <div class="admin-users-cell-user-inner">
                 <span class="admin-avatar admin-avatar-sm">
                   {#if avatar}
@@ -405,7 +408,7 @@
             </td>
             <td
               class="admin-users-cell-premium"
-              data-label={at("premium_traffic_filter_label", {}, "Премиум трафик")}
+              data-label={at("premium_traffic_filter_label", {}, "Premium traffic")}
             >
               {#if user.premium_traffic && user.premium_traffic.state !== "none"}
                 <AdminBadge
@@ -422,7 +425,7 @@
             </td>
             <td
               class="admin-users-cell-money"
-              data-label={at("users_col_payments_total", {}, "Сумма платежей")}
+              data-label={at("users_col_payments_total", {}, "Paid total")}
             >
               <AdminBadge variant="success" class="admin-user-money-badge">
                 {rowPaymentsTotal(user)}
@@ -430,7 +433,7 @@
             </td>
             <td
               class="admin-users-cell-counter"
-              data-label={at("users_col_payments_count", {}, "Платежи")}
+              data-label={at("users_col_payments_count", {}, "Payments")}
             >
               <span class="admin-user-counter">
                 <DollarSign size={12} />
@@ -439,25 +442,25 @@
             </td>
             <td
               class="admin-users-cell-counter"
-              data-label={at("users_col_invited", {}, "Приглашенные")}
+              data-label={at("users_col_invited", {}, "Invited")}
             >
               <span class="admin-user-counter">
                 <UsersRound size={13} />
                 <span>{user.invited_users_count ?? 0}</span>
               </span>
             </td>
-            <td data-label={at("status", {}, "Статус")}>
+            <td data-label={at("status", {}, "Status")}>
               <AdminBadge variant={badge.variant}>{badge.label}</AdminBadge>
             </td>
             <td
               class="admin-users-cell-date admin-cell-mono"
-              data-label={at("users_col_subscription_expires", {}, "Истекает")}
+              data-label={at("users_col_subscription_expires", {}, "Expires")}
             >
               {fmtDateShort(user.subscription_expires_at || user.panel_status_expired_at)}
             </td>
             <td
               class="admin-users-cell-date admin-cell-mono"
-              data-label={at("users_col_registration", {}, "Регистрация")}
+              data-label={at("users_col_registration", {}, "Registered")}
             >
               {fmtDateShort(user.registration_date)}
             </td>
@@ -472,14 +475,14 @@
   page={usersPage}
   pageCount={usersPageCount}
   total={usersTotal}
-  pageLabel={at("page_short", {}, "Стр.")}
-  ofLabel={at("pagination_of", {}, "из")}
-  totalLabel={at("total", {}, "Всего")}
-  jumpLabel={at("page_short", {}, "Стр.")}
-  jumpAriaLabel={at("pagination_jump_aria", {}, "Перейти к странице")}
-  goLabel={at("pagination_go", {}, "Перейти")}
-  prevLabel={at("back", {}, "Назад")}
-  nextLabel={at("next", {}, "Далее")}
+  pageLabel={at("page_short", {}, "Page")}
+  ofLabel={at("pagination_of", {}, "of")}
+  totalLabel={at("total", {}, "Total")}
+  jumpLabel={at("page_short", {}, "Page")}
+  jumpAriaLabel={at("pagination_jump_aria", {}, "Go to page")}
+  goLabel={at("pagination_go", {}, "Go")}
+  prevLabel={at("back", {}, "Back")}
+  nextLabel={at("next", {}, "Next")}
   onPageChange={(page) => {
     usersStore.updateState({ usersPage: page });
     usersStore.loadUsers();

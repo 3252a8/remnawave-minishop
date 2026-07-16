@@ -201,9 +201,9 @@ class _FakeEntryPoint:
 
 def test_entry_point_discovery_accepts_class(monkeypatch):
     monkeypatch.setattr(
-        plugins_loader.metadata,
-        "entry_points",
-        lambda group: [_FakeEntryPoint(RecordingPlugin)],
+        plugins_loader,
+        "_plugin_entry_points",
+        lambda: [_FakeEntryPoint(RecordingPlugin)],
     )
     names = [plugin.name for plugin in get_plugins(make_settings())]
     assert "recording" in names
@@ -211,9 +211,9 @@ def test_entry_point_discovery_accepts_class(monkeypatch):
 
 def test_entry_point_discovery_rejects_non_plugin(monkeypatch, caplog):
     monkeypatch.setattr(
-        plugins_loader.metadata,
-        "entry_points",
-        lambda group: [_FakeEntryPoint(object())],
+        plugins_loader,
+        "_plugin_entry_points",
+        lambda: [_FakeEntryPoint(object())],
     )
     with caplog.at_level("ERROR"):
         names = [plugin.name for plugin in get_plugins(make_settings())]
@@ -223,9 +223,9 @@ def test_entry_point_discovery_rejects_non_plugin(monkeypatch, caplog):
 
 def test_entry_point_discovery_rejects_non_plugin_strict(monkeypatch):
     monkeypatch.setattr(
-        plugins_loader.metadata,
-        "entry_points",
-        lambda group: [_FakeEntryPoint(object())],
+        plugins_loader,
+        "_plugin_entry_points",
+        lambda: [_FakeEntryPoint(object())],
     )
     with pytest.raises(TypeError):
         get_plugins(make_settings(PLUGINS_STRICT=True))

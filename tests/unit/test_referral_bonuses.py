@@ -494,6 +494,9 @@ class RefereeBonusTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(inviter_call.kwargs["bonus_days"], 20)
         self.assertEqual(referee_call.kwargs["bonus_days"], 7)
+        self.assertEqual(inviter_call.kwargs["tariff_key"], "premium")
+        self.assertEqual(referee_call.kwargs["tariff_key"], "premium")
+        subscription_service._get_or_create_panel_user_link_details.assert_not_awaited()
 
 
 class GenerateReferralLinkTests(unittest.IsolatedAsyncioTestCase):

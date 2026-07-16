@@ -9,6 +9,7 @@
 | Папка   | Документация                                                                                                                                           |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `caddy`    | [Развертывание с Caddy](../../docs/getting-started/deployment.md#caddy-рекомендуемый-вариант)                                       |
+| `angie`    | [Развертывание с Angie](../../docs/getting-started/deployment.md#angie)                                                                                 |
 | `nginx`    | [Развертывание с Nginx](../../docs/getting-started/deployment.md#nginx)                                                                                 |
 | `newt`     | [Развертывание через Pangolin / Newt](../../docs/getting-started/deployment.md#pangolin--newt)                                                      |
 | `no-proxy` | [Запуск без обратного прокси](../../docs/getting-started/deployment.md#без-обратного-прокси)                                |

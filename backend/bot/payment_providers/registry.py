@@ -225,6 +225,24 @@ def _localized_default(
     )
 
 
+# Specs whose default button labels have language-specific variants in the
+# locale files. Spec labels themselves stay English-only in code; providers
+# listed here resolve ``payment_provider_<id>_<kind>_label`` first.
+_LOCALE_LABEL_SPEC_IDS = frozenset({"freekassa", "platega_sbp", "platega_crypto"})
+
+
+def _locale_label(spec_id: str, kind: str, language: str) -> str | None:
+    if spec_id not in _LOCALE_LABEL_SPEC_IDS:
+        return None
+    from bot.middlewares.i18n import get_i18n_instance
+
+    key = f"payment_provider_{spec_id}_{kind}_label"
+    text = get_i18n_instance().gettext(language, key)
+    if text and text != key:
+        return str(text)
+    return None
+
+
 def resolve_provider_presentation(
     spec: PaymentProviderSpec,
     settings: Any = None,
@@ -234,6 +252,7 @@ def resolve_provider_presentation(
     lang = _normalize_language(language, settings)
     webapp_label = (
         _localized_setting_value(settings, spec, "WEBAPP_LABEL", lang)
+        or _locale_label(spec.id, "webapp", lang)
         or _localized_default(spec.webapp_labels, lang, spec.webapp_label)
         or spec.label
     )
@@ -247,6 +266,7 @@ def resolve_provider_presentation(
     telegram_emoji_override = _bare_setting_value(settings, spec, "TELEGRAM_EMOJI")
     telegram_label = (
         telegram_label_override
+        or _locale_label(spec.id, "telegram", lang)
         or _localized_default(spec.telegram_labels, lang, None)
         or spec.label
     )

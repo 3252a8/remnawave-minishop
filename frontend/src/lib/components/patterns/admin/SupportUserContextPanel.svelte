@@ -30,9 +30,9 @@
     [user.email, canOpenUser ? `ID ${user.user_id}` : ""].filter(Boolean).join(" / ") || "-"
   );
   const contextItems = $derived([
-    { label: at("support_tariff", {}, "Тариф"), value: snapshot?.tariff || "-" },
-    { label: at("support_status", {}, "Статус"), value: snapshot?.panel_status || "-" },
-    { label: at("support_remaining", {}, "Осталось"), value: snapshot?.remaining || "-" },
+    { label: at("support_tariff", {}, "Tariff"), value: snapshot?.tariff || "-" },
+    { label: at("support_status", {}, "Status"), value: snapshot?.panel_status || "-" },
+    { label: at("support_remaining", {}, "Remaining"), value: snapshot?.remaining || "-" },
   ]);
 
   function computeInitials(u: SupportUserLike, fallback: string | number | null): string {
@@ -61,7 +61,7 @@
       <strong>{displayName}</strong>
       <small>{identityMeta}</small>
       {#if user.is_banned}
-        <AdminBadge variant="danger">{at("status_banned", {}, "Бан")}</AdminBadge>
+        <AdminBadge variant="danger">{at("status_banned", {}, "Banned")}</AdminBadge>
       {/if}
     </div>
   </div>
@@ -83,8 +83,8 @@
       size="icon"
       disabled={!canOpenUser}
       onclick={() => onOpenUser(user.user_id ?? "")}
-      aria-label={at("support_open_user", {}, "Карточка")}
-      title={at("support_open_user", {}, "Карточка")}
+      aria-label={at("support_open_user", {}, "User card")}
+      title={at("support_open_user", {}, "User card")}
     >
       <User size={14} />
     </AdminButton>

@@ -77,14 +77,14 @@
   );
 
   const USERS_FILTER_OPTIONS = $derived([
-    { value: "all", label: at("filter_all", {}, "Все") },
-    { value: "active", label: at("filter_not_banned", {}, "Не забанены") },
-    { value: "banned", label: at("filter_banned", {}, "Забанены") },
-    { value: "tg_linked", label: at("filter_tg_linked", {}, "С Telegram") },
-    { value: "no_tg", label: at("filter_no_tg", {}, "Без Telegram") },
-    { value: "email_linked", label: at("filter_email_linked", {}, "С email") },
-    { value: "no_email", label: at("filter_no_email", {}, "Без email") },
-    { value: "panel_linked", label: at("filter_panel_linked", {}, "С панелью") },
+    { value: "all", label: at("filter_all", {}, "All") },
+    { value: "active", label: at("filter_not_banned", {}, "Not banned") },
+    { value: "banned", label: at("filter_banned", {}, "Banned") },
+    { value: "tg_linked", label: at("filter_tg_linked", {}, "With Telegram") },
+    { value: "no_tg", label: at("filter_no_tg", {}, "No Telegram") },
+    { value: "email_linked", label: at("filter_email_linked", {}, "With email") },
+    { value: "no_email", label: at("filter_no_email", {}, "No email") },
+    { value: "panel_linked", label: at("filter_panel_linked", {}, "With panel") },
   ] satisfies SelectOption[]);
 
   const SORT_COLUMNS = {
@@ -114,22 +114,22 @@
   } satisfies Record<string, SortColumn>;
 
   const USERS_PANEL_STATUS_OPTIONS = $derived([
-    { value: "all", label: at("panel_status_all", {}, "Все статусы") },
+    { value: "all", label: at("panel_status_all", {}, "All statuses") },
     { value: "active", label: at("status_active", {}, "active") },
     { value: "expired", label: at("status_expired", {}, "expired") },
     { value: "limited", label: at("status_limited", {}, "limited") },
   ] satisfies SelectOption[]);
 
   const USERS_PREMIUM_TRAFFIC_OPTIONS = $derived([
-    { value: "all", label: at("premium_traffic_filter_all", {}, "Все (премиум)") },
-    { value: "none", label: at("premium_traffic_filter_none", {}, "Без лимита в тарифе") },
+    { value: "all", label: at("premium_traffic_filter_all", {}, "All") },
+    { value: "none", label: at("premium_traffic_filter_none", {}, "No tariff limit") },
     {
       value: "unlimited",
-      label: at("premium_traffic_filter_unlimited", {}, "Безлимит (оверрайд)"),
+      label: at("premium_traffic_filter_unlimited", {}, "Unlimited (override)"),
     },
-    { value: "good", label: at("premium_traffic_filter_good", {}, "Премиум: норма") },
-    { value: "warn", label: at("premium_traffic_filter_warn", {}, "Премиум: мало") },
-    { value: "critical", label: at("premium_traffic_filter_critical", {}, "Премиум: исчерпан") },
+    { value: "good", label: at("premium_traffic_filter_good", {}, "Premium: OK") },
+    { value: "warn", label: at("premium_traffic_filter_warn", {}, "Premium: low") },
+    { value: "critical", label: at("premium_traffic_filter_critical", {}, "Premium: depleted") },
   ] satisfies SelectOption[]);
 
   function optionLabel(options: SelectOption[], value: string): string {
@@ -193,36 +193,36 @@
 
   function userTableColumns(): UserTableColumn[] {
     return [
-      { key: "user", label: at("user", {}, "Пользователь"), sort: SORT_COLUMNS.user },
+      { key: "user", label: at("user", {}, "User"), sort: SORT_COLUMNS.user },
       {
         key: "premium",
-        label: at("premium_traffic_filter_label", {}, "Премиум трафик"),
+        label: at("premium_traffic_filter_label", {}, "Premium traffic"),
         sort: SORT_COLUMNS.premium,
       },
       {
         key: "paymentsTotal",
-        label: at("users_col_payments_total", {}, "Сумма платежей"),
+        label: at("users_col_payments_total", {}, "Paid total"),
         sort: SORT_COLUMNS.paymentsTotal,
       },
       {
         key: "paymentsCount",
-        label: at("users_col_payments_count", {}, "Платежи"),
+        label: at("users_col_payments_count", {}, "Payments"),
         sort: SORT_COLUMNS.paymentsCount,
       },
       {
         key: "invited",
-        label: at("users_col_invited", {}, "Приглашенные"),
+        label: at("users_col_invited", {}, "Invited"),
         sort: SORT_COLUMNS.invited,
       },
-      { key: "status", label: at("status", {}, "Статус") },
+      { key: "status", label: at("status", {}, "Status") },
       {
         key: "subscriptionExpires",
-        label: at("users_col_subscription_expires", {}, "Истекает"),
+        label: at("users_col_subscription_expires", {}, "Expires"),
         sort: SORT_COLUMNS.subscriptionExpires,
       },
       {
         key: "registration",
-        label: at("users_col_registration", {}, "Регистрация"),
+        label: at("users_col_registration", {}, "Registered"),
         sort: SORT_COLUMNS.registration,
       },
     ];
@@ -256,9 +256,9 @@
 
   function sortTitle(column: SortColumn): string {
     const state = sortState(column);
-    if (state === "ascending") return at("sort_ascending", {}, "По возрастанию");
-    if (state === "descending") return at("sort_descending", {}, "По убыванию");
-    return at("sort_off", {}, "Без сортировки");
+    if (state === "ascending") return at("sort_ascending", {}, "Sorted ascending");
+    if (state === "descending") return at("sort_descending", {}, "Sorted descending");
+    return at("sort_off", {}, "Not sorted");
   }
 
   function rowPaymentsTotal(user: AdminUser): string {
@@ -281,17 +281,17 @@
       [
         usersFilter !== "all" && {
           key: "usersFilter",
-          label: at("filter", {}, "Фильтр"),
+          label: at("filter", {}, "Filter"),
           value: optionLabel(USERS_FILTER_OPTIONS, usersFilter),
         },
         usersPanelStatus !== "all" && {
           key: "usersPanelStatus",
-          label: at("panel_status", {}, "Статус панели"),
+          label: at("panel_status", {}, "Panel status"),
           value: optionLabel(USERS_PANEL_STATUS_OPTIONS, usersPanelStatus),
         },
         usersPremiumTraffic !== "all" && {
           key: "usersPremiumTraffic",
-          label: at("premium_traffic_filter_label", {}, "Премиум трафик"),
+          label: at("premium_traffic_filter_label", {}, "Premium traffic"),
           value: optionLabel(USERS_PREMIUM_TRAFFIC_OPTIONS, usersPremiumTraffic),
         },
       ] satisfies (FilterChip | false)[]

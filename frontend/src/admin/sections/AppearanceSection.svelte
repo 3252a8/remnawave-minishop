@@ -473,7 +473,7 @@
 </script>
 
 {#if themesLoading || settingsLoading}
-  <AdminEmptyState>{at("loading", {}, "Загрузка…")}</AdminEmptyState>
+  <AdminEmptyState>{at("loading", {}, "Loading…")}</AdminEmptyState>
 {:else}
   <div class="appearance-stack">
     <AppearanceBrandCard
@@ -490,13 +490,8 @@
     <article class="admin-card">
       <header class="admin-card-head">
         <div>
-          <h3>{at("appearance_themes_title", {}, "Темы")}</h3>
-          <small
-            >{at(
-              "appearance_themes_sub",
-              {},
-              "Глобальная тема, accent color и предпросмотр"
-            )}</small
+          <h3>{at("appearance_themes_title", {}, "Themes")}</h3>
+          <small>{at("appearance_themes_sub", {}, "Global theme, accent color, and preview")}</small
           >
         </div>
         <div class="admin-editor-section-actions">
@@ -506,7 +501,7 @@
             disabled={themesLoading || themesSaving}
           >
             <RefreshCw size={13} />
-            {at("btn_refresh", {}, "Обновить")}
+            {at("btn_refresh", {}, "Refresh")}
           </AdminButton>
           <AdminButton
             size="sm"
@@ -515,7 +510,7 @@
             disabled={settingsSaving || themesSaving}
           >
             <Save size={13} />
-            {at("btn_save", {}, "Сохранить")}
+            {at("btn_save", {}, "Save")}
           </AdminButton>
         </div>
       </header>
@@ -525,7 +520,7 @@
             {at(
               "themes_catalog_empty",
               {},
-              "Каталог пуст. Добавьте папку темы в data/themes и обновите список."
+              "The catalog is empty. Add a theme folder to data/themes and refresh."
             )}
           </AdminEmptyState>
         {:else}

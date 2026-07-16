@@ -13,6 +13,6 @@ Remnawave Minishop состоит из Telegram-бота, backend API, worker-п
 ## Куда идти дальше
 
 - [Установка](setup.md) - базовый запуск через Compose.
-- [Развертывание](../deployment.md) - Docker Compose, Caddy, Nginx, Pangolin/Newt и запуск без обратного прокси.
+- [Развертывание](deployment.md) - Docker Compose, Caddy, Angie, Nginx, Pangolin/Newt и запуск без обратного прокси.
 - [Настройка Telegram бота](../features/telegram-auth.md) - Telegram OAuth и Telegram Mini App.
 - [Настройка SMTP](../features/email-login.md) - Вход и регистрация по email.

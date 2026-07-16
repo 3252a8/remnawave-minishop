@@ -193,8 +193,11 @@ def test_webhook_success_accepts_commission_adjusted_amount(monkeypatch):
     service.subscription_service = SimpleNamespace()
     service.referral_service = SimpleNamespace()
 
-    async def lookup_payment(_session, *, order_id_raw=None, provider_payment_id=None):
+    async def lookup_payment(
+        _session, *, providers=None, order_id_raw=None, provider_payment_id=None
+    ):
         assert _session is session
+        assert providers == "pally"
         assert order_id_raw == "77"
         assert provider_payment_id == "bill-1"
         return payment

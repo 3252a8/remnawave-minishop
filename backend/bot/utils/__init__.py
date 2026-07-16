@@ -11,14 +11,14 @@ if TYPE_CHECKING:
 
 @dataclass
 class MessageContent:
-    """Класс для хранения информации о контенте сообщения"""
+    """Container for message content information"""
 
     content_type: str
     file_id: str | None = None
     text: str | None = None
 
 
-# Словари поддерживаемых параметров для каждого типа сообщения
+# Supported parameter dictionaries for each message type
 SUPPORTED_PARAMS = {
     "text": {
         "parse_mode",
@@ -139,19 +139,19 @@ SUPPORTED_PARAMS = {
 
 
 def filter_kwargs(content_type: str, kwargs: dict[str, Any]) -> dict[str, Any]:
-    """Фильтрует kwargs, оставляя только поддерживаемые параметры для данного типа сообщения"""
+    """Filter kwargs to parameters supported by this message type"""
     supported = SUPPORTED_PARAMS.get(content_type, set())
     return {k: v for k, v in kwargs.items() if k in supported}
 
 
 def get_message_content(message: types.Message) -> MessageContent:
     """# noqa: E501
-    Определяет тип контента сообщения и возвращает его данные.
-    Использует match/case вместо длинных if-elif цепочек.
+    Determine the message content type and return its data.
+    Use match/case instead of long if/elif chains.
     """
     text = (message.text or message.caption or "").strip()
 
-    # Проверяем наличие медиа-контента
+    # Check for media content
     media_content = None
     if message.photo:
         media_content = ("photo", message.photo[-1].file_id)
@@ -170,7 +170,7 @@ def get_message_content(message: types.Message) -> MessageContent:
     elif message.video_note:
         media_content = ("video_note", message.video_note.file_id)
 
-    # Используем match/case для определения типа контента
+    # Use match/case to determine the content type
     match media_content:
         case (content_type, file_id):
             return MessageContent(content_type=content_type, file_id=file_id, text=text)
@@ -184,11 +184,11 @@ async def send_message_by_type(
     bot: Bot, chat_id: int, content: MessageContent, **kwargs: Any
 ) -> None:
     """
-    Отправляет сообщение указанного типа.
-    Использует match/case вместо длинных if-elif цепочек.
-    Автоматически фильтрует неподдерживаемые параметры.
+    Send a message of the specified type.
+    Use match/case instead of long if/elif chains.
+    Automatically filter unsupported parameters.
     """
-    # Фильтруем kwargs для данного типа сообщения
+    # Filter kwargs for this message type
     filtered_kwargs = filter_kwargs(content.content_type, kwargs)
 
     match content.content_type:
@@ -245,7 +245,7 @@ async def send_message_by_type(
                 chat_id=chat_id, video_note=cast(str, content.file_id), **filtered_kwargs
             )
         case _:
-            # Fallback для неизвестных типов - отправляем как текст
+            # Fallback for unknown types: send as text
             text_kwargs = filter_kwargs("text", kwargs)
             await bot.send_message(
                 chat_id=chat_id, text=content.text or "Unknown content type", **text_kwargs
@@ -259,11 +259,11 @@ async def send_message_via_queue(
     **kwargs: Any,
 ) -> None:
     """
-    Отправляет сообщение через очередь в зависимости от типа контента.
-    Использует match/case вместо длинных if-elif цепочек.
-    Автоматически фильтрует неподдерживаемые параметры.
+    Send a message through the queue according to its content type.
+    Use match/case instead of long if/elif chains.
+    Automatically filter unsupported parameters.
     """
-    # Фильтруем kwargs для данного типа сообщения
+    # Filter kwargs for this message type
     filtered_kwargs = filter_kwargs(content.content_type, kwargs)
 
     match content.content_type:
@@ -308,7 +308,7 @@ async def send_message_via_queue(
                 chat_id=uid, video_note=content.file_id, **filtered_kwargs
             )
         case _:
-            # Fallback для неизвестных типов - отправляем как текст
+            # Fallback for unknown types: send as text
             text_kwargs = filter_kwargs("text", kwargs)
             await queue_manager.send_message(
                 chat_id=uid, text=content.text or "Unknown content type", **text_kwargs
@@ -323,41 +323,41 @@ async def send_direct_message(
     **kwargs: Any,
 ) -> None:
     """
-    Отправляет прямое сообщение с дополнительной обработкой для sticker и video_note.
-    Для этих типов медиа отправляется отдельное текстовое сообщение,
-    т.к. они не поддерживают caption.
-    Автоматически фильтрует неподдерживаемые параметры.
+    Send a direct message with additional handling for sticker and video_note.
+    For these media types, send a separate text message
+    because they do not support captions.
+    Automatically filter unsupported parameters.
     """
     match content.content_type:
         case "sticker":
-            # Отправляем стикер с отфильтрованными параметрами
+            # Send the sticker with filtered parameters
             sticker_kwargs = filter_kwargs("sticker", kwargs)
             await bot.send_sticker(
                 chat_id=chat_id, sticker=cast(str, content.file_id), **sticker_kwargs
             )
-            # Если есть текст с подписью, отправляем отдельно
+            # Send caption text separately when present
             if content.text or extra_text:
                 text_to_send = (content.text + extra_text) if content.text else extra_text
                 text_kwargs = filter_kwargs("text", kwargs)
                 await bot.send_message(chat_id, text_to_send, **text_kwargs)
         case "video_note":
-            # Отправляем видео-заметку с отфильтрованными параметрами
+            # Send the video note with filtered parameters
             video_note_kwargs = filter_kwargs("video_note", kwargs)
             await bot.send_video_note(
                 chat_id=chat_id, video_note=cast(str, content.file_id), **video_note_kwargs
             )
-            # Если есть текст с подписью, отправляем отдельно
+            # Send caption text separately when present
             if content.text or extra_text:
                 text_to_send = (content.text + extra_text) if content.text else extra_text
                 text_kwargs = filter_kwargs("text", kwargs)
                 await bot.send_message(chat_id, text_to_send, **text_kwargs)
         case "text":
-            # Для текста объединяем с extra_text
+            # Combine text with extra_text
             final_text = (content.text + extra_text) if content.text else extra_text
             text_kwargs = filter_kwargs("text", kwargs)
             await bot.send_message(chat_id=chat_id, text=final_text, **text_kwargs)
         case _:
-            # Для остальных типов медиа используем caption
+            # Use caption for all other media types
             final_caption = (content.text + extra_text) if content.text else None
             await send_message_by_type(
                 bot,

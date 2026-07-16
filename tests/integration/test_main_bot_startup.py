@@ -74,9 +74,9 @@ def test_telegram_startup_clears_legacy_command_scopes_before_setting_commands()
     source = Path("backend/bot/main_bot.py").read_text(encoding="utf-8")
 
     assert "ָםעונפויס" not in source
-    assert 'start_description = settings.START_COMMAND_DESCRIPTION or "Главное меню"' in source
+    assert 'start_description = settings.START_COMMAND_DESCRIPTION or "Main menu"' in source
     assert 'BotCommand(command="start", description=start_description)' in source
-    assert 'BotCommand(command="tg", description="Интерфейс в боте")' in source
+    assert 'BotCommand(command="tg", description="Bot interface")' in source
     assert "BotCommandScopeDefault" in source
     assert "BotCommandScopeAllPrivateChats" in source
     assert "BotCommandScopeAllGroupChats" in source

@@ -29,7 +29,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install ruff
-        run: pip install "ruff>=0.8.0"
+        run: pip install "ruff>=0.15.21"
 
       - name: Ruff lint (Python)
         run: ruff check .
@@ -133,7 +133,7 @@ jobs:
           cache-dependency-path: backend/requirements.txt
 
       - name: Install backend deps + pytest
-        run: pip install -r backend/requirements.txt pytest
+        run: pip install -r backend/requirements.txt "pytest>=9.1.1,<10"
 
       # Fails if admin_settings_manifest.py changed without regenerating the
       # demo snapshot. Fix: `python scripts/export_settings_manifest.py` then
@@ -195,7 +195,10 @@ jobs:
           cache-dependency-path: backend/requirements.txt
 
       - name: Install backend deps + pytest
-        run: pip install -r backend/requirements.txt pytest pytest-cov
+        run: >-
+          pip install -r backend/requirements.txt
+          "pytest>=9.1.1,<10"
+          "pytest-cov>=7.1.0,<8"
 
       - name: Run full pytest suite
         run: python -m pytest -q --cov --cov-report=xml --cov-fail-under=53
@@ -215,7 +218,7 @@ jobs:
           cache-dependency-path: backend/requirements.txt
 
       - name: Install backend deps + mypy
-        run: pip install -r backend/requirements.txt "mypy>=1.15,<2"
+        run: pip install -r backend/requirements.txt "mypy>=2.3.0,<3"
 
       - name: Mypy web API and event layers
         run: >-

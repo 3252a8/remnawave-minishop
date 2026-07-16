@@ -96,11 +96,11 @@ async def process_broadcast_message_handler(
 
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
-    # Определяем тип содержимого и сохраняем данные в state
+    # Determine the content type and save the data in state
     entities = message.entities or message.caption_entities or []
     content = get_message_content(message)
 
-    # Если нет ни текста, ни медиа — ошибка
+    # Fail when neither text nor media is present
     if not content.text and not content.file_id:
         await message.answer(_("admin_broadcast_error_no_message"))
         return
@@ -159,7 +159,7 @@ async def process_broadcast_message_handler(
         )
         preview_entities = []
 
-    # Сохраняем данные для рассылки
+    # Save the broadcast data
     await state.update_data(
         broadcast_text=broadcast_text,
         broadcast_entities=preview_entities,
@@ -170,9 +170,9 @@ async def process_broadcast_message_handler(
         broadcast_shortcodes=sorted(needed_shortcodes),
     )
 
-    # Отправляем превью-копию того, что будет разослано
+    # Send a preview copy of the broadcast
     try:
-        # Для медиа-сообщений используем caption_entities, для текста - entities
+        # Use caption_entities for media messages and entities for text
         if content.content_type == "text":
             if uses_shortcodes:
                 await send_message_by_type(
@@ -221,7 +221,7 @@ async def process_broadcast_message_handler(
         )
         return
 
-    # Показываем короткое подтверждение без дублирования текста — сообщение выше служит превью
+    # Show a short confirmation without duplicating text; the message above is the preview
     confirmation_prompt = _("admin_broadcast_confirm_prompt_short")
 
     await message.answer(
@@ -318,7 +318,7 @@ async def confirm_broadcast_callback_handler(
     user_fsm_data = await state.get_data()
 
     if action == "send":
-        # Создаем объект контента из сохраненных данных
+        # Create the content object from saved data
         content = MessageContent(
             content_type=user_fsm_data.get("broadcast_content_type", "text"),
             file_id=user_fsm_data.get("broadcast_file_id"),
@@ -361,7 +361,7 @@ async def confirm_broadcast_callback_handler(
         queue_manager = get_queue_manager()
         if not queue_manager:
             await callback_message(callback).edit_text(
-                "❌ Ошибка: система очередей не инициализирована", reply_markup=None
+                _("admin_broadcast_queue_not_initialized"), reply_markup=None
             )
             return
 
@@ -400,7 +400,7 @@ async def confirm_broadcast_callback_handler(
                             bot_username=bot_username,
                         ),
                     )
-                # Для медиа-сообщений используем caption_entities, для текста - entities
+                # Use caption_entities for media messages and entities for text
                 if content.content_type == "text":
                     if uses_shortcodes:
                         await send_message_via_queue(

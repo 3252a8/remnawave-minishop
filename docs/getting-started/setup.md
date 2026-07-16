@@ -47,6 +47,7 @@ docker compose up -d
 
 Остальные варианты описаны в [разделе развертывания](deployment.md#готовые-папки-запуска):
 
+- [Angie](deployment.md#angie) - если нужен автоматический HTTPS как у Caddy, но в Nginx-синтаксисе;
 - [Nginx](deployment.md#nginx) - если у вас уже есть TLS-сертификаты и нужен Nginx в Docker-сети;
 - [Pangolin/Newt](deployment.md#pangolin--newt) - если нельзя открывать входящие порты на сервере приложения;
 - [без обратного прокси](deployment.md#без-обратного-прокси) - для локальной проверки или внешнего TLS-терминатора.

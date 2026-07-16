@@ -3583,22 +3583,6 @@
   gap: 14px;
 }
 
-.admin-tariff-overview-grid {
-  display: grid;
-  gap: 14px;
-}
-
-.admin-tariff-overview-grid > .admin-card {
-  min-width: 0;
-}
-
-@media (min-width: 980px) {
-  .admin-tariff-overview-grid {
-    grid-template-columns: minmax(260px, 0.82fr) minmax(0, 1.6fr);
-    align-items: stretch;
-  }
-}
-
 .admin-tariff-panel-head > div,
 .admin-tariff-list-head > div {
   min-width: 0;
@@ -3622,59 +3606,47 @@
   white-space: nowrap;
 }
 
-.admin-tariff-currency-body {
+.admin-tariff-providers-body {
   display: grid;
-  align-content: start;
   gap: 14px;
 }
 
-.admin-tariff-currency-current {
+.admin-tariff-currency-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 8px 14px;
   min-width: 0;
-  padding: 12px;
+  padding: 10px 12px;
   border: 1px solid var(--admin-border);
   border-radius: 8px;
   background: var(--admin-surface-2);
 }
 
-.admin-tariff-currency-current span {
+.admin-tariff-currency-hint {
+  flex: 1 1 240px;
+  min-width: 0;
   color: var(--admin-muted);
   font-size: 12px;
-  font-weight: 600;
-}
-
-.admin-tariff-currency-current strong {
-  color: var(--admin-text);
-  font-family: var(--font-mono);
-  font-size: 18px;
-  letter-spacing: 0;
-}
-
-.admin-tariff-catalog-bar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 10px;
+  line-height: 1.4;
 }
 
 .admin-tariff-currency-field {
-  display: grid;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
-  gap: 8px;
 }
 
 .admin-tariff-currency-field > span {
   color: var(--admin-text);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .admin-currency-input {
-  width: 100%;
-  max-width: 160px;
+  width: 96px;
   text-transform: uppercase;
 }
 
@@ -3761,28 +3733,18 @@
   flex: 0 0 auto;
 }
 
-.admin-tariff-grid {
+.admin-tariff-sort-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
-}
-
-@media (min-width: 720px) {
-  .admin-tariff-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1280px) {
-  .admin-tariff-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
 }
 
 .admin-tariff-card {
   display: grid;
-  align-content: start;
-  gap: 12px;
+  grid-template-columns: minmax(220px, 1.1fr) minmax(0, 1.5fr) auto;
+  align-items: center;
+  gap: 12px 18px;
   min-width: 0;
   border: 1px solid var(--admin-border);
   border-radius: 8px;
@@ -3790,11 +3752,18 @@
   padding: 14px;
 }
 
+@media (max-width: 1140px) {
+  .admin-tariff-card {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+  }
+}
+
 .admin-tariff-card.is-disabled {
   opacity: 0.72;
 }
 
-.admin-tariff-top,
 .admin-tariff-title,
 .admin-tariff-actions,
 .admin-editor-section-head {
@@ -3803,12 +3772,10 @@
   gap: 8px;
 }
 
-.admin-tariff-top {
-  justify-content: space-between;
-  min-width: 0;
-}
-
-.admin-tariff-top > div {
+.admin-tariff-card-main {
+  display: grid;
+  align-content: start;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -3824,7 +3791,6 @@
 
 .admin-tariff-card code {
   display: block;
-  margin-top: 4px;
   color: var(--admin-dim);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -3838,8 +3804,10 @@
 }
 
 .admin-tariff-facts {
-  display: grid;
-  gap: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  min-width: 0;
   color: var(--admin-muted);
   font-size: 12px;
 }
@@ -3851,10 +3819,13 @@
 
 .admin-tariff-actions {
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
-.admin-tariff-settings-card {
-  margin-top: 14px;
+@media (max-width: 1140px) {
+  .admin-tariff-actions {
+    justify-content: flex-start;
+  }
 }
 
 .admin-tariff-settings-form {
@@ -4291,14 +4262,6 @@
 
   .admin-provider-summary {
     justify-content: flex-start;
-  }
-
-  .admin-tariff-catalog-bar {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .admin-currency-input {
-    max-width: none;
   }
 
   .admin-provider-currency {
@@ -6899,14 +6862,30 @@
   .dialog:has(.support-ticket-dialog) {
     padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
       max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+    overflow: hidden;
   }
 
   .support-ticket-dialog {
-    width: calc(100vw - 16px);
-    max-height: none;
+    grid-template-rows: auto minmax(0, 1fr);
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
     padding: 12px;
     border-radius: 14px;
-    overflow: visible;
+    overflow: hidden;
+  }
+
+  .support-ticket-dialog > .dialog-body-scroll {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .support-ticket-dialog > .dialog-body-scroll > .scroll-area__viewport {
+    height: 100%;
+    overflow: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .support-ticket-dialog .dialog-head {
@@ -6965,6 +6944,11 @@
     min-height: 0;
     max-height: none !important;
     padding: 10px 8px;
+  }
+
+  .support-ticket-dialog .support-admin-message-scroll > .scroll-area__viewport {
+    height: auto;
+    overflow: visible !important;
   }
 
   .support-ticket-dialog .support-admin-composer-row {

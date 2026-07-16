@@ -211,9 +211,13 @@ class PanelApiUsersMixin:
         return all_users
 
     async def get_user_by_uuid(
-        self, user_uuid: str, log_response: bool = False
+        self,
+        user_uuid: str,
+        log_response: bool = False,
+        *,
+        use_cache: bool = True,
     ) -> dict[str, Any] | None:
-        if log_response or self._users_cache.ttl_seconds <= 0:
+        if not use_cache or log_response or self._users_cache.ttl_seconds <= 0:
             return await self._get_user_by_uuid_uncached(user_uuid, log_response=log_response)
         cached = await self._users_cache.get_or_load(
             f"uuid:{user_uuid}",
@@ -429,6 +433,7 @@ class PanelApiUsersMixin:
         telegram_id: int | None = None,
         email: str | None = None,
         default_expire_days: int = 1,
+        expire_at: datetime | None = None,
         default_traffic_limit_bytes: int = 0,
         default_traffic_limit_strategy: str = "NO_RESET",
         hwid_device_limit: int | None = None,
@@ -455,7 +460,11 @@ class PanelApiUsersMixin:
             }
 
         now = datetime.now(UTC)
-        expire_at_dt = now + timedelta(days=default_expire_days)
+        expire_at_dt = expire_at or now + timedelta(days=default_expire_days)
+        if expire_at_dt.tzinfo is None:
+            expire_at_dt = expire_at_dt.replace(tzinfo=UTC)
+        else:
+            expire_at_dt = expire_at_dt.astimezone(UTC)
         expire_at_iso = expire_at_dt.isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
         payload: dict[str, Any] = {

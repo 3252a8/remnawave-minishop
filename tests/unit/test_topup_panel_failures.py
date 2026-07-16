@@ -19,7 +19,9 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.handlers.user.subscription import core_topup
 from bot.services.panel_api_service import PanelApiService
@@ -74,9 +76,17 @@ def _tariffs_config_payload() -> dict:
     }
 
 
-def _make_settings(tmpdir: str, **overrides: Any) -> Settings:
+def _make_settings(
+    tmpdir: str,
+    *,
+    tariffs_payload: dict[str, Any] | None = None,
+    **overrides: Any,
+) -> Settings:
     config_path = Path(tmpdir) / "tariffs.json"
-    config_path.write_text(json.dumps(_tariffs_config_payload()), encoding="utf-8")
+    config_path.write_text(
+        json.dumps(tariffs_payload or _tariffs_config_payload()),
+        encoding="utf-8",
+    )
     values: dict[str, Any] = {
         "_env_file": None,
         "BOT_TOKEN": "token",
@@ -137,6 +147,15 @@ def _make_user():
     )
 
 
+def _panel_update_side_effect(panel_response):
+    async def update(panel_uuid, payload, *_args, **_kwargs):
+        if isinstance(panel_response, dict) and panel_response.get("ok") is True:
+            return {**payload, "uuid": panel_uuid}
+        return panel_response
+
+    return update
+
+
 class ActivateTopupPanelFailureTests(unittest.IsolatedAsyncioTestCase):
     """Regular (non-premium) period top-up. The bug was traffic.py:252 ignoring panel result."""
 
@@ -147,8 +166,9 @@ class ActivateTopupPanelFailureTests(unittest.IsolatedAsyncioTestCase):
             sub = _make_sub()
             user = _make_user()
 
+            service.panel_service.get_user_by_uuid = AsyncMock(return_value=None)
             service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value=panel_response
+                side_effect=_panel_update_side_effect(panel_response)
             )
             updated_sub = SimpleNamespace(end_date=sub.end_date, subscription_id=11)
 
@@ -219,8 +239,9 @@ class ActivatePremiumTopupPanelFailureTests(unittest.IsolatedAsyncioTestCase):
             )
             user = _make_user()
 
+            service.panel_service.get_user_by_uuid = AsyncMock(return_value=None)
             service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value=panel_response
+                side_effect=_panel_update_side_effect(panel_response)
             )
 
             with (
@@ -337,7 +358,13 @@ class SwitchTariffPanelFailureTests(unittest.IsolatedAsyncioTestCase):
     """Free tariff switch. The bug was lifecycle.py:121 ignoring panel result — the tariff_key
     flipped in the local DB while the panel kept the user on the old squad set."""
 
-    async def _run(self, *, panel_response, mode="recalc_days"):
+    async def _run(
+        self,
+        *,
+        panel_response,
+        mode="recalc_days",
+        panel_get_side_effect=None,
+    ):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(tmpdir)
             service = _make_service(settings)
@@ -353,8 +380,16 @@ class SwitchTariffPanelFailureTests(unittest.IsolatedAsyncioTestCase):
                 effective_monthly_price_rub=300,
             )
 
+            service.panel_service.get_user_by_uuid = AsyncMock(
+                side_effect=panel_get_side_effect,
+                return_value=None,
+            )
             service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value=panel_response
+                side_effect=(
+                    panel_response
+                    if callable(panel_response)
+                    else _panel_update_side_effect(panel_response)
+                )
             )
 
             with (
@@ -396,13 +431,13 @@ class SwitchTariffPanelFailureTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result)
         # tariff_changes audit row must NOT be inserted on panel failure.
         create_change.assert_not_awaited()
-        deactivate_other.assert_not_awaited()
+        deactivate_other.assert_awaited_once()
 
     async def test_returns_none_when_panel_returns_error_dict(self):
         result, create_change, deactivate_other = await self._run(panel_response={"error": True})
         self.assertIsNone(result)
         create_change.assert_not_awaited()
-        deactivate_other.assert_not_awaited()
+        deactivate_other.assert_awaited_once()
 
     async def test_returns_payload_when_panel_succeeds(self):
         result, create_change, deactivate_other = await self._run(panel_response={"ok": True})
@@ -410,6 +445,33 @@ class SwitchTariffPanelFailureTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["tariff_key"], "premium")
         self.assertEqual(deactivate_other.await_args.args[1:], ("panel-uuid", "panel-sub"))
         create_change.assert_awaited_once()
+
+    async def test_rejects_matching_expiry_with_stale_squads(self):
+        stale_state: dict = {}
+
+        async def stale_panel_update(panel_uuid, payload, *_args, **_kwargs):
+            stale_state.update(
+                {
+                    **payload,
+                    "uuid": panel_uuid,
+                    "activeInternalSquads": ["main-squad"],
+                }
+            )
+            return dict(stale_state)
+
+        async def panel_get(_panel_uuid, *_args, **kwargs):
+            if kwargs.get("use_cache") is False:
+                return dict(stale_state)
+            return None
+
+        result, create_change, deactivate_other = await self._run(
+            panel_response=stale_panel_update,
+            panel_get_side_effect=panel_get,
+        )
+
+        self.assertIsNone(result)
+        create_change.assert_not_awaited()
+        deactivate_other.assert_awaited_once()
 
     async def test_rejects_client_mode_not_offered_for_transition(self):
         result, create_change, deactivate_other = await self._run(
@@ -420,6 +482,114 @@ class SwitchTariffPanelFailureTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result)
         create_change.assert_not_awaited()
         deactivate_other.assert_not_awaited()
+
+    async def test_downgrade_drops_previous_managed_premium_squads(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            payload = _tariffs_config_payload()
+            target_payload = next(
+                tariff for tariff in payload["tariffs"] if tariff["key"] == "standard"
+            )
+            target_payload.pop("premium_squad_uuids")
+            target_payload.pop("premium_monthly_gb")
+            target_payload.pop("premium_topup_packages")
+            settings = _make_settings(tmpdir, tariffs_payload=payload)
+            service = _make_service(settings)
+            sub = _make_sub(
+                tariff_key="premium",
+                premium_baseline_bytes=50 * GIB,
+                effective_monthly_price_rub=300,
+            )
+            user = _make_user()
+            captured_overrides: list[str] = []
+
+            async def update_subscription(_session, _subscription_id, update_data):
+                return SimpleNamespace(**{**sub.__dict__, **update_data})
+
+            async def capture_override(*_args, **kwargs):
+                captured_overrides.append(kwargs["squad_uuid"])
+
+            async def active_overrides(*_args, **_kwargs):
+                return list(captured_overrides)
+
+            service.panel_service.get_user_by_uuid = AsyncMock(
+                return_value={
+                    "activeInternalSquads": [
+                        "main-squad",
+                        "premium-extra",
+                        "premium-squad",
+                        "manual-squad",
+                    ]
+                }
+            )
+            service.panel_service.update_user_details_on_panel = AsyncMock(
+                side_effect=_panel_update_side_effect({"ok": True})
+            )
+            session = MagicMock(spec=AsyncSession)
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_switch.user_dal.get_user_by_id",
+                    AsyncMock(return_value=user),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_switch.subscription_dal.get_active_subscription_by_user_id",
+                    AsyncMock(return_value=sub),
+                ),
+                patch.object(
+                    service,
+                    "calculate_tariff_switch_options_with_hwid",
+                    AsyncMock(
+                        return_value={
+                            "mode": "period_to_period",
+                            "remaining_days": 20,
+                            "recalc_days": 40,
+                            "convertible_hwid_purchase_ids": [],
+                        }
+                    ),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_switch.tariff_dal.sum_active_hwid_devices",
+                    AsyncMock(return_value=0),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_switch.subscription_dal.update_subscription",
+                    AsyncMock(side_effect=update_subscription),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_switch.subscription_dal.deactivate_other_active_subscriptions",
+                    AsyncMock(),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_switch.tariff_dal.create_tariff_change",
+                    AsyncMock(),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.squad_overrides.override_dal.upsert_internal_override",
+                    AsyncMock(side_effect=capture_override),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.squad_overrides.override_dal.get_active_internal_squad_uuids",
+                    AsyncMock(side_effect=active_overrides),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.squad_overrides.override_dal.get_active_external_override",
+                    AsyncMock(return_value=None),
+                ),
+            ):
+                result = await service.switch_tariff_without_payment(
+                    session=session,
+                    user_id=42,
+                    target_tariff_key="standard",
+                    mode="recalc_days",
+                )
+
+            self.assertEqual(result["tariff_key"], "standard")
+            self.assertEqual(captured_overrides, ["manual-squad"])
+            panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]
+            self.assertEqual(
+                panel_payload["activeInternalSquads"],
+                ["main-squad", "manual-squad"],
+            )
 
 
 class TariffChangeCallbackTransactionTests(unittest.IsolatedAsyncioTestCase):

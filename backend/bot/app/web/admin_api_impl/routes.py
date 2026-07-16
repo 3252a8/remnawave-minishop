@@ -55,6 +55,7 @@ from .support import (
     admin_support_ticket_patch_route,
     admin_support_ticket_read_route,
     admin_support_ticket_reply_route,
+    admin_support_ticket_typing_route,
     admin_support_tickets_route,
 )
 from .sync import (
@@ -169,6 +170,10 @@ def setup_admin_routes(app: web.Application) -> None:
     )
     router.add_patch("/api/admin/support/tickets/{id:\\d+}", admin_support_ticket_patch_route)
     router.add_post("/api/admin/support/tickets/{id:\\d+}/read", admin_support_ticket_read_route)
+    router.add_post(
+        "/api/admin/support/tickets/{id:\\d+}/typing",
+        admin_support_ticket_typing_route,
+    )
     router.add_get("/api/admin/support/stats", admin_support_stats_route)
 
     router.add_get("/api/admin/broadcast/audience-counts", admin_broadcast_audience_counts_route)

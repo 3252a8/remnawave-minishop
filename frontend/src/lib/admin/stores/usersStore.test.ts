@@ -142,7 +142,7 @@ describe("usersStore", () => {
     expect(at).toHaveBeenCalledWith(
       "traffic_grant_premium_done",
       { gb: 25, user_id: "77", user: "Ann Lee" },
-      "+25 ГБ премиум-трафика для Ann Lee (ID: 77)"
+      "✅ +{gb} GB of premium traffic granted to {user} (ID: {user_id})"
     );
     expect(onToast).toHaveBeenCalledWith("+25 GB premium granted to Ann Lee (ID: 77)");
     expect(onToast.mock.calls[0][0]).not.toContain("{user_id}");

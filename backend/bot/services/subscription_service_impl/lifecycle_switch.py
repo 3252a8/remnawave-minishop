@@ -6,12 +6,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.services.panel_activity import record_subscription_panel_activity
 from bot.utils.config_link import prepare_config_links
+from bot.utils.locale_defaults import tariff_premium_title
 from bot.utils.traffic_reset import next_traffic_reset_after, traffic_accounting_period_start
 from config.tariffs_config import default_currency_key_for_settings
 from db.dal import payment_dal, subscription_dal, tariff_dal, user_dal
 from db.models import Subscription, User
 
 from ._typing import SubscriptionServiceMixinContract
+from .entitlement_helpers import (
+    record_tariff_change_best_effort,
+    record_traffic_topup_best_effort,
+)
 from .sale_mode import parse_sale_mode_context
 
 logger = logging.getLogger(__name__)
@@ -77,7 +82,7 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
         )
         now = datetime.now(UTC)
         traffic_limit_strategy = (
-            self._period_tariff_traffic_strategy()
+            self._period_tariff_traffic_strategy(tariff)
             if billing_model_display == "period"
             else "NO_RESET"
         )
@@ -100,7 +105,7 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
         if premium_limit_bytes > 0 and not premium_unlimited_override:
             premium_next_reset_at = next_traffic_reset_after(
                 premium_period_start_at,
-                self._period_tariff_traffic_strategy(),
+                self._premium_traffic_strategy_for_subscription(local_active_sub),
                 now=now,
             )
         return {
@@ -117,7 +122,7 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             "tariff_key": local_active_sub.tariff_key,
             "tariff_name": tariff.name(language) if tariff else None,
             "tariff_description": tariff.description(language) if tariff else None,
-            "premium_title": tariff.premium_name(language) if tariff else None,
+            "premium_title": tariff_premium_title(tariff, language) if tariff else None,
             "billing_model": billing_model_display,
             "tier_baseline_bytes": local_active_sub.tier_baseline_bytes,
             "topup_balance_bytes": local_active_sub.topup_balance_bytes,
@@ -364,7 +369,7 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             traffic_limit_strategy=(
                 "NO_RESET"
                 if target.billing_model == "traffic"
-                else self._period_tariff_traffic_strategy()
+                else self._period_tariff_traffic_strategy(target)
             ),
             hwid_device_limit=self._effective_hwid_limit(
                 panel_hwid_base_limit,
@@ -376,21 +381,46 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             target,
             include_premium=not bool(updated.premium_is_limited),
         )
+        if trial_provider or trial_status:
+            previous_managed_squads = self._trial_all_panel_squad_uuids()
+        else:
+            try:
+                previous_tariff = self._resolve_tariff(before_tariff_key)
+            except (KeyError, ValueError):
+                previous_tariff = None
+            previous_managed_squads = self._panel_squads_for_tariff(previous_tariff) or []
+        override_detection_managed_squads = list(
+            dict.fromkeys([*previous_managed_squads, *(managed_squads or [])])
+        )
         panel_payload.update(
             await self.build_effective_panel_squad_fields(
                 session,
                 user_id=user_id,
                 panel_user_uuid=db_user.panel_user_uuid,
                 managed_internal_squads=managed_squads,
+                override_detection_managed_internal_squads=(override_detection_managed_squads),
                 include_internal_squads=True,
                 source="tariff_switch",
             )
         )
         panel_payload.update(self._panel_identity_payload_for_user(db_user))
-        updated_panel = await self.panel_service.update_user_details_on_panel(
+        panel_subscription_uuid = str(getattr(updated, "panel_subscription_uuid", "") or "").strip()
+        if panel_subscription_uuid:
+            await subscription_dal.deactivate_other_active_subscriptions(
+                session,
+                db_user.panel_user_uuid,
+                panel_subscription_uuid,
+            )
+        panel_update_result = await self.panel_service.update_user_details_on_panel(
             db_user.panel_user_uuid, panel_payload
         )
-        if not updated_panel or updated_panel.get("error"):
+        confirmed_panel_user = await self._confirmed_panel_entitlement(
+            db_user.panel_user_uuid,
+            panel_update_result,
+            panel_payload,
+            source="tariff_switch",
+        )
+        if confirmed_panel_user is None:
             # The tariff row is already swapped locally; if the panel rejects
             # the squad/limit update the user sees the new tariff in the app
             # but stays on the old squads on Remnawave. Surface the failure
@@ -399,25 +429,18 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 "Panel user details update FAILED for tariff switch user %s -> %s. Response: %s",
                 user_id,
                 target.key,
-                updated_panel,
+                panel_update_result,
             )
             return None
-        panel_subscription_uuid = str(getattr(updated, "panel_subscription_uuid", "") or "").strip()
-        if panel_subscription_uuid:
-            await subscription_dal.deactivate_other_active_subscriptions(
-                session,
-                db_user.panel_user_uuid,
-                panel_subscription_uuid,
-            )
         if converted_bytes:
-            await tariff_dal.create_traffic_topup(
+            await record_traffic_topup_best_effort(
                 session,
                 subscription_id=updated.subscription_id,
                 payment_id=None,
                 purchased_bytes=converted_bytes,
                 kind="conversion",
             )
-        await tariff_dal.create_tariff_change(
+        await record_tariff_change_best_effort(
             session,
             {
                 "subscription_id": updated.subscription_id,
@@ -435,5 +458,6 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 "eff_price_before": sub.effective_monthly_price_rub,
                 "eff_price_after": updated.effective_monthly_price_rub,
             },
+            user_id=user_id,
         )
         return {"subscription_id": updated.subscription_id, "tariff_key": target.key}

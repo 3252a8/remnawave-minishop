@@ -104,10 +104,10 @@ export function createStatsStore({
       const res = await api(buildAdminSyncPath(), { method: "POST" });
       if (isOkResponse(res)) {
         invalidateAdminQuery(queryClient, STATS_QUERY_KEY);
-        onToast(at("sync_started", {}, "Синхронизация запущена"));
+        onToast(at("sync_started", {}, "Synchronization started"));
         await loadStats({ refresh: true });
       } else {
-        onToast(adminErrorMessage(res, at, at("sync_error", {}, "Ошибка синхронизации")));
+        onToast(adminErrorMessage(res, at, at("sync_error", {}, "Synchronization error")));
       }
     } finally {
       state.syncBusy = false;

@@ -26,11 +26,11 @@
 <Dialog
   open={tariffEditorOpen}
   title={tariffEditingKey
-    ? at("tariff_edit_title", {}, "Настройка тарифа")
-    : at("tariff_create_title", {}, "Новый тариф")}
+    ? at("tariff_edit_title", {}, "Tariff settings")
+    : at("tariff_create_title", {}, "New tariff")}
   description={tariffEditingKey ||
-    at("tariff_create_subtitle", {}, "Каталог будет сохранён в JSON после подтверждения")}
-  closeLabel={at("close", {}, "Закрыть")}
+    at("tariff_create_subtitle", {}, "The catalog will be saved to JSON after confirmation")}
+  closeLabel={at("close", {}, "Close")}
   onclose={() => tariffsStore.updateState({ tariffEditorOpen: false })}
   class="admin-dialog admin-tariff-dialog"
 >
@@ -38,19 +38,19 @@
     <Tabs.Root bind:value={tariffsStore.tariffEditorTab} class="admin-tabs-root">
       <Tabs.List class="admin-tabs-list">
         <Tabs.Trigger value="general" class="admin-tabs-trigger"
-          >{at("tariff_tab_general", {}, "Основное")}</Tabs.Trigger
+          >{at("tariff_tab_general", {}, "General")}</Tabs.Trigger
         >
         <Tabs.Trigger value="pricing" class="admin-tabs-trigger"
-          >{at("tariff_tab_pricing", {}, "Цены")}</Tabs.Trigger
+          >{at("tariff_tab_pricing", {}, "Prices")}</Tabs.Trigger
         >
         <Tabs.Trigger value="topup" class="admin-tabs-trigger"
-          >{at("tariff_tab_topup", {}, "Докупки")}</Tabs.Trigger
+          >{at("tariff_tab_topup", {}, "Top-ups")}</Tabs.Trigger
         >
         <Tabs.Trigger value="premium" class="admin-tabs-trigger"
           >{at("tariff_tab_premium", {}, "Premium")}</Tabs.Trigger
         >
         <Tabs.Trigger value="hwid" class="admin-tabs-trigger"
-          >{at("tariff_tab_hwid", {}, "Устройства")}</Tabs.Trigger
+          >{at("tariff_tab_hwid", {}, "Devices")}</Tabs.Trigger
         >
       </Tabs.List>
 
@@ -63,7 +63,7 @@
 
     <div class="admin-dialog-actions">
       <AdminButton onclick={() => tariffsStore.updateState({ tariffEditorOpen: false })}
-        >{at("btn_cancel", {}, "Отмена")}</AdminButton
+        >{at("btn_cancel", {}, "Cancel")}</AdminButton
       >
       <AdminButton
         variant="primary"
@@ -72,8 +72,8 @@
       >
         <Save size={14} />
         {tariffsSaving
-          ? at("btn_saving", {}, "Сохранение...")
-          : at("btn_save_tariff", {}, "Сохранить тариф")}
+          ? at("btn_saving", {}, "Saving...")
+          : at("btn_save_tariff", {}, "Save tariff")}
       </AdminButton>
     </div>
   </div>
@@ -81,25 +81,25 @@
 
 <Dialog
   open={tariffDeleteOpen}
-  title={at("tariff_delete_title", {}, "Удалить тариф?")}
+  title={at("tariff_delete_title", {}, "Delete tariff?")}
   description={tariffDeleteTarget
     ? at(
         "tariff_delete_subtitle",
         { key: tariffDeleteTarget.key },
-        `Тариф ${tariffDeleteTarget.key} исчезнет из каталога продаж.`
+        "Tariff {key} will disappear from the sales catalog."
       )
     : ""}
-  closeLabel={at("close", {}, "Закрыть")}
+  closeLabel={at("close", {}, "Close")}
   onclose={() => tariffsStore.updateState({ tariffDeleteOpen: false })}
   class="admin-dialog admin-tariff-delete-dialog"
 >
   <div class="admin-form-row">
     <AdminButton onclick={() => tariffsStore.updateState({ tariffDeleteOpen: false })}
-      >{at("btn_cancel", {}, "Отмена")}</AdminButton
+      >{at("btn_cancel", {}, "Cancel")}</AdminButton
     >
     <AdminButton variant="danger" onclick={tariffsStore.deleteTariff} disabled={tariffsSaving}>
       <Trash2 size={14} />
-      {at("btn_confirm_delete", {}, "Подтвердить удаление")}
+      {at("btn_confirm_delete", {}, "Confirm deletion")}
     </AdminButton>
   </div>
 </Dialog>

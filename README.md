@@ -40,7 +40,7 @@ Remnawave Minishop - Telegram-бот и Web App (Mini App) для продажи
 - [Единый dev stand](docs/development/dev-stand.md) - локальный Docker Compose стенд
   с Mini Shop, Remnawave Panel, Subscription Page, тестовыми сидами и
   full-stack QA (`npm run qa:fullstack`).
-- [Развертывание](docs/getting-started/deployment.md) - Docker Compose, Caddy, Nginx, Pangolin/Newt и запуск без обратного прокси.
+- [Развертывание](docs/getting-started/deployment.md) - Docker Compose, Caddy, Angie, Nginx, Pangolin/Newt и запуск без обратного прокси.
 - [Настройка окружения](docs/getting-started/configuration.md) - bootstrap `.env` и рекомендуемая настройка через Web App админку.
 - [Переменные `.env`](docs/configuration/env-vars.md) - полный справочник всех env-ключей по разделам.
 - [Бэкапы и восстановление](docs/features/backups.md) - автоматические архивы, Telegram-отправка и restore через админку.
@@ -98,7 +98,7 @@ docker compose logs -f backend worker frontend
 - `WEBAPP_SESSION_SECRET`, `WEBHOOK_SECRET_TOKEN` - стабильные секреты;
 - `SUBSCRIPTION_MINI_APP_URL` - публичный HTTPS URL Mini App/frontend, например `https://app.domain.com/`;
 - `PANEL_API_URL`, `PANEL_API_KEY`, `PANEL_WEBHOOK_SECRET` - доступ к Remnawave;
-- `TRUSTED_PROXIES` - оставьте дефолт для Docker/Caddy/Nginx/Newt или укажите IP/CIDR своего reverse proxy, чтобы IP allowlist платежных webhook видел реального провайдера;
+- `TRUSTED_PROXIES` - оставьте дефолт для Docker/Caddy/Angie/Nginx/Newt или укажите IP/CIDR своего reverse proxy, чтобы IP allowlist платежных webhook видел реального провайдера;
 - остальные настройки удобнее задать в Web App админке.
 
 В Remnawave Panel укажите `WEBHOOK_URL` как публичный адрес Minishop с путем `/webhook/panel`, например `https://app.example.com/webhook/panel`. Секрет вебхука задается в самой Remnawave Panel; это же значение вставьте в `PANEL_WEBHOOK_SECRET` в `.env` или в **Система -> Настройки -> Remnawave Panel** в админке.
@@ -137,7 +137,7 @@ make dev
 docker compose logs -f backend worker frontend
 
 # Рекомендуемый продакшен-вариант с Caddy
-cd deploy/examples/caddy      # или nginx, newt, no-proxy
+cd deploy/examples/caddy      # или angie, nginx, newt, no-proxy
 cp .env.example .env
 nano .env
 docker compose up -d

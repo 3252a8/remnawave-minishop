@@ -73,6 +73,7 @@ export function webappFallbackResponse(
       supportTickets.find((item) => item.ticket_id === ticketId) || supportTickets[0]
     );
     if (parts[4] === "read") return { ok: true };
+    if (parts[4] === "typing") return { ok: true };
     if (parts[4] === "messages") {
       return {
         ok: true,
@@ -85,10 +86,17 @@ export function webappFallbackResponse(
           author_name: "Анна Смирнова",
           body: (JSON.parse(String(options?.body || "{}")) as DemoRecord)?.body || "",
           created_at: new Date().toISOString(),
+          read_by_user_at: null,
+          read_by_admin_at: null,
         },
       };
     }
-    return { ok: true, ticket, messages: clone(supportMessages[Number(ticket.ticket_id)] || []) };
+    return {
+      ok: true,
+      ticket,
+      messages: clone(supportMessages[Number(ticket.ticket_id)] || []),
+      peer_typing: false,
+    };
   }
   if (cleanPath === "/support/unread") return { ok: true, unread: 1 };
   if (cleanPath === "/subscription/auto-renew" && method === "POST") {

@@ -85,23 +85,33 @@ def _support_admin_notification_decision(
     return AdminNotificationDecision(send_telegram=send_telegram, send_email=send_email)
 
 
-def _format_support_remaining(seconds: int, lang: str) -> str:
+def _format_support_remaining(
+    seconds: int,
+    lang: str,
+    i18n: JsonI18n | None,
+) -> str:
+    def render(key: str, fallback: str, **kwargs: int) -> str:
+        if i18n:
+            translated = i18n.gettext(lang, key, **kwargs)
+            if translated and translated != key:
+                return translated
+        return fallback.format(**kwargs)
+
     if seconds <= 0:
-        return "Subscription inactive" if lang == "en" else "Подписка не активна"
+        return render("support_remaining_inactive", "Subscription inactive")
     days, rem = divmod(seconds, 86400)
     hours, rem = divmod(rem, 3600)
     minutes = rem // 60
-    if lang == "en":
-        if days > 0:
-            return f"{days} d. {hours} h."
-        if hours > 0:
-            return f"{hours} h. {minutes} min."
-        return f"{max(1, minutes)} min."
     if days > 0:
-        return f"{days} д. {hours} ч."
+        return render("support_remaining_days", "{days} d. {hours} h.", days=days, hours=hours)
     if hours > 0:
-        return f"{hours} ч. {minutes} мин."
-    return f"{max(1, minutes)} мин."
+        return render(
+            "support_remaining_hours",
+            "{hours} h. {minutes} min.",
+            hours=hours,
+            minutes=minutes,
+        )
+    return render("support_remaining_minutes", "{minutes} min.", minutes=max(1, minutes))
 
 
 class TicketForbidden(PermissionError):
@@ -436,7 +446,7 @@ class SupportService:
                 "subscription_active": bool(sub),
                 "panel_status": getattr(sub, "status_from_panel", None) if sub else None,
                 "end_date": end_date.isoformat() if end_date else None,
-                "remaining": _format_support_remaining(seconds_left, lang),
+                "remaining": _format_support_remaining(seconds_left, lang, self.i18n),
                 "tariff": tariff_name or (getattr(sub, "tariff_key", None) if sub else ""),
                 "traffic_regular": self._traffic_snapshot(
                     getattr(sub, "traffic_used_bytes", 0) if sub else 0,

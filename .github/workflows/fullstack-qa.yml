@@ -36,7 +36,7 @@ jobs:
           node-version: "22"
 
       - name: Install backend deps + pytest
-        run: pip install -r backend/requirements.txt pytest
+        run: pip install -r backend/requirements.txt "pytest>=9.1.1,<10"
 
       - name: Prepare dev stand env
         run: cp deploy/dev/remnawave-dev.env.example .env.remnawave-dev

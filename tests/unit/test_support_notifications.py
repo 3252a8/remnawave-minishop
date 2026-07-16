@@ -105,7 +105,7 @@ def test_admin_support_keyboard_uses_consistent_admin_links():
     ticket_button = keyboard.inline_keyboard[0][0]
     user_card_button = keyboard.inline_keyboard[1][1]
 
-    assert keyboard.inline_keyboard[0][0].text == "Открыть тикет"
+    assert keyboard.inline_keyboard[0][0].text == "Open ticket"
     assert ticket_button.url is None
     assert ticket_button.web_app.url == "https://app.example.com/app/admin/support/42"
     assert keyboard.inline_keyboard[1][0].url == "tg://user?id=100200300"
@@ -176,7 +176,7 @@ def test_user_support_keyboard_uses_web_app_button_when_configured():
     keyboard = service._support_user_keyboard(ticket, user)
     button = keyboard.inline_keyboard[0][0]
 
-    assert button.text == "Открыть тикет"
+    assert button.text == "Open ticket"
     assert button.url is None
     assert button.web_app.url == "https://app.example.com/app/support/42"
 
@@ -193,7 +193,7 @@ def test_user_support_keyboard_falls_back_to_startapp_url():
     keyboard = service._support_user_keyboard(ticket, user)
     button = keyboard.inline_keyboard[0][0]
 
-    assert button.text == "Открыть тикет"
+    assert button.text == "Open ticket"
     assert button.web_app is None
     assert button.url == "https://t.me/demo_bot?startapp=ticket_42"
 

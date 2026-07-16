@@ -613,7 +613,7 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
         assert yookassa.DEFERRED_EVENTS_KEY not in event_payload
         assert yookassa.DEFERRED_SUCCESS_MESSAGE_KEY not in event_payload
 
-    async def test_auto_renew_without_local_order_is_rejected(self):
+    async def test_auto_renew_without_verifiable_hwid_quote_is_rejected(self):
         valid_from = datetime(2099, 2, 1, tzinfo=UTC)
         valid_until = datetime(2099, 3, 1, tzinfo=UTC)
         payment = SimpleNamespace(
@@ -632,6 +632,7 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
             referred_by_id=None,
         )
         subscription_service = SimpleNamespace(
+            quote_subscription_renewal=AsyncMock(return_value=None),
             activate_subscription=AsyncMock(
                 return_value={
                     "subscription_id": 11,
@@ -639,7 +640,7 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
                     "hwid_devices_renewed_count": 2,
                     "hwid_devices_valid_until": valid_until,
                 }
-            )
+            ),
         )
         referral_service = SimpleNamespace(
             apply_referral_bonuses_for_payment=AsyncMock(return_value={})

@@ -40,6 +40,7 @@ from ..shared import (
 from ..shared import (
     sale_mode_tariff_key as _sale_mode_tariff_key,
 )
+from .legacy_auto_renew import ensure_legacy_auto_renew_payment
 
 if TYPE_CHECKING:
     from bot.services.referral_service import ReferralService
@@ -268,22 +269,35 @@ async def process_successful_payment(
         hwid_pricing_period_months = _metadata_int(metadata.get("hwid_pricing_period_months"))
         hwid_proration_ratio = _metadata_float(metadata.get("hwid_proration_ratio"))
         hwid_full_price = _metadata_float(metadata.get("hwid_full_price"))
-        # A successful provider event must always point to a local order created
-        # before the charge. Older auto-renew events did not have this id and
-        # reconstructed an order from the webhook amount, which made a monetary
-        # comparison impossible and could grant an underpaid renewal.
         if payment_db_id is None:
             if auto_renew_subscription_id_str:
-                logger.error(
-                    "Rejecting YooKassa auto-renew payment %s without local payment_db_id.",
+                legacy_subscription_id = parse_positive_int_units(auto_renew_subscription_id_str)
+                if legacy_subscription_id is None:
+                    raise ValueError("Invalid legacy auto-renew subscription id")
+                legacy_payment = await ensure_legacy_auto_renew_payment(
+                    session,
+                    provider_payment_id=str(yk_payment_id_from_hook or ""),
+                    user_id=user_id,
+                    subscription_id=legacy_subscription_id,
+                    metadata=metadata,
+                    description=str(
+                        payment_info_from_webhook.get("description")
+                        or "YooKassa subscription renewal"
+                    ),
+                    subscription_service=subscription_service,
+                )
+                payment_db_id = int(legacy_payment.payment_id)
+                logger.info(
+                    "Recovered legacy YooKassa auto-renew payment %s as local order %s.",
                     yk_payment_id_from_hook,
+                    payment_db_id,
                 )
             else:
                 logger.error(
                     "YooKassa payment %s has no local payment record after validation.",
                     yk_payment_id_from_hook,
                 )
-            return None
+                return None
 
         payment_record = await payment_dal.get_payment_by_db_id(session, payment_db_id)
         if not payment_record:
@@ -639,14 +653,28 @@ async def process_successful_payment(
 
         referral_bonus_info = None
         if sale_mode_base == "subscription":
-            referral_bonus_info = await referral_service.apply_referral_bonuses_for_payment(
-                session,
-                user_id,
-                months_for_activation or int(subscription_months) or 1,
-                current_payment_db_id=payment_db_id,
-                skip_if_active_before_payment=False,
-                tariff_key=effective_tariff_key,
-            )
+            try:
+                referral_savepoint = await session.begin_nested()
+                try:
+                    referral_bonus_info = await referral_service.apply_referral_bonuses_for_payment(
+                        session,
+                        user_id,
+                        months_for_activation or int(subscription_months) or 1,
+                        current_payment_db_id=payment_db_id,
+                        skip_if_active_before_payment=False,
+                        tariff_key=effective_tariff_key,
+                    )
+                except Exception:
+                    await referral_savepoint.rollback()
+                    raise
+                else:
+                    await referral_savepoint.commit()
+            except Exception:
+                referral_bonus_info = None
+                logger.exception(
+                    "YooKassa: referral bonus failed for payment %s; keeping the paid entitlement.",
+                    payment_db_id,
+                )
         if isinstance(referral_bonus_info, dict) and referral_bonus_info.get("event_payload"):
             deferred_events.append(
                 {

@@ -4,7 +4,11 @@
   import { Badge, Button, ScrollArea, Skeleton } from "$components/ui/index.js";
   import Card from "$components/ui/card.svelte";
   import { ArrowLeft } from "$components/ui/icons.js";
-  import { TicketComposer, TicketMessageBubble } from "$components/patterns/webapp/index.js";
+  import {
+    TicketComposer,
+    TicketMessageBubble,
+    TypingIndicator,
+  } from "$components/patterns/webapp/index.js";
   import {
     clearSupportDraft,
     readSupportDraft,
@@ -20,6 +24,8 @@
     created_at?: string;
     is_internal_note?: boolean;
     message_id?: number;
+    read_by_admin_at?: string | null;
+    read_by_user_at?: string | null;
   };
 
   type Props = {
@@ -50,6 +56,7 @@
   const messages = $derived(supportStore.messages);
   const detailLoading = $derived(supportStore.detailLoading);
   const sending = $derived(supportStore.sending);
+  const peerTyping = $derived(supportStore.peerTyping);
   const closed = $derived(["resolved", "closed"].includes(String(openedTicket?.status || "")));
   const ticketId = $derived(String(openedTicket?.ticket_id || ""));
   const draftScope = $derived(supportDraftScope(user));
@@ -203,6 +210,8 @@
                 {userAvatarUrl}
                 {userInitials}
                 authorName={messageAuthorName(message)}
+                readByUserAt={message.read_by_user_at}
+                readByAdminAt={message.read_by_admin_at}
                 {t}
               />
             {/each}
@@ -212,6 +221,10 @@
         </div>
       </ScrollArea>
 
+      {#if peerTyping && !closed}
+        <TypingIndicator label={t("wa_support_admin_typing")} />
+      {/if}
+
       <TicketComposer
         bind:value={reply}
         maxLength={maxBodyLength}
@@ -220,6 +233,7 @@
         placeholder={closed ? t("wa_support_closed_hint") : t("wa_support_reply_placeholder")}
         sendLabel={t("wa_support_send")}
         onSend={send}
+        onTyping={supportStore.notifyTyping}
       />
     </Card>
   {/if}

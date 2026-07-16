@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 from bot.app.web.admin_api_impl import users as admin_users
 from bot.app.web.admin_api_impl import users_actions
+from bot.app.web.admin_api_impl.common import _admin_subscription_traffic_strategy_fallback
 from tests.support.settings_stub import settings_stub
 
 
@@ -70,6 +71,28 @@ def _active_subscription(**overrides):
 
 
 class AdminUserTrafficStrategyRouteTests(unittest.IsolatedAsyncioTestCase):
+    def test_user_card_fallback_uses_period_tariff_strategy(self):
+        settings = settings_stub(
+            USER_TRAFFIC_STRATEGY="DAY",
+            tariffs_config=FakeTariffsConfig(
+                [
+                    SimpleNamespace(
+                        key="standard",
+                        billing_model="period",
+                        traffic_limit_strategy="WEEK",
+                    )
+                ]
+            ),
+        )
+
+        self.assertEqual(
+            _admin_subscription_traffic_strategy_fallback(
+                settings,
+                _active_subscription(),
+            ),
+            "WEEK",
+        )
+
     async def test_period_tariff_strategy_updates_panel_and_clears_local_period_anchors(self):
         session = FakeSession()
         panel_service = SimpleNamespace(

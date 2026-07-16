@@ -78,7 +78,7 @@
       </span>
       <div class="admin-action-save-controls">
         {#if tariffActionDirty}
-          <AdminBadge variant="warning">{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge>
+          <AdminBadge variant="warning">{at("settings_badge_dirty", {}, "Changed")}</AdminBadge>
         {/if}
         <AdminButton
           variant="primary"
@@ -93,14 +93,14 @@
     {#if tariffActionDirty}
       <div class="admin-override-status-lines">
         <span class="admin-unsaved-hint">
-          {at("user_action_unsaved_hint", {}, "Есть несохранённые изменения")}
+          {at("user_action_unsaved_hint", {}, "Unsaved changes in this card")}
         </span>
         {#if tariffHwidLimitChangeAvailable}
           <span class="admin-muted">
             {at(
               "user_tariff_hwid_confirm_hint",
               {},
-              "Ручной HWID-лимит будет сохранён; можно применить лимит тарифа перед сохранением."
+              "The manual HWID limit will be preserved; you can apply the tariff limit before saving."
             )}
           </span>
         {/if}

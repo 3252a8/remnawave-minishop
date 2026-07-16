@@ -231,24 +231,28 @@ async def my_subscription_command_handler(
         premium_used = int(active.get("premium_used_bytes") or 0)
         premium_left = max(0, premium_limit - premium_used)
         premium_balance = int(active.get("premium_topup_balance_bytes") or 0)
-        premium_status = "ограничен" if active.get("premium_is_limited") else "активен"
+        premium_status = get_text(
+            "premium_status_limited"
+            if active.get("premium_is_limited")
+            else "premium_status_active"
+        )
         labels = active.get("premium_node_labels") or active.get("premium_squad_labels") or []
         if labels:
             visible = [html.escape(str(label)) for label in labels[:8]]
             label_block = "\n".join(f"• {label}" for label in visible)
             if len(labels) > len(visible):
-                label_block += f"\n• ... еще {len(labels) - len(visible)}"
+                label_block += "\n" + get_text(
+                    "premium_servers_more", count=len(labels) - len(visible)
+                )
         else:
-            label_block = "• premium-серверы тарифа"
-        text += (
-            "\n\n🚀 <b>Premium-серверы</b>\n"
-            f"Статус: <b>{premium_status}</b>\n"
-            f"Лимит: <b>{_format_premium_usage_limit(active)}</b>\n"
-            f"Осталось: <b>{premium_left / 2**30:.2f} GB</b>\n"
-            f"Докупленный остаток: <b>{premium_balance / 2**30:.2f} GB</b>\n"
-            "Отдельный лимит действует на:\n"
-            f"{label_block}\n\n"
-            "Premium-докупка не сгорает: сначала расходуется месячный лимит premium-серверов, затем докупленный premium-трафик."  # noqa: E501
+            label_block = get_text("premium_servers_generic")
+        text += "\n\n" + get_text(
+            "subscription_premium_details",
+            status=premium_status,
+            usage=_format_premium_usage_limit(active, get_text),
+            remaining=f"{premium_left / 2**30:.2f} GB",
+            balance=f"{premium_balance / 2**30:.2f} GB",
+            servers=label_block,
         )
 
     base_markup = get_back_to_main_menu_markup(
@@ -422,14 +426,20 @@ async def my_subscription_command_handler(
             tariff_actions = []
             if _has_multiple_enabled_tariffs(settings):
                 tariff_actions.append(
-                    InlineKeyboardButton(text="Сменить тариф", callback_data="tariff_change:list")
+                    InlineKeyboardButton(
+                        text=get_text("tariff_change_button"),
+                        callback_data="tariff_change:list",
+                    )
                 )
             # Mirror the web app: the top-up offer stays hidden until usage
             # crosses the unlock threshold (unless the tariff allows it always).
             topup_availability = resolve_traffic_topup_availability(settings, active)
             if topup_availability.unlocked:
                 tariff_actions.append(
-                    InlineKeyboardButton(text="Докупить трафик", callback_data="tariff_topup:list")
+                    InlineKeyboardButton(
+                        text=get_text("traffic_topup_button"),
+                        callback_data="tariff_topup:list",
+                    )
                 )
             if tariff_actions:
                 prepend_rows.append(tariff_actions)

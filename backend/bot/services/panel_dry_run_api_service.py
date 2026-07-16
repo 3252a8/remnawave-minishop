@@ -24,7 +24,6 @@ _INTERNAL_SQUAD_BULK_RE = re.compile(
     r"^/internal-squads/(?P<squad_uuid>[^/]+)/bulk-actions/"
     r"(?P<action>add-users|remove-users)$"
 )
-_LIVE_POST_ENDPOINTS = frozenset({"/system/tools/happ/encrypt"})
 _KNOWN_TRAFFIC_STRATEGIES = REMNAWAVE_TRAFFIC_LIMIT_STRATEGIES
 
 # Constant path templates for intercepted endpoints. The logged path is rebuilt
@@ -110,7 +109,7 @@ class PanelDryRunApiService(PanelApiService):
     ) -> dict[str, Any] | None:
         method_upper = method.upper()
         normalized_endpoint = self._normalize_endpoint(endpoint)
-        if not self._should_intercept(method_upper, normalized_endpoint):
+        if not self._should_intercept(method_upper):
             result = await super()._request(
                 method_upper,
                 endpoint,
@@ -263,10 +262,8 @@ class PanelDryRunApiService(PanelApiService):
         )
 
     @staticmethod
-    def _should_intercept(method: str, endpoint: str) -> bool:
-        if method in PanelApiService._SAFE_METHODS:
-            return False
-        return not (method == "POST" and endpoint in _LIVE_POST_ENDPOINTS)
+    def _should_intercept(method: str) -> bool:
+        return method not in PanelApiService._SAFE_METHODS
 
     async def _validate_dry_run_request(
         self,

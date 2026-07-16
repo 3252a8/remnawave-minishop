@@ -1,6 +1,7 @@
 import asyncio
 import time
 import unittest
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import ClassVar
 from unittest.mock import AsyncMock, patch
@@ -193,6 +194,21 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         payload = service._request.await_args.kwargs["json"]
         self.assertEqual(payload["trafficLimitStrategy"], "MONTH")
 
+    async def test_create_panel_user_uses_exact_expiry_and_hwid_limit(self):
+        service = self._make_service()
+        service._request = AsyncMock(return_value={"response": {"uuid": "user-uuid"}})
+        expire_at = datetime(2026, 2, 3, 4, 5, 6, 789000, tzinfo=UTC)
+
+        await service.create_panel_user(
+            username_on_panel="tg_42",
+            expire_at=expire_at,
+            hwid_device_limit=4,
+        )
+
+        payload = service._request.await_args.kwargs["json"]
+        self.assertEqual(payload["expireAt"], "2026-02-03T04:05:06.789Z")
+        self.assertEqual(payload["hwidDeviceLimit"], 4)
+
     async def test_update_user_details_normalizes_legacy_traffic_strategy(self):
         service = self._make_service()
         service._request = AsyncMock(return_value={"response": {"uuid": "user-uuid"}})
@@ -220,6 +236,22 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         await service.get_user_by_uuid("user-uuid")
 
         self.assertEqual(service._request.await_count, 3)
+
+    async def test_get_user_by_uuid_can_bypass_stale_cache_for_verification(self):
+        service = self._make_service()
+        service._request = AsyncMock(
+            side_effect=[
+                {"response": {"uuid": "user-uuid", "trafficLimitBytes": 100}},
+                {"response": {"uuid": "user-uuid", "trafficLimitBytes": 200}},
+            ]
+        )
+
+        cached = await service.get_user_by_uuid("user-uuid")
+        fresh = await service.get_user_by_uuid("user-uuid", use_cache=False)
+
+        self.assertEqual(cached["trafficLimitBytes"], 100)
+        self.assertEqual(fresh["trafficLimitBytes"], 200)
+        self.assertEqual(service._request.await_count, 2)
 
     async def test_get_user_by_uuid_lookup_returns_success_payload(self):
         service = self._make_service()

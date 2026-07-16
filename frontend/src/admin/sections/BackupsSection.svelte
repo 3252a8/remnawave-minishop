@@ -98,11 +98,11 @@
   );
   const backupHeaders = $derived([
     "",
-    at("backups_col_archive", {}, "Архив"),
-    at("backups_col_created", {}, "Создан"),
-    at("backups_col_size", {}, "Размер"),
-    at("backups_col_contents", {}, "Состав"),
-    at("backups_col_warnings", {}, "Предупреждения"),
+    at("backups_col_archive", {}, "Archive"),
+    at("backups_col_created", {}, "Created"),
+    at("backups_col_size", {}, "Size"),
+    at("backups_col_contents", {}, "Contents"),
+    at("backups_col_warnings", {}, "Warnings"),
   ]);
 
   function formatSize(sizeBytes: number): string {
@@ -122,8 +122,8 @@
 
   function selectedComponentsText(): string {
     const parts = [];
-    if (restoreDatabase) parts.push(at("backups_target_database", {}, "БД"));
-    if (restoreCompose) parts.push(at("backups_target_compose", {}, "compose-папку"));
+    if (restoreDatabase) parts.push(at("backups_target_database", {}, "Database"));
+    if (restoreCompose) parts.push(at("backups_target_compose", {}, "compose folder"));
     return parts.join(" + ");
   }
 
@@ -165,7 +165,7 @@
     const confirmText = at(
       "backups_restore_confirm",
       { name: selectedName, components: selectedComponentsText() },
-      `Запустить восстановление из ${selectedName}?`
+      "Start restore from {name}: {components}?"
     );
     if (typeof window !== "undefined" && !window.confirm(confirmText)) return;
 
@@ -187,19 +187,19 @@
     <div class="backups-toolbar-main">
       <AdminButton onclick={() => backupsStore.loadArchives()} disabled={backupsLoading}>
         <RefreshCw size={14} />
-        {at("btn_refresh", {}, "Обновить")}
+        {at("btn_refresh", {}, "Refresh")}
       </AdminButton>
       <AdminButton onclick={createManualBackup} disabled={backupsCreating || backupsRestoring}>
         <Plus size={14} />
         {backupsCreating
-          ? at("backups_creating", {}, "Создание...")
-          : at("backups_create", {}, "Создать бэкап")}
+          ? at("backups_creating", {}, "Creating...")
+          : at("backups_create", {}, "Create backup")}
       </AdminButton>
       <AdminButton onclick={() => fileInput?.click()} disabled={backupsUploading}>
         <Upload size={14} />
         {backupsUploading
-          ? at("backups_uploading", {}, "Загрузка...")
-          : at("backups_upload", {}, "Загрузить архив")}
+          ? at("backups_uploading", {}, "Uploading...")
+          : at("backups_upload", {}, "Upload archive")}
       </AdminButton>
       <FileInput
         bind:element={fileInput}
@@ -209,7 +209,7 @@
       />
     </div>
     <div class="admin-toolbar-summary">
-      <span class="admin-toolbar-field-label">{at("backups_dir", {}, "Каталог")}</span>
+      <span class="admin-toolbar-field-label">{at("backups_dir", {}, "Directory")}</span>
       <strong class="backups-dir">{backupDir || "data/backups"}</strong>
     </div>
   </div>
@@ -217,7 +217,7 @@
   <article class="admin-card backups-restore-card">
     <header class="admin-card-head">
       <div>
-        <h3>{at("backups_restore_title", {}, "Восстановление")}</h3>
+        <h3>{at("backups_restore_title", {}, "Restore")}</h3>
         {#if selectedArchive}
           <small class="backups-selected-name">{selectedArchive.name}</small>
         {/if}
@@ -225,7 +225,7 @@
       {#if lastRestore}
         <AdminBadge variant="success">
           <CheckCircle2 size={12} />
-          {at("backups_last_restore_done", {}, "Готово")}
+          {at("backups_last_restore_done", {}, "Done")}
         </AdminBadge>
       {/if}
     </header>
@@ -234,25 +234,25 @@
         <Checkbox
           bind:checked={restoreDatabase}
           disabled={!selectedArchive?.has_database || backupsRestoring}
-          ariaLabel={at("backups_target_database", {}, "БД")}
+          ariaLabel={at("backups_target_database", {}, "Database")}
         />
         <Database size={16} />
-        <span>{at("backups_target_database", {}, "БД")}</span>
+        <span>{at("backups_target_database", {}, "Database")}</span>
       </label>
       <label class="backups-check" class:is-disabled={!selectedArchive?.has_compose}>
         <Checkbox
           bind:checked={restoreCompose}
           disabled={!selectedArchive?.has_compose || backupsRestoring}
-          ariaLabel={at("backups_target_compose", {}, "compose-папка")}
+          ariaLabel={at("backups_target_compose", {}, "compose folder")}
         />
         <Server size={16} />
-        <span>{at("backups_target_compose", {}, "compose-папка")}</span>
+        <span>{at("backups_target_compose", {}, "compose folder")}</span>
       </label>
       <AdminButton variant="danger" onclick={restoreSelected} disabled={!canRestore}>
         <RefreshCw size={14} />
         {backupsRestoring
-          ? at("backups_restoring", {}, "Восстановление...")
-          : at("backups_restore_run", {}, "Запустить")}
+          ? at("backups_restoring", {}, "Restoring...")
+          : at("backups_restore_run", {}, "Start")}
       </AdminButton>
     </div>
     {#if lastRestore?.compose_pre_restore_archive}
@@ -260,7 +260,7 @@
         {at(
           "backups_pre_restore_snapshot",
           { path: lastRestore.compose_pre_restore_archive },
-          "Текущая compose-папка сохранена перед заменой."
+          "Current compose folder was saved before replacement: {path}"
         )}
       </div>
     {/if}
@@ -275,7 +275,7 @@
       />
     {:else if !archives?.length}
       <AdminEmptyState tone="card">
-        <span class="admin-muted">{at("backups_empty", {}, "Архивов пока нет")}</span>
+        <span class="admin-muted">{at("backups_empty", {}, "No archives yet")}</span>
       </AdminEmptyState>
     {:else}
       <RadioGroup
@@ -287,18 +287,18 @@
         <AdminTable class="backups-table">
           <thead>
             <tr>
-              <th aria-label={at("select", {}, "Выбрать")}></th>
-              <th>{at("backups_col_archive", {}, "Архив")}</th>
-              <th>{at("backups_col_created", {}, "Создан")}</th>
-              <th>{at("backups_col_size", {}, "Размер")}</th>
-              <th>{at("backups_col_contents", {}, "Состав")}</th>
-              <th>{at("backups_col_warnings", {}, "Предупреждения")}</th>
+              <th aria-label={at("select", {}, "Select")}></th>
+              <th>{at("backups_col_archive", {}, "Archive")}</th>
+              <th>{at("backups_col_created", {}, "Created")}</th>
+              <th>{at("backups_col_size", {}, "Size")}</th>
+              <th>{at("backups_col_contents", {}, "Contents")}</th>
+              <th>{at("backups_col_warnings", {}, "Warnings")}</th>
             </tr>
           </thead>
           <tbody>
             {#each backupsTable.rows as archive (archive.name)}
               <tr class:is-selected={archive.name === selectedName}>
-                <td data-label={at("select", {}, "Выбрать")}>
+                <td data-label={at("select", {}, "Select")}>
                   <RadioGroupItem
                     value={archive.name}
                     ariaLabel={archive.name}
@@ -307,20 +307,20 @@
                 </td>
                 <td
                   class="admin-cell-wrap backups-name"
-                  data-label={at("backups_col_archive", {}, "Архив")}
+                  data-label={at("backups_col_archive", {}, "Archive")}
                 >
                   {archive.name}
                 </td>
-                <td data-label={at("backups_col_created", {}, "Создан")}
+                <td data-label={at("backups_col_created", {}, "Created")}
                   >{fmtDate(archiveDate(archive))}</td
                 >
-                <td data-label={at("backups_col_size", {}, "Размер")}
+                <td data-label={at("backups_col_size", {}, "Size")}
                   >{formatSize(archive.size_bytes)}</td
                 >
-                <td data-label={at("backups_col_contents", {}, "Состав")}>
+                <td data-label={at("backups_col_contents", {}, "Contents")}>
                   <span class="backups-badges">
                     {#if archive.has_database}
-                      <AdminBadge variant="success">{at("backups_badge_db", {}, "БД")}</AdminBadge>
+                      <AdminBadge variant="success">{at("backups_badge_db", {}, "DB")}</AdminBadge>
                     {/if}
                     {#if archive.has_compose}
                       <AdminBadge variant="muted">
@@ -329,7 +329,7 @@
                     {/if}
                   </span>
                 </td>
-                <td data-label={at("backups_col_warnings", {}, "Предупреждения")}>
+                <td data-label={at("backups_col_warnings", {}, "Warnings")}>
                   {#if archive.warnings?.length}
                     <Tooltip.Root>
                       <Tooltip.Trigger
@@ -360,13 +360,13 @@
         <AdminPagination
           meta={backupsMeta}
           table={backupsTable}
-          pageLabel={at("page_short", {}, "Стр.")}
-          ofLabel={at("pagination_of", {}, "из")}
-          jumpLabel={at("page_short", {}, "Стр.")}
-          jumpAriaLabel={at("pagination_jump_aria", {}, "Перейти к странице")}
-          goLabel={at("pagination_go", {}, "Перейти")}
-          prevLabel={at("pagination_prev", {}, "Назад")}
-          nextLabel={at("pagination_next", {}, "Далее")}
+          pageLabel={at("page_short", {}, "Page")}
+          ofLabel={at("pagination_of", {}, "of")}
+          jumpLabel={at("page_short", {}, "Page")}
+          jumpAriaLabel={at("pagination_jump_aria", {}, "Go to page")}
+          goLabel={at("pagination_go", {}, "Go")}
+          prevLabel={at("pagination_prev", {}, "Back")}
+          nextLabel={at("pagination_next", {}, "Next")}
         />
       {/if}
     {/if}

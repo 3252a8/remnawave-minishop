@@ -27,6 +27,7 @@ export interface TariffDraft extends UnknownRecord {
   topup_always_available: boolean;
   premium_topup_always_available: boolean;
   monthly_gb: string | number;
+  traffic_limit_strategy: string;
   premium_monthly_gb: string | number;
   hwid_device_limit: string | number;
   conversion_rate_rub_per_gb: string | number;
@@ -87,6 +88,7 @@ export function emptyTariffDraft(): TariffDraft {
     topup_always_available: false,
     premium_topup_always_available: false,
     monthly_gb: 500,
+    traffic_limit_strategy: "MONTH",
     premium_monthly_gb: "",
     hwid_device_limit: "",
     conversion_rate_rub_per_gb: "",
@@ -234,6 +236,7 @@ export function draftFromTariff(tariff: UnknownRecord, defaultCurrency = "rub"):
     topup_always_available: tariff.topup_always_available === true,
     premium_topup_always_available: tariff.premium_topup_always_available === true,
     monthly_gb: scalarDraftValue(tariff.monthly_gb),
+    traffic_limit_strategy: String(tariff.traffic_limit_strategy || ""),
     premium_monthly_gb: scalarDraftValue(tariff.premium_monthly_gb),
     hwid_device_limit: scalarDraftValue(tariff.hwid_device_limit),
     conversion_rate_rub_per_gb: scalarDraftValue(tariff.conversion_rate_rub_per_gb),
@@ -379,6 +382,8 @@ export function tariffFromDraft(draft: TariffDraft, fallbackCurrency = "rub"): U
   tariff.premium_topup_always_available = Boolean(draft.premium_topup_always_available);
 
   if (tariff.billing_model === "period") {
+    const trafficLimitStrategy = String(draft.traffic_limit_strategy || "").trim();
+    if (trafficLimitStrategy) tariff.traffic_limit_strategy = trafficLimitStrategy;
     const seenMonths = new Set();
     const rows = (draft.periodRows || [])
       .map((row) => ({

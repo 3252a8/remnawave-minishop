@@ -69,13 +69,14 @@ class TariffWorkerRegularMixin:
             panel_view: str = "unknown",
         ) -> None: ...
         async def _user_lang(self, session: AsyncSession, user_id: int) -> str: ...
-        def _period_tariff_traffic_strategy(self) -> str: ...
+        def _period_tariff_traffic_strategy(self, tariff: Any | None = None) -> str: ...
         def _usage_placeholders(self, used_bytes: int, limit_bytes: int) -> dict: ...
         def _panel_next_traffic_reset_at(
             self,
             panel_user_data: dict[str, Any] | None,
             *,
             now: datetime | None = None,
+            fallback_strategy: str | None = None,
         ) -> datetime | None: ...
         def _traffic_next_reset_note(
             self,
@@ -86,6 +87,7 @@ class TariffWorkerRegularMixin:
             reset_available_bytes: int,
             user_lang: str,
             next_reset_at: datetime | None = None,
+            traffic_strategy: str | None = None,
         ) -> str: ...
         def _traffic_topup_markup(
             self, user_lang: str, kind: str
@@ -208,7 +210,7 @@ class TariffWorkerRegularMixin:
                 ) = self.subscription_service._extract_panel_traffic_details(panel_data)
                 effective_strategy = panel_traffic_limit_strategy(
                     panel_data,
-                    self._period_tariff_traffic_strategy(),
+                    self._period_tariff_traffic_strategy(tariff),
                 )
                 panel_status = str(panel_data.get("status") or "").upper()
                 panel_username = (
@@ -224,7 +226,7 @@ class TariffWorkerRegularMixin:
                 if not trial_premium_subscription and tariff.billing_model == "period":
                     previous_regular_period_start = getattr(sub, "period_start_at", None)
                     warning_period_start = traffic_accounting_period_start(
-                        self._period_tariff_traffic_strategy(),
+                        effective_strategy,
                         now,
                         subscription_start_at=getattr(sub, "start_date", None),
                         previous_period_start_at=previous_regular_period_start,
@@ -244,7 +246,11 @@ class TariffWorkerRegularMixin:
                 else:
                     warning_period_start = None
                 if not trial_premium_subscription:
-                    panel_next_reset_at = self._panel_next_traffic_reset_at(panel_data, now=now)
+                    panel_next_reset_at = self._panel_next_traffic_reset_at(
+                        panel_data,
+                        now=now,
+                        fallback_strategy=effective_strategy,
+                    )
                     await self._sync_hwid_device_limit(session, sub, tariff, panel_data)
                     await self._maybe_warn_or_throttle(
                         session,
@@ -600,6 +606,7 @@ class TariffWorkerRegularMixin:
                 reset_available_bytes=limit_val,
                 user_lang=user_lang,
                 next_reset_at=next_reset_at,
+                traffic_strategy=self._period_tariff_traffic_strategy(tariff),
             )
             if level < 100:
                 text = _(

@@ -5,9 +5,11 @@ from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
     get_session_factory,
+    get_settings,
     get_support_service,
 )
-from bot.app.web.support_schemas import SupportMessageOut, SupportTicketOut
+from bot.app.web.support_schemas import SupportMessageOut, SupportTicketOut, SupportTypingIn
+from bot.services.support_presence import is_support_typing, set_support_typing
 from bot.services.support_service import TicketForbidden, TicketNotFound, TicketRateLimited
 from db.dal import support_dal, user_dal
 from db.models import SupportTicket, SupportTicketMessage
@@ -88,11 +90,13 @@ async def support_ticket_detail_route(request: web.Request) -> web.Response:
         ticket, messages = await support_dal.get_ticket(session, ticket_id, include_internal=False)
         if not ticket or ticket.user_id != user_id:
             return _json_error(404, "not_found", "Ticket not found")
+    peer_typing = await is_support_typing(get_settings(request), ticket_id, "admin")
     return json_response(
         {
             "ok": True,
             "ticket": _support_ticket_payload(ticket),
             "messages": [_support_message_payload(m) for m in messages],
+            "peer_typing": peer_typing,
         }
     )
 
@@ -108,6 +112,7 @@ async def support_ticket_reply_route(request: web.Request) -> web.Response:
         return _json_error(403, "ticket_forbidden", "Support ticket action is forbidden")
     except TicketNotFound:
         return _json_error(404, "not_found", "Ticket not found")
+    await set_support_typing(get_settings(request), ticket_id, "user", typing=False)
     return json_response(
         {
             "ok": True,
@@ -125,6 +130,19 @@ async def support_ticket_read_route(request: web.Request) -> web.Response:
         await service.mark_read_as_user(user_id, ticket_id)
     except TicketNotFound:
         return _json_error(404, "not_found", "Ticket not found")
+    return json_response({"ok": True})
+
+
+async def support_ticket_typing_route(request: web.Request) -> web.Response:
+    user_id = _require_user_id(request)
+    ticket_id = int(request.match_info["id"])
+    payload = await _parse_model_payload(request, SupportTypingIn)
+    async_session_factory: sessionmaker = get_session_factory(request)
+    async with async_session_factory() as session:
+        ticket = await session.get(SupportTicket, ticket_id)
+        if not ticket or ticket.user_id != user_id:
+            return _json_error(404, "not_found", "Ticket not found")
+    await set_support_typing(get_settings(request), ticket_id, "user", typing=payload.typing)
     return json_response({"ok": True})
 
 

@@ -16,7 +16,7 @@ services:
       - "127.0.0.1:${DEV_POSTGRES_PORT:-6768}:5432"
 
   remnawave:
-    image: remnawave/backend:${REMNAWAVE_DEV_VERSION:-2.8.0}
+    image: remnawave/backend:${REMNAWAVE_DEV_VERSION:-2.8.1}
     container_name: remnawave-dev-panel
     hostname: remnawave
     restart: unless-stopped
@@ -30,7 +30,8 @@ services:
       API_INSTANCES: "1"
       DATABASE_URL: postgresql://postgres:postgres@remnawave-db:5432/postgres
       REDIS_SOCKET: /var/run/valkey/valkey.sock
-      JWT_AUTH_SECRET: ${REMNAWAVE_DEV_JWT_AUTH_SECRET:-dev_remnawave_jwt_auth_secret_change_me_64_chars_minimum_local_only}
+      APP_SECRET: ${REMNAWAVE_DEV_APP_SECRET:-dev_remnawave_jwt_auth_secret_change_me_64_chars_minimum_local_only}
+      JWT_AUTH_SECRET: ${REMNAWAVE_DEV_APP_SECRET:-dev_remnawave_jwt_auth_secret_change_me_64_chars_minimum_local_only}
       JWT_API_TOKENS_SECRET: ${REMNAWAVE_DEV_JWT_API_TOKENS_SECRET:-dev_remnawave_jwt_api_tokens_secret_change_me_64_chars_local_only}
       PANEL_DOMAIN: localhost:3000
       FRONT_END_DOMAIN: http://127.0.0.1:3000

@@ -387,7 +387,7 @@ async def process_delete_user_confirmation_handler(
         return
 
     confirmation_input = (message.text or "").strip() if message.text else ""
-    if confirmation_input.lower() in {"/cancel", "cancel", "отмена"}:
+    if confirmation_input.lower() in {"/cancel", "cancel"}:
         await message.answer(
             _(
                 "admin_user_delete_cancelled",

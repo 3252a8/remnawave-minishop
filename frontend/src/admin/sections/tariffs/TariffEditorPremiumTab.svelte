@@ -51,39 +51,38 @@
     <header class="admin-editor-section-head">
       <div class="admin-editor-section-title">
         <strong
-          >{at("tariff_premium_head", {}, "Premium-доступ и отдельный счётчик трафика")}</strong
+          >{at("tariff_premium_head", {}, "Premium access and a separate traffic counter")}</strong
         >
         <small
           >{at(
             "tariff_premium_subhead",
             {},
-            "Premium-сквады дают пользователю доступ к более быстрым/премиальным нодам; их трафик считается отдельно от основного, чтобы можно было ограничить или продавать дополнительно"
+            "Premium squads give the user access to faster/premium nodes; their traffic is counted separately from main traffic so it can be limited or sold separately"
           )}</small
         >
       </div>
     </header>
     <div class="admin-form-row admin-form-row-2">
       <Label.Root class="admin-field-label">
-        <span>{at("tariff_label_premium_name_ru", {}, "Название premium-раздела, RU")}</span>
+        <span>{at("tariff_label_premium_name_ru", {}, "Premium section name, RU")}</span>
         <small
           >{at(
             "tariff_hint_premium_name_ru",
             {},
-            "Эта строка заменит «Premium-серверы» в кабинете, докупках и карточках лимитов."
+            'This text replaces "Premium servers" in the account, top-ups, and limit cards.'
           )}</small
         >
         <Input
           class="input"
           type="text"
-          placeholder={at("tariff_placeholder_premium_name_ru", {}, "Premium-серверы")}
+          placeholder={at("tariff_placeholder_premium_name_ru", {}, "Premium servers")}
           value={tariffDraft.premiumNameRu}
           oninput={draftInputHandler(tariffsStore, "premiumNameRu")}
         />
       </Label.Root>
       <Label.Root class="admin-field-label">
-        <span>{at("tariff_label_premium_name_en", {}, "Название premium-раздела, EN")}</span>
-        <small
-          >{at("tariff_hint_premium_name_en", {}, "Опционально для английского интерфейса.")}</small
+        <span>{at("tariff_label_premium_name_en", {}, "Premium section name, EN")}</span>
+        <small>{at("tariff_hint_premium_name_en", {}, "Optional for the English interface.")}</small
         >
         <Input
           class="input"
@@ -101,14 +100,14 @@
           >{at(
             "tariff_hint_premium_squads",
             {},
-            "Сквады из Remnawave, доступные только владельцам этого тарифа. Трафик считается по их accessible nodes"
+            "Remnawave squads available only to owners of this tariff. Traffic is counted by their accessible nodes"
           )}</small
         >
         <AdminSelect
           bind:value={tariffsStore.selectedPremiumSquad}
           items={panelSquadOptions}
-          placeholder={at("btn_add_premium_squad", {}, "Добавить premium-сквад")}
-          ariaLabel={at("btn_add_premium_squad", {}, "Добавить premium-сквад")}
+          placeholder={at("btn_add_premium_squad", {}, "Add premium squad")}
+          ariaLabel={at("btn_add_premium_squad", {}, "Add premium squad")}
           onValueChange={addPremiumSquad}
         />
         <div class="admin-chip-list">
@@ -126,17 +125,13 @@
       </div>
       <Label.Root class="admin-field-label">
         <span
-          >{at(
-            "tariff_label_premium_traffic_limit",
-            {},
-            "Месячный лимит premium-трафика, GB"
-          )}</span
+          >{at("tariff_label_premium_traffic_limit", {}, "Monthly premium traffic limit, GB")}</span
         >
         <small
           >{at(
             "tariff_hint_premium_traffic_limit",
             {},
-            "Сколько GB через premium-сквады включено в тариф каждый месяц. 0 или пусто — отдельного premium-лимита нет (premium-нодами можно пользоваться без ограничения)"
+            "How many GB through premium squads are included each month. 0 or empty means there is no separate premium limit"
           )}</small
         >
         <Input
@@ -155,18 +150,18 @@
   <section class="admin-editor-section">
     <header class="admin-editor-section-head">
       <div class="admin-editor-section-title">
-        <strong>{at("tariff_premium_topup_title", {}, "Докупка premium-трафика")}</strong>
+        <strong>{at("tariff_premium_topup_title", {}, "Premium traffic top-up")}</strong>
         <small
           >{at(
             "tariff_premium_topup_subtitle",
             {},
-            "Пакеты для расширения месячного premium-лимита, когда пользователь его исчерпал"
+            "Packages that extend the monthly premium limit when the user runs out"
           )}</small
         >
       </div>
       <div class="admin-editor-section-actions">
         <AdminButton size="sm" onclick={addPremiumTopupRow}
-          ><Plus size={12} /> {at("tariff_btn_package", {}, "Пакет")}</AdminButton
+          ><Plus size={12} /> {at("tariff_btn_package", {}, "Package")}</AdminButton
         >
       </div>
     </header>
@@ -181,12 +176,12 @@
         <Switch.Thumb class="admin-switch-thumb" />
       </Switch.Root>
       <Label.Root id="tariff-premium-topup-always-toggle-label" class="admin-action-label">
-        <strong>{at("tariff_premium_topup_always_label", {}, "Докупка доступна всегда")}</strong>
+        <strong>{at("tariff_premium_topup_always_label", {}, "Top-up always available")}</strong>
         <small
           >{at(
             "tariff_premium_topup_always_hint",
             {},
-            "По умолчанию докупка premium-трафика появляется у пользователя (в мини-аппе и в меню бота), когда израсходовано не менее 80% premium-лимита. Включите, чтобы предложение показывалось независимо от процента расхода."
+            "By default, premium traffic top-up appears to the user (in the mini app and bot menu) after at least 80% of the premium limit is used. Enable this to show the offer regardless of usage percentage."
           )}</small
         >
       </Label.Root>
@@ -195,16 +190,16 @@
       <div class="admin-row-editor">
         <div class="admin-row-editor-line admin-row-editor-drag admin-row-editor-header">
           <span></span>
-          <span>{at("tariff_col_volume_gb", {}, "Объём, GB")}</span>
+          <span>{at("tariff_col_volume_gb", {}, "Volume, GB")}</span>
           <span>{currencyPriceColumnLabel}</span>
-          <span>{at("tariff_col_price_stars_full", {}, "Цена, ⭐ Stars")}</span>
+          <span>{at("tariff_col_price_stars_full", {}, "Price, ⭐ Stars")}</span>
           <span></span>
         </div>
         <Sortable
           items={tariffDraft.premiumTopupRows}
           class="admin-row-editor-line admin-row-editor-drag"
           getKey={draftRowKey}
-          handleLabel={at("tariff_package_reorder", {}, "Перетащите, чтобы изменить порядок")}
+          handleLabel={at("tariff_package_reorder", {}, "Drag to reorder")}
           onReorder={movePremiumTopupRow}
         >
           {#snippet children(row: DraftRow, index: number)}
@@ -216,7 +211,7 @@
               placeholder="10"
               value={row.gb}
               oninput={draftRowInputHandler(tariffsStore, "premiumTopupRows", index, "gb")}
-              aria-label={at("tariff_col_volume_gb", {}, "Объём premium-пакета в GB")}
+              aria-label={at("tariff_col_volume_gb", {}, "Volume, GB")}
             />
             <Input
               class="input"
@@ -236,17 +231,13 @@
               placeholder="100"
               value={row.stars}
               oninput={draftRowInputHandler(tariffsStore, "premiumTopupRows", index, "stars")}
-              aria-label={at(
-                "tariff_label_price_stars",
-                {},
-                "Цена premium-пакета в Telegram Stars"
-              )}
+              aria-label={at("tariff_label_price_stars", {}, "Price in Telegram Stars")}
             />
             <AdminButton
               size="sm"
               variant="danger"
               onclick={() => tariffsStore.removeDraftRow("premiumTopupRows", index)}
-              aria-label={at("btn_delete", {}, "Удалить")}><Trash2 size={13} /></AdminButton
+              aria-label={at("btn_delete", {}, "Delete")}><Trash2 size={13} /></AdminButton
             >
           {/snippet}
         </Sortable>

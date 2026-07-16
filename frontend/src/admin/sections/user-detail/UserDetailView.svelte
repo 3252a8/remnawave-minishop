@@ -177,17 +177,15 @@
 
 <Dialog
   open={Boolean(openedUser)}
-  title={openedUser
-    ? at("user_detail_title", { id: openedUser.user_id }, `Пользователь #${openedUser.user_id}`)
-    : ""}
+  title={openedUser ? at("user_detail_title", { id: openedUser.user_id }, "User #{id}") : ""}
   description={openedUser?.username ? "@" + openedUser.username : ""}
-  closeLabel={at("close", {}, "Закрыть")}
+  closeLabel={at("close", {}, "Close")}
   onclose={onClose}
   class="admin-dialog admin-user-dialog"
 >
   {#if openedUser}
     {#if userDetailLoading || !openedUserDetail}
-      <p class="admin-muted">{at("loading", {}, "Загрузка…")}</p>
+      <p class="admin-muted">{at("loading", {}, "Loading…")}</p>
     {:else}
       <div class="admin-user-dialog-body">
         <UserDetailAside
@@ -218,16 +216,16 @@
           >
             <Tabs.List class="admin-tabs-list">
               <Tabs.Trigger value="subscription" class="admin-tabs-trigger"
-                >{at("user_tab_subscription", {}, "Подписка")}</Tabs.Trigger
+                >{at("user_tab_subscription", {}, "Subscription")}</Tabs.Trigger
               >
               <Tabs.Trigger value="activity" class="admin-tabs-trigger"
-                >{at("user_tab_activity", {}, "Активность")}</Tabs.Trigger
+                >{at("user_tab_activity", {}, "Activity")}</Tabs.Trigger
               >
               <Tabs.Trigger value="logs" class="admin-tabs-trigger"
-                >{at("user_tab_logs", {}, "Логи")}</Tabs.Trigger
+                >{at("user_tab_logs", {}, "Logs")}</Tabs.Trigger
               >
               <Tabs.Trigger value="actions" class="admin-tabs-trigger"
-                >{at("user_tab_actions", {}, "Действия")}</Tabs.Trigger
+                >{at("user_tab_actions", {}, "Actions")}</Tabs.Trigger
               >
             </Tabs.List>
 

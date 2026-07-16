@@ -72,6 +72,291 @@ def test_architecture_check_passes_empty_scopes(tmp_path, monkeypatch, capsys) -
     assert "Architecture checks passed." in output
 
 
+def test_cyrillic_fallback_guard_rejects_frontend_translation_fallback(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["cyrillic_fallbacks"] = {
+        "frontend_translation_calls": {
+            "scopes": ["frontend/src"],
+            "extensions": [".ts", ".svelte"],
+            "allowlist": [],
+            "allowed_count": 0,
+        }
+    }
+    _write(
+        tmp_path,
+        "frontend/src/example.ts",
+        'const label = t("example", {}, "Русский fallback");\n',
+    )
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 1
+    assert "[cyrillic-fallbacks]" in output
+    assert "frontend_translation_calls count increased" in output
+    assert "frontend/src/example.ts:1" in output
+
+
+def test_cyrillic_fallback_guard_accepts_english_translation_fallback(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["cyrillic_fallbacks"] = {
+        "frontend_translation_calls": {
+            "scopes": ["frontend/src"],
+            "extensions": [".ts", ".svelte"],
+            "allowlist": [],
+            "allowed_count": 0,
+        }
+    }
+    _write(
+        tmp_path,
+        "frontend/src/example.ts",
+        'const label = t("example", {}, "English fallback");\n',
+    )
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 0
+    assert "Architecture checks passed." in output
+
+
+def test_frontend_i18n_scope_guard_rejects_admin_key_in_webapp(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["frontend_i18n_scope"] = {
+        "scopes": ["frontend/src/webapp"],
+        "extensions": [".svelte"],
+        "allowlist": [],
+        "allowed_prefixes": ["wa_"],
+        "allowed_keys": [],
+        "locale_key_aliases": {},
+        "locale_files": ["locales/en.json", "locales/ru.json"],
+    }
+    _write(tmp_path, "locales/en.json", '{"admin_nav_title": "Admin panel"}')
+    _write(tmp_path, "locales/ru.json", '{"admin_nav_title": "Админ-панель"}')
+    _write(
+        tmp_path,
+        "frontend/src/webapp/Nav.svelte",
+        '<span>{t("admin_nav_title", {}, "Admin panel")}</span>\n',
+    )
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 1
+    assert "[frontend-i18n-scope]" in output
+    assert "admin_nav_title" in output
+    assert "not included in the webapp translation scope" in output
+
+
+def test_frontend_i18n_scope_guard_requires_base_locale_keys(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["frontend_i18n_scope"] = {
+        "scopes": ["frontend/src/webapp"],
+        "extensions": [".svelte"],
+        "allowlist": [],
+        "allowed_prefixes": ["wa_"],
+        "allowed_keys": [],
+        "locale_key_aliases": {},
+        "locale_files": ["locales/en.json", "locales/ru.json"],
+    }
+    _write(tmp_path, "locales/en.json", '{"wa_nav_admin": "Admin panel"}')
+    _write(tmp_path, "locales/ru.json", "{}")
+    _write(
+        tmp_path,
+        "frontend/src/webapp/Nav.svelte",
+        '<span>{t("wa_nav_admin", {}, "Admin panel")}</span>\n',
+    )
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 1
+    assert "wa_nav_admin" in output
+    assert "missing from locales/ru.json" in output
+
+
+def test_frontend_i18n_scope_guard_accepts_localized_webapp_key(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["frontend_i18n_scope"] = {
+        "scopes": ["frontend/src/webapp"],
+        "extensions": [".svelte"],
+        "allowlist": [],
+        "allowed_prefixes": ["wa_"],
+        "allowed_keys": [],
+        "locale_key_aliases": {},
+        "locale_files": ["locales/en.json", "locales/ru.json"],
+    }
+    _write(tmp_path, "locales/en.json", '{"wa_nav_admin": "Admin panel"}')
+    _write(tmp_path, "locales/ru.json", '{"wa_nav_admin": "Админ-панель"}')
+    _write(
+        tmp_path,
+        "frontend/src/webapp/Nav.svelte",
+        '<span>{t("wa_nav_admin", {}, "Admin panel")}</span>\n',
+    )
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 0
+    assert "Architecture checks passed." in output
+
+
+def test_frontend_i18n_scope_guard_accepts_runtime_locale_alias(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["frontend_i18n_scope"] = {
+        "scopes": ["frontend/src/webapp"],
+        "extensions": [".svelte"],
+        "allowlist": [],
+        "allowed_prefixes": ["wa_"],
+        "allowed_keys": [],
+        "locale_key_aliases": {"wa_dialog_title": "wa_dialog"},
+        "locale_files": ["locales/en.json", "locales/ru.json"],
+    }
+    _write(tmp_path, "locales/en.json", '{"wa_dialog": "Dialog"}')
+    _write(tmp_path, "locales/ru.json", '{"wa_dialog": "Диалог"}')
+    _write(
+        tmp_path,
+        "frontend/src/webapp/Dialog.svelte",
+        '<h1>{t("wa_dialog_title", {}, "Dialog")}</h1>\n',
+    )
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 0
+    assert "Architecture checks passed." in output
+
+
+def test_cyrillic_source_guard_rejects_frontend_hardcoded_text(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["cyrillic_fallbacks"] = {
+        "frontend_source_lines": {
+            "scopes": ["frontend/src"],
+            "extensions": [".ts", ".svelte"],
+            "allowlist": [],
+            "allowed_count": 0,
+        }
+    }
+    _write(tmp_path, "frontend/src/example.ts", 'const label = "Русский текст";\n')
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 1
+    assert "frontend_source_lines count increased" in output
+    assert "frontend/src/example.ts:1" in output
+
+
+def test_cyrillic_source_guard_accepts_explicit_frontend_fixture(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["cyrillic_fallbacks"] = {
+        "frontend_source_lines": {
+            "scopes": ["frontend/src"],
+            "extensions": [".ts"],
+            "allowlist": ["frontend/src/fixtures/**"],
+            "allowed_count": 0,
+        }
+    }
+    _write(tmp_path, "frontend/src/fixtures/russian.ts", 'export const label = "Русский";\n')
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 0
+    assert "Architecture checks passed." in output
+
+
+def test_cyrillic_fallback_guard_rejects_backend_string_literal(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["cyrillic_fallbacks"] = {
+        "python_literals": {
+            "scopes": ["backend"],
+            "allowlist": [],
+            "allowed_count": 0,
+        }
+    }
+    _write(tmp_path, "backend/example.py", 'FALLBACK = "Русский fallback"\n')
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 1
+    assert "[cyrillic-fallbacks]" in output
+    assert "python_literals count increased" in output
+    assert "backend/example.py:1" in output
+
+
+def test_cyrillic_source_guard_rejects_backend_comment(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["cyrillic_fallbacks"] = {
+        "python_source_lines": {
+            "scopes": ["backend"],
+            "allowlist": [],
+            "allowed_count": 0,
+        }
+    }
+    _write(tmp_path, "backend/example.py", "# Русский комментарий\nVALUE = 1\n")
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 1
+    assert "python_source_lines count increased" in output
+    assert "backend/example.py:1" in output
+
+
+def test_cyrillic_fallback_guard_requires_ratchet_update_after_cleanup(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["cyrillic_fallbacks"] = {
+        "python_literals": {
+            "scopes": ["backend"],
+            "allowlist": [],
+            "allowed_count": 1,
+        }
+    }
+    _write(tmp_path, "backend/example.py", 'FALLBACK = "English fallback"\n')
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 1
+    assert "python_literals count decreased" in output
+    assert "update the ratchet" in output
+
+
 def test_module_size_guard_rejects_new_oversized_modules(
     tmp_path,
     monkeypatch,

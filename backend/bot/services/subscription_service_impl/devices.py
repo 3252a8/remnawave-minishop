@@ -89,9 +89,15 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         except Exception:
             logger.exception("sync_hwid_device_limit_to_panel failed for user %s", user_id)
             return None
-        if not updated_panel or (isinstance(updated_panel, dict) and updated_panel.get("error")):
+        confirmed_panel_user = await self._confirmed_panel_entitlement(
+            db_user.panel_user_uuid,
+            updated_panel,
+            panel_payload,
+            source="sync_hwid_device_limit",
+        )
+        if confirmed_panel_user is None:
             logger.warning(
-                "sync_hwid_device_limit_to_panel panel update failed for user %s. Response: %s",
+                "sync_hwid_device_limit_to_panel verification failed for user %s. Response: %s",
                 user_id,
                 updated_panel,
             )
@@ -523,6 +529,15 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         if not updated_sub:
             return None
 
+        await tariff_dal.create_hwid_device_purchase(
+            session,
+            subscription_id=updated_sub.subscription_id,
+            payment_id=payment_db_id,
+            purchased_devices=purchased_devices,
+            valid_from=valid_from,
+            valid_until=valid_until,
+        )
+
         panel_payload = self._build_panel_update_payload(
             panel_user_uuid=db_user.panel_user_uuid,
             expire_at=updated_sub.end_date,
@@ -535,25 +550,23 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
             db_user.panel_user_uuid,
             panel_payload,
         )
-        if not updated_panel or updated_panel.get("error"):
+        confirmed_panel_user = await self._confirmed_panel_entitlement(
+            db_user.panel_user_uuid,
+            updated_panel,
+            panel_payload,
+            source="hwid_device_topup",
+        )
+        if confirmed_panel_user is None:
             logger.warning(
-                "Panel user HWID limit update failed for user %s. Response: %s",
+                "Panel user HWID limit verification failed for user %s. Response: %s",
                 user_id,
                 updated_panel,
             )
             return None
 
-        final_subscription_url = updated_panel.get("subscriptionUrl")
-        final_panel_short_uuid = updated_panel.get(
+        final_subscription_url = confirmed_panel_user.get("subscriptionUrl")
+        final_panel_short_uuid = confirmed_panel_user.get(
             "shortUuid", getattr(updated_sub, "panel_subscription_uuid", None)
-        )
-        await tariff_dal.create_hwid_device_purchase(
-            session,
-            subscription_id=updated_sub.subscription_id,
-            payment_id=payment_db_id,
-            purchased_devices=purchased_devices,
-            valid_from=valid_from,
-            valid_until=valid_until,
         )
         await self._send_payment_success_email(
             db_user=db_user,

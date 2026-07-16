@@ -5,9 +5,9 @@ export const LANGUAGE_LABELS = {
   es: "Español",
   fr: "Français",
   "pt-br": "Português (BR)",
-  ru: "Русский",
+  ru: "Russian",
   tr: "Türkçe",
-  uk: "Українська",
+  uk: "Ukrainian",
 };
 export const LANGUAGE_FLAGS = {
   en: "🇬🇧",

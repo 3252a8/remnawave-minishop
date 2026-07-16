@@ -680,6 +680,47 @@ def _migration_0044_add_subscription_last_connected_at(connection: Connection) -
         )
 
 
+def _migration_0045_scope_provider_payment_ids(connection: Connection) -> None:
+    inspector = inspect(connection)
+    quote = connection.dialect.identifier_preparer.quote
+    provider_column = ("provider_payment_id",)
+    scoped_columns = {"provider", "provider_payment_id"}
+    scoped_unique_exists = False
+
+    for constraint in inspector.get_unique_constraints("payments"):
+        columns = tuple(str(column) for column in constraint.get("column_names") or () if column)
+        if set(columns) == scoped_columns and len(columns) == 2:
+            scoped_unique_exists = True
+        if columns != provider_column:
+            continue
+        name = constraint.get("name")
+        if not name:
+            raise RuntimeError("Cannot drop unnamed provider payment id constraint.")
+        connection.execute(text(f"ALTER TABLE payments DROP CONSTRAINT {quote(str(name))}"))
+
+    for index in inspector.get_indexes("payments"):
+        if not index.get("unique") or index.get("duplicates_constraint"):
+            continue
+        columns = tuple(str(column) for column in index.get("column_names") or () if column)
+        if set(columns) == scoped_columns and len(columns) == 2:
+            scoped_unique_exists = True
+        if columns != provider_column:
+            continue
+        name = index.get("name")
+        if not name:
+            raise RuntimeError("Cannot drop unnamed provider payment id index.")
+        connection.execute(text(f"DROP INDEX {quote(str(name))}"))
+
+    if not scoped_unique_exists:
+        connection.execute(
+            text(
+                "ALTER TABLE payments "
+                "ADD CONSTRAINT uq_payments_provider_payment_id "
+                "UNIQUE (provider, provider_payment_id)"
+            )
+        )
+
+
 CHAIN_0022_0041: list[Migration] = [
     Migration(
         id="0022_add_indexes_for_admin_reports",
@@ -795,5 +836,10 @@ CHAIN_0022_0041: list[Migration] = [
         id="0044_add_subscription_last_connected_at",
         description="Snapshot the latest panel connection time on subscriptions",
         upgrade=_migration_0044_add_subscription_last_connected_at,
+    ),
+    Migration(
+        id="0045_scope_provider_payment_ids",
+        description="Scope external payment identifiers to their provider",
+        upgrade=_migration_0045_scope_provider_payment_ids,
     ),
 ]

@@ -132,9 +132,7 @@ class _RemnashopImporterBase:
         required = {"users", "subscriptions", "transactions", "referrals", "settings"}
         missing = sorted(required - self.tables)
         if missing:
-            self.summary["warnings"].append(
-                f"В источнике отсутствуют таблицы: {', '.join(missing)}"
-            )
+            self.summary["warnings"].append(f"The source is missing tables: {', '.join(missing)}")
 
     async def _fetch_rows(self, table: str, *, order_by: str = "id") -> list[dict[str, Any]]:
         if table not in self.tables:
@@ -322,14 +320,12 @@ class _RemnashopImporterBase:
 
         field = get_field_by_key(key)
         if field is None:
-            self.summary["warnings"].append(f"Пропущена неизвестная админ-настройка: {key}")
+            self.summary["warnings"].append(f"Skipped unknown admin setting: {key}")
             return False
         try:
             value = coerce_value(field, value)
         except ValueError as exc:
-            self.summary["warnings"].append(
-                f"Пропущено некорректное значение админ-настройки {key}: {exc}"
-            )
+            self.summary["warnings"].append(f"Skipped invalid admin setting value {key}: {exc}")
             return False
 
         now = datetime.now(UTC)

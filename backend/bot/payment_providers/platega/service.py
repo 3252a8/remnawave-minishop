@@ -368,7 +368,11 @@ class PlategaService(HttpClientMixin):
             return web.Response(status=400, text="missing_fields")
 
         async with self.async_session_factory() as session:
-            payment = await payment_dal.get_payment_by_provider_payment_id(session, transaction_id)
+            payment = await payment_dal.get_payment_by_provider_payment_id(
+                session,
+                "platega",
+                transaction_id,
+            )
             if not payment:
                 logger.error(
                     "Platega webhook: payment not found for transaction %s", transaction_id
@@ -721,7 +725,7 @@ def _platega_presentation_manifest(subsection: str, default_icon: str, prefix: s
 
 _CONFIG_MANIFEST = (
     ProviderManifestField(
-        "PLATEGA_ENABLED", "bool", "Включена", subsection="Platega", attr="ENABLED"
+        "PLATEGA_ENABLED", "bool", "Enabled", subsection="Platega", attr="ENABLED"
     ),
     ProviderManifestField(
         "PLATEGA_BASE_URL",
@@ -740,12 +744,12 @@ _CONFIG_MANIFEST = (
     ProviderManifestField(
         "PLATEGA_PAYMENT_METHOD",
         "int",
-        "Метод оплаты (legacy)",
+        "Payment method (legacy)",
         subsection="Platega",
         attr="PAYMENT_METHOD",
     ),
     ProviderManifestField(
-        "PLATEGA_SBP_ENABLED", "bool", "SBP-кнопка", subsection="Platega", attr="SBP_ENABLED"
+        "PLATEGA_SBP_ENABLED", "bool", "SBP button", subsection="Platega", attr="SBP_ENABLED"
     ),
     ProviderManifestField(
         "PLATEGA_SBP_METHOD", "int", "SBP method ID", subsection="Platega", attr="SBP_METHOD"
@@ -753,7 +757,7 @@ _CONFIG_MANIFEST = (
     ProviderManifestField(
         "PLATEGA_CRYPTO_ENABLED",
         "bool",
-        "Crypto-кнопка",
+        "Crypto button",
         subsection="Platega",
         attr="CRYPTO_ENABLED",
     ),
@@ -789,11 +793,11 @@ SBP_SPEC = PaymentProviderSpec(
     id="platega_sbp",
     provider_key="platega",
     label="Platega",
-    webapp_label="Platega · СБП",
-    webapp_labels={"ru": "Оплата картой (СБП)", "en": "Pay with card (SBP)"},
+    webapp_label="Platega · SBP",
+    webapp_labels={"ru": "Pay with card (SBP)", "en": "Pay with card (SBP)"},
     webapp_icon="CreditCard",
     logo_url="/provider-logos/platega.png",
-    telegram_labels={"ru": "Оплата через СБП", "en": "Pay via SBP"},
+    telegram_labels={"ru": "Pay via SBP", "en": "Pay via SBP"},
     telegram_emoji="🏦",
     pending_status="pending_platega",
     enabled=lambda config: bool(
@@ -828,10 +832,10 @@ CRYPTO_SPEC = PaymentProviderSpec(
     provider_key="platega",
     label="Platega",
     webapp_label="Platega · Crypto",
-    webapp_labels={"ru": "Крипта", "en": "Crypto"},
+    webapp_labels={"ru": "Crypto", "en": "Crypto"},
     webapp_icon="Bitcoin",
     logo_url="/provider-logos/platega.png",
-    telegram_labels={"ru": "Оплата криптой", "en": "Pay with crypto"},
+    telegram_labels={"ru": "Pay with crypto", "en": "Pay with crypto"},
     telegram_emoji="🪙",
     pending_status="pending_platega",
     # Uses the same PlategaConfig as SBP_SPEC (shared service_key); enable

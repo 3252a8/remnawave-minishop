@@ -114,7 +114,7 @@ export function premiumNextResetLabel(
 
 export function premiumTitle(sub: SubscriptionTraffic | null | undefined, t: TranslateFn): string {
   return (
-    String(sub?.premium_title || "").trim() || t("wa_premium_traffic_title", {}, "Premium-серверы")
+    String(sub?.premium_title || "").trim() || t("wa_premium_traffic_title", {}, "Premium servers")
   );
 }
 

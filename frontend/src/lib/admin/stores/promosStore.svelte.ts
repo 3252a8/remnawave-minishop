@@ -382,7 +382,7 @@ export function createPromosStore({
 
   async function copyToClipboard(
     text: string | null | undefined,
-    successMessage = at("link_copied", {}, "Скопировано")
+    successMessage = at("link_copied", {}, "Link copied")
   ): Promise<void> {
     if (!text) return;
     await copyTextToClipboard(text);

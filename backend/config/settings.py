@@ -21,8 +21,8 @@ from config.settings_models import (
 logger = logging.getLogger(__name__)
 
 DEFAULT_SUBSCRIPTION_PURCHASE_DESCRIPTION_RU = (
-    "Покупая или продлевая подписку, вы получаете доступ к VPN/прокси-сервису, "
-    "который помогает защищать ваше соединение и поддерживать стабильный доступ к сети."
+    "By buying or renewing a subscription, you get access to a VPN/proxy service "
+    "that helps protect your connection and keep your access stable."
 )
 DEFAULT_SUBSCRIPTION_PURCHASE_DESCRIPTION_EN = (
     "By buying or renewing a subscription, you get access to a VPN/proxy service "
@@ -211,6 +211,9 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     TELEGRAM_TRIAL_CALLBACK_COOLDOWN_SECONDS: int = Field(default=30)
     WEBHOOK_QUEUE_NAME: str = Field(default="webhook-events")
     WEBHOOK_QUEUE_CONCURRENCY: int = Field(default=4)
+    WEBHOOK_QUEUE_MAX_ATTEMPTS: int = Field(default=5, ge=1)
+    WEBHOOK_QUEUE_RETRY_BASE_SECONDS: float = Field(default=1.0, ge=0)
+    WEBHOOK_QUEUE_RETRY_MAX_SECONDS: float = Field(default=30.0, ge=0)
     WORKER_PANEL_SYNC_INTERVAL_SECONDS: int = Field(default=900)
     TARIFF_WORKER_LOCK_TTL_SECONDS: int = Field(default=240)
     TARIFF_WORKER_TICK_SECONDS: int = Field(default=300)
@@ -522,7 +525,13 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     )
 
     WEB_SERVER_HOST: str = Field(default="0.0.0.0")
-    WEB_SERVER_PORT: int = Field(default=8080)
+    WEB_SERVER_PORT: int = Field(default=8080, ge=1, le=65535)
+    WEB_SERVER_INTERNAL_PORT: int | None = Field(default=None, ge=1, le=65535)
+
+    @property
+    def web_server_listen_port(self) -> int:
+        """Container listener port, with the legacy direct-run setting as fallback."""
+        return self.WEB_SERVER_INTERNAL_PORT or self.WEB_SERVER_PORT
 
     WEBAPP_ENABLED: bool = Field(
         default=True,

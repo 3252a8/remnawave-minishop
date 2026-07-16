@@ -332,6 +332,137 @@ async function clickCardBody(page: Page, card: Locator, phase: string): Promise<
   await page.mouse.click(box.x + Math.min(24, box.width / 2), box.y + Math.min(24, box.height / 2));
 }
 
+async function swipeUp(page: Page, target: Locator, phase: string): Promise<void> {
+  const box = await target.boundingBox();
+  const viewport = page.viewportSize();
+  expect(box, `${phase}: swipe target must have a bounding box`).not.toBeNull();
+  expect(viewport, `${phase}: viewport must be available`).not.toBeNull();
+  if (!box || !viewport) return;
+
+  const x = Math.round(Math.min(viewport.width - 20, Math.max(20, box.x + box.width / 2)));
+  const startY = Math.round(
+    Math.min(viewport.height - 60, Math.max(100, box.y + Math.min(box.height - 20, 420)))
+  );
+  const endY = Math.max(60, startY - 420);
+  const session = await page.context().newCDPSession(page);
+  try {
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x, y: startY }],
+    });
+    for (let y = startY - 40; y >= endY; y -= 40) {
+      await session.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x, y }],
+      });
+      await page.waitForTimeout(20);
+    }
+    await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  } finally {
+    await session.detach();
+  }
+}
+
+async function assertUserTicketScrolling(page: Page, nav: Locator): Promise<void> {
+  await page.setViewportSize(DESKTOP_VIEWPORT);
+  await nav.getByRole("button", { name: "Поддержка", exact: true }).click();
+  await page.locator(".ticket-card").first().click();
+
+  const messageViewport = page.locator(
+    ".support-ticket-screen .support-message-scroll > .scroll-area__viewport"
+  );
+  const composer = page.locator(".support-ticket-screen .ticket-composer");
+  await expect(composer).toBeVisible();
+  const readReceipt = page
+    .locator('.support-ticket-screen .ticket-message-receipt[title="Прочитано"]')
+    .first();
+  await expect(readReceipt).toBeVisible();
+  await expect(readReceipt.locator(".lucide-check-check")).toBeVisible();
+  await composer.locator("textarea").fill("Проверка статуса доставки");
+  await composer.getByRole("button").click();
+  const sentReceipt = page
+    .locator('.support-ticket-screen .ticket-message-receipt[title="Отправлено"]')
+    .last();
+  await expect(sentReceipt).toBeVisible();
+  await expect(sentReceipt.locator(".lucide-check")).toBeVisible();
+  await page.waitForTimeout(220);
+  await expect
+    .poll(() => messageViewport.evaluate((element) => element.scrollHeight - element.clientHeight))
+    .toBeGreaterThan(0);
+
+  await messageViewport.evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await messageViewport.hover();
+  await page.mouse.wheel(0, 480);
+  await expect
+    .poll(() => messageViewport.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+
+  await page.setViewportSize(MOBILE_VIEWPORT);
+  await messageViewport.evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await swipeUp(page, messageViewport, "webapp-support:mobile-scroll");
+  await expect
+    .poll(() => messageViewport.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+  await expect(composer).toBeInViewport();
+
+  await page.setViewportSize(DESKTOP_VIEWPORT);
+  await page.locator(".support-back-button").click();
+  await expect(page.locator(".support-screen")).toBeVisible();
+}
+
+async function assertAdminTicketScrolling(page: Page, supportDialog: Locator): Promise<void> {
+  const bodyViewport = supportDialog.locator(
+    ":scope > .dialog-body-scroll > .scroll-area__viewport"
+  );
+  const messageScroll = supportDialog.locator(".support-admin-message-scroll");
+  const messageViewport = messageScroll.locator(":scope > .scroll-area__viewport");
+  const composer = supportDialog.locator(".support-admin-composer");
+
+  await page.waitForTimeout(220);
+  await expect
+    .poll(() => bodyViewport.evaluate((element) => element.scrollHeight - element.clientHeight))
+    .toBeGreaterThan(0);
+  await bodyViewport.evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await messageScroll.hover();
+  await page.mouse.wheel(0, 480);
+  await expect.poll(() => bodyViewport.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+
+  await page.setViewportSize(MOBILE_VIEWPORT);
+  await expect
+    .poll(() => messageViewport.evaluate((element) => getComputedStyle(element).overflowY))
+    .toBe("visible");
+  await bodyViewport.evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await swipeUp(page, messageScroll, "admin-support:mobile-scroll");
+  await expect.poll(() => bodyViewport.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  await expect.poll(() => page.locator(".dialog").evaluate((element) => element.scrollTop)).toBe(0);
+
+  const modalCoversHeader = await page.evaluate(() => {
+    const header = document.querySelector(".admin-header");
+    if (!(header instanceof HTMLElement)) return false;
+    const rect = header.getBoundingClientRect();
+    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    return Boolean(hit?.closest(".dialog"));
+  });
+  expect(modalCoversHeader, "admin-support: modal must stay above the section header").toBe(true);
+
+  await bodyViewport.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect(composer).toBeInViewport();
+  await bodyViewport.evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await page.setViewportSize(DESKTOP_VIEWPORT);
+}
+
 async function exerciseDialogTabs(
   card: Locator,
   expectedCount: number,
@@ -663,6 +794,22 @@ async function exerciseActivationSuccessHandoff(
   await expect(page.locator(".dialog-card:visible")).toHaveCount(0);
 }
 
+test("support ticket conversations scroll on desktop and mobile", async ({ page }) => {
+  await page.setViewportSize(DESKTOP_VIEWPORT);
+  await page.goto(APP_URL);
+  const nav = page.locator("nav.bottom-nav");
+  await expect(nav).toBeVisible();
+
+  await assertUserTicketScrolling(page, nav);
+
+  await nav.locator(".rail-admin-entry").click();
+  await adminSectionButton(page, "support").click();
+  await page.locator(".support-inbox-row[data-ticket-id]").first().click();
+  const supportDialog = page.locator(".dialog-card.support-ticket-dialog");
+  await expect(supportDialog).toBeVisible();
+  await assertAdminTicketScrolling(page, supportDialog);
+});
+
 test("webapp and admin sections, dialogs, tabs stay interactive without console errors", async ({
   page,
 }) => {
@@ -735,9 +882,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
     textarea.setSelectionRange(textarea.value.length, textarea.value.length);
   });
   await page.locator('[data-broadcast-format="link"]').click();
-  await expect(broadcastSource).toHaveValue(
-    '<b>{first_name}</b><a href="https://">https://</a>'
-  );
+  await expect(broadcastSource).toHaveValue('<b>{first_name}</b><a href="https://">https://</a>');
   await page.locator("[data-broadcast-source-toggle]").click();
   await expect(page.locator(".broadcast-surface .broadcast-chip").first()).toBeVisible();
 

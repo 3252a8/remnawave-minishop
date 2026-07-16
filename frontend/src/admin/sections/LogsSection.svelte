@@ -45,11 +45,11 @@
 
   const logsPageCount = $derived(Math.max(1, Math.ceil(Number(logsTotal || 0) / LOGS_PAGE_SIZE)));
   const logHeaders = $derived([
-    at("date", {}, "Дата"),
-    at("event", {}, "Событие"),
+    at("date", {}, "Date"),
+    at("event", {}, "Event"),
     at("user_short", {}, "User"),
     at("target_short", {}, "Target"),
-    at("content", {}, "Контент"),
+    at("content", {}, "Content"),
   ]);
 
   function userDisplay(entry: LogEntry, kind: UserKind): string | number {
@@ -81,7 +81,7 @@
     <Input
       type="search"
       class="input"
-      placeholder={at("logs_user_filter_placeholder", {}, "Фильтр по ID пользователя")}
+      placeholder={at("logs_user_filter_placeholder", {}, "Filter by user ID")}
       value={logsUserFilter}
       oninput={(e) => logsStore.setFilter((e.currentTarget as HTMLInputElement).value)}
       onkeydown={(e) => e.key === "Enter" && logsStore.setPage(0)}
@@ -90,22 +90,22 @@
       variant="primary"
       onclick={() => {
         logsStore.setPage(0);
-      }}>{at("apply", {}, "Применить")}</AdminButton
+      }}>{at("apply", {}, "Apply")}</AdminButton
     >
     <AdminButton variant="ghost" onclick={() => logsStore.loadLogs({ refresh: true })}>
       <RefreshCw size={14} />
-      {at("btn_refresh", {}, "Обновить")}
+      {at("btn_refresh", {}, "Refresh")}
     </AdminButton>
     <AdminButton
       variant="ghost"
       onclick={() => {
         logsStore.setFilter("");
         logsStore.setPage(0);
-      }}>{at("reset", {}, "Сбросить")}</AdminButton
+      }}>{at("reset", {}, "Reset")}</AdminButton
     >
   </div>
   <div class="admin-toolbar-summary">
-    <span class="admin-toolbar-field-label">{at("total", {}, "Всего")}</span>
+    <span class="admin-toolbar-field-label">{at("total", {}, "Total")}</span>
     <strong>{logsTotal}</strong>
   </div>
 </div>
@@ -123,22 +123,22 @@
       <span>{logsError}</span>
       <AdminButton variant="ghost" onclick={() => logsStore.loadLogs({ refresh: true })}>
         <RefreshCw size={14} />
-        {at("btn_refresh", {}, "Обновить")}
+        {at("btn_refresh", {}, "Refresh")}
       </AdminButton>
     </AdminEmptyState>
   {:else if !logRows.length}
     <AdminEmptyState tone="card"
-      ><span class="admin-muted">{at("logs_empty", {}, "Записей нет")}</span></AdminEmptyState
+      ><span class="admin-muted">{at("logs_empty", {}, "No entries")}</span></AdminEmptyState
     >
   {:else}
     <AdminTable>
       <thead>
         <tr>
-          <th>{at("date", {}, "Дата")}</th>
-          <th>{at("event", {}, "Событие")}</th>
+          <th>{at("date", {}, "Date")}</th>
+          <th>{at("event", {}, "Event")}</th>
           <th>{at("user_short", {}, "User")}</th>
           <th>{at("target_short", {}, "Target")}</th>
-          <th>{at("content", {}, "Контент")}</th>
+          <th>{at("content", {}, "Content")}</th>
         </tr>
       </thead>
       <VirtualTableRows
@@ -149,11 +149,10 @@
       >
         {#snippet children(entry)}
           <tr>
-            <td data-label={at("date", {}, "Дата")}
+            <td data-label={at("date", {}, "Date")}
               >{entry.timestamp ? fmtDate(entry.timestamp) : "—"}</td
             >
-            <td class="admin-cell-mono" data-label={at("event", {}, "Событие")}
-              >{entry.event_type}</td
+            <td class="admin-cell-mono" data-label={at("event", {}, "Event")}>{entry.event_type}</td
             >
             <td class="admin-logs-user-cell" data-label={at("user_short", {}, "User")}>
               {#if userId(entry, "user")}
@@ -199,7 +198,7 @@
                 <span class="admin-muted">—</span>
               {/if}
             </td>
-            <td class="admin-cell-wrap" data-label={at("content", {}, "Контент")}
+            <td class="admin-cell-wrap" data-label={at("content", {}, "Content")}
               >{entry.content || ""}</td
             >
           </tr>
@@ -213,14 +212,14 @@
   page={logsPage}
   pageCount={logsPageCount}
   total={logsTotal}
-  pageLabel={at("page_short", {}, "Стр.")}
-  ofLabel={at("pagination_of", {}, "из")}
-  totalLabel={at("total", {}, "Всего")}
-  jumpLabel={at("page_short", {}, "Стр.")}
-  jumpAriaLabel={at("pagination_jump_aria", {}, "Перейти к странице")}
-  goLabel={at("pagination_go", {}, "Перейти")}
-  prevLabel={at("back", {}, "Назад")}
-  nextLabel={at("next", {}, "Далее")}
+  pageLabel={at("page_short", {}, "Page")}
+  ofLabel={at("pagination_of", {}, "of")}
+  totalLabel={at("total", {}, "Total")}
+  jumpLabel={at("page_short", {}, "Page")}
+  jumpAriaLabel={at("pagination_jump_aria", {}, "Go to page")}
+  goLabel={at("pagination_go", {}, "Go")}
+  prevLabel={at("back", {}, "Back")}
+  nextLabel={at("next", {}, "Next")}
   onPageChange={(page) => logsStore.setPage(page)}
 />
 

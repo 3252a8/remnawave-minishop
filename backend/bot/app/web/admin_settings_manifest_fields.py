@@ -18,35 +18,50 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "DEFAULT_LANGUAGE",
         "string",
         "general",
-        "Язык по умолчанию",
-        "Используется для приветственных сообщений и публичных страниц.",
+        "Default Language",
+        "Controls the 'Default Language' setting in admin overrides.",
     ),
     SettingField(
         "DEFAULT_CURRENCY_SYMBOL",
         "string",
         "general",
-        "Валюта",
-        "Например, RUB, USD, EUR.",
+        "Default Currency Symbol",
+        "Controls the 'Default Currency Symbol' setting in admin overrides.",
         placeholder="RUB",
     ),
     SettingField(
-        "SUPPORT_LINK", "url", "general", "Ссылка поддержки", "Куда вести пользователей за помощью."
+        "USER_TRAFFIC_STRATEGY",
+        "string",
+        "general",
+        "Default Traffic Reset Strategy",
+        choices=TRAFFIC_STRATEGY_CHOICES,
     ),
-    SettingField("SERVER_STATUS_URL", "url", "general", "Ссылка на статус серверов"),
-    SettingField("PRIVACY_POLICY_URL", "url", "general", "Политика конфиденциальности"),
-    SettingField("USER_AGREEMENT_URL", "url", "general", "Пользовательское соглашение"),
-    SettingField("DISABLE_WELCOME_MESSAGE", "bool", "general", "Скрыть приветствие /start"),
     SettingField(
-        "START_COMMAND_DESCRIPTION", "string", "general", "Описание /start", placeholder=""
+        "SUPPORT_LINK",
+        "url",
+        "general",
+        "Support Link",
+        "Controls the 'Support Link' setting in admin overrides.",
+    ),
+    SettingField("SERVER_STATUS_URL", "url", "general", "Server Status URL"),
+    SettingField("PRIVACY_POLICY_URL", "url", "general", "Privacy Policy URL"),
+    SettingField("USER_AGREEMENT_URL", "url", "general", "User Agreement URL"),
+    SettingField("DISABLE_WELCOME_MESSAGE", "bool", "general", "Disable Welcome Message"),
+    SettingField(
+        "START_COMMAND_DESCRIPTION",
+        "string",
+        "general",
+        "Start Command Description",
+        placeholder="",
     ),
     SettingField(
         "REGISTRATION_INVITE_ONLY_ENABLED",
         "bool",
         "general",
-        "Регистрация только по приглашению",
+        "Invitation-only registration",
         (
-            "Если включено, новые пользователи создаются только по валидной "
-            "реферальной ссылке. Существующие пользователи продолжают входить как обычно."
+            "When enabled, new users are created only through a valid referral invitation "
+            "link. Existing users continue to sign in normally."
         ),
         optional=False,
     ),
@@ -61,21 +76,15 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "REQUIRED_CHANNEL_ID",
         "int",
         "general",
-        "ID обязательного канала",
-        (
-            "Telegram ID канала для проверки подписки. Если бот видит канал, "
-            "ссылка кнопки будет получена автоматически."
-        ),
+        "Required Channel ID",
+        ("Controls the 'Required Channel ID' setting in admin overrides."),
     ),
     SettingField(
         "REQUIRED_CHANNEL_LINK",
         "string",
         "general",
-        "Ссылка на канал",
-        (
-            "Необязательно: публичный @username или invite-link, "
-            "если ссылку нельзя получить по ID канала."
-        ),
+        "Required Channel Link",
+        ("Controls the 'Required Channel Link' setting in admin overrides."),
     ),
     # ─── Email auth & SMTP ─────────────────────────────────────────
     *EMAIL_SETTINGS_FIELDS,
@@ -84,14 +93,14 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "url",
         "remnawave",
         "URL API Remnawave",
-        "Например, https://panel.example.com/api.",
+        "For example, https://panel.example.com/api.",
     ),
     SettingField(
         "PANEL_API_KEY",
         "string",
         "remnawave",
-        "API-ключ Remnawave",
-        "Секретный ключ API панели.",
+        "Remnawave API key",
+        "Secret API key for the panel.",
         secret=True,
     ),
     SettingField(
@@ -142,8 +151,11 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "PANEL_WEBHOOK_SECRET",
         "string",
         "remnawave",
-        "Секрет вебхуков Remnawave",
-        "Используется для проверки входящих вебхуков панели.",
+        "Remnawave webhook secret",
+        (
+            "Set the secret in Remnawave Panel and paste the same value here to verify "
+            "incoming panel webhooks."
+        ),
         secret=True,
         webhook_path="/webhook/panel",
         webhook_requires_base_url=True,
@@ -155,37 +167,37 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "USER_SQUAD_UUIDS",
         "string",
         "remnawave",
-        "Internal Squads по умолчанию",
-        "UUID через запятую для legacy-режима без JSON-каталога тарифов.",
+        "Default Internal Squads",
+        "Comma-separated UUIDs for the legacy mode without a JSON tariff catalog.",
     ),
     SettingField(
         "USER_EXTERNAL_SQUAD_UUID",
         "string",
         "remnawave",
-        "External Squad по умолчанию",
-        "Необязательный UUID External Squad для новых пользователей.",
+        "Default External Squad",
+        "Optional External Squad UUID for new users.",
     ),
     # ─── Web app appearance ────────────────────────────────────────
     SettingField(
         "SUBSCRIPTION_MINI_APP_URL",
         "url",
         "appearance",
-        "Публичный URL Mini App",
-        "Например, https://app.example.com/.",
+        "Public Mini App URL",
+        "For example, https://app.example.com/.",
     ),
     SettingField(
-        "WEBAPP_PRIMARY_COLOR", "color", "appearance", "Основной цвет", placeholder="#00fe7a"
+        "WEBAPP_PRIMARY_COLOR", "color", "appearance", "WebApp Primary Color", placeholder="#00fe7a"
     ),
-    SettingField("WEBAPP_LOGO_URL", "url", "appearance", "URL логотипа"),
+    SettingField("WEBAPP_LOGO_URL", "url", "appearance", "WebApp Logo URL"),
     SettingField(
         "WEBAPP_FAVICON_USE_CUSTOM",
         "bool",
         "appearance",
-        "Использовать отдельную favicon",
+        "Use separate favicon",
     ),
-    SettingField("WEBAPP_FAVICON_URL", "url", "appearance", "URL отдельной favicon"),
-    SettingField("WEBAPP_LOGO_FAVICON_URL", "url", "appearance", "Favicon из логотипа"),
-    SettingField("WEBAPP_ENABLED", "bool", "appearance", "Web App включён"),
+    SettingField("WEBAPP_FAVICON_URL", "url", "appearance", "Separate favicon URL"),
+    SettingField("WEBAPP_LOGO_FAVICON_URL", "url", "appearance", "Favicon from logo"),
+    SettingField("WEBAPP_ENABLED", "bool", "appearance", "WebApp Enabled"),
     SettingField(
         "SUBSCRIPTION_GUIDES_ENABLED",
         "bool",
@@ -240,23 +252,23 @@ SETTINGS_MANIFEST: list[SettingField] = [
         placeholder='{\n  "version": "1"\n}',
     ),
     # ─── Subscription periods & pricing ────────────────────────────
-    SettingField("MONTH_1_ENABLED", "bool", "pricing", "Тариф 1 месяц"),
-    SettingField("MONTH_3_ENABLED", "bool", "pricing", "Тариф 3 месяца"),
-    SettingField("MONTH_6_ENABLED", "bool", "pricing", "Тариф 6 месяцев"),
-    SettingField("MONTH_12_ENABLED", "bool", "pricing", "Тариф 12 месяцев"),
-    SettingField("RUB_PRICE_1_MONTH", "int", "pricing", "Цена 1 мес. (RUB)"),
-    SettingField("RUB_PRICE_3_MONTHS", "int", "pricing", "Цена 3 мес. (RUB)"),
-    SettingField("RUB_PRICE_6_MONTHS", "int", "pricing", "Цена 6 мес. (RUB)"),
-    SettingField("RUB_PRICE_12_MONTHS", "int", "pricing", "Цена 12 мес. (RUB)"),
-    SettingField("STARS_PRICE_1_MONTH", "int", "pricing", "Цена 1 мес. (Stars)"),
-    SettingField("STARS_PRICE_3_MONTHS", "int", "pricing", "Цена 3 мес. (Stars)"),
-    SettingField("STARS_PRICE_6_MONTHS", "int", "pricing", "Цена 6 мес. (Stars)"),
-    SettingField("STARS_PRICE_12_MONTHS", "int", "pricing", "Цена 12 мес. (Stars)"),
+    SettingField("MONTH_1_ENABLED", "bool", "pricing", "Month 1 Enabled"),
+    SettingField("MONTH_3_ENABLED", "bool", "pricing", "Month 3 Enabled"),
+    SettingField("MONTH_6_ENABLED", "bool", "pricing", "Month 6 Enabled"),
+    SettingField("MONTH_12_ENABLED", "bool", "pricing", "Month 12 Enabled"),
+    SettingField("RUB_PRICE_1_MONTH", "int", "pricing", "Rub Price 1 Month"),
+    SettingField("RUB_PRICE_3_MONTHS", "int", "pricing", "Rub Price 3 Months"),
+    SettingField("RUB_PRICE_6_MONTHS", "int", "pricing", "Rub Price 6 Months"),
+    SettingField("RUB_PRICE_12_MONTHS", "int", "pricing", "Rub Price 12 Months"),
+    SettingField("STARS_PRICE_1_MONTH", "int", "pricing", "Stars Price 1 Month"),
+    SettingField("STARS_PRICE_3_MONTHS", "int", "pricing", "Stars Price 3 Months"),
+    SettingField("STARS_PRICE_6_MONTHS", "int", "pricing", "Stars Price 6 Months"),
+    SettingField("STARS_PRICE_12_MONTHS", "int", "pricing", "Stars Price 12 Months"),
     SettingField(
         "REFERRAL_BONUS_DAYS_INVITER_1_MONTH",
         "int",
         "pricing",
-        "Бонус приглашающему: 1 мес.",
+        "Referral Bonus Days Inviter 1 Month",
         min=0,
         subsection="legacy_tariffs",
     ),
@@ -264,7 +276,7 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "REFERRAL_BONUS_DAYS_INVITER_3_MONTHS",
         "int",
         "pricing",
-        "Бонус приглашающему: 3 мес.",
+        "Referral Bonus Days Inviter 3 Months",
         min=0,
         subsection="legacy_tariffs",
     ),
@@ -272,7 +284,7 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "REFERRAL_BONUS_DAYS_INVITER_6_MONTHS",
         "int",
         "pricing",
-        "Бонус приглашающему: 6 мес.",
+        "Referral Bonus Days Inviter 6 Months",
         min=0,
         subsection="legacy_tariffs",
     ),
@@ -280,7 +292,7 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "REFERRAL_BONUS_DAYS_INVITER_12_MONTHS",
         "int",
         "pricing",
-        "Бонус приглашающему: 12 мес.",
+        "Referral Bonus Days Inviter 12 Months",
         min=0,
         subsection="legacy_tariffs",
     ),
@@ -288,7 +300,7 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "REFERRAL_BONUS_DAYS_REFEREE_1_MONTH",
         "int",
         "pricing",
-        "Бонус приглашённому: 1 мес.",
+        "Referral Bonus Days Referee 1 Month",
         min=0,
         subsection="legacy_tariffs",
     ),
@@ -296,7 +308,7 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "REFERRAL_BONUS_DAYS_REFEREE_3_MONTHS",
         "int",
         "pricing",
-        "Бонус приглашённому: 3 мес.",
+        "Referral Bonus Days Referee 3 Months",
         min=0,
         subsection="legacy_tariffs",
     ),
@@ -304,7 +316,7 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "REFERRAL_BONUS_DAYS_REFEREE_6_MONTHS",
         "int",
         "pricing",
-        "Бонус приглашённому: 6 мес.",
+        "Referral Bonus Days Referee 6 Months",
         min=0,
         subsection="legacy_tariffs",
     ),
@@ -312,44 +324,48 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "REFERRAL_BONUS_DAYS_REFEREE_12_MONTHS",
         "int",
         "pricing",
-        "Бонус приглашённому: 12 мес.",
+        "Referral Bonus Days Referee 12 Months",
         min=0,
         subsection="legacy_tariffs",
     ),
     SettingField(
-        "TRAFFIC_PACKAGES", "string", "pricing", "Пакеты трафика", "Формат: 10:199,50:799 (ГБ:цена)"
+        "TRAFFIC_PACKAGES",
+        "string",
+        "pricing",
+        "Traffic Packages",
+        "Controls the 'Traffic Packages' setting in admin overrides.",
     ),
-    SettingField("STARS_TRAFFIC_PACKAGES", "string", "pricing", "Пакеты трафика (Stars)"),
+    SettingField("STARS_TRAFFIC_PACKAGES", "string", "pricing", "Stars Traffic Packages"),
     SettingField(
         "SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED",
         "bool",
         "payments",
-        "Показывать описание подписки",
-        "Текст появится перед выбором срока покупки или продления.",
+        "Show subscription description",
+        "Shows this text before the user chooses a purchase or renewal period.",
         subsection="checkout",
     ),
     SettingField(
         "SUBSCRIPTION_PURCHASE_DESCRIPTION_RU",
         "text",
         "payments",
-        "Описание подписки (RU)",
-        "Русская версия текста на этапе оплаты.",
+        "Subscription description (RU)",
+        "Russian text shown during checkout.",
         subsection="checkout",
     ),
     SettingField(
         "SUBSCRIPTION_PURCHASE_DESCRIPTION_EN",
         "text",
         "payments",
-        "Описание подписки (EN)",
-        "Английская версия текста на этапе оплаты.",
+        "Subscription description (EN)",
+        "English text shown during checkout.",
         subsection="checkout",
     ),
     SettingField(
         "PAYMENT_REQUEST_TIMEOUT_SECONDS",
         "float",
         "payments",
-        "Таймаут запроса к провайдеру",
-        "Максимальное общее время одного API-запроса к платёжному провайдеру, в секундах.",
+        "Payment provider request timeout",
+        "Maximum total time for one payment provider API request, in seconds.",
         optional=False,
         min=1,
         subsection="checkout",
@@ -374,8 +390,8 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "PAYMENT_METHODS_ORDER",
         "string",
         "payments",
-        "Порядок методов оплаты",
-        "Через запятую: severpay,freekassa,yookassa,platega,stars,cryptopay,heleket,paykilla,lava",
+        "Payment Methods Order",
+        "Controls the 'Payment Methods Order' setting in admin overrides.",
         subsection="common",
     ),
     # ─── Trial ─────────────────────────────────────────────────────
@@ -383,7 +399,7 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "TRIAL_ENABLED",
         "bool",
         "pricing",
-        "Триал включён",
+        "Trial Enabled",
         optional=False,
         subsection="trial",
     ),
@@ -391,7 +407,7 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "TRIAL_DURATION_DAYS",
         "int",
         "pricing",
-        "Длительность триала (дней)",
+        "Trial Duration Days",
         optional=False,
         min=0,
         subsection="trial",
@@ -400,7 +416,7 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "TRIAL_TRAFFIC_LIMIT_GB",
         "float",
         "pricing",
-        "Лимит трафика триала (ГБ)",
+        "Trial Traffic Limit Gb",
         optional=False,
         min=0,
         subsection="trial",
@@ -421,7 +437,7 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "TRIAL_TRAFFIC_STRATEGY",
         "string",
         "pricing",
-        "Стратегия сброса трафика триала",
+        "Trial Traffic Strategy",
         optional=False,
         choices=TRAFFIC_STRATEGY_CHOICES,
         subsection="trial",
@@ -430,10 +446,10 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "TRIAL_WITHOUT_TELEGRAM_ENABLED",
         "bool",
         "pricing",
-        "Триал без Telegram",
+        "Trial Without Telegram",
         (
-            "Если выключено, email-only пользователю нужно привязать Telegram для "
-            "активации триала. Disposable email домены всегда требуют Telegram."
+            "If disabled, email-only users must link Telegram before activating a trial. "
+            "Disposable email domains always require Telegram."
         ),
         optional=False,
         subsection="trial",
@@ -442,8 +458,8 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "TRIAL_SQUAD_UUIDS",
         "string",
         "pricing",
-        "Internal Squads для триала",
-        "UUID через запятую. Если пусто, используется USER_SQUAD_UUIDS.",
+        "Trial Internal Squads",
+        "Comma-separated UUIDs. Uses USER_SQUAD_UUIDS when empty.",
         subsection="trial",
     ),
     # ─── Referral program ──────────────────────────────────────────
@@ -462,11 +478,10 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "REFERRAL_ONE_BONUS_PER_REFEREE",
         "bool",
         "pricing",
-        "Бонусы только за первый платёж приглашённого",
+        "First-payment referral bonuses only",
         (
-            "Если включено, повторные покупки того же приглашённого пользователя больше не "
-            "начисляют реферальные бонусы ни ему, ни пригласившему. Первый успешный платёж "
-            "остаётся бонусным."
+            "When enabled, later purchases by the same invited user do not grant referral "
+            "bonuses to either side. The first successful payment still grants bonuses."
         ),
         subsection="referral",
     ),
@@ -474,7 +489,7 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "REFERRAL_WELCOME_BONUS_DAYS",
         "int",
         "pricing",
-        "Приветственный бонус (дней)",
+        "Referral Welcome Bonus Days",
         min=0,
         subsection="referral",
     ),
@@ -482,10 +497,10 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
         "bool",
         "pricing",
-        "Приветственный бонус без Telegram",
+        "Referral Welcome Bonus Without Telegram",
         (
-            "Если выключено, email-only пользователю нужно привязать Telegram для получения "
-            "реферального приветственного бонуса. Disposable email домены всегда требуют Telegram."
+            "If disabled, email-only users must link Telegram before receiving the referral "
+            "welcome bonus. Disposable email domains always require Telegram."
         ),
         subsection="referral",
     ),
@@ -493,10 +508,10 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "LEGACY_REFS",
         "bool",
         "pricing",
-        "Legacy ref-ссылки с ID пользователя",
+        "Legacy ref links with user ID",
         (
-            "Принимать старые ссылки вида /start ref_<telegram_id>, где payload содержит "
-            "Telegram/user ID пригласившего."
+            "Accept old links like /start ref_<telegram_id>, where the payload contains the "
+            "inviter's Telegram/user ID."
         ),
         subsection="legacy_tariffs",
     ),
@@ -504,10 +519,10 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "DISPOSABLE_EMAIL_DOMAINS",
         "text",
         "pricing",
-        "Disposable email домены",
+        "Disposable Email Domains",
         (
-            "Домены по одному на строку или через запятую. Пользователи без Telegram с такими "
-            "email не смогут получить trial или реферальный приветственный бонус."
+            "Comma-separated domains. Users without Telegram using these emails cannot "
+            "claim trial or referral welcome bonus."
         ),
         placeholder="mailinator.com\ntemp-mail.org\nyopmail.com",
         subsection="referral",
@@ -516,32 +531,38 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "MIGRATION_REMNASHOP_REFERRAL_CODE_COMPAT_ENABLED",
         "bool",
         "migrations",
-        "Старые ref-ссылки Remnashop",
-        "Принимать импортированные ref-коды Remnashop вместе с текущими кодами пользователей.",
+        "Remnashop ref-code compatibility",
+        (
+            "Allows old Remnashop referral codes to resolve without changing their case or "
+            "format. The importer enables it automatically."
+        ),
         subsection="Remnashop",
     ),
     SettingField(
         "MIGRATION_REMNASHOP_PROMO_CODE_COMPAT_ENABLED",
         "bool",
         "migrations",
-        "Старые промокоды Remnashop",
-        "Пробовать точное совпадение промокода перед обычной uppercase-нормализацией.",
+        "Remnashop promo-code compatibility",
+        (
+            "Looks up promo codes in the original case first, then falls back to the current "
+            "rules. Regular promo codes keep working as before."
+        ),
         subsection="Remnashop",
     ),
     SettingField(
         "MIGRATION_REMNASHOP_IMPORTED_AT",
         "string",
         "migrations",
-        "Последний импорт Remnashop",
-        "Заполняется скриптом импорта. Можно очистить, если отметка больше не нужна.",
+        "Remnashop import date",
+        "Operational marker for the latest Remnashop import, stored as an ISO timestamp.",
         subsection="Remnashop",
     ),
     SettingField(
         "MIGRATION_REMNASHOP_NOTES",
         "text",
         "migrations",
-        "Заметки по миграции Remnashop",
-        "Внутренние заметки оператора по перенесенному инстансу.",
+        "Remnashop import notes",
+        "Short importer summary: migrated entities and enabled compatibility modes.",
         subsection="Remnashop",
     ),
     # ─── Notifications ─────────────────────────────────────────────
@@ -549,52 +570,54 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "SUBSCRIPTION_NOTIFICATIONS_ENABLED",
         "bool",
         "notifications",
-        "Включены уведомления о подписке",
+        "Subscription Notifications Enabled",
     ),
     SettingField(
         "SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED",
         "bool",
         "notifications",
-        "Дублировать уведомления о подписке на email",
-        "Письма отправляются только пользователям с привязанным email и рабочим SMTP.",
+        "Subscription email notifications",
+        (
+            "When enabled, subscription lifecycle notifications are mirrored to linked user "
+            "email addresses."
+        ),
     ),
     SettingField(
-        "SUBSCRIPTION_NOTIFY_ON_EXPIRE", "bool", "notifications", "Уведомлять об истечении"
+        "SUBSCRIPTION_NOTIFY_ON_EXPIRE", "bool", "notifications", "Subscription Notify On Expire"
     ),
     SettingField(
-        "SUBSCRIPTION_NOTIFY_AFTER_EXPIRE", "bool", "notifications", "Уведомлять после истечения"
+        "SUBSCRIPTION_NOTIFY_AFTER_EXPIRE",
+        "bool",
+        "notifications",
+        "Subscription Notify After Expire",
     ),
     SettingField(
         "SUBSCRIPTION_NOTIFY_DAYS_BEFORE",
         "int",
         "notifications",
-        "За сколько дней предупреждать",
+        "Subscription Notify Days Before",
         min=0,
     ),
     SettingField(
         "SUBSCRIPTION_NOTIFY_HOURS_BEFORE",
         "int",
         "notifications",
-        "За сколько часов предупреждать",
+        "Subscription Notify Hours Before",
         min=0,
         max=23,
     ),
-    SettingField("LOG_NEW_USERS", "bool", "notifications", "Логировать новых пользователей"),
-    SettingField("LOG_PAYMENTS", "bool", "notifications", "Логировать платежи"),
-    SettingField("LOG_SUPPORT", "bool", "notifications", "Логировать тикеты поддержки"),
-    SettingField(
-        "LOG_PROMO_ACTIVATIONS", "bool", "notifications", "Логировать активации промокодов"
-    ),
-    SettingField("LOG_TRIAL_ACTIVATIONS", "bool", "notifications", "Логировать активации триала"),
-    SettingField(
-        "LOG_SUSPICIOUS_ACTIVITY", "bool", "notifications", "Логировать подозрительные действия"
-    ),
+    SettingField("LOG_NEW_USERS", "bool", "notifications", "Log New Users"),
+    SettingField("LOG_PAYMENTS", "bool", "notifications", "Log Payments"),
+    SettingField("LOG_SUPPORT", "bool", "notifications", "Log Support"),
+    SettingField("LOG_PROMO_ACTIVATIONS", "bool", "notifications", "Log Promo Activations"),
+    SettingField("LOG_TRIAL_ACTIVATIONS", "bool", "notifications", "Log Trial Activations"),
+    SettingField("LOG_SUSPICIOUS_ACTIVITY", "bool", "notifications", "Log Suspicious Activity"),
     SettingField(
         "LOG_ADMIN_ACTIONS",
         "bool",
         "notifications",
-        "Логировать действия администраторов",
-        "Если выключено, события от пользователей из ADMIN_IDS не записываются в message logs.",
+        "Log administrator actions",
+        "When disabled, events from users listed in ADMIN_IDS are not stored in message logs.",
         i18n_label_key="admin_settings_field_log_admin_actions_label",
         i18n_description_key="admin_settings_field_log_admin_actions_description",
     ),
@@ -602,45 +625,45 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "LOG_LEVEL",
         "string",
         "notifications",
-        "Глобальный уровень логов",
+        "Log Level",
         "DEBUG / INFO / WARNING / ERROR",
     ),
-    SettingField("LOG_CHAT_ID", "int", "notifications", "ID чата для логов"),
-    SettingField("LOG_THREAD_ID", "int", "notifications", "ID треда (для супергрупп)"),
+    SettingField("LOG_CHAT_ID", "int", "notifications", "Log Chat ID"),
+    SettingField("LOG_THREAD_ID", "int", "notifications", "Log Thread ID"),
     SettingField(
         "LOG_SUPPORT_THREAD_ID",
         "int",
         "notifications",
-        "ID треда поддержки",
-        "Тред лог-чата для уведомлений о тикетах поддержки.",
+        "Support thread ID",
+        "Log chat thread for support ticket notifications.",
     ),
     SettingField(
         "BACKUP_ENABLED",
         "bool",
         "backups",
-        "Бэкапы включены",
-        "Worker будет периодически собирать ZIP-архив и отправлять его в Telegram.",
+        "Backups enabled",
+        "The worker periodically builds a ZIP archive and sends it to Telegram.",
     ),
     SettingField(
         "BACKUP_CHAT_ID",
         "int",
         "backups",
-        "ID чата для бэкапов",
-        "Куда отправлять ZIP-архивы. Если пусто, используется LOG_CHAT_ID.",
+        "Backup chat ID",
+        "Where ZIP archives are sent. Falls back to LOG_CHAT_ID when empty.",
     ),
     SettingField(
         "BACKUP_THREAD_ID",
         "int",
         "backups",
-        "ID треда для бэкапов",
-        "Необязательный topic/thread ID. Если пусто, используется LOG_THREAD_ID.",
+        "Backup thread ID",
+        "Optional topic/thread ID. Falls back to LOG_THREAD_ID when empty.",
     ),
     SettingField(
         "BACKUP_INTERVAL_SECONDS",
         "int",
         "backups",
-        "Период бэкапов (сек.)",
-        "По умолчанию 3600: запуск на границе часа (12:00, 13:00 и т.д.).",
+        "Backup period (sec.)",
+        "Default is 3600: run on the hour boundary (12:00, 13:00, etc.).",
         optional=False,
         min=60,
     ),
@@ -648,8 +671,8 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "BACKUP_LOCAL_RETENTION",
         "int",
         "backups",
-        "Сколько архивов хранить",
-        "Сколько последних ZIP-архивов оставлять в data/backups на сервере.",
+        "Archives to keep",
+        "How many latest ZIP archives to keep in data/backups on the server.",
         optional=False,
         min=1,
     ),
@@ -657,85 +680,70 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "BACKUP_COMPOSE_ENABLED",
         "bool",
         "backups",
-        "Добавлять compose-папку",
+        "Include compose folder",
         (
-            "Добавляет snapshot /app/compose-source. Если папка не смонтирована, "
-            "бэкап БД все равно будет создан."
+            "Adds a /app/compose-source snapshot. If the folder is not mounted, the DB "
+            "backup is still created."
         ),
     ),
     SettingField(
         "SUPPORT_TICKETS_ENABLED",
         "bool",
         "support",
-        "Тикеты поддержки включены",
-        "Показывает раздел поддержки в ЛК и включает создание тикетов.",
+        "Support tickets enabled",
+        "Enable the support tickets section in the user account and allow users to create tickets.",
     ),
     SettingField(
         "SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED",
         "bool",
         "support",
-        "Email-уведомления админам",
-        (
-            "Если выключено, новые тикеты и ответы пользователей останутся "
-            "только в Telegram и лог-чате."
-        ),
+        "Admin email notifications",
+        ("When disabled, new tickets and user replies are sent only to Telegram and the log chat."),
     ),
     SettingField(
         "SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS",
         "int",
         "support",
-        "Пауза Telegram-уведомлений",
-        (
-            "Минимум секунд между повторными Telegram/log уведомлениями "
-            "по одному непрочитанному тикету."
-        ),
+        "Telegram notification cooldown",
+        ("Minimum seconds between repeated Telegram/log notifications for the same unread ticket."),
         min=0,
     ),
     SettingField(
         "SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS",
         "int",
         "support",
-        "Пауза email-уведомлений",
-        "Минимум секунд между повторными email-уведомлениями по одному непрочитанному тикету.",
+        "Email notification cooldown",
+        "Minimum seconds between repeated email notifications for the same unread ticket.",
         min=0,
     ),
     SettingField(
         "SUPPORT_TICKET_MAX_BODY_LENGTH",
         "int",
         "support",
-        "Макс. длина сообщения",
-        "Максимальное количество символов в сообщении тикета.",
+        "Max message length",
+        "Maximum number of characters in a ticket message.",
         min=1,
     ),
     SettingField(
         "SUPPORT_TICKET_MAX_SUBJECT_LENGTH",
         "int",
         "support",
-        "Макс. длина темы",
-        "Максимальное количество символов в теме тикета.",
+        "Max subject length",
+        "Maximum number of characters in a ticket subject.",
         min=1,
     ),
     SettingField(
         "SUPPORT_TICKET_RATE_LIMIT_PER_HOUR",
         "int",
         "support",
-        "Лимит тикетов в час",
-        "Сколько новых тикетов пользователь может создать за час. 0 — без лимита.",
+        "Ticket limit per hour",
+        "How many new tickets a user can create per hour. 0 means unlimited.",
         min=0,
     ),
     # ─── Devices ───────────────────────────────────────────────────
-    SettingField("MY_DEVICES_SECTION_ENABLED", "bool", "devices", "Раздел «Мои устройства»"),
-    SettingField(
-        "USER_HWID_DEVICE_LIMIT", "int", "devices", "Лимит устройств по умолчанию (0 = ∞)", min=0
-    ),
-    SettingField("USER_TRAFFIC_LIMIT_GB", "float", "devices", "Лимит трафика пользователя (ГБ)"),
-    SettingField(
-        "USER_TRAFFIC_STRATEGY",
-        "string",
-        "devices",
-        "Стратегия сброса трафика",
-        choices=TRAFFIC_STRATEGY_CHOICES,
-    ),
+    SettingField("MY_DEVICES_SECTION_ENABLED", "bool", "devices", "My Devices Section Enabled"),
+    SettingField("USER_HWID_DEVICE_LIMIT", "int", "devices", "User HWID Device Limit", min=0),
+    SettingField("USER_TRAFFIC_LIMIT_GB", "float", "devices", "User Traffic Limit Gb"),
     # ─── System ────────────────────────────────────────────────────
     SettingField(
         "TELEGRAM_DROP_NON_PRIVATE_UPDATES",
@@ -855,11 +863,12 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "TELEMETRY_ENABLED",
         "bool",
         "system",
-        "Анонимная статистика установки",
-        "Раз в сутки отправляет обезличенный сигнал: версия, маркер образа "
-        "official/custom, ОС, локаль и число пользователей в виде диапазона. Без персональных "
-        "данных, токенов и доменов. Помогает понять число активных установок, какие "
-        "версии используются и долю изменённых сборок. Можно отключить здесь без "
-        "перезапуска.",
+        "Anonymous install analytics",
+        (
+            "Sends one anonymous heartbeat per day (version, official/custom image marker, "
+            "OS, locale, user-count range). No personal data, tokens or domains. Helps gauge "
+            "active installs, versions in use and the share of modified builds. Toggling this "
+            "off takes effect without a restart."
+        ),
     ),
 ]

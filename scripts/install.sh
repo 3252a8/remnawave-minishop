@@ -556,7 +556,7 @@ list_running_proxy_containers() {
     docker ps --format '{{.Names}} {{.Image}}' 2>/dev/null | awk '
         {
             line = tolower($0)
-            if (line !~ /nginx/ && line !~ /caddy/) next
+            if (line !~ /nginx/ && line !~ /caddy/ && line !~ /angie/) next
             if (line ~ /minishop/ || line ~ /tg-shop/) next
             print $1
         }
@@ -568,6 +568,9 @@ proxy_container_kind() {
     case "$descriptor" in
         *caddy*)
             printf 'caddy'
+            ;;
+        *angie*)
+            printf 'angie'
             ;;
         *nginx*)
             printf 'nginx'
@@ -862,30 +865,45 @@ download_raw_file() {
 
 choose_profile() {
     default_profile="1"
-    if detect_egames_stack; then
-        default_profile="5"
+    [ -n "$ENV_PATH" ] || ENV_PATH="$TARGET_DIR/.env"
+    saved_profile=$(env_get DEPLOYMENT_PROFILE "")
+    case "$saved_profile" in
+        caddy) default_profile="1" ;;
+        angie) default_profile="2" ;;
+        nginx) default_profile="3" ;;
+        newt) default_profile="4" ;;
+        no-proxy) default_profile="5" ;;
+        egames) default_profile="6" ;;
+        *) saved_profile="" ;;
+    esac
+    if [ -n "$saved_profile" ]; then
+        info "В $ENV_PATH уже выбран DEPLOYMENT_PROFILE=$saved_profile; предлагаю его по умолчанию."
+    elif detect_egames_stack; then
+        default_profile="6"
         info "Найдена установленная Remnawave/eGames связка; по умолчанию предлагаю встроиться в ее Nginx/TLS."
     else
         running_proxies=$(list_running_proxy_containers 2>/dev/null || true)
         if [ -n "$running_proxies" ]; then
-            default_profile="5"
+            default_profile="6"
             info "Найдены уже запущенные reverse proxy контейнеры: $(printf '%s' "$running_proxies" | tr '\n' ' ' | sed 's/[[:space:]]*$//')."
-            info "По умолчанию предлагаю встроиться в существующий Nginx/Caddy вместо запуска отдельного прокси."
+            info "По умолчанию предлагаю встроиться в существующий Nginx/Angie/Caddy вместо запуска отдельного прокси."
         fi
     fi
     info "Подробнее о профилях деплоя: $DOCS_SETUP_URL"
-    choose "Профиль деплоя" "$default_profile" "1|2|3|4|5" \
+    choose "Профиль деплоя" "$default_profile" "1|2|3|4|5|6" \
         "1. Caddy HTTPS - отдельный сервер, автоматические сертификаты." \
-        "2. Nginx HTTPS - свои сертификаты или помощник Certbot." \
-        "3. Pangolin / Newt - без входящих портов, публичные маршруты в Pangolin." \
-        "4. Без прокси / внешний TLS - прямые HTTP-порты или свой TLS-терминатор." \
-        "5. Уже установленная Remnawave через eGames или другой запущенный Nginx/Caddy - встроиться в существующий reverse proxy." || return 1
+        "2. Angie HTTPS - форк Nginx с автоматическими сертификатами (ACME), конфигурация в Nginx-синтаксисе." \
+        "3. Nginx HTTPS - свои сертификаты или помощник Certbot." \
+        "4. Pangolin / Newt - без входящих портов, публичные маршруты в Pangolin." \
+        "5. Без прокси / внешний TLS - прямые HTTP-порты или свой TLS-терминатор." \
+        "6. Уже установленная Remnawave через eGames или другой запущенный Nginx/Angie/Caddy - встроиться в существующий reverse proxy." || return 1
     case "$CHOICE_VALUE" in
         1) PROFILE_KEY="caddy" ;;
-        2) PROFILE_KEY="nginx" ;;
-        3) PROFILE_KEY="newt" ;;
-        4) PROFILE_KEY="no-proxy" ;;
-        5) PROFILE_KEY="egames" ;;
+        2) PROFILE_KEY="angie" ;;
+        3) PROFILE_KEY="nginx" ;;
+        4) PROFILE_KEY="newt" ;;
+        5) PROFILE_KEY="no-proxy" ;;
+        6) PROFILE_KEY="egames" ;;
     esac
     DEPLOYMENT_PROFILE_VALUE="$PROFILE_KEY"
 }
@@ -1043,6 +1061,11 @@ download_profile_files() {
             download_raw_file "deploy/examples/caddy/Caddyfile" "Caddyfile" 1 || return 1
             download_raw_file "deploy/examples/caddy/.env.example" ".env.example" 1 || return 1
             ;;
+        angie)
+            download_raw_file "deploy/examples/angie/docker-compose.yml" "docker-compose.yml" 1 || return 1
+            download_raw_file "deploy/examples/angie/angie.conf.template" "angie.conf.template" 1 || return 1
+            download_raw_file "deploy/examples/angie/.env.example" ".env.example" 1 || return 1
+            ;;
         nginx)
             download_raw_file "deploy/examples/nginx/docker-compose.yml" "docker-compose.yml" 1 || return 1
             download_raw_file "deploy/examples/nginx/nginx.conf.template" "nginx.conf.template" 1 || return 1
@@ -1191,7 +1214,7 @@ prompt_common_env() {
     info "Параметр Telegram OAuth request_access: $TELEGRAM_OAUTH_REQUEST_ACCESS_VALUE. Значение write позволяет боту написать пользователю после входа через Web Login."
 
     case "$PROFILE_KEY" in
-        caddy|nginx|newt|egames)
+        caddy|angie|nginx|newt|egames)
             prompt_value "Публичный hostname для API/webhook бота" "$(env_get WEBHOOK_HOST webhooks.example.com)" 1 0 "hostname"
             WEBHOOK_HOST_VALUE="$PROMPT_VALUE"
             prompt_value "Публичный hostname для Mini App" "$(env_get MINIAPP_HOST app.example.com)" 1 0 "hostname"
@@ -1203,7 +1226,7 @@ prompt_common_env() {
     esac
 
     case "$PROFILE_KEY" in
-        caddy|nginx)
+        caddy|angie|nginx)
             prompt_value "Адрес привязки HTTP" "$(env_get HTTP_BIND '0.0.0.0:80')" 0 0 "bind"
             HTTP_BIND_VALUE="$PROMPT_VALUE"
             prompt_value "Адрес привязки HTTPS" "$(env_get HTTPS_BIND '0.0.0.0:443')" 0 0 "bind"
@@ -1567,7 +1590,7 @@ resolve_ipv4_records() {
 
 check_public_dns_records() {
     case "$PROFILE_KEY" in
-        caddy|nginx|egames)
+        caddy|angie|nginx|egames)
             ;;
         *)
             return 0
@@ -2863,6 +2886,144 @@ attach_generic_nginx_proxy() {
     return 0
 }
 
+container_angie_first_value() {
+    proxy_name="$1"
+    angie_key="$2"
+    docker exec "$proxy_name" sh -c "grep -rhE '^[[:space:]]*$angie_key[[:space:]]' /etc/angie 2>/dev/null | head -n 1" 2>/dev/null |
+        awk '{ value = $2; gsub(/[";]/, "", value); print value; exit }'
+}
+
+angie_container_httpd_host_dir() {
+    httpd_source=$(container_mount_source "$1" /etc/angie/http.d)
+    if [ -n "$httpd_source" ] && [ -d "$httpd_source" ]; then
+        printf '%s' "$httpd_source"
+        return 0
+    fi
+    etc_source=$(container_mount_source "$1" /etc/angie)
+    if [ -n "$etc_source" ] && [ -d "$etc_source/http.d" ]; then
+        printf '%s/http.d' "$etc_source"
+        return 0
+    fi
+    return 1
+}
+
+angie_container_httpd_file_mount() {
+    docker inspect -f '{{range .Mounts}}{{.Destination}}|{{.Source}}{{"\n"}}{{end}}' "$1" 2>/dev/null |
+        awk -F'|' '$1 ~ /^\/etc\/angie\/http\.d\/.+/ { print $2; exit }'
+}
+
+apply_angie_container_config() {
+    if ! docker exec "$1" angie -t; then
+        return 1
+    fi
+    docker exec "$1" angie -s reload || docker restart "$1" >/dev/null
+}
+
+attach_generic_angie_proxy() {
+    proxy_name="$1"
+    webhook_host="$2"
+    miniapp_host="$3"
+
+    if container_uses_host_network "$proxy_name"; then
+        backend_upstream="http://127.0.0.1:$(bind_port "${WEB_SERVER_BIND_VALUE:-$(env_get WEB_SERVER_BIND '127.0.0.1:8080')}")"
+        frontend_upstream="http://127.0.0.1:$(bind_port "${FRONTEND_BIND_VALUE:-$(env_get FRONTEND_BIND '127.0.0.1:8082')}")"
+        use_resolver=0
+        info "Контейнер $proxy_name использует host-сеть; проксирую на локальные порты Minishop."
+    else
+        ensure_target_network_exists || return 1
+        connect_proxy_to_target_network "$proxy_name" || return 1
+        backend_upstream="http://backend:8080"
+        frontend_upstream="http://frontend:80"
+        use_resolver=1
+        info "Проксирую на сервисы backend/frontend по именам внутри общей Docker-сети."
+    fi
+
+    ssl_cert=$(container_angie_first_value "$proxy_name" ssl_certificate || true)
+    ssl_key=$(container_angie_first_value "$proxy_name" ssl_certificate_key || true)
+    if [ -n "$ssl_cert" ] && [ -n "$ssl_key" ]; then
+        info "Использую существующий сертификат Angie: $ssl_cert"
+        warn "Убедитесь, что сертификат покрывает $webhook_host и $miniapp_host (например, wildcard)."
+    else
+        warn "Не нашел ssl_certificate в конфиге контейнера $proxy_name."
+        prompt_value "Путь к fullchain.pem внутри контейнера (пусто = слушать HTTP :80 без TLS)" "" 0 0 ""
+        ssl_cert="$PROMPT_VALUE"
+        if [ -n "$ssl_cert" ]; then
+            prompt_value "Путь к privkey.pem внутри контейнера" "" 1 0 ""
+            ssl_key="$PROMPT_VALUE"
+        else
+            ssl_key=""
+            warn "Серверные блоки будут слушать порт 80: TLS должен терминироваться выше по цепочке."
+        fi
+    fi
+
+    httpd_dir=$(angie_container_httpd_host_dir "$proxy_name" || true)
+    if [ -n "$httpd_dir" ]; then
+        snippet_path="$httpd_dir/remnawave-minishop.conf"
+        snippet_backup=""
+        if [ -e "$snippet_path" ]; then
+            snippet_backup=$(backup_path "$snippet_path")
+            cp "$snippet_path" "$snippet_backup"
+            info "Бэкап $snippet_path сохранен как $(basename "$snippet_backup")"
+        fi
+        tmp="$snippet_path.tmp.$$"
+        : > "$tmp"
+        render_generic_nginx_servers "$tmp" "$webhook_host" "$miniapp_host" "$backend_upstream" "$frontend_upstream" "$ssl_cert" "$ssl_key" "$use_resolver"
+        mv "$tmp" "$snippet_path" || {
+            rm -f "$tmp"
+            return 1
+        }
+        if apply_angie_container_config "$proxy_name"; then
+            ok "Маршруты Angie настроены: $webhook_host -> $backend_upstream и $miniapp_host -> $frontend_upstream"
+            ok "Записан конфиг $snippet_path"
+            return 0
+        fi
+        warn "Проверка конфига Angie не прошла; откатываю $snippet_path"
+        if [ -n "$snippet_backup" ] && [ -f "$snippet_backup" ]; then
+            cp "$snippet_backup" "$snippet_path"
+        else
+            rm -f "$snippet_path"
+        fi
+        docker exec "$proxy_name" angie -s reload >/dev/null 2>&1 || true
+        return 1
+    fi
+
+    conf_file=$(angie_container_httpd_file_mount "$proxy_name" || true)
+    if [ -n "$conf_file" ] && [ -f "$conf_file" ]; then
+        conf_backup=$(backup_path "$conf_file")
+        cp "$conf_file" "$conf_backup" || return 1
+        info "Бэкап $conf_file сохранен как $(basename "$conf_backup")"
+        tmp="$conf_file.tmp.$$"
+        egames_remove_managed_and_conflicting_servers "$conf_backup" "$tmp" "$webhook_host" "$miniapp_host" || {
+            rm -f "$tmp"
+            return 1
+        }
+        printf '\n' >> "$tmp"
+        render_generic_nginx_servers "$tmp" "$webhook_host" "$miniapp_host" "$backend_upstream" "$frontend_upstream" "$ssl_cert" "$ssl_key" "$use_resolver"
+        if ! cat "$tmp" > "$conf_file"; then
+            rm -f "$tmp"
+            return 1
+        fi
+        rm -f "$tmp"
+        if apply_angie_container_config "$proxy_name"; then
+            ok "Маршруты Angie настроены: $webhook_host -> $backend_upstream и $miniapp_host -> $frontend_upstream"
+            return 0
+        fi
+        warn "Проверка конфига Angie не прошла; восстанавливаю $conf_backup"
+        cp "$conf_backup" "$conf_file"
+        docker restart "$proxy_name" >/dev/null || true
+        return 1
+    fi
+
+    mkdir -p "$TARGET_DIR/$INSTALL_STATE_DIR"
+    manual_conf="$TARGET_DIR/$INSTALL_STATE_DIR/remnawave-minishop-angie.conf"
+    : > "$manual_conf"
+    render_generic_nginx_servers "$manual_conf" "$webhook_host" "$miniapp_host" "$backend_upstream" "$frontend_upstream" "$ssl_cert" "$ssl_key" "$use_resolver"
+    warn "Не нашел host-mounted конфиг (http.d) у контейнера $proxy_name, поэтому не могу записать его автоматически."
+    warn "Готовые server-блоки сохранены: $manual_conf"
+    info "Добавьте их в http-контекст вашего Angie (например, скопируйте файл в его http.d) и выполните angie -s reload."
+    return 0
+}
+
 attach_generic_caddy_proxy() {
     proxy_name="$1"
     webhook_host="$2"
@@ -2925,7 +3086,7 @@ attach_generic_caddy_proxy() {
 }
 
 attach_existing_reverse_proxy_container() {
-    section "Подключение к существующему Nginx/Caddy"
+    section "Подключение к существующему Nginx/Angie/Caddy"
     require_docker || return 1
     webhook_host="${WEBHOOK_HOST_VALUE:-$(env_get WEBHOOK_HOST '')}"
     miniapp_host="${MINIAPP_HOST_VALUE:-$(env_get MINIAPP_HOST '')}"
@@ -2943,7 +3104,7 @@ attach_existing_reverse_proxy_container() {
         done
         default_proxy=$(printf '%s\n' "$candidates" | head -n 1)
     else
-        warn "Не нашел запущенные Nginx/Caddy контейнеры автоматически; введите имя вручную."
+        warn "Не нашел запущенные Nginx/Angie/Caddy контейнеры автоматически; введите имя вручную."
     fi
     prompt_value "Имя контейнера reverse proxy" "$default_proxy" 1 0 ""
     proxy_name="$PROMPT_VALUE"
@@ -2954,18 +3115,23 @@ attach_existing_reverse_proxy_container() {
 
     proxy_kind=$(proxy_container_kind "$proxy_name" || true)
     if [ -z "$proxy_kind" ]; then
-        choose "Тип reverse proxy в контейнере $proxy_name" "1" "1|2" \
+        choose "Тип reverse proxy в контейнере $proxy_name" "1" "1|2|3" \
             "1. Nginx" \
-            "2. Caddy" || return 1
+            "2. Angie" \
+            "3. Caddy" || return 1
         case "$CHOICE_VALUE" in
             1) proxy_kind="nginx" ;;
-            2) proxy_kind="caddy" ;;
+            2) proxy_kind="angie" ;;
+            3) proxy_kind="caddy" ;;
         esac
     fi
 
     case "$proxy_kind" in
         nginx)
             attach_generic_nginx_proxy "$proxy_name" "$webhook_host" "$miniapp_host"
+            ;;
+        angie)
+            attach_generic_angie_proxy "$proxy_name" "$webhook_host" "$miniapp_host"
             ;;
         caddy)
             attach_generic_caddy_proxy "$proxy_name" "$webhook_host" "$miniapp_host"
@@ -2981,7 +3147,7 @@ configure_existing_reverse_proxy() {
     fi
     choose "Подключение к существующему reverse proxy" "$default_proxy_mode" "1|2|3" \
         "1. Remnawave/eGames Nginx - правка nginx.conf по схеме eGames (unix socket)." \
-        "2. Другой запущенный Nginx или Caddy - универсальное подключение к контейнеру." \
+        "2. Другой запущенный Nginx, Angie или Caddy - универсальное подключение к контейнеру." \
         "3. Пропустить - настрою reverse proxy вручную." || return 1
     case "$CHOICE_VALUE" in
         1)
@@ -3188,6 +3354,9 @@ reverse_proxy_service_name() {
     case "$profile" in
         caddy)
             printf 'caddy'
+            ;;
+        angie)
+            printf 'angie'
             ;;
         nginx)
             printf 'nginx'
@@ -3913,7 +4082,7 @@ create_pre_migration_backup() {
     mkdir -p "$backup_dir/files" "$backup_dir/dumps"
     chmod 700 "$backup_dir" 2>/dev/null || true
 
-    for file in .env docker-compose.yml compose.yml Caddyfile nginx.conf.template .env.example; do
+    for file in .env docker-compose.yml compose.yml Caddyfile angie.conf.template nginx.conf.template .env.example; do
         if [ -f "$TARGET_DIR/$file" ]; then
             mkdir -p "$backup_dir/files/$(dirname "$file")"
             cp "$TARGET_DIR/$file" "$backup_dir/files/$file"
@@ -3952,7 +4121,7 @@ cd "\$TARGET_DIR"
 if [ -f "\$BACKUP_DIR/files/.env" ]; then
   cp "\$BACKUP_DIR/files/.env" "\$TARGET_DIR/.env"
 fi
-for file in docker-compose.yml compose.yml Caddyfile nginx.conf.template .env.example; do
+for file in docker-compose.yml compose.yml Caddyfile angie.conf.template nginx.conf.template .env.example; do
   if [ -f "\$BACKUP_DIR/files/\$file" ]; then
     cp "\$BACKUP_DIR/files/\$file" "\$TARGET_DIR/\$file"
   fi
@@ -4546,6 +4715,7 @@ migration_only_flow() {
 
 download_only_flow() {
     installation_directory || return 1
+    ENV_PATH="$TARGET_DIR/.env"
     install_source || return 1
     choose_profile || return 1
     download_profile_files

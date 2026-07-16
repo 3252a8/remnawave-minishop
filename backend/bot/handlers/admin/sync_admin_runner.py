@@ -592,7 +592,7 @@ async def _perform_sync_impl(
                         ) or panel_user_dict.get("shortUuid")
 
                         if subscription_uuid_from_panel:
-                            # Если панель говорит, что подписка ACTIVE — сначала деактивируем все другие активные  # noqa: E501
+                            # If the panel reports the subscription as ACTIVE, deactivate all other active subscriptions first  # noqa: E501
                             if panel_status == "ACTIVE":
                                 await session.execute(
                                     update(Subscription)

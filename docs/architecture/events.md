@@ -95,7 +95,7 @@ Core reactions: none
 
 Payload model: `PaymentCanceledPayload`
 
-Emitters: `backend/bot/app/web/webapp/billing.py`, `backend/bot/payment_providers/shared/webhooks.py`, `backend/bot/payment_providers/yookassa.py`, `backend/main_worker.py`
+Emitters: `backend/bot/app/web/webapp/billing.py`, `backend/bot/payment_providers/shared/webhooks.py`, `backend/bot/payment_providers/yookassa.py`, `backend/bot/services/yookassa_reconciliation_worker.py`, `backend/main_worker.py`
 
 Core reactions: `CoreEventReactions.on_payment_canceled`
 

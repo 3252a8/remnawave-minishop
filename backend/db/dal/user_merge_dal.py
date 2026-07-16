@@ -204,6 +204,11 @@ async def merge_users(
     source, target = await _lock_users_for_merge(session, source_user_id, target_user_id)
     if not source or not target:
         raise ValueError("Both source and target users are required for merge.")
+    if bool(getattr(source, "is_banned", False)) or bool(getattr(target, "is_banned", False)):
+        raise UserMergeConflictError(
+            "Access denied",
+            message_key="wa_auth_access_denied",
+        )
 
     if source.email and target.email and source.email != target.email:
         raise UserMergeConflictError("Both accounts already have different emails.")

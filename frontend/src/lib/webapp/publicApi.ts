@@ -115,6 +115,7 @@ export type SupportTicketCreateResponse = PostResponse<"/api/support/tickets">;
 export type SupportTicketDetailResponse = GetResponse<"/api/support/tickets/{id}">;
 export type SupportTicketReplyResponse = PostResponse<"/api/support/tickets/{id}/messages">;
 export type SupportTicketReadResponse = PostResponse<"/api/support/tickets/{id}/read">;
+export type SupportTicketTypingResponse = PostResponse<"/api/support/tickets/{id}/typing">;
 export type SupportUnreadResponse = GetResponse<"/api/support/unread">;
 export type TariffChangeResponse = PostResponse<"/api/tariffs/change">;
 export type TariffChangeOptionsResponse = GetResponse<"/api/tariffs/change-options">;
@@ -410,6 +411,13 @@ export function buildSupportTicketReadPath(ticketId: string | number): SupportTi
   );
 }
 
+export type SupportTicketTypingPath = BuiltApiPath<"/api/support/tickets/{id}/typing">;
+export function buildSupportTicketTypingPath(ticketId: string | number): SupportTicketTypingPath {
+  return builtApiPath<"/api/support/tickets/{id}/typing">(
+    `/support/tickets/${encodeURIComponent(String(ticketId))}/typing`
+  );
+}
+
 export type AdminSettingsPath = "/admin/settings";
 export function buildAdminSettingsPath(): AdminSettingsPath {
   return "/admin/settings";
@@ -522,6 +530,15 @@ export function buildAdminSupportTicketReadPath(
 ): AdminSupportTicketReadPath {
   return builtApiPath<"/api/admin/support/tickets/{id}/read">(
     `/admin/support/tickets/${encodeURIComponent(String(ticketId))}/read`
+  );
+}
+
+export type AdminSupportTicketTypingPath = BuiltApiPath<"/api/admin/support/tickets/{id}/typing">;
+export function buildAdminSupportTicketTypingPath(
+  ticketId: string | number
+): AdminSupportTicketTypingPath {
+  return builtApiPath<"/api/admin/support/tickets/{id}/typing">(
+    `/admin/support/tickets/${encodeURIComponent(String(ticketId))}/typing`
   );
 }
 

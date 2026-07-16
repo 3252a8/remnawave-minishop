@@ -111,8 +111,8 @@ class _RemnashopSettingsSection(_RemnashopSalesSection):
                 self.summary["payment_provider_settings"]["unsupported"] += 1
                 display_type = gateway_type or str(row.get("type") or "unknown")
                 self.summary["warnings"].append(
-                    f"Платежный провайдер Remnashop {display_type} не поддерживается "
-                    "Minishop; настройте его вручную, если он еще нужен."
+                    f"Remnashop payment provider {display_type} is not supported by "
+                    "Minishop; configure it manually if it is still needed."
                 )
                 await self._upsert_mapping(
                     entity_type="payment_provider_settings",

@@ -15,6 +15,7 @@ from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.utils.callback_answer import (
     message_from_user,
 )
+from bot.utils.locale_defaults import subscription_purchase_description_text
 from config.settings import Settings
 from config.tariffs_config import (
     default_currency_key_for_settings,
@@ -27,6 +28,10 @@ router = Router(name="user_subscription_core_router")
 
 class _TrafficPackages(Protocol):
     def for_currency(self, currency: str) -> Any: ...
+
+
+class _GetText(Protocol):
+    def __call__(self, key: str, **kwargs: object) -> str: ...
 
 
 class _PurchaseTariff(Protocol):
@@ -140,8 +145,7 @@ def _with_subscription_purchase_description(
 ) -> str:
     if not include:
         return text
-    description_resolver = settings.subscription_purchase_description
-    description = description_resolver(current_lang) if callable(description_resolver) else ""
+    description = subscription_purchase_description_text(settings, current_lang)
     if not description:
         return text
     return f"{description}\n\n{text}"
@@ -161,7 +165,9 @@ def _event_user_id(event: types.Message | types.CallbackQuery) -> int:
     return int(message_from_user(event).id)
 
 
-def _format_premium_usage_limit(active: dict[str, object]) -> str:
+def _format_premium_usage_limit(active: dict[str, object], get_text: _GetText | None = None) -> str:
     used = _format_premium_bytes(active.get("premium_used_bytes"))
     limit = _format_premium_bytes(active.get("premium_limit_bytes"))
-    return f"{used} из {limit}"
+    if get_text is None:
+        return f"{used} of {limit}"
+    return get_text("premium_usage_of", used=used, limit=limit)

@@ -200,25 +200,25 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
   }
 
   const BROADCAST_TARGET_OPTIONS: BroadcastTargetOption[] = [
-    { value: "all", label: at("broadcast_target_all", {}, "Все активные") },
-    { value: "active", label: at("broadcast_target_active", {}, "С подпиской") },
-    { value: "inactive", label: at("broadcast_target_inactive", {}, "Без подписки") },
+    { value: "all", label: at("broadcast_target_all", {}, "All active") },
+    { value: "active", label: at("broadcast_target_active", {}, "With subscription") },
+    { value: "inactive", label: at("broadcast_target_inactive", {}, "No subscription") },
     { value: "expired", label: at("broadcast_target_expired", {}, "Expired subscription") },
     {
       value: "active_never_connected",
       label: at(
         "broadcast_target_active_never_connected",
         {},
-        "С подпиской, но без VPN-подключений"
+        "With subscription, no VPN connections"
       ),
     },
     {
       value: "never",
-      label: at("broadcast_target_never", {}, "Без подписки и без истории"),
+      label: at("broadcast_target_never", {}, "No subscription, no history"),
     },
     {
       value: "admins",
-      label: at("broadcast_target_admins", {}, "Администраторы (тест рассылки)"),
+      label: at("broadcast_target_admins", {}, "Administrators (broadcast test)"),
     },
   ];
   state.BROADCAST_TARGET_OPTIONS = BROADCAST_TARGET_OPTIONS;
@@ -368,9 +368,9 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
             channels: Array.isArray(payload.channels) ? payload.channels : channels,
           },
         }));
-        onToast(at("broadcast_started", {}, "Рассылка запущена"));
+        onToast(at("broadcast_started", {}, "Broadcast started"));
       } else {
-        onToast(adminErrorMessage(res, at, at("broadcast_failed", {}, "Ошибка рассылки")));
+        onToast(adminErrorMessage(res, at, at("broadcast_failed", {}, "Broadcast failed")));
       }
     } finally {
       updateState((s) => ({ ...s, broadcastBusy: false }));
@@ -425,7 +425,7 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
     if (state.broadcastPreviewBusy) return;
     const text = state.broadcastText.trim();
     if (!text) {
-      onToast(at("broadcast_preview_empty", {}, "Введите текст для превью"));
+      onToast(at("broadcast_preview_empty", {}, "Enter text to preview"));
       return;
     }
     updateState((s) => ({ ...s, broadcastPreviewBusy: true }));
@@ -458,10 +458,10 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
           },
         }));
         if (mode === "send_telegram") {
-          onToast(at("broadcast_preview_sent", {}, "Превью отправлено в Telegram"));
+          onToast(at("broadcast_preview_sent", {}, "Preview sent to Telegram"));
         }
       } else {
-        onToast(adminErrorMessage(res, at, at("broadcast_preview_failed", {}, "Ошибка превью")));
+        onToast(adminErrorMessage(res, at, at("broadcast_preview_failed", {}, "Preview failed")));
       }
     } finally {
       updateState((s) => ({ ...s, broadcastPreviewBusy: false }));

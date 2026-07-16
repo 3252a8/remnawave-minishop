@@ -31,21 +31,21 @@
   class:is-dirty={hwidLimitDirty}
 >
   <AdminSectionHeader
-    title={at("user_hwid_limit_card_title", {}, "HWID-устройства")}
+    title={at("user_hwid_limit_card_title", {}, "HWID devices")}
     description={at(
       "user_hwid_limit_card_hint",
       {},
-      "Ручной лимит устройств для пользователя. Пустое поле вернёт тарифный или default-лимит."
+      "Manual device limit for the user. Leave the field empty to restore the tariff or default limit."
     )}
   />
   <div class="admin-user-action-sheet-body admin-user-override-stack">
     <Label.Root class="admin-field-label admin-extend-field">
-      <span>{at("user_hwid_limit_input", {}, "Лимит устройств")}</span>
+      <span>{at("user_hwid_limit_input", {}, "Device limit")}</span>
       <small
         >{at(
           "user_hwid_limit_input_hint",
           {},
-          "Пусто — тариф/default; 0 или галочка — безлимит."
+          "Empty means tariff/default; 0 or the checkbox means unlimited."
         )}</small
       >
       <Input
@@ -53,9 +53,9 @@
         type="number"
         min="0"
         step="1"
-        placeholder={at("user_hwid_limit_default_placeholder", {}, "Тариф")}
+        placeholder={at("user_hwid_limit_default_placeholder", {}, "Tariff")}
         disabled={hwidUnlimitedDraft}
-        aria-label={at("user_hwid_limit_input", {}, "Лимит устройств")}
+        aria-label={at("user_hwid_limit_input", {}, "Device limit")}
         bind:value={usersStore.hwidDeviceLimitDraft}
       />
     </Label.Root>
@@ -65,43 +65,39 @@
       <label class="admin-override-unlimited-label">
         <Checkbox
           bind:checked={usersStore.hwidUnlimitedDraft}
-          aria-label={at("user_override_unlimited_short", {}, "Безлимит")}
+          aria-label={at("user_override_unlimited_short", {}, "Unlimited")}
         />
-        <span>{at("user_override_unlimited_short", {}, "Безлимит")}</span>
+        <span>{at("user_override_unlimited_short", {}, "Unlimited")}</span>
       </label>
       <div class="admin-action-save-controls">
         {#if hwidLimitDirty}
-          <AdminBadge variant="warning">{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge>
+          <AdminBadge variant="warning">{at("settings_badge_dirty", {}, "Changed")}</AdminBadge>
         {/if}
         <AdminButton
           variant="primary"
           onclick={usersStore.saveHwidDeviceLimit}
           disabled={userActionBusy || !hwidLimitDirty || !hwidLimitDraftValid}
         >
-          {at("user_hwid_limit_save", {}, "Сохранить")}
+          {at("user_hwid_limit_save", {}, "Save")}
         </AdminButton>
       </div>
     </div>
     <div class="admin-override-status-lines">
       {#if hwidLimitDirty}
         <span class="admin-unsaved-hint">
-          {at("user_action_unsaved_hint", {}, "Есть несохранённые изменения")}
+          {at("user_action_unsaved_hint", {}, "Unsaved changes in this card")}
         </span>
       {/if}
       {#if !hwidLimitDraftValid}
         <span class="admin-invalid-hint">
-          {at(
-            "hwid_limit_invalid",
-            {},
-            "Введите целое число устройств от 0 до 1 000 000 или включите безлимит"
-          )}
+          {at("hwid_limit_invalid", {}, "❌ Enter an integer device count from 0 to 1,000,000.")}
         </span>
       {/if}
       <span class="admin-meta-truncate">
         {at(
           "user_hwid_limit_status",
           { current: hwidLimitLabel(activeSubscription) },
-          `Сейчас: ${hwidLimitLabel(activeSubscription)}`
+          "Current: {current}"
         )}
       </span>
     </div>

@@ -6,10 +6,12 @@ from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
     get_session_factory,
+    get_settings,
     get_support_service,
 )
 from bot.app.web.request_parsing import parse_body_or_400
 from bot.app.web.route_contracts import (
+    BOOLEAN_SCHEMA,
     RouteContract,
     ok_envelope_with,
     register_contract,
@@ -23,7 +25,9 @@ from bot.app.web.support_schemas import (
     AdminSupportUserSnapshotOut,
     EmptyObjectOut,
     SupportTicketOut,
+    SupportTypingIn,
 )
+from bot.services.support_presence import is_support_typing, set_support_typing
 from bot.services.support_service import TicketNotFound
 from db.dal import support_dal, user_dal
 from db.models import SupportTicket, SupportTicketMessage, User
@@ -93,6 +97,7 @@ register_contract(
                         schema_ref(EmptyObjectOut),
                     ]
                 },
+                "peer_typing": BOOLEAN_SCHEMA,
             }
         ),
         models=(
@@ -128,6 +133,14 @@ register_contract(
 register_contract(
     "admin_support_ticket_read_route",
     RouteContract(response_schema=ok_envelope_with()),
+)
+register_contract(
+    "admin_support_ticket_typing_route",
+    RouteContract(
+        request_model=SupportTypingIn,
+        response_schema=ok_envelope_with(),
+        models=(SupportTypingIn,),
+    ),
 )
 register_contract(
     "admin_support_stats_route",
@@ -229,6 +242,7 @@ async def admin_support_ticket_detail_route(request: web.Request) -> web.Respons
             author = await user_dal.get_user_by_id(session, author_id)
             if author:
                 authors[author_id] = author
+    peer_typing = await is_support_typing(get_settings(request), ticket_id, "user")
     return _ok(
         {
             "ticket": {
@@ -237,6 +251,7 @@ async def admin_support_ticket_detail_route(request: web.Request) -> web.Respons
             },
             "messages": [_support_message_payload(m, authors=authors) for m in messages],
             "user_snapshot": snapshot,
+            "peer_typing": peer_typing,
         }
     )
 
@@ -261,6 +276,7 @@ async def admin_support_ticket_reply_route(request: web.Request) -> web.Response
     async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         admin = await user_dal.get_user_by_id(session, admin_id)
+    await set_support_typing(get_settings(request), ticket_id, "admin", typing=False)
     return _ok(
         {
             "ticket": _support_ticket_payload(ticket),
@@ -305,6 +321,22 @@ async def admin_support_ticket_read_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     ticket_id = int(request.match_info["id"])
     await get_support_service(request).mark_read_as_admin(ticket_id)
+    return _ok({})
+
+
+async def admin_support_ticket_typing_route(request: web.Request) -> web.Response:
+    _require_admin_user_id(request)
+    ticket_id = int(request.match_info["id"])
+    payload = await parse_body_or_400(
+        request,
+        SupportTypingIn,
+        validation_error_response_factory=_invalid_request_payload_response,
+    )
+    async_session_factory: sessionmaker = get_session_factory(request)
+    async with async_session_factory() as session:
+        if await session.get(SupportTicket, ticket_id) is None:
+            return _error(404, "not_found", "Ticket not found")
+    await set_support_typing(get_settings(request), ticket_id, "admin", typing=payload.typing)
     return _ok({})
 
 

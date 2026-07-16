@@ -397,6 +397,7 @@ class LavaService(HttpClientMixin):
         async with self.async_session_factory() as session:
             payment = await lookup_payment_by_order_or_provider_id(
                 session,
+                providers="lava",
                 order_id_raw=order_id_raw,
                 provider_payment_id=provider_payment_id or None,
             )
@@ -638,7 +639,7 @@ _PRESENTATION_MANIFEST = tuple(
 )
 
 _CONFIG_MANIFEST = (
-    ProviderManifestField("LAVA_ENABLED", "bool", "Включена", subsection="LAVA", attr="ENABLED"),
+    ProviderManifestField("LAVA_ENABLED", "bool", "Enabled", subsection="LAVA", attr="ENABLED"),
     ProviderManifestField("LAVA_SHOP_ID", "string", "Shop ID", subsection="LAVA", attr="SHOP_ID"),
     ProviderManifestField(
         "LAVA_SECRET_KEY",

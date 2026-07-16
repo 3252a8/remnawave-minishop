@@ -709,6 +709,7 @@ class PaykillaService(HttpClientMixin):
         async with self.async_session_factory() as session:
             payment = await lookup_payment_by_order_or_provider_id(
                 session,
+                providers="paykilla",
                 order_id_raw=client_order_id,
                 provider_payment_id=invoice_id or None,
             )

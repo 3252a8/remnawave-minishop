@@ -46,20 +46,20 @@
 <Tabs.Content value="logs" class="admin-tabs-content admin-user-logs-tab">
   <div class="admin-user-logs-head">
     <div class="admin-subsection-title">
-      {at("user_logs_section_title", {}, "Логи пользователя")}
+      {at("user_logs_section_title", {}, "User logs")}
     </div>
     <div class="admin-user-logs-meta">
-      <span class="admin-muted">{at("total", {}, "Всего")}</span>
+      <span class="admin-muted">{at("total", {}, "Total")}</span>
       <strong>{userLogsTotal}</strong>
       <AdminButton
         size="sm"
         variant="ghost"
         disabled={userLogsLoading}
         onclick={() => usersStore.loadUserLogs(userLogsPage)}
-        title={at("refresh", {}, "Обновить")}
+        title={at("refresh", {}, "Refresh")}
       >
         <RefreshCw size={14} />
-        {at("refresh", {}, "Обновить")}
+        {at("refresh", {}, "Refresh")}
       </AdminButton>
     </div>
   </div>
@@ -67,33 +67,33 @@
   <ScrollArea class="admin-user-logs-wrap" maxHeight="min(52vh, 460px)">
     {#if userLogsLoading}
       <AdminTableSkeleton
-        headers={[at("date", {}, "Дата"), at("event", {}, "Событие"), at("content", {}, "Контент")]}
+        headers={[at("date", {}, "Date"), at("event", {}, "Event"), at("content", {}, "Content")]}
         rows={6}
         widths={["140px", "140px", "60%"]}
       />
     {:else if !userLogsRows.length}
       <AdminEmptyState tone="card">
-        <span class="admin-muted">{at("logs_empty", {}, "Записей нет")}</span>
+        <span class="admin-muted">{at("logs_empty", {}, "No entries")}</span>
       </AdminEmptyState>
     {:else}
       <AdminTable>
         <thead>
           <tr>
-            <th>{at("date", {}, "Дата")}</th>
-            <th>{at("event", {}, "Событие")}</th>
-            <th>{at("content", {}, "Контент")}</th>
+            <th>{at("date", {}, "Date")}</th>
+            <th>{at("event", {}, "Event")}</th>
+            <th>{at("content", {}, "Content")}</th>
           </tr>
         </thead>
         <tbody>
           {#each userLogsRows as entry (entry.log_id)}
             <tr>
-              <td data-label={at("date", {}, "Дата")}>{fmtDate(entry.timestamp)}</td>
-              <td class="admin-cell-mono" data-label={at("event", {}, "Событие")}>
+              <td data-label={at("date", {}, "Date")}>{fmtDate(entry.timestamp)}</td>
+              <td class="admin-cell-mono" data-label={at("event", {}, "Event")}>
                 <span class="admin-user-log-event">
                   <span>{entry.event_type || "—"}</span>
                   {#if entry.is_admin_event}
                     <AdminBadge variant="warning"
-                      >{at("user_logs_admin_event", {}, "Админ")}</AdminBadge
+                      >{at("user_logs_admin_event", {}, "Admin")}</AdminBadge
                     >
                   {/if}
                   {#if entry.target_user_id && entry.target_user_id !== openedUser?.user_id}
@@ -103,7 +103,7 @@
               </td>
               <td
                 class="admin-cell-wrap admin-user-log-content"
-                data-label={at("content", {}, "Контент")}
+                data-label={at("content", {}, "Content")}
               >
                 {entry.content || ""}
               </td>
@@ -119,14 +119,14 @@
       page={userLogsPage}
       pageCount={userLogsPageCount}
       total={userLogsTotal}
-      pageLabel={at("page_short", {}, "Стр.")}
-      ofLabel={at("pagination_of", {}, "из")}
-      totalLabel={at("total", {}, "Всего")}
-      jumpLabel={at("page_short", {}, "Стр.")}
-      jumpAriaLabel={at("pagination_jump_aria", {}, "Перейти к странице")}
-      goLabel={at("pagination_go", {}, "Перейти")}
-      prevLabel={at("back", {}, "Назад")}
-      nextLabel={at("next", {}, "Далее")}
+      pageLabel={at("page_short", {}, "Page")}
+      ofLabel={at("pagination_of", {}, "of")}
+      totalLabel={at("total", {}, "Total")}
+      jumpLabel={at("page_short", {}, "Page")}
+      jumpAriaLabel={at("pagination_jump_aria", {}, "Go to page")}
+      goLabel={at("pagination_go", {}, "Go")}
+      prevLabel={at("back", {}, "Back")}
+      nextLabel={at("next", {}, "Next")}
       disabled={userLogsLoading}
       onPageChange={(page) => usersStore.setUserLogsPage(page)}
     />

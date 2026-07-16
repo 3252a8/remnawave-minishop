@@ -6,6 +6,7 @@ from typing import Any
 
 from aiohttp import web
 
+from bot.utils.locale_defaults import tariff_premium_title
 from config.settings import Settings
 from config.tariffs_config import (
     default_currency_key_for_settings,
@@ -65,7 +66,7 @@ def _serialize_topup_packages(
             "price": float(price or 0),
             "currency": default_currency_code,
             "title": f"{title_prefix}{_format_traffic_title(traffic_value, lang)}",
-            "subtitle": tariff.premium_name(lang)
+            "subtitle": tariff_premium_title(tariff, lang)
             if sale_mode == "premium_topup"
             else tariff.name(lang),
         }

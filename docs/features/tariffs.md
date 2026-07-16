@@ -93,6 +93,7 @@ Legacy-поля остаются алиасами: `prices_rub`, `conversion_rat
       "squad_uuids": ["uuid-1"],
       "billing_model": "period",
       "monthly_gb": 500,
+      "traffic_limit_strategy": "MONTH",
       "prices_rub": { "1": 200, "3": 600 },
       "referral_bonus_days_inviter": { "1": 3, "3": 7 },
       "referral_bonus_days_referee": { "1": 1, "3": 3 },
@@ -143,6 +144,7 @@ Legacy-поля остаются алиасами: `prices_rub`, `conversion_rat
 | Поле                          | Назначение                                                                                                                                                                                                                                  |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `monthly_gb`                  | Базовый месячный лимит трафика тарифа. `0` означает безлимит.                                                                                                                                                                               |
+| `traffic_limit_strategy`      | Стратегия сброса трафика Remnawave: `NO_RESET`, `DAY`, `WEEK`, `MONTH` или `MONTH_ROLLING`. Если поле отсутствует, используется legacy-настройка `USER_TRAFFIC_STRATEGY`.                                                                  |
 | `prices`                      | Generic-цены периодов по валютам, например `{ "usd": { "1": 4.99 } }`.                                                                                                                                                                      |
 | `prices_rub`                  | Legacy-цены периодов в рублях, ключ - количество месяцев. Эквивалент `prices.rub`.                                                                                                                                                          |
 | `prices_stars`                | Цены периодов в Telegram Stars.                                                                                                                                                                                                             |
@@ -174,11 +176,13 @@ Legacy-поля остаются алиасами: `prices_rub`, `conversion_rat
 - `tier_baseline_bytes` получает значение `monthly_gb`;
 - `topup_balance_bytes` сохраняется из текущей активной подписки;
 - `traffic_limit_bytes` становится `tier_baseline_bytes + topup_balance_bytes`;
-- в Remnawave отправляется `trafficLimitStrategy` из `USER_TRAFFIC_STRATEGY`;
+- в Remnawave отправляется `trafficLimitStrategy` из тарифа с fallback на `USER_TRAFFIC_STRATEGY`;
 - в Remnawave отправляются Internal Squads из тарифа;
 - в Remnawave отправляется эффективный HWID-лимит тарифа.
 
-`USER_TRAFFIC_STRATEGY` задаёт стратегию Remnawave по умолчанию для новых period-тарифов. При `NO_RESET` панель не должна выполнять календарный сброс; при `DAY`, `WEEK`, `MONTH` и `MONTH_ROLLING` бот отправляет эту стратегию при создании/активации подписки. Если для пользователя в Remnawave уже указана другая стратегия, фоновые синки считают панель источником правды и не откатывают её обратно к дефолту.
+`traffic_limit_strategy` задаётся отдельно для каждого period-тарифа. Выбранное значение применяется уже в CREATE нового пользователя Remnawave, а также при активации, продлении и смене тарифа. Если поле отсутствует в старом `tariffs.json`, сохраняется прежнее поведение через `USER_TRAFFIC_STRATEGY`; редактор показывает режим наследования, пока администратор явно не выберет стратегию. При `NO_RESET` панель не выполняет календарный сброс; `DAY`, `WEEK`, `MONTH` и `MONTH_ROLLING` задают соответствующий период. Для traffic-тарифов поле запрещено, а обычный пакет всегда использует `NO_RESET`.
+
+Карточка пользователя показывает фактическую стратегию из Remnawave, поэтому ручной per-user override виден сразу. Фоновые синки не заменяют его значением тарифа; следующее изменение entitlement (активация, продление или смена тарифа) снова применяет стратегию текущего тарифа.
 
 Докупка трафика для period-тарифа увеличивает `topup_balance_bytes` и общий `traffic_limit_bytes`. Этот баланс сохраняется в подписке и учитывается при продлении period-тарифа. В панель отправляется актуальный лимит, а доступ переводится в `ACTIVE`.
 
@@ -217,7 +221,7 @@ Legacy-поля остаются алиасами: `prices_rub`, `conversion_rat
 - при исчерпании premium-лимита бот убирает только premium-сквады, обычный доступ остается;
 - после докупки premium-трафика бот возвращает premium-сквады, если новый лимит снова больше использованного premium-трафика.
 - докупленный premium-трафик не сгорает: сначала расходуется `premium_monthly_gb`, а докупленный остаток уменьшается только на трафик сверх базового premium-лимита;
-- premium-учёт у period-тарифов следует `trafficLimitStrategy` пользователя из Remnawave с fallback на `USER_TRAFFIC_STRATEGY`; у traffic-тарифов premium-учёт использует `USER_TRAFFIC_STRATEGY`, потому что обычный traffic-пакет в Remnawave живёт с `NO_RESET`. При `NO_RESET` premium-период идет от `start_date` подписки и не сбрасывает `premium_topup_used_bytes`; при `DAY`, `WEEK`, `MONTH` и `MONTH_ROLLING` счетчик premium-трафика и `premium_topup_used_bytes` сбрасываются на границе соответствующего периода, а `premium_topup_balance_bytes` переносится дальше. Для rolling-стратегии бот использует `lastTrafficResetAt` из Remnawave, если панель его отдаёт.
+- premium-учёт у period-тарифов следует `trafficLimitStrategy` пользователя из Remnawave с fallback сначала на `traffic_limit_strategy` тарифа, затем на `USER_TRAFFIC_STRATEGY`; у traffic-тарифов premium-учёт использует `USER_TRAFFIC_STRATEGY`, потому что обычный traffic-пакет в Remnawave живёт с `NO_RESET`. При `NO_RESET` premium-период идет от `start_date` подписки и не сбрасывает `premium_topup_used_bytes`; при `DAY`, `WEEK`, `MONTH` и `MONTH_ROLLING` счетчик premium-трафика и `premium_topup_used_bytes` сбрасываются на границе соответствующего периода, а `premium_topup_balance_bytes` переносится дальше. Для rolling-стратегии бот использует `lastTrafficResetAt` из Remnawave, если панель его отдаёт.
 
 Если `premium_squad_uuids` заданы, но `premium_monthly_gb` пустой или `0` и нет `premium_topup_packages`, premium-сквады работают как дополнительный доступ без отдельного ограничения. Если заданы `premium_topup_packages` или положительный `premium_monthly_gb`, `premium_squad_uuids` обязательны.
 
@@ -353,11 +357,11 @@ Remnawave ограничивает доступ при достижении `tra
 `TariffTrafficWorker` запускается, когда активен JSON-каталог тарифов. Раз в 300 секунд он:
 
 - синхронизирует из панели `status`, `trafficLimitBytes`, `usedTrafficBytes` и `trafficLimitStrategy`;
-- для period-тарифов использует `trafficLimitStrategy` из Remnawave, а `USER_TRAFFIC_STRATEGY` применяет как fallback, если панель не вернула стратегию;
+- для period-тарифов использует `trafficLimitStrategy` из Remnawave, а стратегию тарифа и затем `USER_TRAFFIC_STRATEGY` применяет как fallback, если панель не вернула стратегию;
 - отправляет предупреждения на уровнях из `TARIFF_TRAFFIC_WARNING_LEVELS` (по умолчанию `85,90,95`);
 - дедуплицирует предупреждения через `traffic_warnings`.
 
-Для period-тарифов дедупликация предупреждений привязана к началу текущего периода по стратегии из Remnawave с fallback на `USER_TRAFFIC_STRATEGY`; уведомления о сбросе отправляются только когда эффективная стратегия сброса не `NO_RESET`. Для traffic-тарифов дедупликация учитывает текущий `trafficLimitBytes`, чтобы после покупки очередного пакета пользователь мог получить следующий набор предупреждений.
+Для period-тарифов дедупликация предупреждений привязана к началу текущего периода по стратегии из Remnawave с fallback на стратегию тарифа и `USER_TRAFFIC_STRATEGY`; уведомления о сбросе отправляются только когда эффективная стратегия сброса не `NO_RESET`. Для traffic-тарифов дедупликация учитывает текущий `trafficLimitBytes`, чтобы после покупки очередного пакета пользователь мог получить следующий набор предупреждений.
 
 Подписки, которые были ограничены логикой предыдущих запусков бота (`is_throttled=True`), восстанавливаются воркером только когда лимит снова больше использованного трафика.
 
@@ -365,7 +369,7 @@ Remnawave ограничивает доступ при достижении `tra
 
 Автопродление через YooKassa применяется к подпискам на срок. Для режима продажи трафика без JSON-каталога автопродление пропускается. Для traffic-тарифов JSON-каталога покупка является пакетом трафика, а не периодической подпиской.
 
-Пробный период использует настройки `TRIAL_DURATION_DAYS`, `TRIAL_TRAFFIC_LIMIT_GB`, `TRIAL_TRAFFIC_STRATEGY` и `TRIAL_SQUAD_UUIDS`. Он не выбирает тариф из JSON-каталога, но его можно настроить на странице **Система → Тарифы** рядом с каталогом продаж. Если `TRIAL_SQUAD_UUIDS` пустой, для trial применяются squads из `USER_SQUAD_UUIDS`; premium-сквады из тарифного каталога в обычном списке trial не выдаются как обычный доступ. Premium-доступ для trial включается отдельно через `TRIAL_PREMIUM_SQUAD_UUIDS`; если список пустой, premium-сквады не выдаются. Отдельный лимит задаёт `TRIAL_PREMIUM_TRAFFIC_LIMIT_GB`, где `0` означает доступ без отдельного premium-ограничения. Переключатель `TRIAL_WITHOUT_TELEGRAM_ENABLED` управляет активацией trial для аккаунтов без Telegram, а домены из `DISPOSABLE_EMAIL_DOMAINS` требуют привязки Telegram независимо от этого переключателя.
+Пробный период использует настройки `TRIAL_DURATION_DAYS`, `TRIAL_TRAFFIC_LIMIT_GB`, `TRIAL_TRAFFIC_STRATEGY` и `TRIAL_SQUAD_UUIDS`. Он не выбирает тариф из JSON-каталога, но его можно настроить на странице **Система → Тарифы** рядом с каталогом продаж. Если `TRIAL_SQUAD_UUIDS` пустой, для trial применяются squads из `USER_SQUAD_UUIDS`; premium-сквады из тарифного каталога в обычном списке trial не выдаются как обычный доступ. Premium-доступ для trial включается отдельно через `TRIAL_PREMIUM_SQUAD_UUIDS`; если список пустой, premium-сквады не выдаются. Отдельный лимит задаёт `TRIAL_PREMIUM_TRAFFIC_LIMIT_GB`, где `0` означает доступ без отдельного premium-ограничения, а его период следует `TRIAL_TRAFFIC_STRATEGY`. Переключатель `TRIAL_WITHOUT_TELEGRAM_ENABLED` управляет активацией trial для аккаунтов без Telegram, а домены из `DISPOSABLE_EMAIL_DOMAINS` требуют привязки Telegram независимо от этого переключателя.
 
 Промокоды поддерживают несколько режимов: мгновенные бонусные дни, бонусные дни после оплаты,
 скидку на checkout, множитель срока подписки и множитель выдаваемого трафика. Бонусные дни и

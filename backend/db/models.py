@@ -242,12 +242,19 @@ class SecurityThrottle(Base):
 
 class Payment(Base):
     __tablename__ = "payments"
-    __table_args__ = (Index("ix_payments_user_id_status", "user_id", "status"),)
+    __table_args__ = (
+        Index("ix_payments_user_id_status", "user_id", "status"),
+        UniqueConstraint(
+            "provider",
+            "provider_payment_id",
+            name="uq_payments_provider_payment_id",
+        ),
+    )
 
     payment_id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=False, index=True)
     yookassa_payment_id = Column(String, unique=True, index=True, nullable=True)
-    provider_payment_id = Column(String, unique=True, nullable=True)
+    provider_payment_id = Column(String, nullable=True)
     provider_payment_url = Column(String, nullable=True)
     provider = Column(String, nullable=False, default="yookassa", index=True)
     idempotence_key = Column(String, unique=True, nullable=True)

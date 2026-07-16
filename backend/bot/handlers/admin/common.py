@@ -261,7 +261,7 @@ async def show_queue_status_handler(callback: types.CallbackQuery, i18n_data: di
         from aiogram.utils.keyboard import InlineKeyboardBuilder
 
         await callback_message(callback).edit_text(
-            "❌ Система очередей не инициализирована",
+            _("admin_queue_not_initialized"),
             reply_markup=InlineKeyboardBuilder()
             .button(text=_("back_to_admin_panel_button"), callback_data="admin_action:main")
             .as_markup(),
@@ -275,10 +275,18 @@ async def show_queue_status_handler(callback: types.CallbackQuery, i18n_data: di
         message_text = _(
             "admin_queue_status_info",
             user_queue_size=stats["user_queue_size"],
-            user_processing="✅ Да" if stats["user_queue_processing"] else "❌ Нет",
+            user_processing=(
+                f"✅ {_('yes_button')}"
+                if stats["user_queue_processing"]
+                else f"❌ {_('no_button')}"
+            ),
             user_recent=stats["user_recent_sends"],
             group_queue_size=stats["group_queue_size"],
-            group_processing="✅ Да" if stats["group_queue_processing"] else "❌ Нет",
+            group_processing=(
+                f"✅ {_('yes_button')}"
+                if stats["group_queue_processing"]
+                else f"❌ {_('no_button')}"
+            ),
             group_recent=stats["group_recent_sends"],
         )
 
@@ -293,4 +301,4 @@ async def show_queue_status_handler(callback: types.CallbackQuery, i18n_data: di
 
     except Exception as e:
         logger.error("Error getting queue status: %s", e)
-        await callback.answer("❌ Ошибка получения статуса очередей", show_alert=True)
+        await callback.answer(_("admin_queue_status_error"), show_alert=True)

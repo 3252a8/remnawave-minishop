@@ -5,6 +5,7 @@ x-app-environment: &app_environment
   IMAGE_TAG: ${IMAGE_TAG:-latest}
   POSTGRES_HOST: postgres
   REDIS_URL: redis://redis:6379/0
+  WEB_SERVER_INTERNAL_PORT: "8080"
   WEBHOOK_BASE_URL: ${WEBHOOK_PUBLIC_URL:?set WEBHOOK_PUBLIC_URL in .env}
   SUBSCRIPTION_MINI_APP_URL: ${MINIAPP_PUBLIC_URL:?set MINIAPP_PUBLIC_URL in .env}
 

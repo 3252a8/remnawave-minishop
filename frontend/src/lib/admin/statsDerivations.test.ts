@@ -91,7 +91,7 @@ describe("statsDerivations", () => {
     expect(formatTrafficGbCell("")).toBe("—");
     expect(
       paymentDescriptionDisplay({ traffic_regular_gb: 10, description: "" } as never, at)
-    ).toBe('Пакет трафика 10 ГБ (обычный):{"gb":"10"}');
+    ).toBe('Traffic package {gb} GB (standard):{"gb":"10"}');
     expect(paymentDescriptionDisplay({ description: "Manual" } as never, at)).toBe("Manual");
   });
 });

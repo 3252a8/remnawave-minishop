@@ -37,11 +37,11 @@
 
 <div class="admin-user-quick-actions">
   <section class="admin-user-action-sheet admin-user-action-sheet--extend">
-    <AdminSectionHeader title={at("user_label_extend", {}, "Продлить подписку")} />
+    <AdminSectionHeader title={at("user_label_extend", {}, "Extend Subscription")} />
     <div class="admin-user-action-sheet-body admin-user-extend-stack">
       <div class="admin-user-extend-grid">
         <Label.Root class="admin-field-label admin-extend-field admin-user-extend-days-field">
-          <span>{at("user_label_extend_days", {}, "Дней")}</span>
+          <span>{at("user_label_extend_days", {}, "Days")}</span>
           <Input
             class="input"
             type="number"
@@ -49,7 +49,7 @@
             max="3650"
             step="1"
             bind:value={usersStore.userExtendDays}
-            aria-label={at("user_label_extend_days", {}, "Дней")}
+            aria-label={at("user_label_extend_days", {}, "Days")}
           />
         </Label.Root>
         {#if extendTariffItems.length}
@@ -77,7 +77,7 @@
             (extendTariffRequired && !usersStore.userExtendTariffKey)}
         >
           <Plus size={14} />
-          {at("user_btn_extend", {}, "Продлить")}
+          {at("user_btn_extend", {}, "Extend")}
         </AdminButton>
       </div>
       {#if extendTariffItems.length && !userExtendTariffValid}
@@ -94,11 +94,7 @@
           <Checkbox
             bind:checked={usersStore.userExtendHwidDevices}
             disabled={userActionBusy}
-            ariaLabel={at(
-              "user_extend_hwid_devices_aria",
-              {},
-              "Продлить докупленные HWID-устройства"
-            )}
+            ariaLabel={at("user_extend_hwid_devices_aria", {}, "Extend purchased HWID devices")}
           />
           <span>
             <strong>
@@ -107,14 +103,14 @@
                 {
                   count: extraHwidDevices,
                 },
-                `Продлить также +${extraHwidDevices} HWID-устройств`
+                "Also extend +{count} HWID devices"
               )}
             </strong>
             <small>
               {at(
                 "user_extend_hwid_devices_hint",
                 {},
-                "Срок действующих докупок увеличится на те же дни."
+                "Active device top-ups will receive the same number of extra days."
               )}
             </small>
           </span>
@@ -128,6 +124,6 @@
     disabled={userActionBusy}
   >
     <RefreshCw size={14} />
-    {at("user_btn_reset_trial", {}, "Сбросить триал")}
+    {at("user_btn_reset_trial", {}, "Reset Trial")}
   </AdminButton>
 </div>

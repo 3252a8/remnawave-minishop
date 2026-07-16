@@ -20,14 +20,14 @@ LocaleOverrides = dict[str, dict[str, str]]
 
 _LOCALE_LANGUAGE_CODE_RE = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
 LANGUAGE_LABELS: dict[str, str] = {
-    "ru": "Русский",
+    "ru": "Russian",
     "en": "English",
     "de": "Deutsch",
     "es": "Español",
     "fr": "Français",
     "pt-br": "Português (BR)",
     "tr": "Türkçe",
-    "uk": "Українська",
+    "uk": "Ukrainian",
 }
 LANGUAGE_FLAGS: dict[str, str] = {
     "ru": "🇷🇺",

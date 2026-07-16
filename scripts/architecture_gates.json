@@ -19,6 +19,152 @@
       "frontend/src/lib/webapp/demoDataset.js"
     ]
   },
+  "cyrillic_fallbacks": {
+    "frontend_translation_calls": {
+      "scopes": [
+        "frontend/src"
+      ],
+      "extensions": [
+        ".ts",
+        ".svelte"
+      ],
+      "allowlist": [
+        "frontend/src/**/*.test.ts"
+      ],
+      "allowed_count": 0
+    },
+    "frontend_webapp_translation_calls": {
+      "scopes": [
+        "frontend/src/webapp",
+        "frontend/src/lib/webapp",
+        "frontend/src/lib/components/patterns/webapp"
+      ],
+      "extensions": [
+        ".ts",
+        ".svelte"
+      ],
+      "allowlist": [
+        "frontend/src/**/*.test.ts"
+      ],
+      "allowed_count": 0
+    },
+    "frontend_admin_payments_translation_calls": {
+      "scopes": [
+        "frontend/src/admin/sections/PaymentsSection.svelte",
+        "frontend/src/admin/sections/PaymentDetailModal.svelte"
+      ],
+      "extensions": [
+        ".svelte"
+      ],
+      "allowlist": [],
+      "allowed_count": 0
+    },
+    "frontend_source_lines": {
+      "scopes": [
+        "frontend/src"
+      ],
+      "extensions": [
+        ".ts",
+        ".svelte",
+        ".js"
+      ],
+      "allowlist": [
+        "frontend/src/**/*.test.ts",
+        "frontend/src/**/*.spec.ts",
+        "frontend/src/PreviewBoard.svelte",
+        "frontend/src/preview/**",
+        "frontend/src/lib/webapp/demoDataset.js",
+        "frontend/src/lib/webapp/mockApi/**",
+        "frontend/src/lib/webapp/previewMock/**"
+      ],
+      "allowed_count": 0
+    },
+    "python_literals": {
+      "scopes": [
+        "backend"
+      ],
+      "allowlist": [
+        "backend/bot/handlers/inline_mode.py",
+        "backend/bot/payment_providers/paykilla/config.py",
+        "backend/bot/utils/text_sanitizer.py",
+        "backend/db/migrator/chain_0001_0021.py"
+      ],
+      "allowed_count": 0
+    },
+    "python_literal_exceptions": {
+      "scopes": [
+        "backend/bot/handlers/inline_mode.py",
+        "backend/bot/payment_providers/paykilla/config.py",
+        "backend/bot/utils/text_sanitizer.py",
+        "backend/db/migrator/chain_0001_0021.py"
+      ],
+      "allowlist": [],
+      "allowed_count": 123
+    },
+    "python_source_lines": {
+      "scopes": [
+        "backend"
+      ],
+      "allowlist": [
+        "backend/bot/handlers/inline_mode.py",
+        "backend/bot/payment_providers/paykilla/config.py",
+        "backend/bot/utils/text_sanitizer.py",
+        "backend/db/migrator/chain_0001_0021.py"
+      ],
+      "allowed_count": 0
+    },
+    "python_source_exceptions": {
+      "scopes": [
+        "backend/bot/handlers/inline_mode.py",
+        "backend/bot/payment_providers/paykilla/config.py",
+        "backend/bot/utils/text_sanitizer.py",
+        "backend/db/migrator/chain_0001_0021.py"
+      ],
+      "allowlist": [],
+      "allowed_count": 116
+    },
+    "python_webapp_literals": {
+      "scopes": [
+        "backend/bot/app/web/webapp"
+      ],
+      "allowlist": [],
+      "allowed_count": 0
+    }
+  },
+  "frontend_i18n_scope": {
+    "scopes": [
+      "frontend/src/App.svelte",
+      "frontend/src/webapp",
+      "frontend/src/lib/webapp",
+      "frontend/src/lib/components/patterns/webapp"
+    ],
+    "extensions": [
+      ".ts",
+      ".svelte"
+    ],
+    "allowlist": [
+      "frontend/src/**/*.test.ts",
+      "frontend/src/**/*.spec.ts",
+      "frontend/src/lib/webapp/mockApi/**",
+      "frontend/src/lib/webapp/previewMock/**"
+    ],
+    "allowed_prefixes": [
+      "wa_"
+    ],
+    "allowed_keys": [
+      "menu_server_status_button",
+      "menu_support_button"
+    ],
+    "locale_key_aliases": {
+      "wa_devices_disconnect_title": "wa_devices_disconnect",
+      "wa_install_link_copied": "wa_link_copied",
+      "wa_link_email_modal_title": "wa_settings_link_email_action"
+    },
+    "locale_files": [
+      "locales/en.json",
+      "locales/ru.json"
+    ]
+  },
   "type_ignore": {
     "scopes": [
       "backend/bot",

@@ -8,6 +8,10 @@ from unittest.mock import AsyncMock, patch
 
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.subscription_service_impl.panel_identity import (
+    PanelUserCreateOptions,
+    PanelUserLink,
+)
 from bot.utils.date_utils import add_months
 from config.settings import Settings
 from db.dal.subscription_dal import _subscription_model_payload
@@ -69,7 +73,12 @@ def _make_service(settings: Settings) -> SubscriptionService:
 
 
 async def _echo_panel_expiry(_panel_uuid, payload, *_args, **_kwargs):
-    return {"ok": True, "expireAt": payload.get("expireAt")}
+    return {
+        **payload,
+        "uuid": _panel_uuid,
+        "subscriptionUrl": "https://panel/sub",
+        "shortUuid": "short",
+    }
 
 
 class SubscriptionServiceCalculationTests(unittest.TestCase):
@@ -167,6 +176,52 @@ class SubscriptionServiceCalculationTests(unittest.TestCase):
             ),
             28 * GIB,
         )
+
+    def test_period_tariff_strategy_overrides_global_and_legacy_tariff_falls_back(self):
+        payload = _tariffs_config_payload()
+        payload["tariffs"][0]["traffic_limit_strategy"] = "WEEK"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(payload, tmpdir, USER_TRAFFIC_STRATEGY="DAY")
+            service = _make_service(settings)
+
+            self.assertEqual(
+                service._period_tariff_traffic_strategy(
+                    settings.tariffs_config.require("standard")
+                ),
+                "WEEK",
+            )
+
+        payload["tariffs"][0].pop("traffic_limit_strategy")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(payload, tmpdir, USER_TRAFFIC_STRATEGY="DAY")
+            service = _make_service(settings)
+
+            self.assertEqual(
+                service._period_tariff_traffic_strategy(
+                    settings.tariffs_config.require("standard")
+                ),
+                "DAY",
+            )
+
+    def test_trial_premium_accounting_uses_trial_strategy(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                _tariffs_config_payload(),
+                tmpdir,
+                USER_TRAFFIC_STRATEGY="DAY",
+                TRIAL_TRAFFIC_STRATEGY="MONTH_ROLLING",
+            )
+            service = _make_service(settings)
+            trial_sub = SimpleNamespace(
+                tariff_key=None,
+                provider="trial",
+                status_from_panel="TRIAL",
+            )
+
+            self.assertEqual(
+                service._premium_traffic_strategy_for_subscription(trial_sub),
+                "MONTH_ROLLING",
+            )
 
 
 class SubscriptionServicePremiumAccessTests(unittest.IsolatedAsyncioTestCase):
@@ -307,6 +362,73 @@ class SubscriptionServicePanelPayloadTests(unittest.TestCase):
 
 
 class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCase):
+    async def test_panel_link_creation_uses_operation_specific_access(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                _tariffs_config_payload(),
+                tmpdir,
+                USER_TRAFFIC_LIMIT_GB=500,
+                USER_SQUAD_UUIDS="default-squad",
+            )
+            service = _make_service(settings)
+            service.panel_service.get_users_by_filter = AsyncMock(return_value=[])
+            service.panel_service.create_panel_user = AsyncMock(
+                return_value={
+                    "response": {
+                        "uuid": "panel-user",
+                        "subscriptionUuid": "panel-sub",
+                        "shortUuid": "short",
+                        "telegramId": 42,
+                        "subscriptionUrl": "https://example.test/sub",
+                    }
+                }
+            )
+            session = AsyncMock()
+            db_user = SimpleNamespace(
+                user_id=42,
+                telegram_id=42,
+                panel_user_uuid=None,
+                email=None,
+                username="trial-user",
+                first_name="Trial",
+                last_name="User",
+            )
+            create_options = PanelUserCreateOptions(
+                default_expire_days=3,
+                default_traffic_limit_bytes=10 * GIB,
+                default_traffic_limit_strategy="NO_RESET",
+                expire_at=datetime(2026, 1, 2, tzinfo=UTC),
+                hwid_device_limit=2,
+                specific_squad_uuids=("trial-squad",),
+            )
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.panel_identity.user_dal.get_user_by_panel_uuid",
+                    AsyncMock(return_value=None),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.panel_identity.user_dal.update_user",
+                    AsyncMock(),
+                ),
+            ):
+                link = await service._get_or_create_panel_user_link(
+                    session,
+                    42,
+                    db_user,
+                    create_options=create_options,
+                )
+
+            self.assertTrue(link.panel_user_created_now)
+            self.assertEqual(link.panel_user_uuid, "panel-user")
+            create_kwargs = service.panel_service.create_panel_user.await_args.kwargs
+            self.assertEqual(create_kwargs["default_expire_days"], 3)
+            self.assertEqual(create_kwargs["expire_at"], create_options.expire_at)
+            self.assertEqual(create_kwargs["hwid_device_limit"], 2)
+            self.assertEqual(create_kwargs["default_traffic_limit_bytes"], 10 * GIB)
+            self.assertEqual(create_kwargs["default_traffic_limit_strategy"], "NO_RESET")
+            self.assertEqual(create_kwargs["specific_squad_uuids"], ["trial-squad"])
+
     async def test_activate_trial_keeps_panel_strategy_out_of_local_subscription_payload(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(
@@ -321,8 +443,8 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             )
             service = _make_service(settings)
             service.has_trial_blocking_subscription = AsyncMock(return_value=False)
-            service._get_or_create_panel_user_link_details = AsyncMock(
-                return_value=("panel-user", "panel-sub", "short", True)
+            service._get_or_create_panel_user_link = AsyncMock(
+                return_value=PanelUserLink("panel-user", "panel-sub", "short", False, False, None)
             )
             service.panel_service.update_user_details_on_panel = AsyncMock(
                 return_value={"subscriptionUrl": "https://example.test/sub", "shortUuid": "short"}
@@ -331,6 +453,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             db_user = SimpleNamespace(
                 user_id=42,
                 telegram_id=42,
+                panel_user_uuid="panel-user",
                 email=None,
                 username="trial-user",
                 first_name="Trial",
@@ -362,6 +485,84 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             self.assertEqual(panel_payload["trafficLimitStrategy"], "MONTH")
             self.assertEqual(panel_payload["activeInternalSquads"], ["trial-squad"])
 
+    async def test_activate_trial_provisions_new_panel_user_with_trial_access_once(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                _tariffs_config_payload(),
+                tmpdir,
+                TRIAL_ENABLED=True,
+                TRIAL_DURATION_DAYS=3,
+                TRIAL_TRAFFIC_LIMIT_GB=10,
+                TRIAL_TRAFFIC_STRATEGY="NO_RESET",
+                USER_TRAFFIC_LIMIT_GB=500,
+                USER_SQUAD_UUIDS="default-squad",
+                TRIAL_SQUAD_UUIDS="trial-squad",
+            )
+            service = _make_service(settings)
+            service.has_trial_blocking_subscription = AsyncMock(return_value=False)
+            created_panel_user = {
+                "uuid": "panel-user",
+                "subscriptionUuid": "panel-sub",
+                "shortUuid": "short",
+                "subscriptionUrl": "https://example.test/sub",
+                "trafficLimitBytes": 10 * GIB,
+                "activeInternalSquads": ["trial-squad"],
+            }
+            service._get_or_create_panel_user_link = AsyncMock(
+                return_value=PanelUserLink(
+                    "panel-user",
+                    "panel-sub",
+                    "short",
+                    True,
+                    True,
+                    created_panel_user,
+                )
+            )
+            service.panel_service.update_user_details_on_panel = AsyncMock()
+            session = AsyncMock()
+            db_user = SimpleNamespace(
+                user_id=42,
+                telegram_id=42,
+                panel_user_uuid=None,
+                email=None,
+                username="trial-user",
+                first_name="Trial",
+                last_name="User",
+            )
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.trial.user_dal.lock_user_by_id",
+                    AsyncMock(return_value=db_user),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.trial.subscription_dal.deactivate_other_active_subscriptions",
+                    AsyncMock(),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.trial.subscription_dal.upsert_subscription",
+                    AsyncMock(),
+                ) as upsert_subscription,
+            ):
+                result = await service.activate_trial_subscription(session, user_id=42)
+
+            self.assertTrue(result["activated"])
+            self.assertEqual(result["traffic_gb"], 10)
+            self.assertEqual(result["subscription_url"], "https://example.test/sub")
+            create_options = service._get_or_create_panel_user_link.await_args.kwargs[
+                "create_options"
+            ]
+            self.assertEqual(create_options.default_expire_days, 3)
+            self.assertEqual(create_options.default_traffic_limit_bytes, 10 * GIB)
+            self.assertEqual(create_options.default_traffic_limit_strategy, "NO_RESET")
+            self.assertEqual(create_options.specific_squad_uuids, ("trial-squad",))
+            sub_payload = upsert_subscription.await_args.args[1]
+            self.assertEqual(sub_payload["provider"], "trial")
+            self.assertEqual(sub_payload["traffic_limit_bytes"], 10 * GIB)
+            service.panel_service.update_user_details_on_panel.assert_not_awaited()
+            session.commit.assert_awaited_once()
+            session.rollback.assert_not_awaited()
+
     async def test_activate_trial_records_premium_baseline_from_trial_premium_limit(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(
@@ -376,8 +577,8 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             )
             service = _make_service(settings)
             service.has_trial_blocking_subscription = AsyncMock(return_value=False)
-            service._get_or_create_panel_user_link_details = AsyncMock(
-                return_value=("panel-user", "panel-sub", "short", True)
+            service._get_or_create_panel_user_link = AsyncMock(
+                return_value=PanelUserLink("panel-user", "panel-sub", "short", False, False, None)
             )
             service.panel_service.update_user_details_on_panel = AsyncMock(
                 return_value={"subscriptionUrl": "https://example.test/sub", "shortUuid": "short"}
@@ -386,6 +587,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             db_user = SimpleNamespace(
                 user_id=42,
                 telegram_id=42,
+                panel_user_uuid="panel-user",
                 email=None,
                 username="trial-user",
                 first_name="Trial",
@@ -431,8 +633,8 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             )
             service = _make_service(settings)
             service.has_trial_blocking_subscription = AsyncMock(return_value=False)
-            service._get_or_create_panel_user_link_details = AsyncMock(
-                return_value=("panel-user", "panel-sub", "short", True)
+            service._get_or_create_panel_user_link = AsyncMock(
+                return_value=PanelUserLink("panel-user", "panel-sub", "short", False, False, None)
             )
             service.panel_service.update_user_details_on_panel = AsyncMock(
                 side_effect=RuntimeError("panel down")
@@ -441,6 +643,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             db_user = SimpleNamespace(
                 user_id=42,
                 telegram_id=42,
+                panel_user_uuid="panel-user",
                 email=None,
                 username="trial-user",
                 first_name="Trial",
@@ -480,8 +683,8 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             )
             service = _make_service(settings)
             service.has_trial_blocking_subscription = AsyncMock(return_value=False)
-            service._get_or_create_panel_user_link_details = AsyncMock(
-                return_value=("panel-user", "panel-sub", "short", True)
+            service._get_or_create_panel_user_link = AsyncMock(
+                return_value=PanelUserLink("panel-user", "panel-sub", "short", False, False, None)
             )
             service.panel_service.update_user_details_on_panel = AsyncMock(
                 return_value={"subscriptionUrl": "https://example.test/sub", "shortUuid": "short"}
@@ -490,6 +693,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             db_user = SimpleNamespace(
                 user_id=42,
                 telegram_id=42,
+                panel_user_uuid="panel-user",
                 email=None,
                 username="trial-user",
                 first_name="Trial",
@@ -526,7 +730,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             )
             service = _make_service(settings)
             service.has_trial_blocking_subscription = AsyncMock(return_value=True)
-            service._get_or_create_panel_user_link_details = AsyncMock()
+            service._get_or_create_panel_user_link = AsyncMock()
             service.panel_service.update_user_details_on_panel = AsyncMock()
             session = AsyncMock()
             db_user = SimpleNamespace(
@@ -553,7 +757,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             self.assertFalse(result["activated"])
             self.assertFalse(result["eligible"])
             self.assertEqual(result["message_key"], "trial_already_had_subscription_or_trial")
-            service._get_or_create_panel_user_link_details.assert_not_awaited()
+            service._get_or_create_panel_user_link.assert_not_awaited()
             service.panel_service.update_user_details_on_panel.assert_not_awaited()
             upsert_subscription.assert_not_awaited()
 
@@ -586,8 +790,10 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
     async def test_period_purchase_after_traffic_starts_now_and_carries_remaining_package(
         self,
     ):
+        payload = _tariffs_config_payload()
+        payload["tariffs"][0]["traffic_limit_strategy"] = "WEEK"
         with tempfile.TemporaryDirectory() as tmpdir:
-            settings = _make_settings(_tariffs_config_payload(), tmpdir)
+            settings = _make_settings(payload, tmpdir)
             service = _make_service(settings)
             service._get_or_create_panel_user_link_details = AsyncMock(
                 return_value=("panel-user", "panel-sub", "short", False)
@@ -603,7 +809,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 }
             )
             service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value={"subscriptionUrl": "https://panel/sub", "shortUuid": "short"}
+                side_effect=_echo_panel_expiry
             )
             session = AsyncMock()
             db_user = SimpleNamespace(
@@ -702,8 +908,13 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             self.assertLess(payload["end_date"], datetime(2099, 1, 1, tzinfo=UTC))
             self.assertEqual(payload["topup_balance_bytes"], 35 * GIB)
             self.assertEqual(payload["traffic_limit_bytes"], 135 * GIB)
+            create_options = service._get_or_create_panel_user_link_details.await_args.kwargs[
+                "create_options"
+            ]
+            self.assertEqual(create_options.default_traffic_limit_strategy, "WEEK")
             panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]
             self.assertEqual(panel_payload["trafficLimitBytes"], 135 * GIB)
+            self.assertEqual(panel_payload["trafficLimitStrategy"], "WEEK")
 
     async def test_traffic_purchase_after_period_does_not_carry_monthly_baseline(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -724,7 +935,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 }
             )
             service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value={"subscriptionUrl": "https://panel/sub", "shortUuid": "short"}
+                side_effect=_echo_panel_expiry
             )
             session = AsyncMock()
             db_user = SimpleNamespace(
@@ -816,6 +1027,12 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             self.assertEqual(payload["traffic_limit_bytes"], 60 * GIB)
             self.assertEqual(payload["tier_baseline_bytes"], 0)
             self.assertEqual(payload["tariff_key"], "traffic")
+            create_options = service._get_or_create_panel_user_link_details.await_args.kwargs[
+                "create_options"
+            ]
+            self.assertEqual(create_options.default_traffic_limit_bytes, 60 * GIB)
+            self.assertEqual(create_options.specific_squad_uuids, ("traffic-squad",))
+            self.assertEqual(create_options.default_traffic_limit_strategy, "NO_RESET")
 
     async def test_repeated_traffic_purchase_adds_to_actual_remaining_balance(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -834,7 +1051,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 }
             )
             service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value={"subscriptionUrl": "https://panel/sub", "shortUuid": "short"}
+                side_effect=_echo_panel_expiry
             )
             session = AsyncMock()
             db_user = SimpleNamespace(
@@ -928,7 +1145,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 }
             )
             service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value={"ok": True}
+                side_effect=_echo_panel_expiry
             )
             session = AsyncMock()
             user = SimpleNamespace(
@@ -1250,7 +1467,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 return_value=("panel-user", "short-uuid", "short", False)
             )
             service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value={"subscriptionUrl": "https://panel/sub", "shortUuid": "short"}
+                side_effect=_echo_panel_expiry
             )
             service._send_payment_success_email = AsyncMock()
             now = datetime.now(UTC)
@@ -1333,6 +1550,15 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
         self.assertEqual(result["hwid_devices_renewed_count"], 1)
         sub_payload = upsert_subscription.await_args.args[1]
         self.assertEqual(sub_payload["effective_monthly_price_rub"], 100)
+        create_options = service._get_or_create_panel_user_link_details.await_args.kwargs[
+            "create_options"
+        ]
+        self.assertEqual(create_options.default_traffic_limit_bytes, 100 * GIB)
+        self.assertEqual(
+            create_options.specific_squad_uuids,
+            ("main-squad", "shared-squad", "premium-squad"),
+        )
+        self.assertEqual(create_options.hwid_device_limit, 4)
         create_hwid_purchase.assert_awaited_once()
         purchase_kwargs = create_hwid_purchase.await_args.kwargs
         self.assertEqual(purchase_kwargs["payment_id"], 99)
@@ -1342,9 +1568,11 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
 
 class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
     async def test_promo_bonus_without_active_subscription_uses_default_tariff_squads(self):
+        payload = _tariffs_config_payload()
+        payload["tariffs"][0]["traffic_limit_strategy"] = "WEEK"
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(
-                _tariffs_config_payload(),
+                payload,
                 tmpdir,
                 USER_TRAFFIC_LIMIT_GB=999,
                 USER_EXTERNAL_SQUAD_UUID="external-squad",
@@ -1396,16 +1624,94 @@ class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(sub_payload["tier_baseline_bytes"], 100 * GIB)
             self.assertEqual(sub_payload["premium_baseline_bytes"], 25 * GIB)
             self.assertEqual(sub_payload["hwid_device_limit"], 3)
+            self.assertEqual(sub_payload["provider"], "promo")
+
+            create_options = service._get_or_create_panel_user_link_details.await_args.kwargs[
+                "create_options"
+            ]
+            self.assertEqual(create_options.default_traffic_limit_bytes, 100 * GIB)
+            self.assertEqual(create_options.default_traffic_limit_strategy, "WEEK")
+            self.assertEqual(
+                create_options.specific_squad_uuids,
+                ("main-squad", "shared-squad", "premium-squad"),
+            )
+            self.assertEqual(create_options.hwid_device_limit, 3)
 
             panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]
             self.assertEqual(panel_payload["trafficLimitBytes"], 100 * GIB)
-            self.assertEqual(panel_payload["trafficLimitStrategy"], "NO_RESET")
+            self.assertEqual(panel_payload["trafficLimitStrategy"], "WEEK")
             self.assertEqual(panel_payload["hwidDeviceLimit"], 3)
             self.assertEqual(
                 panel_payload["activeInternalSquads"],
                 ["main-squad", "shared-squad", "premium-squad"],
             )
             self.assertEqual(panel_payload["externalSquadUuid"], "external-squad")
+
+    async def test_wrong_new_bonus_create_state_deletes_local_and_panel_user(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(_tariffs_config_payload(), tmpdir)
+            service = _make_service(settings)
+            service._get_or_create_panel_user_link_details = AsyncMock(
+                return_value=("panel-user", "short-uuid", "short", True)
+            )
+            service.panel_service.update_user_details_on_panel = AsyncMock()
+            service.panel_service.get_user_by_uuid = AsyncMock(
+                return_value={"uuid": "panel-user", "expireAt": "2020-01-01T00:00:00.000Z"}
+            )
+            service.panel_service.delete_user_from_panel = AsyncMock(return_value=True)
+            session = AsyncMock()
+            rejected_sub = SimpleNamespace(
+                subscription_id=10,
+                traffic_limit_bytes=100 * GIB,
+                tariff_key="standard",
+                hwid_device_limit=3,
+            )
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.user_dal.get_user_by_id",
+                    AsyncMock(return_value=SimpleNamespace(user_id=42, panel_user_uuid=None)),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.get_active_subscription_by_user_id",
+                    AsyncMock(return_value=None),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.deactivate_other_active_subscriptions",
+                    AsyncMock(),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.upsert_subscription",
+                    AsyncMock(return_value=rejected_sub),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.update_subscription",
+                    AsyncMock(),
+                ) as update_subscription,
+                patch(
+                    "bot.services.subscription_service_impl.panel_identity.user_dal.update_user",
+                    AsyncMock(),
+                ) as update_user,
+            ):
+                result = await service.extend_active_subscription_days(
+                    session=session,
+                    user_id=42,
+                    bonus_days=7,
+                    reason="promo code HELLO",
+                    tariff_key="standard",
+                )
+
+            self.assertIsNone(result)
+            session.delete.assert_awaited_once_with(rejected_sub)
+            session.flush.assert_awaited_once()
+            update_subscription.assert_not_awaited()
+            service.panel_service.update_user_details_on_panel.assert_not_awaited()
+            service.panel_service.delete_user_from_panel.assert_awaited_once_with("panel-user")
+            update_user.assert_awaited_once_with(
+                session,
+                42,
+                {"panel_user_uuid": None},
+            )
 
     async def test_referral_extension_preserves_existing_tariff_limit(self):
         with tempfile.TemporaryDirectory() as tmpdir:

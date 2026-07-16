@@ -182,15 +182,15 @@
   );
   const recentPaymentHeaders = $derived([
     at("id", {}, "ID"),
-    at("user", {}, "Пользователь"),
+    at("user", {}, "User"),
     at("payments_col_user_id", {}, "ID"),
-    at("payments_col_traffic_regular", {}, "Основной трафик"),
-    at("payments_col_traffic_premium", {}, "Премиум"),
-    at("amount", {}, "Сумма"),
-    at("provider", {}, "Провайдер"),
-    at("description", {}, "Описание"),
-    at("status", {}, "Статус"),
-    at("date", {}, "Дата"),
+    at("payments_col_traffic_regular", {}, "Main traffic"),
+    at("payments_col_traffic_premium", {}, "Premium traffic"),
+    at("amount", {}, "Amount"),
+    at("provider", {}, "Provider"),
+    at("description", {}, "Description"),
+    at("status", {}, "Status"),
+    at("date", {}, "Date"),
   ]);
   const recentPayments: PaymentOut[] = $derived((stats?.recent_payments || []).slice(0, 10));
 
@@ -511,15 +511,15 @@
               <thead>
                 <tr>
                   <th>{at("id", {}, "ID")}</th>
-                  <th>{at("user", {}, "Пользователь")}</th>
+                  <th>{at("user", {}, "User")}</th>
                   <th>{at("payments_col_user_id", {}, "ID")}</th>
-                  <th>{at("payments_col_traffic_regular", {}, "Основной трафик")}</th>
-                  <th>{at("payments_col_traffic_premium", {}, "Премиум")}</th>
-                  <th>{at("amount", {}, "Сумма")}</th>
-                  <th>{at("provider", {}, "Провайдер")}</th>
-                  <th>{at("description", {}, "Описание")}</th>
-                  <th>{at("status", {}, "Статус")}</th>
-                  <th>{at("date", {}, "Дата")}</th>
+                  <th>{at("payments_col_traffic_regular", {}, "Main traffic")}</th>
+                  <th>{at("payments_col_traffic_premium", {}, "Premium traffic")}</th>
+                  <th>{at("amount", {}, "Amount")}</th>
+                  <th>{at("provider", {}, "Provider")}</th>
+                  <th>{at("description", {}, "Description")}</th>
+                  <th>{at("status", {}, "Status")}</th>
+                  <th>{at("date", {}, "Date")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -530,25 +530,22 @@
                         class="admin-payment-id-btn"
                         variant="ghost"
                         size="sm"
-                        title={at("payment_detail_open", {}, "Открыть платеж")}
-                        aria-label={at("payment_detail_open", {}, "Открыть платеж")}
+                        title={at("payment_detail_open", {}, "Open payment")}
+                        aria-label={at("payment_detail_open", {}, "Open payment")}
                         onclick={() => paymentsStore.openPayment(p)}
                       >
                         <FileText size={14} />
                         #{p.payment_id}
                       </AdminButton>
                     </td>
-                    <td
-                      class="admin-cell-user-with-action"
-                      data-label={at("user", {}, "Пользователь")}
-                    >
+                    <td class="admin-cell-user-with-action" data-label={at("user", {}, "User")}>
                       <span class="admin-payments-user-cell">
                         <AdminButton
                           class="admin-payments-user-btn"
                           variant="ghost"
                           size="icon"
-                          title={at("payments_open_user", {}, "Открыть карточку пользователя")}
-                          aria-label={at("payments_open_user", {}, "Открыть карточку пользователя")}
+                          title={at("payments_open_user", {}, "Open user card")}
+                          aria-label={at("payments_open_user", {}, "Open user card")}
                           onclick={() => onOpenUserCard(p.user_id)}
                         >
                           <User size={14} />
@@ -561,27 +558,27 @@
                     </td>
                     <td
                       class="admin-cell-traffic-gb"
-                      data-label={at("payments_col_traffic_regular", {}, "Основной трафик")}
+                      data-label={at("payments_col_traffic_regular", {}, "Main traffic")}
                     >
                       {formatTrafficGbCell(p.traffic_regular_gb)}
                     </td>
                     <td
                       class="admin-cell-traffic-gb"
-                      data-label={at("payments_col_traffic_premium", {}, "Премиум")}
+                      data-label={at("payments_col_traffic_premium", {}, "Premium traffic")}
                     >
                       {formatTrafficGbCell(p.traffic_premium_gb)}
                     </td>
-                    <td data-label={at("amount", {}, "Сумма")}>
+                    <td data-label={at("amount", {}, "Amount")}>
                       {fmtMoney(p.amount, p.currency ?? undefined)}
                     </td>
-                    <td data-label={at("provider", {}, "Провайдер")}>{p.provider}</td>
-                    <td class="admin-cell-wrap" data-label={at("description", {}, "Описание")}
+                    <td data-label={at("provider", {}, "Provider")}>{p.provider}</td>
+                    <td class="admin-cell-wrap" data-label={at("description", {}, "Description")}
                       >{paymentDescriptionDisplay(p, at)}</td
                     >
-                    <td data-label={at("status", {}, "Статус")}>
+                    <td data-label={at("status", {}, "Status")}>
                       <AdminBadge variant={paymentStatusVariant(p.status)}>{p.status}</AdminBadge>
                     </td>
-                    <td data-label={at("date", {}, "Дата")}>{fmtDate(p.created_at)}</td>
+                    <td data-label={at("date", {}, "Date")}>{fmtDate(p.created_at)}</td>
                   </tr>
                 {/each}
               </tbody>

@@ -1,5 +1,6 @@
 import contextlib
 import logging
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
@@ -13,6 +14,35 @@ from db.models import User
 from ._typing import SubscriptionServiceMixinContract
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class PanelUserCreateOptions:
+    default_expire_days: int
+    default_traffic_limit_bytes: int
+    default_traffic_limit_strategy: str
+    expire_at: datetime | None = None
+    hwid_device_limit: int | None = None
+    specific_squad_uuids: tuple[str, ...] = ()
+    external_squad_uuid: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PanelUserLink:
+    panel_user_uuid: str | None
+    panel_subscription_uuid: str | None
+    panel_short_uuid: str | None
+    panel_user_created_now: bool
+    local_link_updated_now: bool
+    panel_user: dict[str, Any] | None
+
+    def legacy_details(self) -> tuple[str | None, str | None, str | None, bool]:
+        return (
+            self.panel_user_uuid,
+            self.panel_subscription_uuid,
+            self.panel_short_uuid,
+            self.panel_user_created_now,
+        )
 
 
 class PanelIdentityMixin(SubscriptionServiceMixinContract):
@@ -91,9 +121,14 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
             payload["email"] = db_user.email
         return payload
 
-    async def _get_or_create_panel_user_link_details(
-        self, session: AsyncSession, user_id: int, db_user: User | None = None
-    ) -> tuple[str | None, str | None, str | None, bool]:
+    async def _get_or_create_panel_user_link(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        db_user: User | None = None,
+        *,
+        create_options: PanelUserCreateOptions | None = None,
+    ) -> PanelUserLink:
         if not db_user:
             db_user = await user_dal.get_user_by_id(session, user_id)
 
@@ -103,14 +138,24 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                 "proceed.",
                 user_id,
             )
-            return None, None, None, False
+            return PanelUserLink(None, None, None, False, False, None)
+
+        if create_options is None:
+            create_options = PanelUserCreateOptions(
+                default_expire_days=1,
+                default_traffic_limit_bytes=self.settings.user_traffic_limit_bytes,
+                default_traffic_limit_strategy=self.settings.USER_TRAFFIC_STRATEGY,
+                specific_squad_uuids=tuple(self.settings.parsed_user_squad_uuids or ()),
+                external_squad_uuid=self.settings.parsed_user_external_squad_uuid,
+            )
 
         current_local_panel_uuid = db_user.panel_user_uuid
         panel_username_on_panel_standard = await self._panel_username_for_user(session, db_user)
         telegram_id_for_panel = self._telegram_id_for_panel(db_user)
 
         panel_user_obj_from_api = None
-        panel_user_created_or_linked_now = False
+        panel_user_created_now = False
+        local_link_updated_now = False
 
         panel_users_by_tg_id_list = None
         if telegram_id_for_panel:
@@ -131,7 +176,7 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                 "needed.",
                 telegram_id_for_panel,
             )
-            return None, None, None, False
+            return PanelUserLink(None, None, None, False, False, None)
 
         if not panel_user_obj_from_api and db_user.email:
             panel_users_by_email_list = await self.panel_service.get_users_by_filter(
@@ -151,7 +196,7 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                     "needed.",
                     db_user.email,
                 )
-                return None, None, None, False
+                return PanelUserLink(None, None, None, False, False, None)
 
         if not panel_user_obj_from_api:
             if current_local_panel_uuid:
@@ -181,10 +226,15 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                         telegram_id=telegram_id_for_panel,
                         email=db_user.email,
                         description=self._panel_description_for_user(db_user),
-                        specific_squad_uuids=self.settings.parsed_user_squad_uuids,
-                        external_squad_uuid=self.settings.parsed_user_external_squad_uuid,
-                        default_traffic_limit_bytes=self.settings.user_traffic_limit_bytes,
-                        default_traffic_limit_strategy=self.settings.USER_TRAFFIC_STRATEGY,
+                        default_expire_days=create_options.default_expire_days,
+                        expire_at=create_options.expire_at,
+                        hwid_device_limit=create_options.hwid_device_limit,
+                        specific_squad_uuids=list(create_options.specific_squad_uuids),
+                        external_squad_uuid=create_options.external_squad_uuid,
+                        default_traffic_limit_bytes=create_options.default_traffic_limit_bytes,
+                        default_traffic_limit_strategy=(
+                            create_options.default_traffic_limit_strategy
+                        ),
                     )
                     if (
                         creation_response
@@ -192,10 +242,10 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                         and creation_response.get("response")
                     ):
                         panel_user_obj_from_api = creation_response.get("response")
-                        panel_user_created_or_linked_now = True
+                        panel_user_created_now = True
                     else:
                         await self._notify_admin_panel_user_creation_failed(user_id)
-                        return None, None, None, False
+                        return PanelUserLink(None, None, None, False, False, None)
 
             else:
                 logger.info(
@@ -209,10 +259,13 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                     telegram_id=telegram_id_for_panel,
                     email=db_user.email,
                     description=self._panel_description_for_user(db_user),
-                    specific_squad_uuids=self.settings.parsed_user_squad_uuids,
-                    external_squad_uuid=self.settings.parsed_user_external_squad_uuid,
-                    default_traffic_limit_bytes=self.settings.user_traffic_limit_bytes,
-                    default_traffic_limit_strategy=self.settings.USER_TRAFFIC_STRATEGY,
+                    default_expire_days=create_options.default_expire_days,
+                    expire_at=create_options.expire_at,
+                    hwid_device_limit=create_options.hwid_device_limit,
+                    specific_squad_uuids=list(create_options.specific_squad_uuids),
+                    external_squad_uuid=create_options.external_squad_uuid,
+                    default_traffic_limit_bytes=create_options.default_traffic_limit_bytes,
+                    default_traffic_limit_strategy=create_options.default_traffic_limit_strategy,
                 )
                 if (
                     creation_response
@@ -220,7 +273,7 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                     and creation_response.get("response")
                 ):
                     panel_user_obj_from_api = creation_response.get("response")
-                    panel_user_created_or_linked_now = True
+                    panel_user_created_now = True
 
                 elif creation_response and creation_response.get("errorCode") == "A019":
                     logger.warning(
@@ -242,18 +295,20 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                         creation_response if "creation_response" in locals() else "N/A",
                     )
                     await self._notify_admin_panel_user_creation_failed(user_id)
-                    return None, None, None, False
+                    return PanelUserLink(None, None, None, False, False, None)
 
         if not panel_user_obj_from_api:
             logger.error(
                 "Could not obtain panel user object for TG user %s after all checks.", user_id
             )
 
-            return (
+            return PanelUserLink(
                 current_local_panel_uuid if current_local_panel_uuid else None,
                 None,
                 None,
-                panel_user_created_or_linked_now,
+                panel_user_created_now,
+                local_link_updated_now,
+                None,
             )
 
         actual_panel_uuid_from_api = panel_user_obj_from_api.get("uuid")
@@ -265,11 +320,13 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                 user_id,
                 panel_user_obj_from_api,
             )
-            return (
+            return PanelUserLink(
                 current_local_panel_uuid,
                 None,
                 None,
-                panel_user_created_or_linked_now,
+                panel_user_created_now,
+                local_link_updated_now,
+                panel_user_obj_from_api,
             )
 
         needs_local_panel_uuid_update = False
@@ -303,7 +360,7 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                     user_id,
                 )
 
-                return None, None, None, False
+                return PanelUserLink(None, None, None, False, False, panel_user_obj_from_api)
             else:
                 previous_panel_uuid = current_local_panel_uuid
                 update_data_for_local_user = {"panel_user_uuid": actual_panel_uuid_from_api}
@@ -328,7 +385,7 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                             actual_panel_uuid_from_api,
                         )
                 db_user.panel_user_uuid = actual_panel_uuid_from_api
-                panel_user_created_or_linked_now = True
+                local_link_updated_now = True
                 current_local_panel_uuid = actual_panel_uuid_from_api
         else:
             pass
@@ -368,11 +425,64 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                 user_id,
             )
 
-        return (
+        return PanelUserLink(
             current_local_panel_uuid,
             panel_sub_link_id,
             panel_short_uuid,
-            panel_user_created_or_linked_now,
+            panel_user_created_now,
+            local_link_updated_now,
+            panel_user_obj_from_api,
+        )
+
+    async def _get_or_create_panel_user_link_details(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        db_user: User | None = None,
+        *,
+        create_options: PanelUserCreateOptions | None = None,
+    ) -> tuple[str | None, str | None, str | None, bool]:
+        link = await self._get_or_create_panel_user_link(
+            session,
+            user_id,
+            db_user,
+            create_options=create_options,
+        )
+        return link.legacy_details()
+
+    async def _compensate_failed_panel_user_creation(
+        self,
+        session: AsyncSession,
+        *,
+        user_id: int,
+        panel_user_uuid: str | None,
+        previous_panel_user_uuid: str | None,
+        panel_user_created_now: bool,
+        source: str,
+    ) -> None:
+        if not panel_user_created_now or not panel_user_uuid:
+            return
+        try:
+            deleted = await self.panel_service.delete_user_from_panel(panel_user_uuid)
+        except Exception:
+            logger.exception(
+                "Failed to compensate panel user creation for user %s after %s failure.",
+                user_id,
+                source,
+            )
+            return
+        if not deleted:
+            logger.error(
+                "Panel refused compensation delete for user %s after %s failure (panel UUID %s).",
+                user_id,
+                source,
+                panel_user_uuid,
+            )
+            return
+        await user_dal.update_user(
+            session,
+            user_id,
+            {"panel_user_uuid": previous_panel_user_uuid},
         )
 
     def _build_panel_update_payload(

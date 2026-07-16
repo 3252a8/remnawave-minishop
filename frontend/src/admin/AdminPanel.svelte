@@ -471,7 +471,7 @@
 
   function panelStatusBadge(user: AdminUser | null | undefined): PanelStatusBadge {
     const status = String(user?.panel_status || "").toLowerCase();
-    if (user?.is_banned) return { label: at("status_banned", {}, "Бан"), variant: "danger" };
+    if (user?.is_banned) return { label: at("status_banned", {}, "Banned"), variant: "danger" };
     switch (status) {
       case "active":
         return { label: at("status_active", {}, "Active"), variant: "success" };
@@ -491,7 +491,7 @@
       case "disabled":
         return { label: at("status_disabled", {}, "Disabled"), variant: "muted" };
       case "bot_only":
-        return { label: at("status_bot_only", {}, "Только бот"), variant: "muted" };
+        return { label: at("status_bot_only", {}, "Bot Only"), variant: "muted" };
       default:
         return { label: status || "—", variant: "muted" };
     }

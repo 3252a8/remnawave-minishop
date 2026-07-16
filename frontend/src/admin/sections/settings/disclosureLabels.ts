@@ -1,11 +1,11 @@
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
 export function settingsDirtyCountLabel(at: TranslateFn, count: number): string {
-  return count ? at("settings_dirty_count", { count }, `${count} изм.`) : "";
+  return count ? at("settings_dirty_count", { count }, "Changes: {count}") : "";
 }
 
 export function settingsFieldsCountLabel(at: TranslateFn, count: number): string {
-  return at("settings_fields_count", { count }, `${count} полей`);
+  return at("settings_fields_count", { count }, "{count} fields");
 }
 
 export function settingsOverriddenCountLabel(at: TranslateFn, count: number): string {
@@ -13,5 +13,5 @@ export function settingsOverriddenCountLabel(at: TranslateFn, count: number): st
 }
 
 export function settingsParamsCountLabel(at: TranslateFn, count: number): string {
-  return at("settings_params_count", { count }, `${count} параметров`);
+  return at("settings_params_count", { count }, "{count} parameters");
 }

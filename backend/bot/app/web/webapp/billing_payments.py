@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
+    get_i18n,
     get_session_factory,
     get_settings,
     get_subscription_service,
@@ -21,6 +22,7 @@ from bot.app.web.webapp.payloads import (
     WebAppPaymentCreatePayload,
     WebAppPromoQuotePayload,
 )
+from bot.middlewares.i18n import JsonI18n, get_i18n_instance
 from bot.services.subscription_service_impl.core import SubscriptionService
 from config.settings import Settings
 from config.tariffs_config import (
@@ -43,10 +45,7 @@ from .billing_sale_modes import (
     _sale_mode_tariff_key,
 )
 from .common import (
-    _hwid_devices_payment_description,
-    _payment_description,
     _resolve_numeric_option_key,
-    _traffic_payment_description,
 )
 from .response_helpers import json_response
 
@@ -61,6 +60,27 @@ class BasePaymentQuote:
     sale_mode: str
     traffic_gb_for_payment: float | None
     default_currency_code: str
+
+
+def _localized_payment_description(
+    *,
+    i18n: JsonI18n | None,
+    lang: str,
+    units: object,
+    sale_mode: str,
+    traffic_gb: float | None = None,
+) -> str:
+    from bot.payment_providers.shared import build_payment_description, make_translator
+
+    effective_i18n = i18n or get_i18n_instance()
+    description_units = (
+        traffic_gb if _sale_mode_is_traffic(sale_mode) and traffic_gb is not None else units
+    )
+    return build_payment_description(
+        make_translator(effective_i18n, lang),
+        months=description_units,
+        sale_mode=sale_mode,
+    )
 
 
 def _payment_amount_error(
@@ -763,14 +783,12 @@ async def _create_subscription_payment(
     settings: Settings = get_settings(request)
     payment_currency = (currency or default_payment_currency_code_for_settings(settings)).upper()
     sale_mode = str(sale_mode or "subscription")
-    traffic_sale = _sale_mode_is_traffic(sale_mode)
-    hwid_devices_sale = _sale_mode_is_hwid_devices(sale_mode)
-    description = (
-        _traffic_payment_description(float(traffic_gb if traffic_gb is not None else months), lang)
-        if traffic_sale
-        else _hwid_devices_payment_description(int(float(months)), lang)
-        if hwid_devices_sale
-        else _payment_description(int(months), lang)
+    description = _localized_payment_description(
+        i18n=get_i18n(request),
+        lang=lang,
+        units=months,
+        sale_mode=sale_mode,
+        traffic_gb=traffic_gb,
     )
 
     from bot.payment_providers import WebAppPaymentContext, get_provider_spec

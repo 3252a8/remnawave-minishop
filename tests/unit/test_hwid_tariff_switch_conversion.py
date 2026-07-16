@@ -56,9 +56,13 @@ def _settings_from_payload(payload: dict, tmpdir: str) -> Settings:
     )
 
 
+async def _echo_panel_entitlement(panel_uuid, payload, *_args, **_kwargs):
+    return {**payload, "uuid": panel_uuid}
+
+
 def _service(settings: Settings) -> SubscriptionService:
     panel = AsyncMock(spec=PanelApiService)
-    panel.update_user_details_on_panel = AsyncMock(return_value={"ok": True})
+    panel.update_user_details_on_panel = AsyncMock(side_effect=_echo_panel_entitlement)
     return SubscriptionService(settings, panel)
 
 

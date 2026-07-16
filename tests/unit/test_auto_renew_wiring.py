@@ -52,6 +52,7 @@ def _make_mixin(
         yookassa_autopayments_active=True,
         subscription_options={1: price_for_months} if price_for_months else {},
         DEFAULT_CURRENCY_SYMBOL="RUB",
+        DEFAULT_LANGUAGE="en",
     )
     if service is not None:
         mixin.recurring_provider_services = {provider: service}  # type: ignore[attr-defined]
@@ -226,6 +227,7 @@ class ChargeRenewalHappyPathTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(context.user_id, 77)
         self.assertEqual(context.subscription_id, 555)
         self.assertEqual(context.months, 1)
+        self.assertEqual(context.description, "Subscription payment for 1 mo.")
         self.assertEqual(context.metadata["user_id"], "77")
         self.assertEqual(context.metadata["auto_renew_for_subscription_id"], "555")
         self.assertEqual(context.metadata["subscription_months"], "1")

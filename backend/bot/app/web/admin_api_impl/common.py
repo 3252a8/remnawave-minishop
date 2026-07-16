@@ -164,6 +164,15 @@ def _admin_subscription_traffic_strategy_fallback(
             settings.TRIAL_TRAFFIC_STRATEGY,
             default="NO_RESET",
         )
+    tariff_key = str(getattr(sub, "tariff_key", "") or "").strip()
+    if tariff_key:
+        try:
+            tariff = settings.tariffs_config.require(tariff_key)
+        except Exception:
+            tariff = None
+        configured_strategy = getattr(tariff, "traffic_limit_strategy", None)
+        if configured_strategy:
+            return normalize_traffic_limit_strategy(configured_strategy, default="MONTH")
     return normalize_traffic_limit_strategy(
         settings.USER_TRAFFIC_STRATEGY,
         default="NO_RESET",

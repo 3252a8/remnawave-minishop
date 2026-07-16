@@ -1,10 +1,17 @@
 import logging
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.payment_providers.shared import RecurringProviderService
+from bot.middlewares.i18n import get_i18n_instance
+from bot.payment_providers.shared import (
+    RecurringProviderService,
+    build_payment_description,
+    make_translator,
+)
 from config.tariffs_config import (
     default_currency_key_for_settings,
     default_payment_currency_code_for_settings,
@@ -14,6 +21,16 @@ from db.models import Subscription
 from ._typing import SubscriptionServiceMixinContract
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class SubscriptionRenewalQuote:
+    amount: float
+    currency: str
+    months: int
+    sale_mode: str
+    tariff_key: str | None
+    hwid_quote: dict[str, Any] | None
 
 
 def _renewal_idempotence_key(
@@ -64,6 +81,77 @@ class RenewalMixin(SubscriptionServiceMixinContract):
         except AttributeError:
             return None
         return (services or {}).get(provider_key)
+
+    async def quote_subscription_renewal(
+        self,
+        session: AsyncSession,
+        sub: Subscription,
+    ) -> SubscriptionRenewalQuote | None:
+        """Build the authoritative entitlement and price for one renewal.
+
+        This quote is shared by charge initiation and compatibility handling for
+        in-flight YooKassa charges created by a previous application version.
+        Provider callback values are deliberately not inputs to the quote.
+        """
+        months = int(sub.duration_months or 1)
+        if months <= 0:
+            return None
+
+        currency = default_payment_currency_code_for_settings(self.settings)
+        tariff_key = str(getattr(sub, "tariff_key", "") or "").strip() or None
+        sale_mode = f"subscription@{tariff_key}" if tariff_key else "subscription"
+        amount = None
+        tariffs_config = (
+            self._tariffs_config() if callable(getattr(self, "_tariffs_config", None)) else None
+        )
+        if tariffs_config and callable(getattr(self, "_resolve_tariff", None)):
+            try:
+                tariff = self._resolve_tariff(getattr(sub, "tariff_key", None))
+            except Exception:
+                tariff = None
+            if tariff and tariff.billing_model == "period":
+                amount = tariff.period_price(
+                    months,
+                    default_currency_key_for_settings(self.settings),
+                )
+        if amount is None:
+            amount = self.settings.subscription_options.get(months)
+        if not amount:
+            logger.error("Auto-renew price missing for %s months", months)
+            return None
+
+        hwid_quote = None
+        quote_hwid_renewal = getattr(
+            self,
+            "quote_hwid_device_renewal_for_subscription",
+            None,
+        )
+        if tariff_key and callable(quote_hwid_renewal):
+            try:
+                hwid_quote = await quote_hwid_renewal(
+                    session,
+                    user_id=sub.user_id,
+                    target_tariff_key=tariff_key,
+                    months=months,
+                    currency=default_currency_key_for_settings(self.settings),
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to quote HWID devices for auto-renew user %s",
+                    sub.user_id,
+                )
+                hwid_quote = None
+        if hwid_quote:
+            amount = float(amount) + float(hwid_quote.get("price") or 0)
+
+        return SubscriptionRenewalQuote(
+            amount=float(amount),
+            currency=currency,
+            months=months,
+            sale_mode=sale_mode,
+            tariff_key=tariff_key,
+            hwid_quote=hwid_quote,
+        )
 
     async def charge_subscription_renewal(
         self,
@@ -116,53 +204,14 @@ class RenewalMixin(SubscriptionServiceMixinContract):
             )
             return False
 
-        months = sub.duration_months or 1
-        currency = default_payment_currency_code_for_settings(self.settings)
-        tariff_key = str(getattr(sub, "tariff_key", "") or "").strip() or None
-        sale_mode = f"subscription@{tariff_key}" if tariff_key else "subscription"
-        amount = None
-        tariffs_config = (
-            self._tariffs_config() if callable(getattr(self, "_tariffs_config", None)) else None
-        )
-        if tariffs_config and callable(getattr(self, "_resolve_tariff", None)):
-            try:
-                tariff = self._resolve_tariff(getattr(sub, "tariff_key", None))
-            except Exception:
-                tariff = None
-            if tariff and tariff.billing_model == "period":
-                amount = tariff.period_price(
-                    months,
-                    default_currency_key_for_settings(self.settings),
-                )
-        if amount is None:
-            amount = self.settings.subscription_options.get(months)
-        if not amount:
-            logger.error("Auto-renew price missing for %s months", months)
+        quote = await self.quote_subscription_renewal(session, sub)
+        if quote is None:
             return False
-
-        hwid_quote = None
-        quote_hwid_renewal = getattr(
-            self,
-            "quote_hwid_device_renewal_for_subscription",
-            None,
-        )
-        if tariff_key and callable(quote_hwid_renewal):
-            try:
-                hwid_quote = await quote_hwid_renewal(
-                    session,
-                    user_id=sub.user_id,
-                    target_tariff_key=tariff_key,
-                    months=int(months),
-                    currency=default_currency_key_for_settings(self.settings),
-                )
-            except Exception:
-                logger.exception(
-                    "Failed to quote HWID devices for auto-renew user %s",
-                    sub.user_id,
-                )
-                hwid_quote = None
-        if hwid_quote:
-            amount = float(amount) + float(hwid_quote.get("price") or 0)
+        months = quote.months
+        currency = quote.currency
+        sale_mode = quote.sale_mode
+        amount = quote.amount
+        hwid_quote = quote.hwid_quote
 
         metadata = {
             "user_id": str(sub.user_id),
@@ -190,6 +239,16 @@ class RenewalMixin(SubscriptionServiceMixinContract):
                 if value is not None:
                     metadata[f"hwid_{key}"] = str(value)
 
+        i18n = getattr(self, "i18n", None) or get_i18n_instance()
+        description = build_payment_description(
+            make_translator(
+                i18n,
+                str(getattr(self.settings, "DEFAULT_LANGUAGE", "en") or "en"),
+            ),
+            months=months,
+            sale_mode=sale_mode,
+        )
+
         result = await recurring_service.charge_saved_payment_method(
             RecurringChargeContext(
                 session=session,
@@ -200,7 +259,7 @@ class RenewalMixin(SubscriptionServiceMixinContract):
                 currency=currency,
                 months=int(months),
                 sale_mode=sale_mode,
-                description=f"Auto-renewal for {months} months",
+                description=description,
                 metadata=metadata,
                 hwid_quote=hwid_quote,
                 idempotence_key=_renewal_idempotence_key(

@@ -2,6 +2,8 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
+from bot.utils.happ_crypto import create_happ_crypt4_link
+
 logger = logging.getLogger(__name__)
 
 # Static endpoint prefixes used as log/metric labels instead of the raw request
@@ -12,9 +14,6 @@ logger = logging.getLogger(__name__)
 
 def _json_dict(value: object) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
-
-
-_HAPP_ENCRYPT_UNAVAILABLE = False
 
 
 class PanelApiSquadMutationMixin:
@@ -128,30 +127,8 @@ class PanelApiSquadMutationMixin:
         return None
 
     async def encrypt_happ_link(self, link_to_encrypt: str) -> str | None:
-        """Encrypt a subscription link using the panel's happ crypt4 API.
+        """Encrypt a subscription link locally with Happ Crypt4.
 
         Returns the encrypted link string or None if encryption failed.
         """
-        global _HAPP_ENCRYPT_UNAVAILABLE
-
-        if _HAPP_ENCRYPT_UNAVAILABLE:
-            logger.info("Skipping happ crypt4 encryption: panel endpoint is unavailable.")
-            return None
-        payload = {"linkToEncrypt": link_to_encrypt}
-        response_data = await self._request(
-            "POST", "/system/tools/happ/encrypt", json=payload, log_full_response=False
-        )
-        if response_data and not response_data.get("error") and "response" in response_data:
-            response = _json_dict(response_data.get("response"))
-            encrypted_link = response.get("encryptedLink") if response is not None else None
-            return encrypted_link if isinstance(encrypted_link, str) else None
-        status_code = response_data.get("status_code") if isinstance(response_data, dict) else None
-        if status_code in {404, 410}:
-            _HAPP_ENCRYPT_UNAVAILABLE = True
-            logger.warning(
-                "Panel happ crypt4 encryption endpoint is unavailable; raw subscription "
-                "links will be used as fallback."
-            )
-            return None
-        logger.error("Failed to encrypt happ link. Response: %s", response_data)
-        return None
+        return create_happ_crypt4_link(link_to_encrypt)

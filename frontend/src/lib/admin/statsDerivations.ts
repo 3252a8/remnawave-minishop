@@ -118,11 +118,11 @@ export function paymentDescriptionDisplay(p: PaymentOut, t: TranslateFn): string
   const pr = p.traffic_premium_gb;
   if (r != null && pr == null) {
     const gb = formatGbAmountPlain(r);
-    return t("payments_desc_traffic_package_regular", { gb }, `Пакет трафика ${gb} ГБ (обычный)`);
+    return t("payments_desc_traffic_package_regular", { gb }, "Traffic package {gb} GB (standard)");
   }
   if (pr != null && r == null) {
     const gb = formatGbAmountPlain(pr);
-    return t("payments_desc_traffic_package_premium", { gb }, `Пакет трафика ${gb} ГБ (премиум)`);
+    return t("payments_desc_traffic_package_premium", { gb }, "Traffic package {gb} GB (premium)");
   }
   const raw = p.description && String(p.description).trim();
   return raw || "—";

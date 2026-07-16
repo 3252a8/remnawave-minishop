@@ -655,6 +655,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/support/tickets/{id}/typing": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Support Ticket Typing */
+    post: operations["post_admin_support_ticket_typing_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/sync": {
     parameters: {
       query?: never;
@@ -1504,6 +1521,23 @@ export interface paths {
     put?: never;
     /** Support Ticket Read */
     post: operations["post_support_ticket_read_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/support/tickets/{id}/typing": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Support Ticket Typing */
+    post: operations["post_support_ticket_typing_route"];
     delete?: never;
     options?: never;
     head?: never;
@@ -4000,6 +4034,11 @@ export interface components {
        */
       used_bytes: number;
     };
+    /** SupportTypingIn */
+    SupportTypingIn: {
+      /** Typing */
+      typing: boolean;
+    };
     /** Tariff */
     Tariff: {
       /**
@@ -4095,6 +4134,11 @@ export interface components {
       topup_always_available: boolean;
       /** @default null */
       topup_packages: components["schemas"]["PackageSet"] | null;
+      /**
+       * Traffic Limit Strategy
+       * @default null
+       */
+      traffic_limit_strategy: ("NO_RESET" | "DAY" | "WEEK" | "MONTH" | "MONTH_ROLLING") | null;
       /** @default null */
       traffic_packages: components["schemas"]["PackageSet"] | null;
     };
@@ -6013,6 +6057,7 @@ export interface operations {
             messages: components["schemas"]["AdminSupportMessageOut"][];
             /** @constant */
             ok: true;
+            peer_typing: boolean;
             ticket: components["schemas"]["AdminSupportTicketOut"];
             user_snapshot:
               | components["schemas"]["AdminSupportUserSnapshotOut"]
@@ -6093,6 +6138,35 @@ export interface operations {
       cookie?: never;
     };
     requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_support_ticket_typing_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SupportTypingIn"];
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -7942,6 +8016,7 @@ export interface operations {
             messages: components["schemas"]["SupportMessageOut"][];
             /** @constant */
             ok: true;
+            peer_typing: boolean;
             ticket: components["schemas"]["SupportTicketOut"];
           };
         };
@@ -7989,6 +8064,35 @@ export interface operations {
       cookie?: never;
     };
     requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_support_ticket_typing_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SupportTypingIn"];
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {

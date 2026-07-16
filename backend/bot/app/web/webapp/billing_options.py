@@ -18,6 +18,7 @@ from bot.app.web.webapp.payloads import (
 )
 from bot.services.behavior_events import emit_plans_viewed
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.utils.locale_defaults import tariff_premium_title
 from config.settings import Settings
 from config.tariffs_config import (
     default_currency_key_for_settings,
@@ -89,7 +90,7 @@ async def tariff_topup_options_route(request: web.Request) -> web.Response:
                 tariff.premium_topup_packages,
                 lang,
                 sale_mode="premium_topup",
-                title_prefix=f"{tariff.premium_name(lang)} ",
+                title_prefix=f"{tariff_premium_title(tariff, lang)} ",
             )
             if topup_kind in {"all", "premium"} and tariff.premium_squad_uuids
             else []
@@ -117,7 +118,7 @@ async def tariff_topup_options_route(request: web.Request) -> web.Response:
                 "tariff_key": tariff.key,
                 "tariff_name": tariff.name(lang),
                 "topup_kind": topup_kind,
-                "premium_title": tariff.premium_name(lang),
+                "premium_title": tariff_premium_title(tariff, lang),
                 "traffic_percent": _traffic_percent(
                     sub.traffic_used_bytes, sub.traffic_limit_bytes
                 ),

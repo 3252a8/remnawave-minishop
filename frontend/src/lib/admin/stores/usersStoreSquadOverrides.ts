@@ -89,7 +89,7 @@ export function createUsersStoreSquadOverrideActions({
         invalidateUsersQueries(s.openedUser.user_id);
         const panelSquadOverrides = panelSquadOverridesFromResponse(res);
         applyState((st) => applySquadOverridesSnapshot(st, panelSquadOverrides));
-        onToast(at("user_squad_overrides_refreshed", {}, "Сквады обновлены из панели"));
+        onToast(at("user_squad_overrides_refreshed", {}, "Squads refreshed from panel"));
       } else {
         onToast(adminErrorMessage(res, at));
       }
@@ -124,7 +124,7 @@ export function createUsersStoreSquadOverrideActions({
     const mode = s.userExternalSquadModeDraft || "inherit";
     const externalUuid = String(s.userExternalSquadUuidDraft || "").trim();
     if (mode === "set" && !externalUuid) {
-      onToast(at("user_external_squad_uuid_required", {}, "Введите UUID external squad"));
+      onToast(at("user_external_squad_uuid_required", {}, "Enter an external squad UUID"));
       return;
     }
     await applySquadOverridesPatch(

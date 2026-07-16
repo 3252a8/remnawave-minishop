@@ -12,6 +12,7 @@
     at?: TranslateFn;
     onToggleInternal?: (checked: boolean) => void;
     onSend?: (body: string) => void;
+    onTyping?: (typing: boolean) => void;
   };
 
   let {
@@ -21,11 +22,17 @@
     at = (key) => key,
     onToggleInternal = () => {},
     onSend = () => {},
+    onTyping = () => {},
   }: Props = $props();
 
   function submit() {
     if (sending || !value.trim()) return;
     onSend(value.trim());
+  }
+
+  function handleInput(event: Event): void {
+    const target = event.currentTarget as HTMLTextAreaElement;
+    onTyping(Boolean(target.value.trim()));
   }
 </script>
 
@@ -33,9 +40,10 @@
   <Textarea
     bind:value
     rows={4}
-    placeholder={at("support_reply_placeholder", {}, "Ответ")}
-    ariaLabel={at("support_reply_placeholder", {}, "Ответ")}
+    placeholder={at("support_reply_placeholder", {}, "Reply")}
+    ariaLabel={at("support_reply_placeholder", {}, "Reply")}
     class="support-admin-composer-textarea"
+    oninput={handleInput}
   />
 
   <div class="support-admin-composer-row">
@@ -51,13 +59,13 @@
       </Switch.Root>
       <label id="support-internal-note-label" for="support-internal-note">
         <Lock size={14} />
-        <span>{at("support_internal_note", {}, "Внутренняя заметка")}</span>
+        <span>{at("support_internal_note", {}, "Internal note")}</span>
       </label>
     </div>
 
     <AdminButton variant="primary" disabled={sending || !value.trim()} onclick={submit}>
       {#if sending}<Spinner size="sm" />{:else}<Send size={14} />{/if}
-      {at("send", {}, "Отправить")}
+      {at("send", {}, "Send")}
     </AdminButton>
   </div>
 </div>

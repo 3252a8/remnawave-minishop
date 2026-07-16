@@ -189,12 +189,14 @@ async def build_and_start_web_app(
     site = web.TCPSite(
         webhooks_runner,
         host=settings.WEB_SERVER_HOST,
-        port=settings.WEB_SERVER_PORT,
+        port=settings.web_server_listen_port,
     )
 
     await site.start()
     logger.info(
-        "AIOHTTP server started on http://%s:%s", settings.WEB_SERVER_HOST, settings.WEB_SERVER_PORT
+        "AIOHTTP server started on http://%s:%s",
+        settings.WEB_SERVER_HOST,
+        settings.web_server_listen_port,
     )
 
     # The webapp listener must open before after_webhooks_started: webhook

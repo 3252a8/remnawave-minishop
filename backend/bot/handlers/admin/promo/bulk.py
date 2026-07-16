@@ -343,7 +343,7 @@ async def create_bulk_promo_codes_final(
                     attempts += 1
 
                 if attempts >= 10:
-                    failed_codes.append(f"Код #{i + 1} (не удалось сгенерировать уникальный)")
+                    failed_codes.append(_("admin_bulk_promo_unique_error", number=i + 1))
                     continue
 
                 # Set validity
@@ -371,7 +371,9 @@ async def create_bulk_promo_codes_final(
 
             except Exception as e:
                 logger.error("Error creating bulk promo code #%s: %s", i + 1, e)
-                failed_codes.append(f"Код #{i + 1} ({str(e)[:50]})")
+                failed_codes.append(
+                    _("admin_bulk_promo_code_error", number=i + 1, error=str(e)[:50])
+                )
 
         await session.commit()
 
@@ -382,7 +384,7 @@ async def create_bulk_promo_codes_final(
         ]
 
         if data.get("validity_days"):
-            validity_text = f"{data['validity_days']} дней"
+            validity_text = _("admin_promo_days_value", days=data["validity_days"])
         else:
             validity_text = _("admin_promo_unlimited")
 
@@ -398,8 +400,8 @@ async def create_bulk_promo_codes_final(
         # Create CSV file with promo codes if any were created
         csv_file = None
         if created_codes:
-            success_lines.append(f"\n🎟 <b>Создано {len(created_codes)} промокодов</b>")
-            success_lines.append("📄 CSV файл с промокодами отправлен отдельным сообщением")
+            success_lines.append(_("admin_bulk_promo_created_count", count=len(created_codes)))
+            success_lines.append(_("admin_bulk_promo_csv_sent"))
 
             # Create CSV file
             output = io.StringIO()
@@ -408,12 +410,12 @@ async def create_bulk_promo_codes_final(
             # CSV headers
             writer.writerow(
                 [
-                    "Промокод",
-                    "Бонусные дни",
-                    "Макс. активации",
-                    "Действителен до",
-                    "Команда для старта",
-                    "Ссылка для активации",
+                    _("admin_promo_csv_code"),
+                    _("admin_promo_csv_bonus_days"),
+                    _("admin_promo_csv_max_activations"),
+                    _("admin_promo_csv_valid_until"),
+                    _("admin_bulk_promo_csv_start_command"),
+                    _("admin_bulk_promo_csv_activation_link"),
                 ]
             )
 
@@ -437,7 +439,7 @@ async def create_bulk_promo_codes_final(
                         datetime.now(UTC) + timedelta(days=data["validity_days"])
                     ).strftime("%Y-%m-%d %H:%M:%S")
                 else:
-                    valid_until = "Без ограничений"
+                    valid_until = _("admin_bulk_promo_csv_unlimited")
 
                 start_command = f"/start promo_{code}"
                 telegram_link = f"https://t.me/{bot_username}?start=promo_{code}"
@@ -463,10 +465,10 @@ async def create_bulk_promo_codes_final(
             )
 
         if failed_codes:
-            success_lines.append(f"\n❌ <b>Ошибки ({len(failed_codes)}):</b>")
+            success_lines.append(_("admin_bulk_promo_errors_title", count=len(failed_codes)))
             success_lines.extend(failed_codes[:5])  # Show first 5 errors
             if len(failed_codes) > 5:
-                success_lines.append(f"... и еще {len(failed_codes) - 5} ошибок")
+                success_lines.append(_("admin_bulk_promo_more_errors", count=len(failed_codes) - 5))
 
         success_text = "\n".join(success_lines)
 
@@ -495,7 +497,11 @@ async def create_bulk_promo_codes_final(
 
         # Send CSV file if created
         if csv_file:
-            csv_caption = f"📄 Промокоды для массового создания\n💫 Всего: {len(created_codes)} промокодов\n🎁 Бонус: {data['bonus_days']} дней каждый"  # noqa: E501
+            csv_caption = _(
+                "admin_bulk_promo_csv_caption",
+                count=len(created_codes),
+                days=data["bonus_days"],
+            )
             await message_obj.answer_document(csv_file, caption=csv_caption)
 
         await state.clear()

@@ -217,10 +217,10 @@ async def on_startup_configured(dispatcher: Dispatcher):
         )
 
     async def _configure_bot_commands() -> None:
-        start_description = settings.START_COMMAND_DESCRIPTION or "Главное меню"
+        start_description = settings.START_COMMAND_DESCRIPTION or "Main menu"
         bot_commands = [
             BotCommand(command="start", description=start_description),
-            BotCommand(command="tg", description="Интерфейс в боте"),
+            BotCommand(command="tg", description="Bot interface"),
         ]
         bot_menu_disabled = bool(settings.TELEGRAM_BOT_MENU_DISABLED)
         public_bot_commands = [bot_commands[0]] if bot_menu_disabled else bot_commands

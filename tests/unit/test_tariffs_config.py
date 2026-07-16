@@ -70,6 +70,33 @@ class TariffsConfigTests(unittest.TestCase):
 
         self.assertIsNone(config.topup_packages_for(config.require("standard")))
 
+    def test_period_tariff_traffic_strategy_is_optional_for_legacy_configs(self):
+        config = TariffsConfig.model_validate(_valid_config())
+
+        self.assertIsNone(config.require("standard").traffic_limit_strategy)
+
+    def test_period_tariff_traffic_strategy_loads(self):
+        data = _valid_config()
+        data["tariffs"][0]["traffic_limit_strategy"] = "WEEK"
+
+        config = TariffsConfig.model_validate(data)
+
+        self.assertEqual(config.require("standard").traffic_limit_strategy, "WEEK")
+
+    def test_invalid_period_tariff_traffic_strategy_rejected(self):
+        data = _valid_config()
+        data["tariffs"][0]["traffic_limit_strategy"] = "YEAR"
+
+        with self.assertRaises(ValueError):
+            TariffsConfig.model_validate(data)
+
+    def test_traffic_tariff_rejects_reset_strategy(self):
+        data = _valid_config()
+        data["tariffs"][1]["traffic_limit_strategy"] = "WEEK"
+
+        with self.assertRaises(ValueError):
+            TariffsConfig.model_validate(data)
+
     def test_period_tariff_uses_only_own_topup_packages(self):
         data = _valid_config()
         data["tariffs"][0]["topup_packages"] = {

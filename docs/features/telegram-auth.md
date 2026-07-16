@@ -63,7 +63,7 @@ docker compose up -d --force-recreate backend frontend
 
 Если используете собственный reverse proxy, не отправляйте `/auth/telegram/start` и `/auth/telegram/callback` напрямую в webhook-сервер `backend:8080`: эти маршруты принадлежат Web App API на `backend:8081` и штатно проходят через frontend.
 
-Готовые схемы Caddy, Nginx, Newt и прямой публикации описаны в [развертывании](../getting-started/deployment.md#готовые-папки-запуска).
+Готовые схемы Caddy, Angie, Nginx, Newt и прямой публикации описаны в [развертывании](../getting-started/deployment.md#готовые-папки-запуска).
 
 ## Как проверить
 

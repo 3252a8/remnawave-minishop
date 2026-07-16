@@ -74,14 +74,14 @@
   const BROADCAST_TARGET_OPTIONS = broadcastStore.BROADCAST_TARGET_OPTIONS;
 
   const buttonKindOptions = $derived([
-    { value: "url", label: at("broadcast_button_kind_url", {}, "Ссылка") },
+    { value: "url", label: at("broadcast_button_kind_url", {}, "Link") },
     {
       value: "promo_bot",
-      label: at("broadcast_button_kind_promo_bot", {}, "Промокод — в боте"),
+      label: at("broadcast_button_kind_promo_bot", {}, "Promo code — in bot"),
     },
     {
       value: "promo_webapp",
-      label: at("broadcast_button_kind_promo_webapp", {}, "Промокод — в веб-аппе"),
+      label: at("broadcast_button_kind_promo_webapp", {}, "Promo code — in web app"),
     },
   ]);
 
@@ -105,22 +105,22 @@
 
 <div class="admin-card">
   <header class="admin-card-head">
-    <h3>{at("broadcast_title", {}, "Рассылка")}</h3>
-    <small>{at("broadcast_subtitle", {}, "Доставка через очередь сообщений")}</small>
+    <h3>{at("broadcast_title", {}, "Broadcast")}</h3>
+    <small>{at("broadcast_subtitle", {}, "Delivery via message queue")}</small>
   </header>
   <div class="admin-card-body">
     <div class="admin-form">
       <Label.Root class="admin-field-label">
-        <span>{at("broadcast_label_audience", {}, "Аудитория")}</span>
+        <span>{at("broadcast_label_audience", {}, "Audience")}</span>
         <AdminSelect
           value={broadcastTarget}
           items={targetOptions}
-          ariaLabel={at("broadcast_label_audience", {}, "Аудитория")}
+          ariaLabel={at("broadcast_label_audience", {}, "Audience")}
           onValueChange={handleTargetChange}
         />
       </Label.Root>
       <div class="admin-field-label">
-        <span>{at("broadcast_channels_label", {}, "Каналы доставки")}</span>
+        <span>{at("broadcast_channels_label", {}, "Delivery channels")}</span>
         <div class="broadcast-channels">
           <label class="broadcast-channel">
             <Checkbox
@@ -147,20 +147,20 @@
             >{at(
               "broadcast_email_unavailable_hint",
               {},
-              "Email-канал недоступен: SMTP не настроен"
+              "Email channel unavailable: SMTP is not configured"
             )}</small
           >
         {/if}
       </div>
       {#if emailEnabled && emailSelectable}
         <Label.Root class="admin-field-label">
-          <span>{at("broadcast_email_subject_label", {}, "Тема письма")}</span>
+          <span>{at("broadcast_email_subject_label", {}, "Email subject")}</span>
           <Input
             value={emailSubject}
             placeholder={at(
               "broadcast_email_subject_placeholder",
               {},
-              "Пусто — будет использована тема по умолчанию"
+              "Leave empty to use the default subject"
             )}
             oninput={(e) =>
               broadcastStore.updateField({
@@ -170,27 +170,21 @@
         </Label.Root>
       {/if}
       <div class="admin-field-label">
-        <span>{at("broadcast_label_text", {}, "Текст сообщения")}</span>
-        <small
-          >{at(
-            "broadcast_hint_text",
-            {},
-            "Поддерживается HTML-разметка Telegram и шорткоды персонализации"
-          )}</small
-        >
+        <span>{at("broadcast_label_text", {}, "Message Text")}</span>
+        <small>{at("broadcast_hint_text", {}, "Telegram HTML formatting supported")}</small>
         <BroadcastEditor
           value={broadcastText}
           onInput={(next) => broadcastStore.updateField({ broadcastText: next })}
           shortcodes={broadcastStore.broadcastShortcodes}
           onRequestShortcodes={broadcastStore.loadShortcodes}
           {at}
-          placeholder={at("broadcast_editor_placeholder", {}, "Текст рассылки...")}
+          placeholder={at("broadcast_editor_placeholder", {}, "Broadcast text...")}
         />
       </div>
 
       <div class="admin-field-label">
         <div class="broadcast-preview-head">
-          <span>{at("broadcast_preview_title", {}, "Предпросмотр")}</span>
+          <span>{at("broadcast_preview_title", {}, "Preview")}</span>
           <div class="broadcast-preview-actions">
             <AdminButton
               size="sm"
@@ -198,7 +192,7 @@
               disabled={previewBusy || !broadcastText.trim()}
               onclick={() => broadcastStore.sendPreview("render")}
             >
-              {at("broadcast_preview_render", {}, "Обновить по данным")}
+              {at("broadcast_preview_render", {}, "Refresh with data")}
             </AdminButton>
             <AdminButton
               size="sm"
@@ -206,7 +200,7 @@
               disabled={previewBusy || !broadcastText.trim()}
               onclick={() => broadcastStore.sendPreview("send_telegram")}
             >
-              {at("broadcast_preview_send", {}, "Отправить себе в Telegram")}
+              {at("broadcast_preview_send", {}, "Send to my Telegram")}
             </AdminButton>
           </div>
         </div>
@@ -215,28 +209,28 @@
           <div class="broadcast-preview">{@html clientPreviewHtml}</div>
         {:else}
           <div class="broadcast-preview broadcast-preview-empty">
-            {at("broadcast_preview_placeholder", {}, "Здесь появится предпросмотр сообщения")}
+            {at("broadcast_preview_placeholder", {}, "The message preview will appear here")}
           </div>
         {/if}
         {#if previewResult}
           {#if previewResult.unknownShortcodes.length}
             <small class="admin-muted broadcast-preview-warn"
-              >{at("broadcast_preview_unknown", {}, "Неизвестные шорткоды")}:
+              >{at("broadcast_preview_unknown", {}, "Unknown shortcodes")}:
               {previewResult.unknownShortcodes.join(", ")}</small
             >
           {/if}
           <small class="admin-muted"
-            >{at("broadcast_preview_length", {}, "Длина")}: {previewResult.length}</small
+            >{at("broadcast_preview_length", {}, "Length")}: {previewResult.length}</small
           >
         {/if}
       </div>
       <div class="admin-field-label">
-        <span>{at("broadcast_buttons_label", {}, "Кнопки")}</span>
+        <span>{at("broadcast_buttons_label", {}, "Buttons")}</span>
         <small class="admin-muted"
           >{at(
             "broadcast_buttons_hint",
             {},
-            "До 4 кнопок: в Telegram — инлайн-кнопки, в email — кнопки-ссылки. Промокод активируется в один клик."
+            "Up to 4 buttons: inline buttons in Telegram, link buttons in email. Promo codes activate in one tap."
           )}</small
         >
         <div class="admin-row-editor">
@@ -244,14 +238,14 @@
             items={broadcastButtons}
             class="admin-row-editor-line admin-row-editor-broadcast"
             getKey={(button: BroadcastButtonDraft) => button.id}
-            handleLabel={at("broadcast_button_reorder", {}, "Перетащите, чтобы изменить порядок")}
+            handleLabel={at("broadcast_button_reorder", {}, "Drag to reorder buttons")}
             onReorder={broadcastStore.moveButton}
           >
             {#snippet children(button: BroadcastButtonDraft, index: number)}
               <AdminSelect
                 value={button.kind}
                 items={buttonKindOptions}
-                ariaLabel={at("broadcast_buttons_label", {}, "Кнопки")}
+                ariaLabel={at("broadcast_buttons_label", {}, "Buttons")}
                 onValueChange={(value) =>
                   broadcastStore.updateButton(index, { kind: value as BroadcastButtonKind })}
               />
@@ -259,7 +253,7 @@
                 class="input"
                 value={button.label}
                 maxlength={64}
-                placeholder={at("broadcast_button_label_placeholder", {}, "Текст кнопки")}
+                placeholder={at("broadcast_button_label_placeholder", {}, "Button label")}
                 oninput={(e) =>
                   broadcastStore.updateButton(index, {
                     label: (e.currentTarget as HTMLInputElement).value,
@@ -280,9 +274,9 @@
                   value={button.promoCode}
                   items={promoOptions}
                   placeholder={promoOptionsLoading
-                    ? at("broadcast_button_promo_loading", {}, "Загрузка промокодов...")
-                    : at("broadcast_button_promo_select", {}, "Выберите промокод")}
-                  ariaLabel={at("broadcast_button_promo_select", {}, "Выберите промокод")}
+                    ? at("broadcast_button_promo_loading", {}, "Loading codes...")
+                    : at("broadcast_button_promo_select", {}, "Select a code")}
+                  ariaLabel={at("broadcast_button_promo_select", {}, "Select a code")}
                   onValueChange={(value) =>
                     broadcastStore.updateButton(index, { promoCode: value })}
                 />
@@ -290,7 +284,7 @@
               <AdminButton
                 size="sm"
                 variant="danger"
-                aria-label={at("broadcast_button_remove", {}, "Удалить кнопку")}
+                aria-label={at("broadcast_button_remove", {}, "Remove button")}
                 onclick={() => broadcastStore.removeButton(index)}
               >
                 <Trash2 size={13} />
@@ -303,7 +297,7 @@
             >{at(
               "broadcast_no_promos_hint",
               {},
-              "Нет активных промокодов — создайте код в разделе «Промокоды»"
+              "No active codes — create one in the Promo codes section first"
             )}</small
           >
         {/if}
@@ -311,7 +305,7 @@
           <div>
             <AdminButton variant="ghost" onclick={broadcastStore.addButton}>
               <Plus size={14} />
-              {at("broadcast_button_add", {}, "Добавить кнопку")}
+              {at("broadcast_button_add", {}, "Add button")}
             </AdminButton>
           </div>
         {/if}
@@ -324,17 +318,17 @@
         >
           <Send size={14} />
           {broadcastBusy
-            ? at("btn_sending", {}, "Отправка...")
-            : at("btn_queue", {}, "Поставить в очередь")}
+            ? at("btn_sending", {}, "Sending...")
+            : at("btn_queue", {}, "Queue Message")}
         </AdminButton>
         {#if broadcastResult}
           <span class="admin-muted"
-            >{at("broadcast_stat_queued", {}, "В очереди")}: {broadcastResult.queued} · {at(
+            >{at("broadcast_stat_queued", {}, "Queued")}: {broadcastResult.queued} · {at(
               "broadcast_stat_failed",
               {},
-              "Неудач"
+              "Failed"
             )}: {broadcastResult.failed}{#if broadcastResult.channels.includes("email")}
-              · {at("broadcast_stat_email_queued", {}, "Email в очереди")}: {broadcastResult.emailQueued}{/if}</span
+              · {at("broadcast_stat_email_queued", {}, "Email queued")}: {broadcastResult.emailQueued}{/if}</span
           >
         {/if}
       </div>

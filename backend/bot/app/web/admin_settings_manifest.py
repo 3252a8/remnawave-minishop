@@ -121,7 +121,6 @@ def _i18n_slug(value: str) -> str:
 # when the text still contains PayKilla/Wata/etc. specifics.
 _PROVIDER_OPTION_LABEL_KEYS: dict[str, str] = {
     "Enabled": "admin_settings_provider_opt_enabled_label",
-    "Включена": "admin_settings_provider_opt_enabled_label",
     "Merchant ID": "admin_settings_provider_opt_merchant_id_label",
     "First secret": "admin_settings_provider_opt_first_secret_label",
     "Second secret": "admin_settings_provider_opt_second_secret_label",
@@ -132,9 +131,9 @@ _PROVIDER_OPTION_LABEL_KEYS: dict[str, str] = {
     "Trusted IPs": "admin_settings_provider_opt_trusted_ips_label",
     "Base URL": "admin_settings_provider_opt_base_url_label",
     "Secret": "admin_settings_provider_opt_secret_label",
-    "SBP-кнопка": "admin_settings_provider_opt_sbp_button_label",
+    "SBP button": "admin_settings_provider_opt_sbp_button_label",
     "SBP method ID": "admin_settings_provider_opt_sbp_method_id_label",
-    "Crypto-кнопка": "admin_settings_provider_opt_crypto_button_label",
+    "Crypto button": "admin_settings_provider_opt_crypto_button_label",
     "Crypto method ID": "admin_settings_provider_opt_crypto_method_id_label",
     "Supported currencies": "admin_settings_provider_opt_supported_currencies_label",
     "Return URL": "admin_settings_provider_opt_return_url_label",
@@ -276,9 +275,7 @@ _PROVIDER_OPTION_DESCRIPTION_KEYS: dict[str, str] = {
     "Optional. If empty, the backend fetches it from Wata.": (
         "admin_settings_provider_opt_webhook_public_key_description"
     ),
-    "1..6 в зависимости от системы налогообложения": (
-        "admin_settings_provider_opt_vat_code_description"
-    ),
+    "1..6 depending on the tax system": ("admin_settings_provider_opt_vat_code_description"),
     "fiat or crypto.": "admin_settings_provider_opt_currency_type_description",
     "Fiat or crypto code (RUB, USD, USDT).": (
         "admin_settings_provider_opt_invoice_currency_description"

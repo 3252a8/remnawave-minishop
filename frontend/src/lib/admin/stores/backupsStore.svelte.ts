@@ -129,7 +129,7 @@ export function createBackupsStore({ api, onToast, at }: BackupsStoreOptions): B
         }));
       } else {
         onToast(
-          adminErrorMessage(data, at, at("backups_load_failed", {}, "Не удалось загрузить бэкапы"))
+          adminErrorMessage(data, at, at("backups_load_failed", {}, "Failed to load backups"))
         );
       }
     } finally {
@@ -146,12 +146,12 @@ export function createBackupsStore({ api, onToast, at }: BackupsStoreOptions): B
       if (isOkResponse(data)) {
         const result = unwrap(data);
         updateState((s) => ({ ...s, lastCreated: normalizeRestoreResult(result.result) }));
-        onToast(at("backups_create_done", {}, "Бэкап создан"));
+        onToast(at("backups_create_done", {}, "Backup created"));
         await loadArchives();
         return normalizeArchive(result.archive);
       }
       onToast(
-        adminErrorMessage(data, at, at("backups_create_failed", {}, "Не удалось создать бэкап"))
+        adminErrorMessage(data, at, at("backups_create_failed", {}, "Failed to create backup"))
       );
       return null;
     } finally {
@@ -171,12 +171,12 @@ export function createBackupsStore({ api, onToast, at }: BackupsStoreOptions): B
       });
       if (isOkResponse(data)) {
         const result = unwrap(data);
-        onToast(at("backups_upload_done", {}, "Архив загружен"));
+        onToast(at("backups_upload_done", {}, "Archive uploaded"));
         await loadArchives();
         return normalizeArchive(result.archive);
       }
       onToast(
-        adminErrorMessage(data, at, at("backups_upload_failed", {}, "Не удалось загрузить архив"))
+        adminErrorMessage(data, at, at("backups_upload_failed", {}, "Failed to upload archive"))
       );
       return null;
     } finally {
@@ -195,11 +195,11 @@ export function createBackupsStore({ api, onToast, at }: BackupsStoreOptions): B
   }): Promise<boolean> {
     const archive_name = String(archiveName || "").trim();
     if (!archive_name) {
-      onToast(at("backups_select_archive", {}, "Выберите архив"));
+      onToast(at("backups_select_archive", {}, "Select an archive"));
       return false;
     }
     if (!restoreDatabase && !restoreCompose) {
-      onToast(at("backups_select_target", {}, "Выберите, что восстановить"));
+      onToast(at("backups_select_target", {}, "Select what to restore"));
       return false;
     }
 
@@ -218,12 +218,10 @@ export function createBackupsStore({ api, onToast, at }: BackupsStoreOptions): B
       if (isOkResponse(data)) {
         const result = unwrap(data);
         updateState((s) => ({ ...s, lastRestore: normalizeRestoreResult(result.result) }));
-        onToast(at("backups_restore_done", {}, "Восстановление завершено"));
+        onToast(at("backups_restore_done", {}, "Restore completed"));
         return true;
       }
-      onToast(
-        adminErrorMessage(data, at, at("backups_restore_failed", {}, "Не удалось восстановить"))
-      );
+      onToast(adminErrorMessage(data, at, at("backups_restore_failed", {}, "Restore failed")));
       return false;
     } finally {
       updateState((s) => ({ ...s, backupsRestoring: false }));

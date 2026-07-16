@@ -13,7 +13,7 @@ function dateInput(value: unknown): string | number | Date {
 
 export function pretty(value: unknown): string {
   if (value === null || value === undefined) return "—";
-  if (typeof value === "boolean") return value ? "Да" : "Нет";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
   return String(value);
 }
 
@@ -58,13 +58,13 @@ export function trafficPercentValue(used: unknown, limit: unknown): number {
 
 export function trafficLeftLabel(used: unknown, limit: unknown): string {
   const limitBytes = Number(limit || 0);
-  if (!limitBytes || limitBytes <= 0) return "Без лимита";
+  if (!limitBytes || limitBytes <= 0) return "No limit";
   return fmtTrafficBytes(Math.max(0, limitBytes - Number(used || 0)));
 }
 
 export function trafficOfLabel(used: unknown, limit: unknown): string {
   const limitBytes = Number(limit || 0);
-  if (!limitBytes || limitBytes <= 0) return `${fmtTrafficBytes(used)} / без лимита`;
+  if (!limitBytes || limitBytes <= 0) return `${fmtTrafficBytes(used)} / no limit`;
   return `${fmtTrafficBytes(used)} / ${fmtTrafficBytes(limit)}`;
 }
 

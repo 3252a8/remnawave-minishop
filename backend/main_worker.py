@@ -17,7 +17,14 @@ from bot.infra import events
 from bot.infra.event_payloads import PaymentCanceledPayload
 from bot.infra.observability import report_error
 from bot.infra.redis import close_redis, redis_lock
-from bot.infra.webhook_queue import pop_webhook_event, webhook_queue_depth
+from bot.infra.webhook_queue import (
+    acknowledge_webhook_event,
+    dead_letter_webhook_event,
+    pop_webhook_event,
+    recover_webhook_events,
+    retry_webhook_event,
+    webhook_queue_depth,
+)
 from bot.middlewares.i18n import JsonI18n
 from bot.payment_providers.yookassa import (
     YOOKASSA_EVENT_PAYMENT_CANCELED,
@@ -27,6 +34,7 @@ from bot.payment_providers.yookassa import (
     process_cancelled_payment,
     process_successful_payment,
 )
+from bot.payment_providers.yookassa.service import YooKassaService
 from bot.plugins import (
     PluginContext,
     QueueHandler,
@@ -40,6 +48,7 @@ from bot.services.event_reactions import register_core_reactions
 from bot.services.message_log_notifier import configure_message_log_notifier
 from bot.services.subscription_notification_worker import SubscriptionNotificationWorker
 from bot.services.tariff_worker import TariffTrafficWorker
+from bot.services.yookassa_reconciliation_worker import YooKassaReconciliationWorker
 from bot.utils.message_queue import init_queue_manager
 from config.settings import Settings, get_settings
 
@@ -147,21 +156,38 @@ def _core_queue_handlers() -> dict[str, QueueHandler]:
     }
 
 
+def _webhook_delivery_attempts(event: dict[str, Any]) -> int:
+    try:
+        return max(0, int(event.get("delivery_attempts") or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _webhook_retry_delay(settings: Settings, delivery_attempts: int) -> float:
+    delay = settings.WEBHOOK_QUEUE_RETRY_BASE_SECONDS * (2 ** max(0, delivery_attempts - 1))
+    return min(delay, settings.WEBHOOK_QUEUE_RETRY_MAX_SECONDS)
+
+
 async def _webhook_consumer(ctx: PluginContext, handlers: dict[str, QueueHandler]) -> None:
     settings = ctx.settings
     while True:
-        event = await pop_webhook_event(settings)
-        if not event:
+        claimed = await pop_webhook_event(settings)
+        if not claimed:
             continue
+        event = claimed.event
         provider = event.get("provider")
         payload = event.get("payload") or {}
         started = time.monotonic()
         try:
             handler = handlers.get(str(provider))
             if handler is None:
-                logger.warning("Unknown webhook event provider: %s", provider)
-            else:
-                await handler(ctx, payload)
+                raise LookupError(f"Unknown webhook event provider: {provider}")
+            await handler(ctx, payload)
+            if not await acknowledge_webhook_event(settings, claimed):
+                logger.warning(
+                    "Webhook queue event %s completed but could not be acknowledged",
+                    event.get("event_id"),
+                )
         except Exception as exc:
             logger.exception("Webhook queue event failed: %s", event.get("event_id"))
             await report_error(
@@ -173,6 +199,46 @@ async def _webhook_consumer(ctx: PluginContext, handlers: dict[str, QueueHandler
                     "provider": str(provider),
                 },
             )
+            delivery_attempts = _webhook_delivery_attempts(event) + 1
+            if delivery_attempts >= settings.WEBHOOK_QUEUE_MAX_ATTEMPTS:
+                moved = await dead_letter_webhook_event(
+                    settings,
+                    claimed,
+                    delivery_attempts=delivery_attempts,
+                    error=exc,
+                )
+                if moved:
+                    logger.error(
+                        "Webhook queue event %s moved to dead-letter after %s attempt(s)",
+                        event.get("event_id"),
+                        delivery_attempts,
+                    )
+                else:
+                    logger.error(
+                        "Webhook queue event %s exhausted retries but could not be dead-lettered",
+                        event.get("event_id"),
+                    )
+            else:
+                delay = _webhook_retry_delay(settings, delivery_attempts)
+                if delay:
+                    await asyncio.sleep(delay)
+                moved = await retry_webhook_event(
+                    settings,
+                    claimed,
+                    delivery_attempts=delivery_attempts,
+                )
+                if moved:
+                    logger.warning(
+                        "Webhook queue event %s scheduled for retry %s/%s",
+                        event.get("event_id"),
+                        delivery_attempts + 1,
+                        settings.WEBHOOK_QUEUE_MAX_ATTEMPTS,
+                    )
+                else:
+                    logger.error(
+                        "Webhook queue event %s could not be requeued",
+                        event.get("event_id"),
+                    )
         finally:
             depth = await webhook_queue_depth(settings)
             logger.info(
@@ -268,6 +334,24 @@ def _subscription_notification_task(ctx: PluginContext) -> Coroutine[Any, Any, N
     ).run()
 
 
+async def _yookassa_reconciliation_task(ctx: PluginContext) -> None:
+    yookassa_service = ctx.get_service("yookassa_service", YooKassaService)
+    if yookassa_service is None:
+        logger.info("YooKassa reconciliation worker disabled: service is unavailable")
+        return
+    await YooKassaReconciliationWorker(
+        ctx.settings,
+        ctx.require_session_factory(),
+        yookassa_service,
+        ctx.require_bot(),
+        ctx.require_i18n(),
+        ctx.require_panel_service(),
+        ctx.require_subscription_service(),
+        ctx.require_referral_service(),
+        ctx.lknpd_service,
+    ).run()
+
+
 def _backup_worker_task(ctx: PluginContext) -> Coroutine[Any, Any, None]:
     return BackupWorker(
         ctx.settings,
@@ -287,6 +371,10 @@ def _core_worker_tasks() -> list[WorkerTaskSpec]:
             name="SubscriptionNotificationWorker",
             factory=_subscription_notification_task,
         ),
+        WorkerTaskSpec(
+            name="YooKassaReconciliationWorker",
+            factory=_yookassa_reconciliation_task,
+        ),
         WorkerTaskSpec(name="BackupWorker", factory=_backup_worker_task),
         WorkerTaskSpec(name="PanelSyncLoop", factory=_panel_sync_loop),
     ]
@@ -295,6 +383,10 @@ def _core_worker_tasks() -> list[WorkerTaskSpec]:
 async def main() -> None:
     settings = get_settings()
     ctx = await _build_worker_context(settings)
+
+    recovered = await recover_webhook_events(settings)
+    if recovered:
+        logger.warning("Recovered %s unacknowledged webhook queue event(s)", recovered)
 
     handlers = _core_queue_handlers()
     handlers.update(collect_queue_handlers(ctx, reserved=set(handlers)))

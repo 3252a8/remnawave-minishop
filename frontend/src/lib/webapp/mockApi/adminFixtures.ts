@@ -238,6 +238,8 @@ export function buildAdminDemoFixtures(): AdminDemoFixtures {
         author_name: "Анна Смирнова",
         body: "После обновления приложения профиль перестал подключаться. Ошибка появляется сразу после импорта ссылки.",
         created_at: new Date(Date.now() - 2 * 3600000).toISOString(),
+        read_by_admin_at: new Date(Date.now() - 110 * 60000).toISOString(),
+        read_by_user_at: null,
       },
       {
         message_id: 2,
@@ -247,6 +249,8 @@ export function buildAdminDemoFixtures(): AdminDemoFixtures {
         author_name: "Мария, поддержка",
         body: "Проверили подписку, она активна. Попробуйте удалить старый профиль и импортировать ссылку ещё раз.",
         created_at: new Date(Date.now() - 90 * 60000).toISOString(),
+        read_by_user_at: new Date(Date.now() - 80 * 60000).toISOString(),
+        read_by_admin_at: null,
       },
       {
         message_id: 3,
@@ -256,6 +260,8 @@ export function buildAdminDemoFixtures(): AdminDemoFixtures {
         author_name: "Анна Смирнова",
         body: "Сделал так, но теперь вижу timeout. Телефон iPhone, сеть домашний Wi‑Fi.",
         created_at: new Date(Date.now() - 18 * 60000).toISOString(),
+        read_by_user_at: null,
+        read_by_admin_at: null,
       },
     ],
     43: [

@@ -60,8 +60,8 @@
       class:is-clickable={Boolean(openedUserAvatarUrl)}
       disabled={!openedUserAvatarUrl}
       onclick={openAvatarPreview}
-      aria-label={at("user_avatar_open", {}, "Открыть аватар")}
-      title={openedUserAvatarUrl ? at("user_avatar_open", {}, "Открыть аватар") : ""}
+      aria-label={at("user_avatar_open", {}, "Open avatar")}
+      title={openedUserAvatarUrl ? at("user_avatar_open", {}, "Open avatar") : ""}
     >
       {#if openedUserAvatarUrl}
         <img src={openedUserAvatarUrl} alt="" loading="lazy" referrerpolicy="no-referrer" />
@@ -74,14 +74,16 @@
       <small>{userSecondaryName(openedUser)}</small>
       <div class="admin-user-summary-tags">
         {#if openedUser.is_banned}
-          <AdminBadge variant="danger">{at("badge_banned", {}, "Бан")}</AdminBadge>
+          <AdminBadge variant="danger">{at("badge_banned", {}, "Banned")}</AdminBadge>
         {:else}
-          <AdminBadge variant="success">{at("badge_active", {}, "Активен")}</AdminBadge>
+          <AdminBadge variant="success">{at("badge_active", {}, "Active")}</AdminBadge>
         {/if}
         {#if openedUserDetail.active_subscription}
-          <AdminBadge variant="success">{at("badge_subscription", {}, "Подписка")}</AdminBadge>
+          <AdminBadge variant="success">{at("badge_subscription", {}, "Subscription")}</AdminBadge>
         {:else}
-          <AdminBadge variant="muted">{at("badge_no_subscription", {}, "Без подписки")}</AdminBadge>
+          <AdminBadge variant="muted"
+            >{at("badge_no_subscription", {}, "No subscription")}</AdminBadge
+          >
         {/if}
       </div>
       <div class="admin-user-summary-actions">
@@ -91,10 +93,10 @@
           onclick={openUserTelegramProfile}
           disabled={!openedUserTelegramProfileLink}
           title={openedUserTelegramProfileHint}
-          aria-label={at("user_open_tg_profile", {}, "Открыть профиль Telegram")}
+          aria-label={at("user_open_tg_profile", {}, "Open Telegram")}
         >
           <ExternalLink size={14} />
-          {at("user_open_tg_profile", {}, "Открыть Telegram")}
+          {at("user_open_tg_profile", {}, "Open Telegram")}
         </AdminButton>
       </div>
     </div>
@@ -102,16 +104,16 @@
 
   <div class="admin-user-stats">
     <div class="admin-user-stat">
-      <span>{at("user_label_paid", {}, "Заплачено")}</span>
+      <span>{at("user_label_paid", {}, "Total Paid")}</span>
       <strong>{fmtMoney(openedUserDetail.total_paid)}</strong>
     </div>
     <div class="admin-user-stat">
-      <span>{at("user_label_logs", {}, "Логов")}</span>
+      <span>{at("user_label_logs", {}, "Logs")}</span>
       <strong>{openedUserDetail.log_count}</strong>
     </div>
   </div>
 
-  <div class="admin-subsection-title">{at("user_section_profile", {}, "Профиль")}</div>
+  <div class="admin-subsection-title">{at("user_section_profile", {}, "Profile")}</div>
   <ul class="admin-meta-list">
     <li><span>ID</span><strong>{openedUser.user_id}</strong></li>
     <li><span>Telegram ID</span><strong>{openedUser.telegram_id || "—"}</strong></li>
@@ -122,22 +124,22 @@
       <span>Email</span><strong class="admin-meta-truncate">{openedUser.email || "—"}</strong>
     </li>
     <li>
-      <span>{at("user_label_registration", {}, "Регистрация")}</span><strong
+      <span>{at("user_label_registration", {}, "Registration")}</span><strong
         >{fmtDate(openedUser.registration_date)}</strong
       >
     </li>
     <li>
-      <span>{at("user_label_vpn_last_connected", {}, "Последнее VPN-подключение")}</span><strong
+      <span>{at("user_label_vpn_last_connected", {}, "Last VPN connection")}</span><strong
         >{vpnLastConnectionLabel(openedUserDetail)}</strong
       >
     </li>
     <li>
-      <span>{at("user_label_ref_code", {}, "Реф. код")}</span><strong
+      <span>{at("user_label_ref_code", {}, "Referral Code")}</span><strong
         >{openedUserDetail.referral?.code || openedUserDetail.user?.referral_code || "—"}</strong
       >
     </li>
     <li class="admin-user-ref-row">
-      <span>{at("user_label_invited_by", {}, "Пригласил")}</span>
+      <span>{at("user_label_invited_by", {}, "Invited by")}</span>
       <strong class="admin-user-ref-value">
         {#if referralInviter}
           <span>{userDisplayName(referralInviter)}</span>
@@ -150,8 +152,8 @@
         <AdminButton
           size="icon"
           variant="icon"
-          title={at("user_open_related", {}, "Открыть карточку")}
-          aria-label={at("user_open_related", {}, "Открыть карточку")}
+          title={at("user_open_related", {}, "Open user card")}
+          aria-label={at("user_open_related", {}, "Open user card")}
           onclick={() => openRelatedUser(referralInviter)}
         >
           <ExternalLink size={14} />
@@ -159,7 +161,7 @@
       {/if}
     </li>
     <li class="admin-user-ref-row">
-      <span>{at("user_label_invited_users", {}, "Приглашённые")}</span>
+      <span>{at("user_label_invited_users", {}, "Invited users")}</span>
       <strong>{referralInviteesTotal}</strong>
       <AdminButton
         data-admin-action="open-user-referrals"
@@ -169,18 +171,19 @@
         onclick={() => usersStore.openUserReferrals(0)}
       >
         <UsersRound size={14} />
-        {at("user_invitees_open", {}, "Показать")}
+        {at("user_invitees_open", {}, "Show")}
       </AdminButton>
     </li>
   </ul>
 
   {#if openedUserDetail.subscription_url || openedUserDetail.install_share_url || openedUserDetail.referral?.bot_link || openedUserDetail.referral?.webapp_link}
-    <div class="admin-subsection-title">{at("user_section_links", {}, "Ссылки")}</div>
+    <div class="admin-subsection-title">{at("user_section_links", {}, "Links")}</div>
     <div class="admin-link-list">
       {#if openedUserDetail.subscription_url}
         <div class="admin-link-row">
           <div class="admin-link-row-meta">
-            <span class="admin-link-row-label">{at("status_subscription", {}, "Подписка")}</span>
+            <span class="admin-link-row-label">{at("status_subscription", {}, "Subscription")}</span
+            >
             <a
               class="admin-link-row-url"
               href={openedUserDetail.subscription_url}
@@ -193,11 +196,11 @@
           <AdminButton
             size="icon"
             variant="icon"
-            title={at("user_copy_tooltip", {}, "Скопировать")}
+            title={at("user_copy_tooltip", {}, "Copy")}
             onclick={() =>
               usersStore.copyToClipboard(
                 openedUserDetail.subscription_url,
-                at("user_sub_link_copied", {}, "Ссылка на подписку скопирована")
+                at("user_sub_link_copied", {}, "Subscription link copied")
               )}
           >
             <Copy size={14} />
@@ -237,7 +240,7 @@
         <div class="admin-link-row">
           <div class="admin-link-row-meta">
             <span class="admin-link-row-label"
-              >{at("user_label_ref_bot", {}, "Реф. ссылка (бот)")}</span
+              >{at("user_label_ref_bot", {}, "Referral link (bot)")}</span
             >
             <a
               class="admin-link-row-url"
@@ -251,11 +254,11 @@
           <AdminButton
             size="icon"
             variant="icon"
-            title={at("user_copy_tooltip", {}, "Скопировать")}
+            title={at("user_copy_tooltip", {}, "Copy")}
             onclick={() =>
               usersStore.copyToClipboard(
                 openedUserDetail.referral.bot_link,
-                at("user_ref_link_copied", {}, "Реф. ссылка скопирована")
+                at("user_ref_link_copied", {}, "Referral link copied")
               )}
           >
             <Copy size={14} />
@@ -266,7 +269,7 @@
         <div class="admin-link-row">
           <div class="admin-link-row-meta">
             <span class="admin-link-row-label"
-              >{at("user_label_ref_web", {}, "Реф. ссылка (веб)")}</span
+              >{at("user_label_ref_web", {}, "Referral link (web)")}</span
             >
             <a
               class="admin-link-row-url"
@@ -280,11 +283,11 @@
           <AdminButton
             size="icon"
             variant="icon"
-            title={at("user_copy_tooltip", {}, "Скопировать")}
+            title={at("user_copy_tooltip", {}, "Copy")}
             onclick={() =>
               usersStore.copyToClipboard(
                 openedUserDetail.referral.webapp_link,
-                at("user_ref_link_copied", {}, "Реф. ссылка скопирована")
+                at("user_ref_link_copied", {}, "Referral link copied")
               )}
           >
             <Copy size={14} />
