@@ -16,6 +16,7 @@ asyncpg==0.31.0
 certifi>=2024.7.4
 PyJWT[crypto]==2.13.0
 Pillow==12.3.0
-# Checked 2026-07-02: https://pypi.org/pypi/redis/json latest is 8.0.1, but
-# aiogram 3.29.1 still caps redis[hiredis] at <8 for RedisStorage.
-redis>=7.4.1,<8
+# Checked 2026-07-16: https://pypi.org/pypi/redis/json latest is 8.0.1.
+# aiogram 3.29.1 still caps its optional redis[hiredis] extra at <8, so both
+# first-party and aiogram clients explicitly keep RESP2 while using redis-py 8.
+redis>=8.0.1,<9

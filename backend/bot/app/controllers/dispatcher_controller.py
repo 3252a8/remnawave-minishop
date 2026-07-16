@@ -32,7 +32,7 @@ def build_dispatcher(
     i18n_instance: JsonI18n,
 ) -> Dispatcher:
     storage = (
-        RedisStorage.from_url(settings.REDIS_URL)
+        RedisStorage.from_url(settings.REDIS_URL, connection_kwargs={"protocol": 2})
         if settings.REDIS_URL and RedisStorage is not None
         else MemoryStorage()
     )

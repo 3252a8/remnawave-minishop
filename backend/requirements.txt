@@ -97,7 +97,7 @@ python-dotenv==1.2.2
     # via
     #   -r backend/requirements.in
     #   pydantic-settings
-redis==7.4.1
+redis==8.0.1
     # via -r backend/requirements.in
 requests==2.34.2
     # via yookassa

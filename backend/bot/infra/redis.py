@@ -38,6 +38,7 @@ async def get_redis(settings: Settings) -> Any | None:
             encoding="utf-8",
             decode_responses=True,
             health_check_interval=30,
+            protocol=2,
         )
     return _redis
 
