@@ -58,13 +58,44 @@ class FakeRedis:
             bucket.insert(0, value)
         return len(bucket)
 
-    # Keep `timeout` to mirror redis.asyncio.Redis.brpop used by the queue code.
-    async def brpop(self, key: str, timeout: int = 0) -> tuple[str, str] | None:  # noqa: ASYNC109
-        bucket = self._lists.get(key)
+    async def blmove(
+        self,
+        source: str,
+        destination: str,
+        timeout: int,  # noqa: ASYNC109 - mirrors redis.asyncio.Redis.blmove
+        src: str = "LEFT",
+        dest: str = "RIGHT",
+    ) -> str | None:
+        del timeout
+        bucket = self._lists.get(source)
         if bucket:
-            return key, bucket.pop()
-        # In real Redis, brpop blocks. Tests never use the timeout path.
+            value = bucket.pop() if src == "RIGHT" else bucket.pop(0)
+            target = self._lists.setdefault(destination, [])
+            target.append(value) if dest == "RIGHT" else target.insert(0, value)
+            return value
         return None
+
+    async def lmove(
+        self,
+        source: str,
+        destination: str,
+        src: str = "LEFT",
+        dest: str = "RIGHT",
+    ) -> str | None:
+        return await self.blmove(source, destination, 0, src=src, dest=dest)
+
+    async def lrem(self, key: str, count: int, value: str) -> int:
+        bucket = self._lists.get(key, [])
+        removed = 0
+        indexes = range(len(bucket) - 1, -1, -1) if count < 0 else range(len(bucket))
+        for index in list(indexes):
+            if bucket[index] != value:
+                continue
+            bucket.pop(index)
+            removed += 1
+            if count and removed >= abs(count):
+                break
+        return removed
 
     async def llen(self, key: str) -> int:
         return len(self._lists.get(key, []))
@@ -165,12 +196,39 @@ class WebhookQueueTests(unittest.IsolatedAsyncioTestCase):
         depth = await webhook_queue.webhook_queue_depth(settings)
         self.assertEqual(depth, 1)
 
-        popped = await webhook_queue.pop_webhook_event(settings)
-        assert popped is not None
-        self.assertEqual(popped["provider"], "yookassa")
-        self.assertEqual(popped["event_id"], "payment.succeeded:p_42")
-        self.assertEqual(popped["payload"], {"id": "p_42", "amount": "100"})
-        self.assertIsInstance(popped["enqueued_at"], (int, float))
+        claimed = await webhook_queue.pop_webhook_event(settings)
+        assert claimed is not None
+        self.assertEqual(claimed.event["provider"], "yookassa")
+        self.assertEqual(claimed.event["event_id"], "payment.succeeded:p_42")
+        self.assertEqual(claimed.event["payload"], {"id": "p_42", "amount": "100"})
+        self.assertIsInstance(claimed.event["enqueued_at"], (int, float))
+        self.assertEqual(
+            await self.fake.llen(webhook_queue.webhook_processing_queue_key(settings)),
+            1,
+        )
+
+        self.assertTrue(await webhook_queue.acknowledge_webhook_event(settings, claimed))
+        self.assertEqual(
+            await self.fake.llen(webhook_queue.webhook_processing_queue_key(settings)),
+            0,
+        )
+
+    async def test_unacknowledged_event_is_recovered(self):
+        settings = _make_settings()
+        await webhook_queue.enqueue_webhook_event(
+            settings,
+            "panel",
+            {"event": "user.expired"},
+            event_id="user.expired:42",
+        )
+        claimed = await webhook_queue.pop_webhook_event(settings)
+        assert claimed is not None
+
+        self.assertEqual(await webhook_queue.recover_webhook_events(settings), 1)
+        self.assertEqual(await webhook_queue.webhook_queue_depth(settings), 1)
+        recovered = await webhook_queue.pop_webhook_event(settings)
+        assert recovered is not None
+        self.assertEqual(recovered.event, claimed.event)
 
     async def test_enqueue_dedupes_repeated_event_ids(self):
         settings = _make_settings()
@@ -241,6 +299,10 @@ class WebhookQueueTests(unittest.IsolatedAsyncioTestCase):
         await self.fake.lpush(webhook_queue.webhook_queue_key(settings), "not-json")
         result = await webhook_queue.pop_webhook_event(settings)
         self.assertIsNone(result)
+        self.assertEqual(
+            await self.fake.llen(webhook_queue.webhook_processing_queue_key(settings)),
+            0,
+        )
 
     async def test_queue_key_uses_prefix_and_queue_name(self):
         settings = _make_settings(REDIS_KEY_PREFIX="shop", WEBHOOK_QUEUE_NAME="custom-q")

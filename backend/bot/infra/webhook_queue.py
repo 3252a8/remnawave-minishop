@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+from dataclasses import dataclass
 from typing import Any, cast
 
 from bot.infra.redis import get_redis, redis_key
@@ -20,8 +21,18 @@ return 1
 """
 
 
+@dataclass(frozen=True, slots=True)
+class ClaimedWebhookEvent:
+    event: dict[str, Any]
+    raw: str
+
+
 def webhook_queue_key(settings: Settings) -> str:
     return cast(str, redis_key(settings, "queue", settings.WEBHOOK_QUEUE_NAME))
+
+
+def webhook_processing_queue_key(settings: Settings) -> str:
+    return cast(str, redis_key(settings, "queue", settings.WEBHOOK_QUEUE_NAME, "processing"))
 
 
 async def enqueue_webhook_event(
@@ -66,24 +77,73 @@ async def enqueue_webhook_event(
         return False
 
 
-async def pop_webhook_event(settings: Settings, timeout_seconds: int = 5) -> dict | None:
+async def pop_webhook_event(
+    settings: Settings,
+    timeout_seconds: int = 5,
+) -> ClaimedWebhookEvent | None:
     redis = await get_redis(settings)
     if redis is None:
         return None
     try:
-        item = await redis.brpop(webhook_queue_key(settings), timeout=timeout_seconds)
+        raw = await redis.blmove(
+            webhook_queue_key(settings),
+            webhook_processing_queue_key(settings),
+            timeout_seconds,
+            src="RIGHT",
+            dest="LEFT",
+        )
     except Exception as exc:
         logger.warning("Redis webhook pop failed: %s", exc)
         return None
-    if not item:
+    if not raw:
         return None
-    _, raw = item
     try:
         decoded = json.loads(raw)
-        return decoded if isinstance(decoded, dict) else None
+        if isinstance(decoded, dict):
+            return ClaimedWebhookEvent(event=decoded, raw=raw)
     except json.JSONDecodeError:
-        logger.warning("Invalid webhook queue payload discarded")
-        return None
+        pass
+    logger.warning("Invalid webhook queue payload discarded")
+    try:
+        await redis.lrem(webhook_processing_queue_key(settings), 1, raw)
+    except Exception as exc:
+        logger.warning("Failed to discard invalid webhook queue payload: %s", exc)
+    return None
+
+
+async def acknowledge_webhook_event(
+    settings: Settings,
+    claimed: ClaimedWebhookEvent,
+) -> bool:
+    redis = await get_redis(settings)
+    if redis is None:
+        return False
+    try:
+        removed = await redis.lrem(webhook_processing_queue_key(settings), 1, claimed.raw)
+        return bool(removed)
+    except Exception as exc:
+        logger.warning("Redis webhook acknowledgement failed: %s", exc)
+        return False
+
+
+async def recover_webhook_events(settings: Settings) -> int:
+    """Return unacknowledged events to the ready queue before consumers start."""
+    redis = await get_redis(settings)
+    if redis is None:
+        return 0
+
+    recovered = 0
+    try:
+        while await redis.lmove(
+            webhook_processing_queue_key(settings),
+            webhook_queue_key(settings),
+            src="RIGHT",
+            dest="LEFT",
+        ):
+            recovered += 1
+    except Exception as exc:
+        logger.warning("Redis webhook recovery failed after %s event(s): %s", recovered, exc)
+    return recovered
 
 
 async def webhook_queue_depth(settings: Settings) -> int:

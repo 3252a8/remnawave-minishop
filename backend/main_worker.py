@@ -17,7 +17,12 @@ from bot.infra import events
 from bot.infra.event_payloads import PaymentCanceledPayload
 from bot.infra.observability import report_error
 from bot.infra.redis import close_redis, redis_lock
-from bot.infra.webhook_queue import pop_webhook_event, webhook_queue_depth
+from bot.infra.webhook_queue import (
+    acknowledge_webhook_event,
+    pop_webhook_event,
+    recover_webhook_events,
+    webhook_queue_depth,
+)
 from bot.middlewares.i18n import JsonI18n
 from bot.payment_providers.yookassa import (
     YOOKASSA_EVENT_PAYMENT_CANCELED,
@@ -152,9 +157,10 @@ def _core_queue_handlers() -> dict[str, QueueHandler]:
 async def _webhook_consumer(ctx: PluginContext, handlers: dict[str, QueueHandler]) -> None:
     settings = ctx.settings
     while True:
-        event = await pop_webhook_event(settings)
-        if not event:
+        claimed = await pop_webhook_event(settings)
+        if not claimed:
             continue
+        event = claimed.event
         provider = event.get("provider")
         payload = event.get("payload") or {}
         started = time.monotonic()
@@ -164,6 +170,11 @@ async def _webhook_consumer(ctx: PluginContext, handlers: dict[str, QueueHandler
                 logger.warning("Unknown webhook event provider: %s", provider)
             else:
                 await handler(ctx, payload)
+            if not await acknowledge_webhook_event(settings, claimed):
+                logger.warning(
+                    "Webhook queue event %s completed but could not be acknowledged",
+                    event.get("event_id"),
+                )
         except Exception as exc:
             logger.exception("Webhook queue event failed: %s", event.get("event_id"))
             await report_error(
@@ -319,6 +330,10 @@ def _core_worker_tasks() -> list[WorkerTaskSpec]:
 async def main() -> None:
     settings = get_settings()
     ctx = await _build_worker_context(settings)
+
+    recovered = await recover_webhook_events(settings)
+    if recovered:
+        logger.warning("Recovered %s unacknowledged webhook queue event(s)", recovered)
 
     handlers = _core_queue_handlers()
     handlers.update(collect_queue_handlers(ctx, reserved=set(handlers)))
