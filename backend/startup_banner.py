@@ -105,7 +105,7 @@ def _service_details(service: str) -> str:
     if service == "backend":
         lines = [
             *common,
-            f"webhooks :: :{_env('WEB_SERVER_PORT', '8080')}",
+            f"webhooks :: :{_env('WEB_SERVER_INTERNAL_PORT', _env('WEB_SERVER_PORT', '8080'))}",
             f"webapp api :: {_bool_env('WEBAPP_ENABLED')} / :{_env('WEBAPP_SERVER_PORT', '8081')}",
             f"postgres :: {_postgres_target()}",
             f"redis :: {_redis_target()}",

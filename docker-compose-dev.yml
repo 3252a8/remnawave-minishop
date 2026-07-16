@@ -71,6 +71,7 @@ services:
       IMAGE_TAG: ${IMAGE_TAG:-latest}
       POSTGRES_HOST: postgres
       REDIS_URL: redis://redis:6379/0
+      WEB_SERVER_INTERNAL_PORT: '8080'
       WEBAPP_ENABLED: 'true'
     volumes:
       - ./data:/app/data:rw

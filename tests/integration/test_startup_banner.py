@@ -78,6 +78,17 @@ class StartupBannerServiceDetailsTests(unittest.TestCase):
         self.assertIn("postgres :: pg:5440/shop", output)
         self.assertIn("redis :: r:6380/2", output)
 
+    def test_backend_prefers_internal_webhook_port(self):
+        output = _render(
+            "backend",
+            {
+                "WEB_SERVER_PORT": "9090",
+                "WEB_SERVER_INTERNAL_PORT": "8080",
+            },
+        )
+
+        self.assertIn("webhooks :: :8080", output)
+
     def test_worker_lists_queue_and_panel_sync_interval(self):
         output = _render(
             "worker",

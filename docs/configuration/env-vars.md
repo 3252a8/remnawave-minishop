@@ -32,6 +32,7 @@
 | `FRONTEND_PORT` | `.env` / Compose | Хостовый порт frontend nginx. По умолчанию `8082`. |
 | `WEB_SERVER_HOST` | `.env` | Внутренний хост backend-сервера вебхуков. Обычно `0.0.0.0`. |
 | `WEB_SERVER_PORT` | `.env` / Compose | Хостовый порт backend-сервера вебхуков. По умолчанию `8080`. |
+| `WEB_SERVER_INTERNAL_PORT` | `.env` / container | Внутренний порт listener-а backend. Compose фиксирует `8080`; при прямом запуске без значения используется `WEB_SERVER_PORT`. |
 | `WEBAPP_SERVER_HOST` | `.env` | Внутренний хост Web App API-сервера. Обычно `0.0.0.0`. |
 | `WEBAPP_SERVER_PORT` | `.env` | Внутренний порт Web App API-сервера. По умолчанию `8081`. |
 | `WEBAPP_API_BASE_URL` | `.env` / frontend | Browser-visible API base для Mini App frontend. Оставляйте `/api`; split frontend/backend настраивается через server-side `WEBAPP_BACKEND_UPSTREAM`. |

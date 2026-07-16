@@ -525,7 +525,13 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     )
 
     WEB_SERVER_HOST: str = Field(default="0.0.0.0")
-    WEB_SERVER_PORT: int = Field(default=8080)
+    WEB_SERVER_PORT: int = Field(default=8080, ge=1, le=65535)
+    WEB_SERVER_INTERNAL_PORT: int | None = Field(default=None, ge=1, le=65535)
+
+    @property
+    def web_server_listen_port(self) -> int:
+        """Container listener port, with the legacy direct-run setting as fallback."""
+        return self.WEB_SERVER_INTERNAL_PORT or self.WEB_SERVER_PORT
 
     WEBAPP_ENABLED: bool = Field(
         default=True,

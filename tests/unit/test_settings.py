@@ -52,6 +52,30 @@ class SettingsTests(unittest.TestCase):
 
         self.assertEqual(settings.WEBAPP_API_BASE_URL, "/api")
 
+    def test_internal_webhook_port_is_independent_from_host_port(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            WEB_SERVER_PORT=9090,
+            WEB_SERVER_INTERNAL_PORT=8080,
+        )
+
+        self.assertEqual(settings.WEB_SERVER_PORT, 9090)
+        self.assertEqual(settings.web_server_listen_port, 8080)
+
+    def test_direct_run_falls_back_to_legacy_webhook_port(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            WEB_SERVER_PORT=9090,
+        )
+
+        self.assertEqual(settings.web_server_listen_port, 9090)
+
     def test_webapp_api_base_url_strips_same_origin_trailing_slashes(self):
         settings = Settings(
             _env_file=None,

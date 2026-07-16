@@ -316,6 +316,26 @@ def test_postgres_healthchecks_validate_configured_credentials():
         assert "pg_isready -U $$POSTGRES_USER" not in compose
 
 
+def test_backend_compose_profiles_pin_internal_webhook_port():
+    compose_paths = [
+        REPO_ROOT / "docker-compose.yml",
+        REPO_ROOT / "docker-compose-dev.yml",
+        REPO_ROOT
+        / "deploy"
+        / "examples"
+        / "split-protected-upstream"
+        / "backend.docker-compose.yml",
+        *(
+            REPO_ROOT / "deploy" / "examples" / profile / "docker-compose.yml"
+            for profile in ("caddy", "angie", "nginx", "newt", "no-proxy")
+        ),
+    ]
+
+    for path in compose_paths:
+        compose = path.read_text(encoding="utf-8")
+        assert re.search(r"WEB_SERVER_INTERNAL_PORT:\s*['\"]?8080['\"]?", compose), path
+
+
 def test_shell_installer_guards_existing_postgres_volume_password_drift():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
