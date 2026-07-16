@@ -218,7 +218,8 @@ class LegacyAutoRenewOrderTests(IsolatedAsyncioTestCase):
         assert get_payment.await_count == 2
         assert get_payment.await_args_list[0].kwargs["fresh"] is True
         assert get_payment.await_args_list[1].kwargs["fresh"] is True
-        assert "ON CONFLICT" in str(session.execute.await_args.args[0])
+        rendered = str(session.execute.await_args.args[0])
+        assert "ON CONFLICT (provider, provider_payment_id) DO NOTHING" in rendered
 
 
 class LegacyAutoRenewFulfillmentTests(IsolatedAsyncioTestCase):

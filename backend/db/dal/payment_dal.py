@@ -337,13 +337,16 @@ async def ensure_payment_with_provider_id(
     hwid_full_price: float | None = None,
 ) -> Payment:
     """Atomically create or validate one order for a provider payment id."""
+    provider_key = str(provider or "").strip().lower()
+    if not provider_key:
+        raise ValueError("provider is required for payment creation.")
     remote_id = str(provider_payment_id or "").strip()
     if not remote_id:
         raise ValueError("provider_payment_id is required for payment creation.")
 
     existing = await get_payment_by_provider_payment_id(
         session,
-        provider,
+        provider_key,
         remote_id,
         fresh=True,
     )
@@ -354,7 +357,7 @@ async def ensure_payment_with_provider_id(
             amount=amount,
             currency=currency,
             months=months,
-            provider=provider,
+            provider=provider_key,
             sale_mode=sale_mode,
             tariff_key=tariff_key,
             purchased_gb=purchased_gb,
@@ -367,7 +370,7 @@ async def ensure_payment_with_provider_id(
         )
         return existing
 
-    pending_status = f"pending_{provider}" if provider else "pending"
+    pending_status = f"pending_{provider_key}"
     payment_payload: dict[str, Any] = {
         "user_id": user_id,
         "amount": float(amount),
@@ -376,7 +379,7 @@ async def ensure_payment_with_provider_id(
         "description": description,
         "subscription_duration_months": months,
         "provider_payment_id": remote_id,
-        "provider": provider,
+        "provider": provider_key,
     }
     optional_fields = {
         "sale_mode": sale_mode,
@@ -396,7 +399,7 @@ async def ensure_payment_with_provider_id(
     stmt = (
         pg_insert(Payment)
         .values(**payment_payload)
-        .on_conflict_do_nothing(index_elements=[Payment.provider_payment_id])
+        .on_conflict_do_nothing(index_elements=[Payment.provider, Payment.provider_payment_id])
         .returning(Payment.payment_id)
     )
     result = await session.execute(stmt)
@@ -404,7 +407,7 @@ async def ensure_payment_with_provider_id(
 
     payment = await get_payment_by_provider_payment_id(
         session,
-        provider,
+        provider_key,
         remote_id,
         fresh=True,
     )
@@ -416,7 +419,7 @@ async def ensure_payment_with_provider_id(
         amount=amount,
         currency=currency,
         months=months,
-        provider=provider,
+        provider=provider_key,
         sale_mode=sale_mode,
         tariff_key=tariff_key,
         purchased_gb=purchased_gb,
