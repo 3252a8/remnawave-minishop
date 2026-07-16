@@ -26,6 +26,9 @@ jobs:
   validate:
     name: Validate release source
     runs-on: ubuntu-latest
+    # GitHub only exposes draft releases to tokens with push access.
+    permissions:
+      contents: write
     outputs:
       commit: ${{ steps.release.outputs.commit }}
       tag: ${{ steps.release.outputs.tag }}

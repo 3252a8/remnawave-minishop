@@ -242,9 +242,13 @@ Release images публикуются только для стабильных g
 
 ```bash
 gh release create vX.Y.Z --target main --draft --generate-notes --title vX.Y.Z
+git fetch origin main --tags
+git tag vX.Y.Z origin/main
+git push origin refs/tags/vX.Y.Z
 ```
 
-Release workflow собирает и сканирует три candidate-образа, проверяет их OCI
+Draft Release сам по себе не создаёт remote git-тег. Push `refs/tags/vX.Y.Z`
+запускает release workflow, который собирает и сканирует три candidate-образа, проверяет их OCI
 provenance, последовательно публикует semver-теги без начальной `v` (например,
 `v3.4.5` становится `3.4.5`) и только затем публикует draft Release. В Release
 прикладываются `release-images.json` и его SHA-256: в них указаны source commit,
