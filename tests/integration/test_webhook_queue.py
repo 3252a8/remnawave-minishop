@@ -70,9 +70,18 @@ class FakeRedis:
         return len(self._lists.get(key, []))
 
     async def eval(self, script: str, numkeys: int, *args: Any) -> int:
-        # The only Lua used by the code base releases redis_lock atomically.
         keys = args[:numkeys]
         argv = args[numkeys:]
+        if numkeys == 2:
+            seen_key, queue_key = keys
+            ttl_seconds, message = argv
+            self._expire_if_due(seen_key)
+            if seen_key in self._kv:
+                return 0
+            await self.lpush(queue_key, message)
+            await self.set(seen_key, "1", ex=int(ttl_seconds))
+            return 1
+        # The single-key Lua script releases redis_lock atomically.
         if keys and argv and self._kv.get(keys[0]) == argv[0]:
             self._kv.pop(keys[0], None)
             self._ttl.pop(keys[0], None)
@@ -179,6 +188,47 @@ class WebhookQueueTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertTrue(first)
         # Dedupe path is treated as a success — the event was already accepted.
+        self.assertTrue(second)
+        self.assertEqual(await webhook_queue.webhook_queue_depth(settings), 1)
+
+    async def test_enqueue_retry_not_blocked_when_queue_write_fails(self):
+        settings = _make_settings()
+        original_lpush = self.fake.lpush
+        fail_next = True
+
+        async def flaky_lpush(key: str, *values: str) -> int:
+            nonlocal fail_next
+            if fail_next:
+                fail_next = False
+                raise ConnectionError("temporary queue write failure")
+            return int(await original_lpush(key, *values))
+
+        with patch.object(self.fake, "lpush", flaky_lpush):
+            first = await webhook_queue.enqueue_webhook_event(
+                settings,
+                "yookassa",
+                {"event": "payment.succeeded", "payment": {"id": "p_42"}},
+                event_id="payment.succeeded:p_42",
+            )
+            self.assertIsNone(
+                await self.fake.get(
+                    redis_infra.redis_key(
+                        settings,
+                        "webhook",
+                        "seen",
+                        "yookassa",
+                        "payment.succeeded:p_42",
+                    )
+                )
+            )
+            second = await webhook_queue.enqueue_webhook_event(
+                settings,
+                "yookassa",
+                {"event": "payment.succeeded", "payment": {"id": "p_42"}},
+                event_id="payment.succeeded:p_42",
+            )
+
+        self.assertFalse(first)
         self.assertTrue(second)
         self.assertEqual(await webhook_queue.webhook_queue_depth(settings), 1)
 
