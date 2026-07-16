@@ -76,10 +76,15 @@ def _coerce_plugin(loaded: object, entry_point_name: str) -> Plugin:
     return loaded
 
 
+def _plugin_entry_points() -> metadata.EntryPoints:
+    """Return installed plugin entry points through a test-isolatable seam."""
+    return metadata.entry_points(group=ENTRY_POINT_GROUP)
+
+
 def _discover(settings: Settings) -> list[Plugin]:
     plugins: list[Plugin] = []
     try:
-        entry_points = metadata.entry_points(group=ENTRY_POINT_GROUP)
+        entry_points = _plugin_entry_points()
     except Exception:
         logger.exception("Failed to enumerate %s entry points", ENTRY_POINT_GROUP)
         if settings.PLUGINS_STRICT:
