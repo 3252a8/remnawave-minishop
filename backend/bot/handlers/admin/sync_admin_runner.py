@@ -30,6 +30,7 @@ from .sync_admin_common import (
     _panel_update_changes,
     _should_update_lifetime_used_traffic,
     _subscription_update_delta,
+    _subscription_update_reason_labels,
     _sync_lock,
 )
 from .sync_admin_identity import (
@@ -641,7 +642,8 @@ async def _perform_sync_impl(
                                     )
                                     subscriptions_updated += 1
                                     user_was_updated = True
-                                    _append_unique(user_update_reasons, "subscription_updated")
+                                    for reason in _subscription_update_reason_labels(update_delta):
+                                        _append_unique(user_update_reasons, reason)
                                 subscriptions_synced_count += 1
                                 logger.debug(
                                     "Synced existing subscription %s for user %s: expires %s, "
@@ -720,7 +722,8 @@ async def _perform_sync_impl(
                                     )
                                     subscriptions_updated += 1
                                     user_was_updated = True
-                                    _append_unique(user_update_reasons, "subscription_updated")
+                                    for reason in _subscription_update_reason_labels(update_delta):
+                                        _append_unique(user_update_reasons, reason)
                                 subscriptions_synced_count += 1
                                 logger.debug(
                                     "Updated active subscription %s for user %s: expires %s, "
