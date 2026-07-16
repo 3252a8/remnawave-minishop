@@ -27,7 +27,6 @@ _ENDPOINT_LOG_LABELS = (
     "/system/stats/bandwidth",
     "/system/stats/nodes",
     "/system/stats",
-    "/system/tools/happ/encrypt",
     "/bandwidth-stats/users",
     "/bandwidth-stats/nodes",
     "/internal-squads",

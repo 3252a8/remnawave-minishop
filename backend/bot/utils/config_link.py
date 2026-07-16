@@ -11,7 +11,7 @@ _CRYPT4_LINK_CACHES: dict[tuple[int, int], AsyncTTLCache] = {}
 
 
 async def _encrypt_raw_link(settings: Settings, raw_link: str) -> str | None:
-    """Encrypt the raw subscription URL using the panel's happ crypt4 API."""
+    """Encrypt the raw subscription URL using local Happ Crypt4 compatibility."""
     async with PanelApiService(settings) as panel_service:
         encrypted_link = await panel_service.encrypt_happ_link(raw_link)
         if isinstance(encrypted_link, str) and encrypted_link:
@@ -51,7 +51,7 @@ async def prepare_config_links(
     Build the user-facing connection key and the URL for the connect button.
 
     Returns (display_link, button_link). When CRYPT4 is enabled the display link
-    is encrypted and prefixed with happ://crypt4/ by panel API, and the button link is wrapped
+    is encrypted and prefixed with happ://crypt4/, and the button link is wrapped
     with CRYPT4_REDIRECT_URL if provided.
     """
     if not raw_link:
