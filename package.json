@@ -23,6 +23,7 @@
     "dev:stand:use": "node scripts/use_dev_stand_preset.mjs",
     "dev:stand:use:2.7.4": "node scripts/use_dev_stand_preset.mjs 2.7.4",
     "dev:stand:use:2.8.0": "node scripts/use_dev_stand_preset.mjs 2.8.0",
+    "dev:stand:use:2.8.1": "node scripts/use_dev_stand_preset.mjs 2.8.1",
     "dev:stand:config": "docker compose --env-file .env.remnawave-dev -f docker-compose-dev.yml -f docker-compose.remnawave-dev.yml --profile seed config --quiet",
     "dev:stand:up": "docker compose --env-file .env.remnawave-dev -f docker-compose-dev.yml -f docker-compose.remnawave-dev.yml --profile seed up -d --build postgres redis remnawave-db remnawave-redis remnawave remnawave-dev-seed remnawave-subscription-page migrate dev-seed backend frontend",
     "dev:stand:down": "docker compose --env-file .env.remnawave-dev -f docker-compose-dev.yml -f docker-compose.remnawave-dev.yml --profile seed down",
