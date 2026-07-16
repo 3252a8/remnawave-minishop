@@ -489,7 +489,10 @@ class YooKassaService:
                 pm = getattr(payment_info_yk, "payment_method", None)
                 pm_payload: dict[str, Any] = {}
                 if pm:
-                    # Collect common fields, including id and hints for last4
+                    # Mirror the webhook payment_method shape so downstream
+                    # consumers (successful-payment processing during
+                    # reconciliation) can persist saved methods; keep the
+                    # legacy card_last4 hint for existing callers.
                     pm_id = getattr(pm, "id", None)
                     pm_type = getattr(pm, "type", None)
                     pm_title = getattr(pm, "title", None)
@@ -505,7 +508,20 @@ class YooKassaService:
                     pm_payload = {
                         "id": pm_id,
                         "type": pm_type,
+                        "saved": bool(getattr(pm, "saved", False)),
                         "title": pm_title,
+                        "account_number": account_number,
+                        "card": (
+                            {
+                                "first6": getattr(card_obj, "first6", None),
+                                "last4": getattr(card_obj, "last4", None),
+                                "expiry_month": getattr(card_obj, "expiry_month", None),
+                                "expiry_year": getattr(card_obj, "expiry_year", None),
+                                "card_type": getattr(card_obj, "card_type", None),
+                            }
+                            if card_obj is not None
+                            else None
+                        ),
                         "card_last4": last4_val,
                     }
                 confirmation = getattr(payment_info_yk, "confirmation", None)
