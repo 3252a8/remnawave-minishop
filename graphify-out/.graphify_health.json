@@ -1,27 +1,27 @@
 {
-  "node_count": 12047,
-  "raw_edge_count": 37708,
+  "node_count": 12778,
+  "raw_edge_count": 31473,
   "non_object_edges": 0,
   "missing_endpoint_edges": 0,
-  "dangling_endpoint_edges": 4757,
-  "self_loop_edges": 5,
-  "valid_candidate_edges": 32951,
-  "exact_duplicate_edges": 291,
-  "directed_unique_endpoint_pairs": 31765,
-  "directed_same_endpoint_collapsed_edges": 1186,
-  "undirected_unique_endpoint_pairs": 31724,
-  "undirected_same_endpoint_collapsed_edges": 1227,
-  "same_endpoint_group_count": 1064,
-  "relation_variant_groups": 619,
+  "dangling_endpoint_edges": 0,
+  "self_loop_edges": 0,
+  "valid_candidate_edges": 31473,
+  "exact_duplicate_edges": 0,
+  "directed_unique_endpoint_pairs": 31473,
+  "directed_same_endpoint_collapsed_edges": 0,
+  "undirected_unique_endpoint_pairs": 31473,
+  "undirected_same_endpoint_collapsed_edges": 0,
+  "same_endpoint_group_count": 0,
+  "relation_variant_groups": 0,
   "source_file_variant_groups": 0,
-  "source_location_variant_groups": 72,
-  "context_variant_groups": 234,
+  "source_location_variant_groups": 0,
+  "context_variant_groups": 0,
   "post_build_graph_type": "Graph",
-  "post_build_node_count": 12047,
-  "post_build_edge_count": 32491,
+  "post_build_node_count": 12778,
+  "post_build_edge_count": 31473,
   "post_build_error": "",
   "producer_suppression": {
-    "path": "C:\\Users\\bonmucho\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\site-packages\\graphify\\extract.py",
+    "path": "graphify/extract.py",
     "total_sites": 60,
     "sites": [
       {
@@ -387,100 +387,5 @@
     ],
     "error": ""
   },
-  "examples": [
-    {
-      "source": "backend_bot_handlers_user_start_flow_start_command_handler",
-      "target": "match",
-      "edge_count": 7,
-      "relations": [
-        "references"
-      ],
-      "source_files": [
-        "backend/bot/handlers/user/start_flow.py"
-      ],
-      "source_locations": [
-        "L58"
-      ],
-      "contexts": [
-        "parameter_type"
-      ]
-    },
-    {
-      "source": "backend_bot_payment_providers_qa_service_qapaymentservice_init",
-      "target": "backend_bot_payment_providers_qa_service_py_any",
-      "edge_count": 6,
-      "relations": [
-        "references"
-      ],
-      "source_files": [
-        "backend/bot/payment_providers/qa/service.py"
-      ],
-      "source_locations": [
-        "L109"
-      ],
-      "contexts": [
-        "parameter_type"
-      ]
-    },
-    {
-      "source": "backend_bot_app_web_admin_api_impl_schemas",
-      "target": "backend_bot_app_web_admin_api_impl_schema_helpers",
-      "edge_count": 5,
-      "relations": [
-        "imports_from"
-      ],
-      "source_files": [
-        "backend/bot/app/web/admin_api_impl/schemas.py"
-      ],
-      "source_locations": [
-        "L33",
-        "L36",
-        "L39",
-        "L42",
-        "L45"
-      ],
-      "contexts": [
-        "import"
-      ]
-    },
-    {
-      "source": "backend_bot_app_web_webapp_serializers_serialize_subscription",
-      "target": "backend_bot_app_web_webapp_serializers_py_any",
-      "edge_count": 5,
-      "relations": [
-        "references"
-      ],
-      "source_files": [
-        "backend/bot/app/web/webapp/serializers.py"
-      ],
-      "source_locations": [
-        "L372"
-      ],
-      "contexts": [
-        "generic_arg",
-        "parameter_type"
-      ]
-    },
-    {
-      "source": "backend_bot_handlers_admin_common",
-      "target": "backend_bot_handlers_admin_init",
-      "edge_count": 5,
-      "relations": [
-        "imports_from"
-      ],
-      "source_files": [
-        "backend/bot/handlers/admin/common.py"
-      ],
-      "source_locations": [
-        "L23",
-        "L24",
-        "L25",
-        "L26",
-        "L27"
-      ],
-      "contexts": [
-        "import"
-      ]
-    }
-  ]
+  "examples": []
 }
