@@ -15,7 +15,7 @@ sqlalchemy[asyncio]==2.0.51
 asyncpg==0.31.0
 certifi>=2024.7.4
 PyJWT[crypto]==2.13.0
-Pillow==12.2.0
+Pillow==12.3.0
 # Checked 2026-07-02: https://pypi.org/pypi/redis/json latest is 8.0.1, but
 # aiogram 3.29.1 still caps redis[hiredis] at <8 for RedisStorage.
 redis>=7.4.1,<8
