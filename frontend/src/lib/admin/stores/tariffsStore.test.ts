@@ -92,6 +92,38 @@ describe("tariffsStore", () => {
     expect(toasts).toEqual(["tariff_saved"]);
   });
 
+  it("preserves the previous key as an alias when a tariff is renamed", async () => {
+    const originalTariff = periodTariff({ key: "old-key" });
+    const api = vi.fn(async (_path, options = {}) => {
+      const body = JSON.parse(options.body);
+      return {
+        ok: true,
+        exists: true,
+        path: "data/tariffs.json",
+        provider_currency_support: [],
+        catalog: body.catalog,
+      };
+    });
+    const { store } = makeStore(api);
+    store.updateState({
+      tariffsCatalog: {
+        ...catalog([originalTariff]),
+        default_tariff: "old-key",
+      },
+    });
+
+    store.openEditTariff(originalTariff);
+    store.updateDraftField("key", "current");
+    await store.saveTariffDraft();
+
+    const body = JSON.parse(api.mock.calls[0][1].body);
+    expect(body.catalog.default_tariff).toBe("current");
+    expect(body.catalog.tariffs[0]).toMatchObject({
+      key: "current",
+      legacy_keys: ["old-key"],
+    });
+  });
+
   it("persists the reordered catalog when a tariff is moved", async () => {
     const api = vi.fn(async (_path, options = {}) => {
       const body = JSON.parse(options.body);
