@@ -29,6 +29,7 @@ from bot.services.telegram_notifications import (
     telegram_notifications_need_prompt,
     telegram_notifications_start_link,
 )
+from bot.utils.locale_defaults import subscription_purchase_description_text
 from bot.utils.traffic_reset import format_traffic_reset_date, parse_panel_datetime
 from config.settings import Settings
 from config.subscription_guides_config import subscription_guides_available
@@ -254,7 +255,9 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             "trial_duration_days": int(settings.TRIAL_DURATION_DAYS or 0),
             "trial_traffic_limit_gb": float(settings.TRIAL_TRAFFIC_LIMIT_GB or 0),
             "trial_traffic_strategy": settings.TRIAL_TRAFFIC_STRATEGY,
-            "subscription_purchase_description": settings.subscription_purchase_description(lang),
+            "subscription_purchase_description": subscription_purchase_description_text(
+                settings, lang
+            ),
             "subscription_guides_enabled": subscription_guides_available(settings),
             "email_auth_enabled": settings.email_auth_configured,
         },

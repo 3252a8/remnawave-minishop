@@ -15,6 +15,7 @@ from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.utils.callback_answer import (
     message_from_user,
 )
+from bot.utils.locale_defaults import subscription_purchase_description_text
 from config.settings import Settings
 from config.tariffs_config import (
     default_currency_key_for_settings,
@@ -144,8 +145,7 @@ def _with_subscription_purchase_description(
 ) -> str:
     if not include:
         return text
-    description_resolver = settings.subscription_purchase_description
-    description = description_resolver(current_lang) if callable(description_resolver) else ""
+    description = subscription_purchase_description_text(settings, current_lang)
     if not description:
         return text
     return f"{description}\n\n{text}"

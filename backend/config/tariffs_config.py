@@ -344,9 +344,12 @@ class Tariff(BaseModel):
     def description(self, lang: str, fallback: str = "ru") -> str:
         return self.descriptions.get(lang) or self.descriptions.get(fallback) or ""
 
-    def premium_name(self, lang: str, fallback: str = "ru") -> str:
-        default = "Premium servers"
-        return self.premium_names.get(lang) or self.premium_names.get(fallback) or default
+    def premium_name(self, lang: str, fallback: str = "ru", default: str | None = None) -> str:
+        return (
+            self.premium_names.get(lang)
+            or self.premium_names.get(fallback)
+            or (default or "Premium servers")
+        )
 
     @property
     def monthly_bytes(self) -> int:

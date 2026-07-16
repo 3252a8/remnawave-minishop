@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.services.panel_activity import record_subscription_panel_activity
 from bot.utils.config_link import prepare_config_links
+from bot.utils.locale_defaults import tariff_premium_title
 from bot.utils.traffic_reset import (
     next_traffic_reset_after,
     panel_next_traffic_reset_at,
@@ -311,8 +312,9 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             )
             if tariff
             else None,
-            "premium_title": tariff.premium_name(
-                db_user.language_code or self.settings.DEFAULT_LANGUAGE
+            "premium_title": tariff_premium_title(
+                tariff,
+                db_user.language_code or self.settings.DEFAULT_LANGUAGE,
             )
             if tariff
             else None,

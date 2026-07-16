@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.services.panel_activity import record_subscription_panel_activity
 from bot.utils.config_link import prepare_config_links
+from bot.utils.locale_defaults import tariff_premium_title
 from bot.utils.traffic_reset import next_traffic_reset_after, traffic_accounting_period_start
 from config.tariffs_config import default_currency_key_for_settings
 from db.dal import payment_dal, subscription_dal, tariff_dal, user_dal
@@ -121,7 +122,7 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             "tariff_key": local_active_sub.tariff_key,
             "tariff_name": tariff.name(language) if tariff else None,
             "tariff_description": tariff.description(language) if tariff else None,
-            "premium_title": tariff.premium_name(language) if tariff else None,
+            "premium_title": tariff_premium_title(tariff, language) if tariff else None,
             "billing_model": billing_model_display,
             "tier_baseline_bytes": local_active_sub.tier_baseline_bytes,
             "topup_balance_bytes": local_active_sub.topup_balance_bytes,
