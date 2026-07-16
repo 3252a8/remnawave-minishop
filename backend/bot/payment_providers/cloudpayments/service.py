@@ -550,6 +550,7 @@ class CloudPaymentsService(HttpClientMixin):
         async with self.async_session_factory() as session:
             payment = await lookup_payment_by_order_or_provider_id(
                 session,
+                providers="cloudpayments",
                 order_id_raw=order_id_raw,
                 provider_payment_id=provider_payment_id,
             )

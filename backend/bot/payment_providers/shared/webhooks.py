@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Collection
 from typing import Any
 
 from aiogram import Bot
@@ -23,19 +24,42 @@ def coerce_payment_db_id(order_id_raw: Any) -> int | None:
 async def lookup_payment_by_order_or_provider_id(
     session: AsyncSession,
     *,
+    providers: str | Collection[str],
     order_id_raw: Any = None,
     provider_payment_id: str | None = None,
 ) -> Payment | None:
-    """Find a payment by DB id first, fall back to provider id.
+    """Find a payment by DB id first, constrained to the expected providers.
 
     Returns ``None`` so callers stay in charge of the not-found response.
     """
+    raw_providers = (providers,) if isinstance(providers, str) else providers
+    provider_keys = tuple(
+        dict.fromkeys(str(provider or "").strip().lower() for provider in raw_providers)
+    )
+    provider_keys = tuple(provider for provider in provider_keys if provider)
+    if not provider_keys:
+        return None
+
     payment_db_id = coerce_payment_db_id(order_id_raw)
     payment: Payment | None = None
     if payment_db_id is not None:
         payment = await payment_dal.get_payment_by_db_id(session, payment_db_id)
+        if payment and str(payment.provider or "").strip().lower() not in provider_keys:
+            payment = None
     if not payment and provider_payment_id:
-        payment = await payment_dal.get_payment_by_provider_payment_id(session, provider_payment_id)
+        matches = [
+            candidate
+            for provider in provider_keys
+            if (
+                candidate := await payment_dal.get_payment_by_provider_payment_id(
+                    session,
+                    provider,
+                    provider_payment_id,
+                )
+            )
+            is not None
+        ]
+        payment = matches[0] if len(matches) == 1 else None
     return payment
 
 

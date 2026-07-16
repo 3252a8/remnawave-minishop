@@ -48,6 +48,29 @@ class PaymentDalIdempotenceTests(IsolatedAsyncioTestCase):
 
 
 class PaymentDalStatusUpdateTests(IsolatedAsyncioTestCase):
+    async def test_provider_payment_lookup_filters_by_provider_and_external_id(self):
+        payment = SimpleNamespace(payment_id=1)
+        session = SimpleNamespace(
+            execute=AsyncMock(return_value=SimpleNamespace(scalar_one_or_none=lambda: payment))
+        )
+
+        result = await payment_dal.get_payment_by_provider_payment_id(
+            session,
+            "stripe",
+            "shared-id",
+        )
+
+        self.assertIs(result, payment)
+        statement = session.execute.await_args.args[0]
+        rendered = str(
+            statement.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        )
+        self.assertIn("payments.provider = 'stripe'", rendered)
+        self.assertIn("payments.provider_payment_id = 'shared-id'", rendered)
+
     async def test_update_payment_status_preserves_succeeded_payment(self):
         session = SimpleNamespace(flush=AsyncMock(), refresh=AsyncMock())
         payment = SimpleNamespace(

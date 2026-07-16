@@ -296,12 +296,20 @@ async def create_or_get_payment_record_by_idempotence_key(
 
 async def get_payment_by_provider_payment_id(
     session: AsyncSession,
+    provider: str,
     provider_payment_id: str,
     *,
     fresh: bool = False,
 ) -> Payment | None:
     """Fetch a payment by provider-specific identifier."""
-    stmt = select(Payment).where(Payment.provider_payment_id == provider_payment_id)
+    provider_key = str(provider or "").strip().lower()
+    remote_id = str(provider_payment_id or "").strip()
+    if not provider_key or not remote_id:
+        return None
+    stmt = select(Payment).where(
+        Payment.provider == provider_key,
+        Payment.provider_payment_id == remote_id,
+    )
     if fresh:
         stmt = stmt.execution_options(populate_existing=True)
     result = await session.execute(stmt)
@@ -333,7 +341,12 @@ async def ensure_payment_with_provider_id(
     if not remote_id:
         raise ValueError("provider_payment_id is required for payment creation.")
 
-    existing = await get_payment_by_provider_payment_id(session, remote_id, fresh=True)
+    existing = await get_payment_by_provider_payment_id(
+        session,
+        provider,
+        remote_id,
+        fresh=True,
+    )
     if existing:
         _validate_existing_provider_payment_order(
             existing,
@@ -389,7 +402,12 @@ async def ensure_payment_with_provider_id(
     result = await session.execute(stmt)
     created = result.scalar_one_or_none() is not None
 
-    payment = await get_payment_by_provider_payment_id(session, remote_id, fresh=True)
+    payment = await get_payment_by_provider_payment_id(
+        session,
+        provider,
+        remote_id,
+        fresh=True,
+    )
     if payment is None:
         raise RuntimeError(f"Failed to load payment after claiming provider id {remote_id!r}.")
     _validate_existing_provider_payment_order(

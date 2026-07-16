@@ -368,7 +368,11 @@ class PlategaService(HttpClientMixin):
             return web.Response(status=400, text="missing_fields")
 
         async with self.async_session_factory() as session:
-            payment = await payment_dal.get_payment_by_provider_payment_id(session, transaction_id)
+            payment = await payment_dal.get_payment_by_provider_payment_id(
+                session,
+                "platega",
+                transaction_id,
+            )
             if not payment:
                 logger.error(
                     "Platega webhook: payment not found for transaction %s", transaction_id

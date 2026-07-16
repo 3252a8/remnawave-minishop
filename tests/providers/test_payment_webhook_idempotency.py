@@ -350,8 +350,11 @@ def test_severpay_duplicate_success_webhook_does_not_finalize_again(monkeypatch)
         user=None,
     )
 
-    async def lookup_payment(_session, *, order_id_raw=None, provider_payment_id=None):
+    async def lookup_payment(
+        _session, *, providers=None, order_id_raw=None, provider_payment_id=None
+    ):
         assert _session is session
+        assert providers == "severpay"
         assert order_id_raw == "88"
         assert provider_payment_id == "sev-1"
         return payment

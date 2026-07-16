@@ -534,6 +534,7 @@ class HeleketService(HttpClientMixin):
         async with self.async_session_factory() as session:
             payment = await lookup_payment_by_order_or_provider_id(
                 session,
+                providers="heleket",
                 order_id_raw=order_id_raw,
                 provider_payment_id=uuid_value or None,
             )

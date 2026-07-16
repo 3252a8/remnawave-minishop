@@ -99,7 +99,9 @@ def test_wata_created_webhook_returns_ok_and_persists_transaction_id(monkeypatch
     payment = _payment()
     updates = []
 
-    async def lookup_payment(_session, *, order_id_raw=None, provider_payment_id=None):
+    async def lookup_payment(
+        _session, *, providers=None, order_id_raw=None, provider_payment_id=None
+    ):
         assert _session is session
         assert order_id_raw == "465"
         assert provider_payment_id == "tx-1"
@@ -146,7 +148,9 @@ def test_wata_created_webhook_can_find_payment_by_payment_link_id(monkeypatch):
     lookup_calls = []
     updates = []
 
-    async def lookup_payment(_session, *, order_id_raw=None, provider_payment_id=None):
+    async def lookup_payment(
+        _session, *, providers=None, order_id_raw=None, provider_payment_id=None
+    ):
         lookup_calls.append((order_id_raw, provider_payment_id))
         if provider_payment_id == "link-id":
             return payment
@@ -191,7 +195,9 @@ def test_wata_known_payment_with_unknown_status_still_acknowledges_webhook(monke
     session = _FakeSession()
     payment = _payment(provider_payment_id="tx-1")
 
-    async def lookup_payment(_session, *, order_id_raw=None, provider_payment_id=None):
+    async def lookup_payment(
+        _session, *, providers=None, order_id_raw=None, provider_payment_id=None
+    ):
         return payment
 
     async def update_provider_payment_and_status(*args, **kwargs):
@@ -305,7 +311,9 @@ def test_wata_webhook_rejects_paid_amount_mismatch_before_finalization(monkeypat
     claim_mock = AsyncMock(side_effect=AssertionError("mismatched payment must not be claimed"))
     finalize_mock = AsyncMock(side_effect=AssertionError("mismatched payment must not finalize"))
 
-    async def lookup_payment(_session, *, order_id_raw=None, provider_payment_id=None):
+    async def lookup_payment(
+        _session, *, providers=None, order_id_raw=None, provider_payment_id=None
+    ):
         assert _session is session
         assert order_id_raw == "465"
         assert provider_payment_id == "tx-paid"
@@ -720,7 +728,9 @@ def test_wata_webhook_rejects_mismatched_terminal_public_id(monkeypatch):
     session = _FakeSession()
     payment = _payment(provider="wata")
 
-    async def lookup_payment(_session, *, order_id_raw=None, provider_payment_id=None):
+    async def lookup_payment(
+        _session, *, providers=None, order_id_raw=None, provider_payment_id=None
+    ):
         return payment
 
     async def update_provider_payment_and_status(*args, **kwargs):
@@ -756,7 +766,9 @@ def test_wata_crypto_webhook_accepts_matching_terminal_public_id(monkeypatch):
     payment = _payment(provider="wata_crypto")
     updates = []
 
-    async def lookup_payment(_session, *, order_id_raw=None, provider_payment_id=None):
+    async def lookup_payment(
+        _session, *, providers=None, order_id_raw=None, provider_payment_id=None
+    ):
         return payment
 
     async def update_provider_payment_and_status(
@@ -802,7 +814,9 @@ def test_wata_webhook_without_terminal_hint_rechecks_signature_with_payment_prof
     payment = _payment(provider="wata_crypto")
     updates = []
 
-    async def lookup_payment(_session, *, order_id_raw=None, provider_payment_id=None):
+    async def lookup_payment(
+        _session, *, providers=None, order_id_raw=None, provider_payment_id=None
+    ):
         return payment
 
     async def update_provider_payment_and_status(

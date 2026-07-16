@@ -533,6 +533,7 @@ class OverpayService(HttpClientMixin):
         async with self.async_session_factory() as session:
             payment = await lookup_payment_by_order_or_provider_id(
                 session,
+                providers="overpay",
                 order_id_raw=tracking_id,
                 provider_payment_id=provider_payment_id,
             )

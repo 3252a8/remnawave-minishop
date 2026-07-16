@@ -834,14 +834,19 @@ class WataService(HttpClientMixin):
             return web.Response(status=400, text="missing_fields")
 
         async with self.async_session_factory() as session:
+            expected_providers = (
+                profile_hint.provider if profile_hint else (WATA_PROVIDER, WATA_CRYPTO_PROVIDER)
+            )
             payment = await lookup_payment_by_order_or_provider_id(
                 session,
+                providers=expected_providers,
                 order_id_raw=order_id_raw,
                 provider_payment_id=transaction_id or None,
             )
             if not payment and payment_link_id:
                 payment = await lookup_payment_by_order_or_provider_id(
                     session,
+                    providers=expected_providers,
                     provider_payment_id=payment_link_id,
                 )
             if not payment:
