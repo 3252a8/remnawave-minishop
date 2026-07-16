@@ -170,6 +170,39 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             )
             return None
 
+        if existing_panel_user_uuid and panel_user_uuid != existing_panel_user_uuid:
+            # The carryover math above was read from a stale local link;
+            # re-read usage from the panel user the link actually resolved to
+            # before persisting the recomputed limits.
+            logger.warning(
+                "Panel link for user %s resolved to %s while traffic metrics were read "
+                "from %s; recomputing carryover from the linked panel user.",
+                user_id,
+                panel_user_uuid,
+                existing_panel_user_uuid,
+            )
+            panel_user_data = await self.panel_service.get_user_by_uuid(panel_user_uuid) or {}
+            current_used, current_limit, _ = self._extract_panel_traffic_details(panel_user_data)
+            if current_limit is None and active_sub:
+                current_limit = active_sub.traffic_limit_bytes
+            if current_used is None and active_sub:
+                current_used = active_sub.traffic_used_bytes
+            carryover_balance = self._traffic_package_carryover_bytes(
+                active_sub,
+                limit_bytes=current_limit,
+                used_bytes=current_used,
+            )
+            if current_billing_model != "traffic":
+                carryover_balance += self._nonnegative_bytes(
+                    getattr(active_sub, "regular_bonus_bytes", 0)
+                )
+            new_balance = carryover_balance + purchase_bytes
+            new_limit = self._traffic_limit_for_balance(
+                used_bytes=current_used,
+                balance_bytes=new_balance,
+                unlimited_override=regular_unlimited_override,
+            )
+
         await subscription_dal.deactivate_other_active_subscriptions(
             session, panel_user_uuid, panel_sub_link_id
         )
