@@ -447,8 +447,6 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
                             "panel expiry update failure.",
                             user_id,
                         )
-                if panel_tariff and "admin" in reason_lower:
-                    return None
                 return None
 
             if pending_tariff_change_payload:
