@@ -19,8 +19,10 @@ from bot.infra.observability import report_error
 from bot.infra.redis import close_redis, redis_lock
 from bot.infra.webhook_queue import (
     acknowledge_webhook_event,
+    dead_letter_webhook_event,
     pop_webhook_event,
     recover_webhook_events,
+    retry_webhook_event,
     webhook_queue_depth,
 )
 from bot.middlewares.i18n import JsonI18n
@@ -154,6 +156,18 @@ def _core_queue_handlers() -> dict[str, QueueHandler]:
     }
 
 
+def _webhook_delivery_attempts(event: dict[str, Any]) -> int:
+    try:
+        return max(0, int(event.get("delivery_attempts") or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _webhook_retry_delay(settings: Settings, delivery_attempts: int) -> float:
+    delay = settings.WEBHOOK_QUEUE_RETRY_BASE_SECONDS * (2 ** max(0, delivery_attempts - 1))
+    return min(delay, settings.WEBHOOK_QUEUE_RETRY_MAX_SECONDS)
+
+
 async def _webhook_consumer(ctx: PluginContext, handlers: dict[str, QueueHandler]) -> None:
     settings = ctx.settings
     while True:
@@ -167,9 +181,8 @@ async def _webhook_consumer(ctx: PluginContext, handlers: dict[str, QueueHandler
         try:
             handler = handlers.get(str(provider))
             if handler is None:
-                logger.warning("Unknown webhook event provider: %s", provider)
-            else:
-                await handler(ctx, payload)
+                raise LookupError(f"Unknown webhook event provider: {provider}")
+            await handler(ctx, payload)
             if not await acknowledge_webhook_event(settings, claimed):
                 logger.warning(
                     "Webhook queue event %s completed but could not be acknowledged",
@@ -186,6 +199,46 @@ async def _webhook_consumer(ctx: PluginContext, handlers: dict[str, QueueHandler
                     "provider": str(provider),
                 },
             )
+            delivery_attempts = _webhook_delivery_attempts(event) + 1
+            if delivery_attempts >= settings.WEBHOOK_QUEUE_MAX_ATTEMPTS:
+                moved = await dead_letter_webhook_event(
+                    settings,
+                    claimed,
+                    delivery_attempts=delivery_attempts,
+                    error=exc,
+                )
+                if moved:
+                    logger.error(
+                        "Webhook queue event %s moved to dead-letter after %s attempt(s)",
+                        event.get("event_id"),
+                        delivery_attempts,
+                    )
+                else:
+                    logger.error(
+                        "Webhook queue event %s exhausted retries but could not be dead-lettered",
+                        event.get("event_id"),
+                    )
+            else:
+                delay = _webhook_retry_delay(settings, delivery_attempts)
+                if delay:
+                    await asyncio.sleep(delay)
+                moved = await retry_webhook_event(
+                    settings,
+                    claimed,
+                    delivery_attempts=delivery_attempts,
+                )
+                if moved:
+                    logger.warning(
+                        "Webhook queue event %s scheduled for retry %s/%s",
+                        event.get("event_id"),
+                        delivery_attempts + 1,
+                        settings.WEBHOOK_QUEUE_MAX_ATTEMPTS,
+                    )
+                else:
+                    logger.error(
+                        "Webhook queue event %s could not be requeued",
+                        event.get("event_id"),
+                    )
         finally:
             depth = await webhook_queue_depth(settings)
             logger.info(

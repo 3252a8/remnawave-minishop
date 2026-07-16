@@ -126,6 +126,9 @@ Trust-all вариант записывается как
 | `TELEGRAM_TRIAL_CALLBACK_COOLDOWN_SECONDS` | Cooldown точного повтора trial callback. По умолчанию `30`; `0` отключает cooldown. |
 | `WEBHOOK_QUEUE_NAME` | Redis queue для тяжелой обработки webhook. |
 | `WEBHOOK_QUEUE_CONCURRENCY` | Количество worker consumers для webhook queue. |
+| `WEBHOOK_QUEUE_MAX_ATTEMPTS` | Максимальное число попыток обработки webhook до переноса в dead-letter queue. По умолчанию `5`. |
+| `WEBHOOK_QUEUE_RETRY_BASE_SECONDS` | Начальная задержка экспоненциального retry webhook. По умолчанию `1`. |
+| `WEBHOOK_QUEUE_RETRY_MAX_SECONDS` | Максимальная задержка между retry webhook. По умолчанию `30`. |
 | `WORKER_PANEL_SYNC_INTERVAL_SECONDS` | Интервал фоновой синхронизации с панелью. |
 | `TARIFF_WORKER_LOCK_TTL_SECONDS` | TTL Redis lock для tariff worker. |
 | `TARIFF_WORKER_TICK_SECONDS` | Интервал tariff worker. |

@@ -19,6 +19,13 @@ redis.call("lpush", KEYS[2], ARGV[2])
 redis.call("set", KEYS[1], "1", "EX", ARGV[1])
 return 1
 """
+_MOVE_CLAIMED_WEBHOOK_SCRIPT = """
+local removed = redis.call("lrem", KEYS[1], 1, ARGV[1])
+if removed == 1 then
+    redis.call("lpush", KEYS[2], ARGV[2])
+end
+return removed
+"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +40,10 @@ def webhook_queue_key(settings: Settings) -> str:
 
 def webhook_processing_queue_key(settings: Settings) -> str:
     return cast(str, redis_key(settings, "queue", settings.WEBHOOK_QUEUE_NAME, "processing"))
+
+
+def webhook_dead_letter_queue_key(settings: Settings) -> str:
+    return cast(str, redis_key(settings, "queue", settings.WEBHOOK_QUEUE_NAME, "dead-letter"))
 
 
 async def enqueue_webhook_event(
@@ -124,6 +135,66 @@ async def acknowledge_webhook_event(
     except Exception as exc:
         logger.warning("Redis webhook acknowledgement failed: %s", exc)
         return False
+
+
+async def _move_claimed_webhook_event(
+    settings: Settings,
+    claimed: ClaimedWebhookEvent,
+    destination_key: str,
+    event: dict[str, Any],
+) -> bool:
+    redis = await get_redis(settings)
+    if redis is None:
+        return False
+    try:
+        moved = await redis.eval(
+            _MOVE_CLAIMED_WEBHOOK_SCRIPT,
+            2,
+            webhook_processing_queue_key(settings),
+            destination_key,
+            claimed.raw,
+            json.dumps(event, ensure_ascii=False),
+        )
+        return bool(moved)
+    except Exception as exc:
+        logger.warning("Redis webhook move failed: %s", exc)
+        return False
+
+
+async def retry_webhook_event(
+    settings: Settings,
+    claimed: ClaimedWebhookEvent,
+    *,
+    delivery_attempts: int,
+) -> bool:
+    event = dict(claimed.event)
+    event["delivery_attempts"] = delivery_attempts
+    event["last_failed_at"] = time.time()
+    return await _move_claimed_webhook_event(
+        settings,
+        claimed,
+        webhook_queue_key(settings),
+        event,
+    )
+
+
+async def dead_letter_webhook_event(
+    settings: Settings,
+    claimed: ClaimedWebhookEvent,
+    *,
+    delivery_attempts: int,
+    error: BaseException,
+) -> bool:
+    event = dict(claimed.event)
+    event["delivery_attempts"] = delivery_attempts
+    event["last_failed_at"] = time.time()
+    event["last_error"] = f"{type(error).__name__}: {error}"[:500]
+    return await _move_claimed_webhook_event(
+        settings,
+        claimed,
+        webhook_dead_letter_queue_key(settings),
+        event,
+    )
 
 
 async def recover_webhook_events(settings: Settings) -> int:

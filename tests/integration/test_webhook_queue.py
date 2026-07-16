@@ -103,7 +103,7 @@ class FakeRedis:
     async def eval(self, script: str, numkeys: int, *args: Any) -> int:
         keys = args[:numkeys]
         argv = args[numkeys:]
-        if numkeys == 2:
+        if numkeys == 2 and "exists" in script:
             seen_key, queue_key = keys
             ttl_seconds, message = argv
             self._expire_if_due(seen_key)
@@ -112,6 +112,13 @@ class FakeRedis:
             await self.lpush(queue_key, message)
             await self.set(seen_key, "1", ex=int(ttl_seconds))
             return 1
+        if numkeys == 2 and "lrem" in script:
+            source_key, destination_key = keys
+            raw, replacement = argv
+            removed = await self.lrem(source_key, 1, raw)
+            if removed:
+                await self.lpush(destination_key, replacement)
+            return removed
         # The single-key Lua script releases redis_lock atomically.
         if keys and argv and self._kv.get(keys[0]) == argv[0]:
             self._kv.pop(keys[0], None)
@@ -229,6 +236,57 @@ class WebhookQueueTests(unittest.IsolatedAsyncioTestCase):
         recovered = await webhook_queue.pop_webhook_event(settings)
         assert recovered is not None
         self.assertEqual(recovered.event, claimed.event)
+
+    async def test_failed_event_is_requeued_with_attempt_count(self):
+        settings = _make_settings()
+        await webhook_queue.enqueue_webhook_event(
+            settings,
+            "panel",
+            {"event": "user.expired"},
+            event_id="user.expired:42",
+        )
+        claimed = await webhook_queue.pop_webhook_event(settings)
+        assert claimed is not None
+
+        self.assertTrue(
+            await webhook_queue.retry_webhook_event(
+                settings,
+                claimed,
+                delivery_attempts=1,
+            )
+        )
+        retried = await webhook_queue.pop_webhook_event(settings)
+        assert retried is not None
+        self.assertEqual(retried.event["delivery_attempts"], 1)
+        self.assertIsInstance(retried.event["last_failed_at"], (int, float))
+
+    async def test_exhausted_event_is_moved_to_dead_letter_queue(self):
+        settings = _make_settings()
+        await webhook_queue.enqueue_webhook_event(
+            settings,
+            "missing-provider",
+            {"event": "unknown"},
+            event_id="unknown:42",
+        )
+        claimed = await webhook_queue.pop_webhook_event(settings)
+        assert claimed is not None
+
+        self.assertTrue(
+            await webhook_queue.dead_letter_webhook_event(
+                settings,
+                claimed,
+                delivery_attempts=5,
+                error=RuntimeError("handler failed"),
+            )
+        )
+        self.assertEqual(
+            await self.fake.llen(webhook_queue.webhook_processing_queue_key(settings)),
+            0,
+        )
+        dead_letter = self.fake._lists[webhook_queue.webhook_dead_letter_queue_key(settings)][0]
+        decoded = json.loads(dead_letter)
+        self.assertEqual(decoded["delivery_attempts"], 5)
+        self.assertEqual(decoded["last_error"], "RuntimeError: handler failed")
 
     async def test_enqueue_dedupes_repeated_event_ids(self):
         settings = _make_settings()
