@@ -339,6 +339,9 @@ def test_admin_locale_keys_are_split_into_smaller_internal_groups():
         "admin_settings_field_yookassa_enabled_label": "admin_settings_payments",
         "admin_settings_field_subscription_guides_enabled_label": ("admin_settings_subscriptions"),
         "admin_settings_field_log_level_label": "admin_settings_notifications",
+        "admin_settings_field_torrent_blocker_notifications_enabled_label": (
+            "admin_settings_notifications"
+        ),
         "back_to_admin_panel_button": "admin_navigation",
         "admin_translations_languages_title": "admin_translations",
         "admin_logs_menu_title": "admin_logs",
@@ -361,6 +364,16 @@ def test_email_locale_keys_have_dedicated_user_visible_group():
 
     for key in expected_email_keys:
         assert group_id_for_locale_key(key) == "emails"
+        assert audience_for_locale_key(key) == "user"
+
+
+def test_torrent_blocker_locale_keys_have_dedicated_user_visible_group():
+    for key in (
+        "torrent_blocker_notification",
+        "torrent_blocker_notification_ip",
+        "torrent_blocker_email_subject",
+    ):
+        assert group_id_for_locale_key(key) == "torrent_blocker"
         assert audience_for_locale_key(key) == "user"
 
 

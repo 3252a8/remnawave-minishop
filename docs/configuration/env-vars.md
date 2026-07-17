@@ -192,6 +192,20 @@ Trust-all вариант записывается как
 
 В Remnawave Panel поле `WEBHOOK_URL` должно указывать на публичный Minishop webhook: `WEBHOOK_BASE_URL` + `/webhook/panel`. Если публичный домен приложения `https://app.example.com`, итоговый адрес будет `https://app.example.com/webhook/panel`.
 
+### Уведомления Torrent Blocker
+
+Для Remnawave Panel 2.7+ Minishop принимает событие `torrent_blocker.report` через тот же
+подписанный `/webhook/panel`. Функция по умолчанию выключена и настраивается в админке:
+**Система -> Настройки -> Уведомления -> Torrent Blocker**.
+
+| Переменная | Назначение |
+| --- | --- |
+| `TORRENT_BLOCKER_NOTIFICATIONS_ENABLED` | Общий переключатель пользовательских уведомлений. По умолчанию `False`. |
+| `TORRENT_BLOCKER_TELEGRAM_NOTIFICATIONS_ENABLED` | Отправлять уведомления на привязанный Telegram. По умолчанию `True`. |
+| `TORRENT_BLOCKER_EMAIL_NOTIFICATIONS_ENABLED` | Дублировать уведомления на привязанный email при настроенном SMTP. По умолчанию `False`. |
+| `TORRENT_BLOCKER_NOTIFICATION_COOLDOWN_SECONDS` | Пауза между повторными уведомлениями одному пользователю в одном канале. По умолчанию `3600`; `0` отключает cooldown. |
+| `TORRENT_BLOCKER_NOTIFICATION_INCLUDE_IP` | Показывать проверенный заблокированный IP в тексте уведомления. По умолчанию `False`. |
+
 ## Веб-приложение, внешний вид и Telegram Login
 
 Часть внешнего вида (`WEBAPP_PRIMARY_COLOR`, `WEBAPP_LOGO_*`, `WEBAPP_FAVICON_*`) сохранена для совместимости, но env-значения этих полей игнорируются при загрузке. Настраивайте их в **Админка -> Внешний вид**.

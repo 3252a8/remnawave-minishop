@@ -31,6 +31,11 @@ from db.dal import subscription_dal, tariff_dal, user_dal
 from db.models import Subscription, User
 
 from .panel_api_service import PanelApiService
+from .torrent_blocker_notifications import (
+    TORRENT_BLOCKER_EVENT,
+    TorrentBlockerNotificationService,
+    torrent_blocker_event_fingerprint,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +101,12 @@ class PanelWebhookService:
             bot,
             i18n,
         )
+        self.torrent_blocker_notifications = TorrentBlockerNotificationService(
+            settings,
+            bot,
+            i18n,
+            async_session_factory,
+        )
         self.subscription_service: SubscriptionService | None = None
         self._event_semaphore = asyncio.Semaphore(self._MAX_CONCURRENT_EVENTS)
         self._background_tasks: set[asyncio.Task[None]] = set()
@@ -156,6 +167,7 @@ class PanelWebhookService:
         event_name: str,
         user_payload: dict[str, Any],
         meta: dict[str, Any] | None = None,
+        context: dict[str, Any] | None = None,
     ) -> None:
         await events.emit_model(
             PanelWebhookReceivedPayload(
@@ -164,6 +176,10 @@ class PanelWebhookService:
                 telegram_id=user_payload.get("telegramId"),
             )
         )
+
+        if event_name == TORRENT_BLOCKER_EVENT:
+            await self.torrent_blocker_notifications.handle(user_payload, context or {})
+            return
 
         if not self.settings.SUBSCRIPTION_NOTIFICATIONS_ENABLED:
             return
@@ -778,6 +794,15 @@ class PanelWebhookService:
             nested_user = event_data_dict.get("user")
             user_data = nested_user if isinstance(nested_user, dict) else event_data_dict
 
+        event_name_text = str(event_name or "")
+        context: dict[str, Any] | None = None
+        if event_name_text == TORRENT_BLOCKER_EVENT:
+            user_data = self._torrent_blocker_user_payload(user_data)
+            context = self._torrent_blocker_context(event_data_dict)
+            timestamp = str(payload.get("timestamp") or "").strip()
+            if timestamp:
+                context["event_timestamp"] = timestamp
+
         telegram_id = user_data.get("telegramId") if isinstance(user_data, dict) else None
 
         if not event_name:
@@ -792,15 +817,27 @@ class PanelWebhookService:
         queued_payload: dict[str, object] = {"event": event_name, "user": user_data}
         if meta:
             queued_payload["meta"] = meta
+        if context is not None:
+            queued_payload["context"] = context
         queued = await enqueue_webhook_event(
             self.settings,
             "panel",
             queued_payload,
-            event_id=self._webhook_event_id(str(event_name), user_data, meta),
+            event_id=self._webhook_event_id(
+                event_name_text,
+                user_data,
+                meta,
+                context=context,
+            ),
         )
         if not queued:
             task = asyncio.create_task(
-                self._run_event_in_background(str(event_name), user_data, meta),
+                self._run_event_in_background(
+                    event_name_text,
+                    user_data,
+                    meta,
+                    context=context,
+                ),
                 name=f"panel_event_{event_name}",
             )
             self._background_tasks.add(task)
@@ -827,6 +864,8 @@ class PanelWebhookService:
         event_name: str,
         user_payload: dict[str, Any],
         meta: dict[str, Any] | None = None,
+        *,
+        context: dict[str, Any] | None = None,
     ) -> str:
         subject = (
             cls._payload_telegram_id(user_payload)
@@ -840,17 +879,59 @@ class PanelWebhookService:
             expiration_hours = cls._expiration_hours(meta, user_payload)
             if expiration_hours is not None:
                 event_id = f"{event_id}:expiration:{expiration_hours}"
+        elif event_name == TORRENT_BLOCKER_EVENT:
+            event_id = f"{event_id}:{torrent_blocker_event_fingerprint(context or {})}"
         return event_id
+
+    @staticmethod
+    def _torrent_blocker_user_payload(user_payload: dict[str, Any]) -> dict[str, Any]:
+        allowed_keys = (
+            "uuid",
+            "userUuid",
+            "shortUuid",
+            "telegramId",
+            "email",
+        )
+        return {key: user_payload[key] for key in allowed_keys if key in user_payload}
+
+    @staticmethod
+    def _torrent_blocker_context(event_data: dict[str, Any]) -> dict[str, Any]:
+        report = event_data.get("report")
+        report_data = report if isinstance(report, dict) else {}
+        action = report_data.get("actionReport")
+        action_data = action if isinstance(action, dict) else {}
+        field_map = {
+            "blocked": "blocked",
+            "ip": "ip",
+            "blockDuration": "block_duration",
+            "willUnblockAt": "will_unblock_at",
+            "processedAt": "processed_at",
+        }
+        return {
+            target: action_data[source]
+            for source, target in field_map.items()
+            if source in action_data
+        }
 
     async def _run_event_in_background(
         self,
         event_name: str,
         user_payload: dict[str, Any],
         meta: dict[str, Any] | None = None,
+        *,
+        context: dict[str, Any] | None = None,
     ) -> None:
         async with self._event_semaphore:
             try:
-                await self.handle_event(event_name, user_payload, meta=meta)
+                if context is None:
+                    await self.handle_event(event_name, user_payload, meta=meta)
+                else:
+                    await self.handle_event(
+                        event_name,
+                        user_payload,
+                        meta=meta,
+                        context=context,
+                    )
             except Exception:
                 logger.exception("Panel webhook background handler failed for event %s", event_name)
 

@@ -47,6 +47,14 @@ BACKUP_SETTINGS = (
     "BACKUP_COMPOSE_ENABLED",
 )
 
+TORRENT_BLOCKER_NOTIFICATION_SETTINGS = (
+    "TORRENT_BLOCKER_NOTIFICATIONS_ENABLED",
+    "TORRENT_BLOCKER_TELEGRAM_NOTIFICATIONS_ENABLED",
+    "TORRENT_BLOCKER_EMAIL_NOTIFICATIONS_ENABLED",
+    "TORRENT_BLOCKER_NOTIFICATION_COOLDOWN_SECONDS",
+    "TORRENT_BLOCKER_NOTIFICATION_INCLUDE_IP",
+)
+
 TELEGRAM_ANTIFLOOD_SETTINGS = (
     "TELEGRAM_DROP_NON_PRIVATE_UPDATES",
     "TELEGRAM_ANTIFLOOD_ENABLED",
@@ -330,6 +338,29 @@ def test_backup_settings_i18n_keys_exist():
 
         assert "admin_settings_section_backups" in messages
         for setting_key in BACKUP_SETTINGS:
+            field = manifest[setting_key]
+            assert field["i18n_label_key"] in messages
+            assert field["i18n_description_key"] in messages
+
+
+def test_torrent_blocker_notification_settings_are_localized_and_grouped():
+    manifest = _manifest_by_key()
+
+    for setting_key in TORRENT_BLOCKER_NOTIFICATION_SETTINGS:
+        field = manifest[setting_key]
+        assert field["section"] == "notifications"
+        assert field["section_order"] == 7
+        assert field["subsection"] == "torrent_blocker"
+        assert field["i18n_subsection_key"] == "admin_settings_subsection_torrent_blocker"
+
+    cooldown = manifest["TORRENT_BLOCKER_NOTIFICATION_COOLDOWN_SECONDS"]
+    assert cooldown["type"] == "int"
+    assert cooldown["min"] == 0
+
+    for language in ("ru", "en"):
+        messages = _locale(language)
+        assert "admin_settings_subsection_torrent_blocker" in messages
+        for setting_key in TORRENT_BLOCKER_NOTIFICATION_SETTINGS:
             field = manifest[setting_key]
             assert field["i18n_label_key"] in messages
             assert field["i18n_description_key"] in messages
