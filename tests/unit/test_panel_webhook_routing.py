@@ -20,6 +20,7 @@ from typing import Any
 from unittest.mock import AsyncMock, patch
 
 from bot.services import panel_webhook_service as pws
+from bot.services.torrent_blocker_notifications import torrent_blocker_event_fingerprint
 from tests.support.settings_stub import settings_stub
 
 SECRET = "panel-shared-secret"
@@ -217,6 +218,177 @@ class HandleWebhookQueueingTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.status, 200)
         self.assertEqual(background_seen, [("user.expired", {"telegramId": 7}, {})])
+
+    async def test_torrent_blocker_event_queues_only_required_report_fields(self):
+        service = _make_service()
+        captured: list[dict[str, Any]] = []
+
+        async def fake_enqueue(settings, provider, payload, *, event_id=None):
+            captured.append({"provider": provider, "payload": payload, "event_id": event_id})
+            return True
+
+        body = json.dumps(
+            {
+                "scope": "torrent_blocker",
+                "event": "torrent_blocker.report",
+                "timestamp": "2026-07-17T10:00:01Z",
+                "data": {
+                    "node": {"uuid": "node-1", "name": "private-node"},
+                    "user": {
+                        "uuid": "panel-user-1",
+                        "telegramId": 99,
+                        "email": "user@example.com",
+                        "trojanPassword": "must-not-enter-the-queue",
+                        "vlessUuid": "must-not-enter-the-queue",
+                    },
+                    "report": {
+                        "actionReport": {
+                            "blocked": True,
+                            "ip": "203.0.113.8",
+                            "blockDuration": 3600,
+                            "willUnblockAt": "2026-07-17T11:00:00Z",
+                            "processedAt": "2026-07-17T10:00:00Z",
+                            "userId": "42",
+                        },
+                        "xrayReport": {
+                            "source": "203.0.113.8:50000",
+                            "destination": "198.51.100.4:51413",
+                            "inboundTag": "private-inbound",
+                        },
+                    },
+                },
+            }
+        ).encode()
+
+        with patch.object(pws, "enqueue_webhook_event", fake_enqueue):
+            response = await service.handle_webhook(body, _sign(body))
+
+        self.assertEqual(response.status, 200)
+        entry = captured[0]
+        self.assertEqual(entry["provider"], "panel")
+        self.assertEqual(
+            entry["payload"]["user"],
+            {
+                "uuid": "panel-user-1",
+                "telegramId": 99,
+                "email": "user@example.com",
+            },
+        )
+        context = entry["payload"]["context"]
+        self.assertEqual(
+            context,
+            {
+                "blocked": True,
+                "ip": "203.0.113.8",
+                "block_duration": 3600,
+                "will_unblock_at": "2026-07-17T11:00:00Z",
+                "processed_at": "2026-07-17T10:00:00Z",
+                "event_timestamp": "2026-07-17T10:00:01Z",
+            },
+        )
+        self.assertNotIn("node", entry["payload"])
+        self.assertNotIn("xrayReport", json.dumps(entry["payload"]))
+        self.assertEqual(
+            entry["event_id"],
+            "torrent_blocker.report:99:"
+            + torrent_blocker_event_fingerprint(context, secret=SECRET),
+        )
+
+    async def test_torrent_blocker_event_rejects_wrong_scope(self):
+        service = _make_service()
+        enqueue = AsyncMock(return_value=True)
+        body = json.dumps(
+            {
+                "scope": "user",
+                "event": "torrent_blocker.report",
+                "timestamp": "2026-07-17T10:00:01Z",
+                "data": {
+                    "node": {},
+                    "user": {"uuid": "panel-user-1"},
+                    "report": {
+                        "actionReport": {
+                            "blocked": True,
+                            "ip": "203.0.113.8",
+                            "blockDuration": 3600,
+                            "willUnblockAt": "2026-07-17T11:00:00Z",
+                            "processedAt": "2026-07-17T10:00:00Z",
+                            "userId": "42",
+                        },
+                        "xrayReport": {},
+                    },
+                },
+            }
+        ).encode()
+
+        with patch.object(pws, "enqueue_webhook_event", enqueue):
+            response = await service.handle_webhook(body, _sign(body))
+
+        self.assertEqual(response.status, 400)
+        enqueue.assert_not_awaited()
+
+    async def test_torrent_blocker_event_rejects_unsafe_block_duration(self):
+        service = _make_service()
+        enqueue = AsyncMock(return_value=True)
+        body = json.dumps(
+            {
+                "scope": "torrent_blocker",
+                "event": "torrent_blocker.report",
+                "timestamp": "2026-07-17T10:00:01Z",
+                "data": {
+                    "node": {},
+                    "user": {"uuid": "panel-user-1"},
+                    "report": {
+                        "actionReport": {
+                            "blocked": True,
+                            "ip": "203.0.113.8",
+                            "blockDuration": 31536001,
+                            "willUnblockAt": "2027-07-17T11:00:00Z",
+                            "processedAt": "2026-07-17T10:00:00Z",
+                            "userId": "42",
+                        },
+                        "xrayReport": {},
+                    },
+                },
+            }
+        ).encode()
+
+        with patch.object(pws, "enqueue_webhook_event", enqueue):
+            response = await service.handle_webhook(body, _sign(body))
+
+        self.assertEqual(response.status, 400)
+        enqueue.assert_not_awaited()
+
+    async def test_torrent_blocker_event_rejects_non_integer_block_duration(self):
+        service = _make_service()
+        enqueue = AsyncMock(return_value=True)
+        body = json.dumps(
+            {
+                "scope": "torrent_blocker",
+                "event": "torrent_blocker.report",
+                "timestamp": "2026-07-17T10:00:01Z",
+                "data": {
+                    "node": {},
+                    "user": {"uuid": "panel-user-1"},
+                    "report": {
+                        "actionReport": {
+                            "blocked": True,
+                            "ip": "203.0.113.8",
+                            "blockDuration": "3600",
+                            "willUnblockAt": "2026-07-17T11:00:00Z",
+                            "processedAt": "2026-07-17T10:00:00Z",
+                            "userId": "42",
+                        },
+                        "xrayReport": {},
+                    },
+                },
+            }
+        ).encode()
+
+        with patch.object(pws, "enqueue_webhook_event", enqueue):
+            response = await service.handle_webhook(body, _sign(body))
+
+        self.assertEqual(response.status, 400)
+        enqueue.assert_not_awaited()
 
 
 class ExpirationStageMappingTests(unittest.TestCase):

@@ -606,6 +606,54 @@ SETTINGS_MANIFEST: list[SettingField] = [
         min=0,
         max=23,
     ),
+    SettingField(
+        "TORRENT_BLOCKER_NOTIFICATIONS_ENABLED",
+        "bool",
+        "notifications",
+        "Torrent blocker notifications",
+        "Notify local users when Remnawave confirms that their IP address was blocked.",
+        subsection="torrent_blocker",
+    ),
+    SettingField(
+        "TORRENT_BLOCKER_TELEGRAM_NOTIFICATIONS_ENABLED",
+        "bool",
+        "notifications",
+        "Telegram notifications",
+        "Send torrent blocker notifications to linked Telegram accounts.",
+        subsection="torrent_blocker",
+    ),
+    SettingField(
+        "TORRENT_BLOCKER_EMAIL_NOTIFICATIONS_ENABLED",
+        "bool",
+        "notifications",
+        "Email notifications",
+        "Mirror torrent blocker notifications to linked email addresses when SMTP is configured.",
+        subsection="torrent_blocker",
+    ),
+    SettingField(
+        "TORRENT_BLOCKER_NOTIFICATION_COOLDOWN_SECONDS",
+        "int",
+        "notifications",
+        "Notification cooldown",
+        (
+            "Minimum seconds between repeated torrent blocker notifications to the same user and "
+            "channel. Exact webhook duplicates are always suppressed."
+        ),
+        min=0,
+        max=31536000,
+        subsection="torrent_blocker",
+    ),
+    SettingField(
+        "TORRENT_BLOCKER_NOTIFICATION_INCLUDE_IP",
+        "bool",
+        "notifications",
+        "Show blocked IP address",
+        (
+            "Include the validated blocked IP address in the user notification. Disabled by "
+            "default for privacy."
+        ),
+        subsection="torrent_blocker",
+    ),
     SettingField("LOG_NEW_USERS", "bool", "notifications", "Log New Users"),
     SettingField("LOG_PAYMENTS", "bool", "notifications", "Log Payments"),
     SettingField("LOG_SUPPORT", "bool", "notifications", "Log Support"),

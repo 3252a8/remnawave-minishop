@@ -611,3 +611,37 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(settings.SUBSCRIPTION_NOTIFY_HOURS_BEFORE, 3)
         self.assertEqual(settings.SUBSCRIPTION_NOTIFICATION_WORKER_TICK_SECONDS, 300)
         self.assertTrue(settings.SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED)
+
+    def test_torrent_blocker_notifications_are_private_opt_in_by_default(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+        )
+
+        self.assertFalse(settings.TORRENT_BLOCKER_NOTIFICATIONS_ENABLED)
+        self.assertTrue(settings.TORRENT_BLOCKER_TELEGRAM_NOTIFICATIONS_ENABLED)
+        self.assertFalse(settings.TORRENT_BLOCKER_EMAIL_NOTIFICATIONS_ENABLED)
+        self.assertEqual(settings.TORRENT_BLOCKER_NOTIFICATION_COOLDOWN_SECONDS, 3600)
+        self.assertFalse(settings.TORRENT_BLOCKER_NOTIFICATION_INCLUDE_IP)
+
+    def test_torrent_blocker_notification_cooldown_cannot_be_negative(self):
+        with self.assertRaises(ValidationError):
+            Settings(
+                _env_file=None,
+                BOT_TOKEN="token",
+                POSTGRES_USER="app_user",
+                POSTGRES_PASSWORD="app_password",
+                TORRENT_BLOCKER_NOTIFICATION_COOLDOWN_SECONDS=-1,
+            )
+
+    def test_torrent_blocker_notification_cooldown_has_safe_upper_bound(self):
+        with self.assertRaises(ValidationError):
+            Settings(
+                _env_file=None,
+                BOT_TOKEN="token",
+                POSTGRES_USER="app_user",
+                POSTGRES_PASSWORD="app_password",
+                TORRENT_BLOCKER_NOTIFICATION_COOLDOWN_SECONDS=31536001,
+            )
