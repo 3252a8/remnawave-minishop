@@ -28,6 +28,10 @@ from bot.utils.install_links import ensure_user_install_guide_share_url
 from bot.utils.traffic_reset import panel_traffic_limit_strategy
 from config.settings import Settings
 from db.dal import message_log_dal, payment_dal, subscription_dal, user_dal
+from db.dal.user_subscription_segments import (
+    active_subscription_segment_flags_sq,
+    subscription_segment_condition,
+)
 from db.models import Payment, Subscription, User, UserTelegramAvatar
 
 from .auth import _require_admin_user_id
@@ -324,7 +328,12 @@ async def _filter_and_sort_users(
         count_stmt = count_stmt.where(search_cond)
 
     f = (filter_value or "all").lower()
-    if f == "banned":
+    if f in {"paid", "trial", "free"}:
+        segment_flags_sq = active_subscription_segment_flags_sq(now)
+        stmt = stmt.join(segment_flags_sq, User.user_id == segment_flags_sq.c.user_id)
+        count_stmt = count_stmt.join(segment_flags_sq, User.user_id == segment_flags_sq.c.user_id)
+        cond = subscription_segment_condition(f, segment_flags_sq)
+    elif f == "banned":
         cond = User.is_banned.is_(True)
     elif f == "active":
         cond = User.is_banned.is_(False)

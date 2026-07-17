@@ -11,6 +11,10 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import aliased
 
 from ..models import Payment, Subscription, User
+from .user_subscription_segments import (
+    active_subscription_segment_flags_sq,
+    subscription_segment_condition,
+)
 
 
 async def get_all_active_user_ids_for_broadcast(session: AsyncSession) -> list[int]:
@@ -123,76 +127,16 @@ async def get_enhanced_user_statistics(session: AsyncSession) -> dict[str, Any]:
     active_today = int(user_counts[2] or 0)
     referral_users = int(user_counts[3] or 0)
 
-    provider_value = func.lower(func.coalesce(Subscription.provider, ""))
-    panel_status_value = func.upper(func.coalesce(Subscription.status_from_panel, ""))
-    trial_subscription_condition = or_(
-        provider_value == "trial",
-        panel_status_value == "TRIAL",
-    )
-    paid_subscription_condition = and_(
-        provider_value != "",
-        provider_value != "trial",
-        panel_status_value != "TRIAL",
-    )
-    free_subscription_condition = and_(
-        provider_value == "",
-        panel_status_value != "TRIAL",
-    )
-
-    active_subscription_flags_sq = (
-        select(
-            Subscription.user_id.label("user_id"),
-            func.max(case((paid_subscription_condition, 1), else_=0)).label(
-                "has_paid_subscription"
-            ),
-            func.max(case((trial_subscription_condition, 1), else_=0)).label(
-                "has_trial_subscription"
-            ),
-            func.max(case((free_subscription_condition, 1), else_=0)).label(
-                "has_free_subscription"
-            ),
-        )
-        .join(User, Subscription.user_id == User.user_id)
-        .where(
-            and_(
-                Subscription.is_active == True,
-                Subscription.end_date > now,
-            )
-        )
-        .group_by(Subscription.user_id)
-        .subquery()
-    )
+    active_subscription_flags_sq = active_subscription_segment_flags_sq(now)
+    paid_segment = subscription_segment_condition("paid", active_subscription_flags_sq)
+    trial_segment = subscription_segment_condition("trial", active_subscription_flags_sq)
+    free_segment = subscription_segment_condition("free", active_subscription_flags_sq)
 
     subscription_counts_stmt = select(
         func.count(active_subscription_flags_sq.c.user_id),
-        func.coalesce(func.sum(active_subscription_flags_sq.c.has_paid_subscription), 0),
-        func.coalesce(
-            func.sum(
-                case(
-                    (
-                        active_subscription_flags_sq.c.has_paid_subscription == 0,
-                        active_subscription_flags_sq.c.has_trial_subscription,
-                    ),
-                    else_=0,
-                )
-            ),
-            0,
-        ),
-        func.coalesce(
-            func.sum(
-                case(
-                    (
-                        and_(
-                            active_subscription_flags_sq.c.has_paid_subscription == 0,
-                            active_subscription_flags_sq.c.has_trial_subscription == 0,
-                        ),
-                        active_subscription_flags_sq.c.has_free_subscription,
-                    ),
-                    else_=0,
-                )
-            ),
-            0,
-        ),
+        func.coalesce(func.sum(case((paid_segment, 1), else_=0)), 0),
+        func.coalesce(func.sum(case((trial_segment, 1), else_=0)), 0),
+        func.coalesce(func.sum(case((free_segment, 1), else_=0)), 0),
     )
     subscription_counts = (await session.execute(subscription_counts_stmt)).one()
     active_subscription_users = int(subscription_counts[0] or 0)
