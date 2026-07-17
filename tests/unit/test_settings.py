@@ -635,3 +635,13 @@ class SettingsTests(unittest.TestCase):
                 POSTGRES_PASSWORD="app_password",
                 TORRENT_BLOCKER_NOTIFICATION_COOLDOWN_SECONDS=-1,
             )
+
+    def test_torrent_blocker_notification_cooldown_has_safe_upper_bound(self):
+        with self.assertRaises(ValidationError):
+            Settings(
+                _env_file=None,
+                BOT_TOKEN="token",
+                POSTGRES_USER="app_user",
+                POSTGRES_PASSWORD="app_password",
+                TORRENT_BLOCKER_NOTIFICATION_COOLDOWN_SECONDS=31536001,
+            )

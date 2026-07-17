@@ -640,6 +640,7 @@ SETTINGS_MANIFEST: list[SettingField] = [
             "channel. Exact webhook duplicates are always suppressed."
         ),
         min=0,
+        max=31536000,
         subsection="torrent_blocker",
     ),
     SettingField(

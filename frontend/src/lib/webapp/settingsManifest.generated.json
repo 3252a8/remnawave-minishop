@@ -8249,6 +8249,7 @@
         "optional": true,
         "secret": false,
         "min": 0,
+        "max": 31536000,
         "value": "",
         "overridden": false,
         "updated_at": null

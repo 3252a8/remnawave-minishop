@@ -356,6 +356,7 @@ def test_torrent_blocker_notification_settings_are_localized_and_grouped():
     cooldown = manifest["TORRENT_BLOCKER_NOTIFICATION_COOLDOWN_SECONDS"]
     assert cooldown["type"] == "int"
     assert cooldown["min"] == 0
+    assert cooldown["max"] == 31536000
 
     for language in ("ru", "en"):
         messages = _locale(language)

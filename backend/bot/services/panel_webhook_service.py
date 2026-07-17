@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup
 from aiohttp import web
+from pydantic import ValidationError
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, sessionmaker
@@ -32,10 +33,10 @@ from db.models import Subscription, User
 
 from .panel_api_service import PanelApiService
 from .torrent_blocker_notifications import (
-    TORRENT_BLOCKER_EVENT,
     TorrentBlockerNotificationService,
     torrent_blocker_event_fingerprint,
 )
+from .torrent_blocker_webhook import TORRENT_BLOCKER_EVENT, TorrentBlockerWebhookPayload
 
 logger = logging.getLogger(__name__)
 
@@ -786,22 +787,24 @@ class PanelWebhookService:
             return web.Response(status=400, text="bad_request")
 
         event_name = payload.get("name") or payload.get("event")
+        event_name_text = str(event_name or "")
         event_data = payload.get("payload") or payload.get("data", {})
         event_data_dict = event_data if isinstance(event_data, dict) else {}
         meta = self._webhook_meta(payload, event_data_dict)
-        user_data = event_data_dict
-        if "user" in event_data_dict:
-            nested_user = event_data_dict.get("user")
-            user_data = nested_user if isinstance(nested_user, dict) else event_data_dict
-
-        event_name_text = str(event_name or "")
         context: dict[str, Any] | None = None
         if event_name_text == TORRENT_BLOCKER_EVENT:
-            user_data = self._torrent_blocker_user_payload(user_data)
-            context = self._torrent_blocker_context(event_data_dict)
-            timestamp = str(payload.get("timestamp") or "").strip()
-            if timestamp:
-                context["event_timestamp"] = timestamp
+            try:
+                torrent_payload = TorrentBlockerWebhookPayload.model_validate(payload)
+            except ValidationError as exc:
+                logger.warning("Invalid torrent blocker webhook payload: %s", exc)
+                return web.Response(status=400, text="bad_request")
+            user_data = torrent_payload.sanitized_user_payload()
+            context = torrent_payload.notification_context()
+        else:
+            user_data = event_data_dict
+            if "user" in event_data_dict:
+                nested_user = event_data_dict.get("user")
+                user_data = nested_user if isinstance(nested_user, dict) else event_data_dict
 
         telegram_id = user_data.get("telegramId") if isinstance(user_data, dict) else None
 
@@ -828,6 +831,7 @@ class PanelWebhookService:
                 user_data,
                 meta,
                 context=context,
+                fingerprint_secret=self.settings.PANEL_WEBHOOK_SECRET,
             ),
         )
         if not queued:
@@ -866,6 +870,7 @@ class PanelWebhookService:
         meta: dict[str, Any] | None = None,
         *,
         context: dict[str, Any] | None = None,
+        fingerprint_secret: str | None = None,
     ) -> str:
         subject = (
             cls._payload_telegram_id(user_payload)
@@ -880,38 +885,12 @@ class PanelWebhookService:
             if expiration_hours is not None:
                 event_id = f"{event_id}:expiration:{expiration_hours}"
         elif event_name == TORRENT_BLOCKER_EVENT:
-            event_id = f"{event_id}:{torrent_blocker_event_fingerprint(context or {})}"
+            fingerprint = torrent_blocker_event_fingerprint(
+                context or {},
+                secret=fingerprint_secret or "",
+            )
+            event_id = f"{event_id}:{fingerprint}"
         return event_id
-
-    @staticmethod
-    def _torrent_blocker_user_payload(user_payload: dict[str, Any]) -> dict[str, Any]:
-        allowed_keys = (
-            "uuid",
-            "userUuid",
-            "shortUuid",
-            "telegramId",
-            "email",
-        )
-        return {key: user_payload[key] for key in allowed_keys if key in user_payload}
-
-    @staticmethod
-    def _torrent_blocker_context(event_data: dict[str, Any]) -> dict[str, Any]:
-        report = event_data.get("report")
-        report_data = report if isinstance(report, dict) else {}
-        action = report_data.get("actionReport")
-        action_data = action if isinstance(action, dict) else {}
-        field_map = {
-            "blocked": "blocked",
-            "ip": "ip",
-            "blockDuration": "block_duration",
-            "willUnblockAt": "will_unblock_at",
-            "processedAt": "processed_at",
-        }
-        return {
-            target: action_data[source]
-            for source, target in field_map.items()
-            if source in action_data
-        }
 
     async def _run_event_in_background(
         self,

@@ -359,7 +359,11 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     TORRENT_BLOCKER_NOTIFICATIONS_ENABLED: bool = Field(default=False)
     TORRENT_BLOCKER_TELEGRAM_NOTIFICATIONS_ENABLED: bool = Field(default=True)
     TORRENT_BLOCKER_EMAIL_NOTIFICATIONS_ENABLED: bool = Field(default=False)
-    TORRENT_BLOCKER_NOTIFICATION_COOLDOWN_SECONDS: int = Field(default=3600, ge=0)
+    TORRENT_BLOCKER_NOTIFICATION_COOLDOWN_SECONDS: int = Field(
+        default=3600,
+        ge=0,
+        le=365 * 24 * 60 * 60,
+    )
     TORRENT_BLOCKER_NOTIFICATION_INCLUDE_IP: bool = Field(default=False)
 
     REFERRAL_BONUS_DAYS_INVITER_1_MONTH: int | None = Field(

@@ -1,3 +1,7 @@
+import asyncio
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
 import main_worker
 
 from bot.app.factories import runtime as runtime_factory
@@ -144,3 +148,31 @@ def test_worker_plugin_hooks_use_shared_runtime_context(monkeypatch) -> None:
     assert "worker_composition" in handlers
     assert "PluginWorker" in {spec.name for spec in task_specs}
     assert migration_chains["worker_composition"][0].id == "worker_composition.0001_initial"
+
+
+def test_panel_queue_handler_forwards_torrent_notification_context() -> None:
+    panel_webhook_service = SimpleNamespace(handle_event=AsyncMock())
+    ctx = SimpleNamespace(
+        require_panel_webhook_service=lambda: panel_webhook_service,
+    )
+    payload = {
+        "event": "torrent_blocker.report",
+        "user": {"uuid": "panel-user-1", "telegramId": 99},
+        "context": {
+            "blocked": True,
+            "ip": "203.0.113.8",
+            "block_duration": 3600,
+            "will_unblock_at": "2026-07-17T11:00:00Z",
+            "processed_at": "2026-07-17T10:00:00Z",
+            "event_timestamp": "2026-07-17T10:00:01Z",
+        },
+    }
+
+    asyncio.run(main_worker._handle_panel_event(ctx, payload))
+
+    panel_webhook_service.handle_event.assert_awaited_once_with(
+        "torrent_blocker.report",
+        payload["user"],
+        meta=None,
+        context=payload["context"],
+    )

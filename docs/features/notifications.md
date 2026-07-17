@@ -86,6 +86,18 @@ MiniShop обрабатывает подписанный webhook `torrent_blocke
 разблокировки. Имя ноды, адрес назначения, inbound/outbound и остальные технические поля
 `xrayReport` не сохраняются и не показываются.
 
+Перед включением уведомлений проверьте весь контур Torrent Blocker:
+
+- Remnawave Panel и Remnawave Node имеют версию 2.7.0 или новее, Xray-Core — 26.3.27 или новее;
+- контейнер Node запущен с `NET_ADMIN`, на хосте доступны nftables и Linux kernel 5.7+;
+- в inbound включён sniffing с требуемыми `destOverride`, а Torrent Blocker включён в Node Plugin;
+- `WEBHOOK_URL` панели указывает на `WEBHOOK_BASE_URL` + `/webhook/panel`, а
+  `PANEL_WEBHOOK_SECRET` совпадает с секретом панели;
+- webhook-канал события `torrent_blocker.report` не отключён в notifications config панели.
+
+Полный список требований и схема события приведены в
+[официальной документации Remnawave Node Plugins](https://docs.rw/docs/learn/node-plugins/).
+
 Настройки находятся в **Система -> Настройки -> Уведомления -> Torrent Blocker**:
 
 - `TORRENT_BLOCKER_NOTIFICATIONS_ENABLED` — общий opt-in переключатель;
@@ -99,3 +111,9 @@ MiniShop обрабатывает подписанный webhook `torrent_blocke
 Шаблоны Telegram и email доступны в **Система -> Переводы -> Уведомления Torrent Blocker**.
 MiniShop не вызывает `DELETE /api/node-plugins/torrent-blocker/truncate`: отчёты остаются в
 Remnawave для админской статистики и других интеграций.
+
+Webhook валидируется по официальному `scope=torrent_blocker` и типизированной схеме. События,
+доставленные после `willUnblockAt`, считаются устаревшими и не отправляются пользователю.
+Успешная доставка фиксируется отдельно для каждого канала: если Telegram уже отправлен, а SMTP
+временно недоступен, retry очереди повторит только email. В логах worker публикуется метрика
+`torrent_blocker_notification_total` с каналом и результатом без исходного IP-адреса.

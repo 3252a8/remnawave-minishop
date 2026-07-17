@@ -290,8 +290,105 @@ class HandleWebhookQueueingTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("xrayReport", json.dumps(entry["payload"]))
         self.assertEqual(
             entry["event_id"],
-            "torrent_blocker.report:99:" + torrent_blocker_event_fingerprint(context),
+            "torrent_blocker.report:99:"
+            + torrent_blocker_event_fingerprint(context, secret=SECRET),
         )
+
+    async def test_torrent_blocker_event_rejects_wrong_scope(self):
+        service = _make_service()
+        enqueue = AsyncMock(return_value=True)
+        body = json.dumps(
+            {
+                "scope": "user",
+                "event": "torrent_blocker.report",
+                "timestamp": "2026-07-17T10:00:01Z",
+                "data": {
+                    "node": {},
+                    "user": {"uuid": "panel-user-1"},
+                    "report": {
+                        "actionReport": {
+                            "blocked": True,
+                            "ip": "203.0.113.8",
+                            "blockDuration": 3600,
+                            "willUnblockAt": "2026-07-17T11:00:00Z",
+                            "processedAt": "2026-07-17T10:00:00Z",
+                            "userId": "42",
+                        },
+                        "xrayReport": {},
+                    },
+                },
+            }
+        ).encode()
+
+        with patch.object(pws, "enqueue_webhook_event", enqueue):
+            response = await service.handle_webhook(body, _sign(body))
+
+        self.assertEqual(response.status, 400)
+        enqueue.assert_not_awaited()
+
+    async def test_torrent_blocker_event_rejects_unsafe_block_duration(self):
+        service = _make_service()
+        enqueue = AsyncMock(return_value=True)
+        body = json.dumps(
+            {
+                "scope": "torrent_blocker",
+                "event": "torrent_blocker.report",
+                "timestamp": "2026-07-17T10:00:01Z",
+                "data": {
+                    "node": {},
+                    "user": {"uuid": "panel-user-1"},
+                    "report": {
+                        "actionReport": {
+                            "blocked": True,
+                            "ip": "203.0.113.8",
+                            "blockDuration": 31536001,
+                            "willUnblockAt": "2027-07-17T11:00:00Z",
+                            "processedAt": "2026-07-17T10:00:00Z",
+                            "userId": "42",
+                        },
+                        "xrayReport": {},
+                    },
+                },
+            }
+        ).encode()
+
+        with patch.object(pws, "enqueue_webhook_event", enqueue):
+            response = await service.handle_webhook(body, _sign(body))
+
+        self.assertEqual(response.status, 400)
+        enqueue.assert_not_awaited()
+
+    async def test_torrent_blocker_event_rejects_non_integer_block_duration(self):
+        service = _make_service()
+        enqueue = AsyncMock(return_value=True)
+        body = json.dumps(
+            {
+                "scope": "torrent_blocker",
+                "event": "torrent_blocker.report",
+                "timestamp": "2026-07-17T10:00:01Z",
+                "data": {
+                    "node": {},
+                    "user": {"uuid": "panel-user-1"},
+                    "report": {
+                        "actionReport": {
+                            "blocked": True,
+                            "ip": "203.0.113.8",
+                            "blockDuration": "3600",
+                            "willUnblockAt": "2026-07-17T11:00:00Z",
+                            "processedAt": "2026-07-17T10:00:00Z",
+                            "userId": "42",
+                        },
+                        "xrayReport": {},
+                    },
+                },
+            }
+        ).encode()
+
+        with patch.object(pws, "enqueue_webhook_event", enqueue):
+            response = await service.handle_webhook(body, _sign(body))
+
+        self.assertEqual(response.status, 400)
+        enqueue.assert_not_awaited()
 
 
 class ExpirationStageMappingTests(unittest.TestCase):
