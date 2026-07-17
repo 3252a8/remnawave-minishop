@@ -4,6 +4,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 from bot.middlewares.i18n import JsonI18n, locale_language_options
 from bot.utils.mini_app_url import subscription_mini_app_trial_url
 from config.settings import Settings
+from config.support_links import normalize_support_link
 
 from .user_keyboards_context import telegram_bot_menu_enabled_for_user
 
@@ -35,7 +36,7 @@ def get_main_menu_inline_keyboard(
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
-    support_link = settings.support_settings.link
+    support_link = normalize_support_link(settings.support_settings.link)
 
     if show_trial_button and settings.TRIAL_ENABLED:
         builder.row(_trial_activation_button(lang, i18n_instance, settings))
@@ -85,7 +86,7 @@ def get_bot_interface_inline_keyboard(
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
-    support_link = settings.support_settings.link
+    support_link = normalize_support_link(settings.support_settings.link)
 
     if show_trial_button and settings.TRIAL_ENABLED:
         builder.row(_trial_activation_button(lang, i18n_instance, settings))

@@ -1988,7 +1988,7 @@
   "admin_settings_field_default_currency_symbol_label": "Валюта",
   "admin_settings_field_default_currency_symbol_description": "Например, RUB, USD, EUR.",
   "admin_settings_field_support_link_label": "Ссылка поддержки",
-  "admin_settings_field_support_link_description": "Куда вести пользователей за помощью.",
+  "admin_settings_field_support_link_description": "Публичная HTTP(S)-ссылка или Telegram @username/t.me. Сокращённые Telegram-ссылки нормализуются автоматически.",
   "admin_settings_field_server_status_url_label": "Ссылка на статус серверов",
   "admin_settings_field_privacy_policy_url_label": "Политика конфиденциальности",
   "admin_settings_field_user_agreement_url_label": "Пользовательское соглашение",

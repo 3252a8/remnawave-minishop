@@ -6,6 +6,7 @@ from bot.utils.channel_subscription import normalize_required_channel_link
 from bot.utils.install_links import bot_install_guide_url
 from bot.utils.mini_app_url import subscription_mini_app_renew_url
 from config.settings import Settings
+from config.support_links import normalize_support_link
 
 
 def get_referral_link_keyboard(
@@ -62,6 +63,7 @@ def get_subscribe_only_markup(
 def get_user_banned_keyboard(
     support_link: str | None, lang: str, i18n_instance: JsonI18n
 ) -> InlineKeyboardMarkup | None:
+    support_link = normalize_support_link(support_link)
     if not support_link:
         return None
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)

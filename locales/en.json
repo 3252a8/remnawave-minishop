@@ -1988,7 +1988,7 @@
   "admin_settings_field_default_currency_symbol_label": "Default Currency Symbol",
   "admin_settings_field_default_currency_symbol_description": "Controls the 'Default Currency Symbol' setting in admin overrides.",
   "admin_settings_field_support_link_label": "Support Link",
-  "admin_settings_field_support_link_description": "Controls the 'Support Link' setting in admin overrides.",
+  "admin_settings_field_support_link_description": "Public HTTP(S) URL or Telegram @username/t.me link. Telegram shortcuts are normalized automatically.",
   "admin_settings_field_server_status_url_label": "Server Status URL",
   "admin_settings_field_privacy_policy_url_label": "Privacy Policy URL",
   "admin_settings_field_user_agreement_url_label": "User Agreement URL",

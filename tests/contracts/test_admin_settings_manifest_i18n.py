@@ -450,6 +450,18 @@ def test_backup_required_numeric_settings_reject_empty_values():
         coerce_value(get_field_by_key("BACKUP_INTERVAL_SECONDS"), "")
 
 
+def test_support_link_coercion_normalizes_telegram_shortcuts():
+    field = get_field_by_key("SUPPORT_LINK")
+
+    assert coerce_value(field, "@help_center_bot") == "https://t.me/help_center_bot"
+    assert coerce_value(field, "t.me/help_center_bot") == "https://t.me/help_center_bot"
+
+
+def test_support_link_coercion_rejects_invalid_button_urls():
+    with pytest.raises(ValueError):
+        coerce_value(get_field_by_key("SUPPORT_LINK"), "not a link")
+
+
 def test_trial_required_settings_reject_empty_values():
     for key in (
         "TRIAL_ENABLED",

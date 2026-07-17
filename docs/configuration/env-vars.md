@@ -160,7 +160,7 @@ Trust-all вариант записывается как
 | --- | --- |
 | `DEFAULT_LANGUAGE` | Язык по умолчанию: `ru` или `en`. |
 | `DEFAULT_CURRENCY_SYMBOL` | Символ/код валюты в интерфейсе. |
-| `SUPPORT_LINK` | Внешняя ссылка поддержки. |
+| `SUPPORT_LINK` | Внешняя HTTP(S)-ссылка поддержки; Telegram-формы `@username` и `t.me/username` автоматически приводятся к `https://t.me/username`. |
 | `SERVER_STATUS_URL` | Страница статуса сервиса. |
 | `PRIVACY_POLICY_URL` | Политика конфиденциальности. |
 | `USER_AGREEMENT_URL` | Пользовательское соглашение. |

@@ -12,6 +12,7 @@ import re
 from typing import Any
 
 from bot.app.web.admin_settings_manifest_fields import SETTINGS_MANIFEST, SettingField
+from config.support_links import normalize_support_link
 
 
 def _provider_field_to_setting_field(spec: Any, manifest_field: Any) -> SettingField:
@@ -105,6 +106,14 @@ def coerce_value(field: SettingField, raw: Any) -> Any:
         if field.max is not None and float_value > field.max:
             raise ValueError(f"{field.key}: must be <= {field.max:g}")
         return float_value
+
+    if field.key == "SUPPORT_LINK":
+        normalized = normalize_support_link(raw)
+        if normalized is None:
+            raise ValueError(
+                "SUPPORT_LINK must be an HTTP(S) URL, @username, or t.me/username link"
+            )
+        return normalized
 
     if isinstance(raw, str):
         return raw.strip()
