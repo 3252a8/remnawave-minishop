@@ -2,7 +2,6 @@
   import { Activity, Radio, Server, Zap } from "$components/ui/icons.js";
   import { ScrollArea } from "$components/ui/index.js";
   import * as Card from "$components/ui/card/index.js";
-  import { AdminSectionHeader } from "$components/patterns/admin/index.js";
   import type {
     PanelNodeTraffic,
     PanelStats,
@@ -30,19 +29,23 @@
   } = $props();
 </script>
 
-<AdminSectionHeader
-  title={at("stats_section_panel", {}, "")}
-  description={panelPayload?.error
-    ? at("stats_panel_unavailable", {}, "")
-    : panelMetrics
-      ? at("stats_section_panel_hint", {}, "")
-      : ""}
-/>
+<Card.Root>
+  <Card.Header class="admin-cn-card-header--lead">
+    <Card.Title class="admin-cn-card-title--section">
+      {at("stats_section_panel", {}, "")}
+    </Card.Title>
+    {#if panelPayload?.error}
+      <Card.Description>{at("stats_panel_unavailable", {}, "")}</Card.Description>
+    {:else if panelMetrics}
+      <Card.Description>{at("stats_section_panel_hint", {}, "")}</Card.Description>
+    {/if}
+  </Card.Header>
 
-{#if panelPayload?.error}
-  <p class="admin-muted" style="margin:0;">{at("stats_panel_unavailable_detail", {}, "")}</p>
-{:else if panelMetrics}
-  <Card.Root>
+  {#if panelPayload?.error}
+    <Card.Content class="admin-cn-card-content">
+      <p class="admin-muted" style="margin:0;">{at("stats_panel_unavailable_detail", {}, "")}</p>
+    </Card.Content>
+  {:else if panelMetrics}
     <Card.Content class="admin-cn-card-content admin-panel-dash-card">
       <div class="admin-panel-dash">
         <div
@@ -162,5 +165,5 @@
         {/if}
       </div>
     </Card.Content>
-  </Card.Root>
-{/if}
+  {/if}
+</Card.Root>

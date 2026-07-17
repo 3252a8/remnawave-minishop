@@ -69,6 +69,7 @@
       <AdminTableSkeleton
         headers={[at("date", {}, "Date"), at("event", {}, "Event"), at("content", {}, "Content")]}
         rows={6}
+        rowHeight={58}
         widths={["140px", "140px", "60%"]}
       />
     {:else if !userLogsRows.length}

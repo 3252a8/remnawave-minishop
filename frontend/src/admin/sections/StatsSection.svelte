@@ -12,7 +12,6 @@
     AdminButton,
     AdminEmptyState,
     AdminRevenueCustomRangePopover,
-    AdminSectionHeader,
     AdminTable,
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
@@ -212,13 +211,8 @@
   <StatsSkeleton {at} headers={recentPaymentHeaders} />
 {:else if stats}
   <AdminDashboardStack>
-    <AdminSectionHeader
-      title={at("stats_section_audience", {}, "")}
-      description={at("stats_section_audience_hint", {}, "")}
-    />
-
     <AdminDashboardGrid columns={3}>
-      <Card.Root>
+      <Card.Root class="admin-stats-audience-card">
         <Card.Header>
           <Card.Description>{at("stats_label_users", {}, "")}</Card.Description>
           <Card.Title>
@@ -265,7 +259,7 @@
         </Card.Footer>
       </Card.Root>
 
-      <Card.Root>
+      <Card.Root class="admin-stats-audience-card">
         <Card.Header>
           <Card.Description>{at("stats_label_active_subs", {}, "")}</Card.Description>
           <Card.Title>
@@ -323,7 +317,7 @@
         </Card.Footer>
       </Card.Root>
 
-      <Card.Root>
+      <Card.Root class="admin-stats-audience-card">
         <Card.Header>
           <Card.Description>{at("stats_label_inactive", {}, "")}</Card.Description>
           <Card.Title>
@@ -367,11 +361,6 @@
         </Card.Footer>
       </Card.Root>
     </AdminDashboardGrid>
-
-    <AdminSectionHeader
-      title={at("stats_section_revenue", {}, "")}
-      description={at("stats_section_revenue_hint", {}, "")}
-    />
 
     <Card.Root>
       <Card.Header>
@@ -583,6 +572,7 @@
             <AdminTableSkeleton
               headers={recentPaymentHeaders}
               rows={5}
+              rowHeight={62}
               widths={[
                 "48px",
                 "148px",
@@ -685,6 +675,10 @@
 {/if}
 
 <style>
+  :global(.admin-stats-audience-card .admin-cn-card-header) {
+    padding-bottom: 18px;
+  }
+
   .admin-stats-user-filter {
     appearance: none;
     border: 0;

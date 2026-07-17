@@ -10,7 +10,7 @@
     AdminTableSkeleton,
     VirtualTableRows,
   } from "$components/patterns/admin/index.js";
-  import { RefreshCw, TriangleAlert, User } from "$components/ui/icons.js";
+  import { RefreshCw, TriangleAlert, User, X } from "$components/ui/icons.js";
   import { TableHandler } from "@vincjo/datatables";
   import type { components } from "../../lib/api/openapi.generated";
 
@@ -71,42 +71,57 @@
     return kind === "target" ? entry.target_user_id : entry.user_id;
   }
 
+  function applyLogsFilter(): void {
+    logsStore.setPage(0);
+  }
+
+  function clearLogsFilter(): void {
+    if (!logsUserFilter) return;
+    logsStore.setFilter("");
+    logsStore.setPage(0);
+  }
+
   onMount(() => {
     logsStore.loadLogs({ refresh: true });
   });
 </script>
 
-<div class="admin-toolbar admin-toolbar-card">
-  <div class="admin-toolbar-search admin-toolbar-search-actions">
-    <Input
-      type="search"
-      class="input"
-      placeholder={at("logs_user_filter_placeholder", {}, "Filter by user ID")}
-      value={logsUserFilter}
-      oninput={(e) => logsStore.setFilter((e.currentTarget as HTMLInputElement).value)}
-      onkeydown={(e) => e.key === "Enter" && logsStore.setPage(0)}
-    />
-    <AdminButton
-      variant="primary"
-      onclick={() => {
-        logsStore.setPage(0);
-      }}>{at("apply", {}, "Apply")}</AdminButton
+<div class="admin-toolbar admin-toolbar-card admin-logs-toolbar">
+  <div class="admin-toolbar-search admin-logs-toolbar-search">
+    <div class="admin-logs-filter-input">
+      <Input
+        type="search"
+        class="input"
+        placeholder={at("logs_user_filter_placeholder", {}, "Filter by user ID")}
+        value={logsUserFilter}
+        oninput={(e) => logsStore.setFilter((e.currentTarget as HTMLInputElement).value)}
+        onkeydown={(e) => e.key === "Enter" && applyLogsFilter()}
+      />
+      {#if logsUserFilter}
+        <button
+          type="button"
+          class="admin-logs-filter-clear"
+          title={at("reset", {}, "Reset")}
+          aria-label={at("reset", {}, "Reset")}
+          onclick={clearLogsFilter}
+        >
+          <X size={14} />
+        </button>
+      {/if}
+    </div>
+    <AdminButton variant="primary" onclick={applyLogsFilter}>{at("apply", {}, "Apply")}</AdminButton
     >
-    <AdminButton variant="ghost" onclick={() => logsStore.loadLogs({ refresh: true })}>
-      <RefreshCw size={14} />
-      {at("btn_refresh", {}, "Refresh")}
-    </AdminButton>
     <AdminButton
+      class="admin-logs-refresh"
       variant="ghost"
-      onclick={() => {
-        logsStore.setFilter("");
-        logsStore.setPage(0);
-      }}>{at("reset", {}, "Reset")}</AdminButton
+      size="icon"
+      disabled={logsLoading}
+      title={at("btn_refresh", {}, "Refresh")}
+      aria-label={at("btn_refresh", {}, "Refresh")}
+      onclick={() => logsStore.loadLogs({ refresh: true })}
     >
-  </div>
-  <div class="admin-toolbar-summary">
-    <span class="admin-toolbar-field-label">{at("total", {}, "Total")}</span>
-    <strong>{logsTotal}</strong>
+      <RefreshCw size={14} />
+    </AdminButton>
   </div>
 </div>
 
@@ -115,6 +130,7 @@
     <AdminTableSkeleton
       headers={logHeaders}
       rows={10}
+      rowHeight={72}
       widths={["120px", "120px", "160px", "160px", "220px"]}
     />
   {:else if logsError}
@@ -224,6 +240,63 @@
 />
 
 <style>
+  :global(.admin-logs-toolbar.admin-toolbar-card) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-logs-toolbar-search {
+    grid-template-columns: minmax(0, 1fr) auto 36px;
+  }
+
+  .admin-logs-filter-input {
+    position: relative;
+    min-width: 0;
+  }
+
+  .admin-logs-filter-input :global(.input) {
+    width: 100%;
+    padding-right: 38px;
+  }
+
+  .admin-logs-filter-input :global(input[type="search"]::-webkit-search-cancel-button) {
+    appearance: none;
+  }
+
+  .admin-logs-filter-clear {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    display: inline-grid;
+    width: 26px;
+    height: 26px;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--admin-muted);
+    cursor: pointer;
+    transform: translateY(-50%);
+  }
+
+  .admin-logs-filter-clear:hover,
+  .admin-logs-filter-clear:focus-visible {
+    background: var(--surface-hover);
+    color: var(--admin-text);
+    outline: none;
+  }
+
+  .admin-logs-filter-clear:focus-visible {
+    box-shadow: 0 0 0 2px var(--admin-ring);
+  }
+
+  :global(.admin-logs-refresh.admin-btn) {
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+    padding: 0;
+  }
+
   .admin-logs-user-cell {
     min-width: 150px;
   }
@@ -282,5 +355,15 @@
   :global(.admin-logs-error-state svg) {
     flex-shrink: 0;
     color: var(--admin-warning);
+  }
+
+  @media (max-width: 560px) {
+    .admin-logs-toolbar-search {
+      grid-template-columns: minmax(0, 1fr) 36px;
+    }
+
+    .admin-logs-filter-input {
+      grid-column: 1 / -1;
+    }
   }
 </style>

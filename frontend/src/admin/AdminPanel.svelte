@@ -140,6 +140,7 @@
     adminQueryClient,
     adsStore,
     healthStore,
+    logsStore,
     paymentsStore,
     promosStore,
     settingsStore,
@@ -666,6 +667,7 @@
   initialTicketId={readSupportTicketIdFromPath()}
   {languageBusy}
   {languageOptions}
+  {logsStore}
   {meta}
   {NAV_GROUPS}
   {onClose}

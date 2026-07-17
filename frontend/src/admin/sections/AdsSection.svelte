@@ -71,6 +71,7 @@
     <AdminTableSkeleton
       headers={adHeaders}
       rows={6}
+      rowHeight={58}
       actionColumn
       widths={["44px", "96px", "110px", "70px", "54px", "54px", "72px", "92px"]}
     />

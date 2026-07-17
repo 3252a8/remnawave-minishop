@@ -96,6 +96,8 @@
           "",
         ]}
         rows={5}
+        rowHeight={60}
+        class="admin-user-referrals-table"
         widths={["42%", "18%", "26%", "14%"]}
       />
     {:else if !userReferralsRows.length}

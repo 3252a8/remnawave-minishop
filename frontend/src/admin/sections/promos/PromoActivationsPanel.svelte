@@ -136,6 +136,8 @@
     <AdminTableSkeleton
       headers={activationHeaders}
       rows={6}
+      rowHeight={62}
+      class="admin-promo-activations-table"
       widths={["160px", "104px", "72px", "86px", "86px", "86px", "120px", "120px", "86px", "90px"]}
     />
   {:else if !rows.length}

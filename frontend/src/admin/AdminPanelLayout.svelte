@@ -32,6 +32,7 @@
   type MoneyFormatter = (value: unknown, currency?: string | null) => string;
   type BadgeVariant = "success" | "danger" | "warning" | "muted";
   type SupportStoreBridge = { stats?: { total_unread_admin?: number | null } | null };
+  type LogsStoreBridge = { logsTotal?: number | null };
   type AdsStoreBridge = { setCreateOpen: (open: boolean) => void };
   type PromosStoreBridge = { setCreateOpen: (open: boolean) => void };
   type TariffsStoreBridge = { openCreateTariff: () => void };
@@ -65,6 +66,7 @@
     initialTicketId,
     languageBusy,
     languageOptions,
+    logsStore,
     meta,
     NAV_GROUPS,
     onClose,
@@ -127,6 +129,7 @@
     initialTicketId: number | null;
     languageBusy: boolean;
     languageOptions: LanguageOption[];
+    logsStore: LogsStoreBridge;
     meta: SectionMeta;
     NAV_GROUPS: NavGroup[];
     onClose: () => void;
@@ -389,7 +392,14 @@
           <Menu size={18} />
         </button>
         <div class="admin-header-title">
-          <h2>{meta.title}</h2>
+          <div class="admin-header-title-line">
+            <h2>{meta.title}</h2>
+            {#if active === "logs"}
+              <span class="admin-header-count" title={at("total", {}, "Total")}
+                >{Number(logsStore.logsTotal || 0)}</span
+              >
+            {/if}
+          </div>
           {#if meta.subtitle}<small>{meta.subtitle}</small>{/if}
         </div>
       </div>
