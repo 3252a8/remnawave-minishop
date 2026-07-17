@@ -29,7 +29,9 @@ from bot.utils.traffic_reset import panel_traffic_limit_strategy
 from config.settings import Settings
 from db.dal import message_log_dal, payment_dal, subscription_dal, user_dal
 from db.dal.user_subscription_segments import (
+    active_subscription_exists_for_user,
     active_subscription_segment_flags_sq,
+    expired_subscription_exists_for_user,
     subscription_segment_condition,
 )
 from db.models import Payment, Subscription, User, UserTelegramAvatar
@@ -333,6 +335,20 @@ async def _filter_and_sort_users(
         stmt = stmt.join(segment_flags_sq, User.user_id == segment_flags_sq.c.user_id)
         count_stmt = count_stmt.join(segment_flags_sq, User.user_id == segment_flags_sq.c.user_id)
         cond = subscription_segment_condition(f, segment_flags_sq)
+    elif f == "active_today":
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        cond = User.registration_date >= today_start
+    elif f == "referred":
+        cond = User.referred_by_id.is_not(None)
+    elif f == "active_subscription":
+        cond = active_subscription_exists_for_user(now)
+    elif f == "inactive_subscription":
+        cond = ~active_subscription_exists_for_user(now)
+    elif f == "expired_subscription":
+        cond = and_(
+            expired_subscription_exists_for_user(now),
+            ~active_subscription_exists_for_user(now),
+        )
     elif f == "banned":
         cond = User.is_banned.is_(True)
     elif f == "active":

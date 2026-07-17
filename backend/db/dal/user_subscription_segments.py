@@ -1,10 +1,48 @@
 from datetime import datetime
 
 from sqlalchemy import and_, case, func, or_, select
+from sqlalchemy.orm import aliased
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.selectable import Subquery
 
 from ..models import Subscription, User
+
+
+def active_subscription_exists_for_user(now: datetime) -> ColumnElement[bool]:
+    """Match users counted by the dashboard as having an active subscription."""
+
+    active_subs = aliased(Subscription)
+    return (
+        select(active_subs.subscription_id)
+        .where(
+            active_subs.user_id == User.user_id,
+            active_subs.is_active.is_(True),
+            active_subs.end_date > now,
+        )
+        .exists()
+    )
+
+
+def expired_subscription_exists_for_user(now: datetime) -> ColumnElement[bool]:
+    """Match a user's expired subscription history using dashboard semantics."""
+
+    expired_subs = aliased(Subscription)
+    normalized_status = func.lower(func.coalesce(expired_subs.status_from_panel, ""))
+    blank_status = or_(
+        expired_subs.status_from_panel.is_(None),
+        expired_subs.status_from_panel == "",
+    )
+    expired_condition = or_(
+        normalized_status == "expired",
+        blank_status & expired_subs.is_active.is_(False),
+        expired_subs.end_date <= now,
+    )
+
+    return (
+        select(expired_subs.subscription_id)
+        .where(expired_subs.user_id == User.user_id, expired_condition)
+        .exists()
+    )
 
 
 def active_subscription_segment_flags_sq(now: datetime) -> Subquery:

@@ -15,6 +15,7 @@
   import type { SettingsSavedPayload } from "$lib/admin/stores/settingsStore";
   import type { TranslationsSavedPayload } from "$lib/admin/stores/translationsStore";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
+  import type { UsersFilter, UsersRouteFilters } from "$lib/admin/usersRouteFilters";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type SettingsPath = string[];
@@ -73,6 +74,8 @@
     onOpenPaymentUserCard,
     onOpenSettingsPath,
     onOpenUserCard,
+    onOpenUsersFilter,
+    onUsersFiltersChange,
     onSaveSettings,
     onSaveTranslations,
     onSetActive,
@@ -133,6 +136,8 @@
     onOpenPaymentUserCard: (userId: unknown) => void;
     onOpenSettingsPath: (path?: unknown) => void;
     onOpenUserCard: (userId: unknown) => void;
+    onOpenUsersFilter: (filter: UsersFilter) => void;
+    onUsersFiltersChange: (filters: UsersRouteFilters) => void;
     onSaveSettings: (payload: SettingsSavedPayload) => void | Promise<void>;
     onSaveTranslations: (payload: TranslationsSavedPayload) => void | Promise<void>;
     onSetActive: (id: string) => void;
@@ -437,6 +442,8 @@
               {appFaviconUrl}
               {appFaviconUseCustom}
               {onOpenUserCard}
+              {onOpenUsersFilter}
+              {onUsersFiltersChange}
               {onOpenSettingsPath}
               {onSettingsPathChange}
               {initialTicketId}

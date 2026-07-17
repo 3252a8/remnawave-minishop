@@ -2,17 +2,19 @@
 # to mypy; this DAL intentionally reads loaded ORM instances.
 # mypy: disable-error-code="assignment,arg-type,operator"
 
-from datetime import UTC, datetime
+from datetime import UTC
 from typing import Any
 
-from sqlalchemy import and_, case, desc, func, or_
+from sqlalchemy import and_, case, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import aliased
 
 from ..models import Payment, Subscription, User
 from .user_subscription_segments import (
+    active_subscription_exists_for_user,
     active_subscription_segment_flags_sq,
+    expired_subscription_exists_for_user,
     subscription_segment_condition,
 )
 
@@ -240,7 +242,7 @@ async def count_users_without_active_subscription_for_broadcast(session: AsyncSe
 
     stmt = select(func.count(User.user_id)).where(
         User.is_banned == False,
-        ~_active_subscription_exists_for_user(now),
+        ~active_subscription_exists_for_user(now),
     )
     result = await session.execute(stmt)
     return int(result.scalar_one() or 0)
@@ -287,47 +289,14 @@ async def count_users_without_any_subscription_for_broadcast(session: AsyncSessi
     return int(result.scalar_one() or 0)
 
 
-def _expired_subscription_exists_for_user(now: datetime) -> Any:
-    expired_subs = aliased(Subscription)
-    normalized_status = func.lower(func.coalesce(expired_subs.status_from_panel, ""))
-    blank_status = or_(
-        expired_subs.status_from_panel.is_(None),
-        expired_subs.status_from_panel == "",
-    )
-    expired_condition = or_(
-        normalized_status == "expired",
-        blank_status & expired_subs.is_active.is_(False),
-        expired_subs.end_date <= now,
-    )
-
-    return (
-        select(expired_subs.subscription_id)
-        .where(expired_subs.user_id == User.user_id, expired_condition)
-        .exists()
-    )
-
-
-def _active_subscription_exists_for_user(now: datetime) -> Any:
-    active_subs = aliased(Subscription)
-    return (
-        select(active_subs.subscription_id)
-        .where(
-            active_subs.user_id == User.user_id,
-            active_subs.is_active == True,
-            active_subs.end_date > now,
-        )
-        .exists()
-    )
-
-
 async def count_users_with_expired_subscription(session: AsyncSession) -> int:
     """Count users who have an expired subscription and no currently active subscription."""
     from datetime import datetime
 
     now = datetime.now(UTC)
     stmt = select(func.count(User.user_id)).where(
-        _expired_subscription_exists_for_user(now),
-        ~_active_subscription_exists_for_user(now),
+        expired_subscription_exists_for_user(now),
+        ~active_subscription_exists_for_user(now),
     )
     result = await session.execute(stmt)
     return int(result.scalar_one() or 0)
@@ -340,8 +309,8 @@ async def count_users_with_expired_subscription_for_broadcast(session: AsyncSess
     now = datetime.now(UTC)
     stmt = select(func.count(User.user_id)).where(
         User.is_banned == False,
-        _expired_subscription_exists_for_user(now),
-        ~_active_subscription_exists_for_user(now),
+        expired_subscription_exists_for_user(now),
+        ~active_subscription_exists_for_user(now),
     )
     result = await session.execute(stmt)
     return int(result.scalar_one() or 0)
@@ -354,8 +323,8 @@ async def get_user_ids_with_expired_subscription(session: AsyncSession) -> list[
     now = datetime.now(UTC)
     stmt = select(User.user_id).where(
         User.is_banned == False,
-        _expired_subscription_exists_for_user(now),
-        ~_active_subscription_exists_for_user(now),
+        expired_subscription_exists_for_user(now),
+        ~active_subscription_exists_for_user(now),
     )
     result = await session.execute(stmt)
     return list(result.scalars().all())

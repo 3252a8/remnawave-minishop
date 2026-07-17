@@ -85,6 +85,55 @@ export function withDemoAvatarTickets(tickets: DemoTicket[], size = 96): DemoTic
   return (tickets || []).map((ticket) => withDemoAvatarTicket(ticket, size) as DemoTicket);
 }
 
+function demoSubscriptions(user: DemoAdminUser): DemoRecord[] {
+  const detail = DATASET.adminUserDetails?.[String(user.user_id)] || {};
+  const subscriptions = Array.isArray(detail.subscriptions)
+    ? (detail.subscriptions as DemoRecord[])
+    : [];
+  const active = detail.active_subscription;
+  if (!active || subscriptions.includes(active)) return subscriptions;
+  return [active, ...subscriptions];
+}
+
+function isDemoActiveSubscription(subscription: DemoRecord): boolean {
+  return (
+    subscription.is_active === true &&
+    stringDate(subscription.end_date as string | null | undefined) > Date.now()
+  );
+}
+
+function demoSubscriptionSegment(user: DemoAdminUser): "paid" | "trial" | "free" | null {
+  let hasPaid = false;
+  let hasTrial = false;
+  let hasFree = false;
+  for (const subscription of demoSubscriptions(user).filter(isDemoActiveSubscription)) {
+    const provider = String(subscription.provider || "").toLowerCase();
+    const panelStatus = String(subscription.status_from_panel || "").toUpperCase();
+    if (provider === "trial" || panelStatus === "TRIAL") hasTrial = true;
+    else if (provider) hasPaid = true;
+    else hasFree = true;
+  }
+  if (hasPaid) return "paid";
+  if (hasTrial) return "trial";
+  if (hasFree) return "free";
+  return null;
+}
+
+function hasDemoExpiredSubscription(user: DemoAdminUser): boolean {
+  return demoSubscriptions(user).some((subscription) => {
+    const panelStatus = String(subscription.status_from_panel || "").toLowerCase();
+    const hasBlankStatus = !subscription.status_from_panel;
+    const hasExpiredEndDate =
+      Boolean(subscription.end_date) &&
+      stringDate(subscription.end_date as string | null | undefined) <= Date.now();
+    return (
+      panelStatus === "expired" ||
+      (hasBlankStatus && subscription.is_active === false) ||
+      hasExpiredEndDate
+    );
+  });
+}
+
 export function filterDemoUsers(params: URLSearchParams): DemoAdminUser[] {
   let out = (DATASET.adminUsers || []).map(withDemoAdminUserMetrics);
   const q = (params.get("q") || params.get("search") || "").trim().toLowerCase();
@@ -107,7 +156,23 @@ export function filterDemoUsers(params: URLSearchParams): DemoAdminUser[] {
   const filter = params.get("filter") || "all";
   if (filter === "active") out = out.filter((user) => !user.is_banned);
   else if (filter === "banned") out = out.filter((user) => user.is_banned);
-  else if (filter === "tg_linked") out = out.filter((user) => user.telegram_linked);
+  else if (filter === "active_today") {
+    const now = new Date();
+    const todayStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    out = out.filter((user) => stringDate(user.registration_date) >= todayStart);
+  } else if (filter === "referred") out = out.filter((user) => user.referred_by_id != null);
+  else if (filter === "active_subscription") {
+    out = out.filter((user) => demoSubscriptions(user).some(isDemoActiveSubscription));
+  } else if (filter === "inactive_subscription") {
+    out = out.filter((user) => !demoSubscriptions(user).some(isDemoActiveSubscription));
+  } else if (filter === "expired_subscription") {
+    out = out.filter(
+      (user) =>
+        hasDemoExpiredSubscription(user) && !demoSubscriptions(user).some(isDemoActiveSubscription)
+    );
+  } else if (filter === "paid" || filter === "trial" || filter === "free") {
+    out = out.filter((user) => demoSubscriptionSegment(user) === filter);
+  } else if (filter === "tg_linked") out = out.filter((user) => user.telegram_linked);
   else if (filter === "no_tg") out = out.filter((user) => !user.telegram_linked);
   else if (filter === "email_linked") out = out.filter((user) => Boolean(user.email));
   else if (filter === "no_email") out = out.filter((user) => !user.email);

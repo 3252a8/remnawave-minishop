@@ -844,6 +844,18 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   const adminSidebar = page.locator("aside.admin-sidebar");
   await expect(adminSidebar).toBeVisible();
 
+  setPhase("admin-dashboard:user-filter-link");
+  const paidUsersCounter = activeAdminSection(page, "stats").locator(
+    '[data-admin-user-filter="paid"]'
+  );
+  await expect(paidUsersCounter).toBeVisible();
+  await paidUsersCounter.click();
+  await expect(page).toHaveURL(/\/demo\/runtime\/admin\/users\?users_filter=paid$/);
+  await expect(activeAdminSection(page, "users")).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/demo\/runtime\/admin\/stats$/);
+  await expect(activeAdminSection(page, "stats")).toBeVisible();
+
   setPhase("admin-section-registry");
   for (const id of CORE_ADMIN_SECTION_IDS) {
     await expect(adminSectionButton(page, id), `core admin section exists: ${id}`).toBeVisible();
