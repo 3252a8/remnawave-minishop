@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 
 from sqlalchemy import func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -74,6 +75,46 @@ async def count_user_message_logs(session: AsyncSession, user_id_to_search: int)
     )
     result = await session.execute(stmt)
     return result.scalar_one()
+
+
+async def has_recent_target_event(
+    session: AsyncSession,
+    *,
+    target_user_id: int,
+    event_type: str,
+    since: datetime,
+) -> bool:
+    stmt = (
+        select(MessageLog.log_id)
+        .where(
+            MessageLog.target_user_id == target_user_id,
+            MessageLog.event_type == event_type,
+            MessageLog.timestamp >= since,
+        )
+        .limit(1)
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none() is not None
+
+
+async def has_target_event_content(
+    session: AsyncSession,
+    *,
+    target_user_id: int,
+    event_type: str,
+    content_fragment: str,
+) -> bool:
+    stmt = (
+        select(MessageLog.log_id)
+        .where(
+            MessageLog.target_user_id == target_user_id,
+            MessageLog.event_type == event_type,
+            MessageLog.content.contains(content_fragment),
+        )
+        .limit(1)
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none() is not None
 
 
 async def create_message_log_no_commit(session: AsyncSession, log_data: dict) -> MessageLog:

@@ -39,6 +39,10 @@ async def get_redis(settings: Settings) -> Any | None:
             decode_responses=True,
             health_check_interval=30,
             protocol=2,
+            # redis-py 8 defaults socket reads to 5 seconds. That races the
+            # webhook queue's five-second BLMOVE and turns an empty queue into
+            # a TimeoutError instead of the expected None response.
+            socket_timeout=None,
         )
     return _redis
 

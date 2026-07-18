@@ -265,6 +265,7 @@ LOCALE_GROUPS = [
             "admin_settings_field_support_",
             "admin_settings_field_subscription_notifications_",
             "admin_settings_field_subscription_notify_",
+            "admin_settings_field_torrent_blocker_",
             "admin_settings_field_required_",
             "admin_settings_field_disable_welcome_",
             "admin_settings_field_start_command_",
@@ -357,6 +358,15 @@ LOCALE_GROUPS = [
             "install_",
             "config_",
         ),
+    },
+    {
+        "id": "torrent_blocker",
+        "title": "Torrent Blocker notifications",
+        "description": (
+            "User-facing Telegram and email notifications about temporary torrent blocks."
+        ),
+        "audience": "user",
+        "prefixes": ("torrent_blocker_",),
     },
     {
         "id": "payments",

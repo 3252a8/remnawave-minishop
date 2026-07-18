@@ -5,6 +5,10 @@
   import { TableHandler } from "@vincjo/datatables";
   import UsersView from "./users/UsersView.svelte";
   import type { AdminUser } from "../../lib/admin/stores/usersStore";
+  import {
+    normalizeUsersRouteFilters,
+    type UsersRouteFilters,
+  } from "../../lib/admin/usersRouteFilters";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -32,6 +36,7 @@
     userDisplayName?: (user: AdminUser) => string;
     userInitials?: (user: AdminUser) => string;
     userSecondaryName?: (user: AdminUser) => string;
+    onUsersFiltersChange?: (filters: UsersRouteFilters) => void;
   };
   type TrafficBadge =
     | {
@@ -51,6 +56,7 @@
     userDisplayName = () => "",
     userInitials = () => "",
     userSecondaryName = () => "",
+    onUsersFiltersChange = () => {},
   }: UsersSectionProps = $props();
 
   const usersStore = getUsersStore();
@@ -80,6 +86,23 @@
     { value: "all", label: at("filter_all", {}, "All") },
     { value: "active", label: at("filter_not_banned", {}, "Not banned") },
     { value: "banned", label: at("filter_banned", {}, "Banned") },
+    { value: "active_today", label: at("filter_active_today", {}, "Registered today") },
+    { value: "referred", label: at("filter_referred", {}, "Referred users") },
+    {
+      value: "active_subscription",
+      label: at("filter_active_subscription", {}, "With active subscription"),
+    },
+    { value: "paid", label: at("stats_label_paid_subs", {}, "Paid users") },
+    { value: "free", label: at("stats_label_free_users", {}, "With free subscription") },
+    { value: "trial", label: at("stats_label_trial_users", {}, "With trial subscription") },
+    {
+      value: "inactive_subscription",
+      label: at("filter_inactive_subscription", {}, "Without active subscription"),
+    },
+    {
+      value: "expired_subscription",
+      label: at("filter_expired_subscription", {}, "With expired subscription"),
+    },
     { value: "tg_linked", label: at("filter_tg_linked", {}, "With Telegram") },
     { value: "no_tg", label: at("filter_no_tg", {}, "No Telegram") },
     { value: "email_linked", label: at("filter_email_linked", {}, "With email") },
@@ -137,7 +160,13 @@
   }
 
   function updateUsersFilterState(patch: FilterPatch): void {
+    const filters = normalizeUsersRouteFilters({
+      usersFilter: patch.usersFilter ?? usersFilter,
+      usersPanelStatus: patch.usersPanelStatus ?? usersPanelStatus,
+      usersPremiumTraffic: patch.usersPremiumTraffic ?? usersPremiumTraffic,
+    });
     usersStore.updateState({ ...patch, usersPage: 0 });
+    onUsersFiltersChange(filters);
     void usersStore.loadUsers();
   }
 
@@ -148,16 +177,13 @@
   const updateUsersPremiumTraffic = ((value: string) =>
     updateUsersFilterState({ usersPremiumTraffic: value })) as ComponentCallback;
   const updateToolbarUsersFilter = ((value: string) => {
-    usersStore.updateState({ usersFilter: value, usersPage: 0 });
-    void usersStore.loadUsers();
+    updateUsersFilterState({ usersFilter: value });
   }) as ComponentCallback;
   const updateToolbarPanelStatus = ((value: string) => {
-    usersStore.updateState({ usersPanelStatus: value, usersPage: 0 });
-    void usersStore.loadUsers();
+    updateUsersFilterState({ usersPanelStatus: value });
   }) as ComponentCallback;
   const updateToolbarPremiumTraffic = ((value: string) => {
-    usersStore.updateState({ usersPremiumTraffic: value, usersPage: 0 });
-    void usersStore.loadUsers();
+    updateUsersFilterState({ usersPremiumTraffic: value });
   }) as ComponentCallback;
 
   function resetUsersFilters(): void {

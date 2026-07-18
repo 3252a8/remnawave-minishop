@@ -75,6 +75,7 @@ describe("tariffDraft", () => {
   it("round-trips period tariffs through draft form", () => {
     const tariff = {
       key: "pro",
+      legacy_keys: ["premium"],
       names: { ru: "Про" },
       enabled_periods: [1, 3],
       prices_rub: { 1: 200, 3: 550 },
@@ -89,6 +90,7 @@ describe("tariffDraft", () => {
 
     const draft = draftFromTariff(tariff, "rub");
     expect(draft.key).toBe("pro");
+    expect(draft.legacyKeys).toEqual(["premium"]);
     expect(draft.traffic_limit_strategy).toBe("WEEK");
     expect(draft.periodRows).toEqual([
       { months: 1, rub: 200, stars: 90, referral_inviter: 3, referral_referee: 1 },
@@ -99,6 +101,7 @@ describe("tariffDraft", () => {
     draft.periodRows.push({ months: 3, rub: 600, stars: 10 });
     expect(tariffFromDraft(draft)).toMatchObject({
       key: "pro",
+      legacy_keys: ["premium"],
       names: { ru: "Про" },
       squad_uuids: ["a", "b", "c"],
       enabled_periods: [1, 3],

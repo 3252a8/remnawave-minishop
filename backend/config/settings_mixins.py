@@ -25,6 +25,7 @@ from config.settings_models import (
     SupportSettings,
     WebAppSettings,
 )
+from config.support_links import normalize_support_link
 from config.tariffs_config import TariffsConfig, load_tariffs_config
 from config.traffic_strategy import normalize_traffic_limit_strategy
 from config.webapp_themes_config import WebappThemesConfig, resolved_webapp_themes_catalog
@@ -276,7 +277,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
     @property
     def support_settings(self) -> SupportSettings:
         return SupportSettings(
-            link=self.SUPPORT_LINK,
+            link=normalize_support_link(self.SUPPORT_LINK),
             tickets_enabled=self.SUPPORT_TICKETS_ENABLED,
             ticket_max_body_length=self.SUPPORT_TICKET_MAX_BODY_LENGTH,
             ticket_max_subject_length=self.SUPPORT_TICKET_MAX_SUBJECT_LENGTH,
@@ -723,6 +724,18 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
 
 
 class SettingsValidationMixin:
+    @field_validator("SUPPORT_LINK", mode="before")
+    @classmethod
+    def normalize_support_link_setting(cls, value):
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return None
+        normalized = normalize_support_link(value)
+        if normalized is None:
+            raise ValueError(
+                "SUPPORT_LINK must be an HTTP(S) URL, @username, or t.me/username link"
+            )
+        return normalized
+
     @field_validator("LOG_LEVEL", mode="before")
     @classmethod
     def normalize_log_level(cls, v):

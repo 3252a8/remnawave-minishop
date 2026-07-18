@@ -146,6 +146,24 @@ class TariffsConfigTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             TariffsConfig.model_validate(data)
 
+    def test_legacy_key_resolves_to_current_tariff(self):
+        data = _valid_config()
+        data["tariffs"][0]["key"] = "current"
+        data["tariffs"][0]["legacy_keys"] = [" old-key ", "old-key"]
+        data["default_tariff"] = "current"
+
+        config = TariffsConfig.model_validate(data)
+
+        self.assertEqual(config.require("old-key").key, "current")
+        self.assertEqual(config.require("current").legacy_keys, ["old-key"])
+
+    def test_legacy_key_cannot_shadow_another_tariff(self):
+        data = _valid_config()
+        data["tariffs"][0]["legacy_keys"] = ["traffic"]
+
+        with self.assertRaisesRegex(ValueError, "keys and legacy_keys must be unique"):
+            TariffsConfig.model_validate(data)
+
     def test_default_must_be_enabled(self):
         data = _valid_config()
         data["default_tariff"] = "missing"

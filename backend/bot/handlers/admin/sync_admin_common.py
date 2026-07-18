@@ -450,3 +450,12 @@ def _subscription_update_delta(
         elif current_value != desired_value:
             delta[key] = desired_value
     return delta
+
+
+def _subscription_update_reason_labels(delta: dict[str, Any]) -> list[str]:
+    reasons: list[str] = []
+    if set(delta) - {"last_connected_at"}:
+        reasons.append("subscription_updated")
+    if "last_connected_at" in delta:
+        reasons.append("subscription_last_connected_at_updated")
+    return reasons

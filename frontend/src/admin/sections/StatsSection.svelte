@@ -12,7 +12,6 @@
     AdminButton,
     AdminEmptyState,
     AdminRevenueCustomRangePopover,
-    AdminSectionHeader,
     AdminTable,
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
@@ -43,6 +42,7 @@
   } from "$lib/admin/statsDerivations";
   import type { PaymentOut } from "$lib/admin/stores/paymentsStore";
   import type { StatsState } from "$lib/admin/stores/statsStore";
+  import type { UsersFilter } from "$lib/admin/usersRouteFilters";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type FormatterFn = (value: unknown, currency?: string) => string;
@@ -60,6 +60,7 @@
     fmtMoney = (value) => String(value ?? ""),
     paymentStatusVariant = () => "muted",
     onOpenUserCard = () => {},
+    onOpenUsersFilter = () => {},
   }: {
     at: TranslateFn;
     fmtDate?: DateFormatterFn;
@@ -67,6 +68,7 @@
     fmtMoney?: FormatterFn;
     paymentStatusVariant?: (status: unknown) => AdminBadgeVariant;
     onOpenUserCard?: (userId: unknown) => void;
+    onOpenUsersFilter?: (filter: UsersFilter) => void;
   } = $props();
 
   const paymentsStore = getPaymentsStore();
@@ -194,6 +196,10 @@
   ]);
   const recentPayments: PaymentOut[] = $derived((stats?.recent_payments || []).slice(0, 10));
 
+  function userFilterActionLabel(label: string): string {
+    return at("stats_open_user_filter", { label }, `Show users: ${label}`);
+  }
+
   onMount(() => {
     void statsStore.loadStats();
   });
@@ -205,34 +211,69 @@
   <StatsSkeleton {at} headers={recentPaymentHeaders} />
 {:else if stats}
   <AdminDashboardStack>
-    <AdminSectionHeader
-      title={at("stats_section_audience", {}, "")}
-      description={at("stats_section_audience_hint", {}, "")}
-    />
-
     <AdminDashboardGrid columns={3}>
-      <Card.Root>
+      <Card.Root class="admin-stats-audience-card">
         <Card.Header>
           <Card.Description>{at("stats_label_users", {}, "")}</Card.Description>
-          <Card.Title>{users.total_users ?? 0}</Card.Title>
+          <Card.Title>
+            <button
+              type="button"
+              class="admin-stats-user-filter admin-stats-user-filter--count"
+              data-admin-user-filter="all"
+              aria-label={userFilterActionLabel(at("filter_all", {}, "All"))}
+              onclick={() => onOpenUsersFilter("all")}>{users.total_users ?? 0}</button
+            >
+          </Card.Title>
           <Card.Action>
-            <Badge variant="outline">+{users.active_today ?? 0}</Badge>
+            <button
+              type="button"
+              class="admin-stats-user-filter admin-stats-user-filter--badge"
+              data-admin-user-filter="active_today"
+              aria-label={userFilterActionLabel(at("filter_active_today", {}, "Registered today"))}
+              onclick={() => onOpenUsersFilter("active_today")}
+              ><Badge variant="outline">+{users.active_today ?? 0}</Badge></button
+            >
           </Card.Action>
         </Card.Header>
         <Card.Footer class="admin-cn-card-footer--stack">
           <div class="admin-cn-card-footer-primary">
-            {at("stats_trend_banned", { count: users.banned_users ?? 0 }, "")}
+            <button
+              type="button"
+              class="admin-stats-user-filter"
+              data-admin-user-filter="banned"
+              aria-label={userFilterActionLabel(at("filter_banned", {}, "Banned"))}
+              onclick={() => onOpenUsersFilter("banned")}
+              >{at("stats_trend_banned", { count: users.banned_users ?? 0 }, "")}</button
+            >
           </div>
           <div class="admin-cn-card-footer-muted">
-            {at("stats_trend_referrals", { count: users.referral_users ?? 0 }, "")}
+            <button
+              type="button"
+              class="admin-stats-user-filter"
+              data-admin-user-filter="referred"
+              aria-label={userFilterActionLabel(at("filter_referred", {}, "Referred users"))}
+              onclick={() => onOpenUsersFilter("referred")}
+              >{at("stats_trend_referrals", { count: users.referral_users ?? 0 }, "")}</button
+            >
           </div>
         </Card.Footer>
       </Card.Root>
 
-      <Card.Root>
+      <Card.Root class="admin-stats-audience-card">
         <Card.Header>
           <Card.Description>{at("stats_label_active_subs", {}, "")}</Card.Description>
-          <Card.Title>{users.active_subscriptions ?? 0}</Card.Title>
+          <Card.Title>
+            <button
+              type="button"
+              class="admin-stats-user-filter admin-stats-user-filter--count"
+              data-admin-user-filter="active_subscription"
+              aria-label={userFilterActionLabel(
+                at("filter_active_subscription", {}, "With active subscription")
+              )}
+              onclick={() => onOpenUsersFilter("active_subscription")}
+              >{users.active_subscriptions ?? 0}</button
+            >
+          </Card.Title>
           <Card.Action>
             <Badge variant="outline"
               >{users.total_users
@@ -243,9 +284,32 @@
         </Card.Header>
         <Card.Footer class="admin-cn-card-footer--stack">
           <div class="admin-cn-card-footer-primary">
-            {at("stats_trend_paid", { count: users.paid_subscriptions ?? 0 }, "")}
-            · {at("stats_trend_free", { count: users.free_subscription_users ?? 0 }, "")}
-            · {at("stats_trend_trials", { count: users.trial_users ?? 0 }, "")}
+            <button
+              type="button"
+              class="admin-stats-user-filter"
+              data-admin-user-filter="paid"
+              aria-label={userFilterActionLabel(at("stats_label_paid_subs", {}, "Paid users"))}
+              onclick={() => onOpenUsersFilter("paid")}
+              >{at("stats_trend_paid", { count: users.paid_subscriptions ?? 0 }, "")}</button
+            >
+            <span aria-hidden="true">·</span>
+            <button
+              type="button"
+              class="admin-stats-user-filter"
+              data-admin-user-filter="free"
+              aria-label={userFilterActionLabel(at("stats_label_free_users", {}, "Free users"))}
+              onclick={() => onOpenUsersFilter("free")}
+              >{at("stats_trend_free", { count: users.free_subscription_users ?? 0 }, "")}</button
+            >
+            <span aria-hidden="true">·</span>
+            <button
+              type="button"
+              class="admin-stats-user-filter"
+              data-admin-user-filter="trial"
+              aria-label={userFilterActionLabel(at("stats_label_trial_users", {}, "Trial users"))}
+              onclick={() => onOpenUsersFilter("trial")}
+              >{at("stats_trend_trials", { count: users.trial_users ?? 0 }, "")}</button
+            >
           </div>
           <div class="admin-cn-card-footer-muted">
             {at("stats_card_active_subs_caption", {}, "")}
@@ -253,10 +317,21 @@
         </Card.Footer>
       </Card.Root>
 
-      <Card.Root>
+      <Card.Root class="admin-stats-audience-card">
         <Card.Header>
           <Card.Description>{at("stats_label_inactive", {}, "")}</Card.Description>
-          <Card.Title>{users.inactive_users ?? 0}</Card.Title>
+          <Card.Title>
+            <button
+              type="button"
+              class="admin-stats-user-filter admin-stats-user-filter--count"
+              data-admin-user-filter="inactive_subscription"
+              aria-label={userFilterActionLabel(
+                at("filter_inactive_subscription", {}, "Without active subscription")
+              )}
+              onclick={() => onOpenUsersFilter("inactive_subscription")}
+              >{users.inactive_users ?? 0}</button
+            >
+          </Card.Title>
           <Card.Action>
             <Badge variant="outline"
               >{users.total_users
@@ -267,21 +342,25 @@
         </Card.Header>
         <Card.Footer class="admin-cn-card-footer--stack">
           <div class="admin-cn-card-footer-primary">
-            {at(
-              "stats_trend_expired_subscriptions",
-              { count: users.expired_subscription_users ?? 0 },
-              ""
-            )}
+            <button
+              type="button"
+              class="admin-stats-user-filter"
+              data-admin-user-filter="expired_subscription"
+              aria-label={userFilterActionLabel(
+                at("filter_expired_subscription", {}, "With expired subscription")
+              )}
+              onclick={() => onOpenUsersFilter("expired_subscription")}
+              >{at(
+                "stats_trend_expired_subscriptions",
+                { count: users.expired_subscription_users ?? 0 },
+                ""
+              )}</button
+            >
           </div>
           <div class="admin-cn-card-footer-muted">{at("stats_card_inactive_caption", {}, "")}</div>
         </Card.Footer>
       </Card.Root>
     </AdminDashboardGrid>
-
-    <AdminSectionHeader
-      title={at("stats_section_revenue", {}, "")}
-      description={at("stats_section_revenue_hint", {}, "")}
-    />
 
     <Card.Root>
       <Card.Header>
@@ -493,6 +572,7 @@
             <AdminTableSkeleton
               headers={recentPaymentHeaders}
               rows={5}
+              rowHeight={62}
               widths={[
                 "48px",
                 "148px",
@@ -595,6 +675,48 @@
 {/if}
 
 <style>
+  :global(.admin-stats-audience-card .admin-cn-card-header) {
+    padding-bottom: 18px;
+  }
+
+  .admin-stats-user-filter {
+    appearance: none;
+    border: 0;
+    border-radius: 5px;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    line-height: inherit;
+    text-align: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    text-underline-offset: 3px;
+    transition:
+      color 140ms ease,
+      text-decoration-color 140ms ease;
+  }
+
+  .admin-stats-user-filter:hover {
+    color: var(--accent);
+    text-decoration-color: currentColor;
+  }
+
+  .admin-stats-user-filter:focus-visible {
+    outline: 2px solid var(--admin-ring);
+    outline-offset: 3px;
+  }
+
+  .admin-stats-user-filter--count {
+    display: inline-block;
+  }
+
+  .admin-stats-user-filter--badge {
+    display: block;
+    border-radius: 999px;
+  }
+
   .admin-payments-user-cell {
     display: flex;
     align-items: center;

@@ -322,6 +322,10 @@ export function createTariffsStore({
       flash(at("tariff_error_key_exists", {}, "A tariff with this key already exists"));
       return;
     }
+    if (s.tariffEditingKey && s.tariffEditingKey !== tariff.key) {
+      const legacyKeys = normalizeUuidList(tariff.legacy_keys).filter((key) => key !== tariff.key);
+      tariff.legacy_keys = [...new Set([...legacyKeys, s.tariffEditingKey])];
+    }
     const current = catalog.tariffs || [];
     const tariffs = s.tariffEditingKey
       ? current.map((item) => (item.key === s.tariffEditingKey ? tariff : item))

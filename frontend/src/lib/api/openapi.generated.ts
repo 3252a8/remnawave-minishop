@@ -4076,6 +4076,8 @@ export interface components {
       hwid_device_packages: components["schemas"]["HwidDevicePackageSet"] | null;
       /** Key */
       key: string;
+      /** Legacy Keys */
+      legacy_keys?: string[];
       /**
        * Monthly Gb
        * @default null

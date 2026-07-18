@@ -14,6 +14,7 @@ export interface TariffCatalogDraft extends UnknownRecord {
 export interface TariffDraft extends UnknownRecord {
   defaultCurrency: string;
   key: string;
+  legacyKeys: unknown;
   nameRu: string;
   nameEn: string;
   descriptionRu: string;
@@ -75,6 +76,7 @@ export function emptyTariffDraft(): TariffDraft {
   return {
     defaultCurrency: "rub",
     key: "",
+    legacyKeys: [],
     nameRu: "",
     nameEn: "",
     descriptionRu: "",
@@ -223,6 +225,7 @@ export function draftFromTariff(tariff: UnknownRecord, defaultCurrency = "rub"):
     ...emptyTariffDraft(),
     defaultCurrency: currency,
     key: String(tariff.key || ""),
+    legacyKeys: tariff.legacy_keys || [],
     nameRu: names.ru || "",
     nameEn: names.en || "",
     descriptionRu: descriptions.ru || "",
@@ -370,6 +373,8 @@ export function tariffFromDraft(draft: TariffDraft, fallbackCurrency = "rub"): U
     billing_model: draft.billing_model,
     enabled: Boolean(draft.enabled),
   };
+  const legacyKeys = normalizeUuidList(draft.legacyKeys).filter((item) => item !== key);
+  if (legacyKeys.length) tariff.legacy_keys = [...new Set(legacyKeys)];
 
   const hwidLimit = parseIntNumber(draft.hwid_device_limit);
   if (hwidLimit !== null) tariff.hwid_device_limit = hwidLimit;

@@ -5508,6 +5508,13 @@
             "title": "Key",
             "type": "string"
           },
+          "legacy_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Legacy Keys",
+            "type": "array"
+          },
           "monthly_gb": {
             "anyOf": [
               {

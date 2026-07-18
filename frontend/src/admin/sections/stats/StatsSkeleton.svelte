@@ -4,7 +4,6 @@
   import {
     AdminDashboardGrid,
     AdminDashboardStack,
-    AdminSectionHeader,
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
 
@@ -20,10 +19,9 @@
 </script>
 
 <AdminDashboardStack>
-  <AdminSectionHeader title={at("stats_section_audience", {}, "")} />
   <AdminDashboardGrid columns={3}>
     {#each Array(3) as _, i (i)}
-      <Card.Root class="admin-cn-card-skeleton">
+      <Card.Root class="admin-cn-card-skeleton admin-stats-audience-card">
         <Card.Header>
           <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"></span>
           <span
@@ -42,10 +40,6 @@
     {/each}
   </AdminDashboardGrid>
 
-  <AdminSectionHeader
-    title={at("stats_section_revenue", {}, "")}
-    description={at("stats_section_revenue_hint", {}, "")}
-  />
   <Card.Root class="admin-cn-card-skeleton admin-cn-card-skeleton--tall">
     <Card.Header>
       <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"></span>
@@ -106,11 +100,13 @@
     </Card.Content>
   </Card.Root>
 
-  <AdminSectionHeader
-    title={at("stats_section_panel", {}, "")}
-    description={at("stats_section_panel_hint", {}, "")}
-  />
   <Card.Root class="admin-cn-card-skeleton admin-cn-card-skeleton--tall">
+    <Card.Header class="admin-cn-card-header--lead">
+      <Card.Title class="admin-cn-card-title--section">
+        {at("stats_section_panel", {}, "")}
+      </Card.Title>
+      <Card.Description>{at("stats_section_panel_hint", {}, "")}</Card.Description>
+    </Card.Header>
     <Card.Content class="admin-cn-card-content admin-panel-dash-card">
       <div class="admin-panel-dash">
         <div class="admin-panel-dash-tiles" aria-hidden="true">
@@ -183,6 +179,7 @@
       <AdminTableSkeleton
         {headers}
         rows={5}
+        rowHeight={62}
         widths={["48px", "148px", "88px", "72px", "72px", "78px", "82px", "140px", "72px", "96px"]}
       />
     </Card.Content>

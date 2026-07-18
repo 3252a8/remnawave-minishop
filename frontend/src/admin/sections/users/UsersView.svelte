@@ -327,6 +327,9 @@
     <AdminTableSkeleton
       headers={userTableHeaders}
       rows={USERS_PAGE_SIZE}
+      rowHeight={76}
+      preserveRowHeightOnMobile
+      class="admin-users-table"
       widths={["220px", "128px", "112px", "78px", "88px", "96px", "112px", "112px"]}
     />
   {:else if !usersTable.rows.length}

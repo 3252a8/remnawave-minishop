@@ -42,6 +42,7 @@ async def send_user_notification_email(
     session: AsyncSession | None = None,
     audit_event_type: str | None = None,
     audit_content: str | None = None,
+    raise_on_error: bool = False,
 ) -> bool:
     if not settings.email_auth_configured:
         return False
@@ -96,4 +97,6 @@ async def send_user_notification_email(
         return True
     except Exception:
         logger.exception("Failed to send user notification email to %s.", recipient)
+        if raise_on_error:
+            raise
         return False

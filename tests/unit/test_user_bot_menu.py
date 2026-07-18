@@ -151,6 +151,36 @@ class UserBotMenuTests(unittest.TestCase):
         self.assertIn(expected, self._url_buttons(main_markup))
         self.assertIn(expected, self._url_buttons(bot_markup))
 
+    def test_support_telegram_shortcuts_are_normalized_in_bot_menus(self):
+        expected = (
+            self.i18n.gettext("en", "menu_support_button"),
+            "https://t.me/help_center_bot",
+        )
+
+        for raw in ("@help_center_bot", "t.me/help_center_bot"):
+            with self.subTest(raw=raw):
+                self.settings.SUPPORT_LINK = raw
+                main_markup = get_main_menu_inline_keyboard("en", self.i18n, self.settings)
+                bot_markup = get_bot_interface_inline_keyboard("en", self.i18n, self.settings)
+
+                self.assertIn(expected, self._url_buttons(main_markup))
+                self.assertIn(expected, self._url_buttons(bot_markup))
+
+    def test_invalid_support_link_cannot_remove_other_menu_buttons(self):
+        self.settings.SUPPORT_LINK = "not a link"
+
+        markup = get_main_menu_inline_keyboard("en", self.i18n, self.settings)
+
+        self.assertFalse(
+            any(
+                button.text == self.i18n.gettext("en", "menu_support_button")
+                for row in markup.inline_keyboard
+                for button in row
+            )
+        )
+        self.assertIn("main_action:bot_interface", self._callback_data(markup))
+        self.assertIn("main_action:info", self._callback_data(markup))
+
     def test_main_menu_shows_trial_button_as_mini_app_deeplink_when_available(self):
         markup = get_main_menu_inline_keyboard(
             "en",

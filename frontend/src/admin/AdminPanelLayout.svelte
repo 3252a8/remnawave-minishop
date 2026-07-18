@@ -15,6 +15,7 @@
   import type { SettingsSavedPayload } from "$lib/admin/stores/settingsStore";
   import type { TranslationsSavedPayload } from "$lib/admin/stores/translationsStore";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
+  import type { UsersFilter, UsersRouteFilters } from "$lib/admin/usersRouteFilters";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type SettingsPath = string[];
@@ -31,6 +32,7 @@
   type MoneyFormatter = (value: unknown, currency?: string | null) => string;
   type BadgeVariant = "success" | "danger" | "warning" | "muted";
   type SupportStoreBridge = { stats?: { total_unread_admin?: number | null } | null };
+  type LogsStoreBridge = { logsTotal?: number | null };
   type AdsStoreBridge = { setCreateOpen: (open: boolean) => void };
   type PromosStoreBridge = { setCreateOpen: (open: boolean) => void };
   type TariffsStoreBridge = { openCreateTariff: () => void };
@@ -64,6 +66,7 @@
     initialTicketId,
     languageBusy,
     languageOptions,
+    logsStore,
     meta,
     NAV_GROUPS,
     onClose,
@@ -73,6 +76,8 @@
     onOpenPaymentUserCard,
     onOpenSettingsPath,
     onOpenUserCard,
+    onOpenUsersFilter,
+    onUsersFiltersChange,
     onSaveSettings,
     onSaveTranslations,
     onSetActive,
@@ -124,6 +129,7 @@
     initialTicketId: number | null;
     languageBusy: boolean;
     languageOptions: LanguageOption[];
+    logsStore: LogsStoreBridge;
     meta: SectionMeta;
     NAV_GROUPS: NavGroup[];
     onClose: () => void;
@@ -133,6 +139,8 @@
     onOpenPaymentUserCard: (userId: unknown) => void;
     onOpenSettingsPath: (path?: unknown) => void;
     onOpenUserCard: (userId: unknown) => void;
+    onOpenUsersFilter: (filter: UsersFilter) => void;
+    onUsersFiltersChange: (filters: UsersRouteFilters) => void;
     onSaveSettings: (payload: SettingsSavedPayload) => void | Promise<void>;
     onSaveTranslations: (payload: TranslationsSavedPayload) => void | Promise<void>;
     onSetActive: (id: string) => void;
@@ -384,7 +392,14 @@
           <Menu size={18} />
         </button>
         <div class="admin-header-title">
-          <h2>{meta.title}</h2>
+          <div class="admin-header-title-line">
+            <h2>{meta.title}</h2>
+            {#if active === "logs"}
+              <span class="admin-header-count" title={at("total", {}, "Total")}
+                >{Number(logsStore.logsTotal || 0)}</span
+              >
+            {/if}
+          </div>
           {#if meta.subtitle}<small>{meta.subtitle}</small>{/if}
         </div>
       </div>
@@ -437,6 +452,8 @@
               {appFaviconUrl}
               {appFaviconUseCustom}
               {onOpenUserCard}
+              {onOpenUsersFilter}
+              {onUsersFiltersChange}
               {onOpenSettingsPath}
               {onSettingsPathChange}
               {initialTicketId}

@@ -22,6 +22,7 @@ from bot.handlers.admin.sync_admin import (
     _should_update_lifetime_used_traffic,
     _subscription_update_delta,
 )
+from bot.handlers.admin.sync_admin_common import _subscription_update_reason_labels
 from db.models import Subscription
 
 
@@ -417,6 +418,21 @@ def test_subscription_update_delta_returns_only_changed_fields():
         "is_active": False,
         "status_from_panel": "EXPIRED",
     }
+
+
+def test_subscription_update_reason_labels_separate_connection_activity():
+    assert _subscription_update_reason_labels({"last_connected_at": object()}) == [
+        "subscription_last_connected_at_updated"
+    ]
+    assert _subscription_update_reason_labels(
+        {
+            "end_date": object(),
+            "last_connected_at": object(),
+        }
+    ) == [
+        "subscription_updated",
+        "subscription_last_connected_at_updated",
+    ]
 
 
 def test_lifetime_traffic_update_waits_for_time_window_for_small_delta():

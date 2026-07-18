@@ -271,6 +271,8 @@
       <AdminTableSkeleton
         headers={backupHeaders}
         rows={6}
+        rowHeight={62}
+        class="backups-table"
         widths={["36px", "minmax(220px, 1fr)", "150px", "80px", "150px", "120px"]}
       />
     {:else if !archives?.length}

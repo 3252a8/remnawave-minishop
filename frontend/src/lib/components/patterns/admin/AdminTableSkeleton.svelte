@@ -7,9 +7,26 @@
     rows?: number;
     actionColumn?: boolean;
     widths?: string[];
+    class?: string;
+    rowHeight?: number;
+    preserveRowHeightOnMobile?: boolean;
   };
 
-  let { headers = [], rows = 6, actionColumn = false, widths = [] }: Props = $props();
+  let {
+    headers = [],
+    rows = 6,
+    actionColumn = false,
+    widths = [],
+    class: className = "",
+    rowHeight = 48,
+    preserveRowHeightOnMobile = false,
+  }: Props = $props();
+
+  const tableClass = $derived(
+    [className, preserveRowHeightOnMobile ? "admin-table-skeleton--fixed-mobile-rows" : ""]
+      .filter(Boolean)
+      .join(" ")
+  );
 
   function widthFor(index: number): string {
     if (widths[index]) return widths[index];
@@ -20,7 +37,7 @@
   }
 </script>
 
-<AdminTable skeleton>
+<AdminTable skeleton class={tableClass} style={`--admin-table-skeleton-row-height:${rowHeight}px`}>
   <thead>
     <tr>
       {#each headers as header}
@@ -34,7 +51,7 @@
     {#each Array(rows) as _, rowIndex (rowIndex)}
       <tr>
         {#each headers as _header, colIndex (`${rowIndex}-${colIndex}`)}
-          <td>
+          <td data-label={_header}>
             <Skeleton variant="line" width={widthFor(colIndex)} />
           </td>
         {/each}

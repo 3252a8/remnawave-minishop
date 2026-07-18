@@ -238,13 +238,15 @@ def test_wata_refresh_finds_paid_transaction_by_order_id_and_finalizes(monkeypat
         order_id=None,
         payment_link_id=None,
         status=None,
+        statuses=None,
         limit=5,
         profile=None,
     ):
         assert order_id == "465"
         assert payment_link_id is None
-        assert status == "Paid"
-        assert limit == 5
+        assert status is None
+        assert statuses == ("Paid", "Declined")
+        assert limit == 10
         return True, {
             "items": [
                 {
@@ -437,6 +439,7 @@ def test_wata_hwid_payment_finalizes_purchased_device_count(monkeypatch):
         order_id=None,
         payment_link_id=None,
         status=None,
+        statuses=None,
         limit=5,
         profile=None,
     ):
@@ -875,7 +878,7 @@ def test_refresh_marks_expired_wata_link_as_canceled(monkeypatch):
     )
     updates = []
 
-    async def find_transaction_for_payment(_payment, *, status):
+    async def find_final_transaction_for_payment(_payment):
         return None
 
     async def get_payment_link(payment_link_id, *, profile=None):
@@ -900,7 +903,7 @@ def test_refresh_marks_expired_wata_link_as_canceled(monkeypatch):
         assert payment_id == payment.payment_id
         return payment
 
-    service._find_transaction_for_payment = find_transaction_for_payment
+    service._find_final_transaction_for_payment = find_final_transaction_for_payment
     service.get_payment_link = get_payment_link
     monkeypatch.setattr(
         wata_service.payment_dal,

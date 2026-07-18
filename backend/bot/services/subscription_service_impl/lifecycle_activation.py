@@ -44,8 +44,13 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         sale_mode_context = parse_sale_mode_context(sale_mode, tariff_key)
         sale_mode_base = sale_mode_context.base
         tariff_key = sale_mode_context.tariff_key
+        tariffs_config = self._tariffs_config()
+        if tariffs_config and tariff_key:
+            resolved_tariff = tariffs_config.get(tariff_key)
+            if resolved_tariff is not None:
+                tariff_key = resolved_tariff.key
         if sale_mode_base in {"traffic", "traffic_package"} or (
-            getattr(self.settings, "traffic_sale_mode", False) and not self._tariffs_config()
+            getattr(self.settings, "traffic_sale_mode", False) and not tariffs_config
         ):
             target_gb = traffic_gb if traffic_gb is not None else float(months)
             result = await self._activate_traffic_package(

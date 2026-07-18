@@ -30,6 +30,15 @@
     withRoutePrefix,
   } from "../lib/webapp/routes.js";
   import { buildAdminPaymentsExportPath } from "../lib/webapp/publicApi";
+  import {
+    DEFAULT_USERS_ROUTE_FILTERS,
+    normalizeUsersRouteFilters,
+    readUsersRouteFilters,
+    usersRouteFiltersEqual,
+    writeUsersRouteFilters,
+    type UsersFilter,
+    type UsersRouteFilters,
+  } from "../lib/admin/usersRouteFilters";
   import type { AdminSectionDescriptor } from "./sections/registry";
   import type { SettingsSavedPayload } from "../lib/admin/stores/settingsStore";
   import type { TariffsCatalog } from "../lib/admin/stores/tariffsStore";
@@ -131,6 +140,7 @@
     adminQueryClient,
     adsStore,
     healthStore,
+    logsStore,
     paymentsStore,
     promosStore,
     settingsStore,
@@ -200,6 +210,10 @@
   let lastInitialSection = $state(initialActive);
   let settingsPath = $state<SettingsPath>(initialSettingsPathSnapshot);
   let lastInitialSettingsPathKey = $state(settingsPathKey(initialSettingsPathSnapshot));
+
+  if (initialActive === "users") {
+    applyUsersRouteFilters(readCurrentUsersRouteFilters());
+  }
 
   $effect(() => {
     if (VALID_SECTIONS.length && !VALID_SECTIONS.includes(active)) {
@@ -298,6 +312,68 @@
     paymentsStore.closePayment();
     supportStore.closeTicketView();
     onSectionChange(next);
+    replaceCurrentUsersRouteFilters(
+      next === "users" ? currentUsersRouteFilters() : DEFAULT_USERS_ROUTE_FILTERS
+    );
+  }
+
+  function currentUsersRouteFilters(): UsersRouteFilters {
+    return normalizeUsersRouteFilters({
+      usersFilter: usersStore.usersFilter,
+      usersPanelStatus: usersStore.usersPanelStatus,
+      usersPremiumTraffic: usersStore.usersPremiumTraffic,
+    });
+  }
+
+  function readCurrentUsersRouteFilters(): UsersRouteFilters {
+    if (typeof window === "undefined") return DEFAULT_USERS_ROUTE_FILTERS;
+    return readUsersRouteFilters(window.location.search);
+  }
+
+  function applyUsersRouteFilters(
+    filters: UsersRouteFilters,
+    { resetQuery = false }: { resetQuery?: boolean } = {}
+  ): boolean {
+    const previous = currentUsersRouteFilters();
+    const changed = !usersRouteFiltersEqual(previous, filters);
+    if (!changed && !resetQuery) return false;
+    usersStore.updateState({
+      ...filters,
+      usersPage: 0,
+      ...(resetQuery ? { usersQuery: "" } : {}),
+    });
+    return changed;
+  }
+
+  function replaceCurrentUsersRouteFilters(filters: UsersRouteFilters): void {
+    if (typeof window === "undefined" || window.location.protocol === "file:") return;
+    const params = writeUsersRouteFilters(window.location.search, filters);
+    const search = params.toString();
+    const nextUrl = `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (currentUrl !== nextUrl) {
+      window.history.replaceState(window.history.state, "", nextUrl);
+    }
+  }
+
+  function onUsersFiltersChange(filters: UsersRouteFilters): void {
+    if (active === "users") replaceCurrentUsersRouteFilters(filters);
+  }
+
+  function openUsersFilter(filter: UsersFilter): void {
+    const filters = normalizeUsersRouteFilters({
+      ...DEFAULT_USERS_ROUTE_FILTERS,
+      usersFilter: filter,
+    });
+    applyUsersRouteFilters(filters, { resetQuery: true });
+    sidebarOpen = false;
+    usersStore.closeUser();
+    paymentsStore.closePayment();
+    supportStore.closeTicketView();
+    active = normalizeSection("users");
+    usersStore.setActive(active);
+    onSectionChange(active);
+    replaceCurrentUsersRouteFilters(filters);
   }
 
   function openSettingsPath(path: unknown = []): void {
@@ -366,9 +442,20 @@
   }
 
   function onPopState(): void {
+    const previousActive = active;
     active = readSectionFromPath();
     settingsPath = active === "settings" ? readSettingsPathFromPath() : [];
     sidebarOpen = false;
+    if (active === "users") {
+      const filters = readCurrentUsersRouteFilters();
+      const changed = applyUsersRouteFilters(filters, {
+        resetQuery:
+          previousActive !== "users" ||
+          !usersRouteFiltersEqual(currentUsersRouteFilters(), filters),
+      });
+      replaceCurrentUsersRouteFilters(filters);
+      if (previousActive === "users" && changed) void usersStore.loadUsers();
+    }
     const userId = readUserIdFromPath();
     const paymentUserId = active === "payments" ? readPaymentUserIdFromPath() : null;
     const contextualUserId = paymentUserId || userId;
@@ -501,6 +588,7 @@
     adminQueryClient.mount();
     if (typeof window !== "undefined") {
       window.addEventListener("popstate", onPopState);
+      if (active === "users") replaceCurrentUsersRouteFilters(currentUsersRouteFilters());
     }
     void healthStore.loadHealth();
     // Feature flags arrive with the settings manifest; without this eager
@@ -579,6 +667,7 @@
   initialTicketId={readSupportTicketIdFromPath()}
   {languageBusy}
   {languageOptions}
+  {logsStore}
   {meta}
   {NAV_GROUPS}
   {onClose}
@@ -588,6 +677,8 @@
   onOpenPaymentUserCard={openPaymentUserCard}
   onOpenSettingsPath={openSettingsPath}
   onOpenUserCard={openSectionUserCard}
+  onOpenUsersFilter={openUsersFilter}
+  {onUsersFiltersChange}
   onSaveSettings={onSettingsSaved}
   onSaveTranslations={onTranslationsSaved}
   onSetActive={setActive}

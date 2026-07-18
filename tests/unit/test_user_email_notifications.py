@@ -31,6 +31,11 @@ class _FakeEmailService:
         self.sent.append({"email": email, "content": content})
 
 
+class _FailingEmailService(_FakeEmailService):
+    async def send_rendered_email(self, *, email, content):
+        raise RuntimeError("smtp timeout")
+
+
 def _settings(**overrides):
     values = {
         "email_auth_configured": True,
@@ -100,6 +105,22 @@ class SendUserNotificationEmailTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertFalse(sent)
         self.assertEqual(_FakeEmailService.instances, [])
+
+    async def test_can_surface_delivery_error_for_retrying_callers(self):
+        user = SimpleNamespace(email="user@example.com", language_code="en")
+
+        with (
+            patch.object(module, "EmailAuthService", _FailingEmailService),
+            self.assertRaisesRegex(RuntimeError, "smtp timeout"),
+        ):
+            await module.send_user_notification_email(
+                settings=_settings(),
+                i18n=_FakeI18n(),
+                user=user,
+                subject_key="email_payment_failed_subject",
+                message_text="Payment failed",
+                raise_on_error=True,
+            )
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -356,6 +356,15 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     SUBSCRIPTION_NOTIFY_DAYS_BEFORE: int = Field(default=3)
     SUBSCRIPTION_NOTIFY_HOURS_BEFORE: int = Field(default=3)
     SUBSCRIPTION_NOTIFICATION_WORKER_TICK_SECONDS: int = Field(default=300)
+    TORRENT_BLOCKER_NOTIFICATIONS_ENABLED: bool = Field(default=False)
+    TORRENT_BLOCKER_TELEGRAM_NOTIFICATIONS_ENABLED: bool = Field(default=True)
+    TORRENT_BLOCKER_EMAIL_NOTIFICATIONS_ENABLED: bool = Field(default=False)
+    TORRENT_BLOCKER_NOTIFICATION_COOLDOWN_SECONDS: int = Field(
+        default=3600,
+        ge=0,
+        le=365 * 24 * 60 * 60,
+    )
+    TORRENT_BLOCKER_NOTIFICATION_INCLUDE_IP: bool = Field(default=False)
 
     REFERRAL_BONUS_DAYS_INVITER_1_MONTH: int | None = Field(
         default=3, alias="REFERRAL_BONUS_DAYS_1_MONTH"

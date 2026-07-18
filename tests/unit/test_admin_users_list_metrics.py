@@ -108,6 +108,85 @@ class AdminUsersListMetricsTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("subscriptions.is_active is true", sql)
         self.assertIn("subscriptions.end_date >", sql)
 
+    async def test_subscription_segment_filters_match_dashboard_priority(self):
+        expected_conditions = {
+            "paid": ("active_subscription_segment_flags.has_paid_subscription = 1",),
+            "trial": (
+                "active_subscription_segment_flags.has_paid_subscription = 0",
+                "active_subscription_segment_flags.has_trial_subscription = 1",
+            ),
+            "free": (
+                "active_subscription_segment_flags.has_paid_subscription = 0",
+                "active_subscription_segment_flags.has_trial_subscription = 0",
+                "active_subscription_segment_flags.has_free_subscription = 1",
+            ),
+        }
+
+        for filter_value, conditions in expected_conditions.items():
+            with self.subTest(filter_value=filter_value):
+                session = SimpleNamespace(
+                    execute=AsyncMock(side_effect=[FakeResult([]), FakeResult(scalar_value=0)])
+                )
+
+                await users_module._filter_and_sort_users(
+                    session,
+                    query="",
+                    filter_value=filter_value,
+                    panel_status="all",
+                    premium_traffic="all",
+                    sort_value="registered_desc",
+                    page=0,
+                    page_size=25,
+                )
+
+                sql = _compile_sql(session.execute.await_args_list[0].args[0])
+                self.assertIn("subscriptions.is_active is true", sql)
+                self.assertIn("subscriptions.end_date >", sql)
+                for condition in conditions:
+                    self.assertIn(condition, sql)
+
+    async def test_dashboard_counter_filters_match_statistics_queries(self):
+        expected_conditions = {
+            "active_today": ("users.registration_date >=",),
+            "referred": ("users.referred_by_id is not null",),
+            "active_subscription": (
+                "subscriptions_1.is_active is true",
+                "subscriptions_1.end_date >",
+                "exists",
+            ),
+            "inactive_subscription": (
+                "subscriptions_1.is_active is true",
+                "subscriptions_1.end_date >",
+                "not (exists",
+            ),
+            "expired_subscription": (
+                "lower(coalesce(subscriptions_1.status_from_panel, '')) = 'expired'",
+                "subscriptions_2.is_active is true",
+                "not (exists",
+            ),
+        }
+
+        for filter_value, conditions in expected_conditions.items():
+            with self.subTest(filter_value=filter_value):
+                session = SimpleNamespace(
+                    execute=AsyncMock(side_effect=[FakeResult([]), FakeResult(scalar_value=0)])
+                )
+
+                await users_module._filter_and_sort_users(
+                    session,
+                    query="",
+                    filter_value=filter_value,
+                    panel_status="all",
+                    premium_traffic="all",
+                    sort_value="registered_desc",
+                    page=0,
+                    page_size=25,
+                )
+
+                sql = _compile_sql(session.execute.await_args_list[0].args[0])
+                for condition in conditions:
+                    self.assertIn(condition, sql)
+
     async def test_bulk_user_statuses_treats_expired_active_rows_as_expired(self):
         now = datetime.now(UTC)
         session = SimpleNamespace(

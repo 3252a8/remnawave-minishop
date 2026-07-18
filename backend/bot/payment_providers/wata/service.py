@@ -1,7 +1,7 @@
 import base64
 import json
 import logging
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -48,6 +48,7 @@ from .config import (
     _wata_success_status,
     _wata_transaction_id,
 )
+from .rate_limit import WataGetRateLimiter, retry_after_seconds
 
 if TYPE_CHECKING:
     from bot.services.referral_service import ReferralService
@@ -81,6 +82,7 @@ class WataService(HttpClientMixin):
         self.referral_service = referral_service
         self._default_return_url = default_return_url
         self._cached_public_key_pem: dict[str, str | None] = {}
+        self._get_rate_limiter = WataGetRateLimiter()
 
         self._init_http_client(total_timeout=lambda: self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS)
         if not self.configured:
@@ -211,13 +213,42 @@ class WataService(HttpClientMixin):
             "failRedirectUrl": self._failed_url_for_profile(profile),
             "expirationDateTime": expires_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
-        return await post_json_request(
+        result = await post_json_request(
             session,
             f"{self.base_url}/links",
             body=body,
             headers=self._auth_headers(profile),
             log_prefix=f"{profile.log_label} create_payment_link",
             is_success=_wata_success_status,
+        )
+        success, data = result
+        payment_link_id = first_value(data, "id", "paymentLinkId") if success else None
+        if payment_link_id:
+            self._get_rate_limiter.remember(
+                self._get_rate_limiter.cache_key("link", profile.provider, str(payment_link_id)),
+                result,
+            )
+        return result
+
+    async def _rate_limited_get_json(
+        self,
+        resource: str,
+        object_id: str,
+        url: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        log_prefix: str,
+        profile: WataTerminalProfile,
+    ) -> tuple[bool, dict[str, Any]]:
+        cache_key = self._get_rate_limiter.cache_key(resource, profile.provider, object_id)
+        return await self._get_rate_limiter.run(
+            cache_key,
+            lambda: self._get_json(
+                url,
+                params=params,
+                log_prefix=log_prefix,
+                profile=profile,
+            ),
         )
 
     async def _get_json(
@@ -260,7 +291,18 @@ class WataService(HttpClientMixin):
                         response.status,
                         response_data,
                     )
-                    return False, {"status": response.status, "message": response_data}
+                    error_data: dict[str, Any] = {
+                        "status": response.status,
+                        "message": response_data,
+                    }
+                    if response.status == 429:
+                        retry_after = retry_after_seconds(
+                            response.headers.get("Retry-After"),
+                            response_data if isinstance(response_data, Mapping) else None,
+                        )
+                        if retry_after is not None:
+                            error_data["retry_after_seconds"] = retry_after
+                    return False, error_data
                 return True, response_data
         except Exception as exc:
             logger.exception("%s: request failed.", log_prefix)
@@ -272,10 +314,13 @@ class WataService(HttpClientMixin):
         *,
         profile: WataTerminalProfile | None = None,
     ) -> tuple[bool, dict[str, Any]]:
-        return await self._get_json(
+        resolved_profile = profile or self.profile_for_method(WATA_PROVIDER)
+        return await self._rate_limited_get_json(
+            "link",
+            payment_link_id,
             f"{self.base_url}/links/{payment_link_id}",
             log_prefix="Wata get_payment_link",
-            profile=profile,
+            profile=resolved_profile,
         )
 
     async def try_reuse_pending_link(self, payment: Any) -> str | None:
@@ -334,10 +379,13 @@ class WataService(HttpClientMixin):
         *,
         profile: WataTerminalProfile | None = None,
     ) -> tuple[bool, dict[str, Any]]:
-        return await self._get_json(
+        resolved_profile = profile or self.profile_for_method(WATA_PROVIDER)
+        return await self._rate_limited_get_json(
+            "transaction",
+            transaction_id,
             f"{self.base_url}/transactions/{transaction_id}",
             log_prefix="Wata get_transaction",
-            profile=profile,
+            profile=resolved_profile,
         )
 
     async def search_transactions(
@@ -346,24 +394,32 @@ class WataService(HttpClientMixin):
         order_id: str | None = None,
         payment_link_id: str | None = None,
         status: str | None = None,
+        statuses: Sequence[str] | None = None,
         limit: int = 5,
         profile: WataTerminalProfile | None = None,
     ) -> tuple[bool, dict[str, Any]]:
         params: dict[str, Any] = {
-            "skipCount": 0,
             "maxResultCount": max(1, min(int(limit or 5), 1000)),
         }
         if order_id:
             params["orderId"] = order_id
         if payment_link_id:
-            params["paymentLinkId"] = payment_link_id
-        if status:
-            params["statuses"] = status
-        return await self._get_json(
-            f"{self.base_url}/transactions",
+            params["paymentLinkIds"] = [payment_link_id]
+        requested_statuses = tuple(statuses or ())
+        if status and status not in requested_statuses:
+            requested_statuses = (*requested_statuses, status)
+        if requested_statuses:
+            params["statuses"] = list(requested_statuses)
+
+        resolved_profile = profile or self.profile_for_method(WATA_PROVIDER)
+        object_id = order_id or "*"
+        return await self._rate_limited_get_json(
+            "transaction-search",
+            object_id,
+            f"{self.base_url}/v2/transactions",
             params=params,
             log_prefix="Wata search_transactions",
-            profile=profile,
+            profile=resolved_profile,
         )
 
     async def _get_public_key_pem(
@@ -500,11 +556,9 @@ class WataService(HttpClientMixin):
             transaction_id and provider_payment_id and transaction_id == provider_payment_id
         )
 
-    async def _find_transaction_for_payment(
+    async def _find_final_transaction_for_payment(
         self,
         payment: Any,
-        *,
-        status: str,
     ) -> dict[str, Any] | None:
         profile = self.profile_for_payment(payment)
         if not self.profile_enabled(profile.provider):
@@ -512,15 +566,19 @@ class WataService(HttpClientMixin):
         provider_payment_id = str(getattr(payment, "provider_payment_id", "") or "").strip()
         success, response_data = await self.search_transactions(
             order_id=str(payment.payment_id),
-            status=status,
-            limit=5,
+            statuses=("Paid", "Declined"),
+            limit=10,
             profile=profile,
         )
-        if success:
-            for item in response_data.get("items") or []:
+        if not success:
+            return None
+
+        items = response_data.get("items") or []
+        for target_status in ("paid", "declined"):
+            for item in items:
                 if not isinstance(item, dict):
                     continue
-                if _normalized_wata_status(item) != status.lower():
+                if _normalized_wata_status(item) != target_status:
                     continue
                 if self._transaction_matches_payment(
                     item,
@@ -528,7 +586,6 @@ class WataService(HttpClientMixin):
                     provider_payment_id=provider_payment_id or None,
                 ) and self._payload_matches_profile(item, profile):
                     return item
-
         return None
 
     async def _mark_paid_from_payload(
@@ -757,22 +814,22 @@ class WataService(HttpClientMixin):
         }:
             return payment
 
-        paid_payload = await self._find_transaction_for_payment(payment, status="Paid")
-        if paid_payload:
+        final_payload = await self._find_final_transaction_for_payment(payment)
+        final_status = _normalized_wata_status(final_payload)
+        if final_payload and final_status == "paid":
             refreshed = await self._mark_paid_from_payload(
                 session,
                 payment,
-                paid_payload,
+                final_payload,
                 log_prefix="Wata status refresh",
             )
             return refreshed or payment
 
-        declined_payload = await self._find_transaction_for_payment(payment, status="Declined")
-        if declined_payload:
+        if final_payload and final_status == "declined":
             refreshed = await self._mark_declined_from_payload(
                 session,
                 payment,
-                declined_payload,
+                final_payload,
                 log_prefix="Wata status refresh",
                 notify_user=False,
             )

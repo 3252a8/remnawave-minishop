@@ -110,11 +110,21 @@ async def _handle_yookassa_event(ctx: PluginContext, payload: dict[str, Any]) ->
 
 async def _handle_panel_event(ctx: PluginContext, payload: dict[str, Any]) -> None:
     meta = payload.get("meta")
-    await ctx.require_panel_webhook_service().handle_event(
-        str(payload.get("event") or ""),
-        payload.get("user") or {},
-        meta=meta if isinstance(meta, dict) else None,
-    )
+    context = payload.get("context")
+    service = ctx.require_panel_webhook_service()
+    if isinstance(context, dict):
+        await service.handle_event(
+            str(payload.get("event") or ""),
+            payload.get("user") or {},
+            meta=meta if isinstance(meta, dict) else None,
+            context=context,
+        )
+    else:
+        await service.handle_event(
+            str(payload.get("event") or ""),
+            payload.get("user") or {},
+            meta=meta if isinstance(meta, dict) else None,
+        )
 
 
 async def _handle_panel_sync_event(ctx: PluginContext, payload: dict[str, Any]) -> None:

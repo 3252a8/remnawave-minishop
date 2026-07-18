@@ -314,7 +314,6 @@
 
     {#if loading}
       <div class="support-ticket-list-skeleton" aria-label={at("loading", {}, "Loading…")}>
-        );
         {#each Array(6) as _, index (index)}
           <article class="support-ticket-row-skeleton">
             <Skeleton variant="dot" width="38px" height="38px" />

@@ -33,6 +33,11 @@
   const panelSquadOptions: SelectOption[] = $derived(toPanelSquadOptions(panelSquads));
   const defaultCurrencyCode = $derived(getDefaultCurrencyCode(tariffsCatalog));
   const conversionCurrencyLabel = $derived(formatConversionCurrencyLabel(at, defaultCurrencyCode));
+  const legacyKeysText = $derived(
+    Array.isArray(tariffDraft.legacyKeys)
+      ? tariffDraft.legacyKeys.join(", ")
+      : String(tariffDraft.legacyKeys || "")
+  );
 
   function setDraftField(field: string, value: unknown): void {
     tariffsStore.updateDraftField(field, value);
@@ -94,6 +99,26 @@
         onValueChange={setBillingModel}
       />
     </div>
+  </div>
+
+  <div class="admin-form-row">
+    <Label.Root class="admin-field-label">
+      <span>{at("tariff_label_legacy_keys", {}, "Previous tariff keys")}</span>
+      <small
+        >{at(
+          "tariff_hint_legacy_keys",
+          {},
+          "Old keys kept for pending payments and existing subscriptions. Separate multiple keys with commas"
+        )}</small
+      >
+      <Input
+        class="input"
+        type="text"
+        placeholder={at("tariff_placeholder_legacy_keys", {}, "old-key, legacy")}
+        value={legacyKeysText}
+        oninput={draftInputHandler(tariffsStore, "legacyKeys")}
+      />
+    </Label.Root>
   </div>
 
   <div class="admin-action-row admin-action-row-bordered">

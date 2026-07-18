@@ -497,7 +497,9 @@
     <AdminTableSkeleton
       headers={promoHeaders}
       rows={6}
+      rowHeight={70}
       actionColumn
+      class="admin-promos-table"
       widths={["92px", "86px", "132px", "96px", "104px", "78px", "78px", "96px", "132px"]}
     />
   {:else if !promos.length}

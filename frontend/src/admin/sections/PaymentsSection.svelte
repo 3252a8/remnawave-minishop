@@ -112,6 +112,7 @@
     <AdminTableSkeleton
       headers={paymentHeaders}
       rows={8}
+      rowHeight={62}
       widths={["48px", "148px", "88px", "72px", "72px", "78px", "82px", "140px", "72px", "96px"]}
     />
   {:else if !paymentsTable.rows.length}

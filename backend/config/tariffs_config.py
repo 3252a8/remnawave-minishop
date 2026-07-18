@@ -177,6 +177,7 @@ class HwidDevicePackageSet(RootModel[dict[str, list[HwidDevicePackage]]]):
 
 class Tariff(BaseModel):
     key: str
+    legacy_keys: list[str] = Field(default_factory=list)
     names: dict[str, str] = Field(default_factory=dict)
     descriptions: dict[str, str] = Field(default_factory=dict)
     premium_names: dict[str, str] = Field(default_factory=dict)
@@ -217,6 +218,11 @@ class Tariff(BaseModel):
         if not self.key.strip():
             raise ValueError("tariff key must not be empty")
         self.key = self.key.strip()
+        self.legacy_keys = list(
+            dict.fromkeys(str(key).strip() for key in self.legacy_keys if str(key).strip())
+        )
+        if self.key in self.legacy_keys:
+            raise ValueError(f"tariff {self.key}: legacy_keys must not include the current key")
         self.squad_uuids = [uuid.strip() for uuid in self.squad_uuids if uuid.strip()]
         self.premium_squad_uuids = [
             uuid.strip() for uuid in self.premium_squad_uuids if uuid.strip()
@@ -431,9 +437,16 @@ class TariffsConfig(BaseModel):
         self.default_currency = normalize_currency_key(self.default_currency)
         if self.default_currency == STARS_TARIFF_CURRENCY:
             raise ValueError("default_currency must be a non-Stars payment currency")
-        keys = [tariff.key for tariff in self.tariffs]
-        if len(keys) != len(set(keys)):
-            raise ValueError("tariff keys must be unique")
+        key_owners: dict[str, str] = {}
+        for tariff in self.tariffs:
+            for key in (tariff.key, *tariff.legacy_keys):
+                previous_owner = key_owners.get(key)
+                if previous_owner is not None:
+                    raise ValueError(
+                        f"tariff keys and legacy_keys must be unique: {key} "
+                        f"is used by {previous_owner} and {tariff.key}"
+                    )
+                key_owners[key] = tariff.key
         active = [tariff for tariff in self.tariffs if tariff.enabled]
         if not active:
             raise ValueError("at least one enabled tariff is required")
@@ -447,7 +460,10 @@ class TariffsConfig(BaseModel):
         return [tariff for tariff in self.tariffs if tariff.enabled]
 
     def get(self, key: str) -> Tariff | None:
-        return next((tariff for tariff in self.tariffs if tariff.key == key), None)
+        return next(
+            (tariff for tariff in self.tariffs if tariff.key == key or key in tariff.legacy_keys),
+            None,
+        )
 
     def require(self, key: str) -> Tariff:
         tariff = self.get(key)

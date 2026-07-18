@@ -2,15 +2,21 @@
 # to mypy; this DAL intentionally reads loaded ORM instances.
 # mypy: disable-error-code="assignment,arg-type,operator"
 
-from datetime import UTC, datetime
+from datetime import UTC
 from typing import Any
 
-from sqlalchemy import and_, case, desc, func, or_
+from sqlalchemy import and_, case, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import aliased
 
 from ..models import Payment, Subscription, User
+from .user_subscription_segments import (
+    active_subscription_exists_for_user,
+    active_subscription_segment_flags_sq,
+    expired_subscription_exists_for_user,
+    subscription_segment_condition,
+)
 
 
 async def get_all_active_user_ids_for_broadcast(session: AsyncSession) -> list[int]:
@@ -123,76 +129,16 @@ async def get_enhanced_user_statistics(session: AsyncSession) -> dict[str, Any]:
     active_today = int(user_counts[2] or 0)
     referral_users = int(user_counts[3] or 0)
 
-    provider_value = func.lower(func.coalesce(Subscription.provider, ""))
-    panel_status_value = func.upper(func.coalesce(Subscription.status_from_panel, ""))
-    trial_subscription_condition = or_(
-        provider_value == "trial",
-        panel_status_value == "TRIAL",
-    )
-    paid_subscription_condition = and_(
-        provider_value != "",
-        provider_value != "trial",
-        panel_status_value != "TRIAL",
-    )
-    free_subscription_condition = and_(
-        provider_value == "",
-        panel_status_value != "TRIAL",
-    )
-
-    active_subscription_flags_sq = (
-        select(
-            Subscription.user_id.label("user_id"),
-            func.max(case((paid_subscription_condition, 1), else_=0)).label(
-                "has_paid_subscription"
-            ),
-            func.max(case((trial_subscription_condition, 1), else_=0)).label(
-                "has_trial_subscription"
-            ),
-            func.max(case((free_subscription_condition, 1), else_=0)).label(
-                "has_free_subscription"
-            ),
-        )
-        .join(User, Subscription.user_id == User.user_id)
-        .where(
-            and_(
-                Subscription.is_active == True,
-                Subscription.end_date > now,
-            )
-        )
-        .group_by(Subscription.user_id)
-        .subquery()
-    )
+    active_subscription_flags_sq = active_subscription_segment_flags_sq(now)
+    paid_segment = subscription_segment_condition("paid", active_subscription_flags_sq)
+    trial_segment = subscription_segment_condition("trial", active_subscription_flags_sq)
+    free_segment = subscription_segment_condition("free", active_subscription_flags_sq)
 
     subscription_counts_stmt = select(
         func.count(active_subscription_flags_sq.c.user_id),
-        func.coalesce(func.sum(active_subscription_flags_sq.c.has_paid_subscription), 0),
-        func.coalesce(
-            func.sum(
-                case(
-                    (
-                        active_subscription_flags_sq.c.has_paid_subscription == 0,
-                        active_subscription_flags_sq.c.has_trial_subscription,
-                    ),
-                    else_=0,
-                )
-            ),
-            0,
-        ),
-        func.coalesce(
-            func.sum(
-                case(
-                    (
-                        and_(
-                            active_subscription_flags_sq.c.has_paid_subscription == 0,
-                            active_subscription_flags_sq.c.has_trial_subscription == 0,
-                        ),
-                        active_subscription_flags_sq.c.has_free_subscription,
-                    ),
-                    else_=0,
-                )
-            ),
-            0,
-        ),
+        func.coalesce(func.sum(case((paid_segment, 1), else_=0)), 0),
+        func.coalesce(func.sum(case((trial_segment, 1), else_=0)), 0),
+        func.coalesce(func.sum(case((free_segment, 1), else_=0)), 0),
     )
     subscription_counts = (await session.execute(subscription_counts_stmt)).one()
     active_subscription_users = int(subscription_counts[0] or 0)
@@ -296,7 +242,7 @@ async def count_users_without_active_subscription_for_broadcast(session: AsyncSe
 
     stmt = select(func.count(User.user_id)).where(
         User.is_banned == False,
-        ~_active_subscription_exists_for_user(now),
+        ~active_subscription_exists_for_user(now),
     )
     result = await session.execute(stmt)
     return int(result.scalar_one() or 0)
@@ -343,47 +289,14 @@ async def count_users_without_any_subscription_for_broadcast(session: AsyncSessi
     return int(result.scalar_one() or 0)
 
 
-def _expired_subscription_exists_for_user(now: datetime) -> Any:
-    expired_subs = aliased(Subscription)
-    normalized_status = func.lower(func.coalesce(expired_subs.status_from_panel, ""))
-    blank_status = or_(
-        expired_subs.status_from_panel.is_(None),
-        expired_subs.status_from_panel == "",
-    )
-    expired_condition = or_(
-        normalized_status == "expired",
-        blank_status & expired_subs.is_active.is_(False),
-        expired_subs.end_date <= now,
-    )
-
-    return (
-        select(expired_subs.subscription_id)
-        .where(expired_subs.user_id == User.user_id, expired_condition)
-        .exists()
-    )
-
-
-def _active_subscription_exists_for_user(now: datetime) -> Any:
-    active_subs = aliased(Subscription)
-    return (
-        select(active_subs.subscription_id)
-        .where(
-            active_subs.user_id == User.user_id,
-            active_subs.is_active == True,
-            active_subs.end_date > now,
-        )
-        .exists()
-    )
-
-
 async def count_users_with_expired_subscription(session: AsyncSession) -> int:
     """Count users who have an expired subscription and no currently active subscription."""
     from datetime import datetime
 
     now = datetime.now(UTC)
     stmt = select(func.count(User.user_id)).where(
-        _expired_subscription_exists_for_user(now),
-        ~_active_subscription_exists_for_user(now),
+        expired_subscription_exists_for_user(now),
+        ~active_subscription_exists_for_user(now),
     )
     result = await session.execute(stmt)
     return int(result.scalar_one() or 0)
@@ -396,8 +309,8 @@ async def count_users_with_expired_subscription_for_broadcast(session: AsyncSess
     now = datetime.now(UTC)
     stmt = select(func.count(User.user_id)).where(
         User.is_banned == False,
-        _expired_subscription_exists_for_user(now),
-        ~_active_subscription_exists_for_user(now),
+        expired_subscription_exists_for_user(now),
+        ~active_subscription_exists_for_user(now),
     )
     result = await session.execute(stmt)
     return int(result.scalar_one() or 0)
@@ -410,8 +323,8 @@ async def get_user_ids_with_expired_subscription(session: AsyncSession) -> list[
     now = datetime.now(UTC)
     stmt = select(User.user_id).where(
         User.is_banned == False,
-        _expired_subscription_exists_for_user(now),
-        ~_active_subscription_exists_for_user(now),
+        expired_subscription_exists_for_user(now),
+        ~active_subscription_exists_for_user(now),
     )
     result = await session.execute(stmt)
     return list(result.scalars().all())

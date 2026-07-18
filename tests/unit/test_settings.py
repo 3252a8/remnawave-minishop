@@ -278,6 +278,47 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(support_settings.admin_notification_cooldown_seconds, 300)
         self.assertEqual(support_settings.admin_email_cooldown_seconds, 1800)
 
+    def test_support_link_normalizes_telegram_shortcuts(self):
+        for raw in ("@help_center_bot", "t.me/help_center_bot"):
+            with self.subTest(raw=raw):
+                settings = Settings(
+                    _env_file=None,
+                    BOT_TOKEN="token",
+                    POSTGRES_USER="app_user",
+                    POSTGRES_PASSWORD="app_password",
+                    SUPPORT_LINK=raw,
+                )
+
+                self.assertEqual(settings.SUPPORT_LINK, "https://t.me/help_center_bot")
+                self.assertEqual(
+                    settings.support_settings.link,
+                    "https://t.me/help_center_bot",
+                )
+
+    def test_support_link_rejects_values_that_cannot_form_a_button_url(self):
+        with self.assertRaises(ValidationError):
+            Settings(
+                _env_file=None,
+                BOT_TOKEN="token",
+                POSTGRES_USER="app_user",
+                POSTGRES_PASSWORD="app_password",
+                SUPPORT_LINK="not a link",
+            )
+
+    def test_support_link_preserves_external_https_url(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            SUPPORT_LINK="https://support.example.test/help",
+        )
+
+        self.assertEqual(
+            settings.support_settings.link,
+            "https://support.example.test/help",
+        )
+
     def test_panel_settings_view_reflects_panel_fields(self):
         settings = Settings(
             _env_file=None,
@@ -570,3 +611,37 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(settings.SUBSCRIPTION_NOTIFY_HOURS_BEFORE, 3)
         self.assertEqual(settings.SUBSCRIPTION_NOTIFICATION_WORKER_TICK_SECONDS, 300)
         self.assertTrue(settings.SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED)
+
+    def test_torrent_blocker_notifications_are_private_opt_in_by_default(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+        )
+
+        self.assertFalse(settings.TORRENT_BLOCKER_NOTIFICATIONS_ENABLED)
+        self.assertTrue(settings.TORRENT_BLOCKER_TELEGRAM_NOTIFICATIONS_ENABLED)
+        self.assertFalse(settings.TORRENT_BLOCKER_EMAIL_NOTIFICATIONS_ENABLED)
+        self.assertEqual(settings.TORRENT_BLOCKER_NOTIFICATION_COOLDOWN_SECONDS, 3600)
+        self.assertFalse(settings.TORRENT_BLOCKER_NOTIFICATION_INCLUDE_IP)
+
+    def test_torrent_blocker_notification_cooldown_cannot_be_negative(self):
+        with self.assertRaises(ValidationError):
+            Settings(
+                _env_file=None,
+                BOT_TOKEN="token",
+                POSTGRES_USER="app_user",
+                POSTGRES_PASSWORD="app_password",
+                TORRENT_BLOCKER_NOTIFICATION_COOLDOWN_SECONDS=-1,
+            )
+
+    def test_torrent_blocker_notification_cooldown_has_safe_upper_bound(self):
+        with self.assertRaises(ValidationError):
+            Settings(
+                _env_file=None,
+                BOT_TOKEN="token",
+                POSTGRES_USER="app_user",
+                POSTGRES_PASSWORD="app_password",
+                TORRENT_BLOCKER_NOTIFICATION_COOLDOWN_SECONDS=31536001,
+            )

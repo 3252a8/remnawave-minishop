@@ -47,6 +47,14 @@ BACKUP_SETTINGS = (
     "BACKUP_COMPOSE_ENABLED",
 )
 
+TORRENT_BLOCKER_NOTIFICATION_SETTINGS = (
+    "TORRENT_BLOCKER_NOTIFICATIONS_ENABLED",
+    "TORRENT_BLOCKER_TELEGRAM_NOTIFICATIONS_ENABLED",
+    "TORRENT_BLOCKER_EMAIL_NOTIFICATIONS_ENABLED",
+    "TORRENT_BLOCKER_NOTIFICATION_COOLDOWN_SECONDS",
+    "TORRENT_BLOCKER_NOTIFICATION_INCLUDE_IP",
+)
+
 TELEGRAM_ANTIFLOOD_SETTINGS = (
     "TELEGRAM_DROP_NON_PRIVATE_UPDATES",
     "TELEGRAM_ANTIFLOOD_ENABLED",
@@ -335,6 +343,30 @@ def test_backup_settings_i18n_keys_exist():
             assert field["i18n_description_key"] in messages
 
 
+def test_torrent_blocker_notification_settings_are_localized_and_grouped():
+    manifest = _manifest_by_key()
+
+    for setting_key in TORRENT_BLOCKER_NOTIFICATION_SETTINGS:
+        field = manifest[setting_key]
+        assert field["section"] == "notifications"
+        assert field["section_order"] == 7
+        assert field["subsection"] == "torrent_blocker"
+        assert field["i18n_subsection_key"] == "admin_settings_subsection_torrent_blocker"
+
+    cooldown = manifest["TORRENT_BLOCKER_NOTIFICATION_COOLDOWN_SECONDS"]
+    assert cooldown["type"] == "int"
+    assert cooldown["min"] == 0
+    assert cooldown["max"] == 31536000
+
+    for language in ("ru", "en"):
+        messages = _locale(language)
+        assert "admin_settings_subsection_torrent_blocker" in messages
+        for setting_key in TORRENT_BLOCKER_NOTIFICATION_SETTINGS:
+            field = manifest[setting_key]
+            assert field["i18n_label_key"] in messages
+            assert field["i18n_description_key"] in messages
+
+
 def test_telegram_antiflood_settings_i18n_keys_exist():
     manifest = _manifest_by_key()
 
@@ -448,6 +480,18 @@ def test_remnashop_migration_settings_i18n_keys_exist():
 def test_backup_required_numeric_settings_reject_empty_values():
     with pytest.raises(ValueError):
         coerce_value(get_field_by_key("BACKUP_INTERVAL_SECONDS"), "")
+
+
+def test_support_link_coercion_normalizes_telegram_shortcuts():
+    field = get_field_by_key("SUPPORT_LINK")
+
+    assert coerce_value(field, "@help_center_bot") == "https://t.me/help_center_bot"
+    assert coerce_value(field, "t.me/help_center_bot") == "https://t.me/help_center_bot"
+
+
+def test_support_link_coercion_rejects_invalid_button_urls():
+    with pytest.raises(ValueError):
+        coerce_value(get_field_by_key("SUPPORT_LINK"), "not a link")
 
 
 def test_trial_required_settings_reject_empty_values():
