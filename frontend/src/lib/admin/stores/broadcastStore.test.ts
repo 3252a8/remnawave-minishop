@@ -73,6 +73,31 @@ describe("broadcastStore", () => {
     expect(payload.channels).toEqual(["email"]);
   });
 
+  it("adds server-discovered audience options with localized labels", async () => {
+    const api = vi.fn().mockResolvedValue({
+      ok: true,
+      counts: { all: 2, "segment:priority": 1 },
+      audiences: [
+        {
+          target: "segment:priority",
+          label_key: "broadcast_target_priority",
+          fallback_label: "Priority users",
+          order: 10,
+        },
+      ],
+      email_enabled: false,
+    });
+    const store = makeStore(api);
+
+    await store.loadCounts();
+
+    expect(store.BROADCAST_TARGET_OPTIONS).toContainEqual({
+      value: "segment:priority",
+      label: "Priority users",
+    });
+    expect(store.broadcastCounts?.["segment:priority"]).toBe(1);
+  });
+
   it("sends broadcast buttons with Telegram preview requests", async () => {
     const api = vi.fn().mockResolvedValue({
       ok: true,

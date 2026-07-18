@@ -37,6 +37,8 @@ compatibility-breaking релиза.
   обязан иметь runtime-объект;
 - `ctx.panel_service`, `ctx.subscription_service`, `ctx.notification_service` и парные
   `ctx.require_*` helpers — типизированный доступ к core-сервисам без строковых ключей;
+- `ctx.audience_segmentation_service` и `ctx.require_audience_segmentation_service()` — регистрация
+  дополнительных аудиторий рассылки через `AudienceProvider`;
 - `ctx.get_service("my_service", MyService)` / `ctx.require_service("my_service", MyService)` —
   runtime-проверяемый доступ к сервисам, добавленным плагином.
 
@@ -75,3 +77,11 @@ Web-плагины получают один из двух scope из `bot.plugi
 необработанных исключений в handlers. Если reporter сам падает, ошибка логируется и не заменяет
 исходное исключение. Ключи сервисов остаются additive extension points: существующие сигнатуры
 хуков плагинов не меняются.
+
+## Дополнительные аудитории рассылки
+
+Плагин может в `setup(ctx)` зарегистрировать `AudienceProvider` в
+`ctx.require_audience_segmentation_service()`. Provider задаёт стабильный `target`, ключ и fallback
+локализованной подписи, async resolver идентификаторов пользователей и, опционально, отдельный
+async count resolver. Callback `is_available` позволяет динамически скрыть аудиторию и запретить её
+разрешение. Неизвестный или недоступный target никогда не откатывается к массовой аудитории.

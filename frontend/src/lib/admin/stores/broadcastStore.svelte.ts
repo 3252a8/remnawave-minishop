@@ -23,8 +23,19 @@ type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type BroadcastCounts = Record<string, number>;
 type BroadcastResult = { queued: number; failed: number; emailQueued: number; channels: string[] };
-type BroadcastTargetOption = { value: string; label: string };
-type StoredCounts = { counts: BroadcastCounts; loadedAt: number; emailAvailable: boolean | null };
+export type BroadcastTargetOption = { value: string; label: string };
+type BroadcastAudienceDescriptor = {
+  target: string;
+  labelKey: string;
+  fallbackLabel: string;
+  order: number;
+};
+type StoredCounts = {
+  counts: BroadcastCounts;
+  loadedAt: number;
+  emailAvailable: boolean | null;
+  audiences: BroadcastAudienceDescriptor[] | null;
+};
 export type BroadcastButtonKind = "url" | "promo_bot" | "promo_webapp";
 export type BroadcastButtonDraft = {
   id: number;
@@ -50,6 +61,7 @@ export type BroadcastState = {
   broadcastCounts: BroadcastCounts | null;
   broadcastCountsLoading: boolean;
   broadcastCountsLoadedAt: number;
+  broadcastAudiencesLoaded: boolean;
   broadcastTelegramEnabled: boolean;
   broadcastEmailEnabled: boolean;
   broadcastEmailAvailable: boolean;
@@ -145,6 +157,31 @@ function asBroadcastCounts(value: unknown): BroadcastCounts | null {
   );
 }
 
+function asBroadcastAudiences(value: unknown): BroadcastAudienceDescriptor[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  return value
+    .map((item) => {
+      const raw = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+      return {
+        target: String(raw.target || "")
+          .trim()
+          .toLowerCase(),
+        labelKey: String(raw.label_key || "").trim(),
+        fallbackLabel: String(raw.fallback_label || "").trim(),
+        order: Number.isFinite(Number(raw.order)) ? Number(raw.order) : 100,
+      };
+    })
+    .filter((item) => {
+      if (!item.target || !item.labelKey || !item.fallbackLabel || seen.has(item.target)) {
+        return false;
+      }
+      seen.add(item.target);
+      return true;
+    })
+    .sort((left, right) => left.order - right.order || left.target.localeCompare(right.target));
+}
+
 export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions): BroadcastStore {
   const COUNTS_CACHE_TTL_MS = 30_000;
   const COUNTS_DISPLAY_CACHE_TTL_MS = 5 * 60_000;
@@ -153,6 +190,42 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
   let promoOptionsPromise: Promise<void> | null = null;
   let shortcodesPromise: Promise<void> | null = null;
   let buttonIdCounter = 0;
+  const CORE_BROADCAST_TARGET_OPTIONS: BroadcastTargetOption[] = [
+    { value: "all", label: at("broadcast_target_all", {}, "All active") },
+    { value: "active", label: at("broadcast_target_active", {}, "With subscription") },
+    { value: "inactive", label: at("broadcast_target_inactive", {}, "No subscription") },
+    { value: "expired", label: at("broadcast_target_expired", {}, "Expired subscription") },
+    {
+      value: "active_never_connected",
+      label: at(
+        "broadcast_target_active_never_connected",
+        {},
+        "With subscription, no VPN connections"
+      ),
+    },
+    {
+      value: "never",
+      label: at("broadcast_target_never", {}, "No subscription, no history"),
+    },
+    {
+      value: "admins",
+      label: at("broadcast_target_admins", {}, "Administrators (broadcast test)"),
+    },
+  ];
+
+  function targetOptions(audiences: BroadcastAudienceDescriptor[]): BroadcastTargetOption[] {
+    const reserved = new Set(CORE_BROADCAST_TARGET_OPTIONS.map((option) => option.value));
+    return [
+      ...CORE_BROADCAST_TARGET_OPTIONS,
+      ...audiences
+        .filter((audience) => !reserved.has(audience.target))
+        .map((audience) => ({
+          value: audience.target,
+          label: at(audience.labelKey, {}, audience.fallbackLabel),
+        })),
+    ];
+  }
+
   const cachedCounts = readStoredCounts();
 
   const state = $state<BroadcastStore>({
@@ -163,6 +236,8 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
     broadcastCounts: cachedCounts?.counts || null,
     broadcastCountsLoading: false,
     broadcastCountsLoadedAt: cachedCounts?.loadedAt || 0,
+    broadcastAudiencesLoaded:
+      cachedCounts?.audiences !== null && cachedCounts?.audiences !== undefined,
     broadcastTelegramEnabled: true,
     broadcastEmailEnabled: false,
     broadcastEmailAvailable: cachedCounts?.emailAvailable ?? false,
@@ -189,7 +264,7 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
     loadShortcodes,
     sendPreview,
     canSubmit,
-    BROADCAST_TARGET_OPTIONS: [],
+    BROADCAST_TARGET_OPTIONS: targetOptions(cachedCounts?.audiences || []),
     MAX_BROADCAST_BUTTONS,
   });
 
@@ -199,33 +274,10 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
     Object.assign(state, next);
   }
 
-  const BROADCAST_TARGET_OPTIONS: BroadcastTargetOption[] = [
-    { value: "all", label: at("broadcast_target_all", {}, "All active") },
-    { value: "active", label: at("broadcast_target_active", {}, "With subscription") },
-    { value: "inactive", label: at("broadcast_target_inactive", {}, "No subscription") },
-    { value: "expired", label: at("broadcast_target_expired", {}, "Expired subscription") },
-    {
-      value: "active_never_connected",
-      label: at(
-        "broadcast_target_active_never_connected",
-        {},
-        "With subscription, no VPN connections"
-      ),
-    },
-    {
-      value: "never",
-      label: at("broadcast_target_never", {}, "No subscription, no history"),
-    },
-    {
-      value: "admins",
-      label: at("broadcast_target_admins", {}, "Administrators (broadcast test)"),
-    },
-  ];
-  state.BROADCAST_TARGET_OPTIONS = BROADCAST_TARGET_OPTIONS;
-
   function countsAreFresh(stateSnapshot: BroadcastState): boolean {
     return Boolean(
       stateSnapshot.broadcastCounts &&
+      stateSnapshot.broadcastAudiencesLoaded &&
       stateSnapshot.broadcastEmailAvailabilityKnown &&
       Date.now() - Number(stateSnapshot.broadcastCountsLoadedAt || 0) < COUNTS_CACHE_TTL_MS
     );
@@ -241,8 +293,11 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
       const counts = asBroadcastCounts(payload?.counts);
       const rawEmailAvailable = payload?.emailAvailable;
       const emailAvailable = typeof rawEmailAvailable === "boolean" ? rawEmailAvailable : null;
+      const audiences = Array.isArray(payload?.audiences)
+        ? asBroadcastAudiences(payload.audiences)
+        : null;
       if (!counts || Date.now() - loadedAt > COUNTS_DISPLAY_CACHE_TTL_MS) return null;
-      return { counts, loadedAt, emailAvailable };
+      return { counts, loadedAt, emailAvailable, audiences };
     } catch {
       return null;
     }
@@ -251,13 +306,14 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
   function writeStoredCounts(
     counts: BroadcastCounts,
     loadedAt: number,
-    emailAvailable: boolean
+    emailAvailable: boolean,
+    audiences: BroadcastAudienceDescriptor[]
   ): void {
     try {
       if (typeof window === "undefined" || !window.sessionStorage) return;
       window.sessionStorage.setItem(
         COUNTS_STORAGE_KEY,
-        JSON.stringify(snapshotForPayload({ counts, loadedAt, emailAvailable }))
+        JSON.stringify(snapshotForPayload({ counts, loadedAt, emailAvailable, audiences }))
       );
     } catch {
       // Ignore storage quota/privacy errors; in-memory counts still work.
@@ -282,12 +338,19 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
           const payload = unwrap(res);
           const emailAvailable = Boolean(payload.email_enabled);
           const counts = asBroadcastCounts(payload.counts);
+          const audiences = asBroadcastAudiences(payload.audiences);
+          const options = targetOptions(audiences);
           if (!counts) {
             updateState((s) => ({
               ...s,
               broadcastEmailAvailable: emailAvailable,
               broadcastEmailAvailabilityKnown: true,
               broadcastEmailEnabled: s.broadcastEmailEnabled && emailAvailable,
+              broadcastAudiencesLoaded: true,
+              BROADCAST_TARGET_OPTIONS: options,
+              broadcastTarget: options.some((option) => option.value === s.broadcastTarget)
+                ? s.broadcastTarget
+                : "all",
             }));
             return;
           }
@@ -296,11 +359,16 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
             ...s,
             broadcastCounts: counts,
             broadcastCountsLoadedAt: loadedAt,
+            broadcastAudiencesLoaded: true,
             broadcastEmailAvailable: emailAvailable,
             broadcastEmailAvailabilityKnown: true,
             broadcastEmailEnabled: s.broadcastEmailEnabled && emailAvailable,
+            BROADCAST_TARGET_OPTIONS: options,
+            broadcastTarget: options.some((option) => option.value === s.broadcastTarget)
+              ? s.broadcastTarget
+              : "all",
           }));
-          writeStoredCounts(counts, loadedAt, emailAvailable);
+          writeStoredCounts(counts, loadedAt, emailAvailable, audiences);
         }
       } catch {
         // Counts are advisory; ignore failures and keep existing/plain labels.

@@ -71,7 +71,7 @@
     broadcastStore.updateField({ broadcastTarget: value });
   };
 
-  const BROADCAST_TARGET_OPTIONS = broadcastStore.BROADCAST_TARGET_OPTIONS;
+  const broadcastTargetOptions = $derived(broadcastStore.BROADCAST_TARGET_OPTIONS);
 
   const buttonKindOptions = $derived([
     { value: "url", label: at("broadcast_button_kind_url", {}, "Link") },
@@ -87,7 +87,7 @@
 
   // Append the resolved audience size to each option once counts are loaded.
   const targetOptions = $derived(
-    BROADCAST_TARGET_OPTIONS.map((option) => {
+    broadcastTargetOptions.map((option) => {
       const count = broadcastCounts?.[option.value];
       if (count != null) return { ...option, label: `${option.label} (${count})` };
       if (broadcastCountsLoading) return { ...option, label: `${option.label} (...)` };

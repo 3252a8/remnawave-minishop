@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -28,6 +30,36 @@ AUDIENCE_TARGETS = {
     AUDIENCE_ADMINS,
 }
 PANEL_ACTIVITY_LOOKUP_CONCURRENCY = 10
+_AUDIENCE_TARGET_PATTERN = re.compile(r"^[a-z][a-z0-9_.:-]{0,63}$")
+
+
+class AudienceNotFoundError(ValueError):
+    """Raised when a broadcast target is not registered."""
+
+
+class AudienceUnavailableError(PermissionError):
+    """Raised when a registered audience is temporarily unavailable."""
+
+
+@dataclass(frozen=True, slots=True)
+class AudienceProvider:
+    """A plugin-provided broadcast audience and its admin UI metadata."""
+
+    target: str
+    label_key: str
+    fallback_label: str
+    resolve_user_ids: Callable[[], Awaitable[Sequence[int]]]
+    count: Callable[[], Awaitable[int | None]] | None = None
+    is_available: Callable[[], bool] | None = None
+    order: int = 100
+
+
+@dataclass(frozen=True, slots=True)
+class AudienceDefinition:
+    target: str
+    label_key: str
+    fallback_label: str
+    order: int
 
 
 class AudienceSegmentationService:
@@ -41,11 +73,74 @@ class AudienceSegmentationService:
         self.session_factory = session_factory
         self.panel_service = panel_service
         self.admin_ids = [int(admin_id) for admin_id in dict.fromkeys(admin_ids or [])]
+        self._providers: dict[str, AudienceProvider] = {}
+
+    def register_provider(self, provider: AudienceProvider) -> None:
+        """Register one additional audience for this application process."""
+
+        target = self._normalize_target(provider.target)
+        if not _AUDIENCE_TARGET_PATTERN.fullmatch(target):
+            raise ValueError(f"Invalid audience target: {provider.target!r}")
+        if target in AUDIENCE_TARGETS:
+            raise ValueError(f"Audience target is reserved by core: {target!r}")
+        if target in self._providers:
+            raise ValueError(f"Audience target is already registered: {target!r}")
+        label_key = str(provider.label_key or "").strip()
+        fallback_label = str(provider.fallback_label or "").strip()
+        if not label_key or not fallback_label:
+            raise ValueError("Audience label_key and fallback_label must not be empty")
+        self._providers[target] = AudienceProvider(
+            target=target,
+            label_key=label_key,
+            fallback_label=fallback_label,
+            resolve_user_ids=provider.resolve_user_ids,
+            count=provider.count,
+            is_available=provider.is_available,
+            order=int(provider.order),
+        )
+
+    def unregister_provider(self, target: str) -> bool:
+        """Remove an additional audience registered by the current process."""
+
+        return self._providers.pop(self._normalize_target(target), None) is not None
+
+    def has_target(self, target: str) -> bool:
+        normalized = self._normalize_target(target)
+        return normalized in AUDIENCE_TARGETS or normalized in self._providers
+
+    def is_target_available(self, target: str) -> bool:
+        normalized = self._normalize_target(target)
+        if normalized in AUDIENCE_TARGETS:
+            return True
+        provider = self._providers.get(normalized)
+        return provider is not None and self._provider_is_available(provider)
+
+    def audiences(self) -> list[AudienceDefinition]:
+        """Return currently available additional audiences for admin discovery."""
+
+        return [
+            AudienceDefinition(
+                target=provider.target,
+                label_key=provider.label_key,
+                fallback_label=provider.fallback_label,
+                order=provider.order,
+            )
+            for provider in sorted(
+                self._providers.values(), key=lambda item: (item.order, item.target)
+            )
+            if self._provider_is_available(provider)
+        ]
 
     async def resolve_user_ids(self, target: str) -> list[int]:
-        normalized = str(target or "all").strip().lower()
+        normalized = self._normalize_target(target)
+        provider = self._providers.get(normalized)
+        if provider is not None:
+            if not self._provider_is_available(provider):
+                raise AudienceUnavailableError(normalized)
+            user_ids = await provider.resolve_user_ids()
+            return [int(user_id) for user_id in dict.fromkeys(user_ids)]
         if normalized not in AUDIENCE_TARGETS:
-            normalized = "all"
+            raise AudienceNotFoundError(normalized)
         if normalized == AUDIENCE_ADMINS:
             return list(self.admin_ids)
         async with self.session_factory() as session:
@@ -95,7 +190,37 @@ class AudienceSegmentationService:
                 counts[AUDIENCE_ACTIVE_NEVER_CONNECTED] = len(
                     await self._user_ids_with_active_subscription_never_connected(session)
                 )
-            return counts
+        for provider in self._providers.values():
+            if not self._provider_is_available(provider):
+                continue
+            try:
+                value = (
+                    await provider.count()
+                    if provider.count is not None
+                    else len(await provider.resolve_user_ids())
+                )
+                counts[provider.target] = None if value is None else max(0, int(value))
+            except Exception:
+                logger.exception("Failed to count registered audience target=%s", provider.target)
+                counts[provider.target] = None
+        return counts
+
+    @staticmethod
+    def _normalize_target(target: str) -> str:
+        return str(target or "all").strip().lower()
+
+    @staticmethod
+    def _provider_is_available(provider: AudienceProvider) -> bool:
+        if provider.is_available is None:
+            return True
+        try:
+            return bool(provider.is_available())
+        except Exception:
+            logger.exception(
+                "Failed to evaluate registered audience availability target=%s",
+                provider.target,
+            )
+            return False
 
     async def _active_subscription_panel_uuids_by_user(
         self,

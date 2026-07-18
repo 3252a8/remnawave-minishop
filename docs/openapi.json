@@ -415,6 +415,13 @@
       },
       "AdminBroadcastAudienceCountsOut": {
         "properties": {
+          "audiences": {
+            "items": {
+              "$ref": "#/components/schemas/AdminBroadcastAudienceOut"
+            },
+            "title": "Audiences",
+            "type": "array"
+          },
           "counts": {
             "additionalProperties": {
               "anyOf": [
@@ -439,6 +446,34 @@
           "counts"
         ],
         "title": "AdminBroadcastAudienceCountsOut",
+        "type": "object"
+      },
+      "AdminBroadcastAudienceOut": {
+        "properties": {
+          "fallback_label": {
+            "title": "Fallback Label",
+            "type": "string"
+          },
+          "label_key": {
+            "title": "Label Key",
+            "type": "string"
+          },
+          "order": {
+            "default": 100,
+            "title": "Order",
+            "type": "integer"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "label_key",
+          "fallback_label"
+        ],
+        "title": "AdminBroadcastAudienceOut",
         "type": "object"
       },
       "AdminBroadcastBody": {

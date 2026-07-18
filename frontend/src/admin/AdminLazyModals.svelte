@@ -24,6 +24,7 @@
     userTelegramProfileLinkKind,
     onCloseUser,
     onOpenPaymentUserCard,
+    routePrefix,
   }: {
     at: TranslateFn;
     fmtDate: (value: unknown) => string;
@@ -42,6 +43,7 @@
     userTelegramProfileLinkKind: (user: AdminUser) => string;
     onCloseUser: () => void;
     onOpenPaymentUserCard: (userId: unknown) => void;
+    routePrefix: string;
   } = $props();
 
   const tariffsStore = getTariffsStore();
@@ -120,6 +122,7 @@
     {trafficPercentValue}
     {trafficLeftLabel}
     {trafficOfLabel}
+    {routePrefix}
     onClose={onCloseUser}
   />
 {/if}

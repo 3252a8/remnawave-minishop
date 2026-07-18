@@ -25,7 +25,9 @@ from bot.services.audience_segmentation import (
     AUDIENCE_ACTIVE_NEVER_CONNECTED,
     AUDIENCE_ADMINS,
     AUDIENCE_TARGETS,
+    AudienceNotFoundError,
     AudienceSegmentationService,
+    AudienceUnavailableError,
 )
 from bot.services.broadcast_email_service import (
     BroadcastEmailRecipient,
@@ -60,7 +62,7 @@ from .common import (
     _error,
     _ok,
 )
-from .response_schemas import AdminBroadcastAudienceCountsOut
+from .response_schemas import AdminBroadcastAudienceCountsOut, AdminBroadcastAudienceOut
 from .schemas import AdminBroadcastBody
 
 logger = logging.getLogger(__name__)
@@ -92,7 +94,7 @@ register_contract(
     "admin_broadcast_audience_counts_route",
     RouteContract(
         response_schema=ok_envelope_for(AdminBroadcastAudienceCountsOut),
-        models=(AdminBroadcastAudienceCountsOut,),
+        models=(AdminBroadcastAudienceCountsOut, AdminBroadcastAudienceOut),
     ),
 )
 
@@ -230,9 +232,6 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
     target = str(body.target or "all").strip().lower()
     if not text:
         return _error(400, "empty_text")
-    if target not in BROADCAST_TARGETS:
-        target = "all"
-
     try:
         channels = normalize_broadcast_channels(body.channels)
         buttons = resolve_broadcast_buttons(
@@ -275,7 +274,12 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
     bot_username = get_bot_username(request)
 
     audience_service = _resolve_audience_service(request)
-    user_ids = [int(uid) for uid in await audience_service.resolve_user_ids(target)]
+    try:
+        user_ids = [int(uid) for uid in await audience_service.resolve_user_ids(target)]
+    except AudienceNotFoundError:
+        return _error(400, "invalid_audience", target)
+    except AudienceUnavailableError:
+        return _error(403, "audience_unavailable", target)
     promo_codes = broadcast_promo_codes(buttons)
     markup = telegram_markup_for_buttons(buttons)
 
@@ -416,6 +420,7 @@ async def admin_broadcast_audience_counts_route(request: web.Request) -> web.Res
     service = request.app.get("audience_segmentation_service")
     if isinstance(service, AudienceSegmentationService):
         counts = await service.counts()
+        audiences = service.audiences()
     else:
         async_session_factory: sessionmaker = get_session_factory(request)
         panel_service = _resolve_panel_service(request)
@@ -424,10 +429,20 @@ async def admin_broadcast_audience_counts_route(request: web.Request) -> web.Res
             async_session_factory,
             panel_service,
         )
+        audiences = []
 
     return _ok(
         AdminBroadcastAudienceCountsOut(
             counts=counts,
+            audiences=[
+                AdminBroadcastAudienceOut(
+                    target=audience.target,
+                    label_key=audience.label_key,
+                    fallback_label=audience.fallback_label,
+                    order=audience.order,
+                )
+                for audience in audiences
+            ],
             email_enabled=bool(settings.email_auth_configured),
         ).model_dump(mode="json")
     )

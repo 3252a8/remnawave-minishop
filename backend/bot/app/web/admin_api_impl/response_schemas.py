@@ -79,8 +79,16 @@ class AdminBackupRestoreOut(HttpResponseModel):
     result: AdminBackupRestoreResultOut
 
 
+class AdminBroadcastAudienceOut(HttpResponseModel):
+    target: str
+    label_key: str
+    fallback_label: str
+    order: int = 100
+
+
 class AdminBroadcastAudienceCountsOut(HttpResponseModel):
     counts: dict[str, int | None]
+    audiences: list[AdminBroadcastAudienceOut] = Field(default_factory=list)
     email_enabled: bool = False
 
 

@@ -189,6 +189,12 @@ class PluginContext:
             self.services.get("audience_segmentation_service"),
         )
 
+    def require_audience_segmentation_service(self) -> AudienceSegmentationService:
+        return cast(
+            "AudienceSegmentationService",
+            self._required_service("audience_segmentation_service"),
+        )
+
     @property
     def outbound_messaging_service(self) -> OutboundMessagingService | None:
         return cast(

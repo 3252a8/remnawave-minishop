@@ -13,40 +13,24 @@ import {
   Tag,
   UsersRound,
 } from "$components/ui/icons.js";
+import { ADMIN_SECTION_EXTENSIONS } from "./extensionRegistry";
+import {
+  isFeatureBoundDescriptorVisible,
+  requiredFeatureForDescriptor,
+  type AdminSectionDescriptor,
+} from "./extensionTypes";
 
-export interface AdminSectionDescriptor {
-  id: string;
-  group: string;
-  order: number;
-  i18nKey: string;
-  fallbackLabel: string;
-  titleI18nKey: string;
-  fallbackTitle: string;
-  subtitleI18nKey: string;
-  fallbackSubtitle: string;
-  icon: unknown;
-  component?: unknown;
-  loadComponent?: () => Promise<unknown>;
-  /** @deprecated Prefer requiredFeature for new extension descriptors. */
-  feature?: string;
-  /** Feature required to use this extension section. Navigation-only metadata. */
-  requiredFeature?: string;
-  /** Keep a feature-locked extension discoverable so it can render its own locked state. */
-  visibleWhenLocked?: boolean;
-}
+export type { AdminSectionDescriptor } from "./extensionTypes";
 
 export function requiredFeatureForAdminSection(section: AdminSectionDescriptor): string {
-  return String(section.requiredFeature || section.feature || "").trim();
+  return requiredFeatureForDescriptor(section);
 }
 
 export function isAdminSectionVisible(
   section: AdminSectionDescriptor,
   availableFeatures: ReadonlySet<string>
 ): boolean {
-  const requiredFeature = requiredFeatureForAdminSection(section);
-  return (
-    !requiredFeature || availableFeatures.has(requiredFeature) || Boolean(section.visibleWhenLocked)
-  );
+  return isFeatureBoundDescriptorVisible(section, availableFeatures);
 }
 
 export const ADMIN_SECTION_GROUPS = [
@@ -234,19 +218,6 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
   },
 ];
 
-function extensionSections(): AdminSectionDescriptor[] {
-  const modules = import.meta.glob("./extensions/*.ts", {
-    eager: true,
-    import: "default",
-  }) as Record<string, AdminSectionDescriptor | AdminSectionDescriptor[]>;
-  // Build-time extensions are sorted by path first and then by descriptor order
-  // below. This keeps output deterministic while letting extended builds add
-  // files without editing the core registry.
-  return Object.keys(modules)
-    .sort()
-    .flatMap((key) => modules[key] || []);
-}
-
-export const ADMIN_SECTIONS = [...CORE_ADMIN_SECTIONS, ...extensionSections()]
+export const ADMIN_SECTIONS = [...CORE_ADMIN_SECTIONS, ...ADMIN_SECTION_EXTENSIONS]
   .filter((section) => section?.id && (section?.component || section?.loadComponent))
   .sort((a, b) => a.group.localeCompare(b.group) || a.order - b.order || a.id.localeCompare(b.id));

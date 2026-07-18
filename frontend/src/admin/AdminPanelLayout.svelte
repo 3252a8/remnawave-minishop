@@ -457,6 +457,7 @@
               {onOpenSettingsPath}
               {onSettingsPathChange}
               {initialTicketId}
+              onNavigateSection={onSetActive}
             />
           {:else if activeSectionLoading}
             <div class="admin-section-loading" aria-busy="true" aria-live="polite">
@@ -489,4 +490,5 @@
   {userTelegramProfileLinkKind}
   {onCloseUser}
   {onOpenPaymentUserCard}
+  {routePrefix}
 />

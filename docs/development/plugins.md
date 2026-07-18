@@ -62,6 +62,8 @@ plugin = ExamplePlugin()
 - `i18n`: каталог `JsonI18n`, если доступен.
 - `dispatcher`: aiogram dispatcher, если доступен.
 - `services`: изменяемый реестр сервисов текущего процесса.
+- `audience_segmentation_service`: типизированная точка регистрации дополнительных аудиторий
+  рассылки; обязательный вариант доступен как `require_audience_segmentation_service()`.
 
 Все хуки опциональны: базовый класс `Plugin` даёт no-op реализацию.
 
@@ -234,6 +236,28 @@ Registry сортирует extension-модули по пути, а descriptor'
 feature, чтобы сам extension-компонент отрисовал нейтральное locked-состояние.
 Эти поля управляют только frontend-discovery: серверная авторизация остается
 обязанностью extension route/API.
+
+Тот же extension-модуль может именованно экспортировать `userDetailPanels` — descriptor или массив
+descriptor'ов дополнительных вкладок карточки пользователя:
+
+```ts
+import ExampleTimeline from "./ExampleTimeline.svelte";
+
+export const userDetailPanels = {
+  id: "example-timeline",
+  order: 90,
+  i18nKey: "user_tab_example_timeline",
+  fallbackLabel: "Timeline",
+  requiredFeature: "example.timeline",
+  component: ExampleTimeline,
+};
+```
+
+Компонент вкладки получает `at`, `user`, `userDetail`, `featureAvailable`, `active` и `routePrefix`.
+Extension-компонент полной секции получает `onNavigateSection(sectionId)` вместе с общими props
+админки и может использовать типизированные stores из `$lib/admin/context`. `requiredFeature` и
+`visibleWhenLocked` имеют ту же семантику discovery, что и для секций. Серверная route остаётся
+обязательной границей авторизации и доступности функции.
 
 ## Release Images
 

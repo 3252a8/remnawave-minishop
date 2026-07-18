@@ -1834,6 +1834,8 @@ export interface components {
     };
     /** AdminBroadcastAudienceCountsOut */
     AdminBroadcastAudienceCountsOut: {
+      /** Audiences */
+      audiences?: components["schemas"]["AdminBroadcastAudienceOut"][];
       /** Counts */
       counts: {
         [key: string]: number | null;
@@ -1843,6 +1845,20 @@ export interface components {
        * @default false
        */
       email_enabled: boolean;
+    };
+    /** AdminBroadcastAudienceOut */
+    AdminBroadcastAudienceOut: {
+      /** Fallback Label */
+      fallback_label: string;
+      /** Label Key */
+      label_key: string;
+      /**
+       * Order
+       * @default 100
+       */
+      order: number;
+      /** Target */
+      target: string;
     };
     /** AdminBroadcastBody */
     AdminBroadcastBody: {

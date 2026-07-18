@@ -39,6 +39,7 @@
     userTelegramProfileLinkKind = () => "",
     openTelegramProfileLink = () => false,
     onClose = () => usersStore.closeUser(),
+    routePrefix = "",
   }: {
     at: TranslateFn;
     fmtDate: DateFormatter;
@@ -56,6 +57,7 @@
     userTelegramProfileLinkKind?: (user: AdminUser) => string;
     openTelegramProfileLink?: (url: string) => boolean;
     onClose?: () => void;
+    routePrefix?: string;
   } = $props();
 
   let avatarPreviewOpen = $state(false);
@@ -522,6 +524,7 @@
   {openedUser}
   {openedUserDetail}
   {userDetailLoading}
+  {routePrefix}
   {onClose}
   {openedUserAvatarUrl}
   {openAvatarPreview}
