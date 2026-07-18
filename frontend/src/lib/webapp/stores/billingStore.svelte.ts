@@ -1,6 +1,7 @@
 import type { LoadDataOptions } from "../dataClient";
 import type { BillingActions } from "../billingActions";
 import { unwrap } from "../publicApi";
+import { priceLabel } from "../tariffs";
 import type {
   BillingOptionsResponse,
   DeviceTopupOptions,
@@ -343,11 +344,18 @@ export function createBillingStore({
   });
 
   function promoPriceText(payload: BillingRecord): string {
-    const stars = payload.effective_stars;
-    if (typeof stars === "number" && stars > 0) return `${stars} stars`;
     const amount = Number(payload.effective_amount || 0);
+    const stars = Number(payload.effective_stars || 0);
+    if (amount <= 0 && stars <= 0) return "";
     const currency = stringField(payload.currency);
-    return amount > 0 ? `${amount.toFixed(2)}${currency ? ` ${currency}` : ""}` : "";
+    return priceLabel(
+      {
+        price: amount,
+        stars_price: stars,
+        currency: currency || undefined,
+      },
+      state.selectedMethod
+    );
   }
 
   async function applyCheckoutPromo(): Promise<void> {

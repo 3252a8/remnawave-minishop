@@ -136,7 +136,7 @@ describe("billingStore", () => {
     expect(store).toMatchObject({
       checkoutPromoInput: "SAVE10",
       checkoutPromoAppliedCode: "SAVE10",
-      checkoutPromoPriceText: "90.00",
+      checkoutPromoPriceText: "90 ₽",
       checkoutPromoStatus: "-10%",
       checkoutPromoDiscountPercent: 10,
       checkoutPromoAppliesTo: "subscription",
@@ -152,6 +152,43 @@ describe("billingStore", () => {
 
     store.clearCheckoutPromo();
     expect(store.checkoutPromoAppliedCode).toBe("");
+  });
+
+  it("keeps fiat pricing for bonus-day promos when Stars are also configured", async () => {
+    const { store } = makeBillingStore({
+      billing: {
+        quotePromo: vi.fn().mockResolvedValue({
+          ok: true,
+          valid: true,
+          code: "BONUS7",
+          effect_summary: "+7 days",
+          discount_percent: 0,
+          applies_to: "subscription",
+          effective_amount: 299,
+          effective_stars: 150,
+          currency: "RUB",
+        }),
+      },
+    });
+
+    store.openPaymentModal(
+      false,
+      false,
+      [],
+      { active: false },
+      [{ id: "plan-1", price: 299, stars_price: 150, currency: "RUB" }],
+      "yookassa"
+    );
+    store.update((state) => ({
+      ...state,
+      selectedPlan: { id: "plan-1", price: 299, stars_price: 150, currency: "RUB" },
+    }));
+    store.setCheckoutPromoInput("BONUS7");
+
+    await store.applyCheckoutPromo();
+
+    expect(store.checkoutPromoPriceText).toBe("299 ₽");
+    expect(store.checkoutPromoStatus).toBe("+7 days");
   });
 
   it("applies no-payment tariff changes and refreshes data", async () => {
