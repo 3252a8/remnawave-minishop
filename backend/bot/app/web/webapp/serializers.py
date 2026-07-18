@@ -673,6 +673,9 @@ async def _attach_hwid_renewal_quotes_to_plans(
             "active_until": _webapp_iso_datetime(active_until),
             "active_until_text": _webapp_datetime_text(active_until),
             "pricing_period_months": int(quote.get("pricing_period_months") or months),
+            "traffic_bonus_gb": subscription_service.hwid_device_traffic_bonus_gb(
+                int(quote.get("device_count") or 0)
+            ),
         }
         if stars_quote and int(stars_quote.get("price") or 0) > 0:
             renewal["stars_price"] = int(stars_quote["price"])

@@ -245,6 +245,12 @@
   function hwidRenewalCount(plan: PlanView | null = selectedPlan) {
     return Number(hwidRenewalFor(plan)?.device_count || subscription?.extra_hwid_devices || 0);
   }
+  function hwidRenewalBonusLabel(plan: PlanView | null = selectedPlan) {
+    const renewal = hwidRenewalFor(plan);
+    const bonusGb = Number(renewal?.traffic_bonus_gb || 0);
+    if (!(bonusGb > 0)) return "";
+    return t("wa_hwid_devices_traffic_bonus", { gb: String(bonusGb) });
+  }
   function hwidRenewalHint(plan: PlanView | null = selectedPlan) {
     const renewal = hwidRenewalFor(plan);
     if (renewal?.valid_from_text && renewal?.valid_until_text) {
@@ -391,6 +397,9 @@
                 })}
               </strong>
               <small>{hwidRenewalHint()}</small>
+              {#if hwidRenewalBonusLabel()}
+                <small class="hwid-renewal-bonus">{hwidRenewalBonusLabel()}</small>
+              {/if}
               {#if showHwidDesyncNotice()}
                 <small class="hwid-renewal-warning">
                   {t("wa_hwid_devices_desync_notice", {
@@ -498,6 +507,9 @@
               })}
             </strong>
             <small>{hwidRenewalHint()}</small>
+            {#if hwidRenewalBonusLabel()}
+              <small class="hwid-renewal-bonus">{hwidRenewalBonusLabel()}</small>
+            {/if}
             {#if showHwidDesyncNotice()}
               <small class="hwid-renewal-warning">
                 {t("wa_hwid_devices_desync_notice", {

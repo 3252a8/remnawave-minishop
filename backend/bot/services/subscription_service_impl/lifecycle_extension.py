@@ -270,6 +270,9 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
                         regular_bonus_bytes=rb,
                         regular_unlimited_override=runl,
                         traffic_used_bytes=used_sub,
+                        hwid_device_bonus_bytes=(
+                            await self._hwid_device_traffic_bonus_bytes_for_sub(session, active_sub)
+                        ),
                     ),
                     "premium_baseline_bytes": premium_baseline,
                     "premium_topup_balance_bytes": premium_topup_balance,

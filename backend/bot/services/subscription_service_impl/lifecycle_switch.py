@@ -300,6 +300,9 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 regular_bonus_bytes=rb,
                 regular_unlimited_override=runl,
                 traffic_used_bytes=used_sub,
+                hwid_device_bonus_bytes=await self._hwid_device_traffic_bonus_bytes_for_sub(
+                    session, sub
+                ),
             )
             update_data["period_start_at"] = None
             update_data["effective_monthly_price_rub"] = self._tariff_effective_monthly_price(

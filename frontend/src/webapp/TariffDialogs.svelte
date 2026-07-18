@@ -308,11 +308,19 @@
     });
   }
 
+  function deviceTopupPlanBonus(plan: PlanView) {
+    const bonusGb = Number(plan?.traffic_bonus_gb || 0);
+    if (!(bonusGb > 0)) return "";
+    return t("wa_hwid_devices_traffic_bonus", { gb: String(bonusGb) });
+  }
+
   function deviceTopupPlanHint(plan: PlanView) {
-    if (plan?.valid_until_text) {
-      return t("wa_hwid_devices_active_until", { date: plan.valid_until_text });
-    }
-    return plan?.subtitle || deviceTopupOptions?.tariff_name || "";
+    const base = plan?.valid_until_text
+      ? t("wa_hwid_devices_active_until", { date: plan.valid_until_text })
+      : plan?.subtitle || deviceTopupOptions?.tariff_name || "";
+    const bonus = deviceTopupPlanBonus(plan);
+    if (!bonus) return base;
+    return base ? `${base} · ${bonus}` : bonus;
   }
 
   function tariffChangeModalDescription() {

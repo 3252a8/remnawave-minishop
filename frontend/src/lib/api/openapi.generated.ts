@@ -7344,6 +7344,7 @@ export interface operations {
                 price?: number;
                 pricing_period_months?: number;
                 stars_price?: number;
+                traffic_bonus_gb?: number;
                 valid_from?: string | null;
                 valid_from_text?: string | null;
                 valid_until?: string | null;
@@ -7362,6 +7363,7 @@ export interface operations {
               tariff_key?: string;
               tariff_name?: string;
               title?: string;
+              traffic_bonus_gb?: number;
               traffic_gb?: number;
               valid_from?: string | null;
               valid_from_text?: string | null;
@@ -7471,6 +7473,7 @@ export interface operations {
                 price?: number;
                 pricing_period_months?: number;
                 stars_price?: number;
+                traffic_bonus_gb?: number;
                 valid_from?: string | null;
                 valid_from_text?: string | null;
                 valid_until?: string | null;
@@ -7489,6 +7492,7 @@ export interface operations {
               tariff_key?: string;
               tariff_name?: string;
               title?: string;
+              traffic_bonus_gb?: number;
               traffic_gb?: number;
               valid_from?: string | null;
               valid_from_text?: string | null;
@@ -8321,6 +8325,7 @@ export interface operations {
                 price?: number;
                 pricing_period_months?: number;
                 stars_price?: number;
+                traffic_bonus_gb?: number;
                 valid_from?: string | null;
                 valid_from_text?: string | null;
                 valid_until?: string | null;
@@ -8339,6 +8344,7 @@ export interface operations {
               tariff_key?: string;
               tariff_name?: string;
               title?: string;
+              traffic_bonus_gb?: number;
               traffic_gb?: number;
               valid_from?: string | null;
               valid_from_text?: string | null;

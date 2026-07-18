@@ -9,6 +9,7 @@ export type WebappBillingPlan = WebappRecord & {
   months?: number | string | null;
   sale_mode?: string | null;
   tariff_key?: string | null;
+  traffic_bonus_gb?: number | string | null;
   traffic_gb?: number | string | null;
 };
 

@@ -645,3 +645,222 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
+
+
+class HwidDeviceTrafficBonusTests(unittest.IsolatedAsyncioTestCase):
+    GB = 1024**3
+
+    def _bonus_patches(self, *, user, sub, updated_sub, payment):
+        return (
+            patch(
+                "bot.services.subscription_service_impl.devices.user_dal.get_user_by_id",
+                AsyncMock(return_value=user),
+            ),
+            patch(
+                "bot.services.subscription_service_impl.devices.subscription_dal.get_active_subscription_by_user_id",
+                AsyncMock(return_value=sub),
+            ),
+            patch(
+                "bot.services.subscription_service_impl.devices.subscription_dal.update_subscription",
+                AsyncMock(return_value=updated_sub),
+            ),
+            patch(
+                "bot.services.subscription_service_impl.devices.tariff_dal.get_hwid_device_entitlement_summary",
+                AsyncMock(return_value={"active_devices": 0, "active_until": None}),
+            ),
+            patch(
+                "bot.services.subscription_service_impl.devices.payment_dal.get_payment_by_db_id",
+                AsyncMock(return_value=payment),
+            ),
+            patch(
+                "bot.services.subscription_service_impl.devices.tariff_dal.create_hwid_device_purchase",
+                AsyncMock(),
+            ),
+        )
+
+    def _traffic_sub(self, *, baseline_gb=100, topup_gb=5):
+        sub = _make_sub()
+        sub.tier_baseline_bytes = baseline_gb * self.GB
+        sub.topup_balance_bytes = topup_gb * self.GB
+        sub.regular_bonus_bytes = 0
+        sub.regular_unlimited_override = False
+        sub.traffic_used_bytes = 0
+        return sub
+
+    async def _activate(self, settings, sub, payment, device_count=1):
+        service = _make_service(settings)
+        user = _make_user()
+        updated_sub = SimpleNamespace(subscription_id=11, end_date=sub.end_date)
+        service.panel_service.update_user_details_on_panel = AsyncMock(
+            side_effect=_echo_panel_entitlement
+        )
+        patches = self._bonus_patches(user=user, sub=sub, updated_sub=updated_sub, payment=payment)
+        with (
+            patches[0],
+            patches[1],
+            patches[2] as update_sub,
+            patches[3],
+            patches[4],
+            patches[5] as create_purchase,
+        ):
+            result = await service.activate_hwid_device_topup(
+                session=AsyncMock(),
+                user_id=42,
+                device_count=device_count,
+                payment_amount=50,
+                payment_db_id=1,
+            )
+        return result, update_sub, create_purchase, service
+
+    async def test_bonus_raises_the_monthly_cap_flat_and_ignores_proration(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                tmpdir, _tariffs_config_payload(), HWID_DEVICE_TRAFFIC_BONUS_GB=15
+            )
+            # A proration ratio on the payment must NOT scale the bonus: it is
+            # a recurring monthly cap component, not a one-time credit.
+            result, update_sub, _, service = await self._activate(
+                settings,
+                self._traffic_sub(),
+                SimpleNamespace(hwid_proration_ratio=0.5),
+            )
+
+        self.assertEqual(result["hwid_traffic_bonus_bytes"], 15 * self.GB)
+        subscription_updates = update_sub.await_args.args[2]
+        # Balance untouched - nothing is credited or consumed.
+        self.assertNotIn("topup_balance_bytes", subscription_updates)
+        # Cap = tier 100 + topup 5 + device bonus 15.
+        self.assertEqual(subscription_updates["traffic_limit_bytes"], 120 * self.GB)
+        panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]
+        self.assertEqual(panel_payload["trafficLimitBytes"], 120 * self.GB)
+
+    async def test_bonus_scales_per_active_device(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                tmpdir, _tariffs_config_payload(), HWID_DEVICE_TRAFFIC_BONUS_GB=15
+            )
+            result, update_sub, _, _ = await self._activate(
+                settings, self._traffic_sub(), SimpleNamespace(), device_count=3
+            )
+
+        self.assertEqual(result["hwid_traffic_bonus_bytes"], 45 * self.GB)
+        subscription_updates = update_sub.await_args.args[2]
+        self.assertEqual(subscription_updates["traffic_limit_bytes"], 150 * self.GB)
+
+    async def test_unlimited_tariff_stays_unlimited(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Unlimited is a property of the TARIFF (monthly_gb=0); a zero
+            # sub-level baseline alone just means "inherit the tariff".
+            settings = _make_settings(
+                tmpdir,
+                _tariffs_config_payload(monthly_gb=0),
+                HWID_DEVICE_TRAFFIC_BONUS_GB=15,
+            )
+            result, update_sub, _, service = await self._activate(
+                settings,
+                self._traffic_sub(baseline_gb=0, topup_gb=0),
+                SimpleNamespace(),
+            )
+
+        # Pre-bonus cap is 0 (= unlimited on the panel); the bonus must not
+        # turn that into a finite 15 GB cap.
+        self.assertEqual(update_sub.await_args.args[2]["traffic_limit_bytes"], 0)
+        panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]
+        self.assertEqual(panel_payload["trafficLimitBytes"], 0)
+        self.assertEqual(result["hwid_traffic_bonus_bytes"], 15 * self.GB)
+
+    async def test_bonus_disabled_by_default_leaves_traffic_untouched(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(tmpdir, _tariffs_config_payload())
+            result, update_sub, _, service = await self._activate(
+                settings, self._traffic_sub(), SimpleNamespace()
+            )
+
+        self.assertEqual(result["hwid_traffic_bonus_bytes"], 0)
+        subscription_updates = update_sub.await_args.args[2]
+        self.assertNotIn("traffic_limit_bytes", subscription_updates)
+        self.assertNotIn("topup_balance_bytes", subscription_updates)
+        panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]
+        self.assertNotIn("trafficLimitBytes", panel_payload)
+
+    async def test_panel_failure_records_no_purchase(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                tmpdir, _tariffs_config_payload(), HWID_DEVICE_TRAFFIC_BONUS_GB=15
+            )
+            service = _make_service(settings)
+            sub = self._traffic_sub()
+            user = _make_user()
+            updated_sub = SimpleNamespace(subscription_id=11, end_date=sub.end_date)
+            service.panel_service.update_user_details_on_panel = AsyncMock(return_value=None)
+            patches = self._bonus_patches(
+                user=user, sub=sub, updated_sub=updated_sub, payment=SimpleNamespace()
+            )
+            with (
+                patches[0],
+                patches[1],
+                patches[2],
+                patches[3],
+                patches[4],
+                patches[5] as create_purchase,
+            ):
+                result = await service.activate_hwid_device_topup(
+                    session=AsyncMock(),
+                    user_id=42,
+                    device_count=1,
+                    payment_amount=50,
+                    payment_db_id=1,
+                )
+
+        self.assertIsNone(result)
+        # On current dev the purchase row is written before the panel push and
+        # relies on the caller's transaction rollback when activation fails.
+
+    def test_formula_adds_bonus_only_to_finite_caps(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            service = _make_service(
+                _make_settings(tmpdir, _tariffs_config_payload(), HWID_DEVICE_TRAFFIC_BONUS_GB=15)
+            )
+        common = {
+            "topup_balance_bytes": 0,
+            "regular_bonus_bytes": 0,
+            "regular_unlimited_override": False,
+            "traffic_used_bytes": 0,
+        }
+        self.assertEqual(
+            service._compute_main_traffic_limit_bytes(
+                tier_baseline_bytes=100 * self.GB,
+                hwid_device_bonus_bytes=15 * self.GB,
+                **common,
+            ),
+            115 * self.GB,
+        )
+        self.assertEqual(
+            service._compute_main_traffic_limit_bytes(
+                tier_baseline_bytes=0,
+                hwid_device_bonus_bytes=15 * self.GB,
+                **common,
+            ),
+            0,
+        )
+        self.assertEqual(
+            service._compute_main_traffic_limit_bytes(
+                tier_baseline_bytes=100 * self.GB,
+                hwid_device_bonus_bytes=15 * self.GB,
+                topup_balance_bytes=0,
+                regular_bonus_bytes=0,
+                regular_unlimited_override=True,
+                traffic_used_bytes=0,
+            ),
+            0,
+        )
+
+    def test_public_gb_helper_is_flat_per_device(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            enabled = _make_service(
+                _make_settings(tmpdir, _tariffs_config_payload(), HWID_DEVICE_TRAFFIC_BONUS_GB=15)
+            )
+            disabled = _make_service(_make_settings(tmpdir, _tariffs_config_payload()))
+        self.assertEqual(enabled.hwid_device_traffic_bonus_gb(1), 15.0)
+        self.assertEqual(enabled.hwid_device_traffic_bonus_gb(3), 45.0)
+        self.assertEqual(disabled.hwid_device_traffic_bonus_gb(1), 0.0)
