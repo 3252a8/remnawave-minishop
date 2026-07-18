@@ -46,13 +46,23 @@ from bot.plugins import (
 from bot.services.backup_worker import BackupWorker
 from bot.services.event_reactions import register_core_reactions
 from bot.services.message_log_notifier import configure_message_log_notifier
+from bot.services.settings_override_service import refresh_overrides_from_db
 from bot.services.subscription_notification_worker import SubscriptionNotificationWorker
 from bot.services.tariff_worker import TariffTrafficWorker
+from bot.services.torrent_blocker_webhook import TORRENT_BLOCKER_EVENT
 from bot.services.yookassa_reconciliation_worker import YooKassaReconciliationWorker
 from bot.utils.message_queue import init_queue_manager
 from config.settings import Settings, get_settings
 
 logger = logging.getLogger(__name__)
+
+TORRENT_BLOCKER_RUNTIME_SETTING_KEYS = {
+    "TORRENT_BLOCKER_EMAIL_NOTIFICATIONS_ENABLED",
+    "TORRENT_BLOCKER_NOTIFICATIONS_ENABLED",
+    "TORRENT_BLOCKER_NOTIFICATION_COOLDOWN_SECONDS",
+    "TORRENT_BLOCKER_NOTIFICATION_INCLUDE_IP",
+    "TORRENT_BLOCKER_TELEGRAM_NOTIFICATIONS_ENABLED",
+}
 
 
 async def _build_worker_context(settings: Settings) -> PluginContext:
@@ -112,16 +122,23 @@ async def _handle_panel_event(ctx: PluginContext, payload: dict[str, Any]) -> No
     meta = payload.get("meta")
     context = payload.get("context")
     service = ctx.require_panel_webhook_service()
+    event_name = str(payload.get("event") or "")
+    if event_name == TORRENT_BLOCKER_EVENT:
+        await refresh_overrides_from_db(
+            ctx.settings,
+            ctx.require_session_factory(),
+            keys=TORRENT_BLOCKER_RUNTIME_SETTING_KEYS,
+        )
     if isinstance(context, dict):
         await service.handle_event(
-            str(payload.get("event") or ""),
+            event_name,
             payload.get("user") or {},
             meta=meta if isinstance(meta, dict) else None,
             context=context,
         )
     else:
         await service.handle_event(
-            str(payload.get("event") or ""),
+            event_name,
             payload.get("user") or {},
             meta=meta if isinstance(meta, dict) else None,
         )

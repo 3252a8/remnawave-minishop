@@ -1,6 +1,6 @@
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import main_worker
 
@@ -152,8 +152,19 @@ def test_worker_plugin_hooks_use_shared_runtime_context(monkeypatch) -> None:
 
 def test_panel_queue_handler_forwards_torrent_notification_context() -> None:
     panel_webhook_service = SimpleNamespace(handle_event=AsyncMock())
+    settings = SimpleNamespace(TORRENT_BLOCKER_NOTIFICATIONS_ENABLED=False)
+    session_factory = object()
+
+    async def refresh_settings(runtime_settings, runtime_session_factory, *, keys):
+        assert runtime_settings is settings
+        assert runtime_session_factory is session_factory
+        assert keys == main_worker.TORRENT_BLOCKER_RUNTIME_SETTING_KEYS
+        runtime_settings.TORRENT_BLOCKER_NOTIFICATIONS_ENABLED = True
+
     ctx = SimpleNamespace(
+        settings=settings,
         require_panel_webhook_service=lambda: panel_webhook_service,
+        require_session_factory=lambda: session_factory,
     )
     payload = {
         "event": "torrent_blocker.report",
@@ -168,8 +179,10 @@ def test_panel_queue_handler_forwards_torrent_notification_context() -> None:
         },
     }
 
-    asyncio.run(main_worker._handle_panel_event(ctx, payload))
+    with patch.object(main_worker, "refresh_overrides_from_db", refresh_settings):
+        asyncio.run(main_worker._handle_panel_event(ctx, payload))
 
+    assert settings.TORRENT_BLOCKER_NOTIFICATIONS_ENABLED is True
     panel_webhook_service.handle_event.assert_awaited_once_with(
         "torrent_blocker.report",
         payload["user"],
