@@ -191,6 +191,40 @@ describe("billingStore", () => {
     expect(store.checkoutPromoStatus).toBe("+7 days");
   });
 
+  it("does not call Telegram openInvoice outside a Mini App", async () => {
+    const openInvoice = vi.fn();
+    const { store, deps } = makeBillingStore({
+      billing: {
+        postPayment: vi.fn().mockResolvedValue({
+          ok: true,
+          action: "open_invoice",
+          payment_id: "stars-1",
+          payment_url: "https://t.me/$invoice",
+        }),
+      },
+      tg: { openInvoice },
+      telegramSdk: { hasLaunchParams: vi.fn(() => false) },
+    });
+
+    store.openPaymentModal(
+      false,
+      false,
+      [],
+      { active: false },
+      [{ id: "plan-1", price: 299, stars_price: 150, currency: "RUB" }],
+      "stars"
+    );
+    store.update((state) => ({
+      ...state,
+      selectedPlan: { id: "plan-1", price: 299, stars_price: 150, currency: "RUB" },
+    }));
+
+    await store.createPayment();
+
+    expect(openInvoice).not.toHaveBeenCalled();
+    expect(deps.showToast).toHaveBeenCalledWith("wa_payment_stars_telegram_required");
+  });
+
   it("applies no-payment tariff changes and refreshes data", async () => {
     const { store, deps, billing } = makeBillingStore({
       billing: {

@@ -94,6 +94,25 @@ describe("reconcileBillingSelection", () => {
     ).toEqual({ selectedMethod: "" });
   });
 
+  it("moves selection away from disabled payment methods", () => {
+    expect(
+      reconcileBillingSelection(
+        { ...BASE_STATE, selectedMethod: "stars" },
+        {
+          ...BASE_INPUT,
+          methods: [{ id: "stars", disabled: true }, { id: "card" }],
+        }
+      )
+    ).toEqual({ selectedMethod: "card" });
+
+    expect(
+      reconcileBillingSelection(BASE_STATE, {
+        ...BASE_INPUT,
+        methods: [{ id: "stars", disabled: true }],
+      })
+    ).toBeNull();
+  });
+
   it("returns null when the current selection is still valid", () => {
     const selectedPlan = { id: "pro-month", tariff_key: "pro" };
 

@@ -1578,6 +1578,29 @@ a {
   font-size: 12px;
 }
 
+.payment-method-tooltip {
+  z-index: 120;
+  max-width: min(280px, calc(100vw - 32px));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-popover);
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.payment-method-tooltip[data-state="delayed-open"],
+.payment-method-tooltip[data-state="instant-open"] {
+  animation: tooltip-in 0.16s ease-out both;
+}
+
+.payment-method-tooltip[data-state="closed"] {
+  animation: tooltip-out 0.12s ease-in both;
+}
+
 .settings-list {
   display: grid;
   gap: 8px;

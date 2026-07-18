@@ -67,11 +67,13 @@ export function computeAppShellView({
   topupUnlockPercent,
   t,
 }: AppShellViewInput) {
+  const telegramMiniAppContext = hasTelegramLaunchParams();
   const appDataView = computeAppDataView({
     cfg,
     data,
     fallbackBrandTitle,
     mockData,
+    telegramMiniAppContext,
   });
   const user = (data?.user || {}) as Record<string, unknown>;
   const billingView = computeBillingView({
@@ -111,7 +113,6 @@ export function computeAppShellView({
   const telegramOAuthClientId = Number(cfg.telegramOAuthClientId || telegramLoginBotId || 0);
   const telegramMiniAppInitData = tg?.initData || readTelegramMiniAppInitDataFromLocation();
   const telegramMiniAppAuthAvailable = Boolean(telegramMiniAppInitData);
-  const telegramMiniAppContext = hasTelegramLaunchParams();
   const demoAuthLogin = mockEnabled && isDemoAuthMock();
   const telegramLoginView = computeTelegramLoginView({
     authBusy,

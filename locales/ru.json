@@ -1062,7 +1062,7 @@
   "wa_ok": "ОК",
   "wa_payment_created": "Платеж создан",
   "wa_payment_create_failed": "Не удалось создать платеж",
-  "wa_payment_stars_telegram_required": "Откройте оплату в Telegram, чтобы заплатить звездами",
+  "wa_payment_stars_telegram_required": "Откройте личный кабинет через бота в Telegram, чтобы оплатить звёздами",
   "wa_connect_link_unavailable": "Ссылка для подключения пока недоступна",
   "wa_copied": "Скопировано",
   "wa_unavailable": "Пока недоступно",

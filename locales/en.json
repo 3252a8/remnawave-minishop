@@ -1062,7 +1062,7 @@
   "wa_ok": "OK",
   "wa_payment_created": "Payment created",
   "wa_payment_create_failed": "Failed to create payment",
-  "wa_payment_stars_telegram_required": "Open this payment in Telegram to pay with Stars",
+  "wa_payment_stars_telegram_required": "Open Minishop from the bot in Telegram to pay with Stars",
   "wa_connect_link_unavailable": "Connection link is not available yet",
   "wa_copied": "Copied",
   "wa_unavailable": "Not available yet",

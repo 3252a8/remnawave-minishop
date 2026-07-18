@@ -49,6 +49,10 @@ describe("defaultPaymentMethod", () => {
     expect(defaultPaymentMethod([{ id: "stars" }, { id: "card" }])).toBe("stars");
   });
 
+  it("skips payment methods disabled for the current context", () => {
+    expect(defaultPaymentMethod([{ id: "stars", disabled: true }, { id: "card" }])).toBe("card");
+  });
+
   it("falls back to an empty method id", () => {
     expect(defaultPaymentMethod([])).toBe("");
     expect(defaultPaymentMethod(null)).toBe("");

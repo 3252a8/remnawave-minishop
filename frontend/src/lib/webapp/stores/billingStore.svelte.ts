@@ -2,6 +2,10 @@ import type { LoadDataOptions } from "../dataClient";
 import type { BillingActions } from "../billingActions";
 import { unwrap } from "../publicApi";
 import { priceLabel } from "../tariffs";
+import {
+  openTelegramInvoice as openTelegramInvoiceUrl,
+  type TelegramWebApp,
+} from "../telegramInvoice";
 import type {
   BillingOptionsResponse,
   DeviceTopupOptions,
@@ -14,9 +18,6 @@ import type {
   WebappRecord,
 } from "../types";
 
-type TelegramWebApp = Record<string, unknown> & {
-  openInvoice?: (url: string, callback: (status: string) => void) => void;
-};
 type BillingRecord = WebappRecord & {
   action?: string;
   actions?: BillingRecord[];
@@ -126,6 +127,7 @@ export function createBillingStore({
   tg?: TelegramWebApp | null;
   getTg?: (() => TelegramWebApp | null) | null;
   telegramSdk?: {
+    hasLaunchParams?: () => boolean;
     refresh?: () => TelegramWebApp | null;
     ensureForAction?: () => Promise<TelegramWebApp | null>;
   } | null;
@@ -703,43 +705,23 @@ export function createBillingStore({
     updateState((s) => ({ ...s, changeConfirmOpen: false }));
   }
 
-  function resolveTelegramWebApp() {
-    if (typeof getTg === "function") {
-      const currentTg = getTg();
-      if (currentTg) return currentTg;
-    }
-    if (tg) return tg;
-    if (telegramSdk?.refresh) return telegramSdk.refresh();
-    return null;
-  }
-
-  async function resolveInvoiceTelegramWebApp(): Promise<TelegramWebApp | null> {
-    const currentTg = resolveTelegramWebApp();
-    if (currentTg?.openInvoice) return currentTg;
-    if (telegramSdk?.ensureForAction) {
-      const loadedTg = await telegramSdk.ensureForAction();
-      if (loadedTg?.openInvoice) return loadedTg;
-    }
-    return resolveTelegramWebApp();
-  }
-
   async function openTelegramInvoice(url: string, successContext: BillingRecord = {}) {
-    if (!url) return false;
-    const invoiceTg = await resolveInvoiceTelegramWebApp();
-    if (invoiceTg?.openInvoice) {
-      invoiceTg.openInvoice(url, async (status) => {
-        if (status === "paid") {
-          await handlePaymentSuccess(successContext);
-        } else if (status === "failed") {
-          showToast(t("wa_payment_create_failed"));
-        }
-      });
-      return true;
-    }
-    showToast(
-      t("wa_payment_stars_telegram_required", {}, "Open this payment in Telegram to pay with Stars")
-    );
-    return false;
+    return openTelegramInvoiceUrl({
+      getTg,
+      onFailed: () => showToast(t("wa_payment_create_failed")),
+      onPaid: () => handlePaymentSuccess(successContext),
+      onUnavailable: () =>
+        showToast(
+          t(
+            "wa_payment_stars_telegram_required",
+            {},
+            "Open Minishop from the bot in Telegram to pay with Stars"
+          )
+        ),
+      telegramSdk,
+      tg,
+      url,
+    });
   }
 
   async function handlePaymentResponse(

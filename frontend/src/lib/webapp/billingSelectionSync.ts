@@ -64,10 +64,10 @@ export function reconcileBillingSelection(
 
   if (input.methods.length) {
     const selectedMethodAvailable = input.methods.some(
-      (method) => method.id === draft.selectedMethod
+      (method) => method.id === draft.selectedMethod && !method.disabled
     );
     if (!draft.selectedMethod || !selectedMethodAvailable) {
-      set("selectedMethod", String(input.methods[0]?.id || ""));
+      set("selectedMethod", String(input.methods.find((method) => !method.disabled)?.id || ""));
     }
   } else if (draft.selectedMethod) {
     set("selectedMethod", "");

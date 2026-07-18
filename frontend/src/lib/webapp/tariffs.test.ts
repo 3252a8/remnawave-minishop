@@ -6,12 +6,14 @@ import {
   firstAvailableMethod,
   methodSelectable,
   methodsForPlan,
+  paymentMethodsForContext,
   planDisplayTitle,
   planKey,
   planSubtitle,
   planUnitHint,
   priceLabel,
   tariffLimitLabel,
+  TELEGRAM_STARS_MINI_APP_REQUIRED,
 } from "./tariffs.js";
 
 describe("webapp tariff helpers", () => {
@@ -85,6 +87,24 @@ describe("webapp tariff helpers", () => {
     ]);
     expect(firstAvailableMethod([{ id: "card", disabled: true }, { id: "stars" }])).toBe("stars");
     expect(methodSelectable([{ id: "card" }], "card")).toBe(true);
+  });
+
+  it("disables Stars outside Telegram without changing other payment methods", () => {
+    const methods = [{ id: "telegram-stars" }, { id: "yookassa" }];
+
+    expect(paymentMethodsForContext(methods, false)).toEqual([
+      {
+        id: "telegram-stars",
+        disabled: true,
+        disabled_reason: TELEGRAM_STARS_MINI_APP_REQUIRED,
+      },
+      { id: "yookassa" },
+    ]);
+    expect(paymentMethodsForContext(methods, true)).toEqual(methods);
+    expect(methodsForPlan(paymentMethodsForContext(methods, false), null)[0]).toMatchObject({
+      disabled: true,
+      disabled_reason: TELEGRAM_STARS_MINI_APP_REQUIRED,
+    });
   });
 
   it("builds display labels for active and selectable tariffs", () => {

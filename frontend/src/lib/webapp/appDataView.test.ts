@@ -63,6 +63,28 @@ describe("computeAppDataView", () => {
     expect(view.subscription).toEqual({ active: false });
   });
 
+  it("keeps Stars available only inside a Telegram Mini App", () => {
+    const input = {
+      cfg: {},
+      data: { payment_methods: [{ id: "stars" }, { id: "card" }] },
+      fallbackBrandTitle: "Subscription",
+      mockData: {},
+    };
+
+    expect(computeAppDataView(input).methods).toEqual([
+      {
+        id: "stars",
+        disabled: true,
+        disabled_reason: "telegram_stars_mini_app_required",
+      },
+      { id: "card" },
+    ]);
+    expect(computeAppDataView({ ...input, telegramMiniAppContext: true }).methods).toEqual([
+      { id: "stars" },
+      { id: "card" },
+    ]);
+  });
+
   it("treats false and string false as disabled email auth", () => {
     expect(
       computeAppDataView({

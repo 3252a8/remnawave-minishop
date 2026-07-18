@@ -1,12 +1,13 @@
 import { normalizeBrand } from "./browser.js";
 import { arrayField, recordArrayField, recordField, type WebappRecord } from "./domainTypes.js";
-import type { PaymentMethod } from "./tariffs.js";
+import { paymentMethodsForContext, type PaymentMethod } from "./tariffs.js";
 
 export type AppDataViewInput = {
   cfg: WebappRecord;
   data: WebappRecord | null;
   fallbackBrandTitle: string;
   mockData: WebappRecord;
+  telegramMiniAppContext?: boolean;
 };
 
 export type AppDataView = {
@@ -34,6 +35,7 @@ export function computeAppDataView({
   data,
   fallbackBrandTitle,
   mockData,
+  telegramMiniAppContext = false,
 }: AppDataViewInput): AppDataView {
   const mock = recordField(mockData);
   const dataRecord = recordField(data);
@@ -49,9 +51,12 @@ export function computeAppDataView({
   const plans = recordArrayField(
     arrayField(dataRecord.plans).length ? dataRecord.plans : mock.plans
   );
-  const methods = (
-    arrayField(dataRecord.payment_methods).length ? dataRecord.payment_methods : []
-  ) as PaymentMethod[];
+  const methods = paymentMethodsForContext(
+    (arrayField(dataRecord.payment_methods).length
+      ? dataRecord.payment_methods
+      : []) as PaymentMethod[],
+    telegramMiniAppContext
+  );
   const appSettings = recordField(dataRecord.settings || mock.settings);
   const rawEmailAuthEnabled =
     recordField(dataRecord.settings).email_auth_enabled ??

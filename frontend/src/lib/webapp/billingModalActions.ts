@@ -34,7 +34,7 @@ type BillingModalActionDeps = {
 };
 
 export function defaultPaymentMethod(methods: PaymentMethod[] | null | undefined): string {
-  return String(methods?.[0]?.id || "");
+  return String((methods || []).find((method) => !method.disabled)?.id || "");
 }
 
 export function createBillingModalActions({
