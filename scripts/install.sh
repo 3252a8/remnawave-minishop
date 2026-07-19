@@ -813,6 +813,139 @@ detect_panel_api_cookie() {
     sed -n 's/.*"~\*\([^"]*=[^"]*\)".*/\1/p' "$nginx_conf" | head -n 1
 }
 
+panel_value_is_placeholder() {
+    panel_placeholder_value=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+    case "$panel_placeholder_value" in
+        ""|change_me|change-me|changeme|replace_me|replace-me) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+panel_url_is_placeholder() {
+    panel_placeholder_url=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+    case "$panel_placeholder_url" in
+        ""|*panel.example.com*|*example.test*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+panel_configuration_looks_configured() {
+    if ! panel_url_is_placeholder "$1"; then
+        return 0
+    fi
+    ! panel_value_is_placeholder "$2"
+}
+
+clear_panel_configuration() {
+    PANEL_API_URL_VALUE=""
+    PANEL_API_KEY_VALUE=""
+    PANEL_API_COOKIE_VALUE=""
+    PANEL_WEBHOOK_SECRET_VALUE=""
+}
+
+panel_configuration_shape_ready() {
+    panel_shape_valid=1
+    if [ -z "$PANEL_API_URL_VALUE" ] || ! validate_value "$PANEL_API_URL_VALUE" url; then
+        warn "URL API Remnawave Panel пустой или имеет неверный формат."
+        info "Ожидается адрес вида https://panel.example.com/api."
+        panel_shape_valid=0
+    elif panel_url_is_placeholder "$PANEL_API_URL_VALUE"; then
+        warn "URL API Remnawave Panel всё ещё содержит пример вместо реального адреса."
+        panel_shape_valid=0
+    fi
+
+    if panel_value_is_placeholder "$PANEL_API_KEY_VALUE"; then
+        warn "API-ключ Remnawave Panel не задан или оставлен как change_me."
+        panel_shape_valid=0
+    fi
+
+    if [ -n "$PANEL_API_COOKIE_VALUE" ]; then
+        case "$PANEL_API_COOKIE_VALUE" in
+            *=*) ;;
+            *.*.*)
+                warn "PANEL_API_COOKIE похож на JWT/API-ключ, а не на Cookie header."
+                info "Cookie должен иметь формат name=value. Возможно, это значение нужно перенести в PANEL_API_KEY."
+                panel_shape_valid=0
+                ;;
+            *)
+                warn "PANEL_API_COOKIE должен быть пустым или иметь формат name=value."
+                panel_shape_valid=0
+                ;;
+        esac
+    fi
+
+    [ "$panel_shape_valid" = "1" ]
+}
+
+probe_panel_api_configuration() {
+    if ! command -v curl >/dev/null 2>&1; then
+        warn "curl не найден, поэтому wizard не может проверить Panel API автоматически."
+        return 1
+    fi
+
+    panel_probe_dir="$TARGET_DIR/$INSTALL_STATE_DIR"
+    mkdir -p "$panel_probe_dir" || return 1
+    panel_probe_body="$panel_probe_dir/panel-probe-body.$$"
+    panel_probe_error="$panel_probe_dir/panel-probe-error.$$"
+    panel_probe_url="${PANEL_API_URL_VALUE%/}/system/stats"
+
+    panel_probe_meta=$({
+        printf 'Authorization: Bearer %s\n' "$PANEL_API_KEY_VALUE"
+        if [ -n "$PANEL_API_COOKIE_VALUE" ]; then
+            printf 'Cookie: %s\n' "$PANEL_API_COOKIE_VALUE"
+        fi
+    } | curl --silent --show-error --max-time 15 \
+            --output "$panel_probe_body" \
+            --write-out '%{http_code}\n%{content_type}' \
+            --header @- \
+            "$panel_probe_url" 2>"$panel_probe_error")
+    panel_probe_exit=$?
+    rm -f "$panel_probe_error"
+
+    if [ "$panel_probe_exit" -ne 0 ]; then
+        rm -f "$panel_probe_body"
+        warn "Не удалось подключиться к Panel API за 15 секунд."
+        info "Проверьте DNS, TLS, firewall и доступность адреса из этого сервера."
+        return 1
+    fi
+
+    panel_probe_status=$(printf '%s\n' "$panel_probe_meta" | sed -n '1p')
+    panel_probe_content_type=$(printf '%s\n' "$panel_probe_meta" | sed -n '2p' | tr '[:upper:]' '[:lower:]')
+    case "$panel_probe_status" in
+        401|403)
+            rm -f "$panel_probe_body"
+            warn "Panel API отклонил авторизацию (HTTP $panel_probe_status)."
+            info "Проверьте PANEL_API_KEY и, если панель защищена reverse proxy, PANEL_API_COOKIE."
+            return 1
+            ;;
+        2??) ;;
+        *)
+            rm -f "$panel_probe_body"
+            warn "Panel API вернул неожиданный HTTP-статус: ${panel_probe_status:-неизвестно}."
+            return 1
+            ;;
+    esac
+
+    case "$panel_probe_content_type" in
+        *application/json*) ;;
+        *)
+            rm -f "$panel_probe_body"
+            warn "Panel API вернул HTTP $panel_probe_status, но Content-Type не JSON: ${panel_probe_content_type:-не указан}."
+            info "Обычно это HTML-страница reverse proxy, авторизации или неверный PANEL_API_URL."
+            return 1
+            ;;
+    esac
+
+    if ! grep -Eq '"response"[[:space:]]*:' "$panel_probe_body" 2>/dev/null; then
+        rm -f "$panel_probe_body"
+        warn "Panel API вернул JSON, но без ожидаемого поля response."
+        return 1
+    fi
+    rm -f "$panel_probe_body"
+    ok "Panel API доступен, авторизация принята, ответ имеет ожидаемый JSON-формат."
+    return 0
+}
+
 detect_panel_webhook_secret() {
     value=$(detect_remnashop_env_value REMNAWAVE_WEBHOOK_SECRET || true)
     if [ -n "$value" ]; then
@@ -823,6 +956,139 @@ detect_panel_webhook_secret() {
     panel_env=$(detect_egames_panel_env || true)
     [ -n "$panel_env" ] && [ -f "$panel_env" ] || return 1
     env_file_get WEBHOOK_SECRET_HEADER "$panel_env"
+}
+
+prompt_panel_webhook_secret() {
+    existing_panel_webhook_secret=$(env_get PANEL_WEBHOOK_SECRET "")
+    existing_panel_webhook_secret_prefilled=0
+    if [ -n "$existing_panel_webhook_secret" ]; then
+        existing_panel_webhook_secret_prefilled=1
+    else
+        existing_panel_webhook_secret=$(detect_panel_webhook_secret || true)
+        [ -n "$existing_panel_webhook_secret" ] && existing_panel_webhook_secret_prefilled=1
+    fi
+    if [ -n "$existing_panel_webhook_secret" ]; then
+        info "Нашел webhook-секрет Remnawave Panel и подставил его по умолчанию."
+    else
+        existing_panel_webhook_secret=$(secret_hex 24)
+    fi
+    prompt_value "Webhook-секрет Remnawave Panel" "$existing_panel_webhook_secret" 0 1 "" "$existing_panel_webhook_secret_prefilled"
+    PANEL_WEBHOOK_SECRET_VALUE="$PROMPT_VALUE"
+}
+
+configure_panel_integration() {
+    detected_panel_api_url=$(env_get PANEL_API_URL "")
+    detected_panel_api_url_prefilled=0
+    if [ -n "$detected_panel_api_url" ]; then
+        detected_panel_api_url_prefilled=1
+    else
+        detected_panel_api_url=$(detect_panel_api_url || true)
+        [ -n "$detected_panel_api_url" ] && detected_panel_api_url_prefilled=1
+    fi
+    [ -n "$detected_panel_api_url" ] || detected_panel_api_url="https://panel.example.com/api"
+
+    detected_panel_api_key=$(env_get PANEL_API_KEY "")
+    detected_panel_api_key_prefilled=0
+    if [ -n "$detected_panel_api_key" ]; then
+        detected_panel_api_key_prefilled=1
+    else
+        detected_panel_api_key=$(detect_panel_api_key || true)
+        [ -n "$detected_panel_api_key" ] && detected_panel_api_key_prefilled=1
+    fi
+    [ -n "$detected_panel_api_key" ] || detected_panel_api_key="change_me"
+    if [ "$detected_panel_api_key" != "change_me" ]; then
+        info "Нашел API-ключ Remnawave Panel и подставил его по умолчанию."
+    fi
+
+    detected_panel_api_cookie=$(env_get PANEL_API_COOKIE "")
+    detected_panel_api_cookie_prefilled=0
+    if [ -n "$detected_panel_api_cookie" ]; then
+        detected_panel_api_cookie_prefilled=1
+    else
+        detected_panel_api_cookie=$(detect_panel_api_cookie || true)
+        [ -n "$detected_panel_api_cookie" ] && detected_panel_api_cookie_prefilled=1
+    fi
+    if [ -n "$detected_panel_api_cookie" ]; then
+        info "Нашел заголовок Cookie обратного прокси eGames и подставил его по умолчанию."
+    fi
+
+    panel_setup_default=2
+    if panel_configuration_looks_configured "$detected_panel_api_url" "$detected_panel_api_key"; then
+        panel_setup_default=1
+        info "Нашел параметры Remnawave Panel; wizard предложит проверить их."
+    else
+        info "Готовые параметры Remnawave Panel не найдены. Enter пропустит интеграцию без записи change_me."
+    fi
+
+    choose "Интеграция с Remnawave Panel" "$panel_setup_default" "1|2" \
+        "1. Настроить Panel API и проверить подключение." \
+        "2. Пропустить Panel API сейчас (функции подписок и синхронизации не заработают до настройки)." || return 1
+    if [ "$CHOICE_VALUE" = "2" ]; then
+        clear_panel_configuration
+        warn "Интеграция с Panel пропущена. Minishop запустится, но выдача подписок, синхронизация и Panel-зависимые действия будут недоступны."
+        info "Позже укажите PANEL_API_URL/PANEL_API_KEY в .env или в админке и запустите проверку стека повторно."
+        return 0
+    fi
+
+    while :; do
+        if [ "$detected_panel_api_url" != "https://panel.example.com/api" ]; then
+            info "Использую найденный URL API Remnawave Panel как значение по умолчанию."
+        fi
+        prompt_value "URL API Remnawave Panel" "$detected_panel_api_url" 0 0 "" "$detected_panel_api_url_prefilled"
+        PANEL_API_URL_VALUE="$PROMPT_VALUE"
+        if [ "$detected_panel_api_key" != "change_me" ]; then
+            info "Использую найденный API-ключ Remnawave Panel как значение по умолчанию."
+        fi
+        prompt_value "API-ключ Remnawave Panel" "$detected_panel_api_key" 0 1 "" "$detected_panel_api_key_prefilled"
+        PANEL_API_KEY_VALUE="$PROMPT_VALUE"
+        if [ -n "$detected_panel_api_cookie" ]; then
+            info "Использую найденный Cookie header reverse proxy как значение по умолчанию."
+        fi
+        prompt_value "Cookie header reverse proxy Remnawave (пусто, если не нужен; формат name=value)" "$detected_panel_api_cookie" 0 1 "" "$detected_panel_api_cookie_prefilled"
+        PANEL_API_COOKIE_VALUE="$PROMPT_VALUE"
+
+        if panel_configuration_shape_ready && probe_panel_api_configuration; then
+            prompt_panel_webhook_secret || return 1
+            return 0
+        fi
+
+        choose "Параметры Panel не прошли проверку" "2" "1|2|3" \
+            "1. Вернуться и ввести параметры Panel заново." \
+            "2. Пропустить интеграцию Panel и продолжить установку без неё." \
+            "3. Сохранить непроверенные параметры и продолжить на свой риск." || return 1
+        case "$CHOICE_VALUE" in
+            1)
+                detected_panel_api_url="$PANEL_API_URL_VALUE"
+                detected_panel_api_key="$PANEL_API_KEY_VALUE"
+                detected_panel_api_cookie="$PANEL_API_COOKIE_VALUE"
+                detected_panel_api_url_prefilled=1
+                detected_panel_api_key_prefilled=1
+                detected_panel_api_cookie_prefilled=1
+                ;;
+            2)
+                clear_panel_configuration
+                warn "Интеграция с Panel пропущена после неуспешной проверки."
+                return 0
+                ;;
+            3)
+                warn "Сохраняю непроверенные параметры Panel по явному выбору пользователя."
+                info "До исправления параметров функции подписок и синхронизации могут завершаться ошибками."
+                prompt_panel_webhook_secret || return 1
+                return 0
+                ;;
+        esac
+    done
+}
+
+validate_panel_configuration_from_env() {
+    PANEL_API_URL_VALUE=$(env_get PANEL_API_URL "")
+    PANEL_API_KEY_VALUE=$(env_get PANEL_API_KEY "")
+    PANEL_API_COOKIE_VALUE=$(env_get PANEL_API_COOKIE "")
+    if [ -z "$PANEL_API_URL_VALUE" ] && [ -z "$PANEL_API_KEY_VALUE" ]; then
+        info "Panel API явно пропущен: проверять подключение не нужно."
+        return 0
+    fi
+    panel_configuration_shape_ready && probe_panel_api_configuration
 }
 
 write_downloaded_file() {
@@ -1148,63 +1414,7 @@ prompt_common_env() {
         WEBHOOK_SECRET_TOKEN_VALUE="$(secret_hex 32)"
     fi
 
-    detected_panel_api_url=$(env_get PANEL_API_URL "")
-    detected_panel_api_url_prefilled=0
-    if [ -n "$detected_panel_api_url" ]; then
-        detected_panel_api_url_prefilled=1
-    else
-        detected_panel_api_url=$(detect_panel_api_url || true)
-        [ -n "$detected_panel_api_url" ] && detected_panel_api_url_prefilled=1
-    fi
-    [ -n "$detected_panel_api_url" ] || detected_panel_api_url="https://panel.example.com/api"
-    if [ "$detected_panel_api_url" != "https://panel.example.com/api" ]; then
-        info "Нашел URL API Remnawave Panel и подставил его по умолчанию."
-    fi
-    prompt_value "URL API Remnawave Panel" "$detected_panel_api_url" 0 0 "url" "$detected_panel_api_url_prefilled"
-    PANEL_API_URL_VALUE="$PROMPT_VALUE"
-    detected_panel_api_key=$(env_get PANEL_API_KEY "")
-    detected_panel_api_key_prefilled=0
-    if [ -n "$detected_panel_api_key" ]; then
-        detected_panel_api_key_prefilled=1
-    else
-        detected_panel_api_key=$(detect_panel_api_key || true)
-        [ -n "$detected_panel_api_key" ] && detected_panel_api_key_prefilled=1
-    fi
-    [ -n "$detected_panel_api_key" ] || detected_panel_api_key="change_me"
-    if [ "$detected_panel_api_key" != "change_me" ]; then
-        info "Нашел API-ключ Remnawave Panel и подставил его по умолчанию."
-    fi
-    prompt_value "API-ключ Remnawave Panel" "$detected_panel_api_key" 0 1 "" "$detected_panel_api_key_prefilled"
-    PANEL_API_KEY_VALUE="$PROMPT_VALUE"
-    detected_panel_api_cookie=$(env_get PANEL_API_COOKIE "")
-    detected_panel_api_cookie_prefilled=0
-    if [ -n "$detected_panel_api_cookie" ]; then
-        detected_panel_api_cookie_prefilled=1
-    else
-        detected_panel_api_cookie=$(detect_panel_api_cookie || true)
-        [ -n "$detected_panel_api_cookie" ] && detected_panel_api_cookie_prefilled=1
-    fi
-    if [ -n "$detected_panel_api_cookie" ]; then
-        info "Нашел заголовок Cookie обратного прокси eGames и подставил его по умолчанию."
-    fi
-    prompt_value "Заголовок Cookie обратного прокси Remnawave (если нужен)" "$detected_panel_api_cookie" 0 1 "" "$detected_panel_api_cookie_prefilled"
-    PANEL_API_COOKIE_VALUE="$PROMPT_VALUE"
-    existing_panel_webhook_secret=$(env_get PANEL_WEBHOOK_SECRET "")
-    existing_panel_webhook_secret_prefilled=0
-    if [ -n "$existing_panel_webhook_secret" ]; then
-        existing_panel_webhook_secret_prefilled=1
-    else
-        existing_panel_webhook_secret=$(detect_panel_webhook_secret || true)
-        [ -n "$existing_panel_webhook_secret" ] && existing_panel_webhook_secret_prefilled=1
-    fi
-    if [ -n "$existing_panel_webhook_secret" ]; then
-        info "Нашел webhook-секрет Remnawave Panel и подставил его по умолчанию."
-    fi
-    if [ -z "$existing_panel_webhook_secret" ]; then
-        existing_panel_webhook_secret=$(secret_hex 24)
-    fi
-    prompt_value "Webhook-секрет Remnawave Panel" "$existing_panel_webhook_secret" 0 1 "" "$existing_panel_webhook_secret_prefilled"
-    PANEL_WEBHOOK_SECRET_VALUE="$PROMPT_VALUE"
+    configure_panel_integration || return 1
 
     prompt_value "Идентификатор клиента Telegram OAuth (пусто = ID бота)" "$(env_get TELEGRAM_OAUTH_CLIENT_ID '')" 0 0 ""
     TELEGRAM_OAUTH_CLIENT_ID_VALUE="$PROMPT_VALUE"
@@ -2340,6 +2550,7 @@ validate_stack() {
     (cd "$TARGET_DIR" && run_compose_checked ps) || true
     (cd "$TARGET_DIR" && run_compose logs --tail 80 migrate) || true
     validate_reverse_proxy_runtime || return 1
+    validate_panel_configuration_from_env || return 1
     ok "Команды проверки выполнены."
 }
 

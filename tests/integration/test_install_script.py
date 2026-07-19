@@ -9,6 +9,19 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 INSTALL_SCRIPT = REPO_ROOT / "scripts" / "install.sh"
 
 
+def _run_installer_function(tmp_path: Path, shell_body: str) -> subprocess.CompletedProcess[str]:
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+    library = script.rsplit("\nmain_menu\n", 1)[0]
+    test_script = tmp_path / "installer-function-test.sh"
+    test_script.write_text(f"{library}\n{shell_body}\n", encoding="utf-8")
+    return subprocess.run(
+        ["sh", str(test_script)],
+        text=True,
+        encoding="utf-8",
+        capture_output=True,
+    )
+
+
 def test_shell_installer_help_does_not_require_python():
     if not shutil.which("sh"):
         pytest.skip("sh is not available on this platform")
@@ -136,6 +149,66 @@ def test_shell_installer_supports_egames_reverse_proxy_profile():
     assert "egames_container_has_routes" in script
     assert 'docker restart "$nginx_container" >/dev/null' in script
     assert 'docker exec "$nginx_container" nginx -s reload' in script
+
+
+def test_shell_installer_requires_an_explicit_choice_for_unverified_panel_settings():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert "configure_panel_integration" in script
+    assert "Enter пропустит интеграцию без записи change_me" in script
+    assert 'choose "Интеграция с Remnawave Panel" "$panel_setup_default" "1|2"' in script
+    assert 'choose "Параметры Panel не прошли проверку" "2" "1|2|3"' in script
+    assert "Сохранить непроверенные параметры и продолжить на свой риск" in script
+    assert "clear_panel_configuration" in script
+
+
+def test_shell_installer_validates_panel_cookie_and_live_json_response():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert "panel_configuration_shape_ready" in script
+    assert "PANEL_API_COOKIE похож на JWT/API-ключ" in script
+    assert "Cookie должен иметь формат name=value" in script
+    assert "probe_panel_api_configuration" in script
+    assert "--header @-" in script
+    assert "panel-probe-headers" not in script
+    assert "application/json" in script
+    assert "Panel API вернул JSON, но без ожидаемого поля response" in script
+    assert "validate_panel_configuration_from_env || return 1" in script
+
+
+def test_shell_installer_rejects_jwt_in_panel_cookie_field(tmp_path: Path):
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    result = _run_installer_function(
+        tmp_path,
+        """
+PANEL_API_URL_VALUE=https://panel.local/api
+PANEL_API_KEY_VALUE=valid-key
+PANEL_API_COOKIE_VALUE=header.payload.signature
+panel_configuration_shape_ready
+""",
+    )
+
+    assert result.returncode != 0
+    assert "PANEL_API_COOKIE похож на JWT/API-ключ" in result.stdout
+
+
+def test_shell_installer_accepts_named_panel_cookie(tmp_path: Path):
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    result = _run_installer_function(
+        tmp_path,
+        """
+PANEL_API_URL_VALUE=https://panel.local/api
+PANEL_API_KEY_VALUE=valid-key
+PANEL_API_COOKIE_VALUE=rw_session=session-value
+panel_configuration_shape_ready
+""",
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_shell_installer_attaches_to_existing_nginx_or_caddy_containers():
@@ -394,7 +467,9 @@ def test_shell_installer_repairs_reverse_proxy_runtime_after_start():
         'validate_reverse_proxy_runtime || return 1\n    ok "Команда запуска стека выполнена."'
     ) in script
     assert (
-        'validate_reverse_proxy_runtime || return 1\n    ok "Команды проверки выполнены."'
+        "validate_reverse_proxy_runtime || return 1\n"
+        "    validate_panel_configuration_from_env || return 1\n"
+        '    ok "Команды проверки выполнены."'
     ) in script
 
 
