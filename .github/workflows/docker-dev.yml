@@ -10,7 +10,9 @@ on:
 
 concurrency:
   group: docker-dev-${{ github.ref }}
-  cancel-in-progress: true
+  # Every dev commit is a downstream compatibility input. Keep builds ordered
+  # instead of dropping an older commit when a newer push arrives.
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -23,3 +25,49 @@ jobs:
       push: true
       tag_mode: dev
     secrets: inherit
+
+  notify-downstream:
+    name: Notify configured image consumer
+    needs: build-push
+    runs-on: ubuntu-latest
+    env:
+      DOWNSTREAM_REPOSITORY: ${{ secrets.IMAGE_CHANNEL_DOWNSTREAM_REPOSITORY }}
+      DOWNSTREAM_TOKEN: ${{ secrets.IMAGE_CHANNEL_DOWNSTREAM_TOKEN }}
+    steps:
+      - name: Dispatch immutable dev image inputs
+        env:
+          CORE_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${DOWNSTREAM_REPOSITORY}" ] || [ -z "${DOWNSTREAM_TOKEN}" ]; then
+            echo "No downstream image consumer is configured; skipping notification."
+            exit 0
+          fi
+
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          images='{}'
+          for target in backend worker frontend; do
+            repository="ghcr.io/${owner}/remnawave-minishop-${target}"
+            digest="$(docker buildx imagetools inspect "${repository}:dev" --format '{{json .Manifest}}' | jq -r .digest)"
+            labels="$(docker buildx imagetools inspect "${repository}@${digest}" --format '{{json .Image.Config.Labels}}')"
+            jq -e --arg commit "${CORE_COMMIT}" \
+              '."org.opencontainers.image.revision" == $commit' <<<"${labels}" > /dev/null
+            images="$(jq -c --arg target "${target}" --arg reference "${repository}@${digest}" \
+              '. + {($target): $reference}' <<<"${images}")"
+          done
+
+          payload="$(jq -cn \
+            --arg event_type core-dev-images-published \
+            --arg repository "${GITHUB_REPOSITORY}" \
+            --arg commit "${CORE_COMMIT}" \
+            --arg ref_name "${GITHUB_REF_NAME}" \
+            --argjson images "${images}" \
+            '{event_type: $event_type, client_payload: {core_repository: $repository, core_commit: $commit, core_ref: $ref_name, images: $images}}')"
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${DOWNSTREAM_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${DOWNSTREAM_REPOSITORY}/dispatches" \
+            --data "${payload}"

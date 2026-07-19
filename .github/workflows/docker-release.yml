@@ -512,3 +512,54 @@ jobs:
           set -euo pipefail
           gh release upload "$RELEASE_TAG" release-images.json release-images.json.sha256 --repo "$GITHUB_REPOSITORY"
           gh release edit "$RELEASE_TAG" --draft=false --latest --repo "$GITHUB_REPOSITORY"
+
+  notify-downstream:
+    name: Notify configured image consumer
+    needs: [validate, promote]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      DOWNSTREAM_REPOSITORY: ${{ secrets.IMAGE_CHANNEL_DOWNSTREAM_REPOSITORY }}
+      DOWNSTREAM_TOKEN: ${{ secrets.IMAGE_CHANNEL_DOWNSTREAM_TOKEN }}
+      RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+      RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+      RELEASE_COMMIT: ${{ needs.validate.outputs.commit }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Dispatch immutable release image inputs
+        run: |
+          set -euo pipefail
+
+          if [ -z "${DOWNSTREAM_REPOSITORY}" ] || [ -z "${DOWNSTREAM_TOKEN}" ]; then
+            echo "No downstream image consumer is configured; skipping notification."
+            exit 0
+          fi
+
+          gh release download "${RELEASE_TAG}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --pattern release-images.json \
+            --dir downstream-release
+          manifest=downstream-release/release-images.json
+          jq -e \
+            --arg tag "${RELEASE_TAG}" \
+            --arg version "${RELEASE_VERSION}" \
+            --arg commit "${RELEASE_COMMIT}" \
+            '.release.tag == $tag and .release.version == $version and .release.commit == $commit and (.images | length == 3)' \
+            "${manifest}" > /dev/null
+          images="$(jq -c '.images | map({key: .target, value: .ghcr_ref}) | from_entries' "${manifest}")"
+          payload="$(jq -cn \
+            --arg event_type core-release-images-published \
+            --arg repository "${GITHUB_REPOSITORY}" \
+            --arg tag "${RELEASE_TAG}" \
+            --arg version "${RELEASE_VERSION}" \
+            --arg commit "${RELEASE_COMMIT}" \
+            --argjson images "${images}" \
+            '{event_type: $event_type, client_payload: {core_repository: $repository, core_release: $tag, core_version: $version, core_commit: $commit, images: $images}}')"
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${DOWNSTREAM_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${DOWNSTREAM_REPOSITORY}/dispatches" \
+            --data "${payload}"
