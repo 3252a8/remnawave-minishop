@@ -1587,6 +1587,8 @@
   "admin_settings_secret_configured": "Секрет задан",
   "admin_settings_secret_empty": "Не задан",
   "admin_settings_badge_override": "Оверрайд",
+  "admin_settings_source_database_override": "Источник: оверрайд из БД",
+  "admin_settings_source_environment": "Источник: окружение (.env)",
   "admin_settings_badge_dirty": "Изменено",
   "admin_status_limited": "Ограничен",
   "admin_status_expired": "Истёк",

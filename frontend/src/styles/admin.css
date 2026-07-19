@@ -2617,6 +2617,11 @@
   overflow-wrap: anywhere;
 }
 
+.admin-setting-meta .admin-setting-source {
+  color: var(--admin-dim);
+  font-size: 11px;
+}
+
 .admin-setting-control {
   display: flex;
   align-items: center;

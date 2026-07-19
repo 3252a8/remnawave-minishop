@@ -290,6 +290,7 @@ def test_admin_settings_save_roundtrip(client: httpx.Client) -> None:
         field = _find_admin_field(settings_payload, "SERVER_STATUS_URL")
         assert field["value"] == value
         assert field["overridden"] is True
+        assert field["value_source"] == "database_override"
     finally:
         client.patch(
             "/api/admin/settings",

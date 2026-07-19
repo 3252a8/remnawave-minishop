@@ -43,6 +43,7 @@ export type SettingField = {
   label: string;
   value?: unknown;
   overridden?: boolean;
+  value_source?: string | null;
   has_value?: boolean;
   secret?: boolean;
   placeholder?: string;

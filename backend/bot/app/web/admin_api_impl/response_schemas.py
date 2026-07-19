@@ -175,6 +175,7 @@ class AdminSettingsFieldOut(HttpResponseModel):
     provider_logo_url: str | None = None
     value: Any = None
     overridden: bool | None = None
+    value_source: str | None = None
     updated_at: str | None = None
     source: str | None = None
     read_error: str | None = None

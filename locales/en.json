@@ -1587,6 +1587,8 @@
   "admin_settings_secret_configured": "Secret is set",
   "admin_settings_secret_empty": "Not set",
   "admin_settings_badge_override": "Override",
+  "admin_settings_source_database_override": "Source: database override",
+  "admin_settings_source_environment": "Source: environment (.env)",
   "admin_settings_badge_dirty": "Changed",
   "admin_status_limited": "Limited",
   "admin_status_expired": "Expired",

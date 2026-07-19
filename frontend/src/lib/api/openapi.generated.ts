@@ -2296,6 +2296,11 @@ export interface components {
        */
       value: unknown;
       /**
+       * Value Source
+       * @default null
+       */
+      value_source: string | null;
+      /**
        * Webhook Base Url Configured
        * @default null
        */

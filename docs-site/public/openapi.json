@@ -1342,6 +1342,18 @@
             "default": null,
             "title": "Value"
           },
+          "value_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Value Source"
+          },
           "webhook_base_url_configured": {
             "anyOf": [
               {
