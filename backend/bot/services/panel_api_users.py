@@ -198,7 +198,15 @@ class PanelApiUsersMixin:
                 )
                 return None
             response = response_data.get("response")
-            users_batch = _panel_users_batch(response) or []
+            users_batch = _panel_users_batch(response)
+            if users_batch is None:
+                logger.error(
+                    "Panel API users endpoint returned an unsupported response shape "
+                    "(start: %s). Response: %s",
+                    start_offset,
+                    response_data,
+                )
+                return None
             if not users_batch:
                 break
             all_users.extend(users_batch)
