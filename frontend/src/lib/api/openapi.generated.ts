@@ -982,6 +982,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/users/{user_id}/subscription-reissue": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Subscription Reissue */
+    post: operations["post_admin_user_subscription_reissue_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/users/{user_id}/tariff": {
     parameters: {
       query?: never;
@@ -6842,6 +6859,32 @@ export interface operations {
             /** @constant */
             ok: true;
             panel_squad_overrides: components["schemas"]["AdminPanelSquadOverridesOut"];
+          };
+        };
+      };
+    };
+  };
+  post_admin_user_subscription_reissue_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            email_sent: boolean;
+            /** @constant */
+            ok: true;
           };
         };
       };

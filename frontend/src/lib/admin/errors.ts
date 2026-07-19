@@ -47,6 +47,8 @@ const ADMIN_ERROR_KEYS: Record<string, string> = {
   invalid_webapp_themes_config: "error_invalid_webapp_themes_config",
   missing_amount: "error_missing_amount",
   no_active_subscription: "error_no_active_subscription",
+  no_panel_user: "error_no_panel_user",
+  subscription_reissue_failed: "error_subscription_reissue_failed",
   no_changes: "error_no_changes",
   no_channels: "error_no_channels",
   no_telegram_account: "error_no_telegram_account",

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getUsersStore } from "$lib/admin/context";
   import { AdminButton } from "$components/patterns/admin/index.js";
-  import { Trash2, UserMinus, UserPlus } from "$components/ui/icons.js";
+  import { Key, Trash2, UserMinus, UserPlus } from "$components/ui/icons.js";
   import type { TranslateFn } from "./userDetailTypes";
 
   let {
@@ -50,6 +50,15 @@
         {at("btn_ban", {}, "Block user")}
       </AdminButton>
     {/if}
+    <AdminButton
+      variant="dangerSoft"
+      data-admin-action="request-user-subscription-reissue"
+      onclick={() => usersStore.updateState({ userSubscriptionReissueOpen: true })}
+      disabled={userActionBusy}
+    >
+      <Key size={14} />
+      {at("user_btn_reissue_subscription", {}, "Reset subscription link")}
+    </AdminButton>
     <AdminButton
       variant="danger"
       data-admin-action="request-user-delete"

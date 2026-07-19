@@ -57,6 +57,7 @@ export type AdminStoreState = {
   trafficStrategyBaseline: string;
   userActionBusy: boolean;
   userDeleteOpen: boolean;
+  userSubscriptionReissueOpen: boolean;
   userBanConfirmOpen: boolean;
   userMessageConfirmOpen: boolean;
   userReferralsOpen: boolean;
@@ -151,6 +152,7 @@ export function createInitialUsersState(): AdminStoreState {
     trafficStrategyBaseline: "",
     userActionBusy: false,
     userDeleteOpen: false,
+    userSubscriptionReissueOpen: false,
     userBanConfirmOpen: false,
     userMessageConfirmOpen: false,
     userReferralsOpen: false,
@@ -205,6 +207,7 @@ export function closedUserModalState(): Partial<AdminStoreState> {
     trafficStrategyDraft: "",
     trafficStrategyBaseline: "",
     userDeleteOpen: false,
+    userSubscriptionReissueOpen: false,
     userBanConfirmOpen: false,
     userMessageConfirmOpen: false,
     userReferralsOpen: false,

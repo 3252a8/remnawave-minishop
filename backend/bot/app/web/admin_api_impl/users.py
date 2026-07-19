@@ -43,6 +43,7 @@ from .users_actions import (
     admin_user_premium_override_route,
     admin_user_regular_traffic_override_route,
     admin_user_reset_trial_route,
+    admin_user_subscription_reissue_route,
     admin_user_tariff_route,
     admin_user_telegram_profile_link_route,
     admin_user_traffic_grant_route,
@@ -236,6 +237,10 @@ register_contract(
 register_contract("admin_user_delete_route", RouteContract(response_schema=ok_envelope_with()))
 register_contract("admin_user_reset_trial_route", RouteContract(response_schema=ok_envelope_with()))
 register_contract(
+    "admin_user_subscription_reissue_route",
+    RouteContract(response_schema=ok_envelope_with({"email_sent": BOOLEAN_SCHEMA})),
+)
+register_contract(
     "admin_user_premium_override_route",
     RouteContract(
         request_model=AdminUserPremiumOverrideBody,
@@ -333,6 +338,7 @@ __all__ = [
     "admin_user_reset_trial_route",
     "admin_user_squad_overrides_refresh_route",
     "admin_user_squad_overrides_route",
+    "admin_user_subscription_reissue_route",
     "admin_user_tariff_route",
     "admin_user_telegram_profile_link_route",
     "admin_user_traffic_grant_route",

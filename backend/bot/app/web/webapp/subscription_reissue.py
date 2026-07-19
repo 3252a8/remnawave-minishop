@@ -98,7 +98,7 @@ async def subscription_reissue_route(request: web.Request) -> web.Response:
         if not updated_panel_user:
             return _json_error(502, "subscription_reissue_failed", "Failed to reissue subscription")
 
-        email_sent = await _send_subscription_reissue_email(
+        email_sent = await send_subscription_reissue_email(
             settings=settings,
             i18n=i18n,
             session=session,
@@ -134,7 +134,7 @@ def _reissue_email_text(
     return "" if text == key else text
 
 
-async def _send_subscription_reissue_email(
+async def send_subscription_reissue_email(
     *,
     settings: Settings,
     i18n: JsonI18n | None,
