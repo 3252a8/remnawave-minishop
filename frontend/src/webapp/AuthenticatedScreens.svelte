@@ -250,6 +250,12 @@
     userAgreementUrl = "",
     userLanguage = "",
   }: Props = $props();
+
+  // Without the Devices section the reissue action has no home screen, so it
+  // moves to Settings.
+  const settingsSubscriptionReissueVisible = $derived(
+    subscriptionReissueEnabled && !devicesEnabled && Boolean(subscription?.active)
+  );
 </script>
 
 <WebAppShell
@@ -408,6 +414,8 @@
       {profileEmail}
       {profileTelegramId}
       {serverStatusUrl}
+      {subscriptionReissueBusy}
+      subscriptionReissueVisible={settingsSubscriptionReissueVisible}
       {supportUrl}
       {telegramNotificationsNeedPrompt}
       {telegramNotificationsStartLink}
@@ -424,6 +432,7 @@
       {openExternalLink}
       {openLinkEmailDialog}
       {openSetPasswordDialog}
+      {openSubscriptionReissueDialog}
       {setLanguageMenuOpen}
       {t}
       updateAccountLanguage={accountStore.updateAccountLanguage}

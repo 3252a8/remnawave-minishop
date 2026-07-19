@@ -1066,6 +1066,7 @@
   "wa_device_disconnected": "Device disconnected",
   "wa_device_disconnect_failed": "Failed to disconnect device",
   "wa_subscription_reissue_action": "Reissue subscription link",
+  "wa_settings_subscription_reissue_hint": "Disconnects all devices; the new link is emailed to you",
   "wa_subscription_reissue_title": "Reissue subscription",
   "wa_subscription_reissue_warning": "Warning: reissuing your subscription will disconnect all your connected devices, including this one. You will receive the new link and connection instructions via the email you've assigned ({email}).",
   "wa_subscription_reissue_confirm": "I Understand",

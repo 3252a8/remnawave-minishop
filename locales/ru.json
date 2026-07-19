@@ -1066,6 +1066,7 @@
   "wa_device_disconnected": "Устройство отключено",
   "wa_device_disconnect_failed": "Не удалось отключить устройство",
   "wa_subscription_reissue_action": "Перевыпустить ссылку подписки",
+  "wa_settings_subscription_reissue_hint": "Отключит все устройства; новая ссылка придёт на email",
   "wa_subscription_reissue_title": "Перевыпуск подписки",
   "wa_subscription_reissue_warning": "Внимание: перевыпуск подписки отключит все подключённые устройства, включая это. Новая ссылка и инструкция по подключению будут отправлены на привязанный email ({email}).",
   "wa_subscription_reissue_confirm": "Я понимаю",
