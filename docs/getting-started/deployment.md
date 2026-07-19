@@ -207,6 +207,9 @@ docker compose logs -f caddy backend worker frontend
 docker compose up -d --force-recreate caddy
 ```
 
+В стандартном `Caddyfile` есть global log filter для `X-Telegram-Bot-Api-Secret-Token`;
+если заменяете файл целиком, сохраните этот фильтр, чтобы webhook secret не попадал в логи Caddy.
+
 ## Angie
 
 Angie - форк Nginx от бывших разработчиков ядра Nginx с нативной поддержкой ACME:

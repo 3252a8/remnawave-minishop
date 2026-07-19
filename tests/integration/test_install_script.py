@@ -458,11 +458,15 @@ def test_shell_installer_repairs_reverse_proxy_runtime_after_start():
     assert "validate_reverse_proxy_runtime" in script
     assert "reverse_proxy_runtime_ready" in script
     assert "reverse_proxy_upstreams_ready" in script
+    assert "wait_reverse_proxy_runtime" in script
+    assert "wait_reverse_proxy_upstreams" in script
     assert 'docker port "$container" 80/tcp' in script
     assert 'docker port "$container" 443/tcp' in script
-    assert '--force-recreate "$service"' in script
+    assert script.count('--force-recreate "$service"') == 1
+    assert "пересоздаю proxy еще раз" not in script
     assert "http://backend:8080/healthz" in script
     assert "http://frontend/health" in script
+    assert 'run_compose logs --tail 80 "$service" backend frontend' in script
     assert (
         'validate_reverse_proxy_runtime || return 1\n    ok "Команда запуска стека выполнена."'
     ) in script
@@ -471,6 +475,53 @@ def test_shell_installer_repairs_reverse_proxy_runtime_after_start():
         "    validate_panel_configuration_from_env || return 1\n"
         '    ok "Команды проверки выполнены."'
     ) in script
+
+
+def test_shell_installer_waits_for_reverse_proxy_upstreams_without_recreating_proxy(
+    tmp_path: Path,
+):
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    shell_body = r"""
+TARGET_DIR=.
+reverse_proxy_service_name() { printf 'caddy'; }
+target_network_name() { printf 'minishop_default'; }
+compose_service_container_id() { printf 'caddy-container'; }
+reverse_proxy_runtime_ready() { return 0; }
+upstream_attempts=0
+reverse_proxy_upstreams_ready() {
+    upstream_attempts=$((upstream_attempts + 1))
+    [ "$upstream_attempts" -ge 3 ]
+}
+run_compose_checked() {
+    echo "unexpected compose recreate: $*" >&2
+    return 9
+}
+run_compose() { return 0; }
+section() { :; }
+ok() { :; }
+warn() { :; }
+fail() { echo "unexpected failure: $*" >&2; return 1; }
+sleep() { :; }
+
+validate_reverse_proxy_runtime || exit "$?"
+[ "$upstream_attempts" -eq 3 ] || exit 20
+"""
+
+    result = _run_installer_function(tmp_path, shell_body)
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_caddyfile_redacts_panel_webhook_secret_header_from_logs():
+    caddyfile = (REPO_ROOT / "deploy" / "examples" / "caddy" / "Caddyfile").read_text(
+        encoding="utf-8"
+    )
+
+    assert "log default" in caddyfile
+    assert "format filter" in caddyfile
+    assert "request>headers>X-Telegram-Bot-Api-Secret-Token replace REDACTED" in caddyfile
 
 
 def test_shell_installer_stops_remnashop_after_successful_migration_without_deleting_data():

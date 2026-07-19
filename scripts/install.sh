@@ -3613,19 +3613,50 @@ reverse_proxy_upstreams_ready() {
         >/dev/null 2>&1
 }
 
+wait_reverse_proxy_runtime() {
+    service="$1"
+    attempts="${2:-10}"
+    delay="${3:-2}"
+    attempt=1
+    while [ "$attempt" -le "$attempts" ]; do
+        if reverse_proxy_runtime_ready "$service"; then
+            return 0
+        fi
+        [ "$attempt" -eq "$attempts" ] && break
+        sleep "$delay"
+        attempt=$((attempt + 1))
+    done
+    return 1
+}
+
+wait_reverse_proxy_upstreams() {
+    service="$1"
+    attempts="${2:-20}"
+    delay="${3:-3}"
+    attempt=1
+    while [ "$attempt" -le "$attempts" ]; do
+        if reverse_proxy_upstreams_ready "$service"; then
+            return 0
+        fi
+        [ "$attempt" -eq "$attempts" ] && break
+        sleep "$delay"
+        attempt=$((attempt + 1))
+    done
+    return 1
+}
+
 validate_reverse_proxy_runtime() {
     service=$(reverse_proxy_service_name || true)
     [ -n "$service" ] || return 0
 
     section "Проверка reverse proxy"
-    if ! reverse_proxy_runtime_ready "$service"; then
+    if ! wait_reverse_proxy_runtime "$service" 5 2; then
         warn "Контейнер $service не выглядит полностью подключенным: проверяю published ports 80/443 и Docker-сеть."
         warn "Пересоздаю $service, чтобы восстановить публикацию портов и подключение к $(target_network_name)."
         (cd "$TARGET_DIR" && run_compose_checked up -d --force-recreate "$service") || return 1
-        sleep 3
     fi
 
-    if ! reverse_proxy_runtime_ready "$service"; then
+    if ! wait_reverse_proxy_runtime "$service" 15 2; then
         fail "Контейнер $service всё еще не публикует 80/443 или не подключен к $(target_network_name)."
         (cd "$TARGET_DIR" && run_compose ps "$service") || true
         info "Проверьте docker inspect, занятые порты и состояние Docker network перед повторным запуском wizard."
@@ -3633,21 +3664,15 @@ validate_reverse_proxy_runtime() {
     fi
     ok "$service публикует 80/443 и подключен к $(target_network_name)."
 
-    if reverse_proxy_upstreams_ready "$service"; then
+    if wait_reverse_proxy_upstreams "$service" 20 3; then
         ok "$service видит backend:8080 и frontend:80 внутри Docker-сети."
         return 0
     fi
 
-    warn "$service не смог достучаться до backend/frontend по Docker DNS; пересоздаю proxy еще раз."
-    (cd "$TARGET_DIR" && run_compose_checked up -d --force-recreate "$service") || return 1
-    sleep 3
-    if reverse_proxy_upstreams_ready "$service"; then
-        ok "$service видит backend:8080 и frontend:80 внутри Docker-сети."
-        return 0
-    fi
-
-    fail "$service запущен, но не видит backend/frontend внутри Docker-сети."
-    info "Проверьте: docker compose ps; docker network inspect $(target_network_name); docker compose logs $service"
+    fail "$service запущен, но не дождался backend/frontend внутри Docker-сети."
+    (cd "$TARGET_DIR" && run_compose ps "$service" backend frontend) || true
+    (cd "$TARGET_DIR" && run_compose logs --tail 80 "$service" backend frontend) || true
+    info "Проверьте: docker compose ps; docker network inspect $(target_network_name); docker compose logs $service backend frontend"
     return 1
 }
 

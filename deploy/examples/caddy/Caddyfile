@@ -4,6 +4,13 @@
 #
 # If you prefer hardcoded hostnames, replace {$WEBHOOK_HOST} and
 # {$MINIAPP_HOST} with your real domains.
+{
+	log default {
+		format filter {
+			request>headers>X-Telegram-Bot-Api-Secret-Token replace REDACTED
+		}
+	}
+}
 
 {$WEBHOOK_HOST} {
 	encode zstd gzip
@@ -19,4 +26,3 @@
 	# Keep forwarded headers for Web App URL generation and request logging.
 	reverse_proxy frontend:80
 }
-
