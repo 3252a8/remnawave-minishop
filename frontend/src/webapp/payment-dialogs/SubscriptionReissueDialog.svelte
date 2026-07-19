@@ -31,6 +31,10 @@
   }
 </script>
 
+{#snippet titleIcon()}
+  <TriangleAlert size={23} />
+{/snippet}
+
 <Dialog
   open={subscriptionReissueDialogOpen}
   title={t("wa_subscription_reissue_title")}
@@ -40,6 +44,7 @@
   closeLabel={t("wa_close")}
   onclose={closeSubscriptionReissueDialog}
   class="payment-dialog-card webapp-subscription-reissue-dialog"
+  {titleIcon}
 >
   <div class="payment-dialog-body">
     {#if hasEmail}

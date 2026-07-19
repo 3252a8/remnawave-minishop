@@ -2000,6 +2000,10 @@ a {
   font-size: 12px;
 }
 
+.settings-row-subscription-reissue {
+  grid-column: 1 / -1;
+}
+
 .settings-row.settings-row-admin {
   min-height: 54px;
   border-color: var(--warning-border);

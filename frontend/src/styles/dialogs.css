@@ -113,6 +113,45 @@
   gap: 10px;
 }
 
+.webapp-subscription-reissue-dialog {
+  border-color: var(--danger-border);
+}
+
+.webapp-subscription-reissue-dialog .dialog-title-with-icon {
+  padding: 12px 14px;
+  border: 1px solid var(--danger-border);
+  border-radius: 14px;
+  background: var(--danger-soft);
+}
+
+.webapp-subscription-reissue-dialog .dialog-title-icon,
+.webapp-subscription-reissue-dialog .dialog-head h2 {
+  color: var(--danger-text);
+}
+
+.webapp-subscription-reissue-dialog .dialog-head p {
+  color: color-mix(in srgb, var(--danger-text) 72%, var(--muted));
+}
+
+.webapp-subscription-reissue-dialog .device-danger-button {
+  border-color: color-mix(in srgb, var(--danger) 62%, var(--border));
+  background: color-mix(in srgb, var(--danger) 82%, #000);
+  color: #fff;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--danger) 20%, transparent);
+}
+
+.webapp-subscription-reissue-dialog .device-danger-button:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: var(--danger);
+}
+
+.webapp-subscription-reissue-dialog .device-danger-button:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--danger) 24%, transparent),
+    0 10px 24px color-mix(in srgb, var(--danger) 20%, transparent);
+}
+
 .activation-success-dialog {
   width: min(100%, 440px);
   gap: 22px;
