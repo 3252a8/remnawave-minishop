@@ -71,6 +71,9 @@
           onReorder={moveHwidRow}
         >
           {#snippet children(row: DraftRow, index: number)}
+            <span class="admin-row-editor-mobile-label" aria-hidden="true"
+              >{at("tariff_col_hwid_count", {}, "+ devices")}</span
+            >
             <Input
               class="input"
               type="number"
@@ -85,6 +88,9 @@
                 "How many devices does this package add"
               )}
             />
+            <span class="admin-row-editor-mobile-label" aria-hidden="true"
+              >{currencyPriceColumnLabel}</span
+            >
             <Input
               class="input"
               type="number"
@@ -95,6 +101,9 @@
               oninput={draftRowInputHandler(tariffsStore, "hwidRows", index, "price")}
               aria-label={currencyPriceAriaLabel}
             />
+            <span class="admin-row-editor-mobile-label" aria-hidden="true"
+              >{at("tariff_col_price_stars_full", {}, "Price, ⭐ Stars")}</span
+            >
             <Input
               class="input"
               type="number"

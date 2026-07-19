@@ -93,6 +93,9 @@
             onReorder={movePeriodRow}
           >
             {#snippet children(row: DraftRow, index: number)}
+              <span class="admin-row-editor-mobile-label" aria-hidden="true"
+                >{at("tariff_col_period_months", {}, "Period, mo.")}</span
+              >
               <Input
                 class="input"
                 type="number"
@@ -102,6 +105,9 @@
                 oninput={draftRowInputHandler(tariffsStore, "periodRows", index, "months")}
                 aria-label={at("tariff_col_period_months", {}, "Period, mo.")}
               />
+              <span class="admin-row-editor-mobile-label" aria-hidden="true"
+                >{currencyPriceColumnLabel}</span
+              >
               <Input
                 class="input"
                 type="number"
@@ -112,6 +118,9 @@
                 oninput={draftRowInputHandler(tariffsStore, "periodRows", index, "rub")}
                 aria-label={currencyPriceAriaLabel}
               />
+              <span class="admin-row-editor-mobile-label" aria-hidden="true"
+                >{at("tariff_col_price_stars_full", {}, "Price, ⭐ Stars")}</span
+              >
               <Input
                 class="input"
                 type="number"
@@ -122,6 +131,9 @@
                 oninput={draftRowInputHandler(tariffsStore, "periodRows", index, "stars")}
                 aria-label={at("tariff_label_price_stars", {}, "Price in Telegram Stars")}
               />
+              <span class="admin-row-editor-mobile-label" aria-hidden="true"
+                >{at("tariff_col_ref_inviter", {}, "Inviter bonus")}</span
+              >
               <Input
                 class="input"
                 type="number"
@@ -137,6 +149,9 @@
                 )}
                 aria-label={at("tariff_label_ref_inviter", {}, "Inviter bonus, days")}
               />
+              <span class="admin-row-editor-mobile-label" aria-hidden="true"
+                >{at("tariff_col_ref_referee", {}, "Friend bonus")}</span
+              >
               <Input
                 class="input"
                 type="number"
@@ -201,6 +216,9 @@
             onReorder={moveTrafficRow}
           >
             {#snippet children(row: DraftRow, index: number)}
+              <span class="admin-row-editor-mobile-label" aria-hidden="true"
+                >{at("tariff_col_volume_gb", {}, "Volume, GB")}</span
+              >
               <Input
                 class="input"
                 type="number"
@@ -211,6 +229,9 @@
                 oninput={draftRowInputHandler(tariffsStore, "trafficRows", index, "gb")}
                 aria-label={at("tariff_col_volume_gb", {}, "Volume, GB")}
               />
+              <span class="admin-row-editor-mobile-label" aria-hidden="true"
+                >{currencyPriceColumnLabel}</span
+              >
               <Input
                 class="input"
                 type="number"
@@ -221,6 +242,9 @@
                 oninput={draftRowInputHandler(tariffsStore, "trafficRows", index, "price")}
                 aria-label={currencyPriceAriaLabel}
               />
+              <span class="admin-row-editor-mobile-label" aria-hidden="true"
+                >{at("tariff_col_price_stars_full", {}, "Price, ⭐ Stars")}</span
+              >
               <Input
                 class="input"
                 type="number"

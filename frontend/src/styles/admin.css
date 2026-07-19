@@ -4100,6 +4100,13 @@
   white-space: nowrap;
 }
 
+/* Per-field captions inside row-editor rows: hidden on wide screens where the
+   shared header row labels the columns, shown on narrow screens where rows
+   stack vertically and the header row is hidden. */
+.admin-row-editor-mobile-label {
+  display: none;
+}
+
 .admin-row-editor {
   display: grid;
   gap: 8px;
@@ -4405,6 +4412,16 @@
 
   .admin-row-editor-line.admin-row-editor-header {
     display: none;
+  }
+
+  .admin-row-editor-line .admin-row-editor-mobile-label {
+    display: block;
+    margin-bottom: -3px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--admin-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
 
   .admin-form-row.admin-form-row-3,
