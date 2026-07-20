@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -222,6 +223,8 @@ class SubscriptionLifecyclePanelMixin(SubscriptionServiceMixinContract):
         expected_payload: dict[str, Any],
         *,
         source: str,
+        verification_attempts: int = 3,
+        retry_delay_seconds: float = 0.2,
     ) -> dict[str, Any] | None:
         expected_entitlement = {**expected_payload, "uuid": panel_user_uuid}
         response_user = panel_update_result
@@ -236,28 +239,80 @@ class SubscriptionLifecyclePanelMixin(SubscriptionServiceMixinContract):
             response_user,
             expected_entitlement,
         )
-        if not response_mismatches:
-            return response_user
+        if response_mismatches:
+            logger.info(
+                "Panel entitlement response requires persisted verification: source=%s "
+                "panel_uuid=%s mismatched_fields=%s",
+                source,
+                panel_user_uuid,
+                ",".join(response_mismatches),
+            )
 
-        logger.info(
-            "Panel entitlement response requires persisted verification: source=%s "
-            "panel_uuid=%s mismatched_fields=%s",
-            source,
-            panel_user_uuid,
-            ",".join(response_mismatches),
-        )
-        persisted_user = await self._get_panel_user_for_entitlement_verification(panel_user_uuid)
-        persisted_mismatches = self._panel_entitlement_mismatches(
-            persisted_user,
-            expected_entitlement,
-        )
-        if not persisted_mismatches:
-            return persisted_user
+        attempts = max(1, int(verification_attempts))
+        delay_seconds = max(0.0, float(retry_delay_seconds))
+        persisted_mismatches = response_mismatches
+        # A successful PATCH response may only echo the requested values. Finalization
+        # must be based on an independent, uncached read of the persisted panel state.
+        for attempt in range(1, attempts + 1):
+            if attempt > 1:
+                try:
+                    repair_result = await self.panel_service.update_user_details_on_panel(
+                        panel_user_uuid,
+                        dict(expected_entitlement),
+                    )
+                except Exception:
+                    logger.exception(
+                        "Panel entitlement repair request failed: source=%s panel_uuid=%s "
+                        "attempt=%s/%s",
+                        source,
+                        panel_user_uuid,
+                        attempt,
+                        attempts,
+                    )
+                else:
+                    repair_mismatches = self._panel_entitlement_mismatches(
+                        repair_result,
+                        expected_entitlement,
+                    )
+                    if repair_mismatches:
+                        logger.info(
+                            "Panel entitlement repair response is incomplete: source=%s "
+                            "panel_uuid=%s attempt=%s/%s mismatched_fields=%s",
+                            source,
+                            panel_user_uuid,
+                            attempt,
+                            attempts,
+                            ",".join(repair_mismatches),
+                        )
+                if delay_seconds > 0:
+                    await asyncio.sleep(delay_seconds * (2 ** (attempt - 2)))
+
+            persisted_user = await self._get_panel_user_for_entitlement_verification(
+                panel_user_uuid
+            )
+            persisted_mismatches = self._panel_entitlement_mismatches(
+                persisted_user,
+                expected_entitlement,
+            )
+            if not persisted_mismatches:
+                return persisted_user
+            if attempt < attempts:
+                logger.warning(
+                    "Persisted panel entitlement mismatch; retrying update: source=%s "
+                    "panel_uuid=%s attempt=%s/%s mismatched_fields=%s",
+                    source,
+                    panel_user_uuid,
+                    attempt,
+                    attempts,
+                    ",".join(persisted_mismatches),
+                )
 
         logger.warning(
-            "Panel entitlement verification failed: source=%s panel_uuid=%s mismatched_fields=%s",
+            "Panel entitlement verification failed after retries: source=%s panel_uuid=%s "
+            "attempts=%s mismatched_fields=%s",
             source,
             panel_user_uuid,
+            attempts,
             ",".join(persisted_mismatches),
         )
         return None

@@ -62,7 +62,17 @@ async def _echo_panel_entitlement(panel_uuid, payload, *_args, **_kwargs):
 
 def _service(settings: Settings) -> SubscriptionService:
     panel = AsyncMock(spec=PanelApiService)
-    panel.update_user_details_on_panel = AsyncMock(side_effect=_echo_panel_entitlement)
+    persisted: dict = {}
+
+    async def update(panel_uuid, payload, *_args, **_kwargs):
+        persisted.update(await _echo_panel_entitlement(panel_uuid, payload))
+        return dict(persisted)
+
+    async def get_user(_panel_uuid, *_args, **_kwargs):
+        return dict(persisted) if persisted else None
+
+    panel.update_user_details_on_panel = AsyncMock(side_effect=update)
+    panel.get_user_by_uuid = AsyncMock(side_effect=get_user)
     return SubscriptionService(settings, panel)
 
 

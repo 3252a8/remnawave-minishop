@@ -100,6 +100,20 @@ async def _echo_panel_entitlement(panel_uuid, payload, *_args, **_kwargs):
     return {**payload, "uuid": panel_uuid}
 
 
+def _configure_persisted_panel_echo(service: SubscriptionService) -> None:
+    persisted: dict = {}
+
+    async def update(panel_uuid, payload, *_args, **_kwargs):
+        persisted.update(await _echo_panel_entitlement(panel_uuid, payload))
+        return dict(persisted)
+
+    async def get_user(_panel_uuid, *_args, **_kwargs):
+        return dict(persisted) if persisted else None
+
+    service.panel_service.update_user_details_on_panel = AsyncMock(side_effect=update)
+    service.panel_service.get_user_by_uuid = AsyncMock(side_effect=get_user)
+
+
 class HwidDeviceTopupInputTests(unittest.IsolatedAsyncioTestCase):
     async def test_rejects_non_positive_device_count(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -429,9 +443,7 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
                 subscription_id=11,
                 end_date=sub.end_date,
             )
-            service.panel_service.update_user_details_on_panel = AsyncMock(
-                side_effect=_echo_panel_entitlement
-            )
+            _configure_persisted_panel_echo(service)
             with (
                 patch(
                     "bot.services.subscription_service_impl.devices.user_dal.get_user_by_id",
@@ -494,9 +506,7 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
                 hwid_full_price=50,
             )
             updated_sub = SimpleNamespace(subscription_id=11, end_date=sub.end_date)
-            service.panel_service.update_user_details_on_panel = AsyncMock(
-                side_effect=_echo_panel_entitlement
-            )
+            _configure_persisted_panel_echo(service)
             with (
                 patch(
                     "bot.services.subscription_service_impl.devices.user_dal.get_user_by_id",
@@ -545,9 +555,7 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
             sub.end_date = renewed_end
             user = _make_user()
             updated_sub = SimpleNamespace(subscription_id=11, end_date=renewed_end)
-            service.panel_service.update_user_details_on_panel = AsyncMock(
-                side_effect=_echo_panel_entitlement
-            )
+            _configure_persisted_panel_echo(service)
             with (
                 patch(
                     "bot.services.subscription_service_impl.devices.user_dal.get_user_by_id",
