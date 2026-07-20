@@ -2,7 +2,12 @@
   import { onMount } from "svelte";
 
   import AdminPanelLayout from "./AdminPanelLayout.svelte";
-  import { ADMIN_SECTION_GROUPS, ADMIN_SECTIONS, isAdminSectionVisible } from "./sections/registry";
+  import {
+    ADMIN_SECTION_GROUPS,
+    ADMIN_SECTIONS,
+    isAdminSectionVisible,
+    requiredFeatureForAdminSection,
+  } from "./sections/registry";
   import { createAdminSectionComponentLoader, type DynamicComponent } from "./adminLazyComponents";
   import { createAdminStores, type AdminApi } from "./adminStores";
   import {
@@ -269,6 +274,12 @@
   const translationsSaving = $derived(translationsStore.translationsSaving);
   const meta = $derived(SECTION_META[active] || { title: active, subtitle: "" });
   const activeSection = $derived(SECTION_BY_ID.get(active));
+  const availableFeatures = $derived([...featureSet].sort());
+  const activeSectionFeatureAvailable = $derived(
+    !activeSection ||
+      !requiredFeatureForAdminSection(activeSection) ||
+      featureSet.has(requiredFeatureForAdminSection(activeSection))
+  );
   const openSectionUserCard = $derived(
     active === "payments"
       ? openPaymentUserCard
@@ -651,6 +662,8 @@
   {active}
   {activeSectionComponent}
   {activeSectionLoading}
+  featureAvailable={activeSectionFeatureAvailable}
+  {availableFeatures}
   {adsStore}
   {appFaviconUrl}
   {appFaviconUseCustom}

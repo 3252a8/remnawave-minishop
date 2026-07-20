@@ -50,6 +50,7 @@
     active,
     activeSectionComponent,
     activeSectionLoading,
+    availableFeatures,
     adsStore,
     appFaviconUrl,
     appFaviconUseCustom,
@@ -63,6 +64,7 @@
     fmtDate,
     fmtDateShort,
     fmtMoney,
+    featureAvailable,
     initialTicketId,
     languageBusy,
     languageOptions,
@@ -113,6 +115,7 @@
     active: string;
     activeSectionComponent: DynamicComponent | null;
     activeSectionLoading: boolean;
+    availableFeatures: readonly string[];
     adsStore: AdsStoreBridge;
     appFaviconUrl: string;
     appFaviconUseCustom: boolean;
@@ -126,6 +129,7 @@
     fmtDate: DateFormatter;
     fmtDateShort: DateFormatter;
     fmtMoney: MoneyFormatter;
+    featureAvailable: boolean;
     initialTicketId: number | null;
     languageBusy: boolean;
     languageOptions: LanguageOption[];
@@ -434,11 +438,13 @@
             {@const ActiveSectionComponent = activeSectionComponent}
             <ActiveSectionComponent
               {at}
+              {availableFeatures}
               {brand}
               {currentLang}
               {fmtDate}
               {fmtDateShort}
               {fmtMoney}
+              {featureAvailable}
               onSettingsSaved={onSaveSettings}
               onTranslationsSaved={onSaveTranslations}
               {paymentStatusVariant}

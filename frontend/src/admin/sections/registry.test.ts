@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   isAdminSectionVisible,
+  mergeAdminSectionGroups,
   requiredFeatureForAdminSection,
   type AdminSectionDescriptor,
 } from "./registry";
@@ -40,5 +41,25 @@ describe("admin extension feature metadata", () => {
     expect(
       isAdminSectionVisible(section({ requiredFeature: "reports" }), new Set(["reports"]))
     ).toBe(true);
+  });
+});
+
+describe("admin extension section groups", () => {
+  it("adds and deterministically orders extension groups", () => {
+    expect(
+      mergeAdminSectionGroups(
+        [{ id: "core", order: 20, i18nKey: "core", fallbackLabel: "Core" }],
+        [{ id: "reports", order: 10, i18nKey: "reports", fallbackLabel: "Reports" }]
+      ).map((group) => group.id)
+    ).toEqual(["reports", "core"]);
+  });
+
+  it("keeps the core descriptor when an extension reuses its id", () => {
+    expect(
+      mergeAdminSectionGroups(
+        [{ id: "system", order: 40, i18nKey: "core_system", fallbackLabel: "System" }],
+        [{ id: "system", order: 1, i18nKey: "extension_system", fallbackLabel: "Override" }]
+      )
+    ).toEqual([{ id: "system", order: 40, i18nKey: "core_system", fallbackLabel: "System" }]);
   });
 });

@@ -11,6 +11,21 @@ interface FeatureBoundDescriptor {
   visibleWhenLocked?: boolean;
 }
 
+export interface AdminSectionGroupDescriptor {
+  id: string;
+  order: number;
+  i18nKey: string;
+  fallbackLabel: string;
+}
+
+export interface AdminSectionComponentProps {
+  at: TranslateFn;
+  featureAvailable: boolean;
+  availableFeatures: readonly string[];
+  routePrefix: string;
+  onNavigateSection: (sectionId: string) => void;
+}
+
 export interface AdminSectionDescriptor extends FeatureBoundDescriptor {
   id: string;
   group: string;

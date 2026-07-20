@@ -13,14 +13,15 @@ import {
   Tag,
   UsersRound,
 } from "$components/ui/icons.js";
-import { ADMIN_SECTION_EXTENSIONS } from "./extensionRegistry";
+import { ADMIN_SECTION_EXTENSIONS, ADMIN_SECTION_GROUP_EXTENSIONS } from "./extensionRegistry";
 import {
   isFeatureBoundDescriptorVisible,
   requiredFeatureForDescriptor,
   type AdminSectionDescriptor,
+  type AdminSectionGroupDescriptor,
 } from "./extensionTypes";
 
-export type { AdminSectionDescriptor } from "./extensionTypes";
+export type { AdminSectionDescriptor, AdminSectionGroupDescriptor } from "./extensionTypes";
 
 export function requiredFeatureForAdminSection(section: AdminSectionDescriptor): string {
   return requiredFeatureForDescriptor(section);
@@ -33,7 +34,7 @@ export function isAdminSectionVisible(
   return isFeatureBoundDescriptorVisible(section, availableFeatures);
 }
 
-export const ADMIN_SECTION_GROUPS = [
+const CORE_ADMIN_SECTION_GROUPS: AdminSectionGroupDescriptor[] = [
   { id: "overview", order: 10, i18nKey: "nav_overview", fallbackLabel: "Overview" },
   { id: "operations", order: 20, i18nKey: "nav_operations", fallbackLabel: "Operations" },
   {
@@ -44,6 +45,26 @@ export const ADMIN_SECTION_GROUPS = [
   },
   { id: "system", order: 40, i18nKey: "nav_system", fallbackLabel: "System" },
 ];
+
+export function mergeAdminSectionGroups(
+  coreGroups: readonly AdminSectionGroupDescriptor[],
+  extensionGroups: readonly AdminSectionGroupDescriptor[]
+): AdminSectionGroupDescriptor[] {
+  const groups = new Map<string, AdminSectionGroupDescriptor>();
+  for (const group of [...coreGroups, ...extensionGroups]) {
+    const id = String(group?.id || "").trim();
+    if (!id || groups.has(id)) continue;
+    groups.set(id, { ...group, id });
+  }
+  return [...groups.values()].sort(
+    (left, right) => left.order - right.order || left.id.localeCompare(right.id)
+  );
+}
+
+export const ADMIN_SECTION_GROUPS = mergeAdminSectionGroups(
+  CORE_ADMIN_SECTION_GROUPS,
+  ADMIN_SECTION_GROUP_EXTENSIONS
+);
 
 const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
   {

@@ -231,6 +231,19 @@ Registry сортирует extension-модули по пути, а descriptor'
 `order` и `id`, чтобы сборка была детерминированной. Если секция должна быть
 видна всегда, не указывайте `requiredFeature`.
 
+Extension-модуль может добавить новую группу навигации именованным экспортом
+`sectionGroups` (один descriptor или массив). Идентификаторы базовых групп
+зарезервированы за ядром:
+
+```ts
+export const sectionGroups = {
+  id: "reports",
+  order: 35,
+  i18nKey: "nav_reports",
+  fallbackLabel: "Reports",
+};
+```
+
 Новые extension descriptor'ы используют `requiredFeature` вместо legacy
 `feature`. Если `visibleWhenLocked: true`, секция остается в навигации без
 feature, чтобы сам extension-компонент отрисовал нейтральное locked-состояние.
@@ -254,8 +267,10 @@ export const userDetailPanels = {
 ```
 
 Компонент вкладки получает `at`, `user`, `userDetail`, `featureAvailable`, `active` и `routePrefix`.
-Extension-компонент полной секции получает `onNavigateSection(sectionId)` вместе с общими props
-админки и может использовать типизированные stores из `$lib/admin/context`. `requiredFeature` и
+Extension-компонент полной секции получает `featureAvailable`, отсортированный массив
+`availableFeatures` и `onNavigateSection(sectionId)` вместе с общими props админки. Первый флаг
+отражает `requiredFeature` самой секции, а массив позволяет проверить дополнительные возможности
+внутри неё. Компонент также может использовать типизированные stores из `$lib/admin/context`. `requiredFeature` и
 `visibleWhenLocked` имеют ту же семантику discovery, что и для секций. Серверная route остаётся
 обязательной границей авторизации и доступности функции.
 
