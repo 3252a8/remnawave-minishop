@@ -802,7 +802,7 @@ class HwidDeviceTrafficBonusTests(unittest.IsolatedAsyncioTestCase):
                 patches[2],
                 patches[3],
                 patches[4],
-                patches[5] as create_purchase,
+                patches[5],
             ):
                 result = await service.activate_hwid_device_topup(
                     session=AsyncMock(),
