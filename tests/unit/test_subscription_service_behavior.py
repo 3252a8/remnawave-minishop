@@ -787,6 +787,48 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             self.assertEqual(kwargs["tariff_key"], "traffic")
             self.assertEqual(kwargs["sale_mode"], "traffic_package")
 
+    async def test_tariff_scoped_activation_rejects_missing_catalog(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = Settings(
+                _env_file=None,
+                BOT_TOKEN="token",
+                POSTGRES_USER="app_user",
+                POSTGRES_PASSWORD="app_password",
+                TARIFFS_CONFIG_PATH=str(Path(tmpdir) / "missing-tariffs.json"),
+            )
+            service = _make_service(settings)
+
+            result = await service.activate_subscription(
+                session=AsyncMock(),
+                user_id=42,
+                months=1,
+                payment_amount=249,
+                payment_db_id=34,
+                provider="yookassa",
+                sale_mode="subscription@pro",
+            )
+
+            self.assertIsNone(result)
+            service.panel_service.update_user_details_on_panel.assert_not_awaited()
+
+    async def test_tariff_scoped_activation_rejects_unknown_tariff(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(_tariffs_config_payload(), tmpdir)
+            service = _make_service(settings)
+
+            result = await service.activate_subscription(
+                session=AsyncMock(),
+                user_id=42,
+                months=1,
+                payment_amount=249,
+                payment_db_id=34,
+                provider="yookassa",
+                sale_mode="subscription@pro",
+            )
+
+            self.assertIsNone(result)
+            service.panel_service.update_user_details_on_panel.assert_not_awaited()
+
     async def test_period_purchase_after_traffic_starts_now_and_carries_remaining_package(
         self,
     ):
