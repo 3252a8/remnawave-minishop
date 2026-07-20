@@ -98,11 +98,27 @@ class _DryRunValidation:
 
 
 class PanelDryRunApiService(PanelApiService):
-    """Panel API client that reads live data but never mutates Remnawave users."""
+    """Panel API client that simulates writes without mutating Remnawave users."""
 
     def __init__(self, settings: Settings) -> None:
         super().__init__(settings)
         self._synthetic_users: dict[str, dict[str, Any]] = {}
+
+    async def get_user_by_uuid(
+        self,
+        user_uuid: str,
+        log_response: bool = False,
+        *,
+        use_cache: bool = True,
+    ) -> dict[str, Any] | None:
+        synthetic_user = self._synthetic_users.get(str(user_uuid))
+        if synthetic_user is not None:
+            return dict(synthetic_user)
+        return await super().get_user_by_uuid(
+            user_uuid,
+            log_response=log_response,
+            use_cache=use_cache,
+        )
 
     async def _request(
         self, method: str, endpoint: str, log_full_response: bool = False, **kwargs: Any
@@ -630,8 +646,7 @@ class PanelDryRunApiService(PanelApiService):
             except Exception:
                 existing = None
         response = {**(existing or {"uuid": user_uuid}), **payload, "dryRun": True}
-        if user_uuid in self._synthetic_users:
-            self._synthetic_users[user_uuid] = response
+        self._synthetic_users[user_uuid] = response
         return response
 
     @staticmethod
