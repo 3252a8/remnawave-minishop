@@ -269,10 +269,13 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 }
             )
         converted_bytes = None
+        # Customer tariff changes replace plan entitlements. Admin assignments may preserve
+        # an explicit per-user limit unless the operator chooses the tariff default.
+        apply_target_hwid_limit = mode != "admin_assign" or apply_tariff_hwid_limit
         local_hwid_base_limit, panel_hwid_base_limit = self._transition_hwid_base_limits(
             getattr(sub, "hwid_device_limit", None),
             target,
-            apply_tariff_hwid_limit=apply_tariff_hwid_limit,
+            apply_tariff_hwid_limit=apply_target_hwid_limit,
         )
         try:
             extra_hwid_devices = await tariff_dal.sum_active_hwid_devices(

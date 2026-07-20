@@ -447,7 +447,7 @@ class HwidTariffSwitchConversionTests(unittest.IsolatedAsyncioTestCase):
                 patch(
                     "bot.services.subscription_service_impl.lifecycle.subscription_dal.update_subscription",
                     AsyncMock(return_value=updated),
-                ),
+                ) as update_subscription,
                 patch(
                     "bot.services.subscription_service_impl.lifecycle.subscription_dal.deactivate_other_active_subscriptions",
                     AsyncMock(),
@@ -466,6 +466,10 @@ class HwidTariffSwitchConversionTests(unittest.IsolatedAsyncioTestCase):
                 )
 
         self.assertEqual(result["tariff_key"], "pro")
+        update_data = update_subscription.await_args.args[2]
+        self.assertEqual(update_data["hwid_device_limit"], 5)
+        panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]
+        self.assertEqual(panel_payload["hwidDeviceLimit"], 5)
         create_change.assert_awaited_once()
         change_payload = create_change.await_args.args[1]
         self.assertEqual(change_payload["payment_id"], 99)
