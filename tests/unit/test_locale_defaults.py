@@ -70,3 +70,15 @@ def test_premium_title_prefers_configured_names() -> None:
     tariff = Tariff.model_construct(premium_names={"en": "Anti-jamming"})
 
     assert tariff_premium_title(tariff, "en") == "Anti-jamming"
+
+
+def test_admin_override_hint_translations_are_not_empty() -> None:
+    # Regression guard: these shipped as empty placeholders once, which made
+    # the admin card surface raw i18n keys via the ``fallback || key`` path.
+    for lang in ("ru", "en"):
+        locale = _locale(lang)
+        for key in (
+            "admin_user_regular_override_bonus_hint",
+            "admin_user_premium_override_bonus_hint",
+        ):
+            assert locale[key].strip(), f"{lang}:{key} must not be empty"
