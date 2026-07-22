@@ -352,12 +352,15 @@ class CloudPaymentsService(HttpClientMixin):
             provider="cloudpayments",
             sale_mode=context.sale_mode,
             hwid_quote=dict(context.hwid_quote or {}) or None,
+            is_auto_renew=True,
+            renewal_subscription_id=context.subscription_id,
+            renewal_cycle_end=context.renewal_cycle_end,
         )
         try:
             payment = await payment_dal.create_payment_record(context.session, payment_payload)
         except Exception as exc:
             logger.exception("CloudPayments auto-renew failed to create local payment record")
-            return RecurringChargeResult.failed(str(exc))
+            return RecurringChargeResult.failed(str(exc), payment_db_id=payment.payment_id)
 
         try:
             success, response_data = await self.charge_token(
@@ -418,9 +421,14 @@ class CloudPaymentsService(HttpClientMixin):
                     "CloudPayments auto-renew failed to mark payment %s as failed_creation",
                     payment.payment_id,
                 )
-            return RecurringChargeResult.failed(str(response_data.get("Message") or response_data))
+            return RecurringChargeResult.failed(
+                str(response_data.get("Message") or response_data),
+                provider_payment_id=str(provider_payment_id) if provider_payment_id else None,
+                payment_db_id=payment.payment_id,
+            )
         return RecurringChargeResult.ok(
             provider_payment_id=str(provider_payment_id) if provider_payment_id else None,
+            payment_db_id=payment.payment_id,
             status=status,
         )
 

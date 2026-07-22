@@ -18,6 +18,7 @@ from bot.infra.event_payloads import (
     PlansViewedPayload,
     PromoCodeAppliedPayload,
     ReferralBonusGrantedPayload,
+    SubscriptionAutoRenewFailedPayload,
     SubscriptionCreatedPayload,
     SubscriptionExtendedPayload,
     SupportTicketCreatedPayload,
@@ -36,6 +37,7 @@ UTC_TEXT = "2026-01-02T03:04:05+00:00"
         (PaymentCanceledPayload, events.PAYMENT_CANCELED),
         (SubscriptionCreatedPayload, events.SUBSCRIPTION_CREATED),
         (SubscriptionExtendedPayload, events.SUBSCRIPTION_EXTENDED),
+        (SubscriptionAutoRenewFailedPayload, events.SUBSCRIPTION_AUTO_RENEW_FAILED),
         (TrialActivatedPayload, events.TRIAL_ACTIVATED),
         (PlansViewedPayload, events.PLANS_VIEWED),
         (BotStartedPayload, events.BOT_STARTED),
@@ -152,6 +154,33 @@ def test_payment_succeeded_payload_matches_legacy_wire_dict():
         "purchased_hwid_devices": 2,
         "end_date": UTC_TEXT,
         "is_auto_renew": False,
+        "renewal_subscription_id": None,
+    }
+
+
+def test_auto_renew_failure_payload_is_neutral_and_flat():
+    payload = SubscriptionAutoRenewFailedPayload(
+        user_id=42,
+        subscription_id=7,
+        provider="stripe",
+        reason_code="provider_rejected",
+        payment_db_id=5,
+        provider_payment_id="pi_1",
+        renewal_cycle_end=UTC_DT,
+        retryable=True,
+        occurred_at=UTC_DT,
+    ).to_payload()
+
+    assert payload == {
+        "user_id": 42,
+        "subscription_id": 7,
+        "provider": "stripe",
+        "reason_code": "provider_rejected",
+        "payment_db_id": 5,
+        "provider_payment_id": "pi_1",
+        "renewal_cycle_end": UTC_TEXT,
+        "retryable": True,
+        "occurred_at": UTC_TEXT,
     }
 
 

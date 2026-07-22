@@ -443,7 +443,9 @@ async def finalize_successful_payment(
                 payment=req.payment,
                 activation=activation,
                 end_date=events.iso(activation.get("end_date") if activation else None),
-                is_auto_renew=False,
+                is_auto_renew=bool(getattr(req.payment, "is_auto_renew", False)),
+                renewal_subscription_id=(activation.get("subscription_id") if activation else None)
+                or getattr(req.payment, "renewal_subscription_id", None),
             )
         )
     )

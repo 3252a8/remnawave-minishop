@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Collection
+from datetime import UTC, datetime
 from typing import Any
 
 from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra import events
-from bot.infra.event_payloads import PaymentCanceledPayload
+from bot.infra.event_payloads import PaymentCanceledPayload, SubscriptionAutoRenewFailedPayload
 from db.dal import payment_dal
 from db.models import Payment
 
@@ -84,3 +85,22 @@ async def notify_user_payment_failed(
             message_key=message_key,
         )
     )
+    subscription_id = getattr(payment, "renewal_subscription_id", None)
+    if bool(getattr(payment, "is_auto_renew", False)) and subscription_id is not None:
+        # A generic cancellation remains available for ordinary payment UI
+        # flows. Recurring marketing and recovery use a distinct typed event,
+        # never provider text or a manual-cancellation proxy.
+        await events.emit_model(
+            SubscriptionAutoRenewFailedPayload(
+                user_id=int(payment.user_id),
+                subscription_id=int(subscription_id),
+                provider=str(getattr(payment, "provider", "") or "unknown"),
+                reason_code="provider_webhook_failed",
+                payment_db_id=getattr(payment, "payment_id", None),
+                provider_payment_id=getattr(payment, "provider_payment_id", None)
+                or getattr(payment, "yookassa_payment_id", None),
+                renewal_cycle_end=getattr(payment, "renewal_cycle_end", None),
+                retryable=True,
+                occurred_at=datetime.now(UTC),
+            )
+        )

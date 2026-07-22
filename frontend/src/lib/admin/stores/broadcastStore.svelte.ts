@@ -55,6 +55,7 @@ export type BroadcastPreviewResult = {
 };
 export type BroadcastState = {
   broadcastTarget: string;
+  broadcastTargetError: string | null;
   broadcastText: string;
   broadcastBusy: boolean;
   broadcastResult: BroadcastResult | null;
@@ -230,6 +231,7 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
 
   const state = $state<BroadcastStore>({
     broadcastTarget: "all",
+    broadcastTargetError: null,
     broadcastText: "",
     broadcastBusy: false,
     broadcastResult: null,
