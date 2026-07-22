@@ -21,6 +21,12 @@ export interface AdminSectionGroupDescriptor {
 export interface AdminSectionComponentProps {
   at: TranslateFn;
   featureAvailable: boolean;
+  /**
+   * True once the runtime feature manifest has been loaded at least once.
+   * Until then a missing feature means "still discovering", not "locked", so
+   * feature-bound sections can render a pending state instead of a lock.
+   */
+  featuresResolved: boolean;
   availableFeatures: readonly string[];
   routePrefix: string;
   onNavigateSection: (sectionId: string) => void;
@@ -39,6 +45,12 @@ export interface AdminSectionDescriptor extends FeatureBoundDescriptor {
   icon: unknown;
   component?: unknown;
   loadComponent?: () => Promise<unknown>;
+  /**
+   * Legacy route slugs that canonicalize to this section id. Aliases keep old
+   * bookmarks working when an extension renames or merges its sections; they
+   * never override another registered section id.
+   */
+  routeAliases?: readonly string[];
 }
 
 export interface AdminUserDetailPanelProps {

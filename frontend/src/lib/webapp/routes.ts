@@ -23,11 +23,18 @@ export function normalizeSection(value: unknown): WebappSection {
   return "home";
 }
 
+const ADMIN_SECTION_SLUG_RE = /^[a-z0-9][a-z0-9_-]*$/;
+
 export function normalizeAdminSection(value: unknown): string {
   const section = String(value || "")
     .trim()
     .toLowerCase();
-  return ADMIN_SECTIONS.has(section) ? section : "stats";
+  if (ADMIN_SECTIONS.has(section)) return section;
+  // Extension sections register in the admin bundle's registry, which is not
+  // loaded at boot. Keep any well-formed slug so extension deep links survive
+  // until the admin panel validates them against the full section registry;
+  // only malformed slugs fall back to the dashboard here.
+  return ADMIN_SECTION_SLUG_RE.test(section) ? section : "stats";
 }
 
 function normalizePathname(pathname: unknown): string {

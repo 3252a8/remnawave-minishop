@@ -90,6 +90,8 @@ export type SettingsSavedPayload = {
 export type SettingsState = {
   settingsSections: SettingsSection[];
   features: string[];
+  /** True once the feature manifest has been loaded at least once. */
+  featuresResolved: boolean;
   settingsLoading: boolean;
   settingsDirty: SettingsDirtyState;
   settingsSaving: boolean;
@@ -122,6 +124,7 @@ export function createSettingsStore({ api, onToast, at }: SettingsStoreOptions):
   const state = $state<SettingsStore>({
     settingsSections: [],
     features: [],
+    featuresResolved: false,
     settingsLoading: false,
     settingsDirty: {},
     settingsSaving: false,
@@ -149,6 +152,7 @@ export function createSettingsStore({ api, onToast, at }: SettingsStoreOptions):
           ...s,
           settingsSections: normalizeSections(result.sections),
           features: Array.isArray(result.features) ? result.features : [],
+          featuresResolved: true,
         }));
       }
     } finally {

@@ -7,6 +7,7 @@
     ADMIN_SECTIONS,
     isAdminSectionVisible,
     requiredFeatureForAdminSection,
+    resolveAdminSectionId,
   } from "./sections/registry";
   import { createAdminSectionComponentLoader, type DynamicComponent } from "./adminLazyComponents";
   import { createAdminStores, type AdminApi } from "./adminStores";
@@ -183,7 +184,7 @@
   );
   const SECTION_META: Record<string, SectionMeta> = $derived(
     Object.fromEntries(
-      visibleSections.map((section) => [
+      ADMIN_SECTIONS.map((section) => [
         section.id,
         {
           title: at(section.titleI18nKey, {}, section.fallbackTitle),
@@ -192,13 +193,16 @@
       ])
     )
   );
-  const SECTION_BY_ID = $derived(new Map(visibleSections.map((section) => [section.id, section])));
+  const SECTION_BY_ID = new Map(ADMIN_SECTIONS.map((section) => [section.id, section]));
 
-  const VALID_SECTIONS: string[] = $derived(
-    (NAV_GROUPS || []).flatMap((group) => (group.items || []).map((item) => item.id))
-  );
+  // Route slugs validate against the full build-time registry (including
+  // extension sections and their aliases), never against the feature-filtered
+  // navigation: a requested section that is merely feature-locked or still
+  // waiting for feature discovery keeps its slug and renders its own locked or
+  // pending state. Only slugs unknown to the registry fall back to the
+  // dashboard.
   const normalizeSection = (value: unknown): AdminSectionId =>
-    (VALID_SECTIONS || []).includes(String(value)) ? String(value) : "stats";
+    resolveAdminSectionId(value) || "stats";
   const settingsPathKey = (path: unknown): string => (Array.isArray(path) ? path : []).join("/");
 
   function initialActiveSection(): AdminSectionId {
@@ -221,8 +225,10 @@
   }
 
   $effect(() => {
-    if (VALID_SECTIONS.length && !VALID_SECTIONS.includes(active)) {
-      active = normalizeSection(active);
+    // Canonicalize aliases and reject slugs unknown to the section registry.
+    const resolved = normalizeSection(active);
+    if (resolved !== active) {
+      active = resolved;
     }
   });
 
@@ -275,6 +281,7 @@
   const meta = $derived(SECTION_META[active] || { title: active, subtitle: "" });
   const activeSection = $derived(SECTION_BY_ID.get(active));
   const availableFeatures = $derived([...featureSet].sort());
+  const featuresResolved = $derived(Boolean(settingsStore.featuresResolved));
   const activeSectionFeatureAvailable = $derived(
     !activeSection ||
       !requiredFeatureForAdminSection(activeSection) ||
@@ -663,6 +670,7 @@
   {activeSectionComponent}
   {activeSectionLoading}
   featureAvailable={activeSectionFeatureAvailable}
+  {featuresResolved}
   {availableFeatures}
   {adsStore}
   {appFaviconUrl}

@@ -65,6 +65,7 @@
     fmtDateShort,
     fmtMoney,
     featureAvailable,
+    featuresResolved,
     initialTicketId,
     languageBusy,
     languageOptions,
@@ -130,6 +131,7 @@
     fmtDateShort: DateFormatter;
     fmtMoney: MoneyFormatter;
     featureAvailable: boolean;
+    featuresResolved: boolean;
     initialTicketId: number | null;
     languageBusy: boolean;
     languageOptions: LanguageOption[];
@@ -445,6 +447,7 @@
               {fmtDateShort}
               {fmtMoney}
               {featureAvailable}
+              {featuresResolved}
               onSettingsSaved={onSaveSettings}
               onTranslationsSaved={onSaveTranslations}
               {paymentStatusVariant}

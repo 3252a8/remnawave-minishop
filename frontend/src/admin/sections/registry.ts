@@ -242,3 +242,41 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
 export const ADMIN_SECTIONS = [...CORE_ADMIN_SECTIONS, ...ADMIN_SECTION_EXTENSIONS]
   .filter((section) => section?.id && (section?.component || section?.loadComponent))
   .sort((a, b) => a.group.localeCompare(b.group) || a.order - b.order || a.id.localeCompare(b.id));
+
+export function buildAdminSectionRouteAliases(
+  sections: readonly AdminSectionDescriptor[]
+): Map<string, string> {
+  const ids = new Set(sections.map((section) => section.id));
+  const aliases = new Map<string, string>();
+  for (const section of sections) {
+    for (const rawAlias of section.routeAliases || []) {
+      const alias = String(rawAlias || "")
+        .trim()
+        .toLowerCase();
+      // An alias may never shadow a registered section id or an earlier alias.
+      if (!alias || ids.has(alias) || aliases.has(alias)) continue;
+      aliases.set(alias, section.id);
+    }
+  }
+  return aliases;
+}
+
+export const ADMIN_SECTION_ROUTE_ALIASES: ReadonlyMap<string, string> =
+  buildAdminSectionRouteAliases(ADMIN_SECTIONS);
+
+const ADMIN_SECTION_IDS: ReadonlySet<string> = new Set(ADMIN_SECTIONS.map((section) => section.id));
+
+/**
+ * Resolve a requested admin route slug against the full section registry,
+ * including extension sections and their registered route aliases. Returns
+ * the canonical section id, or an empty string when the slug is unknown to
+ * the registry (the caller decides the fallback).
+ */
+export function resolveAdminSectionId(value: unknown): string {
+  const slug = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (!slug) return "";
+  if (ADMIN_SECTION_IDS.has(slug)) return slug;
+  return ADMIN_SECTION_ROUTE_ALIASES.get(slug) || "";
+}
