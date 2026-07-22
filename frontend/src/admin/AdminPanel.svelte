@@ -331,10 +331,22 @@
     paymentsStore.closePayment();
     supportStore.closeTicketView();
     onSectionChange(next);
+    // Direct extension deep links can be rendered before the outer application
+    // has synchronized its screen state. Keep the browser route in sync even
+    // in that transient state; the outer action normally writes the same URL.
+    syncActiveSectionPath(next);
     applySectionRouteDefaults(next);
     replaceCurrentUsersRouteFilters(
       next === "users" ? currentUsersRouteFilters() : DEFAULT_USERS_ROUTE_FILTERS
     );
+  }
+
+  function syncActiveSectionPath(sectionId: string): void {
+    if (typeof window === "undefined" || window.location.protocol === "file:") return;
+    const targetPath = withRoutePrefix(`/admin/${sectionId}`, routePrefix);
+    const nextUrl = `${targetPath}${window.location.search}${window.location.hash}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (nextUrl !== currentUrl) window.history.pushState(null, "", nextUrl);
   }
 
   function applySectionRouteDefaults(sectionId: string): void {
