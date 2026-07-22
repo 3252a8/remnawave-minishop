@@ -34,16 +34,33 @@ export function isAdminSectionVisible(
   return isFeatureBoundDescriptorVisible(section, availableFeatures);
 }
 
+export function defaultQueryForAdminSection(
+  section: AdminSectionDescriptor | undefined,
+  availableFeatures: ReadonlySet<string>
+): Readonly<Record<string, string>> {
+  for (const routeDefault of section?.routeDefaults || []) {
+    const requiredFeature = String(routeDefault.requiredFeature || "").trim();
+    if (requiredFeature && !availableFeatures.has(requiredFeature)) continue;
+    return routeDefault.query;
+  }
+  return {};
+}
+
 const CORE_ADMIN_SECTION_GROUPS: AdminSectionGroupDescriptor[] = [
   { id: "overview", order: 10, i18nKey: "nav_overview", fallbackLabel: "Overview" },
   { id: "operations", order: 20, i18nKey: "nav_operations", fallbackLabel: "Operations" },
+  { id: "marketing", order: 30, i18nKey: "nav_marketing", fallbackLabel: "Marketing" },
+  { id: "support", order: 40, i18nKey: "nav_support", fallbackLabel: "Support" },
+  { id: "system", order: 50, i18nKey: "nav_system", fallbackLabel: "System" },
   {
+    // Kept for at least one release cycle so external extensions that still
+    // register sections into the legacy group keep a visible home; the group
+    // stays hidden while it has no items.
     id: "communication",
-    order: 30,
+    order: 60,
     i18nKey: "nav_communication",
     fallbackLabel: "Communication",
   },
-  { id: "system", order: 40, i18nKey: "nav_system", fallbackLabel: "System" },
 ];
 
 export function mergeAdminSectionGroups(
@@ -108,8 +125,8 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
   },
   {
     id: "promos",
-    group: "operations",
-    order: 30,
+    group: "marketing",
+    order: 20,
     i18nKey: "nav_promos",
     fallbackLabel: "Promos",
     titleI18nKey: "section_promos_title",
@@ -121,8 +138,8 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
   },
   {
     id: "ads",
-    group: "operations",
-    order: 40,
+    group: "marketing",
+    order: 30,
     i18nKey: "nav_ads",
     fallbackLabel: "Ads",
     titleI18nKey: "section_ads_title",
@@ -134,7 +151,7 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
   },
   {
     id: "broadcast",
-    group: "communication",
+    group: "marketing",
     order: 10,
     i18nKey: "nav_broadcast",
     fallbackLabel: "Broadcast",
@@ -147,7 +164,7 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
   },
   {
     id: "logs",
-    group: "communication",
+    group: "support",
     order: 20,
     i18nKey: "nav_logs",
     fallbackLabel: "Logs",
@@ -160,8 +177,8 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
   },
   {
     id: "support",
-    group: "communication",
-    order: 30,
+    group: "support",
+    order: 10,
     i18nKey: "nav_support",
     fallbackLabel: "Support",
     titleI18nKey: "section_support_title",

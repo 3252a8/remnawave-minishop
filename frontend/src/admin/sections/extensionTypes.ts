@@ -30,6 +30,22 @@ export interface AdminSectionComponentProps {
   availableFeatures: readonly string[];
   routePrefix: string;
   onNavigateSection: (sectionId: string) => void;
+  /**
+   * Opens the core user card for the given user id. The panel wires the
+   * section-appropriate handler at runtime; extensions may rely on it being
+   * present for admin sections.
+   */
+  onOpenUserCard: (userId: number) => void;
+}
+
+export interface AdminSectionRouteDefault {
+  /**
+   * The default applies only when this feature is available. Extension
+   * descriptors use this neutral routing rule without teaching core about
+   * their feature names or query semantics.
+   */
+  requiredFeature?: string;
+  query: Readonly<Record<string, string>>;
 }
 
 export interface AdminSectionDescriptor extends FeatureBoundDescriptor {
@@ -51,6 +67,11 @@ export interface AdminSectionDescriptor extends FeatureBoundDescriptor {
    * never override another registered section id.
    */
   routeAliases?: readonly string[];
+  /**
+   * Ordered query defaults for sidebar navigation. Existing direct URLs are
+   * not rewritten by core; extensions may canonicalize their own aliases.
+   */
+  routeDefaults?: readonly AdminSectionRouteDefault[];
 }
 
 export interface AdminUserDetailPanelProps {

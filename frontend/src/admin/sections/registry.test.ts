@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ADMIN_SECTION_GROUPS,
+  ADMIN_SECTIONS,
   buildAdminSectionRouteAliases,
+  defaultQueryForAdminSection,
   isAdminSectionVisible,
   mergeAdminSectionGroups,
   requiredFeatureForAdminSection,
@@ -46,6 +49,33 @@ describe("admin extension feature metadata", () => {
   });
 });
 
+describe("admin navigation groups", () => {
+  it("orders neutral groups overview, operations, marketing, support, system", () => {
+    const coreGroupIds = ADMIN_SECTION_GROUPS.map((group) => group.id);
+    expect(coreGroupIds.slice(0, 5)).toEqual([
+      "overview",
+      "operations",
+      "marketing",
+      "support",
+      "system",
+    ]);
+    // The legacy group id stays accepted for external extensions; it renders
+    // only when an extension registers a section into it.
+    expect(coreGroupIds).toContain("communication");
+  });
+
+  it("keeps only broadcast, promos, and ads in marketing and support/logs in support", () => {
+    const byGroup = (groupId: string) =>
+      ADMIN_SECTIONS.filter((section) => section.group === groupId)
+        .sort((a, b) => a.order - b.order)
+        .map((section) => section.id);
+    expect(byGroup("marketing")).toEqual(["broadcast", "promos", "ads"]);
+    expect(byGroup("support")).toEqual(["support", "logs"]);
+    // Core itself no longer populates the legacy group.
+    expect(byGroup("communication")).toEqual([]);
+  });
+});
+
 describe("admin section route resolution", () => {
   it("resolves registered core section ids case-insensitively", () => {
     expect(resolveAdminSectionId("stats")).toBe("stats");
@@ -70,6 +100,20 @@ describe("admin section route resolution", () => {
     // A registered section id can never be redirected elsewhere.
     expect(aliases.has("stats")).toBe(false);
     expect(aliases.has("combined")).toBe(false);
+  });
+
+  it("selects the first route default whose neutral feature requirement is met", () => {
+    const descriptor = section({
+      routeDefaults: [
+        { requiredFeature: "extension.leads", query: { tab: "leads" } },
+        { query: { tab: "business" } },
+      ],
+    });
+
+    expect(defaultQueryForAdminSection(descriptor, new Set(["extension.leads"]))).toEqual({
+      tab: "leads",
+    });
+    expect(defaultQueryForAdminSection(descriptor, new Set())).toEqual({ tab: "business" });
   });
 });
 

@@ -5,6 +5,7 @@
   import {
     ADMIN_SECTION_GROUPS,
     ADMIN_SECTIONS,
+    defaultQueryForAdminSection,
     isAdminSectionVisible,
     requiredFeatureForAdminSection,
     resolveAdminSectionId,
@@ -330,9 +331,24 @@
     paymentsStore.closePayment();
     supportStore.closeTicketView();
     onSectionChange(next);
+    applySectionRouteDefaults(next);
     replaceCurrentUsersRouteFilters(
       next === "users" ? currentUsersRouteFilters() : DEFAULT_USERS_ROUTE_FILTERS
     );
+  }
+
+  function applySectionRouteDefaults(sectionId: string): void {
+    if (typeof window === "undefined" || window.location.protocol === "file:") return;
+    const descriptor = ADMIN_SECTIONS.find((section) => section.id === sectionId);
+    const defaults = defaultQueryForAdminSection(descriptor, featureSet);
+    const entries = Object.entries(defaults).filter(([key, value]) => key && value);
+    if (!entries.length) return;
+    const query = new URLSearchParams(window.location.search);
+    for (const [key, value] of entries) query.set(key, value);
+    const search = query.toString();
+    const nextUrl = `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (nextUrl !== currentUrl) window.history.replaceState(window.history.state, "", nextUrl);
   }
 
   function currentUsersRouteFilters(): UsersRouteFilters {
