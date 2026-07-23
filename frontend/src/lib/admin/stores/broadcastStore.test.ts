@@ -98,6 +98,36 @@ describe("broadcastStore", () => {
     expect(store.broadcastCounts?.["segment:priority"]).toBe(1);
   });
 
+  it("keeps unavailable extension audiences visible as locked grouped options", async () => {
+    const api = vi.fn().mockResolvedValue({
+      ok: true,
+      counts: { all: 2 },
+      audiences: [
+        {
+          target: "segment:licensed",
+          label_key: "broadcast_target_licensed",
+          fallback_label: "Licensed audience",
+          group_label_key: "broadcast_audience_group_extensions",
+          group_fallback_label: "Extensions",
+          available: false,
+          order: 10,
+        },
+      ],
+      email_enabled: false,
+    });
+    const store = makeStore(api);
+
+    await store.loadCounts();
+
+    expect(store.BROADCAST_TARGET_OPTIONS).toContainEqual({
+      value: "segment:licensed",
+      label: "Licensed audience",
+      group: "Extensions",
+      disabled: true,
+      locked: true,
+    });
+  });
+
   it("sends broadcast buttons with Telegram preview requests", async () => {
     const api = vi.fn().mockResolvedValue({
       ok: true,

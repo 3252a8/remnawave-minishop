@@ -450,9 +450,38 @@
       },
       "AdminBroadcastAudienceOut": {
         "properties": {
+          "available": {
+            "default": true,
+            "title": "Available",
+            "type": "boolean"
+          },
           "fallback_label": {
             "title": "Fallback Label",
             "type": "string"
+          },
+          "group_fallback_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Group Fallback Label"
+          },
+          "group_label_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Group Label Key"
           },
           "label_key": {
             "title": "Label Key",

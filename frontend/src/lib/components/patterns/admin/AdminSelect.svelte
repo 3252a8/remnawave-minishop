@@ -1,8 +1,14 @@
 <script lang="ts">
-  import { Check, ChevronDown } from "$components/ui/icons.js";
+  import { Check, ChevronDown, LockKeyhole } from "$components/ui/icons.js";
   import { Select } from "$components/ui/primitives.js";
 
-  type SelectItem = { value: string; label: string };
+  type SelectItem = {
+    value: string;
+    label: string;
+    disabled?: boolean;
+    locked?: boolean;
+    group?: string;
+  };
   type Props = {
     value?: string;
     items?: SelectItem[];
@@ -50,9 +56,20 @@
   <Select.Portal>
     <Select.Content class="admin-select-content" {side} {align} {sideOffset} {collisionPadding}>
       <Select.Viewport class="admin-select-viewport">
-        {#each items as item (item.value)}
-          <Select.Item value={item.value} label={item.label} class="admin-select-item">
+        {#each items as item, index (item.value)}
+          {#if item.group && item.group !== items[index - 1]?.group}
+            <div class="admin-select-group-label" aria-hidden="true">{item.group}</div>
+          {/if}
+          <Select.Item
+            value={item.value}
+            label={item.label}
+            disabled={item.disabled}
+            class="admin-select-item"
+          >
             <span>{item.label}</span>
+            {#if item.locked}
+              <LockKeyhole size={14} class="admin-select-item-lock" />
+            {/if}
             <Check size={14} class="admin-select-item-check" />
           </Select.Item>
         {/each}
@@ -60,3 +77,17 @@
     </Select.Content>
   </Select.Portal>
 </Select.Root>
+
+<style>
+  .admin-select-group-label {
+    color: var(--muted-foreground, currentColor);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.5rem 0.625rem 0.25rem;
+  }
+
+  :global(.admin-select-item-lock) {
+    margin-left: auto;
+    opacity: 0.7;
+  }
+</style>

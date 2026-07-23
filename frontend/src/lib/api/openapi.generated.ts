@@ -1882,8 +1882,23 @@ export interface components {
     };
     /** AdminBroadcastAudienceOut */
     AdminBroadcastAudienceOut: {
+      /**
+       * Available
+       * @default true
+       */
+      available: boolean;
       /** Fallback Label */
       fallback_label: string;
+      /**
+       * Group Fallback Label
+       * @default null
+       */
+      group_fallback_label: string | null;
+      /**
+       * Group Label Key
+       * @default null
+       */
+      group_label_key: string | null;
       /** Label Key */
       label_key: string;
       /**

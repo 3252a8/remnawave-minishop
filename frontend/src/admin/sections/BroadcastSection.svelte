@@ -125,7 +125,7 @@
     void broadcastStore.loadCounts().then(() => {
       if (!requestedTarget) return;
       const available = broadcastStore.BROADCAST_TARGET_OPTIONS.some(
-        (option) => option.value === requestedTarget
+        (option) => option.value === requestedTarget && !option.disabled
       );
       if (available) return;
       broadcastStore.updateField({
