@@ -160,6 +160,7 @@ class TariffMixin(SubscriptionServiceMixinContract):
         regular_bonus_bytes: int = 0,
         regular_unlimited_override: bool = False,
         traffic_used_bytes: int = 0,
+        hwid_device_bonus_bytes: int = 0,
     ) -> int:
         if tariff:
             baseline = int(tariff.monthly_bytes or 0)
@@ -171,6 +172,7 @@ class TariffMixin(SubscriptionServiceMixinContract):
             regular_bonus_bytes=regular_bonus_bytes,
             regular_unlimited_override=regular_unlimited_override,
             traffic_used_bytes=traffic_used_bytes,
+            hwid_device_bonus_bytes=hwid_device_bonus_bytes,
         )
 
     def _premium_limit_for_tariff(self, tariff: Tariff | None, topup_balance_bytes: int = 0) -> int:
@@ -259,6 +261,7 @@ class TariffMixin(SubscriptionServiceMixinContract):
         regular_bonus_bytes: int,
         regular_unlimited_override: bool,
         traffic_used_bytes: int,
+        hwid_device_bonus_bytes: int = 0,
     ) -> int:
         """Numeric cap sent to the panel; Remnawave treats ``0`` as unlimited."""
         floor = (
@@ -268,7 +271,11 @@ class TariffMixin(SubscriptionServiceMixinContract):
         )
         if regular_unlimited_override:
             return 0
-        return floor
+        if floor <= 0:
+            # ``0`` is unlimited on the panel; a device traffic bonus must
+            # never turn an unlimited tariff into a finite cap.
+            return floor
+        return floor + max(0, int(hwid_device_bonus_bytes or 0))
 
     async def premium_access_for_tariff(self, tariff: Tariff | None) -> dict[str, Any]:
         if not tariff or not tariff.premium_squad_uuids:

@@ -802,6 +802,9 @@ SETTINGS_MANIFEST: list[SettingField] = [
     # ─── Devices ───────────────────────────────────────────────────
     SettingField("MY_DEVICES_SECTION_ENABLED", "bool", "devices", "My Devices Section Enabled"),
     SettingField("USER_HWID_DEVICE_LIMIT", "int", "devices", "User HWID Device Limit", min=0),
+    SettingField(
+        "HWID_DEVICE_TRAFFIC_BONUS_GB", "float", "devices", "HWID Device Traffic Bonus Gb", min=0
+    ),
     SettingField("USER_TRAFFIC_LIMIT_GB", "float", "devices", "User Traffic Limit Gb"),
     # ─── System ────────────────────────────────────────────────────
     SettingField(

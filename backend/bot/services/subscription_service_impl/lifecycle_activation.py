@@ -391,6 +391,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             regular_bonus_carry,
             regular_unlimited_override=regular_unl_carry,
             traffic_used_bytes=0,
+            hwid_device_bonus_bytes=self._hwid_device_traffic_bonus_bytes(extra_hwid_devices),
         )
         base_hwid_limit = self._base_hwid_limit_for_tariff(tariff)
         effective_hwid_limit = self._effective_hwid_limit(base_hwid_limit, extra_hwid_devices)

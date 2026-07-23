@@ -1145,6 +1145,7 @@
   "wa_hwid_devices_renewal_period": "From {from} to {to}",
   "wa_hwid_devices_valid_until": "+{count} extra devices are valid until {date}",
   "wa_hwid_devices_renewal_notice": "Your +{count} extra devices are valid until {date}. You can renew them together with the subscription.",
+  "wa_hwid_devices_traffic_bonus": "Adds {gb} GB to your monthly traffic",
   "wa_hwid_devices_renewal_checkbox": "Also renew +{count} extra devices for {price}",
   "wa_hwid_devices_renewal_checkbox_aria": "Renew extra devices with the subscription",
   "wa_hwid_devices_renewal_checkbox_hint": "New device period: from {from} to {to}",

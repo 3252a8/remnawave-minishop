@@ -189,6 +189,7 @@ Trust-all вариант записывается как
 | `USER_TRAFFIC_LIMIT_GB` | Legacy-лимит трафика пользователя. |
 | `USER_TRAFFIC_STRATEGY` | Legacy-стратегия лимита трафика. |
 | `USER_HWID_DEVICE_LIMIT` | Legacy-лимит HWID-устройств по умолчанию. |
+| `HWID_DEVICE_TRAFFIC_BONUS_GB` | ГБ/мес к основному лимиту трафика за каждое активное докупленное HWID-устройство (возвращается при каждом месячном сбросе, исчезает после истечения докупки; на безлимитных тарифах не применяется). `0` — выключено. Для мгновенного применения к уже купленным устройствам — `backend/scripts/resync_traffic_limits.py` (dry-run по умолчанию, `APPLY=1` для применения). |
 
 В Remnawave Panel поле `WEBHOOK_URL` должно указывать на публичный Minishop webhook: `WEBHOOK_BASE_URL` + `/webhook/panel`. Если публичный домен приложения `https://app.example.com`, итоговый адрес будет `https://app.example.com/webhook/panel`.
 

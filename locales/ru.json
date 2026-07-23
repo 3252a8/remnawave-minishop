@@ -1145,6 +1145,7 @@
   "wa_hwid_devices_renewal_period": "С {from} до {to}",
   "wa_hwid_devices_valid_until": "+{count} дополнительных устройств действует до {date}",
   "wa_hwid_devices_renewal_notice": "Докупленные +{count} устройств действуют до {date}. Продлить их на следующий срок можно вместе с продлением подписки.",
+  "wa_hwid_devices_traffic_bonus": "Плюс {gb} ГБ к месячному трафику",
   "wa_hwid_devices_renewal_checkbox": "Продлить также +{count} доп. устройств за {price}",
   "wa_hwid_devices_renewal_checkbox_aria": "Продлить дополнительные устройства вместе с подпиской",
   "wa_hwid_devices_renewal_checkbox_hint": "Новый срок устройств: с {from} до {to}",

@@ -104,6 +104,46 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
             return None
         return int(effective_hwid_limit)
 
+    def _hwid_device_traffic_bonus_gb_setting(self) -> float:
+        try:
+            value = float(getattr(self.settings, "HWID_DEVICE_TRAFFIC_BONUS_GB", 0) or 0)
+        except (TypeError, ValueError):
+            return 0.0
+        return value if value > 0 else 0.0
+
+    def _hwid_device_traffic_bonus_bytes(self, active_devices: int) -> int:
+        """Recurring monthly-cap component granted per ACTIVE purchased device.
+
+        This is not a consumable credit: the amount is part of the computed
+        main traffic limit for as long as the device entitlement is active,
+        so the panel's monthly reset hands it back every month, and it
+        disappears from the next recompute once the entitlement lapses.
+        """
+        per_device_gb = self._hwid_device_traffic_bonus_gb_setting()
+        if per_device_gb <= 0 or active_devices <= 0:
+            return 0
+        return self.gb_to_bytes(per_device_gb * active_devices)
+
+    async def _hwid_device_traffic_bonus_bytes_for_sub(
+        self,
+        session: AsyncSession,
+        sub: Subscription,
+        *,
+        active_devices: int | None = None,
+    ) -> int:
+        if sub is None or self._hwid_device_traffic_bonus_gb_setting() <= 0:
+            return 0
+        if active_devices is None:
+            active_devices = await self._active_hwid_extra_devices_for_sub(session, sub)
+        return self._hwid_device_traffic_bonus_bytes(int(active_devices or 0))
+
+    def hwid_device_traffic_bonus_gb(self, device_count: int) -> float:
+        """Display-friendly flat monthly GB added for ``device_count`` devices."""
+        bonus_bytes = self._hwid_device_traffic_bonus_bytes(int(device_count or 0))
+        if bonus_bytes <= 0:
+            return 0.0
+        return round(bonus_bytes / float(1024**3), 2)
+
     async def _hwid_topup_validity_window(
         self,
         session: AsyncSession,
@@ -505,6 +545,27 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         starts_now = valid_from <= now < valid_until
         new_extra_devices = active_extra_devices + (purchased_devices if starts_now else 0)
         effective_hwid_limit = self._effective_hwid_limit(base_hwid_limit, new_extra_devices)
+        traffic_bonus_bytes = self._hwid_device_traffic_bonus_bytes(new_extra_devices)
+        subscription_updates: dict[str, Any] = {
+            "hwid_device_limit": base_hwid_limit,
+            "extra_hwid_devices": new_extra_devices,
+            "tariff_key": tariff.key if tariff else sub.tariff_key,
+        }
+        traffic_limit_for_panel: int | None = None
+        if self._hwid_device_traffic_bonus_gb_setting() > 0:
+            traffic_limit_for_panel = self._compute_main_traffic_limit_bytes(
+                tier_baseline_bytes=int(
+                    getattr(sub, "tier_baseline_bytes", 0)
+                    or (tariff.monthly_bytes if tariff else 0)
+                    or 0
+                ),
+                topup_balance_bytes=self._nonnegative_bytes(getattr(sub, "topup_balance_bytes", 0)),
+                regular_bonus_bytes=int(getattr(sub, "regular_bonus_bytes", 0) or 0),
+                regular_unlimited_override=bool(getattr(sub, "regular_unlimited_override", False)),
+                traffic_used_bytes=int(getattr(sub, "traffic_used_bytes", 0) or 0),
+                hwid_device_bonus_bytes=traffic_bonus_bytes,
+            )
+            subscription_updates["traffic_limit_bytes"] = traffic_limit_for_panel
         await self._record_payment_context(
             session,
             payment_db_id,
@@ -520,11 +581,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         updated_sub = await subscription_dal.update_subscription(
             session,
             sub.subscription_id,
-            {
-                "hwid_device_limit": base_hwid_limit,
-                "extra_hwid_devices": new_extra_devices,
-                "tariff_key": tariff.key if tariff else sub.tariff_key,
-            },
+            subscription_updates,
         )
         if not updated_sub:
             return None
@@ -542,6 +599,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
             panel_user_uuid=db_user.panel_user_uuid,
             expire_at=updated_sub.end_date,
             status="ACTIVE",
+            traffic_limit_bytes=traffic_limit_for_panel,
             hwid_device_limit=effective_hwid_limit,
             include_default_squads=False,
         )
@@ -591,4 +649,5 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
             "hwid_devices_valid_from": valid_from,
             "hwid_devices_valid_until": valid_until,
             "hwid_devices_renewal": renewal,
+            "hwid_traffic_bonus_bytes": traffic_bonus_bytes,
         }

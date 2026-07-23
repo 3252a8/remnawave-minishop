@@ -189,6 +189,7 @@ HWID_RENEWAL_SCHEMA: dict[str, Any] = {
         "active_until": NULLABLE_STRING_SCHEMA,
         "active_until_text": NULLABLE_STRING_SCHEMA,
         "pricing_period_months": INTEGER_SCHEMA,
+        "traffic_bonus_gb": NUMBER_SCHEMA,
     },
 }
 HWID_DEVICE_PACKAGE_SCHEMA: dict[str, Any] = {
@@ -237,6 +238,7 @@ PLAN_SCHEMA: dict[str, Any] = {
         "valid_until": NULLABLE_STRING_SCHEMA,
         "valid_until_text": NULLABLE_STRING_SCHEMA,
         "proration_ratio": NUMBER_SCHEMA,
+        "traffic_bonus_gb": NUMBER_SCHEMA,
         "hwid_renewal": HWID_RENEWAL_SCHEMA,
     },
 }

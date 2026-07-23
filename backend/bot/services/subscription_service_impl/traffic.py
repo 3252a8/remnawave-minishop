@@ -424,17 +424,18 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         rb = int(getattr(sub, "regular_bonus_bytes", 0) or 0)
         runl = bool(getattr(sub, "regular_unlimited_override", False))
         used_now = int(getattr(sub, "traffic_used_bytes", 0) or 0)
+        hwid_limits = await self._resolve_hwid_device_limits(session, sub, tariff)
         new_limit = self._compute_main_traffic_limit_bytes(
             tier_baseline_bytes=baseline,
             topup_balance_bytes=int(sub.topup_balance_bytes or 0),
             regular_bonus_bytes=rb,
             regular_unlimited_override=runl,
             traffic_used_bytes=used_now,
+            hwid_device_bonus_bytes=self._hwid_device_traffic_bonus_bytes(hwid_limits.extra),
         )
         sub.traffic_limit_bytes = new_limit
         if runl:
             sub.is_throttled = False
-        hwid_limits = await self._resolve_hwid_device_limits(session, sub, tariff)
         extra_hwid_devices = hwid_limits.extra
         sub.extra_hwid_devices = extra_hwid_devices
         effective_hwid_limit = hwid_limits.effective

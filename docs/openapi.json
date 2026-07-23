@@ -12712,6 +12712,9 @@
                               "stars_price": {
                                 "type": "integer"
                               },
+                              "traffic_bonus_gb": {
+                                "type": "number"
+                              },
                               "valid_from": {
                                 "type": [
                                   "string",
@@ -12783,6 +12786,9 @@
                           },
                           "title": {
                             "type": "string"
+                          },
+                          "traffic_bonus_gb": {
+                            "type": "number"
                           },
                           "traffic_gb": {
                             "type": "number"
@@ -13089,6 +13095,9 @@
                               "stars_price": {
                                 "type": "integer"
                               },
+                              "traffic_bonus_gb": {
+                                "type": "number"
+                              },
                               "valid_from": {
                                 "type": [
                                   "string",
@@ -13160,6 +13169,9 @@
                           },
                           "title": {
                             "type": "string"
+                          },
+                          "traffic_bonus_gb": {
+                            "type": "number"
                           },
                           "traffic_gb": {
                             "type": "number"
@@ -15356,6 +15368,9 @@
                               "stars_price": {
                                 "type": "integer"
                               },
+                              "traffic_bonus_gb": {
+                                "type": "number"
+                              },
                               "valid_from": {
                                 "type": [
                                   "string",
@@ -15427,6 +15442,9 @@
                           },
                           "title": {
                             "type": "string"
+                          },
+                          "traffic_bonus_gb": {
+                            "type": "number"
                           },
                           "traffic_gb": {
                             "type": "number"

@@ -15,6 +15,7 @@ export type BillingPlan = WebappRecord & {
     device_count?: number | string | null;
     price?: number | string | null;
     stars_price?: number | string | null;
+    traffic_bonus_gb?: number | string | null;
     valid_from_text?: string | null;
     valid_until_text?: string | null;
   };
@@ -28,6 +29,7 @@ export type BillingPlan = WebappRecord & {
   monthly_gb?: number | string | null;
   price?: number | string | null;
   sale_mode?: string | null;
+  traffic_bonus_gb?: number | string | null;
   stars_price?: number | string | null;
   subtitle?: string | null;
   tariff_key?: string | null;
