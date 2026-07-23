@@ -450,9 +450,38 @@
       },
       "AdminBroadcastAudienceOut": {
         "properties": {
+          "available": {
+            "default": true,
+            "title": "Available",
+            "type": "boolean"
+          },
           "fallback_label": {
             "title": "Fallback Label",
             "type": "string"
+          },
+          "group_fallback_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Group Fallback Label"
+          },
+          "group_label_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Group Label Key"
           },
           "label_key": {
             "title": "Label Key",
@@ -1341,6 +1370,18 @@
           "value": {
             "default": null,
             "title": "Value"
+          },
+          "value_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Value Source"
           },
           "webhook_base_url_configured": {
             "anyOf": [
@@ -7086,6 +7127,12 @@
         "title": "WebAppSetPasswordPayload",
         "type": "object"
       },
+      "WebAppSubscriptionReissuePayload": {
+        "description": "Empty body for the subscription reissue action (extra keys ignored).",
+        "properties": {},
+        "title": "WebAppSubscriptionReissuePayload",
+        "type": "object"
+      },
       "WebAppTariffChangePayload": {
         "properties": {
           "mode": {
@@ -11440,6 +11487,59 @@
         ]
       }
     },
+    "/api/admin/users/{user_id}/subscription-reissue": {
+      "post": {
+        "operationId": "post_admin_user_subscription_reissue_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "email_sent": {
+                      "type": "boolean"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "email_sent"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Subscription Reissue",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/users/{user_id}/tariff": {
       "post": {
         "operationId": "post_admin_user_tariff_route",
@@ -13226,6 +13326,9 @@
                         "subscription_purchase_description": {
                           "type": "string"
                         },
+                        "subscription_reissue_enabled": {
+                          "type": "boolean"
+                        },
                         "support_ticket_max_body_length": {
                           "type": "integer"
                         },
@@ -14405,6 +14508,59 @@
           }
         ],
         "summary": "Quote Promo",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/subscription/reissue": {
+      "post": {
+        "operationId": "post_subscription_reissue_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppSubscriptionReissuePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "email_sent": {
+                      "type": "boolean"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "email_sent"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Subscription Reissue",
         "tags": [
           "subscription"
         ]

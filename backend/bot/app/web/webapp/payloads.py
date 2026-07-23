@@ -123,6 +123,12 @@ class WebAppAutoRenewPayload(BaseModel):
     enabled: bool
 
 
+class WebAppSubscriptionReissuePayload(BaseModel):
+    """Empty body for the subscription reissue action (extra keys ignored)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+
 class WebAppTariffChangePayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 

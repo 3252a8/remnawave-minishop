@@ -23,6 +23,15 @@ from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, field_serializer
 
+AutoRenewFailureReason = Literal[
+    "provider_unavailable",
+    "saved_payment_method_missing",
+    "renewal_quote_unavailable",
+    "provider_request_failed",
+    "provider_rejected",
+    "provider_webhook_failed",
+]
+
 
 class EventPayload(BaseModel):
     """Base class for validated event payload models."""
@@ -70,6 +79,28 @@ class PaymentSucceededPayload(EventPayload):
     discount_amount: float | None = None
     end_date: datetime | None = None
     is_auto_renew: bool
+    renewal_subscription_id: int | None = None
+
+
+class SubscriptionAutoRenewFailedPayload(EventPayload):
+    """A normalized failed attempt to extend an existing subscription.
+
+    This intentionally records only stable, provider-neutral identifiers and
+    reason codes. Provider responses may contain customer or credential data
+    and must stay in provider logs rather than in the event contract.
+    """
+
+    EVENT_NAME: ClassVar[str] = "subscription.auto_renew_failed"
+
+    user_id: int
+    subscription_id: int
+    provider: str
+    reason_code: AutoRenewFailureReason
+    payment_db_id: int | None = None
+    provider_payment_id: str | None = None
+    renewal_cycle_end: datetime | None = None
+    retryable: bool
+    occurred_at: datetime
 
 
 class SubscriptionExpiredPayload(EventPayload):

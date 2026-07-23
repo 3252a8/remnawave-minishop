@@ -116,6 +116,17 @@ Wizard старается предлагать безопасные значен
 | `WEBAPP_BACKEND_UPSTREAM` | Server-side upstream frontend nginx для `/api`, `/auth`, `/open-app` и Web App assets. | `http://backend:8081` в обычном compose, `https://bot.example.com` для protected backend-domain mode, `http://rathole-server:18081` для Rathole. |
 | `MINISHOP_EDGE_TOKEN` | Server-side secret между frontend nginx/API edge и backend WebApp API. | Используйте для protected public backend upstream. Не добавляйте этот token в frontend JS и не требуйте его на webhook plane `8080`. |
 
+Интеграция с Remnawave Panel настраивается отдельным шагом. На новой установке без найденных
+параметров обычный `Enter` пропускает этот шаг и записывает пустые значения вместо `change_me`.
+Minishop запустится, но синхронизация, выдача подписок и другие Panel-зависимые действия останутся
+недоступны до настройки.
+
+Если параметры введены, wizard делает безопасный запрос к `/system/stats` и проверяет HTTP-статус,
+`Content-Type: application/json` и структуру ответа. `PANEL_API_COOKIE` должен быть пустым либо
+иметь вид `name=value`; JWT без имени cookie обычно относится к `PANEL_API_KEY`. После неуспешной
+проверки по умолчанию предлагается пропустить интеграцию. Сохранить непроверенные значения можно
+только отдельным явным выбором — это полезно, когда Panel временно недоступна во время установки.
+
 Формат bind-полей (`HTTP_BIND`, `HTTPS_BIND`, `WEB_SERVER_BIND`,
 `FRONTEND_BIND`) особенно важен: используйте `PORT` или `IP:PORT`, например
 `80`, `0.0.0.0:80`, `<IP_СЕРВЕРА>:80`, `127.0.0.1:8080`. Значение
@@ -195,6 +206,9 @@ docker compose logs -f caddy backend worker frontend
 ```bash
 docker compose up -d --force-recreate caddy
 ```
+
+В стандартном `Caddyfile` есть global log filter для `X-Telegram-Bot-Api-Secret-Token`;
+если заменяете файл целиком, сохраните этот фильтр, чтобы webhook secret не попадал в логи Caddy.
 
 ## Angie
 

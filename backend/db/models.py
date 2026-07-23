@@ -263,6 +263,11 @@ class Payment(Base):
     status = Column(String, nullable=False, index=True)
     description = Column(String, nullable=True)
     subscription_duration_months = Column(Integer, nullable=True)
+    # Persistent attribution for merchant-initiated recurring charges. These
+    # fields stay nullable for historic and ordinary one-off payments.
+    is_auto_renew = Column(Boolean, nullable=False, default=False, index=True)
+    renewal_subscription_id = Column(Integer, nullable=True, index=True)
+    renewal_cycle_end = Column(DateTime(timezone=True), nullable=True)
     sale_mode = Column(String, nullable=True, index=True)
     tariff_key = Column(String, nullable=True, index=True)
     purchased_gb = Column(Float, nullable=True)

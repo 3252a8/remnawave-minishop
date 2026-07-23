@@ -84,6 +84,9 @@ class AdminBroadcastAudienceOut(HttpResponseModel):
     label_key: str
     fallback_label: str
     order: int = 100
+    available: bool = True
+    group_label_key: str | None = None
+    group_fallback_label: str | None = None
 
 
 class AdminBroadcastAudienceCountsOut(HttpResponseModel):
@@ -175,6 +178,7 @@ class AdminSettingsFieldOut(HttpResponseModel):
     provider_logo_url: str | None = None
     value: Any = None
     overridden: bool | None = None
+    value_source: str | None = None
     updated_at: str | None = None
     source: str | None = None
     read_error: str | None = None

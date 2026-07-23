@@ -378,6 +378,28 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertLess(privacy_pos, status_pos)
         self.assertLess(status_pos, support_pos)
 
+    def test_subscription_reissue_settings_action_and_dialog_use_danger_layout(self):
+        root = Path(__file__).resolve().parents[2]
+        webapp_css = (root / "frontend/src/styles/webapp.css").read_text(encoding="utf-8")
+        dialogs_css = (root / "frontend/src/styles/dialogs.css").read_text(encoding="utf-8")
+        dialog_source = (
+            root / "frontend/src/webapp/payment-dialogs/SubscriptionReissueDialog.svelte"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            ".settings-row-subscription-reissue {\n  grid-column: 1 / -1;\n}",
+            webapp_css,
+        )
+        self.assertIn("{#snippet titleIcon()}", dialog_source)
+        self.assertIn("<TriangleAlert size={23} />", dialog_source)
+        self.assertIn("{titleIcon}", dialog_source)
+        self.assertIn(".webapp-subscription-reissue-dialog .dialog-title-with-icon", dialogs_css)
+        self.assertIn("background: var(--danger-soft);", dialogs_css)
+        self.assertIn(
+            ".webapp-subscription-reissue-dialog .device-danger-button",
+            dialogs_css,
+        )
+
     def test_webapp_bootstrap_exposes_server_status_url(self):
         settings = Settings(
             _env_file=None,

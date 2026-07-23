@@ -108,6 +108,40 @@ class YooKassaReconciliationWorkerTests(IsolatedAsyncioTestCase):
         session_factory.sessions[1].commit.assert_awaited_once()
         emit_success.assert_awaited_once_with(event_payload)
 
+    async def test_failed_finalization_rolls_back_and_is_retried_next_tick(self) -> None:
+        worker, _, session_factory = self._worker(_provider_payload())
+        event_payload = {"user_id": 1001, "payment_db_id": 42}
+
+        with (
+            patch.object(
+                payment_dal,
+                "list_yookassa_reconciliation_candidates",
+                AsyncMock(return_value=[_candidate()]),
+            ),
+            patch.object(
+                payment_dal,
+                "mark_yookassa_reconciliation_checked",
+                AsyncMock(),
+            ) as mark_checked,
+            patch(
+                "bot.services.yookassa_reconciliation_worker.process_successful_payment",
+                AsyncMock(side_effect=[RuntimeError("panel failed"), event_payload]),
+            ) as process_success,
+            patch(
+                "bot.services.yookassa_reconciliation_worker.emit_yookassa_success_events",
+                AsyncMock(),
+            ) as emit_success,
+        ):
+            await worker.tick()
+            await worker.tick()
+
+        self.assertEqual(process_success.await_count, 2)
+        session_factory.sessions[1].rollback.assert_awaited_once()
+        session_factory.sessions[1].commit.assert_not_awaited()
+        session_factory.sessions[3].commit.assert_awaited_once()
+        mark_checked.assert_not_awaited()
+        emit_success.assert_awaited_once_with(event_payload)
+
     async def test_duplicate_success_is_committed_without_duplicate_event(self) -> None:
         worker, _, session_factory = self._worker(_provider_payload())
 

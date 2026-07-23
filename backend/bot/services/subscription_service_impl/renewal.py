@@ -6,6 +6,8 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.infra import events
+from bot.infra.event_payloads import AutoRenewFailureReason, SubscriptionAutoRenewFailedPayload
 from bot.middlewares.i18n import get_i18n_instance
 from bot.payment_providers.shared import (
     RecurringProviderService,
@@ -68,6 +70,33 @@ def _renewal_idempotence_key(
     # YooKassa limits Idempotence-Key to 64 characters.  The fixed prefix and
     # UUID5 digest are 40 ASCII characters and retain no customer data.
     return f"yk-auto-{uuid.uuid5(uuid.NAMESPACE_URL, source).hex}"
+
+
+async def _emit_auto_renew_failure(
+    *,
+    sub: Subscription,
+    provider: str,
+    reason_code: AutoRenewFailureReason,
+    renewal_cycle_end: datetime | None,
+    retryable: bool,
+    payment_db_id: int | None = None,
+    provider_payment_id: str | None = None,
+) -> None:
+    """Emit the neutral failure contract without exposing provider details."""
+
+    await events.emit_model(
+        SubscriptionAutoRenewFailedPayload(
+            user_id=int(sub.user_id),
+            subscription_id=int(sub.subscription_id),
+            provider=provider,
+            reason_code=reason_code,
+            payment_db_id=payment_db_id,
+            provider_payment_id=provider_payment_id,
+            renewal_cycle_end=renewal_cycle_end or getattr(sub, "end_date", None),
+            retryable=retryable,
+            occurred_at=datetime.now(UTC),
+        )
+    )
 
 
 class RenewalMixin(SubscriptionServiceMixinContract):
@@ -185,9 +214,23 @@ class RenewalMixin(SubscriptionServiceMixinContract):
         recurring_service = self.recurring_service_for(provider)
         if not recurring_service:
             logger.warning("%s unavailable for auto-renew", provider)
+            await _emit_auto_renew_failure(
+                sub=sub,
+                provider=provider,
+                reason_code="provider_unavailable",
+                renewal_cycle_end=renewal_cycle_end,
+                retryable=True,
+            )
             return False
         if not getattr(recurring_service, "configured", False):
             logger.warning("%s is not configured for auto-renew", provider)
+            await _emit_auto_renew_failure(
+                sub=sub,
+                provider=provider,
+                reason_code="provider_unavailable",
+                renewal_cycle_end=renewal_cycle_end,
+                retryable=True,
+            )
             return False
         if not service_supports_recurring(recurring_service):
             logger.info("Auto-renew skipped: %s recurring charges are disabled", provider)
@@ -202,10 +245,24 @@ class RenewalMixin(SubscriptionServiceMixinContract):
                 provider,
                 sub.user_id,
             )
+            await _emit_auto_renew_failure(
+                sub=sub,
+                provider=provider,
+                reason_code="saved_payment_method_missing",
+                renewal_cycle_end=renewal_cycle_end,
+                retryable=False,
+            )
             return False
 
         quote = await self.quote_subscription_renewal(session, sub)
         if quote is None:
+            await _emit_auto_renew_failure(
+                sub=sub,
+                provider=provider,
+                reason_code="renewal_quote_unavailable",
+                renewal_cycle_end=renewal_cycle_end,
+                retryable=True,
+            )
             return False
         months = quote.months
         currency = quote.currency
@@ -249,30 +306,51 @@ class RenewalMixin(SubscriptionServiceMixinContract):
             sale_mode=sale_mode,
         )
 
-        result = await recurring_service.charge_saved_payment_method(
-            RecurringChargeContext(
-                session=session,
-                user_id=sub.user_id,
-                subscription_id=sub.subscription_id,
-                saved_method=default_pm,
-                amount=float(amount),
-                currency=currency,
-                months=int(months),
-                sale_mode=sale_mode,
-                description=description,
-                metadata=metadata,
-                hwid_quote=hwid_quote,
-                idempotence_key=_renewal_idempotence_key(
-                    sub,
-                    renewal_cycle_end=renewal_cycle_end,
-                ),
+        try:
+            result = await recurring_service.charge_saved_payment_method(
+                RecurringChargeContext(
+                    session=session,
+                    user_id=sub.user_id,
+                    subscription_id=sub.subscription_id,
+                    saved_method=default_pm,
+                    amount=float(amount),
+                    currency=currency,
+                    months=int(months),
+                    sale_mode=sale_mode,
+                    description=description,
+                    metadata=metadata,
+                    hwid_quote=hwid_quote,
+                    idempotence_key=_renewal_idempotence_key(
+                        sub,
+                        renewal_cycle_end=renewal_cycle_end,
+                    ),
+                    renewal_cycle_end=renewal_cycle_end or getattr(sub, "end_date", None),
+                )
             )
-        )
+        except Exception:
+            logger.exception("Auto-renew saved-method charge crashed for provider %s", provider)
+            await _emit_auto_renew_failure(
+                sub=sub,
+                provider=provider,
+                reason_code="provider_request_failed",
+                renewal_cycle_end=renewal_cycle_end,
+                retryable=True,
+            )
+            return False
         if not result.initiated:
             logger.error(
                 "Auto-renew saved-method charge failed for provider %s: %s",
                 provider,
                 result.message,
+            )
+            await _emit_auto_renew_failure(
+                sub=sub,
+                provider=provider,
+                reason_code="provider_rejected",
+                renewal_cycle_end=renewal_cycle_end,
+                retryable=True,
+                payment_db_id=result.payment_db_id,
+                provider_payment_id=result.provider_payment_id,
             )
             return False
         logger.info(

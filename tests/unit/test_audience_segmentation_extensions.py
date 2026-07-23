@@ -76,6 +76,38 @@ class AudienceSegmentationExtensionsTest(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(AudienceUnavailableError):
             await service.resolve_user_ids("segment:paused")
 
+    async def test_provider_can_remain_discoverable_while_unavailable(self) -> None:
+        service = self.service()
+        service.register_provider(
+            AudienceProvider(
+                target="segment:licensed",
+                label_key="broadcast_target_licensed",
+                fallback_label="Licensed audience",
+                resolve_user_ids=AsyncMock(return_value=[1]),
+                is_available=lambda: False,
+                visible_when_unavailable=True,
+                group_label_key="broadcast_audience_group_extensions",
+                group_fallback_label="Extensions",
+            )
+        )
+
+        self.assertEqual(
+            service.audiences(),
+            [
+                AudienceDefinition(
+                    target="segment:licensed",
+                    label_key="broadcast_target_licensed",
+                    fallback_label="Licensed audience",
+                    order=100,
+                    available=False,
+                    group_label_key="broadcast_audience_group_extensions",
+                    group_fallback_label="Extensions",
+                )
+            ],
+        )
+        with self.assertRaises(AudienceUnavailableError):
+            await service.resolve_user_ids("segment:licensed")
+
     async def test_unknown_provider_does_not_fall_back_to_all_users(self) -> None:
         with self.assertRaises(AudienceNotFoundError):
             await self.service().resolve_user_ids("segment:missing")

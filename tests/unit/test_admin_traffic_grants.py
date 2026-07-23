@@ -65,14 +65,26 @@ async def _echo_panel_entitlement(panel_uuid, payload, *_args, **_kwargs):
     return {**payload, "uuid": panel_uuid}
 
 
+def _configure_persisted_panel_echo(panel_service: AsyncMock) -> None:
+    persisted: dict = {}
+
+    async def update(panel_uuid, payload, *_args, **_kwargs):
+        persisted.update(await _echo_panel_entitlement(panel_uuid, payload))
+        return dict(persisted)
+
+    async def get_user(_panel_uuid, *_args, **_kwargs):
+        return dict(persisted) if persisted else None
+
+    panel_service.update_user_details_on_panel = AsyncMock(side_effect=update)
+    panel_service.get_user_by_uuid = AsyncMock(side_effect=get_user)
+
+
 class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
     async def test_hwid_limit_sync_pushes_effective_device_limit(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(), tmpdir)
             panel_service = AsyncMock(spec=PanelApiService)
-            panel_service.update_user_details_on_panel = AsyncMock(
-                side_effect=_echo_panel_entitlement
-            )
+            _configure_persisted_panel_echo(panel_service)
             service = SubscriptionService(settings, panel_service)
 
             db_user = SimpleNamespace(
@@ -121,9 +133,7 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(), tmpdir)
             panel_service = AsyncMock(spec=PanelApiService)
-            panel_service.update_user_details_on_panel = AsyncMock(
-                side_effect=_echo_panel_entitlement
-            )
+            _configure_persisted_panel_echo(panel_service)
             service = SubscriptionService(settings, panel_service)
 
             db_user = SimpleNamespace(
@@ -170,9 +180,7 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(), tmpdir)
             panel_service = AsyncMock(spec=PanelApiService)
-            panel_service.update_user_details_on_panel = AsyncMock(
-                side_effect=_echo_panel_entitlement
-            )
+            _configure_persisted_panel_echo(panel_service)
             service = SubscriptionService(settings, panel_service)
 
             db_user = SimpleNamespace(
@@ -219,9 +227,7 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(), tmpdir)
             panel_service = AsyncMock(spec=PanelApiService)
-            panel_service.update_user_details_on_panel = AsyncMock(
-                side_effect=_echo_panel_entitlement
-            )
+            _configure_persisted_panel_echo(panel_service)
             service = SubscriptionService(settings, panel_service)
 
             db_user = SimpleNamespace(
@@ -351,7 +357,7 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertIsNone(result)
             topup_log.assert_not_awaited()
-            panel_service.update_user_details_on_panel.assert_awaited_once()
+            self.assertEqual(panel_service.update_user_details_on_panel.await_count, 3)
 
     async def test_regular_grant_rejects_zero(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -364,9 +370,7 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(), tmpdir)
             panel_service = AsyncMock(spec=PanelApiService)
-            panel_service.update_user_details_on_panel = AsyncMock(
-                side_effect=_echo_panel_entitlement
-            )
+            _configure_persisted_panel_echo(panel_service)
             service = SubscriptionService(settings, panel_service)
 
             db_user = SimpleNamespace(
@@ -419,9 +423,7 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(premium=True), tmpdir)
             panel_service = AsyncMock(spec=PanelApiService)
-            panel_service.update_user_details_on_panel = AsyncMock(
-                side_effect=_echo_panel_entitlement
-            )
+            _configure_persisted_panel_echo(panel_service)
             service = SubscriptionService(settings, panel_service)
 
             db_user = SimpleNamespace(
@@ -579,9 +581,7 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
                 USER_TRAFFIC_STRATEGY="MONTH",
             )
             panel_service = AsyncMock(spec=PanelApiService)
-            panel_service.update_user_details_on_panel = AsyncMock(
-                side_effect=_echo_panel_entitlement
-            )
+            _configure_persisted_panel_echo(panel_service)
             service = SubscriptionService(settings, panel_service)
 
             db_user = SimpleNamespace(
@@ -703,6 +703,7 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(premium=True), tmpdir)
             panel_service = AsyncMock(spec=PanelApiService)
+            _configure_persisted_panel_echo(panel_service)
             panel_service.get_user_by_uuid = AsyncMock(
                 return_value={
                     "activeInternalSquads": [
@@ -710,9 +711,6 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
                         {"uuid": "premium-squad"},
                     ]
                 }
-            )
-            panel_service.update_user_details_on_panel = AsyncMock(
-                side_effect=_echo_panel_entitlement
             )
             service = SubscriptionService(settings, panel_service)
 
@@ -803,9 +801,7 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(premium=True), tmpdir)
             panel_service = AsyncMock(spec=PanelApiService)
-            panel_service.update_user_details_on_panel = AsyncMock(
-                side_effect=_echo_panel_entitlement
-            )
+            _configure_persisted_panel_echo(panel_service)
             service = SubscriptionService(settings, panel_service)
 
             db_user = SimpleNamespace(

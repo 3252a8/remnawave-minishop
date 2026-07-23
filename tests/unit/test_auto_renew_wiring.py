@@ -3,7 +3,7 @@
 import unittest
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import ANY, AsyncMock, patch
 
 from bot.handlers.user.subscription import core as subscription_core
 from bot.payment_providers.shared import RecurringChargeResult
@@ -94,11 +94,19 @@ class ChargeRenewalShortCircuitTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_skips_for_non_recurring_provider(self):
         mixin = _make_mixin(service=None)
-        ok = await mixin.charge_subscription_renewal(
-            session=None,
-            sub=_FakeSub(auto_renew_enabled=True, provider="freekassa"),
-        )
+        emit_failure = AsyncMock()
+        with patch(
+            "bot.services.subscription_service_impl.renewal._emit_auto_renew_failure",
+            emit_failure,
+        ):
+            ok = await mixin.charge_subscription_renewal(
+                session=None,
+                sub=_FakeSub(auto_renew_enabled=True, provider="freekassa"),
+            )
         self.assertTrue(ok)
+        # Unsupported providers are intentionally skipped. They must not turn
+        # into a failure event that could target a broad recovery broadcast.
+        emit_failure.assert_not_awaited()
 
 
 class ChargeRenewalFailureTests(unittest.IsolatedAsyncioTestCase):
@@ -179,9 +187,16 @@ class ChargeRenewalFailureTests(unittest.IsolatedAsyncioTestCase):
     async def test_returns_false_when_provider_charge_fails(self):
         service = _FakeRecurringService(result=RecurringChargeResult.failed("declined"))
         mixin = _make_mixin(service=service)
-        with patch(
-            "db.dal.user_billing_dal.get_user_default_payment_method",
-            _stub_default_pm,
+        emit_failure = AsyncMock()
+        with (
+            patch(
+                "db.dal.user_billing_dal.get_user_default_payment_method",
+                _stub_default_pm,
+            ),
+            patch(
+                "bot.services.subscription_service_impl.renewal._emit_auto_renew_failure",
+                emit_failure,
+            ),
         ):
             ok = await mixin.charge_subscription_renewal(
                 session=None,
@@ -194,6 +209,15 @@ class ChargeRenewalFailureTests(unittest.IsolatedAsyncioTestCase):
                 ),
             )
         self.assertFalse(ok)
+        emit_failure.assert_awaited_once_with(
+            sub=ANY,
+            provider="yookassa",
+            reason_code="provider_rejected",
+            renewal_cycle_end=None,
+            retryable=True,
+            payment_db_id=None,
+            provider_payment_id=None,
+        )
 
 
 class ChargeRenewalHappyPathTests(unittest.IsolatedAsyncioTestCase):

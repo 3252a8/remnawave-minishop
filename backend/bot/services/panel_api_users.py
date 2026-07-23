@@ -198,7 +198,15 @@ class PanelApiUsersMixin:
                 )
                 return None
             response = response_data.get("response")
-            users_batch = _panel_users_batch(response) or []
+            users_batch = _panel_users_batch(response)
+            if users_batch is None:
+                logger.error(
+                    "Panel API users endpoint returned an unsupported response shape "
+                    "(start: %s). Response: %s",
+                    start_offset,
+                    response_data,
+                )
+                return None
             if not users_batch:
                 break
             all_users.extend(users_batch)
@@ -620,3 +628,29 @@ class PanelApiUsersMixin:
         await self._invalidate_devices_cache(user_uuid)
         await self._invalidate_all_users_cache()
         return True
+
+    async def revoke_user_subscription(
+        self, user_uuid: str, log_response: bool = False
+    ) -> dict[str, Any] | None:
+        """Revoke the user's subscription on the panel.
+
+        The panel regenerates the user's short UUID, which invalidates the
+        previous subscription URL (disconnecting every client that still uses
+        it). Returns the updated panel user (including the new
+        ``subscriptionUrl``) or ``None`` on failure.
+        """
+        endpoint = f"/users/{user_uuid}/actions/revoke"
+        full_response = await self._request("POST", endpoint, log_full_response=log_response)
+
+        if full_response and not full_response.get("error") and "response" in full_response:
+            logger.info("User %s subscription revoked on panel.", user_uuid)
+            await self._invalidate_user_cache(user_uuid)
+            await self._invalidate_all_users_cache()
+            return _json_dict(full_response.get("response"))
+
+        logger.error(
+            "Failed to revoke subscription for user %s on panel. Response: %s",
+            user_uuid,
+            full_response if not log_response else "(logged above)",
+        )
+        return None

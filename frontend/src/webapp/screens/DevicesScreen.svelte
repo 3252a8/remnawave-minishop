@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { CircleX, Plus, RefreshCw, Smartphone } from "$components/ui/icons.js";
+  import { CircleX, Key, Plus, RefreshCw, Smartphone } from "$components/ui/icons.js";
 
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
@@ -28,6 +28,9 @@
     loadDevices?: (force?: boolean) => void;
     openDeviceDisconnectDialog?: (device: DeviceView) => void;
     openDeviceTopupModal?: VoidAction;
+    openSubscriptionReissueDialog?: VoidAction;
+    subscriptionReissueBusy?: boolean;
+    subscriptionReissueEnabled?: boolean;
     t?: Translate;
   };
 
@@ -42,6 +45,9 @@
     loadDevices = () => {},
     openDeviceDisconnectDialog = () => {},
     openDeviceTopupModal = () => {},
+    openSubscriptionReissueDialog = () => {},
+    subscriptionReissueBusy = false,
+    subscriptionReissueEnabled = false,
     t = (key: string) => key,
   }: Props = $props();
 
@@ -100,6 +106,18 @@
         >
           <Plus size={17} />
           {t("wa_buy_hwid_devices")}
+        </Button>
+      {/if}
+      {#if subscriptionReissueEnabled && subscription?.active}
+        <Button
+          data-webapp-action="open-subscription-reissue"
+          variant="outline"
+          class="wide subscription-reissue-button"
+          onclick={openSubscriptionReissueDialog}
+          disabled={subscriptionReissueBusy}
+        >
+          <Key size={17} />
+          {t("wa_subscription_reissue_action")}
         </Button>
       {/if}
     </Card>

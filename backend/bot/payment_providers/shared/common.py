@@ -168,6 +168,9 @@ def build_payment_record_payload(
     provider: str,
     sale_mode: str,
     hwid_quote: dict | None = None,
+    is_auto_renew: bool = False,
+    renewal_subscription_id: int | None = None,
+    renewal_cycle_end: Any = None,
 ) -> dict:
     """Assemble the payment-record dict that every callback handler used to inline.
 
@@ -191,6 +194,9 @@ def build_payment_record_payload(
         "description": description,
         "subscription_duration_months": int(float(months)) if base == "subscription" else None,
         "provider": provider,
+        "is_auto_renew": bool(is_auto_renew),
+        "renewal_subscription_id": renewal_subscription_id,
+        "renewal_cycle_end": renewal_cycle_end,
         "sale_mode": sale_mode,
         "tariff_key": sale_mode_tariff_key(sale_mode),
         "purchased_gb": float(months) if is_traffic else None,

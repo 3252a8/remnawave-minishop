@@ -23,12 +23,21 @@ type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type BroadcastCounts = Record<string, number>;
 type BroadcastResult = { queued: number; failed: number; emailQueued: number; channels: string[] };
-export type BroadcastTargetOption = { value: string; label: string };
+export type BroadcastTargetOption = {
+  value: string;
+  label: string;
+  disabled?: boolean;
+  locked?: boolean;
+  group?: string;
+};
 type BroadcastAudienceDescriptor = {
   target: string;
   labelKey: string;
   fallbackLabel: string;
   order: number;
+  available: boolean;
+  groupLabelKey: string | null;
+  groupFallbackLabel: string | null;
 };
 type StoredCounts = {
   counts: BroadcastCounts;
@@ -55,6 +64,7 @@ export type BroadcastPreviewResult = {
 };
 export type BroadcastState = {
   broadcastTarget: string;
+  broadcastTargetError: string | null;
   broadcastText: string;
   broadcastBusy: boolean;
   broadcastResult: BroadcastResult | null;
@@ -170,6 +180,9 @@ function asBroadcastAudiences(value: unknown): BroadcastAudienceDescriptor[] {
         labelKey: String(raw.label_key || "").trim(),
         fallbackLabel: String(raw.fallback_label || "").trim(),
         order: Number.isFinite(Number(raw.order)) ? Number(raw.order) : 100,
+        available: raw.available !== false,
+        groupLabelKey: String(raw.group_label_key || "").trim() || null,
+        groupFallbackLabel: String(raw.group_fallback_label || "").trim() || null,
       };
     })
     .filter((item) => {
@@ -219,10 +232,18 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
       ...CORE_BROADCAST_TARGET_OPTIONS,
       ...audiences
         .filter((audience) => !reserved.has(audience.target))
-        .map((audience) => ({
-          value: audience.target,
-          label: at(audience.labelKey, {}, audience.fallbackLabel),
-        })),
+        .map((audience) => {
+          const group =
+            audience.groupLabelKey && audience.groupFallbackLabel
+              ? at(audience.groupLabelKey, {}, audience.groupFallbackLabel)
+              : undefined;
+          return {
+            value: audience.target,
+            label: at(audience.labelKey, {}, audience.fallbackLabel),
+            ...(group ? { group } : {}),
+            ...(!audience.available ? { disabled: true, locked: true } : {}),
+          };
+        }),
     ];
   }
 
@@ -230,6 +251,7 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
 
   const state = $state<BroadcastStore>({
     broadcastTarget: "all",
+    broadcastTargetError: null,
     broadcastText: "",
     broadcastBusy: false,
     broadcastResult: null,
@@ -348,7 +370,9 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
               broadcastEmailEnabled: s.broadcastEmailEnabled && emailAvailable,
               broadcastAudiencesLoaded: true,
               BROADCAST_TARGET_OPTIONS: options,
-              broadcastTarget: options.some((option) => option.value === s.broadcastTarget)
+              broadcastTarget: options.some(
+                (option) => option.value === s.broadcastTarget && !option.disabled
+              )
                 ? s.broadcastTarget
                 : "all",
             }));
@@ -364,7 +388,9 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
             broadcastEmailAvailabilityKnown: true,
             broadcastEmailEnabled: s.broadcastEmailEnabled && emailAvailable,
             BROADCAST_TARGET_OPTIONS: options,
-            broadcastTarget: options.some((option) => option.value === s.broadcastTarget)
+            broadcastTarget: options.some(
+              (option) => option.value === s.broadcastTarget && !option.disabled
+            )
               ? s.broadcastTarget
               : "all",
           }));

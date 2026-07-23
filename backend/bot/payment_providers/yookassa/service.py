@@ -164,6 +164,9 @@ class YooKassaService:
             provider="yookassa",
             sale_mode=context.sale_mode,
             hwid_quote=dict(context.hwid_quote or {}) or None,
+            is_auto_renew=True,
+            renewal_subscription_id=context.subscription_id,
+            renewal_cycle_end=context.renewal_cycle_end,
         )
         payment_payload["idempotence_key"] = idempotence_key
         try:
@@ -179,7 +182,7 @@ class YooKassaService:
         except Exception as exc:
             await context.session.rollback()
             logger.exception("YooKassa auto-renew failed to create local payment record")
-            return RecurringChargeResult.failed(str(exc))
+            return RecurringChargeResult.failed(str(exc), payment_db_id=payment.payment_id)
 
         if not created:
             existing_result = self._existing_auto_renew_result(payment)
@@ -212,7 +215,11 @@ class YooKassaService:
                 payment.payment_id,
                 yookassa_payment_id=provider_payment_id,
             )
-            return RecurringChargeResult.failed(f"unexpected_status:{status}")
+            return RecurringChargeResult.failed(
+                f"unexpected_status:{status}",
+                provider_payment_id=provider_payment_id,
+                payment_db_id=payment.payment_id,
+            )
 
         provider_payment_id = str(resp.get("id") or "").strip() or None
         if provider_payment_id:
@@ -233,7 +240,11 @@ class YooKassaService:
                     "YooKassa auto-renew failed to store provider payment id %s",
                     provider_payment_id,
                 )
-        return RecurringChargeResult.ok(provider_payment_id=provider_payment_id, status=status)
+        return RecurringChargeResult.ok(
+            provider_payment_id=provider_payment_id,
+            payment_db_id=payment.payment_id,
+            status=status,
+        )
 
     @staticmethod
     def _existing_auto_renew_result(payment: Any) -> RecurringChargeResult | None:

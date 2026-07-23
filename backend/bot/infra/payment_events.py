@@ -311,6 +311,7 @@ def build_payment_succeeded_payload(
     traffic_gb: float | None,
     end_date: str | None,
     is_auto_renew: bool,
+    renewal_subscription_id: int | None = None,
     payment: Any = None,
     activation: Mapping[str, Any] | None = None,
     purchased_hwid_devices: int | None = None,
@@ -340,6 +341,7 @@ def build_payment_succeeded_payload(
         "discount_amount": discount_amount,
         "end_date": end_date,
         "is_auto_renew": is_auto_renew,
+        "renewal_subscription_id": renewal_subscription_id,
     }
     snapshot = resolve_payment_success_snapshot(payload, payment)
     payload["traffic_gb"] = snapshot.traffic_gb

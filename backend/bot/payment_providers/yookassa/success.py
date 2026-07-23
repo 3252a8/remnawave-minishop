@@ -623,6 +623,10 @@ async def process_successful_payment(
             activation=activation_details,
             end_date=events.iso(activation_details.get("end_date")),
             is_auto_renew=is_auto_renew,
+            renewal_subscription_id=(
+                activation_details.get("subscription_id")
+                or getattr(updated_payment_record, "renewal_subscription_id", None)
+            ),
         )
         deferred_events = []
         if sale_mode_base == "subscription":

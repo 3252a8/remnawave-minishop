@@ -704,6 +704,14 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     MY_DEVICES_SECTION_ENABLED: bool = Field(
         default=False, description="Enable the My Devices section in the subscription menu"
     )
+    SUBSCRIPTION_REISSUE_ENABLED: bool = Field(
+        default=False,
+        description=(
+            "Allow users to reissue (revoke and regenerate) their subscription link "
+            "from the Mini App. Requires configured email auth: the new link and "
+            "connection instructions are delivered to the user's linked email."
+        ),
+    )
     USER_HWID_DEVICE_LIMIT: int | None = Field(
         default=None, description="Default hardware device limit for panel users (0 = unlimited)"
     )

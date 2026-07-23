@@ -317,6 +317,9 @@ EXPECTED_EVENT_WIRING = {
     "backend/bot/payment_providers/yookassa/webhook.py": [
         ("PAYMENT_CANCELED", "PaymentCanceledPayload"),
     ],
+    "backend/bot/services/subscription_service_impl/renewal.py": [
+        ("SUBSCRIPTION_AUTO_RENEW_FAILED", "SubscriptionAutoRenewFailedPayload"),
+    ],
     "backend/bot/services/subscription_service_impl/trial.py": [
         ("TRIAL_ACTIVATED", "TrialActivatedPayload")
     ],

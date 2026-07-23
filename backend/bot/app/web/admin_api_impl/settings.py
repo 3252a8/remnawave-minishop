@@ -37,6 +37,9 @@ from .common import (
 from .response_schemas import AdminSettingsOut
 from .schemas import AdminSettingsPatchBody
 
+VALUE_SOURCE_DATABASE_OVERRIDE = "database_override"
+VALUE_SOURCE_ENVIRONMENT = "environment"
+
 register_contract(
     "admin_settings_get_route",
     RouteContract(
@@ -78,7 +81,8 @@ async def admin_settings_get_route(request: web.Request) -> web.Response:
         override = overrides_by_key.get(key)
         value = current_value(settings, key)
         is_secret = bool(field.get("secret"))
-        overridden = bool(override)
+        stored_override = bool(override)
+        overridden = stored_override
         source = None
         read_error = None
         if key == "SUBSCRIPTION_PAGE_CONFIG_JSON":
@@ -87,10 +91,14 @@ async def admin_settings_get_route(request: web.Request) -> web.Response:
                 overridden = source == "admin_json"
             except SubscriptionGuidesConfigError as exc:
                 read_error = str(exc)
+        value_source = (
+            VALUE_SOURCE_DATABASE_OVERRIDE if stored_override else VALUE_SOURCE_ENVIRONMENT
+        )
         response_field = {
             **field,
             "value": "" if is_secret else value,
             "overridden": overridden,
+            "value_source": value_source,
             "updated_at": override.get("updated_at") if override else None,
         }
         if source:

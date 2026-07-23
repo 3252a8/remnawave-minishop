@@ -440,6 +440,9 @@ async def admin_broadcast_audience_counts_route(request: web.Request) -> web.Res
                     label_key=audience.label_key,
                     fallback_label=audience.fallback_label,
                     order=audience.order,
+                    available=audience.available,
+                    group_label_key=audience.group_label_key,
+                    group_fallback_label=audience.group_fallback_label,
                 )
                 for audience in audiences
             ],

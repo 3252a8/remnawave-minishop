@@ -51,6 +51,9 @@ class AudienceProvider:
     resolve_user_ids: Callable[[], Awaitable[Sequence[int]]]
     count: Callable[[], Awaitable[int | None]] | None = None
     is_available: Callable[[], bool] | None = None
+    visible_when_unavailable: bool = False
+    group_label_key: str | None = None
+    group_fallback_label: str | None = None
     order: int = 100
 
 
@@ -60,6 +63,9 @@ class AudienceDefinition:
     label_key: str
     fallback_label: str
     order: int
+    available: bool = True
+    group_label_key: str | None = None
+    group_fallback_label: str | None = None
 
 
 class AudienceSegmentationService:
@@ -89,6 +95,12 @@ class AudienceSegmentationService:
         fallback_label = str(provider.fallback_label or "").strip()
         if not label_key or not fallback_label:
             raise ValueError("Audience label_key and fallback_label must not be empty")
+        group_label_key = str(provider.group_label_key or "").strip() or None
+        group_fallback_label = str(provider.group_fallback_label or "").strip() or None
+        if bool(group_label_key) != bool(group_fallback_label):
+            raise ValueError(
+                "Audience group_label_key and group_fallback_label must be set together"
+            )
         self._providers[target] = AudienceProvider(
             target=target,
             label_key=label_key,
@@ -96,6 +108,9 @@ class AudienceSegmentationService:
             resolve_user_ids=provider.resolve_user_ids,
             count=provider.count,
             is_available=provider.is_available,
+            visible_when_unavailable=bool(provider.visible_when_unavailable),
+            group_label_key=group_label_key,
+            group_fallback_label=group_fallback_label,
             order=int(provider.order),
         )
 
@@ -118,18 +133,25 @@ class AudienceSegmentationService:
     def audiences(self) -> list[AudienceDefinition]:
         """Return currently available additional audiences for admin discovery."""
 
-        return [
-            AudienceDefinition(
-                target=provider.target,
-                label_key=provider.label_key,
-                fallback_label=provider.fallback_label,
-                order=provider.order,
+        definitions: list[AudienceDefinition] = []
+        for provider in sorted(
+            self._providers.values(), key=lambda item: (item.order, item.target)
+        ):
+            available = self._provider_is_available(provider)
+            if not available and not provider.visible_when_unavailable:
+                continue
+            definitions.append(
+                AudienceDefinition(
+                    target=provider.target,
+                    label_key=provider.label_key,
+                    fallback_label=provider.fallback_label,
+                    order=provider.order,
+                    available=available,
+                    group_label_key=provider.group_label_key,
+                    group_fallback_label=provider.group_fallback_label,
+                )
             )
-            for provider in sorted(
-                self._providers.values(), key=lambda item: (item.order, item.target)
-            )
-            if self._provider_is_available(provider)
-        ]
+        return definitions
 
     async def resolve_user_ids(self, target: str) -> list[int]:
         normalized = self._normalize_target(target)

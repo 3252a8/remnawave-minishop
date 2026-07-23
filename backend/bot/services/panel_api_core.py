@@ -297,18 +297,29 @@ class PanelApiCoreMixin:
                     )
 
                 if 200 <= response_status < 300:
+                    content_type = response.headers.get("Content-Type", "").lower()
+                    media_type = content_type.split(";", 1)[0].strip()
+                    is_json_response = media_type == "application/json" or media_type.endswith(
+                        "+json"
+                    )
+                    if not is_json_response:
+                        logger.error(
+                            "%s %s | Panel API protocol error: expected JSON, got %s.",
+                            log_prefix,
+                            log_suffix,
+                            content_type or "an unspecified content type",
+                        )
+                        return {
+                            "error": True,
+                            "status_code": response_status,
+                            "message": "Panel API returned an unexpected non-JSON response.",
+                            "details": {"content_type": content_type or None},
+                        }
                     try:
-                        if "application/json" in response.headers.get("Content-Type", "").lower():
-                            data = json.loads(response_text)
-                            if isinstance(data, dict):
-                                return data
-                            return {"status": "success", "code": response_status, "data": data}
-                        else:
-                            return {
-                                "status": "success",
-                                "code": response_status,
-                                "data_text": response_text,
-                            }
+                        data = json.loads(response_text)
+                        if isinstance(data, dict):
+                            return data
+                        return {"status": "success", "code": response_status, "data": data}
                     except json.JSONDecodeError as e_json_ok:
                         logger.error(
                             "%s %s | OK but JSON Parse Error. Error: %s. Body was logged above.",
@@ -317,10 +328,13 @@ class PanelApiCoreMixin:
                             e_json_ok,
                         )
                         return {
-                            "status": "success_parse_error",
-                            "code": response_status,
-                            "data_text": response_text,
-                            "parse_error": str(e_json_ok),
+                            "error": True,
+                            "status_code": response_status,
+                            "message": "Panel API returned invalid JSON.",
+                            "details": {
+                                "content_type": content_type,
+                                "parse_error": str(e_json_ok),
+                            },
                         }
                 else:
                     error_details = {

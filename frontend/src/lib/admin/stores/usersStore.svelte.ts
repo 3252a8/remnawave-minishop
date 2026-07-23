@@ -6,6 +6,7 @@ import { snapshotForPayload } from "./snapshotForPayload.svelte";
 import { defineRawStateProperty } from "./rawStateProperty";
 import { AdminUsersError, createUsersStoreQueries } from "./usersStoreQueries";
 import { createUsersStoreSquadOverrideActions } from "./usersStoreSquadOverrides";
+import { createUsersStoreSubscriptionReissueAction } from "./usersStoreSubscriptionReissue";
 import {
   buildAdminUserActionPath,
   buildAdminUserPath,
@@ -938,6 +939,16 @@ export function createUsersStore({
     invalidateUsersQueries,
   });
 
+  const subscriptionReissueActions = createUsersStoreSubscriptionReissueAction({
+    api,
+    onToast,
+    at,
+    readStateSnapshot,
+    applyState,
+    invalidateUsersQueries,
+    refreshOpenedUserDetail,
+  });
+
   return Object.assign(store, {
     updateState,
     setActive,
@@ -961,6 +972,7 @@ export function createUsersStore({
     saveHwidDeviceLimit,
     grantTraffic,
     ...squadOverrideActions,
+    ...subscriptionReissueActions,
     loadUserLogs,
     setUserLogsPage,
     openUserReferrals,

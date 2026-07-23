@@ -147,13 +147,24 @@ def _make_user():
     )
 
 
-def _panel_update_side_effect(panel_response):
+def _panel_update_side_effect(panel_response, persisted: dict | None = None):
     async def update(panel_uuid, payload, *_args, **_kwargs):
         if isinstance(panel_response, dict) and panel_response.get("ok") is True:
-            return {**payload, "uuid": panel_uuid}
+            response = {**payload, "uuid": panel_uuid}
+            if persisted is not None:
+                persisted.update(response)
+                return dict(persisted)
+            return response
         return panel_response
 
     return update
+
+
+def _panel_get_side_effect(persisted: dict):
+    async def get_user(_panel_uuid, *_args, **_kwargs):
+        return dict(persisted) if persisted else None
+
+    return get_user
 
 
 class ActivateTopupPanelFailureTests(unittest.IsolatedAsyncioTestCase):
@@ -166,9 +177,12 @@ class ActivateTopupPanelFailureTests(unittest.IsolatedAsyncioTestCase):
             sub = _make_sub()
             user = _make_user()
 
-            service.panel_service.get_user_by_uuid = AsyncMock(return_value=None)
+            persisted: dict = {}
+            service.panel_service.get_user_by_uuid = AsyncMock(
+                side_effect=_panel_get_side_effect(persisted)
+            )
             service.panel_service.update_user_details_on_panel = AsyncMock(
-                side_effect=_panel_update_side_effect(panel_response)
+                side_effect=_panel_update_side_effect(panel_response, persisted)
             )
             updated_sub = SimpleNamespace(end_date=sub.end_date, subscription_id=11)
 
@@ -239,9 +253,12 @@ class ActivatePremiumTopupPanelFailureTests(unittest.IsolatedAsyncioTestCase):
             )
             user = _make_user()
 
-            service.panel_service.get_user_by_uuid = AsyncMock(return_value=None)
+            persisted: dict = {}
+            service.panel_service.get_user_by_uuid = AsyncMock(
+                side_effect=_panel_get_side_effect(persisted)
+            )
             service.panel_service.update_user_details_on_panel = AsyncMock(
-                side_effect=_panel_update_side_effect(panel_response)
+                side_effect=_panel_update_side_effect(panel_response, persisted)
             )
 
             with (
@@ -380,15 +397,19 @@ class SwitchTariffPanelFailureTests(unittest.IsolatedAsyncioTestCase):
                 effective_monthly_price_rub=300,
             )
 
+            persisted: dict = {}
             service.panel_service.get_user_by_uuid = AsyncMock(
-                side_effect=panel_get_side_effect,
-                return_value=None,
+                side_effect=(
+                    panel_get_side_effect
+                    if panel_get_side_effect is not None
+                    else _panel_get_side_effect(persisted)
+                ),
             )
             service.panel_service.update_user_details_on_panel = AsyncMock(
                 side_effect=(
                     panel_response
                     if callable(panel_response)
-                    else _panel_update_side_effect(panel_response)
+                    else _panel_update_side_effect(panel_response, persisted)
                 )
             )
 
@@ -511,18 +532,19 @@ class SwitchTariffPanelFailureTests(unittest.IsolatedAsyncioTestCase):
             async def active_overrides(*_args, **_kwargs):
                 return list(captured_overrides)
 
+            persisted = {
+                "activeInternalSquads": [
+                    "main-squad",
+                    "premium-extra",
+                    "premium-squad",
+                    "manual-squad",
+                ]
+            }
             service.panel_service.get_user_by_uuid = AsyncMock(
-                return_value={
-                    "activeInternalSquads": [
-                        "main-squad",
-                        "premium-extra",
-                        "premium-squad",
-                        "manual-squad",
-                    ]
-                }
+                side_effect=_panel_get_side_effect(persisted)
             )
             service.panel_service.update_user_details_on_panel = AsyncMock(
-                side_effect=_panel_update_side_effect({"ok": True})
+                side_effect=_panel_update_side_effect({"ok": True}, persisted)
             )
             session = MagicMock(spec=AsyncSession)
 

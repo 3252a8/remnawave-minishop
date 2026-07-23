@@ -216,6 +216,17 @@ SETTINGS_MANIFEST: list[SettingField] = [
         ),
     ),
     SettingField(
+        "SUBSCRIPTION_REISSUE_ENABLED",
+        "bool",
+        "subscription_guides",
+        "Subscription link reissue",
+        (
+            "Let users reissue (revoke and regenerate) their subscription link from the "
+            "Web App. The new link and connection instructions are delivered by email, "
+            "so configured email auth is required."
+        ),
+    ),
+    SettingField(
         "SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED",
         "bool",
         "subscription_guides",

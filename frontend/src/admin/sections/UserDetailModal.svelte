@@ -254,6 +254,7 @@
   const userMessageDraft = $derived(usersState.userMessageDraft);
   const userActionBusy = $derived(usersState.userActionBusy);
   const userDeleteOpen = $derived(usersState.userDeleteOpen);
+  const userSubscriptionReissueOpen = $derived(usersState.userSubscriptionReissueOpen);
   const userBanConfirmOpen = $derived(usersState.userBanConfirmOpen);
   const userMessageConfirmOpen = $derived(usersState.userMessageConfirmOpen);
   const userTariffHwidConfirmOpen = $derived(usersState.userTariffHwidConfirmOpen);
@@ -622,5 +623,6 @@
   {tariffHwidCurrentLabel}
   {tariffHwidTargetLabel}
   {userDeleteOpen}
+  {userSubscriptionReissueOpen}
   {userActionBusy}
 />

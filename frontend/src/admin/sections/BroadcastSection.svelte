@@ -50,6 +50,7 @@
   );
 
   const broadcastTarget = $derived(broadcastStore.broadcastTarget);
+  const broadcastTargetError = $derived(broadcastStore.broadcastTargetError);
   const broadcastText = $derived(broadcastStore.broadcastText);
   const broadcastBusy = $derived(broadcastStore.broadcastBusy);
   const broadcastResult = $derived(broadcastStore.broadcastResult);
@@ -68,8 +69,27 @@
   const hasPromoButtons = $derived(broadcastButtons.some((button) => button.kind !== "url"));
   const submitEnabled = $derived(broadcastStore.canSubmit());
   const handleTargetChange = (value: string) => {
-    broadcastStore.updateField({ broadcastTarget: value });
+    broadcastStore.updateField({ broadcastTarget: value, broadcastTargetError: null });
+    writeTargetToRoute(value);
   };
+
+  function routeTarget(): string {
+    if (typeof window === "undefined") return "";
+    return String(new URLSearchParams(window.location.search).get("broadcast_target") || "")
+      .trim()
+      .toLowerCase();
+  }
+
+  function writeTargetToRoute(target: string | null): void {
+    if (typeof window === "undefined" || window.location.protocol === "file:") return;
+    const query = new URLSearchParams(window.location.search);
+    if (target) query.set("broadcast_target", target);
+    else query.delete("broadcast_target");
+    const search = query.toString();
+    const nextUrl = `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (nextUrl !== currentUrl) window.history.replaceState(window.history.state, "", nextUrl);
+  }
 
   const broadcastTargetOptions = $derived(broadcastStore.BROADCAST_TARGET_OPTIONS);
 
@@ -96,7 +116,24 @@
   );
 
   onMount(() => {
-    broadcastStore.loadCounts();
+    const requestedTarget = routeTarget();
+    if (requestedTarget) {
+      // Set before discovery completes so a plugin audience is retained when
+      // the counts response supplies the dynamic target catalog.
+      broadcastStore.updateField({ broadcastTarget: requestedTarget, broadcastTargetError: null });
+    }
+    void broadcastStore.loadCounts().then(() => {
+      if (!requestedTarget) return;
+      const available = broadcastStore.BROADCAST_TARGET_OPTIONS.some(
+        (option) => option.value === requestedTarget && !option.disabled
+      );
+      if (available) return;
+      broadcastStore.updateField({
+        broadcastTarget: "all",
+        broadcastTargetError: "broadcast_target_unavailable",
+      });
+      writeTargetToRoute(null);
+    });
     if (broadcastStore.broadcastButtons.some((button) => button.kind !== "url")) {
       broadcastStore.loadPromoOptions();
     }
@@ -118,6 +155,11 @@
           ariaLabel={at("broadcast_label_audience", {}, "Audience")}
           onValueChange={handleTargetChange}
         />
+        {#if broadcastTargetError}
+          <small class="admin-field-error">
+            {at("broadcast_target_unavailable", {}, "The requested audience is unavailable")}
+          </small>
+        {/if}
       </Label.Root>
       <div class="admin-field-label">
         <span>{at("broadcast_channels_label", {}, "Delivery channels")}</span>

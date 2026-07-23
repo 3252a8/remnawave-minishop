@@ -1227,7 +1227,114 @@ class AdminSettingsSecurityTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(secret_field["value"], "")
         self.assertTrue(secret_field["has_value"])
+        self.assertEqual(secret_field["value_source"], "environment")
         self.assertNotIn("super-secret", response.text)
+
+    async def test_admin_settings_marks_database_override_value_source(self):
+        class AsyncSessionFactory:
+            def __call__(self):
+                return self
+
+            async def __aenter__(self):
+                return object()
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            SHOP_NAME="Visible shop",
+            PANEL_API_KEY="db-panel-key",
+        )
+        request = SimpleNamespace(
+            app={"settings": settings, "async_session_factory": AsyncSessionFactory()},
+            headers={},
+            cookies={},
+            admin_telegram_id=1,
+        )
+        request.get = lambda key, default=None: getattr(request, key, default)
+
+        with (
+            patch.object(admin_settings_routes, "_require_admin_user_id", return_value=1),
+            patch.object(
+                admin_api.app_settings_dal,
+                "get_overrides_with_meta",
+                AsyncMock(
+                    return_value=[
+                        {
+                            "key": "PANEL_API_KEY",
+                            "value": "db-panel-key",
+                            "updated_at": "2026-07-19T12:00:00+00:00",
+                            "updated_by": 1,
+                        }
+                    ]
+                ),
+            ),
+        ):
+            response = await admin_api.admin_settings_get_route(request)
+
+        payload = json.loads(response.text)
+        fields = {
+            field["key"]: field for section in payload["sections"] for field in section["fields"]
+        }
+        panel_key_field = fields["PANEL_API_KEY"]
+
+        self.assertTrue(panel_key_field["overridden"])
+        self.assertEqual(panel_key_field["value_source"], "database_override")
+        self.assertEqual(panel_key_field["updated_at"], "2026-07-19T12:00:00+00:00")
+        self.assertEqual(panel_key_field["value"], "")
+        self.assertTrue(panel_key_field["has_value"])
+        self.assertNotIn("db-panel-key", response.text)
+
+    async def test_admin_settings_value_source_separates_storage_from_domain_source(self):
+        class AsyncSessionFactory:
+            def __call__(self):
+                return self
+
+            async def __aenter__(self):
+                return object()
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            SHOP_NAME="Visible shop",
+            SUBSCRIPTION_PAGE_CONFIG_JSON='{"platforms":[]}',
+        )
+        request = SimpleNamespace(
+            app={"settings": settings, "async_session_factory": AsyncSessionFactory()},
+            headers={},
+            cookies={},
+            admin_telegram_id=1,
+        )
+        request.get = lambda key, default=None: getattr(request, key, default)
+
+        with (
+            patch.object(admin_settings_routes, "_require_admin_user_id", return_value=1),
+            patch.object(
+                admin_api.app_settings_dal,
+                "get_overrides_with_meta",
+                AsyncMock(return_value=[]),
+            ),
+        ):
+            response = await admin_api.admin_settings_get_route(request)
+
+        payload = json.loads(response.text)
+        fields = {
+            field["key"]: field for section in payload["sections"] for field in section["fields"]
+        }
+        guide_config_field = fields["SUBSCRIPTION_PAGE_CONFIG_JSON"]
+
+        self.assertTrue(guide_config_field["overridden"])
+        self.assertEqual(guide_config_field["source"], "admin_json")
+        self.assertEqual(guide_config_field["value_source"], "environment")
 
     async def test_admin_settings_exposes_payment_webhook_urls(self):
         class AsyncSessionFactory:

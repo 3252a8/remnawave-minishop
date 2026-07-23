@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any, Protocol
 
 
@@ -50,6 +51,7 @@ class RecurringChargeContext:
     # it on the local order and sends it as Idempotence-Key, while providers
     # that do not support that contract may ignore it.
     idempotence_key: str | None = None
+    renewal_cycle_end: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -63,21 +65,39 @@ class RecurringChargeResult:
 
     initiated: bool
     provider_payment_id: str | None = None
+    payment_db_id: int | None = None
     status: str | None = None
     message: str | None = None
 
     @classmethod
-    def failed(cls, message: str | None = None) -> RecurringChargeResult:
-        return cls(initiated=False, message=message)
+    def failed(
+        cls,
+        message: str | None = None,
+        *,
+        provider_payment_id: str | None = None,
+        payment_db_id: int | None = None,
+    ) -> RecurringChargeResult:
+        return cls(
+            initiated=False,
+            message=message,
+            provider_payment_id=provider_payment_id,
+            payment_db_id=payment_db_id,
+        )
 
     @classmethod
     def ok(
         cls,
         *,
         provider_payment_id: str | None = None,
+        payment_db_id: int | None = None,
         status: str | None = None,
     ) -> RecurringChargeResult:
-        return cls(initiated=True, provider_payment_id=provider_payment_id, status=status)
+        return cls(
+            initiated=True,
+            provider_payment_id=provider_payment_id,
+            payment_db_id=payment_db_id,
+            status=status,
+        )
 
 
 class RecurringProviderService(Protocol):

@@ -96,6 +96,10 @@ def _inject_shared_instances(
         "panel_service",
         "panel_webhook_service",
         "lknpd_service",
+        # Audience extensions are registered at startup on this shared
+        # service. Expose the same instance to the admin HTTP handlers so
+        # discovery, counting, and delivery all use that catalog.
+        "audience_segmentation_service",
         *iter_service_keys(),
     ]
     for key, service in iter_dispatcher_services(dp, shared_keys):

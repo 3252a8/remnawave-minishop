@@ -3,6 +3,7 @@
     ArrowRight,
     CheckCircle2,
     FileText,
+    Key,
     Mail,
     Send,
     Server,
@@ -42,6 +43,8 @@
     profileEmail?: string;
     profileTelegramId?: string;
     serverStatusUrl?: string;
+    subscriptionReissueBusy?: boolean;
+    subscriptionReissueVisible?: boolean;
     supportUrl?: string;
     telegramNotificationsNeedPrompt?: boolean;
     telegramNotificationsStartLink?: string;
@@ -58,6 +61,7 @@
     openExternalLink?: OpenLinkAction;
     openLinkEmailDialog?: VoidAction;
     openSetPasswordDialog?: VoidAction;
+    openSubscriptionReissueDialog?: VoidAction;
     setLanguageMenuOpen?: (open: boolean) => void;
     t?: Translate;
     updateAccountLanguage?: StringAction;
@@ -81,6 +85,8 @@
     profileEmail = "",
     profileTelegramId = "",
     serverStatusUrl = "",
+    subscriptionReissueBusy = false,
+    subscriptionReissueVisible = false,
     supportUrl = "",
     telegramNotificationsNeedPrompt = false,
     telegramNotificationsStartLink = "",
@@ -97,6 +103,7 @@
     openExternalLink = () => {},
     openLinkEmailDialog = () => {},
     openSetPasswordDialog = () => {},
+    openSubscriptionReissueDialog = () => {},
     setLanguageMenuOpen = () => {},
     t = (key) => key,
     updateAccountLanguage = () => {},
@@ -209,6 +216,22 @@
         <span>
           <strong>{t("wa_settings_link_email_action")}</strong>
           <small>{emailLinkStatus}</small>
+        </span>
+        <ArrowRight size={17} />
+      </button>
+    {/if}
+    {#if subscriptionReissueVisible}
+      <button
+        data-webapp-action="open-subscription-reissue"
+        class="settings-row settings-row-subscription-reissue"
+        type="button"
+        onclick={openSubscriptionReissueDialog}
+        disabled={subscriptionReissueBusy}
+      >
+        <Key size={21} />
+        <span>
+          <strong>{t("wa_subscription_reissue_action")}</strong>
+          <small>{t("wa_settings_subscription_reissue_hint")}</small>
         </span>
         <ArrowRight size={17} />
       </button>

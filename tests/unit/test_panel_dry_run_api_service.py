@@ -37,6 +37,28 @@ class PanelDryRunApiServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["trafficLimitBytes"], 1024)
         service._request_once.assert_not_awaited()
 
+    async def test_update_user_details_is_visible_to_uncached_verification_read(self):
+        service = PanelDryRunApiService(_settings())
+        service._request_once = AsyncMock()
+
+        await service.update_user_details_on_panel(
+            "user-uuid",
+            {
+                "trafficLimitBytes": 1024,
+                "trafficLimitStrategy": "NO_RESET",
+                "hwidDeviceLimit": 5,
+                "status": "ACTIVE",
+            },
+        )
+        persisted = await service.get_user_by_uuid("user-uuid", use_cache=False)
+
+        assert persisted is not None
+        self.assertEqual(persisted["uuid"], "user-uuid")
+        self.assertEqual(persisted["trafficLimitBytes"], 1024)
+        self.assertEqual(persisted["hwidDeviceLimit"], 5)
+        self.assertEqual(persisted["status"], "ACTIVE")
+        service._request_once.assert_not_awaited()
+
     async def test_update_user_details_rejects_invalid_payload(self):
         service = PanelDryRunApiService(_settings())
         service._request_once = AsyncMock()

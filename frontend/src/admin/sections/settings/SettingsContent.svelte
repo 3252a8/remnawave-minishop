@@ -202,6 +202,22 @@
     clearSettingsSearch();
     settingsSearchOpen = false;
   }
+
+  function fieldValueSourceLabel(field: AdminSettingField): string {
+    const dirty = settingsDirty[field.key];
+    const source = dirty?.deleted
+      ? "environment"
+      : dirty
+        ? "database_override"
+        : String(field.value_source || "").trim();
+    if (source === "database_override") {
+      return at("settings_source_database_override", {}, "Source: database override");
+    }
+    if (source === "environment") {
+      return at("settings_source_environment", {}, "Source: environment (.env)");
+    }
+    return "";
+  }
 </script>
 
 {#snippet renderProviderInfo(provider: NonNullable<GroupProviderInfo>)}
@@ -307,6 +323,7 @@
 
 {#snippet renderField(field: AdminSettingField)}
   {@const revealed = isSecretRevealed(field.key)}
+  {@const valueSource = fieldValueSourceLabel(field)}
   <div
     class="admin-setting"
     class:is-overridden={isOverridden(field)}
@@ -325,6 +342,9 @@
         {/if}
       </strong>
       <code>{field.key}</code>
+      {#if valueSource}
+        <small class="admin-setting-source">{valueSource}</small>
+      {/if}
       {#if fieldDescriptionText(field)}
         <small>{fieldDescriptionText(field)}</small>
       {/if}

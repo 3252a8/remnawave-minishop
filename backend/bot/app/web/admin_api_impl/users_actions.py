@@ -13,6 +13,7 @@ from bot.app.web.context import (
     get_settings,
 )
 from bot.app.web.request_parsing import parse_body_or_400
+from bot.app.web.webapp.subscription_reissue import send_subscription_reissue_email
 from bot.utils import MessageContent, send_message_via_queue
 from bot.utils.message_queue import get_queue_manager
 from config.settings import Settings
@@ -325,6 +326,90 @@ async def admin_user_delete_route(request: web.Request) -> web.Response:
             exc_info=True,
         )
     return _ok({})
+
+
+async def admin_user_subscription_reissue_route(request: web.Request) -> web.Response:
+    """Reissue (revoke + regenerate) the user's subscription link on the panel.
+
+    Unlike the user-facing Mini App action this is not gated on
+    ``SUBSCRIPTION_REISSUE_ENABLED`` or a linked email: an admin must always be
+    able to invalidate a leaked link. When email delivery is configured and the
+    user has a linked address, the new link is emailed best-effort; the revoke
+    itself succeeds either way.
+    """
+    actor_id = _require_admin_user_id(request)
+    target_id = int(request.match_info["user_id"])
+    settings: Settings = get_settings(request)
+
+    panel_service = get_panel_service(request)
+    if panel_service is None:
+        subscription_service = get_optional_subscription_service(request)
+        panel_service = getattr(subscription_service, "panel_service", None)
+    if panel_service is None:
+        return _error(503, "panel_service_unavailable")
+
+    async_session_factory: sessionmaker = get_session_factory(request)
+    async with async_session_factory() as session:
+        user = await user_dal.get_user_by_id(session, target_id)
+        if not user:
+            return _error(404, "not_found")
+
+        # Same resolution as the user-card detail endpoint: reset the link the
+        # card actually shows (canonical uuid first, active subscription next).
+        active = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
+        panel_user_uuid = str(
+            getattr(user, "panel_user_uuid", None) or getattr(active, "panel_user_uuid", None) or ""
+        ).strip()
+        if not panel_user_uuid:
+            return _error(
+                404,
+                "no_panel_user",
+                "The user is not linked to a Remnawave panel user",
+            )
+
+        try:
+            updated_panel_user = await panel_service.revoke_user_subscription(panel_user_uuid)
+        except Exception as exc:
+            logger.warning(
+                "Admin webapp failed to reissue subscription for user %s: %s",
+                target_id,
+                exc,
+            )
+            updated_panel_user = None
+        if not updated_panel_user:
+            return _error(
+                502,
+                "subscription_reissue_failed",
+                "Unable to revoke the subscription on the Remnawave panel",
+            )
+
+        email_sent = False
+        if settings.email_auth_configured and str(getattr(user, "email", "") or "").strip():
+            email_sent = await send_subscription_reissue_email(
+                settings=settings,
+                i18n=get_i18n(request),
+                session=session,
+                db_user=user,
+                updated_panel_user=updated_panel_user,
+            )
+
+        await message_log_dal.create_message_log_no_commit(
+            session,
+            {
+                "user_id": actor_id,
+                "event_type": "admin_subscription_reissue_webapp",
+                "content": (
+                    f"Reissued subscription link for user_id={target_id} "
+                    f"panel_uuid={panel_user_uuid} email_sent={email_sent}"
+                ),
+                "is_admin_event": True,
+                "target_user_id": target_id,
+            },
+        )
+        await session.commit()
+
+    await _invalidate_after_admin_user_mutation(settings, target_id)
+    return _ok({"email_sent": bool(email_sent)})
 
 
 async def admin_user_reset_trial_route(request: web.Request) -> web.Response:

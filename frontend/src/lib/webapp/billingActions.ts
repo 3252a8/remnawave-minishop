@@ -5,6 +5,7 @@ import {
   buildPlansViewedPath,
   buildSubscriptionPromoQuotePath,
   buildSubscriptionAutoRenewPath,
+  buildSubscriptionReissuePath,
   buildTariffChangeOptionsPath,
   buildTariffChangePath,
   buildTariffChangePaymentPath,
@@ -25,6 +26,7 @@ import type {
   PostPayload,
   PromoQuoteResponse,
   SubscriptionAutoRenewResponse,
+  SubscriptionReissueResponse,
   TariffChangeOptionsResponse,
   TariffChangePaymentResponse,
   TariffChangeResponse,
@@ -49,6 +51,7 @@ export type BillingActions = {
     body: PostPayload<"/api/tariffs/change-payment">
   ): Promise<TariffChangePaymentResponse>;
   postAutoRenew(enabled: boolean): Promise<SubscriptionAutoRenewResponse>;
+  postSubscriptionReissue(): Promise<SubscriptionReissueResponse>;
   planPaymentBody(
     plan: BillingPlan,
     method: string,
@@ -122,6 +125,13 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
     return api(buildSubscriptionAutoRenewPath(), {
       method: "POST",
       body: JSON.stringify({ enabled: Boolean(enabled) }),
+    });
+  }
+
+  async function postSubscriptionReissue(): Promise<SubscriptionReissueResponse> {
+    return api(buildSubscriptionReissuePath(), {
+      method: "POST",
+      body: JSON.stringify({}),
     });
   }
 
@@ -221,6 +231,7 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
     postTariffChange,
     postTariffChangePayment,
     postAutoRenew,
+    postSubscriptionReissue,
     planPaymentBody,
     topupPaymentBody,
     deviceTopupPaymentBody,

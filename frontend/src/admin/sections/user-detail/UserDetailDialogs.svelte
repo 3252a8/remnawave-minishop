@@ -9,7 +9,7 @@
     AdminTable,
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
-  import { ExternalLink, RefreshCw, Send, Trash2, UserMinus } from "$components/ui/icons.js";
+  import { ExternalLink, Key, RefreshCw, Send, Trash2, UserMinus } from "$components/ui/icons.js";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
   import type { DateFormatter, TranslateFn } from "./userDetailTypes";
 
@@ -38,6 +38,7 @@
     tariffHwidCurrentLabel?: string;
     tariffHwidTargetLabel?: string;
     userDeleteOpen?: boolean;
+    userSubscriptionReissueOpen?: boolean;
     userActionBusy?: boolean;
   };
 
@@ -66,6 +67,7 @@
     tariffHwidCurrentLabel = "",
     tariffHwidTargetLabel = "",
     userDeleteOpen = false,
+    userSubscriptionReissueOpen = false,
     userActionBusy = false,
   }: Props = $props();
 
@@ -297,6 +299,34 @@
     >
       <RefreshCw size={14} />
       {at("user_tariff_hwid_confirm_apply", {}, "Apply tariff limit")}
+    </AdminButton>
+  </div>
+</Dialog>
+
+<Dialog
+  open={userSubscriptionReissueOpen}
+  title={at("user_subscription_reissue_confirm_title", {}, "Reset subscription link?")}
+  description={at(
+    "user_subscription_reissue_confirm_subtitle",
+    {},
+    "The panel will revoke the current link and generate a new one. Every device still using the old link will be disconnected. If the user has a linked email and email delivery is configured, the new link will be emailed to them."
+  )}
+  closeLabel={at("close", {}, "Close")}
+  onclose={() => usersStore.updateState({ userSubscriptionReissueOpen: false })}
+  class="admin-dialog admin-user-subscription-reissue-dialog"
+>
+  <div class="admin-form-row">
+    <AdminButton onclick={() => usersStore.updateState({ userSubscriptionReissueOpen: false })}
+      >{at("btn_cancel", {}, "Cancel")}</AdminButton
+    >
+    <AdminButton
+      variant="danger"
+      data-admin-action="confirm-user-subscription-reissue"
+      onclick={usersStore.reissueSubscriptionUser}
+      disabled={userActionBusy}
+    >
+      <Key size={14} />
+      {at("user_subscription_reissue_confirm", {}, "Reset link")}
     </AdminButton>
   </div>
 </Dialog>

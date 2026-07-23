@@ -2,7 +2,14 @@
   import { onMount } from "svelte";
 
   import AdminPanelLayout from "./AdminPanelLayout.svelte";
-  import { ADMIN_SECTION_GROUPS, ADMIN_SECTIONS, isAdminSectionVisible } from "./sections/registry";
+  import {
+    ADMIN_SECTION_GROUPS,
+    ADMIN_SECTIONS,
+    defaultQueryForAdminSection,
+    isAdminSectionVisible,
+    requiredFeatureForAdminSection,
+    resolveAdminSectionId,
+  } from "./sections/registry";
   import { createAdminSectionComponentLoader, type DynamicComponent } from "./adminLazyComponents";
   import { createAdminStores, type AdminApi } from "./adminStores";
   import {
@@ -178,7 +185,7 @@
   );
   const SECTION_META: Record<string, SectionMeta> = $derived(
     Object.fromEntries(
-      visibleSections.map((section) => [
+      ADMIN_SECTIONS.map((section) => [
         section.id,
         {
           title: at(section.titleI18nKey, {}, section.fallbackTitle),
@@ -187,13 +194,16 @@
       ])
     )
   );
-  const SECTION_BY_ID = $derived(new Map(visibleSections.map((section) => [section.id, section])));
+  const SECTION_BY_ID = new Map(ADMIN_SECTIONS.map((section) => [section.id, section]));
 
-  const VALID_SECTIONS: string[] = $derived(
-    (NAV_GROUPS || []).flatMap((group) => (group.items || []).map((item) => item.id))
-  );
+  // Route slugs validate against the full build-time registry (including
+  // extension sections and their aliases), never against the feature-filtered
+  // navigation: a requested section that is merely feature-locked or still
+  // waiting for feature discovery keeps its slug and renders its own locked or
+  // pending state. Only slugs unknown to the registry fall back to the
+  // dashboard.
   const normalizeSection = (value: unknown): AdminSectionId =>
-    (VALID_SECTIONS || []).includes(String(value)) ? String(value) : "stats";
+    resolveAdminSectionId(value) || "stats";
   const settingsPathKey = (path: unknown): string => (Array.isArray(path) ? path : []).join("/");
 
   function initialActiveSection(): AdminSectionId {
@@ -216,8 +226,10 @@
   }
 
   $effect(() => {
-    if (VALID_SECTIONS.length && !VALID_SECTIONS.includes(active)) {
-      active = normalizeSection(active);
+    // Canonicalize aliases and reject slugs unknown to the section registry.
+    const resolved = normalizeSection(active);
+    if (resolved !== active) {
+      active = resolved;
     }
   });
 
@@ -269,6 +281,13 @@
   const translationsSaving = $derived(translationsStore.translationsSaving);
   const meta = $derived(SECTION_META[active] || { title: active, subtitle: "" });
   const activeSection = $derived(SECTION_BY_ID.get(active));
+  const availableFeatures = $derived([...featureSet].sort());
+  const featuresResolved = $derived(Boolean(settingsStore.featuresResolved));
+  const activeSectionFeatureAvailable = $derived(
+    !activeSection ||
+      !requiredFeatureForAdminSection(activeSection) ||
+      featureSet.has(requiredFeatureForAdminSection(activeSection))
+  );
   const openSectionUserCard = $derived(
     active === "payments"
       ? openPaymentUserCard
@@ -312,9 +331,36 @@
     paymentsStore.closePayment();
     supportStore.closeTicketView();
     onSectionChange(next);
+    // Direct extension deep links can be rendered before the outer application
+    // has synchronized its screen state. Keep the browser route in sync even
+    // in that transient state; the outer action normally writes the same URL.
+    syncActiveSectionPath(next);
+    applySectionRouteDefaults(next);
     replaceCurrentUsersRouteFilters(
       next === "users" ? currentUsersRouteFilters() : DEFAULT_USERS_ROUTE_FILTERS
     );
+  }
+
+  function syncActiveSectionPath(sectionId: string): void {
+    if (typeof window === "undefined" || window.location.protocol === "file:") return;
+    const targetPath = withRoutePrefix(`/admin/${sectionId}`, routePrefix);
+    const nextUrl = `${targetPath}${window.location.search}${window.location.hash}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (nextUrl !== currentUrl) window.history.pushState(null, "", nextUrl);
+  }
+
+  function applySectionRouteDefaults(sectionId: string): void {
+    if (typeof window === "undefined" || window.location.protocol === "file:") return;
+    const descriptor = ADMIN_SECTIONS.find((section) => section.id === sectionId);
+    const defaults = defaultQueryForAdminSection(descriptor, featureSet);
+    const entries = Object.entries(defaults).filter(([key, value]) => key && value);
+    if (!entries.length) return;
+    const query = new URLSearchParams(window.location.search);
+    for (const [key, value] of entries) query.set(key, value);
+    const search = query.toString();
+    const nextUrl = `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (nextUrl !== currentUrl) window.history.replaceState(window.history.state, "", nextUrl);
   }
 
   function currentUsersRouteFilters(): UsersRouteFilters {
@@ -651,6 +697,9 @@
   {active}
   {activeSectionComponent}
   {activeSectionLoading}
+  featureAvailable={activeSectionFeatureAvailable}
+  {featuresResolved}
+  {availableFeatures}
   {adsStore}
   {appFaviconUrl}
   {appFaviconUseCustom}

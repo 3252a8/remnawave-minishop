@@ -134,6 +134,7 @@ Core reactions: `CoreEventReactions.on_payment_succeeded`
 | `discount_amount` | `float | None` | `None` |
 | `end_date` | `datetime | None` | `None` |
 | `is_auto_renew` | `bool` | required |
+| `renewal_subscription_id` | `int | None` | `None` |
 
 ## `plans.viewed`
 
@@ -189,6 +190,26 @@ Core reactions: `CoreEventReactions.on_referral_bonus_granted`
 | `tariff_key` | `str | None` | `None` |
 | `one_bonus_per_referee` | `bool | None` | `None` |
 | `reason` | `'payment' | 'welcome'` | required |
+
+## `subscription.auto_renew_failed`
+
+Payload model: `SubscriptionAutoRenewFailedPayload`
+
+Emitters: `backend/bot/payment_providers/shared/webhooks.py`, `backend/bot/services/subscription_service_impl/renewal.py`
+
+Core reactions: none
+
+| Field | Type | Default |
+| --- | --- | --- |
+| `user_id` | `int` | required |
+| `subscription_id` | `int` | required |
+| `provider` | `str` | required |
+| `reason_code` | `'provider_unavailable' | 'saved_payment_method_missing' | 'renewal_quote_unavailable' | 'provider_request_failed' | 'provider_rejected' | 'provider_webhook_failed'` | required |
+| `payment_db_id` | `int | None` | `None` |
+| `provider_payment_id` | `str | None` | `None` |
+| `renewal_cycle_end` | `datetime | None` | `None` |
+| `retryable` | `bool` | required |
+| `occurred_at` | `datetime` | required |
 
 ## `subscription.created`
 

@@ -159,6 +159,8 @@ ADMIN_VISIBLE_RU_KEYS = {
     "admin_settings_badge_secret",
     "admin_settings_badge_dirty",
     "admin_settings_icon_current",
+    "admin_settings_source_database_override",
+    "admin_settings_source_environment",
     "admin_settings_icon_default_value",
     "admin_settings_icon_empty",
     "admin_settings_icon_picker_title",

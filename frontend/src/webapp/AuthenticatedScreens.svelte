@@ -56,6 +56,9 @@
     devicesLoaded?: boolean;
     devicesStatus?: string;
     devicesStore: DevicesStore;
+    subscriptionReissueEnabled?: boolean;
+    subscriptionReissueBusy?: boolean;
+    openSubscriptionReissueDialog?: VoidAction;
     emailAuthEnabled?: boolean;
     emailLinkStatus?: string;
     goDevices: VoidAction;
@@ -162,6 +165,9 @@
     devicesLoaded = false,
     devicesStatus = "",
     devicesStore,
+    subscriptionReissueEnabled = false,
+    subscriptionReissueBusy = false,
+    openSubscriptionReissueDialog = () => {},
     emailAuthEnabled = true,
     emailLinkStatus = "",
     goDevices,
@@ -244,6 +250,12 @@
     userAgreementUrl = "",
     userLanguage = "",
   }: Props = $props();
+
+  // Without the Devices section the reissue action has no home screen, so it
+  // moves to Settings.
+  const settingsSubscriptionReissueVisible = $derived(
+    subscriptionReissueEnabled && !devicesEnabled && Boolean(subscription?.active)
+  );
 </script>
 
 <WebAppShell
@@ -359,6 +371,9 @@
       {subscription}
       {loadDevices}
       openDeviceDisconnectDialog={devicesStore.openDeviceDisconnectDialog}
+      {subscriptionReissueEnabled}
+      {subscriptionReissueBusy}
+      {openSubscriptionReissueDialog}
       {openDeviceTopupModal}
       {t}
     />
@@ -399,6 +414,8 @@
       {profileEmail}
       {profileTelegramId}
       {serverStatusUrl}
+      {subscriptionReissueBusy}
+      subscriptionReissueVisible={settingsSubscriptionReissueVisible}
       {supportUrl}
       {telegramNotificationsNeedPrompt}
       {telegramNotificationsStartLink}
@@ -415,6 +432,7 @@
       {openExternalLink}
       {openLinkEmailDialog}
       {openSetPasswordDialog}
+      {openSubscriptionReissueDialog}
       {setLanguageMenuOpen}
       {t}
       updateAccountLanguage={accountStore.updateAccountLanguage}

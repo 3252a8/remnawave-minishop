@@ -86,6 +86,9 @@ from .payloads import (
 from .payloads import (
     WebAppPaymentCreatePayload as WebAppPaymentCreatePayload,
 )
+from .subscription_reissue import (
+    subscription_reissue_route,
+)
 from .support import (
     support_create_ticket_route,
     support_ticket_detail_route,
@@ -201,6 +204,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/plans/viewed", plans_viewed_route)
     app.router.add_post("/api/trial/activate", activate_trial_route)
     app.router.add_post("/api/subscription/auto-renew", subscription_auto_renew_route)
+    app.router.add_post("/api/subscription/reissue", subscription_reissue_route)
     app.router.add_post("/api/subscription/quote-promo", quote_promo_route)
     app.router.add_get("/api/devices", devices_route)
     app.router.add_post("/api/devices/disconnect", disconnect_device_route)

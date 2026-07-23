@@ -45,10 +45,26 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         sale_mode_base = sale_mode_context.base
         tariff_key = sale_mode_context.tariff_key
         tariffs_config = self._tariffs_config()
+        if tariff_key and not tariffs_config:
+            logger.error(
+                "Tariff-scoped %s activation requires an available tariff catalog "
+                "for user %s (tariff=%s).",
+                sale_mode_base,
+                user_id,
+                tariff_key,
+            )
+            return None
         if tariffs_config and tariff_key:
             resolved_tariff = tariffs_config.get(tariff_key)
-            if resolved_tariff is not None:
-                tariff_key = resolved_tariff.key
+            if resolved_tariff is None:
+                logger.error(
+                    "Tariff-scoped %s activation references unknown tariff %s for user %s.",
+                    sale_mode_base,
+                    tariff_key,
+                    user_id,
+                )
+                return None
+            tariff_key = resolved_tariff.key
         if sale_mode_base in {"traffic", "traffic_package"} or (
             getattr(self.settings, "traffic_sale_mode", False) and not tariffs_config
         ):

@@ -159,6 +159,54 @@ class PaymentWebhookNotificationTests(IsolatedAsyncioTestCase):
         referral_service.apply_referral_bonuses_for_payment.assert_not_awaited()
         emit_model.assert_not_awaited()
 
+    async def test_finalize_failure_keeps_payment_id_across_rollback(self):
+        payment = SimpleNamespace(
+            payment_id=12,
+            user_id=42,
+            status="succeeded_pending_finalization",
+        )
+
+        async def expire_payment_on_rollback():
+            del payment.payment_id
+
+        session = AsyncMock()
+        session.rollback = AsyncMock(side_effect=expire_payment_on_rollback)
+        subscription_service = SimpleNamespace(activate_subscription=AsyncMock(return_value=None))
+
+        with (
+            patch(
+                "bot.payment_providers.shared.success.payment_dal.get_payment_by_db_id_for_update",
+                AsyncMock(return_value=payment),
+            ),
+            patch(
+                "bot.payment_providers.shared.success.payment_dal.update_payment_status_by_db_id",
+                AsyncMock(return_value=payment),
+            ) as update_status,
+        ):
+            result = await finalize_successful_payment(
+                PaymentSuccessRequest(
+                    bot=SimpleNamespace(),
+                    settings=SimpleNamespace(DEFAULT_LANGUAGE="en"),
+                    i18n=_I18n(),
+                    session=session,
+                    subscription_service=subscription_service,
+                    referral_service=SimpleNamespace(),
+                    payment=payment,
+                    user_id=42,
+                    amount=50,
+                    currency="RUB",
+                    sale_mode="hwid_devices@standard",
+                    months=1,
+                    traffic_amount=1,
+                    provider_subscription="qa",
+                    provider_notification="qa",
+                )
+            )
+
+        self.assertIsNone(result)
+        update_status.assert_awaited_once_with(session, 12, "activation_failed")
+        session.commit.assert_awaited_once()
+
     async def test_finalize_subscription_without_end_date_is_activation_failure(self):
         session = AsyncMock()
         payment = SimpleNamespace(

@@ -90,6 +90,7 @@ from .users import (
     admin_user_reset_trial_route,
     admin_user_squad_overrides_refresh_route,
     admin_user_squad_overrides_route,
+    admin_user_subscription_reissue_route,
     admin_user_tariff_route,
     admin_user_telegram_profile_link_route,
     admin_user_traffic_grant_route,
@@ -118,6 +119,10 @@ def setup_admin_routes(app: web.Application) -> None:
         admin_user_telegram_profile_link_route,
     )
     router.add_post("/api/admin/users/{user_id:-?\\d+}/reset-trial", admin_user_reset_trial_route)
+    router.add_post(
+        "/api/admin/users/{user_id:-?\\d+}/subscription-reissue",
+        admin_user_subscription_reissue_route,
+    )
     router.add_patch(
         "/api/admin/users/{user_id:-?\\d+}/squad-overrides",
         admin_user_squad_overrides_route,
