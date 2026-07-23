@@ -651,10 +651,6 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
             create_purchase.assert_awaited_once()
 
 
-if __name__ == "__main__":  # pragma: no cover
-    unittest.main()
-
-
 class HwidDeviceTrafficBonusTests(unittest.IsolatedAsyncioTestCase):
     GB = 1024**3
 
@@ -699,9 +695,7 @@ class HwidDeviceTrafficBonusTests(unittest.IsolatedAsyncioTestCase):
         service = _make_service(settings)
         user = _make_user()
         updated_sub = SimpleNamespace(subscription_id=11, end_date=sub.end_date)
-        service.panel_service.update_user_details_on_panel = AsyncMock(
-            side_effect=_echo_panel_entitlement
-        )
+        _configure_persisted_panel_echo(service)
         patches = self._bonus_patches(user=user, sub=sub, updated_sub=updated_sub, payment=payment)
         with (
             patches[0],
@@ -872,3 +866,7 @@ class HwidDeviceTrafficBonusTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(enabled.hwid_device_traffic_bonus_gb(1), 15.0)
         self.assertEqual(enabled.hwid_device_traffic_bonus_gb(3), 45.0)
         self.assertEqual(disabled.hwid_device_traffic_bonus_gb(1), 0.0)
+
+
+if __name__ == "__main__":  # pragma: no cover
+    unittest.main()

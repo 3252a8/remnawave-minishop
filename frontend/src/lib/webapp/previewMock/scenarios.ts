@@ -535,6 +535,7 @@ export function applyPreviewMock(kind: unknown): void {
           title: "+1 устройство",
           subtitle: "Стандарт",
           device_count: 1,
+          traffic_bonus_gb: 15,
         },
         {
           id: "standard:hwid:3",
@@ -547,6 +548,7 @@ export function applyPreviewMock(kind: unknown): void {
           title: "+3 устройства",
           subtitle: "Стандарт",
           device_count: 3,
+          traffic_bonus_gb: 45,
         },
       ],
     };

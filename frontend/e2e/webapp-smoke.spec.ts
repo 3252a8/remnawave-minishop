@@ -810,6 +810,31 @@ test("support ticket conversations scroll on desktop and mobile", async ({ page 
   await assertAdminTicketScrolling(page, supportDialog);
 });
 
+test("device traffic bonuses stay legible on mobile", async ({ page }) => {
+  await page.setViewportSize(MOBILE_VIEWPORT);
+  await page.goto(`${APP_URL}?mock=devices`);
+  const nav = page.locator("nav.bottom-nav");
+  await expect(nav).toBeVisible();
+  await nav.getByRole("button", { name: "Устройства", exact: true }).click();
+
+  const openTopup = webappAction(page, "open-device-topup");
+  await expect(openTopup).toBeVisible();
+  await openTopup.click();
+
+  const dialog = page.locator(".dialog-card.webapp-device-topup-dialog");
+  await expect(dialog).toBeVisible();
+  await expect(
+    dialog.locator(".hwid-traffic-bonus", {
+      hasText: "Плюс 15 ГБ к месячному трафику",
+    })
+  ).toBeVisible();
+  await expect(
+    dialog.locator(".hwid-traffic-bonus", {
+      hasText: "Плюс 45 ГБ к месячному трафику",
+    })
+  ).toBeVisible();
+});
+
 test("webapp and admin sections, dialogs, tabs stay interactive without console errors", async ({
   page,
 }) => {

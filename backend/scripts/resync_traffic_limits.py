@@ -64,9 +64,10 @@ async def main() -> None:
     print(f"settings overrides applied from DB: {overrides}")
     print(f"HWID_DEVICE_TRAFFIC_BONUS_GB = {bonus_gb}")
     if bonus_gb <= 0:
-        print("!! bonus setting is 0 — the sweep would remove nothing and add nothing.")
-        print("!! enable the setting in admin first, then rerun.")
-        return
+        print(
+            "bonus setting is 0 — the sweep will remove any previously applied "
+            "device-bonus contribution."
+        )
 
     panel = PanelApiService(settings)
     svc = SubscriptionService(settings, panel, None, None)
@@ -123,4 +124,5 @@ async def main() -> None:
         await panel.close()
 
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

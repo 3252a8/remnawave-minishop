@@ -6,6 +6,7 @@
   import Dialog from "$components/ui/dialog.svelte";
   import { EmptyCard, PaymentMethodGrid } from "$components/patterns/webapp/index.js";
   import CheckoutPromoRow from "../CheckoutPromoRow.svelte";
+  import { formatCompactNumber } from "$lib/webapp/formatters.js";
   import {
     planKey as planKeyFn,
     planDisplayTitle as planDisplayTitleFn,
@@ -249,7 +250,7 @@
     const renewal = hwidRenewalFor(plan);
     const bonusGb = Number(renewal?.traffic_bonus_gb || 0);
     if (!(bonusGb > 0)) return "";
-    return t("wa_hwid_devices_traffic_bonus", { gb: String(bonusGb) });
+    return t("wa_hwid_devices_traffic_bonus", { gb: formatCompactNumber(bonusGb) });
   }
   function hwidRenewalHint(plan: PlanView | null = selectedPlan) {
     const renewal = hwidRenewalFor(plan);
@@ -398,7 +399,7 @@
               </strong>
               <small>{hwidRenewalHint()}</small>
               {#if hwidRenewalBonusLabel()}
-                <small class="hwid-renewal-bonus">{hwidRenewalBonusLabel()}</small>
+                <small class="hwid-traffic-bonus">{hwidRenewalBonusLabel()}</small>
               {/if}
               {#if showHwidDesyncNotice()}
                 <small class="hwid-renewal-warning">
@@ -508,7 +509,7 @@
             </strong>
             <small>{hwidRenewalHint()}</small>
             {#if hwidRenewalBonusLabel()}
-              <small class="hwid-renewal-bonus">{hwidRenewalBonusLabel()}</small>
+              <small class="hwid-traffic-bonus">{hwidRenewalBonusLabel()}</small>
             {/if}
             {#if showHwidDesyncNotice()}
               <small class="hwid-renewal-warning">

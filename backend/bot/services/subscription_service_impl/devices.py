@@ -127,18 +127,14 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
     async def _hwid_device_traffic_bonus_bytes_for_sub(
         self,
         session: AsyncSession,
-        sub: Any,
+        sub: Subscription,
         *,
         active_devices: int | None = None,
     ) -> int:
         if sub is None or self._hwid_device_traffic_bonus_gb_setting() <= 0:
             return 0
         if active_devices is None:
-            try:
-                active_devices = await self._active_hwid_extra_devices_for_sub(session, sub)
-            except Exception:
-                logger.exception("Failed to resolve active HWID devices for the traffic bonus")
-                return 0
+            active_devices = await self._active_hwid_extra_devices_for_sub(session, sub)
         return self._hwid_device_traffic_bonus_bytes(int(active_devices or 0))
 
     def hwid_device_traffic_bonus_gb(self, device_count: int) -> float:

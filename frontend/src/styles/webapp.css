@@ -1362,6 +1362,12 @@ a {
   overflow-wrap: anywhere;
 }
 
+.option-row-main .hwid-traffic-bonus,
+.hwid-renewal-option .hwid-traffic-bonus {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .hwid-renewal-option .hwid-renewal-warning {
   color: var(--warning-text, var(--warning));
 }
