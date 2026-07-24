@@ -67,6 +67,7 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0044_add_subscription_last_connected_at",
     "0045_scope_provider_payment_ids",
     "0046_add_recurring_payment_attribution",
+    "0047_add_hwid_traffic_bonus_snapshots",
 ]
 
 

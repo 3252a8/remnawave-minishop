@@ -49,7 +49,6 @@ class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
             DEFAULT_CURRENCY_SYMBOL="RUB",
         )
         subscription_service = SimpleNamespace(
-            hwid_device_traffic_bonus_gb=lambda count: round(15.0 * count, 2),
             get_active_subscription_details=AsyncMock(
                 return_value={
                     "max_devices": 4,
@@ -64,6 +63,7 @@ class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
                     "valid_from": valid_from,
                     "valid_until": active_until,
                     "proration_ratio": 0.5,
+                    "traffic_bonus_gb": 15,
                 }
             ),
         )
@@ -112,8 +112,7 @@ class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
         self.assertEqual(payload["extra_hwid_devices_valid_until_text"], "02.01.2099 03:04")
         self.assertEqual(payload["plans"][0]["valid_from"], valid_from.isoformat())
         self.assertEqual(payload["plans"][0]["valid_until"], active_until.isoformat())
-        # Flat monthly bonus: 1 device x 15 GB, regardless of the quote's
-        # proration ratio (0.5) - the bonus is a monthly cap component.
+        # The package bonus is recurring and is not scaled by the proration ratio.
         self.assertEqual(payload["plans"][0]["traffic_bonus_gb"], 15.0)
 
     async def test_offers_only_immediate_topup_when_existing_extra_expires_early(self):
@@ -151,7 +150,6 @@ class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
             }
 
         subscription_service = SimpleNamespace(
-            hwid_device_traffic_bonus_gb=lambda count: 0.0,
             get_active_subscription_details=AsyncMock(
                 return_value={
                     "max_devices": 3,

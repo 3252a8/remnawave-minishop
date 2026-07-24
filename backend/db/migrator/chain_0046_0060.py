@@ -34,10 +34,36 @@ def _migration_0046_add_recurring_payment_attribution(connection: Connection) ->
     )
 
 
+def _migration_0047_add_hwid_traffic_bonus_snapshots(connection: Connection) -> None:
+    """Freeze package traffic bonuses in payments and active HWID purchases."""
+
+    inspector = inspect(connection)
+    table_names = set(inspector.get_table_names())
+    if "payments" in table_names:
+        payment_columns = {column["name"] for column in inspector.get_columns("payments")}
+        if "hwid_traffic_bonus_bytes" not in payment_columns:
+            connection.execute(
+                text("ALTER TABLE payments ADD COLUMN hwid_traffic_bonus_bytes BIGINT")
+            )
+    if "hwid_device_purchases" in table_names:
+        purchase_columns = {
+            column["name"] for column in inspector.get_columns("hwid_device_purchases")
+        }
+        if "traffic_bonus_bytes" not in purchase_columns:
+            connection.execute(
+                text("ALTER TABLE hwid_device_purchases ADD COLUMN traffic_bonus_bytes BIGINT")
+            )
+
+
 CHAIN_0046_0060: list[Migration] = [
     Migration(
         id="0046_add_recurring_payment_attribution",
         description="Persist auto-renew attribution and renewal cycle references",
         upgrade=_migration_0046_add_recurring_payment_attribution,
+    ),
+    Migration(
+        id="0047_add_hwid_traffic_bonus_snapshots",
+        description="Persist traffic bonus snapshots for HWID device purchases",
+        upgrade=_migration_0047_add_hwid_traffic_bonus_snapshots,
     ),
 ]

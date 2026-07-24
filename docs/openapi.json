@@ -3605,6 +3605,11 @@
             },
             "title": "Prices",
             "type": "object"
+          },
+          "traffic_bonus_gb": {
+            "default": 0.0,
+            "title": "Traffic Bonus Gb",
+            "type": "number"
           }
         },
         "required": [

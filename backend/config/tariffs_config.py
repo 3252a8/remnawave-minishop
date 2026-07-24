@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 from pathlib import Path
 from typing import Any, Literal
 
@@ -67,6 +68,7 @@ class TrafficPackage(BaseModel):
 class HwidDevicePackage(BaseModel):
     count: int
     price: float
+    traffic_bonus_gb: float = 0.0
     prices: dict[str, float] = Field(default_factory=dict)
     min_price: float | None = None
 
@@ -76,6 +78,8 @@ class HwidDevicePackage(BaseModel):
             raise ValueError("device package count must be greater than zero")
         if self.price < 0:
             raise ValueError("device package price must be non-negative")
+        if not math.isfinite(self.traffic_bonus_gb) or self.traffic_bonus_gb < 0:
+            raise ValueError("device package traffic_bonus_gb must be finite and non-negative")
         normalized_prices: dict[str, float] = {}
         for period, value in (self.prices or {}).items():
             period_key = str(period).strip()
@@ -159,6 +163,32 @@ class HwidDevicePackageSet(RootModel[dict[str, list[HwidDevicePackage]]]):
                 raise ValueError("device package currency must not be empty")
             normalized[key] = packages or []
         return normalized
+
+    @model_validator(mode="after")
+    def validate_logical_packages(self) -> "HwidDevicePackageSet":
+        bonuses_by_count: dict[int, float] = {}
+        for currency, packages in self.root.items():
+            seen_counts: set[int] = set()
+            for package in packages:
+                if package.count in seen_counts:
+                    raise ValueError(
+                        f"duplicate device package count {package.count} for currency {currency}"
+                    )
+                seen_counts.add(package.count)
+                expected_bonus = bonuses_by_count.setdefault(
+                    package.count, float(package.traffic_bonus_gb)
+                )
+                if not math.isclose(
+                    expected_bonus,
+                    float(package.traffic_bonus_gb),
+                    rel_tol=0,
+                    abs_tol=1e-9,
+                ):
+                    raise ValueError(
+                        "device package traffic_bonus_gb must match across currencies "
+                        f"for count {package.count}"
+                    )
+        return self
 
     def for_currency(self, currency: Currency) -> list[HwidDevicePackage]:
         return list(self.root.get(normalize_currency_key(currency), []) or [])

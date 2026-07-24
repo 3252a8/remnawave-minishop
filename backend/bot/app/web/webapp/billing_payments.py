@@ -850,6 +850,7 @@ async def _create_subscription_payment(
             else None,
             hwid_proration_ratio=hwid_quote.get("proration_ratio") if hwid_quote else None,
             hwid_full_price=hwid_quote.get("full_price") if hwid_quote else None,
+            hwid_traffic_bonus_bytes=hwid_quote.get("traffic_bonus_bytes") if hwid_quote else None,
             promo_code_id=promo_code_id,
             promo_effect_summary=promo_result.effect_summary if promo_result else None,
             promo_bonus_days=promo_result.effects.bonus_days if promo_result else None,

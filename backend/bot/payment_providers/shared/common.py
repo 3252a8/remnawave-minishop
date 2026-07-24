@@ -210,6 +210,7 @@ def build_payment_record_payload(
                 "hwid_pricing_period_months": hwid_quote.get("pricing_period_months"),
                 "hwid_proration_ratio": hwid_quote.get("proration_ratio"),
                 "hwid_full_price": hwid_quote.get("full_price"),
+                "hwid_traffic_bonus_bytes": hwid_quote.get("traffic_bonus_bytes"),
             }
         )
     return payload
@@ -345,6 +346,7 @@ async def create_base_payment_record(
     hwid_pricing_period_months: int | None = None,
     hwid_proration_ratio: float | None = None,
     hwid_full_price: float | None = None,
+    hwid_traffic_bonus_bytes: int | None = None,
     promo_code_id: int | None = None,
     promo_effect_summary: str | None = None,
     promo_bonus_days: int | None = None,
@@ -379,6 +381,7 @@ async def create_base_payment_record(
             "hwid_pricing_period_months": hwid_pricing_period_months,
             "hwid_proration_ratio": hwid_proration_ratio,
             "hwid_full_price": hwid_full_price,
+            "hwid_traffic_bonus_bytes": hwid_traffic_bonus_bytes,
             "promo_code_id": promo_code_id,
             "promo_effect_summary": promo_effect_summary,
             "promo_bonus_days": promo_bonus_days,
@@ -431,6 +434,7 @@ async def create_webapp_payment_record(
         hwid_pricing_period_months=ctx.hwid_pricing_period_months,
         hwid_proration_ratio=ctx.hwid_proration_ratio,
         hwid_full_price=ctx.hwid_full_price,
+        hwid_traffic_bonus_bytes=ctx.hwid_traffic_bonus_bytes,
         promo_code_id=ctx.promo_code_id,
         promo_effect_summary=ctx.promo_effect_summary,
         promo_bonus_days=ctx.promo_bonus_days,
@@ -475,6 +479,7 @@ async def reusable_webapp_payment_response(
         months=amounts.months,
         purchased_gb=amounts.purchased_gb,
         purchased_hwid_devices=amounts.purchased_hwid_devices,
+        hwid_traffic_bonus_bytes=ctx.hwid_traffic_bonus_bytes,
         tariff_key=amounts.tariff_key,
         promo_code_id=ctx.promo_code_id,
         promo_effect_summary=ctx.promo_effect_summary,

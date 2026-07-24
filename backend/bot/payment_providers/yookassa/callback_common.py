@@ -93,6 +93,7 @@ async def _initiate_yk_payment(
         else None,
         "hwid_proration_ratio": hwid_quote.get("proration_ratio") if hwid_quote else None,
         "hwid_full_price": hwid_quote.get("full_price") if hwid_quote else None,
+        "hwid_traffic_bonus_bytes": hwid_quote.get("traffic_bonus_bytes") if hwid_quote else None,
     }
 
     db_payment_record = None
@@ -137,6 +138,7 @@ async def _initiate_yk_payment(
             "hwid_pricing_period_months": hwid_quote.get("pricing_period_months"),
             "hwid_proration_ratio": hwid_quote.get("proration_ratio"),
             "hwid_full_price": hwid_quote.get("full_price"),
+            "hwid_traffic_bonus_bytes": hwid_quote.get("traffic_bonus_bytes"),
         }
         yookassa_metadata.update(
             {key: str(value) for key, value in hwid_metadata.items() if value is not None}

@@ -268,6 +268,9 @@ class CryptoPayService(BaseProviderService):
                     if hwid_quote
                     else None,
                     "hwid_full_price": hwid_quote.get("full_price") if hwid_quote else None,
+                    "hwid_traffic_bonus_bytes": hwid_quote.get("traffic_bonus_bytes")
+                    if hwid_quote
+                    else None,
                 },
             )
             await session.commit()
@@ -594,6 +597,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
             "pricing_period_months": ctx.hwid_pricing_period_months,
             "proration_ratio": ctx.hwid_proration_ratio,
             "full_price": ctx.hwid_full_price,
+            "traffic_bonus_bytes": ctx.hwid_traffic_bonus_bytes,
         }
         if ctx.hwid_valid_from and ctx.hwid_valid_until
         else None,

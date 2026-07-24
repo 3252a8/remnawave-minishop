@@ -48,6 +48,7 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
         hwid_pricing_period_months: int | None = None,
         hwid_proration_ratio: float | None = None,
         hwid_full_price: float | None = None,
+        hwid_traffic_bonus_bytes: int | None = None,
     ) -> None:
         payment = await payment_dal.get_payment_by_db_id(session, payment_db_id)
         if not payment:
@@ -67,6 +68,8 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
             payment.hwid_proration_ratio = hwid_proration_ratio
         if hwid_full_price is not None:
             payment.hwid_full_price = hwid_full_price
+        if hwid_traffic_bonus_bytes is not None:
+            payment.hwid_traffic_bonus_bytes = max(0, int(hwid_traffic_bonus_bytes))
         await session.flush()
 
     async def get_user_language(self, session: AsyncSession, user_id: int) -> str:

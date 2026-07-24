@@ -31,7 +31,12 @@
   const moveHwidRow: ReorderHandler = moveDraftRowHandler(tariffsStore, "hwidRows");
 
   function addHwidPackageRow(): void {
-    tariffsStore.addDraftRow("hwidRows", { count: 1, price: "", stars: "" });
+    tariffsStore.addDraftRow("hwidRows", {
+      count: 1,
+      traffic_bonus_gb: 0,
+      price: "",
+      stars: "",
+    });
   }
 </script>
 
@@ -44,7 +49,7 @@
           >{at(
             "tariff_hwid_packages_subtitle",
             {},
-            'Extends the limit from the General tab. Each row is a "+N devices for N currency units" package'
+            "Each package sets the device count, prices, and recurring monthly traffic bonus"
           )}</small
         >
       </div>
@@ -56,16 +61,17 @@
     </header>
     {#if tariffDraft.hwidRows.length}
       <div class="admin-row-editor">
-        <div class="admin-row-editor-line admin-row-editor-drag admin-row-editor-header">
+        <div class="admin-row-editor-line admin-row-editor-hwid admin-row-editor-header">
           <span></span>
           <span>{at("tariff_col_hwid_count", {}, "+ devices")}</span>
+          <span>{at("tariff_col_hwid_traffic_bonus_gb", {}, "Monthly traffic, GB")}</span>
           <span>{currencyPriceColumnLabel}</span>
           <span>{at("tariff_col_price_stars_full", {}, "Price, ⭐ Stars")}</span>
           <span></span>
         </div>
         <Sortable
           items={tariffDraft.hwidRows}
-          class="admin-row-editor-line admin-row-editor-drag"
+          class="admin-row-editor-line admin-row-editor-hwid"
           getKey={draftRowKey}
           handleLabel={at("tariff_package_reorder", {}, "Drag to reorder")}
           onReorder={moveHwidRow}
@@ -86,6 +92,23 @@
                 "tariff_label_hwid_count_full",
                 {},
                 "How many devices does this package add"
+              )}
+            />
+            <span class="admin-row-editor-mobile-label" aria-hidden="true"
+              >{at("tariff_col_hwid_traffic_bonus_gb", {}, "Monthly traffic, GB")}</span
+            >
+            <Input
+              class="input"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0"
+              value={row.traffic_bonus_gb ?? 0}
+              oninput={draftRowInputHandler(tariffsStore, "hwidRows", index, "traffic_bonus_gb")}
+              aria-label={at(
+                "tariff_label_hwid_traffic_bonus_gb",
+                {},
+                "Extra monthly traffic granted by this package; 0 disables the bonus"
               )}
             />
             <span class="admin-row-editor-mobile-label" aria-hidden="true"

@@ -123,6 +123,7 @@ class WebAppPaymentContext:
     hwid_pricing_period_months: int | None = None
     hwid_proration_ratio: float | None = None
     hwid_full_price: float | None = None
+    hwid_traffic_bonus_bytes: int | None = None
     promo_code_id: int | None = None
     promo_effect_summary: str | None = None
     promo_bonus_days: int | None = None

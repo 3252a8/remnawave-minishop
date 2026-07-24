@@ -9312,26 +9312,6 @@
         "updated_at": null
       },
       {
-        "key": "HWID_DEVICE_TRAFFIC_BONUS_GB",
-        "type": "float",
-        "section": "devices",
-        "section_order": 10,
-        "subsection": null,
-        "label": "HWID Device Traffic Bonus Gb",
-        "description": "",
-        "i18n_label_key": "admin_settings_field_hwid_device_traffic_bonus_gb_label",
-        "i18n_description_key": null,
-        "i18n_subsection_key": null,
-        "i18n_placeholder_key": null,
-        "placeholder": "",
-        "optional": true,
-        "secret": false,
-        "min": 0,
-        "value": "",
-        "overridden": false,
-        "updated_at": null
-      },
-      {
         "key": "USER_TRAFFIC_LIMIT_GB",
         "type": "float",
         "section": "devices",

@@ -134,14 +134,21 @@ export function normalizeCurrencyKey(value: unknown, fallback = "rub"): string {
 export function rowsFromPackages(
   packageSet: PackageSet | null | undefined,
   currency: string,
-  valueKey: string
+  valueKey: string,
+  options: { sharedNumberKeys?: string[] } = {}
 ): DraftRow[] {
-  return (packageSet?.[currency] || []).map((pkg) => ({
-    [valueKey]: pkg[valueKey],
-    price: pkg.price,
-    prices: pkg.prices ? cloneValue(pkg.prices) : undefined,
-    min_price: pkg.min_price ?? "",
-  }));
+  return (packageSet?.[currency] || []).map((pkg) => {
+    const row: DraftRow = {
+      [valueKey]: pkg[valueKey],
+      price: pkg.price,
+      prices: pkg.prices ? cloneValue(pkg.prices) : undefined,
+      min_price: pkg.min_price ?? "",
+    };
+    for (const key of options.sharedNumberKeys || []) {
+      row[key] = pkg[key];
+    }
+    return row;
+  });
 }
 
 function packageValueSignature(value: unknown): string {
@@ -152,10 +159,11 @@ function packageValueSignature(value: unknown): string {
 export function packageRowsFromPackageSet(
   packageSet: PackageSet | null | undefined,
   currency: string,
-  valueKey: string
+  valueKey: string,
+  options: { sharedNumberKeys?: string[] } = {}
 ): DraftRow[] {
-  const currencyRows = rowsFromPackages(packageSet, currency, valueKey);
-  const starsRows = rowsFromPackages(packageSet, "stars", valueKey);
+  const currencyRows = rowsFromPackages(packageSet, currency, valueKey, options);
+  const starsRows = rowsFromPackages(packageSet, "stars", valueKey, options);
   const usedStars = new Set();
 
   const rows: DraftRow[] = currencyRows.map((row) => {
@@ -167,7 +175,7 @@ export function packageRowsFromPackageSet(
     const starsRow = starsIndex >= 0 ? starsRows[starsIndex] : null;
     if (starsIndex >= 0) usedStars.add(starsIndex);
 
-    return {
+    const merged: DraftRow = {
       [valueKey]: row[valueKey],
       price: row.price,
       stars: starsRow?.price ?? "",
@@ -176,17 +184,25 @@ export function packageRowsFromPackageSet(
       stars_prices: starsRow?.prices,
       stars_min_price: starsRow?.min_price ?? "",
     };
+    for (const key of options.sharedNumberKeys || []) {
+      merged[key] = row[key] ?? starsRow?.[key] ?? 0;
+    }
+    return merged;
   });
 
   starsRows.forEach((starsRow, index) => {
     if (usedStars.has(index)) return;
-    rows.push({
+    const merged: DraftRow = {
       [valueKey]: starsRow[valueKey],
       price: "",
       stars: starsRow.price,
       stars_prices: starsRow.prices,
       stars_min_price: starsRow.min_price ?? "",
-    });
+    };
+    for (const key of options.sharedNumberKeys || []) {
+      merged[key] = starsRow[key] ?? 0;
+    }
+    rows.push(merged);
   });
 
   return rows;
@@ -254,7 +270,8 @@ export function draftFromTariff(tariff: UnknownRecord, defaultCurrency = "rub"):
     hwidRows: packageRowsFromPackageSet(
       tariff.hwid_device_packages as PackageSet,
       currency,
-      "count"
+      "count",
+      { sharedNumberKeys: ["traffic_bonus_gb"] }
     ),
   };
 }
@@ -301,7 +318,7 @@ export function packagesFromPackageRows(
   rows: DraftRow[],
   valueKey: string,
   priceKey: string,
-  options: { pricesKey?: string; minPriceKey?: string } = {}
+  options: { pricesKey?: string; minPriceKey?: string; sharedNumberKeys?: string[] } = {}
 ): DraftRow[] {
   const pricesKey = options.pricesKey || "prices";
   const minPriceKey = options.minPriceKey || "min_price";
@@ -318,6 +335,9 @@ export function packagesFromPackageRows(
       if (minPrice !== null) {
         pkg.min_price = minPrice;
       }
+      for (const key of options.sharedNumberKeys || []) {
+        pkg[key] = parseNumber(row[key], 0) ?? 0;
+      }
       return pkg;
     })
     .filter(
@@ -328,13 +348,15 @@ export function packagesFromPackageRows(
 export function packageSetFromRows(
   rows: DraftRow[],
   valueKey: string,
-  defaultCurrency = "rub"
+  defaultCurrency = "rub",
+  options: { sharedNumberKeys?: string[] } = {}
 ): PackageSet | null {
   const currency = normalizeCurrencyKey(defaultCurrency);
-  const defaultCurrencyPackages = packagesFromPackageRows(rows, valueKey, "price");
+  const defaultCurrencyPackages = packagesFromPackageRows(rows, valueKey, "price", options);
   const stars = packagesFromPackageRows(rows, valueKey, "stars", {
     pricesKey: "stars_prices",
     minPriceKey: "stars_min_price",
+    sharedNumberKeys: options.sharedNumberKeys,
   });
   if (!defaultCurrencyPackages.length && !stars.length) return null;
   return {
@@ -378,7 +400,9 @@ export function tariffFromDraft(draft: TariffDraft, fallbackCurrency = "rub"): U
 
   const hwidLimit = parseIntNumber(draft.hwid_device_limit);
   if (hwidLimit !== null) tariff.hwid_device_limit = hwidLimit;
-  const hwidPackages = packageSetFromRows(draft.hwidRows, "count", defaultCurrency);
+  const hwidPackages = packageSetFromRows(draft.hwidRows, "count", defaultCurrency, {
+    sharedNumberKeys: ["traffic_bonus_gb"],
+  });
   if (hwidPackages) tariff.hwid_device_packages = hwidPackages;
   const premiumMonthlyGb = parseNumber(draft.premium_monthly_gb);
   if (premiumMonthlyGb !== null) tariff.premium_monthly_gb = premiumMonthlyGb;

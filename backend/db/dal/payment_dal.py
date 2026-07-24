@@ -76,6 +76,7 @@ def _validate_existing_provider_payment_order(
     hwid_pricing_period_months: int | None,
     hwid_proration_ratio: float | None,
     hwid_full_price: float | None,
+    hwid_traffic_bonus_bytes: int | None,
 ) -> None:
     """Ensure a provider id cannot be rebound to a different entitlement."""
     comparisons = {
@@ -131,6 +132,10 @@ def _validate_existing_provider_payment_order(
         "hwid_full_price": (
             _decimal_order_value(getattr(payment, "hwid_full_price", None)),
             _decimal_order_value(hwid_full_price),
+        ),
+        "hwid_traffic_bonus_bytes": (
+            getattr(payment, "hwid_traffic_bonus_bytes", None),
+            hwid_traffic_bonus_bytes,
         ),
     }
     mismatched = [field for field, (stored, expected) in comparisons.items() if stored != expected]
@@ -335,6 +340,7 @@ async def ensure_payment_with_provider_id(
     hwid_pricing_period_months: int | None = None,
     hwid_proration_ratio: float | None = None,
     hwid_full_price: float | None = None,
+    hwid_traffic_bonus_bytes: int | None = None,
 ) -> Payment:
     """Atomically create or validate one order for a provider payment id."""
     provider_key = str(provider or "").strip().lower()
@@ -367,6 +373,7 @@ async def ensure_payment_with_provider_id(
             hwid_pricing_period_months=hwid_pricing_period_months,
             hwid_proration_ratio=hwid_proration_ratio,
             hwid_full_price=hwid_full_price,
+            hwid_traffic_bonus_bytes=hwid_traffic_bonus_bytes,
         )
         return existing
 
@@ -391,6 +398,7 @@ async def ensure_payment_with_provider_id(
         "hwid_pricing_period_months": hwid_pricing_period_months,
         "hwid_proration_ratio": hwid_proration_ratio,
         "hwid_full_price": hwid_full_price,
+        "hwid_traffic_bonus_bytes": hwid_traffic_bonus_bytes,
     }
     payment_payload.update(
         {field: value for field, value in optional_fields.items() if value is not None}
@@ -429,6 +437,7 @@ async def ensure_payment_with_provider_id(
         hwid_pricing_period_months=hwid_pricing_period_months,
         hwid_proration_ratio=hwid_proration_ratio,
         hwid_full_price=hwid_full_price,
+        hwid_traffic_bonus_bytes=hwid_traffic_bonus_bytes,
     )
     if created:
         logger.info(
@@ -533,6 +542,7 @@ async def find_recent_pending_provider_payment(
     months: int | None,
     purchased_gb: float | None,
     purchased_hwid_devices: int | None,
+    hwid_traffic_bonus_bytes: int | None = None,
     tariff_key: str | None = None,
     promo_code_id: int | None = None,
     promo_effect_summary: str | None = None,
@@ -587,6 +597,10 @@ async def find_recent_pending_provider_payment(
         conditions.append(Payment.purchased_hwid_devices == purchased_hwid_devices)
     else:
         conditions.append(Payment.purchased_hwid_devices.is_(None))
+    if hwid_traffic_bonus_bytes is not None:
+        conditions.append(Payment.hwid_traffic_bonus_bytes == hwid_traffic_bonus_bytes)
+    else:
+        conditions.append(Payment.hwid_traffic_bonus_bytes.is_(None))
 
     stmt = (
         select(Payment)

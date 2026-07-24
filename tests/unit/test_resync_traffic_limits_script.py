@@ -48,7 +48,7 @@ class ResyncTrafficLimitsScriptTests(unittest.IsolatedAsyncioTestCase):
             await resync_traffic_limits.main()
 
         target_limit.assert_awaited_once_with(service, session, subscription)
-        self.assertIn("remove any previously applied", output.getvalue())
+        self.assertIn("legacy HWID_DEVICE_TRAFFIC_BONUS_GB fallback = 0.0", output.getvalue())
         self.assertIn("120 GB -> 100 GB", output.getvalue())
         panel.close.assert_awaited_once()
 

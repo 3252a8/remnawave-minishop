@@ -191,7 +191,8 @@ describe("tariffsStore", () => {
     store.addDraftRow("hwidRows", {
       count: "2",
       price: "99",
-      stars: "",
+      stars: "50",
+      traffic_bonus_gb: "15",
       prices: transientPrices(99),
     });
     await store.saveTariffDraft();
@@ -206,9 +207,11 @@ describe("tariffsStore", () => {
         {
           count: 2,
           price: 99,
+          traffic_bonus_gb: 15,
           prices: { provider: { amount: 99 } },
         },
       ],
+      stars: [{ count: 2, price: 50, traffic_bonus_gb: 15 }],
     });
   });
 

@@ -363,7 +363,7 @@ async def device_topup_options_route(request: web.Request) -> web.Response:
                 "valid_until": _billing_iso_datetime(valid_until),
                 "valid_until_text": _billing_datetime_text(valid_until),
                 "proration_ratio": float(quote.get("proration_ratio") or 0),
-                "traffic_bonus_gb": subscription_service.hwid_device_traffic_bonus_gb(count),
+                "traffic_bonus_gb": float(quote.get("traffic_bonus_gb") or 0),
             }
             if stars_quote and int(stars_quote.get("price") or 0) > 0:
                 plan["stars_price"] = int(stars_quote["price"])

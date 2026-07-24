@@ -4153,6 +4153,12 @@
     var(--admin-row-editor-action-size);
 }
 
+.admin-row-editor-line.admin-row-editor-hwid {
+  grid-template-columns:
+    24px minmax(80px, 0.75fr) minmax(130px, 1fr) minmax(110px, 1fr) minmax(110px, 1fr)
+    var(--admin-row-editor-action-size);
+}
+
 /* Broadcast button rows: handle, kind select, label, URL/code, remove. */
 .admin-row-editor-line.admin-row-editor-broadcast {
   grid-template-columns:
@@ -4402,7 +4408,13 @@
 
   .admin-tariff-dialog .admin-editor-section-head {
     align-items: stretch;
+    flex-direction: column;
+    justify-content: flex-start;
     gap: 10px;
+  }
+
+  .admin-tariff-dialog .admin-editor-section-head > .admin-editor-section-title {
+    flex: 0 1 auto;
   }
 
   .admin-tariff-dialog .admin-editor-section-head > .admin-editor-section-actions,
@@ -4435,6 +4447,7 @@
   .admin-row-editor-line.admin-row-editor-6,
   .admin-row-editor-line.admin-row-editor-period,
   .admin-row-editor-line.admin-row-editor-drag,
+  .admin-row-editor-line.admin-row-editor-hwid,
   .admin-row-editor-line.admin-row-editor-broadcast {
     grid-template-columns: 1fr;
     align-items: stretch;

@@ -2,7 +2,7 @@ import inspect
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import and_, delete, func, or_, select, update
+from sqlalchemy import and_, case, delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import HwidDevicePurchase, Payment, TariffChange, TrafficTopup, TrafficWarning
@@ -54,6 +54,7 @@ async def create_hwid_device_purchase(
     subscription_id: int,
     payment_id: int | None,
     purchased_devices: int,
+    traffic_bonus_bytes: int | None = 0,
     valid_from: datetime | None = None,
     valid_until: datetime | None = None,
 ) -> HwidDevicePurchase:
@@ -61,6 +62,9 @@ async def create_hwid_device_purchase(
         subscription_id=subscription_id,
         payment_id=payment_id,
         purchased_devices=purchased_devices,
+        traffic_bonus_bytes=(
+            max(0, int(traffic_bonus_bytes)) if traffic_bonus_bytes is not None else None
+        ),
         valid_from=valid_from or datetime.now(UTC),
         valid_until=valid_until,
     )
@@ -105,28 +109,52 @@ async def get_hwid_device_entitlement_summary(
     *,
     subscription_id: int,
     at: datetime | None = None,
+    include_future: bool = True,
 ) -> dict[str, Any]:
     at = at or datetime.now(UTC)
     active_result = await session.execute(
         select(
             func.coalesce(func.sum(HwidDevicePurchase.purchased_devices), 0),
             func.max(HwidDevicePurchase.valid_until),
+            func.coalesce(func.sum(HwidDevicePurchase.traffic_bonus_bytes), 0),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            HwidDevicePurchase.traffic_bonus_bytes.is_(None),
+                            HwidDevicePurchase.purchased_devices,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ),
         ).where(and_(*_hwid_active_conditions(subscription_id, at)))
     )
-    active_devices, active_until = await _resolve_result_value(active_result.one())
-    future_result = await session.execute(
-        select(func.min(HwidDevicePurchase.valid_from)).where(
-            and_(
-                HwidDevicePurchase.subscription_id == subscription_id,
-                HwidDevicePurchase.purchased_devices > 0,
-                HwidDevicePurchase.valid_from > at,
+    (
+        active_devices,
+        active_until,
+        traffic_bonus_bytes,
+        legacy_active_devices,
+    ) = await _resolve_result_value(active_result.one())
+    next_valid_from = None
+    if include_future:
+        future_result = await session.execute(
+            select(func.min(HwidDevicePurchase.valid_from)).where(
+                and_(
+                    HwidDevicePurchase.subscription_id == subscription_id,
+                    HwidDevicePurchase.purchased_devices > 0,
+                    HwidDevicePurchase.valid_from > at,
+                )
             )
         )
-    )
+        next_valid_from = await _resolve_result_value(future_result.scalar_one_or_none())
     return {
         "active_devices": int(active_devices or 0),
         "active_until": active_until,
-        "next_valid_from": await _resolve_result_value(future_result.scalar_one_or_none()),
+        "traffic_bonus_bytes": int(traffic_bonus_bytes or 0),
+        "legacy_active_devices": int(legacy_active_devices or 0),
+        "next_valid_from": next_valid_from,
     }
 
 

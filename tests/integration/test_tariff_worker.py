@@ -594,8 +594,14 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             session = SimpleNamespace(execute=AsyncMock(return_value=result))
 
             with patch(
-                "bot.services.tariff_worker_regular.tariff_dal.sum_active_hwid_devices",
-                new=AsyncMock(return_value=0),
+                "bot.services.tariff_worker_regular.tariff_dal.get_hwid_device_entitlement_summary",
+                new=AsyncMock(
+                    return_value={
+                        "active_devices": 0,
+                        "traffic_bonus_bytes": 0,
+                        "legacy_active_devices": 0,
+                    }
+                ),
             ):
                 await worker.traffic_period_tick(session)
 

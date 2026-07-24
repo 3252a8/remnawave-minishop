@@ -431,7 +431,9 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             regular_bonus_bytes=rb,
             regular_unlimited_override=runl,
             traffic_used_bytes=used_now,
-            hwid_device_bonus_bytes=self._hwid_device_traffic_bonus_bytes(hwid_limits.extra),
+            hwid_device_bonus_bytes=await self._hwid_device_traffic_bonus_bytes_for_sub(
+                session, sub, active_devices=hwid_limits.extra
+            ),
         )
         sub.traffic_limit_bytes = new_limit
         if runl:

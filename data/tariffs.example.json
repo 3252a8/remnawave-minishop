@@ -34,11 +34,11 @@
       "hwid_device_limit": 5,
       "hwid_device_packages": {
         "rub": [
-          { "count": 1, "price": 99 },
-          { "count": 3, "price": 249 }
+          { "count": 1, "price": 99, "traffic_bonus_gb": 0 },
+          { "count": 3, "price": 249, "traffic_bonus_gb": 30 }
         ],
         "stars": [
-          { "count": 1, "price": 2500 }
+          { "count": 1, "price": 2500, "traffic_bonus_gb": 0 }
         ]
       },
       "prices_rub": { "1": 200, "3": 600, "6": 1200, "12": 2400 },

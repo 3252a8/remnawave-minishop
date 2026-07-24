@@ -108,10 +108,18 @@ Legacy-поля остаются алиасами: `prices_rub`, `conversion_rat
             "count": 1,
             "price": 99,
             "prices": { "1": 99, "3": 249 },
-            "min_price": 20
+            "min_price": 20,
+            "traffic_bonus_gb": 15
           }
         ],
-        "stars": [{ "count": 1, "price": 50, "prices": { "1": 50, "3": 130 } }]
+        "stars": [
+          {
+            "count": 1,
+            "price": 50,
+            "prices": { "1": 50, "3": 130 },
+            "traffic_bonus_gb": 15
+          }
+        ]
       },
       "enabled": true
     }
@@ -138,7 +146,7 @@ Legacy-поля остаются алиасами: `prices_rub`, `conversion_rat
 | `tariffs[].premium_topup_always_available` | Показывать premium-докупку независимо от процента расхода premium-лимита. По умолчанию `false`: предложение появляется после 80% использования premium-лимита (см. [когда показывается докупка](#когда-показывается-докупка-трафика)).                                    |
 | `tariffs[].billing_model`          | Модель тарифа: `period` или `traffic`.                                                                                                                                                                                                                                            |
 | `tariffs[].hwid_device_limit`      | Базовый лимит HWID-устройств. `0` означает безлимит, отсутствие поля использует `USER_HWID_DEVICE_LIMIT`.                                                                                                                                                                         |
-| `tariffs[].hwid_device_packages`   | Пакеты докупки устройств. `price` — legacy/monthly fallback, `prices` задаёт полную цену пакета для периодов тарифа (`"1"`, `"3"`, `"6"`, `"12"`), `min_price` задаёт минимальную цену prorate-докупки. Порядок строк задает порядок HWID-докупок и меняется drag&drop в админке. |
+| `tariffs[].hwid_device_packages`   | Пакеты докупки устройств. `traffic_bonus_gb` задаёт ежемесячный бонус трафика всего пакета и по умолчанию равен `0`; для одной строки он должен совпадать во всех валютах. `price` — legacy/monthly fallback, `prices` задаёт полную цену пакета для периодов тарифа (`"1"`, `"3"`, `"6"`, `"12"`), `min_price` задаёт минимальную цену prorate-докупки. Порядок строк задает порядок HWID-докупок и меняется drag&drop в админке. |
 
 При переименовании тарифа перенесите его прежний `key` в `legacy_keys`, а не удаляйте
 его сразу. Платежи и подписки хранят ключ тарифа в момент создания; при последующей
@@ -294,10 +302,18 @@ limit_after = current_used + balance_after
         "count": 1,
         "price": 99,
         "prices": { "1": 99, "3": 249, "6": 449, "12": 799 },
-        "min_price": 20
+        "min_price": 20,
+        "traffic_bonus_gb": 15
       }
     ],
-    "stars": [{ "count": 1, "price": 50, "prices": { "1": 50, "3": 130 } }]
+    "stars": [
+      {
+        "count": 1,
+        "price": 50,
+        "prices": { "1": 50, "3": 130 },
+        "traffic_bonus_gb": 15
+      }
+    ]
   }
 }
 ```
@@ -308,6 +324,9 @@ limit_after = current_used + balance_after
 - `extra_hwid_devices` хранит только текущую активную сумму докупленных устройств;
 - срок действия каждой докупки хранится в `hwid_device_purchases.valid_from` / `valid_until`;
 - эффективный лимит равен `hwid_device_limit + active extra_hwid_devices`;
+- `traffic_bonus_gb` — ежемесячная добавка к основному лимиту на весь пакет, а не на каждое устройство; `0` отключает бонус;
+- бонус фиксируется в платеже и записи докупки, поэтому последующее редактирование тарифа не меняет уже купленное право;
+- бонусы активных докупок складываются, начинают действовать в `valid_from` и исчезают после `valid_until`;
 - базовый лимит `0` означает безлимит, в Remnawave отправляется `hwidDeviceLimit = 0`;
 - при безлимитном базовом лимите докупка устройств не применяется;
 - полная цена HWID-пакета берется из `prices[duration_months]`; если периода нет, используется fallback `price * duration_months`;
@@ -320,7 +339,7 @@ limit_after = current_used + balance_after
 - `traffic`-тарифы не показывают и не принимают докупку HWID-устройств, потому что у них нет срока подписки;
 - при смене тарифа базовый лимит берется из целевого тарифа, а неиспользованная стоимость HWID-докупок в платежной валюте конвертируется в дни нового period-тарифа или GB traffic-тарифа; XTR/Stars-докупки не конвертируются без явного курса и продолжают жить по своему `valid_until`;
 - история докупок пишется в `hwid_device_purchases`;
-- платеж хранит количество устройств в `payments.purchased_hwid_devices`.
+- платеж хранит количество устройств в `payments.purchased_hwid_devices` и снимок бонуса в `payments.hwid_traffic_bonus_bytes`.
 
 Докупка устройств доступна в Web App через `/api/devices/topup-options` и `/api/payments`, а также в Telegram-боте из раздела устройств.
 

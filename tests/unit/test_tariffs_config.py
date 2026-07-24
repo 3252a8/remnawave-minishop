@@ -211,8 +211,16 @@ class TariffsConfigTests(unittest.TestCase):
         data = _valid_config()
         data["tariffs"][0]["hwid_device_limit"] = 5
         data["tariffs"][0]["hwid_device_packages"] = {
-            "rub": [{"count": 1, "price": 99, "prices": {"3": 249}, "min_price": 20}],
-            "stars": [{"count": 1, "price": 2500}],
+            "rub": [
+                {
+                    "count": 1,
+                    "price": 99,
+                    "prices": {"3": 249},
+                    "min_price": 20,
+                    "traffic_bonus_gb": 15,
+                }
+            ],
+            "stars": [{"count": 1, "price": 2500, "traffic_bonus_gb": 15}],
         }
 
         config = TariffsConfig.model_validate(data)
@@ -224,6 +232,49 @@ class TariffsConfigTests(unittest.TestCase):
         self.assertEqual(tariff.hwid_device_packages.rub[0].price_for_period(3), 249)
         self.assertEqual(tariff.hwid_device_packages.rub[0].price_for_period(6), 594)
         self.assertEqual(tariff.hwid_device_packages.rub[0].min_price, 20)
+        self.assertEqual(tariff.hwid_device_packages.rub[0].traffic_bonus_gb, 15)
+
+    def test_hwid_device_package_traffic_bonus_defaults_to_zero(self):
+        data = _valid_config()
+        data["tariffs"][0]["hwid_device_packages"] = {
+            "rub": [{"count": 1, "price": 99}],
+        }
+
+        config = TariffsConfig.model_validate(data)
+
+        self.assertEqual(config.require("standard").hwid_device_packages.rub[0].traffic_bonus_gb, 0)
+
+    def test_invalid_hwid_device_package_traffic_bonus_rejected(self):
+        for invalid in (-1, float("inf"), float("nan")):
+            with self.subTest(invalid=invalid):
+                data = _valid_config()
+                data["tariffs"][0]["hwid_device_packages"] = {
+                    "rub": [{"count": 1, "price": 99, "traffic_bonus_gb": invalid}],
+                }
+                with self.assertRaises(ValueError):
+                    TariffsConfig.model_validate(data)
+
+    def test_hwid_device_package_bonus_must_match_across_currencies(self):
+        data = _valid_config()
+        data["tariffs"][0]["hwid_device_packages"] = {
+            "rub": [{"count": 1, "price": 99, "traffic_bonus_gb": 15}],
+            "stars": [{"count": 1, "price": 50, "traffic_bonus_gb": 10}],
+        }
+
+        with self.assertRaisesRegex(ValueError, "must match across currencies"):
+            TariffsConfig.model_validate(data)
+
+    def test_hwid_device_package_counts_must_be_unique_per_currency(self):
+        data = _valid_config()
+        data["tariffs"][0]["hwid_device_packages"] = {
+            "rub": [
+                {"count": 1, "price": 99},
+                {"count": 1, "price": 149},
+            ],
+        }
+
+        with self.assertRaisesRegex(ValueError, "duplicate device package count 1"):
+            TariffsConfig.model_validate(data)
 
     def test_negative_hwid_device_limit_rejected(self):
         data = _valid_config()

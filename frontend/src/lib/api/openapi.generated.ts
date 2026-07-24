@@ -3298,6 +3298,11 @@ export interface components {
       prices?: {
         [key: string]: number;
       };
+      /**
+       * Traffic Bonus Gb
+       * @default 0
+       */
+      traffic_bonus_gb: number;
     };
     /** HwidDevicePackageSet */
     HwidDevicePackageSet: {

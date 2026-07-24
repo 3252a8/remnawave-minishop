@@ -404,15 +404,18 @@ class TariffWorkerRegularMixin:
             if sub.hwid_device_limit is not None
             else self.subscription_service._base_hwid_limit_for_tariff(tariff)
         )
-        active_extra = await tariff_dal.sum_active_hwid_devices(
+        entitlement_summary = await tariff_dal.get_hwid_device_entitlement_summary(
             session,
             subscription_id=sub.subscription_id,
             at=datetime.now(UTC),
+            include_future=False,
         )
+        active_extra = int(entitlement_summary.get("active_devices") or 0)
+        previous_active_extra = int(sub.extra_hwid_devices or 0)
         update_data = {}
         if sub.hwid_device_limit != base_hwid_limit:
             update_data["hwid_device_limit"] = base_hwid_limit
-        if int(sub.extra_hwid_devices or 0) != active_extra:
+        if previous_active_extra != active_extra:
             update_data["extra_hwid_devices"] = active_extra
         if update_data:
             for key, value in update_data.items():
@@ -422,20 +425,52 @@ class TariffWorkerRegularMixin:
             base_hwid_limit,
             active_extra,
         )
-        if effective_limit is None:
-            return
         try:
             panel_limit = panel_data.get("hwidDeviceLimit")
             panel_limit_int = int(panel_limit) if panel_limit is not None else None
         except (TypeError, ValueError):
             panel_limit_int = None
-        if panel_limit_int == effective_limit:
+        hwid_limit_changed = effective_limit is not None and panel_limit_int != effective_limit
+
+        traffic_limit_for_panel: int | None = None
+        traffic_limit_changed = False
+        if tariff.billing_model == "period" and (
+            active_extra > 0 or previous_active_extra != active_extra
+        ):
+            traffic_limit_for_panel = self.subscription_service._compute_main_traffic_limit_bytes(
+                tier_baseline_bytes=int(
+                    getattr(sub, "tier_baseline_bytes", 0) or tariff.monthly_bytes or 0
+                ),
+                topup_balance_bytes=max(0, int(getattr(sub, "topup_balance_bytes", 0) or 0)),
+                regular_bonus_bytes=int(getattr(sub, "regular_bonus_bytes", 0) or 0),
+                regular_unlimited_override=bool(getattr(sub, "regular_unlimited_override", False)),
+                traffic_used_bytes=int(getattr(sub, "traffic_used_bytes", 0) or 0),
+                hwid_device_bonus_bytes=(
+                    self.subscription_service._hwid_traffic_bonus_bytes_from_summary(
+                        entitlement_summary
+                    )
+                ),
+            )
+            try:
+                panel_traffic_limit = panel_data.get("trafficLimitBytes")
+                panel_traffic_limit_int = (
+                    int(panel_traffic_limit) if panel_traffic_limit is not None else None
+                )
+            except (TypeError, ValueError):
+                panel_traffic_limit_int = None
+            traffic_limit_changed = panel_traffic_limit_int != traffic_limit_for_panel
+
+        if not hwid_limit_changed and not traffic_limit_changed:
             return
 
         payload = self.subscription_service._build_panel_update_payload(
             panel_user_uuid=sub.panel_user_uuid,
             expire_at=sub.end_date,
-            hwid_device_limit=effective_limit,
+            traffic_limit_bytes=traffic_limit_for_panel if traffic_limit_changed else None,
+            traffic_limit_strategy=(
+                self._period_tariff_traffic_strategy(tariff) if traffic_limit_changed else None
+            ),
+            hwid_device_limit=effective_limit if hwid_limit_changed else None,
             include_default_squads=False,
         )
         updated_panel = await self.panel_service.update_user_details_on_panel(
@@ -449,6 +484,9 @@ class TariffWorkerRegularMixin:
                 sub.subscription_id,
                 updated_panel,
             )
+            return
+        if traffic_limit_changed:
+            sub.traffic_limit_bytes = traffic_limit_for_panel
 
     async def _maybe_send_regular_reset_notice(
         self,

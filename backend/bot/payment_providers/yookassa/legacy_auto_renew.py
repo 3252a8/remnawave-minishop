@@ -215,4 +215,9 @@ async def ensure_legacy_auto_renew_payment(
             if hwid_quote and hwid_quote.get("full_price") is not None
             else None
         ),
+        hwid_traffic_bonus_bytes=(
+            int(hwid_quote["traffic_bonus_bytes"])
+            if hwid_quote and hwid_quote.get("traffic_bonus_bytes") is not None
+            else None
+        ),
     )

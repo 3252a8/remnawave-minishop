@@ -719,11 +719,8 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
         default=0.0,
         ge=0,
         description=(
-            "Extra monthly traffic in GB added to the user's main traffic limit "
-            "for each ACTIVE purchased HWID device. Part of the computed cap, so "
-            "the monthly reset restores it every month while the device "
-            "entitlement is active, and it is dropped once the entitlement "
-            "lapses. No effect on unlimited tariffs. 0 disables the bonus."
+            "Deprecated fallback per-device monthly traffic bonus for legacy HWID purchases "
+            "that do not have a package bonus snapshot."
         ),
     )
 

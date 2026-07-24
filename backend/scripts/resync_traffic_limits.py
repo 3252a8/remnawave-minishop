@@ -2,7 +2,7 @@
 
 Recomputes every active subscription's traffic limit through the SAME
 production code path a purchase/renewal would use — including the
-per-active-device traffic bonus and the unlimited-tariff guard — and
+active package traffic bonuses and the unlimited-tariff guard — and
 pushes changed limits to the panel.
 
 DRY RUN by default (prints what would change, writes nothing).
@@ -51,7 +51,7 @@ async def _target_limit(
         regular_bonus_bytes=int(getattr(sub, "regular_bonus_bytes", 0) or 0),
         regular_unlimited_override=bool(getattr(sub, "regular_unlimited_override", False)),
         traffic_used_bytes=int(getattr(sub, "traffic_used_bytes", 0) or 0),
-        hwid_device_bonus_bytes=svc._hwid_device_traffic_bonus_bytes(extras),
+        hwid_device_bonus_bytes=svc._hwid_traffic_bonus_bytes_from_summary(summary),
     ), extras
 
 
@@ -62,12 +62,7 @@ async def main() -> None:
     bonus_gb = float(settings.HWID_DEVICE_TRAFFIC_BONUS_GB)
     print(f"mode: {'APPLY' if APPLY else 'DRY RUN'}")
     print(f"settings overrides applied from DB: {overrides}")
-    print(f"HWID_DEVICE_TRAFFIC_BONUS_GB = {bonus_gb}")
-    if bonus_gb <= 0:
-        print(
-            "bonus setting is 0 — the sweep will remove any previously applied "
-            "device-bonus contribution."
-        )
+    print(f"legacy HWID_DEVICE_TRAFFIC_BONUS_GB fallback = {bonus_gb}")
 
     panel = PanelApiService(settings)
     svc = SubscriptionService(settings, panel, None, None)

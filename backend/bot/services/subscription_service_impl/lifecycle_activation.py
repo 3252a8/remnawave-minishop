@@ -348,6 +348,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         else:
             topup_balance_bytes = int(getattr(current_active_sub, "topup_balance_bytes", 0) or 0)
         extra_hwid_devices = 0
+        hwid_traffic_bonus_bytes = 0
         hwid_devices_valid_until = None
         if current_active_sub:
             try:
@@ -357,13 +358,14 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                     at=datetime.now(UTC),
                 )
                 extra_hwid_devices = int(hwid_summary.get("active_devices") or 0)
+                hwid_traffic_bonus_bytes = self._hwid_traffic_bonus_bytes_from_summary(hwid_summary)
                 hwid_devices_valid_until = hwid_summary.get("active_until")
             except Exception:
                 logger.exception(
                     "Failed to recalculate active HWID devices for renewal of user %s",
                     user_id,
                 )
-                extra_hwid_devices = int(getattr(current_active_sub, "extra_hwid_devices", 0) or 0)
+                raise
         premium_topup_balance_bytes = int(
             getattr(current_active_sub, "premium_topup_balance_bytes", 0) or 0
         )
@@ -391,7 +393,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             regular_bonus_carry,
             regular_unlimited_override=regular_unl_carry,
             traffic_used_bytes=0,
-            hwid_device_bonus_bytes=self._hwid_device_traffic_bonus_bytes(extra_hwid_devices),
+            hwid_device_bonus_bytes=hwid_traffic_bonus_bytes,
         )
         base_hwid_limit = self._base_hwid_limit_for_tariff(tariff)
         effective_hwid_limit = self._effective_hwid_limit(base_hwid_limit, extra_hwid_devices)
@@ -489,6 +491,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                     subscription_id=new_or_updated_sub.subscription_id,
                     payment_id=payment_db_id,
                     purchased_devices=hwid_renewal_devices,
+                    traffic_bonus_bytes=getattr(payment, "hwid_traffic_bonus_bytes", None),
                     valid_from=hwid_renewal_valid_from,
                     valid_until=hwid_renewal_valid_until,
                 )
