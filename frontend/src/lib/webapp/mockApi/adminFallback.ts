@@ -382,6 +382,20 @@ export function adminFallbackResponse(
           updates.REFERRAL_ONE_BONUS_PER_REFEREE
         );
       }
+      if (Object.prototype.hasOwnProperty.call(updates, "REFERRAL_WEBAPP_LINK_ENABLED")) {
+        DEV_MOCK.config.referralWebappLinkEnabled = Boolean(updates.REFERRAL_WEBAPP_LINK_ENABLED);
+        DEV_MOCK.data.referral.webapp_link = updates.REFERRAL_WEBAPP_LINK_ENABLED
+          ? "https://minishop.app/ref/ABCD1234"
+          : null;
+      }
+      if (Object.prototype.hasOwnProperty.call(updates, "REFERRAL_TELEGRAM_LINK_ENABLED")) {
+        DEV_MOCK.config.referralTelegramLinkEnabled = Boolean(
+          updates.REFERRAL_TELEGRAM_LINK_ENABLED
+        );
+        DEV_MOCK.data.referral.bot_link = updates.REFERRAL_TELEGRAM_LINK_ENABLED
+          ? "https://t.me/preview_bot?start=ref_uABCD1234"
+          : null;
+      }
       if (Object.prototype.hasOwnProperty.call(updates, "LEGACY_REFS")) {
         DEV_MOCK.config.legacyRefs = Boolean(updates.LEGACY_REFS);
       }
@@ -621,6 +635,22 @@ export function adminFallbackResponse(
               description:
                 "Если включено, повторные покупки того же приглашённого пользователя больше не начисляют реферальные бонусы ни ему, ни пригласившему. Первый успешный платёж остаётся бонусным.",
               value: Boolean(DEV_MOCK.config.referralOneBonusPerReferee),
+            },
+            {
+              key: "REFERRAL_WEBAPP_LINK_ENABLED",
+              type: "bool",
+              section: "pricing",
+              subsection: "referral",
+              label: "Реферальная ссылка на сайт",
+              value: DEV_MOCK.config.referralWebappLinkEnabled ?? true,
+            },
+            {
+              key: "REFERRAL_TELEGRAM_LINK_ENABLED",
+              type: "bool",
+              section: "pricing",
+              subsection: "referral",
+              label: "Реферальная ссылка на Telegram",
+              value: DEV_MOCK.config.referralTelegramLinkEnabled ?? true,
             },
             {
               key: "LEGACY_REFS",

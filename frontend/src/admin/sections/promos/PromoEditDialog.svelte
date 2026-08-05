@@ -38,6 +38,8 @@
     copyToClipboard: (value: string | null | undefined, message?: string) => void;
     savePromo: () => void | Promise<void>;
     setActivationsPage: (page: number) => void;
+    setActivationsSort: (sort: string) => void;
+    promoActivationsSort: string;
   };
 
   let {
@@ -541,6 +543,8 @@
             {fmtMoney}
             {paymentStatusVariant}
             {onOpenUserCard}
+            currentSort={promosStore.promoActivationsSort}
+            onSort={promosStore.setActivationsSort}
             onPageChange={(page) => promosStore.setActivationsPage(page)}
           />
         </Tabs.Content>

@@ -496,6 +496,13 @@
                       {/if}
                     </strong>
                     <code>TRIAL_HWID_DEVICE_LIMIT</code>
+                    <small>
+                      {at(
+                        "tariffs_trial_devices_hint",
+                        {},
+                        "Device top-ups are unavailable during the trial. They become available after switching to a tariff with configured device packages."
+                      )}
+                    </small>
                   </div>
                   <div class="admin-setting-control">
                     <Input

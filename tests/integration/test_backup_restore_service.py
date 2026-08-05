@@ -1,10 +1,13 @@
 import asyncio
 import re
+import subprocess
 import tempfile
 import zipfile
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlalchemy.dialects import postgresql
 
 from bot.services.backup_archive import (
     attach_archive_integrity,
@@ -16,6 +19,7 @@ from bot.services.backup_restore_service import (
     COMPOSE_PRE_RESTORE_PREFIX,
     BackupArchiveError,
     BackupRestoreService,
+    _normalize_serial_sequences,
 )
 from bot.services.backup_worker import BACKUP_FILENAME_PREFIX
 from config.settings import Settings
@@ -179,6 +183,7 @@ def test_backup_restore_service_runs_pg_restore_for_dump(tmp_path):
 
     service._run_pg_restore = fake_pg_restore
     service._run_post_restore_migrations = list
+    service._run_post_restore_sequence_normalization = list
 
     result = asyncio.run(
         service.restore_archive(
@@ -223,6 +228,7 @@ def test_backup_restore_service_restores_tariffs_before_migrations(tmp_path):
 
     service._run_pg_restore = fake_pg_restore
     service._run_post_restore_migrations = fake_migrations
+    service._run_post_restore_sequence_normalization = list
 
     result = service.restore_archive_sync(
         archive_path.name,
@@ -256,6 +262,9 @@ def test_backup_restore_service_runs_migrations_after_database_restore(tmp_path)
 
     service._run_pg_restore = fake_pg_restore
     service._run_post_restore_migrations = fake_migrations
+    service._run_post_restore_sequence_normalization = lambda: [
+        "public.subscriptions.subscription_id"
+    ]
 
     result = service.restore_archive_sync(
         archive_path.name,
@@ -269,6 +278,7 @@ def test_backup_restore_service_runs_migrations_after_database_restore(tmp_path)
         "0031_add_subscription_notifications",
         "0032_add_telegram_notification_status",
     ]
+    assert result.database_sequences_normalized == ["public.subscriptions.subscription_id"]
     assert result.to_payload()["database_migrations_applied"] == [
         "0031_add_subscription_notifications",
         "0032_add_telegram_notification_status",
@@ -292,6 +302,7 @@ def test_backup_restore_service_accepts_archive_from_another_instance(tmp_path):
 
     service._run_pg_restore = fake_pg_restore
     service._run_post_restore_migrations = list
+    service._run_post_restore_sequence_normalization = list
 
     result = service.restore_archive_sync(
         archive_path.name,
@@ -349,3 +360,76 @@ def test_backup_restore_service_rejects_tampered_archive(tmp_path):
 
     with pytest.raises(BackupArchiveError):
         BackupRestoreService(settings).import_uploaded_archive(tampered_path, "tampered.zip")
+
+
+def test_backup_restore_service_validates_dump_and_restores_atomically(tmp_path):
+    settings = _settings(
+        tmp_path,
+        tmp_path / "compose",
+        BACKUP_PG_RESTORE_PATH="pg_restore",
+    )
+    dump_path = tmp_path / "shop.dump"
+    dump_path.write_bytes(b"custom dump")
+    commands: list[list[str]] = []
+
+    def fake_run(command, **_kwargs):
+        commands.append(list(command))
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    with (
+        patch(
+            "bot.services.backup_restore_service.shutil.which",
+            return_value="/usr/bin/pg_restore",
+        ),
+        patch(
+            "bot.services.backup_restore_service.subprocess.run",
+            side_effect=fake_run,
+        ),
+    ):
+        BackupRestoreService(settings)._run_pg_restore(dump_path)
+
+    assert commands[0] == ["pg_restore", "--list", str(dump_path)]
+    assert "--single-transaction" in commands[1]
+    assert "--exit-on-error" in commands[1]
+    assert commands[1][-1] == str(dump_path)
+
+
+def test_post_restore_normalizes_every_serial_sequence_to_table_maximum():
+    class CatalogRows:
+        def mappings(self):
+            return [
+                {
+                    "table_schema": "public",
+                    "table_name": "subscriptions",
+                    "column_name": "subscription_id",
+                    "sequence_name": "public.subscriptions_subscription_id_seq",
+                },
+                {
+                    "table_schema": "public",
+                    "table_name": "payments",
+                    "column_name": "payment_id",
+                    "sequence_name": "public.payments_payment_id_seq",
+                },
+            ]
+
+    connection = MagicMock()
+    connection.dialect.identifier_preparer = postgresql.dialect().identifier_preparer
+    connection.execute.side_effect = [CatalogRows(), MagicMock(), MagicMock()]
+    connection.scalar.side_effect = [929, 381]
+
+    normalized = _normalize_serial_sequences(connection)
+
+    assert normalized == [
+        "public.subscriptions.subscription_id",
+        "public.payments.payment_id",
+    ]
+    assert connection.execute.call_args_list[1].args[1] == {
+        "sequence_name": "public.subscriptions_subscription_id_seq",
+        "target_value": 929,
+        "is_called": True,
+    }
+    assert connection.execute.call_args_list[2].args[1] == {
+        "sequence_name": "public.payments_payment_id_seq",
+        "target_value": 381,
+        "is_called": True,
+    }

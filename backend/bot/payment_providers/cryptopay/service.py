@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
+from bot.services.checkout_promos import CheckoutPromoResult, checkout_promo_payment_fields
 
 if TYPE_CHECKING:
     from bot.services.referral_service import ReferralService
@@ -219,6 +220,7 @@ class CryptoPayService(BaseProviderService):
         hwid_device_count: int | None = None,
         currency: str | None = None,
         entitlement_context_snapshot: str | None = None,
+        checkout_promo: CheckoutPromoResult | None = None,
     ) -> str | None:
         client = self.client
         if not self.configured or not client:
@@ -244,37 +246,35 @@ class CryptoPayService(BaseProviderService):
             sale_mode=sale_mode,
             hwid_device_count=hwid_device_count,
         )
+        payment_record_data = {
+            "user_id": user_id,
+            "amount": float(amount),
+            "currency": currency_code,
+            "status": "pending_cryptopay",
+            "description": description,
+            "subscription_duration_months": (int(months) if sale_base == "subscription" else None),
+            "provider": "cryptopay",
+            "sale_mode": sale_mode,
+            "tariff_key": sale_mode_tariff_key(sale_mode),
+            "purchased_gb": amounts.purchased_gb,
+            "purchased_hwid_devices": amounts.purchased_hwid_devices,
+            "hwid_valid_from": hwid_quote.get("valid_from") if hwid_quote else None,
+            "hwid_valid_until": hwid_quote.get("valid_until") if hwid_quote else None,
+            "hwid_pricing_period_months": (
+                hwid_quote.get("pricing_period_months") if hwid_quote else None
+            ),
+            "hwid_proration_ratio": hwid_quote.get("proration_ratio") if hwid_quote else None,
+            "hwid_full_price": hwid_quote.get("full_price") if hwid_quote else None,
+            "hwid_traffic_bonus_bytes": (
+                hwid_quote.get("traffic_bonus_bytes") if hwid_quote else None
+            ),
+            "entitlement_context_snapshot": entitlement_context_snapshot,
+        }
+        payment_record_data.update(checkout_promo_payment_fields(checkout_promo))
         try:
             payment_record = await payment_dal.create_payment_record(
                 session,
-                {
-                    "user_id": user_id,
-                    "amount": float(amount),
-                    "currency": currency_code,
-                    "status": "pending_cryptopay",
-                    "description": description,
-                    "subscription_duration_months": (
-                        int(months) if sale_base == "subscription" else None
-                    ),
-                    "provider": "cryptopay",
-                    "sale_mode": sale_mode,
-                    "tariff_key": sale_mode_tariff_key(sale_mode),
-                    "purchased_gb": amounts.purchased_gb,
-                    "purchased_hwid_devices": amounts.purchased_hwid_devices,
-                    "hwid_valid_from": hwid_quote.get("valid_from") if hwid_quote else None,
-                    "hwid_valid_until": hwid_quote.get("valid_until") if hwid_quote else None,
-                    "hwid_pricing_period_months": hwid_quote.get("pricing_period_months")
-                    if hwid_quote
-                    else None,
-                    "hwid_proration_ratio": hwid_quote.get("proration_ratio")
-                    if hwid_quote
-                    else None,
-                    "hwid_full_price": hwid_quote.get("full_price") if hwid_quote else None,
-                    "hwid_traffic_bonus_bytes": hwid_quote.get("traffic_bonus_bytes")
-                    if hwid_quote
-                    else None,
-                    "entitlement_context_snapshot": entitlement_context_snapshot,
-                },
+                payment_record_data,
             )
             await session.commit()
         except Exception:
@@ -550,6 +550,7 @@ async def pay_crypto_callback_handler(
         subscription_service=cryptopay_service.subscription_service,
         currency=default_currency_key_for_settings(settings),
         settings=settings,
+        provider_spec=SPEC,
     )
     if not parts:
         await notify_callback_parse_error(callback, translator)
@@ -566,6 +567,7 @@ async def pay_crypto_callback_handler(
         hwid_quote=hwid_quote,
         currency=default_payment_currency_code_for_settings(settings),
         entitlement_context_snapshot=parts.entitlement_context_snapshot,
+        checkout_promo=getattr(parts, "checkout_promo", None),
     )
 
     if invoice_url:

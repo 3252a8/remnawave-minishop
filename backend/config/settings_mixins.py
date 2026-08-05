@@ -8,11 +8,12 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Protocol,
+    Self,
     TypeVar,
     overload,
 )
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 
 from config.settings_models import (
     CompatibilitySettings,
@@ -147,6 +148,8 @@ if TYPE_CHECKING:
         REFERRAL_ONE_BONUS_PER_REFEREE: bool
         REFERRAL_WELCOME_BONUS_DAYS: int
         REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED: bool
+        REFERRAL_WEBAPP_LINK_ENABLED: bool
+        REFERRAL_TELEGRAM_LINK_ENABLED: bool
         REGISTRATION_INVITE_ONLY_ENABLED: bool
         LEGACY_REFS: bool
         MIGRATION_REMNASHOP_REFERRAL_CODE_COMPAT_ENABLED: bool
@@ -266,6 +269,8 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             one_bonus_per_referee=self.REFERRAL_ONE_BONUS_PER_REFEREE,
             welcome_bonus_days=self.REFERRAL_WELCOME_BONUS_DAYS,
             welcome_bonus_without_telegram_enabled=self.REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED,
+            webapp_link_enabled=self.REFERRAL_WEBAPP_LINK_ENABLED,
+            telegram_link_enabled=self.REFERRAL_TELEGRAM_LINK_ENABLED,
             legacy_refs_enabled=self.LEGACY_REFS,
         )
 
@@ -697,6 +702,13 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         return bool(self.qa_auth_enabled or self.smtp_delivery_configured)
 
     @computed_field
+    def webapp_auth_providers(self) -> list[str]:
+        providers = ["telegram"]
+        if self.email_auth_configured:
+            providers.append("email")
+        return providers
+
+    @computed_field
     def smtp_delivery_configured(self) -> bool:
         return bool(
             self.SMTP_HOST
@@ -725,6 +737,15 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
 
 
 class SettingsValidationMixin:
+    @model_validator(mode="after")
+    def validate_referral_link_visibility(self) -> Self:
+        if not (
+            bool(getattr(self, "REFERRAL_WEBAPP_LINK_ENABLED", False))
+            or bool(getattr(self, "REFERRAL_TELEGRAM_LINK_ENABLED", False))
+        ):
+            raise ValueError("at least one referral link must remain enabled")
+        return self
+
     @field_validator("SUPPORT_LINK", mode="before")
     @classmethod
     def normalize_support_link_setting(cls, value):

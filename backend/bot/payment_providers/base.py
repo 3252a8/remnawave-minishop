@@ -259,6 +259,12 @@ class PaymentProviderSpec:
     admin_only_config_attr: str = "ADMIN_ONLY_ENABLED"
     admin_only_enabled: EnabledPredicate | None = None
     supports_recurring: bool = False
+    # True when the *provider* owns the renewal schedule (it charges the payer
+    # on its own and reports every attempt through the webhook), as opposed to
+    # ``supports_recurring``, which means our renewal worker can initiate a
+    # charge against a saved payment method. The two are mutually exclusive in
+    # practice: a provider-managed mandate must never be charged by the worker.
+    manages_recurring: bool = False
     supported_currencies: Sequence[str] | None = ("RUB",)
     supported_currencies_resolver: CurrencySupportResolver | None = None
     payment_amount_resolver: PaymentAmountResolver | None = None

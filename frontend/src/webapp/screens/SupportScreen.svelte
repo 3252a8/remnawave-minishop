@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getSupportStore } from "$lib/webapp/context";
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import { fade, slide } from "svelte/transition";
   import { Check, ChevronsUpDown, LifeBuoy, MessageSquarePlus } from "$components/ui/icons.js";
   import Button from "$components/ui/button.svelte";
@@ -17,6 +17,14 @@
     supportDraftScope,
     writeSupportDraft,
   } from "$lib/webapp/supportDrafts.js";
+  import type { SupportTicketCounts } from "$lib/webapp/supportListHint.js";
+  import {
+    expectedTicketCount,
+    readSupportCountsHint,
+    writeSupportCountsHint,
+  } from "$lib/webapp/supportListHint.js";
+  import type { SupportListRevealState } from "$lib/webapp/supportListReveal.js";
+  import { createSupportListReveal } from "$lib/webapp/supportListReveal.js";
 
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type SupportCategory = "billing" | "technical" | "account" | "other";
@@ -44,19 +52,35 @@
   } = $props();
 
   const supportStore = getSupportStore();
+  // Stagger the ticket entrance, but cap it: a long list must not take a second to finish arriving.
+  const CARD_STAGGER_MS = 42;
+  const MAX_STAGGER_STEPS = 6;
   let subject = $state("");
   let body = $state("");
   let category = $state<SupportCategory>("other");
   let priority = $state<SupportPriority>("normal");
   let createOpen = $state(false);
   let loadedCreateDraftScope = $state("");
+  let countsHint = $state<SupportTicketCounts | null>(null);
+  let loadedCountsHintScope = $state("");
+  let listReveal = $state<SupportListRevealState>({ phase: "pending", skeletonCount: 0 });
+  let persistedCountsKey = "";
   const selectContentProps = { trapFocus: false } as Record<string, unknown>;
+  const revealController = createSupportListReveal({ onChange: (next) => (listReveal = next) });
 
   const tickets = $derived(supportStore.tickets);
-  const loading = $derived(supportStore.loading);
   const creating = $derived(supportStore.creating);
   const statusFilter = $derived(supportStore.statusFilter);
   const counts = $derived(supportStore.counts);
+  const activeFilter = $derived(statusFilter || "all");
+  // The store keeps the previous tab's tickets until the new request lands; they are not an answer
+  // for the tab the user is looking at now.
+  const listResolved = $derived(supportStore.loadedFilter === activeFilter);
+  const visibleTickets = $derived(listResolved ? tickets : []);
+  // Live counts beat the cached ones the moment a list response has landed in this session.
+  const expectedCount = $derived(
+    expectedTicketCount(supportStore.loadedFilter ? counts : countsHint, activeFilter)
+  );
   const categoryOptions = $derived([
     { value: "billing", label: t("wa_support_category_billing") },
     { value: "technical", label: t("wa_support_category_technical") },
@@ -109,6 +133,24 @@
     loadCreateDraft(draftScope);
   });
 
+  $effect.pre(() => {
+    if (!draftScope || draftScope === loadedCountsHintScope) return;
+    countsHint = readSupportCountsHint(draftScope);
+    loadedCountsHintScope = draftScope;
+  });
+
+  $effect.pre(() => {
+    listReveal = revealController.sync({ expectedCount, resolved: listResolved });
+  });
+
+  $effect(() => {
+    if (!draftScope || !supportStore.loadedFilter) return;
+    const key = `${draftScope}:${JSON.stringify(counts)}`;
+    if (key === persistedCountsKey) return;
+    persistedCountsKey = key;
+    writeSupportCountsHint(draftScope, counts);
+  });
+
   $effect(() => {
     if (!draftScope || draftScope !== loadedCreateDraftScope) return;
     persistCreateDraft(draftScope, {
@@ -124,6 +166,8 @@
   onMount(() => {
     supportStore.loadList();
   });
+
+  onDestroy(() => revealController.destroy());
 
   async function createTicket() {
     const currentDraftScope = draftScope;
@@ -142,6 +186,10 @@
       priority = "normal";
       createOpen = false;
     }
+  }
+
+  function ticketMotionStyle(index: number) {
+    return `--motion-delay:${Math.min(Math.max(0, index), MAX_STAGGER_STEPS) * CARD_STAGGER_MS}ms;`;
   }
 
   function optionValue<T extends string>(
@@ -351,10 +399,14 @@
       </Tabs.List>
     </Tabs.Root>
 
-    {#if loading}
+    {#if listReveal.phase === "skeleton"}
       <ScrollArea class="support-ticket-list-scroll" maxHeight="none">
-        <div class="support-user-list-skeleton" aria-label={t("wa_loading")}>
-          {#each Array(5) as _, index (index)}
+        <div
+          class="support-user-list-skeleton motion-fade-up"
+          role="status"
+          aria-label={t("wa_loading")}
+        >
+          {#each Array(listReveal.skeletonCount) as _, index (index)}
             <article class="support-user-ticket-skeleton">
               <span class="support-user-ticket-skeleton-main">
                 <Skeleton variant="title" width="min(420px, 76%)" />
@@ -368,24 +420,28 @@
           {/each}
         </div>
       </ScrollArea>
-    {:else if !tickets.length}
+    {:else if listReveal.phase === "pending"}
+      <div class="support-list-probe" aria-hidden="true"></div>
+    {:else if visibleTickets.length}
+      <ScrollArea class="support-ticket-list-scroll" maxHeight="none">
+        <div class="ticket-list">
+          {#each visibleTickets as ticket, index (ticket.ticket_id)}
+            <div class="ticket-list-item motion-enter-card" style={ticketMotionStyle(index)}>
+              <TicketCard
+                {ticket}
+                {t}
+                onOpen={(item: TicketRecord) => supportStore.openTicket(item.ticket_id || 0)}
+              />
+            </div>
+          {/each}
+        </div>
+      </ScrollArea>
+    {:else}
       <div class="support-empty-state" in:fade={{ duration: 180 }}>
         <MessageSquarePlus size={34} />
         <strong>{t("wa_support_no_open_tickets")}</strong>
         <small>{t("wa_support_empty_hint")}</small>
       </div>
-    {:else}
-      <ScrollArea class="support-ticket-list-scroll" maxHeight="none">
-        <div class="ticket-list">
-          {#each tickets as ticket}
-            <TicketCard
-              {ticket}
-              {t}
-              onOpen={(item: TicketRecord) => supportStore.openTicket(item.ticket_id || 0)}
-            />
-          {/each}
-        </div>
-      </ScrollArea>
     {/if}
   </Card>
 </main>

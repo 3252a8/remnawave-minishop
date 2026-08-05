@@ -188,6 +188,35 @@ async def deactivate_internal_override(
     return rowcount(result)
 
 
+async def deactivate_panel_internal_overrides_for_squads(
+    session: AsyncSession,
+    *,
+    user_id: int,
+    panel_user_uuid: str,
+    squad_uuids: list[str],
+) -> int:
+    cleaned_squad_uuids = sorted(
+        {_clean_text(squad_uuid) for squad_uuid in squad_uuids if _clean_text(squad_uuid)}
+    )
+    if not cleaned_squad_uuids:
+        return 0
+    now = _now()
+    result = await session.execute(
+        update(UserPanelSquadOverride)
+        .where(
+            UserPanelSquadOverride.user_id == user_id,
+            UserPanelSquadOverride.panel_user_uuid == panel_user_uuid,
+            UserPanelSquadOverride.kind == INTERNAL_KIND,
+            UserPanelSquadOverride.override_key.in_(cleaned_squad_uuids),
+            UserPanelSquadOverride.source == OVERRIDE_SOURCE_PANEL,
+            UserPanelSquadOverride.is_active == True,
+        )
+        .values(is_active=False, updated_at=now, deactivated_at=now)
+    )
+    await session.flush()
+    return rowcount(result)
+
+
 async def set_external_override(
     session: AsyncSession,
     *,

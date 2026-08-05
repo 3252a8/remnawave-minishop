@@ -452,6 +452,14 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
             "Disposable email domains are still blocked until Telegram is linked."
         ),
     )
+    REFERRAL_WEBAPP_LINK_ENABLED: bool = Field(
+        default=True,
+        description="Show the website referral link in the user Web App bonus section.",
+    )
+    REFERRAL_TELEGRAM_LINK_ENABLED: bool = Field(
+        default=True,
+        description="Show the Telegram bot referral link in the user Web App bonus section.",
+    )
     LEGACY_REFS: bool = Field(
         default=True,
         description="Allow legacy referral links like /start ref_<telegram_id>, where the payload contains the inviter's Telegram/user ID.",  # noqa: E501

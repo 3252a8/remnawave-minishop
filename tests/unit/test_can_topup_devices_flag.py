@@ -12,7 +12,9 @@ These tests pin the visibility contract:
 * tariff without HWID packages → flag is False;
 * tariff with rub-only or stars-only packages → flag is True;
 * legacy mode without a tariffs catalog → flag is False;
-* malformed tariff lookup → flag is False (and does not raise).
+* malformed tariff lookup → flag is False (and does not raise);
+* an unbound trial → flag is False and only offers a tariff after a useful
+  device top-up path has been configured.
 """
 
 import json
@@ -20,6 +22,7 @@ import tempfile
 import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 # Importing the facade populates ``webapp.serializers`` with helpers like
@@ -190,6 +193,118 @@ class CanTopupDevicesFlagTests(unittest.TestCase):
                 settings, _active(tariff_key=None, max_devices=3), None, "en"
             )
         self.assertFalse(payload["can_topup_devices"])
+
+    def test_unbound_trial_reports_tariff_upgrade_when_device_packages_exist(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                tmpdir,
+                _tariffs_payload(hwid_rub=[{"count": 1, "price": 50}]),
+            )
+            local_sub = SimpleNamespace(provider="trial", status_from_panel="TRIAL")
+            payload = _serialize_subscription(
+                settings,
+                _active(tariff_key=None, max_devices=3),
+                local_sub,
+                "en",
+            )
+
+        self.assertFalse(payload["can_topup_devices"])
+        self.assertEqual(payload["device_topup_unavailable_reason"], "trial_subscription")
+
+    def test_panel_trial_status_is_recognized_without_local_subscription(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                tmpdir,
+                _tariffs_payload(hwid_rub=[{"count": 1, "price": 50}]),
+            )
+            payload = _serialize_subscription(
+                settings,
+                _active(tariff_key=None, status_from_panel="TRIAL", max_devices=3),
+                None,
+                "en",
+            )
+
+        self.assertEqual(payload["device_topup_unavailable_reason"], "trial_subscription")
+
+    def test_unbound_trial_hides_upgrade_when_device_packages_are_not_configured(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(tmpdir, _tariffs_payload())
+            local_sub = SimpleNamespace(provider="trial", status_from_panel="TRIAL")
+            payload = _serialize_subscription(
+                settings,
+                _active(tariff_key=None, max_devices=3),
+                local_sub,
+                "en",
+            )
+
+        self.assertIsNone(payload["device_topup_unavailable_reason"])
+
+    def test_unbound_trial_hides_upgrade_when_matching_tariff_cannot_be_purchased(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tariffs_payload = _tariffs_payload(hwid_rub=[{"count": 1, "price": 50}])
+            tariff = tariffs_payload["tariffs"][0]
+            tariff["prices_rub"] = {}
+            tariff["prices"] = {"usd": {"1": 100}}
+            settings = _make_settings(tmpdir, tariffs_payload)
+            local_sub = SimpleNamespace(provider="trial", status_from_panel="TRIAL")
+            payload = _serialize_subscription(
+                settings,
+                _active(tariff_key=None, max_devices=3),
+                local_sub,
+                "en",
+            )
+
+        self.assertIsNone(payload["device_topup_unavailable_reason"])
+
+    def test_unbound_trial_hides_upgrade_when_devices_section_is_disabled(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                tmpdir,
+                _tariffs_payload(hwid_rub=[{"count": 1, "price": 50}]),
+                MY_DEVICES_SECTION_ENABLED=False,
+            )
+            local_sub = SimpleNamespace(provider="trial", status_from_panel="TRIAL")
+            payload = _serialize_subscription(
+                settings,
+                _active(tariff_key=None, max_devices=3),
+                local_sub,
+                "en",
+            )
+
+        self.assertIsNone(payload["device_topup_unavailable_reason"])
+
+    def test_unbound_trial_hides_upgrade_for_unlimited_devices(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                tmpdir,
+                _tariffs_payload(hwid_rub=[{"count": 1, "price": 50}]),
+            )
+            local_sub = SimpleNamespace(provider="trial", status_from_panel="TRIAL")
+            payload = _serialize_subscription(
+                settings,
+                _active(tariff_key=None, max_devices=0),
+                local_sub,
+                "en",
+            )
+
+        self.assertIsNone(payload["device_topup_unavailable_reason"])
+
+    def test_unbound_paid_subscription_still_reports_missing_tariff(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                tmpdir,
+                _tariffs_payload(hwid_rub=[{"count": 1, "price": 50}]),
+            )
+            local_sub = SimpleNamespace(provider="yookassa", status_from_panel="ACTIVE")
+            payload = _serialize_subscription(
+                settings,
+                _active(tariff_key=None, max_devices=3),
+                local_sub,
+                "en",
+            )
+
+        self.assertFalse(payload["can_topup_devices"])
+        self.assertEqual(payload["device_topup_unavailable_reason"], "missing_tariff")
 
     def test_flag_is_false_when_tariff_key_does_not_resolve(self):
         # If the user's stored ``tariff_key`` was renamed/removed, the helper

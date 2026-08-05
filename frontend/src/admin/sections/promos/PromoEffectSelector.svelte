@@ -222,8 +222,8 @@
   }
 
   .admin-promo-effect-row.is-dirty {
-    border-color: color-mix(in srgb, var(--warning, #f59e0b) 70%, var(--admin-border));
-    background: color-mix(in srgb, var(--warning, #f59e0b) 8%, var(--admin-surface-2));
+    border-color: color-mix(in srgb, var(--warning) 70%, var(--admin-border));
+    background: color-mix(in srgb, var(--warning) 8%, var(--admin-surface-2));
   }
 
   .admin-promo-effect-row.is-selected {
@@ -278,8 +278,8 @@
   }
 
   .admin-promo-effect-mode.is-dirty {
-    border-color: color-mix(in srgb, var(--warning, #f59e0b) 64%, var(--admin-border));
-    background: color-mix(in srgb, var(--warning, #f59e0b) 7%, transparent);
+    border-color: color-mix(in srgb, var(--warning) 64%, var(--admin-border));
+    background: color-mix(in srgb, var(--warning) 7%, transparent);
   }
 
   .admin-promo-effect-mode-line {

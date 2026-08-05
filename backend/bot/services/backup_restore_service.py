@@ -70,6 +70,49 @@ def _create_missing_tables_and_migrate(connection: Connection) -> list[str]:
     return [migration.id for migration in MIGRATIONS if migration.id in newly_applied]
 
 
+def _normalize_serial_sequences(connection: Connection) -> list[str]:
+    rows = connection.execute(
+        text(
+            """
+            SELECT
+                table_schema,
+                table_name,
+                column_name,
+                pg_get_serial_sequence(
+                    format('%I.%I', table_schema, table_name),
+                    column_name
+                ) AS sequence_name
+            FROM information_schema.columns
+            WHERE table_schema = ANY(current_schemas(FALSE))
+              AND column_default LIKE 'nextval(%'
+            ORDER BY table_schema, table_name, ordinal_position
+            """
+        )
+    ).mappings()
+    preparer = connection.dialect.identifier_preparer
+    normalized: list[str] = []
+    for row in rows:
+        sequence_name = str(row["sequence_name"] or "").strip()
+        if not sequence_name:
+            continue
+        schema_name = str(row["table_schema"])
+        table_name = str(row["table_name"])
+        column_name = str(row["column_name"])
+        qualified_table = f"{preparer.quote_schema(schema_name)}.{preparer.quote(table_name)}"
+        quoted_column = preparer.quote(column_name)
+        max_value = connection.scalar(text(f"SELECT MAX({quoted_column}) FROM {qualified_table}"))
+        connection.execute(
+            text("SELECT setval(to_regclass(:sequence_name), :target_value, :is_called)"),
+            {
+                "sequence_name": sequence_name,
+                "target_value": int(max_value) if max_value is not None else 1,
+                "is_called": max_value is not None,
+            },
+        )
+        normalized.append(f"{schema_name}.{table_name}.{column_name}")
+    return normalized
+
+
 class BackupArchiveError(ValueError):
     """The selected archive cannot be used for restore."""
 
@@ -118,7 +161,9 @@ class BackupRestoreResult:
     compose_files_restored: int = 0
     compose_target_dir: str | None = None
     compose_pre_restore_archive: str | None = None
+    database_pre_restore_archive: str | None = None
     database_migrations_applied: list[str] = field(default_factory=list)
+    database_sequences_normalized: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
     def to_payload(self) -> dict[str, Any]:
@@ -130,7 +175,9 @@ class BackupRestoreResult:
             "compose_files_restored": self.compose_files_restored,
             "compose_target_dir": self.compose_target_dir,
             "compose_pre_restore_archive": self.compose_pre_restore_archive,
+            "database_pre_restore_archive": self.database_pre_restore_archive,
             "database_migrations_applied": self.database_migrations_applied,
+            "database_sequences_normalized": self.database_sequences_normalized,
             "warnings": self.warnings,
         }
 
@@ -281,6 +328,7 @@ class BackupRestoreService:
                 )
                 database_restored = False
                 database_migrations_applied: list[str] = []
+                database_sequences_normalized: list[str] = []
                 if db_member is not None:
                     dump_path = self._extract_database_dump(archive, db_member, temp_dir)
                     self._run_pg_restore(dump_path)
@@ -291,6 +339,7 @@ class BackupRestoreService:
                             tariffs_config_target,
                         )
                     database_migrations_applied = self._run_post_restore_migrations()
+                    database_sequences_normalized = self._run_post_restore_sequence_normalization()
                     database_restored = True
 
                 compose_files_restored = 0
@@ -312,6 +361,7 @@ class BackupRestoreService:
             if compose_pre_restore_archive
             else None,
             database_migrations_applied=database_migrations_applied,
+            database_sequences_normalized=database_sequences_normalized,
             warnings=warnings,
         )
 
@@ -355,6 +405,47 @@ class BackupRestoreService:
         finally:
             await engine.dispose()
 
+    def _run_post_restore_sequence_normalization(self) -> list[str]:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            run_normalization = lambda: asyncio.run(
+                self._run_post_restore_sequence_normalization_async()
+            )
+        else:
+            run_normalization = self._run_post_restore_sequence_normalization_in_thread
+
+        try:
+            return run_normalization()
+        except BackupRestoreError:
+            raise
+        except Exception as exc:
+            raise BackupRestoreError(
+                f"Database restore completed, but sequence normalization failed: {str(exc)[:500]}"
+            ) from exc
+
+    def _run_post_restore_sequence_normalization_in_thread(self) -> list[str]:
+        with ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="backup-restore-sequence"
+        ) as pool:
+            return pool.submit(
+                lambda: asyncio.run(self._run_post_restore_sequence_normalization_async())
+            ).result()
+
+    async def _run_post_restore_sequence_normalization_async(self) -> list[str]:
+        engine = create_async_engine(
+            self.settings.DATABASE_URL,
+            echo=False,
+            pool_pre_ping=True,
+            pool_size=1,
+            max_overflow=0,
+        )
+        try:
+            async with engine.begin() as connection:
+                return await connection.run_sync(_normalize_serial_sequences)
+        finally:
+            await engine.dispose()
+
     def _run_pg_restore(self, dump_path: Path) -> None:
         pg_restore_path = str(getattr(self.settings, "BACKUP_PG_RESTORE_PATH", "pg_restore") or "")
         pg_restore_path = pg_restore_path or "pg_restore"
@@ -393,8 +484,28 @@ class BackupRestoreService:
                 or 1800
             ),
         )
+        list_result = subprocess.run(
+            [pg_restore_path, "--list", str(dump_path)],
+            check=False,
+            capture_output=True,
+            env=env,
+            text=True,
+            timeout=timeout,
+        )
+        if list_result.returncode != 0:
+            stderr = (list_result.stderr or list_result.stdout or "").strip()
+            raise BackupRestoreError(
+                "pg_restore could not read the database dump: "
+                f"exit code {list_result.returncode}: {stderr[:500]}"
+            )
+
         result = subprocess.run(
-            command,
+            [
+                *command[:-1],
+                "--single-transaction",
+                "--exit-on-error",
+                command[-1],
+            ],
             check=False,
             capture_output=True,
             env=env,

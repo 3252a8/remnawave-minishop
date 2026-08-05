@@ -6,12 +6,14 @@
     AdminButton,
     AdminEmptyState,
     AdminPagination,
+    AdminSortableHeader,
     AdminTable,
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
   import { ExternalLink, Key, RefreshCw, Trash2, UserMinus } from "$components/ui/icons.js";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
   import type { DateFormatter, TranslateFn } from "./userDetailTypes";
+  import type { AdminSortColumn } from "$lib/admin/tableSort.js";
 
   type Props = {
     at: TranslateFn;
@@ -68,6 +70,12 @@
   }: Props = $props();
 
   const usersStore = getUsersStore();
+  const userReferralsSort = $derived(String(usersStore.userReferralsSort || "registration_desc"));
+  const referralSortColumns = [
+    { asc: "user_asc", desc: "user_desc", defaultDirection: "asc" },
+    { asc: "id_asc", desc: "id_desc", defaultDirection: "desc" },
+    { asc: "registration_asc", desc: "registration_desc", defaultDirection: "desc" },
+  ] satisfies AdminSortColumn<never>[];
 </script>
 
 <Dialog
@@ -109,9 +117,27 @@
         <AdminTable class="admin-user-referrals-table">
           <thead>
             <tr>
-              <th>{at("user_col_user", {}, "User")}</th>
-              <th>ID</th>
-              <th>{at("user_label_registration", {}, "Registration")}</th>
+              <AdminSortableHeader
+                label={at("user_col_user", {}, "User")}
+                column={referralSortColumns[0]}
+                currentSort={userReferralsSort}
+                {at}
+                onSort={usersStore.setUserReferralsSort}
+              />
+              <AdminSortableHeader
+                label="ID"
+                column={referralSortColumns[1]}
+                currentSort={userReferralsSort}
+                {at}
+                onSort={usersStore.setUserReferralsSort}
+              />
+              <AdminSortableHeader
+                label={at("user_label_registration", {}, "Registration")}
+                column={referralSortColumns[2]}
+                currentSort={userReferralsSort}
+                {at}
+                onSort={usersStore.setUserReferralsSort}
+              />
               <th></th>
             </tr>
           </thead>

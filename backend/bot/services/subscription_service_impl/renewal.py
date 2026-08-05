@@ -11,6 +11,7 @@ from bot.infra.event_payloads import AutoRenewFailureReason, SubscriptionAutoRen
 from bot.middlewares.i18n import get_i18n_instance
 from bot.payment_providers.shared import (
     EntitlementContextError,
+    ProviderManagedRecurringService,
     RecurringProviderService,
     build_entitlement_context_snapshot,
     build_payment_description,
@@ -109,6 +110,20 @@ class RenewalMixin(SubscriptionServiceMixinContract):
             return None
         try:
             services = self.recurring_provider_services
+        except AttributeError:
+            return None
+        return (services or {}).get(provider_key)
+
+    def managed_recurring_service_for(
+        self,
+        provider: str | None,
+    ) -> ProviderManagedRecurringService | None:
+        """Resolve a provider service that owns the renewal schedule itself."""
+        provider_key = str(provider or "").strip().lower()
+        if not provider_key:
+            return None
+        try:
+            services = self.managed_recurring_provider_services
         except AttributeError:
             return None
         return (services or {}).get(provider_key)

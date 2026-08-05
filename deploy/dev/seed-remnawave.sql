@@ -47,26 +47,38 @@ BEGIN
     END IF;
 END $$;
 
-WITH upserted_users AS (
-    INSERT INTO users (
-        uuid,
-        short_uuid,
-        username,
-        status,
-        traffic_limit_bytes,
-        traffic_limit_strategy,
-        expire_at,
-        trojan_password,
-        vless_uuid,
-        ss_password,
-        description,
-        email,
-        telegram_id,
-        hwid_device_limit,
-        tag,
-        last_triggered_threshold,
-        updated_at
-    ) VALUES
+-- Match the public development tariff fixture so full-stack trial/payment QA
+-- exercises real panel writes instead of relying on pre-existing panel state.
+INSERT INTO internal_squads (uuid, name)
+VALUES
+    ('db786ee8-816b-4760-80aa-1fc7a3669ff2', 'MiniShop Standard'),
+    ('b6fc8b71-ffc9-4938-8378-8bc6bcfb9854', 'MiniShop Premium')
+ON CONFLICT (uuid) DO UPDATE SET
+    name = EXCLUDED.name,
+    updated_at = now();
+
+DROP TABLE IF EXISTS remnawave_dev_seed_users;
+CREATE TEMP TABLE remnawave_dev_seed_users (
+    uuid uuid NOT NULL,
+    short_uuid text NOT NULL,
+    username text NOT NULL,
+    status text NOT NULL,
+    traffic_limit_bytes bigint NOT NULL,
+    traffic_limit_strategy text NOT NULL,
+    expire_at timestamptz NOT NULL,
+    trojan_password text NOT NULL,
+    vless_uuid uuid NOT NULL,
+    ss_password text NOT NULL,
+    description text NOT NULL,
+    email text NOT NULL,
+    telegram_id bigint NOT NULL,
+    hwid_device_limit integer NOT NULL,
+    tag text NOT NULL,
+    last_triggered_threshold integer NOT NULL,
+    updated_at timestamptz NOT NULL
+);
+
+INSERT INTO remnawave_dev_seed_users VALUES
         (
             '00000000-0000-4000-8000-000000000001',
             'devadmin01',
@@ -123,39 +135,104 @@ WITH upserted_users AS (
             'mini-shop-dev',
             100,
             now()
-        )
-    ON CONFLICT (uuid) DO UPDATE SET
-        short_uuid = EXCLUDED.short_uuid,
-        username = EXCLUDED.username,
-        status = EXCLUDED.status,
-        traffic_limit_bytes = EXCLUDED.traffic_limit_bytes,
-        traffic_limit_strategy = EXCLUDED.traffic_limit_strategy,
-        expire_at = EXCLUDED.expire_at,
-        trojan_password = EXCLUDED.trojan_password,
-        vless_uuid = EXCLUDED.vless_uuid,
-        ss_password = EXCLUDED.ss_password,
-        description = EXCLUDED.description,
-        email = EXCLUDED.email,
-        telegram_id = EXCLUDED.telegram_id,
-        hwid_device_limit = EXCLUDED.hwid_device_limit,
-        tag = EXCLUDED.tag,
-        last_triggered_threshold = EXCLUDED.last_triggered_threshold,
-        updated_at = now()
-    RETURNING t_id
-),
-default_squad AS (
-    SELECT uuid
-    FROM internal_squads
-    WHERE name = 'Default-Squad'
-    LIMIT 1
-)
-INSERT INTO internal_squad_members (internal_squad_uuid, user_id)
-SELECT default_squad.uuid, upserted_users.t_id
-FROM default_squad
-CROSS JOIN upserted_users
-ON CONFLICT DO NOTHING;
+        );
 
 DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+            AND table_name = 'users'
+            AND column_name = 'uuid'
+    ) THEN
+        -- Remnawave <= 2.8.1: user UUID is the public API identity and t_id is
+        -- the internal numeric foreign key.
+        EXECUTE $sql$
+            WITH upserted_users AS (
+                INSERT INTO users (
+                    uuid, short_uuid, username, status, traffic_limit_bytes,
+                    traffic_limit_strategy, expire_at, trojan_password, vless_uuid,
+                    ss_password, description, email, telegram_id, hwid_device_limit,
+                    tag, last_triggered_threshold, updated_at
+                )
+                SELECT * FROM remnawave_dev_seed_users
+                ON CONFLICT (uuid) DO UPDATE SET
+                    short_uuid = EXCLUDED.short_uuid,
+                    username = EXCLUDED.username,
+                    status = EXCLUDED.status,
+                    traffic_limit_bytes = EXCLUDED.traffic_limit_bytes,
+                    traffic_limit_strategy = EXCLUDED.traffic_limit_strategy,
+                    expire_at = EXCLUDED.expire_at,
+                    trojan_password = EXCLUDED.trojan_password,
+                    vless_uuid = EXCLUDED.vless_uuid,
+                    ss_password = EXCLUDED.ss_password,
+                    description = EXCLUDED.description,
+                    email = EXCLUDED.email,
+                    telegram_id = EXCLUDED.telegram_id,
+                    hwid_device_limit = EXCLUDED.hwid_device_limit,
+                    tag = EXCLUDED.tag,
+                    last_triggered_threshold = EXCLUDED.last_triggered_threshold,
+                    updated_at = now()
+                RETURNING t_id
+            )
+            INSERT INTO internal_squad_members (internal_squad_uuid, user_id)
+            SELECT squad.uuid, upserted_users.t_id
+            FROM internal_squads AS squad
+            CROSS JOIN upserted_users
+            WHERE squad.name = 'Default-Squad'
+            ON CONFLICT DO NOTHING
+        $sql$;
+    ELSE
+        -- Remnawave >= 3.0: uuid was dropped and t_id was renamed to id.
+        -- Username is deterministic in this QA seed and is the stable upsert key.
+        EXECUTE $sql$
+            WITH upserted_users AS (
+                INSERT INTO users (
+                    short_uuid, username, status, traffic_limit_bytes,
+                    traffic_limit_strategy, expire_at, trojan_password, vless_uuid,
+                    ss_password, description, email, telegram_id, hwid_device_limit,
+                    tag, last_triggered_threshold, updated_at
+                )
+                SELECT
+                    short_uuid, username, status, traffic_limit_bytes,
+                    traffic_limit_strategy, expire_at, trojan_password, vless_uuid,
+                    ss_password, description, email, telegram_id, hwid_device_limit,
+                    tag, last_triggered_threshold, updated_at
+                FROM remnawave_dev_seed_users
+                ON CONFLICT (username) DO UPDATE SET
+                    short_uuid = EXCLUDED.short_uuid,
+                    status = EXCLUDED.status,
+                    traffic_limit_bytes = EXCLUDED.traffic_limit_bytes,
+                    traffic_limit_strategy = EXCLUDED.traffic_limit_strategy,
+                    expire_at = EXCLUDED.expire_at,
+                    trojan_password = EXCLUDED.trojan_password,
+                    vless_uuid = EXCLUDED.vless_uuid,
+                    ss_password = EXCLUDED.ss_password,
+                    description = EXCLUDED.description,
+                    email = EXCLUDED.email,
+                    telegram_id = EXCLUDED.telegram_id,
+                    hwid_device_limit = EXCLUDED.hwid_device_limit,
+                    tag = EXCLUDED.tag,
+                    last_triggered_threshold = EXCLUDED.last_triggered_threshold,
+                    updated_at = now()
+                RETURNING id
+            )
+            INSERT INTO internal_squad_members (internal_squad_uuid, user_id)
+            SELECT squad.uuid, upserted_users.id
+            FROM internal_squads AS squad
+            CROSS JOIN upserted_users
+            WHERE squad.name = 'Default-Squad'
+            ON CONFLICT DO NOTHING
+        $sql$;
+    END IF;
+END $$;
+
+DROP TABLE remnawave_dev_seed_users;
+
+DO $$
+DECLARE
+    user_pk_column text;
 BEGIN
     IF NOT EXISTS (
         SELECT 1
@@ -173,7 +250,17 @@ BEGIN
             AND table_name = 'hwid_user_devices'
             AND column_name = 'user_id'
     ) THEN
-        EXECUTE $sql$
+        user_pk_column := CASE
+            WHEN EXISTS (
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                    AND table_name = 'users'
+                    AND column_name = 'id'
+            ) THEN 'id'
+            ELSE 't_id'
+        END;
+        EXECUTE format($sql$
             WITH seed_devices (
                 username,
                 hwid,
@@ -248,7 +335,7 @@ BEGIN
             ),
             resolved AS (
                 SELECT
-                    users.t_id AS user_id,
+                    users.%I AS user_id,
                     seed_devices.hwid,
                     seed_devices.platform,
                     seed_devices.os_version,
@@ -288,7 +375,7 @@ BEGIN
                 user_agent = EXCLUDED.user_agent,
                 request_ip = EXCLUDED.request_ip,
                 updated_at = now()
-        $sql$;
+        $sql$, user_pk_column);
     ELSE
         EXECUTE $sql$
             WITH seed_devices (
@@ -398,31 +485,48 @@ BEGIN
     END IF;
 END $$;
 
-INSERT INTO user_traffic (
-    t_id,
-    used_traffic_bytes,
-    lifetime_used_traffic_bytes,
-    online_at,
-    first_connected_at
-)
-SELECT
-    t_id,
-    CASE username
-        WHEN 'runes_admin' THEN 21474836480
-        WHEN 'runes_active' THEN 193273528320
-        ELSE 53687091200
-    END,
-    CASE username
-        WHEN 'runes_admin' THEN 32212254720
-        WHEN 'runes_active' THEN 214748364800
-        ELSE 53687091200
-    END,
-    CASE WHEN username = 'runes_expired' THEN null ELSE now() - interval '5 minutes' END,
-    now() - interval '30 days'
-FROM users
-WHERE username IN ('runes_admin', 'runes_active', 'runes_expired')
-ON CONFLICT (t_id) DO UPDATE SET
-    used_traffic_bytes = EXCLUDED.used_traffic_bytes,
-    lifetime_used_traffic_bytes = EXCLUDED.lifetime_used_traffic_bytes,
-    online_at = EXCLUDED.online_at,
-    first_connected_at = EXCLUDED.first_connected_at;
+DO $$
+DECLARE
+    user_pk_column text;
+BEGIN
+    user_pk_column := CASE
+        WHEN EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+                AND table_name = 'user_traffic'
+                AND column_name = 'id'
+        ) THEN 'id'
+        ELSE 't_id'
+    END;
+    EXECUTE format($sql$
+        INSERT INTO user_traffic (
+            %1$I,
+            used_traffic_bytes,
+            lifetime_used_traffic_bytes,
+            online_at,
+            first_connected_at
+        )
+        SELECT
+            users.%1$I,
+            CASE username
+                WHEN 'runes_admin' THEN 21474836480
+                WHEN 'runes_active' THEN 193273528320
+                ELSE 53687091200
+            END,
+            CASE username
+                WHEN 'runes_admin' THEN 32212254720
+                WHEN 'runes_active' THEN 214748364800
+                ELSE 53687091200
+            END,
+            CASE WHEN username = 'runes_expired' THEN null ELSE now() - interval '5 minutes' END,
+            now() - interval '30 days'
+        FROM users
+        WHERE username IN ('runes_admin', 'runes_active', 'runes_expired')
+        ON CONFLICT (%1$I) DO UPDATE SET
+            used_traffic_bytes = EXCLUDED.used_traffic_bytes,
+            lifetime_used_traffic_bytes = EXCLUDED.lifetime_used_traffic_bytes,
+            online_at = EXCLUDED.online_at,
+            first_connected_at = EXCLUDED.first_connected_at
+    $sql$, user_pk_column);
+END $$;

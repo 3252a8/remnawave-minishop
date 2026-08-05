@@ -1,12 +1,14 @@
 import logging
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import func, or_
+from sqlalchemy import String, cast, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import aliased, selectinload
+from sqlalchemy.sql.elements import ColumnElement
 
-from ..models import MessageLog
+from ..models import MessageLog, User
 
 logger = logging.getLogger(__name__)
 
@@ -24,14 +26,56 @@ async def create_message_log(session: AsyncSession, log_data: dict) -> MessageLo
         return None
 
 
-async def get_all_message_logs(session: AsyncSession, limit: int, offset: int) -> list[MessageLog]:
-    stmt = (
-        select(MessageLog)
-        .options(selectinload(MessageLog.author_user), selectinload(MessageLog.target_user))
-        .order_by(MessageLog.timestamp.desc())
-        .limit(limit)
-        .offset(offset)
+def _message_logs_query(sort: str) -> Any:
+    author = aliased(User, name="log_author")
+    target = aliased(User, name="log_target")
+    author_name = func.nullif(
+        func.trim(func.coalesce(author.first_name, "") + " " + func.coalesce(author.last_name, "")),
+        "",
     )
+    target_name = func.nullif(
+        func.trim(func.coalesce(target.first_name, "") + " " + func.coalesce(target.last_name, "")),
+        "",
+    )
+    author_label = func.coalesce(
+        author_name,
+        author.username,
+        author.email,
+        MessageLog.telegram_first_name,
+        MessageLog.telegram_username,
+        cast(MessageLog.user_id, String),
+    )
+    target_label = func.coalesce(
+        target_name,
+        target.username,
+        target.email,
+        cast(MessageLog.target_user_id, String),
+    )
+    sort_columns: dict[str, ColumnElement[Any]] = {
+        "date": MessageLog.timestamp,
+        "event": MessageLog.event_type,
+        "user": author_label,
+        "target": target_label,
+        "content": MessageLog.content,
+    }
+    sort_key, _, direction = (sort or "date_desc").lower().rpartition("_")
+    column = sort_columns.get(sort_key, MessageLog.timestamp)
+    descending = direction != "asc"
+    order = column.desc().nullslast() if descending else column.asc().nullslast()
+    tie_breaker = MessageLog.log_id.desc() if descending else MessageLog.log_id.asc()
+    return (
+        select(MessageLog)
+        .outerjoin(author, MessageLog.user_id == author.user_id)
+        .outerjoin(target, MessageLog.target_user_id == target.user_id)
+        .options(selectinload(MessageLog.author_user), selectinload(MessageLog.target_user))
+        .order_by(order, tie_breaker)
+    )
+
+
+async def get_all_message_logs(
+    session: AsyncSession, limit: int, offset: int, *, sort: str = "date_desc"
+) -> list[MessageLog]:
+    stmt = _message_logs_query(sort).limit(limit).offset(offset)
     result = await session.execute(stmt)
     return list(result.scalars().all())
 
@@ -43,18 +87,21 @@ async def count_all_message_logs(session: AsyncSession) -> int:
 
 
 async def get_user_message_logs(
-    session: AsyncSession, user_id_to_search: int, limit: int, offset: int
+    session: AsyncSession,
+    user_id_to_search: int,
+    limit: int,
+    offset: int,
+    *,
+    sort: str = "date_desc",
 ) -> list[MessageLog]:
     stmt = (
-        select(MessageLog)
-        .options(selectinload(MessageLog.author_user), selectinload(MessageLog.target_user))
+        _message_logs_query(sort)
         .where(
             or_(
                 MessageLog.user_id == user_id_to_search,
                 MessageLog.target_user_id == user_id_to_search,
             )
         )
-        .order_by(MessageLog.timestamp.desc())
         .limit(limit)
         .offset(offset)
     )

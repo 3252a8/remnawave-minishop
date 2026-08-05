@@ -222,6 +222,8 @@ class SettingsTests(unittest.TestCase):
             REFERRAL_ONE_BONUS_PER_REFEREE=False,
             REFERRAL_WELCOME_BONUS_DAYS=9,
             REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED=False,
+            REFERRAL_WEBAPP_LINK_ENABLED=False,
+            REFERRAL_TELEGRAM_LINK_ENABLED=True,
             LEGACY_REFS=False,
         )
 
@@ -234,7 +236,42 @@ class SettingsTests(unittest.TestCase):
         self.assertFalse(referral_settings.one_bonus_per_referee)
         self.assertEqual(referral_settings.welcome_bonus_days, 9)
         self.assertFalse(referral_settings.welcome_bonus_without_telegram_enabled)
+        self.assertFalse(referral_settings.webapp_link_enabled)
+        self.assertTrue(referral_settings.telegram_link_enabled)
         self.assertFalse(referral_settings.legacy_refs_enabled)
+
+    def test_referral_settings_require_at_least_one_visible_link(self):
+        with self.assertRaisesRegex(
+            ValidationError,
+            "at least one referral link must remain enabled",
+        ):
+            Settings(
+                _env_file=None,
+                BOT_TOKEN="token",
+                POSTGRES_USER="app_user",
+                POSTGRES_PASSWORD="app_password",
+                REFERRAL_WEBAPP_LINK_ENABLED=False,
+                REFERRAL_TELEGRAM_LINK_ENABLED=False,
+            )
+
+    def test_webapp_auth_providers_describe_available_login_methods(self):
+        telegram_only = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+        )
+        email_enabled = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            APP_RUNTIME_MODE="test",
+            QA_AUTH_ENABLED=True,
+        )
+
+        self.assertEqual(telegram_only.webapp_auth_providers, ["telegram"])
+        self.assertEqual(email_enabled.webapp_auth_providers, ["telegram", "email"])
 
     def test_registration_settings_view_reflects_invite_only_flag(self):
         default_settings = Settings(

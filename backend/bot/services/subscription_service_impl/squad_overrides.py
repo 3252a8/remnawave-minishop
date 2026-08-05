@@ -241,6 +241,23 @@ class SquadOverrideMixin(SubscriptionServiceMixinContract):
                 last_seen_at=now,
             )
 
+    async def deactivate_panel_managed_internal_overrides(
+        self,
+        session: AsyncSession,
+        *,
+        user_id: int,
+        panel_user_uuid: str,
+        managed_internal_squads: list[str] | None,
+    ) -> int:
+        if not _can_persist_overrides(session):
+            return 0
+        return await override_dal.deactivate_panel_internal_overrides_for_squads(
+            session,
+            user_id=user_id,
+            panel_user_uuid=panel_user_uuid,
+            squad_uuids=_dedupe_squad_uuids(managed_internal_squads),
+        )
+
     async def build_effective_panel_squad_fields(
         self,
         session: AsyncSession,

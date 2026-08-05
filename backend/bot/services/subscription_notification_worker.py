@@ -18,6 +18,7 @@ from bot.middlewares.i18n import JsonI18n
 from bot.services.message_audit import log_user_message_delivery
 from bot.services.panel_activity import record_subscription_panel_activity
 from bot.services.panel_api_service import PanelApiService
+from bot.services.panel_user_snapshot import load_panel_users_by_reference
 from bot.services.subscription_lifecycle_notifications import (
     SubscriptionLifecycleNotificationService,
     SubscriptionNotificationStage,
@@ -351,7 +352,17 @@ class SubscriptionNotificationWorker:
             .options(selectinload(Subscription.user))
             .order_by(Subscription.end_date.asc())
         )
-        for sub in result.scalars().all():
+        subscriptions = list(result.scalars().all())
+        references = [
+            str(getattr(sub, "panel_user_uuid", "") or "").strip() for sub in subscriptions
+        ]
+        panel_snapshot = await load_panel_users_by_reference(
+            self.panel_service,
+            references,
+            threshold=50,
+            concurrency=10,
+        )
+        for sub in subscriptions:
             legacy_sent = await subscription_dal.has_subscription_notification(
                 session,
                 sub.subscription_id,
@@ -372,7 +383,8 @@ class SubscriptionNotificationWorker:
 
             used = int(getattr(sub, "traffic_used_bytes", 0) or 0)
             limit = int(getattr(sub, "traffic_limit_bytes", 0) or 0)
-            panel_data = await self._panel_user(sub)
+            panel_reference = str(getattr(sub, "panel_user_uuid", "") or "").strip()
+            panel_data = panel_snapshot.users_by_reference.get(panel_reference)
             if panel_data:
                 await record_subscription_panel_activity(session, sub, panel_data)
                 panel_used, panel_limit, _ = (
@@ -414,20 +426,6 @@ class SubscriptionNotificationWorker:
                     "trial_traffic_depleted:email",
                     sent_at=now,
                 )
-
-    async def _panel_user(self, sub: Subscription) -> dict | None:
-        panel_uuid = str(getattr(sub, "panel_user_uuid", "") or "").strip()
-        if not panel_uuid:
-            return None
-        try:
-            data = await self.panel_service.get_user_by_uuid(panel_uuid, log_response=False)
-        except Exception:
-            logger.exception(
-                "SubscriptionNotificationWorker: failed to fetch panel user %s",
-                panel_uuid,
-            )
-            return None
-        return data if isinstance(data, dict) else None
 
     async def _send_trial_traffic_depleted(
         self,

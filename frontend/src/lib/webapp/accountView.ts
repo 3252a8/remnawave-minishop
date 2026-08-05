@@ -21,6 +21,7 @@ export interface AccountView {
   profileEmail: string;
   profileTelegramId: string;
   serverStatusUrl: string;
+  showTelegramLinkedStatus: boolean;
   supportUrl: string;
   telegramNotificationsNeedPrompt: boolean;
   telegramNotificationsStartLink: string;
@@ -31,6 +32,7 @@ export interface AccountView {
 
 export interface AccountViewInput {
   appSettings: WebappRecord | null | undefined;
+  authProviders?: readonly string[];
   cfg: WebappRecord;
   emailAuthEnabled: boolean;
   emailAvatarUrl: string;
@@ -40,6 +42,7 @@ export interface AccountViewInput {
 
 export function computeAccountView({
   appSettings,
+  authProviders,
   cfg,
   emailAuthEnabled,
   emailAvatarUrl,
@@ -55,6 +58,15 @@ export function computeAccountView({
     !user?.telegram_linked || (emailAuthEnabled && !user?.email) || telegramNotificationsNeedPrompt
   );
   const telegramProfileName = telegramName(user);
+  const resolvedAuthProviders = authProviders?.length
+    ? authProviders
+    : ["telegram", ...(emailAuthEnabled ? ["email"] : [])];
+  const showTelegramLinkedStatus = resolvedAuthProviders.some(
+    (provider) =>
+      String(provider || "")
+        .trim()
+        .toLowerCase() !== "telegram"
+  );
 
   return {
     emailLinkStatus: user?.email ? t("wa_settings_linked") : t("wa_settings_email_not_linked"),
@@ -64,6 +76,7 @@ export function computeAccountView({
     profileEmail: user?.email || t("wa_settings_email_not_linked"),
     profileTelegramId: user?.telegram_id ? `TG ID ${user.telegram_id}` : t("wa_tg_id_not_linked"),
     serverStatusUrl: String(appSettings?.server_status_url || cfg.serverStatusUrl || "").trim(),
+    showTelegramLinkedStatus,
     supportUrl: String(appSettings?.support_url || cfg.supportUrl || "").trim(),
     telegramNotificationsNeedPrompt,
     telegramNotificationsStartLink,

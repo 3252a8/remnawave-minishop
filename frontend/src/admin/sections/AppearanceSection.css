@@ -175,8 +175,8 @@
 }
 
 .default-theme-editor.is-dirty {
-  border-color: color-mix(in srgb, var(--warning, #f5b84b) 42%, var(--admin-border));
-  background: color-mix(in srgb, var(--warning, #f5b84b) 5%, var(--admin-surface-2));
+  border-color: color-mix(in srgb, var(--warning) 42%, var(--admin-border));
+  background: color-mix(in srgb, var(--warning) 5%, var(--admin-surface-2));
 }
 
 .default-theme-editor.is-disabled {
@@ -358,7 +358,7 @@
 .appearance-token-control.is-dirty,
 .appearance-logo-scale-row.is-dirty,
 .admin-theme-card-option.is-dirty {
-  color: color-mix(in srgb, var(--warning, #f5b84b) 78%, var(--admin-text));
+  color: color-mix(in srgb, var(--warning) 78%, var(--admin-text));
 }
 
 .appearance-custom-font-row {
@@ -442,7 +442,7 @@
 }
 
 .admin-theme-card.is-dirty {
-  border-color: color-mix(in srgb, var(--warning, #f5b84b) 42%, var(--admin-border));
+  border-color: color-mix(in srgb, var(--warning) 42%, var(--admin-border));
 }
 
 .admin-theme-card.is-disabled {

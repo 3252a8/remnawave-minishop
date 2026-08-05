@@ -64,6 +64,7 @@ class WebappBootstrapConfigOut(HttpResponseModel):
     language: str
     languages: list[WebappBootstrapLanguageOut]
     email_auth_enabled: bool = Field(alias="emailAuthEnabled")
+    auth_providers: list[str] = Field(alias="authProviders")
     registration_invite_only_enabled: bool = Field(alias="registrationInviteOnlyEnabled")
     app_version: str = Field(alias="appVersion")
     app_repository_url: str = Field(alias="appRepositoryUrl")
@@ -555,6 +556,7 @@ WEBAPP_SETTINGS_SCHEMA: dict[str, Any] = {
         "subscription_purchase_description": STRING_SCHEMA,
         "subscription_guides_enabled": BOOLEAN_SCHEMA,
         "email_auth_enabled": BOOLEAN_SCHEMA,
+        "auth_providers": STRING_ARRAY_SCHEMA,
     },
 }
 ME_RESPONSE_SCHEMA: dict[str, Any] = ok_envelope_with(

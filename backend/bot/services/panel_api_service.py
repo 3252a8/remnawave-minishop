@@ -1,9 +1,11 @@
 import asyncio
 import logging
 
+from .panel_api_connections import PanelApiConnectionsMixin
 from .panel_api_core import PanelApiCoreMixin
 from .panel_api_resources import PanelApiResourcesMixin
 from .panel_api_squads import PanelApiSquadMutationMixin
+from .panel_api_usage import PanelApiUsageMixin
 from .panel_api_users import PanelApiUsersMixin
 
 # Static endpoint prefixes used as log/metric labels instead of the raw request
@@ -17,6 +19,8 @@ _ENDPOINT_LOG_LABELS = (
     "/users/by-email",
     "/users/stream",
     "/users",
+    "/connections",
+    "/ip-control",
     "/external-squads",
     "/subscriptions/subpage-config",
     "/subscription-page-configs",
@@ -27,6 +31,7 @@ _ENDPOINT_LOG_LABELS = (
     "/system/stats/bandwidth",
     "/system/stats/nodes",
     "/system/stats",
+    "/system/metadata",
     "/bandwidth-stats/users",
     "/bandwidth-stats/nodes",
     "/internal-squads",
@@ -46,6 +51,8 @@ def _endpoint_log_label(endpoint: str) -> str:
 
 class PanelApiService(
     PanelApiUsersMixin,
+    PanelApiConnectionsMixin,
+    PanelApiUsageMixin,
     PanelApiResourcesMixin,
     PanelApiSquadMutationMixin,
     PanelApiCoreMixin,

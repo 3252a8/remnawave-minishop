@@ -4,8 +4,10 @@ import {
   boolValue,
   csvList,
   inputValueForKey,
+  isLastEnabledReferralLink,
   providerDisplayName,
   providerSettingsPath,
+  referralLinkResetViolatesRequirement,
   summarizeProviderSupport,
   trafficStrategyOptions,
   valueForKey,
@@ -47,6 +49,44 @@ describe("tariffSettings", () => {
       available: 1,
       blocked: 1,
     });
+  });
+
+  it("locks only the last enabled referral link", () => {
+    const referralFields = new Map<string, SettingField>([
+      [
+        "REFERRAL_WEBAPP_LINK_ENABLED",
+        { key: "REFERRAL_WEBAPP_LINK_ENABLED", label: "Web", value: true },
+      ],
+      [
+        "REFERRAL_TELEGRAM_LINK_ENABLED",
+        { key: "REFERRAL_TELEGRAM_LINK_ENABLED", label: "Telegram", value: false },
+      ],
+    ]);
+
+    expect(isLastEnabledReferralLink("REFERRAL_WEBAPP_LINK_ENABLED", {}, referralFields)).toBe(
+      true
+    );
+    expect(isLastEnabledReferralLink("REFERRAL_TELEGRAM_LINK_ENABLED", {}, referralFields)).toBe(
+      false
+    );
+    expect(
+      isLastEnabledReferralLink(
+        "REFERRAL_WEBAPP_LINK_ENABLED",
+        { REFERRAL_TELEGRAM_LINK_ENABLED: { value: true, deleted: false } },
+        referralFields
+      )
+    ).toBe(false);
+
+    expect(
+      referralLinkResetViolatesRequirement(
+        "REFERRAL_TELEGRAM_LINK_ENABLED",
+        {
+          REFERRAL_WEBAPP_LINK_ENABLED: { value: false, deleted: false },
+          REFERRAL_TELEGRAM_LINK_ENABLED: { value: true, deleted: false },
+        },
+        referralFields
+      )
+    ).toBe(true);
   });
 
   it("derives provider display names and settings paths", () => {

@@ -126,9 +126,14 @@ async def admin_promos_list_route(request: web.Request) -> web.Response:
     page = max(0, int(request.query.get("page", 0) or 0))
     page_size = min(100, max(1, int(request.query.get("page_size", 25) or 25)))
     personal = _requested_owner_filter(request)
+    sort = str(request.query.get("sort") or "created_desc").lower()
     async with async_session_factory() as session:
         promos = await promo_code_dal.get_all_promo_codes_with_details(
-            session, limit=page_size, offset=page * page_size, personal=personal
+            session,
+            limit=page_size,
+            offset=page * page_size,
+            personal=personal,
+            sort=sort,
         )
         total = await promo_code_dal.get_promo_codes_count(session, personal=personal)
         # An install where nothing issues codes for a named customer reports
@@ -272,6 +277,7 @@ async def admin_promo_activations_route(request: web.Request) -> web.Response:
     promo_id = int(request.match_info["promo_id"])
     page = max(0, int(request.query.get("page", 0) or 0))
     page_size = min(100, max(1, int(request.query.get("page_size", 25) or 25)))
+    sort = str(request.query.get("sort") or "date_desc").lower()
     async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         promo = await promo_code_dal.get_promo_code_by_id(session, promo_id)
@@ -282,6 +288,7 @@ async def admin_promo_activations_route(request: web.Request) -> web.Response:
             promo_id,
             limit=page_size,
             offset=page * page_size,
+            sort=sort,
         )
         total = await promo_code_dal.count_promo_activations_by_code_id(session, promo_id)
         rows = [

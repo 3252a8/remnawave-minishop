@@ -38,6 +38,10 @@ export function createAutoRenewAction({
       const errorRecord = asRecord(error);
       if (errorRecord.error === "auto_renew_requires_saved_method") {
         showToast(t("wa_auto_renew_requires_saved_method"));
+      } else if (errorRecord.error === "auto_renew_provider_cancel_failed") {
+        // The mandate is still live upstream, so say so instead of echoing the
+        // English backend message.
+        showToast(t("wa_auto_renew_provider_cancel_failed"));
       } else {
         showToast(errorRecord.message || t("wa_auto_renew_update_failed"));
       }

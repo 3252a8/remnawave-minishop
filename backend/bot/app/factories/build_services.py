@@ -10,6 +10,7 @@ from bot.payment_providers import (
     ServiceFactoryContext,
     build_provider_configs,
     build_provider_services,
+    managed_recurring_provider_services,
     recurring_provider_services,
 )
 from bot.payment_providers.shared import RecurringProviderService
@@ -90,6 +91,9 @@ def build_core_services(
         payment_services.get("yookassa_service"),
     )
     subscription_service.recurring_provider_services = recurring_provider_services(payment_services)
+    subscription_service.managed_recurring_provider_services = managed_recurring_provider_services(
+        payment_services
+    )
     panel_webhook_service.subscription_service = subscription_service
 
     return CoreServices(

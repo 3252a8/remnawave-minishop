@@ -37,6 +37,7 @@ class _SettingsNamespace(SimpleNamespace):
 def _settings(**overrides):
     base = {
         "BACKUP_DIR": "data/backups",
+        "BACKUP_COMPOSE_SOURCE_DIR": None,
         "TARIFFS_CONFIG_PATH": "data/tariffs.json",
         "SUBSCRIPTION_MINI_APP_URL": "https://shop.example.com/app",
         "REDIS_URL": "redis://redis:6379/0",
@@ -82,6 +83,52 @@ class DataDirAlertsTests(unittest.TestCase):
                 alerts = health.data_dir_alerts(_settings(), app_root=Path(tmpdir))
 
         self.assertIn("data_dir_not_writable", _alert_ids(alerts))
+
+
+class ComposeDataMountAlertsTests(unittest.TestCase):
+    def test_different_data_mounts_are_reported_as_error(self):
+        compose = """
+services:
+  migrate:
+    volumes:
+      - shop-data:/app/data
+  backend:
+    volumes:
+      - ./data:/app/data
+  worker:
+    volumes:
+      - shop-data:/app/data
+"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            compose_path = Path(tmpdir) / "docker-compose.yml"
+            compose_path.write_text(compose, encoding="utf-8")
+            alerts = health.compose_data_mount_alerts(_settings(), compose_root=Path(tmpdir))
+
+        self.assertEqual(_alert_ids(alerts), ["data_mount_mismatch"])
+        self.assertEqual(alerts[0].severity, "error")
+        self.assertIn("tariffs", alerts[0].sections)
+        self.assertIn("backend=./data", alerts[0].params["mounts"])
+        self.assertIn("worker=shop-data", alerts[0].params["mounts"])
+
+    def test_shared_data_mount_produces_no_alert(self):
+        compose = """
+services:
+  migrate:
+    volumes:
+      - ./data:/app/data
+  backend:
+    volumes:
+      - ./data:/app/data
+  worker:
+    volumes:
+      - ./data:/app/data
+"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            compose_path = Path(tmpdir) / "docker-compose.yml"
+            compose_path.write_text(compose, encoding="utf-8")
+            alerts = health.compose_data_mount_alerts(_settings(), compose_root=Path(tmpdir))
+
+        self.assertEqual(alerts, [])
 
 
 class ConfigFileAlertsTests(unittest.TestCase):
@@ -326,6 +373,37 @@ class PanelAlertsTests(unittest.IsolatedAsyncioTestCase):
     async def test_healthy_panel_produces_no_alerts(self):
         panel_service = SimpleNamespace(get_system_stats=AsyncMock(return_value={"cpu": 1}))
         self.assertEqual(await health.panel_alerts(panel_service, _settings()), [])
+
+    async def test_current_panel_version_produces_no_alerts(self):
+        panel_service = SimpleNamespace(
+            get_system_stats=AsyncMock(return_value={"cpu": 1}),
+            panel_compatibility_diagnostics=AsyncMock(
+                return_value={
+                    "version": "3.0.0",
+                    "generation": "rw3-numeric-user-id",
+                    "support_status": "current",
+                }
+            ),
+        )
+        self.assertEqual(await health.panel_alerts(panel_service, _settings()), [])
+
+    async def test_future_major_is_allowed_but_reported_as_unverified(self):
+        panel_service = SimpleNamespace(
+            get_system_stats=AsyncMock(return_value={"cpu": 1}),
+            panel_compatibility_diagnostics=AsyncMock(
+                return_value={
+                    "version": "4.0.0",
+                    "generation": "unknown",
+                    "support_status": "unverified",
+                }
+            ),
+        )
+
+        alerts = await health.panel_alerts(panel_service, _settings())
+
+        self.assertEqual(_alert_ids(alerts), ["panel_api_version_unverified"])
+        self.assertEqual(alerts[0].severity, health.SEVERITY_WARNING)
+        self.assertEqual(alerts[0].params["version"], "4.0.0")
 
 
 class PremiumEnforcementAlertsTests(unittest.IsolatedAsyncioTestCase):

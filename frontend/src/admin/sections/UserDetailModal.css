@@ -1,18 +1,18 @@
 .admin-user-action-sheet {
-  border: 1px solid var(--admin-border-muted, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--admin-border);
   border-radius: 12px;
   margin-bottom: 14px;
   overflow: hidden;
-  background: var(--admin-surface-1, rgba(255, 255, 255, 0.02));
+  background: var(--admin-surface-2);
 }
 .admin-user-action-sheet.is-dirty {
-  border-color: color-mix(in srgb, var(--warning, #f5b84b) 46%, var(--admin-border-muted));
-  background: color-mix(in srgb, var(--warning, #f5b84b) 7%, var(--admin-surface-1));
+  border-color: color-mix(in srgb, var(--warning) 46%, var(--admin-border));
+  background: color-mix(in srgb, var(--warning) 7%, var(--admin-surface-2));
 }
 .admin-user-action-sheet .admin-dashboard-section-head {
   padding: 12px 14px 10px;
   margin: 0;
-  border-bottom: 1px solid var(--admin-border-muted, rgba(255, 255, 255, 0.06));
+  border-bottom: 1px solid var(--admin-border);
 }
 .admin-user-action-sheet-body {
   padding: 12px 14px 12px;
@@ -69,11 +69,11 @@
   flex: 0 0 auto;
 }
 .admin-unsaved-hint {
-  color: var(--warning, #f5b84b);
+  color: var(--warning);
   font-weight: 600;
 }
 .admin-invalid-hint {
-  color: var(--danger, #ef4444);
+  color: var(--danger);
   font-weight: 600;
 }
 .admin-override-unlimited-label {
@@ -124,10 +124,10 @@
   gap: 4px;
   min-width: 0;
   padding: 10px 12px;
-  border: 1px solid var(--admin-border, rgba(255, 255, 255, 0.12));
+  border: 1px solid var(--admin-border);
   border-radius: 8px;
-  background: var(--admin-surface-2, rgba(255, 255, 255, 0.04));
-  color: var(--admin-muted, inherit);
+  background: var(--admin-surface-2);
+  color: var(--admin-muted);
   font-size: 12px;
 }
 .admin-tariff-hwid-confirm-summary strong {
@@ -176,11 +176,11 @@
   gap: 10px;
   min-width: 0;
   padding: 10px;
-  border: 1px solid var(--admin-border-muted, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--admin-border);
   border-radius: 8px;
   background: color-mix(
     in srgb,
-    var(--admin-surface-2, rgba(255, 255, 255, 0.04)) 82%,
+    var(--admin-surface-2) 82%,
     transparent
   );
 }
@@ -211,9 +211,9 @@
   min-width: 0;
   width: 100%;
   padding: 7px 9px;
-  border: 1px solid var(--admin-border-muted, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--admin-border);
   border-radius: 8px;
-  background: var(--admin-surface-2, rgba(255, 255, 255, 0.04));
+  background: var(--admin-surface-2);
 }
 .admin-squad-row--removable {
   grid-template-columns: minmax(0, 1fr) auto;
@@ -261,9 +261,9 @@
   gap: 3px;
   min-width: 0;
   padding: 8px 10px;
-  border: 1px solid var(--admin-border-muted, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--admin-border);
   border-radius: 8px;
-  background: var(--admin-surface-2, rgba(255, 255, 255, 0.04));
+  background: var(--admin-surface-2);
 }
 .admin-squad-effective-grid small {
   color: var(--admin-muted);

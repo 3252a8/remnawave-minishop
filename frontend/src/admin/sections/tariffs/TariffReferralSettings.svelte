@@ -6,6 +6,7 @@
   import { Switch } from "$components/ui/primitives.js";
   import {
     DISPOSABLE_EMAIL_DOMAINS_PLACEHOLDER,
+    REFERRAL_LINK_KEYS,
     REFERRAL_RULE_KEYS,
     REFERRAL_SETTING_KEYS,
     REFERRAL_WELCOME_KEYS,
@@ -13,6 +14,8 @@
     dirtyCount as resolveDirtyCount,
     inputValueForKey as resolveInputValueForKey,
     isSettingDirty as resolveIsSettingDirty,
+    isLastEnabledReferralLink as resolveIsLastEnabledReferralLink,
+    referralLinkResetViolatesRequirement as resolveReferralLinkResetViolatesRequirement,
     textValueForKey as resolveTextValueForKey,
     valueForKey as resolveValueForKey,
     type SettingsDirtyState,
@@ -75,6 +78,14 @@
 
   function dirtyCount(keys: readonly string[], dirty: SettingsDirtyState = settingsDirty): number {
     return resolveDirtyCount(keys, dirty);
+  }
+
+  function isLastEnabledReferralLink(key: (typeof REFERRAL_LINK_KEYS)[number]): boolean {
+    return resolveIsLastEnabledReferralLink(key, settingsDirty, settingsFieldMap);
+  }
+
+  function referralLinkResetViolatesRequirement(key: (typeof REFERRAL_LINK_KEYS)[number]): boolean {
+    return resolveReferralLinkResetViolatesRequirement(key, settingsDirty, settingsFieldMap);
   }
 
   function setSetting(key: string, value: unknown): void {
@@ -146,6 +157,169 @@
             </div>
           {/if}
           <div class="admin-settings-field-groups admin-trial-settings-groups">
+            <section
+              class="admin-settings-field-group"
+              class:is-dirty={dirtyCount(REFERRAL_LINK_KEYS, settingsDirty)}
+            >
+              <header class="admin-settings-field-group-head">
+                <div class="admin-settings-field-group-head-copy">
+                  <strong>{at("tariffs_referral_group_links", {}, "Referral links")}</strong>
+                  <small>
+                    {at(
+                      "tariffs_referral_group_links_hint",
+                      {},
+                      "Choose which links are shown in the user Web App bonus section."
+                    )}
+                  </small>
+                </div>
+                {#if dirtyCount(REFERRAL_LINK_KEYS, settingsDirty)}
+                  <AdminBadge variant="warning">
+                    {at(
+                      "settings_dirty_count",
+                      { count: dirtyCount(REFERRAL_LINK_KEYS, settingsDirty) },
+                      "Changes: {count}"
+                    )}
+                  </AdminBadge>
+                {/if}
+              </header>
+              <div class="admin-settings-field-group-body">
+                <div
+                  class="admin-setting admin-trial-setting-row"
+                  class:is-dirty={isSettingDirty("REFERRAL_WEBAPP_LINK_ENABLED", settingsDirty)}
+                >
+                  <div class="admin-setting-meta">
+                    <strong>
+                      {at("tariffs_referral_webapp_link", {}, "Website referral link")}
+                      {#if isSettingDirty("REFERRAL_WEBAPP_LINK_ENABLED", settingsDirty)}
+                        <AdminBadge variant="warning"
+                          >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
+                        >
+                      {/if}
+                    </strong>
+                    <code>REFERRAL_WEBAPP_LINK_ENABLED</code>
+                    <small>
+                      {at(
+                        "tariffs_referral_webapp_link_hint",
+                        {},
+                        "Show the website link in the user bonus section."
+                      )}
+                    </small>
+                  </div>
+                  <div class="admin-setting-control">
+                    <div class="admin-setting-switch">
+                      <Switch.Root
+                        aria-label={at("tariffs_referral_webapp_link", {}, "Website referral link")}
+                        checked={boolValue(
+                          "REFERRAL_WEBAPP_LINK_ENABLED",
+                          settingsDirty,
+                          settingsFieldMap
+                        )}
+                        disabled={isLastEnabledReferralLink("REFERRAL_WEBAPP_LINK_ENABLED")}
+                        onCheckedChange={(checked) =>
+                          setSetting("REFERRAL_WEBAPP_LINK_ENABLED", checked)}
+                        class="admin-switch-root"
+                      >
+                        <Switch.Thumb class="admin-switch-thumb" />
+                      </Switch.Root>
+                      <span>
+                        {boolValue("REFERRAL_WEBAPP_LINK_ENABLED", settingsDirty, settingsFieldMap)
+                          ? at("enabled", {}, "Enabled")
+                          : at("disabled", {}, "Disabled")}
+                      </span>
+                    </div>
+                    {#if isSettingDirty("REFERRAL_WEBAPP_LINK_ENABLED", settingsDirty)}
+                      <AdminButton
+                        size="sm"
+                        variant="ghost"
+                        disabled={referralLinkResetViolatesRequirement(
+                          "REFERRAL_WEBAPP_LINK_ENABLED"
+                        )}
+                        onclick={() => resetSetting("REFERRAL_WEBAPP_LINK_ENABLED")}
+                      >
+                        <X size={12} />
+                        {at("reset", {}, "Reset")}
+                      </AdminButton>
+                    {/if}
+                  </div>
+                </div>
+
+                <div
+                  class="admin-setting admin-trial-setting-row"
+                  class:is-dirty={isSettingDirty("REFERRAL_TELEGRAM_LINK_ENABLED", settingsDirty)}
+                >
+                  <div class="admin-setting-meta">
+                    <strong>
+                      {at("tariffs_referral_telegram_link", {}, "Telegram referral link")}
+                      {#if isSettingDirty("REFERRAL_TELEGRAM_LINK_ENABLED", settingsDirty)}
+                        <AdminBadge variant="warning"
+                          >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
+                        >
+                      {/if}
+                    </strong>
+                    <code>REFERRAL_TELEGRAM_LINK_ENABLED</code>
+                    <small>
+                      {at(
+                        "tariffs_referral_telegram_link_hint",
+                        {},
+                        "Show the Telegram bot link in the user bonus section."
+                      )}
+                    </small>
+                  </div>
+                  <div class="admin-setting-control">
+                    <div class="admin-setting-switch">
+                      <Switch.Root
+                        aria-label={at(
+                          "tariffs_referral_telegram_link",
+                          {},
+                          "Telegram referral link"
+                        )}
+                        checked={boolValue(
+                          "REFERRAL_TELEGRAM_LINK_ENABLED",
+                          settingsDirty,
+                          settingsFieldMap
+                        )}
+                        disabled={isLastEnabledReferralLink("REFERRAL_TELEGRAM_LINK_ENABLED")}
+                        onCheckedChange={(checked) =>
+                          setSetting("REFERRAL_TELEGRAM_LINK_ENABLED", checked)}
+                        class="admin-switch-root"
+                      >
+                        <Switch.Thumb class="admin-switch-thumb" />
+                      </Switch.Root>
+                      <span>
+                        {boolValue(
+                          "REFERRAL_TELEGRAM_LINK_ENABLED",
+                          settingsDirty,
+                          settingsFieldMap
+                        )
+                          ? at("enabled", {}, "Enabled")
+                          : at("disabled", {}, "Disabled")}
+                      </span>
+                    </div>
+                    {#if isSettingDirty("REFERRAL_TELEGRAM_LINK_ENABLED", settingsDirty)}
+                      <AdminButton
+                        size="sm"
+                        variant="ghost"
+                        disabled={referralLinkResetViolatesRequirement(
+                          "REFERRAL_TELEGRAM_LINK_ENABLED"
+                        )}
+                        onclick={() => resetSetting("REFERRAL_TELEGRAM_LINK_ENABLED")}
+                      >
+                        <X size={12} />
+                        {at("reset", {}, "Reset")}
+                      </AdminButton>
+                    {/if}
+                  </div>
+                </div>
+                <small class="admin-muted">
+                  {at(
+                    "tariffs_referral_link_required_hint",
+                    {},
+                    "At least one referral link must remain enabled."
+                  )}
+                </small>
+              </div>
+            </section>
+
             <section
               class="admin-settings-field-group"
               class:is-dirty={dirtyCount(REFERRAL_WELCOME_KEYS, settingsDirty)}

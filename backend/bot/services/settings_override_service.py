@@ -35,6 +35,10 @@ APPEARANCE_OVERRIDE_KEYS = {
     "WEBAPP_LOGO_FAVICON_URL",
     "WEBAPP_PRIMARY_COLOR",
 }
+REFERRAL_LINK_VISIBILITY_KEYS = (
+    "REFERRAL_WEBAPP_LINK_ENABLED",
+    "REFERRAL_TELEGRAM_LINK_ENABLED",
+)
 APP_ROOT = Path(__file__).resolve().parents[3]
 APPEARANCE_OVERRIDES_BACKUP_PATH = APP_ROOT / "data" / "webapp-logo" / "appearance-settings.json"
 
@@ -170,6 +174,36 @@ def _normalize_exclusive_provider_toggles(
         normalized[opposite] = False
         normalized_deletes = [item for item in normalized_deletes if item != opposite]
     return normalized, normalized_deletes
+
+
+def _referral_link_visibility_errors(
+    settings: Settings,
+    updates: dict[str, Any],
+    deletes: list[str],
+) -> dict[str, str]:
+    touched = set(REFERRAL_LINK_VISIBILITY_KEYS).intersection((*updates, *deletes))
+    if not touched:
+        return {}
+
+    values = {key: bool(getattr(settings, key)) for key in REFERRAL_LINK_VISIBILITY_KEYS}
+    deleted_visibility_keys = set(deletes).intersection(REFERRAL_LINK_VISIBILITY_KEYS)
+    if deleted_visibility_keys:
+        try:
+            env_only = Settings()
+        except Exception:
+            return dict.fromkeys(
+                sorted(deleted_visibility_keys),
+                "could not resolve the environment default",
+            )
+        for key in deleted_visibility_keys:
+            values[key] = bool(getattr(env_only, key))
+    for key in REFERRAL_LINK_VISIBILITY_KEYS:
+        if key in updates:
+            values[key] = bool(updates[key])
+
+    if any(values.values()):
+        return {}
+    return dict.fromkeys(sorted(touched), "at least one referral link must remain enabled")
 
 
 def _appearance_snapshot(settings: Settings) -> dict[str, Any]:
@@ -343,6 +377,15 @@ async def update_overrides(
         coerced_updates,
         valid_deletes,
     )
+    errors.update(
+        _referral_link_visibility_errors(
+            settings,
+            coerced_updates,
+            valid_deletes,
+        )
+    )
+    if errors:
+        return {"ok": False, "errors": errors}
 
     async with async_session_factory() as raw_session:
         session: AsyncSession = raw_session

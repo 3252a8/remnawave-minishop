@@ -22,7 +22,11 @@ from db.dal import user_billing_dal
 
 from ..shared import PaymentCallbackParts, quote_hwid_callback_parts
 from ..shared import sale_mode_base as _sale_mode_base
-from .callback_common import _initiate_yk_payment, _yookassa_available_to_callback_user
+from .callback_common import (
+    _initiate_yk_payment,
+    _provider_spec,
+    _yookassa_available_to_callback_user,
+)
 from .router import router
 from .service import YooKassaService
 from .shared import _format_value, _parse_offer_payload
@@ -142,6 +146,7 @@ async def pay_yk_callback_handler(
         subscription_service=yookassa_service.subscription_service,
         currency=default_currency_key_for_settings(settings),
         settings=settings,
+        provider_spec=_provider_spec(),
     )
     if not quoted_parts:
         with contextlib.suppress(Exception):
@@ -167,6 +172,7 @@ async def pay_yk_callback_handler(
         sale_mode=sale_mode,
         hwid_quote=hwid_quote,
         entitlement_context_snapshot=quoted_parts.entitlement_context_snapshot,
+        checkout_promo=getattr(quoted_parts, "checkout_promo", None),
     )
     with contextlib.suppress(Exception):
         await callback.answer()
@@ -226,6 +232,7 @@ async def pay_yk_new_card_handler(
         subscription_service=yookassa_service.subscription_service,
         currency=default_currency_key_for_settings(settings),
         settings=settings,
+        provider_spec=_provider_spec(),
     )
     if not quoted_parts:
         with contextlib.suppress(Exception):
@@ -261,6 +268,7 @@ async def pay_yk_new_card_handler(
         sale_mode=sale_mode,
         hwid_quote=hwid_quote,
         entitlement_context_snapshot=quoted_parts.entitlement_context_snapshot,
+        checkout_promo=getattr(quoted_parts, "checkout_promo", None),
     )
     with contextlib.suppress(Exception):
         await callback.answer()

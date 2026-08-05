@@ -104,4 +104,6 @@ class ReferralSettings(BaseModel):
     one_bonus_per_referee: bool
     welcome_bonus_days: int
     welcome_bonus_without_telegram_enabled: bool
+    webapp_link_enabled: bool = True
+    telegram_link_enabled: bool = True
     legacy_refs_enabled: bool

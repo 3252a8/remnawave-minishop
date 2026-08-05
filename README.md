@@ -74,7 +74,9 @@ Remnawave Minishop - Telegram-бот и Web App (Mini App) для продажи
 
 Требования:
 
-- Docker и Docker Compose;
+- Docker Engine **25.0+** и Docker Compose **2.20.2+**; install wizard проверяет версии до
+  настройки, предлагает обновить runtime до latest stable и валидирует итоговый
+  `docker compose config` до `pull/up`;
 - рабочая панель Remnawave версии **`> 2.7.0`** (см. раздел «Совместимость»);
 - токен Telegram-бота;
 - публичные домены для webhook и Mini App.

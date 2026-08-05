@@ -10,7 +10,7 @@ import { defineConfig, devices } from "@playwright/test";
 // serving it, so the suite always exercises the latest code. Set
 // PLAYWRIGHT_SKIP_DEMO_BUILD=1 to serve an existing build (faster local loop).
 
-const PORT = Number(process.env.PORT || 8090);
+const PORT = Number(process.env.PORT || 8091);
 const baseURL = `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({

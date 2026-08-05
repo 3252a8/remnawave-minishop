@@ -44,7 +44,7 @@ class AdminLogsLoadingTests(unittest.IsolatedAsyncioTestCase):
     async def test_web_admin_logs_route_returns_serialized_rows(self):
         session_factory = _SessionFactory()
         request = SimpleNamespace(
-            query={"page": "0", "page_size": "50"},
+            query={"page": "0", "page_size": "50", "sort": "event_asc"},
             app={"async_session_factory": session_factory},
         )
         log_entry = _message_log()
@@ -71,7 +71,7 @@ class AdminLogsLoadingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["logs"][0]["log_id"], 101)
         self.assertEqual(payload["logs"][0]["user_label"], "Alice")
         self.assertEqual(payload["logs"][0]["email"], "alice@example.test")
-        get_all_logs.assert_awaited_once_with(session_factory.session, 50, 0)
+        get_all_logs.assert_awaited_once_with(session_factory.session, 50, 0, sort="event_asc")
 
     async def test_telegram_admin_logs_handler_uses_message_log_dal(self):
         callback = SimpleNamespace(

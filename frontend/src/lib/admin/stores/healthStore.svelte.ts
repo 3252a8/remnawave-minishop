@@ -26,9 +26,18 @@ export type HealthAlert = {
   params: Record<string, unknown>;
   sections: string[];
 };
+export type PanelCompatibility = {
+  version: string | null;
+  generation: string;
+  support_status: string;
+  certified_versions: string[];
+  capabilities: string[];
+  observed_capabilities: Record<string, boolean>;
+};
 type HealthState = {
   alerts: HealthAlert[];
   checkedAt: string | null;
+  panelCompatibility: PanelCompatibility | null;
   healthLoading: boolean;
   healthError: string;
 };
@@ -92,6 +101,7 @@ export function createHealthStore({
   const state = $state<HealthState>({
     alerts: [],
     checkedAt: null,
+    panelCompatibility: null,
     healthLoading: false,
     healthError: "",
   });
@@ -129,6 +139,7 @@ export function createHealthStore({
       const data = await queryHealth(refresh);
       state.alerts = normalizeAlerts(data.alerts);
       state.checkedAt = data.checked_at || null;
+      state.panelCompatibility = data.panel_compatibility || null;
     } catch (e: unknown) {
       state.healthError = healthErrorMessage(e);
     } finally {

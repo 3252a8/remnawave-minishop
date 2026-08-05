@@ -46,6 +46,7 @@ type PromosState = {
   promos: Promo[];
   promosTotal: number;
   promosPage: number;
+  promosSort: string;
   promoKind: PromoKind;
   promoOwnedTotal: number;
   promosLoading: boolean;
@@ -59,6 +60,7 @@ type PromosState = {
   promoActivations: PromoActivation[];
   promoActivationsTotal: number;
   promoActivationsPage: number;
+  promoActivationsSort: string;
   promoActivationsLoading: boolean;
 };
 type PromosStoreOptions = {
@@ -82,6 +84,8 @@ export type PromosStore = PromosState & {
   loadActivations: (page?: number) => Promise<void>;
   setActivationsPage: (page: number) => void;
   setPage: (page: number) => void;
+  setSort: (sort: string) => void;
+  setActivationsSort: (sort: string) => void;
   setPromoKind: (kind: PromoKind) => void;
   setCreateOpen: (open: boolean) => void;
   updateDraft: (fields: Partial<PromoDraft>) => void;
@@ -191,6 +195,7 @@ export function createPromosStore({
   const state = $state<Omit<PromosState, "promos" | "promoActivations">>({
     promosTotal: 0,
     promosPage: 0,
+    promosSort: "",
     promoKind: "shared",
     promoOwnedTotal: 0,
     promosLoading: false,
@@ -203,6 +208,7 @@ export function createPromosStore({
     promoActivationsPromo: null,
     promoActivationsTotal: 0,
     promoActivationsPage: 0,
+    promoActivationsSort: "date_desc",
     promoActivationsLoading: false,
   });
   const store = Object.create(state) as PromosStore;
@@ -221,22 +227,30 @@ export function createPromosStore({
 
   const PROMOS_PAGE_SIZE = 25;
   const ACTIVATIONS_PAGE_SIZE = 25;
+  let promosRequestSeq = 0;
+  let activationsRequestSeq = 0;
 
-  function promosQueryKey(page: number, kind: PromoKind): AdminQueryKey {
+  function promosQueryKey(page: number, kind: PromoKind, sort: string): AdminQueryKey {
     return [
       PROMOS_QUERY_KEY[0],
       PROMOS_QUERY_KEY[1],
       {
         page,
         kind,
+        sort,
       },
     ];
   }
 
-  async function requestPromos(page: number, kind: PromoKind): Promise<PromosListResponse> {
+  async function requestPromos(
+    page: number,
+    kind: PromoKind,
+    sort: string
+  ): Promise<PromosListResponse> {
     const params = new URLSearchParams({
       page: String(page),
       page_size: String(PROMOS_PAGE_SIZE),
+      sort,
     });
     // The backend pages each kind on its own, so a tab never mixes the two.
     if (kind !== "all") params.set("kind", kind);
@@ -247,23 +261,26 @@ export function createPromosStore({
     return data;
   }
 
-  function promoActivationsQueryKey(promoId: number, page: number): AdminQueryKey {
+  function promoActivationsQueryKey(promoId: number, page: number, sort: string): AdminQueryKey {
     return [
       PROMO_ACTIVATIONS_QUERY_KEY[0],
       PROMO_ACTIVATIONS_QUERY_KEY[1],
       PROMO_ACTIVATIONS_QUERY_KEY[2],
       promoId,
       page,
+      sort,
     ];
   }
 
   async function requestPromoActivations(
     promoId: number,
-    page: number
+    page: number,
+    sort: string
   ): Promise<PromoActivationsResponse> {
     const params = new URLSearchParams({
       page: String(page),
       page_size: String(ACTIVATIONS_PAGE_SIZE),
+      sort,
     });
     const data = await api(buildAdminPromoActivationsPath(promoId, params));
     if (!isOkResponse(data)) {
@@ -278,17 +295,20 @@ export function createPromosStore({
   }
 
   async function loadPromos({ refresh = false }: { refresh?: boolean } = {}): Promise<void> {
+    const requestSeq = ++promosRequestSeq;
     state.promosLoading = true;
     const currentPage = state.promosPage;
     const currentKind = state.promoKind;
+    const currentSort = state.promosSort;
     try {
       const data = await fetchAdminQuery({
         queryClient,
-        queryKey: promosQueryKey(currentPage, currentKind),
-        queryFn: () => requestPromos(currentPage, currentKind),
+        queryKey: promosQueryKey(currentPage, currentKind, currentSort),
+        queryFn: () => requestPromos(currentPage, currentKind, currentSort),
         refresh,
       });
       const payload = unwrap(data);
+      if (requestSeq !== promosRequestSeq) return;
       promos = payload.promos || [];
       state.promosTotal = payload.total || 0;
       state.promoOwnedTotal = payload.owned_total || 0;
@@ -300,13 +320,14 @@ export function createPromosStore({
         void loadPromos({ refresh });
       }
     } catch (error) {
+      if (requestSeq !== promosRequestSeq) return;
       if (error instanceof AdminPromosError) {
         onToast(adminErrorMessage(error.payload, at, "Error"));
       } else {
         onToast(error instanceof Error ? error.message : String(error || "Error"));
       }
     } finally {
-      state.promosLoading = false;
+      if (requestSeq === promosRequestSeq) state.promosLoading = false;
     }
   }
 
@@ -416,6 +437,7 @@ export function createPromosStore({
   }
 
   function closeActivations(): void {
+    activationsRequestSeq += 1;
     state.promoActivationsOpen = false;
     state.promoActivationsPromo = null;
     promoActivations = [];
@@ -426,25 +448,29 @@ export function createPromosStore({
   async function loadActivations(page = state.promoActivationsPage): Promise<void> {
     const promo = state.promoActivationsPromo;
     if (!promo) return;
+    const requestSeq = ++activationsRequestSeq;
     state.promoActivationsLoading = true;
     state.promoActivationsPage = page;
     try {
       const data = await fetchAdminQuery({
         queryClient,
-        queryKey: promoActivationsQueryKey(promo.id, page),
-        queryFn: () => requestPromoActivations(promo.id, page),
+        queryKey: promoActivationsQueryKey(promo.id, page, state.promoActivationsSort),
+        queryFn: () => requestPromoActivations(promo.id, page, state.promoActivationsSort),
       });
       const payload = unwrap(data);
+      if (requestSeq !== activationsRequestSeq || state.promoActivationsPromo?.id !== promo.id)
+        return;
       promoActivations = payload.activations || [];
       state.promoActivationsTotal = payload.total || 0;
     } catch (error) {
+      if (requestSeq !== activationsRequestSeq) return;
       if (error instanceof AdminPromosError) {
         onToast(adminErrorMessage(error.payload, at, "Error"));
       } else {
         onToast(error instanceof Error ? error.message : String(error || "Error"));
       }
     } finally {
-      state.promoActivationsLoading = false;
+      if (requestSeq === activationsRequestSeq) state.promoActivationsLoading = false;
     }
   }
 
@@ -455,6 +481,17 @@ export function createPromosStore({
   function setPage(page: number): void {
     state.promosPage = page;
     void loadPromos();
+  }
+
+  function setSort(sort: string): void {
+    state.promosSort = sort;
+    state.promosPage = 0;
+    void loadPromos();
+  }
+
+  function setActivationsSort(sort: string): void {
+    state.promoActivationsSort = sort;
+    void loadActivations(0);
   }
 
   function setPromoKind(kind: PromoKind): void {
@@ -492,6 +529,8 @@ export function createPromosStore({
     loadActivations,
     setActivationsPage,
     setPage,
+    setSort,
+    setActivationsSort,
     setPromoKind,
     setCreateOpen,
     updateDraft,

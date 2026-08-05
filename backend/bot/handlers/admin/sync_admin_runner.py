@@ -14,7 +14,12 @@ from bot.services.panel_activity import (
 from bot.services.panel_api_service import PanelApiService
 from config.settings import Settings
 from db.advisory_locks import acquire_subscription_background_sync_lock
-from db.dal import panel_sync_dal, subscription_dal, user_dal
+from db.dal import (
+    panel_sync_dal,
+    subscription_dal,
+    user_dal,
+    user_panel_squad_override_dal,
+)
 from db.models import Subscription, User
 
 from .sync_admin_common import (
@@ -155,6 +160,10 @@ async def _perform_sync_impl(
         active_subscriptions_by_user_panel = cast(
             dict[tuple[int, str], Subscription],
             sync_indexes["active_subscriptions_by_user_panel"],
+        )
+        subscriptions_by_user_panel = cast(
+            dict[tuple[int, str], Subscription],
+            sync_indexes["subscriptions_by_user_panel"],
         )
         panel_uuids_by_telegram_id = cast(
             dict[int, set[str]],
@@ -316,6 +325,7 @@ async def _perform_sync_impl(
                 # Get the actual user_id for subscription operations
                 actual_user_id = existing_user.user_id
                 is_duplicate_panel_identity = False
+                previous_panel_uuid_for_reconciliation: str | None = None
 
                 # Update panel UUID if different
                 if existing_user.panel_user_uuid != panel_uuid:
@@ -469,7 +479,18 @@ async def _perform_sync_impl(
                         )
                         continue
                     elif existing_user.panel_user_uuid != panel_uuid:
+                        previous_panel_uuid = existing_user.panel_user_uuid
+                        previous_panel_uuid_for_reconciliation = (
+                            str(previous_panel_uuid) if previous_panel_uuid else None
+                        )
                         existing_user.panel_user_uuid = panel_uuid
+                        if previous_panel_uuid:
+                            await user_panel_squad_override_dal.merge_panel_user_uuid(
+                                session,
+                                user_id=int(existing_user.user_id),
+                                old_panel_user_uuid=previous_panel_uuid,
+                                new_panel_user_uuid=str(panel_uuid),
+                            )
                         user_was_updated = True
                         _append_unique(user_update_reasons, "panel_uuid_synced")
                         users_uuid_updated += 1
@@ -619,11 +640,28 @@ async def _perform_sync_impl(
                             existing_sub_by_uuid = subscriptions_by_panel_uuid.get(
                                 subscription_uuid_from_panel
                             )
+                            if (
+                                existing_sub_by_uuid is None
+                                and previous_panel_uuid_for_reconciliation
+                            ):
+                                existing_sub_by_uuid = subscriptions_by_user_panel.get(
+                                    (
+                                        int(actual_user_id),
+                                        previous_panel_uuid_for_reconciliation,
+                                    )
+                                )
 
                             if existing_sub_by_uuid:
+                                previous_subscription_uuid = str(
+                                    existing_sub_by_uuid.panel_subscription_uuid or ""
+                                )
+                                previous_subscription_panel_user = str(
+                                    existing_sub_by_uuid.panel_user_uuid
+                                )
                                 update_payload = {
                                     "user_id": actual_user_id,
                                     "panel_user_uuid": panel_uuid,
+                                    "panel_subscription_uuid": subscription_uuid_from_panel,
                                     "end_date": panel_expire_at,
                                     "is_active": panel_status_means_active(panel_status),
                                     "status_from_panel": panel_status,
@@ -647,6 +685,35 @@ async def _perform_sync_impl(
                                     user_was_updated = True
                                     for reason in _subscription_update_reason_labels(update_delta):
                                         _append_unique(user_update_reasons, reason)
+                                if previous_subscription_uuid:
+                                    subscriptions_by_panel_uuid.pop(
+                                        previous_subscription_uuid,
+                                        None,
+                                    )
+                                subscriptions_by_panel_uuid[subscription_uuid_from_panel] = (
+                                    existing_sub_by_uuid
+                                )
+                                subscriptions_by_user_panel.pop(
+                                    (
+                                        int(actual_user_id),
+                                        previous_subscription_panel_user,
+                                    ),
+                                    None,
+                                )
+                                subscriptions_by_user_panel[(int(actual_user_id), panel_uuid)] = (
+                                    existing_sub_by_uuid
+                                )
+                                active_subscriptions_by_user_panel.pop(
+                                    (
+                                        int(actual_user_id),
+                                        previous_subscription_panel_user,
+                                    ),
+                                    None,
+                                )
+                                if existing_sub_by_uuid.is_active:
+                                    active_subscriptions_by_user_panel[
+                                        (int(actual_user_id), panel_uuid)
+                                    ] = existing_sub_by_uuid
                                 subscriptions_synced_count += 1
                                 logger.debug(
                                     "Synced existing subscription %s for user %s: expires %s, "

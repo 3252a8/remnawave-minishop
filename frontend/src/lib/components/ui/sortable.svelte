@@ -225,7 +225,7 @@
 
 <style>
   .ui-sortable {
-    --sortable-accent: var(--admin-ring, var(--admin-accent, var(--accent, #4f8cff)));
+    --sortable-accent: var(--admin-ring, var(--accent));
     --sortable-drop-soft: color-mix(in srgb, var(--sortable-accent) 10%, transparent);
     --sortable-drop-line: color-mix(
       in srgb,

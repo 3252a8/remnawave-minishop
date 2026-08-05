@@ -12,9 +12,11 @@ from config.tariffs_config import (
 
 from .user_keyboards_context import (
     HWID_RENEWAL_TOKEN,
+    PROMO_DISABLED_TOKEN,
     callback_context_from_sale_mode,
     payment_methods_back_callback,
     payment_options_back_callback,
+    sale_mode_has_token,
     sale_mode_with_token,
     sale_mode_without_token,
 )
@@ -45,6 +47,8 @@ def get_payment_method_keyboard(
     hwid_renewal_quote: dict[str, Any] | None = None,
     hwid_renewal_stars_quote: dict[str, Any] | None = None,
     hwid_renewal_selected: bool = True,
+    checkout_promo: Any | None = None,
+    checkout_stars_promo: Any | None = None,
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
@@ -65,6 +69,8 @@ def get_payment_method_keyboard(
         toggle_tokens = [f"tariff:period:{tariff_key}:{value_str}"]
         if context:
             toggle_tokens.append(context)
+        if sale_mode_has_token(sale_mode, PROMO_DISABLED_TOKEN):
+            toggle_tokens.append(PROMO_DISABLED_TOKEN)
         toggle_tokens.append("no_hwid" if hwid_renewal_selected else "hwid")
         builder.row(
             InlineKeyboardButton(
@@ -87,11 +93,30 @@ def get_payment_method_keyboard(
 
     for method in settings.payment_methods_order:
         spec = get_provider_spec(method)
+        effective_price = (
+            getattr(checkout_promo, "effective_amount", price)
+            if spec and spec.price_source != "stars"
+            else getattr(checkout_stars_promo or checkout_promo, "effective_stars", stars_price)
+        )
+        if spec and hwid_renewal_selected:
+            provider_hwid_quote = (
+                hwid_renewal_stars_quote if spec.price_source == "stars" else hwid_renewal_quote
+            )
+            if provider_hwid_quote and effective_price is not None:
+                effective_price = float(effective_price) + float(
+                    provider_hwid_quote.get("price") or 0
+                )
         if (
             not spec
             or not spec.callback_prefix
-            or not spec.is_usable_for_payment(settings, provider_currency_code, price)
+            or not spec.is_usable_for_payment(settings, provider_currency_code, effective_price)
             or not spec.is_usable_for_payment_context(settings, months, payment_sale_mode)
+            or not spec.is_checkout_promo_supported(
+                settings,
+                months,
+                payment_sale_mode,
+                checkout_promo,
+            )
             or not spec.is_available_to_user(
                 settings,
                 user_id=user_id,

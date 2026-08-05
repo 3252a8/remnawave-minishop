@@ -9,6 +9,7 @@ from typing import Any
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.sql.elements import ColumnElement
 
 from ..models import (
     LegacyReferralCode,
@@ -63,13 +64,24 @@ async def get_users_referred_by(
     *,
     limit: int = 50,
     offset: int = 0,
+    sort: str = "registration_desc",
 ) -> list[User]:
     safe_limit = max(1, min(500, int(limit or 50)))
     safe_offset = max(0, int(offset or 0))
+    sort_columns: dict[str, ColumnElement[Any]] = {
+        "user": func.coalesce(User.first_name, User.username, User.email),
+        "id": User.user_id,
+        "registration": User.registration_date,
+    }
+    sort_key, _, direction = (sort or "registration_desc").lower().rpartition("_")
+    column = sort_columns.get(sort_key, User.registration_date)
+    descending = direction != "asc"
+    order = column.desc().nullslast() if descending else column.asc().nullslast()
+    tie_breaker = User.user_id.desc() if descending else User.user_id.asc()
     stmt = (
         select(User)
         .where(User.referred_by_id == user_id)
-        .order_by(User.registration_date.desc().nullslast(), User.user_id.desc())
+        .order_by(order, tie_breaker)
         .offset(safe_offset)
         .limit(safe_limit)
     )

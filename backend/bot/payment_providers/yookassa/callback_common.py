@@ -13,6 +13,7 @@ from bot.keyboards.inline.user_keyboards import (
     get_payment_url_keyboard,
 )
 from bot.middlewares.i18n import JsonI18n
+from bot.services.checkout_promos import CheckoutPromoResult, checkout_promo_payment_fields
 from bot.utils.callback_answer import callback_message_or_none
 from config.settings import Settings
 from db.dal import payment_dal, user_billing_dal
@@ -53,6 +54,7 @@ async def _initiate_yk_payment(
     sale_mode: str = "subscription",
     hwid_quote: dict[str, Any] | None = None,
     entitlement_context_snapshot: str | None = None,
+    checkout_promo: CheckoutPromoResult | None = None,
 ) -> bool:
     """Create payment record and initiate YooKassa payment (new card or saved card)."""
     message = callback_message_or_none(callback)
@@ -97,6 +99,7 @@ async def _initiate_yk_payment(
         "hwid_traffic_bonus_bytes": hwid_quote.get("traffic_bonus_bytes") if hwid_quote else None,
         "entitlement_context_snapshot": entitlement_context_snapshot,
     }
+    payment_record_data.update(checkout_promo_payment_fields(checkout_promo))
 
     db_payment_record = None
     try:
@@ -127,6 +130,8 @@ async def _initiate_yk_payment(
         "payment_db_id": str(db_payment_record.payment_id),
         "sale_mode": sale_mode,
     }
+    if checkout_promo is not None:
+        yookassa_metadata["promo_code_id"] = str(checkout_promo.promo_code_id)
     if sale_base in {"traffic", "traffic_package", "topup", "premium_topup"}:
         yookassa_metadata["traffic_gb"] = str(months)
     if sale_base in HWID_DEVICE_SALE_BASES:

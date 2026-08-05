@@ -76,6 +76,8 @@ export function createUsersStore({
   let _pathContext: PathContext = null;
   let _openUserRequestId = 0;
   let _loadUsersRequestId = 0;
+  let _userLogsRequestId = 0;
+  let _userReferralsRequestId = 0;
   const {
     invalidateUsersQueries,
     loadUserErrorMessage,
@@ -370,6 +372,8 @@ export function createUsersStore({
   function closeUser(opts: OpenUserOptions = {}) {
     let wasOpen = false;
     _openUserRequestId += 1;
+    _userLogsRequestId += 1;
+    _userReferralsRequestId += 1;
     applyState((s) => {
       wasOpen = Boolean(s.openedUser);
       return {
@@ -385,6 +389,7 @@ export function createUsersStore({
     const s = readStateSnapshot();
     if (!s.openedUser) return;
     const userId = s.openedUser.user_id;
+    const requestId = ++_userLogsRequestId;
     const targetPage = Number.isFinite(page) ? Math.max(0, Math.floor(page)) : s.userLogsPage || 0;
     applyState((st) => ({
       ...st,
@@ -393,9 +398,10 @@ export function createUsersStore({
       userLogsUserId: userId,
     }));
     try {
-      const data = await queryUserLogs(userId, targetPage);
+      const data = await queryUserLogs(userId, targetPage, s.userLogsSort);
       applyState((st) => {
-        if (!st.openedUser || st.openedUser.user_id !== userId) return st;
+        if (requestId !== _userLogsRequestId || !st.openedUser || st.openedUser.user_id !== userId)
+          return st;
         return {
           ...st,
           userLogs: data.logs || [],
@@ -404,13 +410,16 @@ export function createUsersStore({
         };
       });
     } catch (error) {
+      if (requestId !== _userLogsRequestId) return;
       if (error instanceof AdminUsersError) {
         onToast(adminErrorMessage(error.payload, at));
       } else {
         onToast(loadUserErrorMessage(error));
       }
     } finally {
-      applyState((st) => ({ ...st, userLogsLoading: false }));
+      if (requestId === _userLogsRequestId) {
+        applyState((st) => ({ ...st, userLogsLoading: false }));
+      }
     }
   }
 
@@ -418,10 +427,16 @@ export function createUsersStore({
     loadUserLogs(page);
   }
 
+  function setUserLogsSort(sort: string) {
+    applyState((state) => ({ ...state, userLogsSort: sort }));
+    void loadUserLogs(0);
+  }
+
   async function openUserReferrals(page = 0) {
     const s = readStateSnapshot();
     if (!s.openedUser) return;
     const userId = s.openedUser.user_id;
+    const requestId = ++_userReferralsRequestId;
     const targetPage = Number.isFinite(page) ? Math.max(0, Math.floor(page)) : 0;
     applyState((st) => ({
       ...st,
@@ -431,9 +446,14 @@ export function createUsersStore({
     }));
     try {
       const pageSize = s.userReferralsPageSize || USERS_PAGE_SIZE;
-      const data = await queryUserReferrals(userId, targetPage, pageSize);
+      const data = await queryUserReferrals(userId, targetPage, pageSize, s.userReferralsSort);
       applyState((st) => {
-        if (!st.openedUser || st.openedUser.user_id !== userId) return st;
+        if (
+          requestId !== _userReferralsRequestId ||
+          !st.openedUser ||
+          st.openedUser.user_id !== userId
+        )
+          return st;
         return {
           ...st,
           userReferrals: data.invitees || [],
@@ -444,17 +464,21 @@ export function createUsersStore({
         };
       });
     } catch (error) {
+      if (requestId !== _userReferralsRequestId) return;
       if (error instanceof AdminUsersError) {
         onToast(adminErrorMessage(error.payload, at));
       } else {
         onToast(loadUserErrorMessage(error));
       }
     } finally {
-      applyState((st) => ({ ...st, userReferralsLoading: false }));
+      if (requestId === _userReferralsRequestId) {
+        applyState((st) => ({ ...st, userReferralsLoading: false }));
+      }
     }
   }
 
   function closeUserReferrals() {
+    _userReferralsRequestId += 1;
     applyState((s) => ({
       ...s,
       userReferralsOpen: false,
@@ -463,6 +487,11 @@ export function createUsersStore({
 
   function setUserReferralsPage(page: number) {
     openUserReferrals(page);
+  }
+
+  function setUserReferralsSort(sort: string) {
+    applyState((state) => ({ ...state, userReferralsSort: sort }));
+    void openUserReferrals(0);
   }
 
   function copyToClipboard(
@@ -922,10 +951,12 @@ export function createUsersStore({
     ...squadOverrideActions,
     ...subscriptionReissueActions,
     loadUserLogs,
+    setUserLogsSort,
     setUserLogsPage,
     openUserReferrals,
     closeUserReferrals,
     setUserReferralsPage,
+    setUserReferralsSort,
   });
 }
 

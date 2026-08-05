@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import re
 from collections import defaultdict
@@ -13,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
 from bot.services.panel_activity import _panel_user_connection_activity
+from bot.services.panel_user_snapshot import load_panel_users_by_reference
 from db.dal import user_dal
 from db.models import Subscription, User
 
@@ -381,26 +381,11 @@ class AudienceSegmentationService:
             for user_id in order
         }
 
-    async def _panel_connection_status(self, panel_uuid: str) -> str:
-        try:
-            panel_user = await self.panel_service.get_user_by_uuid(panel_uuid)
-        except Exception as exc:
-            logger.warning("Failed to fetch panel user activity uuid=%s: %s", panel_uuid, exc)
-            return "unknown"
-        activity = _panel_user_connection_activity(panel_user)
-        return str(activity.get("status") or "unknown")
-
     async def _user_ids_with_active_subscription_never_connected(
         self,
         session: Any,
     ) -> list[int]:
         panel_uuids_by_user = await self._active_subscription_panel_uuids_by_user(session)
-        semaphore = asyncio.Semaphore(PANEL_ACTIVITY_LOOKUP_CONCURRENCY)
-
-        async def lookup(panel_uuid: str) -> str:
-            async with semaphore:
-                return await self._panel_connection_status(panel_uuid)
-
         panel_uuids = list(
             dict.fromkeys(
                 panel_uuid
@@ -409,17 +394,16 @@ class AudienceSegmentationService:
                 if last_connected_at is None
             )
         )
-        statuses_by_uuid = (
-            dict(
-                zip(
-                    panel_uuids,
-                    await asyncio.gather(*(lookup(uuid) for uuid in panel_uuids)),
-                    strict=True,
-                )
-            )
-            if panel_uuids
-            else {}
+        snapshot = await load_panel_users_by_reference(
+            self.panel_service,
+            panel_uuids,
+            threshold=50,
+            concurrency=PANEL_ACTIVITY_LOOKUP_CONCURRENCY,
         )
+        statuses_by_uuid = {
+            panel_uuid: str(_panel_user_connection_activity(panel_user).get("status") or "unknown")
+            for panel_uuid, panel_user in snapshot.users_by_reference.items()
+        }
         user_ids: list[int] = []
         for user_id, entries in panel_uuids_by_user.items():
             statuses = [

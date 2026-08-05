@@ -310,6 +310,7 @@ def _get_cached_webapp_settings(request: web.Request) -> dict[str, Any]:
             "user_agreement_url": settings.USER_AGREEMENT_URL or "",
             "currency": payment_settings.default_currency_symbol or "RUB",
             "email_auth_enabled": settings.email_auth_configured,
+            "auth_providers": settings.webapp_auth_providers,
             "registration_invite_only_enabled": bool(
                 settings.registration_settings.invite_only_enabled
             ),
@@ -539,6 +540,7 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
                 base_languages=base_locales_data.keys(),
             ),
             "emailAuthEnabled": cached["email_auth_enabled"],
+            "authProviders": cached["auth_providers"],
             "registrationInviteOnlyEnabled": cached["registration_invite_only_enabled"],
             "appVersion": _resolve_app_version(),
             "appRepositoryUrl": APP_REPOSITORY_URL,

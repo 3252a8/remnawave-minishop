@@ -118,18 +118,27 @@ export function createUsersStoreQueries({
     });
   }
 
-  function userLogsQueryKey(userId: number | string, page: number): AdminQueryKey {
-    return [USER_LOGS_QUERY_KEY[0], USER_LOGS_QUERY_KEY[1], USER_LOGS_QUERY_KEY[2], userId, page];
+  function userLogsQueryKey(userId: number | string, page: number, sort: string): AdminQueryKey {
+    return [
+      USER_LOGS_QUERY_KEY[0],
+      USER_LOGS_QUERY_KEY[1],
+      USER_LOGS_QUERY_KEY[2],
+      userId,
+      page,
+      sort,
+    ];
   }
 
   async function requestUserLogs(
     userId: number | string,
-    page: number
+    page: number,
+    sort: string
   ): Promise<AdminLogsResponse> {
     const params = new URLSearchParams({
       page: String(page),
       page_size: String(USER_LOGS_PAGE_SIZE),
       user_id: String(userId),
+      sort,
     });
     const data = (await api(buildAdminUserLogsPath(params))) as
       AdminLogsResponse | AdminErrorResponse;
@@ -139,18 +148,23 @@ export function createUsersStoreQueries({
     return data;
   }
 
-  function queryUserLogs(userId: number | string, page: number): Promise<AdminLogsResponse> {
+  function queryUserLogs(
+    userId: number | string,
+    page: number,
+    sort: string
+  ): Promise<AdminLogsResponse> {
     return fetchAdminQuery({
       queryClient,
-      queryKey: userLogsQueryKey(userId, page),
-      queryFn: () => requestUserLogs(userId, page),
+      queryKey: userLogsQueryKey(userId, page, sort),
+      queryFn: () => requestUserLogs(userId, page, sort),
     });
   }
 
   function userReferralsQueryKey(
     userId: number | string,
     page: number,
-    pageSize: number
+    pageSize: number,
+    sort: string
   ): AdminQueryKey {
     return [
       USER_REFERRALS_QUERY_KEY[0],
@@ -159,17 +173,20 @@ export function createUsersStoreQueries({
       userId,
       page,
       pageSize,
+      sort,
     ];
   }
 
   async function requestUserReferrals(
     userId: number | string,
     page: number,
-    pageSize: number
+    pageSize: number,
+    sort: string
   ): Promise<AdminUserReferralsResponse> {
     const params = new URLSearchParams({
       page: String(page),
       page_size: String(pageSize),
+      sort,
     });
     const data = (await api(buildAdminUserReferralsPath(userId, params))) as
       AdminUserReferralsResponse | AdminErrorResponse;
@@ -182,12 +199,13 @@ export function createUsersStoreQueries({
   function queryUserReferrals(
     userId: number | string,
     page: number,
-    pageSize: number
+    pageSize: number,
+    sort: string
   ): Promise<AdminUserReferralsResponse> {
     return fetchAdminQuery({
       queryClient,
-      queryKey: userReferralsQueryKey(userId, page, pageSize),
-      queryFn: () => requestUserReferrals(userId, page, pageSize),
+      queryKey: userReferralsQueryKey(userId, page, pageSize, sort),
+      queryFn: () => requestUserReferrals(userId, page, pageSize, sort),
     });
   }
 

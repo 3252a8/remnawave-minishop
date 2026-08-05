@@ -30,6 +30,7 @@ from bot.services.backup_restore_service import (
 )
 from bot.services.backup_worker import BackupResult, BackupWorker
 from config.settings import Settings
+from db.restore_guard import database_restore_fence
 
 from .auth import (
     _require_admin_user_id,
@@ -231,7 +232,8 @@ async def admin_backups_restore_route(request: web.Request) -> web.Response:
     restore_database = bool(body.restore_database)
     restore_compose = bool(body.restore_compose)
     confirm = bool(body.confirm)
-    if not confirm:
+    confirmation = str(body.confirmation or "").strip()
+    if not confirm or not secrets.compare_digest(confirmation, archive_name):
         return _error(400, "restore_confirmation_required")
 
     service = BackupRestoreService(settings)
@@ -248,17 +250,38 @@ async def admin_backups_restore_route(request: web.Request) -> web.Response:
         async with redis_lock(settings, "backup-worker", ttl_seconds=ttl_seconds) as acquired:
             if not acquired:
                 return _error(409, "backup_restore_busy", "Backup or restore is already running")
-            result = await service.restore_archive(
-                archive_name,
-                restore_database=restore_database,
-                restore_compose=restore_compose,
-            )
+            database_pre_restore_archive: str | None = None
+            if restore_database:
+                worker = BackupWorker(
+                    settings,
+                    get_bot(request),
+                    session_factory=get_session_factory(request),
+                )
+                await worker.refresh_settings()
+                pre_restore = await worker.create_backup(
+                    backup_type="pre-restore",
+                    force_database=True,
+                )
+                database_pre_restore_archive = str(pre_restore.archive_path)
+                async with database_restore_fence(settings):
+                    result = await service.restore_archive(
+                        archive_name,
+                        restore_database=True,
+                        restore_compose=restore_compose,
+                    )
+            else:
+                result = await service.restore_archive(
+                    archive_name,
+                    restore_database=False,
+                    restore_compose=restore_compose,
+                )
+            result.database_pre_restore_archive = database_pre_restore_archive
     except BackupArchiveError as exc:
         return _error(400, "invalid_backup_archive", str(exc))
     except BackupRestoreError as exc:
         logger.exception("Backup restore failed")
         return _error(500, "backup_restore_failed", str(exc))
-    except (OSError, subprocess.SubprocessError, TimeoutError) as exc:
+    except (OSError, RuntimeError, subprocess.SubprocessError, TimeoutError) as exc:
         logger.exception("Backup restore failed")
         return _error(500, "backup_restore_failed", str(exc))
     finally:

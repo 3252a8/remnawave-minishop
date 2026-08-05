@@ -329,6 +329,14 @@ body[data-scroll-locked] [data-scroll-container] {
   overflow: hidden;
 }
 
+/* Telegram may keep its WebView alive after the Mini App is dismissed. Pause
+   visual work explicitly instead of relying only on the host's throttling. */
+html[data-app-backgrounded] *,
+html[data-app-backgrounded] *::before,
+html[data-app-backgrounded] *::after {
+  animation-play-state: paused !important;
+}
+
 button,
 input {
   font: inherit;

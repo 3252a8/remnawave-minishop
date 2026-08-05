@@ -34,11 +34,18 @@ export const TRIAL_GENERAL_KEYS = [
 export const TRIAL_RESET_KEYS = ["TRIAL_TRAFFIC_STRATEGY"];
 export const TRIAL_SQUAD_KEYS = ["TRIAL_SQUAD_UUIDS", "TRIAL_PREMIUM_SQUAD_UUIDS"];
 export const REFERRAL_SETTING_KEYS = [
+  "REFERRAL_WEBAPP_LINK_ENABLED",
+  "REFERRAL_TELEGRAM_LINK_ENABLED",
   "REFERRAL_WELCOME_BONUS_DAYS",
   "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
   "REFERRAL_ONE_BONUS_PER_REFEREE",
   "DISPOSABLE_EMAIL_DOMAINS",
 ];
+export const REFERRAL_LINK_KEYS = [
+  "REFERRAL_WEBAPP_LINK_ENABLED",
+  "REFERRAL_TELEGRAM_LINK_ENABLED",
+] as const;
+export type ReferralLinkSettingKey = (typeof REFERRAL_LINK_KEYS)[number];
 export const REFERRAL_WELCOME_KEYS = [
   "REFERRAL_WELCOME_BONUS_DAYS",
   "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
@@ -200,6 +207,28 @@ export function isSettingDirty(key: string, dirty: SettingsDirtyState): boolean 
 
 export function dirtyCount(keys: readonly string[], dirty: SettingsDirtyState): number {
   return (keys || []).filter((key) => isSettingDirty(key, dirty)).length;
+}
+
+export function isLastEnabledReferralLink(
+  key: ReferralLinkSettingKey,
+  dirty: SettingsDirtyState,
+  fieldMap: Map<string, SettingField>
+): boolean {
+  const otherKey = REFERRAL_LINK_KEYS.find((candidate) => candidate !== key);
+  return Boolean(
+    otherKey && boolValue(key, dirty, fieldMap) && !boolValue(otherKey, dirty, fieldMap)
+  );
+}
+
+export function referralLinkResetViolatesRequirement(
+  key: ReferralLinkSettingKey,
+  dirty: SettingsDirtyState,
+  fieldMap: Map<string, SettingField>
+): boolean {
+  const otherKey = REFERRAL_LINK_KEYS.find((candidate) => candidate !== key);
+  return Boolean(
+    otherKey && !boolValue(key, {}, fieldMap) && !boolValue(otherKey, dirty, fieldMap)
+  );
 }
 
 export function csvList(

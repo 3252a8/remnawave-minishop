@@ -13,10 +13,12 @@ import time
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
-from bot.infra.redis import cache_get_json, cache_set_json, redis_key
+from bot.infra.redis import cache_delete, cache_get_json, cache_set_json, redis_key
 from bot.services.panel_api_service import PanelApiService
 from config.settings import Settings
 from db.models import Subscription
+
+from .tariff_worker_premium_batches import PremiumConnectionDropPlan
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +46,7 @@ class TariffWorkerPremiumEnforcementMixin:
             panel_username: str | None = None,
         ) -> dict[str, int]: ...
         def _premium_node_label(self, node_uuid: str) -> str: ...
+        def _queue_premium_connection_drop(self, plan: PremiumConnectionDropPlan) -> bool: ...
 
     async def _sync_premium_connection_state(
         self,
@@ -57,7 +60,7 @@ class TariffWorkerPremiumEnforcementMixin:
         panel_username: str | None,
     ) -> None:
         if not should_limit:
-            self.forget_premium_leak_watch(sub)
+            await self.forget_premium_leak_watch(sub)
             return
         await self._enforce_premium_disconnect(
             sub,
@@ -83,6 +86,7 @@ class TariffWorkerPremiumEnforcementMixin:
             return
         if not bool(getattr(self.settings, "TARIFF_PREMIUM_DROP_CONNECTIONS", True)):
             self._premium_leak_usage.pop(subscription_id, None)
+            await self._clear_premium_leak(subscription_id)
             return
 
         usage_by_node = await self._premium_usage_by_node(
@@ -92,6 +96,7 @@ class TariffWorkerPremiumEnforcementMixin:
             end_date,
             panel_username=panel_username,
         )
+        had_baseline = subscription_id in self._premium_leak_usage
         leaking_nodes = self._premium_leak_nodes(subscription_id, usage_by_node)
         self._premium_leak_usage[subscription_id] = dict(usage_by_node)
 
@@ -107,30 +112,45 @@ class TariffWorkerPremiumEnforcementMixin:
                 subscription_id,
                 ", ".join(self._premium_node_label(node) for node in leaking_nodes),
             )
+            await self._clear_premium_leak(
+                subscription_id,
+                keep_node_uuids=set(leaking_nodes),
+            )
             await self._record_premium_leak(leaking_nodes, subscription_id)
         else:
+            if had_baseline:
+                await self._clear_premium_leak(subscription_id)
             return
 
         if not self._premium_drop_cooldown_passed(subscription_id):
             return
-        self._premium_drop_connections_at[subscription_id] = time.monotonic()
         logger.info(
             "Dropping premium connections for subscription %s: reason=%s nodes=%s",
             subscription_id,
             reason,
             len(targets),
         )
-        await self.panel_service.drop_user_connections(
-            str(getattr(sub, "panel_user_uuid", "") or ""),
-            targets,
+        plan = PremiumConnectionDropPlan(
+            subscription_id=subscription_id,
+            panel_user_reference=str(getattr(sub, "panel_user_uuid", "") or ""),
+            node_uuids=tuple(sorted(dict.fromkeys(targets))),
         )
+        if self._queue_premium_connection_drop(plan):
+            return
+        dropped = await self.panel_service.drop_user_connections(
+            plan.panel_user_reference,
+            list(plan.node_uuids),
+        )
+        if dropped:
+            self._premium_drop_connections_at[subscription_id] = time.monotonic()
 
-    def forget_premium_leak_watch(self, sub: Subscription) -> None:
+    async def forget_premium_leak_watch(self, sub: Subscription) -> None:
         """Drop the per-node baseline once the subscription is not limited anymore."""
         subscription_id = int(getattr(sub, "subscription_id", 0) or 0)
         if subscription_id > 0:
             self._premium_leak_usage.pop(subscription_id, None)
             self._premium_drop_connections_at.pop(subscription_id, None)
+            await self._clear_premium_leak(subscription_id)
 
     def _premium_leak_nodes(
         self,
@@ -179,3 +199,40 @@ class TariffWorkerPremiumEnforcementMixin:
                 "subscriptions": subscriptions,
             }
         await cache_set_json(self.settings, key, record, PREMIUM_LEAK_CACHE_TTL_SECONDS)
+
+    async def _clear_premium_leak(
+        self,
+        subscription_id: int,
+        *,
+        keep_node_uuids: set[str] | None = None,
+    ) -> None:
+        """Remove a recovered subscription from the persisted admin warning."""
+        if not getattr(self.settings, "REDIS_URL", None):
+            return
+        key = redis_key(self.settings, *PREMIUM_LEAK_CACHE_PARTS)
+        stored = await cache_get_json(self.settings, key)
+        if not isinstance(stored, dict) or not stored:
+            return
+
+        keep_node_uuids = keep_node_uuids or set()
+        record = dict(stored)
+        changed = False
+        for node_uuid, entry in list(record.items()):
+            if node_uuid in keep_node_uuids or not isinstance(entry, dict):
+                continue
+            subscriptions = entry.get("subscriptions")
+            if not isinstance(subscriptions, list) or subscription_id not in subscriptions:
+                continue
+            remaining = [item for item in subscriptions if item != subscription_id]
+            changed = True
+            if remaining:
+                record[node_uuid] = {**entry, "subscriptions": remaining}
+            else:
+                record.pop(node_uuid, None)
+
+        if not changed:
+            return
+        if record:
+            await cache_set_json(self.settings, key, record, PREMIUM_LEAK_CACHE_TTL_SECONDS)
+        else:
+            await cache_delete(self.settings, key)

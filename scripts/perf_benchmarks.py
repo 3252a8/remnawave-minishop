@@ -25,13 +25,43 @@ from bot.handlers.admin.sync_admin import (  # noqa: E402
 )
 from bot.middlewares import profile_sync as profile_sync_module  # noqa: E402
 from bot.services import panel_api_service  # noqa: E402
+from bot.services.panel_api_compat import PanelApiCompatibility  # noqa: E402
+from bot.services.panel_api_contracts import PanelApiCapability  # noqa: E402
 from bot.services.panel_api_service import PanelApiService  # noqa: E402
 from bot.services.tariff_worker import TariffTrafficWorker  # noqa: E402
 from bot.utils import config_link  # noqa: E402
 from bot.utils.config_link import prepare_config_links  # noqa: E402
 from bot.utils.ttl_cache import AsyncTTLCache  # noqa: E402
+from config.settings_models import PanelSettings  # noqa: E402
 
-DEFAULT_USER_SIZES = (200, 500, 1000, 5000, 10000)
+DEFAULT_USER_SIZES = (200, 1000, 10000, 30000)
+
+
+class BenchmarkSettings(SimpleNamespace):
+    """Minimal Settings-compatible object for real PanelApiService benchmarks."""
+
+    PANEL_USER_CACHE_TTL_SECONDS = 0
+    PANEL_DEVICES_CACHE_TTL_SECONDS = 0
+    PANEL_ALL_USERS_CACHE_TTL_SECONDS = 0
+    PANEL_ALL_USERS_PAGE_SIZE = 1000
+    PANEL_ALL_USERS_PAGE_DELAY_SECONDS = 0
+    REDIS_URL = None
+    REDIS_KEY_PREFIX = "bench"
+
+    @property
+    def panel_settings(self) -> PanelSettings:
+        return PanelSettings(
+            api_url=getattr(self, "PANEL_API_URL", None),
+            api_key=getattr(self, "PANEL_API_KEY", None),
+            api_cookie=getattr(self, "PANEL_API_COOKIE", None),
+            webhook_secret=getattr(self, "PANEL_WEBHOOK_SECRET", None),
+            write_mode=getattr(self, "PANEL_WRITE_MODE", "enabled"),
+            dry_run_enabled=bool(getattr(self, "PANEL_DRY_RUN_ENABLED", False)),
+            api_total_timeout_seconds=25.0,
+            api_connect_timeout_seconds=8.0,
+            api_sock_connect_timeout_seconds=8.0,
+            api_sock_read_timeout_seconds=15.0,
+        )
 
 
 def estimated_panel_user_pages(users: int, page_size: int = 1000) -> int:
@@ -75,6 +105,60 @@ class FakeBulkPanel:
         self.calls += 1
         return self.users
 
+    def panel_user_count_hint(self) -> int:
+        return len(self.users)
+
+    def _resolve_all_users_page_size(self) -> int:
+        return 1000
+
+
+class FakeV3MultiNodePanel:
+    """Expose the 3.x aggregate route without allocating a full panel snapshot."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+        self.compatibility = PanelApiCompatibility.from_metadata({"response": {"version": "3.0.0"}})
+
+    async def get_panel_api_compatibility(self) -> PanelApiCompatibility:
+        return self.compatibility
+
+    def panel_capability_state(
+        self,
+        capability: PanelApiCapability,
+        compatibility: PanelApiCompatibility,
+    ) -> bool | None:
+        supported = compatibility.supports(capability)
+        return bool(supported) if supported is not None else None
+
+    def panel_user_count_hint(self) -> int:
+        return 0
+
+    async def get_multi_node_user_usage(
+        self,
+        node_uuids: list[str],
+        *,
+        start: str,
+        end: str,
+        min_total_bytes: int = 0,
+    ) -> dict[str, Any]:
+        self.calls += 1
+        user_id = self.calls
+        return {
+            "nodes": [
+                {
+                    "uuid": node_uuid,
+                    "users": [{"id": user_id, "totalBytes": user_id}],
+                }
+                for node_uuid in node_uuids
+            ]
+        }
+
+    async def get_multi_node_users_bandwidth_stats(self, *args: Any, **kwargs: Any) -> None:
+        return None
+
+    async def get_node_users_bandwidth_stats(self, *args: Any, **kwargs: Any) -> None:
+        return None
+
 
 async def bench_premium_usage(users: int) -> dict:
     panel = FakePanel(users)
@@ -98,6 +182,39 @@ async def bench_premium_usage(users: int) -> dict:
     return {
         "seconds": elapsed,
         "panel_calls": panel.calls,
+        "checksum": checksum,
+    }
+
+
+async def bench_premium_usage_8_nodes_distinct_periods(users: int) -> dict:
+    """Measure the former N users x 8 nodes upper bound against 3.x batching."""
+    panel = FakeV3MultiNodePanel()
+    worker = TariffTrafficWorker(
+        settings=SimpleNamespace(),
+        session_factory=SimpleNamespace(),
+        panel_service=panel,
+        subscription_service=SimpleNamespace(),
+    )
+    nodes = [f"node-{index}" for index in range(8)]
+    started = time.perf_counter()
+    checksum = 0
+    for index in range(users):
+        # Each value deliberately represents a distinct subscription accounting
+        # window. This is the worst case for sharing a traffic snapshot.
+        period = f"2026-05-01T00:00:00Z#{index}"
+        checksum += await worker._premium_usage_for_user(
+            str(index + 1),
+            nodes,
+            period,
+            "2026-05-20T00:00:00Z",
+            panel_username=f"user_{index}",
+        )
+    elapsed = time.perf_counter() - started
+    return {
+        "seconds": elapsed,
+        "optimized_panel_calls": panel.calls,
+        "legacy_panel_calls_estimate": users * len(nodes),
+        "request_reduction_factor": len(nodes),
         "checksum": checksum,
     }
 
@@ -170,7 +287,7 @@ async def bench_panel_sync_startup(users: int) -> dict:
 
 
 async def bench_panel_user_cache(users: int) -> dict:
-    settings = SimpleNamespace(
+    settings = BenchmarkSettings(
         PANEL_API_URL="https://panel.example.test/api",
         PANEL_API_KEY="key",
         USER_HWID_DEVICE_LIMIT=None,
@@ -204,7 +321,7 @@ async def bench_panel_user_cache(users: int) -> dict:
 
 
 async def bench_panel_all_users_cache(users: int) -> dict:
-    settings = SimpleNamespace(
+    settings = BenchmarkSettings(
         PANEL_API_URL="https://panel.example.test/api",
         PANEL_API_KEY="key",
         USER_HWID_DEVICE_LIMIT=None,
@@ -252,7 +369,7 @@ async def bench_panel_all_users_cache(users: int) -> dict:
 
 
 async def bench_panel_devices_cache(users: int) -> dict:
-    settings = SimpleNamespace(
+    settings = BenchmarkSettings(
         PANEL_API_URL="https://panel.example.test/api",
         PANEL_API_KEY="key",
         USER_HWID_DEVICE_LIMIT=None,
@@ -494,7 +611,7 @@ async def bench_profile_sync_guard(users: int) -> dict:
 
 async def bench_crypt4(users: int) -> dict:
     config_link._CRYPT4_LINK_CACHES.clear()
-    settings = SimpleNamespace(
+    settings = BenchmarkSettings(
         CRYPT4_ENABLED=True,
         CRYPT4_REDIRECT_URL="",
         CRYPT4_LINK_CACHE_TTL_SECONDS=3600,
@@ -541,6 +658,9 @@ async def run_suite(user_sizes: tuple[int, ...]) -> dict:
             "panel_user_cache": await bench_panel_user_cache(users),
             "panel_devices_cache": await bench_panel_devices_cache(users),
             "premium_usage_1_node": await bench_premium_usage(users),
+            "premium_usage_8_nodes_distinct_periods": (
+                await bench_premium_usage_8_nodes_distinct_periods(users)
+            ),
             "ttl_cache_cold_single_key": await bench_ttl_singleflight(users),
             "admin_stats_cache": await bench_admin_stats_cache(users),
             "admin_db_stats_cache": await bench_admin_db_stats_cache(users),
@@ -584,7 +704,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--users",
         default=",".join(str(value) for value in DEFAULT_USER_SIZES),
-        help="Comma-separated user counts. Default: 200,500,1000,5000,10000",
+        help="Comma-separated user counts. Default: 200,1000,10000,30000",
     )
     parser.add_argument("--json", action="store_true", help="Print JSON only.")
     return parser.parse_args()

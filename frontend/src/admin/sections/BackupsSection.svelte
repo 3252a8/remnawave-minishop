@@ -6,10 +6,11 @@
     AdminButton,
     AdminEmptyState,
     AdminPagination,
+    AdminSortableHeader,
     AdminTable,
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
-  import { Checkbox, FileInput, RadioGroup, RadioGroupItem } from "$components/ui/index.js";
+  import { Checkbox, FileInput, Input, RadioGroup, RadioGroupItem } from "$components/ui/index.js";
   import {
     CheckCircle2,
     Database,
@@ -22,6 +23,7 @@
   import { Tooltip } from "$components/ui/primitives.js";
   import { TableHandler } from "@vincjo/datatables";
   import type { BackupArchive, BackupRestoreResult } from "../../lib/admin/stores/backupsStore";
+  import { sortAdminRows, type AdminSortColumn } from "$lib/admin/tableSort.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
@@ -36,10 +38,12 @@
   const BACKUPS_PAGE_SIZE = 10;
   const backupsTable = new TableHandler<BackupArchive>([], { rowsPerPage: BACKUPS_PAGE_SIZE });
   const backupsStore = getBackupsStore();
+  let backupsSort = $state("created_desc");
 
   let selectedName = $state("");
-  let restoreDatabase = $state(true);
+  let restoreDatabase = $state(false);
   let restoreCompose = $state(false);
+  let restoreConfirmation = $state("");
   let fileInput = $state<HTMLInputElement | null>(null);
 
   const archives = $derived((backupsStore.archives || []) as BackupArchive[]);
@@ -50,9 +54,43 @@
   const backupsRestoring = $derived(Boolean(backupsStore.backupsRestoring));
   const lastRestore = $derived(backupsStore.lastRestore as BackupRestoreResult | null);
   const totalArchives = $derived(archives?.length || 0);
+  const backupSortColumns = [
+    {
+      asc: "archive_asc",
+      desc: "archive_desc",
+      defaultDirection: "asc",
+      value: (archive) => archive.name,
+    },
+    {
+      asc: "created_asc",
+      desc: "created_desc",
+      defaultDirection: "desc",
+      value: (archive) =>
+        archive.created_at || archive.modified_at || archive.created_at_local || "",
+    },
+    {
+      asc: "size_asc",
+      desc: "size_desc",
+      defaultDirection: "desc",
+      value: (archive) => archive.size_bytes,
+    },
+    {
+      asc: "contents_asc",
+      desc: "contents_desc",
+      defaultDirection: "desc",
+      value: (archive) => [archive.has_database, archive.has_compose],
+    },
+    {
+      asc: "warnings_asc",
+      desc: "warnings_desc",
+      defaultDirection: "desc",
+      value: (archive) => archive.warnings?.length || 0,
+    },
+  ] satisfies AdminSortColumn<BackupArchive>[];
+  const sortedArchives = $derived(sortAdminRows(archives, backupsSort, backupSortColumns));
 
   $effect(() => {
-    backupsTable.setRows(archives || []);
+    backupsTable.setRows(sortedArchives);
     if (backupsTable.currentPage > (backupsTable.pageCount || 1))
       backupsTable.setPage(backupsTable.pageCount || 1);
   });
@@ -83,15 +121,14 @@
     if (restoreDatabase && !selectedArchive.has_database) restoreDatabase = false;
     if (restoreCompose && !selectedArchive.has_compose) restoreCompose = false;
   });
-  $effect(() => {
-    if (!selectedArchive || restoreDatabase || restoreCompose) return;
-    if (selectedArchive.has_database) restoreDatabase = true;
-    else if (selectedArchive.has_compose) restoreCompose = true;
-  });
+  const restoreConfirmationMatches = $derived(
+    Boolean(selectedName && restoreConfirmation.trim() === selectedName)
+  );
   const canRestore = $derived(
     Boolean(
       selectedArchive &&
       (restoreDatabase || restoreCompose) &&
+      restoreConfirmationMatches &&
       !backupsRestoring &&
       !backupsCreating
     )
@@ -120,20 +157,19 @@
     return archive?.created_at_local || archive?.created_at || archive?.modified_at || "";
   }
 
-  function selectedComponentsText(): string {
-    const parts = [];
-    if (restoreDatabase) parts.push(at("backups_target_database", {}, "Database"));
-    if (restoreCompose) parts.push(at("backups_target_compose", {}, "compose folder"));
-    return parts.join(" + ");
-  }
-
   function selectArchive(name: string): void {
     selectedName = name;
+    restoreConfirmation = "";
   }
 
   function focusArchivePage(name: string): void {
-    const index = (archives || []).findIndex((item) => item.name === name);
+    const index = sortedArchives.findIndex((item) => item.name === name);
     if (index >= 0) backupsTable.setPage(Math.floor(index / BACKUPS_PAGE_SIZE) + 1);
+  }
+
+  function setBackupsSort(sort: string): void {
+    backupsSort = sort;
+    backupsTable.setPage(1);
   }
 
   function warningsText(warnings: string[]): string {
@@ -162,19 +198,16 @@
 
   async function restoreSelected(): Promise<void> {
     if (!canRestore) return;
-    const confirmText = at(
-      "backups_restore_confirm",
-      { name: selectedName, components: selectedComponentsText() },
-      "Start restore from {name}: {components}?"
-    );
-    if (typeof window !== "undefined" && !window.confirm(confirmText)) return;
-
     const ok = await backupsStore.restoreArchive({
       archiveName: selectedName,
       restoreDatabase,
       restoreCompose,
+      confirmation: restoreConfirmation.trim(),
     });
-    if (ok) await backupsStore.loadArchives();
+    if (ok) {
+      restoreConfirmation = "";
+      await backupsStore.loadArchives();
+    }
   }
 
   onMount(() => {
@@ -248,6 +281,23 @@
         <Server size={16} />
         <span>{at("backups_target_compose", {}, "compose folder")}</span>
       </label>
+      <label class="backups-confirmation">
+        <span>
+          {at(
+            "backups_restore_confirmation_label",
+            { name: selectedName },
+            "Type the archive name to confirm: {name}"
+          )}
+        </span>
+        <Input
+          value={restoreConfirmation}
+          disabled={!selectedArchive || backupsRestoring}
+          autocomplete="off"
+          placeholder={at("backups_restore_confirmation_placeholder", {}, "Archive name")}
+          oninput={(event) =>
+            (restoreConfirmation = (event.currentTarget as HTMLInputElement).value)}
+        />
+      </label>
       <AdminButton variant="danger" onclick={restoreSelected} disabled={!canRestore}>
         <RefreshCw size={14} />
         {backupsRestoring
@@ -261,6 +311,15 @@
           "backups_pre_restore_snapshot",
           { path: lastRestore.compose_pre_restore_archive },
           "Current compose folder was saved before replacement: {path}"
+        )}
+      </div>
+    {/if}
+    {#if lastRestore?.database_pre_restore_archive}
+      <div class="backups-restore-note">
+        {at(
+          "backups_pre_restore_database_snapshot",
+          { path: lastRestore.database_pre_restore_archive },
+          "Current database was backed up before replacement: {path}"
         )}
       </div>
     {/if}
@@ -290,11 +349,41 @@
           <thead>
             <tr>
               <th aria-label={at("select", {}, "Select")}></th>
-              <th>{at("backups_col_archive", {}, "Archive")}</th>
-              <th>{at("backups_col_created", {}, "Created")}</th>
-              <th>{at("backups_col_size", {}, "Size")}</th>
-              <th>{at("backups_col_contents", {}, "Contents")}</th>
-              <th>{at("backups_col_warnings", {}, "Warnings")}</th>
+              <AdminSortableHeader
+                label={at("backups_col_archive", {}, "Archive")}
+                column={backupSortColumns[0]}
+                currentSort={backupsSort}
+                {at}
+                onSort={setBackupsSort}
+              />
+              <AdminSortableHeader
+                label={at("backups_col_created", {}, "Created")}
+                column={backupSortColumns[1]}
+                currentSort={backupsSort}
+                {at}
+                onSort={setBackupsSort}
+              />
+              <AdminSortableHeader
+                label={at("backups_col_size", {}, "Size")}
+                column={backupSortColumns[2]}
+                currentSort={backupsSort}
+                {at}
+                onSort={setBackupsSort}
+              />
+              <AdminSortableHeader
+                label={at("backups_col_contents", {}, "Contents")}
+                column={backupSortColumns[3]}
+                currentSort={backupsSort}
+                {at}
+                onSort={setBackupsSort}
+              />
+              <AdminSortableHeader
+                label={at("backups_col_warnings", {}, "Warnings")}
+                column={backupSortColumns[4]}
+                currentSort={backupsSort}
+                {at}
+                onSort={setBackupsSort}
+              />
             </tr>
           </thead>
           <tbody>
@@ -412,7 +501,7 @@
 
   .backups-restore-body {
     display: grid;
-    grid-template-columns: repeat(2, minmax(160px, 1fr)) auto;
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
     gap: 10px;
     align-items: center;
   }
@@ -432,6 +521,19 @@
 
   .backups-check.is-disabled {
     opacity: 0.55;
+  }
+
+  .backups-confirmation {
+    display: grid;
+    grid-column: 1 / -1;
+    gap: 6px;
+    color: var(--admin-muted);
+    font-size: 12px;
+  }
+
+  :global(.backups-restore-body .admin-btn) {
+    grid-column: 1 / -1;
+    justify-self: end;
   }
 
   .backups-restore-note {

@@ -12,6 +12,7 @@
     AdminButton,
     AdminEmptyState,
     AdminRevenueCustomRangePopover,
+    AdminSortableHeader,
     AdminTable,
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
@@ -43,6 +44,7 @@
   import type { PaymentOut } from "$lib/admin/stores/paymentsStore";
   import type { StatsState } from "$lib/admin/stores/statsStore";
   import type { UsersFilter } from "$lib/admin/usersRouteFilters";
+  import { sortAdminRows, type AdminSortColumn } from "$lib/admin/tableSort.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type FormatterFn = (value: unknown, currency?: string) => string;
@@ -194,7 +196,61 @@
     at("status", {}, "Status"),
     at("date", {}, "Date"),
   ]);
-  const recentPayments: PaymentOut[] = $derived((stats?.recent_payments || []).slice(0, 10));
+  let recentPaymentsSort = $state("date_desc");
+  const recentPaymentSortColumns = [
+    { asc: "id_asc", desc: "id_desc", defaultDirection: "desc", value: (row) => row.payment_id },
+    { asc: "user_asc", desc: "user_desc", defaultDirection: "asc", value: (row) => row.user_label },
+    {
+      asc: "user_id_asc",
+      desc: "user_id_desc",
+      defaultDirection: "desc",
+      value: (row) => row.user_id,
+    },
+    {
+      asc: "traffic_regular_asc",
+      desc: "traffic_regular_desc",
+      defaultDirection: "desc",
+      value: (row) => row.traffic_regular_gb,
+    },
+    {
+      asc: "traffic_premium_asc",
+      desc: "traffic_premium_desc",
+      defaultDirection: "desc",
+      value: (row) => row.traffic_premium_gb,
+    },
+    {
+      asc: "amount_asc",
+      desc: "amount_desc",
+      defaultDirection: "desc",
+      value: (row) => row.amount,
+    },
+    {
+      asc: "provider_asc",
+      desc: "provider_desc",
+      defaultDirection: "asc",
+      value: (row) => row.provider,
+    },
+    {
+      asc: "description_asc",
+      desc: "description_desc",
+      defaultDirection: "asc",
+      value: (row) => paymentDescriptionDisplay(row, at),
+    },
+    { asc: "status_asc", desc: "status_desc", defaultDirection: "asc", value: (row) => row.status },
+    {
+      asc: "date_asc",
+      desc: "date_desc",
+      defaultDirection: "desc",
+      value: (row) => row.created_at,
+    },
+  ] satisfies AdminSortColumn<PaymentOut>[];
+  const recentPayments: PaymentOut[] = $derived(
+    sortAdminRows(
+      (stats?.recent_payments || []).slice(0, 10),
+      recentPaymentsSort,
+      recentPaymentSortColumns
+    )
+  );
 
   function userFilterActionLabel(label: string): string {
     return at("stats_open_user_filter", { label }, `Show users: ${label}`);
@@ -590,16 +646,76 @@
             <AdminTable>
               <thead>
                 <tr>
-                  <th>{at("id", {}, "ID")}</th>
-                  <th>{at("user", {}, "User")}</th>
-                  <th>{at("payments_col_user_id", {}, "ID")}</th>
-                  <th>{at("payments_col_traffic_regular", {}, "Main traffic")}</th>
-                  <th>{at("payments_col_traffic_premium", {}, "Premium traffic")}</th>
-                  <th>{at("amount", {}, "Amount")}</th>
-                  <th>{at("provider", {}, "Provider")}</th>
-                  <th>{at("description", {}, "Description")}</th>
-                  <th>{at("status", {}, "Status")}</th>
-                  <th>{at("date", {}, "Date")}</th>
+                  <AdminSortableHeader
+                    label={at("id", {}, "ID")}
+                    column={recentPaymentSortColumns[0]}
+                    currentSort={recentPaymentsSort}
+                    {at}
+                    onSort={(sort) => (recentPaymentsSort = sort)}
+                  />
+                  <AdminSortableHeader
+                    label={at("user", {}, "User")}
+                    column={recentPaymentSortColumns[1]}
+                    currentSort={recentPaymentsSort}
+                    {at}
+                    onSort={(sort) => (recentPaymentsSort = sort)}
+                  />
+                  <AdminSortableHeader
+                    label={at("payments_col_user_id", {}, "ID")}
+                    column={recentPaymentSortColumns[2]}
+                    currentSort={recentPaymentsSort}
+                    {at}
+                    onSort={(sort) => (recentPaymentsSort = sort)}
+                  />
+                  <AdminSortableHeader
+                    label={at("payments_col_traffic_regular", {}, "Main traffic")}
+                    column={recentPaymentSortColumns[3]}
+                    currentSort={recentPaymentsSort}
+                    {at}
+                    onSort={(sort) => (recentPaymentsSort = sort)}
+                  />
+                  <AdminSortableHeader
+                    label={at("payments_col_traffic_premium", {}, "Premium traffic")}
+                    column={recentPaymentSortColumns[4]}
+                    currentSort={recentPaymentsSort}
+                    {at}
+                    onSort={(sort) => (recentPaymentsSort = sort)}
+                  />
+                  <AdminSortableHeader
+                    label={at("amount", {}, "Amount")}
+                    column={recentPaymentSortColumns[5]}
+                    currentSort={recentPaymentsSort}
+                    {at}
+                    onSort={(sort) => (recentPaymentsSort = sort)}
+                  />
+                  <AdminSortableHeader
+                    label={at("provider", {}, "Provider")}
+                    column={recentPaymentSortColumns[6]}
+                    currentSort={recentPaymentsSort}
+                    {at}
+                    onSort={(sort) => (recentPaymentsSort = sort)}
+                  />
+                  <AdminSortableHeader
+                    label={at("description", {}, "Description")}
+                    column={recentPaymentSortColumns[7]}
+                    currentSort={recentPaymentsSort}
+                    {at}
+                    onSort={(sort) => (recentPaymentsSort = sort)}
+                  />
+                  <AdminSortableHeader
+                    label={at("status", {}, "Status")}
+                    column={recentPaymentSortColumns[8]}
+                    currentSort={recentPaymentsSort}
+                    {at}
+                    onSort={(sort) => (recentPaymentsSort = sort)}
+                  />
+                  <AdminSortableHeader
+                    label={at("date", {}, "Date")}
+                    column={recentPaymentSortColumns[9]}
+                    currentSort={recentPaymentsSort}
+                    {at}
+                    onSort={(sort) => (recentPaymentsSort = sort)}
+                  />
                 </tr>
               </thead>
               <tbody>

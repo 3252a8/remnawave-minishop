@@ -6,10 +6,13 @@ import json
 import logging
 import secrets
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qsl
 
 from config.settings import Settings
+
+if TYPE_CHECKING:
+    from jwt import PyJWKClient
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +21,15 @@ TELEGRAM_CLOCK_SKEW_SECONDS = 300
 TELEGRAM_OAUTH_ISSUER = "https://oauth.telegram.org"
 TELEGRAM_OAUTH_JWKS_URL = "https://oauth.telegram.org/.well-known/jwks.json"
 TELEGRAM_OAUTH_ALGORITHMS = ["RS256", "ES256", "EdDSA"]
+# The signing keys are fetched over the network, on the login callback, while the customer's
+# browser waits. Telegram rotates them rarely, so one cached client serves every login instead
+# of one round-trip per login — and both the fetch and the wait for it are bounded, because a
+# reverse proxy in front of the app answers 504 long before an unbounded fetch gives up.
+TELEGRAM_OAUTH_JWKS_LIFESPAN_SECONDS = 600
+TELEGRAM_OAUTH_JWKS_TIMEOUT_SECONDS = 10.0
+TELEGRAM_OAUTH_VALIDATION_TIMEOUT_SECONDS = 12.0
+
+_telegram_jwks_client: "PyJWKClient | None" = None
 
 
 def _urlsafe_b64encode(raw: bytes) -> str:
@@ -209,11 +221,20 @@ async def validate_telegram_oauth_id_token(
         )
         return None
 
+    global _telegram_jwks_client
+    if _telegram_jwks_client is None:
+        _telegram_jwks_client = PyJWKClient(
+            TELEGRAM_OAUTH_JWKS_URL,
+            cache_jwk_set=True,
+            lifespan=TELEGRAM_OAUTH_JWKS_LIFESPAN_SECONDS,
+            timeout=TELEGRAM_OAUTH_JWKS_TIMEOUT_SECONDS,
+        )
+    jwks_client = _telegram_jwks_client
+
     try:
-        jwks_client = PyJWKClient(TELEGRAM_OAUTH_JWKS_URL)
-        signing_key = await asyncio.to_thread(
-            jwks_client.get_signing_key_from_jwt,
-            id_token,
+        signing_key = await asyncio.wait_for(
+            asyncio.to_thread(jwks_client.get_signing_key_from_jwt, id_token),
+            timeout=TELEGRAM_OAUTH_VALIDATION_TIMEOUT_SECONDS,
         )
         claims = await asyncio.to_thread(
             jwt.decode,

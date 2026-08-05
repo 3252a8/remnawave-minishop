@@ -188,6 +188,25 @@ def _user_subscription_expiry_sq() -> Subquery:
     )
 
 
+def _user_status_sort_sq() -> Subquery:
+    rank = sa_func.row_number().over(
+        partition_by=Subscription.user_id,
+        order_by=(
+            Subscription.is_active.desc(),
+            Subscription.end_date.desc().nullslast(),
+            Subscription.subscription_id.desc(),
+        ),
+    )
+    inner = select(
+        Subscription.user_id,
+        Subscription.status_from_panel,
+        Subscription.is_active,
+        Subscription.end_date,
+        rank.label("rank"),
+    ).subquery()
+    return select(inner).where(inner.c.rank == 1).subquery(name="user_status_sort")
+
+
 async def _bulk_user_payment_summaries(
     session: AsyncSession,
     user_ids: list[int],
@@ -269,6 +288,8 @@ async def _filter_and_sort_users(
     referral_count_expr = None
     subscription_expiry_sq = None
     subscription_expires_expr = None
+    status_sort_sq = None
+    status_sort_expr = None
 
     if needs_premium_sq:
         sq = _ranked_active_subscriptions_sq(now)
@@ -324,6 +345,24 @@ async def _filter_and_sort_users(
             User.user_id == subscription_expiry_sq.c.user_id,
         )
         subscription_expires_expr = subscription_expiry_sq.c.subscription_expires_at
+
+    if sort_key in {"status_asc", "status_desc"}:
+        status_sort_sq = _user_status_sort_sq()
+        stmt = stmt.outerjoin(status_sort_sq, User.user_id == status_sort_sq.c.user_id)
+        count_stmt = count_stmt.outerjoin(status_sort_sq, User.user_id == status_sort_sq.c.user_id)
+        status_sort_expr = case(
+            (User.is_banned.is_(True), "banned"),
+            (status_sort_sq.c.user_id.is_(None), "bot_only"),
+            (
+                and_(
+                    status_sort_sq.c.is_active.is_(True),
+                    or_(status_sort_sq.c.end_date.is_(None), status_sort_sq.c.end_date > now),
+                ),
+                sa_func.lower(sa_func.coalesce(status_sort_sq.c.status_from_panel, "active")),
+            ),
+            (status_sort_sq.c.end_date <= now, "expired"),
+            else_=sa_func.lower(sa_func.coalesce(status_sort_sq.c.status_from_panel, "expired")),
+        )
 
     search_cond = _user_search_condition(query)
     if search_cond is not None:
@@ -478,6 +517,10 @@ async def _filter_and_sort_users(
         stmt = stmt.order_by(subscription_expires_expr.asc().nullslast(), User.user_id.asc())
     elif subscription_expires_expr is not None and sort_key == "subscription_expires_at_desc":
         stmt = stmt.order_by(subscription_expires_expr.desc().nullslast(), User.user_id.desc())
+    elif status_sort_expr is not None and sort_key == "status_asc":
+        stmt = stmt.order_by(status_sort_expr.asc().nullslast(), User.user_id.asc())
+    elif status_sort_expr is not None and sort_key == "status_desc":
+        stmt = stmt.order_by(status_sort_expr.desc().nullslast(), User.user_id.desc())
     else:
         order = sort_map.get(sort_key, sort_map["registered_desc"])
         stmt = stmt.order_by(*order) if isinstance(order, tuple) else stmt.order_by(order)
@@ -791,6 +834,7 @@ async def admin_user_referrals_route(request: web.Request) -> web.Response:
     target_id = int(request.match_info["user_id"])
     page = max(0, int(request.query.get("page", 0) or 0))
     page_size = min(100, max(1, int(request.query.get("page_size", 25) or 25)))
+    sort = str(request.query.get("sort") or "registration_desc").lower()
     async_session_factory: sessionmaker = get_session_factory(request)
 
     async with async_session_factory() as session:
@@ -805,6 +849,7 @@ async def admin_user_referrals_route(request: web.Request) -> web.Response:
             target_id,
             limit=page_size,
             offset=page * page_size,
+            sort=sort,
         )
         avatar_user_ids = [target_id, *(int(u.user_id) for u in invitees)]
         if inviter is not None:

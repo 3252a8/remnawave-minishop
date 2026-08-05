@@ -2,7 +2,7 @@ import csv
 import io
 
 from aiohttp import web
-from sqlalchemy import select
+from sqlalchemy import String, and_, case, cast, func, or_, select
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
@@ -10,7 +10,7 @@ from bot.app.web.context import (
 )
 from bot.app.web.route_contracts import RouteContract, ok_envelope_for, register_contract
 from db.dal import payment_dal
-from db.models import Payment
+from db.models import Payment, User
 
 from .auth import (
     _require_admin_user_id,
@@ -51,14 +51,69 @@ async def admin_payments_list_route(request: web.Request) -> web.Response:
 
     page = max(0, int(request.query.get("page", 0) or 0))
     page_size = min(100, max(1, int(request.query.get("page_size", 25) or 25)))
+    sort = str(request.query.get("sort") or "date_desc").lower()
 
     async with async_session_factory() as session:
         from sqlalchemy.orm import selectinload
 
+        full_name = func.nullif(
+            func.trim(func.coalesce(User.first_name, "") + " " + func.coalesce(User.last_name, "")),
+            "",
+        )
+        user_label = case(
+            (
+                User.telegram_id.is_not(None),
+                func.coalesce(full_name, User.username, User.email, cast(Payment.user_id, String)),
+            ),
+            else_=func.coalesce(
+                User.email, full_name, User.username, cast(Payment.user_id, String)
+            ),
+        )
+        sale_mode = func.lower(func.coalesce(Payment.sale_mode, ""))
+        regular_mode = or_(
+            sale_mode.in_(("traffic", "traffic_package", "topup")),
+            sale_mode.like("traffic@%"),
+            sale_mode.like("traffic|%"),
+            sale_mode.like("traffic_package@%"),
+            sale_mode.like("traffic_package|%"),
+            sale_mode.like("topup@%"),
+            sale_mode.like("topup|%"),
+        )
+        premium_mode = or_(
+            sale_mode == "premium_topup",
+            sale_mode.like("premium_topup@%"),
+            sale_mode.like("premium_topup|%"),
+        )
+        regular_traffic = case(
+            (and_(Payment.purchased_gb.is_not(None), regular_mode), Payment.purchased_gb),
+            else_=None,
+        )
+        premium_traffic = case(
+            (and_(Payment.purchased_gb.is_not(None), premium_mode), Payment.purchased_gb),
+            else_=None,
+        )
+        sort_columns = {
+            "id": Payment.payment_id,
+            "user": user_label,
+            "user_id": Payment.user_id,
+            "traffic_regular": regular_traffic,
+            "traffic_premium": premium_traffic,
+            "amount": Payment.amount,
+            "provider": Payment.provider,
+            "description": Payment.description,
+            "status": Payment.status,
+            "date": Payment.created_at,
+        }
+        sort_key, _, direction = sort.rpartition("_")
+        sort_column = sort_columns.get(sort_key, Payment.created_at)
+        descending = direction != "asc"
+        order = sort_column.desc().nullslast() if descending else sort_column.asc().nullslast()
+        tie_breaker = Payment.payment_id.desc() if descending else Payment.payment_id.asc()
         stmt = (
             select(Payment)
+            .outerjoin(User, User.user_id == Payment.user_id)
             .options(selectinload(Payment.user))
-            .order_by(Payment.created_at.desc())
+            .order_by(order, tie_breaker)
             .offset(page * page_size)
             .limit(page_size)
         )

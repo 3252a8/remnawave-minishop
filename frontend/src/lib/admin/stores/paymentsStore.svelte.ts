@@ -32,6 +32,7 @@ type PaymentsState = {
   payments: PaymentOut[];
   paymentsTotal: number;
   paymentsPage: number;
+  paymentsSort: string;
   paymentsLoading: boolean;
   openedPaymentId: number | null;
   openedPayment: AdminPayment | null;
@@ -49,6 +50,7 @@ export type PaymentsStore = PaymentsState & {
   setActive: (section: string) => void;
   loadPayments: (options?: { refresh?: boolean }) => Promise<void>;
   setPage: (page: number) => void;
+  setSort: (sort: string) => void;
   openPayment: (
     paymentOrId: AdminPayment | PaymentOut | number | string,
     opts?: PaymentOpenOptions
@@ -85,6 +87,7 @@ export function createPaymentsStore({
   const state = $state<Omit<PaymentsState, "payments">>({
     paymentsTotal: 0,
     paymentsPage: 0,
+    paymentsSort: "date_desc",
     paymentsLoading: false,
     openedPaymentId: null,
     openedPayment: null,
@@ -99,6 +102,7 @@ export function createPaymentsStore({
   });
 
   let active = "stats";
+  let paymentsRequestSeq = 0;
 
   function setActive(section: string): void {
     active = section;
@@ -115,22 +119,24 @@ export function createPaymentsStore({
     window.history.pushState(null, "", `${target}${window.location.search}${window.location.hash}`);
   }
 
-  function paymentsListQueryKey(page: number): AdminQueryKey {
+  function paymentsListQueryKey(page: number, sort: string): AdminQueryKey {
     return [
       PAYMENTS_QUERY_KEY[0],
       PAYMENTS_QUERY_KEY[1],
       {
         page,
+        sort,
       },
     ];
   }
 
-  async function requestPayments(page: number): Promise<PaymentsListResponse> {
+  async function requestPayments(page: number, sort: string): Promise<PaymentsListResponse> {
     const data = await api(
       buildAdminPaymentsPath(
         new URLSearchParams({
           page: String(page),
           page_size: String(PAYMENTS_PAGE_SIZE),
+          sort,
         })
       )
     );
@@ -161,36 +167,47 @@ export function createPaymentsStore({
   }
 
   async function loadPayments({ refresh = false }: { refresh?: boolean } = {}): Promise<void> {
+    const requestSeq = ++paymentsRequestSeq;
     state.paymentsLoading = true;
     const currentPage = state.paymentsPage;
+    const currentSort = state.paymentsSort;
     const perf = createAdminPerfSpan("payments");
 
     try {
       const data = await fetchAdminQuery({
         queryClient,
-        queryKey: paymentsListQueryKey(currentPage),
-        queryFn: () => requestPayments(currentPage),
+        queryKey: paymentsListQueryKey(currentPage, currentSort),
+        queryFn: () => requestPayments(currentPage, currentSort),
         refresh,
       });
       perf.apiResponse();
       const result = unwrap(data);
-      payments = result.payments || [];
-      state.paymentsTotal = result.total || 0;
-      perf.stateAssign();
-      void perf.renderSettled();
+      if (requestSeq === paymentsRequestSeq) {
+        payments = result.payments || [];
+        state.paymentsTotal = result.total || 0;
+        perf.stateAssign();
+        void perf.renderSettled();
+      }
     } catch (error) {
+      if (requestSeq !== paymentsRequestSeq) return;
       if (error instanceof AdminPaymentsError) {
         onToast(adminErrorMessage(error.payload, at, "load_failed"));
       } else {
         onToast(error instanceof Error ? error.message : String(error || "load_failed"));
       }
     } finally {
-      state.paymentsLoading = false;
+      if (requestSeq === paymentsRequestSeq) state.paymentsLoading = false;
     }
   }
 
   function setPage(page: number): void {
     state.paymentsPage = page;
+    void loadPayments();
+  }
+
+  function setSort(sort: string): void {
+    state.paymentsSort = sort;
+    state.paymentsPage = 0;
     void loadPayments();
   }
 
@@ -267,6 +284,7 @@ export function createPaymentsStore({
     setActive,
     loadPayments,
     setPage,
+    setSort,
     openPayment,
     closePayment,
     copyToClipboard,

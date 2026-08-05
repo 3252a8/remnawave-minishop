@@ -51,6 +51,7 @@
   const RESET_DETAIL_TRANSITION = { duration: 220 };
   const REGULAR_TRAFFIC_RESET_DETAIL_ID = "regular-traffic-reset-detail";
   const PREMIUM_TRAFFIC_RESET_DETAIL_ID = "premium-traffic-reset-detail";
+  const COUNTDOWN_IDLE_REFRESH_MS = 60_000;
 
   let {
     appSettings = {},
@@ -121,6 +122,10 @@
     primaryPayActionLabel?: () => string;
     t?: Translate;
   } = $props();
+
+  let pageVisible = $state(
+    typeof document === "undefined" || document.visibilityState !== "hidden"
+  );
 
   let nowMs = $state(Date.now());
   let regularTrafficResetOpen = $state(false);
@@ -293,12 +298,30 @@
   );
   const autoRenewEnabled = $derived(Boolean(subscription?.auto_renew_enabled));
 
-  onMount(() => {
-    const countdownTimer = window.setInterval(() => {
-      if (subscription?.active) nowMs = Date.now();
-    }, 1000);
+  $effect(() => {
+    if (!pageVisible || !subscription?.active || !subscriptionEndMs) return;
+    const remainingMs = Math.max(0, Number(subscriptionEndMs) - nowMs);
+    if (!remainingMs) return;
+    const delay =
+      remainingMs <= SUBSCRIPTION_EXPIRY_WARNING_MS
+        ? 1000
+        : Math.min(
+            COUNTDOWN_IDLE_REFRESH_MS,
+            Math.max(1000, remainingMs - SUBSCRIPTION_EXPIRY_WARNING_MS)
+          );
+    const countdownTimer = window.setTimeout(() => {
+      nowMs = Date.now();
+    }, delay);
+    return () => window.clearTimeout(countdownTimer);
+  });
 
-    return () => window.clearInterval(countdownTimer);
+  onMount(() => {
+    const onVisibilityChange = () => {
+      pageVisible = document.visibilityState !== "hidden";
+      if (pageVisible) nowMs = Date.now();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
   });
 </script>
 

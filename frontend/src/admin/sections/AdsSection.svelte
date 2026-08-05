@@ -10,11 +10,13 @@
     AdminEmptyState,
     AdminField,
     AdminPagination,
+    AdminSortableHeader,
     AdminTable,
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
   import { TableHandler } from "@vincjo/datatables";
   import type { components } from "../../lib/api/openapi.generated";
+  import { sortAdminRows, type AdminSortColumn } from "$lib/admin/tableSort.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type Ad = components["schemas"]["AdOut"];
@@ -31,6 +33,7 @@
   const ADS_PAGE_SIZE = 10;
   const adsStore = getAdsStore();
   const adsTable = new TableHandler<Ad>([], { rowsPerPage: ADS_PAGE_SIZE });
+  let adsSort = $state("id_desc");
 
   const ads = $derived(adsStore.ads as Ad[]);
   const adsLoading = $derived(Boolean(adsStore.adsLoading));
@@ -40,8 +43,38 @@
   );
   const adRows = $derived(adsTable.rows as Ad[]);
 
+  const adSortColumns = [
+    { asc: "id_asc", desc: "id_desc", defaultDirection: "desc", value: (ad) => ad.id },
+    { asc: "source_asc", desc: "source_desc", defaultDirection: "asc", value: (ad) => ad.source },
+    {
+      asc: "param_asc",
+      desc: "param_desc",
+      defaultDirection: "asc",
+      value: (ad) => ad.start_param,
+    },
+    { asc: "cost_asc", desc: "cost_desc", defaultDirection: "desc", value: (ad) => ad.cost },
+    {
+      asc: "registrations_asc",
+      desc: "registrations_desc",
+      defaultDirection: "desc",
+      value: (ad) => adStat(ad, "registrations"),
+    },
+    {
+      asc: "conversions_asc",
+      desc: "conversions_desc",
+      defaultDirection: "desc",
+      value: (ad) => adStat(ad, "conversions"),
+    },
+    {
+      asc: "status_asc",
+      desc: "status_desc",
+      defaultDirection: "desc",
+      value: (ad) => ad.is_active,
+    },
+  ] satisfies AdminSortColumn<Ad>[];
+
   $effect(() => {
-    adsTable.setRows(ads);
+    adsTable.setRows(sortAdminRows(ads, adsSort, adSortColumns));
     if (adsTable.currentPage > (adsTable.pageCount || 1)) adsTable.setPage(adsTable.pageCount || 1);
   });
   const adHeaders = $derived([
@@ -64,6 +97,11 @@
     const value = Number(raw);
     return Number.isFinite(value) ? value : 0;
   }
+
+  function setAdsSort(sort: string): void {
+    adsSort = sort;
+    adsTable.setPage(1);
+  }
 </script>
 
 <div class="admin-table-wrap">
@@ -83,13 +121,55 @@
     <AdminTable>
       <thead>
         <tr>
-          <th>{at("id", {}, "ID")}</th>
-          <th>{at("ads_col_source", {}, "Source")}</th>
-          <th>{at("ads_col_param", {}, "Parameter")}</th>
-          <th>{at("ads_col_cost", {}, "Cost")}</th>
-          <th>{at("ads_col_registrations", {}, "Registrations")}</th>
-          <th>{at("ads_col_conversions", {}, "Conversions")}</th>
-          <th>{at("ads_col_status", {}, "Status")}</th>
+          <AdminSortableHeader
+            label={at("id", {}, "ID")}
+            column={adSortColumns[0]}
+            currentSort={adsSort}
+            {at}
+            onSort={setAdsSort}
+          />
+          <AdminSortableHeader
+            label={at("ads_col_source", {}, "Source")}
+            column={adSortColumns[1]}
+            currentSort={adsSort}
+            {at}
+            onSort={setAdsSort}
+          />
+          <AdminSortableHeader
+            label={at("ads_col_param", {}, "Parameter")}
+            column={adSortColumns[2]}
+            currentSort={adsSort}
+            {at}
+            onSort={setAdsSort}
+          />
+          <AdminSortableHeader
+            label={at("ads_col_cost", {}, "Cost")}
+            column={adSortColumns[3]}
+            currentSort={adsSort}
+            {at}
+            onSort={setAdsSort}
+          />
+          <AdminSortableHeader
+            label={at("ads_col_registrations", {}, "Registrations")}
+            column={adSortColumns[4]}
+            currentSort={adsSort}
+            {at}
+            onSort={setAdsSort}
+          />
+          <AdminSortableHeader
+            label={at("ads_col_conversions", {}, "Conversions")}
+            column={adSortColumns[5]}
+            currentSort={adsSort}
+            {at}
+            onSort={setAdsSort}
+          />
+          <AdminSortableHeader
+            label={at("ads_col_status", {}, "Status")}
+            column={adSortColumns[6]}
+            currentSort={adsSort}
+            {at}
+            onSort={setAdsSort}
+          />
           <th class="admin-cell-actions">{at("actions", {}, "Actions")}</th>
         </tr>
       </thead>

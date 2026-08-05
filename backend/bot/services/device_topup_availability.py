@@ -15,6 +15,7 @@ class DeviceTopupUnavailableReason(StrEnum):
     TARIFFS_UNAVAILABLE = "tariffs_unavailable"
     SUBSCRIPTION_INACTIVE = "subscription_inactive"
     MISSING_TARIFF = "missing_tariff"
+    TRIAL_SUBSCRIPTION = "trial_subscription"
     TARIFF_NOT_FOUND = "tariff_not_found"
     TARIFF_DISABLED = "tariff_disabled"
     UNSUPPORTED_BILLING_MODEL = "unsupported_billing_model"
@@ -90,6 +91,21 @@ def _package_counts(tariff: Tariff, currency: str) -> tuple[int, ...]:
     )
 
 
+def _has_purchasable_device_tariff(settings: Settings, config: Any) -> bool:
+    default_currency = default_currency_key_for_settings(settings)
+    return any(
+        any(
+            (tariff.period_price(months, default_currency) or 0) > 0
+            or (tariff.period_price(months, "stars") or 0) > 0
+            for months in tariff.enabled_periods
+        )
+        and (_coerce_device_limit(tariff.hwid_device_limit) or 0) > 0
+        and bool(_package_counts(tariff, default_currency) or _package_counts(tariff, "stars"))
+        for tariff in config.enabled_tariffs
+        if tariff.billing_model == "period"
+    )
+
+
 def _configured_tariff(config: Any, key: str) -> Tariff | None:
     getter = getattr(config, "get", None)
     if callable(getter):
@@ -110,13 +126,14 @@ def resolve_device_topup_availability(
     tariff_key: Any,
     max_devices: Any,
     expected_tariff_key: Any | None = None,
+    subscription_is_trial: bool = False,
 ) -> DeviceTopupAvailability:
     """Resolve the complete device top-up gate without performing I/O."""
 
     default_currency = default_currency_key_for_settings(settings)
 
     def unavailable(
-        reason: DeviceTopupUnavailableReason,
+        reason: DeviceTopupUnavailableReason | None,
         tariff: Tariff | None = None,
     ) -> DeviceTopupAvailability:
         return DeviceTopupAvailability(
@@ -126,6 +143,20 @@ def resolve_device_topup_availability(
             default_currency=default_currency,
         )
 
+    normalized_tariff_key = str(tariff_key or "").strip()
+    if subscription_is_trial and not normalized_tariff_key:
+        if not settings.MY_DEVICES_SECTION_ENABLED:
+            return unavailable(None)
+        config = settings.tariffs_config
+        device_limit = _coerce_device_limit(max_devices)
+        reason = (
+            DeviceTopupUnavailableReason.TRIAL_SUBSCRIPTION
+            if config is not None
+            and (device_limit or 0) > 0
+            and _has_purchasable_device_tariff(settings, config)
+            else None
+        )
+        return unavailable(reason)
     if not settings.MY_DEVICES_SECTION_ENABLED:
         return unavailable(DeviceTopupUnavailableReason.SECTION_DISABLED)
 
@@ -135,7 +166,6 @@ def resolve_device_topup_availability(
     if not subscription_active:
         return unavailable(DeviceTopupUnavailableReason.SUBSCRIPTION_INACTIVE)
 
-    normalized_tariff_key = str(tariff_key or "").strip()
     if not normalized_tariff_key:
         return unavailable(DeviceTopupUnavailableReason.MISSING_TARIFF)
 

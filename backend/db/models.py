@@ -674,6 +674,48 @@ class UserPaymentMethod(Base):
     )
 
 
+class PlategaSubscription(Base):
+    """One Platega SBP subscription mandate (provider-managed recurrence).
+
+    Platega owns the schedule: it charges the payer every ``interval_code``
+    period and reports each attempt on the shared Platega webhook. This row is
+    the local mirror of that mandate — it is what lets a renewal charge be
+    attributed to a customer and an entitlement long after the original
+    checkout, and what the customer's "turn auto-renew off" action cancels.
+    Rows are created by the webhook (never by checkout), so a mandate the payer
+    abandoned never appears here.
+    """
+
+    __tablename__ = "platega_subscriptions"
+    __table_args__ = (Index("ix_platega_subscriptions_user_status", "user_id", "status"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    platega_subscription_id = Column(String, nullable=False, unique=True, index=True)
+    user_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=False, index=True)
+    # Local lifecycle: active | past_due | cancelled | failed.
+    status = Column(String(32), nullable=False, default="active", index=True)
+    amount = Column(Float, nullable=False)
+    currency = Column(String, nullable=False)
+    # Platega SubscriptionInterval (1=day, 2=week, 3=month, 4=year).
+    interval_code = Column(Integer, nullable=False)
+    months = Column(Integer, nullable=False)
+    sale_mode = Column(String, nullable=True)
+    tariff_key = Column(String, nullable=True, index=True)
+    next_charge_at = Column(DateTime(timezone=True), nullable=True)
+    last_charge_at = Column(DateTime(timezone=True), nullable=True)
+    charges_count = Column(Integer, nullable=False, default=0)
+    cancelled_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    user = relationship("User")
+
+
 class PromoCode(Base):
     __tablename__ = "promo_codes"
 

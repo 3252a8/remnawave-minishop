@@ -6,6 +6,7 @@
     AdminButton,
     AdminEmptyState,
     AdminPagination,
+    AdminSortableHeader,
     AdminTable,
     AdminTableSkeleton,
     VirtualTableRows,
@@ -14,6 +15,7 @@
   import { TableHandler } from "@vincjo/datatables";
   import type { PaymentOut } from "../../lib/admin/stores/paymentsStore";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
+  import type { AdminSortColumn } from "$lib/admin/tableSort.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
@@ -37,6 +39,7 @@
   const payments = $derived(paymentsStore.payments as PaymentOut[]);
   const paymentsTotal = $derived(Number(paymentsStore.paymentsTotal || 0));
   const paymentsPage = $derived(Number(paymentsStore.paymentsPage || 0));
+  const paymentsSort = $derived(String(paymentsStore.paymentsSort || "date_desc"));
   const paymentsLoading = $derived(Boolean(paymentsStore.paymentsLoading));
 
   $effect(() => paymentsTable.setRows(payments));
@@ -101,6 +104,18 @@
     at("status", {}, "Status"),
     at("date", {}, "Date"),
   ]);
+  const paymentSortColumns = [
+    { asc: "id_asc", desc: "id_desc", defaultDirection: "desc" },
+    { asc: "user_asc", desc: "user_desc", defaultDirection: "asc" },
+    { asc: "user_id_asc", desc: "user_id_desc", defaultDirection: "desc" },
+    { asc: "traffic_regular_asc", desc: "traffic_regular_desc", defaultDirection: "desc" },
+    { asc: "traffic_premium_asc", desc: "traffic_premium_desc", defaultDirection: "desc" },
+    { asc: "amount_asc", desc: "amount_desc", defaultDirection: "desc" },
+    { asc: "provider_asc", desc: "provider_desc", defaultDirection: "asc" },
+    { asc: "description_asc", desc: "description_desc", defaultDirection: "asc" },
+    { asc: "status_asc", desc: "status_desc", defaultDirection: "asc" },
+    { asc: "date_asc", desc: "date_desc", defaultDirection: "desc" },
+  ] satisfies AdminSortColumn<never>[];
 
   onMount(() => {
     paymentsStore.loadPayments();
@@ -123,16 +138,76 @@
     <AdminTable>
       <thead>
         <tr>
-          <th>{at("id", {}, "ID")}</th>
-          <th>{at("user", {}, "User")}</th>
-          <th>{at("payments_col_user_id", {}, "ID")}</th>
-          <th>{at("payments_col_traffic_regular", {}, "Main traffic")}</th>
-          <th>{at("payments_col_traffic_premium", {}, "Premium traffic")}</th>
-          <th>{at("amount", {}, "Amount")}</th>
-          <th>{at("provider", {}, "Provider")}</th>
-          <th>{at("description", {}, "Description")}</th>
-          <th>{at("status", {}, "Status")}</th>
-          <th>{at("date", {}, "Date")}</th>
+          <AdminSortableHeader
+            label={at("id", {}, "ID")}
+            column={paymentSortColumns[0]}
+            currentSort={paymentsSort}
+            {at}
+            onSort={paymentsStore.setSort}
+          />
+          <AdminSortableHeader
+            label={at("user", {}, "User")}
+            column={paymentSortColumns[1]}
+            currentSort={paymentsSort}
+            {at}
+            onSort={paymentsStore.setSort}
+          />
+          <AdminSortableHeader
+            label={at("payments_col_user_id", {}, "ID")}
+            column={paymentSortColumns[2]}
+            currentSort={paymentsSort}
+            {at}
+            onSort={paymentsStore.setSort}
+          />
+          <AdminSortableHeader
+            label={at("payments_col_traffic_regular", {}, "Main traffic")}
+            column={paymentSortColumns[3]}
+            currentSort={paymentsSort}
+            {at}
+            onSort={paymentsStore.setSort}
+          />
+          <AdminSortableHeader
+            label={at("payments_col_traffic_premium", {}, "Premium traffic")}
+            column={paymentSortColumns[4]}
+            currentSort={paymentsSort}
+            {at}
+            onSort={paymentsStore.setSort}
+          />
+          <AdminSortableHeader
+            label={at("amount", {}, "Amount")}
+            column={paymentSortColumns[5]}
+            currentSort={paymentsSort}
+            {at}
+            onSort={paymentsStore.setSort}
+          />
+          <AdminSortableHeader
+            label={at("provider", {}, "Provider")}
+            column={paymentSortColumns[6]}
+            currentSort={paymentsSort}
+            {at}
+            onSort={paymentsStore.setSort}
+          />
+          <AdminSortableHeader
+            label={at("description", {}, "Description")}
+            column={paymentSortColumns[7]}
+            currentSort={paymentsSort}
+            {at}
+            onSort={paymentsStore.setSort}
+          />
+          <AdminSortableHeader
+            label={at("status", {}, "Status")}
+            column={paymentSortColumns[8]}
+            currentSort={paymentsSort}
+            {at}
+            onSort={paymentsStore.setSort}
+          />
+          <AdminSortableHeader
+            label={at("date", {}, "Date")}
+            column={paymentSortColumns[9]}
+            currentSort={paymentsSort}
+            {at}
+            onSort={paymentsStore.setSort}
+          />
         </tr>
       </thead>
       <VirtualTableRows

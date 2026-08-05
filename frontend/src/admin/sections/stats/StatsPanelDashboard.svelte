@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { getHealthStore } from "$lib/admin/context";
   import { Activity, Radio, Server, Zap } from "$components/ui/icons.js";
   import { ScrollArea } from "$components/ui/index.js";
   import * as Card from "$components/ui/card/index.js";
@@ -7,10 +8,13 @@
     PanelStats,
     PanelSystemMetrics,
   } from "$lib/admin/statsDerivations";
+  import PanelVersionBadge from "./PanelVersionBadge.svelte";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
   const PANEL_NODE_TILE_LIMIT = 10;
+  const healthStore = getHealthStore();
+  const panelCompatibility = $derived(healthStore.panelCompatibility);
 
   let {
     at,
@@ -39,6 +43,9 @@
     {:else if panelMetrics}
       <Card.Description>{at("stats_section_panel_hint", {}, "")}</Card.Description>
     {/if}
+    <Card.Action>
+      <PanelVersionBadge {at} compatibility={panelCompatibility} />
+    </Card.Action>
   </Card.Header>
 
   {#if panelPayload?.error}

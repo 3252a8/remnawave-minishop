@@ -25,6 +25,7 @@ from bot.keyboards.inline.user_keyboards import (
 )
 from bot.middlewares.i18n import JsonI18n
 from bot.services.panel_activity import record_subscription_panel_activity
+from bot.services.panel_api_compat import normalize_panel_user
 from bot.services.subscription_lifecycle_notifications import (
     SubscriptionLifecycleNotificationService,
     SubscriptionNotificationStage,
@@ -172,10 +173,13 @@ class PanelWebhookService:
         meta: dict[str, Any] | None = None,
         context: dict[str, Any] | None = None,
     ) -> None:
+        # Preserve Mini Shop's historical webhook/user contract on Remnawave
+        # 3.x, where numeric ``id`` replaced ``uuid``.
+        user_payload = normalize_panel_user(user_payload) or user_payload
         await events.emit_model(
             PanelWebhookReceivedPayload(
                 event=event_name,
-                panel_user_uuid=user_payload.get("uuid"),
+                panel_user_uuid=self._payload_panel_uuid(user_payload) or None,
                 telegram_id=user_payload.get("telegramId"),
             )
         )
@@ -726,6 +730,7 @@ class PanelWebhookService:
         return str(
             user_payload.get("uuid")
             or user_payload.get("userUuid")
+            or user_payload.get("id")
             or user_payload.get("shortUuid")
             or ""
         ).strip()
@@ -844,6 +849,9 @@ class PanelWebhookService:
                 nested_user = event_data_dict.get("user")
                 user_data = nested_user if isinstance(nested_user, dict) else event_data_dict
 
+        if isinstance(user_data, dict):
+            user_data = normalize_panel_user(user_data) or user_data
+
         telegram_id = user_data.get("telegramId") if isinstance(user_data, dict) else None
 
         if not event_name:
@@ -920,9 +928,7 @@ class PanelWebhookService:
     ) -> str:
         subject = (
             cls._payload_telegram_id(user_payload)
-            or user_payload.get("uuid")
-            or user_payload.get("userUuid")
-            or user_payload.get("shortUuid")
+            or cls._payload_panel_uuid(user_payload)
             or "unknown"
         )
         event_id = f"{event_name}:{subject}"

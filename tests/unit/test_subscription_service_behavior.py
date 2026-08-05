@@ -417,6 +417,59 @@ class SubscriptionServicePanelPayloadTests(unittest.TestCase):
 
 
 class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCase):
+    async def test_panel_link_reconnects_stale_v2_uuid_by_username_after_v3_upgrade(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(_tariffs_config_payload(), tmpdir)
+            service = _make_service(settings)
+            upgraded_user = {
+                "id": 42,
+                "uuid": "42",
+                "username": "tg_42",
+                "shortUuid": "short",
+                "telegramId": None,
+            }
+            service.panel_service.get_users_by_filter = AsyncMock(side_effect=[[], [upgraded_user]])
+            service.panel_service.get_user_by_uuid = AsyncMock()
+            service.panel_service.create_panel_user = AsyncMock()
+            session = AsyncMock()
+            db_user = SimpleNamespace(
+                user_id=42,
+                telegram_id=42,
+                panel_user_uuid="old-v2-uuid",
+                email=None,
+                username="trial-user",
+                first_name="Trial",
+                last_name="User",
+            )
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.panel_identity.user_dal.get_user_by_panel_uuid",
+                    AsyncMock(return_value=None),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.panel_identity.user_dal.update_user",
+                    AsyncMock(),
+                ) as update_user,
+                patch(
+                    "bot.services.subscription_service_impl.panel_identity.user_panel_squad_override_dal.merge_panel_user_uuid",
+                    AsyncMock(return_value=1),
+                ) as merge_overrides,
+            ):
+                link = await service._get_or_create_panel_user_link(session, 42, db_user)
+
+            self.assertEqual(link.panel_user_uuid, "42")
+            self.assertTrue(link.local_link_updated_now)
+            service.panel_service.get_user_by_uuid.assert_not_awaited()
+            service.panel_service.create_panel_user.assert_not_awaited()
+            update_user.assert_awaited_once_with(session, 42, {"panel_user_uuid": "42"})
+            merge_overrides.assert_awaited_once_with(
+                session,
+                user_id=42,
+                old_panel_user_uuid="old-v2-uuid",
+                new_panel_user_uuid="42",
+            )
+
     async def test_panel_link_creation_uses_operation_specific_access(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(

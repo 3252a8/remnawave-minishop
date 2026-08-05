@@ -171,7 +171,7 @@ async def _fetch_payment_and_latest_subscription(
         subscription = await connection.fetchrow(
             """
             select subscription_id, user_id, provider, duration_months, is_active, tariff_key,
-                   end_date
+                   panel_user_uuid, end_date
             from subscriptions
             where user_id = $1
             order by end_date desc nulls last, subscription_id desc
@@ -182,6 +182,33 @@ async def _fetch_payment_and_latest_subscription(
         assert payment is not None
         assert subscription is not None
         return payment, subscription
+    finally:
+        await connection.close()
+
+
+async def _fetch_user_and_latest_subscription(
+    user_id: int,
+) -> tuple[Record, Record]:
+    connection = await asyncpg.connect(DB_DSN)
+    try:
+        user = await connection.fetchrow(
+            "select user_id, panel_user_uuid from users where user_id = $1",
+            user_id,
+        )
+        subscription = await connection.fetchrow(
+            """
+            select subscription_id, user_id, provider, duration_months, is_active, tariff_key,
+                   panel_user_uuid, end_date
+            from subscriptions
+            where user_id = $1
+            order by end_date desc nulls last, subscription_id desc
+            limit 1
+            """,
+            user_id,
+        )
+        assert user is not None
+        assert subscription is not None
+        return user, subscription
     finally:
         await connection.close()
 
@@ -214,8 +241,22 @@ def test_email_auth_session_and_csrf(client: httpx.Client) -> None:
     assert language["language"] == "en"
 
 
+def test_trial_activation_creates_missing_panel_user(client: httpx.Client) -> None:
+    session = login_email(client, f"qa-trial-{uuid.uuid4().hex}@example.com")
+
+    activation = _ok(client.post("/api/trial/activate", headers=session.headers()))
+
+    assert activation["activated"] is True
+    assert activation["days"] > 0
+    user, subscription = asyncio.run(_fetch_user_and_latest_subscription(session.user_id))
+    assert user["panel_user_uuid"]
+    assert subscription["panel_user_uuid"] == user["panel_user_uuid"]
+    assert subscription["provider"] == "trial"
+    assert subscription["is_active"] is True
+
+
 def test_qa_payment_webhook_activates_subscription(client: httpx.Client) -> None:
-    session = login_email(client, "runes.expired@example.com")
+    session = login_email(client, f"qa-paid-{uuid.uuid4().hex}@example.com")
 
     payment_data = _ok(
         client.post(
@@ -268,6 +309,7 @@ def test_qa_payment_webhook_activates_subscription(client: httpx.Client) -> None
     assert subscription["provider"] == "qa"
     assert subscription["duration_months"] == 1
     assert subscription["is_active"] is True
+    assert subscription["panel_user_uuid"]
 
 
 def test_admin_settings_save_roundtrip(client: httpx.Client) -> None:
@@ -300,15 +342,26 @@ def test_admin_settings_save_roundtrip(client: httpx.Client) -> None:
 
 
 def test_remnawave_versions_are_pinned_and_healthy(client: httpx.Client) -> None:
-    lock_path = REPO_ROOT / "deploy" / "dev" / "remnawave-versions.lock.json"
-    env_example = (REPO_ROOT / "deploy" / "dev" / "remnawave-dev.env.example").read_text(
-        encoding="utf-8"
-    )
+    preset = os.getenv("QA_REMNAWAVE_PRESET", "3.0.0")
+    lock_path = REPO_ROOT / "deploy" / "dev" / "remnawave-stands" / preset / "versions.lock.json"
+    selected_env = (REPO_ROOT / ".env.remnawave-dev").read_text(encoding="utf-8")
     lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    support = json.loads(
+        (REPO_ROOT / "backend" / "bot" / "services" / "remnawave_support.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    certified = {
+        version
+        for generation in support["generations"]
+        for version in generation["certified_versions"]
+    }
 
-    assert f"REMNAWAVE_DEV_VERSION={lock['remnawave_panel']}" in env_example
-    assert f"REMNAWAVE_NODE_VERSION={lock['remnawave_node']}" in env_example
-    assert f"REMNAWAVE_SUBSCRIPTION_PAGE_VERSION={lock['subscription_page']}" in env_example
+    assert preset in certified
+    assert lock["remnawave_panel"] == preset
+    assert f"REMNAWAVE_DEV_VERSION={lock['remnawave_panel']}" in selected_env
+    assert f"REMNAWAVE_NODE_VERSION={lock['remnawave_node']}" in selected_env
+    assert f"REMNAWAVE_SUBSCRIPTION_PAGE_VERSION={lock['subscription_page']}" in selected_env
 
     frontend = httpx.get(FRONTEND_URL, timeout=10.0)
     assert frontend.status_code < 500, frontend.text[:500]

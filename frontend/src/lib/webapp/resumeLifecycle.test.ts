@@ -26,7 +26,11 @@ function makeTarget(extra: Record<string, unknown> = {}) {
 
 function makeLifecycle(overrides: TestOverrides = {}) {
   resetShellState({ mode: "app" });
-  const documentTarget = makeTarget({ visibilityState: "visible" });
+  const documentElement = {
+    removeAttribute: vi.fn(),
+    toggleAttribute: vi.fn(),
+  };
+  const documentTarget = makeTarget({ documentElement, visibilityState: "visible" });
   const windowTarget = makeTarget();
   const deps = {
     clearLoginTooltip: vi.fn(),
@@ -39,6 +43,7 @@ function makeLifecycle(overrides: TestOverrides = {}) {
   };
   return {
     deps,
+    documentElement,
     documentTarget,
     lifecycle: createResumeLifecycle(deps),
     windowTarget,
@@ -67,7 +72,10 @@ describe("createResumeLifecycle", () => {
   });
 
   it("skips resume refreshes while document is hidden", () => {
-    const { deps, documentTarget, lifecycle } = makeLifecycle();
+    const suspendBackgroundWork = vi.fn();
+    const { deps, documentElement, documentTarget, lifecycle } = makeLifecycle({
+      deps: { suspendBackgroundWork },
+    });
     documentTarget.visibilityState = "hidden";
 
     lifecycle.onResume();
@@ -76,6 +84,8 @@ describe("createResumeLifecycle", () => {
     expect(deps.refreshPendingActivationOnResume).not.toHaveBeenCalled();
     expect(deps.refreshTelegramNotificationsOnResume).not.toHaveBeenCalled();
     expect(deps.refreshAccountDataOnResume).not.toHaveBeenCalled();
+    expect(suspendBackgroundWork).toHaveBeenCalledOnce();
+    expect(documentElement.toggleAttribute).toHaveBeenCalledWith("data-app-backgrounded", true);
   });
 
   it("re-reads the account payload only once per cooldown", () => {
@@ -104,7 +114,7 @@ describe("createResumeLifecycle", () => {
   });
 
   it("registers and unregisters browser listeners", () => {
-    const { documentTarget, lifecycle, windowTarget } = makeLifecycle();
+    const { documentElement, documentTarget, lifecycle, windowTarget } = makeLifecycle();
 
     const cleanup = lifecycle.mount();
     windowTarget.emit("focus");
@@ -119,5 +129,7 @@ describe("createResumeLifecycle", () => {
     );
     expect(windowTarget.listeners.size).toBe(0);
     expect(documentTarget.listeners.size).toBe(0);
+    expect(documentElement.toggleAttribute).toHaveBeenCalledWith("data-app-backgrounded", false);
+    expect(documentElement.removeAttribute).toHaveBeenCalledWith("data-app-backgrounded");
   });
 });

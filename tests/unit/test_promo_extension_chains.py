@@ -28,6 +28,7 @@ from bot.infra.promo_policies import (
     register_promo_redemption_policy,
     reset_promo_redemption_policies,
     resolve_promo_checkout_suggestion,
+    resolve_promo_checkout_suggestions,
 )
 from bot.services.promo_effects import PromoEffects
 from db.dal import promo_code_dal
@@ -229,3 +230,16 @@ def test_checkout_suggestion_skips_failing_provider():
     )
 
     assert result == "SAFE10"
+
+
+def test_checkout_suggestions_flatten_and_deduplicate_provider_candidates():
+    register_promo_checkout_suggestion_provider(lambda _ctx: [" BEST30 ", "SAVE10"])
+    register_promo_checkout_suggestion_provider(lambda _ctx: ["SAVE10", "LAST5"])
+
+    result = asyncio.run(
+        resolve_promo_checkout_suggestions(
+            PromoCheckoutSuggestionContext(session=object(), user_id=7)
+        )
+    )
+
+    assert result == ("BEST30", "SAVE10", "LAST5")

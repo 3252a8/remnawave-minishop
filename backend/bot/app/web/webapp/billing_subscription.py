@@ -22,7 +22,11 @@ from bot.app.web.webapp.payloads import (
     WebAppAutoRenewPayload,
     WebAppPromoApplyPayload,
 )
-from bot.infra.auto_renew import auto_renew_user_lock_name
+from bot.infra.auto_renew import (
+    auto_renew_toggle_allowed,
+    auto_renew_user_lock_name,
+    stop_provider_managed_recurrence,
+)
 from bot.infra.redis import redis_lock
 from bot.services.promo_code_service import PromoCheckoutRequired, PromoCodeService
 from bot.services.subscription_service_impl.core import SubscriptionService
@@ -191,7 +195,7 @@ async def subscription_auto_renew_route(request: web.Request) -> web.Response:
             from bot.payment_providers.shared import service_supports_recurring
             from db.dal import user_billing_dal
 
-            if not provider_supports_recurring(provider):
+            if not auto_renew_toggle_allowed(provider, enable=enabled):
                 await session.rollback()
                 return _json_error(
                     400,
@@ -199,7 +203,7 @@ async def subscription_auto_renew_route(request: web.Request) -> web.Response:
                     "Auto-renew is not available for this payment provider",
                 )
 
-            if enabled:
+            if enabled and provider_supports_recurring(provider):
                 recurring_service_for = getattr(subscription_service, "recurring_service_for", None)
                 recurring_service = (
                     recurring_service_for(provider) if callable(recurring_service_for) else None
@@ -235,6 +239,20 @@ async def subscription_auto_renew_route(request: web.Request) -> web.Response:
                         409,
                         "auto_renew_busy",
                         "Auto-renew is being processed; please try again",
+                    )
+                if not enabled and not await stop_provider_managed_recurrence(
+                    subscription_service,
+                    session,
+                    user_id=user_id,
+                    provider=provider,
+                ):
+                    # Reporting "off" while the provider keeps debiting the
+                    # customer would be the worst possible outcome here.
+                    await session.rollback()
+                    return _json_error(
+                        502,
+                        "auto_renew_provider_cancel_failed",
+                        "The payment provider did not confirm the cancellation",
                     )
                 await subscription_dal.set_auto_renew(
                     session,

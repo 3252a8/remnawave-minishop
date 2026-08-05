@@ -2096,7 +2096,7 @@
   border-radius: 10px;
   background: var(--admin-surface);
   box-shadow:
-    var(--shadow-floating),
+    var(--shadow-popover),
     0 18px 60px rgba(15, 23, 42, 0.18);
 }
 
@@ -7142,7 +7142,7 @@
 }
 
 .admin-promo-owner:hover {
-  color: var(--admin-accent);
+  color: var(--accent);
   text-decoration: underline;
 }
 
@@ -7360,8 +7360,8 @@
   height: 18px;
   padding: 0 5px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--warning, #f59e0b) 18%, transparent);
-  color: color-mix(in srgb, var(--warning, #f59e0b) 72%, var(--admin-text));
+  background: color-mix(in srgb, var(--warning) 18%, transparent);
+  color: color-mix(in srgb, var(--warning) 72%, var(--admin-text));
   font-size: 11px;
   font-weight: 700;
   line-height: 1;
@@ -7372,8 +7372,8 @@
 }
 
 .admin-promo-editor-section.is-dirty {
-  border-color: color-mix(in srgb, var(--warning, #f59e0b) 70%, var(--admin-border));
-  background: color-mix(in srgb, var(--warning, #f59e0b) 6%, var(--admin-surface-2));
+  border-color: color-mix(in srgb, var(--warning) 70%, var(--admin-border));
+  background: color-mix(in srgb, var(--warning) 6%, var(--admin-surface-2));
 }
 
 .admin-promo-editor-section .admin-editor-section-head {
@@ -7390,8 +7390,8 @@
 }
 
 .admin-promo-field-shell.is-dirty {
-  border-color: color-mix(in srgb, var(--warning, #f59e0b) 64%, var(--admin-border));
-  background: color-mix(in srgb, var(--warning, #f59e0b) 7%, transparent);
+  border-color: color-mix(in srgb, var(--warning) 64%, var(--admin-border));
+  background: color-mix(in srgb, var(--warning) 7%, transparent);
 }
 
 .admin-promo-field-shell .admin-badge {

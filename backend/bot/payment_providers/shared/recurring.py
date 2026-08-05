@@ -15,6 +15,12 @@ A provider service opts in by implementing two members:
 The renewal worker discovers such services through
 ``SubscriptionService.recurring_service_for(provider)`` (wired in
 ``build_core_services``) and never imports a concrete provider.
+
+A second, disjoint family exists: providers that own the schedule themselves
+(a Platega SBP subscription mandate). Nothing local may initiate their
+charges, so they implement :class:`ProviderManagedRecurringService` instead —
+``manages_recurrence`` plus a way to stop the mandate — and the local
+``Subscription.auto_renew_enabled`` flag only mirrors the provider's state.
 """
 
 from __future__ import annotations
@@ -131,6 +137,28 @@ class RecurringProviderService(Protocol):
     ) -> RecurringChargeResult: ...
 
 
+class ProviderManagedRecurringService(Protocol):
+    """A provider that charges the payer on its own schedule.
+
+    ``cancel_provider_recurrence`` must be idempotent: it is called whenever a
+    customer turns local auto-renew off, and the provider may already have
+    stopped the mandate (payer self-service, terminal failure).
+    """
+
+    @property
+    def configured(self) -> bool: ...
+
+    @property
+    def manages_recurrence(self) -> bool: ...
+
+    async def cancel_provider_recurrence(self, session: Any, *, user_id: int) -> bool: ...
+
+
 def service_supports_recurring(service: object | None) -> bool:
     """True when a wired provider service exposes an active recurring capability."""
     return bool(service is not None and getattr(service, "recurring_active", False))
+
+
+def service_manages_recurrence(service: object | None) -> bool:
+    """True when a wired provider service owns the renewal schedule itself."""
+    return bool(service is not None and getattr(service, "manages_recurrence", False))

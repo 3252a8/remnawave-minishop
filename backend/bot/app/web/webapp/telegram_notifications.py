@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Any
 
@@ -28,6 +29,12 @@ from .response_helpers import json_response
 
 logger = logging.getLogger(__name__)
 
+# The probe asks the Bot API whether the account can still receive messages. Every caller runs it
+# on a request the customer is waiting on — three of them right after sign-in, where it is a side
+# effect rather than a precondition — so a slow Bot API must cost a bounded wait and an "unknown"
+# status, not the whole proxy budget and a 504. The Mini App re-probes on its own once it loads.
+TELEGRAM_NOTIFICATIONS_PROBE_TIMEOUT_SECONDS = 10.0
+
 
 async def _probe_telegram_notifications_for_user_id(
     request: web.Request,
@@ -48,14 +55,17 @@ async def _probe_telegram_notifications_for_user_id(
                     "enabled": False,
                     "start_link": telegram_notifications_start_link(get_bot_username(request)),
                 }
-            result = await probe_telegram_notifications(
-                session=session,
-                bot=get_bot(request),
-                settings=settings,
-                i18n=get_i18n(request),
-                user=db_user,
-                bot_username=get_bot_username(request),
-                force=force,
+            result = await asyncio.wait_for(
+                probe_telegram_notifications(
+                    session=session,
+                    bot=get_bot(request),
+                    settings=settings,
+                    i18n=get_i18n(request),
+                    user=db_user,
+                    bot_username=get_bot_username(request),
+                    force=force,
+                ),
+                timeout=TELEGRAM_NOTIFICATIONS_PROBE_TIMEOUT_SECONDS,
             )
             await session.commit()
             status = str(result.get("status") or "")
@@ -65,6 +75,19 @@ async def _probe_telegram_notifications_for_user_id(
                 "status": status,
                 "enabled": status == TELEGRAM_NOTIFICATIONS_ENABLED,
                 "start_link": result.get("start_link"),
+            }
+        except TimeoutError:
+            await session.rollback()
+            logger.warning(
+                "Telegram notification probe timed out for user %s after %ss",
+                user_id,
+                TELEGRAM_NOTIFICATIONS_PROBE_TIMEOUT_SECONDS,
+            )
+            return {
+                "ok": False,
+                "status": "unknown",
+                "enabled": False,
+                "start_link": telegram_notifications_start_link(get_bot_username(request)),
             }
         except Exception:
             await session.rollback()

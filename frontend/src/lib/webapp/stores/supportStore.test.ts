@@ -26,6 +26,16 @@ function makeSupportStore() {
   return { api, store };
 }
 
+function makeListStore(responses: unknown[]) {
+  const api = vi.fn(async () => responses.shift() ?? { ok: true, tickets: [], counts: {} });
+  const store = createSupportStore({
+    api: api as unknown as ApiClient["api"],
+    t: (key: string) => key,
+    showToast: vi.fn(),
+  });
+  return { api, store };
+}
+
 describe("supportStore", () => {
   it("ignores concurrent replies while the first request is in flight", async () => {
     const { api, store } = makeSupportStore();
@@ -66,5 +76,34 @@ describe("supportStore", () => {
     expect(api.mock.calls.filter(([path]) => path === "/support/tickets/7/messages")).toHaveLength(
       0
     );
+  });
+
+  it("tracks which filter the held ticket list belongs to", async () => {
+    const { store } = makeListStore([
+      { ok: true, tickets: [{ ticket_id: 1 }], counts: { active: 1, total: 1 } },
+      { ok: true, tickets: [], counts: { active: 1, closed: 0, total: 1 } },
+    ]);
+
+    expect(store.loadedFilter).toBe("");
+
+    await store.loadList();
+    expect(store.loadedFilter).toBe("active");
+
+    store.setStatusFilter("closed");
+    expect(store.loadedFilter).toBe("active");
+    await vi.waitFor(() => expect(store.loadedFilter).toBe("closed"));
+  });
+
+  it("zeroes ticket counts the API stopped reporting", async () => {
+    const { store } = makeListStore([
+      { ok: true, tickets: [], counts: { active: 1, awaiting_admin: 1, total: 1 } },
+      { ok: true, tickets: [], counts: { active: 1, awaiting_user: 1, total: 1 } },
+    ]);
+
+    await store.loadList();
+    expect(store.counts.awaiting_admin).toBe(1);
+
+    await store.loadList({ force: true });
+    expect(store.counts).toMatchObject({ awaiting_admin: 0, awaiting_user: 1, active: 1 });
   });
 });

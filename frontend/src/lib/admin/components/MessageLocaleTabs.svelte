@@ -72,7 +72,7 @@
   }
 
   .message-locale-tab--active {
-    border-color: var(--admin-accent);
+    border-color: var(--accent);
     color: var(--admin-text);
   }
 
@@ -80,6 +80,6 @@
      when its customers receive somebody else's language. */
   .message-locale-tab--empty::after {
     content: " •";
-    color: var(--admin-warning, #f59e0b);
+    color: var(--warning);
   }
 </style>

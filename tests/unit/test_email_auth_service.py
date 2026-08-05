@@ -1,7 +1,8 @@
+import ssl
 import unittest
 from email.utils import parsedate_to_datetime
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import parse_qs, urlsplit
 
 from sqlalchemy.dialects import postgresql
@@ -15,6 +16,8 @@ def _settings():
     return SimpleNamespace(
         SMTP_FROM_NAME="Mini Shop",
         SMTP_FROM_EMAIL="noreply@example.com",
+        SMTP_USERNAME="smtp-user",
+        SMTP_PASSWORD="smtp-password",
         WEBAPP_TITLE="Mini Shop",
         SUBSCRIPTION_MINI_APP_URL="https://app.example.com/",
         BOT_TOKEN="bot-token",
@@ -79,6 +82,48 @@ def test_build_email_message_adds_rfc_delivery_headers():
     assert message["Message-ID"].startswith("<")
     assert message["Message-ID"].endswith("@example.com>")
     assert parsedate_to_datetime(message["Date"]) is not None
+
+
+def test_code_hash_is_bound_to_recipient_email():
+    service = EmailAuthService(_settings())
+
+    yandex_hash = service._hash_code("user@yandex.ru", "login", "123456")
+    gmail_hash = service._hash_code("user@gmail.com", "login", "123456")
+
+    assert yandex_hash != gmail_hash
+
+
+def test_smtp_send_uses_explicit_envelope_recipient():
+    service = EmailAuthService(_settings())
+    message = service._build_email_message(
+        email="user@yandex.ru",
+        subject="Login code",
+        body="Your code: 123456",
+    )
+    smtp = MagicMock()
+    smtp_context = MagicMock()
+    smtp_context.__enter__.return_value = smtp
+
+    with patch(
+        "bot.services.email_auth_service.smtplib.SMTP",
+        return_value=smtp_context,
+    ):
+        service._send_message_via_smtp(
+            message=message,
+            recipient_email="user@yandex.ru",
+            smtp_host="smtp.example.com",
+            smtp_port=587,
+            timeout=10,
+            context=ssl.create_default_context(),
+            use_ssl=False,
+            starttls=False,
+        )
+
+    smtp.send_message.assert_called_once_with(
+        message,
+        from_addr="noreply@example.com",
+        to_addrs=["user@yandex.ru"],
+    )
 
 
 class EmailAuthConsumptionLockTests(unittest.IsolatedAsyncioTestCase):

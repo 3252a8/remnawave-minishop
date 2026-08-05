@@ -463,6 +463,71 @@ class UserBotMenuTests(unittest.TestCase):
             "tariff:period:basic:1:bot",
         )
 
+    def test_personal_promo_updates_renewal_price_and_can_be_disabled(self):
+        tariff = SimpleNamespace(
+            key="basic",
+            billing_model="period",
+            enabled_periods=[1],
+            period_price=lambda months, currency: (
+                100 if months == 1 and currency == "rub" else None
+            ),
+        )
+        settings = settings_stub(DEFAULT_CURRENCY="RUB", DEFAULT_CURRENCY_SYMBOL="₽")
+        quote = SimpleNamespace(
+            promo_code_id=17,
+            effective_amount=75,
+        )
+
+        applied = get_tariff_periods_keyboard(
+            tariff,
+            "en",
+            self.i18n,
+            settings,
+            callback_context="bot",
+            promo_quotes={1: quote},
+            promo_available=True,
+            promo_enabled=True,
+            promo_toggle_callback="tariff:select:basic:bot:pd",
+        )
+        applied_buttons = [button for row in applied.inline_keyboard for button in row]
+        self.assertIn("100 → 75", applied_buttons[0].text)
+        self.assertEqual(applied_buttons[0].callback_data, "tariff:period:basic:1:bot:p17")
+        self.assertTrue(any("Cancel promo code" in button.text for button in applied_buttons))
+
+        disabled = get_tariff_periods_keyboard(
+            tariff,
+            "en",
+            self.i18n,
+            settings,
+            callback_context="bot",
+            promo_quotes={1: quote},
+            promo_available=True,
+            promo_enabled=False,
+            promo_toggle_callback="tariff:select:basic:bot",
+        )
+        disabled_buttons = [button for row in disabled.inline_keyboard for button in row]
+        self.assertNotIn("→", disabled_buttons[0].text)
+        self.assertEqual(disabled_buttons[0].callback_data, "tariff:period:basic:1:bot:pd")
+        self.assertTrue(any("Apply discount" in button.text for button in disabled_buttons))
+
+    def test_traffic_buttons_never_include_personal_promo_controls(self):
+        markup = get_subscription_options_keyboard(
+            {10: 50},
+            "RUB",
+            "en",
+            self.i18n,
+            traffic_mode=True,
+            callback_context="bot",
+            promo_quotes={10: SimpleNamespace(promo_code_id=17, effective_amount=25)},
+            promo_available=True,
+            promo_enabled=True,
+            promo_toggle_callback="main_action:bot_subscribe:pd",
+        )
+        buttons = [button for row in markup.inline_keyboard for button in row]
+
+        self.assertEqual(buttons[0].callback_data, "subscribe_period:10:bot")
+        self.assertFalse(any("promo" in str(button.callback_data) for button in buttons))
+
     def test_webapp_referral_link_uses_ref_query_and_is_normalized(self):
         link = referral._build_webapp_referral_link(
             "https://app.example.com/invite?utm=channel",

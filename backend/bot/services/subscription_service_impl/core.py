@@ -9,8 +9,12 @@ from bot.services.panel_api_service import PanelApiService
 from config.settings import Settings
 
 if TYPE_CHECKING:
-    from bot.payment_providers.shared import RecurringProviderService
+    from bot.payment_providers.shared import (
+        ProviderManagedRecurringService,
+        RecurringProviderService,
+    )
 else:
+    ProviderManagedRecurringService = object
     RecurringProviderService = object
 
 from .devices import HwidDeviceMixin
@@ -51,3 +55,4 @@ class SubscriptionService(
         self._premium_access_cache: dict[tuple[str, ...], dict[str, Any]] = {}
         self.yookassa_service: RecurringProviderService | None = None
         self.recurring_provider_services: dict[str, RecurringProviderService] = {}
+        self.managed_recurring_provider_services: dict[str, ProviderManagedRecurringService] = {}

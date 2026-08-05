@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import inspect as inspect_module
 import logging
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -56,11 +56,14 @@ class PromoCheckoutSuggestionContext:
 
     session: Any
     user_id: int
+    sale_mode_base: str | None = None
+    months: int | None = None
+    traffic_gb: float | None = None
 
 
 PromoCheckoutSuggestionProvider = Callable[
     [PromoCheckoutSuggestionContext],
-    str | Awaitable[str | None] | None,
+    str | Sequence[str] | Awaitable[str | Sequence[str] | None] | None,
 ]
 
 _extra_promo_redemption_policies: list[PromoRedemptionPolicy] = []
@@ -185,6 +188,17 @@ async def resolve_promo_checkout_suggestion(
     is logged and skipped instead of making the core account payload fail.
     """
 
+    suggestions = await resolve_promo_checkout_suggestions(ctx)
+    return suggestions[0] if suggestions else None
+
+
+async def resolve_promo_checkout_suggestions(
+    ctx: PromoCheckoutSuggestionContext,
+) -> tuple[str, ...]:
+    """Collect de-duplicated checkout candidates contributed by plugins."""
+
+    suggestions: list[str] = []
+    seen: set[str] = set()
     for provider in tuple(_promo_checkout_suggestion_providers):
         try:
             result = provider(ctx)
@@ -193,7 +207,14 @@ async def resolve_promo_checkout_suggestion(
         except Exception:
             logger.exception("Promo checkout suggestion provider failed")
             continue
-        code = str(result or "").strip()
-        if code:
-            return code
-    return None
+        values = [result] if isinstance(result, str) else list(result or ())
+        for value in values:
+            code = str(value or "").strip()
+            normalized = code.casefold()
+            if not code or normalized in seen:
+                continue
+            seen.add(normalized)
+            suggestions.append(code)
+            if len(suggestions) >= 50:
+                return tuple(suggestions)
+    return tuple(suggestions)

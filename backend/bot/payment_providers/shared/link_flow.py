@@ -236,6 +236,7 @@ async def run_callback_payment[ServiceT: LinkFlowService](
         subscription_service=service.subscription_service,
         currency=default_currency_key_for_settings(settings),
         settings=settings,
+        provider_spec=descriptor.spec,
     )
     if not parts:
         await notify_callback_parse_error(callback, translator)
@@ -269,6 +270,7 @@ async def run_callback_payment[ServiceT: LinkFlowService](
         sale_mode=parts.sale_mode,
         hwid_quote=hwid_quote,
         entitlement_context_snapshot=entitlement_context_snapshot,
+        checkout_promo=getattr(parts, "checkout_promo", None),
     )
 
     reusable_payment = None

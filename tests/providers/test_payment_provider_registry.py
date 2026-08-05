@@ -391,6 +391,93 @@ def test_subscription_callback_uses_current_server_price():
     assert quoted_parts.sale_mode == "subscription@standard"
 
 
+def test_subscription_callback_revalidates_promo_before_adding_hwid_price():
+    tariff = SimpleNamespace(
+        billing_model="period",
+        enabled_periods=[1],
+        period_price=lambda months, currency: 299 if (months, currency) == (1, "rub") else None,
+    )
+    settings = SimpleNamespace(
+        tariffs_config=SimpleNamespace(require=lambda key: tariff if key == "standard" else None)
+    )
+    promo = SimpleNamespace(
+        promo_code_id=17,
+        discount_amount=100,
+        effective_amount=199,
+        effective_stars=None,
+    )
+    subscription_service = SimpleNamespace(
+        quote_hwid_device_renewal_for_subscription=AsyncMock(
+            return_value={
+                "subscription_id": 11,
+                "tariff_key": "standard",
+                "device_count": 2,
+                "price": 50,
+            }
+        )
+    )
+    promo_resolver = AsyncMock(return_value=(promo, None))
+
+    with (
+        patch(
+            "bot.payment_providers.shared.callbacks."
+            "subscription_dal.get_active_subscription_by_user_id",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "bot.payment_providers.shared.callbacks.resolve_checkout_promo",
+            promo_resolver,
+        ),
+    ):
+        quoted_parts, hwid_quote = asyncio.run(
+            quote_hwid_callback_parts(
+                session=AsyncMock(),
+                user_id=42,
+                parts=PaymentCallbackParts(
+                    months=1,
+                    price=1,
+                    sale_mode="subscription@standard|p17|hwid_renewal",
+                ),
+                subscription_service=subscription_service,
+                currency="rub",
+                settings=settings,
+            )
+        )
+
+    assert quoted_parts is not None
+    assert quoted_parts.price == 249
+    assert quoted_parts.checkout_promo is promo
+    assert hwid_quote == {
+        "subscription_id": 11,
+        "tariff_key": "standard",
+        "device_count": 2,
+        "price": 50,
+    }
+    assert promo_resolver.await_args.kwargs["base_amount"] == 299
+
+
+def test_promo_token_is_rejected_for_hwid_topup():
+    subscription_service = SimpleNamespace(quote_hwid_device_topup=AsyncMock())
+
+    quoted_parts, quote = asyncio.run(
+        quote_hwid_callback_parts(
+            session=AsyncMock(),
+            user_id=42,
+            parts=PaymentCallbackParts(
+                months=1,
+                price=50,
+                sale_mode="hwid_devices@standard|p17",
+            ),
+            subscription_service=subscription_service,
+            settings=SimpleNamespace(tariffs_config=object()),
+        )
+    )
+
+    assert quoted_parts is None
+    assert quote is None
+    subscription_service.quote_hwid_device_topup.assert_not_awaited()
+
+
 def test_subscription_callback_is_blocked_during_active_tribute_recurrence():
     subscription_service = SimpleNamespace(quote_hwid_device_renewal_for_subscription=AsyncMock())
     active_subscription = SimpleNamespace(

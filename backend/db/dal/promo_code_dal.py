@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from db.models import Payment, PromoCode, PromoCodeActivation
+from db.models import Payment, PromoCode, PromoCodeActivation, User
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +29,18 @@ async def create_promo_code(session: AsyncSession, promo_data: dict[str, Any]) -
     return new_promo
 
 
-async def get_promo_code_by_id(session: AsyncSession, promo_code_id: int) -> PromoCode | None:
-    return await session.get(PromoCode, promo_code_id)
+async def get_promo_code_by_id(
+    session: AsyncSession,
+    promo_code_id: int,
+    *,
+    for_update: bool = False,
+) -> PromoCode | None:
+    if not for_update:
+        return await session.get(PromoCode, promo_code_id)
+    result = await session.execute(
+        select(PromoCode).where(PromoCode.promo_code_id == promo_code_id).with_for_update()
+    )
+    return result.scalar_one_or_none()
 
 
 def _promo_lookup_candidates(code_str: str, *, preserve_case: bool) -> list[str]:
@@ -114,13 +124,66 @@ def _promo_owner_filter(personal: bool | None) -> list[Any]:
 
 
 async def get_all_promo_codes_with_details(
-    session: AsyncSession, limit: int = 50, offset: int = 0, *, personal: bool | None = None
+    session: AsyncSession,
+    limit: int = 50,
+    offset: int = 0,
+    *,
+    personal: bool | None = None,
+    sort: str = "created_desc",
 ) -> list[PromoCode]:
     """Get all promo codes (active and inactive) with pagination for management"""
+    has_bonus = func.coalesce(PromoCode.bonus_days, 0) > 0
+    has_discount = func.coalesce(PromoCode.discount_percent, 0) > 0
+    has_duration = func.coalesce(PromoCode.duration_multiplier, 1) > 1
+    has_traffic = func.coalesce(PromoCode.traffic_multiplier, 1) > 1
+    effect_count = (
+        case((has_bonus, 1), else_=0)
+        + case((has_discount, 1), else_=0)
+        + case((has_duration, 1), else_=0)
+        + case((has_traffic, 1), else_=0)
+    )
+    type_rank = case(
+        (effect_count > 1, 2),
+        (has_discount, 1),
+        (or_(has_duration, has_traffic), 3),
+        else_=0,
+    )
+    status_rank = case(
+        (PromoCode.is_active.is_(False), 0),
+        (
+            and_(PromoCode.valid_until.is_not(None), PromoCode.valid_until <= datetime.now(UTC)),
+            1,
+        ),
+        (PromoCode.current_activations >= PromoCode.max_activations, 2),
+        else_=3,
+    )
+    sort_columns: dict[str, tuple[Any, ...]] = {
+        "code": (PromoCode.code,),
+        "type": (type_rank,),
+        "effect": (
+            PromoCode.bonus_days,
+            PromoCode.discount_percent,
+            PromoCode.duration_multiplier,
+            PromoCode.traffic_multiplier,
+        ),
+        "scope": (PromoCode.applies_to,),
+        "eligibility": (PromoCode.min_subscription_months, PromoCode.min_traffic_gb),
+        "activations": (PromoCode.current_activations, PromoCode.max_activations),
+        "status": (status_rank,),
+        "valid_until": (PromoCode.valid_until,),
+        "created": (PromoCode.created_at,),
+    }
+    sort_key, _, direction = (sort or "created_desc").lower().rpartition("_")
+    descending = direction != "asc"
+    columns = sort_columns.get(sort_key, sort_columns["created"])
+    order = [
+        column.desc().nullslast() if descending else column.asc().nullslast() for column in columns
+    ]
+    order.append(PromoCode.promo_code_id.desc() if descending else PromoCode.promo_code_id.asc())
     stmt = (
         select(PromoCode)
         .where(PromoCode.archived_at == None, *_promo_owner_filter(personal))
-        .order_by(PromoCode.created_at.desc())
+        .order_by(*order)
         .limit(limit)
         .offset(offset)
     )
@@ -140,17 +203,52 @@ async def get_promo_codes_count(session: AsyncSession, *, personal: bool | None 
 
 
 async def get_promo_activations_by_code_id(
-    session: AsyncSession, promo_code_id: int, limit: int | None = None, offset: int = 0
+    session: AsyncSession,
+    promo_code_id: int,
+    limit: int | None = None,
+    offset: int = 0,
+    *,
+    sort: str = "date_desc",
 ) -> list[PromoCodeActivation]:
     """Get activation history for a specific promo code with optional pagination."""
+    user_name = func.nullif(
+        func.trim(func.coalesce(User.first_name, "") + " " + func.coalesce(User.last_name, "")),
+        "",
+    )
+    user_label = func.coalesce(user_name, User.username, User.email)
+    sort_columns: dict[str, tuple[Any, ...]] = {
+        "user": (user_label, PromoCodeActivation.user_id),
+        "date": (PromoCodeActivation.activated_at,),
+        "payment": (PromoCodeActivation.payment_id,),
+        "amount": (Payment.amount,),
+        "base": (PromoCodeActivation.base_amount,),
+        "discount": (PromoCodeActivation.discount_amount,),
+        "grant": (PromoCodeActivation.granted_days, PromoCodeActivation.granted_gb),
+        "effect": (PromoCodeActivation.effect_summary,),
+        "status": (Payment.status,),
+        "provider": (Payment.provider,),
+    }
+    sort_key, _, direction = (sort or "date_desc").lower().rpartition("_")
+    descending = direction != "asc"
+    columns = sort_columns.get(sort_key, sort_columns["date"])
+    order = [
+        column.desc().nullslast() if descending else column.asc().nullslast() for column in columns
+    ]
+    order.append(
+        PromoCodeActivation.activation_id.desc()
+        if descending
+        else PromoCodeActivation.activation_id.asc()
+    )
     stmt = (
         select(PromoCodeActivation)
+        .outerjoin(User, User.user_id == PromoCodeActivation.user_id)
+        .outerjoin(Payment, Payment.payment_id == PromoCodeActivation.payment_id)
         .options(
             selectinload(PromoCodeActivation.user),
             selectinload(PromoCodeActivation.payment),
         )
         .where(PromoCodeActivation.promo_code_id == promo_code_id)
-        .order_by(PromoCodeActivation.activated_at.desc())
+        .order_by(*order)
         .offset(offset)
     )
     if limit is not None:

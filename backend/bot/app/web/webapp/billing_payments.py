@@ -756,7 +756,7 @@ async def create_payment_route(request: web.Request) -> web.Response:
             lock_for_checkout=True,
         )
         if promo_error is not None:
-            return promo_error.to_response()
+            return _json_error(promo_error.status, promo_error.code, promo_error.message)
         if promo_result is not None:
             if method == "stars":
                 stars_price = promo_result.effective_stars
@@ -904,7 +904,11 @@ async def _create_subscription_payment(
             promo_result=promo_result,
         )
         if promo_support_error is not None:
-            return promo_support_error.to_response()
+            return _json_error(
+                promo_support_error.status,
+                promo_support_error.code,
+                promo_support_error.message,
+            )
         payment_context = WebAppPaymentContext(
             request=request,
             session=session,

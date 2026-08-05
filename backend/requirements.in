@@ -3,8 +3,8 @@
 # aiohttp>=3.9.0,<3.15 plus redis[hiredis]>=6.2.0,<8.
 aiogram==3.29.1
 # Keep aiohttp below 3.15 until aiogram relaxes its runtime coupling; the
-# checked latest https://pypi.org/pypi/aiohttp/json release is 3.14.1.
-aiohttp>=3.14.1,<3.15
+# checked latest https://pypi.org/pypi/aiohttp/json release is 3.14.3.
+aiohttp>=3.14.3,<3.15
 python-dotenv==1.2.2
 pydantic==2.13.4
 yookassa==3.11.0
@@ -15,6 +15,7 @@ sqlalchemy[asyncio]==2.0.51
 asyncpg==0.31.0
 certifi>=2024.7.4
 PyJWT[crypto]==2.13.0
+cryptography>=50.0.0
 Pillow==12.3.0
 # Checked 2026-07-16: https://pypi.org/pypi/redis/json latest is 8.0.1.
 # aiogram 3.29.1 still caps its optional redis[hiredis] extra at <8, so both

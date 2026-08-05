@@ -79,9 +79,11 @@ from .link_flow import (
     run_webapp_payment,
 )
 from .recurring import (
+    ProviderManagedRecurringService,
     RecurringChargeContext,
     RecurringChargeResult,
     RecurringProviderService,
+    service_manages_recurrence,
     service_supports_recurring,
 )
 from .success import (
@@ -124,6 +126,7 @@ __all__ = [
     "PaymentRecordAmounts",
     "PaymentSuccessOutcome",
     "PaymentSuccessRequest",
+    "ProviderManagedRecurringService",
     "RecurringChargeContext",
     "RecurringChargeResult",
     "RecurringProviderService",
@@ -193,6 +196,7 @@ __all__ = [
     "sale_mode_is_traffic",
     "sale_mode_tariff_key",
     "send_success_message_to_user",
+    "service_manages_recurrence",
     "service_supports_recurring",
     "snapshot_current_entitlement_context",
 ]

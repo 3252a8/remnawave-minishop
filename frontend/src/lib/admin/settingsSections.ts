@@ -65,6 +65,11 @@ const PLATEGA_CRYPTO_KEYS = new Set([
   "PLATEGA_CRYPTO_ADMIN_ONLY_ENABLED",
   "PLATEGA_CRYPTO_METHOD",
 ]);
+const PLATEGA_SUBSCRIPTION_KEYS = new Set([
+  "PLATEGA_SUBSCRIPTION_ENABLED",
+  "PLATEGA_SUBSCRIPTION_ADMIN_ONLY_ENABLED",
+  "PLATEGA_SUBSCRIPTION_METHOD",
+]);
 const PLATEGA_LEGACY_KEYS = new Set(["PLATEGA_PAYMENT_METHOD"]);
 const WATA_FIAT_KEYS = new Set([
   "WATA_ENABLED",
@@ -98,7 +103,8 @@ const SEMANTIC_FIELD_GROUP_ORDER: Record<string, number> = {
   platega_common: 1,
   platega_sbp: 2,
   platega_crypto: 3,
-  platega_legacy: 4,
+  platega_subscription: 4,
+  platega_legacy: 5,
   wata_common: 1,
   wata_fiat: 2,
   wata_crypto: 3,
@@ -261,6 +267,13 @@ export function settingsPathAnchorKey(path: unknown, target: ResolvedSettingsPat
     ) {
       return settingsFieldGroupAnchorKey("payments", "Platega", "platega_sbp");
     }
+    if (
+      fieldGroupToken === "subscription" ||
+      fieldGroupToken === "recurring" ||
+      fieldGroupToken === "plategasubscription"
+    ) {
+      return settingsFieldGroupAnchorKey("payments", "Platega", "platega_subscription");
+    }
   }
   if (sectionToken === "payments" && subsectionToken === "wata") {
     if (fieldGroupToken === "crypto" || fieldGroupToken === "watacrypto") {
@@ -416,6 +429,15 @@ function plategaSemanticGroup(field: AdminSettingField): Omit<SemanticFieldGroup
       "Crypto button",
       "settings_group_platega_crypto_hint",
       "Visibility, method ID, and labels for the crypto payment button."
+    );
+  }
+  if (PLATEGA_SUBSCRIPTION_KEYS.has(key) || key.startsWith("PAYMENT_PLATEGA_SUBSCRIPTION_")) {
+    return fieldGroupMeta(
+      "platega_subscription",
+      "settings_group_platega_subscription",
+      "Subscription button (recurring)",
+      "settings_group_platega_subscription_hint",
+      "Recurring SBP mandates charged by Platega every period."
     );
   }
   if (PLATEGA_LEGACY_KEYS.has(key)) {

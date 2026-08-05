@@ -137,7 +137,7 @@ Trust-all вариант записывается как
 | `TARIFF_PREMIUM_FAST_TICK_SECONDS` | Интервал быстрой проверки premium-лимита между полными тиками tariff worker. По умолчанию `60`; `0` или значение не меньше `TARIFF_WORKER_TICK_SECONDS` отключает быструю проверку. |
 | `TARIFF_PREMIUM_FAST_WATCH_PERCENT` | Процент израсходованного premium-трафика, с которого подписка попадает в быструю проверку. По умолчанию `80`. |
 | `TARIFF_PREMIUM_FAST_BATCH_LIMIT` | Максимум подписок в одном быстром тике. По умолчанию `200`, `0` снимает ограничение. |
-| `TARIFF_PREMIUM_DROP_CONNECTIONS` | Разрывать живые сессии на premium-нодах после исчерпания premium-лимита через `POST /api/ip-control/drop-connections`. По умолчанию `True`. Требует `CAP_NET_ADMIN` у нод Remnawave. |
+| `TARIFF_PREMIUM_DROP_CONNECTIONS` | Разрывать живые сессии на premium-нодах после исчерпания premium-лимита. Core выбирает совместимый маршрут автоматически: `POST /api/ip-control/drop-connections` на Remnawave 2.8.1 или `POST /api/connections/drop` на 3.x. По умолчанию `True`. Требует `CAP_NET_ADMIN` у нод Remnawave. |
 | `TARIFF_PREMIUM_DROP_CONNECTIONS_COOLDOWN_SECONDS` | Минимальный интервал между разрывами сессий одной подписки. По умолчанию `300`. |
 | `BACKUP_ENABLED` | Включает периодические бэкапы в worker-контейнере. По умолчанию `False`. |
 | `BACKUP_INTERVAL_SECONDS` | Интервал между бэкапами. По умолчанию `3600`; запуск выравнивается на границу часа: 12:00, 13:00 и т.д. |
@@ -299,6 +299,7 @@ Xray-Core 26.3.27+, `NET_ADMIN`, nftables, корректный sniffing и вк
 | `FREEKASSA_ENABLED` | Включает FreeKassa. |
 | `PLATEGA_ENABLED` | Включает Platega. |
 | `PLATEGA_SBP_ENABLED` / `PLATEGA_CRYPTO_ENABLED` | Отдельные кнопки СБП/крипто Platega. |
+| `PLATEGA_SUBSCRIPTION_ENABLED` | Кнопка рекуррентной СБП-подписки Platega. |
 | `SEVERPAY_ENABLED` | Включает SeverPay. |
 | `WATA_ENABLED` | Включает Wata. |
 | `CRYPTOPAY_ENABLED` | Включает CryptoPay. |
@@ -337,6 +338,12 @@ PAYMENT_PLATEGA_CRYPTO_WEBAPP_ICON
 PAYMENT_PLATEGA_CRYPTO_TELEGRAM_LABEL_RU
 PAYMENT_PLATEGA_CRYPTO_TELEGRAM_LABEL_EN
 PAYMENT_PLATEGA_CRYPTO_TELEGRAM_EMOJI
+PAYMENT_PLATEGA_SUBSCRIPTION_WEBAPP_LABEL_RU
+PAYMENT_PLATEGA_SUBSCRIPTION_WEBAPP_LABEL_EN
+PAYMENT_PLATEGA_SUBSCRIPTION_WEBAPP_ICON
+PAYMENT_PLATEGA_SUBSCRIPTION_TELEGRAM_LABEL_RU
+PAYMENT_PLATEGA_SUBSCRIPTION_TELEGRAM_LABEL_EN
+PAYMENT_PLATEGA_SUBSCRIPTION_TELEGRAM_EMOJI
 PAYMENT_SEVERPAY_WEBAPP_LABEL_RU
 PAYMENT_SEVERPAY_WEBAPP_LABEL_EN
 PAYMENT_SEVERPAY_WEBAPP_ICON
@@ -453,6 +460,7 @@ PAYMENT_TRIBUTE_TELEGRAM_EMOJI
 | `PLATEGA_PAYMENT_METHOD` | Устаревший/резервный ID метода оплаты. |
 | `PLATEGA_SBP_METHOD` | ID метода оплаты для СБП. |
 | `PLATEGA_CRYPTO_METHOD` | ID метода оплаты для крипто. |
+| `PLATEGA_SUBSCRIPTION_METHOD` | ID метода оплаты для рекуррентной СБП-подписки (по умолчанию `6`). |
 | `PLATEGA_RETURN_URL` | URL успешного возврата. |
 | `PLATEGA_FAILED_URL` | URL неуспешного возврата. |
 
@@ -693,6 +701,8 @@ Stripe создает hosted Checkout Sessions и подтверждает ав�
 | `REFERRAL_ONE_BONUS_PER_REFEREE` | Если включено, реферальные бонусы за оплату начисляются только за первый успешный платёж приглашенного; повторные покупки того же пользователя не дают бонус ни ему, ни пригласившему. |
 | `REFERRAL_WELCOME_BONUS_DAYS` | Приветственный бонус пришедшему по реферальной ссылке. |
 | `REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED` | Разрешает начислять реферальный приветственный бонус пользователям без привязанного Telegram. Disposable email домены всё равно требуют Telegram. |
+| `REFERRAL_WEBAPP_LINK_ENABLED` | Показывать реферальную ссылку на сайт в разделе бонусов Web App. Хотя бы один из двух флагов показа ссылок должен быть включён. |
+| `REFERRAL_TELEGRAM_LINK_ENABLED` | Показывать реферальную ссылку на Telegram-бота в разделе бонусов Web App. Хотя бы один из двух флагов показа ссылок должен быть включён. |
 | `LEGACY_REFS` | Разрешить старые ссылки вида `/start ref_<telegram_id>`, где payload содержит Telegram/user ID пригласившего. |
 | `DISPOSABLE_EMAIL_DOMAINS` | Домены одноразовой почты через запятую. Для таких email trial и реферальный welcome bonus доступны только после привязки Telegram. |
 | `REFERRAL_BONUS_DAYS_1_MONTH`, `REFERRAL_BONUS_DAYS_3_MONTHS`, `REFERRAL_BONUS_DAYS_6_MONTHS`, `REFERRAL_BONUS_DAYS_12_MONTHS` | Legacy-бонусы пригласившему без JSON-каталога. В JSON-тарифах используйте `referral_bonus_days_inviter`. |

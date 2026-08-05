@@ -134,7 +134,6 @@
 .theme-key-ascii .dialog-card,
 .theme-key-ascii .language-select-content,
 .theme-key-ascii .bottom-nav,
-.theme-key-ascii .toast,
 .theme-key-ascii .auth-card,
 .theme-key-ascii .support-overview-card,
 .theme-key-ascii .support-list-card,
@@ -172,8 +171,7 @@
 .theme-key-ascii .admin-select-trigger,
 .theme-key-ascii .admin-select-content,
 .theme-key-ascii .admin-cn-card[data-slot="card"],
-.theme-key-ascii .admin-dialog .dialog-card,
-.theme-key-ascii .admin-theme-editor-section {
+.theme-key-ascii .admin-dialog .dialog-card {
   border: 1px solid #ffffff;
   border-radius: 0;
   background: var(--panel);
@@ -864,12 +862,6 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 
 /* ---------- Toast / language select polish ---------- */
 
-.theme-key-ascii .toast {
-  background: #000000;
-  border: 1px solid #ffffff;
-  color: #ffffff;
-}
-
 .theme-key-ascii .language-select-item {
   border-radius: 0;
 }
@@ -1175,10 +1167,11 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 
 /* ---------- Code-like "$ " prefix on toast messages ---------- */
 
-.theme-key-ascii .toast::before {
+body:has(.theme-key-ascii) .app-toast::before {
   content: "$ ";
   color: #ffffff;
-  font-family: var(--font-mono);
+  font-family: "JetBrains Mono", "Cascadia Code", "Consolas", "Courier New",
+    ui-monospace, monospace;
   font-weight: 700;
 }
 
@@ -1200,63 +1193,23 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 }
 
 /* ============================================================
- * Square everything: drop all rounded corners on touched surfaces.
+ * Square everything: a console has no rounded corners, and an
+ * allowlist of surfaces goes stale every time the UI grows a new
+ * component, so zero the radius for the whole shell instead.
  * ============================================================ */
 
-.theme-key-ascii :is(
-  .card, .dialog-card, .toast,
-  .btn, .input,
-  .trial-card-facts span, .trial-activation-facts div,
-  .period-card, .method-card, .settings-row, .option-row,
-  .tariff-selected-card, .tariff-action-card, .tariff-warning-card,
-  .topup-carryover-note, .subscription-purchase-description,
-  .language-select-content, .language-select-item,
-  .language-select-trigger, .bottom-nav, .bottom-nav button,
-  .link-button,
-  .install-platform-trigger, .install-platform-content, .install-platform-item,
-  .install-app-button, .install-step, .install-subscription-card,
-  .install-qr-wrap, .install-subscription-header-icon, .install-loading,
-  .support-overview-card, .support-list-card, .support-ticket-card,
-  .support-conversation-card, .support-new-ticket-button,
-  .support-create-panel, .support-select-trigger, .support-select-content,
-  .support-select-item, .support-status-tabs-list, .support-status-tabs-trigger,
-  .support-user-ticket-skeleton, .ticket-card, .support-empty-state,
-  .support-message-scroll, .ticket-message-avatar, .ticket-message-bubble,
-  .ticket-composer, .textarea,
-  .field-error-tooltip,
-  .admin-card, .admin-card-head, .admin-card-body,
-  .admin-stat-card, .admin-stat-skeleton-card, .admin-stat-skeleton-wide,
-  .admin-revenue-panel, .admin-empty,
-  .admin-tariff-card, .admin-toolbar-card, .admin-table-card,
-  .admin-panel-dash-card,
-  .admin-select-trigger, .admin-select-content, .admin-select-item,
-  .admin-cn-card, .admin-cn-badge, .admin-badge,
-  .admin-cn-card-skeleton--tall,
-  .admin-input, .admin-textarea, .admin-btn, .admin-chip,
-  .admin-tabs-trigger, .admin-tabs-list,
-  .ui-range-input__thumb, .ui-sortable-item, .ui-sortable-handle,
-  .admin-nav-item, .admin-revenue-period-btn, .admin-mobile-toggle,
-  .admin-header, .admin-sidebar, .admin-sidebar-brand,
-  .admin-dialog,
-  .admin-theme-editor-section,
-  [data-slot="card"], [data-slot="card-header"],
-  [data-slot="card-content"], [data-slot="card-footer"]
-),
-.theme-key-ascii :is(
-  .card, .dialog-card, .toast,
-  .btn, .input,
-  .admin-card, .admin-card-head, .admin-card-body,
-  .admin-stat-card, .admin-revenue-panel, .admin-empty,
-  .admin-tariff-card, .admin-toolbar-card, .admin-table-card,
-  .admin-panel-dash-card,
-  .admin-select-trigger, .admin-select-content,
-  .install-platform-trigger, .install-platform-content,
-  .install-app-button, .install-step, .install-subscription-card,
-  .install-qr-wrap, .install-loading,
-  .admin-cn-card,
-  .admin-input, .admin-textarea, .admin-btn,
-  .admin-nav-item, .admin-tabs-trigger
-) * {
+.theme-key-ascii *,
+.theme-key-ascii *::before,
+.theme-key-ascii *::after {
+  border-radius: 0 !important;
+}
+
+body:has(.theme-key-ascii) [data-bits-floating-content-wrapper] *,
+body:has(.theme-key-ascii) .language-select-content,
+body:has(.theme-key-ascii) .support-select-content,
+body:has(.theme-key-ascii) .install-platform-content,
+body:has(.theme-key-ascii) .admin-select-content,
+body:has(.theme-key-ascii) .field-error-tooltip {
   border-radius: 0 !important;
 }
 
@@ -1421,4 +1374,139 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 /* Render flag emoji as monochrome glyphs to stay in the console palette. */
 .theme-key-ascii .emoji-flag {
   filter: grayscale(1) contrast(1.05);
+}
+
+/* ---------- Newer surfaces: attention markers, resumable payments, promo
+ * entry, ticket rich text, admin action sheets and settings search ---------- */
+
+/* Unread markers: a blinking block, not a glowing red pill. */
+.theme-key-ascii .attention-dot,
+.theme-key-ascii .nav-badge,
+.theme-key-ascii .nav-badge-floating {
+  border: 1px solid #ffffff;
+  background: #ffffff;
+  color: #000000;
+  box-shadow: none;
+  animation: ascii-caret 1s steps(1) infinite;
+}
+
+/* Every panel below is a plain console box: black fill, 1px white rule. */
+.theme-key-ascii .pending-payment-card,
+.theme-key-ascii .pending-payment-facts > span,
+.theme-key-ascii .pending-payment-icon,
+.theme-key-ascii .payment-method-tooltip,
+.theme-key-ascii .auto-renew-row,
+.theme-key-ascii .checkout-promo-discount-marker,
+.theme-key-ascii .promo-status-chip,
+.theme-key-ascii .checkout-promo-clear,
+.theme-key-ascii .promo-code-clear,
+.theme-key-ascii .ticket-message-button,
+.theme-key-ascii .admin-user-action-sheet,
+.theme-key-ascii .admin-squad-section,
+.theme-key-ascii .admin-squad-row,
+.theme-key-ascii .admin-squad-effective-grid span,
+.theme-key-ascii .admin-tariff-hwid-confirm-summary > span,
+.theme-key-ascii .admin-promo-field-shell,
+.theme-key-ascii .admin-promo-config-block,
+.theme-key-ascii .admin-promo-editor-section,
+.theme-key-ascii .admin-promo-tab-dirty-count,
+.theme-key-ascii .admin-header-count,
+.theme-key-ascii .admin-revenue-svg-frame,
+.theme-key-ascii .admin-theme-card,
+.theme-key-ascii .default-theme-editor,
+.theme-key-ascii .default-theme-panel,
+.theme-key-ascii .appearance-control-card,
+.theme-key-ascii .appearance-logo-preview,
+.theme-key-ascii .appearance-favicon-preview,
+.theme-key-ascii .admin-user-logs-wrap,
+.theme-key-ascii .admin-user-log-content,
+.theme-key-ascii .admin-user-referrals-table-wrap,
+.theme-key-ascii .admin-provider-logo-fallback,
+.theme-key-ascii .admin-extend-control,
+.theme-key-ascii .admin-settings-search-results {
+  border: 1px solid #ffffff;
+  background: #000000;
+  color: var(--text);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.theme-key-ascii .pending-payment-card {
+  background-image: none;
+}
+
+.theme-key-ascii .admin-theme-card.is-current,
+.theme-key-ascii .default-theme-editor.is-current,
+.theme-key-ascii .admin-settings-search-result:hover,
+.theme-key-ascii .admin-settings-search-result:focus-visible,
+.theme-key-ascii .admin-settings-search-result.is-active,
+.theme-key-ascii .ticket-message-button:hover {
+  background: #ffffff;
+  color: #000000;
+}
+
+.theme-key-ascii .admin-setting.is-search-highlighted {
+  background: #000000;
+  box-shadow: inset 3px 0 0 #ffffff;
+}
+
+/* Dirty and invalid states have no colour to spend, so they mark the row. */
+.theme-key-ascii .admin-unsaved-hint::before,
+.theme-key-ascii .admin-invalid-hint::before {
+  content: "! ";
+}
+
+/* Rich-text ticket messages. */
+.theme-key-ascii .ticket-message-text code,
+.theme-key-ascii .ticket-message-text pre {
+  border: 1px solid #ffffff;
+  background: #000000;
+  color: #ffffff;
+  font-family: var(--font-mono);
+}
+
+.theme-key-ascii .ticket-message-text blockquote {
+  border-left: 1px solid #ffffff;
+  color: var(--muted);
+}
+
+.theme-key-ascii .ticket-typing-dots i {
+  width: 6px;
+  height: 6px;
+  background: #ffffff;
+}
+
+/* Toggle knobs and range thumbs are drawn, never shadowed. */
+.theme-key-ascii .admin-switch-thumb,
+.theme-key-ascii .ui-range-input__thumb {
+  box-shadow: none;
+}
+
+/* The traffic and premium-server summaries became buttons, so the hover pill
+ * behind the help glyph now comes from the trigger, not a <summary>. */
+.theme-key-ascii .premium-server-trigger:hover .premium-server-help-icon,
+.theme-key-ascii .premium-server-trigger:focus-visible .premium-server-help-icon,
+.theme-key-ascii .premium-server-dropdown[data-open="true"] .premium-server-help-icon {
+  background: transparent;
+  color: #ffffff;
+}
+
+.theme-key-ascii .premium-server-trigger:focus-visible {
+  background: transparent;
+  box-shadow: none;
+  outline: 1px dashed #ffffff;
+  outline-offset: -2px;
+}
+
+/* Sonner mounts its toaster outside the themed shell, so a toast is only
+ * reachable from the document root and inherits none of the shell tokens. */
+body:has(.theme-key-ascii) .app-toast {
+  border: 1px solid #ffffff;
+  border-radius: 0;
+  background: #000000;
+  color: #ffffff;
+  backdrop-filter: none;
+  box-shadow: 0 0 0 1px #ffffff;
+  font-family: "JetBrains Mono", "Cascadia Code", "Consolas", "Courier New",
+    ui-monospace, monospace;
 }

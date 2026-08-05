@@ -5,6 +5,9 @@ import { demoSettingsChanges } from "./state";
 
 type ManifestSection = DemoRecord & { fields?: (DemoRecord & { key: string })[] };
 
+const DEMO_REFERRAL_WEBAPP_LINK = "https://minishop.app/ref/ABCD1234";
+const DEMO_REFERRAL_TELEGRAM_LINK = "https://t.me/preview_bot?start=ref_uABCD1234";
+
 function demoSettingsValuesByKey(): Map<string, DemoSettingsField> {
   const map = new Map<string, DemoSettingsField>();
   for (const section of DATASET.settingsSections || []) {
@@ -26,6 +29,8 @@ function demoRuntimeSettingValue(key: string): unknown {
       DEV_MOCK.config.referralOneBonusPerReferee ??
       DEV_MOCK.data.referral?.one_bonus_per_referee ??
       false,
+    REFERRAL_WEBAPP_LINK_ENABLED: DEV_MOCK.config.referralWebappLinkEnabled ?? true,
+    REFERRAL_TELEGRAM_LINK_ENABLED: DEV_MOCK.config.referralTelegramLinkEnabled ?? true,
     LEGACY_REFS: DEV_MOCK.config.legacyRefs ?? true,
     DISPOSABLE_EMAIL_DOMAINS: DEV_MOCK.config.disposableEmailDomains || "",
   };
@@ -116,6 +121,16 @@ function applyDemoSettingToMock(key: string, value: unknown): void {
   if (key === "REFERRAL_ONE_BONUS_PER_REFEREE") {
     DEV_MOCK.config.referralOneBonusPerReferee = Boolean(value);
     DEV_MOCK.data.referral.one_bonus_per_referee = Boolean(value);
+  }
+  if (key === "REFERRAL_WEBAPP_LINK_ENABLED") {
+    const enabled = Boolean(value);
+    DEV_MOCK.config.referralWebappLinkEnabled = enabled;
+    DEV_MOCK.data.referral.webapp_link = enabled ? DEMO_REFERRAL_WEBAPP_LINK : null;
+  }
+  if (key === "REFERRAL_TELEGRAM_LINK_ENABLED") {
+    const enabled = Boolean(value);
+    DEV_MOCK.config.referralTelegramLinkEnabled = enabled;
+    DEV_MOCK.data.referral.bot_link = enabled ? DEMO_REFERRAL_TELEGRAM_LINK : null;
   }
   if (key === "LEGACY_REFS") DEV_MOCK.config.legacyRefs = Boolean(value);
   if (key === "DISPOSABLE_EMAIL_DOMAINS") {

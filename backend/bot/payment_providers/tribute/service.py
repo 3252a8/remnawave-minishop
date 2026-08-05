@@ -738,6 +738,7 @@ async def pay_tribute_callback_handler(
         parts=parts,
         subscription_service=tribute_service.subscription_service,
         settings=settings,
+        provider_spec=SPEC,
     )
     if quoted_parts is None or hwid_quote:
         await notify_service_unavailable(callback, translator)

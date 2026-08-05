@@ -25,8 +25,7 @@ class BillingPaymentsPromoTests(IsolatedAsyncioTestCase):
 
         lookup = AsyncMock(return_value=promo)
         with patch(
-            "bot.app.web.webapp.billing_checkout_adjustments."
-            "promo_code_dal.get_active_promo_code_by_code_str",
+            "bot.services.checkout_promos.promo_code_dal.get_active_promo_code_by_code_str",
             lookup,
         ):
             result, error = await _resolve_checkout_promo(

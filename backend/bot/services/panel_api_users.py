@@ -4,6 +4,18 @@ import re
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from bot.services.panel_api_compat import (
+    PanelApiCompatibility,
+    normalize_panel_user,
+    normalize_panel_users,
+    numeric_panel_user_id,
+)
+from bot.services.panel_api_contracts import (
+    PanelApiCapability,
+    PanelApiGeneration,
+    PanelApiOperation,
+)
+from bot.services.panel_api_responses import PanelApiResponseMixin
 from bot.utils.ttl_cache import AsyncTTLCache
 from config.settings import Settings
 from config.traffic_strategy import normalize_traffic_limit_strategy
@@ -53,7 +65,7 @@ def _panel_users_next_cursor(value: object) -> str | None:
     return None
 
 
-class PanelApiUsersMixin:
+class PanelApiUsersMixin(PanelApiResponseMixin):
     settings: Settings
     _all_users_cache: AsyncTTLCache
     _users_cache: AsyncTTLCache
@@ -61,11 +73,46 @@ class PanelApiUsersMixin:
     if TYPE_CHECKING:
 
         async def _request(
-            self, method: str, endpoint: str, log_full_response: bool = False, **kwargs: Any
+            self,
+            method: str,
+            endpoint: str,
+            log_full_response: bool = False,
+            *,
+            operation: PanelApiOperation | None = None,
+            **kwargs: Any,
         ) -> dict[str, Any] | None: ...
         async def _invalidate_user_cache(self, user_uuid: str | None) -> None: ...
         async def _invalidate_devices_cache(self, user_uuid: str | None) -> None: ...
         async def _invalidate_all_users_cache(self) -> None: ...
+        async def get_user_devices(self, user_uuid: str) -> list[dict[str, Any]] | None: ...
+        async def disconnect_device(self, user_uuid: str, hwid: str) -> bool: ...
+        async def get_panel_api_compatibility(
+            self, *, force_refresh: bool = False
+        ) -> PanelApiCompatibility: ...
+        def panel_capability_state(
+            self,
+            capability: PanelApiCapability,
+            compatibility: PanelApiCompatibility,
+        ) -> bool | None: ...
+        def remember_panel_capability(
+            self,
+            capability: PanelApiCapability,
+            supported: bool,
+        ) -> None: ...
+        def remember_panel_user_count(self, count: int) -> None: ...
+        async def panel_mutation_allowed(
+            self,
+            operation: PanelApiOperation,
+            *,
+            compatibility: PanelApiCompatibility | None = None,
+        ) -> bool: ...
+        async def resolve_panel_user_reference(
+            self,
+            value: object,
+            operation: PanelApiOperation,
+            *,
+            compatibility: PanelApiCompatibility | None = None,
+        ) -> str | None: ...
 
     def _resolve_all_users_page_size(self, page_size: int | None = None) -> int:
         raw_value = (
@@ -87,31 +134,60 @@ class PanelApiUsersMixin:
             return 0.1
         return value if value > 0 else 0.0
 
+    @staticmethod
+    def _panel_user_matches_stream_filters(
+        user: dict[str, Any], filters: dict[str, Any] | None
+    ) -> bool:
+        """Defensively filter results if a 2.8 stream ignores 3.x query fields."""
+        if not filters:
+            return True
+        if "telegramId" in filters:
+            return str(user.get("telegramId") or "") == str(filters["telegramId"])
+        if "email" in filters:
+            return (
+                str(user.get("email") or "").strip().casefold()
+                == str(filters["email"] or "").strip().casefold()
+            )
+        return True
+
     async def get_all_panel_users(
         self, page_size: int | None = None, log_responses: bool = False
     ) -> list[dict[str, Any]] | None:
         resolved_page_size = self._resolve_all_users_page_size(page_size)
         if log_responses or self._all_users_cache.ttl_seconds <= 0:
-            return await self._get_all_panel_users_uncached(
+            users = await self._get_all_panel_users_uncached(
                 page_size=resolved_page_size, log_responses=log_responses
             )
-        cached = await self._all_users_cache.get_or_load(
-            f"page_size:{resolved_page_size}",
-            lambda: self._get_all_panel_users_uncached(
-                page_size=resolved_page_size, log_responses=False
-            ),
-        )
-        return _json_dict_list(cached)
+        else:
+            cached = await self._all_users_cache.get_or_load(
+                f"page_size:{resolved_page_size}",
+                lambda: self._get_all_panel_users_uncached(
+                    page_size=resolved_page_size, log_responses=False
+                ),
+            )
+            users = _json_dict_list(cached)
+        if users is not None:
+            self.remember_panel_user_count(len(users))
+        return users
 
     async def _get_all_panel_users_uncached(
         self, page_size: int | None = None, log_responses: bool = False
     ) -> list[dict[str, Any]] | None:
         resolved_page_size = self._resolve_all_users_page_size(page_size)
-        users = await self._fetch_all_panel_users_stream_pages(
-            page_size=resolved_page_size,
-            log_responses=log_responses,
+        compatibility = await self.get_panel_api_compatibility()
+        stream_supported = self.panel_capability_state(
+            PanelApiCapability.USER_STREAM,
+            compatibility,
         )
-        if users is None:
+        legacy_users_api_allowed = compatibility.generation is not PanelApiGeneration.RW3_NUMERIC
+        users = None
+        if stream_supported is not False:
+            users = await self._fetch_all_panel_users_stream_pages(
+                page_size=resolved_page_size,
+                log_responses=log_responses,
+                compatibility=compatibility,
+            )
+        if users is None and legacy_users_api_allowed:
             users = await self._fetch_all_panel_users_pages(
                 page_size=resolved_page_size,
                 log_responses=log_responses,
@@ -121,11 +197,14 @@ class PanelApiUsersMixin:
                 "Panel API users fetch failed with page size %s; retrying with page size 100.",
                 resolved_page_size,
             )
-            users = await self._fetch_all_panel_users_stream_pages(
-                page_size=100,
-                log_responses=log_responses,
-            )
-            if users is None:
+            users = None
+            if stream_supported is not False:
+                users = await self._fetch_all_panel_users_stream_pages(
+                    page_size=100,
+                    log_responses=log_responses,
+                    compatibility=compatibility,
+                )
+            if users is None and legacy_users_api_allowed:
                 users = await self._fetch_all_panel_users_pages(
                     page_size=100,
                     log_responses=log_responses,
@@ -133,26 +212,66 @@ class PanelApiUsersMixin:
         return users
 
     async def _fetch_all_panel_users_stream_pages(
-        self, page_size: int, log_responses: bool = False
+        self,
+        page_size: int,
+        log_responses: bool = False,
+        *,
+        compatibility: PanelApiCompatibility,
+    ) -> list[dict[str, Any]] | None:
+        return await self._fetch_panel_users_stream_pages(
+            page_size=page_size,
+            log_responses=log_responses,
+            compatibility=compatibility,
+        )
+
+    async def _fetch_panel_users_stream_pages(
+        self,
+        page_size: int,
+        log_responses: bool = False,
+        *,
+        filters: dict[str, Any] | None = None,
+        compatibility: PanelApiCompatibility,
     ) -> list[dict[str, Any]] | None:
         all_users: list[dict[str, Any]] = []
         cursor: str | None = None
         seen_cursors: set[str] = set()
         page_delay = self._resolve_all_users_page_delay()
         while True:
-            params: dict[str, Any] = {"size": page_size}
+            params: dict[str, Any] = {"size": page_size, **(filters or {})}
             if cursor:
                 params["cursor"] = cursor
             response_data = await self._request(
-                "GET", "/users/stream", params=params, log_full_response=log_responses
+                "GET",
+                "/users/stream",
+                operation=PanelApiOperation.USERS_STREAM,
+                params=params,
+                log_full_response=log_responses,
             )
 
             if not response_data or response_data.get("error"):
-                logger.info(
-                    "Panel API users stream fetch is unavailable; falling back to legacy "
-                    "/users pagination. Response: %s",
-                    response_data,
-                )
+                legacy_stream_probe = compatibility.generation is not PanelApiGeneration.RW3_NUMERIC
+                if legacy_stream_probe and (
+                    self._is_missing_endpoint_response(response_data)
+                    or (isinstance(response_data, dict) and response_data.get("status_code") == 400)
+                ):
+                    self.remember_panel_capability(PanelApiCapability.USER_STREAM, False)
+                    if filters:
+                        self.remember_panel_capability(
+                            PanelApiCapability.USER_STREAM_FILTERS,
+                            False,
+                        )
+                if legacy_stream_probe:
+                    logger.info(
+                        "Panel API users stream fetch is unavailable; a legacy lookup may be "
+                        "used. Response: %s",
+                        response_data,
+                    )
+                else:
+                    logger.error(
+                        "Panel API users stream failed for a known 3.x panel; refusing the "
+                        "legacy /users fallback. Response: %s",
+                        response_data,
+                    )
                 return None
             response = response_data.get("response")
             users_batch = _panel_users_batch(response)
@@ -161,10 +280,15 @@ class PanelApiUsersMixin:
                     "Panel API users stream returned an unsupported response shape: %s",
                     response_data,
                 )
+                self.remember_panel_capability(PanelApiCapability.USER_STREAM, False)
                 return None
             if not users_batch:
                 break
-            all_users.extend(users_batch)
+            all_users.extend(
+                user
+                for user in normalize_panel_users(users_batch)
+                if self._panel_user_matches_stream_filters(user, filters)
+            )
             next_cursor = _panel_users_next_cursor(response)
             if not next_cursor:
                 break
@@ -176,6 +300,9 @@ class PanelApiUsersMixin:
             if page_delay:
                 await asyncio.sleep(page_delay)
         logger.info("Fetched %s users from panel API stream.", len(all_users))
+        self.remember_panel_capability(PanelApiCapability.USER_STREAM, True)
+        if filters:
+            self.remember_panel_capability(PanelApiCapability.USER_STREAM_FILTERS, True)
         return all_users
 
     async def _fetch_all_panel_users_pages(
@@ -187,7 +314,11 @@ class PanelApiUsersMixin:
         while True:
             params = {"size": page_size, "start": start_offset}
             response_data = await self._request(
-                "GET", "/users", params=params, log_full_response=log_responses
+                "GET",
+                "/users",
+                operation=PanelApiOperation.USERS_LIST,
+                params=params,
+                log_full_response=log_responses,
             )
 
             if not response_data or response_data.get("error"):
@@ -209,7 +340,7 @@ class PanelApiUsersMixin:
                 return None
             if not users_batch:
                 break
-            all_users.extend(users_batch)
+            all_users.extend(normalize_panel_users(users_batch))
             if len(users_batch) < page_size:
                 break
             start_offset += page_size
@@ -242,75 +373,6 @@ class PanelApiUsersMixin:
             return user
         return None
 
-    @staticmethod
-    def _panel_response_details(response_data: dict[str, Any] | None) -> dict[str, Any]:
-        if not isinstance(response_data, dict):
-            return {}
-        details = response_data.get("details")
-        return details if isinstance(details, dict) else {}
-
-    @classmethod
-    def _panel_response_error_code(cls, response_data: dict[str, Any] | None) -> str | None:
-        if not isinstance(response_data, dict):
-            return None
-        details = cls._panel_response_details(response_data)
-        error_code = (
-            response_data.get("errorCode")
-            or response_data.get("code")
-            or details.get("errorCode")
-            or details.get("code")
-        )
-        return str(error_code) if error_code else None
-
-    @classmethod
-    def _panel_response_message(cls, response_data: dict[str, Any] | None) -> str | None:
-        if not isinstance(response_data, dict):
-            return None
-        details = cls._panel_response_details(response_data)
-        message = (
-            response_data.get("message")
-            or details.get("message")
-            or details.get("error")
-            or details.get("raw_response_text")
-        )
-        if message is None:
-            return None
-        message = str(message).replace("\n", " ").strip()
-        return message[:500] if message else None
-
-    @classmethod
-    def _is_user_not_found_response(cls, response_data: dict[str, Any] | None) -> bool:
-        if not isinstance(response_data, dict):
-            return False
-        status_code = response_data.get("status_code")
-        error_code = cls._panel_response_error_code(response_data)
-        if error_code in {"A040", "A062", "USER_NOT_FOUND", "NOT_FOUND"}:
-            return True
-        return status_code == 404
-
-    @classmethod
-    def _describe_user_lookup_failure(
-        cls,
-        response_data: dict[str, Any] | None,
-        *,
-        not_found: bool,
-    ) -> str:
-        if not isinstance(response_data, dict):
-            return "classification=panel_lookup_failed response=empty"
-
-        classification = "confirmed_not_found" if not_found else "panel_lookup_failed"
-        parts = [f"classification={classification}"]
-        status_code = response_data.get("status_code")
-        if status_code is not None:
-            parts.append(f"status_code={status_code}")
-        error_code = cls._panel_response_error_code(response_data)
-        if error_code:
-            parts.append(f"error_code={error_code}")
-        message = cls._panel_response_message(response_data)
-        if message:
-            parts.append(f"message={message}")
-        return " ".join(parts)
-
     async def get_user_by_uuid_lookup(
         self, user_uuid: str, log_response: bool = False
     ) -> dict[str, Any]:
@@ -321,12 +383,36 @@ class PanelApiUsersMixin:
         mutate local state need this richer result to avoid treating an outage
         as a deleted panel user.
         """
-        endpoint = f"/users/{user_uuid}"
-        full_response = await self._request("GET", endpoint, log_full_response=log_response)
+        compatibility = await self.get_panel_api_compatibility()
+        user_reference = await self.resolve_panel_user_reference(
+            user_uuid,
+            PanelApiOperation.USER_GET,
+            compatibility=compatibility,
+        )
+        if user_reference is None:
+            return {
+                "ok": False,
+                "user": None,
+                "not_found": False,
+                "failure_reason": (
+                    "classification=incompatible_user_reference "
+                    f"generation={compatibility.generation.value} "
+                    "action=panel_sync_required"
+                ),
+                "response": None,
+            }
+        endpoint = f"/users/{user_reference}"
+        full_response = await self._request(
+            "GET",
+            endpoint,
+            operation=PanelApiOperation.USER_GET,
+            log_full_response=log_response,
+        )
         if full_response and not full_response.get("error") and "response" in full_response:
+            user = normalize_panel_user(full_response.get("response"))
             return {
                 "ok": True,
-                "user": _json_dict(full_response.get("response")),
+                "user": user,
                 "not_found": False,
                 "failure_reason": None,
                 "response": full_response,
@@ -373,14 +459,30 @@ class PanelApiUsersMixin:
         email: str | None = None,
         log_response: bool = False,
     ) -> list[dict[str, Any]] | None:
-
         response_data = None
         filter_used_log = "No filter specified"
 
         if telegram_id is not None:
             filter_used_log = f"telegramId={telegram_id}"
+            compatibility = await self.get_panel_api_compatibility()
+            stream_filters = self.panel_capability_state(
+                PanelApiCapability.USER_STREAM_FILTERS,
+                compatibility,
+            )
+            if stream_filters is True or compatibility.unreviewed_generation:
+                return await self._fetch_panel_users_stream_pages(
+                    page_size=1000,
+                    log_responses=log_response,
+                    filters={"telegramId": telegram_id},
+                    compatibility=compatibility,
+                )
             endpoint = f"/users/by-telegram-id/{telegram_id}"
-            response_data = await self._request("GET", endpoint, log_full_response=log_response)
+            response_data = await self._request(
+                "GET",
+                endpoint,
+                operation=PanelApiOperation.USER_LOOKUP_TELEGRAM,
+                log_full_response=log_response,
+            )
 
             if (
                 response_data
@@ -388,15 +490,32 @@ class PanelApiUsersMixin:
                 and "response" in response_data
                 and isinstance(response_data["response"], list)
             ):
-                return response_data["response"]
-            elif response_data and response_data.get("errorCode") == "A062":
+                self.remember_panel_capability(PanelApiCapability.USER_STREAM_FILTERS, False)
+                return normalize_panel_users(response_data["response"])
+            if self._is_missing_endpoint_response(response_data):
+                # React immediately when the panel was upgraded without
+                # restarting Mini Shop; the regular metadata cache also
+                # expires periodically for upgrade/downgrade detection.
+                refreshed = await self.get_panel_api_compatibility(force_refresh=True)
+                return await self._fetch_panel_users_stream_pages(
+                    page_size=1000,
+                    log_responses=log_response,
+                    filters={"telegramId": telegram_id},
+                    compatibility=refreshed,
+                )
+            if self._is_user_not_found_response(response_data):
                 logger.info("Panel API: Users not found for %s", filter_used_log)
                 return []
 
         elif username is not None:
             filter_used_log = "username (redacted)"
             endpoint = f"/users/by-username/{username}"
-            response_data = await self._request("GET", endpoint, log_full_response=log_response)
+            response_data = await self._request(
+                "GET",
+                endpoint,
+                operation=PanelApiOperation.USER_LOOKUP_USERNAME,
+                log_full_response=log_response,
+            )
 
             if (
                 response_data
@@ -404,15 +523,33 @@ class PanelApiUsersMixin:
                 and "response" in response_data
                 and isinstance(response_data["response"], dict)
             ):
-                return [response_data["response"]]
-            elif response_data and response_data.get("errorCode") == "A062":
+                user = normalize_panel_user(response_data["response"])
+                return [user] if user else []
+            elif self._is_user_not_found_response(response_data):
                 logger.info("Panel API: User not found for %s", filter_used_log)
                 return []
 
         elif email is not None:
             filter_used_log = "email (redacted)"
+            compatibility = await self.get_panel_api_compatibility()
+            stream_filters = self.panel_capability_state(
+                PanelApiCapability.USER_STREAM_FILTERS,
+                compatibility,
+            )
+            if stream_filters is True or compatibility.unreviewed_generation:
+                return await self._fetch_panel_users_stream_pages(
+                    page_size=1000,
+                    log_responses=log_response,
+                    filters={"email": email},
+                    compatibility=compatibility,
+                )
             endpoint = f"/users/by-email/{email}"
-            response_data = await self._request("GET", endpoint, log_full_response=log_response)
+            response_data = await self._request(
+                "GET",
+                endpoint,
+                operation=PanelApiOperation.USER_LOOKUP_EMAIL,
+                log_full_response=log_response,
+            )
 
             if (
                 response_data
@@ -420,8 +557,17 @@ class PanelApiUsersMixin:
                 and "response" in response_data
                 and isinstance(response_data["response"], list)
             ):
-                return response_data["response"]
-            elif response_data and response_data.get("errorCode") == "A062":
+                self.remember_panel_capability(PanelApiCapability.USER_STREAM_FILTERS, False)
+                return normalize_panel_users(response_data["response"])
+            if self._is_missing_endpoint_response(response_data):
+                refreshed = await self.get_panel_api_compatibility(force_refresh=True)
+                return await self._fetch_panel_users_stream_pages(
+                    page_size=1000,
+                    log_responses=log_response,
+                    filters={"email": email},
+                    compatibility=refreshed,
+                )
+            if self._is_user_not_found_response(response_data):
                 logger.info("Panel API: Users not found for %s", filter_used_log)
                 return []
 
@@ -452,6 +598,9 @@ class PanelApiUsersMixin:
         status: str = "ACTIVE",
         log_response: bool = False,
     ) -> dict[str, Any] | None:
+
+        if not await self.panel_mutation_allowed(PanelApiOperation.USER_CREATE):
+            return None
 
         username_is_valid = (
             3 <= len(username_on_panel) <= 36
@@ -512,12 +661,19 @@ class PanelApiUsersMixin:
             payload["tag"] = tag
 
         response = await self._request(
-            "POST", "/users", json=payload, log_full_response=log_response
+            "POST",
+            "/users",
+            operation=PanelApiOperation.USER_CREATE,
+            json=payload,
+            log_full_response=log_response,
         )
         if response and not response.get("error") and "response" in response:
+            panel_user = normalize_panel_user(response.get("response"))
+            if panel_user is not None:
+                response = {**response, "response": panel_user}
             await self._invalidate_all_users_cache()
             logger.info(
-                "Panel user '%s' created successfully (UUID: %s).",
+                "Panel user '%s' created successfully (identifier: %s).",
                 username_on_panel,
                 response.get("response", {}).get("uuid"),
             )
@@ -534,26 +690,61 @@ class PanelApiUsersMixin:
     async def update_user_details_on_panel(
         self, user_uuid: str, update_payload: dict[str, Any], log_response: bool = False
     ) -> dict[str, Any] | None:
-        if "uuid" not in update_payload:
-            update_payload["uuid"] = user_uuid
-        if "trafficLimitStrategy" in update_payload:
-            update_payload["trafficLimitStrategy"] = normalize_traffic_limit_strategy(
-                update_payload.get("trafficLimitStrategy")
+        compatibility = await self.get_panel_api_compatibility()
+        if not await self.panel_mutation_allowed(
+            PanelApiOperation.USER_UPDATE,
+            compatibility=compatibility,
+        ):
+            return None
+        user_reference = await self.resolve_panel_user_reference(
+            user_uuid,
+            PanelApiOperation.USER_UPDATE,
+            compatibility=compatibility,
+        )
+        if user_reference is None:
+            return None
+        # The service argument and local DB field keep their historical name,
+        # but contain a decimal user id after a Remnawave 3.x sync.
+        payload = dict(update_payload)
+        numeric_id = numeric_panel_user_id(user_reference)
+        if numeric_id is not None:
+            payload.pop("uuid", None)
+            payload["id"] = numeric_id
+        else:
+            payload.pop("id", None)
+            payload["uuid"] = user_reference
+        if "trafficLimitStrategy" in payload:
+            payload["trafficLimitStrategy"] = normalize_traffic_limit_strategy(
+                payload.get("trafficLimitStrategy")
             )
 
         full_response = await self._request(
-            "PATCH", "/users", json=update_payload, log_full_response=log_response
+            "PATCH",
+            "/users",
+            operation=PanelApiOperation.USER_UPDATE,
+            json=payload,
+            log_full_response=log_response,
         )
-        if full_response and not full_response.get("error") and "response" in full_response:
-            logger.debug("User %s details updated on panel.", user_uuid)
+        if full_response and not full_response.get("error"):
             await self._invalidate_user_cache(user_uuid)
             await self._invalidate_all_users_cache()
-            return _json_dict(full_response.get("response"))
+            updated = normalize_panel_user(full_response.get("response"))
+            if updated is None and full_response.get("status_code") in {202, 204}:
+                # Remnawave 3.x may acknowledge PATCH with no response body.
+                # Re-read the user so callers retain the historical return contract.
+                updated = await self.get_user_by_uuid(
+                    user_uuid,
+                    log_response=log_response,
+                    use_cache=False,
+                )
+            if updated is not None:
+                logger.debug("User %s details updated on panel.", user_uuid)
+                return updated
 
         logger.error(
             "Failed to update user %s details on panel. Payload: %s, Response: %s",
             user_uuid,
-            update_payload,
+            payload,
             full_response if not log_response else "(logged above)",
         )
         return None
@@ -561,14 +752,39 @@ class PanelApiUsersMixin:
     async def update_user_status_on_panel(
         self, user_uuid: str, enable: bool, log_response: bool = False
     ) -> bool:
+        compatibility = await self.get_panel_api_compatibility()
+        if not await self.panel_mutation_allowed(
+            PanelApiOperation.USER_STATUS,
+            compatibility=compatibility,
+        ):
+            return False
+        user_reference = await self.resolve_panel_user_reference(
+            user_uuid,
+            PanelApiOperation.USER_STATUS,
+            compatibility=compatibility,
+        )
+        if user_reference is None:
+            return False
         action = "enable" if enable else "disable"
-        endpoint = f"/users/{user_uuid}/actions/{action}"
-        response_data = await self._request("POST", endpoint, log_full_response=log_response)
+        endpoint = f"/users/{user_reference}/actions/{action}"
+        response_data = await self._request(
+            "POST",
+            endpoint,
+            operation=PanelApiOperation.USER_STATUS,
+            log_full_response=log_response,
+        )
 
-        if response_data and not response_data.get("error") and "response" in response_data:
+        if response_data and not response_data.get("error"):
             await self._invalidate_user_cache(user_uuid)
             await self._invalidate_all_users_cache()
-            actual_status = response_data.get("response", {}).get("status")
+            response_user = normalize_panel_user(response_data.get("response"))
+            if response_user is None and response_data.get("status_code") in {202, 204}:
+                response_user = await self.get_user_by_uuid(
+                    user_uuid,
+                    log_response=log_response,
+                    use_cache=False,
+                )
+            actual_status = response_user.get("status") if response_user else None
             expected_status = "ACTIVE" if enable else "DISABLED"
             if actual_status == expected_status:
                 logger.info(
@@ -595,80 +811,28 @@ class PanelApiUsersMixin:
         )
         return False
 
-    async def drop_user_connections(
-        self,
-        user_uuid: str,
-        node_uuids: list[str] | None = None,
-        log_response: bool = False,
-    ) -> bool:
-        """Tear down the live connections a user still holds on the given nodes.
-
-        Removing a user from an internal squad only stops *new* connections: an
-        already established session keeps flowing until the node drops it. The
-        panel exposes that teardown through ip-control, and the node performs it
-        only when its container has CAP_NET_ADMIN.
-        """
-        target_nodes: dict[str, Any] = (
-            {"target": "specificNodes", "nodeUuids": [str(uuid) for uuid in node_uuids]}
-            if node_uuids
-            else {"target": "allNodes"}
-        )
-        payload = {
-            "dropBy": {"by": "userUuids", "userUuids": [str(user_uuid)]},
-            "targetNodes": target_nodes,
-        }
-        response_data = await self._request(
-            "POST",
-            "/ip-control/drop-connections",
-            json=payload,
-            log_full_response=log_response,
-        )
-        if response_data and not response_data.get("error") and "response" in response_data:
-            logger.info(
-                "Dropped panel connections for user %s on %s node(s).",
-                user_uuid,
-                len(node_uuids) if node_uuids else "all",
-            )
-            return True
-
-        error_code = self._panel_response_error_code(response_data)
-        if error_code == "A219":
-            # No connected node matched the request: nothing to tear down.
-            logger.debug(
-                "Panel has no connected nodes to drop connections for user %s.",
-                user_uuid,
-            )
-            return False
-        if self._is_missing_endpoint_response(response_data):
-            logger.warning(
-                "Panel does not expose /ip-control/drop-connections; "
-                "live sessions of user %s stay until the node drops them.",
-                user_uuid,
-            )
-            return False
-        logger.error(
-            "Failed to drop connections for user %s on panel. Response: %s",
-            user_uuid,
-            response_data if not log_response else "(logged above)",
-        )
-        return False
-
-    @classmethod
-    def _is_missing_endpoint_response(cls, response_data: dict[str, Any] | None) -> bool:
-        """True when the panel build simply has no such route (older release)."""
-        if not isinstance(response_data, dict):
-            return False
-        if response_data.get("status_code") != 404:
-            return False
-        if cls._panel_response_error_code(response_data):
-            return False
-        message = (cls._panel_response_message(response_data) or "").lower()
-        return "cannot post" in message or "cannot get" in message or "not found" in message
-
     async def delete_user_from_panel(self, user_uuid: str, log_response: bool = False) -> bool:
         """Delete a user from the panel. Treat not-found as already deleted."""
-        endpoint = f"/users/{user_uuid}"
-        response_data = await self._request("DELETE", endpoint, log_full_response=log_response)
+        compatibility = await self.get_panel_api_compatibility()
+        if not await self.panel_mutation_allowed(
+            PanelApiOperation.USER_DELETE,
+            compatibility=compatibility,
+        ):
+            return False
+        user_reference = await self.resolve_panel_user_reference(
+            user_uuid,
+            PanelApiOperation.USER_DELETE,
+            compatibility=compatibility,
+        )
+        if user_reference is None:
+            return False
+        endpoint = f"/users/{user_reference}"
+        response_data = await self._request(
+            "DELETE",
+            endpoint,
+            operation=PanelApiOperation.USER_DELETE,
+            log_full_response=log_response,
+        )
 
         if not response_data:
             logger.error(
@@ -704,19 +868,49 @@ class PanelApiUsersMixin:
     ) -> dict[str, Any] | None:
         """Revoke the user's subscription on the panel.
 
-        The panel regenerates the user's short UUID, which invalidates the
-        previous subscription URL (disconnecting every client that still uses
-        it). Returns the updated panel user (including the new
-        ``subscriptionUrl``) or ``None`` on failure.
+        Registered HWID devices are removed first, then the panel regenerates
+        the user's short UUID. This keeps the new link usable even when the
+        previous link had already filled the device limit. Returns the updated
+        panel user (including the new ``subscriptionUrl``) or ``None`` on
+        failure.
         """
-        endpoint = f"/users/{user_uuid}/actions/revoke"
-        full_response = await self._request("POST", endpoint, log_full_response=log_response)
+        compatibility = await self.get_panel_api_compatibility()
+        if not await self.panel_mutation_allowed(
+            PanelApiOperation.USER_REVOKE,
+            compatibility=compatibility,
+        ):
+            return None
+        user_reference = await self.resolve_panel_user_reference(
+            user_uuid,
+            PanelApiOperation.USER_REVOKE,
+            compatibility=compatibility,
+        )
+        if user_reference is None:
+            return None
+        if not await self._disconnect_all_hwid_devices(user_uuid):
+            return None
+        endpoint = f"/users/{user_reference}/actions/revoke"
+        full_response = await self._request(
+            "POST",
+            endpoint,
+            operation=PanelApiOperation.USER_REVOKE,
+            log_full_response=log_response,
+        )
 
-        if full_response and not full_response.get("error") and "response" in full_response:
-            logger.info("User %s subscription revoked on panel.", user_uuid)
+        if full_response and not full_response.get("error"):
             await self._invalidate_user_cache(user_uuid)
+            await self._invalidate_devices_cache(user_uuid)
             await self._invalidate_all_users_cache()
-            return _json_dict(full_response.get("response"))
+            updated = normalize_panel_user(full_response.get("response"))
+            if updated is None and full_response.get("status_code") in {202, 204}:
+                updated = await self.get_user_by_uuid(
+                    user_uuid,
+                    log_response=log_response,
+                    use_cache=False,
+                )
+            if updated is not None:
+                logger.info("User %s subscription revoked on panel.", user_uuid)
+                return updated
 
         logger.error(
             "Failed to revoke subscription for user %s on panel. Response: %s",
@@ -724,3 +918,39 @@ class PanelApiUsersMixin:
             full_response if not log_response else "(logged above)",
         )
         return None
+
+    async def _disconnect_all_hwid_devices(self, user_uuid: str) -> bool:
+        await self._invalidate_devices_cache(user_uuid)
+        devices = await self.get_user_devices(user_uuid)
+        if devices is None:
+            logger.error(
+                "Cannot revoke subscription for user %s: failed to read registered devices.",
+                user_uuid,
+            )
+            return False
+
+        hwids: list[str] = []
+        seen: set[str] = set()
+        for device in devices:
+            hwid = str(device.get("hwid") or "").strip()
+            if not hwid:
+                logger.error(
+                    "Cannot revoke subscription for user %s: panel returned a device "
+                    "without an HWID.",
+                    user_uuid,
+                )
+                return False
+            if hwid not in seen:
+                seen.add(hwid)
+                hwids.append(hwid)
+
+        for hwid in hwids:
+            if not await self.disconnect_device(user_uuid, hwid):
+                logger.error(
+                    "Cannot revoke subscription for user %s: failed to clear all "
+                    "registered devices.",
+                    user_uuid,
+                )
+                return False
+
+        return True

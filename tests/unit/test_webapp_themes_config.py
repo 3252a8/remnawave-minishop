@@ -43,14 +43,14 @@ class WebappThemesConfigTests(unittest.TestCase):
         self.assertEqual(win95.tokens.style_preset, "win95")
         self.assertFalse(win95.use_primary_accent)
         self.assertTrue(win95.use_in_admin)
-        self.assertEqual(win95.assets_version, 14)
+        self.assertEqual(win95.assets_version, 15)
         self.assertEqual(cfg.theme_by_key("light").assets_version, 7)
         ascii_theme = cfg.theme_by_key("ascii")
         self.assertIsNotNone(ascii_theme)
         self.assertEqual(ascii_theme.css_file, "style.css")
         self.assertFalse(ascii_theme.use_primary_accent)
         self.assertTrue(ascii_theme.use_in_admin)
-        self.assertEqual(ascii_theme.assets_version, 7)
+        self.assertEqual(ascii_theme.assets_version, 8)
 
     def test_env_override_default_theme(self):
         cfg = builtin_webapp_themes_config("#00fe7a")
@@ -491,7 +491,7 @@ class WebappThemesConfigTests(unittest.TestCase):
                 descriptor["assets_version"],
                 cfg.theme_by_key("windows95").assets_version,
             )
-            self.assertEqual(descriptor["assets_version"], 14)
+            self.assertEqual(descriptor["assets_version"], 15)
             self.assertIn("lucide-house", css)
             self.assertIn("lucide-earth", css)
             self.assertIn("lucide-circle-check", css)
@@ -583,7 +583,7 @@ class WebappThemesConfigTests(unittest.TestCase):
             descriptor = json.loads((stale_theme_dir / "theme.json").read_text(encoding="utf-8"))
             css = (stale_theme_dir / "style.css").read_text(encoding="utf-8")
             self.assertEqual(descriptor["assets_version"], cfg.theme_by_key("ascii").assets_version)
-            self.assertEqual(descriptor["assets_version"], 7)
+            self.assertEqual(descriptor["assets_version"], 8)
             self.assertIn("Console-style tables", css)
             self.assertIn("Install guide theme surfaces", css)
             self.assertIn("Admin controls: range sliders and sortable rows", css)

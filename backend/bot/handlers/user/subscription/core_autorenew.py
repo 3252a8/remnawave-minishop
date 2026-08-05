@@ -5,7 +5,11 @@ from aiogram import Bot, F, types
 from aiogram.filters import Command
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.infra.auto_renew import auto_renew_user_lock_name
+from bot.infra.auto_renew import (
+    auto_renew_toggle_allowed,
+    auto_renew_user_lock_name,
+    stop_provider_managed_recurrence,
+)
 from bot.infra.redis import redis_lock
 from bot.keyboards.inline.user_keyboards import (
     get_autorenew_confirm_keyboard,
@@ -130,10 +134,10 @@ async def toggle_autorenew_handler(
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
     provider = str(getattr(sub, "provider", "") or "").strip().lower()
-    if not provider_supports_recurring(provider):
+    if not auto_renew_toggle_allowed(provider, enable=enable):
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
-    if enable:
+    if enable and provider_supports_recurring(provider):
         service = _recurring_service_for_subscription(subscription_service, sub)
         if not service_supports_recurring(service):
             await callback.answer(get_text("autorenew_unavailable"), show_alert=True)
@@ -189,10 +193,10 @@ async def confirm_autorenew_handler(
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
     provider = str(getattr(sub, "provider", "") or "").strip().lower()
-    if not provider_supports_recurring(provider):
+    if not auto_renew_toggle_allowed(provider, enable=enable):
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
-    if enable:
+    if enable and provider_supports_recurring(provider):
         service = _recurring_service_for_subscription(subscription_service, sub)
         if not service_supports_recurring(service):
             await callback.answer(get_text("autorenew_unavailable"), show_alert=True)
@@ -220,6 +224,15 @@ async def confirm_autorenew_handler(
     ) as acquired:
         if not acquired:
             await callback.answer(get_text("error_try_again"), show_alert=True)
+            return
+        if not enable and not await stop_provider_managed_recurrence(
+            subscription_service,
+            session,
+            user_id=callback.from_user.id,
+            provider=provider,
+        ):
+            await session.rollback()
+            await callback.answer(get_text("autorenew_provider_cancel_failed"), show_alert=True)
             return
         await subscription_dal.set_auto_renew(
             session,
@@ -256,7 +269,8 @@ async def autorenew_cancel_from_webhook_button(
         with contextlib.suppress(Exception):
             await callback.answer(get_text("subscription_not_active"), show_alert=True)
         return
-    if not provider_supports_recurring(getattr(sub, "provider", None)):
+    provider = str(getattr(sub, "provider", "") or "").strip().lower()
+    if not auto_renew_toggle_allowed(provider, enable=False):
         with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
         return
@@ -267,6 +281,19 @@ async def autorenew_cancel_from_webhook_button(
     ) as acquired:
         if not acquired:
             await callback.answer(get_text("error_try_again"), show_alert=True)
+            return
+        if not await stop_provider_managed_recurrence(
+            subscription_service,
+            session,
+            user_id=callback.from_user.id,
+            provider=provider,
+        ):
+            await session.rollback()
+            with contextlib.suppress(Exception):
+                await callback.answer(
+                    get_text("autorenew_provider_cancel_failed"),
+                    show_alert=True,
+                )
             return
         await subscription_dal.set_auto_renew(
             session,

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.user_keyboards import payment_methods_back_callback
 from bot.middlewares.i18n import JsonI18n
+from bot.services.checkout_promos import CheckoutPromoResult, checkout_promo_payment_fields
 from bot.utils.callback_answer import callback_message_or_none
 from config.settings import Settings
 from db.dal import payment_dal
@@ -96,6 +97,7 @@ class StarsService:
         sale_mode: str = "subscription",
         hwid_quote: dict[str, Any] | None = None,
         entitlement_context_snapshot: str | None = None,
+        checkout_promo: CheckoutPromoResult | None = None,
     ) -> int | None:
         amounts = payment_record_amounts(
             months=months,
@@ -127,6 +129,7 @@ class StarsService:
             else None,
             "entitlement_context_snapshot": entitlement_context_snapshot,
         }
+        payment_record_data.update(checkout_promo_payment_fields(checkout_promo))
         try:
             db_payment_record = await payment_dal.create_payment_record(
                 session, payment_record_data
@@ -289,6 +292,7 @@ async def pay_stars_callback_handler(
         subscription_service=stars_service.subscription_service,
         currency="stars",
         settings=settings,
+        provider_spec=SPEC,
     )
     if not parts:
         await notify_callback_parse_error(callback, translator)
@@ -307,6 +311,7 @@ async def pay_stars_callback_handler(
         sale_mode=parts.sale_mode,
         hwid_quote=hwid_quote,
         entitlement_context_snapshot=parts.entitlement_context_snapshot,
+        checkout_promo=getattr(parts, "checkout_promo", None),
     )
 
     if payment_db_id:

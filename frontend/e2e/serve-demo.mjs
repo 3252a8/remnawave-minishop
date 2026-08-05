@@ -6,7 +6,7 @@
 //   - Unless PLAYWRIGHT_SKIP_DEMO_BUILD=1, rebuilds the demo runtime from the
 //     current source (`npm run build:demo` in ../docs-site) so the suite always
 //     runs against the latest code, not a stale bundle.
-//   - Serves ../docs-site/public on PORT (default 8090) with an SPA fallback to
+//   - Serves ../docs-site/public on PORT (default 8091) with an SPA fallback to
 //     the mock app shell so client-side routes resolve on direct navigation.
 
 import { spawn } from "node:child_process";
@@ -22,7 +22,7 @@ const docsSiteRoot = path.join(repoRoot, "docs-site");
 const publicRoot = path.join(docsSiteRoot, "public");
 const appShell = path.join(publicRoot, "demo", "runtime", "app", "index.html");
 
-const PORT = Number(process.env.PORT || 8090);
+const PORT = Number(process.env.PORT || 8091);
 const HOST = process.env.HOST || "127.0.0.1";
 const SKIP_BUILD = process.env.PLAYWRIGHT_SKIP_DEMO_BUILD === "1";
 const isWindows = process.platform === "win32";

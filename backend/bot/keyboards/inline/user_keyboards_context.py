@@ -2,6 +2,9 @@ from config.settings import Settings
 
 BOT_MENU_CONTEXT = "bot"
 HWID_RENEWAL_TOKEN = "hwid_renewal"
+# Telegram limits callback payloads to 64 bytes, so checkout-only tokens stay compact.
+PROMO_DISABLED_TOKEN = "pd"
+PROMO_ID_TOKEN_PREFIX = "p"
 
 
 def telegram_bot_menu_enabled_for_user(
@@ -55,6 +58,20 @@ def sale_mode_has_token(sale_mode: str | None, token: str) -> bool:
     return str(token or "").strip() in sale_mode_tokens(sale_mode)
 
 
+def promo_id_token(promo_code_id: int) -> str:
+    return f"{PROMO_ID_TOKEN_PREFIX}{int(promo_code_id)}"
+
+
+def sale_mode_promo_code_id(sale_mode: str | None) -> int | None:
+    for token in sale_mode_tokens(sale_mode):
+        if not token.startswith(PROMO_ID_TOKEN_PREFIX):
+            continue
+        raw_id = token.removeprefix(PROMO_ID_TOKEN_PREFIX)
+        if raw_id.isdigit() and int(raw_id) > 0:
+            return int(raw_id)
+    return None
+
+
 def callback_context_from_sale_mode(sale_mode: str | None) -> str | None:
     tokens = sale_mode_tokens(sale_mode)
     return BOT_MENU_CONTEXT if BOT_MENU_CONTEXT in tokens else None
@@ -64,8 +81,16 @@ def callback_suffix_for_context(context: str | None) -> str:
     return f":{context}" if context else ""
 
 
-def subscription_options_callback(context: str | None) -> str:
-    return "main_action:bot_subscribe" if context == BOT_MENU_CONTEXT else "main_action:subscribe"
+def callback_suffix_for_checkout(context: str | None, *, promo_enabled: bool = True) -> str:
+    tokens = [context] if context else []
+    if not promo_enabled:
+        tokens.append(PROMO_DISABLED_TOKEN)
+    return "".join(f":{token}" for token in tokens)
+
+
+def subscription_options_callback(context: str | None, *, promo_enabled: bool = True) -> str:
+    action = "main_action:bot_subscribe" if context == BOT_MENU_CONTEXT else "main_action:subscribe"
+    return action if promo_enabled else f"{action}:{PROMO_DISABLED_TOKEN}"
 
 
 def tariff_purchase_back_callback(context: str | None) -> str:
@@ -79,7 +104,8 @@ def payment_methods_back_callback(
 ) -> str:
     sale_mode = sale_mode or "subscription"
     context = callback_context_from_sale_mode(sale_mode)
-    context_suffix = callback_suffix_for_context(context)
+    promo_enabled = not sale_mode_has_token(sale_mode, PROMO_DISABLED_TOKEN)
+    context_suffix = callback_suffix_for_checkout(context, promo_enabled=promo_enabled)
     sale_mode_main = sale_mode.split("|", 1)[0]
     sale_base = sale_mode_main.split("@", 1)[0]
     tariff_key = sale_mode_main.split("@", 1)[1] if "@" in sale_mode_main else None
@@ -100,13 +126,14 @@ def payment_methods_back_callback(
         return f"tariff_change:pay:{tariff_key}:{amount}"
     if sale_base in {"subscription", "traffic"}:
         return f"subscribe_period:{value}{context_suffix}"
-    return subscription_options_callback(context)
+    return subscription_options_callback(context, promo_enabled=promo_enabled)
 
 
 def payment_options_back_callback(sale_mode: str = "subscription") -> str:
     sale_mode = sale_mode or "subscription"
     context = callback_context_from_sale_mode(sale_mode)
-    context_suffix = callback_suffix_for_context(context)
+    promo_enabled = not sale_mode_has_token(sale_mode, PROMO_DISABLED_TOKEN)
+    context_suffix = callback_suffix_for_checkout(context, promo_enabled=promo_enabled)
     sale_mode_main = sale_mode.split("|", 1)[0]
     sale_base = sale_mode_main.split("@", 1)[0]
     tariff_key = sale_mode_main.split("@", 1)[1] if "@" in sale_mode_main else None
@@ -117,4 +144,4 @@ def payment_options_back_callback(sale_mode: str = "subscription") -> str:
         return "tariff_topup:list"
     if sale_base in {"hwid_device", "hwid_devices", "hwid_devices_renewal"}:
         return "hwid_devices:list"
-    return subscription_options_callback(context)
+    return subscription_options_callback(context, promo_enabled=promo_enabled)

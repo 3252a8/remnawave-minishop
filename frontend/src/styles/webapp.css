@@ -1373,7 +1373,7 @@ a {
   height: 32px;
   place-items: center;
   border-radius: 10px;
-  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  background: color-mix(in srgb, var(--accent) 18%, var(--panel-2));
   color: var(--accent);
 }
 
@@ -1390,7 +1390,7 @@ a {
   padding: 8px;
   border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--surface) 74%, transparent);
+  background: color-mix(in srgb, var(--panel-2) 74%, transparent);
 }
 
 .pending-payment-facts small {
@@ -1683,7 +1683,7 @@ a {
   max-width: min(280px, calc(100vw - 32px));
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--surface);
+  background: var(--panel-2);
   color: var(--text);
   box-shadow: var(--shadow-popover);
   padding: 8px 10px;
@@ -1855,6 +1855,21 @@ a {
   align-items: stretch;
 }
 
+.referral-link-list,
+.referral-link-item {
+  display: grid;
+  gap: 8px;
+}
+
+.referral-link-list {
+  gap: 12px;
+}
+
+.referral-link-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .referral-copy-button {
   height: 100%;
 }
@@ -1996,7 +2011,7 @@ a {
 }
 
 .referral-bonus-row-nested {
-  background: var(--surface);
+  background: var(--panel-2);
 }
 
 .settings-profile {
@@ -2352,7 +2367,7 @@ a {
   width: 100%;
   border-color: color-mix(in srgb, #ff4b4b 46%, var(--border));
   background:
-    linear-gradient(135deg, rgba(255, 75, 75, 0.11), rgba(0, 254, 122, 0.05)), var(--card);
+    linear-gradient(135deg, rgba(255, 75, 75, 0.11), rgba(0, 254, 122, 0.05)), var(--panel);
 }
 
 .home-layout > .telegram-notifications-card {
@@ -2371,7 +2386,7 @@ a {
   height: 38px;
   place-items: center;
   border-radius: 10px;
-  background: color-mix(in srgb, #ff4b4b 16%, var(--surface));
+  background: color-mix(in srgb, #ff4b4b 16%, var(--panel-2));
   color: #ff6b6b;
 }
 

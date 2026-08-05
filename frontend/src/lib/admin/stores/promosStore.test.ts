@@ -112,10 +112,28 @@ describe("promosStore", () => {
 
     await store.openActivations(promo());
 
-    expect(api).toHaveBeenCalledWith("/admin/promos/5/activations?page=0&page_size=25");
+    expect(api).toHaveBeenCalledWith(
+      "/admin/promos/5/activations?page=0&page_size=25&sort=date_desc"
+    );
     expect(store.promoActivationsOpen).toBe(true);
     expect(store.promoActivations).toEqual([row]);
     expect(store.promoActivationsTotal).toBe(1);
+  });
+
+  it("reloads activation history from page one with the selected sort", async () => {
+    const api = vi.fn().mockResolvedValue({ ok: true, activations: [], total: 0 });
+    const { store } = makeStore(api);
+    await store.openActivations(promo());
+    api.mockClear();
+
+    store.setActivationsSort("provider_asc");
+
+    await vi.waitFor(() =>
+      expect(api).toHaveBeenCalledWith(
+        "/admin/promos/5/activations?page=0&page_size=25&sort=provider_asc"
+      )
+    );
+    expect(store.promoActivationsPage).toBe(0);
   });
 
   it("keeps create and edit dialogs mutually exclusive", async () => {

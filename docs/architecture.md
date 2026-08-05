@@ -33,9 +33,9 @@ HTTP-роут → parse_body / контракт запроса → сервис 
 - **DAL** (`db/dal`) — единственная точка доступа к БД; сервисы не пишут SQL мимо него.
 - **Сервисы** (`bot/services`) держат бизнес-логику и публикуют события в ключевых точках.
 
-### Три типизированных контракта
+### Четыре типизированных контракта
 
-Архитектура держится на трёх явных, машинопроверяемых контрактах — это единый источник правды:
+Архитектура держится на четырёх явных, машинопроверяемых контрактах — это единый источник правды:
 
 1. **HTTP API** — pydantic request/response-модели + реестр `route_contracts`, из которого
    генерируется `openapi.json`. Подробно: [architecture/http-api.md](architecture/http-api.md).
@@ -44,6 +44,9 @@ HTTP-роут → parse_body / контракт запроса → сервис 
    [architecture/events.md](architecture/events.md).
 3. **Плагины** — ABC `Plugin` + `PluginContext`, обнаружение через entry-point группу
    `minishop.plugins`. Контракт: [development/plugin-contract.md](development/plugin-contract.md).
+4. **Remnawave API** — типизированный реестр outbound-операций, webhook-контрактов,
+   поколений API и точных сертифицированных версий. Каталог:
+   [architecture/remnawave-api-compatibility.md](architecture/remnawave-api-compatibility.md).
 
 ### Расширяемость
 

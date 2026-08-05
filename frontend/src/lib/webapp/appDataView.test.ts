@@ -129,6 +129,26 @@ describe("computeAppDataView", () => {
     ).toBe(false);
   });
 
+  it("normalizes configured auth providers and falls back to current capabilities", () => {
+    expect(
+      computeAppDataView({
+        cfg: { emailAuthEnabled: false },
+        data: { settings: { auth_providers: [" Telegram ", "OIDC", "oidc"] } },
+        fallbackBrandTitle: "Subscription",
+        mockData: {},
+      }).authProviders
+    ).toEqual(["telegram", "oidc"]);
+
+    expect(
+      computeAppDataView({
+        cfg: { emailAuthEnabled: false },
+        data: { settings: {} },
+        fallbackBrandTitle: "Subscription",
+        mockData: {},
+      }).authProviders
+    ).toEqual(["telegram"]);
+  });
+
   it("normalizes missing referral fields", () => {
     const view = computeAppDataView({
       cfg: {},

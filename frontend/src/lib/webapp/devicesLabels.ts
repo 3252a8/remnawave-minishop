@@ -40,3 +40,23 @@ export function devicesPercent(devicesData: DevicesData, maxDevicesOverride?: un
   if (!max || max <= 0) return 100;
   return Math.max(0, Math.min(100, Math.round((current / max) * 100)));
 }
+
+export function hasFiniteDeviceLimit(
+  devicesData: DevicesData,
+  maxDevicesOverride?: unknown
+): boolean {
+  const maxValue = maxDevicesOverride !== undefined ? maxDevicesOverride : devicesData?.max_devices;
+  if (maxValue === undefined || maxValue === null || maxValue === "") return false;
+  const max = Number(maxValue);
+  return Number.isFinite(max) && max > 0;
+}
+
+export function deviceLimitReached(
+  devicesData: DevicesData,
+  maxDevicesOverride?: unknown
+): boolean {
+  if (!hasFiniteDeviceLimit(devicesData, maxDevicesOverride)) return false;
+  const maxValue = maxDevicesOverride !== undefined ? maxDevicesOverride : devicesData?.max_devices;
+  const current = Number(devicesData?.current_devices ?? devicesCount(devicesData));
+  return Number.isFinite(current) && current >= Number(maxValue);
+}

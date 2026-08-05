@@ -17,6 +17,10 @@ OLD_TGSHOP_DB_VOLUME="remnawave-tg-shop-db-data"
 KNOWN_LEGACY_CONTAINERS="remnawave-tg-shop remnawave-tg-shop-db remnawave-tg-shop-caddy remnawave-minishop remnawave-minishop-db remnawave-minishop-caddy remnawave-minishop-backend remnawave-minishop-worker remnawave-minishop-frontend remnawave-minishop-migrate remnawave-minishop-postgres remnawave-minishop-redis"
 REMNASHOP_RUNTIME_CONTAINERS="remnashop remnashop-taskiq-worker remnashop-taskiq-scheduler remnashop-db remnashop-redis"
 PANGOLIN_COMPOSE_FILE="docker-compose.pangolin.yml"
+MIN_DOCKER_ENGINE_VERSION="25.0.0"
+MIN_DOCKER_COMPOSE_VERSION="2.20.2"
+DOCKER_INSTALL_URL="https://get.docker.com"
+DOCKER_INSTALL_DOCS_URL="https://docs.docker.com/engine/install/"
 
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
     RESET="$(printf '\033[0m')"
@@ -44,7 +48,10 @@ SOURCE_REF="$DEFAULT_REF"
 PROFILE_KEY=""
 DEPLOYMENT_PROFILE_VALUE=""
 ENV_PATH=""
-COMPOSE_STYLE=""
+COMPOSE_VERSION_VALUE=""
+DOCKER_ENGINE_VERSION_VALUE=""
+DOCKER_PREFLIGHT_DONE="0"
+DOCKER_UPDATE_OFFERED="0"
 PROMPT_VALUE=""
 CHOICE_VALUE=""
 LEGACY_SOURCE=""
@@ -159,6 +166,8 @@ print_help() {
   LEGACY_TGSHOP_DB_CONTAINER имя контейнера PostgreSQL старого remnawave-tg-shop
 
 Мастер интерактивный: он не перезаписывает файлы без подтверждения.
+Для запуска нужны Docker Engine $MIN_DOCKER_ENGINE_VERSION+ и Docker Compose $MIN_DOCKER_COMPOSE_VERSION+.
+Перед новой установкой мастер проверяет runtime и предлагает обновление до latest stable.
 Импорт из Remnashop всегда сначала запускается в режиме проверки без записи (dry-run).
 Документация по установке: $DOCS_SETUP_URL
 Документация по миграции из Remnashop: $DOCS_REMNASHOP_URL
@@ -1940,8 +1949,6 @@ install_nginx_certbot_deploy_hook() {
         printf 'cd "$TARGET_DIR" || exit 0\n'
         printf 'if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then\n'
         printf '  docker compose exec -T nginx nginx -s reload >/dev/null 2>&1 || true\n'
-        printf 'elif command -v docker-compose >/dev/null 2>&1; then\n'
-        printf '  docker-compose exec -T nginx nginx -s reload >/dev/null 2>&1 || true\n'
         printf 'fi\n'
     } > "$tmp"
     mv "$tmp" "$hook"
@@ -2070,15 +2077,101 @@ run_privileged() {
     return 1
 }
 
+normalize_version() {
+    printf '%s' "${1:-}" | sed 's/^[^0-9]*//; s/[^0-9.].*$//'
+}
+
+version_at_least() {
+    version_current=$(normalize_version "${1:-}")
+    version_required=$(normalize_version "${2:-}")
+    [ -n "$version_current" ] && [ -n "$version_required" ] || return 1
+    awk -v current="$version_current" -v required="$version_required" '
+        BEGIN {
+            current_count = split(current, current_parts, ".")
+            required_count = split(required, required_parts, ".")
+            count = current_count > required_count ? current_count : required_count
+            for (part_index = 1; part_index <= count; part_index++) {
+                current_part = current_parts[part_index] + 0
+                required_part = required_parts[part_index] + 0
+                if (current_part > required_part) exit 0
+                if (current_part < required_part) exit 1
+            }
+            exit 0
+        }
+    '
+}
+
+compose_command_version() {
+    compose_version_output=$(docker compose version --short 2>/dev/null || docker compose version 2>/dev/null || true)
+    normalize_version "$compose_version_output"
+}
+
 detect_compose_command() {
     if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
-        COMPOSE_STYLE="docker"
-        return 0
-    elif command -v docker-compose >/dev/null 2>&1; then
-        COMPOSE_STYLE="docker-compose"
-        return 0
+        COMPOSE_VERSION_VALUE=$(compose_command_version)
+        [ -n "$COMPOSE_VERSION_VALUE" ]
+    else
+        COMPOSE_VERSION_VALUE=""
+        return 1
     fi
-    return 1
+}
+
+refresh_docker_runtime_versions() {
+    DOCKER_ENGINE_VERSION_VALUE=""
+    if command -v docker >/dev/null 2>&1; then
+        DOCKER_ENGINE_VERSION_VALUE=$(docker version --format '{{.Server.Version}}' 2>/dev/null || true)
+        DOCKER_ENGINE_VERSION_VALUE=$(normalize_version "$DOCKER_ENGINE_VERSION_VALUE")
+    fi
+    detect_compose_command >/dev/null 2>&1 || true
+}
+
+compose_version_supported() {
+    [ -n "$COMPOSE_VERSION_VALUE" ] && version_at_least "$COMPOSE_VERSION_VALUE" "$MIN_DOCKER_COMPOSE_VERSION"
+}
+
+docker_engine_version_supported() {
+    [ -n "$DOCKER_ENGINE_VERSION_VALUE" ] && version_at_least "$DOCKER_ENGINE_VERSION_VALUE" "$MIN_DOCKER_ENGINE_VERSION"
+}
+
+docker_runtime_compatible() {
+    command -v docker >/dev/null 2>&1 || return 1
+    docker info >/dev/null 2>&1 || return 1
+    refresh_docker_runtime_versions
+    docker_engine_version_supported && compose_version_supported
+}
+
+print_docker_runtime_versions() {
+    refresh_docker_runtime_versions
+    if [ -n "$DOCKER_ENGINE_VERSION_VALUE" ]; then
+        info "Docker Engine: $DOCKER_ENGINE_VERSION_VALUE (минимум $MIN_DOCKER_ENGINE_VERSION)."
+    elif command -v docker >/dev/null 2>&1; then
+        warn "Версию Docker Engine определить не удалось: daemon недоступен или не отвечает."
+    else
+        warn "Docker Engine не найден."
+    fi
+
+    if [ -n "$COMPOSE_VERSION_VALUE" ]; then
+        info "Docker Compose plugin: $COMPOSE_VERSION_VALUE, команда docker compose (минимум $MIN_DOCKER_COMPOSE_VERSION)."
+    else
+        warn "Docker Compose plugin не найден. Standalone-команда docker-compose не используется."
+    fi
+}
+
+explain_docker_runtime_incompatibility() {
+    refresh_docker_runtime_versions
+    if [ -z "$DOCKER_ENGINE_VERSION_VALUE" ]; then
+        warn "Нужен работающий Docker Engine версии $MIN_DOCKER_ENGINE_VERSION или новее."
+    elif ! docker_engine_version_supported; then
+        warn "Docker Engine $DOCKER_ENGINE_VERSION_VALUE устарел; требуется $MIN_DOCKER_ENGINE_VERSION или новее."
+        info "Healthcheck start_interval требует Docker Engine 25.0+ (API 1.44+)."
+    fi
+
+    if [ -z "$COMPOSE_VERSION_VALUE" ]; then
+        warn "Нужен Docker Compose plugin версии $MIN_DOCKER_COMPOSE_VERSION или новее."
+    elif ! compose_version_supported; then
+        warn "Docker Compose $COMPOSE_VERSION_VALUE устарел; требуется $MIN_DOCKER_COMPOSE_VERSION или новее."
+        info "Legacy и standalone Compose не используются wizard как совместимый runtime."
+    fi
 }
 
 ensure_docker_daemon() {
@@ -2107,14 +2200,91 @@ ensure_docker_daemon() {
     return 1
 }
 
+install_docker_engine_with_package_manager() {
+    if command -v apt-get >/dev/null 2>&1; then
+        info "Обновляю Docker Engine через apt-get до последней версии из настроенных репозиториев."
+        run_privileged apt-get update || return 1
+        for package_set in \
+            "docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin" \
+            "docker.io docker-compose-v2" \
+            "docker.io docker-compose-plugin"; do
+            info "Пробую: apt-get install -y $package_set"
+            if run_privileged apt-get install -y $package_set; then
+                command -v docker >/dev/null 2>&1 && return 0
+            fi
+        done
+        return 1
+    fi
+
+    if command -v dnf >/dev/null 2>&1; then
+        info "Обновляю Docker Engine через dnf до последней версии из настроенных репозиториев."
+        for package_set in \
+            "docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin" \
+            "docker docker-compose-plugin"; do
+            if run_privileged dnf install -y $package_set; then
+                command -v docker >/dev/null 2>&1 && return 0
+            fi
+        done
+        return 1
+    fi
+
+    if command -v yum >/dev/null 2>&1; then
+        info "Обновляю Docker Engine через yum до последней версии из настроенных репозиториев."
+        for package_set in \
+            "docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin" \
+            "docker docker-compose-plugin"; do
+            if run_privileged yum install -y $package_set; then
+                command -v docker >/dev/null 2>&1 && return 0
+            fi
+        done
+        return 1
+    fi
+
+    if command -v apk >/dev/null 2>&1; then
+        info "Обновляю Docker Engine через apk до последней версии из репозитория дистрибутива."
+        run_privileged apk update || return 1
+        run_privileged apk add --upgrade docker docker-cli-compose
+        return $?
+    fi
+
+    if command -v pacman >/dev/null 2>&1; then
+        info "Обновляю Docker Engine через pacman до последней версии из репозитория дистрибутива."
+        run_privileged pacman -Sy --noconfirm docker docker-compose
+        return $?
+    fi
+
+    return 1
+}
+
+install_docker_engine_with_official_script() {
+    if command -v docker >/dev/null 2>&1; then
+        warn "Официальный convenience installer не используется для обновления существующего Docker Engine."
+        info "Обновите настроенный пакетный репозиторий Docker: $DOCKER_INSTALL_DOCS_URL"
+        return 1
+    fi
+
+    tmp="${TMPDIR:-/tmp}/remnawave-minishop-get-docker.$$"
+    info "Скачиваю официальный installer Docker Engine: $DOCKER_INSTALL_URL"
+    if ! download_to "$DOCKER_INSTALL_URL" "$tmp"; then
+        rm -f "$tmp"
+        return 1
+    fi
+    run_privileged sh "$tmp"
+    status=$?
+    rm -f "$tmp"
+    return "$status"
+}
+
 install_compose_with_package_manager() {
     if command -v apt-get >/dev/null 2>&1; then
         info "Найден apt-get. Пробую установить Docker Compose через пакеты."
         run_privileged apt-get update || warn "apt-get update завершился с предупреждением; всё равно пробую установку пакетов."
-        for package_set in "docker-compose-plugin" "docker-compose-v2" "docker.io docker-compose-v2" "docker.io docker-compose-plugin" "docker-compose"; do
+        for package_set in "docker-compose-plugin" "docker-compose-v2" "docker.io docker-compose-v2" "docker.io docker-compose-plugin"; do
             info "Пробую: apt-get install -y $package_set"
             if run_privileged apt-get install -y $package_set; then
-                detect_compose_command && return 0
+                if detect_compose_command && compose_version_supported; then
+                    return 0
+                fi
             fi
         done
         return 1
@@ -2122,9 +2292,11 @@ install_compose_with_package_manager() {
 
     if command -v dnf >/dev/null 2>&1; then
         info "Найден dnf. Пробую установить Docker Compose через пакеты."
-        for package_set in "docker-compose-plugin" "docker-compose"; do
+        for package_set in "docker-compose-plugin"; do
             if run_privileged dnf install -y $package_set; then
-                detect_compose_command && return 0
+                if detect_compose_command && compose_version_supported; then
+                    return 0
+                fi
             fi
         done
         return 1
@@ -2132,9 +2304,11 @@ install_compose_with_package_manager() {
 
     if command -v yum >/dev/null 2>&1; then
         info "Найден yum. Пробую установить Docker Compose через пакеты."
-        for package_set in "docker-compose-plugin" "docker-compose"; do
+        for package_set in "docker-compose-plugin"; do
             if run_privileged yum install -y $package_set; then
-                detect_compose_command && return 0
+                if detect_compose_command && compose_version_supported; then
+                    return 0
+                fi
             fi
         done
         return 1
@@ -2142,9 +2316,11 @@ install_compose_with_package_manager() {
 
     if command -v apk >/dev/null 2>&1; then
         info "Найден apk. Пробую установить Docker Compose через пакеты."
-        for package_set in "docker-cli-compose" "docker-compose"; do
+        for package_set in "docker-cli-compose"; do
             if run_privileged apk add --no-cache $package_set; then
-                detect_compose_command && return 0
+                if detect_compose_command && compose_version_supported; then
+                    return 0
+                fi
             fi
         done
         return 1
@@ -2153,7 +2329,9 @@ install_compose_with_package_manager() {
     if command -v pacman >/dev/null 2>&1; then
         info "Найден pacman. Пробую установить Docker Compose через пакеты."
         if run_privileged pacman -Sy --noconfirm docker-compose; then
-            detect_compose_command && return 0
+            if detect_compose_command && compose_version_supported; then
+                return 0
+            fi
         fi
         return 1
     fi
@@ -2172,10 +2350,34 @@ compose_binary_arch() {
         armv7l|armv7*)
             printf 'armv7'
             ;;
+        armv6l|armv6*)
+            printf 'armv6'
+            ;;
+        ppc64le)
+            printf 'ppc64le'
+            ;;
+        riscv64)
+            printf 'riscv64'
+            ;;
+        s390x)
+            printf 's390x'
+            ;;
         *)
             return 1
             ;;
     esac
+}
+
+file_sha256() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | awk '{ print $1 }'
+        return 0
+    fi
+    if command -v openssl >/dev/null 2>&1; then
+        openssl dgst -sha256 "$1" | awk '{ print $NF }'
+        return 0
+    fi
+    return 1
 }
 
 install_compose_binary_plugin() {
@@ -2202,9 +2404,23 @@ install_compose_binary_plugin() {
     mkdir -p "$plugin_dir" || return 1
     plugin_path="$plugin_dir/docker-compose"
     tmp="$plugin_path.tmp.$$"
+    checksum_tmp="$plugin_path.sha256.tmp.$$"
     url="https://github.com/docker/compose/releases/latest/download/docker-compose-$os_name-$arch"
     info "Пробую скачать Docker Compose CLI plugin: $url"
     if ! download_to "$url" "$tmp"; then
+        rm -f "$tmp" "$checksum_tmp"
+        return 1
+    fi
+    if ! download_to "$url.sha256" "$checksum_tmp"; then
+        fail "Не удалось скачать SHA-256 checksum Docker Compose. Бинарник не будет установлен."
+        rm -f "$tmp" "$checksum_tmp"
+        return 1
+    fi
+    expected_checksum=$(awk 'NR == 1 { print $1 }' "$checksum_tmp")
+    actual_checksum=$(file_sha256 "$tmp" || true)
+    rm -f "$checksum_tmp"
+    if [ -z "$actual_checksum" ] || [ "$actual_checksum" != "$expected_checksum" ]; then
+        fail "SHA-256 checksum Docker Compose не совпал. Бинарник не будет установлен."
         rm -f "$tmp"
         return 1
     fi
@@ -2212,41 +2428,98 @@ install_compose_binary_plugin() {
         rm -f "$tmp"
         return 1
     }
-    mv "$tmp" "$plugin_path" || return 1
-    docker compose version >/dev/null 2>&1
-}
-
-install_docker_compose() {
-    section "Установка Docker Compose"
-    warn "Docker Compose не найден: нет команды docker compose и fallback docker-compose."
-    if ! confirm "Попробовать установить Docker Compose автоматически?" 1; then
-        fail "Без Docker Compose wizard не сможет скачать образы, запустить стек или выполнить миграции."
-        info "Установите Docker Engine и Docker Compose plugin, затем запустите wizard повторно."
+    previous_plugin="$plugin_path.previous.$$"
+    if [ -f "$plugin_path" ]; then
+        mv "$plugin_path" "$previous_plugin" || {
+            rm -f "$tmp"
+            return 1
+        }
+    fi
+    if ! mv "$tmp" "$plugin_path"; then
+        [ -f "$previous_plugin" ] && mv "$previous_plugin" "$plugin_path"
         return 1
     fi
+    if ! docker compose version >/dev/null 2>&1 || ! detect_compose_command || ! compose_version_supported; then
+        fail "Скачанный Docker Compose plugin не запускается."
+        rm -f "$plugin_path"
+        [ -f "$previous_plugin" ] && mv "$previous_plugin" "$plugin_path"
+        return 1
+    fi
+    rm -f "$previous_plugin"
+}
 
-    if install_compose_with_package_manager || install_compose_binary_plugin; then
-        if detect_compose_command; then
-            ok "Docker Compose установлен: $(compose version 2>/dev/null | head -n 1)"
-            return 0
+update_docker_runtime_latest() {
+    section "Обновление Docker runtime"
+    warn "Обновление Docker Engine может перезапустить daemon и кратковременно затронуть работающие контейнеры."
+
+    if ! install_docker_engine_with_package_manager; then
+        if ! install_docker_engine_with_official_script; then
+            warn "Автоматически обновить Docker Engine не удалось. Проверяю, совместима ли уже установленная версия."
         fi
     fi
 
-    fail "Автоматически установить Docker Compose не удалось."
-    info "Установите Docker Compose вручную и повторите запуск. Для Ubuntu/Debian обычно подходит: sudo apt-get update && sudo apt-get install -y docker-compose-plugin"
-    info "Если Docker Engine тоже не установлен, сначала установите Docker Engine, затем Compose plugin."
-    return 1
+    ensure_docker_daemon || return 1
+
+    if ! install_compose_binary_plugin && ! install_compose_with_package_manager; then
+        fail "Не удалось установить актуальный Docker Compose plugin."
+        return 1
+    fi
+
+    print_docker_runtime_versions
+    if ! docker_runtime_compatible; then
+        fail "Docker runtime после обновления всё еще не соответствует требованиям."
+        explain_docker_runtime_incompatibility
+        info "Инструкции по установке Docker Engine: $DOCKER_INSTALL_DOCS_URL"
+        return 1
+    fi
+    ok "Docker Engine и Docker Compose готовы к установке."
+}
+
+docker_runtime_preflight() {
+    docker_preflight_offer_latest="${1:-0}"
+    if [ "$DOCKER_PREFLIGHT_DONE" = "1" ]; then
+        return 0
+    fi
+
+    section "Проверка Docker runtime"
+    if command -v docker >/dev/null 2>&1; then
+        ensure_docker_daemon || true
+    fi
+    print_docker_runtime_versions
+
+    if docker_runtime_compatible; then
+        ok "Docker runtime совместим с текущими Compose-профилями."
+        if [ "$docker_preflight_offer_latest" = "1" ] && [ "$DOCKER_UPDATE_OFFERED" != "1" ]; then
+            DOCKER_UPDATE_OFFERED="1"
+            if confirm "Обновить Docker Engine и Docker Compose до latest stable перед установкой?" 0; then
+                update_docker_runtime_latest || return 1
+            fi
+        fi
+    else
+        explain_docker_runtime_incompatibility
+        if ! confirm "Установить или обновить Docker Engine и Docker Compose до latest stable сейчас?" 1; then
+            fail "Установка остановлена: текущий Docker runtime не поддерживает Compose-профили проекта."
+            return 1
+        fi
+        update_docker_runtime_latest || return 1
+    fi
+
+    docker_runtime_compatible || {
+        fail "Финальная проверка Docker runtime не пройдена."
+        return 1
+    }
+    DOCKER_PREFLIGHT_DONE="1"
 }
 
 require_docker() {
-    if ! detect_compose_command; then
-        install_docker_compose || return 1
-    fi
-    detect_compose_command || {
-        fail "Docker Compose не найден после установки."
-        return 1
-    }
+    docker_runtime_preflight 0 || return 1
     ensure_docker_daemon || return 1
+    refresh_docker_runtime_versions
+    if ! docker_engine_version_supported || ! compose_version_supported; then
+        fail "Docker runtime больше не соответствует требованиям."
+        explain_docker_runtime_incompatibility
+        return 1
+    fi
 }
 
 compose_bind_value() {
@@ -2297,11 +2570,7 @@ validate_bind_settings() {
 }
 
 compose() {
-    if [ "$COMPOSE_STYLE" = "docker" ]; then
-        docker compose "$@"
-    else
-        docker-compose "$@"
-    fi
+    docker compose "$@"
 }
 
 mask_compose_log_args() {
@@ -2310,11 +2579,7 @@ mask_compose_log_args() {
 
 run_compose() {
     log_args=$(mask_compose_log_args "$@")
-    if [ "$COMPOSE_STYLE" = "docker" ]; then
-        color "+ docker compose $log_args" "$DIM"
-    else
-        color "+ docker-compose $log_args" "$DIM"
-    fi
+    color "+ docker compose $log_args" "$DIM"
     printf '\n'
     compose "$@"
 }
@@ -2334,6 +2599,21 @@ explain_compose_failure() {
     shift
     log_args=$(mask_compose_log_args "$@")
     fail "Docker Compose вернул ошибку на команде: $log_args"
+
+    if grep -Eiq 'start_interval.*(does not match|unsupported|not allowed|unknown)|unknown.*StartInterval|unknown field.*StartInterval' "$output_file"; then
+        fail "Docker runtime не поддерживает healthcheck.start_interval из текущего Compose-профиля."
+        info "Требуются Docker Compose $MIN_DOCKER_COMPOSE_VERSION+ и Docker Engine $MIN_DOCKER_ENGINE_VERSION+."
+        print_docker_runtime_versions
+        info "Запустите install wizard повторно и согласитесь на обновление Docker runtime до latest stable."
+        return 0
+    fi
+
+    if grep -Eiq 'does not match any of the regexes|additional propert(y|ies).*(not allowed|unexpected)|unsupported config option|client version .* is too old|server API version .* is too old|client is newer than server' "$output_file"; then
+        fail "Версия или реализация Docker Compose/Engine несовместима с текущим Compose-профилем."
+        print_docker_runtime_versions
+        info "Проверьте конфигурацию командой docker compose config и обновите Docker runtime через wizard."
+        return 0
+    fi
 
     if grep -Eiq 'invalid hostPort|invalid host port|invalid.*published.*port|invalid.*containerPort|invalid port' "$output_file"; then
         fail "Docker Compose не смог разобрать публикацию порта."
@@ -2429,12 +2709,13 @@ run_compose_checked() {
         output_file="${TMPDIR:-/tmp}/remnawave-minishop-compose-last-error.log"
     fi
     tmp="$output_file.tmp.$$"
-    if run_compose "$@" > "$tmp" 2>&1; then
+    run_compose "$@" > "$tmp" 2>&1
+    status=$?
+    if [ "$status" -eq 0 ]; then
         cat "$tmp"
         rm -f "$tmp"
         return 0
     fi
-    status=$?
     cat "$tmp"
     mv "$tmp" "$output_file" 2>/dev/null || cp "$tmp" "$output_file" 2>/dev/null || true
     [ -f "$tmp" ] && rm -f "$tmp"
@@ -2443,6 +2724,25 @@ run_compose_checked() {
         info "Полный вывод последней ошибки сохранен: $output_file"
     fi
     return "$status"
+}
+
+validate_compose_configuration() {
+    [ -n "$TARGET_DIR" ] || {
+        fail "Каталог установки не выбран; Compose config проверить нельзя."
+        return 1
+    }
+    [ -f "$TARGET_DIR/docker-compose.yml" ] || {
+        fail "Не найден $TARGET_DIR/docker-compose.yml."
+        return 1
+    }
+    require_docker || return 1
+    info "Проверяю итоговую Compose-конфигурацию до скачивания образов и запуска контейнеров."
+    if (cd "$TARGET_DIR" && run_compose_checked config --quiet); then
+        ok "Docker Compose config прошел проверку."
+        return 0
+    fi
+    fail "Compose-конфигурация несовместима или содержит ошибку; pull/up не будут запущены."
+    return 1
 }
 
 explain_postgres_password_mismatch() {
@@ -2529,7 +2829,7 @@ start_stack() {
     section "Запуск Docker Compose стека"
     [ -n "$ENV_PATH" ] || ENV_PATH="$TARGET_DIR/.env"
     validate_bind_settings || return 1
-    require_docker || return 1
+    validate_compose_configuration || return 1
     if [ "$pull" = "1" ]; then
         (cd "$TARGET_DIR" && run_compose_checked pull) || return 1
     fi
@@ -2546,7 +2846,7 @@ validate_stack() {
     section "Проверка стека"
     [ -n "$ENV_PATH" ] || ENV_PATH="$TARGET_DIR/.env"
     validate_bind_settings || return 1
-    require_docker || return 1
+    validate_compose_configuration || return 1
     (cd "$TARGET_DIR" && run_compose_checked ps) || true
     (cd "$TARGET_DIR" && run_compose logs --tail 80 migrate) || true
     validate_reverse_proxy_runtime || return 1
@@ -4345,10 +4645,8 @@ BACKUP_DIR=$(shell_quote "$backup_dir")
 compose_cmd() {
   if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
     docker compose "\$@"
-  elif command -v docker-compose >/dev/null 2>&1; then
-    docker-compose "\$@"
   else
-    echo "Docker Compose не найден." >&2
+    echo "Совместимый Docker Compose plugin не найден." >&2
     exit 1
   fi
 }
@@ -4578,7 +4876,7 @@ prepare_compose_without_starting_apps() {
     section "Подготовка целевого Docker Compose стека"
     [ -n "$ENV_PATH" ] || ENV_PATH="$TARGET_DIR/.env"
     validate_bind_settings || return 1
-    require_docker || return 1
+    validate_compose_configuration || return 1
     (cd "$TARGET_DIR" && run_compose_checked up --no-start) || return 1
 }
 
@@ -4879,6 +5177,7 @@ install_source() {
 install_flow() {
     with_migration="$1"
     LEGACY_SOURCE=""
+    docker_runtime_preflight 1 || return 1
     installation_directory || return 1
     install_source || return 1
     ENV_PATH="$TARGET_DIR/.env"
@@ -4915,6 +5214,7 @@ install_flow() {
     if [ "$INSTALL_NODE_ROLE_VALUE" != "frontend-node" ]; then
         prepare_data_mount || return 1
     fi
+    validate_compose_configuration || return 1
     if [ "$INSTALL_NODE_ROLE_VALUE" != "frontend-node" ] && [ "$with_migration" != "1" ] && confirm "Мигрировать данные из другого бота после установки?" 0; then
         choose_legacy_source || return 1
     fi

@@ -214,6 +214,14 @@ export function filterDemoUsers(params: URLSearchParams): DemoAdminUser[] {
       return compareNullableDate(a.subscription_expires_at, b.subscription_expires_at, "asc");
     if (sort === "subscription_expires_at_desc")
       return compareNullableDate(a.subscription_expires_at, b.subscription_expires_at, "desc");
+    if (sort === "status_asc")
+      return String(a.is_banned ? "banned" : a.panel_status || "").localeCompare(
+        String(b.is_banned ? "banned" : b.panel_status || "")
+      );
+    if (sort === "status_desc")
+      return String(b.is_banned ? "banned" : b.panel_status || "").localeCompare(
+        String(a.is_banned ? "banned" : a.panel_status || "")
+      );
     return stringDate(b.registration_date) - stringDate(a.registration_date);
   });
 

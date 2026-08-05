@@ -54,6 +54,8 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "REFERRAL_ONE_BONUS_PER_REFEREE": False,
     "REFERRAL_WELCOME_BONUS_DAYS": 0,
     "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED": True,
+    "REFERRAL_WEBAPP_LINK_ENABLED": True,
+    "REFERRAL_TELEGRAM_LINK_ENABLED": True,
     "REGISTRATION_INVITE_ONLY_ENABLED": False,
     "SUBSCRIPTION_GUIDES_CONFIG_CACHE_TTL_SECONDS": 300,
     "SUBSCRIPTION_GUIDES_ENABLED": True,
@@ -261,6 +263,8 @@ class SettingsStub(SimpleNamespace):
             welcome_bonus_without_telegram_enabled=bool(
                 getattr(self, "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED", True)
             ),
+            webapp_link_enabled=bool(getattr(self, "REFERRAL_WEBAPP_LINK_ENABLED", True)),
+            telegram_link_enabled=bool(getattr(self, "REFERRAL_TELEGRAM_LINK_ENABLED", True)),
             legacy_refs_enabled=bool(getattr(self, "LEGACY_REFS", True)),
         )
 

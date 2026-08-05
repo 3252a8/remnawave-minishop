@@ -1,0 +1,21 @@
+{
+  "metadata": {
+    "response": {
+      "version": "2.8.1"
+    }
+  },
+  "user": {
+    "uuid": "10000000-0000-4000-8000-000000000001",
+    "username": "fixture_281",
+    "telegramId": 910000001
+  },
+  "expected": {
+    "generation": "rw2-uuid-user-id",
+    "support_status": "maintenance",
+    "identity_alias": "10000000-0000-4000-8000-000000000001",
+    "capabilities": [
+      "bulk-squad-update",
+      "multi-node-top-users"
+    ]
+  }
+}

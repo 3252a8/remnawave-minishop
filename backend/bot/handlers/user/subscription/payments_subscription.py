@@ -5,13 +5,20 @@ from aiogram import F, Router, types
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.user_keyboards import (
+    BOT_MENU_CONTEXT,
+    PROMO_DISABLED_TOKEN,
     get_payment_method_keyboard,
+    promo_id_token,
     sale_mode_with_callback_context,
+    sale_mode_with_token,
     subscription_options_callback,
 )
 from bot.middlewares.i18n import JsonI18n
+from bot.services.checkout_promos import CheckoutPromoResult
 from bot.utils.callback_answer import callback_data, callback_message
 from config.settings import Settings
+
+from .core_purchase import _resolve_period_promo, _with_checkout_promo_notice
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +45,9 @@ async def select_subscription_period_callback_handler(
     stars_traffic_packages = settings.stars_traffic_packages or {}
     traffic_mode = bool(settings.traffic_sale_mode or stars_traffic_packages)
     parts = callback_data(callback).split(":")
-    callback_context = parts[2] if len(parts) > 2 else None
+    callback_tokens = [part for part in parts[2:] if part]
+    callback_context = BOT_MENU_CONTEXT if BOT_MENU_CONTEXT in callback_tokens else None
+    promo_enabled = PROMO_DISABLED_TOKEN not in callback_tokens
     try:
         months = float(parts[1])
     except (ValueError, IndexError):
@@ -94,6 +103,34 @@ async def select_subscription_period_callback_handler(
         if traffic_mode
         else get_text("choose_payment_method")
     )
+    sale_mode = sale_mode_with_callback_context(
+        "traffic" if traffic_mode else "subscription", callback_context
+    )
+    promo_quote: CheckoutPromoResult | None = None
+    stars_promo_quote: CheckoutPromoResult | None = None
+    if not traffic_mode and promo_enabled:
+        promo_quote, stars_promo_quote = await _resolve_period_promo(
+            session,
+            settings,
+            user_id=callback.from_user.id,
+            sale_mode=sale_mode,
+            months=int(months),
+            price=float(price_rub),
+            stars_price=int(stars_price) if stars_price else None,
+        )
+        if promo_quote is not None:
+            sale_mode = sale_mode_with_token(
+                sale_mode,
+                promo_id_token(promo_quote.promo_code_id),
+            )
+            text_content = _with_checkout_promo_notice(
+                text_content,
+                get_text,
+                promo_available=True,
+                promo_enabled=True,
+            )
+    elif not traffic_mode:
+        sale_mode = sale_mode_with_token(sale_mode, PROMO_DISABLED_TOKEN)
     reply_markup = get_payment_method_keyboard(
         months,
         price_rub,
@@ -102,11 +139,14 @@ async def select_subscription_period_callback_handler(
         current_lang,
         i18n,
         settings,
-        sale_mode=sale_mode_with_callback_context(
-            "traffic" if traffic_mode else "subscription", callback_context
+        sale_mode=sale_mode,
+        back_callback=subscription_options_callback(
+            callback_context,
+            promo_enabled=promo_enabled,
         ),
-        back_callback=subscription_options_callback(callback_context),
         user_id=callback.from_user.id,
+        checkout_promo=promo_quote,
+        checkout_stars_promo=stars_promo_quote,
     )
 
     try:

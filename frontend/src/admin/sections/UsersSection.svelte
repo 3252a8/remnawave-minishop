@@ -132,6 +132,7 @@
       desc: "invited_users_count_desc",
       defaultDirection: "desc",
     },
+    status: { asc: "status_asc", desc: "status_desc", defaultDirection: "asc" },
     subscriptionExpires: {
       asc: "subscription_expires_at_asc",
       desc: "subscription_expires_at_desc",
@@ -244,7 +245,7 @@
         label: at("users_col_invited", {}, "Invited"),
         sort: SORT_COLUMNS.invited,
       },
-      { key: "status", label: at("status", {}, "Status") },
+      { key: "status", label: at("status", {}, "Status"), sort: SORT_COLUMNS.status },
       {
         key: "subscriptionExpires",
         label: at("users_col_subscription_expires", {}, "Expires"),

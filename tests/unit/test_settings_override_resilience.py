@@ -20,6 +20,7 @@ from bot.payment_providers import registry
 from bot.payment_providers.base import ProviderEnvConfig
 from bot.payment_providers.tribute.config import TributeConfig
 from bot.services import settings_override_service as svc
+from config.settings import Settings
 
 
 @pytest.fixture(autouse=True)
@@ -164,3 +165,46 @@ def test_update_overrides_reports_nothing_when_everything_applies(
 
     assert result["not_applied"] == []
     assert registry.get_provider_bundle("tribute_service").config.ENABLED is False
+
+
+def test_referral_link_visibility_rejects_disabling_the_last_link() -> None:
+    settings = Settings(
+        _env_file=None,
+        BOT_TOKEN="token",
+        POSTGRES_USER="app_user",
+        POSTGRES_PASSWORD="app_password",
+        REFERRAL_WEBAPP_LINK_ENABLED=False,
+        REFERRAL_TELEGRAM_LINK_ENABLED=True,
+    )
+
+    errors = svc._referral_link_visibility_errors(
+        settings,
+        {"REFERRAL_TELEGRAM_LINK_ENABLED": False},
+        [],
+    )
+
+    assert errors == {
+        "REFERRAL_TELEGRAM_LINK_ENABLED": "at least one referral link must remain enabled"
+    }
+
+
+def test_referral_link_visibility_allows_an_atomic_link_switch() -> None:
+    settings = Settings(
+        _env_file=None,
+        BOT_TOKEN="token",
+        POSTGRES_USER="app_user",
+        POSTGRES_PASSWORD="app_password",
+        REFERRAL_WEBAPP_LINK_ENABLED=False,
+        REFERRAL_TELEGRAM_LINK_ENABLED=True,
+    )
+
+    errors = svc._referral_link_visibility_errors(
+        settings,
+        {
+            "REFERRAL_WEBAPP_LINK_ENABLED": True,
+            "REFERRAL_TELEGRAM_LINK_ENABLED": False,
+        },
+        [],
+    )
+
+    assert errors == {}

@@ -4,23 +4,32 @@ import unittest
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import ClassVar
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, call, patch
 
 import aiohttp
 
+from bot.services.panel_api_compat import PanelApiCompatibility
+from bot.services.panel_api_contracts import PanelApiCapability, PanelApiOperation
 from bot.services.panel_api_service import PanelApiService, _endpoint_log_label
 from tests.support.settings_stub import settings_stub
 
 
 class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
-    def _make_service(self) -> PanelApiService:
-        return PanelApiService(
+    def _make_service(self, *, detect_version: bool = False) -> PanelApiService:
+        service = PanelApiService(
             settings_stub(
                 PANEL_API_URL="https://panel.example.test/api",
                 PANEL_API_KEY="panel-key",
                 USER_HWID_DEVICE_LIMIT=None,
             )
         )
+        if not detect_version:
+            # Most unit tests mock the transport itself. A fresh unknown result
+            # preserves endpoint-fallback behavior without turning the version
+            # probe into an unrelated extra mock call.
+            service._panel_api_compatibility = PanelApiCompatibility.unknown()
+            service._panel_api_compatibility_detected_at = time.monotonic()
+        return service
 
     async def test_client_timeout_uses_panel_settings(self):
         service = PanelApiService(
@@ -185,6 +194,33 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("parse_error", result["details"])
         self.assertNotIn("data_text", result)
 
+    async def test_successful_empty_204_response_is_not_a_protocol_error(self):
+        service = self._make_service()
+
+        class EmptyResponse:
+            status = 204
+            headers: ClassVar[dict[str, str]] = {}
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                return None
+
+            async def text(self):
+                return ""
+
+        service._get_session = AsyncMock(
+            return_value=SimpleNamespace(request=lambda *_args, **_kwargs: EmptyResponse())
+        )
+
+        result = await service._request_once("DELETE", "/users/42")
+
+        self.assertEqual(
+            result,
+            {"status": "success", "status_code": 204, "response": None},
+        )
+
     async def test_get_internal_squads_uses_stale_cache_after_refresh_failure(self):
         service = self._make_service()
         stale_squads = [{"uuid": "squad-1", "name": "Squad 1"}]
@@ -210,6 +246,7 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         service._request.assert_awaited_once_with(
             "PATCH",
             "/users",
+            operation=PanelApiOperation.USER_UPDATE,
             json={"description": "profile", "uuid": "user-uuid"},
             log_full_response=False,
         )
@@ -226,6 +263,57 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertTrue(service._request.await_args.kwargs["log_full_response"])
+
+    async def test_update_v3_user_sends_numeric_id_selector(self):
+        service = self._make_service()
+        service._request = AsyncMock(return_value={"response": {"id": 42}})
+
+        result = await service.update_user_details_on_panel("42", {"description": "profile"})
+
+        self.assertEqual(result, {"id": 42, "uuid": "42"})
+        service._request.assert_awaited_once_with(
+            "PATCH",
+            "/users",
+            operation=PanelApiOperation.USER_UPDATE,
+            json={"description": "profile", "id": 42},
+            log_full_response=False,
+        )
+
+    async def test_future_major_allows_best_effort_mutations(self):
+        service = self._make_service()
+        service._panel_api_compatibility = PanelApiCompatibility.from_metadata(
+            {"response": {"version": "4.0.0"}}
+        )
+        service._panel_api_compatibility_detected_at = time.monotonic()
+        service._request = AsyncMock(return_value={"response": {"id": 42}})
+
+        result = await service.update_user_details_on_panel("42", {"description": "profile"})
+
+        self.assertEqual(result, {"id": 42, "uuid": "42"})
+        service._request.assert_awaited_once_with(
+            "PATCH",
+            "/users",
+            operation=PanelApiOperation.USER_UPDATE,
+            json={"description": "profile", "id": 42},
+            log_full_response=False,
+        )
+
+    async def test_empty_update_success_reloads_user_for_legacy_return_contract(self):
+        service = self._make_service()
+        service._request = AsyncMock(
+            side_effect=[
+                {"status": "success", "status_code": 204, "response": None},
+                {"response": {"id": 42, "description": "updated"}},
+            ]
+        )
+
+        result = await service.update_user_details_on_panel("42", {"description": "updated"})
+
+        self.assertEqual(result, {"id": 42, "uuid": "42", "description": "updated"})
+        self.assertEqual(
+            [call.kwargs["operation"] for call in service._request.await_args_list],
+            [PanelApiOperation.USER_UPDATE, PanelApiOperation.USER_GET],
+        )
 
     async def test_create_panel_user_omits_empty_description(self):
         service = self._make_service()
@@ -325,8 +413,38 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         service._request.assert_awaited_once_with(
             "GET",
             "/users/user-uuid",
+            operation=PanelApiOperation.USER_GET,
             log_full_response=False,
         )
+
+    async def test_v3_stale_uuid_lookup_is_rejected_without_an_http_request(self):
+        service = self._make_service()
+        service._panel_api_compatibility = PanelApiCompatibility.from_metadata(
+            {"response": {"version": "3.0.0"}}
+        )
+        service._panel_api_compatibility_detected_at = time.monotonic()
+        service._request = AsyncMock()
+
+        result = await service.get_user_by_uuid_lookup("legacy-user-uuid")
+
+        self.assertFalse(result["ok"])
+        self.assertFalse(result["not_found"])
+        self.assertIn("classification=incompatible_user_reference", result["failure_reason"])
+        self.assertIn("action=panel_sync_required", result["failure_reason"])
+        service._request.assert_not_awaited()
+
+    async def test_v2_numeric_user_mutation_is_rejected_without_an_http_request(self):
+        service = self._make_service()
+        service._panel_api_compatibility = PanelApiCompatibility.from_metadata(
+            {"response": {"version": "2.8.1"}}
+        )
+        service._panel_api_compatibility_detected_at = time.monotonic()
+        service._request = AsyncMock()
+
+        result = await service.update_user_details_on_panel("42", {"description": "profile"})
+
+        self.assertIsNone(result)
+        service._request.assert_not_awaited()
 
     async def test_get_user_by_uuid_lookup_keeps_transient_errors_separate_from_not_found(self):
         service = self._make_service()
@@ -351,7 +469,10 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         service = self._make_service()
         cases = [
             {"error": True, "status_code": 404},
+            {"error": True, "status_code": 404, "errorCode": "A025"},
             {"error": True, "status_code": 400, "details": {"errorCode": "A062"}},
+            {"error": True, "status_code": 404, "details": {"errorCode": "A063"}},
+            {"error": True, "status_code": 404, "details": {"code": "user_not_found"}},
         ]
 
         for response in cases:
@@ -364,6 +485,19 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(result["not_found"])
                 self.assertIsNone(result["user"])
                 self.assertIn("classification=confirmed_not_found", result["failure_reason"])
+
+    def test_user_not_found_does_not_include_unrelated_a040_error(self):
+        service = self._make_service()
+
+        self.assertFalse(
+            service._is_user_not_found_response(
+                {
+                    "error": True,
+                    "status_code": 500,
+                    "details": {"errorCode": "A040"},
+                }
+            )
+        )
 
     async def test_delete_user_from_panel_treats_plain_404_as_already_deleted(self):
         service = self._make_service()
@@ -386,6 +520,7 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         service._request.assert_awaited_once_with(
             "DELETE",
             "/users/missing-user",
+            operation=PanelApiOperation.USER_DELETE,
             log_full_response=False,
         )
         invalidate_user.assert_awaited_once_with("missing-user")
@@ -431,6 +566,51 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result, [])
 
+    async def test_revoke_subscription_clears_all_hwid_devices_first(self):
+        service = self._make_service()
+        service.get_user_devices = AsyncMock(
+            return_value=[{"hwid": "device-1"}, {"hwid": "device-2"}]
+        )
+        service.disconnect_device = AsyncMock(return_value=True)
+        service._request = AsyncMock(
+            return_value={
+                "response": {
+                    "uuid": "user-uuid",
+                    "subscriptionUrl": "https://sub.example.test/new",
+                }
+            }
+        )
+
+        result = await service.revoke_user_subscription("user-uuid")
+
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertEqual(result["subscriptionUrl"], "https://sub.example.test/new")
+        self.assertEqual(
+            service.disconnect_device.await_args_list,
+            [
+                call("user-uuid", "device-1"),
+                call("user-uuid", "device-2"),
+            ],
+        )
+        service._request.assert_awaited_once_with(
+            "POST",
+            "/users/user-uuid/actions/revoke",
+            operation=PanelApiOperation.USER_REVOKE,
+            log_full_response=False,
+        )
+
+    async def test_revoke_subscription_aborts_when_hwid_cleanup_fails(self):
+        service = self._make_service()
+        service.get_user_devices = AsyncMock(return_value=[{"hwid": "device-1"}])
+        service.disconnect_device = AsyncMock(return_value=False)
+        service._request = AsyncMock()
+
+        result = await service.revoke_user_subscription("user-uuid")
+
+        self.assertIsNone(result)
+        service._request.assert_not_awaited()
+
     async def test_get_hwid_devices_stats_returns_by_platform_by_app(self):
         service = self._make_service()
         panel_payload = {
@@ -449,6 +629,7 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         service._request.assert_awaited_once_with(
             "GET",
             "/hwid/devices/stats",
+            operation=PanelApiOperation.HWID_STATS,
             log_full_response=False,
         )
 
@@ -463,6 +644,7 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         service._request.assert_awaited_once_with(
             "GET",
             "/hwid/devices/top-users",
+            operation=PanelApiOperation.HWID_TOP_USERS,
             params={"start": 5, "size": 20},
             log_full_response=False,
         )
@@ -477,6 +659,7 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         service._request.assert_awaited_once_with(
             "POST",
             "/nodes/node-uuid/actions/restart",
+            operation=PanelApiOperation.NODE_RESTART,
             json={"forceRestart": True},
             log_full_response=False,
         )
@@ -491,6 +674,7 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         service._request.assert_awaited_once_with(
             "POST",
             "/nodes/actions/restart-all",
+            operation=PanelApiOperation.NODES_RESTART_ALL,
             json={"forceRestart": False},
             log_full_response=False,
         )
@@ -509,6 +693,7 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         service._request.assert_awaited_once_with(
             "GET",
             "/subscriptions/subpage-config/short-uuid",
+            operation=PanelApiOperation.SUBSCRIPTION_CONFIG_RESOLVED,
             json={"requestHeaders": {"user-agent": "Mozilla/5.0"}},
             log_full_response=False,
         )
@@ -524,6 +709,7 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         service._request.assert_awaited_once_with(
             "GET",
             "/subscription-page-configs",
+            operation=PanelApiOperation.SUBSCRIPTION_PAGE_CONFIG_LIST,
             log_full_response=False,
         )
 
@@ -538,6 +724,7 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         service._request.assert_awaited_once_with(
             "GET",
             "/subscription-page-configs/default",
+            operation=PanelApiOperation.SUBSCRIPTION_PAGE_CONFIG_GET,
             log_full_response=False,
         )
 
@@ -599,6 +786,118 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
             ],
         )
 
+    async def test_get_all_panel_users_normalizes_v3_numeric_ids(self):
+        service = self._make_service()
+        service._request = AsyncMock(
+            return_value={"response": {"users": [{"id": 42, "username": "tg_42"}]}}
+        )
+
+        users = await service.get_all_panel_users()
+
+        self.assertEqual(users, [{"id": 42, "uuid": "42", "username": "tg_42"}])
+
+    async def test_v3_filter_uses_stream_and_caches_metadata(self):
+        service = self._make_service(detect_version=True)
+
+        async def fake_request(method, endpoint, **kwargs):
+            if endpoint == "/system/metadata":
+                return {"response": {"version": "3.0.0"}}
+            if endpoint == "/users/stream":
+                return {
+                    "response": {
+                        "users": [
+                            {
+                                "id": 42,
+                                "telegramId": 99,
+                                "email": "user@example.test",
+                            }
+                        ]
+                    }
+                }
+            return {"error": True, "status_code": 404}
+
+        service._request = AsyncMock(side_effect=fake_request)
+
+        first = await service.get_users_by_filter(telegram_id=99)
+        second = await service.get_users_by_filter(email="user@example.test")
+
+        expected = [
+            {
+                "id": 42,
+                "uuid": "42",
+                "telegramId": 99,
+                "email": "user@example.test",
+            }
+        ]
+        self.assertEqual(first, expected)
+        self.assertEqual(second, expected)
+        endpoints = [call.args[1] for call in service._request.await_args_list]
+        self.assertEqual(endpoints.count("/system/metadata"), 1)
+        self.assertNotIn("/users/by-telegram-id/99", endpoints)
+        self.assertNotIn("/users/by-email/user@example.test", endpoints)
+
+    async def test_filtered_stream_rechecks_results_if_old_panel_ignores_query(self):
+        service = self._make_service(detect_version=True)
+        service._request = AsyncMock(
+            side_effect=[
+                {"response": {"version": "3.0.0"}},
+                {
+                    "response": {
+                        "users": [
+                            {"id": 41, "telegramId": 98},
+                            {"id": 42, "telegramId": 99},
+                        ]
+                    }
+                },
+            ]
+        )
+
+        users = await service.get_users_by_filter(telegram_id=99)
+
+        self.assertEqual(users, [{"id": 42, "uuid": "42", "telegramId": 99}])
+
+    async def test_user_filters_treat_a063_as_a_confirmed_miss(self):
+        for filter_args in (
+            {"telegram_id": 99},
+            {"username": "tg_99"},
+            {"email": "user@example.test"},
+        ):
+            with self.subTest(filter_args=filter_args):
+                service = self._make_service()
+                service._request = AsyncMock(
+                    return_value={
+                        "error": True,
+                        "status_code": 404,
+                        "details": {"errorCode": "A063"},
+                    }
+                )
+
+                users = await service.get_users_by_filter(**filter_args)
+
+                self.assertEqual(users, [])
+
+    async def test_hot_upgrade_route_404_refreshes_metadata_before_not_found_handling(self):
+        service = self._make_service()
+        service._request = AsyncMock(
+            side_effect=[
+                {
+                    "error": True,
+                    "status_code": 404,
+                    "message": "Cannot GET /api/users/by-telegram-id/99",
+                },
+                {"response": {"version": "3.2.0"}},
+                {"response": {"users": []}},
+            ]
+        )
+
+        users = await service.get_users_by_filter(telegram_id=99)
+
+        self.assertEqual(users, [])
+        self.assertEqual(
+            [call.args[1] for call in service._request.await_args_list],
+            ["/users/by-telegram-id/99", "/system/metadata", "/users/stream"],
+        )
+
     async def test_get_all_panel_users_falls_back_to_legacy_when_stream_is_missing(self):
         service = self._make_service()
         calls = []
@@ -637,6 +936,26 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(users, [{"uuid": "legacy-user"}])
         self.assertEqual(calls, ["/users/stream", "/users"])
+
+    async def test_known_v3_stream_failure_never_calls_removed_legacy_users_route(self):
+        service = self._make_service()
+        service._panel_api_compatibility = PanelApiCompatibility.from_metadata(
+            {"response": {"version": "3.2.0"}}
+        )
+        service._panel_api_compatibility_detected_at = time.monotonic()
+        service._request = AsyncMock(return_value={"error": True, "status_code": 503})
+
+        users = await service.get_all_panel_users(page_size=100)
+
+        self.assertIsNone(users)
+        service._request.assert_awaited_once()
+        self.assertEqual(service._request.await_args.args[1], "/users/stream")
+        self.assertTrue(
+            service.panel_capability_state(
+                PanelApiCapability.USER_STREAM,
+                service._panel_api_compatibility,
+            )
+        )
 
     async def test_get_all_panel_users_falls_back_to_100_when_large_page_fails(self):
         service = self._make_service()
@@ -684,6 +1003,7 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         service._request.assert_awaited_once_with(
             "POST",
             "/ip-control/drop-connections",
+            operation=PanelApiOperation.USER_CONNECTIONS_DROP_V2,
             json={
                 "dropBy": {"by": "userUuids", "userUuids": ["user-uuid"]},
                 "targetNodes": {
@@ -702,6 +1022,241 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
 
         payload = service._request.await_args.kwargs["json"]
         self.assertEqual(payload["targetNodes"], {"target": "allNodes"})
+
+    async def test_drop_v3_user_connections_uses_connections_contract(self):
+        service = self._make_service()
+        service._request = AsyncMock(
+            return_value={"status": "success", "status_code": 202, "response": None}
+        )
+
+        dropped = await service.drop_user_connections("42", ["node-1"])
+
+        self.assertTrue(dropped)
+        service._request.assert_awaited_once_with(
+            "POST",
+            "/connections/drop",
+            operation=PanelApiOperation.USER_CONNECTIONS_DROP_V3,
+            json={
+                "dropBy": {"by": "userIds", "userIds": [42]},
+                "targetNodes": {"target": "specificNodes", "nodeUuids": ["node-1"]},
+            },
+            log_full_response=False,
+        )
+
+    async def test_disconnect_v3_device_uses_numeric_user_id(self):
+        service = self._make_service()
+        service._request = AsyncMock(
+            return_value={"status": "success", "status_code": 204, "response": None}
+        )
+
+        disconnected = await service.disconnect_device("42", "device-1")
+
+        self.assertTrue(disconnected)
+        service._request.assert_awaited_once_with(
+            "POST",
+            "/hwid/devices/delete",
+            operation=PanelApiOperation.HWID_DEVICE_DELETE,
+            json={"userId": 42, "hwid": "device-1"},
+            log_full_response=False,
+        )
+
+    async def test_v3_user_scoped_resource_routes_use_numeric_id(self):
+        service = self._make_service()
+        service._panel_api_compatibility = PanelApiCompatibility.from_metadata(
+            {"response": {"version": "3.0.0"}}
+        )
+        service._panel_api_compatibility_detected_at = time.monotonic()
+        service._request = AsyncMock(
+            side_effect=[
+                {"response": {"devices": []}},
+                {"response": {"categories": [], "series": [], "topNodes": []}},
+                {"status": "success", "status_code": 204, "response": None},
+            ]
+        )
+
+        devices = await service.get_user_devices("42")
+        bandwidth = await service.get_user_bandwidth_stats(
+            "42",
+            start="2026-07-01",
+            end="2026-08-01",
+        )
+        reset = await service.reset_user_traffic("42")
+
+        self.assertEqual(devices, [])
+        self.assertEqual(bandwidth, {"categories": [], "series": [], "topNodes": []})
+        self.assertTrue(reset)
+        self.assertEqual(
+            [(call.args[0], call.args[1]) for call in service._request.await_args_list],
+            [
+                ("GET", "/hwid/devices/42"),
+                ("GET", "/bandwidth-stats/users/42"),
+                ("POST", "/users/42/actions/reset-traffic"),
+            ],
+        )
+        self.assertEqual(
+            service._request.await_args_list[1].kwargs["params"],
+            {"start": "2026-07-01", "end": "2026-08-01", "topNodesLimit": 20},
+        )
+
+    async def test_user_bandwidth_without_a_complete_range_does_not_call_panel(self):
+        service = self._make_service()
+        service._request = AsyncMock()
+
+        result = await service.get_user_bandwidth_stats("panel-uuid", start="2026-07-01")
+
+        self.assertIsNone(result)
+        service._request.assert_not_awaited()
+
+    async def test_v3_squad_mutation_uses_targeted_bulk_contract(self):
+        service = self._make_service()
+        service._request = AsyncMock(
+            return_value={"status": "success", "status_code": 202, "response": None}
+        )
+
+        added = await service.add_users_to_internal_squad("squad-1", ["42", "43"])
+
+        self.assertTrue(added)
+        service._request.assert_awaited_once_with(
+            "POST",
+            "/internal-squads/squad-1/bulk-actions/add-many-users",
+            operation=PanelApiOperation.INTERNAL_SQUAD_ADD_USERS,
+            json={"userIds": [42, 43]},
+            log_full_response=False,
+        )
+
+    async def test_v3_squad_mutation_chunks_panel_limited_batches(self):
+        service = self._make_service()
+        service._V3_SQUAD_BULK_LIMIT = 2
+        service._request = AsyncMock(
+            return_value={"status": "success", "status_code": 202, "response": None}
+        )
+
+        added = await service.add_users_to_internal_squad("squad-1", ["42", "43", "44"])
+
+        self.assertTrue(added)
+        payloads = [call.kwargs["json"] for call in service._request.await_args_list]
+        self.assertEqual(payloads, [{"userIds": [42, 43]}, {"userIds": [44]}])
+
+    async def test_v3_exact_squad_bulk_uses_numeric_ids(self):
+        service = self._make_service()
+        service._panel_api_compatibility = PanelApiCompatibility.from_metadata(
+            {"response": {"version": "3.0.0"}}
+        )
+        service._request = AsyncMock(
+            return_value={"status": "success", "status_code": 204, "response": None}
+        )
+
+        updated = await service.update_users_internal_squads_exact(
+            ["42", "43"],
+            ["standard", "premium"],
+        )
+
+        self.assertTrue(updated)
+        service._request.assert_awaited_once_with(
+            "POST",
+            "/users/bulk/update-squads",
+            operation=PanelApiOperation.USERS_BULK_UPDATE_SQUADS,
+            json={
+                "userIds": [42, 43],
+                "activeInternalSquads": ["standard", "premium"],
+            },
+            log_full_response=False,
+        )
+
+    async def test_v2_exact_squad_bulk_uses_uuids(self):
+        service = self._make_service()
+        service._panel_api_compatibility = PanelApiCompatibility.from_metadata(
+            {"response": {"version": "2.8.1"}}
+        )
+        service._request = AsyncMock(return_value={"response": {"affectedRows": 2}})
+
+        updated = await service.update_users_internal_squads_exact(
+            ["uuid-1", "uuid-2"],
+            ["standard"],
+        )
+
+        self.assertTrue(updated)
+        self.assertEqual(
+            service._request.await_args.kwargs["json"],
+            {"uuids": ["uuid-1", "uuid-2"], "activeInternalSquads": ["standard"]},
+        )
+
+    async def test_exact_squad_bulk_skips_empty_state_due_to_v3_a088(self):
+        service = self._make_service()
+        service._panel_api_compatibility = PanelApiCompatibility.from_metadata(
+            {"response": {"version": "3.0.0"}}
+        )
+        service._request = AsyncMock()
+
+        updated = await service.update_users_internal_squads_exact(["42"], [])
+
+        self.assertFalse(updated)
+        service._request.assert_not_awaited()
+
+    async def test_v3_connection_drop_batches_users(self):
+        service = self._make_service()
+        service._panel_api_compatibility = PanelApiCompatibility.from_metadata(
+            {"response": {"version": "3.0.0"}}
+        )
+        service._request = AsyncMock(
+            return_value={"status": "success", "status_code": 202, "response": None}
+        )
+
+        dropped = await service.drop_users_connections(["42", "43"], ["node-1"])
+
+        self.assertTrue(dropped)
+        self.assertEqual(
+            service._request.await_args.kwargs["json"]["dropBy"],
+            {"by": "userIds", "userIds": [42, 43]},
+        )
+
+    async def test_v3_multi_node_usage_validates_shape(self):
+        service = self._make_service()
+        service._panel_api_compatibility = PanelApiCompatibility.from_metadata(
+            {"response": {"version": "3.0.0"}}
+        )
+        service._request = AsyncMock(
+            return_value={
+                "response": {
+                    "nodes": [{"uuid": "node-1", "users": [{"id": 42, "totalBytes": 100}]}]
+                }
+            }
+        )
+
+        usage = await service.get_multi_node_user_usage(
+            ["node-1"],
+            start="2026-08-01",
+            end="2026-08-02",
+        )
+
+        self.assertIsNotNone(usage)
+        service._request.assert_awaited_once_with(
+            "POST",
+            "/bandwidth-stats/nodes/usage",
+            operation=PanelApiOperation.NODES_USER_USAGE,
+            params={"start": "2026-08-01", "end": "2026-08-02", "minTotalBytes": 0},
+            json={"nodesUuids": ["node-1"]},
+            log_full_response=False,
+        )
+
+    async def test_v2_multi_node_top_users_preserves_limit(self):
+        service = self._make_service()
+        service._panel_api_compatibility = PanelApiCompatibility.from_metadata(
+            {"response": {"version": "2.8.1"}}
+        )
+        service._request = AsyncMock(
+            return_value={"response": {"topUsers": [{"username": "one", "total": 1}]}}
+        )
+
+        usage = await service.get_multi_node_users_bandwidth_stats(
+            ["node-1", "node-2"],
+            start="2026-08-01",
+            end="2026-08-02",
+            top_users_limit=30_001,
+        )
+
+        self.assertIsNotNone(usage)
+        self.assertEqual(service._request.await_args.kwargs["params"]["topUsersLimit"], 30_001)
 
     async def test_drop_user_connections_tolerates_panel_without_connected_nodes(self):
         service = self._make_service()
@@ -731,7 +1286,7 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
             }
         )
 
-        with self.assertLogs("bot.services.panel_api_users", level="WARNING") as logs:
+        with self.assertLogs("bot.services.panel_api_connections", level="WARNING") as logs:
             dropped = await service.drop_user_connections("user-uuid", ["node-1"])
 
         self.assertFalse(dropped)

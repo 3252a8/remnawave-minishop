@@ -210,7 +210,7 @@
 }
 
 .checkout-promo-row.is-error .input.checkout-promo-input {
-  border-color: color-mix(in srgb, var(--danger, #ef4444) 72%, var(--border));
+  border-color: color-mix(in srgb, var(--danger) 72%, var(--border));
 }
 
 .checkout-promo-clear {

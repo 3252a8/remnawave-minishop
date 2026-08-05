@@ -29,7 +29,7 @@ from .base import (
     ProviderManifestField,
     ServiceFactoryContext,
 )
-from .shared import RecurringProviderService
+from .shared import ProviderManagedRecurringService, RecurringProviderService
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,7 @@ PAYMENT_PROVIDER_SPECS: tuple[PaymentProviderSpec, ...] = (
     freekassa.SPEC,
     platega.SBP_SPEC,
     platega.CRYPTO_SPEC,
+    platega.SUBSCRIPTION_SPEC,
     severpay.SPEC,
     wata.SPEC,
     wata.CRYPTO_SPEC,
@@ -265,7 +266,9 @@ def _localized_default(
 # Specs whose default button labels have language-specific variants in the
 # locale files. Spec labels themselves stay English-only in code; providers
 # listed here resolve ``payment_provider_<id>_<kind>_label`` first.
-_LOCALE_LABEL_SPEC_IDS = frozenset({"freekassa", "platega_sbp", "platega_crypto"})
+_LOCALE_LABEL_SPEC_IDS = frozenset(
+    {"freekassa", "platega_sbp", "platega_crypto", "platega_subscription"}
+)
 
 
 def _locale_label(spec_id: str, kind: str, language: str) -> str | None:
@@ -391,9 +394,45 @@ def recurring_provider_services(
     return recurring
 
 
+def managed_recurring_provider_services(
+    services: Mapping[str, object],
+) -> dict[str, ProviderManagedRecurringService]:
+    """Map ``provider_key`` to service for every provider-managed recurrence.
+
+    Same keying rationale as :func:`recurring_provider_services`, but for the
+    disjoint family where the provider owns the schedule and the only local
+    action is stopping the mandate.
+    """
+    managed: dict[str, ProviderManagedRecurringService] = {}
+    for spec in PAYMENT_PROVIDER_SPECS:
+        if not spec.manages_recurring or not spec.service_key:
+            continue
+        service = services.get(spec.service_key)
+        if service is not None:
+            managed[spec.provider_key] = cast(ProviderManagedRecurringService, service)
+    return managed
+
+
 def provider_supports_recurring(provider: str | None) -> bool:
     spec = get_provider_spec(provider or "")
     return bool(spec and spec.supports_recurring)
+
+
+def provider_manages_recurring(provider: str | None) -> bool:
+    """True when any button of this provider sells a provider-managed mandate.
+
+    Resolution goes through ``provider_key`` rather than the matched spec:
+    ``Subscription.provider`` stores ``platega`` for every Platega button, and
+    only the subscription button carries the flag.
+    """
+    spec = get_provider_spec(provider or "")
+    if spec is None:
+        return False
+    return any(
+        candidate.manages_recurring
+        for candidate in PAYMENT_PROVIDER_SPECS
+        if candidate.provider_key == spec.provider_key
+    )
 
 
 def provider_label_map(settings: Any = None, language: str | None = None) -> dict[str, str]:

@@ -528,6 +528,22 @@ SETTINGS_MANIFEST: list[SettingField] = [
         subsection="referral",
     ),
     SettingField(
+        "REFERRAL_WEBAPP_LINK_ENABLED",
+        "bool",
+        "pricing",
+        "Website referral link",
+        "Show the website referral link in the user Web App bonus section.",
+        subsection="referral",
+    ),
+    SettingField(
+        "REFERRAL_TELEGRAM_LINK_ENABLED",
+        "bool",
+        "pricing",
+        "Telegram referral link",
+        "Show the Telegram bot referral link in the user Web App bonus section.",
+        subsection="referral",
+    ),
+    SettingField(
         "LEGACY_REFS",
         "bool",
         "pricing",

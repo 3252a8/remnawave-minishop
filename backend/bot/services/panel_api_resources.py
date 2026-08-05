@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.services.panel_api_compat import PanelApiCompatibility, numeric_panel_user_id
+from bot.services.panel_api_contracts import PanelApiCapability, PanelApiOperation
 from bot.utils.ttl_cache import AsyncTTLCache
 from config.settings import Settings
 from db.dal import panel_sync_dal
@@ -54,8 +56,40 @@ class PanelApiResourcesMixin:
     if TYPE_CHECKING:
 
         async def _request(
-            self, method: str, endpoint: str, log_full_response: bool = False, **kwargs: Any
+            self,
+            method: str,
+            endpoint: str,
+            log_full_response: bool = False,
+            *,
+            operation: PanelApiOperation | None = None,
+            **kwargs: Any,
         ) -> dict[str, Any] | None: ...
+        async def get_panel_api_compatibility(
+            self, *, force_refresh: bool = False
+        ) -> PanelApiCompatibility: ...
+        def panel_capability_state(
+            self,
+            capability: PanelApiCapability,
+            compatibility: PanelApiCompatibility,
+        ) -> bool | None: ...
+        def remember_panel_capability(
+            self,
+            capability: PanelApiCapability,
+            supported: bool,
+        ) -> None: ...
+        async def panel_mutation_allowed(
+            self,
+            operation: PanelApiOperation,
+            *,
+            compatibility: PanelApiCompatibility | None = None,
+        ) -> bool: ...
+        async def resolve_panel_user_reference(
+            self,
+            value: object,
+            operation: PanelApiOperation,
+            *,
+            compatibility: PanelApiCompatibility | None = None,
+        ) -> str | None: ...
 
     async def get_subscription_link(
         self, short_uuid_or_sub_uuid: str, client_type: str | None = None
@@ -81,6 +115,7 @@ class PanelApiResourcesMixin:
         response_data = await self._request(
             "GET",
             endpoint,
+            operation=PanelApiOperation.SUBSCRIPTION_CONFIG_RESOLVED,
             json=payload,
             log_full_response=False,
         )
@@ -96,7 +131,12 @@ class PanelApiResourcesMixin:
 
     async def get_subscription_page_config_list(self) -> dict[str, Any] | None:
         endpoint = "/subscription-page-configs"
-        response_data = await self._request("GET", endpoint, log_full_response=False)
+        response_data = await self._request(
+            "GET",
+            endpoint,
+            operation=PanelApiOperation.SUBSCRIPTION_PAGE_CONFIG_LIST,
+            log_full_response=False,
+        )
         response = _panel_dict_response(response_data)
         if response is not None:
             return response
@@ -113,7 +153,12 @@ class PanelApiResourcesMixin:
         if not config_uuid:
             return None
         endpoint = f"/subscription-page-configs/{config_uuid}"
-        response_data = await self._request("GET", endpoint, log_full_response=False)
+        response_data = await self._request(
+            "GET",
+            endpoint,
+            operation=PanelApiOperation.SUBSCRIPTION_PAGE_CONFIG_GET,
+            log_full_response=False,
+        )
         response = _panel_dict_response(response_data)
         if response is not None:
             return response
@@ -140,6 +185,7 @@ class PanelApiResourcesMixin:
         response_data = await self._request(
             "GET",
             f"/external-squads/{squad_uuid}",
+            operation=PanelApiOperation.EXTERNAL_SQUAD_GET,
             log_full_response=False,
         )
         if response_data and not response_data.get("error") and "response" in response_data:
@@ -159,8 +205,21 @@ class PanelApiResourcesMixin:
         return _panel_devices_list(cached)
 
     async def _get_user_devices_uncached(self, user_uuid: str) -> list[dict[str, Any]] | None:
-        endpoint = f"/hwid/devices/{user_uuid}"
-        response_data = await self._request("GET", endpoint, log_full_response=False)
+        compatibility = await self.get_panel_api_compatibility()
+        user_reference = await self.resolve_panel_user_reference(
+            user_uuid,
+            PanelApiOperation.HWID_DEVICES_GET,
+            compatibility=compatibility,
+        )
+        if user_reference is None:
+            return None
+        endpoint = f"/hwid/devices/{user_reference}"
+        response_data = await self._request(
+            "GET",
+            endpoint,
+            operation=PanelApiOperation.HWID_DEVICES_GET,
+            log_full_response=False,
+        )
         if response_data and not response_data.get("error"):
             for key in ("response", "data"):
                 if key not in response_data:
@@ -172,10 +231,40 @@ class PanelApiResourcesMixin:
         return None
 
     async def disconnect_device(self, user_uuid: str, hwid: str) -> bool:
+        operation = PanelApiOperation.HWID_DEVICE_DELETE
+        compatibility = await self.get_panel_api_compatibility()
+        if not await self.panel_mutation_allowed(operation, compatibility=compatibility):
+            return False
+        selector_is_numeric = self.panel_capability_state(
+            PanelApiCapability.HWID_USER_ID_SELECTOR,
+            compatibility,
+        )
         endpoint = "/hwid/devices/delete"
-        payload = {"userUuid": user_uuid, "hwid": hwid}
-        response_data = await self._request("POST", endpoint, json=payload, log_full_response=False)
-        if response_data and not response_data.get("error") and "response" in response_data:
+        user_reference = await self.resolve_panel_user_reference(
+            user_uuid,
+            operation,
+            compatibility=compatibility,
+        )
+        if user_reference is None:
+            return False
+        numeric_id = numeric_panel_user_id(user_reference)
+        payload: dict[str, Any] = {"hwid": hwid}
+        if selector_is_numeric is True or (selector_is_numeric is None and numeric_id is not None):
+            payload["userId"] = numeric_id
+        else:
+            payload["userUuid"] = user_reference
+        response_data = await self._request(
+            "POST",
+            endpoint,
+            operation=operation,
+            json=payload,
+            log_full_response=False,
+        )
+        if response_data and not response_data.get("error"):
+            self.remember_panel_capability(
+                PanelApiCapability.HWID_USER_ID_SELECTOR,
+                "userId" in payload,
+            )
             await self._invalidate_devices_cache(user_uuid)
             return True
         logger.error(
@@ -186,7 +275,12 @@ class PanelApiResourcesMixin:
 
     async def get_hwid_devices_stats(self) -> dict[str, Any] | None:
         """Return HWID aggregate stats, including Remnawave 2.8 byPlatform[].byApp."""
-        response_data = await self._request("GET", "/hwid/devices/stats", log_full_response=False)
+        response_data = await self._request(
+            "GET",
+            "/hwid/devices/stats",
+            operation=PanelApiOperation.HWID_STATS,
+            log_full_response=False,
+        )
         response = _panel_dict_response(response_data)
         if response is not None:
             return response
@@ -203,6 +297,7 @@ class PanelApiResourcesMixin:
         response_data = await self._request(
             "GET",
             "/hwid/devices/top-users",
+            operation=PanelApiOperation.HWID_TOP_USERS,
             params=params,
             log_full_response=False,
         )
@@ -213,10 +308,14 @@ class PanelApiResourcesMixin:
         return None
 
     async def restart_node(self, node_uuid: str, *, force_restart: bool = False) -> bool:
+        operation = PanelApiOperation.NODE_RESTART
+        if not await self.panel_mutation_allowed(operation):
+            return False
         endpoint = f"/nodes/{node_uuid}/actions/restart"
         response_data = await self._request(
             "POST",
             endpoint,
+            operation=operation,
             json={"forceRestart": bool(force_restart)},
             log_full_response=False,
         )
@@ -226,9 +325,13 @@ class PanelApiResourcesMixin:
         return False
 
     async def restart_all_nodes(self, *, force_restart: bool = False) -> bool:
+        operation = PanelApiOperation.NODES_RESTART_ALL
+        if not await self.panel_mutation_allowed(operation):
+            return False
         response_data = await self._request(
             "POST",
             "/nodes/actions/restart-all",
+            operation=operation,
             json={"forceRestart": bool(force_restart)},
             log_full_response=False,
         )
@@ -254,7 +357,12 @@ class PanelApiResourcesMixin:
 
     async def get_system_stats(self) -> dict[str, Any] | None:
         """Get system statistics (CPU, memory, users counts)"""
-        response_data = await self._request("GET", "/system/stats", log_full_response=False)
+        response_data = await self._request(
+            "GET",
+            "/system/stats",
+            operation=PanelApiOperation.SYSTEM_STATS,
+            log_full_response=False,
+        )
         if response_data and not response_data.get("error") and "response" in response_data:
             return _json_dict(response_data.get("response"))
         return None
@@ -262,7 +370,10 @@ class PanelApiResourcesMixin:
     async def get_bandwidth_stats(self) -> dict[str, Any] | None:
         """Get bandwidth statistics"""
         response_data = await self._request(
-            "GET", "/system/stats/bandwidth", log_full_response=False
+            "GET",
+            "/system/stats/bandwidth",
+            operation=PanelApiOperation.SYSTEM_BANDWIDTH_STATS,
+            log_full_response=False,
         )
         if response_data and not response_data.get("error") and "response" in response_data:
             return _json_dict(response_data.get("response"))
@@ -283,6 +394,7 @@ class PanelApiResourcesMixin:
         response_data = await self._request(
             "GET",
             "/bandwidth-stats/nodes",
+            operation=PanelApiOperation.NODE_BANDWIDTH,
             params={
                 "start": start,
                 "end": end,
@@ -294,9 +406,37 @@ class PanelApiResourcesMixin:
             return _json_dict(response_data.get("response"))
         return None
 
-    async def get_user_bandwidth_stats(self, user_uuid: str) -> dict[str, Any] | None:
-        endpoint = f"/bandwidth-stats/users/{user_uuid}"
-        response_data = await self._request("GET", endpoint, log_full_response=False)
+    async def get_user_bandwidth_stats(
+        self,
+        user_uuid: str,
+        *,
+        start: str | None = None,
+        end: str | None = None,
+        top_nodes_limit: int = 20,
+    ) -> dict[str, Any] | None:
+        if not start or not end:
+            logger.error("User bandwidth stats require both start and end dates.")
+            return None
+        compatibility = await self.get_panel_api_compatibility()
+        user_reference = await self.resolve_panel_user_reference(
+            user_uuid,
+            PanelApiOperation.USER_BANDWIDTH,
+            compatibility=compatibility,
+        )
+        if user_reference is None:
+            return None
+        endpoint = f"/bandwidth-stats/users/{user_reference}"
+        response_data = await self._request(
+            "GET",
+            endpoint,
+            operation=PanelApiOperation.USER_BANDWIDTH,
+            params={
+                "start": start,
+                "end": end,
+                "topNodesLimit": max(1, int(top_nodes_limit)),
+            },
+            log_full_response=False,
+        )
         if response_data and not response_data.get("error") and "response" in response_data:
             return _json_dict(response_data.get("response"))
         logger.error(
@@ -316,6 +456,7 @@ class PanelApiResourcesMixin:
         response_data = await self._request(
             "GET",
             endpoint,
+            operation=PanelApiOperation.NODE_USER_BANDWIDTH,
             params={"start": start, "end": end, "topUsersLimit": top_users_limit},
             log_full_response=False,
         )
@@ -361,7 +502,12 @@ class PanelApiResourcesMixin:
         return None
 
     async def _get_internal_squads_uncached(self) -> list[dict[str, Any]] | None:
-        response_data = await self._request("GET", "/internal-squads", log_full_response=False)
+        response_data = await self._request(
+            "GET",
+            "/internal-squads",
+            operation=PanelApiOperation.INTERNAL_SQUADS_LIST,
+            log_full_response=False,
+        )
         if response_data and not response_data.get("error") and "response" in response_data:
             response = response_data.get("response")
             if isinstance(response, list):
@@ -383,7 +529,10 @@ class PanelApiResourcesMixin:
 
     async def _get_internal_squad_uncached(self, squad_uuid: str) -> dict[str, Any] | None:
         response_data = await self._request(
-            "GET", f"/internal-squads/{squad_uuid}", log_full_response=False
+            "GET",
+            f"/internal-squads/{squad_uuid}",
+            operation=PanelApiOperation.INTERNAL_SQUAD_GET,
+            log_full_response=False,
         )
         if response_data and not response_data.get("error") and "response" in response_data:
             response = response_data.get("response")
@@ -419,7 +568,12 @@ class PanelApiResourcesMixin:
         )
         last_response = None
         for endpoint in endpoints:
-            response_data = await self._request("GET", endpoint, log_full_response=False)
+            response_data = await self._request(
+                "GET",
+                endpoint,
+                operation=PanelApiOperation.INTERNAL_SQUAD_NODES,
+                log_full_response=False,
+            )
             last_response = response_data
             if response_data and not response_data.get("error") and "response" in response_data:
                 response = response_data.get("response")
@@ -442,7 +596,12 @@ class PanelApiResourcesMixin:
         return _json_dict_list(cached)
 
     async def _get_hosts_uncached(self) -> list[dict[str, Any]] | None:
-        response_data = await self._request("GET", "/hosts", log_full_response=False)
+        response_data = await self._request(
+            "GET",
+            "/hosts",
+            operation=PanelApiOperation.HOSTS_LIST,
+            log_full_response=False,
+        )
         if response_data and not response_data.get("error") and "response" in response_data:
             response = response_data.get("response")
             if isinstance(response, list):
@@ -456,8 +615,24 @@ class PanelApiResourcesMixin:
         return None
 
     async def reset_user_traffic(self, user_uuid: str) -> bool:
-        endpoint = f"/users/{user_uuid}/actions/reset-traffic"
-        response_data = await self._request("POST", endpoint, log_full_response=False)
+        operation = PanelApiOperation.USER_RESET_TRAFFIC
+        compatibility = await self.get_panel_api_compatibility()
+        if not await self.panel_mutation_allowed(operation, compatibility=compatibility):
+            return False
+        user_reference = await self.resolve_panel_user_reference(
+            user_uuid,
+            operation,
+            compatibility=compatibility,
+        )
+        if user_reference is None:
+            return False
+        endpoint = f"/users/{user_reference}/actions/reset-traffic"
+        response_data = await self._request(
+            "POST",
+            endpoint,
+            operation=operation,
+            log_full_response=False,
+        )
         if response_data and not response_data.get("error"):
             await self._invalidate_user_cache(user_uuid)
             await self._invalidate_all_users_cache()

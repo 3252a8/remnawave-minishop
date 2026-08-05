@@ -10,6 +10,7 @@ export { default as AdminRevenueCustomRangePopover } from "./AdminRevenueCustomR
 export { default as AdminSelect } from "./AdminSelect.svelte";
 export { default as AdminSectionHeader } from "./AdminSectionHeader.svelte";
 export { default as AdminSortHeader } from "./AdminSortHeader.svelte";
+export { default as AdminSortableHeader } from "./AdminSortableHeader.svelte";
 export { default as AdminTable } from "./AdminTable.svelte";
 export { default as AdminUserCell } from "./AdminUserCell.svelte";
 export { default as AdminTableSkeleton } from "./AdminTableSkeleton.svelte";

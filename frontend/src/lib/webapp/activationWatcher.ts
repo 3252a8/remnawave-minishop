@@ -51,6 +51,7 @@ export function createActivationWatcher({
   let watchTimer: number | null = null;
   let watchAttempts = 0;
   let watchBusy = false;
+  let watching = false;
   let resumeRefreshBusy = false;
   let resumeLastCheckAt = 0;
 
@@ -59,16 +60,16 @@ export function createActivationWatcher({
   }
 
   function stop() {
+    watching = false;
     if (watchTimer) {
       window.clearTimeout(watchTimer);
       watchTimer = null;
     }
     watchAttempts = 0;
-    watchBusy = false;
   }
 
   function schedule() {
-    if (watchTimer || !hasPending()) return;
+    if (!watching || watchTimer || !shouldWatch() || !hasPending()) return;
     watchTimer = window.setTimeout(() => {
       watchTimer = null;
       void checkNow();
@@ -80,13 +81,14 @@ export function createActivationWatcher({
       stop();
       return;
     }
+    watching = true;
     if (watchTimer || watchBusy) return;
     schedule();
   }
 
   async function checkNow() {
     if (watchBusy) return;
-    if (!shouldWatch() || !hasPending()) {
+    if (!watching || !shouldWatch() || !hasPending()) {
       stop();
       return;
     }

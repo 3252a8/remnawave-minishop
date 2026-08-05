@@ -575,6 +575,7 @@ class EmailAuthService:
             try:
                 self._send_message_via_smtp(
                     message=message,
+                    recipient_email=email,
                     smtp_host=smtp_host,
                     smtp_port=attempt.port,
                     timeout=timeout,
@@ -634,6 +635,7 @@ class EmailAuthService:
             try:
                 self._send_message_via_smtp(
                     message=message,
+                    recipient_email=email,
                     smtp_host=smtp_host,
                     smtp_port=attempt.port,
                     timeout=timeout,
@@ -746,6 +748,7 @@ class EmailAuthService:
         self,
         *,
         message: EmailMessage,
+        recipient_email: str,
         smtp_host: str,
         smtp_port: int,
         timeout: int,
@@ -762,7 +765,11 @@ class EmailAuthService:
             ) as smtp:
                 smtp.ehlo()
                 smtp.login(self.settings.SMTP_USERNAME, self.settings.SMTP_PASSWORD)
-                smtp.send_message(message)
+                smtp.send_message(
+                    message,
+                    from_addr=self.settings.SMTP_FROM_EMAIL or None,
+                    to_addrs=[recipient_email],
+                )
             return
 
         with smtplib.SMTP(smtp_host, smtp_port, timeout=timeout) as smtp:
@@ -771,4 +778,8 @@ class EmailAuthService:
                 smtp.starttls(context=context)
                 smtp.ehlo()
             smtp.login(self.settings.SMTP_USERNAME, self.settings.SMTP_PASSWORD)
-            smtp.send_message(message)
+            smtp.send_message(
+                message,
+                from_addr=self.settings.SMTP_FROM_EMAIL or None,
+                to_addrs=[recipient_email],
+            )

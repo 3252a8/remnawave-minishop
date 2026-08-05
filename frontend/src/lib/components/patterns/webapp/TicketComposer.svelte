@@ -62,6 +62,6 @@
 
 <style>
   .ticket-composer-row small.is-over {
-    color: var(--danger, #ff5c5c);
+    color: var(--danger);
   }
 </style>

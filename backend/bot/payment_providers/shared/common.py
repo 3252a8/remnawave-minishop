@@ -172,6 +172,7 @@ def build_payment_record_payload(
     renewal_subscription_id: int | None = None,
     renewal_cycle_end: Any = None,
     entitlement_context_snapshot: str | None = None,
+    checkout_promo: Any | None = None,
 ) -> dict:
     """Assemble the payment-record dict that every callback handler used to inline.
 
@@ -216,6 +217,10 @@ def build_payment_record_payload(
         )
     if entitlement_context_snapshot is not None:
         payload["entitlement_context_snapshot"] = entitlement_context_snapshot
+    if checkout_promo is not None:
+        from bot.services.checkout_promos import checkout_promo_payment_fields
+
+        payload.update(checkout_promo_payment_fields(checkout_promo))
     return payload
 
 

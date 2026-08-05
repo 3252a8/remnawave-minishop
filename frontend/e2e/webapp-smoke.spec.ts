@@ -878,6 +878,20 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   const adminSidebar = page.locator("aside.admin-sidebar");
   await expect(adminSidebar).toBeVisible();
 
+  setPhase("admin-dashboard:panel-version");
+  const panelVersionTrigger = activeAdminSection(page, "stats").locator(
+    ".admin-panel-version-trigger"
+  );
+  await expect(panelVersionTrigger).toBeVisible();
+  await expect(panelVersionTrigger).toContainText("v3.2.1");
+  await panelVersionTrigger.click();
+  const panelVersionPopover = page.locator(".admin-panel-version-popover");
+  await expect(panelVersionPopover).toBeVisible();
+  await expect(panelVersionPopover).toContainText("Точная версия проверена");
+  await expect(panelVersionPopover).toContainText("Проверенные версии");
+  await page.keyboard.press("Escape");
+  await expect(panelVersionPopover).toBeHidden();
+
   setPhase("admin-dashboard:user-filter-link");
   const paidUsersCounter = activeAdminSection(page, "stats").locator(
     '[data-admin-user-filter="paid"]'

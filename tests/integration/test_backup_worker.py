@@ -155,6 +155,27 @@ def test_backup_worker_can_create_manual_backup(tmp_path):
     assert "archive" in manifest
 
 
+def test_backup_worker_forces_database_dump_for_pre_restore_snapshot(tmp_path):
+    compose_dir = tmp_path / "compose"
+    compose_dir.mkdir()
+    settings = _settings(
+        tmp_path,
+        compose_dir,
+        BACKUP_POSTGRES_DUMP_ENABLED=False,
+        BACKUP_COMPOSE_ENABLED=False,
+    )
+    worker = _FakePgDumpBackupWorker(settings, _FakeBot())
+
+    result = asyncio.run(worker.create_backup(backup_type="pre-restore", force_database=True))
+
+    assert result.db_dump_included is True
+    with zipfile.ZipFile(result.archive_path) as archive:
+        manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
+        assert "database/shop.dump" in archive.namelist()
+    assert manifest["type"] == "pre-restore"
+    assert manifest["postgres"]["included"] is True
+
+
 def test_backup_worker_allocates_unique_archive_path(tmp_path):
     settings = _settings(tmp_path, tmp_path / "compose")
     worker = _FakePgDumpBackupWorker(settings, _FakeBot())

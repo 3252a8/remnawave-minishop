@@ -7,6 +7,7 @@
     AdminButton,
     AdminEmptyState,
     AdminPagination,
+    AdminSortableHeader,
     AdminTable,
     AdminTableSkeleton,
     VirtualTableRows,
@@ -18,6 +19,7 @@
   import type { components } from "../../lib/api/openapi.generated";
   import type { PromoKind } from "$lib/admin/stores/promosStore.svelte";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
+  import type { AdminSortColumn } from "$lib/admin/tableSort.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type Promo = components["schemas"]["PromoOut"];
@@ -99,6 +101,7 @@
   const promos = $derived(promosStore.promos as Promo[]);
   const promosTotal = $derived(Number(promosStore.promosTotal || 0));
   const promosPage = $derived(Number(promosStore.promosPage || 0));
+  const promosSort = $derived(String(promosStore.promosSort || ""));
   const promosLoading = $derived(Boolean(promosStore.promosLoading));
   const promoKind = $derived(String(promosStore.promoKind || "shared"));
   // The split only means something once some code carries an owner, so an
@@ -193,6 +196,16 @@
     at("promo_col_valid_until", {}, "Valid until"),
     at("actions", {}, "Actions"),
   ]);
+  const promoSortColumns = [
+    { asc: "code_asc", desc: "code_desc", defaultDirection: "asc" },
+    { asc: "type_asc", desc: "type_desc", defaultDirection: "asc" },
+    { asc: "effect_asc", desc: "effect_desc", defaultDirection: "desc" },
+    { asc: "scope_asc", desc: "scope_desc", defaultDirection: "asc" },
+    { asc: "eligibility_asc", desc: "eligibility_desc", defaultDirection: "asc" },
+    { asc: "activations_asc", desc: "activations_desc", defaultDirection: "desc" },
+    { asc: "status_asc", desc: "status_desc", defaultDirection: "desc" },
+    { asc: "valid_until_asc", desc: "valid_until_desc", defaultDirection: "asc" },
+  ] satisfies AdminSortColumn<never>[];
   const promoKindTabs = $derived([
     { value: "shared", label: at("promo_kind_shared", {}, "Shared") },
     { value: "personal", label: at("promo_kind_personal", {}, "Personal") },
@@ -542,14 +555,62 @@
     <AdminTable class="admin-promos-table">
       <thead>
         <tr>
-          <th>{at("promo_csv_code", {}, "Code")}</th>
-          <th>{at("promo_col_type", {}, "Type")}</th>
-          <th>{at("promo_col_effect", {}, "Effect")}</th>
-          <th>{at("promo_col_scope", {}, "Scope")}</th>
-          <th>{at("promo_col_eligibility", {}, "Eligibility")}</th>
-          <th>{at("promo_col_activations", {}, "Uses")}</th>
-          <th>{at("promo_col_status", {}, "Status")}</th>
-          <th>{at("promo_col_valid_until", {}, "Valid until")}</th>
+          <AdminSortableHeader
+            label={at("promo_csv_code", {}, "Code")}
+            column={promoSortColumns[0]}
+            currentSort={promosSort}
+            {at}
+            onSort={promosStore.setSort}
+          />
+          <AdminSortableHeader
+            label={at("promo_col_type", {}, "Type")}
+            column={promoSortColumns[1]}
+            currentSort={promosSort}
+            {at}
+            onSort={promosStore.setSort}
+          />
+          <AdminSortableHeader
+            label={at("promo_col_effect", {}, "Effect")}
+            column={promoSortColumns[2]}
+            currentSort={promosSort}
+            {at}
+            onSort={promosStore.setSort}
+          />
+          <AdminSortableHeader
+            label={at("promo_col_scope", {}, "Scope")}
+            column={promoSortColumns[3]}
+            currentSort={promosSort}
+            {at}
+            onSort={promosStore.setSort}
+          />
+          <AdminSortableHeader
+            label={at("promo_col_eligibility", {}, "Eligibility")}
+            column={promoSortColumns[4]}
+            currentSort={promosSort}
+            {at}
+            onSort={promosStore.setSort}
+          />
+          <AdminSortableHeader
+            label={at("promo_col_activations", {}, "Uses")}
+            column={promoSortColumns[5]}
+            currentSort={promosSort}
+            {at}
+            onSort={promosStore.setSort}
+          />
+          <AdminSortableHeader
+            label={at("promo_col_status", {}, "Status")}
+            column={promoSortColumns[6]}
+            currentSort={promosSort}
+            {at}
+            onSort={promosStore.setSort}
+          />
+          <AdminSortableHeader
+            label={at("promo_col_valid_until", {}, "Valid until")}
+            column={promoSortColumns[7]}
+            currentSort={promosSort}
+            {at}
+            onSort={promosStore.setSort}
+          />
           <th class="admin-cell-actions">{at("actions", {}, "Actions")}</th>
         </tr>
       </thead>

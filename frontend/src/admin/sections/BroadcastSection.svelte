@@ -410,8 +410,8 @@
     display: inline-block;
     padding: 1px 6px;
     border-radius: 6px;
-    background: color-mix(in srgb, var(--admin-accent, #00fe7a) 18%, transparent);
-    color: var(--admin-accent, #00fe7a);
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: var(--accent);
     font-family: "JetBrains Mono", ui-monospace, monospace;
     font-size: 12px;
   }

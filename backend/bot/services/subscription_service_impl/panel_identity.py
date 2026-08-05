@@ -29,6 +29,13 @@ class PanelUserCreateOptions:
 
 @dataclass(frozen=True, slots=True)
 class PanelUserLink:
+    """Local link to a panel user.
+
+    ``panel_user_uuid`` is a legacy field name: it stores a UUID for panel
+    2.8.x and a decimal-string user id for panel 3.x.  Keeping the name avoids
+    a disruptive local schema migration while the API boundary translates it.
+    """
+
     panel_user_uuid: str | None
     panel_subscription_uuid: str | None
     panel_short_uuid: str | None
@@ -156,12 +163,14 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
         panel_user_obj_from_api = None
         panel_user_created_now = False
         local_link_updated_now = False
+        identity_lookup_failed = False
 
         panel_users_by_tg_id_list = None
         if telegram_id_for_panel:
             panel_users_by_tg_id_list = await self.panel_service.get_users_by_filter(
                 telegram_id=telegram_id_for_panel
             )
+            identity_lookup_failed = panel_users_by_tg_id_list is None
         if panel_users_by_tg_id_list and len(panel_users_by_tg_id_list) == 1:
             panel_user_obj_from_api = panel_users_by_tg_id_list[0]
             logger.info(
@@ -182,6 +191,7 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
             panel_users_by_email_list = await self.panel_service.get_users_by_filter(
                 email=db_user.email
             )
+            identity_lookup_failed = identity_lookup_failed or panel_users_by_email_list is None
             if panel_users_by_email_list and len(panel_users_by_email_list) == 1:
                 panel_user_obj_from_api = panel_users_by_email_list[0]
                 logger.info(
@@ -199,6 +209,28 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                 return PanelUserLink(None, None, None, False, False, None)
 
         if not panel_user_obj_from_api:
+            # The deterministic Mini Shop username survives Remnawave's 3.0
+            # UUID -> numeric id migration.  Check it before a stale local UUID
+            # so users without Telegram/email identity are relinked, not cloned.
+            panel_users_by_username = await self.panel_service.get_users_by_filter(
+                username=panel_username_on_panel_standard
+            )
+            identity_lookup_failed = identity_lookup_failed or panel_users_by_username is None
+            if panel_users_by_username and len(panel_users_by_username) == 1:
+                panel_user_obj_from_api = panel_users_by_username[0]
+                logger.info(
+                    "Found panel user by deterministic username '%s': identifier %s.",
+                    panel_username_on_panel_standard,
+                    panel_user_obj_from_api.get("uuid"),
+                )
+            elif panel_users_by_username and len(panel_users_by_username) > 1:
+                logger.error(
+                    "CRITICAL: Multiple panel users found for deterministic username '%s'.",
+                    panel_username_on_panel_standard,
+                )
+                return PanelUserLink(None, None, None, False, False, None)
+
+        if not panel_user_obj_from_api:
             if current_local_panel_uuid:
                 logger.info(
                     "User %s (local panel_uuid: %s) not found on panel by TG ID. Fetching by "
@@ -206,10 +238,49 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                     user_id,
                     current_local_panel_uuid,
                 )
-                panel_user_obj_from_api = await self.panel_service.get_user_by_uuid(
-                    current_local_panel_uuid
-                )
+                direct_lookup_not_found = False
+                direct_lookup_incompatible = False
+                lookup_method = getattr(self.panel_service, "get_user_by_uuid_lookup", None)
+                if callable(lookup_method):
+                    lookup = await lookup_method(current_local_panel_uuid)
+                    if isinstance(lookup, dict):
+                        lookup_user = lookup.get("user")
+                        if lookup.get("ok") and isinstance(lookup_user, dict):
+                            panel_user_obj_from_api = lookup_user
+                        direct_lookup_not_found = bool(lookup.get("not_found"))
+                        direct_lookup_incompatible = (
+                            "classification=incompatible_user_reference"
+                            in str(lookup.get("failure_reason") or "")
+                        )
+                    else:
+                        panel_user_obj_from_api = await self.panel_service.get_user_by_uuid(
+                            current_local_panel_uuid
+                        )
+                        direct_lookup_not_found = panel_user_obj_from_api is None
+                else:
+                    panel_user_obj_from_api = await self.panel_service.get_user_by_uuid(
+                        current_local_panel_uuid
+                    )
+                    direct_lookup_not_found = panel_user_obj_from_api is None
                 if not panel_user_obj_from_api:
+                    safe_to_create = direct_lookup_not_found or (
+                        direct_lookup_incompatible and not identity_lookup_failed
+                    )
+                    if not safe_to_create:
+                        logger.error(
+                            "Refusing to create a replacement panel user for local user %s: "
+                            "the existing panel reference was not confirmed missing and one or "
+                            "more identity lookups may have failed.",
+                            user_id,
+                        )
+                        return PanelUserLink(
+                            current_local_panel_uuid,
+                            None,
+                            None,
+                            False,
+                            False,
+                            None,
+                        )
                     logger.warning(
                         "Local panel_uuid %s for TG user %s also not found on panel. User might be "
                         "deleted from panel or UUID desynced.",
@@ -248,6 +319,13 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                         return PanelUserLink(None, None, None, False, False, None)
 
             else:
+                if identity_lookup_failed:
+                    logger.error(
+                        "Refusing to create a panel user for local user %s because an identity "
+                        "lookup failed; retrying later avoids duplicate panel users.",
+                        user_id,
+                    )
+                    return PanelUserLink(None, None, None, False, False, None)
                 logger.info(
                     "No panel user by TG ID & no local panel_uuid for TG user %s. Creating new "
                     "panel user '%s'.",

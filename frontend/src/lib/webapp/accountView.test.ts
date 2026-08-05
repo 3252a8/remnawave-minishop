@@ -40,6 +40,7 @@ describe("computeAccountView", () => {
     expect(view.profileTelegramId).toBe("TG ID 123");
     expect(view.profileAvatarUrl).toBe("https://telegram.example.test/avatar.jpg");
     expect(view.serverStatusUrl).toBe("https://status.example.test");
+    expect(view.showTelegramLinkedStatus).toBe(true);
     expect(view.supportUrl).toBe("https://support.example.test");
     expect(view.privacyPolicyUrl).toBe("https://privacy.example.test");
     expect(view.userAgreementUrl).toBe("https://agreement.example.test");
@@ -68,5 +69,26 @@ describe("computeAccountView", () => {
     expect(view.profileAvatarUrl).toBe("https://gravatar.example.test/avatar");
     expect(view.serverStatusUrl).toBe("https://status.example.test");
     expect(view.supportUrl).toBe("https://support.test");
+  });
+
+  it("shows Telegram linkage only when another login provider is available", () => {
+    const input = {
+      appSettings: {},
+      cfg: {},
+      emailAuthEnabled: false,
+      emailAvatarUrl: "",
+      t,
+      user: { telegram_id: 123, telegram_linked: true },
+    };
+
+    expect(
+      computeAccountView({ ...input, authProviders: ["telegram"] }).showTelegramLinkedStatus
+    ).toBe(false);
+    expect(
+      computeAccountView({
+        ...input,
+        authProviders: ["telegram", "oidc"],
+      }).showTelegramLinkedStatus
+    ).toBe(true);
   });
 });

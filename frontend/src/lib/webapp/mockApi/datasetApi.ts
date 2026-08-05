@@ -16,6 +16,7 @@ import {
   setDemoTariffs,
 } from "./state";
 import { demoTranslationsPayload } from "./translations";
+import { sortAdminRows, type AdminSortColumn, type AdminSortValue } from "$lib/admin/tableSort.js";
 import {
   demoInviteesForUser,
   demoSupportCounts,
@@ -71,6 +72,12 @@ const DEMO_SHORTCODE_VALUES: Record<string, string> = {
   referral_bot_link: "https://t.me/demo_bot?start=ref_uAB12CD",
   referral_webapp_link: "https://app.example/?ref=uAB12CD",
 };
+
+function demoSortValue(value: unknown): AdminSortValue {
+  if (value == null || typeof value === "string" || typeof value === "number") return value;
+  if (typeof value === "boolean" || value instanceof Date) return value;
+  return String(value);
+}
 
 function demoBroadcastShortcodes(): { shortcodes: DemoRecord[]; allowed_tags: string[] } {
   return {
@@ -168,11 +175,83 @@ export function demoApiResponse(
         },
       ],
       checked_at: new Date().toISOString(),
+      panel_compatibility: {
+        version: "3.2.1",
+        generation: "rw3-numeric-user-id",
+        support_status: "current",
+        certified_versions: ["3.2.1", "3.2.0", "3.1.0", "3.0.0"],
+        capabilities: ["numeric-user-ids", "user-stream"],
+        observed_capabilities: {},
+      },
     };
   }
 
   if (cleanPath === "/admin/payments") {
-    const page = paged(DATASET.adminPayments || [], params, 25);
+    const payments = DATASET.adminPayments || [];
+    const sort = params.get("sort") || "date_desc";
+    const sorted = sortAdminRows(payments, sort, [
+      {
+        asc: "id_asc",
+        desc: "id_desc",
+        defaultDirection: "desc",
+        value: (row) => row.payment_id as number,
+      },
+      {
+        asc: "user_asc",
+        desc: "user_desc",
+        defaultDirection: "asc",
+        value: (row) => row.user_label as string,
+      },
+      {
+        asc: "user_id_asc",
+        desc: "user_id_desc",
+        defaultDirection: "desc",
+        value: (row) => row.user_id as number,
+      },
+      {
+        asc: "traffic_regular_asc",
+        desc: "traffic_regular_desc",
+        defaultDirection: "desc",
+        value: (row) => row.traffic_regular_gb as number | null,
+      },
+      {
+        asc: "traffic_premium_asc",
+        desc: "traffic_premium_desc",
+        defaultDirection: "desc",
+        value: (row) => row.traffic_premium_gb as number | null,
+      },
+      {
+        asc: "amount_asc",
+        desc: "amount_desc",
+        defaultDirection: "desc",
+        value: (row) => row.amount as number,
+      },
+      {
+        asc: "provider_asc",
+        desc: "provider_desc",
+        defaultDirection: "asc",
+        value: (row) => row.provider as string,
+      },
+      {
+        asc: "description_asc",
+        desc: "description_desc",
+        defaultDirection: "asc",
+        value: (row) => row.description as string,
+      },
+      {
+        asc: "status_asc",
+        desc: "status_desc",
+        defaultDirection: "asc",
+        value: (row) => row.status as string,
+      },
+      {
+        asc: "date_asc",
+        desc: "date_desc",
+        defaultDirection: "desc",
+        value: (row) => row.created_at as string,
+      },
+    ] satisfies AdminSortColumn<(typeof payments)[number]>[]);
+    const page = paged(sorted, params, 25);
     return {
       ok: true,
       payments: clone(page.items),
@@ -207,7 +286,26 @@ export function demoApiResponse(
     if (parts[4]) {
       if (parts[4] === "referrals") {
         const invitees = demoInviteesForUser(id);
-        const page = paged(invitees, params, 25);
+        const sort = params.get("sort") || "registration_desc";
+        const page = paged(
+          sortAdminRows(invitees, sort, [
+            { asc: "user_asc", desc: "user_desc", defaultDirection: "asc", value: userName },
+            {
+              asc: "id_asc",
+              desc: "id_desc",
+              defaultDirection: "desc",
+              value: (row) => row.user_id,
+            },
+            {
+              asc: "registration_asc",
+              desc: "registration_desc",
+              defaultDirection: "desc",
+              value: (row) => row.registration_date,
+            },
+          ] satisfies AdminSortColumn<(typeof invitees)[number]>[]),
+          params,
+          25
+        );
         return {
           ok: true,
           user: clone(decoratedDetail.user),
@@ -238,6 +336,39 @@ export function demoApiResponse(
           String(item.user_id || "") === userId || String(item.target_user_id || "") === userId
       );
     }
+    const sort = params.get("sort") || "date_desc";
+    logs = sortAdminRows(logs, sort, [
+      {
+        asc: "date_asc",
+        desc: "date_desc",
+        defaultDirection: "desc",
+        value: (row) => row.timestamp as string,
+      },
+      {
+        asc: "event_asc",
+        desc: "event_desc",
+        defaultDirection: "asc",
+        value: (row) => row.event_type as string,
+      },
+      {
+        asc: "user_asc",
+        desc: "user_desc",
+        defaultDirection: "asc",
+        value: (row) => (row.user_label || row.user_id) as string | number,
+      },
+      {
+        asc: "target_asc",
+        desc: "target_desc",
+        defaultDirection: "asc",
+        value: (row) => (row.target_user_label || row.target_user_id) as string | number,
+      },
+      {
+        asc: "content_asc",
+        desc: "content_desc",
+        defaultDirection: "asc",
+        value: (row) => row.content as string,
+      },
+    ] satisfies AdminSortColumn<(typeof logs)[number]>[]);
     const page = paged(logs, params, 50);
     return {
       ok: true,
@@ -264,7 +395,80 @@ export function demoApiResponse(
       });
       return { ok: true, promo: clone(demoPromos()[0]) };
     }
-    const page = paged(demoPromos(), params, 25);
+    const promos = demoPromos();
+    const sort = params.get("sort") || "created_desc";
+    const page = paged(
+      sortAdminRows(promos, sort, [
+        {
+          asc: "code_asc",
+          desc: "code_desc",
+          defaultDirection: "asc",
+          value: (row) => demoSortValue(row.code),
+        },
+        {
+          asc: "type_asc",
+          desc: "type_desc",
+          defaultDirection: "asc",
+          value: (row) =>
+            [
+              row.bonus_days,
+              row.discount_percent,
+              row.duration_multiplier,
+              row.traffic_multiplier,
+            ].map(demoSortValue),
+        },
+        {
+          asc: "effect_asc",
+          desc: "effect_desc",
+          defaultDirection: "desc",
+          value: (row) =>
+            [
+              row.bonus_days,
+              row.discount_percent,
+              row.duration_multiplier,
+              row.traffic_multiplier,
+            ].map(demoSortValue),
+        },
+        {
+          asc: "scope_asc",
+          desc: "scope_desc",
+          defaultDirection: "asc",
+          value: (row) => demoSortValue(row.applies_to),
+        },
+        {
+          asc: "eligibility_asc",
+          desc: "eligibility_desc",
+          defaultDirection: "asc",
+          value: (row) => [row.min_subscription_months, row.min_traffic_gb].map(demoSortValue),
+        },
+        {
+          asc: "activations_asc",
+          desc: "activations_desc",
+          defaultDirection: "desc",
+          value: (row) => [row.current_activations, row.max_activations].map(demoSortValue),
+        },
+        {
+          asc: "status_asc",
+          desc: "status_desc",
+          defaultDirection: "desc",
+          value: (row) => demoSortValue(row.is_active),
+        },
+        {
+          asc: "valid_until_asc",
+          desc: "valid_until_desc",
+          defaultDirection: "asc",
+          value: (row) => demoSortValue(row.valid_until),
+        },
+        {
+          asc: "created_asc",
+          desc: "created_desc",
+          defaultDirection: "desc",
+          value: (row) => demoSortValue(row.created_at),
+        },
+      ] satisfies AdminSortColumn<(typeof promos)[number]>[]),
+      params,
+      25
+    );
     return {
       ok: true,
       promos: clone(page.items),

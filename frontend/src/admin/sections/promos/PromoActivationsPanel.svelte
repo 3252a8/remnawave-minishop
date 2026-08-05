@@ -6,11 +6,13 @@
     AdminButton,
     AdminEmptyState,
     AdminPagination,
+    AdminSortableHeader,
     AdminTable,
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
   import type { components } from "../../../lib/api/openapi.generated";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
+  import type { AdminSortColumn } from "$lib/admin/tableSort.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type PromoActivation = components["schemas"]["PromoActivationOut"];
@@ -26,6 +28,8 @@
     fmtMoney,
     paymentStatusVariant,
     onOpenUserCard,
+    currentSort,
+    onSort,
     onPageChange,
   }: {
     rows: PromoActivation[];
@@ -38,8 +42,23 @@
     fmtMoney: (value: number, currency?: string | null) => string;
     paymentStatusVariant: (status: string | null | undefined) => AdminBadgeVariant;
     onOpenUserCard: (userId: number) => void;
+    currentSort: string;
+    onSort: (sort: string) => void;
     onPageChange: (page: number) => void;
   } = $props();
+
+  const activationSortColumns = [
+    { asc: "user_asc", desc: "user_desc", defaultDirection: "asc" },
+    { asc: "date_asc", desc: "date_desc", defaultDirection: "desc" },
+    { asc: "payment_asc", desc: "payment_desc", defaultDirection: "desc" },
+    { asc: "amount_asc", desc: "amount_desc", defaultDirection: "desc" },
+    { asc: "base_asc", desc: "base_desc", defaultDirection: "desc" },
+    { asc: "discount_asc", desc: "discount_desc", defaultDirection: "desc" },
+    { asc: "grant_asc", desc: "grant_desc", defaultDirection: "desc" },
+    { asc: "effect_asc", desc: "effect_desc", defaultDirection: "asc" },
+    { asc: "status_asc", desc: "status_desc", defaultDirection: "asc" },
+    { asc: "provider_asc", desc: "provider_desc", defaultDirection: "asc" },
+  ] satisfies AdminSortColumn<never>[];
 
   const activationHeaders = $derived([
     at("user", {}, "User"),
@@ -149,16 +168,76 @@
       <AdminTable class="admin-promo-activations-table">
         <thead>
           <tr>
-            <th>{at("user", {}, "User")}</th>
-            <th>{at("date", {}, "Date")}</th>
-            <th>{at("payment_detail_payment_section", {}, "Payment")}</th>
-            <th>{at("amount", {}, "Amount")}</th>
-            <th>{at("promo_col_base_amount", {}, "Base")}</th>
-            <th>{at("promo_col_discount_amount", {}, "Discount")}</th>
-            <th>{at("promo_col_grant", {}, "Grant")}</th>
-            <th>{at("promo_col_effect", {}, "Effect")}</th>
-            <th>{at("status", {}, "Status")}</th>
-            <th>{at("provider", {}, "Provider")}</th>
+            <AdminSortableHeader
+              label={at("user", {}, "User")}
+              column={activationSortColumns[0]}
+              {currentSort}
+              {at}
+              {onSort}
+            />
+            <AdminSortableHeader
+              label={at("date", {}, "Date")}
+              column={activationSortColumns[1]}
+              {currentSort}
+              {at}
+              {onSort}
+            />
+            <AdminSortableHeader
+              label={at("payment_detail_payment_section", {}, "Payment")}
+              column={activationSortColumns[2]}
+              {currentSort}
+              {at}
+              {onSort}
+            />
+            <AdminSortableHeader
+              label={at("amount", {}, "Amount")}
+              column={activationSortColumns[3]}
+              {currentSort}
+              {at}
+              {onSort}
+            />
+            <AdminSortableHeader
+              label={at("promo_col_base_amount", {}, "Base")}
+              column={activationSortColumns[4]}
+              {currentSort}
+              {at}
+              {onSort}
+            />
+            <AdminSortableHeader
+              label={at("promo_col_discount_amount", {}, "Discount")}
+              column={activationSortColumns[5]}
+              {currentSort}
+              {at}
+              {onSort}
+            />
+            <AdminSortableHeader
+              label={at("promo_col_grant", {}, "Grant")}
+              column={activationSortColumns[6]}
+              {currentSort}
+              {at}
+              {onSort}
+            />
+            <AdminSortableHeader
+              label={at("promo_col_effect", {}, "Effect")}
+              column={activationSortColumns[7]}
+              {currentSort}
+              {at}
+              {onSort}
+            />
+            <AdminSortableHeader
+              label={at("status", {}, "Status")}
+              column={activationSortColumns[8]}
+              {currentSort}
+              {at}
+              {onSort}
+            />
+            <AdminSortableHeader
+              label={at("provider", {}, "Provider")}
+              column={activationSortColumns[9]}
+              {currentSort}
+              {at}
+              {onSort}
+            />
           </tr>
         </thead>
         <tbody>

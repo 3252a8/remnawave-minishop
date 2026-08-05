@@ -84,6 +84,28 @@ class HandleWebhookSecurityTests(unittest.IsolatedAsyncioTestCase):
 
 
 class HandleWebhookQueueingTests(unittest.IsolatedAsyncioTestCase):
+    async def test_v3_numeric_user_id_is_normalized_before_queueing(self):
+        service = _make_service()
+        captured: list[dict] = []
+
+        async def fake_enqueue(settings, provider, payload, *, event_id=None):
+            captured.append({"payload": payload, "event_id": event_id})
+            return True
+
+        body = json.dumps(
+            {"name": "user.expired", "payload": {"id": 42, "shortUuid": "short"}}
+        ).encode()
+
+        with patch.object(pws, "enqueue_webhook_event", fake_enqueue):
+            response = await service.handle_webhook(body, _sign(body))
+
+        self.assertEqual(response.status, 200)
+        self.assertEqual(
+            captured[0]["payload"]["user"],
+            {"id": 42, "uuid": "42", "shortUuid": "short"},
+        )
+        self.assertEqual(captured[0]["event_id"], "user.expired:42")
+
     async def test_enqueues_to_redis_and_returns_ok(self):
         service = _make_service()
         captured: list[dict] = []

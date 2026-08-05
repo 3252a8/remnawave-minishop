@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import logging
 import time
+from collections import OrderedDict
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -33,6 +34,10 @@ from db.advisory_locks import acquire_subscription_background_sync_lock
 from db.dal import user_dal
 from db.models import Subscription
 
+from .tariff_worker_premium_batches import (
+    PremiumConnectionDropPlan,
+    PremiumSquadMutationPlan,
+)
 from .tariff_worker_shared import PanelLimitPatchState
 
 logger = logging.getLogger(__name__)
@@ -126,7 +131,14 @@ class TariffWorkerCoreMixin:
             tuple[str, str, str],
             dict[str, dict[Any, int]] | None,
         ] = {}
+        self._premium_usage_batch_tick_cache: dict[Any, Any] = OrderedDict()
+        self._premium_usage_snapshot_cache: dict[Any, Any] = OrderedDict()
+        self._premium_usage_completion_tick: dict[tuple[tuple[str, ...], str, str], bool] = {}
+        self._premium_usage_user_limit_hint = 0
         self._premium_squad_match_cache: dict[tuple[str, tuple[str, ...]], float] = {}
+        self._premium_batching_active = False
+        self._premium_squad_mutations: list[PremiumSquadMutationPlan] = []
+        self._premium_connection_drops: list[PremiumConnectionDropPlan] = []
 
     async def _user_lang(self, session: AsyncSession, user_id: int) -> str:
         try:

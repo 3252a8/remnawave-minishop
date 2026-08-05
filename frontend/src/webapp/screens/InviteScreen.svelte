@@ -13,6 +13,7 @@
   import Card from "$components/ui/card.svelte";
   import Input from "$components/ui/input.svelte";
   import { StatusMessage } from "$components/patterns/webapp/index.js";
+  import { visibleReferralLinks } from "$lib/webapp/referralLinks.js";
   import type {
     CopyTextAction,
     ReferralBonusDetail,
@@ -68,6 +69,7 @@
   const promoEffectStatus = $derived(
     !promoIsError && hasPromoCode && promoStatus ? String(promoStatus).trim() : ""
   );
+  const referralLinks = $derived(visibleReferralLinks(referral));
 
   function daysRange(minDays: unknown, maxDays: unknown): string {
     return t("wa_referral_bonus_range_days", {
@@ -95,17 +97,33 @@
     </div>
     <div>
       <h3 class="card-heading">{t("wa_referral_link_title")}</h3>
-      <div class="copy-row referral-copy-row">
-        <code>{referral.webapp_link || referral.bot_link || t("wa_link_unavailable")}</code>
-        <Button
-          class="referral-copy-button"
-          onclick={() =>
-            copyText(String(referral.webapp_link || referral.bot_link || ""), t("wa_link_copied"))}
-        >
-          {t("wa_copy")}
-          <Copy size={17} />
-        </Button>
-      </div>
+      {#if referralLinks.length}
+        <div class="referral-link-list">
+          {#each referralLinks as link (link.id)}
+            <div class="referral-link-item">
+              <small class="referral-link-label">{t(link.labelKey)}</small>
+              <div class="copy-row referral-copy-row">
+                <code>{link.url}</code>
+                <Button
+                  class="referral-copy-button"
+                  onclick={() => copyText(link.url, t("wa_link_copied"))}
+                >
+                  {t("wa_copy")}
+                  <Copy size={17} />
+                </Button>
+              </div>
+            </div>
+          {/each}
+        </div>
+      {:else}
+        <div class="copy-row referral-copy-row">
+          <code>{t("wa_link_unavailable")}</code>
+          <Button class="referral-copy-button" disabled>
+            {t("wa_copy")}
+            <Copy size={17} />
+          </Button>
+        </div>
+      {/if}
     </div>
     {#if referralBonusDetails.length || referralWelcomeBonusDays > 0}
       <div class="referral-bonus-list">

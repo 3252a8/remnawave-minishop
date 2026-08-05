@@ -822,6 +822,17 @@
   text-align: center;
 }
 
+.support-list-card .ticket-list-item {
+  display: grid;
+  min-width: 0;
+}
+
+/* Held while the list still has no idea whether it will render cards or the empty state; sized
+   like the empty state because that is what most inboxes settle on. */
+.support-list-probe {
+  min-height: 170px;
+}
+
 .support-user-list-skeleton {
   display: grid;
   gap: 10px;
@@ -1601,6 +1612,10 @@
     padding-right: 4px;
   }
 
+  .support-list-card .support-list-probe {
+    min-height: 0;
+  }
+
   .support-list-card .support-empty-state {
     width: min(100%, 430px);
     min-height: 220px;
@@ -1774,7 +1789,8 @@
     line-height: 1;
   }
 
-  .support-empty-state {
+  .support-empty-state,
+  .support-list-probe {
     min-height: 190px;
   }
 

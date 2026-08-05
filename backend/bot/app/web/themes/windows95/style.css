@@ -480,6 +480,102 @@
   fill: transparent !important;
 }
 
+/* Icons the UI started using after the first bitmap pass. They reuse the
+ * closest existing 16-colour bitmap — rotated where the glyph is the same
+ * arrow — so no icon renders as a stray vector outline among the pixels. */
+.theme-key-windows95 :is(
+  svg.lucide-arrow-down,
+  svg.lucide-arrow-up,
+  svg.lucide-check-check,
+  svg.lucide-circle-question-mark,
+  svg.lucide-dollar-sign,
+  svg.lucide-history,
+  svg.lucide-languages,
+  svg.lucide-shield-check,
+  svg.lucide-type,
+  svg.lucide-upload
+) *,
+.theme-key-windows95 :is(
+  svg.lucide-arrow-down,
+  svg.lucide-arrow-up,
+  svg.lucide-check-check,
+  svg.lucide-circle-question-mark,
+  svg.lucide-dollar-sign,
+  svg.lucide-history,
+  svg.lucide-languages,
+  svg.lucide-shield-check,
+  svg.lucide-type,
+  svg.lucide-upload
+) {
+  color: transparent !important;
+  stroke: transparent !important;
+  fill: transparent !important;
+}
+
+.theme-key-windows95 svg.lucide-arrow-down,
+.theme-key-windows95 svg.lucide-arrow-up,
+.theme-key-windows95 svg.lucide-check-check,
+.theme-key-windows95 svg.lucide-circle-question-mark,
+.theme-key-windows95 svg.lucide-dollar-sign,
+.theme-key-windows95 svg.lucide-history,
+.theme-key-windows95 svg.lucide-languages,
+.theme-key-windows95 svg.lucide-shield-check,
+.theme-key-windows95 svg.lucide-type,
+.theme-key-windows95 svg.lucide-upload {
+  flex: 0 0 auto;
+  width: 22px !important;
+  height: 22px !important;
+  background-image: var(--win95-button-icon);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  image-rendering: pixelated;
+  filter: none !important;
+}
+
+.theme-key-windows95 svg.lucide-check-check {
+  --win95-button-icon: var(--win95-icon-check);
+}
+
+.theme-key-windows95 svg.lucide-circle-question-mark {
+  --win95-button-icon: var(--win95-icon-help);
+}
+
+.theme-key-windows95 svg.lucide-dollar-sign {
+  --win95-button-icon: var(--win95-icon-coins);
+}
+
+.theme-key-windows95 svg.lucide-history {
+  --win95-button-icon: var(--win95-icon-refresh);
+}
+
+.theme-key-windows95 svg.lucide-languages {
+  --win95-button-icon: var(--win95-icon-globe);
+}
+
+.theme-key-windows95 svg.lucide-shield-check {
+  --win95-button-icon: var(--win95-icon-shield);
+}
+
+.theme-key-windows95 svg.lucide-type {
+  --win95-button-icon: var(--win95-icon-file-text);
+}
+
+.theme-key-windows95 svg.lucide-arrow-up {
+  --win95-button-icon: var(--win95-icon-arrow-right);
+  transform: rotate(-90deg);
+}
+
+.theme-key-windows95 svg.lucide-arrow-down {
+  --win95-button-icon: var(--win95-icon-arrow-right);
+  transform: rotate(90deg);
+}
+
+.theme-key-windows95 svg.lucide-upload {
+  --win95-button-icon: var(--win95-icon-download);
+  transform: rotate(180deg);
+}
+
 .theme-key-windows95,
 .theme-key-windows95 button,
 .theme-key-windows95 input,
@@ -500,7 +596,6 @@
 .theme-key-windows95 .dialog-card,
 .theme-key-windows95 .language-select-content,
 .theme-key-windows95 .bottom-nav,
-.theme-key-windows95 .toast,
 .theme-key-windows95 .support-overview-card,
 .theme-key-windows95 .support-list-card,
 .theme-key-windows95 .support-ticket-card,
@@ -534,8 +629,7 @@
 }
 
 .theme-key-windows95 .dialog-card,
-.theme-key-windows95 .language-select-content,
-.theme-key-windows95 .toast {
+.theme-key-windows95 .language-select-content {
   box-shadow:
     inset 1px 1px 0 #dfdfdf,
     inset -1px -1px 0 #808080,
@@ -960,8 +1054,7 @@ body:has(.theme-key-windows95) .install-platform-item[data-selected] {
 .theme-key-windows95 .admin-select-trigger,
 .theme-key-windows95 .admin-select-content,
 .theme-key-windows95 .admin-cn-card[data-slot="card"],
-.theme-key-windows95 .admin-dialog .dialog-card,
-.theme-key-windows95 .admin-theme-editor-section {
+.theme-key-windows95 .admin-dialog .dialog-card {
   border-width: 2px;
   border-style: solid;
   border-color: #ffffff #404040 #404040 #ffffff;
@@ -1419,12 +1512,16 @@ body:has(.theme-key-windows95) .install-platform-item[data-selected] {
 .theme-key-windows95 svg.lucide-crown,
 .theme-key-windows95 svg.lucide-eye,
 .theme-key-windows95 svg.lucide-eye-off,
+.theme-key-windows95 svg.lucide-flame,
 .theme-key-windows95 svg.lucide-map,
 .theme-key-windows95 svg.lucide-menu,
+.theme-key-windows95 svg.lucide-moon,
 .theme-key-windows95 svg.lucide-mouse-pointer-click,
 .theme-key-windows95 svg.lucide-radio,
 .theme-key-windows95 svg.lucide-repeat-2,
 .theme-key-windows95 svg.lucide-server,
+.theme-key-windows95 svg.lucide-snowflake,
+.theme-key-windows95 svg.lucide-sun,
 .theme-key-windows95 svg.lucide-trending-down,
 .theme-key-windows95 svg.lucide-trending-up,
 .theme-key-windows95 svg.lucide-user-minus,
@@ -1469,7 +1566,8 @@ body:has(.theme-key-windows95) .install-platform-item[data-selected] {
 }
 
 .theme-key-windows95 .ui-spinner,
-.theme-key-windows95 .telegram-button-spinner {
+.theme-key-windows95 .telegram-button-spinner,
+.theme-key-windows95 .brand-mark-spinner {
   border-radius: 999px !important;
   color: var(--accent);
 }
@@ -1561,4 +1659,254 @@ body:has(.theme-key-windows95) .install-platform-item[data-selected] {
 /* Login-screen language trigger: square the rounded chip. */
 .theme-key-windows95 .auth-language-trigger {
   border-radius: 0;
+}
+
+/* ---------- Newer surfaces: attention badges, resumable payments, promo
+ * entry, ticket rich text, admin action sheets and settings search ---------- */
+
+/* Unread markers: a flat 16-colour block with a hard border, and no pulsing
+ * halo — the glow keyframes animate a shadow this skin never draws. */
+.theme-key-windows95 .attention-dot,
+.theme-key-windows95 .nav-badge,
+.theme-key-windows95 .nav-badge-floating {
+  border: 1px solid #000000;
+  background: #ff0000;
+  color: #ffffff;
+  box-shadow: none;
+  animation: none;
+}
+
+/* The light base sheet drops soft ambient shadows under cards that carry a
+ * bevel here; the bevel is the only depth cue this skin has. */
+.theme-key-windows95 .settings-profile,
+.theme-key-windows95 .settings-links-block,
+.theme-key-windows95 .trial-offer-card,
+.theme-key-windows95 .trial-activation-card,
+.theme-key-windows95 .activation-success-dialog,
+.theme-key-windows95 .telegram-notifications-card {
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #808080;
+}
+
+.theme-key-windows95 .admin-switch-thumb {
+  box-shadow: none;
+}
+
+.theme-key-windows95 .premium-traffic-card-limited {
+  border-color: #ffffff #404040 #404040 #ffffff;
+}
+
+/* Resumable pending payment: flat panel with a beveled icon chip and sunken
+ * fact fields instead of the accent wash. */
+.theme-key-windows95 .pending-payment-card {
+  border-width: 2px;
+  border-style: solid;
+  border-color: #ffffff #404040 #404040 #ffffff;
+  background: var(--panel);
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #808080;
+}
+
+.theme-key-windows95 .pending-payment-icon {
+  border: 2px solid;
+  border-color: #ffffff #404040 #404040 #ffffff;
+  background: var(--panel);
+  color: var(--accent);
+}
+
+.theme-key-windows95 .pending-payment-facts > span,
+.theme-key-windows95 .trial-card-facts span,
+.theme-key-windows95 .trial-activation-facts div,
+.theme-key-windows95 .admin-user-log-content {
+  border: 2px solid;
+  border-color: #404040 #ffffff #ffffff #404040;
+  background: #dfdfdf;
+}
+
+/* Promo entry in checkout and on the tariff screen. */
+.theme-key-windows95 .checkout-promo-discount-marker,
+.theme-key-windows95 .promo-status-chip,
+.theme-key-windows95 .admin-header-count,
+.theme-key-windows95 .admin-promo-tab-dirty-count {
+  border: 1px solid #000000;
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.theme-key-windows95 .checkout-promo-clear,
+.theme-key-windows95 .promo-code-clear,
+.theme-key-windows95 .admin-settings-search-clear {
+  border: 2px solid;
+  border-color: #ffffff #404040 #404040 #ffffff;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #808080;
+}
+
+.theme-key-windows95 .checkout-promo-clear:active,
+.theme-key-windows95 .promo-code-clear:active,
+.theme-key-windows95 .admin-settings-search-clear:active {
+  border-color: #404040 #ffffff #ffffff #404040;
+  box-shadow:
+    inset 1px 1px 0 #808080,
+    inset -1px -1px 0 #dfdfdf;
+}
+
+/* Rich-text ticket messages: buttons read as buttons, code as a sunken
+ * field, quotes as a plain indented block. */
+.theme-key-windows95 .ticket-message-button {
+  border: 2px solid;
+  border-color: #ffffff #404040 #404040 #ffffff;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #808080;
+}
+
+.theme-key-windows95 .ticket-message-button:hover {
+  background: #dfdfdf;
+}
+
+.theme-key-windows95 .ticket-message-text code,
+.theme-key-windows95 .ticket-message-text pre {
+  border: 2px solid;
+  border-color: #404040 #ffffff #ffffff #404040;
+  background: #ffffff;
+  color: #000000;
+  font-family: var(--font-mono);
+}
+
+.theme-key-windows95 .ticket-message-text blockquote {
+  border-left: 3px solid #808080;
+  color: var(--muted);
+}
+
+.theme-key-windows95 .ticket-typing-dots i {
+  width: 5px;
+  height: 5px;
+  background: var(--text);
+}
+
+/* Payment-method hint balloon: an opaque beveled popup, not a blurred card. */
+.theme-key-windows95 .payment-method-tooltip {
+  border: 2px solid;
+  border-color: #ffffff #404040 #404040 #ffffff;
+  background: #ffffcc;
+  color: #000000;
+  box-shadow: 2px 2px 0 #000000;
+}
+
+/* Sonner mounts its toaster outside the themed shell, so a toast is only
+ * reachable from the document root and inherits none of the shell tokens. */
+body:has(.theme-key-windows95) .app-toast {
+  border: 2px solid;
+  border-color: #ffffff #404040 #404040 #ffffff;
+  border-radius: 0;
+  background: #c0c0c0;
+  color: #000000;
+  backdrop-filter: none;
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #808080,
+    2px 2px 0 #000000;
+  font-family: "MS Sans Serif", Tahoma, "Segoe UI", sans-serif;
+}
+
+/* The traffic and premium-server summaries became buttons, so the hover pill
+ * behind the help glyph now comes from the trigger, not a <summary>. */
+.theme-key-windows95 .premium-server-trigger:hover .premium-server-help-icon,
+.theme-key-windows95 .premium-server-trigger:focus-visible .premium-server-help-icon,
+.theme-key-windows95 .premium-server-dropdown[data-open="true"] .premium-server-help-icon {
+  background: transparent;
+  color: var(--text);
+}
+
+.theme-key-windows95 .premium-server-trigger:focus-visible {
+  outline: 1px dotted #000000;
+  outline-offset: -2px;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Admin: per-action sheets in the user card, squad override rows, appearance
+ * cards and the settings search all arrived after the last theme pass. */
+.theme-key-windows95 .admin-user-action-sheet,
+.theme-key-windows95 .admin-revenue-svg-frame,
+.theme-key-windows95 .admin-theme-card,
+.theme-key-windows95 .default-theme-editor,
+.theme-key-windows95 .default-theme-panel,
+.theme-key-windows95 .appearance-control-card,
+.theme-key-windows95 .appearance-logo-preview,
+.theme-key-windows95 .appearance-favicon-preview,
+.theme-key-windows95 .admin-user-logs-wrap,
+.theme-key-windows95 .admin-user-referrals-table-wrap,
+.theme-key-windows95 .admin-provider-logo-fallback {
+  border-width: 2px;
+  border-style: solid;
+  border-color: #ffffff #404040 #404040 #ffffff;
+  background: var(--admin-surface);
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #808080;
+}
+
+.theme-key-windows95 .admin-user-action-sheet .admin-dashboard-section-head {
+  border-bottom: 2px solid #000000;
+}
+
+.theme-key-windows95 .admin-squad-section,
+.theme-key-windows95 .admin-squad-row,
+.theme-key-windows95 .admin-squad-effective-grid span,
+.theme-key-windows95 .admin-tariff-hwid-confirm-summary > span,
+.theme-key-windows95 .admin-promo-field-shell,
+.theme-key-windows95 .admin-promo-config-block,
+.theme-key-windows95 .admin-promo-editor-section {
+  border: 1px solid #808080;
+  background: #dfdfdf;
+}
+
+.theme-key-windows95 .admin-theme-card.is-current,
+.theme-key-windows95 .default-theme-editor.is-current {
+  border-color: #404040 #ffffff #ffffff #404040;
+  background: color-mix(in srgb, var(--accent) 14%, var(--admin-surface));
+  box-shadow:
+    inset 1px 1px 0 #808080,
+    inset -1px -1px 0 #dfdfdf;
+}
+
+/* The period-extend control paints itself with the desktop background, which
+ * is the teal wallpaper in this skin; it holds an input, so sink it. */
+.theme-key-windows95 .admin-extend-control {
+  border: 2px solid;
+  border-color: #404040 #ffffff #ffffff #404040;
+  background: #ffffff;
+}
+
+.theme-key-windows95 .admin-settings-search-results {
+  border-width: 2px;
+  border-style: solid;
+  border-color: #ffffff #404040 #404040 #ffffff;
+  background: var(--admin-surface);
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #808080,
+    2px 2px 0 #000000;
+}
+
+.theme-key-windows95 .admin-settings-search-result:hover,
+.theme-key-windows95 .admin-settings-search-result:focus-visible,
+.theme-key-windows95 .admin-settings-search-result.is-active {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.theme-key-windows95 .admin-setting.is-search-highlighted {
+  background: color-mix(in srgb, var(--accent) 16%, var(--admin-surface));
+  box-shadow: inset 4px 0 0 var(--accent);
 }

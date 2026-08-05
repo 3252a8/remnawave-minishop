@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any
 
 from aiogram.types import InlineKeyboardMarkup
@@ -12,8 +13,55 @@ from config.tariffs_config import (
 
 from .user_keyboards_context import (
     callback_context_from_back_callback,
+    callback_suffix_for_checkout,
     callback_suffix_for_context,
+    promo_id_token,
 )
+
+
+def _promo_value(quote: Any, name: str, default: Any = None) -> Any:
+    if quote is None:
+        return default
+    if isinstance(quote, Mapping):
+        return quote.get(name, default)
+    return getattr(quote, name, default)
+
+
+def _promo_callback_suffix(
+    context: str | None,
+    quote: Any,
+    *,
+    promo_enabled: bool = True,
+) -> str:
+    suffix = callback_suffix_for_checkout(context, promo_enabled=promo_enabled)
+    promo_code_id = _promo_value(quote, "promo_code_id")
+    if promo_code_id:
+        suffix += f":{promo_id_token(int(promo_code_id))}"
+    return suffix
+
+
+def _add_promo_toggle(
+    builder: InlineKeyboardBuilder,
+    translate: Any,
+    *,
+    promo_available: bool,
+    promo_enabled: bool,
+    promo_toggle_callback: str | None,
+) -> None:
+    if not promo_available or not promo_toggle_callback:
+        return
+    builder.row(
+        InlineKeyboardButton(
+            text=translate(
+                key=(
+                    "checkout_promo_cancel_button"
+                    if promo_enabled
+                    else "checkout_promo_apply_button"
+                )
+            ),
+            callback_data=promo_toggle_callback,
+        )
+    )
 
 
 def get_subscription_options_keyboard(
@@ -24,6 +72,10 @@ def get_subscription_options_keyboard(
     traffic_mode: bool = False,
     back_callback: str = "main_action:back_to_main",
     callback_context: str | None = None,
+    promo_quotes: Mapping[float, Any] | None = None,
+    promo_available: bool = False,
+    promo_enabled: bool = True,
+    promo_toggle_callback: str | None = None,
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
@@ -47,17 +99,40 @@ def get_subscription_options_keyboard(
                         f"{callback_suffix_for_context(callback_context)}"
                     )
                 else:
-                    button_text = _(
-                        "subscribe_for_months_button",
-                        months=months,
-                        price=price,
-                        currency_symbol=currency_symbol_val,
+                    quote = (promo_quotes or {}).get(months) if promo_enabled else None
+                    effective_price = float(_promo_value(quote, "effective_amount", price))
+                    button_text = (
+                        _(
+                            "subscribe_for_months_discounted_button",
+                            months=months,
+                            old_price=price,
+                            price=effective_price,
+                            currency_symbol=currency_symbol_val,
+                        )
+                        if quote is not None and effective_price < float(price)
+                        else _(
+                            "subscribe_for_months_button",
+                            months=months,
+                            price=price,
+                            currency_symbol=currency_symbol_val,
+                        )
                     )
-                    callback_data = (
-                        f"subscribe_period:{months}{callback_suffix_for_context(callback_context)}"
+                    promo_suffix = _promo_callback_suffix(
+                        callback_context,
+                        quote,
+                        promo_enabled=promo_enabled,
                     )
+                    callback_data = f"subscribe_period:{months}{promo_suffix}"
                 builder.button(text=button_text, callback_data=callback_data)
         builder.adjust(1)
+    if not traffic_mode:
+        _add_promo_toggle(
+            builder,
+            _,
+            promo_available=promo_available,
+            promo_enabled=promo_enabled,
+            promo_toggle_callback=promo_toggle_callback,
+        )
     builder.row(
         InlineKeyboardButton(text=_(key="back_to_main_menu_button"), callback_data=back_callback)
     )
@@ -71,6 +146,9 @@ def get_tariff_catalog_keyboard(
     settings: Settings | None = None,
     back_callback: str = "main_action:back_to_main",
     callback_context: str | None = None,
+    promo_available: bool = False,
+    promo_enabled: bool = True,
+    promo_toggle_callback: str | None = None,
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     callback_context = callback_context or callback_context_from_back_callback(back_callback)
@@ -99,10 +177,17 @@ def get_tariff_catalog_keyboard(
             InlineKeyboardButton(
                 text=label,
                 callback_data=f"tariff:select:{tariff.key}"
-                f"{callback_suffix_for_context(callback_context)}",
+                f"{callback_suffix_for_checkout(callback_context, promo_enabled=promo_enabled)}",
             )
         )
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
+    _add_promo_toggle(
+        builder,
+        _,
+        promo_available=promo_available,
+        promo_enabled=promo_enabled,
+        promo_toggle_callback=promo_toggle_callback,
+    )
     builder.row(
         InlineKeyboardButton(text=_(key="back_to_main_menu_button"), callback_data=back_callback)
     )
@@ -116,6 +201,10 @@ def get_tariff_periods_keyboard(
     settings: Settings,
     back_callback: str = "main_action:subscribe",
     callback_context: str | None = None,
+    promo_quotes: Mapping[int, Any] | None = None,
+    promo_available: bool = False,
+    promo_enabled: bool = True,
+    promo_toggle_callback: str | None = None,
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     callback_context = callback_context or callback_context_from_back_callback(back_callback)
@@ -125,18 +214,41 @@ def get_tariff_periods_keyboard(
     for months in tariff.enabled_periods:
         rub_price = tariff.period_price(months, default_currency)
         if rub_price and rub_price > 0:
+            quote = (promo_quotes or {}).get(int(months)) if promo_enabled else None
+            effective_price = float(_promo_value(quote, "effective_amount", rub_price))
+            promo_suffix = _promo_callback_suffix(
+                callback_context,
+                quote,
+                promo_enabled=promo_enabled,
+            )
             builder.row(
                 InlineKeyboardButton(
-                    text=_(
-                        "subscribe_for_months_button",
-                        months=months,
-                        price=rub_price,
-                        currency_symbol=currency_code,
+                    text=(
+                        _(
+                            "subscribe_for_months_discounted_button",
+                            months=months,
+                            old_price=rub_price,
+                            price=effective_price,
+                            currency_symbol=currency_code,
+                        )
+                        if quote is not None and effective_price < float(rub_price)
+                        else _(
+                            "subscribe_for_months_button",
+                            months=months,
+                            price=rub_price,
+                            currency_symbol=currency_code,
+                        )
                     ),
-                    callback_data=f"tariff:period:{tariff.key}:{months}"
-                    f"{callback_suffix_for_context(callback_context)}",
+                    callback_data=f"tariff:period:{tariff.key}:{months}{promo_suffix}",
                 )
             )
+    _add_promo_toggle(
+        builder,
+        _,
+        promo_available=promo_available,
+        promo_enabled=promo_enabled,
+        promo_toggle_callback=promo_toggle_callback,
+    )
     builder.row(
         InlineKeyboardButton(text=_(key="back_to_main_menu_button"), callback_data=back_callback)
     )

@@ -77,6 +77,7 @@ async def pay_stripe_callback_handler(
         subscription_service=stripe_service.subscription_service,
         currency=default_currency_key_for_settings(settings),
         settings=settings,
+        provider_spec=SPEC,
     )
     if not parts:
         await notify_callback_parse_error(callback, translator)
@@ -102,6 +103,7 @@ async def pay_stripe_callback_handler(
         purchased_hwid_devices=reuse_amounts.purchased_hwid_devices,
         tariff_key=reuse_amounts.tariff_key,
         entitlement_context_snapshot=parts.entitlement_context_snapshot,
+        checkout_promo=getattr(parts, "checkout_promo", None),
     )
     if reusable_payment is not None:
         reusable_url = await stripe_service.try_reuse_pending_payment(reusable_payment)

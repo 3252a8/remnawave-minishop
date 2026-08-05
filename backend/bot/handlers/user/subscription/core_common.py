@@ -9,7 +9,7 @@ from bot.keyboards.inline.user_keyboards import (
     get_tariff_periods_keyboard,
 )
 from bot.middlewares.i18n import JsonI18n
-from bot.payment_providers import provider_supports_recurring
+from bot.payment_providers import provider_manages_recurring, provider_supports_recurring
 from bot.payment_providers.shared import service_supports_recurring
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.utils.callback_answer import (
@@ -85,7 +85,15 @@ def _auto_renew_control_visible(
     subscription_service: SubscriptionService,
     sub: Subscription | None,
 ) -> bool:
-    if not sub or not provider_supports_recurring(getattr(sub, "provider", None)):
+    if not sub:
+        return False
+    provider = getattr(sub, "provider", None)
+    if provider_manages_recurring(provider):
+        # The provider drives the schedule, so the control exists purely to
+        # stop it — showing it for an already-stopped mandate would offer a
+        # switch that cannot be flipped back on from here.
+        return bool(getattr(sub, "auto_renew_enabled", False))
+    if not provider_supports_recurring(provider):
         return False
     service = _recurring_service_for_subscription(subscription_service, sub)
     return bool(getattr(sub, "auto_renew_enabled", False) or service_supports_recurring(service))
@@ -98,6 +106,10 @@ def _tariff_purchase_markup(
     settings: Settings,
     back_callback: str = "main_action:subscribe",
     callback_context: str | None = None,
+    promo_quotes: dict[int, Any] | None = None,
+    promo_available: bool = False,
+    promo_enabled: bool = True,
+    promo_toggle_callback: str | None = None,
 ) -> InlineKeyboardMarkup:
     if tariff.billing_model == "period":
         return cast(
@@ -109,6 +121,10 @@ def _tariff_purchase_markup(
                 settings,
                 back_callback=back_callback,
                 callback_context=callback_context,
+                promo_quotes=promo_quotes,
+                promo_available=promo_available,
+                promo_enabled=promo_enabled,
+                promo_toggle_callback=promo_toggle_callback,
             ),
         )
     default_currency = default_currency_key_for_settings(settings)
