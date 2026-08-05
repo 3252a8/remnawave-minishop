@@ -111,8 +111,8 @@ function extraFrontmatter(sourceRelativePath) {
     '    - text: "Демо"',
     '      link: /demo/home',
     '      icon: right-arrow',
-    '    - text: "Документация"',
-    '      link: /getting-started/overview/',
+    '    - text: "Установка"',
+    '      link: /getting-started/setup/',
     '      icon: setting',
     '      variant: minimal',
   ];

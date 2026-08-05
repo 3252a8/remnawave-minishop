@@ -285,10 +285,6 @@
             "default": false,
             "title": "Confirm"
           },
-          "confirmation": {
-            "default": "",
-            "title": "Confirmation"
-          },
           "restore_compose": {
             "default": false,
             "title": "Restore Compose"
@@ -358,28 +354,9 @@
             "title": "Database Migrations Applied",
             "type": "array"
           },
-          "database_pre_restore_archive": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Database Pre Restore Archive"
-          },
           "database_restored": {
             "title": "Database Restored",
             "type": "boolean"
-          },
-          "database_sequences_normalized": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Database Sequences Normalized",
-            "type": "array"
           },
           "started_at": {
             "title": "Started At",
@@ -778,17 +755,6 @@
             "format": "date-time",
             "title": "Checked At",
             "type": "string"
-          },
-          "panel_compatibility": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/AdminPanelCompatibilityOut"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
           }
         },
         "required": [
@@ -848,60 +814,6 @@
           "admin_ids"
         ],
         "title": "AdminMeOut",
-        "type": "object"
-      },
-      "AdminPanelCompatibilityOut": {
-        "properties": {
-          "capabilities": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Capabilities",
-            "type": "array"
-          },
-          "certified_versions": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Certified Versions",
-            "type": "array"
-          },
-          "generation": {
-            "title": "Generation",
-            "type": "string"
-          },
-          "observed_capabilities": {
-            "additionalProperties": {
-              "type": "boolean"
-            },
-            "title": "Observed Capabilities",
-            "type": "object"
-          },
-          "support_status": {
-            "title": "Support Status",
-            "type": "string"
-          },
-          "version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Version"
-          }
-        },
-        "required": [
-          "generation",
-          "support_status",
-          "certified_versions",
-          "capabilities",
-          "observed_capabilities"
-        ],
-        "title": "AdminPanelCompatibilityOut",
         "type": "object"
       },
       "AdminPanelExternalSquadOverrideOut": {
@@ -7888,13 +7800,6 @@
             "title": "Appversion",
             "type": "string"
           },
-          "authProviders": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Authproviders",
-            "type": "array"
-          },
           "currency": {
             "title": "Currency",
             "type": "string"
@@ -8014,7 +7919,6 @@
           "language",
           "languages",
           "emailAuthEnabled",
-          "authProviders",
           "registrationInviteOnlyEnabled",
           "appVersion",
           "appRepositoryUrl"
@@ -14297,12 +14201,6 @@
                     "settings": {
                       "additionalProperties": false,
                       "properties": {
-                        "auth_providers": {
-                          "items": {
-                            "type": "string"
-                          },
-                          "type": "array"
-                        },
                         "email_auth_enabled": {
                           "type": "boolean"
                         },

@@ -87,29 +87,17 @@ async def _prefetch_sync_indexes(
         }
 
     active_subscriptions_by_user_panel: dict[tuple[int, str], Subscription] = {}
-    subscriptions_by_user_panel: dict[tuple[int, str], Subscription] = {}
-    resolved_user_ids = {int(user.user_id) for user in users_by_user_id.values()}
-    if panel_uuids or resolved_user_ids:
-        identity_filters = []
-        if panel_uuids:
-            identity_filters.append(Subscription.panel_user_uuid.in_(panel_uuids))
-        if resolved_user_ids:
-            # During Remnawave 2.x -> 3.x upgrades, the panel's current numeric
-            # user refs do not match the UUID refs persisted locally yet. User
-            # identity (Telegram/email) still lets us prefetch those rows and
-            # relink them instead of creating duplicate subscriptions.
-            identity_filters.append(Subscription.user_id.in_(resolved_user_ids))
+    if panel_uuids:
         result = await session.execute(
             select(Subscription)
             .where(
-                or_(*identity_filters),
+                Subscription.panel_user_uuid.in_(panel_uuids),
+                Subscription.is_active.is_(True),
+                Subscription.end_date > datetime.now(UTC),
             )
             .order_by(Subscription.end_date.desc())
         )
         for sub in result.scalars().unique().all():
-            subscriptions_by_user_panel.setdefault((int(sub.user_id), sub.panel_user_uuid), sub)
-            if not sub.is_active or sub.end_date <= datetime.now(UTC):
-                continue
             active_subscriptions_by_user_panel.setdefault(
                 (int(sub.user_id), sub.panel_user_uuid), sub
             )
@@ -121,7 +109,6 @@ async def _prefetch_sync_indexes(
         "users_by_email": users_by_email,
         "subscriptions_by_panel_uuid": subscriptions_by_panel_uuid,
         "active_subscriptions_by_user_panel": active_subscriptions_by_user_panel,
-        "subscriptions_by_user_panel": subscriptions_by_user_panel,
         "panel_uuids_by_telegram_id": panel_uuids_by_telegram_id,
     }
 

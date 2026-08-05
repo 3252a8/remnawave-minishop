@@ -38,9 +38,6 @@ class TariffWorkerPremiumFastMixin:
         tuple[str, str, str],
         dict[str, dict[Any, int]] | None,
     ]
-    _premium_usage_batch_tick_cache: dict[Any, Any]
-    _premium_usage_completion_tick: dict[Any, bool]
-    _premium_usage_user_limit_hint: int
 
     if TYPE_CHECKING:
 
@@ -57,8 +54,6 @@ class TariffWorkerPremiumFastMixin:
             panel_user_dict: dict | None = None,
             panel_view: str = "unknown",
         ) -> None: ...
-        def _begin_premium_panel_batch(self) -> None: ...
-        async def _finish_premium_panel_batch(self, session: AsyncSession) -> None: ...
 
     def premium_fast_tick_seconds(self) -> int:
         """Interval of the premium fast lane, or 0 when it is disabled."""
@@ -72,11 +67,8 @@ class TariffWorkerPremiumFastMixin:
 
     async def premium_fast_tick(self, session: AsyncSession) -> None:
         now = datetime.now(UTC)
-        # Request de-duplication is per tick; completed aggregate snapshots also
-        # have a short cross-tick TTL matching Remnawave's aggregation cadence.
+        # Node stats are cached per tick only, so every lane starts from fresh panel data.
         self._premium_node_usage_tick_cache = {}
-        self._premium_usage_batch_tick_cache.clear()
-        self._premium_usage_completion_tick = {}
         subs = canonical_subscriptions_per_panel_user(
             list((await session.execute(self._premium_fast_candidates_query(now))).scalars()),
             logger=logger,
@@ -92,8 +84,6 @@ class TariffWorkerPremiumFastMixin:
             watched.append((sub, tariff))
         if not watched:
             return
-
-        self._premium_usage_user_limit_hint = len(watched)
 
         semaphore = asyncio.Semaphore(TARIFF_WORKER_PANEL_CONCURRENCY)
 
@@ -113,7 +103,6 @@ class TariffWorkerPremiumFastMixin:
             return data if isinstance(data, dict) else {}
 
         panel_payloads = await asyncio.gather(*(_fetch_panel(sub) for sub, _ in watched))
-        self._begin_premium_panel_batch()
         synced = 0
         for (sub, tariff), panel_data in zip(watched, panel_payloads, strict=True):
             if not panel_data:
@@ -128,7 +117,6 @@ class TariffWorkerPremiumFastMixin:
                 panel_view="full_fetch",
             )
             synced += 1
-        await self._finish_premium_panel_batch(session)
         logger.info(
             "metric premium_fast_tick_subscriptions candidates=%s synced=%s",
             len(watched),

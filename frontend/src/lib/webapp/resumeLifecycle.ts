@@ -6,10 +6,6 @@ type EventTargetLike = {
 };
 
 type DocumentLike = EventTargetLike & {
-  documentElement?: {
-    removeAttribute: (name: string) => void;
-    toggleAttribute: (name: string, force?: boolean) => void;
-  };
   visibilityState?: string;
 };
 
@@ -30,11 +26,8 @@ type ResumeLifecycleDeps = {
   refreshAccountDataOnResume: () => void;
   refreshPendingActivationOnResume: () => void;
   refreshTelegramNotificationsOnResume: () => void;
-  suspendBackgroundWork?: () => void;
   windowTarget?: EventTargetLike | null;
 };
-
-const APP_BACKGROUNDED_ATTRIBUTE = "data-app-backgrounded";
 
 export function createResumeLifecycle({
   accountRefreshCooldownMs = ACCOUNT_REFRESH_COOLDOWN_MS,
@@ -44,7 +37,6 @@ export function createResumeLifecycle({
   refreshAccountDataOnResume,
   refreshPendingActivationOnResume,
   refreshTelegramNotificationsOnResume,
-  suspendBackgroundWork = () => {},
   windowTarget = typeof window === "undefined" ? null : window,
 }: ResumeLifecycleDeps) {
   let lastAccountRefreshAt = 0;
@@ -72,19 +64,10 @@ export function createResumeLifecycle({
   }
 
   function onVisibilityChange() {
-    const backgrounded = documentTarget?.visibilityState === "hidden";
-    documentTarget?.documentElement?.toggleAttribute(APP_BACKGROUNDED_ATTRIBUTE, backgrounded);
-    if (backgrounded) {
-      suspendBackgroundWork();
-      return;
-    }
-    onResume();
+    if (documentTarget?.visibilityState !== "hidden") onResume();
   }
 
   function mount() {
-    const backgrounded = documentTarget?.visibilityState === "hidden";
-    documentTarget?.documentElement?.toggleAttribute(APP_BACKGROUNDED_ATTRIBUTE, backgrounded);
-    if (backgrounded) suspendBackgroundWork();
     windowTarget?.addEventListener("pointerdown", onAnyPointerDown);
     windowTarget?.addEventListener("focus", onResume);
     windowTarget?.addEventListener("pageshow", onResume);
@@ -95,7 +78,6 @@ export function createResumeLifecycle({
       windowTarget?.removeEventListener("focus", onResume);
       windowTarget?.removeEventListener("pageshow", onResume);
       documentTarget?.removeEventListener("visibilitychange", onVisibilityChange);
-      documentTarget?.documentElement?.removeAttribute(APP_BACKGROUNDED_ATTRIBUTE);
     };
   }
 

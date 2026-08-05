@@ -176,7 +176,6 @@
   const profileEmail = $derived(accountView.profileEmail);
   const profileTelegramId = $derived(accountView.profileTelegramId);
   const serverStatusUrl = $derived(accountView.serverStatusUrl);
-  const showTelegramLinkedStatus = $derived(accountView.showTelegramLinkedStatus);
   const supportUrl = $derived(accountView.supportUrl);
   const telegramNotificationsNeedPrompt = $derived(accountView.telegramNotificationsNeedPrompt);
   const telegramNotificationsStartLink = $derived(accountView.telegramNotificationsStartLink);
@@ -462,7 +461,6 @@
       {regularTrafficTopupUnlocked}
       {screen}
       {serverStatusUrl}
-      {showTelegramLinkedStatus}
       {setLanguageMenuOpen}
       {setPromoCode}
       {subscription}

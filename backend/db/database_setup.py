@@ -14,7 +14,6 @@ from config.settings import Settings
 from db.models import Base
 
 from .migrator import run_all_migration_chains
-from .restore_guard import RestoreAwareAsyncSession
 
 logger = logging.getLogger(__name__)
 
@@ -53,9 +52,9 @@ def init_db_connection(settings: Settings) -> async_sessionmaker[AsyncSession]:
             pool_recycle=settings.DB_POOL_RECYCLE_SECONDS,
         )
 
-    local_async_session_factory: async_sessionmaker[AsyncSession] = async_sessionmaker(
+    local_async_session_factory = async_sessionmaker(
         bind=async_engine,
-        class_=RestoreAwareAsyncSession,
+        class_=AsyncSession,
         expire_on_commit=False,
         autocommit=False,
         autoflush=False,

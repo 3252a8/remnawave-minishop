@@ -117,12 +117,7 @@ def test_promo_list_pages_each_kind_separately_and_names_the_owner():
                 "settings": _settings(),
                 "bot_username": "shop_bot",
             },
-            query={
-                "kind": "personal",
-                "page": "0",
-                "page_size": "25",
-                "sort": "code_desc",
-            },
+            query={"kind": "personal", "page": "0", "page_size": "25"},
         )
         with (
             patch.object(promos_module, "_require_admin_user_id", return_value=100),
@@ -153,7 +148,6 @@ def test_promo_list_pages_each_kind_separately_and_names_the_owner():
 
     # The tab is a server-side filter, so its paging and total never mix kinds.
     assert list_promos.await_args.kwargs["personal"] is True
-    assert list_promos.await_args.kwargs["sort"] == "code_desc"
     assert count_promos.await_args.kwargs["personal"] is True
     assert labels.await_args.args[1] == [77]
     row = _json_body(response)["promos"][0]
@@ -583,7 +577,7 @@ def test_promo_activations_route_returns_user_and_payment_context():
             {},
             app={"async_session_factory": lambda: session},
             match_info={"promo_id": "5"},
-            query={"page": "0", "page_size": "25", "sort": "provider_asc"},
+            query={"page": "0", "page_size": "25"},
         )
 
         with (
@@ -610,7 +604,7 @@ def test_promo_activations_route_returns_user_and_payment_context():
     response, session, activation, get_activations = asyncio.run(run())
 
     assert response.status == 200
-    get_activations.assert_awaited_once_with(session, 5, limit=25, offset=0, sort="provider_asc")
+    get_activations.assert_awaited_once_with(session, 5, limit=25, offset=0)
     body = _json_body(response)
     assert body["total"] == 1
     serialized = PromoActivationOut.from_orm_activation(activation).model_dump(mode="json")

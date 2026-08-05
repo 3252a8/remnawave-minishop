@@ -43,7 +43,6 @@
     profileEmail?: string;
     profileTelegramId?: string;
     serverStatusUrl?: string;
-    showTelegramLinkedStatus?: boolean;
     subscriptionReissueBusy?: boolean;
     subscriptionReissueVisible?: boolean;
     supportUrl?: string;
@@ -86,7 +85,6 @@
     profileEmail = "",
     profileTelegramId = "",
     serverStatusUrl = "",
-    showTelegramLinkedStatus = false,
     subscriptionReissueBusy = false,
     subscriptionReissueVisible = false,
     supportUrl = "",
@@ -165,15 +163,13 @@
   <div class="settings-links-block">
     <div class="settings-divider" aria-hidden="true"></div>
     {#if user?.telegram_linked}
-      {#if showTelegramLinkedStatus}
-        <div class="settings-row settings-row-linked">
-          <CheckCircle2 size={21} />
-          <span>
-            <strong>{t("wa_settings_telegram_linked_title")}</strong>
-            <small>{profileTelegramId}</small>
-          </span>
-        </div>
-      {/if}
+      <div class="settings-row settings-row-linked">
+        <CheckCircle2 size={21} />
+        <span>
+          <strong>{t("wa_settings_telegram_linked_title")}</strong>
+          <small>{profileTelegramId}</small>
+        </span>
+      </div>
     {:else}
       <Button
         variant="telegram"

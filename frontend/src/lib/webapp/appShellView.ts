@@ -103,7 +103,6 @@ export function computeAppShellView({
   });
   const accountView = computeAccountView({
     appSettings: appDataView.appSettings,
-    authProviders: appDataView.authProviders,
     cfg,
     emailAuthEnabled: appDataView.emailAuthEnabled,
     emailAvatarUrl,

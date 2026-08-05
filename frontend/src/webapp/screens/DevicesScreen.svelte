@@ -1,15 +1,13 @@
 <script lang="ts">
-  import { ArrowRight, CircleX, Key, Plus, RefreshCw, Smartphone } from "$components/ui/icons.js";
+  import { CircleX, Key, Plus, RefreshCw, Smartphone } from "$components/ui/icons.js";
 
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import { EmptyCard, LinearProgress, StatusMessage } from "$components/patterns/webapp/index.js";
   import {
-    deviceLimitReached,
     devicesCountLabel,
     devicesLimitLabel,
     devicesPercent,
-    hasFiniteDeviceLimit,
   } from "../../lib/webapp/devicesLabels.js";
   import type {
     DeviceView,
@@ -30,7 +28,6 @@
     loadDevices?: (force?: boolean) => void;
     openDeviceDisconnectDialog?: (device: DeviceView) => void;
     openDeviceTopupModal?: VoidAction;
-    openPaymentModal?: VoidAction;
     openSubscriptionReissueDialog?: VoidAction;
     subscriptionReissueBusy?: boolean;
     subscriptionReissueEnabled?: boolean;
@@ -48,7 +45,6 @@
     loadDevices = () => {},
     openDeviceDisconnectDialog = () => {},
     openDeviceTopupModal = () => {},
-    openPaymentModal = () => {},
     openSubscriptionReissueDialog = () => {},
     subscriptionReissueBusy = false,
     subscriptionReissueEnabled = false,
@@ -67,10 +63,6 @@
       (!devicesStatus || subscriptionNotActiveError)
   );
   const effectiveMaxDevices = $derived(devicesData?.max_devices ?? subscription?.max_devices);
-  const hasFiniteDevices = $derived(hasFiniteDeviceLimit(devicesData, effectiveMaxDevices));
-  const hasReachedDeviceLimit = $derived(
-    devicesLoaded && deviceLimitReached(devicesData, effectiveMaxDevices)
-  );
   const deviceTopupUnavailableReason = $derived(
     String(subscription?.device_topup_unavailable_reason || "").trim()
   );
@@ -108,7 +100,7 @@
           })}
         </p>
       {/if}
-      {#if subscription?.active && hasFiniteDevices && subscription?.can_topup_devices}
+      {#if subscription?.active && subscription?.max_devices !== 0 && subscription?.can_topup_devices}
         <Button
           data-webapp-action="open-device-topup"
           variant="secondary"
@@ -118,21 +110,10 @@
           <Plus size={17} />
           {t("wa_buy_hwid_devices")}
         </Button>
-      {:else if subscription?.active && hasReachedDeviceLimit && deviceTopupUnavailableReason}
+      {:else if subscription?.active && subscription?.max_devices !== 0 && deviceTopupUnavailableReason}
         <StatusMessage>
           {t(`wa_device_topup_unavailable_${deviceTopupUnavailableReason}`)}
         </StatusMessage>
-        {#if deviceTopupUnavailableReason === "trial_subscription"}
-          <Button
-            data-webapp-action="open-trial-tariff-purchase"
-            variant="secondary"
-            class="wide"
-            onclick={openPaymentModal}
-          >
-            {t("wa_trial_device_limit_choose_tariff")}
-            <ArrowRight size={17} />
-          </Button>
-        {/if}
       {/if}
       {#if subscriptionReissueEnabled && subscription?.active}
         <Button

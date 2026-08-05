@@ -150,12 +150,7 @@ class BackupWorker:
             self.prune_old_backups()
         return result
 
-    async def create_backup(
-        self,
-        *,
-        backup_type: str = "scheduled",
-        force_database: bool = False,
-    ) -> BackupResult:
+    async def create_backup(self, *, backup_type: str = "scheduled") -> BackupResult:
         started_at = datetime.now(UTC)
         stamp = backup_filename_timestamp()
         archive_name = f"{BACKUP_FILENAME_PREFIX}{stamp}.zip"
@@ -174,7 +169,7 @@ class BackupWorker:
             tariffs_config_included = False
             compose_files_count = 0
 
-            if force_database or self.settings.BACKUP_POSTGRES_DUMP_ENABLED:
+            if self.settings.BACKUP_POSTGRES_DUMP_ENABLED:
                 dump_dir = staging_dir / "database"
                 dump_dir.mkdir(parents=True, exist_ok=True)
                 dump_path = dump_dir / f"{self.settings.POSTGRES_DB}.dump"

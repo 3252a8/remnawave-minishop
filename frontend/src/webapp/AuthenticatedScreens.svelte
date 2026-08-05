@@ -112,7 +112,6 @@
     regularTrafficTopupUnlocked?: boolean;
     screen?: string;
     serverStatusUrl?: string;
-    showTelegramLinkedStatus?: boolean;
     setLanguageMenuOpen: BooleanAction;
     setPromoCode: StringAction;
     subscription?: SubscriptionView;
@@ -222,7 +221,6 @@
     regularTrafficTopupUnlocked = false,
     screen = "home",
     serverStatusUrl = "",
-    showTelegramLinkedStatus = false,
     setLanguageMenuOpen,
     setPromoCode,
     subscription = {},
@@ -412,7 +410,6 @@
         {subscriptionReissueBusy}
         {openSubscriptionReissueDialog}
         {openDeviceTopupModal}
-        {openPaymentModal}
         {t}
       />
     {:else}
@@ -463,7 +460,6 @@
       {profileEmail}
       {profileTelegramId}
       {serverStatusUrl}
-      {showTelegramLinkedStatus}
       {subscriptionReissueBusy}
       subscriptionReissueVisible={settingsSubscriptionReissueVisible}
       {supportUrl}

@@ -14,7 +14,7 @@ export default defineConfig({
         starlightThemeNova({
           nav: [
             { label: 'Демо', href: '/demo/home' },
-            { label: 'Документация', href: '/getting-started/overview/' },
+            { label: 'Установка', href: '/getting-started/setup/' },
             { label: 'API', href: '/api/' },
             { label: 'GitHub', href: 'https://github.com/3252a8/remnawave-minishop' },
             { label: 'GitLab', href: 'https://gitlab.com/3252a8/remnawave-minishop' },

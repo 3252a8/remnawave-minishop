@@ -57,8 +57,6 @@ from .common import (
     _normalize_language,
     _telegram_avatar_url,
 )
-from .referral_links import visible_referral_links
-from .serializers_auto_renew import resolve_auto_renew_capabilities
 from .serializers_billing_options import (
     _attach_payment_methods_to_plans,
     _serialize_hwid_device_packages,
@@ -222,11 +220,6 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
         webapp_referral_link = _build_webapp_referral_link(
             get_settings(request).SUBSCRIPTION_MINI_APP_URL,
             referral_code,
-        )
-        referral_link, webapp_referral_link = visible_referral_links(
-            referral_settings,
-            bot_link=referral_link,
-            webapp_link=webapp_referral_link,
         )
         referral_stats = (
             await referral_service.get_referral_stats(session, user_id)
@@ -396,7 +389,6 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             ),
             "subscription_guides_enabled": subscription_guides_available(settings),
             "email_auth_enabled": settings.email_auth_configured,
-            "auth_providers": settings.webapp_auth_providers,
         },
     }
 
@@ -554,13 +546,6 @@ def _serialize_subscription(
             int((end_date - datetime.now(UTC)).total_seconds()),
         )
 
-    provider = str(getattr(local_sub, "provider", "") or "").strip().lower()
-    local_status = (
-        str(getattr(local_sub, "status_from_panel", "") or active.get("status_from_panel") or "")
-        .strip()
-        .upper()
-    )
-    is_trial = provider == "trial" or local_status == "TRIAL"
     can_topup_regular_traffic = False
     can_topup_premium_traffic = False
     can_topup_traffic = False
@@ -571,7 +556,6 @@ def _serialize_subscription(
         subscription_active=True,
         tariff_key=active.get("tariff_key"),
         max_devices=active.get("max_devices"),
-        subscription_is_trial=is_trial,
     )
     can_topup_devices = device_topup_availability.allowed
     if settings.tariffs_config and active.get("tariff_key"):
@@ -611,15 +595,31 @@ def _serialize_subscription(
         and end_date
         and extra_hwid_valid_until < end_date
     )
+    provider = str(getattr(local_sub, "provider", "") or "").strip().lower()
     auto_renew_enabled = bool(getattr(local_sub, "auto_renew_enabled", False))
-    auto_renew = resolve_auto_renew_capabilities(
-        provider,
-        settings=settings,
-        language=lang,
-        subscription_service=(
-            get_optional_subscription_service(request) if request is not None else None
-        ),
-    )
+    auto_renew_supported = False
+    auto_renew_service_active = False
+    auto_renew_provider_label = provider or None
+    if provider:
+        try:
+            from bot.payment_providers import provider_label_map, provider_supports_recurring
+            from bot.payment_providers.shared import service_supports_recurring
+
+            auto_renew_supported = provider_supports_recurring(provider)
+            if request is not None:
+                subscription_service = get_optional_subscription_service(request)
+                recurring_service_for = getattr(subscription_service, "recurring_service_for", None)
+                service = (
+                    recurring_service_for(provider) if callable(recurring_service_for) else None
+                )
+                auto_renew_service_active = service_supports_recurring(service)
+            auto_renew_provider_label = provider_label_map(settings, language=lang).get(
+                provider,
+                provider,
+            )
+        except Exception:
+            auto_renew_supported = False
+            auto_renew_service_active = False
     return {
         "active": seconds_left > 0,
         "status": active.get("status_from_panel") or "UNKNOWN",
@@ -675,7 +675,9 @@ def _serialize_subscription(
         "can_topup_premium_traffic": can_topup_premium_traffic,
         "can_topup_devices": can_topup_devices,
         "device_topup_unavailable_reason": (
-            device_topup_availability.reason.value if device_topup_availability.reason else None
+            device_topup_availability.reason.value
+            if device_topup_availability.reason is not None
+            else None
         ),
         "device_topup_available_currencies": list(device_topup_availability.available_currencies),
         "topup_always_available": topup_always_available,
@@ -698,7 +700,11 @@ def _serialize_subscription(
         else None,
         "device_topup_renewal_available": device_topup_renewal_available,
         "auto_renew_enabled": auto_renew_enabled,
-        **auto_renew.payload_fields(enabled=auto_renew_enabled),
+        "auto_renew_available": bool(
+            auto_renew_supported and (auto_renew_enabled or auto_renew_service_active)
+        ),
+        "auto_renew_can_enable": bool(auto_renew_supported and auto_renew_service_active),
+        "auto_renew_provider_label": auto_renew_provider_label,
         "provider": getattr(local_sub, "provider", None),
     }
 

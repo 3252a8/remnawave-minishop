@@ -53,9 +53,7 @@ class AdminBackupRestoreResultOut(HttpResponseModel):
     compose_files_restored: int
     compose_target_dir: str | None = None
     compose_pre_restore_archive: str | None = None
-    database_pre_restore_archive: str | None = None
     database_migrations_applied: list[str] = Field(default_factory=list)
-    database_sequences_normalized: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
 
     @classmethod

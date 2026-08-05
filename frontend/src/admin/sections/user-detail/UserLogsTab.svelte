@@ -7,14 +7,12 @@
     AdminButton,
     AdminEmptyState,
     AdminPagination,
-    AdminSortableHeader,
     AdminTable,
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
   import { RefreshCw } from "$components/ui/icons.js";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
   import type { DateFormatter, TranslateFn, UserLogRow } from "./userDetailTypes";
-  import type { AdminSortColumn } from "$lib/admin/tableSort.js";
 
   type Props = {
     at: TranslateFn;
@@ -43,12 +41,6 @@
   }: Props = $props();
 
   const usersStore = getUsersStore();
-  const userLogsSort = $derived(String(usersStore.userLogsSort || "date_desc"));
-  const userLogSortColumns = [
-    { asc: "date_asc", desc: "date_desc", defaultDirection: "desc" },
-    { asc: "event_asc", desc: "event_desc", defaultDirection: "asc" },
-    { asc: "content_asc", desc: "content_desc", defaultDirection: "asc" },
-  ] satisfies AdminSortColumn<never>[];
 </script>
 
 <Tabs.Content value="logs" class="admin-tabs-content admin-user-logs-tab">
@@ -88,27 +80,9 @@
       <AdminTable>
         <thead>
           <tr>
-            <AdminSortableHeader
-              label={at("date", {}, "Date")}
-              column={userLogSortColumns[0]}
-              currentSort={userLogsSort}
-              {at}
-              onSort={usersStore.setUserLogsSort}
-            />
-            <AdminSortableHeader
-              label={at("event", {}, "Event")}
-              column={userLogSortColumns[1]}
-              currentSort={userLogsSort}
-              {at}
-              onSort={usersStore.setUserLogsSort}
-            />
-            <AdminSortableHeader
-              label={at("content", {}, "Content")}
-              column={userLogSortColumns[2]}
-              currentSort={userLogsSort}
-              {at}
-              onSort={usersStore.setUserLogsSort}
-            />
+            <th>{at("date", {}, "Date")}</th>
+            <th>{at("event", {}, "Event")}</th>
+            <th>{at("content", {}, "Content")}</th>
           </tr>
         </thead>
         <tbody>

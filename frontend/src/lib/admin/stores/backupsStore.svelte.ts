@@ -27,7 +27,6 @@ export type BackupArchive = {
 };
 export type BackupRestoreResult = Record<string, unknown> & {
   compose_pre_restore_archive?: string;
-  database_pre_restore_archive?: string;
 };
 export type BackupsState = {
   archives: BackupArchive[];
@@ -52,7 +51,6 @@ export type BackupsStore = BackupsState & {
     archiveName: string;
     restoreDatabase: boolean;
     restoreCompose: boolean;
-    confirmation: string;
   }) => Promise<boolean>;
 };
 
@@ -190,12 +188,10 @@ export function createBackupsStore({ api, onToast, at }: BackupsStoreOptions): B
     archiveName,
     restoreDatabase,
     restoreCompose,
-    confirmation,
   }: {
     archiveName: string;
     restoreDatabase: boolean;
     restoreCompose: boolean;
-    confirmation: string;
   }): Promise<boolean> {
     const archive_name = String(archiveName || "").trim();
     if (!archive_name) {
@@ -214,7 +210,6 @@ export function createBackupsStore({ api, onToast, at }: BackupsStoreOptions): B
         restore_database: Boolean(restoreDatabase),
         restore_compose: Boolean(restoreCompose),
         confirm: true,
-        confirmation,
       };
       const data = await api(buildAdminBackupsRestorePath(), {
         method: "POST",

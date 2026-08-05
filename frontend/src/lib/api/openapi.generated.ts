@@ -1849,11 +1849,6 @@ export interface components {
        */
       confirm: unknown;
       /**
-       * Confirmation
-       * @default
-       */
-      confirmation: unknown;
-      /**
        * Restore Compose
        * @default false
        */
@@ -1888,15 +1883,8 @@ export interface components {
       compose_target_dir: string | null;
       /** Database Migrations Applied */
       database_migrations_applied?: string[];
-      /**
-       * Database Pre Restore Archive
-       * @default null
-       */
-      database_pre_restore_archive: string | null;
       /** Database Restored */
       database_restored: boolean;
-      /** Database Sequences Normalized */
-      database_sequences_normalized?: string[];
       /** Started At */
       started_at: string;
       /** Warnings */
@@ -2118,8 +2106,6 @@ export interface components {
        * Format: date-time
        */
       checked_at: string;
-      /** @default null */
-      panel_compatibility: components["schemas"]["AdminPanelCompatibilityOut"] | null;
     };
     /** AdminLogsListOut */
     AdminLogsListOut: {
@@ -2138,26 +2124,6 @@ export interface components {
       admin_ids: number[];
       /** User Id */
       user_id: number;
-    };
-    /** AdminPanelCompatibilityOut */
-    AdminPanelCompatibilityOut: {
-      /** Capabilities */
-      capabilities: string[];
-      /** Certified Versions */
-      certified_versions: string[];
-      /** Generation */
-      generation: string;
-      /** Observed Capabilities */
-      observed_capabilities: {
-        [key: string]: boolean;
-      };
-      /** Support Status */
-      support_status: string;
-      /**
-       * Version
-       * @default null
-       */
-      version: string | null;
     };
     /** AdminPanelExternalSquadOverrideOut */
     AdminPanelExternalSquadOverrideOut: {
@@ -5242,8 +5208,6 @@ export interface components {
       appRepositoryUrl: string;
       /** Appversion */
       appVersion: string;
-      /** Authproviders */
-      authProviders: string[];
       /** Currency */
       currency: string;
       /** Emailauthenabled */
@@ -8073,7 +8037,6 @@ export interface operations {
               welcome_bonus_without_telegram_enabled?: boolean;
             };
             settings: {
-              auth_providers?: string[];
               email_auth_enabled?: boolean;
               my_devices_enabled?: boolean;
               server_status_url?: string | null;

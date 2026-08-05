@@ -11,10 +11,6 @@ const ACTIVATION_HANDOFF_TTL_MS = 48 * 60 * 60 * 1000;
 type WatcherDeps = Parameters<typeof createActivationWatcher>[0];
 type ShellDataRecord = Record<string, unknown>;
 
-function documentIsVisible() {
-  return typeof document === "undefined" || document.visibilityState !== "hidden";
-}
-
 type ActivationContextDeps = {
   billing: WatcherDeps["billing"];
   loadData: WatcherDeps["loadData"];
@@ -101,7 +97,6 @@ export function createWebappActivationContext(deps: ActivationContextDeps) {
     loadData: deps.loadData,
     maybeShowActivationSuccessDialog,
     shouldWatch: () =>
-      documentIsVisible() &&
       shellState.mode === "app" &&
       activationHandoff.hasPending(getShellData() || {}) &&
       !shellState.activationSuccessDialogOpen &&

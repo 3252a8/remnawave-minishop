@@ -64,7 +64,6 @@ export type AdminStoreState = {
   userReferralsTotal: number;
   userReferralsPage: number;
   userReferralsPageSize: number;
-  userReferralsSort: string;
   userReferralsInviter: AdminUser | null;
   userDetailTab: string;
   premiumUnlimitedDraft: boolean;
@@ -91,7 +90,6 @@ export type AdminStoreState = {
   userLogsLoaded: boolean;
   userLogsUserId: number | string | null;
   userLogsPageSize: number;
-  userLogsSort: string;
 };
 export type AdminUser = Partial<
   components["schemas"]["AdminUserOut"] &
@@ -159,7 +157,6 @@ export function createInitialUsersState(): AdminStoreState {
     userReferralsTotal: 0,
     userReferralsPage: 0,
     userReferralsPageSize: USERS_PAGE_SIZE,
-    userReferralsSort: "registration_desc",
     userReferralsInviter: null,
     userDetailTab: "profile",
     premiumUnlimitedDraft: false,
@@ -187,7 +184,6 @@ export function createInitialUsersState(): AdminStoreState {
     userLogsLoaded: false,
     userLogsUserId: null,
     userLogsPageSize: USER_LOGS_PAGE_SIZE,
-    userLogsSort: "date_desc",
   };
 }
 
@@ -213,7 +209,6 @@ export function closedUserModalState(): Partial<AdminStoreState> {
     userReferrals: [],
     userReferralsTotal: 0,
     userReferralsPage: 0,
-    userReferralsSort: "registration_desc",
     userReferralsInviter: null,
     userDetailTab: "profile",
     premiumUnlimitedDraft: false,
@@ -239,6 +234,5 @@ export function closedUserModalState(): Partial<AdminStoreState> {
     userLogsLoading: false,
     userLogsLoaded: false,
     userLogsUserId: null,
-    userLogsSort: "date_desc",
   };
 }

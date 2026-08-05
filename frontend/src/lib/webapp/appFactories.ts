@@ -410,7 +410,6 @@ export function createAppFactories({
     refreshTelegramNotificationsOnResume: () => {
       void bootRuntime.refreshTelegramNotificationsOnResume();
     },
-    suspendBackgroundWork: activation.stopPendingActivationWatch,
   });
   accountStore = createAccountStore({
     api,

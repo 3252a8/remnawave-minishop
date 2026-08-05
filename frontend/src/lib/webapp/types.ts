@@ -61,7 +61,6 @@ export type WebappConfig = BootstrapResponse["config"] &
     apiBase?: string;
     appRepositoryUrl?: unknown;
     appVersion?: unknown;
-    authProviders?: string[];
     emailAuthEnabled?: boolean;
     faviconUseCustom?: unknown;
     language?: string;
@@ -75,7 +74,6 @@ export const FALLBACK_WEBAPP_CONFIG: WebappConfig = {
   apiBase: "/api",
   appRepositoryUrl: "",
   appVersion: "",
-  authProviders: ["telegram"],
   currency: "RUB",
   emailAuthEnabled: false,
   faviconUrl: "",

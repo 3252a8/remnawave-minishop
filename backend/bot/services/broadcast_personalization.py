@@ -387,7 +387,6 @@ async def _load_config_links(
 ) -> None:
     import asyncio
 
-    from bot.services.panel_user_snapshot import load_panel_users_by_reference
     from bot.utils.config_link import prepare_config_links
 
     uuids = list(
@@ -400,17 +399,14 @@ async def _load_config_links(
     if not uuids:
         return
 
-    snapshot = await load_panel_users_by_reference(
-        panel_service,
-        uuids,
-        threshold=50,
-        concurrency=_PANEL_LOOKUP_CONCURRENCY,
-    )
     semaphore = asyncio.Semaphore(_PANEL_LOOKUP_CONCURRENCY)
 
     async def resolve(panel_uuid: str) -> str | None:
         async with semaphore:
-            panel_user = snapshot.users_by_reference.get(panel_uuid)
+            try:
+                panel_user = await panel_service.get_user_by_uuid(panel_uuid)
+            except Exception:
+                return None
             raw_link = ""
             if isinstance(panel_user, dict):
                 raw_link = str(panel_user.get("subscriptionUrl") or "").strip()

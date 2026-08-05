@@ -6,8 +6,6 @@ on:
   push:
     branches: [main, dev]
   workflow_dispatch:
-  schedule:
-    - cron: "23 3 * * 1"
 
 concurrency:
   group: fullstack-qa-${{ github.workflow }}-${{ github.ref }}
@@ -18,13 +16,9 @@ permissions:
 
 jobs:
   fullstack-qa:
-    name: Dev stand QA (Remnawave ${{ matrix.remnawave }})
+    name: Dev stand full-stack QA
     runs-on: ubuntu-latest
-    timeout-minutes: 55
-    strategy:
-      fail-fast: false
-      matrix:
-        remnawave: ["3.2.1", "3.2.0", "3.1.0", "3.0.0", "2.8.1"]
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -45,14 +39,12 @@ jobs:
         run: pip install -r backend/requirements.txt "pytest>=9.1.1,<10"
 
       - name: Prepare dev stand env
-        run: npm run dev:stand:use -- ${{ matrix.remnawave }}
+        run: cp deploy/dev/remnawave-dev.env.example .env.remnawave-dev
 
       - name: Validate compose config
         run: npm run dev:stand:config
 
       - name: Start dev stand
-        env:
-          PANEL_WRITE_MODE: live
         run: npm run dev:stand:up
 
       - name: Run full-stack QA
@@ -62,8 +54,6 @@ jobs:
           QA_WEBHOOK_BASE_URL: http://127.0.0.1:8080
           QA_FRONTEND_URL: http://127.0.0.1:8082
           QA_REMNAWAVE_HEALTH_URL: http://127.0.0.1:3001/health
-          QA_REMNAWAVE_API_URL: http://127.0.0.1:3000/api
-          QA_REMNAWAVE_PRESET: ${{ matrix.remnawave }}
           QA_DB_DSN: postgresql://remnawave_minishop:remnawave_minishop@127.0.0.1:6768/remnawave_minishop
           QA_PAYMENT_SECRET: dev_qa_payment_secret_change_me
         run: npm run qa:fullstack
@@ -81,97 +71,10 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: fullstack-qa-${{ matrix.remnawave }}-compose-logs
+          name: fullstack-qa-compose-logs
           path: fullstack-qa-compose.log
           retention-days: 7
 
       - name: Stop dev stand
-        if: ${{ always() }}
-        run: npm run dev:stand:down
-
-  remnawave-upgrade-qa:
-    name: Remnawave same-DB upgrade (2.8.1 to 3.2.1)
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 55
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: backend/requirements.txt
-
-      - name: Set up Node
-        uses: actions/setup-node@v5
-        with:
-          node-version: "22"
-
-      - name: Install backend deps + pytest
-        run: pip install -r backend/requirements.txt "pytest>=9.1.1,<10"
-
-      - name: Start source Remnawave 2.8.1 stand
-        run: |
-          npm run dev:stand:use -- 2.8.1
-          npm run dev:stand:config
-          npm run dev:stand:up
-
-      - name: Verify source API contract
-        env:
-          QA_FULLSTACK: "1"
-          QA_REMNAWAVE_API_URL: http://127.0.0.1:3000/api
-          QA_REMNAWAVE_PRESET: "2.8.1"
-        run: python -m pytest -q tests/qa/test_remnawave_panel_contract.py
-
-      - name: Upgrade Panel on the existing database volume
-        run: |
-          node scripts/prepare_remnawave_upgrade_target.mjs 2.8.1 3.2.1
-          docker compose --env-file .env.remnawave-dev \
-            -f docker-compose-dev.yml \
-            -f docker-compose.remnawave-dev.yml \
-            --profile seed pull remnawave
-          docker compose --env-file .env.remnawave-dev \
-            -f docker-compose-dev.yml \
-            -f docker-compose.remnawave-dev.yml \
-            --profile seed up -d --no-deps remnawave
-          for attempt in $(seq 1 90); do
-            if curl -fsS http://127.0.0.1:3001/health >/dev/null; then exit 0; fi
-            sleep 2
-          done
-          exit 1
-
-      - name: Verify upgraded API and Core identity reconciliation
-        env:
-          QA_FULLSTACK: "1"
-          QA_REMNAWAVE_UPGRADE: "1"
-          QA_REMNAWAVE_UPGRADE_FROM: "2.8.1"
-          QA_REMNAWAVE_API_URL: http://127.0.0.1:3000/api
-          QA_REMNAWAVE_PRESET: "3.2.1"
-          QA_DB_DSN: postgresql://remnawave_minishop:remnawave_minishop@127.0.0.1:6768/remnawave_minishop
-        run: |
-          python -m pytest -q tests/qa/test_remnawave_panel_contract.py
-          python -m pytest -q tests/qa/test_remnawave_upgrade.py
-
-      - name: Capture upgrade compose logs
-        if: ${{ failure() }}
-        run: >-
-          docker compose --env-file .env.remnawave-dev
-          -f docker-compose-dev.yml
-          -f docker-compose.remnawave-dev.yml
-          --profile seed
-          logs --no-color > remnawave-upgrade-qa-compose.log || true
-
-      - name: Upload upgrade compose logs
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: remnawave-upgrade-qa-compose-logs
-          path: remnawave-upgrade-qa-compose.log
-          retention-days: 7
-
-      - name: Stop upgrade stand
         if: ${{ always() }}
         run: npm run dev:stand:down

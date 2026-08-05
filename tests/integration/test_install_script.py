@@ -1,16 +1,9 @@
 import re
-import shlex
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
-
-from bot.services.compose_data_mounts import (
-    APP_DATA_SERVICES,
-    app_data_mounts_are_aligned,
-    compose_app_data_mounts,
-)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 INSTALL_SCRIPT = REPO_ROOT / "scripts" / "install.sh"
@@ -69,16 +62,6 @@ def test_shell_installer_is_the_only_install_entrypoint():
     assert not (REPO_ROOT / "scripts" / "install.py").exists()
 
 
-@pytest.mark.parametrize("profile", ["angie", "caddy", "newt", "nginx", "no-proxy"])
-def test_install_wizard_profiles_share_application_data_mount(profile: str):
-    compose_path = REPO_ROOT / "deploy" / "examples" / profile / "docker-compose.yml"
-
-    mounts = compose_app_data_mounts(compose_path.read_text(encoding="utf-8"))
-
-    assert set(mounts) == set(APP_DATA_SERVICES)
-    assert app_data_mounts_are_aligned(mounts)
-
-
 def test_shell_installer_downloads_raw_files_and_runs_import_in_container():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
@@ -105,14 +88,10 @@ def test_shell_installer_downloads_raw_files_and_runs_import_in_container():
 def test_shell_installer_installs_compose_and_explains_bind_errors():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
-    assert "Установить или обновить Docker Engine и Docker Compose до latest stable" in script
+    assert "install_docker_compose" in script
+    assert "Попробовать установить Docker Compose автоматически" in script
     assert "docker-compose-plugin" in script
     assert "install_compose_binary_plugin" in script
-    assert 'MIN_DOCKER_ENGINE_VERSION="25.0.0"' in script
-    assert 'MIN_DOCKER_COMPOSE_VERSION="2.20.2"' in script
-    assert "docker_runtime_preflight" in script
-    assert "SHA-256 checksum Docker Compose" in script
-    assert "config --quiet" in script
     assert "validate_bind_settings" in script
     assert (
         'prompt_value "Адрес привязки HTTP" "$(env_get HTTP_BIND \'0.0.0.0:80\')" 0 0 "bind"'
@@ -121,180 +100,6 @@ def test_shell_installer_installs_compose_and_explains_bind_errors():
     assert "IP без порта" in script
     assert "<IP_СЕРВЕРА>:80" in script
     assert "compose-last-error.log" in script
-
-    install_flow = script.split("install_flow() {", 1)[1].split("\n}", 1)[0]
-    assert install_flow.index("docker_runtime_preflight 1") < install_flow.index(
-        "installation_directory"
-    )
-
-
-def test_shell_installer_compares_docker_versions_semantically(tmp_path: Path):
-    if not shutil.which("sh"):
-        pytest.skip("sh is not available on this platform")
-
-    shell_body = r"""
-version_at_least v2.20.2 2.20.2 || exit 10
-version_at_least 2.20.10 2.20.2 || exit 11
-version_at_least 25.0.0-ce 25.0.0 || exit 12
-version_at_least 26 25.0.0 || exit 13
-if version_at_least 2.19.9 2.20.2; then exit 14; fi
-if version_at_least 24.0.9 25.0.0; then exit 15; fi
-"""
-
-    result = _run_installer_function(tmp_path, shell_body)
-
-    assert result.returncode == 0, result.stderr
-
-
-def test_shell_installer_preflight_updates_incompatible_runtime_after_consent(
-    tmp_path: Path,
-):
-    if not shutil.which("sh"):
-        pytest.skip("sh is not available on this platform")
-
-    shell_body = r"""
-runtime_ready=0
-docker_runtime_compatible() { [ "$runtime_ready" = "1" ]; }
-print_docker_runtime_versions() { :; }
-explain_docker_runtime_incompatibility() { :; }
-confirm() { return 0; }
-update_docker_runtime_latest() { runtime_ready=1; }
-
-docker_runtime_preflight 1 || exit 16
-[ "$runtime_ready" = "1" ] || exit 17
-[ "$DOCKER_PREFLIGHT_DONE" = "1" ] || exit 18
-"""
-
-    result = _run_installer_function(tmp_path, shell_body)
-
-    assert result.returncode == 0, result.stderr
-
-
-def test_shell_installer_preflight_stops_when_incompatible_update_is_declined(
-    tmp_path: Path,
-):
-    if not shutil.which("sh"):
-        pytest.skip("sh is not available on this platform")
-
-    shell_body = r"""
-docker_runtime_compatible() { return 1; }
-print_docker_runtime_versions() { :; }
-explain_docker_runtime_incompatibility() { :; }
-confirm() { return 1; }
-update_docker_runtime_latest() { exit 90; }
-
-if docker_runtime_preflight 1; then exit 19; fi
-[ "$DOCKER_PREFLIGHT_DONE" = "0" ] || exit 20
-"""
-
-    result = _run_installer_function(tmp_path, shell_body)
-
-    assert result.returncode == 0, result.stderr
-
-
-def test_shell_installer_rejects_legacy_compose_v1(tmp_path: Path):
-    if not shutil.which("sh"):
-        pytest.skip("sh is not available on this platform")
-
-    legacy_compose = tmp_path / "docker-compose"
-    legacy_compose.write_text(
-        """#!/bin/sh
-if [ "$1" = "version" ] && [ "${2:-}" = "--short" ]; then
-    printf '1.29.2\n'
-    exit 0
-fi
-if [ "$1" = "version" ]; then
-    printf 'docker-compose version 1.29.2\n'
-    exit 0
-fi
-exit 1
-""",
-        encoding="utf-8",
-    )
-    legacy_compose.chmod(0o755)
-
-    shell_body = f"""
-PATH={shlex.quote(str(tmp_path))}:$PATH
-docker() {{
-    if [ "$1" = "compose" ]; then return 1; fi
-    if [ "$1" = "version" ]; then printf '26.1.4\n'; return 0; fi
-    if [ "$1" = "info" ]; then return 0; fi
-    return 1
-}}
-if detect_compose_command; then exit 20; fi
-[ -z "$COMPOSE_VERSION_VALUE" ] || exit 21
-"""
-
-    result = _run_installer_function(tmp_path, shell_body)
-
-    assert result.returncode == 0, result.stderr
-
-
-def test_shell_installer_preserves_compose_failure_status(tmp_path: Path):
-    if not shutil.which("sh"):
-        pytest.skip("sh is not available on this platform")
-
-    runtime_dir = tmp_path / "runtime"
-    runtime_dir.mkdir()
-    shell_body = f"""
-TARGET_DIR='{runtime_dir.as_posix()}'
-run_compose() {{ printf 'compose failed\\n'; return 37; }}
-explain_compose_failure() {{ :; }}
-info() {{ :; }}
-run_compose_checked pull
-status=$?
-[ "$status" -eq 37 ] || exit 30
-grep -q 'compose failed' "$TARGET_DIR/$INSTALL_STATE_DIR/compose-last-error.log" || exit 31
-"""
-
-    result = _run_installer_function(tmp_path, shell_body)
-
-    assert result.returncode == 0, result.stderr
-
-
-def test_shell_installer_explains_start_interval_compatibility_error(tmp_path: Path):
-    if not shutil.which("sh"):
-        pytest.skip("sh is not available on this platform")
-
-    error_path = tmp_path / "compose-error.log"
-    error_path.write_text(
-        "services.backend.healthcheck value 'start_interval' does not match any of the "
-        "regexes: '^x-'\n",
-        encoding="utf-8",
-    )
-    shell_body = f"""
-print_docker_runtime_versions() {{ :; }}
-explain_compose_failure '{error_path.as_posix()}' config --quiet
-"""
-
-    result = _run_installer_function(tmp_path, shell_body)
-
-    assert result.returncode == 0, result.stderr
-    assert "не поддерживает healthcheck.start_interval" in result.stderr
-    assert "Docker Compose 2.20.2+" in result.stdout
-    assert "Docker Engine 25.0.0+" in result.stdout
-
-
-def test_shell_installer_does_not_pull_when_compose_config_is_invalid(tmp_path: Path):
-    if not shutil.which("sh"):
-        pytest.skip("sh is not available on this platform")
-
-    marker_path = tmp_path / "compose-command.txt"
-    shell_body = f"""
-TARGET_DIR='{tmp_path.as_posix()}'
-ENV_PATH="$TARGET_DIR/.env"
-INSTALL_NODE_ROLE_VALUE=full-stack
-validate_bind_settings() {{ :; }}
-validate_compose_configuration() {{ return 1; }}
-run_compose_checked() {{ printf '%s\\n' "$*" > '{marker_path.as_posix()}'; }}
-
-if start_stack 1; then exit 40; fi
-[ ! -e '{marker_path.as_posix()}' ] || exit 41
-"""
-
-    result = _run_installer_function(tmp_path, shell_body)
-
-    assert result.returncode == 0, result.stderr
 
 
 def test_shell_installer_prints_migrate_logs_after_compose_failure():
@@ -314,9 +119,7 @@ def test_deployment_docs_explain_install_wizard_prompts():
     assert "split-protected-upstream" in docs
     assert "Rathole" in docs
     assert "с одним IP без порта некорректно" in docs
-    assert "Docker Engine `25.0.0`" in docs
-    assert "Docker Compose `2.20.2`" in docs
-    assert "docker compose config --quiet" in docs
+    assert "Docker Compose не найден" in docs
     assert ".installer/compose-last-error.log" in docs
 
 
@@ -516,8 +319,7 @@ def test_shell_installer_checks_dns_and_can_prepare_nginx_certificates():
     assert "python3-certbot-dns-cloudflare" in script
     assert "--preferred-challenges http" in script
     assert "remember_nginx_cert_mapping" in script
-    assert "docker compose exec -T nginx nginx -s reload" in script
-    assert "docker-compose exec -T nginx nginx -s reload" not in script
+    assert "docker-compose exec -T nginx nginx -s reload" in script
     assert "configure_nginx_certificates || return 1" in script
     assert "check_public_dns_records || return 1" in script
 

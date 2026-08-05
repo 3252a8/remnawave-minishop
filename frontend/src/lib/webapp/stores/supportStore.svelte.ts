@@ -62,8 +62,6 @@ export type SupportState = {
   unreadLoading: boolean;
   counts: CountsRecord;
   loading: boolean;
-  /** Filter the held `tickets` belong to; empty until a list request has succeeded. */
-  loadedFilter: string;
   detailLoading: boolean;
   sending: boolean;
   creating: boolean;
@@ -110,17 +108,14 @@ function arrayRecords(value: unknown): Record<string, unknown>[] {
 }
 
 function countsRecord(value: unknown, fallback: CountsRecord): CountsRecord {
-  // The API groups by status and omits the empty ones, so a missing key means zero. Falling back
-  // to the previous value would pin a tab badge at its last non-zero count forever.
-  if (!value || typeof value !== "object") return fallback;
-  const record = value as Record<string, unknown>;
+  const record = asRecord(value);
   return {
-    active: Number(record.active ?? 0),
-    closed: Number(record.closed ?? 0),
-    awaiting_admin: Number(record.awaiting_admin ?? 0),
-    awaiting_user: Number(record.awaiting_user ?? 0),
-    open: Number(record.open ?? 0),
-    total: Number(record.total ?? 0),
+    active: Number(record.active ?? fallback.active ?? 0),
+    closed: Number(record.closed ?? fallback.closed ?? 0),
+    awaiting_admin: Number(record.awaiting_admin ?? fallback.awaiting_admin ?? 0),
+    awaiting_user: Number(record.awaiting_user ?? fallback.awaiting_user ?? 0),
+    open: Number(record.open ?? fallback.open ?? 0),
+    total: Number(record.total ?? fallback.total ?? 0),
   };
 }
 
@@ -160,7 +155,6 @@ export function createSupportStore({
     unreadLoading: false,
     counts: { active: 0, closed: 0, awaiting_admin: 0, awaiting_user: 0, open: 0, total: 0 },
     loading: false,
-    loadedFilter: "",
     detailLoading: false,
     sending: false,
     creating: false,
@@ -305,7 +299,6 @@ export function createSupportStore({
           const payload = unwrap(res);
           state.tickets = arrayRecords(payload.tickets) as TicketRecord[];
           state.counts = countsRecord(payload.counts, state.counts);
-          state.loadedFilter = requestKey;
         } else if (asRecord(res).error) {
           showToast(stringField(asRecord(res).message) || stringField(asRecord(res).error));
         }

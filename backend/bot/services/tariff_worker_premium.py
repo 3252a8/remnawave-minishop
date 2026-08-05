@@ -23,10 +23,6 @@ from config.settings import Settings
 from db.dal import tariff_dal
 from db.models import Subscription
 
-from .tariff_worker_premium_batches import (
-    PremiumSquadMutationPlan,
-    TariffWorkerPremiumBatchMixin,
-)
 from .tariff_worker_premium_usage import TariffWorkerPremiumUsageMixin
 from .tariff_worker_shared import (
     PREMIUM_WARNING_DEPLETED_LEVEL,
@@ -47,7 +43,7 @@ class _PremiumTariff(Protocol):
     def name(self, lang: str, fallback: str = "ru") -> str: ...
 
 
-class TariffWorkerPremiumMixin(TariffWorkerPremiumUsageMixin, TariffWorkerPremiumBatchMixin):
+class TariffWorkerPremiumMixin(TariffWorkerPremiumUsageMixin):
     settings: Settings
     panel_service: PanelApiService
     subscription_service: SubscriptionService
@@ -259,16 +255,6 @@ class TariffWorkerPremiumMixin(TariffWorkerPremiumUsageMixin, TariffWorkerPremiu
             tariff,
             include_premium=not should_limit,
         )
-        override_detection_managed_squads = self.subscription_service._panel_squads_for_tariff(
-            tariff,
-            include_premium=True,
-        )
-        await self.subscription_service.deactivate_panel_managed_internal_overrides(
-            session,
-            user_id=int(sub.user_id),
-            panel_user_uuid=sub.panel_user_uuid,
-            managed_internal_squads=override_detection_managed_squads,
-        )
         effective_payload = {
             "uuid": sub.panel_user_uuid,
             **(
@@ -277,7 +263,6 @@ class TariffWorkerPremiumMixin(TariffWorkerPremiumUsageMixin, TariffWorkerPremiu
                     user_id=int(sub.user_id),
                     panel_user_uuid=sub.panel_user_uuid,
                     managed_internal_squads=managed_squads,
-                    override_detection_managed_internal_squads=(override_detection_managed_squads),
                     panel_user_snapshot=panel_user_dict,
                     discover_panel_overrides=True,
                     fetch_panel_snapshot=False,
@@ -324,9 +309,6 @@ class TariffWorkerPremiumMixin(TariffWorkerPremiumUsageMixin, TariffWorkerPremiu
                                     user_id=int(sub.user_id),
                                     panel_user_uuid=sub.panel_user_uuid,
                                     managed_internal_squads=managed_squads,
-                                    override_detection_managed_internal_squads=(
-                                        override_detection_managed_squads
-                                    ),
                                     panel_user_snapshot=full_panel_user,
                                     discover_panel_overrides=True,
                                     fetch_panel_snapshot=False,
@@ -417,38 +399,45 @@ class TariffWorkerPremiumMixin(TariffWorkerPremiumUsageMixin, TariffWorkerPremiu
             reasons=panel_update_reasons or ["premium_squad_sync"],
             panel_view=panel_view_for_report,
         )
-        mutation_plan = PremiumSquadMutationPlan(
-            sub=sub,
-            tariff=tariff,
-            desired_squads=tuple(sorted(desired_set)),
-            effective_payload=effective_payload,
-            squad_match_cache_key=squad_match_cache_key,
-            should_limit=should_limit,
-            newly_limited=access_state_changed and should_limit,
-            node_uuids=list(node_uuids),
-            start_date=start_date,
-            end_date=end_date,
-            panel_username=panel_username,
-            send_reset_notice=bool(
-                not premium_unlimited_override
-                and not unmetered_premium_access
-                and not is_trial_premium_tariff
-            ),
-            premium_used=int(premium_used),
-            premium_limit=int(premium_limit),
-            premium_period_start=premium_period_start,
-            previous_period_start=previous_premium_period_start,
-            traffic_strategy=effective_strategy,
-        )
-        if self._queue_premium_squad_mutation(mutation_plan):
-            return
         updated_panel_user = await self.panel_service.update_user_details_on_panel(
             sub.panel_user_uuid,
             effective_payload,
             log_response=False,
         )
         if updated_panel_user and not updated_panel_user.get("error"):
-            await self._complete_premium_squad_mutation(session, mutation_plan)
+            self._remember_premium_squad_match(squad_match_cache_key)
+            if (
+                not premium_unlimited_override
+                and not unmetered_premium_access
+                and not is_trial_premium_tariff
+            ):
+                await self._maybe_send_premium_reset_notice(
+                    session,
+                    sub,
+                    tariff,
+                    used=int(premium_used),
+                    limit=int(premium_limit),
+                    period_start_at=premium_period_start,
+                    previous_period_start=previous_premium_period_start,
+                    traffic_strategy=effective_strategy,
+                )
+            await self._sync_premium_connection_state(
+                sub,
+                should_limit=should_limit,
+                newly_limited=access_state_changed and should_limit,
+                node_uuids=node_uuids,
+                start_date=start_date,
+                end_date=end_date,
+                panel_username=panel_username,
+            )
+        logger.info(
+            "Premium squad access %s for user %s tariff %s: %s/%s bytes",
+            "limited" if should_limit else "restored",
+            sub.user_id,
+            tariff.key,
+            premium_used,
+            premium_limit,
+        )
 
     async def _maybe_send_premium_reset_notice(
         self,

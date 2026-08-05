@@ -598,7 +598,7 @@
   }
 
   .rt-tool:hover:not(:disabled) {
-    border-color: var(--rt-accent, var(--accent));
+    border-color: var(--rt-accent, var(--admin-accent, #00fe7a));
   }
 
   .rt-tool:disabled {
@@ -607,8 +607,8 @@
   }
 
   .rt-tool.is-active {
-    border-color: var(--rt-accent, var(--accent));
-    color: var(--rt-accent, var(--accent));
+    border-color: var(--rt-accent, var(--admin-accent, #00fe7a));
+    color: var(--rt-accent, var(--admin-accent, #00fe7a));
   }
 
   .rt-menu {
@@ -674,13 +674,13 @@
     font-style: normal;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--rt-accent, var(--accent));
+    color: var(--rt-accent, var(--admin-accent, #00fe7a));
   }
 
   .rt-menu-token {
     font-family: "JetBrains Mono", ui-monospace, monospace;
     font-size: 12px;
-    color: var(--rt-accent, var(--accent));
+    color: var(--rt-accent, var(--admin-accent, #00fe7a));
   }
 
   .rt-menu-item-desc {
@@ -766,8 +766,8 @@
     display: inline-block;
     padding: 1px 6px;
     border-radius: 6px;
-    background: color-mix(in srgb, var(--rt-accent, var(--accent)) 18%, transparent);
-    color: var(--rt-accent, var(--accent));
+    background: color-mix(in srgb, var(--rt-accent, var(--admin-accent, #00fe7a)) 18%, transparent);
+    color: var(--rt-accent, var(--admin-accent, #00fe7a));
     font-family: "JetBrains Mono", ui-monospace, monospace;
     font-size: 12px;
     white-space: nowrap;

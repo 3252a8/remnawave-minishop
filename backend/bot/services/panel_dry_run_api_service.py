@@ -12,8 +12,6 @@ from config.traffic_strategy import (
     canonical_traffic_limit_strategy,
 )
 
-from .panel_api_compat import PanelApiCompatibility
-from .panel_api_contracts import PanelApiOperation
 from .panel_api_service import PanelApiService
 
 logger = logging.getLogger(__name__)
@@ -24,7 +22,7 @@ _USER_ACTION_RE = re.compile(
 _NODE_RESTART_RE = re.compile(r"^/nodes/(?P<node_uuid>[^/]+)/actions/restart$")
 _INTERNAL_SQUAD_BULK_RE = re.compile(
     r"^/internal-squads/(?P<squad_uuid>[^/]+)/bulk-actions/"
-    r"(?P<action>add-users|remove-users|add-many-users|remove-many-users)$"
+    r"(?P<action>add-users|remove-users)$"
 )
 _KNOWN_TRAFFIC_STRATEGIES = REMNAWAVE_TRAFFIC_LIMIT_STRATEGIES
 
@@ -39,8 +37,6 @@ _USER_ACTION_TEMPLATES = {
 _SQUAD_BULK_TEMPLATES = {
     "add-users": "/internal-squads/<id>/bulk-actions/add-users",
     "remove-users": "/internal-squads/<id>/bulk-actions/remove-users",
-    "add-many-users": "/internal-squads/<id>/bulk-actions/add-many-users",
-    "remove-many-users": "/internal-squads/<id>/bulk-actions/remove-many-users",
 }
 # Exact intercepted endpoints that carry no id and are safe to log verbatim.
 # Mapped to themselves so the logged value comes from this literal table, not
@@ -65,7 +61,6 @@ _FIELD_LABELS = {
     name: name
     for name in (
         "uuid",
-        "id",
         "username",
         "status",
         "expireAt",
@@ -80,9 +75,7 @@ _FIELD_LABELS = {
         "activeUserInbounds",
         "externalSquadUuid",
         "userUuid",
-        "userId",
         "userUuids",
-        "userIds",
         "users",
         "hwid",
     )
@@ -128,13 +121,7 @@ class PanelDryRunApiService(PanelApiService):
         )
 
     async def _request(
-        self,
-        method: str,
-        endpoint: str,
-        log_full_response: bool = False,
-        *,
-        operation: PanelApiOperation | None = None,
-        **kwargs: Any,
+        self, method: str, endpoint: str, log_full_response: bool = False, **kwargs: Any
     ) -> dict[str, Any] | None:
         method_upper = method.upper()
         normalized_endpoint = self._normalize_endpoint(endpoint)
@@ -143,7 +130,6 @@ class PanelDryRunApiService(PanelApiService):
                 method_upper,
                 endpoint,
                 log_full_response=log_full_response,
-                operation=operation,
                 **kwargs,
             )
             return result if isinstance(result, dict) else None
@@ -176,23 +162,6 @@ class PanelDryRunApiService(PanelApiService):
         )
         self._log_dry_run("OK", method_upper, normalized_endpoint, kwargs.get("json"))
         return {"response": response, "dryRun": True}
-
-    async def panel_mutation_allowed(
-        self,
-        operation: PanelApiOperation,
-        *,
-        compatibility: PanelApiCompatibility | None = None,
-    ) -> bool:
-        """Dry-run validates writes locally and must never probe the panel first."""
-        return True
-
-    async def get_panel_api_compatibility(
-        self,
-        *,
-        force_refresh: bool = False,
-    ) -> PanelApiCompatibility:
-        """Keep dry-run identity routing offline and infer it from the user reference."""
-        return self._panel_api_compatibility or PanelApiCompatibility.unknown()
 
     @staticmethod
     def _normalize_endpoint(endpoint: str) -> str:
@@ -341,15 +310,11 @@ class PanelDryRunApiService(PanelApiService):
             await self._validate_remote_user(user_uuid, validation)
             return validation
         if method == "POST" and endpoint == "/hwid/devices/delete":
-            if data.get("userId") is not None:
-                self._validate_positive_int(data.get("userId"), "userId", validation)
-                user_uuid = str(data.get("userId") or "")
-            else:
-                user_uuid = self._validate_non_empty_string(
-                    data.get("userUuid"),
-                    "userUuid",
-                    validation,
-                )
+            user_uuid = self._validate_non_empty_string(
+                data.get("userUuid"),
+                "userUuid",
+                validation,
+            )
             self._validate_non_empty_string(data.get("hwid"), "hwid", validation)
             await self._validate_remote_user(user_uuid, validation)
             return validation
@@ -363,21 +328,9 @@ class PanelDryRunApiService(PanelApiService):
         if match := _INTERNAL_SQUAD_BULK_RE.match(endpoint):
             squad_uuid = match.group("squad_uuid")
             self._validate_non_empty_string(squad_uuid, "squad uuid", validation)
-            if match.group("action") in {"add-many-users", "remove-many-users"}:
-                raw_user_ids = data.get("userIds")
-                if not isinstance(raw_user_ids, list) or not raw_user_ids:
-                    validation.add("userIds must be a non-empty list.")
-                    user_uuids = []
-                else:
-                    for value in raw_user_ids:
-                        self._validate_positive_int(value, "userIds item", validation)
-                    user_uuids = [str(value) for value in raw_user_ids]
-            else:
-                user_uuids = self._validate_string_list(
-                    data.get("userUuids"), "userUuids", validation
-                )
-                if not user_uuids:
-                    user_uuids = self._validate_string_list(data.get("users"), "users", validation)
+            user_uuids = self._validate_string_list(data.get("userUuids"), "userUuids", validation)
+            if not user_uuids:
+                user_uuids = self._validate_string_list(data.get("users"), "users", validation)
             await self._validate_remote_squads([squad_uuid], validation)
             for user_uuid in user_uuids:
                 await self._validate_remote_user(user_uuid, validation)
@@ -418,13 +371,8 @@ class PanelDryRunApiService(PanelApiService):
         payload: dict[str, Any],
         validation: _DryRunValidation,
     ) -> None:
-        user_uuid: str | None
-        if payload.get("id") is not None:
-            self._validate_positive_int(payload.get("id"), "id", validation)
-            user_uuid = str(payload.get("id") or "")
-        else:
-            user_uuid = self._validate_non_empty_string(payload.get("uuid"), "uuid", validation)
-        self._validate_user_mutation_payload(payload, validation, require_uuid=False)
+        user_uuid = self._validate_non_empty_string(payload.get("uuid"), "uuid", validation)
+        self._validate_user_mutation_payload(payload, validation, require_uuid=True)
         await self._validate_remote_user(user_uuid, validation)
         await self._validate_remote_squads(
             self._validate_string_list(
@@ -654,12 +602,7 @@ class PanelDryRunApiService(PanelApiService):
         if method == "DELETE" and endpoint.startswith("/users/"):
             return {"uuid": endpoint.removeprefix("/users/"), "deleted": True, "dryRun": True}
         if method == "POST" and endpoint == "/hwid/devices/delete":
-            return {
-                "userUuid": data.get("userUuid"),
-                "userId": data.get("userId"),
-                "hwid": data.get("hwid"),
-                "dryRun": True,
-            }
+            return {"userUuid": data.get("userUuid"), "hwid": data.get("hwid"), "dryRun": True}
         if method == "POST" and (match := _NODE_RESTART_RE.match(endpoint)):
             return {
                 "uuid": match.group("node_uuid"),
@@ -672,7 +615,7 @@ class PanelDryRunApiService(PanelApiService):
             return {
                 "squadUuid": match.group("squad_uuid"),
                 "action": match.group("action"),
-                "users": data.get("userIds") or data.get("userUuids") or data.get("users") or [],
+                "users": data.get("userUuids") or data.get("users") or [],
                 "dryRun": True,
             }
         return {"dryRun": True}
@@ -695,7 +638,7 @@ class PanelDryRunApiService(PanelApiService):
         return response
 
     async def _dry_run_patch_user_response(self, payload: dict[str, Any]) -> dict[str, Any]:
-        user_uuid = str(payload.get("uuid") or payload.get("id") or "")
+        user_uuid = str(payload.get("uuid") or "")
         existing = self._synthetic_users.get(user_uuid)
         if not existing and self._remote_validation_enabled:
             try:
@@ -703,7 +646,6 @@ class PanelDryRunApiService(PanelApiService):
             except Exception:
                 existing = None
         response = {**(existing or {"uuid": user_uuid}), **payload, "dryRun": True}
-        response["uuid"] = user_uuid
         self._synthetic_users[user_uuid] = response
         return response
 

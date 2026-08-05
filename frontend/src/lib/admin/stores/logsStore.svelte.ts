@@ -19,13 +19,12 @@ type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type LogEntry = components["schemas"]["LogOut"];
 type LogsResponse = GetResponse<"/api/admin/logs">;
-type LogsQueryKey = readonly [string, string, { page: number; filter: string; sort: string }];
+type LogsQueryKey = readonly [string, string, { page: number; filter: string }];
 type LogsState = {
   logs: LogEntry[];
   logsTotal: number;
   logsPage: number;
   logsUserFilter: string;
-  logsSort: string;
   logsLoading: boolean;
   logsError: string;
 };
@@ -39,7 +38,6 @@ export type LogsStore = LogsState & {
   loadLogs: (options?: { refresh?: boolean }) => Promise<void>;
   setPage: (page: number) => void;
   setFilter: (filter: string) => void;
-  setSort: (sort: string) => void;
 };
 
 class AdminLogsError extends Error {
@@ -66,7 +64,6 @@ export function createLogsStore({
     logsTotal: 0,
     logsPage: 0,
     logsUserFilter: "",
-    logsSort: "date_desc",
     logsLoading: false,
     logsError: "",
   });
@@ -80,19 +77,14 @@ export function createLogsStore({
 
   let requestSeq = 0;
 
-  function logsQueryKey(page: number, filter: string, sort: string): LogsQueryKey {
-    return [LOGS_QUERY_KEY[0], LOGS_QUERY_KEY[1], { page, filter, sort }];
+  function logsQueryKey(page: number, filter: string): LogsQueryKey {
+    return [LOGS_QUERY_KEY[0], LOGS_QUERY_KEY[1], { page, filter }];
   }
 
-  function logsPath(
-    page: number,
-    filter: string,
-    sort: string
-  ): ReturnType<typeof buildAdminLogsPath> {
+  function logsPath(page: number, filter: string): ReturnType<typeof buildAdminLogsPath> {
     const params = new URLSearchParams({
       page: String(page),
       page_size: String(LOGS_PAGE_SIZE),
-      sort,
     });
     if (filter) {
       params.set("user_id", filter);
@@ -100,8 +92,8 @@ export function createLogsStore({
     return buildAdminLogsPath(params);
   }
 
-  async function requestLogs(page: number, filter: string, sort: string): Promise<LogsResponse> {
-    const data = await api(logsPath(page, filter, sort));
+  async function requestLogs(page: number, filter: string): Promise<LogsResponse> {
+    const data = await api(logsPath(page, filter));
     if (!isOkResponse(data)) {
       throw new AdminLogsError(adminErrorMessage(data, at, "load_failed"), data);
     }
@@ -114,16 +106,11 @@ export function createLogsStore({
     return String(error || "load_failed");
   }
 
-  async function queryLogs(
-    page: number,
-    filter: string,
-    sort: string,
-    refresh: boolean
-  ): Promise<LogsResponse> {
+  async function queryLogs(page: number, filter: string, refresh: boolean): Promise<LogsResponse> {
     return fetchAdminQuery({
       queryClient,
-      queryKey: logsQueryKey(page, filter, sort) satisfies AdminQueryKey,
-      queryFn: () => requestLogs(page, filter, sort),
+      queryKey: logsQueryKey(page, filter) satisfies AdminQueryKey,
+      queryFn: () => requestLogs(page, filter),
       refresh,
     });
   }
@@ -134,10 +121,9 @@ export function createLogsStore({
     state.logsLoading = true;
     const currentPage = state.logsPage;
     const filter = state.logsUserFilter.trim();
-    const sort = state.logsSort;
 
     try {
-      const data = await queryLogs(currentPage, filter, sort, refresh);
+      const data = await queryLogs(currentPage, filter, refresh);
       perf.apiResponse();
       if (seq === requestSeq) {
         logs = data.logs || [];
@@ -168,16 +154,9 @@ export function createLogsStore({
     state.logsUserFilter = filter;
   }
 
-  function setSort(sort: string): void {
-    state.logsSort = sort;
-    state.logsPage = 0;
-    void loadLogs();
-  }
-
   return Object.assign(store, {
     loadLogs,
     setPage,
     setFilter,
-    setSort,
   });
 }

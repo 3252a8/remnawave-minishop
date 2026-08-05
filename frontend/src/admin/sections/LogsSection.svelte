@@ -6,7 +6,6 @@
     AdminButton,
     AdminEmptyState,
     AdminPagination,
-    AdminSortableHeader,
     AdminTable,
     AdminTableSkeleton,
     VirtualTableRows,
@@ -14,7 +13,6 @@
   import { RefreshCw, TriangleAlert, User, X } from "$components/ui/icons.js";
   import { TableHandler } from "@vincjo/datatables";
   import type { components } from "../../lib/api/openapi.generated";
-  import type { AdminSortColumn } from "$lib/admin/tableSort.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type LogEntry = components["schemas"]["LogOut"];
@@ -39,7 +37,6 @@
   const logsTotal = $derived(Number(logsState.logsTotal || 0));
   const logsPage = $derived(Number(logsState.logsPage || 0));
   const logsUserFilter = $derived(String(logsState.logsUserFilter || ""));
-  const logsSort = $derived(String(logsState.logsSort || "date_desc"));
   const logsLoading = $derived(Boolean(logsState.logsLoading));
   const logsError = $derived(String(logsState.logsError || ""));
   const logRows = $derived(logsTable.rows as LogEntry[]);
@@ -54,13 +51,6 @@
     at("target_short", {}, "Target"),
     at("content", {}, "Content"),
   ]);
-  const logSortColumns = [
-    { asc: "date_asc", desc: "date_desc", defaultDirection: "desc" },
-    { asc: "event_asc", desc: "event_desc", defaultDirection: "asc" },
-    { asc: "user_asc", desc: "user_desc", defaultDirection: "asc" },
-    { asc: "target_asc", desc: "target_desc", defaultDirection: "asc" },
-    { asc: "content_asc", desc: "content_desc", defaultDirection: "asc" },
-  ] satisfies AdminSortColumn<never>[];
 
   function userDisplay(entry: LogEntry, kind: UserKind): string | number {
     const id = kind === "target" ? entry.target_user_id : entry.user_id;
@@ -160,41 +150,11 @@
     <AdminTable>
       <thead>
         <tr>
-          <AdminSortableHeader
-            label={at("date", {}, "Date")}
-            column={logSortColumns[0]}
-            currentSort={logsSort}
-            {at}
-            onSort={logsStore.setSort}
-          />
-          <AdminSortableHeader
-            label={at("event", {}, "Event")}
-            column={logSortColumns[1]}
-            currentSort={logsSort}
-            {at}
-            onSort={logsStore.setSort}
-          />
-          <AdminSortableHeader
-            label={at("user_short", {}, "User")}
-            column={logSortColumns[2]}
-            currentSort={logsSort}
-            {at}
-            onSort={logsStore.setSort}
-          />
-          <AdminSortableHeader
-            label={at("target_short", {}, "Target")}
-            column={logSortColumns[3]}
-            currentSort={logsSort}
-            {at}
-            onSort={logsStore.setSort}
-          />
-          <AdminSortableHeader
-            label={at("content", {}, "Content")}
-            column={logSortColumns[4]}
-            currentSort={logsSort}
-            {at}
-            onSort={logsStore.setSort}
-          />
+          <th>{at("date", {}, "Date")}</th>
+          <th>{at("event", {}, "Event")}</th>
+          <th>{at("user_short", {}, "User")}</th>
+          <th>{at("target_short", {}, "Target")}</th>
+          <th>{at("content", {}, "Content")}</th>
         </tr>
       </thead>
       <VirtualTableRows
@@ -394,7 +354,7 @@
 
   :global(.admin-logs-error-state svg) {
     flex-shrink: 0;
-    color: var(--warning);
+    color: var(--admin-warning);
   }
 
   @media (max-width: 560px) {
