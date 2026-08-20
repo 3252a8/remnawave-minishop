@@ -51,6 +51,21 @@ function transientPrices(amount: number): TransientPrices {
 }
 
 describe("tariffsStore", () => {
+  it("rejects a squad shared by base and premium access", async () => {
+    const { api, store, toasts } = makeStore();
+    const tariff = periodTariff({
+      squad_uuids: ["base-squad", "shared-squad"],
+      premium_squad_uuids: ["shared-squad"],
+    });
+    store.updateState({ tariffsCatalog: catalog([tariff]) });
+
+    store.openEditTariff(tariff);
+    await store.saveTariffDraft();
+
+    expect(api).not.toHaveBeenCalled();
+    expect(toasts).toEqual(["tariff_error_squad_overlap"]);
+  });
+
   it("refreshes the dry-run report after applying safe tariff bindings", async () => {
     const appliedReport = {
       ok: true,

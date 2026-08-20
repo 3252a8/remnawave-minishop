@@ -692,6 +692,17 @@ class TariffsConfigTests(unittest.TestCase):
         self.assertEqual(tariff.premium_monthly_bytes, 50 * 1024**3)
         self.assertTrue(tariff.has_premium_squad_limit())
 
+    def test_premium_squads_cannot_overlap_base_squads(self):
+        data = _valid_config()
+        data["tariffs"][0]["squad_uuids"] = ["base-squad", "shared-squad"]
+        data["tariffs"][0]["premium_squad_uuids"] = ["shared-squad"]
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "squad_uuids and premium_squad_uuids must not overlap: shared-squad",
+        ):
+            TariffsConfig.model_validate(data)
+
     def test_premium_limit_requires_premium_squad(self):
         data = _valid_config()
         data["tariffs"][0]["premium_monthly_gb"] = 50

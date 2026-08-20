@@ -2890,6 +2890,7 @@
   "admin_tariff_error_key_exists": "Тариф с таким ключом уже есть",
   "admin_tariff_error_key_required": "Укажите ключ тарифа",
   "admin_tariff_error_min_enabled": "Должен быть хотя бы один включённый тариф",
+  "admin_tariff_error_squad_overlap": "Базовые и premium-сквады не должны совпадать: {squads}",
   "admin_tariff_hidden": "Тариф скрыт от пользователей",
   "admin_tariff_hint_conversion": "По этому курсу остаток подписки пересчитывается в гигабайты при переходе пользователя с тарифа «Период» на «Трафик»",
   "admin_tariff_hint_hwid": "Сколько устройств может одновременно использовать подписку. Пусто — взять значение из .env, 0 — без ограничений",

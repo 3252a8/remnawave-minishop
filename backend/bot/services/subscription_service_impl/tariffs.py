@@ -115,9 +115,15 @@ class TariffMixin(SubscriptionServiceMixinContract):
         include_premium: bool = True,
     ) -> list[str] | None:
         if tariff:
-            squads = list(tariff.squad_uuids or [])
+            premium_squads = list(dict.fromkeys(tariff.premium_squad_uuids or []))
+            premium_squad_set = set(premium_squads)
+            squads = [
+                squad
+                for squad in dict.fromkeys(tariff.squad_uuids or [])
+                if include_premium or squad not in premium_squad_set
+            ]
             if include_premium:
-                squads.extend(tariff.premium_squad_uuids or [])
+                squads.extend(premium_squads)
             return list(dict.fromkeys(squads))
         return list(self.settings.parsed_user_squad_uuids or [])
 

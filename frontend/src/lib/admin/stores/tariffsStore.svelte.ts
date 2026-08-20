@@ -451,6 +451,20 @@ export function createTariffsStore({
       flash(at("tariff_error_key_exists", {}, "A tariff with this key already exists"));
       return;
     }
+    const baseSquads = new Set(normalizeUuidList(tariff.squad_uuids));
+    const overlappingSquads = normalizeUuidList(tariff.premium_squad_uuids).filter((uuid) =>
+      baseSquads.has(uuid)
+    );
+    if (overlappingSquads.length) {
+      flash(
+        at(
+          "tariff_error_squad_overlap",
+          { squads: overlappingSquads.join(", ") },
+          "Base and premium squads must be different: {squads}"
+        )
+      );
+      return;
+    }
     if (s.tariffEditingKey && s.tariffEditingKey !== tariff.key) {
       const legacyKeys = normalizeUuidList(tariff.legacy_keys).filter((key) => key !== tariff.key);
       tariff.legacy_keys = [...new Set([...legacyKeys, s.tariffEditingKey])];

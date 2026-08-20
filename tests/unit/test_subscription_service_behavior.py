@@ -32,7 +32,7 @@ def _tariffs_config_payload() -> dict:
                 "names": {"en": "Standard"},
                 "descriptions": {"en": "Base period plan"},
                 "squad_uuids": ["main-squad", "shared-squad"],
-                "premium_squad_uuids": ["premium-squad", "shared-squad"],
+                "premium_squad_uuids": ["premium-squad"],
                 "premium_monthly_gb": 25,
                 "billing_model": "period",
                 "monthly_gb": 100,
@@ -181,6 +181,23 @@ class SubscriptionServiceCalculationTests(unittest.TestCase):
             self.assertEqual(
                 service._panel_squads_for_tariff(tariff, include_premium=False),
                 ["main-squad", "shared-squad"],
+            )
+
+    def test_panel_squads_defensively_remove_premium_overlap_when_limited(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(_tariffs_config_payload(), tmpdir)
+            service = _make_service(settings)
+            conflicting_tariff = SimpleNamespace(
+                squad_uuids=["main-squad", "premium-squad"],
+                premium_squad_uuids=["premium-squad"],
+            )
+
+            self.assertEqual(
+                service._panel_squads_for_tariff(
+                    conflicting_tariff,
+                    include_premium=False,
+                ),
+                ["main-squad"],
             )
 
     def test_panel_squads_falls_back_to_default_settings_without_tariff(self):
@@ -421,6 +438,7 @@ class SubscriptionServicePremiumAccessTests(unittest.IsolatedAsyncioTestCase):
             settings = _make_settings(_tariffs_config_payload(), tmpdir)
             service = _make_service(settings)
             tariff = settings.tariffs_config.require("standard")
+            tariff.premium_squad_uuids.append("secondary-premium-squad")
             service.panel_service.get_internal_squads = AsyncMock(
                 return_value=[
                     {
@@ -433,7 +451,7 @@ class SubscriptionServicePremiumAccessTests(unittest.IsolatedAsyncioTestCase):
                         ],
                     },
                     {
-                        "uuid": "shared-squad",
+                        "uuid": "secondary-premium-squad",
                         "name": "Shared Premium",
                         "inbounds": [{"uuid": "in-shared"}],
                     },

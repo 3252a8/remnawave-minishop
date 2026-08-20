@@ -2890,6 +2890,7 @@
   "admin_tariff_error_key_exists": "A tariff with this key already exists",
   "admin_tariff_error_key_required": "Enter a tariff key",
   "admin_tariff_error_min_enabled": "At least one tariff must be enabled",
+  "admin_tariff_error_squad_overlap": "Base and premium squads must be different: {squads}",
   "admin_tariff_hidden": "Tariff is hidden from users",
   "admin_tariff_hint_conversion": "This rate converts the remaining subscription period to gigabytes when a user switches from Period to Traffic",
   "admin_tariff_hint_hwid": "How many devices can use the subscription at the same time. Empty means use the .env value; 0 means unlimited",

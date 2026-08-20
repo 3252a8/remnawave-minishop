@@ -490,10 +490,19 @@ class Tariff(BaseModel):
         )
         if self.key in self.legacy_keys:
             raise ValueError(f"tariff {self.key}: legacy_keys must not include the current key")
-        self.squad_uuids = [uuid.strip() for uuid in self.squad_uuids if uuid.strip()]
-        self.premium_squad_uuids = [
-            uuid.strip() for uuid in self.premium_squad_uuids if uuid.strip()
-        ]
+        self.squad_uuids = list(
+            dict.fromkeys(uuid.strip() for uuid in self.squad_uuids if uuid.strip())
+        )
+        self.premium_squad_uuids = list(
+            dict.fromkeys(uuid.strip() for uuid in self.premium_squad_uuids if uuid.strip())
+        )
+        base_squad_uuids = set(self.squad_uuids)
+        overlapping_squads = [uuid for uuid in self.premium_squad_uuids if uuid in base_squad_uuids]
+        if overlapping_squads:
+            raise ValueError(
+                f"tariff {self.key}: squad_uuids and premium_squad_uuids "
+                f"must not overlap: {', '.join(overlapping_squads)}"
+            )
         if self.hwid_device_limit is not None and self.hwid_device_limit < 0:
             raise ValueError(f"tariff {self.key}: hwid_device_limit must be >= 0")
         if self.premium_monthly_gb is not None and self.premium_monthly_gb < 0:
