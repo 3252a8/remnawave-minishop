@@ -2261,6 +2261,27 @@
         "title": "AdminPartnerWithdrawalTransitionIn",
         "type": "object"
       },
+      "AdminPaymentFinalizeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "confirm_promo_conflict": {
+            "default": false,
+            "title": "Confirm Promo Conflict",
+            "type": "boolean"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "AdminPaymentFinalizeBody",
+        "type": "object"
+      },
       "AdminPaymentMethodOrderOptionOut": {
         "properties": {
           "admin_only": {
@@ -2302,6 +2323,27 @@
           "known"
         ],
         "title": "AdminPaymentMethodOrderOptionOut",
+        "type": "object"
+      },
+      "AdminPaymentReverseBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "restore_promo_usage": {
+            "default": true,
+            "title": "Restore Promo Usage",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "AdminPaymentReverseBody",
         "type": "object"
       },
       "AdminPaymentsListOut": {
@@ -6511,6 +6553,40 @@
             "title": "Amount",
             "type": "number"
           },
+          "can_manual_finalize": {
+            "default": false,
+            "title": "Can Manual Finalize",
+            "type": "boolean"
+          },
+          "can_reverse": {
+            "default": false,
+            "title": "Can Reverse",
+            "type": "boolean"
+          },
+          "checkout_base_amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Checkout Base Amount"
+          },
+          "checkout_discount_amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Checkout Discount Amount"
+          },
           "created_at": {
             "anyOf": [
               {
@@ -6548,6 +6624,55 @@
             "default": null,
             "title": "Description"
           },
+          "fulfilled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Fulfilled At"
+          },
+          "fulfilled_by_admin_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Fulfilled By Admin Id"
+          },
+          "fulfillment_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Fulfillment Note"
+          },
+          "fulfillment_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Fulfillment Source"
+          },
           "funding_source": {
             "default": "external",
             "title": "Funding Source",
@@ -6565,6 +6690,18 @@
             "default": null,
             "title": "Idempotence Key"
           },
+          "manual_finalize_requires_promo_confirmation": {
+            "default": false,
+            "title": "Manual Finalize Requires Promo Confirmation",
+            "type": "boolean"
+          },
+          "manual_finalize_warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Manual Finalize Warnings",
+            "type": "array"
+          },
           "payment_id": {
             "title": "Payment Id",
             "type": "integer"
@@ -6580,6 +6717,40 @@
             ],
             "default": null,
             "title": "Promo Code"
+          },
+          "promo_code_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Promo Code Id"
+          },
+          "promo_conflict_override": {
+            "default": false,
+            "title": "Promo Conflict Override",
+            "type": "boolean"
+          },
+          "promo_discount_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Promo Discount Percent"
+          },
+          "promo_usage_restored": {
+            "default": false,
+            "title": "Promo Usage Restored",
+            "type": "boolean"
           },
           "provider": {
             "anyOf": [
@@ -6605,6 +6776,18 @@
             "default": null,
             "title": "Provider Payment Id"
           },
+          "provider_payment_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Provider Payment Url"
+          },
           "purchased_gb": {
             "default": null,
             "title": "Purchased Gb"
@@ -6620,6 +6803,55 @@
             ],
             "default": null,
             "title": "Purchased Hwid Devices"
+          },
+          "reversal_block_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reversal Block Reason"
+          },
+          "reversal_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reversal Note"
+          },
+          "reversed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reversed At"
+          },
+          "reversed_by_admin_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reversed By Admin Id"
           },
           "sale_mode": {
             "anyOf": [
@@ -6754,6 +6986,18 @@
             "title": "Amount",
             "type": "number"
           },
+          "checkout_discount_amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Checkout Discount Amount"
+          },
           "created_at": {
             "anyOf": [
               {
@@ -6791,6 +7035,18 @@
             "default": null,
             "title": "Description"
           },
+          "fulfillment_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Fulfillment Source"
+          },
           "funding_source": {
             "default": "external",
             "title": "Funding Source",
@@ -6799,6 +7055,30 @@
           "payment_id": {
             "title": "Payment Id",
             "type": "integer"
+          },
+          "promo_code_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Promo Code Id"
+          },
+          "promo_discount_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Promo Discount Percent"
           },
           "provider": {
             "anyOf": [
@@ -6823,6 +7103,18 @@
             ],
             "default": null,
             "title": "Provider Payment Id"
+          },
+          "provider_payment_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Provider Payment Url"
           },
           "purchased_gb": {
             "default": null,
@@ -14181,6 +14473,132 @@
         ]
       }
     },
+    "/api/admin/payments/{payment_id}/finalize": {
+      "post": {
+        "operationId": "post_admin_payment_finalize_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "payment_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminPaymentFinalizeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "payment": {
+                      "$ref": "#/components/schemas/PaymentDetailOut"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "payment"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Payment Finalize",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/payments/{payment_id}/reverse": {
+      "post": {
+        "operationId": "post_admin_payment_reverse_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "payment_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminPaymentReverseBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "payment": {
+                      "$ref": "#/components/schemas/PaymentDetailOut"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "payment"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Payment Reverse",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/promos": {
       "get": {
         "operationId": "get_admin_promos_list_route",
@@ -14389,6 +14807,57 @@
           }
         ],
         "summary": "Admin Promo Delete",
+        "tags": [
+          "admin"
+        ]
+      },
+      "get": {
+        "operationId": "get_admin_promo_detail_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "promo_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "promo": {
+                      "$ref": "#/components/schemas/PromoOut"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "promo"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Promo Detail",
         "tags": [
           "admin"
         ]

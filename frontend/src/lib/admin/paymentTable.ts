@@ -4,6 +4,14 @@ type PaymentDescriptionRow = {
   traffic_regular_gb?: number | string | null;
 };
 
+type PaymentDiscountRow = {
+  checkout_discount_amount?: number | string | null;
+  promo_discount_percent?: number | string | null;
+  currency?: string | null;
+};
+
+type MoneyFormatter = (value: number, currency?: string | null) => string;
+
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
 function formatGbAmountPlain(value: number | string | null | undefined): string {
@@ -40,4 +48,18 @@ export function paymentDescriptionDisplay(payment: PaymentDescriptionRow, at: Tr
   }
   const raw = payment.description && String(payment.description).trim();
   return raw || "—";
+}
+
+export function paymentDiscountDisplay(
+  payment: PaymentDiscountRow,
+  fmtMoney: MoneyFormatter
+): string {
+  const amount = Number(payment.checkout_discount_amount || 0);
+  const percent = Number(payment.promo_discount_percent || 0);
+  const percentLabel = percent > 0 ? `${Math.round(percent * 100) / 100}%` : "";
+  if (amount > 0) {
+    const amountLabel = `−${fmtMoney(amount, payment.currency)}`;
+    return percentLabel ? `${amountLabel} (${percentLabel})` : amountLabel;
+  }
+  return percentLabel ? `−${percentLabel}` : "—";
 }

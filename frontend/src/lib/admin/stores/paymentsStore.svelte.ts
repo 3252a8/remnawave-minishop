@@ -1,7 +1,10 @@
 import { withRoutePrefix } from "../../webapp/routes.js";
 import {
+  buildAdminPaymentFinalizePath,
   buildAdminPaymentPath,
+  buildAdminPaymentReversePath,
   buildAdminPaymentsPath,
+  type PostPayload,
   unwrap,
   type ApiClient,
   type GetResponse,
@@ -37,6 +40,7 @@ type PaymentsState = {
   openedPaymentId: number | null;
   openedPayment: AdminPayment | null;
   paymentDetailLoading: boolean;
+  paymentActionBusy: boolean;
 };
 type PaymentOpenOptions = { skipPush?: boolean };
 type PaymentsStoreOptions = {
@@ -56,6 +60,8 @@ export type PaymentsStore = PaymentsState & {
     opts?: PaymentOpenOptions
   ) => Promise<void>;
   closePayment: (opts?: PaymentOpenOptions) => void;
+  finalizePayment: (reason: string, confirmPromoConflict: boolean) => Promise<boolean>;
+  reversePayment: (reason: string, restorePromoUsage: boolean) => Promise<boolean>;
   copyToClipboard: (text: unknown, successMessage?: string) => void;
 };
 
@@ -92,6 +98,7 @@ export function createPaymentsStore({
     openedPaymentId: null,
     openedPayment: null,
     paymentDetailLoading: false,
+    paymentActionBusy: false,
   });
   const store = Object.create(state) as PaymentsStore;
   defineRawStateProperty(store, "payments", {
@@ -268,6 +275,71 @@ export function createPaymentsStore({
     if (wasOpen && !opts.skipPush) pushPaymentPath(null);
   }
 
+  function acceptActionPayment(payment: PaymentDetailOut): void {
+    state.openedPayment = payment;
+    payments = payments.map((row) =>
+      row.payment_id === payment.payment_id ? { ...row, ...payment } : row
+    );
+  }
+
+  async function finalizePayment(reason: string, confirmPromoConflict: boolean): Promise<boolean> {
+    const paymentId = state.openedPaymentId;
+    if (!paymentId || state.paymentActionBusy) return false;
+    state.paymentActionBusy = true;
+    try {
+      const response = await api(buildAdminPaymentFinalizePath(paymentId), {
+        method: "POST",
+        body: JSON.stringify({
+          reason,
+          confirm_promo_conflict: confirmPromoConflict,
+        } satisfies PostPayload<"/api/admin/payments/{payment_id}/finalize">),
+      });
+      if (!isOkResponse(response)) {
+        onToast(adminErrorMessage(response, at, "payment_manual_finalize_failed"));
+        return false;
+      }
+      const result = unwrap(response);
+      acceptActionPayment(result.payment);
+      onToast(at("payment_manual_finalize_success", {}, "Payment applied"));
+      void loadPayments({ refresh: true });
+      return true;
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : String(error || "payment_action_failed"));
+      return false;
+    } finally {
+      state.paymentActionBusy = false;
+    }
+  }
+
+  async function reversePayment(reason: string, restorePromoUsage: boolean): Promise<boolean> {
+    const paymentId = state.openedPaymentId;
+    if (!paymentId || state.paymentActionBusy) return false;
+    state.paymentActionBusy = true;
+    try {
+      const response = await api(buildAdminPaymentReversePath(paymentId), {
+        method: "POST",
+        body: JSON.stringify({
+          reason,
+          restore_promo_usage: restorePromoUsage,
+        } satisfies PostPayload<"/api/admin/payments/{payment_id}/reverse">),
+      });
+      if (!isOkResponse(response)) {
+        onToast(adminErrorMessage(response, at, "payment_reverse_failed"));
+        return false;
+      }
+      const result = unwrap(response);
+      acceptActionPayment(result.payment);
+      onToast(at("payment_reverse_success", {}, "Payment reversed"));
+      void loadPayments({ refresh: true });
+      return true;
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : String(error || "payment_action_failed"));
+      return false;
+    } finally {
+      state.paymentActionBusy = false;
+    }
+  }
+
   function copyToClipboard(text: unknown, successMessage = at("copied", {}, "Copied")): void {
     if (!text) return;
     if (typeof navigator !== "undefined" && navigator?.clipboard?.writeText) {
@@ -287,6 +359,8 @@ export function createPaymentsStore({
     setSort,
     openPayment,
     closePayment,
+    finalizePayment,
+    reversePayment,
     copyToClipboard,
   });
 }

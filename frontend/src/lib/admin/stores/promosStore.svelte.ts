@@ -41,6 +41,7 @@ type PromoEffectPayload = {
   bonus_requires_payment?: boolean | null;
 };
 type PromosListResponse = GetResponse<"/api/admin/promos">;
+type PromoDetailResponse = GetResponse<"/api/admin/promos/{promo_id}">;
 type PromoActivationsResponse = GetResponse<"/api/admin/promos/{promo_id}/activations">;
 type PromosState = {
   promos: Promo[];
@@ -76,6 +77,7 @@ export type PromosStore = PromosState & {
   togglePromo: (promo: Promo) => Promise<void>;
   deletePromo: (promo: Promo) => Promise<void>;
   openEditPromo: (promo: Promo) => void;
+  openPromoById: (promoId: number) => Promise<void>;
   closeEditPromo: () => void;
   updateEditDraft: (fields: Partial<PromoPatch>) => void;
   copyToClipboard: (text: string | null | undefined, successMessage?: string) => Promise<void>;
@@ -417,6 +419,25 @@ export function createPromosStore({
     state.promoEditOpen = true;
   }
 
+  async function openPromoById(promoId: number): Promise<void> {
+    const cached = promos.find((promo) => promo.id === promoId);
+    if (cached) {
+      openEditPromo(cached);
+      return;
+    }
+    try {
+      const response: PromoDetailResponse = await api(buildAdminPromoPath(promoId));
+      if (!isOkResponse(response)) {
+        onToast(adminErrorMessage(response, at, "promo_load_failed"));
+        return;
+      }
+      const promo = unwrap(response).promo;
+      openEditPromo(promo);
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : String(error || "promo_load_failed"));
+    }
+  }
+
   function closeEditPromo(): void {
     state.promoEditOpen = false;
     state.promoEditing = null;
@@ -528,6 +549,7 @@ export function createPromosStore({
     togglePromo,
     deletePromo,
     openEditPromo,
+    openPromoById,
     closeEditPromo,
     updateEditDraft,
     copyToClipboard,

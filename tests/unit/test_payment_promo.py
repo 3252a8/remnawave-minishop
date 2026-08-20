@@ -129,6 +129,42 @@ class PaymentPromoTests(IsolatedAsyncioTestCase):
 
         consume_activation.assert_not_awaited()
 
+    async def test_consume_payment_promo_allows_confirmed_manual_override(self):
+        session = AsyncMock()
+        promo = SimpleNamespace(promo_code_id=5)
+        payment = SimpleNamespace(
+            promo_conflict_override=True,
+            checkout_base_amount=100,
+            checkout_discount_amount=50,
+        )
+        effects = PromoEffects(discount_percent=50, applies_to="subscription")
+        activation = SimpleNamespace(activation_id=10)
+
+        with (
+            patch(
+                "bot.services.payment_promo.promo_code_dal.get_user_activation_for_promo",
+                AsyncMock(return_value=SimpleNamespace(payment_id=76)),
+            ),
+            patch(
+                "bot.services.payment_promo.promo_code_dal.consume_promo_activation",
+                AsyncMock(return_value=activation),
+            ) as consume_activation,
+        ):
+            consumed = await consume_payment_promo(
+                session=session,
+                user_id=42,
+                promo_model=promo,
+                effects=effects,
+                payment_id=77,
+                payment=payment,
+                sale_mode_base="subscription",
+                months=1,
+                traffic_gb=None,
+            )
+
+        self.assertTrue(consumed)
+        self.assertTrue(consume_activation.await_args.kwargs["allow_existing_user"])
+
     async def test_consume_payment_promo_rejects_bonus_only_for_traffic(self):
         session = AsyncMock()
         promo = SimpleNamespace(promo_code_id=5)

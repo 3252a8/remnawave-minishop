@@ -85,6 +85,7 @@
     onExportPayments,
     onLanguageChange,
     onOpenPaymentUserCard,
+    onOpenPaymentPromoCard,
     onOpenPartnerCard,
     onOpenPaymentCard,
     onOpenSettingsPath,
@@ -154,6 +155,7 @@
     onExportPayments: () => void;
     onLanguageChange: (value: string, meta: LanguageChangeMeta) => void;
     onOpenPaymentUserCard: (userId: unknown) => void;
+    onOpenPaymentPromoCard: (promoId: number) => void;
     onOpenPartnerCard: (partnerId: string) => void;
     onOpenPaymentCard: (paymentId: number) => void;
     onOpenSettingsPath: (path?: unknown) => void;
@@ -565,6 +567,7 @@
   {userTelegramProfileLinkKind}
   {onCloseUser}
   {onOpenPaymentUserCard}
+  {onOpenPaymentPromoCard}
   {onOpenPartnerCard}
   {routePrefix}
 />

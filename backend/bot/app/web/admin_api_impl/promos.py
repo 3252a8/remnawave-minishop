@@ -70,6 +70,13 @@ register_contract(
     ),
 )
 register_contract(
+    "admin_promo_detail_route",
+    RouteContract(
+        response_schema=ok_envelope_for(PromoOut, key="promo"),
+        models=(PromoOut,),
+    ),
+)
+register_contract(
     "admin_promo_activations_route",
     RouteContract(
         response_schema=ok_envelope_for(
@@ -161,6 +168,19 @@ async def admin_promos_list_route(request: web.Request) -> web.Response:
             "owned_total": int(owned_total or 0),
         }
     )
+
+
+async def admin_promo_detail_route(request: web.Request) -> web.Response:
+    _require_admin_user_id(request)
+    promo_id = int(request.match_info["promo_id"])
+    async_session_factory: sessionmaker = get_session_factory(request)
+    async with async_session_factory() as session:
+        promo = await promo_code_dal.get_promo_code_by_id(session, promo_id)
+        if promo is None:
+            return _error(404, "not_found")
+        owners = await _owner_labels_for(session, promo)
+        payload = _serialize_promo_for_request(request, promo, owners)
+    return _ok({"promo": payload})
 
 
 async def admin_promo_options_route(request: web.Request) -> web.Response:

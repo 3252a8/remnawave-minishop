@@ -68,10 +68,12 @@ async def consume_payment_promo(
         promo_code_id,
         user_id,
     )
+    allow_existing_user = bool(getattr(payment, "promo_conflict_override", False))
     if existing is not None:
         if int(getattr(existing, "payment_id", 0) or 0) == int(payment_id):
             return True
-        raise PaymentPromoRedemptionError("Attached code was consumed by another payment")
+        if not allow_existing_user:
+            raise PaymentPromoRedemptionError("Attached code was consumed by another payment")
 
     if (
         (effects.has_fixed_grant and sale_mode_base != "subscription")
@@ -115,6 +117,7 @@ async def consume_payment_promo(
         granted_gb=granted_gb,
         granted_regular_traffic_gb=granted_regular_traffic_gb,
         granted_premium_traffic_gb=granted_premium_traffic_gb,
+        allow_existing_user=allow_existing_user,
     )
     if activation is None:
         raise PaymentPromoRedemptionError("Attached code could not be consumed")

@@ -18,6 +18,10 @@ from bot.infra.event_payloads import (
 from bot.infra.payment_events import build_payment_succeeded_payload
 from bot.keyboards.inline.user_keyboards import get_connect_and_main_keyboard
 from bot.services.partner_commission_service import PartnerCommissionService
+from bot.services.payment_fulfillment import (
+    capture_payment_entitlement_snapshot,
+    persist_payment_fulfillment,
+)
 from bot.utils.config_link import prepare_config_links
 from bot.utils.install_links import ensure_user_install_guide_links
 from bot.utils.text_sanitizer import sanitize_display_name, username_for_display
@@ -336,7 +340,11 @@ async def finalize_successful_payment(
         )
         return None
     payment_id = int(locked_payment.payment_id)
-    if str(locked_payment.status or "").strip().lower() == "succeeded":
+    if str(locked_payment.status or "").strip().lower() in {
+        "succeeded",
+        "refunded",
+        "reversed",
+    }:
         logger.info(
             "%s: skipping duplicate finalization for payment %s.",
             req.log_prefix,
@@ -452,6 +460,10 @@ async def finalize_successful_payment(
         activation_extra_kwargs.pop("tariff_key", None)
 
     try:
+        fulfillment_before = await capture_payment_entitlement_snapshot(
+            req.session,
+            locked_payment,
+        )
         partner_decision = None
         activation = await req.subscription_service.activate_subscription(
             req.session,
@@ -541,6 +553,15 @@ async def finalize_successful_payment(
                     req.log_prefix,
                     payment_id,
                 )
+        fulfillment_after = await capture_payment_entitlement_snapshot(
+            req.session,
+            locked_payment,
+        )
+        persist_payment_fulfillment(
+            locked_payment,
+            before=fulfillment_before,
+            after=fulfillment_after,
+        )
         await payment_dal.update_payment_status_by_db_id(
             req.session,
             payment_id,

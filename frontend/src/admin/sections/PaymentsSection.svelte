@@ -13,7 +13,11 @@
   } from "$components/patterns/admin/index.js";
   import { FileText, User } from "$components/ui/icons.js";
   import { TableHandler } from "@vincjo/datatables";
-  import { formatPaymentTrafficGb, paymentDescriptionDisplay } from "$lib/admin/paymentTable.js";
+  import {
+    formatPaymentTrafficGb,
+    paymentDescriptionDisplay,
+    paymentDiscountDisplay,
+  } from "$lib/admin/paymentTable.js";
   import type { PaymentOut } from "../../lib/admin/stores/paymentsStore";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
   import type { AdminSortColumn } from "$lib/admin/tableSort.js";
@@ -57,6 +61,7 @@
     at("payments_col_traffic_regular", {}, "Main traffic"),
     at("payments_col_traffic_premium", {}, "Premium traffic"),
     at("amount", {}, "Amount"),
+    at("payments_col_discount", {}, "Discount"),
     at("provider", {}, "Provider"),
     at("description", {}, "Description"),
     at("status", {}, "Status"),
@@ -69,6 +74,7 @@
     { asc: "traffic_regular_asc", desc: "traffic_regular_desc", defaultDirection: "desc" },
     { asc: "traffic_premium_asc", desc: "traffic_premium_desc", defaultDirection: "desc" },
     { asc: "amount_asc", desc: "amount_desc", defaultDirection: "desc" },
+    { asc: "discount_asc", desc: "discount_desc", defaultDirection: "desc" },
     { asc: "provider_asc", desc: "provider_desc", defaultDirection: "asc" },
     { asc: "description_asc", desc: "description_desc", defaultDirection: "asc" },
     { asc: "status_asc", desc: "status_desc", defaultDirection: "asc" },
@@ -86,7 +92,19 @@
       headers={paymentHeaders}
       rows={8}
       rowHeight={62}
-      widths={["48px", "148px", "88px", "72px", "72px", "78px", "82px", "140px", "72px", "96px"]}
+      widths={[
+        "48px",
+        "148px",
+        "88px",
+        "72px",
+        "72px",
+        "78px",
+        "92px",
+        "82px",
+        "140px",
+        "72px",
+        "96px",
+      ]}
     />
   {:else if !paymentsTable.rows.length}
     <AdminEmptyState tone="card"
@@ -139,29 +157,36 @@
             onSort={paymentsStore.setSort}
           />
           <AdminSortableHeader
-            label={at("provider", {}, "Provider")}
+            label={at("payments_col_discount", {}, "Discount")}
             column={paymentSortColumns[6]}
             currentSort={paymentsSort}
             {at}
             onSort={paymentsStore.setSort}
           />
           <AdminSortableHeader
-            label={at("description", {}, "Description")}
+            label={at("provider", {}, "Provider")}
             column={paymentSortColumns[7]}
             currentSort={paymentsSort}
             {at}
             onSort={paymentsStore.setSort}
           />
           <AdminSortableHeader
-            label={at("status", {}, "Status")}
+            label={at("description", {}, "Description")}
             column={paymentSortColumns[8]}
             currentSort={paymentsSort}
             {at}
             onSort={paymentsStore.setSort}
           />
           <AdminSortableHeader
-            label={at("date", {}, "Date")}
+            label={at("status", {}, "Status")}
             column={paymentSortColumns[9]}
+            currentSort={paymentsSort}
+            {at}
+            onSort={paymentsStore.setSort}
+          />
+          <AdminSortableHeader
+            label={at("date", {}, "Date")}
+            column={paymentSortColumns[10]}
             currentSort={paymentsSort}
             {at}
             onSort={paymentsStore.setSort}
@@ -170,7 +195,7 @@
       </thead>
       <VirtualTableRows
         rows={paymentsTable.rows}
-        colspan={10}
+        colspan={11}
         rowHeight={62}
         getKey={(p) => p.payment_id}
       >
@@ -220,6 +245,9 @@
               {formatPaymentTrafficGb(p.traffic_premium_gb)}
             </td>
             <td data-label={at("amount", {}, "Amount")}>{fmtMoney(p.amount, p.currency)}</td>
+            <td data-label={at("payments_col_discount", {}, "Discount")}>
+              {paymentDiscountDisplay(p, fmtMoney)}
+            </td>
             <td data-label={at("provider", {}, "Provider")}>
               <PaymentProviderCell provider={p.provider} />
             </td>

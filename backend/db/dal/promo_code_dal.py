@@ -417,6 +417,10 @@ async def get_user_activation_for_promo(
             PromoCodeActivation.promo_code_id == promo_code_id,
             PromoCodeActivation.user_id == user_id,
         )
+        .order_by(
+            PromoCodeActivation.is_manual_override.asc(),
+            PromoCodeActivation.activated_at.asc(),
+        )
         .limit(1)
     )
     result = await session.execute(stmt)
@@ -538,6 +542,7 @@ async def consume_promo_activation(
     granted_gb: float | None = None,
     granted_regular_traffic_gb: float | None = None,
     granted_premium_traffic_gb: float | None = None,
+    allow_existing_user: bool = False,
 ) -> PromoCodeActivation | None:
     """Atomically increment usage and record the activation in one transaction.
 
@@ -556,13 +561,14 @@ async def consume_promo_activation(
         existing_payment_id = int(getattr(existing_activation, "payment_id", 0) or 0)
         if payment_id is not None and existing_payment_id == int(payment_id):
             return existing_activation
-        logger.info(
-            "User %s has already activated promo code %s. Activation ID: %s",
-            user_id,
-            promo_code_id,
-            existing_activation.activation_id,
-        )
-        return None
+        if not allow_existing_user:
+            logger.info(
+                "User %s has already activated promo code %s. Activation ID: %s",
+                user_id,
+                promo_code_id,
+                existing_activation.activation_id,
+            )
+            return None
 
     update_conditions = [PromoCode.promo_code_id == promo_code_id]
     if enforce_limit:
@@ -599,6 +605,7 @@ async def consume_promo_activation(
         "granted_gb": granted_gb,
         "granted_regular_traffic_gb": granted_regular_traffic_gb,
         "granted_premium_traffic_gb": granted_premium_traffic_gb,
+        "is_manual_override": bool(existing_activation and allow_existing_user),
         "activated_at": datetime.now(UTC),
     }
     activation = PromoCodeActivation(**activation_data)

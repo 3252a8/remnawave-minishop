@@ -24,6 +24,7 @@
     userTelegramProfileLinkKind,
     onCloseUser,
     onOpenPaymentUserCard,
+    onOpenPaymentPromoCard,
     onOpenPartnerCard,
     routePrefix,
   }: {
@@ -44,6 +45,7 @@
     userTelegramProfileLinkKind: (user: AdminUser) => string;
     onCloseUser: () => void;
     onOpenPaymentUserCard: (userId: unknown) => void;
+    onOpenPaymentPromoCard: (promoId: number) => void;
     onOpenPartnerCard: (partnerId: string) => void;
     routePrefix: string;
   } = $props();
@@ -104,6 +106,7 @@
     {fmtMoney}
     {paymentStatusVariant}
     onOpenUserCard={onOpenPaymentUserCard}
+    onOpenPromoCard={onOpenPaymentPromoCard}
     {onOpenPartnerCard}
   />
 {/if}

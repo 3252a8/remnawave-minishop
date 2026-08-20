@@ -754,6 +754,22 @@ export function buildAdminPaymentPath(paymentId: string | number): AdminPaymentP
   );
 }
 
+export type AdminPaymentFinalizePath = BuiltApiPath<"/api/admin/payments/{payment_id}/finalize">;
+export function buildAdminPaymentFinalizePath(
+  paymentId: string | number
+): AdminPaymentFinalizePath {
+  return builtApiPath<"/api/admin/payments/{payment_id}/finalize">(
+    `/admin/payments/${encodeURIComponent(String(paymentId))}/finalize`
+  );
+}
+
+export type AdminPaymentReversePath = BuiltApiPath<"/api/admin/payments/{payment_id}/reverse">;
+export function buildAdminPaymentReversePath(paymentId: string | number): AdminPaymentReversePath {
+  return builtApiPath<"/api/admin/payments/{payment_id}/reverse">(
+    `/admin/payments/${encodeURIComponent(String(paymentId))}/reverse`
+  );
+}
+
 export type AdminPaymentsExportPath = "/api/admin/payments/export.csv";
 export function buildAdminPaymentsExportPath(): AdminPaymentsExportPath {
   return "/api/admin/payments/export.csv";

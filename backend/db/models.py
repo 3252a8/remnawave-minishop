@@ -389,6 +389,17 @@ class Payment(Base):
     entitlement_context_snapshot = Column(Text, nullable=True)
     checkout_bundle_snapshot = Column(Text, nullable=True)
     checkout_bundle_hash = Column(String(64), nullable=True, index=True)
+    fulfillment_source = Column(String(16), nullable=True, index=True)
+    fulfilled_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    fulfilled_by_admin_id = Column(BigInteger, nullable=True)
+    fulfillment_note = Column(String(500), nullable=True)
+    fulfillment_before_snapshot = Column(Text, nullable=True)
+    fulfillment_after_snapshot = Column(Text, nullable=True)
+    promo_conflict_override = Column(Boolean, nullable=False, default=False)
+    reversed_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    reversed_by_admin_id = Column(BigInteger, nullable=True)
+    reversal_note = Column(String(500), nullable=True)
+    promo_usage_restored = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
 
@@ -823,13 +834,21 @@ class PromoCodeActivation(Base):
     granted_gb = Column(Float, nullable=True)
     granted_regular_traffic_gb = Column(Numeric(12, 3), nullable=True)
     granted_premium_traffic_gb = Column(Numeric(12, 3), nullable=True)
+    is_manual_override = Column(Boolean, nullable=False, default=False)
 
     promo_code = relationship("PromoCode", back_populates="activations")
     user = relationship("User", back_populates="promo_code_activations")
     payment = relationship("Payment")
 
     __table_args__ = (
-        UniqueConstraint("promo_code_id", "user_id", name="uq_promo_user_activation"),
+        Index(
+            "uq_promo_user_activation_standard",
+            "promo_code_id",
+            "user_id",
+            unique=True,
+            postgresql_where=is_manual_override.is_(False),
+            sqlite_where=is_manual_override.is_(False),
+        ),
     )
 
 

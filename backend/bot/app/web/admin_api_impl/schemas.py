@@ -752,6 +752,36 @@ class PromoActivationOut(HttpResponseModel):
         )
 
 
+class AdminPaymentFinalizeBody(HttpBodyModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(min_length=3, max_length=500)
+    confirm_promo_conflict: bool = False
+
+    @field_validator("reason")
+    @classmethod
+    def normalize_reason(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 3:
+            raise ValueError("reason must contain at least 3 non-whitespace characters")
+        return normalized
+
+
+class AdminPaymentReverseBody(HttpBodyModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(min_length=3, max_length=500)
+    restore_promo_usage: bool = True
+
+    @field_validator("reason")
+    @classmethod
+    def normalize_reason(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 3:
+            raise ValueError("reason must contain at least 3 non-whitespace characters")
+        return normalized
+
+
 class PaymentOut(HttpResponseModel):
     payment_id: int
     user_id: int
@@ -762,6 +792,7 @@ class PaymentOut(HttpResponseModel):
     provider: str | None = None
     funding_source: str = "external"
     provider_payment_id: str | None = None
+    provider_payment_url: str | None = None
     amount: float
     currency: str | None = None
     status: str | None = None
@@ -771,6 +802,10 @@ class PaymentOut(HttpResponseModel):
     tariff_key: str | None = None
     purchased_gb: Any = None
     purchased_hwid_devices: int | None = None
+    promo_code_id: int | None = None
+    promo_discount_percent: float | None = None
+    checkout_discount_amount: float | None = None
+    fulfillment_source: str | None = None
     created_at: datetime | None = None
 
     @classmethod
@@ -796,6 +831,7 @@ class PaymentOut(HttpResponseModel):
             provider=payment.provider,
             funding_source=str(getattr(payment, "funding_source", "external") or "external"),
             provider_payment_id=payment.provider_payment_id,
+            provider_payment_url=getattr(payment, "provider_payment_url", None),
             amount=float(payment.amount),
             currency=payment.currency,
             status=payment.status,
@@ -805,6 +841,14 @@ class PaymentOut(HttpResponseModel):
             tariff_key=payment.tariff_key,
             purchased_gb=payment.purchased_gb,
             purchased_hwid_devices=payment.purchased_hwid_devices,
+            promo_code_id=(
+                int(payment.promo_code_id) if getattr(payment, "promo_code_id", None) else None
+            ),
+            promo_discount_percent=_float_or_none(getattr(payment, "promo_discount_percent", None)),
+            checkout_discount_amount=_float_or_none(
+                getattr(payment, "checkout_discount_amount", None)
+            ),
+            fulfillment_source=(str(getattr(payment, "fulfillment_source", "") or "") or None),
             created_at=payment.created_at,
         )
 
@@ -813,6 +857,20 @@ class PaymentDetailOut(PaymentOut):
     yookassa_payment_id: str | None = None
     idempotence_key: str | None = None
     promo_code: str | None = None
+    checkout_base_amount: float | None = None
+    fulfilled_at: datetime | None = None
+    fulfilled_by_admin_id: int | None = None
+    fulfillment_note: str | None = None
+    promo_conflict_override: bool = False
+    reversed_at: datetime | None = None
+    reversed_by_admin_id: int | None = None
+    reversal_note: str | None = None
+    promo_usage_restored: bool = False
+    can_manual_finalize: bool = False
+    manual_finalize_requires_promo_confirmation: bool = False
+    manual_finalize_warnings: list[str] = Field(default_factory=list)
+    can_reverse: bool = False
+    reversal_block_reason: str | None = None
     updated_at: datetime | None = None
 
     @classmethod
@@ -829,6 +887,17 @@ class PaymentDetailOut(PaymentOut):
                 "yookassa_payment_id": payment.yookassa_payment_id,
                 "idempotence_key": payment.idempotence_key,
                 "promo_code": promo_code,
+                "checkout_base_amount": _float_or_none(
+                    getattr(payment, "checkout_base_amount", None)
+                ),
+                "fulfilled_at": getattr(payment, "fulfilled_at", None),
+                "fulfilled_by_admin_id": getattr(payment, "fulfilled_by_admin_id", None),
+                "fulfillment_note": getattr(payment, "fulfillment_note", None),
+                "promo_conflict_override": bool(getattr(payment, "promo_conflict_override", False)),
+                "reversed_at": getattr(payment, "reversed_at", None),
+                "reversed_by_admin_id": getattr(payment, "reversed_by_admin_id", None),
+                "reversal_note": getattr(payment, "reversal_note", None),
+                "promo_usage_restored": bool(getattr(payment, "promo_usage_restored", False)),
                 "updated_at": payment.updated_at,
             }
         )

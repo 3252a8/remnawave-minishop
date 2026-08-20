@@ -1,7 +1,11 @@
 <script lang="ts">
   import { AdminBadge, AdminTable } from "$components/patterns/admin/index.js";
   import { Tabs } from "$components/ui/primitives.js";
-  import { formatPaymentTrafficGb, paymentDescriptionDisplay } from "$lib/admin/paymentTable.js";
+  import {
+    formatPaymentTrafficGb,
+    paymentDescriptionDisplay,
+    paymentDiscountDisplay,
+  } from "$lib/admin/paymentTable.js";
   import type { AdminUserDetail } from "$lib/admin/stores/usersStoreState";
   import PaymentProviderCell from "../PaymentProviderCell.svelte";
   import type { BadgeVariant, DateFormatter, MoneyFormatter, TranslateFn } from "./userDetailTypes";
@@ -37,6 +41,7 @@
             <th>{at("payments_col_traffic_regular", {}, "Main traffic")}</th>
             <th>{at("payments_col_traffic_premium", {}, "Premium traffic")}</th>
             <th>{at("amount", {}, "Amount")}</th>
+            <th>{at("payments_col_discount", {}, "Discount")}</th>
             <th>{at("provider", {}, "Provider")}</th>
             <th>{at("description", {}, "Description")}</th>
             <th>{at("status", {}, "Status")}</th>
@@ -60,6 +65,9 @@
               </td>
               <td data-label={at("amount", {}, "Amount")}>
                 {fmtMoney(payment.amount, payment.currency)}
+              </td>
+              <td data-label={at("payments_col_discount", {}, "Discount")}>
+                {paymentDiscountDisplay(payment, fmtMoney)}
               </td>
               <td data-label={at("provider", {}, "Provider")}>
                 <PaymentProviderCell provider={payment.provider} />
@@ -93,7 +101,7 @@
   }
 
   .admin-user-payments-table :global(.admin-user-payments-table-grid) {
-    min-width: 760px;
+    min-width: 860px;
   }
 
   @media (max-width: 720px) {

@@ -598,6 +598,21 @@
     window.dispatchEvent(new PopStateEvent("popstate"));
   }
 
+  function openPaymentPromoCard(promoId: number): void {
+    const id = Number(promoId);
+    if (!Number.isFinite(id) || id <= 0) return;
+    const next = normalizeSection("promos");
+    sidebarOpen = false;
+    paymentsStore.closePayment({ skipPush: true });
+    if (active !== next) {
+      active = next;
+      usersStore.closeUser();
+      onSectionChange(next);
+    }
+    usersStore.setActive(next);
+    void promosStore.openPromoById(id);
+  }
+
   function openLogsUserCard(userId: unknown): void {
     const uid = Number(userId);
     if (!Number.isFinite(uid) || uid === 0) return;
@@ -773,6 +788,7 @@
   onCloseUser={closeUserCard}
   onExportPayments={exportPayments}
   onOpenPaymentUserCard={openPaymentUserCard}
+  onOpenPaymentPromoCard={openPaymentPromoCard}
   onOpenPartnerCard={openPartnerCard}
   onOpenPaymentCard={openPaymentCard}
   onOpenSettingsPath={openSettingsPath}

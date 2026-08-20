@@ -5,6 +5,7 @@ from typing import Any
 from db.models import Payment
 
 _PAYMENT_STATUS_SUCCEEDED = "succeeded"
+_PAYMENT_IMMUTABLE_TERMINAL_STATUSES = frozenset({"refunded", "reversed"})
 
 
 def normalize_payment_status(status: Any) -> str:
@@ -12,10 +13,15 @@ def normalize_payment_status(status: Any) -> str:
 
 
 def would_overwrite_succeeded_payment(current_status: Any, new_status: Any) -> bool:
+    normalized_current_status = normalize_payment_status(current_status)
     normalized_new_status = normalize_payment_status(new_status)
-    return normalize_payment_status(current_status) == _PAYMENT_STATUS_SUCCEEDED and (
-        normalized_new_status not in {_PAYMENT_STATUS_SUCCEEDED, "refunded"}
-    )
+    if normalized_current_status in _PAYMENT_IMMUTABLE_TERMINAL_STATUSES:
+        return normalized_new_status != normalized_current_status
+    return normalized_current_status == _PAYMENT_STATUS_SUCCEEDED and normalized_new_status not in {
+        _PAYMENT_STATUS_SUCCEEDED,
+        "refunded",
+        "reversed",
+    }
 
 
 def _decimal_order_value(value: Any) -> Decimal | None:

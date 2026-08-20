@@ -42,6 +42,7 @@ _PAYMENT_TERMINAL_STATUSES = frozenset(
         "cancelled",
         "failed_creation",
         "refunded",
+        "reversed",
     }
 )
 _YOOKASSA_RECONCILABLE_STATUSES = (
@@ -440,6 +441,8 @@ async def claim_payment_finalization(
         .where(
             Payment.payment_id == payment_db_id,
             func.lower(Payment.status) != _PAYMENT_STATUS_SUCCEEDED,
+            func.lower(Payment.status) != "refunded",
+            func.lower(Payment.status) != "reversed",
         )
         .values(**values)
         .returning(Payment.payment_id)
@@ -665,10 +668,10 @@ async def update_payment_status_by_db_id(
                     "the reconciler will retry it.",
                     payment_db_id,
                 )
-            if (
-                previous_status == "succeeded"
-                and _normalize_payment_status(new_status) == "refunded"
-            ):
+            if previous_status == "succeeded" and _normalize_payment_status(new_status) in {
+                "refunded",
+                "reversed",
+            }:
                 try:
                     reversal_savepoint = await session.begin_nested()
                     try:
@@ -722,6 +725,12 @@ async def get_payments_count(session: AsyncSession) -> int:
     """Get total count of successful payments."""
     stmt = select(func.count(Payment.payment_id)).where(Payment.status == "succeeded")
     result = await session.execute(stmt)
+    return result.scalar() or 0
+
+
+async def get_all_payments_count(session: AsyncSession) -> int:
+    """Count all payment attempts shown in the Web Admin table."""
+    result = await session.execute(select(func.count(Payment.payment_id)))
     return result.scalar() or 0
 
 

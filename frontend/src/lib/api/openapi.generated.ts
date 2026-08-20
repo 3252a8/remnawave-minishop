@@ -927,6 +927,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/payments/{payment_id}/finalize": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Payment Finalize */
+    post: operations["post_admin_payment_finalize_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/payments/{payment_id}/reverse": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Payment Reverse */
+    post: operations["post_admin_payment_reverse_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/promos": {
     parameters: {
       query?: never;
@@ -969,7 +1003,8 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    /** Admin Promo Detail */
+    get: operations["get_admin_promo_detail_route"];
     put?: never;
     post?: never;
     /** Admin Promo Delete */
@@ -3364,6 +3399,16 @@ export interface components {
       /** Status Version */
       status_version: number;
     };
+    /** AdminPaymentFinalizeBody */
+    AdminPaymentFinalizeBody: {
+      /**
+       * Confirm Promo Conflict
+       * @default false
+       */
+      confirm_promo_conflict: boolean;
+      /** Reason */
+      reason: string;
+    };
     /** AdminPaymentMethodOrderOptionOut */
     AdminPaymentMethodOrderOptionOut: {
       /** Admin Only */
@@ -3380,6 +3425,16 @@ export interface components {
       provider_id: string;
       /** Provider Label */
       provider_label: string;
+    };
+    /** AdminPaymentReverseBody */
+    AdminPaymentReverseBody: {
+      /** Reason */
+      reason: string;
+      /**
+       * Restore Promo Usage
+       * @default true
+       */
+      restore_promo_usage: boolean;
     };
     /** AdminPaymentsListOut */
     AdminPaymentsListOut: {
@@ -5196,6 +5251,26 @@ export interface components {
       /** Amount */
       amount: number;
       /**
+       * Can Manual Finalize
+       * @default false
+       */
+      can_manual_finalize: boolean;
+      /**
+       * Can Reverse
+       * @default false
+       */
+      can_reverse: boolean;
+      /**
+       * Checkout Base Amount
+       * @default null
+       */
+      checkout_base_amount: number | null;
+      /**
+       * Checkout Discount Amount
+       * @default null
+       */
+      checkout_discount_amount: number | null;
+      /**
        * Created At
        * @default null
        */
@@ -5211,6 +5286,26 @@ export interface components {
        */
       description: string | null;
       /**
+       * Fulfilled At
+       * @default null
+       */
+      fulfilled_at: string | null;
+      /**
+       * Fulfilled By Admin Id
+       * @default null
+       */
+      fulfilled_by_admin_id: number | null;
+      /**
+       * Fulfillment Note
+       * @default null
+       */
+      fulfillment_note: string | null;
+      /**
+       * Fulfillment Source
+       * @default null
+       */
+      fulfillment_source: string | null;
+      /**
        * Funding Source
        * @default external
        */
@@ -5220,6 +5315,13 @@ export interface components {
        * @default null
        */
       idempotence_key: string | null;
+      /**
+       * Manual Finalize Requires Promo Confirmation
+       * @default false
+       */
+      manual_finalize_requires_promo_confirmation: boolean;
+      /** Manual Finalize Warnings */
+      manual_finalize_warnings?: string[];
       /** Payment Id */
       payment_id: number;
       /**
@@ -5227,6 +5329,26 @@ export interface components {
        * @default null
        */
       promo_code: string | null;
+      /**
+       * Promo Code Id
+       * @default null
+       */
+      promo_code_id: number | null;
+      /**
+       * Promo Conflict Override
+       * @default false
+       */
+      promo_conflict_override: boolean;
+      /**
+       * Promo Discount Percent
+       * @default null
+       */
+      promo_discount_percent: number | null;
+      /**
+       * Promo Usage Restored
+       * @default false
+       */
+      promo_usage_restored: boolean;
       /**
        * Provider
        * @default null
@@ -5238,6 +5360,11 @@ export interface components {
        */
       provider_payment_id: string | null;
       /**
+       * Provider Payment Url
+       * @default null
+       */
+      provider_payment_url: string | null;
+      /**
        * Purchased Gb
        * @default null
        */
@@ -5247,6 +5374,26 @@ export interface components {
        * @default null
        */
       purchased_hwid_devices: number | null;
+      /**
+       * Reversal Block Reason
+       * @default null
+       */
+      reversal_block_reason: string | null;
+      /**
+       * Reversal Note
+       * @default null
+       */
+      reversal_note: string | null;
+      /**
+       * Reversed At
+       * @default null
+       */
+      reversed_at: string | null;
+      /**
+       * Reversed By Admin Id
+       * @default null
+       */
+      reversed_by_admin_id: number | null;
       /**
        * Sale Mode
        * @default null
@@ -5302,6 +5449,11 @@ export interface components {
       /** Amount */
       amount: number;
       /**
+       * Checkout Discount Amount
+       * @default null
+       */
+      checkout_discount_amount: number | null;
+      /**
        * Created At
        * @default null
        */
@@ -5317,12 +5469,27 @@ export interface components {
        */
       description: string | null;
       /**
+       * Fulfillment Source
+       * @default null
+       */
+      fulfillment_source: string | null;
+      /**
        * Funding Source
        * @default external
        */
       funding_source: string;
       /** Payment Id */
       payment_id: number;
+      /**
+       * Promo Code Id
+       * @default null
+       */
+      promo_code_id: number | null;
+      /**
+       * Promo Discount Percent
+       * @default null
+       */
+      promo_discount_percent: number | null;
       /**
        * Provider
        * @default null
@@ -5333,6 +5500,11 @@ export interface components {
        * @default null
        */
       provider_payment_id: string | null;
+      /**
+       * Provider Payment Url
+       * @default null
+       */
+      provider_payment_url: string | null;
       /**
        * Purchased Gb
        * @default null
@@ -8775,6 +8947,66 @@ export interface operations {
       };
     };
   };
+  post_admin_payment_finalize_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        payment_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminPaymentFinalizeBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            payment: components["schemas"]["PaymentDetailOut"];
+          };
+        };
+      };
+    };
+  };
+  post_admin_payment_reverse_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        payment_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminPaymentReverseBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            payment: components["schemas"]["PaymentDetailOut"];
+          };
+        };
+      };
+    };
+  };
   get_admin_promos_list_route: {
     parameters: {
       query?: never;
@@ -8850,6 +9082,32 @@ export interface operations {
             /** @constant */
             ok: true;
             promos: components["schemas"]["PromoOptionOut"][];
+          };
+        };
+      };
+    };
+  };
+  get_admin_promo_detail_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        promo_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            promo: components["schemas"]["PromoOut"];
           };
         };
       };
