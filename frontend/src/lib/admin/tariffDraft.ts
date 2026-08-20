@@ -545,6 +545,8 @@ export function normalizeUuidList(value: unknown): string[] {
 export function tariffFromDraft(draft: TariffDraft, fallbackCurrency = "rub"): UnknownRecord {
   const defaultCurrency = normalizeCurrencyKey(draft.defaultCurrency || fallbackCurrency);
   const key = draft.key.trim();
+  const premiumSquadUuids = normalizeUuidList(draft.premiumSquadUuids);
+  const hasPremiumSquads = premiumSquadUuids.length > 0;
   const names = compactMap({ ru: draft.nameRu.trim(), en: draft.nameEn.trim() });
   const descriptions = compactMap({
     ru: draft.descriptionRu.trim(),
@@ -560,7 +562,7 @@ export function tariffFromDraft(draft: TariffDraft, fallbackCurrency = "rub"): U
     descriptions,
     premium_names: premiumNames,
     squad_uuids: normalizeUuidList(draft.squadUuids),
-    premium_squad_uuids: normalizeUuidList(draft.premiumSquadUuids),
+    premium_squad_uuids: premiumSquadUuids,
     billing_model: draft.billing_model,
     enabled: Boolean(draft.enabled),
     checkout_addons: {
@@ -574,7 +576,7 @@ export function tariffFromDraft(draft: TariffDraft, fallbackCurrency = "rub"): U
         enabled: Boolean(draft.checkout_traffic_enabled),
       },
       premium_traffic: {
-        enabled: Boolean(draft.checkout_premium_traffic_enabled),
+        enabled: hasPremiumSquads && Boolean(draft.checkout_premium_traffic_enabled),
       },
     },
   };
@@ -587,36 +589,40 @@ export function tariffFromDraft(draft: TariffDraft, fallbackCurrency = "rub"): U
     sharedNumberKeys: ["traffic_bonus_gb"],
   });
   if (hwidPackages) tariff.hwid_device_packages = hwidPackages;
+  const tribute: UnknownRecord = {};
   const premiumMonthlyGb = parseNumber(draft.premium_monthly_gb);
-  if (premiumMonthlyGb !== null) tariff.premium_monthly_gb = premiumMonthlyGb;
+  if (hasPremiumSquads && premiumMonthlyGb !== null) {
+    tariff.premium_monthly_gb = premiumMonthlyGb;
+  }
   tariff.premium_unlimited = Boolean(draft.premium_unlimited);
   const premiumTrafficLimitStrategy = String(draft.premium_traffic_limit_strategy || "").trim();
   if (premiumTrafficLimitStrategy) {
     tariff.premium_traffic_limit_strategy = premiumTrafficLimitStrategy;
   }
-  const premiumTopupPackages = packageSetFromRows(draft.premiumTopupRows, "gb", defaultCurrency);
-  if (premiumTopupPackages) tariff.premium_topup_packages = premiumTopupPackages;
-  const premiumFlexibleStepGb = parseNumber(draft.premium_flexible_traffic_step_gb);
-  const premiumFlexibleMaxTotalGb = parseNumber(draft.premium_flexible_traffic_max_total_gb);
-  const premiumFlexiblePricePerStep = parseNumber(draft.premium_flexible_traffic_price_per_step);
-  if (
-    premiumFlexibleStepGb !== null &&
-    premiumFlexibleMaxTotalGb !== null &&
-    premiumFlexiblePricePerStep !== null
-  ) {
-    tariff.premium_flexible_traffic_limit = {
-      step_gb: premiumFlexibleStepGb,
-      max_total_gb: premiumFlexibleMaxTotalGb,
-      price_per_step: premiumFlexiblePricePerStep,
-      stars_price_per_step: parseIntNumber(draft.premium_flexible_traffic_stars_price_per_step),
-    };
+  if (hasPremiumSquads) {
+    const premiumTopupPackages = packageSetFromRows(draft.premiumTopupRows, "gb", defaultCurrency);
+    if (premiumTopupPackages) tariff.premium_topup_packages = premiumTopupPackages;
+    const premiumFlexibleStepGb = parseNumber(draft.premium_flexible_traffic_step_gb);
+    const premiumFlexibleMaxTotalGb = parseNumber(draft.premium_flexible_traffic_max_total_gb);
+    const premiumFlexiblePricePerStep = parseNumber(draft.premium_flexible_traffic_price_per_step);
+    if (
+      premiumFlexibleStepGb !== null &&
+      premiumFlexibleMaxTotalGb !== null &&
+      premiumFlexiblePricePerStep !== null
+    ) {
+      tariff.premium_flexible_traffic_limit = {
+        step_gb: premiumFlexibleStepGb,
+        max_total_gb: premiumFlexibleMaxTotalGb,
+        price_per_step: premiumFlexiblePricePerStep,
+        stars_price_per_step: parseIntNumber(draft.premium_flexible_traffic_stars_price_per_step),
+      };
+    }
+    const premiumTrafficProducts = tributeProductsFromRows(draft.premiumTopupRows, "gb");
+    if (Object.keys(premiumTrafficProducts).length) {
+      tribute.premium_traffic_products = premiumTrafficProducts;
+    }
   }
   tariff.premium_topup_always_available = Boolean(draft.premium_topup_always_available);
-  const tribute: UnknownRecord = {};
-  const premiumTrafficProducts = tributeProductsFromRows(draft.premiumTopupRows, "gb");
-  if (Object.keys(premiumTrafficProducts).length) {
-    tribute.premium_traffic_products = premiumTrafficProducts;
-  }
 
   if (tariff.billing_model === "period") {
     const trafficLimitStrategy = String(draft.traffic_limit_strategy || "").trim();

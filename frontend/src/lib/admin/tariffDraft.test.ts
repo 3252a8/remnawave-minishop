@@ -126,6 +126,7 @@ describe("tariffDraft", () => {
       referral_bonus_days_inviter: { 1: 3 },
       referral_bonus_days_referee: { 1: 1 },
       squad_uuids: ["a", "b"],
+      premium_squad_uuids: ["premium-squad"],
       monthly_gb: 500,
       traffic_limit_strategy: "WEEK",
       premium_traffic_limit_strategy: "MONTH",
@@ -391,6 +392,47 @@ describe("tariffDraft", () => {
       premium_monthly_gb: 0,
       premium_unlimited: true,
     });
+  });
+
+  it("drops premium settings that require a squad when the last squad is removed", () => {
+    const draft = draftFromTariff({
+      key: "premium",
+      billing_model: "period",
+      premium_squad_uuids: ["premium-squad"],
+      premium_monthly_gb: 50,
+      premium_traffic_limit_strategy: "MONTH",
+      premium_topup_packages: { rub: [{ gb: 10, price: 99 }] },
+      premium_flexible_traffic_limit: {
+        step_gb: 10,
+        max_total_gb: 100,
+        price_per_step: 49,
+      },
+      premium_topup_always_available: true,
+      checkout_addons: { premium_traffic: { enabled: true } },
+      tribute: {
+        premium_traffic_products: {
+          10: {
+            product_id: 501,
+            link: "https://tribute.tg/products/501",
+          },
+        },
+      },
+      monthly_gb: 100,
+      enabled_periods: [1],
+      prices_rub: { 1: 100 },
+    });
+
+    draft.premiumSquadUuids = [];
+    const tariff = tariffFromDraft(draft);
+
+    expect(tariff).toMatchObject({
+      premium_squad_uuids: [],
+      checkout_addons: { premium_traffic: { enabled: false } },
+    });
+    expect(tariff).not.toHaveProperty("premium_monthly_gb");
+    expect(tariff).not.toHaveProperty("premium_topup_packages");
+    expect(tariff).not.toHaveProperty("premium_flexible_traffic_limit");
+    expect(tariff).not.toHaveProperty("tribute");
   });
 
   it("normalizes uuid lists from arrays and text", () => {

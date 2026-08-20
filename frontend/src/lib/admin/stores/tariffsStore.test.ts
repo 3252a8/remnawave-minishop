@@ -291,9 +291,10 @@ describe("tariffsStore", () => {
       };
     });
     const { store } = makeStore(api);
-    store.updateState({ tariffsCatalog: catalog([periodTariff()]) });
+    const tariff = periodTariff({ premium_squad_uuids: ["premium-squad"] });
+    store.updateState({ tariffsCatalog: catalog([tariff]) });
 
-    store.openEditTariff(periodTariff());
+    store.openEditTariff(tariff);
     store.addDraftRow("topupRows", {
       gb: "20",
       price: "150",
