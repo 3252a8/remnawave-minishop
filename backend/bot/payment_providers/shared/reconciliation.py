@@ -292,6 +292,12 @@ async def _inspect_provider_payment(service: Any, payment: Payment) -> ProviderL
         payload_payment_id = _payload_payment_id(data.get("payload")) if success else None
         if payload_payment_id and payload_payment_id != str(payment.payment_id):
             return ProviderLifecycle("unknown")
+        received_amount = data.get("amount")
+        received_currency = data.get("currency")
+        payment_details = data.get("paymentDetails")
+        if isinstance(payment_details, dict):
+            received_amount = payment_details.get("amount", received_amount)
+            received_currency = payment_details.get("currency", received_currency)
         status = data.get("status")
         state_provider = "platega"
         payment_verified = bool(
@@ -300,8 +306,10 @@ async def _inspect_provider_payment(service: Any, payment: Payment) -> ProviderL
             and payment_amount_and_currency_match(
                 expected_amount=payment.amount,
                 expected_currency=payment.currency,
-                received_amount=data.get("amount"),
-                received_currency=data.get("currency"),
+                received_amount=received_amount,
+                received_currency=received_currency,
+                places=None,
+                allow_overpayment=True,
             )
         )
     elif provider == "lava":

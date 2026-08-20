@@ -90,6 +90,7 @@ class PlategaTransactionMixin:
         currency: str | None,
         description: str,
         payload: str | None = None,
+        metadata: dict[str, Any] | None = None,
         payment_method: int | None = None,
         interval: int | None = None,
         allow_method_selection: bool = False,
@@ -124,6 +125,7 @@ class PlategaTransactionMixin:
             "return": self.return_url,
             "failedUrl": self.failed_url,
             "payload": payload,
+            "metadata": metadata,
         }
         if not allow_method_selection:
             body["paymentMethod"] = int(

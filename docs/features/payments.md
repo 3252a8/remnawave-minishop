@@ -168,7 +168,8 @@ Platega подключается как отдельный платежный п
 1. Включите `PLATEGA_ENABLED`.
 2. Укажите `PLATEGA_MERCHANT_ID` и `PLATEGA_SECRET`.
 3. Включите нужные кнопки: `PLATEGA_SBP_ENABLED`, `PLATEGA_CARD_ENABLED`, `PLATEGA_CRYPTO_ENABLED`, `PLATEGA_INTERNATIONAL_ENABLED`, `PLATEGA_ALL_METHODS_ENABLED` и/или `PLATEGA_SUBSCRIPTION_ENABLED`.
-4. Скопируйте URL вебхука из админ-панели и укажите его в кабинете Platega. Один и тот же URL принимает и разовые транзакции, и колбэки подписок.
+4. Скопируйте URL вебхука из админ-панели и укажите его в кабинете Platega. Он должен быть публичным HTTPS URL с сертификатом доверенного центра: HTTP, localhost, приватные IP и self-signed сертификаты Platega не принимает. Один и тот же URL принимает и разовые транзакции, и колбэки подписок.
+5. Уточните у менеджера Platega, обязательно ли для категории вашего магазина поле `metadata.userId`. Minishop автоматически передаёт идентификатор плательщика в `metadata` всех разовых Platega-чекаутов.
 
 ### Разовые способы оплаты
 

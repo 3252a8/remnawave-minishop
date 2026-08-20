@@ -52,8 +52,7 @@ def test_confirmed_platega_success_is_finalized_after_monetary_verification(
                     "id": "provider-1",
                     "payload": json.dumps({"payment_db_id": "17"}),
                     "status": "CONFIRMED",
-                    "amount": 199.0,
-                    "currency": "RUB",
+                    "paymentDetails": {"amount": 205.0, "currency": "RUB"},
                 },
             )
         ),

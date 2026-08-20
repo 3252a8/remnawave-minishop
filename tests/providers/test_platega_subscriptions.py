@@ -236,6 +236,7 @@ def test_create_subscription_sends_the_interval_and_method(monkeypatch):
         "currency": "RUB",
         "interval": platega_subscriptions.INTERVAL_YEAR,
     }
+    assert "metadata" not in captured["body"]
 
 
 def test_create_subscription_refuses_an_unrepresentable_period():
@@ -300,6 +301,84 @@ def _run_webhook(service, payload):
             ),
         )
     )
+
+
+def test_webhook_rejects_invalid_auth_headers():
+    service = _service()
+
+    response = asyncio.run(
+        platega_service.PlategaService.webhook_route(
+            service,
+            _FakeJsonRequest(
+                {"id": "tx-1", "status": "CONFIRMED"},
+                headers={"X-MerchantId": "merchant", "X-Secret": "wrong"},
+            ),
+        )
+    )
+
+    assert response.status == 403
+
+
+def test_confirmed_transaction_callback_finalizes_matching_payment(monkeypatch):
+    session = _FakeSession()
+    service = _service(session)
+    payment = _anchor()
+    claim = AsyncMock(return_value=payment)
+    finalize = AsyncMock(return_value=SimpleNamespace())
+    monkeypatch.setattr(
+        platega_service.payment_dal,
+        "get_payment_by_provider_payment_id",
+        AsyncMock(return_value=payment),
+    )
+    monkeypatch.setattr(platega_service.payment_dal, "claim_payment_finalization", claim)
+    monkeypatch.setattr(platega_service, "finalize_successful_payment", finalize)
+
+    response = _run_webhook(
+        service,
+        {
+            "id": "tx-1",
+            "status": "CONFIRMED",
+            "amount": 150.0,
+            "currency": "RUB",
+        },
+    )
+
+    assert response.status == 200
+    claim.assert_awaited_once_with(session, 88, provider_payment_id="tx-1")
+    finalize.assert_awaited_once()
+
+
+def test_chargeback_marks_transaction_canceled(monkeypatch):
+    session = _FakeSession()
+    service = _service(session)
+    payment = _anchor(status="succeeded")
+    update_status = AsyncMock()
+    notify = AsyncMock()
+    monkeypatch.setattr(
+        platega_service.payment_dal,
+        "get_payment_by_provider_payment_id",
+        AsyncMock(return_value=payment),
+    )
+    monkeypatch.setattr(
+        platega_service.payment_dal,
+        "update_provider_payment_and_status",
+        update_status,
+    )
+    monkeypatch.setattr(platega_service, "notify_user_payment_failed", notify)
+
+    response = _run_webhook(
+        service,
+        {
+            "id": "tx-1",
+            "status": "CHARGEBACKED",
+            "amount": 150.0,
+            "currency": "RUB",
+        },
+    )
+
+    assert response.status == 200
+    update_status.assert_awaited_once_with(session, 88, "tx-1", "canceled")
+    notify.assert_awaited_once()
 
 
 def test_subscription_status_callbacks_are_routed_away_from_the_one_off_flow(monkeypatch):

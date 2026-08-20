@@ -108,6 +108,7 @@ def test_hosted_chooser_uses_v2_endpoint_without_payment_method(monkeypatch) -> 
             currency="RUB",
             description="Choose payment method",
             payload=json.dumps({"payment_db_id": 17}),
+            metadata={"userId": "42", "userName": "42"},
             allow_method_selection=True,
         )
     )
@@ -117,6 +118,34 @@ def test_hosted_chooser_uses_v2_endpoint_without_payment_method(monkeypatch) -> 
     assert captured["url"].endswith("/v2/transaction/process")
     assert "paymentMethod" not in captured["body"]
     assert captured["body"]["paymentDetails"] == {"amount": 150.0, "currency": "RUB"}
+    assert captured["body"]["metadata"] == {"userId": "42", "userName": "42"}
+
+
+def test_create_payment_includes_antifraud_payer_metadata(monkeypatch) -> None:
+    service = _service(SBP_ENABLED=True)
+    create_transaction = AsyncMock(
+        return_value=(True, {"transactionId": "tx-1", "redirect": "https://pay.platega.io/t/1"})
+    )
+    monkeypatch.setattr(service, "create_transaction", create_transaction)
+    request = SimpleNamespace(
+        payment=SimpleNamespace(payment_id=17),
+        user_id=42,
+        amount=150.0,
+        currency="RUB",
+        description="Subscription",
+        months=1,
+        sale_mode="subscription",
+        provider_context={"platega_variant": "sbp"},
+    )
+
+    asyncio.run(platega_service._create_payment(service, request))
+
+    create_call = create_transaction.await_args
+    assert create_call is not None
+    assert create_call.kwargs["metadata"] == {
+        "userId": "42",
+        "userName": "42",
+    }
 
 
 def test_variant_routing_keeps_callbacks_and_webapp_reuse_isolated() -> None:
