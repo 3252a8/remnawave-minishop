@@ -3,6 +3,7 @@ from typing import Any
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
 
+from bot.app.web.admin_payment_method_order import payment_method_order_options
 from bot.app.web.admin_settings_manifest import manifest_payload
 from bot.app.web.context import (
     get_session_factory,
@@ -41,6 +42,7 @@ from .schemas import AdminSettingsPatchBody
 
 VALUE_SOURCE_DATABASE_OVERRIDE = "database_override"
 VALUE_SOURCE_ENVIRONMENT = "environment"
+
 
 register_contract(
     "admin_settings_get_route",
@@ -115,6 +117,8 @@ async def admin_settings_get_route(request: web.Request) -> web.Response:
             response_field["read_error"] = read_error
         if is_secret:
             response_field["has_value"] = bool(value)
+        if key == "PAYMENT_METHODS_ORDER":
+            response_field["payment_method_options"] = payment_method_order_options(settings)
         webhook_path = str(response_field.get("webhook_path") or "").strip()
         if webhook_path:
             if not webhook_path.startswith("/"):

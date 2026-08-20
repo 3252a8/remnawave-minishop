@@ -400,6 +400,17 @@ SETTINGS_MANIFEST: list[SettingField] = [
         min=0,
         subsection="checkout",
     ),
+    SettingField(
+        "PAYMENT_METHODS_ORDER",
+        "string",
+        "payments",
+        "Payment button order",
+        (
+            "Drag payment buttons into the order used by the bot and Web App. "
+            "New provider buttons are appended automatically."
+        ),
+        subsection="payment_button_order",
+    ),
     # ─── Payment providers (toggles) ───────────────────────────────
     SettingField(
         "STARS_ENABLED",
@@ -420,14 +431,6 @@ SETTINGS_MANIFEST: list[SettingField] = [
         subsection="Telegram Stars",
         i18n_label_key="admin_settings_provider_admin_only_label",
         i18n_description_key="admin_settings_provider_admin_only_description",
-    ),
-    SettingField(
-        "PAYMENT_METHODS_ORDER",
-        "string",
-        "payments",
-        "Payment Methods Order",
-        "Controls the 'Payment Methods Order' setting in admin overrides.",
-        subsection="common",
     ),
     SettingField(
         "PAYMENT_METHODS_DISPLAY_MODE",

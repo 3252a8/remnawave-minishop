@@ -2261,6 +2261,49 @@
         "title": "AdminPartnerWithdrawalTransitionIn",
         "type": "object"
       },
+      "AdminPaymentMethodOrderOptionOut": {
+        "properties": {
+          "admin_only": {
+            "title": "Admin Only",
+            "type": "boolean"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "known": {
+            "title": "Known",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "provider_id": {
+            "title": "Provider Id",
+            "type": "string"
+          },
+          "provider_label": {
+            "title": "Provider Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "provider_id",
+          "provider_label",
+          "enabled",
+          "admin_only",
+          "known"
+        ],
+        "title": "AdminPaymentMethodOrderOptionOut",
+        "type": "object"
+      },
       "AdminPaymentsListOut": {
         "properties": {
           "page": {
@@ -2474,6 +2517,21 @@
             ],
             "default": null,
             "title": "Overridden"
+          },
+          "payment_method_options": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AdminPaymentMethodOrderOptionOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payment Method Options"
           },
           "placeholder": {
             "anyOf": [

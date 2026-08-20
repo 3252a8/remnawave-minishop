@@ -748,6 +748,225 @@
         "updated_at": null
       },
       {
+        "key": "PAYMENT_METHODS_ORDER",
+        "type": "string",
+        "section": "payments",
+        "section_order": 4,
+        "subsection": "payment_button_order",
+        "label": "Payment button order",
+        "description": "Drag payment buttons into the order used by the bot and Web App. New provider buttons are appended automatically.",
+        "i18n_label_key": "admin_settings_field_payment_methods_order_label",
+        "i18n_description_key": "admin_settings_field_payment_methods_order_description",
+        "i18n_subsection_key": "admin_settings_subsection_payment_button_order",
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": true,
+        "secret": false,
+        "value": "",
+        "overridden": false,
+        "updated_at": null,
+        "payment_method_options": [
+          {
+            "id": "freekassa",
+            "label": "FreeKassa / СБП",
+            "provider_id": "freekassa",
+            "provider_label": "FreeKassa",
+            "enabled": false,
+            "admin_only": false,
+            "known": true
+          },
+          {
+            "id": "platega_sbp",
+            "label": "Оплата картой (СБП)",
+            "provider_id": "platega",
+            "provider_label": "Platega",
+            "enabled": false,
+            "admin_only": false,
+            "known": true
+          },
+          {
+            "id": "platega_card",
+            "label": "Оплата картой",
+            "provider_id": "platega",
+            "provider_label": "Platega",
+            "enabled": false,
+            "admin_only": false,
+            "known": true
+          },
+          {
+            "id": "platega_crypto",
+            "label": "Крипта",
+            "provider_id": "platega",
+            "provider_label": "Platega",
+            "enabled": false,
+            "admin_only": false,
+            "known": true
+          },
+          {
+            "id": "platega_international",
+            "label": "Международные карты",
+            "provider_id": "platega",
+            "provider_label": "Platega",
+            "enabled": false,
+            "admin_only": false,
+            "known": true
+          },
+          {
+            "id": "platega_all_methods",
+            "label": "Все способы оплаты",
+            "provider_id": "platega",
+            "provider_label": "Platega",
+            "enabled": false,
+            "admin_only": false,
+            "known": true
+          },
+          {
+            "id": "platega_subscription",
+            "label": "Подписка (СБП)",
+            "provider_id": "platega",
+            "provider_label": "Platega",
+            "enabled": false,
+            "admin_only": false,
+            "known": true
+          },
+          {
+            "id": "severpay",
+            "label": "SeverPay",
+            "provider_id": "severpay",
+            "provider_label": "SeverPay",
+            "enabled": false,
+            "admin_only": false,
+            "known": true
+          },
+          {
+            "id": "wata",
+            "label": "Wata",
+            "provider_id": "wata",
+            "provider_label": "Wata",
+            "enabled": false,
+            "admin_only": false,
+            "known": true
+          },
+          {
+            "id": "wata_crypto",
+            "label": "Wata Crypto",
+            "provider_id": "wata_crypto",
+            "provider_label": "Wata",
+            "enabled": false,
+            "admin_only": false,
+            "known": true
+          },
+          {
+            "id": "yookassa",
+            "label": "YooKassa",
+            "provider_id": "yookassa",
+            "provider_label": "YooKassa",
+            "enabled": false,
+            "admin_only": false,
+            "known": true
+          },
+          {
+            "id": "stars",
+            "label": "Telegram Stars",
+            "provider_id": "telegram_stars",
+            "provider_label": "Telegram Stars",
+            "enabled": false,
+            "admin_only": false,
+            "known": true
+          },
+          {
+            "id": "cryptopay",
+            "label": "CryptoPay",
+            "provider_id": "cryptopay",
+            "provider_label": "CryptoPay",
+            "enabled": false,
+            "admin_only": false,
+            "known": true
+          },
+          {
+            "id": "heleket",
+            "label": "Heleket",
+            "provider_id": "heleket",
+            "provider_label": "Heleket",
+            "enabled": false,
+            "admin_only": false,
+            "known": true
+          },
+          {
+            "id": "paykilla",
+            "label": "PayKilla",
+            "provider_id": "paykilla",
+            "provider_label": "PayKilla",
+            "enabled": false,
+            "admin_only": false,
+            "known": true
+          },
+          {
+            "id": "lava",
+            "label": "LAVA",
+            "provider_id": "lava",
+            "provider_label": "LAVA",
+            "enabled": false,
+            "admin_only": false,
+            "known": true
+          },
+          {
+            "id": "pally",
+            "label": "Pally",
+            "provider_id": "pally",
+            "provider_label": "Pally",
+            "enabled": false,
+            "admin_only": false,
+            "known": true
+          },
+          {
+            "id": "cloudpayments",
+            "label": "CloudPayments",
+            "provider_id": "cloudpayments",
+            "provider_label": "CloudPayments",
+            "enabled": false,
+            "admin_only": false,
+            "known": true
+          },
+          {
+            "id": "overpay",
+            "label": "Overpay",
+            "provider_id": "overpay",
+            "provider_label": "Overpay",
+            "enabled": false,
+            "admin_only": false,
+            "known": true
+          },
+          {
+            "id": "stripe",
+            "label": "Stripe",
+            "provider_id": "stripe",
+            "provider_label": "Stripe",
+            "enabled": false,
+            "admin_only": false,
+            "known": true
+          },
+          {
+            "id": "tribute",
+            "label": "Tribute",
+            "provider_id": "tribute",
+            "provider_label": "Tribute",
+            "enabled": false,
+            "admin_only": false,
+            "known": true
+          },
+          {
+            "id": "qa",
+            "label": "QA Payment",
+            "provider_id": "qa",
+            "provider_label": "QA Payment",
+            "enabled": false,
+            "admin_only": false,
+            "known": true
+          }
+        ]
+      },
+      {
         "key": "STARS_ENABLED",
         "type": "bool",
         "section": "payments",
@@ -783,25 +1002,6 @@
         "optional": true,
         "secret": false,
         "mutually_exclusive_key": "STARS_ENABLED",
-        "value": "",
-        "overridden": false,
-        "updated_at": null
-      },
-      {
-        "key": "PAYMENT_METHODS_ORDER",
-        "type": "string",
-        "section": "payments",
-        "section_order": 4,
-        "subsection": "common",
-        "label": "Payment Methods Order",
-        "description": "Controls the 'Payment Methods Order' setting in admin overrides.",
-        "i18n_label_key": "admin_settings_field_payment_methods_order_label",
-        "i18n_description_key": "admin_settings_field_payment_methods_order_description",
-        "i18n_subsection_key": "admin_settings_subsection_common",
-        "i18n_placeholder_key": null,
-        "placeholder": "",
-        "optional": true,
-        "secret": false,
         "value": "",
         "overridden": false,
         "updated_at": null

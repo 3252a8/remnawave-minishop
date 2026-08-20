@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from pydantic import ValidationError
 
+from bot.app.web.admin_payment_method_order import payment_method_order_options
 from bot.services import settings_override_service
 from config.settings import Settings
 from config.telegram_proxy import redact_telegram_proxy_credentials
@@ -314,6 +315,25 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(payment_settings.traffic_packages, {10.0: 199.0, 50.0: 799.0})
         self.assertEqual(payment_settings.stars_traffic_packages, {10.0: 1000})
         self.assertTrue(payment_settings.traffic_sale_mode)
+
+    def test_payment_method_order_options_keep_legacy_and_multi_button_providers(self):
+        settings = self._settings(
+            PAYMENT_METHODS_ORDER="custom_gateway,platega,stars",
+            STARS_ENABLED=True,
+        )
+
+        options = payment_method_order_options(settings)
+        options_by_id = {option["id"]: option for option in options}
+        option_ids = [option["id"] for option in options]
+
+        self.assertEqual(option_ids[0], "custom_gateway")
+        self.assertFalse(options_by_id["custom_gateway"]["known"])
+        self.assertTrue(options_by_id["stars"]["enabled"])
+        self.assertGreater(
+            len([option for option in options if option["provider_id"] == "platega"]),
+            1,
+        )
+        self.assertEqual(len(option_ids), len(set(option_ids)))
 
     def test_referral_settings_view_reflects_referral_fields(self):
         settings = Settings(

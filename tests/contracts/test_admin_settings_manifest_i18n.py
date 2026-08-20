@@ -660,12 +660,19 @@ def test_payment_provider_admin_only_toggles_are_mutually_exclusive():
 
 def test_legacy_tariff_settings_are_separated_from_payment_settings():
     manifest = _manifest_by_key()
+    payment_fields = [item for item in _manifest_items() if item["section"] == "payments"]
     payment_method_fields = [
-        item for item in _manifest_items() if item["key"] == "PAYMENT_METHODS_ORDER"
+        item for item in payment_fields if item["key"] == "PAYMENT_METHODS_ORDER"
     ]
+    payment_subsections = list(dict.fromkeys(item["subsection"] for item in payment_fields))
 
     assert len(payment_method_fields) == 1
     assert payment_method_fields[0]["section"] == "payments"
+    assert payment_method_fields[0]["subsection"] == "payment_button_order"
+    assert payment_subsections.index("payment_button_order") < payment_subsections.index(
+        "Telegram Stars"
+    )
+    assert payment_subsections.index("Telegram Stars") < payment_subsections.index("FreeKassa")
     assert manifest["MONTH_1_ENABLED"]["section"] == "pricing"
     assert manifest["MONTH_1_ENABLED"]["section_order"] == 11
     assert manifest["TRIAL_ENABLED"]["section"] == "pricing"

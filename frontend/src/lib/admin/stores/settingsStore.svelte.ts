@@ -38,6 +38,15 @@ export type SettingWebhookHint = {
   hintI18nKey?: string;
   hintFallback?: string;
 };
+export type PaymentMethodOrderOption = {
+  id: string;
+  label: string;
+  provider_id: string;
+  provider_label: string;
+  enabled: boolean;
+  admin_only: boolean;
+  known: boolean;
+};
 export type SettingField = {
   key: string;
   label: string;
@@ -52,6 +61,7 @@ export type SettingField = {
   min?: number | null;
   max?: number | null;
   choices?: SettingChoice[];
+  payment_method_options?: PaymentMethodOrderOption[];
   i18n_label_key?: string;
   i18n_description_key?: string;
   i18n_placeholder_key?: string;

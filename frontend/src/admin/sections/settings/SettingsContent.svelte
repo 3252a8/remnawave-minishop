@@ -18,6 +18,7 @@
     AdminSelect,
   } from "$components/patterns/admin/index.js";
   import SettingsDisclosureTrigger from "./SettingsDisclosureTrigger.svelte";
+  import PaymentMethodsOrderField from "./PaymentMethodsOrderField.svelte";
   import ProgramSettingsSections from "./marketing/ProgramSettingsSections.svelte";
   import {
     groupSectionFields,
@@ -401,6 +402,13 @@
             {at("clear", {}, "Clear")}
           </AdminButton>
         {/if}
+      {:else if field.key === "PAYMENT_METHODS_ORDER" && field.payment_method_options?.length}
+        <PaymentMethodsOrderField
+          {at}
+          value={fieldTextValue(field)}
+          options={field.payment_method_options}
+          onValueChange={(value) => markFieldDirty(field.key, value)}
+        />
       {:else if field.choices && field.choices.length > 0}
         <AdminSelect
           class="admin-setting-select"

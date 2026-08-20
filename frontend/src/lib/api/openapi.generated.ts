@@ -3364,6 +3364,23 @@ export interface components {
       /** Status Version */
       status_version: number;
     };
+    /** AdminPaymentMethodOrderOptionOut */
+    AdminPaymentMethodOrderOptionOut: {
+      /** Admin Only */
+      admin_only: boolean;
+      /** Enabled */
+      enabled: boolean;
+      /** Id */
+      id: string;
+      /** Known */
+      known: boolean;
+      /** Label */
+      label: string;
+      /** Provider Id */
+      provider_id: string;
+      /** Provider Label */
+      provider_label: string;
+    };
     /** AdminPaymentsListOut */
     AdminPaymentsListOut: {
       /** Page */
@@ -3455,6 +3472,11 @@ export interface components {
        * @default null
        */
       overridden: boolean | null;
+      /**
+       * Payment Method Options
+       * @default null
+       */
+      payment_method_options: components["schemas"]["AdminPaymentMethodOrderOptionOut"][] | null;
       /**
        * Placeholder
        * @default null

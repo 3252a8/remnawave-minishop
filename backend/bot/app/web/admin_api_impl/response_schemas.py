@@ -226,6 +226,16 @@ class AdminSettingChoiceOut(HttpResponseModel):
     i18n_label_key: str | None = None
 
 
+class AdminPaymentMethodOrderOptionOut(HttpResponseModel):
+    id: str
+    label: str
+    provider_id: str
+    provider_label: str
+    enabled: bool
+    admin_only: bool
+    known: bool
+
+
 class AdminSettingsFieldOut(HttpResponseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -246,6 +256,7 @@ class AdminSettingsFieldOut(HttpResponseModel):
     min: float | None = None
     max: float | None = None
     choices: list[AdminSettingChoiceOut] | None = None
+    payment_method_options: list[AdminPaymentMethodOrderOptionOut] | None = None
     mutually_exclusive_key: str | None = None
     default: Any = None
     webhook_path: str | None = None
