@@ -389,21 +389,22 @@ export function webappFallbackResponse(
     const discountPercent = promoCode ? 20 : 0;
     const effective = Math.round(quote.subtotal * (1 - discountPercent / 100) * 100) / 100;
     if (path.endsWith("quote-promo")) {
+      if (!promoCode) {
+        return { ok: true, valid: false };
+      }
       return {
         ok: true,
         valid: true,
         payable: true,
-        code: promoCode || "SAVE20",
+        code: promoCode,
         promo_code_id: 2026,
         currency: quote.stars ? "XTR" : "RUB",
-        discount_percent: discountPercent || 20,
+        discount_percent: discountPercent,
         base_amount: quote.subtotal,
-        effective_amount: promoCode ? effective : quote.subtotal * 0.8,
+        effective_amount: effective,
         base_stars: quote.stars ? quote.subtotal : null,
-        effective_stars: quote.stars
-          ? Math.round(promoCode ? effective : quote.subtotal * 0.8)
-          : null,
-        discount_amount: quote.subtotal - (promoCode ? effective : quote.subtotal * 0.8),
+        effective_stars: quote.stars ? Math.round(effective) : null,
+        discount_amount: quote.subtotal - effective,
         effect_summary: "−20% на всю корзину",
         applies_to: "all",
         min_subscription_months: null,

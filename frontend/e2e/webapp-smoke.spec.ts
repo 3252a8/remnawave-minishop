@@ -1595,7 +1595,12 @@ test("checkout sliders keep price animations bounded and defer quotes while drag
   let quoteRequests = 0;
   page.on("request", (request) => {
     const path = new URL(request.url()).pathname;
-    if (path.endsWith("/api/subscription/quote")) quoteRequests += 1;
+    if (
+      path.endsWith("/api/subscription/quote") ||
+      path.endsWith("/api/subscription/quote-promo")
+    ) {
+      quoteRequests += 1;
+    }
   });
 
   await page.goto("/demo/runtime/home?mock=checkout-addons");
@@ -1624,10 +1629,9 @@ test("checkout sliders keep price animations bounded and defer quotes while drag
   await promoInput.pressSequentially("SAVE20");
   await expect(promoInput).toHaveValue("SAVE20");
   await expect(promoApplyButton).toBeEnabled();
-  await promoInput.press("ControlOrMeta+A");
-  await promoInput.press("Backspace");
-  await expect(promoInput).toHaveValue("");
-  await expect(promoApplyButton).toBeDisabled();
+  await promoApplyButton.click();
+  await expect(promoInput).toHaveAttribute("readonly", "");
+  await expect(dialog.locator(".checkout-promo-discount-marker")).toBeVisible();
 
   const dialogInsets = await dialog.evaluate((element) => {
     const dialogRect = element.getBoundingClientRect();
@@ -1703,7 +1707,37 @@ test("checkout sliders keep price animations bounded and defer quotes while drag
   await page.mouse.up();
   await page.waitForTimeout(250);
   expect(quoteRequests).toBeLessThanOrEqual(quoteRequestsBeforeDrag + 1);
+  await expect(promoInput).toHaveValue("SAVE20");
+  await expect(promoInput).toHaveAttribute("readonly", "");
+  await expect(dialog.locator(".checkout-promo-discount-marker")).toBeVisible();
   await closeDialog(dialog);
+});
+
+test("checkout promo code is editable and applies its quoted discount", async ({ page }) => {
+  await page.setViewportSize(DESKTOP_VIEWPORT);
+  await page.goto("/demo/runtime/home?mock=checkout-no-addons");
+  await expect(page.locator("nav.bottom-nav")).toBeVisible();
+  expect(await clickFirstVisibleEnabled(webappAction(page, "open-payment"))).toBe(true);
+
+  const dialog = page.locator(".dialog-card.webapp-payment-dialog");
+  await expect(dialog).toBeVisible();
+  const tariffRows = dialog.locator(".tariff-row");
+  if ((await tariffRows.count()) > 0) {
+    await tariffRows.first().click();
+    const nextButton = dialog.locator(".payment-submit-button").first();
+    if (!(await nextButton.isDisabled())) await nextButton.click();
+  }
+
+  const promoInput = dialog.locator(".checkout-promo-input");
+  const promoApplyButton = dialog.locator(".checkout-promo-action .btn");
+  await expect(promoInput).toBeEditable();
+  await promoInput.fill("save20");
+  await expect(promoApplyButton).toBeEnabled();
+  await promoApplyButton.click();
+
+  await expect(promoInput).toHaveValue("SAVE20");
+  await expect(promoInput).toHaveAttribute("readonly", "");
+  await expect(dialog.locator(".checkout-promo-discount-marker")).toBeVisible();
 });
 
 test("webapp and admin sections, dialogs, tabs stay interactive without console errors", async ({

@@ -478,9 +478,8 @@
     }
     if (!supported("traffic", checkoutRegularLimitGb)) {
       const defaultRegularLimitGb = Number(definitions.traffic?.base_units || 0) || null;
-      if (checkoutRegularLimitGb !== defaultRegularLimitGb) {
+      if (checkoutRegularLimitGb !== defaultRegularLimitGb)
         checkoutRegularLimitGb = defaultRegularLimitGb;
-      }
     }
     if (!supported("premium_traffic", checkoutPremiumLimitGb)) {
       const defaultPremiumLimitGb = Number(definitions.premium_traffic?.base_units || 0) || null;

@@ -285,7 +285,12 @@ export function applyPreviewMock(kind: unknown): void {
     return;
   }
 
-  if (mode === "checkout-addons" || mode === "checkout_addons" || mode === "subscription-extras") {
+  if (
+    mode === "checkout-addons" ||
+    mode === "checkout_addons" ||
+    mode === "subscription-extras" ||
+    mode === "checkout-no-addons"
+  ) {
     DEV_MOCK.data.settings = {
       ...DEV_MOCK.data.settings,
       traffic_mode: false,
@@ -305,12 +310,16 @@ export function applyPreviewMock(kind: unknown): void {
       premium_baseline_bytes: 53687091200,
       max_devices: 5,
     };
-    DEV_MOCK.data.plans = [
+    const plans = [
       previewPeriodPlan(1, 290, 145, "1 месяц"),
       previewPeriodPlan(3, 790, 395, "3 месяца"),
       previewPeriodPlan(6, 1490, 745, "6 месяцев"),
       previewPeriodPlan(12, 2690, 1345, "1 год"),
     ];
+    DEV_MOCK.data.plans =
+      mode === "checkout-no-addons"
+        ? plans.map(({ checkout_addons: _checkoutAddons, ...plan }) => plan)
+        : plans;
     DEV_MOCK.data.payment_methods = [
       {
         id: "cloudpayments",
