@@ -242,7 +242,7 @@
                 >{at("user_tab_subscription", {}, "Subscription")}</Tabs.Trigger
               >
               <Tabs.Trigger value="activity" class="admin-tabs-trigger"
-                >{at("user_tab_activity", {}, "Activity")}</Tabs.Trigger
+                >{at("user_tab_activity", {}, "Payments")}</Tabs.Trigger
               >
               <Tabs.Trigger value="logs" class="admin-tabs-trigger"
                 >{at("user_tab_logs", {}, "Logs")}</Tabs.Trigger

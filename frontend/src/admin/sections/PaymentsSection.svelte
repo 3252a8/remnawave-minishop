@@ -13,9 +13,11 @@
   } from "$components/patterns/admin/index.js";
   import { FileText, User } from "$components/ui/icons.js";
   import { TableHandler } from "@vincjo/datatables";
+  import { formatPaymentTrafficGb, paymentDescriptionDisplay } from "$lib/admin/paymentTable.js";
   import type { PaymentOut } from "../../lib/admin/stores/paymentsStore";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
   import type { AdminSortColumn } from "$lib/admin/tableSort.js";
+  import PaymentProviderCell from "./PaymentProviderCell.svelte";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
@@ -47,50 +49,6 @@
   const paymentsPageCount = $derived(
     Math.max(1, Math.ceil(Number(paymentsTotal || 0) / PAYMENTS_PAGE_SIZE))
   );
-
-  function formatTrafficGbCell(v: number | string | null | undefined): string {
-    if (v == null || v === "") return "—";
-    const n = Number(v);
-    if (Number.isNaN(n)) return "—";
-    let s;
-    if (Math.abs(n - Math.round(n)) < 1e-9) {
-      s = String(Math.round(n));
-    } else {
-      s = String(Math.round(n * 100) / 100);
-    }
-    return `${s} GB`;
-  }
-
-  function formatGbAmountPlain(v: number | string | null | undefined): string {
-    if (v == null || v === "") return "";
-    const n = Number(v);
-    if (Number.isNaN(n)) return "";
-    if (Math.abs(n - Math.round(n)) < 1e-9) return String(Math.round(n));
-    return String(Math.round(n * 100) / 100);
-  }
-
-  function paymentDescriptionDisplay(p: PaymentOut): string {
-    const r = p.traffic_regular_gb;
-    const pr = p.traffic_premium_gb;
-    if (r != null && pr == null) {
-      const gb = formatGbAmountPlain(r);
-      return at(
-        "payments_desc_traffic_package_regular",
-        { gb },
-        `Traffic package ${gb} GB (standard)`
-      );
-    }
-    if (pr != null && r == null) {
-      const gb = formatGbAmountPlain(pr);
-      return at(
-        "payments_desc_traffic_package_premium",
-        { gb },
-        `Traffic package ${gb} GB (premium)`
-      );
-    }
-    const raw = p.description && String(p.description).trim();
-    return raw || "—";
-  }
 
   const paymentHeaders = $derived([
     at("id", {}, "ID"),
@@ -253,18 +211,20 @@
               class="admin-cell-traffic-gb"
               data-label={at("payments_col_traffic_regular", {}, "Main traffic")}
             >
-              {formatTrafficGbCell(p.traffic_regular_gb)}
+              {formatPaymentTrafficGb(p.traffic_regular_gb)}
             </td>
             <td
               class="admin-cell-traffic-gb"
               data-label={at("payments_col_traffic_premium", {}, "Premium traffic")}
             >
-              {formatTrafficGbCell(p.traffic_premium_gb)}
+              {formatPaymentTrafficGb(p.traffic_premium_gb)}
             </td>
             <td data-label={at("amount", {}, "Amount")}>{fmtMoney(p.amount, p.currency)}</td>
-            <td data-label={at("provider", {}, "Provider")}>{p.provider}</td>
+            <td data-label={at("provider", {}, "Provider")}>
+              <PaymentProviderCell provider={p.provider} />
+            </td>
             <td class="admin-cell-wrap" data-label={at("description", {}, "Description")}
-              >{paymentDescriptionDisplay(p)}</td
+              >{paymentDescriptionDisplay(p, at)}</td
             >
             <td data-label={at("status", {}, "Status")}>
               <AdminBadge variant={paymentStatusVariant(p.status)}>{p.status}</AdminBadge>
