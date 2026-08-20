@@ -24,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        remnawave: ["3.2.3", "3.2.1", "3.2.0", "3.1.0", "3.0.0", "2.8.1"]
+        remnawave: ["3.3.2", "3.3.0", "3.2.3", "3.2.1", "3.2.0", "3.1.0", "3.0.0", "2.8.1"]
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -90,7 +90,7 @@ jobs:
         run: npm run dev:stand:down
 
   remnawave-upgrade-qa:
-    name: Remnawave same-DB upgrade (2.8.1 to 3.2.3)
+    name: Remnawave same-DB upgrade (2.8.1 to 3.3.2)
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 55
@@ -128,7 +128,7 @@ jobs:
 
       - name: Upgrade Panel on the existing database volume
         run: |
-          node scripts/prepare_remnawave_upgrade_target.mjs 2.8.1 3.2.3
+          node scripts/prepare_remnawave_upgrade_target.mjs 2.8.1 3.3.2
           docker compose --env-file .env.remnawave-dev \
             -f docker-compose-dev.yml \
             -f docker-compose.remnawave-dev.yml \
@@ -149,7 +149,7 @@ jobs:
           QA_REMNAWAVE_UPGRADE: "1"
           QA_REMNAWAVE_UPGRADE_FROM: "2.8.1"
           QA_REMNAWAVE_API_URL: http://127.0.0.1:3000/api
-          QA_REMNAWAVE_PRESET: "3.2.3"
+          QA_REMNAWAVE_PRESET: "3.3.2"
           QA_DB_DSN: postgresql://remnawave_minishop:remnawave_minishop@127.0.0.1:6768/remnawave_minishop
         run: |
           python -m pytest -q tests/qa/test_remnawave_panel_contract.py

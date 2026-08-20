@@ -26,7 +26,7 @@ uses identifier/endpoint observations instead of caching a false version result.
 
 | Status | API generation | Exact versions | Preset | Capabilities | Coverage | Upstream |
 | --- | --- | --- | --- | --- | --- | --- |
-| current | rw3-numeric-user-id | 3.2.3, 3.2.1, 3.2.0, 3.1.0, 3.0.0 | 3.2.3 | numeric-user-ids, user-stream, user-stream-filters, targeted-squad-bulk, connections-drop, hwid-user-id-selector, empty-success-body, multi-node-usage, multi-node-top-users, bulk-squad-update | fixture, live-read, live-write, upgrade | [release notes](https://github.com/remnawave/backend/releases/tag/3.2.3) |
+| current | rw3-numeric-user-id | 3.3.2, 3.3.0, 3.2.3, 3.2.1, 3.2.0, 3.1.0, 3.0.0 | 3.3.2 | numeric-user-ids, user-stream, user-stream-filters, targeted-squad-bulk, connections-drop, hwid-user-id-selector, empty-success-body, multi-node-usage, multi-node-top-users, bulk-squad-update | fixture, live-read, live-write, upgrade | [release notes](https://github.com/remnawave/backend/releases/tag/3.3.2) |
 | maintenance | rw2-uuid-user-id | 2.8.1 | 2.8.1 | multi-node-top-users, bulk-squad-update | fixture, live-read, live-write, upgrade | [release notes](https://f.docs.rw/t/topic/178) |
 
 Historical presets remain useful for manual investigations but are not supported or
@@ -47,7 +47,7 @@ run in the certification matrix:
 | `users.list` | GET | `/users` | rw2-uuid-user-id | 200 | JSON envelope with response | Legacy offset pagination used when the stream is absent or UUID-based. | unit, live-read |
 | `users.get` | GET | `/users/{userRef}` | rw2-uuid-user-id, rw3-numeric-user-id | 200 | JSON envelope with response | {userRef} is a UUID in 2.8.1 and a numeric id in 3.x. | unit, live-read, upgrade |
 | `users.lookup.telegram` | GET | `/users/by-telegram-id/{telegramId}` | rw2-uuid-user-id | 200 | JSON envelope with response | 3.x uses /users/stream?telegramId=... instead. | unit, live-read |
-| `users.lookup.username` | GET | `/users/by-username/{username}` | rw2-uuid-user-id, rw3-numeric-user-id | 200 | JSON envelope with response | The username lookup route remains stable through 3.2.3; 3.1+ reports an absent user as 404/A063. | unit, live-read |
+| `users.lookup.username` | GET | `/users/by-username/{username}` | rw2-uuid-user-id, rw3-numeric-user-id | 200 | JSON envelope with response | The username lookup route remains stable through 3.3.2; 3.1+ reports an absent user as 404/A063. | unit, live-read |
 | `users.lookup.email` | GET | `/users/by-email/{email}` | rw2-uuid-user-id | 200 | JSON envelope with response | 3.x uses /users/stream?email=... instead. | unit, live-read |
 | `users.create` | POST | `/users` | rw2-uuid-user-id, rw3-numeric-user-id | 200, 201 | JSON envelope with response | Core never sends a caller-provided user UUID; 3.x returns numeric id. | unit, live-write |
 | `users.update` | PATCH | `/users` | rw2-uuid-user-id, rw3-numeric-user-id | 200, 202, 204 | JSON envelope with response; an empty 2xx body is success | Selector field is uuid in 2.8.1 and integer id in 3.x. | unit, live-write |
@@ -98,7 +98,7 @@ run in the certification matrix:
 
 | From | To | Strategy | Verification |
 | --- | --- | --- | --- |
-| 2.8.1 | 3.2.3 | same-panel-database | `tests/qa/test_remnawave_upgrade.py` |
+| 2.8.1 | 3.3.2 | same-panel-database | `tests/qa/test_remnawave_upgrade.py` |
 
 ## Compatibility rules and corner cases
 
@@ -149,4 +149,4 @@ run in the certification matrix:
    it only in a
    breaking Core release, and move its presets to historical status.
 
-Manifest review date: `2026-08-11`.
+Manifest review date: `2026-08-20`.

@@ -31,6 +31,8 @@
     "dev:stand:use:3.2.0": "node scripts/use_dev_stand_preset.mjs 3.2.0",
     "dev:stand:use:3.2.1": "node scripts/use_dev_stand_preset.mjs 3.2.1",
     "dev:stand:use:3.2.3": "node scripts/use_dev_stand_preset.mjs 3.2.3",
+    "dev:stand:use:3.3.0": "node scripts/use_dev_stand_preset.mjs 3.3.0",
+    "dev:stand:use:3.3.2": "node scripts/use_dev_stand_preset.mjs 3.3.2",
     "dev:stand:config": "docker compose --env-file .env.remnawave-dev -f docker-compose-dev.yml -f docker-compose.remnawave-dev.yml --profile seed config --quiet",
     "dev:stand:up": "docker compose --env-file .env.remnawave-dev -f docker-compose-dev.yml -f docker-compose.remnawave-dev.yml --profile seed up -d --build postgres redis remnawave-db remnawave-redis remnawave remnawave-dev-seed remnawave-subscription-page migrate dev-seed backend frontend",
     "dev:stand:down": "docker compose --env-file .env.remnawave-dev -f docker-compose-dev.yml -f docker-compose.remnawave-dev.yml --profile seed down",
