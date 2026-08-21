@@ -15,7 +15,7 @@
   import type { AdminPayment } from "../../lib/admin/stores/paymentsStore";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
   import { paymentDiscountDisplay } from "$lib/admin/paymentTable.js";
-  import { partnerAttributionForPayment } from "$lib/admin/previewMock/partnerProgram.js";
+  import { demoPartnerAttributionForPayment } from "$lib/webapp/mockApi/partnerProgram.js";
   import { partnerStatusVariant } from "$lib/admin/partnerProgramUi.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -356,9 +356,9 @@
     { label: "Telegram ID", value: payment?.telegram_id, copy: payment?.telegram_id },
   ] satisfies MetaRow[]);
 
-  // Partner attribution for this payment. Prototype data: the commission is
-  // looked up in the preview mock, keyed by the real payment id.
-  const partnerAttribution = $derived(partnerAttributionForPayment(payment?.payment_id));
+  // Demo partner attribution is derived from the same payment rows as the
+  // payments table, so the linked user, payment, and commission stay aligned.
+  const partnerAttribution = $derived(demoPartnerAttributionForPayment(payment?.payment_id));
 </script>
 
 <Dialog

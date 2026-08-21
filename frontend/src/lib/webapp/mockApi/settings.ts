@@ -35,6 +35,13 @@ function demoRuntimeSettingValue(key: string): unknown {
       false,
     REFERRAL_WEBAPP_LINK_ENABLED: DEV_MOCK.config.referralWebappLinkEnabled ?? true,
     REFERRAL_TELEGRAM_LINK_ENABLED: DEV_MOCK.config.referralTelegramLinkEnabled ?? true,
+    PARTNER_PROGRAM_ENABLED:
+      DEV_MOCK.config.partnerProgramEnabled ??
+      DEV_MOCK.data.settings?.partner_program_enabled ??
+      false,
+    PARTNER_REFERRAL_PROGRAM_DISABLED: DEV_MOCK.config.partnerReferralProgramDisabled ?? false,
+    PARTNER_WITHDRAWALS_ENABLED: DEV_MOCK.config.partnerWithdrawalsEnabled ?? true,
+    PARTNER_BALANCE_PAYMENT_ENABLED: DEV_MOCK.config.partnerBalancePaymentEnabled ?? true,
     LEGACY_REFS: DEV_MOCK.config.legacyRefs ?? true,
     DISPOSABLE_EMAIL_DOMAINS: DEV_MOCK.config.disposableEmailDomains || "",
     PAYMENT_METHODS_DISPLAY_MODE:
@@ -145,6 +152,20 @@ function applyDemoSettingToMock(key: string, value: unknown): void {
     const enabled = Boolean(value);
     DEV_MOCK.config.referralTelegramLinkEnabled = enabled;
     DEV_MOCK.data.referral.bot_link = enabled ? DEMO_REFERRAL_TELEGRAM_LINK : null;
+  }
+  if (key === "PARTNER_PROGRAM_ENABLED") {
+    DEV_MOCK.config.partnerProgramEnabled = Boolean(value);
+    DEV_MOCK.data.settings.partner_program_enabled = Boolean(value);
+  }
+  if (key === "PARTNER_REFERRAL_PROGRAM_DISABLED") {
+    DEV_MOCK.config.partnerReferralProgramDisabled = Boolean(value);
+    DEV_MOCK.data.settings.partner_referral_program_disabled = Boolean(value);
+  }
+  if (key === "PARTNER_WITHDRAWALS_ENABLED") {
+    DEV_MOCK.config.partnerWithdrawalsEnabled = Boolean(value);
+  }
+  if (key === "PARTNER_BALANCE_PAYMENT_ENABLED") {
+    DEV_MOCK.config.partnerBalancePaymentEnabled = Boolean(value);
   }
   if (key === "LEGACY_REFS") DEV_MOCK.config.legacyRefs = Boolean(value);
   if (key === "DISPOSABLE_EMAIL_DOMAINS") {
