@@ -1,6 +1,7 @@
 import { publicInstallTokenFromPath } from "./routes.js";
 import { shellState } from "./shellState.svelte";
 import { refreshTelegramNotificationsAfterResume } from "./telegramNotificationsResume.js";
+import { applyPreferredTelegramViewportMode } from "./telegramViewport.js";
 import { runWebappBoot } from "./webappBoot.js";
 
 type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -75,6 +76,7 @@ export function createAppBootRuntime(deps: AppBootRuntimeDeps) {
         try {
           telegram.ready?.();
           telegram.expand?.();
+          applyPreferredTelegramViewportMode(telegram);
         } catch (_error) {
           void _error;
         }

@@ -10,10 +10,13 @@ export type TelegramWebApp = Record<string, unknown> & {
   openTelegramLink?: (url: string) => void;
   platform?: string;
   isFullscreen?: boolean;
+  isVersionAtLeast?: (version: string) => boolean;
   onEvent?: (eventType: "fullscreenChanged", eventHandler: () => void) => void;
   offEvent?: (eventType: "fullscreenChanged", eventHandler: () => void) => void;
   ready?: () => void;
   expand?: () => void;
+  requestFullscreen?: () => void;
+  exitFullscreen?: () => void;
 };
 
 export type TelegramMiniAppAuthTimeout = {
