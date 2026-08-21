@@ -58,6 +58,10 @@ class StartReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
 
         with (
             patch(
+                "bot.handlers.user.start.user_dal.get_user_by_telegram_id",
+                AsyncMock(return_value=None),
+            ),
+            patch(
                 "bot.handlers.user.start.user_dal.get_user_by_id",
                 AsyncMock(return_value=None),
             ),
@@ -92,6 +96,10 @@ class StartReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
         ref_match.group.return_value = "ABC123"
 
         with (
+            patch(
+                "bot.handlers.user.start.user_dal.get_user_by_telegram_id",
+                AsyncMock(return_value=None),
+            ),
             patch(
                 "bot.handlers.user.start.user_dal.get_user_by_id",
                 AsyncMock(return_value=None),
@@ -133,6 +141,10 @@ class StartReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
 
         with (
             patch(
+                "bot.handlers.user.start.user_dal.get_user_by_telegram_id",
+                AsyncMock(return_value=None),
+            ),
+            patch(
                 "bot.handlers.user.start.user_dal.get_user_by_id",
                 AsyncMock(side_effect=[None, SimpleNamespace(user_id=42)]),
             ),
@@ -155,6 +167,49 @@ class StartReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
                 referral_service=AsyncMock(),
                 session=session,
                 ref_match=ref_match,
+            )
+
+        create_user.assert_not_awaited()
+        ensure_channel.assert_not_awaited()
+        message.answer.assert_awaited_once_with("registration_invite_required")
+
+    async def test_start_invite_only_ticket_link_does_not_open_webapp(self):
+        settings = self._settings(
+            REGISTRATION_INVITE_ONLY_ENABLED=True,
+            SUBSCRIPTION_MINI_APP_URL="https://app.example.com",
+        )
+        i18n = SimpleNamespace(gettext=lambda lang, key, **kw: key)
+        session = AsyncMock()
+        state = SimpleNamespace(clear=AsyncMock())
+        message = self._message()
+        create_user = AsyncMock()
+        ticket_match = Mock()
+        ticket_match.group.return_value = "17"
+
+        with (
+            patch(
+                "bot.handlers.user.start.user_dal.get_user_by_telegram_id",
+                AsyncMock(return_value=None),
+            ),
+            patch(
+                "bot.handlers.user.start.user_dal.get_user_by_id",
+                AsyncMock(return_value=None),
+            ),
+            patch("bot.handlers.user.start.user_dal.create_user", create_user),
+            patch(
+                "bot.handlers.user.start_flow.ensure_required_channel_subscription",
+                AsyncMock(return_value=True),
+            ) as ensure_channel,
+        ):
+            await start_command_handler(
+                message=message,
+                state=state,
+                settings=settings,
+                i18n_data={"current_language": "en", "i18n_instance": i18n},
+                subscription_service=SimpleNamespace(),
+                referral_service=AsyncMock(),
+                session=session,
+                ticket_match=ticket_match,
             )
 
         create_user.assert_not_awaited()
@@ -204,6 +259,10 @@ class StartReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
             patch(
                 "bot.services.registration_invite_gate.user_dal.get_user_by_referral_code",
                 AsyncMock(return_value=referrer),
+            ),
+            patch(
+                "bot.handlers.user.start.user_dal.get_user_by_telegram_id",
+                AsyncMock(return_value=None),
             ),
             patch(
                 "bot.handlers.user.start.user_dal.get_user_by_id",
