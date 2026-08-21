@@ -784,6 +784,8 @@ async def process_successful_payment(
             "install_share_url": install_share_url,
             "include_keyboard": include_keyboard,
             "log_prefix": "YooKassa webhook",
+            "user": db_user,
+            "sale_mode": sale_mode,
         }
 
         return payment_succeeded_payload

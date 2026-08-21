@@ -22,6 +22,11 @@ from bot.services.support_message_body import (
     support_body_telegram_html,
 )
 from bot.services.support_message_buttons import decode_support_buttons
+from bot.services.user_notification_policy import (
+    UserNotificationCategory,
+    telegram_recipient,
+    user_notification_delivery_plan,
+)
 from bot.utils import MessageContent, send_message_via_queue
 from bot.utils.message_queue import get_queue_manager
 from bot.utils.mini_app_url import subscription_main_mini_app_deep_link
@@ -469,12 +474,20 @@ class NotificationSupportMixin:
             message=self._support_preview_html(message.body, body_format, limit=500),
         )
         keyboard = self._support_user_keyboard(ticket, user, message=message)
-        if int(user.user_id) > 0:
+        chat_id = telegram_recipient(user, user.user_id)
+        plan = user_notification_delivery_plan(
+            self.settings,
+            UserNotificationCategory.SUPPORT,
+            user,
+            telegram_available=chat_id is not None,
+            email_available=bool(self.email_auth_service and getattr(user, "email", None)),
+        )
+        if plan.telegram and chat_id is not None:
             queue_manager = get_queue_manager()
             if queue_manager:
                 await send_message_via_queue(
                     queue_manager,
-                    int(user.user_id),
+                    chat_id,
                     MessageContent(content_type="text", text=text),
                     parse_mode="HTML",
                     disable_web_page_preview=True,
@@ -482,13 +495,13 @@ class NotificationSupportMixin:
                 )
             else:
                 await self.bot.send_message(
-                    chat_id=int(user.user_id),
+                    chat_id=chat_id,
                     text=text,
                     parse_mode="HTML",
                     disable_web_page_preview=True,
                     reply_markup=keyboard,
                 )
-        if self.email_auth_service and getattr(user, "email", None):
+        if plan.email and self.email_auth_service and getattr(user, "email", None):
             content = render_support_admin_reply_user(
                 self.settings,
                 self.i18n,
@@ -512,12 +525,20 @@ class NotificationSupportMixin:
             subject=hd.quote(ticket.subject),
         )
         keyboard = self._support_user_keyboard(ticket, user)
-        if int(user.user_id) > 0:
+        chat_id = telegram_recipient(user, user.user_id)
+        plan = user_notification_delivery_plan(
+            self.settings,
+            UserNotificationCategory.SUPPORT,
+            user,
+            telegram_available=chat_id is not None,
+            email_available=bool(self.email_auth_service and getattr(user, "email", None)),
+        )
+        if plan.telegram and chat_id is not None:
             queue_manager = get_queue_manager()
             if queue_manager:
                 await send_message_via_queue(
                     queue_manager,
-                    int(user.user_id),
+                    chat_id,
                     MessageContent(content_type="text", text=text),
                     parse_mode="HTML",
                     disable_web_page_preview=True,
@@ -525,13 +546,13 @@ class NotificationSupportMixin:
                 )
             else:
                 await self.bot.send_message(
-                    chat_id=int(user.user_id),
+                    chat_id=chat_id,
                     text=text,
                     parse_mode="HTML",
                     disable_web_page_preview=True,
                     reply_markup=keyboard,
                 )
-        if self.email_auth_service and getattr(user, "email", None):
+        if plan.email and self.email_auth_service and getattr(user, "email", None):
             content = render_support_ticket_closed_user(
                 self.settings,
                 self.i18n,

@@ -22,6 +22,10 @@ from bot.services.telegram_notifications import (
     normalize_telegram_notification_status,
     telegram_notification_status_from_error,
 )
+from bot.services.user_notification_policy import (
+    UserNotificationCategory,
+    user_notification_delivery_plan,
+)
 from config.settings import Settings
 from db.dal import subscription_dal
 from db.models import Subscription, User
@@ -110,6 +114,18 @@ class SubscriptionLifecycleNotificationService:
             message_text = f"{message_text}\n\n{final_extra_text}"
             email_message_text = f"{email_message_text}\n\n{final_extra_text}"
 
+        plan = user_notification_delivery_plan(
+            self.settings,
+            UserNotificationCategory.SUBSCRIPTIONS,
+            resolved_user,
+            telegram_available=self._telegram_recipient_available(
+                resolved_user,
+                getattr(sub, "user_id", None),
+            ),
+            email_available=bool(recipient_email)
+            and bool(getattr(self.settings, "email_auth_configured", False)),
+        )
+
         telegram_sent = await self._send_telegram(
             session,
             sub,
@@ -125,6 +141,7 @@ class SubscriptionLifecycleNotificationService:
                 tariff_key=self._renewal_tariff_key(sub),
             ),
             sent_at=sent_at,
+            enabled=plan.telegram,
         )
         email_sent = await self._send_email(
             session,
@@ -137,6 +154,7 @@ class SubscriptionLifecycleNotificationService:
             recipient=recipient_email,
             telegram_sent=telegram_sent,
             sent_at=sent_at,
+            enabled=plan.email,
         )
         return SubscriptionNotificationDelivery(
             telegram_sent=telegram_sent,
@@ -154,7 +172,10 @@ class SubscriptionLifecycleNotificationService:
         message_text: str,
         markup: InlineKeyboardMarkup | None,
         sent_at: datetime,
+        enabled: bool,
     ) -> bool:
+        if not enabled:
+            return False
         chat_id = self._telegram_chat_id(user, getattr(sub, "user_id", None))
         if chat_id is None:
             return False
@@ -242,8 +263,9 @@ class SubscriptionLifecycleNotificationService:
         recipient: str,
         telegram_sent: bool,
         sent_at: datetime,
+        enabled: bool,
     ) -> bool:
-        if not getattr(self.settings, "SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED", True):
+        if not enabled:
             return False
         if not getattr(self.settings, "email_auth_configured", False):
             return False
@@ -391,6 +413,24 @@ class SubscriptionLifecycleNotificationService:
             if chat_id > 0:
                 return chat_id
         return None
+
+    @classmethod
+    def _telegram_recipient_available(
+        cls,
+        user: User | None,
+        fallback_user_id: int | None,
+    ) -> bool:
+        if cls._telegram_chat_id(user, fallback_user_id) is None:
+            return False
+        if user is None:
+            return True
+        status = normalize_telegram_notification_status(
+            getattr(user, "telegram_notifications_status", None)
+        )
+        return status not in {
+            TELEGRAM_NOTIFICATIONS_NEEDS_START,
+            TELEGRAM_NOTIFICATIONS_BLOCKED,
+        }
 
     @staticmethod
     def _as_utc(value: datetime | None) -> datetime | None:

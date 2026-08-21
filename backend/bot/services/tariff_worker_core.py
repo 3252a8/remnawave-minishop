@@ -5,6 +5,8 @@ import time
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable
 from datetime import datetime
+from inspect import iscoroutine
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot
@@ -19,6 +21,11 @@ from bot.services.message_audit import log_user_message_delivery
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.user_email_notifications import send_user_notification_email
+from bot.services.user_notification_policy import (
+    UserNotificationCategory,
+    telegram_recipient,
+    user_notification_delivery_plan,
+)
 from bot.utils.mini_app_url import subscription_mini_app_topup_url
 from bot.utils.traffic_reset import (
     advance_traffic_reset,
@@ -314,15 +321,40 @@ class TariffWorkerCoreMixin:
         audit_content: str,
     ) -> None:
         user_id = int(getattr(sub, "user_id", 0) or 0)
-        if user_id <= 0:
+        if user_id == 0:
             return
         if not self._traffic_notice_channels_available():
             return
+        try:
+            user = await user_dal.get_user_by_id(session, user_id)
+        except Exception:
+            logger.exception(
+                "TariffTrafficWorker: failed to load user %s for reset notification",
+                user_id,
+            )
+            return
+        if iscoroutine(user):
+            user.close()
+            user = None
+        if not user:
+            user = SimpleNamespace(
+                user_id=user_id,
+                telegram_id=user_id if user_id > 0 else None,
+                email=None,
+                telegram_notifications_status="unknown",
+            )
+        chat_id = telegram_recipient(user, user_id)
+        plan = user_notification_delivery_plan(
+            self.settings,
+            UserNotificationCategory.TRAFFIC,
+            user,
+            telegram_available=self.bot is not None and chat_id is not None,
+        )
 
-        if self.bot:
+        if plan.telegram and self.bot and chat_id is not None:
             try:
                 await self.bot.send_message(
-                    user_id,
+                    chat_id,
                     message_text,
                     parse_mode="HTML",
                 )
@@ -331,7 +363,7 @@ class TariffWorkerCoreMixin:
                     target_user_id=user_id,
                     event_type="telegram_traffic_reset_notice_sent",
                     channel="telegram",
-                    recipient=str(user_id),
+                    recipient=str(chat_id),
                     content=audit_content,
                 )
             except Exception:
@@ -341,17 +373,7 @@ class TariffWorkerCoreMixin:
                     user_id,
                 )
 
-        if not getattr(self.settings, "email_auth_configured", False):
-            return
-        try:
-            user = await user_dal.get_user_by_id(session, user_id)
-        except Exception:
-            logger.exception(
-                "TariffTrafficWorker: failed to load user %s for reset email",
-                user_id,
-            )
-            return
-        if not user:
+        if not plan.email:
             return
         dashboard_url = str(getattr(self.settings, "SUBSCRIPTION_MINI_APP_URL", "") or "").strip()
         await send_user_notification_email(

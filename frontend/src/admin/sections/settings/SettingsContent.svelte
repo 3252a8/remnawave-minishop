@@ -19,6 +19,7 @@
   } from "$components/patterns/admin/index.js";
   import SettingsDisclosureTrigger from "./SettingsDisclosureTrigger.svelte";
   import PaymentMethodsOrderField from "./PaymentMethodsOrderField.svelte";
+  import NotificationDeliveryMatrix from "./NotificationDeliveryMatrix.svelte";
   import ProgramSettingsSections from "./marketing/ProgramSettingsSections.svelte";
   import {
     groupSectionFields,
@@ -295,9 +296,21 @@
 
 {#snippet renderGroupedFields(section: AdminSettingsSection, group: SettingsSubsection)}
   {@const fieldGroups = semanticFieldGroups(section, group)}
-  {#if fieldGroups.length === 1 && !fieldGroups[0].titleKey}
+  {#if section.id === "notifications" && group.id === "notification_delivery"}
+    <NotificationDeliveryMatrix
+      {at}
+      fields={section.fields}
+      {settingsDirty}
+      {valueFor}
+      onValueChange={(key, value) => markFieldDirty(key, value)}
+      {resetField}
+      {isOverridden}
+    />
+  {:else if fieldGroups.length === 1 && !fieldGroups[0].titleKey}
     {#each fieldGroups[0].fields as field}
-      {@render renderField(field)}
+      {#if field.key !== "TORRENT_BLOCKER_TELEGRAM_NOTIFICATIONS_ENABLED" && field.key !== "TORRENT_BLOCKER_EMAIL_NOTIFICATIONS_ENABLED"}
+        {@render renderField(field)}
+      {/if}
     {/each}
   {:else}
     <div class="admin-settings-field-groups">
@@ -318,7 +331,9 @@
           {/if}
           <div class="admin-settings-field-group-body">
             {#each fieldGroup.fields as field}
-              {@render renderField(field)}
+              {#if field.key !== "TORRENT_BLOCKER_TELEGRAM_NOTIFICATIONS_ENABLED" && field.key !== "TORRENT_BLOCKER_EMAIL_NOTIFICATIONS_ENABLED"}
+                {@render renderField(field)}
+              {/if}
             {/each}
           </div>
         </section>

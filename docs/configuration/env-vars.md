@@ -268,6 +268,29 @@ Trust-all вариант записывается как
 
 В Remnawave Panel поле `WEBHOOK_URL` должно указывать на публичный Minishop webhook: `WEBHOOK_BASE_URL` + `/webhook/panel`. Если публичный домен приложения `https://app.example.com`, итоговый адрес будет `https://app.example.com/webhook/panel`.
 
+### Каналы пользовательских уведомлений
+
+В **Система -> Настройки -> Уведомления -> Доставка пользователям** находится матрица
+автоматических уведомлений. Для каждой категории отдельно выбираются Telegram и email. Когда
+выключены оба канала категории, уведомления этой категории не отправляются.
+
+Если включён `USER_NOTIFICATION_SINGLE_CHANNEL_FALLBACK_ENABLED`, выбранный канал можно заменить
+единственным другим доступным каналом пользователя: например, email-only пользователь получит
+письмо, когда в категории выбран только Telegram. Если выбранный канал доступен, сообщение не
+дублируется в выключенный канал. Временная ошибка отправки не считается недоступностью и не
+запускает fallback.
+
+| Переменная | Назначение |
+| --- | --- |
+| `USER_NOTIFICATION_SINGLE_CHANNEL_FALLBACK_ENABLED` | Использовать единственный другой привязанный канал, когда выбранный канал пользователю недоступен. По умолчанию `True`. |
+| `USER_NOTIFICATION_PAYMENTS_TELEGRAM_ENABLED`, `USER_NOTIFICATION_PAYMENTS_EMAIL_ENABLED` | Каналы уведомлений об успешных и неуспешных платежах. |
+| `SUBSCRIPTION_NOTIFICATIONS_ENABLED`, `SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED` | Telegram и email для уведомлений жизненного цикла подписки. |
+| `USER_NOTIFICATION_TRAFFIC_TELEGRAM_ENABLED`, `USER_NOTIFICATION_TRAFFIC_EMAIL_ENABLED` | Каналы предупреждений, исчерпания и сброса трафика. |
+| `USER_NOTIFICATION_DEVICES_TELEGRAM_ENABLED`, `USER_NOTIFICATION_DEVICES_EMAIL_ENABLED` | Каналы уведомлений о покупках и продлении HWID-устройств. |
+| `TORRENT_BLOCKER_TELEGRAM_NOTIFICATIONS_ENABLED`, `TORRENT_BLOCKER_EMAIL_NOTIFICATIONS_ENABLED` | Каналы уведомлений об ограничениях Torrent Blocker. Общий opt-in остаётся отдельным. |
+| `USER_NOTIFICATION_SUPPORT_TELEGRAM_ENABLED`, `USER_NOTIFICATION_SUPPORT_EMAIL_ENABLED` | Каналы ответов и изменения статуса обращений пользователя. |
+| `USER_NOTIFICATION_REFERRALS_TELEGRAM_ENABLED`, `USER_NOTIFICATION_REFERRALS_EMAIL_ENABLED` | Каналы уведомлений о реферальных бонусах. |
+
 ### Уведомления Torrent Blocker
 
 Для Remnawave Panel 2.7+ Minishop принимает событие `torrent_blocker.report` через тот же
@@ -816,8 +839,8 @@ Stripe создает hosted Checkout Sessions и подтверждает ав�
 | `REFERRAL_BONUS_DAYS_1_MONTH`, `REFERRAL_BONUS_DAYS_3_MONTHS`, `REFERRAL_BONUS_DAYS_6_MONTHS`, `REFERRAL_BONUS_DAYS_12_MONTHS` | Legacy-бонусы пригласившему без JSON-каталога. В JSON-тарифах используйте `referral_bonus_days_inviter`. |
 
 | `REFEREE_BONUS_DAYS_1_MONTH`, `REFEREE_BONUS_DAYS_3_MONTHS`, `REFEREE_BONUS_DAYS_6_MONTHS`, `REFEREE_BONUS_DAYS_12_MONTHS` | Legacy-бонусы приглашенному без JSON-каталога. В JSON-тарифах используйте `referral_bonus_days_referee`. |
-| `SUBSCRIPTION_NOTIFICATIONS_ENABLED` | Включает напоминания о подписке. |
-| `SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED` | Дублирует пользовательские уведомления жизненного цикла подписки на email, если SMTP настроен и у пользователя есть email. |
+| `SUBSCRIPTION_NOTIFICATIONS_ENABLED` | Включает Telegram-канал напоминаний о подписке. |
+| `SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED` | Включает email-канал уведомлений жизненного цикла подписки, если SMTP настроен и у пользователя есть email. |
 | `SUBSCRIPTION_NOTIFY_ON_EXPIRE` | Уведомлять в день окончания. |
 | `SUBSCRIPTION_NOTIFY_AFTER_EXPIRE` | Уведомлять после окончания. |
 | `SUBSCRIPTION_NOTIFY_DAYS_BEFORE` | За сколько дней предупреждать. |

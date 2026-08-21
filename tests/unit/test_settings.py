@@ -819,6 +819,20 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(settings.SUBSCRIPTION_NOTIFY_HOURS_BEFORE, 3)
         self.assertEqual(settings.SUBSCRIPTION_NOTIFICATION_WORKER_TICK_SECONDS, 300)
         self.assertTrue(settings.SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED)
+        self.assertTrue(settings.USER_NOTIFICATION_SINGLE_CHANNEL_FALLBACK_ENABLED)
+        for key in (
+            "USER_NOTIFICATION_PAYMENTS_TELEGRAM_ENABLED",
+            "USER_NOTIFICATION_PAYMENTS_EMAIL_ENABLED",
+            "USER_NOTIFICATION_TRAFFIC_TELEGRAM_ENABLED",
+            "USER_NOTIFICATION_TRAFFIC_EMAIL_ENABLED",
+            "USER_NOTIFICATION_DEVICES_TELEGRAM_ENABLED",
+            "USER_NOTIFICATION_DEVICES_EMAIL_ENABLED",
+            "USER_NOTIFICATION_SUPPORT_TELEGRAM_ENABLED",
+            "USER_NOTIFICATION_SUPPORT_EMAIL_ENABLED",
+            "USER_NOTIFICATION_REFERRALS_TELEGRAM_ENABLED",
+            "USER_NOTIFICATION_REFERRALS_EMAIL_ENABLED",
+        ):
+            self.assertTrue(getattr(settings, key), key)
 
     def test_torrent_blocker_notifications_are_private_opt_in_by_default(self):
         settings = Settings(

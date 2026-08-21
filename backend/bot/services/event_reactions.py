@@ -20,6 +20,12 @@ from bot.services.email_templates import render_account_merged
 from bot.services.event_reactions_partner import PartnerEventReactionsMixin
 from bot.services.notification_service import NotificationService
 from bot.services.user_email_notifications import send_user_notification_email
+from bot.services.user_notification_policy import (
+    UserNotificationCategory,
+    telegram_recipient,
+    user_notification_channel_selected,
+    user_notification_delivery_plan,
+)
 from db.dal import payment_dal, payment_reconciliation_dal, subscription_dal, user_dal
 from db.models import Payment, Subscription, User
 
@@ -674,8 +680,6 @@ class CoreEventReactions(PartnerEventReactionsMixin):
         # Payment-linked codes are consumed in the successful fulfillment
         # transaction. A later cancellation event does not revoke the granted
         # entitlement, so it must never make that one-time code reusable.
-        if self.ctx.bot is None:
-            return
         if payment is not None and await self._payment_failure_is_superseded(payment, user_id):
             logger.info(
                 "Suppressing canceled payment notification for user %s payment %s: "
@@ -691,6 +695,13 @@ class CoreEventReactions(PartnerEventReactionsMixin):
         if not await _claim_payment_failure_notification(self.ctx, payload.get("payment_db_id")):
             return
         user = await self._load_user(user_id)
+        chat_id = telegram_recipient(user, user_id)
+        plan = user_notification_delivery_plan(
+            self.ctx.settings,
+            UserNotificationCategory.PAYMENTS,
+            user,
+            telegram_available=self.ctx.bot is not None and chat_id is not None,
+        )
         language = (
             getattr(user, "language_code", None)
             or getattr(self.ctx.settings, "DEFAULT_LANGUAGE", "ru")
@@ -726,32 +737,35 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                     getattr(payment, "payment_id", None),
                 )
         telegram_error: Exception | None = None
-        try:
-            reply_markup = (
-                get_autorenew_cancel_keyboard(
-                    language,
-                    self.ctx.i18n,
+        if plan.telegram and self.ctx.bot is not None and chat_id is not None:
+            try:
+                reply_markup = (
+                    get_autorenew_cancel_keyboard(
+                        language,
+                        self.ctx.i18n,
+                    )
+                    if _truthy(payload.get("auto_renew_retry_scheduled"))
+                    else None
                 )
-                if _truthy(payload.get("auto_renew_retry_scheduled"))
-                else None
-            )
-            if reply_markup is not None:
-                await self.ctx.bot.send_message(
-                    int(user_id),
-                    message_text,
-                    reply_markup=reply_markup,
-                )
-            else:
-                await self.ctx.bot.send_message(int(user_id), message_text)
-        except Exception as exc:
-            logger.exception("Failed to notify user %s about canceled payment.", user_id)
-            await _release_payment_failure_notification(
-                self.ctx,
-                payload.get("payment_db_id"),
-            )
-            telegram_error = exc
-        if user is not None:
-            await send_user_notification_email(
+                if reply_markup is not None:
+                    await self.ctx.bot.send_message(
+                        chat_id,
+                        message_text,
+                        reply_markup=reply_markup,
+                    )
+                else:
+                    await self.ctx.bot.send_message(chat_id, message_text)
+            except Exception as exc:
+                logger.exception("Failed to notify user %s about canceled payment.", user_id)
+                telegram_error = exc
+        email_sent = False
+        email_requested = plan.email or user_notification_channel_selected(
+            self.ctx.settings,
+            UserNotificationCategory.PAYMENTS,
+            "email",
+        )
+        if email_requested and user is not None:
+            email_sent = await send_user_notification_email(
                 settings=self.ctx.settings,
                 i18n=self.ctx.i18n,
                 user=user,
@@ -759,8 +773,13 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                 message_text=message_text,
                 dashboard_url=(getattr(self.ctx.settings, "SUBSCRIPTION_MINI_APP_URL", "") or None),
             )
-        if telegram_error is None:
+        if telegram_error is None or email_sent is True:
             await _mark_payment_failure_notification_sent(
+                self.ctx,
+                payload.get("payment_db_id"),
+            )
+        else:
+            await _release_payment_failure_notification(
                 self.ctx,
                 payload.get("payment_db_id"),
             )
@@ -771,7 +790,7 @@ class CoreEventReactions(PartnerEventReactionsMixin):
             return
         inviter_user_id = payload.get("inviter_user_id")
         inviter_bonus_days = int(payload.get("inviter_bonus_days") or 0)
-        if inviter_user_id is None or inviter_bonus_days <= 0 or self.ctx.bot is None:
+        if inviter_user_id is None or inviter_bonus_days <= 0:
             return
         inviter = await self._load_user(inviter_user_id)
         if inviter is None:
@@ -794,21 +813,35 @@ class CoreEventReactions(PartnerEventReactionsMixin):
             referee_name=payload.get("referee_name") or f"User {payload.get('referee_user_id')}",
             new_end_date=end_date.strftime("%Y-%m-%d") if end_date else "",
         )
-        try:
-            await self.ctx.bot.send_message(int(inviter_user_id), message_text)
-        except Exception:
-            logger.exception(
-                "Failed to send referral bonus notification to inviter %s.",
-                inviter_user_id,
-            )
-        await send_user_notification_email(
-            settings=self.ctx.settings,
-            i18n=self.ctx.i18n,
-            user=inviter,
-            subject_key="email_referral_bonus_subject",
-            message_text=message_text,
-            dashboard_url=(getattr(self.ctx.settings, "SUBSCRIPTION_MINI_APP_URL", "") or None),
+        chat_id = telegram_recipient(inviter, inviter_user_id)
+        plan = user_notification_delivery_plan(
+            self.ctx.settings,
+            UserNotificationCategory.REFERRALS,
+            inviter,
+            telegram_available=self.ctx.bot is not None and chat_id is not None,
         )
+        if plan.telegram and self.ctx.bot is not None and chat_id is not None:
+            try:
+                await self.ctx.bot.send_message(chat_id, message_text)
+            except Exception:
+                logger.exception(
+                    "Failed to send referral bonus notification to inviter %s.",
+                    inviter_user_id,
+                )
+        email_requested = plan.email or user_notification_channel_selected(
+            self.ctx.settings,
+            UserNotificationCategory.REFERRALS,
+            "email",
+        )
+        if email_requested:
+            await send_user_notification_email(
+                settings=self.ctx.settings,
+                i18n=self.ctx.i18n,
+                user=inviter,
+                subject_key="email_referral_bonus_subject",
+                message_text=message_text,
+                dashboard_url=(getattr(self.ctx.settings, "SUBSCRIPTION_MINI_APP_URL", "") or None),
+            )
 
     async def on_account_merged(self, event_name: str, payload: dict[str, Any]) -> None:
         del event_name

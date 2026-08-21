@@ -188,7 +188,10 @@ class PanelWebhookService(PanelWebhookPayloadMixin):
             await self.torrent_blocker_notifications.handle(user_payload, context or {})
             return
 
-        if not self.settings.SUBSCRIPTION_NOTIFICATIONS_ENABLED:
+        if not (
+            self.settings.SUBSCRIPTION_NOTIFICATIONS_ENABLED
+            or self.settings.SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED
+        ):
             return
 
         if event_name not in ACTIONABLE_EVENTS:

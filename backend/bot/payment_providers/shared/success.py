@@ -22,6 +22,11 @@ from bot.services.payment_fulfillment import (
     capture_payment_entitlement_snapshot,
     persist_payment_fulfillment,
 )
+from bot.services.user_notification_policy import (
+    UserNotificationCategory,
+    telegram_recipient,
+    user_notification_delivery_plan,
+)
 from bot.utils.config_link import prepare_config_links
 from bot.utils.install_links import ensure_user_install_guide_links
 from bot.utils.text_sanitizer import sanitize_display_name, username_for_display
@@ -50,6 +55,15 @@ PAYMENT_STATUS_PENDING_FINALIZATION = "succeeded_pending_finalization"
 
 def is_traffic_sale_base(sale_base: str) -> bool:
     return sale_base in _TRAFFIC_MODES
+
+
+def _success_notification_category(sale_mode: str) -> UserNotificationCategory:
+    base = sale_mode_base(sale_mode)
+    if is_traffic_sale_base(base):
+        return UserNotificationCategory.TRAFFIC
+    if base in _HWID_DEVICE_MODES:
+        return UserNotificationCategory.DEVICES
+    return UserNotificationCategory.PAYMENTS
 
 
 async def resolve_user_language(
@@ -232,8 +246,21 @@ async def send_success_message_to_user(
     install_share_url: str | None = None,
     include_keyboard: bool = True,
     log_prefix: str = "payment_providers",
+    user: User | None = None,
+    sale_mode: str = "subscription",
 ) -> None:
     """Send the rendered success text with the standard connect keyboard."""
+    chat_id = telegram_recipient(user, user_id)
+    if user is None:
+        chat_id = user_id if user_id > 0 else None
+    plan = user_notification_delivery_plan(
+        settings,
+        _success_notification_category(sale_mode),
+        user,
+        telegram_available=chat_id is not None,
+    )
+    if not plan.telegram or chat_id is None:
+        return
     markup = None
     if include_keyboard:
         markup = get_connect_and_main_keyboard(
@@ -247,7 +274,7 @@ async def send_success_message_to_user(
         )
     try:
         await bot.send_message(
-            user_id,
+            chat_id,
             text,
             reply_markup=markup,
             parse_mode="HTML",
@@ -723,6 +750,8 @@ async def finalize_successful_payment(
             install_share_url=install_share_url,
             include_keyboard=not req.skip_keyboard,
             log_prefix=req.log_prefix,
+            user=db_user,
+            sale_mode=req.sale_mode,
         )
 
     return PaymentSuccessOutcome(

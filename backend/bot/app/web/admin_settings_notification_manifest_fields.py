@@ -7,7 +7,9 @@ NOTIFICATION_SETTINGS_FIELDS: list[SettingField] = [
         "SUBSCRIPTION_NOTIFICATIONS_ENABLED",
         "bool",
         "notifications",
-        "Subscription Notifications Enabled",
+        "Subscription Telegram notifications",
+        "Send subscription lifecycle notifications to linked Telegram accounts.",
+        subsection="notification_delivery",
     ),
     SettingField(
         "SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED",
@@ -18,6 +20,88 @@ NOTIFICATION_SETTINGS_FIELDS: list[SettingField] = [
             "When enabled, subscription lifecycle notifications are mirrored to linked user "
             "email addresses."
         ),
+        subsection="notification_delivery",
+    ),
+    SettingField(
+        "USER_NOTIFICATION_PAYMENTS_TELEGRAM_ENABLED",
+        "bool",
+        "notifications",
+        "Payment Telegram notifications",
+        subsection="notification_delivery",
+    ),
+    SettingField(
+        "USER_NOTIFICATION_PAYMENTS_EMAIL_ENABLED",
+        "bool",
+        "notifications",
+        "Payment email notifications",
+        subsection="notification_delivery",
+    ),
+    SettingField(
+        "USER_NOTIFICATION_TRAFFIC_TELEGRAM_ENABLED",
+        "bool",
+        "notifications",
+        "Traffic Telegram notifications",
+        subsection="notification_delivery",
+    ),
+    SettingField(
+        "USER_NOTIFICATION_TRAFFIC_EMAIL_ENABLED",
+        "bool",
+        "notifications",
+        "Traffic email notifications",
+        subsection="notification_delivery",
+    ),
+    SettingField(
+        "USER_NOTIFICATION_DEVICES_TELEGRAM_ENABLED",
+        "bool",
+        "notifications",
+        "Device Telegram notifications",
+        subsection="notification_delivery",
+    ),
+    SettingField(
+        "USER_NOTIFICATION_DEVICES_EMAIL_ENABLED",
+        "bool",
+        "notifications",
+        "Device email notifications",
+        subsection="notification_delivery",
+    ),
+    SettingField(
+        "USER_NOTIFICATION_SUPPORT_TELEGRAM_ENABLED",
+        "bool",
+        "notifications",
+        "Support Telegram notifications",
+        subsection="notification_delivery",
+    ),
+    SettingField(
+        "USER_NOTIFICATION_SUPPORT_EMAIL_ENABLED",
+        "bool",
+        "notifications",
+        "Support email notifications",
+        subsection="notification_delivery",
+    ),
+    SettingField(
+        "USER_NOTIFICATION_REFERRALS_TELEGRAM_ENABLED",
+        "bool",
+        "notifications",
+        "Referral Telegram notifications",
+        subsection="notification_delivery",
+    ),
+    SettingField(
+        "USER_NOTIFICATION_REFERRALS_EMAIL_ENABLED",
+        "bool",
+        "notifications",
+        "Referral email notifications",
+        subsection="notification_delivery",
+    ),
+    SettingField(
+        "USER_NOTIFICATION_SINGLE_CHANNEL_FALLBACK_ENABLED",
+        "bool",
+        "notifications",
+        "Use the only linked channel as a fallback",
+        (
+            "When exactly one channel is selected but unavailable for a user, deliver through "
+            "their only other linked channel. Both channels disabled always means no delivery."
+        ),
+        subsection="notification_delivery",
     ),
     SettingField(
         "SUBSCRIPTION_NOTIFY_ON_EXPIRE", "bool", "notifications", "Subscription Notify On Expire"

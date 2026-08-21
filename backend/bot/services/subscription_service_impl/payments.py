@@ -6,6 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.email_templates import render_payment_success
+from bot.services.user_notification_policy import (
+    UserNotificationCategory,
+    user_notification_delivery_plan,
+)
 from config.tariffs_config import default_payment_currency_code_for_settings
 from db.dal import payment_dal, subscription_dal, user_dal
 from db.models import User
@@ -127,6 +131,20 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
             return
         recipient = (db_user.email or "").strip() if db_user else ""
         if not recipient:
+            return
+        normalized_sale_mode = str(sale_mode or "").strip().lower()
+        if normalized_sale_mode in {"traffic", "traffic_package", "topup", "premium_topup"}:
+            category = UserNotificationCategory.TRAFFIC
+        elif normalized_sale_mode in {"hwid_device", "hwid_devices", "hwid_devices_renewal"}:
+            category = UserNotificationCategory.DEVICES
+        else:
+            category = UserNotificationCategory.PAYMENTS
+        plan = user_notification_delivery_plan(
+            self.settings,
+            category,
+            db_user,
+        )
+        if not plan.email:
             return
 
         end_date_text = end_date.strftime("%Y-%m-%d") if end_date else ""
