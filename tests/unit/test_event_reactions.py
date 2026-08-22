@@ -3,6 +3,9 @@ from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import ANY, AsyncMock, patch
 
+from aiogram.exceptions import TelegramForbiddenError
+from aiogram.methods import SendMessage
+
 from bot.infra import events
 from bot.plugins import PluginContext
 from bot.services import event_reactions
@@ -733,6 +736,48 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
         redis.delete.assert_awaited_once()
         self.assertEqual(email.await_count, 2)
         mark_sent.assert_awaited_once_with(ctx, 13)
+
+    async def test_payment_canceled_event_logs_blocked_user_without_traceback(self):
+        error = TelegramForbiddenError(
+            method=SendMessage(chat_id=42, text="payment failed"),
+            message="Forbidden: bot was blocked by the user",
+        )
+        bot = SimpleNamespace(send_message=AsyncMock(side_effect=error))
+        ctx = _context(bot=bot)
+        user = SimpleNamespace(language_code="en", email="alice@example.test")
+        payment = SimpleNamespace(payment_id=13, user_id=42, status="failed")
+        payload = {"user_id": 42, "payment_db_id": 13, "message_key": "payment_failed"}
+
+        with (
+            patch.object(event_reactions, "get_redis", AsyncMock(return_value=None)),
+            patch.object(event_reactions.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
+            patch.object(
+                event_reactions.payment_dal,
+                "get_payment_by_db_id",
+                AsyncMock(return_value=payment),
+            ),
+            patch.object(
+                event_reactions, "send_user_notification_email", AsyncMock(return_value=True)
+            ),
+            patch.object(
+                event_reactions,
+                "record_telegram_notification_failure",
+                AsyncMock(return_value="blocked"),
+            ) as record_failure,
+            patch.object(
+                event_reactions,
+                "_mark_payment_failure_notification_sent",
+                AsyncMock(),
+            ),
+            self.assertLogs("bot.services.event_reactions", level="INFO") as logs,
+        ):
+            register_core_reactions(ctx)
+            await events.emit(events.PAYMENT_CANCELED, payload)
+
+        record_failure.assert_awaited_once_with(ctx.session_factory, 42, error)
+        rendered_logs = "\n".join(logs.output)
+        self.assertIn("user_id=42 notification=canceled_payment status=blocked", rendered_logs)
+        self.assertNotIn("Traceback", rendered_logs)
 
     async def test_payment_canceled_event_includes_attempt_details(self):
         templates = {

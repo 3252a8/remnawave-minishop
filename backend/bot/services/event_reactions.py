@@ -19,6 +19,7 @@ from bot.plugins import PluginContext
 from bot.services.email_templates import render_account_merged
 from bot.services.event_reactions_partner import PartnerEventReactionsMixin
 from bot.services.notification_service import NotificationService
+from bot.services.telegram_notifications import record_telegram_notification_failure
 from bot.services.user_email_notifications import send_user_notification_email
 from bot.services.user_notification_policy import (
     UserNotificationCategory,
@@ -36,6 +37,29 @@ _ACCOUNT_MERGE_NOTIFY_REASONS = {"email_link", "telegram_link", "login"}
 _PAYMENT_NOTIFICATION_TTL_SECONDS = 24 * 60 * 60
 _PAYMENT_NOTIFICATION_CACHE_MAX = 4096
 _payment_notification_cache: OrderedDict[str, float] = OrderedDict()
+
+
+async def _log_telegram_notification_failure(
+    ctx: PluginContext,
+    user_id: int,
+    notification: str,
+    exc: Exception,
+) -> bool:
+    telegram_status = await record_telegram_notification_failure(
+        ctx.session_factory,
+        user_id,
+        exc,
+    )
+    if telegram_status is None:
+        return False
+    logger.info(
+        "Telegram notification unavailable; user_id=%s notification=%s status=%s reason=%s",
+        user_id,
+        notification,
+        telegram_status,
+        exc,
+    )
+    return True
 
 
 def _payment_notification_key(
@@ -756,7 +780,14 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                 else:
                     await self.ctx.bot.send_message(chat_id, message_text)
             except Exception as exc:
-                logger.exception("Failed to notify user %s about canceled payment.", user_id)
+                expected_failure = await _log_telegram_notification_failure(
+                    self.ctx,
+                    user_id,
+                    "canceled_payment",
+                    exc,
+                )
+                if not expected_failure:
+                    logger.exception("Failed to notify user %s about canceled payment.", user_id)
                 telegram_error = exc
         email_sent = False
         email_requested = plan.email or user_notification_channel_selected(
@@ -823,11 +854,18 @@ class CoreEventReactions(PartnerEventReactionsMixin):
         if plan.telegram and self.ctx.bot is not None and chat_id is not None:
             try:
                 await self.ctx.bot.send_message(chat_id, message_text)
-            except Exception:
-                logger.exception(
-                    "Failed to send referral bonus notification to inviter %s.",
-                    inviter_user_id,
+            except Exception as exc:
+                expected_failure = await _log_telegram_notification_failure(
+                    self.ctx,
+                    int(inviter_user_id),
+                    "referral_bonus",
+                    exc,
                 )
+                if not expected_failure:
+                    logger.exception(
+                        "Failed to send referral bonus notification to inviter %s.",
+                        inviter_user_id,
+                    )
         email_requested = plan.email or user_notification_channel_selected(
             self.ctx.settings,
             UserNotificationCategory.REFERRALS,

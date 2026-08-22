@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from bot.app.web.http_contracts import HttpResponseModel
+from bot.services.telegram_notifications import normalize_telegram_notification_status
 
 
 class AdminUserOut(HttpResponseModel):
@@ -49,6 +50,28 @@ class AdminUserWithAvatarOut(AdminUserOut):
     # Schema for the admin user object enriched with the avatar URL
     # (``_serialize_admin_user_with_avatar`` appends ``avatar_url`` last).
     avatar_url: str | None = None
+
+
+class AdminTelegramNotificationsOut(HttpResponseModel):
+    status: str
+    checked_at: str | None = None
+    enabled_at: str | None = None
+    blocked_at: str | None = None
+
+    @classmethod
+    def from_orm_user(cls, user: Any) -> AdminTelegramNotificationsOut:
+        def iso(attribute: str) -> str | None:
+            value = getattr(user, attribute, None)
+            return value.isoformat() if value else None
+
+        return cls(
+            status=normalize_telegram_notification_status(
+                getattr(user, "telegram_notifications_status", None)
+            ),
+            checked_at=iso("telegram_notifications_checked_at"),
+            enabled_at=iso("telegram_notifications_enabled_at"),
+            blocked_at=iso("telegram_notifications_blocked_at"),
+        )
 
 
 class AdminUserTrialOut(HttpResponseModel):

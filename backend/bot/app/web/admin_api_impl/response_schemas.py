@@ -113,6 +113,7 @@ class AdminBroadcastOut(HttpResponseModel):
     status: str
     target: str
     channels: list[str]
+    exclude_blocked_telegram: bool = False
     texts: dict[str, str]
     email_subjects: dict[str, str]
     buttons: list[AdminBroadcastButtonOut]

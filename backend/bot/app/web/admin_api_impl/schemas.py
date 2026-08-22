@@ -75,6 +75,9 @@ from .user_schemas import (
     AdminSubscriptionOut as AdminSubscriptionOut,
 )
 from .user_schemas import (
+    AdminTelegramNotificationsOut as AdminTelegramNotificationsOut,
+)
+from .user_schemas import (
     AdminUserOut as AdminUserOut,
 )
 from .user_schemas import (
@@ -397,6 +400,7 @@ class AdminBroadcastBody(HttpBodyModel):
         return _normalize_localized_text(value)
 
     channels: list[str] = Field(default_factory=lambda: ["telegram"])
+    exclude_blocked_telegram: bool = False
     email_subject: Any = ""
     buttons: list[AdminBroadcastButtonBody] = Field(default_factory=list)
     scheduled_at: datetime | None = None

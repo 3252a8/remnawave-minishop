@@ -510,6 +510,7 @@ def _broadcast_out(item: AdminBroadcast) -> AdminBroadcastOut:
         status=str(item.status),
         target=str(item.target),
         channels=[str(value) for value in list(item.channels or [])],
+        exclude_blocked_telegram=bool(getattr(item, "exclude_blocked_telegram", False)),
         texts={str(key): str(value) for key, value in dict(item.texts or {}).items()},
         email_subjects={
             str(key): str(value) for key, value in dict(item.email_subjects or {}).items()
@@ -624,6 +625,7 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
             actor_id=actor_id,
             target=target,
             channels=channels,
+            exclude_blocked_telegram=body.exclude_blocked_telegram,
             texts=texts,
             email_subjects=email_subjects,
             buttons=[button.model_dump(mode="json") for button in body.buttons],

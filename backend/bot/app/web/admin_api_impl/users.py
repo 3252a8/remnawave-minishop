@@ -15,6 +15,7 @@ from db.dal import message_log_dal, payment_dal, subscription_dal, user_dal
 
 from .schemas import (
     AdminSubscriptionOut,
+    AdminTelegramNotificationsOut,
     AdminUserBanBody,
     AdminUserExtendBody,
     AdminUserHwidDeviceLimitBody,
@@ -132,6 +133,7 @@ register_contract(
             AdminUserTrialOut,
             PaymentOut,
             AdminPanelSquadOverridesOut,
+            AdminTelegramNotificationsOut,
         ),
         response_schema=ok_envelope_with(
             {
@@ -148,6 +150,7 @@ register_contract(
                 "install_share_url": NULLABLE_STRING_SCHEMA,
                 "last_vpn_connected_at": NULLABLE_STRING_SCHEMA,
                 "vpn_connection_status": STRING_SCHEMA,
+                "telegram_notifications": schema_ref(AdminTelegramNotificationsOut),
                 "panel_squad_overrides": {
                     "anyOf": [schema_ref(AdminPanelSquadOverridesOut), {"type": "null"}]
                 },

@@ -645,6 +645,22 @@ def _migration_0067_add_message_images(connection: Connection) -> None:
         )
 
 
+def _migration_0068_add_broadcast_blocked_filter(connection: Connection) -> None:
+    """Persist whether a broadcast excludes known blocked Telegram chats."""
+
+    inspector = inspect(connection)
+    if "admin_broadcasts" not in set(inspector.get_table_names()):
+        return
+    columns = {column["name"] for column in inspector.get_columns("admin_broadcasts")}
+    if "exclude_blocked_telegram" not in columns:
+        connection.execute(
+            text(
+                "ALTER TABLE admin_broadcasts ADD COLUMN "
+                "exclude_blocked_telegram BOOLEAN NOT NULL DEFAULT FALSE"
+            )
+        )
+
+
 CHAIN_0056_0070: list[Migration] = [
     Migration(
         id="0056_add_tariff_binding_audit",
@@ -705,5 +721,10 @@ CHAIN_0056_0070: list[Migration] = [
         id="0067_add_message_images",
         description="Persist normalized images for support and outbound messages",
         upgrade=_migration_0067_add_message_images,
+    ),
+    Migration(
+        id="0068_add_broadcast_blocked_filter",
+        description="Store the blocked Telegram recipient filter for broadcasts",
+        upgrade=_migration_0068_add_broadcast_blocked_filter,
     ),
 ]

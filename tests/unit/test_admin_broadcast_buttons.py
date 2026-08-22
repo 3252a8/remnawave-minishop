@@ -113,6 +113,7 @@ class BroadcastBodyTest(unittest.TestCase):
         body = AdminBroadcastBody.model_validate({"text": " hi ", "target": "ALL"})
         self.assertEqual(body.text, "hi")
         self.assertEqual(body.channels, ["telegram"])
+        self.assertFalse(body.exclude_blocked_telegram)
         self.assertEqual(body.buttons, [])
         self.assertEqual(body.email_subject, "")
 
@@ -123,6 +124,10 @@ class BroadcastBodyTest(unittest.TestCase):
         self.assertEqual(
             AdminBroadcastBody.model_validate({"channels": None}).channels, ["telegram"]
         )
+
+    def test_blocked_telegram_filter_is_opt_in(self):
+        body = AdminBroadcastBody.model_validate({"exclude_blocked_telegram": True})
+        self.assertTrue(body.exclude_blocked_telegram)
 
 
 class BroadcastButtonsTest(unittest.TestCase):

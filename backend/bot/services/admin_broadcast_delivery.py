@@ -30,6 +30,7 @@ from bot.services.message_composition import (
     telegram_markup_for_buttons,
 )
 from bot.services.message_image_service import StoredMessageImage, load_message_image
+from bot.services.telegram_notifications import record_telegram_notification_failure
 from bot.utils.message_queue import MessageQueueManager
 from config.settings import Settings
 from db.broadcast_models import AdminBroadcast, AdminBroadcastDelivery
@@ -112,7 +113,9 @@ class AdminBroadcastDeliveryService:
             languages = await user_dal.get_language_codes_for_broadcast(session, user_ids)
             if "telegram" in channels:
                 for user_id, chat_id in await user_dal.get_telegram_recipients_for_broadcast(
-                    session, user_ids
+                    session,
+                    user_ids,
+                    exclude_blocked=bool(getattr(broadcast, "exclude_blocked_telegram", False)),
                 ):
                     payloads.append(
                         {
@@ -308,6 +311,7 @@ class AdminBroadcastDeliveryService:
         parts = 1 if image is None or not text else 2
         remaining = parts
         failure: str | None = None
+        telegram_status_recorded = False
 
         async def finish_part(error: Exception | None = None) -> None:
             nonlocal remaining, failure
@@ -325,6 +329,14 @@ class AdminBroadcastDeliveryService:
             await finish_part()
 
         async def on_failure(exc: Exception) -> None:
+            nonlocal telegram_status_recorded
+            if not telegram_status_recorded:
+                telegram_status = await record_telegram_notification_failure(
+                    self.session_factory,
+                    int(delivery.user_id),
+                    exc,
+                )
+                telegram_status_recorded = telegram_status is not None
             await finish_part(exc)
 
         chat_id = int(delivery.destination)

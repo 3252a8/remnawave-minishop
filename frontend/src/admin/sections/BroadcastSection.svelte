@@ -86,6 +86,7 @@
   const broadcastCounts = $derived(broadcastStore.broadcastCounts as Record<string, number> | null);
   const broadcastCountsLoading = $derived(Boolean(broadcastStore.broadcastCountsLoading));
   const telegramEnabled = $derived(broadcastStore.broadcastTelegramEnabled);
+  const excludeBlockedTelegram = $derived(broadcastStore.broadcastExcludeBlockedTelegram);
   const emailEnabled = $derived(broadcastStore.broadcastEmailEnabled);
   const emailAvailable = $derived(broadcastStore.broadcastEmailAvailable);
   const emailAvailabilityKnown = $derived(broadcastStore.broadcastEmailAvailabilityKnown);
@@ -244,6 +245,34 @@
               <span>{at("broadcast_channel_email", {}, "Email")}</span>
             </label>
           </div>
+          {#if telegramEnabled}
+            <label class="broadcast-channel broadcast-blocked-filter">
+              <Checkbox
+                checked={excludeBlockedTelegram}
+                ariaLabel={at(
+                  "broadcast_exclude_blocked_telegram",
+                  {},
+                  "Skip users who blocked the bot"
+                )}
+                onCheckedChange={(checked) =>
+                  broadcastStore.updateField({ broadcastExcludeBlockedTelegram: checked })}
+              />
+              <span
+                >{at(
+                  "broadcast_exclude_blocked_telegram",
+                  {},
+                  "Skip users who blocked the bot"
+                )}</span
+              >
+            </label>
+            <small class="admin-muted"
+              >{at(
+                "broadcast_exclude_blocked_telegram_hint",
+                {},
+                "Only Telegram delivery is skipped; email delivery is unchanged"
+              )}</small
+            >
+          {/if}
           {#if emailAvailabilityKnown && !emailAvailable}
             <small class="admin-muted"
               >{at(
@@ -505,6 +534,11 @@
     gap: 8px;
     align-items: center;
     cursor: pointer;
+  }
+
+  .broadcast-blocked-filter {
+    margin-top: 3px;
+    font-size: 12px;
   }
 
   .broadcast-schedule-row {

@@ -9,6 +9,7 @@ from datetime import datetime
 from types import SimpleNamespace
 
 from bot.app.web.admin_api_impl.common import _serialize_user
+from bot.app.web.admin_api_impl.user_schemas import AdminTelegramNotificationsOut
 from bot.app.web.admin_api_impl.users_common import _serialize_admin_user_with_avatar
 from bot.app.web.admin_api_impl.users_detail import _serialize_trial_summary
 
@@ -116,4 +117,23 @@ def test_serialize_trial_summary_empty():
         "latest_end_date": None,
         "active": False,
         "last_reset_at": None,
+    }
+
+
+def test_telegram_notification_status_serializes_for_user_detail():
+    checked_at = datetime(2026, 8, 22, 18, 42, 21)  # noqa: DTZ001
+    result = AdminTelegramNotificationsOut.from_orm_user(
+        _user(
+            telegram_notifications_status="blocked",
+            telegram_notifications_checked_at=checked_at,
+            telegram_notifications_enabled_at=None,
+            telegram_notifications_blocked_at=checked_at,
+        )
+    ).model_dump(mode="json")
+
+    assert result == {
+        "status": "blocked",
+        "checked_at": "2026-08-22T18:42:21",
+        "enabled_at": None,
+        "blocked_at": "2026-08-22T18:42:21",
     }

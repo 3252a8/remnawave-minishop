@@ -591,6 +591,11 @@
             "title": "Email Subjects",
             "type": "object"
           },
+          "exclude_blocked_telegram": {
+            "default": false,
+            "title": "Exclude Blocked Telegram",
+            "type": "boolean"
+          },
           "scheduled_at": {
             "anyOf": [
               {
@@ -817,6 +822,11 @@
             },
             "title": "Email Subjects",
             "type": "object"
+          },
+          "exclude_blocked_telegram": {
+            "default": false,
+            "title": "Exclude Blocked Telegram",
+            "type": "boolean"
           },
           "failed_deliveries": {
             "default": 0,
@@ -4201,6 +4211,55 @@
           "provider_currency_support"
         ],
         "title": "AdminTariffsOut",
+        "type": "object"
+      },
+      "AdminTelegramNotificationsOut": {
+        "properties": {
+          "blocked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Blocked At"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Checked At"
+          },
+          "enabled_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Enabled At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "AdminTelegramNotificationsOut",
         "type": "object"
       },
       "AdminThemesOut": {
@@ -16463,6 +16522,9 @@
                       },
                       "type": "array"
                     },
+                    "telegram_notifications": {
+                      "$ref": "#/components/schemas/AdminTelegramNotificationsOut"
+                    },
                     "total_paid": {
                       "type": "number"
                     },
@@ -16489,6 +16551,7 @@
                     "install_share_url",
                     "last_vpn_connected_at",
                     "vpn_connection_status",
+                    "telegram_notifications",
                     "panel_squad_overrides",
                     "referral"
                   ],

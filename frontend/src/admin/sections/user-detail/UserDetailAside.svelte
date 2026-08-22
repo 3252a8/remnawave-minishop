@@ -50,6 +50,28 @@
     referralInviteesTotal: number;
     openRelatedUser: RelatedUserOpener;
   } = $props();
+
+  const telegramNotifications = $derived(
+    openedUserDetail.telegram_notifications ?? {
+      status: "unknown",
+      checked_at: null,
+      enabled_at: null,
+      blocked_at: null,
+    }
+  );
+
+  function telegramNotificationsLabel(status: string): string {
+    if (status === "blocked") {
+      return at("user_bot_messages_blocked", {}, "Blocked by user");
+    }
+    if (status === "enabled") {
+      return at("user_bot_messages_enabled", {}, "Available");
+    }
+    if (status === "needs_start") {
+      return at("user_bot_messages_needs_start", {}, "Bot not started");
+    }
+    return at("user_bot_messages_unknown", {}, "Unknown");
+  }
 </script>
 
 <aside class="admin-user-aside">
@@ -84,6 +106,9 @@
           <AdminBadge variant="muted"
             >{at("badge_no_subscription", {}, "No subscription")}</AdminBadge
           >
+        {/if}
+        {#if telegramNotifications.status === "blocked"}
+          <AdminBadge variant="danger">{at("badge_bot_blocked", {}, "Bot blocked")}</AdminBadge>
         {/if}
       </div>
       <div class="admin-user-summary-actions">
@@ -126,6 +151,14 @@
     <li>
       <span>{at("user_label_registration", {}, "Registration")}</span><strong
         >{fmtDate(openedUser.registration_date)}</strong
+      >
+    </li>
+    <li>
+      <span>{at("user_label_bot_messages", {}, "Bot messages")}</span><strong
+        >{telegramNotificationsLabel(
+          telegramNotifications.status
+        )}{#if telegramNotifications.status === "blocked" && telegramNotifications.blocked_at}
+          · {fmtDate(telegramNotifications.blocked_at)}{/if}</strong
       >
     </li>
     <li>

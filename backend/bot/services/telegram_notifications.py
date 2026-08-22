@@ -110,6 +110,31 @@ async def mark_telegram_notifications_status(
     return await user_dal.update_user(session, user_id, update_data)
 
 
+async def record_telegram_notification_failure(
+    session_factory: Any,
+    user_id: int,
+    exc: Exception,
+) -> str | None:
+    """Persist an expected permanent Telegram delivery failure.
+
+    The classified status is returned even if persistence fails so callers can
+    still keep expected Telegram API responses out of exception tracebacks.
+    """
+    status = telegram_notification_status_from_error(exc)
+    if status is None:
+        return None
+    try:
+        async with session_factory() as session:
+            await mark_telegram_notifications_status(session, int(user_id), status)
+            await session.commit()
+    except Exception:
+        logger.exception(
+            "Failed to persist Telegram notification status for user %s.",
+            user_id,
+        )
+    return status
+
+
 async def mark_telegram_notifications_enabled_for_telegram_user(
     session: AsyncSession,
     telegram_id: int,

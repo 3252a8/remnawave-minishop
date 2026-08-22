@@ -32,6 +32,7 @@ class AdminBroadcast(Base):
     is_visible = Column(Boolean, nullable=False, default=True, index=True)
     target = Column(String(128), nullable=False, default="all")
     channels = Column(JSON, nullable=False, default=list)
+    exclude_blocked_telegram = Column(Boolean, nullable=False, default=False)
     texts = Column(JSON, nullable=False, default=dict)
     email_subjects = Column(JSON, nullable=False, default=dict)
     buttons = Column(JSON, nullable=False, default=list)

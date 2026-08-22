@@ -5,6 +5,8 @@ from typing import Any, cast
 from unittest.mock import AsyncMock, patch
 
 from aiogram import Bot
+from aiogram.exceptions import TelegramForbiddenError
+from aiogram.methods import SendMessage
 from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
@@ -60,6 +62,7 @@ def _broadcast(**overrides: Any) -> AdminBroadcast:
         "created_by_admin_id": 99,
         "target": "all",
         "channels": ["telegram", "email"],
+        "exclude_blocked_telegram": False,
         "texts": {"ru": "Привет {first_name}", "en": "Hello {first_name}"},
         "email_subjects": {"ru": "Новости", "en": "News"},
         "buttons": [],
@@ -93,6 +96,7 @@ class AdminBroadcastDeliveryTests(unittest.IsolatedAsyncioTestCase):
             captured.extend(deliveries)
             return []
 
+        telegram_recipients = AsyncMock(return_value=[(-555, 123456789)])
         with (
             patch.object(
                 delivery_module.user_dal,
@@ -102,7 +106,7 @@ class AdminBroadcastDeliveryTests(unittest.IsolatedAsyncioTestCase):
             patch.object(
                 delivery_module.user_dal,
                 "get_telegram_recipients_for_broadcast",
-                AsyncMock(return_value=[(-555, 123456789)]),
+                telegram_recipients,
             ),
             patch.object(
                 delivery_module.user_dal,
@@ -125,6 +129,29 @@ class AdminBroadcastDeliveryTests(unittest.IsolatedAsyncioTestCase):
             [(item["channel"], item["destination"]) for item in captured],
             [("telegram", "123456789"), ("email", "linked@example.com")],
         )
+        telegram_recipients.assert_awaited_once_with(
+            unittest.mock.ANY,
+            [-555],
+            exclude_blocked=False,
+        )
+
+    async def test_blocked_filter_keeps_unknown_raw_ids_outside_the_database(self) -> None:
+        result = SimpleNamespace(
+            all=lambda: [
+                (1, 101, "blocked", False),
+                (2, 202, "enabled", False),
+                (4, 404, "enabled", True),
+            ]
+        )
+        session = SimpleNamespace(execute=AsyncMock(return_value=result))
+
+        recipients = await delivery_module.user_dal.get_telegram_recipients_for_broadcast(
+            session,
+            [1, 2, 303, 4],
+            exclude_blocked=True,
+        )
+
+        self.assertEqual(recipients, [(2, 202), (303, 303)])
 
     async def test_personalization_is_rendered_for_telegram_and_email(self) -> None:
         queue = _Queue()
@@ -201,3 +228,52 @@ class MessageQueueDeliveryCallbackTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(failures, ["offline"])
         self.assertEqual(queue.total_failed, 1)
+
+    async def test_forbidden_delivery_is_logged_without_traceback(self) -> None:
+        error = TelegramForbiddenError(
+            method=SendMessage(chat_id=42, text="Hello"),
+            message="Forbidden: bot was blocked by the user",
+        )
+        bot = SimpleNamespace(send_message=AsyncMock(side_effect=error))
+        queue = TelegramMessageQueue(cast(Bot, bot), messages_per_second=1000)
+        failure = AsyncMock()
+
+        with self.assertLogs("bot.utils.message_queue", level="INFO") as logs:
+            await queue.add_message(
+                QueuedMessage(
+                    chat_id=42,
+                    method_name="send_message",
+                    kwargs={"text": "Hello"},
+                    error_callback=failure,
+                )
+            )
+            if queue._processing_task is not None:
+                await queue._processing_task
+
+        failure.assert_awaited_once_with(error)
+        rendered_logs = "\n".join(logs.output)
+        self.assertIn("chat_id=42", rendered_logs)
+        self.assertNotIn("Traceback", rendered_logs)
+
+    async def test_broadcast_failure_records_blocked_user_status(self) -> None:
+        queue = _Queue()
+        service = _service(queue)
+        error = TelegramForbiddenError(
+            method=SendMessage(chat_id=111, text="Hello"),
+            message="Forbidden: bot was blocked by the user",
+        )
+
+        with (
+            patch.object(
+                delivery_module,
+                "record_telegram_notification_failure",
+                AsyncMock(return_value="blocked"),
+            ) as record_failure,
+            patch.object(service, "_mark_queued", AsyncMock()),
+            patch.object(service, "_mark_result", AsyncMock()) as mark_result,
+        ):
+            await service._queue_telegram(_delivery(user_id=7), "Hello", [])
+            await queue.messages[0]["error_callback"](error)
+
+        record_failure.assert_awaited_once_with(service.session_factory, 7, error)
+        mark_result.assert_awaited_once_with(1, success=False, error=str(error))

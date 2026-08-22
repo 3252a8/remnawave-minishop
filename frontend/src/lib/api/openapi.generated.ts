@@ -2666,6 +2666,11 @@ export interface components {
         [key: string]: string;
       };
       /**
+       * Exclude Blocked Telegram
+       * @default false
+       */
+      exclude_blocked_telegram: boolean;
+      /**
        * Scheduled At
        * @default null
        */
@@ -2821,6 +2826,11 @@ export interface components {
       email_subjects: {
         [key: string]: string;
       };
+      /**
+       * Exclude Blocked Telegram
+       * @default false
+       */
+      exclude_blocked_telegram: boolean;
       /**
        * Failed Deliveries
        * @default 0
@@ -4236,6 +4246,26 @@ export interface components {
        * @default null
        */
       user_hwid_device_limit: number | null;
+    };
+    /** AdminTelegramNotificationsOut */
+    AdminTelegramNotificationsOut: {
+      /**
+       * Blocked At
+       * @default null
+       */
+      blocked_at: string | null;
+      /**
+       * Checked At
+       * @default null
+       */
+      checked_at: string | null;
+      /**
+       * Enabled At
+       * @default null
+       */
+      enabled_at: string | null;
+      /** Status */
+      status: string;
     };
     /** AdminThemesOut */
     AdminThemesOut: {
@@ -9874,6 +9904,7 @@ export interface operations {
             };
             subscription_url: string | null;
             subscriptions: components["schemas"]["AdminSubscriptionOut"][];
+            telegram_notifications: components["schemas"]["AdminTelegramNotificationsOut"];
             total_paid: number;
             trial: components["schemas"]["AdminUserTrialOut"];
             user: components["schemas"]["AdminUserWithAvatarOut"];

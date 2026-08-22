@@ -2,6 +2,9 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+from aiogram.exceptions import TelegramForbiddenError
+from aiogram.methods import SendMessage
+
 from bot.services import telegram_notifications as module
 from bot.services.telegram_notifications import (
     TELEGRAM_NOTIFICATIONS_ENABLED,
@@ -64,3 +67,27 @@ def test_probe_telegram_notifications_uses_silent_chat_check(monkeypatch):
     assert result["ok"] is True
     assert result["status"] == TELEGRAM_NOTIFICATIONS_ENABLED
     assert recorded == [("session", 42, TELEGRAM_NOTIFICATIONS_ENABLED, 123, None)]
+
+
+def test_record_telegram_notification_failure_persists_blocked_status(monkeypatch):
+    session = SimpleNamespace(commit=AsyncMock())
+
+    class SessionContext:
+        async def __aenter__(self):
+            return session
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    mark_status = AsyncMock()
+    monkeypatch.setattr(module, "mark_telegram_notifications_status", mark_status)
+    error = TelegramForbiddenError(
+        method=SendMessage(chat_id=123, text="Hello"),
+        message="Forbidden: bot was blocked by the user",
+    )
+
+    status = asyncio.run(module.record_telegram_notification_failure(SessionContext, 42, error))
+
+    assert status == "blocked"
+    mark_status.assert_awaited_once_with(session, 42, "blocked")
+    session.commit.assert_awaited_once()

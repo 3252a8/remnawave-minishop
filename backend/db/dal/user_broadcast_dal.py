@@ -62,6 +62,7 @@ async def get_telegram_recipients_for_broadcast(
     session: AsyncSession,
     user_ids: list[int],
     *,
+    exclude_blocked: bool = False,
     chunk_size: int = 900,
 ) -> list[tuple[int, int]]:
     """Return ``(user_id, telegram_chat_id)`` for Telegram broadcast delivery.
@@ -78,14 +79,20 @@ async def get_telegram_recipients_for_broadcast(
     found_user_ids: set[int] = set()
     for start in range(0, len(normalized_user_ids), chunk_size):
         chunk = normalized_user_ids[start : start + chunk_size]
-        stmt = select(User.user_id, User.telegram_id).where(
-            User.user_id.in_(chunk),
-            User.is_banned == False,
-        )
+        stmt = select(
+            User.user_id,
+            User.telegram_id,
+            User.telegram_notifications_status,
+            User.is_banned,
+        ).where(User.user_id.in_(chunk))
         result = await session.execute(stmt)
-        for user_id, telegram_id in result.all():
+        for user_id, telegram_id, notification_status, is_banned in result.all():
             local_user_id = int(user_id)
             found_user_ids.add(local_user_id)
+            if bool(is_banned):
+                continue
+            if exclude_blocked and str(notification_status or "").lower() == "blocked":
+                continue
             chat_id = int(telegram_id or local_user_id)
             if chat_id > 0:
                 chat_ids_by_user_id[local_user_id] = chat_id

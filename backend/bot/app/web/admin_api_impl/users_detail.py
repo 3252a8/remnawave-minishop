@@ -47,7 +47,7 @@ from .common import (
     _serialize_payment,
     _serialize_subscription,
 )
-from .schemas import AdminUserTrialOut
+from .schemas import AdminTelegramNotificationsOut, AdminUserTrialOut
 from .squad_override_schemas import AdminPanelSquadOverridesOut
 from .users_common import _bulk_user_avatar_keys, _serialize_admin_user_with_avatar
 
@@ -834,6 +834,9 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
             "install_share_url": install_share_url,
             "last_vpn_connected_at": last_vpn_connected_at,
             "vpn_connection_status": vpn_connection_status,
+            "telegram_notifications": AdminTelegramNotificationsOut.from_orm_user(user).model_dump(
+                mode="json"
+            ),
             "panel_squad_overrides": panel_squad_overrides,
             "referral": {
                 "code": referral_code,
