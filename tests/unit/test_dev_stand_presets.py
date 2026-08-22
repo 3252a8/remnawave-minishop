@@ -158,3 +158,25 @@ def test_dev_seed_matches_current_non_nullable_and_unique_contracts() -> None:
     assert "auto_renew_consent_version" in seed
     assert "is_auto_renew" in seed
     assert "ON CONFLICT (provider, provider_payment_id)" in seed
+
+
+def test_dev_mock_data_profile_is_explicit_idempotent_and_safe() -> None:
+    seed = (DEV_DIR / "seed-minishop-mock-data.sql").read_text(encoding="utf-8")
+    compose = (REPO_ROOT / "docker-compose.remnawave-dev.yml").read_text(encoding="utf-8")
+    scripts = json.loads((REPO_ROOT / "package.json").read_text(encoding="utf-8"))["scripts"]
+
+    assert seed.startswith("BEGIN;")
+    assert seed.rstrip().endswith("COMMIT;")
+    assert "910010001" in seed
+    assert "910030001" in seed
+    assert "ON CONFLICT (user_id) DO UPDATE" in seed
+    assert "ON CONFLICT (ticket_id) DO UPDATE" in seed
+    assert "ON CONFLICT (provider, provider_payment_id) DO UPDATE" in seed
+    assert "ON CONFLICT (code) DO UPDATE" in seed
+    assert "ON CONFLICT (broadcast_id) DO UPDATE" in seed
+    assert "telegram_id,\n" in seed
+    assert "dev-mock-data:" in compose
+    assert "- mock-data" in compose
+    assert "seed-minishop-mock-data.sql:/seed/seed-minishop-mock-data.sql:ro" in compose
+    assert "--profile mock-data" in scripts["dev:stand:up:mocks"]
+    assert scripts["dev:stand:mocks"].endswith("--no-deps dev-mock-data")
