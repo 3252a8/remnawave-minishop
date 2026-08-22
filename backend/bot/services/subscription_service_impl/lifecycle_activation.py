@@ -622,6 +622,15 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         override_detection_managed_squads = list(
             dict.fromkeys([*previous_managed_squads, *(managed_squads or [])])
         )
+        # Older releases could persist trial squads as panel-discovered manual
+        # overrides during this transition. Remove only those automatic rows;
+        # explicit admin overrides remain active.
+        await self.deactivate_panel_managed_internal_overrides(
+            session,
+            user_id=user_id,
+            panel_user_uuid=panel_user_uuid,
+            managed_internal_squads=previous_managed_squads,
+        )
 
         await subscription_dal.deactivate_other_active_subscriptions(
             session, panel_user_uuid, panel_sub_link_id

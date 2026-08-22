@@ -1207,6 +1207,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                     return_value=("panel-user", "panel-sub", "short", False)
                 )
                 service._send_payment_success_email = AsyncMock()
+                service.deactivate_panel_managed_internal_overrides = AsyncMock(return_value=2)
                 service.build_effective_panel_squad_fields = AsyncMock(
                     return_value={
                         "activeInternalSquads": ["main-squad", "shared-squad"],
@@ -1293,6 +1294,15 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                     )
 
                 self.assertIsNotNone(result)
+                cleanup_kwargs = (
+                    service.deactivate_panel_managed_internal_overrides.await_args.kwargs
+                )
+                self.assertEqual(cleanup_kwargs["user_id"], 42)
+                self.assertEqual(cleanup_kwargs["panel_user_uuid"], "panel-user")
+                self.assertEqual(
+                    cleanup_kwargs["managed_internal_squads"],
+                    ["trial-main", "trial-premium"],
+                )
                 squad_kwargs = service.build_effective_panel_squad_fields.await_args.kwargs
                 self.assertEqual(
                     squad_kwargs["managed_internal_squads"],
