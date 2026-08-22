@@ -18,6 +18,8 @@ class UserNotificationCategory(StrEnum):
     SUBSCRIPTIONS = "subscriptions"
     TRAFFIC = "traffic"
     DEVICES = "devices"
+    DEVICE_ACTIVITY = "device_activity"
+    DEVICE_LIMIT = "device_limit"
     LIMITS = "limits"
     SUPPORT = "support"
     REFERRALS = "referrals"
@@ -49,6 +51,14 @@ _CATEGORY_SETTING_KEYS: dict[UserNotificationCategory, tuple[str, str]] = {
     UserNotificationCategory.DEVICES: (
         "USER_NOTIFICATION_DEVICES_TELEGRAM_ENABLED",
         "USER_NOTIFICATION_DEVICES_EMAIL_ENABLED",
+    ),
+    UserNotificationCategory.DEVICE_ACTIVITY: (
+        "USER_NOTIFICATION_DEVICE_ACTIVITY_TELEGRAM_ENABLED",
+        "USER_NOTIFICATION_DEVICE_ACTIVITY_EMAIL_ENABLED",
+    ),
+    UserNotificationCategory.DEVICE_LIMIT: (
+        "USER_NOTIFICATION_DEVICE_LIMIT_TELEGRAM_ENABLED",
+        "USER_NOTIFICATION_DEVICE_LIMIT_EMAIL_ENABLED",
     ),
     UserNotificationCategory.LIMITS: (
         "TORRENT_BLOCKER_TELEGRAM_NOTIFICATIONS_ENABLED",

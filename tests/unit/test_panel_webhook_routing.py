@@ -162,6 +162,81 @@ class HandleWebhookQueueingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(entry["payload"]["meta"], {"expiration": -12})
         self.assertEqual(entry["event_id"], "user.expiration:99:expiration:-12")
 
+    async def test_hwid_device_event_queues_only_safe_device_context(self):
+        service = _make_service()
+        captured: list[dict[str, Any]] = []
+
+        async def fake_enqueue(settings, provider, payload, *, event_id=None):
+            captured.append({"provider": provider, "payload": payload, "event_id": event_id})
+            return True
+
+        body = json.dumps(
+            {
+                "event": "user_hwid_devices.added",
+                "data": {
+                    "user": {
+                        "id": 42,
+                        "telegramId": 99,
+                        "hwidDeviceLimit": 2,
+                    },
+                    "hwidDevice": {
+                        "hwid": "SECRET-HWID-12345",
+                        "platform": "Android",
+                        "osVersion": "15",
+                        "deviceModel": "Pixel 9",
+                        "userAgent": "Sensitive Client/1.0",
+                        "requestIp": "203.0.113.10",
+                        "createdAt": "2026-08-22T10:00:00Z",
+                    },
+                },
+            }
+        ).encode()
+
+        with patch.object(pws, "enqueue_webhook_event", fake_enqueue):
+            response = await service.handle_webhook(body, _sign(body))
+            duplicate_response = await service.handle_webhook(body, _sign(body))
+            reconnected_body = body.replace(
+                b"2026-08-22T10:00:00Z",
+                b"2026-08-23T10:00:00Z",
+            )
+            reconnected_response = await service.handle_webhook(
+                reconnected_body,
+                _sign(reconnected_body),
+            )
+
+        self.assertEqual(response.status, 200)
+        self.assertEqual(duplicate_response.status, 200)
+        self.assertEqual(reconnected_response.status, 200)
+        entry = captured[0]
+        self.assertEqual(entry["provider"], "panel")
+        self.assertEqual(entry["payload"]["event"], "user_hwid_devices.added")
+        self.assertEqual(
+            entry["payload"]["context"],
+            {
+                "fingerprint": entry["payload"]["context"]["fingerprint"],
+                "platform": "Android",
+                "os_version": "15",
+                "device_model": "Pixel 9",
+                "created_at": "2026-08-22T10:00:00Z",
+            },
+        )
+        serialized = json.dumps(entry, sort_keys=True)
+        self.assertNotIn("SECRET-HWID-12345", serialized)
+        self.assertNotIn("Sensitive Client", serialized)
+        self.assertNotIn("203.0.113.10", serialized)
+        self.assertEqual(
+            entry["event_id"],
+            "user_hwid_devices.added:99:" + entry["payload"]["context"]["fingerprint"],
+        )
+        self.assertEqual(
+            captured[1]["payload"]["context"]["fingerprint"],
+            entry["payload"]["context"]["fingerprint"],
+        )
+        self.assertNotEqual(
+            captured[2]["payload"]["context"]["fingerprint"],
+            entry["payload"]["context"]["fingerprint"],
+        )
+
     async def test_enqueues_expiration_event_with_root_meta_and_direct_user_data(self):
         service = _make_service()
         captured: list[dict] = []
@@ -547,6 +622,42 @@ class _RenewalSessionFactory:
 
 
 class HandleEventLoggingTests(unittest.IsolatedAsyncioTestCase):
+    async def test_hwid_retry_commits_partial_delivery_before_bubbling(self):
+        service = _make_service()
+        service.settings.SUBSCRIPTION_NOTIFICATIONS_ENABLED = False
+        service.settings.SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED = False
+        session = SimpleNamespace(commit=AsyncMock())
+        service.async_session_factory = _RenewalSessionFactory(session)
+        user = SimpleNamespace(user_id=123)
+        subscription = SimpleNamespace(subscription_id=456, user=user)
+        service.hwid_device_notifications.handle_added = AsyncMock(
+            return_value=SimpleNamespace(needs_retry=True, retry_channels=("email",))
+        )
+
+        with (
+            patch.object(service, "_user_for_payload", AsyncMock(return_value=user)),
+            patch.object(
+                service,
+                "_subscription_for_payload",
+                AsyncMock(return_value=subscription),
+            ),
+            self.assertRaises(pws.HwidDeviceNotificationRetryError),
+        ):
+            await service.handle_event(
+                "user_hwid_devices.added",
+                {"uuid": "panel-user-1"},
+                context={"fingerprint": "a" * 24},
+            )
+
+        service.hwid_device_notifications.handle_added.assert_awaited_once_with(
+            session,
+            user=user,
+            subscription=subscription,
+            user_payload={"uuid": "panel-user-1"},
+            context={"fingerprint": "a" * 24},
+        )
+        session.commit.assert_awaited_once()
+
     async def test_unsupported_event_is_logged_as_ignored(self):
         service = _make_service()
 

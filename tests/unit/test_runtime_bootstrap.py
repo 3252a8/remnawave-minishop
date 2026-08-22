@@ -232,3 +232,37 @@ def test_panel_queue_handler_forwards_torrent_notification_context() -> None:
         meta=None,
         context=payload["context"],
     )
+
+
+def test_panel_queue_handler_refreshes_hwid_notification_settings() -> None:
+    panel_webhook_service = SimpleNamespace(handle_event=AsyncMock())
+    settings = SimpleNamespace(USER_NOTIFICATION_DEVICE_LIMIT_EMAIL_ENABLED=False)
+    session_factory = object()
+
+    async def refresh_settings(runtime_settings, runtime_session_factory, *, keys):
+        assert runtime_settings is settings
+        assert runtime_session_factory is session_factory
+        assert keys == main_worker.HWID_DEVICE_NOTIFICATION_RUNTIME_SETTING_KEYS
+        runtime_settings.USER_NOTIFICATION_DEVICE_LIMIT_EMAIL_ENABLED = True
+
+    ctx = SimpleNamespace(
+        settings=settings,
+        require_panel_webhook_service=lambda: panel_webhook_service,
+        require_session_factory=lambda: session_factory,
+    )
+    payload = {
+        "event": "user_hwid_devices.added",
+        "user": {"uuid": "panel-user-1"},
+        "context": {"fingerprint": "a" * 24, "platform": "Android"},
+    }
+
+    with patch.object(main_worker, "refresh_overrides_from_db", refresh_settings):
+        asyncio.run(main_worker._handle_panel_event(ctx, payload))
+
+    assert settings.USER_NOTIFICATION_DEVICE_LIMIT_EMAIL_ENABLED is True
+    panel_webhook_service.handle_event.assert_awaited_once_with(
+        "user_hwid_devices.added",
+        payload["user"],
+        meta=None,
+        context=payload["context"],
+    )

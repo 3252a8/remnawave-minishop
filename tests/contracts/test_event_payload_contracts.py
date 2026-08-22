@@ -12,6 +12,8 @@ from bot.infra.event_payloads import (
     AccountMergedPayload,
     AccountTelegramLinkedPayload,
     BotStartedPayload,
+    DeviceConnectedPayload,
+    DeviceLimitReachedPayload,
     PanelWebhookReceivedPayload,
     PaymentCanceledPayload,
     PaymentSucceededPayload,
@@ -49,6 +51,8 @@ UTC_TEXT = "2026-01-02T03:04:05+00:00"
         (ReferralBonusGrantedPayload, events.REFERRAL_BONUS_GRANTED),
         (SupportTicketCreatedPayload, events.SUPPORT_TICKET_CREATED),
         (PanelWebhookReceivedPayload, events.PANEL_WEBHOOK_RECEIVED),
+        (DeviceConnectedPayload, events.DEVICE_CONNECTED),
+        (DeviceLimitReachedPayload, events.DEVICE_LIMIT_REACHED),
     ],
 )
 def test_event_payload_names_match_bus_constants(model_cls, event_name):

@@ -274,6 +274,32 @@ class PanelWebhookReceivedPayload(EventPayload):
     telegram_id: int | str | None = None
 
 
+class DeviceConnectedPayload(EventPayload):
+    EVENT_NAME: ClassVar[str] = "device.connected"
+
+    user_id: int
+    subscription_id: int
+    panel_user_uuid: str | None = None
+    device_label: str
+    platform: str | None = None
+    os_version: str | None = None
+    current_devices: int | None = None
+    device_limit: int | None = None
+    occurred_at: datetime
+
+
+class DeviceLimitReachedPayload(EventPayload):
+    EVENT_NAME: ClassVar[str] = "device.limit_reached"
+
+    user_id: int
+    subscription_id: int
+    tariff_key: str | None = None
+    current_devices: int
+    device_limit: int
+    device_topup_available: bool
+    occurred_at: datetime
+
+
 class PartnerApplicationSubmittedPayload(EventPayload):
     EVENT_NAME: ClassVar[str] = "partner.application_submitted"
 

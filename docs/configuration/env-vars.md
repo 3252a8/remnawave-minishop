@@ -287,6 +287,8 @@ Trust-all вариант записывается как
 | `SUBSCRIPTION_NOTIFICATIONS_ENABLED`, `SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED` | Telegram и email для уведомлений жизненного цикла подписки. |
 | `USER_NOTIFICATION_TRAFFIC_TELEGRAM_ENABLED`, `USER_NOTIFICATION_TRAFFIC_EMAIL_ENABLED` | Каналы предупреждений, исчерпания и сброса трафика. |
 | `USER_NOTIFICATION_DEVICES_TELEGRAM_ENABLED`, `USER_NOTIFICATION_DEVICES_EMAIL_ENABLED` | Каналы уведомлений о покупках и продлении HWID-устройств. |
+| `USER_NOTIFICATION_DEVICE_ACTIVITY_TELEGRAM_ENABLED`, `USER_NOTIFICATION_DEVICE_ACTIVITY_EMAIL_ENABLED` | Каналы уведомлений о новом HWID-устройстве из webhook `user_hwid_devices.added`. |
+| `USER_NOTIFICATION_DEVICE_LIMIT_TELEGRAM_ENABLED`, `USER_NOTIFICATION_DEVICE_LIMIT_EMAIL_ENABLED` | Каналы уведомлений о занятом последнем месте для HWID-устройства. |
 | `TORRENT_BLOCKER_TELEGRAM_NOTIFICATIONS_ENABLED`, `TORRENT_BLOCKER_EMAIL_NOTIFICATIONS_ENABLED` | Каналы уведомлений об ограничениях Torrent Blocker. Общий opt-in остаётся отдельным. |
 | `USER_NOTIFICATION_SUPPORT_TELEGRAM_ENABLED`, `USER_NOTIFICATION_SUPPORT_EMAIL_ENABLED` | Каналы ответов и изменения статуса обращений пользователя. |
 | `USER_NOTIFICATION_REFERRALS_TELEGRAM_ENABLED`, `USER_NOTIFICATION_REFERRALS_EMAIL_ENABLED` | Каналы уведомлений о реферальных бонусах. |

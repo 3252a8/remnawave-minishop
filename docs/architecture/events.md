@@ -77,6 +77,44 @@ Core reactions: none
 | `source` | `'direct' | 'referral' | 'promo' | 'ad' | 'ticket' | 'notifications'` | required |
 | `start_param` | `str | None` | `None` |
 
+## `device.connected`
+
+Payload model: `DeviceConnectedPayload`
+
+Emitters: `backend/bot/services/hwid_device_notifications.py`
+
+Core reactions: none
+
+| Field | Type | Default |
+| --- | --- | --- |
+| `user_id` | `int` | required |
+| `subscription_id` | `int` | required |
+| `panel_user_uuid` | `str | None` | `None` |
+| `device_label` | `str` | required |
+| `platform` | `str | None` | `None` |
+| `os_version` | `str | None` | `None` |
+| `current_devices` | `int | None` | `None` |
+| `device_limit` | `int | None` | `None` |
+| `occurred_at` | `datetime` | required |
+
+## `device.limit_reached`
+
+Payload model: `DeviceLimitReachedPayload`
+
+Emitters: `backend/bot/services/hwid_device_notifications.py`
+
+Core reactions: none
+
+| Field | Type | Default |
+| --- | --- | --- |
+| `user_id` | `int` | required |
+| `subscription_id` | `int` | required |
+| `tariff_key` | `str | None` | `None` |
+| `current_devices` | `int` | required |
+| `device_limit` | `int` | required |
+| `device_topup_available` | `bool` | required |
+| `occurred_at` | `datetime` | required |
+
 ## `panel.webhook_received`
 
 Payload model: `PanelWebhookReceivedPayload`

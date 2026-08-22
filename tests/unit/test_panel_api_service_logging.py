@@ -558,6 +558,22 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result, [{"hwid": "device-1", "deviceModel": "Laptop"}])
 
+    async def test_get_user_devices_force_refresh_bypasses_cached_snapshot(self):
+        service = self._make_service()
+        service._request = AsyncMock(
+            side_effect=[
+                {"response": [{"hwid": "device-1"}]},
+                {"response": [{"hwid": "device-1"}, {"hwid": "device-2"}]},
+            ]
+        )
+
+        first = await service.get_user_devices("user-uuid")
+        refreshed = await service.get_user_devices("user-uuid", force_refresh=True)
+
+        self.assertEqual(first, [{"hwid": "device-1"}])
+        self.assertEqual(refreshed, [{"hwid": "device-1"}, {"hwid": "device-2"}])
+        self.assertEqual(service._request.await_count, 2)
+
     async def test_get_user_devices_keeps_empty_panel_devices_list(self):
         service = self._make_service()
         service._request = AsyncMock(return_value={"response": {"total": 0, "devices": []}})

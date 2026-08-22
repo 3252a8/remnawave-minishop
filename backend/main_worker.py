@@ -50,6 +50,10 @@ from bot.services.admin_broadcast_worker import AdminBroadcastWorker
 from bot.services.auto_renew_retry_worker import AutoRenewRetryWorker
 from bot.services.backup_worker import BackupWorker
 from bot.services.event_reactions import register_core_reactions
+from bot.services.hwid_device_notifications import (
+    HWID_DEVICE_NOTIFICATION_RUNTIME_SETTING_KEYS,
+)
+from bot.services.hwid_device_webhook import HWID_DEVICE_EVENTS
 from bot.services.message_log_notifier import configure_message_log_notifier
 from bot.services.partner_program_worker import PartnerProgramWorker
 from bot.services.payment_reconciliation_worker import PaymentReconciliationWorker
@@ -142,6 +146,12 @@ async def _handle_panel_event(ctx: PluginContext, payload: dict[str, Any]) -> No
             ctx.settings,
             ctx.require_session_factory(),
             keys=TORRENT_BLOCKER_RUNTIME_SETTING_KEYS,
+        )
+    elif event_name in HWID_DEVICE_EVENTS:
+        await refresh_overrides_from_db(
+            ctx.settings,
+            ctx.require_session_factory(),
+            keys=HWID_DEVICE_NOTIFICATION_RUNTIME_SETTING_KEYS,
         )
     if isinstance(context, dict):
         await service.handle_event(
