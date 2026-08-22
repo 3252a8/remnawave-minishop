@@ -55,6 +55,7 @@
     trialSummaryText,
     fmtDateShort,
     paymentStatusVariant,
+    onOpenPaymentCard,
     userLogsRows,
     userLogsTotal,
     userLogsPage,
@@ -132,6 +133,7 @@
     trialSummaryText: (trial: Record<string, unknown> | null | undefined) => string;
     fmtDateShort: DateFormatter;
     paymentStatusVariant: (status: unknown) => BadgeVariant;
+    onOpenPaymentCard: (paymentId: number) => void;
     userLogsRows: readonly UserLogRow[];
     userLogsTotal: number;
     userLogsPage: number;
@@ -279,6 +281,7 @@
               {fmtMoney}
               {fmtDateShort}
               {paymentStatusVariant}
+              {onOpenPaymentCard}
             />
 
             <UserLogsTab

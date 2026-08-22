@@ -568,6 +568,7 @@
   {onCloseUser}
   {onOpenPaymentUserCard}
   {onOpenPaymentPromoCard}
+  {onOpenPaymentCard}
   {onOpenPartnerCard}
   {routePrefix}
 />

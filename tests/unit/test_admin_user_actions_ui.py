@@ -5,6 +5,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 USER_DETAIL = REPO_ROOT / "frontend/src/admin/sections/UserDetailModal.svelte"
 USER_DETAIL_VIEW = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserDetailView.svelte"
+USER_ACTIVITY = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserActivityTab.svelte"
 USER_DETAIL_ASIDE = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserDetailAside.svelte"
 USER_DETAIL_CSS = REPO_ROOT / "frontend/src/admin/sections/UserDetailModal.css"
 USER_ACTIONS = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserActionsTab.svelte"
@@ -26,6 +27,8 @@ USER_TRAFFIC_GRANT_ACTION = (
 USER_DIALOGS = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserDetailDialogs.svelte"
 STATS_SECTION = REPO_ROOT / "frontend/src/admin/sections/StatsSection.svelte"
 ADMIN_PANEL = REPO_ROOT / "frontend/src/admin/AdminPanel.svelte"
+ADMIN_PANEL_LAYOUT = REPO_ROOT / "frontend/src/admin/AdminPanelLayout.svelte"
+ADMIN_LAZY_MODALS = REPO_ROOT / "frontend/src/admin/AdminLazyModals.svelte"
 ADMIN_CSS = REPO_ROOT / "frontend/src/styles/admin.css"
 USERS_STORE = REPO_ROOT / "frontend/src/lib/admin/stores/usersStore.svelte.ts"
 
@@ -264,3 +267,24 @@ def test_stats_recent_payment_user_button_stays_in_current_section():
     assert "openPaymentUserCard" in source
     assert 'active === "logs"' in source
     assert "openLogsUserCard" in source
+
+
+def test_user_recent_payments_open_payment_cards():
+    activity = USER_ACTIVITY.read_text(encoding="utf-8")
+    modal = USER_DETAIL.read_text(encoding="utf-8")
+    view = USER_DETAIL_VIEW.read_text(encoding="utf-8")
+    layout = ADMIN_PANEL_LAYOUT.read_text(encoding="utf-8")
+    lazy_modals = ADMIN_LAZY_MODALS.read_text(encoding="utf-8")
+    panel = ADMIN_PANEL.read_text(encoding="utf-8")
+
+    assert "onOpenPaymentCard(payment.payment_id)" in activity
+    assert "payment_detail_open" in activity
+    assert "admin-payment-id-btn" in activity
+    assert "{onOpenPaymentCard}" in modal
+    assert "{onOpenPaymentCard}" in view
+    assert "{onOpenPaymentCard}" in layout
+    assert "{onOpenPaymentCard}" in lazy_modals
+    assert lazy_modals.index("{#if UserDetailModalComponent}") < lazy_modals.index(
+        "{#if PaymentDetailModalComponent}"
+    )
+    assert "void paymentsStore.openPayment(id)" in panel
