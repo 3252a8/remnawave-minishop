@@ -18,6 +18,7 @@
     body?: string;
     bodyFormat?: string;
     imageUrl?: string;
+    loadImage?: (url: string) => Promise<Blob>;
     buttons?: TicketMessageButtonLike[];
     createdAt?: string;
     isInternalNote?: boolean;
@@ -36,6 +37,7 @@
     body = "",
     bodyFormat = "text",
     imageUrl = "",
+    loadImage = undefined,
     buttons = [],
     createdAt = "",
     isInternalNote = false,
@@ -74,6 +76,36 @@
   const receiptLabel = $derived(
     t(messageRead ? "wa_support_message_read" : "wa_support_message_sent")
   );
+  let resolvedImageUrl = $state("");
+  let imageLoadFailed = $state(false);
+
+  $effect(() => {
+    const source = imageUrl;
+    const loader = loadImage;
+    resolvedImageUrl = "";
+    imageLoadFailed = false;
+    if (!source) return;
+    if (!loader) {
+      resolvedImageUrl = source;
+      return;
+    }
+
+    let active = true;
+    let objectUrl = "";
+    void loader(source)
+      .then((blob) => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        resolvedImageUrl = objectUrl;
+      })
+      .catch(() => {
+        if (active) imageLoadFailed = true;
+      });
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  });
 
   function formatTime(value: string): string {
     if (!value) return "";
@@ -131,13 +163,17 @@
     </div>
 
     <div class="ticket-message-bubble">
-      {#if imageUrl}
+      {#if resolvedImageUrl}
         <img
           class="ticket-message-image"
-          src={imageUrl}
+          src={resolvedImageUrl}
           alt={t("wa_message_image_alt", {}, "Attached image")}
           loading="lazy"
         />
+      {:else if imageLoadFailed}
+        <span class="ticket-message-image-error" role="alert">
+          {t("wa_message_image_load_failed", {}, "The attached image could not be loaded")}
+        </span>
       {/if}
       {#if bodyHtml}
         <!-- eslint-disable-next-line svelte/no-at-html-tags -->

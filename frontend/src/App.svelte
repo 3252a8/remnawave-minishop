@@ -605,6 +605,7 @@
       adminActiveSection,
       adminRuntime,
       api,
+      apiBlob: dataClient.apiClient.apiBlob,
       appActions,
       cfg: CFG,
       getShellView: () => shellView,

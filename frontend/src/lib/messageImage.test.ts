@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { messageRequestBody, supportMessageImageUrl } from "./messageImage";
+import { isAcceptedMessageImage, messageRequestBody, supportMessageImageUrl } from "./messageImage";
 
 describe("message image requests", () => {
   it("keeps the existing JSON transport when there is no image", () => {
@@ -31,5 +31,11 @@ describe("message image requests", () => {
   it("builds separate private user and admin image URLs", () => {
     expect(supportMessageImageUrl("abc")).toBe("/api/support/images/abc");
     expect(supportMessageImageUrl("abc", true)).toBe("/api/admin/message-images/abc");
+  });
+
+  it("accepts phone photos even when the browser omits their MIME type", () => {
+    expect(isAcceptedMessageImage({ name: "phone-photo.HEIC", type: "" })).toBe(true);
+    expect(isAcceptedMessageImage({ name: "phone-photo.bin", type: "image/heif" })).toBe(true);
+    expect(isAcceptedMessageImage({ name: "payload.svg", type: "image/svg+xml" })).toBe(false);
   });
 });

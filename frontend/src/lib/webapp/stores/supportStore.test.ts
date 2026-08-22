@@ -18,6 +18,7 @@ function makeSupportStore() {
   });
   const store = createSupportStore({
     api: api as unknown as ApiClient["api"],
+    apiBlob: vi.fn() as unknown as ApiClient["apiBlob"],
     t: (key: string) => key,
     showToast: vi.fn(),
   });
@@ -30,6 +31,7 @@ function makeListStore(responses: unknown[]) {
   const api = vi.fn(async () => responses.shift() ?? { ok: true, tickets: [], counts: {} });
   const store = createSupportStore({
     api: api as unknown as ApiClient["api"],
+    apiBlob: vi.fn() as unknown as ApiClient["apiBlob"],
     t: (key: string) => key,
     showToast: vi.fn(),
   });

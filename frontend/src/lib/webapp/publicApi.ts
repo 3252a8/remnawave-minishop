@@ -239,6 +239,7 @@ export type ApiClient = {
     options?: Options
   ): Promise<ApiResponseFor<Path, Options>>;
   apiUnchecked(path: string, options?: RequestInit): Promise<Record<string, unknown>>;
+  apiBlob(path: string, options?: RequestInit): Promise<Blob>;
   publicApi<Path extends ApiPathInput>(
     path: Path,
     payload?: PostPayload<Path>,
@@ -792,15 +793,9 @@ export function createApiClient({
   const isFormDataBody = (body: BodyInit | null | undefined) =>
     typeof FormData !== "undefined" && body instanceof FormData;
 
-  async function requestJson(
-    path: string,
-    options: RequestInit = {}
-  ): Promise<Record<string, unknown>> {
-    if (mockApi) return (await mockApi(path, options, getMockContext())) as Record<string, unknown>;
-
+  function authenticatedHeaders(options: RequestInit): Headers {
     const method = String(options.method || "GET").toUpperCase();
     const headers = new Headers(options.headers);
-
     const csrf = getCsrfToken() || readCookie(csrfCookieName) || "";
     const authToken = getAuthToken();
     if (authToken && !headers.has("Authorization")) {
@@ -809,6 +804,16 @@ export function createApiClient({
     if (csrf && ["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
       headers.set("X-CSRF-Token", csrf);
     }
+    return headers;
+  }
+
+  async function requestJson(
+    path: string,
+    options: RequestInit = {}
+  ): Promise<Record<string, unknown>> {
+    if (mockApi) return (await mockApi(path, options, getMockContext())) as Record<string, unknown>;
+
+    const headers = authenticatedHeaders(options);
     if (options.body && !headers.has("Content-Type") && !isFormDataBody(options.body)) {
       headers.set("Content-Type", "application/json");
     }
@@ -848,6 +853,38 @@ export function createApiClient({
     return requestJson(path, options);
   }
 
+  async function apiBlob(path: string, options: RequestInit = {}): Promise<Blob> {
+    if (mockApi) {
+      const value = await mockApi(path, options, getMockContext());
+      if (typeof Blob !== "undefined" && value instanceof Blob) return value;
+      throw new Error("mock_binary_response_unavailable");
+    }
+
+    const headers = authenticatedHeaders(options);
+    const { signal, cleanup } = requestSignal(options.signal, requestTimeoutMs);
+    try {
+      const response = await fetch(buildApiUrl(path), {
+        cache: "no-store",
+        ...options,
+        headers,
+        credentials: "same-origin",
+        signal,
+      });
+      if (response.status === 401) onUnauthorized();
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({
+          ok: false,
+          error: "image_load_failed",
+          status: response.status,
+        }));
+        throw payload;
+      }
+      return response.blob();
+    } finally {
+      cleanup();
+    }
+  }
+
   async function publicApiUnchecked(
     path: string,
     payload: Record<string, unknown> = {},
@@ -883,5 +920,5 @@ export function createApiClient({
     return (await publicApiUnchecked(path, payload, options)) as PostResponse<Path>;
   }
 
-  return { api, apiUnchecked, publicApi, publicApiUnchecked } as ApiClient;
+  return { api, apiUnchecked, apiBlob, publicApi, publicApiUnchecked } as ApiClient;
 }

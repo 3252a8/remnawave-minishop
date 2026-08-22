@@ -257,6 +257,7 @@ export function createAppFactories({
     }),
   });
   const api = dataClient.api;
+  const apiBlob = dataClient.apiClient.apiBlob;
   const publicApi = dataClient.publicApi;
   const billing = createBillingActions({
     api,
@@ -325,6 +326,7 @@ export function createAppFactories({
   });
   const sectionContext = createWebappSectionContext({
     api,
+    apiBlob,
     t,
     showToast,
     routePrefix,
@@ -591,6 +593,7 @@ export type AppAdminPanelPropsDeps = {
   adminActiveSection: string;
   adminRuntime: ReturnType<typeof createAdminRuntime>;
   api: ReturnType<typeof createWebappDataClient>["api"];
+  apiBlob: ReturnType<typeof createWebappDataClient>["apiClient"]["apiBlob"];
   appActions: AppActionRuntime;
   cfg: WebappConfig;
   getShellView: () => AppShellView;
@@ -608,6 +611,7 @@ export function buildAppAdminPanelProps({
   adminActiveSection,
   adminRuntime,
   api,
+  apiBlob,
   appActions,
   cfg,
   getShellView,
@@ -624,6 +628,7 @@ export function buildAppAdminPanelProps({
   return buildAdminPanelProps({
     adminActiveSection,
     api,
+    apiBlob,
     appFaviconUrl: cfg.faviconUrl,
     appFaviconUseCustom: cfg.faviconUseCustom,
     appRepositoryUrl: cfg.appRepositoryUrl,

@@ -15,6 +15,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from PIL import Image, ImageOps, UnidentifiedImageError
+from pillow_heif import register_heif_opener
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.services.email_templates_common import EmailInlineImage
@@ -27,15 +28,28 @@ MESSAGE_IMAGE_MAX_DIMENSION = 2560
 MESSAGE_IMAGE_MAX_PIXELS = 16_000_000
 MESSAGE_IMAGE_CONTENT_TYPE = "image/webp"
 MESSAGE_IMAGE_UPLOAD_CONTENT_TYPES = frozenset(
-    {"image/jpeg", "image/png", "image/webp", "application/octet-stream"}
+    {
+        "image/heic",
+        "image/heic-sequence",
+        "image/heif",
+        "image/heif-sequence",
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "application/octet-stream",
+    }
 )
 MESSAGE_IMAGE_DIR = Path(__file__).resolve().parents[3] / "data" / "message-images"
 
 _IMAGE_ID_RE = re.compile(r"[0-9a-f]{32}")
 _DIGEST_RE = re.compile(r"[0-9a-f]{64}")
-_INPUT_FORMATS = {"JPEG", "PNG", "WEBP"}
+_INPUT_FORMATS = {"HEIF", "JPEG", "PNG", "WEBP"}
 _PREPARE_IMAGE_CONCURRENCY = 2
 _prepare_image_semaphore = asyncio.Semaphore(_PREPARE_IMAGE_CONCURRENCY)
+
+# Disable embedded thumbnails so every accepted HEIC/HEIF upload is decoded
+# from its primary image and passes the same pixel, frame and metadata checks.
+register_heif_opener(thumbnails=False)
 
 
 class MessageImageError(ValueError):
@@ -138,7 +152,9 @@ def _prepare_message_image(upload: UploadedMessageImage) -> PreparedMessageImage
 
     declared_type = _normalized_content_type(upload.content_type)
     if declared_type and declared_type not in MESSAGE_IMAGE_UPLOAD_CONTENT_TYPES:
-        raise MessageImageError("unsupported_image", "Only JPEG, PNG and WebP images are allowed")
+        raise MessageImageError(
+            "unsupported_image", "Only HEIC, HEIF, JPEG, PNG and WebP images are allowed"
+        )
 
     try:
         with warnings.catch_warnings():
@@ -148,7 +164,8 @@ def _prepare_message_image(upload: UploadedMessageImage) -> PreparedMessageImage
                 width, height = probe.size
                 if image_format not in _INPUT_FORMATS:
                     raise MessageImageError(
-                        "unsupported_image", "Only JPEG, PNG and WebP images are allowed"
+                        "unsupported_image",
+                        "Only HEIC, HEIF, JPEG, PNG and WebP images are allowed",
                     )
                 if int(getattr(probe, "n_frames", 1) or 1) != 1:
                     raise MessageImageError("animated_image", "Animated images are not supported")

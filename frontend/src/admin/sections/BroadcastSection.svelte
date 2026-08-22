@@ -349,8 +349,12 @@
             drop: at("message_image_drop", {}, "Drop an image here or"),
             choose: at("message_image_choose", {}, "choose a file"),
             remove: at("message_image_remove", {}, "Remove image"),
-            hint: at("message_image_hint", {}, "JPEG, PNG or WebP, up to 8 MB"),
-            invalidType: at("message_image_invalid_type", {}, "Choose a JPEG, PNG or WebP image"),
+            hint: at("message_image_hint", {}, "HEIC, HEIF, JPEG, PNG or WebP, up to 8 MB"),
+            invalidType: at(
+              "message_image_invalid_type",
+              {},
+              "Choose a HEIC, HEIF, JPEG, PNG or WebP image"
+            ),
             tooLarge: at("message_image_too_large", {}, "The image must be no larger than 8 MB"),
             previewAlt: at("message_image_preview_alt", {}, "Image preview"),
           }}

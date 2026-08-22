@@ -37,6 +37,24 @@ describe("createApiClient", () => {
     expect((requestOptions.headers as Headers).get("Authorization")).toBe("Bearer session-token");
   });
 
+  it("loads protected binary responses with the in-memory session token", async () => {
+    const body = new Blob(["image"], { type: "image/webp" });
+    const fetchMock = vi.fn(async () => ({
+      status: 200,
+      ok: true,
+      blob: vi.fn(async () => body),
+      json: vi.fn(async () => ({})),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createApiClient({ getAuthToken: () => "session-token" });
+    await expect(client.apiBlob("/support/images/image-id")).resolves.toBe(body);
+
+    const fetchCalls = fetchMock.mock.calls as unknown as [string, RequestInit][];
+    expect(fetchCalls[0][0]).toBe("/api/support/images/image-id");
+    expect((fetchCalls[0][1].headers as Headers).get("Authorization")).toBe("Bearer session-token");
+  });
+
   it("aborts stalled authenticated API requests", async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn(

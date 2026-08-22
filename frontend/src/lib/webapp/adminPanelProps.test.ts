@@ -5,6 +5,7 @@ import { buildAdminPanelProps } from "./adminPanelProps.js";
 const base = {
   adminActiveSection: "users",
   api: vi.fn(),
+  apiBlob: vi.fn(),
   appFaviconUrl: "/favicon.png",
   appFaviconUseCustom: true,
   appRepositoryUrl: "https://example.invalid/repo",

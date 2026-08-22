@@ -10,6 +10,7 @@ type Translate = (key: string, params?: Record<string, unknown>, fallback?: stri
 
 type SectionContextDeps = {
   api: ApiClient["api"];
+  apiBlob: ApiClient["apiBlob"];
   t: Translate;
   showToast: (message: string) => void;
   routePrefix: string;
@@ -25,6 +26,7 @@ type SectionContextDeps = {
  */
 export function createWebappSectionContext({
   api,
+  apiBlob,
   t,
   showToast,
   routePrefix,
@@ -32,7 +34,7 @@ export function createWebappSectionContext({
   syncAppSectionPath,
 }: SectionContextDeps) {
   const devicesStore = createDevicesStore({ api, t, showToast });
-  const supportStore = createSupportStore({ api, t, showToast, routePrefix });
+  const supportStore = createSupportStore({ api, apiBlob, t, showToast, routePrefix });
   const installGuidesStore = createInstallGuidesStore({ api, t, showToast });
   const { loadSectionData } = createSectionDataLoader({
     devicesStore,

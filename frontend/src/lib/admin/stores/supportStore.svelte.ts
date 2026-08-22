@@ -18,6 +18,7 @@ import { defineRawStateProperty } from "./rawStateProperty";
 import { snapshotForPayload } from "./snapshotForPayload.svelte";
 
 type AdminApi = ApiClient["api"];
+type AdminApiBlob = ApiClient["apiBlob"];
 type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type TicketId = number | string;
@@ -74,12 +75,14 @@ type ProxiedSupportState = Omit<AdminSupportState, keyof RawSupportState>;
 
 type AdminSupportStoreOptions = {
   api: AdminApi;
+  apiBlob: AdminApiBlob;
   onToast: ToastFn;
   at: TranslateFn;
   routePrefix?: string;
 };
 
 export type AdminSupportStore = AdminSupportState & {
+  loadImage(url: string): Promise<Blob>;
   setActive(section: string): void;
   loadStats(): Promise<void>;
   loadList(options?: LoadListOptions): Promise<void>;
@@ -145,6 +148,7 @@ function mergeTicketValue(current: SupportTicket | null, value: unknown): Suppor
 
 export function createAdminSupportStore({
   api,
+  apiBlob,
   onToast,
   at,
   routePrefix = "",
@@ -205,6 +209,10 @@ export function createAdminSupportStore({
 
   function setActive(section: string) {
     active = section;
+  }
+
+  function loadImage(url: string): Promise<Blob> {
+    return apiBlob(url);
   }
 
   function getSnapshot() {
@@ -584,6 +592,7 @@ export function createAdminSupportStore({
   }
 
   return Object.assign(store, {
+    loadImage,
     setActive,
     loadStats,
     loadList,

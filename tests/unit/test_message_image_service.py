@@ -42,6 +42,23 @@ def test_uploaded_image_is_reencoded_as_static_webp_without_metadata() -> None:
         assert int(getattr(decoded, "n_frames", 1)) == 1
 
 
+def test_heic_photo_is_reencoded_as_static_webp_without_metadata() -> None:
+    prepared = _prepare_message_image(
+        UploadedMessageImage(
+            data=_image_bytes("HEIF"),
+            filename="iphone-photo.heic",
+            content_type="image/heic",
+        )
+    )
+
+    assert prepared.content_type == "image/webp"
+    assert prepared.data[:4] == b"RIFF"
+    with Image.open(io.BytesIO(prepared.data)) as decoded:
+        assert decoded.format == "WEBP"
+        assert decoded.size == (160, 120)
+        assert not decoded.getexif()
+
+
 def test_invalid_file_cannot_bypass_validation_with_image_mime() -> None:
     with pytest.raises(MessageImageError, match="valid image") as caught:
         _prepare_message_image(

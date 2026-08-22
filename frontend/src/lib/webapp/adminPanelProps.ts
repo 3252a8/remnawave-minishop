@@ -8,6 +8,7 @@ import {
 export type AdminPanelPropsInput = {
   adminActiveSection: string;
   api: unknown;
+  apiBlob: unknown;
   appFaviconUrl: unknown;
   appFaviconUseCustom: unknown;
   appRepositoryUrl: unknown;
@@ -35,6 +36,7 @@ export type AdminPanelPropsInput = {
 export function buildAdminPanelProps({
   adminActiveSection,
   api,
+  apiBlob,
   appFaviconUrl,
   appFaviconUseCustom,
   appRepositoryUrl,
@@ -60,6 +62,7 @@ export function buildAdminPanelProps({
 }: AdminPanelPropsInput): Record<string, unknown> {
   return {
     api,
+    apiBlob,
     onClose,
     onToast,
     initialSection: screen === "admin" ? adminActiveSection : fallbackAdminSection,

@@ -410,6 +410,7 @@
                 body={message.body}
                 bodyFormat={message.body_format}
                 imageUrl={message.image_id ? supportMessageImageUrl(message.image_id, true) : ""}
+                loadImage={supportStore.loadImage}
                 buttons={message.buttons}
                 createdAt={message.created_at ?? undefined}
                 isInternalNote={message.is_internal_note}

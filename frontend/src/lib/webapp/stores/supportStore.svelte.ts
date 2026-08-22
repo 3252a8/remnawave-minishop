@@ -73,6 +73,7 @@ export type SupportState = {
   polling: boolean;
 };
 export type SupportStore = SupportState & {
+  loadImage(url: string): Promise<Blob>;
   loadList(options?: LoadListOptions): Promise<SupportTicketsResponse>;
   hydrateUnread(value: unknown): void;
   createTicket(
@@ -155,11 +156,13 @@ function supportErrorMessage(error: unknown, t: Translate, fallbackKey: string):
 
 export function createSupportStore({
   api,
+  apiBlob,
   t,
   showToast,
   routePrefix = "",
 }: {
   api: ApiClient["api"];
+  apiBlob: ApiClient["apiBlob"];
   t: Translate;
   showToast: (message: string) => void;
   routePrefix?: string;
@@ -191,6 +194,7 @@ export function createSupportStore({
     creating: false,
     statusFilter: "active",
     polling: false,
+    loadImage,
     loadList,
     hydrateUnread,
     createTicket,
@@ -218,6 +222,10 @@ export function createSupportStore({
   let listPromise: Promise<SupportTicketsResponse> | null = null;
   let listPromiseKey = "";
   let unreadPromise: Promise<unknown> | null = null;
+
+  function loadImage(url: string): Promise<Blob> {
+    return apiBlob(url);
+  }
 
   function fetchTicketList(path: SupportTicketsListPath): Promise<SupportTicketsResponse> {
     return api(path) as Promise<SupportTicketsResponse>;

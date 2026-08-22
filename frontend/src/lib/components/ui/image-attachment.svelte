@@ -2,7 +2,11 @@
   import { Upload, X } from "./icons.js";
   import Button from "./button.svelte";
   import FileInput from "./file-input.svelte";
-  import { MESSAGE_IMAGE_ACCEPT, MESSAGE_IMAGE_MAX_BYTES } from "$lib/messageImage";
+  import {
+    isAcceptedMessageImage,
+    MESSAGE_IMAGE_ACCEPT,
+    MESSAGE_IMAGE_MAX_BYTES,
+  } from "$lib/messageImage";
 
   export type ImageAttachmentLabels = {
     drop: string;
@@ -43,7 +47,7 @@
   function selectFile(candidate: File | null): void {
     error = "";
     if (!candidate) return;
-    if (candidate.type && !MESSAGE_IMAGE_ACCEPT.split(",").includes(candidate.type)) {
+    if (!isAcceptedMessageImage(candidate)) {
       error = labels.invalidType;
       return;
     }

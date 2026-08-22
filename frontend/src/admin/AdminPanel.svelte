@@ -37,6 +37,7 @@
     withRoutePrefix,
   } from "../lib/webapp/routes.js";
   import { buildAdminPaymentsExportPath } from "../lib/webapp/publicApi";
+  import type { ApiClient } from "../lib/webapp/publicApi";
   import {
     DEFAULT_USERS_ROUTE_FILTERS,
     normalizeUsersRouteFilters,
@@ -68,6 +69,7 @@
 
   let {
     api,
+    apiBlob,
     onClose = () => {},
     onToast = () => {},
     initialSection = "stats",
@@ -94,6 +96,7 @@
     t = (key, _params = {}, fallback = "") => fallback || key,
   }: {
     api: AdminApi;
+    apiBlob: ApiClient["apiBlob"];
     onClose?: () => void;
     onToast?: (message: string) => void;
     initialSection?: string;
@@ -127,6 +130,10 @@
     return api;
   }
 
+  function initialApiBlob(): ApiClient["apiBlob"] {
+    return apiBlob;
+  }
+
   function initialRoutePrefix(): string {
     return routePrefix;
   }
@@ -140,6 +147,7 @@
   }
 
   const stableApi = initialApi();
+  const stableApiBlob = initialApiBlob();
   const stableRoutePrefix = initialRoutePrefix();
   const stableOnTariffsSaved = initialTariffsSaved();
   const stableOnThemesSaved = initialThemesSaved();
@@ -158,6 +166,7 @@
     usersStore,
   } = createAdminStores({
     api: stableApi,
+    apiBlob: stableApiBlob,
     onToast: flash,
     at,
     routePrefix: stableRoutePrefix,
