@@ -15,8 +15,13 @@ from bot.infra import events
 from bot.infra.event_payloads import SupportTicketCreatedPayload
 from bot.middlewares.i18n import JsonI18n
 from bot.services.email_auth_service import EmailAuthService
+from bot.services.message_image_service import PreparedMessageImage, persist_message_image
 from bot.services.notification_service import NotificationService
-from bot.services.support_message_body import BODY_FORMAT_TEXT, sanitize_support_body
+from bot.services.support_message_body import (
+    BODY_FORMAT_TEXT,
+    normalize_body_format,
+    sanitize_support_body,
+)
 from config.settings import Settings
 from config.settings_models import SupportSettings
 from db.dal import message_log_dal, subscription_dal, support_dal, user_dal
@@ -164,13 +169,21 @@ class SupportService:
         _SUPPORT_NOTIFICATION_TASKS.add(task)
         task.add_done_callback(_SUPPORT_NOTIFICATION_TASKS.discard)
 
-    def _prepare_body(self, body: str, body_format: str) -> tuple[str, str]:
+    def _prepare_body(
+        self,
+        body: str,
+        body_format: str,
+        *,
+        allow_empty: bool = False,
+    ) -> tuple[str, str]:
         """Body as it will be stored, plus the format it is stored in.
 
         Trimming happens here rather than at the call sites because a marked-up
         body cannot be sliced at a character offset without splitting a tag.
         """
 
+        if allow_empty and not str(body or "").strip():
+            return "", normalize_body_format(body_format)
         return sanitize_support_body(
             body,
             body_format=body_format,
@@ -178,11 +191,42 @@ class SupportService:
         )
 
     async def _ensure_user_allowed(self, session: AsyncSession, user_id: int) -> User:
-        user = await user_dal.get_user_by_id(session, user_id)
+        # Serialize support writes for one user before counting their recent
+        # messages. Without the row lock, a burst of concurrent requests could
+        # all observe the same count and bypass both spam limits.
+        user = await user_dal.lock_user_by_id(session, user_id)
         support_settings = self.settings.support_settings
         if not user or user.is_banned or not support_settings.tickets_enabled:
             raise TicketForbidden("ticket_forbidden")
         return user
+
+    async def _enforce_user_message_limits(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        *,
+        has_image: bool,
+    ) -> None:
+        support_settings = self.settings.support_settings
+        message_limit = max(0, int(support_settings.message_rate_limit_per_minute or 0))
+        if message_limit:
+            recent_messages = await support_dal.count_recent_messages_for_user(
+                session,
+                user_id,
+                60,
+            )
+            if recent_messages >= message_limit:
+                raise TicketRateLimited("support_message_rate_limited")
+        image_limit = max(0, int(support_settings.image_rate_limit_per_day or 0))
+        if has_image and image_limit:
+            recent_images = await support_dal.count_recent_messages_for_user(
+                session,
+                user_id,
+                24 * 60 * 60,
+                images_only=True,
+            )
+            if recent_images >= image_limit:
+                raise TicketRateLimited("support_image_rate_limited")
 
     async def create_ticket(
         self,
@@ -192,9 +236,12 @@ class SupportService:
         priority: str,
         first_message_body: str,
         body_format: str = BODY_FORMAT_TEXT,
+        image: PreparedMessageImage | None = None,
     ) -> SupportTicket:
         support_settings = self.settings.support_settings
-        stored_body, stored_format = self._prepare_body(first_message_body, body_format)
+        stored_body, stored_format = self._prepare_body(
+            first_message_body, body_format, allow_empty=image is not None
+        )
         async with self.session_factory() as session:
             user = await self._ensure_user_allowed(session, user_id)
             limit = max(0, int(support_settings.ticket_rate_limit_per_hour or 0))
@@ -202,6 +249,8 @@ class SupportService:
                 recent = await support_dal.count_recent_tickets_for_user(session, user_id, 3600)
                 if recent >= limit:
                     raise TicketRateLimited("ticket_rate_limited")
+            await self._enforce_user_message_limits(session, user_id, has_image=image is not None)
+            stored_image = await persist_message_image(session, image)
             ticket = await support_dal.create_ticket(
                 session,
                 user_id,
@@ -210,6 +259,7 @@ class SupportService:
                 priority,
                 stored_body,
                 first_message_format=stored_format,
+                image_id=str(stored_image.image_id) if stored_image is not None else None,
             )
             snapshot = await self.build_user_snapshot(user, session=session)
             await session.commit()
@@ -230,6 +280,7 @@ class SupportService:
                 stored_body,
                 snapshot,
                 body_format=stored_format,
+                image_id=str(stored_image.image_id) if stored_image is not None else None,
             )
         except Exception:
             logger.exception("Failed to notify about support ticket %s", ticket.ticket_id)
@@ -241,14 +292,19 @@ class SupportService:
         ticket_id: int,
         body: str,
         body_format: str = BODY_FORMAT_TEXT,
+        image: PreparedMessageImage | None = None,
     ) -> tuple[SupportTicket, SupportTicketMessage]:
         support_settings = self.settings.support_settings
-        stored_body, stored_format = self._prepare_body(body, body_format)
+        stored_body, stored_format = self._prepare_body(
+            body, body_format, allow_empty=image is not None
+        )
         async with self.session_factory() as session:
             user = await self._ensure_user_allowed(session, user_id)
             ticket, _messages = await support_dal.get_ticket(session, ticket_id)
             if not ticket or ticket.user_id != user_id:
                 raise TicketNotFound("not_found")
+            await self._enforce_user_message_limits(session, user_id, has_image=image is not None)
+            stored_image = await persist_message_image(session, image)
             message = await support_dal.add_message(
                 session,
                 ticket_id,
@@ -256,6 +312,7 @@ class SupportService:
                 user_id,
                 stored_body,
                 body_format=stored_format,
+                image_id=str(stored_image.image_id) if stored_image is not None else None,
             )
             if message is None:
                 raise TicketNotFound("not_found")
@@ -304,8 +361,11 @@ class SupportService:
         is_internal_note: bool = False,
         body_format: str = BODY_FORMAT_TEXT,
         buttons: str | None = None,
+        image: PreparedMessageImage | None = None,
     ) -> tuple[SupportTicket, SupportTicketMessage]:
-        stored_body, stored_format = self._prepare_body(body, body_format)
+        stored_body, stored_format = self._prepare_body(
+            body, body_format, allow_empty=image is not None
+        )
         async with self.session_factory() as session:
             ticket, _messages = await support_dal.get_ticket(
                 session,
@@ -315,6 +375,7 @@ class SupportService:
             if not ticket:
                 raise TicketNotFound("not_found")
             user = await user_dal.get_user_by_id(session, ticket.user_id)
+            stored_image = await persist_message_image(session, image)
             message = await support_dal.add_message(
                 session,
                 ticket_id,
@@ -324,6 +385,7 @@ class SupportService:
                 is_internal_note=is_internal_note,
                 body_format=stored_format,
                 buttons=buttons if not is_internal_note else None,
+                image_id=str(stored_image.image_id) if stored_image is not None else None,
             )
             if message is None:
                 raise TicketNotFound("not_found")

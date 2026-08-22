@@ -5,7 +5,7 @@
   import { Check, ChevronsUpDown, LifeBuoy, MessageSquarePlus } from "$components/ui/icons.js";
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
-  import { Input, ScrollArea, Skeleton } from "$components/ui/index.js";
+  import { ImageAttachment, Input, ScrollArea, Skeleton } from "$components/ui/index.js";
   import RichTextEditor from "$lib/richtext/RichTextEditor.svelte";
   import { wireTextLength } from "$lib/richtext/telegramHtml";
   import { webappRichTextLabels } from "$lib/webapp/richTextLabels.js";
@@ -57,6 +57,7 @@
   const MAX_STAGGER_STEPS = 6;
   let subject = $state("");
   let body = $state("");
+  let image = $state<File | null>(null);
   let category = $state<SupportCategory>("other");
   let priority = $state<SupportPriority>("normal");
   let createOpen = $state(false);
@@ -121,6 +122,15 @@
   );
   const draftScope = $derived(supportDraftScope(user));
   const editorLabels = $derived(webappRichTextLabels(t));
+  const imageLabels = $derived({
+    drop: t("wa_message_image_drop"),
+    choose: t("wa_message_image_choose"),
+    remove: t("wa_message_image_remove"),
+    hint: t("wa_message_image_hint"),
+    invalidType: t("wa_message_image_invalid_type"),
+    tooLarge: t("wa_message_image_too_large"),
+    previewAlt: t("wa_message_image_preview_alt"),
+  });
   // A stored draft is markup, so it cannot be cut at the message limit without
   // splitting a tag. The message limit is enforced on the visible text below;
   // this only keeps a runaway draft out of local storage.
@@ -171,17 +181,21 @@
 
   async function createTicket() {
     const currentDraftScope = draftScope;
-    const ticket = await supportStore.createTicket({
-      subject,
-      body,
-      body_format: "html",
-      category,
-      priority,
-    });
+    const ticket = await supportStore.createTicket(
+      {
+        subject,
+        body,
+        body_format: "html",
+        category,
+        priority,
+      },
+      image
+    );
     if (ticket) {
       clearSupportDraft("new", currentDraftScope);
       subject = "";
       body = "";
+      image = null;
       category = "other";
       priority = "normal";
       createOpen = false;
@@ -369,10 +383,15 @@
             <small class:is-over={bodyLength > maxBodyLength}>{bodyLength}/{maxBodyLength}</small>
           </div>
 
+          <ImageAttachment bind:file={image} labels={imageLabels} disabled={creating} />
+
           <Button
             class="wide support-submit-button"
             size="lg"
-            disabled={creating || !subject.trim() || !bodyLength || bodyLength > maxBodyLength}
+            disabled={creating ||
+              !subject.trim() ||
+              (!bodyLength && !image) ||
+              bodyLength > maxBodyLength}
             onclick={createTicket}
           >
             <MessageSquarePlus size={18} />

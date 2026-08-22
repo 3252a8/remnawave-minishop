@@ -667,6 +667,8 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     SUPPORT_TICKET_MAX_BODY_LENGTH: int = Field(default=4000)
     SUPPORT_TICKET_MAX_SUBJECT_LENGTH: int = Field(default=160)
     SUPPORT_TICKET_RATE_LIMIT_PER_HOUR: int = Field(default=5)
+    SUPPORT_MESSAGE_RATE_LIMIT_PER_MINUTE: int = Field(default=10)
+    SUPPORT_IMAGE_RATE_LIMIT_PER_DAY: int = Field(default=20)
     SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED: bool = Field(default=False)
     SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS: int = Field(default=5 * 60)
     SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS: int = Field(default=30 * 60)

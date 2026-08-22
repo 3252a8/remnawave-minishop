@@ -35,6 +35,12 @@ class AdminBroadcast(Base):
     texts = Column(JSON, nullable=False, default=dict)
     email_subjects = Column(JSON, nullable=False, default=dict)
     buttons = Column(JSON, nullable=False, default=list)
+    image_id = Column(
+        String(32),
+        ForeignKey("message_images.image_id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     scheduled_at = Column(DateTime(timezone=True), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     started_at = Column(DateTime(timezone=True), nullable=True)

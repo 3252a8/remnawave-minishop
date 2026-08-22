@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
+from aiogram.types import FSInputFile
 from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
@@ -28,6 +29,7 @@ from bot.services.message_composition import (
     resolve_message_buttons,
     telegram_markup_for_buttons,
 )
+from bot.services.message_image_service import StoredMessageImage, load_message_image
 from bot.utils.message_queue import MessageQueueManager
 from config.settings import Settings
 from db.broadcast_models import AdminBroadcast, AdminBroadcastDelivery
@@ -162,6 +164,15 @@ class AdminBroadcastDeliveryService:
         authored_variants = [*texts.values(), *subjects.values()]
         needed = set().union(*(known_shortcodes(value) for value in authored_variants))
         contexts: dict[int, BroadcastUserContext] = {}
+        stored_image: StoredMessageImage | None = None
+        email_image = None
+        image_id = getattr(broadcast, "image_id", None)
+        if image_id:
+            async with self.session_factory() as session:
+                stored_image = await load_message_image(session, str(image_id))
+            if stored_image is None or not stored_image.path.is_file():
+                raise RuntimeError("image_missing")
+            email_image = await stored_image.email_inline()
         if needed:
             async with self.session_factory() as session:
                 contexts = await load_broadcast_contexts(
@@ -224,7 +235,12 @@ class AdminBroadcastDeliveryService:
                         int(delivery.delivery_id), success=False, error="message_too_long"
                     )
                     continue
-                await self._queue_telegram(delivery, rendered, buttons_for(language))
+                await self._queue_telegram(
+                    delivery,
+                    rendered,
+                    buttons_for(language),
+                    image=stored_image,
+                )
                 queued += 1
                 continue
 
@@ -271,6 +287,7 @@ class AdminBroadcastDeliveryService:
             actor_id=int(broadcast.created_by_admin_id) if broadcast.created_by_admin_id else None,
             target=str(broadcast.target),
             on_result=self._on_email_result,
+            image=email_image,
         )
         async with self.session_factory() as session:
             await broadcast_dal.refresh_broadcast_stats(session, int(broadcast.broadcast_id))
@@ -281,26 +298,56 @@ class AdminBroadcastDeliveryService:
         delivery: AdminBroadcastDelivery,
         text: str,
         buttons: list[MessageButton],
+        *,
+        image: StoredMessageImage | None = None,
     ) -> None:
         if self.queue_manager is None:
             raise RuntimeError("queue_unavailable")
         delivery_id = int(delivery.delivery_id)
 
+        parts = 1 if image is None or not text else 2
+        remaining = parts
+        failure: str | None = None
+
+        async def finish_part(error: Exception | None = None) -> None:
+            nonlocal remaining, failure
+            if error is not None and failure is None:
+                failure = str(error)
+            remaining -= 1
+            if remaining == 0:
+                await self._mark_result(
+                    delivery_id,
+                    success=failure is None,
+                    error=failure,
+                )
+
         async def on_success(_result: Any) -> None:
-            await self._mark_result(delivery_id, success=True)
+            await finish_part()
 
         async def on_failure(exc: Exception) -> None:
-            await self._mark_result(delivery_id, success=False, error=str(exc))
+            await finish_part(exc)
 
-        await self.queue_manager.send_message(
-            int(delivery.destination),
-            text=text,
-            parse_mode="HTML",
-            disable_web_page_preview=True,
-            reply_markup=telegram_markup_for_buttons(buttons),
-            callback=on_success,
-            error_callback=on_failure,
-        )
+        chat_id = int(delivery.destination)
+        markup = telegram_markup_for_buttons(buttons)
+        if image is not None:
+            photo_kwargs: dict[str, Any] = {
+                "photo": FSInputFile(image.path),
+                "callback": on_success,
+                "error_callback": on_failure,
+            }
+            if not text:
+                photo_kwargs["reply_markup"] = markup
+            await self.queue_manager.send_photo(chat_id, **photo_kwargs)
+        if text:
+            await self.queue_manager.send_message(
+                chat_id,
+                text=text,
+                parse_mode="HTML",
+                disable_web_page_preview=True,
+                reply_markup=markup,
+                callback=on_success,
+                error_callback=on_failure,
+            )
         await self._mark_queued(delivery_id)
 
     async def _on_email_result(

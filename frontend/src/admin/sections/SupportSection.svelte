@@ -2,6 +2,7 @@
   import { getAdminSupportStore, getBroadcastStore } from "$lib/admin/context";
   import { buttonsForPayload } from "$lib/admin/stores/broadcastStore.svelte";
   import type { BroadcastButtonDraft } from "$lib/admin/stores/broadcastStore.svelte";
+  import { supportMessageImageUrl } from "$lib/messageImage";
   import { onMount, tick } from "svelte";
   import {
     AdminButton,
@@ -45,6 +46,7 @@
   // so the reply composer offers exactly what the broadcast screen offers.
   const broadcastStore = getBroadcastStore();
   let reply = $state("");
+  let replyImage = $state<File | null>(null);
   let replyButtons = $state<BroadcastButtonDraft[]>([]);
   let messagesScrollEl = $state<HTMLElement | null>(null);
   let lastMessageScrollKey = $state("");
@@ -87,7 +89,7 @@
     void supportStore.patchTicket(updates)) as ComponentCallback;
   const openSupportUser = ((userId: number | string | undefined) =>
     onOpenUserCard(userId)) as ComponentCallback;
-  const sendComposerReply = ((body: string) => void send(body)) as ComponentCallback;
+  const sendComposerReply = (body: string, image: File | null) => void send(body, image);
   const maxBodyLength = 4000;
 
   const statusTabs = $derived([
@@ -142,6 +144,7 @@
   $effect(() => {
     if (!openedTicketId) {
       reply = "";
+      replyImage = null;
       replyButtons = [];
       lastMessageScrollKey = "";
     }
@@ -155,13 +158,15 @@
     if (initialTicketId) supportStore.openTicket(initialTicketId, { skipPush: true });
   });
 
-  async function send(body: string): Promise<void> {
+  async function send(body: string, image: File | null): Promise<void> {
     const sent = await supportStore.sendReply(body, {
       bodyFormat: "html",
       buttons: buttonsForPayload(replyButtons),
+      image,
     });
     if (!sent) return;
     reply = "";
+    replyImage = null;
     replyButtons = [];
   }
 
@@ -179,6 +184,7 @@
 
   function closeTicketModal(): void {
     reply = "";
+    replyImage = null;
     replyButtons = [];
     supportStore.closeTicketView();
   }
@@ -403,6 +409,7 @@
                 role={message.author_role}
                 body={message.body}
                 bodyFormat={message.body_format}
+                imageUrl={message.image_id ? supportMessageImageUrl(message.image_id, true) : ""}
                 buttons={message.buttons}
                 createdAt={message.created_at ?? undefined}
                 isInternalNote={message.is_internal_note}
@@ -428,6 +435,7 @@
       {/if}
       <SupportComposer
         bind:value={reply}
+        bind:image={replyImage}
         bind:buttons={replyButtons}
         internal={composerInternalNote}
         {sending}

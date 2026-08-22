@@ -902,6 +902,8 @@ openssl rand -base64 32 | tr '+/' '-_'
 | `SUPPORT_TICKET_MAX_BODY_LENGTH` | Максимальная длина сообщения. |
 | `SUPPORT_TICKET_MAX_SUBJECT_LENGTH` | Максимальная длина темы. |
 | `SUPPORT_TICKET_RATE_LIMIT_PER_HOUR` | Лимит новых тикетов в час. |
+| `SUPPORT_MESSAGE_RATE_LIMIT_PER_MINUTE` | Лимит сообщений пользователя в тикетах за минуту. |
+| `SUPPORT_IMAGE_RATE_LIMIT_PER_DAY` | Суточный лимит изображений пользователя в тикетах. |
 | `SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS` | Пауза между Telegram/log уведомлениями. |
 | `SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS` | Пауза между email-уведомлениями. |
 

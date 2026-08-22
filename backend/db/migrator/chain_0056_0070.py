@@ -604,6 +604,47 @@ def _migration_0066_add_payment_fulfillment_audit(connection: Connection) -> Non
     )
 
 
+def _migration_0067_add_message_images(connection: Connection) -> None:
+    """Persist normalized images once and reference them from authored messages."""
+
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS message_images (
+                image_id VARCHAR(32) PRIMARY KEY,
+                digest VARCHAR(64) NOT NULL,
+                filename VARCHAR(96) NOT NULL,
+                content_type VARCHAR(32) NOT NULL DEFAULT 'image/webp',
+                size_bytes BIGINT NOT NULL,
+                width INTEGER NOT NULL,
+                height INTEGER NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """
+        )
+    )
+    connection.execute(
+        text("CREATE INDEX IF NOT EXISTS ix_message_images_digest ON message_images (digest)")
+    )
+
+    inspector = inspect(connection)
+    tables = set(inspector.get_table_names())
+    for table_name in ("support_ticket_messages", "admin_broadcasts"):
+        if table_name not in tables:
+            continue
+        columns = {column["name"] for column in inspector.get_columns(table_name)}
+        if "image_id" not in columns:
+            connection.execute(
+                text(
+                    f"ALTER TABLE {table_name} ADD COLUMN image_id VARCHAR(32) "
+                    "REFERENCES message_images(image_id) ON DELETE SET NULL"
+                )
+            )
+        connection.execute(
+            text(f"CREATE INDEX IF NOT EXISTS ix_{table_name}_image_id ON {table_name} (image_id)")
+        )
+
+
 CHAIN_0056_0070: list[Migration] = [
     Migration(
         id="0056_add_tariff_binding_audit",
@@ -659,5 +700,10 @@ CHAIN_0056_0070: list[Migration] = [
         id="0066_add_payment_fulfillment_audit",
         description="Persist reversible payment fulfillment and promo override audit",
         upgrade=_migration_0066_add_payment_fulfillment_audit,
+    ),
+    Migration(
+        id="0067_add_message_images",
+        description="Persist normalized images for support and outbound messages",
+        upgrade=_migration_0067_add_message_images,
     ),
 ]

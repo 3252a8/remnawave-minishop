@@ -15,6 +15,7 @@ export type BroadcastHistoryItem = {
   texts: Record<string, string>;
   emailSubjects: Record<string, string>;
   buttons: BroadcastHistoryButton[];
+  imageId: string | null;
   scheduledAt: string;
   createdAt: string;
   startedAt: string | null;
@@ -72,6 +73,7 @@ export function historyItemFromWire(value: unknown): BroadcastHistoryItem | null
     texts: record(item.texts),
     emailSubjects: record(item.email_subjects),
     buttons,
+    imageId: nullableText("image_id"),
     scheduledAt: String(item.scheduled_at || ""),
     createdAt: String(item.created_at || ""),
     startedAt: nullableText("started_at"),

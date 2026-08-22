@@ -886,6 +886,7 @@ class LegacyImportMapping(Base):
 # ``db.partner_models`` directly; this import exists only for registration.
 from db import activity_models as activity_models  # noqa: E402
 from db import broadcast_models as broadcast_models  # noqa: E402
+from db import message_image_models as message_image_models  # noqa: E402
 from db import partner_models as partner_models  # noqa: E402
 
 AdAttribution = activity_models.AdAttribution
@@ -898,3 +899,4 @@ SupportTicket = activity_models.SupportTicket
 SupportTicketMessage = activity_models.SupportTicketMessage
 AdminBroadcast = broadcast_models.AdminBroadcast
 AdminBroadcastDelivery = broadcast_models.AdminBroadcastDelivery
+MessageImage = message_image_models.MessageImage

@@ -1418,6 +1418,18 @@
   line-height: 1.5;
 }
 
+.ticket-message-image {
+  display: block;
+  width: min(100%, 520px);
+  max-height: 520px;
+  border-radius: 10px;
+  object-fit: contain;
+}
+
+.ticket-message-image + .ticket-message-text {
+  margin-top: 8px;
+}
+
 .ticket-message-row--outgoing .ticket-message-bubble {
   border-radius: 14px 14px 4px 14px;
 }

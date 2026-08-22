@@ -8,8 +8,15 @@ from bot.app.web.context import (
     get_settings,
     get_support_service,
 )
+from bot.app.web.message_image_responses import message_image_response
+from bot.app.web.request_parsing import parse_body_with_optional_image_or_400
 from bot.app.web.support_schemas import SupportMessageOut, SupportTicketOut, SupportTypingIn
 from bot.services.broadcast_personalization import telegram_html_error
+from bot.services.message_image_service import (
+    MessageImageError,
+    load_message_image,
+    prepare_message_image,
+)
 from bot.services.support_message_body import SupportBodyError
 from bot.services.support_presence import is_support_typing, set_support_typing
 from bot.services.support_service import TicketForbidden, TicketNotFound, TicketRateLimited
@@ -83,7 +90,16 @@ def _invalid_body_response(body: str, body_format: str) -> web.Response | None:
 
 async def support_create_ticket_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    payload = await _parse_model_payload(request, CreateTicketPayload)
+    payload, upload = await parse_body_with_optional_image_or_400(
+        request,
+        CreateTicketPayload,
+    )
+    try:
+        image = await prepare_message_image(upload)
+    except MessageImageError as exc:
+        return _json_error(400, exc.code, exc.detail)
+    if not payload.body and image is None:
+        return _json_error(400, "empty_text", "Message is empty")
     invalid = _invalid_body_response(payload.body, payload.body_format)
     if invalid is not None:
         return invalid
@@ -96,13 +112,15 @@ async def support_create_ticket_route(request: web.Request) -> web.Response:
             payload.priority,
             payload.body,
             body_format=payload.body_format,
+            image=image,
         )
     except SupportBodyError:
         return _json_error(400, "empty_text", "Message is empty")
     except TicketForbidden:
         return _json_error(403, "ticket_forbidden", "Support ticket action is forbidden")
-    except TicketRateLimited:
-        return _json_error(429, "ticket_rate_limited", "Too many support tickets")
+    except TicketRateLimited as exc:
+        code = str(exc) or "ticket_rate_limited"
+        return _json_error(429, code, "Support rate limit exceeded")
     return json_response({"ok": True, "ticket": _support_ticket_payload(ticket)})
 
 
@@ -128,7 +146,16 @@ async def support_ticket_detail_route(request: web.Request) -> web.Response:
 async def support_ticket_reply_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     ticket_id = int(request.match_info["id"])
-    payload = await _parse_model_payload(request, TicketReplyPayload)
+    payload, upload = await parse_body_with_optional_image_or_400(
+        request,
+        TicketReplyPayload,
+    )
+    try:
+        image = await prepare_message_image(upload)
+    except MessageImageError as exc:
+        return _json_error(400, exc.code, exc.detail)
+    if not payload.body and image is None:
+        return _json_error(400, "empty_text", "Message is empty")
     invalid = _invalid_body_response(payload.body, payload.body_format)
     if invalid is not None:
         return invalid
@@ -139,6 +166,7 @@ async def support_ticket_reply_route(request: web.Request) -> web.Response:
             ticket_id,
             payload.body,
             body_format=payload.body_format,
+            image=image,
         )
     except SupportBodyError:
         return _json_error(400, "empty_text", "Message is empty")
@@ -146,6 +174,9 @@ async def support_ticket_reply_route(request: web.Request) -> web.Response:
         return _json_error(403, "ticket_forbidden", "Support ticket action is forbidden")
     except TicketNotFound:
         return _json_error(404, "not_found", "Ticket not found")
+    except TicketRateLimited as exc:
+        code = str(exc) or "support_message_rate_limited"
+        return _json_error(429, code, "Support rate limit exceeded")
     await set_support_typing(get_settings(request), ticket_id, "user", typing=False)
     return json_response(
         {
@@ -189,3 +220,16 @@ async def support_unread_route(request: web.Request) -> web.Response:
             return _json_error(403, "ticket_forbidden", "Support ticket action is forbidden")
         unread = await support_dal.count_user_unread(session, user_id)
     return json_response({"ok": True, "unread": unread})
+
+
+async def support_message_image_route(request: web.Request) -> web.StreamResponse:
+    user_id = _require_user_id(request)
+    image_id = str(request.match_info["image_id"]).lower()
+    async_session_factory: sessionmaker = get_session_factory(request)
+    async with async_session_factory() as session:
+        if not await support_dal.user_can_access_image(session, user_id, image_id):
+            raise web.HTTPNotFound()
+        image = await load_message_image(session, image_id)
+    if image is None:
+        raise web.HTTPNotFound()
+    return await message_image_response(image)

@@ -187,6 +187,8 @@ if TYPE_CHECKING:
         SUPPORT_TICKET_MAX_BODY_LENGTH: int
         SUPPORT_TICKET_MAX_SUBJECT_LENGTH: int
         SUPPORT_TICKET_RATE_LIMIT_PER_HOUR: int
+        SUPPORT_MESSAGE_RATE_LIMIT_PER_MINUTE: int
+        SUPPORT_IMAGE_RATE_LIMIT_PER_DAY: int
         SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED: bool
         SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS: int
         SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS: int
@@ -365,6 +367,8 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             ticket_max_body_length=self.SUPPORT_TICKET_MAX_BODY_LENGTH,
             ticket_max_subject_length=self.SUPPORT_TICKET_MAX_SUBJECT_LENGTH,
             ticket_rate_limit_per_hour=self.SUPPORT_TICKET_RATE_LIMIT_PER_HOUR,
+            message_rate_limit_per_minute=self.SUPPORT_MESSAGE_RATE_LIMIT_PER_MINUTE,
+            image_rate_limit_per_day=self.SUPPORT_IMAGE_RATE_LIMIT_PER_DAY,
             admin_email_notifications_enabled=self.SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED,
             admin_notification_cooldown_seconds=self.SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS,
             admin_email_cooldown_seconds=self.SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS,

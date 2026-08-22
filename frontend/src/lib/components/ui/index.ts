@@ -5,6 +5,7 @@ export { default as Checkbox } from "./checkbox.svelte";
 export { default as ColorInput } from "./color-input.svelte";
 export { default as Dialog } from "./dialog.svelte";
 export { default as FileInput } from "./file-input.svelte";
+export { default as ImageAttachment } from "./image-attachment.svelte";
 export { default as Input } from "./input.svelte";
 export { default as LegacyCard } from "./card.svelte";
 export { default as Plate } from "./plate.svelte";

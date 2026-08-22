@@ -32,6 +32,7 @@ async def create_broadcast(
     buttons: list[dict[str, Any]],
     scheduled_at: datetime,
     is_visible: bool = True,
+    image_id: str | None = None,
 ) -> AdminBroadcast:
     status = "scheduled" if scheduled_at > utc_now() else "queued"
     item = AdminBroadcast(
@@ -43,6 +44,7 @@ async def create_broadcast(
         texts=dict(texts),
         email_subjects=dict(email_subjects),
         buttons=list(buttons),
+        image_id=image_id,
         scheduled_at=scheduled_at,
     )
     session.add(item)

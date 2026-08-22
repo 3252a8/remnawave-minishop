@@ -87,6 +87,7 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0064_add_checkout_bundle_snapshot",
     "0065_add_flexible_traffic_limits",
     "0066_add_payment_fulfillment_audit",
+    "0067_add_message_images",
 ]
 
 

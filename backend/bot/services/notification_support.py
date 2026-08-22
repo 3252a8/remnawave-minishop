@@ -5,7 +5,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.text_decorations import html_decoration as hd
 
 from bot.services.email_templates import (
@@ -16,6 +16,7 @@ from bot.services.email_templates import (
 )
 from bot.services.email_templates_common import EmailContent
 from bot.services.message_composition import telegram_markup_for_buttons
+from bot.services.message_image_service import StoredMessageImage, load_message_image
 from bot.services.support_message_body import (
     BODY_FORMAT_TEXT,
     support_body_plain_text,
@@ -276,15 +277,56 @@ class NotificationSupportMixin:
         *,
         admin_markup: InlineKeyboardMarkup,
         log_markup: InlineKeyboardMarkup,
+        image: StoredMessageImage | None = None,
     ) -> None:
         thread_id = self._support_log_thread_id()
         if not self._support_thread_is_configured():
+            if image is not None:
+                for admin_id in self.settings.ADMIN_IDS:
+                    await self._send_support_photo(int(admin_id), image)
             await self._send_to_admins(message, reply_markup=admin_markup)
+        if image is not None and self.settings.LOG_CHAT_ID:
+            await self._send_support_photo(
+                int(self.settings.LOG_CHAT_ID),
+                image,
+                thread_id=thread_id,
+            )
         await self._send_to_log_channel(
             message,
             thread_id=thread_id,
             reply_markup=log_markup,
         )
+
+    async def _send_support_photo(
+        self,
+        chat_id: int,
+        image: StoredMessageImage,
+        *,
+        thread_id: int | None = None,
+    ) -> None:
+        photo = FSInputFile(image.path)
+        queue_manager = get_queue_manager()
+        try:
+            if queue_manager is not None:
+                await queue_manager.send_photo(
+                    chat_id=chat_id,
+                    photo=photo,
+                    message_thread_id=thread_id,
+                )
+            else:
+                await self.bot.send_photo(
+                    chat_id=chat_id,
+                    photo=photo,
+                    message_thread_id=thread_id,
+                )
+        except Exception:
+            logger.exception("Failed to send support image to chat %s.", chat_id)
+
+    async def _stored_support_image(self, image_id: str | None) -> StoredMessageImage | None:
+        if not image_id or not self.session_factory:
+            return None
+        async with self.session_factory() as session:
+            return await load_message_image(session, image_id)
 
     def _support_user_keyboard(
         self,
@@ -355,6 +397,7 @@ class NotificationSupportMixin:
         snapshot: dict[str, object],
         *,
         body_format: str = BODY_FORMAT_TEXT,
+        image_id: str | None = None,
     ) -> None:
         if not getattr(self.settings, "LOG_SUPPORT", True):
             return
@@ -389,11 +432,14 @@ class NotificationSupportMixin:
         )
         admin_keyboard = self._support_keyboard(ticket, user, admin=True)
         log_keyboard = self._support_keyboard(ticket, user, admin=True, web_app_buttons=False)
+        image = await self._stored_support_image(image_id)
         await self._send_admin_support_telegram(
             message,
             admin_markup=admin_keyboard,
             log_markup=log_keyboard,
+            image=image,
         )
+        email_image = await image.email_inline() if image is not None else None
         await self._send_admin_support_email(
             render_support_new_ticket_admin,
             ticket_id=ticket.ticket_id,
@@ -402,6 +448,7 @@ class NotificationSupportMixin:
             body_preview=preview,
             snapshot_rows=self._support_snapshot_rows(snapshot),
             ticket_url=self._support_ticket_url(ticket.ticket_id, admin=True),
+            image=email_image,
         )
 
     async def notify_support_user_reply(
@@ -420,6 +467,7 @@ class NotificationSupportMixin:
         body_format = str(getattr(message, "body_format", BODY_FORMAT_TEXT) or BODY_FORMAT_TEXT)
         preview = self._support_preview(message.body, body_format)
         preview_html = self._support_preview_html(message.body, body_format)
+        image = await self._stored_support_image(getattr(message, "image_id", None))
         user_display = self._support_user_display(user)
         unread_line = (
             "\n"
@@ -448,8 +496,10 @@ class NotificationSupportMixin:
                 text,
                 admin_markup=admin_keyboard,
                 log_markup=log_keyboard,
+                image=image,
             )
         if send_email:
+            email_image = await image.email_inline() if image is not None else None
             await self._send_admin_support_email(
                 render_support_user_reply_admin,
                 ticket_id=ticket.ticket_id,
@@ -458,6 +508,7 @@ class NotificationSupportMixin:
                 body_preview=preview,
                 snapshot_rows=self._support_snapshot_rows(snapshot),
                 ticket_url=self._support_ticket_url(ticket.ticket_id, admin=True),
+                image=email_image,
             )
 
     async def notify_support_admin_reply(
@@ -474,6 +525,7 @@ class NotificationSupportMixin:
             message=self._support_preview_html(message.body, body_format, limit=500),
         )
         keyboard = self._support_user_keyboard(ticket, user, message=message)
+        image = await self._stored_support_image(getattr(message, "image_id", None))
         chat_id = telegram_recipient(user, user.user_id)
         plan = user_notification_delivery_plan(
             self.settings,
@@ -485,6 +537,8 @@ class NotificationSupportMixin:
         if plan.telegram and chat_id is not None:
             queue_manager = get_queue_manager()
             if queue_manager:
+                if image is not None:
+                    await self._send_support_photo(chat_id, image)
                 await send_message_via_queue(
                     queue_manager,
                     chat_id,
@@ -494,6 +548,8 @@ class NotificationSupportMixin:
                     reply_markup=keyboard,
                 )
             else:
+                if image is not None:
+                    await self._send_support_photo(chat_id, image)
                 await self.bot.send_message(
                     chat_id=chat_id,
                     text=text,
@@ -502,6 +558,7 @@ class NotificationSupportMixin:
                     reply_markup=keyboard,
                 )
         if plan.email and self.email_auth_service and getattr(user, "email", None):
+            email_image = await image.email_inline() if image is not None else None
             content = render_support_admin_reply_user(
                 self.settings,
                 self.i18n,
@@ -510,6 +567,7 @@ class NotificationSupportMixin:
                 subject=ticket.subject,
                 body_preview=preview,
                 ticket_url=url,
+                image=email_image,
             )
             await self.email_auth_service.send_rendered_email(email=user.email, content=content)
 

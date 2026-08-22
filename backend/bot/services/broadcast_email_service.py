@@ -18,6 +18,7 @@ from sqlalchemy.orm import sessionmaker
 from bot.middlewares.i18n import JsonI18n
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.email_templates import render_broadcast_email
+from bot.services.email_templates_common import EmailInlineImage
 from config.settings import Settings
 from db.dal import message_log_dal
 
@@ -59,6 +60,7 @@ async def _send_one(
     buttons: Sequence[tuple[str, str]],
     semaphore: asyncio.Semaphore,
     on_result: BroadcastEmailResultCallback | None = None,
+    image: EmailInlineImage | None = None,
 ) -> bool:
     async with semaphore:
         success = False
@@ -73,6 +75,7 @@ async def _send_one(
                 ),
                 buttons=buttons,
                 i18n=i18n,
+                image=image,
             )
             await email_service.send_rendered_email(email=recipient.email, content=content)
             success = True
@@ -101,6 +104,7 @@ async def deliver_broadcast_emails(
     actor_id: int | None = None,
     target: str = "",
     on_result: BroadcastEmailResultCallback | None = None,
+    image: EmailInlineImage | None = None,
 ) -> tuple[int, int]:
     """Send the broadcast to every recipient; returns ``(sent, failed)``."""
     email_service = EmailAuthService(settings, i18n)
@@ -117,6 +121,7 @@ async def deliver_broadcast_emails(
                 buttons=recipient.buttons if recipient.buttons is not None else buttons,
                 semaphore=semaphore,
                 on_result=on_result,
+                image=image,
             )
             for recipient in recipients
         )
@@ -159,6 +164,7 @@ def schedule_broadcast_emails(
     actor_id: int | None = None,
     target: str = "",
     on_result: BroadcastEmailResultCallback | None = None,
+    image: EmailInlineImage | None = None,
 ) -> int:
     """Kick off background email delivery; returns the number of recipients."""
     if not recipients:
@@ -176,6 +182,7 @@ def schedule_broadcast_emails(
             actor_id=actor_id,
             target=target,
             on_result=on_result,
+            image=image,
         )
 
     task = asyncio.create_task(_run())

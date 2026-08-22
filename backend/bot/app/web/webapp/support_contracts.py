@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from bot.app.web.message_image_contracts import message_image_request_content
 from bot.app.web.route_contracts import (
+    BINARY_RESPONSE_SCHEMA,
     BOOLEAN_SCHEMA,
     INTEGER_SCHEMA,
     RouteContract,
@@ -32,7 +34,7 @@ SUPPORT_ROUTE_CONTRACTS: dict[str, RouteContract] = {
         models=(SupportCountsOut, SupportTicketOut),
     ),
     "support_create_ticket_route": user_contract(
-        request_model=CreateTicketPayload,
+        request_content=message_image_request_content(CreateTicketPayload),
         response_schema=ok_envelope_with({"ticket": schema_ref(SupportTicketOut)}),
         models=(CreateTicketPayload, SupportTicketOut),
     ),
@@ -50,7 +52,7 @@ SUPPORT_ROUTE_CONTRACTS: dict[str, RouteContract] = {
         models=(SupportMessageButtonOut, SupportMessageOut, SupportTicketOut),
     ),
     "support_ticket_reply_route": user_contract(
-        request_model=TicketReplyPayload,
+        request_content=message_image_request_content(TicketReplyPayload),
         response_schema=ok_envelope_with(
             {
                 "ticket": schema_ref(SupportTicketOut),
@@ -72,5 +74,9 @@ SUPPORT_ROUTE_CONTRACTS: dict[str, RouteContract] = {
     ),
     "support_unread_route": user_contract(
         response_schema=ok_envelope_with({"unread": INTEGER_SCHEMA}),
+    ),
+    "support_message_image_route": user_contract(
+        response_schema=BINARY_RESPONSE_SCHEMA,
+        response_content_type="image/webp",
     ),
 }

@@ -19,7 +19,7 @@ TicketSubjectString = Annotated[str, StringConstraints(min_length=1, max_length=
 # The transport cap, not the message cap: markup costs characters the reader
 # never sees, so the real limit is applied to the visible text after
 # sanitizing (``support_message_body``). This only stops absurd payloads.
-TicketBodyString = Annotated[str, StringConstraints(min_length=1, max_length=32000)]
+TicketBodyString = Annotated[str, StringConstraints(max_length=32000)]
 TicketBodyFormat = Literal["text", "html"]
 
 
@@ -182,13 +182,18 @@ class CreateTicketPayload(BaseModel):
     body: TicketBodyString
     body_format: TicketBodyFormat = "text"
 
-    @field_validator("subject", "body")
+    @field_validator("subject")
     @classmethod
     def _strip_required_text(cls, value: str) -> str:
         stripped = value.strip()
         if not stripped:
             raise ValueError("empty_text")
         return stripped
+
+    @field_validator("body")
+    @classmethod
+    def _strip_body(cls, value: str) -> str:
+        return value.strip()
 
 
 class TicketReplyPayload(BaseModel):
@@ -200,10 +205,7 @@ class TicketReplyPayload(BaseModel):
     @field_validator("body")
     @classmethod
     def _strip_body(cls, value: str) -> str:
-        stripped = value.strip()
-        if not stripped:
-            raise ValueError("empty_text")
-        return stripped
+        return value.strip()
 
 
 class AdminTicketReplyPayload(TicketReplyPayload):

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { AdminButton, AdminSectionHeader } from "$components/patterns/admin/index.js";
-  import { Input } from "$components/ui/index.js";
+  import { ImageAttachment, Input } from "$components/ui/index.js";
   import { Send } from "$components/ui/icons.js";
   import MessageButtonsEditor from "$lib/admin/components/MessageButtonsEditor.svelte";
   import MessageComposer from "$lib/admin/components/MessageComposer.svelte";
@@ -26,6 +26,7 @@
   const shortcodes = $derived(broadcastStore.broadcastShortcodes);
 
   let text = $state("");
+  let image = $state<File | null>(null);
   let emailSubject = $state("");
   let telegramEnabled = $state(true);
   let emailEnabled = $state(false);
@@ -47,7 +48,7 @@
     buttons.every((button) => button.label.trim() && Boolean(buttonTarget(button)))
   );
   const canSend = $derived(
-    !busy && userId !== null && Boolean(text.trim()) && channels.length > 0 && buttonsValid
+    !busy && userId !== null && Boolean(text.trim() || image) && channels.length > 0 && buttonsValid
   );
 
   // An email-only draft is impossible for a customer with no linked address,
@@ -99,11 +100,13 @@
       channels,
       emailSubject,
       buttons,
+      image,
     });
     if (error === null) {
       text = "";
       emailSubject = "";
       buttons = [];
+      image = null;
       result = { kind: "ok", message: at("user_message_sent", {}, "Message sent") };
     } else {
       result = { kind: "error", message: error };
@@ -129,6 +132,20 @@
       onRequestShortcodes={broadcastStore.loadShortcodes}
       {at}
       placeholder={at("user_placeholder_msg", {}, "Message text")}
+    />
+
+    <ImageAttachment
+      bind:file={image}
+      disabled={busy}
+      labels={{
+        drop: at("message_image_drop", {}, "Drop an image here or"),
+        choose: at("message_image_choose", {}, "choose a file"),
+        remove: at("message_image_remove", {}, "Remove image"),
+        hint: at("message_image_hint", {}, "JPEG, PNG or WebP, up to 8 MB"),
+        invalidType: at("message_image_invalid_type", {}, "Choose a JPEG, PNG or WebP image"),
+        tooLarge: at("message_image_too_large", {}, "The image must be no larger than 8 MB"),
+        previewAlt: at("message_image_preview_alt", {}, "Image preview"),
+      }}
     />
 
     <div class="admin-user-message-channels">

@@ -17,6 +17,7 @@
     role?: string;
     body?: string;
     bodyFormat?: string;
+    imageUrl?: string;
     buttons?: TicketMessageButtonLike[];
     createdAt?: string;
     isInternalNote?: boolean;
@@ -34,6 +35,7 @@
     role = "user",
     body = "",
     bodyFormat = "text",
+    imageUrl = "",
     buttons = [],
     createdAt = "",
     isInternalNote = false,
@@ -129,8 +131,18 @@
     </div>
 
     <div class="ticket-message-bubble">
-      <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-      <div class="ticket-message-text">{@html bodyHtml}</div>
+      {#if imageUrl}
+        <img
+          class="ticket-message-image"
+          src={imageUrl}
+          alt={t("wa_message_image_alt", {}, "Attached image")}
+          loading="lazy"
+        />
+      {/if}
+      {#if bodyHtml}
+        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+        <div class="ticket-message-text">{@html bodyHtml}</div>
+      {/if}
       {#if messageButtons.length}
         <div class="ticket-message-buttons">
           {#each messageButtons as button, index (`${index}:${button.url}`)}

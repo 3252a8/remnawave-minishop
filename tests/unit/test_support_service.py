@@ -1,9 +1,14 @@
+import asyncio
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
+import pytest
+
+from bot.services import support_service as support_service_module
 from bot.services.support_service import (
     SupportService,
     TicketForbidden,
+    TicketRateLimited,
     _support_admin_notification_decision,
 )
 from tests.support.settings_stub import settings_stub
@@ -101,3 +106,43 @@ def test_support_admin_notification_decision_uses_separate_email_cooldown():
 
     assert decision.send_telegram is True
     assert decision.send_email is False
+
+
+def test_user_message_rate_limit_is_persistent_database_count(monkeypatch):
+    settings = settings_stub(SUPPORT_MESSAGE_RATE_LIMIT_PER_MINUTE=2)
+    service = object.__new__(SupportService)
+    service.settings = settings
+
+    async def count_messages(_session, _user_id, _window, *, images_only=False):
+        return 0 if images_only else 2
+
+    monkeypatch.setattr(
+        support_service_module.support_dal,
+        "count_recent_messages_for_user",
+        count_messages,
+    )
+
+    with pytest.raises(TicketRateLimited, match="support_message_rate_limited"):
+        asyncio.run(service._enforce_user_message_limits(object(), 42, has_image=False))
+
+
+def test_user_daily_image_limit_does_not_apply_to_text(monkeypatch):
+    settings = settings_stub(
+        SUPPORT_MESSAGE_RATE_LIMIT_PER_MINUTE=0,
+        SUPPORT_IMAGE_RATE_LIMIT_PER_DAY=1,
+    )
+    service = object.__new__(SupportService)
+    service.settings = settings
+
+    async def count_messages(_session, _user_id, _window, *, images_only=False):
+        return 1 if images_only else 0
+
+    monkeypatch.setattr(
+        support_service_module.support_dal,
+        "count_recent_messages_for_user",
+        count_messages,
+    )
+
+    asyncio.run(service._enforce_user_message_limits(object(), 42, has_image=False))
+    with pytest.raises(TicketRateLimited, match="support_image_rate_limited"):
+        asyncio.run(service._enforce_user_message_limits(object(), 42, has_image=True))

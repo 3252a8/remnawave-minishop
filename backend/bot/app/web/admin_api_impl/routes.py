@@ -86,6 +86,7 @@ from .stats import (
     admin_stats_route,
 )
 from .support import (
+    admin_message_image_route,
     admin_support_stats_route,
     admin_support_ticket_detail_route,
     admin_support_ticket_patch_route,
@@ -304,6 +305,10 @@ def setup_admin_routes(app: web.Application) -> None:
         admin_support_ticket_typing_route,
     )
     router.add_get("/api/admin/support/stats", admin_support_stats_route)
+    router.add_get(
+        r"/api/admin/message-images/{image_id:[0-9a-f]{32}}",
+        admin_message_image_route,
+    )
 
     router.add_get("/api/admin/broadcast/audience-counts", admin_broadcast_audience_counts_route)
     router.add_get("/api/admin/broadcast/shortcodes", admin_broadcast_shortcodes_route)

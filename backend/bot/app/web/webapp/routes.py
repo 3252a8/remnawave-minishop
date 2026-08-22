@@ -103,6 +103,7 @@ from .subscription_reissue import (
 )
 from .support import (
     support_create_ticket_route,
+    support_message_image_route,
     support_ticket_detail_route,
     support_ticket_read_route,
     support_ticket_reply_route,
@@ -253,6 +254,10 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/support/tickets/{id:\\d+}/read", support_ticket_read_route)
     app.router.add_post("/api/support/tickets/{id:\\d+}/typing", support_ticket_typing_route)
     app.router.add_get("/api/support/unread", support_unread_route)
+    app.router.add_get(
+        r"/api/support/images/{image_id:[0-9a-f]{32}}",
+        support_message_image_route,
+    )
     app.router.add_get("/api/tariffs/topup-options", tariff_topup_options_route)
     app.router.add_get("/api/tariffs/change-options", tariff_change_options_route)
     app.router.add_post("/api/tariffs/change", tariff_change_route)

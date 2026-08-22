@@ -267,6 +267,10 @@ class SettingsStub(SimpleNamespace):
             ticket_max_body_length=int(getattr(self, "SUPPORT_TICKET_MAX_BODY_LENGTH", 4000)),
             ticket_max_subject_length=int(getattr(self, "SUPPORT_TICKET_MAX_SUBJECT_LENGTH", 160)),
             ticket_rate_limit_per_hour=int(getattr(self, "SUPPORT_TICKET_RATE_LIMIT_PER_HOUR", 5)),
+            message_rate_limit_per_minute=int(
+                getattr(self, "SUPPORT_MESSAGE_RATE_LIMIT_PER_MINUTE", 10)
+            ),
+            image_rate_limit_per_day=int(getattr(self, "SUPPORT_IMAGE_RATE_LIMIT_PER_DAY", 20)),
             admin_email_notifications_enabled=bool(
                 getattr(self, "SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED", False)
             ),

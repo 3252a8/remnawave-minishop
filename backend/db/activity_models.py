@@ -92,6 +92,12 @@ class SupportTicketMessage(Base):
     # caption plus the link every channel opens. Resolved at send time so the
     # chat, Telegram and e-mail agree even after the promo code is edited.
     buttons = Column(Text, nullable=True)
+    image_id = Column(
+        String(32),
+        ForeignKey("message_images.image_id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     is_internal_note = Column(Boolean, nullable=False, default=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     read_by_user_at = Column(DateTime(timezone=True), nullable=True)

@@ -5,6 +5,7 @@
   import { Input } from "$components/ui/index.js";
   import { CalendarDays, Trash2 } from "$components/ui/icons.js";
   import { AdminButton } from "$components/patterns/admin/index.js";
+  import { supportMessageImageUrl } from "$lib/messageImage";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
@@ -186,6 +187,15 @@
               {/each}
             </div>
 
+            {#if item.imageId}
+              <img
+                class="broadcast-history-image"
+                src={supportMessageImageUrl(item.imageId, true)}
+                alt={at("message_image_alt", {}, "Attached image")}
+                loading="lazy"
+              />
+            {/if}
+
             {#if item.emailSubjects && Object.keys(item.emailSubjects).length}
               <div class="broadcast-history-subjects">
                 <b>{at("broadcast_email_subject_label", {}, "Email subject")}</b>
@@ -313,6 +323,14 @@
 </section>
 
 <style>
+  .broadcast-history-image {
+    display: block;
+    width: min(100%, 420px);
+    max-height: 320px;
+    border-radius: 10px;
+    object-fit: contain;
+  }
+
   .broadcast-history {
     margin-top: 16px;
   }

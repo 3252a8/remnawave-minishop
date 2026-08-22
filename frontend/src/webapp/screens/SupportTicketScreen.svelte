@@ -9,6 +9,7 @@
   import type { TicketMessageButtonLike } from "$components/patterns/webapp/types";
   import { webappRichTextLabels } from "$lib/webapp/richTextLabels.js";
   import { wireTextLength } from "$lib/richtext/telegramHtml";
+  import { supportMessageImageUrl } from "$lib/messageImage";
   import {
     clearSupportDraft,
     readSupportDraft,
@@ -25,6 +26,7 @@
     buttons?: TicketMessageButtonLike[];
     created_at?: string;
     is_internal_note?: boolean;
+    image_id?: string | null;
     message_id?: number;
     read_by_admin_at?: string | null;
     read_by_user_at?: string | null;
@@ -50,11 +52,21 @@
 
   const supportStore = getSupportStore();
   let reply = $state("");
+  let replyImage = $state<File | null>(null);
   let messagesScrollEl = $state<HTMLElement | null>(null);
   let lastMessageKey = $state("");
   let replyDraftKey = $state("");
 
   const labels = $derived(webappRichTextLabels(t));
+  const imageLabels = $derived({
+    drop: t("wa_message_image_drop"),
+    choose: t("wa_message_image_choose"),
+    remove: t("wa_message_image_remove"),
+    hint: t("wa_message_image_hint"),
+    invalidType: t("wa_message_image_invalid_type"),
+    tooLarge: t("wa_message_image_too_large"),
+    previewAlt: t("wa_message_image_preview_alt"),
+  });
   const openedTicket = $derived(supportStore.openedTicket);
   const messages = $derived(supportStore.messages);
   const detailLoading = $derived(supportStore.detailLoading);
@@ -79,13 +91,14 @@
     else clearSupportDraft("reply", draftScope, ticketId);
   });
 
-  async function send(body: string) {
+  async function send(body: string, image: File | null) {
     const currentTicketId = ticketId;
     const currentDraftScope = draftScope;
-    const sent = await supportStore.sendReply(body);
+    const sent = await supportStore.sendReply(body, image);
     if (!sent) return;
     if (currentTicketId) clearSupportDraft("reply", currentDraftScope, currentTicketId);
     reply = "";
+    replyImage = null;
   }
 
   function scrollMessagesToBottom() {
@@ -208,6 +221,7 @@
                 role={message.author_role}
                 body={message.body}
                 bodyFormat={message.body_format}
+                imageUrl={message.image_id ? supportMessageImageUrl(message.image_id) : ""}
                 buttons={message.buttons}
                 createdAt={message.created_at}
                 isInternalNote={message.is_internal_note}
@@ -232,7 +246,9 @@
 
       <TicketComposer
         bind:value={reply}
+        bind:image={replyImage}
         {labels}
+        {imageLabels}
         maxLength={maxBodyLength}
         disabled={closed}
         {sending}

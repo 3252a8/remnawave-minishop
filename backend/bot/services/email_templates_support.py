@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 from collections.abc import Sequence
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -13,6 +14,7 @@ from .email_templates_common import (
     _BORDER,
     _TEXT,
     EmailContent,
+    EmailInlineImage,
     _brand_title,
     _cta_button_html,
     _email_content,
@@ -38,6 +40,7 @@ def _support_email(
     body_preview: str,
     ticket_url: str | None,
     cta_label: str,
+    image: EmailInlineImage | None = None,
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
     lang = _normalize_lang(language, settings)
@@ -55,6 +58,14 @@ def _support_email(
         f'white-space:pre-wrap;">{html.escape(body_preview or "")}</div>'
     )
     body_parts = [_info_rows_html(localized_rows), preview_block]
+    if image is not None:
+        image_alt = _t_text(i18n, lang, "email_message_image_alt")
+        safe_cid = html.escape(image.content_id, quote=True)
+        body_parts.append(
+            f'<img src="cid:{safe_cid}" alt="{html.escape(image_alt, quote=True)}" '
+            f'style="display:block;width:100%;height:auto;margin:0 0 16px 0;'
+            f'border-radius:14px;border:1px solid {_BORDER};" />'
+        )
     if safe_url:
         body_parts.append(_cta_button_html(label=cta_label, url=safe_url, accent=accent))
     rendered = _layout(
@@ -76,6 +87,8 @@ def _support_email(
     ]
     if safe_url:
         text_lines.extend(["", safe_url])
+    if image is not None:
+        rendered = replace(rendered, inline_images=(*rendered.inline_images, image))
     return _email_content(subject=subject, text="\n".join(text_lines), layout=rendered)
 
 
@@ -90,6 +103,7 @@ def render_support_new_ticket_admin(
     body_preview: str,
     snapshot_rows: Sequence[tuple[str, str]],
     ticket_url: str | None,
+    image: EmailInlineImage | None = None,
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
     lang = _normalize_lang(language, settings)
@@ -110,6 +124,7 @@ def render_support_new_ticket_admin(
         body_preview=body_preview,
         ticket_url=ticket_url,
         cta_label=_t_text(i18n, lang, "email_support_cta_open_ticket"),
+        image=image,
     )
 
 
@@ -124,6 +139,7 @@ def render_support_user_reply_admin(
     body_preview: str,
     snapshot_rows: Sequence[tuple[str, str]],
     ticket_url: str | None,
+    image: EmailInlineImage | None = None,
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
     lang = _normalize_lang(language, settings)
@@ -144,6 +160,7 @@ def render_support_user_reply_admin(
         body_preview=body_preview,
         ticket_url=ticket_url,
         cta_label=_t_text(i18n, lang, "email_support_cta_open_ticket"),
+        image=image,
     )
 
 
@@ -156,6 +173,7 @@ def render_support_admin_reply_user(
     subject: str,
     body_preview: str,
     ticket_url: str | None,
+    image: EmailInlineImage | None = None,
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
     lang = _normalize_lang(language, settings)
@@ -173,6 +191,7 @@ def render_support_admin_reply_user(
         body_preview=body_preview,
         ticket_url=ticket_url,
         cta_label=_t_text(i18n, lang, "email_support_cta_open_mini_app"),
+        image=image,
     )
 
 

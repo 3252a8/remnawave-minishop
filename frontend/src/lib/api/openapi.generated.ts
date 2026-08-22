@@ -448,6 +448,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/message-images/{image_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Message Image */
+    get: operations["get_admin_message_image_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/panel/internal-squads": {
     parameters: {
       query?: never;
@@ -2162,6 +2179,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/support/images/{image_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Support Message Image */
+    get: operations["get_support_message_image_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/support/tickets": {
     parameters: {
       query?: never;
@@ -2797,6 +2831,11 @@ export interface components {
        * @default null
        */
       finished_at: string | null;
+      /**
+       * Image Id
+       * @default null
+       */
+      image_id: string | null;
       /**
        * Last Error
        * @default null
@@ -3863,6 +3902,11 @@ export interface components {
        * @default null
        */
       created_at: string | null;
+      /**
+       * Image Id
+       * @default null
+       */
+      image_id: string | null;
       /** Is Internal Note */
       is_internal_note: boolean;
       /** Message Id */
@@ -6132,6 +6176,11 @@ export interface components {
        * @default null
        */
       created_at: string | null;
+      /**
+       * Image Id
+       * @default null
+       */
+      image_id: string | null;
       /** Is Internal Note */
       is_internal_note: boolean;
       /** Message Id */
@@ -7884,6 +7933,10 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["AdminBroadcastBody"];
+        "multipart/form-data": components["schemas"]["AdminBroadcastBody"] & {
+          /** Format: binary */
+          image?: string;
+        };
       };
     };
     responses: {
@@ -7934,6 +7987,10 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["AdminBroadcastPreviewBody"];
+        "multipart/form-data": components["schemas"]["AdminBroadcastPreviewBody"] & {
+          /** Format: binary */
+          image?: string;
+        };
       };
     };
     responses: {
@@ -8116,6 +8173,28 @@ export interface operations {
             /** @constant */
             ok: true;
           } & components["schemas"]["AdminMeOut"];
+        };
+      };
+    };
+  };
+  get_admin_message_image_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        image_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "image/webp": string;
         };
       };
     };
@@ -9394,6 +9473,10 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["AdminTicketReplyPayload"];
+        "multipart/form-data": components["schemas"]["AdminTicketReplyPayload"] & {
+          /** Format: binary */
+          image?: string;
+        };
       };
     };
     responses: {
@@ -11692,6 +11775,28 @@ export interface operations {
       };
     };
   };
+  get_support_message_image_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        image_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "image/webp": string;
+        };
+      };
+    };
+  };
   get_support_tickets_route: {
     parameters: {
       query?: never;
@@ -11727,6 +11832,10 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["CreateTicketPayload"];
+        "multipart/form-data": components["schemas"]["CreateTicketPayload"] & {
+          /** Format: binary */
+          image?: string;
+        };
       };
     };
     responses: {
@@ -11785,6 +11894,10 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["TicketReplyPayload"];
+        "multipart/form-data": components["schemas"]["TicketReplyPayload"] & {
+          /** Format: binary */
+          image?: string;
+        };
       };
     };
     responses: {

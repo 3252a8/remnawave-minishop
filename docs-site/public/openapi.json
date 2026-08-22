@@ -836,6 +836,18 @@
             "default": null,
             "title": "Finished At"
           },
+          "image_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Image Id"
+          },
           "last_error": {
             "anyOf": [
               {
@@ -3350,6 +3362,18 @@
             "default": null,
             "title": "Created At"
           },
+          "image_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Image Id"
+          },
           "is_internal_note": {
             "title": "Is Internal Note",
             "type": "boolean"
@@ -4278,7 +4302,6 @@
         "properties": {
           "body": {
             "maxLength": 32000,
-            "minLength": 1,
             "title": "Body",
             "type": "string"
           },
@@ -5287,7 +5310,6 @@
         "properties": {
           "body": {
             "maxLength": 32000,
-            "minLength": 1,
             "title": "Body",
             "type": "string"
           },
@@ -8543,6 +8565,18 @@
             "default": null,
             "title": "Created At"
           },
+          "image_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Image Id"
+          },
           "is_internal_note": {
             "title": "Is Internal Note",
             "type": "boolean"
@@ -9824,7 +9858,6 @@
         "properties": {
           "body": {
             "maxLength": 32000,
-            "minLength": 1,
             "title": "Body",
             "type": "string"
           },
@@ -12346,6 +12379,24 @@
               "schema": {
                 "$ref": "#/components/schemas/AdminBroadcastBody"
               }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/AdminBroadcastBody"
+                  },
+                  {
+                    "properties": {
+                      "image": {
+                        "format": "binary",
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  }
+                ]
+              }
             }
           },
           "required": true
@@ -12447,6 +12498,24 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/AdminBroadcastPreviewBody"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/AdminBroadcastPreviewBody"
+                  },
+                  {
+                    "properties": {
+                      "image": {
+                        "format": "binary",
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  }
+                ]
               }
             }
           },
@@ -12840,6 +12909,47 @@
           }
         ],
         "summary": "Admin Me",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/message-images/{image_id}": {
+      "get": {
+        "operationId": "get_admin_message_image_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "image_id",
+            "required": true,
+            "schema": {
+              "pattern": "[0-9a-f]{32}",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/webp": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Message Image",
         "tags": [
           "admin"
         ]
@@ -15393,6 +15503,24 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/AdminTicketReplyPayload"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/AdminTicketReplyPayload"
+                  },
+                  {
+                    "properties": {
+                      "image": {
+                        "format": "binary",
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  }
+                ]
               }
             }
           },
@@ -20982,6 +21110,47 @@
         ]
       }
     },
+    "/api/support/images/{image_id}": {
+      "get": {
+        "operationId": "get_support_message_image_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "image_id",
+            "required": true,
+            "schema": {
+              "pattern": "[0-9a-f]{32}",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/webp": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Support Message Image",
+        "tags": [
+          "support"
+        ]
+      }
+    },
     "/api/support/tickets": {
       "get": {
         "operationId": "get_support_tickets_route",
@@ -21038,6 +21207,24 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CreateTicketPayload"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateTicketPayload"
+                  },
+                  {
+                    "properties": {
+                      "image": {
+                        "format": "binary",
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  }
+                ]
               }
             }
           },
@@ -21165,6 +21352,24 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/TicketReplyPayload"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/TicketReplyPayload"
+                  },
+                  {
+                    "properties": {
+                      "image": {
+                        "format": "binary",
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  }
+                ]
               }
             }
           },

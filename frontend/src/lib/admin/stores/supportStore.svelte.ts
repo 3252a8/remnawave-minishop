@@ -12,6 +12,7 @@ import {
 } from "../../webapp/publicApi";
 import { withRoutePrefix } from "../../webapp/routes.js";
 import { createSupportTypingHeartbeat } from "../../webapp/supportTyping.js";
+import { messageRequestBody } from "$lib/messageImage";
 import { adminErrorMessage } from "../errors.js";
 import { defineRawStateProperty } from "./rawStateProperty";
 import { snapshotForPayload } from "./snapshotForPayload.svelte";
@@ -28,6 +29,7 @@ export type SupportReplyButton = components["schemas"]["AdminBroadcastButtonBody
 export type SendReplyOptions = {
   bodyFormat?: TicketReplyPayload["body_format"];
   buttons?: SupportReplyButton[];
+  image?: File | null;
 };
 type BaseSupportTicket = components["schemas"]["SupportTicketOut"];
 type AdminSupportTicket = components["schemas"]["AdminSupportTicketOut"];
@@ -403,7 +405,7 @@ export function createAdminSupportStore({
       });
       const res = await api(buildAdminSupportTicketMessagesPath(current), {
         method: "POST",
-        body: JSON.stringify(payload),
+        body: messageRequestBody(payload as unknown as Record<string, unknown>, options.image),
       });
       if (!res?.ok) throw res;
       const response = unwrap(res);

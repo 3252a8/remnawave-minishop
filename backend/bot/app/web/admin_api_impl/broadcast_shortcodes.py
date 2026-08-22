@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 
+from aiogram.types import BufferedInputFile
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
 
@@ -20,7 +21,8 @@ from bot.app.web.context import (
     get_session_factory,
     get_settings,
 )
-from bot.app.web.request_parsing import parse_body_or_400
+from bot.app.web.message_image_contracts import message_image_request_content
+from bot.app.web.request_parsing import parse_body_with_optional_image_or_400
 from bot.app.web.route_contracts import (
     RouteContract,
     ok_envelope_for,
@@ -35,6 +37,7 @@ from bot.services.broadcast_personalization import (
     render_broadcast_text,
     unknown_shortcodes,
 )
+from bot.services.message_image_service import MessageImageError, prepare_message_image
 from bot.utils import MessageContent, send_message_via_queue
 from bot.utils.message_queue import get_queue_manager
 from config.settings import Settings
@@ -67,9 +70,9 @@ register_contract(
 register_contract(
     "admin_broadcast_preview_route",
     RouteContract(
-        request_model=AdminBroadcastPreviewBody,
+        request_content=message_image_request_content(AdminBroadcastPreviewBody),
         response_schema=ok_envelope_for(AdminBroadcastPreviewOut),
-        models=(AdminBroadcastPreviewOut,),
+        models=(AdminBroadcastPreviewBody, AdminBroadcastPreviewOut),
     ),
 )
 
@@ -106,11 +109,18 @@ async def admin_broadcast_shortcodes_route(request: web.Request) -> web.Response
 
 async def admin_broadcast_preview_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
-    body = await parse_body_or_400(request, AdminBroadcastPreviewBody)
+    body, upload = await parse_body_with_optional_image_or_400(
+        request,
+        AdminBroadcastPreviewBody,
+    )
+    try:
+        image = await prepare_message_image(upload)
+    except MessageImageError as exc:
+        return _error(400, exc.code, exc.detail)
     settings: Settings = get_settings(request)
     text = str(body.text or "").strip()
     email_subject = str(body.email_subject or "")
-    if not text:
+    if not text and image is None:
         return _error(400, "empty_text")
 
     i18n = get_i18n(request)
@@ -166,14 +176,23 @@ async def admin_broadcast_preview_route(request: web.Request) -> web.Response:
         if not queue_manager:
             return _error(503, "queue_unavailable")
         try:
-            await send_message_via_queue(
-                queue_manager,
-                int(admin_telegram_id),
-                MessageContent(content_type="text", text=rendered_text),
-                parse_mode="HTML",
-                disable_web_page_preview=True,
-                reply_markup=telegram_markup_for_buttons(buttons),
-            )
+            if image is not None:
+                await queue_manager.send_photo(
+                    int(admin_telegram_id),
+                    photo=BufferedInputFile(image.data, filename=image.filename),
+                    reply_markup=(
+                        telegram_markup_for_buttons(buttons) if not rendered_text else None
+                    ),
+                )
+            if rendered_text:
+                await send_message_via_queue(
+                    queue_manager,
+                    int(admin_telegram_id),
+                    MessageContent(content_type="text", text=rendered_text),
+                    parse_mode="HTML",
+                    disable_web_page_preview=True,
+                    reply_markup=telegram_markup_for_buttons(buttons),
+                )
         except Exception as exc:
             logger.warning("Broadcast preview send failed: %s", exc)
             return _error(502, "preview_failed", str(exc))

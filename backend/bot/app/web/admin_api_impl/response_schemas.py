@@ -116,6 +116,7 @@ class AdminBroadcastOut(HttpResponseModel):
     texts: dict[str, str]
     email_subjects: dict[str, str]
     buttons: list[AdminBroadcastButtonOut]
+    image_id: str | None = None
     scheduled_at: datetime
     created_at: datetime
     started_at: datetime | None = None

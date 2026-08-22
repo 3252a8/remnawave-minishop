@@ -458,6 +458,8 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(support_settings.ticket_max_body_length, 1000)
         self.assertEqual(support_settings.ticket_max_subject_length, 160)
         self.assertEqual(support_settings.ticket_rate_limit_per_hour, 2)
+        self.assertEqual(support_settings.message_rate_limit_per_minute, 10)
+        self.assertEqual(support_settings.image_rate_limit_per_day, 20)
         self.assertTrue(support_settings.admin_email_notifications_enabled)
         self.assertEqual(support_settings.admin_notification_cooldown_seconds, 300)
         self.assertEqual(support_settings.admin_email_cooldown_seconds, 1800)

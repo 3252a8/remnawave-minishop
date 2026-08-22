@@ -24,6 +24,7 @@ from bot.app.web.context import (
 )
 from bot.infra.observability import observability_error_middleware
 from bot.services.email_auth_service import EmailAuthService
+from bot.services.message_image_service import MESSAGE_IMAGE_REQUEST_MAX_BYTES
 from config.settings import Settings
 
 from .assets import (
@@ -50,6 +51,7 @@ def create_subscription_webapp_application(
     async_session_factory: sessionmaker,
 ) -> web.Application:
     app = web.Application(
+        client_max_size=MESSAGE_IMAGE_REQUEST_MAX_BYTES,
         middlewares=[
             observability_error_middleware,
             api_no_store_middleware,
@@ -57,7 +59,7 @@ def create_subscription_webapp_application(
             _webapp_edge_token_middleware,
             _csrf_protection_middleware,
             admin_auth_middleware,
-        ]
+        ],
     )
     set_core_context(
         app,

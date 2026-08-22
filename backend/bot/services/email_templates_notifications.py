@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 from collections.abc import Sequence
+from dataclasses import replace
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
@@ -14,6 +15,7 @@ from .email_templates_common import (
     _TEXT,
     _TEXT_DIM,
     EmailContent,
+    EmailInlineImage,
     _brand_title,
     _cta_button_html,
     _email_content,
@@ -103,6 +105,7 @@ def render_broadcast_email(
     message_text: str,
     buttons: Sequence[tuple[str, str]] = (),
     i18n: JsonI18n | None = None,
+    image: EmailInlineImage | None = None,
 ) -> EmailContent:
     """Render an admin broadcast as an email with optional CTA link buttons.
 
@@ -126,6 +129,14 @@ def render_broadcast_email(
         f'white-space:pre-wrap;">{_telegram_html_to_email_html(message_text)}</div>'
     )
     body_parts = [message_html]
+    if image is not None:
+        image_alt = _t_text(i18n, lang, "email_message_image_alt")
+        safe_cid = html.escape(image.content_id, quote=True)
+        body_parts.append(
+            f'<img src="cid:{safe_cid}" alt="{html.escape(image_alt, quote=True)}" '
+            f'style="display:block;width:100%;height:auto;margin:0 0 16px 0;'
+            f'border-radius:14px;border:1px solid {_BORDER};" />'
+        )
     for label, url in buttons:
         safe_url = (url or "").strip()
         if not safe_url:
@@ -148,6 +159,8 @@ def render_broadcast_email(
         if not safe_url:
             continue
         text_lines.extend(["", f"{label}: {safe_url}"])
+    if image is not None:
+        rendered = replace(rendered, inline_images=(*rendered.inline_images, image))
     return _email_content(subject=final_subject, text="\n".join(text_lines), layout=rendered)
 
 

@@ -341,4 +341,20 @@ NOTIFICATION_SETTINGS_FIELDS: list[SettingField] = [
         "How many new tickets a user can create per hour. 0 means unlimited.",
         min=0,
     ),
+    SettingField(
+        "SUPPORT_MESSAGE_RATE_LIMIT_PER_MINUTE",
+        "int",
+        "support",
+        "Message limit per minute",
+        "How many ticket messages a user may send per minute. 0 means unlimited.",
+        min=0,
+    ),
+    SettingField(
+        "SUPPORT_IMAGE_RATE_LIMIT_PER_DAY",
+        "int",
+        "support",
+        "Image limit per day",
+        "How many ticket image attachments a user may send per day. 0 means unlimited.",
+        min=0,
+    ),
 ]
