@@ -91,6 +91,14 @@
     onOpenUserCard(userId)) as ComponentCallback;
   const sendComposerReply = (body: string, image: File | null) => void send(body, image);
   const maxBodyLength = 4000;
+  const imageViewerLabels = $derived({
+    open: at("image_viewer_open", {}, "Open image"),
+    title: at("image_viewer_title", {}, "Image"),
+    close: at("image_viewer_close", {}, "Close image"),
+    zoomIn: at("image_viewer_zoom_in", {}, "Zoom in"),
+    zoomOut: at("image_viewer_zoom_out", {}, "Zoom out"),
+    reset: at("image_viewer_reset", {}, "Reset zoom"),
+  });
 
   const statusTabs = $derived([
     {
@@ -416,6 +424,7 @@
                 isInternalNote={message.is_internal_note}
                 perspective="admin"
                 supportBrand={brand}
+                {imageViewerLabels}
                 userAvatarUrl={openedTicketUserAvatarUrl}
                 userInitials={openedTicketUserInitials}
                 authorName={messageAuthorName(message)}

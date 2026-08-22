@@ -1426,7 +1426,36 @@
   object-fit: contain;
 }
 
-.ticket-message-image + .ticket-message-text {
+.ticket-message-image-trigger {
+  display: block;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.ticket-message-image-trigger:hover .ticket-message-image,
+.ticket-message-image-trigger:focus-visible .ticket-message-image {
+  filter: brightness(1.06);
+  transform: scale(1.01);
+}
+
+.ticket-message-image-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ticket-message-image-trigger .ticket-message-image {
+  transition:
+    transform 120ms ease,
+    filter 120ms ease;
+}
+
+.ticket-message-image-trigger + .ticket-message-text {
   margin-top: 8px;
 }
 

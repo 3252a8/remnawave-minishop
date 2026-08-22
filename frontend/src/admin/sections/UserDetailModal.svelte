@@ -488,7 +488,8 @@
 
   function openAvatarPreview() {
     if (!openedUserAvatarUrl || !openedUser) return;
-    avatarPreviewUrl = openedUserAvatarUrl;
+    const separator = openedUserAvatarUrl.includes("?") ? "&" : "?";
+    avatarPreviewUrl = `${openedUserAvatarUrl}${separator}quality=full`;
     avatarPreviewName = userDisplayName(openedUser);
     avatarPreviewOpen = true;
   }

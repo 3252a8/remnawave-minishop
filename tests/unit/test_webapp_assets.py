@@ -1001,6 +1001,18 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             medium,
         )
 
+    def test_select_full_telegram_photo_size_prefers_largest_photo(self):
+        from bot.app.web.webapp.common import _select_full_telegram_photo_size
+
+        small = SimpleNamespace(width=80, height=80, file_size=5000)
+        medium = SimpleNamespace(width=160, height=160, file_size=12000)
+        large = SimpleNamespace(width=640, height=640, file_size=90000)
+
+        self.assertIs(
+            _select_full_telegram_photo_size([small, large, medium]),
+            large,
+        )
+
     def test_serialize_plans_uses_traffic_packages_in_traffic_mode(self):
         settings = Settings(
             _env_file=None,

@@ -12,6 +12,7 @@
     VirtualTableRows,
   } from "$components/patterns/admin/index.js";
   import { FileText, User } from "$components/ui/icons.js";
+  import { Popover } from "$components/ui/primitives.js";
   import { TableHandler } from "@vincjo/datatables";
   import {
     formatPaymentTrafficGb,
@@ -86,7 +87,7 @@
   });
 </script>
 
-<div class="admin-table-wrap">
+<div class="admin-payments-table-shell">
   {#if paymentsLoading}
     <AdminTableSkeleton
       headers={paymentHeaders}
@@ -111,7 +112,20 @@
       ><span class="admin-muted">{at("payments_empty", {}, "No payments")}</span></AdminEmptyState
     >
   {:else}
-    <AdminTable>
+    <AdminTable class="admin-payments-table">
+      <colgroup>
+        <col class="admin-payments-col-id" />
+        <col class="admin-payments-col-user" />
+        <col class="admin-payments-col-user-id" />
+        <col class="admin-payments-col-traffic" />
+        <col class="admin-payments-col-traffic" />
+        <col class="admin-payments-col-amount" />
+        <col class="admin-payments-col-discount" />
+        <col class="admin-payments-col-provider" />
+        <col class="admin-payments-col-description" />
+        <col class="admin-payments-col-status" />
+        <col class="admin-payments-col-date" />
+      </colgroup>
       <thead>
         <tr>
           <AdminSortableHeader
@@ -200,6 +214,7 @@
         getKey={(p) => p.payment_id}
       >
         {#snippet children(p)}
+          {@const userLabel = String(p.user_label || p.user_id)}
           <tr>
             <td class="admin-cell-id" data-label="ID">
               <AdminButton
@@ -226,7 +241,29 @@
                 >
                   <User size={14} />
                 </AdminButton>
-                <span class="admin-payments-user-name">{p.user_label || p.user_id}</span>
+                <Popover.Root>
+                  <Popover.Trigger
+                    class="admin-payments-user-name"
+                    title={at("payments_show_full_user", {}, "Show full user name")}
+                    aria-label={at(
+                      "payments_show_full_user_named",
+                      { name: userLabel },
+                      "Show full user name: {name}"
+                    )}
+                  >
+                    {userLabel}
+                  </Popover.Trigger>
+                  <Popover.Portal>
+                    <Popover.Content
+                      class="admin-payments-user-popover"
+                      side="bottom"
+                      align="start"
+                      sideOffset={6}
+                    >
+                      {userLabel}
+                    </Popover.Content>
+                  </Popover.Portal>
+                </Popover.Root>
               </span>
             </td>
             <td class="admin-cell-mono" data-label={at("payments_col_user_id", {}, "ID")}>
@@ -281,6 +318,59 @@
 />
 
 <style>
+  .admin-payments-table-shell {
+    min-width: 0;
+  }
+
+  .admin-payments-table-shell :global(.admin-table-wrap) {
+    overflow-x: auto;
+  }
+
+  .admin-payments-table-shell :global(.admin-payments-table) {
+    min-width: 1320px;
+    table-layout: fixed;
+  }
+
+  .admin-payments-table-shell :global(.admin-payments-col-id) {
+    width: 82px;
+  }
+
+  .admin-payments-table-shell :global(.admin-payments-col-user) {
+    width: 230px;
+  }
+
+  .admin-payments-table-shell :global(.admin-payments-col-user-id) {
+    width: 170px;
+  }
+
+  .admin-payments-table-shell :global(.admin-payments-col-traffic) {
+    width: 112px;
+  }
+
+  .admin-payments-table-shell :global(.admin-payments-col-amount) {
+    width: 112px;
+  }
+
+  .admin-payments-table-shell :global(.admin-payments-col-discount) {
+    width: 100px;
+  }
+
+  .admin-payments-table-shell :global(.admin-payments-col-provider) {
+    width: 128px;
+  }
+
+  .admin-payments-table-shell :global(.admin-payments-col-description) {
+    width: 190px;
+  }
+
+  .admin-payments-table-shell :global(.admin-payments-col-status) {
+    width: 110px;
+  }
+
+  .admin-payments-table-shell :global(.admin-payments-col-date) {
+    width: 150px;
+  }
+
   .admin-payments-user-cell {
     display: flex;
     align-items: center;
@@ -288,11 +378,45 @@
     min-width: 0;
   }
 
-  .admin-payments-user-name {
+  :global(.admin-payments-user-name) {
+    display: block;
     min-width: 0;
+    max-width: 100%;
+    margin: 0;
+    padding: 2px 0;
     overflow: hidden;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  :global(.admin-payments-user-name:hover),
+  :global(.admin-payments-user-name:focus-visible) {
+    color: var(--accent);
+  }
+
+  :global(.admin-payments-user-name:focus-visible) {
+    outline: 2px solid color-mix(in srgb, var(--accent) 65%, transparent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  :global(.admin-payments-user-popover) {
+    z-index: 1200;
+    max-width: min(440px, calc(100vw - 24px));
+    padding: 10px 12px;
+    overflow-wrap: anywhere;
+    border: 1px solid var(--admin-border);
+    border-radius: 9px;
+    background: var(--admin-surface);
+    box-shadow: var(--admin-card-shadow);
+    color: var(--admin-text);
+    font-size: 13px;
   }
 
   .admin-cell-user-with-action :global(.admin-payments-user-btn.admin-btn) {

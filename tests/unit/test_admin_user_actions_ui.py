@@ -25,6 +25,11 @@ USER_TRAFFIC_GRANT_ACTION = (
     REPO_ROOT / "frontend/src/admin/sections/user-detail/UserTrafficGrantActionCard.svelte"
 )
 USER_DIALOGS = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserDetailDialogs.svelte"
+PAYMENTS_SECTION = REPO_ROOT / "frontend/src/admin/sections/PaymentsSection.svelte"
+TICKET_MESSAGE_BUBBLE = (
+    REPO_ROOT / "frontend/src/lib/components/patterns/webapp/TicketMessageBubble.svelte"
+)
+IMAGE_VIEWER = REPO_ROOT / "frontend/src/lib/components/ui/image-viewer.svelte"
 STATS_SECTION = REPO_ROOT / "frontend/src/admin/sections/StatsSection.svelte"
 ADMIN_PANEL = REPO_ROOT / "frontend/src/admin/AdminPanel.svelte"
 ADMIN_PANEL_LAYOUT = REPO_ROOT / "frontend/src/admin/AdminPanelLayout.svelte"
@@ -288,3 +293,41 @@ def test_user_recent_payments_open_payment_cards():
         "{#if PaymentDetailModalComponent}"
     )
     assert "void paymentsStore.openPayment(id)" in panel
+
+
+def test_payment_tables_keep_identity_and_primary_fields_visible_first():
+    payments = PAYMENTS_SECTION.read_text(encoding="utf-8")
+    activity = USER_ACTIVITY.read_text(encoding="utf-8")
+    header = activity[activity.index("<thead>") : activity.index("</thead>")]
+
+    assert 'class="admin-payments-table"' in payments
+    assert "table-layout: fixed" in payments
+    assert "overflow-x: auto" in payments
+    assert "<Popover.Trigger" in payments
+    assert "admin-payments-user-popover" in payments
+    assert header.index('at("amount"') < header.index('at("provider"')
+    assert header.index('at("status"') < header.index('at("provider"')
+    assert header.index('at("date"') < header.index('at("provider"')
+    assert header.index('at("provider"') < header.index('at("payments_col_traffic_regular"')
+
+
+def test_ticket_images_and_user_avatars_share_zoomable_viewer():
+    bubble = TICKET_MESSAGE_BUBBLE.read_text(encoding="utf-8")
+    dialogs = USER_DIALOGS.read_text(encoding="utf-8")
+    modal = USER_DETAIL.read_text(encoding="utf-8")
+    viewer = IMAGE_VIEWER.read_text(encoding="utf-8")
+
+    assert "<ImageViewer" in bubble
+    assert "ticket-message-image-trigger" in bubble
+    assert "<ImageViewer" in dialogs
+    assert "quality=full" in modal
+    assert "handleWheel" in viewer
+    assert "handleDoubleClick" in viewer
+    assert "handlePointerMove" in viewer
+    assert "MAX_SCALE = 5" in viewer
+    for language in ("ru", "en"):
+        messages = json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text("utf-8"))
+        assert messages["admin_image_viewer_open"]
+        assert messages["admin_image_viewer_title"]
+        assert messages["admin_image_viewer_close"]
+        assert messages["wa_image_viewer_open"]

@@ -18,6 +18,7 @@ from bot.app.web.context import (
     get_session_factory,
     get_settings,
 )
+from bot.app.web.webapp.common import _ensure_cached_telegram_avatar
 from bot.services.panel_activity import (
     _panel_user_connection_activity,
     connection_activity_from_snapshot,
@@ -57,17 +58,29 @@ async def admin_user_avatar_route(request: web.Request) -> web.Response:
     """Serve the cached Telegram avatar for any user (admin-only).
 
     Mirrors ``/api/account/avatar`` but takes a ``user_id`` from the URL
-    and uses admin auth. Only the cached blob from
-    ``user_telegram_avatars`` is served — refreshing from Telegram is the
-    job of the user-facing endpoint, so the admin list never blocks on a
-    Telegram round-trip.
+    and uses admin auth. Regular thumbnail requests only read the cached blob.
+    The explicit ``quality=full`` viewer request refreshes it from the largest
+    Telegram profile photo and falls back to the existing cache on failure.
     """
 
     _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
+    full_quality = request.query.get("quality") == "full"
     async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
-        avatar = await session.get(UserTelegramAvatar, target_id)
+        if full_quality:
+            user = await user_dal.get_user_by_id(session, target_id)
+            if not user:
+                raise web.HTTPNotFound(text="user_not_found")
+            avatar = await _ensure_cached_telegram_avatar(
+                request,
+                session,
+                user,
+                force_refresh=True,
+            )
+            await session.commit()
+        else:
+            avatar = await session.get(UserTelegramAvatar, target_id)
 
     if not avatar:
         raise web.HTTPNotFound(text="avatar_not_cached")

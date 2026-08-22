@@ -67,6 +67,14 @@
     tooLarge: t("wa_message_image_too_large"),
     previewAlt: t("wa_message_image_preview_alt"),
   });
+  const imageViewerLabels = $derived({
+    open: t("wa_image_viewer_open", {}, "Open image"),
+    title: t("wa_image_viewer_title", {}, "Image"),
+    close: t("wa_image_viewer_close", {}, "Close image"),
+    zoomIn: t("wa_image_viewer_zoom_in", {}, "Zoom in"),
+    zoomOut: t("wa_image_viewer_zoom_out", {}, "Zoom out"),
+    reset: t("wa_image_viewer_reset", {}, "Reset zoom"),
+  });
   const openedTicket = $derived(supportStore.openedTicket);
   const messages = $derived(supportStore.messages);
   const detailLoading = $derived(supportStore.detailLoading);
@@ -227,6 +235,7 @@
                 createdAt={message.created_at}
                 isInternalNote={message.is_internal_note}
                 supportBrand={brand}
+                {imageViewerLabels}
                 {userAvatarUrl}
                 {userInitials}
                 authorName={messageAuthorName(message)}

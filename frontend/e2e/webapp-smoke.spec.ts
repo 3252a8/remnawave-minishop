@@ -611,10 +611,14 @@ async function openUserDetailFromCurrentSection(
       userDialog.locator(".admin-avatar-preview-trigger:not(:disabled)")
     )
   ) {
-    const avatarDialog = page.locator(".dialog-card.admin-avatar-dialog");
-    await expect(avatarDialog).toBeVisible();
+    const avatarViewer = page.locator("[data-image-viewer]");
+    await expect(avatarViewer).toBeVisible();
     await assertFormFieldsNamed(page, `${phasePrefix}:user-avatar`);
-    await closeDialog(avatarDialog);
+    await expect(avatarViewer.locator(".image-viewer-scale")).toHaveText("100%");
+    await avatarViewer.locator('[data-image-viewer-action="zoom-in"]').click();
+    await expect(avatarViewer.locator(".image-viewer-scale")).toHaveText("125%");
+    await avatarViewer.locator('[data-image-viewer-action="close"]').click();
+    await expect(avatarViewer).toBeHidden();
   }
 
   setPhase(`${phasePrefix}:user-referrals`);

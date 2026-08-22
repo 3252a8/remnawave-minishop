@@ -1,5 +1,6 @@
 <script lang="ts">
   import BrandMark from "$lib/webapp/BrandMark.svelte";
+  import { ImageViewer } from "$components/ui/index.js";
   import {
     Check,
     CheckCheck,
@@ -13,6 +14,14 @@
   import type { TicketMessageButtonLike } from "./types.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type ImageViewerLabels = {
+    open: string;
+    title: string;
+    close: string;
+    zoomIn: string;
+    zoomOut: string;
+    reset: string;
+  };
   type Props = {
     role?: string;
     body?: string;
@@ -29,6 +38,7 @@
     readByUserAt?: string | null;
     readByAdminAt?: string | null;
     supportBrand?: Record<string, unknown>;
+    imageViewerLabels?: ImageViewerLabels;
     t?: TranslateFn;
   };
 
@@ -48,6 +58,14 @@
     readByUserAt = null,
     readByAdminAt = null,
     supportBrand = {},
+    imageViewerLabels = {
+      open: "Open image",
+      title: "Image",
+      close: "Close image",
+      zoomIn: "Zoom in",
+      zoomOut: "Zoom out",
+      reset: "Reset zoom",
+    },
     t = (key, _params = {}, fallback = "") => fallback || key,
   }: Props = $props();
 
@@ -78,12 +96,14 @@
   );
   let resolvedImageUrl = $state("");
   let imageLoadFailed = $state(false);
+  let imageViewerOpen = $state(false);
 
   $effect(() => {
     const source = imageUrl;
     const loader = loadImage;
     resolvedImageUrl = "";
     imageLoadFailed = false;
+    imageViewerOpen = false;
     if (!source) return;
     if (!loader) {
       resolvedImageUrl = source;
@@ -164,12 +184,19 @@
 
     <div class="ticket-message-bubble">
       {#if resolvedImageUrl}
-        <img
-          class="ticket-message-image"
-          src={resolvedImageUrl}
-          alt={t("wa_message_image_alt", {}, "Attached image")}
-          loading="lazy"
-        />
+        <button
+          class="ticket-message-image-trigger"
+          type="button"
+          aria-label={imageViewerLabels.open}
+          onclick={() => (imageViewerOpen = true)}
+        >
+          <img
+            class="ticket-message-image"
+            src={resolvedImageUrl}
+            alt={t("wa_message_image_alt", {}, "Attached image")}
+            loading="lazy"
+          />
+        </button>
       {:else if imageLoadFailed}
         <span class="ticket-message-image-error" role="alert">
           {t("wa_message_image_load_failed", {}, "The attached image could not be loaded")}
@@ -196,3 +223,15 @@
     </div>
   </div>
 </article>
+
+<ImageViewer
+  open={imageViewerOpen}
+  src={resolvedImageUrl}
+  alt={t("wa_message_image_alt", {}, "Attached image")}
+  title={imageViewerLabels.title}
+  closeLabel={imageViewerLabels.close}
+  zoomInLabel={imageViewerLabels.zoomIn}
+  zoomOutLabel={imageViewerLabels.zoomOut}
+  resetLabel={imageViewerLabels.reset}
+  onclose={() => (imageViewerOpen = false)}
+/>
