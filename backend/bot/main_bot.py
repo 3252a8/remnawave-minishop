@@ -3,15 +3,8 @@ import logging
 from collections.abc import Awaitable, Callable
 
 from aiogram import Dispatcher
-from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError
+from aiogram.exceptions import TelegramNetworkError
 from aiogram.types import (
-    BotCommand,
-    BotCommandScopeAllChatAdministrators,
-    BotCommandScopeAllGroupChats,
-    BotCommandScopeAllPrivateChats,
-    BotCommandScopeChat,
-    BotCommandScopeDefault,
-    BotCommandScopeUnion,
     MenuButtonDefault,
     MenuButtonWebApp,
     WebAppInfo,
@@ -34,6 +27,7 @@ from bot.plugins import PluginContext, run_setup
 from bot.routers import build_root_router
 from bot.services.event_reactions import register_core_reactions
 from bot.services.message_log_notifier import configure_message_log_notifier
+from bot.services.telegram_bot_commands import sync_telegram_bot_commands
 from bot.utils.message_queue import init_queue_manager
 from config.settings import Settings
 from config.telegram_proxy import safe_telegram_network_error_detail
@@ -41,15 +35,6 @@ from config.telegram_proxy import safe_telegram_network_error_detail
 logger = logging.getLogger(__name__)
 
 TELEGRAM_STARTUP_RETRY_DELAY_SECONDS = 2.0
-
-
-def _telegram_command_language_codes(settings: Settings) -> list[str | None]:
-    language_codes: list[str | None] = [None]
-    for code in (settings.DEFAULT_LANGUAGE, "ru", "en"):
-        normalized = str(code or "").strip().lower()
-        if normalized and normalized not in language_codes:
-            language_codes.append(normalized)
-    return language_codes
 
 
 def redact_token(value: str, token: str | None) -> str:
@@ -212,38 +197,7 @@ async def on_startup_configured(dispatcher: Dispatcher):
         )
 
     async def _configure_bot_commands() -> None:
-        start_description = settings.START_COMMAND_DESCRIPTION or "Main menu"
-        bot_commands = [
-            BotCommand(command="start", description=start_description),
-            BotCommand(command="tg", description="Bot interface"),
-        ]
-        bot_menu_disabled = bool(settings.TELEGRAM_BOT_MENU_DISABLED)
-        public_bot_commands = [bot_commands[0]] if bot_menu_disabled else bot_commands
-        command_scopes_to_clear: list[BotCommandScopeUnion] = [
-            BotCommandScopeDefault(),
-            BotCommandScopeAllPrivateChats(),
-            BotCommandScopeAllGroupChats(),
-            BotCommandScopeAllChatAdministrators(),
-        ]
-        for scope in command_scopes_to_clear:
-            for language_code in _telegram_command_language_codes(settings):
-                await bot.delete_my_commands(scope=scope, language_code=language_code)
-        if bot_menu_disabled:
-            for admin_id in settings.ADMIN_IDS or []:
-                for language_code in _telegram_command_language_codes(settings):
-                    try:
-                        await bot.delete_my_commands(
-                            scope=BotCommandScopeChat(chat_id=admin_id),
-                            language_code=language_code,
-                        )
-                    except TelegramBadRequest as exc:
-                        logger.warning(
-                            "STARTUP: Could not clear chat-specific bot commands for chat %s: %s",
-                            admin_id,
-                            exc,
-                        )
-        await bot.set_my_commands(public_bot_commands, scope=BotCommandScopeDefault())
-        await bot.set_my_commands(public_bot_commands, scope=BotCommandScopeAllPrivateChats())
+        await sync_telegram_bot_commands(bot, settings)
         logger.info("STARTUP: bot command descriptions set.")
 
     await _run_telegram_startup_step(

@@ -79,24 +79,7 @@ def test_telegram_startup_clears_legacy_command_scopes_before_setting_commands()
     source = Path("backend/bot/main_bot.py").read_text(encoding="utf-8")
 
     assert "ָםעונפויס" not in source
-    assert 'start_description = settings.START_COMMAND_DESCRIPTION or "Main menu"' in source
-    assert 'BotCommand(command="start", description=start_description)' in source
-    assert 'BotCommand(command="tg", description="Bot interface")' in source
-    assert "BotCommandScopeDefault" in source
-    assert "BotCommandScopeAllPrivateChats" in source
-    assert "BotCommandScopeAllGroupChats" in source
-    assert "BotCommandScopeAllChatAdministrators" in source
-    assert "BotCommandScopeChat" in source
-    assert "await bot.delete_my_commands(scope=scope, language_code=language_code)" in source
-    assert (
-        "await bot.set_my_commands(public_bot_commands, scope=BotCommandScopeDefault())" in source
-    )
-    assert (
-        "await bot.set_my_commands(public_bot_commands, scope=BotCommandScopeAllPrivateChats())"
-        in source
-    )
-    assert "scope=BotCommandScopeChat(chat_id=admin_id)" in source
-    assert "Could not clear chat-specific bot commands" in source
+    assert "await sync_telegram_bot_commands(bot, settings)" in source
 
 
 def test_telegram_startup_hides_tg_command_from_public_scopes_when_bot_menu_disabled():
