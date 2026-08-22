@@ -1,5 +1,6 @@
 @import "./styles/tailwind.css";
 @import "./styles/base.css";
+@import "./styles/text-selection.css";
 @import "./styles/controls.css";
 @import "./styles/dialogs.css";
 @import "./styles/components.css";

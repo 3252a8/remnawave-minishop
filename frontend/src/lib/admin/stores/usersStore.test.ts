@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { formatTemplate } from "../../webapp/formatters.js";
 import { createUsersStore } from "./usersStore.js";
+import { copyText } from "./usersStoreHelpers.js";
 
 function makeStore(api = vi.fn()) {
   return createUsersStore({
@@ -12,6 +13,19 @@ function makeStore(api = vi.fn()) {
 }
 
 describe("usersStore", () => {
+  it("reports whether the shared clipboard path copied a user value", async () => {
+    const onToast = vi.fn();
+    const copy = vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+
+    await copyText("alice@example.test", "Copied", onToast, copy);
+    await copyText("@alice", "Copied", onToast, copy);
+
+    expect(copy).toHaveBeenNthCalledWith(1, "alice@example.test");
+    expect(copy).toHaveBeenNthCalledWith(2, "@alice");
+    expect(onToast).toHaveBeenNthCalledWith(1, "Copied");
+    expect(onToast).toHaveBeenNthCalledWith(2, "@alice");
+  });
+
   it("loads users with page, filter and sorting parameters", async () => {
     const api = vi.fn().mockResolvedValue({ ok: true, users: [{ user_id: 42 }], total: 1 });
     const store = makeStore(api);

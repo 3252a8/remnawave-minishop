@@ -2,10 +2,22 @@ import { describe, expect, it, vi } from "vitest";
 
 import { copyTextToClipboard } from "./clipboard.js";
 
-function makeDocument() {
+function makeDocument(copyResult = true) {
   const area = {
+    focus: vi.fn(),
     remove: vi.fn(),
     select: vi.fn(),
+    setAttribute: vi.fn(),
+    setSelectionRange: vi.fn(),
+    style: {
+      height: "",
+      left: "",
+      opacity: "",
+      pointerEvents: "",
+      position: "",
+      top: "",
+      width: "",
+    },
     value: "",
   };
   return {
@@ -14,7 +26,7 @@ function makeDocument() {
       appendChild: vi.fn(),
     },
     createElement: vi.fn(() => area),
-    execCommand: vi.fn(() => true),
+    execCommand: vi.fn(() => copyResult),
   };
 }
 
@@ -49,8 +61,22 @@ describe("copyTextToClipboard", () => {
 
     expect(documentRef.createElement).toHaveBeenCalledWith("textarea");
     expect(documentRef.area.value).toBe("backup");
+    expect(documentRef.area.setAttribute).toHaveBeenCalledWith("readonly", "");
     expect(documentRef.body.appendChild).toHaveBeenCalledWith(documentRef.area);
+    expect(documentRef.area.focus).toHaveBeenCalledOnce();
     expect(documentRef.area.select).toHaveBeenCalledOnce();
+    expect(documentRef.area.setSelectionRange).toHaveBeenCalledWith(0, 6);
+    expect(documentRef.execCommand).toHaveBeenCalledWith("copy");
+    expect(documentRef.area.remove).toHaveBeenCalledOnce();
+  });
+
+  it("reports a failed fallback and still removes the textarea", async () => {
+    const documentRef = makeDocument(false);
+
+    await expect(copyTextToClipboard("backup", { documentRef, navigatorRef: {} })).resolves.toBe(
+      false
+    );
+
     expect(documentRef.execCommand).toHaveBeenCalledWith("copy");
     expect(documentRef.area.remove).toHaveBeenCalledOnce();
   });

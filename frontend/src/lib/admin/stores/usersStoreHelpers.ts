@@ -1,4 +1,5 @@
 import { withRoutePrefix } from "../../webapp/routes.js";
+import { copyTextToClipboard } from "../../webapp/clipboard.js";
 import {
   buildAdminPaymentsPath,
   buildAdminPaymentsUserPath,
@@ -80,16 +81,18 @@ export function pushUserPath(
   }
 }
 
-export function copyText(
+export async function copyText(
   text: string | null | undefined,
   successMessage: string,
-  onToast: (message: string) => void
-): void {
+  onToast: (message: string) => void,
+  copy: (value: string) => Promise<boolean> = copyTextToClipboard
+): Promise<void> {
   if (!text) return;
-  if (typeof navigator !== "undefined" && navigator?.clipboard?.writeText) {
-    navigator.clipboard.writeText(text).then(
-      () => onToast(successMessage),
-      () => onToast(text)
-    );
-  } else onToast(text);
+  let copied: boolean;
+  try {
+    copied = await copy(text);
+  } catch {
+    copied = false;
+  }
+  onToast(copied ? successMessage : text);
 }

@@ -435,7 +435,7 @@ export function createUsersStore({
     text: string | null | undefined,
     successMessage = at("link_copied", {}, "Link copied")
   ) {
-    copyText(text, successMessage, onToast);
+    void copyText(text, successMessage, onToast);
   }
 
   function requestBanToggle() {
