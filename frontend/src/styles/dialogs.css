@@ -4,14 +4,15 @@
 }
 
 .dialog {
+  box-sizing: border-box;
   position: fixed;
   inset: 0;
   z-index: 220;
   display: grid;
   align-items: center;
   justify-items: center;
-  padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right))
-    max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  padding: max(14px, var(--content-safe-area-top)) max(14px, var(--content-safe-area-right))
+    max(14px, var(--content-safe-area-bottom)) max(14px, var(--content-safe-area-left));
   overflow: hidden;
   isolation: isolate;
 }
@@ -280,9 +281,12 @@
 }
 
 .email-code-fullscreen {
+  box-sizing: border-box;
   position: fixed;
   inset: 0;
   z-index: 220;
+  padding: var(--content-safe-area-top) var(--content-safe-area-right)
+    var(--content-safe-area-bottom) var(--content-safe-area-left);
   background: var(--bg);
   overflow-y: auto;
   overscroll-behavior: contain;

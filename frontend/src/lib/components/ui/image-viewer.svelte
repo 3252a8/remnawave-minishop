@@ -226,13 +226,14 @@
 
 <style>
   .image-viewer {
+    box-sizing: border-box;
     position: fixed;
     inset: 0;
     z-index: 1600;
     display: grid;
     place-items: center;
-    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
-      max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    padding: max(12px, var(--content-safe-area-top)) max(12px, var(--content-safe-area-right))
+      max(12px, var(--content-safe-area-bottom)) max(12px, var(--content-safe-area-left));
   }
 
   .image-viewer-backdrop {
@@ -329,7 +330,8 @@
 
   @media (max-width: 640px) {
     .image-viewer {
-      padding: 0;
+      padding: var(--content-safe-area-top) var(--content-safe-area-right)
+        var(--content-safe-area-bottom) var(--content-safe-area-left);
     }
 
     .image-viewer-panel {
@@ -341,7 +343,6 @@
 
     .image-viewer-toolbar {
       align-items: flex-start;
-      padding-top: max(10px, env(safe-area-inset-top));
     }
 
     .image-viewer-toolbar strong {

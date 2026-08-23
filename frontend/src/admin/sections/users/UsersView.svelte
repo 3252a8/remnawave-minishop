@@ -674,7 +674,8 @@
 
     :global(.dialog:has(.admin-users-filter-dialog)) {
       align-items: end;
-      padding: max(12px, env(safe-area-inset-top)) 0 0;
+      padding: max(12px, var(--content-safe-area-top)) var(--content-safe-area-right)
+        var(--content-safe-area-bottom) var(--content-safe-area-left);
     }
 
     :global(.admin-users-filter-dialog) {

@@ -930,6 +930,18 @@ test("Telegram fullscreen fallback protects webapp actions and admin chrome", as
   expect(homeInsets.homeClearance).toBeGreaterThanOrEqual(110);
   expect(homeInsets.navBottom).toBeGreaterThanOrEqual(34);
 
+  await renewalAction.click();
+  const webappDialog = page.locator(".dialog:has(.webapp-payment-dialog)");
+  const webappDialogCard = webappDialog.locator(".webapp-payment-dialog");
+  await expect(webappDialogCard).toBeVisible();
+  const webappDialogGeometry = await webappDialog.evaluate((element) => ({
+    paddingTop: Number.parseFloat(window.getComputedStyle(element).paddingTop),
+    cardTop: element.querySelector(".dialog-card")!.getBoundingClientRect().top,
+  }));
+  expect(webappDialogGeometry.paddingTop).toBeGreaterThanOrEqual(96);
+  expect(webappDialogGeometry.cardTop).toBeGreaterThanOrEqual(96);
+  await closeDialog(webappDialogCard);
+
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   await expect
     .poll(async () => {
@@ -960,6 +972,34 @@ test("Telegram fullscreen fallback protects webapp actions and admin chrome", as
   }));
   expect(adminGeometry.paddingTop).toBeGreaterThanOrEqual(96);
   expect(adminGeometry.headerTop).toBeGreaterThanOrEqual(96);
+
+  await page.goto("/demo/runtime/admin/users?theme_preview=dark");
+  await page.evaluate(applyTelegramFullscreenInsets);
+  await page.locator("tr[data-user-id]").first().click();
+  const userDialog = page.locator(".dialog:has(.admin-user-dialog)");
+  const userDialogCard = userDialog.locator(".admin-user-dialog");
+  await expect(userDialogCard).toBeVisible();
+  const adminDialogGeometry = await userDialog.evaluate((element) => ({
+    paddingTop: Number.parseFloat(window.getComputedStyle(element).paddingTop),
+    cardTop: element.querySelector(".dialog-card")!.getBoundingClientRect().top,
+  }));
+  expect(adminDialogGeometry.paddingTop).toBeGreaterThanOrEqual(96);
+  expect(adminDialogGeometry.cardTop).toBeGreaterThanOrEqual(96);
+
+  const avatarTrigger = userDialogCard.locator(".admin-avatar-preview-trigger:not(:disabled)");
+  await expect(avatarTrigger).toBeVisible();
+  await avatarTrigger.click();
+  const imageViewer = page.locator("[data-image-viewer]");
+  const imageViewerPanel = imageViewer.locator(".image-viewer-panel");
+  await expect(imageViewerPanel).toBeVisible();
+  const imageViewerGeometry = await imageViewerPanel.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return { top: rect.top, bottom: rect.bottom, viewportHeight: window.innerHeight };
+  });
+  expect(imageViewerGeometry.top).toBeGreaterThanOrEqual(96);
+  expect(imageViewerGeometry.bottom).toBeLessThanOrEqual(imageViewerGeometry.viewportHeight - 34);
+  await imageViewer.locator('[data-image-viewer-action="close"]').click();
+  await closeDialog(userDialogCard);
 });
 
 test("partner operations open their linked payment card", async ({ page }) => {

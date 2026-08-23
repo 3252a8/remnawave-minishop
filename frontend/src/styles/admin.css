@@ -7277,8 +7277,8 @@
 
 @media (max-width: 720px) {
   .dialog:has(.support-ticket-dialog) {
-    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
-      max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+    padding: max(8px, var(--content-safe-area-top)) max(8px, var(--content-safe-area-right))
+      max(8px, var(--content-safe-area-bottom)) max(8px, var(--content-safe-area-left));
     overflow: hidden;
   }
 
@@ -7447,7 +7447,7 @@
   inline-size: min(1040px, calc(100vw - 32px));
   max-width: none;
   max-height: min(
-    calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)),
+    calc(100dvh - 24px - var(--content-safe-area-top) - var(--content-safe-area-bottom)),
     780px
   );
 }
@@ -7694,10 +7694,12 @@
     width: min(100%, calc(100vw - 24px));
     inline-size: min(100%, calc(100vw - 24px));
     height: min(
-      calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)),
+      calc(100dvh - 24px - var(--content-safe-area-top) - var(--content-safe-area-bottom)),
       780px
     );
-    max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    max-height: calc(
+      100dvh - 24px - var(--content-safe-area-top) - var(--content-safe-area-bottom)
+    );
     padding: 14px;
     border-radius: 18px;
   }

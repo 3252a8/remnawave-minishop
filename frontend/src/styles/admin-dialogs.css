@@ -1,8 +1,5 @@
-
 .dialog:has(.admin-dialog) {
-  padding: max(12px, env(safe-area-inset-top))
-           max(12px, env(safe-area-inset-right))
-           max(12px, env(safe-area-inset-bottom))
-           max(12px, env(safe-area-inset-left));
+  padding: max(12px, var(--content-safe-area-top)) max(12px, var(--content-safe-area-right))
+    max(12px, var(--content-safe-area-bottom)) max(12px, var(--content-safe-area-left));
   z-index: 240;
 }
