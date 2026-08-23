@@ -1971,7 +1971,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   const paymentsShell = page.locator(".admin-payments-table-shell");
   const mobilePaymentCard = paymentsShell.locator(".admin-payment-mobile-card").first();
   await expect(mobilePaymentCard).toBeVisible();
-  await expect(paymentsShell.locator(".admin-payments-desktop-table")).toBeHidden();
+  await expect(paymentsShell.locator(".admin-payments-table")).toBeHidden();
   const mobilePaymentsGeometry = await paymentsShell.evaluate((element) => ({
     clientWidth: element.clientWidth,
     scrollWidth: element.scrollWidth,

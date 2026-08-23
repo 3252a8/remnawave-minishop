@@ -121,7 +121,7 @@
       ><span class="admin-muted">{at("payments_empty", {}, "No payments")}</span></AdminEmptyState
     >
   {:else}
-    <AdminTable class="admin-payments-table admin-payments-desktop-table">
+    <AdminTable class="admin-payments-table">
       <colgroup>
         <col class="admin-payments-col-id" />
         <col class="admin-payments-col-user" />
@@ -572,7 +572,7 @@
       overflow-x: hidden;
     }
 
-    .admin-payments-table-shell :global(.admin-payments-desktop-table) {
+    .admin-payments-table-shell :global(.admin-payments-table) {
       display: none;
     }
 
