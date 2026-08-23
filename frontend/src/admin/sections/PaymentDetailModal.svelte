@@ -10,7 +10,7 @@
     UsersRound,
     WalletCards,
   } from "$components/ui/icons.js";
-  import { AdminBadge, AdminButton } from "$components/patterns/admin/index.js";
+  import { AdminBadge, AdminButton, AdminCopyableValue } from "$components/patterns/admin/index.js";
   import Dialog from "$components/ui/dialog.svelte";
   import type { AdminPayment } from "../../lib/admin/stores/paymentsStore";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
@@ -129,6 +129,10 @@
 
   function copy(value: unknown): void {
     paymentsStore.copyToClipboard(value, at("payment_detail_copied", {}, "Copied"));
+  }
+
+  function copyLabel(value: unknown): string {
+    return at("copy_value", { value }, "Copy {value}");
   }
 
   function openPartner(): void {
@@ -415,7 +419,19 @@
           {#each userRows as row}
             <li>
               <span>{row.label}</span>
-              <strong class:admin-meta-truncate={row.copy}>{display(row.value)}</strong>
+              <strong class:admin-meta-truncate={row.copy}>
+                {#if row.copy}
+                  <AdminCopyableValue
+                    value={row.copy}
+                    text={display(row.value)}
+                    copyLabel={copyLabel(row.copy)}
+                    showIcon={false}
+                    oncopy={copy}
+                  />
+                {:else}
+                  {display(row.value)}
+                {/if}
+              </strong>
               {#if row.copy}
                 <AdminButton
                   size="icon"
@@ -485,7 +501,19 @@
               {#each paymentRows as row}
                 <li>
                   <span>{row.label}</span>
-                  <strong class:admin-meta-truncate={row.copy}>{display(row.value)}</strong>
+                  <strong class:admin-meta-truncate={row.copy}>
+                    {#if row.copy}
+                      <AdminCopyableValue
+                        value={row.copy}
+                        text={display(row.value)}
+                        copyLabel={copyLabel(row.copy)}
+                        showIcon={false}
+                        oncopy={copy}
+                      />
+                    {:else}
+                      {display(row.value)}
+                    {/if}
+                  </strong>
                   {#if row.copy}
                     <AdminButton
                       size="icon"
@@ -518,7 +546,19 @@
                       rel="noopener noreferrer">{display(row.value)}</a
                     >
                   {:else}
-                    <strong class:admin-meta-truncate={row.copy}>{display(row.value)}</strong>
+                    <strong class:admin-meta-truncate={row.copy}>
+                      {#if row.copy}
+                        <AdminCopyableValue
+                          value={row.copy}
+                          text={display(row.value)}
+                          copyLabel={copyLabel(row.copy)}
+                          showIcon={false}
+                          oncopy={copy}
+                        />
+                      {:else}
+                        {display(row.value)}
+                      {/if}
+                    </strong>
                   {/if}
                   {#if row.copy}
                     <AdminButton

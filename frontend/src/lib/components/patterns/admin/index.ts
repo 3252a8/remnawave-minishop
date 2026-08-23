@@ -1,6 +1,7 @@
 export { default as AdminBadge } from "./AdminBadge.svelte";
 export { default as AdminButton } from "./AdminButton.svelte";
 export { default as AdminCombobox } from "./AdminCombobox.svelte";
+export { default as AdminCopyableValue } from "./AdminCopyableValue.svelte";
 export { default as AdminCardActions } from "./AdminCardActions.svelte";
 export { default as AdminChartEmptyState } from "./AdminChartEmptyState.svelte";
 export { default as AdminChartSkeleton } from "./AdminChartSkeleton.svelte";

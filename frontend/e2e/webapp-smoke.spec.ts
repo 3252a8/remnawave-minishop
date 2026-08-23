@@ -1988,6 +1988,20 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   expect(mobilePaymentCardBox).not.toBeNull();
   expect(mobilePaymentCardBox!.height).toBeLessThan(300);
   await expect(mobilePaymentCard.locator(".admin-payment-mobile-metrics dd")).toHaveCount(4);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (value: string) => {
+          document.documentElement.dataset.copiedValue = value;
+        },
+      },
+    });
+  });
+  const mobilePaymentId = await mobilePaymentCard.getAttribute("data-mobile-payment-id");
+  await mobilePaymentCard.locator('[data-copy-kind="payment-id"]').click();
+  await expect(page.locator("html")).toHaveAttribute("data-copied-value", mobilePaymentId!);
+  await expect(page.getByText("Значение скопировано", { exact: true }).last()).toBeVisible();
   await page.setViewportSize(DESKTOP_VIEWPORT);
   await expect(adminSidebar).toBeVisible();
 

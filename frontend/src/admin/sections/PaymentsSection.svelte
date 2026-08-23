@@ -4,6 +4,7 @@
   import {
     AdminBadge,
     AdminButton,
+    AdminCopyableValue,
     AdminEmptyState,
     AdminPagination,
     AdminSortableHeader,
@@ -48,6 +49,14 @@
   const paymentsPage = $derived(Number(paymentsStore.paymentsPage || 0));
   const paymentsSort = $derived(String(paymentsStore.paymentsSort || "date_desc"));
   const paymentsLoading = $derived(Boolean(paymentsStore.paymentsLoading));
+
+  function copyLabel(value: unknown): string {
+    return at("copy_value", { value }, "Copy {value}");
+  }
+
+  function copyValue(value: unknown): void {
+    paymentsStore.copyToClipboard(value, at("value_copied", {}, "Value copied"));
+  }
 
   $effect(() => paymentsTable.setRows(payments));
 
@@ -217,17 +226,25 @@
           {@const userLabel = String(p.user_label || p.user_id)}
           <tr>
             <td class="admin-cell-id" data-label="ID">
-              <AdminButton
-                class="admin-payment-id-btn"
-                variant="ghost"
-                size="sm"
-                title={at("payment_detail_open", {}, "Open payment")}
-                aria-label={at("payment_detail_open", {}, "Open payment")}
-                onclick={() => paymentsStore.openPayment(p)}
-              >
-                <FileText size={14} />
-                #{p.payment_id}
-              </AdminButton>
+              <span class="admin-payment-id-actions">
+                <AdminButton
+                  class="admin-payment-id-btn"
+                  variant="ghost"
+                  size="icon"
+                  title={at("payment_detail_open", {}, "Open payment")}
+                  aria-label={at("payment_detail_open", {}, "Open payment")}
+                  onclick={() => paymentsStore.openPayment(p)}
+                >
+                  <FileText size={14} />
+                </AdminButton>
+                <AdminCopyableValue
+                  value={p.payment_id}
+                  text={`#${p.payment_id}`}
+                  copyLabel={copyLabel(p.payment_id)}
+                  kind="payment-id"
+                  oncopy={copyValue}
+                />
+              </span>
             </td>
             <td class="admin-cell-user-with-action" data-label={at("user", {}, "User")}>
               <span class="admin-payments-user-cell">
@@ -267,7 +284,16 @@
               </span>
             </td>
             <td class="admin-cell-mono" data-label={at("payments_col_user_id", {}, "ID")}>
-              {p.user_id != null ? p.user_id : "—"}
+              {#if p.user_id != null}
+                <AdminCopyableValue
+                  value={p.user_id}
+                  copyLabel={copyLabel(p.user_id)}
+                  kind="user-id"
+                  oncopy={copyValue}
+                />
+              {:else}
+                —
+              {/if}
             </td>
             <td
               class="admin-cell-traffic-gb"
@@ -305,17 +331,25 @@
         {@const userLabel = String(p.user_label || p.user_id)}
         <li class="admin-payment-mobile-card" data-mobile-payment-id={p.payment_id}>
           <div class="admin-payment-mobile-head">
-            <AdminButton
-              class="admin-payment-id-btn"
-              variant="ghost"
-              size="sm"
-              title={at("payment_detail_open", {}, "Open payment")}
-              aria-label={at("payment_detail_open", {}, "Open payment")}
-              onclick={() => paymentsStore.openPayment(p)}
-            >
-              <FileText size={14} />
-              #{p.payment_id}
-            </AdminButton>
+            <span class="admin-payment-id-actions">
+              <AdminButton
+                class="admin-payment-id-btn"
+                variant="ghost"
+                size="icon"
+                title={at("payment_detail_open", {}, "Open payment")}
+                aria-label={at("payment_detail_open", {}, "Open payment")}
+                onclick={() => paymentsStore.openPayment(p)}
+              >
+                <FileText size={14} />
+              </AdminButton>
+              <AdminCopyableValue
+                value={p.payment_id}
+                text={`#${p.payment_id}`}
+                copyLabel={copyLabel(p.payment_id)}
+                kind="payment-id"
+                oncopy={copyValue}
+              />
+            </span>
             <AdminBadge variant={paymentStatusVariant(p.status)}>{p.status}</AdminBadge>
           </div>
 
@@ -332,7 +366,15 @@
             </AdminButton>
             <span class="admin-payment-mobile-user-copy">
               <strong>{userLabel}</strong>
-              <small>ID {p.user_id}</small>
+              <small>
+                <AdminCopyableValue
+                  value={p.user_id}
+                  text={`ID ${p.user_id}`}
+                  copyLabel={copyLabel(p.user_id)}
+                  kind="user-id"
+                  oncopy={copyValue}
+                />
+              </small>
             </span>
             <time datetime={p.created_at || undefined}>{fmtDate(p.created_at)}</time>
           </div>
@@ -391,7 +433,7 @@
   }
 
   .admin-payments-table-shell :global(.admin-payments-table) {
-    min-width: 1320px;
+    min-width: 1360px;
     table-layout: fixed;
   }
 
@@ -400,7 +442,7 @@
   }
 
   .admin-payments-table-shell :global(.admin-payments-col-id) {
-    width: 82px;
+    width: 118px;
   }
 
   .admin-payments-table-shell :global(.admin-payments-col-user) {
@@ -509,6 +551,18 @@
     gap: 6px;
     border-radius: 7px;
     color: var(--admin-text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+
+  .admin-payment-id-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .admin-payment-id-actions :global(.admin-copyable-value) {
     font-family: var(--font-mono);
     font-size: 12px;
   }

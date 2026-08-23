@@ -1,4 +1,5 @@
 import { withRoutePrefix } from "../../webapp/routes.js";
+import { copyTextToClipboard } from "../../webapp/clipboard.js";
 import {
   buildAdminPaymentFinalizePath,
   buildAdminPaymentPath,
@@ -50,6 +51,23 @@ type PaymentsStoreOptions = {
   routePrefix?: string;
   queryClient?: AdminQueryClient | null;
 };
+
+export async function copyPaymentText(
+  text: unknown,
+  successMessage: string,
+  onToast: ToastFn,
+  copy: (value: string) => Promise<boolean> = copyTextToClipboard
+): Promise<void> {
+  if (text === null || text === undefined || text === "") return;
+  const value = String(text);
+  let copied: boolean;
+  try {
+    copied = await copy(value);
+  } catch {
+    copied = false;
+  }
+  onToast(copied ? successMessage : value);
+}
 export type PaymentsStore = PaymentsState & {
   setActive: (section: string) => void;
   loadPayments: (options?: { refresh?: boolean }) => Promise<void>;
@@ -341,15 +359,7 @@ export function createPaymentsStore({
   }
 
   function copyToClipboard(text: unknown, successMessage = at("copied", {}, "Copied")): void {
-    if (!text) return;
-    if (typeof navigator !== "undefined" && navigator?.clipboard?.writeText) {
-      navigator.clipboard.writeText(String(text)).then(
-        () => onToast(successMessage),
-        () => onToast(String(text))
-      );
-    } else {
-      onToast(String(text));
-    }
+    void copyPaymentText(text, successMessage, onToast);
   }
 
   return Object.assign(store, {

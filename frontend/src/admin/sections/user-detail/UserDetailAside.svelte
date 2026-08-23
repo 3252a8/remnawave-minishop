@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { AdminBadge, AdminButton } from "$components/patterns/admin/index.js";
+  import { AdminBadge, AdminButton, AdminCopyableValue } from "$components/patterns/admin/index.js";
   import { Copy, ExternalLink, UsersRound } from "$components/ui/icons.js";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
   import type { AdminUserDetail } from "$lib/admin/stores/usersStoreState";
@@ -59,6 +59,9 @@
       blocked_at: null,
     }
   );
+  const referralCode = $derived(
+    openedUserDetail.referral?.code || openedUserDetail.user?.referral_code || ""
+  );
 
   function telegramNotificationsLabel(status: string): string {
     if (status === "blocked") {
@@ -71,6 +74,14 @@
       return at("user_bot_messages_needs_start", {}, "Bot not started");
     }
     return at("user_bot_messages_unknown", {}, "Unknown");
+  }
+
+  function copyLabel(value: unknown): string {
+    return at("copy_value", { value }, "Copy {value}");
+  }
+
+  function copyValue(value: string): void {
+    usersStore.copyToClipboard(value, at("value_copied", {}, "Value copied"));
   }
 </script>
 
@@ -140,13 +151,61 @@
 
   <div class="admin-subsection-title">{at("user_section_profile", {}, "Profile")}</div>
   <ul class="admin-meta-list">
-    <li><span>ID</span><strong>{openedUser.user_id}</strong></li>
-    <li><span>Telegram ID</span><strong>{openedUser.telegram_id || "—"}</strong></li>
     <li>
-      <span>Username</span><strong>{openedUser.username ? "@" + openedUser.username : "—"}</strong>
+      <span>ID</span>
+      <strong>
+        <AdminCopyableValue
+          value={openedUser.user_id}
+          copyLabel={copyLabel(openedUser.user_id)}
+          kind="user-id"
+          oncopy={copyValue}
+        />
+      </strong>
     </li>
     <li>
-      <span>Email</span><strong class="admin-meta-truncate">{openedUser.email || "—"}</strong>
+      <span>Telegram ID</span>
+      <strong>
+        {#if openedUser.telegram_id}
+          <AdminCopyableValue
+            value={openedUser.telegram_id}
+            copyLabel={copyLabel(openedUser.telegram_id)}
+            kind="telegram-id"
+            oncopy={copyValue}
+          />
+        {:else}
+          —
+        {/if}
+      </strong>
+    </li>
+    <li>
+      <span>Username</span>
+      <strong>
+        {#if openedUser.username}
+          <AdminCopyableValue
+            value={`@${openedUser.username}`}
+            copyLabel={copyLabel(`@${openedUser.username}`)}
+            kind="username"
+            oncopy={copyValue}
+          />
+        {:else}
+          —
+        {/if}
+      </strong>
+    </li>
+    <li>
+      <span>Email</span>
+      <strong class="admin-meta-truncate">
+        {#if openedUser.email}
+          <AdminCopyableValue
+            value={openedUser.email}
+            copyLabel={copyLabel(openedUser.email)}
+            kind="email"
+            oncopy={copyValue}
+          />
+        {:else}
+          —
+        {/if}
+      </strong>
     </li>
     <li>
       <span>{at("user_label_registration", {}, "Registration")}</span><strong
@@ -167,9 +226,19 @@
       >
     </li>
     <li>
-      <span>{at("user_label_ref_code", {}, "Referral Code")}</span><strong
-        >{openedUserDetail.referral?.code || openedUserDetail.user?.referral_code || "—"}</strong
-      >
+      <span>{at("user_label_ref_code", {}, "Referral Code")}</span>
+      <strong>
+        {#if referralCode}
+          <AdminCopyableValue
+            value={referralCode}
+            copyLabel={copyLabel(referralCode)}
+            kind="referral-code"
+            oncopy={copyValue}
+          />
+        {:else}
+          —
+        {/if}
+      </strong>
     </li>
     <li class="admin-user-ref-row">
       <span>{at("user_label_invited_by", {}, "Invited by")}</span>
