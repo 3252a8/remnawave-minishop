@@ -18,6 +18,8 @@ class FakeI18n:
     def gettext(self, lang_code, key, **kwargs):
         messages = {
             "subscription_72h_notification": "Hi {user_name}, expires on {end_date}",
+            "subscription_expired_notification": "Hi {user_name}, expired on {end_date}",
+            "user_name_fallback": "dear user",
             "email_subscription_lifecycle_subject_before_days": "{days} days left",
             "email_subscription_lifecycle_subject_before_hours": "{hours} hours left",
             "email_subscription_lifecycle_subject_expired": "Expired",
@@ -267,6 +269,46 @@ def test_expired_telegram_markup_uses_mini_app_renewal_when_bot_menu_disabled(mo
     assert button.web_app.url == "https://app.example.test/?renew=1&renew_tariff=premium"
 
 
+def test_notification_names_use_profile_identity_without_exposing_user_id():
+    service = SubscriptionLifecycleNotificationService(
+        _settings(),
+        FakeBot(),
+        FakeI18n(),
+    )
+
+    assert (
+        service._user_display_name(
+            _user(first_name="Ada", last_name="Lovelace"),
+            fallback="dear user",
+        )
+        == "Ada Lovelace"
+    )
+    assert (
+        service._user_display_name(
+            _user(first_name="", last_name="", username="alice"),
+            fallback="dear user",
+        )
+        == "@alice"
+    )
+    assert service._user_display_name(None, fallback="dear user") == "dear user"
+
+
+def test_email_only_notification_uses_neutral_localized_name():
+    service = SubscriptionLifecycleNotificationService(
+        _settings(),
+        FakeBot(),
+        FakeI18n(),
+    )
+
+    assert (
+        service._email_display_name(
+            _user(telegram_id=None, first_name=None, username=None),
+            fallback="dear user",
+        )
+        == "dear user"
+    )
+
+
 def test_unstarted_telegram_failure_marks_status_without_recording_delivery(monkeypatch):
     recorded = []
     status_changes = []
@@ -332,7 +374,7 @@ def test_unstarted_telegram_failure_marks_status_without_recording_delivery(monk
     ]
 
 
-def test_email_only_user_gets_email_name_direct_copy_and_renewal_login_link(monkeypatch):
+def test_email_only_user_gets_neutral_name_direct_copy_and_renewal_login_link(monkeypatch):
     recorded = []
 
     async def fake_has(session, subscription_id, notification_key):
@@ -373,7 +415,8 @@ def test_email_only_user_gets_email_name_direct_copy_and_renewal_login_link(monk
     assert delivery.email_sent is True
     assert bot.messages == []
     content = email_service.messages[0]["content"]
-    assert "Hi user@example.test, expires on 2026-06-01" in content.text
+    assert "Hi dear user, expires on 2026-06-01" in content.text
+    assert "Hi user@example.test" not in content.text
     assert "User -8758169927032035" not in content.text
     assert "Direct email notice" in content.html
     assert "Mirrored Telegram notice" not in content.html

@@ -7,6 +7,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.types import InlineKeyboardMarkup
+from aiogram.utils.text_decorations import html_decoration as hd
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.user_keyboards import get_subscribe_only_markup
@@ -26,6 +27,7 @@ from bot.services.user_notification_policy import (
     UserNotificationCategory,
     user_notification_delivery_plan,
 )
+from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
 from config.settings import Settings
 from db.dal import subscription_dal
 from db.models import Subscription, User
@@ -83,18 +85,20 @@ class SubscriptionLifecycleNotificationService:
 
         resolved_user = user or getattr(sub, "user", None)
         lang = getattr(resolved_user, "language_code", None) or self.settings.DEFAULT_LANGUAGE
-        user_id = int(getattr(sub, "user_id", 0) or 0)
         final_end_date_text = end_date_text
         if final_end_date_text is None:
             end_date = self._as_utc(getattr(sub, "end_date", None))
             final_end_date_text = end_date.strftime("%Y-%m-%d") if end_date else ""
 
         recipient_email = self._email_recipient(resolved_user)
-        telegram_user_name = self._telegram_display_name(resolved_user, user_id)
+        user_name_fallback = self.i18n.gettext(lang, "user_name_fallback")
+        telegram_user_name = self._user_display_name(
+            resolved_user,
+            fallback=user_name_fallback,
+        )
         email_user_name = self._email_display_name(
             resolved_user,
-            recipient_email=recipient_email,
-            fallback=telegram_user_name,
+            fallback=user_name_fallback,
         )
 
         kwargs: dict[str, Any] = {
@@ -350,17 +354,32 @@ class SubscriptionLifecycleNotificationService:
         return str(getattr(user, "email", "") or "").strip().lower() if user else ""
 
     @staticmethod
-    def _telegram_display_name(user: User | None, fallback_user_id: int) -> str:
-        return str(getattr(user, "first_name", "") or "").strip() or f"User {fallback_user_id}"
+    def _user_display_name(user: User | None, *, fallback: str) -> str:
+        name_parts = [
+            clean
+            for value in (
+                getattr(user, "first_name", None),
+                getattr(user, "last_name", None),
+            )
+            if (clean := sanitize_display_name(value))
+        ]
+        if name_parts:
+            return hd.quote(" ".join(name_parts))
+        username = sanitize_username(getattr(user, "username", None))
+        if username:
+            return hd.quote(f"@{username}")
+        return hd.quote(fallback)
 
-    @staticmethod
+    @classmethod
     def _email_display_name(
+        cls,
         user: User | None,
         *,
-        recipient_email: str,
         fallback: str,
     ) -> str:
-        return str(getattr(user, "first_name", "") or "").strip() or recipient_email or fallback
+        if not getattr(user, "telegram_id", None):
+            return hd.quote(fallback)
+        return cls._user_display_name(user, fallback=fallback)
 
     def _renewal_dashboard_url(self, recipient_email: str, sub: Subscription) -> str | None:
         base_url = (self.settings.SUBSCRIPTION_MINI_APP_URL or "").strip()

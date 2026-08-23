@@ -580,7 +580,7 @@ def _resolve_value(
     if ctx is None:
         # Raw-id "admins" test target: no local user row → localized fallbacks.
         if name == "first_name":
-            return t("broadcast_value_friend")
+            return t("user_name_fallback")
         if name == "subscription_status":
             return t("broadcast_value_status_none")
         if name == "end_date":
@@ -600,7 +600,7 @@ def _resolve_value(
         return "" if name in _empty_without_user else dash
 
     if name == "first_name":
-        return ctx.first_name or ctx.username or t("broadcast_value_friend")
+        return ctx.first_name or ctx.username or t("user_name_fallback")
     if name == "last_name":
         return ctx.last_name or ""
     if name == "username":

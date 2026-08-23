@@ -173,6 +173,7 @@
   "referral_friend_message_with_webapp": "🚀 Hey! Try this service - it's fast, reliable and affordable!\n\n🎁 Use my link to get bonus days with your subscription!\n\nTelegram: {referral_link}\nWeb: {webapp_referral_link}",
   "referral_webapp_link_line": "\n🌐 Web link:\n<code>{webapp_referral_link}</code>",
   "friend_placeholder": "friend",
+  "user_name_fallback": "dear user",
   "referral_bonus_inviter_notification_extended": "🎉 Congrats! Your friend {referee_name} paid for a subscription. You received {days} bonus days! Your subscription is now active until {new_end_date}.",
   "referral_bonus_inviter_notification_new_sub": "🎉 Congrats! Your friend {referee_name} paid for a subscription. You received a {days}-day bonus subscription! It is active until {new_end_date}.",
   "user_is_banned": "🚫 Your account is banned. Please contact support.",

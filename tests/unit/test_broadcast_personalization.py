@@ -149,10 +149,10 @@ class RenderTest(unittest.TestCase):
 
     def test_first_name_falls_back_to_username_then_localized(self):
         self.assertEqual(self.render("{first_name}", _full_ctx(first_name=None)), "alice")
-        friend = self.i18n.gettext("en", "broadcast_value_friend")
+        fallback = self.i18n.gettext("en", "user_name_fallback")
         self.assertEqual(
             self.render("{first_name}", _full_ctx(first_name=None, username=None)),
-            friend,
+            fallback,
         )
 
     def test_subscription_fields_with_active_sub(self):
@@ -246,8 +246,8 @@ class RenderTest(unittest.TestCase):
         )
 
     def test_none_context_uses_localized_fallbacks(self):
-        friend = self.i18n.gettext("ru", "broadcast_value_friend")
-        self.assertEqual(self.render("{first_name}", None, lang="ru"), friend)
+        fallback = self.i18n.gettext("ru", "user_name_fallback")
+        self.assertEqual(self.render("{first_name}", None, lang="ru"), fallback)
         self.assertEqual(self.render("{last_name}", None), "")
         self.assertEqual(self.render("{referral_bot_link}", None), "")
         self.assertEqual(self.render("{partner_bot_link}", None), "")
