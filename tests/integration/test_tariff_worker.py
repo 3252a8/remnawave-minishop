@@ -676,7 +676,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             panel_service.remove_users_from_internal_squad.assert_not_awaited()
             self.assertFalse(sub.is_throttled)
 
-    async def test_premium_limit_removes_only_premium_squad(self):
+    async def test_premium_limit_uses_updated_tariff_baseline(self):
         payload = _tariffs_config_payload()
         payload["tariffs"][0]["premium_squad_uuids"] = ["premium-squad"]
         payload["tariffs"][0]["premium_monthly_gb"] = 1
@@ -717,7 +717,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 subscription_id=1,
                 user_id=123,
                 panel_user_uuid="panel-uuid",
-                premium_baseline_bytes=1 * (1024**3),
+                premium_baseline_bytes=50 * (1024**3),
                 premium_topup_balance_bytes=0,
                 premium_topup_used_bytes=0,
                 premium_used_bytes=0,
@@ -739,6 +739,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 )
 
             self.assertTrue(sub.premium_is_limited)
+            self.assertEqual(sub.premium_baseline_bytes, 1 * (1024**3))
             panel_service.update_user_details_on_panel.assert_awaited_once()
             payload = panel_service.update_user_details_on_panel.await_args.args[1]
             self.assertEqual(payload["activeInternalSquads"], ["squad-1"])

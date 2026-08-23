@@ -204,25 +204,10 @@ class TariffWorkerPremiumMixin(
             at=now,
         )
         configured_premium_baseline = flexible_limits.get("premium_traffic")
-        flexible_history_exists = (
-            await tariff_dal.has_flexible_traffic_limit_history(
-                session,
-                subscription_id=sub.subscription_id,
-                kind="premium_traffic",
-            )
-            if configured_premium_baseline is None
-            else False
-        )
         premium_baseline = int(
             configured_premium_baseline
             if configured_premium_baseline is not None
-            else (
-                tariff.premium_monthly_bytes
-                if flexible_history_exists
-                else (
-                    getattr(sub, "premium_baseline_bytes", 0) or tariff.premium_monthly_bytes or 0
-                )
-            )
+            else (tariff.premium_monthly_bytes or 0)
         )
         premium_topup_balance = int(sub.premium_topup_balance_bytes or 0)
         premium_topup_used = (
