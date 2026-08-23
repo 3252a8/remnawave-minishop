@@ -572,7 +572,7 @@
       overflow-x: hidden;
     }
 
-    .admin-payments-table-shell :global(.admin-payments-table) {
+    .admin-payments-table-shell :global(.admin-table-wrap:has(.admin-payments-table)) {
       display: none;
     }
 
