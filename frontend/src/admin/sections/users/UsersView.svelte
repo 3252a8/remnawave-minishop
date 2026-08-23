@@ -17,6 +17,7 @@
   } from "$components/patterns/admin/index.js";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
+  import UserMobileCard from "./UserMobileCard.svelte";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type SelectOption = { value: string; label: string };
@@ -446,6 +447,25 @@
         {/snippet}
       </VirtualTableRows>
     </AdminTable>
+
+    <ul class="admin-users-mobile-list">
+      {#each usersTable.rows as user (user.user_id)}
+        <UserMobileCard
+          {at}
+          {user}
+          onopen={() => usersStore.openUser(user)}
+          {resolvedAvatarUrl}
+          {panelStatusBadge}
+          {userInitials}
+          {userDisplayName}
+          {userSecondaryName}
+          {premiumTrafficBadgeVariant}
+          {premiumTrafficBadgeText}
+          {rowPaymentsTotal}
+          {fmtDateShort}
+        />
+      {/each}
+    </ul>
   {/if}
 </div>
 
@@ -580,6 +600,10 @@
     overflow-x: auto;
   }
 
+  .admin-users-mobile-list {
+    display: none;
+  }
+
   @media (min-width: 721px) {
     .admin-users-table-wrap :global(.admin-users-table) {
       min-width: 1080px;
@@ -686,6 +710,21 @@
       border-bottom: 0;
       border-left: 0;
       border-radius: 18px 18px 0 0;
+    }
+
+    .admin-users-table-wrap
+      :global(.admin-table-wrap:has(.admin-users-table:not(.admin-table-skeleton))) {
+      display: none;
+    }
+
+    .admin-users-mobile-list {
+      display: grid;
+      gap: 10px;
+      width: 100%;
+      min-width: 0;
+      margin: 0;
+      padding: 0;
+      list-style: none;
     }
   }
 </style>

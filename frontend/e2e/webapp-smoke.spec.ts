@@ -975,7 +975,7 @@ test("Telegram fullscreen fallback protects webapp actions and admin chrome", as
 
   await page.goto("/demo/runtime/admin/users?theme_preview=dark");
   await page.evaluate(applyTelegramFullscreenInsets);
-  await page.locator("tr[data-user-id]").first().click();
+  await page.locator(".admin-user-mobile-card").first().click();
   const userDialog = page.locator(".dialog:has(.admin-user-dialog)");
   const userDialogCard = userDialog.locator(".admin-user-dialog");
   await expect(userDialogCard).toBeVisible();
@@ -1955,6 +1955,20 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   await expect(usersFilterDialog).toBeVisible();
   await assertFormFieldsNamed(page, "admin-users:filter-dialog");
   await closeDialog(usersFilterDialog);
+  const usersShell = page.locator(".admin-users-table-wrap");
+  const mobileUserCard = usersShell.locator(".admin-user-mobile-card").first();
+  await expect(mobileUserCard).toBeVisible();
+  await expect(usersShell.locator(".admin-table-wrap")).toBeHidden();
+  await expect(mobileUserCard.locator(".admin-user-mobile-metrics > div")).toHaveCount(4);
+  await expect(mobileUserCard.locator(".admin-user-mobile-dates > div")).toHaveCount(2);
+  const mobileUsersGeometry = await usersShell.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }));
+  expect(mobileUsersGeometry.scrollWidth).toBeLessThanOrEqual(mobileUsersGeometry.clientWidth);
+  const mobileUserCardBox = await mobileUserCard.boundingBox();
+  expect(mobileUserCardBox).not.toBeNull();
+  expect(mobileUserCardBox!.height).toBeLessThan(320);
   await page.setViewportSize(DESKTOP_VIEWPORT);
   await expect(adminSidebar).toBeVisible();
 
