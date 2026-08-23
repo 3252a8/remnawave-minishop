@@ -224,7 +224,7 @@ def test_legacy_stage_key_suppresses_only_telegram(monkeypatch):
     assert recorded == ["before_3d", "before_3d:email"]
 
 
-def test_default_telegram_markup_uses_mini_app_renewal_when_bot_menu_disabled(monkeypatch):
+def test_expired_telegram_markup_uses_mini_app_renewal_when_bot_menu_disabled(monkeypatch):
     recorded = []
 
     async def fake_has(session, subscription_id, notification_key):
@@ -249,9 +249,9 @@ def test_default_telegram_markup_uses_mini_app_renewal_when_bot_menu_disabled(mo
             object(),
             _subscription(tariff_key="premium"),
             SubscriptionNotificationStage(
-                key="before_3d",
-                message_key="subscription_72h_notification",
-                days_left=3,
+                key="expired",
+                message_key="subscription_expired_notification",
+                days_left=0,
             ),
             user=_user(
                 email="",

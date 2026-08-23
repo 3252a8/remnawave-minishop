@@ -128,15 +128,12 @@ class UserBotMenuTests(unittest.TestCase):
             button.web_app.url, "https://app.example.com/?renew=1&renew_tariff=premium"
         )
 
-    def test_subscribe_only_markup_falls_back_to_bot_callback_without_mini_app(self):
+    def test_subscribe_only_markup_omits_bot_callback_without_mini_app(self):
         self.settings.TELEGRAM_BOT_MENU_DISABLED = True
         self.settings.SUBSCRIPTION_MINI_APP_URL = ""
         markup = get_subscribe_only_markup("en", self.i18n, self.settings)
 
-        button = markup.inline_keyboard[0][0]
-
-        self.assertEqual(button.callback_data, "main_action:subscribe")
-        self.assertIsNone(button.web_app)
+        self.assertIsNone(markup)
 
     def test_server_status_link_appears_in_bot_menus_when_configured(self):
         self.settings.SERVER_STATUS_URL = "https://status.example.com"
