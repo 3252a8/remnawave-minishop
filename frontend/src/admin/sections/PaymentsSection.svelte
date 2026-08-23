@@ -112,7 +112,7 @@
       ><span class="admin-muted">{at("payments_empty", {}, "No payments")}</span></AdminEmptyState
     >
   {:else}
-    <AdminTable class="admin-payments-table">
+    <AdminTable class="admin-payments-table admin-payments-desktop-table">
       <colgroup>
         <col class="admin-payments-col-id" />
         <col class="admin-payments-col-user" />
@@ -299,6 +299,70 @@
         {/snippet}
       </VirtualTableRows>
     </AdminTable>
+
+    <ul class="admin-payments-mobile-list">
+      {#each paymentsTable.rows as p (p.payment_id)}
+        {@const userLabel = String(p.user_label || p.user_id)}
+        <li class="admin-payment-mobile-card" data-mobile-payment-id={p.payment_id}>
+          <div class="admin-payment-mobile-head">
+            <AdminButton
+              class="admin-payment-id-btn"
+              variant="ghost"
+              size="sm"
+              title={at("payment_detail_open", {}, "Open payment")}
+              aria-label={at("payment_detail_open", {}, "Open payment")}
+              onclick={() => paymentsStore.openPayment(p)}
+            >
+              <FileText size={14} />
+              #{p.payment_id}
+            </AdminButton>
+            <AdminBadge variant={paymentStatusVariant(p.status)}>{p.status}</AdminBadge>
+          </div>
+
+          <div class="admin-payment-mobile-user">
+            <AdminButton
+              class="admin-payments-user-btn"
+              variant="ghost"
+              size="icon"
+              title={at("payments_open_user", {}, "Open user card")}
+              aria-label={at("payments_open_user", {}, "Open user card")}
+              onclick={() => onOpenUserCard(p.user_id)}
+            >
+              <User size={14} />
+            </AdminButton>
+            <span class="admin-payment-mobile-user-copy">
+              <strong>{userLabel}</strong>
+              <small>ID {p.user_id}</small>
+            </span>
+            <time datetime={p.created_at || undefined}>{fmtDate(p.created_at)}</time>
+          </div>
+
+          <dl class="admin-payment-mobile-metrics">
+            <div>
+              <dt>{at("amount", {}, "Amount")}</dt>
+              <dd>{fmtMoney(p.amount, p.currency)}</dd>
+            </div>
+            <div>
+              <dt>{at("payments_col_discount", {}, "Discount")}</dt>
+              <dd>{paymentDiscountDisplay(p, fmtMoney)}</dd>
+            </div>
+            <div>
+              <dt>{at("payments_col_traffic_regular", {}, "Main traffic")}</dt>
+              <dd>{formatPaymentTrafficGb(p.traffic_regular_gb)}</dd>
+            </div>
+            <div>
+              <dt>{at("payments_col_traffic_premium", {}, "Premium traffic")}</dt>
+              <dd>{formatPaymentTrafficGb(p.traffic_premium_gb)}</dd>
+            </div>
+          </dl>
+
+          <div class="admin-payment-mobile-foot">
+            <PaymentProviderCell provider={p.provider} />
+            <span>{paymentDescriptionDisplay(p, at)}</span>
+          </div>
+        </li>
+      {/each}
+    </ul>
   {/if}
 </div>
 
@@ -329,6 +393,10 @@
   .admin-payments-table-shell :global(.admin-payments-table) {
     min-width: 1320px;
     table-layout: fixed;
+  }
+
+  .admin-payments-mobile-list {
+    display: none;
   }
 
   .admin-payments-table-shell :global(.admin-payments-col-id) {
@@ -443,5 +511,154 @@
     color: var(--admin-text);
     font-family: var(--font-mono);
     font-size: 12px;
+  }
+
+  @media (max-width: 720px) {
+    .admin-payments-table-shell :global(.admin-table-wrap) {
+      overflow-x: hidden;
+    }
+
+    .admin-payments-table-shell :global(.admin-payments-desktop-table) {
+      display: none;
+    }
+
+    .admin-payments-mobile-list {
+      display: grid;
+      gap: 10px;
+      width: 100%;
+      min-width: 0;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .admin-payment-mobile-card {
+      display: grid;
+      gap: 10px;
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid var(--admin-border);
+      border-radius: 12px;
+      background: var(--admin-surface-2);
+    }
+
+    .admin-payment-mobile-head,
+    .admin-payment-mobile-user,
+    .admin-payment-mobile-foot {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+    }
+
+    .admin-payment-mobile-head {
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .admin-payment-mobile-user {
+      gap: 9px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--admin-border);
+    }
+
+    .admin-payment-mobile-user-copy {
+      display: grid;
+      flex: 1 1 auto;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .admin-payment-mobile-user-copy strong,
+    .admin-payment-mobile-user-copy small,
+    .admin-payment-mobile-user time,
+    .admin-payment-mobile-foot > span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .admin-payment-mobile-user-copy strong {
+      color: var(--admin-text);
+      font-size: 13px;
+    }
+
+    .admin-payment-mobile-user-copy small,
+    .admin-payment-mobile-user time {
+      color: var(--admin-muted);
+      font-size: 11px;
+    }
+
+    .admin-payment-mobile-user-copy small {
+      font-family: var(--font-mono);
+    }
+
+    .admin-payment-mobile-user time {
+      flex: 0 1 auto;
+      max-width: 42%;
+      text-align: right;
+    }
+
+    .admin-payment-mobile-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      min-width: 0;
+      margin: 0;
+    }
+
+    .admin-payment-mobile-metrics > div {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+      padding: 8px 9px;
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--admin-bg) 58%, transparent);
+    }
+
+    .admin-payment-mobile-metrics dt {
+      overflow: hidden;
+      color: var(--admin-muted);
+      font-size: 10px;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .admin-payment-mobile-metrics dd {
+      min-width: 0;
+      margin: 0;
+      overflow-wrap: anywhere;
+      color: var(--admin-text);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .admin-payment-mobile-foot {
+      gap: 9px;
+      color: var(--admin-muted);
+      font-size: 11px;
+    }
+
+    .admin-payment-mobile-foot > span {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .admin-payment-mobile-card :global(.admin-payment-id-btn.admin-btn) {
+      height: 30px;
+      min-height: 30px;
+      padding: 0 8px;
+    }
+
+    .admin-payment-mobile-card :global(.admin-payments-user-btn.admin-btn) {
+      width: 30px;
+      height: 30px;
+      min-width: 30px;
+      min-height: 30px;
+      flex: 0 0 auto;
+      padding: 0;
+    }
   }
 </style>

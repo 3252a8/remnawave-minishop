@@ -1925,8 +1925,33 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   });
   await page.setViewportSize(DESKTOP_VIEWPORT);
 
-  setPhase("admin-payments:payment-dialog");
+  setPhase("admin-payments:mobile-list");
   await openAdminSection(page, "payments");
+  await page.setViewportSize(MOBILE_VIEWPORT);
+  const paymentsShell = page.locator(".admin-payments-table-shell");
+  const mobilePaymentCard = paymentsShell.locator(".admin-payment-mobile-card").first();
+  await expect(mobilePaymentCard).toBeVisible();
+  await expect(paymentsShell.locator(".admin-payments-desktop-table")).toBeHidden();
+  const mobilePaymentsGeometry = await paymentsShell.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+    documentClientWidth: document.documentElement.clientWidth,
+    documentScrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(mobilePaymentsGeometry.scrollWidth).toBeLessThanOrEqual(
+    mobilePaymentsGeometry.clientWidth
+  );
+  expect(mobilePaymentsGeometry.documentScrollWidth).toBeLessThanOrEqual(
+    mobilePaymentsGeometry.documentClientWidth
+  );
+  const mobilePaymentCardBox = await mobilePaymentCard.boundingBox();
+  expect(mobilePaymentCardBox).not.toBeNull();
+  expect(mobilePaymentCardBox!.height).toBeLessThan(300);
+  await expect(mobilePaymentCard.locator(".admin-payment-mobile-metrics dd")).toHaveCount(4);
+  await page.setViewportSize(DESKTOP_VIEWPORT);
+  await expect(adminSidebar).toBeVisible();
+
+  setPhase("admin-payments:payment-dialog");
   await page.locator(".admin-payment-id-btn").first().click();
   const paymentDialog = page.locator(".dialog-card.admin-payment-dialog");
   await expect(paymentDialog).toBeVisible();
