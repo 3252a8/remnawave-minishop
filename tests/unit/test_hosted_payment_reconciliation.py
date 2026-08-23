@@ -510,6 +510,92 @@ def test_new_pally_checkout_cancels_older_link_in_same_scope(
     session.commit.assert_awaited_once()
 
 
+def test_pally_status_success_is_finalized_after_monetary_verification(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payment = _payment("pally")
+    succeeded_payment = SimpleNamespace(**{**vars(payment), "status": "succeeded"})
+    service = SimpleNamespace(
+        bot=object(),
+        settings=SimpleNamespace(traffic_sale_mode=False),
+        config=SimpleNamespace(PAYER_PAYS_COMMISSION=False),
+        i18n=object(),
+        subscription_service=object(),
+        referral_service=object(),
+        get_bill_status=AsyncMock(
+            return_value=(
+                True,
+                {
+                    "id": "provider-1",
+                    "order_id": "17",
+                    "status": "SUCCESS",
+                    "amount": 199.0,
+                    "currency_in": "RUB",
+                },
+            )
+        ),
+    )
+    claim = AsyncMock(return_value=payment)
+    finalize = AsyncMock(return_value=SimpleNamespace())
+    reload_payment = AsyncMock(return_value=succeeded_payment)
+    mark_checked = AsyncMock()
+    monkeypatch.setattr(payment_dal, "claim_payment_finalization", claim)
+    monkeypatch.setattr(payment_dal, "get_payment_by_db_id", reload_payment)
+    monkeypatch.setattr(
+        "bot.payment_providers.shared.reconciliation.finalize_successful_payment",
+        finalize,
+    )
+    monkeypatch.setattr(
+        payment_reconciliation_dal,
+        "mark_provider_payment_checked",
+        mark_checked,
+    )
+    session = SimpleNamespace()
+
+    result = asyncio.run(refresh_hosted_payment_status(session, payment, service))
+
+    assert result.status == "succeeded"
+    claim.assert_awaited_once_with(session, 17, provider_payment_id="provider-1")
+    finalize.assert_awaited_once()
+    mark_checked.assert_not_awaited()
+
+
+def test_pally_status_success_with_mismatched_amount_is_not_finalized(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payment = _payment("pally")
+    service = SimpleNamespace(
+        config=SimpleNamespace(PAYER_PAYS_COMMISSION=False),
+        get_bill_status=AsyncMock(
+            return_value=(
+                True,
+                {
+                    "id": "provider-1",
+                    "order_id": "17",
+                    "status": "SUCCESS",
+                    "amount": 1.0,
+                    "currency_in": "RUB",
+                },
+            )
+        ),
+    )
+    claim = AsyncMock()
+    mark_checked = AsyncMock(return_value=payment)
+    monkeypatch.setattr(payment_dal, "claim_payment_finalization", claim)
+    monkeypatch.setattr(
+        payment_reconciliation_dal,
+        "mark_provider_payment_checked",
+        mark_checked,
+    )
+    session = SimpleNamespace(commit=AsyncMock())
+
+    result = asyncio.run(refresh_hosted_payment_status(session, payment, service))
+
+    assert result.status == "pending_pally"
+    claim.assert_not_awaited()
+    mark_checked.assert_awaited_once()
+
+
 def test_pally_failure_records_processing_error_code() -> None:
     service = SimpleNamespace(
         get_bill_status=AsyncMock(

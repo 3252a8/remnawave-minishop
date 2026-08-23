@@ -375,9 +375,21 @@ async def _inspect_provider_payment(service: Any, payment: Payment) -> ProviderL
         status = data.get("status") or data.get("Status")
         if success and _state_for("pally", status) == "succeeded":
             normalized_status = _normalized(status)
-            payment_verified = bool(
-                service._currency_matches_payment(data, payment)
-                and service._amount_matches_payment(data, payment, normalized_status)
+            received_amount = data.get("amount")
+            if received_amount is None:
+                received_amount = data.get("OutSum") or data.get("out_sum")
+            received_currency = data.get("currency_in")
+            if received_currency is None:
+                received_currency = data.get("CurrencyIn") or data.get("currency")
+            payer_pays_commission = bool(
+                getattr(getattr(service, "config", None), "PAYER_PAYS_COMMISSION", False)
+            )
+            payment_verified = payment_amount_and_currency_match(
+                expected_amount=payment.amount,
+                expected_currency=payment.currency,
+                received_amount=received_amount,
+                received_currency=received_currency,
+                allow_overpayment=(normalized_status == "overpaid" or payer_pays_commission),
             )
     elif provider == "severpay":
         success, data = await service.get_payment(provider_id)
