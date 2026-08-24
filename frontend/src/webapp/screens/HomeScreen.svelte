@@ -18,6 +18,7 @@
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
+  import ServerStatusCard from "../ServerStatusCard.svelte";
   import { LinearProgress } from "$components/patterns/webapp/index.js";
   import { formatTrafficGb } from "../../lib/webapp/formatters.js";
   import {
@@ -44,8 +45,10 @@
     SubscriptionView,
     TermUnitLabel,
     Translate,
+    OpenLinkAction,
     VoidAction,
   } from "$lib/webapp/types.js";
+  import type { ServerStatusStore } from "$lib/webapp/stores/serverStatusStore.svelte";
 
   const SUBSCRIPTION_EXPIRY_WARNING_MS = 72 * 60 * 60 * 1000;
   const SUBSCRIPTION_EXPIRING_SOON_MS = 24 * 60 * 60 * 1000;
@@ -86,6 +89,9 @@
     openRegularTopupModal = () => {},
     openPremiumTopupModal = () => {},
     openTariffChangeModal = () => {},
+    goStatus = () => {},
+    openExternalLink = () => {},
+    statusStore,
     primaryPayActionLabel = () => "",
     t = (key) => key,
   }: {
@@ -120,6 +126,9 @@
     openRegularTopupModal?: VoidAction;
     openPremiumTopupModal?: VoidAction;
     openTariffChangeModal?: VoidAction;
+    goStatus?: VoidAction;
+    openExternalLink?: OpenLinkAction;
+    statusStore: ServerStatusStore;
     primaryPayActionLabel?: () => string;
     t?: Translate;
   } = $props();
@@ -714,5 +723,6 @@
         </Button>
       {/if}
     </div>
+    <ServerStatusCard {statusStore} {goStatus} {openExternalLink} {t} />
   </div>
 </main>

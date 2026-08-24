@@ -145,6 +145,7 @@ export const APP_SECTION_PATHS = {
   devices: "/devices",
   support: "/support",
   settings: "/settings",
+  status: "/status",
   admin: "/admin",
 };
 export const ADMIN_SECTIONS = new Set([

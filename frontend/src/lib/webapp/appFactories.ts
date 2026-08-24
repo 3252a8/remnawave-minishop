@@ -2,6 +2,7 @@ import { createAuthStore } from "./stores/authStore";
 import { createBillingStore } from "./stores/billingStore";
 import { createAccountStore } from "./stores/accountStore";
 import { createActionsStore } from "./stores/actionsStore";
+import { createServerStatusStore } from "./stores/serverStatusStore.svelte";
 import { createWebappDataClient } from "./dataClient";
 import { buildApiUrl } from "./publicApi";
 import { createWebappActivationContext } from "./webappActivationContext";
@@ -258,6 +259,7 @@ export function createAppFactories({
   });
   const api = dataClient.api;
   const publicApi = dataClient.publicApi;
+  const serverStatusStore = createServerStatusStore(api);
   const billing = createBillingActions({
     api,
   });
@@ -477,6 +479,7 @@ export function createAppFactories({
     resumeLifecycle,
     setLanguageMenuOpen,
     setPasswordLoginMode: authRuntimeActions.setPasswordLoginMode,
+    serverStatusStore,
     showLogin,
     stopPendingActivationWatch: activation.stopPendingActivationWatch,
     submitEmailOnEnter: authRuntimeActions.submitEmailOnEnter,

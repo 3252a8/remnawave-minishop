@@ -205,7 +205,7 @@ LOCALE_GROUPS = [
             "admin_settings_field_webapp_",
             "admin_settings_field_subscription_mini_app_url",
             "admin_settings_field_support_link",
-            "admin_settings_field_server_status_url",
+            "admin_settings_field_server_status_",
             "admin_settings_field_privacy_",
             "admin_settings_field_user_agreement_",
             "appearance_",

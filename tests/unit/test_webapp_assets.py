@@ -392,10 +392,15 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertIn("{serverStatusUrl}", app_mode_source)
         self.assertIn('t("menu_server_status_button")', settings_source)
+        self.assertIn("onclick={serverStatusInternal ? openServerStatus", settings_source)
+        authenticated_screens_source = (
+            Path(__file__).resolve().parents[2] / "frontend/src/webapp/AuthenticatedScreens.svelte"
+        ).read_text(encoding="utf-8")
+        self.assertIn("openServerStatus={goStatus}", authenticated_screens_source)
 
         agreement_pos = settings_source.index("{#if userAgreementUrl}")
         privacy_pos = settings_source.index("{#if privacyPolicyUrl}")
-        status_pos = settings_source.index("{#if serverStatusUrl}")
+        status_pos = settings_source.index("{#if serverStatusInternal || serverStatusUrl}")
         support_pos = settings_source.index("{#if supportUrl}")
 
         self.assertLess(agreement_pos, status_pos)
