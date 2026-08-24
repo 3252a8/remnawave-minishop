@@ -7268,6 +7268,29 @@
     overflow: hidden;
   }
 
+  .support-ticket-dialog .support-ticket-header {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .support-ticket-dialog .support-ticket-statusbar {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .support-ticket-dialog .support-ticket-controls {
+    grid-column: 2;
+    grid-row: 1;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .support-ticket-dialog .support-ticket-actions {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
   .support-ticket-dialog .support-admin-message-scroll {
     height: 100%;
     min-height: 320px;
@@ -7277,32 +7300,34 @@
 
 @media (max-width: 720px) {
   .dialog:has(.support-ticket-dialog) {
+    align-items: start;
     padding: max(8px, var(--content-safe-area-top)) max(8px, var(--content-safe-area-right))
       max(8px, var(--content-safe-area-bottom)) max(8px, var(--content-safe-area-left));
-    overflow: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .support-ticket-dialog {
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
     width: 100%;
-    height: 100%;
-    min-height: 0;
-    max-height: 100%;
+    height: auto;
+    min-height: 100%;
+    max-height: none;
     padding: 12px;
     border-radius: 14px;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .support-ticket-dialog > .dialog-body-scroll {
-    min-height: 0;
-    overflow: hidden;
+    min-height: auto;
+    overflow: visible;
   }
 
   .support-ticket-dialog > .dialog-body-scroll > .scroll-area__viewport {
-    height: 100%;
-    overflow: auto !important;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
+    height: auto;
+    overflow: visible !important;
+    overscroll-behavior: auto;
   }
 
   .support-ticket-dialog .dialog-head {
@@ -7358,18 +7383,20 @@
 
   .support-ticket-dialog .support-admin-message-scroll {
     height: auto;
-    min-height: 0;
+    min-height: clamp(300px, 48dvh, 420px);
     max-height: none !important;
     padding: 10px 8px;
   }
 
   .support-ticket-dialog .support-admin-message-scroll > .scroll-area__viewport {
     height: auto;
+    min-height: inherit;
     overflow: visible !important;
   }
 
   .support-ticket-dialog .support-admin-composer-row {
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
   }
 

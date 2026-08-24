@@ -21,10 +21,12 @@
   let {
     file = $bindable(null),
     disabled = false,
+    compact = false,
     labels,
   }: {
     file?: File | null;
     disabled?: boolean;
+    compact?: boolean;
     labels: ImageAttachmentLabels;
   } = $props();
 
@@ -98,6 +100,7 @@
 <div
   class="message-image-attachment"
   class:is-dragging={dragging}
+  class:is-compact={compact}
   role="group"
   ondragover={onDragOver}
   ondragleave={onDragLeave}
@@ -134,8 +137,12 @@
   {:else}
     <button type="button" class="message-image-dropzone" {disabled} onclick={choose}>
       <Upload size={18} />
-      <span>{labels.drop} <strong>{labels.choose}</strong></span>
-      <small>{labels.hint}</small>
+      {#if compact}
+        <span>{labels.choose}</span>
+      {:else}
+        <span>{labels.drop} <strong>{labels.choose}</strong></span>
+        <small>{labels.hint}</small>
+      {/if}
     </button>
   {/if}
 
@@ -228,5 +235,50 @@
 
   .message-image-error {
     color: var(--danger, var(--admin-danger, #ff5c5c));
+  }
+
+  .message-image-attachment.is-compact {
+    min-width: 0;
+  }
+
+  .message-image-attachment.is-compact .message-image-dropzone {
+    display: inline-flex;
+    width: auto;
+    min-height: 38px;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border-style: solid;
+    padding: 0 12px;
+    white-space: nowrap;
+  }
+
+  .message-image-attachment.is-compact .message-image-preview {
+    width: min(320px, 42vw);
+    min-height: 38px;
+    padding: 4px 6px;
+  }
+
+  .message-image-attachment.is-compact .message-image-preview img {
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+  }
+
+  .message-image-attachment.is-compact .message-image-meta strong {
+    max-width: 180px;
+  }
+
+  @media (max-width: 520px) {
+    .message-image-attachment.is-compact {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .message-image-attachment.is-compact .message-image-dropzone,
+    .message-image-attachment.is-compact .message-image-preview {
+      width: 100%;
+      max-width: none;
+    }
   }
 </style>

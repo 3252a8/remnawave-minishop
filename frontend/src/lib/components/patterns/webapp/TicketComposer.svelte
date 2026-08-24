@@ -45,20 +45,27 @@
 </script>
 
 <div class="ticket-composer">
-  <RichTextEditor
-    {value}
-    onInput={(next) => (value = next)}
-    {labels}
-    {placeholder}
-    {disabled}
-    minHeight="96px"
-    autolink
-    onSubmit={submit}
-    {onTyping}
-  />
-  <ImageAttachment bind:file={image} labels={imageLabels} disabled={disabled || sending} />
+  <div class="ticket-composer-editor">
+    <RichTextEditor
+      {value}
+      onInput={(next) => (value = next)}
+      {labels}
+      {placeholder}
+      {disabled}
+      minHeight="96px"
+      autolink
+      onSubmit={submit}
+      {onTyping}
+    />
+    <small class="ticket-composer-counter" class:is-over={overLimit}>{length}/{maxLength}</small>
+  </div>
   <div class="ticket-composer-row">
-    <small class:is-over={overLimit}>{length}/{maxLength}</small>
+    <ImageAttachment
+      bind:file={image}
+      labels={imageLabels}
+      disabled={disabled || sending}
+      compact
+    />
     <Button type="button" class="ticket-composer-send" disabled={!canSend} onclick={submit}>
       {#if sending}<Spinner size="sm" />{:else}<Send size={16} />{/if}
       <span>{sendLabel}</span>
@@ -67,7 +74,30 @@
 </div>
 
 <style>
-  .ticket-composer-row small.is-over {
+  .ticket-composer-editor {
+    position: relative;
+    min-width: 0;
+  }
+
+  .ticket-composer-counter {
+    position: absolute;
+    right: 10px;
+    bottom: 8px;
+    z-index: 1;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+    pointer-events: none;
+  }
+
+  .ticket-composer-editor :global(.rt-surface),
+  .ticket-composer-editor :global(.rt-source) {
+    padding-bottom: 26px;
+  }
+
+  .ticket-composer-counter.is-over {
     color: var(--danger);
   }
 </style>

@@ -160,38 +160,25 @@
 </script>
 
 <div class="support-admin-composer">
-  <RichTextEditor
-    {value}
-    onInput={(next) => (value = next)}
-    {labels}
-    {shortcodes}
-    {onRequestShortcodes}
-    {quickInserts}
-    placeholder={at("support_reply_placeholder", {}, "Reply")}
-    minHeight="120px"
-    autolink
-    showSource
-    onSubmit={submit}
-    {onTyping}
-  />
-
-  <ImageAttachment
-    bind:file={image}
-    disabled={sending}
-    labels={{
-      drop: at("message_image_drop", {}, "Drop an image here or"),
-      choose: at("message_image_choose", {}, "choose a file"),
-      remove: at("message_image_remove", {}, "Remove image"),
-      hint: at("message_image_hint", {}, "HEIC, HEIF, JPEG, PNG or WebP, up to 8 MB"),
-      invalidType: at(
-        "message_image_invalid_type",
-        {},
-        "Choose a HEIC, HEIF, JPEG, PNG or WebP image"
-      ),
-      tooLarge: at("message_image_too_large", {}, "The image must be no larger than 8 MB"),
-      previewAlt: at("message_image_preview_alt", {}, "Image preview"),
-    }}
-  />
+  <div class="support-admin-composer-editor">
+    <RichTextEditor
+      {value}
+      onInput={(next) => (value = next)}
+      {labels}
+      {shortcodes}
+      {onRequestShortcodes}
+      {quickInserts}
+      placeholder={at("support_reply_placeholder", {}, "Reply")}
+      minHeight="120px"
+      autolink
+      showSource
+      onSubmit={submit}
+      {onTyping}
+    />
+    <small class="support-admin-composer-counter" class:is-over={overLimit}>
+      {length}/{maxLength}
+    </small>
+  </div>
 
   {#if !internal}
     <div class="support-admin-composer-buttons">
@@ -238,14 +225,31 @@
       </label>
     </div>
 
-    <small class="support-admin-composer-counter" class:is-over={overLimit}>
-      {length}/{maxLength}
-    </small>
+    <div class="support-admin-composer-actions">
+      <ImageAttachment
+        bind:file={image}
+        disabled={sending}
+        compact
+        labels={{
+          drop: at("message_image_drop", {}, "Drop an image here or"),
+          choose: at("message_image_choose", {}, "choose a file"),
+          remove: at("message_image_remove", {}, "Remove image"),
+          hint: at("message_image_hint", {}, "HEIC, HEIF, JPEG, PNG or WebP, up to 8 MB"),
+          invalidType: at(
+            "message_image_invalid_type",
+            {},
+            "Choose a HEIC, HEIF, JPEG, PNG or WebP image"
+          ),
+          tooLarge: at("message_image_too_large", {}, "The image must be no larger than 8 MB"),
+          previewAlt: at("message_image_preview_alt", {}, "Image preview"),
+        }}
+      />
 
-    <AdminButton variant="primary" disabled={!canSend} onclick={submit}>
-      {#if sending}<Spinner size="sm" />{:else}<Send size={14} />{/if}
-      {at("send", {}, "Send")}
-    </AdminButton>
+      <AdminButton variant="primary" disabled={!canSend} onclick={submit}>
+        {#if sending}<Spinner size="sm" />{:else}<Send size={14} />{/if}
+        {at("send", {}, "Send")}
+      </AdminButton>
+    </div>
   </div>
 </div>
 
@@ -256,13 +260,44 @@
     gap: 6px;
   }
 
+  .support-admin-composer-editor {
+    position: relative;
+    min-width: 0;
+  }
+
   .support-admin-composer-counter {
-    margin-left: auto;
+    position: absolute;
+    right: 10px;
+    bottom: 8px;
+    z-index: 1;
     font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
     color: var(--admin-text-muted, #9aa3b2);
+    pointer-events: none;
+  }
+
+  .support-admin-composer-editor :global(.rt-surface),
+  .support-admin-composer-editor :global(.rt-source) {
+    padding-bottom: 26px;
   }
 
   .support-admin-composer-counter.is-over {
     color: var(--admin-danger, #ff5c5c);
+  }
+
+  .support-admin-composer-actions {
+    display: flex;
+    min-width: 0;
+    align-items: stretch;
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  @media (max-width: 720px) {
+    .support-admin-composer-actions {
+      width: 100%;
+      margin-left: 0;
+    }
   }
 </style>

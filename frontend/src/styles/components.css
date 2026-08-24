@@ -1709,8 +1709,21 @@
   .support-ticket-detail-header {
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: 14px;
+    gap: 10px;
     margin-bottom: 0;
+  }
+
+  .support-ticket-screen > .support-ticket-card {
+    gap: 10px;
+    padding: 11px 14px;
+  }
+
+  .support-ticket-screen .ticket-detail-title small {
+    margin-bottom: 2px;
+  }
+
+  .support-ticket-screen .ticket-detail-title h1 {
+    font-size: 18px;
   }
 
   .support-ticket-detail-header .ticket-badges {
@@ -1780,12 +1793,12 @@
   }
 
   .support-ticket-screen {
-    height: calc(100dvh - max(16px, env(safe-area-inset-top)) - 48px);
+    height: auto;
     min-height: 0;
-    grid-template-rows: auto minmax(0, 1fr);
-    align-content: stretch;
+    grid-template-rows: auto auto;
+    align-content: start;
     gap: 10px;
-    overflow: hidden;
+    overflow: visible;
     padding-bottom: calc(
       var(--bottom-nav-height) + max(var(--bottom-nav-offset), env(safe-area-inset-bottom)) + 12px
     );
@@ -1796,10 +1809,10 @@
   }
 
   .support-ticket-screen .support-conversation-card {
-    min-height: 0;
-    grid-template-rows: minmax(0, 1fr) auto;
-    align-content: stretch;
-    overflow: hidden;
+    min-height: clamp(320px, 52dvh, 460px);
+    grid-template-rows: auto auto;
+    align-content: start;
+    overflow: visible;
   }
 
   .support-ticket-screen .support-conversation-card--loading {
@@ -1915,20 +1928,26 @@
   }
 
   .support-ticket-screen .support-message-scroll {
-    min-height: 0;
-    height: 100%;
-    overflow: hidden;
+    min-height: clamp(300px, 48dvh, 420px);
+    height: auto;
+    overflow: visible;
     padding: 10px;
   }
 
+  .support-ticket-screen .support-message-scroll > .scroll-area__viewport {
+    height: auto;
+    min-height: inherit;
+    overflow: visible !important;
+  }
+
   .support-ticket-screen .ticket-message-list {
-    min-height: 100%;
+    min-height: clamp(278px, calc(48dvh - 22px), 398px);
     justify-content: flex-end;
   }
 
   .support-ticket-screen .support-messages-empty {
-    min-height: 0;
-    height: 100%;
+    min-height: clamp(278px, calc(48dvh - 22px), 398px);
+    height: auto;
   }
 
   .ticket-message-list,
@@ -2005,6 +2024,7 @@
   .ticket-composer-row {
     align-items: center;
     flex-direction: row;
+    justify-content: flex-end;
   }
 
   .ticket-composer-send {

@@ -434,13 +434,24 @@ async function assertUserTicketScrolling(page: Page, nav: Locator): Promise<void
     .toBeGreaterThan(0);
 
   await page.setViewportSize(MOBILE_VIEWPORT);
+  await expect
+    .poll(() => messageViewport.evaluate((element) => getComputedStyle(element).overflowY))
+    .toBe("visible");
+  await expect
+    .poll(() =>
+      page
+        .locator(".support-ticket-screen .support-message-scroll")
+        .evaluate((element) => element.getBoundingClientRect().height)
+    )
+    .toBeGreaterThanOrEqual(300);
   await messageViewport.evaluate((element) => {
     element.scrollTop = 0;
   });
+  await page.evaluate(() => window.scrollTo(0, 0));
   await swipeUp(page, messageViewport, "webapp-support:mobile-scroll");
-  await expect
-    .poll(() => messageViewport.evaluate((element) => element.scrollTop))
-    .toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  await expect.poll(() => messageViewport.evaluate((element) => element.scrollTop)).toBe(0);
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   await expect(composer).toBeInViewport();
 
   await page.setViewportSize(DESKTOP_VIEWPORT);
@@ -455,8 +466,36 @@ async function assertAdminTicketScrolling(page: Page, supportDialog: Locator): P
   const messageScroll = supportDialog.locator(".support-admin-message-scroll");
   const messageViewport = messageScroll.locator(":scope > .scroll-area__viewport");
   const composer = supportDialog.locator(".support-admin-composer");
+  const ticketHeader = supportDialog.locator(".support-ticket-header");
+  const composerSurface = composer.locator(".rt-surface");
+  const composerCounter = composer.locator(".support-admin-composer-counter");
+  const composerActions = composer.locator(".support-admin-composer-actions");
+  const attachment = composerActions.locator(".message-image-attachment");
+  const sendButton = composerActions.locator(".admin-btn");
 
   await page.waitForTimeout(220);
+  await expect
+    .poll(() => ticketHeader.evaluate((element) => element.getBoundingClientRect().height))
+    .toBeLessThan(72);
+  const counterInsideSurface = await Promise.all([
+    composerSurface.boundingBox(),
+    composerCounter.boundingBox(),
+  ]).then(([surface, counter]) =>
+    Boolean(
+      surface &&
+      counter &&
+      counter.x >= surface.x &&
+      counter.y >= surface.y &&
+      counter.x + counter.width <= surface.x + surface.width &&
+      counter.y + counter.height <= surface.y + surface.height
+    )
+  );
+  expect(counterInsideSurface, "admin-support: counter must stay inside the editor").toBe(true);
+  const actionsShareRow = await Promise.all([
+    attachment.boundingBox(),
+    sendButton.boundingBox(),
+  ]).then(([upload, send]) => Boolean(upload && send && Math.abs(upload.y - send.y) <= 4));
+  expect(actionsShareRow, "admin-support: image and send actions must share one row").toBe(true);
   await expect
     .poll(() => bodyViewport.evaluate((element) => element.scrollHeight - element.clientHeight))
     .toBeGreaterThan(0);
@@ -471,12 +510,21 @@ async function assertAdminTicketScrolling(page: Page, supportDialog: Locator): P
   await expect
     .poll(() => messageViewport.evaluate((element) => getComputedStyle(element).overflowY))
     .toBe("visible");
-  await bodyViewport.evaluate((element) => {
+  await expect
+    .poll(() => messageScroll.evaluate((element) => element.getBoundingClientRect().height))
+    .toBeGreaterThanOrEqual(300);
+  await expect
+    .poll(() => bodyViewport.evaluate((element) => getComputedStyle(element).overflowY))
+    .toBe("visible");
+  const dialogOverlay = page.locator(".dialog");
+  await dialogOverlay.evaluate((element) => {
     element.scrollTop = 0;
   });
   await swipeUp(page, messageScroll, "admin-support:mobile-scroll");
-  await expect.poll(() => bodyViewport.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
-  await expect.poll(() => page.locator(".dialog").evaluate((element) => element.scrollTop)).toBe(0);
+  await expect
+    .poll(() => dialogOverlay.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+  await expect.poll(() => messageViewport.evaluate((element) => element.scrollTop)).toBe(0);
 
   const modalCoversHeader = await page.evaluate(() => {
     const header = document.querySelector(".admin-header");
@@ -487,11 +535,11 @@ async function assertAdminTicketScrolling(page: Page, supportDialog: Locator): P
   });
   expect(modalCoversHeader, "admin-support: modal must stay above the section header").toBe(true);
 
-  await bodyViewport.evaluate((element) => {
+  await dialogOverlay.evaluate((element) => {
     element.scrollTop = element.scrollHeight;
   });
   await expect(composer).toBeInViewport();
-  await bodyViewport.evaluate((element) => {
+  await dialogOverlay.evaluate((element) => {
     element.scrollTop = 0;
   });
   await page.setViewportSize(DESKTOP_VIEWPORT);
