@@ -333,6 +333,11 @@ class SupportService:
                 notified_at=notification_at if notification_decision.send_telegram else None,
                 emailed_at=notification_at if notification_decision.send_email else None,
             )
+            # The bulk notification update may expire the matching ticket in
+            # SQLAlchemy's identity map. Rehydrate it before the session closes
+            # so both the async notifier and the HTTP serializer receive a
+            # complete detached snapshot instead of triggering a lazy load.
+            await session.refresh(ticket)
             snapshot = await self.build_user_snapshot(user, session=session)
             await session.commit()
 
