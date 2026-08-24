@@ -184,6 +184,9 @@ if TYPE_CHECKING:
         MIGRATION_REMNASHOP_IMPORTED_AT: str | None
         MIGRATION_REMNASHOP_NOTES: str | None
         SUPPORT_LINK: str | None
+        SERVER_STATUS_ENABLED: bool
+        SERVER_STATUS_PROVIDER: str
+        SERVER_STATUS_URL: str | None
         SUPPORT_TICKETS_ENABLED: bool
         SUPPORT_TICKET_MAX_BODY_LENGTH: int
         SUPPORT_TICKET_MAX_SUBJECT_LENGTH: int
@@ -375,6 +378,13 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             admin_notification_cooldown_seconds=self.SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS,
             admin_email_cooldown_seconds=self.SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS,
         )
+
+    @property
+    def server_status_external_url(self) -> str | None:
+        if not self.SERVER_STATUS_ENABLED or self.SERVER_STATUS_PROVIDER != "url":
+            return None
+        value = str(self.SERVER_STATUS_URL or "").strip()
+        return value or None
 
     @property
     def panel_settings(self) -> PanelSettings:

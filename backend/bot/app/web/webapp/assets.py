@@ -305,7 +305,7 @@ def _get_cached_webapp_settings(request: web.Request) -> dict[str, Any]:
             "traffic_packages": payment_settings.traffic_packages,
             "stars_traffic_packages": payment_settings.stars_traffic_packages,
             "support_url": support_settings.link or "",
-            "server_status_url": settings.SERVER_STATUS_URL or "",
+            "server_status_url": settings.server_status_external_url or "",
             "privacy_policy_url": settings.PRIVACY_POLICY_URL or "",
             "user_agreement_url": settings.USER_AGREEMENT_URL or "",
             "currency": payment_settings.default_currency_symbol or "RUB",

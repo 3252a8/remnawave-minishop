@@ -79,6 +79,15 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "PROFILE_SYNC_CACHE_TTL_SECONDS": 900,
     "REDIS_KEY_PREFIX": "tests",
     "REDIS_URL": None,
+    "SERVER_STATUS_CACHE_TTL_SECONDS": 30,
+    "SERVER_STATUS_ENABLED": False,
+    "SERVER_STATUS_KUMA_SLUG": "default",
+    "SERVER_STATUS_KUMA_URL": None,
+    "SERVER_STATUS_PROVIDER": "url",
+    "SERVER_STATUS_STALE_TTL_SECONDS": 300,
+    "SERVER_STATUS_TIMEOUT_SECONDS": 5,
+    "SERVER_STATUS_URL": None,
+    "SERVER_STATUS_XRAY_CHECKER_URL": None,
     "REFERRAL_PROGRAM_ENABLED": True,
     "REFERRAL_ONE_BONUS_PER_REFEREE": False,
     "REFERRAL_WELCOME_BONUS_DAYS": 0,
@@ -282,6 +291,13 @@ class SettingsStub(SimpleNamespace):
                 getattr(self, "SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS", 1800)
             ),
         )
+
+    @property
+    def server_status_external_url(self) -> str | None:
+        if not self.SERVER_STATUS_ENABLED or self.SERVER_STATUS_PROVIDER != "url":
+            return None
+        value = str(self.SERVER_STATUS_URL or "").strip()
+        return value or None
 
     @property
     def referral_settings(self) -> ReferralSettings:

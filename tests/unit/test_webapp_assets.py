@@ -392,10 +392,15 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertIn("{serverStatusUrl}", app_mode_source)
         self.assertIn('t("menu_server_status_button")', settings_source)
+        self.assertIn("onclick={serverStatusInternal ? openServerStatus", settings_source)
+        authenticated_screens_source = (
+            Path(__file__).resolve().parents[2] / "frontend/src/webapp/AuthenticatedScreens.svelte"
+        ).read_text(encoding="utf-8")
+        self.assertIn("openServerStatus={goStatus}", authenticated_screens_source)
 
         agreement_pos = settings_source.index("{#if userAgreementUrl}")
         privacy_pos = settings_source.index("{#if privacyPolicyUrl}")
-        status_pos = settings_source.index("{#if serverStatusUrl}")
+        status_pos = settings_source.index("{#if serverStatusInternal || serverStatusUrl}")
         support_pos = settings_source.index("{#if supportUrl}")
 
         self.assertLess(agreement_pos, status_pos)
@@ -430,6 +435,8 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             BOT_TOKEN="123456:token",
             POSTGRES_USER="app_user",
             POSTGRES_PASSWORD="app_password",
+            SERVER_STATUS_ENABLED=True,
+            SERVER_STATUS_PROVIDER="url",
             SERVER_STATUS_URL="https://status.example.com",
             SUPPORT_LINK="https://t.me/support",
             PRIVACY_POLICY_URL="https://example.com/privacy",
@@ -478,6 +485,38 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             "Примените этот промокод при оплате.",
         )
         self.assertNotIn("admin_settings_title", payload["i18n"]["en"])
+
+    def test_webapp_bootstrap_hides_server_status_url_outside_enabled_url_mode(self):
+        for enabled, provider in ((False, "url"), (True, "uptime-kuma")):
+            with self.subTest(enabled=enabled, provider=provider):
+                settings = Settings(
+                    _env_file=None,
+                    BOT_TOKEN="123456:token",
+                    POSTGRES_USER="app_user",
+                    POSTGRES_PASSWORD="app_password",
+                    SERVER_STATUS_ENABLED=enabled,
+                    SERVER_STATUS_PROVIDER=provider,
+                    SERVER_STATUS_URL="https://status.example.com",
+                )
+                request = SimpleNamespace(
+                    app={
+                        "settings": settings,
+                        "webapp_settings_cache": {"ts": 0.0, "data": {}},
+                        "i18n": None,
+                    },
+                    query={},
+                )
+
+                payload = subscription_webapp._build_webapp_bootstrap_payload(request)
+
+                self.assertEqual(payload["config"]["serverStatusUrl"], "")
+
+    def test_server_status_polling_starts_only_after_authenticated_data_loads(self):
+        root = Path(__file__).resolve().parents[2]
+        app_source = (root / "frontend/src/App.svelte").read_text(encoding="utf-8")
+
+        self.assertIn('if (mode !== "app" || !data?.user) return;', app_source)
+        self.assertIn("untrack(() => serverStatusStore.start())", app_source)
 
     def test_webapp_bootstrap_exposes_disabled_user_theme_mode_selection(self):
         settings = Settings(

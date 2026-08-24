@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, tick } from "svelte";
+  import { onMount, tick, untrack } from "svelte";
   import { Toaster, toast as sonnerToast } from "svelte-sonner";
   import { Tooltip } from "$components/ui/primitives.js";
 
@@ -326,11 +326,18 @@
     loadSectionData,
     resumeLifecycle,
     setPasswordLoginMode,
+    serverStatusStore,
     stopPendingActivationWatch,
     supportStore,
     syncBodyScrollLock,
     syncLoadedRoute,
   } = appFactories;
+
+  $effect(() => {
+    if (mode !== "app" || !data?.user) return;
+    untrack(() => serverStatusStore.start());
+    return () => serverStatusStore.stop();
+  });
 
   const authState = $derived(authStore);
   const authStatus = $derived(authState.authStatus);

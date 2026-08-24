@@ -63,10 +63,10 @@ def get_main_menu_inline_keyboard(
             )
         )
 
-    if settings.SERVER_STATUS_URL:
+    if settings.server_status_external_url:
         builder.row(
             InlineKeyboardButton(
-                text=_(key="menu_server_status_button"), url=settings.SERVER_STATUS_URL
+                text=_(key="menu_server_status_button"), url=settings.server_status_external_url
             )
         )
 
@@ -132,10 +132,10 @@ def get_bot_interface_inline_keyboard(
     )
     builder.row(language_button)
 
-    if settings.SERVER_STATUS_URL:
+    if settings.server_status_external_url:
         builder.row(
             InlineKeyboardButton(
-                text=_(key="menu_server_status_button"), url=settings.SERVER_STATUS_URL
+                text=_(key="menu_server_status_button"), url=settings.server_status_external_url
             )
         )
 

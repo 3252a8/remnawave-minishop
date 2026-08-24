@@ -5512,6 +5512,17 @@
         "title": "HwidDevicePackageSet",
         "type": "object"
       },
+      "ItemStatus": {
+        "enum": [
+          "online",
+          "offline",
+          "degraded",
+          "maintenance",
+          "pending",
+          "unknown"
+        ],
+        "type": "string"
+      },
       "LogOut": {
         "properties": {
           "content": {
@@ -5650,6 +5661,24 @@
         ],
         "title": "LogOut",
         "type": "object"
+      },
+      "NativeStatusProvider": {
+        "enum": [
+          "uptime-kuma",
+          "xray-checker"
+        ],
+        "type": "string"
+      },
+      "OverallStatus": {
+        "enum": [
+          "operational",
+          "degraded",
+          "partial_outage",
+          "major_outage",
+          "maintenance",
+          "unknown"
+        ],
+        "type": "string"
       },
       "PackageSet": {
         "additionalProperties": {
@@ -8466,6 +8495,238 @@
           "enabled"
         ],
         "title": "PublicSubscriptionGuidesOut",
+        "type": "object"
+      },
+      "ServerStatus": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "externalUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Externalurl"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/StatusGroup"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "incidents": {
+            "items": {
+              "$ref": "#/components/schemas/StatusIncident"
+            },
+            "title": "Incidents",
+            "type": "array"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/StatusSource"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "stale": {
+            "default": false,
+            "title": "Stale",
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OverallStatus"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Updatedat"
+          }
+        },
+        "required": [
+          "enabled",
+          "status"
+        ],
+        "title": "ServerStatus",
+        "type": "object"
+      },
+      "StatusGroup": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/StatusItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "items"
+        ],
+        "title": "StatusGroup",
+        "type": "object"
+      },
+      "StatusIncident": {
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Createdat"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/NativeStatusProvider"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OverallStatus"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "content",
+          "status",
+          "provider"
+        ],
+        "title": "StatusIncident",
+        "type": "object"
+      },
+      "StatusItem": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lastCheck": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Lastcheck"
+          },
+          "latencyMs": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Latencyms"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/NativeStatusProvider"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ItemStatus"
+          },
+          "uptime24h": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Uptime24H"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status",
+          "provider"
+        ],
+        "title": "StatusItem",
+        "type": "object"
+      },
+      "StatusProvider": {
+        "enum": [
+          "url",
+          "uptime-kuma",
+          "xray-checker"
+        ],
+        "type": "string"
+      },
+      "StatusSource": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Error"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/StatusProvider"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OverallStatus"
+          }
+        },
+        "required": [
+          "provider",
+          "status"
+        ],
+        "title": "StatusSource",
         "type": "object"
       },
       "SubscriptionGuidesOut": {
@@ -20720,6 +20981,52 @@
         "summary": "Referral Welcome Bonus Claim",
         "tags": [
           "referral"
+        ]
+      }
+    },
+    "/api/status": {
+      "get": {
+        "operationId": "get_server_status_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ServerStatus"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Server Status",
+        "tags": [
+          "status"
         ]
       }
     },

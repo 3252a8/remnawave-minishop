@@ -136,6 +136,8 @@ class UserBotMenuTests(unittest.TestCase):
         self.assertIsNone(markup)
 
     def test_server_status_link_appears_in_bot_menus_when_configured(self):
+        self.settings.SERVER_STATUS_ENABLED = True
+        self.settings.SERVER_STATUS_PROVIDER = "url"
         self.settings.SERVER_STATUS_URL = "https://status.example.com"
         expected = (
             self.i18n.gettext("en", "menu_server_status_button"),
@@ -147,6 +149,23 @@ class UserBotMenuTests(unittest.TestCase):
 
         self.assertIn(expected, self._url_buttons(main_markup))
         self.assertIn(expected, self._url_buttons(bot_markup))
+
+    def test_server_status_link_is_hidden_when_disabled_or_embedded(self):
+        self.settings.SERVER_STATUS_URL = "https://status.example.com"
+        expected = (
+            self.i18n.gettext("en", "menu_server_status_button"),
+            "https://status.example.com",
+        )
+
+        for enabled, provider in ((False, "url"), (True, "uptime-kuma")):
+            with self.subTest(enabled=enabled, provider=provider):
+                self.settings.SERVER_STATUS_ENABLED = enabled
+                self.settings.SERVER_STATUS_PROVIDER = provider
+                main_markup = get_main_menu_inline_keyboard("en", self.i18n, self.settings)
+                bot_markup = get_bot_interface_inline_keyboard("en", self.i18n, self.settings)
+
+                self.assertNotIn(expected, self._url_buttons(main_markup))
+                self.assertNotIn(expected, self._url_buttons(bot_markup))
 
     def test_support_telegram_shortcuts_are_normalized_in_bot_menus(self):
         expected = (

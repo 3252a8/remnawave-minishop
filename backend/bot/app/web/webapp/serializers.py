@@ -356,7 +356,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
         "support_unread_count": int(support_unread_count or 0),
         "settings": {
             "support_url": support_settings.link,
-            "server_status_url": settings.SERVER_STATUS_URL,
+            "server_status_url": settings.server_status_external_url,
             "support_tickets_enabled": bool(support_settings.tickets_enabled),
             "support_ticket_max_body_length": int(support_settings.ticket_max_body_length or 4000),
             "support_ticket_max_subject_length": int(
