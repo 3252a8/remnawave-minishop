@@ -3,6 +3,7 @@ set -u
 
 # Интерактивный установщик для Docker Compose серверов.
 
+DEFAULT_SOURCE="${MINISHOP_INSTALL_SOURCE:-github}"
 DEFAULT_REPO="${MINISHOP_INSTALL_REPO:-3252a8/remnawave-minishop}"
 DEFAULT_REF="${MINISHOP_INSTALL_REF:-main}"
 DEFAULT_IMAGE_TAG="${MINISHOP_IMAGE_TAG:-latest}"
@@ -43,6 +44,7 @@ else
 fi
 
 TARGET_DIR=""
+SOURCE_PROVIDER="$DEFAULT_SOURCE"
 SOURCE_REPO="$DEFAULT_REPO"
 SOURCE_REF="$DEFAULT_REF"
 PROFILE_KEY=""
@@ -158,7 +160,8 @@ print_help() {
     cat <<EOF
 Переменные окружения для значений по умолчанию:
   MINISHOP_INSTALL_DIR      папка установки ($DEFAULT_INSTALL_DIR)
-  MINISHOP_INSTALL_REPO     GitHub репозиторий ($DEFAULT_REPO)
+  MINISHOP_INSTALL_SOURCE   источник файлов: github или gitlab ($DEFAULT_SOURCE)
+  MINISHOP_INSTALL_REPO     репозиторий owner/name ($DEFAULT_REPO)
   MINISHOP_INSTALL_REF      ветка/тег/ref ($DEFAULT_REF)
   MINISHOP_IMAGE_TAG        тег Docker-образа ($DEFAULT_IMAGE_TAG)
   REMNASHOP_SOURCE_DSN      DSN базы Remnashop для миграции
@@ -567,7 +570,14 @@ raw_url() {
     repo=$(printf '%s' "$1" | sed 's#^/*##; s#/*$##')
     ref=$(printf '%s' "$2" | sed 's#^/*##; s#/*$##')
     path=$(printf '%s' "$3" | sed 's#^/*##')
-    printf 'https://raw.githubusercontent.com/%s/%s/%s' "$repo" "$ref" "$path"
+    case "$SOURCE_PROVIDER" in
+        gitlab)
+            printf 'https://gitlab.com/%s/-/raw/%s/%s' "$repo" "$ref" "$path"
+            ;;
+        github|*)
+            printf 'https://raw.githubusercontent.com/%s/%s/%s' "$repo" "$ref" "$path"
+            ;;
+    esac
 }
 
 download_to() {
@@ -5181,7 +5191,7 @@ choose_legacy_source() {
     esac
 }
 
-ensure_github_source_for_importer() {
+ensure_source_for_importer() {
     if [ -n "$SOURCE_REPO" ] && [ -n "$SOURCE_REF" ]; then
         return 0
     fi
@@ -5196,7 +5206,7 @@ run_remnashop_migration() {
         fail ".env не найден. Сначала установите стек или сгенерируйте конфигурацию."
         return 1
     fi
-    ensure_github_source_for_importer || return 1
+    ensure_source_for_importer || return 1
     require_docker || return 1
     POSTGRES_USER_VALUE="$(env_get POSTGRES_USER '')"
     POSTGRES_PASSWORD_VALUE="$(env_get POSTGRES_PASSWORD '')"
@@ -5601,10 +5611,32 @@ installation_directory() {
     mkdir -p "$TARGET_DIR"
 }
 
+choose_source_provider() {
+    source_default="1"
+    case "$(printf '%s' "${SOURCE_PROVIDER:-github}" | tr '[:upper:]' '[:lower:]')" in
+        gitlab) source_default="2" ;;
+        github|*) source_default="1" ;;
+    esac
+
+    choose "Источник файлов установки" "$source_default" "1|2" \
+        "1. GitHub (по умолчанию)." \
+        "2. GitLab." || return 1
+
+    case "$CHOICE_VALUE" in
+        1) SOURCE_PROVIDER="github" ;;
+        2) SOURCE_PROVIDER="gitlab" ;;
+    esac
+    ok "Источник файлов: $SOURCE_PROVIDER."
+}
+
 install_source() {
     [ -n "$SOURCE_REPO" ] || SOURCE_REPO="$DEFAULT_REPO"
     [ -n "$SOURCE_REF" ] || SOURCE_REF="$DEFAULT_REF"
-    info "Файлы установки будут скачаны из GitHub: $SOURCE_REPO@$SOURCE_REF."
+    case "$SOURCE_PROVIDER" in
+        gitlab) source_name="GitLab" ;;
+        *) source_name="GitHub" ;;
+    esac
+    info "Файлы установки будут скачаны из $source_name: $SOURCE_REPO@$SOURCE_REF."
     info "Для fork, dev-ветки или тега задайте MINISHOP_INSTALL_REPO и MINISHOP_INSTALL_REF перед запуском."
 }
 
@@ -5733,4 +5765,5 @@ case "${1:-}" in
         ;;
 esac
 
+choose_source_provider || exit 1
 main_menu
