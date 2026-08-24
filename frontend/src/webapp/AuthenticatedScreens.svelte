@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { ThemeOption } from "$lib/webapp/themePreference.js";
   import type { AccountStore } from "../lib/webapp/stores/accountStore.js";
   import type { DevicesStore } from "../lib/webapp/stores/devicesStore.js";
   import type { SupportStore } from "../lib/webapp/stores/supportStore.js";
@@ -128,6 +129,10 @@
     supportUnreadLoaded?: boolean;
     supportUnreadLoading?: boolean;
     supportUrl?: string;
+    themeOptions?: ThemeOption[];
+    themePreference?: string;
+    themeSwitcherVisible?: boolean;
+    setThemePreference?: StringAction;
     t: Translate;
     telegramMiniAppContext?: boolean;
     telegramNotificationsNeedPrompt?: boolean;
@@ -242,6 +247,10 @@
     supportUnreadLoaded = false,
     supportUnreadLoading = false,
     supportUrl = "",
+    themeOptions = [],
+    themePreference = "auto",
+    themeSwitcherVisible = false,
+    setThemePreference = () => {},
     t,
     telegramMiniAppContext = false,
     telegramNotificationsNeedPrompt = false,
@@ -502,6 +511,10 @@
       {subscriptionReissueBusy}
       subscriptionReissueVisible={settingsSubscriptionReissueVisible}
       {supportUrl}
+      {themeOptions}
+      {themePreference}
+      {themeSwitcherVisible}
+      {setThemePreference}
       {telegramNotificationsNeedPrompt}
       {telegramNotificationsStartLink}
       {telegramNotificationsStatus}

@@ -13,6 +13,11 @@
   import AppLaunchScreen from "./screens/AppLaunchScreen.svelte";
   import AuthenticatedDialogs from "./AuthenticatedDialogs.svelte";
   import { lazyScreen } from "$lib/webapp/lazyScreen.svelte.js";
+  import {
+    activeThemeOption,
+    themeOptions as buildThemeOptions,
+    themeSwitcherAvailable,
+  } from "$lib/webapp/themePreference.js";
 
   import AuthenticatedScreens from "./AuthenticatedScreens.svelte";
   import ScreenLoading from "./screens/ScreenLoading.svelte";
@@ -57,6 +62,8 @@
     languageClickGuard: boolean;
     languageClickGuardArmed: boolean;
     mode: string;
+    themePreference: string;
+    systemColorScheme: string;
     publicInstallSubscription: SubscriptionView | null;
     publicInstallToken: string;
     telegramPlatform: string;
@@ -65,6 +72,7 @@
   type AppModeControls = {
     closeActivationSuccessDialog: VoidAction;
     setLanguageMenuOpen: BooleanAction;
+    setThemePreference: StringAction;
     setPasswordLoginMode: BooleanAction;
     submitEmailOnEnter: SubmitEmailOnEnterAction;
     t: Translate;
@@ -238,6 +246,18 @@
   const telegramMiniAppContext = $derived(shellView.telegramMiniAppContext);
   const shellStyle = $derived(themeView.shellStyle);
   const shellThemeClass = $derived(themeView.shellThemeClass);
+  const themePreference = $derived(activeThemeOption(viewState.themePreference));
+  const themeSwitcherVisible = $derived(
+    themeView.userThemeModeEnabled && themeSwitcherAvailable(themeView.themesCatalog)
+  );
+  const themeOptions = $derived(
+    buildThemeOptions(
+      t("wa_settings_theme_auto"),
+      t("wa_settings_theme_light"),
+      t("wa_settings_theme_dark")
+    )
+  );
+  const setThemePreference = $derived(controls.setThemePreference);
   const shellToneClass = $derived(themeView.shellToneClass);
   const user = $derived(shellView.user);
   const userLanguage = $derived(shellView.userLanguage);
@@ -405,6 +425,10 @@
       {copyText}
       {currentLang}
       {currentLanguageOption}
+      {themeOptions}
+      {themePreference}
+      {themeSwitcherVisible}
+      {setThemePreference}
       {currentTariffName}
       {devicesBusy}
       {devicesData}

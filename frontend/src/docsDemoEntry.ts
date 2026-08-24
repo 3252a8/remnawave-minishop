@@ -3,7 +3,7 @@ import { mount } from "svelte";
 import App from "./App.svelte";
 import PreviewBoard from "./PreviewBoard.svelte";
 import { mockApi } from "./lib/webapp/mockApi.js";
-import { persistDemoSettings } from "./lib/webapp/mockApi/settings.js";
+import { persistDemoSettings, restoreDemoSettings } from "./lib/webapp/mockApi/settings.js";
 import { DEV_MOCK, applyPreviewMock } from "./lib/webapp/previewMock.js";
 import type { WebappMockSource } from "./lib/webapp/types";
 import "./styles.css";
@@ -70,6 +70,7 @@ async function loadInstallGuidesConfig(): Promise<void> {
 }
 
 function prepareMockConfig(mockMode: string): void {
+  restoreDemoSettings();
   const logoUrl = runtimePath("default-brand/default-logo.webp");
   const faviconUrl = runtimePath(`default-brand/favicons/${DEFAULT_FAVICON_DIGEST}/icon-180.png`);
   DEV_MOCK.config.logoUrl = logoUrl;

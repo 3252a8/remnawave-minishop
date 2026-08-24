@@ -24,6 +24,14 @@ class SettingsTests(unittest.TestCase):
         values.update(overrides)
         return Settings(**values)
 
+    def test_user_theme_mode_selection_defaults_on_and_can_be_disabled(self):
+        self.assertTrue(self._settings().webapp_settings.user_theme_mode_enabled)
+        self.assertFalse(
+            self._settings(
+                WEBAPP_USER_THEME_MODE_ENABLED=False
+            ).webapp_settings.user_theme_mode_enabled
+        )
+
     def test_telegram_bot_proxy_defaults_to_none_and_normalizes_blank(self):
         self.assertIsNone(self._settings().TELEGRAM_BOT_PROXY_URL)
         self.assertIsNone(self._settings(TELEGRAM_BOT_PROXY_URL="  ").TELEGRAM_BOT_PROXY_URL)

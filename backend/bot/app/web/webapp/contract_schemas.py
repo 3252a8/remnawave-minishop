@@ -44,6 +44,7 @@ class WebappBootstrapConfigOut(HttpResponseModel):
 
     title: str
     primary_color: str | None = Field(default=None, alias="primaryColor")
+    user_theme_mode_enabled: bool = Field(alias="userThemeModeEnabled")
     themes_catalog: dict[str, Any] = Field(default_factory=dict, alias="themesCatalog")
     themes_dir: str = Field(alias="themesDir")
     theme_preview_key: str = Field(alias="themePreviewKey")

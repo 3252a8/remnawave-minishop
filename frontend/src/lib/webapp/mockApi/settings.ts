@@ -1,7 +1,7 @@
 import SETTINGS_MANIFEST_SECTIONS from "../settingsManifest.generated.json";
 import { DEV_MOCK } from "../previewMock.js";
 import { DATASET, type CloneFn, type DemoRecord, type DemoSettingsField } from "./dataset";
-import { demoSettingsChanges } from "./state";
+import { demoSettingsChanges, storeDemoSettingsChanges } from "./state";
 
 type ManifestSection = DemoRecord & { fields?: (DemoRecord & { key: string })[] };
 
@@ -20,6 +20,7 @@ function demoSettingsValuesByKey(): Map<string, DemoSettingsField> {
 
 function demoRuntimeSettingValue(key: string): unknown {
   const values: DemoRecord = {
+    WEBAPP_USER_THEME_MODE_ENABLED: DEV_MOCK.config.userThemeModeEnabled ?? true,
     TRIAL_WITHOUT_TELEGRAM_ENABLED: DEV_MOCK.config.trialWithoutTelegramEnabled ?? true,
     REFERRAL_PROGRAM_ENABLED:
       DEV_MOCK.config.referralProgramEnabled ??
@@ -91,6 +92,9 @@ export function demoSettingsSections(clone: CloneFn): ManifestSection[] {
 
 function applyDemoSettingToMock(key: string, value: unknown): void {
   if (key === "WEBAPP_TITLE") DEV_MOCK.config.title = value || "";
+  if (key === "WEBAPP_USER_THEME_MODE_ENABLED") {
+    DEV_MOCK.config.userThemeModeEnabled = Boolean(value);
+  }
   if (key === "WEBAPP_LOGO_URL") DEV_MOCK.config.logoUrl = value || "";
   if (key === "WEBAPP_FAVICON_URL" || key === "WEBAPP_LOGO_FAVICON_URL") {
     DEV_MOCK.config.faviconUrl = value || DEV_MOCK.config.faviconUrl || "";
@@ -179,11 +183,18 @@ function applyDemoSettingToMock(key: string, value: unknown): void {
 
 export function persistDemoSetting(key: string, value: unknown): void {
   demoSettingsChanges.set(key, { value, deleted: false });
+  storeDemoSettingsChanges();
   applyDemoSettingToMock(key, value);
 }
 
 export function persistDemoSettings(updates: DemoRecord | null | undefined): void {
   for (const [key, value] of Object.entries(updates || {})) {
     persistDemoSetting(key, value);
+  }
+}
+
+export function restoreDemoSettings(): void {
+  for (const [key, change] of demoSettingsChanges) {
+    if (!change.deleted) applyDemoSettingToMock(key, change.value);
   }
 }

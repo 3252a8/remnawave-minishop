@@ -3,12 +3,14 @@
 // shell binds the returned view and re-runs computeThemeView when its inputs change.
 import {
   findThemeEntry,
+  materializeThemeEntry,
   materializeThemesCatalog,
   resolveEffectiveThemeKey,
   themeCssHref,
   themeEntryToInlineStyle,
   themeRootClass,
 } from "./themeStyle";
+import { resolveThemePreference, THEME_PREFERENCE_AUTO } from "./themePreference.js";
 
 type ThemeData = Record<string, unknown>;
 type ThemeTokens = ThemeData & {
@@ -25,6 +27,7 @@ type ThemeEntry =
 
 export interface ThemeView {
   themesCatalog: ThemeData;
+  userThemeModeEnabled: boolean;
   resolvedThemeKey: string;
   effectiveThemeEntry: ThemeEntry;
   shellStyle: string;
@@ -42,6 +45,9 @@ export interface ThemeViewInput {
   screen: string;
   cfgThemesCatalog: ThemeData | null | undefined;
   primaryColor: string | undefined;
+  themePreference?: string | null;
+  systemColorScheme?: string | null;
+  userThemeModeEnabled?: boolean | null;
 }
 
 export function computeThemeView({
@@ -52,6 +58,9 @@ export function computeThemeView({
   screen,
   cfgThemesCatalog,
   primaryColor,
+  themePreference = THEME_PREFERENCE_AUTO,
+  systemColorScheme = "",
+  userThemeModeEnabled = true,
 }: ThemeViewInput): ThemeView {
   const rawThemesCatalog = themePreviewDraft?.catalog ||
     data?.themes_catalog ||
@@ -61,8 +70,21 @@ export function computeThemeView({
   const previewThemeEntry: ThemeEntry = previewThemeAllowed
     ? findThemeEntry(themesCatalog, themePreviewKey)
     : null;
-  const resolvedThemeKey = previewThemeEntry?.key || resolveEffectiveThemeKey(themesCatalog);
-  const activeThemeEntry: ThemeEntry = findThemeEntry(themesCatalog, resolvedThemeKey);
+  const userTheme = userThemeModeEnabled
+    ? resolveThemePreference({
+        catalog: themesCatalog,
+        preference: themePreference,
+        systemScheme: systemColorScheme,
+      })
+    : { key: "", variant: "" };
+  const userThemeSource = userTheme.key ? findThemeEntry(themesCatalog, userTheme.key) : null;
+  const userThemeEntry: ThemeEntry = userThemeSource
+    ? materializeThemeEntry(userThemeSource, userTheme.variant || null)
+    : null;
+  const resolvedThemeKey =
+    previewThemeEntry?.key || userThemeEntry?.key || resolveEffectiveThemeKey(themesCatalog);
+  const activeThemeEntry: ThemeEntry =
+    previewThemeEntry || userThemeEntry || findThemeEntry(themesCatalog, resolvedThemeKey);
   const darkThemeEntry: ThemeEntry = findThemeEntry(themesCatalog, "dark");
   const effectiveThemeEntry: ThemeEntry =
     screen === "admin" && activeThemeEntry?.use_in_admin === false
@@ -72,6 +94,7 @@ export function computeThemeView({
   const colorScheme = tokens.color_scheme === "light" ? "light" : "dark";
   return {
     themesCatalog,
+    userThemeModeEnabled: Boolean(userThemeModeEnabled),
     resolvedThemeKey,
     effectiveThemeEntry,
     shellStyle: themeEntryToInlineStyle(effectiveThemeEntry, primaryColor),

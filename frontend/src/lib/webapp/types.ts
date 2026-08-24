@@ -75,6 +75,7 @@ export type WebappConfig = BootstrapResponse["config"] &
     languages?: LanguageOption[] | unknown[];
     registrationInviteOnlyEnabled?: boolean;
     themePreviewKey?: unknown;
+    userThemeModeEnabled?: boolean;
   };
 export const FALLBACK_WEBAPP_CONFIG: WebappConfig = {
   adminCssAsset: "",
@@ -100,6 +101,7 @@ export const FALLBACK_WEBAPP_CONFIG: WebappConfig = {
   telegramOAuthClientId: 0,
   telegramOAuthRequestAccess: "",
   themePreviewKey: "",
+  userThemeModeEnabled: true,
   themesCatalog: { default_theme: "dark", themes: [] },
   themesDir: "",
   title: "Subscription",

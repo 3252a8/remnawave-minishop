@@ -205,6 +205,7 @@ class SettingsStub(SimpleNamespace):
         return WebAppSettings(
             title=getattr(self, "WEBAPP_TITLE", "/minishop"),
             primary_color=getattr(self, "WEBAPP_PRIMARY_COLOR", "#00fe7a"),
+            user_theme_mode_enabled=bool(getattr(self, "WEBAPP_USER_THEME_MODE_ENABLED", True)),
             logo_url=getattr(self, "WEBAPP_LOGO_URL", None),
             favicon_use_custom=bool(getattr(self, "WEBAPP_FAVICON_USE_CUSTOM", False)),
             favicon_url=getattr(self, "WEBAPP_FAVICON_URL", None),

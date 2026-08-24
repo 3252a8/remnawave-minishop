@@ -553,6 +553,12 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     WEBAPP_SERVER_PORT: int = Field(default=8081)
     WEBAPP_TITLE: str = Field(default="/minishop")
     WEBAPP_PRIMARY_COLOR: str = Field(default="#00fe7a")
+    WEBAPP_USER_THEME_MODE_ENABLED: bool = Field(
+        default=True,
+        description=(
+            "Allow users to choose Auto, Light, or Dark mode within the active Web App theme."
+        ),
+    )
     WEBAPP_THEMES_DIR: str = Field(
         default="data/themes",
         description=(

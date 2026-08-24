@@ -23,6 +23,7 @@ export type PreviewMockConfig = Record<string, unknown> & {
   language: string;
   languages: { code: string; label: string; flag: string; base?: boolean }[];
   themesCatalog: PreviewThemesCatalog;
+  userThemeModeEnabled: boolean;
 };
 
 export type PreviewMockData = Record<string, unknown> & {

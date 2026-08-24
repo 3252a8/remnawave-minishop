@@ -32,3 +32,11 @@ def test_mock_favicon_upload_persists_custom_favicon_state():
     assert "WEBAPP_FAVICON_URL: faviconUrl" in route_block
     assert "WEBAPP_FAVICON_USE_CUSTOM: true" in route_block
     assert "persisted: true" in route_block
+
+
+def test_appearance_exposes_user_theme_mode_toggle():
+    source = APPEARANCE_SECTION.read_text(encoding="utf-8")
+
+    assert '"WEBAPP_USER_THEME_MODE_ENABLED"' in source
+    assert 'at("appearance_user_theme_mode_title"' in source
+    assert "onCheckedChange={setUserThemeModeEnabled}" in source

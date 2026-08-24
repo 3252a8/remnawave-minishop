@@ -19,6 +19,14 @@ describe("admin persisted settings helpers", () => {
     ).toBe(true);
   });
 
+  it("reloads the shell after the user theme mode setting changes", () => {
+    expect(
+      adminPayloadHasFrontendReloadChange({
+        updates: { WEBAPP_USER_THEME_MODE_ENABLED: false },
+      })
+    ).toBe(true);
+  });
+
   it("ignores unrelated settings", () => {
     expect(
       adminPayloadHasFrontendReloadChange({

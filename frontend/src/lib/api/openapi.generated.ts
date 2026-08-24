@@ -7309,6 +7309,8 @@ export interface components {
       title: string;
       /** Useragreementurl */
       userAgreementUrl: string;
+      /** Userthememodeenabled */
+      userThemeModeEnabled: boolean;
     } & {
       [key: string]: unknown;
     };

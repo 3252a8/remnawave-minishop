@@ -11,6 +11,7 @@ export { default as LanguageSelect } from "./LanguageSelect.svelte";
 export { default as PaymentMethodGrid } from "./PaymentMethodGrid.svelte";
 export { default as PaymentMethodPicker } from "./PaymentMethodPicker.svelte";
 export { default as StatusMessage } from "./StatusMessage.svelte";
+export { default as ThemeSelect } from "./ThemeSelect.svelte";
 export { default as TicketCard } from "./TicketCard.svelte";
 export { default as TicketMessageBubble } from "./TicketMessageBubble.svelte";
 export { default as TypingIndicator } from "./TypingIndicator.svelte";

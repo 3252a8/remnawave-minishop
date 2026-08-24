@@ -54,6 +54,30 @@ from .webapp_themes_store import (  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
+_LEGACY_DEFAULT_LIGHT_TOKENS: dict[str, object | None] = {
+    "border": "rgba(15, 23, 42, 0.11)",
+    "border_strong": "rgba(15, 23, 42, 0.2)",
+    "text": "#0f172a",
+    "muted": "#475569",
+    "dim": "#64748b",
+    "danger": "#dc2626",
+    "danger_text": "#b91c1c",
+    "success": "#16a34a",
+    "success_text": "#166534",
+    "warning": "#d97706",
+    "warning_text": "#92400e",
+    "info": "#2563eb",
+    "info_text": "#1d4ed8",
+    "blue": "#2563eb",
+    "surface_hover": "rgba(15, 23, 42, 0.045)",
+    "surface_muted": "rgba(15, 23, 42, 0.035)",
+    "nav_bg": "rgba(255, 255, 255, 0.88)",
+    "rail_bg": "rgba(255, 255, 255, 0.72)",
+    "shadow_soft": "0 6px 18px rgba(15, 23, 42, 0.06)",
+    "shadow_strong": "0 18px 44px rgba(15, 23, 42, 0.12)",
+    "shadow_popover": "0 14px 28px rgba(15, 23, 42, 0.12)",
+}
+
 
 def _strip_default_theme_admin_tokens(theme_data: dict[str, Any]) -> bool:
     """Remove legacy default-theme admin palette overrides."""
@@ -69,6 +93,28 @@ def _strip_default_theme_admin_tokens(theme_data: dict[str, Any]) -> bool:
         for key in DEFAULT_THEME_ADMIN_TOKEN_KEYS:
             if key in token_set:
                 token_set.pop(key, None)
+                changed = True
+    return changed
+
+
+def _upgrade_default_light_tokens(theme_data: dict[str, Any], builtin_data: dict[str, Any]) -> bool:
+    """Refresh untouched light defaults while preserving administrator customizations."""
+    variants = theme_data.get("variants")
+    builtin_variants = builtin_data.get("variants")
+    if not isinstance(variants, dict) or not isinstance(builtin_variants, dict):
+        return False
+    light = variants.get("light")
+    builtin_light = builtin_variants.get("light")
+    if not isinstance(light, dict) or not isinstance(builtin_light, dict):
+        return False
+
+    changed = False
+    for key, legacy_value in _LEGACY_DEFAULT_LIGHT_TOKENS.items():
+        current_value = light.get(key)
+        if key not in light or current_value == legacy_value:
+            replacement = builtin_light.get(key)
+            if replacement is not None and current_value != replacement:
+                light[key] = replacement
                 changed = True
     return changed
 
@@ -131,6 +177,19 @@ def ensure_webapp_core_themes(
         if builtin_key == DEFAULT_WEBAPP_THEME_KEY and _strip_default_theme_admin_tokens(existing):
             changed = True
 
+        if builtin_key == DEFAULT_WEBAPP_THEME_KEY:
+            names = existing.setdefault("names", {})
+            builtin_names = builtin_data.get("names", {})
+            if (
+                isinstance(names, dict)
+                and isinstance(builtin_names, dict)
+                and names.get("en") == "Dark"
+            ):
+                for language in ("en", "ru"):
+                    if names.get(language) and builtin_names.get(language):
+                        names[language] = builtin_names[language]
+                        changed = True
+
         tokens = existing.setdefault("tokens", {})
         builtin_tokens = builtin_data.get("tokens", {})
         for token_key in ("color_scheme", "style_preset"):
@@ -151,6 +210,22 @@ def ensure_webapp_core_themes(
             if "light" not in variants and isinstance(builtin_variants, dict):
                 variants["light"] = builtin_variants.get("light", {})
                 changed = True
+            if _upgrade_default_light_tokens(existing, builtin_data):
+                changed = True
+            if not existing.get("active_variant"):
+                existing["active_variant"] = _variant_key(tokens.get("color_scheme")) or "dark"
+                changed = True
+        elif builtin_key in {"windows95", "ascii"}:
+            variants = existing.setdefault("variants", {})
+            if not isinstance(variants, dict):
+                existing["variants"] = variants = {}
+                changed = True
+            builtin_variants = builtin_data.get("variants", {})
+            if isinstance(builtin_variants, dict):
+                for variant_key in ("light", "dark"):
+                    if variant_key not in variants and variant_key in builtin_variants:
+                        variants[variant_key] = builtin_variants[variant_key]
+                        changed = True
             if not existing.get("active_variant"):
                 existing["active_variant"] = _variant_key(tokens.get("color_scheme")) or "dark"
                 changed = True
@@ -341,6 +416,10 @@ def public_theme_payload(theme: WebappTheme, primary_accent: str) -> dict[str, o
         payload["variant_alias_for"] = theme.variant_alias_for
     if theme.hidden:
         payload["hidden"] = True
+    if theme.variants:
+        payload["variants"] = {
+            key: _tokens_to_json(tokens) for key, tokens in theme.variants.items()
+        }
     return payload
 
 

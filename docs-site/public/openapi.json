@@ -11037,10 +11037,15 @@
           "userAgreementUrl": {
             "title": "Useragreementurl",
             "type": "string"
+          },
+          "userThemeModeEnabled": {
+            "title": "Userthememodeenabled",
+            "type": "boolean"
           }
         },
         "required": [
           "title",
+          "userThemeModeEnabled",
           "themesDir",
           "themePreviewKey",
           "logoUrl",

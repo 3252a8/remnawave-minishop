@@ -192,6 +192,14 @@ SETTINGS_MANIFEST: list[SettingField] = [
     SettingField(
         "WEBAPP_PRIMARY_COLOR", "color", "appearance", "WebApp Primary Color", placeholder="#00fe7a"
     ),
+    SettingField(
+        "WEBAPP_USER_THEME_MODE_ENABLED",
+        "bool",
+        "appearance",
+        "User theme mode selection",
+        "Allow users to choose Auto, Light, or Dark mode within the active theme.",
+        optional=False,
+    ),
     SettingField("WEBAPP_LOGO_URL", "url", "appearance", "WebApp Logo URL"),
     SettingField(
         "WEBAPP_FAVICON_USE_CUSTOM",

@@ -6,34 +6,43 @@
 
 .theme-key-ascii {
   color-scheme: dark;
-  --accent: #ffffff;
-  --accent-contrast: #000000;
-  --bg: #000000;
-  --panel: #000000;
-  --panel-2: #050505;
-  --panel-3: #0c0c0c;
-  --border: #ffffff;
-  --border-strong: #ffffff;
-  --text: #ffffff;
-  --muted: #b0b0b0;
-  --dim: #6a6a6a;
-  --danger: #ff5555;
-  --danger-text: #ff5555;
-  --danger-soft: #000000;
-  --danger-border: #ff5555;
-  --success: #ffffff;
-  --success-text: #ffffff;
-  --success-soft: #000000;
-  --success-border: #ffffff;
-  --warning: #ffffff;
-  --warning-text: #ffffff;
-  --warning-soft: #000000;
-  --warning-border: #ffffff;
-  --info: #ffffff;
-  --info-text: #ffffff;
-  --info-soft: #000000;
-  --info-border: #ffffff;
-  --blue: #ffffff;
+  --ascii-bg: #000000;
+  --ascii-fg: #ffffff;
+  --ascii-panel-2: #050505;
+  --ascii-panel-3: #0c0c0c;
+  --ascii-surface-muted: #0a0a0a;
+  --ascii-muted: #b0b0b0;
+  --ascii-dim: #6a6a6a;
+  --ascii-danger: #ff5555;
+  --ascii-danger-soft: #ffaaaa;
+  --accent: var(--ascii-fg);
+  --accent-contrast: var(--ascii-bg);
+  --bg: var(--ascii-bg);
+  --panel: var(--ascii-bg);
+  --panel-2: var(--ascii-panel-2);
+  --panel-3: var(--ascii-panel-3);
+  --border: var(--ascii-fg);
+  --border-strong: var(--ascii-fg);
+  --text: var(--ascii-fg);
+  --muted: var(--ascii-muted);
+  --dim: var(--ascii-dim);
+  --danger: var(--ascii-danger);
+  --danger-text: var(--ascii-danger);
+  --danger-soft: var(--ascii-bg);
+  --danger-border: var(--ascii-danger);
+  --success: var(--ascii-fg);
+  --success-text: var(--ascii-fg);
+  --success-soft: var(--ascii-bg);
+  --success-border: var(--ascii-fg);
+  --warning: var(--ascii-fg);
+  --warning-text: var(--ascii-fg);
+  --warning-soft: var(--ascii-bg);
+  --warning-border: var(--ascii-fg);
+  --info: var(--ascii-fg);
+  --info-text: var(--ascii-fg);
+  --info-soft: var(--ascii-bg);
+  --info-border: var(--ascii-fg);
+  --blue: var(--ascii-fg);
   --radius: 0px;
   --font-sans: "JetBrains Mono", "Cascadia Code", "Fira Code", "Consolas",
     "Source Code Pro", "Courier New", ui-monospace, monospace;
@@ -44,25 +53,40 @@
   --surface-sheen: transparent;
   --surface-sheen-soft: transparent;
   --surface-hover: rgba(255, 255, 255, 0.08);
-  --surface-muted: #0a0a0a;
-  --surface-subtle: #000000;
-  --surface-subtle-border: #ffffff;
+  --surface-muted: var(--ascii-surface-muted);
+  --surface-subtle: var(--ascii-bg);
+  --surface-subtle-border: var(--ascii-fg);
   --overlay-scrim: rgba(0, 0, 0, 0.85);
-  --nav-bg: #000000;
-  --rail-bg: #000000;
+  --nav-bg: var(--ascii-bg);
+  --rail-bg: var(--ascii-bg);
   --shadow-soft: none;
   --shadow-strong: none;
-  --shadow-popover: 0 0 0 1px #ffffff;
+  --shadow-popover: 0 0 0 1px var(--ascii-fg);
   --inset-highlight: transparent;
-  --admin-bg: #000000;
-  --admin-surface: #000000;
-  --admin-surface-2: #050505;
-  --admin-elev: #0c0c0c;
-  --admin-border: #ffffff;
-  --admin-border-strong: #ffffff;
-  --admin-text: #ffffff;
-  --admin-muted: #b0b0b0;
-  --admin-dim: #6a6a6a;
+  --admin-bg: var(--ascii-bg);
+  --admin-surface: var(--ascii-bg);
+  --admin-surface-2: var(--ascii-panel-2);
+  --admin-elev: var(--ascii-panel-3);
+  --admin-border: var(--ascii-fg);
+  --admin-border-strong: var(--ascii-fg);
+  --admin-text: var(--ascii-fg);
+  --admin-muted: var(--ascii-muted);
+  --admin-dim: var(--ascii-dim);
+}
+
+.theme-key-ascii.theme-variant-light {
+  color-scheme: light;
+  --ascii-bg: #ffffff;
+  --ascii-fg: #000000;
+  --ascii-panel-2: #fafafa;
+  --ascii-panel-3: #f3f3f3;
+  --ascii-surface-muted: #f6f6f6;
+  --ascii-muted: #4f4f4f;
+  --ascii-dim: #707070;
+  --ascii-danger: #c62828;
+  --ascii-danger-soft: #7f1d1d;
+  --surface-hover: rgba(0, 0, 0, 0.08);
+  --overlay-scrim: rgba(255, 255, 255, 0.85);
 }
 
 /* ---------- Base typography ---------- */
@@ -172,7 +196,7 @@
 .theme-key-ascii .admin-select-content,
 .theme-key-ascii .admin-cn-card[data-slot="card"],
 .theme-key-ascii .admin-dialog .dialog-card {
-  border: 1px solid #ffffff;
+  border: 1px solid var(--ascii-fg);
   border-radius: 0;
   background: var(--panel);
   box-shadow: none;
@@ -200,10 +224,10 @@
 .theme-key-ascii .admin-mobile-toggle,
 .theme-key-ascii .admin-nav-item,
 .theme-key-ascii .admin-config-alert-link {
-  border: 1px solid #ffffff;
+  border: 1px solid var(--ascii-fg);
   border-radius: 0;
-  background: #000000;
-  color: #ffffff;
+  background: var(--ascii-bg);
+  color: var(--ascii-fg);
   box-shadow: none;
   text-transform: none;
   font-family: var(--font-sans);
@@ -218,8 +242,8 @@
 .theme-key-ascii .admin-revenue-period-btn:hover,
 .theme-key-ascii .bottom-nav button:hover,
 .theme-key-ascii .admin-config-alert-link:hover {
-  background: #ffffff;
-  color: #000000;
+  background: var(--ascii-fg);
+  color: var(--ascii-bg);
 }
 
 .theme-key-ascii .btn:active:not(:disabled),
@@ -227,8 +251,8 @@
 .theme-key-ascii .support-new-ticket-button:active,
 .theme-key-ascii .support-status-tabs-trigger:active,
 .theme-key-ascii .admin-btn:active:not(:disabled) {
-  background: #ffffff;
-  color: #000000;
+  background: var(--ascii-fg);
+  color: var(--ascii-bg);
   transform: translate(1px, 1px);
 }
 
@@ -246,22 +270,22 @@
 .theme-key-ascii .admin-nav-item.active,
 .theme-key-ascii .admin-tabs-trigger[data-state="active"],
 .theme-key-ascii .admin-revenue-period-btn.is-active {
-  background: #ffffff;
-  color: #000000;
-  border-color: #ffffff;
+  background: var(--ascii-fg);
+  color: var(--ascii-bg);
+  border-color: var(--ascii-fg);
 }
 
 .theme-key-ascii .btn-primary:hover:not(:disabled),
 .theme-key-ascii .admin-btn-primary:hover:not(:disabled) {
-  background: #000000;
-  color: #ffffff;
-  outline: 1px solid #ffffff;
+  background: var(--ascii-bg);
+  color: var(--ascii-fg);
+  outline: 1px solid var(--ascii-fg);
   outline-offset: -2px;
 }
 
 /* Blinking caret-style focus ring. */
 @keyframes ascii-caret {
-  0%, 49% { outline-color: #ffffff; }
+  0%, 49% { outline-color: var(--ascii-fg); }
   50%, 100% { outline-color: transparent; }
 }
 
@@ -276,7 +300,7 @@
 .theme-key-ascii .install-platform-trigger[data-state="open"],
 .theme-key-ascii .install-app-button:focus-visible,
 .theme-key-ascii .bottom-nav button:focus-visible {
-  outline: 2px solid #ffffff;
+  outline: 2px solid var(--ascii-fg);
   outline-offset: 1px;
   animation: ascii-caret 1s steps(1) infinite;
 }
@@ -289,13 +313,13 @@
 .theme-key-ascii .admin-textarea,
 .theme-key-ascii .admin-screen-wrap textarea,
 .theme-key-ascii .admin-dialog textarea {
-  border: 1px solid #ffffff;
+  border: 1px solid var(--ascii-fg);
   border-radius: 0;
-  background: #000000;
-  color: #ffffff;
+  background: var(--ascii-bg);
+  color: var(--ascii-fg);
   box-shadow: none;
   font-family: var(--font-mono);
-  caret-color: #ffffff;
+  caret-color: var(--ascii-fg);
 }
 
 .theme-key-ascii .input::placeholder,
@@ -315,8 +339,8 @@
 .theme-key-ascii .admin-screen-wrap textarea:focus,
 .theme-key-ascii .admin-dialog textarea:focus {
   outline: none;
-  border-color: #ffffff;
-  box-shadow: inset 0 0 0 1px #ffffff;
+  border-color: var(--ascii-fg);
+  box-shadow: inset 0 0 0 1px var(--ascii-fg);
 }
 
 /* ---------- Admin controls: range sliders and sortable rows ---------- */
@@ -327,34 +351,34 @@
 
 .theme-key-ascii .ui-range-input::before {
   height: 8px;
-  border: 1px solid #ffffff;
-  background: #000000;
+  border: 1px solid var(--ascii-fg);
+  background: var(--ascii-bg);
 }
 
 .theme-key-ascii .ui-range-input__range {
   height: 8px;
-  background: #ffffff;
+  background: var(--ascii-fg);
 }
 
 .theme-key-ascii .ui-range-input__thumb {
   width: 16px;
   height: 18px;
-  border: 1px solid #ffffff;
+  border: 1px solid var(--ascii-fg);
   border-radius: 0;
-  background: #000000;
+  background: var(--ascii-bg);
   box-shadow: none;
   transition: none;
 }
 
 .theme-key-ascii .ui-range-input__thumb:hover,
 .theme-key-ascii .ui-range-input__thumb:focus-visible {
-  background: #ffffff;
-  color: #000000;
-  box-shadow: 0 0 0 1px #000000;
+  background: var(--ascii-fg);
+  color: var(--ascii-bg);
+  box-shadow: 0 0 0 1px var(--ascii-bg);
 }
 
 .theme-key-ascii .ui-sortable {
-  --sortable-drop-line: #ffffff;
+  --sortable-drop-line: var(--ascii-fg);
   --sortable-drop-soft: rgba(255, 255, 255, 0.08);
   gap: 6px;
 }
@@ -364,7 +388,7 @@
 }
 
 .theme-key-ascii .ui-sortable-item.is-drop-target {
-  outline: 1px dashed #ffffff;
+  outline: 1px dashed var(--ascii-fg);
   outline-offset: 2px;
   background: rgba(255, 255, 255, 0.08);
   box-shadow: none;
@@ -374,24 +398,24 @@
   top: -5px;
   height: 1px;
   border-radius: 0;
-  background: #ffffff;
+  background: var(--ascii-fg);
   box-shadow: none;
 }
 
 .theme-key-ascii .ui-sortable-handle {
   align-self: center;
   height: 28px;
-  border: 1px solid #ffffff;
-  background: #000000;
-  color: #ffffff;
+  border: 1px solid var(--ascii-fg);
+  background: var(--ascii-bg);
+  color: var(--ascii-fg);
   box-shadow: none;
 }
 
 .theme-key-ascii .ui-sortable-handle:hover,
 .theme-key-ascii .ui-sortable-handle:focus-visible,
 .theme-key-ascii .ui-sortable-handle:active {
-  background: #ffffff;
-  color: #000000;
+  background: var(--ascii-fg);
+  color: var(--ascii-bg);
 }
 
 /* ---------- Admin health config alerts ---------- */
@@ -399,7 +423,7 @@
 .theme-key-ascii .admin-config-alerts {
   position: relative;
   padding-left: 18px;
-  color: #ffffff;
+  color: var(--ascii-fg);
 }
 
 .theme-key-ascii .admin-config-alerts::before {
@@ -407,18 +431,18 @@
   position: absolute;
   top: 11px;
   left: 7px;
-  color: #ffffff;
+  color: var(--ascii-fg);
   font-family: var(--font-mono);
   font-weight: 700;
 }
 
 .theme-key-ascii .admin-config-alerts-error {
-  border-color: #ff5555;
-  color: #ffaaaa;
+  border-color: var(--ascii-danger);
+  color: var(--ascii-danger-soft);
 }
 
 .theme-key-ascii .admin-config-alerts-error::before {
-  color: #ff5555;
+  color: var(--ascii-danger);
 }
 
 .theme-key-ascii .admin-config-alert-dot {
@@ -437,7 +461,7 @@
 
 .theme-key-ascii .admin-config-alert-error .admin-config-alert-dot {
   background: transparent;
-  color: #ff5555;
+  color: var(--ascii-danger);
 }
 
 .theme-key-ascii .admin-config-alert-link {
@@ -456,12 +480,12 @@
 .theme-key-ascii .subscription-purchase-description,
 .theme-key-ascii .support-create-panel,
 .theme-key-ascii .ticket-composer {
-  background: #000000;
+  background: var(--ascii-bg);
 }
 
 .theme-key-ascii .trial-card-head > svg,
 .theme-key-ascii .dialog-title-icon {
-  color: #ffffff;
+  color: var(--ascii-fg);
 }
 
 .theme-key-ascii .support-heading-icon,
@@ -469,41 +493,41 @@
 .theme-key-ascii .support-empty-state svg,
 .theme-key-ascii .ticket-card-title svg,
 .theme-key-ascii .field-error-icon {
-  color: #ffffff;
+  color: var(--ascii-fg);
 }
 
 .theme-key-ascii .password-switch-divider,
 .theme-key-ascii .or-line span {
   height: 1px;
-  background: #ffffff;
+  background: var(--ascii-fg);
 }
 
 .theme-key-ascii .link-button {
   min-height: 28px;
   padding: 0 8px;
-  color: #ffffff;
+  color: var(--ascii-fg);
   cursor: pointer;
 }
 
 .theme-key-ascii .link-button:hover:not(:disabled),
 .theme-key-ascii .support-status-tabs-trigger:hover {
-  background: #ffffff;
-  color: #000000;
+  background: var(--ascii-fg);
+  color: var(--ascii-bg);
 }
 
 .theme-key-ascii .ticket-card::before {
   inset: 0 auto 0 0;
   width: 1px;
   border-radius: 0;
-  background: #ffffff;
+  background: var(--ascii-fg);
 }
 
 .theme-key-ascii .ticket-status-badge,
 .theme-key-ascii .ticket-priority-badge,
 .theme-key-ascii .ticket-message-role-badge {
-  border-color: #ffffff;
-  background: #000000;
-  color: #ffffff;
+  border-color: var(--ascii-fg);
+  background: var(--ascii-bg);
+  color: var(--ascii-fg);
 }
 
 .theme-key-ascii .ticket-status-badge::before,
@@ -523,9 +547,9 @@
 .theme-key-ascii .ticket-message-row--user,
 .theme-key-ascii .ticket-message-row--system,
 .theme-key-ascii .ticket-message-row--internal {
-  --ticket-bubble-bg: #000000;
-  --ticket-bubble-border: #ffffff;
-  --ticket-bubble-text: #ffffff;
+  --ticket-bubble-bg: var(--ascii-bg);
+  --ticket-bubble-border: var(--ascii-fg);
+  --ticket-bubble-text: var(--ascii-fg);
 }
 
 .theme-key-ascii .ticket-message-bubble,
@@ -535,7 +559,7 @@
 
 .theme-key-ascii .ticket-message-row--outgoing .ticket-message-bubble::after,
 .theme-key-ascii .ticket-message-row--incoming .ticket-message-bubble::before {
-  color: #ffffff;
+  color: var(--ascii-fg);
   font-family: var(--font-mono);
 }
 
@@ -551,8 +575,8 @@
 .theme-key-ascii .support-select-trigger:focus-visible,
 .theme-key-ascii .ticket-card:focus-visible,
 .theme-key-ascii .support-status-tabs-trigger:focus-visible {
-  border-color: #ffffff;
-  box-shadow: inset 0 0 0 1px #ffffff;
+  border-color: var(--ascii-fg);
+  box-shadow: inset 0 0 0 1px var(--ascii-fg);
 }
 
 .theme-key-ascii .support-message-scroll,
@@ -567,56 +591,56 @@
 body:has(.theme-key-ascii) .support-select-content,
 body:has(.theme-key-ascii) .install-platform-content,
 body:has(.theme-key-ascii) .field-error-tooltip {
-  border: 1px solid #ffffff;
+  border: 1px solid var(--ascii-fg);
   border-radius: 0;
-  background: #000000;
-  color: #ffffff;
-  box-shadow: 0 0 0 1px #ffffff;
+  background: var(--ascii-bg);
+  color: var(--ascii-fg);
+  box-shadow: 0 0 0 1px var(--ascii-fg);
 }
 
 body:has(.theme-key-ascii) .support-select-item,
 body:has(.theme-key-ascii) .install-platform-item {
   border-radius: 0;
-  color: #ffffff;
+  color: var(--ascii-fg);
 }
 
 body:has(.theme-key-ascii) .support-select-item[data-highlighted],
 body:has(.theme-key-ascii) .support-select-item[data-selected],
 body:has(.theme-key-ascii) .install-platform-item[data-highlighted],
 body:has(.theme-key-ascii) .install-platform-item[data-selected] {
-  background: #ffffff;
-  color: #000000 !important;
+  background: var(--ascii-fg);
+  color: var(--ascii-bg) !important;
 }
 
 body:has(.theme-key-ascii) .support-select-item[data-highlighted] svg,
 body:has(.theme-key-ascii) .support-select-item[data-selected] svg,
 body:has(.theme-key-ascii) .install-platform-item[data-highlighted] svg,
 body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
-  color: #000000 !important;
-  stroke: #000000 !important;
+  color: var(--ascii-bg) !important;
+  stroke: var(--ascii-bg) !important;
 }
 
 /* ---------- Bottom nav (desktop rail) ---------- */
 
 @media (min-width: 1024px) {
   .theme-key-ascii .bottom-nav {
-    border-right: 1px solid #ffffff !important;
+    border-right: 1px solid var(--ascii-fg) !important;
     background: var(--rail-bg) !important;
     backdrop-filter: none !important;
     box-shadow: none !important;
   }
 
   .theme-key-ascii .bottom-nav button {
-    border: 1px solid #ffffff !important;
+    border: 1px solid var(--ascii-fg) !important;
     border-radius: 0 !important;
-    background: #000000 !important;
-    color: #ffffff !important;
+    background: var(--ascii-bg) !important;
+    color: var(--ascii-fg) !important;
     box-shadow: none !important;
   }
 
   .theme-key-ascii .bottom-nav button.active {
-    background: #ffffff !important;
-    color: #000000 !important;
+    background: var(--ascii-fg) !important;
+    color: var(--ascii-bg) !important;
   }
 }
 
@@ -627,9 +651,9 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 
 .theme-key-ascii .progress {
   height: 14px;
-  border: 1px solid #ffffff;
+  border: 1px solid var(--ascii-fg);
   border-radius: 0 !important;
-  background-color: #000000;
+  background-color: var(--ascii-bg);
   background-image: repeating-linear-gradient(
     90deg,
     rgba(255, 255, 255, 0.22) 0,
@@ -644,7 +668,7 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 
 .theme-key-ascii .progress span {
   border-radius: 0 !important;
-  background: #ffffff !important;
+  background: var(--ascii-fg) !important;
   background-image: repeating-linear-gradient(
     90deg,
     rgba(0, 0, 0, 0.0) 0,
@@ -719,7 +743,7 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
   content: "_";
   display: inline-block;
   margin-left: 0.2ch;
-  color: #ffffff;
+  color: var(--ascii-fg);
   animation: ascii-blink 1s steps(1) infinite;
 }
 
@@ -734,7 +758,7 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 .theme-key-ascii .card > h2:first-child::before,
 .theme-key-ascii .card > h3:first-child::before {
   content: "> ";
-  color: #ffffff;
+  color: var(--ascii-fg);
   opacity: 0.85;
   font-family: var(--font-mono);
 }
@@ -742,16 +766,16 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 /* ---------- Tables ---------- */
 
 .theme-key-ascii .admin-table thead th {
-  background: #000000;
-  color: #ffffff;
-  border-bottom: 1px solid #ffffff;
+  background: var(--ascii-bg);
+  color: var(--ascii-fg);
+  border-bottom: 1px solid var(--ascii-fg);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-weight: 700;
 }
 
 .theme-key-ascii .admin-table tbody tr {
-  border-bottom: 1px dashed #ffffff;
+  border-bottom: 1px dashed var(--ascii-fg);
 }
 
 .theme-key-ascii .admin-table tbody tr:hover {
@@ -762,10 +786,10 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 
 .theme-key-ascii .admin-badge,
 .theme-key-ascii .admin-cn-badge {
-  border: 1px solid #ffffff;
+  border: 1px solid var(--ascii-fg);
   border-radius: 0;
-  background: #000000;
-  color: #ffffff;
+  background: var(--ascii-bg);
+  color: var(--ascii-fg);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -785,23 +809,23 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 
 .theme-key-ascii a:not(.btn):not(.bottom-nav button):not([class*="-trigger"]),
 .theme-key-ascii .admin-screen-wrap a:not(.admin-btn):not(.admin-nav-item) {
-  color: #ffffff;
+  color: var(--ascii-fg);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
 .theme-key-ascii a:not(.btn):not(.bottom-nav button):not([class*="-trigger"]):hover,
 .theme-key-ascii .admin-screen-wrap a:not(.admin-btn):not(.admin-nav-item):hover {
-  background: #ffffff;
-  color: #000000;
+  background: var(--ascii-fg);
+  color: var(--ascii-bg);
   text-decoration: none;
 }
 
 /* ---------- Selection ---------- */
 
 .theme-key-ascii ::selection {
-  background: #ffffff;
-  color: #000000;
+  background: var(--ascii-fg);
+  color: var(--ascii-bg);
 }
 
 /* ---------- Scrollbars ---------- */
@@ -812,35 +836,35 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 }
 
 .theme-key-ascii ::-webkit-scrollbar-track {
-  background-color: #000000;
+  background-color: var(--ascii-bg);
   background-image: repeating-linear-gradient(
     0deg,
-    #ffffff 0,
-    #ffffff 1px,
+    var(--ascii-fg) 0,
+    var(--ascii-fg) 1px,
     transparent 1px,
     transparent 4px
   );
 }
 
 .theme-key-ascii ::-webkit-scrollbar-thumb {
-  background: #ffffff;
-  border: 1px solid #000000;
+  background: var(--ascii-fg);
+  border: 1px solid var(--ascii-bg);
 }
 
 .theme-key-ascii ::-webkit-scrollbar-thumb:active {
-  background: #b0b0b0;
+  background: var(--ascii-muted);
 }
 
 .theme-key-ascii ::-webkit-scrollbar-corner {
-  background: #000000;
+  background: var(--ascii-bg);
 }
 
 /* ---------- Lucide icons: render as crisp white outlines ---------- */
 
 .theme-key-ascii svg.lucide,
 .theme-key-ascii svg[class*="lucide-"] {
-  color: #ffffff !important;
-  stroke: #ffffff !important;
+  color: var(--ascii-fg) !important;
+  stroke: var(--ascii-fg) !important;
   fill: none !important;
   stroke-width: 1.75;
   filter: none;
@@ -856,8 +880,8 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 .theme-key-ascii .admin-tabs-trigger[data-state="active"] svg.lucide,
 .theme-key-ascii .admin-revenue-period-btn.is-active svg.lucide,
 .theme-key-ascii .install-app-button.active svg.lucide {
-  color: #000000 !important;
-  stroke: #000000 !important;
+  color: var(--ascii-bg) !important;
+  stroke: var(--ascii-bg) !important;
 }
 
 /* ---------- Toast / language select polish ---------- */
@@ -868,8 +892,8 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 
 .theme-key-ascii .language-select-item[data-highlighted],
 .theme-key-ascii .language-select-item[data-selected] {
-  background: #ffffff;
-  color: #000000 !important;
+  background: var(--ascii-fg);
+  color: var(--ascii-bg) !important;
 }
 
 /* ---------- Headings: stronger console feel ---------- */
@@ -884,14 +908,14 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 }
 
 .theme-key-ascii .admin-header {
-  background: #000000;
-  border-bottom: 1px solid #ffffff;
-  color: #ffffff;
+  background: var(--ascii-bg);
+  border-bottom: 1px solid var(--ascii-fg);
+  color: var(--ascii-fg);
 }
 
 .theme-key-ascii .admin-header-title h2,
 .theme-key-ascii .admin-header-title small {
-  color: #ffffff;
+  color: var(--ascii-fg);
 }
 
 /* Make any element with role progressbar but no inner span show animated stripes. */
@@ -899,15 +923,15 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
   background:
     repeating-linear-gradient(
       90deg,
-      #ffffff 0,
-      #ffffff 6px,
-      #000000 6px,
-      #000000 8px
+      var(--ascii-fg) 0,
+      var(--ascii-fg) 6px,
+      var(--ascii-bg) 6px,
+      var(--ascii-bg) 8px
     );
   animation: ascii-scan 0.6s linear infinite;
-  border: 1px solid #ffffff;
+  border: 1px solid var(--ascii-fg);
   border-radius: 0;
-  color: #000000;
+  color: var(--ascii-bg);
 }
 
 /* ============================================================
@@ -944,8 +968,8 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 .theme-key-ascii .admin-stat-skeleton-wide,
 .theme-key-ascii .admin-cn-card-skeleton--tall {
   border-radius: 0 !important;
-  border: 1px solid #ffffff !important;
-  background-color: #050505 !important;
+  border: 1px solid var(--ascii-fg) !important;
+  background-color: var(--ascii-panel-2) !important;
   background-image: linear-gradient(
     90deg,
     transparent 0%,
@@ -956,7 +980,7 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
   ) !important;
   background-size: 200% 100% !important;
   background-repeat: no-repeat !important;
-  color: #ffffff !important;
+  color: var(--ascii-fg) !important;
   animation: ascii-skeleton-scan 1.6s linear infinite !important;
 }
 
@@ -1033,7 +1057,7 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
   top: 50%;
   transform: translateY(-50%);
   font-family: var(--font-mono);
-  color: #000000;
+  color: var(--ascii-bg);
   animation: ascii-blink 1s steps(1) infinite;
   z-index: 2;
 }
@@ -1046,7 +1070,7 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
   top: 50%;
   transform: translateY(-50%);
   font-family: var(--font-mono);
-  color: #000000;
+  color: var(--ascii-bg);
   animation: ascii-blink 1s steps(1) infinite;
   animation-delay: 0.5s;
   z-index: 2;
@@ -1122,13 +1146,13 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
   max-width: 28ch;
   overflow: hidden;
   white-space: nowrap;
-  background: #000000;
-  color: #ffffff;
+  background: var(--ascii-bg);
+  color: var(--ascii-fg);
   font-family: var(--font-mono);
   font-size: 11px;
   line-height: 1.5;
-  border-right: 1px solid #ffffff;
-  border-bottom: 1px solid #ffffff;
+  border-right: 1px solid var(--ascii-fg);
+  border-bottom: 1px solid var(--ascii-fg);
   pointer-events: none;
   animation:
     ascii-boot-type 1.6s steps(28) 1 both,
@@ -1143,8 +1167,8 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
   -webkit-appearance: none;
   width: 1em;
   height: 1em;
-  border: 1px solid #ffffff;
-  background: #000000;
+  border: 1px solid var(--ascii-fg);
+  background: var(--ascii-bg);
   border-radius: 0 !important;
   position: relative;
   vertical-align: middle;
@@ -1161,7 +1185,7 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
   justify-content: center;
   font-family: var(--font-mono);
   font-weight: 700;
-  color: #ffffff;
+  color: var(--ascii-fg);
   line-height: 1;
 }
 
@@ -1169,7 +1193,7 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 
 body:has(.theme-key-ascii) .app-toast::before {
   content: "$ ";
-  color: #ffffff;
+  color: var(--ascii-fg);
   font-family: "JetBrains Mono", "Cascadia Code", "Consolas", "Courier New",
     ui-monospace, monospace;
   font-weight: 700;
@@ -1228,16 +1252,16 @@ body:has(.theme-key-ascii) .field-error-tooltip {
 .theme-key-ascii .install-qr-wrap,
 .theme-key-ascii .install-loading,
 body:has(.theme-key-ascii) .install-platform-content {
-  border: 1px solid #ffffff !important;
+  border: 1px solid var(--ascii-fg) !important;
   border-radius: 0 !important;
-  background: #000000 !important;
+  background: var(--ascii-bg) !important;
   box-shadow: none !important;
 }
 
 .theme-key-ascii .install-platform-trigger:hover,
 .theme-key-ascii .install-app-button:hover:not(:disabled) {
-  background: #ffffff !important;
-  color: #000000 !important;
+  background: var(--ascii-fg) !important;
+  color: var(--ascii-bg) !important;
   transform: none !important;
 }
 
@@ -1245,16 +1269,16 @@ body:has(.theme-key-ascii) .install-platform-content {
 .theme-key-ascii .install-app-button.active:hover:not(:disabled),
 body:has(.theme-key-ascii) .install-platform-item[data-highlighted],
 body:has(.theme-key-ascii) .install-platform-item[data-selected] {
-  background: #ffffff !important;
-  color: #000000 !important;
-  border-color: #ffffff !important;
+  background: var(--ascii-fg) !important;
+  color: var(--ascii-bg) !important;
+  border-color: var(--ascii-fg) !important;
 }
 
 .theme-key-ascii .install-app-button.active svg,
 body:has(.theme-key-ascii) .install-platform-item[data-highlighted] svg,
 body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
-  color: #000000 !important;
-  stroke: #000000 !important;
+  color: var(--ascii-bg) !important;
+  stroke: var(--ascii-bg) !important;
 }
 
 .theme-key-ascii .install-step:hover,
@@ -1266,22 +1290,22 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 .theme-key-ascii .install-step-icon,
 .theme-key-ascii .install-subscription-header-icon {
   border: 1px solid currentColor !important;
-  background: #000000 !important;
-  color: #ffffff !important;
+  background: var(--ascii-bg) !important;
+  color: var(--ascii-fg) !important;
 }
 
 .theme-key-ascii .install-qr-divider {
-  color: #ffffff !important;
+  color: var(--ascii-fg) !important;
   opacity: 0.72;
 }
 
 .theme-key-ascii .install-feature-star.attention-dot {
-  background: #ffffff !important;
+  background: var(--ascii-fg) !important;
   animation: ascii-caret 1s steps(1) infinite !important;
 }
 
 .theme-key-ascii .install-loading .ui-spinner {
-  color: #ffffff;
+  color: var(--ascii-fg);
 }
 
 /* ============================================================
@@ -1292,7 +1316,7 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 .theme-key-ascii .admin-table,
 .theme-key-ascii table {
   border-collapse: collapse;
-  border: 1px solid #ffffff;
+  border: 1px solid var(--ascii-fg);
   font-family: var(--font-mono);
 }
 
@@ -1300,22 +1324,22 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 .theme-key-ascii .admin-table td,
 .theme-key-ascii table th,
 .theme-key-ascii table td {
-  border: 1px solid #ffffff;
+  border: 1px solid var(--ascii-fg);
   border-radius: 0 !important;
   padding: 6px 10px;
 }
 
 .theme-key-ascii .admin-table thead th,
 .theme-key-ascii table thead th {
-  background: #000000;
-  border-bottom: 2px solid #ffffff;
+  background: var(--ascii-bg);
+  border-bottom: 2px solid var(--ascii-fg);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .theme-key-ascii .admin-table tbody tr,
 .theme-key-ascii table tbody tr {
-  border-bottom: 1px solid #ffffff;
+  border-bottom: 1px solid var(--ascii-fg);
 }
 
 .theme-key-ascii .admin-table tbody tr:hover,
@@ -1325,7 +1349,7 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 
 .theme-key-ascii .admin-table tbody tr:hover td,
 .theme-key-ascii table tbody tr:hover td {
-  color: #ffffff;
+  color: var(--ascii-fg);
 }
 
 /* ============================================================
@@ -1339,10 +1363,10 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
  * flattened above; only the rounded, color-tinted icon badge needs
  * squaring off (the Send glyph itself is whitened by the global rule). */
 .theme-key-ascii .telegram-notifications-icon {
-  border: 1px solid #ffffff;
+  border: 1px solid var(--ascii-fg);
   border-radius: 0;
-  background: #000000;
-  color: #ffffff;
+  background: var(--ascii-bg);
+  color: var(--ascii-fg);
 }
 
 /* Premium-server / referral-tariff dropdown help glyph: drop the
@@ -1356,14 +1380,14 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
   padding: 0;
   border-radius: 0;
   background: transparent;
-  color: #ffffff;
+  color: var(--ascii-fg);
 }
 
 /* The check on the selected language sits on a solid white row, so a
  * white glyph would vanish — invert it to black to keep it readable. */
 .theme-key-ascii .language-select-item[data-selected] .language-select-item-check {
-  color: #000000 !important;
-  stroke: #000000 !important;
+  color: var(--ascii-bg) !important;
+  stroke: var(--ascii-bg) !important;
 }
 
 /* Login-screen language trigger: square the rounded chip. */
@@ -1383,9 +1407,9 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 .theme-key-ascii .attention-dot,
 .theme-key-ascii .nav-badge,
 .theme-key-ascii .nav-badge-floating {
-  border: 1px solid #ffffff;
-  background: #ffffff;
-  color: #000000;
+  border: 1px solid var(--ascii-fg);
+  background: var(--ascii-fg);
+  color: var(--ascii-bg);
   box-shadow: none;
   animation: ascii-caret 1s steps(1) infinite;
 }
@@ -1424,8 +1448,8 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 .theme-key-ascii .admin-provider-logo-fallback,
 .theme-key-ascii .admin-extend-control,
 .theme-key-ascii .admin-settings-search-results {
-  border: 1px solid #ffffff;
-  background: #000000;
+  border: 1px solid var(--ascii-fg);
+  background: var(--ascii-bg);
   color: var(--text);
   box-shadow: none;
   backdrop-filter: none;
@@ -1441,13 +1465,13 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 .theme-key-ascii .admin-settings-search-result:focus-visible,
 .theme-key-ascii .admin-settings-search-result.is-active,
 .theme-key-ascii .ticket-message-button:hover {
-  background: #ffffff;
-  color: #000000;
+  background: var(--ascii-fg);
+  color: var(--ascii-bg);
 }
 
 .theme-key-ascii .admin-setting.is-search-highlighted {
-  background: #000000;
-  box-shadow: inset 3px 0 0 #ffffff;
+  background: var(--ascii-bg);
+  box-shadow: inset 3px 0 0 var(--ascii-fg);
 }
 
 /* Dirty and invalid states have no colour to spend, so they mark the row. */
@@ -1459,21 +1483,21 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 /* Rich-text ticket messages. */
 .theme-key-ascii .ticket-message-text code,
 .theme-key-ascii .ticket-message-text pre {
-  border: 1px solid #ffffff;
-  background: #000000;
-  color: #ffffff;
+  border: 1px solid var(--ascii-fg);
+  background: var(--ascii-bg);
+  color: var(--ascii-fg);
   font-family: var(--font-mono);
 }
 
 .theme-key-ascii .ticket-message-text blockquote {
-  border-left: 1px solid #ffffff;
+  border-left: 1px solid var(--ascii-fg);
   color: var(--muted);
 }
 
 .theme-key-ascii .ticket-typing-dots i {
   width: 6px;
   height: 6px;
-  background: #ffffff;
+  background: var(--ascii-fg);
 }
 
 /* Toggle knobs and range thumbs are drawn, never shadowed. */
@@ -1488,25 +1512,25 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 .theme-key-ascii .premium-server-trigger:focus-visible .premium-server-help-icon,
 .theme-key-ascii .premium-server-dropdown[data-open="true"] .premium-server-help-icon {
   background: transparent;
-  color: #ffffff;
+  color: var(--ascii-fg);
 }
 
 .theme-key-ascii .premium-server-trigger:focus-visible {
   background: transparent;
   box-shadow: none;
-  outline: 1px dashed #ffffff;
+  outline: 1px dashed var(--ascii-fg);
   outline-offset: -2px;
 }
 
 /* Sonner mounts its toaster outside the themed shell, so a toast is only
  * reachable from the document root and inherits none of the shell tokens. */
 body:has(.theme-key-ascii) .app-toast {
-  border: 1px solid #ffffff;
+  border: 1px solid var(--ascii-fg);
   border-radius: 0;
-  background: #000000;
-  color: #ffffff;
+  background: var(--ascii-bg);
+  color: var(--ascii-fg);
   backdrop-filter: none;
-  box-shadow: 0 0 0 1px #ffffff;
+  box-shadow: 0 0 0 1px var(--ascii-fg);
   font-family: "JetBrains Mono", "Cascadia Code", "Consolas", "Courier New",
     ui-monospace, monospace;
 }

@@ -117,6 +117,7 @@
 
 .theme-light {
   color-scheme: light;
+  --accent-readable: color-mix(in srgb, var(--accent) 44%, #0f172a);
 }
 
 .theme-light .ui-spinner,
@@ -141,6 +142,32 @@
 .theme-light .admin-btn.admin-btn-primary:hover:not(:disabled),
 .theme-light .admin-extend-control .admin-btn.admin-btn-primary:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 52%, #000000);
+}
+
+.theme-light .public-install-brand strong,
+.theme-light .screen-head strong,
+.theme-light .accent-title .brand-row strong,
+.theme-light .brand-mark,
+.theme-light .bottom-nav button.active,
+.theme-light .default-theme-check,
+.theme-light .admin-theme-card-check {
+  color: var(--accent-readable);
+}
+
+.theme-light .ui-checkbox[data-state="checked"],
+.theme-light .ui-checkbox[data-state="indeterminate"] {
+  border-color: var(--accent-readable);
+  background: var(--accent-readable);
+  color: #ffffff;
+}
+
+.theme-light .admin-switch-root[data-state="checked"] {
+  border-color: color-mix(in srgb, var(--success) 72%, var(--admin-border));
+  background: color-mix(in srgb, var(--success) 88%, var(--admin-elev));
+}
+
+.theme-light .admin-switch-thumb {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.24);
 }
 
 .theme-light.app-shell {
@@ -381,6 +408,7 @@ input {
   --home-logo-scale-effective: var(--home-logo-scale-mobile, var(--home-logo-scale, 1));
   min-height: 100dvh;
   background: var(--bg, #02070b) !important;
+  color: var(--text);
   font-family: var(--font-sans);
 }
 

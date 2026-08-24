@@ -2,6 +2,7 @@
   import { getSettingsStore, getThemesStore } from "$lib/admin/context";
   import { RefreshCw, Save } from "$components/ui/icons.js";
   import { AdminButton, AdminEmptyState } from "$components/patterns/admin/index.js";
+  import { Switch } from "$components/ui/primitives.js";
   import { onMount } from "svelte";
 
   import {
@@ -61,6 +62,7 @@
   const APPEARANCE_SETTING_KEYS = new Set([
     "SUBSCRIPTION_MINI_APP_URL",
     "WEBAPP_PRIMARY_COLOR",
+    "WEBAPP_USER_THEME_MODE_ENABLED",
     "WEBAPP_LOGO_URL",
     "WEBAPP_FAVICON_URL",
     "WEBAPP_FAVICON_USE_CUSTOM",
@@ -106,9 +108,33 @@
     visibleThemes.filter((theme) => theme.key !== DEFAULT_THEME_KEY)
   );
   const defaultThemeIsCurrent = $derived(activeKey === DEFAULT_THEME_KEY);
+  const userThemeModeEnabled = $derived(
+    boolAppearanceSettingValue("WEBAPP_USER_THEME_MODE_ENABLED", true)
+  );
 
   function isAppearanceSettingKey(key: string): boolean {
     return APPEARANCE_SETTING_KEYS.has(key) || appearanceFields.some((field) => field.key === key);
+  }
+
+  function appearanceSettingValue(key: string, fallback: unknown): unknown {
+    const dirty = settingsDirty[key];
+    if (dirty?.deleted) return fallback;
+    if (Object.prototype.hasOwnProperty.call(settingsDirty, key)) return dirty.value;
+    return appearanceFields.find((field) => field.key === key)?.value ?? fallback;
+  }
+
+  function boolAppearanceSettingValue(key: string, fallback: boolean): boolean {
+    const value = appearanceSettingValue(key, fallback);
+    if (typeof value === "boolean") return value;
+    if (typeof value === "number") return value !== 0;
+    if (typeof value === "string") {
+      return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
+    }
+    return Boolean(value);
+  }
+
+  function setUserThemeModeEnabled(enabled: boolean): void {
+    settingsStore.markDirty("WEBAPP_USER_THEME_MODE_ENABLED", Boolean(enabled));
   }
 
   function themeTitle(theme: ThemeEntry): string {
@@ -370,6 +396,7 @@
     const shouldReloadFrontend = Array.from(keysToSave).some((key) =>
       [
         "WEBAPP_LOGO_URL",
+        "WEBAPP_USER_THEME_MODE_ENABLED",
         "WEBAPP_FAVICON_URL",
         "WEBAPP_FAVICON_USE_CUSTOM",
         "WEBAPP_LOGO_FAVICON_URL",
@@ -515,6 +542,34 @@
         </div>
       </header>
       <div class="admin-card-body appearance-themes-body">
+        <section class="appearance-theme-mode-setting">
+          <div class="appearance-theme-mode-copy">
+            <strong
+              >{at("appearance_user_theme_mode_title", {}, "User theme mode selection")}</strong
+            >
+            <small>
+              {at(
+                "appearance_user_theme_mode_sub",
+                {},
+                "Allow users to choose Auto, Light, or Dark within the current theme."
+              )}
+            </small>
+          </div>
+          <div class="admin-setting-switch">
+            <Switch.Root
+              aria-label={at("appearance_user_theme_mode_title", {}, "User theme mode selection")}
+              checked={userThemeModeEnabled}
+              onCheckedChange={setUserThemeModeEnabled}
+              disabled={settingsSaving || themesSaving}
+              class="admin-switch-root"
+            >
+              <Switch.Thumb class="admin-switch-thumb" />
+            </Switch.Root>
+            <span>
+              {userThemeModeEnabled ? at("enabled", {}, "Enabled") : at("disabled", {}, "Disabled")}
+            </span>
+          </div>
+        </section>
         {#if !visibleThemes.length}
           <AdminEmptyState>
             {at(

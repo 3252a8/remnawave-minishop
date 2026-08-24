@@ -8,7 +8,42 @@ let demoTariffsState: DemoRecord | null = null;
 let demoBroadcastsState: DemoRecord[] | null = null;
 let demoPaymentSequence = 20000;
 
-export const demoSettingsChanges = new Map<string, { value?: unknown; deleted: boolean }>();
+export type DemoSettingsChange = { value?: unknown; deleted: boolean };
+
+const DEMO_SETTINGS_STORAGE_KEY = "minishop-demo-settings-changes";
+const DEMO_PERSISTED_SETTING_KEYS = new Set(["WEBAPP_USER_THEME_MODE_ENABLED"]);
+
+function loadDemoSettingsChanges(): [string, DemoSettingsChange][] {
+  try {
+    if (typeof window === "undefined") return [];
+    const raw = window.sessionStorage.getItem(DEMO_SETTINGS_STORAGE_KEY);
+    const entries = raw ? JSON.parse(raw) : [];
+    return Array.isArray(entries)
+      ? entries.filter(
+          (entry): entry is [string, DemoSettingsChange] =>
+            Array.isArray(entry) && DEMO_PERSISTED_SETTING_KEYS.has(String(entry[0]))
+        )
+      : [];
+  } catch (_error) {
+    return [];
+  }
+}
+
+export const demoSettingsChanges = new Map<string, DemoSettingsChange>(loadDemoSettingsChanges());
+
+export function storeDemoSettingsChanges(): void {
+  try {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem(
+      DEMO_SETTINGS_STORAGE_KEY,
+      JSON.stringify(
+        [...demoSettingsChanges.entries()].filter(([key]) => DEMO_PERSISTED_SETTING_KEYS.has(key))
+      )
+    );
+  } catch (_error) {
+    // The demo remains usable when storage is unavailable (for example, in a strict iframe).
+  }
+}
 
 export type DemoPaymentStatus = {
   status: string;

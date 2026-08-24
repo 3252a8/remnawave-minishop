@@ -231,13 +231,13 @@
     align-content: center;
     gap: 3px;
     padding: 10px 14px;
-    color: var(--text-muted, var(--admin-text-muted, #8f9aaa));
+    color: var(--muted, var(--admin-muted, #6b7280));
     font: inherit;
     cursor: pointer;
   }
 
   .message-image-dropzone strong {
-    color: var(--primary, var(--admin-accent, currentColor));
+    color: var(--accent, var(--admin-accent, currentColor));
   }
 
   .message-image-dropzone small {
@@ -251,8 +251,8 @@
 
   .message-image-attachment.is-dragging .message-image-dropzone,
   .message-image-attachment.is-dragging .message-image-preview {
-    border-color: var(--primary, var(--admin-accent, #6d7cff));
-    background: color-mix(in srgb, var(--primary, var(--admin-accent, #6d7cff)) 12%, transparent);
+    border-color: var(--accent, var(--admin-accent, #6d7cff));
+    background: color-mix(in srgb, var(--accent, var(--admin-accent, #6d7cff)) 12%, transparent);
   }
 
   .message-image-preview {
@@ -287,7 +287,7 @@
   .message-image-meta small,
   .message-image-error {
     font-size: 11px;
-    color: var(--text-muted, var(--admin-text-muted, #8f9aaa));
+    color: var(--muted, var(--admin-muted, #6b7280));
   }
 
   .message-image-error {
@@ -333,9 +333,9 @@
     z-index: 2147483000;
     inset: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
       max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
-    border: 3px dashed var(--primary, var(--admin-accent, #6d7cff));
+    border: 3px dashed var(--accent, var(--admin-accent, #6d7cff));
     border-radius: 18px;
-    background: color-mix(in srgb, var(--primary, var(--admin-accent, #6d7cff)) 10%, transparent);
+    background: color-mix(in srgb, var(--accent, var(--admin-accent, #6d7cff)) 10%, transparent);
     box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 24%, transparent);
     pointer-events: none;
   }

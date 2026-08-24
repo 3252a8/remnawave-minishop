@@ -48,10 +48,24 @@
   } from "./lib/webapp/appFactories";
   import {
     applyThemeDocumentEffects,
+    applyThemeRootTokens,
     closeDisabledEmailAuthDialogs,
     syncShellBillingSelection,
     syncShellEmailAvatar,
   } from "./lib/webapp/shellEffects.js";
+  import { normalizeThemePreference, THEME_PREFERENCE_AUTO } from "./lib/webapp/themePreference.js";
+  import {
+    loadThemePreference,
+    readLocalThemePreference,
+    saveThemePreference,
+  } from "./lib/webapp/themePreferenceStorage.js";
+  import {
+    syncTelegramChrome,
+    systemColorSchemeFromMedia,
+    telegramColorScheme,
+    watchMediaColorScheme,
+    watchTelegramColorScheme,
+  } from "./lib/webapp/telegramChrome.js";
 
   /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
@@ -154,6 +168,8 @@
     csrfToken: MOCK ? "" : readCookie(CSRF_COOKIE_NAME) || "",
     data: isPreviewBoard ? structuredCloneSafe(MOCK_DATA) : null,
     mode: isAppLaunchRoute ? "appLaunch" : isPreviewBoard ? "preview" : "loading",
+    themePreference: readLocalThemePreference() || THEME_PREFERENCE_AUTO,
+    systemColorScheme: systemColorSchemeFromMedia(),
     token: MOCK ? "local-preview" : "",
   });
 
@@ -180,6 +196,17 @@
   const adminMountTarget = $derived(shellState.adminMountTarget);
   const adminActiveSection = $derived(shellState.adminActiveSection);
   const tg: TelegramWebApp | null = $derived(shellState.tg);
+  const themePreference = $derived(shellState.themePreference);
+  const systemColorScheme = $derived(shellState.systemColorScheme);
+  let themePreferenceTouched = false;
+  let themeStylesheetRevision = $state(0);
+
+  function setThemePreference(value: string): void {
+    const normalized = normalizeThemePreference(value);
+    themePreferenceTouched = true;
+    shellState.themePreference = normalized;
+    saveThemePreference(tg, normalized);
+  }
   const demoAuthLogin = $derived(shellState.demoAuthLogin);
   const appActions: AppActionRuntime = $derived(shellState.appActions as AppActionRuntime);
   const telegramRuntime = createTelegramRuntime<TelegramWebApp | null>({
@@ -347,6 +374,8 @@
       tg,
       themePreviewDraft,
       themePreviewKey,
+      themePreference,
+      systemColorScheme,
       topupUnlockPercent: TRAFFIC_TOPUP_UNLOCK_PERCENT,
       t,
     })
@@ -377,6 +406,7 @@
   const effectiveThemeEntry = $derived(shellView.themeView.effectiveThemeEntry);
   const resolvedThemeKey = $derived(shellView.themeView.resolvedThemeKey);
   const shellStyle = $derived(shellView.themeView.shellStyle);
+  const shellThemeClass = $derived(shellView.themeView.shellThemeClass);
   const shellThemeCssHref = $derived(shellView.themeView.shellThemeCssHref);
   const toastTheme = $derived(shellView.themeView.toastTheme);
   const appModeViewState = $derived({
@@ -397,8 +427,42 @@
   });
 
   $effect(() => {
+    // Re-run after a file theme's stylesheet finishes loading so its root CSS
+    // variables are available to body/portal surfaces and Telegram chrome.
+    themeStylesheetRevision;
+    applyThemeRootTokens(shellStyle, shellThemeClass);
     applyThemeDocumentEffects(effectiveThemeEntry);
     syncThemeGoogleFonts(effectiveThemeEntry);
+    syncTelegramChrome(tg, effectiveThemeEntry?.tokens as Record<string, unknown> | null);
+  });
+
+  // Outside Telegram only: inside a Mini App the client reports its own scheme,
+  // and the OS media query would fight it — a dark Telegram theme on a light
+  // phone must stay dark.
+  $effect(() => {
+    if (tg) return;
+    return watchMediaColorScheme((scheme) => {
+      if (scheme) shellState.systemColorScheme = scheme;
+    });
+  });
+
+  $effect(() => {
+    const telegram = tg;
+    if (!telegram) return;
+    const scheme = telegramColorScheme(telegram);
+    if (scheme) shellState.systemColorScheme = scheme;
+    let disposed = false;
+    void loadThemePreference(telegram).then((stored) => {
+      if (disposed || themePreferenceTouched || !stored) return;
+      shellState.themePreference = stored;
+    });
+    const stopWatching = watchTelegramColorScheme(telegram, (next) => {
+      if (next) shellState.systemColorScheme = next;
+    });
+    return () => {
+      disposed = true;
+      stopWatching();
+    };
   });
 
   $effect(() => {
@@ -666,7 +730,12 @@
 <svelte:head>
   <title>{brandTitle}</title>
   {#if shellThemeCssHref}
-    <link rel="stylesheet" href={shellThemeCssHref} data-theme-css={resolvedThemeKey} />
+    <link
+      rel="stylesheet"
+      href={shellThemeCssHref}
+      data-theme-css={resolvedThemeKey}
+      onload={() => (themeStylesheetRevision += 1)}
+    />
   {/if}
 </svelte:head>
 
@@ -691,7 +760,7 @@
         {shellView}
         {appActions}
         viewState={appModeViewState}
-        controls={{ ...appFactories, t, termUnitLabel }}
+        controls={{ ...appFactories, t, termUnitLabel, setThemePreference }}
         bind:adminMountTarget={shellState.adminMountTarget}
         bind:languageMenuOpen={shellState.languageMenuOpen}
         bind:screen={shellState.screen}

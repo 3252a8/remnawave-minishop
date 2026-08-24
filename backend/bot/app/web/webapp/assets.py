@@ -516,6 +516,7 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
         "config": {
             "title": webapp_settings.title,
             "primaryColor": webapp_settings.primary_color,
+            "userThemeModeEnabled": bool(webapp_settings.user_theme_mode_enabled),
             "themesCatalog": themes_payload,
             "themesDir": settings.WEBAPP_THEMES_DIR,
             "themePreviewKey": preview_key,

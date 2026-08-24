@@ -465,6 +465,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(payload["config"]["serverStatusUrl"], "https://status.example.com")
         self.assertEqual(payload["config"]["apiBase"], "/api")
+        self.assertTrue(payload["config"]["userThemeModeEnabled"])
         self.assertEqual(
             request.app["webapp_settings_cache"]["data"]["server_status_url"],
             "https://status.example.com",
@@ -477,6 +478,27 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             "Примените этот промокод при оплате.",
         )
         self.assertNotIn("admin_settings_title", payload["i18n"]["en"])
+
+    def test_webapp_bootstrap_exposes_disabled_user_theme_mode_selection(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="123456:token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            WEBAPP_USER_THEME_MODE_ENABLED=False,
+        )
+        request = SimpleNamespace(
+            app={
+                "settings": settings,
+                "webapp_settings_cache": {"ts": 0.0, "data": {}},
+                "i18n": None,
+            },
+            query={},
+        )
+
+        payload = subscription_webapp._build_webapp_bootstrap_payload(request)
+
+        self.assertFalse(payload["config"]["userThemeModeEnabled"])
 
     def test_webapp_shell_preload_markup_includes_public_guide_fetch(self):
         token = "8f559061460e8fede78ef18dce887236"

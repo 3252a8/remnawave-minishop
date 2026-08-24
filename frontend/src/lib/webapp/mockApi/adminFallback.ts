@@ -358,6 +358,9 @@ export function adminFallbackResponse(
       if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_TITLE")) {
         DEV_MOCK.config.title = updates.WEBAPP_TITLE || "";
       }
+      if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_USER_THEME_MODE_ENABLED")) {
+        DEV_MOCK.config.userThemeModeEnabled = Boolean(updates.WEBAPP_USER_THEME_MODE_ENABLED);
+      }
       if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_LOGO_URL")) {
         DEV_MOCK.config.logoUrl = updates.WEBAPP_LOGO_URL || "";
       }
@@ -556,6 +559,13 @@ export function adminFallbackResponse(
           id: "appearance",
           order: 2,
           fields: [
+            {
+              key: "WEBAPP_USER_THEME_MODE_ENABLED",
+              type: "bool",
+              section: "appearance",
+              label: "User theme mode selection",
+              value: Boolean(DEV_MOCK.config.userThemeModeEnabled),
+            },
             {
               key: "WEBAPP_LOGO_URL",
               type: "url",

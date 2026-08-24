@@ -157,6 +157,7 @@ export const DEV_MOCK: PreviewMock = {
     telegramOAuthRequestAccess: ["write"],
     appVersion: "dev+local",
     appRepositoryUrl: "https://minishop.minidoc.cc/",
+    userThemeModeEnabled: true,
     themesCatalog: {
       default_theme: "dark",
       themes: [DEFAULT_DARK_THEME, LEGACY_LIGHT_THEME, WINDOWS_95_THEME, ASCII_THEME],

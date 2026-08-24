@@ -3,6 +3,8 @@ import { createTelegramSdk } from "./telegramSdk";
 import { shellState } from "./shellState.svelte";
 import { createTelegramViewportBridge } from "./telegramViewport.js";
 
+export type TelegramWebAppEvent = "fullscreenChanged" | "themeChanged";
+
 export type TelegramWebApp = Record<string, unknown> & {
   initData?: string;
   openInvoice?: (url: string, callback: (status: string) => void) => void;
@@ -11,8 +13,8 @@ export type TelegramWebApp = Record<string, unknown> & {
   platform?: string;
   isFullscreen?: boolean;
   isVersionAtLeast?: (version: string) => boolean;
-  onEvent?: (eventType: "fullscreenChanged", eventHandler: () => void) => void;
-  offEvent?: (eventType: "fullscreenChanged", eventHandler: () => void) => void;
+  onEvent?: (eventType: TelegramWebAppEvent, eventHandler: () => void) => void;
+  offEvent?: (eventType: TelegramWebAppEvent, eventHandler: () => void) => void;
   ready?: () => void;
   expand?: () => void;
   requestFullscreen?: () => void;

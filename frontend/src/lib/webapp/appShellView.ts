@@ -32,6 +32,8 @@ export type AppShellViewInput = {
   themePreviewDraft: AppShellViewData | null;
   themePreviewKey: string;
   topupUnlockPercent: number;
+  themePreference?: string;
+  systemColorScheme?: string;
   t: Translate;
 };
 
@@ -39,6 +41,7 @@ type AppShellConfig = AppShellViewData & {
   themesCatalog?: Record<string, unknown> | null;
   primaryColor?: string;
   language?: string;
+  userThemeModeEnabled?: boolean;
 };
 
 export function computeAppShellView({
@@ -65,6 +68,8 @@ export function computeAppShellView({
   themePreviewDraft,
   themePreviewKey,
   topupUnlockPercent,
+  themePreference = "auto",
+  systemColorScheme = "",
   t,
 }: AppShellViewInput) {
   const telegramMiniAppContext = hasTelegramLaunchParams();
@@ -91,6 +96,9 @@ export function computeAppShellView({
     screen,
     cfgThemesCatalog: (cfg as AppShellConfig).themesCatalog,
     primaryColor: typeof cfg.primaryColor === "string" ? cfg.primaryColor : undefined,
+    themePreference,
+    systemColorScheme,
+    userThemeModeEnabled: (cfg as AppShellConfig).userThemeModeEnabled !== false,
   });
   const isAdmin = Boolean(user?.is_admin);
   const cfgLanguage = String((cfg as AppShellConfig).language || "");

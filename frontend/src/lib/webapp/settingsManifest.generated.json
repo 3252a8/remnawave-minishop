@@ -341,6 +341,25 @@
         "updated_at": null
       },
       {
+        "key": "WEBAPP_USER_THEME_MODE_ENABLED",
+        "type": "bool",
+        "section": "appearance",
+        "section_order": 2,
+        "subsection": null,
+        "label": "User theme mode selection",
+        "description": "Allow users to choose Auto, Light, or Dark mode within the active theme.",
+        "i18n_label_key": "admin_settings_field_webapp_user_theme_mode_enabled_label",
+        "i18n_description_key": "admin_settings_field_webapp_user_theme_mode_enabled_description",
+        "i18n_subsection_key": null,
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": false,
+        "secret": false,
+        "value": "",
+        "overridden": false,
+        "updated_at": null
+      },
+      {
         "key": "WEBAPP_LOGO_URL",
         "type": "url",
         "section": "appearance",

@@ -412,18 +412,18 @@
   }
 
   .broadcast-status-success {
-    background: color-mix(in srgb, #34c77b 18%, transparent);
-    color: #55d895;
+    background: var(--success-soft);
+    color: var(--success-text);
   }
 
   .broadcast-status-warning {
-    background: color-mix(in srgb, #f4b740 18%, transparent);
-    color: #f4b740;
+    background: var(--warning-soft);
+    color: var(--warning-text);
   }
 
   .broadcast-status-danger {
-    background: color-mix(in srgb, #ff6577 17%, transparent);
-    color: #ff7c8b;
+    background: var(--danger-soft);
+    color: var(--danger-text);
   }
 
   .broadcast-history-id {

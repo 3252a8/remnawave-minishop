@@ -6754,7 +6754,7 @@
 
 .support-admin-ticket-tabs button.active b {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
-  color: color-mix(in srgb, var(--accent) 78%, white);
+  color: var(--accent-readable, color-mix(in srgb, var(--accent) 78%, white));
 }
 
 .support-admin-list-panel .support-admin-toolbar {

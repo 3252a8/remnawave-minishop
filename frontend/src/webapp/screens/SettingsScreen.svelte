@@ -15,9 +15,10 @@
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import { AttentionDot } from "$components/ui/index.js";
-  import { LanguageSelect } from "$components/patterns/webapp/index.js";
+  import { LanguageSelect, ThemeSelect } from "$components/patterns/webapp/index.js";
   import PromoActivationCard from "../PromoActivationCard.svelte";
   import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
+  import type { ThemeOption } from "$lib/webapp/themePreference.js";
   import type {
     LanguageOption,
     OpenLinkAction,
@@ -56,6 +57,9 @@
     subscriptionReissueBusy?: boolean;
     subscriptionReissueVisible?: boolean;
     supportUrl?: string;
+    themeOptions?: ThemeOption[];
+    themePreference?: string;
+    themeSwitcherVisible?: boolean;
     telegramNotificationsNeedPrompt?: boolean;
     telegramNotificationsStartLink?: string;
     telegramNotificationsStatus?: string;
@@ -77,6 +81,7 @@
     clearPromoFieldError?: VoidAction;
     setLanguageMenuOpen?: (open: boolean) => void;
     setPromoCode?: StringAction;
+    setThemePreference?: StringAction;
     t?: Translate;
     updateAccountLanguage?: StringAction;
   };
@@ -110,6 +115,9 @@
     subscriptionReissueBusy = false,
     subscriptionReissueVisible = false,
     supportUrl = "",
+    themeOptions = [],
+    themePreference = "auto",
+    themeSwitcherVisible = false,
     telegramNotificationsNeedPrompt = false,
     telegramNotificationsStartLink = "",
     telegramNotificationsStatus = "unknown",
@@ -131,11 +139,13 @@
     clearPromoFieldError = () => {},
     setLanguageMenuOpen = () => {},
     setPromoCode = () => {},
+    setThemePreference = () => {},
     t = (key) => key,
     updateAccountLanguage = () => {},
   }: Props = $props();
 
   const showEmailAccount = $derived(emailAuthEnabled || Boolean(user?.email));
+  let themeMenuOpen = $state(false);
 </script>
 
 <main class="content with-nav">
@@ -309,6 +319,15 @@
       onOpenChange={setLanguageMenuOpen}
       onValueChange={updateAccountLanguage}
     />
+    {#if themeSwitcherVisible}
+      <ThemeSelect
+        bind:open={themeMenuOpen}
+        value={themePreference}
+        options={themeOptions}
+        label={t("wa_settings_theme")}
+        onValueChange={setThemePreference}
+      />
+    {/if}
     {#if userAgreementUrl}
       <button
         class="settings-row settings-row-policy"

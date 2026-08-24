@@ -811,7 +811,7 @@
 .support-status-tabs-trigger[data-state="active"] b,
 .partner-tabs-trigger[data-state="active"] b {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
-  color: color-mix(in srgb, var(--accent) 78%, white);
+  color: var(--accent-readable, color-mix(in srgb, var(--accent) 78%, white));
 }
 
 .support-status-tabs-trigger:focus-visible,
@@ -1018,7 +1018,7 @@
 .ticket-status-badge--awaiting_admin {
   border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
   background: color-mix(in srgb, var(--accent) 14%, transparent);
-  color: color-mix(in srgb, var(--accent) 80%, white);
+  color: var(--accent-readable, color-mix(in srgb, var(--accent) 80%, white));
 }
 
 .ticket-status-badge--awaiting_user {
