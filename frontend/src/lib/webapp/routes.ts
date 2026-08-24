@@ -9,7 +9,6 @@ export type WebappSection =
   | "devices"
   | "support"
   | "settings"
-  | "status"
   | "admin";
 
 type AdminUserRouteId = string | number | boolean | null | undefined;
@@ -26,7 +25,6 @@ export function normalizeSection(value: unknown): WebappSection {
     section === "devices" ||
     section === "support" ||
     section === "settings" ||
-    section === "status" ||
     section === "admin"
   ) {
     return section;

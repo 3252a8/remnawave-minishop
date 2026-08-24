@@ -123,12 +123,7 @@ def coerce_value(field: SettingField, raw: Any) -> Any:
         return normalized
 
     if isinstance(raw, str):
-        string_value = raw.strip()
-        if field.type == "string" and field.choices:
-            allowed = {choice_value for choice_value, _label in field.choices}
-            if string_value not in allowed:
-                raise ValueError(f"{field.key}: unsupported choice")
-        return string_value
+        return raw.strip()
     return str(raw)
 
 

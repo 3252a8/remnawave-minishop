@@ -167,14 +167,6 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
 
     SUPPORT_LINK: str | None = Field(default=None)
     SERVER_STATUS_URL: str | None = Field(default=None)
-    SERVER_STATUS_ENABLED: bool = Field(default=False)
-    SERVER_STATUS_PROVIDER: Literal["url", "uptime-kuma", "xray-checker"] = Field(default="url")
-    SERVER_STATUS_KUMA_URL: str | None = Field(default=None)
-    SERVER_STATUS_KUMA_SLUG: str = Field(default="default")
-    SERVER_STATUS_XRAY_CHECKER_URL: str | None = Field(default=None)
-    SERVER_STATUS_CACHE_TTL_SECONDS: int = Field(default=30, ge=0)
-    SERVER_STATUS_STALE_TTL_SECONDS: int = Field(default=300, ge=0)
-    SERVER_STATUS_TIMEOUT_SECONDS: float = Field(default=5, gt=0)
     PRIVACY_POLICY_URL: str | None = Field(default=None)
     USER_AGREEMENT_URL: str | None = Field(default=None)
     REQUIRED_CHANNEL_ID: int | None = Field(

@@ -8,7 +8,6 @@
   import type { BillingStore } from "../lib/webapp/stores/billingStore.js";
   import type { DevicesStore } from "../lib/webapp/stores/devicesStore.js";
   import type { SupportStore } from "../lib/webapp/stores/supportStore.js";
-  import type { ServerStatusStore } from "../lib/webapp/stores/serverStatusStore.svelte.js";
   import type { ApiClient } from "../lib/webapp/publicApi.js";
   import type { WebappDataClient } from "../lib/webapp/dataClient.js";
   import AppLaunchScreen from "./screens/AppLaunchScreen.svelte";
@@ -41,7 +40,6 @@
     billingStore: BillingStore;
     devicesStore: DevicesStore;
     supportStore: SupportStore;
-    serverStatusStore: ServerStatusStore;
   };
 
   type AppModeViewState = {
@@ -102,7 +100,6 @@
   const billingStore = $derived(stores.billingStore);
   const devicesStore = $derived(stores.devicesStore);
   const supportStore = $derived(stores.supportStore);
-  const serverStatusStore = $derived(stores.serverStatusStore);
 
   const closeActivationSuccessDialog = $derived(controls.closeActivationSuccessDialog);
   const setLanguageMenuOpen = $derived(controls.setLanguageMenuOpen);
@@ -261,7 +258,6 @@
   const goInvite = $derived(appActions.goInvite);
   const goPartner = $derived(appActions.goPartner);
   const goSettings = $derived(appActions.goSettings);
-  const goStatus = $derived(appActions.goStatus);
   const goSupport = $derived(appActions.goSupport);
   const linkTelegramAndActivateTrial = $derived(appActions.linkTelegramAndActivateTrial);
   const linkTelegramAndClaimReferralWelcome = $derived(
@@ -429,7 +425,6 @@
       {goPartner}
       {partnerEnabled}
       {goSettings}
-      {goStatus}
       {goSupport}
       {hasActiveTariffSubscription}
       {hasMultipleTariffs}
@@ -481,7 +476,6 @@
       {regularTrafficTopupUnlocked}
       {screen}
       {serverStatusUrl}
-      statusStore={serverStatusStore}
       {showTelegramLinkedStatus}
       {setLanguageMenuOpen}
       {setPromoCode}

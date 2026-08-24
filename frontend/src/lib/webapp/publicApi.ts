@@ -84,7 +84,6 @@ export type PostResponse<Path extends string> = JsonResponse<OperationFor<Path, 
 
 export type BootstrapResponse = GetResponse<"/api/bootstrap">;
 export type MeResponse = GetResponse<"/api/me">;
-export type ServerStatusResponse = GetResponse<"/api/status">;
 export type AccountEmailRequestResponse = PostResponse<"/api/account/email/request">;
 export type AccountEmailVerifyResponse = PostResponse<"/api/account/email/verify">;
 export type AccountLanguageResponse = PostResponse<"/api/account/language">;
@@ -147,7 +146,6 @@ export type AuthEmailRequestPath = "/auth/email/request";
 export type AuthEmailVerifyPath = "/auth/email/verify";
 export type AuthLogoutPath = "/auth/logout";
 export type AuthTokenPath = "/auth/token";
-export type ServerStatusPath = "/status";
 export type DeviceTopupOptionsPath = "/devices/topup-options";
 export type DevicesDisconnectPath = "/devices/disconnect";
 export type TariffChangeOptionsPath = "/tariffs/change-options";
@@ -318,10 +316,6 @@ export function buildAuthTokenPath(): AuthTokenPath {
 
 export function buildDevicesPath(): "/devices" {
   return "/devices";
-}
-
-export function buildServerStatusPath(): ServerStatusPath {
-  return "/status";
 }
 
 export function buildDevicesDisconnectPath(): DevicesDisconnectPath {

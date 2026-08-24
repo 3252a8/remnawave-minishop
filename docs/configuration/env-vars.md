@@ -236,7 +236,7 @@ Trust-all вариант записывается как
 | `DEFAULT_LANGUAGE` | Язык по умолчанию: `ru` или `en`. |
 | `DEFAULT_CURRENCY_SYMBOL` | Символ/код валюты в интерфейсе. |
 | `SUPPORT_LINK` | Внешняя HTTP(S)-ссылка поддержки; Telegram-формы `@username` и `t.me/username` автоматически приводятся к `https://t.me/username`. |
-| `SERVER_STATUS_URL` | Внешняя страница статуса для источника `url`. |
+| `SERVER_STATUS_URL` | Страница статуса сервиса. |
 | `PRIVACY_POLICY_URL` | Политика конфиденциальности. |
 | `USER_AGREEMENT_URL` | Пользовательское соглашение. |
 | `REQUIRED_CHANNEL_ID` | ID обязательного Telegram-канала. Используется для проверки подписки и автоматического получения ссылки кнопки, если бот видит канал. |
@@ -244,24 +244,6 @@ Trust-all вариант записывается как
 | `START_COMMAND_DESCRIPTION` | Описание `/start` для меню Telegram. |
 | `DISABLE_WELCOME_MESSAGE` | Отключить приветствие на `/start`. |
 | `REGISTRATION_INVITE_ONLY_ENABLED` | По умолчанию `False`. Если включено, новые публичные регистрации разрешены только по валидной реферальной ссылке; существующие пользователи продолжают входить через Telegram, Web App, email-код, magic-link или пароль. |
-
-### Статус серверов
-
-Функция выключена по умолчанию. Выбирается ровно один источник данных; значение `both` не
-поддерживается. Настройка Uptime Kuma, xray-checker, кэша и диагностики описана в
-[отдельном руководстве](../features/server-status.md).
-
-| Переменная | По умолчанию | Назначение |
-| --- | --- | --- |
-| `SERVER_STATUS_ENABLED` | `False` | Включает раздел статуса серверов в Web App. |
-| `SERVER_STATUS_PROVIDER` | `url` | Источник данных: `url`, `uptime-kuma` или `xray-checker`. |
-| `SERVER_STATUS_URL` | пусто | Внешняя страница для источника `url`; встроенные источники её не используют. |
-| `SERVER_STATUS_KUMA_URL` | пусто | Базовый URL Uptime Kuma без пути страницы, например `https://status.example.com`. |
-| `SERVER_STATUS_KUMA_SLUG` | `default` | Часть адреса после `/status/`: для `https://status.example.com/status/default` это `default`. |
-| `SERVER_STATUS_XRAY_CHECKER_URL` | пусто | Базовый URL xray-checker без пути API: для `https://checker.example.com/api/v1/public/proxies` это `https://checker.example.com`. |
-| `SERVER_STATUS_CACHE_TTL_SECONDS` | `30` | Срок хранения успешного ответа встроенного источника. |
-| `SERVER_STATUS_STALE_TTL_SECONDS` | `300` | Максимальное время выдачи последнего успешного ответа при ошибке источника. |
-| `SERVER_STATUS_TIMEOUT_SECONDS` | `5` | Предельное время ожидания внешнего HTTP-запроса в секундах. |
 
 ## Remnawave
 

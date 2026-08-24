@@ -299,18 +299,11 @@
     loadSectionData,
     resumeLifecycle,
     setPasswordLoginMode,
-    serverStatusStore,
     stopPendingActivationWatch,
     supportStore,
     syncBodyScrollLock,
     syncLoadedRoute,
   } = appFactories;
-
-  $effect(() => {
-    if (mode !== "app") return;
-    serverStatusStore.start();
-    return () => serverStatusStore.stop();
-  });
 
   const authState = $derived(authStore);
   const authStatus = $derived(authState.authStatus);

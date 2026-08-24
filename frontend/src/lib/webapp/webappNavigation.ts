@@ -80,10 +80,6 @@ export function createWebappNavigation({
     showSection("settings");
   }
 
-  function goStatus() {
-    showSection("status", "home");
-  }
-
   return {
     goDevices,
     goHome,
@@ -91,7 +87,6 @@ export function createWebappNavigation({
     goInvite,
     goPartner,
     goSettings,
-    goStatus,
     goSupport,
   };
 }

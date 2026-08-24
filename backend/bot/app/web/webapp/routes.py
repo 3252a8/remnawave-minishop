@@ -98,7 +98,6 @@ from .payloads import (
 from .payloads import (
     WebAppPaymentCreatePayload as WebAppPaymentCreatePayload,
 )
-from .server_status import server_status_route
 from .subscription_reissue import (
     subscription_reissue_route,
 )
@@ -134,7 +133,6 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/partner", index_route)
     app.router.add_get("/devices", index_route)
     app.router.add_get("/settings", index_route)
-    app.router.add_get("/status", index_route)
     app.router.add_get("/support", index_route)
     app.router.add_get("/support/{ticket_id:\\d+}", index_route)
     app.router.add_get("/admin", index_route)
@@ -209,7 +207,6 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/api/bootstrap", bootstrap_route)
     app.router.add_get("/api/i18n", i18n_route)
     app.router.add_get("/api/me", me_route)
-    app.router.add_get("/api/status", server_status_route)
     app.router.add_get("/api/subscription-guides", subscription_guides_route)
     app.router.add_get(
         r"/api/subscription-guides/public/{share_token:[a-f0-9]{32}}",

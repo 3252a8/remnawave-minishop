@@ -23,7 +23,6 @@
     searchSettingsEntries,
     type SettingsSearchEntry,
   } from "$lib/admin/settingsSearch";
-  import { filterServerStatusSettings } from "$lib/admin/serverStatusSettings";
   import type { ComponentType, SvelteComponent } from "svelte";
   import type {
     SettingField,
@@ -79,7 +78,7 @@
   const settingsDirty = $derived((settingsStore.settingsDirty || {}) as SettingsDirtyState);
   const settingsSaving = $derived(Boolean(settingsStore.settingsSaving));
   const visibleSettingsSections = $derived(
-    filterServerStatusSettings(settingsSections, settingsDirty).filter(
+    settingsSections.filter(
       (section) => !SETTINGS_SECTION_IDS_HIDDEN_IN_GENERAL_SETTINGS.has(section.id)
     )
   );

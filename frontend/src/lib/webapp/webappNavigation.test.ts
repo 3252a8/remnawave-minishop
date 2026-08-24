@@ -42,15 +42,6 @@ describe("createWebappNavigation", () => {
     expect(deps.syncSectionPath).toHaveBeenCalledWith("invite");
   });
 
-  it("opens status as a native child of Home", () => {
-    const { deps, navigation, state } = makeNavigation();
-
-    navigation.goStatus();
-
-    expect(state).toEqual({ activeTab: "home", screen: "status" });
-    expect(deps.syncSectionPath).toHaveBeenCalledWith("status");
-  });
-
   it("guards the bonus route while the referral program is disabled", () => {
     const { deps, navigation, state } = makeNavigation({
       referralProgramEnabled: () => false,

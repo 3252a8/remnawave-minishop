@@ -20,7 +20,6 @@ from bot.services.panel_dry_run_api_service import PanelDryRunApiService
 from bot.services.panel_webhook_service import PanelWebhookService
 from bot.services.promo_code_service import PromoCodeService
 from bot.services.referral_service import ReferralService
-from bot.services.server_status import ServerStatusService
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.support_service import SupportService
 from config.settings import Settings
@@ -59,9 +58,6 @@ EMAIL_AUTH_SERVICE: web.AppKey[EmailAuthService] = web.AppKey(
     "email_auth_service", EmailAuthService
 )
 SUPPORT_SERVICE: web.AppKey[SupportService] = web.AppKey("support_service", SupportService)
-SERVER_STATUS_SERVICE: web.AppKey[ServerStatusService] = web.AppKey(
-    "server_status_service", ServerStatusService
-)
 PANEL_WEBHOOK_SERVICE: web.AppKey[PanelWebhookService] = web.AppKey(
     "panel_webhook_service", PanelWebhookService
 )
@@ -377,10 +373,6 @@ def get_promo_code_service(request: web.Request) -> PromoCodeService | None:
 
 def get_support_service(request: web.Request) -> SupportService:
     return _required_value(request.app, SUPPORT_SERVICE, "support_service")
-
-
-def get_server_status_service(request: web.Request) -> ServerStatusService:
-    return _required_value(request.app, SERVER_STATUS_SERVICE, "server_status_service")
 
 
 def get_email_auth_service(request: web.Request) -> EmailAuthService:

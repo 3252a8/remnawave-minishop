@@ -158,44 +158,6 @@ export function webappFallbackResponse(
     };
   }
   if (cleanPath === "/me") return clone(DEV_MOCK.data);
-  if (cleanPath === "/status") {
-    return {
-      ok: true,
-      enabled: true,
-      status: "operational",
-      updatedAt: new Date().toISOString(),
-      stale: false,
-      externalUrl: "https://status.example.com",
-      sources: [{ provider: "uptime-kuma", status: "operational", error: null }],
-      incidents: [],
-      groups: [
-        {
-          id: "locations",
-          name: "Locations",
-          items: [
-            {
-              id: "nl-1",
-              name: "Amsterdam",
-              status: "online",
-              provider: "uptime-kuma",
-              latencyMs: 42,
-              uptime24h: 99.98,
-              lastCheck: new Date().toISOString(),
-            },
-            {
-              id: "de-1",
-              name: "Frankfurt",
-              status: "online",
-              provider: "uptime-kuma",
-              latencyMs: 51,
-              uptime24h: 100,
-              lastCheck: new Date().toISOString(),
-            },
-          ],
-        },
-      ],
-    };
-  }
   if (path === "/subscription-guides") return clone(DEV_MOCK.data.subscription_guides);
   if (cleanPath.startsWith("/subscription-guides/public/")) {
     const shareToken = decodeURIComponent(cleanPath.split("/").pop() || "");

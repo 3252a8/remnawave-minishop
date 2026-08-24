@@ -49,12 +49,6 @@
       <p>Docker Compose, управляемые обновления, автоматические бэкапы, восстановление и готовые сценарии миграции.</p>
       <span class="minishop-card-link">Бэкапы и восстановление <span aria-hidden="true">→</span></span>
     </a>
-    <a class="minishop-feature-card" href="/features/server-status/">
-      <span class="minishop-feature-index">08</span>
-      <h3>Статус серверов для пользователей</h3>
-      <p>Внешняя страница статуса или встроенные данные Uptime Kuma и xray-checker с кэшированием и показом последних доступных данных при сбое.</p>
-      <span class="minishop-card-link">Настроить статус серверов <span aria-hidden="true">→</span></span>
-    </a>
   </div>
   <a class="minishop-provider-panel" href="/features/payments/">
     <span class="minishop-provider-copy">

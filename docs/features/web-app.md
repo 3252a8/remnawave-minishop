@@ -14,8 +14,6 @@
 - встроенную инструкцию установки: подбор платформы, список приложений, deeplink-кнопки, QR и действия со ссылкой подписки;
 - раздел "Мои устройства" при `MY_DEVICES_SECTION_ENABLED=True`;
 - раздел "Поддержка" с тикетами и внешней ссылкой `SUPPORT_LINK` при включенном `SUPPORT_TICKETS_ENABLED`;
-- раздел статуса серверов при `SERVER_STATUS_ENABLED=True`: внешнюю страницу статуса или
-  встроенные данные Uptime Kuma и xray-checker;
 - реферальную ссылку и статистику приглашений;
 - раздел **Партнёрство** при включённой партнёрской программе: заявку, отдельные ссылки, клиентов,
   комиссии, раздельные балансы, выплаты и полную или частичную оплату покупок из баланса;
@@ -72,16 +70,6 @@ WEBAPP_LOGIN_TOKEN_TTL_SECONDS=600
 SUPPORT_LINK=https://t.me/your_support_link
 SUPPORT_TICKETS_ENABLED=True
 SUPPORT_TICKET_RATE_LIMIT_PER_HOUR=5
-
-SERVER_STATUS_ENABLED=False
-SERVER_STATUS_PROVIDER=url
-SERVER_STATUS_URL=
-SERVER_STATUS_KUMA_URL=
-SERVER_STATUS_KUMA_SLUG=default
-SERVER_STATUS_XRAY_CHECKER_URL=
-SERVER_STATUS_CACHE_TTL_SECONDS=30
-SERVER_STATUS_STALE_TTL_SECONDS=300
-SERVER_STATUS_TIMEOUT_SECONDS=5
 ```
 
 `SUBSCRIPTION_MINI_APP_URL` - это публичный HTTPS URL именно frontend/Mini App, обычно отдельный домен вроде `https://app.domain.com/`. Его указывают в BotFather в Mini Apps, а бот использует его для кнопок личного кабинета, реферальных ссылок и входа по email. Не добавляйте в него `/api`, `/webhook` или путь конкретной страницы.
@@ -89,11 +77,6 @@ SERVER_STATUS_TIMEOUT_SECONDS=5
 `WEBAPP_API_BASE_URL` - это browser-visible base URL для frontend-запросов. Оставляйте `/api` и для обычного compose, и для разнесенных frontend/backend серверов. Разнесение делается server-side настройкой `WEBAPP_BACKEND_UPSTREAM` у frontend nginx, а не публичным backend origin в JavaScript.
 
 `WEBAPP_BACKEND_UPSTREAM` - приватный/protected upstream, куда frontend nginx проксирует `/api`, `/auth`, `/open-app` и ассеты Web App. По умолчанию это `http://backend:8081`. Для split-сервера используйте защищенный backend-домен с `MINISHOP_EDGE_TOKEN`, private IP/VPN или Rathole tunnel.
-
-`SERVER_STATUS_ENABLED=True` добавляет пользовательский раздел статуса. Источник `url` открывает
-`SERVER_STATUS_URL`, а `uptime-kuma` и `xray-checker` открывают внутренний экран Mini App и не
-используют `SERVER_STATUS_URL`. Настройка опубликованной страницы статуса, кэша, безопасности и
-диагностики: [статус серверов](server-status.md).
 
 ## Инструкции установки
 

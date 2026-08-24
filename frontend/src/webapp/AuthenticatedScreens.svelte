@@ -2,8 +2,6 @@
   import type { AccountStore } from "../lib/webapp/stores/accountStore.js";
   import type { DevicesStore } from "../lib/webapp/stores/devicesStore.js";
   import type { SupportStore } from "../lib/webapp/stores/supportStore.js";
-  import type { ServerStatusStore } from "../lib/webapp/stores/serverStatusStore.svelte.js";
-  import { shouldPollServerStatus } from "../lib/webapp/stores/serverStatusStore.svelte.js";
   import type { ApiClient } from "../lib/webapp/publicApi.js";
 
   import { lazyScreen } from "../lib/webapp/lazyScreen.svelte.js";
@@ -69,7 +67,6 @@
     goPartner: VoidAction;
     partnerEnabled?: boolean;
     goSettings: VoidAction;
-    goStatus: VoidAction;
     goSupport: VoidAction;
     hasActiveTariffSubscription?: boolean;
     hasMultipleTariffs?: boolean;
@@ -121,7 +118,6 @@
     regularTrafficTopupUnlocked?: boolean;
     screen?: string;
     serverStatusUrl?: string;
-    statusStore: ServerStatusStore;
     showTelegramLinkedStatus?: boolean;
     setLanguageMenuOpen: BooleanAction;
     setPromoCode: StringAction;
@@ -185,7 +181,6 @@
     goPartner,
     partnerEnabled = false,
     goSettings,
-    goStatus,
     goSupport,
     hasActiveTariffSubscription = false,
     hasMultipleTariffs = false,
@@ -237,7 +232,6 @@
     regularTrafficTopupUnlocked = false,
     screen = "home",
     serverStatusUrl = "",
-    statusStore,
     showTelegramLinkedStatus = false,
     setLanguageMenuOpen,
     setPromoCode,
@@ -276,7 +270,6 @@
   const devicesScreen = lazyScreen(() => import("./screens/DevicesScreen.svelte"));
   const supportScreen = lazyScreen(() => import("./screens/SupportScreen.svelte"));
   const supportTicketScreen = lazyScreen(() => import("./screens/SupportTicketScreen.svelte"));
-  const statusScreen = lazyScreen(() => import("./screens/StatusScreen.svelte"));
 
   $effect(() => {
     if (screen === "install") installGuideScreen.load();
@@ -287,7 +280,7 @@
     else if (screen === "support") {
       supportScreen.load();
       if (supportStore.openedTicketId) supportTicketScreen.load();
-    } else if (screen === "status") statusScreen.load();
+    }
   });
 
   // Without the Devices section the reissue action has no home screen, so it
@@ -359,9 +352,6 @@
       {openRegularTopupModal}
       {openPremiumTopupModal}
       {openTariffChangeModal}
-      {goStatus}
-      {openExternalLink}
-      {statusStore}
       {primaryPayActionLabel}
       {t}
     />
@@ -508,7 +498,6 @@
       {promoIsError}
       {promoStatus}
       {serverStatusUrl}
-      serverStatusInternal={shouldPollServerStatus(statusStore.data)}
       {showTelegramLinkedStatus}
       {subscriptionReissueBusy}
       subscriptionReissueVisible={settingsSubscriptionReissueVisible}
@@ -529,7 +518,6 @@
       {openExternalLink}
       {openLinkEmailDialog}
       {openSetPasswordDialog}
-      openServerStatus={goStatus}
       {openSubscriptionReissueDialog}
       {applyPromo}
       {clearPromoFieldError}
@@ -538,12 +526,5 @@
       {t}
       updateAccountLanguage={accountStore.updateAccountLanguage}
     />
-  {:else if screen === "status"}
-    {#if statusScreen.component}
-      {@const Screen = statusScreen.component}
-      <Screen {currentLang} {statusStore} {goHome} {openExternalLink} {t} />
-    {:else}
-      <ScreenLoading label={t("wa_loading")} />
-    {/if}
   {/if}
 </WebAppShell>

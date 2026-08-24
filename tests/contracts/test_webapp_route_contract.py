@@ -87,7 +87,6 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("GET", "/invite"): "index_route",
             ("GET", "/devices"): "index_route",
             ("GET", "/settings"): "index_route",
-            ("GET", "/status"): "index_route",
             ("GET", "/admin"): "index_route",
             ("GET", "/admin/{section}"): "index_route",
             ("GET", "/admin/settings/{settings_path}"): "index_route",
@@ -113,7 +112,6 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("POST", "/api/auth/email/password"): "email_password_auth_route",
             ("POST", "/api/auth/logout"): "logout_route",
             ("GET", "/api/me"): "me_route",
-            ("GET", "/api/status"): "server_status_route",
             ("GET", "/api/subscription-guides"): "subscription_guides_route",
             (
                 "GET",

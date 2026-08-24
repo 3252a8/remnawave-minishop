@@ -90,7 +90,6 @@ export default defineConfig({
             { label: 'Уведомления', slug: 'features/notifications' },
             { label: 'Тарифы', slug: 'features/tariffs' },
             { label: 'Веб-приложение / Mini App', slug: 'features/web-app' },
-            { label: 'Статус серверов', slug: 'features/server-status' },
             { label: 'Telegram-авторизация', slug: 'features/telegram-auth' },
             { label: 'Вход по email', slug: 'features/email-login' },
             { label: 'Темы Web App', slug: 'features/webapp-themes' },

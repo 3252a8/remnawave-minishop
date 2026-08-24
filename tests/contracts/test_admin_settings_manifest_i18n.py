@@ -213,39 +213,10 @@ def test_server_status_url_is_admin_editable():
     field = manifest["SERVER_STATUS_URL"]
 
     assert field["type"] == "url"
-    assert field["section"] == "system"
-    assert field["subsection"] == "server_status"
+    assert field["section"] == "general"
     assert field["i18n_label_key"] == "admin_settings_field_server_status_url_label"
     for language in ("ru", "en"):
         assert field["i18n_label_key"] in _locale(language)
-
-
-def test_server_status_manifest_has_typed_provider_choices():
-    manifest = _manifest_by_key()
-    keys = {
-        "SERVER_STATUS_ENABLED",
-        "SERVER_STATUS_PROVIDER",
-        "SERVER_STATUS_URL",
-        "SERVER_STATUS_KUMA_URL",
-        "SERVER_STATUS_KUMA_SLUG",
-        "SERVER_STATUS_XRAY_CHECKER_URL",
-        "SERVER_STATUS_CACHE_TTL_SECONDS",
-        "SERVER_STATUS_STALE_TTL_SECONDS",
-        "SERVER_STATUS_TIMEOUT_SECONDS",
-    }
-
-    assert all(manifest[key]["section"] == "system" for key in keys)
-    assert all(manifest[key]["subsection"] == "server_status" for key in keys)
-    assert [choice["value"] for choice in manifest["SERVER_STATUS_PROVIDER"]["choices"]] == [
-        "url",
-        "uptime-kuma",
-        "xray-checker",
-    ]
-    provider_field = get_field_by_key("SERVER_STATUS_PROVIDER")
-    assert provider_field is not None
-    assert coerce_value(provider_field, "uptime-kuma") == "uptime-kuma"
-    with pytest.raises(ValueError, match="unsupported choice"):
-        coerce_value(provider_field, "both")
 
 
 def test_default_user_traffic_strategy_is_a_general_admin_setting():

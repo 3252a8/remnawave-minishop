@@ -27,7 +27,6 @@ const descriptions = {
   'features/notifications.md': 'Каналы Telegram и email для пользовательских, админских и сервисных уведомлений Remnawave Minishop.',
   'features/tariffs.md': 'Каталог тарифов, модели на срок/по трафику, premium-сквады и HWID-устройства.',
   'features/web-app.md': 'Telegram Mini App, публичные инструкции, проксирование и реферальные ссылки.',
-  'features/server-status.md': 'Статус серверов в Mini App через внешнюю страницу, Uptime Kuma или xray-checker.',
   'features/telegram-auth.md': 'Telegram Mini Apps initData, Telegram OAuth, BotFather и настройка входа через Telegram.',
   'features/email-login.md': 'SMTP, одноразовые коды, magic link, парольный вход и привязка email-аккаунтов.',
   'features/webapp-themes.md': 'Кастомные темы, CSS-токены, ассеты и пайплайн создания темы.',
