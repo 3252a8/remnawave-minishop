@@ -65,6 +65,7 @@
       labels={imageLabels}
       disabled={disabled || sending}
       compact
+      globalDropzone
     />
     <Button type="button" class="ticket-composer-send" disabled={!canSend} onclick={submit}>
       {#if sending}<Spinner size="sm" />{:else}<Send size={16} />{/if}
@@ -77,6 +78,10 @@
   .ticket-composer-editor {
     position: relative;
     min-width: 0;
+  }
+
+  .ticket-composer-row {
+    --message-image-compact-height: 46px;
   }
 
   .ticket-composer-counter {

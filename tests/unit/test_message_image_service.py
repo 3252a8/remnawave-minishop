@@ -59,6 +59,31 @@ def test_heic_photo_is_reencoded_as_static_webp_without_metadata() -> None:
         assert not decoded.getexif()
 
 
+@pytest.mark.parametrize(
+    ("format_name", "filename", "content_type"),
+    [
+        ("JPEG", "iphone-photo.jpg", "image/jpg"),
+        ("HEIF", "iphone-photo.jpg", "image/jpeg"),
+        ("HEIF", "iphone-photo", "image/x-heic"),
+    ],
+)
+def test_ios_mime_and_filename_mismatches_are_validated_by_content(
+    format_name: str,
+    filename: str,
+    content_type: str,
+) -> None:
+    prepared = _prepare_message_image(
+        UploadedMessageImage(
+            data=_image_bytes(format_name),
+            filename=filename,
+            content_type=content_type,
+        )
+    )
+
+    assert prepared.content_type == "image/webp"
+    assert prepared.filename.endswith(".webp")
+
+
 def test_invalid_file_cannot_bypass_validation_with_image_mime() -> None:
     with pytest.raises(MessageImageError, match="valid image") as caught:
         _prepare_message_image(

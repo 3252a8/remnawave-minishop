@@ -1,24 +1,28 @@
 import { buildApiUrl } from "$lib/webapp/publicApi";
 
 export const MESSAGE_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
-export const MESSAGE_IMAGE_ACCEPT = [
+export const MESSAGE_IMAGE_ACCEPT = ["image/*", "image/heic", "image/heif", ".heic", ".heif"].join(
+  ","
+);
+
+const MESSAGE_IMAGE_MIME_TYPES = new Set([
   "image/heic",
+  "image/heic-sequence",
   "image/heif",
+  "image/heif-sequence",
   "image/jpeg",
+  "image/jpg",
+  "image/pjpeg",
   "image/png",
   "image/webp",
-  ".heic",
-  ".heif",
-].join(",");
-
-const MESSAGE_IMAGE_MIME_TYPES = new Set(
-  MESSAGE_IMAGE_ACCEPT.split(",").filter((value) => value.startsWith("image/"))
-);
+  "image/x-heic",
+  "image/x-heif",
+]);
 
 export function isAcceptedMessageImage(file: Pick<File, "name" | "type">): boolean {
   const contentType = String(file.type || "").toLowerCase();
   if (contentType && MESSAGE_IMAGE_MIME_TYPES.has(contentType)) return true;
-  return /\.(?:heic|heif|jpe?g|png|webp)$/i.test(String(file.name || ""));
+  return /\.(?:heic|heif|jpe?g|jfif|png|webp)$/i.test(String(file.name || ""));
 }
 
 export function messageRequestBody(

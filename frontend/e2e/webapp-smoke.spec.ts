@@ -405,6 +405,35 @@ async function assertUserTicketScrolling(page: Page, nav: Locator): Promise<void
   );
   const composer = page.locator(".support-ticket-screen .ticket-composer");
   await expect(composer).toBeVisible();
+  const uploadButton = composer.locator(".message-image-dropzone");
+  const sendButton = composer.locator(".ticket-composer-send");
+  await expect(uploadButton).toContainText("Загрузить файл");
+  const actionHeights = await Promise.all([uploadButton.boundingBox(), sendButton.boundingBox()]);
+  expect(
+    Boolean(
+      actionHeights[0] &&
+      actionHeights[1] &&
+      Math.abs(actionHeights[0].height - actionHeights[1].height) <= 1
+    ),
+    "webapp-support: upload and send buttons must have the same height"
+  ).toBe(true);
+  await page.evaluate(() => {
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([new Uint8Array([1, 2, 3])], "dragged-photo.jpg", { type: "image/jpg" }));
+    window.dispatchEvent(
+      new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer: transfer })
+    );
+  });
+  await expect(page.locator(".message-image-drag-overlay")).toBeVisible();
+  await page.evaluate(() => {
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([new Uint8Array([1, 2, 3])], "dragged-photo.jpg", { type: "image/jpg" }));
+    window.dispatchEvent(
+      new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: transfer })
+    );
+  });
+  await expect(composer.locator(".message-image-preview")).toContainText("dragged-photo.jpg");
+  await composer.locator(".message-image-preview button").click();
   const readReceipt = page
     .locator('.support-ticket-screen .ticket-message-receipt[title="Прочитано"]')
     .first();
@@ -471,6 +500,7 @@ async function assertAdminTicketScrolling(page: Page, supportDialog: Locator): P
   const composerCounter = composer.locator(".support-admin-composer-counter");
   const composerActions = composer.locator(".support-admin-composer-actions");
   const attachment = composerActions.locator(".message-image-attachment");
+  const uploadButton = attachment.locator(".message-image-dropzone");
   const sendButton = composerActions.locator(".admin-btn");
 
   await page.waitForTimeout(220);
@@ -496,6 +526,12 @@ async function assertAdminTicketScrolling(page: Page, supportDialog: Locator): P
     sendButton.boundingBox(),
   ]).then(([upload, send]) => Boolean(upload && send && Math.abs(upload.y - send.y) <= 4));
   expect(actionsShareRow, "admin-support: image and send actions must share one row").toBe(true);
+  await expect(uploadButton).toContainText("Загрузить файл");
+  const actionsMatchHeight = await Promise.all([
+    uploadButton.boundingBox(),
+    sendButton.boundingBox(),
+  ]).then(([upload, send]) => Boolean(upload && send && Math.abs(upload.height - send.height) <= 1));
+  expect(actionsMatchHeight, "admin-support: image and send actions must match height").toBe(true);
   await expect
     .poll(() => bodyViewport.evaluate((element) => element.scrollHeight - element.clientHeight))
     .toBeGreaterThan(0);

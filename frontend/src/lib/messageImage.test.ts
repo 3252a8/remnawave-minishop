@@ -36,6 +36,9 @@ describe("message image requests", () => {
   it("accepts phone photos even when the browser omits their MIME type", () => {
     expect(isAcceptedMessageImage({ name: "phone-photo.HEIC", type: "" })).toBe(true);
     expect(isAcceptedMessageImage({ name: "phone-photo.bin", type: "image/heif" })).toBe(true);
+    expect(isAcceptedMessageImage({ name: "phone-photo", type: "image/x-heic" })).toBe(true);
+    expect(isAcceptedMessageImage({ name: "phone-photo.jpg", type: "image/jpg" })).toBe(true);
+    expect(isAcceptedMessageImage({ name: "phone-photo", type: "image/pjpeg" })).toBe(true);
     expect(isAcceptedMessageImage({ name: "payload.svg", type: "image/svg+xml" })).toBe(false);
   });
 });

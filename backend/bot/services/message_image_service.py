@@ -27,18 +27,6 @@ MESSAGE_IMAGE_OUTPUT_MAX_BYTES = 5 * 1024 * 1024
 MESSAGE_IMAGE_MAX_DIMENSION = 2560
 MESSAGE_IMAGE_MAX_PIXELS = 16_000_000
 MESSAGE_IMAGE_CONTENT_TYPE = "image/webp"
-MESSAGE_IMAGE_UPLOAD_CONTENT_TYPES = frozenset(
-    {
-        "image/heic",
-        "image/heic-sequence",
-        "image/heif",
-        "image/heif-sequence",
-        "image/jpeg",
-        "image/png",
-        "image/webp",
-        "application/octet-stream",
-    }
-)
 MESSAGE_IMAGE_DIR = Path(__file__).resolve().parents[3] / "data" / "message-images"
 
 _IMAGE_ID_RE = re.compile(r"[0-9a-f]{32}")
@@ -108,10 +96,6 @@ class StoredMessageImage:
         )
 
 
-def _normalized_content_type(value: str) -> str:
-    return (value or "").split(";", 1)[0].strip().lower()
-
-
 def _opaque_rgb(image: Image.Image) -> Image.Image:
     if image.mode in {"RGBA", "LA"} or "transparency" in image.info:
         rgba = image.convert("RGBA")
@@ -150,13 +134,11 @@ def _prepare_message_image(upload: UploadedMessageImage) -> PreparedMessageImage
     if len(body) > MESSAGE_IMAGE_INPUT_MAX_BYTES:
         raise MessageImageError("image_too_large", "Image must be no larger than 8 MiB")
 
-    declared_type = _normalized_content_type(upload.content_type)
-    if declared_type and declared_type not in MESSAGE_IMAGE_UPLOAD_CONTENT_TYPES:
-        raise MessageImageError(
-            "unsupported_image", "Only HEIC, HEIF, JPEG, PNG and WebP images are allowed"
-        )
-
     try:
+        # Browser-provided multipart MIME types are advisory. In particular,
+        # iOS may export a HEIC selection as a JPEG while declaring image/jpg,
+        # or retain a JPEG filename for HEIF bytes. Pillow's decoded format is
+        # the security boundary, so validate the bytes below instead.
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
             with Image.open(io.BytesIO(body)) as probe:

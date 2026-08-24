@@ -125,6 +125,7 @@
   const imageLabels = $derived({
     drop: t("wa_message_image_drop"),
     choose: t("wa_message_image_choose"),
+    upload: t("wa_message_image_upload"),
     remove: t("wa_message_image_remove"),
     hint: t("wa_message_image_hint"),
     invalidType: t("wa_message_image_invalid_type"),
@@ -383,7 +384,12 @@
             <small class:is-over={bodyLength > maxBodyLength}>{bodyLength}/{maxBodyLength}</small>
           </div>
 
-          <ImageAttachment bind:file={image} labels={imageLabels} disabled={creating} />
+          <ImageAttachment
+            bind:file={image}
+            labels={imageLabels}
+            disabled={creating}
+            globalDropzone
+          />
 
           <Button
             class="wide support-submit-button"

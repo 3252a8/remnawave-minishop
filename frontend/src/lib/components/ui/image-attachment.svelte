@@ -11,6 +11,7 @@
   export type ImageAttachmentLabels = {
     drop: string;
     choose: string;
+    upload?: string;
     remove: string;
     hint: string;
     invalidType: string;
@@ -22,16 +23,19 @@
     file = $bindable(null),
     disabled = false,
     compact = false,
+    globalDropzone = false,
     labels,
   }: {
     file?: File | null;
     disabled?: boolean;
     compact?: boolean;
+    globalDropzone?: boolean;
     labels: ImageAttachmentLabels;
   } = $props();
 
   let inputElement = $state<HTMLInputElement | null>(null);
   let dragging = $state(false);
+  let dragDepth = 0;
   let error = $state("");
   let previewUrl = $state("");
 
@@ -71,11 +75,13 @@
   }
 
   function onDragOver(event: DragEvent): void {
+    if (globalDropzone) return;
     event.preventDefault();
     if (!disabled) dragging = true;
   }
 
   function onDragLeave(event: DragEvent): void {
+    if (globalDropzone) return;
     if (
       !event.currentTarget ||
       !(event.currentTarget as HTMLElement).contains(event.relatedTarget as Node)
@@ -85,6 +91,7 @@
   }
 
   function onDrop(event: DragEvent): void {
+    if (globalDropzone) return;
     event.preventDefault();
     dragging = false;
     if (!disabled) selectFile(event.dataTransfer?.files?.[0] ?? null);
@@ -95,7 +102,57 @@
     file = null;
     error = "";
   }
+
+  function hasDraggedFiles(event: DragEvent): boolean {
+    return Array.from(event.dataTransfer?.types ?? []).includes("Files");
+  }
+
+  function onWindowDragEnter(event: DragEvent): void {
+    if (!globalDropzone || disabled || !hasDraggedFiles(event)) return;
+    event.preventDefault();
+    dragDepth += 1;
+    dragging = true;
+  }
+
+  function onWindowDragOver(event: DragEvent): void {
+    if (!globalDropzone || disabled || !hasDraggedFiles(event)) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+    dragging = true;
+  }
+
+  function onWindowDragLeave(event: DragEvent): void {
+    if (!globalDropzone || !dragging || !hasDraggedFiles(event)) return;
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) dragging = false;
+  }
+
+  function onWindowDrop(event: DragEvent): void {
+    if (!globalDropzone || disabled || !hasDraggedFiles(event)) return;
+    event.preventDefault();
+    dragDepth = 0;
+    dragging = false;
+    selectFile(event.dataTransfer?.files?.[0] ?? null);
+  }
+
+  function resetWindowDrag(): void {
+    dragDepth = 0;
+    dragging = false;
+  }
 </script>
+
+<svelte:window
+  ondragenter={onWindowDragEnter}
+  ondragover={onWindowDragOver}
+  ondragleave={onWindowDragLeave}
+  ondrop={onWindowDrop}
+  ondragend={resetWindowDrag}
+  onblur={resetWindowDrag}
+/>
+
+{#if globalDropzone && dragging}
+  <div class="message-image-drag-overlay" aria-hidden="true"></div>
+{/if}
 
 <div
   class="message-image-attachment"
@@ -138,7 +195,7 @@
     <button type="button" class="message-image-dropzone" {disabled} onclick={choose}>
       <Upload size={18} />
       {#if compact}
-        <span>{labels.choose}</span>
+        <span>{labels.upload ?? labels.choose}</span>
       {:else}
         <span>{labels.drop} <strong>{labels.choose}</strong></span>
         <small>{labels.hint}</small>
@@ -244,7 +301,8 @@
   .message-image-attachment.is-compact .message-image-dropzone {
     display: inline-flex;
     width: auto;
-    min-height: 38px;
+    height: var(--message-image-compact-height, 46px);
+    min-height: var(--message-image-compact-height, 46px);
     align-items: center;
     justify-content: center;
     gap: 7px;
@@ -255,7 +313,8 @@
 
   .message-image-attachment.is-compact .message-image-preview {
     width: min(320px, 42vw);
-    min-height: 38px;
+    height: var(--message-image-compact-height, 46px);
+    min-height: var(--message-image-compact-height, 46px);
     padding: 4px 6px;
   }
 
@@ -267,6 +326,18 @@
 
   .message-image-attachment.is-compact .message-image-meta strong {
     max-width: 180px;
+  }
+
+  .message-image-drag-overlay {
+    position: fixed;
+    z-index: 2147483000;
+    inset: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+      max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+    border: 3px dashed var(--primary, var(--admin-accent, #6d7cff));
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--primary, var(--admin-accent, #6d7cff)) 10%, transparent);
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 24%, transparent);
+    pointer-events: none;
   }
 
   @media (max-width: 520px) {

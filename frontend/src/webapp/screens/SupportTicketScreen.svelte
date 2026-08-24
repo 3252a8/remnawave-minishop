@@ -61,6 +61,7 @@
   const imageLabels = $derived({
     drop: t("wa_message_image_drop"),
     choose: t("wa_message_image_choose"),
+    upload: t("wa_message_image_upload"),
     remove: t("wa_message_image_remove"),
     hint: t("wa_message_image_hint"),
     invalidType: t("wa_message_image_invalid_type"),

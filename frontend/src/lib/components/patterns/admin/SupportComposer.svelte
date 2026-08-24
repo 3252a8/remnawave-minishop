@@ -230,9 +230,11 @@
         bind:file={image}
         disabled={sending}
         compact
+        globalDropzone
         labels={{
           drop: at("message_image_drop", {}, "Drop an image here or"),
           choose: at("message_image_choose", {}, "choose a file"),
+          upload: at("message_image_upload", {}, "Upload file"),
           remove: at("message_image_remove", {}, "Remove image"),
           hint: at("message_image_hint", {}, "HEIC, HEIF, JPEG, PNG or WebP, up to 8 MB"),
           invalidType: at(
@@ -287,6 +289,8 @@
   }
 
   .support-admin-composer-actions {
+    --message-image-compact-height: 34px;
+
     display: flex;
     min-width: 0;
     align-items: stretch;
