@@ -13,6 +13,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -313,10 +314,17 @@ class Payment(Base):
             "provider_payment_id",
             name="uq_payments_provider_payment_id",
         ),
-        UniqueConstraint(
+        Index(
+            "uq_payments_auto_renew_cycle_attempt",
             "auto_renew_cycle_id",
             "renewal_attempt_number",
-            name="uq_payments_auto_renew_cycle_attempt",
+            unique=True,
+            postgresql_where=text(
+                "auto_renew_cycle_id IS NOT NULL AND renewal_attempt_number IS NOT NULL"
+            ),
+            sqlite_where=text(
+                "auto_renew_cycle_id IS NOT NULL AND renewal_attempt_number IS NOT NULL"
+            ),
         ),
     )
 
