@@ -52,6 +52,7 @@
     promoIsError?: boolean;
     promoStatus?: string;
     serverStatusUrl?: string;
+    serverStatusInternal?: boolean;
     showTelegramLinkedStatus?: boolean;
     subscriptionReissueBusy?: boolean;
     subscriptionReissueVisible?: boolean;
@@ -72,6 +73,7 @@
     openExternalLink?: OpenLinkAction;
     openLinkEmailDialog?: VoidAction;
     openSetPasswordDialog?: VoidAction;
+    openServerStatus?: VoidAction;
     openSubscriptionReissueDialog?: VoidAction;
     applyPromo?: VoidAction;
     clearPromoFieldError?: VoidAction;
@@ -106,6 +108,7 @@
     promoIsError = false,
     promoStatus = "",
     serverStatusUrl = "",
+    serverStatusInternal = false,
     showTelegramLinkedStatus = false,
     subscriptionReissueBusy = false,
     subscriptionReissueVisible = false,
@@ -126,6 +129,7 @@
     openExternalLink = () => {},
     openLinkEmailDialog = () => {},
     openSetPasswordDialog = () => {},
+    openServerStatus = () => {},
     openSubscriptionReissueDialog = () => {},
     applyPromo = () => {},
     clearPromoFieldError = () => {},
@@ -331,11 +335,11 @@
         <ArrowRight size={17} />
       </button>
     {/if}
-    {#if serverStatusUrl}
+    {#if serverStatusInternal || serverStatusUrl}
       <button
         class="settings-row settings-row-status"
         type="button"
-        onclick={() => openExternalLink(serverStatusUrl)}
+        onclick={serverStatusInternal ? openServerStatus : () => openExternalLink(serverStatusUrl)}
       >
         <Server size={21} />
         <span><strong>{t("menu_server_status_button")}</strong></span>

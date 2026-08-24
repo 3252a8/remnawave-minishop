@@ -58,7 +58,7 @@
 </script>
 
 <div class="phone-screen" class:home-screen={screen === "home"}>
-  {#if screen === "install" || screen === "invite" || screen === "partner" || screen === "devices" || screen === "support" || screen === "settings"}
+  {#if screen === "install" || screen === "invite" || screen === "partner" || screen === "devices" || screen === "support" || screen === "settings" || screen === "status"}
     <header class="app-header accent-title">
       <div class="brand-row">
         <BrandMark {brand} />

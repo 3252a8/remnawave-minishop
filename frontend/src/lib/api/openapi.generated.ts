@@ -2025,6 +2025,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Server Status */
+    get: operations["get_server_status_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/subscription-guides": {
     parameters: {
       query?: never;
@@ -4715,6 +4732,8 @@ export interface components {
     HwidDevicePackageSet: {
       [key: string]: components["schemas"]["HwidDevicePackage"][];
     };
+    /** @enum {string} */
+    ItemStatus: "online" | "offline" | "degraded" | "maintenance" | "pending" | "unknown";
     /** LogOut */
     LogOut: {
       /**
@@ -4772,6 +4791,11 @@ export interface components {
        */
       user_label: string | null;
     };
+    /** @enum {string} */
+    NativeStatusProvider: "uptime-kuma" | "xray-checker";
+    /** @enum {string} */
+    OverallStatus:
+      "operational" | "degraded" | "partial_outage" | "major_outage" | "maintenance" | "unknown";
     /** PackageSet */
     PackageSet: {
       [key: string]: components["schemas"]["TrafficPackage"][];
@@ -5856,6 +5880,92 @@ export interface components {
       source: string | null;
       /** @default null */
       subscription: components["schemas"]["PublicSubscriptionContextOut"] | null;
+    };
+    /** ServerStatus */
+    ServerStatus: {
+      /** Enabled */
+      enabled: boolean;
+      /**
+       * Externalurl
+       * @default null
+       */
+      externalUrl: string | null;
+      /** Groups */
+      groups?: components["schemas"]["StatusGroup"][];
+      /** Incidents */
+      incidents?: components["schemas"]["StatusIncident"][];
+      /** Sources */
+      sources?: components["schemas"]["StatusSource"][];
+      /**
+       * Stale
+       * @default false
+       */
+      stale: boolean;
+      status: components["schemas"]["OverallStatus"];
+      /**
+       * Updatedat
+       * @default null
+       */
+      updatedAt: string | null;
+    };
+    /** StatusGroup */
+    StatusGroup: {
+      /** Id */
+      id: string;
+      /** Items */
+      items: components["schemas"]["StatusItem"][];
+      /** Name */
+      name: string;
+    };
+    /** StatusIncident */
+    StatusIncident: {
+      /** Content */
+      content: string;
+      /**
+       * Createdat
+       * @default null
+       */
+      createdAt: string | null;
+      provider: components["schemas"]["NativeStatusProvider"];
+      status: components["schemas"]["OverallStatus"];
+      /** Title */
+      title: string;
+    };
+    /** StatusItem */
+    StatusItem: {
+      /** Id */
+      id: string;
+      /**
+       * Lastcheck
+       * @default null
+       */
+      lastCheck: string | null;
+      /**
+       * Latencyms
+       * @default null
+       */
+      latencyMs: number | null;
+      /** Name */
+      name: string;
+      provider: components["schemas"]["NativeStatusProvider"];
+      status: components["schemas"]["ItemStatus"];
+      /**
+       * Uptime24H
+       * @default null
+       */
+      uptime24h: number | null;
+    };
+    /** @enum {string} */
+    StatusProvider: "url" | "uptime-kuma" | "xray-checker";
+    /** StatusSource */
+    StatusSource: {
+      /**
+       * Error
+       * @default null
+       */
+      error: string | null;
+      provider: components["schemas"]["StatusProvider"];
+      status: components["schemas"]["OverallStatus"];
     };
     /** SubscriptionGuidesOut */
     SubscriptionGuidesOut: {
@@ -11213,6 +11323,29 @@ export interface operations {
             /** @constant */
             ok: true;
           };
+        };
+      };
+    };
+  };
+  get_server_status_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["ServerStatus"];
         };
       };
     };
