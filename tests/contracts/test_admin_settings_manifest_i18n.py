@@ -226,6 +226,7 @@ def test_server_status_manifest_has_typed_provider_choices():
     manifest = _manifest_by_key()
     keys = {
         "SERVER_STATUS_ENABLED",
+        "SERVER_STATUS_SHOW_ON_HOME",
         "SERVER_STATUS_PROVIDER",
         "SERVER_STATUS_URL",
         "SERVER_STATUS_KUMA_URL",
@@ -248,6 +249,13 @@ def test_server_status_manifest_has_typed_provider_choices():
     assert coerce_value(provider_field, "uptime-kuma") == "uptime-kuma"
     with pytest.raises(ValueError, match="unsupported choice"):
         coerce_value(provider_field, "both")
+
+    home_field = manifest["SERVER_STATUS_SHOW_ON_HOME"]
+    assert home_field["type"] == "bool"
+    for language in ("ru", "en"):
+        messages = _locale(language)
+        assert home_field["i18n_label_key"] in messages
+        assert home_field["i18n_description_key"] in messages
 
 
 def test_default_user_traffic_strategy_is_a_general_admin_setting():

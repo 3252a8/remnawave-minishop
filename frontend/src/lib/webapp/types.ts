@@ -94,6 +94,8 @@ export const FALLBACK_WEBAPP_CONFIG: WebappConfig = {
   primaryColor: "#00fe7a",
   privacyPolicyUrl: "",
   registrationInviteOnlyEnabled: false,
+  serverStatusInternal: false,
+  serverStatusShowOnHome: false,
   serverStatusUrl: "",
   supportUrl: "",
   telegramLoginBotId: 0,

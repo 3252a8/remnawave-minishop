@@ -361,6 +361,9 @@ export function adminFallbackResponse(
       if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_USER_THEME_MODE_ENABLED")) {
         DEV_MOCK.config.userThemeModeEnabled = Boolean(updates.WEBAPP_USER_THEME_MODE_ENABLED);
       }
+      if (Object.prototype.hasOwnProperty.call(updates, "SERVER_STATUS_SHOW_ON_HOME")) {
+        DEV_MOCK.config.serverStatusShowOnHome = Boolean(updates.SERVER_STATUS_SHOW_ON_HOME);
+      }
       if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_LOGO_URL")) {
         DEV_MOCK.config.logoUrl = updates.WEBAPP_LOGO_URL || "";
       }

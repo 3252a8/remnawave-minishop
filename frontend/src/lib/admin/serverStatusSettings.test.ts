@@ -5,6 +5,7 @@ import { filterServerStatusSettings } from "./serverStatusSettings";
 
 const fields = [
   "SERVER_STATUS_ENABLED",
+  "SERVER_STATUS_SHOW_ON_HOME",
   "SERVER_STATUS_PROVIDER",
   "SERVER_STATUS_URL",
   "SERVER_STATUS_KUMA_URL",
@@ -18,11 +19,20 @@ const sections = [{ id: "system", fields }] as AdminSettingsSection[];
 
 describe("filterServerStatusSettings", () => {
   it.each([
-    ["url", ["SERVER_STATUS_ENABLED", "SERVER_STATUS_PROVIDER", "SERVER_STATUS_URL"]],
+    [
+      "url",
+      [
+        "SERVER_STATUS_ENABLED",
+        "SERVER_STATUS_SHOW_ON_HOME",
+        "SERVER_STATUS_PROVIDER",
+        "SERVER_STATUS_URL",
+      ],
+    ],
     [
       "uptime-kuma",
       [
         "SERVER_STATUS_ENABLED",
+        "SERVER_STATUS_SHOW_ON_HOME",
         "SERVER_STATUS_PROVIDER",
         "SERVER_STATUS_KUMA_URL",
         "SERVER_STATUS_KUMA_SLUG",
@@ -35,6 +45,7 @@ describe("filterServerStatusSettings", () => {
       "xray-checker",
       [
         "SERVER_STATUS_ENABLED",
+        "SERVER_STATUS_SHOW_ON_HOME",
         "SERVER_STATUS_PROVIDER",
         "SERVER_STATUS_XRAY_CHECKER_URL",
         "SERVER_STATUS_CACHE_TTL_SECONDS",
@@ -47,6 +58,6 @@ describe("filterServerStatusSettings", () => {
       SERVER_STATUS_PROVIDER: { value: provider, deleted: false },
     });
     expect(visible[0].fields.map((field) => field.key)).toEqual(expected);
-    expect(sections[0].fields).toHaveLength(9);
+    expect(sections[0].fields).toHaveLength(10);
   });
 });

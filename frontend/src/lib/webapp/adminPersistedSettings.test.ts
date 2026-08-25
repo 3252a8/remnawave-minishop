@@ -27,6 +27,14 @@ describe("admin persisted settings helpers", () => {
     ).toBe(true);
   });
 
+  it("reloads the shell after the Home server status setting changes", () => {
+    expect(
+      adminPayloadHasFrontendReloadChange({
+        updates: { SERVER_STATUS_SHOW_ON_HOME: true },
+      })
+    ).toBe(true);
+  });
+
   it("ignores unrelated settings", () => {
     expect(
       adminPayloadHasFrontendReloadChange({

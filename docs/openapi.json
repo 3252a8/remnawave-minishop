@@ -11254,6 +11254,14 @@
             "title": "Registrationinviteonlyenabled",
             "type": "boolean"
           },
+          "serverStatusInternal": {
+            "title": "Serverstatusinternal",
+            "type": "boolean"
+          },
+          "serverStatusShowOnHome": {
+            "title": "Serverstatusshowonhome",
+            "type": "boolean"
+          },
           "serverStatusUrl": {
             "title": "Serverstatusurl",
             "type": "string"
@@ -11321,6 +11329,8 @@
           "telegramOAuthRequestAccess",
           "supportUrl",
           "serverStatusUrl",
+          "serverStatusInternal",
+          "serverStatusShowOnHome",
           "privacyPolicyUrl",
           "userAgreementUrl",
           "currency",

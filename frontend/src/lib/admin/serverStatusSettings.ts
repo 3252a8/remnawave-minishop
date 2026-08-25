@@ -3,7 +3,11 @@ import type { SettingsDirtyEntry } from "./stores/settingsStore";
 
 export type ServerStatusProvider = "url" | "uptime-kuma" | "xray-checker";
 
-const ALWAYS_VISIBLE = new Set(["SERVER_STATUS_ENABLED", "SERVER_STATUS_PROVIDER"]);
+const ALWAYS_VISIBLE = new Set([
+  "SERVER_STATUS_ENABLED",
+  "SERVER_STATUS_SHOW_ON_HOME",
+  "SERVER_STATUS_PROVIDER",
+]);
 const EMBEDDED_COMMON = new Set([
   "SERVER_STATUS_CACHE_TTL_SECONDS",
   "SERVER_STATUS_STALE_TTL_SECONDS",

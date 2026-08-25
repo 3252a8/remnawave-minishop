@@ -532,6 +532,10 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
             "telegramOAuthRequestAccess": _resolve_telegram_oauth_request_access(settings),
             "supportUrl": cached["support_url"],
             "serverStatusUrl": cached["server_status_url"],
+            "serverStatusInternal": bool(
+                settings.SERVER_STATUS_ENABLED and settings.SERVER_STATUS_PROVIDER != "url"
+            ),
+            "serverStatusShowOnHome": bool(settings.SERVER_STATUS_SHOW_ON_HOME),
             "privacyPolicyUrl": cached["privacy_policy_url"],
             "userAgreementUrl": cached["user_agreement_url"],
             "currency": cached["currency"],

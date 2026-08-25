@@ -168,6 +168,7 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     SUPPORT_LINK: str | None = Field(default=None)
     SERVER_STATUS_URL: str | None = Field(default=None)
     SERVER_STATUS_ENABLED: bool = Field(default=False)
+    SERVER_STATUS_SHOW_ON_HOME: bool = Field(default=False)
     SERVER_STATUS_PROVIDER: Literal["url", "uptime-kuma", "xray-checker"] = Field(default="url")
     SERVER_STATUS_KUMA_URL: str | None = Field(default=None)
     SERVER_STATUS_KUMA_SLUG: str = Field(default="default")

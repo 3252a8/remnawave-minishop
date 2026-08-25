@@ -69,7 +69,7 @@
     goPartner: VoidAction;
     partnerEnabled?: boolean;
     goSettings: VoidAction;
-    goStatus: VoidAction;
+    goStatus: (parent?: "home" | "settings") => void;
     goSupport: VoidAction;
     hasActiveTariffSubscription?: boolean;
     hasMultipleTariffs?: boolean;
@@ -120,6 +120,9 @@
     regularTrafficTopupBarClickable?: boolean;
     regularTrafficTopupUnlocked?: boolean;
     screen?: string;
+    serverStatusInternal?: boolean;
+    serverStatusShowOnHome?: boolean;
+    serverStatusUrl?: string;
     statusStore: ServerStatusStore;
     showTelegramLinkedStatus?: boolean;
     setLanguageMenuOpen: BooleanAction;
@@ -239,6 +242,9 @@
     regularTrafficTopupBarClickable = false,
     regularTrafficTopupUnlocked = false,
     screen = "home",
+    serverStatusInternal = false,
+    serverStatusShowOnHome = false,
+    serverStatusUrl = "",
     statusStore,
     showTelegramLinkedStatus = false,
     setLanguageMenuOpen,
@@ -365,8 +371,9 @@
       {openRegularTopupModal}
       {openPremiumTopupModal}
       {openTariffChangeModal}
-      {goStatus}
+      goStatus={() => goStatus("home")}
       {openExternalLink}
+      {serverStatusShowOnHome}
       {statusStore}
       {primaryPayActionLabel}
       {t}
@@ -513,6 +520,8 @@
       {promoFieldError}
       {promoIsError}
       {promoStatus}
+      {serverStatusUrl}
+      {serverStatusInternal}
       {showTelegramLinkedStatus}
       {subscriptionReissueBusy}
       subscriptionReissueVisible={settingsSubscriptionReissueVisible}
@@ -537,6 +546,7 @@
       {openExternalLink}
       {openLinkEmailDialog}
       {openSetPasswordDialog}
+      openServerStatus={() => goStatus("settings")}
       {openSubscriptionReissueDialog}
       {applyPromo}
       {clearPromoFieldError}
@@ -548,7 +558,13 @@
   {:else if screen === "status"}
     {#if statusScreen.component}
       {@const Screen = statusScreen.component}
-      <Screen {currentLang} {statusStore} {goHome} {openExternalLink} {t} />
+      <Screen
+        {currentLang}
+        {statusStore}
+        goHome={activeTab === "settings" ? goSettings : goHome}
+        {openExternalLink}
+        {t}
+      />
     {:else}
       <ScreenLoading label={t("wa_loading")} />
     {/if}

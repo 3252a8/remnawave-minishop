@@ -7395,6 +7395,10 @@ export interface components {
       privacyPolicyUrl: string;
       /** Registrationinviteonlyenabled */
       registrationInviteOnlyEnabled: boolean;
+      /** Serverstatusinternal */
+      serverStatusInternal: boolean;
+      /** Serverstatusshowonhome */
+      serverStatusShowOnHome: boolean;
       /** Serverstatusurl */
       serverStatusUrl: string;
       /** Supporturl */

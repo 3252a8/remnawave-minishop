@@ -2407,6 +2407,8 @@
   "admin_settings_subsection_server_status": "Статус серверов",
   "admin_settings_field_server_status_enabled_label": "Показывать статус серверов",
   "admin_settings_field_server_status_enabled_description": "Показывает доступность серверов в Mini App или ведёт на внешнюю страницу статуса.",
+  "admin_settings_field_server_status_show_on_home_label": "Показывать статус на главном экране",
+  "admin_settings_field_server_status_show_on_home_description": "Показывает карточку статуса серверов на главном экране Mini App. Пункт статуса остаётся доступен в настройках.",
   "admin_settings_field_server_status_provider_label": "Провайдер статуса",
   "admin_settings_field_server_status_provider_description": "Выберите внешнюю ссылку или провайдера, данные которого отображаются внутри Mini App.",
   "admin_settings_field_server_status_provider_choice_url": "Внешняя ссылка",

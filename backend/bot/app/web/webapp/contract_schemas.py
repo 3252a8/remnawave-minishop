@@ -60,6 +60,8 @@ class WebappBootstrapConfigOut(HttpResponseModel):
     telegram_oauth_request_access: str = Field(alias="telegramOAuthRequestAccess")
     support_url: str = Field(alias="supportUrl")
     server_status_url: str = Field(alias="serverStatusUrl")
+    server_status_internal: bool = Field(alias="serverStatusInternal")
+    server_status_show_on_home: bool = Field(alias="serverStatusShowOnHome")
     privacy_policy_url: str = Field(alias="privacyPolicyUrl")
     user_agreement_url: str = Field(alias="userAgreementUrl")
     currency: str

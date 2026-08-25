@@ -190,6 +190,9 @@
   const profileAvatarUrl = $derived(accountView.profileAvatarUrl);
   const profileEmail = $derived(accountView.profileEmail);
   const profileTelegramId = $derived(accountView.profileTelegramId);
+  const serverStatusInternal = $derived(cfg.serverStatusInternal === true);
+  const serverStatusShowOnHome = $derived(cfg.serverStatusShowOnHome === true);
+  const serverStatusUrl = $derived(accountView.serverStatusUrl);
   const showTelegramLinkedStatus = $derived(accountView.showTelegramLinkedStatus);
   const supportUrl = $derived(accountView.supportUrl);
   const telegramNotificationsNeedPrompt = $derived(accountView.telegramNotificationsNeedPrompt);
@@ -503,6 +506,9 @@
       {regularTrafficTopupBarClickable}
       {regularTrafficTopupUnlocked}
       {screen}
+      {serverStatusInternal}
+      {serverStatusShowOnHome}
+      {serverStatusUrl}
       statusStore={serverStatusStore}
       {showTelegramLinkedStatus}
       {setLanguageMenuOpen}

@@ -80,8 +80,8 @@ export function createWebappNavigation({
     showSection("settings");
   }
 
-  function goStatus() {
-    showSection("status", "home");
+  function goStatus(parent: "home" | "settings" = "settings") {
+    showSection("status", parent);
   }
 
   return {

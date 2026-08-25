@@ -2407,6 +2407,8 @@
   "admin_settings_subsection_server_status": "Server status",
   "admin_settings_field_server_status_enabled_label": "Show server status",
   "admin_settings_field_server_status_enabled_description": "Shows server availability in the Mini App or links to an external status page.",
+  "admin_settings_field_server_status_show_on_home_label": "Show status on Home screen",
+  "admin_settings_field_server_status_show_on_home_description": "Display the server status card on the Mini App Home screen. The status entry remains available in Settings.",
   "admin_settings_field_server_status_provider_label": "Status provider",
   "admin_settings_field_server_status_provider_description": "Choose an external URL or a provider displayed inside the Mini App.",
   "admin_settings_field_server_status_provider_choice_url": "External URL",

@@ -21,6 +21,7 @@ function demoSettingsValuesByKey(): Map<string, DemoSettingsField> {
 function demoRuntimeSettingValue(key: string): unknown {
   const values: DemoRecord = {
     WEBAPP_USER_THEME_MODE_ENABLED: DEV_MOCK.config.userThemeModeEnabled ?? true,
+    SERVER_STATUS_SHOW_ON_HOME: DEV_MOCK.config.serverStatusShowOnHome ?? false,
     TRIAL_WITHOUT_TELEGRAM_ENABLED: DEV_MOCK.config.trialWithoutTelegramEnabled ?? true,
     REFERRAL_PROGRAM_ENABLED:
       DEV_MOCK.config.referralProgramEnabled ??
@@ -94,6 +95,9 @@ function applyDemoSettingToMock(key: string, value: unknown): void {
   if (key === "WEBAPP_TITLE") DEV_MOCK.config.title = value || "";
   if (key === "WEBAPP_USER_THEME_MODE_ENABLED") {
     DEV_MOCK.config.userThemeModeEnabled = Boolean(value);
+  }
+  if (key === "SERVER_STATUS_SHOW_ON_HOME") {
+    DEV_MOCK.config.serverStatusShowOnHome = Boolean(value);
   }
   if (key === "WEBAPP_LOGO_URL") DEV_MOCK.config.logoUrl = value || "";
   if (key === "WEBAPP_FAVICON_URL" || key === "WEBAPP_LOGO_FAVICON_URL") {

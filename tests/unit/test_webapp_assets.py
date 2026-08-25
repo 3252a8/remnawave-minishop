@@ -368,8 +368,14 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             css,
         )
 
-    def test_server_status_entry_is_rendered_only_on_home_screen(self):
+    def test_server_status_defaults_to_settings_and_home_card_is_opt_in(self):
         root = Path(__file__).resolve().parents[2]
+        app_mode_source = (root / "frontend/src/webapp/AppModeContent.svelte").read_text(
+            encoding="utf-8"
+        )
+        card_source = (root / "frontend/src/webapp/ServerStatusCard.svelte").read_text(
+            encoding="utf-8"
+        )
         home_source = (root / "frontend/src/webapp/screens/HomeScreen.svelte").read_text(
             encoding="utf-8"
         )
@@ -381,12 +387,17 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         ).read_text(encoding="utf-8")
 
         self.assertEqual(home_source.count("<ServerStatusCard"), 1)
-        self.assertIn("{statusStore}", home_source)
-        self.assertIn("{goStatus}", home_source)
-        self.assertNotIn("settings-row-status", settings_source)
-        self.assertNotIn('t("menu_server_status_button")', settings_source)
-        self.assertNotIn("serverStatusInternal", authenticated_screens_source)
-        self.assertNotIn("openServerStatus={goStatus}", authenticated_screens_source)
+        self.assertIn("{#if serverStatusShowOnHome}", home_source)
+        self.assertIn("{#if status?.enabled}", card_source)
+        self.assertIn("settings-row-status", settings_source)
+        self.assertIn('t("menu_server_status_button")', settings_source)
+        self.assertIn("serverStatusInternal", authenticated_screens_source)
+        self.assertIn('goStatus={() => goStatus("home")}', authenticated_screens_source)
+        self.assertIn('openServerStatus={() => goStatus("settings")}', authenticated_screens_source)
+        self.assertIn(
+            "const serverStatusShowOnHome = $derived(cfg.serverStatusShowOnHome === true)",
+            app_mode_source,
+        )
 
     def test_subscription_reissue_settings_action_and_dialog_use_danger_layout(self):
         root = Path(__file__).resolve().parents[2]
@@ -419,6 +430,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             SERVER_STATUS_ENABLED=True,
             SERVER_STATUS_PROVIDER="url",
             SERVER_STATUS_URL="https://status.example.com",
+            SERVER_STATUS_SHOW_ON_HOME=True,
             SUPPORT_LINK="https://t.me/support",
             PRIVACY_POLICY_URL="https://example.com/privacy",
             USER_AGREEMENT_URL="https://example.com/agreement",
@@ -452,6 +464,8 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         payload = subscription_webapp._build_webapp_bootstrap_payload(request)
 
         self.assertEqual(payload["config"]["serverStatusUrl"], "https://status.example.com")
+        self.assertFalse(payload["config"]["serverStatusInternal"])
+        self.assertTrue(payload["config"]["serverStatusShowOnHome"])
         self.assertEqual(payload["config"]["apiBase"], "/api")
         self.assertTrue(payload["config"]["userThemeModeEnabled"])
         self.assertEqual(
@@ -491,6 +505,11 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 payload = subscription_webapp._build_webapp_bootstrap_payload(request)
 
                 self.assertEqual(payload["config"]["serverStatusUrl"], "")
+                self.assertEqual(
+                    payload["config"]["serverStatusInternal"],
+                    enabled and provider != "url",
+                )
+                self.assertFalse(payload["config"]["serverStatusShowOnHome"])
 
     def test_server_status_polling_starts_only_after_authenticated_data_loads(self):
         root = Path(__file__).resolve().parents[2]

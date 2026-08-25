@@ -91,6 +91,7 @@
     openTariffChangeModal = () => {},
     goStatus = () => {},
     openExternalLink = () => {},
+    serverStatusShowOnHome = false,
     statusStore,
     primaryPayActionLabel = () => "",
     t = (key) => key,
@@ -128,6 +129,7 @@
     openTariffChangeModal?: VoidAction;
     goStatus?: VoidAction;
     openExternalLink?: OpenLinkAction;
+    serverStatusShowOnHome?: boolean;
     statusStore: ServerStatusStore;
     primaryPayActionLabel?: () => string;
     t?: Translate;
@@ -723,6 +725,8 @@
         </Button>
       {/if}
     </div>
-    <ServerStatusCard {statusStore} {goStatus} {openExternalLink} {t} />
+    {#if serverStatusShowOnHome}
+      <ServerStatusCard {statusStore} {goStatus} {openExternalLink} {t} />
+    {/if}
   </div>
 </main>

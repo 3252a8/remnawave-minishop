@@ -679,6 +679,18 @@ SETTINGS_MANIFEST: list[SettingField] = [
         subsection="server_status",
     ),
     SettingField(
+        "SERVER_STATUS_SHOW_ON_HOME",
+        "bool",
+        "system",
+        "Show server status on Home screen",
+        (
+            "Display the server status card on the Mini App Home screen. "
+            "The Settings entry remains available."
+        ),
+        optional=False,
+        subsection="server_status",
+    ),
+    SettingField(
         "SERVER_STATUS_PROVIDER",
         "string",
         "system",

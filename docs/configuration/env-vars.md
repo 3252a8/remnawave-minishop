@@ -254,6 +254,7 @@ Trust-all вариант записывается как
 | Переменная | По умолчанию | Назначение |
 | --- | --- | --- |
 | `SERVER_STATUS_ENABLED` | `False` | Включает раздел статуса серверов в Web App. |
+| `SERVER_STATUS_SHOW_ON_HOME` | `False` | Дополнительно показывает карточку статуса на главном экране; пункт в настройках доступен независимо от этого флага. |
 | `SERVER_STATUS_PROVIDER` | `url` | Источник данных: `url`, `uptime-kuma` или `xray-checker`. |
 | `SERVER_STATUS_URL` | пусто | Внешняя страница для источника `url`; встроенные источники её не используют. |
 | `SERVER_STATUS_KUMA_URL` | пусто | Базовый URL Uptime Kuma без пути страницы, например `https://status.example.com`. |

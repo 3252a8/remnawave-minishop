@@ -42,13 +42,21 @@ describe("createWebappNavigation", () => {
     expect(deps.syncSectionPath).toHaveBeenCalledWith("invite");
   });
 
-  it("opens status as a native child of Home", () => {
+  it("opens status as a native child of Settings by default", () => {
     const { deps, navigation, state } = makeNavigation();
 
     navigation.goStatus();
 
-    expect(state).toEqual({ activeTab: "home", screen: "status" });
+    expect(state).toEqual({ activeTab: "settings", screen: "status" });
     expect(deps.syncSectionPath).toHaveBeenCalledWith("status");
+  });
+
+  it("keeps Home active when status is opened from the Home card", () => {
+    const { navigation, state } = makeNavigation();
+
+    navigation.goStatus("home");
+
+    expect(state).toEqual({ activeTab: "home", screen: "status" });
   });
 
   it("guards the bonus route while the referral program is disabled", () => {

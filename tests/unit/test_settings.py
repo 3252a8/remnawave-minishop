@@ -32,6 +32,10 @@ class SettingsTests(unittest.TestCase):
             ).webapp_settings.user_theme_mode_enabled
         )
 
+    def test_server_status_home_card_defaults_off_and_can_be_enabled(self):
+        self.assertFalse(self._settings().SERVER_STATUS_SHOW_ON_HOME)
+        self.assertTrue(self._settings(SERVER_STATUS_SHOW_ON_HOME=True).SERVER_STATUS_SHOW_ON_HOME)
+
     def test_telegram_bot_proxy_defaults_to_none_and_normalizes_blank(self):
         self.assertIsNone(self._settings().TELEGRAM_BOT_PROXY_URL)
         self.assertIsNone(self._settings(TELEGRAM_BOT_PROXY_URL="  ").TELEGRAM_BOT_PROXY_URL)

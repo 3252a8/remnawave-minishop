@@ -140,6 +140,8 @@ export const DEV_MOCK: PreviewMock = {
     adminJsAsset: "subscription_webapp_admin.js",
     adminCssAsset: "subscription_webapp_admin.css",
     supportUrl: "https://t.me/support",
+    serverStatusInternal: false,
+    serverStatusShowOnHome: false,
     serverStatusUrl: "https://status.example.com",
     privacyPolicyUrl: "https://example.com/privacy",
     userAgreementUrl: "https://example.com/agreement",
