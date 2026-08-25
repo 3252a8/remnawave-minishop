@@ -4,7 +4,6 @@
   import type { DevicesStore } from "../lib/webapp/stores/devicesStore.js";
   import type { SupportStore } from "../lib/webapp/stores/supportStore.js";
   import type { ServerStatusStore } from "../lib/webapp/stores/serverStatusStore.svelte.js";
-  import { shouldPollServerStatus } from "../lib/webapp/stores/serverStatusStore.svelte.js";
   import type { ApiClient } from "../lib/webapp/publicApi.js";
 
   import { lazyScreen } from "../lib/webapp/lazyScreen.svelte.js";
@@ -121,7 +120,6 @@
     regularTrafficTopupBarClickable?: boolean;
     regularTrafficTopupUnlocked?: boolean;
     screen?: string;
-    serverStatusUrl?: string;
     statusStore: ServerStatusStore;
     showTelegramLinkedStatus?: boolean;
     setLanguageMenuOpen: BooleanAction;
@@ -241,7 +239,6 @@
     regularTrafficTopupBarClickable = false,
     regularTrafficTopupUnlocked = false,
     screen = "home",
-    serverStatusUrl = "",
     statusStore,
     showTelegramLinkedStatus = false,
     setLanguageMenuOpen,
@@ -516,8 +513,6 @@
       {promoFieldError}
       {promoIsError}
       {promoStatus}
-      {serverStatusUrl}
-      serverStatusInternal={shouldPollServerStatus(statusStore.data)}
       {showTelegramLinkedStatus}
       {subscriptionReissueBusy}
       subscriptionReissueVisible={settingsSubscriptionReissueVisible}
@@ -542,7 +537,6 @@
       {openExternalLink}
       {openLinkEmailDialog}
       {openSetPasswordDialog}
-      openServerStatus={goStatus}
       {openSubscriptionReissueDialog}
       {applyPromo}
       {clearPromoFieldError}

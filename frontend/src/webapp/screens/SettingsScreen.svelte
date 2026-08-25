@@ -7,7 +7,6 @@
     Key,
     Mail,
     Send,
-    Server,
     Shield,
     UserRound,
   } from "$components/ui/icons.js";
@@ -52,8 +51,6 @@
     promoFieldError?: string;
     promoIsError?: boolean;
     promoStatus?: string;
-    serverStatusUrl?: string;
-    serverStatusInternal?: boolean;
     showTelegramLinkedStatus?: boolean;
     subscriptionReissueBusy?: boolean;
     subscriptionReissueVisible?: boolean;
@@ -77,7 +74,6 @@
     openExternalLink?: OpenLinkAction;
     openLinkEmailDialog?: VoidAction;
     openSetPasswordDialog?: VoidAction;
-    openServerStatus?: VoidAction;
     openSubscriptionReissueDialog?: VoidAction;
     applyPromo?: VoidAction;
     clearPromoFieldError?: VoidAction;
@@ -112,8 +108,6 @@
     promoFieldError = "",
     promoIsError = false,
     promoStatus = "",
-    serverStatusUrl = "",
-    serverStatusInternal = false,
     showTelegramLinkedStatus = false,
     subscriptionReissueBusy = false,
     subscriptionReissueVisible = false,
@@ -137,7 +131,6 @@
     openExternalLink = () => {},
     openLinkEmailDialog = () => {},
     openSetPasswordDialog = () => {},
-    openServerStatus = () => {},
     openSubscriptionReissueDialog = () => {},
     applyPromo = () => {},
     clearPromoFieldError = () => {},
@@ -351,17 +344,6 @@
       >
         <Shield size={21} />
         <span><strong>{t("wa_settings_privacy_policy")}</strong></span>
-        <ArrowRight size={17} />
-      </button>
-    {/if}
-    {#if serverStatusInternal || serverStatusUrl}
-      <button
-        class="settings-row settings-row-status"
-        type="button"
-        onclick={serverStatusInternal ? openServerStatus : () => openExternalLink(serverStatusUrl)}
-      >
-        <Server size={21} />
-        <span><strong>{t("menu_server_status_button")}</strong></span>
         <ArrowRight size={17} />
       </button>
     {/if}

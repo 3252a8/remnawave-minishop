@@ -368,44 +368,25 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             css,
         )
 
-    def test_settings_screen_places_server_status_between_legal_and_support_links(self):
-        app_source = (Path(__file__).resolve().parents[2] / "frontend/src/App.svelte").read_text(
+    def test_server_status_entry_is_rendered_only_on_home_screen(self):
+        root = Path(__file__).resolve().parents[2]
+        home_source = (root / "frontend/src/webapp/screens/HomeScreen.svelte").read_text(
             encoding="utf-8"
         )
-        app_mode_source = (
-            Path(__file__).resolve().parents[2] / "frontend/src/webapp/AppModeContent.svelte"
-        ).read_text(encoding="utf-8")
-        account_view_source = (
-            Path(__file__).resolve().parents[2] / "frontend/src/lib/webapp/accountView.ts"
-        ).read_text(encoding="utf-8")
-        settings_source = (
-            Path(__file__).resolve().parents[2]
-            / "frontend/src/webapp/screens/SettingsScreen.svelte"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn("cfg.serverStatusUrl", account_view_source)
-        self.assertIn("appSettings?.server_status_url", account_view_source)
-        self.assertIn("{shellView}", app_source)
-        self.assertIn("const accountView = $derived(shellView.accountView)", app_mode_source)
-        self.assertIn(
-            "const serverStatusUrl = $derived(accountView.serverStatusUrl)", app_mode_source
+        settings_source = (root / "frontend/src/webapp/screens/SettingsScreen.svelte").read_text(
+            encoding="utf-8"
         )
-        self.assertIn("{serverStatusUrl}", app_mode_source)
-        self.assertIn('t("menu_server_status_button")', settings_source)
-        self.assertIn("onclick={serverStatusInternal ? openServerStatus", settings_source)
         authenticated_screens_source = (
-            Path(__file__).resolve().parents[2] / "frontend/src/webapp/AuthenticatedScreens.svelte"
+            root / "frontend/src/webapp/AuthenticatedScreens.svelte"
         ).read_text(encoding="utf-8")
-        self.assertIn("openServerStatus={goStatus}", authenticated_screens_source)
 
-        agreement_pos = settings_source.index("{#if userAgreementUrl}")
-        privacy_pos = settings_source.index("{#if privacyPolicyUrl}")
-        status_pos = settings_source.index("{#if serverStatusInternal || serverStatusUrl}")
-        support_pos = settings_source.index("{#if supportUrl}")
-
-        self.assertLess(agreement_pos, status_pos)
-        self.assertLess(privacy_pos, status_pos)
-        self.assertLess(status_pos, support_pos)
+        self.assertEqual(home_source.count("<ServerStatusCard"), 1)
+        self.assertIn("{statusStore}", home_source)
+        self.assertIn("{goStatus}", home_source)
+        self.assertNotIn("settings-row-status", settings_source)
+        self.assertNotIn('t("menu_server_status_button")', settings_source)
+        self.assertNotIn("serverStatusInternal", authenticated_screens_source)
+        self.assertNotIn("openServerStatus={goStatus}", authenticated_screens_source)
 
     def test_subscription_reissue_settings_action_and_dialog_use_danger_layout(self):
         root = Path(__file__).resolve().parents[2]
