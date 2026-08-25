@@ -13,7 +13,7 @@ from bot.middlewares.i18n import JsonI18n
 from bot.services import admin_broadcast_delivery as delivery_module
 from bot.services.admin_broadcast_delivery import AdminBroadcastDeliveryService
 from bot.services.broadcast_personalization import BroadcastUserContext
-from bot.utils.message_queue import QueuedMessage, TelegramMessageQueue
+from bot.utils.message_queue import MessageQueueManager, QueuedMessage, TelegramMessageQueue
 from db.broadcast_models import AdminBroadcast, AdminBroadcastDelivery
 from tests.support.settings_stub import settings_stub
 
@@ -207,6 +207,26 @@ class AdminBroadcastDeliveryTests(unittest.IsolatedAsyncioTestCase):
 
 
 class MessageQueueDeliveryCallbackTests(unittest.IsolatedAsyncioTestCase):
+    async def test_send_photo_routes_delivery_callbacks_outside_bot_kwargs(self) -> None:
+        photo_result = object()
+        bot = SimpleNamespace(send_photo=AsyncMock(return_value=photo_result))
+        manager = MessageQueueManager(cast(Bot, bot))
+        success = AsyncMock()
+        failure = AsyncMock()
+
+        await manager.send_photo(
+            42,
+            photo="photo-id",
+            callback=success,
+            error_callback=failure,
+        )
+        if manager.user_queue._processing_task is not None:
+            await manager.user_queue._processing_task
+
+        bot.send_photo.assert_awaited_once_with(chat_id=42, photo="photo-id")
+        success.assert_awaited_once_with(photo_result)
+        failure.assert_not_awaited()
+
     async def test_failure_callback_receives_terminal_send_error(self) -> None:
         bot = SimpleNamespace(send_message=AsyncMock(side_effect=RuntimeError("offline")))
         queue = TelegramMessageQueue(cast(Bot, bot), messages_per_second=1000)

@@ -270,10 +270,23 @@ class MessageQueueManager:
         message = QueuedMessage(chat_id=chat_id, method_name="send_document", kwargs=kwargs)
         await queue.add_message(message)
 
-    async def send_photo(self, chat_id: int, **kwargs: Any) -> None:
+    async def send_photo(
+        self,
+        chat_id: int,
+        *,
+        callback: Callable[[Any], Awaitable[None]] | None = None,
+        error_callback: Callable[[Exception], Awaitable[None]] | None = None,
+        **kwargs: Any,
+    ) -> None:
         """Queue a send_photo call"""
         queue = self.group_queue if self._is_group_chat(chat_id) else self.user_queue
-        message = QueuedMessage(chat_id=chat_id, method_name="send_photo", kwargs=kwargs)
+        message = QueuedMessage(
+            chat_id=chat_id,
+            method_name="send_photo",
+            kwargs=kwargs,
+            callback=callback,
+            error_callback=error_callback,
+        )
         await queue.add_message(message)
 
     async def send_video(self, chat_id: int, **kwargs: Any) -> None:
