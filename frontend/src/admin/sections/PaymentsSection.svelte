@@ -67,7 +67,6 @@
   const paymentHeaders = $derived([
     at("id", {}, "ID"),
     at("user", {}, "User"),
-    at("payments_col_user_id", {}, "ID"),
     at("payments_col_traffic_regular", {}, "Main traffic"),
     at("payments_col_traffic_premium", {}, "Premium traffic"),
     at("amount", {}, "Amount"),
@@ -80,7 +79,6 @@
   const paymentSortColumns = [
     { asc: "id_asc", desc: "id_desc", defaultDirection: "desc" },
     { asc: "user_asc", desc: "user_desc", defaultDirection: "asc" },
-    { asc: "user_id_asc", desc: "user_id_desc", defaultDirection: "desc" },
     { asc: "traffic_regular_asc", desc: "traffic_regular_desc", defaultDirection: "desc" },
     { asc: "traffic_premium_asc", desc: "traffic_premium_desc", defaultDirection: "desc" },
     { asc: "amount_asc", desc: "amount_desc", defaultDirection: "desc" },
@@ -102,19 +100,7 @@
       headers={paymentHeaders}
       rows={8}
       rowHeight={62}
-      widths={[
-        "48px",
-        "148px",
-        "88px",
-        "72px",
-        "72px",
-        "78px",
-        "92px",
-        "82px",
-        "140px",
-        "72px",
-        "96px",
-      ]}
+      widths={["12%", "16.5%", "10%", "10%", "8.5%", "6.5%", "9%", "9.5%", "8%", "10%"]}
     />
   {:else if !paymentsTable.rows.length}
     <AdminEmptyState tone="card"
@@ -125,7 +111,6 @@
       <colgroup>
         <col class="admin-payments-col-id" />
         <col class="admin-payments-col-user" />
-        <col class="admin-payments-col-user-id" />
         <col class="admin-payments-col-traffic" />
         <col class="admin-payments-col-traffic" />
         <col class="admin-payments-col-amount" />
@@ -152,64 +137,59 @@
             onSort={paymentsStore.setSort}
           />
           <AdminSortableHeader
-            label={at("payments_col_user_id", {}, "ID")}
+            label={at("payments_col_traffic_regular", {}, "Main traffic")}
             column={paymentSortColumns[2]}
             currentSort={paymentsSort}
             {at}
             onSort={paymentsStore.setSort}
+            class="admin-payments-traffic-header"
           />
           <AdminSortableHeader
-            label={at("payments_col_traffic_regular", {}, "Main traffic")}
+            label={at("payments_col_traffic_premium", {}, "Premium traffic")}
             column={paymentSortColumns[3]}
             currentSort={paymentsSort}
             {at}
             onSort={paymentsStore.setSort}
+            class="admin-payments-traffic-header"
           />
           <AdminSortableHeader
-            label={at("payments_col_traffic_premium", {}, "Premium traffic")}
+            label={at("amount", {}, "Amount")}
             column={paymentSortColumns[4]}
             currentSort={paymentsSort}
             {at}
             onSort={paymentsStore.setSort}
           />
           <AdminSortableHeader
-            label={at("amount", {}, "Amount")}
+            label={at("payments_col_discount", {}, "Discount")}
             column={paymentSortColumns[5]}
             currentSort={paymentsSort}
             {at}
             onSort={paymentsStore.setSort}
           />
           <AdminSortableHeader
-            label={at("payments_col_discount", {}, "Discount")}
+            label={at("provider", {}, "Provider")}
             column={paymentSortColumns[6]}
             currentSort={paymentsSort}
             {at}
             onSort={paymentsStore.setSort}
           />
           <AdminSortableHeader
-            label={at("provider", {}, "Provider")}
+            label={at("description", {}, "Description")}
             column={paymentSortColumns[7]}
             currentSort={paymentsSort}
             {at}
             onSort={paymentsStore.setSort}
           />
           <AdminSortableHeader
-            label={at("description", {}, "Description")}
+            label={at("status", {}, "Status")}
             column={paymentSortColumns[8]}
             currentSort={paymentsSort}
             {at}
             onSort={paymentsStore.setSort}
           />
           <AdminSortableHeader
-            label={at("status", {}, "Status")}
-            column={paymentSortColumns[9]}
-            currentSort={paymentsSort}
-            {at}
-            onSort={paymentsStore.setSort}
-          />
-          <AdminSortableHeader
             label={at("date", {}, "Date")}
-            column={paymentSortColumns[10]}
+            column={paymentSortColumns[9]}
             currentSort={paymentsSort}
             {at}
             onSort={paymentsStore.setSort}
@@ -218,7 +198,7 @@
       </thead>
       <VirtualTableRows
         rows={paymentsTable.rows}
-        colspan={11}
+        colspan={10}
         rowHeight={62}
         getKey={(p) => p.payment_id}
       >
@@ -258,42 +238,42 @@
                 >
                   <User size={14} />
                 </AdminButton>
-                <Popover.Root>
-                  <Popover.Trigger
-                    class="admin-payments-user-name"
-                    title={at("payments_show_full_user", {}, "Show full user name")}
-                    aria-label={at(
-                      "payments_show_full_user_named",
-                      { name: userLabel },
-                      "Show full user name: {name}"
-                    )}
-                  >
-                    {userLabel}
-                  </Popover.Trigger>
-                  <Popover.Portal>
-                    <Popover.Content
-                      class="admin-payments-user-popover"
-                      side="bottom"
-                      align="start"
-                      sideOffset={6}
+                <span class="admin-payments-user-identity">
+                  <Popover.Root>
+                    <Popover.Trigger
+                      class="admin-payments-user-name"
+                      title={at("payments_show_full_user", {}, "Show full user name")}
+                      aria-label={at(
+                        "payments_show_full_user_named",
+                        { name: userLabel },
+                        "Show full user name: {name}"
+                      )}
                     >
                       {userLabel}
-                    </Popover.Content>
-                  </Popover.Portal>
-                </Popover.Root>
+                    </Popover.Trigger>
+                    <Popover.Portal>
+                      <Popover.Content
+                        class="admin-payments-user-popover"
+                        side="bottom"
+                        align="start"
+                        sideOffset={6}
+                      >
+                        {userLabel}
+                      </Popover.Content>
+                    </Popover.Portal>
+                  </Popover.Root>
+                  {#if p.user_id != null}
+                    <AdminCopyableValue
+                      class="admin-payments-user-id"
+                      value={p.user_id}
+                      text={`#${p.user_id}`}
+                      copyLabel={copyLabel(p.user_id)}
+                      kind="user-id"
+                      oncopy={copyValue}
+                    />
+                  {/if}
+                </span>
               </span>
-            </td>
-            <td class="admin-cell-mono" data-label={at("payments_col_user_id", {}, "ID")}>
-              {#if p.user_id != null}
-                <AdminCopyableValue
-                  value={p.user_id}
-                  copyLabel={copyLabel(p.user_id)}
-                  kind="user-id"
-                  oncopy={copyValue}
-                />
-              {:else}
-                —
-              {/if}
             </td>
             <td
               class="admin-cell-traffic-gb"
@@ -433,8 +413,14 @@
   }
 
   .admin-payments-table-shell :global(.admin-payments-table) {
-    min-width: 1360px;
+    width: 100%;
+    min-width: 0;
     table-layout: fixed;
+  }
+
+  .admin-payments-table-shell :global(.admin-payments-table thead th),
+  .admin-payments-table-shell :global(.admin-payments-table tbody td) {
+    padding-inline: 8px;
   }
 
   .admin-payments-mobile-list {
@@ -442,49 +428,75 @@
   }
 
   .admin-payments-table-shell :global(.admin-payments-col-id) {
-    width: 118px;
+    width: 12%;
   }
 
   .admin-payments-table-shell :global(.admin-payments-col-user) {
-    width: 230px;
-  }
-
-  .admin-payments-table-shell :global(.admin-payments-col-user-id) {
-    width: 170px;
+    width: 16.5%;
   }
 
   .admin-payments-table-shell :global(.admin-payments-col-traffic) {
-    width: 112px;
+    width: 10%;
   }
 
   .admin-payments-table-shell :global(.admin-payments-col-amount) {
-    width: 112px;
+    width: 8.5%;
   }
 
   .admin-payments-table-shell :global(.admin-payments-col-discount) {
-    width: 100px;
+    width: 6.5%;
   }
 
   .admin-payments-table-shell :global(.admin-payments-col-provider) {
-    width: 128px;
+    width: 9%;
   }
 
   .admin-payments-table-shell :global(.admin-payments-col-description) {
-    width: 190px;
+    width: 9.5%;
   }
 
   .admin-payments-table-shell :global(.admin-payments-col-status) {
-    width: 110px;
+    width: 8%;
   }
 
   .admin-payments-table-shell :global(.admin-payments-col-date) {
-    width: 150px;
+    width: 10%;
+  }
+
+  .admin-payments-table-shell :global(.admin-payments-traffic-header) {
+    white-space: normal;
+  }
+
+  .admin-payments-table-shell :global(.admin-payments-traffic-header .admin-sort-header) {
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .admin-payments-table-shell
+    :global(.admin-payments-traffic-header .admin-sort-header > span:first-child) {
+    min-width: 0;
+    line-height: 1.25;
+    overflow-wrap: normal;
+    word-break: normal;
+    white-space: normal;
+  }
+
+  .admin-payments-table-shell
+    :global(.admin-payments-traffic-header .admin-sort-header > .admin-sort-state) {
+    flex: 0 0 auto;
+    margin-top: 1px;
   }
 
   .admin-payments-user-cell {
     display: flex;
     align-items: center;
     gap: 8px;
+    min-width: 0;
+  }
+
+  .admin-payments-user-identity {
+    display: grid;
+    gap: 2px;
     min-width: 0;
   }
 
@@ -500,6 +512,7 @@
     color: inherit;
     cursor: pointer;
     font: inherit;
+    font-weight: 650;
     text-align: left;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -514,6 +527,12 @@
     outline: 2px solid color-mix(in srgb, var(--accent) 65%, transparent);
     outline-offset: 2px;
     border-radius: 4px;
+  }
+
+  :global(.admin-payments-user-id) {
+    color: var(--admin-muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
   }
 
   :global(.admin-payments-user-popover) {
@@ -545,9 +564,12 @@
   }
 
   .admin-cell-id :global(.admin-payment-id-btn.admin-btn) {
+    width: 28px;
     height: 28px;
+    min-width: 28px;
     min-height: 28px;
-    padding: 0 8px;
+    flex: 0 0 28px;
+    padding: 0;
     gap: 6px;
     border-radius: 7px;
     color: var(--admin-text);
@@ -556,15 +578,23 @@
   }
 
   .admin-payment-id-actions {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
+    width: 100%;
     min-width: 0;
+    overflow: hidden;
   }
 
   .admin-payment-id-actions :global(.admin-copyable-value) {
+    flex: 1 1 auto;
+    gap: 2px;
     font-family: var(--font-mono);
     font-size: 12px;
+  }
+
+  .admin-payments-table-shell :global(.admin-payments-table tbody td.admin-cell-id) {
+    padding-inline: 6px;
   }
 
   @media (max-width: 720px) {
