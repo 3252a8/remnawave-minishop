@@ -31,6 +31,11 @@ export function effectiveServerStatusProvider(
   return raw === "uptime-kuma" || raw === "xray-checker" ? raw : "url";
 }
 
+export function isKumaUrlValid(value: unknown): boolean {
+  const url = String(value ?? "").trim();
+  return !url || /^https?:\/\//i.test(url);
+}
+
 export function serverStatusFieldVisible(
   field: Pick<AdminSettingField, "key" | "subsection">,
   provider: ServerStatusProvider

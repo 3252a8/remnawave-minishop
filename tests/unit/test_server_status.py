@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from datetime import timedelta
 from typing import cast
 
@@ -290,6 +291,184 @@ def test_provider_response_size_is_limited() -> None:
         finally:
             await service.close()
             await server.close()
+
+    asyncio.run(run())
+
+
+def test_provider_reads_chunked_json_until_eof() -> None:
+    async def run() -> None:
+        async def chunked_response(request: web.Request) -> web.StreamResponse:
+            response = web.StreamResponse(headers={"Content-Type": "application/json"})
+            await response.prepare(request)
+            await response.write(b'{"heartbeatList":')
+            await asyncio.sleep(0.01)
+            await response.write(b'{"1":[{"status":1}]}}')
+            await response.write_eof()
+            return response
+
+        app = web.Application()
+        app.router.add_get("/status", chunked_response)
+        server = TestServer(app)
+        service = ServerStatusService(_settings())
+        await server.start_server()
+        try:
+            payload = await service._fetch_json(
+                "uptime-kuma",
+                str(server.make_url("/status")),
+            )
+        finally:
+            await service.close()
+            await server.close()
+
+        assert payload == {"heartbeatList": {"1": [{"status": 1}]}}
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize(
+    ("body", "error_type"),
+    [
+        (b"", "empty_response"),
+        (b"<html>provider-secret</html>", "non_json_response"),
+    ],
+)
+def test_provider_invalid_json_response_is_classified_without_body_logging(
+    body: bytes,
+    error_type: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    async def run() -> int:
+        requests = 0
+
+        async def invalid_response(_: web.Request) -> web.Response:
+            nonlocal requests
+            requests += 1
+            return web.Response(body=body)
+
+        app = web.Application()
+        app.router.add_get("/api/status-page/heartbeat/example", invalid_response)
+        server = TestServer(app)
+        service = ServerStatusService(_settings())
+        await server.start_server()
+        try:
+            with pytest.raises(ProviderFetchError, match="invalid_response"):
+                await service._fetch_json(
+                    "uptime-kuma",
+                    str(server.make_url("/api/status-page/heartbeat/example")),
+                )
+        finally:
+            await service.close()
+            await server.close()
+        return requests
+
+    with caplog.at_level("WARNING", logger="bot.services.server_status.service"):
+        requests = asyncio.run(run())
+
+    assert requests == 1
+    assert "path=/api/status-page/heartbeat/example" in caplog.text
+    assert "status=200" in caplog.text
+    assert f"response_bytes={len(body)}" in caplog.text
+    assert f"body_sha256={hashlib.sha256(body).hexdigest()}" in caplog.text
+    assert f"body_kind={'empty' if not body else 'html'}" in caplog.text
+    assert f"error_type={error_type}" in caplog.text
+    assert "provider-secret" not in caplog.text
+
+
+def test_provider_failure_logs_redirect_target_without_query_or_body(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    async def run() -> None:
+        async def redirect(_: web.Request) -> web.Response:
+            raise web.HTTPFound("/replacement?token=redirect-secret")
+
+        async def replacement(_: web.Request) -> web.Response:
+            return web.Response(text="<html>provider-secret</html>", content_type="text/html")
+
+        app = web.Application()
+        app.router.add_get("/original", redirect)
+        app.router.add_get("/replacement", replacement)
+        server = TestServer(app)
+        service = ServerStatusService(_settings())
+        await server.start_server()
+        try:
+            with pytest.raises(ProviderFetchError, match="invalid_response"):
+                await service._fetch_json(
+                    "uptime-kuma",
+                    f"{server.make_url('/original')}?token=request-secret",
+                )
+        finally:
+            await service.close()
+            await server.close()
+
+    with caplog.at_level("WARNING", logger="bot.services.server_status.service"):
+        asyncio.run(run())
+
+    assert "path=/original" in caplog.text
+    assert "redirects=1" in caplog.text
+    assert "final_path=/replacement" in caplog.text
+    assert "content_type=text/html;_charset=utf-8" in caplog.text
+    assert "body_kind=html" in caplog.text
+    assert "request-secret" not in caplog.text
+    assert "redirect-secret" not in caplog.text
+    assert "provider-secret" not in caplog.text
+
+
+def test_kuma_fetches_status_page_before_heartbeats_when_parallel_requests_fail() -> None:
+    async def run() -> None:
+        status_page_in_progress = False
+        status_page_started = asyncio.Event()
+
+        async def status_page(_: web.Request) -> web.Response:
+            nonlocal status_page_in_progress
+            status_page_in_progress = True
+            status_page_started.set()
+            try:
+                await asyncio.sleep(0.15)
+                return web.json_response(
+                    {
+                        "publicGroupList": [
+                            {
+                                "id": 1,
+                                "name": "Servers",
+                                "monitorList": [{"id": 1, "name": "DE-1"}],
+                            }
+                        ]
+                    }
+                )
+            finally:
+                status_page_in_progress = False
+
+        async def heartbeats(_: web.Request) -> web.Response:
+            await status_page_started.wait()
+            if status_page_in_progress:
+                return web.Response(text="temporary upstream error")
+            return web.json_response(
+                {
+                    "heartbeatList": {"1": [{"status": 1}]},
+                    "uptimeList": {"1_24": 1},
+                }
+            )
+
+        app = web.Application()
+        app.router.add_get("/api/status-page/example", status_page)
+        app.router.add_get("/api/status-page/heartbeat/example", heartbeats)
+        server = TestServer(app)
+        await server.start_server()
+        service = ServerStatusService(
+            _settings(
+                SERVER_STATUS_PROVIDER="uptime-kuma",
+                SERVER_STATUS_KUMA_URL=str(server.make_url("/")).rstrip("/"),
+                SERVER_STATUS_KUMA_SLUG="example",
+            )
+        )
+        try:
+            result = await service._fetch_provider()
+        finally:
+            await service.close()
+            await server.close()
+
+        assert result.status == "operational"
+        assert result.groups[0].items[0].status == "online"
 
     asyncio.run(run())
 

@@ -203,43 +203,149 @@ class ServerStatusService:
         assert self._session is not None
         timeout = aiohttp.ClientTimeout(total=self.settings.SERVER_STATUS_TIMEOUT_SECONDS)
         started = time.monotonic()
+        response: aiohttp.ClientResponse | None = None
+        body: bytes | None = None
         try:
             async with self._session.get(url, timeout=timeout) as response:
+                body_buffer = bytearray()
+                while len(body_buffer) <= MAX_PROVIDER_RESPONSE_BYTES:
+                    chunk = await response.content.read(
+                        min(64 * 1024, MAX_PROVIDER_RESPONSE_BYTES + 1 - len(body_buffer))
+                    )
+                    if not chunk:
+                        break
+                    body_buffer.extend(chunk)
+                body = bytes(body_buffer)
                 if response.status < 200 or response.status >= 300:
-                    self._log_failure(provider, url, started, f"http_{response.status}")
+                    self._log_failure(
+                        provider,
+                        url,
+                        started,
+                        f"http_{response.status}",
+                        response=response,
+                        body=body,
+                    )
                     raise ProviderFetchError("http_error")
                 if (
                     response.content_length is not None
                     and response.content_length > MAX_PROVIDER_RESPONSE_BYTES
-                ):
-                    self._log_failure(provider, url, started, "response_too_large")
+                ) or len(body) > MAX_PROVIDER_RESPONSE_BYTES:
+                    self._log_failure(
+                        provider,
+                        url,
+                        started,
+                        "response_too_large",
+                        response=response,
+                        body=body,
+                    )
                     raise ProviderFetchError("response_too_large")
-                body = await response.content.read(MAX_PROVIDER_RESPONSE_BYTES + 1)
-                if len(body) > MAX_PROVIDER_RESPONSE_BYTES:
-                    self._log_failure(provider, url, started, "response_too_large")
-                    raise ProviderFetchError("response_too_large")
-                payload = json.loads(body)
+                if not body.strip():
+                    self._log_failure(
+                        provider,
+                        url,
+                        started,
+                        "empty_response",
+                        response=response,
+                        body=body,
+                    )
+                    raise ProviderFetchError("invalid_response")
+                try:
+                    payload = json.loads(body)
+                except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+                    self._log_failure(
+                        provider,
+                        url,
+                        started,
+                        "non_json_response",
+                        response=response,
+                        body=body,
+                    )
+                    raise ProviderFetchError("invalid_response") from exc
         except ProviderFetchError:
             raise
         except TimeoutError as exc:
-            self._log_failure(provider, url, started, "timeout")
+            self._log_failure(provider, url, started, "timeout", response=response, body=body)
             raise ProviderFetchError("timeout") from exc
-        except (aiohttp.ClientError, json.JSONDecodeError, ValueError) as exc:
-            self._log_failure(provider, url, started, type(exc).__name__)
+        except (aiohttp.ClientError, ValueError) as exc:
+            self._log_failure(
+                provider,
+                url,
+                started,
+                type(exc).__name__,
+                response=response,
+                body=body,
+            )
             raise ProviderFetchError("invalid_response") from exc
+        assert response is not None and body is not None
         logger.info(
-            "server_status_fetch_success provider=%s host=%s duration_ms=%d",
+            "server_status_fetch_success provider=%s host=%s path=%s status=%d "
+            "content_type=%s content_encoding=%s response_bytes=%d redirects=%d "
+            "final_host=%s final_path=%s duration_ms=%d",
             provider,
             urlsplit(url).hostname or "",
+            urlsplit(url).path,
+            response.status,
+            self._safe_log_value(response.headers.get("Content-Type")),
+            self._safe_log_value(response.headers.get("Content-Encoding")),
+            len(body),
+            len(response.history),
+            response.url.host or "",
+            response.url.path,
             int((time.monotonic() - started) * 1000),
         )
         return payload
 
-    def _log_failure(self, provider: str, url: str, started: float, error_type: str) -> None:
+    @staticmethod
+    def _safe_log_value(value: str | None) -> str:
+        return "-" if not value else "_".join(value[:120].split())
+
+    def _log_failure(
+        self,
+        provider: str,
+        url: str,
+        started: float,
+        error_type: str,
+        *,
+        response: aiohttp.ClientResponse | None = None,
+        body: bytes | None = None,
+    ) -> None:
+        final_url = response.url if response is not None else None
+        stripped = body.lstrip() if body is not None else b""
+        body_kind = (
+            "empty"
+            if body is not None and not stripped
+            else "json"
+            if stripped[:1] in {b"{", b"["}
+            else "html"
+            if stripped[:1] == b"<"
+            else "other"
+            if body is not None
+            else "unknown"
+        )
         logger.warning(
-            "server_status_fetch_failed provider=%s host=%s duration_ms=%d error_type=%s",
+            "server_status_fetch_failed provider=%s host=%s path=%s status=%s "
+            "content_type=%s content_encoding=%s content_length=%s response_bytes=%s "
+            "redirects=%d final_host=%s final_path=%s body_kind=%s body_sha256=%s "
+            "duration_ms=%d error_type=%s",
             provider,
             urlsplit(url).hostname or "",
+            urlsplit(url).path,
+            response.status if response is not None else "-",
+            self._safe_log_value(
+                response.headers.get("Content-Type") if response is not None else None
+            ),
+            self._safe_log_value(
+                response.headers.get("Content-Encoding") if response is not None else None
+            ),
+            response.content_length
+            if response is not None and response.content_length is not None
+            else "-",
+            len(body) if body is not None else "-",
+            len(response.history) if response is not None else 0,
+            final_url.host if final_url is not None and final_url.host else "",
+            final_url.path if final_url is not None else "",
+            body_kind,
+            hashlib.sha256(body).hexdigest() if body is not None else "-",
             int((time.monotonic() - started) * 1000),
             error_type,
         )
@@ -253,12 +359,13 @@ class ServerStatusService:
                 if not base_url or not slug:
                     raise ProviderFetchError("configuration_error")
                 safe_slug = quote(slug, safe="")
-                page, heartbeats = await asyncio.gather(
-                    self._fetch_json(provider, f"{base_url}/api/status-page/{safe_slug}"),
-                    self._fetch_json(
-                        provider,
-                        f"{base_url}/api/status-page/heartbeat/{safe_slug}",
-                    ),
+                page = await self._fetch_json(
+                    provider,
+                    f"{base_url}/api/status-page/{safe_slug}",
+                )
+                heartbeats = await self._fetch_json(
+                    provider,
+                    f"{base_url}/api/status-page/heartbeat/{safe_slug}",
                 )
                 return parse_kuma_status_page(page, heartbeats)
             if provider == "xray-checker":
