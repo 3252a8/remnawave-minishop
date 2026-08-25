@@ -40,6 +40,14 @@ def _localized_webapp_message(request: web.Request, lang: str, key: str) -> str:
     return key
 
 
+def _subscription_is_trial(subscription: Any | None) -> bool:
+    if subscription is None:
+        return False
+    provider = str(getattr(subscription, "provider", "") or "").strip().lower()
+    status = str(getattr(subscription, "status_from_panel", "") or "").strip().upper()
+    return provider == "trial" or status == "TRIAL"
+
+
 def _billing_iso_datetime(value: Any | None) -> str | None:
     if not value:
         return None
