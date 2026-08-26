@@ -3,11 +3,14 @@
   import { WalletCards } from "$components/ui/icons.js";
   import { formatMoney } from "$lib/webapp/formatters.js";
   import {
+    loadPartnerBalanceSnapshot,
+    peekPartnerBalanceSnapshot,
+  } from "$lib/webapp/partnerBalanceLookup.js";
+  import {
     partnerBalanceLookupKey,
     shouldShowPartnerBalanceDiscount,
-    shouldShowPartnerBalancePlaceholder,
   } from "$lib/webapp/partnerUiPolicy.js";
-  import type { ApiClient, PartnerOverviewResponse } from "$lib/webapp/publicApi.js";
+  import type { ApiClient } from "$lib/webapp/publicApi.js";
   import type { Translate } from "$lib/webapp/types.js";
 
   let {
@@ -32,10 +35,15 @@
     t?: Translate;
   } = $props();
 
-  let available = $state(0);
-  let scale = $state(2);
+  function initialBalanceState() {
+    const key = String(currency || "").toUpperCase();
+    return { key, snapshot: peekPartnerBalanceSnapshot(api, key) };
+  }
+
+  const initialBalance = initialBalanceState();
+  let available = $state(initialBalance.snapshot?.available || 0);
   let loading = $state(false);
-  let requestKey = $state("");
+  let requestKey = $state(initialBalance.snapshot ? initialBalance.key : "");
 
   const normalizedCurrency = $derived(String(currency || "").toUpperCase());
   const maximumDiscount = $derived.by(() => {
@@ -56,16 +64,6 @@
       maximumDiscount,
     })
   );
-  const placeholderVisible = $derived(
-    shouldShowPartnerBalancePlaceholder({
-      open,
-      eligible,
-      currency: normalizedCurrency,
-      loading,
-      requestKey,
-    })
-  );
-
   function previewAvailable(): number | null {
     if (typeof window === "undefined") return null;
     const scenario = String(
@@ -82,22 +80,13 @@
     const preview = previewAvailable();
     if (preview !== null) {
       available = preview;
-      scale = 2;
       loading = false;
       return;
     }
     try {
-      const overview = (await api("/partner/overview")) as PartnerOverviewResponse;
+      const snapshot = await loadPartnerBalanceSnapshot(api, normalizedCurrency);
       if (requestKey !== key) return;
-      const balance = overview.balances.find(
-        (item) => String(item.currency || "").toUpperCase() === normalizedCurrency
-      );
-      if (!overview.balance_payment_enabled || overview.profile?.status !== "active" || !balance) {
-        available = 0;
-        return;
-      }
-      scale = Number(balance.currency_scale || 0);
-      available = Number(balance.available_minor || 0) / 10 ** scale;
+      available = snapshot.available;
     } catch {
       if (requestKey === key) available = 0;
     } finally {
@@ -112,17 +101,19 @@
   $effect(() => {
     const key = partnerBalanceLookupKey({ open, eligible, currency: normalizedCurrency });
     if (!key) {
-      requestKey = "";
-      available = 0;
-      loading = false;
+      if (!eligible || !normalizedCurrency) {
+        requestKey = "";
+        available = 0;
+        loading = false;
+      }
       selected = false;
       discount = 0;
       return;
     }
     if (requestKey === key) return;
+    const cached = peekPartnerBalanceSnapshot(api, key);
     requestKey = key;
-    available = 0;
-    scale = 2;
+    available = cached?.available || 0;
     void loadBalance(key);
   });
 
@@ -132,16 +123,11 @@
   });
 </script>
 
-{#if placeholderVisible || visible}
-  <label
-    class="partner-balance-discount"
-    class:loading={placeholderVisible}
-    class:selected={visible && selected}
-    aria-busy={placeholderVisible}
-  >
+{#if visible}
+  <label class="partner-balance-discount" class:selected aria-busy={loading}>
     <Checkbox
-      checked={visible && selected}
-      disabled={placeholderVisible || loading || maximumDiscount <= 0}
+      checked={selected}
+      disabled={loading || maximumDiscount <= 0}
       ariaLabel={t("wa_partner_balance_checkout_aria")}
       onCheckedChange={setSelected}
     />
@@ -150,19 +136,11 @@
       <strong>{t("wa_partner_balance_checkout_title")}</strong>
       <span class="partner-balance-meta">
         <small>
-          {#if placeholderVisible}
-            {t("wa_loading")}
-          {:else}
-            {t("wa_partner_balance_checkout_available", {
-              balance: formatMoney(available, normalizedCurrency),
-            })}
-          {/if}
+          {t("wa_partner_balance_checkout_available", {
+            balance: formatMoney(available, normalizedCurrency),
+          })}
         </small>
-        <span
-          class:visible={!placeholderVisible && selected}
-          class="partner-balance-result"
-          aria-hidden={placeholderVisible || !selected}
-        >
+        <span class:visible={selected} class="partner-balance-result" aria-hidden={!selected}>
           <span class="partner-balance-prices">
             <s>{formatMoney(amount, normalizedCurrency)}</s>
             <b>{formatMoney(remainder, normalizedCurrency)}</b>
@@ -194,10 +172,6 @@
   .partner-balance-discount.selected {
     border-color: color-mix(in srgb, var(--accent) 68%, var(--border));
     background: color-mix(in srgb, var(--accent) 14%, var(--panel-2));
-  }
-
-  .partner-balance-discount.loading {
-    cursor: wait;
   }
 
   .partner-balance-icon {

@@ -55,6 +55,7 @@ from .billing_partner_checkout import (
 )
 from .billing_payment_policy import _active_tribute_recurrence, _payment_promo_error
 from .billing_payment_reuse import reuse_checkout_if_available
+from .billing_promo_checkout import create_fully_discounted_payment
 from .billing_quotes import (
     BasePaymentQuote as BasePaymentQuote,
 )
@@ -635,22 +636,6 @@ async def _create_subscription_payment(
                 promo_support_error.code,
                 promo_support_error.message,
             )
-        try:
-            partner_allocation = await allocate_partner_checkout_balance(
-                requested=use_partner_balance,
-                settings=settings,
-                session=session,
-                user_id=user_id,
-                payment_currency=payment_currency,
-                checkout_total=price,
-                provider_spec=provider_spec,
-                months=months,
-                sale_mode=sale_mode,
-            )
-        except PartnerError as exc:
-            return _json_error(exc.status, exc.code, exc.message or str(exc))
-        if partner_allocation is not None:
-            price = partner_allocation.external_amount
         payment_context = replace(
             payment_context,
             price=price,
@@ -684,6 +669,35 @@ async def _create_subscription_payment(
             checkout_charged_months=promo_result.charged_months if promo_result else None,
             checkout_charged_gb=promo_result.charged_gb if promo_result else None,
             checkout_quoted_at=promo_result.quoted_at if promo_result else None,
+            **partner_checkout_context_fields(
+                None,
+                promo_base_amount=promo_result.base_amount if promo_result else None,
+            ),
+        )
+        if promo_result is not None and method != "stars" and price <= 0:
+            return await create_fully_discounted_payment(
+                request=request,
+                payment_context=payment_context,
+            )
+        try:
+            partner_allocation = await allocate_partner_checkout_balance(
+                requested=use_partner_balance,
+                settings=settings,
+                session=session,
+                user_id=user_id,
+                payment_currency=payment_currency,
+                checkout_total=price,
+                provider_spec=provider_spec,
+                months=months,
+                sale_mode=sale_mode,
+            )
+        except PartnerError as exc:
+            return _json_error(exc.status, exc.code, exc.message or str(exc))
+        if partner_allocation is not None:
+            price = partner_allocation.external_amount
+        payment_context = replace(
+            payment_context,
+            price=price,
             **partner_checkout_context_fields(
                 partner_allocation,
                 promo_base_amount=promo_result.base_amount if promo_result else None,

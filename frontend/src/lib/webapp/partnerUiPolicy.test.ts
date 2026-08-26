@@ -4,7 +4,6 @@ import {
   partnerBalanceLookupKey,
   partnerLoadingPlaceholder,
   shouldShowPartnerBalanceDiscount,
-  shouldShowPartnerBalancePlaceholder,
 } from "./partnerUiPolicy.js";
 
 describe("partner UI policy", () => {
@@ -46,45 +45,6 @@ describe("partner UI policy", () => {
         eligible: true,
         currency: "RUB",
         maximumDiscount: 120,
-      })
-    ).toBe(false);
-  });
-
-  it("reserves the balance option before and during its first lookup", () => {
-    const checkout = {
-      open: true,
-      eligible: true,
-      currency: "RUB",
-      loading: false,
-      requestKey: "",
-    };
-
-    expect(shouldShowPartnerBalancePlaceholder(checkout)).toBe(true);
-    expect(
-      shouldShowPartnerBalancePlaceholder({ ...checkout, loading: true, requestKey: "RUB" })
-    ).toBe(true);
-    expect(
-      shouldShowPartnerBalancePlaceholder({ ...checkout, loading: false, requestKey: "RUB" })
-    ).toBe(false);
-  });
-
-  it("does not reserve a balance option for ineligible checkout states", () => {
-    expect(
-      shouldShowPartnerBalancePlaceholder({
-        open: false,
-        eligible: true,
-        currency: "RUB",
-        loading: true,
-        requestKey: "RUB",
-      })
-    ).toBe(false);
-    expect(
-      shouldShowPartnerBalancePlaceholder({
-        open: true,
-        eligible: false,
-        currency: "RUB",
-        loading: true,
-        requestKey: "RUB",
       })
     ).toBe(false);
   });

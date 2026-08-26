@@ -13,6 +13,7 @@
   } from "../lib/webapp/tariffs.js";
   import { premiumTitle as premiumTitleFn } from "../lib/webapp/traffic.js";
   import { formatCompactNumber, formatMoney } from "../lib/webapp/formatters.js";
+  import { loadPartnerBalanceSnapshot } from "$lib/webapp/partnerBalanceLookup.js";
 
   import Card from "$components/ui/card.svelte";
   import Dialog from "$components/ui/dialog.svelte";
@@ -244,6 +245,16 @@
     const firstMethod = firstAvailableMethod(devicePaymentMethods);
     if (firstMethod && !methodSelectable(devicePaymentMethods, selectedMethod)) {
       selectedMethod = firstMethod;
+    }
+  });
+  $effect(() => {
+    const currencies = new Set(
+      [selectedChangeAction, selectedTopupPlan, selectedDeviceTopupPlan]
+        .map((plan) => String(plan?.currency || "").toUpperCase())
+        .filter(Boolean)
+    );
+    for (const currency of currencies) {
+      void loadPartnerBalanceSnapshot(api, currency).catch(() => {});
     }
   });
 
