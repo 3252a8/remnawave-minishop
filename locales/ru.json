@@ -2438,6 +2438,7 @@
   "admin_settings_field_server_status_url_description": "Страница открывается напрямую, когда выбран провайдер URL.",
   "admin_settings_field_server_status_kuma_url_label": "URL Uptime Kuma",
   "admin_settings_field_server_status_kuma_url_description": "Базовый URL опубликованной страницы статуса Uptime Kuma.",
+  "admin_settings_server_status_kuma_url_invalid": "Введите корректный URL Uptime Kuma с http:// или https://.",
   "admin_settings_field_server_status_kuma_slug_label": "Slug страницы Uptime Kuma",
   "admin_settings_field_server_status_kuma_slug_description": "Slug опубликованной страницы статуса Uptime Kuma.",
   "admin_settings_field_server_status_xray_checker_url_label": "URL xray-checker",

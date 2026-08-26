@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AdminSettingsSection } from "./settingsSections";
-import { filterServerStatusSettings } from "./serverStatusSettings";
+import { filterServerStatusSettings, isKumaUrlValid } from "./serverStatusSettings";
 
 const fields = [
   "SERVER_STATUS_ENABLED",
@@ -59,5 +59,23 @@ describe("filterServerStatusSettings", () => {
     });
     expect(visible[0].fields.map((field) => field.key)).toEqual(expected);
     expect(sections[0].fields).toHaveLength(10);
+  });
+});
+
+describe("isKumaUrlValid", () => {
+  it.each(["http://status.example.test", "https://status.example.test", "", "  "])(
+    "accepts %j",
+    (value) => {
+      expect(isKumaUrlValid(value)).toBe(true);
+    }
+  );
+
+  it.each([
+    "status.example.test",
+    "ftp://status.example.test",
+    "https://",
+    "http://?status=missing-host",
+  ])("rejects %j", (value) => {
+    expect(isKumaUrlValid(value)).toBe(false);
   });
 });

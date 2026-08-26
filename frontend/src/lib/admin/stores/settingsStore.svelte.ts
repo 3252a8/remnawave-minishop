@@ -7,6 +7,7 @@ import {
 } from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
 import { snapshotForPayload } from "./snapshotForPayload.svelte";
+import { isKumaUrlValid } from "../serverStatusSettings";
 
 type AdminErrorResponse = {
   ok?: false;
@@ -248,6 +249,20 @@ export function createSettingsStore({ api, onToast, at }: SettingsStoreOptions):
     const dirty = snapshotForPayload(state.settingsDirty);
     const savers = [...extraSavers];
     if (!Object.keys(dirty).length && !savers.length) return true;
+    if (
+      Object.prototype.hasOwnProperty.call(dirty, "SERVER_STATUS_KUMA_URL") &&
+      !dirty.SERVER_STATUS_KUMA_URL.deleted &&
+      !isKumaUrlValid(dirty.SERVER_STATUS_KUMA_URL.value)
+    ) {
+      onToast(
+        at(
+          "settings_server_status_kuma_url_invalid",
+          {},
+          "Enter a valid Uptime Kuma URL using http:// or https://"
+        )
+      );
+      return false;
+    }
 
     updateState((s) => ({ ...s, settingsSaving: true }));
     try {

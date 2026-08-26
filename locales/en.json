@@ -2438,6 +2438,7 @@
   "admin_settings_field_server_status_url_description": "Status page opened directly when the URL provider is selected.",
   "admin_settings_field_server_status_kuma_url_label": "Uptime Kuma URL",
   "admin_settings_field_server_status_kuma_url_description": "Base URL of the published Uptime Kuma status page.",
+  "admin_settings_server_status_kuma_url_invalid": "Enter a valid Uptime Kuma URL using http:// or https://.",
   "admin_settings_field_server_status_kuma_slug_label": "Uptime Kuma page slug",
   "admin_settings_field_server_status_kuma_slug_description": "Slug of the published Uptime Kuma status page.",
   "admin_settings_field_server_status_xray_checker_url_label": "xray-checker URL",
