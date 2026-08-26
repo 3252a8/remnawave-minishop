@@ -1,5 +1,6 @@
 import { unwrap } from "../publicApi";
 import type { PartnerBalancePaymentOptions } from "../billingActions";
+import type { CheckoutAddonPreset } from "../deeplinks.js";
 import type {
   BillingOptionsResponse,
   DeviceTopupOptions,
@@ -64,6 +65,7 @@ export type BillingState = {
   checkoutPromoAppliesTo: string;
   checkoutPromoMinSubscriptionMonths: number | null;
   checkoutPromoMinTrafficGb: number | null;
+  checkoutAddonPreset: CheckoutAddonPreset | null;
 };
 export type BillingStore = BillingState & {
   update(updater: (snapshot: BillingState) => BillingState): void;

@@ -94,6 +94,7 @@ export function sectionFromPath(pathname: unknown, routePrefix: unknown = ""): W
  * then the URL settles back on home.
  */
 export const PLANS_PATH = "/plans";
+export const CHECKOUT_PATH = "/checkout";
 
 export function publicInstallTokenFromPath(pathname: unknown): string {
   const normalized = String(pathname || "")

@@ -1,4 +1,5 @@
 import { adminErrorMessage } from "../errors.js";
+import { copyTextToClipboard } from "../../webapp/clipboard.js";
 import {
   buildAdminPanelInternalSquadsPath,
   buildAdminTariffReconciliationPath,
@@ -92,6 +93,7 @@ export type TariffsStore = TariffsState & {
   addDraftRow: (field: DraftRowsField, row: TariffDraftRow) => void;
   removeDraftRow: (field: DraftRowsField, index: number) => void;
   moveDraftRow: (field: DraftRowsField, fromIndex: number, toIndex: number) => void;
+  copyToClipboard: (text: string, successMessage: string) => Promise<void>;
 };
 
 function isOkResponse<T extends { ok: true }>(response: T | AdminErrorResponse): response is T {
@@ -187,6 +189,7 @@ export function createTariffsStore({
     addDraftRow,
     removeDraftRow,
     moveDraftRow,
+    copyToClipboard,
   });
 
   const tariffFromDraft = (draft: TariffDraft, defaultCurrency = "rub"): Tariff =>
@@ -626,6 +629,12 @@ export function createTariffsStore({
       },
       at("tariff_deleted", {}, "Tariff deleted")
     );
+  }
+
+  async function copyToClipboard(text: string, successMessage: string): Promise<void> {
+    if (!text) return;
+    await copyTextToClipboard(text);
+    flash(successMessage);
   }
 
   function updateDraftField(field: string, value: unknown): void {

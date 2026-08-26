@@ -1,24 +1,27 @@
 <script lang="ts">
   import { ArrowLeft, ArrowRight, CheckCircle2 } from "$components/ui/icons.js";
-
   import Button from "$components/ui/button.svelte";
   import Checkbox from "$components/ui/checkbox.svelte";
   import Dialog from "$components/ui/dialog.svelte";
   import { CheckoutAddonSliders, EmptyCard } from "$components/patterns/webapp/index.js";
   import CheckoutPeriodPrice from "./CheckoutPeriodPrice.svelte";
   import CheckoutPaymentControls from "./CheckoutPaymentControls.svelte";
+  import CheckoutTariffPicker from "./CheckoutTariffPicker.svelte";
   import PendingPaymentCard from "./PendingPaymentCard.svelte";
+  import type {
+    CheckoutPaymentOptions,
+    PaymentCheckoutDialogProps,
+  } from "./PaymentCheckoutDialog.types.js";
   import {
     checkoutPromoAffectsQuotedPlan,
     checkoutPromoBlockVisible,
+    checkoutPromoMatchesPlan,
+    discountedCheckoutPlan as discountedCheckoutPlanFn,
+    normalizedCheckoutPromoDiscount,
     selectPaymentMethodWithPromoReset,
   } from "$lib/webapp/checkoutPromoPolicy.js";
   import { formatCompactNumber, formatMoney } from "$lib/webapp/formatters.js";
-  import {
-    buildSubscriptionQuotePath,
-    type ApiClient,
-    type PostPayload,
-  } from "$lib/webapp/publicApi.js";
+  import { buildSubscriptionQuotePath, type PostPayload } from "$lib/webapp/publicApi.js";
   import {
     planKey as planKeyFn,
     planDisplayTitle as planDisplayTitleFn,
@@ -34,25 +37,12 @@
     CheckoutAddonDefinition,
     CheckoutAddonKind,
     CheckoutAddonSelection,
-    PaymentMethodView,
-    PendingPaymentView,
     PlanView,
-    SubscriptionView,
     TariffView,
-    StringAction,
-    TermUnitLabel,
-    Translate,
-    VoidAction,
   } from "$lib/webapp/types.js";
-
-  type CheckoutPaymentOptions = {
-    usePartnerBalance?: boolean;
-    checkoutAddons?: CheckoutAddonSelection;
-  };
-  type BalancePaymentAction = (options?: CheckoutPaymentOptions) => unknown;
-  type CheckoutPromoAction = (options?: Pick<CheckoutPaymentOptions, "checkoutAddons">) => unknown;
   let {
     api,
+    inline = false,
     createPayment = () => {},
     hasMultipleTariffs = false,
     methods = [],
@@ -85,6 +75,7 @@
     checkoutPromoAppliesTo = "all",
     checkoutPromoMinSubscriptionMonths = null,
     checkoutPromoMinTrafficGb = null,
+    checkoutAddonPreset = null,
     applyCheckoutPromo = () => {},
     backToTariffList = () => {},
     clearCheckoutPromo = () => {},
@@ -94,50 +85,7 @@
     setCheckoutPromoInput = () => {},
     t = (key) => key,
     termUnitLabel = () => "",
-  }: {
-    api: ApiClient["api"];
-    createPayment?: BalancePaymentAction;
-    hasMultipleTariffs?: boolean;
-    methods?: PaymentMethodView[];
-    paymentMethodsDisplayMode?: "dropdown" | "buttons" | string;
-    pendingPayment?: PendingPaymentView | null;
-    payBusy?: boolean;
-    paymentModalOpen?: boolean;
-    paymentStep?: string;
-    plans?: PlanView[];
-    selectedMethod?: string;
-    selectedPlan?: PlanView | null;
-    selectedTariff?: TariffView | null;
-    selectedTariffKey?: string;
-    selectedTariffPlans?: PlanView[];
-    renewHwidDevices?: boolean;
-    singleTariffMode?: boolean;
-    subscription?: SubscriptionView;
-    subscriptionPurchaseDescription?: string;
-    tariffCatalog?: TariffView[];
-    tariffMode?: boolean;
-    trafficMode?: boolean;
-    closePaymentModal?: VoidAction;
-    checkoutPromoAppliedCode?: string;
-    checkoutPromoInput?: string;
-    checkoutPromoIsError?: boolean;
-    checkoutPromoPriceText?: string;
-    checkoutPromoEffectiveAmount?: number;
-    checkoutPromoStatus?: string;
-    checkoutPromoDiscountPercent?: number;
-    checkoutPromoAppliesTo?: string;
-    checkoutPromoMinSubscriptionMonths?: number | null;
-    checkoutPromoMinTrafficGb?: number | null;
-    applyCheckoutPromo?: CheckoutPromoAction;
-    backToTariffList?: VoidAction;
-    clearCheckoutPromo?: VoidAction;
-    continueWithSelectedTariff?: VoidAction;
-    resumePendingPayment?: (payment: PendingPaymentView) => void;
-    selectTariff?: (tariff: TariffView) => void;
-    setCheckoutPromoInput?: StringAction;
-    t?: Translate;
-    termUnitLabel?: TermUnitLabel;
-  } = $props();
+  }: PaymentCheckoutDialogProps = $props();
 
   function methodUsesStars() {
     return String(selectedMethod || "")
@@ -182,13 +130,11 @@
   let checkoutQuoteError = $state("");
   let checkoutQuoteRequestId = 0;
   let checkoutSliderInteracting = $state(false);
-
   const checkoutAddonSelection = $derived<CheckoutAddonSelection>({
     device_count: checkoutDeviceCount,
     regular_limit_gb: checkoutRegularLimitGb,
     premium_limit_gb: checkoutPremiumLimitGb,
   });
-
   function checkoutAddonDefinitions(
     plan: PlanView | null
   ): Partial<Record<CheckoutAddonKind, CheckoutAddonDefinition>> {
@@ -274,6 +220,25 @@
     } else {
       checkoutPremiumLimitGb = value;
     }
+  }
+
+  function checkoutPresetValue(
+    kind: CheckoutAddonKind,
+    requested: number | null,
+    fallback: number | null
+  ): number | null {
+    if (requested == null) return fallback;
+    const definition = checkoutAddonDefinitions(selectedPlan)[kind];
+    if (!definition) return fallback;
+    const option = definition.options.find((candidate) => {
+      const candidateValue =
+        kind === "devices"
+          ? Number(candidate.total_units ?? candidate.extra_units ?? 0)
+          : Number(candidate.total_units || 0);
+      return Math.abs(candidateValue - requested) < 1e-9;
+    });
+    if (!option) return fallback;
+    return kind === "devices" ? Number(option.extra_units || 0) : Number(option.total_units || 0);
   }
 
   function handleCheckoutSliderInteraction(active: boolean): void {
@@ -378,59 +343,22 @@
     return paymentPriceLabel(plan);
   }
   function checkoutPromoDiscount() {
-    const value = Number(checkoutPromoDiscountPercent || 0);
-    if (!checkoutPromoAppliedCode || !Number.isFinite(value) || value <= 0) return 0;
-    return Math.min(100, value);
-  }
-  function planSaleModeBase(plan: PlanView | null) {
-    const fallback =
-      Number(plan?.device_count || 0) > 0
-        ? "hwid_devices"
-        : Number(plan?.traffic_gb || 0) > 0
-          ? "traffic"
-          : "subscription";
-    const saleMode = String(plan?.sale_mode || fallback).toLowerCase();
-    if (["traffic", "traffic_package"].includes(saleMode)) return "traffic";
-    if (["topup", "premium_topup"].includes(saleMode)) return "traffic_topup";
-    if (["hwid_device", "hwid_devices", "hwid_devices_renewal"].includes(saleMode)) return "hwid";
-    return "subscription";
-  }
-  function checkoutPromoScopeMatches(plan: PlanView | null) {
-    const scope = String(checkoutPromoAppliesTo || "all").toLowerCase();
-    const base = planSaleModeBase(plan);
-    return scope === "all" || scope === base;
-  }
-  function checkoutPromoThresholdMatches(plan: PlanView | null) {
-    const base = planSaleModeBase(plan);
-    const minMonths = Number(checkoutPromoMinSubscriptionMonths || 0);
-    const minTrafficGb = Number(checkoutPromoMinTrafficGb || 0);
-    if (base === "subscription" && minMonths > 0) {
-      return Number(plan?.months || 0) >= minMonths;
-    }
-    if ((base === "traffic" || base === "traffic_topup") && minTrafficGb > 0) {
-      return Number(plan?.traffic_gb || plan?.months || 0) >= minTrafficGb;
-    }
-    return true;
+    return normalizedCheckoutPromoDiscount(checkoutPromoAppliedCode, checkoutPromoDiscountPercent);
   }
   function checkoutPromoAffectsPlan(plan: PlanView | null) {
     return checkoutPromoAffectsQuotedPlan(
       checkoutPromoDiscount(),
-      checkoutPromoScopeMatches(plan),
-      checkoutPromoThresholdMatches(plan)
+      checkoutPromoMatchesPlan(
+        plan,
+        checkoutPromoAppliesTo,
+        checkoutPromoMinSubscriptionMonths,
+        checkoutPromoMinTrafficGb
+      ),
+      true
     );
   }
   function discountedCheckoutPlan(plan: PlanView | null) {
-    const discount = checkoutPromoDiscount();
-    if (!plan || discount <= 0) return plan;
-    const multiplier = Math.max(0, 1 - discount / 100);
-    const next: PlanView = { ...plan };
-    if (Number(plan.price || 0) > 0) {
-      next.price = Math.round(Number(plan.price || 0) * multiplier * 100) / 100;
-    }
-    if (Number(plan.stars_price || 0) > 0) {
-      next.stars_price = Math.max(1, Math.round(Number(plan.stars_price || 0) * multiplier));
-    }
-    return next;
+    return discountedCheckoutPlanFn(plan, checkoutPromoDiscount());
   }
   function checkoutPromoPlanParts(plan: PlanView | null) {
     const checkoutPlan = planWithCheckoutSelection(plan);
@@ -529,17 +457,37 @@
     return () => window.clearTimeout(timer);
   });
   $effect(() => {
-    const identity = String(selectedPlan?.tariff_key || selectedTariffKey || "legacy");
+    const identity = [
+      planKeyFn(selectedPlan),
+      selectedTariffKey || "legacy",
+      checkoutAddonPreset?.deviceTotal ?? "",
+      checkoutAddonPreset?.regularLimitGb ?? "",
+      checkoutAddonPreset?.premiumLimitGb ?? "",
+    ].join(":");
     if (identity !== checkoutPlanIdentity) {
       checkoutPlanIdentity = identity;
       const definitions = checkoutAddonDefinitions(selectedPlan);
-      checkoutDeviceCount = Number(definitions.devices?.initial_units || 0);
-      checkoutRegularLimitGb =
+      const defaultDevices = Number(definitions.devices?.initial_units || 0);
+      const defaultRegular =
         Number(definitions.traffic?.initial_units ?? definitions.traffic?.base_units ?? 0) || null;
-      checkoutPremiumLimitGb =
+      const defaultPremium =
         Number(
           definitions.premium_traffic?.initial_units ?? definitions.premium_traffic?.base_units ?? 0
         ) || null;
+      checkoutDeviceCount = Number(
+        checkoutPresetValue("devices", checkoutAddonPreset?.deviceTotal ?? null, defaultDevices) ||
+          0
+      );
+      checkoutRegularLimitGb = checkoutPresetValue(
+        "traffic",
+        checkoutAddonPreset?.regularLimitGb ?? null,
+        defaultRegular
+      );
+      checkoutPremiumLimitGb = checkoutPresetValue(
+        "premium_traffic",
+        checkoutAddonPreset?.premiumLimitGb ?? null,
+        defaultPremium
+      );
     }
   });
   function hwidRenewalPriceLabel(plan: PlanView | null = selectedPlan) {
@@ -681,6 +629,7 @@
     if (paymentStep === "tariff") return false;
     return String(selectedTariff?.billing_model || "period").toLowerCase() !== "traffic";
   }
+
   let usePartnerBalance = $state(false);
   let partnerBalanceDiscount = $state(0);
 
@@ -786,23 +735,23 @@
   />
 {/snippet}
 
-{#snippet compactSubscriptionHeader()}
-  {#if showSubscriptionPurchaseDescription()}
-    <div class="subscription-purchase-description subscription-purchase-description-header">
-      <p>{subscriptionPurchaseDescription}</p>
+{#snippet paymentHeader()}
+  {#if !showCompactSubscriptionHeader() || showSubscriptionPurchaseDescription()}
+    <div class="payment-checkout-header">
+      {#if !showCompactSubscriptionHeader()}
+        <h2 id="payment-checkout-title">{paymentTitle()}</h2>
+        {#if paymentDescription()}<p>{paymentDescription()}</p>{/if}
+      {/if}
+      {#if showSubscriptionPurchaseDescription()}
+        <div class="subscription-purchase-description subscription-purchase-description-header">
+          <p>{subscriptionPurchaseDescription}</p>
+        </div>
+      {/if}
     </div>
   {/if}
 {/snippet}
 
-<Dialog
-  open={paymentModalOpen}
-  title={paymentTitle()}
-  description={paymentDescription()}
-  closeLabel={t("wa_close")}
-  onclose={closePaymentModal}
-  class="payment-dialog-card webapp-payment-dialog"
-  headerContent={showCompactSubscriptionHeader() ? compactSubscriptionHeader : undefined}
->
+{#snippet paymentBody()}
   <div class="payment-dialog-body">
     {#if pendingPayment}
       <PendingPaymentCard
@@ -815,29 +764,13 @@
     {/if}
     {#if tariffMode && !singleTariffMode && paymentStep === "tariff"}
       {#if tariffCatalog.length}
-        <div class="option-list tariff-list">
-          {#each tariffCatalog as tariff}
-            <button
-              class:active={selectedTariffKey === tariff.key}
-              class="option-row tariff-row"
-              type="button"
-              onclick={() => selectTariff(tariff)}
-            >
-              <span class="option-row-main">
-                <strong>{tariff.title}</strong>
-                <small>{tariff.description || t("wa_tariff_no_description")}</small>
-              </span>
-              <span class="option-row-meta">
-                <em>{tariffLimitLabel(tariff)}</em>
-                {#if selectedTariffKey === tariff.key}
-                  <CheckCircle2 size={18} />
-                {:else}
-                  <ArrowRight size={17} />
-                {/if}
-              </span>
-            </button>
-          {/each}
-        </div>
+        <CheckoutTariffPicker
+          tariffs={tariffCatalog}
+          {selectedTariffKey}
+          metaLabel={tariffLimitLabel}
+          {selectTariff}
+          {t}
+        />
         <Button
           class="wide bottom-action payment-submit-button"
           onclick={continueWithSelectedTariff}
@@ -997,4 +930,69 @@
       {@render checkoutPaymentControls()}
     {/if}
   </div>
-</Dialog>
+{/snippet}
+
+{#if inline}
+  <section
+    class="inline-payment-checkout"
+    aria-label={showCompactSubscriptionHeader() ? t("wa_checkout_step_payment") : undefined}
+    aria-labelledby={showCompactSubscriptionHeader() ? undefined : "payment-checkout-title"}
+  >
+    {@render paymentHeader()}
+    {@render paymentBody()}
+  </section>
+{:else}
+  <Dialog
+    open={paymentModalOpen}
+    title={paymentTitle()}
+    description={paymentDescription()}
+    closeLabel={t("wa_close")}
+    onclose={closePaymentModal}
+    class="payment-dialog-card webapp-payment-dialog"
+    headerContent={paymentHeader}
+  >
+    {@render paymentBody()}
+  </Dialog>
+{/if}
+
+<style>
+  .inline-payment-checkout {
+    display: grid;
+    gap: 18px;
+    min-width: 0;
+  }
+
+  .payment-checkout-header {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .payment-checkout-header h2 {
+    margin: 0;
+    color: var(--text);
+    font-size: 19px;
+    line-height: 1.18;
+  }
+
+  .payment-checkout-header > p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .inline-payment-checkout > .payment-checkout-header {
+    text-align: center;
+  }
+
+  .inline-payment-checkout > .payment-checkout-header h2 {
+    font-size: clamp(25px, 3vw, 32px);
+  }
+
+  .inline-payment-checkout > .payment-checkout-header > p {
+    max-width: 480px;
+    margin-inline: auto;
+    font-size: 14px;
+  }
+</style>

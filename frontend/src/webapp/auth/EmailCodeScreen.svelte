@@ -12,6 +12,7 @@
     busy?: boolean;
     code?: string;
     email?: string;
+    embedded?: boolean;
     isError?: boolean;
     onBack?: Action;
     onConfirm?: Action;
@@ -24,6 +25,7 @@
   let {
     code = $bindable(""),
     email = "",
+    embedded = false,
     busy = false,
     resendCooldown = 0,
     status = "",
@@ -35,7 +37,7 @@
   }: Props = $props();
 </script>
 
-<div class="phone-screen auth-screen">
+<div class="phone-screen auth-screen" class:embedded>
   <header class="screen-head center-title">
     <Button variant="icon" size="icon" onclick={onBack} aria-label={t("wa_back")}>
       <ArrowLeft size={19} />
@@ -80,3 +82,35 @@
     </button>
   </div>
 </div>
+
+<style>
+  .phone-screen.auth-screen.embedded {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 0;
+    margin: 0;
+    overflow: visible;
+    padding: 0;
+    background: transparent;
+    align-content: start;
+  }
+
+  .embedded .screen-head {
+    margin-bottom: 24px;
+  }
+
+  .embedded .screen-head h1 {
+    font-size: clamp(24px, 3vw, 30px);
+  }
+
+  .embedded .screen-head p {
+    margin-top: 8px;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .embedded .otp-wrap {
+    min-height: 0;
+    align-content: start;
+  }
+</style>

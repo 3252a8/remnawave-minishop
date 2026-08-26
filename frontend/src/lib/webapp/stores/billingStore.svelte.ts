@@ -12,6 +12,7 @@ import {
 export type { BillingState, BillingStore } from "./billingStoreSupport";
 import type { BillingActions, PartnerBalancePaymentOptions } from "../billingActions";
 import type { CheckoutAddonSelection } from "../tariffs";
+import type { CheckoutAddonPreset } from "../deeplinks.js";
 import {
   createPaymentResponseHandler,
   createPendingPaymentResume,
@@ -108,6 +109,7 @@ export function createBillingStore({
     checkoutPromoAppliesTo: "all",
     checkoutPromoMinSubscriptionMonths: null,
     checkoutPromoMinTrafficGb: null,
+    checkoutAddonPreset: null,
     update: updateState,
     openPaymentModal,
     closePaymentModal,
@@ -491,7 +493,17 @@ export function createBillingStore({
       let tariffKey = s.selectedTariffKey;
       const catalog = tariffCatalog || [];
       const planList = plans || [];
+      const preferredPlanId = String(options?.preferredPlanId || "").trim();
+      const preferredMonths = optionalNumber(options?.preferredMonths);
       const preferredTariffKey = String(options?.preferredTariffKey || "").trim();
+      const preferredPlan = planList.find((candidate) => {
+        const exactId = preferredPlanId && String(candidate?.id || "") === preferredPlanId;
+        const matchingTariff =
+          preferredTariffKey && String(candidate?.tariff_key || "") === preferredTariffKey;
+        const matchingMonths =
+          preferredMonths == null || Number(candidate?.months || 0) === preferredMonths;
+        return exactId || (matchingTariff && matchingMonths);
+      });
       const preferredTariff = preferredTariffKey
         ? catalog.find((tariff) => tariff.key === preferredTariffKey)
         : null;
@@ -504,7 +516,11 @@ export function createBillingStore({
         preferredTariff || (options?.selectDefaultTariff ? fallbackTariff : null);
 
       if (tariffMode) {
-        if (deeplinkTariff?.key) {
+        if (preferredPlan) {
+          tariffKey = String(preferredPlan.tariff_key || preferredTariffKey);
+          plan = preferredPlan;
+          step = "checkout";
+        } else if (deeplinkTariff?.key) {
           tariffKey = String(deeplinkTariff.key);
           plan = planList.find((p) => p?.tariff_key === tariffKey) || null;
           step = options?.preferCheckout && plan ? "checkout" : "tariff";
@@ -527,6 +543,7 @@ export function createBillingStore({
         }
       } else {
         step = "checkout";
+        if (preferredPlan) plan = preferredPlan;
       }
       return {
         ...s,
@@ -537,6 +554,10 @@ export function createBillingStore({
         selectedMethod: s.selectedMethod || defaultMethod,
         renewHwidDevices: true,
         paymentStartedWithActiveSubscription: Boolean(subscription?.active),
+        checkoutAddonPreset:
+          options?.checkoutAddonPreset && typeof options.checkoutAddonPreset === "object"
+            ? (options.checkoutAddonPreset as CheckoutAddonPreset)
+            : null,
         ...suggestedCheckoutPromoPatch(s, options),
       };
     });

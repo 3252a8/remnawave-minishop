@@ -3,12 +3,14 @@
   import { Input } from "$components/ui/index.js";
   import { Tabs, Switch } from "$components/ui/primitives.js";
   import {
+    AdminButton,
     AdminSelect,
     AdminSettingCard,
     AdminSettingsGroup,
   } from "$components/patterns/admin/index.js";
-  import { X } from "$components/ui/icons.js";
+  import { Copy, X } from "$components/ui/icons.js";
   import { normalizeUuidList } from "$lib/admin/tariffDraft";
+  import { buildCheckoutUrl } from "$lib/webapp/deeplinks.js";
   import type { PanelSquad, TariffDraft, TariffsCatalog } from "$lib/admin/stores/tariffsStore";
   import {
     addDraftSquad,
@@ -20,7 +22,7 @@
     type TranslateFn,
   } from "./tariffEditorTabUtils.js";
 
-  let { at }: { at: TranslateFn } = $props();
+  let { at, routePrefix = "" }: { at: TranslateFn; routePrefix?: string } = $props();
 
   const tariffsStore = getTariffsStore();
   const tariffsState = $derived(tariffsStore);
@@ -35,6 +37,15 @@
   const panelSquadOptions: SelectOption[] = $derived(toPanelSquadOptions(panelSquads));
   const defaultCurrencyCode = $derived(getDefaultCurrencyCode(tariffsCatalog));
   const conversionCurrencyLabel = $derived(formatConversionCurrencyLabel(at, defaultCurrencyCode));
+  const checkoutLink = $derived(
+    typeof window === "undefined"
+      ? ""
+      : buildCheckoutUrl({
+          origin: window.location.origin,
+          plan: String(tariffDraft.key || ""),
+          routePrefix,
+        })
+  );
   const legacyKeysText = $derived(
     Array.isArray(tariffDraft.legacyKeys)
       ? tariffDraft.legacyKeys.join(", ")
@@ -108,6 +119,44 @@
         ariaLabel={at("tariff_label_model", {}, "Billing model")}
         onValueChange={setBillingModel}
       />
+    </AdminSettingCard>
+
+    <AdminSettingCard
+      title={at("tariff_checkout_link_title", {}, "Tariff checkout link")}
+      description={at(
+        "tariff_checkout_link_hint",
+        {},
+        "Opens this tariff in the public checkout flow before sign-in or registration."
+      )}
+    >
+      <div class="tariff-checkout-link-control">
+        <Input
+          class="input"
+          type="text"
+          readonly
+          value={checkoutLink}
+          placeholder={at(
+            "tariff_checkout_link_placeholder",
+            {},
+            "Enter a tariff key to create the link"
+          )}
+          aria-label={at("tariff_checkout_link_title", {}, "Tariff checkout link")}
+        />
+        <AdminButton
+          size="icon"
+          variant="icon"
+          title={at("tariff_checkout_link_copy", {}, "Copy checkout link")}
+          aria-label={at("tariff_checkout_link_copy", {}, "Copy checkout link")}
+          disabled={!checkoutLink}
+          onclick={() =>
+            tariffsStore.copyToClipboard(
+              checkoutLink,
+              at("tariff_checkout_link_copied", {}, "Checkout link copied")
+            )}
+        >
+          <Copy size={14} />
+        </AdminButton>
+      </div>
     </AdminSettingCard>
 
     <AdminSettingCard
@@ -268,6 +317,15 @@
 <style>
   .tariff-setting-control-stack {
     display: grid;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .tariff-checkout-link-control {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
     gap: 8px;
     width: 100%;
     min-width: 0;

@@ -65,6 +65,37 @@ describe("billingStore", () => {
     });
   });
 
+  it("selects the requested plan period and retains flexible checkout presets", () => {
+    const { store } = makeBillingStore();
+    const preset = { deviceTotal: 5, regularLimitGb: 300, premiumLimitGb: 100 };
+
+    store.openPaymentModal(
+      true,
+      false,
+      [{ key: "pro", is_default: true }] as unknown as Parameters<typeof store.openPaymentModal>[2],
+      { active: false },
+      [
+        { id: "pro-1", tariff_key: "pro", months: 1 },
+        { id: "pro-6", tariff_key: "pro", months: 6 },
+      ],
+      "card",
+      {
+        preferredPlanId: "pro",
+        preferredTariffKey: "pro",
+        preferredMonths: 6,
+        checkoutAddonPreset: preset,
+      }
+    );
+
+    expect(store).toMatchObject({
+      paymentModalOpen: true,
+      paymentStep: "checkout",
+      selectedTariffKey: "pro",
+      selectedPlan: { id: "pro-6", months: 6 },
+      checkoutAddonPreset: preset,
+    });
+  });
+
   it("loads topup options and selects the first plan", async () => {
     const { store, billing } = makeBillingStore({
       billing: {

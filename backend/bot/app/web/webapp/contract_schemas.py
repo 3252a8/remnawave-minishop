@@ -70,6 +70,7 @@ class WebappBootstrapConfigOut(HttpResponseModel):
     email_auth_enabled: bool = Field(alias="emailAuthEnabled")
     auth_providers: list[str] = Field(alias="authProviders")
     registration_invite_only_enabled: bool = Field(alias="registrationInviteOnlyEnabled")
+    checkout_plans: list[dict[str, Any]] = Field(default_factory=list, alias="checkoutPlans")
     app_version: str = Field(alias="appVersion")
     app_repository_url: str = Field(alias="appRepositoryUrl")
 

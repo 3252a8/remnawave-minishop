@@ -11203,6 +11203,14 @@
             "title": "Authproviders",
             "type": "array"
           },
+          "checkoutPlans": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Checkoutplans",
+            "type": "array"
+          },
           "currency": {
             "title": "Currency",
             "type": "string"

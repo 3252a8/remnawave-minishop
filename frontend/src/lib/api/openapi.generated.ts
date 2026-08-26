@@ -7372,6 +7372,10 @@ export interface components {
       appVersion: string;
       /** Authproviders */
       authProviders: string[];
+      /** Checkoutplans */
+      checkoutPlans?: {
+        [key: string]: unknown;
+      }[];
       /** Currency */
       currency: string;
       /** Emailauthenabled */

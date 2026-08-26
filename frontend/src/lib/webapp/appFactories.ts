@@ -37,6 +37,7 @@ import {
 } from "./appActionRuntime.js";
 import type { AppLoadDataOptions } from "./appLoadExecutor.js";
 import type { AppShellView } from "./appShellView.js";
+import type { CheckoutDeeplink } from "./deeplinks.js";
 import type { TelegramRuntime, TelegramWebApp } from "./telegramRuntime.js";
 import {
   asWebappRecord,
@@ -106,6 +107,7 @@ export type AppFactoriesDeps = {
   normalizeLangCode: (language: string) => string;
   openExternalLink: (url: string) => void;
   readCheckoutPromoDeeplink: () => string;
+  readCheckoutDeeplink: () => CheckoutDeeplink | null;
   readRenewalDeeplink: () => { tariffKey: string } | null;
   readTelegramMiniAppInitDataFromLocation: () => string;
   /** The app was opened on the checkout route, captured before boot sync. */
@@ -114,6 +116,7 @@ export type AppFactoriesDeps = {
   routePrefix: string;
   showToast: (message: unknown) => void;
   stripCheckoutPromoQueryFromUrl: () => void;
+  stripCheckoutDeeplinkFromUrl: () => void;
   stripRenewalLoginQueryFromUrl: () => void;
   stripTopupQueryFromUrl: () => void;
   syncAppSectionPath: SyncAppSectionPath;
@@ -169,6 +172,7 @@ export function createAppFactories({
   normalizeLangCode,
   openExternalLink,
   readCheckoutPromoDeeplink,
+  readCheckoutDeeplink,
   readRenewalDeeplink,
   readTelegramMiniAppInitDataFromLocation,
   plansRouteRequested,
@@ -176,6 +180,7 @@ export function createAppFactories({
   routePrefix,
   showToast,
   stripCheckoutPromoQueryFromUrl,
+  stripCheckoutDeeplinkFromUrl,
   stripRenewalLoginQueryFromUrl,
   stripTopupQueryFromUrl,
   syncAppSectionPath,
@@ -315,6 +320,7 @@ export function createAppFactories({
       void actionsStore.handlePromoDeeplink(code, context);
     },
     readCheckoutPromoDeeplink,
+    readCheckoutDeeplink,
     readPlansDeeplink: () => plansRouteRequested,
     readRenewalDeeplink,
     setHomeRoute: () => {
@@ -323,6 +329,7 @@ export function createAppFactories({
       syncAppSectionPath("home", true);
     },
     stripCheckoutPromoQueryFromUrl,
+    stripCheckoutDeeplinkFromUrl,
     stripRenewalLoginQueryFromUrl,
     stripTopupQueryFromUrl,
   });

@@ -2,7 +2,11 @@
   import Checkbox from "$components/ui/checkbox.svelte";
   import { WalletCards } from "$components/ui/icons.js";
   import { formatMoney } from "$lib/webapp/formatters.js";
-  import { shouldShowPartnerBalanceDiscount } from "$lib/webapp/partnerUiPolicy.js";
+  import {
+    partnerBalanceLookupKey,
+    shouldShowPartnerBalanceDiscount,
+    shouldShowPartnerBalancePlaceholder,
+  } from "$lib/webapp/partnerUiPolicy.js";
   import type { ApiClient, PartnerOverviewResponse } from "$lib/webapp/publicApi.js";
   import type { Translate } from "$lib/webapp/types.js";
 
@@ -31,7 +35,7 @@
   let available = $state(0);
   let scale = $state(2);
   let loading = $state(false);
-  let requestKey = "";
+  let requestKey = $state("");
 
   const normalizedCurrency = $derived(String(currency || "").toUpperCase());
   const maximumDiscount = $derived.by(() => {
@@ -50,6 +54,15 @@
       eligible,
       currency: normalizedCurrency,
       maximumDiscount,
+    })
+  );
+  const placeholderVisible = $derived(
+    shouldShowPartnerBalancePlaceholder({
+      open,
+      eligible,
+      currency: normalizedCurrency,
+      loading,
+      requestKey,
     })
   );
 
@@ -97,8 +110,8 @@
   }
 
   $effect(() => {
-    const key = [open, eligible, normalizedCurrency, amount, minimumExternalAmount].join(":");
-    if (!open || !eligible || !normalizedCurrency || Number(amount || 0) <= 0) {
+    const key = partnerBalanceLookupKey({ open, eligible, currency: normalizedCurrency });
+    if (!key) {
       requestKey = "";
       available = 0;
       loading = false;
@@ -119,33 +132,48 @@
   });
 </script>
 
-{#if visible}
-  <label class="partner-balance-discount" class:selected>
+{#if placeholderVisible || visible}
+  <label
+    class="partner-balance-discount"
+    class:loading={placeholderVisible}
+    class:selected={visible && selected}
+    aria-busy={placeholderVisible}
+  >
     <Checkbox
-      checked={selected}
-      disabled={loading || maximumDiscount <= 0}
+      checked={visible && selected}
+      disabled={placeholderVisible || loading || maximumDiscount <= 0}
       ariaLabel={t("wa_partner_balance_checkout_aria")}
       onCheckedChange={setSelected}
     />
     <span class="partner-balance-icon"><WalletCards size={19} /></span>
     <span class="partner-balance-copy">
       <strong>{t("wa_partner_balance_checkout_title")}</strong>
-      <small>
-        {t("wa_partner_balance_checkout_available", {
-          balance: formatMoney(available, normalizedCurrency),
-        })}
-      </small>
-      {#if selected}
-        <span class="partner-balance-prices">
-          <s>{formatMoney(amount, normalizedCurrency)}</s>
-          <b>{formatMoney(remainder, normalizedCurrency)}</b>
-        </span>
-        <small class="partner-balance-saving">
-          {t("wa_partner_balance_checkout_discount", {
-            discount: formatMoney(appliedDiscount, normalizedCurrency),
-          })}
+      <span class="partner-balance-meta">
+        <small>
+          {#if placeholderVisible}
+            {t("wa_loading")}
+          {:else}
+            {t("wa_partner_balance_checkout_available", {
+              balance: formatMoney(available, normalizedCurrency),
+            })}
+          {/if}
         </small>
-      {/if}
+        <span
+          class:visible={!placeholderVisible && selected}
+          class="partner-balance-result"
+          aria-hidden={placeholderVisible || !selected}
+        >
+          <span class="partner-balance-prices">
+            <s>{formatMoney(amount, normalizedCurrency)}</s>
+            <b>{formatMoney(remainder, normalizedCurrency)}</b>
+          </span>
+          <small class="partner-balance-saving">
+            {t("wa_partner_balance_checkout_discount", {
+              discount: formatMoney(appliedDiscount, normalizedCurrency),
+            })}
+          </small>
+        </span>
+      </span>
     </span>
   </label>
 {/if}
@@ -166,6 +194,10 @@
   .partner-balance-discount.selected {
     border-color: color-mix(in srgb, var(--accent) 68%, var(--border));
     background: color-mix(in srgb, var(--accent) 14%, var(--panel-2));
+  }
+
+  .partner-balance-discount.loading {
+    cursor: wait;
   }
 
   .partner-balance-icon {
@@ -189,6 +221,28 @@
     font-size: 12px;
   }
 
+  .partner-balance-meta {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 14px;
+    min-width: 0;
+  }
+
+  .partner-balance-result {
+    display: inline-flex;
+    flex: none;
+    align-items: baseline;
+    gap: 8px;
+    visibility: hidden;
+    opacity: 0;
+  }
+
+  .partner-balance-result.visible {
+    visibility: visible;
+    opacity: 1;
+  }
+
   .partner-balance-prices {
     display: inline-flex;
     align-items: baseline;
@@ -202,5 +256,13 @@
   .partner-balance-prices b,
   .partner-balance-saving {
     color: var(--accent);
+  }
+
+  @media (max-width: 520px) {
+    .partner-balance-meta {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 3px;
+    }
   }
 </style>

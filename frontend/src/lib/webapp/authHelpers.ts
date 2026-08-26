@@ -1,4 +1,5 @@
 import { rememberReferral, readReferral } from "./session.js";
+import { isCheckoutStartParam } from "./deeplinks.js";
 
 type TelegramWebAppLike = {
   initDataUnsafe?: { start_param?: string | null } | null;
@@ -33,7 +34,13 @@ function readReferralParamFromLocation(): string {
 export function readReferralParam(tg: unknown = null): string {
   const fromQuery = readReferralParamFromLocation();
   const fromTelegram = asTelegramWebApp(tg)?.initDataUnsafe?.start_param || "";
-  const value = String(fromTelegram || fromQuery || "").trim();
+  const candidates = [fromTelegram, fromQuery, readReferral()];
+  const value = String(
+    candidates.find((candidate) => {
+      const normalized = String(candidate || "").trim();
+      return normalized && !isCheckoutStartParam(normalized);
+    }) || ""
+  ).trim();
   return value ? rememberReferral(value) : readReferral();
 }
 
