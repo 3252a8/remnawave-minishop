@@ -7485,6 +7485,11 @@
   inline-size: min(1240px, calc(100vw - 32px));
 }
 
+.dialog-card.admin-dialog.admin-promo-create-dialog {
+  width: min(1120px, calc(100vw - 32px));
+  inline-size: min(1120px, calc(100vw - 32px));
+}
+
 .admin-promo-dialog > .dialog-body-scroll,
 .admin-promo-dialog .dialog-body-scroll > .scroll-area__viewport,
 .admin-promo-dialog .dialog-body-scroll > .scroll-area__viewport > div {
@@ -7594,7 +7599,8 @@
   gap: 10px;
   min-height: 0;
   min-width: 0;
-  overflow: auto;
+  overflow-x: clip;
+  overflow-y: auto;
   padding-right: 2px;
 }
 
@@ -7757,7 +7763,8 @@
   }
 
   .admin-promo-settings-grid {
-    overflow: auto;
+    overflow-x: clip;
+    overflow-y: auto;
     padding-right: 0;
   }
 
@@ -7789,6 +7796,25 @@
   .admin-promo-effect-section {
     grid-column: 2;
     grid-row: 1 / span 2;
+  }
+
+  .admin-promo-create-dialog .admin-promo-settings-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-promo-create-dialog .admin-promo-basics-section {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .admin-promo-create-dialog .admin-promo-eligibility-section {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .admin-promo-create-dialog .admin-promo-effect-section {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 
   .admin-promo-editor-section {

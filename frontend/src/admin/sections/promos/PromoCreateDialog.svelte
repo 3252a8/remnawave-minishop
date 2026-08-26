@@ -146,25 +146,6 @@
         </div>
       </section>
 
-      <section class="admin-editor-section admin-promo-editor-section admin-promo-effect-section">
-        <header class="admin-editor-section-head">
-          <div class="admin-editor-section-title">
-            <strong>{at("promo_col_effect", {}, "Effect")}</strong>
-            <small>
-              {at("promo_effect_multiple_hint", {}, "Select one or more effects to combine.")}
-            </small>
-          </div>
-        </header>
-        <PromoEffectSelector
-          {at}
-          values={draft}
-          bonusRequiresPayment={Boolean(draft.bonus_requires_payment)}
-          onEnabledChange={onEffectEnabledChange}
-          {onNumberInput}
-          {onBonusRequiresPaymentChange}
-        />
-      </section>
-
       <section
         class="admin-editor-section admin-promo-editor-section admin-promo-eligibility-section"
       >
@@ -215,6 +196,25 @@
             </AdminField>
           </div>
         </div>
+      </section>
+
+      <section class="admin-editor-section admin-promo-editor-section admin-promo-effect-section">
+        <header class="admin-editor-section-head">
+          <div class="admin-editor-section-title">
+            <strong>{at("promo_col_effect", {}, "Effect")}</strong>
+            <small>
+              {at("promo_effect_multiple_hint", {}, "Select one or more effects to combine.")}
+            </small>
+          </div>
+        </header>
+        <PromoEffectSelector
+          {at}
+          values={draft}
+          bonusRequiresPayment={Boolean(draft.bonus_requires_payment)}
+          onEnabledChange={onEffectEnabledChange}
+          {onNumberInput}
+          {onBonusRequiresPaymentChange}
+        />
       </section>
     </div>
 
