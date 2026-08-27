@@ -14,6 +14,27 @@ _TESTNET_BASE_URL = "https://testnet-pay.crypt.bot"
 class CryptoPayApiError(RuntimeError):
     """Raised when Crypto Pay API returns an unusable response."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        error_code: int | None = None,
+        error_name: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.error_code = error_code
+        self.error_name = error_name
+
+    @property
+    def is_unauthorized(self) -> bool:
+        return (
+            self.status_code == 401
+            or self.error_code == 401
+            or str(self.error_name or "").strip().upper() == "UNAUTHORIZED"
+        )
+
 
 @dataclass(frozen=True)
 class CryptoPayInvoice:
@@ -140,7 +161,7 @@ class CryptoPayApiClient(HttpClientMixin):
             is_success=_api_success,
         )
         if not success:
-            raise CryptoPayApiError(f"Crypto Pay API rejected createInvoice: {response_data}")
+            raise _api_rejection("createInvoice", response_data)
 
         result = response_data.get("result")
         if not isinstance(result, Mapping):
@@ -161,7 +182,7 @@ class CryptoPayApiClient(HttpClientMixin):
             is_success=_api_success,
         )
         if not success:
-            raise CryptoPayApiError(f"Crypto Pay API rejected getInvoices: {response_data}")
+            raise _api_rejection("getInvoices", response_data)
         result = response_data.get("result")
         items = result.get("items") if isinstance(result, Mapping) else None
         if not isinstance(items, list):
@@ -187,6 +208,34 @@ def _optional_str(data: Mapping[str, Any], key: str) -> str | None:
         return None
     text = str(value)
     return text if text else None
+
+
+def _optional_int(value: Any) -> int | None:
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _api_rejection(operation: str, response_data: Any) -> CryptoPayApiError:
+    status_code = None
+    error_code = None
+    error_name = None
+    if isinstance(response_data, Mapping):
+        status_code = _optional_int(response_data.get("status"))
+        body = response_data.get("message")
+        if not isinstance(body, Mapping):
+            body = response_data
+        error = body.get("error") if isinstance(body, Mapping) else None
+        if isinstance(error, Mapping):
+            error_code = _optional_int(error.get("code"))
+            error_name = _optional_str(error, "name")
+    return CryptoPayApiError(
+        f"Crypto Pay API rejected {operation}: {response_data}",
+        status_code=status_code,
+        error_code=error_code,
+        error_name=error_name,
+    )
 
 
 def _api_success(status: int, body: Any) -> bool:

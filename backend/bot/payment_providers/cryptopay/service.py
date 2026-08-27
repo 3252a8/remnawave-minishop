@@ -67,7 +67,7 @@ from ..shared import (
 )
 from ..shared.app_context import app_required
 from ..shared.checkout_expiration import resolve_checkout_expiration
-from .client import CryptoPayApiClient, CryptoPayInvoice, CryptoPayUpdate
+from .client import CryptoPayApiClient, CryptoPayApiError, CryptoPayInvoice, CryptoPayUpdate
 
 logger = logging.getLogger(__name__)
 _LOG = "cryptopay"
@@ -167,6 +167,7 @@ class CryptoPayService(BaseProviderService):
         self._client: CryptoPayApiClient | None = None
         self._client_token: str | None = None
         self._client_network: str | None = None
+        self._invoice_lookup_authorization_blocked = False
         if not self.config.TOKEN:
             logger.warning("CryptoPay token not provided. CryptoPay disabled")
 
@@ -201,6 +202,7 @@ class CryptoPayService(BaseProviderService):
             self._client = client
             self._client_token = token
             self._client_network = network
+            self._invoice_lookup_authorization_blocked = False
         return self._client
 
     async def close(self) -> None:
@@ -400,8 +402,22 @@ class CryptoPayService(BaseProviderService):
         client = self.client
         if not self.configured or client is None:
             return None
+        if getattr(self, "_invoice_lookup_authorization_blocked", False):
+            return None
         try:
             invoices = await client.get_invoices(invoice_ids=str(invoice_id))
+        except CryptoPayApiError as exc:
+            if exc.is_unauthorized:
+                self._invoice_lookup_authorization_blocked = True
+                logger.error(
+                    "CryptoPay invoice reconciliation suspended: the API rejected the "
+                    "configured credentials for network=%s. Update CRYPTOPAY_TOKEN or "
+                    "CRYPTOPAY_NETWORK to resume polling.",
+                    self.config.NETWORK,
+                )
+                return None
+            logger.warning("CryptoPay invoice lookup failed for %s: %s", invoice_id, exc)
+            return None
         except Exception:
             logger.exception("CryptoPay invoice lookup failed: invoice_id=%s", invoice_id)
             return None
