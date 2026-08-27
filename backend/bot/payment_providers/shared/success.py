@@ -345,6 +345,57 @@ async def _mark_activation_failed(req: PaymentSuccessRequest, payment_id: int) -
         )
 
 
+async def _capture_fulfillment_snapshot(
+    req: PaymentSuccessRequest,
+    payment: Payment,
+    *,
+    phase: str,
+) -> dict[str, Any] | None:
+    """Capture optional reversal audit state without blocking paid fulfillment."""
+
+    try:
+        # A database error aborts a PostgreSQL transaction until its savepoint
+        # is rolled back. Keep audit reads isolated so provider fulfillment can
+        # still commit when the optional reversal snapshot is unavailable.
+        savepoint = await req.session.begin_nested()
+        try:
+            snapshot = await capture_payment_entitlement_snapshot(req.session, payment)
+        except Exception:
+            await savepoint.rollback()
+            raise
+        else:
+            await savepoint.commit()
+            return snapshot
+    except Exception:
+        logger.exception(
+            "%s: failed to capture the %s fulfillment snapshot for payment %s; "
+            "continuing without reversible fulfillment audit.",
+            req.log_prefix,
+            phase,
+            payment.payment_id,
+        )
+        return None
+
+
+def _persist_fulfillment_audit(
+    req: PaymentSuccessRequest,
+    payment: Payment,
+    *,
+    before: dict[str, Any] | None,
+    after: dict[str, Any] | None,
+) -> None:
+    if before is None or after is None:
+        return
+    try:
+        persist_payment_fulfillment(payment, before=before, after=after)
+    except Exception:
+        logger.exception(
+            "%s: failed to persist fulfillment audit for payment %s; keeping the paid entitlement.",
+            req.log_prefix,
+            payment.payment_id,
+        )
+
+
 async def finalize_successful_payment(
     req: PaymentSuccessRequest,
 ) -> PaymentSuccessOutcome | None:
@@ -487,9 +538,10 @@ async def finalize_successful_payment(
         activation_extra_kwargs.pop("tariff_key", None)
 
     try:
-        fulfillment_before = await capture_payment_entitlement_snapshot(
-            req.session,
+        fulfillment_before = await _capture_fulfillment_snapshot(
+            req,
             locked_payment,
+            phase="pre-activation",
         )
         partner_decision = None
         activation = await req.subscription_service.activate_subscription(
@@ -580,11 +632,15 @@ async def finalize_successful_payment(
                     req.log_prefix,
                     payment_id,
                 )
-        fulfillment_after = await capture_payment_entitlement_snapshot(
-            req.session,
-            locked_payment,
-        )
-        persist_payment_fulfillment(
+        fulfillment_after = None
+        if fulfillment_before is not None:
+            fulfillment_after = await _capture_fulfillment_snapshot(
+                req,
+                locked_payment,
+                phase="post-activation",
+            )
+        _persist_fulfillment_audit(
+            req,
             locked_payment,
             before=fulfillment_before,
             after=fulfillment_after,
