@@ -32,6 +32,137 @@ function safeEmail(user) {
   return `demo.${user.user_id}@client.example`;
 }
 
+function flexibleLimitSnapshot({
+  tariffKey = "standard",
+  months,
+  subscriptionId,
+  activeEndAt,
+  baseAmount,
+  addonsAmount,
+  regularLimitGb,
+  premiumLimitGb,
+  extraDevices = 0,
+}) {
+  const items = [];
+  if (extraDevices > 0) {
+    items.push({ kind: "devices", extra_units: extraDevices, traffic_bonus_gb: 0 });
+  }
+  if (regularLimitGb != null) {
+    items.push({
+      kind: "traffic",
+      total_units: regularLimitGb,
+      future_amount: 0,
+      immediate_applies: false,
+    });
+  }
+  if (premiumLimitGb != null) {
+    items.push({
+      kind: "premium_traffic",
+      total_units: premiumLimitGb,
+      future_amount: 0,
+      immediate_applies: false,
+    });
+  }
+  return JSON.stringify({
+    version: 2,
+    tariff_key: tariffKey,
+    months,
+    base_subscription_amount: baseAmount,
+    addons_amount: addonsAmount,
+    items,
+    active_context: {
+      subscription_id: subscriptionId,
+      end_at: activeEndAt,
+    },
+  });
+}
+
+const flexibleLimitRenewalPayments = [
+  {
+    payment_id: 719901,
+    user_id: 910001,
+    provider_payment_id: "dev-flex-limits-719901",
+    provider: "yookassa",
+    idempotence_key: "dev-flex-limits-719901",
+    amount: 1590,
+    currency: "RUB",
+    status: "succeeded",
+    description: "Standard · 3 месяца",
+    subscription_duration_months: 3,
+    sale_mode: "subscription@standard",
+    tariff_key: "standard",
+    purchased_gb: null,
+    purchased_hwid_devices: 2,
+    checkout_bundle_snapshot: flexibleLimitSnapshot({
+      months: 3,
+      subscriptionId: 520254,
+      activeEndAt: "2037-05-15T16:49:25Z",
+      baseAmount: 1320,
+      addonsAmount: 270,
+      regularLimitGb: 150,
+      premiumLimitGb: 50,
+      extraDevices: 2,
+    }),
+    created_at: "2026-05-28T05:50:00Z",
+    updated_at: "2026-05-28T05:52:00Z",
+  },
+  {
+    payment_id: 719902,
+    user_id: 910002,
+    provider_payment_id: "dev-flex-limits-719902",
+    provider: "platega",
+    idempotence_key: "dev-flex-limits-719902",
+    amount: 890,
+    currency: "RUB",
+    status: "succeeded",
+    description: "Standard · 1 месяц",
+    subscription_duration_months: 1,
+    sale_mode: "subscription@standard",
+    tariff_key: "standard",
+    purchased_gb: null,
+    purchased_hwid_devices: null,
+    checkout_bundle_snapshot: flexibleLimitSnapshot({
+      months: 1,
+      subscriptionId: 520002,
+      activeEndAt: "2035-11-22T17:44:19Z",
+      baseAmount: 490,
+      addonsAmount: 400,
+      regularLimitGb: 300,
+      premiumLimitGb: 25,
+    }),
+    created_at: "2026-05-28T05:38:00Z",
+    updated_at: "2026-05-28T05:40:00Z",
+  },
+  {
+    payment_id: 719903,
+    user_id: 910003,
+    provider_payment_id: "dev-flex-limits-719903",
+    provider: "wata",
+    idempotence_key: "dev-flex-limits-719903",
+    amount: 5790,
+    currency: "RUB",
+    status: "succeeded",
+    description: "Standard · 12 месяцев",
+    subscription_duration_months: 12,
+    sale_mode: "subscription@standard",
+    tariff_key: "standard",
+    purchased_gb: null,
+    purchased_hwid_devices: 4,
+    checkout_bundle_snapshot: flexibleLimitSnapshot({
+      months: 12,
+      subscriptionId: 520001,
+      activeEndAt: "2099-10-25T11:36:58Z",
+      baseAmount: 4680,
+      addonsAmount: 1110,
+      regularLimitGb: 500,
+      premiumLimitGb: 100,
+      extraDevices: 4,
+    }),
+    created_at: "2026-05-28T05:26:00Z",
+    updated_at: "2026-05-28T05:28:00Z",
+  },
+];
+
 const subscriptions = uniqueBy(
   Object.values(DEMO_DATASET.adminUserDetails || {}).flatMap((detail) => detail.subscriptions || []),
   "subscription_id"
@@ -58,7 +189,10 @@ const users = (DEMO_DATASET.adminUsers || []).map((user) => ({
 }));
 
 const supportMessages = Object.values(DEMO_DATASET.supportMessages || {}).flat();
-const sourcePayments = DEMO_DATASET.adminPayments || [];
+const sourcePayments = [
+  ...flexibleLimitRenewalPayments,
+  ...(DEMO_DATASET.adminPayments || []),
+];
 const latestSucceededPaymentByUser = new Map();
 for (const payment of sourcePayments) {
   if (String(payment.status || "").toLowerCase() !== "succeeded") continue;
@@ -422,7 +556,8 @@ INSERT INTO payments (
     payment_id, user_id, yookassa_payment_id, provider_payment_id,
     provider_payment_url, provider, funding_source, idempotence_key, amount,
     currency, status, description, subscription_duration_months, is_auto_renew,
-    sale_mode, tariff_key, purchased_gb, purchased_hwid_devices, promo_code_id,
+    sale_mode, tariff_key, purchased_gb, purchased_hwid_devices,
+    checkout_bundle_snapshot, promo_code_id,
     fulfillment_source, fulfilled_at, fulfilled_by_admin_id, fulfillment_note,
     fulfillment_before_snapshot, fulfillment_after_snapshot, promo_conflict_override,
     promo_usage_restored, reversed_at, reversed_by_admin_id, reversal_note,
@@ -447,6 +582,7 @@ SELECT
     NULLIF(item ->> 'tariff_key', ''),
     NULLIF(item ->> 'purchased_gb', '')::double precision,
     NULLIF(item ->> 'purchased_hwid_devices', '')::integer,
+    NULLIF(item ->> 'checkout_bundle_snapshot', ''),
     promo.promo_code_id,
     NULL,
     NULL,
@@ -481,6 +617,7 @@ ON CONFLICT (payment_id) DO UPDATE SET
     tariff_key = EXCLUDED.tariff_key,
     purchased_gb = EXCLUDED.purchased_gb,
     purchased_hwid_devices = EXCLUDED.purchased_hwid_devices,
+    checkout_bundle_snapshot = EXCLUDED.checkout_bundle_snapshot,
     promo_code_id = EXCLUDED.promo_code_id,
     fulfillment_source = NULL,
     fulfilled_at = NULL,

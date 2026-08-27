@@ -6914,6 +6914,13 @@
             "default": null,
             "title": "Purchased Hwid Devices"
           },
+          "purchases": {
+            "items": {
+              "$ref": "#/components/schemas/PaymentPurchaseOut"
+            },
+            "title": "Purchases",
+            "type": "array"
+          },
           "reversal_block_reason": {
             "anyOf": [
               {
@@ -7242,6 +7249,13 @@
             "default": null,
             "title": "Purchased Hwid Devices"
           },
+          "purchases": {
+            "items": {
+              "$ref": "#/components/schemas/PaymentPurchaseOut"
+            },
+            "title": "Purchases",
+            "type": "array"
+          },
           "sale_mode": {
             "anyOf": [
               {
@@ -7342,6 +7356,46 @@
           "amount"
         ],
         "title": "PaymentOut",
+        "type": "object"
+      },
+      "PaymentPurchaseOut": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "number"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "mode": {
+            "default": "topup",
+            "title": "Mode",
+            "type": "string"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Scope"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "amount",
+          "unit"
+        ],
+        "title": "PaymentPurchaseOut",
         "type": "object"
       },
       "PromoActivationOut": {

@@ -4,6 +4,26 @@ type PaymentDescriptionRow = {
   traffic_regular_gb?: number | string | null;
 };
 
+type PaymentPurchase = {
+  kind?: string | null;
+  amount?: number | string | null;
+  unit?: string | null;
+  scope?: string | null;
+  mode?: string | null;
+};
+
+export type PaymentPurchasesRow = PaymentDescriptionRow & {
+  purchases?: PaymentPurchase[] | null;
+  purchased_hwid_devices?: number | string | null;
+};
+
+export type PaymentPurchaseDisplay = {
+  key: string;
+  label: string;
+  mode: "limit" | "topup";
+  tone: "regular" | "premium" | "devices" | "other";
+};
+
 type PaymentDiscountRow = {
   checkout_discount_amount?: number | string | null;
   promo_discount_percent?: number | string | null;
@@ -25,6 +45,88 @@ function formatGbAmountPlain(value: number | string | null | undefined): string 
 export function formatPaymentTrafficGb(value: number | string | null | undefined): string {
   const amount = formatGbAmountPlain(value);
   return amount ? `${amount} GB` : "—";
+}
+
+function fallbackPurchases(payment: PaymentPurchasesRow): PaymentPurchase[] {
+  const purchases: PaymentPurchase[] = [];
+  if (payment.traffic_regular_gb != null) {
+    purchases.push({
+      kind: "traffic",
+      amount: payment.traffic_regular_gb,
+      unit: "gb",
+      scope: "regular",
+      mode: "topup",
+    });
+  }
+  if (payment.traffic_premium_gb != null) {
+    purchases.push({
+      kind: "traffic",
+      amount: payment.traffic_premium_gb,
+      unit: "gb",
+      scope: "premium",
+      mode: "topup",
+    });
+  }
+  if (payment.purchased_hwid_devices != null && Number(payment.purchased_hwid_devices) > 0) {
+    purchases.push({
+      kind: "hwid_devices",
+      amount: payment.purchased_hwid_devices,
+      unit: "device",
+      mode: "topup",
+    });
+  }
+  return purchases;
+}
+
+export function paymentPurchaseDisplay(
+  payment: PaymentPurchasesRow,
+  at: TranslateFn
+): PaymentPurchaseDisplay[] {
+  const source = payment.purchases?.length ? payment.purchases : fallbackPurchases(payment);
+  return source.flatMap((purchase, index) => {
+    const amount = formatGbAmountPlain(purchase.amount);
+    if (!amount) return [];
+    const kind = String(purchase.kind || "").toLowerCase();
+    const scope = String(purchase.scope || "").toLowerCase();
+    const mode = String(purchase.mode || "topup").toLowerCase();
+    const displayMode: PaymentPurchaseDisplay["mode"] = mode === "limit" ? "limit" : "topup";
+    let label: string;
+    let tone: PaymentPurchaseDisplay["tone"];
+
+    if (kind === "traffic" && mode === "limit" && scope === "premium") {
+      label = at("payments_purchase_premium_limit", { amount }, `Premium limit · ${amount} GB`);
+      tone = "premium";
+    } else if (kind === "traffic" && mode === "limit") {
+      label = at("payments_purchase_regular_limit", { amount }, `Traffic limit · ${amount} GB`);
+      tone = "regular";
+    } else if (kind === "traffic" && scope === "premium") {
+      label = at("payments_purchase_premium_traffic", { amount }, `Premium · +${amount} GB`);
+      tone = "premium";
+    } else if (kind === "traffic") {
+      label = at("payments_purchase_regular_traffic", { amount }, `Traffic · +${amount} GB`);
+      tone = "regular";
+    } else if (kind === "hwid_devices") {
+      label = at("payments_purchase_devices", { amount }, `Devices · +${amount}`);
+      tone = "devices";
+    } else {
+      const unit = String(purchase.unit || "").trim();
+      label = at(
+        "payments_purchase_other",
+        { kind: kind || "other", amount, unit },
+        `${kind || "Other"} · ${amount}${unit ? ` ${unit}` : ""}`
+      );
+      tone = "other";
+    }
+
+    return [
+      {
+        key: `${kind || "other"}-${scope || "all"}-${displayMode}-${index}`,
+        label,
+        mode: displayMode,
+        tone,
+      },
+    ];
+  });
 }
 
 export function paymentDescriptionDisplay(payment: PaymentDescriptionRow, at: TranslateFn): string {

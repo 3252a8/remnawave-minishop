@@ -26,6 +26,8 @@ USER_TRAFFIC_GRANT_ACTION = (
 )
 USER_DIALOGS = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserDetailDialogs.svelte"
 PAYMENTS_SECTION = REPO_ROOT / "frontend/src/admin/sections/PaymentsSection.svelte"
+PAYMENT_PURCHASES_CELL = REPO_ROOT / "frontend/src/admin/sections/PaymentPurchasesCell.svelte"
+PAYMENT_DETAIL_MODAL = REPO_ROOT / "frontend/src/admin/sections/PaymentDetailModal.svelte"
 TICKET_MESSAGE_BUBBLE = (
     REPO_ROOT / "frontend/src/lib/components/patterns/webapp/TicketMessageBubble.svelte"
 )
@@ -309,6 +311,30 @@ def test_payment_tables_keep_identity_and_primary_fields_visible_first():
     assert header.index('at("status"') < header.index('at("provider"')
     assert header.index('at("date"') < header.index('at("provider"')
     assert header.index('at("provider"') < header.index('at("payments_col_traffic_regular"')
+
+
+def test_payments_list_combines_purchases_for_desktop_and_mobile():
+    payments = PAYMENTS_SECTION.read_text(encoding="utf-8")
+    purchases = PAYMENT_PURCHASES_CELL.read_text(encoding="utf-8")
+    table_header = payments[payments.index("<thead>") : payments.index("</thead>")]
+
+    assert 'at("payments_col_purchases"' in table_header
+    assert 'at("payments_col_traffic_regular"' not in table_header
+    assert 'at("payments_col_traffic_premium"' not in table_header
+    assert payments.count("<PaymentPurchasesCell") == 2
+    assert 'mode="mobile"' in payments
+    assert "data-payment-purchases={mode}" in purchases
+
+
+def test_payment_detail_highlights_flexible_limits_and_addons():
+    detail = PAYMENT_DETAIL_MODAL.read_text(encoding="utf-8")
+    purchases = PAYMENT_PURCHASES_CELL.read_text(encoding="utf-8")
+
+    assert '<PaymentPurchasesCell {payment} {at} mode="detail" />' in detail
+    assert "payment_detail_purchases_flexible_note" in purchases
+    assert "payment_detail_purchase_mode_limit" in purchases
+    assert "admin-payment-purchases-detail-list" in purchases
+    assert "admin-payment-purchases-detail-head" not in purchases
 
 
 def test_ticket_images_and_user_avatars_share_zoomable_viewer():

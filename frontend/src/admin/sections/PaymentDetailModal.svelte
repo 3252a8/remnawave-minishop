@@ -17,6 +17,7 @@
   import { paymentDiscountDisplay } from "$lib/admin/paymentTable.js";
   import { demoPartnerAttributionForPayment } from "$lib/webapp/mockApi/partnerProgram.js";
   import { partnerStatusVariant } from "$lib/admin/partnerProgramUi.js";
+  import PaymentPurchasesCell from "./PaymentPurchasesCell.svelte";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type MetaRow = {
@@ -240,11 +241,6 @@
       : "";
   }
 
-  function purchasedGbText(p: AdminPayment | null): string {
-    const purchasedGb = p?.purchased_gb;
-    return present(purchasedGb) ? formatGb(purchasedGb) : "";
-  }
-
   const paymentRows = $derived([
     {
       label: "ID",
@@ -328,18 +324,6 @@
     {
       label: at("payment_detail_duration_months", {}, "Period"),
       value: durationText(payment),
-    },
-    {
-      label: at("payment_detail_traffic", {}, "Traffic"),
-      value: formatTrafficSplit(payment),
-    },
-    {
-      label: at("payment_detail_purchased_gb", {}, "Purchased GB"),
-      value: purchasedGbText(payment),
-    },
-    {
-      label: at("payment_detail_hwid_devices", {}, "HWID devices"),
-      value: payment?.purchased_hwid_devices,
     },
     {
       label: at("payments_col_discount", {}, "Discount"),
@@ -580,6 +564,7 @@
               <Tag size={16} />
               <h3>{at("payment_detail_purchase_section", {}, "Purchase")}</h3>
             </div>
+            <PaymentPurchasesCell {payment} {at} mode="detail" />
             <ul class="admin-meta-list admin-payment-meta-list">
               {#each purchaseRows as row}
                 <li>

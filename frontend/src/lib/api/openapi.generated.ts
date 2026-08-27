@@ -5472,6 +5472,8 @@ export interface components {
        * @default null
        */
       purchased_hwid_devices: number | null;
+      /** Purchases */
+      purchases?: components["schemas"]["PaymentPurchaseOut"][];
       /**
        * Reversal Block Reason
        * @default null
@@ -5613,6 +5615,8 @@ export interface components {
        * @default null
        */
       purchased_hwid_devices: number | null;
+      /** Purchases */
+      purchases?: components["schemas"]["PaymentPurchaseOut"][];
       /**
        * Sale Mode
        * @default null
@@ -5652,6 +5656,25 @@ export interface components {
       user_id: number;
       /** User Label */
       user_label: string;
+    };
+    /** PaymentPurchaseOut */
+    PaymentPurchaseOut: {
+      /** Amount */
+      amount: number;
+      /** Kind */
+      kind: string;
+      /**
+       * Mode
+       * @default topup
+       */
+      mode: string;
+      /**
+       * Scope
+       * @default null
+       */
+      scope: string | null;
+      /** Unit */
+      unit: string;
     };
     /** PromoActivationOut */
     PromoActivationOut: {

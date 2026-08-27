@@ -15,14 +15,11 @@
   import { FileText, User } from "$components/ui/icons.js";
   import { Popover } from "$components/ui/primitives.js";
   import { TableHandler } from "@vincjo/datatables";
-  import {
-    formatPaymentTrafficGb,
-    paymentDescriptionDisplay,
-    paymentDiscountDisplay,
-  } from "$lib/admin/paymentTable.js";
+  import { paymentDescriptionDisplay, paymentDiscountDisplay } from "$lib/admin/paymentTable.js";
   import type { PaymentOut } from "../../lib/admin/stores/paymentsStore";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
   import type { AdminSortColumn } from "$lib/admin/tableSort.js";
+  import PaymentPurchasesCell from "./PaymentPurchasesCell.svelte";
   import PaymentProviderCell from "./PaymentProviderCell.svelte";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -67,8 +64,7 @@
   const paymentHeaders = $derived([
     at("id", {}, "ID"),
     at("user", {}, "User"),
-    at("payments_col_traffic_regular", {}, "Main traffic"),
-    at("payments_col_traffic_premium", {}, "Premium traffic"),
+    at("payments_col_purchases", {}, "Add-ons"),
     at("amount", {}, "Amount"),
     at("payments_col_discount", {}, "Discount"),
     at("provider", {}, "Provider"),
@@ -79,8 +75,6 @@
   const paymentSortColumns = [
     { asc: "id_asc", desc: "id_desc", defaultDirection: "desc" },
     { asc: "user_asc", desc: "user_desc", defaultDirection: "asc" },
-    { asc: "traffic_regular_asc", desc: "traffic_regular_desc", defaultDirection: "desc" },
-    { asc: "traffic_premium_asc", desc: "traffic_premium_desc", defaultDirection: "desc" },
     { asc: "amount_asc", desc: "amount_desc", defaultDirection: "desc" },
     { asc: "discount_asc", desc: "discount_desc", defaultDirection: "desc" },
     { asc: "provider_asc", desc: "provider_desc", defaultDirection: "asc" },
@@ -99,8 +93,8 @@
     <AdminTableSkeleton
       headers={paymentHeaders}
       rows={8}
-      rowHeight={62}
-      widths={["12%", "16.5%", "10%", "10%", "8.5%", "6.5%", "9%", "9.5%", "8%", "10%"]}
+      rowHeight={76}
+      widths={["11%", "15.5%", "18%", "9%", "7%", "9%", "9.5%", "9%", "12%"]}
     />
   {:else if !paymentsTable.rows.length}
     <AdminEmptyState tone="card"
@@ -111,8 +105,7 @@
       <colgroup>
         <col class="admin-payments-col-id" />
         <col class="admin-payments-col-user" />
-        <col class="admin-payments-col-traffic" />
-        <col class="admin-payments-col-traffic" />
+        <col class="admin-payments-col-purchases" />
         <col class="admin-payments-col-amount" />
         <col class="admin-payments-col-discount" />
         <col class="admin-payments-col-provider" />
@@ -136,60 +129,47 @@
             {at}
             onSort={paymentsStore.setSort}
           />
-          <AdminSortableHeader
-            label={at("payments_col_traffic_regular", {}, "Main traffic")}
-            column={paymentSortColumns[2]}
-            currentSort={paymentsSort}
-            {at}
-            onSort={paymentsStore.setSort}
-            class="admin-payments-traffic-header"
-          />
-          <AdminSortableHeader
-            label={at("payments_col_traffic_premium", {}, "Premium traffic")}
-            column={paymentSortColumns[3]}
-            currentSort={paymentsSort}
-            {at}
-            onSort={paymentsStore.setSort}
-            class="admin-payments-traffic-header"
-          />
+          <th class="admin-payments-purchases-header">
+            {at("payments_col_purchases", {}, "Add-ons")}
+          </th>
           <AdminSortableHeader
             label={at("amount", {}, "Amount")}
-            column={paymentSortColumns[4]}
+            column={paymentSortColumns[2]}
             currentSort={paymentsSort}
             {at}
             onSort={paymentsStore.setSort}
           />
           <AdminSortableHeader
             label={at("payments_col_discount", {}, "Discount")}
-            column={paymentSortColumns[5]}
+            column={paymentSortColumns[3]}
             currentSort={paymentsSort}
             {at}
             onSort={paymentsStore.setSort}
           />
           <AdminSortableHeader
             label={at("provider", {}, "Provider")}
-            column={paymentSortColumns[6]}
+            column={paymentSortColumns[4]}
             currentSort={paymentsSort}
             {at}
             onSort={paymentsStore.setSort}
           />
           <AdminSortableHeader
             label={at("description", {}, "Description")}
-            column={paymentSortColumns[7]}
+            column={paymentSortColumns[5]}
             currentSort={paymentsSort}
             {at}
             onSort={paymentsStore.setSort}
           />
           <AdminSortableHeader
             label={at("status", {}, "Status")}
-            column={paymentSortColumns[8]}
+            column={paymentSortColumns[6]}
             currentSort={paymentsSort}
             {at}
             onSort={paymentsStore.setSort}
           />
           <AdminSortableHeader
             label={at("date", {}, "Date")}
-            column={paymentSortColumns[9]}
+            column={paymentSortColumns[7]}
             currentSort={paymentsSort}
             {at}
             onSort={paymentsStore.setSort}
@@ -198,8 +178,8 @@
       </thead>
       <VirtualTableRows
         rows={paymentsTable.rows}
-        colspan={10}
-        rowHeight={62}
+        colspan={9}
+        rowHeight={76}
         getKey={(p) => p.payment_id}
       >
         {#snippet children(p)}
@@ -276,16 +256,10 @@
               </span>
             </td>
             <td
-              class="admin-cell-traffic-gb"
-              data-label={at("payments_col_traffic_regular", {}, "Main traffic")}
+              class="admin-cell-purchases"
+              data-label={at("payments_col_purchases", {}, "Add-ons")}
             >
-              {formatPaymentTrafficGb(p.traffic_regular_gb)}
-            </td>
-            <td
-              class="admin-cell-traffic-gb"
-              data-label={at("payments_col_traffic_premium", {}, "Premium traffic")}
-            >
-              {formatPaymentTrafficGb(p.traffic_premium_gb)}
+              <PaymentPurchasesCell payment={p} {at} />
             </td>
             <td data-label={at("amount", {}, "Amount")}>{fmtMoney(p.amount, p.currency)}</td>
             <td data-label={at("payments_col_discount", {}, "Discount")}>
@@ -368,15 +342,9 @@
               <dt>{at("payments_col_discount", {}, "Discount")}</dt>
               <dd>{paymentDiscountDisplay(p, fmtMoney)}</dd>
             </div>
-            <div>
-              <dt>{at("payments_col_traffic_regular", {}, "Main traffic")}</dt>
-              <dd>{formatPaymentTrafficGb(p.traffic_regular_gb)}</dd>
-            </div>
-            <div>
-              <dt>{at("payments_col_traffic_premium", {}, "Premium traffic")}</dt>
-              <dd>{formatPaymentTrafficGb(p.traffic_premium_gb)}</dd>
-            </div>
           </dl>
+
+          <PaymentPurchasesCell payment={p} {at} mode="mobile" />
 
           <div class="admin-payment-mobile-foot">
             <PaymentProviderCell provider={p.provider} />
@@ -428,23 +396,23 @@
   }
 
   .admin-payments-table-shell :global(.admin-payments-col-id) {
-    width: 12%;
+    width: 11%;
   }
 
   .admin-payments-table-shell :global(.admin-payments-col-user) {
-    width: 16.5%;
+    width: 15.5%;
   }
 
-  .admin-payments-table-shell :global(.admin-payments-col-traffic) {
-    width: 10%;
+  .admin-payments-table-shell :global(.admin-payments-col-purchases) {
+    width: 18%;
   }
 
   .admin-payments-table-shell :global(.admin-payments-col-amount) {
-    width: 8.5%;
+    width: 9%;
   }
 
   .admin-payments-table-shell :global(.admin-payments-col-discount) {
-    width: 6.5%;
+    width: 7%;
   }
 
   .admin-payments-table-shell :global(.admin-payments-col-provider) {
@@ -456,35 +424,16 @@
   }
 
   .admin-payments-table-shell :global(.admin-payments-col-status) {
-    width: 8%;
+    width: 9%;
   }
 
   .admin-payments-table-shell :global(.admin-payments-col-date) {
-    width: 10%;
+    width: 12%;
   }
 
-  .admin-payments-table-shell :global(.admin-payments-traffic-header) {
+  .admin-payments-table-shell :global(.admin-payments-purchases-header) {
     white-space: normal;
-  }
-
-  .admin-payments-table-shell :global(.admin-payments-traffic-header .admin-sort-header) {
-    align-items: flex-start;
-    width: 100%;
-  }
-
-  .admin-payments-table-shell
-    :global(.admin-payments-traffic-header .admin-sort-header > span:first-child) {
-    min-width: 0;
     line-height: 1.25;
-    overflow-wrap: normal;
-    word-break: normal;
-    white-space: normal;
-  }
-
-  .admin-payments-table-shell
-    :global(.admin-payments-traffic-header .admin-sort-header > .admin-sort-state) {
-    flex: 0 0 auto;
-    margin-top: 1px;
   }
 
   .admin-payments-user-cell {

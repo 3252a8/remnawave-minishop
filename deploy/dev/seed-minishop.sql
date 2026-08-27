@@ -251,6 +251,7 @@ INSERT INTO payments (
     provider_payment_id,
     provider_payment_url,
     provider,
+    funding_source,
     idempotence_key,
     amount,
     currency,
@@ -262,6 +263,8 @@ INSERT INTO payments (
     tariff_key,
     purchased_gb,
     purchased_hwid_devices,
+    promo_conflict_override,
+    promo_usage_restored,
     created_at,
     updated_at
 ) VALUES
@@ -270,6 +273,7 @@ INSERT INTO payments (
         'dev-payment-runes-admin-001',
         'https://payments.example.test/dev-payment-runes-admin-001',
         'dev_seed',
+        'external',
         'dev-idempotence-runes-admin-001',
         299.00,
         'RUB',
@@ -281,6 +285,8 @@ INSERT INTO payments (
         'standard',
         null,
         null,
+        false,
+        false,
         now() - interval '10 days',
         now() - interval '10 days'
     ),
@@ -289,6 +295,7 @@ INSERT INTO payments (
         'dev-payment-runes-active-001',
         'https://payments.example.test/dev-payment-runes-active-001',
         'dev_seed',
+        'external',
         'dev-idempotence-runes-active-001',
         499.00,
         'RUB',
@@ -300,6 +307,8 @@ INSERT INTO payments (
         'premium',
         null,
         null,
+        false,
+        false,
         now() - interval '5 days',
         now() - interval '5 days'
     ),
@@ -308,6 +317,7 @@ INSERT INTO payments (
         'dev-payment-runes-active-topup-001',
         'https://payments.example.test/dev-payment-runes-active-topup-001',
         'dev_seed',
+        'external',
         'dev-idempotence-runes-active-topup-001',
         149.00,
         'RUB',
@@ -319,6 +329,8 @@ INSERT INTO payments (
         'premium',
         10,
         null,
+        false,
+        false,
         now() - interval '1 day',
         now() - interval '1 day'
     )
@@ -326,6 +338,7 @@ ON CONFLICT (provider, provider_payment_id) DO UPDATE SET
     user_id = EXCLUDED.user_id,
     provider_payment_url = EXCLUDED.provider_payment_url,
     provider = EXCLUDED.provider,
+    funding_source = EXCLUDED.funding_source,
     idempotence_key = EXCLUDED.idempotence_key,
     amount = EXCLUDED.amount,
     currency = EXCLUDED.currency,
@@ -337,4 +350,6 @@ ON CONFLICT (provider, provider_payment_id) DO UPDATE SET
     tariff_key = EXCLUDED.tariff_key,
     purchased_gb = EXCLUDED.purchased_gb,
     purchased_hwid_devices = EXCLUDED.purchased_hwid_devices,
+    promo_conflict_override = EXCLUDED.promo_conflict_override,
+    promo_usage_restored = EXCLUDED.promo_usage_restored,
     updated_at = now();
