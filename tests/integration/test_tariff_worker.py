@@ -626,6 +626,76 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 now.replace(day=1, hour=0, minute=0, second=0, microsecond=0),
             )
 
+    async def test_scheduled_flexible_limit_keeps_current_regular_baseline(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "tariffs.json"
+            config_path.write_text(json.dumps(_tariffs_config_payload()), encoding="utf-8")
+            settings = Settings(
+                _env_file=None,
+                BOT_TOKEN="token",
+                POSTGRES_USER="app_user",
+                POSTGRES_PASSWORD="app_password",
+                TARIFFS_CONFIG_PATH=str(config_path),
+            )
+            panel_service = AsyncMock(spec=PanelApiService)
+            panel_service.update_user_details_on_panel = AsyncMock(return_value={"response": {}})
+            subscription_service = SubscriptionService(settings, panel_service)
+            worker = TariffTrafficWorker(
+                settings=settings,
+                session_factory=SimpleNamespace(),
+                panel_service=panel_service,
+                subscription_service=subscription_service,
+            )
+            current_limit = 1000 * (1024**3)
+            sub = SimpleNamespace(
+                subscription_id=652,
+                user_id=123,
+                panel_user_uuid="panel-uuid",
+                end_date=datetime.now(UTC) + timedelta(days=30),
+                traffic_limit_bytes=current_limit,
+                traffic_used_bytes=0,
+                tier_baseline_bytes=current_limit,
+                topup_balance_bytes=0,
+                regular_bonus_bytes=0,
+                regular_unlimited_override=False,
+                hwid_device_limit=0,
+                extra_hwid_devices=0,
+            )
+            tariff = settings.tariffs_config.require("standard")
+
+            with (
+                patch(
+                    "bot.services.tariff_worker_regular.tariff_dal.get_active_flexible_traffic_limits",
+                    new=AsyncMock(return_value={}),
+                ),
+                patch(
+                    "bot.services.tariff_worker_shared.tariff_dal.get_flexible_traffic_limit_history_start",
+                    new=AsyncMock(return_value=datetime.now(UTC) + timedelta(days=2)),
+                ),
+                patch(
+                    "bot.services.tariff_worker_regular.tariff_dal.get_hwid_device_entitlement_summary",
+                    new=AsyncMock(
+                        return_value={
+                            "active_devices": 0,
+                            "traffic_bonus_bytes": 0,
+                            "legacy_active_devices": 0,
+                        }
+                    ),
+                ),
+            ):
+                await worker._sync_hwid_device_limit(
+                    AsyncMock(spec=AsyncSession),
+                    sub,
+                    tariff,
+                    {
+                        "trafficLimitBytes": current_limit,
+                        "hwidDeviceLimit": 0,
+                    },
+                )
+
+            self.assertEqual(sub.tier_baseline_bytes, current_limit)
+            panel_service.update_user_details_on_panel.assert_not_awaited()
+
     async def test_limit_reached_does_not_remove_user_from_squad(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "tariffs.json"

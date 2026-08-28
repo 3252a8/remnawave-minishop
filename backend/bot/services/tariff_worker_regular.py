@@ -40,6 +40,7 @@ from .tariff_worker_shared import (
     PanelLimitPatchState,
     canonical_subscriptions_per_panel_user,
     record_panel_limit_drift,
+    resolve_flexible_limit_baseline,
 )
 
 logger = logging.getLogger(__name__)
@@ -503,23 +504,15 @@ class TariffWorkerRegularMixin(TariffWorkerRegularWarningMixin):
             at=now,
         )
         configured_baseline = flexible_limits.get("traffic")
-        flexible_history_exists = (
-            await tariff_dal.has_flexible_traffic_limit_history(
-                session,
-                subscription_id=sub.subscription_id,
-                kind="traffic",
-            )
-            if configured_baseline is None
-            else False
-        )
-        desired_tier_baseline = int(
-            configured_baseline
-            if configured_baseline is not None
-            else (
-                tariff.monthly_bytes
-                if flexible_history_exists
-                else (getattr(sub, "tier_baseline_bytes", 0) or tariff.monthly_bytes or 0)
-            )
+        desired_tier_baseline = await resolve_flexible_limit_baseline(
+            session,
+            subscription_id=sub.subscription_id,
+            kind="traffic",
+            at=now,
+            active_baseline=configured_baseline,
+            stored_baseline=getattr(sub, "tier_baseline_bytes", None),
+            default_baseline=int(tariff.monthly_bytes or 0),
+            preserve_without_history=True,
         )
         tier_baseline_changed = int(getattr(sub, "tier_baseline_bytes", 0) or 0) != (
             desired_tier_baseline

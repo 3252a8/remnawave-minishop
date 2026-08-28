@@ -35,6 +35,7 @@ from .tariff_worker_shared import (
     PREMIUM_WARNING_LEVEL_OFFSET,
     TARIFF_WORKER_SQUAD_CONFIRMATION_CACHE_TTL_SECONDS,
     fmt_bytes,
+    resolve_flexible_limit_baseline,
 )
 
 logger = logging.getLogger(__name__)
@@ -204,10 +205,15 @@ class TariffWorkerPremiumMixin(
             at=now,
         )
         configured_premium_baseline = flexible_limits.get("premium_traffic")
-        premium_baseline = int(
-            configured_premium_baseline
-            if configured_premium_baseline is not None
-            else (tariff.premium_monthly_bytes or 0)
+        premium_baseline = await resolve_flexible_limit_baseline(
+            session,
+            subscription_id=sub.subscription_id,
+            kind="premium_traffic",
+            at=now,
+            active_baseline=configured_premium_baseline,
+            stored_baseline=getattr(sub, "premium_baseline_bytes", None),
+            default_baseline=int(tariff.premium_monthly_bytes or 0),
+            preserve_without_history=False,
         )
         premium_topup_balance = int(sub.premium_topup_balance_bytes or 0)
         premium_topup_used = (
