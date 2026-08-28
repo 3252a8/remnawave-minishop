@@ -14,7 +14,8 @@ from config.tariffs_config import TariffsConfig
 from config.traffic_strategy import normalize_traffic_limit_strategy
 from db.models import AdCampaign, MessageLog, Payment, PromoCode, Subscription, User
 
-from .schemas import AdminSubscriptionOut, AdminUserOut, AdOut, LogOut, PaymentOut, PromoOut
+from .payment_schemas import PaymentOut
+from .schemas import AdminSubscriptionOut, AdminUserOut, AdOut, LogOut, PromoOut
 
 
 def _ok(payload: dict[str, Any], **extra: Any) -> web.Response:

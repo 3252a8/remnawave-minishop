@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 
 from bot.app.web.admin_api_impl.common import _serialize_payment
-from bot.app.web.admin_api_impl.schemas import PaymentDetailOut, PaymentOut
+from bot.app.web.admin_api_impl.payment_schemas import PaymentDetailOut, PaymentOut
 
 
 def _payment(**overrides):
