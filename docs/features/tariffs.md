@@ -69,13 +69,14 @@ Legacy-поля остаются алиасами: `prices_rub`, `conversion_rat
 | CryptoPay      | fiat: `USD`, `EUR`, `RUB`, `BYN`, `UAH`, `GBP`, `CNY`, `KZT`, `UZS`, `GEL`, `TRY`, `AMD`, `THB`, `INR`, `BRL`, `IDR`, `AZN`, `AED`, `PLN`, `ILS`; crypto: `USDT`, `TON`, `BTC`, `ETH`, `LTC`, `BNB`, `TRX`, `USDC` |
 | Heleket        | настраиваемый список `HELEKET_SUPPORTED_CURRENCIES`                                                                                                                                                                |
 | Platega        | настраиваемый список `PLATEGA_SUPPORTED_CURRENCIES`                                                                                                                                                                |
+| RollyPay       | `RUB`; кнопка зарубежной карты также `EUR`; регулярная СБП-подписка только `RUB`                                                                                                                                   |
 | SeverPay       | настраиваемый список `SEVERPAY_SUPPORTED_CURRENCIES`                                                                                                                                                               |
 | LAVA           | `RUB`                                                                                                                                                                                                              |
 | Pally          | `RUB`, `USD`, `EUR` |
 | Stripe         | по умолчанию без локального фильтра; ограничьте через `STRIPE_SUPPORTED_CURRENCIES` под ваш аккаунт Stripe                                                                                                         |
 | Telegram Stars | `XTR`, отдельные Stars-цены                                                                                                                                                                                        |
 
-В админке раздел **Система → Тарифы** показывает текущую платежную валюту и матрицу провайдеров: включен ли метод, настроен ли сервис и будет ли он доступен при выбранной валюте. Для Platega, SeverPay и Heleket список валют нужно держать в соответствии с условиями вашего мерчанта.
+В админке раздел **Система → Тарифы** показывает текущую платежную валюту и матрицу провайдеров: включен ли метод, настроен ли сервис и будет ли он доступен при выбранной валюте. Для Platega, SeverPay и Heleket список валют нужно держать в соответствии с условиями вашего мерчанта. У RollyPay `EUR` доступен только кнопке зарубежной карты.
 
 ## Структура JSON-каталога
 

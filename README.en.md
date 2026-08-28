@@ -21,7 +21,7 @@ For users:
   one-time email code.
 - Trial periods, promo codes, referrals, flexible checkout limits, standalone traffic/device add-ons,
   and install guides.
-- Payment integrations including YooKassa, FreeKassa, Platega, SeverPay, Wata, CryptoPay,
+- Payment integrations including YooKassa, FreeKassa, Platega, RollyPay, SeverPay, Wata, CryptoPay,
   Heleket, PayKilla, LAVA, Pally, CloudPayments, Stripe, Tribute, and Telegram Stars.
 - Support tickets inside the Web App plus optional external support links.
 

@@ -70,6 +70,7 @@ WEBHOOK_PROFILES = {
         "pally",
         "paykilla",
         "platega",
+        "rollypay",
         "severpay",
         "stripe",
         "wata",

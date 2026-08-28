@@ -4553,6 +4553,7 @@ remnashop_webhook_checklist() {
     printf '  PayKilla Dashboard -> Settings -> Webhooks URL: %s/webhook/paykilla\n' "$base_url"
     printf '  FreeKassa shop settings -> notification/result URL: %s/webhook/freekassa\n' "$base_url"
     printf '  Platega merchant/project settings -> webhook URL: %s/webhook/platega\n' "$base_url"
+    printf '  RollyPay terminal settings -> webhook URL: %s/webhook/rollypay\n' "$base_url"
     printf '  Telegram webhook: %s/tg/webhook (backend ставит его автоматически при старте)\n' "$base_url"
 }
 
@@ -4597,6 +4598,7 @@ remnashop_post_migration_next_steps() {
     printf '  PayKilla: %s/webhook/paykilla\n' "$base_url"
     printf '  FreeKassa: %s/webhook/freekassa\n' "$base_url"
     printf '  Platega: %s/webhook/platega\n' "$base_url"
+    printf '  RollyPay: %s/webhook/rollypay\n' "$base_url"
 }
 
 extract_import_summary() {

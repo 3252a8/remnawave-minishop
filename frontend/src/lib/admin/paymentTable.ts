@@ -44,6 +44,7 @@ const PAYMENT_PROVIDER_LOGO_FILES: Record<string, string> = {
   pally: "pally.png",
   paykilla: "paykilla.png",
   platega: "platega.png",
+  rollypay: "rollypay.png",
   severpay: "severpay.png",
   stars: "telegram-stars.png",
   stripe: "stripe.png",
@@ -69,9 +70,11 @@ export function paymentProviderDisplay(
     .replace(/^_+|_+$/g, "");
   const logoKey = providerKey.startsWith("platega")
     ? "platega"
-    : providerKey.startsWith("wata")
-      ? "wata"
-      : providerKey;
+    : providerKey.startsWith("rollypay")
+      ? "rollypay"
+      : providerKey.startsWith("wata")
+        ? "wata"
+        : providerKey;
   const logoFile = PAYMENT_PROVIDER_LOGO_FILES[logoKey];
 
   if (providerKey === "promo") {

@@ -401,7 +401,7 @@ Xray-Core 26.3.27+, `NET_ADMIN`, nftables, корректный sniffing и вк
 
 | Переменная | Назначение |
 | --- | --- |
-| `PAYMENT_METHODS_ORDER` | Порядок способов оплаты в выпадающем списке или отдельных кнопках. Для Platega доступны `platega_sbp`, `platega_card`, `platega_crypto`, `platega_international`, `platega_all_methods`, `platega_subscription`; legacy-значение `platega` разворачивается во все варианты. |
+| `PAYMENT_METHODS_ORDER` | Порядок способов оплаты в выпадающем списке или отдельных кнопках. Для Platega доступны `platega_sbp`, `platega_card`, `platega_crypto`, `platega_international`, `platega_all_methods`, `platega_subscription`; legacy-значение `platega` разворачивается во все варианты. Для RollyPay: `rollypay`, `rollypay_sbp`, `rollypay_card`, `rollypay_international`, `rollypay_crypto`, `rollypay_subscription`. |
 | `PAYMENT_METHODS_DISPLAY_MODE` | Представление способов оплаты в Mini App: компактный `dropdown` (по умолчанию) или отдельные `buttons`. В админке: **Платежи → Оформление оплаты**. |
 | `SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED` | Показывать описание подписки перед выбором срока. |
 | `SUBSCRIPTION_PURCHASE_DESCRIPTION_RU` / `SUBSCRIPTION_PURCHASE_DESCRIPTION_EN` | Локализованное описание подписки. |
@@ -419,6 +419,10 @@ Xray-Core 26.3.27+, `NET_ADMIN`, nftables, корректный sniffing и вк
 | `PLATEGA_INTERNATIONAL_ENABLED` | Кнопка международных карт (`paymentMethod: 12` по умолчанию). |
 | `PLATEGA_ALL_METHODS_ENABLED` | Единая ссылка Platega, где плательщик сам выбирает способ оплаты. |
 | `PLATEGA_SUBSCRIPTION_ENABLED` | Кнопка рекуррентной СБП-подписки Platega. |
+| `ROLLYPAY_ENABLED` | Включает общий сервис RollyPay. |
+| `ROLLYPAY_ALL_METHODS_ENABLED` / `ROLLYPAY_SBP_ENABLED` / `ROLLYPAY_CARD_ENABLED` | Hosted-выбор метода и отдельные кнопки СБП/карты RollyPay. |
+| `ROLLYPAY_INTERNATIONAL_ENABLED` / `ROLLYPAY_CRYPTO_ENABLED` | Кнопки зарубежной карты и криптовалюты RollyPay. |
+| `ROLLYPAY_SUBSCRIPTION_ENABLED` | Регулярная СБП-подписка RollyPay для периодов 1, 3 и 12 месяцев. |
 | `SEVERPAY_ENABLED` | Включает SeverPay. |
 | `WATA_ENABLED` | Включает Wata. |
 | `CRYPTOPAY_ENABLED` | Включает CryptoPay. |
@@ -611,6 +615,29 @@ docker compose exec backend sh -lc 'curl -4fsS https://api.ipify.org; echo'
 | `PLATEGA_SUPPORTED_CURRENCIES` | Валюты, включённые для мерчанта и выбранных методов, через запятую. |
 | `PLATEGA_RETURN_URL` | URL успешного возврата. |
 | `PLATEGA_FAILED_URL` | URL неуспешного возврата. |
+
+### RollyPay
+
+| Переменная | Назначение |
+| --- | --- |
+| `ROLLYPAY_ENABLED` | Общий включатель сервиса. |
+| `ROLLYPAY_BASE_URL` | Базовый API URL; по умолчанию `https://rollypay.io/api/v1`. |
+| `ROLLYPAY_API_KEY` | API key мерчанта для `X-API-Key`. |
+| `ROLLYPAY_SIGNING_SECRET` | Секрет HMAC-SHA256 webhook терминала. |
+| `ROLLYPAY_TERMINAL_ID` | Терминал для платежей и обязательный terminal id для subscription plans. |
+| `ROLLYPAY_ALL_METHODS_ENABLED` | Hosted-страница без фиксированного способа оплаты. |
+| `ROLLYPAY_SBP_ENABLED` / `ROLLYPAY_CARD_ENABLED` | Отдельные методы `sbp` и `card`. |
+| `ROLLYPAY_INTERNATIONAL_ENABLED` | Метод `intl_card`; единственная RollyPay-кнопка с поддержкой `EUR`. |
+| `ROLLYPAY_CRYPTO_ENABLED` | Метод `crypto`. |
+| `ROLLYPAY_SUBSCRIPTION_ENABLED` | Провайдерская регулярная СБП-подписка; требует `ROLLYPAY_TERMINAL_ID`. |
+| `ROLLYPAY_<METHOD>_ADMIN_ONLY_ENABLED` | Показывает конкретную кнопку только пользователям из `ADMIN_IDS`. Вместо `<METHOD>`: `ALL_METHODS`, `SBP`, `CARD`, `INTERNATIONAL`, `CRYPTO`, `SUBSCRIPTION`. |
+| `ROLLYPAY_TEST_MODE` | Передаёт `test: true`; разовые методы становятся admin-only, recurring отключается. |
+| `ROLLYPAY_SUCCESS_URL` / `ROLLYPAY_FAIL_URL` | Явные URL возврата; без них используется стандартная ссылка бота. |
+| `ROLLYPAY_WEBHOOK_TOLERANCE_SECONDS` | Допустимый возраст `X-Timestamp`, по умолчанию `300`. |
+| `ROLLYPAY_WEBHOOK_LOOKUP_TIMEOUT_SECONDS` | Лимит обязательной проверки платежа через API, `1..9`, по умолчанию `8`. |
+| `ROLLYPAY_PLAN_CACHE_SECONDS` | TTL кэша subscription plans, по умолчанию `300`. |
+| `ROLLYPAY_RECONCILE_INTERVAL_SECONDS` | Период сверки состояний мандатов, по умолчанию `300`. |
+| `ROLLYPAY_RECONCILE_BATCH_SIZE` | Максимум мандатов за одну сверку, по умолчанию `100`. |
 
 ### SeverPay
 

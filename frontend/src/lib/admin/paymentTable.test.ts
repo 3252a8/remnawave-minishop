@@ -48,6 +48,11 @@ describe("paymentProviderDisplay", () => {
       logoUrl: "/provider-logos/yookassa.png",
       fallbackEmoji: "🧾",
     });
+    expect(paymentProviderDisplay("rollypay_subscription")).toEqual({
+      label: "rollypay_subscription",
+      logoUrl: "/provider-logos/rollypay.png",
+      fallbackEmoji: "🧾",
+    });
     expect(paymentProviderDisplay("custom_provider")).toEqual({
       label: "custom_provider",
       logoUrl: "",

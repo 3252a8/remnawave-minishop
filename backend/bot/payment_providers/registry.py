@@ -15,6 +15,7 @@ from . import (
     paykilla,
     platega,
     qa,
+    rollypay,
     severpay,
     stars,
     stripe,
@@ -41,6 +42,12 @@ PAYMENT_PROVIDER_SPECS: tuple[PaymentProviderSpec, ...] = (
     platega.INTERNATIONAL_SPEC,
     platega.ALL_METHODS_SPEC,
     platega.SUBSCRIPTION_SPEC,
+    rollypay.ALL_METHODS_SPEC,
+    rollypay.SBP_SPEC,
+    rollypay.CARD_SPEC,
+    rollypay.INTERNATIONAL_SPEC,
+    rollypay.CRYPTO_SPEC,
+    rollypay.SUBSCRIPTION_SPEC,
     severpay.SPEC,
     wata.SPEC,
     wata.CRYPTO_SPEC,
@@ -278,6 +285,12 @@ _LOCALE_LABEL_SPEC_IDS = frozenset(
         "platega_international",
         "platega_all_methods",
         "platega_subscription",
+        "rollypay",
+        "rollypay_sbp",
+        "rollypay_card",
+        "rollypay_international",
+        "rollypay_crypto",
+        "rollypay_subscription",
     }
 )
 

@@ -90,6 +90,7 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0067_add_message_images",
     "0068_add_broadcast_blocked_filter",
     "0069_normalize_auto_renew_attempt_index",
+    "0070_add_rollypay_subscriptions",
 ]
 
 

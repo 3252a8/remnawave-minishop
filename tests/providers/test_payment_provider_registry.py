@@ -160,6 +160,7 @@ def test_service_keys_and_statuses_come_from_provider_specs():
         "yookassa_service",
         "freekassa_service",
         "platega_service",
+        "rollypay_service",
         "severpay_service",
         "wata_service",
         "stars_service",

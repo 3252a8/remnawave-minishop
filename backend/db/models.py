@@ -785,6 +785,58 @@ class PlategaSubscription(Base):
     user = relationship("User")
 
 
+class RollyPaySubscription(Base):
+    """Local mirror of a provider-managed RollyPay recurring SBP mandate."""
+
+    __tablename__ = "rollypay_subscriptions"
+    __table_args__ = (
+        Index(
+            "ix_rollypay_subscriptions_user_billing_status",
+            "user_id",
+            "billing_status",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    rollypay_subscription_id = Column(String, nullable=False, unique=True, index=True)
+    anchor_payment_id = Column(
+        Integer,
+        ForeignKey("payments.payment_id"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    user_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=False, index=True)
+    provider_state = Column(String(32), nullable=False, default="new", index=True)
+    billing_status = Column(String(32), nullable=False, default="consent_pending", index=True)
+    plan_id = Column(String, nullable=False)
+    plan_code = Column(String, nullable=False)
+    plan_version = Column(Integer, nullable=False)
+    interval = Column(String(16), nullable=False)
+    max_cycles = Column(Integer, nullable=True)
+    amount = Column(Float, nullable=False)
+    currency = Column(String(8), nullable=False, default="RUB")
+    months = Column(Integer, nullable=False)
+    sale_mode = Column(String, nullable=True)
+    tariff_key = Column(String, nullable=True, index=True)
+    next_charge_at = Column(DateTime(timezone=True), nullable=True)
+    last_charge_at = Column(DateTime(timezone=True), nullable=True)
+    charges_count = Column(Integer, nullable=False, default=0)
+    first_provider_payment_id = Column(String, nullable=True, unique=True, index=True)
+    activated_at = Column(DateTime(timezone=True), nullable=True)
+    stopped_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    user = relationship("User")
+    anchor_payment = relationship("Payment")
+
+
 class PromoCode(Base):
     __tablename__ = "promo_codes"
 

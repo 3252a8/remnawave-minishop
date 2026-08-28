@@ -38,6 +38,11 @@ RECONCILABLE_PROVIDER_KEYS = (
     "platega_card",
     "platega_crypto",
     "platega_sbp",
+    "rollypay",
+    "rollypay_card",
+    "rollypay_crypto",
+    "rollypay_international",
+    "rollypay_sbp",
     "severpay",
     "stripe",
     "tribute",
@@ -61,6 +66,7 @@ _FAILED_STATUSES = {
         "payment_failed",
     },
     "platega": {"canceled", "cancelled", "chargebacked"},
+    "rollypay": {"canceled", "cancelled", "expired", "chargeback", "refunded"},
     "severpay": {"decline", "fail"},
 }
 _SUCCESS_STATUSES = {
@@ -70,6 +76,7 @@ _SUCCESS_STATUSES = {
     "pally": {"overpaid", "success"},
     "paykilla": {"completed", "paid", "success"},
     "platega": {"confirmed"},
+    "rollypay": {"paid"},
     "severpay": {"success"},
 }
 _PENDING_STATUSES = {
@@ -80,6 +87,7 @@ _PENDING_STATUSES = {
     "pally": {"new", "process", "underpaid"},
     "paykilla": {"created", "new", "pending", "processing"},
     "platega": {"pending"},
+    "rollypay": {"created", "processing"},
     "severpay": {"new", "process"},
 }
 
@@ -310,6 +318,31 @@ async def _inspect_provider_payment(service: Any, payment: Payment) -> ProviderL
                 received_currency=received_currency,
                 places=None,
                 allow_overpayment=True,
+            )
+        )
+    elif provider in {
+        "rollypay",
+        "rollypay_sbp",
+        "rollypay_card",
+        "rollypay_international",
+        "rollypay_crypto",
+    }:
+        success, data = await service.get_payment(provider_id)
+        if success and not _id_matches(data, provider_id, "payment_id", "id"):
+            return ProviderLifecycle("unknown")
+        if success and str(data.get("order_id") or "") != f"minishop-{payment.payment_id}":
+            return ProviderLifecycle("unknown")
+        status = data.get("status")
+        state_provider = "rollypay"
+        payment_verified = bool(
+            success
+            and _state_for("rollypay", status) == "succeeded"
+            and payment_amount_and_currency_match(
+                expected_amount=payment.amount,
+                expected_currency=payment.currency,
+                received_amount=data.get("amount"),
+                received_currency=data.get("currency") or data.get("payment_currency"),
+                places=2,
             )
         )
     elif provider == "lava":
