@@ -20,6 +20,7 @@
     CopyTextAction,
     DevicesData,
     LanguageOption,
+    MenuButtonView,
     OpenLinkAction,
     ReferralBonusDetail,
     ReferralState,
@@ -66,9 +67,11 @@
     goDevices: VoidAction;
     goHome: VoidAction;
     goInvite: VoidAction;
+    goInstall: VoidAction;
     goPartner: VoidAction;
     partnerEnabled?: boolean;
     goSettings: VoidAction;
+    goTrial: VoidAction;
     goStatus: (parent?: "home" | "settings") => void;
     goSupport: VoidAction;
     hasActiveTariffSubscription?: boolean;
@@ -188,9 +191,11 @@
     goDevices,
     goHome,
     goInvite,
+    goInstall,
     goPartner,
     partnerEnabled = false,
     goSettings,
+    goTrial,
     goStatus,
     goSupport,
     hasActiveTariffSubscription = false,
@@ -313,6 +318,47 @@
       referralProgramEnabled,
     })
   );
+  const menuButtons = $derived(
+    Array.isArray(appSettings?.menu_buttons) ? (appSettings.menu_buttons as MenuButtonView[]) : []
+  );
+
+  function openMenuButton(button: MenuButtonView): void {
+    if (button.kind !== "webapp") {
+      openExternalLink(String(button.target || ""));
+      return;
+    }
+    switch (button.target) {
+      case "plans":
+        openPaymentModal();
+        break;
+      case "install":
+        goInstall();
+        break;
+      case "trial":
+        goTrial();
+        break;
+      case "invite":
+        goInvite();
+        break;
+      case "partner":
+        goPartner();
+        break;
+      case "devices":
+        goDevices();
+        break;
+      case "support":
+        goSupport();
+        break;
+      case "settings":
+        goSettings();
+        break;
+      case "status":
+        goStatus("settings");
+        break;
+      default:
+        goHome();
+    }
+  }
 </script>
 
 <WebAppShell
@@ -509,6 +555,7 @@
       {languageOptions}
       {linkEmailBusy}
       {linkTelegramBusy}
+      {menuButtons}
       {privacyPolicyUrl}
       {profileAvatarUrl}
       {profileEmail}
@@ -544,6 +591,7 @@
       {openAdminPanel}
       openPartner={goPartner}
       {openExternalLink}
+      {openMenuButton}
       {openLinkEmailDialog}
       {openSetPasswordDialog}
       openServerStatus={() => goStatus("settings")}

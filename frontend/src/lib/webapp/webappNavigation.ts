@@ -56,6 +56,11 @@ export function createWebappNavigation({
     return true;
   }
 
+  function goTrial() {
+    showSection("trial", "home");
+    return true;
+  }
+
   function goPartner() {
     if (!partnerProgramEnabled()) return false;
     showSection("partner");
@@ -93,5 +98,6 @@ export function createWebappNavigation({
     goSettings,
     goStatus,
     goSupport,
+    goTrial,
   };
 }

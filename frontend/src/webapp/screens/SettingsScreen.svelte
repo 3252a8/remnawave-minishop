@@ -18,9 +18,11 @@
   import { LanguageSelect, ThemeSelect } from "$components/patterns/webapp/index.js";
   import PromoActivationCard from "../PromoActivationCard.svelte";
   import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
+  import MenuButtonIcon from "../MenuButtonIcon.svelte";
   import type { ThemeOption } from "$lib/webapp/themePreference.js";
   import type {
     LanguageOption,
+    MenuButtonView,
     OpenLinkAction,
     StringAction,
     Translate,
@@ -41,6 +43,7 @@
     languageOptions?: LanguageOption[];
     linkEmailBusy?: boolean;
     linkTelegramBusy?: boolean;
+    menuButtons?: MenuButtonView[];
     partnerSettingsVisible?: boolean;
     privacyPolicyUrl?: string;
     profileAvatarUrl?: string;
@@ -75,6 +78,7 @@
     openAdminPanel?: VoidAction;
     openPartner?: VoidAction;
     openExternalLink?: OpenLinkAction;
+    openMenuButton?: (button: MenuButtonView) => void;
     openLinkEmailDialog?: VoidAction;
     openSetPasswordDialog?: VoidAction;
     openServerStatus?: VoidAction;
@@ -101,6 +105,7 @@
     languageOptions = [],
     linkEmailBusy = false,
     linkTelegramBusy = false,
+    menuButtons = [],
     partnerSettingsVisible = false,
     privacyPolicyUrl = "",
     profileAvatarUrl = "",
@@ -135,6 +140,7 @@
     openAdminPanel = () => {},
     openPartner = () => {},
     openExternalLink = () => {},
+    openMenuButton = () => {},
     openLinkEmailDialog = () => {},
     openSetPasswordDialog = () => {},
     openServerStatus = () => {},
@@ -384,4 +390,20 @@
       </button>
     {/if}
   </div>
+  {#if menuButtons.length}
+    <div class="settings-list settings-menu-buttons">
+      {#each menuButtons as button (button.id)}
+        <button
+          data-webapp-action={`menu-button-${button.id}`}
+          class="settings-row settings-row-menu-button"
+          type="button"
+          onclick={() => openMenuButton(button)}
+        >
+          <MenuButtonIcon icon={String(button.icon || "")} />
+          <span><strong>{button.label}</strong></span>
+          <ArrowRight size={17} />
+        </button>
+      {/each}
+    </div>
+  {/if}
 </main>

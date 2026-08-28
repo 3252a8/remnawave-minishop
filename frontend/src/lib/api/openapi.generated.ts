@@ -11213,6 +11213,14 @@ export interface operations {
             settings: {
               auth_providers?: string[];
               email_auth_enabled?: boolean;
+              menu_buttons?: {
+                icon: string;
+                id: string;
+                /** @enum {string} */
+                kind: "external" | "telegram" | "webapp";
+                label: string;
+                target: string;
+              }[];
               my_devices_enabled?: boolean;
               partner_program_enabled?: boolean;
               payment_methods_display_mode?: string;

@@ -112,6 +112,7 @@ export const FALLBACK_WEBAPP_CONFIG: WebappConfig = {
   userAgreementUrl: "",
 };
 export type AppSettings = MeOkResponse["settings"] & WebappRecord;
+export type MenuButtonView = NonNullable<AppSettings["menu_buttons"]>[number] & WebappRecord;
 export type ReferralState = MeOkResponse["referral"] & WebappRecord;
 export type ReferralBonusDetail = NonNullable<ReferralState["bonus_details"]>[number] &
   WebappRecord;

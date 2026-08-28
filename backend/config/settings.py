@@ -715,6 +715,13 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
             "User renewal prompts should open the Mini App."
         ),
     )
+    MENU_BUTTONS_JSON: str = Field(
+        default="[]",
+        description=(
+            "Validated JSON array of localized custom buttons shown at the bottom of the "
+            "Telegram main menu and Web App settings."
+        ),
+    )
 
     START_COMMAND_DESCRIPTION: str | None = Field(default=None)
     DISABLE_WELCOME_MESSAGE: bool = Field(

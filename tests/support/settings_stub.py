@@ -149,6 +149,7 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "WEBAPP_API_BASE_URL": "/api",
     "MINISHOP_EDGE_TOKEN": "",
     "MINISHOP_EDGE_TOKEN_HEADER": "X-Minishop-Edge-Token",
+    "MENU_BUTTONS_JSON": "[]",
     "WEBAPP_PRIMARY_COLOR": "#00fe7a",
     "WEBAPP_SERVER_HOST": "0.0.0.0",
     "WEBAPP_SERVER_PORT": 8080,

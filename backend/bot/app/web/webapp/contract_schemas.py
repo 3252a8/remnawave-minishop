@@ -559,6 +559,18 @@ THEMES_CATALOG_SCHEMA: dict[str, Any] = {
         "themes": {"type": "array", "items": THEME_SCHEMA},
     },
 }
+MENU_BUTTON_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["id", "kind", "target", "icon", "label"],
+    "properties": {
+        "id": STRING_SCHEMA,
+        "kind": {"type": "string", "enum": ["external", "telegram", "webapp"]},
+        "target": STRING_SCHEMA,
+        "icon": STRING_SCHEMA,
+        "label": STRING_SCHEMA,
+    },
+}
 WEBAPP_SETTINGS_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
@@ -587,6 +599,7 @@ WEBAPP_SETTINGS_SCHEMA: dict[str, Any] = {
         "subscription_guides_enabled": BOOLEAN_SCHEMA,
         "email_auth_enabled": BOOLEAN_SCHEMA,
         "auth_providers": STRING_ARRAY_SCHEMA,
+        "menu_buttons": {"type": "array", "items": MENU_BUTTON_SCHEMA},
     },
 }
 ME_RESPONSE_SCHEMA: dict[str, Any] = ok_envelope_with(

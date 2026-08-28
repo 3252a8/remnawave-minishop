@@ -299,9 +299,11 @@
   const confirmSubscriptionReissue = $derived(appActions.confirmSubscriptionReissue);
   const goDevices = $derived(appActions.goDevices);
   const goHome = $derived(appActions.goHome);
+  const goInstall = $derived(appActions.goInstall);
   const goInvite = $derived(appActions.goInvite);
   const goPartner = $derived(appActions.goPartner);
   const goSettings = $derived(appActions.goSettings);
+  const goTrial = $derived(appActions.goTrial);
   const goStatus = $derived(appActions.goStatus);
   const goSupport = $derived(appActions.goSupport);
   const linkTelegramAndActivateTrial = $derived(appActions.linkTelegramAndActivateTrial);
@@ -561,10 +563,12 @@
       {emailLinkStatus}
       {goDevices}
       {goHome}
+      {goInstall}
       {goInvite}
       {goPartner}
       {partnerEnabled}
       {goSettings}
+      {goTrial}
       {goStatus}
       {goSupport}
       {hasActiveTariffSubscription}

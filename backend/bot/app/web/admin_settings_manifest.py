@@ -12,6 +12,7 @@ import re
 from typing import Any
 
 from bot.app.web.admin_settings_manifest_fields import SETTINGS_MANIFEST, SettingField
+from config.menu_buttons import normalize_menu_buttons_json
 from config.support_links import normalize_support_link
 
 
@@ -58,6 +59,9 @@ def manifest_keys() -> list[str]:
 
 def coerce_value(field: SettingField, raw: Any) -> Any:
     """Coerce a value coming from JSON to the type declared by the field."""
+
+    if field.type == "menu_buttons":
+        return normalize_menu_buttons_json(raw)
 
     if field.type == "json":
         if raw is None:
@@ -417,6 +421,7 @@ def manifest_payload() -> list[dict]:
     sections_order = {
         "general": 1,
         "appearance": 2,
+        "menu_buttons": 3,
         "remnawave": 3,
         "pricing": 11,
         "payments": 4,

@@ -225,6 +225,63 @@ class UserBotMenuTests(unittest.TestCase):
         self.assertEqual(trial_button.callback_data, "main_action:request_trial")
         self.assertIsNone(trial_button.web_app)
 
+    def test_custom_buttons_are_last_and_use_native_targets(self):
+        self.settings.MENU_BUTTONS_JSON = json.dumps(
+            [
+                {
+                    "id": "website",
+                    "kind": "external",
+                    "target": "https://example.com/news",
+                    "icon": "Globe2",
+                    "labels": {"ru": "Новости", "en": "News"},
+                },
+                {
+                    "id": "community",
+                    "kind": "telegram",
+                    "target": "https://t.me/example_group",
+                    "icon": "Send",
+                    "labels": {"ru": "Сообщество", "en": "Community"},
+                },
+                {
+                    "id": "devices",
+                    "kind": "webapp",
+                    "target": "devices",
+                    "icon": "⚡",
+                    "labels": {"ru": "Устройства", "en": "Devices"},
+                },
+            ]
+        )
+
+        markup = get_main_menu_inline_keyboard("en", self.i18n, self.settings)
+        custom_rows = markup.inline_keyboard[-3:]
+
+        self.assertEqual(custom_rows[0][0].text, "🌐 News")
+        self.assertEqual(custom_rows[0][0].url, "https://example.com/news")
+        self.assertEqual(custom_rows[1][0].text, "✈️ Community")
+        self.assertEqual(custom_rows[1][0].url, "https://t.me/example_group")
+        self.assertEqual(custom_rows[2][0].text, "⚡ Devices")
+        self.assertEqual(custom_rows[2][0].web_app.url, "https://app.example.com/devices")
+
+    def test_webapp_custom_button_is_skipped_without_mini_app(self):
+        self.settings.SUBSCRIPTION_MINI_APP_URL = ""
+        self.settings.MENU_BUTTONS_JSON = json.dumps(
+            [
+                {
+                    "id": "devices",
+                    "kind": "webapp",
+                    "target": "devices",
+                    "icon": "",
+                    "labels": {"ru": "Устройства", "en": "Devices"},
+                }
+            ]
+        )
+
+        markup = get_main_menu_inline_keyboard("en", self.i18n, self.settings)
+
+        self.assertFalse(
+            any(button.text == "Devices" for row in markup.inline_keyboard for button in row)
+        )
+
     def test_bot_interface_trial_button_uses_mini_app_deeplink_when_available(self):
         markup = get_bot_interface_inline_keyboard(
             "en",

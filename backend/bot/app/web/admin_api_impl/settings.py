@@ -8,6 +8,7 @@ from bot.app.web.admin_payment_method_order import payment_method_order_options
 from bot.app.web.admin_settings_manifest import manifest_payload
 from bot.app.web.context import (
     get_bot,
+    get_i18n,
     get_session_factory,
     get_settings,
 )
@@ -25,6 +26,7 @@ from bot.services.entitlements import features as entitlement_features
 from bot.services.partner_withdrawal_service import PartnerWithdrawalService
 from bot.services.settings_override_service import current_value, update_overrides
 from bot.services.telegram_bot_commands import BOT_MENU_SETTING_KEY, sync_telegram_bot_commands
+from config.menu_buttons import parse_menu_buttons, validate_menu_button_languages
 from config.settings import Settings
 from config.subscription_guides_config import (
     SubscriptionGuidesConfigError,
@@ -184,6 +186,23 @@ async def admin_settings_patch_route(request: web.Request) -> web.Response:
         updates = dict(updates)
         updates.pop("SUBSCRIPTION_PAGE_CONFIG_JSON", None)
         deletes = [*deletes, "SUBSCRIPTION_PAGE_CONFIG_JSON"]
+    if "MENU_BUTTONS_JSON" in updates:
+        i18n = get_i18n(request)
+        language_codes = set(getattr(i18n, "locales_data", {}) or {})
+        language_codes.update(getattr(i18n, "locale_overrides", {}) or {})
+        language_codes.update({"ru", "en"})
+        try:
+            validate_menu_button_languages(
+                parse_menu_buttons(updates["MENU_BUTTONS_JSON"]),
+                language_codes,
+            )
+        except ValueError as exc:
+            return _error_payload(
+                400,
+                "validation_failed",
+                errors={"MENU_BUTTONS_JSON": str(exc)},
+                message="Validation failed",
+            )
 
     result = await update_overrides(
         settings,

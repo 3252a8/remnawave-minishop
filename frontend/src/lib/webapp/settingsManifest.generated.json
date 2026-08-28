@@ -438,6 +438,31 @@
     ]
   },
   {
+    "id": "menu_buttons",
+    "order": 3,
+    "fields": [
+      {
+        "key": "MENU_BUTTONS_JSON",
+        "type": "menu_buttons",
+        "section": "menu_buttons",
+        "section_order": 3,
+        "subsection": null,
+        "label": "Custom menu buttons",
+        "description": "Localized links shown at the bottom of the Telegram main menu and Web App settings.",
+        "i18n_label_key": "admin_settings_field_menu_buttons_json_label",
+        "i18n_description_key": "admin_settings_field_menu_buttons_json_description",
+        "i18n_subsection_key": null,
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": false,
+        "secret": false,
+        "value": "",
+        "overridden": false,
+        "updated_at": null
+      }
+    ]
+  },
+  {
     "id": "remnawave",
     "order": 3,
     "fields": [

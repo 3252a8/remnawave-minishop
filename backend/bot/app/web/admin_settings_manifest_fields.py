@@ -76,6 +76,14 @@ SETTINGS_MANIFEST: list[SettingField] = [
         ("Hide the in-bot user interface and /tg command. Renewal prompts open the Mini App."),
     ),
     SettingField(
+        "MENU_BUTTONS_JSON",
+        "menu_buttons",
+        "menu_buttons",
+        "Custom menu buttons",
+        ("Localized links shown at the bottom of the Telegram main menu and Web App settings."),
+        optional=False,
+    ),
+    SettingField(
         "REQUIRED_CHANNEL_ID",
         "int",
         "general",

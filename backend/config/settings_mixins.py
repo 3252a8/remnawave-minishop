@@ -14,6 +14,7 @@ from typing import (
 
 from pydantic import field_validator
 
+from config.menu_buttons import normalize_menu_buttons_json
 from config.settings_models import (
     CompatibilitySettings,
     DBSettings,
@@ -199,6 +200,7 @@ if TYPE_CHECKING:
         PAYMENT_METHODS_ORDER: str | None
         SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED: bool
         DEFAULT_LANGUAGE: str
+        MENU_BUTTONS_JSON: str
         SUBSCRIPTION_PURCHASE_DESCRIPTION_EN: str
         SUBSCRIPTION_PURCHASE_DESCRIPTION_RU: str
 
@@ -219,6 +221,11 @@ def _split_csv(value: str | None) -> list[str]:
 
 
 class SettingsComputedMixin(_SettingsComputedMixinBase):
+    @field_validator("MENU_BUTTONS_JSON", mode="before")
+    @classmethod
+    def validate_menu_buttons_json(cls, value: Any) -> str:
+        return normalize_menu_buttons_json(value)
+
     @computed_field
     def DATABASE_URL(self) -> str:
         return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"

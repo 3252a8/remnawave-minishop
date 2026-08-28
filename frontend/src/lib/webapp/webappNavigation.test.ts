@@ -42,6 +42,15 @@ describe("createWebappNavigation", () => {
     expect(deps.syncSectionPath).toHaveBeenCalledWith("invite");
   });
 
+  it("opens the trial as a child of Home", () => {
+    const { deps, navigation, state } = makeNavigation();
+
+    expect(navigation.goTrial()).toBe(true);
+
+    expect(state).toEqual({ activeTab: "home", screen: "trial" });
+    expect(deps.syncSectionPath).toHaveBeenCalledWith("trial");
+  });
+
   it("opens status as a native child of Settings by default", () => {
     const { deps, navigation, state } = makeNavigation();
 

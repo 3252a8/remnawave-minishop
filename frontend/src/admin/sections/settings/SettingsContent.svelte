@@ -20,6 +20,7 @@
   import SettingsDisclosureTrigger from "./SettingsDisclosureTrigger.svelte";
   import PaymentMethodsOrderField from "./PaymentMethodsOrderField.svelte";
   import NotificationDeliveryMatrix from "./NotificationDeliveryMatrix.svelte";
+  import MenuButtonsField from "./MenuButtonsField.svelte";
   import ProgramSettingsSections from "./marketing/ProgramSettingsSections.svelte";
   import {
     groupSectionFields,
@@ -38,6 +39,7 @@
   import type { ComponentType, SvelteComponent } from "svelte";
   import type { SettingsSearchEntry } from "$lib/admin/settingsSearch";
   import type { SettingsDirtyEntry } from "$lib/admin/stores/settingsStore";
+  import type { TranslationLanguage } from "$lib/admin/stores/translationsStore";
   import type {
     AdminSettingField,
     AdminSettingsSection,
@@ -101,6 +103,7 @@
     markFieldDirty,
     resetField,
     onNavigateSection = () => {},
+    menuButtonLanguages = [],
   }: {
     at: TranslateFn;
     settingsLoading: boolean;
@@ -151,6 +154,7 @@
     markFieldDirty: (key: string, value: unknown) => void;
     resetField: (field: AdminSettingField) => void;
     onNavigateSection?: (section: string) => void;
+    menuButtonLanguages?: TranslationLanguage[];
   } = $props();
 
   let settingsSearchOpen = $state(false);
@@ -347,6 +351,7 @@
   {@const valueSource = fieldValueSourceLabel(field)}
   <div
     class="admin-setting"
+    class:admin-setting--menu-buttons={field.type === "menu_buttons"}
     class:is-overridden={isOverridden(field)}
     class:is-search-highlighted={highlightedSettingKey === field.key}
     data-settings-anchor={settingsFieldAnchorKey(field.key)}
@@ -422,6 +427,13 @@
           {at}
           value={fieldTextValue(field)}
           options={field.payment_method_options}
+          onValueChange={(value) => markFieldDirty(field.key, value)}
+        />
+      {:else if field.type === "menu_buttons"}
+        <MenuButtonsField
+          {at}
+          value={fieldTextValue(field)}
+          languages={menuButtonLanguages}
           onValueChange={(value) => markFieldDirty(field.key, value)}
         />
       {:else if field.choices && field.choices.length > 0}
@@ -713,3 +725,13 @@
     {/each}
   </div>
 {/if}
+
+<style>
+  .admin-setting--menu-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-setting--menu-buttons .admin-setting-control {
+    width: 100%;
+  }
+</style>

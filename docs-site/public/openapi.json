@@ -19708,6 +19708,42 @@
                         "email_auth_enabled": {
                           "type": "boolean"
                         },
+                        "menu_buttons": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "icon": {
+                                "type": "string"
+                              },
+                              "id": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "enum": [
+                                  "external",
+                                  "telegram",
+                                  "webapp"
+                                ],
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "target": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "kind",
+                              "target",
+                              "icon",
+                              "label"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
                         "my_devices_enabled": {
                           "type": "boolean"
                         },

@@ -36,6 +36,7 @@ from bot.services.telegram_notifications import (
 )
 from bot.utils.locale_defaults import subscription_purchase_description_text
 from bot.utils.traffic_reset import format_traffic_reset_date, parse_panel_datetime
+from config.menu_buttons import public_menu_buttons
 from config.settings import Settings
 from config.subscription_guides_config import subscription_guides_available
 from config.tariff_checkout import serialize_checkout_addons
@@ -389,6 +390,11 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             "subscription_guides_enabled": subscription_guides_available(settings),
             "email_auth_enabled": settings.email_auth_configured,
             "auth_providers": settings.webapp_auth_providers,
+            "menu_buttons": public_menu_buttons(
+                settings.MENU_BUTTONS_JSON,
+                lang,
+                default_language=settings.DEFAULT_LANGUAGE,
+            ),
         },
     }
 
