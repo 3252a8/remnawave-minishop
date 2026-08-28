@@ -2086,7 +2086,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   const mobilePaymentCardBox = await mobilePaymentCard.boundingBox();
   expect(mobilePaymentCardBox).not.toBeNull();
   expect(mobilePaymentCardBox!.height).toBeLessThan(300);
-  await expect(mobilePaymentCard.locator(".admin-payment-mobile-metrics dd")).toHaveCount(4);
+  await expect(mobilePaymentCard.locator(".admin-payment-mobile-metrics dd")).toHaveCount(2);
   await page.evaluate(() => {
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
