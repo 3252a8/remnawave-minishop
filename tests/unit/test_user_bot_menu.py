@@ -282,6 +282,36 @@ class UserBotMenuTests(unittest.TestCase):
             any(button.text == "Devices" for row in markup.inline_keyboard for button in row)
         )
 
+    def test_custom_buttons_respect_bot_visibility(self):
+        self.settings.MENU_BUTTONS_JSON = json.dumps(
+            [
+                {
+                    "id": "webapp_only",
+                    "kind": "external",
+                    "target": "https://example.com/webapp",
+                    "icon": "",
+                    "labels": {"ru": "Только Web App", "en": "Web App only"},
+                    "show_in_bot": False,
+                    "show_in_webapp": True,
+                },
+                {
+                    "id": "bot_only",
+                    "kind": "external",
+                    "target": "https://example.com/bot",
+                    "icon": "",
+                    "labels": {"ru": "Только бот", "en": "Bot only"},
+                    "show_in_bot": True,
+                    "show_in_webapp": False,
+                },
+            ]
+        )
+
+        markup = get_main_menu_inline_keyboard("en", self.i18n, self.settings)
+        texts = [button.text for row in markup.inline_keyboard for button in row]
+
+        self.assertNotIn("Web App only", texts)
+        self.assertIn("Bot only", texts)
+
     def test_bot_interface_trial_button_uses_mini_app_deeplink_when_available(self):
         markup = get_bot_interface_inline_keyboard(
             "en",

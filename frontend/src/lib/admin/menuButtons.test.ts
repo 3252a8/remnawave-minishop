@@ -14,6 +14,9 @@ describe("menu button drafts", () => {
     button.kind = "telegram";
     button.target = "https://t.me/help";
 
+    expect(button.show_in_bot).toBe(true);
+    expect(button.show_in_webapp).toBe(true);
+
     expect(parseMenuButtonDrafts(serializeMenuButtonDrafts([button]))).toEqual({
       buttons: [button],
       invalid: false,
@@ -22,6 +25,26 @@ describe("menu button drafts", () => {
 
   it("reports malformed persisted JSON", () => {
     expect(parseMenuButtonDrafts("{oops")).toEqual({ buttons: [], invalid: true });
+  });
+
+  it("defaults legacy buttons to both menus and preserves explicit visibility", () => {
+    const parsed = parseMenuButtonDrafts(
+      JSON.stringify([
+        {
+          id: "legacy",
+          kind: "external",
+          target: "https://example.com",
+          icon: "",
+          labels: { en: "Legacy" },
+          show_in_webapp: false,
+        },
+      ])
+    );
+
+    expect(parsed.buttons[0]).toMatchObject({
+      show_in_bot: true,
+      show_in_webapp: false,
+    });
   });
 
   it("reorders buttons without mutating the source", () => {

@@ -8,6 +8,8 @@ export type MenuButtonDraft = {
   target: string;
   icon: string;
   labels: Record<string, string>;
+  show_in_bot: boolean;
+  show_in_webapp: boolean;
 };
 
 export type MenuButtonsParseResult = {
@@ -43,6 +45,8 @@ function normalizeButton(value: unknown): MenuButtonDraft | null {
     target: String(value.target || ""),
     icon: String(value.icon || ""),
     labels: normalizeLabels(value.labels),
+    show_in_bot: typeof value.show_in_bot === "boolean" ? value.show_in_bot : true,
+    show_in_webapp: typeof value.show_in_webapp === "boolean" ? value.show_in_webapp : true,
   };
 }
 
@@ -73,6 +77,8 @@ export function createMenuButtonDraft(languages: string[]): MenuButtonDraft {
     target: "",
     icon: "ExternalLink",
     labels: Object.fromEntries(languages.map((language) => [language, ""])),
+    show_in_bot: true,
+    show_in_webapp: true,
   };
 }
 

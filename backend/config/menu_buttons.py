@@ -96,6 +96,8 @@ class MenuButton(BaseModel):
     target: str = Field(min_length=1, max_length=2048)
     icon: str = Field(default="", max_length=32)
     labels: dict[str, str]
+    show_in_bot: bool = True
+    show_in_webapp: bool = True
 
     @field_validator("id")
     @classmethod
@@ -248,4 +250,5 @@ def public_menu_buttons(
             ),
         }
         for button in configured_menu_buttons(raw)
+        if button.show_in_webapp
     ]

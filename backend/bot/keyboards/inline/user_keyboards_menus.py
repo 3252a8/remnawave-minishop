@@ -80,6 +80,8 @@ def get_main_menu_inline_keyboard(
         )
 
     for button in configured_menu_buttons(settings.MENU_BUTTONS_JSON):
+        if not button.show_in_bot:
+            continue
         text = telegram_menu_button_text(
             button,
             lang,

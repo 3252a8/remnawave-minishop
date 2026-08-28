@@ -11,7 +11,7 @@
     type MenuButtonKind,
   } from "$lib/admin/menuButtons.js";
   import { AdminButton, AdminSelect } from "$components/patterns/admin/index.js";
-  import { Input, Sortable } from "$components/ui/index.js";
+  import { Checkbox, Input, Sortable } from "$components/ui/index.js";
   import { Plus, Trash2, TriangleAlert } from "$components/ui/icons.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -206,6 +206,25 @@
               })}
           />
         {/if}
+        <fieldset class="menu-buttons-visibility">
+          <legend>{at("menu_buttons_visibility", {}, "Show in")}</legend>
+          <label class="menu-buttons-visibility-option">
+            <Checkbox
+              checked={button.show_in_bot}
+              ariaLabel={at("menu_buttons_visible_in_bot", {}, "Bot menu")}
+              onCheckedChange={(checked) => updateButton(index, { show_in_bot: checked })}
+            />
+            <span>{at("menu_buttons_visible_in_bot", {}, "Bot menu")}</span>
+          </label>
+          <label class="menu-buttons-visibility-option">
+            <Checkbox
+              checked={button.show_in_webapp}
+              ariaLabel={at("menu_buttons_visible_in_webapp", {}, "Web App menu")}
+              onCheckedChange={(checked) => updateButton(index, { show_in_webapp: checked })}
+            />
+            <span>{at("menu_buttons_visible_in_webapp", {}, "Web App menu")}</span>
+          </label>
+        </fieldset>
         <AdminButton
           size="sm"
           variant="danger"
@@ -240,7 +259,30 @@
   :global(.menu-buttons-row) {
     grid-template-columns:
       24px minmax(150px, 0.8fr) minmax(180px, 1.25fr) minmax(160px, 0.9fr) minmax(220px, 1.5fr)
-      auto;
+      minmax(150px, 0.8fr) auto;
+  }
+
+  .menu-buttons-visibility {
+    display: grid;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    gap: 6px;
+    border: 0;
+  }
+
+  .menu-buttons-visibility legend {
+    margin-bottom: 2px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .menu-buttons-visibility-option {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    cursor: pointer;
   }
 
   .menu-buttons-warning {
@@ -259,7 +301,7 @@
     :global(.menu-buttons-row) {
       grid-template-columns:
         24px minmax(130px, 0.8fr) minmax(180px, 1.2fr) minmax(160px, 0.9fr) minmax(180px, 1.2fr)
-        auto;
+        minmax(140px, 0.8fr) auto;
     }
   }
 
