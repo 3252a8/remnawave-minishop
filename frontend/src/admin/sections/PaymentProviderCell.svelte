@@ -25,7 +25,7 @@
         onerror={() => (logoFailed = true)}
       />
     {:else}
-      <span>{providerDisplay.fallbackEmoji}</span>
+      {providerDisplay.fallbackEmoji}
     {/if}
   </span>
   <span class="admin-payment-provider-name">{providerLabel}</span>
@@ -48,6 +48,8 @@
     height: 28px;
     flex: 0 0 28px;
     overflow: hidden;
+    font-size: 28px;
+    line-height: 1;
   }
 
   .admin-payment-provider-logo img {
@@ -55,20 +57,6 @@
     width: 100%;
     height: 100%;
     object-fit: contain;
-  }
-
-  .admin-payment-provider-logo > span {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-    border: 1px solid var(--admin-border);
-    border-radius: 7px;
-    background: color-mix(in srgb, var(--admin-bg) 78%, #ffffff);
-    color: var(--admin-text);
-    font-size: 17px;
-    line-height: 1;
   }
 
   .admin-payment-provider-name {
