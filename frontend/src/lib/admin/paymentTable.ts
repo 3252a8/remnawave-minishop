@@ -34,6 +34,59 @@ type MoneyFormatter = (value: number, currency?: string | null) => string;
 
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
+const PAYMENT_PROVIDER_LOGO_FILES: Record<string, string> = {
+  cloudpayments: "cloudpayments.png",
+  cryptopay: "cryptopay.png",
+  freekassa: "freekassa.png",
+  heleket: "heleket.png",
+  lava: "lava.png",
+  overpay: "overpay.png",
+  pally: "pally.png",
+  paykilla: "paykilla.png",
+  platega: "platega.png",
+  severpay: "severpay.png",
+  stars: "telegram-stars.png",
+  stripe: "stripe.png",
+  telegram_stars: "telegram-stars.png",
+  tribute: "tribute.png",
+  wata: "wata.png",
+  yookassa: "yookassa.png",
+};
+
+export type PaymentProviderDisplay = {
+  label: string;
+  logoUrl: string;
+  fallbackEmoji: string;
+};
+
+export function paymentProviderDisplay(
+  provider: string | null | undefined
+): PaymentProviderDisplay {
+  const rawLabel = String(provider || "").trim();
+  const providerKey = rawLabel
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  const logoKey = providerKey.startsWith("platega")
+    ? "platega"
+    : providerKey.startsWith("wata")
+      ? "wata"
+      : providerKey;
+  const logoFile = PAYMENT_PROVIDER_LOGO_FILES[logoKey];
+
+  if (providerKey === "promo") {
+    return { label: rawLabel || "promo", logoUrl: "", fallbackEmoji: "🎁" };
+  }
+  if (providerKey === "partner_balance") {
+    return { label: "balance", logoUrl: "", fallbackEmoji: "💸" };
+  }
+  return {
+    label: rawLabel || "—",
+    logoUrl: logoFile ? `/provider-logos/${logoFile}` : "",
+    fallbackEmoji: "🧾",
+  };
+}
+
 function formatGbAmountPlain(value: number | string | null | undefined): string {
   if (value == null || value === "") return "";
   const amount = Number(value);

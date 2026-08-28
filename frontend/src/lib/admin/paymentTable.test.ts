@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { paymentDiscountDisplay, paymentPurchaseDisplay } from "./paymentTable";
+import {
+  paymentDiscountDisplay,
+  paymentProviderDisplay,
+  paymentPurchaseDisplay,
+} from "./paymentTable";
 
 const money = (value: number, currency?: string | null): string =>
   `${value.toFixed(2)} ${currency || ""}`.trim();
@@ -21,6 +25,34 @@ describe("paymentDiscountDisplay", () => {
 
   it("uses an empty marker when no discount was applied", () => {
     expect(paymentDiscountDisplay({}, money)).toBe("—");
+  });
+});
+
+describe("paymentProviderDisplay", () => {
+  it("uses dedicated emoji for promo and partner balance payments", () => {
+    expect(paymentProviderDisplay("promo")).toEqual({
+      label: "promo",
+      logoUrl: "",
+      fallbackEmoji: "🎁",
+    });
+    expect(paymentProviderDisplay("partner_balance")).toEqual({
+      label: "balance",
+      logoUrl: "",
+      fallbackEmoji: "💸",
+    });
+  });
+
+  it("keeps provider logos and uses a receipt for missing or failed logos", () => {
+    expect(paymentProviderDisplay("yookassa")).toEqual({
+      label: "yookassa",
+      logoUrl: "/provider-logos/yookassa.png",
+      fallbackEmoji: "🧾",
+    });
+    expect(paymentProviderDisplay("custom_provider")).toEqual({
+      label: "custom_provider",
+      logoUrl: "",
+      fallbackEmoji: "🧾",
+    });
   });
 });
 
