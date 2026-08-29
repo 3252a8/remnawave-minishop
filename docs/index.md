@@ -58,12 +58,12 @@
   </div>
   <a class="minishop-provider-panel" href="/features/payments/">
     <span class="minishop-provider-copy">
-      <span class="minishop-eyebrow">15 платежных интеграций</span>
+      <span class="minishop-eyebrow">16 платежных интеграций</span>
       <strong>Принимайте оплату удобным для аудитории способом</strong>
       <span>Провайдеры подключаются независимо и отображаются в Mini App и Telegram-сценариях.</span>
     </span>
     <span class="minishop-provider-list" aria-label="Поддерживаемые платежные провайдеры">
-      <span>YooKassa</span><span>Telegram Stars</span><span>Stripe</span><span>Tribute</span><span>CloudPayments</span><span>Platega</span><span>FreeKassa</span><span>Wata</span><span>CryptoPay</span><span>Heleket</span><span>PayKilla</span><span>LAVA</span><span>Pally</span><span>Overpay</span><span>SeverPay</span>
+      <span>YooKassa</span><span>Telegram Stars</span><span>Stripe</span><span>Tribute</span><span>CloudPayments</span><span>Platega</span><span>FreeKassa</span><span>Wata</span><span>CryptoPay</span><span>Heleket</span><span>OxaPay</span><span>PayKilla</span><span>LAVA</span><span>Pally</span><span>Overpay</span><span>SeverPay</span>
     </span>
     <span class="minishop-provider-link">Все платежные сценарии <span aria-hidden="true">→</span></span>
   </a>

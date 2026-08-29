@@ -32,6 +32,7 @@ RECONCILABLE_PROVIDER_KEYS = (
     "heleket",
     "lava",
     "overpay",
+    "oxapay",
     "pally",
     "paykilla",
     "platega",
@@ -54,6 +55,7 @@ _FAILED_STATUSES = {
     "cryptopay": {"expired"},
     "heleket": {"cancel", "fail", "system_fail", "wrong_amount"},
     "lava": {"cancel", "cancelled", "error", "expired", "failed"},
+    "oxapay": {"expired", "refunded"},
     "pally": {"cancelled", "canceled", "fail", "failed"},
     "paykilla": {
         "cancelled",
@@ -72,6 +74,7 @@ _FAILED_STATUSES = {
 _SUCCESS_STATUSES = {
     "cryptopay": {"paid"},
     "heleket": {"paid", "paid_over"},
+    "oxapay": {"manual_accept", "paid"},
     "lava": {"success"},
     "pally": {"overpaid", "success"},
     "paykilla": {"completed", "paid", "success"},
@@ -83,6 +86,7 @@ _PENDING_STATUSES = {
     "cloudpayments": {"authorized", "awaitingauthentication", "created", "pending"},
     "cryptopay": {"active"},
     "heleket": {"check"},
+    "oxapay": {"new", "paying", "refunding", "underpaid", "waiting"},
     "lava": {"created", "pending", "processing"},
     "pally": {"new", "process", "underpaid"},
     "paykilla": {"created", "new", "pending", "processing"},
@@ -273,6 +277,25 @@ async def _inspect_provider_payment(service: Any, payment: Payment) -> ProviderL
             _normalized(status),
             payment_verified=payment_verified,
             provider_payment_id=provider_id or None,
+        )
+    elif provider == "oxapay":
+        success, data = await service.get_payment_info(provider_id)
+        if success and (
+            not _id_matches(data, provider_id, "track_id")
+            or str(data.get("order_id") or "") != str(payment.payment_id)
+        ):
+            return ProviderLifecycle("unknown")
+        status = data.get("status")
+        payment_verified = bool(
+            success
+            and _state_for("oxapay", status) == "succeeded"
+            and payment_amount_and_currency_match(
+                expected_amount=payment.amount,
+                expected_currency=payment.currency,
+                received_amount=data.get("amount"),
+                received_currency=data.get("currency"),
+                places=None,
+            )
         )
     elif provider == "heleket":
         success, data = await service.get_payment_info(provider_id)

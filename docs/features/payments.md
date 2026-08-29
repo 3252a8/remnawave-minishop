@@ -71,7 +71,8 @@
 Все платежные webhook URL строятся от `WEBHOOK_BASE_URL` - публичного HTTPS-адреса backend/webhook-домена. Это должен быть домен, который проксируется на backend-сервер вебхуков (`backend:8080`), а не `SUBSCRIPTION_MINI_APP_URL` frontend/Mini App. Если `WEBHOOK_BASE_URL=https://bot.example.com`, то полный адрес получается как `https://bot.example.com` + путь из таблицы.
 
 Если у провайдера включена IP-фильтрация (`FREEKASSA_TRUSTED_IPS`, `WATA_TRUSTED_IPS`,
-`HELEKET_TRUSTED_IPS`, `PAYKILLA_TRUSTED_IPS` или встроенный allowlist YooKassa),
+`HELEKET_TRUSTED_IPS`, `OXAPAY_TRUSTED_IPS`, `PAYKILLA_TRUSTED_IPS` или встроенный allowlist
+YooKassa),
 reverse proxy должен прокидывать `X-Forwarded-For`, а его IP/CIDR должен входить в
 `TRUSTED_PROXIES`. Иначе backend увидит IP proxy/Docker gateway и может отклонить
 валидный webhook с ошибкой `403`. Для webhook-домена за Cloudflare backend использует
@@ -88,6 +89,7 @@ reverse proxy должен прокидывать `X-Forwarded-For`, а его I
 | Wata | `WEBHOOK_BASE_URL` + `/webhook/wata` | Если включена проверка подписи, настройте `WATA_WEBHOOK_VERIFY_SIGNATURE` и `WATA_PUBLIC_KEY`. |
 | CryptoPay | `WEBHOOK_BASE_URL` + `/webhook/cryptopay` | Указывается в настройках Crypto Bot / CryptoPay webhook. |
 | Heleket | `WEBHOOK_BASE_URL` + `/webhook/heleket` | При необходимости включите `HELEKET_VERIFY_WEBHOOK_SIGNATURE` и `HELEKET_TRUSTED_IPS`. |
+| OxaPay | `WEBHOOK_BASE_URL` + `/webhook/oxapay` | Передаётся автоматически как `callback_url` при Generate Invoice. HMAC-SHA512 по raw body проверяется всегда. |
 | PayKilla | `WEBHOOK_BASE_URL` + `/webhook/paykilla` | Указывается в PayKilla Dashboard -> Settings -> Webhooks; включите события оплаты инвойсов. |
 | LAVA | `WEBHOOK_BASE_URL` + `/webhook/lava` | Передается автоматически как `hookUrl` при создании счета; можно также указать в кабинете LAVA Business. |
 | Pally | `WEBHOOK_BASE_URL` + `/webhook/pally` | Укажите как Result URL в настройках магазина Pally / PayPalych. Postback приходит в формате `application/x-www-form-urlencoded`. |
@@ -504,6 +506,54 @@ Heleket используется для крипто-инвойсов с merchan
 ### Справочник
 
 - [Heleket](../configuration/env-vars.md#heleket)
+
+## OxaPay
+
+OxaPay подключён через актуальный Merchant API v1 и создаёт hosted-ссылку методом
+`Generate Invoice`. Сумма и валюта берутся из локального заказа, `order_id` содержит ID
+платежа Minishop, а `callback_url` собирается из `WEBHOOK_BASE_URL`.
+
+### Настройка
+
+1. Создайте Merchant API key в кабинете OxaPay.
+2. Включите `OXAPAY_ENABLED` и сохраните ключ в `OXAPAY_MERCHANT_API_KEY`.
+3. Проверьте публичный `WEBHOOK_BASE_URL`; готовый адрес должен оканчиваться на
+   `/webhook/oxapay`.
+4. При необходимости настройте `OXAPAY_RETURN_URL` и срок счёта
+   `OXAPAY_LIFETIME_MINUTES` от `15` до `2880` минут.
+5. Для тестового платежа временно включите `OXAPAY_SANDBOX`.
+
+### Комиссия, недоплата и расчёты
+
+- Пустые `OXAPAY_FEE_PAID_BY_PAYER`, `OXAPAY_UNDER_PAID_COVERAGE`,
+  `OXAPAY_AUTO_WITHDRAWAL` и `OXAPAY_MIXED_PAYMENT` оставляют соответствующее решение
+  настройкам Merchant Service в OxaPay.
+- `OXAPAY_TO_CURRENCY=USDT` включает поддерживаемую OxaPay автоматическую конвертацию;
+  другие target currencies API не принимает.
+- OxaPay может выставлять invoice как в fiat, так и в crypto currency. Локальный список
+  намеренно не зафиксирован: окончательную доступность валюты проверяет API для конкретного
+  merchant account.
+
+### Webhook и восстановление
+
+- OxaPay подписывает точные сырые байты JSON заголовком `HMAC`, используя Merchant API key
+  как секрет HMAC-SHA512. Проверку нельзя отключить.
+- Первый callback со статусом `Paying` означает только отправку транзакции. Доступ выдаётся
+  после `Paid`; `manual_accept` также считается завершённым статусом Merchant Service.
+- Перед активацией Minishop сверяет `type=invoice`, `track_id`, `order_id`, сумму и валюту.
+  Повторный callback идемпотентен и получает обязательный для OxaPay ответ `200 ok`.
+- Если callback потерян, общий reconciliation worker читает
+  `GET /v1/payment/{track_id}` и безопасно завершает `paid` invoice либо закрывает `expired`.
+- `OXAPAY_TRUSTED_IPS` — дополнительная необязательная защита. Актуальный список IP OxaPay
+  выдаёт через поддержку; без списка обязательная HMAC-проверка продолжает работать.
+
+### Справочник
+
+- [Generate Invoice](https://docs.oxapay.com/api-reference/payment/generate-invoice)
+- [Payment Information](https://docs.oxapay.com/api-reference/payment/payment-information)
+- [Webhook](https://docs.oxapay.com/webhook)
+- [Payment status table](https://docs.oxapay.com/api-reference/payment/payment-status-table)
+- [Переменные OxaPay](../configuration/env-vars.md#oxapay)
 
 ## PayKilla
 

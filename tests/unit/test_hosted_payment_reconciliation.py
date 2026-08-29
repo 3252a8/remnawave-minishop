@@ -171,6 +171,22 @@ def test_resolve_checkout_expiration_uses_only_an_exact_creation_ttl() -> None:
     ("provider", "service", "expected_status"),
     [
         (
+            "oxapay",
+            SimpleNamespace(
+                get_payment_info=AsyncMock(
+                    return_value=(
+                        True,
+                        {
+                            "track_id": "provider-1",
+                            "order_id": "17",
+                            "status": "expired",
+                        },
+                    )
+                )
+            ),
+            "expired",
+        ),
+        (
             "heleket",
             SimpleNamespace(
                 get_payment_info=AsyncMock(
@@ -334,6 +350,30 @@ def test_freekassa_pending_order_stays_reusable() -> None:
     lifecycle = asyncio.run(_inspect_provider_payment(service, _payment("freekassa")))
 
     assert lifecycle.state == "pending"
+
+
+def test_oxapay_paid_invoice_is_monetarily_verified() -> None:
+    service = SimpleNamespace(
+        get_payment_info=AsyncMock(
+            return_value=(
+                True,
+                {
+                    "track_id": "provider-1",
+                    "order_id": "17",
+                    "status": "paid",
+                    "amount": 199,
+                    "currency": "RUB",
+                    "expired_at": 1_893_542_400,
+                },
+            )
+        )
+    )
+
+    lifecycle = asyncio.run(_inspect_provider_payment(service, _payment("oxapay")))
+
+    assert lifecycle.state == "succeeded"
+    assert lifecycle.provider_status == "paid"
+    assert lifecycle.payment_verified
 
 
 def test_confirmed_terminal_failure_releases_checkout_and_notifies(

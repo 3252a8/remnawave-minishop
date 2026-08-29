@@ -427,6 +427,7 @@ Xray-Core 26.3.27+, `NET_ADMIN`, nftables, корректный sniffing и вк
 | `WATA_ENABLED` | Включает Wata. |
 | `CRYPTOPAY_ENABLED` | Включает CryptoPay. |
 | `HELEKET_ENABLED` | Включает Heleket. |
+| `OXAPAY_ENABLED` | Включает OxaPay Generate Invoice. |
 | `PAYKILLA_ENABLED` | Включает PayKilla. |
 | `LAVA_ENABLED` | Включает LAVA. |
 | `PALLY_ENABLED` | Включает Pally / PayPalych. |
@@ -515,6 +516,12 @@ PAYMENT_HELEKET_WEBAPP_ICON
 PAYMENT_HELEKET_TELEGRAM_LABEL_RU
 PAYMENT_HELEKET_TELEGRAM_LABEL_EN
 PAYMENT_HELEKET_TELEGRAM_EMOJI
+PAYMENT_OXAPAY_WEBAPP_LABEL_RU
+PAYMENT_OXAPAY_WEBAPP_LABEL_EN
+PAYMENT_OXAPAY_WEBAPP_ICON
+PAYMENT_OXAPAY_TELEGRAM_LABEL_RU
+PAYMENT_OXAPAY_TELEGRAM_LABEL_EN
+PAYMENT_OXAPAY_TELEGRAM_EMOJI
 PAYMENT_PAYKILLA_WEBAPP_LABEL_RU
 PAYMENT_PAYKILLA_WEBAPP_LABEL_EN
 PAYMENT_PAYKILLA_WEBAPP_ICON
@@ -711,6 +718,27 @@ donations интеграцией Minishop не поддерживаются. П�
 | `HELEKET_LIFETIME_SECONDS` | TTL инвойса: 300..43200. |
 | `HELEKET_VERIFY_WEBHOOK_SIGNATURE` | Проверять подпись webhook. |
 | `HELEKET_TRUSTED_IPS` | Список доверенных IP webhook-источников. |
+
+### OxaPay
+
+| Переменная | Назначение |
+| --- | --- |
+| `OXAPAY_MERCHANT_API_KEY` | Merchant API key для Generate Invoice, Payment Information и проверки HMAC-SHA512 webhook. |
+| `OXAPAY_BASE_URL` | Базовый URL API, по умолчанию `https://api.oxapay.com/v1`. |
+| `OXAPAY_RETURN_URL` | URL успешного возврата; если пусто, используется ссылка Telegram-бота. |
+| `OXAPAY_LIFETIME_MINUTES` | Время жизни invoice от `15` до `2880` минут; по умолчанию `60`. |
+| `OXAPAY_FEE_PAID_BY_PAYER` | Кто платит комиссию invoice; пустое значение сохраняет настройку Merchant Service. |
+| `OXAPAY_UNDER_PAID_COVERAGE` | Допустимая недоплата в процентах от `0` до `60`; пустое значение сохраняет настройку Merchant Service. |
+| `OXAPAY_TO_CURRENCY` | Необязательная автоматическая конвертация поступления; поддерживается `USDT`. |
+| `OXAPAY_AUTO_WITHDRAWAL` | Автоматически выводить поступление на адрес из OxaPay Address List; пустое значение сохраняет настройку Merchant Service. |
+| `OXAPAY_MIXED_PAYMENT` | Разрешить доплату другой валютой; пустое значение сохраняет настройку Merchant Service. |
+| `OXAPAY_SANDBOX` | Создавать тестовые invoice; по умолчанию выключено. |
+| `OXAPAY_TRUSTED_IPS` | Необязательный список IP webhook-источников через запятую. Получите актуальный список у поддержки OxaPay. |
+
+Callback URL передаётся в каждый invoice автоматически как `WEBHOOK_BASE_URL` +
+`/webhook/oxapay`. Заголовок `HMAC` проверяется всегда по точным сырым байтам запроса;
+отключаемого bypass-параметра нет. Подробности — в разделе
+[Платежи → OxaPay](../features/payments.md#oxapay).
 
 ### PayKilla
 

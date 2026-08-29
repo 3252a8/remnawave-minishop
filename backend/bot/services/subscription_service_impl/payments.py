@@ -32,6 +32,7 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
         "wata": "Wata",
         "lava": "LAVA",
         "pally": "Pally",
+        "oxapay": "OxaPay",
         "cryptopay": "Crypto Pay",
         "paykilla": "PayKilla",
         "cloudpayments": "CloudPayments",
