@@ -12,7 +12,10 @@ from aiohttp import web
 
 from bot.app.web import admin_api, subscription_webapp
 from bot.app.web.admin_api_impl import settings as admin_settings_routes
-from bot.app.web.web_server import TrustedProxyAccessLogger
+from bot.app.web.web_server import (
+    TrustedProxyAccessLogger,
+    _register_provider_webhook_routes,
+)
 from bot.app.web.webapp import account as account_routes
 from bot.app.web.webapp.assets import _webapp_edge_token_middleware
 from bot.app.web.webapp.auth import session_route
@@ -23,6 +26,7 @@ from bot.app.web.webapp_auth import (
 )
 from bot.payment_providers.base import ProviderWebhookPayload
 from bot.payment_providers.cryptopay import CryptoPayService
+from bot.payment_providers.freekassa import SPEC as FREEKASSA_SPEC
 from bot.payment_providers.freekassa import FreeKassaService
 from bot.payment_providers.heleket import HeleketConfig, HeleketService, _compute_signature
 from bot.payment_providers.paykilla import PaykillaConfig, PaykillaService
@@ -237,21 +241,55 @@ class FreeKassaServiceTests(unittest.TestCase):
             referral_service=object(),
         )
 
-    def test_validate_signature_accepts_hmac_sha256_raw_body(self):
+    def test_validate_signature_accepts_documented_result_url_md5(self):
         service = self._make_service()
-        raw_body = b'{"amount":"199.00","o":"42"}'
-        expected_signature = hmac.new(
-            service.second_secret.encode("utf-8"),
-            raw_body,
-            hashlib.sha256,
-        ).hexdigest()
+        expected_signature = hashlib.md5(b"123456:199.00:second-secret:42").hexdigest()
 
-        self.assertTrue(service._validate_signature(raw_body, expected_signature))
+        self.assertTrue(
+            service._validate_signature(
+                merchant_id="123456",
+                amount="199.00",
+                order_id="42",
+                provided_signature=expected_signature.upper(),
+            )
+        )
 
     def test_validate_signature_rejects_wrong_signature(self):
         service = self._make_service()
 
-        self.assertFalse(service._validate_signature(b"payload", "not-a-signature"))
+        self.assertFalse(
+            service._validate_signature(
+                merchant_id="123456",
+                amount="199.00",
+                order_id="42",
+                provided_signature="not-a-signature",
+            )
+        )
+
+    def test_status_check_get_returns_yes_when_checkout_is_disabled(self):
+        service = SimpleNamespace(api_configured=False)
+        request = SimpleNamespace(method="GET", query={"status_check": "1"})
+
+        response = asyncio_run(FreeKassaService.webhook_route(service, request))
+
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.text, "YES")
+
+    def test_webhook_route_registers_get_and_post(self):
+        app = web.Application()
+        settings = SimpleNamespace(WEBHOOK_BASE_URL="")
+
+        with patch(
+            "bot.app.web.web_server.iter_provider_specs",
+            return_value=[FREEKASSA_SPEC],
+        ):
+            _register_provider_webhook_routes(app, settings)
+
+        registered_routes = {
+            (route.method, route.resource.canonical) for route in app.router.routes()
+        }
+        self.assertIn(("GET", "/webhook/freekassa"), registered_routes)
+        self.assertIn(("POST", "/webhook/freekassa"), registered_routes)
 
     def test_webhook_rejects_unauthorized_ip_before_body_read(self):
         service = self._make_service()

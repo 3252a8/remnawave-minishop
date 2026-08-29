@@ -250,6 +250,7 @@ class PaymentProviderSpec:
     create_service: ServiceFactory | None = None
     webhook_path: WebhookPathGetter | None = None
     webhook_route: WebhookRoute | None = None
+    webhook_methods: Sequence[str] = ("POST",)
     webhook_requires_base_url: bool = False
     create_webapp_payment: WebAppPaymentFactory | None = None
     reuse_webapp_payment: ReusableWebAppPaymentResolver | None = None
