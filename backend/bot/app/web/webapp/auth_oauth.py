@@ -50,6 +50,7 @@ from .auth_referral import (
     _apply_referral_to_existing_user,
     _apply_referral_welcome_bonus_if_needed,
     _ensure_user_from_telegram,
+    _grant_deferred_referral_welcome_bonus_after_telegram_link,
 )
 from .common import (
     _extract_authenticated_user_id,
@@ -322,6 +323,8 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
             logger.exception("Telegram OAuth callback failed")
             raise redirect(redirect_path, "failed") from None
 
+    if purpose == "link" and final_user_id is not None:
+        await _grant_deferred_referral_welcome_bonus_after_telegram_link(request, final_user_id)
     await _invalidate_webapp_user_caches(settings, final_user_id, include_devices=True)
     if source_user_id_for_cache and source_user_id_for_cache != final_user_id:
         await _invalidate_webapp_user_caches(

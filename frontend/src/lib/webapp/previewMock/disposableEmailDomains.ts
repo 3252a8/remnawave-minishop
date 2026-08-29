@@ -63,6 +63,7 @@ export const DEFAULT_DISPOSABLE_EMAIL_DOMAINS = [
   "mytrashmail.com",
   "nada.email",
   "no-spam.ws",
+  "ogzmail.com",
   "pookmail.com",
   "rhyta.com",
   "sharklasers.com",

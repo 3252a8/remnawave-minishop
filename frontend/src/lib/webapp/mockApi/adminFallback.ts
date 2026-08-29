@@ -678,8 +678,8 @@ export function adminFallbackResponse(
             {
               key: "REFERRAL_PROGRAM_ENABLED",
               type: "bool",
-              section: "pricing",
-              subsection: "referral",
+              section: "system",
+              subsection: "email_anti_abuse",
               label: "Реферальная программа",
               description:
                 "Отключает реферальные ссылки, атрибуцию и бонусы, но оставляет доступными промокоды.",

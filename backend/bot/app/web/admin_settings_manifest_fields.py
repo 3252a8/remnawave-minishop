@@ -522,14 +522,14 @@ SETTINGS_MANIFEST: list[SettingField] = [
     SettingField(
         "TRIAL_WITHOUT_TELEGRAM_ENABLED",
         "bool",
-        "pricing",
+        "system",
         "Trial Without Telegram",
         (
             "If disabled, email-only users must link Telegram before activating a trial. "
             "Disposable email domains always require Telegram."
         ),
         optional=False,
-        subsection="trial",
+        subsection="email_anti_abuse",
     ),
     SettingField(
         "TRIAL_SQUAD_UUIDS",
@@ -584,13 +584,13 @@ SETTINGS_MANIFEST: list[SettingField] = [
     SettingField(
         "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
         "bool",
-        "pricing",
+        "system",
         "Referral Welcome Bonus Without Telegram",
         (
             "If disabled, email-only users must link Telegram before receiving the referral "
             "welcome bonus. Disposable email domains always require Telegram."
         ),
-        subsection="referral",
+        subsection="email_anti_abuse",
     ),
     SettingField(
         "REFERRAL_WEBAPP_LINK_ENABLED",
@@ -623,14 +623,14 @@ SETTINGS_MANIFEST: list[SettingField] = [
     SettingField(
         "DISPOSABLE_EMAIL_DOMAINS",
         "text",
-        "pricing",
+        "system",
         "Disposable Email Domains",
         (
             "Comma-separated domains. Users without Telegram using these emails cannot "
             "claim trial or referral welcome bonus."
         ),
         placeholder="mailinator.com\ntemp-mail.org\nyopmail.com",
-        subsection="referral",
+        subsection="email_anti_abuse",
     ),
     SettingField(
         "MIGRATION_REMNASHOP_REFERRAL_CODE_COMPAT_ENABLED",

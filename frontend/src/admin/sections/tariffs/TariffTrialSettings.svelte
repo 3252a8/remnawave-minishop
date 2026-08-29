@@ -289,62 +289,6 @@
                     {/if}
                   </div>
                 </div>
-                <div
-                  class="admin-setting admin-trial-setting-row"
-                  class:is-dirty={isSettingDirty("TRIAL_WITHOUT_TELEGRAM_ENABLED", settingsDirty)}
-                >
-                  <div class="admin-setting-meta">
-                    <strong>
-                      {at("tariffs_trial_without_telegram_enabled", {}, "Trial without Telegram")}
-                      {#if isSettingDirty("TRIAL_WITHOUT_TELEGRAM_ENABLED", settingsDirty)}
-                        <AdminBadge variant="warning"
-                          >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
-                        >
-                      {/if}
-                    </strong>
-                    <code>TRIAL_WITHOUT_TELEGRAM_ENABLED</code>
-                  </div>
-                  <div class="admin-setting-control">
-                    <div class="admin-setting-switch">
-                      <Switch.Root
-                        aria-label={at(
-                          "tariffs_trial_without_telegram_enabled",
-                          {},
-                          "Trial without Telegram"
-                        )}
-                        checked={boolValue(
-                          "TRIAL_WITHOUT_TELEGRAM_ENABLED",
-                          settingsDirty,
-                          settingsFieldMap
-                        )}
-                        onCheckedChange={(checked) =>
-                          setSetting("TRIAL_WITHOUT_TELEGRAM_ENABLED", checked)}
-                        class="admin-switch-root"
-                      >
-                        <Switch.Thumb class="admin-switch-thumb" />
-                      </Switch.Root>
-                      <span
-                        >{boolValue(
-                          "TRIAL_WITHOUT_TELEGRAM_ENABLED",
-                          settingsDirty,
-                          settingsFieldMap
-                        )
-                          ? at("enabled", {}, "Enabled")
-                          : at("disabled", {}, "Disabled")}</span
-                      >
-                    </div>
-                    {#if isSettingDirty("TRIAL_WITHOUT_TELEGRAM_ENABLED", settingsDirty)}
-                      <AdminButton
-                        size="sm"
-                        variant="ghost"
-                        onclick={() => resetSetting("TRIAL_WITHOUT_TELEGRAM_ENABLED")}
-                      >
-                        <X size={12} />
-                        {at("reset", {}, "Reset")}
-                      </AdminButton>
-                    {/if}
-                  </div>
-                </div>
               </div>
             </section>
 

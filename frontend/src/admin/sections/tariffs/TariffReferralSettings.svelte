@@ -1,11 +1,10 @@
 <script lang="ts">
   import { getSettingsStore, getTariffsStore } from "$lib/admin/context";
-  import { Input, Textarea } from "$components/ui/index.js";
+  import { Input } from "$components/ui/index.js";
   import { ChevronRight, X } from "$components/ui/icons.js";
   import { AdminBadge, AdminButton, AdminSelect } from "$components/patterns/admin/index.js";
   import { Switch } from "$components/ui/primitives.js";
   import {
-    DISPOSABLE_EMAIL_DOMAINS_PLACEHOLDER,
     REFERRAL_LINK_KEYS,
     REFERRAL_RULE_KEYS,
     REFERRAL_SETTING_KEYS,
@@ -16,7 +15,6 @@
     isSettingDirty as resolveIsSettingDirty,
     isLastEnabledReferralLink as resolveIsLastEnabledReferralLink,
     referralLinkResetViolatesRequirement as resolveReferralLinkResetViolatesRequirement,
-    textValueForKey as resolveTextValueForKey,
     type SettingsDirtyState,
   } from "$lib/admin/tariffSettings";
   import type { SettingField } from "$lib/admin/stores/settingsStore";
@@ -87,10 +85,6 @@
 
   function inputValueForKey(key: string): string | number {
     return resolveInputValueForKey(key, settingsDirty, settingsFieldMap);
-  }
-
-  function textValueForKey(key: string): string {
-    return resolveTextValueForKey(key, settingsDirty, settingsFieldMap);
   }
 
   function isSettingDirty(key: string, dirty: SettingsDirtyState = settingsDirty): boolean {
@@ -436,70 +430,6 @@
               />
             </div>
           </div>
-
-          <div
-            class="admin-setting admin-trial-setting-row"
-            class:is-dirty={isSettingDirty(
-              "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
-              settingsDirty
-            )}
-          >
-            <div class="admin-setting-meta">
-              <strong>
-                {at(
-                  "tariffs_referral_without_telegram",
-                  {},
-                  "Grant welcome bonus without Telegram"
-                )}
-                {#if isSettingDirty("REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED", settingsDirty)}
-                  <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
-                  >
-                {/if}
-              </strong>
-              <code>REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED</code>
-            </div>
-            <div class="admin-setting-control">
-              <div class="admin-setting-switch">
-                <Switch.Root
-                  aria-label={at(
-                    "tariffs_referral_without_telegram",
-                    {},
-                    "Grant welcome bonus without Telegram"
-                  )}
-                  checked={boolValue(
-                    "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
-                    settingsDirty,
-                    settingsFieldMap
-                  )}
-                  onCheckedChange={(checked) =>
-                    setSetting("REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED", checked)}
-                  class="admin-switch-root"
-                >
-                  <Switch.Thumb class="admin-switch-thumb" />
-                </Switch.Root>
-                <span
-                  >{boolValue(
-                    "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
-                    settingsDirty,
-                    settingsFieldMap
-                  )
-                    ? at("enabled", {}, "Enabled")
-                    : at("disabled", {}, "Disabled")}</span
-                >
-              </div>
-              {#if isSettingDirty("REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED", settingsDirty)}
-                <AdminButton
-                  size="sm"
-                  variant="ghost"
-                  onclick={() => resetSetting("REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED")}
-                >
-                  <X size={12} />
-                  {at("reset", {}, "Reset")}
-                </AdminButton>
-              {/if}
-            </div>
-          </div>
         </div>
       </section>
 
@@ -509,12 +439,12 @@
       >
         <header class="admin-settings-field-group-head">
           <div class="admin-settings-field-group-head-copy">
-            <strong>{at("tariffs_referral_group_rules", {}, "Rules and anti-abuse")}</strong>
+            <strong>{at("tariffs_referral_group_rules", {}, "Payment bonus rules")}</strong>
             <small>
               {at(
                 "tariffs_referral_group_rules_hint",
                 {},
-                "Repeat-bonus limits and disposable email domains for no-Telegram accounts."
+                "Control whether payment bonuses are limited to the invited user's first successful payment."
               )}
             </small>
           </div>
@@ -592,49 +522,6 @@
               {/if}
             </div>
           </div>
-
-          <div
-            class="admin-setting admin-trial-setting-row"
-            class:is-dirty={isSettingDirty("DISPOSABLE_EMAIL_DOMAINS", settingsDirty)}
-          >
-            <div class="admin-setting-meta">
-              <strong>
-                {at("tariffs_referral_disposable_domains", {}, "Disposable email domains")}
-                {#if isSettingDirty("DISPOSABLE_EMAIL_DOMAINS", settingsDirty)}
-                  <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
-                  >
-                {/if}
-              </strong>
-              <code>DISPOSABLE_EMAIL_DOMAINS</code>
-              <small>
-                {at(
-                  "tariffs_referral_disposable_domains_hint",
-                  {},
-                  "One domain per line or comma-separated. Subdomains are treated as matches too."
-                )}
-              </small>
-            </div>
-            <div class="admin-setting-control">
-              <Textarea
-                class="admin-setting-textarea"
-                rows={8}
-                placeholder={DISPOSABLE_EMAIL_DOMAINS_PLACEHOLDER}
-                value={textValueForKey("DISPOSABLE_EMAIL_DOMAINS")}
-                oninput={settingInputHandler("DISPOSABLE_EMAIL_DOMAINS")}
-              />
-              {#if isSettingDirty("DISPOSABLE_EMAIL_DOMAINS", settingsDirty)}
-                <AdminButton
-                  size="sm"
-                  variant="ghost"
-                  onclick={() => resetSetting("DISPOSABLE_EMAIL_DOMAINS")}
-                >
-                  <X size={12} />
-                  {at("reset", {}, "Reset")}
-                </AdminButton>
-              {/if}
-            </div>
-          </div>
         </div>
       </section>
     </div>
@@ -664,7 +551,7 @@
             {at(
               "tariffs_referral_subtitle",
               {},
-              "Configure welcome bonus, grant rules, and disposable email protection."
+              "Configure links, welcome bonus, and payment bonus rules."
             )}
             · {referralEnabled
               ? at("enabled", {}, "Enabled")

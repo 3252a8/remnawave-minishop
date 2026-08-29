@@ -35,6 +35,7 @@ from .auth import (
     _sync_panel_identity_for_user,
     _validate_telegram_auth_payload,
 )
+from .auth_referral import _grant_deferred_referral_welcome_bonus_after_telegram_link
 from .common import (
     _ensure_cached_telegram_avatar,
     _invalidate_webapp_user_caches,
@@ -421,6 +422,7 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
             logger.exception("Telegram account link failed")
             return _json_error(500, "link_failed", "Link failed")
 
+    await _grant_deferred_referral_welcome_bonus_after_telegram_link(request, final_user_id)
     await _invalidate_webapp_user_caches(settings, user_id, final_user_id, include_devices=True)
 
     await _probe_telegram_notifications_for_user_id(request, int(final_user_id))

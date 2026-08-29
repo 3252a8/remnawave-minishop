@@ -1,3 +1,5 @@
+from pathlib import Path
+
 DEFAULT_SUBSCRIPTION_PURCHASE_DESCRIPTION_RU = (
     "By buying or renewing a subscription, you get access to a VPN/proxy service "
     "that helps protect your connection and keep your access stable."
@@ -7,114 +9,16 @@ DEFAULT_SUBSCRIPTION_PURCHASE_DESCRIPTION_EN = (
     "that helps protect your connection and keep your access stable."
 )
 
-DEFAULT_DISPOSABLE_EMAIL_DOMAINS = "\n".join(
-    [
-        "10minutemail.com",
-        "10minutemail.net",
-        "10minutemail.org",
-        "20minutemail.com",
-        "33mail.com",
-        "anonbox.net",
-        "anonymbox.com",
-        "armyspy.com",
-        "byom.de",
-        "crazymailing.com",
-        "cuvox.de",
-        "dayrep.com",
-        "deadaddress.com",
-        "dispostable.com",
-        "dodgeit.com",
-        "dodgit.com",
-        "dropmail.me",
-        "easytrashmail.com",
-        "emailfake.com",
-        "emailondeck.com",
-        "emailtemporanea.com",
-        "emailtemporanea.net",
-        "einrot.com",
-        "fakeinbox.com",
-        "filzmail.com",
-        "fleckens.hu",
-        "generator.email",
-        "getairmail.com",
-        "getnada.com",
-        "grr.la",
-        "guerrillamail.biz",
-        "guerrillamail.com",
-        "guerrillamail.de",
-        "guerrillamail.info",
-        "guerrillamail.net",
-        "guerrillamail.org",
-        "guerrillamailblock.com",
-        "gustr.com",
-        "hmamail.com",
-        "incognitomail.org",
-        "inboxbear.com",
-        "jetable.org",
-        "jourrapide.com",
-        "kasmail.com",
-        "mail-temp.com",
-        "mailcatch.com",
-        "maildrop.cc",
-        "mailexpire.com",
-        "mailinator.com",
-        "mailinator.net",
-        "mailinator.org",
-        "mailmetrash.com",
-        "mailnesia.com",
-        "mailnull.com",
-        "mailpoof.com",
-        "mailtothis.com",
-        "mail.tm",
-        "mintemail.com",
-        "mohmal.com",
-        "moakt.com",
-        "mytemp.email",
-        "mytrashmail.com",
-        "nada.email",
-        "no-spam.ws",
-        "pookmail.com",
-        "rhyta.com",
-        "sharklasers.com",
-        "sofort-mail.de",
-        "spam4.me",
-        "spambog.com",
-        "spamdecoy.net",
-        "spamfree24.org",
-        "spamgourmet.com",
-        "spamhole.com",
-        "spam.la",
-        "spammotel.com",
-        "superrito.com",
-        "teleworm.us",
-        "tempail.com",
-        "temp-mail.io",
-        "temp-mail.org",
-        "tempmail.com",
-        "tempmail.dev",
-        "tempmail.net",
-        "tempmailo.com",
-        "temporaryemail.net",
-        "temporary-mail.net",
-        "tempr.email",
-        "throwawaymail.com",
-        "trash-mail.com",
-        "trash-mail.de",
-        "trashmail.com",
-        "trashmail.me",
-        "trashmail.net",
-        "trashmailer.com",
-        "trashymail.com",
-        "weg-werf-email.de",
-        "wegwerfmail.de",
-        "wegwerfmail.net",
-        "wegwerfmail.org",
-        "yomail.info",
-        "yopmail.com",
-        "yopmail.fr",
-        "yopmail.net",
-    ]
-)
+
+def _load_disposable_email_domains() -> str:
+    blocklist_path = Path(__file__).with_name("disposable_email_blocklist.conf")
+    domains = (
+        line.strip().lower() for line in blocklist_path.read_text(encoding="utf-8").splitlines()
+    )
+    return "\n".join(domain for domain in domains if domain and not domain.startswith("#"))
+
+
+DEFAULT_DISPOSABLE_EMAIL_DOMAINS = _load_disposable_email_domains()
 
 DEFAULT_TRUSTED_PROXIES = ",".join(
     [
