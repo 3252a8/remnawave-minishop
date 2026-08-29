@@ -388,10 +388,13 @@
     white-space: nowrap;
   }
 
-  :global(.menu-button-icon-trigger) {
+  :global(.menu-buttons-row .menu-button-icon-trigger.admin-btn) {
     width: 100%;
     min-width: 0;
     overflow: hidden;
+    padding-inline: 12px;
+    justify-self: stretch;
+    justify-content: flex-start;
   }
 
   :global(.menu-button-icon-trigger span) {
@@ -446,6 +449,18 @@
   @media (max-width: 720px) {
     :global(.menu-buttons-row) {
       grid-template-columns: 1fr;
+    }
+
+    .menu-buttons-presentation {
+      grid-template-columns: 1fr;
+      align-items: stretch;
+      gap: 10px;
+    }
+
+    .menu-buttons-field-label {
+      overflow: visible;
+      text-overflow: clip;
+      white-space: normal;
     }
   }
 </style>
