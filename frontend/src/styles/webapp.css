@@ -3562,6 +3562,7 @@ a {
 }
 
 .app-toast {
+  pointer-events: none;
   width: var(--width);
   max-width: min(420px, calc(100vw - 32px));
   display: flex;
