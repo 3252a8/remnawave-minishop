@@ -18,14 +18,16 @@ def _payload() -> list[dict[str, object]]:
             "id": "support",
             "kind": "telegram",
             "target": "@help_center",
-            "icon": "Send",
+            "webapp_icon": "LifeBuoy",
+            "telegram_emoji": "🆘",
             "labels": {"ru": "Поддержка", "en": "Support"},
         },
         {
             "id": "devices",
             "kind": "webapp",
             "target": "/devices/",
-            "icon": "⚡",
+            "webapp_icon": "Smartphone",
+            "telegram_emoji": "📱",
             "labels": {"ru": "Устройства", "en": "Devices"},
         },
     ]
@@ -38,10 +40,24 @@ def test_menu_buttons_are_normalized_and_keep_order() -> None:
     assert [button.id for button in buttons] == ["support", "devices"]
     assert buttons[0].target == "https://t.me/help_center"
     assert buttons[1].target == "devices"
+    assert buttons[0].webapp_icon == "LifeBuoy"
+    assert buttons[0].telegram_emoji == "🆘"
     assert buttons[0].show_in_bot is True
     assert buttons[0].show_in_webapp is True
     assert json.loads(normalized)[0]["show_in_bot"] is True
     assert json.loads(normalized)[0]["show_in_webapp"] is True
+    assert "icon" not in json.loads(normalized)[0]
+
+
+def test_generic_link_automatically_becomes_a_telegram_target() -> None:
+    payload = _payload()
+    payload[0]["kind"] = "external"
+    payload[0]["target"] = "telegram.me/help_center?start=hello"
+
+    button = parse_menu_buttons(payload)[0]
+
+    assert button.kind == "telegram"
+    assert button.target == "https://t.me/help_center?start=hello"
 
 
 def test_menu_buttons_reject_unsafe_and_non_telegram_targets() -> None:
@@ -68,14 +84,28 @@ def test_menu_button_labels_and_public_payload_use_locale_fallbacks() -> None:
     button = parse_menu_buttons(_payload())[0]
 
     assert localized_menu_button_label(button, "en-US") == "Support"
-    assert telegram_menu_button_text(button, "ru") == "✈️ Поддержка"
+    assert telegram_menu_button_text(button, "ru") == "🆘 Поддержка"
     assert public_menu_buttons(_payload(), "en")[0] == {
         "id": "support",
         "kind": "telegram",
         "target": "https://t.me/help_center",
-        "icon": "Send",
+        "icon": "LifeBuoy",
         "label": "Support",
     }
+
+
+def test_legacy_icon_is_migrated_to_surface_specific_values() -> None:
+    payload = _payload()
+    payload[0].pop("webapp_icon")
+    payload[0].pop("telegram_emoji")
+    payload[0]["icon"] = "Send"
+
+    normalized = normalize_menu_buttons_json(payload)
+    button = parse_menu_buttons(normalized)[0]
+
+    assert button.webapp_icon == "Send"
+    assert button.telegram_emoji == "✈️"
+    assert "icon" not in json.loads(normalized)[0]
 
 
 def test_menu_button_visibility_filters_webapp_payload() -> None:

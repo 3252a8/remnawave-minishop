@@ -14,6 +14,8 @@ describe("menu button drafts", () => {
     button.kind = "telegram";
     button.target = "https://t.me/help";
 
+    expect(button.webapp_icon).toBe("ExternalLink");
+    expect(button.telegram_emoji).toBe("🔗");
     expect(button.show_in_bot).toBe(true);
     expect(button.show_in_webapp).toBe(true);
 
@@ -34,7 +36,7 @@ describe("menu button drafts", () => {
           id: "legacy",
           kind: "external",
           target: "https://example.com",
-          icon: "",
+          icon: "Send",
           labels: { en: "Legacy" },
           show_in_webapp: false,
         },
@@ -42,8 +44,29 @@ describe("menu button drafts", () => {
     );
 
     expect(parsed.buttons[0]).toMatchObject({
+      webapp_icon: "Send",
+      telegram_emoji: "✈️",
       show_in_bot: true,
       show_in_webapp: false,
+    });
+  });
+
+  it("migrates a legacy emoji to separate Web App and Telegram values", () => {
+    const parsed = parseMenuButtonDrafts(
+      JSON.stringify([
+        {
+          id: "legacy_emoji",
+          kind: "external",
+          target: "https://example.com",
+          icon: "📢",
+          labels: { en: "News" },
+        },
+      ])
+    );
+
+    expect(parsed.buttons[0]).toMatchObject({
+      webapp_icon: "Megaphone",
+      telegram_emoji: "📢",
     });
   });
 

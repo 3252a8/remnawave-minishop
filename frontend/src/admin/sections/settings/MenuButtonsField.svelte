@@ -1,7 +1,13 @@
 <script lang="ts">
   import MessageLocaleTabs from "$lib/admin/components/MessageLocaleTabs.svelte";
+  import {
+    CUSTOMER_WEBAPP_SECTIONS,
+    isTelegramMessageButtonLink,
+    normalizeMessageButtonLink,
+  } from "$lib/admin/messageButtonTargets.js";
   import type { TranslationLanguage } from "$lib/admin/stores/translationsStore";
   import {
+    DEFAULT_MENU_WEBAPP_ICON,
     MAX_MENU_BUTTONS,
     createMenuButtonDraft,
     parseMenuButtonDrafts,
@@ -10,11 +16,15 @@
     type MenuButtonDraft,
     type MenuButtonKind,
   } from "$lib/admin/menuButtons.js";
+  import IconPickerDialog from "./IconPickerDialog.svelte";
   import { AdminButton, AdminSelect } from "$components/patterns/admin/index.js";
   import { Checkbox, Input, Sortable } from "$components/ui/index.js";
+  import * as UiIcons from "$components/ui/icons.js";
   import { Plus, Trash2, TriangleAlert } from "$components/ui/icons.js";
+  import type { ComponentType, SvelteComponent } from "svelte";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type DynamicComponent = ComponentType<SvelteComponent<Record<string, unknown>>>;
 
   let {
     value,
@@ -48,48 +58,47 @@
     buttons.some((button) => languageCodes.some((language) => !button.labels[language]?.trim()))
   );
   let activeLanguage = $state("");
+  let iconPickerButtonId = $state("");
+  let iconPickerSearch = $state("");
+
+  const iconOptions = $derived(
+    Object.keys(UiIcons)
+      .filter((name) => /^[A-Z]/.test(name))
+      .sort((a, b) => a.localeCompare(b))
+  );
+  const filteredIconOptions = $derived(
+    iconOptions.filter((name) => name.toLowerCase().includes(iconPickerSearch.trim().toLowerCase()))
+  );
+  const iconPickerButton = $derived(
+    buttons.find((button) => button.id === iconPickerButtonId) || null
+  );
 
   $effect(() => {
     if (!languageCodes.includes(activeLanguage)) activeLanguage = languageCodes[0] || "ru";
   });
 
   const kindOptions = $derived([
-    { value: "external", label: at("menu_buttons_kind_external", {}, "External link") },
-    { value: "telegram", label: at("menu_buttons_kind_telegram", {}, "Telegram link") },
+    { value: "external", label: at("menu_buttons_kind_external", {}, "Link") },
     { value: "webapp", label: at("menu_buttons_kind_webapp", {}, "Web App section") },
   ]);
-  const iconOptions = $derived([
-    { value: "", label: at("menu_buttons_icon_none", {}, "No icon") },
-    { value: "ExternalLink", label: "🔗 ExternalLink" },
-    { value: "Globe2", label: "🌐 Globe2" },
-    { value: "Send", label: "✈️ Send" },
-    { value: "MessageSquare", label: "💬 MessageSquare" },
-    { value: "Users", label: "👥 Users" },
-    { value: "Home", label: "🏠 Home" },
-    { value: "Gift", label: "🎁 Gift" },
-    { value: "Star", label: "⭐ Star" },
-    { value: "Zap", label: "⚡ Zap" },
-    { value: "Shield", label: "🛡️ Shield" },
-    { value: "LifeBuoy", label: "🛟 LifeBuoy" },
-    { value: "CircleQuestionMark", label: "❓ CircleQuestionMark" },
-    { value: "🔗", label: "🔗 Emoji" },
-    { value: "📢", label: "📢 Emoji" },
-    { value: "💬", label: "💬 Emoji" },
-    { value: "🎁", label: "🎁 Emoji" },
-    { value: "⭐", label: "⭐ Emoji" },
-  ]);
-  const sectionOptions = $derived([
-    { value: "home", label: at("menu_buttons_section_home", {}, "Home") },
-    { value: "plans", label: at("menu_buttons_section_plans", {}, "Plans and checkout") },
-    { value: "install", label: at("menu_buttons_section_install", {}, "Connection") },
-    { value: "trial", label: at("menu_buttons_section_trial", {}, "Trial") },
-    { value: "invite", label: at("menu_buttons_section_invite", {}, "Invite friends") },
-    { value: "partner", label: at("menu_buttons_section_partner", {}, "Partner program") },
-    { value: "devices", label: at("menu_buttons_section_devices", {}, "Devices") },
-    { value: "support", label: at("menu_buttons_section_support", {}, "Support") },
-    { value: "settings", label: at("menu_buttons_section_settings", {}, "Settings") },
-    { value: "status", label: at("menu_buttons_section_status", {}, "Service status") },
-  ]);
+  const sectionFallbacks: Record<string, string> = {
+    plans: "Plans and checkout",
+    home: "Home",
+    install: "Connection",
+    trial: "Trial",
+    invite: "Invite friends",
+    partner: "Partner program",
+    devices: "Devices",
+    support: "Support",
+    settings: "Settings",
+    status: "Service status",
+  };
+  const sectionOptions = $derived(
+    [...CUSTOMER_WEBAPP_SECTIONS, "status"].map((section) => ({
+      value: section,
+      label: at(`menu_buttons_section_${section}`, {}, sectionFallbacks[section]),
+    }))
+  );
 
   function commit(next: MenuButtonDraft[]): void {
     onValueChange(serializeMenuButtonDrafts(next));
@@ -112,10 +121,59 @@
     );
   }
 
+  function updateButtonById(id: string, patch: Partial<MenuButtonDraft>): void {
+    commit(buttons.map((button) => (button.id === id ? { ...button, ...patch } : button)));
+  }
+
+  function iconComponent(name: unknown): DynamicComponent | null {
+    const key = String(name || "").trim();
+    return key ? ((UiIcons as Record<string, unknown>)[key] as DynamicComponent) || null : null;
+  }
+
+  function openIconPicker(id: string): void {
+    iconPickerButtonId = id;
+    iconPickerSearch = "";
+  }
+
+  function closeIconPicker(): void {
+    iconPickerButtonId = "";
+    iconPickerSearch = "";
+  }
+
+  function selectIcon(name: string): void {
+    if (!iconPickerButtonId) return;
+    updateButtonById(iconPickerButtonId, { webapp_icon: name });
+    closeIconPicker();
+  }
+
+  function useDefaultIcon(): void {
+    if (!iconPickerButtonId) return;
+    updateButtonById(iconPickerButtonId, { webapp_icon: DEFAULT_MENU_WEBAPP_ICON });
+  }
+
   function updateKind(index: number, kind: MenuButtonKind): void {
     updateButton(index, {
       kind,
       target: kind === "webapp" ? "home" : "",
+    });
+  }
+
+  function displayedKind(button: MenuButtonDraft): "external" | "webapp" {
+    return button.kind === "webapp" ? "webapp" : "external";
+  }
+
+  function updateLinkTarget(index: number, target: string): void {
+    updateButton(index, { kind: "external", target });
+  }
+
+  function normalizeLinkTarget(index: number): void {
+    const button = buttons[index];
+    if (!button || button.kind === "webapp") return;
+    const target = normalizeMessageButtonLink(button.target);
+    if (!target) return;
+    updateButton(index, {
+      kind: isTelegramMessageButtonLink(target) ? "telegram" : "external",
+      target,
     });
   }
 
@@ -162,12 +220,40 @@
       onReorder={(from, to) => commit(reorderMenuButtonDrafts(buttons, from, to))}
     >
       {#snippet children(button: MenuButtonDraft, index: number)}
-        <AdminSelect
-          value={button.icon}
-          items={iconOptions}
-          ariaLabel={at("menu_buttons_icon", {}, "Icon or emoji")}
-          onValueChange={(icon) => updateButton(index, { icon })}
-        />
+        {@const WebappIcon = iconComponent(button.webapp_icon)}
+        <div class="menu-buttons-presentation">
+          <div class="menu-buttons-field">
+            <span class="menu-buttons-field-label">
+              {at("menu_buttons_webapp_icon", {}, "Web App icon")}
+            </span>
+            <AdminButton
+              class="admin-icon-picker-trigger menu-button-icon-trigger"
+              variant="ghost"
+              onclick={() => openIconPicker(button.id)}
+            >
+              {#if WebappIcon}
+                <WebappIcon size={16} />
+              {/if}
+              <span>{button.webapp_icon || at("menu_buttons_icon_none", {}, "No icon")}</span>
+            </AdminButton>
+          </div>
+          <label class="menu-buttons-field menu-buttons-emoji-field">
+            <span class="menu-buttons-field-label">
+              {at("menu_buttons_telegram_emoji", {}, "Telegram emoji")}
+            </span>
+            <Input
+              class="input"
+              value={button.telegram_emoji}
+              maxlength={16}
+              aria-label={at("menu_buttons_telegram_emoji", {}, "Telegram emoji")}
+              placeholder={at("menu_buttons_telegram_emoji_placeholder", {}, "For example: 📣")}
+              oninput={(event) =>
+                updateButton(index, {
+                  telegram_emoji: (event.currentTarget as HTMLInputElement).value,
+                })}
+            />
+          </label>
+        </div>
         <Input
           class="input"
           value={button.labels[activeLanguage] || ""}
@@ -180,7 +266,7 @@
           oninput={(event) => updateLabel(index, (event.currentTarget as HTMLInputElement).value)}
         />
         <AdminSelect
-          value={button.kind}
+          value={displayedKind(button)}
           items={kindOptions}
           ariaLabel={at("menu_buttons_target_type", {}, "Destination type")}
           onValueChange={(kind) => updateKind(index, kind as MenuButtonKind)}
@@ -197,13 +283,14 @@
             class="input"
             value={button.target}
             maxlength={2048}
-            placeholder={button.kind === "telegram"
-              ? at("menu_buttons_telegram_placeholder", {}, "https://t.me/channel or @username")
-              : at("menu_buttons_external_placeholder", {}, "https://example.com")}
+            placeholder={at(
+              "menu_buttons_external_placeholder",
+              {},
+              "https://example.com, t.me/channel or @username"
+            )}
             oninput={(event) =>
-              updateButton(index, {
-                target: (event.currentTarget as HTMLInputElement).value,
-              })}
+              updateLinkTarget(index, (event.currentTarget as HTMLInputElement).value)}
+            onblur={() => normalizeLinkTarget(index)}
           />
         {/if}
         <fieldset class="menu-buttons-visibility">
@@ -249,6 +336,23 @@
   {/if}
 </div>
 
+<IconPickerDialog
+  {at}
+  open={Boolean(iconPickerButton)}
+  description={iconPickerButton
+    ? iconPickerButton.labels[activeLanguage] || iconPickerButton.id
+    : ""}
+  bind:search={iconPickerSearch}
+  options={filteredIconOptions}
+  currentIconName={iconPickerButton?.webapp_icon || ""}
+  currentIconLabel={iconPickerButton?.webapp_icon || at("menu_buttons_icon_none", {}, "No icon")}
+  isDefault={iconPickerButton?.webapp_icon === DEFAULT_MENU_WEBAPP_ICON}
+  {iconComponent}
+  onClose={closeIconPicker}
+  onUseDefault={useDefaultIcon}
+  onSelect={selectIcon}
+/>
+
 <style>
   .menu-buttons-editor {
     display: grid;
@@ -258,8 +362,42 @@
 
   :global(.menu-buttons-row) {
     grid-template-columns:
-      24px minmax(150px, 0.8fr) minmax(180px, 1.25fr) minmax(160px, 0.9fr) minmax(220px, 1.5fr)
+      24px minmax(230px, 1.15fr) minmax(180px, 1.25fr) minmax(160px, 0.9fr) minmax(220px, 1.5fr)
       minmax(150px, 0.8fr) auto;
+  }
+
+  .menu-buttons-presentation {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 92px;
+    align-items: end;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .menu-buttons-field {
+    display: grid;
+    min-width: 0;
+    gap: 5px;
+  }
+
+  .menu-buttons-field-label {
+    overflow: hidden;
+    font-size: 11px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  :global(.menu-button-icon-trigger) {
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  :global(.menu-button-icon-trigger span) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .menu-buttons-visibility {
@@ -300,7 +438,7 @@
   @media (max-width: 1050px) {
     :global(.menu-buttons-row) {
       grid-template-columns:
-        24px minmax(130px, 0.8fr) minmax(180px, 1.2fr) minmax(160px, 0.9fr) minmax(180px, 1.2fr)
+        24px minmax(210px, 1.1fr) minmax(180px, 1.2fr) minmax(160px, 0.9fr) minmax(180px, 1.2fr)
         minmax(140px, 0.8fr) auto;
     }
   }

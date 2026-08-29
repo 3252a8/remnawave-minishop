@@ -181,6 +181,26 @@ describe("broadcastStore", () => {
     ]);
   });
 
+  it("normalizes Telegram shortcuts in ordinary link buttons", async () => {
+    const api = vi.fn().mockResolvedValue({
+      ok: true,
+      rendered_text: "Hello",
+      rendered_subject: null,
+      unknown_shortcodes: [],
+      length: 5,
+      sent: true,
+    });
+    const store = makeStore(api);
+    store.updateField({ broadcastText: "Hello" });
+    store.addButton();
+    store.updateButton(0, { label: "Support", url: "@help_center" });
+
+    await store.sendPreview("send_telegram");
+
+    const payload = JSON.parse(api.mock.calls[0][1].body);
+    expect(payload.buttons[0].url).toBe("https://t.me/help_center");
+  });
+
   it("uses the first localized draft when previewing before a language is selected", async () => {
     const api = vi.fn().mockResolvedValue({
       ok: true,

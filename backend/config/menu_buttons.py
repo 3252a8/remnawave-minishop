@@ -6,9 +6,10 @@ import json
 import logging
 import re
 from typing import Any, Literal
-from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from config.link_targets import is_telegram_button_link, normalize_button_link
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ WEBAPP_MENU_SECTIONS = frozenset(
         "status",
     }
 )
-MENU_ICON_EMOJI: dict[str, str] = {
+LEGACY_ICON_EMOJI: dict[str, str] = {
     "CircleQuestionMark": "❓",
     "ExternalLink": "🔗",
     "Gift": "🎁",
@@ -42,10 +43,26 @@ MENU_ICON_EMOJI: dict[str, str] = {
     "Users": "👥",
     "Zap": "⚡",
 }
+LEGACY_EMOJI_WEBAPP_ICON: dict[str, str] = {
+    "❓": "CircleQuestionMark",
+    "🔗": "ExternalLink",
+    "🎁": "Gift",
+    "🌐": "Globe2",
+    "🏠": "Home",
+    "ℹ️": "Info",
+    "🛟": "LifeBuoy",
+    "📢": "Megaphone",
+    "💬": "MessageSquare",
+    "✈️": "Send",
+    "🛡️": "Shield",
+    "⭐": "Star",
+    "👥": "Users",
+    "⚡": "Zap",
+}
 
 _BUTTON_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+_WEBAPP_ICON_RE = re.compile(r"^[A-Za-z][A-Za-z0-9]*$")
 _LANGUAGE_RE = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
-_TELEGRAM_HOSTS = frozenset({"t.me", "telegram.me", "www.t.me", "www.telegram.me"})
 
 
 def _normalized_language(value: Any) -> str:
@@ -58,34 +75,15 @@ def _normalized_text(value: Any) -> str:
 
 def _normalize_http_url(value: Any, *, telegram_only: bool = False) -> str:
     raw = str(value or "").strip()
-    if telegram_only:
-        if raw.startswith("@"):
-            raw = f"https://t.me/{raw[1:]}"
-        elif raw.lower().startswith(("t.me/", "telegram.me/")):
-            raw = f"https://{raw}"
     if len(raw) > 2048:
         raise ValueError("target URL is too long")
-    parts = urlsplit(raw)
-    if parts.scheme.lower() not in {"http", "https"} or not parts.netloc:
+    normalized = normalize_button_link(raw, telegram_only=telegram_only)
+    if normalized is None:
+        if telegram_only and normalize_button_link(raw) is not None:
+            raise ValueError("Telegram target must use t.me or telegram.me")
         expected = "a Telegram t.me link" if telegram_only else "an HTTP(S) URL"
         raise ValueError(f"target must be {expected}")
-    if parts.username or parts.password:
-        raise ValueError("target URL must not contain credentials")
-    host = (parts.hostname or "").lower()
-    if telegram_only and host not in _TELEGRAM_HOSTS:
-        raise ValueError("Telegram target must use t.me or telegram.me")
-    if telegram_only and not parts.path.strip("/"):
-        raise ValueError("Telegram target must include a channel, user, group, or bot")
-    normalized_host = "t.me" if telegram_only else parts.netloc
-    return urlunsplit(
-        (
-            "https" if telegram_only else parts.scheme.lower(),
-            normalized_host,
-            parts.path,
-            parts.query,
-            parts.fragment,
-        )
-    )
+    return normalized
 
 
 class MenuButton(BaseModel):
@@ -94,10 +92,30 @@ class MenuButton(BaseModel):
     id: str = Field(min_length=1, max_length=64)
     kind: Literal["external", "telegram", "webapp"]
     target: str = Field(min_length=1, max_length=2048)
-    icon: str = Field(default="", max_length=32)
+    webapp_icon: str = Field(default="", max_length=64)
+    telegram_emoji: str = Field(default="", max_length=16)
     labels: dict[str, str]
     show_in_bot: bool = True
     show_in_webapp: bool = True
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_icon(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        payload = dict(value)
+        legacy_icon = str(payload.pop("icon", "") or "").strip()
+        if "webapp_icon" not in payload:
+            payload["webapp_icon"] = LEGACY_EMOJI_WEBAPP_ICON.get(
+                legacy_icon,
+                legacy_icon if _WEBAPP_ICON_RE.fullmatch(legacy_icon) else "",
+            )
+        if "telegram_emoji" not in payload:
+            payload["telegram_emoji"] = LEGACY_ICON_EMOJI.get(
+                legacy_icon,
+                legacy_icon if legacy_icon and not _WEBAPP_ICON_RE.fullmatch(legacy_icon) else "",
+            )
+        return payload
 
     @field_validator("id")
     @classmethod
@@ -107,12 +125,18 @@ class MenuButton(BaseModel):
             raise ValueError("id must contain only letters, digits, underscores, or hyphens")
         return normalized
 
-    @field_validator("icon")
+    @field_validator("webapp_icon")
     @classmethod
-    def validate_icon(cls, value: str) -> str:
+    def validate_webapp_icon(cls, value: str) -> str:
         normalized = value.strip()
-        if len(normalized) > 16 and normalized not in MENU_ICON_EMOJI:
-            raise ValueError("icon must be a supported icon name or a short emoji")
+        if normalized and not _WEBAPP_ICON_RE.fullmatch(normalized):
+            raise ValueError("webapp_icon must be an icon name from the Web App icon library")
+        return normalized
+
+    @field_validator("telegram_emoji")
+    @classmethod
+    def validate_telegram_emoji(cls, value: str) -> str:
+        normalized = value.strip()
         return normalized
 
     @field_validator("labels", mode="before")
@@ -146,6 +170,8 @@ class MenuButton(BaseModel):
             self.target = _normalize_http_url(self.target, telegram_only=True)
         else:
             self.target = _normalize_http_url(self.target)
+            if is_telegram_button_link(self.target):
+                self.kind = "telegram"
         return self
 
 
@@ -229,8 +255,7 @@ def telegram_menu_button_text(
     default_language: str = "ru",
 ) -> str:
     label = localized_menu_button_label(button, language, default_language=default_language)
-    icon = MENU_ICON_EMOJI.get(button.icon, button.icon)
-    text = f"{icon} {label}" if icon else label
+    text = f"{button.telegram_emoji} {label}" if button.telegram_emoji else label
     return text[:64]
 
 
@@ -242,7 +267,7 @@ def public_menu_buttons(
             "id": button.id,
             "kind": button.kind,
             "target": button.target,
-            "icon": button.icon,
+            "icon": button.webapp_icon,
             "label": localized_menu_button_label(
                 button,
                 language,

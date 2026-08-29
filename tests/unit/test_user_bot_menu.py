@@ -232,21 +232,24 @@ class UserBotMenuTests(unittest.TestCase):
                     "id": "website",
                     "kind": "external",
                     "target": "https://example.com/news",
-                    "icon": "Globe2",
+                    "webapp_icon": "Globe2",
+                    "telegram_emoji": "📰",
                     "labels": {"ru": "Новости", "en": "News"},
                 },
                 {
                     "id": "community",
                     "kind": "telegram",
                     "target": "https://t.me/example_group",
-                    "icon": "Send",
+                    "webapp_icon": "Users",
+                    "telegram_emoji": "✈️",
                     "labels": {"ru": "Сообщество", "en": "Community"},
                 },
                 {
                     "id": "devices",
                     "kind": "webapp",
                     "target": "devices",
-                    "icon": "⚡",
+                    "webapp_icon": "Smartphone",
+                    "telegram_emoji": "📱",
                     "labels": {"ru": "Устройства", "en": "Devices"},
                 },
             ]
@@ -255,11 +258,11 @@ class UserBotMenuTests(unittest.TestCase):
         markup = get_main_menu_inline_keyboard("en", self.i18n, self.settings)
         custom_rows = markup.inline_keyboard[-3:]
 
-        self.assertEqual(custom_rows[0][0].text, "🌐 News")
+        self.assertEqual(custom_rows[0][0].text, "📰 News")
         self.assertEqual(custom_rows[0][0].url, "https://example.com/news")
         self.assertEqual(custom_rows[1][0].text, "✈️ Community")
         self.assertEqual(custom_rows[1][0].url, "https://t.me/example_group")
-        self.assertEqual(custom_rows[2][0].text, "⚡ Devices")
+        self.assertEqual(custom_rows[2][0].text, "📱 Devices")
         self.assertEqual(custom_rows[2][0].web_app.url, "https://app.example.com/devices")
 
     def test_webapp_custom_button_is_skipped_without_mini_app(self):
@@ -270,7 +273,8 @@ class UserBotMenuTests(unittest.TestCase):
                     "id": "devices",
                     "kind": "webapp",
                     "target": "devices",
-                    "icon": "",
+                    "webapp_icon": "Smartphone",
+                    "telegram_emoji": "",
                     "labels": {"ru": "Устройства", "en": "Devices"},
                 }
             ]
@@ -289,7 +293,8 @@ class UserBotMenuTests(unittest.TestCase):
                     "id": "webapp_only",
                     "kind": "external",
                     "target": "https://example.com/webapp",
-                    "icon": "",
+                    "webapp_icon": "ExternalLink",
+                    "telegram_emoji": "",
                     "labels": {"ru": "Только Web App", "en": "Web App only"},
                     "show_in_bot": False,
                     "show_in_webapp": True,
@@ -298,7 +303,8 @@ class UserBotMenuTests(unittest.TestCase):
                     "id": "bot_only",
                     "kind": "external",
                     "target": "https://example.com/bot",
-                    "icon": "",
+                    "webapp_icon": "ExternalLink",
+                    "telegram_emoji": "",
                     "labels": {"ru": "Только бот", "en": "Bot only"},
                     "show_in_bot": True,
                     "show_in_webapp": False,
