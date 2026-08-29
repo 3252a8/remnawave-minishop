@@ -16,22 +16,20 @@ from dataclasses import dataclass
 def resolve_hwid_base_limit(
     stored_base: int | None,
     configured_base: int | None,
+    *,
+    is_override: bool = False,
 ) -> int | None:
-    """Raise a stored finite base to the configured floor without lowering it.
+    """Resolve an explicit override or the current tariff-owned base.
 
-    ``0`` means unlimited and therefore wins over every finite value. A higher
-    stored value may be an explicit per-subscription override, so tariff
-    reconciliation must preserve it.
+    Inherited values follow the configuration in both directions, including
+    finite-to-unlimited and unlimited-to-finite transitions. ``0`` means an
+    explicit or configured unlimited value.
     """
     stored = max(0, int(stored_base)) if stored_base is not None else None
     configured = max(0, int(configured_base)) if configured_base is not None else None
-    if stored == 0 or configured == 0:
-        return 0
-    if stored is None:
-        return configured
-    if configured is None:
+    if is_override and stored is not None:
         return stored
-    return max(stored, configured)
+    return configured
 
 
 @dataclass(frozen=True)

@@ -549,6 +549,7 @@ async def admin_user_hwid_device_limit_route(request: web.Request) -> web.Respon
             return _error(404, "no_active_subscription")
 
         active.hwid_device_limit = hwid_device_limit
+        active.hwid_device_limit_is_override = hwid_device_limit is not None
 
         effective_limit = None
         if subscription_service is not None:

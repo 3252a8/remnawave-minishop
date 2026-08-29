@@ -89,6 +89,7 @@ class AdminUserHwidLimitRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status, 200)
         self.assertEqual(json.loads(response.text)["subscription"]["hwid_device_limit"], 0)
         self.assertEqual(active.hwid_device_limit, 0)
+        self.assertTrue(active.hwid_device_limit_is_override)
         subscription_service.sync_hwid_device_limit_to_panel.assert_awaited_once_with(session, 42)
         self.assertTrue(session.committed)
         self.assertEqual(session.refreshed, active)
@@ -121,6 +122,7 @@ class AdminUserHwidLimitRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status, 200)
         self.assertIsNone(json.loads(response.text)["subscription"]["hwid_device_limit"])
         self.assertIsNone(active.hwid_device_limit)
+        self.assertFalse(active.hwid_device_limit_is_override)
         subscription_service.sync_hwid_device_limit_to_panel.assert_awaited_once_with(session, 42)
 
     async def test_hwid_sync_failure_rolls_back_without_audit_log(self):

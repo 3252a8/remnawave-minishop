@@ -663,6 +663,7 @@ async def process_hwid_device_limit_handler(
             return
 
         active_sub.hwid_device_limit = hwid_device_limit
+        active_sub.hwid_device_limit_is_override = True
         effective_limit = await subscription_service.sync_hwid_device_limit_to_panel(
             session, target_user_id
         )

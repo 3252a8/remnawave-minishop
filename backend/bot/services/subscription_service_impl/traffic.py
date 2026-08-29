@@ -28,6 +28,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         base = resolve_hwid_base_limit(
             sub.hwid_device_limit,
             self._base_hwid_limit_for_tariff(tariff),
+            is_override=bool(getattr(sub, "hwid_device_limit_is_override", False)),
         )
         extra = await self._active_hwid_extra_devices_for_sub(session, sub)
         effective = self._effective_hwid_limit(base, extra)

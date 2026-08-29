@@ -712,6 +712,7 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
             settings = _make_settings(tmpdir, _tariffs_config_payload())
             service = _make_service(settings)
             sub = _make_sub(hwid_device_limit=0, extra_hwid_devices=0)
+            sub.hwid_device_limit_is_override = True
             user = _make_user()
             with (
                 patch(

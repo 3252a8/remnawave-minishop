@@ -58,6 +58,7 @@ def _subscription_effective_hwid_limit(
     base_limit = resolve_hwid_base_limit(
         getattr(subscription, "hwid_device_limit", None),
         configured_base,
+        is_override=bool(getattr(subscription, "hwid_device_limit_is_override", False)),
     )
     if base_limit is None:
         return 0

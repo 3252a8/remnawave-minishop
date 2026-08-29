@@ -524,6 +524,7 @@ class TariffWorkerRegularMixin(TariffWorkerRegularWarningMixin):
         base_hwid_limit = resolve_hwid_base_limit(
             sub.hwid_device_limit,
             self.subscription_service._base_hwid_limit_for_tariff(tariff),
+            is_override=bool(getattr(sub, "hwid_device_limit_is_override", False)),
         )
         entitlement_summary = await tariff_dal.get_hwid_device_entitlement_summary(
             session,

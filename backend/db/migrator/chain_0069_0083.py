@@ -82,6 +82,56 @@ def _migration_0070_add_rollypay_subscriptions(connection: Connection) -> None:
         connection.execute(text(statement))
 
 
+def _migration_0071_add_hwid_device_limit_override(connection: Connection) -> None:
+    """Distinguish tariff-owned HWID limits from explicit admin overrides."""
+
+    inspector = inspect(connection)
+    table_names = set(inspector.get_table_names())
+    if "subscriptions" not in table_names:
+        return
+
+    subscription_columns = {col["name"] for col in inspector.get_columns("subscriptions")}
+    if "hwid_device_limit_is_override" in subscription_columns:
+        return
+
+    connection.execute(
+        text(
+            "ALTER TABLE subscriptions ADD COLUMN "
+            "hwid_device_limit_is_override BOOLEAN NOT NULL DEFAULT FALSE"
+        )
+    )
+    if "message_logs" not in table_names:
+        return
+
+    # Existing subscriptions predate the explicit source flag. Preserve the
+    # latest successful admin choice when its audit record still exists; all
+    # other stored values are tariff snapshots and may follow future changes.
+    connection.execute(
+        text(
+            """
+            UPDATE subscriptions AS subscription
+            SET hwid_device_limit_is_override = TRUE
+            FROM (
+                SELECT DISTINCT ON (target_user_id)
+                    target_user_id,
+                    content
+                FROM message_logs
+                WHERE target_user_id IS NOT NULL
+                  AND event_type IN (
+                      'admin:hwid_device_limit',
+                      'admin_hwid_device_limit_webapp'
+                  )
+                  AND content IS NOT NULL
+                ORDER BY target_user_id, timestamp DESC NULLS LAST, log_id DESC
+            ) AS latest_admin_limit
+            WHERE subscription.user_id = latest_admin_limit.target_user_id
+              AND subscription.is_active = TRUE
+              AND latest_admin_limit.content NOT LIKE 'hwid_device_limit=None%'
+            """
+        )
+    )
+
+
 CHAIN_0069_0083: list[Migration] = [
     Migration(
         id="0069_normalize_auto_renew_attempt_index",
@@ -92,5 +142,10 @@ CHAIN_0069_0083: list[Migration] = [
         id="0070_add_rollypay_subscriptions",
         description="Add the RollyPay recurring subscription mirror",
         upgrade=_migration_0070_add_rollypay_subscriptions,
+    ),
+    Migration(
+        id="0071_add_hwid_device_limit_override",
+        description="Track explicit subscription HWID limit overrides",
+        upgrade=_migration_0071_add_hwid_device_limit_override,
     ),
 ]

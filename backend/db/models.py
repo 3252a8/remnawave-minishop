@@ -194,6 +194,7 @@ class Subscription(Base):
     is_throttled = Column(Boolean, nullable=False, default=False, index=True)
     effective_monthly_price_rub = Column(Numeric, nullable=True)
     hwid_device_limit = Column(Integer, nullable=True)
+    hwid_device_limit_is_override = Column(Boolean, nullable=False, default=False)
     extra_hwid_devices = Column(Integer, nullable=False, default=0)
 
     user = relationship("User", back_populates="subscriptions")
