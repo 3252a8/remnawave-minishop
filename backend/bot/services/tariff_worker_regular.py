@@ -19,6 +19,7 @@ from bot.services.panel_api_compat import PanelUserIdMode, numeric_panel_user_id
 from bot.services.panel_api_service import PanelApiService
 from bot.services.panel_user_snapshot import should_use_full_panel_user_scan
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.subscription_service_impl.hwid_limits import resolve_hwid_base_limit
 from bot.utils.traffic_reset import (
     panel_traffic_limit_strategy,
     previous_traffic_reset,
@@ -520,10 +521,9 @@ class TariffWorkerRegularMixin(TariffWorkerRegularWarningMixin):
         if tier_baseline_changed:
             sub.tier_baseline_bytes = desired_tier_baseline
 
-        base_hwid_limit = (
-            int(sub.hwid_device_limit)
-            if sub.hwid_device_limit is not None
-            else self.subscription_service._base_hwid_limit_for_tariff(tariff)
+        base_hwid_limit = resolve_hwid_base_limit(
+            sub.hwid_device_limit,
+            self.subscription_service._base_hwid_limit_for_tariff(tariff),
         )
         entitlement_summary = await tariff_dal.get_hwid_device_entitlement_summary(
             session,

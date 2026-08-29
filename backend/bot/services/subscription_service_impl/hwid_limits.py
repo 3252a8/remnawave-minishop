@@ -13,6 +13,27 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
+def resolve_hwid_base_limit(
+    stored_base: int | None,
+    configured_base: int | None,
+) -> int | None:
+    """Raise a stored finite base to the configured floor without lowering it.
+
+    ``0`` means unlimited and therefore wins over every finite value. A higher
+    stored value may be an explicit per-subscription override, so tariff
+    reconciliation must preserve it.
+    """
+    stored = max(0, int(stored_base)) if stored_base is not None else None
+    configured = max(0, int(configured_base)) if configured_base is not None else None
+    if stored == 0 or configured == 0:
+        return 0
+    if stored is None:
+        return configured
+    if configured is None:
+        return stored
+    return max(stored, configured)
+
+
 @dataclass(frozen=True)
 class HwidDeviceLimits:
     """Resolved HWID device limits for one subscription."""

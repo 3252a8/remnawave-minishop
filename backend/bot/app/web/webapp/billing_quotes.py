@@ -11,6 +11,7 @@ from bot.app.web.webapp.payloads import WebAppPaymentCreatePayload
 from bot.middlewares.i18n import JsonI18n, get_i18n_instance
 from bot.services.device_topup_availability import resolve_device_topup_availability
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.subscription_service_impl.hwid_limits import resolve_hwid_base_limit
 from config.settings import Settings
 from config.tariffs_config import default_currency_key_for_settings, payment_currency_code
 from db.dal import subscription_dal, tariff_dal
@@ -51,11 +52,13 @@ def _subscription_effective_hwid_limit(
     subscription: Any,
     tariff: Any,
 ) -> int:
-    base_limit = getattr(subscription, "hwid_device_limit", None)
-    if base_limit is None:
-        base_limit = getattr(tariff, "hwid_device_limit", None)
-    if base_limit is None:
-        base_limit = settings.USER_HWID_DEVICE_LIMIT
+    configured_base = getattr(tariff, "hwid_device_limit", None)
+    if configured_base is None:
+        configured_base = settings.USER_HWID_DEVICE_LIMIT
+    base_limit = resolve_hwid_base_limit(
+        getattr(subscription, "hwid_device_limit", None),
+        configured_base,
+    )
     if base_limit is None:
         return 0
     normalized_base = max(0, int(base_limit))

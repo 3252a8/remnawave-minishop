@@ -67,6 +67,51 @@ class _Service:
 
 
 class HwidDeviceWorkerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_worker_raises_stale_base_and_adds_active_device_purchases(self):
+        panel = SimpleNamespace(update_user_details_on_panel=AsyncMock(return_value={"ok": True}))
+        worker = TariffTrafficWorker(
+            settings=SimpleNamespace(),
+            session_factory=None,
+            panel_service=panel,
+            subscription_service=_Service(),
+        )
+        sub = SimpleNamespace(
+            subscription_id=10,
+            panel_user_uuid="panel-user",
+            end_date=datetime(2099, 1, 1, tzinfo=UTC),
+            hwid_device_limit=2,
+            extra_hwid_devices=0,
+            tier_baseline_bytes=100,
+            topup_balance_bytes=0,
+            regular_bonus_bytes=0,
+            regular_unlimited_override=False,
+            traffic_used_bytes=20,
+            traffic_limit_bytes=100,
+        )
+        tariff = SimpleNamespace(hwid_device_limit=3, billing_model="period", monthly_bytes=100)
+
+        with patch(
+            "bot.services.tariff_worker.tariff_dal.get_hwid_device_entitlement_summary",
+            AsyncMock(
+                return_value={
+                    "active_devices": 2,
+                    "traffic_bonus_bytes": 0,
+                    "legacy_active_devices": 0,
+                }
+            ),
+        ):
+            await worker._sync_hwid_device_limit(
+                session=AsyncMock(),
+                sub=sub,
+                tariff=tariff,
+                panel_data={"hwidDeviceLimit": 2, "trafficLimitBytes": 100},
+            )
+
+        self.assertEqual(sub.hwid_device_limit, 3)
+        self.assertEqual(sub.extra_hwid_devices, 2)
+        panel_payload = panel.update_user_details_on_panel.await_args.args[1]
+        self.assertEqual(panel_payload["hwidDeviceLimit"], 5)
+
     async def test_worker_resets_expired_hwid_entitlement_on_panel(self):
         panel = SimpleNamespace(update_user_details_on_panel=AsyncMock(return_value={"ok": True}))
         worker = TariffTrafficWorker(

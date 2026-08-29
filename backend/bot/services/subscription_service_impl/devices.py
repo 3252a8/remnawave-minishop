@@ -13,6 +13,7 @@ from db.dal import payment_dal, subscription_dal, tariff_dal, user_dal
 from db.models import Subscription
 
 from ._typing import SubscriptionServiceMixinContract
+from .hwid_limits import resolve_hwid_base_limit
 
 logger = logging.getLogger(__name__)
 
@@ -63,11 +64,12 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
             return None
 
         tariff = self._resolve_tariff(sub.tariff_key) if sub.tariff_key else None
-        base_hwid_limit = (
-            int(sub.hwid_device_limit)
-            if sub.hwid_device_limit is not None
-            else self._base_hwid_limit_for_tariff(tariff)
+        base_hwid_limit = resolve_hwid_base_limit(
+            sub.hwid_device_limit,
+            self._base_hwid_limit_for_tariff(tariff),
         )
+        if sub.hwid_device_limit != base_hwid_limit:
+            sub.hwid_device_limit = base_hwid_limit
         extra_hwid_devices = await self._active_hwid_extra_devices_for_sub(session, sub)
         sub.extra_hwid_devices = extra_hwid_devices
         effective_hwid_limit = self._effective_hwid_limit(base_hwid_limit, extra_hwid_devices)
@@ -417,10 +419,9 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         tariff = active_tariff
         if not tariff or tariff.billing_model != "period":
             return None
-        base_hwid_limit = (
-            int(sub.hwid_device_limit)
-            if sub.hwid_device_limit is not None
-            else self._base_hwid_limit_for_tariff(tariff)
+        base_hwid_limit = resolve_hwid_base_limit(
+            sub.hwid_device_limit,
+            self._base_hwid_limit_for_tariff(tariff),
         )
         if base_hwid_limit in (None, 0):
             return None
@@ -595,10 +596,9 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
                 )
                 return None
 
-        base_hwid_limit = (
-            int(sub.hwid_device_limit)
-            if sub.hwid_device_limit is not None
-            else self._base_hwid_limit_for_tariff(tariff)
+        base_hwid_limit = resolve_hwid_base_limit(
+            sub.hwid_device_limit,
+            self._base_hwid_limit_for_tariff(tariff),
         )
         if base_hwid_limit in (None, 0):
             logger.info(

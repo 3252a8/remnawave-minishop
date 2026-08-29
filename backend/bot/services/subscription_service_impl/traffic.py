@@ -13,7 +13,7 @@ from db.models import Subscription
 
 from ._typing import SubscriptionServiceMixinContract
 from .entitlement_helpers import immutable_subscription_start, panel_user_create_options
-from .hwid_limits import HwidDeviceLimits
+from .hwid_limits import HwidDeviceLimits, resolve_hwid_base_limit
 
 logger = logging.getLogger(__name__)
 
@@ -25,10 +25,9 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         sub: Subscription,
         tariff: Tariff | None,
     ) -> HwidDeviceLimits:
-        base = (
-            int(sub.hwid_device_limit)
-            if sub.hwid_device_limit is not None
-            else self._base_hwid_limit_for_tariff(tariff)
+        base = resolve_hwid_base_limit(
+            sub.hwid_device_limit,
+            self._base_hwid_limit_for_tariff(tariff),
         )
         extra = await self._active_hwid_extra_devices_for_sub(session, sub)
         effective = self._effective_hwid_limit(base, extra)
