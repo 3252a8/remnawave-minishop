@@ -1181,9 +1181,13 @@ test("program entries follow the enabled feature combination", async ({ page }) 
   await page.goto("/demo/runtime/invite?mock=partner-referral-disabled&theme_preview=dark");
 
   let bottomNav = page.locator(".bottom-nav");
-  const partnerNavEntry = bottomNav.getByRole("button", { name: "Партнёрка", exact: true });
+  const partnerNavEntry = bottomNav.locator(
+    '[data-nav-level="primary"][aria-label="Партнёрка"]'
+  );
   await expect(partnerNavEntry).toBeVisible();
-  await expect(bottomNav.getByRole("button", { name: "Бонусы", exact: true })).toHaveCount(0);
+  await expect(
+    bottomNav.locator('[data-nav-level="primary"][aria-label="Бонусы"]')
+  ).toHaveCount(0);
   await expect(partnerNavEntry.locator("svg path").first()).toHaveAttribute(
     "d",
     "m11 17 2 2a1 1 0 1 0 3-3"
@@ -1198,8 +1202,18 @@ test("program entries follow the enabled feature combination", async ({ page }) 
   await page.goto("/demo/runtime/settings?mock=partner-referral-enabled&theme_preview=dark");
 
   bottomNav = page.locator(".bottom-nav");
-  await expect(bottomNav.getByRole("button", { name: "Бонусы", exact: true })).toBeVisible();
-  await expect(bottomNav.getByRole("button", { name: "Партнёрка", exact: true })).toHaveCount(0);
+  await expect(
+    bottomNav.locator('[data-nav-level="primary"][aria-label="Бонусы"]')
+  ).toBeVisible();
+  await expect(
+    bottomNav.locator('[data-nav-level="primary"][aria-label="Партнёрка"]')
+  ).toHaveCount(0);
+  await expect(
+    bottomNav.locator(".rail-settings-subnav").getByRole("button", {
+      name: "Партнёрка",
+      exact: true,
+    })
+  ).toBeVisible();
   await expect(page.locator(".promo-code-input")).toHaveCount(0);
   const partnerSettingsEntry = page.locator('[data-webapp-action="open-partner-program"]');
   await expect(partnerSettingsEntry).toBeVisible();

@@ -93,6 +93,7 @@ export default defineConfig({
             { label: 'Статус серверов', slug: 'features/server-status' },
             { label: 'Telegram-авторизация', slug: 'features/telegram-auth' },
             { label: 'Вход по email', slug: 'features/email-login' },
+            { label: 'Google, Яндекс и passkey', slug: 'features/login-methods' },
             { label: 'Темы Web App', slug: 'features/webapp-themes' },
             { label: 'Админ-панель', slug: 'features/admin-panel' },
             { label: 'Бэкапы и восстановление', slug: 'features/backups' },

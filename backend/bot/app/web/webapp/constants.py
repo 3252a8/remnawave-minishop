@@ -37,6 +37,8 @@ WEBAPP_CSRF_EXEMPT_PATHS = {
     "/api/auth/email/verify",
     "/api/auth/email/magic",
     "/api/auth/email/password",
+    "/api/auth/passkey/options",
+    "/api/auth/passkey/verify",
     "/api/auth/logout",
 }
 WEBAPP_CSRF_HEADER_NAME = "X-CSRF-Token"

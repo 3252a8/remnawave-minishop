@@ -100,6 +100,7 @@ def _migration_0071_add_hwid_device_limit_override(connection: Connection) -> No
             "hwid_device_limit_is_override BOOLEAN NOT NULL DEFAULT FALSE"
         )
     )
+
     if "message_logs" not in table_names:
         return
 
@@ -132,6 +133,156 @@ def _migration_0071_add_hwid_device_limit_override(connection: Connection) -> No
     )
 
 
+def _migration_0072_add_external_login_credentials(connection: Connection) -> None:
+    """Persist external identities, passkeys, and replay-safe WebAuthn challenges."""
+
+    statements = (
+        """
+            CREATE TABLE IF NOT EXISTS user_external_identities (
+                identity_id SERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL REFERENCES users(user_id),
+                provider VARCHAR(32) NOT NULL,
+                subject VARCHAR(255) NOT NULL,
+                email VARCHAR(254),
+                email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+                display_name VARCHAR(255),
+                picture_url TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                last_used_at TIMESTAMPTZ,
+                CONSTRAINT uq_external_identity_provider_subject UNIQUE (provider, subject),
+                CONSTRAINT uq_external_identity_user_provider UNIQUE (user_id, provider)
+            )
+        """,
+        """
+            CREATE INDEX IF NOT EXISTS ix_user_external_identities_user_id
+                ON user_external_identities (user_id)
+        """,
+        """
+            CREATE INDEX IF NOT EXISTS ix_user_external_identities_provider
+                ON user_external_identities (provider)
+        """,
+        """
+            CREATE TABLE IF NOT EXISTS user_passkey_credentials (
+                credential_pk SERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL REFERENCES users(user_id),
+                credential_id VARCHAR(1024) NOT NULL UNIQUE,
+                public_key BYTEA NOT NULL,
+                sign_count BIGINT NOT NULL DEFAULT 0,
+                transports VARCHAR(255),
+                device_type VARCHAR(32),
+                backed_up BOOLEAN NOT NULL DEFAULT FALSE,
+                name VARCHAR(80) NOT NULL DEFAULT 'Passkey',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                last_used_at TIMESTAMPTZ
+            )
+        """,
+        """
+            CREATE INDEX IF NOT EXISTS ix_user_passkey_credentials_user_id
+                ON user_passkey_credentials (user_id)
+        """,
+        """
+            CREATE INDEX IF NOT EXISTS ix_user_passkey_credentials_credential_id
+                ON user_passkey_credentials (credential_id)
+        """,
+        """
+            CREATE TABLE IF NOT EXISTS webauthn_challenges (
+                challenge_hash VARCHAR(64) PRIMARY KEY,
+                user_id BIGINT REFERENCES users(user_id),
+                ceremony VARCHAR(16) NOT NULL,
+                expires_at TIMESTAMPTZ NOT NULL,
+                consumed_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """,
+        """
+            CREATE INDEX IF NOT EXISTS ix_webauthn_challenges_user_id
+                ON webauthn_challenges (user_id)
+        """,
+        """
+            CREATE INDEX IF NOT EXISTS ix_webauthn_challenges_ceremony
+                ON webauthn_challenges (ceremony)
+        """,
+        """
+            CREATE INDEX IF NOT EXISTS ix_webauthn_challenges_expires_at
+                ON webauthn_challenges (expires_at)
+        """,
+    )
+    for statement in statements:
+        connection.execute(text(statement))
+
+
+def _migration_0073_add_user_email_addresses(connection: Connection) -> None:
+    """Separate verified account addresses from the primary sign-in address."""
+
+    statements = (
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS notification_email VARCHAR(254)",
+        """
+            CREATE TABLE IF NOT EXISTS user_email_addresses (
+                email_address_id SERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL REFERENCES users(user_id),
+                email VARCHAR(254) NOT NULL,
+                source VARCHAR(32) NOT NULL DEFAULT 'email',
+                verified_at TIMESTAMPTZ NOT NULL,
+                is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+                is_notification BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_user_email_address_email UNIQUE (email)
+            )
+        """,
+        """
+            CREATE INDEX IF NOT EXISTS ix_user_email_addresses_user_id
+                ON user_email_addresses (user_id)
+        """,
+        """
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_user_email_addresses_primary
+                ON user_email_addresses (user_id) WHERE is_primary
+        """,
+        """
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_user_email_addresses_notification
+                ON user_email_addresses (user_id) WHERE is_notification
+        """,
+        """
+            INSERT INTO user_email_addresses (
+                user_id,
+                email,
+                source,
+                verified_at,
+                is_primary,
+                is_notification
+            )
+            SELECT DISTINCT ON (LOWER(TRIM(email)))
+                user_id,
+                LOWER(TRIM(email)),
+                'email',
+                email_verified_at,
+                TRUE,
+                TRUE
+            FROM users
+            WHERE email IS NOT NULL
+              AND TRIM(email) <> ''
+              AND email_verified_at IS NOT NULL
+            ORDER BY LOWER(TRIM(email)), email_verified_at ASC, user_id ASC
+            ON CONFLICT (email) DO UPDATE SET
+                verified_at = EXCLUDED.verified_at,
+                is_primary = TRUE,
+                is_notification = TRUE,
+                updated_at = NOW()
+        """,
+        """
+            UPDATE users
+            SET notification_email = LOWER(TRIM(email))
+            WHERE notification_email IS NULL
+              AND email IS NOT NULL
+              AND TRIM(email) <> ''
+              AND email_verified_at IS NOT NULL
+        """,
+    )
+    for statement in statements:
+        connection.execute(text(statement))
+
+
 CHAIN_0069_0083: list[Migration] = [
     Migration(
         id="0069_normalize_auto_renew_attempt_index",
@@ -147,5 +298,15 @@ CHAIN_0069_0083: list[Migration] = [
         id="0071_add_hwid_device_limit_override",
         description="Track explicit subscription HWID limit overrides",
         upgrade=_migration_0071_add_hwid_device_limit_override,
+    ),
+    Migration(
+        id="0072_add_external_login_credentials",
+        description="Add external OAuth identities and WebAuthn passkeys",
+        upgrade=_migration_0072_add_external_login_credentials,
+    ),
+    Migration(
+        id="0073_add_user_email_addresses",
+        description="Add verified account email addresses and notification selection",
+        upgrade=_migration_0073_add_user_email_addresses,
     ),
 ]

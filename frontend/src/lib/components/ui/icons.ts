@@ -28,6 +28,7 @@ export {
   Eye,
   EyeOff,
   FileText,
+  Fingerprint,
   Flame,
   Gift,
   Globe2,

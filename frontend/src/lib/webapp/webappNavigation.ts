@@ -85,6 +85,10 @@ export function createWebappNavigation({
     showSection("settings");
   }
 
+  function goSecurity() {
+    showSection("security", "settings");
+  }
+
   function goStatus(parent: "home" | "settings" = "settings") {
     showSection("status", parent);
   }
@@ -96,6 +100,7 @@ export function createWebappNavigation({
     goInvite,
     goPartner,
     goSettings,
+    goSecurity,
     goStatus,
     goSupport,
     goTrial,

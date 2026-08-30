@@ -42,6 +42,7 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
     ):
         return SimpleNamespace(
             DEFAULT_LANGUAGE="en",
+            TELEGRAM_LOGIN_ENABLED=True,
             REFERRAL_PROGRAM_ENABLED=referral_program_enabled,
             REGISTRATION_INVITE_ONLY_ENABLED=invite_only,
             LEGACY_REFS=True,
@@ -385,6 +386,11 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
                 "get_user_by_email",
                 AsyncMock(return_value=user),
             ),
+            patch.object(
+                auth_email.user_email_dal,
+                "ensure_primary_user_email_address",
+                AsyncMock(),
+            ),
             patch.object(auth_email.user_dal, "create_email_user", AsyncMock()) as create_user,
             patch.object(auth_email, "_invalidate_webapp_user_caches", AsyncMock()),
         ):
@@ -410,6 +416,11 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
             patch.object(
                 auth_email.user_dal,
                 "get_user_by_email",
+                AsyncMock(return_value=None),
+            ),
+            patch.object(
+                auth_email.user_email_dal,
+                "get_user_by_verified_email_address",
                 AsyncMock(return_value=None),
             ),
             patch.object(auth_email.user_dal, "create_email_user", AsyncMock()) as create_user,
@@ -446,6 +457,16 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
                 auth_email.user_dal,
                 "get_user_by_email",
                 AsyncMock(return_value=None),
+            ),
+            patch.object(
+                auth_email.user_email_dal,
+                "get_user_by_verified_email_address",
+                AsyncMock(return_value=None),
+            ),
+            patch.object(
+                auth_email.user_email_dal,
+                "ensure_primary_user_email_address",
+                AsyncMock(),
             ),
             patch(
                 "bot.services.registration_invite_gate.user_dal.get_user_by_referral_code",
@@ -497,6 +518,11 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
                 "get_user_by_email",
                 AsyncMock(return_value=None),
             ),
+            patch.object(
+                auth_email.user_email_dal,
+                "get_user_by_verified_email_address",
+                AsyncMock(return_value=None),
+            ),
             patch.object(auth_email.user_dal, "create_email_user", AsyncMock()) as create_user,
         ):
             response = await auth_email.email_auth_magic_route(request)
@@ -533,6 +559,16 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
                 auth_email.user_dal,
                 "get_user_by_email",
                 AsyncMock(return_value=None),
+            ),
+            patch.object(
+                auth_email.user_email_dal,
+                "get_user_by_verified_email_address",
+                AsyncMock(return_value=None),
+            ),
+            patch.object(
+                auth_email.user_email_dal,
+                "ensure_primary_user_email_address",
+                AsyncMock(),
             ),
             patch(
                 "bot.services.registration_invite_gate.user_dal.get_user_by_referral_code",

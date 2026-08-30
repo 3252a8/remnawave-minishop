@@ -28,6 +28,7 @@ class User(Base):
     username = Column(String, nullable=True, index=True)
     email = Column(String, nullable=True, unique=True, index=True)
     email_verified_at = Column(DateTime(timezone=True), nullable=True)
+    notification_email = Column(String(254), nullable=True)
     password_hash = Column(String, nullable=True)
     password_set_at = Column(DateTime(timezone=True), nullable=True)
     telegram_id = Column(BigInteger, nullable=True, unique=True, index=True)
@@ -946,6 +947,7 @@ class LegacyImportMapping(Base):
 # backup/restore and migration tests.  Domain code imports the classes from
 # ``db.partner_models`` directly; this import exists only for registration.
 from db import activity_models as activity_models  # noqa: E402
+from db import auth_models as auth_models  # noqa: E402
 from db import broadcast_models as broadcast_models  # noqa: E402
 from db import message_image_models as message_image_models  # noqa: E402
 from db import partner_models as partner_models  # noqa: E402
@@ -958,6 +960,10 @@ MessageLog = activity_models.MessageLog
 PanelSyncStatus = activity_models.PanelSyncStatus
 SupportTicket = activity_models.SupportTicket
 SupportTicketMessage = activity_models.SupportTicketMessage
+UserExternalIdentity = auth_models.UserExternalIdentity
+UserEmailAddress = auth_models.UserEmailAddress
+UserPasskeyCredential = auth_models.UserPasskeyCredential
+WebAuthnChallenge = auth_models.WebAuthnChallenge
 AdminBroadcast = broadcast_models.AdminBroadcast
 AdminBroadcastDelivery = broadcast_models.AdminBroadcastDelivery
 MessageImage = message_image_models.MessageImage

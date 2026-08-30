@@ -45,6 +45,18 @@ afterEach(() => {
 });
 
 describe("runWebappBoot", () => {
+  it("requires signing in to an existing account before linking matching OIDC email", async () => {
+    installBrowser("?external_auth=google:account_exists");
+    const deps = makeDeps();
+
+    await runWebappBoot(deps);
+
+    expect(deps.setAuthStatus).toHaveBeenCalledWith("wa_auth_external_account_exists", true);
+    expect(deps.showLogin).toHaveBeenCalledOnce();
+    expect(deps.loadData).not.toHaveBeenCalled();
+    expect(window.history.replaceState).toHaveBeenCalledOnce();
+  });
+
   it("maps invite-required Telegram OAuth status to the dedicated auth copy", async () => {
     installBrowser("?telegram_auth=invite_required");
     const deps = makeDeps();

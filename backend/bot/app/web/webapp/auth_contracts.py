@@ -23,11 +23,21 @@ from .payloads import (
     WebAppEmailMagicAuthPayload,
     WebAppEmailPasswordPayload,
     WebAppEmailRequestPayload,
+    WebAppPasskeyCredentialPayload,
     WebAppPromoApplyPayload,
     WebAppTelegramAuthPayload,
 )
 
 AUTH_ROUTE_CONTRACTS: dict[str, RouteContract] = {
+    "passkey_auth_options_route": public_contract(
+        response_schema=ok_envelope_with(
+            {"options": {"type": "object", "additionalProperties": True}}
+        )
+    ),
+    "passkey_auth_verify_route": public_contract(
+        request_model=WebAppPasskeyCredentialPayload,
+        response_schema=AUTH_RESPONSE_SCHEMA,
+    ),
     "telegram_oauth_nonce_route": public_contract(
         response_schema=ok_envelope_with(
             {

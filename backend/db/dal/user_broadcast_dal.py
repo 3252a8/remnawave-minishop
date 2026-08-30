@@ -44,11 +44,12 @@ async def get_email_recipients_for_broadcast(
     recipients: list[tuple[int, str, str | None]] = []
     for start in range(0, len(user_ids), chunk_size):
         chunk = user_ids[start : start + chunk_size]
-        stmt = select(User.user_id, User.email, User.language_code).where(
+        recipient_email = func.coalesce(User.notification_email, User.email)
+        stmt = select(User.user_id, recipient_email, User.language_code).where(
             User.user_id.in_(chunk),
             User.is_banned == False,
-            User.email.is_not(None),
-            User.email != "",
+            recipient_email.is_not(None),
+            recipient_email != "",
         )
         result = await session.execute(stmt)
         recipients.extend(

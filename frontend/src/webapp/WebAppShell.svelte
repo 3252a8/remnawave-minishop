@@ -18,7 +18,9 @@
     goInvite: Action;
     goPartner: Action;
     partnerNavigationVisible?: boolean;
+    partnerSettingsVisible?: boolean;
     goSettings: Action;
+    goSecurity: Action;
     goSupport: Action;
     hasUnlinkedIdentity?: boolean;
     isAdmin?: boolean;
@@ -50,15 +52,17 @@
     goInvite,
     goPartner,
     partnerNavigationVisible = false,
+    partnerSettingsVisible = false,
     goSupport,
     goSettings,
+    goSecurity,
     t,
     children,
   }: Props = $props();
 </script>
 
 <div class="phone-screen" class:home-screen={screen === "home"}>
-  {#if screen === "install" || screen === "invite" || screen === "partner" || screen === "devices" || screen === "support" || screen === "settings" || screen === "status"}
+  {#if screen === "install" || screen === "invite" || screen === "partner" || screen === "devices" || screen === "support" || screen === "settings" || screen === "security" || screen === "status"}
     <header class="app-header accent-title">
       <div class="brand-row">
         <BrandMark {brand} />
@@ -71,6 +75,7 @@
 
   <BottomNav
     {activeTab}
+    {screen}
     {brand}
     {brandTitle}
     {devicesEnabled}
@@ -87,8 +92,10 @@
     onPartner={goPartner}
     {bonusesNavigationVisible}
     {partnerNavigationVisible}
+    {partnerSettingsVisible}
     onSupport={goSupport}
     onSettings={goSettings}
+    onSecurity={goSecurity}
     {t}
   />
 </div>

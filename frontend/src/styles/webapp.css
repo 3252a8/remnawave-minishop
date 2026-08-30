@@ -1069,6 +1069,160 @@ a {
   box-shadow: inset 0 1px 0 var(--inset-highlight);
 }
 
+.rail-settings-subnav {
+  display: none;
+}
+
+.security-screen {
+  display: grid;
+  gap: 14px;
+}
+
+.security-overview-card {
+  display: grid;
+  min-width: 0;
+}
+
+.security-back {
+  width: max-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 4px 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.security-heading {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.security-heading > span {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+}
+
+.security-heading h1,
+.security-card h2,
+.security-heading p,
+.security-card p {
+  margin: 0;
+}
+
+.security-heading h1 {
+  color: var(--accent);
+  font-size: 17px;
+  font-weight: 850;
+  line-height: 1.16;
+}
+
+.security-heading p,
+.security-card p,
+.security-empty {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.security-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.security-card h2 {
+  font-size: 15px;
+}
+
+.security-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.security-card-head > div {
+  display: grid;
+  gap: 4px;
+}
+
+.security-methods,
+.security-passkey-list,
+.security-email-addresses,
+.security-email-change {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-list.security-methods,
+.settings-list.security-passkey-list,
+.settings-list.security-email-addresses {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.security-methods .settings-row,
+.security-passkey-list .settings-row {
+  min-height: 54px;
+}
+
+.security-delete {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  color: var(--danger);
+  cursor: pointer;
+}
+
+.security-provider-row-linked {
+  grid-template-columns: 28px minmax(0, 1fr) 34px;
+}
+
+.security-notification-email-row {
+  grid-template-columns: 28px minmax(0, 1fr) 20px;
+}
+
+.security-notification-email-row.is-selected {
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-muted));
+}
+
+.security-notification-email-row > svg:last-child {
+  color: var(--accent);
+}
+
+.security-email-source-logos {
+  display: flex;
+  width: 28px;
+  align-items: center;
+}
+
+.security-email-source-logos > :not(:first-child) {
+  margin-left: -7px;
+  filter: drop-shadow(0 0 2px var(--surface));
+}
+
+.security-status {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 9%, transparent);
+  font-size: 13px;
+}
+
 .period-card {
   position: relative;
   display: grid;
@@ -3303,6 +3457,16 @@ a {
   gap: 10px;
 }
 
+.auth-provider-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.auth-provider-logo {
+  display: block;
+  flex: 0 0 auto;
+}
+
 .auth-email-stack {
   display: grid;
   gap: 12px;
@@ -4183,6 +4347,31 @@ a {
 
   .bottom-nav .rail-admin-entry {
     display: grid !important;
+  }
+
+  .rail-settings-subnav {
+    display: grid;
+    gap: 2px;
+    margin: -2px 0 4px 22px;
+    padding-left: 10px;
+    border-left: 1px solid var(--border);
+  }
+
+  .bottom-nav .rail-settings-subnav button {
+    grid-template-columns: 18px 1fr !important;
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+  }
+
+  .security-screen {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .security-screen > .security-back,
+  .security-screen > .security-heading,
+  .security-screen > .security-status {
+    grid-column: 1 / -1;
   }
 
   .settings-admin-block {

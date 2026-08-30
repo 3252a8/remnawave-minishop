@@ -652,6 +652,7 @@
   function sectionTitle(id: string): string {
     const map = {
       general: "General",
+      login_methods: "Login methods",
       email: "Email",
       remnawave: "Remnawave Panel",
       appearance: "Appearance",
@@ -812,6 +813,7 @@
   {markFieldDirty}
   {resetField}
   {onNavigateSection}
+  onOpenSettingsPath={_onOpenSettingsPath}
   {menuButtonLanguages}
 />
 

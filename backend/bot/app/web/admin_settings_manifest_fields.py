@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from bot.app.web.admin_settings_manifest_email_fields import EMAIL_SETTINGS_FIELDS
+from bot.app.web.admin_settings_manifest_login_fields import LOGIN_METHOD_SETTINGS_FIELDS
 from bot.app.web.admin_settings_manifest_types import TRAFFIC_STRATEGY_CHOICES, SettingField
 from bot.app.web.admin_settings_notification_manifest_fields import (
     NOTIFICATION_SETTINGS_FIELDS,
@@ -97,6 +98,8 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "Required Channel Link",
         ("Controls the 'Required Channel Link' setting in admin overrides."),
     ),
+    # ─── Login methods ─────────────────────────────────────────────
+    *LOGIN_METHOD_SETTINGS_FIELDS,
     # ─── Email auth & SMTP ─────────────────────────────────────────
     *EMAIL_SETTINGS_FIELDS,
     SettingField(

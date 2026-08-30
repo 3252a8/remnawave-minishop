@@ -86,6 +86,40 @@ class WebAppTelegramAuthPayload(BaseModel):
     start_param: str | None = None
 
 
+class WebAppPasskeyCredentialPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    challenge: Annotated[str, StringConstraints(min_length=16, max_length=1024)]
+    credential: dict[str, Any]
+    name: Annotated[str, StringConstraints(max_length=80)] | None = None
+
+
+class WebAppPasskeyDeletePayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    credential_id: Annotated[str, StringConstraints(min_length=8, max_length=1024)]
+
+
+class WebAppExternalIdentityPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    provider: Literal["google", "yandex"]
+
+
+class WebAppEmailChangeCurrentPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    code: ShortCodeString
+
+
+class WebAppEmailChangeNewPayload(WebAppEmailPayload):
+    change_token: MagicTokenString
+
+
+class WebAppEmailChangeConfirmPayload(WebAppEmailChangeNewPayload):
+    code: ShortCodeString
+
+
 class WebAppPromoApplyPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 

@@ -8,6 +8,7 @@ from bot.services.email_auth_service import EmailAuthService
 from bot.services.email_templates import render_payment_success
 from bot.services.user_notification_policy import (
     UserNotificationCategory,
+    email_recipient,
     user_notification_delivery_plan,
 )
 from config.tariffs_config import default_payment_currency_code_for_settings
@@ -130,7 +131,7 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
             getattr(self.settings, "email_auth_configured", False),
         ):
             return
-        recipient = (db_user.email or "").strip() if db_user else ""
+        recipient = email_recipient(self.settings, db_user) if db_user else ""
         if not recipient:
             return
         normalized_sale_mode = str(sale_mode or "").strip().lower()

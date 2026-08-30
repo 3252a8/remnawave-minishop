@@ -13,6 +13,7 @@
   import HomeScreen from "./screens/HomeScreen.svelte";
   import ScreenLoading from "./screens/ScreenLoading.svelte";
   import SettingsScreen from "./screens/SettingsScreen.svelte";
+  import SecurityScreen from "./screens/SecurityScreen.svelte";
   import type {
     AppSettings,
     BooleanAction,
@@ -63,7 +64,6 @@
     subscriptionReissueBusy?: boolean;
     openSubscriptionReissueDialog?: VoidAction;
     emailAuthEnabled?: boolean;
-    emailLinkStatus?: string;
     goDevices: VoidAction;
     goHome: VoidAction;
     goInvite: VoidAction;
@@ -71,6 +71,7 @@
     goPartner: VoidAction;
     partnerEnabled?: boolean;
     goSettings: VoidAction;
+    goSecurity: VoidAction;
     goTrial: VoidAction;
     goStatus: (parent?: "home" | "settings") => void;
     goSupport: VoidAction;
@@ -83,8 +84,6 @@
     languageClickGuardArmed?: boolean;
     languageMenuOpen?: boolean;
     languageOptions?: LanguageOption[];
-    linkEmailBusy?: boolean;
-    linkTelegramAccount: VoidAction;
     linkTelegramAndActivateTrial: VoidAction;
     linkTelegramAndClaimReferralWelcome: VoidAction;
     linkTelegramBusy?: boolean;
@@ -127,7 +126,6 @@
     serverStatusShowOnHome?: boolean;
     serverStatusUrl?: string;
     statusStore: ServerStatusStore;
-    showTelegramLinkedStatus?: boolean;
     setLanguageMenuOpen: BooleanAction;
     setPromoCode: StringAction;
     subscription?: SubscriptionView;
@@ -187,7 +185,6 @@
     subscriptionReissueBusy = false,
     openSubscriptionReissueDialog = () => {},
     emailAuthEnabled = true,
-    emailLinkStatus = "",
     goDevices,
     goHome,
     goInvite,
@@ -195,6 +192,7 @@
     goPartner,
     partnerEnabled = false,
     goSettings,
+    goSecurity,
     goTrial,
     goStatus,
     goSupport,
@@ -207,8 +205,6 @@
     languageClickGuardArmed = false,
     languageMenuOpen = $bindable(false),
     languageOptions = [],
-    linkEmailBusy = false,
-    linkTelegramAccount,
     linkTelegramAndActivateTrial,
     linkTelegramAndClaimReferralWelcome,
     linkTelegramBusy = false,
@@ -251,7 +247,6 @@
     serverStatusShowOnHome = false,
     serverStatusUrl = "",
     statusStore,
-    showTelegramLinkedStatus = false,
     setLanguageMenuOpen,
     setPromoCode,
     subscription = {},
@@ -380,8 +375,10 @@
   {goPartner}
   bonusesNavigationVisible={programEntryPlacement.bonusesNavigationVisible}
   partnerNavigationVisible={programEntryPlacement.partnerNavigationVisible}
+  partnerSettingsVisible={programEntryPlacement.partnerSettingsVisible}
   {goSupport}
   {goSettings}
+  {goSecurity}
   {t}
 >
   {#if screen === "home"}
@@ -546,15 +543,12 @@
       {currentLang}
       {currentLanguageOption}
       {emailAuthEnabled}
-      {emailLinkStatus}
       {isAdmin}
       {languageBusy}
       {languageClickGuard}
       {languageClickGuardArmed}
       bind:languageMenuOpen
       {languageOptions}
-      {linkEmailBusy}
-      {linkTelegramBusy}
       {menuButtons}
       {privacyPolicyUrl}
       {profileAvatarUrl}
@@ -569,7 +563,6 @@
       {promoStatus}
       {serverStatusUrl}
       {serverStatusInternal}
-      {showTelegramLinkedStatus}
       {subscriptionReissueBusy}
       subscriptionReissueVisible={settingsSubscriptionReissueVisible}
       {supportUrl}
@@ -584,16 +577,15 @@
       {user}
       {userAgreementUrl}
       {userLanguage}
+      {hasUnlinkedIdentity}
       showLogout={!telegramMiniAppContext}
-      {linkTelegramAccount}
       {openTelegramNotificationsBot}
       logout={accountStore.logout}
       {openAdminPanel}
       openPartner={goPartner}
       {openExternalLink}
       {openMenuButton}
-      {openLinkEmailDialog}
-      {openSetPasswordDialog}
+      openSecurity={goSecurity}
       openServerStatus={() => goStatus("settings")}
       {openSubscriptionReissueDialog}
       {applyPromo}
@@ -602,6 +594,18 @@
       {setPromoCode}
       {t}
       updateAccountLanguage={accountStore.updateAccountLanguage}
+    />
+  {:else if screen === "security"}
+    <SecurityScreen
+      {api}
+      authProviders={(appSettings.auth_providers || appSettings.authProviders || []) as string[]}
+      {brandTitle}
+      {goSettings}
+      linkTelegramAccount={accountStore.linkTelegramFromSettings}
+      {openLinkEmailDialog}
+      {openSetPasswordDialog}
+      {t}
+      {user}
     />
   {:else if screen === "status"}
     {#if statusScreen.component}

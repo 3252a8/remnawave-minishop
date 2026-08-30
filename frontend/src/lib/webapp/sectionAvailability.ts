@@ -28,6 +28,7 @@ export function resolveAvailableWebappSection({
 
 export function activeTabForWebappSection(section: string) {
   if (section === "admin") return "settings";
+  if (section === "security") return "settings";
   if (section === "install" || section === "trial") return "home";
   return section;
 }

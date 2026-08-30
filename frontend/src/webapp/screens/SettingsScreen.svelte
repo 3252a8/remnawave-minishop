@@ -1,18 +1,15 @@
 <script lang="ts">
   import {
     ArrowRight,
-    CheckCircle2,
     FileText,
     Handshake,
     Key,
-    Mail,
     Send,
     Server,
     Shield,
     UserRound,
   } from "$components/ui/icons.js";
 
-  import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import { AttentionDot } from "$components/ui/index.js";
   import { LanguageSelect, ThemeSelect } from "$components/patterns/webapp/index.js";
@@ -34,15 +31,12 @@
     currentLang?: string;
     currentLanguageOption?: LanguageOption | null;
     emailAuthEnabled?: boolean;
-    emailLinkStatus?: string;
     isAdmin?: boolean;
     languageBusy?: boolean;
     languageClickGuard?: boolean;
     languageClickGuardArmed?: boolean;
     languageMenuOpen?: boolean;
     languageOptions?: LanguageOption[];
-    linkEmailBusy?: boolean;
-    linkTelegramBusy?: boolean;
     menuButtons?: MenuButtonView[];
     partnerSettingsVisible?: boolean;
     privacyPolicyUrl?: string;
@@ -57,7 +51,6 @@
     promoStatus?: string;
     serverStatusUrl?: string;
     serverStatusInternal?: boolean;
-    showTelegramLinkedStatus?: boolean;
     subscriptionReissueBusy?: boolean;
     subscriptionReissueVisible?: boolean;
     supportUrl?: string;
@@ -72,15 +65,14 @@
     userAgreementUrl?: string;
     userLanguage?: string;
     showLogout?: boolean;
-    linkTelegramAccount?: VoidAction;
+    hasUnlinkedIdentity?: boolean;
     openTelegramNotificationsBot?: VoidAction;
     logout?: VoidAction;
     openAdminPanel?: VoidAction;
     openPartner?: VoidAction;
     openExternalLink?: OpenLinkAction;
     openMenuButton?: (button: MenuButtonView) => void;
-    openLinkEmailDialog?: VoidAction;
-    openSetPasswordDialog?: VoidAction;
+    openSecurity?: VoidAction;
     openServerStatus?: VoidAction;
     openSubscriptionReissueDialog?: VoidAction;
     applyPromo?: VoidAction;
@@ -96,15 +88,12 @@
     currentLang = "ru",
     currentLanguageOption = null,
     emailAuthEnabled = true,
-    emailLinkStatus = "",
     isAdmin = false,
     languageBusy = false,
     languageClickGuard = false,
     languageClickGuardArmed = false,
     languageMenuOpen = $bindable(false),
     languageOptions = [],
-    linkEmailBusy = false,
-    linkTelegramBusy = false,
     menuButtons = [],
     partnerSettingsVisible = false,
     privacyPolicyUrl = "",
@@ -119,7 +108,6 @@
     promoStatus = "",
     serverStatusUrl = "",
     serverStatusInternal = false,
-    showTelegramLinkedStatus = false,
     subscriptionReissueBusy = false,
     subscriptionReissueVisible = false,
     supportUrl = "",
@@ -134,15 +122,14 @@
     userAgreementUrl = "",
     userLanguage = "",
     showLogout = true,
-    linkTelegramAccount = () => {},
+    hasUnlinkedIdentity = false,
     openTelegramNotificationsBot = () => {},
     logout = () => {},
     openAdminPanel = () => {},
     openPartner = () => {},
     openExternalLink = () => {},
     openMenuButton = () => {},
-    openLinkEmailDialog = () => {},
-    openSetPasswordDialog = () => {},
+    openSecurity = () => {},
     openServerStatus = () => {},
     openSubscriptionReissueDialog = () => {},
     applyPromo = () => {},
@@ -208,66 +195,20 @@
   {/if}
   <div class="settings-links-block">
     <div class="settings-divider" aria-hidden="true"></div>
-    {#if user?.telegram_linked}
-      {#if showTelegramLinkedStatus}
-        <div class="settings-row settings-row-linked">
-          <CheckCircle2 size={21} />
-          <span>
-            <strong>{t("wa_settings_telegram_linked_title")}</strong>
-            <small>{profileTelegramId}</small>
-          </span>
-        </div>
-      {/if}
-    {:else}
-      <Button
-        variant="telegram"
-        class="wide settings-telegram-link-btn attention-wrap"
-        onclick={linkTelegramAccount}
-        disabled={linkTelegramBusy}
-      >
-        <AttentionDot />
-        <Send size={18} />
-        {t("wa_settings_link_telegram_action")}
-      </Button>
-    {/if}
-    {#if user?.email}
-      <div class="settings-row settings-row-linked settings-row-linked-with-action">
-        <CheckCircle2 size={21} />
-        <span>
-          <strong>{t("wa_settings_email_linked_title")}</strong>
-          <small>{user?.email}</small>
-        </span>
-        {#if emailAuthEnabled && user?.email_verified}
-          <Button
-            data-webapp-action="open-set-password"
-            variant="secondary"
-            size="sm"
-            class="settings-inline-action"
-            onclick={openSetPasswordDialog}
-          >
-            {user?.password_auth_enabled
-              ? t("wa_settings_change_password_action")
-              : t("wa_settings_set_password_action")}
-          </Button>
-        {/if}
-      </div>
-    {:else if emailAuthEnabled}
-      <button
-        data-webapp-action="open-link-email"
-        class="settings-row attention-wrap"
-        type="button"
-        onclick={openLinkEmailDialog}
-        disabled={linkEmailBusy}
-      >
-        <AttentionDot />
-        <Mail size={21} />
-        <span>
-          <strong>{t("wa_settings_link_email_action")}</strong>
-          <small>{emailLinkStatus}</small>
-        </span>
-        <ArrowRight size={17} />
-      </button>
-    {/if}
+    <button
+      data-webapp-action="open-security"
+      class="settings-row settings-row-security attention-wrap"
+      type="button"
+      onclick={openSecurity}
+    >
+      {#if hasUnlinkedIdentity}<AttentionDot />{/if}
+      <Shield size={21} />
+      <span>
+        <strong>{t("wa_security_title", {}, "Security")}</strong>
+        <small>{t("wa_security_hint", {}, "Manage how you sign in and recover access")}</small>
+      </span>
+      <ArrowRight size={17} />
+    </button>
     {#if subscriptionReissueVisible}
       <button
         data-webapp-action="open-subscription-reissue"

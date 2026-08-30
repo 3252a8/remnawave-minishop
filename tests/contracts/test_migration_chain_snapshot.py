@@ -92,6 +92,8 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0069_normalize_auto_renew_attempt_index",
     "0070_add_rollypay_subscriptions",
     "0071_add_hwid_device_limit_override",
+    "0072_add_external_login_credentials",
+    "0073_add_user_email_addresses",
 ]
 
 

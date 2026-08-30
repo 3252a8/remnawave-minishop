@@ -619,6 +619,8 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     WEBAPP_SESSION_TTL_SECONDS: int = Field(default=24 * 60 * 60)
     WEBAPP_AUTH_MAX_AGE_SECONDS: int = Field(default=24 * 60 * 60)
     WEBAPP_LOGIN_TOKEN_TTL_SECONDS: int = Field(default=10 * 60)
+    TELEGRAM_LOGIN_ENABLED: bool = Field(default=True)
+    EMAIL_LOGIN_ENABLED: bool = Field(default=True)
     TELEGRAM_OAUTH_CLIENT_ID: int | None = Field(
         default=None,
         description="Telegram Web Login Client ID from BotFather. Defaults to the numeric bot ID from BOT_TOKEN.",  # noqa: E501
@@ -638,6 +640,25 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
             "when the proxy is configured"
         ),
     )
+    GOOGLE_OIDC_ENABLED: bool = Field(default=False)
+    GOOGLE_OIDC_CLIENT_ID: str | None = Field(default=None)
+    GOOGLE_OIDC_CLIENT_SECRET: str | None = Field(default=None)
+    YANDEX_OAUTH_ENABLED: bool = Field(default=False)
+    YANDEX_OAUTH_CLIENT_ID: str | None = Field(default=None)
+    YANDEX_OAUTH_CLIENT_SECRET: str | None = Field(default=None)
+    PASSKEY_LOGIN_ENABLED: bool = Field(default=False)
+    PASSKEY_RP_ID: str | None = Field(
+        default=None,
+        description="WebAuthn relying-party domain. Empty means the public Web App hostname.",
+    )
+    PASSKEY_RP_NAME: str | None = Field(default=None)
+    PASSKEY_ORIGINS: str | None = Field(
+        default=None,
+        description=(
+            "Comma-separated allowed WebAuthn origins. Empty means the public Web App origin."
+        ),
+    )
+    PASSKEY_CHALLENGE_TTL_SECONDS: int = Field(default=5 * 60)
 
     SMTP_HOST: str = Field(default="smtp-relay.brevo.com")
     SMTP_PORT: int = Field(default=587)

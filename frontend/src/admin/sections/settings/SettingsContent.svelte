@@ -103,6 +103,7 @@
     markFieldDirty,
     resetField,
     onNavigateSection = () => {},
+    onOpenSettingsPath = () => {},
     menuButtonLanguages = [],
   }: {
     at: TranslateFn;
@@ -154,6 +155,7 @@
     markFieldDirty: (key: string, value: unknown) => void;
     resetField: (field: AdminSettingField) => void;
     onNavigateSection?: (section: string) => void;
+    onOpenSettingsPath?: (path?: unknown) => void;
     menuButtonLanguages?: TranslationLanguage[];
   } = $props();
 
@@ -229,7 +231,167 @@
     }
     return "";
   }
+
+  function configuredValue(key: string): boolean {
+    const field = visibleSettingsSections
+      .flatMap((section) => section.fields)
+      .find((item) => item.key === key);
+    if (!field) return false;
+    if (field.secret && !settingsDirty[key] && field.has_value) return true;
+    const value = settingsDirty[key]?.value ?? valueFor(field);
+    return typeof value === "boolean" ? value : Boolean(String(value ?? "").trim());
+  }
+
+  function configuredText(key: string): string {
+    const field = visibleSettingsSections
+      .flatMap((section) => section.fields)
+      .find((item) => item.key === key);
+    if (!field) return "";
+    return String(settingsDirty[key]?.value ?? valueFor(field) ?? "").trim();
+  }
+
+  function loginProviderCallback(provider: "google" | "yandex"): string {
+    const base = configuredText("SUBSCRIPTION_MINI_APP_URL");
+    const fallbackOrigin = typeof window === "undefined" ? "" : window.location.origin;
+    if (!base) return `${fallbackOrigin}/auth/${provider}/callback`;
+    try {
+      return `${new URL(base).origin}/auth/${provider}/callback`;
+    } catch {
+      return `${fallbackOrigin}/auth/${provider}/callback`;
+    }
+  }
+
+  function loginProviderHelpTitle(provider: string): string {
+    if (provider === "google")
+      return at("settings_login_google_help_title", {}, "Google OAuth application");
+    if (provider === "yandex")
+      return at("settings_login_yandex_help_title", {}, "Yandex OAuth application");
+    return at("settings_login_passkey_help_title", {}, "Passkey domain settings");
+  }
+
+  function loginProviderHelpHint(provider: string): string {
+    if (provider === "google")
+      return at(
+        "settings_login_google_help_hint",
+        {},
+        "Create a Web OAuth client and add the exact callback URL below."
+      );
+    if (provider === "yandex")
+      return at(
+        "settings_login_yandex_help_hint",
+        {},
+        "Create an app for user authorization and add the callback as a Web service Redirect URI."
+      );
+    return at(
+      "settings_login_passkey_help_hint",
+      {},
+      "Use HTTPS; RP ID must be the application domain and origins must contain its full origin."
+    );
+  }
+
+  function loginProviderOfficialUrl(provider: string): string {
+    if (provider === "google")
+      return "https://developers.google.com/identity/protocols/oauth2/web-server";
+    if (provider === "yandex") return "https://yandex.com/dev/id/doc/en/register-auth";
+    return "https://developer.mozilla.org/en-US/docs/Web/Security/Authentication/Passkeys";
+  }
 </script>
+
+{#snippet renderLoginMethodHints()}
+  {@const emailReady =
+    configuredValue("QA_AUTH_ENABLED") ||
+    (configuredValue("SMTP_HOST") &&
+      configuredValue("SMTP_PORT") &&
+      configuredValue("SMTP_USERNAME") &&
+      configuredValue("SMTP_PASSWORD") &&
+      configuredValue("SMTP_FROM_EMAIL"))}
+  {@const telegramReady = configuredValue("TELEGRAM_OAUTH_CLIENT_ID")}
+  <div class="admin-login-method-hints">
+    {#if configuredValue("EMAIL_LOGIN_ENABLED") && !emailReady}
+      <div class="admin-settings-warning">
+        <FileText size={18} />
+        <div class="admin-settings-warning-copy">
+          <strong>{at("settings_login_email_setup_title", {}, "Email needs SMTP")}</strong>
+          <p>
+            {at(
+              "settings_login_email_setup_hint",
+              {},
+              "Configure SMTP before enabling email codes and password recovery."
+            )}
+          </p>
+        </div>
+        <AdminButton
+          class="admin-settings-warning-action"
+          size="sm"
+          variant="ghost"
+          onclick={() => onOpenSettingsPath(["email", "smtp"])}
+        >
+          {at("settings_login_open_smtp", {}, "Open SMTP")}
+        </AdminButton>
+      </div>
+    {/if}
+    {#if configuredValue("TELEGRAM_LOGIN_ENABLED") && !telegramReady}
+      <div class="admin-settings-warning">
+        <FileText size={18} />
+        <div class="admin-settings-warning-copy">
+          <strong>{at("settings_login_telegram_setup_title", {}, "Telegram bot setup")}</strong>
+          <p>
+            {at(
+              "settings_login_telegram_setup_hint",
+              {},
+              "A bot token and Telegram Login client are required outside Telegram Mini Apps."
+            )}
+          </p>
+        </div>
+        <AdminButton
+          class="admin-settings-warning-action"
+          size="sm"
+          variant="ghost"
+          onclick={() => onOpenSettingsPath(["login_methods", "telegram"])}
+        >
+          {at("settings_login_open_telegram", {}, "Open Telegram")}
+        </AdminButton>
+      </div>
+    {/if}
+  </div>
+{/snippet}
+
+{#snippet renderLoginProviderHelp(provider: string)}
+  {#if provider === "google" || provider === "yandex" || provider === "passkey"}
+    <div class="admin-login-provider-help">
+      <div class="admin-login-provider-help-copy">
+        <strong>{loginProviderHelpTitle(provider)}</strong>
+        <p>{loginProviderHelpHint(provider)}</p>
+        {#if provider === "google" || provider === "yandex"}
+          <div class="admin-login-provider-callback">
+            <span>{at("settings_login_callback_url", {}, "Callback URL")}</span>
+            <code>{loginProviderCallback(provider)}</code>
+          </div>
+        {/if}
+      </div>
+      <div class="admin-login-provider-help-actions">
+        <a
+          class="admin-btn admin-btn-sm admin-btn-ghost"
+          href="https://minishop.minidoc.cc/features/login-methods/"
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          <FileText size={13} />
+          <span>{at("settings_login_open_guide", {}, "Setup guide")}</span>
+        </a>
+        <a
+          class="admin-btn admin-btn-sm admin-btn-ghost"
+          href={loginProviderOfficialUrl(provider)}
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          <ExternalLink size={13} />
+          <span>{at("settings_login_open_official", {}, "Official docs")}</span>
+        </a>
+      </div>
+    </div>
+  {/if}
+{/snippet}
 
 {#snippet renderProviderInfo(provider: NonNullable<GroupProviderInfo>)}
   {#if provider.infoUrl}
@@ -658,6 +820,9 @@
           {@const labelGroups = groups.filter((g) => g.label)}
           <div id={sectionContentId} class="admin-accordion-content" data-state="open">
             <div class="admin-settings-fields">
+              {#if section.id === "login_methods"}
+                {@render renderLoginMethodHints()}
+              {/if}
               {#if rootGroup}
                 {#if rootGroup.providerInfo}
                   {@render renderProviderInfo(rootGroup.providerInfo)}
@@ -704,6 +869,9 @@
                           data-state="open"
                         >
                           <div class="admin-settings-subsection-body">
+                            {#if section.id === "login_methods"}
+                              {@render renderLoginProviderHelp(group.id)}
+                            {/if}
                             {#if group.providerInfo}
                               {@render renderProviderInfo(group.providerInfo)}
                             {/if}

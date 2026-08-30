@@ -362,6 +362,19 @@ Xray-Core 26.3.27+, `NET_ADMIN`, nftables, корректный sniffing и вк
 | `TELEGRAM_OAUTH_CLIENT_SECRET` | `.env` | Секрет клиента Telegram OAuth / OpenID Connect. |
 | `TELEGRAM_OAUTH_REQUEST_ACCESS` | `.env` | Дополнительные разрешения, например `write`. |
 | `TELEGRAM_OAUTH_USE_BOT_PROXY` | `.env` | Разрешить server-side OAuth token/JWKS запросам автоматически использовать настроенный `TELEGRAM_BOT_PROXY_URL`. По умолчанию `True`; браузерный redirect не проксируется. |
+| `TELEGRAM_LOGIN_ENABLED` | Админка | Показывать вход через Telegram. |
+| `EMAIL_LOGIN_ENABLED` | Админка | Показывать вход по email при настроенном SMTP. |
+| `GOOGLE_OIDC_ENABLED` | Админка | Включить Google OIDC. Требует client ID и client secret. |
+| `GOOGLE_OIDC_CLIENT_ID` | Админка | Client ID OAuth 2.0 Web application из Google Cloud. |
+| `GOOGLE_OIDC_CLIENT_SECRET` | Админка | Секрет Google OAuth-клиента. |
+| `YANDEX_OAUTH_ENABLED` | Админка | Включить вход через Yandex ID. Требует client ID и client secret. |
+| `YANDEX_OAUTH_CLIENT_ID` | Админка | ID приложения для авторизации пользователей в Yandex OAuth. |
+| `YANDEX_OAUTH_CLIENT_SECRET` | Админка | Секрет приложения Yandex OAuth. |
+| `PASSKEY_LOGIN_ENABLED` | Админка | Включить регистрацию и вход с passkey/WebAuthn. |
+| `PASSKEY_RP_ID` | Админка | Домен Relying Party без схемы, порта и пути. По умолчанию берётся из публичного Web App URL. |
+| `PASSKEY_RP_NAME` | Админка | Имя сервиса, показываемое при создании ключа доступа. |
+| `PASSKEY_ORIGINS` | Админка | Разрешённые HTTPS origins через запятую. |
+| `PASSKEY_CHALLENGE_TTL_SECONDS` | Админка | Время жизни одноразового WebAuthn challenge. |
 | `WEBAPP_PRIMARY_COLOR` | Админка | Устаревшее env-поле, игнорируется. |
 | `WEBAPP_LOGO_URL` | Админка | Устаревшее env-поле, игнорируется. |
 | `WEBAPP_FAVICON_USE_CUSTOM` | Админка | Устаревшее env-поле, игнорируется. |
@@ -369,6 +382,10 @@ Xray-Core 26.3.27+, `NET_ADMIN`, nftables, корректный sniffing и вк
 | `WEBAPP_LOGO_FAVICON_URL` | Админка | Устаревшее env-поле, игнорируется. |
 
 Инструкции установки совместимы с Remnawave Subscription Page v1 config: `version`, `locales`, `brandingSettings`, `uiConfig`, `baseSettings`, `baseTranslations`, `svgLibrary` и `platforms`. Текстовые поля рендерятся как текст, а SVG из `svgLibrary` проходит санитарную проверку перед отдачей в Web App.
+
+Callback URL, настройка Google/Yandex, требования passkey, правила объединения аккаунтов и связь
+основного email с полем пользователя в Remnawave Panel описаны в
+[разделе «Способы входа»](../features/login-methods.md).
 
 ## SMTP и вход по email
 

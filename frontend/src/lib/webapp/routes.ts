@@ -9,6 +9,7 @@ export type WebappSection =
   | "devices"
   | "support"
   | "settings"
+  | "security"
   | "status"
   | "admin";
 
@@ -26,6 +27,7 @@ export function normalizeSection(value: unknown): WebappSection {
     section === "devices" ||
     section === "support" ||
     section === "settings" ||
+    section === "security" ||
     section === "status" ||
     section === "admin"
   ) {
@@ -82,6 +84,7 @@ export function sectionFromPath(pathname: unknown, routePrefix: unknown = ""): W
   if (!routePath || routePath === "/") return "home";
   if (routePath === "/admin" || routePath.startsWith("/admin/")) return "admin";
   if (routePath === "/support" || routePath.startsWith("/support/")) return "support";
+  if (routePath === "/settings/security") return "security";
   const section = routePath.startsWith("/") ? routePath.slice(1) : routePath;
   return normalizeSection(section);
 }

@@ -45,6 +45,7 @@ from .user_broadcast_dal import (  # noqa: F401
     get_user_ids_without_active_subscription,
     get_user_ids_without_any_subscription,
 )
+from .user_email_dal import upsert_user_email_address
 from .user_merge_dal import (  # noqa: F401
     UserMergeConflictError,
     delete_user_and_relations,
@@ -230,21 +231,34 @@ async def create_email_user(
     email_verified_at: datetime | None = None,
     referred_by_id: int | None = None,
     registered_via: str | None = "email",
+    email_source: str = "email",
 ) -> tuple[User, bool]:
     normalized_email = (email or "").strip().lower()
     user_id = await generate_unique_email_user_id(session)
-    return await create_user(
+    verified_at = email_verified_at or datetime.now(UTC)
+    user, created = await create_user(
         session,
         {
             "user_id": user_id,
             "email": normalized_email,
-            "email_verified_at": email_verified_at or datetime.now(UTC),
+            "email_verified_at": verified_at,
+            "notification_email": normalized_email,
             "language_code": language_code,
             "referred_by_id": referred_by_id,
             "registration_date": datetime.now(UTC),
         },
         registered_via=registered_via,
     )
+    await upsert_user_email_address(
+        session,
+        user_id=int(user.user_id),
+        email=normalized_email,
+        source=email_source,
+        verified_at=verified_at,
+        is_primary=True,
+        is_notification=True,
+    )
+    return user, created
 
 
 async def mark_trial_eligibility_reset(

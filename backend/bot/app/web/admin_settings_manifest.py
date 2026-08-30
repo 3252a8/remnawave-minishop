@@ -420,6 +420,7 @@ def manifest_payload() -> list[dict]:
 
     sections_order = {
         "general": 1,
+        "login_methods": 2,
         "appearance": 2,
         "menu_buttons": 3,
         "remnawave": 3,

@@ -10501,6 +10501,70 @@
         "title": "WebAppDeviceOut",
         "type": "object"
       },
+      "WebAppEmailChangeConfirmPayload": {
+        "properties": {
+          "change_token": {
+            "maxLength": 512,
+            "minLength": 8,
+            "title": "Change Token",
+            "type": "string"
+          },
+          "code": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "change_token",
+          "code"
+        ],
+        "title": "WebAppEmailChangeConfirmPayload",
+        "type": "object"
+      },
+      "WebAppEmailChangeCurrentPayload": {
+        "properties": {
+          "code": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "WebAppEmailChangeCurrentPayload",
+        "type": "object"
+      },
+      "WebAppEmailChangeNewPayload": {
+        "properties": {
+          "change_token": {
+            "maxLength": 512,
+            "minLength": 8,
+            "title": "Change Token",
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "change_token"
+        ],
+        "title": "WebAppEmailChangeNewPayload",
+        "type": "object"
+      },
       "WebAppEmailCodeAuthPayload": {
         "properties": {
           "code": {
@@ -10687,6 +10751,23 @@
         "title": "WebAppEmailRequestPayload",
         "type": "object"
       },
+      "WebAppExternalIdentityPayload": {
+        "properties": {
+          "provider": {
+            "enum": [
+              "google",
+              "yandex"
+            ],
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider"
+        ],
+        "title": "WebAppExternalIdentityPayload",
+        "type": "object"
+      },
       "WebAppLanguagePayload": {
         "properties": {
           "language": {
@@ -10700,6 +10781,55 @@
           "language"
         ],
         "title": "WebAppLanguagePayload",
+        "type": "object"
+      },
+      "WebAppPasskeyCredentialPayload": {
+        "properties": {
+          "challenge": {
+            "maxLength": 1024,
+            "minLength": 16,
+            "title": "Challenge",
+            "type": "string"
+          },
+          "credential": {
+            "additionalProperties": true,
+            "title": "Credential",
+            "type": "object"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
+          }
+        },
+        "required": [
+          "challenge",
+          "credential"
+        ],
+        "title": "WebAppPasskeyCredentialPayload",
+        "type": "object"
+      },
+      "WebAppPasskeyDeletePayload": {
+        "properties": {
+          "credential_id": {
+            "maxLength": 1024,
+            "minLength": 8,
+            "title": "Credential Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "credential_id"
+        ],
+        "title": "WebAppPasskeyDeletePayload",
         "type": "object"
       },
       "WebAppPaymentCreatePayload": {
@@ -11663,6 +11793,345 @@
         ]
       }
     },
+    "/api/account/email/change/confirm": {
+      "post": {
+        "operationId": "post_account_email_change_confirm_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppEmailChangeConfirmPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "account_merge": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "final_end_date": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "final_end_date_text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "language": {
+                          "type": "string"
+                        },
+                        "merged": {
+                          "type": "boolean"
+                        },
+                        "primary_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "primary_user_id": {
+                          "type": "integer"
+                        },
+                        "removed_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "removed_user_id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "merged",
+                        "language",
+                        "primary_user_id",
+                        "removed_user_id",
+                        "primary_panel_user_uuid",
+                        "removed_panel_user_uuid",
+                        "final_end_date",
+                        "final_end_date_text"
+                      ],
+                      "type": "object"
+                    },
+                    "csrf_token": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "telegram_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "token": {
+                      "type": "string"
+                    },
+                    "user_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "token",
+                    "csrf_token"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Email Change Confirm",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/email/change/current/request": {
+      "post": {
+        "operationId": "post_account_email_change_current_request_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "email_code": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "retry_after": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Email Change Current Request",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/email/change/current/verify": {
+      "post": {
+        "operationId": "post_account_email_change_current_verify_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppEmailChangeCurrentPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "change_token": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "change_token"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Email Change Current Verify",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/email/change/new/request": {
+      "post": {
+        "operationId": "post_account_email_change_new_request_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppEmailChangeNewPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "email_code": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "retry_after": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Email Change New Request",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/email/notification": {
+      "post": {
+        "operationId": "post_account_notification_email_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppEmailPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "notification_email": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "notification_email"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Notification Email",
+        "tags": [
+          "account"
+        ]
+      }
+    },
     "/api/account/email/request": {
       "post": {
         "operationId": "post_account_email_request_route",
@@ -11848,6 +12317,55 @@
         ]
       }
     },
+    "/api/account/identities/unlink": {
+      "post": {
+        "operationId": "post_external_identity_unlink_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppExternalIdentityPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "External Identity Unlink",
+        "tags": [
+          "account"
+        ]
+      }
+    },
     "/api/account/language": {
       "post": {
         "operationId": "post_account_language_route",
@@ -11896,6 +12414,148 @@
           }
         ],
         "summary": "Account Language",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/passkeys/delete": {
+      "post": {
+        "operationId": "post_account_passkey_delete_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppPasskeyDeletePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Passkey Delete",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/passkeys/options": {
+      "post": {
+        "operationId": "post_account_passkey_options_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "options": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "options"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Passkey Options",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/passkeys/register": {
+      "post": {
+        "operationId": "post_account_passkey_register_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppPasskeyCredentialPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Passkey Register",
         "tags": [
           "account"
         ]
@@ -18374,6 +19034,155 @@
         ]
       }
     },
+    "/api/auth/passkey/options": {
+      "post": {
+        "operationId": "post_passkey_auth_options_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "options": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "options"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "summary": "Passkey Auth Options",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/passkey/verify": {
+      "post": {
+        "operationId": "post_passkey_auth_verify_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppPasskeyCredentialPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "account_merge": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "final_end_date": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "final_end_date_text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "language": {
+                          "type": "string"
+                        },
+                        "merged": {
+                          "type": "boolean"
+                        },
+                        "primary_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "primary_user_id": {
+                          "type": "integer"
+                        },
+                        "removed_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "removed_user_id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "merged",
+                        "language",
+                        "primary_user_id",
+                        "removed_user_id",
+                        "primary_panel_user_uuid",
+                        "removed_panel_user_uuid",
+                        "final_end_date",
+                        "final_end_date_text"
+                      ],
+                      "type": "object"
+                    },
+                    "csrf_token": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "telegram_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "token": {
+                      "type": "string"
+                    },
+                    "user_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "token",
+                    "csrf_token"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "summary": "Passkey Auth Verify",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/auth/session": {
       "get": {
         "operationId": "get_session_route",
@@ -20185,8 +20994,62 @@
                             "null"
                           ]
                         },
+                        "email_addresses": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "email": {
+                                "type": "string"
+                              },
+                              "is_notification": {
+                                "type": "boolean"
+                              },
+                              "is_primary": {
+                                "type": "boolean"
+                              },
+                              "sources": {
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              },
+                              "verified": {
+                                "type": "boolean"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
                         "email_verified": {
                           "type": "boolean"
+                        },
+                        "external_identities": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "display_name": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "email": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "email_verified": {
+                                "type": "boolean"
+                              },
+                              "provider": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
                         },
                         "first_name": {
                           "type": [
@@ -20202,6 +21065,42 @@
                         },
                         "language_code": {
                           "type": "string"
+                        },
+                        "notification_email": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "passkeys": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "backed_up": {
+                                "type": "boolean"
+                              },
+                              "created_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "credential_id": {
+                                "type": "string"
+                              },
+                              "last_used_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
                         },
                         "password_auth_enabled": {
                           "type": "boolean"

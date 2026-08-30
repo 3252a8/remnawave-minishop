@@ -4,6 +4,7 @@
     Check,
     ChevronsUpDown,
     Globe2,
+    Fingerprint,
     LockKeyhole,
     Mail,
     Send,
@@ -18,8 +19,11 @@
   import Spinner from "$components/ui/spinner.svelte";
   import { StatusMessage } from "$components/patterns/webapp/index.js";
   import { shouldShowInviteOnlyHint } from "$lib/webapp/authHelpers.js";
+  import { loginWithPasskey, passkeysSupported } from "$lib/webapp/passkeys.js";
+  import ProviderLogo from "./ProviderLogo.svelte";
 
   type WebappConfig = Record<string, unknown> & {
+    authProviders?: string[];
     emailAuthEnabled?: boolean;
     registrationInviteOnlyEnabled?: boolean;
   };
@@ -116,8 +120,14 @@
   }: Props = $props();
 
   let authPanelHeight = $state(0);
+  let externalLoginBusy = $state(false);
+  let externalLoginStatus = $state("");
 
   const emailAuthEnabled = $derived(CFG.emailAuthEnabled !== false);
+  const authProviders = $derived(
+    Array.isArray(CFG.authProviders) ? CFG.authProviders : ["telegram"]
+  );
+  const telegramAuthEnabled = $derived(authProviders.includes("telegram"));
   const passwordModeActive = $derived(Boolean(passwordLoginMode && emailAuthEnabled));
   const authCardHeight = $derived(authPanelHeight ? `${authPanelHeight}px` : undefined);
   const showLanguageSelect = $derived(languageOptions.length > 1);
@@ -128,6 +138,24 @@
     event.preventDefault();
     event.stopPropagation();
     if (languageClickGuardArmed) setLanguageMenuOpen(false);
+  }
+
+  function openProvider(provider: "google" | "yandex"): void {
+    const referral = new URLSearchParams(window.location.search).get("ref") || "";
+    const query = referral ? `?ref=${encodeURIComponent(referral)}` : "";
+    window.location.assign(`/auth/${provider}/start${query}`);
+  }
+
+  async function openPasskeyLogin(): Promise<void> {
+    externalLoginBusy = true;
+    externalLoginStatus = "";
+    try {
+      await loginWithPasskey(String(CFG.apiBase || "/api"));
+    } catch {
+      externalLoginStatus = t("wa_security_passkey_failed", {}, "Could not sign in with passkey");
+    } finally {
+      externalLoginBusy = false;
+    }
   }
 </script>
 
@@ -278,23 +306,67 @@
                 </div>
                 <div class="or-line"><span></span>{t("wa_or")}<span></span></div>
               {/if}
-              <div class="auth-pane">
-                <Button
-                  variant="telegram"
-                  class={`wide telegram-login-button${telegramLoginUnavailable ? " unavailable" : ""}${telegramLoginChecking ? " checking" : ""}`}
-                  onclick={openTelegramLogin}
-                  disabled={authBusy || telegramLoginBusy || telegramLoginUnavailable}
-                  aria-label={telegramLoginLabel}
-                >
-                  <span class="telegram-login-text">
-                    {#if telegramLoginChecking}
-                      <Spinner size="sm" />
-                    {:else}
-                      <Send size={17} />
-                    {/if}
-                    {telegramLoginLabel}
-                  </span>
-                </Button>
+              <div class="auth-pane auth-provider-stack">
+                {#if telegramAuthEnabled}
+                  <Button
+                    variant="telegram"
+                    class={`wide telegram-login-button${telegramLoginUnavailable ? " unavailable" : ""}${telegramLoginChecking ? " checking" : ""}`}
+                    onclick={openTelegramLogin}
+                    disabled={authBusy || telegramLoginBusy || telegramLoginUnavailable}
+                    aria-label={telegramLoginLabel}
+                  >
+                    <span class="telegram-login-text">
+                      {#if telegramLoginChecking}
+                        <Spinner size="sm" />
+                      {:else}
+                        <Send size={17} />
+                      {/if}
+                      {telegramLoginLabel}
+                    </span>
+                  </Button>
+                {/if}
+                {#if authProviders.includes("google")}
+                  <Button
+                    class="wide auth-provider-button"
+                    variant="secondary"
+                    onclick={() => openProvider("google")}
+                    disabled={authBusy || externalLoginBusy}
+                  >
+                    <ProviderLogo provider="google" />{t(
+                      "wa_login_google",
+                      {},
+                      "Continue with Google"
+                    )}
+                  </Button>
+                {/if}
+                {#if authProviders.includes("yandex")}
+                  <Button
+                    class="wide auth-provider-button"
+                    variant="secondary"
+                    onclick={() => openProvider("yandex")}
+                    disabled={authBusy || externalLoginBusy}
+                  >
+                    <ProviderLogo provider="yandex" />{t(
+                      "wa_login_yandex",
+                      {},
+                      "Continue with Yandex"
+                    )}
+                  </Button>
+                {/if}
+                {#if authProviders.includes("passkey")}
+                  <Button
+                    class="wide auth-provider-button"
+                    variant="secondary"
+                    onclick={openPasskeyLogin}
+                    disabled={authBusy || externalLoginBusy || !passkeysSupported()}
+                  >
+                    <Fingerprint size={18} data-provider-logo="passkey" />{t(
+                      "wa_login_passkey",
+                      {},
+                      "Sign in with passkey"
+                    )}
+                  </Button>
+                {/if}
               </div>
               {#if emailAuthEnabled}
                 <div class="password-switch-stack">
@@ -310,12 +382,12 @@
                   </button>
                 </div>
               {/if}
-              {#if !telegramLoginChecking && (authStatus || telegramLoginUnavailableMessage)}
+              {#if !telegramLoginChecking && (authStatus || telegramLoginUnavailableMessage || externalLoginStatus)}
                 <StatusMessage
                   error={authIsError || Boolean(telegramLoginUnavailableMessage)}
                   class="auth-login-status"
                 >
-                  {authStatus || telegramLoginUnavailableMessage}
+                  {authStatus || telegramLoginUnavailableMessage || externalLoginStatus}
                 </StatusMessage>
               {:else if showInviteOnlyHint}
                 <StatusMessage class="auth-login-status auth-invite-note">

@@ -57,6 +57,15 @@ export function readTelegramAuthStatus(): string | null {
   return (params.get("telegram_auth") || "").trim().toLowerCase() || null;
 }
 
+export function readExternalAuthStatus(): { provider: string; status: string } | null {
+  const params = new URLSearchParams(window.location.search);
+  const [provider = "", status = ""] = (params.get("external_auth") || "")
+    .trim()
+    .toLowerCase()
+    .split(":", 2);
+  return provider && status ? { provider, status } : null;
+}
+
 export function readMagicLoginToken(): string | null {
   const params = new URLSearchParams(window.location.search);
   return (params.get("login_token") || "").trim() || null;
@@ -82,6 +91,7 @@ export function clearAuthQuery(): void {
     "login_token",
     "login_purpose",
     "telegram_auth",
+    "external_auth",
     "id",
     "first_name",
     "last_name",

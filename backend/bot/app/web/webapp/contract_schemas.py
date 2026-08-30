@@ -421,6 +421,21 @@ WEBAPP_USER_SCHEMA: dict[str, Any] = {
         "username": NULLABLE_STRING_SCHEMA,
         "email": NULLABLE_STRING_SCHEMA,
         "email_verified": BOOLEAN_SCHEMA,
+        "notification_email": NULLABLE_STRING_SCHEMA,
+        "email_addresses": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "email": STRING_SCHEMA,
+                    "verified": BOOLEAN_SCHEMA,
+                    "is_primary": BOOLEAN_SCHEMA,
+                    "is_notification": BOOLEAN_SCHEMA,
+                    "sources": STRING_ARRAY_SCHEMA,
+                },
+            },
+        },
         "password_auth_enabled": BOOLEAN_SCHEMA,
         "telegram_id": NULLABLE_INTEGER_SCHEMA,
         "telegram_linked": BOOLEAN_SCHEMA,
@@ -432,6 +447,33 @@ WEBAPP_USER_SCHEMA: dict[str, Any] = {
         "first_name": NULLABLE_STRING_SCHEMA,
         "language_code": STRING_SCHEMA,
         "is_admin": BOOLEAN_SCHEMA,
+        "external_identities": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "provider": STRING_SCHEMA,
+                    "email": NULLABLE_STRING_SCHEMA,
+                    "email_verified": BOOLEAN_SCHEMA,
+                    "display_name": NULLABLE_STRING_SCHEMA,
+                },
+            },
+        },
+        "passkeys": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "credential_id": STRING_SCHEMA,
+                    "name": STRING_SCHEMA,
+                    "created_at": NULLABLE_STRING_SCHEMA,
+                    "last_used_at": NULLABLE_STRING_SCHEMA,
+                    "backed_up": BOOLEAN_SCHEMA,
+                },
+            },
+        },
     },
 }
 WEBAPP_SUBSCRIPTION_SCHEMA: dict[str, Any] = {

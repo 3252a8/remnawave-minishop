@@ -28,6 +28,7 @@ from bot.services.telegram_notifications import (
 from bot.services.user_email_notifications import send_user_notification_email
 from bot.services.user_notification_policy import (
     UserNotificationCategory,
+    email_recipient,
     user_notification_delivery_plan,
 )
 from config.settings import Settings
@@ -475,7 +476,7 @@ class TorrentBlockerNotificationService:
                 fingerprint=report.fingerprint,
             )
             return False
-        if not str(user.email or "").strip():
+        if not email_recipient(self.settings, user):
             self._log_outcome(
                 outcome="no_recipient",
                 channel="email",

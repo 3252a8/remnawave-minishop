@@ -39,8 +39,12 @@ from ..models import (
     TrafficWarning,
     User,
     UserBilling,
+    UserEmailAddress,
+    UserExternalIdentity,
+    UserPasskeyCredential,
     UserPaymentMethod,
     UserTelegramAvatar,
+    WebAuthnChallenge,
 )
 from ..partner_models import (
     PartnerApplication,
@@ -219,8 +223,6 @@ async def merge_users(
             message_key="wa_auth_access_denied",
         )
 
-    if source.email and target.email and source.email != target.email:
-        raise UserMergeConflictError("Both accounts already have different emails.")
     if (
         source.telegram_id
         and target.telegram_id
@@ -231,6 +233,35 @@ async def merge_users(
         raise UserMergeConflictError(
             "Both accounts already redeemed the same one-time code.",
             message_key="account_merge_duplicate_promo_conflict",
+        )
+    source_provider_rows = (
+        (
+            await session.execute(
+                select(UserExternalIdentity.provider).where(
+                    UserExternalIdentity.user_id == source_user_id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    target_provider_rows = set(
+        (
+            await session.execute(
+                select(UserExternalIdentity.provider).where(
+                    UserExternalIdentity.user_id == target_user_id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    overlapping_provider = next(
+        (provider for provider in source_provider_rows if provider in target_provider_rows), None
+    )
+    if overlapping_provider:
+        raise UserMergeConflictError(
+            f"Both accounts already have different {overlapping_provider} identities."
         )
 
     source_partner = (
@@ -356,6 +387,13 @@ async def merge_users(
     referral_code_to_move = (
         source.referral_code if source.referral_code and not target.referral_code else None
     )
+    source_notification_email = (
+        str(getattr(source, "notification_email", None) or source.email or "").strip().lower()
+    )
+    target_primary_email = str(target.email or "").strip().lower()
+    target_notification_email = (
+        str(getattr(target, "notification_email", None) or target.email or "").strip().lower()
+    )
 
     if email_to_move:
         source.email = None
@@ -378,6 +416,8 @@ async def merge_users(
         target.panel_user_uuid = panel_uuid_to_keep
     if referral_code_to_move:
         target.referral_code = referral_code_to_move
+    if not target_notification_email and source_notification_email:
+        target.notification_email = source_notification_email
 
     for attr in ("username", "first_name", "last_name", "language_code", "telegram_photo_url"):
         if not getattr(target, attr) and getattr(source, attr):
@@ -594,6 +634,47 @@ async def merge_users(
         .where(EmailVerificationCode.target_user_id == source_user_id)
         .values(target_user_id=target_user_id)
     )
+    target_address_emails = select(UserEmailAddress.email).where(
+        UserEmailAddress.user_id == target_user_id
+    )
+    await session.execute(
+        delete(UserEmailAddress).where(
+            UserEmailAddress.user_id == source_user_id,
+            UserEmailAddress.email.in_(target_address_emails),
+        )
+    )
+    if target_primary_email:
+        await session.execute(
+            update(UserEmailAddress)
+            .where(UserEmailAddress.user_id == source_user_id)
+            .values(is_primary=False)
+        )
+    if target_notification_email:
+        await session.execute(
+            update(UserEmailAddress)
+            .where(UserEmailAddress.user_id == source_user_id)
+            .values(is_notification=False)
+        )
+    await session.execute(
+        update(UserEmailAddress)
+        .where(UserEmailAddress.user_id == source_user_id)
+        .values(user_id=target_user_id)
+    )
+    await session.execute(
+        update(UserExternalIdentity)
+        .where(UserExternalIdentity.user_id == source_user_id)
+        .values(user_id=target_user_id)
+    )
+    await session.execute(
+        update(UserPasskeyCredential)
+        .where(UserPasskeyCredential.user_id == source_user_id)
+        .values(user_id=target_user_id)
+    )
+    await session.execute(
+        update(WebAuthnChallenge)
+        .where(WebAuthnChallenge.user_id == source_user_id)
+        .values(user_id=target_user_id)
+    )
 
     await session.delete(source)
     await session.flush()
@@ -607,7 +688,7 @@ async def merge_users(
             send_user_email=send_user_email,
             source_panel_user_uuid=source_panel_uuid,
             target_panel_user_uuid=target.panel_user_uuid,
-            email=target.email,
+            email=getattr(target, "notification_email", None) or target.email,
             telegram_id=target.telegram_id,
             username=target.username,
             first_name=target.first_name,
@@ -631,6 +712,14 @@ async def delete_user_and_relations(session: AsyncSession, user_id: int) -> bool
     await session.execute(
         update(User).where(User.referred_by_id == user_id).values(referred_by_id=None)
     )
+    await session.execute(delete(UserEmailAddress).where(UserEmailAddress.user_id == user_id))
+    await session.execute(
+        delete(UserExternalIdentity).where(UserExternalIdentity.user_id == user_id)
+    )
+    await session.execute(
+        delete(UserPasskeyCredential).where(UserPasskeyCredential.user_id == user_id)
+    )
+    await session.execute(delete(WebAuthnChallenge).where(WebAuthnChallenge.user_id == user_id))
 
     # Financial partner history is intentionally retained, but the deleted
     # account must no longer be identifiable or able to receive attribution.

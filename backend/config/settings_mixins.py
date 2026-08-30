@@ -89,6 +89,19 @@ if TYPE_CHECKING:
         WEBHOOK_SECRET_TOKEN: str
         WEBAPP_AUTH_MAX_AGE_SECONDS: int
         WEBAPP_LOGIN_TOKEN_TTL_SECONDS: int
+        TELEGRAM_LOGIN_ENABLED: bool
+        EMAIL_LOGIN_ENABLED: bool
+        GOOGLE_OIDC_ENABLED: bool
+        GOOGLE_OIDC_CLIENT_ID: str | None
+        GOOGLE_OIDC_CLIENT_SECRET: str | None
+        YANDEX_OAUTH_ENABLED: bool
+        YANDEX_OAUTH_CLIENT_ID: str | None
+        YANDEX_OAUTH_CLIENT_SECRET: str | None
+        PASSKEY_LOGIN_ENABLED: bool
+        PASSKEY_RP_ID: str | None
+        PASSKEY_RP_NAME: str | None
+        PASSKEY_ORIGINS: str | None
+        PASSKEY_CHALLENGE_TTL_SECONDS: int
         WEBAPP_SERVER_HOST: str
         WEBAPP_SERVER_PORT: int
         WEBAPP_ENABLED: bool
@@ -805,13 +818,31 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
 
     @computed_field
     def email_auth_configured(self) -> bool:
-        return bool(self.qa_auth_enabled or self.smtp_delivery_configured)
+        return bool(
+            self.EMAIL_LOGIN_ENABLED and (self.qa_auth_enabled or self.smtp_delivery_configured)
+        )
 
     @computed_field
     def webapp_auth_providers(self) -> list[str]:
-        providers = ["telegram"]
+        providers: list[str] = []
+        if self.TELEGRAM_LOGIN_ENABLED:
+            providers.append("telegram")
         if self.email_auth_configured:
             providers.append("email")
+        if (
+            self.GOOGLE_OIDC_ENABLED
+            and self.GOOGLE_OIDC_CLIENT_ID
+            and self.GOOGLE_OIDC_CLIENT_SECRET
+        ):
+            providers.append("google")
+        if (
+            self.YANDEX_OAUTH_ENABLED
+            and self.YANDEX_OAUTH_CLIENT_ID
+            and self.YANDEX_OAUTH_CLIENT_SECRET
+        ):
+            providers.append("yandex")
+        if self.PASSKEY_LOGIN_ENABLED:
+            providers.append("passkey")
         return providers
 
     @computed_field

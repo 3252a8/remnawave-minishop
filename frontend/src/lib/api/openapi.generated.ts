@@ -21,6 +21,91 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/account/email/change/confirm": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Email Change Confirm */
+    post: operations["post_account_email_change_confirm_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/email/change/current/request": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Email Change Current Request */
+    post: operations["post_account_email_change_current_request_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/email/change/current/verify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Email Change Current Verify */
+    post: operations["post_account_email_change_current_verify_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/email/change/new/request": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Email Change New Request */
+    post: operations["post_account_email_change_new_request_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/email/notification": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Notification Email */
+    post: operations["post_account_notification_email_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/account/email/request": {
     parameters: {
       query?: never;
@@ -55,6 +140,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/account/identities/unlink": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** External Identity Unlink */
+    post: operations["post_external_identity_unlink_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/account/language": {
     parameters: {
       query?: never;
@@ -66,6 +168,57 @@ export interface paths {
     put?: never;
     /** Account Language */
     post: operations["post_account_language_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/passkeys/delete": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Passkey Delete */
+    post: operations["post_account_passkey_delete_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/passkeys/options": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Passkey Options */
+    post: operations["post_account_passkey_options_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/passkeys/register": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Passkey Register */
+    post: operations["post_account_passkey_register_route"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1696,6 +1849,40 @@ export interface paths {
     put?: never;
     /** Logout */
     post: operations["post_logout_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/passkey/options": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Passkey Auth Options */
+    post: operations["post_passkey_auth_options_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/passkey/verify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Passkey Auth Verify */
+    post: operations["post_passkey_auth_verify_route"];
     delete?: never;
     options?: never;
     head?: never;
@@ -7017,6 +7204,33 @@ export interface components {
       /** User Agent */
       user_agent: string;
     };
+    /** WebAppEmailChangeConfirmPayload */
+    WebAppEmailChangeConfirmPayload: {
+      /** Change Token */
+      change_token: string;
+      /** Code */
+      code: string;
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+    };
+    /** WebAppEmailChangeCurrentPayload */
+    WebAppEmailChangeCurrentPayload: {
+      /** Code */
+      code: string;
+    };
+    /** WebAppEmailChangeNewPayload */
+    WebAppEmailChangeNewPayload: {
+      /** Change Token */
+      change_token: string;
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+    };
     /** WebAppEmailCodeAuthPayload */
     WebAppEmailCodeAuthPayload: {
       /**
@@ -7109,10 +7323,37 @@ export interface components {
        */
       start_param: string | null;
     };
+    /** WebAppExternalIdentityPayload */
+    WebAppExternalIdentityPayload: {
+      /**
+       * Provider
+       * @enum {string}
+       */
+      provider: "google" | "yandex";
+    };
     /** WebAppLanguagePayload */
     WebAppLanguagePayload: {
       /** Language */
       language: string;
+    };
+    /** WebAppPasskeyCredentialPayload */
+    WebAppPasskeyCredentialPayload: {
+      /** Challenge */
+      challenge: string;
+      /** Credential */
+      credential: {
+        [key: string]: unknown;
+      };
+      /**
+       * Name
+       * @default null
+       */
+      name: string | null;
+    };
+    /** WebAppPasskeyDeletePayload */
+    WebAppPasskeyDeletePayload: {
+      /** Credential Id */
+      credential_id: string;
     };
     /** WebAppPaymentCreatePayload */
     WebAppPaymentCreatePayload: {
@@ -7591,6 +7832,159 @@ export interface operations {
       };
     };
   };
+  post_account_email_change_confirm_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppEmailChangeConfirmPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            account_merge?: {
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
+            };
+            csrf_token: string;
+            /** @constant */
+            ok: true;
+            telegram_id?: number | null;
+            token: string;
+            user_id?: number | null;
+          };
+        };
+      };
+    };
+  };
+  post_account_email_change_current_request_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            code?: string;
+            email_code?: string;
+            /** @constant */
+            ok: true;
+            retry_after?: number | null;
+          };
+        };
+      };
+    };
+  };
+  post_account_email_change_current_verify_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppEmailChangeCurrentPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            change_token: string;
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_account_email_change_new_request_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppEmailChangeNewPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            code?: string;
+            email_code?: string;
+            /** @constant */
+            ok: true;
+            retry_after?: number | null;
+          };
+        };
+      };
+    };
+  };
+  post_account_notification_email_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppEmailPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            notification_email: string;
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
   post_account_email_request_route: {
     parameters: {
       query?: never;
@@ -7663,6 +8057,33 @@ export interface operations {
       };
     };
   };
+  post_external_identity_unlink_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppExternalIdentityPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
   post_account_language_route: {
     parameters: {
       query?: never;
@@ -7684,6 +8105,86 @@ export interface operations {
         content: {
           "application/json": {
             language: string;
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_account_passkey_delete_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppPasskeyDeletePayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_account_passkey_options_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            options: {
+              [key: string]: unknown;
+            };
+          };
+        };
+      };
+    };
+  };
+  post_account_passkey_register_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppPasskeyCredentialPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
             /** @constant */
             ok: true;
           };
@@ -10747,6 +11248,73 @@ export interface operations {
       };
     };
   };
+  post_passkey_auth_options_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            options: {
+              [key: string]: unknown;
+            };
+          };
+        };
+      };
+    };
+  };
+  post_passkey_auth_verify_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppPasskeyCredentialPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            account_merge?: {
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
+            };
+            csrf_token: string;
+            /** @constant */
+            ok: true;
+            telegram_id?: number | null;
+            token: string;
+            user_id?: number | null;
+          };
+        };
+      };
+    };
+  };
   get_session_route: {
     parameters: {
       query?: never;
@@ -11328,11 +11896,32 @@ export interface operations {
             };
             user: {
               email?: string | null;
+              email_addresses?: {
+                email?: string;
+                is_notification?: boolean;
+                is_primary?: boolean;
+                sources?: string[];
+                verified?: boolean;
+              }[];
               email_verified?: boolean;
+              external_identities?: {
+                display_name?: string | null;
+                email?: string | null;
+                email_verified?: boolean;
+                provider?: string;
+              }[];
               first_name?: string | null;
               id?: number;
               is_admin?: boolean;
               language_code?: string;
+              notification_email?: string | null;
+              passkeys?: {
+                backed_up?: boolean;
+                created_at?: string | null;
+                credential_id?: string;
+                last_used_at?: string | null;
+                name?: string;
+              }[];
               password_auth_enabled?: boolean;
               telegram_id?: number | null;
               telegram_linked?: boolean;

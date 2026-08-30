@@ -17,6 +17,7 @@ from bot.app.web.web_server import (
     _register_provider_webhook_routes,
 )
 from bot.app.web.webapp import account as account_routes
+from bot.app.web.webapp import auth_email as auth_email_routes
 from bot.app.web.webapp.assets import _webapp_edge_token_middleware
 from bot.app.web.webapp.auth import session_route
 from bot.app.web.webapp_auth import (
@@ -993,6 +994,11 @@ class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
                     "get_user_by_email",
                     AsyncMock(return_value=db_user),
                 ),
+                patch.object(
+                    auth_email_routes.user_email_dal,
+                    "get_user_by_verified_email_address",
+                    AsyncMock(return_value=None),
+                ),
             ):
                 response = await subscription_webapp.email_password_auth_route(request)
 
@@ -1096,6 +1102,7 @@ class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
     async def test_telegram_oauth_start_uses_short_public_state(self):
         settings = SimpleNamespace(
             WEBAPP_ENABLED=True,
+            TELEGRAM_LOGIN_ENABLED=True,
             BOT_TOKEN="123456789:secret",
             TELEGRAM_OAUTH_CLIENT_ID=None,
             TELEGRAM_OAUTH_CLIENT_SECRET="client-secret",

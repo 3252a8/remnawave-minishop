@@ -7,6 +7,7 @@ from bot.middlewares.i18n import JsonI18n
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.email_templates import render_user_notification
 from bot.services.message_audit import log_user_message_delivery
+from bot.services.user_notification_policy import email_recipient
 from config.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -46,7 +47,7 @@ async def send_user_notification_email(
 ) -> bool:
     if not settings.email_auth_configured:
         return False
-    recipient = str(getattr(user, "email", "") or "").strip()
+    recipient = email_recipient(settings, user)
     if not recipient:
         return False
 

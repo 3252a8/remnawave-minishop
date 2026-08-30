@@ -1,5 +1,6 @@
 import {
   readMagicLoginToken,
+  readExternalAuthStatus,
   readTelegramAuthStatus,
   readTelegramLoginWidgetAuthData,
   clearAuthQuery,
@@ -78,6 +79,30 @@ export async function runWebappBoot({
 
   const magicToken = readMagicLoginToken();
   if (magicToken && (await finalizeMagicLogin(magicToken))) return;
+
+  const externalAuth = readExternalAuthStatus();
+  if (externalAuth?.status === "success") {
+    clearManualLogoutFlag();
+    clearAuthQuery();
+    try {
+      await loadData();
+      return;
+    } catch {
+      clearToken();
+    }
+  } else if (externalAuth) {
+    clearAuthQuery();
+    setAuthStatus(
+      externalAuth.status === "account_exists"
+        ? t("wa_auth_external_account_exists", { provider: externalAuth.provider })
+        : externalAuth.status === "invite_required"
+          ? t("wa_auth_invite_required")
+          : externalAuth.status === "cancelled"
+            ? t("wa_auth_external_cancelled")
+            : t("wa_auth_external_failed"),
+      true
+    );
+  }
 
   const telegramAuthStatus = readTelegramAuthStatus();
   if (telegramAuthStatus === "success") {

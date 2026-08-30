@@ -177,7 +177,6 @@
   const supportUnreadCount = $derived(supportStore.unreadCount);
   const supportUnreadLoading = $derived(supportStore.unreadLoading);
   const supportUnreadLoaded = $derived(supportStore.unreadLoaded);
-  const linkEmailBusy = $derived(accountStore.linkEmailBusy);
   const linkTelegramBusy = $derived(accountStore.linkTelegramBusy);
 
   const promoCode = $derived(actionsStore.promoCode);
@@ -194,7 +193,6 @@
     loginEmailTooltipOpen = authState.loginEmailTooltipOpen ?? loginEmailTooltipOpen;
   });
 
-  const emailLinkStatus = $derived(accountView.emailLinkStatus);
   const hasUnlinkedIdentity = $derived(accountView.hasUnlinkedIdentity);
   const privacyPolicyUrl = $derived(accountView.privacyPolicyUrl);
   const profileAvatarUrl = $derived(accountView.profileAvatarUrl);
@@ -203,7 +201,6 @@
   const serverStatusInternal = $derived(cfg.serverStatusInternal === true);
   const serverStatusShowOnHome = $derived(cfg.serverStatusShowOnHome === true);
   const serverStatusUrl = $derived(accountView.serverStatusUrl);
-  const showTelegramLinkedStatus = $derived(accountView.showTelegramLinkedStatus);
   const supportUrl = $derived(accountView.supportUrl);
   const telegramNotificationsNeedPrompt = $derived(accountView.telegramNotificationsNeedPrompt);
   const telegramNotificationsStartLink = $derived(accountView.telegramNotificationsStartLink);
@@ -303,6 +300,7 @@
   const goInvite = $derived(appActions.goInvite);
   const goPartner = $derived(appActions.goPartner);
   const goSettings = $derived(appActions.goSettings);
+  const goSecurity = $derived(appActions.goSecurity);
   const goTrial = $derived(appActions.goTrial);
   const goStatus = $derived(appActions.goStatus);
   const goSupport = $derived(appActions.goSupport);
@@ -560,7 +558,6 @@
       {devicesStatus}
       {devicesStore}
       {emailAuthEnabled}
-      {emailLinkStatus}
       {goDevices}
       {goHome}
       {goInstall}
@@ -568,6 +565,7 @@
       {goPartner}
       {partnerEnabled}
       {goSettings}
+      {goSecurity}
       {goTrial}
       {goStatus}
       {goSupport}
@@ -580,8 +578,6 @@
       {languageClickGuardArmed}
       bind:languageMenuOpen
       {languageOptions}
-      {linkEmailBusy}
-      linkTelegramAccount={accountStore.linkTelegramFromSettings}
       {linkTelegramAndActivateTrial}
       {linkTelegramAndClaimReferralWelcome}
       {linkTelegramBusy}
@@ -624,7 +620,6 @@
       {serverStatusShowOnHome}
       {serverStatusUrl}
       statusStore={serverStatusStore}
-      {showTelegramLinkedStatus}
       {setLanguageMenuOpen}
       {setPromoCode}
       {subscription}

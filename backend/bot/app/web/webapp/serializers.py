@@ -6,6 +6,7 @@ from urllib.parse import quote, urlsplit, urlunsplit
 
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
@@ -44,6 +45,7 @@ from config.tariffs_config import default_currency_key_for_settings, payment_cur
 from config.traffic_strategy import normalize_traffic_limit_strategy
 from config.webapp_themes_config import public_themes_catalog_payload
 from db.dal import payment_dal, subscription_dal, support_dal, user_dal
+from db.models import UserEmailAddress, UserExternalIdentity, UserPasskeyCredential
 
 from .assets import (
     _get_cached_webapp_settings,
@@ -60,6 +62,7 @@ from .common import (
     _normalize_language,
     _telegram_avatar_url,
 )
+from .email_address_serializers import serialize_user_email_addresses
 from .referral_links import visible_referral_links
 from .referral_serializers import (
     _build_webapp_referral_link,
@@ -272,6 +275,43 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             plans=plans_payload,
         )
         avatar = await _ensure_cached_telegram_avatar(request, session, db_user)
+        external_identities = (
+            (
+                await session.execute(
+                    select(UserExternalIdentity)
+                    .where(UserExternalIdentity.user_id == user_id)
+                    .order_by(UserExternalIdentity.provider)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        email_addresses = (
+            (
+                await session.execute(
+                    select(UserEmailAddress)
+                    .where(UserEmailAddress.user_id == user_id)
+                    .order_by(
+                        UserEmailAddress.is_primary.desc(),
+                        UserEmailAddress.is_notification.desc(),
+                        UserEmailAddress.created_at.asc(),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        passkey_credentials = (
+            (
+                await session.execute(
+                    select(UserPasskeyCredential)
+                    .where(UserPasskeyCredential.user_id == user_id)
+                    .order_by(UserPasskeyCredential.created_at.desc())
+                )
+            )
+            .scalars()
+            .all()
+        )
         try:
             await session.commit()
         except Exception:
@@ -293,12 +333,19 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
         getattr(db_user, "telegram_notifications_status", None)
     )
     telegram_notifications_link = telegram_notifications_start_link(get_bot_username(request))
+    serialized_email_addresses, notification_email = serialize_user_email_addresses(
+        db_user,
+        email_addresses,
+        external_identities,
+    )
     return {
         "user": {
             "id": user_id,
             "username": db_user.username,
             "email": db_user.email,
             "email_verified": bool(db_user.email_verified_at),
+            "notification_email": notification_email or None,
+            "email_addresses": serialized_email_addresses,
             "password_auth_enabled": bool(
                 db_user.email and db_user.email_verified_at and db_user.password_hash
             ),
@@ -314,6 +361,29 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             "first_name": db_user.first_name,
             "language_code": lang,
             "is_admin": is_admin,
+            "external_identities": [
+                {
+                    "provider": str(identity.provider),
+                    "email": identity.email,
+                    "email_verified": bool(identity.email_verified),
+                    "display_name": identity.display_name,
+                }
+                for identity in external_identities
+            ],
+            "passkeys": [
+                {
+                    "credential_id": str(credential.credential_id),
+                    "name": str(credential.name or "Passkey"),
+                    "created_at": credential.created_at.isoformat()
+                    if credential.created_at
+                    else None,
+                    "last_used_at": credential.last_used_at.isoformat()
+                    if credential.last_used_at
+                    else None,
+                    "backed_up": bool(credential.backed_up),
+                }
+                for credential in passkey_credentials
+            ],
         },
         "subscription": _serialize_subscription(
             request,

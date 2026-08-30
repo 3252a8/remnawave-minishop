@@ -30,6 +30,7 @@ const descriptions = {
   'features/server-status.md': 'Статус серверов в Mini App через внешнюю страницу, Uptime Kuma или xray-checker.',
   'features/telegram-auth.md': 'Telegram Mini Apps initData, Telegram OAuth, BotFather и настройка входа через Telegram.',
   'features/email-login.md': 'SMTP, одноразовые коды, magic link, парольный вход и привязка email-аккаунтов.',
+  'features/login-methods.md': 'Настройка входа через Google, Яндекс и passkey, связывание аккаунтов и выбор адреса уведомлений.',
   'features/webapp-themes.md': 'Кастомные темы, CSS-токены, ассеты и пайплайн создания темы.',
   'features/admin-panel.md': 'Возможности админ-панели, управление пользователями, настройками, тарифами и поддержкой.',
   'features/backups.md': 'Автоматические бэкапы, отправка архивов в Telegram, локальное хранение и восстановление БД/compose-папки из админки.',

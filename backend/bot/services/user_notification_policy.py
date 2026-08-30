@@ -117,7 +117,11 @@ def email_recipient(settings: Any, user: Any) -> str:
 
     if not bool(settings.email_auth_configured):
         return ""
-    return str(getattr(user, "email", "") or "").strip().lower()
+    return (
+        str(getattr(user, "notification_email", None) or getattr(user, "email", "") or "")
+        .strip()
+        .lower()
+    )
 
 
 def user_notification_delivery_plan(
