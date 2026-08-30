@@ -929,7 +929,7 @@ Stripe создает hosted Checkout Sessions и подтверждает ав�
 | `REFERRAL_WEBAPP_LINK_ENABLED` | Показывать реферальную ссылку на сайт в разделе бонусов Web App. Хотя бы один из двух флагов показа ссылок должен быть включён. |
 | `REFERRAL_TELEGRAM_LINK_ENABLED` | Показывать реферальную ссылку на Telegram-бота в разделе бонусов Web App. Хотя бы один из двух флагов показа ссылок должен быть включён. |
 | `LEGACY_REFS` | Разрешить старые ссылки вида `/start ref_<telegram_id>`, где payload содержит Telegram/user ID пригласившего. |
-| `DISPOSABLE_EMAIL_DOMAINS` | Домены одноразовой почты через запятую. Для таких email trial и реферальный welcome bonus доступны только после привязки Telegram. |
+| `DISPOSABLE_EMAIL_DOMAINS` | Домены одноразовой почты через запятую или по одному на строку. По умолчанию используется встроенный проверяемый snapshot; для таких email trial и реферальный welcome bonus доступны только после привязки Telegram. |
 | `REFERRAL_BONUS_DAYS_1_MONTH`, `REFERRAL_BONUS_DAYS_3_MONTHS`, `REFERRAL_BONUS_DAYS_6_MONTHS`, `REFERRAL_BONUS_DAYS_12_MONTHS` | Legacy-бонусы пригласившему без JSON-каталога. В JSON-тарифах используйте `referral_bonus_days_inviter`. |
 
 | `REFEREE_BONUS_DAYS_1_MONTH`, `REFEREE_BONUS_DAYS_3_MONTHS`, `REFEREE_BONUS_DAYS_6_MONTHS`, `REFEREE_BONUS_DAYS_12_MONTHS` | Legacy-бонусы приглашенному без JSON-каталога. В JSON-тарифах используйте `referral_bonus_days_referee`. |

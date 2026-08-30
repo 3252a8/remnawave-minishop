@@ -65,6 +65,7 @@ export const DEFAULT_DISPOSABLE_EMAIL_DOMAINS = [
   "no-spam.ws",
   "ogzmail.com",
   "pookmail.com",
+  "prorises.com",
   "rhyta.com",
   "sharklasers.com",
   "sofort-mail.de",

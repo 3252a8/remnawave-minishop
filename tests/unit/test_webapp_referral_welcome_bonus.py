@@ -176,7 +176,7 @@ class WebAppReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
             user_id=42,
             referred_by_id=7,
             telegram_id=None,
-            email="person@ogzmail.com",
+            email="person@prorises.com",
         )
         subscription_service = SimpleNamespace(
             has_active_subscription=AsyncMock(return_value=False),
