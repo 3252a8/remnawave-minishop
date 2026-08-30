@@ -448,6 +448,7 @@
       {openExternalLink}
       {submitEmailOnEnter}
       onBackToLogin={() => {
+        void authStore.cancelPendingExternalOauth();
         screen = "login";
       }}
       clearLoginEmailError={() => {

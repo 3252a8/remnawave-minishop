@@ -95,6 +95,9 @@ export type AuthEmailMagicResponse = PostResponse<"/api/auth/email/magic">;
 export type AuthEmailPasswordResponse = PostResponse<"/api/auth/email/password">;
 export type AuthEmailRequestResponse = PostResponse<"/api/auth/email/request">;
 export type AuthEmailVerifyResponse = PostResponse<"/api/auth/email/verify">;
+export type AuthExternalPendingResponse = PostResponse<"/api/auth/external/pending">;
+export type AuthExternalRequestResponse = PostResponse<"/api/auth/external/request">;
+export type AuthExternalVerifyResponse = PostResponse<"/api/auth/external/verify">;
 export type AuthLogoutResponse = PostResponse<"/api/auth/logout">;
 export type AuthSessionResponse = GetResponse<"/api/auth/session">;
 export type AuthTokenResponse = PostResponse<"/api/auth/token">;
@@ -145,6 +148,10 @@ export type AuthEmailMagicPath = "/auth/email/magic";
 export type AuthEmailPasswordPath = "/auth/email/password";
 export type AuthEmailRequestPath = "/auth/email/request";
 export type AuthEmailVerifyPath = "/auth/email/verify";
+export type AuthExternalPendingPath = "/auth/external/pending";
+export type AuthExternalRequestPath = "/auth/external/request";
+export type AuthExternalVerifyPath = "/auth/external/verify";
+export type AuthExternalCancelPath = "/auth/external/cancel";
 export type AuthLogoutPath = "/auth/logout";
 export type AuthTokenPath = "/auth/token";
 export type ServerStatusPath = "/status";
@@ -307,6 +314,22 @@ export function buildAuthEmailRequestPath(): AuthEmailRequestPath {
 
 export function buildAuthEmailVerifyPath(): AuthEmailVerifyPath {
   return "/auth/email/verify";
+}
+
+export function buildAuthExternalPendingPath(): AuthExternalPendingPath {
+  return "/auth/external/pending";
+}
+
+export function buildAuthExternalRequestPath(): AuthExternalRequestPath {
+  return "/auth/external/request";
+}
+
+export function buildAuthExternalVerifyPath(): AuthExternalVerifyPath {
+  return "/auth/external/verify";
+}
+
+export function buildAuthExternalCancelPath(): AuthExternalCancelPath {
+  return "/auth/external/cancel";
 }
 
 export function buildAuthLogoutPath(): AuthLogoutPath {

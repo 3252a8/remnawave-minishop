@@ -31,6 +31,7 @@ function makeDeps(overrides: TestOverrides = {}) {
     hasEmailCodeLoginDeeplink: vi.fn(() => false),
     finalizeMagicLogin: vi.fn(),
     finalizeTelegramAuth: vi.fn(),
+    restorePendingExternalOauth: vi.fn(async () => true),
     setAuthStatus: vi.fn(),
     t: (key: string) => key,
     getInitDataForBoot: vi.fn(() => ""),
@@ -45,14 +46,14 @@ afterEach(() => {
 });
 
 describe("runWebappBoot", () => {
-  it("requires signing in to an existing account before linking matching OIDC email", async () => {
-    installBrowser("?external_auth=google:account_exists");
+  it("continues matching OIDC email login with email confirmation", async () => {
+    installBrowser("?external_auth=google:email_confirmation_required");
     const deps = makeDeps();
 
     await runWebappBoot(deps);
 
-    expect(deps.setAuthStatus).toHaveBeenCalledWith("wa_auth_external_account_exists", true);
     expect(deps.showLogin).toHaveBeenCalledOnce();
+    expect(deps.restorePendingExternalOauth).toHaveBeenCalledOnce();
     expect(deps.loadData).not.toHaveBeenCalled();
     expect(window.history.replaceState).toHaveBeenCalledOnce();
   });

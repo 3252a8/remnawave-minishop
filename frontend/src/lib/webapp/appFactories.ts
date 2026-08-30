@@ -402,6 +402,10 @@ export function createAppFactories({
     hasEmailCodeLoginDeeplink,
     finalizeMagicLogin: (loginToken) => authStore.finalizeMagicLogin(loginToken),
     finalizeTelegramAuth: (authData, source) => authStore.finalizeTelegramAuth(authData, source),
+    restorePendingExternalOauth: () =>
+      authStore.restorePendingExternalOauth((nextScreen) => {
+        shellState.screen = nextScreen;
+      }),
     setAuthStatus: (message, isError = false) => authStore.setAuthStatus(message, isError),
     t,
     readTelegramMiniAppInitDataFromLocation,

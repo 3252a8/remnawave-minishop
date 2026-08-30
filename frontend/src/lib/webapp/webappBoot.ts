@@ -28,6 +28,7 @@ export type WebappBootDeps = {
   hasEmailCodeLoginDeeplink?: (() => boolean) | null;
   finalizeMagicLogin: (token: string) => unknown;
   finalizeTelegramAuth: (authData: unknown, source: "auth_data" | "init_data") => unknown;
+  restorePendingExternalOauth: () => Promise<boolean> | boolean;
   setAuthStatus: (message: string, isError?: boolean) => void;
   t: (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   getInitDataForBoot: () => string | null | undefined;
@@ -55,6 +56,7 @@ export async function runWebappBoot({
   hasEmailCodeLoginDeeplink,
   finalizeMagicLogin,
   finalizeTelegramAuth,
+  restorePendingExternalOauth,
   setAuthStatus,
   t,
   getInitDataForBoot,
@@ -90,6 +92,13 @@ export async function runWebappBoot({
     } catch {
       clearToken();
     }
+  } else if (externalAuth?.status === "email_confirmation_required") {
+    clearManualLogoutFlag();
+    clearToken();
+    clearAuthQuery();
+    showLogin();
+    await restorePendingExternalOauth();
+    return;
   } else if (externalAuth) {
     clearAuthQuery();
     setAuthStatus(

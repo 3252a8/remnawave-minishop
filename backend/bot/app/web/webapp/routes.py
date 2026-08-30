@@ -88,6 +88,10 @@ from .email_change import (
 from .external_oauth import (
     external_identity_unlink_route,
     external_oauth_callback_route,
+    external_oauth_pending_cancel_route,
+    external_oauth_pending_request_route,
+    external_oauth_pending_status_route,
+    external_oauth_pending_verify_route,
     external_oauth_start_route,
 )
 from .guides import (
@@ -228,6 +232,10 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/auth/email/verify", email_auth_verify_route)
     app.router.add_post("/api/auth/email/magic", email_auth_magic_route)
     app.router.add_post("/api/auth/email/password", email_password_auth_route)
+    app.router.add_post("/api/auth/external/pending", external_oauth_pending_status_route)
+    app.router.add_post("/api/auth/external/request", external_oauth_pending_request_route)
+    app.router.add_post("/api/auth/external/verify", external_oauth_pending_verify_route)
+    app.router.add_post("/api/auth/external/cancel", external_oauth_pending_cancel_route)
     app.router.add_post("/api/auth/passkey/options", passkey_auth_options_route)
     app.router.add_post("/api/auth/passkey/verify", passkey_auth_verify_route)
     app.router.add_get("/api/auth/session", session_route)
