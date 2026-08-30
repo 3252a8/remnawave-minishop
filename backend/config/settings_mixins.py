@@ -94,9 +94,9 @@ if TYPE_CHECKING:
         GOOGLE_OIDC_ENABLED: bool
         GOOGLE_OIDC_CLIENT_ID: str | None
         GOOGLE_OIDC_CLIENT_SECRET: str | None
-        YANDEX_OAUTH_ENABLED: bool
-        YANDEX_OAUTH_CLIENT_ID: str | None
-        YANDEX_OAUTH_CLIENT_SECRET: str | None
+        YANDEX_OIDC_ENABLED: bool
+        YANDEX_OIDC_CLIENT_ID: str | None
+        YANDEX_OIDC_CLIENT_SECRET: str | None
         PASSKEY_LOGIN_ENABLED: bool
         PASSKEY_RP_ID: str | None
         PASSKEY_RP_NAME: str | None
@@ -836,9 +836,9 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         ):
             providers.append("google")
         if (
-            self.YANDEX_OAUTH_ENABLED
-            and self.YANDEX_OAUTH_CLIENT_ID
-            and self.YANDEX_OAUTH_CLIENT_SECRET
+            self.YANDEX_OIDC_ENABLED
+            and self.YANDEX_OIDC_CLIENT_ID
+            and self.YANDEX_OIDC_CLIENT_SECRET
         ):
             providers.append("yandex")
         if self.PASSKEY_LOGIN_ENABLED:

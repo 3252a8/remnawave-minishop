@@ -73,9 +73,9 @@ def _provider(settings: Settings, key: str) -> ExternalProvider | None:
                 client_secret=secret,
                 scopes=("openid", "email", "profile"),
             )
-    if key == "yandex" and settings.YANDEX_OAUTH_ENABLED:
-        client_id = str(settings.YANDEX_OAUTH_CLIENT_ID or "").strip()
-        secret = str(settings.YANDEX_OAUTH_CLIENT_SECRET or "").strip()
+    if key == "yandex" and settings.YANDEX_OIDC_ENABLED:
+        client_id = str(settings.YANDEX_OIDC_CLIENT_ID or "").strip()
+        secret = str(settings.YANDEX_OIDC_CLIENT_SECRET or "").strip()
         if client_id and secret:
             return ExternalProvider(
                 key="yandex",

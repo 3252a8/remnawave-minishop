@@ -367,9 +367,9 @@ Xray-Core 26.3.27+, `NET_ADMIN`, nftables, корректный sniffing и вк
 | `GOOGLE_OIDC_ENABLED` | Админка | Включить Google OIDC. Требует client ID и client secret. |
 | `GOOGLE_OIDC_CLIENT_ID` | Админка | Client ID OAuth 2.0 Web application из Google Cloud. |
 | `GOOGLE_OIDC_CLIENT_SECRET` | Админка | Секрет Google OAuth-клиента. |
-| `YANDEX_OAUTH_ENABLED` | Админка | Включить вход через Yandex ID. Требует client ID и client secret. |
-| `YANDEX_OAUTH_CLIENT_ID` | Админка | ID приложения для авторизации пользователей в Yandex OAuth. |
-| `YANDEX_OAUTH_CLIENT_SECRET` | Админка | Секрет приложения Yandex OAuth. |
+| `YANDEX_OIDC_ENABLED` | Админка | Включить вход через Yandex ID. Требует client ID и client secret. |
+| `YANDEX_OIDC_CLIENT_ID` | Админка | ID приложения для авторизации пользователей в Yandex OAuth. |
+| `YANDEX_OIDC_CLIENT_SECRET` | Админка | Секрет приложения Yandex OAuth. |
 | `PASSKEY_LOGIN_ENABLED` | Админка | Включить регистрацию и вход с passkey/WebAuthn. |
 | `PASSKEY_RP_ID` | Админка | Домен Relying Party без схемы, порта и пути. По умолчанию берётся из публичного Web App URL. |
 | `PASSKEY_RP_NAME` | Админка | Имя сервиса, показываемое при создании ключа доступа. |

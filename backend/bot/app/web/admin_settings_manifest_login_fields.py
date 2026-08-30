@@ -53,17 +53,17 @@ LOGIN_METHOD_SETTINGS_FIELDS: tuple[SettingField, ...] = (
         subsection="google",
     ),
     SettingField(
-        "YANDEX_OAUTH_ENABLED", "bool", "login_methods", "Yandex login", subsection="yandex"
+        "YANDEX_OIDC_ENABLED", "bool", "login_methods", "Yandex login", subsection="yandex"
     ),
     SettingField(
-        "YANDEX_OAUTH_CLIENT_ID",
+        "YANDEX_OIDC_CLIENT_ID",
         "string",
         "login_methods",
         "Yandex client ID",
         subsection="yandex",
     ),
     SettingField(
-        "YANDEX_OAUTH_CLIENT_SECRET",
+        "YANDEX_OIDC_CLIENT_SECRET",
         "string",
         "login_methods",
         "Yandex client secret",

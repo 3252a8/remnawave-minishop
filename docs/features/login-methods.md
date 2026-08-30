@@ -84,9 +84,9 @@ https://app.example.com/auth/yandex/callback
 5. Сохраните client ID/secret в Minishop:
 
 ```ini
-YANDEX_OAUTH_ENABLED=True
-YANDEX_OAUTH_CLIENT_ID=<client-id>
-YANDEX_OAUTH_CLIENT_SECRET=<client-secret>
+YANDEX_OIDC_ENABLED=True
+YANDEX_OIDC_CLIENT_ID=<client-id>
+YANDEX_OIDC_CLIENT_SECRET=<client-secret>
 ```
 
 Для контакта Minishop использует `default_email`, возвращённый Yandex ID. Этот адрес добавляется
