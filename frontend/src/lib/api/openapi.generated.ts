@@ -11780,6 +11780,7 @@ export interface operations {
             };
             settings: {
               auth_providers?: string[];
+              email_address_change_enabled?: boolean;
               email_auth_enabled?: boolean;
               menu_buttons?: {
                 icon: string;

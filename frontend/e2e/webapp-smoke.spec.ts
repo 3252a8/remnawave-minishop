@@ -419,7 +419,9 @@ async function assertUserTicketScrolling(page: Page, nav: Locator): Promise<void
   ).toBe(true);
   await page.evaluate(() => {
     const transfer = new DataTransfer();
-    transfer.items.add(new File([new Uint8Array([1, 2, 3])], "dragged-photo.jpg", { type: "image/jpg" }));
+    transfer.items.add(
+      new File([new Uint8Array([1, 2, 3])], "dragged-photo.jpg", { type: "image/jpg" })
+    );
     window.dispatchEvent(
       new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer: transfer })
     );
@@ -427,7 +429,9 @@ async function assertUserTicketScrolling(page: Page, nav: Locator): Promise<void
   await expect(page.locator(".message-image-drag-overlay")).toBeVisible();
   await page.evaluate(() => {
     const transfer = new DataTransfer();
-    transfer.items.add(new File([new Uint8Array([1, 2, 3])], "dragged-photo.jpg", { type: "image/jpg" }));
+    transfer.items.add(
+      new File([new Uint8Array([1, 2, 3])], "dragged-photo.jpg", { type: "image/jpg" })
+    );
     window.dispatchEvent(
       new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: transfer })
     );
@@ -530,7 +534,9 @@ async function assertAdminTicketScrolling(page: Page, supportDialog: Locator): P
   const actionsMatchHeight = await Promise.all([
     uploadButton.boundingBox(),
     sendButton.boundingBox(),
-  ]).then(([upload, send]) => Boolean(upload && send && Math.abs(upload.height - send.height) <= 1));
+  ]).then(([upload, send]) =>
+    Boolean(upload && send && Math.abs(upload.height - send.height) <= 1)
+  );
   expect(actionsMatchHeight, "admin-support: image and send actions must match height").toBe(true);
   await expect
     .poll(() => bodyViewport.evaluate((element) => element.scrollHeight - element.clientHeight))
@@ -974,11 +980,13 @@ test("Telegram fullscreen fallback protects webapp actions and admin chrome", as
         WebApp: {
           expand() {},
           initData: "",
-          isFullscreen: true,
+          isFullscreen: false,
+          isVersionAtLeast: () => true,
           offEvent() {},
           onEvent() {},
           platform: "ios",
           ready() {},
+          requestFullscreen() {},
         },
       },
     });
@@ -990,7 +998,7 @@ test("Telegram fullscreen fallback protects webapp actions and admin chrome", as
     style.setProperty("--tg-content-safe-area-inset-bottom", "34px");
   };
   await page.evaluate(applyTelegramFullscreenInsets);
-  await expect(page.locator("html")).toHaveAttribute("data-telegram-fullscreen", "true");
+  await expect(page.locator("html")).toHaveAttribute("data-telegram-fullscreen-requested", "true");
 
   const phoneScreen = page.locator(".phone-screen");
   const bottomNav = page.locator("nav.bottom-nav");
@@ -1181,13 +1189,9 @@ test("program entries follow the enabled feature combination", async ({ page }) 
   await page.goto("/demo/runtime/invite?mock=partner-referral-disabled&theme_preview=dark");
 
   let bottomNav = page.locator(".bottom-nav");
-  const partnerNavEntry = bottomNav.locator(
-    '[data-nav-level="primary"][aria-label="Партнёрка"]'
-  );
+  const partnerNavEntry = bottomNav.locator('[data-nav-level="primary"][aria-label="Партнёрка"]');
   await expect(partnerNavEntry).toBeVisible();
-  await expect(
-    bottomNav.locator('[data-nav-level="primary"][aria-label="Бонусы"]')
-  ).toHaveCount(0);
+  await expect(bottomNav.locator('[data-nav-level="primary"][aria-label="Бонусы"]')).toHaveCount(0);
   await expect(partnerNavEntry.locator("svg path").first()).toHaveAttribute(
     "d",
     "m11 17 2 2a1 1 0 1 0 3-3"
@@ -1202,12 +1206,10 @@ test("program entries follow the enabled feature combination", async ({ page }) 
   await page.goto("/demo/runtime/settings?mock=partner-referral-enabled&theme_preview=dark");
 
   bottomNav = page.locator(".bottom-nav");
-  await expect(
-    bottomNav.locator('[data-nav-level="primary"][aria-label="Бонусы"]')
-  ).toBeVisible();
-  await expect(
-    bottomNav.locator('[data-nav-level="primary"][aria-label="Партнёрка"]')
-  ).toHaveCount(0);
+  await expect(bottomNav.locator('[data-nav-level="primary"][aria-label="Бонусы"]')).toBeVisible();
+  await expect(bottomNav.locator('[data-nav-level="primary"][aria-label="Партнёрка"]')).toHaveCount(
+    0
+  );
   await expect(
     bottomNav.locator(".rail-settings-subnav").getByRole("button", {
       name: "Партнёрка",

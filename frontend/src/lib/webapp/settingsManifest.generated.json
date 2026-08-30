@@ -380,6 +380,25 @@
         "updated_at": null
       },
       {
+        "key": "EMAIL_ADDRESS_CHANGE_ENABLED",
+        "type": "bool",
+        "section": "login_methods",
+        "section_order": 2,
+        "subsection": "email",
+        "label": "Email address change",
+        "description": "Allow users to change their primary email after confirming both the current and new addresses",
+        "i18n_label_key": "admin_settings_field_email_address_change_enabled_label",
+        "i18n_description_key": "admin_settings_field_email_address_change_enabled_description",
+        "i18n_subsection_key": "admin_settings_subsection_email",
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": true,
+        "secret": false,
+        "value": "",
+        "overridden": false,
+        "updated_at": null
+      },
+      {
         "key": "GOOGLE_OIDC_ENABLED",
         "type": "bool",
         "section": "login_methods",

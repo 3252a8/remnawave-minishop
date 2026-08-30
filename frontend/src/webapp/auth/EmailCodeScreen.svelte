@@ -2,8 +2,8 @@
   import { ArrowLeft, RefreshCw } from "$components/ui/icons.js";
 
   import Button from "$components/ui/button.svelte";
-  import { Input } from "$components/ui/index.js";
   import { StatusMessage } from "$components/patterns/webapp/index.js";
+  import EmailOtpInput from "./EmailOtpInput.svelte";
 
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type Action = () => void | Promise<void>;
@@ -49,20 +49,7 @@
     <span></span>
   </header>
   <div class="otp-wrap">
-    <label class="otp-input-wrap">
-      <Input
-        bind:value={code}
-        inputmode="numeric"
-        autocomplete="one-time-code"
-        maxlength={6}
-        aria-label={t("wa_email_code_aria")}
-      />
-      <span class="otp-slots" aria-hidden="true">
-        {#each Array.from({ length: 6 }) as _, index}
-          <span class:filled={code[index]}>{code[index] || ""}</span>
-        {/each}
-      </span>
-    </label>
+    <EmailOtpInput bind:code ariaLabel={t("wa_email_code_aria")} disabled={busy} />
     <Button class="wide" onclick={onConfirm} disabled={busy}>
       {t("wa_confirm")}
     </Button>

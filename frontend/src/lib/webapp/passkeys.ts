@@ -1,4 +1,6 @@
 import type { ApiClient } from "./publicApi.js";
+import { MANUAL_LOGOUT_FLAG_KEY } from "./constants.js";
+import { clearManualLogoutFlag } from "./session.js";
 
 type JsonMap = Record<string, unknown>;
 
@@ -161,5 +163,6 @@ export async function loginWithPasskey(apiBase = "/api"): Promise<void> {
     credentials: "same-origin",
   }).then((response) => response.json());
   if (!verifyResponse.ok) throw verifyResponse;
+  clearManualLogoutFlag(MANUAL_LOGOUT_FLAG_KEY);
   window.location.assign("/home");
 }

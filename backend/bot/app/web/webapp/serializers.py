@@ -381,6 +381,12 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
                     if credential.last_used_at
                     else None,
                     "backed_up": bool(credential.backed_up),
+                    "device_type": credential.device_type,
+                    "transports": [
+                        value.strip()
+                        for value in str(credential.transports or "").split(",")
+                        if value.strip()
+                    ],
                 }
                 for credential in passkey_credentials
             ],
@@ -459,6 +465,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             ),
             "subscription_guides_enabled": subscription_guides_available(settings),
             "email_auth_enabled": settings.email_auth_configured,
+            "email_address_change_enabled": bool(settings.EMAIL_ADDRESS_CHANGE_ENABLED),
             "auth_providers": settings.webapp_auth_providers,
             "menu_buttons": public_menu_buttons(
                 settings.MENU_BUTTONS_JSON,

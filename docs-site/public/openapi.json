@@ -20514,6 +20514,9 @@
                           },
                           "type": "array"
                         },
+                        "email_address_change_enabled": {
+                          "type": "boolean"
+                        },
                         "email_auth_enabled": {
                           "type": "boolean"
                         },

@@ -640,6 +640,7 @@ WEBAPP_SETTINGS_SCHEMA: dict[str, Any] = {
         "payment_methods_display_mode": STRING_SCHEMA,
         "subscription_guides_enabled": BOOLEAN_SCHEMA,
         "email_auth_enabled": BOOLEAN_SCHEMA,
+        "email_address_change_enabled": BOOLEAN_SCHEMA,
         "auth_providers": STRING_ARRAY_SCHEMA,
         "menu_buttons": {"type": "array", "items": MENU_BUTTON_SCHEMA},
     },

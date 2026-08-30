@@ -2749,23 +2749,48 @@
   line-height: 1.45;
 }
 
-.admin-login-provider-callback {
+.admin-login-provider-help-copy .admin-login-provider-runtime-hint {
+  margin-top: 4px;
+  color: var(--admin-text);
+  font-weight: 650;
+}
+
+.admin-login-provider-setup-values {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin-top: 6px;
+}
+
+.admin-login-provider-setup-row {
   display: grid;
   gap: 3px;
   min-width: 0;
-  margin-top: 4px;
 }
 
-.admin-login-provider-callback span {
+.admin-login-provider-setup-row > span {
   color: var(--admin-muted);
   font-size: 11px;
 }
 
-.admin-login-provider-callback code {
+.admin-login-provider-setup-row > p {
+  margin: 0;
+}
+
+.admin-login-provider-setup-row code,
+.admin-login-provider-value code {
   min-width: 0;
   overflow-wrap: anywhere;
   color: var(--admin-text);
   font-size: 11px;
+}
+
+.admin-login-provider-value {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .admin-login-provider-help-actions {
@@ -3232,6 +3257,16 @@
   grid-template-columns: minmax(100px, 150px) auto;
   gap: 8px;
   align-items: center;
+}
+
+@media (max-width: 640px) {
+  .admin-login-provider-value {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-login-provider-value .admin-btn {
+    width: 100%;
+  }
 }
 
 .admin-translations-audience-tabs {

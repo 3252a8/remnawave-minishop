@@ -1178,7 +1178,11 @@ a {
   display: grid;
   place-items: center;
   width: 34px;
+  min-width: 34px;
   height: 34px;
+  box-sizing: border-box;
+  justify-self: end;
+  padding: 0;
   border: 0;
   border-radius: 10px;
   background: color-mix(in srgb, var(--danger) 10%, transparent);
@@ -1186,8 +1190,34 @@ a {
   cursor: pointer;
 }
 
-.security-provider-row-linked {
+.settings-row.security-deletable-row {
   grid-template-columns: 28px minmax(0, 1fr) 34px;
+}
+
+.security-passkey-row {
+  align-items: start;
+}
+
+.security-passkey-row > svg,
+.security-passkey-row > .security-delete {
+  margin-top: 2px;
+}
+
+.security-passkey-content {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.security-passkey-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.settings-row .security-passkey-meta small {
+  overflow: visible;
+  white-space: normal;
 }
 
 .security-notification-email-row {
@@ -4398,6 +4428,10 @@ a {
   .settings-links-block .settings-row,
   .settings-links-block .settings-telegram-link-btn {
     min-height: 48px;
+  }
+
+  .settings-links-block .settings-row-security {
+    grid-column: 1 / -1;
   }
 
   .settings-row-linked-with-action {

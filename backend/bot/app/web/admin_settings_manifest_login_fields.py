@@ -35,6 +35,17 @@ LOGIN_METHOD_SETTINGS_FIELDS: tuple[SettingField, ...] = (
     ),
     SettingField("EMAIL_LOGIN_ENABLED", "bool", "login_methods", "Email login", subsection="email"),
     SettingField(
+        "EMAIL_ADDRESS_CHANGE_ENABLED",
+        "bool",
+        "login_methods",
+        "Email address change",
+        description=(
+            "Allow users to change their primary email after confirming both the current "
+            "and new addresses"
+        ),
+        subsection="email",
+    ),
+    SettingField(
         "GOOGLE_OIDC_ENABLED", "bool", "login_methods", "Google login", subsection="google"
     ),
     SettingField(

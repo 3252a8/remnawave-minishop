@@ -485,7 +485,7 @@
   {:else if screen === "partner"}
     {#if partnerScreen.component}
       {@const Screen = partnerScreen.component}
-      <Screen {api} {copyText} {t} />
+      <Screen {api} {copyText} goBack={activeTab === "settings" ? goSettings : undefined} {t} />
     {:else}
       <ScreenLoading label={t("wa_loading")} />
     {/if}
@@ -600,6 +600,8 @@
       {api}
       authProviders={(appSettings.auth_providers || appSettings.authProviders || []) as string[]}
       {brandTitle}
+      {currentLang}
+      emailChangeEnabled={Boolean(appSettings.email_address_change_enabled ?? true)}
       {goSettings}
       linkTelegramAccount={accountStore.linkTelegramFromSettings}
       {openLinkEmailDialog}

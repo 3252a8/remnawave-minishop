@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiClient } from "./publicApi.js";
-import { registerPasskey, suggestedPasskeyName } from "./passkeys.js";
+import { loginWithPasskey, registerPasskey, suggestedPasskeyName } from "./passkeys.js";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -73,5 +73,54 @@ describe("registerPasskey", () => {
         response: { transports: ["internal"] },
       },
     });
+  });
+});
+
+describe("loginWithPasskey", () => {
+  it("clears a previous manual logout before opening the authenticated app", async () => {
+    class TestAssertionResponse {
+      clientDataJSON = Uint8Array.from([1, 2]).buffer;
+      authenticatorData = Uint8Array.from([3, 4]).buffer;
+      signature = Uint8Array.from([5, 6]).buffer;
+      userHandle = null;
+    }
+
+    const assign = vi.fn();
+    const removeItem = vi.fn();
+    const credential = {
+      id: "credential-id",
+      rawId: Uint8Array.from([7, 8]).buffer,
+      type: "public-key",
+      authenticatorAttachment: "platform",
+      getClientExtensionResults: () => ({}),
+      response: new TestAssertionResponse(),
+    };
+    const get = vi.fn().mockResolvedValue(credential);
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        json: async () => ({
+          ok: true,
+          options: {
+            challenge: "AQID",
+            rpId: "example.test",
+            allowCredentials: [{ id: "BAUG", type: "public-key" }],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({ json: async () => ({ ok: true }) });
+
+    vi.stubGlobal("window", { PublicKeyCredential: class {}, location: { assign } });
+    vi.stubGlobal("PublicKeyCredential", class {});
+    vi.stubGlobal("AuthenticatorAttestationResponse", class {});
+    vi.stubGlobal("AuthenticatorAssertionResponse", TestAssertionResponse);
+    vi.stubGlobal("navigator", { credentials: { get } });
+    vi.stubGlobal("localStorage", { removeItem });
+    vi.stubGlobal("fetch", fetch);
+
+    await loginWithPasskey("/api");
+
+    expect(removeItem).toHaveBeenCalledWith("rw_webapp_manual_logout");
+    expect(assign).toHaveBeenCalledWith("/home");
   });
 });

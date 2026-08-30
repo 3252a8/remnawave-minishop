@@ -12,12 +12,12 @@
   } from "$components/ui/icons.js";
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
-  import Input from "$components/ui/input.svelte";
   import { AttentionDot } from "$components/ui/index.js";
   import type { ApiClient } from "$lib/webapp/publicApi.js";
   import { passkeysSupported, registerPasskey } from "$lib/webapp/passkeys.js";
   import type { Translate, UserProfile, VoidAction } from "$lib/webapp/types.js";
   import ProviderLogo from "../auth/ProviderLogo.svelte";
+  import ChangeEmailDialog from "../security/ChangeEmailDialog.svelte";
 
   type ExternalIdentity = {
     provider?: string;
@@ -30,6 +30,8 @@
     created_at?: string | null;
     last_used_at?: string | null;
     backed_up?: boolean;
+    device_type?: string | null;
+    transports?: string[];
   };
   type AccountEmailAddress = {
     email?: string;
@@ -42,6 +44,8 @@
     api: ApiClient["api"];
     authProviders?: string[];
     brandTitle?: string;
+    currentLang?: string;
+    emailChangeEnabled?: boolean;
     goSettings: VoidAction;
     linkTelegramAccount: VoidAction;
     openLinkEmailDialog: VoidAction;
@@ -54,6 +58,8 @@
     api,
     authProviders = [],
     brandTitle = "",
+    currentLang = "ru",
+    emailChangeEnabled = true,
     goSettings,
     linkTelegramAccount,
     openLinkEmailDialog,
@@ -77,11 +83,7 @@
   );
   let busy = $state(false);
   let status = $state("");
-  let emailStep = $state<"idle" | "current" | "new" | "confirm">("idle");
-  let currentCode = $state("");
-  let newEmail = $state("");
-  let newCode = $state("");
-  let changeToken = $state("");
+  let emailChangeOpen = $state(false);
   let selectedNotificationEmail = $state("");
 
   $effect(() => {
@@ -92,6 +94,32 @@
 
   function externalLabel(identity: ExternalIdentity | undefined): string {
     return String(identity?.email || identity?.display_name || "");
+  }
+
+  function formatPasskeyDate(value: string | null | undefined): string {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    try {
+      return new Intl.DateTimeFormat(currentLang, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(date);
+    } catch {
+      return date.toLocaleString();
+    }
+  }
+
+  function passkeyTransportLabel(transports: string[] | undefined): string {
+    const labels = (transports || []).map((transport) => {
+      if (transport === "internal") return t("wa_security_passkey_transport_internal");
+      if (transport === "hybrid") return t("wa_security_passkey_transport_hybrid");
+      if (transport === "usb") return "USB";
+      if (transport === "nfc") return "NFC";
+      if (transport === "ble") return "Bluetooth";
+      return "";
+    });
+    return [...new Set(labels.filter(Boolean))].join(" · ");
   }
 
   function linkExternal(provider: "google" | "yandex"): void {
@@ -192,77 +220,6 @@
     }
   }
 
-  async function beginEmailChange(): Promise<void> {
-    busy = true;
-    status = "";
-    try {
-      const response = await api("/account/email/change/current/request", {
-        method: "POST",
-        body: JSON.stringify({}),
-      });
-      if (!response.ok) throw response;
-      currentCode = String(response.email_code || response.code || "");
-      emailStep = "current";
-    } catch {
-      status = t("wa_auth_send_code_failed");
-    } finally {
-      busy = false;
-    }
-  }
-
-  async function verifyCurrentEmail(): Promise<void> {
-    busy = true;
-    status = "";
-    try {
-      const response = await api("/account/email/change/current/verify", {
-        method: "POST",
-        body: JSON.stringify({ code: currentCode }),
-      });
-      if (!response.ok) throw response;
-      changeToken = String(response.change_token || "");
-      emailStep = "new";
-    } catch {
-      status = t("wa_auth_invalid_code");
-    } finally {
-      busy = false;
-    }
-  }
-
-  async function requestNewEmail(): Promise<void> {
-    busy = true;
-    status = "";
-    try {
-      const response = await api("/account/email/change/new/request", {
-        method: "POST",
-        body: JSON.stringify({ email: newEmail, change_token: changeToken }),
-      });
-      if (!response.ok) throw response;
-      newCode = String(response.email_code || response.code || "");
-      emailStep = "confirm";
-    } catch {
-      status = t("wa_auth_send_code_failed");
-    } finally {
-      busy = false;
-    }
-  }
-
-  async function confirmNewEmail(): Promise<void> {
-    busy = true;
-    status = "";
-    try {
-      const response = await api("/account/email/change/confirm", {
-        method: "POST",
-        body: JSON.stringify({ email: newEmail, code: newCode, change_token: changeToken }),
-      });
-      if (!response.ok) throw response;
-      window.location.reload();
-    } catch {
-      status = t("wa_auth_invalid_code");
-    } finally {
-      busy = false;
-    }
-  }
-
   $effect(() => {
     const value = new URLSearchParams(window.location.search).get("external_auth");
     if (!value) return;
@@ -315,20 +272,30 @@
         </button>
       {/if}
       {#if emailEnabled}
-        <button
-          class="settings-row attention-wrap"
-          type="button"
-          onclick={user.email ? beginEmailChange : openLinkEmailDialog}
-          disabled={busy}
-        >
-          {#if !user.email}<AttentionDot />{/if}
-          <Mail size={21} />
-          <span>
-            <strong>{user.email || t("wa_settings_link_email_action")}</strong>
-            <small>{user.email ? t("wa_security_change_email", {}, "Change email") : ""}</small>
-          </span>
-          <ArrowRight size={17} />
-        </button>
+        {#if user.email && !emailChangeEnabled}
+          <div class="settings-row security-email-change-disabled">
+            <Mail size={21} />
+            <span>
+              <strong>{user.email}</strong>
+              <small>{t("wa_security_email_change_disabled")}</small>
+            </span>
+          </div>
+        {:else}
+          <button
+            class="settings-row attention-wrap"
+            type="button"
+            onclick={user.email ? () => (emailChangeOpen = true) : openLinkEmailDialog}
+            disabled={busy}
+          >
+            {#if !user.email}<AttentionDot />{/if}
+            <Mail size={21} />
+            <span>
+              <strong>{user.email || t("wa_settings_link_email_action")}</strong>
+              <small>{user.email ? t("wa_security_change_email", {}, "Change email") : ""}</small>
+            </span>
+            <ArrowRight size={17} />
+          </button>
+        {/if}
         {#if user.email_verified}
           <button class="settings-row" type="button" onclick={openSetPasswordDialog}>
             <Key size={21} />
@@ -346,7 +313,7 @@
       {/if}
       {#if googleVisible}
         {#if googleIdentity}
-          <div class="settings-row security-provider-row-linked">
+          <div class="settings-row security-deletable-row">
             <ProviderLogo provider="google" size={21} />
             <span><strong>Google</strong><small>{externalLabel(googleIdentity)}</small></span>
             <button
@@ -376,7 +343,7 @@
       {/if}
       {#if yandexVisible}
         {#if yandexIdentity}
-          <div class="settings-row security-provider-row-linked">
+          <div class="settings-row security-deletable-row">
             <ProviderLogo provider="yandex" size={21} />
             <span><strong>Yandex</strong><small>{externalLabel(yandexIdentity)}</small></span>
             <button
@@ -454,54 +421,6 @@
     </Card>
   {/if}
 
-  {#if emailStep !== "idle"}
-    <Card class="security-card security-email-change">
-      <h2>{t("wa_security_change_email", {}, "Change email")}</h2>
-      {#if emailStep === "current"}
-        <p>
-          {t(
-            "wa_security_current_email_code",
-            { email: user.email },
-            "Enter the code sent to your current email"
-          )}
-        </p>
-        <Input
-          bind:value={currentCode}
-          inputmode="numeric"
-          autocomplete="one-time-code"
-          placeholder="000000"
-        />
-        <Button class="wide" onclick={verifyCurrentEmail} disabled={busy}>{t("wa_continue")}</Button
-        >
-      {:else if emailStep === "new"}
-        <Input
-          bind:value={newEmail}
-          type="email"
-          autocomplete="email"
-          placeholder={t("wa_email_placeholder")}
-        />
-        <Button class="wide" onclick={requestNewEmail} disabled={busy}
-          >{t("wa_send_code_email")}</Button
-        >
-      {:else}
-        <p>
-          {t(
-            "wa_security_new_email_code",
-            { email: newEmail },
-            "Enter the code sent to the new email"
-          )}
-        </p>
-        <Input
-          bind:value={newCode}
-          inputmode="numeric"
-          autocomplete="one-time-code"
-          placeholder="000000"
-        />
-        <Button class="wide" onclick={confirmNewEmail} disabled={busy}>{t("wa_apply")}</Button>
-      {/if}
-    </Card>
-  {/if}
-
   {#if showPasskeys}
     <Card class="security-card">
       <div class="security-card-head">
@@ -518,15 +437,37 @@
       {#if passkeys.length}
         <div class="security-passkey-list">
           {#each passkeys as passkey (passkey.credential_id)}
-            <div class="settings-row settings-row-linked">
+            <div
+              class="settings-row settings-row-linked security-deletable-row security-passkey-row"
+            >
               <Fingerprint size={21} />
-              <span
-                ><strong>{passkey.name || "Passkey"}</strong><small
-                  >{passkey.backed_up
-                    ? t("wa_security_passkey_synced", {}, "Synced")
-                    : t("wa_security_passkey_device", {}, "This device")}</small
-                ></span
-              >
+              <div class="security-passkey-content">
+                <strong>{passkey.name || t("wa_security_passkey_default_name")}</strong>
+                <div class="security-passkey-meta">
+                  <small
+                    >{passkey.backed_up || passkey.device_type === "multi_device"
+                      ? t("wa_security_passkey_synced", {}, "Synced")
+                      : t("wa_security_passkey_device", {}, "This device")}</small
+                  >
+                  {#if passkeyTransportLabel(passkey.transports)}
+                    <small>{passkeyTransportLabel(passkey.transports)}</small>
+                  {/if}
+                  {#if formatPasskeyDate(passkey.created_at)}
+                    <small
+                      >{t("wa_security_passkey_created", {
+                        date: formatPasskeyDate(passkey.created_at),
+                      })}</small
+                    >
+                  {/if}
+                  {#if formatPasskeyDate(passkey.last_used_at)}
+                    <small
+                      >{t("wa_security_passkey_last_used", {
+                        date: formatPasskeyDate(passkey.last_used_at),
+                      })}</small
+                    >
+                  {/if}
+                </div>
+              </div>
               <button
                 class="security-delete"
                 type="button"
@@ -544,3 +485,13 @@
   {/if}
   {#if status}<p class="security-status" role="status">{status}</p>{/if}
 </main>
+
+{#if user.email}
+  <ChangeEmailDialog
+    {api}
+    currentEmail={String(user.email)}
+    open={emailChangeOpen}
+    onclose={() => (emailChangeOpen = false)}
+    {t}
+  />
+{/if}

@@ -111,7 +111,8 @@
 /* Some Telegram iOS fullscreen builds report a zero content inset even though
    their floating header still overlays the WebView. Runtime state keeps this
    fallback scoped to fullscreen; the home artwork intentionally ignores it. */
-:root[data-telegram-fullscreen="true"] {
+:root[data-telegram-fullscreen="true"],
+:root[data-telegram-fullscreen-requested="true"] {
   --telegram-fullscreen-fallback-top: 96px;
 }
 

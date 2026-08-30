@@ -30,6 +30,7 @@
     settingsSectionAnchorKey,
     settingsSubsectionAnchorKey,
   } from "$lib/admin/settingsSections";
+  import { loginProviderCallbackUrl } from "$lib/admin/loginProviderSetup.js";
   import {
     settingsDirtyCountLabel,
     settingsFieldsCountLabel,
@@ -160,6 +161,7 @@
   } = $props();
 
   let settingsSearchOpen = $state(false);
+  let copiedLoginProviderKey = $state("");
 
   const settingsSearchHasQuery = $derived(settingsSearchQuery.trim().length > 0);
   const settingsSearchVisible = $derived(settingsSearchOpen && settingsSearchHasQuery);
@@ -253,11 +255,15 @@
   function loginProviderCallback(provider: "google" | "yandex"): string {
     const base = configuredText("SUBSCRIPTION_MINI_APP_URL");
     const fallbackOrigin = typeof window === "undefined" ? "" : window.location.origin;
-    if (!base) return `${fallbackOrigin}/auth/${provider}/callback`;
+    return loginProviderCallbackUrl(provider, base, fallbackOrigin);
+  }
+
+  async function copyLoginProviderValue(key: string, value: string): Promise<void> {
     try {
-      return `${new URL(base).origin}/auth/${provider}/callback`;
+      await navigator.clipboard.writeText(value);
+      copiedLoginProviderKey = key;
     } catch {
-      return `${fallbackOrigin}/auth/${provider}/callback`;
+      copiedLoginProviderKey = "";
     }
   }
 
@@ -362,12 +368,52 @@
       <div class="admin-login-provider-help-copy">
         <strong>{loginProviderHelpTitle(provider)}</strong>
         <p>{loginProviderHelpHint(provider)}</p>
-        {#if provider === "google" || provider === "yandex"}
-          <div class="admin-login-provider-callback">
-            <span>{at("settings_login_callback_url", {}, "Callback URL")}</span>
-            <code>{loginProviderCallback(provider)}</code>
+        {#if provider === "google"}
+          <div class="admin-login-provider-setup-values">
+            <div class="admin-login-provider-setup-row">
+              <span>
+                {at("settings_login_google_js_origins_label", {}, "Authorized JavaScript origins")}
+              </span>
+              <p>
+                {at(
+                  "settings_login_google_js_origins_not_required",
+                  {},
+                  "Leave empty — Minishop uses the server-side authorization code flow and does not load the Google JavaScript SDK."
+                )}
+              </p>
+            </div>
+            <div class="admin-login-provider-setup-row">
+              <span>
+                {at("settings_login_google_redirect_uris_label", {}, "Authorized redirect URIs")}
+              </span>
+              {@render renderLoginProviderValue("google-redirect", loginProviderCallback("google"))}
+            </div>
+          </div>
+        {:else if provider === "yandex"}
+          <div class="admin-login-provider-setup-values">
+            <div class="admin-login-provider-setup-row">
+              <span>{at("settings_login_yandex_platform_label", {}, "Platform")}</span>
+              <p>{at("settings_login_yandex_platform_value", {}, "Web services")}</p>
+            </div>
+            <div class="admin-login-provider-setup-row">
+              <span>
+                {at("settings_login_yandex_redirect_uri_label", {}, "Redirect URI")}
+              </span>
+              {@render renderLoginProviderValue("yandex-redirect", loginProviderCallback("yandex"))}
+            </div>
+            <div class="admin-login-provider-setup-row">
+              <span>{at("settings_login_yandex_permissions_label", {}, "Permissions")}</span>
+              <code>login:email · login:info · login:avatar</code>
+            </div>
           </div>
         {/if}
+        <p class="admin-login-provider-runtime-hint">
+          {at(
+            "settings_login_runtime_hint",
+            {},
+            "Saved provider settings apply immediately; a backend restart is not required."
+          )}
+        </p>
       </div>
       <div class="admin-login-provider-help-actions">
         <a
@@ -391,6 +437,24 @@
       </div>
     </div>
   {/if}
+{/snippet}
+
+{#snippet renderLoginProviderValue(key: string, value: string)}
+  <div class="admin-login-provider-value">
+    <code>{value}</code>
+    <AdminButton
+      size="sm"
+      variant="ghost"
+      aria-label={at("copy", {}, "Copy")}
+      onclick={() => copyLoginProviderValue(key, value)}
+    >
+      {#if copiedLoginProviderKey === key}
+        <Check size={13} />{at("copied", {}, "Copied")}
+      {:else}
+        <Copy size={13} />{at("copy", {}, "Copy")}
+      {/if}
+    </AdminButton>
+  </div>
 {/snippet}
 
 {#snippet renderProviderInfo(provider: NonNullable<GroupProviderInfo>)}

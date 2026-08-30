@@ -3,6 +3,18 @@
   gap: 12px;
   color: var(--text);
 }
+.partner-back {
+  width: max-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  padding: 4px 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
 .partner-overview-card,
 .partner-balance-card,
 .partner-stats-card {
