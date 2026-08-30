@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from aiogram.types import BufferedInputFile
 from aiohttp import web
@@ -176,22 +177,23 @@ async def admin_broadcast_preview_route(request: web.Request) -> web.Response:
         if not queue_manager:
             return _error(503, "queue_unavailable")
         try:
+            markup = telegram_markup_for_buttons(buttons)
             if image is not None:
-                await queue_manager.send_photo(
-                    int(admin_telegram_id),
-                    photo=BufferedInputFile(image.data, filename=image.filename),
-                    reply_markup=(
-                        telegram_markup_for_buttons(buttons) if not rendered_text else None
-                    ),
-                )
-            if rendered_text:
+                photo_kwargs: dict[str, Any] = {
+                    "photo": BufferedInputFile(image.data, filename=image.filename),
+                    "reply_markup": markup,
+                }
+                if rendered_text:
+                    photo_kwargs.update(caption=rendered_text, parse_mode="HTML")
+                await queue_manager.send_photo(int(admin_telegram_id), **photo_kwargs)
+            elif rendered_text:
                 await send_message_via_queue(
                     queue_manager,
                     int(admin_telegram_id),
                     MessageContent(content_type="text", text=rendered_text),
                     parse_mode="HTML",
                     disable_web_page_preview=True,
-                    reply_markup=telegram_markup_for_buttons(buttons),
+                    reply_markup=markup,
                 )
         except Exception as exc:
             logger.warning("Broadcast preview send failed: %s", exc)

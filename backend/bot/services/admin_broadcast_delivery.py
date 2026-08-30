@@ -308,8 +308,7 @@ class AdminBroadcastDeliveryService:
             raise RuntimeError("queue_unavailable")
         delivery_id = int(delivery.delivery_id)
 
-        parts = 1 if image is None or not text else 2
-        remaining = parts
+        remaining = 1
         failure: str | None = None
         telegram_status_recorded = False
 
@@ -344,13 +343,15 @@ class AdminBroadcastDeliveryService:
         if image is not None:
             photo_kwargs: dict[str, Any] = {
                 "photo": FSInputFile(image.path),
+                "reply_markup": markup,
                 "callback": on_success,
                 "error_callback": on_failure,
             }
-            if not text:
-                photo_kwargs["reply_markup"] = markup
+            if text:
+                photo_kwargs["caption"] = text
+                photo_kwargs["parse_mode"] = "HTML"
             await self.queue_manager.send_photo(chat_id, **photo_kwargs)
-        if text:
+        elif text:
             await self.queue_manager.send_message(
                 chat_id,
                 text=text,

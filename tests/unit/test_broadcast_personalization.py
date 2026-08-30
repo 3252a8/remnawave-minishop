@@ -434,9 +434,13 @@ class _FakeCommitSessionFactory:
 class _FakeQueue:
     def __init__(self) -> None:
         self.messages: list[dict[str, Any]] = []
+        self.photos: list[dict[str, Any]] = []
 
     async def send_message(self, **kwargs: Any) -> None:
         self.messages.append(kwargs)
+
+    async def send_photo(self, chat_id: int, **kwargs: Any) -> None:
+        self.photos.append({"chat_id": chat_id, **kwargs})
 
 
 class _FakeRequest:
@@ -592,7 +596,7 @@ class BroadcastEndpointsTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["unknown_shortcodes"], [])
         self.assertFalse(payload["sent"])
 
-    async def test_preview_send_mode_includes_broadcast_buttons(self):
+    async def test_preview_send_mode_attaches_text_and_buttons_to_photo(self):
         request = _request(
             {
                 "text": "Hi!",
@@ -613,6 +617,11 @@ class BroadcastEndpointsTest(unittest.IsolatedAsyncioTestCase):
             patch.object(broadcast_shortcodes_module, "_require_admin_user_id", return_value=999),
             patch.object(broadcast_shortcodes_module, "get_queue_manager", return_value=queue),
             patch.object(
+                broadcast_shortcodes_module,
+                "prepare_message_image",
+                AsyncMock(return_value=SimpleNamespace(data=b"image", filename="message.webp")),
+            ),
+            patch.object(
                 broadcast_shortcodes_module.user_dal,
                 "get_user_by_id",
                 AsyncMock(return_value=SimpleNamespace(language_code="en")),
@@ -631,7 +640,13 @@ class BroadcastEndpointsTest(unittest.IsolatedAsyncioTestCase):
         payload = json.loads(response.body)
         self.assertTrue(payload["ok"])
         self.assertTrue(payload["sent"])
-        markup = queue.messages[0]["reply_markup"]
+        self.assertEqual(queue.messages, [])
+        self.assertEqual(len(queue.photos), 1)
+        photo = queue.photos[0]
+        self.assertEqual(photo["chat_id"], 123456789)
+        self.assertEqual(photo["caption"], "Hi!")
+        self.assertEqual(photo["parse_mode"], "HTML")
+        markup = photo["reply_markup"]
         self.assertEqual(markup.inline_keyboard[0][0].text, "Open")
         self.assertEqual(markup.inline_keyboard[0][0].url, "https://example.com")
 
