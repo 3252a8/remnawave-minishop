@@ -377,6 +377,58 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
         )
         invalidate.assert_awaited_once_with(ctx.settings, 42, include_devices=True)
 
+    async def test_balance_topup_event_passes_log_context(self):
+        notification_service = SimpleNamespace(notify_payment_received=AsyncMock())
+        ctx = _context(notification_service=notification_service)
+        user = SimpleNamespace(username="alice", email="alice@example.test")
+        payment = SimpleNamespace(
+            payment_id=91,
+            amount=750,
+            currency="RUB",
+            provider="qa",
+            sale_mode="balance_topup",
+            tariff_key=None,
+        )
+
+        with (
+            patch.object(event_reactions.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
+            patch.object(
+                event_reactions.payment_dal,
+                "get_payment_by_db_id",
+                AsyncMock(return_value=payment),
+            ),
+            patch.object(event_reactions, "invalidate_webapp_user_caches", AsyncMock()),
+        ):
+            register_core_reactions(ctx)
+            await events.emit(
+                events.PAYMENT_SUCCEEDED,
+                {
+                    "user_id": 42,
+                    "payment_db_id": 91,
+                    "notification_provider": "QA",
+                    "amount": 750,
+                    "currency": "RUB",
+                    "sale_mode": "balance_topup",
+                },
+            )
+
+        notification_service.notify_payment_received.assert_awaited_once_with(
+            user_id=42,
+            amount=750.0,
+            currency="RUB",
+            months=0,
+            traffic_gb=None,
+            payment_provider="QA",
+            username="alice",
+            email="alice@example.test",
+            traffic_is_premium=False,
+            tariff_key=None,
+            purchased_hwid_devices=None,
+            purchases=ANY,
+            sale_mode="balance_topup",
+            payment_id=91,
+        )
+
     async def test_payment_success_silences_older_failure_notifications(self):
         notification_service = SimpleNamespace(notify_payment_received=AsyncMock())
         ctx = _context(notification_service=notification_service)

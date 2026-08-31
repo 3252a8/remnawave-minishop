@@ -531,6 +531,7 @@
   "partner_withdrawal_canceled_notification": "↩️ <b>Заявка на вывод №{withdrawal_id} отменена</b>\n\nЗарезервированные {amount} {currency} возвращены на партнёрский баланс.",
   "account_merge_duplicate_promo_conflict": "Эти аккаунты нельзя объединить, потому что один и тот же одноразовый промокод уже использован в обоих.",
   "log_payment_received": "{provider_emoji} <b>Получен платеж</b>\n\n👤 Пользователь: {user_display}\n💰 Сумма: <b>{amount} {currency}</b>\n📅 Период: <b>{months} мес.</b>\n🏦 Провайдер: {payment_provider}\n🕐 Время: {timestamp}",
+  "log_balance_topup_received": "{provider_emoji} <b>Пополнен баланс пользователя</b>\n\n👤 Пользователь: {user_display}\n💰 Зачислено: <b>{amount} {currency}</b>\n🏦 Провайдер: {payment_provider}\n🧾 ID платежа: <code>{payment_id}</code>\n🕐 Время: {timestamp}",
   "log_payment_received_traffic": "{provider_emoji} <b>Получен платеж (докупка трафика)</b>\n\n👤 Пользователь: {user_display}\n💰 Сумма: <b>{amount} {currency}</b>\n🗂 {traffic_summary}\n{tariff_line}🏦 Провайдер: {payment_provider}\n🕐 Время: {timestamp}",
   "log_payment_received_with_purchases": "{provider_emoji} <b>Получен платеж</b>\n\n👤 Пользователь: {user_display}\n💰 Сумма: <b>{amount} {currency}</b>\n{period_line}{purchase_summary_line}{tariff_line}🏦 Провайдер: {payment_provider}\n🕐 Время: {timestamp}",
   "log_payment_period_line": "📅 Период: <b>{months} мес.</b>\n",

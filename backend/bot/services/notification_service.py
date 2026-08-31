@@ -9,7 +9,11 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.text_decorations import html_decoration as hd
 from sqlalchemy.orm import sessionmaker
 
-from bot.infra.payment_events import PaymentPurchase, payment_purchases_from_legacy_fields
+from bot.infra.payment_events import (
+    PaymentPurchase,
+    payment_purchases_from_legacy_fields,
+    sale_mode_base,
+)
 from bot.middlewares.i18n import JsonI18n
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.notification_partner import NotificationPartnerMixin
@@ -546,6 +550,8 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         tariff_key: str | None = None,
         purchased_hwid_devices: int | None = None,
         purchases: tuple[PaymentPurchase, ...] | None = None,
+        sale_mode: str | None = None,
+        payment_id: int | None = None,
     ) -> None:
         """Send notification about successful payment"""
         if not self.settings.LOG_PAYMENTS:
@@ -582,7 +588,18 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         purchase_summary = "\n".join(line for line in purchase_summary_parts if line)
         has_traffic_purchase = any(purchase.kind == "traffic" for purchase in effective_purchases)
 
-        if has_traffic_purchase:
+        if sale_mode_base(sale_mode) == "balance_topup":
+            message = _(
+                "log_balance_topup_received",
+                provider_emoji=provider_emoji,
+                user_display=user_display,
+                amount=amount,
+                currency=currency,
+                payment_provider=payment_provider,
+                payment_id=payment_id if payment_id is not None else "—",
+                timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
+            )
+        elif has_traffic_purchase:
             traffic_purchase = next(
                 purchase for purchase in effective_purchases if purchase.kind == "traffic"
             )

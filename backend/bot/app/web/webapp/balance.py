@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from aiohttp import web
 
 from bot.app.web.context import get_session_factory, get_settings
@@ -11,6 +13,8 @@ from .billing_payments import _create_subscription_payment
 from .common import _json_error, _normalize_language, _parse_model_payload, _require_user_id
 from .payloads import WebAppBalanceTopupPayload
 from .response_helpers import json_response
+
+logger = logging.getLogger(__name__)
 
 
 async def balance_route(request: web.Request) -> web.Response:
@@ -57,6 +61,13 @@ async def balance_topup_route(request: web.Request) -> web.Response:
             return _json_error(403, "access_denied", "Access denied")
         admin_ids = {int(item) for item in (settings.ADMIN_IDS or [])}
         is_admin = bool(user.telegram_id and int(user.telegram_id) in admin_ids)
+        logger.info(
+            "Balance top-up requested: user_id=%s amount=%s currency=%s provider=%s",
+            user_id,
+            amount,
+            config.currency,
+            method,
+        )
         return await _create_subscription_payment(
             request=request,
             session=session,

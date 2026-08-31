@@ -531,6 +531,7 @@
   "partner_withdrawal_canceled_notification": "↩️ <b>Withdrawal request #{withdrawal_id} was canceled</b>\n\nThe reserved {amount} {currency} was returned to your partner balance.",
   "account_merge_duplicate_promo_conflict": "These accounts cannot be merged because the same one-time promo code was already used on both.",
   "log_payment_received": "{provider_emoji} <b>Payment Received</b>\n\n👤 User: {user_display}\n💰 Amount: <b>{amount} {currency}</b>\n📅 Period: <b>{months} mo.</b>\n🏦 Provider: {payment_provider}\n🕐 Time: {timestamp}",
+  "log_balance_topup_received": "{provider_emoji} <b>User balance topped up</b>\n\n👤 User: {user_display}\n💰 Credited: <b>{amount} {currency}</b>\n🏦 Provider: {payment_provider}\n🧾 Payment ID: <code>{payment_id}</code>\n🕐 Time: {timestamp}",
   "log_payment_received_traffic": "{provider_emoji} <b>Payment Received (traffic top-up)</b>\n\n👤 User: {user_display}\n💰 Amount: <b>{amount} {currency}</b>\n🗂 {traffic_summary}\n{tariff_line}🏦 Provider: {payment_provider}\n🕐 Time: {timestamp}",
   "log_payment_received_with_purchases": "{provider_emoji} <b>Payment Received</b>\n\n👤 User: {user_display}\n💰 Amount: <b>{amount} {currency}</b>\n{period_line}{purchase_summary_line}{tariff_line}🏦 Provider: {payment_provider}\n🕐 Time: {timestamp}",
   "log_payment_period_line": "📅 Period: <b>{months} mo.</b>\n",

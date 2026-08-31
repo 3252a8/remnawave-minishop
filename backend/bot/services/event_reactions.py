@@ -680,20 +680,26 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                         payment,
                         default_currency=getattr(self.ctx.settings, "DEFAULT_CURRENCY", "RUB"),
                     )
-                    await service.notify_payment_received(
-                        user_id=int(user_id),
-                        amount=snapshot.amount,
-                        currency=snapshot.currency,
-                        months=snapshot.months,
-                        traffic_gb=snapshot.traffic_gb,
-                        payment_provider=snapshot.notification_provider,
-                        username=getattr(user, "username", None),
-                        email=getattr(user, "email", None),
-                        traffic_is_premium=snapshot.traffic_is_premium,
-                        tariff_key=snapshot.tariff_key,
-                        purchased_hwid_devices=snapshot.purchased_hwid_devices,
-                        purchases=snapshot.purchases,
-                    )
+                    notification_kwargs: dict[str, Any] = {
+                        "user_id": int(user_id),
+                        "amount": snapshot.amount,
+                        "currency": snapshot.currency,
+                        "months": snapshot.months,
+                        "traffic_gb": snapshot.traffic_gb,
+                        "payment_provider": snapshot.notification_provider,
+                        "username": getattr(user, "username", None),
+                        "email": getattr(user, "email", None),
+                        "traffic_is_premium": snapshot.traffic_is_premium,
+                        "tariff_key": snapshot.tariff_key,
+                        "purchased_hwid_devices": snapshot.purchased_hwid_devices,
+                        "purchases": snapshot.purchases,
+                    }
+                    if snapshot.sale_mode_base == "balance_topup":
+                        notification_kwargs.update(
+                            sale_mode=snapshot.sale_mode,
+                            payment_id=snapshot.payment_db_id,
+                        )
+                    await service.notify_payment_received(**notification_kwargs)
             except Exception:
                 logger.exception("Failed to react to successful payment for user %s.", user_id)
 

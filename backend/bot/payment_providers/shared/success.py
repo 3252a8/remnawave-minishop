@@ -32,7 +32,7 @@ from bot.services.user_notification_policy import (
 from bot.utils.config_link import prepare_config_links
 from bot.utils.install_links import ensure_user_install_guide_links
 from bot.utils.text_sanitizer import sanitize_display_name, username_for_display
-from db.dal import auto_renew_dal, payment_dal, subscription_dal, user_dal
+from db.dal import auto_renew_dal, message_log_dal, payment_dal, subscription_dal, user_dal
 from db.models import Payment, User
 
 from .common import (
@@ -485,12 +485,37 @@ async def finalize_successful_payment(
                 amount=req.amount,
                 currency=req.currency,
             )
+            credited_amount = minor_to_decimal_string(
+                int(entry.amount_minor),
+                scale=int(entry.currency_scale),
+            )
+            await message_log_dal.create_message_log_no_commit(
+                req.session,
+                {
+                    "user_id": req.user_id,
+                    "event_type": "balance_topup_succeeded",
+                    "content": (
+                        f"amount={credited_amount} currency={str(entry.currency).upper()} "
+                        f"payment_id={payment_id} provider={req.provider_subscription}"
+                    ),
+                    "is_admin_event": False,
+                    "target_user_id": req.user_id,
+                },
+            )
             await payment_dal.update_payment_status_by_db_id(
                 req.session,
                 payment_id,
                 "succeeded",
             )
             await req.session.commit()
+            logger.info(
+                "%s: credited user balance for payment %s: user_id=%s amount=%s currency=%s.",
+                req.log_prefix,
+                payment_id,
+                req.user_id,
+                credited_amount,
+                str(entry.currency).upper(),
+            )
         except Exception:
             logger.exception(
                 "%s: failed to credit user balance for payment %s.",

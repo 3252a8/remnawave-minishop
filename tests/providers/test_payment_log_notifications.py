@@ -18,6 +18,14 @@ class _I18n:
             "Provider: {payment_provider}\n"
             "Time: {timestamp}"
         ),
+        "log_balance_topup_received": (
+            "{provider_emoji} User balance topped up\n"
+            "User: {user_display}\n"
+            "Credited: {amount} {currency}\n"
+            "Provider: {payment_provider}\n"
+            "Payment ID: {payment_id}\n"
+            "Time: {timestamp}"
+        ),
         "log_payment_received_traffic": (
             "{provider_emoji} Payment Received (traffic top-up)\n"
             "User: {user_display}\n"
@@ -66,6 +74,28 @@ def _service() -> NotificationService:
 
 
 class PaymentLogNotificationTests(IsolatedAsyncioTestCase):
+    async def test_balance_topup_log_names_the_flow_and_payment(self):
+        service = _service()
+
+        await service.notify_payment_received(
+            user_id=42,
+            amount=750,
+            currency="RUB",
+            months=0,
+            payment_provider="yookassa",
+            username="alice",
+            sale_mode="balance_topup",
+            payment_id=91,
+        )
+
+        message = service._send_to_log_channel.await_args.args[0]
+        self.assertIn("User balance topped up", message)
+        self.assertIn("alice", message)
+        self.assertIn("750 RUB", message)
+        self.assertIn("yookassa", message)
+        self.assertIn("Payment ID: 91", message)
+        self.assertNotIn("Period: 0 mo.", message)
+
     async def test_hwid_only_log_uses_devices_instead_of_zero_month_period(self):
         service = _service()
 
