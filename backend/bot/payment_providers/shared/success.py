@@ -377,7 +377,7 @@ async def _capture_fulfillment_snapshot(
         return None
 
 
-def _persist_fulfillment_audit(
+async def _persist_fulfillment_audit(
     req: PaymentSuccessRequest,
     payment: Payment,
     *,
@@ -387,7 +387,18 @@ def _persist_fulfillment_audit(
     if before is None or after is None:
         return
     try:
-        persist_payment_fulfillment(payment, before=before, after=after)
+        savepoint = await req.session.begin_nested()
+        try:
+            persist_payment_fulfillment(payment, before=before, after=after)
+            # Core sessions disable autoflush.  Persist the audit before the
+            # status updater reloads this Payment with populate_existing,
+            # otherwise the database NULLs overwrite the pending snapshots.
+            await req.session.flush()
+        except Exception:
+            await savepoint.rollback()
+            raise
+        else:
+            await savepoint.commit()
     except Exception:
         logger.exception(
             "%s: failed to persist fulfillment audit for payment %s; keeping the paid entitlement.",
@@ -639,7 +650,7 @@ async def finalize_successful_payment(
                 locked_payment,
                 phase="post-activation",
             )
-        _persist_fulfillment_audit(
+        await _persist_fulfillment_audit(
             req,
             locked_payment,
             before=fulfillment_before,

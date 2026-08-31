@@ -1649,7 +1649,7 @@
   "admin_payment_warning_purchase_context_missing": "В платеже не хватает неизменяемых данных о покупке.",
   "admin_payment_manual_finalize_success": "Платёж проведён",
   "admin_payment_reverse_success": "Платёж отменён",
-  "admin_payment_reversal_snapshot_missing": "Платёж создан до появления безопасного обратимого проведения.",
+  "admin_payment_reversal_snapshot_missing": "Для этого платежа нет снимков состояния, поэтому безопасный откат недоступен.",
   "admin_payment_reversal_already_reversed": "Платёж уже отменён.",
   "admin_payment_reversal_not_succeeded": "Можно отменить только успешно проведённый платёж.",
   "admin_promo_load_failed": "Не удалось загрузить промокод",

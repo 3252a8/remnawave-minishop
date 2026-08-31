@@ -221,7 +221,7 @@
       return at(
         "payment_reversal_snapshot_missing",
         {},
-        "This payment predates reversible fulfillment tracking."
+        "This payment has no fulfillment snapshots and cannot be reversed safely."
       );
     }
     if (code === "payment_already_reversed") {

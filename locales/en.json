@@ -1649,7 +1649,7 @@
   "admin_payment_warning_purchase_context_missing": "The immutable purchase context is incomplete.",
   "admin_payment_manual_finalize_success": "Payment applied",
   "admin_payment_reverse_success": "Payment reversed",
-  "admin_payment_reversal_snapshot_missing": "This payment predates reversible fulfillment tracking.",
+  "admin_payment_reversal_snapshot_missing": "This payment has no fulfillment snapshots and cannot be reversed safely.",
   "admin_payment_reversal_already_reversed": "This payment is already reversed.",
   "admin_payment_reversal_not_succeeded": "Only successfully applied payments can be reversed.",
   "admin_promo_load_failed": "Failed to load promo code",

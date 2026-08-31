@@ -242,7 +242,7 @@ def _parse_snapshot(raw: str | None) -> dict[str, Any]:
     if not raw:
         raise PaymentFulfillmentError(
             "fulfillment_snapshot_missing",
-            "This payment predates reversible fulfillment tracking.",
+            "This payment has no reversible fulfillment snapshot.",
         )
     try:
         parsed = json.loads(raw)

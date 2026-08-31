@@ -69,14 +69,14 @@ class PaymentFulfillmentTests(IsolatedAsyncioTestCase):
         self.assertIn('"version": 1', payment.fulfillment_before_snapshot)
         self.assertIn('"user_id": 42', payment.fulfillment_after_snapshot)
 
-    async def test_reversal_rejects_legacy_payment_without_snapshot(self):
+    async def test_reversal_rejects_payment_without_snapshot(self):
         payment = _payment(status="succeeded")
         with (
             patch(
                 "bot.services.payment_fulfillment.payment_dal.get_payment_by_db_id_for_update",
                 AsyncMock(return_value=payment),
             ),
-            self.assertRaisesRegex(PaymentFulfillmentError, "predates reversible"),
+            self.assertRaisesRegex(PaymentFulfillmentError, "has no reversible"),
         ):
             await reverse_payment_fulfillment(
                 AsyncMock(),

@@ -445,11 +445,13 @@ class PaymentWebhookNotificationTests(IsolatedAsyncioTestCase):
         fulfillment_before_savepoint = AsyncMock()
         referral_savepoint = AsyncMock()
         fulfillment_after_savepoint = AsyncMock()
+        fulfillment_audit_savepoint = AsyncMock()
         session.begin_nested = AsyncMock(
             side_effect=[
                 fulfillment_before_savepoint,
                 referral_savepoint,
                 fulfillment_after_savepoint,
+                fulfillment_audit_savepoint,
             ]
         )
         payment = SimpleNamespace(
@@ -475,6 +477,10 @@ class PaymentWebhookNotificationTests(IsolatedAsyncioTestCase):
             )
         )
 
+        async def update_status_after_audit(_session, _payment_id, _status):
+            session.flush.assert_awaited_once()
+            return payment
+
         with (
             patch(
                 "bot.payment_providers.shared.success.payment_dal.get_payment_by_db_id_for_update",
@@ -482,7 +488,7 @@ class PaymentWebhookNotificationTests(IsolatedAsyncioTestCase):
             ),
             patch(
                 "bot.payment_providers.shared.success.payment_dal.update_payment_status_by_db_id",
-                AsyncMock(return_value=payment),
+                AsyncMock(side_effect=update_status_after_audit),
             ) as update_status,
             patch("bot.payment_providers.shared.success.events.emit_model", AsyncMock()),
             patch(
@@ -516,6 +522,10 @@ class PaymentWebhookNotificationTests(IsolatedAsyncioTestCase):
         self.assertIsNotNone(result)
         referral_savepoint.rollback.assert_awaited_once()
         referral_savepoint.commit.assert_not_awaited()
+        fulfillment_audit_savepoint.commit.assert_awaited_once()
+        fulfillment_audit_savepoint.rollback.assert_not_awaited()
+        self.assertIn('"version": 1', payment.fulfillment_before_snapshot)
+        self.assertIn('"version": 1', payment.fulfillment_after_snapshot)
         session.rollback.assert_not_awaited()
         session.commit.assert_awaited_once()
         update_status.assert_awaited_once_with(session, 12, "succeeded")
