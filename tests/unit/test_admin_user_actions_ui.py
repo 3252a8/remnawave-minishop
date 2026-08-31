@@ -26,6 +26,7 @@ USER_TRAFFIC_GRANT_ACTION = (
 )
 USER_DIALOGS = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserDetailDialogs.svelte"
 PAYMENTS_SECTION = REPO_ROOT / "frontend/src/admin/sections/PaymentsSection.svelte"
+PAYMENT_TABLE = REPO_ROOT / "frontend/src/admin/sections/PaymentTable.svelte"
 PAYMENT_PURCHASES_CELL = REPO_ROOT / "frontend/src/admin/sections/PaymentPurchasesCell.svelte"
 PAYMENT_DETAIL_MODAL = REPO_ROOT / "frontend/src/admin/sections/PaymentDetailModal.svelte"
 TICKET_MESSAGE_BUBBLE = (
@@ -252,17 +253,18 @@ def test_tariff_hwid_limit_confirm_flow_is_localized():
 
 
 def test_stats_recent_payments_open_payment_and_user_cards():
-    source = STATS_SECTION.read_text(encoding="utf-8")
-    table_start = source.index("{#each recentPayments as p (p.payment_id)}")
-    table_end = source.index("{/each}", table_start)
-    table_block = source[table_start:table_end]
+    stats = STATS_SECTION.read_text(encoding="utf-8")
+    table = PAYMENT_TABLE.read_text(encoding="utf-8")
 
-    assert "paymentsStore.openPayment(p)" in table_block
-    assert "onOpenUserCard(p.user_id)" in table_block
-    assert "payment_detail_open" in table_block
-    assert "payments_open_user" in table_block
-    assert "admin-payment-id-btn" in source
-    assert "admin-payments-user-btn" in source
+    assert "<PaymentTable" in stats
+    assert "payments={recentPayments}" in stats
+    assert 'payment.status === "succeeded"' in stats
+    assert "paymentsStore.openPayment(p)" in table
+    assert "onOpenUserCard(p.user_id)" in table
+    assert "payment_detail_open" in table
+    assert "payments_open_user" in table
+    assert "admin-payment-id-btn" in table
+    assert "admin-payments-user-btn" in table
 
 
 def test_stats_recent_payment_user_button_stays_in_current_section():
@@ -299,14 +301,18 @@ def test_user_recent_payments_open_payment_cards():
 
 def test_payment_tables_keep_identity_and_primary_fields_visible_first():
     payments = PAYMENTS_SECTION.read_text(encoding="utf-8")
+    stats = STATS_SECTION.read_text(encoding="utf-8")
+    table = PAYMENT_TABLE.read_text(encoding="utf-8")
     activity = USER_ACTIVITY.read_text(encoding="utf-8")
     header = activity[activity.index("<thead>") : activity.index("</thead>")]
 
-    assert 'class="admin-payments-table"' in payments
-    assert "table-layout: fixed" in payments
-    assert "overflow-x: auto" in payments
-    assert "<Popover.Trigger" in payments
-    assert "admin-payments-user-popover" in payments
+    assert "<PaymentTable" in payments
+    assert "<PaymentTable" in stats
+    assert 'class="admin-payments-table"' in table
+    assert "table-layout: fixed" in table
+    assert "overflow-x: auto" in table
+    assert "<Popover.Trigger" in table
+    assert "admin-payments-user-popover" in table
     assert header.index('at("amount"') < header.index('at("provider"')
     assert header.index('at("status"') < header.index('at("provider"')
     assert header.index('at("date"') < header.index('at("provider"')
@@ -314,7 +320,7 @@ def test_payment_tables_keep_identity_and_primary_fields_visible_first():
 
 
 def test_payments_list_combines_purchases_for_desktop_and_mobile():
-    payments = PAYMENTS_SECTION.read_text(encoding="utf-8")
+    payments = PAYMENT_TABLE.read_text(encoding="utf-8")
     purchases = PAYMENT_PURCHASES_CELL.read_text(encoding="utf-8")
     table_header = payments[payments.index("<thead>") : payments.index("</thead>")]
 
