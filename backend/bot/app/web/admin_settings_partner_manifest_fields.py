@@ -6,7 +6,7 @@ PARTNER_SETTINGS_FIELDS: tuple[SettingField, ...] = (
     SettingField(
         "USER_BALANCE_ENABLED",
         "bool",
-        "pricing",
+        "general",
         "User balance",
         "Show a personal balance and allow users to top it up and spend it.",
         subsection="balance",
@@ -14,7 +14,7 @@ PARTNER_SETTINGS_FIELDS: tuple[SettingField, ...] = (
     SettingField(
         "USER_BALANCE_CURRENCY",
         "string",
-        "pricing",
+        "general",
         "User balance currency",
         "ISO-style currency code. Leave blank to follow the default payment currency.",
         subsection="balance",
@@ -22,7 +22,7 @@ PARTNER_SETTINGS_FIELDS: tuple[SettingField, ...] = (
     SettingField(
         "USER_BALANCE_TOPUP_MIN_AMOUNT",
         "float",
-        "pricing",
+        "general",
         "Minimum balance top-up",
         min=0.01,
         subsection="balance",
@@ -30,7 +30,7 @@ PARTNER_SETTINGS_FIELDS: tuple[SettingField, ...] = (
     SettingField(
         "USER_BALANCE_TOPUP_MAX_AMOUNT",
         "float",
-        "pricing",
+        "general",
         "Maximum balance top-up",
         min=0.01,
         subsection="balance",
@@ -38,7 +38,7 @@ PARTNER_SETTINGS_FIELDS: tuple[SettingField, ...] = (
     SettingField(
         "USER_BALANCE_TOPUP_PRESETS",
         "string",
-        "pricing",
+        "general",
         "Balance top-up presets (JSON)",
         subsection="balance",
     ),

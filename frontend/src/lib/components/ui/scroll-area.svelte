@@ -47,8 +47,9 @@
     overflow: hidden;
   }
 
-  :global(.scroll-area--dialog) {
+  :global(.scroll-area--mono.scroll-area--dialog) {
     overflow: visible;
+    scrollbar-gutter: auto;
   }
 
   :global(.scroll-area__viewport) {

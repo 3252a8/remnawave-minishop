@@ -34,7 +34,6 @@
   } = $props();
 
   const MANUAL_AMOUNT_DEBOUNCE_MS = 180;
-  const PRESET_INPUT_ANIMATION_MS = 460;
 
   let amount = $state<number | undefined>(0);
   let selectedMethod = $state("");
@@ -43,9 +42,7 @@
   let buttonAnimatedAmount = $state(0);
   let inputAnimatedAmount = $state(0);
   let inputAnimationVisible = $state(false);
-  let inputAnimationKey = $state(0);
   let manualAmountTimer: number | undefined;
-  let inputAnimationTimer: number | undefined;
 
   const availableMethods = $derived(
     methods.filter(
@@ -82,22 +79,14 @@
 
   function selectPreset(value: number): void {
     window.clearTimeout(manualAmountTimer);
-    window.clearTimeout(inputAnimationTimer);
     amount = value;
     buttonAnimatedAmount = value;
     inputAnimatedAmount = value;
-    inputAnimationKey += 1;
     inputAnimationVisible = true;
-    inputAnimationTimer = window.setTimeout(() => {
-      inputAnimationVisible = false;
-      inputAnimationTimer = undefined;
-    }, PRESET_INPUT_ANIMATION_MS);
     error = "";
   }
 
   function stopInputAnimation(): void {
-    window.clearTimeout(inputAnimationTimer);
-    inputAnimationTimer = undefined;
     inputAnimationVisible = false;
   }
 
@@ -171,7 +160,6 @@
 
   onDestroy(() => {
     window.clearTimeout(manualAmountTimer);
-    window.clearTimeout(inputAnimationTimer);
   });
 </script>
 
@@ -209,17 +197,17 @@
           oninput={handleManualAmountInput}
           onfocus={stopInputAnimation}
         />
-        {#if inputAnimationVisible}
-          {#key inputAnimationKey}
-            <span class="balance-amount-animation" aria-hidden="true">
-              <AnimatedNumber
-                value={inputAnimatedAmount}
-                format={animatedNumberFormat}
-                replaceAnimations
-              />
-            </span>
-          {/key}
-        {/if}
+        <span
+          class:balance-amount-animation-visible={inputAnimationVisible}
+          class="balance-amount-animation"
+          aria-hidden="true"
+        >
+          <AnimatedNumber
+            value={inputAnimatedAmount}
+            format={animatedNumberFormat}
+            replaceAnimations
+          />
+        </span>
         <b>{currencySymbol}</b>
       </div>
       <small>
@@ -332,7 +320,12 @@
     font-size: 18px;
     font-weight: 700;
     pointer-events: none;
-    animation: balance-amount-preset-pop 0.32s ease-out;
+    visibility: hidden;
+    opacity: 0;
+  }
+  .balance-amount-animation-visible {
+    visibility: visible;
+    opacity: 1;
   }
   .balance-amount-field b {
     position: absolute;
@@ -362,20 +355,5 @@
   }
   .balance-topup-error {
     color: var(--danger);
-  }
-  @keyframes balance-amount-preset-pop {
-    from {
-      opacity: 0.72;
-      transform: translateY(-50%) scale(0.96);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(-50%) scale(1);
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .balance-amount-animation {
-      animation: none;
-    }
   }
 </style>

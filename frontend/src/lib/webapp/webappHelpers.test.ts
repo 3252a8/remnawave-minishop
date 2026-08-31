@@ -32,6 +32,9 @@ describe("webapp formatters", () => {
   it("formats template, money, traffic and profile display values", () => {
     expect(formatTemplate("Hello {name}, {missing}", { name: "Ann" })).toBe("Hello Ann, {missing}");
     expect(formatMoney(12.5, "USD")).toBe("12.50 USD");
+    expect(formatMoney(1284.5, "RUB")).toBe("1\u00a0284.50 ₽");
+    expect(formatMoney(1000, "rub")).toBe("1\u00a0000 ₽");
+    expect(formatMoney(-2000, "EUR")).toBe("-2\u00a0000 EUR");
     expect(formatTrafficGb(12.5)).toBe("12.5 GB");
     expect(formatTrafficBytes(3 * 1073741824)).toBe("3 GB");
     expect(formatCompactNumber(12.5)).toBe("12.5");

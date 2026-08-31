@@ -376,6 +376,7 @@
           class="home-balance-topup"
           type="button"
           size="sm"
+          variant="outline"
           onclick={openBalanceTopup}
           aria-label={t("wa_balance_topup_short", {}, "Top up")}
           title={t("wa_balance_topup_short", {}, "Top up")}
@@ -766,7 +767,10 @@
     align-items: center;
     justify-content: space-between;
     gap: 11px;
-    padding: 8px 12px;
+    padding: 8px 11px;
+  }
+  :global(.home-bottom > section.status-card) {
+    padding-left: 11px;
   }
   .home-balance-summary {
     min-width: 0;
@@ -796,6 +800,14 @@
     min-width: 36px;
     flex: 0 0 auto;
     padding: 0;
+    border-color: var(--accent);
+    color: var(--accent);
+    background: transparent;
+  }
+  :global(section.home-balance-card .home-balance-topup:hover) {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 9%, transparent);
   }
   @media (max-width: 520px) {
     :global(section.home-balance-card) {
