@@ -381,7 +381,7 @@
           aria-label={t("wa_balance_topup_short", {}, "Top up")}
           title={t("wa_balance_topup_short", {}, "Top up")}
         >
-          <Plus size={18} />
+          <Plus size={16} />
         </Button>
       </Card>
     {/if}
@@ -796,13 +796,21 @@
     font-size: 17px;
   }
   :global(section.home-balance-card .home-balance-topup) {
-    width: 36px;
-    min-width: 36px;
+    position: relative;
+    width: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    height: 32px;
     flex: 0 0 auto;
     padding: 0;
     border-color: var(--accent);
     color: var(--accent);
     background: transparent;
+  }
+  :global(section.home-balance-card .home-balance-topup::after) {
+    content: "";
+    position: absolute;
+    inset: -6px;
   }
   :global(section.home-balance-card .home-balance-topup:hover) {
     border-color: var(--accent);
