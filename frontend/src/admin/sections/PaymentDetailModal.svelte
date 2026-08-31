@@ -589,7 +589,7 @@
               </div>
 
               {#if !actionMode}
-                <div class="admin-payment-action-buttons">
+                <div class="admin-payment-action-buttons admin-payment-action-buttons--triggers">
                   {#if payment.can_manual_finalize}
                     <AdminButton variant="primary" onclick={() => startAction("finalize")}>
                       {at("payment_manual_finalize", {}, "Apply payment")}
@@ -711,6 +711,10 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+  }
+
+  .admin-payment-action-buttons--triggers :global(.admin-btn) {
+    width: 100%;
   }
 
   .admin-payment-action-confirm {
