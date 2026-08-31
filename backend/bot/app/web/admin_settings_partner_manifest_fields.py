@@ -4,6 +4,45 @@ from bot.app.web.admin_settings_manifest_types import SettingField
 
 PARTNER_SETTINGS_FIELDS: tuple[SettingField, ...] = (
     SettingField(
+        "USER_BALANCE_ENABLED",
+        "bool",
+        "pricing",
+        "User balance",
+        "Show a personal balance and allow users to top it up and spend it.",
+        subsection="balance",
+    ),
+    SettingField(
+        "USER_BALANCE_CURRENCY",
+        "string",
+        "pricing",
+        "User balance currency",
+        "ISO-style currency code. Leave blank to follow the default payment currency.",
+        subsection="balance",
+    ),
+    SettingField(
+        "USER_BALANCE_TOPUP_MIN_AMOUNT",
+        "float",
+        "pricing",
+        "Minimum balance top-up",
+        min=0.01,
+        subsection="balance",
+    ),
+    SettingField(
+        "USER_BALANCE_TOPUP_MAX_AMOUNT",
+        "float",
+        "pricing",
+        "Maximum balance top-up",
+        min=0.01,
+        subsection="balance",
+    ),
+    SettingField(
+        "USER_BALANCE_TOPUP_PRESETS",
+        "string",
+        "pricing",
+        "Balance top-up presets (JSON)",
+        subsection="balance",
+    ),
+    SettingField(
         "PARTNER_PROGRAM_ENABLED",
         "bool",
         "pricing",

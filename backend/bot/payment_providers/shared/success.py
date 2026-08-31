@@ -18,10 +18,12 @@ from bot.infra.event_payloads import (
 from bot.infra.payment_events import build_payment_succeeded_payload
 from bot.keyboards.inline.user_keyboards import get_connect_and_main_keyboard
 from bot.services.partner_commission_service import PartnerCommissionService
+from bot.services.partner_common import currency_scale, minor_to_decimal_string
 from bot.services.payment_fulfillment import (
     capture_payment_entitlement_snapshot,
     persist_payment_fulfillment,
 )
+from bot.services.user_balance_service import UserBalanceService
 from bot.services.user_notification_policy import (
     UserNotificationCategory,
     telegram_recipient,
@@ -473,6 +475,87 @@ async def finalize_successful_payment(
         float(req.months) if is_traffic_sale_base(sale_mode_base(req.sale_mode)) else None
     )
     base = sale_mode_base(req.sale_mode)
+
+    if base == "balance_topup":
+        try:
+            entry = await UserBalanceService(req.settings).credit_payment_topup(
+                req.session,
+                payment_id=payment_id,
+                user_id=req.user_id,
+                amount=req.amount,
+                currency=req.currency,
+            )
+            await payment_dal.update_payment_status_by_db_id(
+                req.session,
+                payment_id,
+                "succeeded",
+            )
+            await req.session.commit()
+        except Exception:
+            logger.exception(
+                "%s: failed to credit user balance for payment %s.",
+                req.log_prefix,
+                payment_id,
+            )
+            await _mark_activation_failed(req, payment_id)
+            return None
+
+        await events.emit_model(
+            PaymentSucceededPayload.model_validate(
+                build_payment_succeeded_payload(
+                    user_id=req.user_id,
+                    payment_db_id=payment_id,
+                    provider=req.provider_subscription,
+                    notification_provider=req.provider_notification,
+                    amount=req.amount,
+                    currency=req.currency,
+                    sale_mode=req.sale_mode,
+                    tariff_key=None,
+                    months=None,
+                    traffic_gb=None,
+                    payment=req.payment,
+                    activation=None,
+                    end_date=None,
+                    is_auto_renew=False,
+                    renewal_subscription_id=None,
+                )
+            )
+        )
+        db_user, language = await resolve_user_language(
+            req.session,
+            user_id=req.user_id,
+            db_user=req.db_user,
+            settings=req.settings,
+        )
+        translator = make_translator(req.i18n, language)
+        scale = currency_scale(req.currency)
+        await send_success_message_to_user(
+            bot=req.bot,
+            user_id=req.user_id,
+            text=translator(
+                "balance_topup_success",
+                amount=minor_to_decimal_string(int(entry.amount_minor), scale=scale),
+                currency=req.currency.upper(),
+            ),
+            language=language,
+            i18n=req.i18n,
+            settings=req.settings,
+            config_link_display=None,
+            connect_button_url=None,
+            include_keyboard=True,
+            log_prefix=req.log_prefix,
+            user=db_user,
+            sale_mode=req.sale_mode,
+        )
+        return PaymentSuccessOutcome(
+            activation=None,
+            referral_bonus=None,
+            final_end_date=None,
+            applied_referee_bonus_days=0,
+            applied_promo_bonus_days=0,
+            db_user=db_user,
+            language=language,
+        )
 
     active_subscription = None
     tribute_subscription_event = base == "subscription" and stored_provider.lower() == "tribute"

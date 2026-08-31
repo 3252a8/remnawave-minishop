@@ -10,6 +10,7 @@ import {
   demoAuthConfig,
 } from "./authDemo";
 import { defaultClone, type DemoRecord, type MockApiContext } from "./dataset";
+import { currentDemoBalance } from "./balance";
 import { applyDemoDeviceTopup, demoDeviceTopupPlan } from "./deviceTopup";
 import type { AdminDemoFixtures } from "./adminFixtures";
 import { demoPaymentStatuses, isDeviceTopupSaleMode, nextDemoPaymentId } from "./state";
@@ -158,6 +159,18 @@ export function webappFallbackResponse(
     };
   }
   if (cleanPath === "/me") return clone(DEV_MOCK.data);
+  if (cleanPath === "/balance" && method === "GET") return clone(currentDemoBalance());
+  if (cleanPath === "/balance/topup" && method === "POST") {
+    const body = jsonBody(options);
+    return {
+      ok: true,
+      action: "open_link",
+      payment_id: nextDemoPaymentId(),
+      payment_url: `https://example.com/demo-balance-topup?amount=${encodeURIComponent(String(body.amount || 0))}&method=${encodeURIComponent(String(body.method || "demo"))}`,
+      status: "pending",
+      paid: false,
+    };
+  }
   if (cleanPath === "/status") {
     return {
       ok: true,

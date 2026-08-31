@@ -55,6 +55,7 @@ from .auth import (
     telegram_oauth_nonce_route,
     telegram_oauth_start_route,
 )
+from .balance import balance_route, balance_topup_route
 from .billing import (
     activate_trial_route,
     apply_promo_route,
@@ -244,6 +245,8 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/api/bootstrap", bootstrap_route)
     app.router.add_get("/api/i18n", i18n_route)
     app.router.add_get("/api/me", me_route)
+    app.router.add_get("/api/balance", balance_route)
+    app.router.add_post("/api/balance/topup", balance_topup_route)
     app.router.add_get("/api/status", server_status_route)
     app.router.add_get("/api/subscription-guides", subscription_guides_route)
     app.router.add_get(

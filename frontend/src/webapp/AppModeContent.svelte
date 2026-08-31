@@ -28,6 +28,7 @@
   import type { CheckoutDeeplink } from "$lib/webapp/deeplinks.js";
   import {
     type BooleanAction,
+    type BalanceView,
     type PendingPaymentView,
     type PlanView,
     type StringAction,
@@ -209,6 +210,7 @@
   const userAgreementUrl = $derived(accountView.userAgreementUrl);
 
   const appSettings = $derived(appDataView.appSettings);
+  const balance = $derived(appDataView.balance as BalanceView);
   const brand = $derived(appDataView.brand);
   const brandTitle = $derived(appDataView.brandTitle);
   const devicesEnabled = $derived(appDataView.devicesEnabled);
@@ -534,6 +536,7 @@
       {activateTrial}
       {activeTab}
       {appSettings}
+      {balance}
       {applyPromo}
       {autoRenewBusy}
       {brand}
@@ -592,6 +595,8 @@
       {openInstallOrConnect}
       openLinkEmailDialog={openSettingsLinkEmailDialog}
       {openPaymentModal}
+      {methods}
+      {paymentMethodsDisplayMode}
       {openPremiumTopupModal}
       {openRegularTopupModal}
       openSetPasswordDialog={openSettingsSetPasswordDialog}

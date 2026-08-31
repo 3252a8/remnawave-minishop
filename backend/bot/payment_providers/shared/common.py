@@ -423,6 +423,9 @@ async def create_base_payment_record(
     checkout_charged_gb: float | None = None,
     checkout_quoted_at: Any | None = None,
     checkout_total_amount: float | None = None,
+    user_balance_user_id: int | None = None,
+    user_balance_amount_minor: int | None = None,
+    user_balance_currency_scale: int | None = None,
     partner_balance_partner_id: int | None = None,
     partner_balance_amount_minor: int | None = None,
     partner_balance_currency_scale: int | None = None,
@@ -470,6 +473,8 @@ async def create_base_payment_record(
             "checkout_charged_gb": checkout_charged_gb,
             "checkout_quoted_at": checkout_quoted_at,
             "checkout_total_amount": checkout_total_amount,
+            "user_balance_amount_minor": user_balance_amount_minor,
+            "user_balance_currency_scale": user_balance_currency_scale,
             "partner_balance_amount_minor": partner_balance_amount_minor,
             "partner_balance_currency_scale": partner_balance_currency_scale,
             "tariff_change_quote_snapshot": tariff_change_quote_snapshot,
@@ -478,6 +483,34 @@ async def create_base_payment_record(
             "checkout_bundle_hash": checkout_bundle_hash,
         },
     )
+    if user_balance_amount_minor:
+        if (
+            user_balance_user_id is None
+            or user_balance_currency_scale is None
+            or checkout_total_amount is None
+        ):
+            raise ValueError("Incomplete user balance allocation")
+        from bot.services.partner_common import amount_to_minor
+        from bot.services.user_balance_service import (
+            UserBalanceAllocation,
+            UserBalanceService,
+        )
+
+        allocation = UserBalanceAllocation(
+            user_id=user_balance_user_id,
+            currency=currency.upper(),
+            currency_scale=user_balance_currency_scale,
+            checkout_total_minor=amount_to_minor(
+                checkout_total_amount,
+                scale=user_balance_currency_scale,
+            ),
+            applied_minor=user_balance_amount_minor,
+        )
+        await UserBalanceService.reserve(
+            session,
+            payment_id=int(payment.payment_id),
+            allocation=allocation,
+        )
     if partner_balance_amount_minor:
         if (
             partner_balance_partner_id is None
@@ -561,6 +594,9 @@ async def create_webapp_payment_record(
         checkout_charged_gb=ctx.checkout_charged_gb,
         checkout_quoted_at=ctx.checkout_quoted_at,
         checkout_total_amount=ctx.checkout_total_amount,
+        user_balance_user_id=ctx.user_balance_user_id,
+        user_balance_amount_minor=ctx.user_balance_amount_minor,
+        user_balance_currency_scale=ctx.user_balance_currency_scale,
         partner_balance_partner_id=ctx.partner_balance_partner_id,
         partner_balance_amount_minor=ctx.partner_balance_amount_minor,
         partner_balance_currency_scale=ctx.partner_balance_currency_scale,

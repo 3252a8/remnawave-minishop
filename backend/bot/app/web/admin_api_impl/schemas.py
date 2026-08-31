@@ -20,7 +20,7 @@ Template for migrated domains:
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
@@ -531,6 +531,20 @@ class AdminUserExtendBody(HttpBodyModel):
 class AdminUserTariffBody(HttpBodyModel):
     tariff_key: Any = None
     apply_tariff_hwid_limit: Any = False
+
+
+class AdminUserBalanceAdjustmentBody(HttpBodyModel):
+    mode: Literal["add", "subtract", "set"] = "add"
+    amount: float = Field(ge=0)
+    reason: str = Field(default="", max_length=500)
+    idempotency_key: str = Field(default="", max_length=128)
+
+
+class AdminUserBalanceConversionBody(HttpBodyModel):
+    direction: Literal["partner_to_user", "user_to_partner"]
+    amount: float = Field(gt=0)
+    reason: str = Field(default="", max_length=500)
+    idempotency_key: str = Field(default="", max_length=128)
 
 
 class PromoOptionOut(HttpResponseModel):

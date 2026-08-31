@@ -116,6 +116,132 @@ FROM source
 WHERE target.user_id = (source.item ->> 'user_id')::bigint
   AND NULLIF(source.item ->> 'referred_by_id', '') IS NOT NULL;
 
+-- Give the base admin and the first rich demo user both spendable balance sources.
+-- The history deliberately covers top-ups, checkout spend, admin changes and conversions.
+INSERT INTO partner_profiles (
+    user_id, status, commission_bps, partner_code, display_label_snapshot,
+    welcome_message, activated_at, created_at, updated_at
+)
+SELECT
+    demo.user_id,
+    'active',
+    3000,
+    demo.partner_code,
+    demo.display_label,
+    'Dev acceptance partner profile with withdrawable and converted funds.',
+    now() - interval '90 days',
+    now() - interval '90 days',
+    now()
+FROM (
+    VALUES
+        (910000001::bigint, 'DEV-BALANCE-ADMIN', 'Runes Admin Partner'),
+        (910001::bigint, 'DEV-BALANCE-RICH', 'Rich Demo Partner')
+) AS demo(user_id, partner_code, display_label)
+JOIN users ON users.user_id = demo.user_id
+ON CONFLICT (user_id) DO UPDATE SET
+    status = EXCLUDED.status,
+    commission_bps = EXCLUDED.commission_bps,
+    partner_code = EXCLUDED.partner_code,
+    display_label_snapshot = EXCLUDED.display_label_snapshot,
+    welcome_message = EXCLUDED.welcome_message,
+    activated_at = EXCLUDED.activated_at,
+    paused_at = NULL,
+    closed_at = NULL,
+    updated_at = now();
+
+WITH demo_users(user_id) AS (
+    VALUES (910000001::bigint), (910001::bigint)
+), demo_entries(ordinal, amount_minor, kind, reference_type, reason, age) AS (
+    VALUES
+        (1,  75000::bigint, 'admin_adjustment',    'admin',   'Стартовый баланс для приёмки', interval '45 days'),
+        (2,  50000::bigint, 'payment_topup',       'payment', 'Пополнение через ЮKassa',       interval '30 days'),
+        (3, -19000::bigint, 'checkout_spend',      'payment', 'Покупка подписки на месяц',      interval '21 days'),
+        (4,  12000::bigint, 'partner_conversion_in','partner', 'Конвертация из партнёрского баланса', interval '14 days'),
+        (5,  -7900::bigint, 'checkout_spend',      'payment', 'Дополнительное устройство',     interval '7 days'),
+        (6,  18350::bigint, 'payment_topup',       'payment', 'Пополнение через Telegram Stars', interval '2 days')
+)
+INSERT INTO user_balance_ledger_entries (
+    user_id, currency, currency_scale, amount_minor, kind, state,
+    reference_type, reference_id, idempotency_key, actor_admin_id,
+    reason, metadata_json, created_at, posted_at
+)
+SELECT
+    demo_users.user_id,
+    'RUB',
+    2,
+    demo_entries.amount_minor,
+    demo_entries.kind,
+    'posted',
+    demo_entries.reference_type,
+    format('dev-%s-%s', demo_users.user_id, demo_entries.ordinal),
+    format('dev-balance:%s:%s', demo_users.user_id, demo_entries.ordinal),
+    CASE WHEN demo_entries.kind = 'admin_adjustment' THEN 910000001 ELSE NULL END,
+    demo_entries.reason,
+    json_build_object('demo', true, 'ordinal', demo_entries.ordinal)::text,
+    now() - demo_entries.age,
+    now() - demo_entries.age
+FROM demo_users
+JOIN users ON users.user_id = demo_users.user_id
+CROSS JOIN demo_entries
+ON CONFLICT (idempotency_key) DO UPDATE SET
+    currency = EXCLUDED.currency,
+    currency_scale = EXCLUDED.currency_scale,
+    amount_minor = EXCLUDED.amount_minor,
+    kind = EXCLUDED.kind,
+    state = EXCLUDED.state,
+    reference_type = EXCLUDED.reference_type,
+    reference_id = EXCLUDED.reference_id,
+    actor_admin_id = EXCLUDED.actor_admin_id,
+    reason = EXCLUDED.reason,
+    metadata_json = EXCLUDED.metadata_json,
+    created_at = EXCLUDED.created_at,
+    posted_at = EXCLUDED.posted_at;
+
+WITH demo_entries(ordinal, amount_minor, withdrawable_amount_minor, kind, reason, age) AS (
+    VALUES
+        (1,  50000::bigint,  50000::bigint, 'commission_credit',    'Комиссия за приглашённого клиента', interval '40 days'),
+        (2, -25800::bigint, -25800::bigint, 'checkout_spend',       'Оплата продления из партнёрского баланса', interval '18 days'),
+        (3,  12000::bigint,      0::bigint, 'balance_conversion_in','Конвертация из обычного баланса', interval '5 days')
+)
+INSERT INTO partner_ledger_entries (
+    partner_id, currency, currency_scale, amount_minor, withdrawable_amount_minor,
+    kind, state, reference_type, reference_id, idempotency_key,
+    actor_admin_id, reason, metadata_json, created_at, posted_at
+)
+SELECT
+    profiles.partner_id,
+    'RUB',
+    2,
+    demo_entries.amount_minor,
+    demo_entries.withdrawable_amount_minor,
+    demo_entries.kind,
+    'posted',
+    'dev_balance',
+    format('dev-%s-%s', profiles.user_id, demo_entries.ordinal),
+    format('dev-partner-balance:%s:%s', profiles.user_id, demo_entries.ordinal),
+    CASE WHEN demo_entries.kind = 'balance_conversion_in' THEN 910000001 ELSE NULL END,
+    demo_entries.reason,
+    json_build_object('demo', true, 'ordinal', demo_entries.ordinal)::text,
+    now() - demo_entries.age,
+    now() - demo_entries.age
+FROM partner_profiles AS profiles
+CROSS JOIN demo_entries
+WHERE profiles.user_id IN (910000001, 910001)
+ON CONFLICT (idempotency_key) DO UPDATE SET
+    currency = EXCLUDED.currency,
+    currency_scale = EXCLUDED.currency_scale,
+    amount_minor = EXCLUDED.amount_minor,
+    withdrawable_amount_minor = EXCLUDED.withdrawable_amount_minor,
+    kind = EXCLUDED.kind,
+    state = EXCLUDED.state,
+    reference_type = EXCLUDED.reference_type,
+    reference_id = EXCLUDED.reference_id,
+    actor_admin_id = EXCLUDED.actor_admin_id,
+    reason = EXCLUDED.reason,
+    metadata_json = EXCLUDED.metadata_json,
+    created_at = EXCLUDED.created_at,
+    posted_at = EXCLUDED.posted_at;
+
 WITH source AS (
     SELECT item
     FROM dev_demo_payload,

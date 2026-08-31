@@ -14,6 +14,7 @@ from config.settings_defaults import (
 )
 from config.settings_mixins import SettingsComputedMixin, SettingsValidationMixin
 from config.settings_models import (
+    BalanceSettings,
     CompatibilitySettings,
     DBSettings,
     EmailSettings,
@@ -164,6 +165,17 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
 
     DEFAULT_LANGUAGE: str = Field(default="ru")
     DEFAULT_CURRENCY_SYMBOL: str = Field(default="RUB")
+    USER_BALANCE_ENABLED: bool = Field(default=False)
+    USER_BALANCE_CURRENCY: str = Field(
+        default="",
+        description="Currency code for user balances; blank follows DEFAULT_CURRENCY_SYMBOL.",
+    )
+    USER_BALANCE_TOPUP_MIN_AMOUNT: float = Field(default=100, gt=0)
+    USER_BALANCE_TOPUP_MAX_AMOUNT: float = Field(default=100000, gt=0)
+    USER_BALANCE_TOPUP_PRESETS: str = Field(
+        default="[500, 1000, 2000, 5000]",
+        description="JSON array of suggested user balance top-up amounts.",
+    )
 
     SUPPORT_LINK: str | None = Field(default=None)
     SERVER_STATUS_URL: str | None = Field(default=None)
@@ -927,6 +939,7 @@ def get_settings() -> Settings:
 
 
 __all__ = [
+    "BalanceSettings",
     "CompatibilitySettings",
     "DBSettings",
     "EmailSettings",

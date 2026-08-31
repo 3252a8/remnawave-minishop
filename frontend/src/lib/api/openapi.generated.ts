@@ -1498,6 +1498,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/users/{user_id}/balance-adjustment": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Balance Adjustment */
+    post: operations["post_admin_user_balance_adjustment_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/users/{user_id}/balance-conversion": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Balance Conversion */
+    post: operations["post_admin_user_balance_conversion_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/users/{user_id}/ban": {
     parameters: {
       query?: never;
@@ -2002,6 +2036,40 @@ export interface paths {
     put?: never;
     /** Auth Token */
     post: operations["post_auth_token_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/balance": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Balance */
+    get: operations["get_balance_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/balance/topup": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Balance Topup */
+    post: operations["post_balance_topup_route"];
     delete?: never;
     options?: never;
     head?: never;
@@ -4730,6 +4798,47 @@ export interface components {
       /** Price */
       price: number;
     };
+    /** AdminUserBalanceAdjustmentBody */
+    AdminUserBalanceAdjustmentBody: {
+      /** Amount */
+      amount: number;
+      /**
+       * Idempotency Key
+       * @default
+       */
+      idempotency_key: string;
+      /**
+       * Mode
+       * @default add
+       * @enum {string}
+       */
+      mode: "add" | "subtract" | "set";
+      /**
+       * Reason
+       * @default
+       */
+      reason: string;
+    };
+    /** AdminUserBalanceConversionBody */
+    AdminUserBalanceConversionBody: {
+      /** Amount */
+      amount: number;
+      /**
+       * Direction
+       * @enum {string}
+       */
+      direction: "partner_to_user" | "user_to_partner";
+      /**
+       * Idempotency Key
+       * @default
+       */
+      idempotency_key: string;
+      /**
+       * Reason
+       * @default
+       */
+      reason: string;
+    };
     /** AdminUserBanBody */
     AdminUserBanBody: {
       /**
@@ -7238,6 +7347,13 @@ export interface components {
       /** Enabled */
       enabled: boolean;
     };
+    /** WebAppBalanceTopupPayload */
+    WebAppBalanceTopupPayload: {
+      /** Amount */
+      amount: number;
+      /** Method */
+      method: string;
+    };
     /** WebAppCheckoutAddonsPayload */
     WebAppCheckoutAddonsPayload: {
       /**
@@ -7442,6 +7558,11 @@ export interface components {
     };
     /** WebAppPaymentCreatePayload */
     WebAppPaymentCreatePayload: {
+      /**
+       * Balance Source
+       * @default null
+       */
+      balance_source: ("user" | "partner") | null;
       /** @default null */
       checkout_addons: components["schemas"]["WebAppCheckoutAddonsPayload"] | null;
       /**
@@ -7528,6 +7649,11 @@ export interface components {
     };
     /** WebAppPromoQuotePayload */
     WebAppPromoQuotePayload: {
+      /**
+       * Balance Source
+       * @default null
+       */
+      balance_source: ("user" | "partner") | null;
       /** @default null */
       checkout_addons: components["schemas"]["WebAppCheckoutAddonsPayload"] | null;
       /**
@@ -7599,6 +7725,11 @@ export interface components {
     };
     /** WebAppSubscriptionQuotePayload */
     WebAppSubscriptionQuotePayload: {
+      /**
+       * Balance Source
+       * @default null
+       */
+      balance_source: ("user" | "partner") | null;
       /** @default null */
       checkout_addons: components["schemas"]["WebAppCheckoutAddonsPayload"] | null;
       /**
@@ -10617,6 +10748,36 @@ export interface operations {
         content: {
           "application/json": {
             active_subscription: components["schemas"]["AdminSubscriptionOut"] | null;
+            balance: {
+              amount: string;
+              amount_minor: number;
+              currency: string;
+              currency_scale: number;
+              enabled: boolean;
+              history?: {
+                amount_minor?: number;
+                created_at?: string | null;
+                entry_id?: number;
+                kind?: string;
+                reason?: string | null;
+                reference_id?: string;
+                reference_type?: string;
+                state?: string;
+              }[];
+              /** @constant */
+              ok: true;
+              sources: {
+                amount?: string;
+                amount_minor?: number;
+                available?: boolean;
+                convertible?: boolean;
+                currency?: string;
+                id?: string;
+              }[];
+              topup_max_amount: number;
+              topup_min_amount: number;
+              topup_presets: number[];
+            };
             install_share_url: string | null;
             last_vpn_connected_at: string | null;
             log_count: number;
@@ -10686,6 +10847,124 @@ export interface operations {
         };
         content: {
           "image/jpeg": string;
+        };
+      };
+    };
+  };
+  post_admin_user_balance_adjustment_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminUserBalanceAdjustmentBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            balance: {
+              amount: string;
+              amount_minor: number;
+              currency: string;
+              currency_scale: number;
+              enabled: boolean;
+              history?: {
+                amount_minor?: number;
+                created_at?: string | null;
+                entry_id?: number;
+                kind?: string;
+                reason?: string | null;
+                reference_id?: string;
+                reference_type?: string;
+                state?: string;
+              }[];
+              /** @constant */
+              ok: true;
+              sources: {
+                amount?: string;
+                amount_minor?: number;
+                available?: boolean;
+                convertible?: boolean;
+                currency?: string;
+                id?: string;
+              }[];
+              topup_max_amount: number;
+              topup_min_amount: number;
+              topup_presets: number[];
+            };
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_user_balance_conversion_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminUserBalanceConversionBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            balance: {
+              amount: string;
+              amount_minor: number;
+              currency: string;
+              currency_scale: number;
+              enabled: boolean;
+              history?: {
+                amount_minor?: number;
+                created_at?: string | null;
+                entry_id?: number;
+                kind?: string;
+                reason?: string | null;
+                reference_id?: string;
+                reference_type?: string;
+                state?: string;
+              }[];
+              /** @constant */
+              ok: true;
+              sources: {
+                amount?: string;
+                amount_minor?: number;
+                available?: boolean;
+                convertible?: boolean;
+                currency?: string;
+                id?: string;
+              }[];
+              topup_max_amount: number;
+              topup_min_amount: number;
+              topup_presets: number[];
+            };
+            /** @constant */
+            ok: true;
+          };
         };
       };
     };
@@ -11609,6 +11888,92 @@ export interface operations {
       };
     };
   };
+  get_balance_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            amount: string;
+            amount_minor: number;
+            currency: string;
+            currency_scale: number;
+            enabled: boolean;
+            history?: {
+              amount_minor?: number;
+              created_at?: string | null;
+              entry_id?: number;
+              kind?: string;
+              reason?: string | null;
+              reference_id?: string;
+              reference_type?: string;
+              state?: string;
+            }[];
+            /** @constant */
+            ok: true;
+            sources: {
+              amount?: string;
+              amount_minor?: number;
+              available?: boolean;
+              convertible?: boolean;
+              currency?: string;
+              id?: string;
+            }[];
+            topup_max_amount: number;
+            topup_min_amount: number;
+            topup_presets: number[];
+          };
+        };
+      };
+    };
+  };
+  post_balance_topup_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppBalanceTopupPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            action?: string;
+            confirmation_url?: string | null;
+            /** @constant */
+            ok: true;
+            paid?: boolean;
+            /** @description Provider-specific payment payload returned by the selected integration. */
+            payment?: {
+              [key: string]: unknown;
+            };
+            payment_id?: number;
+            payment_url?: string | null;
+            status?: string;
+          };
+        };
+      };
+    };
+  };
   get_bootstrap_route: {
     parameters: {
       query?: never;
@@ -11843,6 +12208,36 @@ export interface operations {
         };
         content: {
           "application/json": {
+            balance: {
+              amount: string;
+              amount_minor: number;
+              currency: string;
+              currency_scale: number;
+              enabled: boolean;
+              history?: {
+                amount_minor?: number;
+                created_at?: string | null;
+                entry_id?: number;
+                kind?: string;
+                reason?: string | null;
+                reference_id?: string;
+                reference_type?: string;
+                state?: string;
+              }[];
+              /** @constant */
+              ok: true;
+              sources: {
+                amount?: string;
+                amount_minor?: number;
+                available?: boolean;
+                convertible?: boolean;
+                currency?: string;
+                id?: string;
+              }[];
+              topup_max_amount: number;
+              topup_min_amount: number;
+              topup_presets: number[];
+            };
             /** @constant */
             ok: true;
             payment_methods: {
@@ -12013,6 +12408,7 @@ export interface operations {
               trial_traffic_limit_gb?: number;
               trial_traffic_strategy?: string;
               trial_without_telegram_enabled?: boolean;
+              user_balance_enabled?: boolean;
               user_hwid_device_limit?: number | null;
             };
             subscription: {

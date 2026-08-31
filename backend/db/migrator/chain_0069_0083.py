@@ -283,6 +283,70 @@ def _migration_0073_add_user_email_addresses(connection: Connection) -> None:
         connection.execute(text(statement))
 
 
+def _migration_0074_add_user_balance(connection: Connection) -> None:
+    """Add append-only user balances and checkout funding attribution."""
+
+    statements = (
+        "ALTER TABLE payments ADD COLUMN IF NOT EXISTS user_balance_amount_minor BIGINT",
+        "ALTER TABLE payments ADD COLUMN IF NOT EXISTS user_balance_currency_scale INTEGER",
+        """
+            CREATE TABLE IF NOT EXISTS user_balance_ledger_entries (
+                entry_id BIGSERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                currency VARCHAR(16) NOT NULL,
+                currency_scale INTEGER NOT NULL,
+                amount_minor BIGINT NOT NULL,
+                kind VARCHAR(32) NOT NULL,
+                state VARCHAR(16) NOT NULL DEFAULT 'posted',
+                reference_type VARCHAR(32) NOT NULL,
+                reference_id VARCHAR(64) NOT NULL,
+                idempotency_key VARCHAR(128) NOT NULL UNIQUE,
+                actor_admin_id BIGINT REFERENCES users(user_id) ON DELETE SET NULL,
+                reason TEXT,
+                metadata_json TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                posted_at TIMESTAMPTZ DEFAULT NOW(),
+                CONSTRAINT ck_user_balance_ledger_state CHECK (state IN ('posted', 'void')),
+                CONSTRAINT ck_user_balance_ledger_kind CHECK (
+                    kind IN ('payment_topup', 'payment_topup_reversal', 'admin_adjustment',
+                    'checkout_spend', 'checkout_spend_release', 'partner_conversion_in',
+                    'partner_conversion_out')
+                )
+            )
+        """,
+        """
+            CREATE INDEX IF NOT EXISTS ix_user_balance_ledger_user_currency
+                ON user_balance_ledger_entries (user_id, currency, created_at)
+        """,
+        """
+            CREATE INDEX IF NOT EXISTS ix_user_balance_ledger_reference
+                ON user_balance_ledger_entries (reference_type, reference_id)
+        """,
+        (
+            "ALTER TABLE partner_ledger_entries ADD COLUMN IF NOT EXISTS "
+            "withdrawable_amount_minor BIGINT"
+        ),
+        """
+            UPDATE partner_ledger_entries
+            SET withdrawable_amount_minor = amount_minor
+            WHERE withdrawable_amount_minor IS NULL
+        """,
+        "ALTER TABLE partner_ledger_entries ALTER COLUMN withdrawable_amount_minor SET DEFAULT 0",
+        "ALTER TABLE partner_ledger_entries ALTER COLUMN withdrawable_amount_minor SET NOT NULL",
+        "ALTER TABLE partner_ledger_entries DROP CONSTRAINT IF EXISTS ck_partner_ledger_kind",
+        """
+            ALTER TABLE partner_ledger_entries ADD CONSTRAINT ck_partner_ledger_kind CHECK (
+                kind IN ('commission_credit', 'manual_adjustment', 'withdrawal_reserve',
+                'withdrawal_release', 'subscription_spend', 'subscription_spend_release',
+                'checkout_spend', 'checkout_spend_release', 'commission_reversal',
+                'balance_conversion_in', 'balance_conversion_out')
+            )
+        """,
+    )
+    for statement in statements:
+        connection.execute(text(statement))
+
+
 CHAIN_0069_0083: list[Migration] = [
     Migration(
         id="0069_normalize_auto_renew_attempt_index",
@@ -308,5 +372,10 @@ CHAIN_0069_0083: list[Migration] = [
         id="0073_add_user_email_addresses",
         description="Add verified account email addresses and notification selection",
         upgrade=_migration_0073_add_user_email_addresses,
+    ),
+    Migration(
+        id="0074_add_user_balance",
+        description="Add user balance ledgers and checkout funding attribution",
+        upgrade=_migration_0074_add_user_balance,
     ),
 ]

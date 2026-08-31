@@ -254,7 +254,7 @@
   }
 
   function checkoutPaymentOptions(): CheckoutPaymentOptions {
-    return { usePartnerBalance, checkoutAddons: checkoutAddonSelection };
+    return { balanceSource, checkoutAddons: checkoutAddonSelection };
   }
 
   function checkoutQuotePlan(plan: PlanView | null): PlanView | null {
@@ -631,7 +631,7 @@
     return String(selectedTariff?.billing_model || "period").toLowerCase() !== "traffic";
   }
 
-  let usePartnerBalance = $state(false);
+  let balanceSource = $state<"user" | "partner" | null>(null);
   let partnerBalanceDiscount = $state(0);
 
   function checkoutAmount(plan: PlanView | null) {
@@ -663,7 +663,7 @@
   }
 
   function partnerCheckoutPriceParts(plan: PlanView | null) {
-    if (!usePartnerBalance || partnerBalanceDiscount <= 0 || !plan) return null;
+    if (!balanceSource || partnerBalanceDiscount <= 0 || !plan) return null;
     return {
       base: checkoutPaymentPriceLabel(plan),
       discounted: formatMoney(
@@ -702,7 +702,7 @@
     partnerCurrency={String(selectedPlan?.currency || "")}
     partnerEligible={partnerBalanceEligible()}
     partnerMinimum={selectedMethodMinimum()}
-    bind:usePartnerBalance
+    bind:balanceSource
     bind:partnerBalanceDiscount
     hasMethods={Boolean(methods.length)}
     {paymentMethods}

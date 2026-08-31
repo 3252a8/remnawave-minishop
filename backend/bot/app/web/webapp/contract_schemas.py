@@ -236,6 +236,57 @@ PENDING_PAYMENT_SCHEMA: dict[str, Any] = {
         "created_at": STRING_SCHEMA,
     },
 }
+BALANCE_SOURCE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "id": STRING_SCHEMA,
+        "available": BOOLEAN_SCHEMA,
+        "convertible": BOOLEAN_SCHEMA,
+        "amount_minor": INTEGER_SCHEMA,
+        "amount": STRING_SCHEMA,
+        "currency": STRING_SCHEMA,
+    },
+}
+BALANCE_ENTRY_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "entry_id": INTEGER_SCHEMA,
+        "amount_minor": INTEGER_SCHEMA,
+        "kind": STRING_SCHEMA,
+        "state": STRING_SCHEMA,
+        "reason": NULLABLE_STRING_SCHEMA,
+        "reference_type": STRING_SCHEMA,
+        "reference_id": STRING_SCHEMA,
+        "created_at": NULLABLE_STRING_SCHEMA,
+    },
+}
+BALANCE_SCHEMA: dict[str, Any] = ok_envelope_with(
+    {
+        "enabled": BOOLEAN_SCHEMA,
+        "currency": STRING_SCHEMA,
+        "currency_scale": INTEGER_SCHEMA,
+        "amount_minor": INTEGER_SCHEMA,
+        "amount": STRING_SCHEMA,
+        "topup_min_amount": NUMBER_SCHEMA,
+        "topup_max_amount": NUMBER_SCHEMA,
+        "topup_presets": NUMBER_ARRAY_SCHEMA,
+        "sources": {"type": "array", "items": BALANCE_SOURCE_SCHEMA},
+        "history": {"type": "array", "items": BALANCE_ENTRY_SCHEMA},
+    },
+    required=[
+        "enabled",
+        "currency",
+        "currency_scale",
+        "amount_minor",
+        "amount",
+        "topup_min_amount",
+        "topup_max_amount",
+        "topup_presets",
+        "sources",
+    ],
+)
 HWID_RENEWAL_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
@@ -626,6 +677,7 @@ WEBAPP_SETTINGS_SCHEMA: dict[str, Any] = {
         "traffic_mode": BOOLEAN_SCHEMA,
         "my_devices_enabled": BOOLEAN_SCHEMA,
         "partner_program_enabled": BOOLEAN_SCHEMA,
+        "user_balance_enabled": BOOLEAN_SCHEMA,
         "referral_program_enabled": BOOLEAN_SCHEMA,
         "subscription_reissue_enabled": BOOLEAN_SCHEMA,
         "user_hwid_device_limit": NULLABLE_INTEGER_SCHEMA,
@@ -662,6 +714,7 @@ ME_RESPONSE_SCHEMA: dict[str, Any] = ok_envelope_with(
         "payment_methods": {"type": "array", "items": PAYMENT_METHOD_SCHEMA},
         "themes_catalog": THEMES_CATALOG_SCHEMA,
         "support_unread_count": INTEGER_SCHEMA,
+        "balance": BALANCE_SCHEMA,
         "settings": WEBAPP_SETTINGS_SCHEMA,
     },
 )

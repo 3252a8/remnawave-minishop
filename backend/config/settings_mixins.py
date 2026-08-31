@@ -16,6 +16,7 @@ from pydantic import field_validator
 
 from config.menu_buttons import normalize_menu_buttons_json
 from config.settings_models import (
+    BalanceSettings,
     CompatibilitySettings,
     DBSettings,
     EmailSettings,
@@ -30,7 +31,11 @@ from config.settings_models import (
 )
 from config.settings_validation import SettingsValidationMixin as SettingsValidationMixin
 from config.support_links import normalize_support_link
-from config.tariffs_config import TariffsConfig, load_tariffs_config
+from config.tariffs_config import (
+    TariffsConfig,
+    default_payment_currency_code_for_settings,
+    load_tariffs_config,
+)
 from config.webapp_themes_config import WebappThemesConfig, resolved_webapp_themes_catalog
 
 logger = logging.getLogger(__name__)
@@ -107,6 +112,11 @@ if TYPE_CHECKING:
         WEBAPP_SERVER_PORT: int
         WEBAPP_ENABLED: bool
         DEFAULT_CURRENCY_SYMBOL: str
+        USER_BALANCE_ENABLED: bool
+        USER_BALANCE_CURRENCY: str
+        USER_BALANCE_TOPUP_MIN_AMOUNT: float
+        USER_BALANCE_TOPUP_MAX_AMOUNT: float
+        USER_BALANCE_TOPUP_PRESETS: str
         PAYMENT_REQUEST_TIMEOUT_SECONDS: float
         ADMIN_IDS_STR: str
         PANEL_WRITE_MODE: str
@@ -307,6 +317,25 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             traffic_packages=self.traffic_packages,
             stars_traffic_packages=self.stars_traffic_packages,
             traffic_sale_mode=self.traffic_sale_mode,
+        )
+
+    @property
+    def balance_settings(self) -> BalanceSettings:
+        try:
+            raw_presets = json.loads(self.USER_BALANCE_TOPUP_PRESETS or "[]")
+        except (TypeError, ValueError) as exc:
+            raise ValueError("USER_BALANCE_TOPUP_PRESETS must be valid JSON") from exc
+        if not isinstance(raw_presets, list):
+            raise ValueError("USER_BALANCE_TOPUP_PRESETS must be a JSON array")
+        currency = (
+            self.USER_BALANCE_CURRENCY or default_payment_currency_code_for_settings(self) or "RUB"
+        ).strip()
+        return BalanceSettings(
+            enabled=self.USER_BALANCE_ENABLED,
+            currency=currency,
+            topup_min_amount=self.USER_BALANCE_TOPUP_MIN_AMOUNT,
+            topup_max_amount=self.USER_BALANCE_TOPUP_MAX_AMOUNT,
+            topup_presets=raw_presets,
         )
 
     @property

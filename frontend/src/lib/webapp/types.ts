@@ -54,6 +54,7 @@ export type TermUnitLabel = (value: number, unit: string) => string;
 type MeOkResponse = Extract<MeResponse, { ok: true }>;
 
 export type UserProfile = MeOkResponse["user"] & WebappRecord;
+export type BalanceView = MeOkResponse["balance"] & WebappRecord;
 export type SubscriptionView = MeOkResponse["subscription"] & BillingPlan & WebappRecord;
 export type PendingPaymentView = NonNullable<MeOkResponse["pending_payment"]> & WebappRecord;
 export type BrandConfig = WebappRecord & {

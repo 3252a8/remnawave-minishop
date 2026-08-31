@@ -620,6 +620,7 @@ async def create_ledger_entry(
     session: AsyncSession,
     **values: Any,
 ) -> PartnerLedgerEntry:
+    values.setdefault("withdrawable_amount_minor", values.get("amount_minor", 0))
     entry = PartnerLedgerEntry(**values)
     session.add(entry)
     await session.flush()
@@ -650,6 +651,31 @@ async def balance_minor(
         )
     )
     return int(result.scalar_one() or 0)
+
+
+async def withdrawable_balance_minor(
+    session: AsyncSession,
+    partner_id: int,
+    currency: str,
+) -> int:
+    """Return the non-converted part of partner funds that may be withdrawn."""
+
+    withdrawable = int(
+        (
+            await session.execute(
+                select(
+                    func.coalesce(func.sum(PartnerLedgerEntry.withdrawable_amount_minor), 0)
+                ).where(
+                    PartnerLedgerEntry.partner_id == partner_id,
+                    func.upper(PartnerLedgerEntry.currency) == currency.upper(),
+                    PartnerLedgerEntry.state == "posted",
+                )
+            )
+        ).scalar_one()
+        or 0
+    )
+    available = await balance_minor(session, partner_id, currency)
+    return max(0, min(withdrawable, available))
 
 
 async def balance_summaries(

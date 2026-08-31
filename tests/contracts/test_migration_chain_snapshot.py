@@ -94,6 +94,7 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0071_add_hwid_device_limit_override",
     "0072_add_external_login_credentials",
     "0073_add_user_email_addresses",
+    "0074_add_user_balance",
 ]
 
 

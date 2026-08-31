@@ -813,6 +813,78 @@ export function createUsersStore({
     }
   }
 
+  async function adjustUserBalance(payload: {
+    mode: "add" | "subtract" | "set";
+    amount: number;
+    reason: string;
+    idempotency_key: string;
+  }) {
+    const s = readStateSnapshot();
+    if (!s.openedUser) return false;
+    applyState((st) => ({ ...st, userActionBusy: true }));
+    try {
+      const res = await api(buildAdminUserActionPath(s.openedUser.user_id, "balance-adjustment"), {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (!res?.ok) {
+        onToast(adminErrorMessage(res, at));
+        return false;
+      }
+      invalidateUsersQueries(s.openedUser.user_id);
+      onToast(at("user_balance_adjustment_saved", {}, "Balance updated"));
+      await refreshOpenedUserDetail({
+        resetExtendTariff: false,
+        resetTariffAction: false,
+        resetTrafficStrategy: false,
+        resetPremium: false,
+        resetRegular: false,
+        resetHwid: false,
+        resetGrant: false,
+        resetSquadOverrides: false,
+      });
+      return true;
+    } finally {
+      applyState((st) => ({ ...st, userActionBusy: false }));
+    }
+  }
+
+  async function convertUserBalance(payload: {
+    direction: "partner_to_user" | "user_to_partner";
+    amount: number;
+    reason: string;
+    idempotency_key: string;
+  }) {
+    const s = readStateSnapshot();
+    if (!s.openedUser) return false;
+    applyState((st) => ({ ...st, userActionBusy: true }));
+    try {
+      const res = await api(buildAdminUserActionPath(s.openedUser.user_id, "balance-conversion"), {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (!res?.ok) {
+        onToast(adminErrorMessage(res, at));
+        return false;
+      }
+      invalidateUsersQueries(s.openedUser.user_id);
+      onToast(at("user_balance_conversion_saved", {}, "Balance converted"));
+      await refreshOpenedUserDetail({
+        resetExtendTariff: false,
+        resetTariffAction: false,
+        resetTrafficStrategy: false,
+        resetPremium: false,
+        resetRegular: false,
+        resetHwid: false,
+        resetGrant: false,
+        resetSquadOverrides: false,
+      });
+      return true;
+    } finally {
+      applyState((st) => ({ ...st, userActionBusy: false }));
+    }
+  }
+
   async function deleteUser() {
     const s = readStateSnapshot();
     const openedUser = s.openedUser;
@@ -877,6 +949,8 @@ export function createUsersStore({
     saveTrafficStrategy,
     saveHwidDeviceLimit,
     grantTraffic,
+    adjustUserBalance,
+    convertUserBalance,
     ...squadOverrideActions,
     ...subscriptionReissueActions,
     loadUserLogs,

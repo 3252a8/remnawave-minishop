@@ -84,6 +84,8 @@ export type PostResponse<Path extends string> = JsonResponse<OperationFor<Path, 
 
 export type BootstrapResponse = GetResponse<"/api/bootstrap">;
 export type MeResponse = GetResponse<"/api/me">;
+export type BalanceResponse = GetResponse<"/api/balance">;
+export type BalanceTopupResponse = PostResponse<"/api/balance/topup">;
 export type ServerStatusResponse = GetResponse<"/api/status">;
 export type AccountEmailRequestResponse = PostResponse<"/api/account/email/request">;
 export type AccountEmailVerifyResponse = PostResponse<"/api/account/email/verify">;
@@ -553,7 +555,9 @@ export type AdminUserAction =
   | "regular-traffic-override"
   | "traffic-strategy"
   | "hwid-device-limit"
-  | "traffic-grant";
+  | "traffic-grant"
+  | "balance-adjustment"
+  | "balance-conversion";
 type AdminUserActionTemplate =
   | "/api/admin/users/{user_id}/ban"
   | "/api/admin/users/{user_id}/message"
@@ -569,7 +573,9 @@ type AdminUserActionTemplate =
   | "/api/admin/users/{user_id}/regular-traffic-override"
   | "/api/admin/users/{user_id}/traffic-strategy"
   | "/api/admin/users/{user_id}/hwid-device-limit"
-  | "/api/admin/users/{user_id}/traffic-grant";
+  | "/api/admin/users/{user_id}/traffic-grant"
+  | "/api/admin/users/{user_id}/balance-adjustment"
+  | "/api/admin/users/{user_id}/balance-conversion";
 export type AdminUserActionPath = BuiltApiPath<AdminUserActionTemplate>;
 export function buildAdminUserActionPath(
   userId: string | number,

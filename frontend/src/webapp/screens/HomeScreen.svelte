@@ -11,6 +11,7 @@
     Gift,
     Repeat2,
     Send,
+    WalletCards,
   } from "$components/ui/icons.js";
 
   import BrandMark from "$lib/webapp/BrandMark.svelte";
@@ -39,6 +40,7 @@
   } from "../../lib/webapp/traffic.js";
   import type {
     AppSettings,
+    BalanceView,
     BooleanAction,
     BrandConfig,
     ReferralState,
@@ -59,6 +61,7 @@
 
   let {
     appSettings = {},
+    balance = {} as BalanceView,
     brand = {},
     brandTitle = "",
     canChangeTariff = false,
@@ -85,6 +88,7 @@
     linkTelegramAndClaimReferralWelcome = () => {},
     openConnectLink = () => {},
     openPaymentModal = () => {},
+    openBalanceTopup = () => {},
     openTelegramNotificationsBot = () => {},
     openRegularTopupModal = () => {},
     openPremiumTopupModal = () => {},
@@ -97,6 +101,7 @@
     t = (key) => key,
   }: {
     appSettings?: AppSettings;
+    balance?: BalanceView;
     brand?: BrandConfig;
     brandTitle?: string;
     canChangeTariff?: boolean;
@@ -123,6 +128,7 @@
     linkTelegramAndClaimReferralWelcome?: VoidAction;
     openConnectLink?: VoidAction;
     openPaymentModal?: VoidAction;
+    openBalanceTopup?: VoidAction;
     openTelegramNotificationsBot?: VoidAction;
     openRegularTopupModal?: VoidAction;
     openPremiumTopupModal?: VoidAction;
@@ -353,6 +359,17 @@
       onOpenBot={openTelegramNotificationsBot}
       {t}
     />
+  {/if}
+
+  {#if balance.enabled}
+    <button class="home-balance-card" type="button" onclick={openBalanceTopup}>
+      <span><WalletCards size={22} /></span>
+      <span>
+        <small>{t("wa_balance_title", {}, "Balance")}</small>
+        <strong>{balance.amount} {balance.currency}</strong>
+      </span>
+      <b>{t("wa_balance_topup_short", {}, "Top up")}</b>
+    </button>
   {/if}
 
   <div class="home-bottom">
@@ -730,3 +747,53 @@
     {/if}
   </div>
 </main>
+
+<style>
+  .home-balance-card {
+    width: min(100%, 560px);
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 11px;
+    padding: 12px 14px;
+    border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+    border-radius: 15px;
+    color: var(--text);
+    text-align: left;
+    background: color-mix(in srgb, var(--accent) 9%, var(--panel));
+    cursor: pointer;
+  }
+  .home-balance-card > span:first-child {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 14%, var(--panel-2));
+  }
+  .home-balance-card > span:nth-child(2) {
+    display: grid;
+    gap: 2px;
+  }
+  .home-balance-card small {
+    color: var(--muted);
+  }
+  .home-balance-card strong {
+    font-size: 18px;
+  }
+  .home-balance-card b {
+    color: var(--accent);
+    font-size: 13px;
+  }
+  @media (max-width: 520px) {
+    .home-balance-card {
+      padding: 11px 12px;
+    }
+    .home-balance-card > span:first-child {
+      width: 38px;
+      height: 38px;
+    }
+  }
+</style>

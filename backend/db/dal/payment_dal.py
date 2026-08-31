@@ -629,6 +629,7 @@ async def update_payment_status_by_db_id(
         else:
             payment.status = new_status
             payment.updated_at = func.now()
+            uses_user_balance = bool(int(getattr(payment, "user_balance_amount_minor", 0) or 0))
             if failure_kind is not None:
                 payment.failure_kind = str(failure_kind)[:64]
             if failure_http_status is not None:
@@ -645,6 +646,13 @@ async def update_payment_status_by_db_id(
                     session,
                     payment_id=payment_db_id,
                 )
+                if uses_user_balance:
+                    from bot.services.user_balance_service import UserBalanceService
+
+                    await UserBalanceService.ensure_consumed(
+                        session,
+                        payment_id=payment_db_id,
+                    )
             try:
                 balance_savepoint = await session.begin_nested()
                 try:
@@ -657,6 +665,14 @@ async def update_payment_status_by_db_id(
                         payment_id=payment_db_id,
                         status=new_status,
                     )
+                    if uses_user_balance:
+                        from bot.services.user_balance_service import UserBalanceService
+
+                        await UserBalanceService.release_if_terminal(
+                            session,
+                            payment_id=payment_db_id,
+                            status=new_status,
+                        )
                 except Exception:
                     await balance_savepoint.rollback()
                     raise
@@ -691,6 +707,28 @@ async def update_payment_status_by_db_id(
                         "the reconciler will retry it.",
                         payment_db_id,
                     )
+                if str(getattr(payment, "sale_mode", "") or "").split("@", 1)[0] == "balance_topup":
+                    try:
+                        reversal_savepoint = await session.begin_nested()
+                        try:
+                            from bot.services.user_balance_service import UserBalanceService
+
+                            await UserBalanceService.reverse_payment_topup(
+                                session,
+                                payment_id=payment_db_id,
+                                reason=f"payment {new_status}",
+                            )
+                        except Exception:
+                            await reversal_savepoint.rollback()
+                            raise
+                        else:
+                            await reversal_savepoint.commit()
+                    except Exception:
+                        logger.exception(
+                            "User balance top-up reversal failed for payment %s; "
+                            "the reconciler will retry it.",
+                            payment_db_id,
+                        )
         if yk_payment_id and payment.yookassa_payment_id is None:
             payment.yookassa_payment_id = yk_payment_id
         if provider_payment_url:

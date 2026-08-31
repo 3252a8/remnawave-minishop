@@ -25,6 +25,7 @@ from bot.services.panel_activity import (
     record_subscription_panel_activity,
 )
 from bot.services.referral_service import ReferralService
+from bot.services.user_balance_service import UserBalanceService
 from bot.utils.install_links import ensure_user_install_guide_share_url
 from bot.utils.traffic_reset import panel_traffic_limit_strategy
 from config.settings import Settings
@@ -671,6 +672,11 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
         )
         recent_payments = (await session.execute(recent_payments_stmt)).scalars().all()
         log_count = await message_log_dal.count_user_message_logs(session, target_id)
+        balance_payload = await UserBalanceService(settings).snapshot(
+            session,
+            user_id=target_id,
+            include_history=True,
+        )
         inviter = await user_dal.get_referrer_for_user(session, user)
         invitees_total = await user_dal.count_users_referred_by(session, target_id)
         avatar_user_ids = [target_id]
@@ -830,6 +836,7 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
             "total_paid": float(total_paid),
             "recent_payments": [_serialize_payment(p) for p in recent_payments],
             "log_count": int(log_count or 0),
+            "balance": {"ok": True, **balance_payload},
             "subscription_url": subscription_url,
             "install_share_url": install_share_url,
             "last_vpn_connected_at": last_vpn_connected_at,

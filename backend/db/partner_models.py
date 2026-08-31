@@ -192,7 +192,8 @@ class PartnerLedgerEntry(Base):
         CheckConstraint(
             "kind IN ('commission_credit', 'manual_adjustment', 'withdrawal_reserve', "
             "'withdrawal_release', 'subscription_spend', 'subscription_spend_release', "
-            "'checkout_spend', 'checkout_spend_release', 'commission_reversal')",
+            "'checkout_spend', 'checkout_spend_release', 'commission_reversal', "
+            "'balance_conversion_in', 'balance_conversion_out')",
             name="ck_partner_ledger_kind",
         ),
         Index("ix_partner_ledger_partner_currency", "partner_id", "currency", "created_at"),
@@ -209,6 +210,7 @@ class PartnerLedgerEntry(Base):
     currency = Column(String(16), nullable=False, index=True)
     currency_scale = Column(Integer, nullable=False)
     amount_minor = Column(BigInteger, nullable=False)
+    withdrawable_amount_minor = Column(BigInteger, nullable=False, default=0)
     kind = Column(String(32), nullable=False, index=True)
     state = Column(String(16), nullable=False, default="posted", index=True)
     reference_type = Column(String(32), nullable=False)

@@ -8,6 +8,7 @@
     Server,
     Shield,
     UserRound,
+    WalletCards,
   } from "$components/ui/icons.js";
 
   import Card from "$components/ui/card.svelte";
@@ -19,6 +20,7 @@
   import type { ThemeOption } from "$lib/webapp/themePreference.js";
   import type {
     LanguageOption,
+    BalanceView,
     MenuButtonView,
     OpenLinkAction,
     StringAction,
@@ -29,6 +31,7 @@
 
   type Props = {
     currentLang?: string;
+    balance?: BalanceView;
     currentLanguageOption?: LanguageOption | null;
     emailAuthEnabled?: boolean;
     isAdmin?: boolean;
@@ -69,6 +72,7 @@
     openTelegramNotificationsBot?: VoidAction;
     logout?: VoidAction;
     openAdminPanel?: VoidAction;
+    openBalanceTopup?: VoidAction;
     openPartner?: VoidAction;
     openExternalLink?: OpenLinkAction;
     openMenuButton?: (button: MenuButtonView) => void;
@@ -86,6 +90,7 @@
 
   let {
     currentLang = "ru",
+    balance = {} as BalanceView,
     currentLanguageOption = null,
     emailAuthEnabled = true,
     isAdmin = false,
@@ -126,6 +131,7 @@
     openTelegramNotificationsBot = () => {},
     logout = () => {},
     openAdminPanel = () => {},
+    openBalanceTopup = () => {},
     openPartner = () => {},
     openExternalLink = () => {},
     openMenuButton = () => {},
@@ -166,6 +172,15 @@
       {/if}
       <small>{profileTelegramId}</small>
     </div>
+    {#if balance.enabled}
+      <button class="settings-profile-balance" type="button" onclick={openBalanceTopup}>
+        <WalletCards size={17} />
+        <span>
+          <small>{t("wa_balance_title", {}, "Balance")}</small>
+          <strong>{balance.amount} {balance.currency}</strong>
+        </span>
+      </button>
+    {/if}
   </Card>
   {#if telegramNotificationsNeedPrompt}
     <TelegramNotificationsBanner
@@ -348,3 +363,48 @@
     </div>
   {/if}
 </main>
+
+<style>
+  .settings-profile-balance {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 10px;
+    border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+    border-radius: 11px;
+    color: var(--accent);
+    text-align: right;
+    background: color-mix(in srgb, var(--accent) 9%, var(--panel-2));
+    cursor: pointer;
+  }
+  .settings-profile-balance span {
+    display: grid;
+    gap: 1px;
+  }
+  .settings-profile-balance small {
+    color: var(--muted);
+    font-size: 10px;
+  }
+  .settings-profile-balance strong {
+    color: var(--text);
+    font-size: 13px;
+  }
+  @media (max-width: 460px) {
+    .settings-profile-balance {
+      padding: 7px 8px;
+    }
+    .settings-profile-balance :global(svg) {
+      display: none;
+    }
+    .settings-profile-meta {
+      min-width: 0;
+    }
+    .settings-profile-meta strong,
+    .settings-profile-meta small {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+</style>

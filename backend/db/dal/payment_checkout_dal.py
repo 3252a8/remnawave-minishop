@@ -273,3 +273,24 @@ async def release_partner_balance_safely(
             "Partner checkout balance release failed for payment %s; the reconciler will retry it.",
             payment_id,
         )
+
+    try:
+        savepoint = await session.begin_nested()
+        try:
+            from bot.services.user_balance_service import UserBalanceService
+
+            await UserBalanceService.release_if_terminal(
+                session,
+                payment_id=payment_id,
+                status=status,
+            )
+        except Exception:
+            await savepoint.rollback()
+            raise
+        else:
+            await savepoint.commit()
+    except Exception:
+        logger.exception(
+            "User checkout balance release failed for payment %s; the reconciler will retry it.",
+            payment_id,
+        )

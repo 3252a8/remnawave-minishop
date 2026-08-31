@@ -14,8 +14,10 @@
   import ScreenLoading from "./screens/ScreenLoading.svelte";
   import SettingsScreen from "./screens/SettingsScreen.svelte";
   import SecurityScreen from "./screens/SecurityScreen.svelte";
+  import BalanceTopupDialog from "./payment-dialogs/BalanceTopupDialog.svelte";
   import type {
     AppSettings,
+    BalanceView,
     BooleanAction,
     BrandConfig,
     CopyTextAction,
@@ -23,6 +25,7 @@
     LanguageOption,
     MenuButtonView,
     OpenLinkAction,
+    PaymentMethodView,
     ReferralBonusDetail,
     ReferralState,
     StringAction,
@@ -42,6 +45,7 @@
     activateTrial: VoidAction;
     activeTab?: string;
     appSettings?: AppSettings;
+    balance?: BalanceView;
     applyPromo: VoidAction;
     autoRenewBusy?: boolean;
     brand?: BrandConfig;
@@ -96,6 +100,8 @@
     openInstallOrConnect: VoidAction;
     openLinkEmailDialog: VoidAction;
     openPaymentModal: VoidAction;
+    methods?: PaymentMethodView[];
+    paymentMethodsDisplayMode?: "dropdown" | "buttons" | string;
     openPremiumTopupModal: VoidAction;
     openRegularTopupModal: VoidAction;
     openSetPasswordDialog: VoidAction;
@@ -163,6 +169,7 @@
     activateTrial,
     activeTab = "home",
     appSettings = {},
+    balance = {} as BalanceView,
     applyPromo,
     autoRenewBusy = false,
     brand = {},
@@ -217,6 +224,8 @@
     openInstallOrConnect,
     openLinkEmailDialog,
     openPaymentModal,
+    methods = [],
+    paymentMethodsDisplayMode = "dropdown",
     openPremiumTopupModal,
     openRegularTopupModal,
     openSetPasswordDialog,
@@ -316,6 +325,7 @@
   const menuButtons = $derived(
     Array.isArray(appSettings?.menu_buttons) ? (appSettings.menu_buttons as MenuButtonView[]) : []
   );
+  let balanceTopupOpen = $state(false);
 
   function openMenuButton(button: MenuButtonView): void {
     if (button.kind !== "webapp") {
@@ -384,6 +394,7 @@
   {#if screen === "home"}
     <HomeScreen
       {appSettings}
+      {balance}
       {brand}
       {brandTitle}
       {canChangeTariff}
@@ -411,6 +422,7 @@
       {openTelegramNotificationsBot}
       openConnectLink={openInstallOrConnect}
       {openPaymentModal}
+      openBalanceTopup={() => (balanceTopupOpen = true)}
       {openRegularTopupModal}
       {openPremiumTopupModal}
       {openTariffChangeModal}
@@ -554,6 +566,7 @@
       {profileAvatarUrl}
       {profileEmail}
       {profileTelegramId}
+      {balance}
       partnerSettingsVisible={programEntryPlacement.partnerSettingsVisible}
       promoActivationVisible={programEntryPlacement.promoSettingsVisible}
       {promoBusy}
@@ -584,6 +597,7 @@
       {openAdminPanel}
       openPartner={goPartner}
       {openExternalLink}
+      openBalanceTopup={() => (balanceTopupOpen = true)}
       {openMenuButton}
       openSecurity={goSecurity}
       openServerStatus={() => goStatus("settings")}
@@ -622,5 +636,16 @@
     {:else}
       <ScreenLoading label={t("wa_loading")} />
     {/if}
+  {/if}
+  {#if balance.enabled}
+    <BalanceTopupDialog
+      {api}
+      bind:open={balanceTopupOpen}
+      {balance}
+      {methods}
+      {paymentMethodsDisplayMode}
+      {openExternalLink}
+      {t}
+    />
   {/if}
 </WebAppShell>

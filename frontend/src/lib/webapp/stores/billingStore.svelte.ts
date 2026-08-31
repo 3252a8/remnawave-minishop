@@ -763,6 +763,7 @@ export function createBillingStore({
         billing.planPaymentBody(s.selectedPlan, s.selectedMethod, {
           renewHwidDevices: s.renewHwidDevices && Boolean(s.selectedPlan?.hwid_renewal?.available),
           promoCode: checkoutPromoCode(),
+          balanceSource: options.balanceSource,
           usePartnerBalance: options.usePartnerBalance,
           checkoutAddons: options.checkoutAddons,
         })
@@ -821,7 +822,8 @@ export function createBillingStore({
           s.selectedMethod,
           stringField(s.topupOptions?.tariff_key),
           checkoutPromoCode(),
-          options.usePartnerBalance
+          options.usePartnerBalance,
+          options.balanceSource
         )
       );
       await handlePaymentResponse(response, {}, () => {
@@ -898,7 +900,8 @@ export function createBillingStore({
         s.selectedChangeAction,
         s.selectedChangeTarget,
         s.selectedMethod,
-        options.usePartnerBalance
+        options.usePartnerBalance,
+        options.balanceSource
       );
       const response =
         s.selectedChangeAction.mode === "buy_package" ||
@@ -947,7 +950,8 @@ export function createBillingStore({
           s.selectedMethod,
           stringField(s.deviceTopupOptions?.tariff_key),
           checkoutPromoCode(),
-          options.usePartnerBalance
+          options.usePartnerBalance,
+          options.balanceSource
         )
       );
       await handlePaymentResponse(response, {}, () => {

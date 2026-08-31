@@ -5,6 +5,7 @@ from typing import Any
 
 from config.settings_mixins import _split_csv
 from config.settings_models import (
+    BalanceSettings,
     PanelSettings,
     PartnerSettings,
     PartnerWithdrawalMethod,
@@ -29,6 +30,11 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "CRYPT4_REDIRECT_URL": None,
     "DEFAULT_CURRENCY_SYMBOL": "RUB",
     "DEFAULT_LANGUAGE": "ru",
+    "USER_BALANCE_ENABLED": False,
+    "USER_BALANCE_CURRENCY": "",
+    "USER_BALANCE_TOPUP_MIN_AMOUNT": 100,
+    "USER_BALANCE_TOPUP_MAX_AMOUNT": 100000,
+    "USER_BALANCE_TOPUP_PRESETS": "[500, 1000, 2000, 5000]",
     "DISPOSABLE_EMAIL_DOMAINS": "",
     "EMAIL_CODE_MAX_ATTEMPTS": 5,
     "EMAIL_CODE_RESEND_SECONDS": 60,
@@ -327,6 +333,18 @@ class SettingsStub(SimpleNamespace):
     def registration_settings(self) -> RegistrationSettings:
         return RegistrationSettings(
             invite_only_enabled=bool(getattr(self, "REGISTRATION_INVITE_ONLY_ENABLED", False)),
+        )
+
+    @property
+    def balance_settings(self) -> BalanceSettings:
+        import json
+
+        return BalanceSettings(
+            enabled=bool(self.USER_BALANCE_ENABLED),
+            currency=str(self.USER_BALANCE_CURRENCY or self.DEFAULT_CURRENCY_SYMBOL or "RUB"),
+            topup_min_amount=float(self.USER_BALANCE_TOPUP_MIN_AMOUNT),
+            topup_max_amount=float(self.USER_BALANCE_TOPUP_MAX_AMOUNT),
+            topup_presets=json.loads(self.USER_BALANCE_TOPUP_PRESETS),
         )
 
     @property

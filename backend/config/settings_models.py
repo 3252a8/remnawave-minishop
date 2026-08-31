@@ -60,6 +60,36 @@ class PaymentSettings(BaseModel):
     traffic_sale_mode: bool
 
 
+class BalanceSettings(BaseModel):
+    enabled: bool = False
+    currency: str = "RUB"
+    topup_min_amount: float = Field(default=100, gt=0)
+    topup_max_amount: float = Field(default=100000, gt=0)
+    topup_presets: list[float] = Field(default_factory=lambda: [500.0, 1000.0, 2000.0, 5000.0])
+
+    @field_validator("currency")
+    @classmethod
+    def normalize_currency(cls, value: str) -> str:
+        normalized = value.strip().upper()
+        if not 2 <= len(normalized) <= 16 or not normalized.isalnum():
+            raise ValueError("balance currency must be a 2-16 character code")
+        return normalized
+
+    @model_validator(mode="after")
+    def validate_amounts(self) -> "BalanceSettings":
+        if self.topup_max_amount < self.topup_min_amount:
+            raise ValueError("balance top-up maximum must not be lower than the minimum")
+        normalized = sorted(
+            {
+                float(value)
+                for value in self.topup_presets
+                if self.topup_min_amount <= float(value) <= self.topup_max_amount
+            }
+        )
+        self.topup_presets = normalized
+        return self
+
+
 class CompatibilitySettings(BaseModel):
     remnashop_referral_code_compat_enabled: bool
     remnashop_promo_code_compat_enabled: bool

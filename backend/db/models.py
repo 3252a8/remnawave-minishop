@@ -393,6 +393,8 @@ class Payment(Base):
     checkout_charged_gb = Column(Float, nullable=True)
     checkout_quoted_at = Column(DateTime(timezone=True), nullable=True)
     checkout_total_amount = Column(Float, nullable=True)
+    user_balance_amount_minor = Column(BigInteger, nullable=True)
+    user_balance_currency_scale = Column(Integer, nullable=True)
     partner_balance_amount_minor = Column(BigInteger, nullable=True)
     partner_balance_currency_scale = Column(Integer, nullable=True)
     tariff_change_quote_snapshot = Column(Text, nullable=True)
@@ -948,6 +950,7 @@ class LegacyImportMapping(Base):
 # ``db.partner_models`` directly; this import exists only for registration.
 from db import activity_models as activity_models  # noqa: E402
 from db import auth_models as auth_models  # noqa: E402
+from db import balance_models as balance_models  # noqa: E402
 from db import broadcast_models as broadcast_models  # noqa: E402
 from db import message_image_models as message_image_models  # noqa: E402
 from db import partner_models as partner_models  # noqa: E402
@@ -967,3 +970,4 @@ WebAuthnChallenge = auth_models.WebAuthnChallenge
 AdminBroadcast = broadcast_models.AdminBroadcast
 AdminBroadcastDelivery = broadcast_models.AdminBroadcastDelivery
 MessageImage = message_image_models.MessageImage
+UserBalanceLedgerEntry = balance_models.UserBalanceLedgerEntry

@@ -11,11 +11,14 @@ from bot.app.web.route_contracts import (
     register_contract,
     schema_ref,
 )
+from bot.app.web.webapp.contract_schemas import BALANCE_SCHEMA
 from db.dal import message_log_dal, payment_dal, subscription_dal, user_dal
 
 from .schemas import (
     AdminSubscriptionOut,
     AdminTelegramNotificationsOut,
+    AdminUserBalanceAdjustmentBody,
+    AdminUserBalanceConversionBody,
     AdminUserBanBody,
     AdminUserExtendBody,
     AdminUserHwidDeviceLimitBody,
@@ -49,6 +52,10 @@ from .users_actions import (
     admin_user_telegram_profile_link_route,
     admin_user_traffic_grant_route,
     admin_user_traffic_strategy_route,
+)
+from .users_balance import (
+    admin_user_balance_adjustment_route,
+    admin_user_balance_conversion_route,
 )
 from .users_common import (
     _ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA,
@@ -146,6 +153,7 @@ register_contract(
                 "total_paid": NUMBER_SCHEMA,
                 "recent_payments": {"type": "array", "items": schema_ref(PaymentOut)},
                 "log_count": INTEGER_SCHEMA,
+                "balance": BALANCE_SCHEMA,
                 "subscription_url": NULLABLE_STRING_SCHEMA,
                 "install_share_url": NULLABLE_STRING_SCHEMA,
                 "last_vpn_connected_at": NULLABLE_STRING_SCHEMA,
@@ -210,6 +218,20 @@ register_contract(
 register_contract(
     "admin_user_avatar_route",
     RouteContract(response_schema=BINARY_RESPONSE_SCHEMA, response_content_type="image/jpeg"),
+)
+register_contract(
+    "admin_user_balance_adjustment_route",
+    RouteContract(
+        request_model=AdminUserBalanceAdjustmentBody,
+        response_schema=ok_envelope_with({"balance": BALANCE_SCHEMA}),
+    ),
+)
+register_contract(
+    "admin_user_balance_conversion_route",
+    RouteContract(
+        request_model=AdminUserBalanceConversionBody,
+        response_schema=ok_envelope_with({"balance": BALANCE_SCHEMA}),
+    ),
 )
 register_contract(
     "admin_user_ban_route",
@@ -328,6 +350,8 @@ __all__ = [
     "_serialize_admin_user_with_avatar",
     "_serialize_trial_summary",
     "admin_user_avatar_route",
+    "admin_user_balance_adjustment_route",
+    "admin_user_balance_conversion_route",
     "admin_user_ban_route",
     "admin_user_delete_route",
     "admin_user_detail_route",

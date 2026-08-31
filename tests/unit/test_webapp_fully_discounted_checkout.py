@@ -67,7 +67,7 @@ class FullyDiscountedCheckoutTests(IsolatedAsyncioTestCase):
             ) as create_discounted,
             patch.object(
                 billing_payments,
-                "allocate_partner_checkout_balance",
+                "allocate_checkout_balance",
                 AsyncMock(),
             ) as allocate_balance,
         ):

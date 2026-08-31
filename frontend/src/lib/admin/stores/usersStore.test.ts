@@ -160,4 +160,37 @@ describe("usersStore", () => {
     expect(onToast).toHaveBeenCalledWith("+25 GB premium granted to Ann Lee (ID: 77)");
     expect(onToast.mock.calls[0][0]).not.toContain("{user_id}");
   });
+
+  it("posts a balance adjustment and refreshes the immutable ledger", async () => {
+    const api = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, balance: { amount: "500.00", currency: "RUB" } })
+      .mockResolvedValueOnce({
+        ok: true,
+        user: { user_id: 77, first_name: "Ann" },
+        active_subscription: null,
+        balance: { amount: "500.00", currency: "RUB", history: [{ entry_id: 1 }] },
+      });
+    const store = makeStore(api);
+    store.updateState({ openedUser: { user_id: 77 } });
+
+    await store.adjustUserBalance({
+      mode: "add",
+      amount: 500,
+      reason: "Goodwill credit",
+      idempotency_key: "adjust:77:1",
+    });
+
+    expect(api).toHaveBeenNthCalledWith(1, "/admin/users/77/balance-adjustment", {
+      method: "POST",
+      body: JSON.stringify({
+        mode: "add",
+        amount: 500,
+        reason: "Goodwill credit",
+        idempotency_key: "adjust:77:1",
+      }),
+    });
+    expect(api).toHaveBeenNthCalledWith(2, "/admin/users/77");
+    expect(store.openedUserDetail?.balance.history).toEqual([{ entry_id: 1 }]);
+  });
 });

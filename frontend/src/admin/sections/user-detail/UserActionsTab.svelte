@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Tabs } from "$components/ui/primitives.js";
   import UserDangerActionsCard from "./UserDangerActionsCard.svelte";
+  import UserBalanceActionCard from "./UserBalanceActionCard.svelte";
   import UserHwidLimitActionCard from "./UserHwidLimitActionCard.svelte";
   import UserQuickActionsBlock from "./UserQuickActionsBlock.svelte";
   import UserSquadOverridesActionCard from "./UserSquadOverridesActionCard.svelte";
@@ -121,6 +122,10 @@
     {extraHwidDevices}
     {selectExtendTariff}
   />
+
+  {#if openedUserDetail?.balance}
+    <UserBalanceActionCard {at} {openedUserDetail} {userActionBusy} />
+  {/if}
 
   {#if activeSubscription}
     {#if periodTariffItems.length}

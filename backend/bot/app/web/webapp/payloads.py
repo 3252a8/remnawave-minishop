@@ -147,11 +147,19 @@ class WebAppPaymentCreatePayload(BaseModel):
     sale_mode: SaleModeString | None = None
     renew_hwid_devices: bool | None = None
     checkout_addons: WebAppCheckoutAddonsPayload | None = None
+    balance_source: Literal["user", "partner"] | None = None
     use_partner_balance: bool = False
     promo_code: ShortCodeString | None = None
     description: LongTextString | None = None
     comment: LongTextString | None = None
     note: LongTextString | None = None
+
+
+class WebAppBalanceTopupPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    method: Annotated[str, StringConstraints(min_length=1, max_length=64)]
+    amount: float = Field(gt=0)
 
 
 class WebAppPlansViewedPayload(BaseModel):

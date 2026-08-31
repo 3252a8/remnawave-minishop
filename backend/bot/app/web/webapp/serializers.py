@@ -35,6 +35,7 @@ from bot.services.telegram_notifications import (
     telegram_notifications_need_prompt,
     telegram_notifications_start_link,
 )
+from bot.services.user_balance_service import UserBalanceService
 from bot.utils.locale_defaults import subscription_purchase_description_text
 from bot.utils.traffic_reset import format_traffic_reset_date, parse_panel_datetime
 from config.menu_buttons import public_menu_buttons
@@ -223,6 +224,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             if support_settings.tickets_enabled
             else 0
         )
+        balance_payload = await UserBalanceService(settings).snapshot(session, user_id=user_id)
         local_sub = (
             await subscription_dal.get_active_subscription_by_user_id(
                 session,
@@ -440,6 +442,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             enabled_only=True,
         ),
         "support_unread_count": int(support_unread_count or 0),
+        "balance": {"ok": True, **balance_payload},
         "settings": {
             "support_url": support_settings.link,
             "server_status_url": settings.server_status_external_url,
@@ -452,6 +455,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             "my_devices_enabled": bool(settings.MY_DEVICES_SECTION_ENABLED),
             "payment_methods_display_mode": settings.PAYMENT_METHODS_DISPLAY_MODE,
             "partner_program_enabled": bool(settings.partner_settings.enabled),
+            "user_balance_enabled": bool(settings.balance_settings.enabled),
             "referral_program_enabled": referral_program_enabled,
             "subscription_reissue_enabled": bool(
                 settings.SUBSCRIPTION_REISSUE_ENABLED and settings.email_auth_configured

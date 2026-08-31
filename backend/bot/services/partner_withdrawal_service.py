@@ -281,7 +281,7 @@ class PartnerWithdrawalService:
             >= self.config.max_active_withdrawals
         ):
             raise PartnerError("too_many_active_withdrawals", 429)
-        available = await partner_dal.balance_minor(
+        available = await partner_dal.withdrawable_balance_minor(
             session,
             int(profile.partner_id),
             normalized_currency,

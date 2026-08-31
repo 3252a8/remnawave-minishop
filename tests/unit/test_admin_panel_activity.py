@@ -236,6 +236,24 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
                 AsyncMock(return_value="REF"),
             ),
             patch.object(users_detail, "ensure_user_install_guide_share_url", install_links),
+            patch.object(
+                users_detail.UserBalanceService,
+                "snapshot",
+                AsyncMock(
+                    return_value={
+                        "enabled": False,
+                        "currency": "RUB",
+                        "currency_scale": 2,
+                        "amount_minor": 0,
+                        "amount": "0.00",
+                        "topup_min_amount": 100,
+                        "topup_max_amount": 100000,
+                        "topup_presets": [],
+                        "sources": [],
+                        "history": [],
+                    }
+                ),
+            ),
         ):
             response = await users_module.admin_user_detail_route(request)
 
