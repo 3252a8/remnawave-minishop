@@ -9,6 +9,7 @@ from typing import Any
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.infra.payment_events import sale_mode_base
 from db.dal import payment_dal, promo_code_dal, subscription_dal
 from db.models import (
     FlexibleTrafficLimit,
@@ -198,6 +199,7 @@ def persist_payment_fulfillment(
 
 async def payment_action_state(session: AsyncSession, payment: Payment) -> dict[str, Any]:
     status = str(payment.status or "").strip().lower()
+    is_balance_topup = sale_mode_base(payment.sale_mode) == "balance_topup"
     warnings: list[str] = []
     promo_conflict = False
     if payment.promo_code_id:
@@ -225,7 +227,9 @@ async def payment_action_state(session: AsyncSession, payment: Payment) -> dict[
     reversal_block_reason = None
     if status != "succeeded":
         reversal_block_reason = "payment_not_succeeded"
-    elif not payment.fulfillment_before_snapshot or not payment.fulfillment_after_snapshot:
+    elif not is_balance_topup and (
+        not payment.fulfillment_before_snapshot or not payment.fulfillment_after_snapshot
+    ):
         reversal_block_reason = "fulfillment_snapshot_missing"
     elif payment.reversed_at is not None:
         reversal_block_reason = "payment_already_reversed"
@@ -375,6 +379,31 @@ async def reverse_payment_fulfillment(
             "payment_not_succeeded",
             "Only a successfully fulfilled payment can be reversed.",
         )
+    if sale_mode_base(payment.sale_mode) == "balance_topup":
+        from bot.services.user_balance_service import UserBalanceService
+
+        reversal = await UserBalanceService.reverse_payment_topup(
+            session,
+            payment_id=payment_id,
+            reason=reason,
+        )
+        if reversal is None:
+            raise PaymentFulfillmentError(
+                "balance_topup_credit_missing",
+                "The credited balance entry for this payment could not be found.",
+            )
+        payment.reversed_at = datetime.now(UTC)
+        payment.reversed_by_admin_id = actor_admin_id
+        payment.reversal_note = reason
+        payment.promo_usage_restored = False
+        updated = await payment_dal.update_payment_status_by_db_id(
+            session,
+            payment_id,
+            "reversed",
+        )
+        if updated is None:
+            raise PaymentFulfillmentError("not_found", "Payment not found.", status=404)
+        return updated
     before = _parse_snapshot(payment.fulfillment_before_snapshot)
     after = _parse_snapshot(payment.fulfillment_after_snapshot)
     before_users = _snapshot_users(before)

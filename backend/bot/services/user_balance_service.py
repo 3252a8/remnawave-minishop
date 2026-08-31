@@ -310,8 +310,6 @@ class UserBalanceService:
         currency: str,
     ) -> UserBalanceLedgerEntry:
         normalized_currency = str(currency).strip().upper()
-        if normalized_currency != self.currency:
-            raise UserBalanceError("user_balance_currency_mismatch", 409)
         scale = currency_scale(normalized_currency)
         amount_minor = amount_to_minor(amount, scale=scale)
         if amount_minor <= 0:

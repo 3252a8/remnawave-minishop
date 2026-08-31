@@ -535,14 +535,14 @@ class AdminUserTariffBody(HttpBodyModel):
 
 class AdminUserBalanceAdjustmentBody(HttpBodyModel):
     mode: Literal["add", "subtract", "set"] = "add"
-    amount: float = Field(ge=0)
+    amount: float = Field(ge=0, allow_inf_nan=False)
     reason: str = Field(default="", max_length=500)
     idempotency_key: str = Field(default="", max_length=128)
 
 
 class AdminUserBalanceConversionBody(HttpBodyModel):
     direction: Literal["partner_to_user", "user_to_partner"]
-    amount: float = Field(gt=0)
+    amount: float = Field(gt=0, allow_inf_nan=False)
     reason: str = Field(default="", max_length=500)
     idempotency_key: str = Field(default="", max_length=128)
 

@@ -134,6 +134,40 @@ class UserBalanceLifecycleTests(IsolatedAsyncioTestCase):
         self.assertIs(result, existing)
         create.assert_not_awaited()
 
+    async def test_payment_topup_keeps_invoice_currency_after_settings_change(self) -> None:
+        service = UserBalanceService(_settings())
+        created = SimpleNamespace(entry_id=8)
+        create = AsyncMock(return_value=created)
+        with (
+            patch(
+                "bot.services.user_balance_service.user_dal.lock_user_by_id",
+                AsyncMock(return_value=SimpleNamespace(is_banned=False)),
+            ),
+            patch(
+                "bot.services.user_balance_service.user_balance_dal.get_ledger_entry_by_key",
+                AsyncMock(return_value=None),
+            ),
+            patch(
+                "bot.services.user_balance_service.user_balance_dal.create_ledger_entry",
+                create,
+            ),
+        ):
+            result = await service.credit_payment_topup(
+                cast(AsyncSession, object()),
+                payment_id=100,
+                user_id=42,
+                amount=12.34,
+                currency="USD",
+            )
+
+        self.assertIs(result, created)
+        create_call = create.await_args
+        self.assertIsNotNone(create_call)
+        assert create_call is not None
+        self.assertEqual(create_call.kwargs["currency"], "USD")
+        self.assertEqual(create_call.kwargs["currency_scale"], 2)
+        self.assertEqual(create_call.kwargs["amount_minor"], 1_234)
+
     async def test_admin_adjustment_cannot_make_balance_negative(self) -> None:
         service = UserBalanceService(_settings())
         with (

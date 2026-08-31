@@ -15,6 +15,7 @@ from bot.services.partner_checkout_balance import (
     PartnerCheckoutBalanceService,
 )
 from bot.services.partner_program_worker import PartnerProgramWorker
+from bot.services.user_balance_service import UserBalanceService
 from config.settings import Settings
 
 
@@ -206,6 +207,10 @@ class PartnerCheckoutBalanceLifecycleTests(IsolatedAsyncioTestCase):
                 "list_stale_partner_checkout_payments",
                 list_stale,
             ),
+            patch(
+                "bot.services.partner_program_worker.user_balance_dal.list_stale_checkout_payments",
+                AsyncMock(return_value=[]),
+            ),
             patch.object(PartnerCheckoutBalanceService, "release", release),
         ):
             recovered = await worker._recover_stale_checkout_spends(session)
@@ -218,6 +223,73 @@ class PartnerCheckoutBalanceLifecycleTests(IsolatedAsyncioTestCase):
         )
         self.assertEqual(payment.status, "activation_failed")
         self.assertIsNotNone(payment.updated_at)
+
+    async def test_worker_releases_stale_user_balance_checkout(self) -> None:
+        payment = SimpleNamespace(
+            payment_id=18,
+            status="succeeded_pending_finalization",
+            updated_at=None,
+        )
+        session = object()
+        worker = PartnerProgramWorker(
+            cast(Settings, SimpleNamespace()),
+            cast(object, SimpleNamespace()),
+        )
+        release = AsyncMock()
+
+        with (
+            patch(
+                "bot.services.partner_program_worker.partner_checkout_dal."
+                "list_stale_partner_checkout_payments",
+                AsyncMock(return_value=[]),
+            ),
+            patch(
+                "bot.services.partner_program_worker.user_balance_dal.list_stale_checkout_payments",
+                AsyncMock(return_value=[payment]),
+            ),
+            patch.object(UserBalanceService, "release", release),
+        ):
+            recovered = await worker._recover_stale_checkout_spends(session)
+
+        self.assertEqual(recovered, 1)
+        release.assert_awaited_once_with(
+            session,
+            payment_id=18,
+            reason="user-balance-funded checkout finalization timed out",
+        )
+        self.assertEqual(payment.status, "activation_failed")
+        self.assertIsNotNone(payment.updated_at)
+
+    async def test_worker_releases_terminal_user_balance_checkout(self) -> None:
+        payment = SimpleNamespace(payment_id=19, status="refunded")
+        session = object()
+        worker = PartnerProgramWorker(
+            cast(Settings, SimpleNamespace()),
+            cast(object, SimpleNamespace()),
+        )
+        release = AsyncMock()
+
+        with (
+            patch(
+                "bot.services.partner_program_worker.partner_checkout_dal."
+                "list_terminal_partner_checkout_payments",
+                AsyncMock(return_value=[]),
+            ),
+            patch(
+                "bot.services.partner_program_worker.user_balance_dal."
+                "list_terminal_checkout_payments",
+                AsyncMock(return_value=[payment]),
+            ),
+            patch.object(UserBalanceService, "release_if_terminal", release),
+        ):
+            recovered = await worker._release_terminal_checkout_spends(session)
+
+        self.assertEqual(recovered, 1)
+        release.assert_awaited_once_with(
+            session,
+            payment_id=19,
+            status="refunded",
+        )
 
     async def test_fully_funded_checkout_uses_common_finalizer(self) -> None:
         session = AsyncMock(spec=AsyncSession)

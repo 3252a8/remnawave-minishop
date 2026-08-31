@@ -63,8 +63,8 @@ class PaymentSettings(BaseModel):
 class BalanceSettings(BaseModel):
     enabled: bool = False
     currency: str = "RUB"
-    topup_min_amount: float = Field(default=100, gt=0)
-    topup_max_amount: float = Field(default=100000, gt=0)
+    topup_min_amount: float = Field(default=100, gt=0, allow_inf_nan=False)
+    topup_max_amount: float = Field(default=100000, gt=0, allow_inf_nan=False)
     topup_presets: list[float] = Field(default_factory=lambda: [500.0, 1000.0, 2000.0, 5000.0])
 
     @field_validator("currency")

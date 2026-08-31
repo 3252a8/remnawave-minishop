@@ -170,8 +170,8 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
         default="",
         description="Currency code for user balances; blank follows DEFAULT_CURRENCY_SYMBOL.",
     )
-    USER_BALANCE_TOPUP_MIN_AMOUNT: float = Field(default=100, gt=0)
-    USER_BALANCE_TOPUP_MAX_AMOUNT: float = Field(default=100000, gt=0)
+    USER_BALANCE_TOPUP_MIN_AMOUNT: float = Field(default=100, gt=0, allow_inf_nan=False)
+    USER_BALANCE_TOPUP_MAX_AMOUNT: float = Field(default=100000, gt=0, allow_inf_nan=False)
     USER_BALANCE_TOPUP_PRESETS: str = Field(
         default="[500, 1000, 2000, 5000]",
         description="JSON array of suggested user balance top-up amounts.",

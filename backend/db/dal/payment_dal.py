@@ -53,6 +53,10 @@ _YOOKASSA_RECONCILABLE_STATUSES = (
 )
 
 
+def _sale_mode_base(value: Any) -> str:
+    return str(value or "").split("@", 1)[0].split("|", 1)[0]
+
+
 @dataclass(frozen=True, slots=True)
 class YooKassaReconciliationCandidate:
     payment_id: int
@@ -684,10 +688,11 @@ async def update_payment_status_by_db_id(
                     "the reconciler will retry it.",
                     payment_db_id,
                 )
-            if previous_status == "succeeded" and _normalize_payment_status(new_status) in {
+            is_reversal = normalized_new_status in {
                 "refunded",
                 "reversed",
-            }:
+            }
+            if previous_status == "succeeded" and is_reversal:
                 try:
                     reversal_savepoint = await session.begin_nested()
                     try:
@@ -707,28 +712,19 @@ async def update_payment_status_by_db_id(
                         "the reconciler will retry it.",
                         payment_db_id,
                     )
-                if str(getattr(payment, "sale_mode", "") or "").split("@", 1)[0] == "balance_topup":
-                    try:
-                        reversal_savepoint = await session.begin_nested()
-                        try:
-                            from bot.services.user_balance_service import UserBalanceService
+            is_balance_topup = _sale_mode_base(getattr(payment, "sale_mode", "")) == "balance_topup"
+            if is_reversal and is_balance_topup:
+                from bot.services.user_balance_service import UserBalanceService
 
-                            await UserBalanceService.reverse_payment_topup(
-                                session,
-                                payment_id=payment_db_id,
-                                reason=f"payment {new_status}",
-                            )
-                        except Exception:
-                            await reversal_savepoint.rollback()
-                            raise
-                        else:
-                            await reversal_savepoint.commit()
-                    except Exception:
-                        logger.exception(
-                            "User balance top-up reversal failed for payment %s; "
-                            "the reconciler will retry it.",
-                            payment_db_id,
-                        )
+                topup_reversal = await UserBalanceService.reverse_payment_topup(
+                    session,
+                    payment_id=payment_db_id,
+                    reason=f"payment {new_status}",
+                )
+                if topup_reversal is None:
+                    raise RuntimeError(
+                        f"User balance top-up credit is missing for payment {payment_db_id}."
+                    )
         if yk_payment_id and payment.yookassa_payment_id is None:
             payment.yookassa_payment_id = yk_payment_id
         if provider_payment_url:

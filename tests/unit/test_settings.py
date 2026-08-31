@@ -36,6 +36,11 @@ class SettingsTests(unittest.TestCase):
         self.assertFalse(self._settings().SERVER_STATUS_SHOW_ON_HOME)
         self.assertTrue(self._settings(SERVER_STATUS_SHOW_ON_HOME=True).SERVER_STATUS_SHOW_ON_HOME)
 
+    def test_user_balance_topup_limits_must_be_finite(self):
+        for field in ("USER_BALANCE_TOPUP_MIN_AMOUNT", "USER_BALANCE_TOPUP_MAX_AMOUNT"):
+            with self.subTest(field=field), self.assertRaises(ValidationError):
+                self._settings(**{field: float("inf")})
+
     def test_telegram_bot_proxy_defaults_to_none_and_normalizes_blank(self):
         self.assertIsNone(self._settings().TELEGRAM_BOT_PROXY_URL)
         self.assertIsNone(self._settings(TELEGRAM_BOT_PROXY_URL="  ").TELEGRAM_BOT_PROXY_URL)

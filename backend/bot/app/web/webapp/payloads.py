@@ -159,7 +159,7 @@ class WebAppBalanceTopupPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     method: Annotated[str, StringConstraints(min_length=1, max_length=64)]
-    amount: float = Field(gt=0)
+    amount: float = Field(gt=0, allow_inf_nan=False)
 
 
 class WebAppPlansViewedPayload(BaseModel):
