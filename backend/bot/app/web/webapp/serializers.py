@@ -63,6 +63,7 @@ from .common import (
     _telegram_avatar_url,
 )
 from .email_address_serializers import serialize_user_email_addresses
+from .external_identity_state import external_identity_can_unlink_for_account
 from .referral_links import visible_referral_links
 from .referral_serializers import (
     _build_webapp_referral_link,
@@ -367,6 +368,14 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
                     "email": identity.email,
                     "email_verified": bool(identity.email_verified),
                     "display_name": identity.display_name,
+                    "can_unlink": external_identity_can_unlink_for_account(
+                        identity,
+                        email_addresses,
+                        external_identities,
+                        passkey_credentials,
+                        user=db_user,
+                        settings=settings,
+                    ),
                 }
                 for identity in external_identities
             ],

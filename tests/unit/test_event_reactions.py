@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import ANY, AsyncMock, patch
+from unittest.mock import ANY, AsyncMock, call, patch
 
 from aiogram.exceptions import TelegramForbiddenError
 from aiogram.methods import SendMessage
@@ -70,9 +70,11 @@ def _context_with_i18n(i18n, *, notification_service=None, email_auth_service=No
                 notify_trial_activation=AsyncMock(),
                 notify_new_user_registration=AsyncMock(),
                 notify_new_email_user_registration=AsyncMock(),
+                notify_new_external_user_registration=AsyncMock(),
                 notify_promo_activation=AsyncMock(),
                 notify_account_email_linked=AsyncMock(),
                 notify_account_telegram_linked=AsyncMock(),
+                notify_account_external_identity_linked=AsyncMock(),
                 notify_payment_received=AsyncMock(),
                 notify_account_merged=AsyncMock(),
             ),
@@ -123,6 +125,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
         notification_service = SimpleNamespace(
             notify_new_user_registration=AsyncMock(),
             notify_new_email_user_registration=AsyncMock(),
+            notify_new_external_user_registration=AsyncMock(),
         )
         ctx = _context(notification_service=notification_service)
         user = SimpleNamespace(email="db@example.test", username="dbuser", first_name="Db")
@@ -157,6 +160,24 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
                 events.USER_REGISTERED,
                 {"user_id": 44, "registered_via": "panel_sync"},
             )
+            await events.emit(
+                events.USER_REGISTERED,
+                {
+                    "user_id": -45,
+                    "registered_via": "google_oauth",
+                    "email": "google@example.test",
+                    "referred_by_id": 7,
+                },
+            )
+            await events.emit(
+                events.USER_REGISTERED,
+                {
+                    "user_id": -46,
+                    "registered_via": "yandex_oauth",
+                    "email": "yandex@example.test",
+                    "referred_by_id": None,
+                },
+            )
 
         notification_service.notify_new_user_registration.assert_awaited_once_with(
             user_id=42,
@@ -170,6 +191,20 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
             email="email@example.test",
             referred_by_id=None,
         )
+        assert notification_service.notify_new_external_user_registration.await_args_list == [
+            call(
+                user_id=-45,
+                provider="google",
+                email="google@example.test",
+                referred_by_id=7,
+            ),
+            call(
+                user_id=-46,
+                provider="yandex",
+                email="yandex@example.test",
+                referred_by_id=None,
+            ),
+        ]
 
     async def test_promo_code_event_notifies_admins(self):
         notification_service = SimpleNamespace(notify_promo_activation=AsyncMock())
@@ -243,6 +278,44 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
         notification_service.notify_account_telegram_linked.assert_awaited_once_with(
             user_id=42,
             email="alice@example.test",
+            telegram_id=42,
+            username="alice",
+            first_name="Alice",
+        )
+
+    async def test_external_identity_link_event_includes_provider_and_source(self):
+        notification_service = SimpleNamespace(
+            notify_account_external_identity_linked=AsyncMock(),
+        )
+        ctx = _context(notification_service=notification_service)
+        user = SimpleNamespace(
+            telegram_id=42,
+            email="primary@example.test",
+            username="alice",
+            first_name="Alice",
+        )
+
+        with patch.object(
+            event_reactions.user_dal,
+            "get_user_by_id",
+            AsyncMock(return_value=user),
+        ):
+            register_core_reactions(ctx)
+            await events.emit(
+                events.ACCOUNT_EXTERNAL_IDENTITY_LINKED,
+                {
+                    "user_id": 42,
+                    "provider": "google",
+                    "link_source": "email_confirmation",
+                    "email": "google@example.test",
+                },
+            )
+
+        notification_service.notify_account_external_identity_linked.assert_awaited_once_with(
+            user_id=42,
+            provider="google",
+            link_source="email_confirmation",
+            email="google@example.test",
             telegram_id=42,
             username="alice",
             first_name="Alice",
@@ -1152,6 +1225,52 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
             final_end_date_text="09.01.2026 03:04",
             primary_panel_user_uuid="target-panel",
             removed_panel_user_uuid="source-panel",
+            reason="telegram_link",
+            provider=None,
+        )
+        email_service.send_rendered_email.assert_awaited_once()
+
+    async def test_oidc_account_merge_notifies_admin_with_provider(self):
+        notification_service = SimpleNamespace(notify_account_merged=AsyncMock())
+        email_service = SimpleNamespace(send_rendered_email=AsyncMock())
+        ctx = _context(
+            notification_service=notification_service,
+            email_auth_service=email_service,
+        )
+
+        with patch.object(
+            event_reactions,
+            "render_account_merged",
+            return_value=SimpleNamespace(subject="subject", html="html", text="text"),
+        ):
+            register_core_reactions(ctx)
+            await events.emit(
+                events.ACCOUNT_MERGED,
+                {
+                    "source_user_id": -100,
+                    "target_user_id": 42,
+                    "reason": "google_verified_email_link",
+                    "send_user_email": True,
+                    "email": "alice@example.test",
+                    "telegram_id": 42,
+                    "username": "alice",
+                    "first_name": "Alice",
+                    "language": "en",
+                },
+            )
+
+        notification_service.notify_account_merged.assert_awaited_once_with(
+            primary_user_id=42,
+            removed_user_id=-100,
+            email="alice@example.test",
+            telegram_id=42,
+            username="alice",
+            first_name="Alice",
+            final_end_date_text="",
+            primary_panel_user_uuid=None,
+            removed_panel_user_uuid=None,
+            reason="google_verified_email_link",
+            provider="google",
         )
         email_service.send_rendered_email.assert_awaited_once()
 

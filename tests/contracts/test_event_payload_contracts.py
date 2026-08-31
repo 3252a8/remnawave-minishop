@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from bot.infra import event_payloads, events
 from bot.infra.event_payloads import (
     AccountEmailLinkedPayload,
+    AccountExternalIdentityLinkedPayload,
     AccountMergedPayload,
     AccountTelegramLinkedPayload,
     BotStartedPayload,
@@ -45,6 +46,7 @@ UTC_TEXT = "2026-01-02T03:04:05+00:00"
         (BotStartedPayload, events.BOT_STARTED),
         (UserRegisteredPayload, events.USER_REGISTERED),
         (AccountEmailLinkedPayload, events.ACCOUNT_EMAIL_LINKED),
+        (AccountExternalIdentityLinkedPayload, events.ACCOUNT_EXTERNAL_IDENTITY_LINKED),
         (AccountTelegramLinkedPayload, events.ACCOUNT_TELEGRAM_LINKED),
         (AccountMergedPayload, events.ACCOUNT_MERGED),
         (PromoCodeAppliedPayload, events.PROMO_CODE_APPLIED),
@@ -290,6 +292,41 @@ def test_registration_and_account_payloads_match_legacy_wire_dicts():
         "telegram_id": 100,
         "first_link": True,
         "email": "u@example.test",
+        "username": "neo",
+        "first_name": "Neo",
+    }
+
+
+def test_external_registration_and_identity_link_payloads_are_provider_aware():
+    assert UserRegisteredPayload(
+        user_id=-42,
+        language="en",
+        registered_via="google_oauth",
+        email="user@example.test",
+    ).to_payload() == {
+        "user_id": -42,
+        "language": "en",
+        "referred_by_id": None,
+        "registered_via": "google_oauth",
+        "telegram_id": None,
+        "username": None,
+        "first_name": None,
+        "email": "user@example.test",
+    }
+    assert AccountExternalIdentityLinkedPayload(
+        user_id=42,
+        provider="yandex",
+        link_source="email_confirmation",
+        email="user@yandex.ru",
+        telegram_id=100,
+        username="neo",
+        first_name="Neo",
+    ).to_payload() == {
+        "user_id": 42,
+        "provider": "yandex",
+        "link_source": "email_confirmation",
+        "email": "user@yandex.ru",
+        "telegram_id": 100,
         "username": "neo",
         "first_name": "Neo",
     }

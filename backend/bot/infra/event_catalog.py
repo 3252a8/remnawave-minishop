@@ -96,7 +96,8 @@ def _discover_core_reactions() -> dict[str, list[str]]:
         encoding="utf-8"
     )
     reactions: dict[str, list[str]] = {}
-    for constant, handler in re.findall(r"\(events\.([A-Z_]+), reactions\.([a-z_]+)\)", source):
+    pattern = r"\(\s*events\.([A-Z_]+),\s*reactions\.([a-z_]+)\s*\)"
+    for constant, handler in re.findall(pattern, source):
         event_name = getattr(events, constant, None)
         if event_name:
             reactions.setdefault(event_name, []).append(f"CoreEventReactions.{handler}")

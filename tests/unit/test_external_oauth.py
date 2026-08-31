@@ -1,10 +1,12 @@
 import asyncio
+import json
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock, patch
+from typing import Literal
+from unittest.mock import ANY, AsyncMock, Mock, call, patch
 
 from aiohttp import web
 
-from bot.app.web.webapp import external_oauth
+from bot.app.web.webapp import external_identity_unlink, external_oauth
 
 
 class _ScalarResult:
@@ -14,12 +16,22 @@ class _ScalarResult:
     def scalar_one_or_none(self):
         return self.value
 
+    def scalar_one(self):
+        return self.value
+
+    def scalars(self):
+        return self
+
+    def all(self):
+        return self.value
+
 
 class _SessionFactory:
     def __init__(self) -> None:
         self.session = SimpleNamespace(
             execute=AsyncMock(return_value=_ScalarResult()),
             add=Mock(),
+            delete=AsyncMock(),
             commit=AsyncMock(),
             rollback=AsyncMock(),
         )
@@ -37,7 +49,9 @@ class _SessionFactory:
         return _Context()
 
 
-def _provider(key: str = "google") -> external_oauth.ExternalProvider:
+def _provider(
+    key: Literal["google", "yandex"] = "google",
+) -> external_oauth.ExternalProvider:
     return external_oauth.ExternalProvider(
         key=key,
         authorization_url="https://accounts.example/authorize",
@@ -147,6 +161,100 @@ def test_login_with_claimed_oidc_email_requires_confirmation_without_duplicate()
     asyncio.run(_login_with_claimed_oidc_email_requires_confirmation_without_duplicate())
 
 
+async def _new_oidc_registration_emits_provider_registration_after_commit() -> None:
+    for provider_key in ("google", "yandex"):
+        factory = _SessionFactory()
+        request, state = _request(purpose="login", provider=provider_key)
+        user = SimpleNamespace(
+            user_id=-42,
+            is_banned=False,
+            language_code="en",
+            referred_by_id=7,
+            telegram_id=None,
+            username=None,
+            first_name="Example User",
+            email="same@example.com",
+            notification_email="same@example.com",
+        )
+        create_email_user = AsyncMock(return_value=(user, True))
+        emit_model = AsyncMock()
+        apply_referral = AsyncMock(return_value=False)
+        apply_welcome_bonus = AsyncMock()
+
+        with (
+            patch.multiple(
+                external_oauth,
+                get_settings=Mock(return_value=SimpleNamespace(DEFAULT_LANGUAGE="en")),
+                get_session_factory=Mock(return_value=factory),
+                _provider=Mock(return_value=_provider(provider_key)),
+                _read_state=Mock(return_value=state),
+                _callback_url=Mock(return_value="https://app/callback"),
+                _post_token=AsyncMock(return_value={"id_token": "x"}),
+                _google_profile=AsyncMock(return_value=_profile()),
+                _yandex_profile=AsyncMock(return_value=_profile()),
+                _verified_email_owner=AsyncMock(return_value=None),
+                evaluate_registration_invite=AsyncMock(
+                    return_value=SimpleNamespace(
+                        requires_invite=False,
+                        referrer_user_id=7,
+                        partner_code=None,
+                    )
+                ),
+                _apply_referral_to_existing_user=apply_referral,
+                _apply_referral_welcome_bonus_if_needed=apply_welcome_bonus,
+                _sync_panel_identity_for_user=AsyncMock(),
+                _invalidate_webapp_user_caches=AsyncMock(),
+                create_webapp_session_token=Mock(return_value="token"),
+                _set_webapp_auth_cookies=Mock(),
+            ),
+            patch.multiple(
+                external_oauth.user_dal,
+                get_user_by_email=AsyncMock(return_value=None),
+                create_email_user=create_email_user,
+                get_user_by_id=AsyncMock(return_value=user),
+            ),
+            patch.multiple(
+                external_oauth.user_email_dal,
+                upsert_user_email_address=AsyncMock(),
+            ),
+            patch.object(external_oauth.events, "emit_model", emit_model),
+        ):
+            response = await external_oauth.external_oauth_callback_route(request)
+
+        assert response.headers["Location"] == f"/?external_auth={provider_key}:success"
+        create_email_user.assert_awaited_once_with(
+            factory.session,
+            email="same@example.com",
+            language_code="en",
+            email_verified_at=ANY,
+            referred_by_id=7,
+            registered_via=None,
+            email_source=provider_key,
+        )
+        factory.session.commit.assert_awaited_once()
+        apply_referral.assert_awaited_once_with(
+            request,
+            factory.session,
+            user,
+            "",
+        )
+        apply_welcome_bonus.assert_awaited_once_with(
+            request,
+            factory.session,
+            user,
+            "",
+        )
+        assert emit_model.await_args is not None
+        payload = emit_model.await_args.args[0]
+        assert payload.registered_via == f"{provider_key}_oauth"
+        assert payload.user_id == -42
+        assert payload.email == "same@example.com"
+
+
+def test_new_oidc_registration_emits_provider_registration_after_commit() -> None:
+    asyncio.run(_new_oidc_registration_emits_provider_registration_after_commit())
+
+
 async def _authenticated_provider_link_merges_claimed_email_before_linking() -> None:
     factory = _SessionFactory()
     request, state = _request(purpose="link", user_id=42)
@@ -161,6 +269,7 @@ async def _authenticated_provider_link_merges_claimed_email_before_linking() -> 
     )
     merge_users = AsyncMock(return_value=target)
     upsert_address = AsyncMock()
+    emit_model = AsyncMock()
 
     with (
         patch.object(external_oauth, "get_settings", return_value=SimpleNamespace()),
@@ -197,6 +306,7 @@ async def _authenticated_provider_link_merges_claimed_email_before_linking() -> 
             "_invalidate_webapp_user_caches",
             AsyncMock(),
         ),
+        patch.object(external_oauth.events, "emit_model", emit_model),
         patch.object(external_oauth, "create_webapp_session_token", return_value="token"),
         patch.object(external_oauth, "_set_webapp_auth_cookies"),
     ):
@@ -212,6 +322,12 @@ async def _authenticated_provider_link_merges_claimed_email_before_linking() -> 
     )
     upsert_address.assert_awaited_once()
     factory.session.commit.assert_awaited_once()
+    assert emit_model.await_args is not None
+    payload = emit_model.await_args.args[0]
+    assert payload.provider == "google"
+    assert payload.link_source == "settings"
+    assert payload.user_id == 42
+    assert payload.email == "same@example.com"
 
 
 def test_authenticated_provider_link_merges_claimed_email_before_linking() -> None:
@@ -301,6 +417,7 @@ async def _confirmed_email_attaches_provider_to_existing_account() -> None:
         }
         verify_code = AsyncMock(return_value=SimpleNamespace(ok=True, error=None, retry_after=None))
         upsert_address = AsyncMock()
+        emit_model = AsyncMock()
 
         with (
             patch.object(
@@ -338,6 +455,7 @@ async def _confirmed_email_attaches_provider_to_existing_account() -> None:
             ),
             patch.object(external_oauth, "_sync_panel_identity_for_user", AsyncMock()),
             patch.object(external_oauth, "_invalidate_webapp_user_caches", AsyncMock()),
+            patch.object(external_oauth.events, "emit_model", emit_model),
             patch.object(external_oauth, "create_webapp_session_token", return_value="token"),
             patch.object(
                 external_oauth,
@@ -364,10 +482,191 @@ async def _confirmed_email_attaches_provider_to_existing_account() -> None:
         assert identity.user_id == 41
         upsert_address.assert_awaited_once()
         factory.session.commit.assert_awaited_once()
+        assert emit_model.await_args is not None
+        payload = emit_model.await_args.args[0]
+        assert payload.provider == provider_key
+        assert payload.link_source == "email_confirmation"
+        assert payload.user_id == 41
 
 
 def test_confirmed_email_attaches_google_and_yandex_to_existing_account() -> None:
     asyncio.run(_confirmed_email_attaches_provider_to_existing_account())
+
+
+async def _unlink_provider_replaces_provider_owned_primary_email() -> None:
+    factory = _SessionFactory()
+    verified_at = object()
+    identity = SimpleNamespace(
+        provider="google",
+        email="google@example.test",
+        email_verified=True,
+    )
+    provider_address = SimpleNamespace(
+        email="google@example.test",
+        source="google",
+        verified_at=verified_at,
+        is_primary=True,
+        is_notification=True,
+    )
+    replacement = SimpleNamespace(
+        email="other@example.test",
+        source="email",
+        verified_at=verified_at,
+        is_primary=False,
+        is_notification=False,
+    )
+    user = SimpleNamespace(
+        user_id=42,
+        is_banned=False,
+        email="google@example.test",
+        email_verified_at=verified_at,
+        notification_email="google@example.test",
+        telegram_id=None,
+    )
+    factory.session.execute = AsyncMock(side_effect=[_ScalarResult([identity]), _ScalarResult(0)])
+    upsert_address = AsyncMock()
+    sync_panel = AsyncMock()
+    invalidate = AsyncMock()
+
+    with (
+        patch.object(external_identity_unlink, "_extract_authenticated_user_id", return_value=42),
+        patch.object(
+            external_identity_unlink,
+            "get_settings",
+            return_value=SimpleNamespace(
+                webapp_auth_providers=["email", "google"],
+                PASSKEY_LOGIN_ENABLED=False,
+                TELEGRAM_LOGIN_ENABLED=False,
+                email_auth_configured=True,
+            ),
+        ),
+        patch.object(external_identity_unlink, "get_session_factory", return_value=factory),
+        patch.object(
+            external_identity_unlink,
+            "_parse_model_payload",
+            AsyncMock(return_value=SimpleNamespace(provider="google")),
+        ),
+        patch.object(
+            external_identity_unlink.user_dal,
+            "lock_user_by_id",
+            AsyncMock(return_value=user),
+        ),
+        patch.object(
+            external_identity_unlink.user_email_dal,
+            "ensure_primary_user_email_address",
+            AsyncMock(),
+        ),
+        patch.object(
+            external_identity_unlink.user_email_dal,
+            "list_user_email_addresses",
+            AsyncMock(return_value=[provider_address, replacement]),
+        ),
+        patch.object(
+            external_identity_unlink.user_email_dal,
+            "upsert_user_email_address",
+            upsert_address,
+        ),
+        patch.object(external_identity_unlink, "_sync_panel_identity_for_user", sync_panel),
+        patch.object(external_identity_unlink, "_invalidate_webapp_user_caches", invalidate),
+    ):
+        response = await external_identity_unlink.external_identity_unlink_route(SimpleNamespace())
+
+    assert response.status == 200
+    assert user.email == "other@example.test"
+    assert user.notification_email == "other@example.test"
+    upsert_address.assert_awaited_once_with(
+        factory.session,
+        user_id=42,
+        email="other@example.test",
+        source="email",
+        verified_at=verified_at,
+        is_primary=True,
+        is_notification=True,
+    )
+    assert factory.session.delete.await_args_list == [
+        call(provider_address),
+        call(identity),
+    ]
+    sync_panel.assert_awaited_once_with(ANY, user)
+    factory.session.commit.assert_awaited_once()
+    invalidate.assert_awaited_once_with(ANY, 42)
+
+
+def test_unlink_provider_replaces_provider_owned_primary_email() -> None:
+    asyncio.run(_unlink_provider_replaces_provider_owned_primary_email())
+
+
+async def _unlink_provider_requires_an_independent_email() -> None:
+    factory = _SessionFactory()
+    identity = SimpleNamespace(
+        provider="google",
+        email="google@example.test",
+        email_verified=True,
+    )
+    provider_address = SimpleNamespace(
+        email="google@example.test",
+        source="google",
+        verified_at=object(),
+        is_primary=True,
+        is_notification=True,
+    )
+    user = SimpleNamespace(
+        user_id=42,
+        is_banned=False,
+        email="google@example.test",
+        email_verified_at=object(),
+        notification_email="google@example.test",
+        telegram_id=100,
+    )
+    factory.session.execute = AsyncMock(side_effect=[_ScalarResult([identity]), _ScalarResult(0)])
+
+    with (
+        patch.object(external_identity_unlink, "_extract_authenticated_user_id", return_value=42),
+        patch.object(
+            external_identity_unlink,
+            "get_settings",
+            return_value=SimpleNamespace(
+                webapp_auth_providers=["telegram", "google"],
+                PASSKEY_LOGIN_ENABLED=False,
+                TELEGRAM_LOGIN_ENABLED=True,
+                email_auth_configured=False,
+            ),
+        ),
+        patch.object(external_identity_unlink, "get_session_factory", return_value=factory),
+        patch.object(
+            external_identity_unlink,
+            "_parse_model_payload",
+            AsyncMock(return_value=SimpleNamespace(provider="google")),
+        ),
+        patch.object(
+            external_identity_unlink.user_dal,
+            "lock_user_by_id",
+            AsyncMock(return_value=user),
+        ),
+        patch.object(
+            external_identity_unlink.user_email_dal,
+            "ensure_primary_user_email_address",
+            AsyncMock(),
+        ),
+        patch.object(
+            external_identity_unlink.user_email_dal,
+            "list_user_email_addresses",
+            AsyncMock(return_value=[provider_address]),
+        ),
+    ):
+        response = await external_identity_unlink.external_identity_unlink_route(SimpleNamespace())
+
+    assert response.status == 409
+    assert json.loads(response.text) == {
+        "ok": False,
+        "error": "replacement_email_required",
+    }
+    factory.session.delete.assert_not_awaited()
+    factory.session.commit.assert_not_awaited()
+
+
+def test_unlink_provider_requires_an_independent_email() -> None:
+    asyncio.run(_unlink_provider_requires_an_independent_email())
 
 
 async def _pending_target_rejects_identity_owned_by_another_account() -> None:

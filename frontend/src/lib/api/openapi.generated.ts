@@ -12108,6 +12108,7 @@ export interface operations {
               }[];
               email_verified?: boolean;
               external_identities?: {
+                can_unlink?: boolean;
                 display_name?: string | null;
                 email?: string | null;
                 email_verified?: boolean;

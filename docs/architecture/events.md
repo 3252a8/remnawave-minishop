@@ -22,6 +22,24 @@ Core reactions: `CoreEventReactions.on_account_email_linked`
 | `username` | `str | None` | `None` |
 | `first_name` | `str | None` | `None` |
 
+## `account.external_identity_linked`
+
+Payload model: `AccountExternalIdentityLinkedPayload`
+
+Emitters: `backend/bot/app/web/webapp/external_oauth.py`
+
+Core reactions: `CoreEventReactions.on_account_external_identity_linked`
+
+| Field | Type | Default |
+| --- | --- | --- |
+| `user_id` | `int` | required |
+| `provider` | `'google' | 'yandex'` | required |
+| `link_source` | `'settings' | 'email_confirmation'` | required |
+| `email` | `str | None` | `None` |
+| `telegram_id` | `int | None` | `None` |
+| `username` | `str | None` | `None` |
+| `first_name` | `str | None` | `None` |
+
 ## `account.merged`
 
 Payload model: `AccountMergedPayload`
@@ -545,7 +563,7 @@ Core reactions: `CoreEventReactions.on_trial_activated`
 
 Payload model: `UserRegisteredPayload`
 
-Emitters: `backend/db/dal/user_dal.py`
+Emitters: `backend/bot/app/web/webapp/external_oauth.py`, `backend/db/dal/user_dal.py`
 
 Core reactions: `CoreEventReactions.on_user_registered`
 
@@ -558,4 +576,4 @@ Core reactions: `CoreEventReactions.on_user_registered`
 | `email` | `str | None` | `None` |
 | `language` | `str | None` | `None` |
 | `referred_by_id` | `int | None` | `None` |
-| `registered_via` | `'telegram' | 'email' | 'panel_sync' | 'unknown'` | required |
+| `registered_via` | `'telegram' | 'email' | 'google_oauth' | 'yandex_oauth' | 'panel_sync' | 'unknown'` | required |

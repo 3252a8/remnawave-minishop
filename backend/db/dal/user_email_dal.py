@@ -24,8 +24,10 @@ def normalize_account_email(email: str) -> str:
 async def list_user_email_addresses(
     session: AsyncSession,
     user_id: int,
+    *,
+    for_update: bool = False,
 ) -> list[UserEmailAddress]:
-    result = await session.execute(
+    statement = (
         select(UserEmailAddress)
         .where(UserEmailAddress.user_id == user_id)
         .order_by(
@@ -34,6 +36,9 @@ async def list_user_email_addresses(
             UserEmailAddress.created_at.asc(),
         )
     )
+    if for_update:
+        statement = statement.with_for_update()
+    result = await session.execute(statement)
     return list(result.scalars().all())
 
 

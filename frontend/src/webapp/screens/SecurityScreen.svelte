@@ -23,6 +23,7 @@
     provider?: string;
     email?: string | null;
     display_name?: string | null;
+    can_unlink?: boolean;
   };
   type Passkey = {
     credential_id?: string;
@@ -316,13 +317,15 @@
           <div class="settings-row security-deletable-row">
             <ProviderLogo provider="google" size={21} />
             <span><strong>Google</strong><small>{externalLabel(googleIdentity)}</small></span>
-            <button
-              class="security-delete"
-              type="button"
-              aria-label={t("wa_security_unlink_provider", {}, "Unlink provider")}
-              onclick={() => unlinkExternal("google")}
-              disabled={busy}><Trash2 size={17} /></button
-            >
+            {#if googleIdentity.can_unlink}
+              <button
+                class="security-delete"
+                type="button"
+                aria-label={t("wa_security_unlink_provider", {}, "Unlink provider")}
+                onclick={() => unlinkExternal("google")}
+                disabled={busy}><Trash2 size={17} /></button
+              >
+            {/if}
           </div>
         {:else}
           <button
@@ -346,13 +349,15 @@
           <div class="settings-row security-deletable-row">
             <ProviderLogo provider="yandex" size={21} />
             <span><strong>Yandex</strong><small>{externalLabel(yandexIdentity)}</small></span>
-            <button
-              class="security-delete"
-              type="button"
-              aria-label={t("wa_security_unlink_provider", {}, "Unlink provider")}
-              onclick={() => unlinkExternal("yandex")}
-              disabled={busy}><Trash2 size={17} /></button
-            >
+            {#if yandexIdentity.can_unlink}
+              <button
+                class="security-delete"
+                type="button"
+                aria-label={t("wa_security_unlink_provider", {}, "Unlink provider")}
+                onclick={() => unlinkExternal("yandex")}
+                disabled={busy}><Trash2 size={17} /></button
+              >
+            {/if}
           </div>
         {:else}
           <button

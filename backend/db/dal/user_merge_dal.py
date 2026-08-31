@@ -680,6 +680,12 @@ async def merge_users(
     await session.flush()
     await session.refresh(target)
 
+    logger.info(
+        "Account merge staged source_user_id=%s target_user_id=%s reason=%s",
+        source_user_id,
+        target_user_id,
+        reason,
+    )
     await events.emit_model(
         AccountMergedPayload(
             source_user_id=int(source_user_id),

@@ -457,6 +457,7 @@ WEBAPP_USER_SCHEMA: dict[str, Any] = {
                     "email": NULLABLE_STRING_SCHEMA,
                     "email_verified": BOOLEAN_SCHEMA,
                     "display_name": NULLABLE_STRING_SCHEMA,
+                    "can_unlink": BOOLEAN_SCHEMA,
                 },
             },
         },

@@ -10,11 +10,10 @@ import secrets
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlencode
 
 from aiohttp import ClientSession, ClientTimeout, web
-from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.future import select
 from sqlalchemy.orm import sessionmaker
@@ -25,12 +24,17 @@ from bot.app.web.webapp_auth import (
     create_webapp_session_token,
     verify_signed_telegram_oauth_state,
 )
+from bot.infra import events
+from bot.infra.event_payloads import (
+    AccountExternalIdentityLinkedPayload,
+    UserRegisteredPayload,
+)
 from bot.services.partner_program_service import PartnerProgramService
 from bot.services.registration_invite_gate import evaluate_registration_invite
 from config.settings import Settings
 from db.dal import user_dal, user_email_dal
 from db.dal.user_dal import UserMergeConflictError
-from db.models import UserExternalIdentity, UserPasskeyCredential
+from db.models import UserExternalIdentity
 
 from .auth import _sync_panel_identity_for_user
 from .auth_common import (
@@ -50,7 +54,7 @@ from .common import (
     _parse_model_payload,
     _telegram_id_for_user,
 )
-from .payloads import WebAppEmailChangeCurrentPayload, WebAppExternalIdentityPayload
+from .payloads import WebAppEmailChangeCurrentPayload
 from .response_helpers import json_response
 
 logger = logging.getLogger(__name__)
@@ -61,10 +65,17 @@ _PENDING_COOKIE_PATH = "/api/auth/external"
 _PENDING_PURPOSE = "external_oauth_link"
 _HTTP_TIMEOUT = ClientTimeout(total=15)
 
+ExternalProviderKey = Literal["google", "yandex"]
+ExternalRegistrationSource = Literal["google_oauth", "yandex_oauth"]
+_REGISTRATION_SOURCE_BY_PROVIDER: dict[ExternalProviderKey, ExternalRegistrationSource] = {
+    "google": "google_oauth",
+    "yandex": "yandex_oauth",
+}
+
 
 @dataclass(frozen=True)
 class ExternalProvider:
-    key: str
+    key: ExternalProviderKey
     authorization_url: str
     token_url: str
     client_id: str
@@ -443,6 +454,10 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
     async_session_factory: sessionmaker = get_session_factory(request)
     user_id: int | None = None
     created_user = False
+    identity_was_linked = False
+    merged_source_user_ids: list[int] = []
+    registration_event: UserRegisteredPayload | None = None
+    identity_link_event: AccountExternalIdentityLinkedPayload | None = None
     async with async_session_factory() as session:
         try:
             identity = (
@@ -474,6 +489,7 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
                 ).scalar_one_or_none()
                 if existing_for_user and existing_for_user.subject != profile["subject"]:
                     return finish("provider_conflict")
+                identity_was_linked = identity is None or int(identity.user_id) != requested_user_id
                 merge_sources: list[tuple[int, str]] = []
                 if email_owner and int(email_owner.user_id) != requested_user_id:
                     merge_sources.append((int(email_owner.user_id), f"{key}_verified_email_link"))
@@ -489,6 +505,7 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
                         reason=reason,
                         send_user_email=True,
                     )
+                    merged_source_user_ids.append(source_user_id)
                 if email_owner and int(email_owner.user_id) != requested_user_id:
                     email_owner = await user_dal.get_user_by_id(session, requested_user_id)
                 if identity:
@@ -561,7 +578,7 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
                     language_code=settings.DEFAULT_LANGUAGE,
                     email_verified_at=datetime.now(UTC),
                     referred_by_id=invite.referrer_user_id,
-                    registered_via=f"{key}_oauth",
+                    registered_via=None,
                     email_source=key,
                 )
                 created_user = True
@@ -631,6 +648,27 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
                         referral,
                     )
             await _sync_panel_identity_for_user(request, user)
+            if created_user:
+                registration_event = UserRegisteredPayload(
+                    user_id=int(user.user_id),
+                    language=getattr(user, "language_code", None),
+                    referred_by_id=getattr(user, "referred_by_id", None),
+                    registered_via=_REGISTRATION_SOURCE_BY_PROVIDER[provider.key],
+                    telegram_id=getattr(user, "telegram_id", None),
+                    username=getattr(user, "username", None),
+                    first_name=getattr(user, "first_name", None),
+                    email=getattr(user, "email", None),
+                )
+            elif purpose == "link" and identity_was_linked:
+                identity_link_event = AccountExternalIdentityLinkedPayload(
+                    user_id=int(user.user_id),
+                    provider=provider.key,
+                    link_source="settings",
+                    email=identity.email or getattr(user, "email", None),
+                    telegram_id=getattr(user, "telegram_id", None),
+                    username=getattr(user, "username", None),
+                    first_name=getattr(user, "first_name", None),
+                )
             await session.commit()
         except UserMergeConflictError:
             await session.rollback()
@@ -641,6 +679,21 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
             logger.exception("External OAuth callback failed for %s", key)
             return finish("failed")
 
+    if registration_event is not None:
+        await events.emit_model(registration_event)
+        logger.info(
+            "External OAuth registration committed provider=%s user_id=%s",
+            provider.key,
+            user_id,
+        )
+    if identity_link_event is not None:
+        await events.emit_model(identity_link_event)
+        logger.info(
+            "External OAuth identity linked provider=%s user_id=%s merged_source_user_ids=%s",
+            provider.key,
+            user_id,
+            merged_source_user_ids,
+        )
     await _invalidate_webapp_user_caches(settings, int(user_id), include_devices=True)
     token = create_webapp_session_token(settings, int(user_id))
     response = web.HTTPFound(_redirect(key, purpose, "success"))
@@ -727,7 +780,8 @@ async def external_oauth_pending_verify_route(request: web.Request) -> web.Respo
     pending = _read_pending(request)
     if not pending:
         return _pending_error("pending_expired", status=410, clear=True)
-    if not _provider(settings, str(pending["provider"])):
+    provider = _provider(settings, str(pending["provider"]))
+    if not provider:
         return _pending_error("provider_disabled", status=410, clear=True)
 
     code_payload = await _parse_model_payload(request, WebAppEmailChangeCurrentPayload)
@@ -735,6 +789,7 @@ async def external_oauth_pending_verify_route(request: web.Request) -> web.Respo
     async_session_factory: sessionmaker = get_session_factory(request)
     user_id: int | None = None
     telegram_id: int | None = None
+    identity_link_event: AccountExternalIdentityLinkedPayload | None = None
     async with async_session_factory() as session:
         try:
             user, identity, error = await _pending_target(session, pending, lock=True)
@@ -761,13 +816,15 @@ async def external_oauth_pending_verify_route(request: web.Request) -> web.Respo
                     status=status,
                 )
 
-            if identity is None:
+            identity_was_linked = identity is None
+            if identity_was_linked:
                 identity = UserExternalIdentity(
                     user_id=int(user.user_id),
                     provider=str(pending["provider"]),
                     subject=str(pending["subject"]),
                 )
                 session.add(identity)
+            assert identity is not None
             identity.email = str(pending["email"])
             identity.email_verified = True
             identity.display_name = str(pending.get("display_name") or "") or None
@@ -794,6 +851,16 @@ async def external_oauth_pending_verify_route(request: web.Request) -> web.Respo
             await _sync_panel_identity_for_user(request, user)
             user_id = int(user.user_id)
             telegram_id = _telegram_id_for_user(user)
+            if identity_was_linked:
+                identity_link_event = AccountExternalIdentityLinkedPayload(
+                    user_id=user_id,
+                    provider=provider.key,
+                    link_source="email_confirmation",
+                    email=str(pending["email"]),
+                    telegram_id=telegram_id,
+                    username=getattr(user, "username", None),
+                    first_name=getattr(user, "first_name", None),
+                )
             await session.commit()
         except IntegrityError:
             await session.rollback()
@@ -807,6 +874,13 @@ async def external_oauth_pending_verify_route(request: web.Request) -> web.Respo
             logger.exception("External OAuth email confirmation failed for %s", pending["provider"])
             return _pending_error("email_confirmation_failed", status=500)
 
+    if identity_link_event is not None:
+        await events.emit_model(identity_link_event)
+        logger.info(
+            "External OAuth identity linked after email confirmation provider=%s user_id=%s",
+            provider.key,
+            user_id,
+        )
     await _invalidate_webapp_user_caches(settings, int(user_id), include_devices=True)
     token = create_webapp_session_token(settings, int(user_id))
     response = _build_webapp_auth_response(
@@ -822,59 +896,3 @@ async def external_oauth_pending_cancel_route(request: web.Request) -> web.Respo
     response = json_response({"ok": True})
     _clear_pending_cookie(response)
     return response
-
-
-async def external_identity_unlink_route(request: web.Request) -> web.Response:
-    user_id = _extract_authenticated_user_id(request)
-    if not user_id:
-        return json_response({"ok": False, "error": "unauthorized"}, status=401)
-    settings: Settings = get_settings(request)
-    payload = await _parse_model_payload(request, WebAppExternalIdentityPayload)
-    provider = str(payload.provider)
-    async_session_factory: sessionmaker = get_session_factory(request)
-    async with async_session_factory() as session:
-        identity = (
-            await session.execute(
-                select(UserExternalIdentity).where(
-                    UserExternalIdentity.user_id == user_id,
-                    UserExternalIdentity.provider == provider,
-                )
-            )
-        ).scalar_one_or_none()
-        if not identity:
-            return json_response({"ok": False, "error": "identity_not_found"}, status=404)
-        user = await user_dal.get_user_by_id(session, user_id)
-        other_external_count = int(
-            (
-                await session.execute(
-                    select(func.count())
-                    .select_from(UserExternalIdentity)
-                    .where(
-                        UserExternalIdentity.user_id == user_id,
-                        UserExternalIdentity.provider != provider,
-                        UserExternalIdentity.provider.in_(settings.webapp_auth_providers),
-                    )
-                )
-            ).scalar_one()
-        )
-        passkey_count = int(
-            (
-                await session.execute(
-                    select(func.count())
-                    .select_from(UserPasskeyCredential)
-                    .where(UserPasskeyCredential.user_id == user_id)
-                )
-            ).scalar_one()
-        )
-        has_other_login = bool(
-            other_external_count
-            or (settings.PASSKEY_LOGIN_ENABLED and passkey_count)
-            or (settings.TELEGRAM_LOGIN_ENABLED and user and user.telegram_id)
-            or (settings.email_auth_configured and user and user.email_verified_at)
-        )
-        if not has_other_login:
-            return json_response({"ok": False, "error": "last_login_method"}, status=409)
-        await session.delete(identity)
-        await session.commit()
-    await _invalidate_webapp_user_caches(settings, user_id)
-    return json_response({"ok": True})

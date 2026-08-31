@@ -86,8 +86,8 @@ from .email_change import (
     account_email_change_current_verify_route,
     account_email_change_new_request_route,
 )
+from .external_identity_unlink import external_identity_unlink_route
 from .external_oauth import (
-    external_identity_unlink_route,
     external_oauth_callback_route,
     external_oauth_pending_cancel_route,
     external_oauth_pending_request_route,

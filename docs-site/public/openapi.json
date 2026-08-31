@@ -21264,6 +21264,9 @@
                           "items": {
                             "additionalProperties": false,
                             "properties": {
+                              "can_unlink": {
+                                "type": "boolean"
+                              },
                               "display_name": {
                                 "type": [
                                   "string",

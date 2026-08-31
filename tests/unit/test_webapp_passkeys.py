@@ -3,6 +3,8 @@ from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, patch
 
+from aiohttp import web
+
 import bot.app.web.subscription_webapp  # noqa: F401
 from bot.app.web.webapp import passkeys as passkeys_module
 
@@ -22,6 +24,28 @@ class _SessionFactory:
 
 
 class WebAppPasskeyTests(IsolatedAsyncioTestCase):
+    async def test_passkey_registration_requires_an_existing_authenticated_account(self):
+        parse_payload = AsyncMock()
+        request = SimpleNamespace(app={})
+
+        with (
+            patch.object(
+                passkeys_module,
+                "_require_user_id",
+                side_effect=web.HTTPUnauthorized(
+                    text=json.dumps({"ok": False, "error": "unauthorized"}),
+                    content_type="application/json",
+                ),
+            ),
+            patch.object(passkeys_module, "_parse_model_payload", parse_payload),
+            self.assertRaises(web.HTTPUnauthorized) as raised,
+        ):
+            await passkeys_module.account_passkey_register_route(request)
+
+        self.assertEqual(raised.exception.status, 401)
+        self.assertEqual(json.loads(raised.exception.text), {"ok": False, "error": "unauthorized"})
+        parse_payload.assert_not_awaited()
+
     async def test_register_route_persists_verified_passkey_with_generated_name(self):
         settings = SimpleNamespace(PASSKEY_LOGIN_ENABLED=True)
         session = SimpleNamespace(
