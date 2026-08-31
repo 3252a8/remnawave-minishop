@@ -70,6 +70,7 @@ from .billing import (
     tariff_change_route,
     tariff_topup_options_route,
 )
+from .billing_payment_cancel import cancel_payment_route
 from .billing_subscription import (
     promo_status_route,
 )
@@ -318,4 +319,5 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/tariffs/change-payment", tariff_change_payment_route)
     app.router.add_post("/api/payments", create_payment_route)
     app.router.add_get("/api/payments/{payment_id}", payment_status_route)
+    app.router.add_post("/api/payments/{payment_id}/cancel", cancel_payment_route)
     setup_admin_routes(app)

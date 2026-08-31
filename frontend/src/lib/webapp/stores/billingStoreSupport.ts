@@ -84,6 +84,7 @@ export type BillingStore = BillingState & {
   backToTariffList(subscription: SubscriptionView, tariffCatalog?: TariffView[]): void;
   createPayment(options?: PartnerBalancePaymentOptions): Promise<void>;
   resumePendingPayment(payment: PendingPaymentView): Promise<void>;
+  cancelPendingPayment(payment: PendingPaymentView): Promise<void>;
   setCheckoutPromoInput(value: string): void;
   applyCheckoutPromo(): Promise<void>;
   clearCheckoutPromo(): void;

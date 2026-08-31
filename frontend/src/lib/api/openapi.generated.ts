@@ -2264,6 +2264,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/payments/{payment_id}/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Cancel Payment */
+    post: operations["post_cancel_payment_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/plans/viewed": {
     parameters: {
       query?: never;
@@ -12406,6 +12423,33 @@ export interface operations {
             payment_id?: number;
             payment_url?: string | null;
             status?: string;
+          };
+        };
+      };
+    };
+  };
+  post_cancel_payment_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        payment_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            payment_id: number;
+            status: string;
           };
         };
       };

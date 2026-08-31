@@ -97,6 +97,7 @@
     clearCheckoutPromo = () => {},
     continueWithSelectedTariff = () => {},
     resumePendingPayment = () => {},
+    cancelPendingPayment = () => {},
     requestLinkEmailCode = () => {},
     requestSetPasswordCode = () => {},
     selectTariff = () => {},
@@ -171,6 +172,7 @@
     clearCheckoutPromo?: VoidAction;
     continueWithSelectedTariff?: VoidAction;
     resumePendingPayment?: (payment: PendingPaymentView) => void;
+    cancelPendingPayment?: (payment: PendingPaymentView) => void;
     requestLinkEmailCode?: VoidAction;
     requestSetPasswordCode?: VoidAction;
     selectTariff?: (tariff: TariffView) => void;
@@ -228,6 +230,7 @@
   {clearCheckoutPromo}
   {continueWithSelectedTariff}
   {resumePendingPayment}
+  {cancelPendingPayment}
   {selectTariff}
   {setCheckoutPromoInput}
   {t}

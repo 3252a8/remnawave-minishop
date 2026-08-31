@@ -1,5 +1,6 @@
 import {
   buildDeviceTopupOptionsPath,
+  buildPaymentCancelPath,
   buildPaymentStatusPath,
   buildPaymentsPath,
   buildPlansViewedPath,
@@ -22,6 +23,7 @@ import type {
   ApiClient,
   DeviceTopupOptionsResponse,
   PaymentCreateResponse,
+  PaymentCancelResponse,
   PaymentStatusResponse,
   PlansViewedResponse,
   PostPayload,
@@ -51,6 +53,7 @@ export type BillingActions = {
   fetchTariffChangeOptions(): Promise<TariffChangeOptionsResponse>;
   notifyPlansViewed(body: PostPayload<"/api/plans/viewed">): Promise<PlansViewedResponse>;
   postPayment(body: PostPayload<"/api/payments">): Promise<PaymentCreateResponse>;
+  cancelPayment(paymentId: string | number): Promise<PaymentCancelResponse>;
   fetchPaymentStatus(paymentId: string | number): Promise<PaymentStatusResponse>;
   quotePromo(body: PostPayload<"/api/subscription/quote-promo">): Promise<PromoQuoteResponse>;
   quoteSubscription(
@@ -115,6 +118,10 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
 
   async function postPayment(body: PostPayload<"/api/payments">): Promise<PaymentCreateResponse> {
     return api(buildPaymentsPath(), { method: "POST", body: JSON.stringify(body) });
+  }
+
+  async function cancelPayment(paymentId: string | number): Promise<PaymentCancelResponse> {
+    return api(buildPaymentCancelPath(paymentId), { method: "POST" });
   }
 
   async function fetchPaymentStatus(paymentId: string | number): Promise<PaymentStatusResponse> {
@@ -267,6 +274,7 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
     fetchTariffChangeOptions,
     notifyPlansViewed,
     postPayment,
+    cancelPayment,
     quotePromo,
     quoteSubscription,
     fetchPaymentStatus,

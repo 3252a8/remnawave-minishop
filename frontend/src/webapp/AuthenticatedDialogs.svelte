@@ -135,6 +135,7 @@
   setPasswordEmail={user?.email || ""}
   createPayment={billingStore.createPayment}
   resumePendingPayment={billingStore.resumePendingPayment}
+  cancelPendingPayment={billingStore.cancelPendingPayment}
   deviceConfirmOpen={devicesStore.deviceConfirmOpen}
   deviceDisconnectBusy={devicesStore.deviceDisconnectBusy}
   deviceToDisconnect={devicesStore.deviceToDisconnect}

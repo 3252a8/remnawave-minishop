@@ -14,6 +14,7 @@ import type { BillingActions, PartnerBalancePaymentOptions } from "../billingAct
 import type { CheckoutAddonSelection } from "../tariffs";
 import type { CheckoutAddonPreset } from "../deeplinks.js";
 import {
+  createPendingPaymentCancellation,
   createPaymentResponseHandler,
   createPendingPaymentResume,
 } from "../billingPaymentResume.js";
@@ -24,6 +25,7 @@ import {
   type TelegramWebApp,
 } from "../telegramInvoice";
 import type {
+  PendingPaymentView,
   PlanView,
   SubscriptionView,
   TariffChangeTarget,
@@ -75,6 +77,23 @@ export function createBillingStore({
     rememberPending: rememberSubscriptionActivationPending,
     setBusy: (payBusy) => updateState((s) => ({ ...s, payBusy })),
   });
+  const cancelPendingPayment = createPendingPaymentCancellation({
+    afterCanceled: applyCanceledPaymentPromo,
+    cancelPayment: billing.cancelPayment,
+    isBusy: () => state.payBusy,
+    notifyCanceled: () => showToast(t("wa_pending_payment_canceled")),
+    onError: (error) => {
+      const code = stringField(asRecord(error).error);
+      showToast(
+        t(
+          code === "payment_cancel_unavailable"
+            ? "wa_pending_payment_cancel_unavailable"
+            : "wa_pending_payment_cancel_failed"
+        )
+      );
+    },
+    setBusy: (payBusy) => updateState((s) => ({ ...s, payBusy })),
+  });
 
   const state = $state<BillingStore>({
     paymentModalOpen: false,
@@ -118,6 +137,7 @@ export function createBillingStore({
     backToTariffList,
     createPayment,
     resumePendingPayment,
+    cancelPendingPayment,
     setCheckoutPromoInput,
     applyCheckoutPromo,
     clearCheckoutPromo,
@@ -362,6 +382,26 @@ export function createBillingStore({
       checkoutPromoPriceText: "",
       ...emptyCheckoutPromoQuote(),
     }));
+  }
+
+  async function applyCanceledPaymentPromo(payment: PendingPaymentView): Promise<void> {
+    const code = String(payment.promo_code || "").trim();
+    checkoutPromoRequestId += 1;
+    lastCheckoutQuoteKey = "";
+    updateState((s) => ({
+      ...s,
+      checkoutPromoInput: code,
+      checkoutPromoAutoApply: true,
+      checkoutPromoAppliedCode: "",
+      checkoutPromoStatus: "",
+      checkoutPromoIsError: false,
+      checkoutPromoPriceText: "",
+      ...emptyCheckoutPromoQuote(),
+    }));
+    const quoteReady = Boolean(checkoutQuoteBody());
+    if (quoteReady) lastCheckoutQuoteKey = checkoutQuoteKey();
+    await loadData({ fresh: true, preserveView: true });
+    if (quoteReady) await applyCheckoutPromo();
   }
 
   function isSubscriptionSale(plan: PlanView | null) {

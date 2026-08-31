@@ -12,6 +12,7 @@ function makeBillingStore(overrides: TestOverrides = {}) {
     fetchTariffChangeOptions: vi.fn(),
     notifyPlansViewed: vi.fn().mockResolvedValue({ ok: true }),
     postPayment: vi.fn(),
+    cancelPayment: vi.fn(),
     quotePromo: vi.fn(),
     postTariffChange: vi.fn(),
     postTariffChangePayment: vi.fn(),
@@ -317,7 +318,8 @@ describe("billingStore", () => {
       [],
       { active: false },
       [{ id: "plan-1", price: 900, currency: "RUB" }],
-      "yookassa"
+      "yookassa",
+      { preferredPlanId: "plan-1" }
     );
 
     await store.resumePendingPayment({
@@ -334,6 +336,74 @@ describe("billingStore", () => {
     await vi.advanceTimersByTimeAsync(1500);
     expect(billing.fetchPaymentStatus).toHaveBeenCalledWith(17);
     vi.useRealTimers();
+  });
+
+  it("cancels a pending checkout and reapplies its promo to the selected plan", async () => {
+    const { store, deps, billing } = makeBillingStore({
+      billing: {
+        cancelPayment: vi.fn().mockResolvedValue({
+          ok: true,
+          payment_id: 17,
+          status: "canceled",
+        }),
+        quotePromo: vi.fn().mockResolvedValue({
+          ok: true,
+          valid: true,
+          code: "SAVE20",
+          effect_summary: "-20%",
+          discount_percent: 20,
+          applies_to: "subscription",
+          effective_amount: 720,
+        }),
+      },
+    });
+    store.openPaymentModal(
+      false,
+      false,
+      [],
+      { active: false },
+      [{ id: "plan-1", price: 900, currency: "RUB" }],
+      "yookassa",
+      { preferredPlanId: "plan-1" }
+    );
+
+    await store.cancelPendingPayment({
+      payment_id: 17,
+      payment_url: "https://pay.example/17",
+      provider: "yookassa",
+      promo_code: "SAVE20",
+    } as Parameters<typeof store.cancelPendingPayment>[0]);
+
+    expect(billing.cancelPayment).toHaveBeenCalledWith(17);
+    expect(deps.loadData).toHaveBeenCalledWith({ fresh: true, preserveView: true });
+    expect(billing.quotePromo).toHaveBeenCalledOnce();
+    expect(store).toMatchObject({
+      paymentModalOpen: true,
+      checkoutPromoInput: "SAVE20",
+      checkoutPromoAppliedCode: "SAVE20",
+      checkoutPromoStatus: "-20%",
+    });
+    expect(deps.showToast).toHaveBeenCalledWith("wa_pending_payment_canceled");
+  });
+
+  it("keeps a pending promo reserved when provider cancellation is unavailable", async () => {
+    const { store, deps, billing } = makeBillingStore({
+      billing: {
+        cancelPayment: vi.fn().mockResolvedValue({
+          ok: false,
+          error: "payment_cancel_unavailable",
+        }),
+      },
+    });
+
+    await store.cancelPendingPayment({
+      payment_id: 17,
+      promo_code: "SAVE20",
+    } as Parameters<typeof store.cancelPendingPayment>[0]);
+
+    expect(billing.cancelPayment).toHaveBeenCalledWith(17);
+    expect(deps.loadData).not.toHaveBeenCalled();
+    expect(deps.showToast).toHaveBeenCalledWith("wa_pending_payment_cancel_unavailable");
   });
 
   it("applies no-payment tariff changes and refreshes data", async () => {

@@ -475,6 +475,7 @@
         inline
         createPayment={billingStore.createPayment}
         resumePendingPayment={billingStore.resumePendingPayment}
+        cancelPendingPayment={billingStore.cancelPendingPayment}
         bind:paymentModalOpen={billingStore.paymentModalOpen}
         bind:paymentStep={billingStore.paymentStep}
         bind:selectedMethod={billingStore.selectedMethod}

@@ -2070,15 +2070,14 @@ a {
 
 .pending-payment-heading {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 10px;
-  align-items: flex-start;
+  gap: 7px;
 }
 
-.pending-payment-heading > span:last-child {
-  display: grid;
+.pending-payment-title-row {
+  display: flex;
   min-width: 0;
-  gap: 3px;
+  gap: 10px;
+  align-items: center;
 }
 
 .pending-payment-heading strong {
@@ -2087,7 +2086,8 @@ a {
   line-height: 1.35;
 }
 
-.pending-payment-heading small {
+.pending-payment-description {
+  display: block;
   color: var(--muted);
   font-size: 11px;
   line-height: 1.4;
@@ -2112,7 +2112,9 @@ a {
 
 .pending-payment-facts > span {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
+  min-height: 74px;
   gap: 3px;
   padding: 8px;
   border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
@@ -2129,6 +2131,7 @@ a {
 }
 
 .pending-payment-facts strong {
+  align-self: center;
   color: var(--text);
   font-size: 11px;
   line-height: 1.3;
@@ -2148,6 +2151,10 @@ a {
 
 .pending-payment-action {
   min-height: 40px;
+}
+
+.pending-payment-reuse-action {
+  min-height: 38px;
 }
 
 .hwid-renewal-option {

@@ -81,6 +81,7 @@
     clearCheckoutPromo = () => {},
     continueWithSelectedTariff = () => {},
     resumePendingPayment = () => {},
+    cancelPendingPayment = () => {},
     selectTariff = () => {},
     setCheckoutPromoInput = () => {},
     t = (key) => key,
@@ -758,6 +759,7 @@
         payment={pendingPayment}
         {payBusy}
         resume={resumePendingPayment}
+        cancel={cancelPendingPayment}
         {t}
         {termUnitLabel}
       />

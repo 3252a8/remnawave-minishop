@@ -62,6 +62,7 @@ export type PaymentCheckoutDialogProps = {
   clearCheckoutPromo?: VoidAction;
   continueWithSelectedTariff?: VoidAction;
   resumePendingPayment?: (payment: PendingPaymentView) => void;
+  cancelPendingPayment?: (payment: PendingPaymentView) => void;
   selectTariff?: (tariff: TariffView) => void;
   setCheckoutPromoInput?: StringAction;
   t?: Translate;

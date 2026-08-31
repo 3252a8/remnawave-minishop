@@ -106,6 +106,7 @@ export type DevicesDisconnectResponse = PostResponse<"/api/devices/disconnect">;
 export type DeviceTopupOptionsResponse = GetResponse<"/api/devices/topup-options">;
 export type PaymentCreateResponse = PostResponse<"/api/payments">;
 export type PaymentStatusResponse = GetResponse<"/api/payments/{payment_id}">;
+export type PaymentCancelResponse = PostResponse<"/api/payments/{payment_id}/cancel">;
 export type PlansViewedResponse = PostResponse<"/api/plans/viewed">;
 export type PromoApplyResponse = PostResponse<"/api/promo/apply">;
 export type PromoStatusResponse = PostResponse<"/api/promo/status">;
@@ -374,6 +375,13 @@ export type PaymentStatusPath = BuiltApiPath<"/api/payments/{payment_id}">;
 export function buildPaymentStatusPath(paymentId: string | number): PaymentStatusPath {
   return builtApiPath<"/api/payments/{payment_id}">(
     `/payments/${encodeURIComponent(String(paymentId))}`
+  );
+}
+
+export type PaymentCancelPath = BuiltApiPath<"/api/payments/{payment_id}/cancel">;
+export function buildPaymentCancelPath(paymentId: string | number): PaymentCancelPath {
+  return builtApiPath<"/api/payments/{payment_id}/cancel">(
+    `/payments/${encodeURIComponent(String(paymentId))}/cancel`
   );
 }
 
