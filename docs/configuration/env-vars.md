@@ -425,6 +425,10 @@ Callback URL, настройка Google/Yandex, требования passkey, п
 | `SUBSCRIPTION_PURCHASE_DESCRIPTION_RU` / `SUBSCRIPTION_PURCHASE_DESCRIPTION_EN` | Локализованное описание подписки. |
 | `PAYMENT_REQUEST_TIMEOUT_SECONDS` | Общий таймаут одного API-запроса к платёжному провайдеру, в секундах. По умолчанию `20`. |
 | `PAYMENT_FAILURE_NOTIFICATION_GRACE_SECONDS` | Задержка уведомления о неуспешной оплате. По умолчанию `300`: успешная повторная оплата за это время подавляет устаревшие ошибки; `0` отключает задержку. |
+| `USER_BALANCE_ENABLED` | Включает пользовательский баланс, его пополнение и оплату покупок. Настраивается в **Общие → Баланс пользователя**. |
+| `USER_BALANCE_CURRENCY` | Валюта обычного и конвертируемого партнёрского баланса; пустое значение наследует `DEFAULT_CURRENCY_SYMBOL`. |
+| `USER_BALANCE_TOPUP_MIN_AMOUNT` / `USER_BALANCE_TOPUP_MAX_AMOUNT` | Допустимый диапазон одного пополнения. Максимум не может быть меньше минимума. |
+| `USER_BALANCE_TOPUP_PRESETS` | JSON-массив быстрых сумм пополнения, например `[500, 1000, 2000, 5000]`. |
 | `PAYMENT_<METHOD>_WEBAPP_LABEL_RU` / `PAYMENT_<METHOD>_WEBAPP_LABEL_EN` | Текст кнопки провайдера в Web App. |
 | `PAYMENT_<METHOD>_WEBAPP_ICON` | Lucide-иконка кнопки в Web App. |
 | `PAYMENT_<METHOD>_TELEGRAM_LABEL_RU` / `PAYMENT_<METHOD>_TELEGRAM_LABEL_EN` | Текст кнопки в Telegram. |

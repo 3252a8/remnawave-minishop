@@ -37,20 +37,26 @@
       <p>Заявки и отдельные ссылки, закрепление клиентов, комиссии, раздельные балансы, ручные выплаты и полная или частичная оплата покупок из баланса.</p>
       <span class="minishop-card-link">Настроить партнёрскую программу <span aria-hidden="true">→</span></span>
     </a>
-    <a class="minishop-feature-card" href="/features/support/">
+    <a class="minishop-feature-card" href="/features/user-balance/">
       <span class="minishop-feature-index">06</span>
+      <h3>Баланс пользователя</h3>
+      <p>Пополнение через платёжных провайдеров, полная и частичная оплата покупок, админские корректировки и безопасная конвертация с партнёрским балансом.</p>
+      <span class="minishop-card-link">Настроить пользовательский баланс <span aria-hidden="true">→</span></span>
+    </a>
+    <a class="minishop-feature-card" href="/features/support/">
+      <span class="minishop-feature-index">07</span>
       <h3>Поддержка внутри продукта</h3>
       <p>Тикеты из Mini App, ответы администраторов, уведомления и история обращений в одном рабочем процессе.</p>
       <span class="minishop-card-link">Поддержка пользователей <span aria-hidden="true">→</span></span>
     </a>
     <a class="minishop-feature-card" href="/features/backups/">
-      <span class="minishop-feature-index">07</span>
+      <span class="minishop-feature-index">08</span>
       <h3>Развертывание и надежность</h3>
       <p>Docker Compose, управляемые обновления, автоматические бэкапы, восстановление и готовые сценарии миграции.</p>
       <span class="minishop-card-link">Бэкапы и восстановление <span aria-hidden="true">→</span></span>
     </a>
     <a class="minishop-feature-card" href="/features/server-status/">
-      <span class="minishop-feature-index">08</span>
+      <span class="minishop-feature-index">09</span>
       <h3>Статус серверов для пользователей</h3>
       <p>Внешняя страница статуса или встроенные данные Uptime Kuma и xray-checker с кэшированием и показом последних доступных данных при сбое.</p>
       <span class="minishop-card-link">Настроить статус серверов <span aria-hidden="true">→</span></span>
