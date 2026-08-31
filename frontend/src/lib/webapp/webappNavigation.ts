@@ -1,3 +1,5 @@
+import { activeTabForWebappSection } from "./sectionAvailability.js";
+
 type NavigationDeps = {
   canUseInstallGuides: () => boolean;
   closePaymentModal: () => void;
@@ -63,7 +65,12 @@ export function createWebappNavigation({
 
   function goPartner() {
     if (!partnerProgramEnabled()) return false;
-    showSection("partner");
+    showSection(
+      "partner",
+      activeTabForWebappSection("partner", {
+        partnerSettingsVisible: referralProgramEnabled(),
+      })
+    );
     return true;
   }
 

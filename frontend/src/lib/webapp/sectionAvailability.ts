@@ -26,9 +26,13 @@ export function resolveAvailableWebappSection({
   return section;
 }
 
-export function activeTabForWebappSection(section: string) {
+export function activeTabForWebappSection(
+  section: string,
+  { partnerSettingsVisible = false }: { partnerSettingsVisible?: boolean } = {}
+) {
   if (section === "admin") return "settings";
   if (section === "security") return "settings";
+  if (section === "partner" && partnerSettingsVisible) return "settings";
   if (section === "install" || section === "trial") return "home";
   return section;
 }

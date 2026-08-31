@@ -177,7 +177,7 @@
       <span class="bottom-nav-label">{t("wa_security_title", {}, "Security")}</span>
     </button>
     {#if partnerSettingsVisible}
-      <button type="button" onclick={onPartner}>
+      <button class:active={screen === "partner"} type="button" onclick={onPartner}>
         <Handshake size={18} />
         <span class="bottom-nav-label">{t("wa_nav_partner")}</span>
       </button>
