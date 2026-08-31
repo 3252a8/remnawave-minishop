@@ -1,6 +1,7 @@
 <script lang="ts">
   import Checkbox from "$components/ui/checkbox.svelte";
-  import { WalletCards } from "$components/ui/icons.js";
+  import { Check, WalletCards } from "$components/ui/icons.js";
+  import { Select } from "$components/ui/primitives.js";
   import { formatMoney } from "$lib/webapp/formatters.js";
   import type { ApiClient, BalanceResponse } from "$lib/webapp/publicApi.js";
   import type { Translate } from "$lib/webapp/types.js";
@@ -40,6 +41,10 @@
       .toUpperCase()
   );
   const selectedSource = $derived(sources.find((item) => item.id === source) || null);
+  const preferredSource = $derived(
+    sources.find((item) => item.id === "user") || sources[0] || null
+  );
+  const displayedSource = $derived(selectedSource || preferredSource);
   const maximumDiscount = $derived.by(() => {
     const due = Math.max(0, Number(amount || 0));
     const available = Math.max(0, Number(selectedSource?.available || 0));
@@ -48,7 +53,6 @@
     if (available >= due) return due;
     return Math.min(available, Math.max(0, due - minimum));
   });
-  const remainder = $derived(Math.max(0, Number(amount || 0) - maximumDiscount));
   const visible = $derived(open && eligible && Boolean(normalizedCurrency) && sources.length > 0);
 
   function normalizeSources(response: BalanceResponse): SourceView[] {
@@ -77,12 +81,23 @@
   }
 
   function toggleSelected(next: boolean): void {
-    source = next ? source || sources[0]?.id || null : null;
+    source = next ? source || preferredSource?.id || null : null;
   }
 
-  function selectSource(event: Event): void {
-    const value = (event.currentTarget as HTMLSelectElement).value;
+  function selectSource(value: string): void {
     source = value === "partner" ? "partner" : "user";
+  }
+
+  function sourceLabel(id: BalanceSource): string {
+    return id === "partner"
+      ? t("wa_balance_source_partner", {}, "Partner balance")
+      : t("wa_balance_source_user", {}, "Main balance");
+  }
+
+  function inlineSourceLabel(id: BalanceSource | undefined): string {
+    return id === "partner"
+      ? t("wa_balance_source_partner_inline", {}, "partner balance")
+      : t("wa_balance_source_user_inline", {}, "balance");
   }
 
   $effect(() => {
@@ -117,44 +132,54 @@
     <span class="balance-icon"><WalletCards size={19} /></span>
     <div class="balance-copy">
       <div class="balance-title-row">
-        <strong>{t("wa_balance_checkout_title", {}, "Pay from balance")}</strong>
-        {#if sources.length > 1 && source}
-          <select value={source} onchange={selectSource} aria-label={t("wa_balance_source_label")}>
-            {#each sources as item}
-              <option value={item.id}>
-                {item.id === "partner"
-                  ? t("wa_balance_source_partner", {}, "Partner balance")
-                  : t("wa_balance_source_user", {}, "Main balance")}
-              </option>
-            {/each}
-          </select>
+        <strong>{t("wa_balance_checkout_prefix", {}, "Pay from")}</strong>
+        {#if sources.length > 1}
+          <Select.Root
+            type="single"
+            value={displayedSource?.id || "user"}
+            items={sources.map((item) => ({ value: item.id, label: sourceLabel(item.id) }))}
+            onValueChange={selectSource}
+          >
+            <Select.Trigger
+              class="balance-source-trigger"
+              aria-label={t("wa_balance_source_label", {}, "Funds source")}
+            >
+              {inlineSourceLabel(displayedSource?.id)}
+            </Select.Trigger>
+            <Select.Portal>
+              <Select.Content
+                class="balance-source-select-content"
+                side="bottom"
+                align="start"
+                sideOffset={6}
+                collisionPadding={12}
+              >
+                <Select.Viewport class="balance-source-select-viewport">
+                  {#each sources as item (item.id)}
+                    <Select.Item
+                      class="balance-source-select-item"
+                      value={item.id}
+                      label={sourceLabel(item.id)}
+                    >
+                      <Check size={15} class="balance-source-select-check" />
+                      <span>{sourceLabel(item.id)}</span>
+                      <small>{formatMoney(item.available, normalizedCurrency)}</small>
+                    </Select.Item>
+                  {/each}
+                </Select.Viewport>
+              </Select.Content>
+            </Select.Portal>
+          </Select.Root>
+        {:else}
+          <strong>{inlineSourceLabel(displayedSource?.id)}</strong>
         {/if}
       </div>
-      <small>
-        {#if source && selectedSource}
+      {#if displayedSource}
+        <small>
           {t("wa_balance_checkout_available", {
-            balance: formatMoney(selectedSource.available, normalizedCurrency),
+            balance: formatMoney(displayedSource.available, normalizedCurrency),
           })}
-        {:else if sources.length === 1}
-          {t("wa_balance_checkout_available", {
-            balance: formatMoney(sources[0].available, normalizedCurrency),
-          })}
-        {:else}
-          {t("wa_balance_checkout_choose", {}, "Choose which balance to use")}
-        {/if}
-      </small>
-      {#if source}
-        <div class="balance-result">
-          <span>
-            <s>{formatMoney(amount, normalizedCurrency)}</s>
-            <b>{formatMoney(remainder, normalizedCurrency)}</b>
-          </span>
-          <small>
-            {t("wa_balance_checkout_discount", {
-              discount: formatMoney(maximumDiscount, normalizedCurrency),
-            })}
-          </small>
-        </div>
+        </small>
       {/if}
     </div>
   </div>
@@ -195,47 +220,69 @@
   }
   .balance-title-row {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-  }
-  .balance-title-row select {
-    min-width: 0;
-    max-width: 190px;
-    padding: 5px 26px 5px 8px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    background: var(--panel);
-    font: inherit;
-    font-size: 12px;
-  }
-  .balance-result {
-    display: flex;
     align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
+    gap: 4px;
+    white-space: nowrap;
   }
-  .balance-result span {
-    display: inline-flex;
-    gap: 7px;
+  :global(.balance-source-trigger) {
+    appearance: none;
+    padding: 0 0 1px;
+    border: 0;
+    border-bottom: 1px dashed currentColor;
+    border-radius: 0;
+    color: var(--text);
+    background: transparent;
+    font: inherit;
+    font-weight: 700;
+    line-height: inherit;
+    cursor: pointer;
   }
-  .balance-result s {
-    color: var(--muted);
-  }
-  .balance-result b,
-  .balance-result small {
+  :global(.balance-source-trigger:hover) {
     color: var(--accent);
   }
+  :global(.balance-source-select-content) {
+    z-index: 1200;
+    min-width: 230px;
+    overflow: hidden;
+    padding: 5px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+    background: var(--panel);
+    box-shadow: 0 16px 42px rgb(0 0 0 / 18%);
+  }
+  :global(.balance-source-select-viewport) {
+    display: grid;
+    gap: 2px;
+  }
+  :global(.balance-source-select-item) {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 9px;
+    border-radius: 8px;
+    font-size: 12px;
+    outline: none;
+    cursor: pointer;
+  }
+  :global(.balance-source-select-item[data-highlighted]) {
+    background: var(--panel-2);
+  }
+  :global(.balance-source-select-item small) {
+    color: var(--muted);
+    font-size: 11px;
+  }
+  :global(.balance-source-select-check) {
+    opacity: 0;
+    color: var(--accent);
+  }
+  :global(.balance-source-select-item[data-selected] .balance-source-select-check) {
+    opacity: 1;
+  }
   @media (max-width: 520px) {
-    .balance-title-row,
-    .balance-result {
-      align-items: flex-start;
-      flex-direction: column;
-    }
-    .balance-title-row select {
-      width: 100%;
-      max-width: none;
+    .balance-title-row {
+      white-space: normal;
     }
   }
 </style>

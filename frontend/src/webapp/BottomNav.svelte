@@ -163,7 +163,7 @@
     type="button"
     aria-label={t("wa_nav_settings")}
     title={t("wa_nav_settings")}
-    onclick={hasUnlinkedIdentity ? onSecurity : onSettings}
+    onclick={onSettings}
   >
     {#if hasUnlinkedIdentity}
       <AttentionDot class="nav-attention-dot" />

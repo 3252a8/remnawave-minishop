@@ -17,6 +17,7 @@
   import PromoActivationCard from "../PromoActivationCard.svelte";
   import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
   import MenuButtonIcon from "../MenuButtonIcon.svelte";
+  import { formatMoney } from "$lib/webapp/formatters.js";
   import type { ThemeOption } from "$lib/webapp/themePreference.js";
   import type {
     LanguageOption,
@@ -173,12 +174,14 @@
       <small>{profileTelegramId}</small>
     </div>
     {#if balance.enabled}
-      <button class="settings-profile-balance" type="button" onclick={openBalanceTopup}>
+      <button
+        class="settings-profile-balance"
+        type="button"
+        onclick={openBalanceTopup}
+        aria-label={t("wa_balance_topup_short", {}, "Top up")}
+      >
         <WalletCards size={17} />
-        <span>
-          <small>{t("wa_balance_title", {}, "Balance")}</small>
-          <strong>{balance.amount} {balance.currency}</strong>
-        </span>
+        <strong>{formatMoney(balance.amount, balance.currency)}</strong>
       </button>
     {/if}
   </Card>
@@ -371,20 +374,22 @@
     align-items: center;
     gap: 7px;
     padding: 8px 10px;
-    border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+    border: 1px solid var(--border);
     border-radius: 11px;
-    color: var(--accent);
+    color: var(--text);
     text-align: right;
-    background: color-mix(in srgb, var(--accent) 9%, var(--panel-2));
+    background: var(--panel-2);
     cursor: pointer;
+    transition:
+      border-color 0.18s ease,
+      background 0.18s ease;
   }
-  .settings-profile-balance span {
-    display: grid;
-    gap: 1px;
+  .settings-profile-balance:hover {
+    border-color: color-mix(in srgb, var(--text) 22%, var(--border));
+    background: color-mix(in srgb, var(--text) 5%, var(--panel-2));
   }
-  .settings-profile-balance small {
+  .settings-profile-balance :global(svg) {
     color: var(--muted);
-    font-size: 10px;
   }
   .settings-profile-balance strong {
     color: var(--text);

@@ -9,6 +9,7 @@
     Database,
     Download,
     Gift,
+    Plus,
     Repeat2,
     Send,
     WalletCards,
@@ -21,7 +22,7 @@
   import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
   import ServerStatusCard from "../ServerStatusCard.svelte";
   import { LinearProgress } from "$components/patterns/webapp/index.js";
-  import { formatTrafficGb } from "../../lib/webapp/formatters.js";
+  import { formatMoney, formatTrafficGb } from "../../lib/webapp/formatters.js";
   import {
     trafficPercent as trafficPercentFn,
     trafficLabel as trafficLabelFn,
@@ -361,18 +362,29 @@
     />
   {/if}
 
-  {#if balance.enabled}
-    <button class="home-balance-card" type="button" onclick={openBalanceTopup}>
-      <span><WalletCards size={22} /></span>
-      <span>
-        <small>{t("wa_balance_title", {}, "Balance")}</small>
-        <strong>{balance.amount} {balance.currency}</strong>
-      </span>
-      <b>{t("wa_balance_topup_short", {}, "Top up")}</b>
-    </button>
-  {/if}
-
   <div class="home-bottom">
+    {#if balance.enabled}
+      <Card class="home-balance-card">
+        <div class="home-balance-summary">
+          <WalletCards size={22} />
+          <span>
+            <small>{t("wa_balance_title", {}, "Balance")}:</small>
+            <strong>{formatMoney(balance.amount, balance.currency)}</strong>
+          </span>
+        </div>
+        <Button
+          class="home-balance-topup"
+          type="button"
+          size="sm"
+          onclick={openBalanceTopup}
+          aria-label={t("wa_balance_topup_short", {}, "Top up")}
+          title={t("wa_balance_topup_short", {}, "Top up")}
+        >
+          <Plus size={18} />
+        </Button>
+      </Card>
+    {/if}
+
     <Card class={statusCardClass}>
       {#if subscription.active}
         <div class="sub-status">
@@ -749,51 +761,48 @@
 </main>
 
 <style>
-  .home-balance-card {
-    width: min(100%, 560px);
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+  :global(section.home-balance-card) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 11px;
+    padding: 8px 12px;
+  }
+  .home-balance-summary {
+    min-width: 0;
+    display: flex;
     align-items: center;
     gap: 11px;
-    padding: 12px 14px;
-    border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
-    border-radius: 15px;
-    color: var(--text);
-    text-align: left;
-    background: color-mix(in srgb, var(--accent) 9%, var(--panel));
-    cursor: pointer;
   }
-  .home-balance-card > span:first-child {
-    width: 42px;
-    height: 42px;
-    display: grid;
-    place-items: center;
-    border-radius: 12px;
+  .home-balance-summary > :global(svg) {
+    flex: 0 0 auto;
     color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 14%, var(--panel-2));
   }
-  .home-balance-card > span:nth-child(2) {
-    display: grid;
-    gap: 2px;
+  .home-balance-summary > span {
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
   }
-  .home-balance-card small {
+  .home-balance-summary small {
     color: var(--muted);
+    font-size: 12px;
   }
-  .home-balance-card strong {
-    font-size: 18px;
+  .home-balance-summary strong {
+    font-size: 17px;
   }
-  .home-balance-card b {
-    color: var(--accent);
-    font-size: 13px;
+  :global(section.home-balance-card .home-balance-topup) {
+    width: 36px;
+    min-width: 36px;
+    flex: 0 0 auto;
+    padding: 0;
   }
   @media (max-width: 520px) {
-    .home-balance-card {
-      padding: 11px 12px;
+    :global(section.home-balance-card) {
+      padding: 7px 11px;
     }
-    .home-balance-card > span:first-child {
-      width: 38px;
-      height: 38px;
+    .home-balance-summary {
+      gap: 8px;
     }
   }
 </style>

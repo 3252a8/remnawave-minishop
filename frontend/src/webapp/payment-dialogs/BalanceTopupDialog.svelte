@@ -1,8 +1,10 @@
 <script lang="ts">
+  import { onDestroy } from "svelte";
   import Button from "$components/ui/button.svelte";
   import Dialog from "$components/ui/dialog.svelte";
-  import { ArrowRight, WalletCards } from "$components/ui/icons.js";
+  import { LockKeyhole, WalletCards } from "$components/ui/icons.js";
   import { EmptyCard, PaymentMethodPicker } from "$components/patterns/webapp/index.js";
+  import AnimatedNumber from "$components/patterns/webapp/AnimatedNumber.svelte";
   import { asWebappRecord } from "$lib/webapp/types.js";
   import type {
     BalanceView,
@@ -11,6 +13,7 @@
     Translate,
   } from "$lib/webapp/types.js";
   import type { ApiClient } from "$lib/webapp/publicApi.js";
+  import { formatMoney } from "$lib/webapp/formatters.js";
 
   let {
     api,
@@ -30,10 +33,19 @@
     t?: Translate;
   } = $props();
 
-  let amount = $state(0);
+  const MANUAL_AMOUNT_DEBOUNCE_MS = 180;
+  const PRESET_INPUT_ANIMATION_MS = 460;
+
+  let amount = $state<number | undefined>(0);
   let selectedMethod = $state("");
   let busy = $state(false);
   let error = $state("");
+  let buttonAnimatedAmount = $state(0);
+  let inputAnimatedAmount = $state(0);
+  let inputAnimationVisible = $state(false);
+  let inputAnimationKey = $state(0);
+  let manualAmountTimer: number | undefined;
+  let inputAnimationTimer: number | undefined;
 
   const availableMethods = $derived(
     methods.filter(
@@ -48,7 +60,20 @@
       .map(Number)
       .filter((value) => Number.isFinite(value) && value >= minimum && value <= maximum)
   );
-  const valid = $derived(amount >= minimum && amount <= maximum && !!selectedMethod && !busy);
+  const numericAmount = $derived(Number(amount || 0));
+  const valid = $derived(
+    numericAmount >= minimum && numericAmount <= maximum && !!selectedMethod && !busy
+  );
+  const currencySymbol = $derived(
+    String(balance.currency || "")
+      .trim()
+      .toUpperCase() === "RUB"
+      ? "₽"
+      : balance.currency
+  );
+  const animatedNumberFormat = $derived({
+    maximumFractionDigits: Math.max(0, Number(balance.currency_scale || 0)),
+  });
 
   function selectMethod(methodId: string): void {
     selectedMethod = methodId;
@@ -56,7 +81,35 @@
   }
 
   function selectPreset(value: number): void {
+    window.clearTimeout(manualAmountTimer);
+    window.clearTimeout(inputAnimationTimer);
     amount = value;
+    buttonAnimatedAmount = value;
+    inputAnimatedAmount = value;
+    inputAnimationKey += 1;
+    inputAnimationVisible = true;
+    inputAnimationTimer = window.setTimeout(() => {
+      inputAnimationVisible = false;
+      inputAnimationTimer = undefined;
+    }, PRESET_INPUT_ANIMATION_MS);
+    error = "";
+  }
+
+  function stopInputAnimation(): void {
+    window.clearTimeout(inputAnimationTimer);
+    inputAnimationTimer = undefined;
+    inputAnimationVisible = false;
+  }
+
+  function handleManualAmountInput(event: Event): void {
+    stopInputAnimation();
+    window.clearTimeout(manualAmountTimer);
+    const nextValue = (event.currentTarget as HTMLInputElement).valueAsNumber;
+    const safeValue = Number.isFinite(nextValue) ? nextValue : 0;
+    manualAmountTimer = window.setTimeout(() => {
+      buttonAnimatedAmount = safeValue;
+      manualAmountTimer = undefined;
+    }, MANUAL_AMOUNT_DEBOUNCE_MS);
     error = "";
   }
 
@@ -68,7 +121,7 @@
       const response = asWebappRecord(
         await api("/balance/topup", {
           method: "POST",
-          body: JSON.stringify({ method: selectedMethod, amount }),
+          body: JSON.stringify({ method: selectedMethod, amount: numericAmount }),
         })
       );
       if (response.ok !== true) {
@@ -98,14 +151,27 @@
   }
 
   $effect(() => {
-    if (!open) return;
-    amount = presets[0] || minimum || 0;
+    if (!open) {
+      window.clearTimeout(manualAmountTimer);
+      stopInputAnimation();
+      return;
+    }
+    const initialAmount = presets[0] || minimum || 0;
+    amount = initialAmount;
+    buttonAnimatedAmount = initialAmount;
+    inputAnimatedAmount = initialAmount;
+    inputAnimationVisible = false;
     selectedMethod = String(
       availableMethods.find((method) => method.id === selectedMethod)?.id ||
         availableMethods[0]?.id ||
         ""
     );
     error = "";
+  });
+
+  onDestroy(() => {
+    window.clearTimeout(manualAmountTimer);
+    window.clearTimeout(inputAnimationTimer);
   });
 </script>
 
@@ -121,59 +187,90 @@
   onclose={() => (open = false)}
   class="balance-topup-dialog"
 >
-  <div class="balance-topup-current">
-    <span><WalletCards size={22} /></span>
-    <div>
-      <small>{t("wa_balance_available", {}, "Available")}</small>
-      <strong>{balance.amount} {balance.currency}</strong>
+  <div class="balance-topup-body">
+    <div class="balance-topup-current">
+      <span><WalletCards size={22} /></span>
+      <div>
+        <small>{t("wa_balance_available", {}, "Available")}</small>
+        <strong>{formatMoney(balance.amount, balance.currency)}</strong>
+      </div>
     </div>
-  </div>
-  <label class="balance-amount-field">
-    <span>{t("wa_balance_topup_amount", {}, "Top-up amount")}</span>
-    <div>
-      <input
-        type="number"
-        bind:value={amount}
-        min={minimum}
-        max={maximum}
-        step={1 / 10 ** Number(balance.currency_scale || 0)}
-        inputmode="decimal"
+    <label class="balance-amount-field">
+      <span>{t("wa_balance_topup_amount", {}, "Top-up amount")}</span>
+      <div>
+        <input
+          type="number"
+          bind:value={amount}
+          min={minimum}
+          max={maximum}
+          step={1 / 10 ** Number(balance.currency_scale || 0)}
+          inputmode="decimal"
+          class:amount-input-animating={inputAnimationVisible}
+          oninput={handleManualAmountInput}
+          onfocus={stopInputAnimation}
+        />
+        {#if inputAnimationVisible}
+          {#key inputAnimationKey}
+            <span class="balance-amount-animation" aria-hidden="true">
+              <AnimatedNumber
+                value={inputAnimatedAmount}
+                format={animatedNumberFormat}
+                replaceAnimations
+              />
+            </span>
+          {/key}
+        {/if}
+        <b>{currencySymbol}</b>
+      </div>
+      <small>
+        {t("wa_balance_topup_limits", { min: minimum, max: maximum }, "From {min} to {max}")}
+      </small>
+    </label>
+    {#if presets.length}
+      <div class="balance-presets">
+        {#each presets as preset}
+          <button
+            type="button"
+            class:active={amount === preset}
+            onclick={() => selectPreset(preset)}
+          >
+            +{formatMoney(preset, balance.currency)}
+          </button>
+        {/each}
+      </div>
+    {/if}
+    {#if availableMethods.length}
+      <PaymentMethodPicker
+        methods={availableMethods}
+        {selectedMethod}
+        mode={paymentMethodsDisplayMode}
+        {t}
+        onSelect={selectMethod}
       />
-      <b>{balance.currency}</b>
-    </div>
-    <small>
-      {t("wa_balance_topup_limits", { min: minimum, max: maximum }, "From {min} to {max}")}
-    </small>
-  </label>
-  {#if presets.length}
-    <div class="balance-presets">
-      {#each presets as preset}
-        <button type="button" class:active={amount === preset} onclick={() => selectPreset(preset)}>
-          +{preset}
-          {balance.currency}
-        </button>
-      {/each}
-    </div>
-  {/if}
-  {#if availableMethods.length}
-    <PaymentMethodPicker
-      methods={availableMethods}
-      {selectedMethod}
-      mode={paymentMethodsDisplayMode}
-      {t}
-      onSelect={selectMethod}
-    />
-  {:else}
-    <EmptyCard>{t("wa_payment_methods_not_configured")}</EmptyCard>
-  {/if}
-  {#if error}<small class="balance-topup-error">{error}</small>{/if}
-  <Button class="wide bottom-action" onclick={submit} disabled={!valid}>
-    {t("wa_balance_topup_continue", {}, "Continue to payment")}
-    <ArrowRight size={17} />
-  </Button>
+    {:else}
+      <EmptyCard>{t("wa_payment_methods_not_configured")}</EmptyCard>
+    {/if}
+    {#if error}<small class="balance-topup-error">{error}</small>{/if}
+    <Button class="wide bottom-action payment-submit-button" onclick={submit} disabled={!valid}>
+      {t("wa_pay", {}, "Pay")}
+      <strong>
+        <AnimatedNumber
+          value={buttonAnimatedAmount}
+          suffix={` ${currencySymbol}`}
+          ariaLabel={formatMoney(buttonAnimatedAmount, balance.currency)}
+          format={animatedNumberFormat}
+        />
+      </strong>
+      <LockKeyhole size={17} />
+    </Button>
+  </div>
 </Dialog>
 
 <style>
+  .balance-topup-body {
+    display: grid;
+    gap: 13px;
+  }
   .balance-topup-current {
     display: flex;
     align-items: center;
@@ -221,6 +318,22 @@
     font-size: 18px;
     font-weight: 700;
   }
+  .balance-amount-field input.amount-input-animating {
+    color: transparent;
+    caret-color: transparent;
+  }
+  .balance-amount-animation {
+    position: absolute;
+    top: 50%;
+    left: 13px;
+    z-index: 1;
+    transform: translateY(-50%);
+    color: var(--text);
+    font-size: 18px;
+    font-weight: 700;
+    pointer-events: none;
+    animation: balance-amount-preset-pop 0.32s ease-out;
+  }
   .balance-amount-field b {
     position: absolute;
     top: 50%;
@@ -249,5 +362,20 @@
   }
   .balance-topup-error {
     color: var(--danger);
+  }
+  @keyframes balance-amount-preset-pop {
+    from {
+      opacity: 0.72;
+      transform: translateY(-50%) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(-50%) scale(1);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .balance-amount-animation {
+      animation: none;
+    }
   }
 </style>
