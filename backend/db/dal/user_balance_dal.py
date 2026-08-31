@@ -46,6 +46,31 @@ async def balance_minor(
     return int(value or 0)
 
 
+async def balance_minor_by_user_ids(
+    session: AsyncSession,
+    user_ids: list[int],
+    currency: str,
+) -> dict[int, int]:
+    unique_ids = sorted({int(user_id) for user_id in user_ids})
+    if not unique_ids:
+        return {}
+    rows = (
+        await session.execute(
+            select(
+                UserBalanceLedgerEntry.user_id,
+                func.coalesce(func.sum(UserBalanceLedgerEntry.amount_minor), 0).label("amount"),
+            )
+            .where(
+                UserBalanceLedgerEntry.user_id.in_(unique_ids),
+                func.upper(UserBalanceLedgerEntry.currency) == currency.upper(),
+                UserBalanceLedgerEntry.state == "posted",
+            )
+            .group_by(UserBalanceLedgerEntry.user_id)
+        )
+    ).all()
+    return {int(row.user_id): int(row.amount or 0) for row in rows}
+
+
 async def balance_summaries(
     session: AsyncSession,
     user_id: int,

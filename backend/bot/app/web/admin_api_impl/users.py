@@ -110,6 +110,8 @@ register_contract(
                                     "payments_count": INTEGER_SCHEMA,
                                     "payments_currency": NULLABLE_STRING_SCHEMA,
                                     "invited_users_count": INTEGER_SCHEMA,
+                                    "user_balance_amount_minor": INTEGER_SCHEMA,
+                                    "partner_balance_amount_minor": INTEGER_SCHEMA,
                                 },
                                 "required": [
                                     "panel_status",
@@ -119,6 +121,8 @@ register_contract(
                                     "payments_count",
                                     "payments_currency",
                                     "invited_users_count",
+                                    "user_balance_amount_minor",
+                                    "partner_balance_amount_minor",
                                 ],
                             },
                         ],
@@ -127,6 +131,10 @@ register_contract(
                 "page": INTEGER_SCHEMA,
                 "page_size": INTEGER_SCHEMA,
                 "total": INTEGER_SCHEMA,
+                "user_balance_enabled": BOOLEAN_SCHEMA,
+                "partner_balance_enabled": BOOLEAN_SCHEMA,
+                "balance_currency": STRING_SCHEMA,
+                "balance_currency_scale": INTEGER_SCHEMA,
             }
         ),
     ),

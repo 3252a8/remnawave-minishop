@@ -39,7 +39,23 @@
   const amountFactor = $derived(10 ** currencyScale);
   const amountStep = $derived(1 / amountFactor);
   const adjustmentValid = $derived(Number(adjustmentAmount) >= 0 && adjustmentAmount.trim() !== "");
-  const conversionValid = $derived(Number(conversionAmount) > 0 && conversionAmount.trim() !== "");
+  const conversionMaximumMinor = $derived(
+    Math.max(
+      0,
+      Number(
+        conversionDirection === "partner_to_user"
+          ? partnerSource?.amount_minor
+          : userSource?.amount_minor
+      ) || 0
+    )
+  );
+  const conversionAmountMinor = $derived(Math.round(Number(conversionAmount || 0) * amountFactor));
+  const conversionValid = $derived(
+    conversionAmount.trim() !== "" &&
+      Number.isFinite(conversionAmountMinor) &&
+      conversionAmountMinor > 0 &&
+      conversionAmountMinor <= conversionMaximumMinor
+  );
 
   const adjustmentModes = $derived<SelectOption[]>([
     { value: "add", label: at("user_balance_mode_add", {}, "Add") },
@@ -75,6 +91,16 @@
       return `${prefix}:${crypto.randomUUID()}`;
     }
     return `${prefix}:${Date.now()}:${Math.random().toString(16).slice(2)}`;
+  }
+
+  function amountInputValue(amountMinor: number): string {
+    const fixed = (amountMinor / amountFactor).toFixed(currencyScale);
+    return currencyScale > 0 ? fixed.replace(/\.?0+$/, "") : fixed;
+  }
+
+  function useMaximumConversionAmount(): void {
+    if (conversionMaximumMinor <= 0 || userActionBusy) return;
+    conversionAmount = amountInputValue(conversionMaximumMinor);
   }
 
   async function submitAdjustment() {
@@ -208,14 +234,29 @@
         />
         <Label.Root class="admin-field-label">
           <span>{at("user_balance_amount", {}, "Amount")}</span>
-          <Input
-            class="input"
-            type="number"
-            min={amountStep}
-            step={amountStep}
-            placeholder="0"
-            bind:value={conversionAmount}
-          />
+          <div class="balance-amount-input-wrap">
+            <Input
+              class="input balance-amount-input"
+              type="number"
+              min={amountStep}
+              max={conversionMaximumMinor / amountFactor}
+              step={amountStep}
+              inputmode="decimal"
+              placeholder="0"
+              bind:value={conversionAmount}
+              disabled={userActionBusy || !partnerConvertible || conversionMaximumMinor <= 0}
+            />
+            <button
+              type="button"
+              class="balance-amount-max"
+              onclick={useMaximumConversionAmount}
+              disabled={userActionBusy || !partnerConvertible || conversionMaximumMinor <= 0}
+              title={at("user_balance_max", {}, "Maximum")}
+              aria-label={at("user_balance_max_aria", {}, "Use maximum available balance")}
+            >
+              {at("user_balance_max", {}, "Max")}
+            </button>
+          </div>
         </Label.Root>
         <Label.Root class="admin-field-label">
           <span>{at("user_balance_reason", {}, "Reason / comment")}</span>
@@ -331,6 +372,43 @@
   }
   .balance-operation-panel :global(.admin-btn) {
     width: 100%;
+  }
+  .balance-amount-input-wrap {
+    position: relative;
+    min-width: 0;
+  }
+  .balance-amount-input-wrap :global(.balance-amount-input) {
+    width: 100%;
+    padding-right: 58px;
+  }
+  .balance-amount-max {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    min-width: 44px;
+    height: 28px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    color: var(--accent);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 750;
+    cursor: pointer;
+    transform: translateY(-50%);
+  }
+  .balance-amount-max:hover:not(:disabled),
+  .balance-amount-max:focus-visible {
+    background: color-mix(in srgb, var(--accent) 20%, transparent);
+    outline: none;
+  }
+  .balance-amount-max:focus-visible {
+    box-shadow: 0 0 0 2px var(--admin-ring);
+  }
+  .balance-amount-max:disabled {
+    cursor: default;
+    opacity: 0.45;
   }
   .balance-history-head,
   .balance-history-row,

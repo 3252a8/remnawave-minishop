@@ -10707,15 +10707,20 @@ export interface operations {
         };
         content: {
           "application/json": {
+            balance_currency: string;
+            balance_currency_scale: number;
             /** @constant */
             ok: true;
             page: number;
             page_size: number;
+            partner_balance_enabled: boolean;
             total: number;
+            user_balance_enabled: boolean;
             users: (components["schemas"]["AdminUserWithAvatarOut"] & {
               invited_users_count: number;
               panel_status: string | null;
               panel_status_expired_at?: string | null;
+              partner_balance_amount_minor: number;
               payments_count: number;
               payments_currency: string | null;
               payments_total_amount: number;
@@ -10723,6 +10728,7 @@ export interface operations {
                 [key: string]: unknown;
               };
               subscription_expires_at: string | null;
+              user_balance_amount_minor: number;
             })[];
           };
         };

@@ -14,8 +14,10 @@ from bot.app.web.context import (
 )
 from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
 from bot.infra.redis import cache_delete_pattern, redis_key
+from bot.services.partner_common import currency_scale
 from bot.utils.ttl_cache import AsyncTTLCache
 from config.settings import Settings
+from db.dal import partner_dal, user_balance_dal
 from db.models import Subscription
 
 from .auth import _require_admin_user_id
@@ -77,6 +79,11 @@ async def _load_admin_users_list_payload(
 ) -> dict[str, Any]:
     cache = _admin_users_list_cache(settings)
     valid_tariff_keys = _admin_tariff_keys(settings)
+    balance_config = settings.balance_settings
+    balance_enabled = bool(balance_config.enabled)
+    partner_balance_enabled = bool(settings.partner_settings.enabled)
+    balance_currency = str(balance_config.currency).upper()
+    balance_currency_scale = currency_scale(balance_currency)
     cache_key = _admin_users_list_cache_key(
         page=page,
         page_size=page_size,
@@ -86,6 +93,9 @@ async def _load_admin_users_list_payload(
         premium_traffic=premium_traffic,
         sort_value=sort_value,
         valid_tariff_keys=sorted(valid_tariff_keys),
+        balance_enabled=balance_enabled,
+        partner_balance_enabled=partner_balance_enabled,
+        balance_currency=balance_currency,
     )
     if cache is None:
         return await _load_admin_users_list_payload_uncached(
@@ -98,6 +108,10 @@ async def _load_admin_users_list_payload(
             premium_traffic=premium_traffic,
             sort_value=sort_value,
             valid_tariff_keys=valid_tariff_keys,
+            balance_enabled=balance_enabled,
+            partner_balance_enabled=partner_balance_enabled,
+            balance_currency=balance_currency,
+            balance_currency_scale=balance_currency_scale,
         )
     return cast(
         dict[str, Any],
@@ -113,6 +127,10 @@ async def _load_admin_users_list_payload(
                 premium_traffic=premium_traffic,
                 sort_value=sort_value,
                 valid_tariff_keys=valid_tariff_keys,
+                balance_enabled=balance_enabled,
+                partner_balance_enabled=partner_balance_enabled,
+                balance_currency=balance_currency,
+                balance_currency_scale=balance_currency_scale,
             ),
         ),
     )
@@ -129,6 +147,10 @@ async def _load_admin_users_list_payload_uncached(
     premium_traffic: str,
     sort_value: str,
     valid_tariff_keys: set[str],
+    balance_enabled: bool,
+    partner_balance_enabled: bool,
+    balance_currency: str,
+    balance_currency_scale: int,
 ) -> dict[str, Any]:
     async with async_session_factory() as session:
         users, total = await _filter_and_sort_users(
@@ -143,13 +165,30 @@ async def _load_admin_users_list_payload_uncached(
             valid_tariff_keys=valid_tariff_keys,
         )
 
-        statuses = await _bulk_user_statuses(session, [u.user_id for u in users])
-        cached_avatar_ids = await _bulk_user_avatar_keys(session, [u.user_id for u in users])
-        active_subs = await _bulk_active_subscriptions_for_users(
-            session, [u.user_id for u in users]
+        user_ids = [int(user.user_id) for user in users]
+        statuses = await _bulk_user_statuses(session, user_ids)
+        cached_avatar_ids = await _bulk_user_avatar_keys(session, user_ids)
+        active_subs = await _bulk_active_subscriptions_for_users(session, user_ids)
+        payment_summaries = await _bulk_user_payment_summaries(session, user_ids)
+        referral_counts = await _bulk_user_referral_counts(session, user_ids)
+        user_balances = (
+            await user_balance_dal.balance_minor_by_user_ids(
+                session,
+                user_ids,
+                balance_currency,
+            )
+            if balance_enabled
+            else {}
         )
-        payment_summaries = await _bulk_user_payment_summaries(session, [u.user_id for u in users])
-        referral_counts = await _bulk_user_referral_counts(session, [u.user_id for u in users])
+        partner_balances = (
+            await partner_dal.balance_minor_by_user_ids(
+                session,
+                user_ids,
+                balance_currency,
+            )
+            if partner_balance_enabled
+            else {}
+        )
 
     serialized = []
     for user in users:
@@ -170,6 +209,8 @@ async def _load_admin_users_list_payload_uncached(
         payload["payments_count"] = int(payment_summary.get("count") or 0)
         payload["payments_currency"] = payment_summary.get("currency")
         payload["invited_users_count"] = int(referral_counts.get(user.user_id) or 0)
+        payload["user_balance_amount_minor"] = int(user_balances.get(user.user_id) or 0)
+        payload["partner_balance_amount_minor"] = int(partner_balances.get(user.user_id) or 0)
         serialized.append(payload)
 
     return {
@@ -177,6 +218,10 @@ async def _load_admin_users_list_payload_uncached(
         "page": page,
         "page_size": page_size,
         "total": total,
+        "user_balance_enabled": balance_enabled,
+        "partner_balance_enabled": partner_balance_enabled,
+        "balance_currency": balance_currency,
+        "balance_currency_scale": balance_currency_scale,
     }
 
 

@@ -17390,6 +17390,12 @@
                 "schema": {
                   "additionalProperties": false,
                   "properties": {
+                    "balance_currency": {
+                      "type": "string"
+                    },
+                    "balance_currency_scale": {
+                      "type": "integer"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
@@ -17400,8 +17406,14 @@
                     "page_size": {
                       "type": "integer"
                     },
+                    "partner_balance_enabled": {
+                      "type": "boolean"
+                    },
                     "total": {
                       "type": "integer"
+                    },
+                    "user_balance_enabled": {
+                      "type": "boolean"
                     },
                     "users": {
                       "items": {
@@ -17426,6 +17438,9 @@
                                   "null"
                                 ]
                               },
+                              "partner_balance_amount_minor": {
+                                "type": "integer"
+                              },
                               "payments_count": {
                                 "type": "integer"
                               },
@@ -17447,6 +17462,9 @@
                                   "string",
                                   "null"
                                 ]
+                              },
+                              "user_balance_amount_minor": {
+                                "type": "integer"
                               }
                             },
                             "required": [
@@ -17456,7 +17474,9 @@
                               "payments_total_amount",
                               "payments_count",
                               "payments_currency",
-                              "invited_users_count"
+                              "invited_users_count",
+                              "user_balance_amount_minor",
+                              "partner_balance_amount_minor"
                             ],
                             "type": "object"
                           }
@@ -17470,7 +17490,11 @@
                     "users",
                     "page",
                     "page_size",
-                    "total"
+                    "total",
+                    "user_balance_enabled",
+                    "partner_balance_enabled",
+                    "balance_currency",
+                    "balance_currency_scale"
                   ],
                   "type": "object"
                 }

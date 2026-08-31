@@ -62,6 +62,11 @@
   const referralCode = $derived(
     openedUserDetail.referral?.code || openedUserDetail.user?.referral_code || ""
   );
+  const userBalance = $derived(openedUserDetail.balance);
+  const userBalanceAmount = $derived.by(() => {
+    const amount = Number(userBalance?.amount || 0);
+    return fmtMoney(Number.isFinite(amount) ? amount : 0, userBalance?.currency || "RUB");
+  });
 
   function telegramNotificationsLabel(status: string): string {
     if (status === "blocked") {
@@ -147,6 +152,12 @@
       <span>{at("user_label_logs", {}, "Logs")}</span>
       <strong>{openedUserDetail.log_count}</strong>
     </div>
+    {#if userBalance?.enabled}
+      <div class="admin-user-stat">
+        <span>{at("user_label_balance", {}, "Balance")}</span>
+        <strong>{userBalanceAmount}</strong>
+      </div>
+    {/if}
   </div>
 
   <div class="admin-subsection-title">{at("user_section_profile", {}, "Profile")}</div>

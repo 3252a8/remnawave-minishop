@@ -222,6 +222,10 @@ export function createUsersStore({
           ...st,
           users: data.users || [],
           usersTotal: data.total || (data.users || []).length,
+          userBalanceEnabled: Boolean(data.user_balance_enabled),
+          partnerBalanceEnabled: Boolean(data.partner_balance_enabled),
+          balanceCurrency: String(data.balance_currency || "RUB"),
+          balanceCurrencyScale: Number(data.balance_currency_scale || 0),
         }));
         perf.stateAssign();
         void perf.renderSettled();

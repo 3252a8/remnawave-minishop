@@ -11,6 +11,7 @@ from bot.services.user_balance_service import UserBalanceError, UserBalanceServi
 from .auth import _require_admin_user_id
 from .common import _error, _ok
 from .schemas import AdminUserBalanceAdjustmentBody, AdminUserBalanceConversionBody
+from .users_listing import _invalidate_after_admin_user_mutation
 
 
 def _balance_error(exc: UserBalanceError) -> web.Response:
@@ -41,6 +42,7 @@ async def admin_user_balance_adjustment_route(request: web.Request) -> web.Respo
             )
     except UserBalanceError as exc:
         return _balance_error(exc)
+    await _invalidate_after_admin_user_mutation(service.settings, target_id, include_devices=False)
     return _ok({"balance": {"ok": True, **snapshot}})
 
 
@@ -68,4 +70,5 @@ async def admin_user_balance_conversion_route(request: web.Request) -> web.Respo
             )
     except UserBalanceError as exc:
         return _balance_error(exc)
+    await _invalidate_after_admin_user_mutation(service.settings, target_id, include_devices=False)
     return _ok({"balance": {"ok": True, **snapshot}})
