@@ -2188,6 +2188,7 @@
   "admin_user_message_sent": "Сообщение отправлено",
   "admin_user_message_failed": "Сообщение не отправлено",
   "admin_user_message_sending": "Отправляем…",
+  "admin_user_message_no_telegram": "Telegram не привязан",
   "admin_user_message_no_email": "почта не привязана",
   "admin_user_btn_preview_tg": "Превью в Telegram",
   "admin_user_btn_send_msg": "Отправить сообщение",

@@ -2188,6 +2188,7 @@
   "admin_user_message_sent": "Message sent",
   "admin_user_message_failed": "Message was not sent",
   "admin_user_message_sending": "Sending…",
+  "admin_user_message_no_telegram": "no linked account",
   "admin_user_message_no_email": "no linked address",
   "admin_user_btn_preview_tg": "Preview in Telegram",
   "admin_user_btn_send_msg": "Send Message",

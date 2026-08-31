@@ -12,10 +12,12 @@
   let {
     at,
     userId,
+    hasTelegram = false,
     hasEmail = false,
   }: {
     at: TranslateFn;
     userId: number | null;
+    hasTelegram?: boolean;
     hasEmail?: boolean;
   } = $props();
 
@@ -28,7 +30,7 @@
   let text = $state("");
   let image = $state<File | null>(null);
   let emailSubject = $state("");
-  let telegramEnabled = $state(true);
+  let telegramEnabled = $state(false);
   let emailEnabled = $state(false);
   let buttons = $state<BroadcastButtonDraft[]>([]);
   let busy = $state(false);
@@ -51,10 +53,11 @@
     !busy && userId !== null && Boolean(text.trim() || image) && channels.length > 0 && buttonsValid
   );
 
-  // An email-only draft is impossible for a customer with no linked address,
-  // so the toggle stays off and disabled rather than failing on send.
+  // Unavailable delivery channels stay off instead of reporting a successful
+  // zero-recipient send. Email becomes the default for email-only accounts.
   $effect(() => {
-    if (!hasEmail && emailEnabled) emailEnabled = false;
+    telegramEnabled = hasTelegram;
+    emailEnabled = !hasTelegram && hasEmail;
   });
 
   function addButton(): void {
@@ -153,14 +156,20 @@
     />
 
     <div class="admin-user-message-channels">
-      <label class="admin-check">
+      <label class="admin-check" class:is-disabled={!hasTelegram}>
         <input
           type="checkbox"
           id="user-message-channel-telegram"
           name="user-message-channel-telegram"
           bind:checked={telegramEnabled}
+          disabled={!hasTelegram}
         />
         {at("broadcast_channel_telegram", {}, "Telegram")}
+        {#if !hasTelegram}
+          <small class="admin-muted">
+            {at("user_message_no_telegram", {}, "no linked account")}
+          </small>
+        {/if}
       </label>
       <label class="admin-check" class:is-disabled={!hasEmail}>
         <input

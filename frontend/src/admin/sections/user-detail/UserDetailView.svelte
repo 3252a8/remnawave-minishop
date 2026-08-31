@@ -347,6 +347,7 @@
               <UserMessageComposerCard
                 {at}
                 userId={openedUser?.user_id ?? null}
+                hasTelegram={Boolean(openedUser?.telegram_id)}
                 hasEmail={Boolean(openedUser?.email)}
               />
             </Tabs.Content>

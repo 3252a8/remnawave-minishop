@@ -75,6 +75,25 @@ describe("broadcastStore", () => {
     expect(payload.exclude_blocked_telegram).toBe(false);
   });
 
+  it("preserves a negative internal user id for an email-only message", async () => {
+    const api = vi.fn().mockResolvedValue({ ok: true });
+    const store = makeStore(api);
+
+    expect(
+      await store.sendToUser({
+        userId: -1351969585506524,
+        text: "Hello",
+        channels: ["email"],
+        emailSubject: "News",
+        buttons: [],
+      })
+    ).toBeNull();
+
+    const payload = JSON.parse(api.mock.calls[0][1].body);
+    expect(payload.target).toBe("user:-1351969585506524");
+    expect(payload.channels).toEqual(["email"]);
+  });
+
   it("opts in to excluding blocked Telegram recipients and resets after sending", async () => {
     const api = vi.fn().mockResolvedValue({
       ok: true,
