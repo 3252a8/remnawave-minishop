@@ -4382,7 +4382,7 @@ a {
   .rail-settings-subnav {
     display: grid;
     gap: 2px;
-    margin: -2px 0 4px 22px;
+    margin: 4px 0 4px 22px;
     padding-left: 10px;
     border-left: 1px solid var(--border);
   }
