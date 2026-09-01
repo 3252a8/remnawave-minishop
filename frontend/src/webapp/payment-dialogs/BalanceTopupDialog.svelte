@@ -174,6 +174,7 @@
   closeLabel={t("wa_close")}
   onclose={() => (open = false)}
   class="balance-topup-dialog"
+  scrollType="scroll"
 >
   <div class="balance-topup-body">
     <div class="balance-topup-current">

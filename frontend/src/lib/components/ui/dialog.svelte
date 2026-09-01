@@ -15,6 +15,7 @@
 
   type FadeParams = Parameters<typeof fade>[1];
   type FlyParams = Parameters<typeof fly>[1];
+  type ScrollType = "auto" | "always" | "scroll" | "hover";
 
   type Props = {
     open?: boolean;
@@ -23,6 +24,7 @@
     closeLabel?: string;
     onclose?: () => void;
     class?: string;
+    scrollType?: ScrollType;
     titleIcon?: Snippet;
     headerContent?: Snippet;
     children?: Snippet;
@@ -35,6 +37,7 @@
     closeLabel = "Close",
     onclose = () => {},
     class: className = "",
+    scrollType = "auto",
     titleIcon,
     headerContent,
     children,
@@ -144,7 +147,7 @@
           <X size={18} />
         </Button>
       </div>
-      <ScrollArea class="dialog-body-scroll scroll-area--dialog" maxHeight="none">
+      <ScrollArea class="dialog-body-scroll scroll-area--dialog" maxHeight="none" type={scrollType}>
         {@render children?.()}
       </ScrollArea>
     </section>

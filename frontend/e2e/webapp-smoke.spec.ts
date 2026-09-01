@@ -947,6 +947,22 @@ test("support ticket conversations scroll on desktop and mobile", async ({ page 
   await assertAdminTicketScrolling(page, supportDialog);
 });
 
+test("balance top-up dialog hides its idle scrollbar when the content fits", async ({ page }) => {
+  await page.setViewportSize({ width: 875, height: 768 });
+  await page.goto(APP_URL);
+
+  await page.locator(".home-balance-topup").click();
+  const dialog = page.locator(".dialog-card.balance-topup-dialog");
+  const viewport = dialog.locator(".dialog-body-scroll > .scroll-area__viewport");
+  const scrollbar = dialog.locator('.scroll-area__scrollbar[data-orientation="vertical"]');
+
+  await expect(dialog).toBeVisible();
+  await expect
+    .poll(() => viewport.evaluate((element) => element.scrollHeight - element.clientHeight))
+    .toBeLessThanOrEqual(1);
+  await expect(scrollbar).toHaveCount(0);
+});
+
 test("device traffic bonuses stay legible on mobile", async ({ page }) => {
   await page.setViewportSize(MOBILE_VIEWPORT);
   await page.goto(`${APP_URL}?mock=devices`);
