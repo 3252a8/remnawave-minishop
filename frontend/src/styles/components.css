@@ -782,6 +782,12 @@
     transform 0.16s ease;
 }
 
+.support-status-tabs-trigger {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+}
+
 .support-status-tabs-trigger b,
 .partner-tabs-trigger b {
   display: inline-grid;
@@ -1692,11 +1698,6 @@
     padding: 14px;
   }
 
-  .support-status-tabs-trigger {
-    flex: 1 1 0;
-    text-align: center;
-  }
-
   .ticket-card {
     min-height: 84px;
     padding: 16px 16px 16px 20px;
@@ -1846,7 +1847,8 @@
   }
 
   .support-status-tabs-trigger {
-    flex: 0 0 auto;
+    flex: 1 1 0;
+    min-width: 0;
     padding-inline: 10px;
     white-space: nowrap;
     line-height: 1;

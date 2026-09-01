@@ -81,7 +81,10 @@
   const detailLoading = $derived(supportStore.detailLoading);
   const sending = $derived(supportStore.sending);
   const peerTyping = $derived(supportStore.peerTyping);
-  const closed = $derived(["resolved", "closed"].includes(String(openedTicket?.status || "")));
+  const visibleStatus = $derived(
+    ["resolved", "closed"].includes(String(openedTicket?.status || "")) ? "closed" : "open"
+  );
+  const closed = $derived(visibleStatus === "closed");
   const ticketId = $derived(String(openedTicket?.ticket_id || ""));
   const draftScope = $derived(supportDraftScope(user));
   const nextReplyDraftKey = $derived(ticketId ? `${draftScope}:${ticketId}` : "");
@@ -203,9 +206,9 @@
         <div class="ticket-badges">
           <Badge
             variant="outline"
-            class={`ticket-status-badge ticket-status-badge--${openedTicket.status}`}
+            class={`ticket-status-badge ticket-status-badge--${visibleStatus}`}
           >
-            {t(`wa_support_status_${openedTicket.status}`)}
+            {t(`wa_support_status_${visibleStatus}`)}
           </Badge>
           <Badge
             variant="muted"

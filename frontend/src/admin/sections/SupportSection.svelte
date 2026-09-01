@@ -57,6 +57,7 @@
       closed: 0,
       open: 0,
       awaiting_admin: 0,
+      awaiting_user: 0,
       total_unread_admin: 0,
     }
   );
@@ -103,8 +104,18 @@
   const statusTabs = $derived([
     {
       value: "active",
-      label: at("support_filter_active", {}, "Active"),
+      label: at("support_filter_active", {}, "Open"),
       count: stats?.active || 0,
+    },
+    {
+      value: "awaiting_admin",
+      label: at("support_status_awaiting_admin", {}, "Awaiting admin"),
+      count: stats?.awaiting_admin || 0,
+    },
+    {
+      value: "awaiting_user",
+      label: at("support_status_awaiting_user", {}, "Awaiting user"),
+      count: stats?.awaiting_user || 0,
     },
     {
       value: "closed",

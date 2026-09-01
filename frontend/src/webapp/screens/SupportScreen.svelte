@@ -95,25 +95,30 @@
   const statusTabs = $derived([
     {
       value: "active",
-      label: t("wa_support_filter_active", {}, "Active"),
+      label: t("wa_support_filter_active", {}, "Open"),
       count: counts?.active || 0,
     },
     {
-      value: "awaiting_admin",
-      label: t("wa_support_status_awaiting_admin", {}, "Awaiting admin"),
-      count: counts?.awaiting_admin || 0,
-    },
-    {
-      value: "awaiting_user",
-      label: t("wa_support_status_awaiting_user", {}, "Awaiting user"),
-      count: counts?.awaiting_user || 0,
-    },
-    {
       value: "closed",
-      label: t("wa_support_status_closed", {}, "Closed"),
+      label: t("wa_support_filter_history", {}, "History"),
       count: counts?.closed || 0,
     },
   ]);
+  const emptyState = $derived(
+    activeFilter === "closed"
+      ? {
+          title: t("wa_support_no_history_tickets", {}, "No ticket history"),
+          hint: t(
+            "wa_support_history_empty_hint",
+            {},
+            "Resolved and closed requests will appear here."
+          ),
+        }
+      : {
+          title: t("wa_support_no_open_tickets", {}, "No open requests"),
+          hint: t("wa_support_empty_hint"),
+        }
+  );
   const selectedCategory = $derived(
     categoryOptions.find((option) => option.value === category) || categoryOptions[0]
   );
@@ -464,8 +469,8 @@
     {:else}
       <div class="support-empty-state" in:fade={{ duration: 180 }}>
         <MessageSquarePlus size={34} />
-        <strong>{t("wa_support_no_open_tickets")}</strong>
-        <small>{t("wa_support_empty_hint")}</small>
+        <strong>{emptyState.title}</strong>
+        <small>{emptyState.hint}</small>
       </div>
     {/if}
   </Card>

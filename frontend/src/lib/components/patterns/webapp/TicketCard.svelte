@@ -25,6 +25,9 @@
   } = $props();
 
   const unread = $derived(Number(ticket?.unread_user_count || 0));
+  const visibleStatus = $derived(
+    ["resolved", "closed"].includes(String(ticket?.status || "")) ? "closed" : "open"
+  );
   const timeLabel = $derived(
     formatTime(ticket?.last_message_at || ticket?.updated_at || ticket?.created_at)
   );
@@ -65,8 +68,8 @@
 
   <span class="ticket-card-side">
     <span class="ticket-card-badges">
-      <Badge variant="outline" class={`ticket-status-badge ticket-status-badge--${ticket.status}`}>
-        {t(`wa_support_status_${ticket.status}`)}
+      <Badge variant="outline" class={`ticket-status-badge ticket-status-badge--${visibleStatus}`}>
+        {t(`wa_support_status_${visibleStatus}`)}
       </Badge>
       <Badge
         variant="muted"
