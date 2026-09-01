@@ -358,6 +358,9 @@
     min-width: 0;
   }
   .status-item-name strong {
+    font-family:
+      var(--font-country-flags), var(--font-sans), "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+    font-variant-emoji: text;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
