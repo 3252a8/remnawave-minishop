@@ -76,8 +76,8 @@ function normalizeArchive(value: unknown): BackupArchive | null {
     created_at_local:
       typeof archive.created_at_local === "string" ? archive.created_at_local : undefined,
     modified_at: typeof archive.modified_at === "string" ? archive.modified_at : undefined,
-    has_database: Boolean(archive.has_database),
-    has_compose: Boolean(archive.has_compose),
+    has_database: Boolean(archive.has_database ?? archive.contains_database),
+    has_compose: Boolean(archive.has_compose ?? archive.contains_compose),
     warnings: asStringArray(archive.warnings),
   };
 }

@@ -2052,6 +2052,13 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
     await openAdminSection(page, id);
   }
 
+  setPhase("admin-backups:archive-contents");
+  const backupsStage = await openAdminSection(page, "backups");
+  await expect(backupsStage.getByRole("checkbox", { name: "БД" })).toBeEnabled();
+  await expect(backupsStage.getByRole("checkbox", { name: "compose-папка" })).toBeEnabled();
+  await expect(backupsStage.locator(".backups-badges").first()).toContainText("БД");
+  await expect(backupsStage.locator(".backups-badges").first()).toContainText("Compose");
+
   setPhase("admin-broadcast:shortcode-picker");
   await openAdminSection(page, "broadcast");
   const shortcodeToggle = page.locator("[data-rt-shortcodes-toggle]");
