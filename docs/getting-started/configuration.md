@@ -121,5 +121,5 @@ docker compose exec backend sh -lc 'id; touch /app/data/themes/test && rm /app/d
 - [Веб-приложение / Mini App](../features/web-app.md) - домен Mini App, инструкции установки и проксирование.
 - [Способы входа](../features/login-methods.md) — email-код, email/пароль, Telegram, Google,
   Яндекс и passkey.
-- [Поддержка пользователей / тикеты](../features/support.md) - тикеты поддержки и уведомления.
+- [Поддержка/тикеты](../features/support.md) - тикеты поддержки и уведомления.
 - [Развертывание](deployment.md) - Docker Compose, обратный прокси, Caddy/Angie/Nginx и обновления.

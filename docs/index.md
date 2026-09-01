@@ -47,13 +47,13 @@
       <span class="minishop-feature-index">07</span>
       <h3>Поддержка внутри продукта</h3>
       <p>Тикеты из Mini App, ответы администраторов, уведомления и история обращений в одном рабочем процессе.</p>
-      <span class="minishop-card-link">Поддержка пользователей <span aria-hidden="true">→</span></span>
+      <span class="minishop-card-link">Поддержка/тикеты <span aria-hidden="true">→</span></span>
     </a>
     <a class="minishop-feature-card" href="/features/backups/">
       <span class="minishop-feature-index">08</span>
       <h3>Развертывание и надежность</h3>
       <p>Docker Compose, управляемые обновления, автоматические бэкапы, восстановление и готовые сценарии миграции.</p>
-      <span class="minishop-card-link">Бэкапы и восстановление <span aria-hidden="true">→</span></span>
+      <span class="minishop-card-link">Бэкапы <span aria-hidden="true">→</span></span>
     </a>
     <a class="minishop-feature-card" href="/features/server-status/">
       <span class="minishop-feature-index">09</span>

@@ -15,12 +15,12 @@ Minishop поддерживает шесть способов входа:
 
 | Способ | Когда доступен | Что нужно настроить |
 | --- | --- | --- |
-| Email-код | Включён `EMAIL_LOGIN_ENABLED` и готов SMTP | SMTP, адрес отправителя и публичный URL Mini App |
-| Email и пароль | Пользователь подтвердил email и задал пароль | Те же SMTP-настройки для подтверждения и восстановления |
-| Telegram | Включён `TELEGRAM_LOGIN_ENABLED` | BotFather и `BOT_TOKEN`; для браузера также Telegram OAuth |
-| Google | Включён `GOOGLE_OIDC_ENABLED` | OAuth client ID, secret и callback |
-| Yandex ID | Включён `YANDEX_OIDC_ENABLED` | OAuth client ID, secret и callback |
-| Passkey | Включён `PASSKEY_LOGIN_ENABLED` | HTTPS, RP ID и разрешённые origins |
+| [Email-код](#email-код) | Включён `EMAIL_LOGIN_ENABLED` и готов SMTP | SMTP, адрес отправителя и публичный URL Mini App |
+| [Email и пароль](#email-и-пароль) | Пользователь подтвердил email и задал пароль | Те же SMTP-настройки для подтверждения и восстановления |
+| [Telegram](#telegram) | Включён `TELEGRAM_LOGIN_ENABLED` | BotFather и `BOT_TOKEN`; для браузера также Telegram OAuth |
+| [Google](#google) | Включён `GOOGLE_OIDC_ENABLED` | OAuth client ID, secret и callback |
+| [Yandex ID](#yandex-id) | Включён `YANDEX_OIDC_ENABLED` | OAuth client ID, secret и callback |
+| [Passkey](#passkey) | Включён `PASSKEY_LOGIN_ENABLED` | HTTPS, RP ID и разрешённые origins |
 
 Аккаунты без привязанного Telegram ID не получают права администратора: админка проверяет
 Telegram ID из `ADMIN_IDS` независимо от способа входа пользователя в Mini App.

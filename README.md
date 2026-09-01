@@ -43,14 +43,14 @@ Remnawave Minishop - Telegram-бот и Web App (Mini App) для продажи
 - [Развертывание](docs/getting-started/deployment.md) - Docker Compose, Caddy, Angie, Nginx, Pangolin/Newt и запуск без обратного прокси.
 - [Настройка окружения](docs/getting-started/configuration.md) - bootstrap `.env` и рекомендуемая настройка через Web App админку.
 - [Переменные `.env`](docs/configuration/env-vars.md) - полный справочник всех env-ключей по разделам.
-- [Бэкапы и восстановление](docs/features/backups.md) - автоматические архивы, Telegram-отправка и restore через админку.
+- [Бэкапы](docs/features/backups.md) - автоматические архивы, Telegram-отправка и restore через админку.
 - [Партнёрская программа](docs/features/partner-program.md) - заявки, ссылки, комиссии, ручные выплаты, оплата балансом и эксплуатационные процедуры.
 - [Баланс пользователя](docs/features/user-balance.md) - пополнение, оплата покупок, конвертация с партнёрским балансом, аудит и корнер-кейсы.
 - [Тарифы](docs/features/tariffs.md) - каталог тарифов, гибкие лимиты при оформлении, отдельные несгораемые докупки, premium-сквады, смена тарифа, HWID-лимиты и обработка трафика.
-- [Админ-панель](docs/features/admin-panel.md) - права доступа, настройки, редактор тарифов, premium-сквады и сохранение JSON-каталога.
+- [Веб админ-панель](docs/features/admin-panel.md) - права доступа, настройки, редактор тарифов, premium-сквады и сохранение JSON-каталога.
 - [Веб-приложение / Mini App](docs/features/web-app.md) - отдельный порт, домен, инструкции установки и реферальные ссылки.
 - [Способы входа](docs/features/login-methods.md) — email-код, email/пароль, Telegram, Google, Яндекс и passkey.
-- [Поддержка пользователей / тикеты](docs/features/support.md) - тикеты в Mini App, входящий список админки, уведомления, лимиты и внешняя ссылка поддержки.
+- [Поддержка/тикеты](docs/features/support.md) - тикеты в Mini App, входящий список админки, уведомления, лимиты и внешняя ссылка поддержки.
 - [Темы Web App](docs/features/webapp-themes.md) - кастомные темы, настройка внешнего вида, логотипы, CSS/ассеты и пайплайн создания новой темы.
 - [Миграции](docs/migrations/index.md) - готовые сценарии переноса с `remnawave-tg-shop` и Remnashop.
 - [Миграция с remnawave-tg-shop](docs/migrations/remnawave-tg-shop.md) и [Remnashop](docs/migrations/remnashop.md) - сценарии через общий install wizard.

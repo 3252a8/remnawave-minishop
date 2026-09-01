@@ -640,7 +640,7 @@ FreeKassa требует поле `ip` в API создания заказа, н�
 docker compose exec backend sh -lc 'curl -4fsS https://api.ipify.org; echo'
 ```
 
-Не подставляйте внутренний Docker/Kubernetes IP, адрес reverse proxy или значения из `FREEKASSA_TRUSTED_IPS`. Если трафик выходит через NAT, VPN либо отдельный шлюз, нужен адрес, который показывает команда выше. Подробная последовательность настройки приведена в разделе [Платежи → FreeKassa](../features/payments/freekassa.md).
+Не подставляйте внутренний Docker/Kubernetes IP, адрес reverse proxy или значения из `FREEKASSA_TRUSTED_IPS`. Если трафик выходит через NAT, VPN либо отдельный шлюз, нужен адрес, который показывает команда выше. Подробная последовательность настройки приведена в разделе [Платежи → FreeKassa](../features/payments.md#freekassa).
 
 ### Platega
 
@@ -737,7 +737,7 @@ Tribute не отправляются.
 
 Shop-заказы в Stars, Token Charging/`paymentToken`, предоплаченный баланс и Creator
 donations интеграцией Minishop не поддерживаются. Подробнее о сценариях и lifecycle —
-в [настройке Tribute](../features/payments/tribute.md).
+в [настройке Tribute](../features/payments.md#tribute).
 
 ### Heleket
 
@@ -774,7 +774,7 @@ donations интеграцией Minishop не поддерживаются. П�
 Callback URL передаётся в каждый invoice автоматически как `WEBHOOK_BASE_URL` +
 `/webhook/oxapay`. Заголовок `HMAC` проверяется всегда по точным сырым байтам запроса;
 отключаемого bypass-параметра нет. Подробности — в разделе
-[Платежи → OxaPay](../features/payments/oxapay.md).
+[Платежи → OxaPay](../features/payments.md#oxapay).
 
 ### PayKilla
 

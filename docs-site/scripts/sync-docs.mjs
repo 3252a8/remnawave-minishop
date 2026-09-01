@@ -9,7 +9,6 @@ const outputDir = path.join(siteRoot, 'src', 'content', 'docs');
 
 const descriptions = {
   'api/index.md': 'HTTP API, OpenAPI-спецификация, доменные события и точки расширения Remnawave Minishop.',
-  'getting-started/demo.md': 'Как устроен статический демо-режим Remnawave Minishop и почему он собирается только вместе с документацией.',
   'index.md': 'Документация по запуску, настройке и сопровождению Telegram Mini App для Remnawave.',
   'getting-started/overview.md': 'Компоненты и основные пользовательские и административные сценарии Remnawave Minishop.',
   'getting-started/system-requirements.md': 'Требования к VPS, Docker, сети и внешним зависимостям Remnawave Minishop.',
@@ -20,30 +19,11 @@ const descriptions = {
   'configuration/env-vars.md': 'Полный справочник переменных окружения Remnawave Minishop.',
   'features/minishop-pro.md': 'Бизнес-аналитика, клиентские сегменты и автоматизация продаж в minishop PRO.',
   'features/payments.md': 'Общая настройка способов оплаты, кнопок, валют, чеков и webhook-обработки.',
-  'features/payments/yookassa.md': 'Подключение ЮKassa к Remnawave Minishop.',
-  'features/payments/freekassa.md': 'Подключение FreeKassa к Remnawave Minishop.',
-  'features/payments/platega.md': 'Подключение Platega к Remnawave Minishop.',
-  'features/payments/rollypay.md': 'Подключение RollyPay к Remnawave Minishop.',
-  'features/payments/severpay.md': 'Подключение SeverPay к Remnawave Minishop.',
-  'features/payments/wata.md': 'Подключение WATA к Remnawave Minishop.',
-  'features/payments/cryptopay.md': 'Подключение CryptoPay к Remnawave Minishop.',
-  'features/payments/tribute.md': 'Подключение Tribute к Remnawave Minishop.',
-  'features/payments/heleket.md': 'Подключение Heleket к Remnawave Minishop.',
-  'features/payments/oxapay.md': 'Подключение OxaPay к Remnawave Minishop.',
-  'features/payments/paykilla.md': 'Подключение PayKilla к Remnawave Minishop.',
-  'features/payments/lava.md': 'Подключение Lava к Remnawave Minishop.',
-  'features/payments/pally.md': 'Подключение Pally к Remnawave Minishop.',
-  'features/payments/cloudpayments.md': 'Подключение CloudPayments к Remnawave Minishop.',
-  'features/payments/overpay.md': 'Подключение Overpay к Remnawave Minishop.',
-  'features/payments/stripe.md': 'Подключение Stripe к Remnawave Minishop.',
-  'features/payments/telegram-stars.md': 'Подключение оплаты Telegram Stars к Remnawave Minishop.',
   'features/promocodes.md': 'Промокоды: бонусные дни, скидки, множители, checkout-активация и история применений.',
   'features/partner-program.md': 'Партнёрские заявки, атрибуция, комиссии, ручные выплаты, оплата балансом и эксплуатация.',
   'features/subscriptions.md': 'Обзор моделей тарифов, лимитов и жизненного цикла подписок Remnawave Minishop.',
   'features/notifications.md': 'Каналы Telegram и email для пользовательских, админских и сервисных уведомлений Remnawave Minishop.',
   'features/tariffs.md': 'Настройка каталога тарифов, периодов, цен, premium-сквадов, трафика и HWID-устройств.',
-  'features/tariff-purchases.md': 'Докупки при оформлении и после покупки, пороги показа и безопасная смена тарифа.',
-  'features/subscription-lifecycle.md': 'Первая покупка, продление, автопродление, пробный период и привязка существующей подписки.',
   'features/web-app.md': 'Telegram Mini App, публичные инструкции, проксирование и реферальные ссылки.',
   'features/server-status.md': 'Статус серверов в Mini App через внешнюю страницу, Uptime Kuma или xray-checker.',
   'features/login-methods.md': 'Email-код, email/пароль, Telegram, Google, Яндекс и passkey: настройка, связывание аккаунтов и безопасность.',
@@ -64,6 +44,8 @@ const descriptions = {
 };
 
 const imageExtensions = new Set(['.avif', '.gif', '.jpeg', '.jpg', '.png', '.svg', '.webp']);
+const inlineContentsMinHeadings = 8;
+const inlineContentsMinLines = 180;
 
 function yamlString(value) {
   return JSON.stringify(value);
@@ -117,91 +99,145 @@ function normalizeCodeFences(markdown) {
     .replace(/^```caddyfile\s*$/gim, '```txt');
 }
 
-function relatedLinksFor(sourceRelativePath) {
-  if (sourceRelativePath === 'index.md') {
-    return [
-      ['Обзор продукта', '/getting-started/overview/'],
-      ['Быстрый запуск', '/getting-started/setup/'],
-      ['Демо-режим', '/getting-started/demo/'],
-    ];
+function plainHeading(heading) {
+  return heading
+    .replace(/`([^`]+)`/gu, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/gu, '$1')
+    .replace(/[*~]/gu, '')
+    .trim();
+}
+
+function addInlineContents(markdown) {
+  if (/^##\s+(?:Навигация по справочнику|На этой странице|Содержание|Оглавление)\s*$/imu.test(markdown)) {
+    return markdown;
   }
 
-  if (sourceRelativePath.startsWith('getting-started/')) {
-    return [
-      ['Обзор продукта', '/getting-started/overview/'],
+  const headings = [...markdown.matchAll(/^##\s+(.+?)\s*$/gmu)];
+  const lineCount = markdown.split(/\r?\n/u).length;
+  if (headings.length < inlineContentsMinHeadings || lineCount < inlineContentsMinLines) {
+    return markdown;
+  }
+
+  const slugOccurrences = new Map();
+  const items = headings.map((match) => {
+    const label = plainHeading(match[1]);
+    const baseSlug = label
+      .toLocaleLowerCase('ru')
+      .replace(/[^\p{L}\p{M}\p{N}_\-\s]/gu, '')
+      .replace(/\s/gu, '-');
+    const occurrence = slugOccurrences.get(baseSlug) ?? 0;
+    slugOccurrences.set(baseSlug, occurrence + 1);
+    const slug = occurrence === 0 ? baseSlug : `${baseSlug}-${occurrence}`;
+    return `- [${label}](#${slug})`;
+  });
+
+  const firstHeadingIndex = headings[0].index;
+  const before = markdown.slice(0, firstHeadingIndex).trimEnd();
+  const after = markdown.slice(firstHeadingIndex).trimStart();
+  return `${before}\n\n## На этой странице\n\n${items.join('\n')}\n\n${after}`;
+}
+
+function relatedLinksFor(sourceRelativePath) {
+  const relatedByOverview = {
+    'index.md': [
+      ['Обзор', '/getting-started/overview/'],
+      ['Быстрый запуск', '/getting-started/setup/'],
+      ['Демо-режим', '/getting-started/overview/#демо-режим'],
+    ],
+    'getting-started/overview.md': [
       ['Быстрый запуск', '/getting-started/setup/'],
       ['Production-развертывание', '/getting-started/deployment/'],
       ['Первичная настройка', '/getting-started/configuration/'],
-    ];
-  }
-
-  if (sourceRelativePath.startsWith('migrations/')) {
-    return [
-      ['Переход с других решений', '/migrations/'],
-      ['Быстрый запуск', '/getting-started/setup/'],
-      ['Проблемы', '/troubleshooting/issues/'],
-    ];
-  }
-
-  if (sourceRelativePath.startsWith('configuration/')) {
-    return [
-      ['Первичная настройка', '/getting-started/configuration/'],
-      ['Переменные окружения', '/configuration/env-vars/'],
-      ['Админ-панель', '/features/admin-panel/'],
+      ['Миграции из других ботов', '/migrations/'],
+    ],
+    'getting-started/configuration.md': [
+      ['Справочник переменных .env', '/configuration/env-vars/'],
       ['Безопасность', '/configuration/security/'],
-    ];
-  }
-
-  if (sourceRelativePath.startsWith('troubleshooting/') || sourceRelativePath === 'features/backups.md') {
-    return [
-      ['Обслуживание', '/troubleshooting/maintenance/'],
-      ['Бэкапы и восстановление', '/features/backups/'],
-      ['Проблемы', '/troubleshooting/issues/'],
+      ['Веб админ-панель', '/features/admin-panel/'],
+    ],
+    'configuration/security.md': [
+      ['Способы входа', '/features/login-methods/'],
+      ['Production-развертывание', '/getting-started/deployment/'],
+      ['Справочник переменных .env', '/configuration/env-vars/'],
+    ],
+    'configuration/telemetry.md': [
       ['Логи', '/troubleshooting/logs/'],
-    ];
-  }
-
-  if (sourceRelativePath === 'features/payments.md' || sourceRelativePath.startsWith('features/payments/')) {
-    return [
-      ['Обзор платежей', '/features/payments/'],
+      ['Обслуживание', '/troubleshooting/maintenance/'],
+      ['Веб админ-панель', '/features/admin-panel/'],
+    ],
+    'migrations/index.md': [
+      ['Миграция с remnawave-tg-shop', '/migrations/remnawave-tg-shop/'],
+      ['Миграция с Remnashop', '/migrations/remnashop/'],
+      ['Быстрый запуск', '/getting-started/setup/'],
+    ],
+    'features/payments.md': [
       ['Переменные платежей', '/configuration/env-vars/#платежи'],
       ['Тарифы и подписки', '/features/subscriptions/'],
       ['Диагностика по логам', '/troubleshooting/logs/'],
-    ];
-  }
-
-  if (
-    sourceRelativePath === 'features/subscriptions.md' ||
-    sourceRelativePath === 'features/tariffs.md' ||
-    sourceRelativePath === 'features/tariff-purchases.md' ||
-    sourceRelativePath === 'features/subscription-lifecycle.md'
-  ) {
-    return [
-      ['Тарифы и подписки', '/features/subscriptions/'],
+    ],
+    'features/subscriptions.md': [
       ['Настройка тарифов', '/features/tariffs/'],
-      ['Докупки и смена тарифа', '/features/tariff-purchases/'],
-      ['Жизненный цикл подписки', '/features/subscription-lifecycle/'],
       ['Платежи', '/features/payments/'],
-    ];
-  }
-
-  if (sourceRelativePath.startsWith('features/')) {
-    return [
       ['Веб-приложение', '/features/web-app/'],
-      ['Админ-панель', '/features/admin-panel/'],
-      ['Способы входа', '/features/login-methods/'],
-      ['Платежи', '/features/payments/'],
-      ['Поддержка пользователей', '/features/support/'],
-    ];
-  }
+    ],
+    'features/login-methods.md': [
+      ['Безопасность', '/configuration/security/'],
+      ['Справочник переменных .env', '/configuration/env-vars/#smtp-и-вход-по-email'],
+      ['Веб-приложение', '/features/web-app/'],
+    ],
+    'features/admin-panel.md': [
+      ['Бэкапы', '/features/backups/'],
+      ['Телеметрия', '/configuration/telemetry/'],
+      ['Справочник переменных .env', '/configuration/env-vars/'],
+    ],
+    'troubleshooting/logs.md': [
+      ['Проблемы', '/troubleshooting/issues/'],
+      ['Обслуживание', '/troubleshooting/maintenance/'],
+      ['Телеметрия', '/configuration/telemetry/'],
+    ],
+    'troubleshooting/maintenance.md': [
+      ['Бэкапы', '/features/backups/'],
+      ['Production-развертывание', '/getting-started/deployment/'],
+      ['Логи', '/troubleshooting/logs/'],
+    ],
+    'architecture.md': [
+      ['Обзор API', '/api/'],
+      ['Доменные события', '/architecture/events/'],
+      ['Рецепты изменений', '/development/how-to/'],
+    ],
+    'architecture/http-api.md': [
+      ['Обзор API', '/api/'],
+      ['Доменные события', '/architecture/events/'],
+      ['API плагинов', '/development/plugins/'],
+    ],
+    'development/dev-stand.md': [
+      ['Рецепты изменений', '/development/how-to/'],
+      ['Карта Graphify', '/development/graphify/'],
+      ['Runes QA', '/development/runes-migration-qa/'],
+    ],
+    'development/how-to.md': [
+      ['Архитектура', '/reference/architecture/'],
+      ['Единый dev stand', '/development/dev-stand/'],
+      ['Карта Graphify', '/development/graphify/'],
+    ],
+    'development/graphify.md': [
+      ['Рецепты изменений', '/development/how-to/'],
+      ['Архитектура', '/reference/architecture/'],
+      ['Единый dev stand', '/development/dev-stand/'],
+    ],
+    'development/runes-migration-qa.md': [
+      ['Единый dev stand', '/development/dev-stand/'],
+      ['Рецепты изменений', '/development/how-to/'],
+      ['Карта Graphify', '/development/graphify/'],
+    ],
+    'api/index.md': [
+      ['Интерактивная спецификация', '/api/reference/'],
+      ['HTTP-контракты', '/architecture/http-api/'],
+      ['API плагинов', '/development/plugins/'],
+    ],
+  };
 
-  return [
-    ['Обзор API', '/api/'],
-    ['HTTP-контракты', '/architecture/http-api/'],
-    ['Архитектура', '/reference/architecture/'],
-    ['Рецепты изменений', '/development/how-to/'],
-    ['API плагинов', '/development/plugins/'],
-  ];
+  return relatedByOverview[sourceRelativePath] ?? [];
 }
 
 function appendRelatedLinks(markdown, sourceRelativePath) {
@@ -211,6 +247,10 @@ function appendRelatedLinks(markdown, sourceRelativePath) {
 
   const currentRoute = pagePathForSource(sourceRelativePath);
   const links = relatedLinksFor(sourceRelativePath).filter(([, route]) => route !== currentRoute);
+  if (links.length === 0) {
+    return markdown;
+  }
+
   const items = links.map(([label, route]) => `- [${label}](${route})`).join('\n');
   return `${markdown.trimEnd()}\n\n## Связанные разделы\n\n${items}\n`;
 }
@@ -281,8 +321,10 @@ async function syncMarkdown(files) {
     const content = await readFile(sourcePath, 'utf8');
     const title = extractTitle(sourceRelativePath, content);
     const body = appendRelatedLinks(
-      normalizeCodeFences(
-        rewriteMarkdownLinks(stripFirstHeading(content).trimStart(), sourceRelativePath),
+      addInlineContents(
+        normalizeCodeFences(
+          rewriteMarkdownLinks(stripFirstHeading(content).trimStart(), sourceRelativePath),
+        ),
       ),
       sourceRelativePath,
     );
