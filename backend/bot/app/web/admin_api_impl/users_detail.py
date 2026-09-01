@@ -50,6 +50,7 @@ from .common import (
 )
 from .schemas import AdminTelegramNotificationsOut, AdminUserTrialOut
 from .squad_override_schemas import AdminPanelSquadOverridesOut
+from .user_device_summary import build_admin_user_hwid_devices
 from .users_common import _bulk_user_avatar_keys, _serialize_admin_user_with_avatar
 
 logger = logging.getLogger(__name__)
@@ -747,51 +748,57 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
         "panel_user_uuid",
         None,
     )
-    if panel_uuid:
-        subscription_service = get_optional_subscription_service(request)
-        panel_service = get_panel_service(request) or getattr(
-            subscription_service, "panel_service", None
-        )
-        if panel_service is not None:
-            try:
-                panel_data = await panel_service.get_user_by_uuid(panel_uuid)
-                if panel_data:
-                    subscription_url = panel_data.get("subscriptionUrl") or None
-                    vpn_activity = _panel_user_connection_activity(panel_data)
-                    live_connected_at = vpn_activity.get("last_connected_at")
-                    if live_connected_at:
-                        last_vpn_connected_at = live_connected_at
-                        vpn_connection_status = str(vpn_activity.get("status") or "connected")
-                    elif last_vpn_connected_at:
-                        vpn_connection_status = "connected"
-                    else:
-                        vpn_connection_status = str(vpn_activity.get("status") or "unknown")
-                    if active_sub is not None:
-                        async with async_session_factory() as session:
-                            await record_subscription_panel_activity(
-                                session,
-                                active_sub,
-                                panel_data,
-                            )
-                            await session.commit()
-                        traffic_limit_strategy = panel_traffic_limit_strategy(
+    subscription_service = get_optional_subscription_service(request)
+    panel_service = get_panel_service(request) or getattr(
+        subscription_service, "panel_service", None
+    )
+    if panel_uuid and panel_service is not None:
+        try:
+            panel_data = await panel_service.get_user_by_uuid(panel_uuid)
+            if panel_data:
+                subscription_url = panel_data.get("subscriptionUrl") or None
+                vpn_activity = _panel_user_connection_activity(panel_data)
+                live_connected_at = vpn_activity.get("last_connected_at")
+                if live_connected_at:
+                    last_vpn_connected_at = live_connected_at
+                    vpn_connection_status = str(vpn_activity.get("status") or "connected")
+                elif last_vpn_connected_at:
+                    vpn_connection_status = "connected"
+                else:
+                    vpn_connection_status = str(vpn_activity.get("status") or "unknown")
+                if active_sub is not None:
+                    async with async_session_factory() as session:
+                        await record_subscription_panel_activity(
+                            session,
+                            active_sub,
                             panel_data,
-                            _admin_subscription_traffic_strategy_fallback(settings, active_sub),
                         )
-                        panel_strategy_available = True
-            except Exception as exc_panel:  # pragma: no cover
-                logger.warning(
-                    "Failed to fetch panel details for user %s (uuid=%s): %s",
-                    target_id,
-                    panel_uuid,
-                    exc_panel,
-                )
+                        await session.commit()
+                    traffic_limit_strategy = panel_traffic_limit_strategy(
+                        panel_data,
+                        _admin_subscription_traffic_strategy_fallback(settings, active_sub),
+                    )
+                    panel_strategy_available = True
+        except Exception as exc_panel:  # pragma: no cover
+            logger.warning(
+                "Failed to fetch panel details for user %s (uuid=%s): %s",
+                target_id,
+                panel_uuid,
+                exc_panel,
+            )
 
     serialized_user = _serialize_admin_user_with_avatar(user, avatar_keys)
     serialized_inviter = (
         _serialize_admin_user_with_avatar(inviter, avatar_keys) if inviter is not None else None
     )
     trial_payload = _serialize_trial_summary(user, trial_subs)
+    hwid_devices = await build_admin_user_hwid_devices(
+        panel_service=panel_service,
+        panel_user_uuid=panel_uuid,
+        panel_user_snapshot=panel_data,
+        active_subscription=active_sub,
+        settings=settings,
+    )
     active_subscription_payload = _serialize_subscription(active_sub) if active_sub else None
     if active_subscription_payload is not None:
         _decorate_admin_subscription_traffic_strategy(
@@ -802,7 +809,6 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
             panel_available=panel_strategy_available,
         )
     panel_squad_overrides: dict[str, Any] | None = None
-    subscription_service = get_optional_subscription_service(request)
     summary_builder = getattr(subscription_service, "panel_squad_overrides_summary", None)
     if callable(summary_builder):
         try:
@@ -841,6 +847,7 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
             "install_share_url": install_share_url,
             "last_vpn_connected_at": last_vpn_connected_at,
             "vpn_connection_status": vpn_connection_status,
+            "hwid_devices": hwid_devices.model_dump(mode="json"),
             "telegram_notifications": AdminTelegramNotificationsOut.from_orm_user(user).model_dump(
                 mode="json"
             ),

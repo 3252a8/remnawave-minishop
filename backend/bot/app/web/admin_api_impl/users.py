@@ -22,6 +22,7 @@ from .schemas import (
     AdminUserBanBody,
     AdminUserExtendBody,
     AdminUserHwidDeviceLimitBody,
+    AdminUserHwidDevicesOut,
     AdminUserMessageBody,
     AdminUserOut,
     AdminUserPremiumOverrideBody,
@@ -146,6 +147,7 @@ register_contract(
             AdminUserWithAvatarOut,
             AdminSubscriptionOut,
             AdminUserTrialOut,
+            AdminUserHwidDevicesOut,
             PaymentOut,
             AdminPanelSquadOverridesOut,
             AdminTelegramNotificationsOut,
@@ -166,6 +168,7 @@ register_contract(
                 "install_share_url": NULLABLE_STRING_SCHEMA,
                 "last_vpn_connected_at": NULLABLE_STRING_SCHEMA,
                 "vpn_connection_status": STRING_SCHEMA,
+                "hwid_devices": schema_ref(AdminUserHwidDevicesOut),
                 "telegram_notifications": schema_ref(AdminTelegramNotificationsOut),
                 "panel_squad_overrides": {
                     "anyOf": [schema_ref(AdminPanelSquadOverridesOut), {"type": "null"}]

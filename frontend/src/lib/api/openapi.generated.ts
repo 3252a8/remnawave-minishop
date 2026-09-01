@@ -4898,6 +4898,19 @@ export interface components {
        */
       use_default: unknown;
     };
+    /** AdminUserHwidDevicesOut */
+    AdminUserHwidDevicesOut: {
+      /**
+       * Current Devices
+       * @default null
+       */
+      current_devices: number | null;
+      /**
+       * Max Devices
+       * @default null
+       */
+      max_devices: number | null;
+    };
     /** AdminUserMessageBody */
     AdminUserMessageBody: {
       /**
@@ -10784,6 +10797,7 @@ export interface operations {
               topup_min_amount: number;
               topup_presets: number[];
             };
+            hwid_devices: components["schemas"]["AdminUserHwidDevicesOut"];
             install_share_url: string | null;
             last_vpn_connected_at: string | null;
             log_count: number;

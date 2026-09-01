@@ -74,6 +74,11 @@ class AdminTelegramNotificationsOut(HttpResponseModel):
         )
 
 
+class AdminUserHwidDevicesOut(HttpResponseModel):
+    current_devices: int | None = None
+    max_devices: int | None = None
+
+
 class AdminUserTrialOut(HttpResponseModel):
     # Field order mirrors the legacy ``_serialize_trial_summary`` dict.
     used: bool

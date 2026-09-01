@@ -4840,6 +4840,36 @@
         "title": "AdminUserHwidDeviceLimitBody",
         "type": "object"
       },
+      "AdminUserHwidDevicesOut": {
+        "properties": {
+          "current_devices": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Current Devices"
+          },
+          "max_devices": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Max Devices"
+          }
+        },
+        "title": "AdminUserHwidDevicesOut",
+        "type": "object"
+      },
       "AdminUserMessageBody": {
         "properties": {
           "text": {
@@ -17709,6 +17739,9 @@
                       ],
                       "type": "object"
                     },
+                    "hwid_devices": {
+                      "$ref": "#/components/schemas/AdminUserHwidDevicesOut"
+                    },
                     "install_share_url": {
                       "type": [
                         "string",
@@ -17830,6 +17863,7 @@
                     "install_share_url",
                     "last_vpn_connected_at",
                     "vpn_connection_status",
+                    "hwid_devices",
                     "telegram_notifications",
                     "panel_squad_overrides",
                     "referral"

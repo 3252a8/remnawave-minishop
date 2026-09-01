@@ -3809,6 +3809,7 @@
   "admin_user_hwid_limit_with_extra": "{total} ({base} + {extra})",
   "admin_user_hwid_limit_count": "{count}",
   "admin_user_label_hwid_devices": "HWID devices",
+  "admin_user_hwid_devices_usage": "{current} of {max}",
   "admin_user_label_trial": "Trial",
   "admin_user_label_trial_count": "Trials",
   "admin_user_label_trial_reset_at": "Trial reset",

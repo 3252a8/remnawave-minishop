@@ -3809,6 +3809,7 @@
   "admin_user_hwid_limit_with_extra": "{total} ({base} + {extra})",
   "admin_user_hwid_limit_count": "{count}",
   "admin_user_label_hwid_devices": "HWID-устройства",
+  "admin_user_hwid_devices_usage": "{current} из {max}",
   "admin_user_label_trial": "Пробник / триал",
   "admin_user_label_trial_count": "Триалов",
   "admin_user_label_trial_reset_at": "Сброс триала",

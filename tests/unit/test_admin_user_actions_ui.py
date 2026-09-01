@@ -162,6 +162,20 @@ def test_user_detail_links_include_install_share_link():
         assert messages["admin_user_install_share_link_copied"]
 
 
+def test_user_detail_shows_hwid_device_usage():
+    source = _aside_source()
+
+    assert 'openedUserDetail.hwid_devices?.current_devices ?? "—"' in source
+    assert 'openedUserDetail.hwid_devices?.max_devices ?? "∞"' in source
+    assert 'at("user_hwid_devices_usage", { current, max }' in source
+    assert 'at("user_label_hwid_devices"' in source
+
+    expected = {"ru": "{current} из {max}", "en": "{current} of {max}"}
+    for language, value in expected.items():
+        messages = json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text("utf-8"))
+        assert messages["admin_user_hwid_devices_usage"] == value
+
+
 def test_action_save_buttons_require_dirty_valid_state():
     actions = _actions_source()
     tariff = USER_TARIFF_ACTION.read_text(encoding="utf-8")

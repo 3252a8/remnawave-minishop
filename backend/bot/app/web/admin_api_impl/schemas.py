@@ -87,6 +87,9 @@ from .user_schemas import (
     AdminTelegramNotificationsOut as AdminTelegramNotificationsOut,
 )
 from .user_schemas import (
+    AdminUserHwidDevicesOut as AdminUserHwidDevicesOut,
+)
+from .user_schemas import (
     AdminUserOut as AdminUserOut,
 )
 from .user_schemas import (
