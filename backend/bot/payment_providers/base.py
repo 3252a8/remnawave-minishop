@@ -141,6 +141,9 @@ class WebAppPaymentContext:
     checkout_charged_gb: float | None = None
     checkout_quoted_at: Any | None = None
     checkout_total_amount: float | None = None
+    user_balance_user_id: int | None = None
+    user_balance_amount_minor: int | None = None
+    user_balance_currency_scale: int | None = None
     partner_balance_partner_id: int | None = None
     partner_balance_amount_minor: int | None = None
     partner_balance_currency_scale: int | None = None
@@ -250,6 +253,7 @@ class PaymentProviderSpec:
     create_service: ServiceFactory | None = None
     webhook_path: WebhookPathGetter | None = None
     webhook_route: WebhookRoute | None = None
+    webhook_methods: Sequence[str] = ("POST",)
     webhook_requires_base_url: bool = False
     create_webapp_payment: WebAppPaymentFactory | None = None
     reuse_webapp_payment: ReusableWebAppPaymentResolver | None = None

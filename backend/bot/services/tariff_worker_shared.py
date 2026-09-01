@@ -18,7 +18,7 @@ from bot.services.user_notification_policy import (
     user_notification_delivery_plan,
 )
 from config.settings import Settings
-from db.dal import user_dal
+from db.dal import tariff_dal, user_dal
 
 PREMIUM_WARNING_LEVEL_OFFSET = 1000
 # Single warning per premium billing period when usage reached or exceeded the quota.
@@ -133,6 +133,45 @@ def fmt_bytes(value: int) -> str:
             return f"{size:.1f} {unit}" if unit != "B" else f"{int(size)} B"
         size /= 1024
     return f"{size:.1f} TB"
+
+
+async def resolve_flexible_limit_baseline(
+    session: AsyncSession,
+    *,
+    subscription_id: int,
+    kind: str,
+    at: datetime,
+    active_baseline: int | None,
+    stored_baseline: int | None,
+    default_baseline: int,
+    preserve_without_history: bool,
+) -> int:
+    """Resolve a flexible quota without applying a future window early.
+
+    A scheduled renewal row is history in the broad sense, but it is not an
+    expired entitlement. Until its ``valid_from`` arrives, the current stored
+    baseline must remain authoritative. Once any flexible window has started
+    and no row is active anymore, the quota returns to the tariff default.
+    """
+    if active_baseline is not None:
+        return max(0, int(active_baseline))
+
+    history_start = await tariff_dal.get_flexible_traffic_limit_history_start(
+        session,
+        subscription_id=subscription_id,
+        kind=kind,
+    )
+    if history_start is None:
+        resolved = stored_baseline if preserve_without_history else default_baseline
+    else:
+        normalized_start = (
+            history_start.replace(tzinfo=UTC)
+            if history_start.tzinfo is None
+            else history_start.astimezone(UTC)
+        )
+        normalized_at = at.replace(tzinfo=UTC) if at.tzinfo is None else at.astimezone(UTC)
+        resolved = stored_baseline if normalized_start > normalized_at else default_baseline
+    return max(0, int(resolved or default_baseline or 0))
 
 
 class MessageDeliveryLogger(Protocol):

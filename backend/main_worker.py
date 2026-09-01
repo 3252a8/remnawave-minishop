@@ -27,6 +27,7 @@ from bot.infra.webhook_queue import (
     webhook_queue_depth,
 )
 from bot.middlewares.i18n import JsonI18n
+from bot.payment_providers.rollypay.service import RollyPayService
 from bot.payment_providers.wata.service import WataService
 from bot.payment_providers.yookassa import (
     YOOKASSA_EVENT_PAYMENT_CANCELED,
@@ -57,6 +58,7 @@ from bot.services.hwid_device_webhook import HWID_DEVICE_EVENTS
 from bot.services.message_log_notifier import configure_message_log_notifier
 from bot.services.partner_program_worker import PartnerProgramWorker
 from bot.services.payment_reconciliation_worker import PaymentReconciliationWorker
+from bot.services.rollypay_reconciliation_worker import RollyPayReconciliationWorker
 from bot.services.settings_override_service import refresh_overrides_from_db
 from bot.services.subscription_notification_worker import SubscriptionNotificationWorker
 from bot.services.tariff_worker import TariffTrafficWorker
@@ -433,6 +435,14 @@ async def _payment_reconciliation_task(ctx: PluginContext) -> None:
     ).run()
 
 
+async def _rollypay_reconciliation_task(ctx: PluginContext) -> None:
+    service = ctx.get_service("rollypay_service", RollyPayService)
+    if service is None:
+        logger.info("RollyPay reconciliation worker disabled: service is unavailable")
+        return
+    await RollyPayReconciliationWorker(ctx.require_session_factory(), service).run()
+
+
 async def _partner_program_task(ctx: PluginContext) -> None:
     await PartnerProgramWorker(
         ctx.settings,
@@ -495,6 +505,10 @@ def _core_worker_tasks() -> list[WorkerTaskSpec]:
         WorkerTaskSpec(
             name="PaymentReconciliationWorker",
             factory=_payment_reconciliation_task,
+        ),
+        WorkerTaskSpec(
+            name="RollyPayReconciliationWorker",
+            factory=_rollypay_reconciliation_task,
         ),
         WorkerTaskSpec(
             name="PartnerProgramWorker",

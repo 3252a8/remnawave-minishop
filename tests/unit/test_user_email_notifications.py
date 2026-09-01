@@ -91,6 +91,28 @@ class SendUserNotificationEmailTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(sent)
         self.assertEqual(_FakeEmailService.instances, [])
 
+    async def test_prefers_explicit_notification_email_over_primary_login_email(self):
+        user = SimpleNamespace(
+            email="primary@example.com",
+            notification_email="google@example.com",
+            language_code="en",
+        )
+
+        with patch.object(module, "EmailAuthService", _FakeEmailService):
+            sent = await module.send_user_notification_email(
+                settings=_settings(),
+                i18n=_FakeI18n(),
+                user=user,
+                subject_key="email_payment_failed_subject",
+                message_text="Payment failed",
+            )
+
+        self.assertTrue(sent)
+        self.assertEqual(
+            _FakeEmailService.instances[0].sent[0]["email"],
+            "google@example.com",
+        )
+
     async def test_skips_when_user_has_no_email(self):
         user = SimpleNamespace(email=" ", language_code="en")
 

@@ -349,7 +349,7 @@ def settings_alerts(settings: Any) -> list[ConfigAlert]:
         getattr(settings, key, None)
         for key in ("SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_FROM_EMAIL")
     )
-    if smtp_partial and not settings.email_auth_configured:
+    if settings.EMAIL_LOGIN_ENABLED and smtp_partial and not settings.email_auth_configured:
         alerts.append(
             ConfigAlert(
                 id="smtp_incomplete",

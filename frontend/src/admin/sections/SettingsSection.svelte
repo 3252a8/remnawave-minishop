@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getSettingsStore } from "$lib/admin/context";
+  import { getSettingsStore, getTranslationsStore } from "$lib/admin/context";
   import * as UiIcons from "$components/ui/icons.js";
   import SettingsContent from "./settings/SettingsContent.svelte";
   import SettingsIconPicker from "./settings/SettingsIconPicker.svelte";
@@ -57,6 +57,7 @@
     currentLang = "ru",
     settingsPath = [],
     routePrefix = "",
+    appRepositoryUrl = "https://minishop.minidoc.cc/",
     onSettingsPathChange = () => {},
     onOpenSettingsPath: _onOpenSettingsPath = () => {},
     onNavigateSection = () => {},
@@ -66,18 +67,21 @@
     currentLang?: string;
     settingsPath?: SettingsPath;
     routePrefix?: string;
+    appRepositoryUrl?: string;
     onSettingsPathChange?: (path: SettingsPath) => void;
     onOpenSettingsPath?: (path?: unknown) => void;
     onNavigateSection?: (section: string) => void;
   } = $props();
 
   const settingsStore = getSettingsStore();
+  const translationsStore = getTranslationsStore();
 
   const rawSettingsSections = $derived((settingsStore.settingsSections || []) as SettingsSection[]);
   const settingsSections = $derived(rawSettingsSections as AdminSettingsSection[]);
   const settingsLoading = $derived(Boolean(settingsStore.settingsLoading));
   const settingsDirty = $derived((settingsStore.settingsDirty || {}) as SettingsDirtyState);
   const settingsSaving = $derived(Boolean(settingsStore.settingsSaving));
+  const menuButtonLanguages = $derived(translationsStore.translationLanguages || []);
   const visibleSettingsSections = $derived(
     filterServerStatusSettings(settingsSections, settingsDirty).filter(
       (section) => !SETTINGS_SECTION_IDS_HIDDEN_IN_GENERAL_SETTINGS.has(section.id)
@@ -142,6 +146,7 @@
 
   onMount(() => {
     settingsStore.loadSettings();
+    translationsStore.loadTranslations();
   });
 
   onDestroy(() => {
@@ -649,9 +654,11 @@
   function sectionTitle(id: string): string {
     const map = {
       general: "General",
+      login_methods: "Login methods",
       email: "Email",
       remnawave: "Remnawave Panel",
       appearance: "Appearance",
+      menu_buttons: "Menu buttons",
       pricing: "Tariffs and pricing",
       payments: "Payment systems",
       trial: "Trial",
@@ -760,6 +767,7 @@
 
 <SettingsContent
   {at}
+  {appRepositoryUrl}
   {settingsLoading}
   extraDirtyCount={Number(settingsStore.extraDirtyCount || 0)}
   {visibleSettingsSections}
@@ -808,6 +816,8 @@
   {markFieldDirty}
   {resetField}
   {onNavigateSection}
+  onOpenSettingsPath={_onOpenSettingsPath}
+  {menuButtonLanguages}
 />
 
 <SettingsIconPicker

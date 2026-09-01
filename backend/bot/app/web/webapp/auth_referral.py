@@ -179,6 +179,45 @@ async def _grant_referral_welcome_bonus_if_eligible(
     return end_date
 
 
+async def _grant_deferred_referral_welcome_bonus_after_telegram_link(
+    request: web.Request,
+    user_id: int,
+) -> datetime | None:
+    """Best-effort grant after Telegram linking without risking the link transaction."""
+
+    settings: Settings = get_settings(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
+    async with async_session_factory() as session:
+        try:
+            user = await user_dal.get_user_by_id(session, user_id)
+            if (
+                not user
+                or user.is_banned
+                or _referral_welcome_telegram_required_reason(settings, user)
+            ):
+                await session.rollback()
+                return None
+
+            end_date = await _grant_referral_welcome_bonus_if_eligible(
+                request,
+                session,
+                user,
+            )
+            if not end_date:
+                await session.rollback()
+                return None
+
+            await session.commit()
+            return end_date
+        except Exception:
+            await session.rollback()
+            logger.exception(
+                "Deferred referral welcome bonus failed after Telegram link for user %s",
+                user_id,
+            )
+            return None
+
+
 def _webapp_datetime_text(value: datetime | None) -> str | None:
     if not value:
         return None

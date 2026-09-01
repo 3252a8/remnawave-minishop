@@ -1,6 +1,6 @@
 import logging
 from dataclasses import replace
-from typing import Any
+from typing import Any, Literal
 
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,6 +30,7 @@ from bot.payment_providers.shared.entitlement_context import (
 from bot.services.device_topup_availability import resolve_device_topup_availability
 from bot.services.partner_common import PartnerError
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.user_balance_service import UserBalanceError
 from config.settings import Settings
 from config.tariffs_config import (
     default_currency_key_for_settings,
@@ -49,12 +50,13 @@ from .billing_checkout_bundle import (
 )
 from .billing_common import _parse_positive_int_units
 from .billing_partner_checkout import (
-    allocate_partner_checkout_balance,
-    create_fully_partner_funded_payment,
-    partner_checkout_context_fields,
+    allocate_checkout_balance,
+    balance_checkout_context_fields,
+    create_fully_balance_funded_payment,
 )
 from .billing_payment_policy import _active_tribute_recurrence, _payment_promo_error
 from .billing_payment_reuse import reuse_checkout_if_available
+from .billing_promo_checkout import create_fully_discounted_payment
 from .billing_quotes import (
     BasePaymentQuote as BasePaymentQuote,
 )
@@ -436,6 +438,7 @@ async def create_payment_route(request: web.Request) -> web.Response:
             hwid_quote=hwid_quote,
             promo_code=payment_payload.promo_code,
             entitlement_context_snapshot=quoted_entitlement_context_snapshot,
+            balance_source=payment_payload.balance_source,
             use_partner_balance=payment_payload.use_partner_balance,
             checkout_bundle_snapshot=checkout_bundle.snapshot,
             checkout_bundle_hash=checkout_bundle.digest,
@@ -462,11 +465,13 @@ async def _create_subscription_payment(
     promo_result: CheckoutPromoResult | None = None,
     tariff_change_quote_snapshot: str | None = None,
     entitlement_context_snapshot: str | None = None,
+    balance_source: Literal["user", "partner"] | None = None,
     use_partner_balance: bool = False,
     checkout_bundle_snapshot: str | None = None,
     checkout_bundle_hash: str | None = None,
 ) -> web.Response:
     settings: Settings = get_settings(request)
+    selected_balance_source = balance_source or ("partner" if use_partner_balance else None)
     payment_currency = (currency or default_payment_currency_code_for_settings(settings)).upper()
     sale_mode = str(sale_mode or "subscription")
     if entitlement_context_snapshot is None:
@@ -500,12 +505,16 @@ async def _create_subscription_payment(
                 "tribute_recurring_conflict",
                 "Cancel the active Tribute subscription before changing or replacing the tariff",
             )
-    description = _localized_payment_description(
-        i18n=get_i18n(request),
-        lang=lang,
-        units=months,
-        sale_mode=sale_mode,
-        traffic_gb=traffic_gb,
+    description = (
+        "Balance top-up"
+        if _sale_mode_base(sale_mode) == "balance_topup"
+        else _localized_payment_description(
+            i18n=get_i18n(request),
+            lang=lang,
+            units=months,
+            sale_mode=sale_mode,
+            traffic_gb=traffic_gb,
+        )
     )
 
     from bot.payment_providers import get_provider_spec
@@ -584,8 +593,14 @@ async def _create_subscription_payment(
             checkout_bundle_hash=checkout_bundle_hash,
         )
         requested_promo_code = str(promo_code or "").strip()
-        if provider_spec.reuse_webapp_payment and (
-            requested_promo_code or promo_code_id is not None or use_partner_balance
+        if (
+            provider_spec.reuse_webapp_payment
+            and selected_balance_source != "user"
+            and (
+                requested_promo_code
+                or promo_code_id is not None
+                or selected_balance_source == "partner"
+            )
         ):
             reusable_response = await reuse_checkout_if_available(
                 payment_context,
@@ -595,7 +610,7 @@ async def _create_subscription_payment(
                 preserve_promo_code_case=bool(
                     settings.MIGRATION_REMNASHOP_PROMO_CODE_COMPAT_ENABLED
                 ),
-                requested_partner_balance=use_partner_balance,
+                requested_partner_balance=selected_balance_source == "partner",
             )
             if reusable_response is not None:
                 return reusable_response
@@ -635,22 +650,6 @@ async def _create_subscription_payment(
                 promo_support_error.code,
                 promo_support_error.message,
             )
-        try:
-            partner_allocation = await allocate_partner_checkout_balance(
-                requested=use_partner_balance,
-                settings=settings,
-                session=session,
-                user_id=user_id,
-                payment_currency=payment_currency,
-                checkout_total=price,
-                provider_spec=provider_spec,
-                months=months,
-                sale_mode=sale_mode,
-            )
-        except PartnerError as exc:
-            return _json_error(exc.status, exc.code, exc.message or str(exc))
-        if partner_allocation is not None:
-            price = partner_allocation.external_amount
         payment_context = replace(
             payment_context,
             price=price,
@@ -684,16 +683,45 @@ async def _create_subscription_payment(
             checkout_charged_months=promo_result.charged_months if promo_result else None,
             checkout_charged_gb=promo_result.charged_gb if promo_result else None,
             checkout_quoted_at=promo_result.quoted_at if promo_result else None,
-            **partner_checkout_context_fields(
-                partner_allocation,
+            **balance_checkout_context_fields(
+                None,
                 promo_base_amount=promo_result.base_amount if promo_result else None,
             ),
         )
-        if partner_allocation is not None and partner_allocation.external_minor == 0:
-            return await create_fully_partner_funded_payment(
+        if promo_result is not None and method != "stars" and price <= 0:
+            return await create_fully_discounted_payment(
                 request=request,
                 payment_context=payment_context,
-                allocation=partner_allocation,
+            )
+        try:
+            balance_allocation = await allocate_checkout_balance(
+                balance_source=selected_balance_source,
+                settings=settings,
+                session=session,
+                user_id=user_id,
+                payment_currency=payment_currency,
+                checkout_total=price,
+                provider_spec=provider_spec,
+                months=months,
+                sale_mode=sale_mode,
+            )
+        except (PartnerError, UserBalanceError) as exc:
+            return _json_error(exc.status, exc.code, exc.message or str(exc))
+        if balance_allocation is not None:
+            price = balance_allocation.external_amount
+        payment_context = replace(
+            payment_context,
+            price=price,
+            **balance_checkout_context_fields(
+                balance_allocation,
+                promo_base_amount=promo_result.base_amount if promo_result else None,
+            ),
+        )
+        if balance_allocation is not None and balance_allocation.external_minor == 0:
+            return await create_fully_balance_funded_payment(
+                request=request,
+                payment_context=payment_context,
+                allocation=balance_allocation,
             )
         if not provider_spec.is_usable_for_payment_amount(
             settings,
@@ -711,7 +739,7 @@ async def _create_subscription_payment(
                 "payment_amount_below_minimum",
                 "Payment amount is below the provider minimum",
             )
-        if provider_spec.reuse_webapp_payment:
+        if provider_spec.reuse_webapp_payment and selected_balance_source is None:
             reusable_response = await reuse_checkout_if_available(
                 payment_context,
                 provider_spec,

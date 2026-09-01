@@ -185,7 +185,14 @@ class UserRegisteredPayload(EventPayload):
     email: str | None = None
     language: str | None = None
     referred_by_id: int | None = None
-    registered_via: Literal["telegram", "email", "panel_sync", "unknown"]
+    registered_via: Literal[
+        "telegram",
+        "email",
+        "google_oauth",
+        "yandex_oauth",
+        "panel_sync",
+        "unknown",
+    ]
 
 
 class AccountEmailLinkedPayload(EventPayload):
@@ -206,6 +213,18 @@ class AccountTelegramLinkedPayload(EventPayload):
     telegram_id: int | None = None
     first_link: bool
     email: str | None = None
+    username: str | None = None
+    first_name: str | None = None
+
+
+class AccountExternalIdentityLinkedPayload(EventPayload):
+    EVENT_NAME: ClassVar[str] = "account.external_identity_linked"
+
+    user_id: int
+    provider: Literal["google", "yandex"]
+    link_source: Literal["settings", "email_confirmation"]
+    email: str | None = None
+    telegram_id: int | None = None
     username: str | None = None
     first_name: str | None = None
 

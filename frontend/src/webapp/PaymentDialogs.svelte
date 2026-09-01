@@ -17,6 +17,8 @@
     Translate,
     VoidAction,
   } from "$lib/webapp/types.js";
+  import type { CheckoutAddonPreset } from "$lib/webapp/deeplinks.js";
+  import { loadPartnerBalanceSnapshot } from "$lib/webapp/partnerBalanceLookup.js";
 
   type DeviceToDisconnect = DeviceView & {
     display_name?: string | null;
@@ -89,11 +91,13 @@
     checkoutPromoAppliesTo = "all",
     checkoutPromoMinSubscriptionMonths = null,
     checkoutPromoMinTrafficGb = null,
+    checkoutAddonPreset = null,
     applyCheckoutPromo = () => {},
     backToTariffList = () => {},
     clearCheckoutPromo = () => {},
     continueWithSelectedTariff = () => {},
     resumePendingPayment = () => {},
+    cancelPendingPayment = () => {},
     requestLinkEmailCode = () => {},
     requestSetPasswordCode = () => {},
     selectTariff = () => {},
@@ -162,11 +166,13 @@
     checkoutPromoAppliesTo?: string;
     checkoutPromoMinSubscriptionMonths?: number | null;
     checkoutPromoMinTrafficGb?: number | null;
+    checkoutAddonPreset?: CheckoutAddonPreset | null;
     applyCheckoutPromo?: CheckoutPromoAction;
     backToTariffList?: VoidAction;
     clearCheckoutPromo?: VoidAction;
     continueWithSelectedTariff?: VoidAction;
     resumePendingPayment?: (payment: PendingPaymentView) => void;
+    cancelPendingPayment?: (payment: PendingPaymentView) => void;
     requestLinkEmailCode?: VoidAction;
     requestSetPasswordCode?: VoidAction;
     selectTariff?: (tariff: TariffView) => void;
@@ -176,6 +182,12 @@
     verifyLinkEmailCode?: VoidAction;
     confirmSetPassword?: VoidAction;
   } = $props();
+
+  $effect(() => {
+    const currency = String(selectedPlan?.currency || "").toUpperCase();
+    if (!currency) return;
+    void loadPartnerBalanceSnapshot(api, currency).catch(() => {});
+  });
 </script>
 
 <PaymentCheckoutDialog
@@ -212,11 +224,13 @@
   {checkoutPromoAppliesTo}
   {checkoutPromoMinSubscriptionMonths}
   {checkoutPromoMinTrafficGb}
+  {checkoutAddonPreset}
   {applyCheckoutPromo}
   {backToTariffList}
   {clearCheckoutPromo}
   {continueWithSelectedTariff}
   {resumePendingPayment}
+  {cancelPendingPayment}
   {selectTariff}
   {setCheckoutPromoInput}
   {t}

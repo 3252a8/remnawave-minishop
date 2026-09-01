@@ -18,7 +18,8 @@ from config.settings import Settings
 from config.tariffs_config import default_payment_currency_code_for_settings
 from datetime import datetime, timedelta, timezone, UTC
 from db.dal import panel_sync_dal, payment_dal, user_dal
-from .schemas import AdminMeOut, AdminPanelSyncOut, AdminStatsOut, PaymentOut
+from .payment_schemas import PaymentOut
+from .schemas import AdminMeOut, AdminPanelSyncOut, AdminStatsOut
 from sqlalchemy.orm import sessionmaker
 from typing import Any
 import logging

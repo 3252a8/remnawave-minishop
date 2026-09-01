@@ -45,6 +45,7 @@ def _settings(**overrides):
         "SMTP_USERNAME": None,
         "SMTP_PASSWORD": None,
         "SMTP_FROM_EMAIL": None,
+        "EMAIL_LOGIN_ENABLED": True,
         "email_auth_configured": False,
         "WEBHOOK_BASE_URL": "https://shop.example.com",
         "telegram_webhook_path": "/tg/webhook",
@@ -255,6 +256,20 @@ class SettingsAlertsTests(unittest.TestCase):
     def test_complete_smtp_not_reported(self):
         alerts = health.settings_alerts(
             _settings(SMTP_USERNAME="mailer", email_auth_configured=True)
+        )
+        self.assertNotIn("smtp_incomplete", _alert_ids(alerts))
+
+    def test_configured_smtp_not_reported_when_email_login_is_disabled(self):
+        alerts = health.settings_alerts(
+            _settings(
+                EMAIL_LOGIN_ENABLED=False,
+                SMTP_HOST="smtp.example.com",
+                SMTP_PORT=587,
+                SMTP_USERNAME="mailer",
+                SMTP_PASSWORD="secret",
+                SMTP_FROM_EMAIL="no-reply@example.com",
+                email_auth_configured=False,
+            )
         )
         self.assertNotIn("smtp_incomplete", _alert_ids(alerts))
 

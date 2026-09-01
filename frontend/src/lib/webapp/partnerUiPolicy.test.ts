@@ -1,8 +1,23 @@
 import { describe, expect, it } from "vitest";
 
-import { partnerLoadingPlaceholder, shouldShowPartnerBalanceDiscount } from "./partnerUiPolicy.js";
+import {
+  partnerBalanceLookupKey,
+  partnerLoadingPlaceholder,
+  shouldShowPartnerBalanceDiscount,
+} from "./partnerUiPolicy.js";
 
 describe("partner UI policy", () => {
+  it("keeps the balance lookup stable while checkout pricing changes", () => {
+    expect(partnerBalanceLookupKey({ open: true, eligible: true, currency: "rub" })).toBe("RUB");
+    expect(partnerBalanceLookupKey({ open: true, eligible: true, currency: "RUB" })).toBe("RUB");
+  });
+
+  it("does not load a balance for unavailable checkout states", () => {
+    expect(partnerBalanceLookupKey({ open: false, eligible: true, currency: "RUB" })).toBe("");
+    expect(partnerBalanceLookupKey({ open: true, eligible: false, currency: "RUB" })).toBe("");
+    expect(partnerBalanceLookupKey({ open: true, eligible: true, currency: "" })).toBe("");
+  });
+
   it("keeps the balance option hidden until a positive discount is confirmed", () => {
     const checkout = {
       open: true,

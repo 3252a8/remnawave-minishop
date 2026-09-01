@@ -8,6 +8,18 @@
 2. Запустить стек и войти в Web App под Telegram ID из `ADMIN_IDS`.
 3. Настроить Remnawave, платежи, внешний вид, поддержку, уведомления и тарифы через админку.
 
+## Навигация по справочнику
+
+| Категория | Разделы |
+| --- | --- |
+| Запуск и инфраструктура | [Минимальный bootstrap](#минимальный-bootstrap) · [Инфраструктура и Compose](#инфраструктура-и-compose) · [Dev / QA only](#dev--qa-only) · [Кеши, rate limits и worker](#кеши-rate-limits-и-worker) |
+| Продукт | [Общие настройки](#общие-настройки) · [Remnawave](#remnawave) · [Веб-приложение и внешний вид](#веб-приложение-внешний-вид-и-telegram-login) · [SMTP и вход по email](#smtp-и-вход-по-email) |
+| Продажи | [Платежи](#платежи) · [Тарифы и legacy-цены](#тарифы-и-legacy-цены) · [Промокоды](#промокоды) · [Пробный период, рефералы и уведомления](#пробный-период-рефералы-и-уведомления) |
+| Эксплуатация | [Поддержка](#поддержка) · [Логирование](#логирование) · [Чеки, ссылки подключения и inline](#чеки-ссылки-подключения-и-inline) |
+
+Инструкции по отдельным провайдерам находятся в разделе
+[Платежи → Платёжные провайдеры](../features/payments.md#платёжные-провайдеры).
+
 ## Минимальный bootstrap
 
 | Переменная | Где менять | Назначение |
@@ -334,7 +346,8 @@ Xray-Core 26.3.27+, `NET_ADMIN`, nftables, корректный sniffing и вк
 
 Часть внешнего вида (`WEBAPP_PRIMARY_COLOR`, `WEBAPP_LOGO_*`, `WEBAPP_FAVICON_*`) сохранена для совместимости, но env-значения этих полей игнорируются при загрузке. Настраивайте их в **Админка -> Внешний вид**.
 
-Практическая настройка Mini App вынесена в [веб-приложение](../features/web-app.md), а вход через Telegram - в [Telegram-авторизацию](../features/telegram-auth.md).
+Практическая настройка Mini App вынесена в [веб-приложение](../features/web-app.md), а все
+варианты авторизации — в раздел [«Способы входа»](../features/login-methods.md).
 
 | Переменная | Где менять | Назначение |
 | --- | --- | --- |
@@ -361,6 +374,20 @@ Xray-Core 26.3.27+, `NET_ADMIN`, nftables, корректный sniffing и вк
 | `TELEGRAM_OAUTH_CLIENT_SECRET` | `.env` | Секрет клиента Telegram OAuth / OpenID Connect. |
 | `TELEGRAM_OAUTH_REQUEST_ACCESS` | `.env` | Дополнительные разрешения, например `write`. |
 | `TELEGRAM_OAUTH_USE_BOT_PROXY` | `.env` | Разрешить server-side OAuth token/JWKS запросам автоматически использовать настроенный `TELEGRAM_BOT_PROXY_URL`. По умолчанию `True`; браузерный redirect не проксируется. |
+| `TELEGRAM_LOGIN_ENABLED` | Админка | Показывать вход через Telegram. |
+| `EMAIL_LOGIN_ENABLED` | Админка | Показывать вход по email при настроенном SMTP. |
+| `EMAIL_ADDRESS_CHANGE_ENABLED` | Админка | Разрешить пользователям менять основной email после подтверждения текущего и нового адресов. По умолчанию включено. |
+| `GOOGLE_OIDC_ENABLED` | Админка | Включить Google OIDC. Требует client ID и client secret. |
+| `GOOGLE_OIDC_CLIENT_ID` | Админка | Client ID OAuth 2.0 Web application из Google Cloud. |
+| `GOOGLE_OIDC_CLIENT_SECRET` | Админка | Секрет Google OAuth-клиента. |
+| `YANDEX_OIDC_ENABLED` | Админка | Включить вход через Yandex ID. Требует client ID и client secret. |
+| `YANDEX_OIDC_CLIENT_ID` | Админка | ID приложения для авторизации пользователей в Yandex OAuth. |
+| `YANDEX_OIDC_CLIENT_SECRET` | Админка | Секрет приложения Yandex OAuth. |
+| `PASSKEY_LOGIN_ENABLED` | Админка | Включить регистрацию и вход с passkey/WebAuthn. |
+| `PASSKEY_RP_ID` | Админка | Домен Relying Party без схемы, порта и пути. По умолчанию берётся из публичного Web App URL. |
+| `PASSKEY_RP_NAME` | Админка | Имя сервиса, показываемое при создании ключа доступа. |
+| `PASSKEY_ORIGINS` | Админка | Разрешённые HTTPS origins через запятую. |
+| `PASSKEY_CHALLENGE_TTL_SECONDS` | Админка | Время жизни одноразового WebAuthn challenge. |
 | `WEBAPP_PRIMARY_COLOR` | Админка | Устаревшее env-поле, игнорируется. |
 | `WEBAPP_LOGO_URL` | Админка | Устаревшее env-поле, игнорируется. |
 | `WEBAPP_FAVICON_USE_CUSTOM` | Админка | Устаревшее env-поле, игнорируется. |
@@ -369,11 +396,16 @@ Xray-Core 26.3.27+, `NET_ADMIN`, nftables, корректный sniffing и вк
 
 Инструкции установки совместимы с Remnawave Subscription Page v1 config: `version`, `locales`, `brandingSettings`, `uiConfig`, `baseSettings`, `baseTranslations`, `svgLibrary` и `platforms`. Текстовые поля рендерятся как текст, а SVG из `svgLibrary` проходит санитарную проверку перед отдачей в Web App.
 
+Callback URL, настройка Google/Yandex, требования passkey, правила объединения аккаунтов и связь
+основного email с полем пользователя в Remnawave Panel описаны в
+[разделе «Способы входа»](../features/login-methods.md).
+
 ## SMTP и вход по email
 
 Вход по email появляется только если заполнены `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` и `SMTP_FROM_EMAIL`.
 
-Практический сценарий настройки SMTP, magic link и парольного входа описан в [разделе входа по email](../features/email-login.md).
+Практический сценарий настройки SMTP, magic link и парольного входа описан в разделе
+[«Способы входа»](../features/login-methods.md#общая-настройка-email).
 
 | Переменная | Назначение |
 | --- | --- |
@@ -400,12 +432,16 @@ Xray-Core 26.3.27+, `NET_ADMIN`, nftables, корректный sniffing и вк
 
 | Переменная | Назначение |
 | --- | --- |
-| `PAYMENT_METHODS_ORDER` | Порядок способов оплаты в выпадающем списке или отдельных кнопках. Для Platega доступны `platega_sbp`, `platega_card`, `platega_crypto`, `platega_international`, `platega_all_methods`, `platega_subscription`; legacy-значение `platega` разворачивается во все варианты. |
+| `PAYMENT_METHODS_ORDER` | Порядок способов оплаты в выпадающем списке или отдельных кнопках. Для Platega доступны `platega_sbp`, `platega_card`, `platega_crypto`, `platega_international`, `platega_all_methods`, `platega_subscription`; legacy-значение `platega` разворачивается во все варианты. Для RollyPay: `rollypay`, `rollypay_sbp`, `rollypay_card`, `rollypay_international`, `rollypay_crypto`, `rollypay_subscription`. |
 | `PAYMENT_METHODS_DISPLAY_MODE` | Представление способов оплаты в Mini App: компактный `dropdown` (по умолчанию) или отдельные `buttons`. В админке: **Платежи → Оформление оплаты**. |
 | `SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED` | Показывать описание подписки перед выбором срока. |
 | `SUBSCRIPTION_PURCHASE_DESCRIPTION_RU` / `SUBSCRIPTION_PURCHASE_DESCRIPTION_EN` | Локализованное описание подписки. |
 | `PAYMENT_REQUEST_TIMEOUT_SECONDS` | Общий таймаут одного API-запроса к платёжному провайдеру, в секундах. По умолчанию `20`. |
 | `PAYMENT_FAILURE_NOTIFICATION_GRACE_SECONDS` | Задержка уведомления о неуспешной оплате. По умолчанию `300`: успешная повторная оплата за это время подавляет устаревшие ошибки; `0` отключает задержку. |
+| `USER_BALANCE_ENABLED` | Включает пользовательский баланс, его пополнение и оплату покупок. Настраивается в **Общие → Баланс пользователя**. |
+| `USER_BALANCE_CURRENCY` | Валюта обычного и конвертируемого партнёрского баланса; пустое значение наследует `DEFAULT_CURRENCY_SYMBOL`. |
+| `USER_BALANCE_TOPUP_MIN_AMOUNT` / `USER_BALANCE_TOPUP_MAX_AMOUNT` | Допустимый диапазон одного пополнения. Максимум не может быть меньше минимума. |
+| `USER_BALANCE_TOPUP_PRESETS` | JSON-массив быстрых сумм пополнения, например `[500, 1000, 2000, 5000]`. |
 | `PAYMENT_<METHOD>_WEBAPP_LABEL_RU` / `PAYMENT_<METHOD>_WEBAPP_LABEL_EN` | Текст кнопки провайдера в Web App. |
 | `PAYMENT_<METHOD>_WEBAPP_ICON` | Lucide-иконка кнопки в Web App. |
 | `PAYMENT_<METHOD>_TELEGRAM_LABEL_RU` / `PAYMENT_<METHOD>_TELEGRAM_LABEL_EN` | Текст кнопки в Telegram. |
@@ -418,10 +454,15 @@ Xray-Core 26.3.27+, `NET_ADMIN`, nftables, корректный sniffing и вк
 | `PLATEGA_INTERNATIONAL_ENABLED` | Кнопка международных карт (`paymentMethod: 12` по умолчанию). |
 | `PLATEGA_ALL_METHODS_ENABLED` | Единая ссылка Platega, где плательщик сам выбирает способ оплаты. |
 | `PLATEGA_SUBSCRIPTION_ENABLED` | Кнопка рекуррентной СБП-подписки Platega. |
+| `ROLLYPAY_ENABLED` | Включает общий сервис RollyPay. |
+| `ROLLYPAY_ALL_METHODS_ENABLED` / `ROLLYPAY_SBP_ENABLED` / `ROLLYPAY_CARD_ENABLED` | Hosted-выбор метода и отдельные кнопки СБП/карты RollyPay. |
+| `ROLLYPAY_INTERNATIONAL_ENABLED` / `ROLLYPAY_CRYPTO_ENABLED` | Кнопки зарубежной карты и криптовалюты RollyPay. |
+| `ROLLYPAY_SUBSCRIPTION_ENABLED` | Регулярная СБП-подписка RollyPay для периодов 1, 3 и 12 месяцев. |
 | `SEVERPAY_ENABLED` | Включает SeverPay. |
 | `WATA_ENABLED` | Включает Wata. |
 | `CRYPTOPAY_ENABLED` | Включает CryptoPay. |
 | `HELEKET_ENABLED` | Включает Heleket. |
+| `OXAPAY_ENABLED` | Включает OxaPay Generate Invoice. |
 | `PAYKILLA_ENABLED` | Включает PayKilla. |
 | `LAVA_ENABLED` | Включает LAVA. |
 | `PALLY_ENABLED` | Включает Pally / PayPalych. |
@@ -510,6 +551,12 @@ PAYMENT_HELEKET_WEBAPP_ICON
 PAYMENT_HELEKET_TELEGRAM_LABEL_RU
 PAYMENT_HELEKET_TELEGRAM_LABEL_EN
 PAYMENT_HELEKET_TELEGRAM_EMOJI
+PAYMENT_OXAPAY_WEBAPP_LABEL_RU
+PAYMENT_OXAPAY_WEBAPP_LABEL_EN
+PAYMENT_OXAPAY_WEBAPP_ICON
+PAYMENT_OXAPAY_TELEGRAM_LABEL_RU
+PAYMENT_OXAPAY_TELEGRAM_LABEL_EN
+PAYMENT_OXAPAY_TELEGRAM_EMOJI
 PAYMENT_PAYKILLA_WEBAPP_LABEL_RU
 PAYMENT_PAYKILLA_WEBAPP_LABEL_EN
 PAYMENT_PAYKILLA_WEBAPP_ICON
@@ -611,6 +658,29 @@ docker compose exec backend sh -lc 'curl -4fsS https://api.ipify.org; echo'
 | `PLATEGA_RETURN_URL` | URL успешного возврата. |
 | `PLATEGA_FAILED_URL` | URL неуспешного возврата. |
 
+### RollyPay
+
+| Переменная | Назначение |
+| --- | --- |
+| `ROLLYPAY_ENABLED` | Общий включатель сервиса. |
+| `ROLLYPAY_BASE_URL` | Базовый API URL; по умолчанию `https://rollypay.io/api/v1`. |
+| `ROLLYPAY_API_KEY` | API key мерчанта для `X-API-Key`. |
+| `ROLLYPAY_SIGNING_SECRET` | Секрет HMAC-SHA256 webhook терминала. |
+| `ROLLYPAY_TERMINAL_ID` | Терминал для платежей и обязательный terminal id для subscription plans. |
+| `ROLLYPAY_ALL_METHODS_ENABLED` | Hosted-страница без фиксированного способа оплаты. |
+| `ROLLYPAY_SBP_ENABLED` / `ROLLYPAY_CARD_ENABLED` | Отдельные методы `sbp` и `card`. |
+| `ROLLYPAY_INTERNATIONAL_ENABLED` | Метод `intl_card`; единственная RollyPay-кнопка с поддержкой `EUR`. |
+| `ROLLYPAY_CRYPTO_ENABLED` | Метод `crypto`. |
+| `ROLLYPAY_SUBSCRIPTION_ENABLED` | Провайдерская регулярная СБП-подписка; требует `ROLLYPAY_TERMINAL_ID`. |
+| `ROLLYPAY_<METHOD>_ADMIN_ONLY_ENABLED` | Показывает конкретную кнопку только пользователям из `ADMIN_IDS`. Вместо `<METHOD>`: `ALL_METHODS`, `SBP`, `CARD`, `INTERNATIONAL`, `CRYPTO`, `SUBSCRIPTION`. |
+| `ROLLYPAY_TEST_MODE` | Передаёт `test: true`; разовые методы становятся admin-only, recurring отключается. |
+| `ROLLYPAY_SUCCESS_URL` / `ROLLYPAY_FAIL_URL` | Явные URL возврата; без них используется стандартная ссылка бота. |
+| `ROLLYPAY_WEBHOOK_TOLERANCE_SECONDS` | Допустимый возраст `X-Timestamp`, по умолчанию `300`. |
+| `ROLLYPAY_WEBHOOK_LOOKUP_TIMEOUT_SECONDS` | Лимит обязательной проверки платежа через API, `1..9`, по умолчанию `8`. |
+| `ROLLYPAY_PLAN_CACHE_SECONDS` | TTL кэша subscription plans, по умолчанию `300`. |
+| `ROLLYPAY_RECONCILE_INTERVAL_SECONDS` | Период сверки состояний мандатов, по умолчанию `300`. |
+| `ROLLYPAY_RECONCILE_BATCH_SIZE` | Максимум мандатов за одну сверку, по умолчанию `100`. |
+
 ### SeverPay
 
 | Переменная | Назначение |
@@ -683,6 +753,27 @@ donations интеграцией Minishop не поддерживаются. П�
 | `HELEKET_LIFETIME_SECONDS` | TTL инвойса: 300..43200. |
 | `HELEKET_VERIFY_WEBHOOK_SIGNATURE` | Проверять подпись webhook. |
 | `HELEKET_TRUSTED_IPS` | Список доверенных IP webhook-источников. |
+
+### OxaPay
+
+| Переменная | Назначение |
+| --- | --- |
+| `OXAPAY_MERCHANT_API_KEY` | Merchant API key для Generate Invoice, Payment Information и проверки HMAC-SHA512 webhook. |
+| `OXAPAY_BASE_URL` | Базовый URL API, по умолчанию `https://api.oxapay.com/v1`. |
+| `OXAPAY_RETURN_URL` | URL успешного возврата; если пусто, используется ссылка Telegram-бота. |
+| `OXAPAY_LIFETIME_MINUTES` | Время жизни invoice от `15` до `2880` минут; по умолчанию `60`. |
+| `OXAPAY_FEE_PAID_BY_PAYER` | Кто платит комиссию invoice; пустое значение сохраняет настройку Merchant Service. |
+| `OXAPAY_UNDER_PAID_COVERAGE` | Допустимая недоплата в процентах от `0` до `60`; пустое значение сохраняет настройку Merchant Service. |
+| `OXAPAY_TO_CURRENCY` | Необязательная автоматическая конвертация поступления; поддерживается `USDT`. |
+| `OXAPAY_AUTO_WITHDRAWAL` | Автоматически выводить поступление на адрес из OxaPay Address List; пустое значение сохраняет настройку Merchant Service. |
+| `OXAPAY_MIXED_PAYMENT` | Разрешить доплату другой валютой; пустое значение сохраняет настройку Merchant Service. |
+| `OXAPAY_SANDBOX` | Создавать тестовые invoice; по умолчанию выключено. |
+| `OXAPAY_TRUSTED_IPS` | Необязательный список IP webhook-источников через запятую. Получите актуальный список у поддержки OxaPay. |
+
+Callback URL передаётся в каждый invoice автоматически как `WEBHOOK_BASE_URL` +
+`/webhook/oxapay`. Заголовок `HMAC` проверяется всегда по точным сырым байтам запроса;
+отключаемого bypass-параметра нет. Подробности — в разделе
+[Платежи → OxaPay](../features/payments.md#oxapay).
 
 ### PayKilla
 
@@ -855,7 +946,7 @@ Stripe создает hosted Checkout Sessions и подтверждает ав�
 | `REFERRAL_WEBAPP_LINK_ENABLED` | Показывать реферальную ссылку на сайт в разделе бонусов Web App. Хотя бы один из двух флагов показа ссылок должен быть включён. |
 | `REFERRAL_TELEGRAM_LINK_ENABLED` | Показывать реферальную ссылку на Telegram-бота в разделе бонусов Web App. Хотя бы один из двух флагов показа ссылок должен быть включён. |
 | `LEGACY_REFS` | Разрешить старые ссылки вида `/start ref_<telegram_id>`, где payload содержит Telegram/user ID пригласившего. |
-| `DISPOSABLE_EMAIL_DOMAINS` | Домены одноразовой почты через запятую. Для таких email trial и реферальный welcome bonus доступны только после привязки Telegram. |
+| `DISPOSABLE_EMAIL_DOMAINS` | Домены одноразовой почты через запятую или по одному на строку. По умолчанию используется встроенный проверяемый snapshot; для таких email trial и реферальный welcome bonus доступны только после привязки Telegram. |
 | `REFERRAL_BONUS_DAYS_1_MONTH`, `REFERRAL_BONUS_DAYS_3_MONTHS`, `REFERRAL_BONUS_DAYS_6_MONTHS`, `REFERRAL_BONUS_DAYS_12_MONTHS` | Legacy-бонусы пригласившему без JSON-каталога. В JSON-тарифах используйте `referral_bonus_days_inviter`. |
 
 | `REFEREE_BONUS_DAYS_1_MONTH`, `REFEREE_BONUS_DAYS_3_MONTHS`, `REFEREE_BONUS_DAYS_6_MONTHS`, `REFEREE_BONUS_DAYS_12_MONTHS` | Legacy-бонусы приглашенному без JSON-каталога. В JSON-тарифах используйте `referral_bonus_days_referee`. |

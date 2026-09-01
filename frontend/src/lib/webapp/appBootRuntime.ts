@@ -30,7 +30,10 @@ type AppBootRuntimeDeps = {
     authData: unknown,
     source: "auth_data" | "init_data" | "id_token"
   ) => unknown;
+  linkTelegramAfterExternalAuth: () => Promise<unknown> | unknown;
+  restorePendingExternalOauth: () => Promise<boolean> | boolean;
   setAuthStatus: (message: string, isError?: boolean) => void;
+  showToast: (message: unknown) => void;
   t: Translate;
   readTelegramMiniAppInitDataFromLocation: () => string;
   // Post-boot activation handoff.
@@ -93,7 +96,10 @@ export function createAppBootRuntime(deps: AppBootRuntimeDeps) {
       hasEmailCodeLoginDeeplink: deps.hasEmailCodeLoginDeeplink,
       finalizeMagicLogin: deps.finalizeMagicLogin,
       finalizeTelegramAuth: deps.finalizeTelegramAuth,
+      linkTelegramAfterExternalAuth: deps.linkTelegramAfterExternalAuth,
+      restorePendingExternalOauth: deps.restorePendingExternalOauth,
       setAuthStatus: deps.setAuthStatus,
+      showAccountLinkStatus: deps.showToast,
       t: deps.t,
       getInitDataForBoot: () =>
         shellState.telegramMiniAppInitData ||

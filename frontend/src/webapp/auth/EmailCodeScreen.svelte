@@ -2,8 +2,8 @@
   import { ArrowLeft, RefreshCw } from "$components/ui/icons.js";
 
   import Button from "$components/ui/button.svelte";
-  import { Input } from "$components/ui/index.js";
   import { StatusMessage } from "$components/patterns/webapp/index.js";
+  import EmailOtpInput from "./EmailOtpInput.svelte";
 
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type Action = () => void | Promise<void>;
@@ -12,6 +12,7 @@
     busy?: boolean;
     code?: string;
     email?: string;
+    embedded?: boolean;
     isError?: boolean;
     onBack?: Action;
     onConfirm?: Action;
@@ -24,6 +25,7 @@
   let {
     code = $bindable(""),
     email = "",
+    embedded = false,
     busy = false,
     resendCooldown = 0,
     status = "",
@@ -35,7 +37,7 @@
   }: Props = $props();
 </script>
 
-<div class="phone-screen auth-screen">
+<div class="phone-screen auth-screen" class:embedded>
   <header class="screen-head center-title">
     <Button variant="icon" size="icon" onclick={onBack} aria-label={t("wa_back")}>
       <ArrowLeft size={19} />
@@ -47,20 +49,7 @@
     <span></span>
   </header>
   <div class="otp-wrap">
-    <label class="otp-input-wrap">
-      <Input
-        bind:value={code}
-        inputmode="numeric"
-        autocomplete="one-time-code"
-        maxlength={6}
-        aria-label={t("wa_email_code_aria")}
-      />
-      <span class="otp-slots" aria-hidden="true">
-        {#each Array.from({ length: 6 }) as _, index}
-          <span class:filled={code[index]}>{code[index] || ""}</span>
-        {/each}
-      </span>
-    </label>
+    <EmailOtpInput bind:code ariaLabel={t("wa_email_code_aria")} disabled={busy} />
     <Button class="wide" onclick={onConfirm} disabled={busy}>
       {t("wa_confirm")}
     </Button>
@@ -80,3 +69,35 @@
     </button>
   </div>
 </div>
+
+<style>
+  .phone-screen.auth-screen.embedded {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 0;
+    margin: 0;
+    overflow: visible;
+    padding: 0;
+    background: transparent;
+    align-content: start;
+  }
+
+  .embedded .screen-head {
+    margin-bottom: 24px;
+  }
+
+  .embedded .screen-head h1 {
+    font-size: clamp(24px, 3vw, 30px);
+  }
+
+  .embedded .screen-head p {
+    margin-top: 8px;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .embedded .otp-wrap {
+    min-height: 0;
+    align-content: start;
+  }
+</style>

@@ -26,6 +26,9 @@
     premiumTrafficBadgeVariant,
     premiumTrafficBadgeText,
     rowPaymentsTotal,
+    rowBalance,
+    userBalanceEnabled,
+    partnerBalanceEnabled,
     fmtDateShort,
   }: {
     at: TranslateFn;
@@ -39,6 +42,9 @@
     premiumTrafficBadgeVariant: (pt: TrafficBadge) => AdminBadgeVariant;
     premiumTrafficBadgeText: (pt: TrafficBadge) => string;
     rowPaymentsTotal: (user: AdminUser) => string;
+    rowBalance: (user: AdminUser, source: "user" | "partner") => string;
+    userBalanceEnabled: boolean;
+    partnerBalanceEnabled: boolean;
     fmtDateShort: (value: string | null | undefined) => string;
   } = $props();
 
@@ -73,6 +79,18 @@
     </div>
 
     <dl class="admin-user-mobile-metrics">
+      {#if userBalanceEnabled}
+        <div>
+          <dt>{at("users_col_user_balance", {}, "Balance")}</dt>
+          <dd class="admin-user-balance-value">{rowBalance(user, "user")}</dd>
+        </div>
+      {/if}
+      {#if partnerBalanceEnabled}
+        <div>
+          <dt>{at("users_col_partner_balance", {}, "Partner balance")}</dt>
+          <dd class="admin-user-balance-value">{rowBalance(user, "partner")}</dd>
+        </div>
+      {/if}
       <div>
         <dt>{at("premium_traffic_filter_label", {}, "Premium traffic")}</dt>
         <dd>
@@ -205,6 +223,13 @@
   .admin-user-mobile-metrics dd :global(.admin-badge) {
     max-width: 100%;
     overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .admin-user-mobile-metrics .admin-user-balance-value {
+    overflow: hidden;
+    font-weight: 750;
     text-overflow: ellipsis;
     white-space: nowrap;
   }

@@ -5,6 +5,18 @@ export type PartnerBalanceVisibility = {
   maximumDiscount: number;
 };
 
+export type PartnerBalanceLookup = Pick<PartnerBalanceVisibility, "open" | "eligible" | "currency">;
+
+export function partnerBalanceLookupKey({
+  open,
+  eligible,
+  currency,
+}: PartnerBalanceLookup): string {
+  const normalizedCurrency = String(currency || "").toUpperCase();
+  if (!open || !eligible || !normalizedCurrency) return "";
+  return normalizedCurrency;
+}
+
 export function shouldShowPartnerBalanceDiscount({
   open,
   eligible,

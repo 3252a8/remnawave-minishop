@@ -112,6 +112,31 @@ def _inject_observability_instances(app: web.Application, ctx: PluginContext) ->
     set_service_context(app, METRICS_SERVICE_KEY, ctx.metrics)
 
 
+def _register_provider_webhook_routes(app: web.Application, settings: Settings) -> None:
+    registered_webhook_paths: set[str] = set()
+    for spec in iter_provider_specs():
+        webhook_route = spec.load_webhook_route()
+        if not spec.webhook_path or not webhook_route:
+            continue
+        if spec.webhook_requires_base_url and not settings.WEBHOOK_BASE_URL:
+            continue
+        path = spec.webhook_path(settings)
+        if not path or not path.startswith("/") or path in registered_webhook_paths:
+            continue
+        registered_webhook_paths.add(path)
+        for method in spec.webhook_methods:
+            normalized_method = str(method).strip().upper()
+            if not normalized_method:
+                continue
+            app.router.add_route(normalized_method, path, webhook_route)
+            logger.info(
+                "%s webhook route configured at: [%s] %s",
+                spec.label,
+                normalized_method,
+                path,
+            )
+
+
 async def build_and_start_web_app(
     dp: Dispatcher,
     bot: Bot,
@@ -164,19 +189,7 @@ async def build_and_start_web_app(
 
     from bot.services.panel_webhook_service import panel_webhook_route
 
-    registered_webhook_paths: set[str] = set()
-    for spec in iter_provider_specs():
-        webhook_route = spec.load_webhook_route()
-        if not spec.webhook_path or not webhook_route:
-            continue
-        if spec.webhook_requires_base_url and not settings.WEBHOOK_BASE_URL:
-            continue
-        path = spec.webhook_path(settings)
-        if not path or not path.startswith("/") or path in registered_webhook_paths:
-            continue
-        registered_webhook_paths.add(path)
-        app.router.add_post(path, webhook_route)
-        logger.info("%s webhook route configured at: [POST] %s", spec.label, path)
+    _register_provider_webhook_routes(app, settings)
 
     panel_path = settings.panel_webhook_path
     if panel_path.startswith("/"):

@@ -2,6 +2,11 @@ import { DEV_MOCK } from "../previewMock.js";
 import { withDemoAvatarTicket } from "../demoAvatars.js";
 import { jsonBody, paged, queryParams, writeDemoLanguage } from "../demoMockRuntime.js";
 import { DATASET, defaultClone, type DemoRecord, type MockApiContext } from "./dataset";
+import {
+  adminDemoBalance,
+  applyDemoBalanceAdjustment,
+  applyDemoBalanceConversion,
+} from "./balance";
 import { demoProviderCurrencySupport } from "./providers";
 import { demoSettingsSections, persistDemoSettings } from "./settings";
 import {
@@ -371,7 +376,10 @@ export function demoApiResponse(
     const id = Number(parts[3]);
     const detail = DATASET.adminUserDetails?.[String(id)];
     if (!detail) return { ok: false, error: "not_found" };
-    const decoratedDetail = withDemoReferralSummary(detail);
+    const decoratedDetail = {
+      ...withDemoReferralSummary(detail),
+      balance: clone(adminDemoBalance(id)),
+    };
     if (parts[4]) {
       if (parts[4] === "referrals") {
         const invitees = demoInviteesForUser(id);
@@ -410,6 +418,12 @@ export function demoApiResponse(
       }
       if (parts[4] === "message" && parts[5] === "preview") {
         return { ok: true, text: "Demo broadcast preview for the selected account." };
+      }
+      if (parts[4] === "balance-adjustment" && method === "POST") {
+        return { ok: true, balance: clone(applyDemoBalanceAdjustment(id, jsonBody(options))) };
+      }
+      if (parts[4] === "balance-conversion" && method === "POST") {
+        return { ok: true, balance: clone(applyDemoBalanceConversion(id, jsonBody(options))) };
       }
       return { ok: true, user: clone(decoratedDetail.user), detail: clone(decoratedDetail) };
     }

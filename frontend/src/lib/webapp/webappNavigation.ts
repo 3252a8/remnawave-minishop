@@ -1,3 +1,5 @@
+import { activeTabForWebappSection } from "./sectionAvailability.js";
+
 type NavigationDeps = {
   canUseInstallGuides: () => boolean;
   closePaymentModal: () => void;
@@ -56,9 +58,19 @@ export function createWebappNavigation({
     return true;
   }
 
+  function goTrial() {
+    showSection("trial", "home");
+    return true;
+  }
+
   function goPartner() {
     if (!partnerProgramEnabled()) return false;
-    showSection("partner");
+    showSection(
+      "partner",
+      activeTabForWebappSection("partner", {
+        partnerSettingsVisible: referralProgramEnabled(),
+      })
+    );
     return true;
   }
 
@@ -80,6 +92,10 @@ export function createWebappNavigation({
     showSection("settings");
   }
 
+  function goSecurity() {
+    showSection("security", "settings");
+  }
+
   function goStatus(parent: "home" | "settings" = "settings") {
     showSection("status", parent);
   }
@@ -91,7 +107,9 @@ export function createWebappNavigation({
     goInvite,
     goPartner,
     goSettings,
+    goSecurity,
     goStatus,
     goSupport,
+    goTrial,
   };
 }

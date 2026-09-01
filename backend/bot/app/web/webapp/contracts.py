@@ -5,6 +5,7 @@ from bot.app.web.route_contracts import RouteContract, register_contract
 from .account_contracts import ACCOUNT_ROUTE_CONTRACTS
 from .assets_contracts import ASSET_ROUTE_CONTRACTS
 from .auth_contracts import AUTH_ROUTE_CONTRACTS
+from .balance_contracts import BALANCE_ROUTE_CONTRACTS
 from .billing_contracts import BILLING_ROUTE_CONTRACTS
 from .devices_contracts import DEVICES_ROUTE_CONTRACTS
 from .guides_contracts import GUIDES_ROUTE_CONTRACTS
@@ -17,6 +18,7 @@ from .telegram_notifications_contracts import TELEGRAM_NOTIFICATIONS_ROUTE_CONTR
 WEBAPP_ROUTE_CONTRACTS: dict[str, RouteContract] = {
     **ASSET_ROUTE_CONTRACTS,
     **AUTH_ROUTE_CONTRACTS,
+    **BALANCE_ROUTE_CONTRACTS,
     **ACCOUNT_ROUTE_CONTRACTS,
     **BILLING_ROUTE_CONTRACTS,
     **DEVICES_ROUTE_CONTRACTS,

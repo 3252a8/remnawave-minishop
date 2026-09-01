@@ -21,6 +21,7 @@
 
   let element = $state<NumberFlowElement>();
   let previousValue = Number.NaN;
+  const resolvedFormat = $derived({ useGrouping: true, ...format });
 
   $effect.pre(() => {
     const nextValue = Number(value);
@@ -38,6 +39,6 @@
   {value}
   {suffix}
   aria-label={ariaLabel}
-  {format}
+  format={resolvedFormat}
   {willChange}
 />

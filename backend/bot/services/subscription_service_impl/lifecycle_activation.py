@@ -27,6 +27,7 @@ from . import entitlement_helpers
 from ._typing import SubscriptionServiceMixinContract
 from .entitlement_helpers import active_subscription_tariff_key as active_tariff_key
 from .sale_mode import parse_sale_mode_context
+from .traffic import resolve_main_traffic_baseline
 
 logger = logging.getLogger(__name__)
 
@@ -480,9 +481,17 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         premium_period_start_at = getattr(current_active_sub, "premium_period_start_at", None)
         base_tier_bytes = tariff.monthly_bytes if tariff else self.settings.user_traffic_limit_bytes
         base_premium_bytes = tariff.premium_monthly_bytes if tariff else 0
-        current_tier_bytes = int(
-            getattr(current_active_sub, "tier_baseline_bytes", 0) or base_tier_bytes or 0
-        )
+        if current_active_sub is not None and tariff is not None:
+            current_tier_bytes = await resolve_main_traffic_baseline(
+                session,
+                current_active_sub,
+                tariff,
+                at=activation_at,
+            )
+        else:
+            current_tier_bytes = int(
+                getattr(current_active_sub, "tier_baseline_bytes", 0) or base_tier_bytes or 0
+            )
         current_premium_bytes = int(
             getattr(current_active_sub, "premium_baseline_bytes", 0) or base_premium_bytes or 0
         )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from bot.app.web.admin_settings_manifest_email_fields import EMAIL_SETTINGS_FIELDS
+from bot.app.web.admin_settings_manifest_login_fields import LOGIN_METHOD_SETTINGS_FIELDS
 from bot.app.web.admin_settings_manifest_types import TRAFFIC_STRATEGY_CHOICES, SettingField
 from bot.app.web.admin_settings_notification_manifest_fields import (
     NOTIFICATION_SETTINGS_FIELDS,
@@ -76,6 +77,14 @@ SETTINGS_MANIFEST: list[SettingField] = [
         ("Hide the in-bot user interface and /tg command. Renewal prompts open the Mini App."),
     ),
     SettingField(
+        "MENU_BUTTONS_JSON",
+        "menu_buttons",
+        "menu_buttons",
+        "Custom menu buttons",
+        ("Localized links shown at the bottom of the Telegram main menu and Web App settings."),
+        optional=False,
+    ),
+    SettingField(
         "REQUIRED_CHANNEL_ID",
         "int",
         "general",
@@ -89,6 +98,8 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "Required Channel Link",
         ("Controls the 'Required Channel Link' setting in admin overrides."),
     ),
+    # ─── Login methods ─────────────────────────────────────────────
+    *LOGIN_METHOD_SETTINGS_FIELDS,
     # ─── Email auth & SMTP ─────────────────────────────────────────
     *EMAIL_SETTINGS_FIELDS,
     SettingField(
@@ -197,6 +208,14 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "appearance",
         "User theme mode selection",
         "Allow users to choose Auto, Light, or Dark mode within the active theme.",
+        optional=False,
+    ),
+    SettingField(
+        "WEBAPP_COMPACT_HOME_ENABLED",
+        "bool",
+        "appearance",
+        "Compact Home screen",
+        "Combine subscription status, traffic usage, and balance into one compact summary card.",
         optional=False,
     ),
     SettingField("WEBAPP_LOGO_URL", "url", "appearance", "WebApp Logo URL"),
@@ -514,14 +533,14 @@ SETTINGS_MANIFEST: list[SettingField] = [
     SettingField(
         "TRIAL_WITHOUT_TELEGRAM_ENABLED",
         "bool",
-        "pricing",
+        "system",
         "Trial Without Telegram",
         (
             "If disabled, email-only users must link Telegram before activating a trial. "
             "Disposable email domains always require Telegram."
         ),
         optional=False,
-        subsection="trial",
+        subsection="email_anti_abuse",
     ),
     SettingField(
         "TRIAL_SQUAD_UUIDS",
@@ -576,13 +595,13 @@ SETTINGS_MANIFEST: list[SettingField] = [
     SettingField(
         "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
         "bool",
-        "pricing",
+        "system",
         "Referral Welcome Bonus Without Telegram",
         (
             "If disabled, email-only users must link Telegram before receiving the referral "
             "welcome bonus. Disposable email domains always require Telegram."
         ),
-        subsection="referral",
+        subsection="email_anti_abuse",
     ),
     SettingField(
         "REFERRAL_WEBAPP_LINK_ENABLED",
@@ -615,14 +634,14 @@ SETTINGS_MANIFEST: list[SettingField] = [
     SettingField(
         "DISPOSABLE_EMAIL_DOMAINS",
         "text",
-        "pricing",
+        "system",
         "Disposable Email Domains",
         (
             "Comma-separated domains. Users without Telegram using these emails cannot "
             "claim trial or referral welcome bonus."
         ),
         placeholder="mailinator.com\ntemp-mail.org\nyopmail.com",
-        subsection="referral",
+        subsection="email_anti_abuse",
     ),
     SettingField(
         "MIGRATION_REMNASHOP_REFERRAL_CODE_COMPAT_ENABLED",

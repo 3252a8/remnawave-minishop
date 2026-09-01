@@ -72,6 +72,10 @@
   const usersPremiumTraffic = $derived(usersState.usersPremiumTraffic);
   const usersSort = $derived(usersState.usersSort);
   const usersLoading = $derived(usersState.usersLoading);
+  const userBalanceEnabled = $derived(usersState.userBalanceEnabled);
+  const partnerBalanceEnabled = $derived(usersState.partnerBalanceEnabled);
+  const balanceCurrency = $derived(usersState.balanceCurrency);
+  const balanceCurrencyScale = $derived(usersState.balanceCurrencyScale);
 
   $effect(() => {
     usersTable.setRows(users);
@@ -225,6 +229,17 @@
   function userTableColumns(): UserTableColumn[] {
     return [
       { key: "user", label: at("user", {}, "User"), sort: SORT_COLUMNS.user },
+      ...(userBalanceEnabled
+        ? [{ key: "userBalance", label: at("users_col_user_balance", {}, "Balance") }]
+        : []),
+      ...(partnerBalanceEnabled
+        ? [
+            {
+              key: "partnerBalance",
+              label: at("users_col_partner_balance", {}, "Partner balance"),
+            },
+          ]
+        : []),
       {
         key: "premium",
         label: at("premium_traffic_filter_label", {}, "Premium traffic"),
@@ -296,6 +311,14 @@
     return fmtMoney(user?.payments_total_amount ?? 0, user?.payments_currency || "RUB");
   }
 
+  function rowBalance(user: AdminUser, source: "user" | "partner"): string {
+    const amountMinor = Number(
+      source === "user" ? user.user_balance_amount_minor : user.partner_balance_amount_minor
+    );
+    const divisor = 10 ** Math.max(0, balanceCurrencyScale);
+    return fmtMoney((Number.isFinite(amountMinor) ? amountMinor : 0) / divisor, balanceCurrency);
+  }
+
   function handleUsersSearchInput(event: Event): void {
     const input = event.currentTarget as HTMLInputElement | null;
     usersStore.updateState({ usersQuery: input?.value || "" });
@@ -330,6 +353,19 @@
   );
   const activeUsersFilterCount = $derived(activeUserFilterChips.length);
   const userTableHeaders = $derived(userTableColumns().map((column) => column.label));
+  const userTableWidths = $derived([
+    "220px",
+    ...(userBalanceEnabled ? ["118px"] : []),
+    ...(partnerBalanceEnabled ? ["136px"] : []),
+    "128px",
+    "112px",
+    "78px",
+    "88px",
+    "96px",
+    "112px",
+    "112px",
+  ]);
+  const userTableColumnCount = $derived(userTableHeaders.length);
 
   onMount(() => {
     usersStore.loadUsers();
@@ -356,6 +392,10 @@
   {activeUsersFilterCount}
   {activeUserFilterChips}
   {userTableHeaders}
+  {userTableWidths}
+  {userTableColumnCount}
+  {userBalanceEnabled}
+  {partnerBalanceEnabled}
   {updateUsersFilter}
   {updateUsersPanelStatus}
   {updateUsersPremiumTraffic}
@@ -378,5 +418,6 @@
   {premiumTrafficBadgeVariant}
   {premiumTrafficBadgeText}
   {rowPaymentsTotal}
+  {rowBalance}
   {fmtDateShort}
 />

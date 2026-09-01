@@ -449,6 +449,11 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
                 "_probe_telegram_notifications_for_user_id",
                 AsyncMock(),
             ) as probe_telegram_notifications,
+            patch.object(
+                account_routes,
+                "_grant_deferred_referral_welcome_bonus_after_telegram_link",
+                AsyncMock(),
+            ) as grant_deferred_welcome_bonus,
         ):
             response = await account_routes.account_telegram_link_route(request)
 
@@ -467,6 +472,7 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
             send_user_email=True,
         )
         probe_telegram_notifications.assert_awaited_once_with(request, 42)
+        grant_deferred_welcome_bonus.assert_awaited_once_with(request, 42)
         self.assertEqual(panel_calls, ["delete", "update"])
         panel_service.delete_user_from_panel.assert_awaited_once_with(
             "panel-email",

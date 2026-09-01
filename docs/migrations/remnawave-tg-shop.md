@@ -3,14 +3,14 @@
 Для переноса со старого родственного стека используйте общий install wizard:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/3252a8/remnawave-minishop/main/scripts/install.sh -o install.sh
+curl -fsSL https://gitlab.com/3252a8/remnawave-minishop/-/raw/main/scripts/install.sh -o install.sh
 sh install.sh
 ```
 
-Та же ссылка на install-скрипт в GitLab:
+Альтернативная ссылка на install-скрипт в GitHub:
 
 ```bash
-curl -fsSL https://gitlab.com/3252a8/remnawave-minishop/-/raw/main/scripts/install.sh -o install.sh
+curl -fsSL https://raw.githubusercontent.com/3252a8/remnawave-minishop/main/scripts/install.sh -o install.sh
 sh install.sh
 ```
 

@@ -87,6 +87,10 @@ describe("isKumaStatusPageUrlValid", () => {
     "https://status.example.test/status/%2E%2E",
     "https://-status.example.test/status/default",
     "https://status.example.test:0/status/default",
+    "status.example.test",
+    "ftp://status.example.test",
+    "https://",
+    "http://?status=missing-host",
     "",
     "  ",
   ])("rejects %j", (value) => expect(isKumaStatusPageUrlValid(value)).toBe(false));

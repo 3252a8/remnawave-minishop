@@ -1,4 +1,4 @@
-# Развертывание
+# Production-развертывание
 
 Документ описывает продакшен-запуск после разделения проекта на `backend`, `frontend` и `worker`.
 Перед стартом заполните минимальный `.env` по [configuration.md](configuration.md). Полный справочник переменных лежит в [configuration/env-vars.md](../configuration/env-vars.md); после первого входа большинство продуктовых настроек удобнее менять через Web App админку.
@@ -18,14 +18,14 @@ docker compose logs -f backend worker frontend
 Для нового сервера скачайте install-скрипт и запустите его:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/3252a8/remnawave-minishop/main/scripts/install.sh -o install.sh
+curl -fsSL https://gitlab.com/3252a8/remnawave-minishop/-/raw/main/scripts/install.sh -o install.sh
 sh install.sh
 ```
 
-Та же ссылка на install-скрипт в GitLab:
+Альтернативная ссылка на install-скрипт в GitHub:
 
 ```bash
-curl -fsSL https://gitlab.com/3252a8/remnawave-minishop/-/raw/main/scripts/install.sh -o install.sh
+curl -fsSL https://raw.githubusercontent.com/3252a8/remnawave-minishop/main/scripts/install.sh -o install.sh
 sh install.sh
 ```
 

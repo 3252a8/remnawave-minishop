@@ -17,6 +17,7 @@
   import { paymentDiscountDisplay } from "$lib/admin/paymentTable.js";
   import { demoPartnerAttributionForPayment } from "$lib/webapp/mockApi/partnerProgram.js";
   import { partnerStatusVariant } from "$lib/admin/partnerProgramUi.js";
+  import PaymentPurchasesCell from "./PaymentPurchasesCell.svelte";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type MetaRow = {
@@ -220,7 +221,7 @@
       return at(
         "payment_reversal_snapshot_missing",
         {},
-        "This payment predates reversible fulfillment tracking."
+        "This payment has no fulfillment snapshots and cannot be reversed safely."
       );
     }
     if (code === "payment_already_reversed") {
@@ -238,11 +239,6 @@
     return present(months)
       ? at("payment_detail_months_count", { count: months }, `${months} mo.`)
       : "";
-  }
-
-  function purchasedGbText(p: AdminPayment | null): string {
-    const purchasedGb = p?.purchased_gb;
-    return present(purchasedGb) ? formatGb(purchasedGb) : "";
   }
 
   const paymentRows = $derived([
@@ -328,18 +324,6 @@
     {
       label: at("payment_detail_duration_months", {}, "Period"),
       value: durationText(payment),
-    },
-    {
-      label: at("payment_detail_traffic", {}, "Traffic"),
-      value: formatTrafficSplit(payment),
-    },
-    {
-      label: at("payment_detail_purchased_gb", {}, "Purchased GB"),
-      value: purchasedGbText(payment),
-    },
-    {
-      label: at("payment_detail_hwid_devices", {}, "HWID devices"),
-      value: payment?.purchased_hwid_devices,
     },
     {
       label: at("payments_col_discount", {}, "Discount"),
@@ -580,6 +564,7 @@
               <Tag size={16} />
               <h3>{at("payment_detail_purchase_section", {}, "Purchase")}</h3>
             </div>
+            <PaymentPurchasesCell {payment} {at} mode="detail" />
             <ul class="admin-meta-list admin-payment-meta-list">
               {#each purchaseRows as row}
                 <li>
@@ -604,7 +589,7 @@
               </div>
 
               {#if !actionMode}
-                <div class="admin-payment-action-buttons">
+                <div class="admin-payment-action-buttons admin-payment-action-buttons--triggers">
                   {#if payment.can_manual_finalize}
                     <AdminButton variant="primary" onclick={() => startAction("finalize")}>
                       {at("payment_manual_finalize", {}, "Apply payment")}
@@ -726,6 +711,10 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+  }
+
+  .admin-payment-action-buttons--triggers :global(.admin-btn) {
+    width: 100%;
   }
 
   .admin-payment-action-confirm {

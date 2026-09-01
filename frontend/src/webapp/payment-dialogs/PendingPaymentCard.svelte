@@ -1,6 +1,7 @@
 <script lang="ts">
   import Button from "$components/ui/button.svelte";
-  import { ExternalLink, History, Tag } from "$components/ui/icons.js";
+  import Dialog from "$components/ui/dialog.svelte";
+  import { ExternalLink, History, RotateCcw, Tag, TriangleAlert } from "$components/ui/icons.js";
   import { formatCompactNumber } from "$lib/webapp/formatters.js";
   import { priceLabel } from "$lib/webapp/tariffs.js";
   import type { PendingPaymentView, TermUnitLabel, Translate } from "$lib/webapp/types.js";
@@ -9,15 +10,24 @@
     payment,
     payBusy = false,
     resume = () => {},
+    cancel = () => {},
     t = (key) => key,
     termUnitLabel = () => "",
   }: {
     payment: PendingPaymentView;
     payBusy?: boolean;
     resume?: (payment: PendingPaymentView) => void;
+    cancel?: (payment: PendingPaymentView) => void;
     t?: Translate;
     termUnitLabel?: TermUnitLabel;
   } = $props();
+
+  let cancelConfirmOpen = $state(false);
+
+  function confirmCancel(): void {
+    cancelConfirmOpen = false;
+    cancel(payment);
+  }
 
   function paymentPrice(value: unknown): string {
     const amount = Number(value || 0);
@@ -58,15 +68,15 @@
 
 <section class="pending-payment-card">
   <div class="pending-payment-heading">
-    <span class="pending-payment-icon"><History size={18} /></span>
-    <span>
+    <div class="pending-payment-title-row">
+      <span class="pending-payment-icon"><History size={18} /></span>
       <strong>{t("wa_pending_payment_title")}</strong>
-      <small>
-        {t("wa_pending_payment_description", {
-          promo: payment.promo_code || "",
-        })}
-      </small>
-    </span>
+    </div>
+    <small class="pending-payment-description">
+      {t("wa_pending_payment_description", {
+        promo: payment.promo_code || "",
+      })}
+    </small>
   </div>
   <div class="pending-payment-facts">
     <span>
@@ -91,4 +101,51 @@
     {t("wa_pending_payment_continue")}
     <ExternalLink size={16} />
   </Button>
+  {#if payment.promo_code}
+    <Button
+      variant="secondary"
+      class="wide pending-payment-reuse-action"
+      onclick={() => (cancelConfirmOpen = true)}
+      disabled={payBusy}
+    >
+      <RotateCcw size={16} />
+      {t("wa_pending_payment_reuse_promo")}
+    </Button>
+  {/if}
 </section>
+
+{#snippet cancelTitleIcon()}
+  <TriangleAlert size={23} />
+{/snippet}
+
+<Dialog
+  open={cancelConfirmOpen}
+  title={t("wa_pending_payment_cancel_title")}
+  description={t("wa_pending_payment_cancel_description", {
+    promo: payment.promo_code || "",
+  })}
+  closeLabel={t("wa_close")}
+  onclose={() => (cancelConfirmOpen = false)}
+  class="payment-dialog-card pending-payment-cancel-dialog"
+  titleIcon={cancelTitleIcon}
+>
+  <div class="payment-dialog-body">
+    <Button
+      variant="outline"
+      class="wide device-danger-button"
+      onclick={confirmCancel}
+      disabled={payBusy}
+    >
+      <RotateCcw size={17} />
+      {t("wa_pending_payment_cancel_yes")}
+    </Button>
+    <Button
+      variant="secondary"
+      class="wide"
+      onclick={() => (cancelConfirmOpen = false)}
+      disabled={payBusy}
+    >
+      {t("wa_pending_payment_cancel_no")}
+    </Button>
+  </div>
+</Dialog>

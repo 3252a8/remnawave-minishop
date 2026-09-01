@@ -146,6 +146,12 @@ class BroadcastButtonsTest(unittest.TestCase):
         self.assertEqual(resolved[0].url, "https://example.com")
         self.assertEqual(resolved[0].label, "Open")
 
+    def test_url_button_normalizes_telegram_shortcuts(self):
+        for source in ("@help_center", "t.me/help_center", "https://telegram.me/help_center"):
+            with self.subTest(source=source):
+                resolved = self.resolve([_button(url=source)])
+                self.assertEqual(resolved[0].url, "https://t.me/help_center")
+
     def test_url_button_requires_http_scheme(self):
         with self.assertRaises(BroadcastValidationError) as ctx:
             self.resolve([_button(url="javascript:alert(1)")])

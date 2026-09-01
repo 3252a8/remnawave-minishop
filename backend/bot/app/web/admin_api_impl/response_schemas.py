@@ -28,7 +28,13 @@ class AdminBackupArchiveOut(HttpResponseModel):
 
     @classmethod
     def from_archive(cls, archive: BackupArchiveInfo) -> AdminBackupArchiveOut:
-        return cls.model_validate(archive.to_payload())
+        payload = archive.to_payload()
+        # Per-file checksums are only needed while validating a restore and make
+        # the archive listing grow with every file stored in every backup.
+        payload["manifest"] = {
+            key: value for key, value in archive.manifest.items() if key != "archive"
+        }
+        return cls.model_validate(payload)
 
 
 class AdminBackupCreateResultOut(HttpResponseModel):

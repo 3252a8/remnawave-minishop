@@ -9,7 +9,11 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.text_decorations import html_decoration as hd
 from sqlalchemy.orm import sessionmaker
 
-from bot.infra.payment_events import PaymentPurchase, payment_purchases_from_legacy_fields
+from bot.infra.payment_events import (
+    PaymentPurchase,
+    payment_purchases_from_legacy_fields,
+    sale_mode_base,
+)
 from bot.middlewares.i18n import JsonI18n
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.notification_partner import NotificationPartnerMixin
@@ -63,6 +67,14 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         if clean_email:
             safe_display = f"{safe_display} · <code>{hd.quote(clean_email)}</code>"
         return safe_display
+
+    @staticmethod
+    def _external_auth_provider_label(translate: Callable[..., str], provider: str | None) -> str:
+        key = {
+            "google": "log_auth_provider_google",
+            "yandex": "log_auth_provider_yandex",
+        }.get(str(provider or "").lower())
+        return hd.quote(translate(key) if key else str(provider or ""))
 
     @staticmethod
     def _build_profile_keyboard(
@@ -303,6 +315,37 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
         await self._send_to_log_channel(message, reply_markup=reply_markup)
 
+    async def notify_new_external_user_registration(
+        self,
+        *,
+        user_id: int,
+        provider: str,
+        email: str,
+        referred_by_id: int | None = None,
+    ) -> None:
+        """Send a provider-aware notification for an external OAuth registration."""
+        if not self.settings.LOG_NEW_USERS:
+            return
+
+        admin_lang = self.settings.DEFAULT_LANGUAGE
+        _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
+
+        referral_text = ""
+        if referred_by_id:
+            referrer_link = hd.link(str(referred_by_id), f"tg://user?id={referred_by_id}")
+            referral_text = _("log_referral_suffix", referrer_link=referrer_link)
+
+        message = _(
+            "log_new_external_user_registration",
+            user_id=user_id,
+            provider=self._external_auth_provider_label(_, provider),
+            email=hd.quote(email),
+            referral_text=referral_text,
+            timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
+        )
+        reply_markup = self._build_profile_keyboard(_, user_id, referred_by_id)
+        await self._send_to_log_channel(message, reply_markup=reply_markup)
+
     async def notify_account_email_linked(
         self,
         user_id: int,
@@ -374,6 +417,46 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         profile_keyboard = self._build_profile_keyboard(_, telegram_id)
         await self._send_to_log_channel(message, reply_markup=profile_keyboard)
 
+    async def notify_account_external_identity_linked(
+        self,
+        *,
+        user_id: int,
+        provider: str,
+        link_source: str,
+        email: str | None,
+        telegram_id: int | None,
+        username: str | None = None,
+        first_name: str | None = None,
+    ) -> None:
+        """Send a provider-aware notification when an external identity is linked."""
+        if not self.settings.LOG_NEW_USERS:
+            return
+
+        admin_lang = self.settings.DEFAULT_LANGUAGE
+        _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
+        source_key = {
+            "settings": "log_external_link_source_settings",
+            "email_confirmation": "log_external_link_source_email_confirmation",
+        }.get(link_source, "log_external_link_source_settings")
+        display_user_id = int(telegram_id or user_id)
+        user_display = self._format_user_display(
+            user_id=display_user_id,
+            username=username,
+            first_name=first_name,
+            email=email,
+        )
+        message = _(
+            "log_account_external_identity_linked",
+            user_id=user_id,
+            provider=self._external_auth_provider_label(_, provider),
+            link_source=hd.quote(_(source_key)),
+            user_display=user_display,
+            email=hd.quote(email or ""),
+            timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
+        )
+        profile_keyboard = self._build_profile_keyboard(_, display_user_id)
+        await self._send_to_log_channel(message, reply_markup=profile_keyboard)
+
     async def notify_account_merged(
         self,
         *,
@@ -386,6 +469,8 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         final_end_date_text: str | None = None,
         primary_panel_user_uuid: str | None = None,
         removed_panel_user_uuid: str | None = None,
+        reason: str | None = None,
+        provider: str | None = None,
     ) -> None:
         """Send notification when duplicate email/Telegram accounts are merged."""
         if not self.settings.LOG_NEW_USERS:
@@ -401,6 +486,17 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
             first_name=first_name,
             email=email,
         )
+        merge_source = ""
+        if provider:
+            merge_source = self._external_auth_provider_label(_, provider)
+        else:
+            source_key = {
+                "email_link": "log_account_merge_source_email",
+                "telegram_link": "log_account_merge_source_telegram",
+                "login": "log_account_merge_source_login",
+            }.get(str(reason or ""))
+            if source_key:
+                merge_source = hd.quote(_(source_key))
 
         message = _(
             "log_account_merged",
@@ -412,6 +508,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
             final_end_date=hd.quote(final_end_date_text or ""),
             primary_panel_user_uuid=hd.quote(primary_panel_user_uuid or ""),
             removed_panel_user_uuid=hd.quote(removed_panel_user_uuid or ""),
+            merge_source=merge_source,
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
 
@@ -453,6 +550,8 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         tariff_key: str | None = None,
         purchased_hwid_devices: int | None = None,
         purchases: tuple[PaymentPurchase, ...] | None = None,
+        sale_mode: str | None = None,
+        payment_id: int | None = None,
     ) -> None:
         """Send notification about successful payment"""
         if not self.settings.LOG_PAYMENTS:
@@ -489,7 +588,18 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         purchase_summary = "\n".join(line for line in purchase_summary_parts if line)
         has_traffic_purchase = any(purchase.kind == "traffic" for purchase in effective_purchases)
 
-        if has_traffic_purchase:
+        if sale_mode_base(sale_mode) == "balance_topup":
+            message = _(
+                "log_balance_topup_received",
+                provider_emoji=provider_emoji,
+                user_display=user_display,
+                amount=amount,
+                currency=currency,
+                payment_provider=payment_provider,
+                payment_id=payment_id if payment_id is not None else "—",
+                timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
+            )
+        elif has_traffic_purchase:
             traffic_purchase = next(
                 purchase for purchase in effective_purchases if purchase.kind == "traffic"
             )

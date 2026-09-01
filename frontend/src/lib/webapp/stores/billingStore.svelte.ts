@@ -12,7 +12,9 @@ import {
 export type { BillingState, BillingStore } from "./billingStoreSupport";
 import type { BillingActions, PartnerBalancePaymentOptions } from "../billingActions";
 import type { CheckoutAddonSelection } from "../tariffs";
+import type { CheckoutAddonPreset } from "../deeplinks.js";
 import {
+  createPendingPaymentCancellation,
   createPaymentResponseHandler,
   createPendingPaymentResume,
 } from "../billingPaymentResume.js";
@@ -23,6 +25,7 @@ import {
   type TelegramWebApp,
 } from "../telegramInvoice";
 import type {
+  PendingPaymentView,
   PlanView,
   SubscriptionView,
   TariffChangeTarget,
@@ -74,6 +77,23 @@ export function createBillingStore({
     rememberPending: rememberSubscriptionActivationPending,
     setBusy: (payBusy) => updateState((s) => ({ ...s, payBusy })),
   });
+  const cancelPendingPayment = createPendingPaymentCancellation({
+    afterCanceled: applyCanceledPaymentPromo,
+    cancelPayment: billing.cancelPayment,
+    isBusy: () => state.payBusy,
+    notifyCanceled: () => showToast(t("wa_pending_payment_canceled")),
+    onError: (error) => {
+      const code = stringField(asRecord(error).error);
+      showToast(
+        t(
+          code === "payment_cancel_unavailable"
+            ? "wa_pending_payment_cancel_unavailable"
+            : "wa_pending_payment_cancel_failed"
+        )
+      );
+    },
+    setBusy: (payBusy) => updateState((s) => ({ ...s, payBusy })),
+  });
 
   const state = $state<BillingStore>({
     paymentModalOpen: false,
@@ -108,6 +128,7 @@ export function createBillingStore({
     checkoutPromoAppliesTo: "all",
     checkoutPromoMinSubscriptionMonths: null,
     checkoutPromoMinTrafficGb: null,
+    checkoutAddonPreset: null,
     update: updateState,
     openPaymentModal,
     closePaymentModal,
@@ -116,6 +137,7 @@ export function createBillingStore({
     backToTariffList,
     createPayment,
     resumePendingPayment,
+    cancelPendingPayment,
     setCheckoutPromoInput,
     applyCheckoutPromo,
     clearCheckoutPromo,
@@ -362,6 +384,26 @@ export function createBillingStore({
     }));
   }
 
+  async function applyCanceledPaymentPromo(payment: PendingPaymentView): Promise<void> {
+    const code = String(payment.promo_code || "").trim();
+    checkoutPromoRequestId += 1;
+    lastCheckoutQuoteKey = "";
+    updateState((s) => ({
+      ...s,
+      checkoutPromoInput: code,
+      checkoutPromoAutoApply: true,
+      checkoutPromoAppliedCode: "",
+      checkoutPromoStatus: "",
+      checkoutPromoIsError: false,
+      checkoutPromoPriceText: "",
+      ...emptyCheckoutPromoQuote(),
+    }));
+    const quoteReady = Boolean(checkoutQuoteBody());
+    if (quoteReady) lastCheckoutQuoteKey = checkoutQuoteKey();
+    await loadData({ fresh: true, preserveView: true });
+    if (quoteReady) await applyCheckoutPromo();
+  }
+
   function isSubscriptionSale(plan: PlanView | null) {
     const saleMode = String(plan?.sale_mode || "subscription").toLowerCase();
     return ![
@@ -491,7 +533,17 @@ export function createBillingStore({
       let tariffKey = s.selectedTariffKey;
       const catalog = tariffCatalog || [];
       const planList = plans || [];
+      const preferredPlanId = String(options?.preferredPlanId || "").trim();
+      const preferredMonths = optionalNumber(options?.preferredMonths);
       const preferredTariffKey = String(options?.preferredTariffKey || "").trim();
+      const preferredPlan = planList.find((candidate) => {
+        const exactId = preferredPlanId && String(candidate?.id || "") === preferredPlanId;
+        const matchingTariff =
+          preferredTariffKey && String(candidate?.tariff_key || "") === preferredTariffKey;
+        const matchingMonths =
+          preferredMonths == null || Number(candidate?.months || 0) === preferredMonths;
+        return exactId || (matchingTariff && matchingMonths);
+      });
       const preferredTariff = preferredTariffKey
         ? catalog.find((tariff) => tariff.key === preferredTariffKey)
         : null;
@@ -504,7 +556,11 @@ export function createBillingStore({
         preferredTariff || (options?.selectDefaultTariff ? fallbackTariff : null);
 
       if (tariffMode) {
-        if (deeplinkTariff?.key) {
+        if (preferredPlan) {
+          tariffKey = String(preferredPlan.tariff_key || preferredTariffKey);
+          plan = preferredPlan;
+          step = "checkout";
+        } else if (deeplinkTariff?.key) {
           tariffKey = String(deeplinkTariff.key);
           plan = planList.find((p) => p?.tariff_key === tariffKey) || null;
           step = options?.preferCheckout && plan ? "checkout" : "tariff";
@@ -527,6 +583,7 @@ export function createBillingStore({
         }
       } else {
         step = "checkout";
+        if (preferredPlan) plan = preferredPlan;
       }
       return {
         ...s,
@@ -537,6 +594,10 @@ export function createBillingStore({
         selectedMethod: s.selectedMethod || defaultMethod,
         renewHwidDevices: true,
         paymentStartedWithActiveSubscription: Boolean(subscription?.active),
+        checkoutAddonPreset:
+          options?.checkoutAddonPreset && typeof options.checkoutAddonPreset === "object"
+            ? (options.checkoutAddonPreset as CheckoutAddonPreset)
+            : null,
         ...suggestedCheckoutPromoPatch(s, options),
       };
     });
@@ -702,6 +763,7 @@ export function createBillingStore({
         billing.planPaymentBody(s.selectedPlan, s.selectedMethod, {
           renewHwidDevices: s.renewHwidDevices && Boolean(s.selectedPlan?.hwid_renewal?.available),
           promoCode: checkoutPromoCode(),
+          balanceSource: options.balanceSource,
           usePartnerBalance: options.usePartnerBalance,
           checkoutAddons: options.checkoutAddons,
         })
@@ -760,7 +822,8 @@ export function createBillingStore({
           s.selectedMethod,
           stringField(s.topupOptions?.tariff_key),
           checkoutPromoCode(),
-          options.usePartnerBalance
+          options.usePartnerBalance,
+          options.balanceSource
         )
       );
       await handlePaymentResponse(response, {}, () => {
@@ -837,7 +900,8 @@ export function createBillingStore({
         s.selectedChangeAction,
         s.selectedChangeTarget,
         s.selectedMethod,
-        options.usePartnerBalance
+        options.usePartnerBalance,
+        options.balanceSource
       );
       const response =
         s.selectedChangeAction.mode === "buy_package" ||
@@ -886,7 +950,8 @@ export function createBillingStore({
           s.selectedMethod,
           stringField(s.deviceTopupOptions?.tariff_key),
           checkoutPromoCode(),
-          options.usePartnerBalance
+          options.usePartnerBalance,
+          options.balanceSource
         )
       );
       await handlePaymentResponse(response, {}, () => {

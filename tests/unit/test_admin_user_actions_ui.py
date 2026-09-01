@@ -26,6 +26,9 @@ USER_TRAFFIC_GRANT_ACTION = (
 )
 USER_DIALOGS = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserDetailDialogs.svelte"
 PAYMENTS_SECTION = REPO_ROOT / "frontend/src/admin/sections/PaymentsSection.svelte"
+PAYMENT_TABLE = REPO_ROOT / "frontend/src/admin/sections/PaymentTable.svelte"
+PAYMENT_PURCHASES_CELL = REPO_ROOT / "frontend/src/admin/sections/PaymentPurchasesCell.svelte"
+PAYMENT_DETAIL_MODAL = REPO_ROOT / "frontend/src/admin/sections/PaymentDetailModal.svelte"
 TICKET_MESSAGE_BUBBLE = (
     REPO_ROOT / "frontend/src/lib/components/patterns/webapp/TicketMessageBubble.svelte"
 )
@@ -159,6 +162,20 @@ def test_user_detail_links_include_install_share_link():
         assert messages["admin_user_install_share_link_copied"]
 
 
+def test_user_detail_shows_hwid_device_usage():
+    source = _aside_source()
+
+    assert 'openedUserDetail.hwid_devices?.current_devices ?? "—"' in source
+    assert 'openedUserDetail.hwid_devices?.max_devices ?? "∞"' in source
+    assert 'at("user_hwid_devices_usage", { current, max }' in source
+    assert 'at("user_label_hwid_devices"' in source
+
+    expected = {"ru": "{current} из {max}", "en": "{current} of {max}"}
+    for language, value in expected.items():
+        messages = json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text("utf-8"))
+        assert messages["admin_user_hwid_devices_usage"] == value
+
+
 def test_action_save_buttons_require_dirty_valid_state():
     actions = _actions_source()
     tariff = USER_TARIFF_ACTION.read_text(encoding="utf-8")
@@ -250,17 +267,18 @@ def test_tariff_hwid_limit_confirm_flow_is_localized():
 
 
 def test_stats_recent_payments_open_payment_and_user_cards():
-    source = STATS_SECTION.read_text(encoding="utf-8")
-    table_start = source.index("{#each recentPayments as p (p.payment_id)}")
-    table_end = source.index("{/each}", table_start)
-    table_block = source[table_start:table_end]
+    stats = STATS_SECTION.read_text(encoding="utf-8")
+    table = PAYMENT_TABLE.read_text(encoding="utf-8")
 
-    assert "paymentsStore.openPayment(p)" in table_block
-    assert "onOpenUserCard(p.user_id)" in table_block
-    assert "payment_detail_open" in table_block
-    assert "payments_open_user" in table_block
-    assert "admin-payment-id-btn" in source
-    assert "admin-payments-user-btn" in source
+    assert "<PaymentTable" in stats
+    assert "payments={recentPayments}" in stats
+    assert 'payment.status === "succeeded"' in stats
+    assert "paymentsStore.openPayment(p)" in table
+    assert "onOpenUserCard(p.user_id)" in table
+    assert "payment_detail_open" in table
+    assert "payments_open_user" in table
+    assert "admin-payment-id-btn" in table
+    assert "admin-payments-user-btn" in table
 
 
 def test_stats_recent_payment_user_button_stays_in_current_section():
@@ -297,18 +315,46 @@ def test_user_recent_payments_open_payment_cards():
 
 def test_payment_tables_keep_identity_and_primary_fields_visible_first():
     payments = PAYMENTS_SECTION.read_text(encoding="utf-8")
+    stats = STATS_SECTION.read_text(encoding="utf-8")
+    table = PAYMENT_TABLE.read_text(encoding="utf-8")
     activity = USER_ACTIVITY.read_text(encoding="utf-8")
     header = activity[activity.index("<thead>") : activity.index("</thead>")]
 
-    assert 'class="admin-payments-table"' in payments
-    assert "table-layout: fixed" in payments
-    assert "overflow-x: auto" in payments
-    assert "<Popover.Trigger" in payments
-    assert "admin-payments-user-popover" in payments
+    assert "<PaymentTable" in payments
+    assert "<PaymentTable" in stats
+    assert 'class="admin-payments-table"' in table
+    assert "table-layout: fixed" in table
+    assert "overflow-x: auto" in table
+    assert "<Popover.Trigger" in table
+    assert "admin-payments-user-popover" in table
     assert header.index('at("amount"') < header.index('at("provider"')
     assert header.index('at("status"') < header.index('at("provider"')
     assert header.index('at("date"') < header.index('at("provider"')
     assert header.index('at("provider"') < header.index('at("payments_col_traffic_regular"')
+
+
+def test_payments_list_combines_purchases_for_desktop_and_mobile():
+    payments = PAYMENT_TABLE.read_text(encoding="utf-8")
+    purchases = PAYMENT_PURCHASES_CELL.read_text(encoding="utf-8")
+    table_header = payments[payments.index("<thead>") : payments.index("</thead>")]
+
+    assert 'at("payments_col_purchases"' in table_header
+    assert 'at("payments_col_traffic_regular"' not in table_header
+    assert 'at("payments_col_traffic_premium"' not in table_header
+    assert payments.count("<PaymentPurchasesCell") == 2
+    assert 'mode="mobile"' in payments
+    assert "data-payment-purchases={mode}" in purchases
+
+
+def test_payment_detail_highlights_flexible_limits_and_addons():
+    detail = PAYMENT_DETAIL_MODAL.read_text(encoding="utf-8")
+    purchases = PAYMENT_PURCHASES_CELL.read_text(encoding="utf-8")
+
+    assert '<PaymentPurchasesCell {payment} {at} mode="detail" />' in detail
+    assert "payment_detail_purchases_flexible_note" in purchases
+    assert "payment_detail_purchase_mode_limit" in purchases
+    assert "admin-payment-purchases-detail-list" in purchases
+    assert "admin-payment-purchases-detail-head" not in purchases
 
 
 def test_ticket_images_and_user_avatars_share_zoomable_viewer():

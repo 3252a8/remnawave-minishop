@@ -25,9 +25,11 @@
   import {
     currentSearchParams,
     hasEmailCodeLoginDeeplink,
+    readCheckoutDeeplink,
     readCheckoutPromoDeeplink,
     readRenewalDeeplink,
     stripCheckoutPromoQueryFromUrl,
+    stripCheckoutDeeplinkFromUrl,
     stripRenewalLoginQueryFromUrl,
     stripTopupQueryFromUrl,
   } from "./lib/webapp/deeplinks";
@@ -78,6 +80,7 @@
     asWebappRecord,
     asWebappRecordOrNull,
     type AdminPanelProps,
+    type PlanView,
     type SubscriptionView,
     type UserProfile,
     type WebappConfig,
@@ -118,6 +121,7 @@
   const routePrefix = isDocsDemo ? "/demo/runtime" : "";
   const query = new URLSearchParams(window.location.search);
   const miniAppStartPath = miniAppPathFromSearch(window.location.search);
+  const initialCheckoutDeeplink = readCheckoutDeeplink();
   // Checkout has no screen of its own, so the boot sync moves the URL to home
   // before the data load finishes. Remember the intent while it is still
   // readable; the modal opens once plans and the subscription are known.
@@ -287,6 +291,7 @@
     normalizeLangCode,
     openExternalLink,
     readCheckoutPromoDeeplink,
+    readCheckoutDeeplink,
     readRenewalDeeplink,
     plansRouteRequested,
     readTelegramMiniAppInitDataFromLocation,
@@ -294,6 +299,7 @@
     routePrefix,
     showToast,
     stripCheckoutPromoQueryFromUrl,
+    stripCheckoutDeeplinkFromUrl,
     stripRenewalLoginQueryFromUrl,
     stripTopupQueryFromUrl,
     syncAppSectionPath,
@@ -419,6 +425,9 @@
   const appModeViewState = $derived({
     ...shellState,
     cfg: CFG,
+    checkoutDeeplink: initialCheckoutDeeplink,
+    checkoutEntryRequested: Boolean(initialCheckoutDeeplink),
+    checkoutPlans: ((CFG.checkoutPlans?.length ? CFG.checkoutPlans : plans) || []) as PlanView[],
     languageBusy,
     publicInstallSubscription,
     telegramPlatform: tg?.platform || "",

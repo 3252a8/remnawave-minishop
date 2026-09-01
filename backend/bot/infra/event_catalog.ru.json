@@ -1,0 +1,13 @@
+{
+  "title": "# Каталог доменных событий",
+  "generated": "Файл сгенерирован из `bot.infra.event_payloads`; не редактируйте его вручную.",
+  "regenerate": "Для обновления выполните `PYTHONPATH=backend python -m bot.infra.event_catalog`.",
+  "intro": "Подписчики по-прежнему получают данные в формате `(event_name, dict)`. Модели ниже описывают плоский, совместимый с JSON словарь, который публикует код Core.",
+  "required": "обязательно",
+  "field_header": "| Поле | Тип | Значение по умолчанию |",
+  "payload_model": "Модель данных события: `{model}`",
+  "emitters": "Источники события: ",
+  "emitters_none": "не найдены",
+  "reactions": "Реакции Core: ",
+  "reactions_none": "нет"
+}

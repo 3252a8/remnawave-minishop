@@ -14,6 +14,7 @@ const stateMocks = new Set([
   "devices",
   "auto-renew",
   "notifications",
+  "user-balance",
   "auth",
   "emails",
 ]);

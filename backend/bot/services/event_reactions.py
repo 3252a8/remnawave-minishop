@@ -17,6 +17,12 @@ from bot.payment_providers.shared.common import (
 )
 from bot.plugins import PluginContext
 from bot.services.email_templates import render_account_merged
+from bot.services.event_reactions_external_auth import (
+    ACCOUNT_MERGE_NOTIFY_REASONS,
+    EXTERNAL_MERGE_PROVIDERS,
+    EXTERNAL_REGISTRATION_PROVIDERS,
+    react_to_external_identity_link,
+)
 from bot.services.event_reactions_partner import PartnerEventReactionsMixin
 from bot.services.notification_service import NotificationService
 from bot.services.telegram_notifications import record_telegram_notification_failure
@@ -33,7 +39,6 @@ from db.models import Payment, Subscription, User
 logger = logging.getLogger(__name__)
 
 _registered_handlers: list[tuple[str, events.EventHandler]] = []
-_ACCOUNT_MERGE_NOTIFY_REASONS = {"email_link", "telegram_link", "login"}
 _PAYMENT_NOTIFICATION_TTL_SECONDS = 24 * 60 * 60
 _PAYMENT_NOTIFICATION_CACHE_MAX = 4096
 _payment_notification_cache: OrderedDict[str, float] = OrderedDict()
@@ -541,7 +546,18 @@ class CoreEventReactions(PartnerEventReactionsMixin):
         referred_by_id = payload.get("referred_by_id")
         email = payload.get("email") or getattr(user, "email", None)
         try:
-            if payload.get("registered_via") == "email":
+            registered_via = str(payload.get("registered_via") or "unknown")
+            external_provider = EXTERNAL_REGISTRATION_PROVIDERS.get(registered_via)
+            if external_provider:
+                if not email:
+                    return
+                await service.notify_new_external_user_registration(
+                    user_id=int(user_id),
+                    provider=external_provider,
+                    email=str(email),
+                    referred_by_id=referred_by_id,
+                )
+            elif registered_via == "email":
                 if not email:
                     return
                 await service.notify_new_email_user_registration(
@@ -628,6 +644,12 @@ class CoreEventReactions(PartnerEventReactionsMixin):
         except Exception:
             logger.exception("Failed to react to Telegram link for user %s.", user_id)
 
+    async def on_account_external_identity_linked(
+        self, event_name: str, payload: dict[str, Any]
+    ) -> None:
+        del event_name
+        await react_to_external_identity_link(self, payload)
+
     async def on_payment_succeeded(self, event_name: str, payload: dict[str, Any]) -> None:
         del event_name
         user_id = payload.get("user_id")
@@ -658,20 +680,26 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                         payment,
                         default_currency=getattr(self.ctx.settings, "DEFAULT_CURRENCY", "RUB"),
                     )
-                    await service.notify_payment_received(
-                        user_id=int(user_id),
-                        amount=snapshot.amount,
-                        currency=snapshot.currency,
-                        months=snapshot.months,
-                        traffic_gb=snapshot.traffic_gb,
-                        payment_provider=snapshot.notification_provider,
-                        username=getattr(user, "username", None),
-                        email=getattr(user, "email", None),
-                        traffic_is_premium=snapshot.traffic_is_premium,
-                        tariff_key=snapshot.tariff_key,
-                        purchased_hwid_devices=snapshot.purchased_hwid_devices,
-                        purchases=snapshot.purchases,
-                    )
+                    notification_kwargs: dict[str, Any] = {
+                        "user_id": int(user_id),
+                        "amount": snapshot.amount,
+                        "currency": snapshot.currency,
+                        "months": snapshot.months,
+                        "traffic_gb": snapshot.traffic_gb,
+                        "payment_provider": snapshot.notification_provider,
+                        "username": getattr(user, "username", None),
+                        "email": getattr(user, "email", None),
+                        "traffic_is_premium": snapshot.traffic_is_premium,
+                        "tariff_key": snapshot.tariff_key,
+                        "purchased_hwid_devices": snapshot.purchased_hwid_devices,
+                        "purchases": snapshot.purchases,
+                    }
+                    if snapshot.sale_mode_base == "balance_topup":
+                        notification_kwargs.update(
+                            sale_mode=snapshot.sale_mode,
+                            payment_id=snapshot.payment_db_id,
+                        )
+                    await service.notify_payment_received(**notification_kwargs)
             except Exception:
                 logger.exception("Failed to react to successful payment for user %s.", user_id)
 
@@ -884,7 +912,7 @@ class CoreEventReactions(PartnerEventReactionsMixin):
     async def on_account_merged(self, event_name: str, payload: dict[str, Any]) -> None:
         del event_name
         reason = str(payload.get("reason") or "")
-        if reason not in _ACCOUNT_MERGE_NOTIFY_REASONS:
+        if reason not in ACCOUNT_MERGE_NOTIFY_REASONS:
             return
 
         target_user_id = payload.get("target_user_id")
@@ -913,6 +941,8 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                     final_end_date_text=_format_webapp_datetime(final_end_date),
                     primary_panel_user_uuid=payload.get("target_panel_user_uuid"),
                     removed_panel_user_uuid=payload.get("source_panel_user_uuid"),
+                    reason=reason,
+                    provider=EXTERNAL_MERGE_PROVIDERS.get(reason),
                 )
             except Exception:
                 logger.exception(
@@ -952,6 +982,7 @@ def register_core_reactions(ctx: PluginContext) -> None:
         (events.PROMO_CODE_APPLIED, reactions.on_promo_code_applied),
         (events.ACCOUNT_EMAIL_LINKED, reactions.on_account_email_linked),
         (events.ACCOUNT_TELEGRAM_LINKED, reactions.on_account_telegram_linked),
+        (events.ACCOUNT_EXTERNAL_IDENTITY_LINKED, reactions.on_account_external_identity_linked),
         (events.PAYMENT_SUCCEEDED, reactions.on_payment_succeeded),
         (events.PAYMENT_CANCELED, reactions.on_payment_canceled),
         (events.REFERRAL_BONUS_GRANTED, reactions.on_referral_bonus_granted),

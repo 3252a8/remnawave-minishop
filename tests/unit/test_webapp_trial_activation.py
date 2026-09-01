@@ -7,6 +7,11 @@ from unittest.mock import AsyncMock, patch
 import bot.app.web.subscription_webapp  # noqa: F401
 from bot.app.web.webapp import billing as billing_module
 from bot.app.web.webapp import billing_subscription
+from bot.app.web.webapp.auth_common import (
+    _referral_welcome_telegram_required_reason,
+    _trial_telegram_required_reason,
+)
+from config.settings_defaults import DEFAULT_DISPOSABLE_EMAIL_DOMAINS
 from tests.support.settings_stub import settings_stub
 
 
@@ -166,14 +171,14 @@ class WebAppTrialActivationTests(IsolatedAsyncioTestCase):
             TRIAL_DURATION_DAYS=7,
             TRIAL_TRAFFIC_LIMIT_GB=10,
             TRIAL_WITHOUT_TELEGRAM_ENABLED=True,
-            DISPOSABLE_EMAIL_DOMAINS="mailinator.com,temp-mail.org",
+            DISPOSABLE_EMAIL_DOMAINS=DEFAULT_DISPOSABLE_EMAIL_DOMAINS,
             LOG_TRIAL_ACTIVATIONS=False,
         )
         db_user = SimpleNamespace(
             user_id=42,
             telegram_id=None,
             is_banned=False,
-            email="person@mailinator.com",
+            email="person@prorises.com",
         )
         subscription_service = SimpleNamespace(activate_trial_subscription=AsyncMock())
         request = SimpleNamespace(
@@ -204,6 +209,35 @@ class WebAppTrialActivationTests(IsolatedAsyncioTestCase):
         self.assertEqual(payload["error"], "trial_telegram_required")
         self.assertEqual(payload["message"], "disposable_email")
         subscription_service.activate_trial_subscription.assert_not_awaited()
+
+    def test_linked_telegram_allows_disposable_email_trial_activation(self):
+        settings = settings_stub(
+            TRIAL_WITHOUT_TELEGRAM_ENABLED=True,
+            DISPOSABLE_EMAIL_DOMAINS=DEFAULT_DISPOSABLE_EMAIL_DOMAINS,
+        )
+        db_user = SimpleNamespace(
+            telegram_id=123456,
+            email="person@ogzmail.com",
+        )
+
+        self.assertIsNone(_trial_telegram_required_reason(settings, db_user))
+
+    def test_trial_and_referral_without_telegram_switches_are_independent(self):
+        settings = settings_stub(
+            TRIAL_WITHOUT_TELEGRAM_ENABLED=True,
+            REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED=False,
+            DISPOSABLE_EMAIL_DOMAINS=DEFAULT_DISPOSABLE_EMAIL_DOMAINS,
+        )
+        db_user = SimpleNamespace(
+            telegram_id=None,
+            email="person@example.com",
+        )
+
+        self.assertIsNone(_trial_telegram_required_reason(settings, db_user))
+        self.assertEqual(
+            _referral_welcome_telegram_required_reason(settings, db_user),
+            "telegram_required",
+        )
 
     async def test_trial_activation_failure_returns_localized_panel_hint(self):
         session = _Session()

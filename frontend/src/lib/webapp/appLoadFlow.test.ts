@@ -88,8 +88,22 @@ describe("app load flow decisions", () => {
           user: { is_admin: false },
         },
         routeSection: "partner",
-      }).section
-    ).toBe("partner");
+      })
+    ).toMatchObject({ activeTab: "settings", section: "partner" });
+
+    expect(
+      resolveLoadedWebappRoute({
+        fallbackAdminSection: "stats",
+        payload: {
+          settings: {
+            partner_program_enabled: true,
+            referral_program_enabled: false,
+          },
+          user: { is_admin: false },
+        },
+        routeSection: "partner",
+      })
+    ).toMatchObject({ activeTab: "partner", section: "partner" });
 
     expect(
       resolveLoadedWebappRoute({

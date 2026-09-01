@@ -1,5 +1,6 @@
 import {
   buildDeviceTopupOptionsPath,
+  buildPaymentCancelPath,
   buildPaymentStatusPath,
   buildPaymentsPath,
   buildPlansViewedPath,
@@ -22,6 +23,7 @@ import type {
   ApiClient,
   DeviceTopupOptionsResponse,
   PaymentCreateResponse,
+  PaymentCancelResponse,
   PaymentStatusResponse,
   PlansViewedResponse,
   PostPayload,
@@ -41,6 +43,7 @@ type BillingPlan = WebappBillingPlan;
 type BillingAction = WebappBillingAction;
 type BillingTarget = WebappBillingTarget;
 export type PartnerBalancePaymentOptions = {
+  balanceSource?: "user" | "partner" | null;
   usePartnerBalance?: boolean;
   checkoutAddons?: CheckoutAddonSelection;
 };
@@ -51,6 +54,7 @@ export type BillingActions = {
   fetchTariffChangeOptions(): Promise<TariffChangeOptionsResponse>;
   notifyPlansViewed(body: PostPayload<"/api/plans/viewed">): Promise<PlansViewedResponse>;
   postPayment(body: PostPayload<"/api/payments">): Promise<PaymentCreateResponse>;
+  cancelPayment(paymentId: string | number): Promise<PaymentCancelResponse>;
   fetchPaymentStatus(paymentId: string | number): Promise<PaymentStatusResponse>;
   quotePromo(body: PostPayload<"/api/subscription/quote-promo">): Promise<PromoQuoteResponse>;
   quoteSubscription(
@@ -68,6 +72,7 @@ export type BillingActions = {
     options?: {
       renewHwidDevices?: boolean;
       promoCode?: string | null;
+      balanceSource?: "user" | "partner" | null;
       usePartnerBalance?: boolean;
       checkoutAddons?: CheckoutAddonSelection;
     }
@@ -77,20 +82,23 @@ export type BillingActions = {
     method: string,
     fallbackTariffKey?: string | null,
     promoCode?: string | null,
-    usePartnerBalance?: boolean
+    usePartnerBalance?: boolean,
+    balanceSource?: "user" | "partner" | null
   ): PostPayload<"/api/payments">;
   deviceTopupPaymentBody(
     plan: BillingPlan,
     method: string,
     fallbackTariffKey?: string | null,
     promoCode?: string | null,
-    usePartnerBalance?: boolean
+    usePartnerBalance?: boolean,
+    balanceSource?: "user" | "partner" | null
   ): PostPayload<"/api/payments">;
   changePaymentBody(
     action: BillingAction,
     target: BillingTarget,
     method: string,
-    usePartnerBalance?: boolean
+    usePartnerBalance?: boolean,
+    balanceSource?: "user" | "partner" | null
   ): PostPayload<"/api/tariffs/change-payment">;
 };
 
@@ -115,6 +123,10 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
 
   async function postPayment(body: PostPayload<"/api/payments">): Promise<PaymentCreateResponse> {
     return api(buildPaymentsPath(), { method: "POST", body: JSON.stringify(body) });
+  }
+
+  async function cancelPayment(paymentId: string | number): Promise<PaymentCancelResponse> {
+    return api(buildPaymentCancelPath(paymentId), { method: "POST" });
   }
 
   async function fetchPaymentStatus(paymentId: string | number): Promise<PaymentStatusResponse> {
@@ -171,6 +183,7 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
     options: {
       renewHwidDevices?: boolean;
       promoCode?: string | null;
+      balanceSource?: "user" | "partner" | null;
       usePartnerBalance?: boolean;
       checkoutAddons?: CheckoutAddonSelection;
     } = {}
@@ -181,6 +194,7 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
       traffic_gb: plan.traffic_gb,
       device_count: plan.device_count,
       renew_hwid_devices: Boolean(options.renewHwidDevices) && !hasDeviceCheckoutAddon,
+      balance_source: options.balanceSource || (options.usePartnerBalance ? "partner" : null),
       use_partner_balance: Boolean(options.usePartnerBalance),
       method,
     };
@@ -198,12 +212,14 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
     method: string,
     fallbackTariffKey?: string | null,
     promoCode?: string | null,
-    usePartnerBalance?: boolean
+    usePartnerBalance?: boolean,
+    balanceSource?: "user" | "partner" | null
   ): PostPayload<"/api/payments"> {
     const body: WebappRecord = {
       months: plan.months,
       traffic_gb: plan.traffic_gb,
       sale_mode: String(plan.sale_mode || "topup"),
+      balance_source: balanceSource || (usePartnerBalance ? "partner" : null),
       use_partner_balance: Boolean(usePartnerBalance),
       method,
     };
@@ -217,12 +233,14 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
     method: string,
     fallbackTariffKey?: string | null,
     promoCode?: string | null,
-    usePartnerBalance?: boolean
+    usePartnerBalance?: boolean,
+    balanceSource?: "user" | "partner" | null
   ): PostPayload<"/api/payments"> {
     const body: WebappRecord = {
       months: plan.device_count || plan.months,
       device_count: plan.device_count || plan.months,
       sale_mode: String(plan.sale_mode || "hwid_devices"),
+      balance_source: balanceSource || (usePartnerBalance ? "partner" : null),
       use_partner_balance: Boolean(usePartnerBalance),
       method,
     };
@@ -235,7 +253,8 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
     action: BillingAction,
     target: BillingTarget,
     method: string,
-    usePartnerBalance?: boolean
+    usePartnerBalance?: boolean,
+    balanceSource?: "user" | "partner" | null
   ): PostPayload<"/api/tariffs/change-payment"> {
     const withTarget = (body: WebappRecord): PostPayload<"/api/tariffs/change-payment"> => {
       setOptionalString(body, "tariff_key", target.tariff_key);
@@ -247,6 +266,7 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
         traffic_gb: action.traffic_gb,
         months: action.traffic_gb,
         sale_mode: "topup",
+        balance_source: balanceSource || (usePartnerBalance ? "partner" : null),
         use_partner_balance: Boolean(usePartnerBalance),
         method,
       });
@@ -254,11 +274,16 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
     if (action.mode === "buy_period") {
       return withTarget({
         months: action.months,
+        balance_source: balanceSource || (usePartnerBalance ? "partner" : null),
         use_partner_balance: Boolean(usePartnerBalance),
         method,
       });
     }
-    return withTarget({ method, use_partner_balance: Boolean(usePartnerBalance) });
+    return withTarget({
+      method,
+      balance_source: balanceSource || (usePartnerBalance ? "partner" : null),
+      use_partner_balance: Boolean(usePartnerBalance),
+    });
   }
 
   return {
@@ -267,6 +292,7 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
     fetchTariffChangeOptions,
     notifyPlansViewed,
     postPayment,
+    cancelPayment,
     quotePromo,
     quoteSubscription,
     fetchPaymentStatus,

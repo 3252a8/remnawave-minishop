@@ -620,6 +620,7 @@ async def create_ledger_entry(
     session: AsyncSession,
     **values: Any,
 ) -> PartnerLedgerEntry:
+    values.setdefault("withdrawable_amount_minor", values.get("amount_minor", 0))
     entry = PartnerLedgerEntry(**values)
     session.add(entry)
     await session.flush()
@@ -650,6 +651,60 @@ async def balance_minor(
         )
     )
     return int(result.scalar_one() or 0)
+
+
+async def balance_minor_by_user_ids(
+    session: AsyncSession,
+    user_ids: list[int],
+    currency: str,
+) -> dict[int, int]:
+    unique_ids = sorted({int(user_id) for user_id in user_ids})
+    if not unique_ids:
+        return {}
+    rows = (
+        await session.execute(
+            select(
+                PartnerProfile.user_id,
+                func.coalesce(func.sum(PartnerLedgerEntry.amount_minor), 0).label("amount"),
+            )
+            .join(
+                PartnerLedgerEntry,
+                PartnerLedgerEntry.partner_id == PartnerProfile.partner_id,
+            )
+            .where(
+                PartnerProfile.user_id.in_(unique_ids),
+                func.upper(PartnerLedgerEntry.currency) == currency.upper(),
+                PartnerLedgerEntry.state == "posted",
+            )
+            .group_by(PartnerProfile.user_id)
+        )
+    ).all()
+    return {int(row.user_id): int(row.amount or 0) for row in rows if row.user_id is not None}
+
+
+async def withdrawable_balance_minor(
+    session: AsyncSession,
+    partner_id: int,
+    currency: str,
+) -> int:
+    """Return the non-converted part of partner funds that may be withdrawn."""
+
+    withdrawable = int(
+        (
+            await session.execute(
+                select(
+                    func.coalesce(func.sum(PartnerLedgerEntry.withdrawable_amount_minor), 0)
+                ).where(
+                    PartnerLedgerEntry.partner_id == partner_id,
+                    func.upper(PartnerLedgerEntry.currency) == currency.upper(),
+                    PartnerLedgerEntry.state == "posted",
+                )
+            )
+        ).scalar_one()
+        or 0
+    )
+    available = await balance_minor(session, partner_id, currency)
+    return max(0, min(withdrawable, available))
 
 
 async def balance_summaries(

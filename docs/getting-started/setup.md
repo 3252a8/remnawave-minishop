@@ -1,4 +1,4 @@
-# Установка
+# Быстрый запуск
 
 Начните с `.env`, затем поднимите Compose-стек и проверьте backend, worker и frontend.
 
@@ -13,7 +13,7 @@
 Подробности: [интерактивный install wizard](deployment.md#интерактивный-install-wizard).
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/3252a8/remnawave-minishop/main/scripts/install.sh -o install.sh
+curl -fsSL https://gitlab.com/3252a8/remnawave-minishop/-/raw/main/scripts/install.sh -o install.sh
 sh install.sh
 ```
 
@@ -57,8 +57,8 @@ docker compose up -d
 
 ## Настройки для веб апп
 
-- [Настройка Telegram бота](../features/telegram-auth.md) - Telegram OAuth и Telegram Mini App.
-- [Настройка SMTP](../features/email-login.md) - Вход и регистрация по email.
+- [Способы входа](../features/login-methods.md) — email-код, email/пароль, Telegram, Google,
+  Яндекс и passkey.
 
 ## После первого входа
 

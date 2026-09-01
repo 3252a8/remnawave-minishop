@@ -11,14 +11,13 @@ from aiohttp import web
 import bot.app.web.admin_api  # noqa: F401 - populates admin_api_impl module namespaces
 from bot.app.web.admin_api_impl import ads as ads_module
 from bot.app.web.admin_api_impl import common as common_module
+from bot.app.web.admin_api_impl.payment_schemas import PaymentDetailOut, PaymentOut
 from bot.app.web.admin_api_impl.schemas import (
     AdminTariffsCatalogOut,
     AdminTariffsOut,
     AdOut,
     AdStatsOut,
     LogOut,
-    PaymentDetailOut,
-    PaymentOut,
     ProviderCurrencySupportOut,
 )
 from bot.payment_providers.base import PaymentProviderPresentation, PaymentProviderSpec

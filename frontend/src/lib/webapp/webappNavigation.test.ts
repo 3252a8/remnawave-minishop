@@ -42,6 +42,15 @@ describe("createWebappNavigation", () => {
     expect(deps.syncSectionPath).toHaveBeenCalledWith("invite");
   });
 
+  it("opens the trial as a child of Home", () => {
+    const { deps, navigation, state } = makeNavigation();
+
+    expect(navigation.goTrial()).toBe(true);
+
+    expect(state).toEqual({ activeTab: "home", screen: "trial" });
+    expect(deps.syncSectionPath).toHaveBeenCalledWith("trial");
+  });
+
   it("opens status as a native child of Settings by default", () => {
     const { deps, navigation, state } = makeNavigation();
 
@@ -69,13 +78,23 @@ describe("createWebappNavigation", () => {
     expect(deps.syncSectionPath).not.toHaveBeenCalled();
   });
 
-  it("keeps the partner program on its own navigation item", () => {
+  it("opens the partner program as a child of Settings when its entry is there", () => {
     const { deps, navigation, state } = makeNavigation();
 
     expect(navigation.goPartner()).toBe(true);
 
-    expect(state).toEqual({ activeTab: "partner", screen: "partner" });
+    expect(state).toEqual({ activeTab: "settings", screen: "partner" });
     expect(deps.syncSectionPath).toHaveBeenCalledWith("partner");
+  });
+
+  it("keeps the partner program on its own navigation item when bonuses are disabled", () => {
+    const { navigation, state } = makeNavigation({
+      referralProgramEnabled: () => false,
+    });
+
+    expect(navigation.goPartner()).toBe(true);
+
+    expect(state).toEqual({ activeTab: "partner", screen: "partner" });
   });
 
   it("guards the partner route while the live feature flag is disabled", () => {

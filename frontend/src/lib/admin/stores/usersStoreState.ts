@@ -42,6 +42,10 @@ export type AdminStoreState = {
   usersPremiumTraffic: string;
   usersSort: string;
   usersLoading: boolean;
+  userBalanceEnabled: boolean;
+  partnerBalanceEnabled: boolean;
+  balanceCurrency: string;
+  balanceCurrencyScale: number;
   openedUser: AdminUser | null;
   openedUserDetail: AdminUserDetail | null;
   userDetailLoading: boolean;
@@ -136,6 +140,10 @@ export function createInitialUsersState(): AdminStoreState {
     usersPremiumTraffic: "all",
     usersSort: "",
     usersLoading: false,
+    userBalanceEnabled: false,
+    partnerBalanceEnabled: false,
+    balanceCurrency: "RUB",
+    balanceCurrencyScale: 0,
 
     openedUser: null,
     openedUserDetail: null,

@@ -512,11 +512,17 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
         i18n_instance.reload_overrides_from_file()
     locales_data = getattr(i18n_instance, "locales_data", {}) if i18n_instance else {}
     base_locales_data = getattr(i18n_instance, "base_locales_data", {}) if i18n_instance else {}
+    # Import lazily to keep the asset module usable during the serializers'
+    # compatibility import cycle. These plans contain public catalog data only;
+    # user-specific quotes are still attached after authentication.
+    from .serializers import _serialize_plans
+
     return {
         "config": {
             "title": webapp_settings.title,
             "primaryColor": webapp_settings.primary_color,
             "userThemeModeEnabled": bool(webapp_settings.user_theme_mode_enabled),
+            "compactHomeEnabled": bool(webapp_settings.compact_home_enabled),
             "themesCatalog": themes_payload,
             "themesDir": settings.WEBAPP_THEMES_DIR,
             "themePreviewKey": preview_key,
@@ -547,6 +553,7 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
             "emailAuthEnabled": cached["email_auth_enabled"],
             "authProviders": cached["auth_providers"],
             "registrationInviteOnlyEnabled": cached["registration_invite_only_enabled"],
+            "checkoutPlans": _serialize_plans(settings, str(cached["language"] or "ru")),
             "appVersion": _resolve_app_version(),
             "appRepositoryUrl": APP_REPOSITORY_URL,
         },

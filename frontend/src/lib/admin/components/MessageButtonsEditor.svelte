@@ -5,6 +5,7 @@
   import { AdminButton, AdminCombobox, AdminSelect } from "$components/patterns/admin/index.js";
   import { Input, Sortable } from "$components/ui/index.js";
   import { Plus, Trash2 } from "$components/ui/icons.js";
+  import { CUSTOMER_WEBAPP_SECTIONS } from "$lib/admin/messageButtonTargets.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type SelectOption = { value: string; label: string; disabled?: boolean; group?: string };
@@ -74,20 +75,23 @@
     ...extraKinds,
   ]);
   // Screens a customer-facing button may open; the admin panel is not one.
-  const sectionOptions = $derived([
-    { value: "plans", label: at("broadcast_button_section_plans", {}, "Plans and checkout") },
-    { value: "home", label: at("broadcast_button_section_home", {}, "Home") },
-    { value: "install", label: at("broadcast_button_section_install", {}, "Install") },
-    { value: "trial", label: at("broadcast_button_section_trial", {}, "Trial") },
-    { value: "invite", label: at("broadcast_button_section_invite", {}, "Invite friends") },
-    {
-      value: "partner",
-      label: at("broadcast_button_section_partner", {}, "Partner program"),
-    },
-    { value: "devices", label: at("broadcast_button_section_devices", {}, "Devices") },
-    { value: "support", label: at("broadcast_button_section_support", {}, "Support") },
-    { value: "settings", label: at("broadcast_button_section_settings", {}, "Settings") },
-  ]);
+  const sectionFallbacks: Record<(typeof CUSTOMER_WEBAPP_SECTIONS)[number], string> = {
+    plans: "Plans and checkout",
+    home: "Home",
+    install: "Install",
+    trial: "Trial",
+    invite: "Invite friends",
+    partner: "Partner program",
+    devices: "Devices",
+    support: "Support",
+    settings: "Settings",
+  };
+  const sectionOptions = $derived(
+    CUSTOMER_WEBAPP_SECTIONS.map((section) => ({
+      value: section,
+      label: at(`broadcast_button_section_${section}`, {}, sectionFallbacks[section]),
+    }))
+  );
   // A kind outside the shared ones is host-owned and carries no promo code.
   const sharedKinds = new Set(["url", "promo_bot", "promo_webapp"]);
   const hasPromoButtons = $derived(

@@ -101,14 +101,41 @@ describe("webapp tariff helpers", () => {
     });
   });
 
-  it("keeps disabled or unknown premium traffic distinct from unlimited traffic", () => {
+  it("hides fully disabled premium traffic without hiding configurable limits", () => {
     expect(checkoutTariffSummary({ premium_enabled: false }).premiumTraffic).toEqual({
-      known: true,
+      known: false,
       units: 0,
       unlimited: false,
     });
     expect(checkoutTariffSummary({}).premiumTraffic).toEqual({
       known: false,
+      units: 0,
+      unlimited: false,
+    });
+    expect(
+      checkoutTariffSummary({
+        premium_enabled: false,
+        checkout_addons: {
+          premium_traffic: {
+            kind: "premium_traffic",
+            base_units: 0,
+            max_total_units: 100,
+            options: [
+              { extra_units: 0, total_units: 0, price: 0 },
+              { extra_units: 50, total_units: 50, price: 100 },
+            ],
+          },
+        },
+      }).premiumTraffic
+    ).toEqual({
+      known: true,
+      units: 0,
+      unlimited: false,
+    });
+    expect(
+      checkoutTariffSummary({ premium_enabled: true, premium_monthly_gb: 0 }).premiumTraffic
+    ).toEqual({
+      known: true,
       units: 0,
       unlimited: false,
     });

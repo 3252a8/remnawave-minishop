@@ -648,7 +648,7 @@ class WebAppPaymentStatusTests(IsolatedAsyncioTestCase):
             ) as resolve_promo,
             patch.object(
                 billing_payments,
-                "allocate_partner_checkout_balance",
+                "allocate_checkout_balance",
                 AsyncMock(),
             ) as allocate_balance,
         ):

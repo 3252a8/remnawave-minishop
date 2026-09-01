@@ -18,7 +18,7 @@ from bot.infra import events
 from bot.infra.event_payloads import AccountEmailLinkedPayload, AccountTelegramLinkedPayload
 from bot.services.email_auth_service import EmailAuthService
 from config.settings import Settings
-from db.dal import user_dal
+from db.dal import user_dal, user_email_dal
 from db.dal.user_dal import UserMergeConflictError
 from db.models import UserTelegramAvatar
 
@@ -35,6 +35,7 @@ from .auth import (
     _sync_panel_identity_for_user,
     _validate_telegram_auth_payload,
 )
+from .auth_referral import _grant_deferred_referral_welcome_bonus_after_telegram_link
 from .common import (
     _ensure_cached_telegram_avatar,
     _invalidate_webapp_user_caches,
@@ -99,6 +100,12 @@ async def account_email_request_route(request: web.Request) -> web.Response:
             return _json_error(403, "access_denied", "Access denied")
         if db_user.email == email and db_user.email_verified_at:
             return json_response({"ok": True, "already_linked": True})
+        if db_user.email and db_user.email_verified_at:
+            return _json_error(
+                409,
+                "email_change_requires_current_confirmation",
+                "Confirm the current email before changing it",
+            )
         lang = _normalize_language(db_user.language_code or settings.DEFAULT_LANGUAGE)
 
     return await _request_email_code(
@@ -170,7 +177,9 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
                 bool(_telegram_id_for_user(current_user)) and not current_user.email
             )
 
-            existing_email_user = await user_dal.get_user_by_email(session, email)
+            existing_email_user = await user_dal.get_user_by_email(session, email) or (
+                await user_email_dal.get_user_by_verified_email_address(session, email)
+            )
             if existing_email_user and existing_email_user.user_id != current_user.user_id:
                 source_panel_uuid = existing_email_user.panel_user_uuid
                 current_user = await user_dal.merge_users(
@@ -189,6 +198,16 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
                 )
             current_user.email = email
             current_user.email_verified_at = datetime.now(UTC)
+            current_user.notification_email = email
+            await user_email_dal.upsert_user_email_address(
+                session,
+                user_id=int(current_user.user_id),
+                email=email,
+                source="email",
+                verified_at=current_user.email_verified_at,
+                is_primary=True,
+                is_notification=True,
+            )
             if not merge_notice:
                 await _sync_panel_identity_for_user(request, current_user)
             await session.commit()
@@ -421,6 +440,7 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
             logger.exception("Telegram account link failed")
             return _json_error(500, "link_failed", "Link failed")
 
+    await _grant_deferred_referral_welcome_bonus_after_telegram_link(request, final_user_id)
     await _invalidate_webapp_user_caches(settings, user_id, final_user_id, include_devices=True)
 
     await _probe_telegram_notifications_for_user_id(request, int(final_user_id))

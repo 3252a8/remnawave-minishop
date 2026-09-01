@@ -24,6 +24,7 @@ from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
 from bot.middlewares.i18n import JsonI18n
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.user_email_notifications import send_user_notification_email
+from bot.services.user_notification_policy import email_recipient
 from bot.utils.config_link import prepare_config_links
 from bot.utils.mini_app_url import (
     subscription_mini_app_install_url,
@@ -77,7 +78,7 @@ async def subscription_reissue_route(request: web.Request) -> web.Response:
         if not db_user or db_user.is_banned:
             return _json_error(403, "access_denied", "Access denied")
 
-        email = str(getattr(db_user, "email", "") or "").strip()
+        email = email_recipient(settings, db_user)
         if not email:
             return _json_error(400, "email_required", "A linked email address is required")
 

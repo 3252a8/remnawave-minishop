@@ -8,6 +8,7 @@ describe("Mini App start routes", () => {
     ["admin_user_100200300", "/admin/users/100200300"],
     ["admin_user_-42", "/admin/users/-42"],
     ["ticket_7", "/support/7"],
+    ["plan_standard__months_3__traffic_200", "/checkout"],
     ["plans", "/plans"],
     ["invite", "/invite"],
     ["partner", "/partner"],

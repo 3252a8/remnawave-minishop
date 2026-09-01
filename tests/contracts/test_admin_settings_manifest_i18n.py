@@ -307,6 +307,18 @@ def test_user_theme_mode_toggle_is_an_appearance_setting():
         assert field["i18n_description_key"] in messages
 
 
+def test_compact_home_toggle_is_an_appearance_setting():
+    field = _manifest_by_key()["WEBAPP_COMPACT_HOME_ENABLED"]
+
+    assert field["type"] == "bool"
+    assert field["section"] == "appearance"
+    assert field["section_order"] == 2
+    for language in ("ru", "en"):
+        messages = _locale(language)
+        assert field["i18n_label_key"] in messages
+        assert field["i18n_description_key"] in messages
+
+
 def test_support_settings_manifest_uses_admin_i18n_keys():
     manifest = _manifest_by_key()
 
@@ -737,8 +749,8 @@ def test_legacy_tariff_settings_are_separated_from_payment_settings():
     assert manifest["MONTH_1_ENABLED"]["section_order"] == 11
     assert manifest["TRIAL_ENABLED"]["section"] == "pricing"
     assert manifest["TRIAL_ENABLED"]["subsection"] == "trial"
-    assert manifest["TRIAL_WITHOUT_TELEGRAM_ENABLED"]["section"] == "pricing"
-    assert manifest["TRIAL_WITHOUT_TELEGRAM_ENABLED"]["subsection"] == "trial"
+    assert manifest["TRIAL_WITHOUT_TELEGRAM_ENABLED"]["section"] == "system"
+    assert manifest["TRIAL_WITHOUT_TELEGRAM_ENABLED"]["subsection"] == "email_anti_abuse"
     assert manifest["TRIAL_SQUAD_UUIDS"]["section"] == "pricing"
     assert manifest["TRIAL_SQUAD_UUIDS"]["subsection"] == "trial"
     assert manifest["TRIAL_PREMIUM_TRAFFIC_LIMIT_GB"]["section"] == "pricing"
@@ -757,8 +769,11 @@ def test_legacy_tariff_settings_are_separated_from_payment_settings():
     assert manifest["REFERRAL_PROGRAM_ENABLED"]["subsection"] == "referral"
     assert manifest["REFERRAL_WELCOME_BONUS_DAYS"]["section"] == "pricing"
     assert manifest["REFERRAL_WELCOME_BONUS_DAYS"]["subsection"] == "referral"
-    assert manifest["REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED"]["section"] == "pricing"
-    assert manifest["REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED"]["subsection"] == "referral"
+    assert manifest["REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED"]["section"] == "system"
+    assert (
+        manifest["REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED"]["subsection"]
+        == "email_anti_abuse"
+    )
     assert manifest["REFERRAL_ONE_BONUS_PER_REFEREE"]["section"] == "pricing"
     assert manifest["REFERRAL_ONE_BONUS_PER_REFEREE"]["subsection"] == "referral"
     assert manifest["REFERRAL_WEBAPP_LINK_ENABLED"]["section"] == "pricing"
@@ -777,8 +792,17 @@ def test_legacy_tariff_settings_are_separated_from_payment_settings():
     assert manifest["PARTNER_ONE_BONUS_PER_CLIENT"]["subsection"] == "partner"
     assert manifest["LEGACY_REFS"]["section"] == "pricing"
     assert manifest["LEGACY_REFS"]["subsection"] == "legacy_tariffs"
-    assert manifest["DISPOSABLE_EMAIL_DOMAINS"]["section"] == "pricing"
-    assert manifest["DISPOSABLE_EMAIL_DOMAINS"]["subsection"] == "referral"
+    assert manifest["DISPOSABLE_EMAIL_DOMAINS"]["section"] == "system"
+    assert manifest["DISPOSABLE_EMAIL_DOMAINS"]["subsection"] == "email_anti_abuse"
+    for key in (
+        "TRIAL_WITHOUT_TELEGRAM_ENABLED",
+        "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
+        "DISPOSABLE_EMAIL_DOMAINS",
+    ):
+        assert manifest[key]["section_order"] == 12
+        assert manifest[key]["i18n_subsection_key"] == (
+            "admin_settings_subsection_email_anti_abuse"
+        )
 
 
 def test_platega_settings_share_one_admin_subsection():

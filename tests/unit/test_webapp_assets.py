@@ -388,6 +388,9 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(home_source.count("<ServerStatusCard"), 1)
         self.assertIn("{#if serverStatusShowOnHome}", home_source)
+        status_card_index = home_source.index("<ServerStatusCard")
+        self.assertGreater(status_card_index, home_source.index('class="premium-progress"'))
+        self.assertLess(status_card_index, home_source.index('<div class="action-stack">'))
         self.assertIn("{#if status?.enabled}", card_source)
         self.assertIn("settings-row-status", settings_source)
         self.assertIn('t("menu_server_status_button")', settings_source)
@@ -431,6 +434,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             SERVER_STATUS_PROVIDER="url",
             SERVER_STATUS_URL="https://status.example.com",
             SERVER_STATUS_SHOW_ON_HOME=True,
+            WEBAPP_COMPACT_HOME_ENABLED=True,
             SUPPORT_LINK="https://t.me/support",
             PRIVACY_POLICY_URL="https://example.com/privacy",
             USER_AGREEMENT_URL="https://example.com/agreement",
@@ -468,6 +472,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(payload["config"]["serverStatusShowOnHome"])
         self.assertEqual(payload["config"]["apiBase"], "/api")
         self.assertTrue(payload["config"]["userThemeModeEnabled"])
+        self.assertTrue(payload["config"]["compactHomeEnabled"])
         self.assertEqual(
             request.app["webapp_settings_cache"]["data"]["server_status_url"],
             "https://status.example.com",
@@ -1373,6 +1378,24 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 self.assertRaises(web.HTTPNotFound),
             ):
                 await assets_static.provider_logo_asset_route(request)
+
+    async def test_flag_font_route_serves_local_woff2_asset(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            asset_dir = Path(tmpdir)
+            font_dir = asset_dir / "fonts"
+            font_dir.mkdir()
+            (font_dir / assets_static.FLAG_FONT_FILENAME).write_bytes(b"wOF2font")
+
+            request = SimpleNamespace(app={"settings": SimpleNamespace(WEBAPP_ENABLED=True)})
+
+            with patch.object(assets_static, "ASSET_DIR", asset_dir):
+                response = await assets_static.flag_font_asset_route(request)
+
+            self.assertEqual(response.content_type, "font/woff2")
+            self.assertEqual(response.body, b"wOF2font")
+            self.assertEqual(
+                response.headers["Cache-Control"], "public, max-age=31536000, immutable"
+            )
 
     async def test_js_asset_route_sets_immutable_cache_control_for_minified_asset(self):
         with tempfile.TemporaryDirectory() as tmpdir:

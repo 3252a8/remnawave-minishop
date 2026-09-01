@@ -48,6 +48,17 @@ describe("auth referral helpers", () => {
     expect(storage.get(REFERRAL_STORAGE_KEY)).toBe("TG123");
   });
 
+  it("does not treat a Telegram plan checkout payload as a referral", () => {
+    const { storage } = installBrowser("");
+
+    expect(
+      readReferralParam({
+        initDataUnsafe: { start_param: "plan_standard__months_3__traffic_200" },
+      })
+    ).toBe("");
+    expect(storage.has(REFERRAL_STORAGE_KEY)).toBe(false);
+  });
+
   it("shows the invite-only hint only when no referral is available", () => {
     const { localStorage } = installBrowser("");
 

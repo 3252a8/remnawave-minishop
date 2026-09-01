@@ -119,3 +119,37 @@ export function createPendingPaymentResume({
     }
   };
 }
+
+export function createPendingPaymentCancellation({
+  afterCanceled,
+  cancelPayment,
+  isBusy,
+  notifyCanceled,
+  onError,
+  setBusy,
+}: {
+  afterCanceled: (payment: PendingPaymentView) => Promise<void>;
+  cancelPayment: (paymentId: string | number) => Promise<BillingPaymentResponse>;
+  isBusy: () => boolean;
+  notifyCanceled: () => void;
+  onError: (error: unknown) => void;
+  setBusy: (busy: boolean) => void;
+}) {
+  return async function cancelPendingPayment(payment: PendingPaymentView): Promise<void> {
+    const paymentId = payment.payment_id;
+    const promoCode = String(payment.promo_code || "").trim();
+    if (!paymentId || !promoCode || isBusy()) return;
+
+    setBusy(true);
+    try {
+      const response = await cancelPayment(paymentId);
+      if (!response.ok) throw response;
+      await afterCanceled(payment);
+      notifyCanceled();
+    } catch (error: unknown) {
+      onError(error);
+    } finally {
+      setBusy(false);
+    }
+  };
+}

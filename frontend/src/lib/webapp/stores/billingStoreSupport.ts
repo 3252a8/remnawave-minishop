@@ -1,5 +1,6 @@
 import { unwrap } from "../publicApi";
 import type { PartnerBalancePaymentOptions } from "../billingActions";
+import type { CheckoutAddonPreset } from "../deeplinks.js";
 import type {
   BillingOptionsResponse,
   DeviceTopupOptions,
@@ -64,6 +65,7 @@ export type BillingState = {
   checkoutPromoAppliesTo: string;
   checkoutPromoMinSubscriptionMonths: number | null;
   checkoutPromoMinTrafficGb: number | null;
+  checkoutAddonPreset: CheckoutAddonPreset | null;
 };
 export type BillingStore = BillingState & {
   update(updater: (snapshot: BillingState) => BillingState): void;
@@ -82,6 +84,7 @@ export type BillingStore = BillingState & {
   backToTariffList(subscription: SubscriptionView, tariffCatalog?: TariffView[]): void;
   createPayment(options?: PartnerBalancePaymentOptions): Promise<void>;
   resumePendingPayment(payment: PendingPaymentView): Promise<void>;
+  cancelPendingPayment(payment: PendingPaymentView): Promise<void>;
   setCheckoutPromoInput(value: string): void;
   applyCheckoutPromo(): Promise<void>;
   clearCheckoutPromo(): void;

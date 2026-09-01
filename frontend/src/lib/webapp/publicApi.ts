@@ -84,6 +84,8 @@ export type PostResponse<Path extends string> = JsonResponse<OperationFor<Path, 
 
 export type BootstrapResponse = GetResponse<"/api/bootstrap">;
 export type MeResponse = GetResponse<"/api/me">;
+export type BalanceResponse = GetResponse<"/api/balance">;
+export type BalanceTopupResponse = PostResponse<"/api/balance/topup">;
 export type ServerStatusResponse = GetResponse<"/api/status">;
 export type AccountEmailRequestResponse = PostResponse<"/api/account/email/request">;
 export type AccountEmailVerifyResponse = PostResponse<"/api/account/email/verify">;
@@ -95,6 +97,9 @@ export type AuthEmailMagicResponse = PostResponse<"/api/auth/email/magic">;
 export type AuthEmailPasswordResponse = PostResponse<"/api/auth/email/password">;
 export type AuthEmailRequestResponse = PostResponse<"/api/auth/email/request">;
 export type AuthEmailVerifyResponse = PostResponse<"/api/auth/email/verify">;
+export type AuthExternalPendingResponse = PostResponse<"/api/auth/external/pending">;
+export type AuthExternalRequestResponse = PostResponse<"/api/auth/external/request">;
+export type AuthExternalVerifyResponse = PostResponse<"/api/auth/external/verify">;
 export type AuthLogoutResponse = PostResponse<"/api/auth/logout">;
 export type AuthSessionResponse = GetResponse<"/api/auth/session">;
 export type AuthTokenResponse = PostResponse<"/api/auth/token">;
@@ -103,6 +108,7 @@ export type DevicesDisconnectResponse = PostResponse<"/api/devices/disconnect">;
 export type DeviceTopupOptionsResponse = GetResponse<"/api/devices/topup-options">;
 export type PaymentCreateResponse = PostResponse<"/api/payments">;
 export type PaymentStatusResponse = GetResponse<"/api/payments/{payment_id}">;
+export type PaymentCancelResponse = PostResponse<"/api/payments/{payment_id}/cancel">;
 export type PlansViewedResponse = PostResponse<"/api/plans/viewed">;
 export type PromoApplyResponse = PostResponse<"/api/promo/apply">;
 export type PromoStatusResponse = PostResponse<"/api/promo/status">;
@@ -145,6 +151,10 @@ export type AuthEmailMagicPath = "/auth/email/magic";
 export type AuthEmailPasswordPath = "/auth/email/password";
 export type AuthEmailRequestPath = "/auth/email/request";
 export type AuthEmailVerifyPath = "/auth/email/verify";
+export type AuthExternalPendingPath = "/auth/external/pending";
+export type AuthExternalRequestPath = "/auth/external/request";
+export type AuthExternalVerifyPath = "/auth/external/verify";
+export type AuthExternalCancelPath = "/auth/external/cancel";
 export type AuthLogoutPath = "/auth/logout";
 export type AuthTokenPath = "/auth/token";
 export type ServerStatusPath = "/status";
@@ -309,6 +319,22 @@ export function buildAuthEmailVerifyPath(): AuthEmailVerifyPath {
   return "/auth/email/verify";
 }
 
+export function buildAuthExternalPendingPath(): AuthExternalPendingPath {
+  return "/auth/external/pending";
+}
+
+export function buildAuthExternalRequestPath(): AuthExternalRequestPath {
+  return "/auth/external/request";
+}
+
+export function buildAuthExternalVerifyPath(): AuthExternalVerifyPath {
+  return "/auth/external/verify";
+}
+
+export function buildAuthExternalCancelPath(): AuthExternalCancelPath {
+  return "/auth/external/cancel";
+}
+
 export function buildAuthLogoutPath(): AuthLogoutPath {
   return "/auth/logout";
 }
@@ -351,6 +377,13 @@ export type PaymentStatusPath = BuiltApiPath<"/api/payments/{payment_id}">;
 export function buildPaymentStatusPath(paymentId: string | number): PaymentStatusPath {
   return builtApiPath<"/api/payments/{payment_id}">(
     `/payments/${encodeURIComponent(String(paymentId))}`
+  );
+}
+
+export type PaymentCancelPath = BuiltApiPath<"/api/payments/{payment_id}/cancel">;
+export function buildPaymentCancelPath(paymentId: string | number): PaymentCancelPath {
+  return builtApiPath<"/api/payments/{payment_id}/cancel">(
+    `/payments/${encodeURIComponent(String(paymentId))}/cancel`
   );
 }
 
@@ -522,7 +555,9 @@ export type AdminUserAction =
   | "regular-traffic-override"
   | "traffic-strategy"
   | "hwid-device-limit"
-  | "traffic-grant";
+  | "traffic-grant"
+  | "balance-adjustment"
+  | "balance-conversion";
 type AdminUserActionTemplate =
   | "/api/admin/users/{user_id}/ban"
   | "/api/admin/users/{user_id}/message"
@@ -538,7 +573,9 @@ type AdminUserActionTemplate =
   | "/api/admin/users/{user_id}/regular-traffic-override"
   | "/api/admin/users/{user_id}/traffic-strategy"
   | "/api/admin/users/{user_id}/hwid-device-limit"
-  | "/api/admin/users/{user_id}/traffic-grant";
+  | "/api/admin/users/{user_id}/traffic-grant"
+  | "/api/admin/users/{user_id}/balance-adjustment"
+  | "/api/admin/users/{user_id}/balance-conversion";
 export type AdminUserActionPath = BuiltApiPath<AdminUserActionTemplate>;
 export function buildAdminUserActionPath(
   userId: string | number,

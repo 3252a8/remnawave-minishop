@@ -9,6 +9,7 @@ import type { PreviewThemesCatalog } from "./types";
 // optional fields that older snapshots may not carry.
 type DemoDatasetShape = Record<string, unknown> & {
   config?: Record<string, unknown>;
+  adminPayments?: Record<string, unknown>[];
   currentUser?: Record<string, unknown> | null;
   currentSubscription?: Record<string, unknown> | null;
   devices?: Record<string, unknown>;
@@ -22,6 +23,68 @@ type DemoDatasetShape = Record<string, unknown> & {
 };
 
 const DATASET = DEMO_DATASET as unknown as DemoDatasetShape;
+
+function applyPaymentPurchasesScenario(): void {
+  const payments = DATASET.adminPayments;
+  if (!payments?.length) return;
+  const examples: Record<string, unknown>[] = [
+    {
+      amount: 1590,
+      status: "succeeded",
+      description: "Standard · 3 months",
+      subscription_duration_months: 3,
+      sale_mode: "subscription@standard",
+      traffic_regular_gb: null,
+      traffic_premium_gb: null,
+      purchased_gb: null,
+      purchased_hwid_devices: 2,
+      purchases: [
+        { kind: "traffic", amount: 150, unit: "gb", scope: "regular", mode: "limit" },
+        { kind: "traffic", amount: 50, unit: "gb", scope: "premium", mode: "limit" },
+        { kind: "hwid_devices", amount: 2, unit: "device", scope: null, mode: "limit" },
+      ],
+    },
+    {
+      amount: 480,
+      status: "succeeded",
+      description: "Standard · 1 month",
+      subscription_duration_months: 1,
+      sale_mode: "subscription@standard",
+      traffic_regular_gb: null,
+      traffic_premium_gb: null,
+      purchased_gb: null,
+      purchased_hwid_devices: 1,
+      purchases: [{ kind: "hwid_devices", amount: 1, unit: "device", scope: null, mode: "limit" }],
+    },
+    {
+      amount: 290,
+      status: "succeeded",
+      description: "",
+      subscription_duration_months: null,
+      sale_mode: "topup@standard",
+      traffic_regular_gb: 50,
+      traffic_premium_gb: null,
+      purchased_gb: 50,
+      purchased_hwid_devices: null,
+      purchases: [{ kind: "traffic", amount: 50, unit: "gb", scope: "regular", mode: "topup" }],
+    },
+    {
+      amount: 390,
+      status: "succeeded",
+      description: "",
+      subscription_duration_months: null,
+      sale_mode: "premium_topup@standard",
+      traffic_regular_gb: null,
+      traffic_premium_gb: 25,
+      purchased_gb: 25,
+      purchased_hwid_devices: null,
+      purchases: [{ kind: "traffic", amount: 25, unit: "gb", scope: "premium", mode: "topup" }],
+    },
+  ];
+  DATASET.adminPayments = payments.map((payment, index) =>
+    examples[index] ? { ...payment, ...examples[index] } : payment
+  );
+}
 
 export function applyDemoDataset(): void {
   const storedLanguage = readStoredDemoLanguage();
@@ -179,6 +242,11 @@ export function applyPreviewMock(kind: unknown): void {
     return;
   }
 
+  if (mode === "payments-addons" || mode === "payments_addons" || mode === "payment-purchases") {
+    applyPaymentPurchasesScenario();
+    return;
+  }
+
   if (mode === "guides" || mode === "install") {
     DEV_MOCK.data.settings.subscription_guides_enabled = true;
     DEV_MOCK.data.subscription_guides = {
@@ -186,6 +254,11 @@ export function applyPreviewMock(kind: unknown): void {
       enabled: true,
       config: INSTALL_GUIDES_CONFIG,
     };
+    return;
+  }
+
+  if (mode === "user-balance" || mode === "user_balance" || mode === "balance") {
+    DEV_MOCK.data.settings.user_balance_enabled = true;
     return;
   }
 
@@ -201,7 +274,9 @@ export function applyPreviewMock(kind: unknown): void {
       telegram_first_name: "3252a8",
       telegram_last_name: "",
     };
+    DEV_MOCK.config.authProviders = ["telegram", "email", "google"];
     DEV_MOCK.data.settings.email_auth_enabled = true;
+    DEV_MOCK.data.settings.auth_providers = ["telegram", "email", "google"];
     DEV_MOCK.data.settings.trial_enabled = true;
     DEV_MOCK.data.settings.trial_available = true;
     return;

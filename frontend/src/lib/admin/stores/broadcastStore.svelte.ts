@@ -18,6 +18,7 @@ import type { components } from "../../api/openapi.generated";
 import { historyItemFromWire, type BroadcastHistoryItem } from "./broadcastHistory";
 import { snapshotForPayload } from "./snapshotForPayload.svelte";
 import { messageRequestBody } from "$lib/messageImage";
+import { normalizeMessageButtonLink } from "$lib/admin/messageButtonTargets.js";
 
 type AdminApi = ApiClient["api"];
 type ToastFn = (message: string) => void;
@@ -152,8 +153,7 @@ function buttonDraftValid(button: BroadcastButtonDraft): boolean {
   if (button.label.trim().length > 64) return false;
   if (Object.values(button.labels ?? {}).some((label) => label.trim().length > 64)) return false;
   if (button.kind === "url") {
-    const url = button.url.trim().toLowerCase();
-    return url.startsWith("https://") || url.startsWith("http://");
+    return normalizeMessageButtonLink(button.url) !== null;
   }
   if (button.kind === "webapp_section") return Boolean(button.section.trim());
   return /^[A-Za-z0-9_-]{1,58}$/.test(button.promoCode.trim());
@@ -176,7 +176,7 @@ export function buttonsForPayload(buttons: BroadcastButtonDraft[]) {
     kind: button.kind,
     label: button.label.trim(),
     labels: localizedForPayload(button.labels),
-    url: button.kind === "url" ? button.url.trim() : "",
+    url: button.kind === "url" ? normalizeMessageButtonLink(button.url) || button.url.trim() : "",
     promo_code:
       button.kind === "url" || button.kind === "webapp_section" ? "" : button.promoCode.trim(),
     section: button.kind === "webapp_section" ? button.section.trim() : "",

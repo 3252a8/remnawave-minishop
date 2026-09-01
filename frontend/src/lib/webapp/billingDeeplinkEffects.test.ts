@@ -12,10 +12,12 @@ function makeEffects(overrides: TestOverrides = {}) {
       setCheckoutPromoInput: vi.fn(),
     },
     readCheckoutPromoDeeplink: vi.fn(() => ""),
+    readCheckoutDeeplink: vi.fn(() => null),
     readPlansDeeplink: vi.fn(() => false),
     readRenewalDeeplink: vi.fn(() => null),
     setHomeRoute: vi.fn(),
     stripCheckoutPromoQueryFromUrl: vi.fn(),
+    stripCheckoutDeeplinkFromUrl: vi.fn(),
     stripRenewalLoginQueryFromUrl: vi.fn(),
     stripTopupQueryFromUrl: vi.fn(),
     ...overrides,
@@ -130,6 +132,69 @@ describe("createBillingDeeplinkEffects", () => {
       preferredTariffKey: "",
       selectDefaultTariff: true,
     });
+  });
+
+  it("opens an exact plan checkout with URL-selected flexible limits", () => {
+    const checkoutDeeplink = {
+      plan: "pro",
+      months: 6,
+      addons: { deviceTotal: 5, regularLimitGb: 300, premiumLimitGb: 100 },
+    };
+    const { deps, effects } = makeEffects({
+      readCheckoutDeeplink: vi.fn(() => checkoutDeeplink),
+    });
+
+    effects.applyPostLoadBillingDeeplinks({
+      defaultMethod: "card",
+      plans: [{ id: 8, tariff_key: "pro", months: 6 }],
+      search: "",
+      subscription: { active: false },
+    });
+
+    expect(deps.setHomeRoute).toHaveBeenCalledOnce();
+    expect(deps.billingStore.openPaymentModal.mock.calls[0][6]).toEqual({
+      preferCheckout: true,
+      preferredPlanId: "pro",
+      preferredTariffKey: "pro",
+      preferredMonths: 6,
+      checkoutAddonPreset: checkoutDeeplink.addons,
+    });
+    expect(deps.stripCheckoutDeeplinkFromUrl).toHaveBeenCalledOnce();
+  });
+
+  it("consumes checkout entry once when later data refreshes rerun post-load effects", () => {
+    const checkoutDeeplink = { plan: "pro", months: 6, addons: {} };
+    const { deps, effects } = makeEffects({
+      readCheckoutDeeplink: vi.fn(() => checkoutDeeplink),
+      readPlansDeeplink: vi.fn(() => true),
+    });
+    const input = {
+      defaultMethod: "card",
+      plans: [{ id: 8, tariff_key: "pro", months: 6 }],
+      search: "",
+      subscription: { active: false },
+    };
+
+    effects.applyPostLoadBillingDeeplinks(input);
+    effects.applyPostLoadBillingDeeplinks(input);
+
+    expect(deps.billingStore.openPaymentModal).toHaveBeenCalledOnce();
+    expect(deps.stripCheckoutDeeplinkFromUrl).toHaveBeenCalledOnce();
+  });
+
+  it("does not reopen plan selection from a persistent checkout route flag", () => {
+    const { deps, effects } = makeEffects({ readPlansDeeplink: vi.fn(() => true) });
+    const input = {
+      defaultMethod: "card",
+      plans: tariffPlans,
+      search: "",
+      subscription: { active: false },
+    };
+
+    effects.applyPostLoadBillingDeeplinks(input);
+    effects.applyPostLoadBillingDeeplinks(input);
+
+    expect(deps.billingStore.openPaymentModal).toHaveBeenCalledOnce();
   });
 
   it("lets a more specific billing deeplink win over the checkout route", () => {

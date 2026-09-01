@@ -2,6 +2,7 @@ import { DEFAULT_DISPOSABLE_EMAIL_DOMAINS } from "./disposableEmailDomains";
 import { INSTALL_GUIDES_CONFIG } from "./installGuidesConfig";
 import { ASCII_THEME, DEFAULT_DARK_THEME, LEGACY_LIGHT_THEME, WINDOWS_95_THEME } from "./themes";
 import type { PreviewMock } from "./types";
+import { currentDemoBalance } from "../mockApi/balance";
 
 export function checkoutAddons(months: number) {
   return {
@@ -143,6 +144,7 @@ export const DEV_MOCK: PreviewMock = {
     serverStatusInternal: false,
     serverStatusShowOnHome: false,
     serverStatusUrl: "https://status.example.com",
+    compactHomeEnabled: true,
     privacyPolicyUrl: "https://example.com/privacy",
     userAgreementUrl: "https://example.com/agreement",
     currency: "RUB",
@@ -288,6 +290,7 @@ export const DEV_MOCK: PreviewMock = {
       { id: "cryptopay", name: "Криптовалюта", icon: "Bitcoin" },
       { id: "freekassa", name: "Другие способы", icon: "Smartphone" },
     ],
+    balance: currentDemoBalance(),
     referral: {
       code: "ABCD1234",
       bot_link: "https://t.me/preview_bot?start=ref_uABCD1234",
@@ -315,6 +318,7 @@ export const DEV_MOCK: PreviewMock = {
       traffic_mode: false,
       my_devices_enabled: true,
       payment_methods_display_mode: "dropdown",
+      user_balance_enabled: false,
       user_hwid_device_limit: 5,
       trial_enabled: true,
       trial_available: true,

@@ -26,7 +26,7 @@ publish-dev-images:
         echo "Skipping superseded dev commit $CI_COMMIT_SHA (current: $remote_dev_commit)"
         exit 0
       fi
-      IMAGE_TAG=dev OCI_IMAGE_REVISION="$CI_COMMIT_SHA" REMNAWAVE_MINISHOP_BUILD_PROVENANCE=official bash ./scripts/dockerhub-build-push-images.sh
+      IMAGE_TAG=dev OCI_IMAGE_REVISION="$CI_COMMIT_SHA" REMNAWAVE_MINISHOP_BRANCH="$CI_COMMIT_REF_NAME" REMNAWAVE_MINISHOP_BUILD_PROVENANCE=official bash ./scripts/dockerhub-build-push-images.sh
   after_script:
     - docker logout
   rules:

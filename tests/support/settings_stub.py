@@ -5,6 +5,7 @@ from typing import Any
 
 from config.settings_mixins import _split_csv
 from config.settings_models import (
+    BalanceSettings,
     PanelSettings,
     PartnerSettings,
     PartnerWithdrawalMethod,
@@ -29,6 +30,11 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "CRYPT4_REDIRECT_URL": None,
     "DEFAULT_CURRENCY_SYMBOL": "RUB",
     "DEFAULT_LANGUAGE": "ru",
+    "USER_BALANCE_ENABLED": False,
+    "USER_BALANCE_CURRENCY": "",
+    "USER_BALANCE_TOPUP_MIN_AMOUNT": 100,
+    "USER_BALANCE_TOPUP_MAX_AMOUNT": 100000,
+    "USER_BALANCE_TOPUP_PRESETS": "[500, 1000, 2000, 5000]",
     "DISPOSABLE_EMAIL_DOMAINS": "",
     "EMAIL_CODE_MAX_ATTEMPTS": 5,
     "EMAIL_CODE_RESEND_SECONDS": 60,
@@ -148,7 +154,9 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "WEBAPP_API_BASE_URL": "/api",
     "MINISHOP_EDGE_TOKEN": "",
     "MINISHOP_EDGE_TOKEN_HEADER": "X-Minishop-Edge-Token",
+    "MENU_BUTTONS_JSON": "[]",
     "WEBAPP_PRIMARY_COLOR": "#00fe7a",
+    "WEBAPP_COMPACT_HOME_ENABLED": False,
     "WEBAPP_SERVER_HOST": "0.0.0.0",
     "WEBAPP_SERVER_PORT": 8080,
     "WEBAPP_SESSION_SECRET": "test-session-secret",
@@ -215,6 +223,7 @@ class SettingsStub(SimpleNamespace):
             title=getattr(self, "WEBAPP_TITLE", "/minishop"),
             primary_color=getattr(self, "WEBAPP_PRIMARY_COLOR", "#00fe7a"),
             user_theme_mode_enabled=bool(getattr(self, "WEBAPP_USER_THEME_MODE_ENABLED", True)),
+            compact_home_enabled=bool(getattr(self, "WEBAPP_COMPACT_HOME_ENABLED", False)),
             logo_url=getattr(self, "WEBAPP_LOGO_URL", None),
             favicon_use_custom=bool(getattr(self, "WEBAPP_FAVICON_USE_CUSTOM", False)),
             favicon_url=getattr(self, "WEBAPP_FAVICON_URL", None),
@@ -325,6 +334,18 @@ class SettingsStub(SimpleNamespace):
     def registration_settings(self) -> RegistrationSettings:
         return RegistrationSettings(
             invite_only_enabled=bool(getattr(self, "REGISTRATION_INVITE_ONLY_ENABLED", False)),
+        )
+
+    @property
+    def balance_settings(self) -> BalanceSettings:
+        import json
+
+        return BalanceSettings(
+            enabled=bool(self.USER_BALANCE_ENABLED),
+            currency=str(self.USER_BALANCE_CURRENCY or self.DEFAULT_CURRENCY_SYMBOL or "RUB"),
+            topup_min_amount=float(self.USER_BALANCE_TOPUP_MIN_AMOUNT),
+            topup_max_amount=float(self.USER_BALANCE_TOPUP_MAX_AMOUNT),
+            topup_presets=json.loads(self.USER_BALANCE_TOPUP_PRESETS),
         )
 
     @property

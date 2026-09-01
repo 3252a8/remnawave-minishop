@@ -4711,6 +4711,77 @@
         "title": "AdminTributeSubscriptionPeriodOut",
         "type": "object"
       },
+      "AdminUserBalanceAdjustmentBody": {
+        "properties": {
+          "amount": {
+            "minimum": 0,
+            "title": "Amount",
+            "type": "number"
+          },
+          "idempotency_key": {
+            "default": "",
+            "maxLength": 128,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "mode": {
+            "default": "add",
+            "enum": [
+              "add",
+              "subtract",
+              "set"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount"
+        ],
+        "title": "AdminUserBalanceAdjustmentBody",
+        "type": "object"
+      },
+      "AdminUserBalanceConversionBody": {
+        "properties": {
+          "amount": {
+            "exclusiveMinimum": 0,
+            "title": "Amount",
+            "type": "number"
+          },
+          "direction": {
+            "enum": [
+              "partner_to_user",
+              "user_to_partner"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "default": "",
+            "maxLength": 128,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "direction",
+          "amount"
+        ],
+        "title": "AdminUserBalanceConversionBody",
+        "type": "object"
+      },
       "AdminUserBanBody": {
         "properties": {
           "banned": {
@@ -4767,6 +4838,36 @@
           }
         },
         "title": "AdminUserHwidDeviceLimitBody",
+        "type": "object"
+      },
+      "AdminUserHwidDevicesOut": {
+        "properties": {
+          "current_devices": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Current Devices"
+          },
+          "max_devices": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Max Devices"
+          }
+        },
+        "title": "AdminUserHwidDevicesOut",
         "type": "object"
       },
       "AdminUserMessageBody": {
@@ -6914,6 +7015,13 @@
             "default": null,
             "title": "Purchased Hwid Devices"
           },
+          "purchases": {
+            "items": {
+              "$ref": "#/components/schemas/PaymentPurchaseOut"
+            },
+            "title": "Purchases",
+            "type": "array"
+          },
           "reversal_block_reason": {
             "anyOf": [
               {
@@ -7242,6 +7350,13 @@
             "default": null,
             "title": "Purchased Hwid Devices"
           },
+          "purchases": {
+            "items": {
+              "$ref": "#/components/schemas/PaymentPurchaseOut"
+            },
+            "title": "Purchases",
+            "type": "array"
+          },
           "sale_mode": {
             "anyOf": [
               {
@@ -7342,6 +7457,46 @@
           "amount"
         ],
         "title": "PaymentOut",
+        "type": "object"
+      },
+      "PaymentPurchaseOut": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "number"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "mode": {
+            "default": "topup",
+            "title": "Mode",
+            "type": "string"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Scope"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "amount",
+          "unit"
+        ],
+        "title": "PaymentPurchaseOut",
         "type": "object"
       },
       "PromoActivationOut": {
@@ -10316,6 +10471,28 @@
         "title": "WebAppAutoRenewPayload",
         "type": "object"
       },
+      "WebAppBalanceTopupPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "exclusiveMinimum": 0,
+            "title": "Amount",
+            "type": "number"
+          },
+          "method": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Method",
+            "type": "string"
+          }
+        },
+        "required": [
+          "method",
+          "amount"
+        ],
+        "title": "WebAppBalanceTopupPayload",
+        "type": "object"
+      },
       "WebAppCheckoutAddonsPayload": {
         "additionalProperties": false,
         "properties": {
@@ -10445,6 +10622,70 @@
           "can_disconnect"
         ],
         "title": "WebAppDeviceOut",
+        "type": "object"
+      },
+      "WebAppEmailChangeConfirmPayload": {
+        "properties": {
+          "change_token": {
+            "maxLength": 512,
+            "minLength": 8,
+            "title": "Change Token",
+            "type": "string"
+          },
+          "code": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "change_token",
+          "code"
+        ],
+        "title": "WebAppEmailChangeConfirmPayload",
+        "type": "object"
+      },
+      "WebAppEmailChangeCurrentPayload": {
+        "properties": {
+          "code": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "WebAppEmailChangeCurrentPayload",
+        "type": "object"
+      },
+      "WebAppEmailChangeNewPayload": {
+        "properties": {
+          "change_token": {
+            "maxLength": 512,
+            "minLength": 8,
+            "title": "Change Token",
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "change_token"
+        ],
+        "title": "WebAppEmailChangeNewPayload",
         "type": "object"
       },
       "WebAppEmailCodeAuthPayload": {
@@ -10633,6 +10874,23 @@
         "title": "WebAppEmailRequestPayload",
         "type": "object"
       },
+      "WebAppExternalIdentityPayload": {
+        "properties": {
+          "provider": {
+            "enum": [
+              "google",
+              "yandex"
+            ],
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider"
+        ],
+        "title": "WebAppExternalIdentityPayload",
+        "type": "object"
+      },
       "WebAppLanguagePayload": {
         "properties": {
           "language": {
@@ -10648,8 +10906,73 @@
         "title": "WebAppLanguagePayload",
         "type": "object"
       },
+      "WebAppPasskeyCredentialPayload": {
+        "properties": {
+          "challenge": {
+            "maxLength": 1024,
+            "minLength": 16,
+            "title": "Challenge",
+            "type": "string"
+          },
+          "credential": {
+            "additionalProperties": true,
+            "title": "Credential",
+            "type": "object"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
+          }
+        },
+        "required": [
+          "challenge",
+          "credential"
+        ],
+        "title": "WebAppPasskeyCredentialPayload",
+        "type": "object"
+      },
+      "WebAppPasskeyDeletePayload": {
+        "properties": {
+          "credential_id": {
+            "maxLength": 1024,
+            "minLength": 8,
+            "title": "Credential Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "credential_id"
+        ],
+        "title": "WebAppPasskeyDeletePayload",
+        "type": "object"
+      },
       "WebAppPaymentCreatePayload": {
         "properties": {
+          "balance_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "user",
+                  "partner"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Balance Source"
+          },
           "checkout_addons": {
             "anyOf": [
               {
@@ -10814,6 +11137,22 @@
       },
       "WebAppPromoQuotePayload": {
         "properties": {
+          "balance_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "user",
+                  "partner"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Balance Source"
+          },
           "checkout_addons": {
             "anyOf": [
               {
@@ -10968,6 +11307,22 @@
       },
       "WebAppSubscriptionQuotePayload": {
         "properties": {
+          "balance_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "user",
+                  "partner"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Balance Source"
+          },
           "checkout_addons": {
             "anyOf": [
               {
@@ -11203,6 +11558,18 @@
             "title": "Authproviders",
             "type": "array"
           },
+          "checkoutPlans": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Checkoutplans",
+            "type": "array"
+          },
+          "compactHomeEnabled": {
+            "title": "Compacthomeenabled",
+            "type": "boolean"
+          },
           "currency": {
             "title": "Currency",
             "type": "string"
@@ -11315,6 +11682,7 @@
         "required": [
           "title",
           "userThemeModeEnabled",
+          "compactHomeEnabled",
           "themesDir",
           "themePreviewKey",
           "logoUrl",
@@ -11601,6 +11969,345 @@
         ]
       }
     },
+    "/api/account/email/change/confirm": {
+      "post": {
+        "operationId": "post_account_email_change_confirm_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppEmailChangeConfirmPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "account_merge": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "final_end_date": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "final_end_date_text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "language": {
+                          "type": "string"
+                        },
+                        "merged": {
+                          "type": "boolean"
+                        },
+                        "primary_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "primary_user_id": {
+                          "type": "integer"
+                        },
+                        "removed_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "removed_user_id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "merged",
+                        "language",
+                        "primary_user_id",
+                        "removed_user_id",
+                        "primary_panel_user_uuid",
+                        "removed_panel_user_uuid",
+                        "final_end_date",
+                        "final_end_date_text"
+                      ],
+                      "type": "object"
+                    },
+                    "csrf_token": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "telegram_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "token": {
+                      "type": "string"
+                    },
+                    "user_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "token",
+                    "csrf_token"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Email Change Confirm",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/email/change/current/request": {
+      "post": {
+        "operationId": "post_account_email_change_current_request_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "email_code": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "retry_after": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Email Change Current Request",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/email/change/current/verify": {
+      "post": {
+        "operationId": "post_account_email_change_current_verify_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppEmailChangeCurrentPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "change_token": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "change_token"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Email Change Current Verify",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/email/change/new/request": {
+      "post": {
+        "operationId": "post_account_email_change_new_request_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppEmailChangeNewPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "email_code": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "retry_after": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Email Change New Request",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/email/notification": {
+      "post": {
+        "operationId": "post_account_notification_email_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppEmailPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "notification_email": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "notification_email"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Notification Email",
+        "tags": [
+          "account"
+        ]
+      }
+    },
     "/api/account/email/request": {
       "post": {
         "operationId": "post_account_email_request_route",
@@ -11786,6 +12493,55 @@
         ]
       }
     },
+    "/api/account/identities/unlink": {
+      "post": {
+        "operationId": "post_external_identity_unlink_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppExternalIdentityPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "External Identity Unlink",
+        "tags": [
+          "account"
+        ]
+      }
+    },
     "/api/account/language": {
       "post": {
         "operationId": "post_account_language_route",
@@ -11834,6 +12590,148 @@
           }
         ],
         "summary": "Account Language",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/passkeys/delete": {
+      "post": {
+        "operationId": "post_account_passkey_delete_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppPasskeyDeletePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Passkey Delete",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/passkeys/options": {
+      "post": {
+        "operationId": "post_account_passkey_options_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "options": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "options"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Passkey Options",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/passkeys/register": {
+      "post": {
+        "operationId": "post_account_passkey_register_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppPasskeyCredentialPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Passkey Register",
         "tags": [
           "account"
         ]
@@ -16527,6 +17425,12 @@
                 "schema": {
                   "additionalProperties": false,
                   "properties": {
+                    "balance_currency": {
+                      "type": "string"
+                    },
+                    "balance_currency_scale": {
+                      "type": "integer"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
@@ -16537,8 +17441,14 @@
                     "page_size": {
                       "type": "integer"
                     },
+                    "partner_balance_enabled": {
+                      "type": "boolean"
+                    },
                     "total": {
                       "type": "integer"
+                    },
+                    "user_balance_enabled": {
+                      "type": "boolean"
                     },
                     "users": {
                       "items": {
@@ -16563,6 +17473,9 @@
                                   "null"
                                 ]
                               },
+                              "partner_balance_amount_minor": {
+                                "type": "integer"
+                              },
                               "payments_count": {
                                 "type": "integer"
                               },
@@ -16584,6 +17497,9 @@
                                   "string",
                                   "null"
                                 ]
+                              },
+                              "user_balance_amount_minor": {
+                                "type": "integer"
                               }
                             },
                             "required": [
@@ -16593,7 +17509,9 @@
                               "payments_total_amount",
                               "payments_count",
                               "payments_currency",
-                              "invited_users_count"
+                              "invited_users_count",
+                              "user_balance_amount_minor",
+                              "partner_balance_amount_minor"
                             ],
                             "type": "object"
                           }
@@ -16607,7 +17525,11 @@
                     "users",
                     "page",
                     "page_size",
-                    "total"
+                    "total",
+                    "user_balance_enabled",
+                    "partner_balance_enabled",
+                    "balance_currency",
+                    "balance_currency_scale"
                   ],
                   "type": "object"
                 }
@@ -16706,6 +17628,124 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "balance": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "amount": {
+                          "type": "string"
+                        },
+                        "amount_minor": {
+                          "type": "integer"
+                        },
+                        "currency": {
+                          "type": "string"
+                        },
+                        "currency_scale": {
+                          "type": "integer"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "history": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "amount_minor": {
+                                "type": "integer"
+                              },
+                              "created_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "entry_id": {
+                                "type": "integer"
+                              },
+                              "kind": {
+                                "type": "string"
+                              },
+                              "reason": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "reference_id": {
+                                "type": "string"
+                              },
+                              "reference_type": {
+                                "type": "string"
+                              },
+                              "state": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        },
+                        "sources": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "amount": {
+                                "type": "string"
+                              },
+                              "amount_minor": {
+                                "type": "integer"
+                              },
+                              "available": {
+                                "type": "boolean"
+                              },
+                              "convertible": {
+                                "type": "boolean"
+                              },
+                              "currency": {
+                                "type": "string"
+                              },
+                              "id": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "topup_max_amount": {
+                          "type": "number"
+                        },
+                        "topup_min_amount": {
+                          "type": "number"
+                        },
+                        "topup_presets": {
+                          "items": {
+                            "type": "number"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "enabled",
+                        "currency",
+                        "currency_scale",
+                        "amount_minor",
+                        "amount",
+                        "topup_min_amount",
+                        "topup_max_amount",
+                        "topup_presets",
+                        "sources"
+                      ],
+                      "type": "object"
+                    },
+                    "hwid_devices": {
+                      "$ref": "#/components/schemas/AdminUserHwidDevicesOut"
                     },
                     "install_share_url": {
                       "type": [
@@ -16823,10 +17863,12 @@
                     "total_paid",
                     "recent_payments",
                     "log_count",
+                    "balance",
                     "subscription_url",
                     "install_share_url",
                     "last_vpn_connected_at",
                     "vpn_connection_status",
+                    "hwid_devices",
                     "telegram_notifications",
                     "panel_squad_overrides",
                     "referral"
@@ -16887,6 +17929,356 @@
           }
         ],
         "summary": "Admin User Avatar",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}/balance-adjustment": {
+      "post": {
+        "operationId": "post_admin_user_balance_adjustment_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserBalanceAdjustmentBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "balance": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "amount": {
+                          "type": "string"
+                        },
+                        "amount_minor": {
+                          "type": "integer"
+                        },
+                        "currency": {
+                          "type": "string"
+                        },
+                        "currency_scale": {
+                          "type": "integer"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "history": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "amount_minor": {
+                                "type": "integer"
+                              },
+                              "created_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "entry_id": {
+                                "type": "integer"
+                              },
+                              "kind": {
+                                "type": "string"
+                              },
+                              "reason": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "reference_id": {
+                                "type": "string"
+                              },
+                              "reference_type": {
+                                "type": "string"
+                              },
+                              "state": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        },
+                        "sources": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "amount": {
+                                "type": "string"
+                              },
+                              "amount_minor": {
+                                "type": "integer"
+                              },
+                              "available": {
+                                "type": "boolean"
+                              },
+                              "convertible": {
+                                "type": "boolean"
+                              },
+                              "currency": {
+                                "type": "string"
+                              },
+                              "id": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "topup_max_amount": {
+                          "type": "number"
+                        },
+                        "topup_min_amount": {
+                          "type": "number"
+                        },
+                        "topup_presets": {
+                          "items": {
+                            "type": "number"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "enabled",
+                        "currency",
+                        "currency_scale",
+                        "amount_minor",
+                        "amount",
+                        "topup_min_amount",
+                        "topup_max_amount",
+                        "topup_presets",
+                        "sources"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "balance"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Balance Adjustment",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}/balance-conversion": {
+      "post": {
+        "operationId": "post_admin_user_balance_conversion_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserBalanceConversionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "balance": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "amount": {
+                          "type": "string"
+                        },
+                        "amount_minor": {
+                          "type": "integer"
+                        },
+                        "currency": {
+                          "type": "string"
+                        },
+                        "currency_scale": {
+                          "type": "integer"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "history": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "amount_minor": {
+                                "type": "integer"
+                              },
+                              "created_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "entry_id": {
+                                "type": "integer"
+                              },
+                              "kind": {
+                                "type": "string"
+                              },
+                              "reason": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "reference_id": {
+                                "type": "string"
+                              },
+                              "reference_type": {
+                                "type": "string"
+                              },
+                              "state": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        },
+                        "sources": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "amount": {
+                                "type": "string"
+                              },
+                              "amount_minor": {
+                                "type": "integer"
+                              },
+                              "available": {
+                                "type": "boolean"
+                              },
+                              "convertible": {
+                                "type": "boolean"
+                              },
+                              "currency": {
+                                "type": "string"
+                              },
+                              "id": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "topup_max_amount": {
+                          "type": "number"
+                        },
+                        "topup_min_amount": {
+                          "type": "number"
+                        },
+                        "topup_presets": {
+                          "items": {
+                            "type": "number"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "enabled",
+                        "currency",
+                        "currency_scale",
+                        "amount_minor",
+                        "amount",
+                        "topup_min_amount",
+                        "topup_max_amount",
+                        "topup_presets",
+                        "sources"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "balance"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Balance Conversion",
         "tags": [
           "admin"
         ]
@@ -18281,6 +19673,239 @@
         ]
       }
     },
+    "/api/auth/external/cancel": {
+      "post": {
+        "operationId": "post_external_oauth_pending_cancel_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "summary": "External Oauth Pending Cancel",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/external/pending": {
+      "post": {
+        "operationId": "post_external_oauth_pending_status_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "email": {
+                      "type": "string"
+                    },
+                    "email_code": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "provider": {
+                      "type": "string"
+                    },
+                    "retry_after": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "provider",
+                    "email",
+                    "retry_after"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "summary": "External Oauth Pending Status",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/external/request": {
+      "post": {
+        "operationId": "post_external_oauth_pending_request_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "email_code": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "retry_after": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "summary": "External Oauth Pending Request",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/external/verify": {
+      "post": {
+        "operationId": "post_external_oauth_pending_verify_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppEmailChangeCurrentPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "account_merge": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "final_end_date": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "final_end_date_text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "language": {
+                          "type": "string"
+                        },
+                        "merged": {
+                          "type": "boolean"
+                        },
+                        "primary_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "primary_user_id": {
+                          "type": "integer"
+                        },
+                        "removed_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "removed_user_id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "merged",
+                        "language",
+                        "primary_user_id",
+                        "removed_user_id",
+                        "primary_panel_user_uuid",
+                        "removed_panel_user_uuid",
+                        "final_end_date",
+                        "final_end_date_text"
+                      ],
+                      "type": "object"
+                    },
+                    "csrf_token": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "telegram_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "token": {
+                      "type": "string"
+                    },
+                    "user_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "token",
+                    "csrf_token"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "summary": "External Oauth Pending Verify",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/auth/logout": {
       "post": {
         "operationId": "post_logout_route",
@@ -18307,6 +19932,155 @@
           }
         },
         "summary": "Logout",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/passkey/options": {
+      "post": {
+        "operationId": "post_passkey_auth_options_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "options": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "options"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "summary": "Passkey Auth Options",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/passkey/verify": {
+      "post": {
+        "operationId": "post_passkey_auth_verify_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppPasskeyCredentialPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "account_merge": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "final_end_date": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "final_end_date_text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "language": {
+                          "type": "string"
+                        },
+                        "merged": {
+                          "type": "boolean"
+                        },
+                        "primary_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "primary_user_id": {
+                          "type": "integer"
+                        },
+                        "removed_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "removed_user_id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "merged",
+                        "language",
+                        "primary_user_id",
+                        "removed_user_id",
+                        "primary_panel_user_uuid",
+                        "removed_panel_user_uuid",
+                        "final_end_date",
+                        "final_end_date_text"
+                      ],
+                      "type": "object"
+                    },
+                    "csrf_token": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "telegram_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "token": {
+                      "type": "string"
+                    },
+                    "user_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "token",
+                    "csrf_token"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "summary": "Passkey Auth Verify",
         "tags": [
           "auth"
         ]
@@ -18503,6 +20277,225 @@
         "summary": "Auth Token",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/balance": {
+      "get": {
+        "operationId": "get_balance_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "amount": {
+                      "type": "string"
+                    },
+                    "amount_minor": {
+                      "type": "integer"
+                    },
+                    "currency": {
+                      "type": "string"
+                    },
+                    "currency_scale": {
+                      "type": "integer"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "history": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "amount_minor": {
+                            "type": "integer"
+                          },
+                          "created_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "entry_id": {
+                            "type": "integer"
+                          },
+                          "kind": {
+                            "type": "string"
+                          },
+                          "reason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "reference_id": {
+                            "type": "string"
+                          },
+                          "reference_type": {
+                            "type": "string"
+                          },
+                          "state": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "sources": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "amount": {
+                            "type": "string"
+                          },
+                          "amount_minor": {
+                            "type": "integer"
+                          },
+                          "available": {
+                            "type": "boolean"
+                          },
+                          "convertible": {
+                            "type": "boolean"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "topup_max_amount": {
+                      "type": "number"
+                    },
+                    "topup_min_amount": {
+                      "type": "number"
+                    },
+                    "topup_presets": {
+                      "items": {
+                        "type": "number"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "enabled",
+                    "currency",
+                    "currency_scale",
+                    "amount_minor",
+                    "amount",
+                    "topup_min_amount",
+                    "topup_max_amount",
+                    "topup_presets",
+                    "sources"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Balance",
+        "tags": [
+          "balance"
+        ]
+      }
+    },
+    "/api/balance/topup": {
+      "post": {
+        "operationId": "post_balance_topup_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppBalanceTopupPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "action": {
+                      "type": "string"
+                    },
+                    "confirmation_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "paid": {
+                      "type": "boolean"
+                    },
+                    "payment": {
+                      "additionalProperties": true,
+                      "description": "Provider-specific payment payload returned by the selected integration.",
+                      "type": "object"
+                    },
+                    "payment_id": {
+                      "type": "integer"
+                    },
+                    "payment_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Balance Topup",
+        "tags": [
+          "balance"
         ]
       }
     },
@@ -19104,6 +21097,121 @@
                 "schema": {
                   "additionalProperties": false,
                   "properties": {
+                    "balance": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "amount": {
+                          "type": "string"
+                        },
+                        "amount_minor": {
+                          "type": "integer"
+                        },
+                        "currency": {
+                          "type": "string"
+                        },
+                        "currency_scale": {
+                          "type": "integer"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "history": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "amount_minor": {
+                                "type": "integer"
+                              },
+                              "created_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "entry_id": {
+                                "type": "integer"
+                              },
+                              "kind": {
+                                "type": "string"
+                              },
+                              "reason": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "reference_id": {
+                                "type": "string"
+                              },
+                              "reference_type": {
+                                "type": "string"
+                              },
+                              "state": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        },
+                        "sources": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "amount": {
+                                "type": "string"
+                              },
+                              "amount_minor": {
+                                "type": "integer"
+                              },
+                              "available": {
+                                "type": "boolean"
+                              },
+                              "convertible": {
+                                "type": "boolean"
+                              },
+                              "currency": {
+                                "type": "string"
+                              },
+                              "id": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "topup_max_amount": {
+                          "type": "number"
+                        },
+                        "topup_min_amount": {
+                          "type": "number"
+                        },
+                        "topup_presets": {
+                          "items": {
+                            "type": "number"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "enabled",
+                        "currency",
+                        "currency_scale",
+                        "amount_minor",
+                        "amount",
+                        "topup_min_amount",
+                        "topup_max_amount",
+                        "topup_presets",
+                        "sources"
+                      ],
+                      "type": "object"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
@@ -19643,8 +21751,47 @@
                           },
                           "type": "array"
                         },
+                        "email_address_change_enabled": {
+                          "type": "boolean"
+                        },
                         "email_auth_enabled": {
                           "type": "boolean"
+                        },
+                        "menu_buttons": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "icon": {
+                                "type": "string"
+                              },
+                              "id": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "enum": [
+                                  "external",
+                                  "telegram",
+                                  "webapp"
+                                ],
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "target": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "kind",
+                              "target",
+                              "icon",
+                              "label"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
                         },
                         "my_devices_enabled": {
                           "type": "boolean"
@@ -19716,6 +21863,9 @@
                           "type": "string"
                         },
                         "trial_without_telegram_enabled": {
+                          "type": "boolean"
+                        },
+                        "user_balance_enabled": {
                           "type": "boolean"
                         },
                         "user_hwid_device_limit": {
@@ -20087,8 +22237,65 @@
                             "null"
                           ]
                         },
+                        "email_addresses": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "email": {
+                                "type": "string"
+                              },
+                              "is_notification": {
+                                "type": "boolean"
+                              },
+                              "is_primary": {
+                                "type": "boolean"
+                              },
+                              "sources": {
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              },
+                              "verified": {
+                                "type": "boolean"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
                         "email_verified": {
                           "type": "boolean"
+                        },
+                        "external_identities": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "can_unlink": {
+                                "type": "boolean"
+                              },
+                              "display_name": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "email": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "email_verified": {
+                                "type": "boolean"
+                              },
+                              "provider": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
                         },
                         "first_name": {
                           "type": [
@@ -20104,6 +22311,42 @@
                         },
                         "language_code": {
                           "type": "string"
+                        },
+                        "notification_email": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "passkeys": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "backed_up": {
+                                "type": "boolean"
+                              },
+                              "created_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "credential_id": {
+                                "type": "string"
+                              },
+                              "last_used_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
                         },
                         "password_auth_enabled": {
                           "type": "boolean"
@@ -20156,6 +22399,7 @@
                     "payment_methods",
                     "themes_catalog",
                     "support_unread_count",
+                    "balance",
                     "settings"
                   ],
                   "type": "object"
@@ -20705,6 +22949,64 @@
           }
         ],
         "summary": "Payment Status",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/api/payments/{payment_id}/cancel": {
+      "post": {
+        "operationId": "post_cancel_payment_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "payment_id",
+            "required": true,
+            "schema": {
+              "pattern": "[^{}/]+",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "payment_id": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "payment_id",
+                    "status"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Cancel Payment",
         "tags": [
           "payments"
         ]

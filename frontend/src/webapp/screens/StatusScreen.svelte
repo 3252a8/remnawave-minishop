@@ -8,6 +8,7 @@
   } from "$components/ui/icons.js";
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
+  import { AttentionDot } from "$components/ui/index.js";
   import type { ServerStatusStore } from "$lib/webapp/stores/serverStatusStore.svelte";
   import type { OpenLinkAction, Translate, VoidAction } from "$lib/webapp/types.js";
 
@@ -53,7 +54,7 @@
   }
 </script>
 
-<main class="status-layout with-nav">
+<main class="content with-nav status-layout">
   <div class="status-topbar">
     <Button variant="secondary" size="icon" onclick={goBack} aria-label={t("wa_back", {}, "Back")}>
       <ArrowLeft size={21} />
@@ -104,10 +105,9 @@
       </div>
     {/if}
 
-    <Card class="status-overview status-tone-{status.status}">
-      <div class="status-overview-icon"><Activity size={25} /></div>
-      <div>
-        <small>{t("wa_server_status_overall", {}, "Overall status")}</small>
+    <Card compact class="status-overview status-tone-{status.status}">
+      <div class="status-overview-icon"><Activity size={22} /></div>
+      <div class="status-overview-line">
         <h2>{t(`wa_server_status_state_${status.status}`, {}, status.status)}</h2>
         <p>
           {t(
@@ -143,14 +143,18 @@
           <Card class="status-group">
             {#each group.items as item}
               <div class="status-item">
-                <span class="status-dot status-item-{item.status}"></span>
+                <AttentionDot position="inline" class="status-dot status-item-{item.status}" />
                 <span class="status-item-name"
                   ><strong>{item.name}</strong><small
                     >{t(`wa_server_status_item_${item.status}`, {}, item.status)}</small
                   ></span
                 >
                 <span class="status-metrics">
-                  {#if item.latencyMs != null}<small>{Math.round(item.latencyMs)} ms</small>{/if}
+                  <small
+                    >{item.latencyMs != null
+                      ? `${Math.round(item.latencyMs)} ms`
+                      : t("wa_server_status_latency_unavailable", {}, "n/a")}</small
+                  >
                   {#if item.provider === "xray-checker"}
                     <span
                       class="status-history"
@@ -210,9 +214,7 @@
 
 <style>
   .status-layout {
-    display: grid;
     gap: 14px;
-    padding: 16px;
   }
   .status-topbar {
     display: grid;
@@ -257,28 +259,47 @@
     background-size: 220% 100%;
     animation: status-shimmer 1.4s infinite;
   }
-  .status-overview {
-    display: flex;
+  :global(.status-overview.card) {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr);
     align-items: center;
-    gap: 14px;
+    gap: 10px;
     border-color: color-mix(in srgb, var(--accent, #00b86b) 35%, transparent);
   }
   .status-overview-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 15px;
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
     display: grid;
     place-items: center;
     color: var(--accent, #00b86b);
     background: color-mix(in srgb, var(--accent, #00b86b) 13%, transparent);
   }
-  .status-tone-degraded,
-  .status-tone-partial_outage,
-  .status-tone-maintenance {
+  .status-overview-line {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+  }
+  .status-overview-line h2 {
+    min-width: 0;
+    font-size: 1rem;
+    line-height: 1.15;
+  }
+  .status-overview-line p {
+    flex: 0 0 auto;
+    margin: 0;
+    font-size: 0.76rem;
+    white-space: nowrap;
+  }
+  :global(.status-overview.status-tone-degraded),
+  :global(.status-overview.status-tone-partial_outage),
+  :global(.status-overview.status-tone-maintenance) {
     border-color: color-mix(in srgb, #f59e0b 45%, transparent);
   }
-  .status-tone-major_outage,
-  .status-tone-unknown {
+  :global(.status-overview.status-tone-major_outage),
+  :global(.status-overview.status-tone-unknown) {
     border-color: color-mix(in srgb, #ef4444 45%, transparent);
   }
   .status-stale {
@@ -314,25 +335,21 @@
   .status-item + .status-item {
     border-top: 1px solid color-mix(in srgb, currentColor 9%, transparent);
   }
-  .status-dot {
+  :global(.status-dot.attention-dot) {
+    --attention-dot-color: #94a3b8;
     width: 8px;
+    min-width: 8px;
     height: 8px;
-    border-radius: 50%;
-    background: #94a3b8;
-    box-shadow: 0 0 0 4px color-mix(in srgb, #94a3b8 13%, transparent);
   }
-  .status-item-online {
-    background: #22c55e;
-    box-shadow: 0 0 0 4px color-mix(in srgb, #22c55e 13%, transparent);
+  :global(.status-dot.status-item-online) {
+    --attention-dot-color: #22c55e;
   }
-  .status-item-offline {
-    background: #ef4444;
-    box-shadow: 0 0 0 4px color-mix(in srgb, #ef4444 13%, transparent);
+  :global(.status-dot.status-item-offline) {
+    --attention-dot-color: #ef4444;
   }
-  .status-item-degraded,
-  .status-item-maintenance {
-    background: #f59e0b;
-    box-shadow: 0 0 0 4px color-mix(in srgb, #f59e0b 13%, transparent);
+  :global(.status-dot.status-item-degraded),
+  :global(.status-dot.status-item-maintenance) {
+    --attention-dot-color: #f59e0b;
   }
   .status-item-name,
   .status-metrics {
@@ -387,7 +404,7 @@
     font-size: 0.75rem;
     opacity: 0.65;
   }
-  .status-message {
+  :global(.status-message.card) {
     min-height: 160px;
     display: grid;
     place-items: center;
@@ -395,7 +412,7 @@
     gap: 8px;
     text-align: center;
   }
-  .status-error {
+  :global(.status-error.card) {
     color: #b42318;
   }
   .status-footer {
@@ -405,7 +422,7 @@
     gap: 12px;
     padding: 2px;
   }
-  .status-spinning {
+  :global(.status-spinning) {
     animation: status-spin 0.8s linear infinite;
   }
   @keyframes status-spin {
@@ -420,7 +437,7 @@
   }
   @media (max-width: 390px) {
     .status-layout {
-      padding: 13px;
+      gap: 12px;
     }
     .status-footer {
       align-items: stretch;

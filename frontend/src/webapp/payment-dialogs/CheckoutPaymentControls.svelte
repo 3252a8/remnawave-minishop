@@ -21,7 +21,7 @@
     partnerCurrency = "",
     partnerEligible = false,
     partnerMinimum = 0,
-    usePartnerBalance = $bindable(false),
+    balanceSource = $bindable<"user" | "partner" | null>(null),
     partnerBalanceDiscount = $bindable(0),
     hasMethods = false,
     paymentMethods = [],
@@ -54,7 +54,7 @@
     partnerCurrency?: string;
     partnerEligible?: boolean;
     partnerMinimum?: number;
-    usePartnerBalance?: boolean;
+    balanceSource?: "user" | "partner" | null;
     partnerBalanceDiscount?: number;
     hasMethods?: boolean;
     paymentMethods?: PaymentMethodView[];
@@ -119,7 +119,7 @@
   currency={partnerCurrency}
   eligible={partnerEligible}
   minimumExternalAmount={partnerMinimum}
-  bind:selected={usePartnerBalance}
+  bind:source={balanceSource}
   bind:discount={partnerBalanceDiscount}
   {t}
 />

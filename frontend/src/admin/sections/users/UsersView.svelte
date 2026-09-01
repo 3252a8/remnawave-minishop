@@ -69,6 +69,10 @@
     activeUsersFilterCount,
     activeUserFilterChips,
     userTableHeaders,
+    userTableWidths,
+    userTableColumnCount,
+    userBalanceEnabled,
+    partnerBalanceEnabled,
     updateUsersFilter,
     updateUsersPanelStatus,
     updateUsersPremiumTraffic,
@@ -91,6 +95,7 @@
     premiumTrafficBadgeVariant,
     premiumTrafficBadgeText,
     rowPaymentsTotal,
+    rowBalance,
     fmtDateShort,
   }: {
     at: TranslateFn;
@@ -112,6 +117,10 @@
     activeUsersFilterCount: number;
     activeUserFilterChips: FilterChip[];
     userTableHeaders: string[];
+    userTableWidths: string[];
+    userTableColumnCount: number;
+    userBalanceEnabled: boolean;
+    partnerBalanceEnabled: boolean;
     updateUsersFilter: ComponentCallback;
     updateUsersPanelStatus: ComponentCallback;
     updateUsersPremiumTraffic: ComponentCallback;
@@ -134,6 +143,7 @@
     premiumTrafficBadgeVariant: (pt: TrafficBadge) => AdminBadgeVariant;
     premiumTrafficBadgeText: (pt: TrafficBadge) => string;
     rowPaymentsTotal: (user: AdminUser) => string;
+    rowBalance: (user: AdminUser, source: "user" | "partner") => string;
     fmtDateShort: (value: string | null | undefined) => string;
   } = $props();
 </script>
@@ -317,7 +327,11 @@
   </div>
 </Dialog>
 
-<div class="admin-users-table-wrap">
+<div
+  class="admin-users-table-wrap"
+  class:has-user-balance={userBalanceEnabled}
+  class:has-partner-balance={partnerBalanceEnabled}
+>
   {#if usersLoading}
     <AdminTableSkeleton
       headers={userTableHeaders}
@@ -325,7 +339,7 @@
       rowHeight={76}
       preserveRowHeightOnMobile
       class="admin-users-table"
-      widths={["220px", "128px", "112px", "78px", "88px", "96px", "112px", "112px"]}
+      widths={userTableWidths}
     />
   {:else if !usersTable.rows.length}
     <AdminEmptyState tone="card"
@@ -353,7 +367,7 @@
       </thead>
       <VirtualTableRows
         rows={usersTable.rows}
-        colspan={8}
+        colspan={userTableColumnCount}
         rowHeight={76}
         getKey={(user) => user.user_id}
       >
@@ -385,6 +399,22 @@
                 avatarUrl={avatar}
               />
             </td>
+            {#if userBalanceEnabled}
+              <td
+                class="admin-users-cell-money"
+                data-label={at("users_col_user_balance", {}, "Balance")}
+              >
+                <span class="admin-user-balance-value">{rowBalance(user, "user")}</span>
+              </td>
+            {/if}
+            {#if partnerBalanceEnabled}
+              <td
+                class="admin-users-cell-money"
+                data-label={at("users_col_partner_balance", {}, "Partner balance")}
+              >
+                <span class="admin-user-balance-value">{rowBalance(user, "partner")}</span>
+              </td>
+            {/if}
             <td
               class="admin-users-cell-premium"
               data-label={at("premium_traffic_filter_label", {}, "Premium traffic")}
@@ -462,6 +492,9 @@
           {premiumTrafficBadgeVariant}
           {premiumTrafficBadgeText}
           {rowPaymentsTotal}
+          {rowBalance}
+          {userBalanceEnabled}
+          {partnerBalanceEnabled}
           {fmtDateShort}
         />
       {/each}
@@ -608,6 +641,18 @@
     .admin-users-table-wrap :global(.admin-users-table) {
       min-width: 1080px;
     }
+
+    .admin-users-table-wrap.has-user-balance :global(.admin-users-table) {
+      min-width: 1200px;
+    }
+
+    .admin-users-table-wrap.has-partner-balance :global(.admin-users-table) {
+      min-width: 1220px;
+    }
+
+    .admin-users-table-wrap.has-user-balance.has-partner-balance :global(.admin-users-table) {
+      min-width: 1340px;
+    }
   }
 
   .admin-users-cell-premium {
@@ -635,6 +680,13 @@
   }
 
   .admin-users-cell-money :global(.admin-user-money-badge) {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .admin-user-balance-value {
+    color: var(--admin-text);
+    font-size: 12px;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
   }
 

@@ -2714,6 +2714,92 @@
   color: var(--admin-text);
 }
 
+.admin-login-method-hints {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-login-provider-help {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin: 12px 18px 4px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--admin-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 6%, var(--admin-surface));
+}
+
+.admin-login-provider-help-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-login-provider-help-copy strong {
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.admin-login-provider-help-copy p {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.admin-login-provider-help-copy .admin-login-provider-runtime-hint {
+  margin-top: 4px;
+  color: var(--admin-text);
+  font-weight: 650;
+}
+
+.admin-login-provider-setup-values {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin-top: 6px;
+}
+
+.admin-login-provider-setup-row {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.admin-login-provider-setup-row > span {
+  color: var(--admin-muted);
+  font-size: 11px;
+}
+
+.admin-login-provider-setup-row > p {
+  margin: 0;
+}
+
+.admin-login-provider-setup-row code,
+.admin-login-provider-value code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--admin-text);
+  font-size: 11px;
+}
+
+.admin-login-provider-value {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-login-provider-help-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
 .admin-settings-warning > svg {
   color: var(--warning);
 }
@@ -2736,16 +2822,9 @@
   line-height: 1.45;
 }
 
-.admin-settings-warning-link {
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 700;
-  text-decoration: none;
+.admin-settings-warning-action {
+  justify-self: end;
   white-space: nowrap;
-}
-
-.admin-settings-warning-link:hover {
-  text-decoration: underline;
 }
 
 .admin-settings-field-groups {
@@ -3178,6 +3257,16 @@
   grid-template-columns: minmax(100px, 150px) auto;
   gap: 8px;
   align-items: center;
+}
+
+@media (max-width: 640px) {
+  .admin-login-provider-value {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-login-provider-value .admin-btn {
+    width: 100%;
+  }
 }
 
 .admin-translations-audience-tabs {
@@ -4538,12 +4627,37 @@
 
   .admin-settings-warning {
     grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    column-gap: 10px;
+    row-gap: 10px;
     margin: 12px 14px 4px;
+    padding: 12px;
   }
 
-  .admin-settings-warning-link {
-    grid-column: 2;
-    justify-self: start;
+  .admin-settings-warning > svg {
+    margin-top: 1px;
+  }
+
+  .admin-settings-warning-action {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    width: 100%;
+  }
+
+  .admin-login-provider-help {
+    grid-template-columns: minmax(0, 1fr);
+    margin: 12px 14px 4px;
+    padding: 12px;
+  }
+
+  .admin-login-provider-help-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-content: stretch;
+  }
+
+  .admin-login-provider-help-actions .admin-btn {
+    width: 100%;
   }
 
   .admin-settings-field-groups {
@@ -6707,7 +6821,7 @@
 
 .support-admin-ticket-tabs {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 8px;
   min-width: 0;
   border: 1px solid var(--admin-border);
@@ -7485,6 +7599,11 @@
   inline-size: min(1240px, calc(100vw - 32px));
 }
 
+.dialog-card.admin-dialog.admin-promo-create-dialog {
+  width: min(1120px, calc(100vw - 32px));
+  inline-size: min(1120px, calc(100vw - 32px));
+}
+
 .admin-promo-dialog > .dialog-body-scroll,
 .admin-promo-dialog .dialog-body-scroll > .scroll-area__viewport,
 .admin-promo-dialog .dialog-body-scroll > .scroll-area__viewport > div {
@@ -7594,7 +7713,8 @@
   gap: 10px;
   min-height: 0;
   min-width: 0;
-  overflow: auto;
+  overflow-x: clip;
+  overflow-y: auto;
   padding-right: 2px;
 }
 
@@ -7757,7 +7877,8 @@
   }
 
   .admin-promo-settings-grid {
-    overflow: auto;
+    overflow-x: clip;
+    overflow-y: auto;
     padding-right: 0;
   }
 
@@ -7789,6 +7910,25 @@
   .admin-promo-effect-section {
     grid-column: 2;
     grid-row: 1 / span 2;
+  }
+
+  .admin-promo-create-dialog .admin-promo-settings-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-promo-create-dialog .admin-promo-basics-section {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .admin-promo-create-dialog .admin-promo-eligibility-section {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .admin-promo-create-dialog .admin-promo-effect-section {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 
   .admin-promo-editor-section {

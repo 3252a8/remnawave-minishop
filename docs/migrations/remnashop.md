@@ -4,14 +4,14 @@ Remnashop импортируется через общий скрипт импо
 Самый удобный путь - интерактивный install wizard:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/3252a8/remnawave-minishop/main/scripts/install.sh -o install.sh
+curl -fsSL https://gitlab.com/3252a8/remnawave-minishop/-/raw/main/scripts/install.sh -o install.sh
 sh install.sh
 ```
 
-Та же ссылка на install-скрипт в GitLab:
+Альтернативная ссылка на install-скрипт в GitHub:
 
 ```bash
-curl -fsSL https://gitlab.com/3252a8/remnawave-minishop/-/raw/main/scripts/install.sh -o install.sh
+curl -fsSL https://raw.githubusercontent.com/3252a8/remnawave-minishop/main/scripts/install.sh -o install.sh
 sh install.sh
 ```
 
@@ -121,7 +121,7 @@ Importer автоматически строит `TARIFFS_CONFIG_PATH` из Remn
 
 1. Wizard использует папку установки `/opt/remnawave-minishop` по умолчанию,
    скачивает выбранный compose-профиль и `backend/scripts/import_legacy.py`
-   через `raw.githubusercontent.com`, без клонирования репозитория. Repository
+   через GitLab Raw, без клонирования репозитория. Repository
    и ref не спрашиваются в обычном сценарии; для fork/dev-ветки задайте
    `MINISHOP_INSTALL_REPO` и `MINISHOP_INSTALL_REF` перед запуском.
 2. Wizard пытается найти Remnashop PostgreSQL, `.env`, `BOT_TOKEN`,

@@ -46,6 +46,11 @@ describe("section availability", () => {
     expect(activeTabForWebappSection("install")).toBe("home");
     expect(activeTabForWebappSection("trial")).toBe("home");
     expect(activeTabForWebappSection("partner")).toBe("partner");
+    expect(
+      activeTabForWebappSection("partner", {
+        partnerSettingsVisible: true,
+      })
+    ).toBe("settings");
     expect(activeTabForWebappSection("support")).toBe("support");
   });
 });

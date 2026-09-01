@@ -99,17 +99,21 @@ export function resolveLoadedWebappRoute({
   const subscription = recordField(payload.subscription);
   const user = recordField(payload.user);
   const isAdmin = Boolean(user.is_admin);
+  const partnerProgramEnabled = partnerProgramPreview || Boolean(settings.partner_program_enabled);
+  const referralProgramEnabled = settings.referral_program_enabled !== false;
   const section = resolveAvailableWebappSection({
     devicesEnabled: Boolean(settings.my_devices_enabled),
     installGuidesAvailable: Boolean(settings.subscription_guides_enabled && subscription.active),
     isAdmin,
-    partnerProgramEnabled: partnerProgramPreview || Boolean(settings.partner_program_enabled),
-    referralProgramEnabled: settings.referral_program_enabled !== false,
+    partnerProgramEnabled,
+    referralProgramEnabled,
     section: String(routeSection || "home"),
     supportEnabled: settings.support_tickets_enabled !== false,
   });
   return {
-    activeTab: activeTabForWebappSection(section),
+    activeTab: activeTabForWebappSection(section, {
+      partnerSettingsVisible: partnerProgramEnabled && referralProgramEnabled,
+    }),
     initialAdminSection:
       section === "admin"
         ? preservedAdminSection || normalizeAdminSection(fallbackAdminSection)

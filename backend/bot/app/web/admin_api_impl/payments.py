@@ -34,13 +34,13 @@ from .common import (
     _ok,
     _payment_user_display_label,
 )
-from .schemas import (
+from .payment_schemas import (
     AdminPaymentFinalizeBody,
     AdminPaymentReverseBody,
-    AdminPaymentsListOut,
     PaymentDetailOut,
     PaymentOut,
 )
+from .schemas import AdminPaymentsListOut
 
 register_contract(
     "admin_payments_list_route",

@@ -15,8 +15,8 @@
     </a>
     <a class="minishop-feature-card" href="/features/web-app/">
       <span class="minishop-feature-index">02</span>
-      <h3>Mini App, Telegram и вход по email</h3>
-      <p>Личный кабинет с подпиской, трафиком, подключением, покупками и поддержкой. Авторизация через Telegram или email.</p>
+      <h3>Mini App и способы входа</h3>
+      <p>Личный кабинет с подпиской, трафиком, подключением, покупками и поддержкой. Вход через email, Telegram, Google, Яндекс или passkey.</p>
       <span class="minishop-card-link">Возможности Mini App <span aria-hidden="true">→</span></span>
     </a>
     <a class="minishop-feature-card" href="/features/admin-panel/">
@@ -37,20 +37,26 @@
       <p>Заявки и отдельные ссылки, закрепление клиентов, комиссии, раздельные балансы, ручные выплаты и полная или частичная оплата покупок из баланса.</p>
       <span class="minishop-card-link">Настроить партнёрскую программу <span aria-hidden="true">→</span></span>
     </a>
-    <a class="minishop-feature-card" href="/features/support/">
+    <a class="minishop-feature-card" href="/features/user-balance/">
       <span class="minishop-feature-index">06</span>
+      <h3>Баланс пользователя</h3>
+      <p>Пополнение через платёжных провайдеров, полная и частичная оплата покупок, админские корректировки и безопасная конвертация с партнёрским балансом.</p>
+      <span class="minishop-card-link">Настроить пользовательский баланс <span aria-hidden="true">→</span></span>
+    </a>
+    <a class="minishop-feature-card" href="/features/support/">
+      <span class="minishop-feature-index">07</span>
       <h3>Поддержка внутри продукта</h3>
       <p>Тикеты из Mini App, ответы администраторов, уведомления и история обращений в одном рабочем процессе.</p>
-      <span class="minishop-card-link">Поддержка пользователей <span aria-hidden="true">→</span></span>
+      <span class="minishop-card-link">Поддержка/тикеты <span aria-hidden="true">→</span></span>
     </a>
     <a class="minishop-feature-card" href="/features/backups/">
-      <span class="minishop-feature-index">07</span>
+      <span class="minishop-feature-index">08</span>
       <h3>Развертывание и надежность</h3>
       <p>Docker Compose, управляемые обновления, автоматические бэкапы, восстановление и готовые сценарии миграции.</p>
-      <span class="minishop-card-link">Бэкапы и восстановление <span aria-hidden="true">→</span></span>
+      <span class="minishop-card-link">Бэкапы <span aria-hidden="true">→</span></span>
     </a>
     <a class="minishop-feature-card" href="/features/server-status/">
-      <span class="minishop-feature-index">08</span>
+      <span class="minishop-feature-index">09</span>
       <h3>Статус серверов для пользователей</h3>
       <p>Внешняя страница статуса или встроенные данные Uptime Kuma и xray-checker с кэшированием и показом последних доступных данных при сбое.</p>
       <span class="minishop-card-link">Настроить статус серверов <span aria-hidden="true">→</span></span>
@@ -58,12 +64,12 @@
   </div>
   <a class="minishop-provider-panel" href="/features/payments/">
     <span class="minishop-provider-copy">
-      <span class="minishop-eyebrow">15 платежных интеграций</span>
+      <span class="minishop-eyebrow">16 платежных интеграций</span>
       <strong>Принимайте оплату удобным для аудитории способом</strong>
       <span>Провайдеры подключаются независимо и отображаются в Mini App и Telegram-сценариях.</span>
     </span>
     <span class="minishop-provider-list" aria-label="Поддерживаемые платежные провайдеры">
-      <span>YooKassa</span><span>Telegram Stars</span><span>Stripe</span><span>Tribute</span><span>CloudPayments</span><span>Platega</span><span>FreeKassa</span><span>Wata</span><span>CryptoPay</span><span>Heleket</span><span>PayKilla</span><span>LAVA</span><span>Pally</span><span>Overpay</span><span>SeverPay</span>
+      <span>YooKassa</span><span>Telegram Stars</span><span>Stripe</span><span>Tribute</span><span>CloudPayments</span><span>Platega</span><span>FreeKassa</span><span>Wata</span><span>CryptoPay</span><span>Heleket</span><span>OxaPay</span><span>PayKilla</span><span>LAVA</span><span>Pally</span><span>Overpay</span><span>SeverPay</span>
     </span>
     <span class="minishop-provider-link">Все платежные сценарии <span aria-hidden="true">→</span></span>
   </a>

@@ -13,14 +13,19 @@
   import HomeScreen from "./screens/HomeScreen.svelte";
   import ScreenLoading from "./screens/ScreenLoading.svelte";
   import SettingsScreen from "./screens/SettingsScreen.svelte";
+  import SecurityScreen from "./screens/SecurityScreen.svelte";
+  import BalanceTopupDialog from "./payment-dialogs/BalanceTopupDialog.svelte";
   import type {
     AppSettings,
+    BalanceView,
     BooleanAction,
     BrandConfig,
     CopyTextAction,
     DevicesData,
     LanguageOption,
+    MenuButtonView,
     OpenLinkAction,
+    PaymentMethodView,
     ReferralBonusDetail,
     ReferralState,
     StringAction,
@@ -40,6 +45,7 @@
     activateTrial: VoidAction;
     activeTab?: string;
     appSettings?: AppSettings;
+    balance?: BalanceView;
     applyPromo: VoidAction;
     autoRenewBusy?: boolean;
     brand?: BrandConfig;
@@ -62,13 +68,15 @@
     subscriptionReissueBusy?: boolean;
     openSubscriptionReissueDialog?: VoidAction;
     emailAuthEnabled?: boolean;
-    emailLinkStatus?: string;
     goDevices: VoidAction;
     goHome: VoidAction;
     goInvite: VoidAction;
+    goInstall: VoidAction;
     goPartner: VoidAction;
     partnerEnabled?: boolean;
     goSettings: VoidAction;
+    goSecurity: VoidAction;
+    goTrial: VoidAction;
     goStatus: (parent?: "home" | "settings") => void;
     goSupport: VoidAction;
     hasActiveTariffSubscription?: boolean;
@@ -80,8 +88,6 @@
     languageClickGuardArmed?: boolean;
     languageMenuOpen?: boolean;
     languageOptions?: LanguageOption[];
-    linkEmailBusy?: boolean;
-    linkTelegramAccount: VoidAction;
     linkTelegramAndActivateTrial: VoidAction;
     linkTelegramAndClaimReferralWelcome: VoidAction;
     linkTelegramBusy?: boolean;
@@ -94,6 +100,8 @@
     openInstallOrConnect: VoidAction;
     openLinkEmailDialog: VoidAction;
     openPaymentModal: VoidAction;
+    methods?: PaymentMethodView[];
+    paymentMethodsDisplayMode?: "dropdown" | "buttons" | string;
     openPremiumTopupModal: VoidAction;
     openRegularTopupModal: VoidAction;
     openSetPasswordDialog: VoidAction;
@@ -122,9 +130,9 @@
     screen?: string;
     serverStatusInternal?: boolean;
     serverStatusShowOnHome?: boolean;
+    compactHomeEnabled?: boolean;
     serverStatusUrl?: string;
     statusStore: ServerStatusStore;
-    showTelegramLinkedStatus?: boolean;
     setLanguageMenuOpen: BooleanAction;
     setPromoCode: StringAction;
     subscription?: SubscriptionView;
@@ -162,6 +170,7 @@
     activateTrial,
     activeTab = "home",
     appSettings = {},
+    balance = {} as BalanceView,
     applyPromo,
     autoRenewBusy = false,
     brand = {},
@@ -184,13 +193,15 @@
     subscriptionReissueBusy = false,
     openSubscriptionReissueDialog = () => {},
     emailAuthEnabled = true,
-    emailLinkStatus = "",
     goDevices,
     goHome,
     goInvite,
+    goInstall,
     goPartner,
     partnerEnabled = false,
     goSettings,
+    goSecurity,
+    goTrial,
     goStatus,
     goSupport,
     hasActiveTariffSubscription = false,
@@ -202,8 +213,6 @@
     languageClickGuardArmed = false,
     languageMenuOpen = $bindable(false),
     languageOptions = [],
-    linkEmailBusy = false,
-    linkTelegramAccount,
     linkTelegramAndActivateTrial,
     linkTelegramAndClaimReferralWelcome,
     linkTelegramBusy = false,
@@ -216,6 +225,8 @@
     openInstallOrConnect,
     openLinkEmailDialog,
     openPaymentModal,
+    methods = [],
+    paymentMethodsDisplayMode = "dropdown",
     openPremiumTopupModal,
     openRegularTopupModal,
     openSetPasswordDialog,
@@ -244,9 +255,9 @@
     screen = "home",
     serverStatusInternal = false,
     serverStatusShowOnHome = false,
+    compactHomeEnabled = false,
     serverStatusUrl = "",
     statusStore,
-    showTelegramLinkedStatus = false,
     setLanguageMenuOpen,
     setPromoCode,
     subscription = {},
@@ -313,6 +324,48 @@
       referralProgramEnabled,
     })
   );
+  const menuButtons = $derived(
+    Array.isArray(appSettings?.menu_buttons) ? (appSettings.menu_buttons as MenuButtonView[]) : []
+  );
+  let balanceTopupOpen = $state(false);
+
+  function openMenuButton(button: MenuButtonView): void {
+    if (button.kind !== "webapp") {
+      openExternalLink(String(button.target || ""));
+      return;
+    }
+    switch (button.target) {
+      case "plans":
+        openPaymentModal();
+        break;
+      case "install":
+        goInstall();
+        break;
+      case "trial":
+        goTrial();
+        break;
+      case "invite":
+        goInvite();
+        break;
+      case "partner":
+        goPartner();
+        break;
+      case "devices":
+        goDevices();
+        break;
+      case "support":
+        goSupport();
+        break;
+      case "settings":
+        goSettings();
+        break;
+      case "status":
+        goStatus("settings");
+        break;
+      default:
+        goHome();
+    }
+  }
 </script>
 
 <WebAppShell
@@ -334,13 +387,16 @@
   {goPartner}
   bonusesNavigationVisible={programEntryPlacement.bonusesNavigationVisible}
   partnerNavigationVisible={programEntryPlacement.partnerNavigationVisible}
+  partnerSettingsVisible={programEntryPlacement.partnerSettingsVisible}
   {goSupport}
   {goSettings}
+  {goSecurity}
   {t}
 >
   {#if screen === "home"}
     <HomeScreen
       {appSettings}
+      {balance}
       {brand}
       {brandTitle}
       {canChangeTariff}
@@ -368,12 +424,14 @@
       {openTelegramNotificationsBot}
       openConnectLink={openInstallOrConnect}
       {openPaymentModal}
+      openBalanceTopup={() => (balanceTopupOpen = true)}
       {openRegularTopupModal}
       {openPremiumTopupModal}
       {openTariffChangeModal}
       goStatus={() => goStatus("home")}
       {openExternalLink}
       {serverStatusShowOnHome}
+      {compactHomeEnabled}
       {statusStore}
       {primaryPayActionLabel}
       {t}
@@ -442,7 +500,7 @@
   {:else if screen === "partner"}
     {#if partnerScreen.component}
       {@const Screen = partnerScreen.component}
-      <Screen {api} {copyText} {t} />
+      <Screen {api} {copyText} goBack={activeTab === "settings" ? goSettings : undefined} {t} />
     {:else}
       <ScreenLoading label={t("wa_loading")} />
     {/if}
@@ -500,19 +558,18 @@
       {currentLang}
       {currentLanguageOption}
       {emailAuthEnabled}
-      {emailLinkStatus}
       {isAdmin}
       {languageBusy}
       {languageClickGuard}
       {languageClickGuardArmed}
       bind:languageMenuOpen
       {languageOptions}
-      {linkEmailBusy}
-      {linkTelegramBusy}
+      {menuButtons}
       {privacyPolicyUrl}
       {profileAvatarUrl}
       {profileEmail}
       {profileTelegramId}
+      {balance}
       partnerSettingsVisible={programEntryPlacement.partnerSettingsVisible}
       promoActivationVisible={programEntryPlacement.promoSettingsVisible}
       {promoBusy}
@@ -522,7 +579,6 @@
       {promoStatus}
       {serverStatusUrl}
       {serverStatusInternal}
-      {showTelegramLinkedStatus}
       {subscriptionReissueBusy}
       subscriptionReissueVisible={settingsSubscriptionReissueVisible}
       {supportUrl}
@@ -537,15 +593,16 @@
       {user}
       {userAgreementUrl}
       {userLanguage}
+      {hasUnlinkedIdentity}
       showLogout={!telegramMiniAppContext}
-      {linkTelegramAccount}
       {openTelegramNotificationsBot}
       logout={accountStore.logout}
       {openAdminPanel}
       openPartner={goPartner}
       {openExternalLink}
-      {openLinkEmailDialog}
-      {openSetPasswordDialog}
+      openBalanceTopup={() => (balanceTopupOpen = true)}
+      {openMenuButton}
+      openSecurity={goSecurity}
       openServerStatus={() => goStatus("settings")}
       {openSubscriptionReissueDialog}
       {applyPromo}
@@ -554,6 +611,20 @@
       {setPromoCode}
       {t}
       updateAccountLanguage={accountStore.updateAccountLanguage}
+    />
+  {:else if screen === "security"}
+    <SecurityScreen
+      {api}
+      authProviders={(appSettings.auth_providers || appSettings.authProviders || []) as string[]}
+      {brandTitle}
+      {currentLang}
+      emailChangeEnabled={Boolean(appSettings.email_address_change_enabled ?? true)}
+      {goSettings}
+      linkTelegramAccount={accountStore.linkTelegramFromSettings}
+      {openLinkEmailDialog}
+      {openSetPasswordDialog}
+      {t}
+      {user}
     />
   {:else if screen === "status"}
     {#if statusScreen.component}
@@ -568,5 +639,16 @@
     {:else}
       <ScreenLoading label={t("wa_loading")} />
     {/if}
+  {/if}
+  {#if balance.enabled}
+    <BalanceTopupDialog
+      {api}
+      bind:open={balanceTopupOpen}
+      {balance}
+      {methods}
+      {paymentMethodsDisplayMode}
+      {openExternalLink}
+      {t}
+    />
   {/if}
 </WebAppShell>

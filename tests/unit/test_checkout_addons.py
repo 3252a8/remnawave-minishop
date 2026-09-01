@@ -216,7 +216,7 @@ class CheckoutAddonConfigTests(TestCase):
             current_regular_limit_gb=100,
             current_premium_limit_gb=20,
         )
-        upgraded, _bundle = build_checkout_bundle(
+        upgraded, upgrade_bundle = build_checkout_bundle(
             BasePaymentQuote(
                 payment_units=1,
                 price=100,
@@ -232,6 +232,9 @@ class CheckoutAddonConfigTests(TestCase):
         )
         self.assertGreater(upgraded.price, 234.9)
         self.assertLess(upgraded.price, 235.1)
+        device_upgrade = next(item for item in upgrade_bundle.items if item["kind"] == "devices")
+        self.assertTrue(device_upgrade["immediate_applies"])
+        self.assertGreater(device_upgrade["immediate_amount"], 0)
 
         base_payload = WebAppPaymentCreatePayload.model_validate(
             {

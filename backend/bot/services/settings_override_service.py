@@ -34,6 +34,7 @@ APPEARANCE_OVERRIDE_KEYS = {
     "WEBAPP_FAVICON_URL",
     "WEBAPP_LOGO_FAVICON_URL",
     "WEBAPP_PRIMARY_COLOR",
+    "WEBAPP_COMPACT_HOME_ENABLED",
 }
 REFERRAL_LINK_VISIBILITY_KEYS = (
     "REFERRAL_WEBAPP_LINK_ENABLED",
@@ -290,6 +291,8 @@ def _appearance_snapshot(settings: Settings) -> dict[str, Any]:
     primary_color = settings.WEBAPP_PRIMARY_COLOR
     if primary_color and primary_color != "#00fe7a":
         snapshot["WEBAPP_PRIMARY_COLOR"] = primary_color
+    if settings.WEBAPP_COMPACT_HOME_ENABLED:
+        snapshot["WEBAPP_COMPACT_HOME_ENABLED"] = True
     return snapshot
 
 

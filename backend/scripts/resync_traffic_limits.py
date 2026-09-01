@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.services.panel_api_service import PanelApiService
 from bot.services.settings_override_service import load_overrides_from_db
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.subscription_service_impl.traffic import resolve_main_traffic_baseline
 from config.settings import Settings
 from db.dal import tariff_dal
 from db.database_setup import init_db_connection
@@ -40,7 +41,7 @@ async def _target_limit(
 ) -> tuple[int, int]:
     """Read-only mirror of sync_main_traffic_limit_to_panel's computation."""
     tariff = svc._resolve_tariff(sub.tariff_key) if sub.tariff_key else None
-    baseline = int(sub.tier_baseline_bytes or (tariff.monthly_bytes if tariff else 0) or 0)
+    baseline = await resolve_main_traffic_baseline(session, sub, tariff)
     summary = await tariff_dal.get_hwid_device_entitlement_summary(
         session, subscription_id=sub.subscription_id, at=datetime.now(UTC)
     )

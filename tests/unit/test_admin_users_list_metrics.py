@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock
 from sqlalchemy.dialects import postgresql
 
 from bot.app.web.admin_api_impl import users as users_module
+from db.dal import partner_dal, user_balance_dal
 
 
 class FakeResult:
@@ -33,6 +34,47 @@ def _compile_sql(stmt) -> str:
 
 
 class AdminUsersListMetricsTests(unittest.IsolatedAsyncioTestCase):
+    async def test_bulk_user_balances_use_one_grouped_currency_query(self):
+        session = SimpleNamespace(
+            execute=AsyncMock(
+                return_value=FakeResult(
+                    [
+                        SimpleNamespace(user_id=101, amount=12500),
+                        SimpleNamespace(user_id=202, amount=-300),
+                    ]
+                )
+            )
+        )
+
+        result = await user_balance_dal.balance_minor_by_user_ids(
+            session,
+            [101, 202, 101],
+            "USD",
+        )
+
+        self.assertEqual(result, {101: 12500, 202: -300})
+        sql = _compile_sql(session.execute.await_args.args[0])
+        self.assertIn("user_balance_ledger_entries.user_id in (101, 202)", sql)
+        self.assertIn("upper(user_balance_ledger_entries.currency) = 'usd'", sql)
+        self.assertIn("state = 'posted'", sql)
+        self.assertIn("group by user_balance_ledger_entries.user_id", sql)
+
+    async def test_bulk_partner_balances_map_profiles_to_users(self):
+        session = SimpleNamespace(
+            execute=AsyncMock(return_value=FakeResult([SimpleNamespace(user_id=101, amount=4200)]))
+        )
+
+        result = await partner_dal.balance_minor_by_user_ids(session, [101, 202], "EUR")
+
+        self.assertEqual(result, {101: 4200})
+        sql = _compile_sql(session.execute.await_args.args[0])
+        self.assertIn("partner_profiles", sql)
+        self.assertIn("partner_ledger_entries", sql)
+        self.assertIn("partner_profiles.user_id in (101, 202)", sql)
+        self.assertIn("upper(partner_ledger_entries.currency) = 'eur'", sql)
+        self.assertIn("state = 'posted'", sql)
+        self.assertIn("group by partner_profiles.user_id", sql)
+
     async def test_bulk_user_payment_summaries_returns_succeeded_totals(self):
         session = SimpleNamespace(
             execute=AsyncMock(return_value=FakeResult([(101, 1234.5, 3, "RUB")]))

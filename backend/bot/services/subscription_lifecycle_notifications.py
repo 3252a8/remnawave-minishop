@@ -25,6 +25,7 @@ from bot.services.telegram_notifications import (
 )
 from bot.services.user_notification_policy import (
     UserNotificationCategory,
+    email_recipient,
     user_notification_delivery_plan,
 )
 from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
@@ -349,9 +350,8 @@ class SubscriptionLifecycleNotificationService:
     def _channel_key(stage_key: str, channel: str) -> str:
         return f"{stage_key}:{channel}"
 
-    @staticmethod
-    def _email_recipient(user: User | None) -> str:
-        return str(getattr(user, "email", "") or "").strip().lower() if user else ""
+    def _email_recipient(self, user: User | None) -> str:
+        return email_recipient(self.settings, user) if user else ""
 
     @staticmethod
     def _user_display_name(user: User | None, *, fallback: str) -> str:

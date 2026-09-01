@@ -18,10 +18,12 @@ from bot.infra.event_payloads import (
 from bot.infra.payment_events import build_payment_succeeded_payload
 from bot.keyboards.inline.user_keyboards import get_connect_and_main_keyboard
 from bot.services.partner_commission_service import PartnerCommissionService
+from bot.services.partner_common import currency_scale, minor_to_decimal_string
 from bot.services.payment_fulfillment import (
     capture_payment_entitlement_snapshot,
     persist_payment_fulfillment,
 )
+from bot.services.user_balance_service import UserBalanceService
 from bot.services.user_notification_policy import (
     UserNotificationCategory,
     telegram_recipient,
@@ -30,7 +32,7 @@ from bot.services.user_notification_policy import (
 from bot.utils.config_link import prepare_config_links
 from bot.utils.install_links import ensure_user_install_guide_links
 from bot.utils.text_sanitizer import sanitize_display_name, username_for_display
-from db.dal import auto_renew_dal, payment_dal, subscription_dal, user_dal
+from db.dal import auto_renew_dal, message_log_dal, payment_dal, subscription_dal, user_dal
 from db.models import Payment, User
 
 from .common import (
@@ -345,6 +347,68 @@ async def _mark_activation_failed(req: PaymentSuccessRequest, payment_id: int) -
         )
 
 
+async def _capture_fulfillment_snapshot(
+    req: PaymentSuccessRequest,
+    payment: Payment,
+    *,
+    phase: str,
+) -> dict[str, Any] | None:
+    """Capture optional reversal audit state without blocking paid fulfillment."""
+
+    try:
+        # A database error aborts a PostgreSQL transaction until its savepoint
+        # is rolled back. Keep audit reads isolated so provider fulfillment can
+        # still commit when the optional reversal snapshot is unavailable.
+        savepoint = await req.session.begin_nested()
+        try:
+            snapshot = await capture_payment_entitlement_snapshot(req.session, payment)
+        except Exception:
+            await savepoint.rollback()
+            raise
+        else:
+            await savepoint.commit()
+            return snapshot
+    except Exception:
+        logger.exception(
+            "%s: failed to capture the %s fulfillment snapshot for payment %s; "
+            "continuing without reversible fulfillment audit.",
+            req.log_prefix,
+            phase,
+            payment.payment_id,
+        )
+        return None
+
+
+async def _persist_fulfillment_audit(
+    req: PaymentSuccessRequest,
+    payment: Payment,
+    *,
+    before: dict[str, Any] | None,
+    after: dict[str, Any] | None,
+) -> None:
+    if before is None or after is None:
+        return
+    try:
+        savepoint = await req.session.begin_nested()
+        try:
+            persist_payment_fulfillment(payment, before=before, after=after)
+            # Core sessions disable autoflush.  Persist the audit before the
+            # status updater reloads this Payment with populate_existing,
+            # otherwise the database NULLs overwrite the pending snapshots.
+            await req.session.flush()
+        except Exception:
+            await savepoint.rollback()
+            raise
+        else:
+            await savepoint.commit()
+    except Exception:
+        logger.exception(
+            "%s: failed to persist fulfillment audit for payment %s; keeping the paid entitlement.",
+            req.log_prefix,
+            payment.payment_id,
+        )
+
+
 async def finalize_successful_payment(
     req: PaymentSuccessRequest,
 ) -> PaymentSuccessOutcome | None:
@@ -411,6 +475,112 @@ async def finalize_successful_payment(
         float(req.months) if is_traffic_sale_base(sale_mode_base(req.sale_mode)) else None
     )
     base = sale_mode_base(req.sale_mode)
+
+    if base == "balance_topup":
+        try:
+            entry = await UserBalanceService(req.settings).credit_payment_topup(
+                req.session,
+                payment_id=payment_id,
+                user_id=req.user_id,
+                amount=req.amount,
+                currency=req.currency,
+            )
+            credited_amount = minor_to_decimal_string(
+                int(entry.amount_minor),
+                scale=int(entry.currency_scale),
+            )
+            await message_log_dal.create_message_log_no_commit(
+                req.session,
+                {
+                    "user_id": req.user_id,
+                    "event_type": "balance_topup_succeeded",
+                    "content": (
+                        f"amount={credited_amount} currency={str(entry.currency).upper()} "
+                        f"payment_id={payment_id} provider={req.provider_subscription}"
+                    ),
+                    "is_admin_event": False,
+                    "target_user_id": req.user_id,
+                },
+            )
+            await payment_dal.update_payment_status_by_db_id(
+                req.session,
+                payment_id,
+                "succeeded",
+            )
+            await req.session.commit()
+            logger.info(
+                "%s: credited user balance for payment %s: user_id=%s amount=%s currency=%s.",
+                req.log_prefix,
+                payment_id,
+                req.user_id,
+                credited_amount,
+                str(entry.currency).upper(),
+            )
+        except Exception:
+            logger.exception(
+                "%s: failed to credit user balance for payment %s.",
+                req.log_prefix,
+                payment_id,
+            )
+            await _mark_activation_failed(req, payment_id)
+            return None
+
+        await events.emit_model(
+            PaymentSucceededPayload.model_validate(
+                build_payment_succeeded_payload(
+                    user_id=req.user_id,
+                    payment_db_id=payment_id,
+                    provider=req.provider_subscription,
+                    notification_provider=req.provider_notification,
+                    amount=req.amount,
+                    currency=req.currency,
+                    sale_mode=req.sale_mode,
+                    tariff_key=None,
+                    months=None,
+                    traffic_gb=None,
+                    payment=req.payment,
+                    activation=None,
+                    end_date=None,
+                    is_auto_renew=False,
+                    renewal_subscription_id=None,
+                )
+            )
+        )
+        db_user, language = await resolve_user_language(
+            req.session,
+            user_id=req.user_id,
+            db_user=req.db_user,
+            settings=req.settings,
+        )
+        translator = make_translator(req.i18n, language)
+        scale = currency_scale(req.currency)
+        await send_success_message_to_user(
+            bot=req.bot,
+            user_id=req.user_id,
+            text=translator(
+                "balance_topup_success",
+                amount=minor_to_decimal_string(int(entry.amount_minor), scale=scale),
+                currency=req.currency.upper(),
+            ),
+            language=language,
+            i18n=req.i18n,
+            settings=req.settings,
+            config_link_display=None,
+            connect_button_url=None,
+            include_keyboard=True,
+            log_prefix=req.log_prefix,
+            user=db_user,
+            sale_mode=req.sale_mode,
+        )
+        return PaymentSuccessOutcome(
+            activation=None,
+            referral_bonus=None,
+            final_end_date=None,
+            applied_referee_bonus_days=0,
+            applied_promo_bonus_days=0,
+            db_user=db_user,
+            language=language,
+        )
 
     active_subscription = None
     tribute_subscription_event = base == "subscription" and stored_provider.lower() == "tribute"
@@ -487,9 +657,10 @@ async def finalize_successful_payment(
         activation_extra_kwargs.pop("tariff_key", None)
 
     try:
-        fulfillment_before = await capture_payment_entitlement_snapshot(
-            req.session,
+        fulfillment_before = await _capture_fulfillment_snapshot(
+            req,
             locked_payment,
+            phase="pre-activation",
         )
         partner_decision = None
         activation = await req.subscription_service.activate_subscription(
@@ -580,11 +751,15 @@ async def finalize_successful_payment(
                     req.log_prefix,
                     payment_id,
                 )
-        fulfillment_after = await capture_payment_entitlement_snapshot(
-            req.session,
-            locked_payment,
-        )
-        persist_payment_fulfillment(
+        fulfillment_after = None
+        if fulfillment_before is not None:
+            fulfillment_after = await _capture_fulfillment_snapshot(
+                req,
+                locked_payment,
+                phase="post-activation",
+            )
+        await _persist_fulfillment_audit(
+            req,
             locked_payment,
             before=fulfillment_before,
             after=fulfillment_after,

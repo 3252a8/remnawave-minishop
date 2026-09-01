@@ -7,15 +7,46 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.infra.grants import GrantContext, resolve_effective_grant
 from bot.services.panel_activity import record_subscription_panel_activity
 from bot.services.payment_promo import consume_payment_promo, load_payment_promo_effects
+from bot.services.tariff_worker_shared import resolve_flexible_limit_baseline
 from config.tariffs_config import Tariff
 from db.dal import payment_dal, subscription_dal, tariff_dal, user_dal
 from db.models import Subscription
 
 from ._typing import SubscriptionServiceMixinContract
 from .entitlement_helpers import immutable_subscription_start, panel_user_create_options
-from .hwid_limits import HwidDeviceLimits
+from .hwid_limits import HwidDeviceLimits, resolve_hwid_base_limit
 
 logger = logging.getLogger(__name__)
+
+
+async def resolve_main_traffic_baseline(
+    session: AsyncSession,
+    sub: Subscription,
+    tariff: Tariff | None,
+    *,
+    at: datetime | None = None,
+) -> int:
+    """Resolve the tariff-owned base without discarding flexible purchases."""
+    stored_baseline = getattr(sub, "tier_baseline_bytes", None)
+    if tariff is None:
+        return max(0, int(stored_baseline or 0))
+
+    now = at or datetime.now(UTC)
+    flexible_limits = await tariff_dal.get_active_flexible_traffic_limits(
+        session,
+        subscription_id=sub.subscription_id,
+        at=now,
+    )
+    return await resolve_flexible_limit_baseline(
+        session,
+        subscription_id=sub.subscription_id,
+        kind="traffic",
+        at=now,
+        active_baseline=flexible_limits.get("traffic"),
+        stored_baseline=stored_baseline,
+        default_baseline=int(tariff.monthly_bytes or 0),
+        preserve_without_history=False,
+    )
 
 
 class TrafficMixin(SubscriptionServiceMixinContract):
@@ -25,10 +56,10 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         sub: Subscription,
         tariff: Tariff | None,
     ) -> HwidDeviceLimits:
-        base = (
-            int(sub.hwid_device_limit)
-            if sub.hwid_device_limit is not None
-            else self._base_hwid_limit_for_tariff(tariff)
+        base = resolve_hwid_base_limit(
+            sub.hwid_device_limit,
+            self._base_hwid_limit_for_tariff(tariff),
+            is_override=bool(getattr(sub, "hwid_device_limit_is_override", False)),
         )
         extra = await self._active_hwid_extra_devices_for_sub(session, sub)
         effective = self._effective_hwid_limit(base, extra)
@@ -427,7 +458,8 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         if not sub:
             return False
         tariff = self._resolve_tariff(sub.tariff_key) if sub.tariff_key else None
-        baseline = int(sub.tier_baseline_bytes or (tariff.monthly_bytes if tariff else 0) or 0)
+        baseline = await resolve_main_traffic_baseline(session, sub, tariff)
+        sub.tier_baseline_bytes = baseline
         rb = int(getattr(sub, "regular_bonus_bytes", 0) or 0)
         runl = bool(getattr(sub, "regular_unlimited_override", False))
         used_now = int(getattr(sub, "traffic_used_bytes", 0) or 0)

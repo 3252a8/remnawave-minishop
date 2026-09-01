@@ -469,6 +469,53 @@ class RefereeBonusTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(referee_call, "referee bonus extension must be invoked")
         self.assertEqual(referee_call[0].kwargs["bonus_days"], 10)
 
+    async def test_disposable_email_without_telegram_still_gets_payment_bonus(self):
+        settings = _make_settings(
+            REFERRAL_ONE_BONUS_PER_REFEREE=False,
+            TRIAL_WITHOUT_TELEGRAM_ENABLED=False,
+            REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED=False,
+            DISPOSABLE_EMAIL_DOMAINS="ogzmail.com",
+            referral_bonus_inviter={},
+            referral_bonus_referee={1: 3},
+        )
+        referee_new_end = datetime(2026, 3, 1, tzinfo=UTC)
+        subscription_service = AsyncMock()
+        subscription_service.extend_active_subscription_days = AsyncMock(
+            return_value=referee_new_end
+        )
+        service, _bot = _make_service(settings=settings, subscription_service=subscription_service)
+
+        with patch(
+            "bot.services.referral_service.user_dal.get_user_by_id",
+            AsyncMock(
+                side_effect=lambda session, uid: (
+                    _make_user(
+                        uid,
+                        referred_by_id=1,
+                        email="person@ogzmail.com",
+                        telegram_id=None,
+                    )
+                    if uid == 42
+                    else _make_user(uid)
+                )
+            ),
+        ):
+            result = await service.apply_referral_bonuses_for_payment(
+                session=AsyncMock(),
+                referee_user_id=42,
+                purchased_subscription_months=1,
+                skip_if_active_before_payment=False,
+            )
+
+        self.assertEqual(result["referee_bonus_applied_days"], 3)
+        self.assertEqual(result["referee_new_end_date"], referee_new_end)
+        subscription_service.extend_active_subscription_days.assert_awaited_once_with(
+            session=unittest.mock.ANY,
+            user_id=42,
+            bonus_days=3,
+            reason=unittest.mock.ANY,
+        )
+
     async def test_no_referee_bonus_when_extend_returns_none(self):
         settings = _make_settings(
             REFERRAL_ONE_BONUS_PER_REFEREE=False,

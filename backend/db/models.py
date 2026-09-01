@@ -28,6 +28,7 @@ class User(Base):
     username = Column(String, nullable=True, index=True)
     email = Column(String, nullable=True, unique=True, index=True)
     email_verified_at = Column(DateTime(timezone=True), nullable=True)
+    notification_email = Column(String(254), nullable=True)
     password_hash = Column(String, nullable=True)
     password_set_at = Column(DateTime(timezone=True), nullable=True)
     telegram_id = Column(BigInteger, nullable=True, unique=True, index=True)
@@ -194,6 +195,7 @@ class Subscription(Base):
     is_throttled = Column(Boolean, nullable=False, default=False, index=True)
     effective_monthly_price_rub = Column(Numeric, nullable=True)
     hwid_device_limit = Column(Integer, nullable=True)
+    hwid_device_limit_is_override = Column(Boolean, nullable=False, default=False)
     extra_hwid_devices = Column(Integer, nullable=False, default=0)
 
     user = relationship("User", back_populates="subscriptions")
@@ -391,6 +393,8 @@ class Payment(Base):
     checkout_charged_gb = Column(Float, nullable=True)
     checkout_quoted_at = Column(DateTime(timezone=True), nullable=True)
     checkout_total_amount = Column(Float, nullable=True)
+    user_balance_amount_minor = Column(BigInteger, nullable=True)
+    user_balance_currency_scale = Column(Integer, nullable=True)
     partner_balance_amount_minor = Column(BigInteger, nullable=True)
     partner_balance_currency_scale = Column(Integer, nullable=True)
     tariff_change_quote_snapshot = Column(Text, nullable=True)
@@ -785,6 +789,58 @@ class PlategaSubscription(Base):
     user = relationship("User")
 
 
+class RollyPaySubscription(Base):
+    """Local mirror of a provider-managed RollyPay recurring SBP mandate."""
+
+    __tablename__ = "rollypay_subscriptions"
+    __table_args__ = (
+        Index(
+            "ix_rollypay_subscriptions_user_billing_status",
+            "user_id",
+            "billing_status",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    rollypay_subscription_id = Column(String, nullable=False, unique=True, index=True)
+    anchor_payment_id = Column(
+        Integer,
+        ForeignKey("payments.payment_id"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    user_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=False, index=True)
+    provider_state = Column(String(32), nullable=False, default="new", index=True)
+    billing_status = Column(String(32), nullable=False, default="consent_pending", index=True)
+    plan_id = Column(String, nullable=False)
+    plan_code = Column(String, nullable=False)
+    plan_version = Column(Integer, nullable=False)
+    interval = Column(String(16), nullable=False)
+    max_cycles = Column(Integer, nullable=True)
+    amount = Column(Float, nullable=False)
+    currency = Column(String(8), nullable=False, default="RUB")
+    months = Column(Integer, nullable=False)
+    sale_mode = Column(String, nullable=True)
+    tariff_key = Column(String, nullable=True, index=True)
+    next_charge_at = Column(DateTime(timezone=True), nullable=True)
+    last_charge_at = Column(DateTime(timezone=True), nullable=True)
+    charges_count = Column(Integer, nullable=False, default=0)
+    first_provider_payment_id = Column(String, nullable=True, unique=True, index=True)
+    activated_at = Column(DateTime(timezone=True), nullable=True)
+    stopped_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    user = relationship("User")
+    anchor_payment = relationship("Payment")
+
+
 class PromoCode(Base):
     __tablename__ = "promo_codes"
 
@@ -893,6 +949,8 @@ class LegacyImportMapping(Base):
 # backup/restore and migration tests.  Domain code imports the classes from
 # ``db.partner_models`` directly; this import exists only for registration.
 from db import activity_models as activity_models  # noqa: E402
+from db import auth_models as auth_models  # noqa: E402
+from db import balance_models as balance_models  # noqa: E402
 from db import broadcast_models as broadcast_models  # noqa: E402
 from db import message_image_models as message_image_models  # noqa: E402
 from db import partner_models as partner_models  # noqa: E402
@@ -905,6 +963,11 @@ MessageLog = activity_models.MessageLog
 PanelSyncStatus = activity_models.PanelSyncStatus
 SupportTicket = activity_models.SupportTicket
 SupportTicketMessage = activity_models.SupportTicketMessage
+UserExternalIdentity = auth_models.UserExternalIdentity
+UserEmailAddress = auth_models.UserEmailAddress
+UserPasskeyCredential = auth_models.UserPasskeyCredential
+WebAuthnChallenge = auth_models.WebAuthnChallenge
 AdminBroadcast = broadcast_models.AdminBroadcast
 AdminBroadcastDelivery = broadcast_models.AdminBroadcastDelivery
 MessageImage = message_image_models.MessageImage
+UserBalanceLedgerEntry = balance_models.UserBalanceLedgerEntry

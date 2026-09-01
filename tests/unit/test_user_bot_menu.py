@@ -225,6 +225,99 @@ class UserBotMenuTests(unittest.TestCase):
         self.assertEqual(trial_button.callback_data, "main_action:request_trial")
         self.assertIsNone(trial_button.web_app)
 
+    def test_custom_buttons_are_last_and_use_native_targets(self):
+        self.settings.MENU_BUTTONS_JSON = json.dumps(
+            [
+                {
+                    "id": "website",
+                    "kind": "external",
+                    "target": "https://example.com/news",
+                    "webapp_icon": "Globe2",
+                    "telegram_emoji": "📰",
+                    "labels": {"ru": "Новости", "en": "News"},
+                },
+                {
+                    "id": "community",
+                    "kind": "telegram",
+                    "target": "https://t.me/example_group",
+                    "webapp_icon": "Users",
+                    "telegram_emoji": "✈️",
+                    "labels": {"ru": "Сообщество", "en": "Community"},
+                },
+                {
+                    "id": "devices",
+                    "kind": "webapp",
+                    "target": "devices",
+                    "webapp_icon": "Smartphone",
+                    "telegram_emoji": "📱",
+                    "labels": {"ru": "Устройства", "en": "Devices"},
+                },
+            ]
+        )
+
+        markup = get_main_menu_inline_keyboard("en", self.i18n, self.settings)
+        custom_rows = markup.inline_keyboard[-3:]
+
+        self.assertEqual(custom_rows[0][0].text, "📰 News")
+        self.assertEqual(custom_rows[0][0].url, "https://example.com/news")
+        self.assertEqual(custom_rows[1][0].text, "✈️ Community")
+        self.assertEqual(custom_rows[1][0].url, "https://t.me/example_group")
+        self.assertEqual(custom_rows[2][0].text, "📱 Devices")
+        self.assertEqual(custom_rows[2][0].web_app.url, "https://app.example.com/devices")
+
+    def test_webapp_custom_button_is_skipped_without_mini_app(self):
+        self.settings.SUBSCRIPTION_MINI_APP_URL = ""
+        self.settings.MENU_BUTTONS_JSON = json.dumps(
+            [
+                {
+                    "id": "devices",
+                    "kind": "webapp",
+                    "target": "devices",
+                    "webapp_icon": "Smartphone",
+                    "telegram_emoji": "",
+                    "labels": {"ru": "Устройства", "en": "Devices"},
+                }
+            ]
+        )
+
+        markup = get_main_menu_inline_keyboard("en", self.i18n, self.settings)
+
+        self.assertFalse(
+            any(button.text == "Devices" for row in markup.inline_keyboard for button in row)
+        )
+
+    def test_custom_buttons_respect_bot_visibility(self):
+        self.settings.MENU_BUTTONS_JSON = json.dumps(
+            [
+                {
+                    "id": "webapp_only",
+                    "kind": "external",
+                    "target": "https://example.com/webapp",
+                    "webapp_icon": "ExternalLink",
+                    "telegram_emoji": "",
+                    "labels": {"ru": "Только Web App", "en": "Web App only"},
+                    "show_in_bot": False,
+                    "show_in_webapp": True,
+                },
+                {
+                    "id": "bot_only",
+                    "kind": "external",
+                    "target": "https://example.com/bot",
+                    "webapp_icon": "ExternalLink",
+                    "telegram_emoji": "",
+                    "labels": {"ru": "Только бот", "en": "Bot only"},
+                    "show_in_bot": True,
+                    "show_in_webapp": False,
+                },
+            ]
+        )
+
+        markup = get_main_menu_inline_keyboard("en", self.i18n, self.settings)
+        texts = [button.text for row in markup.inline_keyboard for button in row]
+
+        self.assertNotIn("Web App only", texts)
+        self.assertIn("Bot only", texts)
+
     def test_bot_interface_trial_button_uses_mini_app_deeplink_when_available(self):
         markup = get_bot_interface_inline_keyboard(
             "en",

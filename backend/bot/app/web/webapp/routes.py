@@ -42,6 +42,7 @@ from .assets import (
     webapp_logo_route,
     webapp_uploaded_logo_route,
 )
+from .assets_static import flag_font_asset_route
 from .auth import (
     auth_token_route,
     email_auth_magic_route,
@@ -55,6 +56,7 @@ from .auth import (
     telegram_oauth_nonce_route,
     telegram_oauth_start_route,
 )
+from .balance import balance_route, balance_topup_route
 from .billing import (
     activate_trial_route,
     apply_promo_route,
@@ -70,6 +72,7 @@ from .billing import (
     tariff_change_route,
     tariff_topup_options_route,
 )
+from .billing_payment_cancel import cancel_payment_route
 from .billing_subscription import (
     promo_status_route,
 )
@@ -77,6 +80,22 @@ from .contracts import register_webapp_route_contracts
 from .devices import (
     devices_route,
     disconnect_device_route,
+)
+from .email_addresses import account_notification_email_route
+from .email_change import (
+    account_email_change_confirm_route,
+    account_email_change_current_request_route,
+    account_email_change_current_verify_route,
+    account_email_change_new_request_route,
+)
+from .external_identity_unlink import external_identity_unlink_route
+from .external_oauth import (
+    external_oauth_callback_route,
+    external_oauth_pending_cancel_route,
+    external_oauth_pending_request_route,
+    external_oauth_pending_status_route,
+    external_oauth_pending_verify_route,
+    external_oauth_start_route,
 )
 from .guides import (
     public_subscription_guides_route,
@@ -91,6 +110,13 @@ from .partner import (
     partner_withdrawal_cancel_route,
     partner_withdrawal_create_route,
     partner_withdrawals_route,
+)
+from .passkeys import (
+    account_passkey_delete_route,
+    account_passkey_options_route,
+    account_passkey_register_route,
+    passkey_auth_options_route,
+    passkey_auth_verify_route,
 )
 from .payloads import (
     WebAppEmailPayload as WebAppEmailPayload,
@@ -127,6 +153,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     # Checkout has no screen of its own; the app renders home and opens plan
     # selection, so the path only has to reach the SPA.
     app.router.add_get("/plans", index_route)
+    app.router.add_get("/checkout", index_route)
     app.router.add_get("/install", index_route)
     app.router.add_get("/trial", index_route)
     app.router.add_get("/open-app", app_deeplink_route)
@@ -135,6 +162,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/partner", index_route)
     app.router.add_get("/devices", index_route)
     app.router.add_get("/settings", index_route)
+    app.router.add_get("/settings/security", index_route)
     app.router.add_get("/status", index_route)
     app.router.add_get("/support", index_route)
     app.router.add_get("/support/{ticket_id:\\d+}", index_route)
@@ -153,6 +181,8 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/admin/support/{ticket_id:\\d+}", index_route)
     app.router.add_get("/auth/telegram/start", telegram_oauth_start_route)
     app.router.add_get("/auth/telegram/callback", telegram_oauth_callback_route)
+    app.router.add_get(r"/auth/{provider:google|yandex}/start", external_oauth_start_route)
+    app.router.add_get(r"/auth/{provider:google|yandex}/callback", external_oauth_callback_route)
     app.router.add_get("/health", health_route)
     app.router.add_get("/favicon.ico", webapp_current_favicon_route)
     app.router.add_get("/apple-touch-icon.png", webapp_current_favicon_route)
@@ -182,6 +212,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
         r"/provider-logos/{filename:[A-Za-z0-9_-]+\.png}",
         provider_logo_asset_route,
     )
+    app.router.add_get("/fonts/TwemojiCountryFlags.woff2", flag_font_asset_route)
     # Order matters: the ``.min.<hash>`` entries are registered before the chunk
     # patterns, which would otherwise swallow them as a chunk called "min".
     # ``chunk_name`` allows dots because a chunk inherits them from its entry
@@ -205,11 +236,19 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/auth/email/verify", email_auth_verify_route)
     app.router.add_post("/api/auth/email/magic", email_auth_magic_route)
     app.router.add_post("/api/auth/email/password", email_password_auth_route)
+    app.router.add_post("/api/auth/external/pending", external_oauth_pending_status_route)
+    app.router.add_post("/api/auth/external/request", external_oauth_pending_request_route)
+    app.router.add_post("/api/auth/external/verify", external_oauth_pending_verify_route)
+    app.router.add_post("/api/auth/external/cancel", external_oauth_pending_cancel_route)
+    app.router.add_post("/api/auth/passkey/options", passkey_auth_options_route)
+    app.router.add_post("/api/auth/passkey/verify", passkey_auth_verify_route)
     app.router.add_get("/api/auth/session", session_route)
     app.router.add_post("/api/auth/logout", logout_route)
     app.router.add_get("/api/bootstrap", bootstrap_route)
     app.router.add_get("/api/i18n", i18n_route)
     app.router.add_get("/api/me", me_route)
+    app.router.add_get("/api/balance", balance_route)
+    app.router.add_post("/api/balance/topup", balance_topup_route)
     app.router.add_get("/api/status", server_status_route)
     app.router.add_get("/api/subscription-guides", subscription_guides_route)
     app.router.add_get(
@@ -220,8 +259,26 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/account/language", account_language_route)
     app.router.add_post("/api/account/email/request", account_email_request_route)
     app.router.add_post("/api/account/email/verify", account_email_verify_route)
+    app.router.add_post(
+        "/api/account/email/change/current/request",
+        account_email_change_current_request_route,
+    )
+    app.router.add_post(
+        "/api/account/email/change/current/verify",
+        account_email_change_current_verify_route,
+    )
+    app.router.add_post(
+        "/api/account/email/change/new/request",
+        account_email_change_new_request_route,
+    )
+    app.router.add_post("/api/account/email/change/confirm", account_email_change_confirm_route)
+    app.router.add_post("/api/account/email/notification", account_notification_email_route)
     app.router.add_post("/api/account/password/request", account_password_request_route)
     app.router.add_post("/api/account/password/confirm", account_password_confirm_route)
+    app.router.add_post("/api/account/passkeys/options", account_passkey_options_route)
+    app.router.add_post("/api/account/passkeys/register", account_passkey_register_route)
+    app.router.add_post("/api/account/passkeys/delete", account_passkey_delete_route)
+    app.router.add_post("/api/account/identities/unlink", external_identity_unlink_route)
     app.router.add_post("/api/account/telegram/link", account_telegram_link_route)
     app.router.add_post(
         "/api/account/telegram/notifications/probe",
@@ -267,4 +324,5 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/tariffs/change-payment", tariff_change_payment_route)
     app.router.add_post("/api/payments", create_payment_route)
     app.router.add_get("/api/payments/{payment_id}", payment_status_route)
+    app.router.add_post("/api/payments/{payment_id}/cancel", cancel_payment_route)
     setup_admin_routes(app)

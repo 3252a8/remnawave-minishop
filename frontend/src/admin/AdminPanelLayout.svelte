@@ -524,6 +524,7 @@
                   {userSecondaryName}
                   {appFaviconUrl}
                   {appFaviconUseCustom}
+                  {appRepositoryUrl}
                   {onOpenUserCard}
                   {onOpenPaymentCard}
                   {onOpenUsersFilter}

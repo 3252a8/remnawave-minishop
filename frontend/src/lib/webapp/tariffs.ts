@@ -129,12 +129,14 @@ export function checkoutTariffSummary(plan: BillingPlan | null | undefined): Che
   );
   const traffic = firstFiniteValue(addons.traffic?.base_units, plan?.monthly_gb);
   const premiumEnabled = plan?.premium_enabled;
-  const premium =
-    premiumEnabled === false
-      ? 0
-      : firstFiniteValue(addons.premium_traffic?.base_units, plan?.premium_monthly_gb);
+  const premiumAddon = addons.premium_traffic;
+  const premiumAvailable = premiumEnabled !== false || Boolean(premiumAddon);
+  const premium = premiumAvailable
+    ? firstFiniteValue(premiumAddon?.base_units, plan?.premium_monthly_gb)
+    : null;
   const premiumKnown =
-    typeof premiumEnabled === "boolean" || premium !== null || Boolean(addons.premium_traffic);
+    premiumAvailable &&
+    (typeof premiumEnabled === "boolean" || premium !== null || Boolean(premiumAddon));
 
   return {
     devices: {

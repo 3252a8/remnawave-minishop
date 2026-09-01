@@ -23,9 +23,14 @@
   import AuthenticatedScreens from "./AuthenticatedScreens.svelte";
   import ScreenLoading from "./screens/ScreenLoading.svelte";
   import AuthScreen from "./auth/AuthScreen.svelte";
+  import CheckoutEntryScreen from "./checkout/CheckoutEntryScreen.svelte";
+  import PaymentCheckoutDialog from "./payment-dialogs/PaymentCheckoutDialog.svelte";
+  import type { CheckoutDeeplink } from "$lib/webapp/deeplinks.js";
   import {
     type BooleanAction,
+    type BalanceView,
     type PendingPaymentView,
+    type PlanView,
     type StringAction,
     type SubscriptionView,
     type TermUnitLabel,
@@ -60,6 +65,9 @@
     subscriptionReissueDialogOpen: boolean;
     subscriptionReissueBusy: boolean;
     cfg: WebappConfig;
+    checkoutDeeplink: CheckoutDeeplink | null;
+    checkoutEntryRequested: boolean;
+    checkoutPlans: PlanView[];
     languageBusy: boolean;
     languageClickGuard: boolean;
     languageClickGuardArmed: boolean;
@@ -130,6 +138,9 @@
   const subscriptionReissueDialogOpen = $derived(viewState.subscriptionReissueDialogOpen);
   const subscriptionReissueBusy = $derived(viewState.subscriptionReissueBusy);
   const cfg = $derived(viewState.cfg);
+  const checkoutDeeplink = $derived(viewState.checkoutDeeplink);
+  const checkoutEntryRequested = $derived(viewState.checkoutEntryRequested);
+  const checkoutPlans = $derived(viewState.checkoutPlans);
   const languageBusy = $derived(viewState.languageBusy);
   const languageClickGuard = $derived(viewState.languageClickGuard);
   const languageClickGuardArmed = $derived(viewState.languageClickGuardArmed);
@@ -167,7 +178,6 @@
   const supportUnreadCount = $derived(supportStore.unreadCount);
   const supportUnreadLoading = $derived(supportStore.unreadLoading);
   const supportUnreadLoaded = $derived(supportStore.unreadLoaded);
-  const linkEmailBusy = $derived(accountStore.linkEmailBusy);
   const linkTelegramBusy = $derived(accountStore.linkTelegramBusy);
 
   const promoCode = $derived(actionsStore.promoCode);
@@ -184,7 +194,6 @@
     loginEmailTooltipOpen = authState.loginEmailTooltipOpen ?? loginEmailTooltipOpen;
   });
 
-  const emailLinkStatus = $derived(accountView.emailLinkStatus);
   const hasUnlinkedIdentity = $derived(accountView.hasUnlinkedIdentity);
   const privacyPolicyUrl = $derived(accountView.privacyPolicyUrl);
   const profileAvatarUrl = $derived(accountView.profileAvatarUrl);
@@ -192,8 +201,8 @@
   const profileTelegramId = $derived(accountView.profileTelegramId);
   const serverStatusInternal = $derived(cfg.serverStatusInternal === true);
   const serverStatusShowOnHome = $derived(cfg.serverStatusShowOnHome === true);
+  const compactHomeEnabled = $derived(cfg.compactHomeEnabled === true);
   const serverStatusUrl = $derived(accountView.serverStatusUrl);
-  const showTelegramLinkedStatus = $derived(accountView.showTelegramLinkedStatus);
   const supportUrl = $derived(accountView.supportUrl);
   const telegramNotificationsNeedPrompt = $derived(accountView.telegramNotificationsNeedPrompt);
   const telegramNotificationsStartLink = $derived(accountView.telegramNotificationsStartLink);
@@ -202,6 +211,7 @@
   const userAgreementUrl = $derived(accountView.userAgreementUrl);
 
   const appSettings = $derived(appDataView.appSettings);
+  const balance = $derived(appDataView.balance as BalanceView);
   const brand = $derived(appDataView.brand);
   const brandTitle = $derived(appDataView.brandTitle);
   const devicesEnabled = $derived(appDataView.devicesEnabled);
@@ -237,6 +247,15 @@
   const tariffCatalog = $derived(billingView.tariffCatalog);
   const tariffMode = $derived(billingView.tariffMode);
   const trafficMode = $derived(billingView.trafficMode);
+  const canReturnToTariffList = $derived(
+    hasMultipleTariffs &&
+      !singleTariffMode &&
+      !(
+        subscription?.active &&
+        subscription?.tariff_key &&
+        tariffCatalog.some((tariff) => tariff.key === subscription.tariff_key)
+      )
+  );
 
   const currentLang = $derived(shellView.currentLang);
   const isAdmin = $derived(shellView.isAdmin);
@@ -280,9 +299,12 @@
   const confirmSubscriptionReissue = $derived(appActions.confirmSubscriptionReissue);
   const goDevices = $derived(appActions.goDevices);
   const goHome = $derived(appActions.goHome);
+  const goInstall = $derived(appActions.goInstall);
   const goInvite = $derived(appActions.goInvite);
   const goPartner = $derived(appActions.goPartner);
   const goSettings = $derived(appActions.goSettings);
+  const goSecurity = $derived(appActions.goSecurity);
+  const goTrial = $derived(appActions.goTrial);
   const goStatus = $derived(appActions.goStatus);
   const goSupport = $derived(appActions.goSupport);
   const linkTelegramAndActivateTrial = $derived(appActions.linkTelegramAndActivateTrial);
@@ -356,6 +378,37 @@
         <ScreenLoading label={t("wa_loading")} />
       {/if}
     </div>
+  {:else if mode === "login" && checkoutEntryRequested && emailAuthEnabled}
+    <CheckoutEntryScreen
+      {screen}
+      {brand}
+      {brandTitle}
+      plans={checkoutPlans}
+      deeplink={checkoutDeeplink}
+      bind:email={authStore.email}
+      bind:emailCode={authStore.emailCode}
+      {pendingEmail}
+      {authStatus}
+      {authIsError}
+      {authBusy}
+      {authResendCooldown}
+      {loginEmailFieldError}
+      {privacyPolicyUrl}
+      {userAgreementUrl}
+      {openExternalLink}
+      {submitEmailOnEnter}
+      {t}
+      requestEmailCode={() =>
+        authStore.requestEmailCode((nextScreen: string) => (screen = nextScreen))}
+      verifyEmailCode={authStore.verifyEmailCode}
+      onBackToEmail={() => {
+        screen = "login";
+      }}
+      clearLoginEmailError={() => {
+        loginEmailFieldError = "";
+        loginEmailTooltipOpen = false;
+      }}
+    />
   {:else if mode === "login"}
     <AuthScreen
       {screen}
@@ -398,6 +451,7 @@
       {openExternalLink}
       {submitEmailOnEnter}
       onBackToLogin={() => {
+        void authStore.cancelPendingExternalOauth();
         screen = "login";
       }}
       clearLoginEmailError={() => {
@@ -406,6 +460,67 @@
       }}
       setPasswordLoginMode={(enabled: boolean) => setPasswordLoginMode(enabled)}
     />
+  {:else if checkoutEntryRequested && billingStore.paymentModalOpen}
+    <CheckoutEntryScreen
+      {brand}
+      {brandTitle}
+      deeplink={checkoutDeeplink}
+      flowStep="payment"
+      paymentPlan={billingStore.selectedPlan}
+      paymentStep={billingStore.paymentStep}
+      paymentTariff={selectedTariff}
+      canChangePaymentPlan={canReturnToTariffList}
+      onChangePaymentPlan={backToTariffList}
+      {t}
+    >
+      <PaymentCheckoutDialog
+        api={stores.api}
+        inline
+        createPayment={billingStore.createPayment}
+        resumePendingPayment={billingStore.resumePendingPayment}
+        cancelPendingPayment={billingStore.cancelPendingPayment}
+        bind:paymentModalOpen={billingStore.paymentModalOpen}
+        bind:paymentStep={billingStore.paymentStep}
+        bind:selectedMethod={billingStore.selectedMethod}
+        bind:selectedPlan={billingStore.selectedPlan}
+        bind:renewHwidDevices={billingStore.renewHwidDevices}
+        bind:selectedTariffKey={billingStore.selectedTariffKey}
+        {hasMultipleTariffs}
+        {methods}
+        {paymentMethodsDisplayMode}
+        {pendingPayment}
+        payBusy={billingStore.payBusy}
+        {plans}
+        {selectedTariff}
+        {selectedTariffPlans}
+        {singleTariffMode}
+        {subscription}
+        {subscriptionPurchaseDescription}
+        {tariffCatalog}
+        {tariffMode}
+        {trafficMode}
+        closePaymentModal={billingStore.closePaymentModal}
+        checkoutPromoInput={billingStore.checkoutPromoInput}
+        checkoutPromoAppliedCode={billingStore.checkoutPromoAppliedCode}
+        checkoutPromoIsError={billingStore.checkoutPromoIsError}
+        checkoutPromoPriceText={billingStore.checkoutPromoPriceText}
+        checkoutPromoEffectiveAmount={billingStore.checkoutPromoEffectiveAmount}
+        checkoutPromoStatus={billingStore.checkoutPromoStatus}
+        checkoutPromoDiscountPercent={billingStore.checkoutPromoDiscountPercent}
+        checkoutPromoAppliesTo={billingStore.checkoutPromoAppliesTo}
+        checkoutPromoMinSubscriptionMonths={billingStore.checkoutPromoMinSubscriptionMonths}
+        checkoutPromoMinTrafficGb={billingStore.checkoutPromoMinTrafficGb}
+        checkoutAddonPreset={billingStore.checkoutAddonPreset}
+        applyCheckoutPromo={billingStore.applyCheckoutPromo}
+        clearCheckoutPromo={billingStore.clearCheckoutPromo}
+        setCheckoutPromoInput={billingStore.setCheckoutPromoInput}
+        {backToTariffList}
+        {continueWithSelectedTariff}
+        {selectTariff}
+        {t}
+        {termUnitLabel}
+      />
+    </CheckoutEntryScreen>
   {:else if screen === "admin" && isAdmin}
     {#if adminBundleApi}
       <div class="admin-mount" bind:this={adminMountTarget}></div>
@@ -422,6 +537,7 @@
       {activateTrial}
       {activeTab}
       {appSettings}
+      {balance}
       {applyPromo}
       {autoRenewBusy}
       {brand}
@@ -448,13 +564,15 @@
       {devicesStatus}
       {devicesStore}
       {emailAuthEnabled}
-      {emailLinkStatus}
       {goDevices}
       {goHome}
+      {goInstall}
       {goInvite}
       {goPartner}
       {partnerEnabled}
       {goSettings}
+      {goSecurity}
+      {goTrial}
       {goStatus}
       {goSupport}
       {hasActiveTariffSubscription}
@@ -466,8 +584,6 @@
       {languageClickGuardArmed}
       bind:languageMenuOpen
       {languageOptions}
-      {linkEmailBusy}
-      linkTelegramAccount={accountStore.linkTelegramFromSettings}
       {linkTelegramAndActivateTrial}
       {linkTelegramAndClaimReferralWelcome}
       {linkTelegramBusy}
@@ -480,6 +596,8 @@
       {openInstallOrConnect}
       openLinkEmailDialog={openSettingsLinkEmailDialog}
       {openPaymentModal}
+      {methods}
+      {paymentMethodsDisplayMode}
       {openPremiumTopupModal}
       {openRegularTopupModal}
       openSetPasswordDialog={openSettingsSetPasswordDialog}
@@ -508,9 +626,9 @@
       {screen}
       {serverStatusInternal}
       {serverStatusShowOnHome}
+      {compactHomeEnabled}
       {serverStatusUrl}
       statusStore={serverStatusStore}
-      {showTelegramLinkedStatus}
       {setLanguageMenuOpen}
       {setPromoCode}
       {subscription}

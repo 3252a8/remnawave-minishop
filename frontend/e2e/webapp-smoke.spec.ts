@@ -419,7 +419,9 @@ async function assertUserTicketScrolling(page: Page, nav: Locator): Promise<void
   ).toBe(true);
   await page.evaluate(() => {
     const transfer = new DataTransfer();
-    transfer.items.add(new File([new Uint8Array([1, 2, 3])], "dragged-photo.jpg", { type: "image/jpg" }));
+    transfer.items.add(
+      new File([new Uint8Array([1, 2, 3])], "dragged-photo.jpg", { type: "image/jpg" })
+    );
     window.dispatchEvent(
       new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer: transfer })
     );
@@ -427,7 +429,9 @@ async function assertUserTicketScrolling(page: Page, nav: Locator): Promise<void
   await expect(page.locator(".message-image-drag-overlay")).toBeVisible();
   await page.evaluate(() => {
     const transfer = new DataTransfer();
-    transfer.items.add(new File([new Uint8Array([1, 2, 3])], "dragged-photo.jpg", { type: "image/jpg" }));
+    transfer.items.add(
+      new File([new Uint8Array([1, 2, 3])], "dragged-photo.jpg", { type: "image/jpg" })
+    );
     window.dispatchEvent(
       new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: transfer })
     );
@@ -530,7 +534,9 @@ async function assertAdminTicketScrolling(page: Page, supportDialog: Locator): P
   const actionsMatchHeight = await Promise.all([
     uploadButton.boundingBox(),
     sendButton.boundingBox(),
-  ]).then(([upload, send]) => Boolean(upload && send && Math.abs(upload.height - send.height) <= 1));
+  ]).then(([upload, send]) =>
+    Boolean(upload && send && Math.abs(upload.height - send.height) <= 1)
+  );
   expect(actionsMatchHeight, "admin-support: image and send actions must match height").toBe(true);
   await expect
     .poll(() => bodyViewport.evaluate((element) => element.scrollHeight - element.clientHeight))
@@ -941,6 +947,22 @@ test("support ticket conversations scroll on desktop and mobile", async ({ page 
   await assertAdminTicketScrolling(page, supportDialog);
 });
 
+test("balance top-up dialog uses the demo viewport without an idle scrollbar", async ({ page }) => {
+  await page.setViewportSize({ width: 583, height: 520 });
+  await page.goto(`${APP_URL}?path=/home&mock=tariffs`);
+
+  await page.locator('[data-webapp-action="open-balance-topup"]').click();
+  const dialog = page.locator(".dialog-card.balance-topup-dialog");
+  const viewport = dialog.locator(".dialog-body-scroll > .scroll-area__viewport");
+  const scrollbar = dialog.locator('.scroll-area__scrollbar[data-orientation="vertical"]');
+
+  await expect(dialog).toBeVisible();
+  await expect
+    .poll(() => viewport.evaluate((element) => element.scrollHeight - element.clientHeight))
+    .toBeLessThanOrEqual(1);
+  await expect(scrollbar).toHaveCount(0);
+});
+
 test("device traffic bonuses stay legible on mobile", async ({ page }) => {
   await page.setViewportSize(MOBILE_VIEWPORT);
   await page.goto(`${APP_URL}?mock=devices`);
@@ -974,11 +996,13 @@ test("Telegram fullscreen fallback protects webapp actions and admin chrome", as
         WebApp: {
           expand() {},
           initData: "",
-          isFullscreen: true,
+          isFullscreen: false,
+          isVersionAtLeast: () => true,
           offEvent() {},
           onEvent() {},
           platform: "ios",
           ready() {},
+          requestFullscreen() {},
         },
       },
     });
@@ -990,7 +1014,7 @@ test("Telegram fullscreen fallback protects webapp actions and admin chrome", as
     style.setProperty("--tg-content-safe-area-inset-bottom", "34px");
   };
   await page.evaluate(applyTelegramFullscreenInsets);
-  await expect(page.locator("html")).toHaveAttribute("data-telegram-fullscreen", "true");
+  await expect(page.locator("html")).toHaveAttribute("data-telegram-fullscreen-requested", "true");
 
   const phoneScreen = page.locator(".phone-screen");
   const bottomNav = page.locator("nav.bottom-nav");
@@ -1181,15 +1205,20 @@ test("program entries follow the enabled feature combination", async ({ page }) 
   await page.goto("/demo/runtime/invite?mock=partner-referral-disabled&theme_preview=dark");
 
   let bottomNav = page.locator(".bottom-nav");
-  const partnerNavEntry = bottomNav.getByRole("button", { name: "Партнёрка", exact: true });
+  const partnerNavEntry = bottomNav.locator('[data-nav-level="primary"][aria-label="Партнёрка"]');
   await expect(partnerNavEntry).toBeVisible();
-  await expect(bottomNav.getByRole("button", { name: "Бонусы", exact: true })).toHaveCount(0);
+  await expect(bottomNav.locator('[data-nav-level="primary"][aria-label="Бонусы"]')).toHaveCount(0);
   await expect(partnerNavEntry.locator("svg path").first()).toHaveAttribute(
     "d",
     "m11 17 2 2a1 1 0 1 0 3-3"
   );
   await expect(page.locator(".referral-program-shell")).toHaveCount(0);
   await expect(page.locator(".promo-code-input")).toHaveCount(0);
+
+  await partnerNavEntry.click();
+  await expect(page).toHaveURL(/\/demo\/runtime\/partner\?/);
+  await expect(partnerNavEntry).toHaveClass(/active/);
+  await expect(page.locator(".partner-back")).toHaveCount(0);
 
   await bottomNav.getByRole("button", { name: "Настройки", exact: true }).click();
   await expect(page.locator(".promo-code-input")).toBeEditable();
@@ -1198,8 +1227,16 @@ test("program entries follow the enabled feature combination", async ({ page }) 
   await page.goto("/demo/runtime/settings?mock=partner-referral-enabled&theme_preview=dark");
 
   bottomNav = page.locator(".bottom-nav");
-  await expect(bottomNav.getByRole("button", { name: "Бонусы", exact: true })).toBeVisible();
-  await expect(bottomNav.getByRole("button", { name: "Партнёрка", exact: true })).toHaveCount(0);
+  await expect(bottomNav.locator('[data-nav-level="primary"][aria-label="Бонусы"]')).toBeVisible();
+  await expect(bottomNav.locator('[data-nav-level="primary"][aria-label="Партнёрка"]')).toHaveCount(
+    0
+  );
+  await expect(
+    bottomNav.locator(".rail-settings-subnav").getByRole("button", {
+      name: "Партнёрка",
+      exact: true,
+    })
+  ).toBeVisible();
   await expect(page.locator(".promo-code-input")).toHaveCount(0);
   const partnerSettingsEntry = page.locator('[data-webapp-action="open-partner-program"]');
   await expect(partnerSettingsEntry).toBeVisible();
@@ -1210,6 +1247,21 @@ test("program entries follow the enabled feature combination", async ({ page }) 
 
   await partnerSettingsEntry.click();
   await expect(page).toHaveURL(/\/demo\/runtime\/partner\?/);
+  await expect(bottomNav.locator('[data-nav-level="primary"][aria-label="Настройки"]')).toHaveClass(
+    /active/
+  );
+  await expect(
+    bottomNav.locator(".rail-settings-subnav").getByRole("button", {
+      name: "Партнёрка",
+      exact: true,
+    })
+  ).toHaveClass(/active/);
+
+  const partnerBack = page.locator(".partner-back");
+  await expect(partnerBack).toBeVisible();
+  await expect(partnerBack).toContainText("Назад");
+  await partnerBack.click();
+  await expect(page).toHaveURL(/\/demo\/runtime\/settings\?/);
 });
 
 test("partner encryption diagnostic explains safe initial key setup", async ({ page }) => {
@@ -2000,6 +2052,13 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
     await openAdminSection(page, id);
   }
 
+  setPhase("admin-backups:archive-contents");
+  const backupsStage = await openAdminSection(page, "backups");
+  await expect(backupsStage.getByRole("checkbox", { name: "БД" })).toBeEnabled();
+  await expect(backupsStage.getByRole("checkbox", { name: "compose-папка" })).toBeEnabled();
+  await expect(backupsStage.locator(".backups-badges").first()).toContainText("БД");
+  await expect(backupsStage.locator(".backups-badges").first()).toContainText("Compose");
+
   setPhase("admin-broadcast:shortcode-picker");
   await openAdminSection(page, "broadcast");
   const shortcodeToggle = page.locator("[data-rt-shortcodes-toggle]");
@@ -2086,7 +2145,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   const mobilePaymentCardBox = await mobilePaymentCard.boundingBox();
   expect(mobilePaymentCardBox).not.toBeNull();
   expect(mobilePaymentCardBox!.height).toBeLessThan(300);
-  await expect(mobilePaymentCard.locator(".admin-payment-mobile-metrics dd")).toHaveCount(4);
+  await expect(mobilePaymentCard.locator(".admin-payment-mobile-metrics dd")).toHaveCount(2);
   await page.evaluate(() => {
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,

@@ -31,7 +31,10 @@ function makeDeps(overrides: TestOverrides = {}) {
     hasEmailCodeLoginDeeplink: vi.fn(() => false),
     finalizeMagicLogin: vi.fn(),
     finalizeTelegramAuth: vi.fn(),
+    linkTelegramAfterExternalAuth: vi.fn(),
+    restorePendingExternalOauth: vi.fn(async () => true),
     setAuthStatus: vi.fn(),
+    showAccountLinkStatus: vi.fn(),
     t: (key: string) => key,
     getInitDataForBoot: vi.fn(() => ""),
     getToken: vi.fn(() => ""),
@@ -45,6 +48,56 @@ afterEach(() => {
 });
 
 describe("runWebappBoot", () => {
+  it("continues matching OIDC email login with email confirmation", async () => {
+    installBrowser("?external_auth=google:email_confirmation_required");
+    const deps = makeDeps();
+
+    await runWebappBoot(deps);
+
+    expect(deps.showLogin).toHaveBeenCalledOnce();
+    expect(deps.restorePendingExternalOauth).toHaveBeenCalledOnce();
+    expect(deps.loadData).not.toHaveBeenCalled();
+    expect(window.history.replaceState).toHaveBeenCalledOnce();
+  });
+
+  it("links Telegram initData after a successful external login", async () => {
+    installBrowser("?external_auth=yandex:success");
+    const deps = makeDeps();
+
+    await runWebappBoot(deps);
+
+    expect(deps.loadData).toHaveBeenCalledOnce();
+    expect(deps.linkTelegramAfterExternalAuth).toHaveBeenCalledOnce();
+    expect(deps.loadData.mock.invocationCallOrder[0]).toBeLessThan(
+      deps.linkTelegramAfterExternalAuth.mock.invocationCallOrder[0]
+    );
+    expect(deps.finalizeTelegramAuth).not.toHaveBeenCalled();
+  });
+
+  it("keeps the authenticated account and explains an external identity conflict", async () => {
+    installBrowser("?external_auth=yandex:account_merge_yandex_conflict");
+    const deps = makeDeps();
+
+    await runWebappBoot(deps);
+
+    expect(deps.loadData).toHaveBeenCalledOnce();
+    expect(deps.showAccountLinkStatus).toHaveBeenCalledWith("account_merge_yandex_conflict");
+    expect(deps.finalizeTelegramAuth).not.toHaveBeenCalled();
+    expect(deps.showLogin).not.toHaveBeenCalled();
+  });
+
+  it("keeps the authenticated account after a Telegram OAuth merge conflict", async () => {
+    installBrowser("?telegram_auth=account_merge_google_conflict");
+    const deps = makeDeps();
+
+    await runWebappBoot(deps);
+
+    expect(deps.loadData).toHaveBeenCalledOnce();
+    expect(deps.showAccountLinkStatus).toHaveBeenCalledWith("account_merge_google_conflict");
+    expect(deps.finalizeTelegramAuth).not.toHaveBeenCalled();
+    expect(deps.showLogin).not.toHaveBeenCalled();
+  });
+
   it("maps invite-required Telegram OAuth status to the dedicated auth copy", async () => {
     installBrowser("?telegram_auth=invite_required");
     const deps = makeDeps();

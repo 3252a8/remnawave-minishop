@@ -27,6 +27,9 @@ WEBAPP_HTML_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
 WEBAPP_LEGACY_ASSET_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
 PROVIDER_LOGO_MAX_BYTES = 128 * 1024
 PROVIDER_LOGO_SOURCE_DIR = APP_ROOT / "frontend" / "public" / "provider-logos"
+FLAG_FONT_FILENAME = "TwemojiCountryFlags.woff2"
+FLAG_FONT_MAX_BYTES = 128 * 1024
+FLAG_FONT_SOURCE_PATH = APP_ROOT / "frontend" / "public" / "fonts" / FLAG_FONT_FILENAME
 _PROVIDER_LOGO_NAME_CHARS = frozenset(string.ascii_letters + string.digits + "_-")
 _PROVIDER_LOGO_NAME_MAX_LEN = 64
 
@@ -77,6 +80,26 @@ def _provider_logo_asset_path(filename: str) -> Path:
     if built_path.is_file():
         return built_path
     return PROVIDER_LOGO_SOURCE_DIR / filename
+
+
+async def flag_font_asset_route(request: web.Request) -> web.Response:
+    settings: Settings = get_settings(request)
+    if not settings.WEBAPP_ENABLED:
+        raise web.HTTPNotFound(text="webapp_disabled")
+
+    built_path = ASSET_DIR / "fonts" / FLAG_FONT_FILENAME
+    path = built_path if built_path.is_file() else FLAG_FONT_SOURCE_PATH
+    try:
+        body = _read_template_binary_cached(path)
+    except OSError:
+        raise web.HTTPNotFound(text="flag_font_not_found") from None
+    if not body or len(body) > FLAG_FONT_MAX_BYTES:
+        raise web.HTTPNotFound(text="flag_font_not_found")
+
+    response = web.Response(body=body, content_type="font/woff2")
+    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 async def css_asset_route(request: web.Request) -> web.Response:

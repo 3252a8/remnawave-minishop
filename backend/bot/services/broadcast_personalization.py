@@ -252,7 +252,7 @@ async def load_broadcast_contexts(
                 first_name=user.first_name,
                 last_name=user.last_name,
                 username=user.username,
-                email=user.email,
+                email=getattr(user, "notification_email", None) or user.email,
                 language_code=user.language_code,
                 referral_code=user.referral_code,
             )

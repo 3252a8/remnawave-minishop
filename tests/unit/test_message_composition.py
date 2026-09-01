@@ -268,10 +268,21 @@ class SingleUserAudienceTests(unittest.TestCase):
         self.assertEqual(audience_target_user_id(target), 4242)
         self.assertEqual(audience_target_user_id("USER:4242"), 4242)
 
+    def test_an_email_only_user_target_round_trips(self) -> None:
+        from bot.services.audience_segmentation import (
+            audience_target_for_user,
+            audience_target_user_id,
+        )
+
+        target = audience_target_for_user(-1351969585506524)
+
+        self.assertEqual(target, "user:-1351969585506524")
+        self.assertEqual(audience_target_user_id(target), -1351969585506524)
+
     def test_only_a_numeric_single_user_target_is_recognized(self) -> None:
         from bot.services.audience_segmentation import audience_target_user_id
 
-        for value in ("all", "user:", "user:abc", "user:12x", "users:12", "", "user:-1"):
+        for value in ("all", "user:", "user:abc", "user:12x", "users:12", "", "user:--1"):
             with self.subTest(value=value):
                 self.assertIsNone(audience_target_user_id(value))
 

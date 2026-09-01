@@ -25,6 +25,7 @@ from bot.services.support_message_body import (
 from bot.services.support_message_buttons import decode_support_buttons
 from bot.services.user_notification_policy import (
     UserNotificationCategory,
+    email_recipient,
     telegram_recipient,
     user_notification_delivery_plan,
 )
@@ -527,12 +528,13 @@ class NotificationSupportMixin:
         keyboard = self._support_user_keyboard(ticket, user, message=message)
         image = await self._stored_support_image(getattr(message, "image_id", None))
         chat_id = telegram_recipient(user, user.user_id)
+        recipient_email = email_recipient(self.settings, user)
         plan = user_notification_delivery_plan(
             self.settings,
             UserNotificationCategory.SUPPORT,
             user,
             telegram_available=chat_id is not None,
-            email_available=bool(self.email_auth_service and getattr(user, "email", None)),
+            email_available=bool(self.email_auth_service and recipient_email),
         )
         if plan.telegram and chat_id is not None:
             queue_manager = get_queue_manager()
@@ -557,7 +559,7 @@ class NotificationSupportMixin:
                     disable_web_page_preview=True,
                     reply_markup=keyboard,
                 )
-        if plan.email and self.email_auth_service and getattr(user, "email", None):
+        if plan.email and self.email_auth_service and recipient_email:
             email_image = await image.email_inline() if image is not None else None
             content = render_support_admin_reply_user(
                 self.settings,
@@ -569,7 +571,9 @@ class NotificationSupportMixin:
                 ticket_url=url,
                 image=email_image,
             )
-            await self.email_auth_service.send_rendered_email(email=user.email, content=content)
+            await self.email_auth_service.send_rendered_email(
+                email=recipient_email, content=content
+            )
 
     async def notify_support_ticket_closed(
         self, ticket: SupportTicket, user: User, closing_admin: User | None
@@ -584,12 +588,13 @@ class NotificationSupportMixin:
         )
         keyboard = self._support_user_keyboard(ticket, user)
         chat_id = telegram_recipient(user, user.user_id)
+        recipient_email = email_recipient(self.settings, user)
         plan = user_notification_delivery_plan(
             self.settings,
             UserNotificationCategory.SUPPORT,
             user,
             telegram_available=chat_id is not None,
-            email_available=bool(self.email_auth_service and getattr(user, "email", None)),
+            email_available=bool(self.email_auth_service and recipient_email),
         )
         if plan.telegram and chat_id is not None:
             queue_manager = get_queue_manager()
@@ -610,7 +615,7 @@ class NotificationSupportMixin:
                     disable_web_page_preview=True,
                     reply_markup=keyboard,
                 )
-        if plan.email and self.email_auth_service and getattr(user, "email", None):
+        if plan.email and self.email_auth_service and recipient_email:
             content = render_support_ticket_closed_user(
                 self.settings,
                 self.i18n,
@@ -619,4 +624,6 @@ class NotificationSupportMixin:
                 subject=ticket.subject,
                 ticket_url=url,
             )
-            await self.email_auth_service.send_rendered_email(email=user.email, content=content)
+            await self.email_auth_service.send_rendered_email(
+                email=recipient_email, content=content
+            )

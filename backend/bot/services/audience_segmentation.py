@@ -34,7 +34,7 @@ _AUDIENCE_TARGET_PATTERN = re.compile(r"^[a-z][a-z0-9_.:-]{0,63}$")
 # Addresses exactly one existing user, so the message composer can reuse the
 # broadcast delivery path (channels, buttons, personalization) for one person.
 AUDIENCE_USER_PREFIX = "user:"
-_AUDIENCE_USER_PATTERN = re.compile(r"^user:(\d{1,19})$")
+_AUDIENCE_USER_PATTERN = re.compile(r"^user:(-?\d{1,19})$")
 # Addresses everyone holding an active subscription on one configured tariff.
 AUDIENCE_TARIFF_PREFIX = "tariff:"
 _AUDIENCE_TARIFF_PATTERN = re.compile(r"^tariff:([a-z0-9_.:-]{1,56})$")

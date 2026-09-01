@@ -40,6 +40,9 @@ class _Queue:
     async def send_message(self, chat_id: int, **kwargs: Any) -> None:
         self.messages.append({"chat_id": chat_id, **kwargs})
 
+    async def send_photo(self, chat_id: int, **kwargs: Any) -> None:
+        self.messages.append({"chat_id": chat_id, **kwargs})
+
 
 def _service(queue: _Queue | None = None) -> AdminBroadcastDeliveryService:
     settings = settings_stub(
@@ -204,6 +207,33 @@ class AdminBroadcastDeliveryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([item.message_text for item in scheduled], ["Hello Ann", "Привет Борис"])
         self.assertEqual(result.queued, 2)
         self.assertEqual(result.email_queued, 2)
+
+    async def test_image_and_text_are_queued_as_one_photo_with_caption(self) -> None:
+        queue = _Queue()
+        service = _service(queue)
+        image = SimpleNamespace(path=REPO_ROOT / "test-image.webp")
+
+        with (
+            patch.object(service, "_mark_queued", AsyncMock()) as mark_queued,
+            patch.object(service, "_mark_result", AsyncMock()) as mark_result,
+        ):
+            await service._queue_telegram(
+                _delivery(),
+                "Hello",
+                [],
+                image=cast(Any, image),
+            )
+
+            self.assertEqual(len(queue.messages), 1)
+            queued = queue.messages[0]
+            self.assertEqual(queued["caption"], "Hello")
+            self.assertEqual(queued["parse_mode"], "HTML")
+            self.assertIsNone(queued["reply_markup"])
+            self.assertNotIn("text", queued)
+            await queued["callback"](object())
+
+        mark_queued.assert_awaited_once_with(1)
+        mark_result.assert_awaited_once_with(1, success=True, error=None)
 
 
 class MessageQueueDeliveryCallbackTests(unittest.IsolatedAsyncioTestCase):

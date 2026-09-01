@@ -14,6 +14,7 @@ from config.settings_defaults import (
 )
 from config.settings_mixins import SettingsComputedMixin, SettingsValidationMixin
 from config.settings_models import (
+    BalanceSettings,
     CompatibilitySettings,
     DBSettings,
     EmailSettings,
@@ -164,6 +165,17 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
 
     DEFAULT_LANGUAGE: str = Field(default="ru")
     DEFAULT_CURRENCY_SYMBOL: str = Field(default="RUB")
+    USER_BALANCE_ENABLED: bool = Field(default=False)
+    USER_BALANCE_CURRENCY: str = Field(
+        default="",
+        description="Currency code for user balances; blank follows DEFAULT_CURRENCY_SYMBOL.",
+    )
+    USER_BALANCE_TOPUP_MIN_AMOUNT: float = Field(default=100, gt=0, allow_inf_nan=False)
+    USER_BALANCE_TOPUP_MAX_AMOUNT: float = Field(default=100000, gt=0, allow_inf_nan=False)
+    USER_BALANCE_TOPUP_PRESETS: str = Field(
+        default="[500, 1000, 2000, 5000]",
+        description="JSON array of suggested user balance top-up amounts.",
+    )
 
     SUPPORT_LINK: str | None = Field(default=None)
     SERVER_STATUS_URL: str | None = Field(default=None)
@@ -570,6 +582,12 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
             "Allow users to choose Auto, Light, or Dark mode within the active Web App theme."
         ),
     )
+    WEBAPP_COMPACT_HOME_ENABLED: bool = Field(
+        default=False,
+        description=(
+            "Combine subscription status, traffic usage, and balance into one compact Home card."
+        ),
+    )
     WEBAPP_THEMES_DIR: str = Field(
         default="data/themes",
         description=(
@@ -621,6 +639,9 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     WEBAPP_SESSION_TTL_SECONDS: int = Field(default=24 * 60 * 60)
     WEBAPP_AUTH_MAX_AGE_SECONDS: int = Field(default=24 * 60 * 60)
     WEBAPP_LOGIN_TOKEN_TTL_SECONDS: int = Field(default=10 * 60)
+    TELEGRAM_LOGIN_ENABLED: bool = Field(default=True)
+    EMAIL_LOGIN_ENABLED: bool = Field(default=True)
+    EMAIL_ADDRESS_CHANGE_ENABLED: bool = Field(default=True)
     TELEGRAM_OAUTH_CLIENT_ID: int | None = Field(
         default=None,
         description="Telegram Web Login Client ID from BotFather. Defaults to the numeric bot ID from BOT_TOKEN.",  # noqa: E501
@@ -640,6 +661,25 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
             "when the proxy is configured"
         ),
     )
+    GOOGLE_OIDC_ENABLED: bool = Field(default=False)
+    GOOGLE_OIDC_CLIENT_ID: str | None = Field(default=None)
+    GOOGLE_OIDC_CLIENT_SECRET: str | None = Field(default=None)
+    YANDEX_OIDC_ENABLED: bool = Field(default=False)
+    YANDEX_OIDC_CLIENT_ID: str | None = Field(default=None)
+    YANDEX_OIDC_CLIENT_SECRET: str | None = Field(default=None)
+    PASSKEY_LOGIN_ENABLED: bool = Field(default=False)
+    PASSKEY_RP_ID: str | None = Field(
+        default=None,
+        description="WebAuthn relying-party domain. Empty means the public Web App hostname.",
+    )
+    PASSKEY_RP_NAME: str | None = Field(default=None)
+    PASSKEY_ORIGINS: str | None = Field(
+        default=None,
+        description=(
+            "Comma-separated allowed WebAuthn origins. Empty means the public Web App origin."
+        ),
+    )
+    PASSKEY_CHALLENGE_TTL_SECONDS: int = Field(default=5 * 60)
 
     SMTP_HOST: str = Field(default="smtp-relay.brevo.com")
     SMTP_PORT: int = Field(default=587)
@@ -715,6 +755,13 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
         description=(
             "Hide the in-bot user interface and /tg command. "
             "User renewal prompts should open the Mini App."
+        ),
+    )
+    MENU_BUTTONS_JSON: str = Field(
+        default="[]",
+        description=(
+            "Validated JSON array of localized custom buttons shown at the bottom of the "
+            "Telegram main menu and Web App settings."
         ),
     )
 
@@ -900,6 +947,7 @@ def get_settings() -> Settings:
 
 
 __all__ = [
+    "BalanceSettings",
     "CompatibilitySettings",
     "DBSettings",
     "EmailSettings",

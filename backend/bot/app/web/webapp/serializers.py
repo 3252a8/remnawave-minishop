@@ -6,6 +6,7 @@ from urllib.parse import quote, urlsplit, urlunsplit
 
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
@@ -34,8 +35,10 @@ from bot.services.telegram_notifications import (
     telegram_notifications_need_prompt,
     telegram_notifications_start_link,
 )
+from bot.services.user_balance_service import UserBalanceService
 from bot.utils.locale_defaults import subscription_purchase_description_text
 from bot.utils.traffic_reset import format_traffic_reset_date, parse_panel_datetime
+from config.menu_buttons import public_menu_buttons
 from config.settings import Settings
 from config.subscription_guides_config import subscription_guides_available
 from config.tariff_checkout import serialize_checkout_addons
@@ -43,6 +46,7 @@ from config.tariffs_config import default_currency_key_for_settings, payment_cur
 from config.traffic_strategy import normalize_traffic_limit_strategy
 from config.webapp_themes_config import public_themes_catalog_payload
 from db.dal import payment_dal, subscription_dal, support_dal, user_dal
+from db.models import UserEmailAddress, UserExternalIdentity, UserPasskeyCredential
 
 from .assets import (
     _get_cached_webapp_settings,
@@ -59,6 +63,8 @@ from .common import (
     _normalize_language,
     _telegram_avatar_url,
 )
+from .email_address_serializers import serialize_user_email_addresses
+from .external_identity_state import external_identity_can_unlink_for_account
 from .referral_links import visible_referral_links
 from .referral_serializers import (
     _build_webapp_referral_link,
@@ -76,6 +82,7 @@ from .serializers_billing_options import (
 )
 from .serializers_checkout import attach_checkout_pricing_context_to_plans
 from .serializers_payments import _serialize_pending_promo_payment
+from .serializers_subscription import serialize_inactive_subscription
 
 logger = logging.getLogger(__name__)
 _MAX_PENDING_PROMO_REFRESHES = 10
@@ -218,6 +225,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             if support_settings.tickets_enabled
             else 0
         )
+        balance_payload = await UserBalanceService(settings).snapshot(session, user_id=user_id)
         local_sub = (
             await subscription_dal.get_active_subscription_by_user_id(
                 session,
@@ -227,6 +235,12 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             if db_user.panel_user_uuid
             else None
         )
+        if not active and db_user.panel_user_uuid:
+            local_sub = await subscription_dal.get_latest_subscription_by_user_id(
+                session,
+                user_id,
+                db_user.panel_user_uuid,
+            )
         suggested_promo_code = await _suggested_checkout_promo(
             session,
             user_id=user_id,
@@ -271,6 +285,43 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             plans=plans_payload,
         )
         avatar = await _ensure_cached_telegram_avatar(request, session, db_user)
+        external_identities = (
+            (
+                await session.execute(
+                    select(UserExternalIdentity)
+                    .where(UserExternalIdentity.user_id == user_id)
+                    .order_by(UserExternalIdentity.provider)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        email_addresses = (
+            (
+                await session.execute(
+                    select(UserEmailAddress)
+                    .where(UserEmailAddress.user_id == user_id)
+                    .order_by(
+                        UserEmailAddress.is_primary.desc(),
+                        UserEmailAddress.is_notification.desc(),
+                        UserEmailAddress.created_at.asc(),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        passkey_credentials = (
+            (
+                await session.execute(
+                    select(UserPasskeyCredential)
+                    .where(UserPasskeyCredential.user_id == user_id)
+                    .order_by(UserPasskeyCredential.created_at.desc())
+                )
+            )
+            .scalars()
+            .all()
+        )
         try:
             await session.commit()
         except Exception:
@@ -292,12 +343,19 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
         getattr(db_user, "telegram_notifications_status", None)
     )
     telegram_notifications_link = telegram_notifications_start_link(get_bot_username(request))
+    serialized_email_addresses, notification_email = serialize_user_email_addresses(
+        db_user,
+        email_addresses,
+        external_identities,
+    )
     return {
         "user": {
             "id": user_id,
             "username": db_user.username,
             "email": db_user.email,
             "email_verified": bool(db_user.email_verified_at),
+            "notification_email": notification_email or None,
+            "email_addresses": serialized_email_addresses,
             "password_auth_enabled": bool(
                 db_user.email and db_user.email_verified_at and db_user.password_hash
             ),
@@ -313,6 +371,43 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             "first_name": db_user.first_name,
             "language_code": lang,
             "is_admin": is_admin,
+            "external_identities": [
+                {
+                    "provider": str(identity.provider),
+                    "email": identity.email,
+                    "email_verified": bool(identity.email_verified),
+                    "display_name": identity.display_name,
+                    "can_unlink": external_identity_can_unlink_for_account(
+                        identity,
+                        email_addresses,
+                        external_identities,
+                        passkey_credentials,
+                        user=db_user,
+                        settings=settings,
+                    ),
+                }
+                for identity in external_identities
+            ],
+            "passkeys": [
+                {
+                    "credential_id": str(credential.credential_id),
+                    "name": str(credential.name or "Passkey"),
+                    "created_at": credential.created_at.isoformat()
+                    if credential.created_at
+                    else None,
+                    "last_used_at": credential.last_used_at.isoformat()
+                    if credential.last_used_at
+                    else None,
+                    "backed_up": bool(credential.backed_up),
+                    "device_type": credential.device_type,
+                    "transports": [
+                        value.strip()
+                        for value in str(credential.transports or "").split(",")
+                        if value.strip()
+                    ],
+                }
+                for credential in passkey_credentials
+            ],
         },
         "subscription": _serialize_subscription(
             request,
@@ -354,6 +449,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             enabled_only=True,
         ),
         "support_unread_count": int(support_unread_count or 0),
+        "balance": {"ok": True, **balance_payload},
         "settings": {
             "support_url": support_settings.link,
             "server_status_url": settings.server_status_external_url,
@@ -366,6 +462,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             "my_devices_enabled": bool(settings.MY_DEVICES_SECTION_ENABLED),
             "payment_methods_display_mode": settings.PAYMENT_METHODS_DISPLAY_MODE,
             "partner_program_enabled": bool(settings.partner_settings.enabled),
+            "user_balance_enabled": bool(settings.balance_settings.enabled),
             "referral_program_enabled": referral_program_enabled,
             "subscription_reissue_enabled": bool(
                 settings.SUBSCRIPTION_REISSUE_ENABLED and settings.email_auth_configured
@@ -388,7 +485,13 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             ),
             "subscription_guides_enabled": subscription_guides_available(settings),
             "email_auth_enabled": settings.email_auth_configured,
+            "email_address_change_enabled": bool(settings.EMAIL_ADDRESS_CHANGE_ENABLED),
             "auth_providers": settings.webapp_auth_providers,
+            "menu_buttons": public_menu_buttons(
+                settings.MENU_BUTTONS_JSON,
+                lang,
+                default_language=settings.DEFAULT_LANGUAGE,
+            ),
         },
     }
 
@@ -415,17 +518,10 @@ def _serialize_subscription(
         local_sub = local_sub_or_lang
 
     if not active:
-        return {
-            "active": False,
-            "status": "INACTIVE",
-            "remaining_text": _format_remaining(0, lang),
-            "days_left": 0,
-            "config_link": None,
-            "connect_url": None,
-            "panel_short_uuid": None,
-            "install_share_token": None,
-            "install_share_url": None,
-        }
+        return serialize_inactive_subscription(
+            local_sub,
+            remaining_text=_format_remaining(0, lang),
+        )
 
     end_date = active.get("end_date")
     if end_date and end_date.tzinfo is None:

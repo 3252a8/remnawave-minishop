@@ -1,4 +1,5 @@
 import { rememberReferral, readReferral } from "./session.js";
+import { isCheckoutStartParam } from "./deeplinks.js";
 
 type TelegramWebAppLike = {
   initDataUnsafe?: { start_param?: string | null } | null;
@@ -33,7 +34,13 @@ function readReferralParamFromLocation(): string {
 export function readReferralParam(tg: unknown = null): string {
   const fromQuery = readReferralParamFromLocation();
   const fromTelegram = asTelegramWebApp(tg)?.initDataUnsafe?.start_param || "";
-  const value = String(fromTelegram || fromQuery || "").trim();
+  const candidates = [fromTelegram, fromQuery, readReferral()];
+  const value = String(
+    candidates.find((candidate) => {
+      const normalized = String(candidate || "").trim();
+      return normalized && !isCheckoutStartParam(normalized);
+    }) || ""
+  ).trim();
   return value ? rememberReferral(value) : readReferral();
 }
 
@@ -48,6 +55,15 @@ export function shouldShowInviteOnlyHint(config: InviteOnlyConfig, tg: unknown =
 export function readTelegramAuthStatus(): string | null {
   const params = new URLSearchParams(window.location.search);
   return (params.get("telegram_auth") || "").trim().toLowerCase() || null;
+}
+
+export function readExternalAuthStatus(): { provider: string; status: string } | null {
+  const params = new URLSearchParams(window.location.search);
+  const [provider = "", status = ""] = (params.get("external_auth") || "")
+    .trim()
+    .toLowerCase()
+    .split(":", 2);
+  return provider && status ? { provider, status } : null;
 }
 
 export function readMagicLoginToken(): string | null {
@@ -75,6 +91,7 @@ export function clearAuthQuery(): void {
     "login_token",
     "login_purpose",
     "telegram_auth",
+    "external_auth",
     "id",
     "first_name",
     "last_name",

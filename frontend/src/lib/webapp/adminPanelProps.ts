@@ -4,6 +4,7 @@ import {
   adminSettingsPathFromPath,
   adminUserIdFromPath,
 } from "./routes.js";
+import { documentationBaseUrlForVersion } from "./documentationUrl.js";
 
 export type AdminPanelPropsInput = {
   adminActiveSection: string;
@@ -39,7 +40,6 @@ export function buildAdminPanelProps({
   apiBlob,
   appFaviconUrl,
   appFaviconUseCustom,
-  appRepositoryUrl,
   appVersion,
   brand,
   brandTitle,
@@ -81,7 +81,7 @@ export function buildAdminPanelProps({
     appFaviconUrl,
     appFaviconUseCustom,
     appVersion,
-    appRepositoryUrl,
+    appRepositoryUrl: documentationBaseUrlForVersion(appVersion),
     currentLang,
     languageOptions,
     languageBusy,

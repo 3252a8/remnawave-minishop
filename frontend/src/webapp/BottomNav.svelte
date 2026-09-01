@@ -6,6 +6,7 @@
     LifeBuoy,
     Settings as SettingsIcon,
     Shield,
+    ShieldCheck,
     Smartphone,
   } from "$components/ui/icons.js";
   import { AttentionDot } from "$components/ui/index.js";
@@ -29,7 +30,10 @@
     onInvite?: Action;
     onPartner?: Action;
     partnerNavigationVisible?: boolean;
+    partnerSettingsVisible?: boolean;
     onSettings?: Action;
+    onSecurity?: Action;
+    screen?: string;
     onSupport?: Action;
     supportEnabled?: boolean;
     supportUnreadCount?: number;
@@ -56,8 +60,11 @@
     onInvite = () => {},
     onPartner = () => {},
     partnerNavigationVisible = false,
+    partnerSettingsVisible = false,
+    screen = "home",
     onSupport = () => {},
     onSettings = () => {},
+    onSecurity = () => {},
     t = (key) => key,
   }: Props = $props();
 
@@ -83,6 +90,7 @@
     <strong>{brandTitle}</strong>
   </div>
   <button
+    data-nav-level="primary"
     class:active={activeTab === "home"}
     type="button"
     aria-label={t("wa_nav_home")}
@@ -94,6 +102,7 @@
   </button>
   {#if bonusesNavigationVisible}
     <button
+      data-nav-level="primary"
       class:active={activeTab === "invite"}
       type="button"
       aria-label={t("wa_nav_bonuses")}
@@ -106,6 +115,7 @@
   {/if}
   {#if partnerNavigationVisible}
     <button
+      data-nav-level="primary"
       class:active={activeTab === "partner"}
       type="button"
       aria-label={t("wa_nav_partner")}
@@ -118,6 +128,7 @@
   {/if}
   {#if devicesEnabled}
     <button
+      data-nav-level="primary"
       class:active={activeTab === "devices"}
       type="button"
       aria-label={t("wa_nav_devices")}
@@ -130,6 +141,7 @@
   {/if}
   {#if supportEnabled}
     <button
+      data-nav-level="primary"
       class:active={activeTab === "support"}
       class="attention-wrap"
       type="button"
@@ -145,6 +157,7 @@
     </button>
   {/if}
   <button
+    data-nav-level="primary"
     class:active={activeTab === "settings"}
     class="attention-wrap"
     type="button"
@@ -158,8 +171,21 @@
     <SettingsIcon size={21} />
     <span class="bottom-nav-label">{t("wa_nav_settings")}</span>
   </button>
+  <div class="rail-settings-subnav">
+    <button class:active={screen === "security"} type="button" onclick={onSecurity}>
+      <ShieldCheck size={18} />
+      <span class="bottom-nav-label">{t("wa_security_title", {}, "Security")}</span>
+    </button>
+    {#if partnerSettingsVisible}
+      <button class:active={screen === "partner"} type="button" onclick={onPartner}>
+        <Handshake size={18} />
+        <span class="bottom-nav-label">{t("wa_nav_partner")}</span>
+      </button>
+    {/if}
+  </div>
   {#if isAdmin}
     <button
+      data-nav-level="primary"
       class="rail-admin-entry"
       type="button"
       aria-label={adminLabel}

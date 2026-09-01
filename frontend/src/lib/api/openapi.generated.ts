@@ -21,6 +21,91 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/account/email/change/confirm": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Email Change Confirm */
+    post: operations["post_account_email_change_confirm_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/email/change/current/request": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Email Change Current Request */
+    post: operations["post_account_email_change_current_request_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/email/change/current/verify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Email Change Current Verify */
+    post: operations["post_account_email_change_current_verify_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/email/change/new/request": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Email Change New Request */
+    post: operations["post_account_email_change_new_request_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/email/notification": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Notification Email */
+    post: operations["post_account_notification_email_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/account/email/request": {
     parameters: {
       query?: never;
@@ -55,6 +140,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/account/identities/unlink": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** External Identity Unlink */
+    post: operations["post_external_identity_unlink_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/account/language": {
     parameters: {
       query?: never;
@@ -66,6 +168,57 @@ export interface paths {
     put?: never;
     /** Account Language */
     post: operations["post_account_language_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/passkeys/delete": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Passkey Delete */
+    post: operations["post_account_passkey_delete_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/passkeys/options": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Passkey Options */
+    post: operations["post_account_passkey_options_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/passkeys/register": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Passkey Register */
+    post: operations["post_account_passkey_register_route"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1345,6 +1498,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/users/{user_id}/balance-adjustment": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Balance Adjustment */
+    post: operations["post_admin_user_balance_adjustment_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/users/{user_id}/balance-conversion": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Balance Conversion */
+    post: operations["post_admin_user_balance_conversion_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/users/{user_id}/ban": {
     parameters: {
       query?: never;
@@ -1685,6 +1872,74 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/auth/external/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** External Oauth Pending Cancel */
+    post: operations["post_external_oauth_pending_cancel_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/external/pending": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** External Oauth Pending Status */
+    post: operations["post_external_oauth_pending_status_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/external/request": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** External Oauth Pending Request */
+    post: operations["post_external_oauth_pending_request_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/external/verify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** External Oauth Pending Verify */
+    post: operations["post_external_oauth_pending_verify_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/auth/logout": {
     parameters: {
       query?: never;
@@ -1696,6 +1951,40 @@ export interface paths {
     put?: never;
     /** Logout */
     post: operations["post_logout_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/passkey/options": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Passkey Auth Options */
+    post: operations["post_passkey_auth_options_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/passkey/verify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Passkey Auth Verify */
+    post: operations["post_passkey_auth_verify_route"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1747,6 +2036,40 @@ export interface paths {
     put?: never;
     /** Auth Token */
     post: operations["post_auth_token_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/balance": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Balance */
+    get: operations["get_balance_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/balance/topup": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Balance Topup */
+    post: operations["post_balance_topup_route"];
     delete?: never;
     options?: never;
     head?: never;
@@ -2003,6 +2326,23 @@ export interface paths {
     get: operations["get_payment_status_route"];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/payments/{payment_id}/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Cancel Payment */
+    post: operations["post_cancel_payment_route"];
     delete?: never;
     options?: never;
     head?: never;
@@ -4458,6 +4798,47 @@ export interface components {
       /** Price */
       price: number;
     };
+    /** AdminUserBalanceAdjustmentBody */
+    AdminUserBalanceAdjustmentBody: {
+      /** Amount */
+      amount: number;
+      /**
+       * Idempotency Key
+       * @default
+       */
+      idempotency_key: string;
+      /**
+       * Mode
+       * @default add
+       * @enum {string}
+       */
+      mode: "add" | "subtract" | "set";
+      /**
+       * Reason
+       * @default
+       */
+      reason: string;
+    };
+    /** AdminUserBalanceConversionBody */
+    AdminUserBalanceConversionBody: {
+      /** Amount */
+      amount: number;
+      /**
+       * Direction
+       * @enum {string}
+       */
+      direction: "partner_to_user" | "user_to_partner";
+      /**
+       * Idempotency Key
+       * @default
+       */
+      idempotency_key: string;
+      /**
+       * Reason
+       * @default
+       */
+      reason: string;
+    };
     /** AdminUserBanBody */
     AdminUserBanBody: {
       /**
@@ -4516,6 +4897,19 @@ export interface components {
        * @default false
        */
       use_default: unknown;
+    };
+    /** AdminUserHwidDevicesOut */
+    AdminUserHwidDevicesOut: {
+      /**
+       * Current Devices
+       * @default null
+       */
+      current_devices: number | null;
+      /**
+       * Max Devices
+       * @default null
+       */
+      max_devices: number | null;
     };
     /** AdminUserMessageBody */
     AdminUserMessageBody: {
@@ -5472,6 +5866,8 @@ export interface components {
        * @default null
        */
       purchased_hwid_devices: number | null;
+      /** Purchases */
+      purchases?: components["schemas"]["PaymentPurchaseOut"][];
       /**
        * Reversal Block Reason
        * @default null
@@ -5613,6 +6009,8 @@ export interface components {
        * @default null
        */
       purchased_hwid_devices: number | null;
+      /** Purchases */
+      purchases?: components["schemas"]["PaymentPurchaseOut"][];
       /**
        * Sale Mode
        * @default null
@@ -5652,6 +6050,25 @@ export interface components {
       user_id: number;
       /** User Label */
       user_label: string;
+    };
+    /** PaymentPurchaseOut */
+    PaymentPurchaseOut: {
+      /** Amount */
+      amount: number;
+      /** Kind */
+      kind: string;
+      /**
+       * Mode
+       * @default topup
+       */
+      mode: string;
+      /**
+       * Scope
+       * @default null
+       */
+      scope: string | null;
+      /** Unit */
+      unit: string;
     };
     /** PromoActivationOut */
     PromoActivationOut: {
@@ -6943,6 +7360,13 @@ export interface components {
       /** Enabled */
       enabled: boolean;
     };
+    /** WebAppBalanceTopupPayload */
+    WebAppBalanceTopupPayload: {
+      /** Amount */
+      amount: number;
+      /** Method */
+      method: string;
+    };
     /** WebAppCheckoutAddonsPayload */
     WebAppCheckoutAddonsPayload: {
       /**
@@ -6993,6 +7417,33 @@ export interface components {
       token: string;
       /** User Agent */
       user_agent: string;
+    };
+    /** WebAppEmailChangeConfirmPayload */
+    WebAppEmailChangeConfirmPayload: {
+      /** Change Token */
+      change_token: string;
+      /** Code */
+      code: string;
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+    };
+    /** WebAppEmailChangeCurrentPayload */
+    WebAppEmailChangeCurrentPayload: {
+      /** Code */
+      code: string;
+    };
+    /** WebAppEmailChangeNewPayload */
+    WebAppEmailChangeNewPayload: {
+      /** Change Token */
+      change_token: string;
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
     };
     /** WebAppEmailCodeAuthPayload */
     WebAppEmailCodeAuthPayload: {
@@ -7086,13 +7537,45 @@ export interface components {
        */
       start_param: string | null;
     };
+    /** WebAppExternalIdentityPayload */
+    WebAppExternalIdentityPayload: {
+      /**
+       * Provider
+       * @enum {string}
+       */
+      provider: "google" | "yandex";
+    };
     /** WebAppLanguagePayload */
     WebAppLanguagePayload: {
       /** Language */
       language: string;
     };
+    /** WebAppPasskeyCredentialPayload */
+    WebAppPasskeyCredentialPayload: {
+      /** Challenge */
+      challenge: string;
+      /** Credential */
+      credential: {
+        [key: string]: unknown;
+      };
+      /**
+       * Name
+       * @default null
+       */
+      name: string | null;
+    };
+    /** WebAppPasskeyDeletePayload */
+    WebAppPasskeyDeletePayload: {
+      /** Credential Id */
+      credential_id: string;
+    };
     /** WebAppPaymentCreatePayload */
     WebAppPaymentCreatePayload: {
+      /**
+       * Balance Source
+       * @default null
+       */
+      balance_source: ("user" | "partner") | null;
       /** @default null */
       checkout_addons: components["schemas"]["WebAppCheckoutAddonsPayload"] | null;
       /**
@@ -7179,6 +7662,11 @@ export interface components {
     };
     /** WebAppPromoQuotePayload */
     WebAppPromoQuotePayload: {
+      /**
+       * Balance Source
+       * @default null
+       */
+      balance_source: ("user" | "partner") | null;
       /** @default null */
       checkout_addons: components["schemas"]["WebAppCheckoutAddonsPayload"] | null;
       /**
@@ -7250,6 +7738,11 @@ export interface components {
     };
     /** WebAppSubscriptionQuotePayload */
     WebAppSubscriptionQuotePayload: {
+      /**
+       * Balance Source
+       * @default null
+       */
+      balance_source: ("user" | "partner") | null;
       /** @default null */
       checkout_addons: components["schemas"]["WebAppCheckoutAddonsPayload"] | null;
       /**
@@ -7372,6 +7865,12 @@ export interface components {
       appVersion: string;
       /** Authproviders */
       authProviders: string[];
+      /** Checkoutplans */
+      checkoutPlans?: {
+        [key: string]: unknown;
+      }[];
+      /** Compacthomeenabled */
+      compactHomeEnabled: boolean;
       /** Currency */
       currency: string;
       /** Emailauthenabled */
@@ -7564,6 +8063,159 @@ export interface operations {
       };
     };
   };
+  post_account_email_change_confirm_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppEmailChangeConfirmPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            account_merge?: {
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
+            };
+            csrf_token: string;
+            /** @constant */
+            ok: true;
+            telegram_id?: number | null;
+            token: string;
+            user_id?: number | null;
+          };
+        };
+      };
+    };
+  };
+  post_account_email_change_current_request_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            code?: string;
+            email_code?: string;
+            /** @constant */
+            ok: true;
+            retry_after?: number | null;
+          };
+        };
+      };
+    };
+  };
+  post_account_email_change_current_verify_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppEmailChangeCurrentPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            change_token: string;
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_account_email_change_new_request_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppEmailChangeNewPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            code?: string;
+            email_code?: string;
+            /** @constant */
+            ok: true;
+            retry_after?: number | null;
+          };
+        };
+      };
+    };
+  };
+  post_account_notification_email_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppEmailPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            notification_email: string;
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
   post_account_email_request_route: {
     parameters: {
       query?: never;
@@ -7636,6 +8288,33 @@ export interface operations {
       };
     };
   };
+  post_external_identity_unlink_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppExternalIdentityPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
   post_account_language_route: {
     parameters: {
       query?: never;
@@ -7657,6 +8336,86 @@ export interface operations {
         content: {
           "application/json": {
             language: string;
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_account_passkey_delete_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppPasskeyDeletePayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_account_passkey_options_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            options: {
+              [key: string]: unknown;
+            };
+          };
+        };
+      };
+    };
+  };
+  post_account_passkey_register_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppPasskeyCredentialPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
             /** @constant */
             ok: true;
           };
@@ -9963,15 +10722,20 @@ export interface operations {
         };
         content: {
           "application/json": {
+            balance_currency: string;
+            balance_currency_scale: number;
             /** @constant */
             ok: true;
             page: number;
             page_size: number;
+            partner_balance_enabled: boolean;
             total: number;
+            user_balance_enabled: boolean;
             users: (components["schemas"]["AdminUserWithAvatarOut"] & {
               invited_users_count: number;
               panel_status: string | null;
               panel_status_expired_at?: string | null;
+              partner_balance_amount_minor: number;
               payments_count: number;
               payments_currency: string | null;
               payments_total_amount: number;
@@ -9979,6 +10743,7 @@ export interface operations {
                 [key: string]: unknown;
               };
               subscription_expires_at: string | null;
+              user_balance_amount_minor: number;
             })[];
           };
         };
@@ -10004,6 +10769,37 @@ export interface operations {
         content: {
           "application/json": {
             active_subscription: components["schemas"]["AdminSubscriptionOut"] | null;
+            balance: {
+              amount: string;
+              amount_minor: number;
+              currency: string;
+              currency_scale: number;
+              enabled: boolean;
+              history?: {
+                amount_minor?: number;
+                created_at?: string | null;
+                entry_id?: number;
+                kind?: string;
+                reason?: string | null;
+                reference_id?: string;
+                reference_type?: string;
+                state?: string;
+              }[];
+              /** @constant */
+              ok: true;
+              sources: {
+                amount?: string;
+                amount_minor?: number;
+                available?: boolean;
+                convertible?: boolean;
+                currency?: string;
+                id?: string;
+              }[];
+              topup_max_amount: number;
+              topup_min_amount: number;
+              topup_presets: number[];
+            };
+            hwid_devices: components["schemas"]["AdminUserHwidDevicesOut"];
             install_share_url: string | null;
             last_vpn_connected_at: string | null;
             log_count: number;
@@ -10073,6 +10869,124 @@ export interface operations {
         };
         content: {
           "image/jpeg": string;
+        };
+      };
+    };
+  };
+  post_admin_user_balance_adjustment_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminUserBalanceAdjustmentBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            balance: {
+              amount: string;
+              amount_minor: number;
+              currency: string;
+              currency_scale: number;
+              enabled: boolean;
+              history?: {
+                amount_minor?: number;
+                created_at?: string | null;
+                entry_id?: number;
+                kind?: string;
+                reason?: string | null;
+                reference_id?: string;
+                reference_type?: string;
+                state?: string;
+              }[];
+              /** @constant */
+              ok: true;
+              sources: {
+                amount?: string;
+                amount_minor?: number;
+                available?: boolean;
+                convertible?: boolean;
+                currency?: string;
+                id?: string;
+              }[];
+              topup_max_amount: number;
+              topup_min_amount: number;
+              topup_presets: number[];
+            };
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_user_balance_conversion_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminUserBalanceConversionBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            balance: {
+              amount: string;
+              amount_minor: number;
+              currency: string;
+              currency_scale: number;
+              enabled: boolean;
+              history?: {
+                amount_minor?: number;
+                created_at?: string | null;
+                entry_id?: number;
+                kind?: string;
+                reason?: string | null;
+                reference_id?: string;
+                reference_type?: string;
+                state?: string;
+              }[];
+              /** @constant */
+              ok: true;
+              sources: {
+                amount?: string;
+                amount_minor?: number;
+                available?: boolean;
+                convertible?: boolean;
+                currency?: string;
+                id?: string;
+              }[];
+              topup_max_amount: number;
+              topup_min_amount: number;
+              topup_presets: number[];
+            };
+            /** @constant */
+            ok: true;
+          };
         };
       };
     };
@@ -10697,6 +11611,123 @@ export interface operations {
       };
     };
   };
+  post_external_oauth_pending_cancel_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_external_oauth_pending_status_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            email: string;
+            email_code?: string;
+            /** @constant */
+            ok: true;
+            provider: string;
+            retry_after: number;
+          };
+        };
+      };
+    };
+  };
+  post_external_oauth_pending_request_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            code?: string;
+            email_code?: string;
+            /** @constant */
+            ok: true;
+            retry_after?: number | null;
+          };
+        };
+      };
+    };
+  };
+  post_external_oauth_pending_verify_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppEmailChangeCurrentPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            account_merge?: {
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
+            };
+            csrf_token: string;
+            /** @constant */
+            ok: true;
+            telegram_id?: number | null;
+            token: string;
+            user_id?: number | null;
+          };
+        };
+      };
+    };
+  };
   post_logout_route: {
     parameters: {
       query?: never;
@@ -10715,6 +11746,73 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_passkey_auth_options_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            options: {
+              [key: string]: unknown;
+            };
+          };
+        };
+      };
+    };
+  };
+  post_passkey_auth_verify_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppPasskeyCredentialPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            account_merge?: {
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
+            };
+            csrf_token: string;
+            /** @constant */
+            ok: true;
+            telegram_id?: number | null;
+            token: string;
+            user_id?: number | null;
           };
         };
       };
@@ -10807,6 +11905,92 @@ export interface operations {
             telegram_id?: number | null;
             token: string;
             user_id?: number | null;
+          };
+        };
+      };
+    };
+  };
+  get_balance_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            amount: string;
+            amount_minor: number;
+            currency: string;
+            currency_scale: number;
+            enabled: boolean;
+            history?: {
+              amount_minor?: number;
+              created_at?: string | null;
+              entry_id?: number;
+              kind?: string;
+              reason?: string | null;
+              reference_id?: string;
+              reference_type?: string;
+              state?: string;
+            }[];
+            /** @constant */
+            ok: true;
+            sources: {
+              amount?: string;
+              amount_minor?: number;
+              available?: boolean;
+              convertible?: boolean;
+              currency?: string;
+              id?: string;
+            }[];
+            topup_max_amount: number;
+            topup_min_amount: number;
+            topup_presets: number[];
+          };
+        };
+      };
+    };
+  };
+  post_balance_topup_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppBalanceTopupPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            action?: string;
+            confirmation_url?: string | null;
+            /** @constant */
+            ok: true;
+            paid?: boolean;
+            /** @description Provider-specific payment payload returned by the selected integration. */
+            payment?: {
+              [key: string]: unknown;
+            };
+            payment_id?: number;
+            payment_url?: string | null;
+            status?: string;
           };
         };
       };
@@ -11046,6 +12230,36 @@ export interface operations {
         };
         content: {
           "application/json": {
+            balance: {
+              amount: string;
+              amount_minor: number;
+              currency: string;
+              currency_scale: number;
+              enabled: boolean;
+              history?: {
+                amount_minor?: number;
+                created_at?: string | null;
+                entry_id?: number;
+                kind?: string;
+                reason?: string | null;
+                reference_id?: string;
+                reference_type?: string;
+                state?: string;
+              }[];
+              /** @constant */
+              ok: true;
+              sources: {
+                amount?: string;
+                amount_minor?: number;
+                available?: boolean;
+                convertible?: boolean;
+                currency?: string;
+                id?: string;
+              }[];
+              topup_max_amount: number;
+              topup_min_amount: number;
+              topup_presets: number[];
+            };
             /** @constant */
             ok: true;
             payment_methods: {
@@ -11185,7 +12399,16 @@ export interface operations {
             };
             settings: {
               auth_providers?: string[];
+              email_address_change_enabled?: boolean;
               email_auth_enabled?: boolean;
+              menu_buttons?: {
+                icon: string;
+                id: string;
+                /** @enum {string} */
+                kind: "external" | "telegram" | "webapp";
+                label: string;
+                target: string;
+              }[];
               my_devices_enabled?: boolean;
               partner_program_enabled?: boolean;
               payment_methods_display_mode?: string;
@@ -11207,6 +12430,7 @@ export interface operations {
               trial_traffic_limit_gb?: number;
               trial_traffic_strategy?: string;
               trial_without_telegram_enabled?: boolean;
+              user_balance_enabled?: boolean;
               user_hwid_device_limit?: number | null;
             };
             subscription: {
@@ -11293,11 +12517,33 @@ export interface operations {
             };
             user: {
               email?: string | null;
+              email_addresses?: {
+                email?: string;
+                is_notification?: boolean;
+                is_primary?: boolean;
+                sources?: string[];
+                verified?: boolean;
+              }[];
               email_verified?: boolean;
+              external_identities?: {
+                can_unlink?: boolean;
+                display_name?: string | null;
+                email?: string | null;
+                email_verified?: boolean;
+                provider?: string;
+              }[];
               first_name?: string | null;
               id?: number;
               is_admin?: boolean;
               language_code?: string;
+              notification_email?: string | null;
+              passkeys?: {
+                backed_up?: boolean;
+                created_at?: string | null;
+                credential_id?: string;
+                last_used_at?: string | null;
+                name?: string;
+              }[];
               password_auth_enabled?: boolean;
               telegram_id?: number | null;
               telegram_linked?: boolean;
@@ -11596,6 +12842,33 @@ export interface operations {
             payment_id?: number;
             payment_url?: string | null;
             status?: string;
+          };
+        };
+      };
+    };
+  };
+  post_cancel_payment_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        payment_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            payment_id: number;
+            status: string;
           };
         };
       };

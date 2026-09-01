@@ -19,6 +19,8 @@ from bot.services.panel_api_compat import PanelUserIdMode, numeric_panel_user_id
 from bot.services.panel_api_service import PanelApiService
 from bot.services.panel_user_snapshot import should_use_full_panel_user_scan
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.subscription_service_impl.hwid_limits import resolve_hwid_base_limit
+from bot.services.subscription_service_impl.traffic import resolve_main_traffic_baseline
 from bot.utils.traffic_reset import (
     panel_traffic_limit_strategy,
     previous_traffic_reset,
@@ -497,29 +499,11 @@ class TariffWorkerRegularMixin(TariffWorkerRegularWarningMixin):
         panel_data: dict[str, Any],
     ) -> None:
         now = datetime.now(UTC)
-        flexible_limits = await tariff_dal.get_active_flexible_traffic_limits(
+        desired_tier_baseline = await resolve_main_traffic_baseline(
             session,
-            subscription_id=sub.subscription_id,
+            sub,
+            tariff,
             at=now,
-        )
-        configured_baseline = flexible_limits.get("traffic")
-        flexible_history_exists = (
-            await tariff_dal.has_flexible_traffic_limit_history(
-                session,
-                subscription_id=sub.subscription_id,
-                kind="traffic",
-            )
-            if configured_baseline is None
-            else False
-        )
-        desired_tier_baseline = int(
-            configured_baseline
-            if configured_baseline is not None
-            else (
-                tariff.monthly_bytes
-                if flexible_history_exists
-                else (getattr(sub, "tier_baseline_bytes", 0) or tariff.monthly_bytes or 0)
-            )
         )
         tier_baseline_changed = int(getattr(sub, "tier_baseline_bytes", 0) or 0) != (
             desired_tier_baseline
@@ -527,10 +511,10 @@ class TariffWorkerRegularMixin(TariffWorkerRegularWarningMixin):
         if tier_baseline_changed:
             sub.tier_baseline_bytes = desired_tier_baseline
 
-        base_hwid_limit = (
-            int(sub.hwid_device_limit)
-            if sub.hwid_device_limit is not None
-            else self.subscription_service._base_hwid_limit_for_tariff(tariff)
+        base_hwid_limit = resolve_hwid_base_limit(
+            sub.hwid_device_limit,
+            self.subscription_service._base_hwid_limit_for_tariff(tariff),
+            is_override=bool(getattr(sub, "hwid_device_limit_is_override", False)),
         )
         entitlement_summary = await tariff_dal.get_hwid_device_entitlement_summary(
             session,
@@ -563,9 +547,7 @@ class TariffWorkerRegularMixin(TariffWorkerRegularWarningMixin):
         traffic_limit_for_panel: int | None = None
         panel_traffic_limit_int: int | None = None
         traffic_limit_changed = False
-        if tariff.billing_model == "period" and (
-            active_extra > 0 or previous_active_extra != active_extra or tier_baseline_changed
-        ):
+        if tariff.billing_model == "period":
             traffic_limit_for_panel = self.subscription_service._compute_main_traffic_limit_bytes(
                 tier_baseline_bytes=int(desired_tier_baseline),
                 topup_balance_bytes=max(0, int(getattr(sub, "topup_balance_bytes", 0) or 0)),

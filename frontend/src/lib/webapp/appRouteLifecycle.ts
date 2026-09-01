@@ -87,7 +87,9 @@ export function resolvePopstateRoute({
     supportEnabled,
   });
   return {
-    activeTab: activeTabForWebappSection(section),
+    activeTab: activeTabForWebappSection(section, {
+      partnerSettingsVisible: partnerProgramEnabled && referralProgramEnabled,
+    }),
     kind: "section",
     loadDevices: section === "devices",
     loadInstallGuides: section === "install",

@@ -104,6 +104,7 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
                 end_date=datetime.now(UTC) + timedelta(days=10),
                 tariff_key="standard",
                 hwid_device_limit=4,
+                hwid_device_limit_is_override=True,
                 extra_hwid_devices=0,
             )
 
@@ -153,6 +154,7 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
                 end_date=datetime.now(UTC) + timedelta(days=10),
                 tariff_key="standard",
                 hwid_device_limit=0,
+                hwid_device_limit_is_override=True,
                 extra_hwid_devices=0,
             )
 

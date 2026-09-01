@@ -121,10 +121,9 @@ SERVER_STATUS_TIMEOUT_SECONDS=5
 
 ## Авторизация
 
-Mini App поддерживает вход через Telegram Mini Apps `initData`, Telegram OAuth / OpenID Connect вне Telegram и email-код. Подробная настройка вынесена в отдельные разделы:
-
-- [Telegram-авторизация](telegram-auth.md) - BotFather, Mini Apps, Web Login, callback `/auth/telegram/callback`, OAuth-переменные и типичные ошибки.
-- [Вход по email](email-login.md) - SMTP, одноразовые коды, magic link, парольный вход и проверки доставки писем.
+Mini App поддерживает email-код, email/пароль, Telegram Mini Apps `initData`, Telegram OAuth /
+OpenID Connect, Google, Yandex ID и passkey. Настройка всех вариантов собрана в разделе
+[«Способы входа»](login-methods.md).
 
 Если SMTP-настройки не заполнены, вход по email скрывается. Если Telegram OAuth не настроен, вход через Telegram продолжает работать внутри Telegram Mini App через `initData`, но внешняя браузерная авторизация не сможет стартовать.
 

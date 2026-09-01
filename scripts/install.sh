@@ -3,7 +3,7 @@ set -u
 
 # Интерактивный установщик для Docker Compose серверов.
 
-DEFAULT_SOURCE="${MINISHOP_INSTALL_SOURCE:-github}"
+DEFAULT_SOURCE="${MINISHOP_INSTALL_SOURCE:-gitlab}"
 DEFAULT_REPO="${MINISHOP_INSTALL_REPO:-3252a8/remnawave-minishop}"
 DEFAULT_REF="${MINISHOP_INSTALL_REF:-main}"
 DEFAULT_IMAGE_TAG="${MINISHOP_IMAGE_TAG:-latest}"
@@ -4553,6 +4553,7 @@ remnashop_webhook_checklist() {
     printf '  PayKilla Dashboard -> Settings -> Webhooks URL: %s/webhook/paykilla\n' "$base_url"
     printf '  FreeKassa shop settings -> notification/result URL: %s/webhook/freekassa\n' "$base_url"
     printf '  Platega merchant/project settings -> webhook URL: %s/webhook/platega\n' "$base_url"
+    printf '  RollyPay terminal settings -> webhook URL: %s/webhook/rollypay\n' "$base_url"
     printf '  Telegram webhook: %s/tg/webhook (backend ставит его автоматически при старте)\n' "$base_url"
 }
 
@@ -4597,6 +4598,7 @@ remnashop_post_migration_next_steps() {
     printf '  PayKilla: %s/webhook/paykilla\n' "$base_url"
     printf '  FreeKassa: %s/webhook/freekassa\n' "$base_url"
     printf '  Platega: %s/webhook/platega\n' "$base_url"
+    printf '  RollyPay: %s/webhook/rollypay\n' "$base_url"
 }
 
 extract_import_summary() {
@@ -5619,8 +5621,8 @@ choose_source_provider() {
     esac
 
     choose "Источник файлов установки" "$source_default" "1|2" \
-        "1. GitHub (по умолчанию)." \
-        "2. GitLab." || return 1
+        "1. GitHub." \
+        "2. GitLab (по умолчанию)." || return 1
 
     case "$CHOICE_VALUE" in
         1) SOURCE_PROVIDER="github" ;;

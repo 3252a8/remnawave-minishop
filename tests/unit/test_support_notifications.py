@@ -620,6 +620,70 @@ def test_account_merge_notification_goes_to_log_channel():
     assert reply_markup.inline_keyboard[0][0].url == "tg://user?id=100200300"
 
 
+def test_external_auth_notifications_name_provider_and_merge_source():
+    messages = []
+
+    class I18n:
+        def gettext(self, _language, key, **kwargs):
+            labels = {
+                "log_auth_provider_google": "Google",
+                "log_external_link_source_email_confirmation": "existing email confirmation",
+                "log_open_profile_link": "Open profile",
+            }
+            if key in labels:
+                return labels[key]
+            if key == "log_new_external_user_registration":
+                return f"registered provider={kwargs['provider']} email={kwargs['email']}"
+            if key == "log_account_external_identity_linked":
+                return f"linked provider={kwargs['provider']} source={kwargs['link_source']}"
+            if key == "log_account_merged":
+                return f"merged source={kwargs['merge_source']}"
+            raise AssertionError(key)
+
+    service = NotificationService(
+        bot=SimpleNamespace(),
+        settings=_settings(LOG_CHAT_ID=-100123, DEFAULT_LANGUAGE="en"),
+        i18n=I18n(),
+    )
+
+    async def send_to_log_channel(message, thread_id=None, reply_markup=None):
+        messages.append((message, thread_id, reply_markup))
+
+    service._send_to_log_channel = send_to_log_channel
+
+    async def exercise_notifications():
+        await service.notify_new_external_user_registration(
+            user_id=-42,
+            provider="google",
+            email="user@example.test",
+        )
+        await service.notify_account_external_identity_linked(
+            user_id=42,
+            provider="google",
+            link_source="email_confirmation",
+            email="user@example.test",
+            telegram_id=100200300,
+        )
+        await service.notify_account_merged(
+            primary_user_id=42,
+            removed_user_id=-42,
+            email="user@example.test",
+            telegram_id=100200300,
+            reason="google_verified_email_link",
+            provider="google",
+        )
+
+    asyncio.run(exercise_notifications())
+
+    assert [message for message, _, _ in messages] == [
+        "registered provider=Google email=user@example.test",
+        "linked provider=Google source=existing email confirmation",
+        "merged source=Google",
+    ]
+    assert messages[0][2] is None
+    assert messages[1][2].inline_keyboard[0][0].url == "tg://user?id=100200300"
+
+
 def test_user_support_keyboard_puts_attached_buttons_above_the_ticket_link():
     service = NotificationService(
         bot=SimpleNamespace(),

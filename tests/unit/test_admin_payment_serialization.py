@@ -1,8 +1,9 @@
+import json
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
 from bot.app.web.admin_api_impl.common import _serialize_payment
-from bot.app.web.admin_api_impl.schemas import PaymentDetailOut, PaymentOut
+from bot.app.web.admin_api_impl.payment_schemas import PaymentDetailOut, PaymentOut
 
 
 def _payment(**overrides):
@@ -20,6 +21,7 @@ def _payment(**overrides):
         "tariff_key": "standard",
         "purchased_gb": 12.5,
         "purchased_hwid_devices": 2,
+        "checkout_bundle_snapshot": None,
         "provider_payment_url": "https://pay.example.test/provider-10",
         "promo_code_id": 5,
         "promo_discount_percent": 20,
@@ -59,6 +61,22 @@ def test_admin_payment_serializer_exposes_regular_traffic_and_hwid_devices():
     assert payload["traffic_premium_gb"] is None
     assert payload["purchased_gb"] == 12.5
     assert payload["purchased_hwid_devices"] == 2
+    assert payload["purchases"] == [
+        {
+            "kind": "traffic",
+            "amount": 12.5,
+            "unit": "gb",
+            "scope": "regular",
+            "mode": "topup",
+        },
+        {
+            "kind": "hwid_devices",
+            "amount": 2.0,
+            "unit": "device",
+            "scope": None,
+            "mode": "topup",
+        },
+    ]
 
 
 def test_admin_payment_serializer_exposes_premium_traffic_split():
@@ -66,6 +84,55 @@ def test_admin_payment_serializer_exposes_premium_traffic_split():
 
     assert payload["traffic_regular_gb"] is None
     assert payload["traffic_premium_gb"] == 7.0
+
+
+def test_admin_payment_serializer_exposes_subscription_checkout_addons():
+    snapshot = json.dumps(
+        {
+            "version": 2,
+            "tariff_key": "standard",
+            "months": 3,
+            "addons_amount": 270,
+            "items": [
+                {"kind": "devices", "extra_units": 2, "traffic_bonus_gb": 0},
+                {"kind": "traffic", "total_units": 150, "future_amount": 150},
+                {"kind": "premium_traffic", "total_units": 30, "future_amount": 90},
+            ],
+        }
+    )
+
+    payload = _serialize_payment(
+        _payment(
+            sale_mode="subscription@standard",
+            purchased_gb=None,
+            purchased_hwid_devices=2,
+            checkout_bundle_snapshot=snapshot,
+        )
+    )
+
+    assert payload["purchases"] == [
+        {
+            "kind": "traffic",
+            "amount": 150.0,
+            "unit": "gb",
+            "scope": "regular",
+            "mode": "limit",
+        },
+        {
+            "kind": "traffic",
+            "amount": 30.0,
+            "unit": "gb",
+            "scope": "premium",
+            "mode": "limit",
+        },
+        {
+            "kind": "hwid_devices",
+            "amount": 2.0,
+            "unit": "device",
+            "scope": None,
+            "mode": "limit",
+        },
+    ]
 
 
 def test_payment_list_schema_exposes_discount_and_provider_link():
