@@ -1,18 +1,46 @@
-# Обзор
+# Обзор продукта
 
-Remnawave Minishop состоит из Telegram-бота, backend API, worker-процессов, frontend/Mini App и инфраструктурных сервисов PostgreSQL и Redis. В продакшене эти части запускаются через Docker Compose и общаются с Remnawave Panel по API и вебхукам.
+Remnawave Minishop закрывает весь путь от регистрации пользователя до оплаты, продления,
+поддержки и сопровождения подписки. Продукт состоит из Telegram-бота, backend API,
+worker-процессов, frontend/Mini App и инфраструктурных сервисов PostgreSQL и Redis. В
+production эти части запускаются через Docker Compose и общаются с Remnawave Panel по API и
+вебхукам.
 
 ## Основные компоненты
 
-- **Backend** - вебхук Telegram, платежные вебхуки, вебхуки панели, API для Mini App и админки.
-- **Worker** - фоновые задачи, синхронизация подписок, обработка очереди вебхуков и тарифных событий.
-- **Frontend** - отдельный nginx-образ с Mini App и админкой.
-- **PostgreSQL** - пользователи, платежи, настройки, поддержка, промокоды и служебные данные.
-- **Redis** - FSM, кеши, rate limit, очередь вебхуков и distributed locks.
+- **Backend** — вебхук Telegram, платёжные вебхуки, вебхуки панели, API для Mini App и админки.
+- **Worker** — фоновые задачи, синхронизация подписок, обработка очереди вебхуков и тарифных
+  событий.
+- **Frontend** — отдельный nginx-образ с Mini App и админкой.
+- **PostgreSQL** — пользователи, платежи, настройки, поддержка, промокоды и служебные данные.
+- **Redis** — FSM, кеши, rate limits, очередь вебхуков и distributed locks.
+
+## Для пользователей
+
+- Регистрация и вход через [email-код, email/пароль, Telegram, Google, Яндекс или
+  passkey](../features/login-methods.md).
+- Просмотр подписки, срока действия, трафика и ссылки подключения.
+- Покупка подписки, пакетов трафика и дополнительных устройств.
+- Пробный период, [промокоды](../features/promocodes.md) и реферальные сценарии.
+- Тикеты поддержки внутри Mini App.
+- Встроенные инструкции установки и публичные ссылки `/s/<token>`.
+
+## Для администраторов
+
+- Поиск и управление пользователями.
+- Настройка платежей, тарифов, внешнего вида и поддержки.
+- Рассылки, [промокоды](../features/promocodes.md) и логи действий.
+- Ручная синхронизация с Remnawave Panel.
+- Редактор JSON-каталога тарифов.
+
+Подробности собраны в разделах [Админ-панель](../features/admin-panel.md),
+[Веб-приложение](../features/web-app.md) и
+[Поддержка пользователей](../features/support.md).
 
 ## Куда идти дальше
 
-- [Установка](setup.md) - базовый запуск через Compose.
-- [Развертывание](deployment.md) - Docker Compose, Caddy, Angie, Nginx, Pangolin/Newt и запуск без обратного прокси.
-- [Способы входа](../features/login-methods.md) — email-код, email/пароль, Telegram, Google,
-  Яндекс и passkey.
+- [Быстрый запуск](setup.md) — минимальный маршрут запуска через Docker Compose.
+- [Production-развертывание](deployment.md) — Docker Compose, Caddy, Angie, Nginx,
+  Pangolin/Newt и запуск без обратного прокси.
+- [Первичная настройка](configuration.md) — подключение Remnawave и настройка продукта.
+- [Способы входа](../features/login-methods.md) — email, Telegram, OAuth и passkey.

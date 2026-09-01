@@ -20,6 +20,9 @@ const otherDocsVersion = isDevDocs
 
 export default defineConfig({
   site: docsSiteUrl,
+  redirects: {
+    '/features/core': '/getting-started/overview/',
+  },
   integrations: [
     starlight({
       title: 'minishop',
@@ -77,82 +80,138 @@ export default defineConfig({
       ],
       sidebar: [
         {
-          label: 'Начало',
+          label: 'Начало работы',
           items: [
             { label: 'Главная', link: '/' },
-            { label: 'Обзор', slug: 'getting-started/overview' },
+            { label: 'Обзор продукта', slug: 'getting-started/overview' },
+            { label: 'minishop PRO', slug: 'features/minishop-pro' },
             { label: 'Демо-режим', slug: 'getting-started/demo' },
             { label: 'Системные требования', slug: 'getting-started/system-requirements' },
-            { label: 'Установка', slug: 'getting-started/setup' },
-            { label: 'Развертывание', slug: 'getting-started/deployment' },
-            { label: 'Настройка окружения', slug: 'getting-started/configuration' },
+            { label: 'Быстрый запуск', slug: 'getting-started/setup' },
+            { label: 'Production-развертывание', slug: 'getting-started/deployment' },
+            { label: 'Первичная настройка', slug: 'getting-started/configuration' },
+            {
+              label: 'Переход с других решений',
+              collapsed: true,
+              items: [
+                { label: 'Обзор', slug: 'migrations' },
+                { label: 'remnawave-tg-shop', slug: 'migrations/remnawave-tg-shop' },
+                { label: 'Remnashop', slug: 'migrations/remnashop' },
+              ],
+            },
           ],
         },
         {
-          label: 'Конфигурация',
+          label: 'Продажи и подписки',
           items: [
-            { label: 'Переменные окружения', slug: 'configuration/env-vars' },
+            {
+              label: 'Тарифы и подписки',
+              items: [
+                { label: 'Обзор и модели', slug: 'features/subscriptions' },
+                { label: 'Настройка тарифов', slug: 'features/tariffs' },
+                { label: 'Докупки и смена тарифа', slug: 'features/tariff-purchases' },
+                { label: 'Жизненный цикл подписки', slug: 'features/subscription-lifecycle' },
+              ],
+            },
+            {
+              label: 'Платежи',
+              items: [
+                { label: 'Обзор и общая настройка', slug: 'features/payments' },
+                {
+                  label: 'Платёжные провайдеры',
+                  collapsed: true,
+                  items: [
+                    { label: 'YooKassa', slug: 'features/payments/yookassa' },
+                    { label: 'FreeKassa', slug: 'features/payments/freekassa' },
+                    { label: 'Platega', slug: 'features/payments/platega' },
+                    { label: 'RollyPay', slug: 'features/payments/rollypay' },
+                    { label: 'SeverPay', slug: 'features/payments/severpay' },
+                    { label: 'WATA', slug: 'features/payments/wata' },
+                    { label: 'CryptoPay', slug: 'features/payments/cryptopay' },
+                    { label: 'Tribute', slug: 'features/payments/tribute' },
+                    { label: 'Heleket', slug: 'features/payments/heleket' },
+                    { label: 'OxaPay', slug: 'features/payments/oxapay' },
+                    { label: 'PayKilla', slug: 'features/payments/paykilla' },
+                    { label: 'Lava', slug: 'features/payments/lava' },
+                    { label: 'Pally', slug: 'features/payments/pally' },
+                    { label: 'CloudPayments', slug: 'features/payments/cloudpayments' },
+                    { label: 'Overpay', slug: 'features/payments/overpay' },
+                    { label: 'Stripe', slug: 'features/payments/stripe' },
+                    { label: 'Telegram Stars', slug: 'features/payments/telegram-stars' },
+                  ],
+                },
+              ],
+            },
+            { label: 'Баланс пользователя', slug: 'features/user-balance' },
+            { label: 'Промокоды', slug: 'features/promocodes' },
+            { label: 'Партнёрская программа', slug: 'features/partner-program' },
+          ],
+        },
+        {
+          label: 'Mini App и пользователи',
+          items: [
+            { label: 'Веб-приложение', slug: 'features/web-app' },
+            { label: 'Способы входа', slug: 'features/login-methods' },
+            { label: 'Темы и внешний вид', slug: 'features/webapp-themes' },
+            { label: 'Уведомления', slug: 'features/notifications' },
+            { label: 'Поддержка пользователей', slug: 'features/support' },
+            { label: 'Статус серверов', slug: 'features/server-status' },
+          ],
+        },
+        {
+          label: 'Администрирование',
+          items: [
+            { label: 'Админ-панель', slug: 'features/admin-panel' },
+            { label: 'Справочник переменных .env', slug: 'configuration/env-vars' },
             { label: 'Безопасность', slug: 'configuration/security' },
             { label: 'Телеметрия', slug: 'configuration/telemetry' },
           ],
         },
         {
-          label: 'Возможности',
+          label: 'Эксплуатация и диагностика',
           items: [
-            { label: 'minishop PRO', slug: 'features/minishop-pro' },
-            { label: 'Основные', slug: 'features/core' },
-            { label: 'Платежи', slug: 'features/payments' },
-            { label: 'Промокоды', slug: 'features/promocodes' },
-            { label: 'Партнёрская программа', slug: 'features/partner-program' },
-            { label: 'Баланс пользователя', slug: 'features/user-balance' },
-            { label: 'Подписки', slug: 'features/subscriptions' },
-            { label: 'Уведомления', slug: 'features/notifications' },
-            { label: 'Тарифы', slug: 'features/tariffs' },
-            { label: 'Веб-приложение / Mini App', slug: 'features/web-app' },
-            { label: 'Статус серверов', slug: 'features/server-status' },
-            { label: 'Способы входа', slug: 'features/login-methods' },
-            { label: 'Темы Web App', slug: 'features/webapp-themes' },
-            { label: 'Админ-панель', slug: 'features/admin-panel' },
+            { label: 'Обслуживание', slug: 'troubleshooting/maintenance' },
             { label: 'Бэкапы и восстановление', slug: 'features/backups' },
-            { label: 'Поддержка пользователей / тикеты', slug: 'features/support' },
-          ],
-        },
-        {
-          label: 'API',
-          items: [
-            { label: 'Обзор API', slug: 'api' },
-            { label: 'Интерактивная спецификация', link: '/api/reference/' },
-            { label: 'HTTP-контракты', slug: 'architecture/http-api' },
-            {
-              label: 'Совместимость Remnawave API',
-              slug: 'architecture/remnawave-api-compatibility',
-            },
-            { label: 'Доменные события', slug: 'architecture/events' },
-            { label: 'API плагинов', slug: 'development/plugins' },
-            { label: 'Контракт плагинов', slug: 'development/plugin-contract' },
-          ],
-        },
-        {
-          label: 'Миграции',
-          items: [
-            { label: 'Обзор миграций', slug: 'migrations' },
-            { label: 'remnawave-tg-shop', slug: 'migrations/remnawave-tg-shop' },
-            { label: 'remnashop', slug: 'migrations/remnashop' },
-          ],
-        },
-        {
-          label: 'Справка',
-          items: [
             { label: 'Проблемы', slug: 'troubleshooting/issues' },
             { label: 'Логи', slug: 'troubleshooting/logs' },
-            { label: 'Обслуживание', slug: 'troubleshooting/maintenance' },
-            { label: 'Архитектура', slug: 'reference/architecture' },
+          ],
+        },
+        {
+          label: 'API и разработка',
+          items: [
             {
-              label: 'Разработка',
+              label: 'API Mini Shop',
               items: [
-                { label: 'Карта Graphify', slug: 'development/graphify' },
+                { label: 'Обзор', slug: 'api' },
+                { label: 'Интерактивная спецификация', link: '/api/reference/' },
+                { label: 'HTTP-контракты', slug: 'architecture/http-api' },
+              ],
+            },
+            {
+              label: 'Интеграции',
+              items: [
+                {
+                  label: 'Совместимость Remnawave API',
+                  slug: 'architecture/remnawave-api-compatibility',
+                },
+                { label: 'Доменные события', slug: 'architecture/events' },
+              ],
+            },
+            {
+              label: 'Плагины',
+              items: [
+                { label: 'API плагинов', slug: 'development/plugins' },
+                { label: 'Контракт плагинов', slug: 'development/plugin-contract' },
+              ],
+            },
+            {
+              label: 'Для контрибьюторов',
+              collapsed: true,
+              items: [
+                { label: 'Архитектура', slug: 'reference/architecture' },
                 { label: 'Единый dev stand', slug: 'development/dev-stand' },
                 { label: 'Рецепты изменений', slug: 'development/how-to' },
+                { label: 'Карта Graphify', slug: 'development/graphify' },
                 { label: 'Runes QA', slug: 'development/runes-migration-qa' },
               ],
             },

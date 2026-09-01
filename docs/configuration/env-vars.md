@@ -8,6 +8,18 @@
 2. Запустить стек и войти в Web App под Telegram ID из `ADMIN_IDS`.
 3. Настроить Remnawave, платежи, внешний вид, поддержку, уведомления и тарифы через админку.
 
+## Навигация по справочнику
+
+| Категория | Разделы |
+| --- | --- |
+| Запуск и инфраструктура | [Минимальный bootstrap](#минимальный-bootstrap) · [Инфраструктура и Compose](#инфраструктура-и-compose) · [Dev / QA only](#dev--qa-only) · [Кеши, rate limits и worker](#кеши-rate-limits-и-worker) |
+| Продукт | [Общие настройки](#общие-настройки) · [Remnawave](#remnawave) · [Веб-приложение и внешний вид](#веб-приложение-внешний-вид-и-telegram-login) · [SMTP и вход по email](#smtp-и-вход-по-email) |
+| Продажи | [Платежи](#платежи) · [Тарифы и legacy-цены](#тарифы-и-legacy-цены) · [Промокоды](#промокоды) · [Пробный период, рефералы и уведомления](#пробный-период-рефералы-и-уведомления) |
+| Эксплуатация | [Поддержка](#поддержка) · [Логирование](#логирование) · [Чеки, ссылки подключения и inline](#чеки-ссылки-подключения-и-inline) |
+
+Инструкции по отдельным провайдерам находятся в разделе
+[Платежи → Платёжные провайдеры](../features/payments.md#платёжные-провайдеры).
+
 ## Минимальный bootstrap
 
 | Переменная | Где менять | Назначение |
@@ -628,7 +640,7 @@ FreeKassa требует поле `ip` в API создания заказа, н�
 docker compose exec backend sh -lc 'curl -4fsS https://api.ipify.org; echo'
 ```
 
-Не подставляйте внутренний Docker/Kubernetes IP, адрес reverse proxy или значения из `FREEKASSA_TRUSTED_IPS`. Если трафик выходит через NAT, VPN либо отдельный шлюз, нужен адрес, который показывает команда выше. Подробная последовательность настройки приведена в разделе [Платежи → FreeKassa](../features/payments.md#freekassa).
+Не подставляйте внутренний Docker/Kubernetes IP, адрес reverse proxy или значения из `FREEKASSA_TRUSTED_IPS`. Если трафик выходит через NAT, VPN либо отдельный шлюз, нужен адрес, который показывает команда выше. Подробная последовательность настройки приведена в разделе [Платежи → FreeKassa](../features/payments/freekassa.md).
 
 ### Platega
 
@@ -725,7 +737,7 @@ Tribute не отправляются.
 
 Shop-заказы в Stars, Token Charging/`paymentToken`, предоплаченный баланс и Creator
 donations интеграцией Minishop не поддерживаются. Подробнее о сценариях и lifecycle —
-в [настройке Tribute](../features/payments.md#tribute).
+в [настройке Tribute](../features/payments/tribute.md).
 
 ### Heleket
 
@@ -762,7 +774,7 @@ donations интеграцией Minishop не поддерживаются. П�
 Callback URL передаётся в каждый invoice автоматически как `WEBHOOK_BASE_URL` +
 `/webhook/oxapay`. Заголовок `HMAC` проверяется всегда по точным сырым байтам запроса;
 отключаемого bypass-параметра нет. Подробности — в разделе
-[Платежи → OxaPay](../features/payments.md#oxapay).
+[Платежи → OxaPay](../features/payments/oxapay.md).
 
 ### PayKilla
 
