@@ -54,6 +54,7 @@ bot/app/web/templates/subscription_webapp_docs_demo.js
 bot/app/web/templates/subscription_webapp_docs_demo.*.css
 bot/app/web/templates/subscription_webapp_docs_demo.*.css.br
 bot/app/web/templates/subscription_webapp_docs_demo.*.css.gz
+bot/app/web/templates/fonts/
 backend/bot/app/web/templates/subscription_webapp.css
 backend/bot/app/web/templates/subscription_webapp.js
 backend/bot/app/web/templates/subscription_webapp.min.*.js
@@ -85,6 +86,7 @@ backend/bot/app/web/templates/subscription_webapp_docs_demo.*.css
 backend/bot/app/web/templates/subscription_webapp_docs_demo.*.css.br
 backend/bot/app/web/templates/subscription_webapp_docs_demo.*.css.gz
 backend/bot/app/web/templates/provider-logos/
+backend/bot/app/web/templates/fonts/
 .claude
 
 # Игнорировать кэш Python

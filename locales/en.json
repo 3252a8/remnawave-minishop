@@ -4499,6 +4499,7 @@
   "wa_server_status_item_unknown": "Unknown",
   "wa_server_status_incidents": "Incidents",
   "wa_server_status_uptime_24h": "{value} / 24h",
+  "wa_server_status_latency_unavailable": "n/a",
   "wa_server_status_last_updated": "Updated {date}",
   "wa_server_status_stale": "Showing the latest cached update",
   "wa_server_status_unknown": "Unknown",

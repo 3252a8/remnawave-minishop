@@ -712,6 +712,10 @@
       {/if}
     {/if}
 
+    {#if serverStatusShowOnHome}
+      <ServerStatusCard {statusStore} {goStatus} {openExternalLink} {t} />
+    {/if}
+
     <div class="action-stack">
       {#if subscription.active}
         <Button class="wide" onclick={openConnectLink}>
@@ -755,9 +759,6 @@
         </Button>
       {/if}
     </div>
-    {#if serverStatusShowOnHome}
-      <ServerStatusCard {statusStore} {goStatus} {openExternalLink} {t} />
-    {/if}
   </div>
 </main>
 

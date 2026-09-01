@@ -371,6 +371,7 @@
 }
 
 .attention-dot {
+  --attention-dot-color: #ff4b4b;
   position: absolute;
   top: 0;
   right: 0;
@@ -378,8 +379,8 @@
   width: 13px;
   height: 13px;
   border-radius: 999px;
-  background: #ff4b4b;
-  box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.75);
+  background: var(--attention-dot-color);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--attention-dot-color) 75%, transparent);
   animation: attention-pulse 1.6s ease-out infinite;
   transform: translate(50%, -50%);
   pointer-events: none;
@@ -394,15 +395,21 @@
 
 @keyframes attention-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.75);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--attention-dot-color) 75%, transparent);
   }
 
   70% {
-    box-shadow: 0 0 0 8px rgba(255, 75, 75, 0);
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--attention-dot-color) 0%, transparent);
   }
 
   100% {
-    box-shadow: 0 0 0 0 rgba(255, 75, 75, 0);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--attention-dot-color) 0%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .attention-dot {
+    animation: none;
   }
 }
 

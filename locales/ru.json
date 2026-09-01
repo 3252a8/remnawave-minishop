@@ -4499,6 +4499,7 @@
   "wa_server_status_item_unknown": "Неизвестно",
   "wa_server_status_incidents": "Инциденты",
   "wa_server_status_uptime_24h": "{value} за 24 ч.",
+  "wa_server_status_latency_unavailable": "n/a",
   "wa_server_status_last_updated": "Обновлено: {date}",
   "wa_server_status_stale": "Показаны последние сохранённые данные",
   "wa_server_status_unknown": "Неизвестно",

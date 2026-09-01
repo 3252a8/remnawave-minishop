@@ -60,3 +60,7 @@ def test_stylesheets_are_not_captured_by_the_chunk_patterns():
     assert _resolve("/subscription_webapp.css") == "css_asset_route"
     assert _resolve("/subscription_webapp.a1b2c3d4.css") == "css_asset_route"
     assert _resolve("/subscription_webapp_admin.css") == "admin_css_asset_route"
+
+
+def test_flag_font_has_a_dedicated_static_route():
+    assert _resolve("/fonts/TwemojiCountryFlags.woff2") == "flag_font_asset_route"

@@ -42,6 +42,7 @@ from .assets import (
     webapp_logo_route,
     webapp_uploaded_logo_route,
 )
+from .assets_static import flag_font_asset_route
 from .auth import (
     auth_token_route,
     email_auth_magic_route,
@@ -211,6 +212,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
         r"/provider-logos/{filename:[A-Za-z0-9_-]+\.png}",
         provider_logo_asset_route,
     )
+    app.router.add_get("/fonts/TwemojiCountryFlags.woff2", flag_font_asset_route)
     # Order matters: the ``.min.<hash>`` entries are registered before the chunk
     # patterns, which would otherwise swallow them as a chunk called "min".
     # ``chunk_name`` allows dots because a chunk inherits them from its entry

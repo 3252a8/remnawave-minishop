@@ -388,6 +388,9 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(home_source.count("<ServerStatusCard"), 1)
         self.assertIn("{#if serverStatusShowOnHome}", home_source)
+        status_card_index = home_source.index("<ServerStatusCard")
+        self.assertGreater(status_card_index, home_source.index('class="premium-progress"'))
+        self.assertLess(status_card_index, home_source.index('<div class="action-stack">'))
         self.assertIn("{#if status?.enabled}", card_source)
         self.assertIn("settings-row-status", settings_source)
         self.assertIn('t("menu_server_status_button")', settings_source)
@@ -1373,6 +1376,24 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 self.assertRaises(web.HTTPNotFound),
             ):
                 await assets_static.provider_logo_asset_route(request)
+
+    async def test_flag_font_route_serves_local_woff2_asset(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            asset_dir = Path(tmpdir)
+            font_dir = asset_dir / "fonts"
+            font_dir.mkdir()
+            (font_dir / assets_static.FLAG_FONT_FILENAME).write_bytes(b"wOF2font")
+
+            request = SimpleNamespace(app={"settings": SimpleNamespace(WEBAPP_ENABLED=True)})
+
+            with patch.object(assets_static, "ASSET_DIR", asset_dir):
+                response = await assets_static.flag_font_asset_route(request)
+
+            self.assertEqual(response.content_type, "font/woff2")
+            self.assertEqual(response.body, b"wOF2font")
+            self.assertEqual(
+                response.headers["Cache-Control"], "public, max-age=31536000, immutable"
+            )
 
     async def test_js_asset_route_sets_immutable_cache_control_for_minified_asset(self):
         with tempfile.TemporaryDirectory() as tmpdir:
