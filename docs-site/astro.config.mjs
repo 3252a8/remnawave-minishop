@@ -62,6 +62,7 @@ export default defineConfig({
         {
           label: 'Начало',
           items: [
+            { label: 'Главная', link: '/' },
             { label: 'Обзор', slug: 'getting-started/overview' },
             { label: 'Демо-режим', slug: 'getting-started/demo' },
             { label: 'Системные требования', slug: 'getting-started/system-requirements' },
@@ -86,6 +87,7 @@ export default defineConfig({
             { label: 'Платежи', slug: 'features/payments' },
             { label: 'Промокоды', slug: 'features/promocodes' },
             { label: 'Партнёрская программа', slug: 'features/partner-program' },
+            { label: 'Баланс пользователя', slug: 'features/user-balance' },
             { label: 'Подписки', slug: 'features/subscriptions' },
             { label: 'Уведомления', slug: 'features/notifications' },
             { label: 'Тарифы', slug: 'features/tariffs' },
@@ -104,6 +106,10 @@ export default defineConfig({
             { label: 'Обзор API', slug: 'api' },
             { label: 'Интерактивная спецификация', link: '/api/reference/' },
             { label: 'HTTP-контракты', slug: 'architecture/http-api' },
+            {
+              label: 'Совместимость Remnawave API',
+              slug: 'architecture/remnawave-api-compatibility',
+            },
             { label: 'Доменные события', slug: 'architecture/events' },
             { label: 'API плагинов', slug: 'development/plugins' },
             { label: 'Контракт плагинов', slug: 'development/plugin-contract' },

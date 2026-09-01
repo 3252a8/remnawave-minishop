@@ -10,7 +10,7 @@
     "dev:docs": "npm --prefix docs-site run dev",
     "preview:docs": "npm --prefix docs-site run preview",
     "sync:docs": "npm --prefix docs-site run sync:docs",
-    "check:docs": "npm --prefix docs-site run check:openapi-sync",
+    "check:docs": "npm --prefix docs-site run check:openapi-sync && npm --prefix docs-site run check:sidebar",
     "check:lockfiles": "node scripts/check_npm_lockfiles.mjs && npm run check:dev-mocks",
     "check:dev-mocks": "node scripts/generate_dev_mock_seed.mjs --check",
     "lint:py": "python -m ruff check .",

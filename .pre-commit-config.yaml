@@ -14,11 +14,11 @@ repos:
         language: system
         files: ^(frontend|docs-site)/package(-lock)?\.json$|^scripts/check_npm_lockfiles\.mjs$
 
-      - id: docs-openapi-sync
-        name: docs OpenAPI artifact sync
-        entry: npm --prefix docs-site run check:openapi-sync
+      - id: docs-integrity
+        name: docs artifacts and sidebar
+        entry: npm run check:docs
         language: system
-        files: ^(docs/(openapi\.json|remnawave-minishop\.webp)|docs-site/public/(openapi\.json|remnawave-minishop\.webp)|docs-site/scripts/(sync-docs|check-openapi-sync)\.mjs)$
+        files: ^(docs/|docs-site/(astro\.config\.mjs|package\.json|src/|public/|scripts/))
         pass_filenames: false
 
       - id: frontend-prettier
