@@ -317,7 +317,7 @@ export const DEV_MOCK: PreviewMock = {
       traffic_mode: false,
       my_devices_enabled: true,
       payment_methods_display_mode: "dropdown",
-      user_balance_enabled: true,
+      user_balance_enabled: false,
       user_hwid_device_limit: 5,
       trial_enabled: true,
       trial_available: true,

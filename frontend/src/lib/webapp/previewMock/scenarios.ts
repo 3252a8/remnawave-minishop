@@ -257,6 +257,11 @@ export function applyPreviewMock(kind: unknown): void {
     return;
   }
 
+  if (mode === "user-balance" || mode === "user_balance" || mode === "balance") {
+    DEV_MOCK.data.settings.user_balance_enabled = true;
+    return;
+  }
+
   if (mode === "auth" || mode === "login" || mode === "register") {
     DEV_MOCK.data.auth_demo = {
       ...(DEV_MOCK.data.auth_demo || {}),
@@ -269,7 +274,9 @@ export function applyPreviewMock(kind: unknown): void {
       telegram_first_name: "3252a8",
       telegram_last_name: "",
     };
+    DEV_MOCK.config.authProviders = ["telegram", "email", "google"];
     DEV_MOCK.data.settings.email_auth_enabled = true;
+    DEV_MOCK.data.settings.auth_providers = ["telegram", "email", "google"];
     DEV_MOCK.data.settings.trial_enabled = true;
     DEV_MOCK.data.settings.trial_available = true;
     return;
