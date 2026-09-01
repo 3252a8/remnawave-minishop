@@ -180,10 +180,8 @@ def test_shell_installer_downloads_raw_files_and_runs_import_in_container():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
     assert script.startswith("#!/bin/sh")
-    raw_github_template = (
-        'printf \'https://raw.githubusercontent.com/%s/%s/%s\' "$repo" "$ref" "$path"'
-    )
-    assert raw_github_template in script
+    raw_gitlab_template = 'printf \'https://gitlab.com/%s/-/raw/%s/%s\' "$repo" "$ref" "$path"'
+    assert raw_gitlab_template in script
     assert "git clone" not in script
     assert "backend python backend/scripts/import_legacy.py" in script
     assert "run --rm -T" in script

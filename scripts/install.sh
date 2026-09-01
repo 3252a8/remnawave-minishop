@@ -158,7 +158,7 @@ print_help() {
     cat <<EOF
 Переменные окружения для значений по умолчанию:
   MINISHOP_INSTALL_DIR      папка установки ($DEFAULT_INSTALL_DIR)
-  MINISHOP_INSTALL_REPO     GitHub репозиторий ($DEFAULT_REPO)
+  MINISHOP_INSTALL_REPO     репозиторий owner/name ($DEFAULT_REPO)
   MINISHOP_INSTALL_REF      ветка/тег/ref ($DEFAULT_REF)
   MINISHOP_IMAGE_TAG        тег Docker-образа ($DEFAULT_IMAGE_TAG)
   REMNASHOP_SOURCE_DSN      DSN базы Remnashop для миграции
@@ -567,7 +567,7 @@ raw_url() {
     repo=$(printf '%s' "$1" | sed 's#^/*##; s#/*$##')
     ref=$(printf '%s' "$2" | sed 's#^/*##; s#/*$##')
     path=$(printf '%s' "$3" | sed 's#^/*##')
-    printf 'https://raw.githubusercontent.com/%s/%s/%s' "$repo" "$ref" "$path"
+    printf 'https://gitlab.com/%s/-/raw/%s/%s' "$repo" "$ref" "$path"
 }
 
 download_to() {
@@ -5181,7 +5181,7 @@ choose_legacy_source() {
     esac
 }
 
-ensure_github_source_for_importer() {
+ensure_source_for_importer() {
     if [ -n "$SOURCE_REPO" ] && [ -n "$SOURCE_REF" ]; then
         return 0
     fi
@@ -5196,7 +5196,7 @@ run_remnashop_migration() {
         fail ".env не найден. Сначала установите стек или сгенерируйте конфигурацию."
         return 1
     fi
-    ensure_github_source_for_importer || return 1
+    ensure_source_for_importer || return 1
     require_docker || return 1
     POSTGRES_USER_VALUE="$(env_get POSTGRES_USER '')"
     POSTGRES_PASSWORD_VALUE="$(env_get POSTGRES_PASSWORD '')"
@@ -5604,7 +5604,7 @@ installation_directory() {
 install_source() {
     [ -n "$SOURCE_REPO" ] || SOURCE_REPO="$DEFAULT_REPO"
     [ -n "$SOURCE_REF" ] || SOURCE_REF="$DEFAULT_REF"
-    info "Файлы установки будут скачаны из GitHub: $SOURCE_REPO@$SOURCE_REF."
+    info "Файлы установки будут скачаны из GitLab: $SOURCE_REPO@$SOURCE_REF."
     info "Для fork, dev-ветки или тега задайте MINISHOP_INSTALL_REPO и MINISHOP_INSTALL_REF перед запуском."
 }
 
