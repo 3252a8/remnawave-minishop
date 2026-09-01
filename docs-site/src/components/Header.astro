@@ -59,6 +59,13 @@ function isProLink(href: string) {
   return href.startsWith('https://cloud.minidoc.cc')
 }
 
+function isDocsVersionLink(href: string) {
+  return (
+    href === 'https://minishop.minidoc.cc' ||
+    href === 'https://dev.minishop.minidoc.cc'
+  )
+}
+
 ---
 
 <div class="box-border flex h-full items-center gap-2">
@@ -79,6 +86,7 @@ function isProLink(href: string) {
         const label = getI18nText(item.label, route)
         const icon = navIcon(href)
         const proLink = isProLink(href)
+        const docsVersionLink = isDocsVersionLink(href)
 
         return (
           <a
@@ -86,6 +94,7 @@ function isProLink(href: string) {
               '-m-1.5 rounded-md p-1.5 text-(--sl-color-gray-3) no-underline hover:text-(--sl-color-white) focus-visible:outline-offset-0',
               (icon || proLink) && 'minishop-header-link inline-flex items-center',
               proLink && 'minishop-pro-link',
+              docsVersionLink && 'minishop-docs-version-link inline-flex items-center',
             ]}
             href={href}
           >
@@ -121,6 +130,7 @@ function isProLink(href: string) {
             const label = getI18nText(item.label, route)
             const icon = navIcon(href)
             const proLink = isProLink(href)
+            const docsVersionLink = isDocsVersionLink(href)
 
             return (
               <a
@@ -128,6 +138,7 @@ function isProLink(href: string) {
                   'minishop-mobile-nav-link',
                   (icon || proLink) && 'minishop-header-link inline-flex items-center',
                   proLink && 'minishop-pro-link',
+                  docsVersionLink && 'minishop-docs-version-link inline-flex items-center',
                 ]}
                 href={href}
               >

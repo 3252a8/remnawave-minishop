@@ -77,6 +77,34 @@
     color: #3b0764;
   }
 
+  .minishop-docs-version-link {
+    border: 1px solid color-mix(in srgb, #00fe7a 46%, transparent);
+    color: var(--sl-color-white);
+    background: color-mix(in srgb, #00fe7a 10%, transparent);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .minishop-docs-version-link:hover,
+  .minishop-docs-version-link:focus-visible {
+    border-color: color-mix(in srgb, #00fe7a 74%, transparent);
+    color: var(--sl-color-white);
+    background: color-mix(in srgb, #00fe7a 18%, transparent);
+  }
+
+  :root[data-theme='light'] .minishop-docs-version-link {
+    border-color: color-mix(in srgb, #007a3d 48%, transparent);
+    color: #006f36;
+    background: color-mix(in srgb, #00a653 9%, transparent);
+  }
+
+  :root[data-theme='light'] .minishop-docs-version-link:hover,
+  :root[data-theme='light'] .minishop-docs-version-link:focus-visible {
+    border-color: #007a3d;
+    color: #004d27;
+    background: color-mix(in srgb, #00a653 16%, transparent);
+  }
+
   .minishop-pro-diamond {
     width: 1rem;
     height: 1rem;

@@ -2,8 +2,24 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import starlightThemeNova from 'starlight-theme-nova';
 
+const stableDocsUrl = 'https://minishop.minidoc.cc';
+const devDocsUrl = 'https://dev.minishop.minidoc.cc';
+const docsBranch =
+  process.env.DOCS_BRANCH ??
+  process.env.CF_PAGES_BRANCH ??
+  process.env.CI_COMMIT_BRANCH ??
+  process.env.GITHUB_REF_NAME ??
+  process.env.VERCEL_GIT_COMMIT_REF ??
+  process.env.BRANCH ??
+  '';
+const isDevDocs = docsBranch === 'dev';
+const docsSiteUrl = isDevDocs ? devDocsUrl : stableDocsUrl;
+const otherDocsVersion = isDevDocs
+  ? { label: 'Смотреть stable доки', href: stableDocsUrl }
+  : { label: 'Смотреть dev доки', href: devDocsUrl };
+
 export default defineConfig({
-  site: 'https://minishop.minidoc.cc',
+  site: docsSiteUrl,
   integrations: [
     starlight({
       title: 'minishop',
@@ -19,7 +35,8 @@ export default defineConfig({
             { label: 'API', href: '/api/' },
             { label: 'GitHub', href: 'https://github.com/3252a8/remnawave-minishop' },
             { label: 'GitLab', href: 'https://gitlab.com/3252a8/remnawave-minishop' },
-            { label: 'Telegram', href: 'https://t.me/remnawave_minishop' }
+            { label: 'Telegram', href: 'https://t.me/remnawave_minishop' },
+            otherDocsVersion,
           ],
         }),
       ],
