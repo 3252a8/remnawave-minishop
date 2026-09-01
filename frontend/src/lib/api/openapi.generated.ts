@@ -7869,6 +7869,8 @@ export interface components {
       checkoutPlans?: {
         [key: string]: unknown;
       }[];
+      /** Compacthomeenabled */
+      compactHomeEnabled: boolean;
       /** Currency */
       currency: string;
       /** Emailauthenabled */

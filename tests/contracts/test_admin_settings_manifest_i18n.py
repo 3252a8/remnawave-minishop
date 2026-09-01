@@ -298,6 +298,18 @@ def test_user_theme_mode_toggle_is_an_appearance_setting():
         assert field["i18n_description_key"] in messages
 
 
+def test_compact_home_toggle_is_an_appearance_setting():
+    field = _manifest_by_key()["WEBAPP_COMPACT_HOME_ENABLED"]
+
+    assert field["type"] == "bool"
+    assert field["section"] == "appearance"
+    assert field["section_order"] == 2
+    for language in ("ru", "en"):
+        messages = _locale(language)
+        assert field["i18n_label_key"] in messages
+        assert field["i18n_description_key"] in messages
+
+
 def test_support_settings_manifest_uses_admin_i18n_keys():
     manifest = _manifest_by_key()
 

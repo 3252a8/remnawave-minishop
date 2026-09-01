@@ -13,6 +13,7 @@ export type DemoSettingsChange = { value?: unknown; deleted: boolean };
 const DEMO_SETTINGS_STORAGE_KEY = "minishop-demo-settings-changes";
 const DEMO_PERSISTED_SETTING_KEYS = new Set([
   "WEBAPP_USER_THEME_MODE_ENABLED",
+  "WEBAPP_COMPACT_HOME_ENABLED",
   "SERVER_STATUS_SHOW_ON_HOME",
 ]);
 

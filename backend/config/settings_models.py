@@ -34,6 +34,7 @@ class WebAppSettings(BaseModel):
     title: str
     primary_color: str
     user_theme_mode_enabled: bool
+    compact_home_enabled: bool
     logo_url: str | None
     favicon_use_custom: bool
     favicon_url: str | None

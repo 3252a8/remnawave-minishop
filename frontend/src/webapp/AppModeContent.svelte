@@ -201,6 +201,7 @@
   const profileTelegramId = $derived(accountView.profileTelegramId);
   const serverStatusInternal = $derived(cfg.serverStatusInternal === true);
   const serverStatusShowOnHome = $derived(cfg.serverStatusShowOnHome === true);
+  const compactHomeEnabled = $derived(cfg.compactHomeEnabled === true);
   const serverStatusUrl = $derived(accountView.serverStatusUrl);
   const supportUrl = $derived(accountView.supportUrl);
   const telegramNotificationsNeedPrompt = $derived(accountView.telegramNotificationsNeedPrompt);
@@ -625,6 +626,7 @@
       {screen}
       {serverStatusInternal}
       {serverStatusShowOnHome}
+      {compactHomeEnabled}
       {serverStatusUrl}
       statusStore={serverStatusStore}
       {setLanguageMenuOpen}

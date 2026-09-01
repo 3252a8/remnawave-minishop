@@ -210,6 +210,14 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "Allow users to choose Auto, Light, or Dark mode within the active theme.",
         optional=False,
     ),
+    SettingField(
+        "WEBAPP_COMPACT_HOME_ENABLED",
+        "bool",
+        "appearance",
+        "Compact Home screen",
+        "Combine subscription status, traffic usage, and balance into one compact summary card.",
+        optional=False,
+    ),
     SettingField("WEBAPP_LOGO_URL", "url", "appearance", "WebApp Logo URL"),
     SettingField(
         "WEBAPP_FAVICON_USE_CUSTOM",

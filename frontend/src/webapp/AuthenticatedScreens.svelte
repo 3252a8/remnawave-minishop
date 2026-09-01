@@ -130,6 +130,7 @@
     screen?: string;
     serverStatusInternal?: boolean;
     serverStatusShowOnHome?: boolean;
+    compactHomeEnabled?: boolean;
     serverStatusUrl?: string;
     statusStore: ServerStatusStore;
     setLanguageMenuOpen: BooleanAction;
@@ -254,6 +255,7 @@
     screen = "home",
     serverStatusInternal = false,
     serverStatusShowOnHome = false,
+    compactHomeEnabled = false,
     serverStatusUrl = "",
     statusStore,
     setLanguageMenuOpen,
@@ -429,6 +431,7 @@
       goStatus={() => goStatus("home")}
       {openExternalLink}
       {serverStatusShowOnHome}
+      {compactHomeEnabled}
       {statusStore}
       {primaryPayActionLabel}
       {t}

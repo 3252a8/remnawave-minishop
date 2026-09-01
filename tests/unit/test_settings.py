@@ -32,6 +32,12 @@ class SettingsTests(unittest.TestCase):
             ).webapp_settings.user_theme_mode_enabled
         )
 
+    def test_compact_home_defaults_off_and_can_be_enabled(self):
+        self.assertFalse(self._settings().webapp_settings.compact_home_enabled)
+        self.assertTrue(
+            self._settings(WEBAPP_COMPACT_HOME_ENABLED=True).webapp_settings.compact_home_enabled
+        )
+
     def test_server_status_home_card_defaults_off_and_can_be_enabled(self):
         self.assertFalse(self._settings().SERVER_STATUS_SHOW_ON_HOME)
         self.assertTrue(self._settings(SERVER_STATUS_SHOW_ON_HOME=True).SERVER_STATUS_SHOW_ON_HOME)
@@ -666,6 +672,7 @@ class SettingsTests(unittest.TestCase):
         settings.WEBAPP_FAVICON_USE_CUSTOM = True
         settings.WEBAPP_FAVICON_URL = "/webapp-favicon/bbbbbbbbbbbbbbbb/icon-180.png"
         settings.WEBAPP_PRIMARY_COLOR = "#123456"
+        settings.WEBAPP_COMPACT_HOME_ENABLED = True
 
         with tempfile.TemporaryDirectory() as tmpdir:
             backup_path = Path(tmpdir) / "appearance-settings.json"
@@ -682,6 +689,7 @@ class SettingsTests(unittest.TestCase):
             "/webapp-uploaded-logo/logo-1111111111111111.png",
         )
         self.assertEqual(restored["WEBAPP_PRIMARY_COLOR"], "#123456")
+        self.assertTrue(restored["WEBAPP_COMPACT_HOME_ENABLED"])
         self.assertEqual(
             restored["WEBAPP_FAVICON_URL"],
             "/webapp-favicon/bbbbbbbbbbbbbbbb/icon-180.png",

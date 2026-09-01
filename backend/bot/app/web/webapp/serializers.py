@@ -82,6 +82,7 @@ from .serializers_billing_options import (
 )
 from .serializers_checkout import attach_checkout_pricing_context_to_plans
 from .serializers_payments import _serialize_pending_promo_payment
+from .serializers_subscription import serialize_inactive_subscription
 
 logger = logging.getLogger(__name__)
 _MAX_PENDING_PROMO_REFRESHES = 10
@@ -234,6 +235,12 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             if db_user.panel_user_uuid
             else None
         )
+        if not active and db_user.panel_user_uuid:
+            local_sub = await subscription_dal.get_latest_subscription_by_user_id(
+                session,
+                user_id,
+                db_user.panel_user_uuid,
+            )
         suggested_promo_code = await _suggested_checkout_promo(
             session,
             user_id=user_id,
@@ -511,17 +518,10 @@ def _serialize_subscription(
         local_sub = local_sub_or_lang
 
     if not active:
-        return {
-            "active": False,
-            "status": "INACTIVE",
-            "remaining_text": _format_remaining(0, lang),
-            "days_left": 0,
-            "config_link": None,
-            "connect_url": None,
-            "panel_short_uuid": None,
-            "install_share_token": None,
-            "install_share_url": None,
-        }
+        return serialize_inactive_subscription(
+            local_sub,
+            remaining_text=_format_remaining(0, lang),
+        )
 
     end_date = active.get("end_date")
     if end_date and end_date.tzinfo is None:

@@ -951,7 +951,7 @@ test("balance top-up dialog uses the demo viewport without an idle scrollbar", a
   await page.setViewportSize({ width: 583, height: 520 });
   await page.goto(`${APP_URL}?path=/home&mock=tariffs`);
 
-  await page.locator(".home-balance-topup").click();
+  await page.locator('[data-webapp-action="open-balance-topup"]').click();
   const dialog = page.locator(".dialog-card.balance-topup-dialog");
   const viewport = dialog.locator(".dialog-body-scroll > .scroll-area__viewport");
   const scrollbar = dialog.locator('.scroll-area__scrollbar[data-orientation="vertical"]');

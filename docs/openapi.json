@@ -11566,6 +11566,10 @@
             "title": "Checkoutplans",
             "type": "array"
           },
+          "compactHomeEnabled": {
+            "title": "Compacthomeenabled",
+            "type": "boolean"
+          },
           "currency": {
             "title": "Currency",
             "type": "string"
@@ -11678,6 +11682,7 @@
         "required": [
           "title",
           "userThemeModeEnabled",
+          "compactHomeEnabled",
           "themesDir",
           "themePreviewKey",
           "logoUrl",

@@ -580,6 +580,12 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
             "Allow users to choose Auto, Light, or Dark mode within the active Web App theme."
         ),
     )
+    WEBAPP_COMPACT_HOME_ENABLED: bool = Field(
+        default=False,
+        description=(
+            "Combine subscription status, traffic usage, and balance into one compact Home card."
+        ),
+    )
     WEBAPP_THEMES_DIR: str = Field(
         default="data/themes",
         description=(

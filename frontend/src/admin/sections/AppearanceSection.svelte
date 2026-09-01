@@ -63,6 +63,7 @@
     "SUBSCRIPTION_MINI_APP_URL",
     "WEBAPP_PRIMARY_COLOR",
     "WEBAPP_USER_THEME_MODE_ENABLED",
+    "WEBAPP_COMPACT_HOME_ENABLED",
     "WEBAPP_LOGO_URL",
     "WEBAPP_FAVICON_URL",
     "WEBAPP_FAVICON_USE_CUSTOM",
@@ -111,6 +112,9 @@
   const userThemeModeEnabled = $derived(
     boolAppearanceSettingValue("WEBAPP_USER_THEME_MODE_ENABLED", true)
   );
+  const compactHomeEnabled = $derived(
+    boolAppearanceSettingValue("WEBAPP_COMPACT_HOME_ENABLED", false)
+  );
 
   function isAppearanceSettingKey(key: string): boolean {
     return APPEARANCE_SETTING_KEYS.has(key) || appearanceFields.some((field) => field.key === key);
@@ -135,6 +139,10 @@
 
   function setUserThemeModeEnabled(enabled: boolean): void {
     settingsStore.markDirty("WEBAPP_USER_THEME_MODE_ENABLED", Boolean(enabled));
+  }
+
+  function setCompactHomeEnabled(enabled: boolean): void {
+    settingsStore.markDirty("WEBAPP_COMPACT_HOME_ENABLED", Boolean(enabled));
   }
 
   function themeTitle(theme: ThemeEntry): string {
@@ -397,6 +405,7 @@
       [
         "WEBAPP_LOGO_URL",
         "WEBAPP_USER_THEME_MODE_ENABLED",
+        "WEBAPP_COMPACT_HOME_ENABLED",
         "WEBAPP_FAVICON_URL",
         "WEBAPP_FAVICON_USE_CUSTOM",
         "WEBAPP_LOGO_FAVICON_URL",
@@ -567,6 +576,38 @@
             </Switch.Root>
             <span>
               {userThemeModeEnabled ? at("enabled", {}, "Enabled") : at("disabled", {}, "Disabled")}
+            </span>
+          </div>
+        </section>
+        <section class="appearance-theme-mode-setting">
+          <div class="appearance-theme-mode-copy">
+            <strong>
+              {at("settings_field_webapp_compact_home_enabled_label", {}, "Compact Home screen")}
+            </strong>
+            <small>
+              {at(
+                "settings_field_webapp_compact_home_enabled_description",
+                {},
+                "Combine subscription status, traffic usage, and balance into one compact summary card."
+              )}
+            </small>
+          </div>
+          <div class="admin-setting-switch">
+            <Switch.Root
+              aria-label={at(
+                "settings_field_webapp_compact_home_enabled_label",
+                {},
+                "Compact Home screen"
+              )}
+              checked={compactHomeEnabled}
+              onCheckedChange={setCompactHomeEnabled}
+              disabled={settingsSaving || themesSaving}
+              class="admin-switch-root"
+            >
+              <Switch.Thumb class="admin-switch-thumb" />
+            </Switch.Root>
+            <span>
+              {compactHomeEnabled ? at("enabled", {}, "Enabled") : at("disabled", {}, "Disabled")}
             </span>
           </div>
         </section>

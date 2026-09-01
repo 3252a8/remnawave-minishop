@@ -85,6 +85,7 @@ if TYPE_CHECKING:
         WEBAPP_TITLE: str
         WEBAPP_PRIMARY_COLOR: str
         WEBAPP_USER_THEME_MODE_ENABLED: bool
+        WEBAPP_COMPACT_HOME_ENABLED: bool
         WEBAPP_LOGO_URL: str | None
         WEBAPP_FAVICON_USE_CUSTOM: bool
         WEBAPP_FAVICON_URL: str | None
@@ -291,6 +292,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             title=self.WEBAPP_TITLE,
             primary_color=self.WEBAPP_PRIMARY_COLOR,
             user_theme_mode_enabled=self.WEBAPP_USER_THEME_MODE_ENABLED,
+            compact_home_enabled=self.WEBAPP_COMPACT_HOME_ENABLED,
             logo_url=self.WEBAPP_LOGO_URL,
             favicon_use_custom=self.WEBAPP_FAVICON_USE_CUSTOM,
             favicon_url=self.WEBAPP_FAVICON_URL,

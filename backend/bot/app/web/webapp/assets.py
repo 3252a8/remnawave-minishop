@@ -522,6 +522,7 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
             "title": webapp_settings.title,
             "primaryColor": webapp_settings.primary_color,
             "userThemeModeEnabled": bool(webapp_settings.user_theme_mode_enabled),
+            "compactHomeEnabled": bool(webapp_settings.compact_home_enabled),
             "themesCatalog": themes_payload,
             "themesDir": settings.WEBAPP_THEMES_DIR,
             "themePreviewKey": preview_key,

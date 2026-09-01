@@ -21,6 +21,7 @@
   import Card from "$components/ui/card.svelte";
   import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
   import ServerStatusCard from "../ServerStatusCard.svelte";
+  import HomeCompactSummaryCard from "../HomeCompactSummaryCard.svelte";
   import { LinearProgress } from "$components/patterns/webapp/index.js";
   import { formatMoney, formatTrafficGb } from "../../lib/webapp/formatters.js";
   import {
@@ -97,6 +98,7 @@
     goStatus = () => {},
     openExternalLink = () => {},
     serverStatusShowOnHome = false,
+    compactHomeEnabled = false,
     statusStore,
     primaryPayActionLabel = () => "",
     t = (key) => key,
@@ -137,6 +139,7 @@
     goStatus?: VoidAction;
     openExternalLink?: OpenLinkAction;
     serverStatusShowOnHome?: boolean;
+    compactHomeEnabled?: boolean;
     statusStore: ServerStatusStore;
     primaryPayActionLabel?: () => string;
     t?: Translate;
@@ -267,8 +270,14 @@
       Number(referral?.welcome_bonus_days || 0) > 0
     )
   );
-  const subscriptionEndMs = $derived(
-    subscription?.active ? parseSubscriptionEndMs(subscription) : null
+  const subscriptionEndAtMs = $derived(parseSubscriptionEndMs(subscription));
+  const subscriptionEndMs = $derived(subscription?.active ? subscriptionEndAtMs : null);
+  const subscriptionExpired = $derived(
+    Boolean(
+      !subscription?.active &&
+      (String(subscription?.status || "").toUpperCase() === "EXPIRED" ||
+        (subscriptionEndAtMs && subscriptionEndAtMs <= nowMs))
+    )
   );
   const subscriptionRemainingMs = $derived(Math.max(0, Number(subscriptionEndMs || 0) - nowMs));
   const subscriptionExpiryWarning = $derived(
@@ -363,245 +372,278 @@
   {/if}
 
   <div class="home-bottom">
-    {#if balance.enabled}
-      <Card class="home-balance-card">
-        <div class="home-balance-summary">
-          <WalletCards size={22} />
-          <span>
-            <small>{t("wa_balance_title", {}, "Balance")}:</small>
-            <strong>{formatMoney(balance.amount, balance.currency)}</strong>
-          </span>
-        </div>
-        <Button
-          class="home-balance-topup"
-          type="button"
-          size="sm"
-          variant="outline"
-          onclick={openBalanceTopup}
-          aria-label={t("wa_balance_topup_short", {}, "Top up")}
-          title={t("wa_balance_topup_short", {}, "Top up")}
-        >
-          <Plus size={16} />
-        </Button>
+    {#if compactHomeEnabled}
+      <HomeCompactSummaryCard
+        {balance}
+        {subscription}
+        {trafficMode}
+        {currentTariffName}
+        {hasActiveTariffSubscription}
+        {hasMultipleTariffs}
+        {canChangeTariff}
+        {subscriptionTermDisplayText}
+        {subscriptionEndDisplayText}
+        {subscriptionExpiryWarning}
+        {subscriptionExpired}
+        {autoRenewVisible}
+        {autoRenewEnabled}
+        {autoRenewBusy}
+        {regularTrafficTopupBarClickable}
+        {premiumTrafficTopupBarClickable}
+        {openBalanceTopup}
+        {openRegularTopupModal}
+        {openPremiumTopupModal}
+        {openTariffChangeModal}
+        {toggleAutoRenew}
+        {t}
+      />
+    {:else}
+      {#if balance.enabled}
+        <Card class="home-balance-card">
+          <div class="home-balance-summary">
+            <WalletCards size={22} />
+            <span>
+              <small>{t("wa_balance_title", {}, "Balance")}:</small>
+              <strong>{formatMoney(balance.amount, balance.currency)}</strong>
+            </span>
+          </div>
+          <Button
+            data-webapp-action="open-balance-topup"
+            class="home-balance-topup"
+            type="button"
+            size="sm"
+            variant="outline"
+            onclick={openBalanceTopup}
+            aria-label={t("wa_balance_topup_short", {}, "Top up")}
+            title={t("wa_balance_topup_short", {}, "Top up")}
+          >
+            <Plus size={16} />
+          </Button>
+        </Card>
+      {/if}
+
+      <Card class={statusCardClass}>
+        {#if subscription.active}
+          <div class="sub-status">
+            <CheckCircle2 class="sub-status-icon" size={23} />
+            <div class="sub-status-main">
+              <h2>
+                {trafficMode ? t("wa_home_access_active") : t("wa_home_subscription_active")} | {subscriptionTermDisplayText}
+              </h2>
+              <div
+                class:sub-status-details-with-tariff={hasActiveTariffSubscription &&
+                  hasMultipleTariffs &&
+                  currentTariffName}
+                class="sub-status-details"
+              >
+                {#if hasActiveTariffSubscription && hasMultipleTariffs && currentTariffName}
+                  <p class="current-tariff-line">
+                    {t("wa_current_tariff", { tariff: currentTariffName })}
+                  </p>
+                {/if}
+                <p class="subscription-end-line">
+                  {subscriptionEndDisplayText
+                    ? t("wa_until_date", { date: subscriptionEndDisplayText })
+                    : subscription.remaining_text}
+                </p>
+              </div>
+            </div>
+            {#if canChangeTariff}
+              <Button
+                data-webapp-action="open-tariff-change"
+                class="status-tariff-action"
+                variant="secondary"
+                onclick={openTariffChangeModal}
+              >
+                <Repeat2 size={17} />
+                {t("wa_change_tariff")}
+              </Button>
+            {/if}
+          </div>
+          {#if autoRenewVisible}
+            <div class="auto-renew-row">
+              <div class="auto-renew-state">
+                <Repeat2 size={17} />
+                <span>
+                  <strong>
+                    {autoRenewEnabled ? t("wa_auto_renew_enabled") : t("wa_auto_renew_disabled")}
+                  </strong>
+                </span>
+              </div>
+              <Button
+                class="auto-renew-action"
+                variant="secondary"
+                onclick={() => toggleAutoRenew(!autoRenewEnabled)}
+                disabled={autoRenewBusy ||
+                  (!autoRenewEnabled && !subscription?.auto_renew_can_enable)}
+              >
+                {#if autoRenewEnabled}
+                  <CircleX size={17} />
+                  {t("wa_auto_renew_disable")}
+                {:else}
+                  <Repeat2 size={17} />
+                  {t("wa_auto_renew_enable")}
+                {/if}
+              </Button>
+            </div>
+          {/if}
+        {:else}
+          <div class="sub-status sub-status-inactive">
+            <CircleX class="sub-status-icon" size={23} />
+            <h2>{t("wa_home_subscription_inactive")}</h2>
+          </div>
+        {/if}
       </Card>
     {/if}
 
-    <Card class={statusCardClass}>
-      {#if subscription.active}
-        <div class="sub-status">
-          <CheckCircle2 class="sub-status-icon" size={23} />
-          <div class="sub-status-main">
-            <h2>
-              {trafficMode ? t("wa_home_access_active") : t("wa_home_subscription_active")} | {subscriptionTermDisplayText}
-            </h2>
-            <div
-              class:sub-status-details-with-tariff={hasActiveTariffSubscription &&
-                hasMultipleTariffs &&
-                currentTariffName}
-              class="sub-status-details"
-            >
-              {#if hasActiveTariffSubscription && hasMultipleTariffs && currentTariffName}
-                <p class="current-tariff-line">
-                  {t("wa_current_tariff", { tariff: currentTariffName })}
-                </p>
-              {/if}
-              <p class="subscription-end-line">
-                {subscriptionEndDisplayText
-                  ? t("wa_until_date", { date: subscriptionEndDisplayText })
-                  : subscription.remaining_text}
-              </p>
-            </div>
-          </div>
-          {#if canChangeTariff}
-            <Button
-              data-webapp-action="open-tariff-change"
-              class="status-tariff-action"
-              variant="secondary"
-              onclick={openTariffChangeModal}
-            >
-              <Repeat2 size={17} />
-              {t("wa_change_tariff")}
-            </Button>
-          {/if}
-        </div>
-        {#if autoRenewVisible}
-          <div class="auto-renew-row">
-            <div class="auto-renew-state">
-              <Repeat2 size={17} />
-              <span>
-                <strong>
-                  {autoRenewEnabled ? t("wa_auto_renew_enabled") : t("wa_auto_renew_disabled")}
-                </strong>
-              </span>
-            </div>
-            <Button
-              class="auto-renew-action"
-              variant="secondary"
-              onclick={() => toggleAutoRenew(!autoRenewEnabled)}
-              disabled={autoRenewBusy ||
-                (!autoRenewEnabled && !subscription?.auto_renew_can_enable)}
-            >
-              {#if autoRenewEnabled}
-                <CircleX size={17} />
-                {t("wa_auto_renew_disable")}
-              {:else}
-                <Repeat2 size={17} />
-                {t("wa_auto_renew_enable")}
-              {/if}
-            </Button>
-          </div>
-        {/if}
-      {:else}
-        <div class="sub-status sub-status-inactive">
-          <CircleX class="sub-status-icon" size={23} />
-          <h2>{t("wa_home_subscription_inactive")}</h2>
-        </div>
-      {/if}
-    </Card>
-
     {#if subscription.active}
-      {#if regularTrafficLimitVisible(subscription)}
-        <Card compact class={regularTrafficCardClass(subscription)}>
-          {#if regularTrafficTopupBarClickable}
-            <button
-              data-webapp-action="open-regular-topup"
-              class="card-click-target"
-              type="button"
-              onclick={openRegularTopupModal}
-              aria-label={t("wa_add_traffic")}
-            ></button>
-          {/if}
-          <div
-            class="premium-server-dropdown premium-server-dropdown-inline traffic-reset-dropdown"
-            data-open={regularTrafficResetOpen ? "true" : undefined}
-          >
-            <button
-              class="traffic-summary-row premium-server-summary premium-server-trigger"
-              type="button"
-              aria-expanded={regularTrafficResetOpen}
-              aria-controls={REGULAR_TRAFFIC_RESET_DETAIL_ID}
-              onclick={() => {
-                regularTrafficResetOpen = !regularTrafficResetOpen;
-              }}
+      {#if !compactHomeEnabled}
+        {#if regularTrafficLimitVisible(subscription)}
+          <Card compact class={regularTrafficCardClass(subscription)}>
+            {#if regularTrafficTopupBarClickable}
+              <button
+                data-webapp-action="open-regular-topup"
+                class="card-click-target"
+                type="button"
+                onclick={openRegularTopupModal}
+                aria-label={t("wa_add_traffic")}
+              ></button>
+            {/if}
+            <div
+              class="premium-server-dropdown premium-server-dropdown-inline traffic-reset-dropdown"
+              data-open={regularTrafficResetOpen ? "true" : undefined}
             >
-              <span class="traffic-summary-left premium-summary-trigger">
-                <span class="premium-summary-copy">
-                  {t("wa_home_traffic_used")}
-                  {#if trafficResetScheduled(subscription)}
-                    <span class="traffic-summary-separator" aria-hidden="true">|</span>
-                    {trafficResetLabel(subscription)}
-                  {/if}
-                </span>
-                <CircleQuestionMark class="premium-server-help-icon" size={15} />
-              </span>
-              <strong class="traffic-summary-right">
-                <span>{trafficLabel(subscription)}</span>
-                <span class="traffic-summary-separator" aria-hidden="true">|</span>
-                <span>{trafficPercent(subscription)}%</span>
-              </strong>
-            </button>
-            {#if regularTrafficResetOpen}
-              <div
-                id={REGULAR_TRAFFIC_RESET_DETAIL_ID}
-                class="premium-server-list premium-server-list-dropdown traffic-reset-detail"
-                transition:slide={RESET_DETAIL_TRANSITION}
+              <button
+                class="traffic-summary-row premium-server-summary premium-server-trigger"
+                type="button"
+                aria-expanded={regularTrafficResetOpen}
+                aria-controls={REGULAR_TRAFFIC_RESET_DETAIL_ID}
+                onclick={() => {
+                  regularTrafficResetOpen = !regularTrafficResetOpen;
+                }}
               >
-                <div class="traffic-reset-detail-inner">
-                  {#if trafficResetScheduled(subscription)}
+                <span class="traffic-summary-left premium-summary-trigger">
+                  <span class="premium-summary-copy">
+                    {t("wa_home_traffic_used")}
+                    {#if trafficResetScheduled(subscription)}
+                      <span class="traffic-summary-separator" aria-hidden="true">|</span>
+                      {trafficResetLabel(subscription)}
+                    {/if}
+                  </span>
+                  <CircleQuestionMark class="premium-server-help-icon" size={15} />
+                </span>
+                <strong class="traffic-summary-right">
+                  <span>{trafficLabel(subscription)}</span>
+                  <span class="traffic-summary-separator" aria-hidden="true">|</span>
+                  <span>{trafficPercent(subscription)}%</span>
+                </strong>
+              </button>
+              {#if regularTrafficResetOpen}
+                <div
+                  id={REGULAR_TRAFFIC_RESET_DETAIL_ID}
+                  class="premium-server-list premium-server-list-dropdown traffic-reset-detail"
+                  transition:slide={RESET_DETAIL_TRANSITION}
+                >
+                  <div class="traffic-reset-detail-inner">
+                    {#if trafficResetScheduled(subscription)}
+                      <div class="traffic-reset-date-row">
+                        <small>{t("wa_traffic_next_reset_label", {}, "Next reset")}</small>
+                        <strong>{trafficNextResetLabel(subscription)}</strong>
+                      </div>
+                    {:else}
+                      <div class="traffic-reset-date-row">
+                        <small>{t("wa_traffic_reset_policy", {}, "Traffic reset policy")}</small>
+                        <strong>{trafficResetLabel(subscription)}</strong>
+                      </div>
+                      <p class="traffic-reset-note">
+                        {t(
+                          "wa_traffic_reset_none_details",
+                          {},
+                          "Traffic does not reset automatically: available volume stays until you use it. If the tariff supports top-ups, you can add traffic with a separate package."
+                        )}
+                      </p>
+                    {/if}
+                  </div>
+                </div>
+              {/if}
+            </div>
+            <LinearProgress
+              value={trafficPercent(subscription)}
+              label={t("wa_home_traffic_used")}
+            />
+          </Card>
+        {/if}
+        {#if premiumTrafficAvailable(subscription) && premiumTrafficLimitVisible(subscription)}
+          <Card
+            compact
+            class={`traffic-card-compact ${premiumTrafficTopupBarClickable ? "traffic-card-clickable " : ""}premium-traffic-card${subscription?.premium_is_limited ? " premium-traffic-card-limited" : ""}`}
+          >
+            {#if premiumTrafficTopupBarClickable}
+              <button
+                data-webapp-action="open-premium-topup"
+                class="card-click-target"
+                type="button"
+                onclick={openPremiumTopupModal}
+                aria-label={t("wa_add_traffic_premium", { target: premiumTitle(subscription) })}
+              ></button>
+            {/if}
+            <div
+              class="premium-server-dropdown premium-server-dropdown-inline traffic-reset-dropdown"
+              data-open={premiumTrafficResetOpen ? "true" : undefined}
+            >
+              <button
+                class="traffic-summary-row premium-server-summary premium-server-trigger"
+                type="button"
+                aria-expanded={premiumTrafficResetOpen}
+                aria-controls={PREMIUM_TRAFFIC_RESET_DETAIL_ID}
+                onclick={() => {
+                  premiumTrafficResetOpen = !premiumTrafficResetOpen;
+                }}
+              >
+                <span class="traffic-summary-left premium-summary-trigger">
+                  <span class="premium-summary-copy">
+                    {premiumTitle(subscription)}
+                    <span class="traffic-summary-separator" aria-hidden="true">|</span>
+                    {premiumTrafficMetaLabel(subscription)}
+                  </span>
+                  <CircleQuestionMark class="premium-server-help-icon" size={15} />
+                </span>
+                <strong class="traffic-summary-right">
+                  <span>{premiumTrafficLabel(subscription)}</span>
+                  <span class="traffic-summary-separator" aria-hidden="true">|</span>
+                  <span>{premiumTrafficPercent(subscription)}%</span>
+                </strong>
+              </button>
+              {#if premiumTrafficResetOpen}
+                <div
+                  id={PREMIUM_TRAFFIC_RESET_DETAIL_ID}
+                  class="premium-server-list premium-server-list-dropdown traffic-reset-detail"
+                  transition:slide={RESET_DETAIL_TRANSITION}
+                >
+                  <div class="traffic-reset-detail-inner">
                     <div class="traffic-reset-date-row">
                       <small>{t("wa_traffic_next_reset_label", {}, "Next reset")}</small>
-                      <strong>{trafficNextResetLabel(subscription)}</strong>
+                      <strong>{premiumNextResetLabel(subscription)}</strong>
                     </div>
-                  {:else}
-                    <div class="traffic-reset-date-row">
-                      <small>{t("wa_traffic_reset_policy", {}, "Traffic reset policy")}</small>
-                      <strong>{trafficResetLabel(subscription)}</strong>
-                    </div>
-                    <p class="traffic-reset-note">
-                      {t(
-                        "wa_traffic_reset_none_details",
-                        {},
-                        "Traffic does not reset automatically: available volume stays until you use it. If the tariff supports top-ups, you can add traffic with a separate package."
-                      )}
-                    </p>
-                  {/if}
-                </div>
-              </div>
-            {/if}
-          </div>
-          <LinearProgress value={trafficPercent(subscription)} label={t("wa_home_traffic_used")} />
-        </Card>
-      {/if}
-      {#if premiumTrafficAvailable(subscription) && premiumTrafficLimitVisible(subscription)}
-        <Card
-          compact
-          class={`traffic-card-compact ${premiumTrafficTopupBarClickable ? "traffic-card-clickable " : ""}premium-traffic-card${subscription?.premium_is_limited ? " premium-traffic-card-limited" : ""}`}
-        >
-          {#if premiumTrafficTopupBarClickable}
-            <button
-              data-webapp-action="open-premium-topup"
-              class="card-click-target"
-              type="button"
-              onclick={openPremiumTopupModal}
-              aria-label={t("wa_add_traffic_premium", { target: premiumTitle(subscription) })}
-            ></button>
-          {/if}
-          <div
-            class="premium-server-dropdown premium-server-dropdown-inline traffic-reset-dropdown"
-            data-open={premiumTrafficResetOpen ? "true" : undefined}
-          >
-            <button
-              class="traffic-summary-row premium-server-summary premium-server-trigger"
-              type="button"
-              aria-expanded={premiumTrafficResetOpen}
-              aria-controls={PREMIUM_TRAFFIC_RESET_DETAIL_ID}
-              onclick={() => {
-                premiumTrafficResetOpen = !premiumTrafficResetOpen;
-              }}
-            >
-              <span class="traffic-summary-left premium-summary-trigger">
-                <span class="premium-summary-copy">
-                  {premiumTitle(subscription)}
-                  <span class="traffic-summary-separator" aria-hidden="true">|</span>
-                  {premiumTrafficMetaLabel(subscription)}
-                </span>
-                <CircleQuestionMark class="premium-server-help-icon" size={15} />
-              </span>
-              <strong class="traffic-summary-right">
-                <span>{premiumTrafficLabel(subscription)}</span>
-                <span class="traffic-summary-separator" aria-hidden="true">|</span>
-                <span>{premiumTrafficPercent(subscription)}%</span>
-              </strong>
-            </button>
-            {#if premiumTrafficResetOpen}
-              <div
-                id={PREMIUM_TRAFFIC_RESET_DETAIL_ID}
-                class="premium-server-list premium-server-list-dropdown traffic-reset-detail"
-                transition:slide={RESET_DETAIL_TRANSITION}
-              >
-                <div class="traffic-reset-detail-inner">
-                  <div class="traffic-reset-date-row">
-                    <small>{t("wa_traffic_next_reset_label", {}, "Next reset")}</small>
-                    <strong>{premiumNextResetLabel(subscription)}</strong>
+                    {#if premiumServerLabels(subscription).length}
+                      <small>{t("wa_premium_servers_scope_label", {}, "Limit applies to")}</small>
+                      <div>
+                        {#each premiumServerLabels(subscription).slice(0, 8) as label}
+                          <span>{label}</span>
+                        {/each}
+                      </div>
+                    {/if}
                   </div>
-                  {#if premiumServerLabels(subscription).length}
-                    <small>{t("wa_premium_servers_scope_label", {}, "Limit applies to")}</small>
-                    <div>
-                      {#each premiumServerLabels(subscription).slice(0, 8) as label}
-                        <span>{label}</span>
-                      {/each}
-                    </div>
-                  {/if}
                 </div>
-              </div>
-            {/if}
-          </div>
-          <LinearProgress
-            class="premium-progress"
-            value={premiumTrafficPercent(subscription)}
-            label={premiumTitle(subscription)}
-          />
-        </Card>
+              {/if}
+            </div>
+            <LinearProgress
+              class="premium-progress"
+              value={premiumTrafficPercent(subscription)}
+              label={premiumTitle(subscription)}
+            />
+          </Card>
+        {/if}
       {/if}
     {:else}
       {#if referralWelcomeRequiresTelegram}

@@ -772,6 +772,25 @@
         "updated_at": null
       },
       {
+        "key": "WEBAPP_COMPACT_HOME_ENABLED",
+        "type": "bool",
+        "section": "appearance",
+        "section_order": 2,
+        "subsection": null,
+        "label": "Compact Home screen",
+        "description": "Combine subscription status, traffic usage, and balance into one compact summary card.",
+        "i18n_label_key": "admin_settings_field_webapp_compact_home_enabled_label",
+        "i18n_description_key": "admin_settings_field_webapp_compact_home_enabled_description",
+        "i18n_subsection_key": null,
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": false,
+        "secret": false,
+        "value": "",
+        "overridden": false,
+        "updated_at": null
+      },
+      {
         "key": "WEBAPP_LOGO_URL",
         "type": "url",
         "section": "appearance",

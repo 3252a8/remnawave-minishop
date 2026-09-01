@@ -361,6 +361,9 @@ export function adminFallbackResponse(
       if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_USER_THEME_MODE_ENABLED")) {
         DEV_MOCK.config.userThemeModeEnabled = Boolean(updates.WEBAPP_USER_THEME_MODE_ENABLED);
       }
+      if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_COMPACT_HOME_ENABLED")) {
+        DEV_MOCK.config.compactHomeEnabled = Boolean(updates.WEBAPP_COMPACT_HOME_ENABLED);
+      }
       if (Object.prototype.hasOwnProperty.call(updates, "SERVER_STATUS_SHOW_ON_HOME")) {
         DEV_MOCK.config.serverStatusShowOnHome = Boolean(updates.SERVER_STATUS_SHOW_ON_HOME);
       }
@@ -568,6 +571,13 @@ export function adminFallbackResponse(
               section: "appearance",
               label: "User theme mode selection",
               value: Boolean(DEV_MOCK.config.userThemeModeEnabled),
+            },
+            {
+              key: "WEBAPP_COMPACT_HOME_ENABLED",
+              type: "bool",
+              section: "appearance",
+              label: "Compact Home screen",
+              value: Boolean(DEV_MOCK.config.compactHomeEnabled),
             },
             {
               key: "WEBAPP_LOGO_URL",

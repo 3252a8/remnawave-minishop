@@ -40,3 +40,6 @@ def test_appearance_exposes_user_theme_mode_toggle():
     assert '"WEBAPP_USER_THEME_MODE_ENABLED"' in source
     assert 'at("appearance_user_theme_mode_title"' in source
     assert "onCheckedChange={setUserThemeModeEnabled}" in source
+    assert '"WEBAPP_COMPACT_HOME_ENABLED"' in source
+    assert '"settings_field_webapp_compact_home_enabled_label"' in source
+    assert "onCheckedChange={setCompactHomeEnabled}" in source
