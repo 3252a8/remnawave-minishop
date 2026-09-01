@@ -119,7 +119,7 @@ docker compose exec backend sh -lc 'id; touch /app/data/themes/test && rm /app/d
 - [features/tariffs.md](../features/tariffs.md) - JSON-каталог тарифов и редактор тарифов.
 - [Баланс пользователя](../features/user-balance.md) - валюта, пополнение, оплата покупок и администрирование остатков.
 - [Веб-приложение / Mini App](../features/web-app.md) - домен Mini App, инструкции установки и проксирование.
-- [Telegram-авторизация](../features/telegram-auth.md) - BotFather, Mini Apps и OAuth.
-- [Вход по email](../features/email-login.md) - SMTP, коды, magic link и парольный вход.
+- [Способы входа](../features/login-methods.md) — email-код, email/пароль, Telegram, Google,
+  Яндекс и passkey.
 - [Поддержка пользователей / тикеты](../features/support.md) - тикеты поддержки и уведомления.
 - [Развертывание](deployment.md) - Docker Compose, обратный прокси, Caddy/Angie/Nginx и обновления.

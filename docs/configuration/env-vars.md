@@ -335,7 +335,8 @@ Xray-Core 26.3.27+, `NET_ADMIN`, nftables, корректный sniffing и вк
 
 Часть внешнего вида (`WEBAPP_PRIMARY_COLOR`, `WEBAPP_LOGO_*`, `WEBAPP_FAVICON_*`) сохранена для совместимости, но env-значения этих полей игнорируются при загрузке. Настраивайте их в **Админка -> Внешний вид**.
 
-Практическая настройка Mini App вынесена в [веб-приложение](../features/web-app.md), а вход через Telegram - в [Telegram-авторизацию](../features/telegram-auth.md).
+Практическая настройка Mini App вынесена в [веб-приложение](../features/web-app.md), а все
+варианты авторизации — в раздел [«Способы входа»](../features/login-methods.md).
 
 | Переменная | Где менять | Назначение |
 | --- | --- | --- |
@@ -392,7 +393,8 @@ Callback URL, настройка Google/Yandex, требования passkey, п
 
 Вход по email появляется только если заполнены `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` и `SMTP_FROM_EMAIL`.
 
-Практический сценарий настройки SMTP, magic link и парольного входа описан в [разделе входа по email](../features/email-login.md).
+Практический сценарий настройки SMTP, magic link и парольного входа описан в разделе
+[«Способы входа»](../features/login-methods.md#общая-настройка-email).
 
 | Переменная | Назначение |
 | --- | --- |

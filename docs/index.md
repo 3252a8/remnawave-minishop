@@ -15,8 +15,8 @@
     </a>
     <a class="minishop-feature-card" href="/features/web-app/">
       <span class="minishop-feature-index">02</span>
-      <h3>Mini App, Telegram и вход по email</h3>
-      <p>Личный кабинет с подпиской, трафиком, подключением, покупками и поддержкой. Авторизация через Telegram или email.</p>
+      <h3>Mini App и способы входа</h3>
+      <p>Личный кабинет с подпиской, трафиком, подключением, покупками и поддержкой. Вход через email, Telegram, Google, Яндекс или passkey.</p>
       <span class="minishop-card-link">Возможности Mini App <span aria-hidden="true">→</span></span>
     </a>
     <a class="minishop-feature-card" href="/features/admin-panel/">

@@ -301,6 +301,11 @@
     if (provider === "yandex") return "https://yandex.com/dev/id/doc/en/register-auth";
     return "https://developer.mozilla.org/en-US/docs/Web/Security/Authentication/Passkeys";
   }
+
+  function loginProviderGuideUrl(provider: string): string {
+    const section = provider === "yandex" ? "yandex-id" : provider;
+    return "https://minishop.minidoc.cc/features/login-methods/#" + section;
+  }
 </script>
 
 {#snippet renderLoginMethodHints()}
@@ -418,7 +423,7 @@
       <div class="admin-login-provider-help-actions">
         <a
           class="admin-btn admin-btn-sm admin-btn-ghost"
-          href="https://minishop.minidoc.cc/features/login-methods/"
+          href={loginProviderGuideUrl(provider)}
           target="_blank"
           rel="noreferrer noopener"
         >
