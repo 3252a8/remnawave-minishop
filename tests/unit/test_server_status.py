@@ -19,6 +19,11 @@ from bot.services.server_status.service import (
     ProviderFetchError,
     ServerStatusService,
 )
+from config.server_status import (
+    KumaStatusPageUrlError,
+    parse_kuma_status_page_url,
+    parse_legacy_kuma_status_page_url,
+)
 from bot.services.server_status.xray_checker import parse_xray_proxies
 from config.settings import Settings
 from tests.support.settings_stub import settings_stub
@@ -83,6 +88,89 @@ def test_kuma_parser_accepts_incidents_array_and_missing_heartbeat() -> None:
 
     assert result.groups[0].items[0].status == "unknown"
     assert result.status == "major_outage"
+
+
+@pytest.mark.parametrize(
+    ("value", "page_url", "heartbeat_url"),
+    [
+        (
+            "https://uptime.example.test/status/services",
+            "https://uptime.example.test/api/status-page/services",
+            "https://uptime.example.test/api/status-page/heartbeat/services",
+        ),
+        (
+            "https://uptime.example.test/kuma/status/team%20services/",
+            "https://uptime.example.test/kuma/api/status-page/team%20services",
+            "https://uptime.example.test/kuma/api/status-page/heartbeat/team%20services",
+        ),
+        (
+            "https://uptime.example.test/kuma/status/%D1%81%D0%B5%D1%80%D0%B2%D0%B8%D1%81",
+            "https://uptime.example.test/kuma/api/status-page/%D1%81%D0%B5%D1%80%D0%B2%D0%B8%D1%81",
+            "https://uptime.example.test/kuma/api/status-page/heartbeat/%D1%81%D0%B5%D1%80%D0%B2%D0%B8%D1%81",
+        ),
+    ],
+)
+def test_kuma_status_page_url_builds_api_endpoints(
+    value: str, page_url: str, heartbeat_url: str
+) -> None:
+    status_page = parse_kuma_status_page_url(value)
+
+    assert status_page.api_url() == page_url
+    assert status_page.api_url("heartbeat") == heartbeat_url
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "uptime.example.test/status/services",
+        "ftp://uptime.example.test/status/services",
+        "https:///status/services",
+        "https://user:password@uptime.example.test/status/services",
+        "https://uptime.example.test/status/services?token=secret",
+        "https://uptime.example.test/status/services#details",
+        "https://uptime.example.test/services",
+        "https://uptime.example.test/status/",
+        "https://uptime .example.test/status/services",
+        "https://uptime.example.test/status/team%2Fservices",
+        "https://uptime.example.test/kuma//status/services",
+        "https://uptime.example.test/status/services//",
+        "https://uptime.example.test/%2E/status/services",
+        "https://uptime.example.test/status/%2E%2E",
+        "https://-uptime.example.test/status/services",
+        "https://uptime.example.test:0/status/services",
+        "",
+    ],
+)
+def test_kuma_status_page_url_rejects_invalid_urls(value: str) -> None:
+    with pytest.raises(KumaStatusPageUrlError):
+        parse_kuma_status_page_url(value)
+
+
+def test_legacy_kuma_base_url_is_parsed_only_with_the_separate_slug() -> None:
+    status_page = parse_legacy_kuma_status_page_url(
+        "https://uptime.example.test/kuma/",
+        "team services",
+    )
+
+    assert status_page.api_url() == "https://uptime.example.test/kuma/api/status-page/team%20services"
+
+
+def test_kuma_malformed_published_url_does_not_use_legacy_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def run() -> None:
+        service = ServerStatusService(
+            _settings(
+                SERVER_STATUS_PROVIDER="uptime-kuma",
+                SERVER_STATUS_KUMA_URL="https://uptime.example.test/status/",
+            )
+        )
+        monkeypatch.setattr(service, "_fetch_json", pytest.fail)
+
+        with pytest.raises(ProviderFetchError, match="configuration_error"):
+            await service._fetch_provider()
+
+    asyncio.run(run())
 
 
 def test_xray_parser_groups_and_normalizes_public_proxy_fields() -> None:
@@ -457,8 +545,7 @@ def test_kuma_fetches_status_page_before_heartbeats_when_parallel_requests_fail(
         service = ServerStatusService(
             _settings(
                 SERVER_STATUS_PROVIDER="uptime-kuma",
-                SERVER_STATUS_KUMA_URL=str(server.make_url("/")).rstrip("/"),
-                SERVER_STATUS_KUMA_SLUG="example",
+                SERVER_STATUS_KUMA_URL=str(server.make_url("/status/example")),
             )
         )
         try:

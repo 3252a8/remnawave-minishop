@@ -7,7 +7,7 @@ import {
 } from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
 import { snapshotForPayload } from "./snapshotForPayload.svelte";
-import { isKumaUrlValid } from "../serverStatusSettings";
+import { effectiveServerStatusProvider, isKumaStatusPageUrlValid } from "../serverStatusSettings";
 
 type AdminErrorResponse = {
   ok?: false;
@@ -249,16 +249,20 @@ export function createSettingsStore({ api, onToast, at }: SettingsStoreOptions):
     const dirty = snapshotForPayload(state.settingsDirty);
     const savers = [...extraSavers];
     if (!Object.keys(dirty).length && !savers.length) return true;
+    const kumaField = state.settingsSections
+      .flatMap((section) => section.fields)
+      .find((field) => field.key === "SERVER_STATUS_KUMA_URL");
+    const dirtyKumaUrl = dirty.SERVER_STATUS_KUMA_URL;
+    const kumaUrl = dirtyKumaUrl && !dirtyKumaUrl.deleted ? dirtyKumaUrl.value : kumaField?.value;
     if (
-      Object.prototype.hasOwnProperty.call(dirty, "SERVER_STATUS_KUMA_URL") &&
-      !dirty.SERVER_STATUS_KUMA_URL.deleted &&
-      !isKumaUrlValid(dirty.SERVER_STATUS_KUMA_URL.value)
+      effectiveServerStatusProvider(state.settingsSections, dirty) === "uptime-kuma" &&
+      !isKumaStatusPageUrlValid(kumaUrl)
     ) {
       onToast(
         at(
           "settings_server_status_kuma_url_invalid",
           {},
-          "Uptime Kuma URL must start with http:// or https://"
+            "Enter the full Uptime Kuma status page URL, including /status/<slug>."
         )
       );
       return false;

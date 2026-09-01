@@ -230,7 +230,6 @@ def test_server_status_manifest_has_typed_provider_choices():
         "SERVER_STATUS_PROVIDER",
         "SERVER_STATUS_URL",
         "SERVER_STATUS_KUMA_URL",
-        "SERVER_STATUS_KUMA_SLUG",
         "SERVER_STATUS_XRAY_CHECKER_URL",
         "SERVER_STATUS_CACHE_TTL_SECONDS",
         "SERVER_STATUS_STALE_TTL_SECONDS",
@@ -239,6 +238,7 @@ def test_server_status_manifest_has_typed_provider_choices():
 
     assert all(manifest[key]["section"] == "system" for key in keys)
     assert all(manifest[key]["subsection"] == "server_status" for key in keys)
+    assert "SERVER_STATUS_KUMA_SLUG" not in manifest
     assert [choice["value"] for choice in manifest["SERVER_STATUS_PROVIDER"]["choices"]] == [
         "url",
         "uptime-kuma",
@@ -249,6 +249,15 @@ def test_server_status_manifest_has_typed_provider_choices():
     assert coerce_value(provider_field, "uptime-kuma") == "uptime-kuma"
     with pytest.raises(ValueError, match="unsupported choice"):
         coerce_value(provider_field, "both")
+
+    kuma_field = get_field_by_key("SERVER_STATUS_KUMA_URL")
+    assert kuma_field is not None
+    assert (
+        coerce_value(kuma_field, "https://status.example.test/kuma/status/services/")
+        == "https://status.example.test/kuma/status/services/"
+    )
+    with pytest.raises(ValueError, match="published /status/<slug> URL expected"):
+        coerce_value(kuma_field, "https://status.example.test/kuma//status/services")
 
     home_field = manifest["SERVER_STATUS_SHOW_ON_HOME"]
     assert home_field["type"] == "bool"

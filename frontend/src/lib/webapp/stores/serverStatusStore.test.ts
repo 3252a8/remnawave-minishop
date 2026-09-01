@@ -6,7 +6,7 @@ import {
   type ServerStatusData,
 } from "./serverStatusStore.svelte";
 
-function response(provider: "url" | "uptime-kuma" = "uptime-kuma") {
+function response(provider: "url" | "uptime-kuma" | "xray-checker" = "uptime-kuma") {
   return {
     ok: true as const,
     enabled: true,
@@ -61,5 +61,33 @@ describe("server status store", () => {
     expect(shouldPollServerStatus(embedded)).toBe(true);
     expect(shouldPollServerStatus({ ...embedded, enabled: false })).toBe(false);
     expect(shouldPollServerStatus(response("url") as ServerStatusData)).toBe(false);
+  });
+
+  it("keeps the five most recent checks for each server", async () => {
+    const api = vi.fn().mockResolvedValue({
+      ...response("xray-checker"),
+      groups: [
+        {
+          id: "servers",
+          name: "Servers",
+          items: [
+            {
+              id: "server-1",
+              name: "DE",
+              provider: "xray-checker",
+              status: "online",
+              latencyMs: 42,
+              lastCheck: null,
+              uptime24h: null,
+            },
+          ],
+        },
+      ],
+    });
+    const store = createServerStatusStore(api as never);
+
+    for (let index = 0; index < 6; index += 1) await store.refresh(true);
+
+    expect(store.history["server-1"]).toHaveLength(5);
   });
 });

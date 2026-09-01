@@ -8,13 +8,18 @@ import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
-from urllib.parse import quote, urlsplit
+from urllib.parse import urlsplit
 
 import aiohttp
 from pydantic import ValidationError
 
 from bot.infra.redis import cache_get_json, cache_set_json, redis_key, redis_lock
 from config.settings import Settings
+from config.server_status import (
+    KumaStatusPageUrlError,
+    parse_kuma_status_page_url,
+    parse_legacy_kuma_status_page_url,
+)
 
 from .kuma import parse_kuma_status_page
 from .models import ProviderStatus, ServerStatus, StatusSource
@@ -53,7 +58,7 @@ class ServerStatusService:
         if provider == "uptime-kuma":
             provider_config.update(
                 url=settings.SERVER_STATUS_KUMA_URL,
-                slug=settings.SERVER_STATUS_KUMA_SLUG,
+                legacy_slug=getattr(settings, "SERVER_STATUS_KUMA_SLUG", None),
             )
         elif provider == "xray-checker":
             provider_config["url"] = settings.SERVER_STATUS_XRAY_CHECKER_URL
@@ -354,18 +359,32 @@ class ServerStatusService:
         provider = self.settings.SERVER_STATUS_PROVIDER
         try:
             if provider == "uptime-kuma":
-                base_url = str(self.settings.SERVER_STATUS_KUMA_URL or "").rstrip("/")
-                slug = str(self.settings.SERVER_STATUS_KUMA_SLUG or "").strip()
-                if not base_url or not slug:
+                configured_url = str(self.settings.SERVER_STATUS_KUMA_URL or "")
+                if not configured_url:
                     raise ProviderFetchError("configuration_error")
-                safe_slug = quote(slug, safe="")
+                try:
+                    status_page = parse_kuma_status_page_url(configured_url)
+                except KumaStatusPageUrlError:
+                    # DEPRECATED: support persisted base-URL-plus-slug settings until migrated.
+                    legacy_slug = str(getattr(self.settings, "SERVER_STATUS_KUMA_SLUG", "") or "")
+                    if not legacy_slug or "/status" in configured_url.rstrip("/").lower():
+                        raise ProviderFetchError("configuration_error") from None
+                    try:
+                        status_page = parse_legacy_kuma_status_page_url(configured_url, legacy_slug)
+                    except KumaStatusPageUrlError:
+                        raise ProviderFetchError("configuration_error") from None
+                    logger.warning(
+                        "server_status_kuma_legacy_configuration host=%s path=%s",
+                        urlsplit(status_page.origin).hostname or "",
+                        status_page.base_path or "/",
+                    )
                 page = await self._fetch_json(
                     provider,
-                    f"{base_url}/api/status-page/{safe_slug}",
+                    status_page.api_url(""),
                 )
                 heartbeats = await self._fetch_json(
                     provider,
-                    f"{base_url}/api/status-page/heartbeat/{safe_slug}",
+                    status_page.api_url("heartbeat"),
                 )
                 return parse_kuma_status_page(page, heartbeats)
             if provider == "xray-checker":

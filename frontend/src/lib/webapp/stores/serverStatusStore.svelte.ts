@@ -3,8 +3,13 @@ import { buildServerStatusPath, unwrap, type ApiClient } from "../publicApi";
 
 export type ServerStatusData = components["schemas"]["ServerStatus"];
 export type ServerStatusProvider = components["schemas"]["StatusProvider"];
+export type ServerStatusHistoryEntry = Pick<
+  components["schemas"]["StatusItem"],
+  "status" | "latencyMs" | "lastCheck"
+>;
 export type ServerStatusStore = {
   data: ServerStatusData | null;
+  history: Record<string, ServerStatusHistoryEntry[]>;
   error: boolean;
   loading: boolean;
   refreshing: boolean;
@@ -14,6 +19,7 @@ export type ServerStatusStore = {
 };
 
 const POLL_INTERVAL_MS = 60_000;
+const HISTORY_SIZE = 5;
 
 export function statusProvider(data: ServerStatusData | null): ServerStatusProvider | null {
   const sourceProvider = data?.sources?.[0]?.provider;
@@ -32,6 +38,7 @@ export function createServerStatusStore(
 ): ServerStatusStore {
   const state = $state<ServerStatusStore>({
     data: null,
+    history: {},
     error: false,
     loading: false,
     refreshing: false,
@@ -68,6 +75,7 @@ export function createServerStatusStore(
       try {
         const response = await api(buildServerStatusPath());
         const data = unwrap(response);
+        recordHistory(data);
         state.data = data;
         state.error = false;
         return data;
@@ -82,6 +90,20 @@ export function createServerStatusStore(
       }
     })();
     return inFlight;
+  }
+
+  function recordHistory(data: ServerStatusData): void {
+    const nextHistory: Record<string, ServerStatusHistoryEntry[]> = {};
+    for (const group of data.groups || []) {
+      for (const item of group.items) {
+        const previous = state.history[item.id] || [];
+        nextHistory[item.id] = [
+          ...previous,
+          { status: item.status, latencyMs: item.latencyMs, lastCheck: item.lastCheck },
+        ].slice(-HISTORY_SIZE);
+      }
+    }
+    state.history = nextHistory;
   }
 
   function handleVisibilityChange(): void {

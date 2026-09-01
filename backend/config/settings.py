@@ -171,7 +171,9 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     SERVER_STATUS_SHOW_ON_HOME: bool = Field(default=False)
     SERVER_STATUS_PROVIDER: Literal["url", "uptime-kuma", "xray-checker"] = Field(default="url")
     SERVER_STATUS_KUMA_URL: str | None = Field(default=None)
-    SERVER_STATUS_KUMA_SLUG: str = Field(default="default")
+    # DEPRECATED: compatibility fallback for existing base-URL-plus-slug deployments.
+    # New configuration stores the complete published page in SERVER_STATUS_KUMA_URL.
+    SERVER_STATUS_KUMA_SLUG: str | None = Field(default="default")
     SERVER_STATUS_XRAY_CHECKER_URL: str | None = Field(default=None)
     SERVER_STATUS_CACHE_TTL_SECONDS: int = Field(default=30, ge=0)
     SERVER_STATUS_STALE_TTL_SECONDS: int = Field(default=300, ge=0)

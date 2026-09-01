@@ -196,6 +196,23 @@ def test_update_overrides_persists_empty_subscription_purchase_description(
     assert settings.subscription_purchase_description("ru") == ""
 
 
+def test_legacy_kuma_slug_override_is_applied_but_not_admin_editable() -> None:
+    settings = Settings(
+        _env_file=None,
+        BOT_TOKEN="token",
+        POSTGRES_USER="app_user",
+        POSTGRES_PASSWORD="app_password",
+        SERVER_STATUS_KUMA_SLUG="environment-slug",
+    )
+
+    applied, skipped = svc._apply_overrides(settings, {"SERVER_STATUS_KUMA_SLUG": "saved-slug"})
+
+    assert applied == ["SERVER_STATUS_KUMA_SLUG"]
+    assert skipped == []
+    assert settings.SERVER_STATUS_KUMA_SLUG == "saved-slug"
+    assert svc.get_field_by_key("SERVER_STATUS_KUMA_SLUG") is None
+
+
 def test_referral_link_visibility_rejects_disabling_the_last_link() -> None:
     settings = Settings(
         _env_file=None,

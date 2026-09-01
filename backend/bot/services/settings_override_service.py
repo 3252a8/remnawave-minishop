@@ -65,6 +65,8 @@ PARTNER_SETTING_KEYS = {
     "PARTNER_AUDIT_RETENTION_DAYS",
     "PARTNER_REQUISITES_RETENTION_DAYS",
 }
+# DEPRECATED: apply only to persisted overrides from pre-full-URL installations.
+LEGACY_RUNTIME_OVERRIDE_KEYS = {"SERVER_STATUS_KUMA_SLUG"}
 APP_ROOT = Path(__file__).resolve().parents[3]
 APPEARANCE_OVERRIDES_BACKUP_PATH = APP_ROOT / "data" / "webapp-logo" / "appearance-settings.json"
 
@@ -160,6 +162,15 @@ def _apply_overrides(
     for key, raw_value in overrides.items():
         field = get_field_by_key(key)
         if not field:
+            # This key was once editable and may still exist in the overrides
+            # table. Apply it at startup, but keep it absent from the manifest.
+            if key in LEGACY_RUNTIME_OVERRIDE_KEYS:
+                value = str(raw_value).strip() if raw_value is not None else None
+                if _apply_value(settings, key, value):
+                    applied.append(key)
+                else:
+                    skipped.append(key)
+                continue
             skipped.append(key)
             continue
         try:
