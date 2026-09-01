@@ -237,6 +237,7 @@ def test_shell_installer_downloads_raw_files_and_runs_import_in_container():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
     assert script.startswith("#!/bin/sh")
+    assert 'DEFAULT_SOURCE="${MINISHOP_INSTALL_SOURCE:-gitlab}"' in script
     raw_github_template = (
         'printf \'https://raw.githubusercontent.com/%s/%s/%s\' "$repo" "$ref" "$path"'
     )

@@ -3,7 +3,7 @@ set -u
 
 # Интерактивный установщик для Docker Compose серверов.
 
-DEFAULT_SOURCE="${MINISHOP_INSTALL_SOURCE:-github}"
+DEFAULT_SOURCE="${MINISHOP_INSTALL_SOURCE:-gitlab}"
 DEFAULT_REPO="${MINISHOP_INSTALL_REPO:-3252a8/remnawave-minishop}"
 DEFAULT_REF="${MINISHOP_INSTALL_REF:-main}"
 DEFAULT_IMAGE_TAG="${MINISHOP_IMAGE_TAG:-latest}"
@@ -5621,8 +5621,8 @@ choose_source_provider() {
     esac
 
     choose "Источник файлов установки" "$source_default" "1|2" \
-        "1. GitHub (по умолчанию)." \
-        "2. GitLab." || return 1
+        "1. GitHub." \
+        "2. GitLab (по умолчанию)." || return 1
 
     case "$CHOICE_VALUE" in
         1) SOURCE_PROVIDER="github" ;;
