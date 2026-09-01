@@ -1189,6 +1189,109 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             service._record_payment_context.assert_not_awaited()
             service.panel_service.update_user_details_on_panel.assert_not_awaited()
 
+    async def test_period_renewal_reloads_updated_tariff_traffic_baseline(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            payload = _tariffs_config_payload()
+            payload["tariffs"][0]["monthly_gb"] = 500
+            settings = _make_settings(payload, tmpdir)
+            service = _make_service(settings)
+            service._record_payment_context = AsyncMock()
+            service._get_or_create_panel_user_link_details = AsyncMock(
+                return_value=("panel-user", "panel-sub", "short", False)
+            )
+            service._send_payment_success_email = AsyncMock()
+            service.deactivate_panel_managed_internal_overrides = AsyncMock(return_value=0)
+            service.build_effective_panel_squad_fields = AsyncMock(return_value={})
+            _configure_persisted_panel_echo(
+                service,
+                initial={"trafficLimitBytes": 500 * GIB},
+            )
+
+            now = datetime.now(UTC)
+            current_sub = SimpleNamespace(
+                subscription_id=10,
+                start_date=now - timedelta(days=30),
+                end_date=now + timedelta(days=1),
+                tariff_key="standard",
+                tier_baseline_bytes=1000 * GIB,
+                topup_balance_bytes=0,
+                extra_hwid_devices=0,
+                premium_baseline_bytes=25 * GIB,
+                premium_topup_balance_bytes=0,
+                premium_topup_used_bytes=0,
+                premium_used_bytes=0,
+                premium_period_start_at=None,
+                regular_bonus_bytes=0,
+                regular_unlimited_override=False,
+            )
+            db_user = SimpleNamespace(
+                user_id=42,
+                panel_user_uuid="panel-user",
+                telegram_id=42,
+                username="renewal-user",
+                email=None,
+                language_code="en",
+            )
+            payment = SimpleNamespace(
+                checkout_bundle_snapshot=None,
+                purchased_hwid_devices=0,
+                hwid_full_price=0,
+                hwid_valid_from=None,
+                hwid_valid_until=None,
+            )
+            updated_sub = SimpleNamespace(subscription_id=10)
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_activation.user_dal.get_user_by_id",
+                    AsyncMock(return_value=db_user),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_activation.payment_dal.get_payment_by_db_id",
+                    AsyncMock(return_value=payment),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_activation.subscription_dal.get_active_subscription_by_user_id",
+                    AsyncMock(return_value=current_sub),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_activation.subscription_dal.deactivate_other_active_subscriptions",
+                    AsyncMock(),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_activation.subscription_dal.upsert_subscription",
+                    AsyncMock(return_value=updated_sub),
+                ) as upsert_subscription,
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_activation.tariff_dal.get_hwid_device_entitlement_summary",
+                    AsyncMock(return_value={"active_devices": 0, "active_until": None}),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.traffic.tariff_dal.get_active_flexible_traffic_limits",
+                    AsyncMock(return_value={}),
+                ),
+                patch(
+                    "bot.services.tariff_worker_shared.tariff_dal.get_flexible_traffic_limit_history_start",
+                    AsyncMock(return_value=None),
+                ),
+            ):
+                result = await service.activate_subscription(
+                    session=AsyncMock(),
+                    user_id=42,
+                    months=1,
+                    payment_amount=150,
+                    payment_db_id=99,
+                    provider="qa",
+                    sale_mode="subscription@standard",
+                )
+
+            self.assertIsNotNone(result)
+            sub_payload = upsert_subscription.await_args.args[1]
+            self.assertEqual(sub_payload["tier_baseline_bytes"], 500 * GIB)
+            self.assertEqual(sub_payload["traffic_limit_bytes"], 500 * GIB)
+            panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]
+            self.assertEqual(panel_payload["trafficLimitBytes"], 500 * GIB)
+
     async def test_paid_activation_does_not_promote_trial_squads_to_manual_overrides(self):
         for expired in (False, True):
             with self.subTest(expired=expired), tempfile.TemporaryDirectory() as tmpdir:
