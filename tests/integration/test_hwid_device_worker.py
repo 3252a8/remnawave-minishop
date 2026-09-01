@@ -67,6 +67,120 @@ class _Service:
 
 
 class HwidDeviceWorkerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_worker_syncs_updated_tariff_traffic_with_all_additions(self):
+        panel = SimpleNamespace(update_user_details_on_panel=AsyncMock(return_value={"ok": True}))
+        worker = TariffTrafficWorker(
+            settings=SimpleNamespace(),
+            session_factory=None,
+            panel_service=panel,
+            subscription_service=_Service(),
+        )
+        sub = SimpleNamespace(
+            subscription_id=15,
+            panel_user_uuid="panel-user",
+            end_date=datetime(2099, 1, 1, tzinfo=UTC),
+            hwid_device_limit=3,
+            extra_hwid_devices=1,
+            tier_baseline_bytes=100,
+            topup_balance_bytes=20,
+            regular_bonus_bytes=10,
+            regular_unlimited_override=False,
+            traffic_used_bytes=20,
+            traffic_limit_bytes=155,
+        )
+        tariff = SimpleNamespace(hwid_device_limit=3, billing_model="period", monthly_bytes=200)
+
+        with (
+            patch(
+                "bot.services.tariff_worker_regular.tariff_dal.get_active_flexible_traffic_limits",
+                AsyncMock(return_value={}),
+            ),
+            patch(
+                "bot.services.tariff_worker_shared.tariff_dal.get_flexible_traffic_limit_history_start",
+                AsyncMock(return_value=None),
+            ),
+            patch(
+                "bot.services.tariff_worker_regular.tariff_dal.get_hwid_device_entitlement_summary",
+                AsyncMock(
+                    return_value={
+                        "active_devices": 1,
+                        "traffic_bonus_bytes": 25,
+                        "legacy_active_devices": 0,
+                    }
+                ),
+            ),
+        ):
+            await worker._sync_hwid_device_limit(
+                session=AsyncMock(),
+                sub=sub,
+                tariff=tariff,
+                panel_data={"hwidDeviceLimit": 4, "trafficLimitBytes": 155},
+            )
+
+        self.assertEqual(sub.tier_baseline_bytes, 200)
+        self.assertEqual(sub.traffic_limit_bytes, 255)
+        panel_payload = panel.update_user_details_on_panel.await_args.args[1]
+        self.assertNotIn("hwidDeviceLimit", panel_payload)
+        self.assertEqual(panel_payload["trafficLimitBytes"], 255)
+
+    async def test_worker_retries_updated_tariff_traffic_after_panel_failure(self):
+        panel = SimpleNamespace(
+            update_user_details_on_panel=AsyncMock(
+                side_effect=[{"error": "temporary"}, {"trafficLimitBytes": 200}]
+            )
+        )
+        worker = TariffTrafficWorker(
+            settings=SimpleNamespace(),
+            session_factory=None,
+            panel_service=panel,
+            subscription_service=_Service(),
+        )
+        sub = SimpleNamespace(
+            subscription_id=16,
+            panel_user_uuid="panel-user",
+            end_date=datetime(2099, 1, 1, tzinfo=UTC),
+            hwid_device_limit=3,
+            extra_hwid_devices=0,
+            tier_baseline_bytes=100,
+            topup_balance_bytes=0,
+            regular_bonus_bytes=0,
+            regular_unlimited_override=False,
+            traffic_used_bytes=20,
+            traffic_limit_bytes=100,
+        )
+        tariff = SimpleNamespace(hwid_device_limit=3, billing_model="period", monthly_bytes=200)
+
+        with (
+            patch(
+                "bot.services.tariff_worker_regular.tariff_dal.get_active_flexible_traffic_limits",
+                AsyncMock(return_value={}),
+            ),
+            patch(
+                "bot.services.tariff_worker_shared.tariff_dal.get_flexible_traffic_limit_history_start",
+                AsyncMock(return_value=None),
+            ),
+            patch(
+                "bot.services.tariff_worker_regular.tariff_dal.get_hwid_device_entitlement_summary",
+                AsyncMock(
+                    return_value={
+                        "active_devices": 0,
+                        "traffic_bonus_bytes": 0,
+                        "legacy_active_devices": 0,
+                    }
+                ),
+            ),
+        ):
+            for _ in range(2):
+                await worker._sync_hwid_device_limit(
+                    session=AsyncMock(),
+                    sub=sub,
+                    tariff=tariff,
+                    panel_data={"hwidDeviceLimit": 3, "trafficLimitBytes": 100},
+                )
+
+        self.assertEqual(panel.update_user_details_on_panel.await_count, 2)
+        self.assertEqual(sub.traffic_limit_bytes, 200)
+
     async def test_worker_raises_stale_base_and_adds_active_device_purchases(self):
         panel = SimpleNamespace(update_user_details_on_panel=AsyncMock(return_value={"ok": True}))
         worker = TariffTrafficWorker(

@@ -20,6 +20,7 @@ from bot.services.panel_api_service import PanelApiService
 from bot.services.panel_user_snapshot import should_use_full_panel_user_scan
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.subscription_service_impl.hwid_limits import resolve_hwid_base_limit
+from bot.services.subscription_service_impl.traffic import resolve_main_traffic_baseline
 from bot.utils.traffic_reset import (
     panel_traffic_limit_strategy,
     previous_traffic_reset,
@@ -41,7 +42,6 @@ from .tariff_worker_shared import (
     PanelLimitPatchState,
     canonical_subscriptions_per_panel_user,
     record_panel_limit_drift,
-    resolve_flexible_limit_baseline,
 )
 
 logger = logging.getLogger(__name__)
@@ -499,21 +499,11 @@ class TariffWorkerRegularMixin(TariffWorkerRegularWarningMixin):
         panel_data: dict[str, Any],
     ) -> None:
         now = datetime.now(UTC)
-        flexible_limits = await tariff_dal.get_active_flexible_traffic_limits(
+        desired_tier_baseline = await resolve_main_traffic_baseline(
             session,
-            subscription_id=sub.subscription_id,
+            sub,
+            tariff,
             at=now,
-        )
-        configured_baseline = flexible_limits.get("traffic")
-        desired_tier_baseline = await resolve_flexible_limit_baseline(
-            session,
-            subscription_id=sub.subscription_id,
-            kind="traffic",
-            at=now,
-            active_baseline=configured_baseline,
-            stored_baseline=getattr(sub, "tier_baseline_bytes", None),
-            default_baseline=int(tariff.monthly_bytes or 0),
-            preserve_without_history=True,
         )
         tier_baseline_changed = int(getattr(sub, "tier_baseline_bytes", 0) or 0) != (
             desired_tier_baseline
@@ -557,9 +547,7 @@ class TariffWorkerRegularMixin(TariffWorkerRegularWarningMixin):
         traffic_limit_for_panel: int | None = None
         panel_traffic_limit_int: int | None = None
         traffic_limit_changed = False
-        if tariff.billing_model == "period" and (
-            active_extra > 0 or previous_active_extra != active_extra or tier_baseline_changed
-        ):
+        if tariff.billing_model == "period":
             traffic_limit_for_panel = self.subscription_service._compute_main_traffic_limit_bytes(
                 tier_baseline_bytes=int(desired_tier_baseline),
                 topup_balance_bytes=max(0, int(getattr(sub, "topup_balance_bytes", 0) or 0)),

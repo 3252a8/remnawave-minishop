@@ -72,6 +72,23 @@ class FlexibleLimitBaselineTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(baseline, 25)
 
+    async def test_no_regular_history_tracks_tariff_default(self) -> None:
+        session = AsyncMock(spec=AsyncSession)
+        session.scalar.return_value = None
+
+        baseline = await resolve_flexible_limit_baseline(
+            session,
+            subscription_id=652,
+            kind="traffic",
+            at=datetime(2026, 8, 28, 12, tzinfo=UTC),
+            active_baseline=None,
+            stored_baseline=100,
+            default_baseline=200,
+            preserve_without_history=False,
+        )
+
+        self.assertEqual(baseline, 200)
+
     async def test_active_window_wins_without_history_lookup(self) -> None:
         session = AsyncMock(spec=AsyncSession)
 
