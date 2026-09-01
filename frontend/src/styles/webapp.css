@@ -3003,7 +3003,6 @@ a {
   font-family:
     var(--font-country-flags), "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
     "Noto Color Emoji", sans-serif;
-  font-variant-emoji: text;
   line-height: 1;
 }
 

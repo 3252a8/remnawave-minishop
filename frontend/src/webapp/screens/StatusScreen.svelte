@@ -9,6 +9,7 @@
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import { AttentionDot } from "$components/ui/index.js";
+  import { countryFlagParts } from "$lib/webapp/countryFlags.js";
   import type { ServerStatusStore } from "$lib/webapp/stores/serverStatusStore.svelte";
   import type { OpenLinkAction, Translate, VoidAction } from "$lib/webapp/types.js";
 
@@ -145,9 +146,11 @@
               <div class="status-item">
                 <AttentionDot position="inline" class="status-dot status-item-{item.status}" />
                 <span class="status-item-name"
-                  ><strong>{item.name}</strong><small
-                    >{t(`wa_server_status_item_${item.status}`, {}, item.status)}</small
-                  ></span
+                  ><strong
+                    >{#each countryFlagParts(item.name) as part}{#if part.kind === "flag"}<span
+                          class="emoji-flag">{part.value}</span
+                        >{:else}{part.value}{/if}{/each}</strong
+                  ><small>{t(`wa_server_status_item_${item.status}`, {}, item.status)}</small></span
                 >
                 <span class="status-metrics">
                   <small
@@ -163,7 +166,8 @@
                       {#each historyFor(item.id) as historyEntry}
                         <span
                           class:status-history-empty={!historyEntry}
-                          class="status-history-point status-item-{historyEntry?.status || 'unknown'}"
+                          class="status-history-point status-item-{historyEntry?.status ||
+                            'unknown'}"
                           aria-hidden="true"
                         ></span>
                       {/each}
@@ -358,9 +362,6 @@
     min-width: 0;
   }
   .status-item-name strong {
-    font-family:
-      var(--font-country-flags), var(--font-sans), "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
-    font-variant-emoji: text;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
