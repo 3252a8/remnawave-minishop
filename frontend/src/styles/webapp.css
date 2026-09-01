@@ -3001,7 +3001,7 @@ a {
 
 .emoji-flag {
   font-family:
-    "Twemoji Country Flags", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+    var(--font-country-flags), "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
     "Noto Color Emoji", sans-serif;
   font-variant-emoji: emoji;
   line-height: 1;
