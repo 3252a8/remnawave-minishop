@@ -670,10 +670,10 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
                     first_name=getattr(user, "first_name", None),
                 )
             await session.commit()
-        except UserMergeConflictError:
+        except UserMergeConflictError as exc:
             await session.rollback()
             logger.info("External OAuth account merge was rejected for %s", key)
-            return finish("merge_conflict")
+            return finish(exc.code)
         except Exception:
             await session.rollback()
             logger.exception("External OAuth callback failed for %s", key)

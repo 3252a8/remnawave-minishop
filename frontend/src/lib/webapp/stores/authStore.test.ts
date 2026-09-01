@@ -58,4 +58,31 @@ describe("authStore", () => {
     expect(deps.setToken).toHaveBeenCalledWith("session-token", "csrf-token");
     expect(deps.loadData).toHaveBeenCalledOnce();
   });
+
+  it("links Telegram after confirmed external email ownership", async () => {
+    installBrowser();
+    const linkTelegramAfterExternalAuth = vi.fn();
+    const { store, deps } = makeAuthStore({
+      publicApi: vi.fn().mockResolvedValue({
+        ok: true,
+        token: "session-token",
+        csrf_token: "csrf-token",
+      }),
+      linkTelegramAfterExternalAuth,
+    });
+    store.update((state) => ({
+      ...state,
+      externalOauthPending: true,
+      pendingExternalProvider: "yandex",
+      pendingEmail: "ya***@example.test",
+      emailCode: "123456",
+    }));
+
+    await store.verifyEmailCode();
+
+    expect(deps.publicApi).toHaveBeenCalledWith("/auth/external/verify", { code: "123456" });
+    expect(deps.setToken).toHaveBeenCalledWith("session-token", "csrf-token");
+    expect(deps.loadData).toHaveBeenCalledOnce();
+    expect(linkTelegramAfterExternalAuth).toHaveBeenCalledOnce();
+  });
 });

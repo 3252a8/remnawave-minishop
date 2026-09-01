@@ -12,6 +12,21 @@ type SessionRefreshResult = {
   csrf_token?: string;
 };
 
+function accountMergeConflictMessage(status: string, t: WebappBootDeps["t"]): string {
+  const keyByStatus: Record<string, string> = {
+    account_merge_google_conflict: "account_merge_google_conflict",
+    account_merge_yandex_conflict: "account_merge_yandex_conflict",
+    account_merge_provider_conflict: "account_merge_provider_conflict",
+    account_merge_telegram_conflict: "account_merge_telegram_conflict",
+    account_merge_duplicate_promo_conflict: "account_merge_duplicate_promo_conflict",
+  };
+  return t(keyByStatus[status] || "account_merge_conflict");
+}
+
+function isAccountMergeConflict(status: string): boolean {
+  return status.startsWith("account_merge_");
+}
+
 export type WebappBootDeps = {
   MOCK: unknown;
   setMode: (mode: string) => void;
@@ -28,8 +43,10 @@ export type WebappBootDeps = {
   hasEmailCodeLoginDeeplink?: (() => boolean) | null;
   finalizeMagicLogin: (token: string) => unknown;
   finalizeTelegramAuth: (authData: unknown, source: "auth_data" | "init_data") => unknown;
+  linkTelegramAfterExternalAuth?: (() => Promise<unknown> | unknown) | null;
   restorePendingExternalOauth: () => Promise<boolean> | boolean;
   setAuthStatus: (message: string, isError?: boolean) => void;
+  showAccountLinkStatus?: ((message: string) => void) | null;
   t: (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   getInitDataForBoot: () => string | null | undefined;
   getToken: () => string | null | undefined;
@@ -56,8 +73,10 @@ export async function runWebappBoot({
   hasEmailCodeLoginDeeplink,
   finalizeMagicLogin,
   finalizeTelegramAuth,
+  linkTelegramAfterExternalAuth,
   restorePendingExternalOauth,
   setAuthStatus,
+  showAccountLinkStatus,
   t,
   getInitDataForBoot,
   getToken,
@@ -88,6 +107,11 @@ export async function runWebappBoot({
     clearAuthQuery();
     try {
       await loadData();
+      try {
+        await linkTelegramAfterExternalAuth?.();
+      } catch {
+        showAccountLinkStatus?.(t("wa_auth_telegram_not_confirmed"));
+      }
       return;
     } catch {
       clearToken();
@@ -99,6 +123,15 @@ export async function runWebappBoot({
     showLogin();
     await restorePendingExternalOauth();
     return;
+  } else if (externalAuth && isAccountMergeConflict(externalAuth.status)) {
+    clearAuthQuery();
+    try {
+      await loadData();
+      showAccountLinkStatus?.(accountMergeConflictMessage(externalAuth.status, t));
+      return;
+    } catch {
+      clearToken();
+    }
   } else if (externalAuth) {
     clearAuthQuery();
     setAuthStatus(
@@ -119,6 +152,15 @@ export async function runWebappBoot({
     clearAuthQuery();
     try {
       await loadData();
+      return;
+    } catch {
+      clearToken();
+    }
+  } else if (telegramAuthStatus && isAccountMergeConflict(telegramAuthStatus)) {
+    clearAuthQuery();
+    try {
+      await loadData();
+      showAccountLinkStatus?.(accountMergeConflictMessage(telegramAuthStatus, t));
       return;
     } catch {
       clearToken();

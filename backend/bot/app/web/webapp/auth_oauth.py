@@ -323,9 +323,9 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
         except RegistrationInviteRequiredError:
             await session.rollback()
             raise redirect("/", "invite_required") from None
-        except UserMergeConflictError:
+        except UserMergeConflictError as exc:
             await session.rollback()
-            raise redirect(redirect_path, "merge_conflict") from None
+            raise redirect(redirect_path, exc.code) from None
         except Exception:
             await session.rollback()
             logger.exception("Telegram OAuth callback failed")

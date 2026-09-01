@@ -47,6 +47,7 @@ type AuthStoreDeps = {
   loadData: (options?: LoadDataOptions) => Promise<unknown>;
   telegramSdk: TelegramSdk;
   getTg: () => unknown;
+  linkTelegramAfterExternalAuth?: (() => Promise<unknown> | unknown) | null;
   t: Translate;
   currentLang: () => string;
 };
@@ -121,6 +122,7 @@ export function createAuthStore({
   loadData,
   telegramSdk,
   getTg,
+  linkTelegramAfterExternalAuth,
   t,
   currentLang,
 }: AuthStoreDeps) {
@@ -630,6 +632,7 @@ export function createAuthStore({
         clearCooldownTimer();
         clearAuthQuery();
         await loadData();
+        await linkTelegramAfterExternalAuth?.();
         setAuthStatus("");
         return;
       }

@@ -284,12 +284,21 @@ export function createAppFactories({
     openActivationConnectLink: () => getAppActions().openActivationConnectLink(),
     syncAppSectionPath,
   });
+  const linkTelegramAfterExternalAuth = async () => {
+    const initData =
+      getTelegramMiniAppInitData() ||
+      getTg()?.initData ||
+      readTelegramMiniAppInitDataFromLocation();
+    if (!initData) return;
+    await accountStore.linkTelegramAccount(() => initData);
+  };
   authStore = createAuthStore({
     publicApi,
     setToken,
     loadData,
     telegramSdk,
     getTg,
+    linkTelegramAfterExternalAuth,
     t,
     currentLang: getCurrentLang,
   });
@@ -402,11 +411,13 @@ export function createAppFactories({
     hasEmailCodeLoginDeeplink,
     finalizeMagicLogin: (loginToken) => authStore.finalizeMagicLogin(loginToken),
     finalizeTelegramAuth: (authData, source) => authStore.finalizeTelegramAuth(authData, source),
+    linkTelegramAfterExternalAuth,
     restorePendingExternalOauth: () =>
       authStore.restorePendingExternalOauth((nextScreen) => {
         shellState.screen = nextScreen;
       }),
     setAuthStatus: (message, isError = false) => authStore.setAuthStatus(message, isError),
+    showToast,
     t,
     readTelegramMiniAppInitDataFromLocation,
     continueTelegramLinkPendingAction: () => getAppActions().continueTelegramLinkPendingAction(),
