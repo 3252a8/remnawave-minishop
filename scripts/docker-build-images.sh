@@ -7,6 +7,7 @@ IMAGE_TAG="${IMAGE_TAG:-local}"
 IMAGE_PREFIX="${IMAGE_PREFIX:-remnawave-minishop}"
 DOCKERFILE="${DOCKERFILE:-deploy/docker/Dockerfile}"
 REMNAWAVE_MINISHOP_BUILD_PROVENANCE="${REMNAWAVE_MINISHOP_BUILD_PROVENANCE:-custom}"
+REMNAWAVE_MINISHOP_BRANCH="${REMNAWAVE_MINISHOP_BRANCH:-}"
 OCI_IMAGE_REVISION="${OCI_IMAGE_REVISION:-}"
 
 build_image() {
@@ -20,6 +21,7 @@ build_image() {
   docker build \
     -f "$DOCKERFILE" \
     --target "$target" \
+    --build-arg "REMNAWAVE_MINISHOP_BRANCH=$REMNAWAVE_MINISHOP_BRANCH" \
     --build-arg "REMNAWAVE_MINISHOP_BUILD_PROVENANCE=$REMNAWAVE_MINISHOP_BUILD_PROVENANCE" \
     "${labels[@]}" \
     -t "$image" \
