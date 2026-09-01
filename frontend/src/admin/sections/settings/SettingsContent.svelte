@@ -56,6 +56,7 @@
 
   let {
     at,
+    appRepositoryUrl = "https://minishop.minidoc.cc/",
     settingsLoading,
     extraDirtyCount = 0,
     visibleSettingsSections,
@@ -108,6 +109,7 @@
     menuButtonLanguages = [],
   }: {
     at: TranslateFn;
+    appRepositoryUrl?: string;
     settingsLoading: boolean;
     extraDirtyCount?: number;
     visibleSettingsSections: AdminSettingsSection[];
@@ -304,7 +306,8 @@
 
   function loginProviderGuideUrl(provider: string): string {
     const section = provider === "yandex" ? "yandex-id" : provider;
-    return "https://minishop.minidoc.cc/features/login-methods/#" + section;
+    const docsBaseUrl = appRepositoryUrl.replace(/\/+$/, "");
+    return `${docsBaseUrl}/features/login-methods/#${section}`;
   }
 </script>
 

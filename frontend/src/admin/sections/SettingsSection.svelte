@@ -57,6 +57,7 @@
     currentLang = "ru",
     settingsPath = [],
     routePrefix = "",
+    appRepositoryUrl = "https://minishop.minidoc.cc/",
     onSettingsPathChange = () => {},
     onOpenSettingsPath: _onOpenSettingsPath = () => {},
     onNavigateSection = () => {},
@@ -66,6 +67,7 @@
     currentLang?: string;
     settingsPath?: SettingsPath;
     routePrefix?: string;
+    appRepositoryUrl?: string;
     onSettingsPathChange?: (path: SettingsPath) => void;
     onOpenSettingsPath?: (path?: unknown) => void;
     onNavigateSection?: (section: string) => void;
@@ -765,6 +767,7 @@
 
 <SettingsContent
   {at}
+  {appRepositoryUrl}
   {settingsLoading}
   extraDirtyCount={Number(settingsStore.extraDirtyCount || 0)}
   {visibleSettingsSections}
