@@ -110,6 +110,20 @@
   overflow: hidden;
 }
 
+.balance-topup-dialog {
+  max-height: min(
+    760px,
+    calc(
+      100dvh - max(14px, var(--content-safe-area-top)) -
+        max(14px, var(--content-safe-area-bottom))
+    )
+  );
+}
+
+.balance-topup-dialog .payment-submit-button {
+  overflow: clip;
+}
+
 .payment-dialog-body {
   display: grid;
   gap: 8px;

@@ -947,9 +947,9 @@ test("support ticket conversations scroll on desktop and mobile", async ({ page 
   await assertAdminTicketScrolling(page, supportDialog);
 });
 
-test("balance top-up dialog hides its idle scrollbar when the content fits", async ({ page }) => {
-  await page.setViewportSize({ width: 875, height: 768 });
-  await page.goto(APP_URL);
+test("balance top-up dialog uses the demo viewport without an idle scrollbar", async ({ page }) => {
+  await page.setViewportSize({ width: 583, height: 520 });
+  await page.goto(`${APP_URL}?path=/home&mock=tariffs`);
 
   await page.locator(".home-balance-topup").click();
   const dialog = page.locator(".dialog-card.balance-topup-dialog");
