@@ -92,9 +92,9 @@ function isDocsVersionLink(href: string) {
           <a
             class:list={[
               '-m-1.5 rounded-md p-1.5 text-(--sl-color-gray-3) no-underline hover:text-(--sl-color-white) focus-visible:outline-offset-0',
-              (icon || proLink) && 'minishop-header-link inline-flex items-center',
+              (icon || proLink || docsVersionLink) &&
+                'minishop-header-link inline-flex items-center',
               proLink && 'minishop-pro-link',
-              docsVersionLink && 'minishop-docs-version-link inline-flex items-center',
             ]}
             href={href}
           >
@@ -136,9 +136,9 @@ function isDocsVersionLink(href: string) {
               <a
                 class:list={[
                   'minishop-mobile-nav-link',
-                  (icon || proLink) && 'minishop-header-link inline-flex items-center',
+                  (icon || proLink || docsVersionLink) &&
+                    'minishop-header-link inline-flex items-center',
                   proLink && 'minishop-pro-link',
-                  docsVersionLink && 'minishop-docs-version-link inline-flex items-center',
                 ]}
                 href={href}
               >
