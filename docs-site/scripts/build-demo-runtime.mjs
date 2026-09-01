@@ -29,8 +29,14 @@ const localesDir = path.join(repoRoot, "locales");
 // settings manifest, which is a site-root path in production. The demo has to
 // answer the same path, so they land at the site root rather than under the
 // runtime base.
-const providerLogosSourceDir = path.join(frontendRoot, "public", "provider-logos");
+const providerLogosSourceDir = path.join(
+  frontendRoot,
+  "public",
+  "provider-logos",
+);
 const providerLogosTargetDir = path.join(siteRoot, "public", "provider-logos");
+const fontsSourceDir = path.join(frontendRoot, "public", "fonts");
+const fontsTargetDir = path.join(siteRoot, "public", "fonts");
 const runtimeBase = "/demo/runtime";
 const installGuidesConfigUrl =
   "https://raw.githubusercontent.com/legiz-ru/my-remnawave/main/sub-page/subpage-config/multiapp.json";
@@ -177,7 +183,10 @@ async function assertModuleGraphIsComplete(entryNames) {
   }
   if (!missing.size) return;
   const details = [...missing]
-    .map(([target, importers]) => `  ${target} (imported by ${importers.join(", ")})`)
+    .map(
+      ([target, importers]) =>
+        `  ${target} (imported by ${importers.join(", ")})`,
+    )
     .join("\n");
   throw new Error(
     `Demo runtime is missing chunks the bundles import:\n${details}`,
@@ -262,6 +271,7 @@ await runNpm(["--prefix", frontendRoot, "run", "build:docs-demo"]);
 
 await rm(runtimeDir, { recursive: true, force: true });
 await rm(providerLogosTargetDir, { recursive: true, force: true });
+await rm(fontsTargetDir, { recursive: true, force: true });
 await mkdir(runtimeDir, { recursive: true });
 await mkdir(path.join(runtimeDir, "app"), { recursive: true });
 
@@ -279,6 +289,7 @@ const [, , , , bundleChunkNames] = await Promise.all([
   ),
   copyDirectory(themesDir, path.join(runtimeDir, "themes"), copyThemeFile),
   copyDirectory(providerLogosSourceDir, providerLogosTargetDir),
+  copyDirectory(fontsSourceDir, fontsTargetDir),
   writeFile(path.join(runtimeDir, "app", "index.html"), html, "utf8"),
   installGuidesConfigPayload().then((payload) =>
     writeFile(
