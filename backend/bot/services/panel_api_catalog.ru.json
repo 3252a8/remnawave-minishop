@@ -58,7 +58,7 @@
     "Legacy offset pagination used when the stream is absent or UUID-based.": "Устаревшая offset-пагинация используется, когда поток отсутствует или работает с UUID.",
     "{userRef} is a UUID in 2.8.1 and a numeric id in 3.x.": "В 2.8.1 {userRef} — UUID, а в 3.x — числовой идентификатор.",
     "3.x uses /users/stream?telegramId=... instead.": "В 3.x вместо этого используется `/users/stream?telegramId=...`.",
-    "The username lookup route remains stable through 3.3.2; 3.1+ reports an absent user as 404/A063.": "Маршрут поиска по username остаётся стабильным до 3.3.2 включительно; начиная с 3.1 отсутствие пользователя возвращается как 404/A063.",
+    "The username lookup route remains stable through 3.4.3; 3.1+ reports an absent user as 404/A063.": "Маршрут поиска по username остаётся стабильным до 3.4.3 включительно; начиная с 3.1 отсутствие пользователя возвращается как 404/A063.",
     "3.x uses /users/stream?email=... instead.": "В 3.x вместо этого используется `/users/stream?email=...`.",
     "Core never sends a caller-provided user UUID; 3.x returns numeric id.": "Core не отправляет UUID пользователя, переданный вызывающей стороной; 3.x возвращает числовой идентификатор.",
     "Selector field is uuid in 2.8.1 and integer id in 3.x.": "Поле селектора — uuid в 2.8.1 и целочисленный id в 3.x.",

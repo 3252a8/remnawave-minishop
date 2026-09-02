@@ -11,11 +11,11 @@
 make dev
 ```
 
-`make dev` применяет latest-пресет `3.3.2`, валидирует compose-конфиг и поднимает стенд.
+`make dev` применяет latest-пресет `3.4.3`, валидирует compose-конфиг и поднимает стенд.
 Для другого пресета используйте `$env:DEV_PRESET = "2.8.0"; make dev`. Эквивалентные npm-команды:
 
 ```powershell
-npm run dev:stand:use:3.3.2
+npm run dev:stand:use:3.4.3
 npm run dev:stand:config
 npm run dev:stand:up
 ```
@@ -31,9 +31,9 @@ npm run dev:stand:up
 
 ## Версии
 
-Пинованные версии latest-пресета, проверенные 2026-08-20:
+Пинованные версии latest-пресета, проверенные 2026-09-02:
 
-- Remnawave Panel `v3.3.2` (`remnawave/backend:3.3.2`)
+- Remnawave Panel `v3.4.3` (`remnawave/backend:3.4.3`)
 - Remnawave Node `v3.3.0` (`remnawave/node:3.3.0`)
 - Remnawave Subscription Page `7.2.6`
   (`remnawave/subscription-page:7.2.6`)
@@ -46,7 +46,7 @@ npm run dev:stand:up
 Чтобы вручную проверить другую связку Remnawave, поменяйте в `.env.remnawave-dev`:
 
 ```env
-REMNAWAVE_DEV_VERSION=3.3.2
+REMNAWAVE_DEV_VERSION=3.4.3
 REMNAWAVE_NODE_VERSION=3.3.0
 REMNAWAVE_SUBSCRIPTION_PAGE_VERSION=7.2.6
 ```
@@ -65,7 +65,7 @@ Full-stack QA проверяет, что env example и lock-файл не ра�
 
 Пресет не равен заявлению о поддержке. Сертифицированная матрица Core сейчас включает:
 
-- **current**: `3.3.2`, `3.3.0`, `3.2.3`, `3.2.1`, `3.2.0`, `3.1.0`, `3.0.0` (поколение API с numeric user id);
+- **current**: `3.4.3`, `3.4.2`, `3.4.1`, `3.3.2`, `3.3.0`, `3.2.3`, `3.2.1`, `3.2.0`, `3.1.0`, `3.0.0` (поколение API с numeric user id);
 - **maintenance**: `2.8.1` (поколение API с UUID user id).
 
 `2.8.0` и `2.7.4` сохранены как исторические пресеты для ручной диагностики, но не входят в
@@ -73,8 +73,15 @@ Full-stack QA проверяет, что env example и lock-файл не ра�
 версии генерируются в
 [каталог совместимости Remnawave API](../architecture/remnawave-api-compatibility.md).
 
-Доступны десять пресетов:
+Panel `3.4.1` и `3.4.2` остаются в API-матрице для регрессии, однако upstream рекомендует
+немедленно обновиться до `3.4.3`: эта версия закрывает
+[GHSA-8mcp-v46j-fp26](https://github.com/remnawave/backend/security/advisories/GHSA-8mcp-v46j-fp26).
 
+Доступны тринадцать пресетов:
+
+- `3.4.3`: Panel `3.4.3`, Node `3.3.0`, Subscription Page `7.2.6`.
+- `3.4.2`: Panel `3.4.2`, Node `3.3.0`, Subscription Page `7.2.6`.
+- `3.4.1`: Panel `3.4.1`, Node `3.3.0`, Subscription Page `7.2.6`.
 - `3.3.2`: Panel `3.3.2`, Node `3.3.0`, Subscription Page `7.2.6`.
 - `3.3.0`: Panel `3.3.0`, Node `3.3.0`, Subscription Page `7.2.6`.
 - `3.2.3`: Panel `3.2.3`, Node `2.8.0`, Subscription Page `7.2.6`.
@@ -86,7 +93,7 @@ Full-stack QA проверяет, что env example и lock-файл не ра�
 - `2.8.0`: Panel `2.8.0`, Node `2.8.0`, Subscription Page `7.2.6`.
 - `2.7.4`: Panel `2.7.4`, Node `2.7.0`, Subscription Page `7.2.4`.
 
-Node `3.3.0` требует Panel `3.3.0` или новее, поэтому только пресеты `3.3.x` пинуют эту
+Node `3.3.0` требует Panel `3.3.0` или новее, поэтому пресеты `3.3.x` и `3.4.x` пинуют эту
 версию Node. Новая Panel обратно совместима со старыми Node, но обратная связка не поддерживается.
 
 Переключение на previous compatibility preset:
@@ -102,13 +109,13 @@ npm run dev:stand:up
 
 ```powershell
 npm run dev:stand:down
-npm run dev:stand:use:3.3.2
+npm run dev:stand:use:3.4.3
 npm run dev:stand:config
 npm run dev:stand:up
 ```
 
 Пресеты используют разные Docker volumes (`*-274`, `*-280`, `*-281`, `*-300`, `*-310`,
-`*-320`, `*-321`, `*-323`, `*-330`, `*-332`), чтобы миграции разных
+`*-320`, `*-321`, `*-323`, `*-330`, `*-332`, `*-341`, `*-342`, `*-343`), чтобы миграции разных
 версий панели не портили соседние базы. Одновременно эти стенды не запускаются: у compose остаются
 фиксированные container names и локальные порты. Если когда-нибудь понадобится параллельный запуск,
 тогда нужно будет параметризовать еще project name, container names и ports, но сейчас это лишний
@@ -219,12 +226,12 @@ npm run qa:fullstack
 
 ```powershell
 $env:QA_FULLSTACK = "1"
-$env:QA_REMNAWAVE_PRESET = "3.3.2" # или 2.8.1 после смены пресета
+$env:QA_REMNAWAVE_PRESET = "3.4.3" # или 2.8.1 после смены пресета
 python -m pytest -q tests/qa/test_remnawave_panel_contract.py
 ```
 
 Детерминированный performance-regression прогон на размерах, используемых при
-сертификации Remnawave 3.3.2:
+сертификации Remnawave 3.4.3:
 
 ```powershell
 npm run bench:bot -- --users 200,1000,10000,30000
@@ -374,9 +381,10 @@ CI workflow `.github/workflows/fullstack-qa.yml` запускает этот с�
 - `push` в `main` и `dev`;
 - ручной `workflow_dispatch`.
 
-Каждый push/PR проверяет сертифицированные current и maintenance пресеты (`3.3.2`, `3.3.0`,
-`3.2.3`, `3.2.1`, `3.2.0`, `3.1.0`, `3.0.0`, `2.8.1`) отдельными job. По расписанию и вручную
-дополнительно выполняется same-database upgrade `2.8.1 → 3.3.2`:
+Каждый push/PR проверяет сертифицированные current и maintenance пресеты (`3.4.3`, `3.4.2`,
+`3.4.1`, `3.3.2`, `3.3.0`, `3.2.3`, `3.2.1`, `3.2.0`, `3.1.0`, `3.0.0`, `2.8.1`)
+отдельными job. По расписанию и вручную дополнительно выполняется same-database upgrade
+`2.8.1 → 3.4.3`:
 панель обновляется на существующем volume, затем Core синхронизирует сидированных пользователей и
 проверяет, что локальные UUID-алиасы заменились на decimal numeric ids без потери подписок.
 

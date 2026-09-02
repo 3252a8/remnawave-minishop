@@ -80,6 +80,9 @@ def test_support_manifest_matches_presets_and_policy() -> None:
         "3.2.3",
         "3.3.0",
         "3.3.2",
+        "3.4.1",
+        "3.4.2",
+        "3.4.3",
     }
     for item in generations:
         preset = ROOT / "deploy" / "dev" / "remnawave-stands" / item["preset"]

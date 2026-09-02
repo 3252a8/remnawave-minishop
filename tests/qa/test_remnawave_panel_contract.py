@@ -69,6 +69,12 @@ async def _exercise_panel_contract() -> None:
         assert squads
         squad_uuid = str(squads[0]["uuid"])
 
+        # 3.4.x replaced excludedInternalSquads with an internalSquads object
+        # and added tags to several resources. Core treats host extensions as
+        # additive and must keep accepting both old and new response shapes.
+        hosts = await service.get_hosts()
+        assert hosts is not None
+
         # Remnawave 3.1+ reports an absent unique-field lookup as 404/A063.
         # That is the expected precondition for creation, not an API failure.
         assert await service.get_users_by_filter(username=username) == []
@@ -90,11 +96,22 @@ async def _exercise_panel_contract() -> None:
         found = await service.get_users_by_filter(username=username)
         assert found and found[0]["uuid"] == user_ref
 
+        updated_telegram_id = 980000000 + int(uuid.uuid4().hex[:5], 16)
         updated = await service.update_user_details_on_panel(
             user_ref,
-            {"description": "core compatibility live smoke"},
+            {
+                "description": "core compatibility live smoke",
+                "telegramId": updated_telegram_id,
+            },
         )
         assert updated and updated.get("description") == "core compatibility live smoke"
+        assert int(updated.get("telegramId") or 0) == updated_telegram_id
+
+        # Panel 3.4.1 runtime already required a scalar here, while its OpenAPI
+        # incorrectly advertised an array until 3.4.2. Keep the wire payload
+        # scalar and verify the stream lookup observes the updated value.
+        found_by_telegram = await service.get_users_by_filter(telegram_id=updated_telegram_id)
+        assert found_by_telegram and found_by_telegram[0]["uuid"] == user_ref
 
         assert await service.add_users_to_internal_squad(squad_uuid, [user_ref])
         with_squad = await service.get_user_by_uuid(user_ref, use_cache=False)

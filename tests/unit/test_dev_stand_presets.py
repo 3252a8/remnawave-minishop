@@ -87,6 +87,9 @@ def test_remnawave_dev_stand_presets_match_locks_and_use_isolated_volumes() -> N
         "3.2.3",
         "3.3.0",
         "3.3.2",
+        "3.4.1",
+        "3.4.2",
+        "3.4.3",
     }.issubset({path.name for path in preset_dirs})
 
     volumes_by_key: dict[str, dict[str, str]] = {key: {} for key in VOLUME_KEYS}
@@ -134,7 +137,7 @@ def test_upgrade_target_preserves_the_source_database_volume(tmp_path: Path) -> 
             "node",
             str(REPO_ROOT / "scripts" / "prepare_remnawave_upgrade_target.mjs"),
             "2.8.1",
-            "3.3.2",
+            "3.4.3",
         ],
         check=True,
         cwd=REPO_ROOT,
@@ -144,12 +147,12 @@ def test_upgrade_target_preserves_the_source_database_volume(tmp_path: Path) -> 
     )
 
     upgraded = _read_env(env_path)
-    assert upgraded["REMNAWAVE_STAND_PRESET"] == "upgrade-2.8.1-to-3.3.2"
-    assert upgraded["REMNAWAVE_DEV_VERSION"] == "3.3.2"
+    assert upgraded["REMNAWAVE_STAND_PRESET"] == "upgrade-2.8.1-to-3.4.3"
+    assert upgraded["REMNAWAVE_DEV_VERSION"] == "3.4.3"
     assert upgraded["REMNAWAVE_DEV_DB_VOLUME"] == "source-panel-db-281"
     assert upgraded["DEV_MINISHOP_DB_VOLUME"] == "source-minishop-db-281"
     assert upgraded["REMNAWAVE_UPGRADE_FROM"] == "2.8.1"
-    assert upgraded["REMNAWAVE_UPGRADE_TO"] == "3.3.2"
+    assert upgraded["REMNAWAVE_UPGRADE_TO"] == "3.4.3"
 
 
 def test_dev_seed_matches_current_non_nullable_and_unique_contracts() -> None:
