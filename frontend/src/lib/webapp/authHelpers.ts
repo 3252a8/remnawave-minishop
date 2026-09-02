@@ -115,6 +115,17 @@ export function buildTelegramOAuthStartUrl(purpose = "login", tg: unknown = null
   return url.toString();
 }
 
+export function buildExternalOAuthStartUrl(
+  provider: "google" | "yandex",
+  purpose: "login" | "link",
+  language: string,
+  referral = ""
+): string {
+  const params = new URLSearchParams({ purpose, lang: language });
+  if (referral) params.set("ref", referral);
+  return `/auth/${provider}/start?${params.toString()}`;
+}
+
 export function emailError(error: unknown, fallback: string, t: TranslateFn): string {
   const err: AuthErrorLike = error && typeof error === "object" ? (error as AuthErrorLike) : null;
   if (err?.error === "rate_limited")

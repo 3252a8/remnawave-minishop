@@ -64,6 +64,7 @@ _PENDING_COOKIE = "rw_external_oauth_pending"
 _PENDING_COOKIE_PATH = "/api/auth/external"
 _PENDING_PURPOSE = "external_oauth_link"
 _HTTP_TIMEOUT = ClientTimeout(total=15)
+_YANDEX_RUSSIAN_AUTHORIZATION_URL = "https://oauth.yandex.ru/authorize"
 
 ExternalProviderKey = Literal["google", "yandex"]
 ExternalRegistrationSource = Literal["google_oauth", "yandex_oauth"]
@@ -113,6 +114,12 @@ def _provider(settings: Settings, key: str) -> ExternalProvider | None:
 
 def _callback_url(settings: Settings, request: web.Request, provider: str) -> str:
     return f"{_public_webapp_base_url(settings, request)}/auth/{provider}/callback"
+
+
+def _authorization_url(provider: ExternalProvider, language: str) -> str:
+    if provider.key == "yandex" and language.split("-", 1)[0] == "ru":
+        return _YANDEX_RUSSIAN_AUTHORIZATION_URL
+    return provider.authorization_url
 
 
 def _redirect(provider: str, purpose: str, status: str) -> str:
@@ -282,6 +289,7 @@ async def external_oauth_start_route(request: web.Request) -> web.Response:
     if purpose == "link" and not current_user_id:
         raise web.HTTPFound(_redirect(key, purpose, "unauthorized"))
 
+    language = _normalize_language(str(request.query.get("lang") or settings.DEFAULT_LANGUAGE))
     state = secrets.token_urlsafe(24)
     verifier = secrets.token_urlsafe(48)
     nonce = secrets.token_urlsafe(24)
@@ -292,6 +300,7 @@ async def external_oauth_start_route(request: web.Request) -> web.Response:
         "user_id": current_user_id,
         "verifier": verifier,
         "nonce": nonce,
+        "language": language,
         "referral": str(request.query.get("ref") or request.query.get("start_param") or "")[:128],
     }
     query: dict[str, str] = {
@@ -305,7 +314,7 @@ async def external_oauth_start_route(request: web.Request) -> web.Response:
     }
     if key == "google":
         query.update({"nonce": nonce, "access_type": "online", "prompt": "select_account"})
-    response = web.HTTPFound(f"{provider.authorization_url}?{urlencode(query)}")
+    response = web.HTTPFound(f"{_authorization_url(provider, language)}?{urlencode(query)}")
     _set_state_cookie(response, settings, payload)
     return response
 
@@ -575,7 +584,9 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
                 user, _ = await user_dal.create_email_user(
                     session,
                     email=email,
-                    language_code=settings.DEFAULT_LANGUAGE,
+                    language_code=_normalize_language(
+                        str(state.get("language") or settings.DEFAULT_LANGUAGE)
+                    ),
                     email_verified_at=datetime.now(UTC),
                     referred_by_id=invite.referrer_user_id,
                     registered_via=None,

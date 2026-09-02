@@ -3,6 +3,7 @@ import json
 from types import SimpleNamespace
 from typing import Literal
 from unittest.mock import ANY, AsyncMock, Mock, call, patch
+from urllib.parse import parse_qs, urlsplit
 
 from aiohttp import web
 
@@ -54,7 +55,11 @@ def _provider(
 ) -> external_oauth.ExternalProvider:
     return external_oauth.ExternalProvider(
         key=key,
-        authorization_url="https://accounts.example/authorize",
+        authorization_url=(
+            "https://oauth.yandex.com/authorize"
+            if key == "yandex"
+            else "https://accounts.example/authorize"
+        ),
         token_url="https://accounts.example/token",
         client_id="client",
         client_secret="secret",
@@ -90,6 +95,39 @@ def _profile() -> dict[str, object]:
         "display_name": "Example User",
         "picture_url": None,
     }
+
+
+async def _external_oauth_start_uses_application_language() -> None:
+    for requested_language, expected_language, expected_host in (
+        ("ru", "ru", "oauth.yandex.ru"),
+        ("ru-RU", "ru-ru", "oauth.yandex.ru"),
+        ("en", "en", "oauth.yandex.com"),
+    ):
+        request = SimpleNamespace(
+            match_info={"provider": "yandex"},
+            query={"lang": requested_language},
+            cookies={},
+        )
+        set_state_cookie = Mock()
+        with patch.multiple(
+            external_oauth,
+            get_settings=Mock(return_value=SimpleNamespace(DEFAULT_LANGUAGE="en")),
+            _provider=Mock(return_value=_provider("yandex")),
+            _extract_authenticated_user_id=Mock(return_value=None),
+            _callback_url=Mock(return_value="https://app.example.com/auth/yandex/callback"),
+            _set_state_cookie=set_state_cookie,
+        ):
+            response = await external_oauth.external_oauth_start_route(request)
+
+        location = urlsplit(response.headers["Location"])
+        query = parse_qs(location.query)
+        assert location.netloc == expected_host
+        assert query["client_id"] == ["client"]
+        assert set_state_cookie.call_args.args[2]["language"] == expected_language
+
+
+def test_external_oauth_start_uses_application_language() -> None:
+    asyncio.run(_external_oauth_start_uses_application_language())
 
 
 async def _login_with_claimed_oidc_email_requires_confirmation_without_duplicate() -> None:
@@ -165,10 +203,11 @@ async def _new_oidc_registration_emits_provider_registration_after_commit() -> N
     for provider_key in ("google", "yandex"):
         factory = _SessionFactory()
         request, state = _request(purpose="login", provider=provider_key)
+        state["language"] = "ru"
         user = SimpleNamespace(
             user_id=-42,
             is_banned=False,
-            language_code="en",
+            language_code="ru",
             referred_by_id=7,
             telegram_id=None,
             username=None,
@@ -225,7 +264,7 @@ async def _new_oidc_registration_emits_provider_registration_after_commit() -> N
         create_email_user.assert_awaited_once_with(
             factory.session,
             email="same@example.com",
-            language_code="en",
+            language_code="ru",
             email_verified_at=ANY,
             referred_by_id=7,
             registered_via=None,

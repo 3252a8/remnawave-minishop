@@ -18,7 +18,7 @@
   import Input from "$components/ui/input.svelte";
   import Spinner from "$components/ui/spinner.svelte";
   import { StatusMessage } from "$components/patterns/webapp/index.js";
-  import { shouldShowInviteOnlyHint } from "$lib/webapp/authHelpers.js";
+  import { buildExternalOAuthStartUrl, shouldShowInviteOnlyHint } from "$lib/webapp/authHelpers.js";
   import { loginWithPasskey, passkeysSupported } from "$lib/webapp/passkeys.js";
   import ProviderLogo from "./ProviderLogo.svelte";
 
@@ -142,8 +142,7 @@
 
   function openProvider(provider: "google" | "yandex"): void {
     const referral = new URLSearchParams(window.location.search).get("ref") || "";
-    const query = referral ? `?ref=${encodeURIComponent(referral)}` : "";
-    window.location.assign(`/auth/${provider}/start${query}`);
+    window.location.assign(buildExternalOAuthStartUrl(provider, "login", currentLang, referral));
   }
 
   async function openPasskeyLogin(): Promise<void> {

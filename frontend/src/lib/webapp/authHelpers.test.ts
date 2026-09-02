@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { emailError, readReferralParam, shouldShowInviteOnlyHint } from "./authHelpers.js";
+import {
+  buildExternalOAuthStartUrl,
+  emailError,
+  readReferralParam,
+  shouldShowInviteOnlyHint,
+} from "./authHelpers.js";
 import { REFERRAL_STORAGE_KEY } from "./session.js";
 
 function installBrowser(search = "") {
@@ -27,6 +32,15 @@ afterEach(() => {
 });
 
 describe("auth referral helpers", () => {
+  it("builds external OAuth URLs with the application language", () => {
+    expect(buildExternalOAuthStartUrl("yandex", "login", "ru", "ABC 123")).toBe(
+      "/auth/yandex/start?purpose=login&lang=ru&ref=ABC+123"
+    );
+    expect(buildExternalOAuthStartUrl("google", "link", "en")).toBe(
+      "/auth/google/start?purpose=link&lang=en"
+    );
+  });
+
   it("reads referral params from supported query names", () => {
     for (const [search, expected] of [
       ["?ref=ABC123", "ABC123"],

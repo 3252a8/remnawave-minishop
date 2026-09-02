@@ -13,6 +13,7 @@
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import { AttentionDot } from "$components/ui/index.js";
+  import { buildExternalOAuthStartUrl } from "$lib/webapp/authHelpers.js";
   import type { ApiClient } from "$lib/webapp/publicApi.js";
   import { passkeysSupported, registerPasskey } from "$lib/webapp/passkeys.js";
   import type { Translate, UserProfile, VoidAction } from "$lib/webapp/types.js";
@@ -124,7 +125,7 @@
   }
 
   function linkExternal(provider: "google" | "yandex"): void {
-    window.location.assign(`/auth/${provider}/start?purpose=link`);
+    window.location.assign(buildExternalOAuthStartUrl(provider, "link", currentLang));
   }
 
   function emailAddressSources(address: AccountEmailAddress): string {
