@@ -1912,6 +1912,29 @@ test("checkout sliders keep price animations bounded and defer quotes while drag
   await closeDialog(dialog);
 });
 
+test("public install share links survive browser focus and visibility changes", async ({ page }) => {
+  const sharePath = "/s/0123456789abcdef0123456789abcdef";
+  await page.clock.install();
+  await page.goto(sharePath);
+  const publicShell = page.locator(".public-install-shell");
+  await expect(publicShell).toBeVisible();
+  const shareUrl = page.url();
+
+  for (const event of ["blur", "hidden", "visible", "focus", "pageshow"]) {
+    await page.evaluate((event) => {
+      if (event === "hidden" || event === "visible") {
+        Object.defineProperty(document, "visibilityState", { configurable: true, value: event });
+        document.dispatchEvent(new Event("visibilitychange"));
+      } else {
+        window.dispatchEvent(new Event(event));
+      }
+    }, event);
+    await page.clock.runFor(1_000);
+    await expect(page).toHaveURL(shareUrl);
+    await expect(publicShell).toBeVisible();
+  }
+});
+
 test("checkout promo code is editable and applies its quoted discount", async ({ page }) => {
   await page.setViewportSize(DESKTOP_VIEWPORT);
   await page.goto("/demo/runtime/home?mock=checkout-no-addons");

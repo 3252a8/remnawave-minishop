@@ -54,8 +54,9 @@ export function createResumeLifecycle({
   }
 
   function refreshAccountData() {
-    // Nothing to refresh before sign-in, and the request would only 401.
-    if (shellState.mode === "login") return;
+    // Loading account data switches to app mode and syncs its route. Keep public
+    // share links and pre-auth screens outside that flow, even with a session.
+    if (shellState.mode !== "app") return;
     const timestamp = now();
     if (lastAccountRefreshAt && timestamp - lastAccountRefreshAt < accountRefreshCooldownMs) {
       return;

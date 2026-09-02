@@ -104,14 +104,29 @@ describe("createResumeLifecycle", () => {
     expect(deps.refreshPendingActivationOnResume).toHaveBeenCalledTimes(3);
   });
 
-  it("does not re-read the account payload before sign-in", () => {
-    const { deps, lifecycle } = makeLifecycle();
-    shellState.mode = "login";
+  it.each(["login", "loading", "publicInstall"])(
+    "does not re-read the account payload in %s mode",
+    (mode) => {
+      const { deps, documentTarget, lifecycle, windowTarget } = makeLifecycle();
+      shellState.mode = mode;
+      const cleanup = lifecycle.mount();
 
-    lifecycle.onResume();
+      documentTarget.visibilityState = "hidden";
+      documentTarget.emit("visibilitychange");
+      windowTarget.emit("focus");
+      documentTarget.visibilityState = "visible";
+      documentTarget.emit("visibilitychange");
+      windowTarget.emit("focus");
+      windowTarget.emit("pageshow");
 
-    expect(deps.refreshAccountDataOnResume).not.toHaveBeenCalled();
-  });
+      expect(deps.refreshAccountDataOnResume).not.toHaveBeenCalled();
+
+      shellState.mode = "app";
+      windowTarget.emit("focus");
+      expect(deps.refreshAccountDataOnResume).toHaveBeenCalledOnce();
+      cleanup();
+    }
+  );
 
   it("registers and unregisters browser listeners", () => {
     const { documentElement, documentTarget, lifecycle, windowTarget } = makeLifecycle();
