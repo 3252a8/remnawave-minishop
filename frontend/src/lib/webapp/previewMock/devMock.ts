@@ -144,7 +144,7 @@ export const DEV_MOCK: PreviewMock = {
     serverStatusInternal: false,
     serverStatusShowOnHome: false,
     serverStatusUrl: "https://status.example.com",
-    compactHomeEnabled: true,
+    compactHomeEnabled: false,
     privacyPolicyUrl: "https://example.com/privacy",
     userAgreementUrl: "https://example.com/agreement",
     currency: "RUB",

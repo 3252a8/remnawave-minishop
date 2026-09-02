@@ -15,13 +15,13 @@ type BalanceSnapshot = DemoRecord & {
 
 const seededBalances = new Map<number, BalanceSnapshot>();
 
-function createSnapshot(userId: number, rich = false): BalanceSnapshot {
+function createSnapshot(userId: number, rich = false, enabled = true): BalanceSnapshot {
   const amountMinor = rich ? 128_450 : 18_000 + (Math.abs(userId) % 17) * 2_500;
   const partnerMinor = rich ? 36_200 : 5_000 + (Math.abs(userId) % 9) * 1_000;
   const now = Date.now();
   return {
     ok: true,
-    enabled: true,
+    enabled,
     currency: "RUB",
     currency_scale: 2,
     amount_minor: amountMinor,
@@ -134,7 +134,7 @@ function addHistory(
 
 export function currentDemoBalance(): BalanceSnapshot {
   const userId = 100_200_300;
-  if (!seededBalances.has(userId)) seededBalances.set(userId, createSnapshot(userId, true));
+  if (!seededBalances.has(userId)) seededBalances.set(userId, createSnapshot(userId, true, false));
   return seededBalances.get(userId)!;
 }
 

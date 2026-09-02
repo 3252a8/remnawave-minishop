@@ -259,6 +259,18 @@ export function applyPreviewMock(kind: unknown): void {
 
   if (mode === "user-balance" || mode === "user_balance" || mode === "balance") {
     DEV_MOCK.data.settings.user_balance_enabled = true;
+    DEV_MOCK.data.balance.enabled = true;
+    return;
+  }
+
+  if (mode === "compact" || mode === "compact-home" || mode === "compact_home") {
+    DEV_MOCK.config.compactHomeEnabled = true;
+    return;
+  }
+
+  if (mode === "server-status" || mode === "server_status" || mode === "status") {
+    DEV_MOCK.config.serverStatusInternal = true;
+    DEV_MOCK.config.serverStatusShowOnHome = true;
     return;
   }
 

@@ -949,7 +949,7 @@ test("support ticket conversations scroll on desktop and mobile", async ({ page 
 
 test("balance top-up dialog uses the demo viewport without an idle scrollbar", async ({ page }) => {
   await page.setViewportSize({ width: 583, height: 520 });
-  await page.goto(`${APP_URL}?path=/home&mock=tariffs`);
+  await page.goto(`${APP_URL}?path=/home&mock=user-balance`);
 
   await page.locator('[data-webapp-action="open-balance-topup"]').click();
   const dialog = page.locator(".dialog-card.balance-topup-dialog");
@@ -961,6 +961,25 @@ test("balance top-up dialog uses the demo viewport without an idle scrollbar", a
     .poll(() => viewport.evaluate((element) => element.scrollHeight - element.clientHeight))
     .toBeLessThanOrEqual(1);
   await expect(scrollbar).toHaveCount(0);
+});
+
+test("optional home widgets stay disabled by default and use dedicated presets", async ({
+  page,
+}) => {
+  await page.goto(`${APP_URL}?path=/home&mock=tariffs`);
+  await expect(page.locator(".home-compact-summary")).toHaveCount(0);
+  await expect(page.locator(".home-balance-card")).toHaveCount(0);
+  await expect(page.locator(".server-status-card")).toHaveCount(0);
+
+  await page.goto(`${APP_URL}?path=/home&mock=compact`);
+  await expect(page.locator(".home-compact-summary")).toBeVisible();
+  await expect(page.locator(".compact-balance")).toHaveCount(0);
+  await expect(page.locator(".server-status-card")).toHaveCount(0);
+
+  await page.goto(`${APP_URL}?path=/home&mock=server-status`);
+  await expect(page.locator(".server-status-card")).toBeVisible();
+  await expect(page.locator(".home-compact-summary")).toHaveCount(0);
+  await expect(page.locator(".home-balance-card")).toHaveCount(0);
 });
 
 test("device traffic bonuses stay legible on mobile", async ({ page }) => {
