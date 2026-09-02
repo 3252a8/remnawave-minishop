@@ -22,6 +22,7 @@
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import { LinearProgress } from "$components/patterns/webapp/index.js";
+  import ProviderLogo from "./webapp/auth/ProviderLogo.svelte";
   import BackTitle from "./preview/BackTitle.svelte";
   import PhoneFrame from "./preview/PhoneFrame.svelte";
   import PreviewMethods from "./preview/PreviewMethods.svelte";
@@ -288,8 +289,8 @@
         <Button class="wide"><Mail size={17} />Войти по почте</Button>
       </div>
       <div class="or-line"><span></span>или<span></span></div>
-      <Button variant="telegram" class="wide telegram-login-button">
-        <span class="telegram-login-text"><Send size={17} />Войти через телеграм</span>
+      <Button variant="secondary" class="wide auth-provider-button telegram-login-button">
+        <ProviderLogo provider="telegram" />Войти через телеграм
       </Button>
     </Card>
   </PhoneFrame>

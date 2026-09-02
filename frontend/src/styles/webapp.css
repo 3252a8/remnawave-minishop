@@ -3533,14 +3533,6 @@ a {
   opacity: 0.82;
 }
 
-.telegram-login-text {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-}
-
 .telegram-button-spinner {
   width: 17px;
   height: 17px;

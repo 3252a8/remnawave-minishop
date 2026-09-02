@@ -7,7 +7,6 @@
     Fingerprint,
     LockKeyhole,
     Mail,
-    Send,
     TriangleAlert,
   } from "$components/ui/icons.js";
   import { Select, Tooltip } from "$components/ui/primitives.js";
@@ -308,20 +307,18 @@
               <div class="auth-pane auth-provider-stack">
                 {#if telegramAuthEnabled}
                   <Button
-                    variant="telegram"
-                    class={`wide telegram-login-button${telegramLoginUnavailable ? " unavailable" : ""}${telegramLoginChecking ? " checking" : ""}`}
+                    variant="secondary"
+                    class={`wide auth-provider-button telegram-login-button${telegramLoginUnavailable ? " unavailable" : ""}${telegramLoginChecking ? " checking" : ""}`}
                     onclick={openTelegramLogin}
                     disabled={authBusy || telegramLoginBusy || telegramLoginUnavailable}
                     aria-label={telegramLoginLabel}
                   >
-                    <span class="telegram-login-text">
-                      {#if telegramLoginChecking}
-                        <Spinner size="sm" />
-                      {:else}
-                        <Send size={17} />
-                      {/if}
-                      {telegramLoginLabel}
-                    </span>
+                    {#if telegramLoginChecking}
+                      <Spinner size="sm" />
+                    {:else}
+                      <ProviderLogo provider="telegram" />
+                    {/if}
+                    {telegramLoginLabel}
                   </Button>
                 {/if}
                 {#if authProviders.includes("google")}
