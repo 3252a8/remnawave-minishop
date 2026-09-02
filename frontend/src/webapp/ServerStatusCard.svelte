@@ -24,6 +24,7 @@
     (status?.groups || []).reduce((total, group) => total + group.items.length, 0)
   );
   const provider = $derived(statusProvider(status));
+  const isExternalLink = $derived(provider === "url");
 
   function openStatus(): void {
     if (provider === "url" && status?.externalUrl) openExternalLink(status.externalUrl);
@@ -34,14 +35,21 @@
 {#if status?.enabled}
   <Card compact class="server-status-card">
     <button type="button" class="server-status-card-action" onclick={openStatus}>
-      <span class:status-problem={status.status !== "operational"} class="server-status-card-icon">
+      <span
+        class:status-problem={!isExternalLink && status.status !== "operational"}
+        class="server-status-card-icon"
+      >
         <Activity size={19} />
       </span>
       <span class="server-status-card-copy">
         <strong>{t("wa_server_status_title", {}, "Server status")}</strong>
         <small>
-          {t(`wa_server_status_state_${status.status}`, {}, status.status)}
-          {#if itemCount}
+          {#if isExternalLink}
+            {t("wa_server_status_external_link", {}, "Open status page")}
+          {:else}
+            {t(`wa_server_status_state_${status.status}`, {}, status.status)}
+          {/if}
+          {#if itemCount && !isExternalLink}
             · {t(
               "wa_server_status_services_count",
               { count: itemCount },

@@ -15,7 +15,7 @@ const EMBEDDED_COMMON = new Set([
 ]);
 const PROVIDER_FIELDS: Record<ServerStatusProvider, Set<string>> = {
   url: new Set(["SERVER_STATUS_URL"]),
-  "uptime-kuma": new Set(["SERVER_STATUS_KUMA_URL", "SERVER_STATUS_KUMA_SLUG", ...EMBEDDED_COMMON]),
+  "uptime-kuma": new Set(["SERVER_STATUS_KUMA_URL", ...EMBEDDED_COMMON]),
   "xray-checker": new Set(["SERVER_STATUS_XRAY_CHECKER_URL", ...EMBEDDED_COMMON]),
 };
 
@@ -31,12 +31,36 @@ export function effectiveServerStatusProvider(
   return raw === "uptime-kuma" || raw === "xray-checker" ? raw : "url";
 }
 
-export function isKumaUrlValid(value: unknown): boolean {
-  const valueText = String(value ?? "").trim();
-  if (!valueText) return true;
+export function isKumaStatusPageUrlValid(value: unknown): boolean {
+  const raw = String(value ?? "").trim();
+  if (!raw || raw !== String(value ?? "") || /\s/u.test(raw)) return false;
+  // WHATWG URL resolves encoded dot segments before exposing `pathname`.
+  if (/%2e(?:%2e)?(?:\/|$)/iu.test(raw)) return false;
   try {
-    const url = new URL(valueText);
-    return (url.protocol === "http:" || url.protocol === "https:") && Boolean(url.hostname);
+    const url = new URL(raw);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+    if (!url.hostname || url.username || url.password || url.search || url.hash) return false;
+    if (url.port === "0") return false;
+    const hostname = url.hostname.replace(/^\[|\]$/gu, "").replace(/\.$/u, "");
+    if (
+      !hostname ||
+      (!hostname.includes(":") &&
+        !hostname.split(".").every((label) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/iu.test(label)))
+    ) {
+      return false;
+    }
+    const rawSegments = url.pathname.split("/");
+    if (rawSegments[0] === "") rawSegments.shift();
+    if (rawSegments.at(-1) === "") rawSegments.pop();
+    if (rawSegments.some((segment) => !segment)) return false;
+    const segments = rawSegments.map((segment) => {
+      const decoded = decodeURIComponent(segment);
+      if (decoded === "." || decoded === ".." || /[/\\\x00-\x1f]/u.test(decoded)) {
+        throw new TypeError("invalid path segment");
+      }
+      return encodeURIComponent(decoded);
+    });
+    return segments.length >= 2 && segments.at(-2) === "status" && Boolean(segments.at(-1));
   } catch {
     return false;
   }

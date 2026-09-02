@@ -9,6 +9,7 @@
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import { AttentionDot } from "$components/ui/index.js";
+  import { countryFlagParts } from "$lib/webapp/countryFlags.js";
   import type { ServerStatusStore } from "$lib/webapp/stores/serverStatusStore.svelte";
   import type { OpenLinkAction, Translate, VoidAction } from "$lib/webapp/types.js";
 
@@ -46,6 +47,11 @@
 
   function percent(value: number): string {
     return `${new Intl.NumberFormat(currentLang, { maximumFractionDigits: 2 }).format(value)}%`;
+  }
+
+  function historyFor(itemId: string) {
+    const history = statusStore.history[itemId] || [];
+    return Array.from({ length: 5 }, (_, index) => history[index] || null);
   }
 </script>
 
@@ -140,9 +146,11 @@
               <div class="status-item">
                 <AttentionDot position="inline" class="status-dot status-item-{item.status}" />
                 <span class="status-item-name"
-                  ><strong>{item.name}</strong><small
-                    >{t(`wa_server_status_item_${item.status}`, {}, item.status)}</small
-                  ></span
+                  ><strong
+                    >{#each countryFlagParts(item.name) as part}{#if part.kind === "flag"}<span
+                          class="emoji-flag">{part.value}</span
+                        >{:else}{part.value}{/if}{/each}</strong
+                  ><small>{t(`wa_server_status_item_${item.status}`, {}, item.status)}</small></span
                 >
                 <span class="status-metrics">
                   <small
@@ -150,6 +158,21 @@
                       ? `${Math.round(item.latencyMs)} ms`
                       : t("wa_server_status_latency_unavailable", {}, "n/a")}</small
                   >
+                  {#if item.provider === "xray-checker"}
+                    <span
+                      class="status-history"
+                      aria-label={t("wa_server_status_history", { count: 5 }, "Last 5 checks")}
+                    >
+                      {#each historyFor(item.id) as historyEntry}
+                        <span
+                          class:status-history-empty={!historyEntry}
+                          class="status-history-point status-item-{historyEntry?.status ||
+                            'unknown'}"
+                          aria-hidden="true"
+                        ></span>
+                      {/each}
+                    </span>
+                  {/if}
                   {#if item.uptime24h != null}<small
                       >{t(
                         "wa_server_status_uptime_24h",
@@ -351,6 +374,30 @@
   }
   .status-metrics {
     text-align: right;
+  }
+  .status-history {
+    display: flex;
+    justify-content: flex-end;
+    gap: 3px;
+  }
+  .status-history-point {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #94a3b8;
+  }
+  .status-history-point.status-item-online {
+    background: #22c55e;
+  }
+  .status-history-point.status-item-offline {
+    background: #ef4444;
+  }
+  .status-history-point.status-item-degraded,
+  .status-history-point.status-item-maintenance {
+    background: #f59e0b;
+  }
+  .status-history-empty {
+    opacity: 0.28;
   }
   :global(.status-incident) div {
     display: flex;

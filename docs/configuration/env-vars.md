@@ -269,8 +269,7 @@ Trust-all вариант записывается как
 | `SERVER_STATUS_SHOW_ON_HOME` | `False` | Дополнительно показывает карточку статуса на главном экране; пункт в настройках доступен независимо от этого флага. |
 | `SERVER_STATUS_PROVIDER` | `url` | Источник данных: `url`, `uptime-kuma` или `xray-checker`. |
 | `SERVER_STATUS_URL` | пусто | Внешняя страница для источника `url`; встроенные источники её не используют. |
-| `SERVER_STATUS_KUMA_URL` | пусто | Базовый URL Uptime Kuma без пути страницы, например `https://status.example.com`. |
-| `SERVER_STATUS_KUMA_SLUG` | `default` | Часть адреса после `/status/`: для `https://status.example.com/status/default` это `default`. |
+| `SERVER_STATUS_KUMA_URL` | пусто | Полный URL опубликованной страницы Uptime Kuma, например `https://status.example.com/status/default`. Допустим префикс reverse-proxy перед `/status/`, например `/kuma/status/default`; query, fragment и учётные данные запрещены. |
 | `SERVER_STATUS_XRAY_CHECKER_URL` | пусто | Базовый URL xray-checker без пути API: для `https://checker.example.com/api/v1/public/proxies` это `https://checker.example.com`. |
 | `SERVER_STATUS_CACHE_TTL_SECONDS` | `30` | Срок хранения успешного ответа встроенного источника. |
 | `SERVER_STATUS_STALE_TTL_SECONDS` | `300` | Максимальное время выдачи последнего успешного ответа при ошибке источника. |

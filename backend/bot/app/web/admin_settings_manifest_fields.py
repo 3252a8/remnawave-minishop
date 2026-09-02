@@ -736,16 +736,7 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "url",
         "system",
         "Uptime Kuma URL",
-        "Base URL of the published Uptime Kuma status page.",
-        subsection="server_status",
-    ),
-    SettingField(
-        "SERVER_STATUS_KUMA_SLUG",
-        "string",
-        "system",
-        "Uptime Kuma status page slug",
-        "Slug of the published Uptime Kuma status page.",
-        optional=False,
+        "Full published status page URL, for example https://status.example.com/status/default.",
         subsection="server_status",
     ),
     SettingField(

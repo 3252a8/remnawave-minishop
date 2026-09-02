@@ -12,6 +12,7 @@ import re
 from typing import Any
 
 from bot.app.web.admin_settings_manifest_fields import SETTINGS_MANIFEST, SettingField
+from config.server_status import KumaStatusPageUrlError, parse_kuma_status_page_url
 from config.menu_buttons import normalize_menu_buttons_json
 from config.support_links import normalize_support_link
 
@@ -125,6 +126,13 @@ def coerce_value(field: SettingField, raw: Any) -> Any:
                 "SUPPORT_LINK must be an HTTP(S) URL, @username, or t.me/username link"
             )
         return normalized
+
+    if field.key == "SERVER_STATUS_KUMA_URL":
+        try:
+            parse_kuma_status_page_url(str(raw))
+        except KumaStatusPageUrlError as exc:
+            raise ValueError("SERVER_STATUS_KUMA_URL: published /status/<slug> URL expected") from exc
+        return str(raw).strip()
 
     if isinstance(raw, str):
         string_value = raw.strip()
