@@ -45,7 +45,9 @@ export function isKumaStatusPageUrlValid(value: unknown): boolean {
     if (
       !hostname ||
       (!hostname.includes(":") &&
-        !hostname.split(".").every((label) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/iu.test(label)))
+        !hostname
+          .split(".")
+          .every((label) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/iu.test(label)))
     ) {
       return false;
     }
@@ -55,7 +57,14 @@ export function isKumaStatusPageUrlValid(value: unknown): boolean {
     if (rawSegments.some((segment) => !segment)) return false;
     const segments = rawSegments.map((segment) => {
       const decoded = decodeURIComponent(segment);
-      if (decoded === "." || decoded === ".." || /[/\\\x00-\x1f]/u.test(decoded)) {
+      const hasControlCharacter = Array.from(decoded).some((char) => char.charCodeAt(0) < 32);
+      if (
+        decoded === "." ||
+        decoded === ".." ||
+        decoded.includes("/") ||
+        decoded.includes("\\") ||
+        hasControlCharacter
+      ) {
         throw new TypeError("invalid path segment");
       }
       return encodeURIComponent(decoded);

@@ -65,12 +65,9 @@ describe("isKumaStatusPageUrlValid", () => {
     "http://status.example.test/status/default",
     "https://status.example.test/kuma/status/services/",
     "https://status.example.test/status/team%20services",
-  ])(
-    "accepts %j",
-    (value) => {
-      expect(isKumaStatusPageUrlValid(value)).toBe(true);
-    }
-  );
+  ])("accepts %j", (value) => {
+    expect(isKumaStatusPageUrlValid(value)).toBe(true);
+  });
 
   it.each([
     "status.example.test/status/default",

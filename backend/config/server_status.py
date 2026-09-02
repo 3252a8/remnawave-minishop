@@ -68,7 +68,7 @@ def _validated_origin(value: str) -> tuple[str, list[str]]:
         except UnicodeError as exc:
             raise KumaStatusPageUrlError("invalid host") from exc
         if not labels or any(not _HOST_LABEL.fullmatch(label) for label in labels):
-            raise KumaStatusPageUrlError("invalid host")
+            raise KumaStatusPageUrlError("invalid host") from None
     else:
         normalized_hostname = str(address)
         if address.version == 6:

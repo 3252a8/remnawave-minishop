@@ -19,12 +19,12 @@ from bot.services.server_status.service import (
     ProviderFetchError,
     ServerStatusService,
 )
+from bot.services.server_status.xray_checker import parse_xray_proxies
 from config.server_status import (
     KumaStatusPageUrlError,
     parse_kuma_status_page_url,
     parse_legacy_kuma_status_page_url,
 )
-from bot.services.server_status.xray_checker import parse_xray_proxies
 from config.settings import Settings
 from tests.support.settings_stub import settings_stub
 
@@ -152,7 +152,9 @@ def test_legacy_kuma_base_url_is_parsed_only_with_the_separate_slug() -> None:
         "team services",
     )
 
-    assert status_page.api_url() == "https://uptime.example.test/kuma/api/status-page/team%20services"
+    assert (
+        status_page.api_url() == "https://uptime.example.test/kuma/api/status-page/team%20services"
+    )
 
 
 def test_kuma_malformed_published_url_does_not_use_legacy_fallback(

@@ -262,7 +262,7 @@ export function createSettingsStore({ api, onToast, at }: SettingsStoreOptions):
         at(
           "settings_server_status_kuma_url_invalid",
           {},
-            "Enter the full Uptime Kuma status page URL, including /status/<slug>."
+          "Enter the full Uptime Kuma status page URL, including /status/<slug>."
         )
       );
       return false;
