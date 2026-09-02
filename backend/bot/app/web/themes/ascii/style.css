@@ -97,7 +97,7 @@
 .theme-key-ascii input,
 .theme-key-ascii textarea,
 .theme-key-ascii select {
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   letter-spacing: 0;
   font-synthesis: none;
   -webkit-font-smoothing: none;
@@ -230,7 +230,7 @@
   color: var(--ascii-fg);
   box-shadow: none;
   text-transform: none;
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   transform: none;
   position: relative;
 }

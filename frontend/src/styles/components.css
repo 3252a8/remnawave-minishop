@@ -435,7 +435,7 @@
 .numeric-badge-value {
   display: block;
   min-width: 0;
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   font-size: inherit;
   font-weight: inherit;
   line-height: 1;

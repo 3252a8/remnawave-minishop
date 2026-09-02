@@ -1161,7 +1161,7 @@
 /* uPlot (canvas) — dark admin theme */
 .admin-uplot.uplot {
   color: var(--admin-muted);
-  font-family: var(--font-sans, system-ui, sans-serif);
+  font-family: var(--font-ui, var(--font-sans, system-ui, sans-serif));
 }
 
 .admin-uplot .u-title {

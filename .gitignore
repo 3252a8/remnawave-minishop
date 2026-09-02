@@ -27,6 +27,7 @@ node_modules/
 docs-site/.astro/
 docs-site/dist/
 docs-site/public/demo/runtime/
+docs-site/public/fonts/
 docs-site/public/provider-logos/
 docs-site/src/content/docs/
 /frontend-nginx-dist/
