@@ -1325,6 +1325,7 @@ a {
 
 .period-card .period-unit-price {
   display: inline-flex;
+  gap: 0.25em;
   align-items: baseline;
   justify-content: center;
   white-space: nowrap;

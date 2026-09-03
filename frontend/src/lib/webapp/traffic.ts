@@ -1,5 +1,4 @@
-import { durationParts } from "./subscriptionPeriods";
-import { formatTrafficBytes } from "./formatters.js";
+import { formatTrafficBytes, formatFraction, roundToHalf } from "./formatters.js";
 
 type WebappRecord = Record<string, unknown>;
 type SubscriptionTraffic = WebappRecord & {
@@ -185,13 +184,23 @@ export function activeSubscriptionTermLabel(
 ): string {
   if (isForeverSubscription(sub)) return t("wa_sub_term_forever");
 
-  const days = Math.max(0, Number(sub?.days_left || 0));
+  const rawDays = Number(sub?.days_left || 0);
+  const days = Number.isFinite(rawDays) ? Math.max(0, rawDays) : 0;
   if (!days) return t("wa_sub_term_value_unit", { value: "0", unit: termUnitLabel(0, "day") });
 
-  const duration = durationParts(days);
-  if (!duration) return "";
+  if (days < 30) {
+    return t("wa_sub_term_value_unit", { value: String(days), unit: termUnitLabel(days, "day") });
+  }
+  if (days < 365) {
+    const months = roundToHalf(days / 30);
+    return t("wa_sub_term_value_unit", {
+      value: formatFraction(months),
+      unit: termUnitLabel(months, "month"),
+    });
+  }
+  const years = roundToHalf(days / 365);
   return t("wa_sub_term_value_unit", {
-    value: String(duration.count),
-    unit: termUnitLabel(duration.count, duration.unit),
+    value: formatFraction(years),
+    unit: termUnitLabel(years, "year"),
   });
 }

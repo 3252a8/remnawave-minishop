@@ -1,12 +1,10 @@
 <script lang="ts">
   import { checkoutUnitPrice } from "$lib/webapp/checkoutUnitPrice.js";
-  import { billingDurationDays } from "$lib/webapp/subscriptionPeriods.js";
   import { ArrowLeft, ArrowRight, CheckCircle2 } from "$components/ui/icons.js";
   import Button from "$components/ui/button.svelte";
   import Checkbox from "$components/ui/checkbox.svelte";
   import Dialog from "$components/ui/dialog.svelte";
   import { CheckoutAddonSliders, EmptyCard } from "$components/patterns/webapp/index.js";
-  import CheckoutDurationPreview from "./CheckoutDurationPreview.svelte";
   import CheckoutPeriodPrice from "./CheckoutPeriodPrice.svelte";
   import CheckoutPaymentControls from "./CheckoutPaymentControls.svelte";
   import CheckoutTariffPicker from "./CheckoutTariffPicker.svelte";
@@ -565,7 +563,7 @@
   }
   function checkoutUnitPriceSuffix(plan: PlanView | null): string {
     const trafficUnit = trafficMode || !isSubscriptionPlan(plan);
-    return t(trafficUnit ? "wa_per_gb_short" : "wa_per_30_days_short");
+    return t(trafficUnit ? "wa_per_gb_short" : "wa_per_month_label");
   }
   function tariffLimitLabel(tariff: TariffView) {
     return tariffLimitLabelFn(tariff, { t });
@@ -738,18 +736,6 @@
 {/snippet}
 
 {#snippet paymentBody()}
-  <CheckoutDurationPreview
-    visible={paymentStep === "checkout" &&
-      Boolean(selectedPlan) &&
-      !trafficMode &&
-      !selectedPlan?.traffic_gb &&
-      !selectedPlan?.device_count}
-    days={billingDurationDays(selectedPlan)}
-    period={planDisplayTitle(selectedPlan)}
-    bonusDays={Number(checkoutQuote?.bonus_days || 0)}
-    endDate={String(checkoutQuote?.end_date || "")}
-    {t}
-  />
   <div class="payment-dialog-body">
     {#if pendingPayment}
       <PendingPaymentCard

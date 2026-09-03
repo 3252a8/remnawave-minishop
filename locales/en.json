@@ -4552,7 +4552,7 @@
   "admin_menu_buttons_section_support": "Support",
   "admin_menu_buttons_section_settings": "Settings",
   "admin_menu_buttons_section_status": "Service status",
-  "wa_per_30_days_short": "per 30 days",
+  "wa_per_month_label": "per month",
   "admin_tariff_period_days": "Duration, days",
   "admin_tariff_period_days_hint": "A month is 30 days; a year is 365 days",
   "payment_description_subscription_days": "Subscription for {days} days",
@@ -4580,8 +4580,5 @@
   "payment_failed_detail_period": "subscription for {period}",
   "payment_failed_detail_period_with_tariff": "«{tariff}» subscription for {period}",
   "yookassa_auto_renewal_days": "✅ Subscription renewed for {days} days, until {end_date}.",
-  "wa_checkout_exact_period": "{period} · {days} days",
-  "wa_checkout_bonus_days": "+ {days} bonus days",
-  "wa_checkout_end_date": "Access until {date}",
   "admin_payment_days_label": "Period: {days} days"
 }

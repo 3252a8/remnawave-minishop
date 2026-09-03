@@ -8,6 +8,7 @@ export function checkoutUnitPrice<T extends BillingPlan>(
   traffic: boolean,
   stars: boolean
 ): T | null {
+  if (!traffic && Number(billingDurationDays(plan) || 0) < 30) return null;
   const divisor = traffic
     ? Number(plan?.traffic_gb || plan?.months || 0)
     : Number(billingDurationDays(plan) || 0) / 30;

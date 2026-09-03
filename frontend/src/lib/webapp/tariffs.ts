@@ -400,10 +400,10 @@ export function planUnitHint(
     return `${formatMoney(Number(plan?.price || 0) / gb, plan?.currency || undefined)}${t("wa_per_gb_short")}`;
   }
   const days = billingDurationDays(plan);
-  if (!days) return "";
+  if (!days || days < 30) return "";
   if (isStarsPaymentMethod(selectedMethod) && Number(plan?.stars_price || 0) > 0) {
     const rate = (Number(plan?.stars_price) * 30) / days;
-    return `${rate < 1 ? "<1" : rate.toFixed(0)} ⭐${t("wa_per_30_days_short")}`;
+    return `${rate < 1 ? "<1" : rate.toFixed(0)} ⭐ ${t("wa_per_month_label")}`;
   }
-  return `${formatMoney((Number(plan?.price || 0) * 30) / days, plan?.currency || undefined)}${t("wa_per_30_days_short")}`;
+  return `${formatMoney((Number(plan?.price || 0) * 30) / days, plan?.currency || undefined)} ${t("wa_per_month_label")}`;
 }

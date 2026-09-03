@@ -4552,7 +4552,7 @@
   "admin_menu_buttons_section_support": "Поддержка",
   "admin_menu_buttons_section_settings": "Настройки",
   "admin_menu_buttons_section_status": "Статус сервисов",
-  "wa_per_30_days_short": "за 30 дней",
+  "wa_per_month_label": "за месяц",
   "admin_tariff_period_days": "Срок, дней",
   "admin_tariff_period_days_hint": "Месяц — 30 дней, год — 365 дней",
   "payment_description_subscription_days": "Подписка на {days} дн.",
@@ -4580,8 +4580,5 @@
   "payment_failed_detail_period": "тариф на {period}",
   "payment_failed_detail_period_with_tariff": "тариф «{tariff}» на {period}",
   "yookassa_auto_renewal_days": "✅ Подписка продлена на {days} дн. до {end_date}.",
-  "wa_checkout_exact_period": "{period} · {days} дн.",
-  "wa_checkout_bonus_days": "+ {days} бонусных дней",
-  "wa_checkout_end_date": "Доступ до {date}",
   "admin_payment_days_label": "Период: {days} дн."
 }
