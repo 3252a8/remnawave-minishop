@@ -29,7 +29,7 @@ def _read_env(path: Path) -> dict[str, str]:
 
 
 def _panel_service() -> PanelApiService:
-    env = _read_env(REPO_ROOT / ".env.remnawave-dev")
+    env = _read_env(Path(os.getenv("QA_ENV_FILE", str(REPO_ROOT / ".env.remnawave-dev"))))
     api_key = os.getenv("QA_REMNAWAVE_API_TOKEN") or env["REMNAWAVE_DEV_API_TOKEN"]
     api_url = os.getenv("QA_REMNAWAVE_API_URL", "http://127.0.0.1:3000/api")
     return PanelApiService(

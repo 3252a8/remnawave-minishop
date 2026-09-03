@@ -165,6 +165,22 @@ EXPOSE 8080 8081
 CMD ["python", "backend/main_backend.py"]
 
 
+FROM python-base AS qa
+
+# The optional test image supplies POSIX shell tools on Windows hosts too.
+# It is never used as an application runtime image.
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends bash git openssl \
+    && rm -rf /var/lib/apt/lists/*
+COPY requirements-dev.txt /tmp/requirements-dev.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r /tmp/requirements-dev.txt
+COPY --from=frontend-builder /usr/local/bin/node /usr/local/bin/node
+WORKDIR /workspace
+CMD ["python", "-m", "pytest"]
+
+
 FROM python-base AS worker
 
 LABEL org.opencontainers.image.source="https://github.com/3252a8/remnawave-minishop" \

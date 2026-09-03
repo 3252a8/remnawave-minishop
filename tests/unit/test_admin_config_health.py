@@ -73,7 +73,10 @@ class DataDirAlertsTests(unittest.TestCase):
     def test_writable_data_dir_produces_no_alerts(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             (Path(tmpdir) / "data").mkdir()
-            alerts = health.data_dir_alerts(_settings(), app_root=Path(tmpdir))
+            alerts = health.data_dir_alerts(
+                _settings(BACKUP_DIR=str(Path(tmpdir) / "data" / "backups")),
+                app_root=Path(tmpdir),
+            )
 
         self.assertEqual(alerts, [])
 

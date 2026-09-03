@@ -344,7 +344,9 @@ def test_admin_settings_save_roundtrip(client: httpx.Client) -> None:
 def test_remnawave_versions_are_pinned_and_healthy(client: httpx.Client) -> None:
     preset = os.getenv("QA_REMNAWAVE_PRESET", "3.0.0")
     lock_path = REPO_ROOT / "deploy" / "dev" / "remnawave-stands" / preset / "versions.lock.json"
-    selected_env = (REPO_ROOT / ".env.remnawave-dev").read_text(encoding="utf-8")
+    selected_env = Path(os.getenv("QA_ENV_FILE", str(REPO_ROOT / ".env.remnawave-dev"))).read_text(
+        encoding="utf-8"
+    )
     lock = json.loads(lock_path.read_text(encoding="utf-8"))
     support = json.loads(
         (REPO_ROOT / "backend" / "bot" / "services" / "remnawave_support.json").read_text(

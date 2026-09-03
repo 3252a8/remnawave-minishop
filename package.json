@@ -48,6 +48,7 @@
     "dev:stand:ps": "docker compose --env-file .env.remnawave-dev -f docker-compose-dev.yml -f docker-compose.remnawave-dev.yml --profile seed ps",
     "dev:stand:logs": "docker compose --env-file .env.remnawave-dev -f docker-compose-dev.yml -f docker-compose.remnawave-dev.yml --profile seed logs -f backend frontend remnawave remnawave-subscription-page",
     "qa:fullstack": "python -m pytest -q tests/qa",
+    "qa:all": "python scripts/run_all_tests.py",
     "test": "pytest -q",
     "typecheck:py": "python -m mypy --explicit-package-bases backend/config backend/db backend/bot/infra backend/bot/middlewares backend/bot/utils backend/bot/plugins backend/bot/keyboards backend/bot/payment_providers backend/bot/services backend/bot/handlers backend/bot/app/factories backend/bot/app/controllers backend/bot/app/web backend/main_backend.py backend/main_worker.py backend/scripts scripts tests",
     "check:architecture": "python scripts/check_architecture.py",

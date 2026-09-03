@@ -44,7 +44,7 @@ def _async_dsn() -> str:
 
 
 async def _verify_upgrade() -> None:
-    env = _read_env(REPO_ROOT / ".env.remnawave-dev")
+    env = _read_env(Path(os.getenv("QA_ENV_FILE", str(REPO_ROOT / ".env.remnawave-dev"))))
     settings = cast(
         Settings,
         settings_stub(
