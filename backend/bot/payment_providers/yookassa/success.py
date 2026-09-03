@@ -23,9 +23,11 @@ from config.settings import Settings
 from db.dal import auto_renew_dal, payment_dal, subscription_dal, user_billing_dal, user_dal
 
 from ..shared import (
+    PaymentSuccessRequest,
     SuccessMessage,
     append_hwid_renewal_note,
     build_success_message,
+    finalize_successful_payment,
     format_human_units,
     is_traffic_sale_base,
     make_translator,
@@ -341,6 +343,28 @@ async def process_successful_payment(
                 payment_db_id,
                 f"failed_{mismatch_kind}_mismatch",
                 yk_payment_id_from_hook,
+            )
+            return None
+        if sale_mode_base == "balance_topup":
+            await finalize_successful_payment(
+                PaymentSuccessRequest(
+                    bot=bot,
+                    settings=settings,
+                    i18n=i18n,
+                    session=session,
+                    subscription_service=subscription_service,
+                    referral_service=referral_service,
+                    payment=payment_record,
+                    user_id=user_id,
+                    amount=payment_value,
+                    currency=payment_currency,
+                    sale_mode=sale_mode,
+                    months=payment_units,
+                    traffic_amount=None,
+                    provider_subscription="yookassa",
+                    provider_notification="yookassa",
+                    log_prefix="YooKassa webhook",
+                )
             )
             return None
         payment_record = await payment_dal.claim_payment_finalization(session, payment_db_id)

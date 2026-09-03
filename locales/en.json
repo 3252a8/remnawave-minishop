@@ -4080,6 +4080,8 @@
   "admin_partners_preview_application_privacy": "I run a small privacy-focused community.",
   "admin_partners_rate_future_note": "The new rate applies only to future successful payments.",
   "admin_partners_rate_label": "Commission rate, %",
+  "admin_partners_rate_save_mismatch": "The server did not confirm the new rate.",
+  "admin_partners_reason_required": "Reason (required)",
   "admin_partners_range": "Chart range",
   "admin_partners_reason": "Reason",
   "admin_partners_refund_marker": "Refund / reversal",

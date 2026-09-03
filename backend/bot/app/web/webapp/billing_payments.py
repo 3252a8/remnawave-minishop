@@ -501,7 +501,7 @@ async def _create_subscription_payment(
         return _json_error(400, "invalid_plan", "Subscription end date is out of range")
     if fixed_days is not None:
         sale_mode = with_period_days(sale_mode, fixed_days)
-    if entitlement_context_snapshot is None:
+    if entitlement_context_snapshot is None and _sale_mode_base(sale_mode) != "balance_topup":
         try:
             entitlement_context_snapshot = await snapshot_current_entitlement_context(
                 session,

@@ -66,6 +66,7 @@
     loadPartnerDetail,
     loadPartnerLists,
     loadPartnerPage,
+    requirePartnerAdminResponse,
     type AdminPartnerListQuery,
     type AdminPartnerDashboard,
     type PartnerLinkRow,
@@ -310,7 +311,7 @@
       path: string,
       options?: PartnerRequestOptions
     ) => Promise<Record<string, unknown>>;
-    return call(path, options);
+    return requirePartnerAdminResponse(await call(path, options));
   }
 
   async function post(
@@ -492,10 +493,22 @@
           });
         }
       } else if (dialog === "rate") {
-        await post(`/admin/partners/${selectedPartner.id}/commission-rate`, {
-          commission_bps: Math.round(Number(dialogRate) * 100),
+        const commissionBps = Math.round(Number(dialogRate) * 100);
+        const response = await post(`/admin/partners/${selectedPartner.id}/commission-rate`, {
+          commission_bps: commissionBps,
           reason: dialogReason.trim(),
         });
+        const savedProfile = (response.partner || {}) as Record<string, unknown>;
+        if (Number(savedProfile.commission_bps) !== commissionBps) {
+          throw new Error(
+            at("partners_rate_save_mismatch", {}, "The server did not confirm the new rate")
+          );
+        }
+        const savedRate = commissionBps / 100;
+        selectedPartner = { ...selectedPartner, rate: savedRate };
+        partners = partners.map((partner) =>
+          partner.id === selectedPartner.id ? { ...partner, rate: savedRate } : partner
+        );
       } else if (dialog === "balance") {
         const scale = selectedPartner.currencyScale ?? 2;
         await post(`/admin/partners/${selectedPartner.id}/balance-adjustments`, {

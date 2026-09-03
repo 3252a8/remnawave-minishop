@@ -4080,6 +4080,8 @@
   "admin_partners_preview_application_privacy": "Веду небольшое сообщество о приватности.",
   "admin_partners_rate_future_note": "Новая ставка применяется только к будущим успешным платежам.",
   "admin_partners_rate_label": "Ставка комиссии, %",
+  "admin_partners_rate_save_mismatch": "Сервер не подтвердил новую ставку.",
+  "admin_partners_reason_required": "Причина (обязательно)",
   "admin_partners_range": "Период графика",
   "admin_partners_reason": "Причина",
   "admin_partners_refund_marker": "Возврат / сторно",

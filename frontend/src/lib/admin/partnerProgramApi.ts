@@ -58,6 +58,14 @@ function record(value: unknown): JsonRecord {
   return value && typeof value === "object" ? (value as JsonRecord) : {};
 }
 
+export function requirePartnerAdminResponse(value: unknown): JsonRecord {
+  const payload = record(value);
+  if (payload.ok === false) {
+    throw new Error(String(payload.message || payload.error || "partner_action_failed"));
+  }
+  return payload;
+}
+
 function records(value: unknown): JsonRecord[] {
   return Array.isArray(value) ? value.map(record) : [];
 }

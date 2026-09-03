@@ -9,6 +9,7 @@ import {
   mapPartner,
   mapWithdrawal,
   PARTNER_LIST_PAGE_SIZE,
+  requirePartnerAdminResponse,
 } from "./partnerProgramApi.js";
 
 describe("partner program admin API", () => {
@@ -150,5 +151,11 @@ describe("partner program admin API", () => {
     await loadPartnerDashboard(request as unknown as AdminApi, "RUB");
 
     expect(String(request.mock.calls[0][0])).toContain("days=all");
+  });
+
+  it("rejects failed partner admin actions instead of reporting them as saved", () => {
+    expect(() => requirePartnerAdminResponse({ ok: false, error: "reason_required" })).toThrow(
+      "reason_required"
+    );
   });
 });

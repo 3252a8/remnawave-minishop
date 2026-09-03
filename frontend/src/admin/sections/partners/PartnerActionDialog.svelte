@@ -47,6 +47,14 @@
     dialogAmount: string;
     balanceMode: BalanceMode;
   } = $props();
+
+  const rateChangeInvalid = $derived(
+    dialog === "rate" &&
+      (!dialogReason.trim() ||
+        !Number.isFinite(Number(dialogRate)) ||
+        Number(dialogRate) < 0 ||
+        Number(dialogRate) > 100)
+  );
 </script>
 
 <Dialog
@@ -87,7 +95,7 @@
       >
         <Input class="input" type="number" min="0" max="100" step="0.01" bind:value={dialogRate} />
       </AdminField>
-      <AdminField label={at("partners_reason", {}, "Reason")}>
+      <AdminField label={at("partners_reason_required", {}, "Reason (required)")}>
         <Textarea bind:value={dialogReason} rows={3} />
       </AdminField>
     {:else if dialog === "balance"}
@@ -169,7 +177,7 @@
       <AdminButton
         variant={dialog === "status" || dialog === "link" ? "danger" : "primary"}
         onclick={completeDialog}
-        disabled={actionBusy}
+        disabled={actionBusy || rateChangeInvalid}
       >
         {at("confirm", {}, "Confirm")}
       </AdminButton>
