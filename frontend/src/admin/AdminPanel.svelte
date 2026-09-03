@@ -1,5 +1,6 @@
 ﻿<script lang="ts">
   import { onMount } from "svelte";
+  import { Tooltip } from "$components/ui/primitives.js";
 
   import AdminPanelLayout from "./AdminPanelLayout.svelte";
   import {
@@ -765,74 +766,77 @@
   });
 </script>
 
-<AdminPanelLayout
-  api={stableApi}
-  {active}
-  {activeSectionComponent}
-  {activeSectionLoading}
-  featureAvailable={activeSectionFeatureAvailable}
-  {featuresResolved}
-  {availableFeatures}
-  {adsStore}
-  {appFaviconUrl}
-  {appFaviconUseCustom}
-  {appRepositoryUrl}
-  {appVersion}
-  {at}
-  {brand}
-  {brandTitle}
-  {currentLang}
-  {dirtyCount}
-  {fmtDate}
-  {fmtDateShort}
-  {fmtMoney}
-  initialTicketId={readSupportTicketIdFromPath()}
-  {languageBusy}
-  {languageOptions}
-  {logsStore}
-  {meta}
-  {NAV_GROUPS}
-  {onClose}
-  {onLanguageChange}
-  onCloseUser={closeUserCard}
-  onExportPayments={exportPayments}
-  onOpenPaymentUserCard={openPaymentUserCard}
-  onOpenPaymentPromoCard={openPaymentPromoCard}
-  onOpenPartnerCard={openPartnerCard}
-  onOpenPaymentCard={openPaymentCard}
-  onOpenSettingsPath={openSettingsPath}
-  onOpenUserCard={openSectionUserCard}
-  onOpenUsersFilter={openUsersFilter}
-  {onUsersFiltersChange}
-  onSaveSettings={onSettingsSaved}
-  onSaveTranslations={onTranslationsSaved}
-  onSetActive={setActive}
-  onSettingsPathChange={(path: SettingsPath) => (settingsPath = path)}
-  {openTelegramProfileLink}
-  {paymentStatusVariant}
-  {panelStatusBadge}
-  {promosStore}
-  {resolvedAvatarUrl}
-  {routePrefix}
-  {settingsPath}
-  {settingsSaving}
-  {settingsStore}
-  bind:sidebarOpen
-  {statsStore}
-  {supportStore}
-  {syncBusy}
-  {tariffsStore}
-  {translationsDirtyCount}
-  {translationsSaving}
-  {translationsStore}
-  {trafficLeftLabel}
-  {trafficOfLabel}
-  {trafficPercentValue}
-  {userDisplayName}
-  {userInitials}
-  {userSecondaryName}
-  {userTelegramProfileLink}
-  {userTelegramProfileLinkKind}
-  {warmSectionComponent}
-  {t}
-/>
+<!-- The admin bundle mounts as its own root, outside the webapp provider. -->
+<Tooltip.Provider>
+  <AdminPanelLayout
+    api={stableApi}
+    {active}
+    {activeSectionComponent}
+    {activeSectionLoading}
+    featureAvailable={activeSectionFeatureAvailable}
+    {featuresResolved}
+    {availableFeatures}
+    {adsStore}
+    {appFaviconUrl}
+    {appFaviconUseCustom}
+    {appRepositoryUrl}
+    {appVersion}
+    {at}
+    {brand}
+    {brandTitle}
+    {currentLang}
+    {dirtyCount}
+    {fmtDate}
+    {fmtDateShort}
+    {fmtMoney}
+    initialTicketId={readSupportTicketIdFromPath()}
+    {languageBusy}
+    {languageOptions}
+    {logsStore}
+    {meta}
+    {NAV_GROUPS}
+    {onClose}
+    {onLanguageChange}
+    onCloseUser={closeUserCard}
+    onExportPayments={exportPayments}
+    onOpenPaymentUserCard={openPaymentUserCard}
+    onOpenPaymentPromoCard={openPaymentPromoCard}
+    onOpenPartnerCard={openPartnerCard}
+    onOpenPaymentCard={openPaymentCard}
+    onOpenSettingsPath={openSettingsPath}
+    onOpenUserCard={openSectionUserCard}
+    onOpenUsersFilter={openUsersFilter}
+    {onUsersFiltersChange}
+    onSaveSettings={onSettingsSaved}
+    onSaveTranslations={onTranslationsSaved}
+    onSetActive={setActive}
+    onSettingsPathChange={(path: SettingsPath) => (settingsPath = path)}
+    {openTelegramProfileLink}
+    {paymentStatusVariant}
+    {panelStatusBadge}
+    {promosStore}
+    {resolvedAvatarUrl}
+    {routePrefix}
+    {settingsPath}
+    {settingsSaving}
+    {settingsStore}
+    bind:sidebarOpen
+    {statsStore}
+    {supportStore}
+    {syncBusy}
+    {tariffsStore}
+    {translationsDirtyCount}
+    {translationsSaving}
+    {translationsStore}
+    {trafficLeftLabel}
+    {trafficOfLabel}
+    {trafficPercentValue}
+    {userDisplayName}
+    {userInitials}
+    {userSecondaryName}
+    {userTelegramProfileLink}
+    {userTelegramProfileLinkKind}
+    {warmSectionComponent}
+    {t}
+  />
+</Tooltip.Provider>
