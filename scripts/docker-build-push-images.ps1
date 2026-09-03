@@ -4,7 +4,7 @@ if (-not $env:IMAGE_TAG) {
     throw "Set IMAGE_TAG to the release tag you want to build and push"
 }
 
-$imageRegistriesRaw = if ($env:IMAGE_REGISTRIES) { $env:IMAGE_REGISTRIES } else { "ghcr.io,docker.io" }
+$imageRegistriesRaw = if ($env:IMAGE_REGISTRIES) { $env:IMAGE_REGISTRIES } else { "docker.io" }
 $imageRegistries = @($imageRegistriesRaw -split "[,;\s]+" | Where-Object { $_ })
 $imageNamespace = if ($env:IMAGE_NAMESPACE) { $env:IMAGE_NAMESPACE } else { "3252a8" }
 $imageTag = $env:IMAGE_TAG

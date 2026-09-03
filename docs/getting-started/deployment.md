@@ -519,56 +519,50 @@ docker compose build frontend backend worker
 docker compose up -d
 ```
 
-## Образы GHCR и Docker Hub
+## Образы Docker Hub
 
 Образы приложения называются единообразно:
 
 ```text
-ghcr.io/3252a8/remnawave-minishop-backend:<tag>
-ghcr.io/3252a8/remnawave-minishop-worker:<tag>
-ghcr.io/3252a8/remnawave-minishop-frontend:<tag>
 docker.io/3252a8/remnawave-minishop-backend:<tag>
 docker.io/3252a8/remnawave-minishop-worker:<tag>
 docker.io/3252a8/remnawave-minishop-frontend:<tag>
 ```
 
-Чтобы собрать и сразу опубликовать все три образа в GHCR и Docker Hub, сначала выполните логин в оба registry:
+Чтобы собрать и сразу опубликовать все три образа в Docker Hub, сначала выполните логин:
 
 ```bash
-docker login ghcr.io
 docker login docker.io
-IMAGE_TAG=v3.4.3 bash scripts/docker-build-push-images.sh
+IMAGE_TAG=3.6.1 bash scripts/docker-build-push-images.sh
 ```
 
 PowerShell-вариант:
 
 ```powershell
-$env:IMAGE_TAG = "v3.4.3"
-docker login ghcr.io
+$env:IMAGE_TAG = "3.6.1"
 docker login docker.io
 powershell -ExecutionPolicy Bypass -File .\scripts\docker-build-push-images.ps1
 ```
 
 По умолчанию скрипты используют:
 
-- `IMAGE_REGISTRIES=ghcr.io docker.io`
+- `IMAGE_REGISTRIES=docker.io`
 - `IMAGE_NAMESPACE=3252a8`
 - `IMAGE_PREFIX=remnawave-minishop`
 - `TARGETS=backend worker frontend`
 - `DOCKERFILE=deploy/docker/Dockerfile`
 
-Если нужен только один registry или другой namespace, переопределите переменные:
+Если нужен свой registry или другой namespace, переопределите переменные:
 
 ```bash
-IMAGE_REGISTRIES=docker.io IMAGE_TAG=v3.4.3 bash scripts/docker-build-push-images.sh
-IMAGE_REGISTRIES="ghcr.io docker.io" IMAGE_NAMESPACE=other IMAGE_TAG=v3.4.3 bash scripts/docker-build-push-images.sh
+IMAGE_REGISTRIES=registry.example.com IMAGE_NAMESPACE=other IMAGE_TAG=3.6.1 bash scripts/docker-build-push-images.sh
 ```
 
 Старые раздельные команды тоже остаются:
 
 ```bash
-IMAGE_TAG=v3.4.3 scripts/docker-build-images.sh
-IMAGE_TAG=v3.4.3 scripts/docker-push-images.sh
+IMAGE_TAG=3.6.1 scripts/docker-build-images.sh
+IMAGE_TAG=3.6.1 scripts/docker-push-images.sh
 ```
 
 Для PowerShell есть варианты `scripts/docker-build-images.ps1` и
@@ -579,13 +573,13 @@ IMAGE_TAG=v3.4.3 scripts/docker-push-images.sh
 
 ```bash
 docker login
-IMAGE_TAG=v3.4.3 bash scripts/dockerhub-build-push-images.sh
+IMAGE_TAG=3.6.1 bash scripts/dockerhub-build-push-images.sh
 ```
 
 PowerShell-вариант:
 
 ```powershell
-$env:IMAGE_TAG = "v3.4.3"
+$env:IMAGE_TAG = "3.6.1"
 docker login
 powershell -ExecutionPolicy Bypass -File .\scripts\dockerhub-build-push-images.ps1
 ```
@@ -594,8 +588,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dockerhub-build-push-images.p
 запустите те же скрипты с обходом политики только для текущего процесса:
 
 ```powershell
-$env:IMAGE_TAG = "v3.4.3"
-docker login ghcr.io
+$env:IMAGE_TAG = "3.6.1"
+docker login docker.io
 powershell -ExecutionPolicy Bypass -File .\scripts\docker-build-images.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\docker-push-images.ps1
 ```

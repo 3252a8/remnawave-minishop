@@ -154,9 +154,6 @@ IMAGE_TAG=3.1.0 docker compose up -d
 
 Имена образов для релизов:
 
-- `ghcr.io/3252a8/remnawave-minishop-backend`
-- `ghcr.io/3252a8/remnawave-minishop-worker`
-- `ghcr.io/3252a8/remnawave-minishop-frontend`
 - `docker.io/3252a8/remnawave-minishop-backend`
 - `docker.io/3252a8/remnawave-minishop-worker`
 - `docker.io/3252a8/remnawave-minishop-frontend`

@@ -1,7 +1,7 @@
 name: Dev images
 
 # On every push to the dev branch, build all three images and push them to
-# GHCR and Docker Hub tagged `dev`.
+# Docker Hub tagged `dev`.
 
 on:
   push:
@@ -16,7 +16,6 @@ concurrency:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   build-push:
@@ -33,6 +32,7 @@ jobs:
     env:
       DOWNSTREAM_REPOSITORY: ${{ secrets.IMAGE_CHANNEL_DOWNSTREAM_REPOSITORY }}
       DOWNSTREAM_TOKEN: ${{ secrets.IMAGE_CHANNEL_DOWNSTREAM_TOKEN }}
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
     steps:
       - name: Dispatch immutable dev image inputs
         env:
@@ -45,10 +45,15 @@ jobs:
             exit 0
           fi
 
-          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          if [ -z "$DOCKERHUB_USERNAME" ]; then
+            echo "::error::DOCKERHUB_USERNAME secret is required for Docker Hub publishing"
+            exit 1
+          fi
+
+          dockerhub_owner="${DOCKERHUB_USERNAME,,}"
           images='{}'
           for target in backend worker frontend; do
-            repository="ghcr.io/${owner}/remnawave-minishop-${target}"
+            repository="docker.io/${dockerhub_owner}/remnawave-minishop-${target}"
             digest="$(docker buildx imagetools inspect "${repository}:dev" --format '{{json .Manifest}}' | jq -r .digest)"
             labels="$(docker buildx imagetools inspect "${repository}@${digest}" --format '{{json .Image.Config.Labels}}')"
             jq -e --arg commit "${CORE_COMMIT}" \

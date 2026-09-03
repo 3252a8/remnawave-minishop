@@ -327,23 +327,18 @@ Extension-компонент полной секции получает `feature
 
 ## Release Images
 
-Release images публикуются только для стабильных git-тегов вида `vX.Y.Z`.
-Сначала создайте draft Release, привязанный к текущему `main`:
+Release images публикуются в Docker Hub через GitLab CI только для стабильных git-тегов вида
+`vX.Y.Z`. Перед публикацией синхронизируйте `main` и создайте тег на его текущем commit:
 
 ```bash
-gh release create vX.Y.Z --target main --draft --generate-notes --title vX.Y.Z
-git fetch origin main --tags
-git tag vX.Y.Z origin/main
-git push origin refs/tags/vX.Y.Z
+git fetch gitlab main --tags
+git tag vX.Y.Z gitlab/main
+git push gitlab refs/tags/vX.Y.Z
 ```
 
-Draft Release сам по себе не создаёт remote git-тег. Push `refs/tags/vX.Y.Z`
-запускает release workflow, который собирает и сканирует три candidate-образа, проверяет их OCI
-provenance, последовательно публикует semver-теги без начальной `v` (например,
-`v3.4.5` становится `3.4.5`) и только затем публикует draft Release. В Release
-прикладываются `release-images.json` и его SHA-256: в них указаны source commit,
-проверяемые image digests и готовые `@sha256` references для GHCR и Docker Hub.
+Push `refs/tags/vX.Y.Z` запускает release job. Он отклоняет тег, если тот не указывает точно на
+текущий `main`, собирает backend, worker и frontend и публикует в Docker Hub semver-теги без
+начальной `v` (например, `v3.6.1` становится `3.6.1`) вместе с discovery-тегом `latest`.
 
-Расширенные и production-сборки должны использовать reference из manifest с
-точным digest. `latest` остаётся только discovery-тегом и не является входом для
-воспроизводимой сборки.
+Расширенные и production-сборки должны фиксировать точный Docker Hub digest. `latest` остаётся
+только discovery-тегом и не является входом для воспроизводимой сборки.

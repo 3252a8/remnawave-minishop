@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-IMAGE_REGISTRIES="${IMAGE_REGISTRIES:-ghcr.io docker.io}"
+IMAGE_REGISTRIES="${IMAGE_REGISTRIES:-docker.io}"
 IMAGE_NAMESPACE="${IMAGE_NAMESPACE:-3252a8}"
 IMAGE_TAG="${IMAGE_TAG:?Set IMAGE_TAG to the release tag you want to build and push}"
 IMAGE_PREFIX="${IMAGE_PREFIX:-remnawave-minishop}"
