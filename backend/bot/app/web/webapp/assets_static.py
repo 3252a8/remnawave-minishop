@@ -179,7 +179,7 @@ async def _js_asset_route(request: web.Request, *, base_name: str) -> web.Respon
 
 
 WEBAPP_BOOTSTRAP_I18N_PREFIXES = ("wa_",)
-WEBAPP_BOOTSTRAP_I18N_KEYS = {"menu_support_button", "menu_server_status_button"}
+WEBAPP_BOOTSTRAP_I18N_KEYS = {"menu_support_button"}
 WEBAPP_I18N_SCOPES = {"webapp", "admin"}
 APP_DEEPLINK_I18N_KEYS = {
     "title": "wa_app_launch_title",

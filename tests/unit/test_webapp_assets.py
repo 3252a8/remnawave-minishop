@@ -397,7 +397,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertLess(status_card_index, home_source.index('<div class="action-stack">'))
         self.assertIn("{#if status?.enabled}", card_source)
         self.assertIn("settings-row-status", settings_source)
-        self.assertIn('t("menu_server_status_button")', settings_source)
+        self.assertIn('t("wa_server_status_title", {}, "Server status")', settings_source)
         self.assertIn("serverStatusInternal", authenticated_screens_source)
         self.assertIn('goStatus={() => goStatus("home")}', authenticated_screens_source)
         self.assertIn('openServerStatus={() => goStatus("settings")}', authenticated_screens_source)
@@ -448,11 +448,13 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 "en": {
                     "menu_support_button": "Support",
                     "menu_server_status_button": "Server status",
+                    "wa_server_status_title": "Custom app status",
                     "wa_nav_admin": "Admin panel",
                     "wa_promo_requires_checkout": "Apply this code at checkout.",
                     "admin_settings_title": "Admin settings",
                 },
                 "ru": {
+                    "wa_server_status_title": "Статус в приложении",
                     "wa_nav_admin": "Админ-панель",
                     "wa_promo_requires_checkout": "Примените этот промокод при оплате.",
                 },
@@ -481,7 +483,9 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             request.app["webapp_settings_cache"]["data"]["server_status_url"],
             "https://status.example.com",
         )
-        self.assertEqual(payload["i18n"]["en"]["menu_server_status_button"], "Server status")
+        self.assertNotIn("menu_server_status_button", payload["i18n"]["en"])
+        self.assertEqual(payload["i18n"]["en"]["wa_server_status_title"], "Custom app status")
+        self.assertEqual(payload["i18n"]["ru"]["wa_server_status_title"], "Статус в приложении")
         self.assertEqual(payload["i18n"]["en"]["menu_support_button"], "Support")
         self.assertEqual(payload["i18n"]["ru"]["wa_nav_admin"], "Админ-панель")
         self.assertEqual(

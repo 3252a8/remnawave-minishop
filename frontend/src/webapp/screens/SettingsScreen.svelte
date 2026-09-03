@@ -326,7 +326,7 @@
         onclick={serverStatusInternal ? openServerStatus : () => openExternalLink(serverStatusUrl)}
       >
         <Server size={21} />
-        <span><strong>{t("menu_server_status_button")}</strong></span>
+        <span><strong>{t("wa_server_status_title", {}, "Server status")}</strong></span>
         <ArrowRight size={17} />
       </button>
     {/if}

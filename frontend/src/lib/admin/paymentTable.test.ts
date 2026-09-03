@@ -1,13 +1,32 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  paymentDescriptionDisplay,
   paymentDiscountDisplay,
   paymentProviderDisplay,
   paymentPurchaseDisplay,
 } from "./paymentTable";
+import { createI18n } from "../webapp/i18n";
+import ru from "../../../../locales/ru.json";
+import en from "../../../../locales/en.json";
 
 const money = (value: number, currency?: string | null): string =>
   `${value.toFixed(2)} ${currency || ""}`.trim();
+
+describe("paymentDescriptionDisplay", () => {
+  it.each([
+    ["ru", "Пакет трафика 10 ГБ (обычный)", "Пакет трафика 12.5 ГБ (премиум)"],
+    ["en", "Traffic package 10 GB (standard)", "Traffic package 12.5 GB (premium)"],
+  ])("uses the admin catalog for %s descriptions", (language, regular, premium) => {
+    const { t } = createI18n({ messages: { ru, en }, defaultLang: language });
+    const at = (key: string, params: Record<string, unknown> = {}, fallback = "") =>
+      t(`admin_${key}`, params, fallback);
+
+    expect(paymentDescriptionDisplay({ traffic_regular_gb: 10 }, at)).toBe(regular);
+    expect(paymentDescriptionDisplay({ traffic_premium_gb: 12.5 }, at)).toBe(premium);
+    expect(paymentDescriptionDisplay({ description: "Manual" }, at)).toBe("Manual");
+  });
+});
 
 describe("paymentDiscountDisplay", () => {
   it("shows the frozen discount amount and promo percentage", () => {

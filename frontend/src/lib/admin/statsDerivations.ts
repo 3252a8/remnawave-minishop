@@ -82,7 +82,6 @@ export type RevenueKpis = {
 export type CustomRangeApply = { fromIso: string; toIso: string };
 
 type NodeLookup = { byUuid: Map<string, number>; byName: Map<string, number> };
-type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
 export function isRecord(value: unknown): value is DynamicRecord {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -103,29 +102,6 @@ export function formatTrafficGbCell(v: number | string | null | undefined): stri
     s = String(Math.round(n * 100) / 100);
   }
   return `${s} GB`;
-}
-
-function formatGbAmountPlain(v: number | string | null | undefined): string {
-  if (v == null || v === "") return "";
-  const n = Number(v);
-  if (Number.isNaN(n)) return "";
-  if (Math.abs(n - Math.round(n)) < 1e-9) return String(Math.round(n));
-  return String(Math.round(n * 100) / 100);
-}
-
-export function paymentDescriptionDisplay(p: PaymentOut, t: TranslateFn): string {
-  const r = p.traffic_regular_gb;
-  const pr = p.traffic_premium_gb;
-  if (r != null && pr == null) {
-    const gb = formatGbAmountPlain(r);
-    return t("payments_desc_traffic_package_regular", { gb }, "Traffic package {gb} GB (standard)");
-  }
-  if (pr != null && r == null) {
-    const gb = formatGbAmountPlain(pr);
-    return t("payments_desc_traffic_package_premium", { gb }, "Traffic package {gb} GB (premium)");
-  }
-  const raw = p.description && String(p.description).trim();
-  return raw || "—";
 }
 
 export function parsePanelSystem(panel: PanelStats): PanelSystemMetrics | null {
