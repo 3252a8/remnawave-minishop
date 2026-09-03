@@ -258,6 +258,7 @@
   const trialOfferAvailable = $derived(
     Boolean(!subscription?.active && appSettings?.trial_enabled && appSettings?.trial_available)
   );
+  const trialPaymentEnabled = $derived(Boolean(appSettings?.trial_payment_enabled));
   const trialRequiresTelegram = $derived(
     Boolean(
       !subscription?.active && appSettings?.trial_enabled && appSettings?.trial_requires_telegram
@@ -691,11 +692,17 @@
             </span>
           </div>
           <p class="trial-card-description">
-            {t(
-              "wa_trial_offer_description",
-              { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
-              "Activate a trial: {duration} of access and {traffic} available to download for free."
-            )}
+            {trialPaymentEnabled
+              ? t(
+                  "wa_trial_offer_paid_description",
+                  { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
+                  "Pay once to activate {duration} of trial access with {traffic}."
+                )
+              : t(
+                  "wa_trial_offer_description",
+                  { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
+                  "Activate a trial: {duration} of access and {traffic} available to download for free."
+                )}
           </p>
           <div class="trial-card-facts">
             <span>
@@ -709,7 +716,9 @@
           </div>
           <Button class="wide trial-card-action" onclick={activateTrial} disabled={trialBusy}>
             <Gift size={18} />
-            {t("wa_trial_try_free", {}, "Try for free")}
+            {trialPaymentEnabled
+              ? t("wa_trial_pay_and_activate", {}, "Pay and activate")
+              : t("wa_trial_try_free", {}, "Try for free")}
           </Button>
         </Card>
       {:else if trialRequiresTelegram}

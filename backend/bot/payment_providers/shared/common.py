@@ -159,6 +159,8 @@ def build_payment_description(
         )
     if base in {"hwid_device", "hwid_devices", "hwid_devices_renewal"}:
         return translator("payment_description_hwid_devices", count=int(float(months)))
+    if base == "trial":
+        return translator("payment_description_trial")
     days = sale_mode_duration_days(sale_mode)
     if days is not None:
         return translator("payment_description_subscription_days", days=days)

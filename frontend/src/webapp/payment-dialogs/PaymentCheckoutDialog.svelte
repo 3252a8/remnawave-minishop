@@ -9,6 +9,7 @@
   import CheckoutPaymentControls from "./CheckoutPaymentControls.svelte";
   import CheckoutTariffPicker from "./CheckoutTariffPicker.svelte";
   import PendingPaymentCard from "./PendingPaymentCard.svelte";
+  import TrialPaymentSummary from "./TrialPaymentSummary.svelte";
   import type {
     CheckoutPaymentOptions,
     PaymentCheckoutDialogProps,
@@ -31,6 +32,7 @@
     tariffLimitLabel as tariffLimitLabelFn,
     priceLabel as priceLabelFn,
     firstAvailableMethod,
+    isTrialPaymentPlan,
     methodSelectable,
     methodsForPlan,
   } from "$lib/webapp/tariffs.js";
@@ -348,6 +350,7 @@
     return normalizedCheckoutPromoDiscount(checkoutPromoAppliedCode, checkoutPromoDiscountPercent);
   }
   function checkoutPromoAffectsPlan(plan: PlanView | null) {
+    if (isTrialPaymentPlan(plan)) return false;
     return checkoutPromoAffectsQuotedPlan(
       checkoutPromoDiscount(),
       checkoutPromoMatchesPlan(
@@ -429,6 +432,12 @@
   });
   $effect(() => {
     if (!paymentModalOpen || paymentStep !== "checkout" || !selectedPlan || !selectedMethod) {
+      checkoutQuote = null;
+      checkoutQuoteError = "";
+      checkoutQuoteBusy = false;
+      return;
+    }
+    if (isTrialPaymentPlan(selectedPlan)) {
       checkoutQuote = null;
       checkoutQuoteError = "";
       checkoutQuoteBusy = false;
@@ -568,15 +577,17 @@
   function tariffLimitLabel(tariff: TariffView) {
     return tariffLimitLabelFn(tariff, { t });
   }
-
   function checkoutPromoBlock() {
-    return checkoutPromoBlockVisible(
-      providerManagesPrice(),
-      Boolean(checkoutPromoAppliedCode || checkoutPromoStatus || selectedPlan)
+    return (
+      !isTrialPaymentPlan(selectedPlan) &&
+      checkoutPromoBlockVisible(
+        providerManagesPrice(),
+        Boolean(checkoutPromoAppliedCode || checkoutPromoStatus || selectedPlan)
+      )
     );
   }
-
   function paymentTitle() {
+    if (isTrialPaymentPlan(selectedPlan)) return t("wa_trial_payment_title");
     if (singleTariffMode) {
       return selectedTariff?.billing_model === "traffic"
         ? t("wa_traffic_packages_title")
@@ -585,8 +596,8 @@
     if (tariffMode) return t("wa_tariffs_title");
     return trafficMode ? t("wa_traffic_packages_title") : t("wa_subscription_title");
   }
-
   function paymentDescription() {
+    if (isTrialPaymentPlan(selectedPlan)) return t("wa_trial_payment_description");
     if (tariffMode) {
       if (singleTariffMode) {
         return selectedTariff?.billing_model === "traffic"
@@ -599,15 +610,15 @@
     }
     return trafficMode ? t("wa_traffic_packages_choose") : t("wa_subscription_choose_period");
   }
-
   function showSubscriptionPurchaseDescription() {
+    if (isTrialPaymentPlan(selectedPlan)) return false;
     if (!subscriptionPurchaseDescription.trim() || trafficMode) return false;
     if (!tariffMode) return true;
     if (paymentStep === "tariff") return false;
     return String(selectedTariff?.billing_model || "period").toLowerCase() !== "traffic";
   }
-
   function showCompactSubscriptionHeader() {
+    if (isTrialPaymentPlan(selectedPlan)) return false;
     if (trafficMode) return false;
     if (!tariffMode) return true;
     if (paymentStep === "tariff") return false;
@@ -638,6 +649,7 @@
   function partnerBalanceEligible() {
     return Boolean(
       selectedPlan &&
+      !isTrialPaymentPlan(selectedPlan) &&
       selectedMethod &&
       checkoutAmount(selectedPlan) > 0 &&
       !methodUsesStars() &&
@@ -747,7 +759,10 @@
         {termUnitLabel}
       />
     {/if}
-    {#if tariffMode && !singleTariffMode && paymentStep === "tariff"}
+    {#if isTrialPaymentPlan(selectedPlan)}
+      <TrialPaymentSummary plan={selectedPlan as PlanView} {t} />
+      {@render checkoutPaymentControls()}
+    {:else if tariffMode && !singleTariffMode && paymentStep === "tariff"}
       {#if tariffCatalog.length}
         <CheckoutTariffPicker
           tariffs={tariffCatalog}

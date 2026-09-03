@@ -258,6 +258,10 @@ export function priceLabel(plan: BillingPlan | null | undefined, methodId = ""):
   return formatMoney(plan?.price || 0, plan?.currency || undefined);
 }
 
+export function isTrialPaymentPlan(plan: BillingPlan | null | undefined): boolean {
+  return String(plan?.sale_mode || "").toLowerCase() === "trial";
+}
+
 export function methodAmountForPlan(
   method: PaymentMethod | null | undefined,
   plan: BillingPlan | null | undefined

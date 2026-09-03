@@ -590,6 +590,9 @@ def test_support_link_coercion_rejects_invalid_button_urls():
 def test_trial_required_settings_reject_empty_values():
     for key in (
         "TRIAL_ENABLED",
+        "TRIAL_PAYMENT_ENABLED",
+        "TRIAL_PAYMENT_PRICE",
+        "TRIAL_PAYMENT_STARS_PRICE",
         "TRIAL_DURATION_DAYS",
         "TRIAL_TRAFFIC_LIMIT_GB",
         "TRIAL_TRAFFIC_STRATEGY",
@@ -758,6 +761,10 @@ def test_legacy_tariff_settings_are_separated_from_payment_settings():
     assert manifest["MONTH_1_ENABLED"]["section_order"] == 11
     assert manifest["TRIAL_ENABLED"]["section"] == "pricing"
     assert manifest["TRIAL_ENABLED"]["subsection"] == "trial"
+    assert manifest["TRIAL_PAYMENT_ENABLED"]["section"] == "pricing"
+    assert manifest["TRIAL_PAYMENT_ENABLED"]["subsection"] == "trial"
+    assert manifest["TRIAL_PAYMENT_PRICE"]["min"] == 0
+    assert manifest["TRIAL_PAYMENT_STARS_PRICE"]["min"] == 0
     assert manifest["TRIAL_WITHOUT_TELEGRAM_ENABLED"]["section"] == "system"
     assert manifest["TRIAL_WITHOUT_TELEGRAM_ENABLED"]["subsection"] == "email_anti_abuse"
     assert manifest["TRIAL_SQUAD_UUIDS"]["section"] == "pricing"

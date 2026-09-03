@@ -514,6 +514,21 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     )
 
     TRIAL_ENABLED: bool = Field(default=True)
+    TRIAL_PAYMENT_ENABLED: bool = Field(
+        default=False,
+        description="Require a successful payment before trial activation.",
+    )
+    TRIAL_PAYMENT_PRICE: float = Field(
+        default=100.0,
+        ge=0,
+        allow_inf_nan=False,
+        description="Trial activation price in the default payment currency.",
+    )
+    TRIAL_PAYMENT_STARS_PRICE: int = Field(
+        default=100,
+        ge=0,
+        description="Trial activation price in Telegram Stars; 0 disables Stars for trial.",
+    )
     TRIAL_DURATION_DAYS: int = Field(default=3)
     TRIAL_TRAFFIC_LIMIT_GB: float | None = Field(default=5.0)
     TRIAL_PREMIUM_TRAFFIC_LIMIT_GB: float | None = Field(

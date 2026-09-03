@@ -20957,6 +20957,9 @@
                           "device_count": {
                             "type": "integer"
                           },
+                          "duration_days": {
+                            "type": "integer"
+                          },
                           "effective_hwid_device_limit": {
                             "type": [
                               "integer",
@@ -21644,6 +21647,9 @@
                           "device_count": {
                             "type": "integer"
                           },
+                          "duration_days": {
+                            "type": "integer"
+                          },
                           "effective_hwid_device_limit": {
                             "type": [
                               "integer",
@@ -22090,6 +22096,284 @@
                         },
                         "trial_enabled": {
                           "type": "boolean"
+                        },
+                        "trial_payment_enabled": {
+                          "type": "boolean"
+                        },
+                        "trial_payment_plan": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "available_payment_method_ids": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "billing_model": {
+                                  "type": "string"
+                                },
+                                "checkout_addons": {
+                                  "additionalProperties": true,
+                                  "type": "object"
+                                },
+                                "checkout_addons_unavailable_payment_method_ids": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "currency": {
+                                  "type": "string"
+                                },
+                                "description": {
+                                  "type": "string"
+                                },
+                                "device_count": {
+                                  "type": "integer"
+                                },
+                                "duration_days": {
+                                  "type": "integer"
+                                },
+                                "effective_hwid_device_limit": {
+                                  "type": [
+                                    "integer",
+                                    "null"
+                                  ]
+                                },
+                                "externally_managed_price_method_ids": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "hwid_device_limit": {
+                                  "type": [
+                                    "integer",
+                                    "null"
+                                  ]
+                                },
+                                "hwid_device_packages": {
+                                  "items": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "available_payment_method_ids": {
+                                        "items": {
+                                          "type": "string"
+                                        },
+                                        "type": "array"
+                                      },
+                                      "billing_model": {
+                                        "type": "string"
+                                      },
+                                      "currency": {
+                                        "type": "string"
+                                      },
+                                      "device_count": {
+                                        "type": "integer"
+                                      },
+                                      "externally_managed_price_method_ids": {
+                                        "items": {
+                                          "type": "string"
+                                        },
+                                        "type": "array"
+                                      },
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "months": {
+                                        "type": "number"
+                                      },
+                                      "price": {
+                                        "type": "number"
+                                      },
+                                      "sale_mode": {
+                                        "type": "string"
+                                      },
+                                      "stars_price": {
+                                        "type": "integer"
+                                      },
+                                      "subtitle": {
+                                        "type": "string"
+                                      },
+                                      "tariff_key": {
+                                        "type": "string"
+                                      },
+                                      "tariff_name": {
+                                        "type": "string"
+                                      },
+                                      "title": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "type": "object"
+                                  },
+                                  "type": "array"
+                                },
+                                "hwid_renewal": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "active_until": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "active_until_text": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "available": {
+                                      "type": "boolean"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    },
+                                    "device_count": {
+                                      "type": "integer"
+                                    },
+                                    "price": {
+                                      "type": "number"
+                                    },
+                                    "pricing_period_months": {
+                                      "type": "integer"
+                                    },
+                                    "stars_price": {
+                                      "type": "integer"
+                                    },
+                                    "traffic_bonus_gb": {
+                                      "type": "number"
+                                    },
+                                    "valid_from": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "valid_from_text": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "valid_until": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "valid_until_text": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "id": {
+                                  "type": "string"
+                                },
+                                "is_default_tariff": {
+                                  "type": "boolean"
+                                },
+                                "monthly_gb": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "months": {
+                                  "type": "number"
+                                },
+                                "premium_enabled": {
+                                  "type": "boolean"
+                                },
+                                "premium_monthly_gb": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "premium_traffic_limit_strategy": {
+                                  "type": "string"
+                                },
+                                "premium_unlimited": {
+                                  "type": "boolean"
+                                },
+                                "price": {
+                                  "type": "number"
+                                },
+                                "proration_ratio": {
+                                  "type": "number"
+                                },
+                                "sale_mode": {
+                                  "type": "string"
+                                },
+                                "squad_uuids": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "stars_price": {
+                                  "type": "integer"
+                                },
+                                "subtitle": {
+                                  "type": "string"
+                                },
+                                "tariff_key": {
+                                  "type": "string"
+                                },
+                                "tariff_name": {
+                                  "type": "string"
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "traffic_bonus_gb": {
+                                  "type": "number"
+                                },
+                                "traffic_gb": {
+                                  "type": "number"
+                                },
+                                "traffic_limit_strategy": {
+                                  "type": "string"
+                                },
+                                "valid_from": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "valid_from_text": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "valid_until": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "valid_until_text": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "type": "object"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "trial_requires_telegram": {
                           "type": "boolean"
@@ -24880,6 +25164,9 @@
                             "type": "string"
                           },
                           "device_count": {
+                            "type": "integer"
+                          },
+                          "duration_days": {
                             "type": "integer"
                           },
                           "effective_hwid_device_limit": {

@@ -279,7 +279,20 @@ export function createAppActionRuntime({
     ...accountUiActions,
     ...connectActions,
     ...createClipboardActions({ showToast, t }),
-    ...createPromoTrialActions({ actionsStore }),
+    ...createPromoTrialActions({
+      actionsStore,
+      getAppSettings,
+      openTrialPayment: (plan) =>
+        billingStore.openPaymentModal(
+          false,
+          false,
+          [],
+          getSubscription() || {},
+          [plan],
+          String(getMethods().find((method) => !method.disabled)?.id || ""),
+          { preferredPlanId: String(plan.id || "trial:activation") }
+        ),
+    }),
     ...createAutoRenewAction({
       billing,
       getBusy: () => shellState.autoRenewBusy,

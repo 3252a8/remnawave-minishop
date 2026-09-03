@@ -41,3 +41,17 @@ def test_ordinary_referral_payment_bonus_keeps_inviter_copy() -> None:
     )
 
     assert message == "payment_successful_with_referral_bonus_full"
+
+
+def test_paid_trial_uses_trial_success_copy() -> None:
+    message = build_success_message(
+        SuccessMessage(
+            translator=_translation_key,
+            sale_mode="trial",
+            months=5,
+            base_end_date=None,
+            final_end_date=datetime(2026, 1, 10, tzinfo=UTC),
+        )
+    )
+
+    assert message == "payment_successful_trial_full"

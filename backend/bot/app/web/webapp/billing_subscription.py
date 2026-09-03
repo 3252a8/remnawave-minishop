@@ -294,6 +294,12 @@ async def activate_trial_route(request: web.Request) -> web.Response:
     settings: Settings = get_settings(request)
     if not settings.TRIAL_ENABLED or settings.TRIAL_DURATION_DAYS <= 0:
         return _json_error(400, "trial_unavailable", "Trial is not available")
+    if settings.TRIAL_PAYMENT_ENABLED:
+        return _json_error(
+            402,
+            "trial_payment_required",
+            "Trial activation requires payment",
+        )
 
     async_session_factory: sessionmaker = get_session_factory(request)
     subscription_service: SubscriptionService = get_subscription_service(request)

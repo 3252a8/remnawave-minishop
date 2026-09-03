@@ -42,6 +42,35 @@ class _SessionFactory:
 
 
 class WebAppTrialActivationTests(IsolatedAsyncioTestCase):
+    async def test_paid_trial_rejects_direct_free_activation(self):
+        settings = settings_stub(
+            TRIAL_ENABLED=True,
+            TRIAL_DURATION_DAYS=7,
+            TRIAL_PAYMENT_ENABLED=True,
+        )
+        subscription_service = SimpleNamespace(activate_trial_subscription=AsyncMock())
+        request = SimpleNamespace(
+            app={
+                "settings": settings,
+                "subscription_service": subscription_service,
+            }
+        )
+
+        with (
+            patch.object(billing_subscription, "_require_user_id", return_value=42),
+            patch.object(
+                billing_subscription,
+                "_enforce_webapp_rate_limit",
+                AsyncMock(return_value=None),
+            ),
+        ):
+            response = await billing_module.activate_trial_route(request)
+
+        payload = json.loads(response.text)
+        self.assertEqual(response.status, 402)
+        self.assertEqual(payload["error"], "trial_payment_required")
+        subscription_service.activate_trial_subscription.assert_not_awaited()
+
     async def test_email_only_trial_activation_is_written_to_admin_logs(self):
         session = _Session()
         end_date = datetime(2026, 1, 9, 3, 4, tzinfo=UTC)

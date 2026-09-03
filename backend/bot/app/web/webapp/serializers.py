@@ -73,6 +73,7 @@ from .serializers_billing_options import (
     _serialize_payment_methods,
     _serialize_tariff_change_target,
     _serialize_topup_packages,
+    _serialize_trial_payment_plan,
     _traffic_percent,
 )
 from .serializers_checkout import attach_checkout_pricing_context_to_plans
@@ -472,6 +473,8 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             ),
             "trial_enabled": bool(settings.TRIAL_ENABLED),
             "trial_available": trial_available,
+            "trial_payment_enabled": bool(settings.TRIAL_PAYMENT_ENABLED),
+            "trial_payment_plan": _serialize_trial_payment_plan(settings),
             "trial_without_telegram_enabled": bool(settings.TRIAL_WITHOUT_TELEGRAM_ENABLED),
             "trial_requires_telegram": bool(trial_telegram_required_reason and not telegram_linked),
             "trial_block_reason": trial_telegram_required_reason,

@@ -345,7 +345,7 @@ async def process_successful_payment(
                 yk_payment_id_from_hook,
             )
             return None
-        if sale_mode_base == "balance_topup":
+        if sale_mode_base in {"balance_topup", "trial"}:
             await finalize_successful_payment(
                 PaymentSuccessRequest(
                     bot=bot,

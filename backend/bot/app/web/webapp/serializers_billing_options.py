@@ -69,6 +69,40 @@ def _attach_payment_methods_to_plans(
     return plans
 
 
+def _serialize_trial_payment_plan(settings: Settings) -> dict[str, Any] | None:
+    if not settings.TRIAL_PAYMENT_ENABLED:
+        return None
+
+    default_currency = default_currency_key_for_settings(settings)
+    default_currency_code = payment_currency_code(default_currency)
+    price = max(0.0, float(settings.TRIAL_PAYMENT_PRICE or 0))
+    stars_price = max(0, int(settings.TRIAL_PAYMENT_STARS_PRICE or 0))
+    plan: dict[str, Any] = {
+        "id": "trial:activation",
+        "sale_mode": "trial",
+        "months": 1,
+        "duration_days": max(0, int(settings.TRIAL_DURATION_DAYS or 0)),
+        "traffic_gb": max(0.0, float(settings.TRIAL_TRAFFIC_LIMIT_GB or 0)),
+        "price": price,
+        "currency": default_currency_code,
+    }
+    if stars_price > 0:
+        plan["stars_price"] = stars_price
+
+    attached = _attach_payment_methods_to_plans(settings, [plan])[0]
+    from bot.payment_providers import get_provider_spec
+
+    attached["available_payment_method_ids"] = [
+        method_id
+        for method_id in attached.get("available_payment_method_ids", [])
+        if (
+            (spec := get_provider_spec(method_id)) is not None
+            and (stars_price > 0 if spec.price_source == "stars" else price > 0)
+        )
+    ]
+    return attached
+
+
 def _traffic_percent(used: int | None, limit: int | None) -> int:
     used_val = int(used or 0)
     limit_val = int(limit or 0)

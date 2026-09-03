@@ -469,7 +469,7 @@ export function createAppFactories({
       if (!data?.user) return;
       shellState.data = { ...data, user: { ...data.user, language_code: updatedLanguage } };
     },
-    activateTrial: () => actionsStore.activateTrial(),
+    activateTrial: async () => getAppActions().activateTrial(),
     claimReferralWelcomeBonus: () => actionsStore.claimReferralWelcomeBonus(),
   });
 

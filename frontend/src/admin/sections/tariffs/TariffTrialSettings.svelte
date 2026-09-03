@@ -6,6 +6,7 @@
   import { Switch } from "$components/ui/primitives.js";
   import {
     TRIAL_GENERAL_KEYS,
+    TRIAL_PAYMENT_KEYS,
     TRIAL_RESET_KEYS,
     TRIAL_SETTING_KEYS,
     TRIAL_SQUAD_KEYS,
@@ -282,6 +283,161 @@
                         size="sm"
                         variant="ghost"
                         onclick={() => resetSetting("TRIAL_ENABLED")}
+                      >
+                        <X size={12} />
+                        {at("reset", {}, "Reset")}
+                      </AdminButton>
+                    {/if}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section
+              class="admin-settings-field-group"
+              class:is-dirty={dirtyCount(TRIAL_PAYMENT_KEYS, settingsDirty)}
+            >
+              <header class="admin-settings-field-group-head">
+                <div class="admin-settings-field-group-head-copy">
+                  <strong>{at("tariffs_trial_group_payment", {}, "Activation fee")}</strong>
+                  <small>
+                    {at(
+                      "tariffs_trial_group_payment_hint",
+                      {},
+                      "When enabled, users must pay before trial access is activated."
+                    )}
+                  </small>
+                </div>
+                {#if dirtyCount(TRIAL_PAYMENT_KEYS, settingsDirty)}
+                  <AdminBadge variant="warning">
+                    {at(
+                      "settings_dirty_count",
+                      { count: dirtyCount(TRIAL_PAYMENT_KEYS, settingsDirty) },
+                      "Changes: {count}"
+                    )}
+                  </AdminBadge>
+                {/if}
+              </header>
+              <div class="admin-settings-field-group-body">
+                <div
+                  class="admin-setting admin-trial-setting-row"
+                  class:is-dirty={isSettingDirty("TRIAL_PAYMENT_ENABLED", settingsDirty)}
+                >
+                  <div class="admin-setting-meta">
+                    <strong>
+                      {at("tariffs_trial_payment_enabled", {}, "Require payment")}
+                      {#if isSettingDirty("TRIAL_PAYMENT_ENABLED", settingsDirty)}
+                        <AdminBadge variant="warning"
+                          >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
+                        >
+                      {/if}
+                    </strong>
+                    <code>TRIAL_PAYMENT_ENABLED</code>
+                  </div>
+                  <div class="admin-setting-control">
+                    <div class="admin-setting-switch">
+                      <Switch.Root
+                        aria-label={at("tariffs_trial_payment_enabled", {}, "Require payment")}
+                        checked={boolValue(
+                          "TRIAL_PAYMENT_ENABLED",
+                          settingsDirty,
+                          settingsFieldMap
+                        )}
+                        onCheckedChange={(checked) => setSetting("TRIAL_PAYMENT_ENABLED", checked)}
+                        class="admin-switch-root"
+                      >
+                        <Switch.Thumb class="admin-switch-thumb" />
+                      </Switch.Root>
+                      <span
+                        >{boolValue("TRIAL_PAYMENT_ENABLED", settingsDirty, settingsFieldMap)
+                          ? at("enabled", {}, "Enabled")
+                          : at("disabled", {}, "Disabled")}</span
+                      >
+                    </div>
+                    {#if isSettingDirty("TRIAL_PAYMENT_ENABLED", settingsDirty)}
+                      <AdminButton
+                        size="sm"
+                        variant="ghost"
+                        onclick={() => resetSetting("TRIAL_PAYMENT_ENABLED")}
+                      >
+                        <X size={12} />
+                        {at("reset", {}, "Reset")}
+                      </AdminButton>
+                    {/if}
+                  </div>
+                </div>
+                <div
+                  class="admin-setting admin-trial-setting-row"
+                  class:is-dirty={isSettingDirty("TRIAL_PAYMENT_PRICE", settingsDirty)}
+                >
+                  <div class="admin-setting-meta">
+                    <strong>
+                      {at("tariffs_trial_payment_price", {}, "Price in default currency")}
+                      {#if isSettingDirty("TRIAL_PAYMENT_PRICE", settingsDirty)}
+                        <AdminBadge variant="warning"
+                          >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
+                        >
+                      {/if}
+                    </strong>
+                    <code>TRIAL_PAYMENT_PRICE</code>
+                  </div>
+                  <div class="admin-setting-control">
+                    <Input
+                      class="input"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={inputValueForKey("TRIAL_PAYMENT_PRICE")}
+                      oninput={settingInputHandler("TRIAL_PAYMENT_PRICE")}
+                    />
+                    {#if isSettingDirty("TRIAL_PAYMENT_PRICE", settingsDirty)}
+                      <AdminButton
+                        size="sm"
+                        variant="ghost"
+                        onclick={() => resetSetting("TRIAL_PAYMENT_PRICE")}
+                      >
+                        <X size={12} />
+                        {at("reset", {}, "Reset")}
+                      </AdminButton>
+                    {/if}
+                  </div>
+                </div>
+                <div
+                  class="admin-setting admin-trial-setting-row"
+                  class:is-dirty={isSettingDirty("TRIAL_PAYMENT_STARS_PRICE", settingsDirty)}
+                >
+                  <div class="admin-setting-meta">
+                    <strong>
+                      {at("tariffs_trial_payment_stars_price", {}, "Price in Telegram Stars")}
+                      {#if isSettingDirty("TRIAL_PAYMENT_STARS_PRICE", settingsDirty)}
+                        <AdminBadge variant="warning"
+                          >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
+                        >
+                      {/if}
+                    </strong>
+                    <code>TRIAL_PAYMENT_STARS_PRICE</code>
+                    <small
+                      >{at(
+                        "tariffs_trial_payment_stars_hint",
+                        {},
+                        "0 hides Stars from this checkout."
+                      )}</small
+                    >
+                  </div>
+                  <div class="admin-setting-control">
+                    <Input
+                      class="input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={inputValueForKey("TRIAL_PAYMENT_STARS_PRICE")}
+                      oninput={settingInputHandler("TRIAL_PAYMENT_STARS_PRICE")}
+                    />
+                    {#if isSettingDirty("TRIAL_PAYMENT_STARS_PRICE", settingsDirty)}
+                      <AdminButton
+                        size="sm"
+                        variant="ghost"
+                        onclick={() => resetSetting("TRIAL_PAYMENT_STARS_PRICE")}
                       >
                         <X size={12} />
                         {at("reset", {}, "Reset")}

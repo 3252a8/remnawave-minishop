@@ -16,7 +16,12 @@ logger = logging.getLogger(__name__)
 
 class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
     async def activate_trial_subscription(
-        self, session: AsyncSession, user_id: int
+        self,
+        session: AsyncSession,
+        user_id: int,
+        *,
+        commit: bool = True,
+        emit_event: bool = True,
     ) -> dict[str, Any] | None:
         if not self.settings.TRIAL_ENABLED or self.settings.TRIAL_DURATION_DAYS <= 0:
             return {
@@ -172,16 +177,18 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
                 "message_key": "trial_activation_failed_panel_update",
             }
 
-        await session.commit()
+        if commit:
+            await session.commit()
 
-        await events.emit_model(
-            TrialActivatedPayload(
-                user_id=user_id,
-                end_date=end_date,
-                days=self.settings.TRIAL_DURATION_DAYS,
-                traffic_gb=self.settings.TRIAL_TRAFFIC_LIMIT_GB,
+        if emit_event:
+            await events.emit_model(
+                TrialActivatedPayload(
+                    user_id=user_id,
+                    end_date=end_date,
+                    days=self.settings.TRIAL_DURATION_DAYS,
+                    traffic_gb=self.settings.TRIAL_TRAFFIC_LIMIT_GB,
+                )
             )
-        )
 
         final_subscription_url = updated_panel_user.get("subscriptionUrl")
         final_panel_short_uuid = updated_panel_user.get("shortUuid", panel_short_uuid)

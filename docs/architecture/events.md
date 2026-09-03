@@ -552,7 +552,7 @@
 
 Модель данных события: `TrialActivatedPayload`
 
-Источники события: `backend/bot/services/subscription_service_impl/trial.py`
+Источники события: `backend/bot/payment_providers/shared/success.py`, `backend/bot/services/subscription_service_impl/trial.py`
 
 Реакции Core: `CoreEventReactions.on_trial_activated`
 

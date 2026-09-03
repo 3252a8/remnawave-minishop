@@ -14,6 +14,7 @@ from bot.infra.event_payloads import (
     ReferralBonusGrantedPayload,
     SubscriptionCreatedPayload,
     SubscriptionExtendedPayload,
+    TrialActivatedPayload,
 )
 from bot.infra.payment_events import build_payment_succeeded_payload
 from bot.keyboards.inline.user_keyboards import get_connect_and_main_keyboard
@@ -159,6 +160,12 @@ def build_success_message(payload: SuccessMessage) -> str:
         return _(
             "payment_successful_hwid_devices_full",
             count=format_human_units(payload.months),
+        )
+    if base == "trial":
+        return _(
+            "payment_successful_trial_full",
+            days=format_human_units(payload.months),
+            end_date=end_text,
         )
     if payload.duration_days is not None:
         text = _("payment_successful_days_full", days=payload.duration_days, end_date=end_text)
@@ -654,7 +661,9 @@ async def finalize_successful_payment(
     is_traffic = is_traffic_sale_base(base)
 
     activation_months = (
-        int(float(req.months)) if is_subscription else int(float(req.traffic_amount or req.months))
+        int(float(req.months))
+        if is_subscription or base == "trial"
+        else int(float(req.traffic_amount or req.months))
     )
     traffic_gb_for_activation = float(req.traffic_amount or req.months) if is_traffic else None
     effective_tariff_key = str(
@@ -673,19 +682,31 @@ async def finalize_successful_payment(
             phase="pre-activation",
         )
         partner_decision = None
-        activation = await req.subscription_service.activate_subscription(
-            req.session,
-            req.user_id,
-            activation_months,
-            req.amount,
-            payment_id,
-            provider=req.provider_subscription,
-            sale_mode=req.sale_mode,
-            traffic_gb=traffic_gb_for_activation,
-            promo_code_id_from_payment=getattr(req.payment, "promo_code_id", None),
-            **activation_extra_kwargs,
-        )
-        if not activation or (is_subscription and not activation.get("end_date")):
+        if base == "trial":
+            activation = await req.subscription_service.activate_trial_subscription(
+                req.session,
+                req.user_id,
+                commit=False,
+                emit_event=False,
+            )
+        else:
+            activation = await req.subscription_service.activate_subscription(
+                req.session,
+                req.user_id,
+                activation_months,
+                req.amount,
+                payment_id,
+                provider=req.provider_subscription,
+                sale_mode=req.sale_mode,
+                traffic_gb=traffic_gb_for_activation,
+                promo_code_id_from_payment=getattr(req.payment, "promo_code_id", None),
+                **activation_extra_kwargs,
+            )
+        if (
+            not activation
+            or (base == "trial" and not activation.get("activated"))
+            or (is_subscription and not activation.get("end_date"))
+        ):
             activation_keys = (
                 tuple(sorted(str(key) for key in activation))
                 if isinstance(activation, dict)
@@ -835,6 +856,15 @@ async def finalize_successful_payment(
                 payment_db_id=payment_id,
             )
         )
+    elif base == "trial" and activation:
+        await events.emit_model(
+            TrialActivatedPayload(
+                user_id=req.user_id,
+                end_date=activation.get("end_date"),
+                days=int(activation.get("days") or req.settings.TRIAL_DURATION_DAYS),
+                traffic_gb=activation.get("traffic_gb"),
+            )
+        )
     referral_event_payload = (
         referral_bonus.get("event_payload") if isinstance(referral_bonus, dict) else None
     )
@@ -879,7 +909,9 @@ async def finalize_successful_payment(
             else None,
             sale_mode=req.sale_mode,
             months=(
-                activation_months
+                int(activation.get("days") or req.settings.TRIAL_DURATION_DAYS)
+                if base == "trial" and activation
+                else activation_months
                 if is_subscription
                 else format_human_units(displayed_traffic_amount or req.months)
             ),

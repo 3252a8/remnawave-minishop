@@ -490,6 +490,38 @@ SETTINGS_MANIFEST: list[SettingField] = [
         subsection="trial",
     ),
     SettingField(
+        "TRIAL_PAYMENT_ENABLED",
+        "bool",
+        "pricing",
+        "Paid trial activation",
+        "Require a successful payment before trial activation.",
+        optional=False,
+        subsection="trial",
+    ),
+    SettingField(
+        "TRIAL_PAYMENT_PRICE",
+        "float",
+        "pricing",
+        "Trial activation price",
+        (
+            "Price in the default payment currency. "
+            "Set a positive value when paid activation is enabled."
+        ),
+        optional=False,
+        min=0,
+        subsection="trial",
+    ),
+    SettingField(
+        "TRIAL_PAYMENT_STARS_PRICE",
+        "int",
+        "pricing",
+        "Trial activation price in Stars",
+        "Telegram Stars price. Set to 0 to hide Stars from the trial checkout.",
+        optional=False,
+        min=0,
+        subsection="trial",
+    ),
+    SettingField(
         "TRIAL_DURATION_DAYS",
         "int",
         "pricing",

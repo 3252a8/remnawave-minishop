@@ -14,7 +14,7 @@ from bot.app.web.context import (
     get_subscription_service,
 )
 from bot.app.web.webapp.assets import _enforce_webapp_rate_limit, _get_cached_webapp_settings
-from bot.app.web.webapp.auth import _require_user_id
+from bot.app.web.webapp.auth import _require_user_id, _trial_telegram_required_reason
 from bot.app.web.webapp.common import (
     _json_error,
     _parse_model_payload,
@@ -122,10 +122,27 @@ async def create_payment_route(request: web.Request) -> web.Response:
     quoted_entitlement_context_snapshot: str | None = None
     requested_sale_mode = _sale_mode_base(str(payment_payload.sale_mode or ""))
     payment_units: int | float
+    price: float | None = None
+    stars_price: int | None = None
 
-    if tariffs_config and requested_sale_mode == "hwid_devices_renewal":
+    if requested_sale_mode == "trial":
+        if (
+            not settings.TRIAL_ENABLED
+            or settings.TRIAL_DURATION_DAYS <= 0
+            or not settings.TRIAL_PAYMENT_ENABLED
+        ):
+            return _json_error(400, "trial_payment_unavailable", "Paid trial is not available")
+        price = max(0.0, float(settings.TRIAL_PAYMENT_PRICE or 0))
+        stars_price = max(0, int(settings.TRIAL_PAYMENT_STARS_PRICE or 0))
+        if method == "stars" and stars_price <= 0:
+            return _json_error(400, "invalid_plan", "Stars price is not configured")
+        if method != "stars" and price <= 0:
+            return _json_error(400, "invalid_plan", "Trial price is not configured")
+        payment_units = 1
+        sale_mode = "trial"
+    elif tariffs_config and requested_sale_mode == "hwid_devices_renewal":
         return _json_error(400, "invalid_plan", "Device renewal is part of subscription renewal")
-    if tariffs_config and requested_sale_mode in {
+    elif tariffs_config and requested_sale_mode in {
         "hwid_device",
         "hwid_devices",
     }:
@@ -251,7 +268,7 @@ async def create_payment_route(request: web.Request) -> web.Response:
                 )
             except (TypeError, ValueError):
                 return _json_error(400, "invalid_plan", "Invalid subscription period")
-            if months not in tariff.enabled_periods:
+            if months is None or months not in tariff.enabled_periods:
                 return _json_error(400, "invalid_plan", "Subscription period is not available")
             price = tariff.period_price(months, default_currency)
             stars_price_raw = tariff.period_price(months, "stars")
@@ -316,6 +333,35 @@ async def create_payment_route(request: web.Request) -> web.Response:
         if not db_user or db_user.is_banned:
             return _json_error(403, "access_denied", "Access denied")
         lang = db_user.language_code or settings.DEFAULT_LANGUAGE
+        if _sale_mode_base(sale_mode) == "trial":
+            telegram_required_reason = _trial_telegram_required_reason(settings, db_user)
+            if telegram_required_reason:
+                return _json_error(
+                    400,
+                    "trial_telegram_required",
+                    telegram_required_reason,
+                )
+            if await subscription_service.has_trial_blocking_subscription(session, user_id):
+                return _json_error(
+                    409,
+                    "trial_already_had_subscription_or_trial",
+                    "Trial is not available for this account",
+                )
+            admin_ids = {int(item) for item in (settings.ADMIN_IDS or [])}
+            is_admin = bool(db_user.telegram_id and int(db_user.telegram_id) in admin_ids)
+            return await _create_subscription_payment(
+                request=request,
+                session=session,
+                user_id=user_id,
+                method=method,
+                months=payment_units,
+                price=float(price or 0),
+                stars_price=stars_price,
+                currency=default_currency_code,
+                lang=lang,
+                sale_mode=sale_mode,
+                is_admin=is_admin,
+            )
         checkout_pricing_context, pricing_context_error = await _resolve_checkout_pricing_context(
             session=session,
             user_id=user_id,
