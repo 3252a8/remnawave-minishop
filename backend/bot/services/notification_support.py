@@ -5,7 +5,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot
-from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.text_decorations import html_decoration as hd
 
 from bot.services.email_templates import (
@@ -17,6 +17,7 @@ from bot.services.email_templates import (
 from bot.services.email_templates_common import EmailContent
 from bot.services.message_composition import telegram_markup_for_buttons
 from bot.services.message_image_service import StoredMessageImage, load_message_image
+from bot.services.message_image_telegram import prepare_telegram_photo
 from bot.services.support_message_body import (
     BODY_FORMAT_TEXT,
     support_body_plain_text,
@@ -305,9 +306,9 @@ class NotificationSupportMixin:
         *,
         thread_id: int | None = None,
     ) -> None:
-        photo = FSInputFile(image.path)
         queue_manager = get_queue_manager()
         try:
+            photo = await prepare_telegram_photo(image)
             if queue_manager is not None:
                 await queue_manager.send_photo(
                     chat_id=chat_id,

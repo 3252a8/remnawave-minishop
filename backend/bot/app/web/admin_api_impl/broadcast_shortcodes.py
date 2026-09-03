@@ -12,7 +12,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from aiogram.types import BufferedInputFile
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
 
@@ -39,6 +38,7 @@ from bot.services.broadcast_personalization import (
     unknown_shortcodes,
 )
 from bot.services.message_image_service import MessageImageError, prepare_message_image
+from bot.services.message_image_telegram import prepare_telegram_photo
 from bot.utils import MessageContent, send_message_via_queue
 from bot.utils.message_queue import get_queue_manager
 from config.settings import Settings
@@ -180,7 +180,7 @@ async def admin_broadcast_preview_route(request: web.Request) -> web.Response:
             markup = telegram_markup_for_buttons(buttons)
             if image is not None:
                 photo_kwargs: dict[str, Any] = {
-                    "photo": BufferedInputFile(image.data, filename=image.filename),
+                    "photo": await prepare_telegram_photo(image),
                     "reply_markup": markup,
                 }
                 if rendered_text:

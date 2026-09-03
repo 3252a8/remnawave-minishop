@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 from aiogram import Bot
 from aiogram.exceptions import TelegramForbiddenError
 from aiogram.methods import SendMessage
+from aiogram.types import BufferedInputFile
 from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
@@ -88,6 +89,34 @@ def _delivery(**overrides: Any) -> AdminBroadcastDelivery:
 
 
 class AdminBroadcastDeliveryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_photo_is_prepared_once_and_reused_for_all_recipients(self) -> None:
+        queue = _Queue()
+        service = _service(queue)
+        stored = SimpleNamespace(path=REPO_ROOT / "pyproject.toml")
+        photo = BufferedInputFile(b"prepared JPEG", filename="message.jpg")
+        prepare = AsyncMock(return_value=photo)
+        deliveries = [
+            _delivery(),
+            _delivery(delivery_id=2, user_id=2, destination="222"),
+        ]
+        with (
+            patch.object(delivery_module, "load_message_image", AsyncMock(return_value=stored)),
+            patch.object(delivery_module, "prepare_telegram_photo", prepare),
+            patch.object(service, "_mark_queued", AsyncMock()),
+            patch.object(delivery_module.broadcast_dal, "refresh_broadcast_stats", AsyncMock()),
+        ):
+            result = await service._queue_deliveries(
+                _broadcast(image_id="1" * 32, texts={"en": "Hello"}),
+                deliveries,
+                [1, 2],
+                ["telegram"],
+            )
+
+        prepare.assert_awaited_once_with(stored)
+        self.assertEqual(result.queued, 2)
+        self.assertEqual(len(queue.messages), 2)
+        self.assertTrue(all(message["photo"] is photo for message in queue.messages))
+
     async def test_recipient_destinations_are_snapshotted_per_channel(self) -> None:
         captured: list[dict[str, Any]] = []
 
@@ -211,7 +240,7 @@ class AdminBroadcastDeliveryTests(unittest.IsolatedAsyncioTestCase):
     async def test_image_and_text_are_queued_as_one_photo_with_caption(self) -> None:
         queue = _Queue()
         service = _service(queue)
-        image = SimpleNamespace(path=REPO_ROOT / "test-image.webp")
+        image = BufferedInputFile(b"prepared JPEG", filename="test-image.jpg")
 
         with (
             patch.object(service, "_mark_queued", AsyncMock()) as mark_queued,
@@ -221,11 +250,12 @@ class AdminBroadcastDeliveryTests(unittest.IsolatedAsyncioTestCase):
                 _delivery(),
                 "Hello",
                 [],
-                image=cast(Any, image),
+                image=image,
             )
 
             self.assertEqual(len(queue.messages), 1)
             queued = queue.messages[0]
+            self.assertIs(queued["photo"], image)
             self.assertEqual(queued["caption"], "Hello")
             self.assertEqual(queued["parse_mode"], "HTML")
             self.assertIsNone(queued["reply_markup"])

@@ -41,4 +41,19 @@ describe("message image requests", () => {
     expect(isAcceptedMessageImage({ name: "phone-photo", type: "image/pjpeg" })).toBe(true);
     expect(isAcceptedMessageImage({ name: "payload.svg", type: "image/svg+xml" })).toBe(false);
   });
+
+  it.each(["jpg", "jpeg", "jfif", "png", "webp", "heic", "heif"])(
+    "accepts a .%s attachment without a browser MIME type",
+    (extension) => {
+      expect(isAcceptedMessageImage({ name: `photo.${extension.toUpperCase()}`, type: "" })).toBe(
+        true
+      );
+    }
+  );
+
+  it.each(["gif", "bmp", "tiff", "svg"])("rejects unsupported .%s attachments", (extension) => {
+    expect(isAcceptedMessageImage({ name: `photo.${extension}`, type: `image/${extension}` })).toBe(
+      false
+    );
+  });
 });

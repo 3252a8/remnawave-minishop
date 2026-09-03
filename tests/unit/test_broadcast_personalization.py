@@ -1,3 +1,4 @@
+import io
 import unittest
 from collections import deque
 from datetime import UTC, datetime, timedelta
@@ -5,6 +6,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
 from unittest.mock import AsyncMock, patch
+
+from PIL import Image
 
 from bot.app.web.admin_api_impl import broadcast as broadcast_route_module
 from bot.app.web.admin_api_impl import broadcast_shortcodes as broadcast_shortcodes_module
@@ -22,6 +25,7 @@ from bot.services.broadcast_personalization import (
     unknown_shortcodes,
 )
 from bot.services.email_templates_common import _telegram_html_to_email_html
+from bot.services.message_image_service import UploadedMessageImage, _prepare_message_image
 from config.tariffs_config import TariffsConfig
 from tests.support.settings_stub import settings_stub
 
@@ -613,13 +617,16 @@ class BroadcastEndpointsTest(unittest.IsolatedAsyncioTestCase):
             admin_telegram_id=123456789,
         )
         queue = _FakeQueue()
+        image_bytes = io.BytesIO()
+        Image.new("RGBA", (160, 120), (0, 0, 0, 0)).save(image_bytes, format="PNG")
+        prepared = _prepare_message_image(UploadedMessageImage(data=image_bytes.getvalue()))
         with (
             patch.object(broadcast_shortcodes_module, "_require_admin_user_id", return_value=999),
             patch.object(broadcast_shortcodes_module, "get_queue_manager", return_value=queue),
             patch.object(
                 broadcast_shortcodes_module,
                 "prepare_message_image",
-                AsyncMock(return_value=SimpleNamespace(data=b"image", filename="message.webp")),
+                AsyncMock(return_value=prepared),
             ),
             patch.object(
                 broadcast_shortcodes_module.user_dal,
@@ -643,6 +650,10 @@ class BroadcastEndpointsTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(queue.messages, [])
         self.assertEqual(len(queue.photos), 1)
         photo = queue.photos[0]
+        self.assertTrue(photo["photo"].filename.endswith(".jpg"))
+        with Image.open(io.BytesIO(photo["photo"].data)) as decoded:
+            self.assertEqual(decoded.format, "JPEG")
+            self.assertEqual(decoded.getpixel((0, 0)), (255, 255, 255))
         self.assertEqual(photo["chat_id"], 123456789)
         self.assertEqual(photo["caption"], "Hi!")
         self.assertEqual(photo["parse_mode"], "HTML")
