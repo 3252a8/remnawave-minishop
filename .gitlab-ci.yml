@@ -8,17 +8,22 @@ variables:
   DOCKER_TLS_CERTDIR: "/certs"
   DOCKER_DRIVER: overlay2
 
-publish-dev-images:
+.publish-dockerhub-images:
   stage: publish
   image: docker:27.4.1-cli
   services:
     - name: docker:27.4.1-dind
-  resource_group: dockerhub-dev-images
   before_script:
     - apk add --no-cache bash git
     - test -n "$DOCKERHUB_USERNAME" || (echo "DOCKERHUB_USERNAME is required" >&2; exit 1)
     - test -n "$DOCKERHUB_TOKEN" || (echo "DOCKERHUB_TOKEN is required" >&2; exit 1)
     - printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+  after_script:
+    - docker logout
+
+publish-dev-images:
+  extends: .publish-dockerhub-images
+  resource_group: dockerhub-dev-images
   script:
     - |
       remote_dev_commit="$(git ls-remote origin refs/heads/dev | awk '{print $1}')"
@@ -27,8 +32,33 @@ publish-dev-images:
         exit 0
       fi
       IMAGE_TAG=dev OCI_IMAGE_REVISION="$CI_COMMIT_SHA" REMNAWAVE_MINISHOP_BRANCH="$CI_COMMIT_REF_NAME" REMNAWAVE_MINISHOP_BUILD_PROVENANCE=official bash ./scripts/dockerhub-build-push-images.sh
-  after_script:
-    - docker logout
   rules:
     - if: '$CI_COMMIT_BRANCH == "dev" && $CI_PIPELINE_SOURCE == "push"'
     - if: '$CI_COMMIT_BRANCH == "dev" && $CI_PIPELINE_SOURCE == "web"'
+
+publish-release-images:
+  extends: .publish-dockerhub-images
+  resource_group: dockerhub-release-images
+  script:
+    - |
+      remote_main_commit="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+      if [ -z "$remote_main_commit" ]; then
+        echo "Unable to resolve the current main commit" >&2
+        exit 1
+      fi
+      if [ "$CI_COMMIT_SHA" != "$remote_main_commit" ]; then
+        echo "Release tag $CI_COMMIT_TAG must point exactly at current main ($remote_main_commit)" >&2
+        exit 1
+      fi
+
+      release_version="${CI_COMMIT_TAG#v}"
+      IMAGE_TAG="$release_version" OCI_IMAGE_REVISION="$CI_COMMIT_SHA" REMNAWAVE_MINISHOP_BRANCH=main REMNAWAVE_MINISHOP_BUILD_TAG="$CI_COMMIT_TAG" REMNAWAVE_MINISHOP_BUILD_COMMIT="$CI_COMMIT_SHA" REMNAWAVE_MINISHOP_BUILD_PROVENANCE=official bash ./scripts/dockerhub-build-push-images.sh
+
+      for target in backend worker frontend; do
+        version_image="docker.io/3252a8/remnawave-minishop-$target:$release_version"
+        latest_image="docker.io/3252a8/remnawave-minishop-$target:latest"
+        docker tag "$version_image" "$latest_image"
+        docker push "$latest_image"
+      done
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+$/'
