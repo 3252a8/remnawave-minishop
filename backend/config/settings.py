@@ -74,6 +74,13 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     ADMIN_DB_STATS_CACHE_TTL_SECONDS: int = Field(default=5)
     ADMIN_USERS_LIST_CACHE_TTL_SECONDS: int = Field(default=3)
     ADMIN_BROADCAST_AUDIENCE_COUNTS_CACHE_TTL_SECONDS: int = Field(default=30)
+    ADMIN_BROADCAST_EXCLUDE_BLOCKED_TELEGRAM: bool = Field(
+        default=False,
+        description=(
+            "Exclude Telegram recipients who are already known to have blocked the bot "
+            "from newly created admin broadcasts."
+        ),
+    )
     PROFILE_SYNC_CACHE_TTL_SECONDS: int = Field(default=900)
     PANEL_SYNC_LIFETIME_TRAFFIC_MIN_INTERVAL_SECONDS: int = Field(default=3600)
     PANEL_SYNC_LIFETIME_TRAFFIC_MIN_DELTA_BYTES: int = Field(default=104857600)

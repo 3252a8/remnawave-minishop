@@ -417,7 +417,7 @@ class AdminBroadcastBody(HttpBodyModel):
         return _normalize_localized_text(value)
 
     channels: list[str] = Field(default_factory=lambda: ["telegram"])
-    exclude_blocked_telegram: bool = False
+    exclude_blocked_telegram: bool | None = None
     email_subject: Any = ""
     buttons: list[AdminBroadcastButtonBody] = Field(default_factory=list)
     scheduled_at: datetime | None = None

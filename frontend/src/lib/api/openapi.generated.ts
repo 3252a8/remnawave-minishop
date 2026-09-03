@@ -3024,9 +3024,9 @@ export interface components {
       };
       /**
        * Exclude Blocked Telegram
-       * @default false
+       * @default null
        */
-      exclude_blocked_telegram: boolean;
+      exclude_blocked_telegram: boolean | null;
       /**
        * Scheduled At
        * @default null

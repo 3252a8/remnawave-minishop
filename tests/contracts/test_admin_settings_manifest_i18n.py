@@ -210,6 +210,15 @@ def test_webapp_title_is_first_general_admin_setting():
     assert next(item["key"] for item in items if item["section"] == "general") == "WEBAPP_TITLE"
 
 
+def test_broadcast_blocked_filter_is_a_general_admin_setting():
+    field = _manifest_by_key()["ADMIN_BROADCAST_EXCLUDE_BLOCKED_TELEGRAM"]
+
+    assert field["type"] == "bool"
+    assert field["section"] == "general"
+    assert field["i18n_label_key"] == "admin_broadcast_exclude_blocked_telegram"
+    assert field["i18n_description_key"] == "admin_broadcast_exclude_blocked_telegram_hint"
+
+
 def test_server_status_url_is_admin_editable():
     manifest = _manifest_by_key()
     field = manifest["SERVER_STATUS_URL"]

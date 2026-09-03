@@ -98,7 +98,6 @@ export type BroadcastState = {
   broadcastCountsLoadedAt: number;
   broadcastAudiencesLoaded: boolean;
   broadcastTelegramEnabled: boolean;
-  broadcastExcludeBlockedTelegram: boolean;
   broadcastEmailEnabled: boolean;
   broadcastEmailAvailable: boolean;
   broadcastEmailAvailabilityKnown: boolean;
@@ -375,7 +374,6 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
     broadcastAudiencesLoaded:
       cachedCounts?.audiences !== null && cachedCounts?.audiences !== undefined,
     broadcastTelegramEnabled: true,
-    broadcastExcludeBlockedTelegram: false,
     broadcastEmailEnabled: false,
     broadcastEmailAvailable: cachedCounts?.emailAvailable ?? false,
     broadcastEmailAvailabilityKnown: typeof cachedCounts?.emailAvailable === "boolean",
@@ -621,8 +619,7 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
         text,
         texts: localizedForPayload(texts),
         channels,
-        exclude_blocked_telegram:
-          channels.includes("telegram") && state.broadcastExcludeBlockedTelegram,
+        exclude_blocked_telegram: null,
         email_subject: emailSubject.trim(),
         email_subjects: localizedForPayload(emailSubjects),
         buttons: buttonsForPayload(buttons),
@@ -643,7 +640,6 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
           broadcastImage: null,
           broadcastLanguage: "",
           broadcastButtons: [],
-          broadcastExcludeBlockedTelegram: false,
           broadcastEmailSubject: "",
           broadcastEmailSubjects: {},
           broadcastScheduleEnabled: false,

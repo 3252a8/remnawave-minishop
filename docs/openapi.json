@@ -592,9 +592,16 @@
             "type": "object"
           },
           "exclude_blocked_telegram": {
-            "default": false,
-            "title": "Exclude Blocked Telegram",
-            "type": "boolean"
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Exclude Blocked Telegram"
           },
           "scheduled_at": {
             "anyOf": [

@@ -14,17 +14,7 @@ async function expectContainedBy(element: Locator, container: Locator): Promise<
   );
 }
 
-async function waitForAnimations(elements: Locator): Promise<void> {
-  await elements.evaluateAll(async (items) => {
-    await Promise.all(
-      items.flatMap((item) => item.getAnimations().map((animation) => animation.finished))
-    );
-  });
-}
-
-test("broadcast editor is compact and history uses masonry columns on desktop", async ({
-  page,
-}) => {
+test("broadcast editor is compact and history uses a sortable detail table", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/demo/runtime/admin/broadcast?theme_preview=dark");
 
@@ -83,19 +73,27 @@ test("broadcast editor is compact and history uses masonry columns on desktop", 
   await expect(scheduleControl).toHaveClass(/is-invalid/);
   await expect(scheduleControl.getByText("Время отправки должно быть в будущем")).toBeVisible();
 
-  const cards = page.locator(".broadcast-history-card");
-  await expect(cards).toHaveCount(3);
-  await waitForAnimations(cards);
-  const cardBoxes = await cards.evaluateAll((elements) =>
-    elements.map((element) => element.getBoundingClientRect())
-  );
-  expect(new Set(cardBoxes.map((box) => Math.round(box.left))).size).toBeGreaterThan(1);
-  expect(new Set(cardBoxes.map((box) => Math.round(box.height))).size).toBeGreaterThan(1);
+  const rows = page.locator(".broadcast-history-row");
+  await expect(rows).toHaveCount(3);
+  await expect(page.locator(".broadcast-history-table")).toBeVisible();
+
+  const createdHeader = page.getByRole("columnheader", { name: /Создана/ });
+  await createdHeader.click();
+  await expect(createdHeader).toHaveAttribute("aria-sort", "ascending");
+  await createdHeader.click();
+  await expect(createdHeader).toHaveAttribute("aria-sort", "none");
+  await createdHeader.click();
+  await expect(createdHeader).toHaveAttribute("aria-sort", "descending");
+
+  const scheduledRow = rows.filter({ hasText: "Запланирована" }).first();
+  await scheduledRow.click();
+  const detail = page.getByRole("dialog");
+  await expect(detail).toBeVisible();
+  await expect(detail.getByRole("heading", { name: /Рассылка №/ })).toBeVisible();
+  await expect(detail).toContainText("Пропустить заблокировавших бота");
 });
 
-test("broadcast history stacks on mobile and scheduled cards can be edited and removed", async ({
-  page,
-}) => {
+test("broadcast history opens details on mobile and scheduled items can be edited and removed", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 900 });
   await page.goto("/demo/runtime/admin/broadcast?theme_preview=dark");
 
@@ -117,20 +115,18 @@ test("broadcast history stacks on mobile and scheduled cards can be edited and r
     await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
   ).toBeLessThanOrEqual(1);
 
-  const cards = page.locator(".broadcast-history-card");
-  await expect(cards).toHaveCount(3);
-  await waitForAnimations(cards);
-  const cardBoxes = await cards.evaluateAll((elements) =>
-    elements.map((element) => element.getBoundingClientRect())
-  );
-  expect(new Set(cardBoxes.map((box) => Math.round(box.left))).size).toBe(1);
+  const rows = page.locator(".broadcast-history-row");
+  await expect(rows).toHaveCount(3);
+  const scheduledRow = rows.filter({ hasText: "Запланирована" }).first();
+  await scheduledRow.click();
 
-  const scheduledCard = cards.filter({ hasText: "Запланирована" }).first();
-  await scheduledCard.getByRole("button", { name: "Изменить время" }).click();
-  const scheduleInput = scheduledCard.locator('input[type="datetime-local"]');
+  const detail = page.getByRole("dialog");
+  await expect(detail).toBeVisible();
+  await detail.getByRole("button", { name: "Изменить время" }).click();
+  const scheduleInput = detail.locator('input[type="datetime-local"]');
   await expect(scheduleInput).toBeVisible();
-  const rescheduleRow = scheduledCard.locator(".broadcast-reschedule-row");
-  await expectContainedBy(rescheduleRow, scheduledCard);
+  const rescheduleRow = detail.locator(".broadcast-reschedule-row");
+  await expectContainedBy(rescheduleRow, detail.locator(".admin-broadcast-dialog"));
   await expectContainedBy(scheduleInput, rescheduleRow);
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
@@ -138,14 +134,15 @@ test("broadcast history stacks on mobile and scheduled cards can be edited and r
   await scheduleInput.fill("2020-01-01T00:00");
   await expect(scheduleInput).toHaveAttribute("aria-invalid", "true");
   await expect(scheduleInput).toHaveClass(/input-error/);
-  await expect(scheduledCard.getByRole("button", { name: "Обновить" })).toBeDisabled();
-  await expect(scheduledCard.getByText("Время отправки должно быть в будущем")).toBeVisible();
+  await expect(detail.getByRole("button", { name: "Обновить" })).toBeDisabled();
+  await expect(detail.getByText("Время отправки должно быть в будущем")).toBeVisible();
   await scheduleInput.fill("2031-05-20T14:30");
   await expect(scheduleInput).toHaveAttribute("aria-invalid", "false");
-  await scheduledCard.getByRole("button", { name: "Обновить" }).click();
-  await expect(scheduledCard).toContainText("20.05.2031");
+  await detail.getByRole("button", { name: "Обновить" }).click();
+  await expect(detail).toContainText("20.05.2031");
 
   page.once("dialog", (dialog) => dialog.accept());
-  await scheduledCard.getByRole("button", { name: "Отменить и удалить" }).click();
-  await expect(cards).toHaveCount(2);
+  await detail.getByRole("button", { name: "Отменить и удалить" }).click();
+  await expect(detail).toBeHidden();
+  await expect(rows).toHaveCount(2);
 });

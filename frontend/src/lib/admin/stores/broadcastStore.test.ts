@@ -61,7 +61,6 @@ describe("broadcastStore", () => {
     const store = makeStore(api);
     store.updateField({
       broadcastTelegramEnabled: false,
-      broadcastExcludeBlockedTelegram: true,
       broadcastEmailEnabled: true,
       broadcastText: "Hello",
     });
@@ -72,7 +71,7 @@ describe("broadcastStore", () => {
 
     const payload = JSON.parse(api.mock.calls[0][1].body);
     expect(payload.channels).toEqual(["email"]);
-    expect(payload.exclude_blocked_telegram).toBe(false);
+    expect(payload.exclude_blocked_telegram).toBeNull();
   });
 
   it("preserves a negative internal user id for an email-only message", async () => {
@@ -94,7 +93,7 @@ describe("broadcastStore", () => {
     expect(payload.channels).toEqual(["email"]);
   });
 
-  it("opts in to excluding blocked Telegram recipients and resets after sending", async () => {
+  it("uses the server-side blocked-recipient default for broadcasts", async () => {
     const api = vi.fn().mockResolvedValue({
       ok: true,
       queued: 1,
@@ -103,16 +102,12 @@ describe("broadcastStore", () => {
       channels: ["telegram"],
     });
     const store = makeStore(api);
-    store.updateField({
-      broadcastText: "Hello",
-      broadcastExcludeBlockedTelegram: true,
-    });
+    store.updateField({ broadcastText: "Hello" });
 
     await store.runBroadcast();
 
     const payload = JSON.parse(api.mock.calls[0][1].body);
-    expect(payload.exclude_blocked_telegram).toBe(true);
-    expect(store.broadcastExcludeBlockedTelegram).toBe(false);
+    expect(payload.exclude_blocked_telegram).toBeNull();
   });
 
   it("adds server-discovered audience options with localized labels", async () => {

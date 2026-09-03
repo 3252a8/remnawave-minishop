@@ -612,6 +612,12 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
     if immediate and "telegram" in channels and queue_manager is None:
         return _error(503, "queue_unavailable")
 
+    exclude_blocked_telegram = (
+        body.exclude_blocked_telegram
+        if body.exclude_blocked_telegram is not None
+        else settings.ADMIN_BROADCAST_EXCLUDE_BLOCKED_TELEGRAM
+    )
+
     async_session_factory = get_session_factory(request)
     async with async_session_factory() as session:
         promo_error = await _validate_broadcast_promo_codes(
@@ -625,7 +631,7 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
             actor_id=actor_id,
             target=target,
             channels=channels,
-            exclude_blocked_telegram=body.exclude_blocked_telegram,
+            exclude_blocked_telegram=exclude_blocked_telegram,
             texts=texts,
             email_subjects=email_subjects,
             buttons=[button.model_dump(mode="json") for button in body.buttons],

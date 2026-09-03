@@ -52,6 +52,16 @@ SETTINGS_MANIFEST: list[SettingField] = [
     SettingField("USER_AGREEMENT_URL", "url", "general", "User Agreement URL"),
     SettingField("DISABLE_WELCOME_MESSAGE", "bool", "general", "Disable Welcome Message"),
     SettingField(
+        "ADMIN_BROADCAST_EXCLUDE_BLOCKED_TELEGRAM",
+        "bool",
+        "general",
+        "Skip users who blocked the bot",
+        "For new broadcasts, only Telegram delivery is skipped; email delivery is unchanged.",
+        optional=False,
+        i18n_label_key="admin_broadcast_exclude_blocked_telegram",
+        i18n_description_key="admin_broadcast_exclude_blocked_telegram_hint",
+    ),
+    SettingField(
         "START_COMMAND_DESCRIPTION",
         "string",
         "general",
