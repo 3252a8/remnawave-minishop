@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { adminDurationLabel } from "$lib/admin/tariffPeriods";
   import { getPaymentsStore } from "$lib/admin/context";
   import {
     CalendarDays,
@@ -235,6 +236,7 @@
   }
 
   function durationText(p: AdminPayment | null): string {
+    if (p?.subscription_duration_days) return adminDurationLabel(p.subscription_duration_days, at);
     const months = p?.subscription_duration_months;
     return present(months)
       ? at("payment_detail_months_count", { count: months }, `${months} mo.`)

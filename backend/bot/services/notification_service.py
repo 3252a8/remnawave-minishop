@@ -19,6 +19,7 @@ from bot.services.email_auth_service import EmailAuthService
 from bot.services.notification_partner import NotificationPartnerMixin
 from bot.services.notification_support import NotificationSupportMixin
 from bot.utils.message_queue import get_queue_manager
+from bot.utils.subscription_periods import format_duration_days
 from bot.utils.telegram_markup import (
     is_profile_link_error,
     remove_profile_link_buttons,
@@ -552,6 +553,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         purchases: tuple[PaymentPurchase, ...] | None = None,
         sale_mode: str | None = None,
         payment_id: int | None = None,
+        duration_days: int | None = None,
     ) -> None:
         """Send notification about successful payment"""
         if not self.settings.LOG_PAYMENTS:
@@ -634,7 +636,16 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
             tariff_line = (
                 _("log_payment_tariff_line", name=hd.quote(tariff_name)) if tariff_name else ""
             )
-            period_line = _("log_payment_period_line", months=months) if months else ""
+            period_line = (
+                _(
+                    "log_payment_period_days_line",
+                    period=format_duration_days(duration_days, _, admin_lang),
+                )
+                if duration_days
+                else _("log_payment_period_line", months=months)
+                if months
+                else ""
+            )
             purchase_summary_line = _(
                 "log_payment_purchase_summary_line",
                 summary=purchase_summary,
@@ -653,12 +664,13 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
             )
         else:
             message = _(
-                "log_payment_received",
+                "log_payment_received_days" if duration_days else "log_payment_received",
                 provider_emoji=provider_emoji,
                 user_display=user_display,
                 amount=amount,
                 currency=currency,
                 months=months,
+                period=format_duration_days(duration_days, _, admin_lang) if duration_days else "",
                 payment_provider=payment_provider,
                 timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
             )

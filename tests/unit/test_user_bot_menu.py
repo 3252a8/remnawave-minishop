@@ -523,8 +523,8 @@ class UserBotMenuTests(unittest.TestCase):
             hwid_renewal_selected=False,
         )
 
-        self.assertIn("tariff:period:basic:1:bot:no_hwid", self._callback_data(selected))
-        self.assertIn("tariff:period:basic:1:bot:hwid", self._callback_data(disabled))
+        self.assertIn("tariff:period:basic:d30:bot:no_hwid", self._callback_data(selected))
+        self.assertIn("tariff:period:basic:d30:bot:hwid", self._callback_data(disabled))
 
     def test_yookassa_saved_card_choice_keeps_sale_mode_after_page_token(self):
         markup = get_yk_autopay_choice_keyboard(
@@ -572,7 +572,7 @@ class UserBotMenuTests(unittest.TestCase):
 
         self.assertIn("tariff:select:basic:bot", self._callback_data(catalog))
         self.assertIn("main_action:bot_interface", self._callback_data(catalog))
-        self.assertIn("tariff:period:basic:1:bot", self._callback_data(periods))
+        self.assertIn("tariff:period:basic:d30:bot", self._callback_data(periods))
         self.assertIn("main_action:bot_interface", self._callback_data(periods))
         self.assertEqual(tariff_purchase_back_callback("bot"), "main_action:bot_interface")
         self.assertEqual(tariff_purchase_back_callback(None), "main_action:subscribe")
@@ -613,7 +613,7 @@ class UserBotMenuTests(unittest.TestCase):
         )
         applied_buttons = [button for row in applied.inline_keyboard for button in row]
         self.assertIn("100 → 75", applied_buttons[0].text)
-        self.assertEqual(applied_buttons[0].callback_data, "tariff:period:basic:1:bot:p17")
+        self.assertEqual(applied_buttons[0].callback_data, "tariff:period:basic:d30:bot:p17")
         self.assertTrue(any("Cancel promo code" in button.text for button in applied_buttons))
 
         disabled = get_tariff_periods_keyboard(
@@ -629,7 +629,7 @@ class UserBotMenuTests(unittest.TestCase):
         )
         disabled_buttons = [button for row in disabled.inline_keyboard for button in row]
         self.assertNotIn("→", disabled_buttons[0].text)
-        self.assertEqual(disabled_buttons[0].callback_data, "tariff:period:basic:1:bot:pd")
+        self.assertEqual(disabled_buttons[0].callback_data, "tariff:period:basic:d30:bot:pd")
         self.assertTrue(any("Apply discount" in button.text for button in disabled_buttons))
 
     def test_traffic_buttons_never_include_personal_promo_controls(self):

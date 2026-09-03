@@ -20,6 +20,8 @@ def _subscription(**overrides):
         "start_date": datetime(2026, 1, 1, 12, 0, 0),  # noqa: DTZ001
         "end_date": datetime(2026, 2, 1, 12, 0, 0),  # noqa: DTZ001
         "duration_months": 1,
+        "duration_days": None,
+        "period_semantics": None,
         "is_active": True,
         "status_from_panel": "ACTIVE",
         "traffic_limit_bytes": 5000,
@@ -55,6 +57,8 @@ def test_serialize_subscription_matches_legacy_contract():
         "start_date": "2026-01-01T12:00:00",
         "end_date": "2026-02-01T12:00:00",
         "duration_months": 1,
+        "duration_days": None,
+        "period_semantics": None,
         "is_active": True,
         "status_from_panel": "ACTIVE",
         "traffic_limit_bytes": 5000,

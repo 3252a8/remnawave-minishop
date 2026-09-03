@@ -1,3 +1,5 @@
+import { adminDurationLabel } from "./tariffPeriods";
+import { legacyMonthsToDays } from "../webapp/subscriptionPeriods";
 import { normalizeCurrencyKey } from "./tariffDraft";
 import type { Tariff, TariffsCatalog } from "./stores/tariffsStore";
 
@@ -28,14 +30,17 @@ export function tariffDisplayPriceSummary(
   }
   return [...(tariff.enabled_periods || [])]
     .map((month) => {
+      const label = adminDurationLabel(
+        tariff.period_unit === "day" ? month : legacyMonthsToDays(month),
+        translate
+      );
       const price =
         (currency === "rub" ? tariff.prices_rub?.[String(month)] : undefined) ??
         tariff.prices?.[currency]?.[String(month)];
       const stars = tariff.prices_stars?.[String(month)];
-      if (price)
-        return `${month} ${translate("months_short", {}, "mo.")} ${formatMoney(price, currencyCode)}`;
-      if (stars) return `${month} ${translate("months_short", {}, "mo.")} ${stars} ⭐`;
-      return `${month} ${translate("months_short", {}, "mo.")}`;
+      if (price) return `${label} ${formatMoney(price, currencyCode)}`;
+      if (stars) return `${label} ${stars} ⭐`;
+      return `${label}`;
     })
     .join(" · ");
 }

@@ -13,6 +13,13 @@ from bot.services.device_topup_availability import resolve_device_topup_availabi
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.subscription_service_impl.hwid_limits import resolve_hwid_base_limit
 from config.settings import Settings
+from config.subscription_periods import (
+    checkout_duration_days,
+    days_to_legacy_months,
+    resolve_period_days,
+    tariff_period_key,
+    with_period_days,
+)
 from config.tariffs_config import default_currency_key_for_settings, payment_currency_code
 from db.dal import subscription_dal, tariff_dal
 
@@ -45,6 +52,8 @@ class BasePaymentQuote:
     checkout_bundle_hash: str | None = None
     checkout_addon_amount: float = 0.0
     checkout_addon_stars: int = 0
+    duration_days: int | None = None
+    period_start: datetime | None = None
 
 
 def _subscription_effective_hwid_limit(
@@ -375,7 +384,11 @@ async def _resolve_base_payment_quote(
             sale_mode = f"traffic_package@{tariff.key}"
         else:
             try:
-                months = int(float(payment_payload.months))
+                months = tariff_period_key(
+                    tariff,
+                    duration_days=payment_payload.duration_days,
+                    months=payment_payload.months,
+                )
             except (TypeError, ValueError):
                 return None, _json_error(400, "invalid_plan", "Invalid subscription period")
             if months not in tariff.enabled_periods:
@@ -423,7 +436,13 @@ async def _resolve_base_payment_quote(
         sale_mode = "traffic"
     else:
         try:
-            months = int(float(payment_payload.months))
+            months = days_to_legacy_months(
+                resolve_period_days(
+                    duration_days=payment_payload.duration_days, months=payment_payload.months
+                )
+            )
+            if months is None:
+                raise ValueError("duration is not available")
         except (TypeError, ValueError):
             return None, _json_error(400, "invalid_plan", "Invalid subscription period")
         price = cached["subscription_options"].get(months)
@@ -507,6 +526,13 @@ async def _resolve_base_payment_quote(
                 price = float(price or 0) + float(hwid_quote["price"])
                 stars_price = None
 
+    try:
+        duration_days = checkout_duration_days(settings, payment_units, sale_mode)
+    except ValueError:
+        return None, _json_error(400, "invalid_plan", "Subscription end date is out of range")
+    if duration_days is not None:
+        sale_mode = with_period_days(sale_mode, duration_days)
+
     base_quote = BasePaymentQuote(
         payment_units=payment_units,
         price=float(price or 0),
@@ -537,6 +563,10 @@ async def _resolve_base_payment_quote(
             checkout_bundle_hash=bundle.digest,
             checkout_addon_amount=bundle.addon_amount,
             checkout_addon_stars=bundle.addon_stars,
+            duration_days=duration_days,
+            period_start=checkout_pricing_context.active_end_at
+            if checkout_pricing_context
+            else None,
         ),
         None,
     )

@@ -141,6 +141,7 @@ class WebAppPaymentCreatePayload(BaseModel):
 
     method: str = ""
     months: Any = None
+    duration_days: int | None = Field(default=None, strict=True, gt=0, le=2147483647)
     traffic_gb: Any = None
     device_count: Any = None
     tariff_key: OptionalTariffKeyString | None = None

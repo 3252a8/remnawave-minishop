@@ -9,13 +9,17 @@ from collections.abc import Iterable
 from typing import Any
 from urllib.parse import unquote, urlparse
 
+from config.subscription_periods import (
+    days_to_legacy_months,
+    legacy_months_to_days,
+    positive_period,
+)
 from config.tariffs_config import TariffsConfig, normalize_currency_key
 
 from .common import (
     GIB,
     SOURCE,
     UUID_RE,
-    _as_utc,
     _jsonish,
     _listish,
     _to_decimal,
@@ -112,28 +116,33 @@ def remnashop_subscription_provider(is_trial: Any) -> str:
     return "trial" if _truthy(is_trial) else SOURCE
 
 
-def remnashop_months_from_plan_snapshot(
+def remnashop_days_from_plan_snapshot(
     plan_snapshot: Any,
     *,
     created_at: Any = None,
     expire_at: Any = None,
 ) -> int | None:
     data = _jsonish(plan_snapshot)
-    for key in ("duration_months", "months", "month"):
-        months = _to_int(data.get(key))
-        if months and months > 0:
-            return months
-
     for key in ("duration_days", "days", "duration"):
         days = _to_int(data.get(key))
         if days and days > 0:
-            return max(1, round(days / 30))
-
-    start = _as_utc(created_at)
-    end = _as_utc(expire_at)
-    if start and end and end > start:
-        return max(1, round((end - start).days / 30))
+            return int(positive_period(days))
+    for key in ("duration_months", "months", "month"):
+        months = _to_int(data.get(key))
+        if months and months > 0:
+            return int(legacy_months_to_days(months))
+    # An entitlement's remaining time is not evidence of its billing period.
     return None
+
+
+def remnashop_months_from_plan_snapshot(
+    plan_snapshot: Any,
+    *,
+    created_at: Any = None,
+    expire_at: Any = None,
+) -> int | None:
+    days = remnashop_days_from_plan_snapshot(plan_snapshot)
+    return days_to_legacy_months(days) if days else None
 
 
 def remnashop_tariff_key(plan_snapshot: Any, tariff_map: dict[str, str]) -> str | None:
@@ -389,8 +398,8 @@ def remnashop_build_tariff_catalog(
             enabled_periods: list[int] = []
             for duration in plan_durations:
                 duration_id = _to_int(duration.get("id"))
-                months = remnashop_days_to_months(duration.get("days"))
-                if months is None:
+                months = _to_int(duration.get("days"))
+                if months is None or months <= 0:
                     continue
                 duration_prices = prices_by_duration.get(duration_id or -1, {})
                 if not any(price > 0 for price in duration_prices.values()):
@@ -407,6 +416,7 @@ def remnashop_build_tariff_catalog(
             tariff.update(
                 {
                     "billing_model": "period",
+                    "period_unit": "day",
                     "monthly_gb": monthly_gb,
                     "prices": {
                         currency: dict(values) for currency, values in period_prices.items()
@@ -433,6 +443,8 @@ def remnashop_build_tariff_catalog(
         return {"catalog": None, "tariff_map": tariff_map, "warnings": warnings}
 
     catalog = {
+        "schema_version": 2,
+        "period_unit": "day",
         "default_tariff": default_tariff,
         "default_currency": default_currency_key,
         "tariffs": tariffs,

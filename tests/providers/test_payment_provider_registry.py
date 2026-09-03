@@ -585,7 +585,7 @@ def test_payment_method_keyboard_uses_custom_telegram_text_without_changing_call
 
     button = markup.inline_keyboard[0][0]
     assert button.text == "💸 Wata custom"
-    assert button.callback_data == "pay_wata:1:150:subscription"
+    assert button.callback_data == "pay_wata:1:150:subscription|d30"
 
 
 def test_payment_method_keyboard_filters_providers_by_payment_currency(monkeypatch):
@@ -620,7 +620,7 @@ def test_payment_method_keyboard_filters_providers_by_payment_currency(monkeypat
         for button in row
         if button.callback_data
     ]
-    assert "pay_wata:1:10:subscription" in callbacks
+    assert "pay_wata:1:10:subscription|d30" in callbacks
     assert all(not callback.startswith("pay_yk:") for callback in callbacks)
 
 
@@ -665,13 +665,13 @@ def test_payment_method_keyboard_uses_payment_currency_for_symbol_labels(monkeyp
         for button in row
         if button.callback_data
     ]
-    assert "pay_platega_sbp:1:150:subscription" in callbacks
-    assert "pay_platega_card:1:150:subscription" in callbacks
-    assert callbacks.index("pay_platega_card:1:150:subscription") == (
-        callbacks.index("pay_platega_sbp:1:150:subscription") + 1
+    assert "pay_platega_sbp:1:150:subscription|d30" in callbacks
+    assert "pay_platega_card:1:150:subscription|d30" in callbacks
+    assert callbacks.index("pay_platega_card:1:150:subscription|d30") == (
+        callbacks.index("pay_platega_sbp:1:150:subscription|d30") + 1
     )
-    assert "pay_yk:1:150:subscription" in callbacks
-    assert "pay_wata:1:150:subscription" in callbacks
+    assert "pay_yk:1:150:subscription|d30" in callbacks
+    assert "pay_wata:1:150:subscription|d30" in callbacks
 
 
 def test_payment_method_keyboard_filters_paykilla_by_converted_minimum(monkeypatch):
@@ -732,7 +732,7 @@ def test_payment_method_keyboard_filters_paykilla_by_converted_minimum(monkeypat
         if button.callback_data
     ]
     assert all(not callback.startswith("pay_paykilla:") for callback in below_callbacks)
-    assert "pay_paykilla:1:1000:subscription" in above_callbacks
+    assert "pay_paykilla:1:1000:subscription|d30" in above_callbacks
 
 
 def test_admin_only_provider_is_visible_only_to_admins(monkeypatch):
@@ -787,7 +787,7 @@ def test_admin_only_provider_is_visible_only_to_admins(monkeypatch):
         for row in regular_markup.inline_keyboard
         for button in row
     )
-    assert admin_markup.inline_keyboard[0][0].callback_data == "pay_wata:1:150:subscription"
+    assert admin_markup.inline_keyboard[0][0].callback_data == "pay_wata:1:150:subscription|d30"
     assert _serialize_payment_methods(settings, app, "en", is_admin=False) == []
     assert _serialize_payment_methods(settings, app, "en", is_admin=True)[0]["id"] == "wata"
 

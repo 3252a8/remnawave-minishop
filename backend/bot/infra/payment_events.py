@@ -66,6 +66,7 @@ class PaymentSuccessSnapshot:
     base_amount: float | None
     discount_amount: float | None
     purchases: tuple[PaymentPurchase, ...]
+    duration_days: int | None = None
 
 
 PaymentPurchaseResolver = Callable[[PaymentPurchaseContext], Iterable[PaymentPurchase]]
@@ -276,6 +277,9 @@ def resolve_payment_success_snapshot(
         sale_mode_base=base,
         tariff_key=str(tariff_key) if tariff_key else None,
         months=months,
+        duration_days=_optional_positive_int(
+            payload.get("duration_days") or _getattr_or_none(payment, "subscription_duration_days")
+        ),
         traffic_gb=traffic_purchase.amount if traffic_purchase else None,
         traffic_is_premium=bool(
             base == "premium_topup"
@@ -329,7 +333,9 @@ def build_payment_succeeded_payload(
         "currency": currency,
         "sale_mode": sale_mode,
         "tariff_key": tariff_key,
-        "months": months,
+        "months": months or None,
+        "duration_days": _getattr_or_none(payment, "subscription_duration_days")
+        or activation.get("duration_days"),
         "traffic_gb": traffic_gb,
         "purchased_hwid_devices": (
             purchased_hwid_devices

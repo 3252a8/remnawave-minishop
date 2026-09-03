@@ -89,7 +89,7 @@
     checkoutPromoStatus = "",
     checkoutPromoDiscountPercent = 0,
     checkoutPromoAppliesTo = "all",
-    checkoutPromoMinSubscriptionMonths = null,
+    checkoutPromoMinSubscriptionDays = null,
     checkoutPromoMinTrafficGb = null,
     checkoutAddonPreset = null,
     applyCheckoutPromo = () => {},
@@ -164,7 +164,7 @@
     checkoutPromoStatus?: string;
     checkoutPromoDiscountPercent?: number;
     checkoutPromoAppliesTo?: string;
-    checkoutPromoMinSubscriptionMonths?: number | null;
+    checkoutPromoMinSubscriptionDays?: number | null;
     checkoutPromoMinTrafficGb?: number | null;
     checkoutAddonPreset?: CheckoutAddonPreset | null;
     applyCheckoutPromo?: CheckoutPromoAction;
@@ -222,7 +222,7 @@
   {checkoutPromoStatus}
   {checkoutPromoDiscountPercent}
   {checkoutPromoAppliesTo}
-  {checkoutPromoMinSubscriptionMonths}
+  {checkoutPromoMinSubscriptionDays}
   {checkoutPromoMinTrafficGb}
   {checkoutAddonPreset}
   {applyCheckoutPromo}

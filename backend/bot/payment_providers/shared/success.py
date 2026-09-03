@@ -131,6 +131,7 @@ class SuccessMessage:
     inviter_name: str | None = None
     referee_bonus_source: str = "referral"
     fallback_date_text: str = ""
+    duration_days: int | None = None
 
 
 def _fmt_date(dt: datetime | None, fallback: str) -> str:
@@ -159,6 +160,15 @@ def build_success_message(payload: SuccessMessage) -> str:
             "payment_successful_hwid_devices_full",
             count=format_human_units(payload.months),
         )
+    if payload.duration_days is not None:
+        text = _("payment_successful_days_full", days=payload.duration_days, end_date=end_text)
+        if payload.applied_referee_bonus_days:
+            text += "\n" + _(
+                "payment_successful_bonus_days", days=payload.applied_referee_bonus_days
+            )
+        if payload.applied_promo_bonus_days:
+            text += "\n" + _("payment_successful_bonus_days", days=payload.applied_promo_bonus_days)
+        return text
     if payload.applied_referee_bonus_days and payload.final_end_date:
         base_end_text = _fmt_date(payload.base_end_date or payload.final_end_date, end_text)
         if payload.referee_bonus_source == "partner":
@@ -709,6 +719,9 @@ async def finalize_successful_payment(
                         current_payment_db_id=payment_id,
                         skip_if_active_before_payment=False,
                         tariff_key=effective_tariff_key,
+                        duration_days=getattr(locked_payment, "subscription_duration_days", None)
+                        if getattr(locked_payment, "period_semantics", None) == "fixed_days"
+                        else None,
                     )
                 except Exception:
                     await referral_savepoint.rollback()
@@ -817,7 +830,8 @@ async def finalize_successful_payment(
                 tariff_key=activation.get("tariff_key"),
                 end_date=activation.get("end_date"),
                 provider=req.provider_subscription,
-                months=activation_months,
+                months=activation_months or None,
+                duration_days=activation.get("duration_days"),
                 payment_db_id=payment_id,
             )
         )
@@ -860,6 +874,9 @@ async def finalize_successful_payment(
     success_text = build_success_message(
         SuccessMessage(
             translator=translator,
+            duration_days=getattr(locked_payment, "subscription_duration_days", None)
+            if getattr(locked_payment, "period_semantics", None) == "fixed_days"
+            else None,
             sale_mode=req.sale_mode,
             months=(
                 activation_months

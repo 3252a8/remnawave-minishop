@@ -142,6 +142,9 @@ async def _validate_payment_record_references(
 
 
 async def create_payment_record(session: AsyncSession, payment_data: dict[str, Any]) -> Payment:
+    from .payment_periods import normalize_payment_period
+
+    payment_data = normalize_payment_period(payment_data)
     await _validate_payment_record_references(session, payment_data)
 
     new_payment = Payment(**payment_data)
@@ -183,7 +186,9 @@ async def create_or_get_payment_record_by_idempotence_key(
     newly created row before issuing that API call; a concurrent caller then
     loads the same row and can safely reuse the provider idempotence key.
     """
-    payload = dict(payment_data)
+    from .payment_periods import normalize_payment_period
+
+    payload = normalize_payment_period(payment_data)
     idempotence_key = str(payload.get("idempotence_key") or "").strip()
     if not idempotence_key:
         raise ValueError("idempotence_key is required for idempotent payment creation.")

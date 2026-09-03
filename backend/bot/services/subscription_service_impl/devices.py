@@ -8,6 +8,11 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.utils.date_utils import add_months
+from config.subscription_periods import (
+    add_period_days,
+    days_to_legacy_months,
+    legacy_months_to_days,
+)
 from config.tariffs_config import Tariff
 from db.dal import payment_dal, subscription_dal, tariff_dal, user_dal
 from db.models import Subscription
@@ -279,7 +284,8 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         return {
             "price": rounded_price,
             "full_price": float(full_price),
-            "pricing_period_months": months,
+            "pricing_period_months": days_to_legacy_months(tariff.period_duration_days(months)),
+            "pricing_period_days": tariff.period_duration_days(months),
             "proration_ratio": 1.0,
             "currency": currency,
             "package_counts": [int(package.count) for package in selected_packages],
@@ -298,8 +304,15 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         currency: str,
     ) -> dict[str, Any]:
         period_months = max(1, int(getattr(sub, "duration_months", None) or 1))
-        full_price = float(package.price_for_period(period_months))
-        basis_seconds = max(1.0, float(period_months * 30 * 24 * 60 * 60))
+        period_days = int(
+            getattr(sub, "duration_days", None) or legacy_months_to_days(period_months)
+        )
+        price_key = (
+            period_days if getattr(package, "period_unit", "month") == "day" else period_months
+        )
+        full_price = float(package.price_for_period(price_key))
+        fixed = getattr(sub, "period_semantics", None) == "fixed_days"
+        basis_seconds = float((period_days if fixed else period_months * 30) * 86400)
         billable_start = max(now, valid_from)
         billable_seconds = max(0.0, (valid_until - billable_start).total_seconds())
         ratio = self._hwid_proration_ratio(
@@ -308,6 +321,8 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
             period_months=period_months,
             basis_seconds=basis_seconds,
         )
+        if fixed:
+            ratio = billable_seconds / basis_seconds
         raw_price = full_price * ratio
         price = self._round_hwid_price(raw_price, currency=currency)
         min_price = getattr(package, "min_price", None)
@@ -320,7 +335,8 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         return {
             "price": price,
             "full_price": full_price,
-            "pricing_period_months": period_months,
+            "pricing_period_months": days_to_legacy_months(period_days),
+            "pricing_period_days": period_days,
             "proration_ratio": ratio,
             "valid_from": valid_from,
             "valid_until": valid_until,
@@ -505,6 +521,15 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
             return None
         if not tariff or tariff.billing_model != "period":
             return None
+        if period_months not in tariff.enabled_periods:
+            try:
+                period_months = (
+                    legacy_months_to_days(period_months)
+                    if tariff.period_unit == "day"
+                    else period_months
+                )
+            except ValueError:
+                return None
         base_hwid_limit = self._base_hwid_limit_for_tariff(tariff)
         if base_hwid_limit in (None, 0):
             return None
@@ -528,7 +553,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
             return None
 
         valid_from = subscription_end
-        valid_until = add_months(valid_from, period_months)
+        valid_until = add_period_days(valid_from, tariff.period_duration_days(period_months))
         price_quote.update(
             {
                 "subscription_id": sub.subscription_id,

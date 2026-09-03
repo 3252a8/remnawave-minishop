@@ -175,7 +175,11 @@ def _is_free_grant_subscription(subscription: Subscription) -> bool:
         duration_months = int(getattr(subscription, "duration_months", 0) or 0)
     except (TypeError, ValueError):
         duration_months = 0
-    return provider in {"", "trial"} and duration_months <= 0
+    return (
+        provider in {"", "trial"}
+        and duration_months <= 0
+        and not getattr(subscription, "duration_days", None)
+    )
 
 
 def _merged_subscription_end(

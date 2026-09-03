@@ -386,3 +386,9 @@ def _resolve_numeric_option_key(options: dict[Any, Any], target: float) -> Any |
         except (TypeError, ValueError):
             continue
     return None
+
+
+def _format_days_title(duration_days: int, lang: str) -> str:
+    from bot.utils.subscription_periods import localized_duration_days
+
+    return localized_duration_days(duration_days, get_i18n_instance(), lang)

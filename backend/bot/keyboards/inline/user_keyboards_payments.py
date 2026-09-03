@@ -5,6 +5,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 
 from bot.middlewares.i18n import JsonI18n
 from config.settings import Settings
+from config.subscription_periods import checkout_duration_days, with_period_days
 from config.tariffs_config import (
     default_payment_currency_code_for_settings,
     payment_currency_code,
@@ -56,6 +57,9 @@ def get_payment_method_keyboard(
     def _format_value(val: float) -> str:
         return str(int(val)) if float(val).is_integer() else f"{val:g}"
 
+    duration_days = checkout_duration_days(settings, months, sale_mode)
+    if duration_days is not None:
+        sale_mode = with_period_days(sale_mode, duration_days)
     value_str = _format_value(months)
     payment_sale_mode = sale_mode
     provider_currency_code = _provider_filter_currency_code(settings, currency_symbol_val)
@@ -66,7 +70,8 @@ def get_payment_method_keyboard(
         if "@" in sale_mode_main:
             tariff_key = sale_mode_main.split("@", 1)[1]
         context = callback_context_from_sale_mode(sale_mode)
-        toggle_tokens = [f"tariff:period:{tariff_key}:{value_str}"]
+        toggle_period = f"d{duration_days}" if duration_days is not None else value_str
+        toggle_tokens = [f"tariff:period:{tariff_key}:{toggle_period}"]
         if context:
             toggle_tokens.append(context)
         if sale_mode_has_token(sale_mode, PROMO_DISABLED_TOKEN):

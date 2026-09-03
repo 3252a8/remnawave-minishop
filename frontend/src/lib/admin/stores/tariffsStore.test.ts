@@ -134,11 +134,11 @@ describe("tariffsStore", () => {
     expect(body.catalog.tariffs[0]).toMatchObject({
       key: "standard",
       monthly_gb: 750,
-      prices_rub: { 1: 250, 3: 600 },
+      prices_rub: { 30: 250, 90: 600 },
     });
     expect(store.tariffsCatalog.tariffs[0]).toMatchObject({
       monthly_gb: 750,
-      prices_rub: { 1: 250, 3: 600 },
+      prices_rub: { 30: 250, 90: 600 },
     });
     expect(store.tariffEditorOpen).toBe(false);
     expect(onTariffsSaved).toHaveBeenCalledWith(body.catalog);
@@ -285,6 +285,7 @@ describe("tariffsStore", () => {
       rub: [
         {
           count: 2,
+          period_unit: "day",
           price: 99,
           traffic_bonus_gb: 15,
           prices: { provider: { amount: 99 } },

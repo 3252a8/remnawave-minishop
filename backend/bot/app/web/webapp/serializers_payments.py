@@ -51,6 +51,8 @@ def _serialize_pending_promo_payment(payment: Any | None) -> dict[str, Any] | No
         "partner_balance_amount_minor": partner_balance_minor,
         "partner_balance_currency_scale": partner_balance_scale,
         "months": getattr(payment, "subscription_duration_months", None),
+        "duration_days": getattr(payment, "subscription_duration_days", None),
+        "period_semantics": getattr(payment, "period_semantics", None),
         "purchased_gb": getattr(payment, "purchased_gb", None),
         "purchased_hwid_devices": getattr(payment, "purchased_hwid_devices", None),
         "sale_mode": str(getattr(payment, "sale_mode", None) or ""),

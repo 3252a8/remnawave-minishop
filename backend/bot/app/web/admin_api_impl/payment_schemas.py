@@ -148,6 +148,8 @@ class PaymentOut(HttpResponseModel):
     status: str | None = None
     description: str | None = None
     subscription_duration_months: int | None = None
+    subscription_duration_days: int | None = None
+    period_semantics: str | None = None
     sale_mode: str | None = None
     tariff_key: str | None = None
     purchased_gb: Any = None
@@ -187,6 +189,8 @@ class PaymentOut(HttpResponseModel):
             currency=payment.currency,
             status=payment.status,
             description=payment.description,
+            subscription_duration_days=getattr(payment, "subscription_duration_days", None),
+            period_semantics=getattr(payment, "period_semantics", None),
             subscription_duration_months=payment.subscription_duration_months,
             sale_mode=payment.sale_mode,
             tariff_key=payment.tariff_key,

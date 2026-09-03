@@ -431,9 +431,11 @@ def build_checkout_bundle(
     base_amount = float(base_quote.price or 0)
     base_stars = int(base_quote.stars_price or 0)
     snapshot_data = {
-        "version": 2,
+        "version": 3,
         "tariff_key": tariff.key,
         "months": int(base_quote.payment_units),
+        "duration_days": tariff.period_duration_days(int(base_quote.payment_units)),
+        "addon_period_factor": tariff.addon_period_factor(int(base_quote.payment_units)),
         "currency": "XTR" if method == "stars" else base_quote.default_currency_code,
         "base_subscription_amount": base_amount,
         "base_subscription_stars": base_stars,

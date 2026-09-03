@@ -35,6 +35,7 @@ from .billing_payments import _active_tribute_recurrence, _create_subscription_p
 from .common import (
     _coerce_int_or_none,
 )
+from .period_contracts import targets_for_client
 from .response_helpers import json_response
 from .serializers import (
     _serialize_tariff_change_target,
@@ -201,7 +202,7 @@ async def tariff_change_options_route(request: web.Request) -> web.Response:
                     "description": current.description(lang),
                     "billing_model": current.billing_model,
                 },
-                "targets": targets,
+                "targets": targets_for_client(request, targets),
             }
         )
 

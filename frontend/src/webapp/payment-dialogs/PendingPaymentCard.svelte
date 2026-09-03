@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { durationParts } from "$lib/webapp/subscriptionPeriods";
   import Button from "$components/ui/button.svelte";
   import Dialog from "$components/ui/dialog.svelte";
   import { ExternalLink, History, RotateCcw, Tag, TriangleAlert } from "$components/ui/icons.js";
@@ -43,8 +44,11 @@
   }
 
   function paymentTerm(): string {
+    const duration =
+      payment.period_semantics === "fixed_days" ? durationParts(payment.duration_days) : null;
+    if (duration) return `${duration.count} ${termUnitLabel(duration.count, duration.unit)}`;
     const months = Number(payment.months || 0);
-    if (months > 0) return termUnitLabel(months, "month");
+    if (months > 0) return `${months} ${termUnitLabel(months, "month")}`;
     const trafficGb = Number(payment.purchased_gb || 0);
     if (trafficGb > 0) {
       return t("wa_pending_payment_traffic", { gb: formatCompactNumber(trafficGb) });

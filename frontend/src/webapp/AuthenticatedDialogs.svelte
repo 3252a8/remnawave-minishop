@@ -160,7 +160,7 @@
   checkoutPromoStatus={billingStore.checkoutPromoStatus}
   checkoutPromoDiscountPercent={billingStore.checkoutPromoDiscountPercent}
   checkoutPromoAppliesTo={billingStore.checkoutPromoAppliesTo}
-  checkoutPromoMinSubscriptionMonths={billingStore.checkoutPromoMinSubscriptionMonths}
+  checkoutPromoMinSubscriptionDays={billingStore.checkoutPromoMinSubscriptionDays}
   checkoutPromoMinTrafficGb={billingStore.checkoutPromoMinTrafficGb}
   checkoutAddonPreset={billingStore.checkoutAddonPreset}
   applyCheckoutPromo={billingStore.applyCheckoutPromo}
@@ -229,7 +229,7 @@
   checkoutPromoStatus={billingStore.checkoutPromoStatus}
   checkoutPromoDiscountPercent={billingStore.checkoutPromoDiscountPercent}
   checkoutPromoAppliesTo={billingStore.checkoutPromoAppliesTo}
-  checkoutPromoMinSubscriptionMonths={billingStore.checkoutPromoMinSubscriptionMonths}
+  checkoutPromoMinSubscriptionDays={billingStore.checkoutPromoMinSubscriptionDays}
   checkoutPromoMinTrafficGb={billingStore.checkoutPromoMinTrafficGb}
   applyCheckoutPromo={billingStore.applyCheckoutPromo}
   clearCheckoutPromo={billingStore.clearCheckoutPromo}

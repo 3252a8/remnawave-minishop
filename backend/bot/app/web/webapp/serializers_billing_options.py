@@ -8,6 +8,7 @@ from aiohttp import web
 
 from bot.utils.locale_defaults import tariff_premium_title
 from config.settings import Settings
+from config.subscription_periods import days_to_legacy_months, with_period_days
 from config.tariffs_config import (
     default_currency_key_for_settings,
     default_payment_currency_code_for_settings,
@@ -15,7 +16,7 @@ from config.tariffs_config import (
 )
 
 from .common import (
-    _format_months_title,
+    _format_days_title,
     _format_number_for_payload,
     _format_traffic_title,
 )
@@ -33,6 +34,8 @@ def _attach_payment_methods_to_plans(
         context_sale_mode = (
             sale_mode if "@" in sale_mode or not tariff_key else f"{sale_mode}@{tariff_key}"
         )
+        if plan.get("duration_days") is not None:
+            context_sale_mode = with_period_days(context_sale_mode, int(plan["duration_days"]))
         available: list[str] = []
         externally_managed: list[str] = []
         checkout_addons_unavailable: list[str] = []
@@ -41,20 +44,20 @@ def _attach_payment_methods_to_plans(
             spec = get_provider_spec(method_id)
             if not spec or not spec.is_usable_for_payment_context(
                 settings,
-                plan.get("months"),
+                plan.get("period_key", plan.get("months")),
                 context_sale_mode,
             ):
                 continue
             available.append(method_id)
             if spec.is_price_managed_externally(
                 settings,
-                plan.get("months"),
+                plan.get("period_key", plan.get("months")),
                 context_sale_mode,
             ):
                 externally_managed.append(method_id)
             if plan.get("checkout_addons") and not spec.is_checkout_addon_supported(
                 settings,
-                plan.get("months"),
+                plan.get("period_key", plan.get("months")),
                 context_sale_mode,
             ):
                 checkout_addons_unavailable.append(method_id)
@@ -231,8 +234,10 @@ def _serialize_tariff_change_target(
                     {
                         "mode": "buy_period",
                         "kind": "payment",
-                        "months": int(months),
-                        "title": _format_months_title(int(months), lang),
+                        "months": days_to_legacy_months(tariff.period_duration_days(int(months))),
+                        "duration_days": tariff.period_duration_days(int(months)),
+                        "period_key": int(months),
+                        "title": _format_days_title(tariff.period_duration_days(int(months)), lang),
                         "price": float(price),
                         "currency": default_currency_code,
                     }
@@ -249,7 +254,7 @@ def _serialize_tariff_change_target(
             context_units = float(action.get("traffic_gb") or 0)
         else:
             sale_mode = "subscription"
-            context_units = int(action.get("months") or 0)
+            context_units = int(action.get("period_key", action.get("months")) or 0)
         payment_context = {
             **action,
             "sale_mode": sale_mode,

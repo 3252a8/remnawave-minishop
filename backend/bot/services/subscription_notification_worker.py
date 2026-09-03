@@ -272,6 +272,9 @@ class SubscriptionNotificationWorker:
             for days_before, message_key in day_stages:
                 if days_before > days_before_limit:
                     continue
+                paid_days = getattr(sub, "duration_days", None)
+                if isinstance(paid_days, int) and paid_days > 0 and days_before >= paid_days:
+                    continue
                 if seconds_left <= days_before * 24 * 3600:
                     return SubscriptionNotificationStage(
                         key=f"before_{days_before}d",
@@ -357,6 +360,7 @@ class SubscriptionNotificationWorker:
                     Subscription.provider == "trial",
                     Subscription.status_from_panel == "TRIAL",
                     Subscription.duration_months == 0,
+                    Subscription.duration_days.is_(None),
                 ),
             )
             .options(selectinload(Subscription.user))

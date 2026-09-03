@@ -317,6 +317,20 @@ def _write_tariffs_config_file(path: Path, config: TariffsConfig) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(f"{path.suffix}.tmp")
     payload = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+    if path.exists() and config.schema_version == 2:
+        previous = path.read_bytes()
+        try:
+            legacy = json.loads(previous).get("schema_version", 1) == 1
+        except (ValueError, AttributeError):
+            legacy = False
+        if legacy:
+            backup = path.with_suffix(f"{path.suffix}.v1.bak")
+            try:
+                with backup.open("xb") as stream:
+                    stream.write(previous)
+            except FileExistsError:
+                pass
+
     try:
         tmp_path.write_text(payload, encoding="utf-8")
         tmp_path.replace(path)

@@ -3,13 +3,13 @@ from __future__ import annotations
 import logging
 import time
 from collections import OrderedDict
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from typing import Any
 
 from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
 from bot.infra import events
-from bot.infra.payment_events import PaymentPurchase, resolve_payment_success_snapshot
+from bot.infra.payment_events import resolve_payment_success_snapshot
 from bot.infra.redis import get_redis, redis_key
 from bot.keyboards.inline.user_keyboards_payments import get_autorenew_cancel_keyboard
 from bot.payment_providers.shared.common import (
@@ -24,6 +24,10 @@ from bot.services.event_reactions_external_auth import (
     react_to_external_identity_link,
 )
 from bot.services.event_reactions_partner import PartnerEventReactionsMixin
+from bot.services.event_reactions_payment_details import (
+    _format_failed_payment_details,
+    _int_or_none,
+)
 from bot.services.notification_service import NotificationService
 from bot.services.telegram_notifications import record_telegram_notification_failure
 from bot.services.user_email_notifications import send_user_notification_email
@@ -245,13 +249,6 @@ def _payment_status_timestamp(payment: Any) -> datetime | None:
     return updated_at or created_at
 
 
-def _int_or_none(value: Any) -> int | None:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
-
-
 def _has_superseding_success(
     canceled_payment: Any,
     successful_payments: Iterable[Any],
@@ -270,153 +267,6 @@ def _has_superseding_success(
         if success_at is not None and success_at >= canceled_created_at:
             return True
     return False
-
-
-def _format_plain_amount(value: float) -> str:
-    amount = float(value)
-    if amount.is_integer():
-        return str(int(amount))
-    return f"{amount:g}"
-
-
-def _tariff_display_name(settings: Any, tariff_key: str | None, language: str) -> str:
-    if not tariff_key:
-        return ""
-    cfg = settings.tariffs_config
-    if not cfg:
-        return str(tariff_key)
-    try:
-        tariff = cfg.require(str(tariff_key))
-        return str(tariff.name(language))
-    except Exception:
-        return str(tariff_key)
-
-
-def _format_failed_payment_purchase(
-    translate: Callable[..., str], purchase: PaymentPurchase
-) -> str:
-    if purchase.kind == "traffic":
-        traffic_kind = translate(
-            "payment_failed_traffic_kind_premium"
-            if purchase.scope == "premium"
-            else "payment_failed_traffic_kind_regular"
-        )
-        return translate(
-            "payment_failed_detail_purchase_traffic",
-            gb=_format_plain_amount(float(purchase.amount)),
-            kind=traffic_kind,
-        )
-    if purchase.kind == "hwid_devices":
-        return translate(
-            "payment_failed_detail_purchase_hwid_devices",
-            count=int(float(purchase.amount)),
-        )
-    label_kwargs = {
-        "amount": _format_plain_amount(float(purchase.amount)),
-        "unit": purchase.unit,
-        "kind": purchase.kind,
-        "scope": purchase.scope or "",
-        **dict(purchase.label_kwargs),
-    }
-    if purchase.label_key:
-        return translate(purchase.label_key, **label_kwargs)
-    return translate("payment_failed_detail_purchase_generic", **label_kwargs)
-
-
-def _failed_payment_provider_detail(
-    settings: Any,
-    payment: Any,
-    payload: dict[str, Any],
-    language: str,
-) -> str:
-    provider = str(
-        payload.get("provider")
-        or getattr(payment, "provider", None)
-        or payload.get("notification_provider")
-        or ""
-    ).strip()
-    if not provider:
-        return ""
-    try:
-        from bot.payment_providers import (
-            iter_provider_specs,
-            provider_label_map,
-            resolve_provider_presentation,
-        )
-
-        specs = tuple(iter_provider_specs())
-        exact_spec = next((spec for spec in specs if provider == spec.id), None)
-        provider_specs = [spec for spec in specs if provider == spec.provider_key]
-        provider_label = provider_label_map(settings, language=language).get(provider, provider)
-        if exact_spec is not None:
-            button_label = resolve_provider_presentation(
-                exact_spec,
-                settings,
-                language=language,
-            ).webapp_label
-            return f"{button_label} ({provider_label}; {provider})"
-        if len(provider_specs) == 1:
-            button_label = resolve_provider_presentation(
-                provider_specs[0],
-                settings,
-                language=language,
-            ).webapp_label
-            return f"{button_label} ({provider_label}; {provider})"
-        return f"{provider_label} ({provider})"
-    except Exception:
-        logger.exception("Failed to resolve payment provider label for %s.", provider)
-        return provider
-
-
-def _format_failed_payment_details(
-    *,
-    translate: Callable[..., str],
-    settings: Any,
-    language: str,
-    payment: Any,
-    payload: dict[str, Any],
-) -> str:
-    snapshot = resolve_payment_success_snapshot(
-        payload,
-        payment,
-        default_currency=getattr(settings, "DEFAULT_CURRENCY", "RUB"),
-    )
-    lines: list[str] = []
-
-    tariff_name = _tariff_display_name(settings, snapshot.tariff_key, language)
-    if snapshot.months > 0:
-        key = (
-            "payment_failed_detail_subscription_with_tariff"
-            if tariff_name
-            else "payment_failed_detail_subscription"
-        )
-        lines.append(translate(key, months=snapshot.months, tariff=tariff_name))
-
-    for purchase in snapshot.purchases:
-        detail = _format_failed_payment_purchase(translate, purchase)
-        if detail:
-            lines.append(detail)
-
-    if not lines:
-        description = str(getattr(payment, "description", "") or "").strip()
-        if description:
-            lines.append(description)
-
-    details = [translate("payment_failed_detail_item", item=line) for line in lines if line]
-    details.append(
-        translate(
-            "payment_failed_detail_amount",
-            amount=_format_plain_amount(snapshot.amount),
-            currency=snapshot.currency,
-        )
-    )
-    provider_detail = _failed_payment_provider_detail(settings, payment, payload, language)
-    if provider_detail:
-        details.append(translate("payment_failed_detail_provider", provider=provider_detail))
-    payment_id = getattr(payment, "payment_id", None)
-    if payment_id is not None:
-        details.append(translate("payment_failed_detail_payment_id", payment_id=payment_id))
-    return "\n".join(details)
 
 
 class CoreEventReactions(PartnerEventReactionsMixin):
@@ -694,6 +544,8 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                         "purchased_hwid_devices": snapshot.purchased_hwid_devices,
                         "purchases": snapshot.purchases,
                     }
+                    if snapshot.duration_days is not None:
+                        notification_kwargs["duration_days"] = snapshot.duration_days
                     if snapshot.sale_mode_base == "balance_topup":
                         notification_kwargs.update(
                             sale_mode=snapshot.sale_mode,

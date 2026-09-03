@@ -1,3 +1,4 @@
+import { legacyMonthsToDays } from "../../webapp/subscriptionPeriods";
 import { adminErrorMessage } from "../errors.js";
 import { copyTextToClipboard } from "../../webapp/clipboard.js";
 import {
@@ -122,6 +123,7 @@ const defaultPromoDraft = (): PromoDraft => ({
   bonus_requires_payment: false,
   applies_to: "all",
   min_subscription_months: null,
+  min_subscription_days: null,
   min_traffic_gb: null,
   origin: "admin",
   max_activations: 1,
@@ -139,6 +141,7 @@ const defaultPromoPatchDraft = (): PromoPatch => ({
   bonus_requires_payment: null,
   applies_to: null,
   min_subscription_months: null,
+  min_subscription_days: null,
   min_traffic_gb: null,
   origin: null,
   max_activations: null,
@@ -157,7 +160,9 @@ function promoToPatchDraft(promo: Promo): PromoPatch {
     traffic_multiplier: promo.traffic_multiplier,
     bonus_requires_payment: promo.bonus_requires_payment,
     applies_to: promo.applies_to,
-    min_subscription_months: promo.min_subscription_months,
+    min_subscription_months: null,
+    min_subscription_days:
+      promo.min_subscription_days ?? legacyMonthsToDays(promo.min_subscription_months),
     min_traffic_gb: promo.min_traffic_gb,
     origin: promo.origin,
     max_activations: promo.max_activations,

@@ -111,6 +111,7 @@ class PromoCreateBody(HttpBodyModel):
     bonus_requires_payment: bool = False
     applies_to: str = "all"
     min_subscription_months: int | None = Field(default=None, gt=0)
+    min_subscription_days: int | None = Field(default=None, gt=0, le=2147483647, strict=True)
     min_traffic_gb: float | None = Field(default=None, gt=0)
     max_activations: int = Field(gt=0)
     valid_days: Any = None
@@ -143,6 +144,7 @@ class PromoCreateBody(HttpBodyModel):
             bonus_requires_payment=bool(self.bonus_requires_payment),
             applies_to=self.applies_to or "all",
             min_subscription_months=self.min_subscription_months,
+            min_subscription_days=self.min_subscription_days,
             min_traffic_gb=self.min_traffic_gb,
         )
 
@@ -158,6 +160,7 @@ class PromoUpdateBody(HttpBodyModel):
     bonus_requires_payment: bool | None = None
     applies_to: str | None = None
     min_subscription_months: int | None = Field(default=None, gt=0)
+    min_subscription_days: int | None = Field(default=None, gt=0, le=2147483647, strict=True)
     min_traffic_gb: float | None = Field(default=None, gt=0)
     max_activations: int | None = Field(default=None, gt=0)
     origin: str | None = None
@@ -217,6 +220,8 @@ class TariffsSaveBody(HttpBodyModel):
 
 
 class AdminTariffsCatalogOut(HttpResponseModel):
+    schema_version: int = 2
+    period_unit: str = "day"
     default_tariff: str
     referral_welcome_bonus_tariff: str | None = None
     default_currency: str = "rub"
@@ -580,6 +585,7 @@ class PromoOut(HttpResponseModel):
     bonus_requires_payment: bool = False
     applies_to: str
     min_subscription_months: int | None = None
+    min_subscription_days: int | None = None
     min_traffic_gb: float | None = None
     origin: str
     effect_summary: str
@@ -623,6 +629,7 @@ class PromoOut(HttpResponseModel):
             bonus_requires_payment=bool(effects.bonus_requires_payment),
             applies_to=effects.applies_to,
             min_subscription_months=effects.min_subscription_months,
+            min_subscription_days=effects.min_subscription_days,
             min_traffic_gb=effects.min_traffic_gb,
             origin=str(getattr(promo, "origin", None) or "admin"),
             effect_summary=summarize_effects(effects),
@@ -691,6 +698,7 @@ class PromoActivationOut(HttpResponseModel):
     base_amount: float | None = None
     discount_amount: float | None = None
     charged_months: int | None = None
+    charged_days: int | None = None
     charged_gb: float | None = None
     granted_days: int | None = None
     granted_gb: float | None = None
@@ -751,6 +759,8 @@ class PromoActivationOut(HttpResponseModel):
                 if loaded_payment is not None
                 else None,
             ),
+            charged_days=getattr(activation, "charged_days", None)
+            or getattr(loaded_payment, "checkout_charged_days", None),
             charged_months=(
                 int(getattr(activation, "charged_months", 0) or 0)
                 if getattr(activation, "charged_months", None) is not None

@@ -1,3 +1,4 @@
+import { billingDurationDays } from "./subscriptionPeriods.js";
 import type { BillingPlan } from "./tariffs.js";
 
 type SelectPaymentMethod = (methodId: string) => void;
@@ -49,16 +50,16 @@ export function checkoutPlanSaleMode(plan: BillingPlan | null): string {
 export function checkoutPromoMatchesPlan(
   plan: BillingPlan | null,
   appliesTo: string,
-  minSubscriptionMonths: number | null,
+  minSubscriptionDays: number | null,
   minTrafficGb: number | null
 ): boolean {
   const saleMode = checkoutPlanSaleMode(plan);
   const scope = String(appliesTo || "all").toLowerCase();
   if (scope !== "all" && scope !== saleMode) return false;
 
-  const minimumMonths = Number(minSubscriptionMonths || 0);
-  if (saleMode === "subscription" && minimumMonths > 0) {
-    return Number(plan?.months || 0) >= minimumMonths;
+  const minimumDays = Number(minSubscriptionDays || 0);
+  if (saleMode === "subscription" && minimumDays > 0) {
+    return Number(billingDurationDays(plan) || 0) >= minimumDays;
   }
   const minimumTrafficGb = Number(minTrafficGb || 0);
   if ((saleMode === "traffic" || saleMode === "traffic_topup") && minimumTrafficGb > 0) {

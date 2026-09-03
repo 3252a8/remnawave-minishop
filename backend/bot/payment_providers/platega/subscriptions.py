@@ -134,6 +134,11 @@ def subscription_context_supported(config: Any, months: Any, sale_mode: str) -> 
     Traffic packages, HWID device slots and tariff upgrades are one-off
     purchases; charging them again every month would be plain wrong.
     """
+    from config.subscription_periods import sale_mode_duration_days
+
+    if sale_mode_duration_days(sale_mode) is not None:
+        return False
+
     if sale_mode_base(str(sale_mode or "")) != "subscription":
         return False
     return subscription_interval_for_months(months) is not None

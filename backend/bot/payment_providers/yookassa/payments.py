@@ -3,6 +3,7 @@ from typing import Any
 
 from aiohttp import web
 
+from config.subscription_periods import fixed_day_metadata
 from db.dal import payment_dal
 
 from ..base import (
@@ -54,6 +55,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
             ),
             "payment_db_id": str(payment.payment_id),
             "sale_mode": ctx.sale_mode,
+            **fixed_day_metadata(ctx.sale_mode),
             "source": "webapp",
         }
         if amounts.traffic_sale:

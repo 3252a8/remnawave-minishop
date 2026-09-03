@@ -18,6 +18,13 @@ from bot.payment_providers.shared import (
     build_payment_description,
     make_translator,
 )
+from bot.services.subscription_order_terms import freeze_subscription_terms
+from config.subscription_periods import (
+    checkout_duration_days,
+    fixed_day_metadata,
+    legacy_months_to_days,
+    with_period_days,
+)
 from config.tariffs_config import (
     default_currency_key_for_settings,
     default_payment_currency_code_for_settings,
@@ -144,8 +151,9 @@ class RenewalMixin(SubscriptionServiceMixinContract):
         in-flight YooKassa charges created by a previous application version.
         Provider callback values are deliberately not inputs to the quote.
         """
-        months = int(sub.duration_months or 1)
-        if months <= 0:
+        months = int(sub.duration_months or 0)
+        stored_days = getattr(sub, "duration_days", None)
+        if months <= 0 and not stored_days:
             return None
 
         currency = default_payment_currency_code_for_settings(self.settings)
@@ -162,11 +170,16 @@ class RenewalMixin(SubscriptionServiceMixinContract):
             except Exception:
                 tariff = None
             if tariff and tariff.billing_model == "period":
+                period_days = int(stored_days) if stored_days else legacy_months_to_days(months)
+                selected_period = tariff.period_for_days(period_days)
+                if selected_period is None or not tariff.enabled:
+                    return None
+                months = selected_period
                 amount = tariff.period_price(
                     months,
                     default_currency_key_for_settings(self.settings),
                 )
-        if amount is None:
+        if amount is None and not tariff_key:
             amount = self.settings.subscription_options.get(months)
         if not amount:
             logger.error("Auto-renew price missing for %s months", months)
@@ -191,7 +204,9 @@ class RenewalMixin(SubscriptionServiceMixinContract):
                 if record is None:
                     continue
                 total_gb = float(record.limit_bytes or 0) / (1024**3)
-                future_amount = float(record.monthly_amount or 0) * months
+                future_amount = float(record.monthly_amount or 0) * tariff.addon_period_factor(
+                    months
+                )
                 addon_amount += future_amount
                 items.append(
                     {
@@ -211,7 +226,9 @@ class RenewalMixin(SubscriptionServiceMixinContract):
                 amount = float(amount) + addon_amount
                 checkout_bundle_snapshot = json.dumps(
                     {
-                        "version": 2,
+                        "version": 3,
+                        "duration_days": tariff.period_duration_days(months),
+                        "addon_period_factor": tariff.addon_period_factor(months),
                         "tariff_key": tariff.key,
                         "months": months,
                         "currency": currency,
@@ -365,7 +382,10 @@ class RenewalMixin(SubscriptionServiceMixinContract):
             return False
         months = quote.months
         currency = quote.currency
-        sale_mode = quote.sale_mode
+        sale_mode = with_period_days(
+            quote.sale_mode,
+            checkout_duration_days(self.settings, quote.months, quote.sale_mode),
+        )
         amount = quote.amount
         hwid_quote = quote.hwid_quote
         checkout_bundle_snapshot = quote.checkout_bundle_snapshot
@@ -393,6 +413,7 @@ class RenewalMixin(SubscriptionServiceMixinContract):
             "user_id": str(sub.user_id),
             "auto_renew_for_subscription_id": str(sub.subscription_id),
             "subscription_months": str(months),
+            **fixed_day_metadata(sale_mode),
             "sale_mode": sale_mode,
         }
         if hwid_quote:
@@ -435,6 +456,8 @@ class RenewalMixin(SubscriptionServiceMixinContract):
                     amount=float(amount),
                     currency=currency,
                     months=int(months),
+                    duration_days=checkout_duration_days(self.settings, months, sale_mode),
+                    subscription_terms_snapshot=freeze_subscription_terms(self.settings, sale_mode),
                     sale_mode=sale_mode,
                     description=description,
                     metadata=metadata,

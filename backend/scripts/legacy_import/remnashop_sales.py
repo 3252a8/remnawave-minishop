@@ -30,6 +30,7 @@ from .common import (
 from .remnashop_data import (
     _extract_panel_subscription_uuid,
     _provider_value,
+    remnashop_days_from_plan_snapshot,
     remnashop_months_from_plan_snapshot,
     remnashop_plan_type,
     remnashop_pricing_amount,
@@ -92,6 +93,12 @@ class _RemnashopSalesSection(_RemnashopUsersSection):
                 "panel_subscription_uuid": panel_sub_uuid,
                 "start_date": created_at,
                 "end_date": expire_at,
+                "duration_days": remnashop_days_from_plan_snapshot(plan_snapshot)
+                if not row.get("is_trial") and plan_type != "TRAFFIC"
+                else None,
+                "period_semantics": "fixed_days"
+                if not row.get("is_trial") and plan_type != "TRAFFIC"
+                else None,
                 "duration_months": remnashop_months_from_plan_snapshot(
                     plan_snapshot,
                     created_at=created_at,
@@ -175,6 +182,10 @@ class _RemnashopSalesSection(_RemnashopUsersSection):
                 "currency": remnashop_pricing_currency(row.get("pricing"), row.get("currency")),
                 "status": remnashop_transaction_status(row.get("status"), provider),
                 "description": self._payment_description(row),
+                "subscription_duration_days": remnashop_days_from_plan_snapshot(plan_snapshot)
+                if sale_mode == "subscription"
+                else None,
+                "period_semantics": "fixed_days" if sale_mode == "subscription" else None,
                 "subscription_duration_months": remnashop_months_from_plan_snapshot(
                     plan_snapshot,
                     created_at=row.get("created_at"),

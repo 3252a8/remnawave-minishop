@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
 
+from config.subscription_periods import sale_mode_duration_days
 from db.models import Payment, PromoCode
 
 logger = logging.getLogger(__name__)
@@ -69,7 +70,12 @@ async def find_recent_pending_provider_payment_for_checkout(
         conditions.append(Payment.checkout_bundle_hash.is_(None))
     if tariff_key is not None:
         conditions.append(Payment.tariff_key == tariff_key)
-    if months is not None:
+    days = sale_mode_duration_days(sale_mode or "")
+    if days is not None:
+        conditions.extend(
+            (Payment.subscription_duration_days == days, Payment.period_semantics == "fixed_days")
+        )
+    elif months is not None:
         conditions.append(Payment.subscription_duration_months == months)
     else:
         conditions.append(Payment.subscription_duration_months.is_(None))
@@ -155,6 +161,8 @@ async def list_earlier_pending_provider_payments_for_checkout_scope(
         (Payment.currency, getattr(payment, "currency", None)),
         (Payment.sale_mode, getattr(payment, "sale_mode", None)),
         (Payment.tariff_key, getattr(payment, "tariff_key", None)),
+        (Payment.subscription_duration_days, getattr(payment, "subscription_duration_days", None)),
+        (Payment.period_semantics, getattr(payment, "period_semantics", None)),
         (
             Payment.subscription_duration_months,
             getattr(payment, "subscription_duration_months", None),
@@ -211,6 +219,8 @@ async def find_later_equivalent_succeeded_payment(
     ]
     for column, value in (
         (Payment.tariff_key, getattr(payment, "tariff_key", None)),
+        (Payment.subscription_duration_days, getattr(payment, "subscription_duration_days", None)),
+        (Payment.period_semantics, getattr(payment, "period_semantics", None)),
         (
             Payment.subscription_duration_months,
             getattr(payment, "subscription_duration_months", None),

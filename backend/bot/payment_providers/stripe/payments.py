@@ -6,6 +6,7 @@ from typing import Any
 from aiohttp import web
 
 from config.settings import Settings
+from config.subscription_periods import fixed_day_metadata
 
 from ..base import (
     WebAppPaymentContext,
@@ -64,6 +65,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
                 if amounts.purchased_hwid_devices
                 else None,
                 "sale_mode": ctx.sale_mode,
+                **fixed_day_metadata(ctx.sale_mode),
                 "source": "webapp",
             },
         )

@@ -2982,6 +2982,18 @@
             "default": null,
             "title": "Display Label"
           },
+          "duration_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Duration Days"
+          },
           "duration_months": {
             "anyOf": [
               {
@@ -3057,6 +3069,18 @@
             ],
             "default": null,
             "title": "Panel User Uuid"
+          },
+          "period_semantics": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Period Semantics"
           },
           "premium_baseline_bytes": {
             "anyOf": [
@@ -4133,6 +4157,11 @@
             "title": "Default Tariff",
             "type": "string"
           },
+          "period_unit": {
+            "default": "day",
+            "title": "Period Unit",
+            "type": "string"
+          },
           "referral_welcome_bonus_tariff": {
             "anyOf": [
               {
@@ -4144,6 +4173,11 @@
             ],
             "default": null,
             "title": "Referral Welcome Bonus Tariff"
+          },
+          "schema_version": {
+            "default": 2,
+            "title": "Schema Version",
+            "type": "integer"
           },
           "tariffs": {
             "items": {
@@ -5579,6 +5613,15 @@
             "default": null,
             "title": "Min Price"
           },
+          "period_unit": {
+            "default": "month",
+            "enum": [
+              "day",
+              "month"
+            ],
+            "title": "Period Unit",
+            "type": "string"
+          },
           "price": {
             "title": "Price",
             "type": "number"
@@ -5965,6 +6008,20 @@
       "PartnerBalanceRenewIn": {
         "additionalProperties": false,
         "properties": {
+          "duration_days": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 2147483647,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Duration Days"
+          },
           "idempotency_key": {
             "maxLength": 128,
             "minLength": 8,
@@ -5972,10 +6029,18 @@
             "type": "string"
           },
           "months": {
-            "maximum": 60,
-            "minimum": 1,
-            "title": "Months",
-            "type": "integer"
+            "anyOf": [
+              {
+                "maximum": 60,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Months"
           },
           "promo_code": {
             "anyOf": [
@@ -5999,7 +6064,6 @@
         },
         "required": [
           "tariff_key",
-          "months",
           "idempotency_key"
         ],
         "title": "PartnerBalanceRenewIn",
@@ -6917,6 +6981,18 @@
             "title": "Payment Id",
             "type": "integer"
           },
+          "period_semantics": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Period Semantics"
+          },
           "promo_code": {
             "anyOf": [
               {
@@ -7094,6 +7170,18 @@
             ],
             "default": null,
             "title": "Status"
+          },
+          "subscription_duration_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subscription Duration Days"
           },
           "subscription_duration_months": {
             "anyOf": [
@@ -7274,6 +7362,18 @@
             "title": "Payment Id",
             "type": "integer"
           },
+          "period_semantics": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Period Semantics"
+          },
           "promo_code_id": {
             "anyOf": [
               {
@@ -7380,6 +7480,18 @@
             ],
             "default": null,
             "title": "Status"
+          },
+          "subscription_duration_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subscription Duration Days"
           },
           "subscription_duration_months": {
             "anyOf": [
@@ -7553,6 +7665,18 @@
             ],
             "default": null,
             "title": "Bonus Days"
+          },
+          "charged_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Charged Days"
           },
           "charged_gb": {
             "anyOf": [
@@ -7903,6 +8027,20 @@
             "title": "Max Activations",
             "type": "integer"
           },
+          "min_subscription_days": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 2147483647,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Min Subscription Days"
+          },
           "min_subscription_months": {
             "anyOf": [
               {
@@ -8106,6 +8244,18 @@
           "max_activations": {
             "title": "Max Activations",
             "type": "integer"
+          },
+          "min_subscription_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Min Subscription Days"
           },
           "min_subscription_months": {
             "anyOf": [
@@ -8319,6 +8469,20 @@
             ],
             "default": null,
             "title": "Max Activations"
+          },
+          "min_subscription_days": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 2147483647,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Min Subscription Days"
           },
           "min_subscription_months": {
             "anyOf": [
@@ -9266,6 +9430,13 @@
       },
       "Tariff": {
         "properties": {
+          "addon_period_factors": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Addon Period Factors",
+            "type": "object"
+          },
           "billing_model": {
             "enum": [
               "period",
@@ -9383,6 +9554,15 @@
             },
             "title": "Names",
             "type": "object"
+          },
+          "period_unit": {
+            "default": "month",
+            "enum": [
+              "day",
+              "month"
+            ],
+            "title": "Period Unit",
+            "type": "string"
           },
           "premium_flexible_traffic_limit": {
             "anyOf": [
@@ -10427,6 +10607,15 @@
             "title": "Period Subscription Ids",
             "type": "object"
           },
+          "period_unit": {
+            "default": "month",
+            "enum": [
+              "day",
+              "month"
+            ],
+            "title": "Period Unit",
+            "type": "string"
+          },
           "premium_traffic_products": {
             "additionalProperties": {
               "$ref": "#/components/schemas/TributeProductConfig"
@@ -11014,6 +11203,20 @@
             "default": null,
             "title": "Device Count"
           },
+          "duration_days": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 2147483647,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Duration Days"
+          },
           "method": {
             "default": "",
             "title": "Method",
@@ -11194,6 +11397,20 @@
             "default": null,
             "title": "Device Count"
           },
+          "duration_days": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 2147483647,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Duration Days"
+          },
           "method": {
             "default": "",
             "title": "Method",
@@ -11363,6 +11580,20 @@
           "device_count": {
             "default": null,
             "title": "Device Count"
+          },
+          "duration_days": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 2147483647,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Duration Days"
           },
           "method": {
             "default": "",
@@ -23533,6 +23764,9 @@
                         "null"
                       ]
                     },
+                    "bonus_days": {
+                      "type": "integer"
+                    },
                     "currency": {
                       "type": "string"
                     },
@@ -23542,6 +23776,12 @@
                     "discount_percent": {
                       "type": [
                         "number",
+                        "null"
+                      ]
+                    },
+                    "duration_days": {
+                      "type": [
+                        "integer",
                         "null"
                       ]
                     },
@@ -23557,6 +23797,12 @@
                     "effective_stars": {
                       "type": [
                         "integer",
+                        "null"
+                      ]
+                    },
+                    "end_date": {
+                      "type": [
+                        "string",
                         "null"
                       ]
                     },
@@ -23676,6 +23922,12 @@
                       "type": "number"
                     },
                     "effective_stars": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "min_subscription_days": {
                       "type": [
                         "integer",
                         "null"

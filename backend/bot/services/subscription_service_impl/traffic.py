@@ -249,6 +249,8 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             "start_date": start_date,
             "end_date": final_end_date,
             "duration_months": 0,
+            "duration_days": None,
+            "period_semantics": None,
             "is_active": True,
             "status_from_panel": "ACTIVE",
             "traffic_limit_bytes": new_limit,

@@ -58,6 +58,11 @@ def interval_for_months(months: Any) -> str | None:
 
 
 def subscription_context_supported(config: Any, months: Any, sale_mode: str) -> bool:
+    from config.subscription_periods import sale_mode_duration_days
+
+    if sale_mode_duration_days(sale_mode) is not None:
+        return False
+
     if getattr(config, "TEST_MODE", False):
         return False
     return sale_mode_base(str(sale_mode or "")) == "subscription" and bool(

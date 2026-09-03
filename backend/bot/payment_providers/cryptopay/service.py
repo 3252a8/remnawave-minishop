@@ -13,6 +13,8 @@ from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
 from bot.services.checkout_promos import CheckoutPromoResult, checkout_promo_payment_fields
+from bot.services.subscription_order_terms import freeze_subscription_terms
+from config.subscription_periods import fixed_day_metadata
 
 if TYPE_CHECKING:
     from bot.services.referral_service import ReferralService
@@ -259,6 +261,7 @@ class CryptoPayService(BaseProviderService):
             hwid_device_count=hwid_device_count,
         )
         payment_record_data = {
+            "subscription_terms_snapshot": freeze_subscription_terms(self.settings, sale_mode),
             "user_id": user_id,
             "amount": float(amount),
             "currency": currency_code,
@@ -272,6 +275,9 @@ class CryptoPayService(BaseProviderService):
             "purchased_hwid_devices": amounts.purchased_hwid_devices,
             "hwid_valid_from": hwid_quote.get("valid_from") if hwid_quote else None,
             "hwid_valid_until": hwid_quote.get("valid_until") if hwid_quote else None,
+            "hwid_pricing_period_days": hwid_quote.get("pricing_period_days")
+            if hwid_quote
+            else None,
             "hwid_pricing_period_months": (
                 hwid_quote.get("pricing_period_months") if hwid_quote else None
             ),
@@ -322,6 +328,7 @@ class CryptoPayService(BaseProviderService):
             {
                 "user_id": str(user_id),
                 "subscription_months": str(months),
+                **fixed_day_metadata(sale_mode),
                 "payment_db_id": str(payment_record.payment_id),
                 "sale_mode": sale_mode,
                 "traffic_gb": str(months) if sale_mode_is_traffic(sale_mode) else None,

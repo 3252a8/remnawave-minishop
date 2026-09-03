@@ -35,7 +35,7 @@
     | "discount_percent"
     | "duration_multiplier"
     | "traffic_multiplier"
-    | "min_subscription_months"
+    | "min_subscription_days"
     | "min_traffic_gb"
     | "max_activations"
     | "valid_days";
@@ -59,7 +59,7 @@
     | "discount_percent"
     | "duration_multiplier"
     | "traffic_multiplier"
-    | "min_subscription_months"
+    | "min_subscription_days"
     | "min_traffic_gb";
   type EffectLike = {
     bonus_days?: number | null;
@@ -88,7 +88,7 @@
     "traffic_multiplier",
   ];
   const ELIGIBILITY_EDIT_FIELDS: readonly PromoEditField[] = [
-    "min_subscription_months",
+    "min_subscription_days",
     "min_traffic_gb",
   ];
 
@@ -140,7 +140,7 @@
       traffic_multiplier: null,
       bonus_requires_payment: false,
       applies_to: "all",
-      min_subscription_months: null,
+      min_subscription_days: null,
       min_traffic_gb: null,
       max_activations: 1,
       valid_days: 30,
@@ -336,7 +336,7 @@
     if (hasFixedGrant(next) && effectUsesCheckout(next)) patch.applies_to = "subscription";
     if (hasFixedGrant(next)) patch.min_traffic_gb = null;
     if (!effectUsesCheckout(next)) {
-      patch.min_subscription_months = null;
+      patch.min_subscription_days = null;
       patch.min_traffic_gb = null;
     }
     promosStore.updateDraft(patch);
@@ -348,7 +348,7 @@
     if (hasFixedGrant(next) && effectUsesCheckout(next)) patch.applies_to = "subscription";
     if (hasFixedGrant(next)) patch.min_traffic_gb = null;
     if (!effectUsesCheckout(next)) {
-      patch.min_subscription_months = null;
+      patch.min_subscription_days = null;
       patch.min_traffic_gb = null;
     }
     promosStore.updateEditDraft(patch as Partial<PromoPatch>);
@@ -360,7 +360,7 @@
       ...fixedPatch,
       bonus_requires_payment: checked,
       applies_to: checked ? "subscription" : promoDraft.applies_to,
-      min_subscription_months: checked ? promoDraft.min_subscription_months : null,
+      min_subscription_days: checked ? promoDraft.min_subscription_days : null,
       min_traffic_gb: checked ? promoDraft.min_traffic_gb : null,
     });
   }
@@ -371,7 +371,7 @@
       ...fixedPatch,
       bonus_requires_payment: checked,
       applies_to: checked ? "subscription" : promoEditDraft.applies_to,
-      min_subscription_months: checked ? promoEditDraft.min_subscription_months : null,
+      min_subscription_days: checked ? promoEditDraft.min_subscription_days : null,
       min_traffic_gb: checked ? promoEditDraft.min_traffic_gb : null,
     } as Partial<PromoPatch>);
   }
@@ -407,12 +407,12 @@
 
   function thresholdText(promo: Promo | PromoPatch): string {
     const parts: string[] = [];
-    if (promo.min_subscription_months) {
+    if (promo.min_subscription_days) {
       parts.push(
         at(
           "promo_threshold_months",
-          { months: promo.min_subscription_months },
-          `from ${promo.min_subscription_months} mo`
+          { months: promo.min_subscription_days },
+          `from ${promo.min_subscription_days} mo`
         )
       );
     }
@@ -544,8 +544,8 @@
       promosStore.updateDraft({ duration_multiplier: parsed });
     } else if (field === "traffic_multiplier") {
       promosStore.updateDraft({ traffic_multiplier: parsed });
-    } else if (field === "min_subscription_months") {
-      promosStore.updateDraft({ min_subscription_months: parsed });
+    } else if (field === "min_subscription_days") {
+      promosStore.updateDraft({ min_subscription_days: parsed });
     } else if (field === "min_traffic_gb") {
       promosStore.updateDraft({ min_traffic_gb: parsed });
     } else if (field === "max_activations") {

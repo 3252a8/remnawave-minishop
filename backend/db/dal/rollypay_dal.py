@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config.subscription_periods import legacy_months_to_days
 from db.models import RollyPaySubscription
 
 LIVE_BILLING_STATUSES = (
@@ -89,6 +90,8 @@ async def create_or_update_subscription(
             amount=float(amount),
             currency="RUB",
             months=int(months),
+            duration_days=legacy_months_to_days(months),
+            period_semantics="provider_managed",
             sale_mode=sale_mode,
             tariff_key=tariff_key,
             next_charge_at=next_charge_at,

@@ -7,6 +7,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config.subscription_periods import legacy_months_to_days
 from db.models import (
     Payment,
     TributeEntitlement,
@@ -68,6 +69,12 @@ async def create_entitlement(
     session: AsyncSession,
     entitlement_data: dict[str, Any],
 ) -> TributeEntitlement:
+    entitlement_data = dict(entitlement_data)
+    if entitlement_data.get("duration_months"):
+        entitlement_data.setdefault(
+            "duration_days", legacy_months_to_days(entitlement_data["duration_months"])
+        )
+        entitlement_data.setdefault("period_semantics", "provider_managed")
     entitlement = TributeEntitlement(**entitlement_data)
     session.add(entitlement)
     await session.flush()

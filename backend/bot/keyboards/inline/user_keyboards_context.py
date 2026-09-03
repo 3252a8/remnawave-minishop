@@ -1,4 +1,5 @@
 from config.settings import Settings
+from config.subscription_periods import sale_mode_duration_days
 
 BOT_MENU_CONTEXT = "bot"
 HWID_RENEWAL_TOKEN = "hwid_renewal"
@@ -111,6 +112,9 @@ def payment_methods_back_callback(
     tariff_key = sale_mode_main.split("@", 1)[1] if "@" in sale_mode_main else None
 
     if sale_base == "subscription" and tariff_key:
+        days = sale_mode_duration_days(sale_mode)
+        if days is not None:
+            value = f"d{days}"
         return f"tariff:period:{tariff_key}:{value}{context_suffix}"
     if sale_base == "traffic_package" and tariff_key:
         return f"tariff:package:{tariff_key}:{value}{context_suffix}"

@@ -64,10 +64,10 @@ describe("checkout promo policy", () => {
 
   it("matches promo scope and thresholds against the selected plan", () => {
     expect(
-      checkoutPromoMatchesPlan({ sale_mode: "subscription", months: 3 }, "subscription", 3, null)
+      checkoutPromoMatchesPlan({ sale_mode: "subscription", months: 3 }, "subscription", 90, null)
     ).toBe(true);
     expect(
-      checkoutPromoMatchesPlan({ sale_mode: "subscription", months: 1 }, "subscription", 3, null)
+      checkoutPromoMatchesPlan({ sale_mode: "subscription", months: 1 }, "subscription", 90, null)
     ).toBe(false);
     expect(
       checkoutPromoMatchesPlan({ sale_mode: "traffic", traffic_gb: 50 }, "traffic", null, 100)

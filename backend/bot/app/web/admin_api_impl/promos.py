@@ -277,6 +277,7 @@ async def admin_promo_update_route(request: web.Request) -> web.Response:
         "traffic_multiplier",
         "applies_to",
         "min_subscription_months",
+        "min_subscription_days",
         "min_traffic_gb",
         "origin",
     ):
@@ -289,6 +290,10 @@ async def admin_promo_update_route(request: web.Request) -> web.Response:
     elif "valid_until" in fields_set:
         update_data["valid_until"] = body.valid_until
 
+    if "min_subscription_days" in update_data:
+        update_data["min_subscription_months"] = None
+    elif "min_subscription_months" in update_data:
+        update_data["min_subscription_days"] = None
     if not update_data:
         return _error(400, "no_changes")
 
@@ -312,6 +317,7 @@ async def admin_promo_update_route(request: web.Request) -> web.Response:
             "bonus_requires_payment",
             "applies_to",
             "min_subscription_months",
+            "min_subscription_days",
             "min_traffic_gb",
         }
         should_validate_effects = bool(effect_fields & update_data.keys()) or (
@@ -328,6 +334,7 @@ async def admin_promo_update_route(request: web.Request) -> web.Response:
                 "bonus_requires_payment": getattr(current, "bonus_requires_payment", False),
                 "applies_to": getattr(current, "applies_to", "all"),
                 "min_subscription_months": getattr(current, "min_subscription_months", None),
+                "min_subscription_days": getattr(current, "min_subscription_days", None),
                 "min_traffic_gb": getattr(current, "min_traffic_gb", None),
             }
             merged.update({key: value for key, value in update_data.items() if key in merged})

@@ -63,7 +63,7 @@ export type BillingState = {
   checkoutPromoEffectiveAmount: number;
   checkoutPromoDiscountPercent: number;
   checkoutPromoAppliesTo: string;
-  checkoutPromoMinSubscriptionMonths: number | null;
+  checkoutPromoMinSubscriptionDays: number | null;
   checkoutPromoMinTrafficGb: number | null;
   checkoutAddonPreset: CheckoutAddonPreset | null;
 };

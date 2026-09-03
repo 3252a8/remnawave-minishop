@@ -81,6 +81,9 @@ async def consume_payment_promo(
         or not effects.meets_threshold(
             sale_mode_base=sale_mode_base,
             months=months,
+            duration_days=getattr(payment, "subscription_duration_days", None)
+            if getattr(payment, "period_semantics", None) == "fixed_days"
+            else None,
             traffic_gb=traffic_gb,
         )
     ):
@@ -112,6 +115,7 @@ async def consume_payment_promo(
         base_amount=_optional_float(getattr(payment, "checkout_base_amount", None)),
         discount_amount=_optional_float(getattr(payment, "checkout_discount_amount", None)),
         charged_months=months,
+        charged_days=getattr(payment, "subscription_duration_days", None),
         charged_gb=traffic_gb,
         granted_days=granted_days,
         granted_gb=granted_gb,

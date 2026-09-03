@@ -117,6 +117,8 @@ class AdminSubscriptionOut(HttpResponseModel):
     start_date: str | None = None
     end_date: str | None = None
     duration_months: int | None = None
+    duration_days: int | None = None
+    period_semantics: str | None = None
     is_active: bool
     status_from_panel: str | None = None
     traffic_limit_bytes: int | None = None
@@ -168,6 +170,8 @@ class AdminSubscriptionOut(HttpResponseModel):
             panel_subscription_uuid=sub.panel_subscription_uuid,
             start_date=sub.start_date.isoformat() if sub.start_date else None,
             end_date=sub.end_date.isoformat() if sub.end_date else None,
+            duration_days=getattr(sub, "duration_days", None),
+            period_semantics=getattr(sub, "period_semantics", None),
             duration_months=sub.duration_months,
             is_active=bool(sub.is_active),
             status_from_panel=sub.status_from_panel,

@@ -25,6 +25,7 @@ from aiogram import types
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.services.subscription_order_terms import freeze_subscription_terms
 from config.settings import Settings
 from config.tariffs_config import (
     default_currency_key_for_settings,
@@ -268,6 +269,7 @@ async def run_callback_payment[ServiceT: LinkFlowService](
         status=descriptor.pending_status,
         description=payment_description,
         months=parts.months,
+        subscription_terms_snapshot=freeze_subscription_terms(settings, parts.sale_mode),
         provider=descriptor.provider_key,
         sale_mode=parts.sale_mode,
         hwid_quote=hwid_quote,

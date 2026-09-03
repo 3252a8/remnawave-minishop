@@ -45,6 +45,7 @@ PROMO_QUOTE_RESPONSE_SCHEMA = ok_envelope_with(
         "effect_summary": STRING_SCHEMA,
         "applies_to": STRING_SCHEMA,
         "min_subscription_months": NULLABLE_INTEGER_SCHEMA,
+        "min_subscription_days": NULLABLE_INTEGER_SCHEMA,
         "min_traffic_gb": NULLABLE_NUMBER_SCHEMA,
         "reason": NULLABLE_STRING_SCHEMA,
         "reason_key": NULLABLE_STRING_SCHEMA,
@@ -56,6 +57,9 @@ SUBSCRIPTION_QUOTE_RESPONSE_SCHEMA = ok_envelope_with(
     {
         "payable": BOOLEAN_SCHEMA,
         "quote_key": STRING_SCHEMA,
+        "duration_days": NULLABLE_INTEGER_SCHEMA,
+        "bonus_days": INTEGER_SCHEMA,
+        "end_date": NULLABLE_STRING_SCHEMA,
         "currency": STRING_SCHEMA,
         "base_amount": NUMBER_SCHEMA,
         "addons_amount": NUMBER_SCHEMA,

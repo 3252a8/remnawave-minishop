@@ -1,3 +1,4 @@
+import { normalizeDayTariff, parseDurationDays } from "../tariffPeriods";
 import { adminErrorMessage } from "../errors.js";
 import { copyTextToClipboard } from "../../webapp/clipboard.js";
 import {
@@ -102,6 +103,8 @@ function isOkResponse<T extends { ok: true }>(response: T | AdminErrorResponse):
 
 function defaultCatalog(): TariffsCatalog {
   return {
+    schema_version: 2,
+    period_unit: "day",
     default_tariff: "",
     referral_welcome_bonus_tariff: null,
     default_currency: "rub",
@@ -111,7 +114,11 @@ function defaultCatalog(): TariffsCatalog {
 }
 
 function normalizeCatalog(catalog: unknown): TariffsCatalog {
-  return cloneCatalog(catalog || defaultCatalog()) as TariffsCatalog;
+  const normalized = cloneCatalog(catalog || defaultCatalog()) as TariffsCatalog;
+  normalized.tariffs = normalized.tariffs.map((tariff) => normalizeDayTariff(tariff) as Tariff);
+  normalized.schema_version = 2;
+  normalized.period_unit = "day";
+  return normalized;
 }
 
 function normalizePanelSquads(squads: unknown): PanelSquad[] {
@@ -139,6 +146,8 @@ export function createTariffsStore({
 }: TariffsStoreOptions): TariffsStore {
   const state = $state<TariffsStore>({
     tariffsCatalog: {
+      schema_version: 2,
+      period_unit: "day",
       default_tariff: "",
       referral_welcome_bonus_tariff: null,
       default_currency: "rub",
@@ -379,7 +388,9 @@ export function createTariffsStore({
     const currentPath = state.tariffsPath;
 
     try {
-      const payload: TariffsSavePayload = { catalog: snapshotForPayload(nextCatalog) };
+      const payload: TariffsSavePayload = {
+        catalog: snapshotForPayload(normalizeCatalog(nextCatalog)),
+      };
       const res = await api(buildAdminTariffsPath(), {
         method: "PUT",
         body: JSON.stringify(payload),
@@ -442,6 +453,15 @@ export function createTariffsStore({
     const s = readState();
     const catalog = snapshotForPayload(s.tariffsCatalog);
     const draft = snapshotForPayload(s.tariffDraft);
+    if (
+      draft.billing_model === "period" &&
+      (draft.periodRows.some((row) => parseDurationDays(row.duration_days) === null) ||
+        new Set(draft.periodRows.map((row) => Number(row.duration_days))).size !==
+          draft.periodRows.length)
+    ) {
+      flash(at("tariff_error_period_days", {}, "Enter unique positive whole-day periods."));
+      return;
+    }
     const tariff = tariffFromDraft(draft, catalog.default_currency || "rub");
     if (!tariff.key) {
       flash(at("tariff_error_key_required", {}, "Enter a tariff key"));

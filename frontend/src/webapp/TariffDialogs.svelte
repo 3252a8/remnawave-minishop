@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { billingDurationDays } from "$lib/webapp/subscriptionPeriods.js";
   import { ArrowRight, CheckCircle2, LockKeyhole } from "$components/ui/icons.js";
 
   import Button from "$components/ui/button.svelte";
@@ -60,7 +61,7 @@
     checkoutPromoStatus = "",
     checkoutPromoDiscountPercent = 0,
     checkoutPromoAppliesTo = "all",
-    checkoutPromoMinSubscriptionMonths = null,
+    checkoutPromoMinSubscriptionDays = null,
     checkoutPromoMinTrafficGb = null,
     applyCheckoutPromo = () => {},
     clearCheckoutPromo = () => {},
@@ -104,7 +105,7 @@
     checkoutPromoStatus?: string;
     checkoutPromoDiscountPercent?: number;
     checkoutPromoAppliesTo?: string;
-    checkoutPromoMinSubscriptionMonths?: number | null;
+    checkoutPromoMinSubscriptionDays?: number | null;
     checkoutPromoMinTrafficGb?: number | null;
     applyCheckoutPromo?: VoidAction;
     clearCheckoutPromo?: VoidAction;
@@ -166,10 +167,10 @@
   }
   function checkoutPromoThresholdMatches(plan: CheckoutPlan | null) {
     const base = planSaleModeBase(plan);
-    const minMonths = Number(checkoutPromoMinSubscriptionMonths || 0);
+    const minDays = Number(checkoutPromoMinSubscriptionDays || 0);
     const minTrafficGb = Number(checkoutPromoMinTrafficGb || 0);
-    if (base === "subscription" && minMonths > 0) {
-      return Number(plan?.months || 0) >= minMonths;
+    if (base === "subscription" && minDays > 0) {
+      return Number(billingDurationDays(plan) || 0) >= minDays;
     }
     if ((base === "traffic" || base === "traffic_topup") && minTrafficGb > 0) {
       return Number(plan?.traffic_gb || plan?.months || 0) >= minTrafficGb;

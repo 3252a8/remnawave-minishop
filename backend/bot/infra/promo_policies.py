@@ -21,6 +21,7 @@ class PromoRedemptionContext:
     effects: PromoEffects
     sale_mode_base: str
     months: int | None = None
+    duration_days: int | None = None
     traffic_gb: float | None = None
     payment_id: int | None = None
 
@@ -119,9 +120,14 @@ def _core_threshold_policy(ctx: PromoRedemptionContext) -> PromoRedemptionDecisi
     if ctx.effects.meets_threshold(
         sale_mode_base=ctx.sale_mode_base,
         months=ctx.months,
+        duration_days=ctx.duration_days,
         traffic_gb=ctx.traffic_gb,
     ):
         return PromoRedemptionDecision.allow()
+    if ctx.effects.min_subscription_days is not None and ctx.sale_mode_base == "subscription":
+        return PromoRedemptionDecision.deny(
+            "promo_code_min_days_required", days=ctx.effects.min_subscription_days
+        )
     if ctx.effects.min_subscription_months is not None and ctx.sale_mode_base == "subscription":
         return PromoRedemptionDecision.deny(
             "promo_code_min_period_required",

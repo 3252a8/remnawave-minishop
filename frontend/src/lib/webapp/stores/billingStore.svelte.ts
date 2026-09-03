@@ -1,3 +1,4 @@
+import { legacyMonthsToDays } from "../subscriptionPeriods.js";
 import type { LoadDataOptions } from "../dataClient";
 import {
   asBillingRecord as asRecord,
@@ -126,7 +127,7 @@ export function createBillingStore({
     checkoutPromoEffectiveAmount: 0,
     checkoutPromoDiscountPercent: 0,
     checkoutPromoAppliesTo: "all",
-    checkoutPromoMinSubscriptionMonths: null,
+    checkoutPromoMinSubscriptionDays: null,
     checkoutPromoMinTrafficGb: null,
     checkoutAddonPreset: null,
     update: updateState,
@@ -350,7 +351,9 @@ export function createBillingStore({
         checkoutPromoEffectiveAmount: Math.max(0, Number(payload.effective_amount || 0)),
         checkoutPromoDiscountPercent: Math.max(0, Number(payload.discount_percent || 0)),
         checkoutPromoAppliesTo: stringField(payload.applies_to) || "all",
-        checkoutPromoMinSubscriptionMonths: optionalNumber(payload.min_subscription_months),
+        checkoutPromoMinSubscriptionDays:
+          optionalNumber(payload.min_subscription_days) ??
+          legacyMonthsToDays(payload.min_subscription_months),
         checkoutPromoMinTrafficGb: optionalNumber(payload.min_traffic_gb),
       }));
     } catch (error: unknown) {

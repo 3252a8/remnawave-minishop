@@ -14,7 +14,14 @@ from bot.services.payment_promo import (
     consume_payment_promo,
     load_payment_promo_effects,
 )
+from bot.services.subscription_order_terms import read_subscription_terms
 from bot.utils.date_utils import add_months
+from config.subscription_periods import (
+    add_period_days,
+    days_to_legacy_months,
+    legacy_months_to_days,
+    positive_period,
+)
 from db.dal import (
     payment_dal,
     subscription_dal,
@@ -52,7 +59,14 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         sale_mode_base = sale_mode_context.base
         tariff_key = sale_mode_context.tariff_key
         tariffs_config = self._tariffs_config()
-        if tariff_key and not tariffs_config:
+        period_payment = (
+            await payment_dal.get_payment_by_db_id(session, payment_db_id)
+            if sale_mode_base == "subscription"
+            else None
+        )
+        frozen_terms = read_subscription_terms(period_payment)
+        frozen_tariff = frozen_terms.tariff if frozen_terms else None
+        if tariff_key and not tariffs_config and frozen_tariff is None:
             logger.error(
                 "Tariff-scoped %s activation requires an available tariff catalog "
                 "for user %s (tariff=%s).",
@@ -62,7 +76,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             )
             return None
         if tariffs_config and tariff_key:
-            resolved_tariff = tariffs_config.get(tariff_key)
+            resolved_tariff = frozen_tariff or tariffs_config.get(tariff_key)
             if resolved_tariff is None:
                 logger.error(
                     "Tariff-scoped %s activation references unknown tariff %s for user %s.",
@@ -72,7 +86,12 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 )
                 return None
             tariff_key = resolved_tariff.key
-        if tariffs_config and sale_mode_base == "subscription" and not tariff_key:
+        if (
+            tariffs_config
+            and sale_mode_base == "subscription"
+            and not tariff_key
+            and frozen_terms is None
+        ):
             logger.error(
                 "Paid subscription activation requires tariff_key when the tariff catalog "
                 "is enabled for user %s.",
@@ -80,7 +99,9 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             )
             return None
         if sale_mode_base in {"traffic", "traffic_package"} or (
-            getattr(self.settings, "traffic_sale_mode", False) and not tariffs_config
+            getattr(self.settings, "traffic_sale_mode", False)
+            and not tariffs_config
+            and frozen_terms is None
         ):
             target_gb = traffic_gb if traffic_gb is not None else float(months)
             result = await self._activate_traffic_package(
@@ -178,7 +199,11 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                         )
             return result if isinstance(result, dict) else None
 
-        tariff = self._resolve_tariff(tariff_key, "period") if self._tariffs_config() else None
+        tariff = (
+            frozen_terms.tariff
+            if frozen_terms
+            else (self._resolve_tariff(tariff_key, "period") if tariffs_config else None)
+        )
         await self._record_payment_context(
             session,
             payment_db_id,
@@ -186,7 +211,12 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             tariff_key=tariff.key if tariff else tariff_key,
             purchased_gb=None,
         )
-        payment = await payment_dal.get_payment_by_db_id(session, payment_db_id)
+        payment = period_payment
+        fixed_duration_days = (
+            positive_period(payment.subscription_duration_days)
+            if payment is not None and getattr(payment, "period_semantics", None) == "fixed_days"
+            else None
+        )
         checkout_grants = checkout_addon_grants(
             getattr(payment, "checkout_bundle_snapshot", None) if payment else None
         )
@@ -217,13 +247,24 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         previous_panel_user_uuid = getattr(db_user, "panel_user_uuid", None)
 
         try:
-            months_int = int(months)
-        except Exception:
-            months_int = 1
+            months_int = (
+                days_to_legacy_months(fixed_duration_days) or 0
+                if fixed_duration_days
+                else positive_period(
+                    getattr(payment, "subscription_duration_months", None) or months
+                )
+            )
+        except (ValueError, TypeError):
+            logger.error("Missing billing period for payment %s", payment_db_id)
+            return None
         expected_tariff_key = tariff.key if tariff else tariff_key
         if checkout_grants.has_addons and (
             checkout_grants.tariff_key != expected_tariff_key
-            or checkout_grants.months != months_int
+            or (
+                checkout_grants.duration_days != fixed_duration_days
+                if checkout_grants.duration_days is not None
+                else checkout_grants.months != months_int
+            )
         ):
             logger.error(
                 "Checkout add-on snapshot mismatch for payment %s: tariff=%s/%s months=%s/%s",
@@ -267,7 +308,11 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 return None
         if checkout_grants.has_addons and current_active_sub and tariff:
             active_key = str(getattr(current_active_sub, "tariff_key", "") or "").strip()
-            active_tariff = self._resolve_tariff(active_key) if active_key else None
+            active_tariff = (
+                tariff
+                if active_key == tariff.key
+                else (self._resolve_tariff(active_key) if active_key else None)
+            )
             if active_tariff is None or active_tariff.key != tariff.key:
                 logger.error(
                     "Subscription checkout cannot switch tariff for payment %s: %s -> %s",
@@ -320,12 +365,18 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             and current_active_sub.end_date > period_start_date
         ):
             period_start_date = current_active_sub.end_date
+        if fixed_duration_days is not None:
+            period_start_date = period_start_date.astimezone(UTC)
         subscription_start_date = entitlement_helpers.immutable_subscription_start(
             current_active_sub if current_billing_model != "traffic" else None,
             now=activation_at,
         )
 
-        end_after_months = add_months(period_start_date, months_int)
+        end_after_months = (
+            add_period_days(period_start_date, fixed_duration_days)
+            if fixed_duration_days is not None
+            else add_months(period_start_date, months_int)
+        )
         base_period_days = (end_after_months - period_start_date).days
         duration_days_total = base_period_days
         applied_promo_bonus_days = 0
@@ -355,6 +406,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                         promo=promo_effects,
                         period_start=period_start_date,
                         base_period_end=end_after_months,
+                        duration_days=fixed_duration_days,
                     )
                 )
                 consumed = await consume_payment_promo(
@@ -546,7 +598,11 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                     * checkout_grants.base_subscription_amount
                     / snapshot_total,
                 )
-        effective_monthly_price = subscription_amount_for_pricing / max(1, months_int)
+        effective_monthly_price = (
+            subscription_amount_for_pricing * 30 / fixed_duration_days
+            if fixed_duration_days is not None
+            else subscription_amount_for_pricing / max(1, months_int)
+        )
         regular_bonus_carry = int(getattr(current_active_sub, "regular_bonus_bytes", 0) or 0)
         regular_unl_carry = bool(getattr(current_active_sub, "regular_unlimited_override", False))
         premium_unl_carry = bool(getattr(current_active_sub, "premium_unlimited_override", False))
@@ -650,7 +706,15 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             "panel_subscription_uuid": panel_sub_link_id,
             "start_date": subscription_start_date,
             "end_date": final_end_date,
-            "duration_months": months_int,
+            "duration_months": days_to_legacy_months(fixed_duration_days)
+            if fixed_duration_days is not None
+            else months_int,
+            "period_semantics": "fixed_days"
+            if fixed_duration_days is not None
+            else "calendar_months",
+            "duration_days": fixed_duration_days
+            if fixed_duration_days is not None
+            else legacy_months_to_days(months_int),
             "is_active": True,
             "status_from_panel": "ACTIVE",
             "traffic_limit_bytes": traffic_limit_bytes,
@@ -892,6 +956,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             db_user=db_user,
             sale_mode="subscription",
             months=months_int,
+            duration_days=fixed_duration_days,
             traffic_gb=None,
             payment_amount=payment_amount,
             end_date=final_end_date,
@@ -909,6 +974,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             "applied_promo_regular_traffic_gb": applied_promo_regular_traffic_gb,
             "applied_promo_premium_traffic_gb": applied_promo_premium_traffic_gb,
             "tariff_key": tariff.key if tariff else None,
+            "duration_days": fixed_duration_days,
             "was_extension": current_active_sub is not None,
             "hwid_devices_renewal_recommended_count": 0
             if hwid_devices_renewed_count

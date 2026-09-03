@@ -1,5 +1,6 @@
 import logging
 from dataclasses import replace
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from aiohttp import web
@@ -29,9 +30,19 @@ from bot.payment_providers.shared.entitlement_context import (
 )
 from bot.services.device_topup_availability import resolve_device_topup_availability
 from bot.services.partner_common import PartnerError
+from bot.services.subscription_order_terms import freeze_subscription_terms
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.user_balance_service import UserBalanceError
 from config.settings import Settings
+from config.subscription_periods import (
+    add_period_days,
+    checkout_duration_days,
+    days_to_legacy_months,
+    multiplied_bonus_days,
+    resolve_period_days,
+    tariff_period_key,
+    with_period_days,
+)
 from config.tariffs_config import (
     default_currency_key_for_settings,
     default_payment_currency_code_for_settings,
@@ -233,7 +244,11 @@ async def create_payment_route(request: web.Request) -> web.Response:
             sale_mode = f"traffic_package@{tariff.key}"
         else:
             try:
-                months = int(float(payment_payload.months))
+                months = tariff_period_key(
+                    tariff,
+                    duration_days=payment_payload.duration_days,
+                    months=payment_payload.months,
+                )
             except (TypeError, ValueError):
                 return _json_error(400, "invalid_plan", "Invalid subscription period")
             if months not in tariff.enabled_periods:
@@ -277,7 +292,13 @@ async def create_payment_route(request: web.Request) -> web.Response:
         sale_mode = "traffic"
     else:
         try:
-            months = int(float(payment_payload.months))
+            months = days_to_legacy_months(
+                resolve_period_days(
+                    duration_days=payment_payload.duration_days, months=payment_payload.months
+                )
+            )
+            if months is None:
+                raise ValueError("duration is not available")
         except (TypeError, ValueError):
             return _json_error(400, "invalid_plan", "Invalid subscription period")
         price = cached["subscription_options"].get(months)
@@ -474,6 +495,12 @@ async def _create_subscription_payment(
     selected_balance_source = balance_source or ("partner" if use_partner_balance else None)
     payment_currency = (currency or default_payment_currency_code_for_settings(settings)).upper()
     sale_mode = str(sale_mode or "subscription")
+    try:
+        fixed_days = checkout_duration_days(settings, months, sale_mode)
+    except ValueError:
+        return _json_error(400, "invalid_plan", "Subscription end date is out of range")
+    if fixed_days is not None:
+        sale_mode = with_period_days(sale_mode, fixed_days)
     if entitlement_context_snapshot is None:
         try:
             entitlement_context_snapshot = await snapshot_current_entitlement_context(
@@ -505,6 +532,20 @@ async def _create_subscription_payment(
                 "tribute_recurring_conflict",
                 "Cancel the active Tribute subscription before changing or replacing the tariff",
             )
+        if fixed_days is not None:
+            try:
+                period_start = datetime.now(UTC)
+                if active_subscription is not None and active_subscription.end_date is not None:
+                    period_start = max(
+                        period_start,
+                        active_subscription.end_date.replace(tzinfo=UTC)
+                        if active_subscription.end_date.tzinfo is None
+                        else active_subscription.end_date,
+                    )
+                add_period_days(period_start, fixed_days)
+            except (ValueError, OverflowError):
+                return _json_error(400, "invalid_plan", "Subscription end date is out of range")
+
     description = (
         "Balance top-up"
         if _sale_mode_base(sale_mode) == "balance_topup"
@@ -564,6 +605,8 @@ async def _create_subscription_payment(
                 "Payment method does not support subscription add-ons",
             )
         payment_context = WebAppPaymentContext(
+            duration_days=checkout_duration_days(settings, months, sale_mode),
+            subscription_terms_snapshot=freeze_subscription_terms(settings, sale_mode),
             request=request,
             session=session,
             user_id=user_id,
@@ -581,6 +624,7 @@ async def _create_subscription_payment(
             hwid_pricing_period_months=(
                 hwid_quote.get("pricing_period_months") if hwid_quote else None
             ),
+            hwid_pricing_period_days=hwid_quote.get("pricing_period_days") if hwid_quote else None,
             hwid_proration_ratio=hwid_quote.get("proration_ratio") if hwid_quote else None,
             hwid_full_price=hwid_quote.get("full_price") if hwid_quote else None,
             hwid_traffic_bonus_bytes=(
@@ -632,6 +676,14 @@ async def _create_subscription_payment(
             if promo_error is not None:
                 return _json_error(promo_error.status, promo_error.code, promo_error.message)
         if promo_result is not None:
+            if fixed_days is not None:
+                try:
+                    bonus_days = promo_result.effects.bonus_days + multiplied_bonus_days(
+                        fixed_days, promo_result.effects.duration_multiplier
+                    )
+                    add_period_days(period_start, fixed_days + bonus_days)
+                except ValueError:
+                    return _json_error(400, "invalid_plan", "Subscription end date is out of range")
             promo_code_id = promo_result.promo_code_id
             if method == "stars":
                 stars_price = promo_result.effective_stars

@@ -13,6 +13,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config.subscription_periods import legacy_months_to_days
 from db.models import PlategaSubscription
 
 # Statuses that still bill the customer. ``past_due`` is included on purpose:
@@ -72,6 +73,8 @@ async def upsert_subscription(
             currency=str(currency),
             interval_code=int(interval_code),
             months=int(months),
+            duration_days=legacy_months_to_days(months),
+            period_semantics="provider_managed",
             sale_mode=sale_mode,
             tariff_key=tariff_key,
             status=status,

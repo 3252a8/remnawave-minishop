@@ -1,4 +1,5 @@
-import { formatTrafficBytes, formatFraction, roundToHalf } from "./formatters.js";
+import { durationParts } from "./subscriptionPeriods";
+import { formatTrafficBytes } from "./formatters.js";
 
 type WebappRecord = Record<string, unknown>;
 type SubscriptionTraffic = WebappRecord & {
@@ -172,6 +173,7 @@ function extractYear(text: unknown): number {
 }
 
 export function isForeverSubscription(sub: SubscriptionTraffic | null | undefined): boolean {
+  if (Number(sub?.duration_days || 0) > 0) return false;
   const raw = String(sub?.end_date_text || "").trim();
   if (!raw) return false;
   return extractYear(raw) >= 2099;
@@ -186,19 +188,10 @@ export function activeSubscriptionTermLabel(
   const days = Math.max(0, Number(sub?.days_left || 0));
   if (!days) return t("wa_sub_term_value_unit", { value: "0", unit: termUnitLabel(0, "day") });
 
-  if (days < 30) {
-    return t("wa_sub_term_value_unit", { value: String(days), unit: termUnitLabel(days, "day") });
-  }
-  if (days < 365) {
-    const months = roundToHalf(days / 30);
-    return t("wa_sub_term_value_unit", {
-      value: formatFraction(months),
-      unit: termUnitLabel(months, "month"),
-    });
-  }
-  const years = roundToHalf(days / 365);
+  const duration = durationParts(days);
+  if (!duration) return "";
   return t("wa_sub_term_value_unit", {
-    value: formatFraction(years),
-    unit: termUnitLabel(years, "year"),
+    value: String(duration.count),
+    unit: termUnitLabel(duration.count, duration.unit),
   });
 }

@@ -34,6 +34,7 @@ class PromoCheckoutRequired:
     effect_summary: str
     applies_to: str
     min_subscription_months: int | None = None
+    min_subscription_days: int | None = None
     min_traffic_gb: float | None = None
 
 
@@ -52,6 +53,7 @@ class PromoCodeStatus:
     effect_summary: str = ""
     applies_to: str = "all"
     min_subscription_months: int | None = None
+    min_subscription_days: int | None = None
     min_traffic_gb: float | None = None
     bonus_days: int = 0
     regular_traffic_gb: float = 0
@@ -145,6 +147,7 @@ class PromoCodeService:
                 ),
                 "applies_to": effects.applies_to,
                 "min_subscription_months": effects.min_subscription_months,
+                "min_subscription_days": effects.min_subscription_days,
                 "min_traffic_gb": effects.min_traffic_gb,
                 "origin": normalized_origin,
                 "max_activations": int(max_activations),
@@ -288,6 +291,7 @@ class PromoCodeService:
                 effect_summary=summary,
                 applies_to=effects.applies_to,
                 min_subscription_months=effects.min_subscription_months,
+                min_subscription_days=effects.min_subscription_days,
                 min_traffic_gb=effects.min_traffic_gb,
             )
         return PromoCodeStatus(
@@ -375,6 +379,7 @@ class PromoCodeService:
                 effect_summary=summarize_effects(effects),
                 applies_to=effects.applies_to,
                 min_subscription_months=effects.min_subscription_months,
+                min_subscription_days=effects.min_subscription_days,
                 min_traffic_gb=effects.min_traffic_gb,
             )
 

@@ -17,7 +17,7 @@ recent fix). These tests pin that:
 import json
 import tempfile
 import unittest
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -615,7 +615,7 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(quote["price"], 170)
         self.assertEqual(sorted(quote["package_counts"]), [1, 3])
         self.assertEqual(quote["valid_from"], sub.end_date)
-        self.assertEqual(quote["valid_until"], datetime(2099, 3, 1, tzinfo=UTC))
+        self.assertEqual(quote["valid_until"], sub.end_date + timedelta(days=30))
 
     async def test_subscription_purchase_keeps_exact_price_beyond_twelve_months(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -659,7 +659,7 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(quote["price"], 600)
         self.assertEqual(quote["pricing_period_months"], 13)
         self.assertEqual(quote["proration_ratio"], 1.0)
-        self.assertEqual(quote["valid_until"], datetime(2099, 2, 28, tzinfo=UTC))
+        self.assertEqual(quote["valid_until"], sub.end_date + timedelta(days=395))
 
     async def test_subscription_renewal_quote_prefers_exact_package_on_equal_price(self):
         with tempfile.TemporaryDirectory() as tmpdir:

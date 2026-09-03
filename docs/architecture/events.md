@@ -377,6 +377,7 @@
 | `sale_mode` | `str` | обязательно |
 | `tariff_key` | `str | None` | `None` |
 | `months` | `int | None` | `None` |
+| `duration_days` | `int | None` | `None` |
 | `traffic_gb` | `float | None` | `None` |
 | `purchased_hwid_devices` | `int | None` | `None` |
 | `promo_code_id` | `int | None` | `None` |
@@ -439,6 +440,7 @@
 | `referee_name` | `str | None` | `None` |
 | `payment_db_id` | `int | None` | `None` |
 | `purchased_subscription_months` | `int | None` | `None` |
+| `purchased_subscription_days` | `int | None` | `None` |
 | `tariff_key` | `str | None` | `None` |
 | `one_bonus_per_referee` | `bool | None` | `None` |
 | `reason` | `'payment' | 'welcome'` | обязательно |
@@ -479,6 +481,7 @@
 | `end_date` | `datetime | None` | `None` |
 | `provider` | `str | None` | `None` |
 | `months` | `int | None` | `None` |
+| `duration_days` | `int | None` | `None` |
 | `payment_db_id` | `int | None` | `None` |
 
 ## `subscription.expired`
@@ -512,6 +515,7 @@
 | `end_date` | `datetime | None` | `None` |
 | `provider` | `str | None` | `None` |
 | `months` | `int | None` | `None` |
+| `duration_days` | `int | None` | `None` |
 | `payment_db_id` | `int | None` | `None` |
 
 ## `subscription.lapsed`

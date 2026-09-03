@@ -11,6 +11,7 @@ from bot.payment_providers.shared import (
     parse_entitlement_context_snapshot,
 )
 from bot.services.subscription_service_impl.renewal import RenewalMixin
+from config.tariffs_config import Tariff, TariffsConfig
 
 
 class _FakeRecurringService:
@@ -254,7 +255,7 @@ class ChargeRenewalHappyPathTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(context.user_id, 77)
         self.assertEqual(context.subscription_id, 555)
         self.assertEqual(context.months, 1)
-        self.assertEqual(context.description, "Subscription payment for 1 mo.")
+        self.assertEqual(context.description, "Subscription for 30 days")
         self.assertEqual(context.metadata["user_id"], "77")
         self.assertEqual(context.metadata["auto_renew_for_subscription_id"], "555")
         self.assertEqual(context.metadata["subscription_months"], "1")
@@ -335,7 +336,7 @@ class ChargeRenewalHappyPathTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(seen["provider"], "cloudpayments")
         self.assertEqual(service.calls[0].saved_method.provider_payment_method_id, "cp-token")
 
-    async def test_defaults_to_one_month_when_duration_missing(self):
+    async def test_rejects_renewal_when_duration_missing(self):
         service = _FakeRecurringService()
         mixin = _make_mixin(service=service, price_for_months=99.0)
 
@@ -354,13 +355,23 @@ class ChargeRenewalHappyPathTests(unittest.IsolatedAsyncioTestCase):
                 ),
             )
 
-        self.assertTrue(ok)
-        self.assertEqual(service.calls[0].metadata["subscription_months"], "1")
-        self.assertEqual(service.calls[0].amount, 99.0)
+        self.assertFalse(ok)
+        self.assertEqual(service.calls, [])
 
     async def test_includes_hwid_device_renewal_in_saved_method_charge(self):
         service = _FakeRecurringService()
         mixin = _make_mixin(service=service, price_for_months=399.0)
+        tariff = Tariff(
+            key="standard",
+            monthly_gb=0,
+            billing_model="period",
+            enabled_periods=[1],
+            prices_rub={"1": 399},
+        )
+        catalog = TariffsConfig(tariffs=[tariff], default_tariff="standard")
+        mixin.settings.tariffs_config = catalog
+        mixin._tariffs_config = lambda: catalog
+        mixin._resolve_tariff = lambda key: tariff
         valid_from = datetime(2099, 2, 1, tzinfo=UTC)
         valid_until = datetime(2099, 3, 1, tzinfo=UTC)
         mixin.quote_hwid_device_renewal_for_subscription = AsyncMock(
@@ -377,9 +388,15 @@ class ChargeRenewalHappyPathTests(unittest.IsolatedAsyncioTestCase):
             }
         )
 
-        with patch(
-            "db.dal.user_billing_dal.get_user_default_payment_method",
-            _stub_default_pm,
+        with (
+            patch(
+                "db.dal.user_billing_dal.get_user_default_payment_method",
+                _stub_default_pm,
+            ),
+            patch(
+                "bot.services.subscription_service_impl.renewal.tariff_dal.get_active_flexible_traffic_limit_records",
+                AsyncMock(return_value={}),
+            ),
         ):
             ok = await mixin.charge_subscription_renewal(
                 session=None,
@@ -390,6 +407,7 @@ class ChargeRenewalHappyPathTests(unittest.IsolatedAsyncioTestCase):
                     subscription_id=555,
                     tariff_key="standard",
                     duration_months=1,
+                    end_date=valid_from,
                 ),
             )
 
@@ -397,13 +415,14 @@ class ChargeRenewalHappyPathTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(service.calls), 1)
         context = service.calls[0]
         self.assertEqual(context.amount, 449.0)
-        self.assertEqual(context.sale_mode, "subscription@standard")
+        self.assertEqual(context.sale_mode, "subscription@standard|d30")
+        self.assertEqual(context.duration_days, 30)
         self.assertEqual(context.hwid_quote["device_count"], 2)
         snapshot = parse_entitlement_context_snapshot(context.entitlement_context_snapshot)
         self.assertIsNotNone(snapshot)
         self.assertEqual(snapshot.active_subscription_id, 555)
         meta = context.metadata
-        self.assertEqual(meta["sale_mode"], "subscription@standard")
+        self.assertEqual(meta["sale_mode"], "subscription@standard|d30")
         self.assertEqual(meta["hwid_devices"], "2")
         self.assertEqual(meta["hwid_valid_from"], valid_from.isoformat())
         self.assertEqual(meta["hwid_valid_until"], valid_until.isoformat())

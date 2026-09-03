@@ -483,6 +483,10 @@ def tribute_checkout_promo_supported(
 
 
 def tribute_supports_checkout(settings: Any, months: Any, sale_mode: str) -> bool:
+    from config.subscription_periods import sale_mode_duration_days
+
+    if sale_mode_duration_days(sale_mode) is not None:
+        return False
     if _shop_enabled_for_source(settings) and _shop_context_supported(months, sale_mode):
         return True
     return _binding_for_checkout(settings, sale_mode=sale_mode, months=months) is not None

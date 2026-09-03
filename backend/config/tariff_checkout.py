@@ -54,7 +54,7 @@ def _traffic_options(
     *,
     base_units: float,
     limit: FlexibleTrafficLimitConfig | None,
-    months: int,
+    months: float,
 ) -> list[dict[str, Any]]:
     if limit is None or limit.max_total_gb <= base_units:
         return []
@@ -79,12 +79,12 @@ def _traffic_options(
         item: dict[str, Any] = {
             "extra_units": extra_units,
             "total_units": total_units,
-            "price": monthly_price * max(1, int(months or 1)),
+            "price": monthly_price * float(months),
             "monthly_price": monthly_price,
         }
         stars_price = int(limit.stars_price_per_step or 0) * steps
         if stars_price > 0:
-            item["stars_price"] = stars_price * max(1, int(months or 1))
+            item["stars_price"] = round(stars_price * float(months))
             item["monthly_stars_price"] = stars_price
         options.append(item)
     return options
@@ -94,7 +94,7 @@ def _device_options(
     *,
     base_units: int,
     config: CheckoutDeviceAddonConfig,
-    months: int,
+    months: float,
 ) -> list[dict[str, Any]]:
     maximum_extra = int(config.max_extra_devices or 0)
     if maximum_extra <= 0 or config.price_per_device is None:
@@ -116,13 +116,13 @@ def _device_options(
         item: dict[str, Any] = {
             "extra_units": extra_units,
             "total_units": total_units,
-            "price": monthly_price * max(1, int(months or 1)),
+            "price": monthly_price * float(months),
             "monthly_price": monthly_price,
             "traffic_bonus_gb": 0.0,
         }
         monthly_stars = int(config.stars_price_per_device or 0) * extra_units
         if monthly_stars > 0:
-            item["stars_price"] = monthly_stars * max(1, int(months or 1))
+            item["stars_price"] = round(monthly_stars * float(months))
             item["monthly_stars_price"] = monthly_stars
         options.append(item)
     return options
@@ -140,6 +140,11 @@ def serialize_checkout_addons(
     if config is None or tariff.billing_model != "period":
         return {}
 
+    period_factor = (
+        tariff.addon_period_factor(months)
+        if callable(getattr(tariff, "addon_period_factor", None))
+        else float(months)
+    )
     result: dict[str, dict[str, Any]] = {}
     base_devices_raw = tariff.hwid_device_limit
     if base_devices_raw is None:
@@ -149,7 +154,7 @@ def serialize_checkout_addons(
         _device_options(
             base_units=base_devices,
             config=config.devices,
-            months=months,
+            months=period_factor,
         )
         if config.devices.enabled and devices_feature_enabled and base_devices > 0
         else []
@@ -168,7 +173,7 @@ def serialize_checkout_addons(
         _traffic_options(
             base_units=regular_base,
             limit=traffic_limit,
-            months=months,
+            months=period_factor,
         )
         if config.traffic.enabled and regular_base > 0
         else []
@@ -186,7 +191,7 @@ def serialize_checkout_addons(
         _traffic_options(
             base_units=premium_base,
             limit=tariff.premium_flexible_traffic_limit,
-            months=months,
+            months=period_factor,
         )
         if (
             config.premium_traffic.enabled

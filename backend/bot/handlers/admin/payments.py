@@ -68,6 +68,11 @@ def format_payment_text(payment: Payment, i18n: JsonI18n, lang: str, settings: S
             str(int(traffic_val)) if float(traffic_val).is_integer() else f"{traffic_val:g}"
         )
         period_line = _("admin_payment_traffic_label", traffic_gb=traffic_display)
+    elif (
+        getattr(payment, "period_semantics", None) == "fixed_days"
+        and payment.subscription_duration_days
+    ):
+        period_line = _("admin_payment_days_label", days=payment.subscription_duration_days)
     else:
         period_line = _(
             "admin_payment_months_label", months=payment.subscription_duration_months or 0

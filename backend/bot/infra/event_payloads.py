@@ -53,11 +53,15 @@ class EventPayload(BaseModel):
         exclude_none: bool = False,
     ) -> dict[str, Any]:
         """Return the flat JSON-compatible dict passed to ``events.emit``."""
-        return self.model_dump(
+        payload = self.model_dump(
             mode="json",
             exclude_unset=exclude_unset,
             exclude_none=exclude_none,
         )
+        for key in ("duration_days", "purchased_subscription_days"):
+            if payload.get(key) is None:
+                payload.pop(key, None)
+        return payload
 
 
 class PaymentSucceededPayload(EventPayload):
@@ -72,6 +76,7 @@ class PaymentSucceededPayload(EventPayload):
     sale_mode: str
     tariff_key: str | None = None
     months: int | None = None
+    duration_days: int | None = None
     traffic_gb: float | None = None
     purchased_hwid_devices: int | None = None
     promo_code_id: int | None = None
@@ -141,6 +146,7 @@ class SubscriptionCreatedPayload(EventPayload):
     end_date: datetime | None = None
     provider: str | None = None
     months: int | None = None
+    duration_days: int | None = None
     payment_db_id: int | None = None
 
 
@@ -271,6 +277,7 @@ class ReferralBonusGrantedPayload(EventPayload):
     referee_name: str | None = None
     payment_db_id: int | None = None
     purchased_subscription_months: int | None = None
+    purchased_subscription_days: int | None = None
     tariff_key: str | None = None
     one_bonus_per_referee: bool | None = None
     reason: Literal["payment", "welcome"]

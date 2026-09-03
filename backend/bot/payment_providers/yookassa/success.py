@@ -617,6 +617,7 @@ async def process_successful_payment(
                         end_date=activation_details.get("end_date"),
                         provider="yookassa",
                         months=months_for_activation,
+                        duration_days=activation_details.get("duration_days"),
                         payment_db_id=payment_db_id,
                     ).to_payload(),
                 }
@@ -634,10 +635,11 @@ async def process_successful_payment(
                     referral_bonus_info = await referral_service.apply_referral_bonuses_for_payment(
                         session,
                         user_id,
-                        months_for_activation or int(subscription_months) or 1,
+                        months_for_activation,
                         current_payment_db_id=payment_db_id,
                         skip_if_active_before_payment=False,
                         tariff_key=effective_tariff_key,
+                        duration_days=activation_details.get("duration_days"),
                     )
                 except Exception:
                     await referral_savepoint.rollback()
@@ -692,6 +694,11 @@ async def process_successful_payment(
                         "payment_description_hwid_devices",
                         count=hwid_devices_count,
                     )
+                elif activation_details.get("duration_days"):
+                    receipt_item_name = _(
+                        "payment_description_subscription_days",
+                        days=activation_details["duration_days"],
+                    )
                 else:
                     receipt_item_name = settings.LKNPD_RECEIPT_NAME_SUBSCRIPTION.format(
                         months=int(subscription_months)
@@ -715,7 +722,10 @@ async def process_successful_payment(
         # they bypass the shared success-message builder.
         if sale_mode_base == "subscription" and is_auto_renew and final_end_date_for_user:
             details_message = _(
-                "yookassa_auto_renewal",
+                "yookassa_auto_renewal_days"
+                if activation_details.get("duration_days")
+                else "yookassa_auto_renewal",
+                days=activation_details.get("duration_days"),
                 months=int(subscription_months),
                 end_date=final_end_date_for_user.strftime("%Y-%m-%d"),
             )
@@ -739,6 +749,7 @@ async def process_successful_payment(
             details_message = build_success_message(
                 SuccessMessage(
                     translator=translator,
+                    duration_days=activation_details.get("duration_days"),
                     sale_mode=sale_mode,
                     months=(
                         traffic_label

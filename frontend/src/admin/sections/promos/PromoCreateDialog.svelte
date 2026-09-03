@@ -16,7 +16,7 @@
     | "discount_percent"
     | "duration_multiplier"
     | "traffic_multiplier"
-    | "min_subscription_months"
+    | "min_subscription_days"
     | "min_traffic_gb"
     | "max_activations"
     | "valid_days";
@@ -169,16 +169,16 @@
         </header>
         <div class="admin-promo-fields-grid admin-promo-eligibility-grid">
           <div class="admin-promo-field-shell">
-            <AdminField label={at("promo_label_min_months", {}, "Min months")}>
+            <AdminField label={at("promo_label_min_days", {}, "Minimum duration, days")}>
               <Input
                 type="number"
                 class="input"
                 min="1"
                 disabled={!usesCheckout}
-                value={draft.min_subscription_months == null
+                value={draft.min_subscription_days == null
                   ? ""
-                  : String(draft.min_subscription_months)}
-                oninput={(event) => onNumberInput("min_subscription_months", inputValue(event))}
+                  : String(draft.min_subscription_days)}
+                oninput={(event) => onNumberInput("min_subscription_days", inputValue(event))}
               />
             </AdminField>
           </div>

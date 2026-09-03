@@ -1,9 +1,12 @@
 <script lang="ts">
+  import { checkoutUnitPrice } from "$lib/webapp/checkoutUnitPrice.js";
+  import { billingDurationDays } from "$lib/webapp/subscriptionPeriods.js";
   import { ArrowLeft, ArrowRight, CheckCircle2 } from "$components/ui/icons.js";
   import Button from "$components/ui/button.svelte";
   import Checkbox from "$components/ui/checkbox.svelte";
   import Dialog from "$components/ui/dialog.svelte";
   import { CheckoutAddonSliders, EmptyCard } from "$components/patterns/webapp/index.js";
+  import CheckoutDurationPreview from "./CheckoutDurationPreview.svelte";
   import CheckoutPeriodPrice from "./CheckoutPeriodPrice.svelte";
   import CheckoutPaymentControls from "./CheckoutPaymentControls.svelte";
   import CheckoutTariffPicker from "./CheckoutTariffPicker.svelte";
@@ -73,7 +76,7 @@
     checkoutPromoStatus = "",
     checkoutPromoDiscountPercent = 0,
     checkoutPromoAppliesTo = "all",
-    checkoutPromoMinSubscriptionMonths = null,
+    checkoutPromoMinSubscriptionDays = null,
     checkoutPromoMinTrafficGb = null,
     checkoutAddonPreset = null,
     applyCheckoutPromo = () => {},
@@ -352,7 +355,7 @@
       checkoutPromoMatchesPlan(
         plan,
         checkoutPromoAppliesTo,
-        checkoutPromoMinSubscriptionMonths,
+        checkoutPromoMinSubscriptionDays,
         checkoutPromoMinTrafficGb
       ),
       true
@@ -438,7 +441,8 @@
       return;
     }
     const body = {
-      months: selectedPlan.months,
+      duration_days: selectedPlan.duration_days,
+      months: selectedPlan.duration_days ? undefined : selectedPlan.months,
       traffic_gb: selectedPlan.traffic_gb,
       device_count: selectedPlan.device_count,
       tariff_key: selectedPlan.tariff_key,
@@ -556,31 +560,12 @@
     const checkoutPlan =
       checkoutPromoPlanParts(plan)?.discounted || planWithCheckoutSelection(plan);
     if (!checkoutPlan) return null;
-    const trafficUnit =
-      trafficMode ||
-      ["traffic", "traffic_package", "topup", "premium_topup"].includes(
-        String(plan?.sale_mode || "").toLowerCase()
-      );
-    const divisor = trafficUnit
-      ? Number(plan?.traffic_gb || plan?.months || 0)
-      : Number(plan?.months || 0);
-    if (!(divisor > 0)) return null;
-    return {
-      ...checkoutPlan,
-      price: Math.round((Number(checkoutPlan.price || 0) / divisor) * 100) / 100,
-      stars_price:
-        Number(checkoutPlan.stars_price || 0) > 0
-          ? Math.round(Number(checkoutPlan.stars_price || 0) / divisor)
-          : checkoutPlan.stars_price,
-    };
+    const trafficUnit = trafficMode || !isSubscriptionPlan(plan);
+    return checkoutUnitPrice(checkoutPlan, plan, trafficUnit, methodUsesStars());
   }
   function checkoutUnitPriceSuffix(plan: PlanView | null): string {
-    const trafficUnit =
-      trafficMode ||
-      ["traffic", "traffic_package", "topup", "premium_topup"].includes(
-        String(plan?.sale_mode || "").toLowerCase()
-      );
-    return t(trafficUnit ? "wa_per_gb_short" : "wa_per_month_short");
+    const trafficUnit = trafficMode || !isSubscriptionPlan(plan);
+    return t(trafficUnit ? "wa_per_gb_short" : "wa_per_30_days_short");
   }
   function tariffLimitLabel(tariff: TariffView) {
     return tariffLimitLabelFn(tariff, { t });
@@ -753,6 +738,18 @@
 {/snippet}
 
 {#snippet paymentBody()}
+  <CheckoutDurationPreview
+    visible={paymentStep === "checkout" &&
+      Boolean(selectedPlan) &&
+      !trafficMode &&
+      !selectedPlan?.traffic_gb &&
+      !selectedPlan?.device_count}
+    days={billingDurationDays(selectedPlan)}
+    period={planDisplayTitle(selectedPlan)}
+    bonusDays={Number(checkoutQuote?.bonus_days || 0)}
+    endDate={String(checkoutQuote?.end_date || "")}
+    {t}
+  />
   <div class="payment-dialog-body">
     {#if pendingPayment}
       <PendingPaymentCard

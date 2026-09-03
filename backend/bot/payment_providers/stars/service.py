@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.keyboards.inline.user_keyboards import payment_methods_back_callback
 from bot.middlewares.i18n import JsonI18n
 from bot.services.checkout_promos import CheckoutPromoResult, checkout_promo_payment_fields
+from bot.services.subscription_order_terms import freeze_subscription_terms
 from bot.utils.callback_answer import callback_message_or_none
 from config.settings import Settings
 from db.dal import payment_dal
@@ -106,6 +107,7 @@ class StarsService:
         )
         sale_base = sale_mode_base(sale_mode)
         payment_record_data = {
+            "subscription_terms_snapshot": freeze_subscription_terms(self.settings, sale_mode),
             "user_id": user_id,
             "amount": float(stars_price),
             "currency": "XTR",
@@ -119,6 +121,9 @@ class StarsService:
             "purchased_hwid_devices": amounts.purchased_hwid_devices,
             "hwid_valid_from": hwid_quote.get("valid_from") if hwid_quote else None,
             "hwid_valid_until": hwid_quote.get("valid_until") if hwid_quote else None,
+            "hwid_pricing_period_days": hwid_quote.get("pricing_period_days")
+            if hwid_quote
+            else None,
             "hwid_pricing_period_months": hwid_quote.get("pricing_period_months")
             if hwid_quote
             else None,

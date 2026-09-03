@@ -190,7 +190,8 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
   ): PostPayload<"/api/payments"> {
     const hasDeviceCheckoutAddon = Number(options.checkoutAddons?.device_count || 0) > 0;
     const body: WebappRecord = {
-      months: plan.months,
+      months: plan.duration_days != null ? undefined : plan.months,
+      duration_days: plan.duration_days,
       traffic_gb: plan.traffic_gb,
       device_count: plan.device_count,
       renew_hwid_devices: Boolean(options.renewHwidDevices) && !hasDeviceCheckoutAddon,
@@ -216,7 +217,8 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
     balanceSource?: "user" | "partner" | null
   ): PostPayload<"/api/payments"> {
     const body: WebappRecord = {
-      months: plan.months,
+      months: plan.duration_days != null ? undefined : plan.months,
+      duration_days: plan.duration_days,
       traffic_gb: plan.traffic_gb,
       sale_mode: String(plan.sale_mode || "topup"),
       balance_source: balanceSource || (usePartnerBalance ? "partner" : null),
@@ -273,7 +275,8 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
     }
     if (action.mode === "buy_period") {
       return withTarget({
-        months: action.months,
+        months: action.duration_days != null ? undefined : action.months,
+        duration_days: action.duration_days,
         balance_source: balanceSource || (usePartnerBalance ? "partner" : null),
         use_partner_balance: Boolean(usePartnerBalance),
         method,

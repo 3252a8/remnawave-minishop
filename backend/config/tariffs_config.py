@@ -14,11 +14,18 @@ from pydantic import (
     model_validator,
 )
 
+from config.subscription_periods import (
+    PeriodUnit,
+    days_to_legacy_months,
+    period_to_days,
+    positive_period,
+)
 from config.tariff_checkout import (
     CheckoutAddonsConfig,
     FlexibleTrafficLimitConfig,
     validate_checkout_addons,
 )
+from config.tariff_period_migration import normalize_tariff_catalog
 from config.tariff_tribute import (
     _normalize_tribute_map_keys,
     canonical_tribute_product_unit,
@@ -105,6 +112,7 @@ class HwidDevicePackage(BaseModel):
     traffic_bonus_gb: float = 0.0
     prices: dict[str, float] = Field(default_factory=dict)
     min_price: float | None = None
+    period_unit: PeriodUnit = "month"
 
     @model_validator(mode="after")
     def validate_values(self) -> "HwidDevicePackage":
@@ -138,7 +146,8 @@ class HwidDevicePackage(BaseModel):
         value = self.prices.get(str(months_int))
         if value is not None:
             return float(value)
-        return float(self.price) * months_int
+        factor = months_int / 30 if self.period_unit == "day" else months_int
+        return float(self.price) * factor
 
 
 class PackageSet(RootModel[dict[str, list[TrafficPackage]]]):
@@ -269,6 +278,7 @@ class TributeTariffConfig(BaseModel):
     not declare their own, which is what a single-subscription tariff uses.
     """
 
+    period_unit: PeriodUnit = "month"
     link: str | None = None
     subscription_id: PositiveStrictInt | None = None
     period_ids: dict[str, PositiveStrictInt] = Field(default_factory=dict)
@@ -367,8 +377,13 @@ class TributeTariffConfig(BaseModel):
         subscription_id = self._resolved_subscription_id(key)
         if period_id is None or link is None or subscription_id is None:
             return None
+        calendar_months = (
+            days_to_legacy_months(months) if self.period_unit == "day" else int(months)
+        )
+        if calendar_months is None:
+            return None
         return TributePeriodSubscription(
-            months=int(months),
+            months=calendar_months,
             link=link,
             subscription_id=int(subscription_id),
             period_id=int(period_id),
@@ -391,9 +406,9 @@ class TributeTariffConfig(BaseModel):
     def months_for_period_id(self, period_id: int) -> int | None:
         return next(
             (
-                int(months)
-                for months, configured_period_id in self.period_ids.items()
-                if configured_period_id == period_id
+                item.months
+                for item in self.iter_period_subscriptions()
+                if item.period_id == period_id
             ),
             None,
         )
@@ -448,6 +463,8 @@ class Tariff(BaseModel):
     referral_bonus_days_inviter: dict[str, int] = Field(default_factory=dict)
     referral_bonus_days_referee: dict[str, int] = Field(default_factory=dict)
     enabled_periods: list[int] = Field(default_factory=list)
+    period_unit: PeriodUnit = "month"
+    addon_period_factors: dict[str, float] = Field(default_factory=dict)
     tribute: TributeTariffConfig | None = None
     topup_packages: PackageSet | None = None
     # A resettable quota sold together with a subscription. Slider marks are
@@ -479,6 +496,16 @@ class Tariff(BaseModel):
     # Same toggle as topup_always_available, scoped to premium-squad traffic.
     premium_topup_always_available: bool = False
     checkout_addons: CheckoutAddonsConfig = Field(default_factory=CheckoutAddonsConfig)
+
+    @field_validator("enabled_periods", mode="before")
+    @classmethod
+    def validate_period_integers(cls, value: Any) -> Any:
+        if not isinstance(value, list):
+            raise ValueError("enabled_periods must be an array")
+        periods = [positive_period(period) for period in value]
+        if len(set(periods)) != len(periods):
+            raise ValueError("duplicate subscription periods")
+        return periods
 
     @model_validator(mode="after")
     def validate_tariff(self) -> "Tariff":
@@ -706,6 +733,21 @@ class Tariff(BaseModel):
         value = source.get(str(months))
         return float(value) if value is not None else None
 
+    def period_duration_days(self, period: int) -> int:
+        return period_to_days(period, self.period_unit)
+
+    def period_for_days(self, duration_days: int) -> int | None:
+        days = positive_period(duration_days)
+        return next((p for p in self.enabled_periods if self.period_duration_days(p) == days), None)
+
+    def addon_period_factor(self, period: int) -> float:
+        value = positive_period(period)
+        return (
+            float(self.addon_period_factors.get(str(value), value / 30))
+            if self.period_unit == "day"
+            else float(value)
+        )
+
     def referral_inviter_bonus_days(self, months: int) -> int | None:
         value = self.referral_bonus_days_inviter.get(str(int(months)))
         return int(value) if value is not None else None
@@ -762,6 +804,8 @@ class Tariff(BaseModel):
 
 
 class TariffsConfig(BaseModel):
+    schema_version: Literal[1, 2] = 1
+    period_unit: PeriodUnit = "month"
     default_tariff: str
     referral_welcome_bonus_tariff: str | None = None
     default_currency: str = DEFAULT_TARIFF_CURRENCY
@@ -908,7 +952,7 @@ def load_tariffs_config(path: str | Path) -> TariffsConfig | None:
         return None
     try:
         data = json.loads(config_path.read_text(encoding="utf-8-sig"))
-        return TariffsConfig.model_validate(data)
+        return TariffsConfig.model_validate(normalize_tariff_catalog(data))
     except (OSError, json.JSONDecodeError, ValidationError, ValueError) as exc:
         logger.critical("Failed to load tariffs config from %s: %s", config_path, exc)
         raise

@@ -1,3 +1,4 @@
+import json
 import logging
 from pathlib import Path
 
@@ -19,6 +20,7 @@ from bot.app.web.webapp.cache_helpers import (
     refresh_webapp_runtime_after_settings_change,
 )
 from config.settings import Settings
+from config.tariff_period_migration import normalize_tariff_catalog
 from config.tariffs_config import TariffsConfig, default_payment_currency_code_for_settings
 from db.dal import message_log_dal
 from db.tariff_reconciliation import (
@@ -106,8 +108,19 @@ async def admin_tariffs_save_route(request: web.Request) -> web.Response:
     if not isinstance(catalog, dict):
         return _error(400, "invalid_payload", "catalog must be an object")
 
+    path = _tariffs_config_path(settings)
+    if path.exists() and catalog.get("schema_version", 1) != 2:
+        try:
+            current_catalog = json.loads(path.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            current_catalog = {}
+        if isinstance(current_catalog, dict) and current_catalog.get("schema_version") == 2:
+            return _error(
+                409, "tariff_catalog_version_changed", "Reload the tariff editor before saving"
+            )
+
     try:
-        config = TariffsConfig.model_validate(catalog)
+        config = TariffsConfig.model_validate(normalize_tariff_catalog(catalog))
     except (ValidationError, ValueError) as exc:
         return _error(400, "invalid_tariffs_config", str(exc))
 

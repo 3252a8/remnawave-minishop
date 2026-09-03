@@ -85,6 +85,8 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
             "start_date": start_date,
             "end_date": end_date,
             "duration_months": 0,
+            "duration_days": None,
+            "period_semantics": None,
             "is_active": True,
             "status_from_panel": "TRIAL",
             "traffic_limit_bytes": self.settings.trial_traffic_limit_bytes,

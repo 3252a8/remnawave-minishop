@@ -374,8 +374,14 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 target,
                 default_currency_key_for_settings(self.settings),
             )
-            if convert_trial_admin_assignment and not getattr(sub, "duration_months", None):
+            if (
+                convert_trial_admin_assignment
+                and not getattr(sub, "duration_months", None)
+                and not getattr(sub, "duration_days", None)
+            ):
                 update_data["duration_months"] = 1
+                update_data["duration_days"] = 30
+                update_data["period_semantics"] = "fixed_days"
             if mode == "recalc_days" and options.get("recalc_days") is not None:
                 update_data["end_date"] = now + timedelta(days=int(options["recalc_days"]))
         else:
@@ -423,6 +429,8 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             )
             if convert_trial_admin_assignment:
                 update_data["duration_months"] = None
+                update_data["duration_days"] = None
+                update_data["period_semantics"] = None
 
         updated = await subscription_dal.update_subscription(
             session, sub.subscription_id, update_data

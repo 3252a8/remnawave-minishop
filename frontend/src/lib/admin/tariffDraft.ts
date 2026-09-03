@@ -1,3 +1,8 @@
+import {
+  normalizeDayTariff,
+  parseDurationDays,
+  preserveInactivePeriodMetadata,
+} from "./tariffPeriods";
 import { structuredCloneSafe } from "./format.js";
 
 type UnknownRecord = Record<string, unknown>;
@@ -58,7 +63,7 @@ export interface TariffDraft extends UnknownRecord {
 }
 
 type ParsedPeriodRow = {
-  months: number | null;
+  duration_days: number | null;
   rub: number | null;
   stars: number | null;
   referral_inviter: number | null;
@@ -85,8 +90,10 @@ function cloneValue<T>(value: T): T {
   return structuredCloneSafe(value) as T;
 }
 
-function hasPositiveMonths(row: ParsedPeriodRow): row is ParsedPeriodRow & { months: number } {
-  return row.months !== null && row.months > 0;
+function hasPositiveMonths(
+  row: ParsedPeriodRow
+): row is ParsedPeriodRow & { duration_days: number } {
+  return row.duration_days !== null && row.duration_days > 0;
 }
 
 function scalarDraftValue(value: unknown): string | number {
@@ -135,7 +142,7 @@ export function emptyTariffDraft(): TariffDraft {
     tributeSubscriptionId: "",
     periodRows: [
       {
-        months: 1,
+        duration_days: 30,
         rub: 200,
         stars: "",
         referral_inviter: 3,
@@ -145,7 +152,7 @@ export function emptyTariffDraft(): TariffDraft {
         tribute_subscription_id: "",
       },
       {
-        months: 3,
+        duration_days: 90,
         rub: 600,
         stars: "",
         referral_inviter: 7,
@@ -155,7 +162,7 @@ export function emptyTariffDraft(): TariffDraft {
         tribute_subscription_id: "",
       },
       {
-        months: 6,
+        duration_days: 180,
         rub: 1200,
         stars: "",
         referral_inviter: 15,
@@ -165,7 +172,7 @@ export function emptyTariffDraft(): TariffDraft {
         tribute_subscription_id: "",
       },
       {
-        months: 12,
+        duration_days: 365,
         rub: 2400,
         stars: "",
         referral_inviter: 30,
@@ -312,6 +319,7 @@ export function packageRowsFromPackageSet(
 }
 
 export function draftFromTariff(tariff: UnknownRecord, defaultCurrency = "rub"): TariffDraft {
+  tariff = normalizeDayTariff(tariff);
   const currency = normalizeCurrencyKey(defaultCurrency);
   const prices = asRecord(tariff.prices);
   const defaultPrices = asRecord(prices[currency]);
@@ -332,7 +340,7 @@ export function draftFromTariff(tariff: UnknownRecord, defaultCurrency = "rub"):
   const periodRows = [...months]
     .filter((month) => Number.isFinite(month) && month > 0)
     .map((month) => ({
-      months: month,
+      duration_days: month,
       rub:
         (currency === "rub" ? rubPrices[String(month)] : undefined) ??
         defaultPrices?.[String(month)] ??
@@ -356,6 +364,9 @@ export function draftFromTariff(tariff: UnknownRecord, defaultCurrency = "rub"):
 
   return {
     ...emptyTariffDraft(),
+    originalPeriodPrices: cloneValue(prices),
+    originalPeriodMetadata: cloneValue(tariff),
+    addonPeriodFactors: cloneValue(tariff.addon_period_factors || {}),
     defaultCurrency: currency,
     key: String(tariff.key || ""),
     legacyKeys: tariff.legacy_keys || [],
@@ -483,6 +494,7 @@ export function packagesFromPackageRows(
       };
       if (row[pricesKey] && typeof row[pricesKey] === "object") {
         pkg.prices = cloneValue(row[pricesKey]);
+        if (valueKey === "count") pkg.period_unit = "day";
       }
       const minPrice = parseNumber(row[minPriceKey]);
       if (minPrice !== null) {
@@ -628,9 +640,18 @@ export function tariffFromDraft(draft: TariffDraft, fallbackCurrency = "rub"): U
     const trafficLimitStrategy = String(draft.traffic_limit_strategy || "").trim();
     if (trafficLimitStrategy) tariff.traffic_limit_strategy = trafficLimitStrategy;
     const seenMonths = new Set();
+    if (
+      (draft.periodRows || []).some((row) => parseDurationDays(row.duration_days) === null) ||
+      new Set(draft.periodRows.map((row) => Number(row.duration_days))).size !==
+        draft.periodRows.length
+    ) {
+      throw new Error("invalid_subscription_periods");
+    }
+    tariff.period_unit = "day";
+    tariff.addon_period_factors = cloneValue(draft.addonPeriodFactors || {});
     const rows = (draft.periodRows || [])
       .map((row) => ({
-        months: parseIntNumber(row.months),
+        duration_days: parseDurationDays(row.duration_days),
         rub: parseNumber(row.rub, 0),
         stars: parseNumber(row.stars, 0),
         referral_inviter: parseIntNumber(row.referral_inviter),
@@ -641,47 +662,48 @@ export function tariffFromDraft(draft: TariffDraft, fallbackCurrency = "rub"): U
       }))
       .filter(hasPositiveMonths)
       .filter((row) => {
-        if (seenMonths.has(row.months)) return false;
-        seenMonths.add(row.months);
+        if (seenMonths.has(row.duration_days)) return false;
+        seenMonths.add(row.duration_days);
         return true;
       });
     tariff.monthly_gb = parseNumber(draft.monthly_gb, 0);
-    tariff.enabled_periods = rows.map((row) => row.months);
-    const defaultPrices = Object.fromEntries(rows.map((row) => [String(row.months), row.rub || 0]));
-    if (defaultCurrency === "rub") {
-      tariff.prices_rub = defaultPrices;
-    } else {
-      tariff.prices = { [defaultCurrency]: defaultPrices };
-    }
+    tariff.enabled_periods = rows.map((row) => row.duration_days);
+    const defaultPrices = Object.fromEntries(
+      rows.map((row) => [String(row.duration_days), row.rub || 0])
+    );
+    tariff.prices = { ...asRecord(draft.originalPeriodPrices), [defaultCurrency]: defaultPrices };
+    if (defaultCurrency === "rub") tariff.prices_rub = defaultPrices;
     tariff.prices_stars = Object.fromEntries(
-      rows.map((row) => [String(row.months), row.stars || 0])
+      rows.map((row) => [String(row.duration_days), row.stars || 0])
     );
     tariff.referral_bonus_days_inviter = Object.fromEntries(
       rows
         .filter((row) => row.referral_inviter !== null)
-        .map((row) => [String(row.months), row.referral_inviter])
+        .map((row) => [String(row.duration_days), row.referral_inviter])
     );
     tariff.referral_bonus_days_referee = Object.fromEntries(
       rows
         .filter((row) => row.referral_referee !== null)
-        .map((row) => [String(row.months), row.referral_referee])
+        .map((row) => [String(row.duration_days), row.referral_referee])
     );
     const tributeLink = String(draft.tributeLink || "").trim();
     const tributeSubscriptionId = parseNumber(draft.tributeSubscriptionId);
     const tributePeriodIds = Object.fromEntries(
       rows
         .filter((row) => row.tribute_period_id !== null)
-        .map((row) => [String(row.months), row.tribute_period_id])
+        .map((row) => [String(row.duration_days), row.tribute_period_id])
     );
     // A period may be sold by its own Tribute subscription; the tariff-level
     // pair stays as the default for the periods that do not name one.
     const tributePeriodLinks = Object.fromEntries(
-      rows.filter((row) => row.tribute_link).map((row) => [String(row.months), row.tribute_link])
+      rows
+        .filter((row) => row.tribute_link)
+        .map((row) => [String(row.duration_days), row.tribute_link])
     );
     const tributePeriodSubscriptionIds = Object.fromEntries(
       rows
         .filter((row) => row.tribute_subscription_id !== null)
-        .map((row) => [String(row.months), row.tribute_subscription_id])
+        .map((row) => [String(row.duration_days), row.tribute_subscription_id])
     );
     if (
       tributeLink ||
@@ -692,6 +714,7 @@ export function tariffFromDraft(draft: TariffDraft, fallbackCurrency = "rub"): U
     ) {
       if (tributeLink) tribute.link = tributeLink;
       if (tributeSubscriptionId !== null) tribute.subscription_id = tributeSubscriptionId;
+      tribute.period_unit = "day";
       tribute.period_ids = tributePeriodIds;
       if (Object.keys(tributePeriodLinks).length) {
         tribute.period_links = tributePeriodLinks;
@@ -732,5 +755,6 @@ export function tariffFromDraft(draft: TariffDraft, fallbackCurrency = "rub"): U
     tariff.tribute = tribute;
   }
 
+  preserveInactivePeriodMetadata(tariff, asRecord(draft.originalPeriodMetadata));
   return tariff;
 }

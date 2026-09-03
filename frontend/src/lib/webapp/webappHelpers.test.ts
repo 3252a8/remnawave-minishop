@@ -116,7 +116,7 @@ describe("webapp traffic helpers", () => {
     ]);
     expect(isForeverSubscription({ end_date_text: "2099-12-31" })).toBe(true);
     expect(activeSubscriptionTermLabel({ days_left: 45 }, { t, termUnitLabel })).toBe(
-      'wa_sub_term_value_unit:{"value":"1.5","unit":"month:1.5"}'
+      'wa_sub_term_value_unit:{"value":"45","unit":"day:45"}'
     );
   });
 });

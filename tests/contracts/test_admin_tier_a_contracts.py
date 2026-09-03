@@ -208,6 +208,8 @@ def test_tariffs_response_models_match_legacy_catalog_payload():
         exclude_none=True,
     )
     assert AdminTariffsCatalogOut.empty().to_legacy_payload() == {
+        "schema_version": 2,
+        "period_unit": "day",
         "default_tariff": "",
         "default_currency": "rub",
         "topup_packages_default": {"rub": [], "stars": []},
@@ -276,6 +278,8 @@ def test_admin_tariffs_response_model_preserves_nested_legacy_payload_shape():
         "path": "data/tariffs.json",
         "user_hwid_device_limit": None,
         "catalog": {
+            "schema_version": 2,
+            "period_unit": "day",
             "default_tariff": "",
             "default_currency": "rub",
             "topup_packages_default": {"rub": [], "stars": []},

@@ -121,6 +121,7 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
         payment_amount: float,
         end_date: datetime | None,
         provider: str,
+        duration_days: int | None = None,
     ) -> None:
         """Best-effort branded email confirming the payment. No-op if SMTP or
         the user's email aren't set. Failures are logged and swallowed so the
@@ -168,6 +169,7 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
                 language_code=db_user.language_code or self.settings.DEFAULT_LANGUAGE,
                 sale_mode=sale_mode,
                 months=int(months or 0),
+                duration_days=duration_days,
                 traffic_gb=traffic_gb,
                 amount=float(payment_amount or 0),
                 currency=default_payment_currency_code_for_settings(self.settings),

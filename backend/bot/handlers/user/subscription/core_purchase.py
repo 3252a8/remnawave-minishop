@@ -37,6 +37,7 @@ from bot.utils.callback_answer import (
     callback_message,
 )
 from config.settings import Settings
+from config.subscription_periods import tariff_period_key, with_period_days
 from config.tariffs_config import (
     Tariff,
     default_currency_key_for_settings,
@@ -555,8 +556,16 @@ async def select_tariff_period_callback(
         ),
         None,
     )
-    tariff = config.require(tariff_key)
-    months = int(months_raw)
+    try:
+        tariff = config.require(tariff_key)
+        months = (
+            tariff_period_key(tariff, duration_days=int(months_raw[1:]))
+            if months_raw.startswith("d")
+            else tariff_period_key(tariff, months=int(months_raw))
+        )
+    except (ValueError, KeyError):
+        await callback.answer(get_text("error_try_again"), show_alert=True)
+        return
     default_currency = default_currency_key_for_settings(settings)
     currency_code = default_payment_currency_code_for_settings(settings)
     price_rub = tariff.period_price(months, default_currency)
@@ -564,7 +573,10 @@ async def select_tariff_period_callback(
     if price_rub is None:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
-    sale_mode = sale_mode_with_callback_context(f"subscription@{tariff.key}", callback_context)
+    sale_mode = sale_mode_with_callback_context(
+        with_period_days(f"subscription@{tariff.key}", tariff.period_duration_days(months)),
+        callback_context,
+    )
     promo_quote: CheckoutPromoResult | None = None
     stars_promo_quote: CheckoutPromoResult | None = None
     if promo_enabled:

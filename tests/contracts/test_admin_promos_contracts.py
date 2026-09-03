@@ -325,6 +325,7 @@ def test_promo_create_uses_typed_body_and_response_model():
         "bonus_requires_payment": False,
         "applies_to": "all",
         "min_subscription_months": None,
+        "min_subscription_days": None,
         "min_traffic_gb": None,
         "origin": "admin",
         "max_activations": 3,

@@ -93,24 +93,24 @@ describe("tariffDraft", () => {
     const draft = draftFromTariff(tariff, "rub");
 
     expect(draft.periodRows[0]).toMatchObject({
-      months: 1,
+      duration_days: 30,
       tribute_period_id: 1001,
       tribute_link: "https://t.me/tribute/app?startapp=ep_monthly",
       tribute_subscription_id: 101,
     });
     expect(draft.periodRows[1]).toMatchObject({
-      months: 12,
+      duration_days: 365,
       tribute_subscription_id: 909,
     });
 
     expect(tariffFromDraft(draft)).toMatchObject({
       tribute: {
-        period_ids: { 1: 1001, 12: 4001 },
+        period_ids: { 30: 1001, 365: 4001 },
         period_links: {
-          1: "https://t.me/tribute/app?startapp=ep_monthly",
-          12: "https://t.me/tribute/app?startapp=ep_yearly",
+          30: "https://t.me/tribute/app?startapp=ep_monthly",
+          365: "https://t.me/tribute/app?startapp=ep_yearly",
         },
-        period_subscription_ids: { 1: 101, 12: 909 },
+        period_subscription_ids: { 30: 101, 365: 909 },
       },
     });
   });
@@ -198,7 +198,7 @@ describe("tariffDraft", () => {
     expect(draft.checkout_devices_stars_price_per_device).toBe(40);
     expect(draft.periodRows).toEqual([
       {
-        months: 1,
+        duration_days: 30,
         rub: 200,
         stars: 90,
         referral_inviter: 3,
@@ -208,7 +208,7 @@ describe("tariffDraft", () => {
         tribute_subscription_id: "",
       },
       {
-        months: 3,
+        duration_days: 90,
         rub: 550,
         stars: "",
         referral_inviter: "",
@@ -220,15 +220,19 @@ describe("tariffDraft", () => {
     ]);
 
     draft.squadUuids = " a\nb, c ";
-    draft.periodRows.push({ months: 3, rub: 600, stars: 10 });
+    const duplicate = {
+      ...draft,
+      periodRows: [...draft.periodRows, { duration_days: 90, rub: 600, stars: 10 }],
+    };
+    expect(() => tariffFromDraft(duplicate)).toThrow();
     expect(tariffFromDraft(draft)).toMatchObject({
       key: "pro",
       legacy_keys: ["premium"],
       names: { ru: "Про" },
       squad_uuids: ["a", "b", "c"],
-      enabled_periods: [1, 3],
-      prices_rub: { 1: 200, 3: 550 },
-      prices_stars: { 1: 90, 3: 0 },
+      enabled_periods: [30, 90],
+      prices_rub: { 30: 200, 90: 550 },
+      prices_stars: { 30: 90, 90: 0 },
       monthly_gb: 500,
       traffic_limit_strategy: "WEEK",
       premium_traffic_limit_strategy: "MONTH",
@@ -258,7 +262,7 @@ describe("tariffDraft", () => {
       tribute: {
         link: "https://t.me/tribute/app?startapp=pro",
         subscription_id: 101,
-        period_ids: { 1: 1001, 3: 1003 },
+        period_ids: { 30: 1001, 90: 1003 },
         traffic_products: {
           10: {
             product_id: 501,

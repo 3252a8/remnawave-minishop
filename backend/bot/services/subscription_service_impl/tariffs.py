@@ -576,14 +576,14 @@ class TariffMixin(SubscriptionServiceMixinContract):
 
     @staticmethod
     def _tariff_effective_monthly_price(tariff: Tariff, currency: str) -> float | None:
-        one_month = tariff.period_price(1, currency)
+        one_month = tariff.period_price(30 if tariff.period_unit == "day" else 1, currency)
         if one_month and one_month > 0:
             return float(one_month)
         monthly_prices = []
         for months in tariff.enabled_periods:
             price = tariff.period_price(months, currency)
             if price and price > 0:
-                monthly_prices.append(float(price) / max(1, int(months)))
+                monthly_prices.append(float(price) * 30 / tariff.period_duration_days(months))
         return min(monthly_prices) if monthly_prices else None
 
     @staticmethod

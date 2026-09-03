@@ -4104,6 +4104,11 @@ export interface components {
        */
       display_label: string | null;
       /**
+       * Duration Days
+       * @default null
+       */
+      duration_days: number | null;
+      /**
        * Duration Months
        * @default null
        */
@@ -4136,6 +4141,11 @@ export interface components {
        * @default null
        */
       panel_user_uuid: string | null;
+      /**
+       * Period Semantics
+       * @default null
+       */
+      period_semantics: string | null;
       /**
        * Premium Baseline Bytes
        * @default null
@@ -4580,10 +4590,20 @@ export interface components {
       /** Default Tariff */
       default_tariff: string;
       /**
+       * Period Unit
+       * @default day
+       */
+      period_unit: string;
+      /**
        * Referral Welcome Bonus Tariff
        * @default null
        */
       referral_welcome_bonus_tariff: string | null;
+      /**
+       * Schema Version
+       * @default 2
+       */
+      schema_version: number;
       /** Tariffs */
       tariffs: components["schemas"]["Tariff"][];
       /** @default null */
@@ -5261,6 +5281,12 @@ export interface components {
        * @default null
        */
       min_price: number | null;
+      /**
+       * Period Unit
+       * @default month
+       * @enum {string}
+       */
+      period_unit: "day" | "month";
       /** Price */
       price: number;
       /** Prices */
@@ -5416,10 +5442,18 @@ export interface components {
     };
     /** PartnerBalanceRenewIn */
     PartnerBalanceRenewIn: {
+      /**
+       * Duration Days
+       * @default null
+       */
+      duration_days: number | null;
       /** Idempotency Key */
       idempotency_key: string;
-      /** Months */
-      months: number;
+      /**
+       * Months
+       * @default null
+       */
+      months: number | null;
       /**
        * Promo Code
        * @default null
@@ -5817,6 +5851,11 @@ export interface components {
       /** Payment Id */
       payment_id: number;
       /**
+       * Period Semantics
+       * @default null
+       */
+      period_semantics: string | null;
+      /**
        * Promo Code
        * @default null
        */
@@ -5899,6 +5938,11 @@ export interface components {
        */
       status: string | null;
       /**
+       * Subscription Duration Days
+       * @default null
+       */
+      subscription_duration_days: number | null;
+      /**
        * Subscription Duration Months
        * @default null
        */
@@ -5975,6 +6019,11 @@ export interface components {
       /** Payment Id */
       payment_id: number;
       /**
+       * Period Semantics
+       * @default null
+       */
+      period_semantics: string | null;
+      /**
        * Promo Code Id
        * @default null
        */
@@ -6021,6 +6070,11 @@ export interface components {
        * @default null
        */
       status: string | null;
+      /**
+       * Subscription Duration Days
+       * @default null
+       */
+      subscription_duration_days: number | null;
       /**
        * Subscription Duration Months
        * @default null
@@ -6094,6 +6148,11 @@ export interface components {
        * @default null
        */
       bonus_days: number | null;
+      /**
+       * Charged Days
+       * @default null
+       */
+      charged_days: number | null;
       /**
        * Charged Gb
        * @default null
@@ -6246,6 +6305,11 @@ export interface components {
       /** Max Activations */
       max_activations: number;
       /**
+       * Min Subscription Days
+       * @default null
+       */
+      min_subscription_days: number | null;
+      /**
        * Min Subscription Months
        * @default null
        */
@@ -6344,6 +6408,11 @@ export interface components {
       /** Max Activations */
       max_activations: number;
       /**
+       * Min Subscription Days
+       * @default null
+       */
+      min_subscription_days: number | null;
+      /**
        * Min Subscription Months
        * @default null
        */
@@ -6438,6 +6507,11 @@ export interface components {
        * @default null
        */
       max_activations: number | null;
+      /**
+       * Min Subscription Days
+       * @default null
+       */
+      min_subscription_days: number | null;
       /**
        * Min Subscription Months
        * @default null
@@ -6834,6 +6908,10 @@ export interface components {
     };
     /** Tariff */
     Tariff: {
+      /** Addon Period Factors */
+      addon_period_factors?: {
+        [key: string]: number;
+      };
       /**
        * Billing Model
        * @enum {string}
@@ -6883,6 +6961,12 @@ export interface components {
       names?: {
         [key: string]: string;
       };
+      /**
+       * Period Unit
+       * @default month
+       * @enum {string}
+       */
+      period_unit: "day" | "month";
       /** @default null */
       premium_flexible_traffic_limit: components["schemas"]["FlexibleTrafficLimitConfig"] | null;
       /**
@@ -7341,6 +7425,12 @@ export interface components {
       period_subscription_ids?: {
         [key: string]: number;
       };
+      /**
+       * Period Unit
+       * @default month
+       * @enum {string}
+       */
+      period_unit: "day" | "month";
       /** Premium Traffic Products */
       premium_traffic_products?: {
         [key: string]: components["schemas"]["TributeProductConfig"];
@@ -7594,6 +7684,11 @@ export interface components {
        */
       device_count: unknown;
       /**
+       * Duration Days
+       * @default null
+       */
+      duration_days: number | null;
+      /**
        * Method
        * @default
        */
@@ -7685,6 +7780,11 @@ export interface components {
        */
       device_count: unknown;
       /**
+       * Duration Days
+       * @default null
+       */
+      duration_days: number | null;
+      /**
        * Method
        * @default
        */
@@ -7760,6 +7860,11 @@ export interface components {
        * @default null
        */
       device_count: unknown;
+      /**
+       * Duration Days
+       * @default null
+       */
+      duration_days: number | null;
       /**
        * Method
        * @default
@@ -13125,12 +13230,15 @@ export interface operations {
             addons_stars: number;
             base_amount: number;
             base_stars?: number | null;
+            bonus_days?: number;
             currency: string;
             discount_amount: number;
             discount_percent?: number | null;
+            duration_days?: number | null;
             effect_summary?: string | null;
             effective_amount: number;
             effective_stars?: number | null;
+            end_date?: string | null;
             items: {
               [key: string]: unknown;
             }[];
@@ -13176,6 +13284,7 @@ export interface operations {
             effect_summary?: string;
             effective_amount?: number;
             effective_stars?: number | null;
+            min_subscription_days?: number | null;
             min_subscription_months?: number | null;
             min_traffic_gb?: number | null;
             /** @constant */

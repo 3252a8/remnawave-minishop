@@ -839,6 +839,7 @@ export function createApiClient({
   function authenticatedHeaders(options: RequestInit): Headers {
     const method = String(options.method || "GET").toUpperCase();
     const headers = new Headers(options.headers);
+    headers.set("X-Billing-Period-Unit", "day");
     const csrf = getCsrfToken() || readCookie(csrfCookieName) || "";
     const authToken = getAuthToken();
     if (authToken && !headers.has("Authorization")) {

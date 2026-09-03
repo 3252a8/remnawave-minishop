@@ -14,13 +14,16 @@ from bot.keyboards.inline.user_keyboards import (
 )
 from bot.middlewares.i18n import JsonI18n
 from bot.services.checkout_promos import CheckoutPromoResult, checkout_promo_payment_fields
+from bot.services.subscription_order_terms import freeze_subscription_terms
 from bot.utils.callback_answer import callback_message_or_none
 from config.settings import Settings
+from config.subscription_periods import fixed_day_metadata
 from db.dal import payment_dal, user_billing_dal
 
 from ..base import PaymentProviderSpec
 from ..shared import parse_positive_int_units
 from ..shared import sale_mode_base as _sale_mode_base
+from ..shared.common import build_payment_description
 from .service import YooKassaService
 from .shared import _format_value, _metadata_iso
 from .success import HWID_DEVICE_SALE_BASES
@@ -65,16 +68,9 @@ async def _initiate_yk_payment(
     hwid_device_count = None
     if hwid_quote:
         hwid_device_count = parse_positive_int_units(hwid_quote.get("device_count"))
-    payment_description = (
-        get_text("payment_description_traffic", traffic_gb=_format_value(months))
-        if sale_base in {"traffic", "traffic_package", "topup", "premium_topup"}
-        else (
-            get_text("payment_description_hwid_devices", count=int(months))
-            if sale_base in HWID_DEVICE_SALE_BASES
-            else get_text("payment_description_subscription", months=int(months))
-        )
-    )
+    payment_description = build_payment_description(get_text, months=months, sale_mode=sale_mode)
     payment_record_data = {
+        "subscription_terms_snapshot": freeze_subscription_terms(settings, sale_mode),
         "user_id": user_id,
         "amount": price_rub,
         "currency": currency_code_for_yk,
@@ -94,6 +90,7 @@ async def _initiate_yk_payment(
         "hwid_pricing_period_months": hwid_quote.get("pricing_period_months")
         if hwid_quote
         else None,
+        "hwid_pricing_period_days": hwid_quote.get("pricing_period_days") if hwid_quote else None,
         "hwid_proration_ratio": hwid_quote.get("proration_ratio") if hwid_quote else None,
         "hwid_full_price": hwid_quote.get("full_price") if hwid_quote else None,
         "hwid_traffic_bonus_bytes": hwid_quote.get("traffic_bonus_bytes") if hwid_quote else None,
@@ -130,6 +127,7 @@ async def _initiate_yk_payment(
         "payment_db_id": str(db_payment_record.payment_id),
         "sale_mode": sale_mode,
     }
+    yookassa_metadata.update(fixed_day_metadata(sale_mode))
     if checkout_promo is not None:
         yookassa_metadata["promo_code_id"] = str(checkout_promo.promo_code_id)
     if sale_base in {"traffic", "traffic_package", "topup", "premium_topup"}:
