@@ -1,5 +1,5 @@
 ﻿<script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import { Tooltip } from "$components/ui/primitives.js";
 
   import AdminPanelLayout from "./AdminPanelLayout.svelte";
@@ -261,7 +261,8 @@
 
   let sidebarOpen = $state(false);
   let dismissedUserRouteKey = $state("");
-  let lastUserRouteKey = $state("");
+  let handledUserRouteKey = $state("");
+  let handledPaymentRouteKey = $state("");
 
   function flash(text: string): void {
     onToast(text);
@@ -557,7 +558,6 @@
     const uid = Number(userId);
     // Synthetic email-only users use negative user_id; still a valid admin target.
     if (!Number.isFinite(uid) || uid === 0) return;
-    dismissedUserRouteKey = "";
     const next = normalizeSection("payments");
     sidebarOpen = false;
     if (active !== next) {
@@ -626,7 +626,6 @@
   function openLogsUserCard(userId: unknown): void {
     const uid = Number(userId);
     if (!Number.isFinite(uid) || uid === 0) return;
-    dismissedUserRouteKey = "";
     const next = normalizeSection("logs");
     sidebarOpen = false;
     if (active !== next) {
@@ -642,7 +641,6 @@
   function openUserCard(userId: unknown): void {
     const uid = Number(userId);
     if (!Number.isFinite(uid) || uid === 0) return;
-    dismissedUserRouteKey = "";
     sidebarOpen = false;
     usersStore.setActive(active);
     void usersStore.openUser(uid, {
@@ -651,14 +649,14 @@
     });
   }
 
-  function userRouteKey(section = active): string {
+  function userRouteKey(section: string): string {
     if (section === "users" && initialUserId) return `users:${initialUserId}`;
     if (section === "payments" && initialPaymentUserId) return `payments:${initialPaymentUserId}`;
     return "";
   }
 
   function closeUserCard(): void {
-    dismissedUserRouteKey = userRouteKey();
+    dismissedUserRouteKey = userRouteKey(active);
     usersStore.closeUser({ skipPush: true });
     if (active === "users" || active === "payments") {
       onSectionChange(active, 0);
@@ -726,43 +724,38 @@
   });
 
   $effect(() => {
-    const currentUserRouteKey = userRouteKey();
-    if (currentUserRouteKey !== lastUserRouteKey) {
-      if (currentUserRouteKey !== dismissedUserRouteKey) dismissedUserRouteKey = "";
-      lastUserRouteKey = currentUserRouteKey;
+    const routeSection = normalizeSection(initialSection);
+    const routeKey = userRouteKey(routeSection);
+    if (!routeKey) {
+      handledUserRouteKey = "";
+      dismissedUserRouteKey = "";
+      return;
+    }
+    if (routeKey === handledUserRouteKey || routeKey === dismissedUserRouteKey) return;
+    handledUserRouteKey = routeKey;
+    if (routeSection === "users" && initialUserId) {
+      void untrack(() => usersStore.openUser(initialUserId, { skipPush: true }));
+    } else if (routeSection === "payments" && initialPaymentUserId) {
+      void untrack(() =>
+        usersStore.openUser(initialPaymentUserId, {
+          skipPush: true,
+          pathContext: "payments",
+        })
+      );
     }
   });
 
   $effect(() => {
-    if (
-      active === "users" &&
-      initialUserId &&
-      dismissedUserRouteKey !== `users:${initialUserId}` &&
-      (!usersStore.openedUser || usersStore.openedUser.user_id !== initialUserId)
-    ) {
-      void usersStore.openUser(initialUserId, { skipPush: true });
+    const routeSection = normalizeSection(initialSection);
+    const paymentId = routeSection === "payments" ? initialPaymentId : null;
+    if (!paymentId) {
+      handledPaymentRouteKey = "";
+      return;
     }
-  });
-
-  $effect(() => {
-    if (
-      active === "payments" &&
-      initialPaymentId &&
-      (!paymentsStore.openedPaymentId || paymentsStore.openedPaymentId !== initialPaymentId)
-    ) {
-      void paymentsStore.openPayment(initialPaymentId, { skipPush: true });
-    }
-  });
-
-  $effect(() => {
-    if (
-      active === "payments" &&
-      initialPaymentUserId &&
-      dismissedUserRouteKey !== `payments:${initialPaymentUserId}` &&
-      (!usersStore.openedUser || usersStore.openedUser.user_id !== initialPaymentUserId)
-    ) {
-      void usersStore.openUser(initialPaymentUserId, { skipPush: true, pathContext: "payments" });
-    }
+    const routeKey = `payments:${paymentId}`;
+    if (routeKey === handledPaymentRouteKey) return;
+    handledPaymentRouteKey = routeKey;
+    void untrack(() => paymentsStore.openPayment(paymentId, { skipPush: true }));
   });
 </script>
 

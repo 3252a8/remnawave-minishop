@@ -1962,6 +1962,70 @@ test("checkout promo code is editable and applies its quoted discount", async ({
   await expect(dialog.locator(".checkout-promo-discount-marker")).toBeVisible();
 });
 
+test("admin deep links do not pin the first opened record", async ({ page }) => {
+  await page.setViewportSize(DESKTOP_VIEWPORT);
+  await page.goto(`${APP_URL}?screen=admin&admin_section=payments`);
+
+  const paymentUserButtons = page.locator(".admin-payments-table .admin-payments-user-btn");
+  await expect(paymentUserButtons.nth(1)).toBeVisible();
+  await paymentUserButtons.first().click();
+
+  const firstPaymentUserId = new URL(page.url()).pathname.split("/").pop();
+  expect(firstPaymentUserId).toBeTruthy();
+  await page.reload();
+
+  const userDialog = page.locator(".dialog-card.admin-user-dialog");
+  await expect(userDialog).toBeVisible();
+  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`#${firstPaymentUserId}`);
+  await closeDialog(userDialog);
+
+  await paymentUserButtons.nth(1).click();
+  const secondPaymentUserId = new URL(page.url()).pathname.split("/").pop();
+  expect(secondPaymentUserId).toBeTruthy();
+  expect(secondPaymentUserId).not.toBe(firstPaymentUserId);
+  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(
+    `#${secondPaymentUserId}`
+  );
+  await closeDialog(userDialog);
+
+  const paymentButtons = page.locator(".admin-payments-table .admin-payment-id-btn");
+  await expect(paymentButtons.nth(1)).toBeVisible();
+  await paymentButtons.first().click();
+  const firstPaymentId = new URL(page.url()).pathname.split("/").pop();
+  expect(firstPaymentId).toBeTruthy();
+  await page.reload();
+
+  const paymentDialog = page.locator(".dialog-card.admin-payment-dialog");
+  await expect(paymentDialog).toBeVisible();
+  await expect(paymentDialog.locator(".dialog-title-copy h2")).toContainText(`#${firstPaymentId}`);
+  await closeDialog(paymentDialog);
+
+  await paymentButtons.nth(1).click();
+  const secondPaymentId = new URL(page.url()).pathname.split("/").pop();
+  expect(secondPaymentId).toBeTruthy();
+  expect(secondPaymentId).not.toBe(firstPaymentId);
+  await expect(paymentDialog.locator(".dialog-title-copy h2")).toContainText(`#${secondPaymentId}`);
+  await closeDialog(paymentDialog);
+
+  await openAdminSection(page, "users");
+  const userRows = activeAdminSection(page, "users").locator("tr[data-user-id]");
+  await expect(userRows.nth(1)).toBeVisible();
+  await userRows.first().click();
+  const firstUserId = new URL(page.url()).pathname.split("/").pop();
+  expect(firstUserId).toBeTruthy();
+  await page.reload();
+
+  await expect(userDialog).toBeVisible();
+  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`#${firstUserId}`);
+  await closeDialog(userDialog);
+
+  await userRows.nth(1).click();
+  const secondUserId = new URL(page.url()).pathname.split("/").pop();
+  expect(secondUserId).toBeTruthy();
+  expect(secondUserId).not.toBe(firstUserId);
+  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`#${secondUserId}`);
+});
+
 test("webapp and admin sections, dialogs, tabs stay interactive without console errors", async ({
   page,
 }) => {
