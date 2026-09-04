@@ -26,18 +26,10 @@ async def attach_checkout_pricing_context_to_plans(
     if local_sub is None or not settings.tariffs_config:
         return
     if _subscription_is_trial(local_sub):
-        default_tariff_key = str(
-            getattr(settings.tariffs_config, "default_tariff", "") or ""
-        ).strip()
         for plan in plans:
             if str(plan.get("sale_mode") or "subscription") != "subscription":
                 continue
-            plan["checkout_addons"] = {}
-            target_key = str(plan.get("tariff_key") or "").strip()
-            if target_key == default_tariff_key:
-                plan.pop("tariff_switch_required", None)
-            else:
-                plan["tariff_switch_required"] = True
+            plan.pop("tariff_switch_required", None)
         return
     try:
         active_tariff = settings.tariffs_config.require(local_sub.tariff_key)

@@ -133,13 +133,16 @@ async def _resolve_checkout_pricing_context(
     )
     target_tariff_key = _sale_mode_tariff_key(sale_mode)
     if active_sub is not None and _subscription_is_trial(active_sub):
-        default_tariff_key = str(getattr(tariffs_config, "default_tariff", "") or "").strip()
-        if target_tariff_key == default_tariff_key:
-            return None, None
-        return None, _json_error(
-            409,
-            "tariff_switch_required",
-            "Switch the active tariff before purchasing its renewal",
+        return (
+            CheckoutPricingContext(
+                active_subscription_id=int(active_sub.subscription_id),
+                active_tariff_key=(
+                    str(getattr(active_sub, "tariff_key", "") or "").strip() or None
+                ),
+                active_end_at=active_sub.end_date,
+                complimentary_remaining_period=True,
+            ),
+            None,
         )
     active_tariff = _configured_tariff(
         tariffs_config,

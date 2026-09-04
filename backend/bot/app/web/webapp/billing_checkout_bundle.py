@@ -57,6 +57,7 @@ class CheckoutPricingContext:
     current_premium_monthly_stars: int = 0
     regular_windows: tuple[CheckoutPricingWindow, ...] = ()
     premium_windows: tuple[CheckoutPricingWindow, ...] = ()
+    complimentary_remaining_period: bool = False
 
     @property
     def remaining_month_fraction(self) -> float:
@@ -215,6 +216,17 @@ def _priced_option(
     full_stars = int(option.get("stars_price") or 0)
     if context is None or context.remaining_month_fraction <= 0:
         return full_price, full_stars, 0.0, 0, False
+
+    if context.complimentary_remaining_period:
+        base = float(addon.get("base_units") or 0)
+        selected_total = float(option.get("total_units") or 0)
+        return (
+            full_price,
+            full_stars,
+            0.0,
+            0,
+            selected_total > base + 1e-9,
+        )
 
     options = list(addon.get("options") or [])
     base = float(addon.get("base_units") or 0)

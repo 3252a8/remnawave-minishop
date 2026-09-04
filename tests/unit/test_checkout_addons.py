@@ -277,6 +277,39 @@ class CheckoutAddonConfigTests(TestCase):
             [item["kind"] for item in downgrade_bundle.items],
         )
 
+    def test_trial_carryover_does_not_add_prorated_checkout_charges(self) -> None:
+        config = _checkout_config()
+        context = CheckoutPricingContext(
+            active_subscription_id=7,
+            active_tariff_key=None,
+            active_end_at=datetime.now(UTC) + timedelta(days=15),
+            complimentary_remaining_period=True,
+        )
+
+        quote, bundle = build_checkout_bundle(
+            BasePaymentQuote(
+                payment_units=1,
+                price=100,
+                stars_price=50,
+                sale_mode="subscription@standard",
+                traffic_gb_for_payment=None,
+                default_currency_code="RUB",
+            ),
+            settings=_settings(config),
+            payment_payload=_payload(),
+            method="yookassa",
+            pricing_context=context,
+        )
+
+        self.assertEqual(190, quote.price)
+        self.assertEqual(90, bundle.addon_amount)
+        grants = checkout_addon_grants(bundle.snapshot)
+        self.assertTrue(grants.active_context_present)
+        self.assertEqual(7, grants.active_subscription_id)
+        self.assertEqual(context.active_end_at, grants.active_end_at)
+        self.assertTrue(grants.regular_immediate_applies)
+        self.assertTrue(grants.premium_immediate_applies)
+
     def test_plain_base_limits_do_not_create_an_addon_bundle(self) -> None:
         config = _checkout_config()
         payload = WebAppPaymentCreatePayload.model_validate(

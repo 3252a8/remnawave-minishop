@@ -105,6 +105,7 @@ class TrialCheckoutTests(IsolatedAsyncioTestCase):
             response = await billing_payments.create_payment_route(SimpleNamespace(app={}))
 
         self.assertEqual(response.status, 200)
+        assert create_payment.await_args is not None
         kwargs = create_payment.await_args.kwargs
         self.assertEqual(kwargs["sale_mode"], "trial")
         self.assertEqual(kwargs["months"], 1)
@@ -272,7 +273,8 @@ class TrialCheckoutTests(IsolatedAsyncioTestCase):
                 sale_mode=sale_mode,
             )
 
-    async def test_trial_can_checkout_default_tariff_without_paid_renewal_context(self) -> None:
+    async def test_trial_can_checkout_any_tariff_with_complimentary_context(self) -> None:
+        end_date = datetime(2026, 1, 5, tzinfo=UTC)
         trial_markers = (
             {"provider": "trial", "status_from_panel": "ACTIVE", "tariff_key": None},
             {"provider": "manual", "status_from_panel": "TRIAL", "tariff_key": "legacy"},
@@ -280,30 +282,18 @@ class TrialCheckoutTests(IsolatedAsyncioTestCase):
         )
 
         for markers in trial_markers:
-            with self.subTest(markers=markers):
-                context, error = await self._resolve(
-                    SimpleNamespace(subscription_id=7, **markers),
-                    "subscription@standard",
-                )
+            for tariff_key in ("standard", "premium"):
+                with self.subTest(markers=markers, tariff_key=tariff_key):
+                    context, error = await self._resolve(
+                        SimpleNamespace(subscription_id=7, end_date=end_date, **markers),
+                        f"subscription@{tariff_key}",
+                    )
 
-                self.assertIsNone(context)
-                self.assertIsNone(error)
-
-    async def test_trial_cannot_renew_a_non_default_tariff(self) -> None:
-        context, error = await self._resolve(
-            SimpleNamespace(
-                subscription_id=7,
-                provider="trial",
-                status_from_panel="TRIAL",
-                tariff_key=None,
-            ),
-            "subscription@premium",
-        )
-
-        self.assertIsNone(context)
-        assert error is not None
-        self.assertEqual(error.status, 409)
-        self.assertEqual(json.loads(error.text)["error"], "tariff_switch_required")
+                    self.assertIsNone(error)
+                    assert context is not None
+                    self.assertEqual(context.active_subscription_id, 7)
+                    self.assertEqual(context.active_end_at, end_date)
+                    self.assertTrue(context.complimentary_remaining_period)
 
     async def test_paid_subscription_keeps_cross_tariff_renewal_guard(self) -> None:
         context, error = await self._resolve(
@@ -321,7 +311,7 @@ class TrialCheckoutTests(IsolatedAsyncioTestCase):
         self.assertEqual(error.status, 409)
         self.assertEqual(json.loads(error.text)["error"], "tariff_switch_required")
 
-    async def test_trial_plan_payload_allows_only_default_without_addons(self) -> None:
+    async def test_trial_plan_payload_allows_all_tariffs_and_addons(self) -> None:
         plans: list[dict[str, Any]] = [
             {
                 "sale_mode": "subscription",
@@ -346,7 +336,7 @@ class TrialCheckoutTests(IsolatedAsyncioTestCase):
             plans=plans,
         )
 
-        self.assertEqual(plans[0]["checkout_addons"], {})
+        self.assertEqual(plans[0]["checkout_addons"], {"devices": {"enabled": True}})
         self.assertNotIn("tariff_switch_required", plans[0])
-        self.assertEqual(plans[1]["checkout_addons"], {})
-        self.assertTrue(plans[1]["tariff_switch_required"])
+        self.assertEqual(plans[1]["checkout_addons"], {"traffic": {"enabled": True}})
+        self.assertNotIn("tariff_switch_required", plans[1])

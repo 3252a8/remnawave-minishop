@@ -1305,7 +1305,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]
             self.assertEqual(panel_payload["trafficLimitBytes"], 500 * GIB)
 
-    async def test_paid_activation_does_not_promote_trial_squads_to_manual_overrides(self):
+    async def test_paid_activation_from_trial_preserves_days_and_applies_checkout_terms(self):
         for expired in (False, True):
             with self.subTest(expired=expired), tempfile.TemporaryDirectory() as tmpdir:
                 payload = _tariffs_config_payload()
@@ -1366,8 +1366,42 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                     hwid_full_price=0,
                     hwid_valid_from=None,
                     hwid_valid_until=None,
+                    subscription_duration_months=1,
+                    subscription_duration_days=30,
+                    period_semantics="fixed_days",
+                    checkout_bundle_snapshot=(
+                        json.dumps(
+                            {
+                                "version": 3,
+                                "tariff_key": "standard",
+                                "months": 1,
+                                "duration_days": 30,
+                                "addon_period_factor": 1,
+                                "base_subscription_amount": 150,
+                                "addons_amount": 40,
+                                "items": [
+                                    {
+                                        "kind": "traffic",
+                                        "extra_units": 50,
+                                        "total_units": 150,
+                                        "future_amount": 40,
+                                        "future_stars_amount": 20,
+                                        "immediate_applies": True,
+                                    }
+                                ],
+                                "active_context": {
+                                    "subscription_id": 10,
+                                    "tariff_key": None,
+                                    "end_at": trial_sub.end_date.isoformat(),
+                                },
+                            }
+                        )
+                        if not expired
+                        else None
+                    ),
                 )
                 latest_panel_sub = AsyncMock(return_value=trial_sub)
+                create_flexible_limit = AsyncMock()
 
                 with (
                     patch(
@@ -1380,6 +1414,10 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                     ),
                     patch(
                         "bot.services.subscription_service_impl.lifecycle_activation.subscription_dal.get_active_subscription_by_user_id",
+                        AsyncMock(return_value=None if expired else trial_sub),
+                    ),
+                    patch(
+                        "bot.services.subscription_service_impl.lifecycle_activation.subscription_dal.get_active_subscription_by_user_id_for_update",
                         AsyncMock(return_value=None if expired else trial_sub),
                     ),
                     patch(
@@ -1398,12 +1436,16 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                         "bot.services.subscription_service_impl.lifecycle_activation.tariff_dal.get_hwid_device_entitlement_summary",
                         AsyncMock(return_value={"active_devices": 0, "active_until": None}),
                     ),
+                    patch(
+                        "bot.services.subscription_service_impl.lifecycle_activation.tariff_dal.create_flexible_traffic_limit",
+                        create_flexible_limit,
+                    ),
                 ):
                     result = await service.activate_subscription(
                         session=AsyncMock(),
                         user_id=42,
                         months=1,
-                        payment_amount=150,
+                        payment_amount=190,
                         payment_db_id=99,
                         provider="qa",
                         sale_mode="subscription@standard",
@@ -1445,8 +1487,13 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                         ANY,
                         "panel-sub",
                     )
+                    create_flexible_limit.assert_not_awaited()
                 else:
                     latest_panel_sub.assert_not_awaited()
+                    assert result is not None
+                    self.assertEqual(result["end_date"], trial_sub.end_date + timedelta(days=30))
+                    self.assertEqual(panel_payload["trafficLimitBytes"], 150 * GIB)
+                    self.assertEqual(create_flexible_limit.await_count, 2)
 
     async def test_period_purchase_after_traffic_starts_now_and_carries_remaining_package(
         self,

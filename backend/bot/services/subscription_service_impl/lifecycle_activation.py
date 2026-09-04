@@ -286,6 +286,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             current_active_sub = await subscription_dal.get_active_subscription_by_user_id(
                 session, user_id
             )
+        current_active_is_trial = entitlement_helpers.subscription_is_trial(current_active_sub)
         if checkout_grants.active_context_present:
             current_subscription_id = (
                 int(current_active_sub.subscription_id) if current_active_sub is not None else None
@@ -306,7 +307,12 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                     current_end_at,
                 )
                 return None
-        if checkout_grants.has_addons and current_active_sub and tariff:
+        if (
+            checkout_grants.has_addons
+            and current_active_sub
+            and tariff
+            and not current_active_is_trial
+        ):
             active_key = str(getattr(current_active_sub, "tariff_key", "") or "").strip()
             active_tariff = (
                 tariff
@@ -533,7 +539,9 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         premium_period_start_at = getattr(current_active_sub, "premium_period_start_at", None)
         base_tier_bytes = tariff.monthly_bytes if tariff else self.settings.user_traffic_limit_bytes
         base_premium_bytes = tariff.premium_monthly_bytes if tariff else 0
-        if current_active_sub is not None and tariff is not None:
+        if current_active_is_trial:
+            current_tier_bytes = int(base_tier_bytes or 0)
+        elif current_active_sub is not None and tariff is not None:
             current_tier_bytes = await resolve_main_traffic_baseline(
                 session,
                 current_active_sub,
@@ -544,8 +552,12 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             current_tier_bytes = int(
                 getattr(current_active_sub, "tier_baseline_bytes", 0) or base_tier_bytes or 0
             )
-        current_premium_bytes = int(
-            getattr(current_active_sub, "premium_baseline_bytes", 0) or base_premium_bytes or 0
+        current_premium_bytes = (
+            int(base_premium_bytes or 0)
+            if current_active_is_trial
+            else int(
+                getattr(current_active_sub, "premium_baseline_bytes", 0) or base_premium_bytes or 0
+            )
         )
         selected_tier_bytes = (
             self.gb_to_bytes(checkout_grants.regular_limit_gb)
