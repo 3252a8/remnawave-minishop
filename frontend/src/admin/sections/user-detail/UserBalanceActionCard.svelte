@@ -11,6 +11,7 @@
   import { ArrowDownUp, Coins, Plus } from "$components/ui/icons.js";
   import type { AdminUserDetail } from "$lib/admin/stores/usersStoreState";
   import {
+    balanceAdjustmentAmountMinor,
     balanceAdjustmentValid,
     balanceTargetAvailable,
     defaultBalanceTarget,
@@ -34,10 +35,10 @@
   let adjustmentTarget = $state<BalanceTarget>("user");
   let adjustmentContextUserId = $state<number | null>(null);
   let adjustmentMode = $state<BalanceAdjustmentMode>("add");
-  let adjustmentAmount = $state("");
+  let adjustmentAmount = $state<string | number>("");
   let adjustmentReason = $state("");
   let conversionDirection = $state<"partner_to_user" | "user_to_partner">("partner_to_user");
-  let conversionAmount = $state("");
+  let conversionAmount = $state<string | number>("");
   let conversionReason = $state("");
 
   const balance = $derived(openedUserDetail.balance);
@@ -77,10 +78,11 @@
       ) || 0
     )
   );
-  const conversionAmountMinor = $derived(Math.round(Number(conversionAmount || 0) * amountFactor));
+  const conversionAmountMinor = $derived(
+    balanceAdjustmentAmountMinor(conversionAmount, amountFactor)
+  );
   const conversionValid = $derived(
-    conversionAmount.trim() !== "" &&
-      Number.isFinite(conversionAmountMinor) &&
+    conversionAmountMinor !== null &&
       conversionAmountMinor > 0 &&
       conversionAmountMinor <= conversionMaximumMinor
   );
@@ -649,7 +651,7 @@
     min-width: 0;
   }
   .balance-control-row--adjustment :global(.balance-operation-submit) {
-    grid-column: 2;
+    grid-column: 1 / -1;
   }
   .balance-control-row :global(.admin-field-label) {
     align-self: stretch;

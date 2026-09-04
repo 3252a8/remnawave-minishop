@@ -27,9 +27,13 @@ export function defaultBalanceTarget(
   return !userEnabled && partnerAdjustable ? "partner" : "user";
 }
 
-export function balanceAdjustmentAmountMinor(value: string, amountFactor: number): number | null {
-  if (!value.trim()) return null;
-  const amount = Number(value);
+export function balanceAdjustmentAmountMinor(
+  value: string | number,
+  amountFactor: number
+): number | null {
+  const normalized = typeof value === "string" ? value.trim() : value;
+  if (normalized === "") return null;
+  const amount = Number(normalized);
   if (!Number.isFinite(amount) || amount < 0) return null;
   return Math.round(amount * amountFactor);
 }
@@ -45,7 +49,7 @@ export function balanceAdjustmentValid({
   currentAmountMinor: number;
   mode: BalanceAdjustmentMode;
   targetAvailable: boolean;
-  value: string;
+  value: string | number;
 }): boolean {
   if (!targetAvailable) return false;
   const amountMinor = balanceAdjustmentAmountMinor(value, amountFactor);

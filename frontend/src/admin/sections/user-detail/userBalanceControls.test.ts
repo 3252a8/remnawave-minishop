@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  balanceAdjustmentAmountMinor,
   balanceAdjustmentValid,
   defaultBalanceTarget,
   resolveBalanceTarget,
@@ -27,5 +28,11 @@ describe("user balance controls", () => {
     expect(balanceAdjustmentValid({ ...base, mode: "subtract", value: "10.01" })).toBe(false);
     expect(balanceAdjustmentValid({ ...base, mode: "subtract", value: "10" })).toBe(true);
     expect(balanceAdjustmentValid({ ...base, mode: "set", value: "0" })).toBe(true);
+  });
+
+  it("accepts numeric values emitted by number inputs", () => {
+    const base = { amountFactor: 100, currentAmountMinor: 1_000, targetAvailable: true };
+    expect(balanceAdjustmentAmountMinor(2.5, 100)).toBe(250);
+    expect(balanceAdjustmentValid({ ...base, mode: "add", value: 2.5 })).toBe(true);
   });
 });
