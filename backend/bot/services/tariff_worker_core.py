@@ -43,7 +43,7 @@ from db.models import Subscription
 
 from .tariff_worker_premium_batches import (
     PremiumConnectionDropPlan,
-    PremiumSquadMutationPlan,
+    TariffSquadMutationPlan,
 )
 from .tariff_worker_shared import PanelLimitPatchState
 
@@ -144,7 +144,7 @@ class TariffWorkerCoreMixin:
         self._premium_usage_user_limit_hint = 0
         self._premium_squad_match_cache: dict[tuple[str, tuple[str, ...]], float] = {}
         self._premium_batching_active = False
-        self._premium_squad_mutations: list[PremiumSquadMutationPlan] = []
+        self._premium_squad_mutations: list[TariffSquadMutationPlan] = []
         self._premium_connection_drops: list[PremiumConnectionDropPlan] = []
 
     async def _user_lang(self, session: AsyncSession, user_id: int) -> str:

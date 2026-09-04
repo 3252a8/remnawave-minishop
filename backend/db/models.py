@@ -199,6 +199,7 @@ class Subscription(Base):
     hwid_device_limit = Column(Integer, nullable=True)
     hwid_device_limit_is_override = Column(Boolean, nullable=False, default=False)
     extra_hwid_devices = Column(Integer, nullable=False, default=0)
+    tariff_managed_squad_uuids = Column(Text, nullable=True)
 
     user = relationship("User", back_populates="subscriptions")
 

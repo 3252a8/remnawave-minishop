@@ -96,6 +96,7 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0073_add_user_email_addresses",
     "0074_add_user_balance",
     "0075_add_period_days",
+    "0076_track_tariff_managed_squads",
 ]
 
 

@@ -20,9 +20,14 @@ from bot.utils.traffic_reset import previous_traffic_reset, traffic_period_start
 from config.settings import Settings
 from db.dal import tariff_dal
 from db.models import Subscription
+from db.tariff_squad_sync import (
+    remember_subscription_tariff_managed_squads,
+    tariff_squad_override_detection_uuids,
+)
 
 from .tariff_worker_premium_batches import (
     PremiumSquadMutationPlan,
+    TariffSquadMutationPlan,
     TariffWorkerPremiumBatchMixin,
 )
 from .tariff_worker_premium_usage import TariffWorkerPremiumUsageMixin
@@ -159,6 +164,13 @@ class TariffWorkerPremiumMixin(
                 sub.premium_topup_balance_bytes = 0
                 sub.premium_used_bytes = 0
                 sub.premium_is_limited = False
+            await self._sync_tariff_squads_without_premium(
+                session,
+                sub,
+                tariff,
+                panel_user_dict=panel_user_dict,
+                panel_view=panel_view,
+            )
             return
 
         configured_unlimited = getattr(tariff, "premium_unlimited", None)
@@ -302,10 +314,7 @@ class TariffWorkerPremiumMixin(
             tariff,
             include_premium=not should_limit,
         )
-        override_detection_managed_squads = self.subscription_service._panel_squads_for_tariff(
-            tariff,
-            include_premium=True,
-        )
+        override_detection_managed_squads = tariff_squad_override_detection_uuids(sub, tariff)
         await self.subscription_service.deactivate_panel_managed_internal_overrides(
             session,
             user_id=int(sub.user_id),
@@ -335,6 +344,7 @@ class TariffWorkerPremiumMixin(
             desired_set,
         )
         panel_needs_update = access_state_changed
+        panel_squads_confirmed = False
         panel_user_for_report = panel_user_dict
         panel_view_for_report = panel_view
         panel_update_reasons: list[str] = []
@@ -348,9 +358,11 @@ class TariffWorkerPremiumMixin(
             current_mismatch = desired_set != current_set
             if not current_mismatch:
                 panel_needs_update = False
+                panel_squads_confirmed = True
             elif panel_view == "list":
                 if self._premium_squad_match_cache_is_fresh(squad_match_cache_key):
                     panel_needs_update = False
+                    panel_squads_confirmed = True
                 else:
                     full_panel_user = await self._get_full_panel_user_for_squad_confirmation(
                         sub.panel_user_uuid,
@@ -391,6 +403,7 @@ class TariffWorkerPremiumMixin(
                         else:
                             self._remember_premium_squad_match(squad_match_cache_key)
                             panel_needs_update = False
+                            panel_squads_confirmed = True
                     elif not access_state_changed:
                         panel_needs_update = False
             else:
@@ -425,6 +438,8 @@ class TariffWorkerPremiumMixin(
                 traffic_strategy=effective_strategy,
             )
         if not panel_needs_update:
+            if panel_squads_confirmed:
+                remember_subscription_tariff_managed_squads(sub, tariff)
             if (
                 not premium_unlimited_override
                 and not unmetered_premium_access
@@ -483,6 +498,126 @@ class TariffWorkerPremiumMixin(
             premium_period_start=premium_period_start,
             previous_period_start=previous_premium_period_start,
             traffic_strategy=effective_strategy,
+        )
+        if self._queue_premium_squad_mutation(mutation_plan):
+            return
+        updated_panel_user = await self.panel_service.update_user_details_on_panel(
+            sub.panel_user_uuid,
+            effective_payload,
+            log_response=False,
+        )
+        if updated_panel_user and not updated_panel_user.get("error"):
+            await self._complete_premium_squad_mutation(session, mutation_plan)
+
+    async def _sync_tariff_squads_without_premium(
+        self,
+        session: AsyncSession,
+        sub: Subscription,
+        tariff: _PremiumTariff,
+        *,
+        panel_user_dict: dict[str, Any] | None,
+        panel_view: str,
+    ) -> None:
+        managed_squads = self.subscription_service._panel_squads_for_tariff(
+            tariff,
+            include_premium=False,
+        )
+        override_detection_managed_squads = tariff_squad_override_detection_uuids(sub, tariff)
+        await self.subscription_service.deactivate_panel_managed_internal_overrides(
+            session,
+            user_id=int(sub.user_id),
+            panel_user_uuid=sub.panel_user_uuid,
+            managed_internal_squads=override_detection_managed_squads,
+        )
+        effective_payload = {
+            "uuid": sub.panel_user_uuid,
+            **(
+                await self.subscription_service.build_effective_panel_squad_fields(
+                    session,
+                    user_id=int(sub.user_id),
+                    panel_user_uuid=sub.panel_user_uuid,
+                    managed_internal_squads=managed_squads,
+                    override_detection_managed_internal_squads=(override_detection_managed_squads),
+                    panel_user_snapshot=panel_user_dict,
+                    discover_panel_overrides=True,
+                    fetch_panel_snapshot=False,
+                    include_internal_squads=True,
+                    source="tariff_squad_sync",
+                )
+            ),
+        }
+        desired_set = self._internal_squad_uuid_set(effective_payload.get("activeInternalSquads"))
+        squad_match_cache_key = self._premium_squad_match_cache_key(
+            sub.panel_user_uuid,
+            desired_set,
+        )
+        current_known, current_set = self._panel_active_squad_uuid_set(panel_user_dict)
+        panel_user_for_report = panel_user_dict
+        panel_view_for_report = panel_view
+        if current_known and desired_set == current_set:
+            self._remember_premium_squad_match(squad_match_cache_key)
+            remember_subscription_tariff_managed_squads(sub, tariff)
+            return
+        if current_known and panel_view == "list":
+            if self._premium_squad_match_cache_is_fresh(squad_match_cache_key):
+                remember_subscription_tariff_managed_squads(sub, tariff)
+                return
+            full_panel_user = await self._get_full_panel_user_for_squad_confirmation(
+                sub.panel_user_uuid
+            )
+            full_known, full_set = self._panel_active_squad_uuid_set(full_panel_user)
+            if not full_known:
+                return
+            panel_user_for_report = full_panel_user
+            panel_view_for_report = "full_fetch"
+            effective_payload = {
+                "uuid": sub.panel_user_uuid,
+                **(
+                    await self.subscription_service.build_effective_panel_squad_fields(
+                        session,
+                        user_id=int(sub.user_id),
+                        panel_user_uuid=sub.panel_user_uuid,
+                        managed_internal_squads=managed_squads,
+                        override_detection_managed_internal_squads=(
+                            override_detection_managed_squads
+                        ),
+                        panel_user_snapshot=full_panel_user,
+                        discover_panel_overrides=True,
+                        fetch_panel_snapshot=False,
+                        include_internal_squads=True,
+                        source="tariff_squad_sync",
+                    )
+                ),
+            }
+            desired_set = self._internal_squad_uuid_set(
+                effective_payload.get("activeInternalSquads")
+            )
+            squad_match_cache_key = self._premium_squad_match_cache_key(
+                sub.panel_user_uuid,
+                desired_set,
+            )
+            if desired_set == full_set:
+                self._remember_premium_squad_match(squad_match_cache_key)
+                remember_subscription_tariff_managed_squads(sub, tariff)
+                return
+        elif not current_known:
+            return
+
+        self._log_premium_squad_panel_patch(
+            sub=sub,
+            panel_uuid=sub.panel_user_uuid,
+            update_payload=effective_payload,
+            current_panel_user=panel_user_for_report,
+            reasons=["activeInternalSquads_mismatch"],
+            panel_view=panel_view_for_report,
+            source="tariff_squad_sync",
+        )
+        mutation_plan = TariffSquadMutationPlan(
+            sub=sub,
+            tariff=tariff,
+            desired_squads=tuple(sorted(desired_set)),
+            effective_payload=effective_payload,
+            squad_match_cache_key=squad_match_cache_key,
         )
         if self._queue_premium_squad_mutation(mutation_plan):
             return
@@ -742,6 +877,7 @@ class TariffWorkerPremiumMixin(
         current_panel_user: dict | None,
         reasons: list[str],
         panel_view: str,
+        source: str = "premium_squad_limit",
     ) -> None:
         current_known, current_set = self._panel_active_squad_uuid_set(current_panel_user)
         desired_set = self._internal_squad_uuid_set(update_payload.get("activeInternalSquads"))
@@ -749,7 +885,7 @@ class TariffWorkerPremiumMixin(
         logger.info(
             "Sync panel PATCH: source=%s user_id=%s telegram_id=%s panel_uuid=%s "
             "panel_view=%s reasons=%s fields=%s payload_fields=%s changes=%s",
-            "premium_squad_limit",
+            source,
             getattr(sub, "user_id", None),
             getattr(sub, "user_id", None),
             panel_uuid,
