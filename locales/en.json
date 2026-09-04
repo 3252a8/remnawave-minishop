@@ -1490,6 +1490,7 @@
   "admin_backups_select_archive": "Select an archive",
   "admin_backups_select_target": "Select what to restore",
   "admin_backups_restore_done": "Restore completed",
+  "admin_error_backup_restore_requires_maintenance": "Database restore requires backend and worker to stop. Run bash scripts/restore-backup.sh ARCHIVE.zip on the server from the installation directory. See the backup documentation.",
   "admin_backups_restore_failed": "Restore failed",
   "admin_backups_col_archive": "Archive",
   "admin_backups_col_created": "Created",

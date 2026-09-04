@@ -127,7 +127,8 @@
   const canRestore = $derived(
     Boolean(
       selectedArchive &&
-      (restoreDatabase || restoreCompose) &&
+      restoreCompose &&
+      !restoreDatabase &&
       restoreConfirmationMatches &&
       !backupsRestoring &&
       !backupsCreating
@@ -305,6 +306,15 @@
           : at("backups_restore_run", {}, "Start")}
       </AdminButton>
     </div>
+    {#if restoreDatabase}
+      <div class="backups-restore-note" role="status">
+        {at(
+          "error_backup_restore_requires_maintenance",
+          {},
+          "Database restore requires the maintenance command on the server. See the backup documentation."
+        )}
+      </div>
+    {/if}
     {#if lastRestore?.compose_pre_restore_archive}
       <div class="backups-restore-note">
         {at(

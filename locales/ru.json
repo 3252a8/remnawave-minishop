@@ -1490,6 +1490,7 @@
   "admin_backups_select_archive": "Выберите архив",
   "admin_backups_select_target": "Выберите, что восстановить",
   "admin_backups_restore_done": "Восстановление завершено",
+  "admin_error_backup_restore_requires_maintenance": "Восстановление БД требует остановки backend и worker. На сервере запустите bash scripts/restore-backup.sh ИМЯ_АРХИВА.zip из каталога установки. Подробности — в документации по бэкапам.",
   "admin_backups_restore_failed": "Не удалось восстановить",
   "admin_backups_col_archive": "Архив",
   "admin_backups_col_created": "Создан",

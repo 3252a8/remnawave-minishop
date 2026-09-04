@@ -31,6 +31,11 @@ from bot.services.backup_archive import (
     write_zip_from_directory,
 )
 from bot.services.backup_restore_db import (
+    applied_migration_ids,
+    assert_empty_database,
+    validate_restored_database,
+)
+from bot.services.backup_restore_db import (
     create_missing_tables_and_migrate as _create_missing_tables_and_migrate,
 )
 from bot.services.backup_restore_db import (
@@ -129,6 +134,7 @@ class BackupRestoreResult:
 class BackupRestoreService:
     def __init__(self, settings: Settings):
         self.settings = settings
+        self.expected_migration_ids: set[str] | None = None
 
     def backup_dir(self) -> Path:
         path = Path(self.settings.BACKUP_DIR).expanduser()
@@ -247,6 +253,15 @@ class BackupRestoreService:
             temp_dir = Path(tmp)
             with zipfile.ZipFile(archive_path) as archive:
                 self._validate_zip_members(archive.infolist())
+                metadata = self._read_manifest(archive).get("database_metadata")
+                self.expected_migration_ids = None
+                if isinstance(metadata, dict) and "migration_ids" in metadata:
+                    revisions = metadata["migration_ids"]
+                    if not isinstance(revisions, list) or not all(
+                        isinstance(revision, str) for revision in revisions
+                    ):
+                        raise BackupArchiveError("Invalid backup migration metadata")
+                    self.expected_migration_ids = set(revisions)
                 db_member = self._find_database_dump_member(archive) if restore_database else None
                 tariffs_config_member = (
                     self._find_tariffs_config_member(archive) if restore_database else None
@@ -345,7 +360,19 @@ class BackupRestoreService:
                 await connection.execute(
                     text(f"SELECT pg_advisory_xact_lock({DB_RESTORE_MIGRATION_ADVISORY_LOCK_ID})")
                 )
-                return await connection.run_sync(_create_missing_tables_and_migrate)
+                before = await connection.run_sync(applied_migration_ids)
+                if (
+                    self.expected_migration_ids is not None
+                    and before != self.expected_migration_ids
+                ):
+                    raise BackupRestoreError("Dump migration ledger does not match the manifest")
+                if not await connection.scalar(text("SELECT to_regclass('public.users')")):
+                    raise BackupRestoreError("Dump does not contain the application users table")
+                applied = await connection.run_sync(
+                    lambda conn: _create_missing_tables_and_migrate(conn, self.settings)
+                )
+                await connection.run_sync(validate_restored_database)
+                return applied
         finally:
             await engine.dispose()
 
@@ -391,6 +418,7 @@ class BackupRestoreService:
             await engine.dispose()
 
     def _run_pg_restore(self, dump_path: Path) -> None:
+        self._assert_empty_restore_target()
         pg_restore_path = str(getattr(self.settings, "BACKUP_PG_RESTORE_PATH", "pg_restore") or "")
         pg_restore_path = pg_restore_path or "pg_restore"
         if shutil.which(pg_restore_path) is None and Path(pg_restore_path).name == pg_restore_path:
@@ -411,8 +439,6 @@ class BackupRestoreService:
             self.settings.POSTGRES_USER,
             "-d",
             self.settings.POSTGRES_DB,
-            "--clean",
-            "--if-exists",
             "--no-owner",
             "--no-privileges",
             str(dump_path),
@@ -461,6 +487,18 @@ class BackupRestoreService:
             raise BackupRestoreError(
                 f"pg_restore failed with exit code {result.returncode}: {stderr[:500]}"
             )
+
+    def _assert_empty_restore_target(self) -> None:
+        async def check() -> None:
+            engine = create_async_engine(self.settings.DATABASE_URL)
+            try:
+                async with engine.connect() as connection:
+                    await connection.run_sync(assert_empty_database)
+            finally:
+                await engine.dispose()
+
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            pool.submit(lambda: asyncio.run(check())).result()
 
     def _compose_restore_target_dir(self) -> Path:
         target_raw = (

@@ -10,6 +10,7 @@ const ADMIN_ERROR_KEYS: Record<string, string> = {
   admin_telegram_unavailable: "error_admin_telegram_unavailable",
   access_denied: "error_access_denied",
   backup_create_busy: "error_backup_busy",
+  backup_restore_requires_maintenance: "error_backup_restore_requires_maintenance",
   backup_restore_busy: "error_backup_busy",
   backup_create_failed: "error_backup_create_failed",
   backup_list_failed: "error_backup_list_failed",

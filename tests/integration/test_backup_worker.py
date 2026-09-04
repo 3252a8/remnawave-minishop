@@ -20,8 +20,9 @@ class _FakeBot:
 
 
 class _FakePgDumpBackupWorker(BackupWorker):
-    def _run_pg_dump(self, dump_path: Path) -> None:
-        dump_path.write_bytes(b"fake custom pg dump")
+    async def _dump_database(self, dump_path: Path) -> dict[str, object]:
+        await asyncio.to_thread(dump_path.write_bytes, b"fake custom pg dump")
+        return {"migration_ids": ["0001_initial"], "postgres_version": "17"}
 
 
 class _FakeSession:
@@ -173,6 +174,8 @@ def test_backup_worker_forces_database_dump_for_pre_restore_snapshot(tmp_path):
         manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
         assert "database/shop.dump" in archive.namelist()
     assert manifest["type"] == "pre-restore"
+    assert manifest["minishop_version"]
+    assert manifest["database_metadata"]["migration_ids"] == ["0001_initial"]
     assert manifest["postgres"]["included"] is True
 
 
