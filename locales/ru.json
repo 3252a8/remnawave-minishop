@@ -4403,6 +4403,8 @@
   "wa_checkout_addon_premium_traffic": "Премиум-трафик",
   "wa_checkout_tariff_edit": "Изменить параметры тарифа",
   "wa_checkout_tariff_traffic_period": "Трафик за период",
+  "wa_checkout_named_traffic_with_period": "{name} {period}",
+  "wa_checkout_named_traffic_period": "{name} за период",
   "wa_checkout_tariff_premium_period": "Премиум-трафик за период",
   "wa_checkout_tariff_traffic_with_period": "Трафик {period}",
   "wa_checkout_tariff_premium_with_period": "Премиум-трафик {period}",

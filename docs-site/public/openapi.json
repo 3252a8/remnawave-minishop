@@ -21206,6 +21206,9 @@
                               "null"
                             ]
                           },
+                          "premium_title": {
+                            "type": "string"
+                          },
                           "premium_traffic_limit_strategy": {
                             "type": "string"
                           },
@@ -21908,6 +21911,9 @@
                               "null"
                             ]
                           },
+                          "premium_title": {
+                            "type": "string"
+                          },
                           "premium_traffic_limit_strategy": {
                             "type": "string"
                           },
@@ -22393,6 +22399,9 @@
                                     "number",
                                     "null"
                                   ]
+                                },
+                                "premium_title": {
+                                  "type": "string"
                                 },
                                 "premium_traffic_limit_strategy": {
                                   "type": "string"
@@ -25426,6 +25435,9 @@
                               "number",
                               "null"
                             ]
+                          },
+                          "premium_title": {
+                            "type": "string"
                           },
                           "premium_traffic_limit_strategy": {
                             "type": "string"

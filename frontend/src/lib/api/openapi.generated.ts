@@ -12289,6 +12289,7 @@ export interface operations {
               months?: number;
               premium_enabled?: boolean;
               premium_monthly_gb?: number | null;
+              premium_title?: string;
               premium_traffic_limit_strategy?: string;
               premium_unlimited?: boolean;
               price?: number;
@@ -12495,6 +12496,7 @@ export interface operations {
               months?: number;
               premium_enabled?: boolean;
               premium_monthly_gb?: number | null;
+              premium_title?: string;
               premium_traffic_limit_strategy?: string;
               premium_unlimited?: boolean;
               price?: number;
@@ -12624,6 +12626,7 @@ export interface operations {
                 months?: number;
                 premium_enabled?: boolean;
                 premium_monthly_gb?: number | null;
+                premium_title?: string;
                 premium_traffic_limit_strategy?: string;
                 premium_unlimited?: boolean;
                 price?: number;
@@ -13855,6 +13858,7 @@ export interface operations {
               months?: number;
               premium_enabled?: boolean;
               premium_monthly_gb?: number | null;
+              premium_title?: string;
               premium_traffic_limit_strategy?: string;
               premium_unlimited?: boolean;
               price?: number;

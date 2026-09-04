@@ -41,6 +41,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                                 "hwid_device_limit": 5,
                                 "premium_squad_uuids": ["premium-uuid"],
                                 "premium_monthly_gb": 25,
+                                "premium_names": {"en": "Fast lane", "ru": "Быстрый доступ"},
                                 "premium_traffic_limit_strategy": "DAY",
                                 "hwid_device_packages": {
                                     "rub": [{"count": 1, "price": 99}],
@@ -90,6 +91,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             )
 
             plans = subscription_webapp._serialize_plans(settings, "en")
+            russian_plans = subscription_webapp._serialize_plans(settings, "ru")
             assigned_plans = subscription_webapp._serialize_plans(
                 settings,
                 "en",
@@ -107,6 +109,8 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(plans[0]["hwid_device_limit"], 5)
         self.assertEqual(plans[0]["effective_hwid_device_limit"], 5)
         self.assertTrue(plans[0]["premium_enabled"])
+        self.assertEqual(plans[0]["premium_title"], "Fast lane")
+        self.assertEqual(russian_plans[0]["premium_title"], "Быстрый доступ")
         self.assertEqual(plans[0]["premium_monthly_gb"], 25)
         self.assertFalse(plans[0]["premium_unlimited"])
         self.assertEqual(plans[0]["traffic_limit_strategy"], "WEEK")

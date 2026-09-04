@@ -144,6 +144,22 @@
 
   function title(kind: CheckoutAddonKind): string {
     if (kind === "devices") return t("wa_checkout_addon_devices", {}, "Devices");
+    const premiumTitle = String(plan?.premium_title || "").trim();
+    if (kind === "premium_traffic" && premiumTitle) {
+      if (limitUnlimited(kind)) return premiumTitle;
+      const period = trafficPeriod(kind);
+      return period
+        ? t(
+            "wa_checkout_named_traffic_with_period",
+            { name: premiumTitle, period },
+            `${premiumTitle} ${period}`
+          )
+        : t(
+            "wa_checkout_named_traffic_period",
+            { name: premiumTitle },
+            `${premiumTitle} per period`
+          );
+    }
     if (limitUnlimited(kind)) {
       return kind === "traffic"
         ? t("wa_checkout_addon_traffic", {}, "Traffic")

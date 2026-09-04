@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from bot.utils.locale_defaults import tariff_premium_title
 from config.settings import Settings
 from config.subscription_periods import days_to_legacy_months, legacy_months_to_days
 from config.tariff_checkout import serialize_checkout_addons
@@ -63,6 +64,7 @@ def _serialize_plans(
                 "hwid_device_limit": tariff.hwid_device_limit,
                 "effective_hwid_device_limit": effective_hwid_device_limit,
                 "premium_enabled": bool(tariff.premium_squad_uuids),
+                "premium_title": tariff_premium_title(tariff, lang),
                 "premium_monthly_gb": tariff.premium_monthly_gb,
                 "premium_unlimited": bool(tariff.premium_unlimited),
                 "traffic_limit_strategy": traffic_limit_strategy,

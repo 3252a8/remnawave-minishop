@@ -4403,6 +4403,8 @@
   "wa_checkout_addon_premium_traffic": "Premium traffic",
   "wa_checkout_tariff_edit": "Change tariff limits",
   "wa_checkout_tariff_traffic_period": "Traffic per period",
+  "wa_checkout_named_traffic_with_period": "{name} {period}",
+  "wa_checkout_named_traffic_period": "{name} per period",
   "wa_checkout_tariff_premium_period": "Premium traffic per period",
   "wa_checkout_tariff_traffic_with_period": "Traffic {period}",
   "wa_checkout_tariff_premium_with_period": "Premium traffic {period}",
