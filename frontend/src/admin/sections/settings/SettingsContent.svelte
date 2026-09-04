@@ -586,6 +586,7 @@
   <div
     class="admin-setting"
     class:admin-setting--menu-buttons={field.type === "menu_buttons"}
+    class:admin-setting--payment-method-order={field.key === "PAYMENT_METHODS_ORDER"}
     class:is-overridden={isOverridden(field)}
     class:is-search-highlighted={highlightedSettingKey === field.key}
     data-settings-anchor={settingsFieldAnchorKey(field.key)}
@@ -967,11 +968,13 @@
 {/if}
 
 <style>
-  .admin-setting--menu-buttons {
+  .admin-setting--menu-buttons,
+  .admin-setting--payment-method-order {
     grid-template-columns: 1fr;
   }
 
-  .admin-setting--menu-buttons .admin-setting-control {
+  .admin-setting--menu-buttons .admin-setting-control,
+  .admin-setting--payment-method-order .admin-setting-control {
     width: 100%;
   }
 </style>
