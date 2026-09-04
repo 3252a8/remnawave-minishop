@@ -6,7 +6,13 @@ from typing import Any, Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.services.partner_common import amount_to_minor, currency_scale, minor_to_decimal_string
+from bot.services.partner_commission_service import PartnerCommissionService
+from bot.services.partner_common import (
+    PartnerError,
+    amount_to_minor,
+    currency_scale,
+    minor_to_decimal_string,
+)
 from config.settings import Settings
 from db.balance_models import UserBalanceLedgerEntry
 from db.dal import partner_dal, user_balance_dal, user_dal
@@ -56,9 +62,14 @@ class UserBalanceAllocation:
         return float(minor_to_decimal_string(self.external_minor, scale=self.currency_scale))
 
 
-def _entry_payload(entry: Any) -> dict[str, Any]:
+def _entry_payload(
+    entry: Any,
+    *,
+    source_id: Literal["user", "partner"],
+) -> dict[str, Any]:
     return {
         "entry_id": int(entry.entry_id),
+        "source_id": source_id,
         "amount_minor": int(entry.amount_minor),
         "kind": str(entry.kind),
         "state": str(entry.state),
@@ -93,19 +104,25 @@ class UserBalanceService:
         amount_minor = await user_balance_dal.balance_minor(session, user_id, config.currency)
         partner_minor = 0
         partner_available = False
+        partner_adjustable = False
         partner_convertible = False
+        partner_status: str | None = None
+        partner_profile = None
         if self.settings.partner_settings.enabled:
-            profile = await partner_dal.get_profile_by_user_id(session, user_id)
-            if profile is not None and str(profile.status) == "active":
-                partner_convertible = True
+            partner_profile = await partner_dal.get_profile_by_user_id(session, user_id)
+            if partner_profile is not None:
+                partner_adjustable = True
+                partner_status = str(partner_profile.status)
                 partner_minor = await partner_dal.balance_minor(
                     session,
-                    int(profile.partner_id),
+                    int(partner_profile.partner_id),
                     config.currency,
                 )
-                partner_available = bool(
-                    self.settings.partner_settings.balance_payment_enabled and partner_minor > 0
-                )
+                if partner_status == "active":
+                    partner_convertible = True
+                    partner_available = bool(
+                        self.settings.partner_settings.balance_payment_enabled and partner_minor > 0
+                    )
         payload: dict[str, Any] = {
             "enabled": bool(config.enabled),
             "currency": config.currency,
@@ -119,6 +136,7 @@ class UserBalanceService:
                 {
                     "id": "user",
                     "available": bool(config.enabled and amount_minor > 0),
+                    "adjustable": True,
                     "amount_minor": amount_minor,
                     "amount": minor_to_decimal_string(amount_minor, scale=scale),
                     "currency": config.currency,
@@ -126,7 +144,9 @@ class UserBalanceService:
                 {
                     "id": "partner",
                     "available": partner_available,
+                    "adjustable": partner_adjustable,
                     "convertible": partner_convertible,
+                    "status": partner_status,
                     "amount_minor": partner_minor,
                     "amount": minor_to_decimal_string(partner_minor, scale=scale),
                     "currency": config.currency,
@@ -134,13 +154,28 @@ class UserBalanceService:
             ],
         }
         if include_history:
-            entries = await user_balance_dal.list_ledger_entries(
+            user_entries = await user_balance_dal.list_ledger_entries(
                 session,
                 user_id,
                 currency=config.currency,
                 limit=100,
             )
-            payload["history"] = [_entry_payload(entry) for entry in entries]
+            history = [_entry_payload(entry, source_id="user") for entry in user_entries]
+            if partner_profile is not None:
+                partner_entries = await partner_dal.list_ledger_entries(
+                    session,
+                    int(partner_profile.partner_id),
+                    currency=config.currency,
+                    limit=100,
+                )
+                history.extend(
+                    _entry_payload(entry, source_id="partner") for entry in partner_entries
+                )
+            history.sort(
+                key=lambda item: (str(item.get("created_at") or ""), int(item["entry_id"])),
+                reverse=True,
+            )
+            payload["history"] = history[:100]
         return payload
 
     async def quote(
@@ -387,11 +422,36 @@ class UserBalanceService:
         *,
         user_id: int,
         actor_admin_id: int,
+        target: Literal["user", "partner"] = "user",
         mode: Literal["add", "subtract", "set"],
         amount: Any,
         reason: str,
         idempotency_key: str,
-    ) -> UserBalanceLedgerEntry:
+    ) -> UserBalanceLedgerEntry | PartnerLedgerEntry:
+        if target == "partner":
+            if not self.settings.partner_settings.enabled:
+                raise UserBalanceError("partner_program_disabled", 409)
+            profile = await partner_dal.get_profile_by_user_id(session, user_id, for_update=True)
+            if profile is None:
+                raise UserBalanceError("partner_not_found", 404)
+            requested_minor = amount_to_minor(amount, scale=self.scale)
+            if requested_minor < 0:
+                raise UserBalanceError("invalid_balance_amount", 400)
+            try:
+                entry, _ = await PartnerCommissionService(self.settings).adjust_balance(
+                    session,
+                    partner_id=int(profile.partner_id),
+                    currency=self.currency,
+                    scale=self.scale,
+                    mode=mode,
+                    amount_minor=requested_minor,
+                    reason=reason,
+                    actor_admin_id=actor_admin_id,
+                    idempotency_key=idempotency_key,
+                )
+            except PartnerError as exc:
+                raise UserBalanceError(exc.code, exc.status, exc.message) from exc
+            return entry
         user = await user_dal.lock_user_by_id(session, user_id)
         if user is None:
             raise UserBalanceError("user_not_found", 404)

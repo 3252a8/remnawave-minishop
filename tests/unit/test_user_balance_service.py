@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import cast
 from unittest import IsolatedAsyncioTestCase
@@ -13,7 +14,7 @@ from bot.services.user_balance_service import (
 from config.settings import Settings
 
 
-def _settings(*, enabled: bool = True) -> Settings:
+def _settings(*, enabled: bool = True, partner_enabled: bool = True) -> Settings:
     return cast(
         Settings,
         SimpleNamespace(
@@ -25,7 +26,7 @@ def _settings(*, enabled: bool = True) -> Settings:
                 topup_presets=[300, 500, 1_000],
             ),
             partner_settings=SimpleNamespace(
-                enabled=True,
+                enabled=partner_enabled,
                 balance_payment_enabled=True,
             ),
         ),
@@ -75,6 +76,63 @@ class UserBalanceQuoteTests(IsolatedAsyncioTestCase):
 
 
 class UserBalanceLifecycleTests(IsolatedAsyncioTestCase):
+    async def test_snapshot_combines_main_and_partner_history(self) -> None:
+        service = UserBalanceService(_settings())
+        user_entry = SimpleNamespace(
+            entry_id=1,
+            amount_minor=1_000,
+            kind="admin_adjustment",
+            state="posted",
+            reason="main",
+            reference_type="admin",
+            reference_id="1",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        partner_entry = SimpleNamespace(
+            entry_id=2,
+            amount_minor=2_000,
+            kind="manual_adjustment",
+            state="posted",
+            reason="partner",
+            reference_type="admin_adjustment",
+            reference_id="2",
+            created_at=datetime(2026, 1, 2, tzinfo=UTC),
+        )
+        with (
+            patch(
+                "bot.services.user_balance_service.user_balance_dal.balance_minor",
+                AsyncMock(return_value=1_000),
+            ),
+            patch(
+                "bot.services.user_balance_service.partner_dal.get_profile_by_user_id",
+                AsyncMock(return_value=SimpleNamespace(partner_id=7, status="paused")),
+            ),
+            patch(
+                "bot.services.user_balance_service.partner_dal.balance_minor",
+                AsyncMock(return_value=2_000),
+            ),
+            patch(
+                "bot.services.user_balance_service.user_balance_dal.list_ledger_entries",
+                AsyncMock(return_value=[user_entry]),
+            ),
+            patch(
+                "bot.services.user_balance_service.partner_dal.list_ledger_entries",
+                AsyncMock(return_value=[partner_entry]),
+            ),
+        ):
+            snapshot = await service.snapshot(
+                cast(AsyncSession, object()), user_id=42, include_history=True
+            )
+
+        partner = next(source for source in snapshot["sources"] if source["id"] == "partner")
+        self.assertTrue(partner["adjustable"])
+        self.assertFalse(partner["convertible"])
+        self.assertEqual(partner["status"], "paused")
+        self.assertEqual(
+            [(entry["source_id"], entry["entry_id"]) for entry in snapshot["history"]],
+            [("partner", 2), ("user", 1)],
+        )
+
     async def test_reservation_is_idempotent_and_validates_payload(self) -> None:
         allocation = UserBalanceAllocation(42, "RUB", 2, 19_000, 14_000)
         existing = SimpleNamespace(user_id=42, currency="RUB", amount_minor=-14_000)
@@ -194,6 +252,45 @@ class UserBalanceLifecycleTests(IsolatedAsyncioTestCase):
                 reason="test",
                 idempotency_key="adjust:1",
             )
+
+    async def test_admin_adjustment_can_target_partner_when_main_balance_is_disabled(self) -> None:
+        service = UserBalanceService(_settings(enabled=False))
+        session = cast(AsyncSession, object())
+        entry = SimpleNamespace(entry_id=9)
+        adjust = AsyncMock(return_value=(entry, 12_340))
+        with (
+            patch(
+                "bot.services.user_balance_service.partner_dal.get_profile_by_user_id",
+                AsyncMock(return_value=SimpleNamespace(partner_id=7, status="active")),
+            ),
+            patch(
+                "bot.services.user_balance_service.PartnerCommissionService.adjust_balance",
+                adjust,
+            ),
+        ):
+            result = await service.admin_adjust(
+                session,
+                user_id=42,
+                actor_admin_id=1,
+                target="partner",
+                mode="add",
+                amount=123.4,
+                reason="partner credit",
+                idempotency_key="adjust:partner:1",
+            )
+
+        self.assertIs(result, entry)
+        adjust.assert_awaited_once_with(
+            session,
+            partner_id=7,
+            currency="RUB",
+            scale=2,
+            mode="add",
+            amount_minor=12_340,
+            reason="partner credit",
+            actor_admin_id=1,
+            idempotency_key="adjust:partner:1",
+        )
 
     async def test_conversion_spends_nonwithdrawable_partner_funds_first(self) -> None:
         service = UserBalanceService(_settings())

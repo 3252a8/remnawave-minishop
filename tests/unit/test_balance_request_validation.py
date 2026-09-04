@@ -10,6 +10,13 @@ from bot.app.web.webapp.payloads import WebAppBalanceTopupPayload
 
 
 class BalanceRequestValidationTests(TestCase):
+    def test_admin_adjustment_defaults_to_main_balance_and_validates_target(self) -> None:
+        body = AdminUserBalanceAdjustmentBody(mode="add", amount=10)
+        self.assertEqual(body.target, "user")
+
+        with self.assertRaises(ValidationError):
+            AdminUserBalanceAdjustmentBody(target="unknown", mode="add", amount=10)
+
     def test_balance_amounts_reject_non_finite_values(self) -> None:
         cases = (
             (WebAppBalanceTopupPayload, {"method": "qa", "amount": float("inf")}),

@@ -175,6 +175,7 @@ describe("usersStore", () => {
     store.updateState({ openedUser: { user_id: 77 } });
 
     await store.adjustUserBalance({
+      target: "partner",
       mode: "add",
       amount: 500,
       reason: "Goodwill credit",
@@ -184,6 +185,7 @@ describe("usersStore", () => {
     expect(api).toHaveBeenNthCalledWith(1, "/admin/users/77/balance-adjustment", {
       method: "POST",
       body: JSON.stringify({
+        target: "partner",
         mode: "add",
         amount: 500,
         reason: "Goodwill credit",

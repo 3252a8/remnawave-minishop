@@ -3,7 +3,7 @@ import type { AdminUserDetail, TranslateFn } from "$lib/admin/stores/usersStoreS
 
 export type { TranslateFn };
 
-export type SelectOption = { value: string; label: string };
+export type SelectOption = { value: string; label: string; disabled?: boolean };
 export type MoneyFormatter = (value: unknown, currency?: string | null) => string;
 export type DateFormatter = (value: unknown) => string;
 export type BadgeVariant = "success" | "danger" | "warning" | "muted";

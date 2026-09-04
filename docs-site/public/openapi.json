@@ -4780,6 +4780,15 @@
             "maxLength": 500,
             "title": "Reason",
             "type": "string"
+          },
+          "target": {
+            "default": "user",
+            "enum": [
+              "user",
+              "partner"
+            ],
+            "title": "Target",
+            "type": "string"
           }
         },
         "required": [
@@ -17943,6 +17952,9 @@
                               "reference_type": {
                                 "type": "string"
                               },
+                              "source_id": {
+                                "type": "string"
+                              },
                               "state": {
                                 "type": "string"
                               }
@@ -17959,6 +17971,9 @@
                           "items": {
                             "additionalProperties": false,
                             "properties": {
+                              "adjustable": {
+                                "type": "boolean"
+                              },
                               "amount": {
                                 "type": "string"
                               },
@@ -17976,6 +17991,12 @@
                               },
                               "id": {
                                 "type": "string"
+                              },
+                              "status": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
                               }
                             },
                             "type": "object"
@@ -18278,6 +18299,9 @@
                               "reference_type": {
                                 "type": "string"
                               },
+                              "source_id": {
+                                "type": "string"
+                              },
                               "state": {
                                 "type": "string"
                               }
@@ -18294,6 +18318,9 @@
                           "items": {
                             "additionalProperties": false,
                             "properties": {
+                              "adjustable": {
+                                "type": "boolean"
+                              },
                               "amount": {
                                 "type": "string"
                               },
@@ -18311,6 +18338,12 @@
                               },
                               "id": {
                                 "type": "string"
+                              },
+                              "status": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
                               }
                             },
                             "type": "object"
@@ -18453,6 +18486,9 @@
                               "reference_type": {
                                 "type": "string"
                               },
+                              "source_id": {
+                                "type": "string"
+                              },
                               "state": {
                                 "type": "string"
                               }
@@ -18469,6 +18505,9 @@
                           "items": {
                             "additionalProperties": false,
                             "properties": {
+                              "adjustable": {
+                                "type": "boolean"
+                              },
                               "amount": {
                                 "type": "string"
                               },
@@ -18486,6 +18525,12 @@
                               },
                               "id": {
                                 "type": "string"
+                              },
+                              "status": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
                               }
                             },
                             "type": "object"
@@ -20601,6 +20646,9 @@
                           "reference_type": {
                             "type": "string"
                           },
+                          "source_id": {
+                            "type": "string"
+                          },
                           "state": {
                             "type": "string"
                           }
@@ -20617,6 +20665,9 @@
                       "items": {
                         "additionalProperties": false,
                         "properties": {
+                          "adjustable": {
+                            "type": "boolean"
+                          },
                           "amount": {
                             "type": "string"
                           },
@@ -20634,6 +20685,12 @@
                           },
                           "id": {
                             "type": "string"
+                          },
+                          "status": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "type": "object"
@@ -21414,6 +21471,9 @@
                               "reference_type": {
                                 "type": "string"
                               },
+                              "source_id": {
+                                "type": "string"
+                              },
                               "state": {
                                 "type": "string"
                               }
@@ -21430,6 +21490,9 @@
                           "items": {
                             "additionalProperties": false,
                             "properties": {
+                              "adjustable": {
+                                "type": "boolean"
+                              },
                               "amount": {
                                 "type": "string"
                               },
@@ -21447,6 +21510,12 @@
                               },
                               "id": {
                                 "type": "string"
+                              },
+                              "status": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
                               }
                             },
                             "type": "object"

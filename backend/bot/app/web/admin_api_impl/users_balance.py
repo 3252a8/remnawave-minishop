@@ -30,6 +30,7 @@ async def admin_user_balance_adjustment_route(request: web.Request) -> web.Respo
                 session,
                 user_id=target_id,
                 actor_admin_id=actor_id,
+                target=body.target,
                 mode=body.mode,
                 amount=body.amount,
                 reason=body.reason,

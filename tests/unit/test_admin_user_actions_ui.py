@@ -24,6 +24,9 @@ USER_HWID_ACTION = (
 USER_TRAFFIC_GRANT_ACTION = (
     REPO_ROOT / "frontend/src/admin/sections/user-detail/UserTrafficGrantActionCard.svelte"
 )
+USER_BALANCE_ACTION = (
+    REPO_ROOT / "frontend/src/admin/sections/user-detail/UserBalanceActionCard.svelte"
+)
 USER_DIALOGS = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserDetailDialogs.svelte"
 PAYMENTS_SECTION = REPO_ROOT / "frontend/src/admin/sections/PaymentsSection.svelte"
 PAYMENT_TABLE = REPO_ROOT / "frontend/src/admin/sections/PaymentTable.svelte"
@@ -220,6 +223,30 @@ def test_action_cards_surface_unsaved_state():
     for language in ("ru", "en"):
         messages = json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text("utf-8"))
         assert messages["admin_user_action_unsaved_hint"]
+
+
+def test_balance_actions_select_target_and_keep_horizontal_sections_separate():
+    source = USER_BALANCE_ACTION.read_text(encoding="utf-8")
+
+    summary = source.index("balance-section-block--summary")
+    adjustment = source.index("balance-section-block--adjustment")
+    conversion = source.index("balance-section-block--conversion")
+    history = source.index('class="balance-history"')
+
+    assert summary < adjustment < conversion < history
+    assert "resolveBalanceTarget(" in source
+    assert "value={adjustmentTarget}" in source
+    assert "items={adjustmentTargets}" in source
+    assert "manageableTargetCount <= 1" in source
+    assert "target: adjustmentTarget" in source
+    assert "entry.source_id" in source
+    assert "grid-template-columns:" in source
+
+    for language in ("ru", "en"):
+        messages = json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text("utf-8"))
+        assert messages["admin_user_balance_target"]
+        assert messages["admin_user_balance_adjustment_unavailable"]
+        assert messages["admin_user_balance_history_manual_adjustment"]
 
 
 def test_danger_actions_stay_last_in_user_actions_tab():

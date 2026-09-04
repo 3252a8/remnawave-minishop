@@ -542,6 +542,7 @@ class AdminUserTariffBody(HttpBodyModel):
 
 
 class AdminUserBalanceAdjustmentBody(HttpBodyModel):
+    target: Literal["user", "partner"] = "user"
     mode: Literal["add", "subtract", "set"] = "add"
     amount: float = Field(ge=0, allow_inf_nan=False)
     reason: str = Field(default="", max_length=500)

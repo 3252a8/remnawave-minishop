@@ -33,6 +33,7 @@ function createSnapshot(userId: number, rich = false, enabled = true): BalanceSn
       {
         id: "user",
         available: true,
+        adjustable: true,
         currency: "RUB",
         amount_minor: amountMinor,
         amount: (amountMinor / 100).toFixed(2),
@@ -40,7 +41,9 @@ function createSnapshot(userId: number, rich = false, enabled = true): BalanceSn
       {
         id: "partner",
         available: true,
+        adjustable: true,
         convertible: true,
+        status: "active",
         currency: "RUB",
         amount_minor: partnerMinor,
         amount: (partnerMinor / 100).toFixed(2),
@@ -49,6 +52,7 @@ function createSnapshot(userId: number, rich = false, enabled = true): BalanceSn
     history: [
       {
         entry_id: userId * 10 + 6,
+        source_id: "user",
         amount_minor: 50_000,
         kind: "payment_topup",
         state: "posted",
@@ -59,6 +63,7 @@ function createSnapshot(userId: number, rich = false, enabled = true): BalanceSn
       },
       {
         entry_id: userId * 10 + 5,
+        source_id: "user",
         amount_minor: -19_000,
         kind: "checkout_spend",
         state: "posted",
@@ -69,6 +74,7 @@ function createSnapshot(userId: number, rich = false, enabled = true): BalanceSn
       },
       {
         entry_id: userId * 10 + 4,
+        source_id: "user",
         amount_minor: 12_000,
         kind: "partner_conversion_in",
         state: "posted",
@@ -79,6 +85,7 @@ function createSnapshot(userId: number, rich = false, enabled = true): BalanceSn
       },
       {
         entry_id: userId * 10 + 3,
+        source_id: "user",
         amount_minor: -7_900,
         kind: "checkout_spend",
         state: "posted",
@@ -89,6 +96,7 @@ function createSnapshot(userId: number, rich = false, enabled = true): BalanceSn
       },
       {
         entry_id: userId * 10 + 2,
+        source_id: "user",
         amount_minor: 75_000,
         kind: "admin_adjustment",
         state: "posted",
@@ -117,10 +125,12 @@ function addHistory(
   snapshot: BalanceSnapshot,
   amountMinor: number,
   kind: string,
-  reason: string
+  reason: string,
+  sourceId: "user" | "partner" = "user"
 ): void {
   snapshot.history.unshift({
     entry_id: Date.now(),
+    source_id: sourceId,
     amount_minor: amountMinor,
     kind,
     state: "posted",
@@ -147,20 +157,23 @@ export function adminDemoBalance(userId: number): BalanceSnapshot {
 
 export function applyDemoBalanceAdjustment(userId: number, body: DemoRecord): BalanceSnapshot {
   const snapshot = adminDemoBalance(userId);
-  const main = source(snapshot, "user");
-  const before = Number(main.amount_minor || 0);
+  const target = String(body.target || "user") === "partner" ? "partner" : "user";
+  const targetSource = source(snapshot, target);
+  const before = Number(targetSource.amount_minor || 0);
   const requested = Math.round(Number(body.amount || 0) * 10 ** snapshot.currency_scale);
   const mode = String(body.mode || "add");
   const after =
     mode === "set" ? requested : before + (mode === "subtract" ? -requested : requested);
   if (after < 0) return snapshot;
-  main.amount_minor = after;
+  targetSource.amount_minor = after;
+  targetSource.amount = (after / 10 ** snapshot.currency_scale).toFixed(snapshot.currency_scale);
   syncMain(snapshot);
   addHistory(
     snapshot,
     after - before,
-    "admin_adjustment",
-    String(body.reason || "Demo admin operation")
+    target === "partner" ? "manual_adjustment" : "admin_adjustment",
+    String(body.reason || "Demo admin operation"),
+    target
   );
   return snapshot;
 }

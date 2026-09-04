@@ -818,6 +818,7 @@ export function createUsersStore({
   }
 
   async function adjustUserBalance(payload: {
+    target: "user" | "partner";
     mode: "add" | "subtract" | "set";
     amount: number;
     reason: string;

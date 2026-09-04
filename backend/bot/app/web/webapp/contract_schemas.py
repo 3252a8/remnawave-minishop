@@ -243,7 +243,9 @@ BALANCE_SOURCE_SCHEMA: dict[str, Any] = {
     "properties": {
         "id": STRING_SCHEMA,
         "available": BOOLEAN_SCHEMA,
+        "adjustable": BOOLEAN_SCHEMA,
         "convertible": BOOLEAN_SCHEMA,
+        "status": NULLABLE_STRING_SCHEMA,
         "amount_minor": INTEGER_SCHEMA,
         "amount": STRING_SCHEMA,
         "currency": STRING_SCHEMA,
@@ -254,6 +256,7 @@ BALANCE_ENTRY_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
     "properties": {
         "entry_id": INTEGER_SCHEMA,
+        "source_id": STRING_SCHEMA,
         "amount_minor": INTEGER_SCHEMA,
         "kind": STRING_SCHEMA,
         "state": STRING_SCHEMA,

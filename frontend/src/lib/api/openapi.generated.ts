@@ -4838,6 +4838,12 @@ export interface components {
        * @default
        */
       reason: string;
+      /**
+       * Target
+       * @default user
+       * @enum {string}
+       */
+      target: "user" | "partner";
     };
     /** AdminUserBalanceConversionBody */
     AdminUserBalanceConversionBody: {
@@ -10906,17 +10912,20 @@ export interface operations {
                 reason?: string | null;
                 reference_id?: string;
                 reference_type?: string;
+                source_id?: string;
                 state?: string;
               }[];
               /** @constant */
               ok: true;
               sources: {
+                adjustable?: boolean;
                 amount?: string;
                 amount_minor?: number;
                 available?: boolean;
                 convertible?: boolean;
                 currency?: string;
                 id?: string;
+                status?: string | null;
               }[];
               topup_max_amount: number;
               topup_min_amount: number;
@@ -11032,17 +11041,20 @@ export interface operations {
                 reason?: string | null;
                 reference_id?: string;
                 reference_type?: string;
+                source_id?: string;
                 state?: string;
               }[];
               /** @constant */
               ok: true;
               sources: {
+                adjustable?: boolean;
                 amount?: string;
                 amount_minor?: number;
                 available?: boolean;
                 convertible?: boolean;
                 currency?: string;
                 id?: string;
+                status?: string | null;
               }[];
               topup_max_amount: number;
               topup_min_amount: number;
@@ -11091,17 +11103,20 @@ export interface operations {
                 reason?: string | null;
                 reference_id?: string;
                 reference_type?: string;
+                source_id?: string;
                 state?: string;
               }[];
               /** @constant */
               ok: true;
               sources: {
+                adjustable?: boolean;
                 amount?: string;
                 amount_minor?: number;
                 available?: boolean;
                 convertible?: boolean;
                 currency?: string;
                 id?: string;
+                status?: string | null;
               }[];
               topup_max_amount: number;
               topup_min_amount: number;
@@ -12062,17 +12077,20 @@ export interface operations {
               reason?: string | null;
               reference_id?: string;
               reference_type?: string;
+              source_id?: string;
               state?: string;
             }[];
             /** @constant */
             ok: true;
             sources: {
+              adjustable?: boolean;
               amount?: string;
               amount_minor?: number;
               available?: boolean;
               convertible?: boolean;
               currency?: string;
               id?: string;
+              status?: string | null;
             }[];
             topup_max_amount: number;
             topup_min_amount: number;
@@ -12368,17 +12386,20 @@ export interface operations {
                 reason?: string | null;
                 reference_id?: string;
                 reference_type?: string;
+                source_id?: string;
                 state?: string;
               }[];
               /** @constant */
               ok: true;
               sources: {
+                adjustable?: boolean;
                 amount?: string;
                 amount_minor?: number;
                 available?: boolean;
                 convertible?: boolean;
                 currency?: string;
                 id?: string;
+                status?: string | null;
               }[];
               topup_max_amount: number;
               topup_min_amount: number;
