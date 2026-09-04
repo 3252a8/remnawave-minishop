@@ -11311,15 +11311,6 @@
             "default": null,
             "title": "Traffic Gb"
           },
-          "trial_days_strategy": {
-            "default": "add_remaining",
-            "enum": [
-              "add_remaining",
-              "start_from_payment"
-            ],
-            "title": "Trial Days Strategy",
-            "type": "string"
-          },
           "use_partner_balance": {
             "default": false,
             "title": "Use Partner Balance",
@@ -11505,15 +11496,6 @@
           "traffic_gb": {
             "default": null,
             "title": "Traffic Gb"
-          },
-          "trial_days_strategy": {
-            "default": "add_remaining",
-            "enum": [
-              "add_remaining",
-              "start_from_payment"
-            ],
-            "title": "Trial Days Strategy",
-            "type": "string"
           },
           "use_partner_balance": {
             "default": false,
@@ -11706,15 +11688,6 @@
           "traffic_gb": {
             "default": null,
             "title": "Traffic Gb"
-          },
-          "trial_days_strategy": {
-            "default": "add_remaining",
-            "enum": [
-              "add_remaining",
-              "start_from_payment"
-            ],
-            "title": "Trial Days Strategy",
-            "type": "string"
           },
           "use_partner_balance": {
             "default": false,

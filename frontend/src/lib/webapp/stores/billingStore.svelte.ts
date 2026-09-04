@@ -769,7 +769,6 @@ export function createBillingStore({
           balanceSource: options.balanceSource,
           usePartnerBalance: options.usePartnerBalance,
           checkoutAddons: options.checkoutAddons,
-          trialDaysStrategy: options.trialDaysStrategy,
         })
       );
       const successContext = paymentSuccessContext(s, response);

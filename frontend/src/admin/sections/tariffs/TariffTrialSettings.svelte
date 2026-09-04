@@ -7,6 +7,7 @@
   import {
     TRIAL_GENERAL_KEYS,
     TRIAL_PAYMENT_KEYS,
+    TRIAL_PURCHASE_KEYS,
     TRIAL_RESET_KEYS,
     TRIAL_SETTING_KEYS,
     TRIAL_SQUAD_KEYS,
@@ -18,6 +19,7 @@
     isSettingDirty as resolveIsSettingDirty,
     valueForKey as resolveValueForKey,
     trafficStrategyOptions as buildTrafficStrategyOptions,
+    trialDaysStrategyOptions as buildTrialDaysStrategyOptions,
     type SelectOption,
     type SettingsDirtyState,
   } from "$lib/admin/tariffSettings";
@@ -55,6 +57,7 @@
     TRIAL_SETTING_KEYS.filter((key) => Boolean(settingsDirty[key])).length
   );
   const trafficStrategyOptions = $derived(buildTrafficStrategyOptions(at));
+  const trialDaysStrategyOptions = $derived(buildTrialDaysStrategyOptions(at));
 
   function valueForKey(
     key: string,
@@ -149,6 +152,7 @@
 
   const handleTrialTrafficStrategySelect = (value: string) =>
     setSetting("TRIAL_TRAFFIC_STRATEGY", value);
+  const handleTrialDaysStrategySelect = (value: string) => setSetting("TRIAL_DAYS_STRATEGY", value);
   const handleTrialSquadSelectChange = handleTrialSquadSelect;
   const handleTrialPremiumSquadSelectChange = handleTrialPremiumSquadSelect;
 
@@ -283,6 +287,80 @@
                         size="sm"
                         variant="ghost"
                         onclick={() => resetSetting("TRIAL_ENABLED")}
+                      >
+                        <X size={12} />
+                        {at("reset", {}, "Reset")}
+                      </AdminButton>
+                    {/if}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section
+              class="admin-settings-field-group"
+              class:is-dirty={dirtyCount(TRIAL_PURCHASE_KEYS, settingsDirty)}
+            >
+              <header class="admin-settings-field-group-head">
+                <div class="admin-settings-field-group-head-copy">
+                  <strong>{at("tariffs_trial_group_purchase", {}, "Tariff purchase")}</strong>
+                  <small>
+                    {at(
+                      "tariffs_trial_group_purchase_hint",
+                      {},
+                      "Controls how paid subscription days are granted when a tariff is purchased during an active trial."
+                    )}
+                  </small>
+                </div>
+                {#if dirtyCount(TRIAL_PURCHASE_KEYS, settingsDirty)}
+                  <AdminBadge variant="warning">
+                    {at(
+                      "settings_dirty_count",
+                      { count: dirtyCount(TRIAL_PURCHASE_KEYS, settingsDirty) },
+                      "Changes: {count}"
+                    )}
+                  </AdminBadge>
+                {/if}
+              </header>
+              <div class="admin-settings-field-group-body">
+                <div
+                  class="admin-setting admin-trial-setting-row"
+                  class:is-dirty={isSettingDirty("TRIAL_DAYS_STRATEGY", settingsDirty)}
+                >
+                  <div class="admin-setting-meta">
+                    <strong>
+                      {at("tariffs_trial_days_strategy", {}, "Paid period start")}
+                      {#if isSettingDirty("TRIAL_DAYS_STRATEGY", settingsDirty)}
+                        <AdminBadge variant="warning"
+                          >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
+                        >
+                      {/if}
+                    </strong>
+                    <code>TRIAL_DAYS_STRATEGY</code>
+                    <small>
+                      {at(
+                        "tariffs_trial_days_strategy_hint",
+                        {},
+                        "The selected rule is applied automatically; customers cannot change it during checkout."
+                      )}
+                    </small>
+                  </div>
+                  <div class="admin-setting-control">
+                    <AdminSelect
+                      class="admin-setting-select"
+                      value={String(
+                        valueForKey("TRIAL_DAYS_STRATEGY", settingsDirty, settingsFieldMap) ||
+                          "add_remaining"
+                      )}
+                      items={trialDaysStrategyOptions}
+                      ariaLabel={at("tariffs_trial_days_strategy", {}, "Paid period start")}
+                      onValueChange={handleTrialDaysStrategySelect}
+                    />
+                    {#if isSettingDirty("TRIAL_DAYS_STRATEGY", settingsDirty)}
+                      <AdminButton
+                        size="sm"
+                        variant="ghost"
+                        onclick={() => resetSetting("TRIAL_DAYS_STRATEGY")}
                       >
                         <X size={12} />
                         {at("reset", {}, "Reset")}

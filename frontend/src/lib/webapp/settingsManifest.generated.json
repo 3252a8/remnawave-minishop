@@ -13646,6 +13646,37 @@
         "updated_at": null
       },
       {
+        "key": "TRIAL_DAYS_STRATEGY",
+        "type": "string",
+        "section": "pricing",
+        "section_order": 11,
+        "subsection": "trial",
+        "label": "Trial days purchase strategy",
+        "description": "Choose whether remaining trial days are added to a purchased tariff or the paid period starts on the payment date.",
+        "i18n_label_key": "admin_settings_field_trial_days_strategy_label",
+        "i18n_description_key": "admin_settings_field_trial_days_strategy_description",
+        "i18n_subsection_key": "admin_settings_subsection_trial",
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": false,
+        "secret": false,
+        "choices": [
+          {
+            "value": "add_remaining",
+            "label": "Add remaining trial days",
+            "i18n_label_key": "admin_settings_field_trial_days_strategy_choice_add_remaining"
+          },
+          {
+            "value": "start_from_payment",
+            "label": "Start from payment date",
+            "i18n_label_key": "admin_settings_field_trial_days_strategy_choice_start_from_payment"
+          }
+        ],
+        "value": "",
+        "overridden": false,
+        "updated_at": null
+      },
+      {
         "key": "TRIAL_TRAFFIC_STRATEGY",
         "type": "string",
         "section": "pricing",

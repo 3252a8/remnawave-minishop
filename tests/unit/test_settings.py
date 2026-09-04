@@ -706,6 +706,13 @@ class SettingsTests(unittest.TestCase):
 
         self.assertEqual(settings.TRIAL_TRAFFIC_STRATEGY, "WEEK")
 
+    def test_trial_days_strategy_is_admin_configured(self):
+        settings = self._settings(TRIAL_DAYS_STRATEGY="start_from_payment")
+
+        self.assertEqual(settings.TRIAL_DAYS_STRATEGY, "start_from_payment")
+        with self.assertRaises(ValidationError):
+            self._settings(TRIAL_DAYS_STRATEGY="unexpected")
+
     def test_trial_hwid_device_limit_accepts_count_and_blank(self):
         configured = Settings(
             _env_file=None,

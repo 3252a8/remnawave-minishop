@@ -546,6 +546,13 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
             "Empty keeps the panel/default limit; 0 means unlimited."
         ),
     )
+    TRIAL_DAYS_STRATEGY: Literal["add_remaining", "start_from_payment"] = Field(
+        default="add_remaining",
+        description=(
+            "How a paid tariff starts while a trial is active: keep the remaining trial "
+            "days or start the paid period on the payment date."
+        ),
+    )
     TRIAL_TRAFFIC_STRATEGY: str = Field(default="NO_RESET")
     TRIAL_WITHOUT_TELEGRAM_ENABLED: bool = Field(
         default=True,

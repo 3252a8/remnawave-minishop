@@ -594,6 +594,7 @@ def test_trial_required_settings_reject_empty_values():
         "TRIAL_PAYMENT_PRICE",
         "TRIAL_PAYMENT_STARS_PRICE",
         "TRIAL_DURATION_DAYS",
+        "TRIAL_DAYS_STRATEGY",
         "TRIAL_TRAFFIC_LIMIT_GB",
         "TRIAL_TRAFFIC_STRATEGY",
         "TRIAL_WITHOUT_TELEGRAM_ENABLED",

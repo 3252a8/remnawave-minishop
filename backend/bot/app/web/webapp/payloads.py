@@ -3,7 +3,6 @@ from typing import Annotated, Any, Literal, cast
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, field_validator
 
 from bot.services.email_auth_service import normalize_email
-from bot.services.trial_days import TRIAL_DAYS_ADD_REMAINING, TrialDaysStrategy
 
 PasswordAuthString = Annotated[str, StringConstraints(min_length=1, max_length=128)]
 PasswordSetupString = Annotated[str, StringConstraints(min_length=8, max_length=128)]
@@ -149,7 +148,6 @@ class WebAppPaymentCreatePayload(BaseModel):
     sale_mode: SaleModeString | None = None
     renew_hwid_devices: bool | None = None
     checkout_addons: WebAppCheckoutAddonsPayload | None = None
-    trial_days_strategy: TrialDaysStrategy = TRIAL_DAYS_ADD_REMAINING
     balance_source: Literal["user", "partner"] | None = None
     use_partner_balance: bool = False
     promo_code: ShortCodeString | None = None

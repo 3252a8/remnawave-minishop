@@ -22,6 +22,7 @@ export const TRIAL_SETTING_KEYS = [
   "TRIAL_TRAFFIC_LIMIT_GB",
   "TRIAL_PREMIUM_TRAFFIC_LIMIT_GB",
   "TRIAL_HWID_DEVICE_LIMIT",
+  "TRIAL_DAYS_STRATEGY",
   "TRIAL_TRAFFIC_STRATEGY",
   "TRIAL_SQUAD_UUIDS",
   "TRIAL_PREMIUM_SQUAD_UUIDS",
@@ -38,6 +39,7 @@ export const TRIAL_GENERAL_KEYS = [
   "TRIAL_PREMIUM_TRAFFIC_LIMIT_GB",
   "TRIAL_HWID_DEVICE_LIMIT",
 ];
+export const TRIAL_PURCHASE_KEYS = ["TRIAL_DAYS_STRATEGY"];
 export const TRIAL_RESET_KEYS = ["TRIAL_TRAFFIC_STRATEGY"];
 export const TRIAL_SQUAD_KEYS = ["TRIAL_SQUAD_UUIDS", "TRIAL_PREMIUM_SQUAD_UUIDS"];
 export const REFERRAL_SETTING_KEYS = [
@@ -121,6 +123,19 @@ export function trafficStrategyOptions(at: TranslateFn): SelectOption[] {
         {},
         "Monthly from subscription start"
       ),
+    },
+  ];
+}
+
+export function trialDaysStrategyOptions(at: TranslateFn): SelectOption[] {
+  return [
+    {
+      value: "add_remaining",
+      label: at("tariffs_trial_days_strategy_add_remaining", {}, "Add remaining trial days"),
+    },
+    {
+      value: "start_from_payment",
+      label: at("tariffs_trial_days_strategy_start_from_payment", {}, "Start from payment date"),
     },
   ];
 }

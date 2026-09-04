@@ -318,7 +318,6 @@ class CheckoutAddonConfigTests(TestCase):
                 "months": 1,
                 "tariff_key": "standard",
                 "sale_mode": "subscription",
-                "trial_days_strategy": "start_from_payment",
             }
         )
         context = CheckoutPricingContext(
@@ -326,7 +325,7 @@ class CheckoutAddonConfigTests(TestCase):
             active_tariff_key=None,
             active_end_at=datetime.now(UTC) + timedelta(days=15),
             complimentary_remaining_period=True,
-            trial_days_strategy=payload.trial_days_strategy,
+            trial_days_strategy="start_from_payment",
         )
 
         quote, bundle = build_checkout_bundle(

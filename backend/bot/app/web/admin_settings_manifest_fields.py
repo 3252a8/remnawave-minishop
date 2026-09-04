@@ -564,6 +564,22 @@ SETTINGS_MANIFEST: list[SettingField] = [
         subsection="trial",
     ),
     SettingField(
+        "TRIAL_DAYS_STRATEGY",
+        "string",
+        "pricing",
+        "Trial days purchase strategy",
+        (
+            "Choose whether remaining trial days are added to a purchased tariff or the paid "
+            "period starts on the payment date."
+        ),
+        optional=False,
+        choices=(
+            ("add_remaining", "Add remaining trial days"),
+            ("start_from_payment", "Start from payment date"),
+        ),
+        subsection="trial",
+    ),
+    SettingField(
         "TRIAL_TRAFFIC_STRATEGY",
         "string",
         "pricing",

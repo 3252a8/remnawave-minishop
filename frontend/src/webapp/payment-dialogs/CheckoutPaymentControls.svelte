@@ -8,9 +8,7 @@
   } from "$components/patterns/webapp/index.js";
   import CheckoutPromoRow from "../CheckoutPromoRow.svelte";
   import PartnerBalanceDiscount from "./PartnerBalanceDiscount.svelte";
-  import TrialDaysStrategySelector from "./TrialDaysStrategySelector.svelte";
   import type { ApiClient } from "$lib/webapp/publicApi.js";
-  import type { TrialDaysStrategy } from "$lib/webapp/trialDays.js";
   import type { PaymentMethodView, PlanView, StringAction, Translate } from "$lib/webapp/types.js";
 
   type LabelPricePair = { base: string; discounted: string };
@@ -19,7 +17,6 @@
   let {
     api,
     paymentModalOpen = false,
-    activeTrial = false,
     partnerAmount = 0,
     partnerCurrency = "",
     partnerEligible = false,
@@ -53,7 +50,6 @@
   }: {
     api: ApiClient["api"];
     paymentModalOpen?: boolean;
-    activeTrial?: boolean;
     partnerAmount?: number;
     partnerCurrency?: string;
     partnerEligible?: boolean;
@@ -75,7 +71,7 @@
     clearCheckoutPromo?: () => unknown;
     setCheckoutPromoInput?: StringAction;
     payDisabled?: boolean;
-    createPayment?: (strategy?: TrialDaysStrategy) => unknown;
+    createPayment?: () => unknown;
     partnerPrice?: LabelPricePair | null;
     promoPrice?: PlanPricePair | null;
     selectedPlan?: PlanView | null;
@@ -85,24 +81,8 @@
     replacePriceAnimations?: boolean;
     t?: Translate;
   } = $props();
-
-  let trialDaysStrategy = $state<TrialDaysStrategy>("add_remaining");
-  let paymentModalWasOpen = $state(false);
-
-  $effect(() => {
-    const isOpen = Boolean(paymentModalOpen);
-    if (isOpen && !paymentModalWasOpen) trialDaysStrategy = "add_remaining";
-    paymentModalWasOpen = isOpen;
-  });
 </script>
 
-{#if activeTrial}
-  <TrialDaysStrategySelector
-    value={trialDaysStrategy}
-    onChange={(value) => (trialDaysStrategy = value)}
-    {t}
-  />
-{/if}
 <div class="payment-divider" aria-hidden="true"></div>
 {#if hasMethods}
   <PaymentMethodPicker
@@ -145,7 +125,7 @@
 />
 <Button
   class="wide bottom-action payment-submit-button"
-  onclick={() => createPayment(activeTrial ? trialDaysStrategy : undefined)}
+  onclick={createPayment}
   disabled={payDisabled}
 >
   {t("wa_pay")}

@@ -37,7 +37,6 @@ import type {
   TariffTopupOptionsResponse,
 } from "./publicApi";
 import type { CheckoutAddonSelection } from "./tariffs";
-import type { TrialDaysStrategy } from "./trialDays.js";
 
 type BillingApi = ApiClient["api"];
 type BillingPlan = WebappBillingPlan;
@@ -47,7 +46,6 @@ export type PartnerBalancePaymentOptions = {
   balanceSource?: "user" | "partner" | null;
   usePartnerBalance?: boolean;
   checkoutAddons?: CheckoutAddonSelection;
-  trialDaysStrategy?: TrialDaysStrategy;
 };
 
 export type BillingActions = {
@@ -77,7 +75,6 @@ export type BillingActions = {
       balanceSource?: "user" | "partner" | null;
       usePartnerBalance?: boolean;
       checkoutAddons?: CheckoutAddonSelection;
-      trialDaysStrategy?: TrialDaysStrategy;
     }
   ): PostPayload<"/api/payments">;
   topupPaymentBody(
@@ -189,7 +186,6 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
       balanceSource?: "user" | "partner" | null;
       usePartnerBalance?: boolean;
       checkoutAddons?: CheckoutAddonSelection;
-      trialDaysStrategy?: TrialDaysStrategy;
     } = {}
   ): PostPayload<"/api/payments"> {
     const hasDeviceCheckoutAddon = Number(options.checkoutAddons?.device_count || 0) > 0;
@@ -206,7 +202,6 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
     setOptionalString(body, "tariff_key", plan.tariff_key);
     setOptionalString(body, "sale_mode", plan.sale_mode);
     setOptionalString(body, "promo_code", options.promoCode);
-    setOptionalString(body, "trial_days_strategy", options.trialDaysStrategy);
     if (options.checkoutAddons) {
       body.checkout_addons = options.checkoutAddons;
     }

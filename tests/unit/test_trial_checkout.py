@@ -6,7 +6,6 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 
 from aiohttp import web
-from pydantic import ValidationError
 
 from bot.app.web.webapp import billing_payments
 from bot.app.web.webapp.billing_quotes import _resolve_checkout_pricing_context
@@ -28,16 +27,17 @@ def _payload() -> WebAppPaymentCreatePayload:
     )
 
 
-def _settings() -> SimpleNamespace:
+def _settings(trial_days_strategy: str = "add_remaining") -> SimpleNamespace:
     tariffs = {
         "standard": SimpleNamespace(key="standard"),
         "premium": SimpleNamespace(key="premium"),
     }
     return SimpleNamespace(
+        TRIAL_DAYS_STRATEGY=trial_days_strategy,
         tariffs_config=SimpleNamespace(
             default_tariff="standard",
             get=tariffs.get,
-        )
+        ),
     )
 
 
@@ -274,10 +274,8 @@ class TrialCheckoutTests(IsolatedAsyncioTestCase):
                 session=AsyncMock(),
                 user_id=42,
                 db_user=SimpleNamespace(panel_user_uuid="panel-user"),
-                payment_payload=_payload().model_copy(
-                    update={"trial_days_strategy": trial_days_strategy}
-                ),
-                settings=_settings(),
+                payment_payload=_payload(),
+                settings=_settings(trial_days_strategy),
                 sale_mode=sale_mode,
             )
 
@@ -303,7 +301,7 @@ class TrialCheckoutTests(IsolatedAsyncioTestCase):
                     self.assertEqual(context.active_end_at, end_date)
                     self.assertTrue(context.complimentary_remaining_period)
 
-    async def test_trial_checkout_keeps_selected_day_strategy(self) -> None:
+    async def test_trial_checkout_uses_admin_day_strategy(self) -> None:
         context, error = await self._resolve(
             SimpleNamespace(
                 subscription_id=7,
@@ -320,18 +318,40 @@ class TrialCheckoutTests(IsolatedAsyncioTestCase):
         assert context is not None
         self.assertEqual(context.trial_days_strategy, "start_from_payment")
 
-    def test_trial_day_strategy_defaults_and_rejects_unknown_values(self) -> None:
-        self.assertEqual(_payload().trial_days_strategy, "add_remaining")
-        with self.assertRaises(ValidationError):
-            WebAppPaymentCreatePayload.model_validate(
-                {
-                    "method": "yookassa",
-                    "months": 1,
-                    "tariff_key": "standard",
-                    "sale_mode": "subscription",
-                    "trial_days_strategy": "unexpected",
-                }
+    async def test_trial_checkout_ignores_client_day_strategy(self) -> None:
+        legacy_payload = WebAppPaymentCreatePayload.model_validate(
+            {
+                "method": "yookassa",
+                "months": 1,
+                "tariff_key": "standard",
+                "sale_mode": "subscription",
+                "trial_days_strategy": "start_from_payment",
+            }
+        )
+        with patch(
+            "bot.app.web.webapp.billing_quotes.subscription_dal.get_active_subscription_by_user_id",
+            AsyncMock(
+                return_value=SimpleNamespace(
+                    subscription_id=7,
+                    end_date=datetime(2026, 1, 5, tzinfo=UTC),
+                    provider="trial",
+                    status_from_panel="TRIAL",
+                    tariff_key=None,
+                )
+            ),
+        ):
+            context, error = await _resolve_checkout_pricing_context(
+                session=AsyncMock(),
+                user_id=42,
+                db_user=SimpleNamespace(panel_user_uuid="panel-user"),
+                payment_payload=legacy_payload,
+                settings=_settings("add_remaining"),
+                sale_mode="subscription@premium",
             )
+
+        self.assertIsNone(error)
+        assert context is not None
+        self.assertEqual(context.trial_days_strategy, "add_remaining")
 
     async def test_paid_subscription_keeps_cross_tariff_renewal_guard(self) -> None:
         context, error = await self._resolve(

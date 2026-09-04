@@ -142,7 +142,7 @@ async def _resolve_checkout_pricing_context(
                 ),
                 active_end_at=active_sub.end_date,
                 complimentary_remaining_period=True,
-                trial_days_strategy=payment_payload.trial_days_strategy,
+                trial_days_strategy=settings.TRIAL_DAYS_STRATEGY,
             ),
             None,
         )

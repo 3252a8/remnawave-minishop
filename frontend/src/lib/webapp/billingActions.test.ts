@@ -99,19 +99,4 @@ describe("billingActions partner balance funding", () => {
       })
     ).toMatchObject({ renew_hwid_devices: true });
   });
-
-  it("includes the selected active-trial day strategy", () => {
-    const actions = createBillingActions({ api: vi.fn() });
-    const plan = {
-      months: 1,
-      tariff_key: "pro",
-      sale_mode: "subscription@pro",
-    };
-
-    expect(
-      actions.planPaymentBody(plan, "card", {
-        trialDaysStrategy: "start_from_payment",
-      })
-    ).toMatchObject({ trial_days_strategy: "start_from_payment" });
-  });
 });

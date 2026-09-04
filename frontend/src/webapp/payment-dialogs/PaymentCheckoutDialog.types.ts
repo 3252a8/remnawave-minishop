@@ -1,5 +1,4 @@
 import type { CheckoutAddonPreset } from "$lib/webapp/deeplinks.js";
-import type { TrialDaysStrategy } from "$lib/webapp/trialDays.js";
 import type { ApiClient } from "$lib/webapp/publicApi.js";
 import type {
   CheckoutAddonSelection,
@@ -18,7 +17,6 @@ export type CheckoutPaymentOptions = {
   balanceSource?: "user" | "partner" | null;
   usePartnerBalance?: boolean;
   checkoutAddons?: CheckoutAddonSelection;
-  trialDaysStrategy?: TrialDaysStrategy;
 };
 
 type BalancePaymentAction = (options?: CheckoutPaymentOptions) => unknown;

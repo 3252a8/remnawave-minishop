@@ -938,6 +938,7 @@ Stripe создает hosted Checkout Sessions и подтверждает ав�
 | `TRIAL_TRAFFIC_LIMIT_GB` | Лимит трафика пробного периода. |
 | `TRIAL_PREMIUM_TRAFFIC_LIMIT_GB` | Отдельный лимит premium-трафика пробного периода. `0` отключает отдельное ограничение. |
 | `TRIAL_HWID_DEVICE_LIMIT` | Лимит HWID-устройств пробного периода. Пустое значение сохраняет лимит панели/по умолчанию, `0` означает безлимит. |
+| `TRIAL_DAYS_STRATEGY` | Правило покупки тарифа во время активного trial: `add_remaining` добавляет оставшиеся дни триала к оплаченному сроку, `start_from_payment` начинает оплаченный срок с даты платежа. Выбор задаёт администратор; пользователь не может изменить его при оплате. |
 | `TRIAL_TRAFFIC_STRATEGY` | Стратегия лимита пробного периода. |
 | `TRIAL_WITHOUT_TELEGRAM_ENABLED` | Разрешает активацию trial пользователям без привязанного Telegram. Disposable email домены всё равно требуют Telegram. |
 | `TRIAL_SQUAD_UUIDS` | Internal Squads для trial через запятую. Если пусто, используется `USER_SQUAD_UUIDS`. |
