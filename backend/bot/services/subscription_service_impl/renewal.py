@@ -172,7 +172,7 @@ class RenewalMixin(SubscriptionServiceMixinContract):
             if tariff and tariff.billing_model == "period":
                 period_days = int(stored_days) if stored_days else legacy_months_to_days(months)
                 selected_period = tariff.period_for_days(period_days)
-                if selected_period is None or not tariff.enabled:
+                if selected_period is None:
                     return None
                 months = selected_period
                 amount = tariff.period_price(

@@ -229,7 +229,10 @@ class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
         )
         settings = SimpleNamespace(
             traffic_sale_mode=False,
-            tariffs_config=SimpleNamespace(require=lambda key: tariff),
+            tariffs_config=SimpleNamespace(
+                require=lambda key: tariff,
+                require_for_user=lambda key, assigned_key: tariff,
+            ),
             DEFAULT_LANGUAGE="en",
             DEFAULT_CURRENCY_SYMBOL="RUB",
             ADMIN_IDS=[],
@@ -334,7 +337,10 @@ class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
         )
         settings = SimpleNamespace(
             traffic_sale_mode=False,
-            tariffs_config=SimpleNamespace(require=lambda key: tariff),
+            tariffs_config=SimpleNamespace(
+                require=lambda key: tariff,
+                require_for_user=lambda key, assigned_key: tariff,
+            ),
             DEFAULT_LANGUAGE="en",
             DEFAULT_CURRENCY_SYMBOL="RUB",
             ADMIN_IDS=[],

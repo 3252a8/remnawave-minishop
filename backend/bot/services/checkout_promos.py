@@ -144,7 +144,11 @@ async def resolve_checkout_promo(
             tariffs_config, "default_tariff", None
         )
         try:
-            tariff = tariffs_config.require(tariff_key) if tariffs_config and tariff_key else None
+            tariff = (
+                tariffs_config.require_configured(tariff_key)
+                if tariffs_config and tariff_key
+                else None
+            )
         except (KeyError, ValueError):
             tariff = None
         if tariff is None or not tariff.premium_squad_uuids:

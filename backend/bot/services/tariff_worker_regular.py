@@ -225,7 +225,7 @@ class TariffWorkerRegularMixin(TariffWorkerRegularWarningMixin):
                         continue
                 else:
                     try:
-                        tariff = self.settings.tariffs_config.require(sub.tariff_key)
+                        tariff = self.settings.tariffs_config.require_configured(sub.tariff_key)
                     except Exception:
                         continue
                 (

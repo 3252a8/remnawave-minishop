@@ -461,6 +461,7 @@
   "admin_user_tariff_change_hint": "The tariff, limits, and Remnawave squads will update immediately.",
   "admin_user_tariff_current": "Current: {tariff}",
   "admin_user_tariff_current_badge": "current",
+  "admin_user_tariff_hidden_badge": "hidden",
   "admin_user_tariff_none": "No tariff",
   "admin_user_tariff_hwid_confirm_title": "Apply the tariff HWID limit?",
   "admin_user_tariff_hwid_confirm_subtitle": "This user has a manual HWID limit. By default it will be preserved after the tariff change.",

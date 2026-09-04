@@ -243,7 +243,7 @@ def _product_binding_for_checkout(
     if units <= 0:
         return None
     try:
-        tariff = tariffs_config.require(tariff_key)
+        tariff = tariffs_config.require_configured(tariff_key)
     except Exception:
         return None
     tribute = getattr(tariff, "tribute", None)
@@ -290,7 +290,7 @@ def _binding_for_checkout(
     if normalized_months <= 0 or float(months) != normalized_months:
         return None
     try:
-        tariff = tariffs_config.require(tariff_key)
+        tariff = tariffs_config.require_configured(tariff_key)
     except Exception:
         return None
     tribute = _tariff_tribute_config(tariff)

@@ -4,7 +4,12 @@
   import CheckoutTariffPicker from "../payment-dialogs/CheckoutTariffPicker.svelte";
   import type { CheckoutDeeplink } from "$lib/webapp/deeplinks.js";
   import { writeCheckoutPlanToUrl } from "$lib/webapp/deeplinks.js";
-  import { buildTariffCatalog, priceLabel, type TariffCatalogEntry } from "$lib/webapp/tariffs.js";
+  import {
+    buildTariffCatalog,
+    initialCheckoutTariffKey,
+    priceLabel,
+    type TariffCatalogEntry,
+  } from "$lib/webapp/tariffs.js";
   import type { PlanView, TariffView, WebappRecord } from "$lib/webapp/types.js";
   import type { Snippet } from "svelte";
 
@@ -96,9 +101,13 @@
 
   $effect(() => {
     if (selectedTariffKey) return;
-    const key = String(linkedPlan?.tariff_key || "").trim();
-    if (key) selectedTariffKey = key;
-    else planPickerOpen = true;
+    const key = initialCheckoutTariffKey(catalog, linkedPlan);
+    if (key) {
+      selectedTariffKey = key;
+      planPickerOpen = false;
+    } else {
+      planPickerOpen = true;
+    }
   });
 
   const selectedTariff = $derived(catalog.find((entry) => entry.key === selectedTariffKey) || null);

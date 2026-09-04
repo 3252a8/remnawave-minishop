@@ -220,7 +220,7 @@ def preflight_paid_tariff_change(
         )
 
     try:
-        configured_source = tariffs_config.require(
+        configured_source = tariffs_config.require_configured(
             str(getattr(active_subscription, "tariff_key", "") or "")
         )
     except KeyError:

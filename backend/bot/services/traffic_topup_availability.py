@@ -66,11 +66,11 @@ def resolve_traffic_topup_availability(
     if not config or not active or not active.get("tariff_key"):
         return TrafficTopupAvailability()
     try:
-        tariff = config.require(str(active["tariff_key"]))
+        tariff = config.require_configured(str(active["tariff_key"]))
         packages = config.topup_packages_for(tariff)
     except Exception:
         logger.debug(
-            "Top-up availability: tariff %r is unknown or disabled",
+            "Top-up availability: tariff %r is unknown",
             active.get("tariff_key"),
         )
         return TrafficTopupAvailability()

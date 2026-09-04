@@ -260,6 +260,7 @@ class PromoCodeServiceTests(IsolatedAsyncioTestCase):
             tariffs_config=SimpleNamespace(
                 default_tariff="standard",
                 require=lambda key: tariff,
+                require_configured=lambda key: tariff,
             ),
         )
         subscription_service = SimpleNamespace(

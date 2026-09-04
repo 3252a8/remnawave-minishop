@@ -98,6 +98,8 @@ class _TariffsConfig:
             raise KeyError(key)
         return tariff
 
+    require_configured = require
+
     def tribute_product_target(
         self,
         product_id: int,

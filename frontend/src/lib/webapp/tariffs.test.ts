@@ -5,6 +5,7 @@ import {
   buildTariffCatalog,
   checkoutTariffSummary,
   firstAvailableMethod,
+  initialCheckoutTariffKey,
   methodSelectable,
   methodsForPlan,
   paymentMethodMinimum,
@@ -69,6 +70,24 @@ describe("webapp tariff helpers", () => {
         plans_count: 1,
       },
     ]);
+  });
+
+  it("skips the tariff picker when only one public tariff is available", () => {
+    const catalog = buildTariffCatalog([{ tariff_key: "standard", tariff_name: "Standard" }]);
+
+    expect(initialCheckoutTariffKey(catalog, null)).toBe("standard");
+    expect(
+      initialCheckoutTariffKey(
+        buildTariffCatalog([{ tariff_key: "standard" }, { tariff_key: "plus" }]),
+        null
+      )
+    ).toBe("");
+    expect(
+      initialCheckoutTariffKey(
+        buildTariffCatalog([{ tariff_key: "standard" }, { tariff_key: "plus" }]),
+        { tariff_key: "plus" }
+      )
+    ).toBe("plus");
   });
 
   it("builds a checkout tariff summary with finite and unlimited limits", () => {

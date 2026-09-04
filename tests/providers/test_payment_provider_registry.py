@@ -368,7 +368,10 @@ def test_subscription_callback_uses_current_server_price():
         period_price=lambda months, currency: 299 if (months, currency) == (1, "rub") else None,
     )
     settings = SimpleNamespace(
-        tariffs_config=SimpleNamespace(require=lambda key: tariff if key == "standard" else None)
+        tariffs_config=SimpleNamespace(
+            require=lambda key: tariff if key == "standard" else None,
+            require_configured=lambda key: tariff if key == "standard" else None,
+        )
     )
 
     with patch(
@@ -405,7 +408,10 @@ def test_subscription_callback_revalidates_promo_before_adding_hwid_price():
         period_price=lambda months, currency: 299 if (months, currency) == (1, "rub") else None,
     )
     settings = SimpleNamespace(
-        tariffs_config=SimpleNamespace(require=lambda key: tariff if key == "standard" else None)
+        tariffs_config=SimpleNamespace(
+            require=lambda key: tariff if key == "standard" else None,
+            require_configured=lambda key: tariff if key == "standard" else None,
+        )
     )
     promo = SimpleNamespace(
         promo_code_id=17,
@@ -519,7 +525,10 @@ def test_subscription_callback_is_blocked_during_active_tribute_recurrence():
 def test_tariff_upgrade_callback_uses_current_server_quote():
     target = SimpleNamespace(key="premium")
     settings = SimpleNamespace(
-        tariffs_config=SimpleNamespace(require=lambda key: target if key == "premium" else None)
+        tariffs_config=SimpleNamespace(
+            require=lambda key: target if key == "premium" else None,
+            require_configured=lambda key: target if key == "premium" else None,
+        )
     )
     subscription_service = SimpleNamespace(
         calculate_tariff_switch_options_with_hwid=AsyncMock(return_value={"paid_diff_rub": 450})

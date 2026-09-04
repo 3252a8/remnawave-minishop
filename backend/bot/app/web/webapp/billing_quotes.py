@@ -37,6 +37,7 @@ from .billing_sale_modes import (
     _sale_mode_is_traffic,
     _sale_mode_tariff_key,
 )
+from .billing_tariff_access import require_user_available_tariff
 from .common import _resolve_numeric_option_key
 
 
@@ -286,7 +287,13 @@ async def _resolve_base_payment_quote(
         if not tariff_key:
             return None, _json_error(400, "invalid_plan", "Tariff is not selected")
         try:
-            tariff = tariffs_config.require(tariff_key)
+            tariff = await require_user_available_tariff(
+                session,
+                tariffs_config,
+                user_id=user_id,
+                tariff_key=tariff_key,
+                panel_user_uuid=getattr(db_user, "panel_user_uuid", None),
+            )
         except Exception:
             return None, _json_error(400, "invalid_plan", "Tariff is not available")
         if tariff.billing_model != "period":
@@ -305,7 +312,13 @@ async def _resolve_base_payment_quote(
         if not tariff_key:
             return None, _json_error(400, "invalid_plan", "Tariff is not selected")
         try:
-            tariff = tariffs_config.require(tariff_key)
+            tariff = await require_user_available_tariff(
+                session,
+                tariffs_config,
+                user_id=user_id,
+                tariff_key=tariff_key,
+                panel_user_uuid=getattr(db_user, "panel_user_uuid", None),
+            )
         except Exception:
             return None, _json_error(400, "invalid_plan", "Tariff is not available")
         try:
@@ -347,7 +360,13 @@ async def _resolve_base_payment_quote(
         if not tariff_key:
             return None, _json_error(400, "invalid_plan", "Tariff is not selected")
         try:
-            tariff = tariffs_config.require(tariff_key)
+            tariff = await require_user_available_tariff(
+                session,
+                tariffs_config,
+                user_id=user_id,
+                tariff_key=tariff_key,
+                panel_user_uuid=getattr(db_user, "panel_user_uuid", None),
+            )
         except Exception:
             return None, _json_error(400, "invalid_plan", "Tariff is not available")
         if tariff.billing_model == "traffic":

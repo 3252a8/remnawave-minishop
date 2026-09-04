@@ -239,6 +239,15 @@ export function buildTariffCatalog(
   return Array.from(byKey.values());
 }
 
+export function initialCheckoutTariffKey(
+  catalog: TariffCatalogEntry[],
+  linkedPlan: BillingPlan | null | undefined
+): string {
+  const linkedKey = String(linkedPlan?.tariff_key || "").trim();
+  if (linkedKey && catalog.some((entry) => entry.key === linkedKey)) return linkedKey;
+  return catalog.length === 1 ? catalog[0].key : "";
+}
+
 export function activeTariffName(
   sub: BillingPlan | null | undefined,
   planList: BillingPlan[] | null | undefined

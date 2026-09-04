@@ -461,6 +461,7 @@
   "admin_user_tariff_change_hint": "Тариф, лимиты и сквады в Remnawave будут обновлены сразу.",
   "admin_user_tariff_current": "Сейчас: {tariff}",
   "admin_user_tariff_current_badge": "текущий",
+  "admin_user_tariff_hidden_badge": "скрытый",
   "admin_user_tariff_none": "Без тарифа",
   "admin_user_tariff_hwid_confirm_title": "Применить HWID-лимит тарифа?",
   "admin_user_tariff_hwid_confirm_subtitle": "У пользователя задан ручной HWID-лимит. По умолчанию он будет сохранён после смены тарифа.",

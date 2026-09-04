@@ -90,6 +90,7 @@ from .billing_sale_modes import (
 from .billing_sale_modes import (
     _sale_mode_is_traffic as _sale_mode_is_traffic,
 )
+from .billing_tariff_access import require_user_available_tariff
 from .common import (
     _resolve_numeric_option_key,
 )
@@ -127,6 +128,20 @@ async def create_payment_route(request: web.Request) -> web.Response:
     price: float | None = None
     stars_price: int | None = None
 
+    async def resolve_requested_tariff(tariff_key: str) -> Any:
+        if tariffs_config is None:
+            raise KeyError(tariff_key)
+        try:
+            return tariffs_config.require(tariff_key)
+        except KeyError:
+            async with get_session_factory(request)() as eligibility_session:
+                return await require_user_available_tariff(
+                    eligibility_session,
+                    tariffs_config,
+                    user_id=user_id,
+                    tariff_key=tariff_key,
+                )
+
     if requested_sale_mode == "trial":
         if (
             not settings.TRIAL_ENABLED
@@ -158,7 +173,7 @@ async def create_payment_route(request: web.Request) -> web.Response:
         if not tariff_key:
             return _json_error(400, "invalid_plan", "Tariff is not selected")
         try:
-            tariff = tariffs_config.require(tariff_key)
+            tariff = await resolve_requested_tariff(tariff_key)
         except Exception:
             return _json_error(400, "invalid_plan", "Tariff is not available")
         if tariff.billing_model != "period":
@@ -179,7 +194,7 @@ async def create_payment_route(request: web.Request) -> web.Response:
         if not tariff_key:
             return _json_error(400, "invalid_plan", "Tariff is not selected")
         try:
-            tariff = tariffs_config.require(tariff_key)
+            tariff = await resolve_requested_tariff(tariff_key)
         except Exception:
             return _json_error(400, "invalid_plan", "Tariff is not available")
         try:
@@ -221,7 +236,7 @@ async def create_payment_route(request: web.Request) -> web.Response:
         if not tariff_key:
             return _json_error(400, "invalid_plan", "Tariff is not selected")
         try:
-            tariff = tariffs_config.require(tariff_key)
+            tariff = await resolve_requested_tariff(tariff_key)
         except Exception:
             return _json_error(400, "invalid_plan", "Tariff is not available")
 

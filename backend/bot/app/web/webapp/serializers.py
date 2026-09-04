@@ -265,6 +265,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             stars_subscription_options=cached["stars_subscription_options"],
             traffic_packages=cached["traffic_packages"],
             stars_traffic_packages=cached["stars_traffic_packages"],
+            assigned_tariff_key=local_sub.tariff_key if local_sub else None,
         )
         await _attach_hwid_renewal_quotes_to_plans(
             session,
@@ -557,7 +558,7 @@ def _serialize_subscription(
     can_topup_devices = device_topup_availability.allowed
     if settings.tariffs_config and active.get("tariff_key"):
         try:
-            tariff = settings.tariffs_config.require(str(active.get("tariff_key")))
+            tariff = settings.tariffs_config.require_configured(str(active.get("tariff_key")))
             packages = settings.tariffs_config.topup_packages_for(tariff)
             can_topup_regular_traffic = bool(packages and packages.has_any())
             can_topup_premium_traffic = bool(

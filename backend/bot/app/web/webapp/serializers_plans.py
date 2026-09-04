@@ -23,13 +23,14 @@ def _serialize_plans(
     stars_subscription_options: dict[int, int] | None = None,
     traffic_packages: dict[float, float] | None = None,
     stars_traffic_packages: dict[float, int] | None = None,
+    assigned_tariff_key: str | None = None,
 ) -> list[dict[str, Any]]:
     tariffs_config = settings.tariffs_config
     if tariffs_config:
         default_currency = default_currency_key_for_settings(settings)
         default_currency_code = payment_currency_code(default_currency)
         plans = []
-        for tariff in tariffs_config.enabled_tariffs:
+        for tariff in tariffs_config.available_tariffs_for_user(assigned_tariff_key):
             effective_hwid_device_limit = (
                 tariff.hwid_device_limit
                 if tariff.hwid_device_limit is not None

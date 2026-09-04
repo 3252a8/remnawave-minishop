@@ -187,12 +187,16 @@
   ): SelectOption {
     const value = String(tariff?.key || "");
     const label = tariffLabel(tariff);
+    const badges = [];
+    if (markCurrent && value && value === currentKey) {
+      badges.push(at("user_tariff_current_badge", {}, "current"));
+    }
+    if (tariff?.enabled === false) {
+      badges.push(at("user_tariff_hidden_badge", {}, "hidden"));
+    }
     return {
       value,
-      label:
-        markCurrent && value && value === currentKey
-          ? `${label} (${at("user_tariff_current_badge", {}, "current")})`
-          : label,
+      label: badges.length ? `${label} (${badges.join(", ")})` : label,
     };
   }
 
@@ -331,7 +335,7 @@
     tariffCatalogItems.find((tariff) => String(tariff?.key || "") === userTariffActionKey) || null
   );
   const periodTariffs = $derived(
-    enabledTariffs.filter((tariff) => tariff?.billing_model === "period")
+    tariffCatalogItems.filter((tariff) => tariff?.billing_model === "period")
   );
   const periodTariffItems = $derived(periodTariffs.map((tariff) => tariffSelectItem(tariff)));
   const extendPeriodTariffs = $derived(

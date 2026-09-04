@@ -181,7 +181,11 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
         config = self._tariffs_config()
         if not config:
             return None
-        target = config.require(target_tariff_key)
+        target = (
+            config.require_configured(target_tariff_key)
+            if mode == "admin_assign"
+            else config.require(target_tariff_key)
+        )
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or not db_user.panel_user_uuid:
             return None

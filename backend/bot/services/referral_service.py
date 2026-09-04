@@ -307,7 +307,7 @@ class ReferralService:
         tariffs_config = getattr(self.settings, "tariffs_config", None)
         if tariff_key and tariffs_config:
             try:
-                tariff = tariffs_config.require(str(tariff_key))
+                tariff = tariffs_config.require_configured(str(tariff_key))
             except Exception:
                 logger.warning(
                     "Referral bonuses skipped: tariff %s was not found.",

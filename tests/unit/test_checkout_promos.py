@@ -50,6 +50,7 @@ class CheckoutPromoTests(IsolatedAsyncioTestCase):
             tariffs_config=SimpleNamespace(
                 default_tariff="standard",
                 require=lambda key: SimpleNamespace(premium_squad_uuids=[]),
+                require_configured=lambda key: SimpleNamespace(premium_squad_uuids=[]),
             ),
         )
         with patch(

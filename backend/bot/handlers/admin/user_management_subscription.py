@@ -18,8 +18,8 @@ from db.dal import message_log_dal, subscription_dal, user_dal
 from db.models import User
 
 from .user_management_common import (
+    _admin_period_tariffs,
     _admin_tariff_label,
-    _enabled_admin_period_tariffs,
     _resolve_admin_period_tariff_key,
 )
 from .user_management_info import handle_refresh_user_card
@@ -142,7 +142,7 @@ async def handle_add_subscription_prompt(
 
     tariff_key, tariff_error = _resolve_admin_period_tariff_key(settings)
     if tariff_error == "admin_user_tariff_required":
-        period_tariffs = _enabled_admin_period_tariffs(settings)
+        period_tariffs = _admin_period_tariffs(settings)
         builder = InlineKeyboardBuilder()
         for tariff in period_tariffs:
             builder.button(
@@ -235,7 +235,7 @@ async def handle_change_tariff_menu(
         await callback.answer(_("admin_user_tariff_no_subscription"), show_alert=True)
         return
 
-    period_tariffs = _enabled_admin_period_tariffs(settings)
+    period_tariffs = _admin_period_tariffs(settings)
     if not period_tariffs:
         await callback.answer(_("admin_user_tariff_no_period_tariffs"), show_alert=True)
         return

@@ -168,6 +168,7 @@ def test_configured_topup_snapshot_uses_the_subscription_quoted_by_the_server() 
     settings = SimpleNamespace(
         tariffs_config=SimpleNamespace(
             require=lambda key: tariff if key == "pro" else None,
+            require_configured=lambda key: tariff if key == "pro" else None,
             topup_packages_for=lambda configured_tariff: (
                 packages if configured_tariff is tariff else None
             ),

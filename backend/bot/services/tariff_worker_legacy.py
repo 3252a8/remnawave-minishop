@@ -43,7 +43,7 @@ class TariffWorkerLegacyMixin:
         )
         for sub in result.scalars().all():
             try:
-                tariff = self.settings.tariffs_config.require(sub.tariff_key)
+                tariff = self.settings.tariffs_config.require_configured(sub.tariff_key)
             except Exception:
                 continue
             if int(sub.traffic_limit_bytes or 0) <= int(sub.traffic_used_bytes or 0):

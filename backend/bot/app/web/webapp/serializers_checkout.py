@@ -32,7 +32,7 @@ async def attach_checkout_pricing_context_to_plans(
             plan.pop("tariff_switch_required", None)
         return
     try:
-        active_tariff = settings.tariffs_config.require(local_sub.tariff_key)
+        active_tariff = settings.tariffs_config.require_configured(local_sub.tariff_key)
     except Exception:
         active_tariff = None
     pricing_now = datetime.now(UTC)

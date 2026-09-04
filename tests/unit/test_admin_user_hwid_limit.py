@@ -33,13 +33,20 @@ class FakeSession:
 
 class FakeTariffsConfig:
     def __init__(self, tariffs):
+        self.tariffs = list(tariffs)
         self._tariffs = {tariff.key: tariff for tariff in tariffs}
-        self.enabled_tariffs = list(tariffs)
+        self.enabled_tariffs = [tariff for tariff in tariffs if getattr(tariff, "enabled", True)]
         self.default_tariff = tariffs[0].key if tariffs else ""
 
-    def require(self, key):
+    def require_configured(self, key):
         tariff = self._tariffs.get(key)
         if not tariff:
+            raise KeyError(key)
+        return tariff
+
+    def require(self, key):
+        tariff = self.require_configured(key)
+        if not getattr(tariff, "enabled", True):
             raise KeyError(key)
         return tariff
 
@@ -285,7 +292,7 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
             tariffs_config=FakeTariffsConfig(
                 [
                     SimpleNamespace(key="standard", billing_model="period"),
-                    SimpleNamespace(key="plus", billing_model="period"),
+                    SimpleNamespace(key="plus", billing_model="period", enabled=False),
                 ]
             )
         )
@@ -307,7 +314,7 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
             tariffs_config=FakeTariffsConfig(
                 [
                     SimpleNamespace(key="standard", billing_model="period"),
-                    SimpleNamespace(key="plus", billing_model="period"),
+                    SimpleNamespace(key="plus", billing_model="period", enabled=False),
                 ]
             )
         )

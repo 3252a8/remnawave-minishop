@@ -2697,7 +2697,10 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             TARIFF_PREMIUM_FAST_WATCH_PERCENT=80,
             TARIFF_PREMIUM_FAST_BATCH_LIMIT=200,
             tariffs_config=SimpleNamespace(
-                require=lambda key: premium_tariff if key == "standard" else regular_tariff
+                require=lambda key: premium_tariff if key == "standard" else regular_tariff,
+                require_configured=lambda key: (
+                    premium_tariff if key == "standard" else regular_tariff
+                ),
             ),
         )
         panel_service = AsyncMock(spec=PanelApiService)

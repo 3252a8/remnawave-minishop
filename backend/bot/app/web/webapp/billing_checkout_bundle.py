@@ -360,7 +360,10 @@ def build_checkout_bundle(
                 "Checkout add-ons are not available for this subscription",
             )
         return base_quote, CheckoutBundle()
-    tariff = tariffs_config.require(tariff_key)
+    tariff = tariffs_config.require_for_user(
+        tariff_key,
+        pricing_context.active_tariff_key if pricing_context else None,
+    )
     options = serialize_checkout_addons(
         tariff,
         default_currency=default_currency_key_for_settings(settings),

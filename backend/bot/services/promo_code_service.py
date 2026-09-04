@@ -396,7 +396,7 @@ class PromoCodeService:
             if effects.premium_traffic_gb > 0:
                 try:
                     active_tariff = (
-                        tariffs_config.require(active_sub.tariff_key)
+                        tariffs_config.require_configured(active_sub.tariff_key)
                         if tariffs_config and active_sub.tariff_key
                         else None
                     )

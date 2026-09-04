@@ -10,6 +10,7 @@ from .user_management_cards import (
     get_user_card_keyboard,
 )
 from .user_management_common import (
+    _admin_period_tariffs,
     _admin_tariff_label,
     _admin_user_button_label,
     _admin_user_reference_label,
@@ -66,6 +67,7 @@ from .user_management_subscription import (
 
 __all__ = [
     "_admin_hwid_limit_state_text",
+    "_admin_period_tariffs",
     "_admin_tariff_label",
     "_admin_user_button_label",
     "_admin_user_reference_label",

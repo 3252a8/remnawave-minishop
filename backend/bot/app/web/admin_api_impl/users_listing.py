@@ -297,6 +297,18 @@ def _enabled_admin_period_tariffs(settings: Settings) -> list[Any]:
     ]
 
 
+def _admin_period_tariffs(settings: Settings) -> list[Any]:
+    config = settings.tariffs_config
+    if not config:
+        return []
+    tariffs = getattr(config, "tariffs", None)
+    if tariffs is None:
+        tariffs = getattr(config, "enabled_tariffs", [])
+    return [
+        tariff for tariff in (tariffs or []) if getattr(tariff, "billing_model", None) == "period"
+    ]
+
+
 def _resolve_admin_period_tariff_key(
     settings: Settings,
     explicit_tariff_key: Any,
@@ -310,16 +322,15 @@ def _resolve_admin_period_tariff_key(
     explicit = str(explicit_tariff_key or "").strip()
     if explicit:
         try:
-            tariff = config.require(explicit)
+            tariff = config.require_configured(explicit)
         except Exception:
             return None, "invalid_tariff"
         if getattr(tariff, "billing_model", None) != "period":
             return None, "invalid_tariff"
         return str(tariff.key), None
 
-    enabled_tariffs = _enabled_admin_tariffs(settings)
-    period_tariffs = _enabled_admin_period_tariffs(settings)
-    if len(enabled_tariffs) == 1 and period_tariffs:
+    period_tariffs = _admin_period_tariffs(settings)
+    if len(period_tariffs) == 1:
         return str(period_tariffs[0].key), None
     if not period_tariffs:
         return None, "no_period_tariffs"

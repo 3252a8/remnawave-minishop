@@ -191,6 +191,6 @@ class TariffWorkerPremiumFastMixin:
                 return None
             return self._trial_premium_tariff()
         try:
-            return self.settings.tariffs_config.require(sub.tariff_key)
+            return self.settings.tariffs_config.require_configured(sub.tariff_key)
         except Exception:
             return None

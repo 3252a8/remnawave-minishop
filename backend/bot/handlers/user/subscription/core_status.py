@@ -33,7 +33,6 @@ from .core_common import (
     _auto_renew_control_visible,
     _event_user_id,
     _format_premium_usage_limit,
-    _has_multiple_enabled_tariffs,
     _hwid_callback_token,
     _shorten_hwid_for_display,
     router,
@@ -131,6 +130,15 @@ async def my_subscription_command_handler(
             await event.answer(text, reply_markup=kb)
         return
 
+    tariffs_config = settings.tariffs_config
+    available_for_user = getattr(tariffs_config, "available_tariffs_for_user", None)
+    available_tariffs = (
+        available_for_user(active.get("tariff_key"))
+        if callable(available_for_user)
+        else list(getattr(tariffs_config, "enabled_tariffs", []) or [])
+    )
+    has_multiple_available_tariffs = len(available_tariffs) > 1
+
     end_date = active.get("end_date")
     days_left = (end_date.date() - datetime.now(UTC).date()).days if end_date else 0
     traffic_mode = bool(settings.traffic_sale_mode)
@@ -200,7 +208,7 @@ async def my_subscription_command_handler(
         )
     else:
         tariff_prefix = ""
-        if _has_multiple_enabled_tariffs(settings) and active.get("tariff_name"):
+        if has_multiple_available_tariffs and active.get("tariff_name"):
             tariff_prefix = f"🎟 {active.get('tariff_name')}\n"
             if active.get("tariff_description"):
                 tariff_prefix += f"{active.get('tariff_description')}\n"
@@ -428,7 +436,7 @@ async def my_subscription_command_handler(
 
         if settings.tariffs_config and local_sub and local_sub.tariff_key:
             tariff_actions = []
-            if _has_multiple_enabled_tariffs(settings):
+            if has_multiple_available_tariffs:
                 tariff_actions.append(
                     InlineKeyboardButton(
                         text=get_text("tariff_change_button"),

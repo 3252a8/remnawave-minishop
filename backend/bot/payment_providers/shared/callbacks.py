@@ -442,7 +442,7 @@ async def _quote_configured_callback_parts(
         if not tariff_key or normalized_currency == "stars":
             return None
         try:
-            target = tariffs_config.require(tariff_key)
+            target = tariffs_config.require_configured(tariff_key)
         except Exception:
             return None
         active_sub = await subscription_dal.get_active_subscription_by_user_id(session, user_id)
@@ -463,7 +463,7 @@ async def _quote_configured_callback_parts(
     if not tariff_key:
         return None
     try:
-        tariff = tariffs_config.require(tariff_key)
+        tariff = tariffs_config.require_configured(tariff_key)
     except Exception:
         return None
 

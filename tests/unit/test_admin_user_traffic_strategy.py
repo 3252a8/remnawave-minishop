@@ -42,6 +42,8 @@ class FakeTariffsConfig:
             raise KeyError(key)
         return tariff
 
+    require_configured = require
+
 
 class FakeRequest:
     def __init__(self, body, session, panel_service, settings):

@@ -902,9 +902,30 @@ class TariffsConfig(BaseModel):
             None,
         )
 
-    def require(self, key: str) -> Tariff:
+    def require_configured(self, key: str) -> Tariff:
         tariff = self.get(key)
-        if not tariff or not tariff.enabled:
+        if not tariff:
+            raise KeyError(f"Unknown tariff: {key}")
+        return tariff
+
+    def require_for_user(self, key: str, assigned_tariff_key: str | None) -> Tariff:
+        tariff = self.require_configured(key)
+        assigned_tariff = self.get(str(assigned_tariff_key or ""))
+        if tariff.enabled or (assigned_tariff and assigned_tariff.key == tariff.key):
+            return tariff
+        raise KeyError(f"Tariff is not available to this user: {key}")
+
+    def available_tariffs_for_user(self, assigned_tariff_key: str | None) -> list[Tariff]:
+        assigned_tariff = self.get(str(assigned_tariff_key or ""))
+        return [
+            tariff
+            for tariff in self.tariffs
+            if tariff.enabled or (assigned_tariff and assigned_tariff.key == tariff.key)
+        ]
+
+    def require(self, key: str) -> Tariff:
+        tariff = self.require_configured(key)
+        if not tariff.enabled:
             raise KeyError(f"Unknown or disabled tariff: {key}")
         return tariff
 

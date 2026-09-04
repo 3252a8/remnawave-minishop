@@ -176,8 +176,6 @@ def resolve_device_topup_availability(
     expected_tariff = _configured_tariff(config, expected) if expected else None
     if expected and (expected_tariff is None or expected_tariff.key != tariff.key):
         return unavailable(DeviceTopupUnavailableReason.TARIFF_MISMATCH, tariff)
-    if not bool(getattr(tariff, "enabled", True)):
-        return unavailable(DeviceTopupUnavailableReason.TARIFF_DISABLED, tariff)
     if tariff.billing_model != "period":
         return unavailable(DeviceTopupUnavailableReason.UNSUPPORTED_BILLING_MODEL, tariff)
 

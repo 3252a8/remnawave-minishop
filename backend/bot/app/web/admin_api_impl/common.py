@@ -142,7 +142,7 @@ def _admin_subscription_billing_model(
             tariffs_config = None
         if tariffs_config is not None:
             try:
-                tariff = tariffs_config.require(tariff_key)
+                tariff = tariffs_config.require_configured(tariff_key)
             except Exception:
                 tariff = None
             billing_model = str(getattr(tariff, "billing_model", "") or "").strip().lower()
@@ -169,7 +169,7 @@ def _admin_subscription_traffic_strategy_fallback(
     tariff_key = str(getattr(sub, "tariff_key", "") or "").strip()
     if tariff_key:
         try:
-            tariff = settings.tariffs_config.require(tariff_key)
+            tariff = settings.tariffs_config.require_configured(tariff_key)
         except Exception:
             tariff = None
         configured_strategy = getattr(tariff, "traffic_limit_strategy", None)

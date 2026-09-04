@@ -512,7 +512,7 @@ class SupportService:
             tariff_name = ""
             if sub and getattr(sub, "tariff_key", None) and self.settings.tariffs_config:
                 try:
-                    tariff = self.settings.tariffs_config.require(str(sub.tariff_key))
+                    tariff = self.settings.tariffs_config.require_configured(str(sub.tariff_key))
                     tariff_name = tariff.name(lang)
                 except Exception:
                     tariff_name = str(sub.tariff_key or "")

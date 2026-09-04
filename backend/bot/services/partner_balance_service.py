@@ -195,7 +195,7 @@ class PartnerBalanceService:
                         tariffs = self.settings.tariffs_config
                         if tariffs:
                             try:
-                                tariff = tariffs.require(tariff_key)
+                                tariff = tariffs.require_configured(tariff_key)
                             except Exception as exc:
                                 raise PartnerError("invalid_plan", 400) from exc
                             if tariff.billing_model != "period":

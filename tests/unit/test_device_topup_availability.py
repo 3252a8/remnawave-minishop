@@ -171,11 +171,6 @@ class DeviceTopupAvailabilityTests(unittest.TestCase):
                 DeviceTopupUnavailableReason.TARIFF_NOT_FOUND,
             ),
             (
-                {"catalog": _catalog(enabled=False)},
-                {"subscription_active": True, "tariff_key": "standard", "max_devices": 5},
-                DeviceTopupUnavailableReason.TARIFF_DISABLED,
-            ),
-            (
                 {"catalog": _catalog(billing_model="traffic")},
                 {"subscription_active": True, "tariff_key": "standard", "max_devices": 5},
                 DeviceTopupUnavailableReason.UNSUPPORTED_BILLING_MODEL,
@@ -204,6 +199,24 @@ class DeviceTopupAvailabilityTests(unittest.TestCase):
                 result = resolve_device_topup_availability(settings, **arguments)
             self.assertFalse(result.allowed)
             self.assertEqual(result.reason, expected)
+
+    def test_assigned_hidden_tariff_keeps_device_topups_available(self) -> None:
+        settings = _settings(
+            catalog=_catalog(
+                enabled=False,
+                packages={"rub": [{"count": 1, "price": 50}]},
+            ),
+        )
+
+        result = resolve_device_topup_availability(
+            settings,
+            subscription_active=True,
+            tariff_key="standard",
+            max_devices=5,
+        )
+
+        self.assertTrue(result.allowed)
+        self.assertEqual(result.tariff.key, "standard")
 
     def test_rejects_stale_tariff_callback(self) -> None:
         settings = _settings(

@@ -100,9 +100,11 @@ def test_extend_tariff_dropdown_uses_admin_select_and_marks_current_tariff():
     assert 'currentSubscriptionTariff?.billing_model === "period"' in source
 
 
-def test_extend_tariff_state_blocks_invalid_hidden_selection():
+def test_extend_tariff_state_accepts_configured_hidden_selection():
     source = _source()
 
+    assert "tariffCatalogItems.filter" in source
+    assert "user_tariff_hidden_badge" in source
     assert "userExtendTariffValid" in source
     assert 'usersStore.updateState({ userExtendTariffKey: "" })' in source
     assert "!userExtendTariffValid" in source
@@ -146,6 +148,7 @@ def test_extend_tariff_current_badge_is_localized():
     for language in ("ru", "en"):
         messages = json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text("utf-8"))
         assert messages["admin_user_tariff_current_badge"]
+        assert messages["admin_user_tariff_hidden_badge"]
 
 
 def test_user_detail_links_include_install_share_link():
