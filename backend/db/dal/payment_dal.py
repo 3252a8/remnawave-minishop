@@ -57,6 +57,32 @@ def _sale_mode_base(value: Any) -> str:
     return str(value or "").split("@", 1)[0].split("|", 1)[0]
 
 
+async def _add_payment_success_log(session: AsyncSession, payment: Payment) -> None:
+    """Add the user-visible audit row for a newly successful payment."""
+
+    from . import message_log_dal
+
+    user_id = int(payment.user_id)
+    payment_id = int(payment.payment_id)
+    amount = str(payment.amount).strip()
+    currency = str(getattr(payment, "currency", "") or "").strip().upper()
+    provider = str(getattr(payment, "provider", "") or "").strip()
+    sale_mode = str(getattr(payment, "sale_mode", "") or "").strip()
+    await message_log_dal.create_message_log_no_commit(
+        session,
+        {
+            "user_id": user_id,
+            "event_type": "payment_succeeded",
+            "content": (
+                f"amount={amount} currency={currency} payment_id={payment_id} "
+                f"provider={provider} sale_mode={sale_mode}"
+            ),
+            "is_admin_event": False,
+            "target_user_id": user_id,
+        },
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class YooKassaReconciliationCandidate:
     payment_id: int
@@ -693,6 +719,12 @@ async def update_payment_status_by_db_id(
                     "the reconciler will retry it.",
                     payment_db_id,
                 )
+            if (
+                normalized_new_status == _PAYMENT_STATUS_SUCCEEDED
+                and previous_status != _PAYMENT_STATUS_SUCCEEDED
+                and _sale_mode_base(getattr(payment, "sale_mode", "")) != "balance_topup"
+            ):
+                await _add_payment_success_log(session, payment)
             is_reversal = normalized_new_status in {
                 "refunded",
                 "reversed",
