@@ -627,7 +627,6 @@
                       <strong>{premiumNextResetLabel(subscription)}</strong>
                     </div>
                     {#if premiumServerLabels(subscription).length}
-                      <small>{t("wa_premium_servers_scope_label", {}, "Limit applies to")}</small>
                       <div>
                         {#each premiumServerLabels(subscription).slice(0, 8) as label}
                           <span>{label}</span>

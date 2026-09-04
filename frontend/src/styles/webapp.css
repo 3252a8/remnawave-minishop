@@ -743,8 +743,10 @@ a {
 }
 
 .premium-server-list .traffic-reset-date-row {
-  display: grid;
-  gap: 2px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
 }
 
 .traffic-reset-date-row strong {
