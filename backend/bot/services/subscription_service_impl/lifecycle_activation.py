@@ -15,6 +15,7 @@ from bot.services.payment_promo import (
     load_payment_promo_effects,
 )
 from bot.services.subscription_order_terms import read_subscription_terms
+from bot.services.trial_days import paid_subscription_period_start
 from bot.utils.date_utils import add_months
 from config.subscription_periods import (
     add_period_days,
@@ -363,14 +364,13 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         # Billing providers, promo grants, and HWID renewals use the next paid
         # period boundary. Keep it separate from the immutable entitlement
         # history persisted as ``subscription.start_date``.
-        period_start_date = activation_at
-        if (
-            current_active_sub
-            and current_billing_model != "traffic"
-            and current_active_sub.end_date
-            and current_active_sub.end_date > period_start_date
-        ):
-            period_start_date = current_active_sub.end_date
+        period_start_date = paid_subscription_period_start(
+            activation_at,
+            current_active_sub,
+            current_billing_model,
+            current_active_is_trial,
+            checkout_grants.trial_days_strategy,
+        )
         if fixed_duration_days is not None:
             period_start_date = period_start_date.astimezone(UTC)
         subscription_start_date = entitlement_helpers.immutable_subscription_start(

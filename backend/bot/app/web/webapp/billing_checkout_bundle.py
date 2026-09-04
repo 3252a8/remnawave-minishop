@@ -9,6 +9,11 @@ from decimal import ROUND_HALF_UP, Decimal
 from itertools import pairwise
 from typing import Any
 
+from bot.services.trial_days import (
+    TRIAL_DAYS_ADD_REMAINING,
+    TrialDaysStrategy,
+    normalize_trial_days_strategy,
+)
 from config.tariff_checkout import serialize_checkout_addons
 from config.tariffs_config import default_currency_key_for_settings
 
@@ -58,6 +63,7 @@ class CheckoutPricingContext:
     regular_windows: tuple[CheckoutPricingWindow, ...] = ()
     premium_windows: tuple[CheckoutPricingWindow, ...] = ()
     complimentary_remaining_period: bool = False
+    trial_days_strategy: TrialDaysStrategy = TRIAL_DAYS_ADD_REMAINING
 
     @property
     def remaining_month_fraction(self) -> float:
@@ -430,7 +436,15 @@ def build_checkout_bundle(
         addon_amount += price
         addon_stars += stars_price
 
-    if not items:
+    trial_days_strategy = normalize_trial_days_strategy(
+        pricing_context.trial_days_strategy if pricing_context else None
+    )
+    persist_trial_days_strategy = bool(
+        pricing_context
+        and pricing_context.complimentary_remaining_period
+        and trial_days_strategy != TRIAL_DAYS_ADD_REMAINING
+    )
+    if not items and not persist_trial_days_strategy:
         return base_quote, CheckoutBundle()
     if bool(getattr(payment_payload, "renew_hwid_devices", False)) and any(
         item["kind"] == "devices" for item in items
@@ -454,6 +468,7 @@ def build_checkout_bundle(
         "addons_amount": round(addon_amount, 8),
         "addons_stars": addon_stars,
         "items": items,
+        "trial_days_strategy": trial_days_strategy,
         "active_context": {
             "subscription_id": pricing_context.active_subscription_id,
             "tariff_key": pricing_context.active_tariff_key,

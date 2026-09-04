@@ -1305,9 +1305,17 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]
             self.assertEqual(panel_payload["trafficLimitBytes"], 500 * GIB)
 
-    async def test_paid_activation_from_trial_preserves_days_and_applies_checkout_terms(self):
-        for expired in (False, True):
-            with self.subTest(expired=expired), tempfile.TemporaryDirectory() as tmpdir:
+    async def test_paid_activation_from_trial_applies_day_strategy_and_checkout_terms(self):
+        cases = (
+            (False, "add_remaining"),
+            (False, "start_from_payment"),
+            (True, "add_remaining"),
+        )
+        for expired, trial_days_strategy in cases:
+            with (
+                self.subTest(expired=expired, trial_days_strategy=trial_days_strategy),
+                tempfile.TemporaryDirectory() as tmpdir,
+            ):
                 payload = _tariffs_config_payload()
                 payload["tariffs"][0]["premium_squad_uuids"] = []
                 payload["tariffs"][0]["premium_monthly_gb"] = 0
@@ -1379,6 +1387,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                                 "addon_period_factor": 1,
                                 "base_subscription_amount": 150,
                                 "addons_amount": 40,
+                                "trial_days_strategy": trial_days_strategy,
                                 "items": [
                                     {
                                         "kind": "traffic",
@@ -1441,6 +1450,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                         create_flexible_limit,
                     ),
                 ):
+                    activation_started_at = datetime.now(UTC)
                     result = await service.activate_subscription(
                         session=AsyncMock(),
                         user_id=42,
@@ -1450,6 +1460,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                         provider="qa",
                         sale_mode="subscription@standard",
                     )
+                    activation_finished_at = datetime.now(UTC)
 
                 self.assertIsNotNone(result)
                 cleanup_kwargs = (
@@ -1491,9 +1502,20 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 else:
                     latest_panel_sub.assert_not_awaited()
                     assert result is not None
-                    self.assertEqual(result["end_date"], trial_sub.end_date + timedelta(days=30))
+                    if trial_days_strategy == "add_remaining":
+                        self.assertEqual(
+                            result["end_date"], trial_sub.end_date + timedelta(days=30)
+                        )
+                        self.assertEqual(create_flexible_limit.await_count, 2)
+                    else:
+                        self.assertGreaterEqual(
+                            result["end_date"], activation_started_at + timedelta(days=30)
+                        )
+                        self.assertLessEqual(
+                            result["end_date"], activation_finished_at + timedelta(days=30)
+                        )
+                        self.assertEqual(create_flexible_limit.await_count, 1)
                     self.assertEqual(panel_payload["trafficLimitBytes"], 150 * GIB)
-                    self.assertEqual(create_flexible_limit.await_count, 2)
 
     async def test_period_purchase_after_traffic_starts_now_and_carries_remaining_package(
         self,

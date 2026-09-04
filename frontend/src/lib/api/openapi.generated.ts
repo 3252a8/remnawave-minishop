@@ -7729,6 +7729,12 @@ export interface components {
        */
       traffic_gb: unknown;
       /**
+       * Trial Days Strategy
+       * @default add_remaining
+       * @enum {string}
+       */
+      trial_days_strategy: "add_remaining" | "start_from_payment";
+      /**
        * Use Partner Balance
        * @default false
        */
@@ -7822,6 +7828,12 @@ export interface components {
        */
       traffic_gb: unknown;
       /**
+       * Trial Days Strategy
+       * @default add_remaining
+       * @enum {string}
+       */
+      trial_days_strategy: "add_remaining" | "start_from_payment";
+      /**
        * Use Partner Balance
        * @default false
        */
@@ -7905,6 +7917,12 @@ export interface components {
        * @default null
        */
       traffic_gb: unknown;
+      /**
+       * Trial Days Strategy
+       * @default add_remaining
+       * @enum {string}
+       */
+      trial_days_strategy: "add_remaining" | "start_from_payment";
       /**
        * Use Partner Balance
        * @default false

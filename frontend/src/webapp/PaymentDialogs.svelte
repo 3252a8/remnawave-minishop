@@ -18,6 +18,7 @@
     VoidAction,
   } from "$lib/webapp/types.js";
   import type { CheckoutAddonPreset } from "$lib/webapp/deeplinks.js";
+  import type { TrialDaysStrategy } from "$lib/webapp/trialDays.js";
   import { loadPartnerBalanceSnapshot } from "$lib/webapp/partnerBalanceLookup.js";
 
   type DeviceToDisconnect = DeviceView & {
@@ -25,8 +26,10 @@
     index?: number | string | null;
   };
   type CheckoutPaymentOptions = {
+    balanceSource?: "user" | "partner" | null;
     usePartnerBalance?: boolean;
     checkoutAddons?: CheckoutAddonSelection;
+    trialDaysStrategy?: TrialDaysStrategy;
   };
   type BalancePaymentAction = (options?: CheckoutPaymentOptions) => unknown;
   type CheckoutPromoAction = (options?: Pick<CheckoutPaymentOptions, "checkoutAddons">) => unknown;

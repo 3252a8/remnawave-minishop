@@ -28,10 +28,12 @@ from bot.payment_providers.shared.entitlement_context import (
     build_entitlement_context_snapshot_from_values,
     snapshot_current_entitlement_context,
 )
+from bot.services.checkout_addons import checkout_addon_grants
 from bot.services.device_topup_availability import resolve_device_topup_availability
 from bot.services.partner_common import PartnerError
 from bot.services.subscription_order_terms import freeze_subscription_terms
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.trial_days import TRIAL_DAYS_START_FROM_PAYMENT
 from bot.services.user_balance_service import UserBalanceError
 from config.settings import Settings
 from config.subscription_periods import (
@@ -59,7 +61,7 @@ from .billing_checkout_bundle import (
     build_checkout_bundle,
     normalize_checkout_device_selection,
 )
-from .billing_common import _parse_positive_int_units
+from .billing_common import _parse_positive_int_units, _subscription_is_trial
 from .billing_partner_checkout import (
     allocate_checkout_balance,
     balance_checkout_context_fields,
@@ -538,6 +540,7 @@ async def _create_subscription_payment(
     checkout_bundle_hash: str | None = None,
 ) -> web.Response:
     settings: Settings = get_settings(request)
+    checkout_grants = checkout_addon_grants(checkout_bundle_snapshot)
     selected_balance_source = balance_source or ("partner" if use_partner_balance else None)
     payment_currency = (currency or default_payment_currency_code_for_settings(settings)).upper()
     sale_mode = str(sale_mode or "subscription")
@@ -581,7 +584,14 @@ async def _create_subscription_payment(
         if fixed_days is not None:
             try:
                 period_start = datetime.now(UTC)
-                if active_subscription is not None and active_subscription.end_date is not None:
+                if (
+                    active_subscription is not None
+                    and active_subscription.end_date is not None
+                    and not (
+                        _subscription_is_trial(active_subscription)
+                        and checkout_grants.trial_days_strategy == TRIAL_DAYS_START_FROM_PAYMENT
+                    )
+                ):
                     period_start = max(
                         period_start,
                         active_subscription.end_date.replace(tzinfo=UTC)
@@ -640,7 +650,7 @@ async def _create_subscription_payment(
                 "payment_unavailable",
                 "Payment method unavailable for this plan",
             )
-        if checkout_bundle_snapshot and not provider_spec.is_checkout_addon_supported(
+        if checkout_grants.has_addons and not provider_spec.is_checkout_addon_supported(
             settings,
             months,
             sale_mode,

@@ -310,6 +310,47 @@ class CheckoutAddonConfigTests(TestCase):
         self.assertTrue(grants.regular_immediate_applies)
         self.assertTrue(grants.premium_immediate_applies)
 
+    def test_trial_start_from_payment_is_frozen_without_addons(self) -> None:
+        config = _checkout_config()
+        payload = WebAppPaymentCreatePayload.model_validate(
+            {
+                "method": "yookassa",
+                "months": 1,
+                "tariff_key": "standard",
+                "sale_mode": "subscription",
+                "trial_days_strategy": "start_from_payment",
+            }
+        )
+        context = CheckoutPricingContext(
+            active_subscription_id=7,
+            active_tariff_key=None,
+            active_end_at=datetime.now(UTC) + timedelta(days=15),
+            complimentary_remaining_period=True,
+            trial_days_strategy=payload.trial_days_strategy,
+        )
+
+        quote, bundle = build_checkout_bundle(
+            BasePaymentQuote(
+                payment_units=1,
+                price=100,
+                stars_price=50,
+                sale_mode="subscription@standard",
+                traffic_gb_for_payment=None,
+                default_currency_code="RUB",
+            ),
+            settings=_settings(config),
+            payment_payload=payload,
+            method="yookassa",
+            pricing_context=context,
+        )
+
+        self.assertEqual(100, quote.price)
+        self.assertFalse(bundle.has_addons)
+        self.assertIsNotNone(bundle.snapshot)
+        grants = checkout_addon_grants(bundle.snapshot)
+        self.assertEqual("start_from_payment", grants.trial_days_strategy)
+        self.assertTrue(grants.active_context_present)
+
     def test_plain_base_limits_do_not_create_an_addon_bundle(self) -> None:
         config = _checkout_config()
         payload = WebAppPaymentCreatePayload.model_validate(

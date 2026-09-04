@@ -6,6 +6,7 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 
 from aiohttp import web
+from pydantic import ValidationError
 
 from bot.app.web.webapp import billing_payments
 from bot.app.web.webapp.billing_quotes import _resolve_checkout_pricing_context
@@ -259,7 +260,12 @@ class TrialCheckoutTests(IsolatedAsyncioTestCase):
         session.commit.assert_awaited_once()
         self.assertEqual(emit.await_count, 2)
 
-    async def _resolve(self, subscription: SimpleNamespace, sale_mode: str):
+    async def _resolve(
+        self,
+        subscription: SimpleNamespace,
+        sale_mode: str,
+        trial_days_strategy: str = "add_remaining",
+    ):
         with patch(
             "bot.app.web.webapp.billing_quotes.subscription_dal.get_active_subscription_by_user_id",
             AsyncMock(return_value=subscription),
@@ -268,7 +274,9 @@ class TrialCheckoutTests(IsolatedAsyncioTestCase):
                 session=AsyncMock(),
                 user_id=42,
                 db_user=SimpleNamespace(panel_user_uuid="panel-user"),
-                payment_payload=_payload(),
+                payment_payload=_payload().model_copy(
+                    update={"trial_days_strategy": trial_days_strategy}
+                ),
                 settings=_settings(),
                 sale_mode=sale_mode,
             )
@@ -294,6 +302,36 @@ class TrialCheckoutTests(IsolatedAsyncioTestCase):
                     self.assertEqual(context.active_subscription_id, 7)
                     self.assertEqual(context.active_end_at, end_date)
                     self.assertTrue(context.complimentary_remaining_period)
+
+    async def test_trial_checkout_keeps_selected_day_strategy(self) -> None:
+        context, error = await self._resolve(
+            SimpleNamespace(
+                subscription_id=7,
+                end_date=datetime(2026, 1, 5, tzinfo=UTC),
+                provider="trial",
+                status_from_panel="TRIAL",
+                tariff_key=None,
+            ),
+            "subscription@premium",
+            "start_from_payment",
+        )
+
+        self.assertIsNone(error)
+        assert context is not None
+        self.assertEqual(context.trial_days_strategy, "start_from_payment")
+
+    def test_trial_day_strategy_defaults_and_rejects_unknown_values(self) -> None:
+        self.assertEqual(_payload().trial_days_strategy, "add_remaining")
+        with self.assertRaises(ValidationError):
+            WebAppPaymentCreatePayload.model_validate(
+                {
+                    "method": "yookassa",
+                    "months": 1,
+                    "tariff_key": "standard",
+                    "sale_mode": "subscription",
+                    "trial_days_strategy": "unexpected",
+                }
+            )
 
     async def test_paid_subscription_keeps_cross_tariff_renewal_guard(self) -> None:
         context, error = await self._resolve(

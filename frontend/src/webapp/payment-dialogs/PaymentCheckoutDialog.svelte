@@ -10,6 +10,7 @@
   import CheckoutTariffPicker from "./CheckoutTariffPicker.svelte";
   import PendingPaymentCard from "./PendingPaymentCard.svelte";
   import TrialPaymentSummary from "./TrialPaymentSummary.svelte";
+  import { isActiveTrialSubscription, type TrialDaysStrategy } from "$lib/webapp/trialDays.js";
   import type {
     CheckoutPaymentOptions,
     PaymentCheckoutDialogProps,
@@ -256,8 +257,8 @@
     }
   }
 
-  function checkoutPaymentOptions(): CheckoutPaymentOptions {
-    return { balanceSource, checkoutAddons: checkoutAddonSelection };
+  function checkoutPaymentOptions(trialDaysStrategy?: TrialDaysStrategy): CheckoutPaymentOptions {
+    return { balanceSource, checkoutAddons: checkoutAddonSelection, trialDaysStrategy };
   }
 
   function checkoutQuotePlan(plan: PlanView | null): PlanView | null {
@@ -693,6 +694,7 @@
   <CheckoutPaymentControls
     {api}
     {paymentModalOpen}
+    activeTrial={isActiveTrialSubscription(subscription) && isSubscriptionPlan(selectedPlan)}
     partnerAmount={checkoutAmount(selectedPlan)}
     partnerCurrency={String(selectedPlan?.currency || "")}
     partnerEligible={partnerBalanceEligible()}
@@ -719,7 +721,7 @@
       checkoutQuoteBusy ||
       Boolean(checkoutQuoteError) ||
       (checkoutAddonsSelected() && checkoutAddonsUnavailableForMethod(selectedPlan))}
-    createPayment={() => createPayment(checkoutPaymentOptions())}
+    createPayment={(strategy) => createPayment(checkoutPaymentOptions(strategy))}
     partnerPrice={partnerCheckoutPriceParts(selectedPlan)}
     promoPrice={checkoutPromoPlanParts(selectedPlan)}
     {selectedPlan}

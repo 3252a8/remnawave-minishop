@@ -6,6 +6,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+from bot.services.trial_days import (
+    TRIAL_DAYS_ADD_REMAINING,
+    TrialDaysStrategy,
+    normalize_trial_days_strategy,
+)
+
 
 @dataclass(frozen=True)
 class CheckoutAddonGrants:
@@ -29,6 +35,7 @@ class CheckoutAddonGrants:
     active_context_present: bool = False
     active_subscription_id: int | None = None
     active_end_at: datetime | None = None
+    trial_days_strategy: TrialDaysStrategy = TRIAL_DAYS_ADD_REMAINING
 
     @property
     def has_addons(self) -> bool:
@@ -174,4 +181,5 @@ def checkout_addon_grants(value: str | None) -> CheckoutAddonGrants:
         active_context_present=active_context_present,
         active_subscription_id=active_subscription_id,
         active_end_at=active_end_at,
+        trial_days_strategy=normalize_trial_days_strategy(snapshot.get("trial_days_strategy")),
     )
