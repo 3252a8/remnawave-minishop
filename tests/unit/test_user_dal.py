@@ -241,6 +241,8 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             delete_tables.index("support_tickets"),
         )
         self.assertIn("support_ticket_messages", update_tables)
+        self.assertEqual(update_tables.count("message_logs"), 2)
+        self.assertNotIn("message_logs", delete_tables)
         self.assertIn("email_verification_codes", delete_tables)
         self.assertIn("legacy_referral_codes", delete_tables)
         self.assertIn("legacy_import_mappings", delete_tables)

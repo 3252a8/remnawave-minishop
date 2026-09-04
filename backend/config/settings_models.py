@@ -247,7 +247,7 @@ class PartnerSettings(BaseModel):
     list_page_limit: int = Field(default=50, ge=10, le=200)
     application_rate_limit_hours: int = Field(default=24, ge=1, le=8760)
     withdrawal_rate_limit_seconds: int = Field(default=10, ge=1, le=3600)
-    audit_retention_days: int = Field(default=1095, ge=30, le=3650)
+    audit_retention_days: int = Field(default=0, ge=0, le=3650)
     requisites_retention_days: int = Field(default=90, ge=1, le=3650)
 
     @field_validator("eligible_currencies")

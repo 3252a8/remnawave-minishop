@@ -241,7 +241,7 @@ PARTNER_SETTINGS_FIELDS: tuple[SettingField, ...] = (
         "int",
         "pricing",
         "Partner audit retention (days)",
-        min=30,
+        min=0,
         max=3650,
         subsection="partner",
     ),

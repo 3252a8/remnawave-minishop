@@ -893,10 +893,14 @@ async def delete_user_and_relations(session: AsyncSession, user_id: int) -> bool
     await session.execute(
         delete(EmailVerificationCode).where(EmailVerificationCode.target_user_id == user_id)
     )
+    # Keep the append-only audit trail when an account is removed.  The user
+    # foreign keys are nullable specifically so historical events can survive
+    # without blocking deletion of the personally identifiable user row.
     await session.execute(
-        delete(MessageLog).where(
-            or_(MessageLog.user_id == user_id, MessageLog.target_user_id == user_id)
-        )
+        update(MessageLog).where(MessageLog.user_id == user_id).values(user_id=None)
+    )
+    await session.execute(
+        update(MessageLog).where(MessageLog.target_user_id == user_id).values(target_user_id=None)
     )
     await session.execute(
         delete(PromoCodeActivation).where(

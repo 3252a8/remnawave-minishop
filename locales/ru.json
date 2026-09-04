@@ -3985,7 +3985,7 @@
   "admin_partner_settings_list_limit": "Строк на один запрос списка",
   "admin_partner_settings_application_rate": "Лимит частоты заявок, часов",
   "admin_partner_settings_withdrawal_rate": "Лимит частоты выводов, секунд",
-  "admin_partner_settings_audit_retention": "Хранение аудита, дней",
+  "admin_partner_settings_audit_retention": "Хранение аудита, дней (0 — бессрочно)",
   "admin_partner_settings_requisites_retention": "Хранение реквизитов, дней",
   "admin_partner_settings_save": "Сохранить настройки",
   "admin_partner_settings_saved": "Настройки партнёрской программы сохранены в прототипе",

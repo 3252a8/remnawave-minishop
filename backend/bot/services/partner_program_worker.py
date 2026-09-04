@@ -88,10 +88,14 @@ class PartnerProgramWorker:
             recovered = await self._recover_stale_internal_spends(session, service)
             recovered += await self._recover_stale_checkout_spends(session)
             recovered += await self._release_terminal_checkout_spends(session)
+            audit_retention_days = self.settings.partner_settings.audit_retention_days
             purged = await partner_dal.purge_expired_partner_data(
                 session,
-                audit_before=datetime.now(UTC)
-                - timedelta(days=self.settings.partner_settings.audit_retention_days),
+                audit_before=(
+                    datetime.now(UTC) - timedelta(days=audit_retention_days)
+                    if audit_retention_days > 0
+                    else None
+                ),
                 requisites_before=datetime.now(UTC)
                 - timedelta(days=self.settings.partner_settings.requisites_retention_days),
             )

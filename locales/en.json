@@ -3985,7 +3985,7 @@
   "admin_partner_settings_list_limit": "Rows per list request",
   "admin_partner_settings_application_rate": "Application rate limit (hours)",
   "admin_partner_settings_withdrawal_rate": "Withdrawal rate limit (seconds)",
-  "admin_partner_settings_audit_retention": "Audit retention (days)",
+  "admin_partner_settings_audit_retention": "Audit retention (days, 0 = forever)",
   "admin_partner_settings_requisites_retention": "Requisites retention (days)",
   "admin_partner_settings_save": "Save partner settings",
   "admin_partner_settings_saved": "Partner program settings saved in the prototype",

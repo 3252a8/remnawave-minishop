@@ -425,7 +425,7 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     PARTNER_LIST_PAGE_LIMIT: int = Field(default=50, ge=10, le=200)
     PARTNER_APPLICATION_RATE_LIMIT_HOURS: int = Field(default=24, ge=1, le=8760)
     PARTNER_WITHDRAWAL_RATE_LIMIT_SECONDS: int = Field(default=10, ge=1, le=3600)
-    PARTNER_AUDIT_RETENTION_DAYS: int = Field(default=1095, ge=30, le=3650)
+    PARTNER_AUDIT_RETENTION_DAYS: int = Field(default=0, ge=0, le=3650)
     PARTNER_REQUISITES_RETENTION_DAYS: int = Field(default=90, ge=1, le=3650)
     PARTNER_REQUISITES_ENCRYPTION_KEY: SecretStr | None = Field(
         default=None,

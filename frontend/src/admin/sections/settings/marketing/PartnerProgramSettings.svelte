@@ -97,7 +97,7 @@
     listPageLimit: settingNumber("PARTNER_LIST_PAGE_LIMIT", 50),
     applicationRateLimitHours: settingNumber("PARTNER_APPLICATION_RATE_LIMIT_HOURS", 24),
     withdrawalRateLimitSeconds: settingNumber("PARTNER_WITHDRAWAL_RATE_LIMIT_SECONDS", 10),
-    auditRetentionDays: settingNumber("PARTNER_AUDIT_RETENTION_DAYS", 1095),
+    auditRetentionDays: settingNumber("PARTNER_AUDIT_RETENTION_DAYS", 0),
     requisitesRetentionDays: settingNumber("PARTNER_REQUISITES_RETENTION_DAYS", 90),
     eligibleCurrencies: settingArray("PARTNER_ELIGIBLE_CURRENCIES", ["RUB"]).map(String),
     excludedSaleModes: settingArray("PARTNER_EXCLUDED_SALE_MODES", []).map(String),
@@ -530,14 +530,14 @@
         <Input
           class="input"
           type="number"
-          min="30"
+          min="0"
           max="3650"
           value={config.auditRetentionDays}
           oninput={(event) => (config.auditRetentionDays = Number(event.currentTarget.value))}
         />
       {/snippet}
       {@render settingRow(
-        at("partner_settings_audit_retention", {}, "Audit retention (days)"),
+        at("partner_settings_audit_retention", {}, "Audit retention (days, 0 = forever)"),
         "PARTNER_AUDIT_RETENTION_DAYS",
         auditRetentionControl
       )}

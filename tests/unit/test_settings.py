@@ -748,6 +748,17 @@ class SettingsTests(unittest.TestCase):
 
         self.assertFalse(settings.SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED)
 
+    def test_partner_audit_retention_defaults_to_forever(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+        )
+
+        self.assertEqual(settings.PARTNER_AUDIT_RETENTION_DAYS, 0)
+        self.assertEqual(settings.partner_settings.audit_retention_days, 0)
+
     def test_backup_defaults_are_safe_and_blank_targets_use_log_fallback(self):
         settings = Settings(
             _env_file=None,

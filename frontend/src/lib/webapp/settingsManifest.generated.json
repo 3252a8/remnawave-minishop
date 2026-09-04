@@ -14274,7 +14274,7 @@
         "placeholder": "",
         "optional": true,
         "secret": false,
-        "min": 30,
+        "min": 0,
         "max": 3650,
         "value": "",
         "overridden": false,
