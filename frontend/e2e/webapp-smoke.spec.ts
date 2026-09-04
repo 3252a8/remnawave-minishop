@@ -395,6 +395,51 @@ async function swipeUp(page: Page, target: Locator, phase: string): Promise<void
   }
 }
 
+async function assertCompactReadableTicketBubbles(
+  page: Page,
+  scope: Locator,
+  label: string
+): Promise<void> {
+  const bubbles = scope.locator(
+    ".ticket-message-row--admin .ticket-message-bubble, .ticket-message-row--user .ticket-message-bubble"
+  );
+  await expect(scope.locator(".ticket-message-row--admin").first()).toBeVisible();
+  await expect(scope.locator(".ticket-message-row--user").first()).toBeVisible();
+  await expect(bubbles.first()).toBeVisible();
+  const expectedTextColor = await page
+    .locator("body")
+    .evaluate((element) => getComputedStyle(element).color);
+  const paint = await bubbles.evaluateAll((elements) =>
+    elements.map((element) => {
+      const bubbleStyle = getComputedStyle(element);
+      const paragraph = element.querySelector(".ticket-message-text p");
+      return {
+        color: paragraph ? getComputedStyle(paragraph).color : "",
+        paddingBottom: Number.parseFloat(bubbleStyle.paddingBottom),
+        paddingTop: Number.parseFloat(bubbleStyle.paddingTop),
+      };
+    })
+  );
+
+  expect(paint.length, `${label}-support: conversation bubbles must be rendered`).toBeGreaterThan(
+    1
+  );
+  for (const [index, bubble] of paint.entries()) {
+    expect(
+      bubble.color,
+      `${label}-support: bubble ${index + 1} text must use the theme foreground`
+    ).toBe(expectedTextColor);
+    expect(
+      bubble.paddingTop,
+      `${label}-support: bubble ${index + 1} top padding`
+    ).toBeLessThanOrEqual(7);
+    expect(
+      bubble.paddingBottom,
+      `${label}-support: bubble ${index + 1} bottom padding`
+    ).toBeLessThanOrEqual(7);
+  }
+}
+
 async function assertUserTicketScrolling(page: Page, nav: Locator): Promise<void> {
   await page.setViewportSize(DESKTOP_VIEWPORT);
   await nav.getByRole("button", { name: "Поддержка", exact: true }).click();
@@ -405,6 +450,7 @@ async function assertUserTicketScrolling(page: Page, nav: Locator): Promise<void
   );
   const composer = page.locator(".support-ticket-screen .ticket-composer");
   await expect(composer).toBeVisible();
+  await assertCompactReadableTicketBubbles(page, page.locator(".support-ticket-screen"), "webapp");
   const uploadButton = composer.locator(".message-image-dropzone");
   const sendButton = composer.locator(".ticket-composer-send");
   await expect(uploadButton).toContainText("Загрузить файл");
@@ -499,6 +545,7 @@ async function assertAdminTicketScrolling(page: Page, supportDialog: Locator): P
   const messageScroll = supportDialog.locator(".support-admin-message-scroll");
   const messageViewport = messageScroll.locator(":scope > .scroll-area__viewport");
   const composer = supportDialog.locator(".support-admin-composer");
+  await assertCompactReadableTicketBubbles(page, supportDialog, "admin");
   const ticketHeader = supportDialog.locator(".support-ticket-header");
   const composerSurface = composer.locator(".rt-surface");
   const composerCounter = composer.locator(".support-admin-composer-counter");
@@ -931,9 +978,11 @@ async function exerciseActivationSuccessHandoff(
   await expect(page.locator(".dialog-card:visible")).toHaveCount(0);
 }
 
-test("support ticket conversations scroll on desktop and mobile", async ({ page }) => {
+test("support ticket conversations stay readable and scroll on desktop and mobile", async ({
+  page,
+}) => {
   await page.setViewportSize(DESKTOP_VIEWPORT);
-  await page.goto(APP_URL);
+  await page.goto(`${APP_URL}?theme_preview=light`);
   const nav = page.locator("nav.bottom-nav");
   await expect(nav).toBeVisible();
 

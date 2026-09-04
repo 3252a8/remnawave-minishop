@@ -1338,13 +1338,13 @@
 .ticket-message-row--admin {
   --ticket-bubble-bg: color-mix(in srgb, var(--info) 14%, var(--panel-2));
   --ticket-bubble-border: color-mix(in srgb, var(--info) 32%, var(--border));
-  --ticket-bubble-text: #eaf3ff;
+  --ticket-bubble-text: var(--text);
 }
 
 .ticket-message-row--user {
   --ticket-bubble-bg: color-mix(in srgb, var(--accent) 18%, var(--panel-2));
   --ticket-bubble-border: color-mix(in srgb, var(--accent) 38%, var(--border));
-  --ticket-bubble-text: #f4fff9;
+  --ticket-bubble-text: var(--text);
 }
 
 .ticket-message-row--system {
@@ -1418,7 +1418,7 @@
   border: 1px solid var(--ticket-bubble-border, var(--border));
   border-radius: 14px 14px 14px 4px;
   background: var(--ticket-bubble-bg, color-mix(in srgb, var(--panel-2) 92%, transparent));
-  padding: 10px 13px;
+  padding: 7px 11px;
   white-space: pre-wrap;
 }
 
