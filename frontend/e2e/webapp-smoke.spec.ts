@@ -733,7 +733,7 @@ async function openUserDetailFromCurrentSection(
   page: Page,
   setPhase: (value: string) => void,
   phasePrefix: string,
-  options: { checkMobileTariffTapThrough?: boolean } = {}
+  options: { checkBalanceTileSelection?: boolean; checkMobileTariffTapThrough?: boolean } = {}
 ): Promise<void> {
   const userDialog = page.locator(".dialog-card.admin-user-dialog");
   setPhase(`${phasePrefix}:user-card`);
@@ -773,6 +773,23 @@ async function openUserDetailFromCurrentSection(
   const actionsPanel = userDialog.locator(".admin-actions-tab");
   await expect(actionsPanel).toBeVisible();
   await assertFormFieldsNamed(page, `${phasePrefix}:user-actions`);
+
+  if (options.checkBalanceTileSelection) {
+    setPhase(`${phasePrefix}:balance-tile-selection`);
+    const balanceCard = actionsPanel.locator(".admin-user-action-sheet--balance");
+    const mainBalanceTile = balanceCard.locator(".balance-summary-tile").nth(0);
+    const partnerBalanceTile = balanceCard.locator(".balance-summary-tile").nth(1);
+    const targetTrigger = balanceCard.locator(".balance-target-field .admin-select-trigger");
+    await expect(mainBalanceTile).toHaveAttribute("aria-pressed", "true");
+    await expect(partnerBalanceTile).toBeEnabled();
+    await partnerBalanceTile.click();
+    await expect(partnerBalanceTile).toHaveAttribute("aria-pressed", "true");
+    await expect(mainBalanceTile).toHaveAttribute("aria-pressed", "false");
+    await expect(targetTrigger).toContainText("Партнёрский баланс");
+    await mainBalanceTile.click();
+    await expect(mainBalanceTile).toHaveAttribute("aria-pressed", "true");
+    await expect(targetTrigger).toContainText("Основной баланс");
+  }
 
   if (options.checkMobileTariffTapThrough) {
     setPhase(`${phasePrefix}:mobile-extend-tariff-select`);
@@ -2322,6 +2339,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   setPhase("admin-users:row-card");
   await page.locator("tr[data-user-id]").first().click();
   await openUserDetailFromCurrentSection(page, setPhase, "admin-users", {
+    checkBalanceTileSelection: true,
     checkMobileTariffTapThrough: true,
   });
   await page.setViewportSize(DESKTOP_VIEWPORT);

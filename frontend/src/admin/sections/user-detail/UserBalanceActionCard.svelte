@@ -293,9 +293,13 @@
         <strong>{at("user_balance_balances_title", {}, "Balances")}</strong>
       </div>
       <div class="balance-summary-grid">
-        <div
+        <button
+          type="button"
           class="balance-summary-tile balance-summary-tile--primary"
           class:is-selected={adjustmentTarget === "user" && adjustmentTargetAvailable}
+          aria-pressed={adjustmentTarget === "user" && adjustmentTargetAvailable}
+          disabled={userActionBusy || !userBalanceAdjustable}
+          onclick={() => selectAdjustmentTarget("user")}
         >
           <span>{at("user_balance_main_source", {}, "Main balance")}</span>
           <strong
@@ -309,10 +313,14 @@
               ? at("user_balance_enabled", {}, "Enabled")
               : at("user_balance_disabled", {}, "Disabled for users")}
           </AdminBadge>
-        </div>
-        <div
+        </button>
+        <button
+          type="button"
           class="balance-summary-tile"
           class:is-selected={adjustmentTarget === "partner" && adjustmentTargetAvailable}
+          aria-pressed={adjustmentTarget === "partner" && adjustmentTargetAvailable}
+          disabled={userActionBusy || !partnerAdjustable}
+          onclick={() => selectAdjustmentTarget("partner")}
         >
           <span>{at("user_balance_partner_source", {}, "Partner balance")}</span>
           <strong>{formatMoney(partnerSource?.amount_minor, partnerSource?.currency)}</strong>
@@ -324,7 +332,7 @@
               "Withdrawable rules are preserved"
             )}</small
           >
-        </div>
+        </button>
       </div>
     </div>
 
@@ -538,6 +546,21 @@
     display: grid;
     gap: 12px;
   }
+  .balance-card-body {
+    container-name: balance-card;
+    container-type: inline-size;
+  }
+  .admin-user-action-sheet--balance :global(.admin-dashboard-section-head) {
+    display: grid;
+    align-items: start;
+    justify-content: stretch;
+    gap: 4px;
+  }
+  .admin-user-action-sheet--balance :global(.admin-dashboard-section-head small) {
+    min-width: 0;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
   .balance-summary-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -553,14 +576,32 @@
     background: color-mix(in srgb, var(--admin-surface-2) 88%, var(--admin-surface-1));
   }
   .balance-summary-tile {
+    width: 100%;
+    appearance: none;
     background: color-mix(in srgb, var(--admin-surface-1) 82%, transparent);
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
     transition:
       border-color 0.16s ease,
-      box-shadow 0.16s ease;
+      background-color 0.16s ease;
+  }
+  .balance-summary-tile:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--accent) 32%, var(--admin-border));
+    background: color-mix(in srgb, var(--accent) 4%, var(--admin-surface-1));
+  }
+  .balance-summary-tile:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--admin-ring);
+  }
+  .balance-summary-tile:disabled {
+    cursor: not-allowed;
+    opacity: 0.62;
   }
   .balance-summary-tile.is-selected {
     border-color: color-mix(in srgb, var(--accent) 48%, var(--admin-border));
-    box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 78%, transparent);
+    background: color-mix(in srgb, var(--accent) 7%, var(--admin-surface-1));
   }
   .balance-block-heading,
   .balance-history-title {
@@ -576,9 +617,11 @@
     font-size: 13px;
   }
   .balance-block-heading > small {
+    min-width: 0;
     color: var(--admin-muted);
     font-size: 11px;
     text-align: right;
+    overflow-wrap: anywhere;
   }
   .balance-summary-tile {
     display: flex;
@@ -600,18 +643,22 @@
   }
   .balance-control-row {
     display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: end;
-    gap: 10px;
+    gap: 12px;
+    min-width: 0;
   }
-  .balance-control-row--adjustment {
-    grid-template-columns:
-      minmax(150px, 0.9fr) minmax(150px, 0.95fr) minmax(120px, 0.75fr)
-      minmax(190px, 1.35fr) minmax(150px, auto);
+  .balance-control-row--adjustment :global(.balance-operation-submit) {
+    grid-column: 2;
   }
-  .balance-control-row--conversion {
-    grid-template-columns:
-      minmax(190px, 1fr) minmax(120px, 0.72fr) minmax(220px, 1.35fr)
-      minmax(140px, auto);
+  .balance-control-row :global(.admin-field-label) {
+    align-self: stretch;
+  }
+  .admin-user-action-sheet--balance .balance-control-row :global(.admin-select-trigger),
+  .admin-user-action-sheet--balance .balance-control-row :global(.input),
+  .admin-user-action-sheet--balance .balance-control-row :global(.balance-operation-submit) {
+    height: 36px;
+    min-height: 36px;
   }
   .balance-control-row :global(.balance-operation-submit) {
     width: 100%;
@@ -710,20 +757,14 @@
   .balance-history-empty {
     margin: 0;
   }
-  @media (max-width: 1080px) {
-    .balance-control-row--adjustment,
-    .balance-control-row--conversion {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .balance-control-row :global(.balance-operation-submit) {
-      min-height: 36px;
-    }
-  }
-  @media (max-width: 640px) {
+  @container balance-card (max-width: 560px) {
     .balance-summary-grid,
     .balance-control-row--adjustment,
     .balance-control-row--conversion {
       grid-template-columns: minmax(0, 1fr);
+    }
+    .balance-control-row--adjustment :global(.balance-operation-submit) {
+      grid-column: auto;
     }
     .balance-block-heading {
       align-items: flex-start;
