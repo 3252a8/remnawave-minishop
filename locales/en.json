@@ -532,6 +532,7 @@
   "partner_withdrawal_failed_notification": "⚠️ <b>Withdrawal request #{withdrawal_id} could not be completed</b>\n\nThe {amount} {currency} remains reserved while the administrator retries or declines the request.",
   "partner_withdrawal_canceled_notification": "↩️ <b>Withdrawal request #{withdrawal_id} was canceled</b>\n\nThe reserved {amount} {currency} was returned to your partner balance.",
   "account_merge_duplicate_promo_conflict": "These accounts cannot be merged because the same one-time promo code was already used on both.",
+  "account_merge_recurring_cancel_failed": "The secondary account's recurring payment could not be cancelled. No accounts were changed; try again later or cancel it manually before merging.",
   "account_merge_conflict": "The accounts could not be merged because their data conflicts. Your current account was kept; contact an administrator.",
   "account_merge_google_conflict": "Both accounts are linked to different Google profiles. Add a backup sign-in method, unlink Google from the account you do not want to keep, and try again.",
   "account_merge_yandex_conflict": "Both accounts are linked to different Yandex ID profiles. Add a backup sign-in method, unlink Yandex ID from the account you do not want to keep, and try again.",

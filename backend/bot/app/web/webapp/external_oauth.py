@@ -36,7 +36,11 @@ from db.dal import user_dal, user_email_dal
 from db.dal.user_dal import UserMergeConflictError
 from db.models import UserExternalIdentity
 
-from .auth import _sync_panel_identity_for_user
+from .auth import (
+    _merge_users_for_web,
+    _sync_merged_panel_identity_for_user,
+    _sync_panel_identity_for_user,
+)
 from .auth_common import (
     _build_webapp_auth_response,
     _public_webapp_base_url,
@@ -465,6 +469,7 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
     created_user = False
     identity_was_linked = False
     merged_source_user_ids: list[int] = []
+    merged_source_panel_uuids: list[str] = []
     registration_event: UserRegisteredPayload | None = None
     identity_link_event: AccountExternalIdentityLinkedPayload | None = None
     async with async_session_factory() as session:
@@ -507,13 +512,24 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
                     if all(source_id != identity_owner_id for source_id, _ in merge_sources):
                         merge_sources.append((identity_owner_id, f"{key}_oauth_link"))
                 for source_user_id, reason in merge_sources:
-                    await user_dal.merge_users(
+                    source_user = await user_dal.get_user_by_id(session, source_user_id)
+                    source_panel_uuid = (
+                        str(getattr(source_user, "panel_user_uuid", ""))
+                        if source_user and getattr(source_user, "panel_user_uuid", None)
+                        else None
+                    )
+                    merged_user = await _merge_users_for_web(
+                        request,
                         session,
                         source_user_id=source_user_id,
                         target_user_id=requested_user_id,
                         reason=reason,
                         send_user_email=True,
                     )
+                    if source_panel_uuid and source_panel_uuid != str(
+                        merged_user.panel_user_uuid or ""
+                    ):
+                        merged_source_panel_uuids.append(source_panel_uuid)
                     merged_source_user_ids.append(source_user_id)
                 if email_owner and int(email_owner.user_id) != requested_user_id:
                     email_owner = await user_dal.get_user_by_id(session, requested_user_id)
@@ -658,7 +674,8 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
                         user,
                         referral,
                     )
-            await _sync_panel_identity_for_user(request, user)
+            if not merged_source_user_ids:
+                await _sync_panel_identity_for_user(request, user)
             if created_user:
                 registration_event = UserRegisteredPayload(
                     user_id=int(user.user_id),
@@ -681,6 +698,22 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
                     first_name=getattr(user, "first_name", None),
                 )
             await session.commit()
+            if merged_source_user_ids:
+                panel_uuids_to_remove: list[str | None] = list(
+                    dict.fromkeys(merged_source_panel_uuids)
+                ) or [None]
+                for source_panel_uuid in panel_uuids_to_remove:
+                    await _sync_merged_panel_identity_for_user(
+                        request,
+                        user,
+                        source_panel_uuid=source_panel_uuid,
+                        final_panel_uuid=(
+                            str(getattr(user, "panel_user_uuid", ""))
+                            if getattr(user, "panel_user_uuid", None)
+                            else None
+                        ),
+                        session=session,
+                    )
         except UserMergeConflictError as exc:
             await session.rollback()
             logger.info("External OAuth account merge was rejected for %s", key)

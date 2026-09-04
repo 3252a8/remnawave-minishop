@@ -9,9 +9,9 @@ compatibility).
 """
 
 import logging
-from datetime import UTC, datetime, timedelta
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from typing import Any
-from typing import cast as type_cast
 
 from sqlalchemy import String, and_, case, cast, delete, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -54,9 +54,23 @@ from ..partner_models import (
     PartnerProfile,
     PartnerWithdrawal,
 )
+from .user_merge_entitlements import (
+    _merged_subscription_end as _merged_subscription_end,
+)
+from .user_merge_entitlements import (
+    inspect_recurring_merge,
+    merge_active_subscription_entitlements,
+    merge_user_billing_state,
+    transfer_entitlement_ownership,
+)
 from .user_reads_dal import get_user_by_id
 
 logger = logging.getLogger(__name__)
+
+RecurringCancellation = Callable[
+    [AsyncSession, int, Subscription | None, tuple[str, ...]],
+    Awaitable[bool],
+]
 
 
 class UserMergeConflictError(ValueError):
@@ -166,49 +180,6 @@ async def _accounts_share_promo_activation(
     return result.scalar_one_or_none() is not None
 
 
-def _is_free_grant_subscription(subscription: Subscription) -> bool:
-    status = str(getattr(subscription, "status_from_panel", "") or "").strip().upper()
-    if status in {"TRIAL", "ACTIVE_BONUS", "ACTIVE_MERGED_FREE_GRANT"}:
-        return True
-    provider = str(getattr(subscription, "provider", "") or "").strip().lower()
-    try:
-        duration_months = int(getattr(subscription, "duration_months", 0) or 0)
-    except (TypeError, ValueError):
-        duration_months = 0
-    return (
-        provider in {"", "trial"}
-        and duration_months <= 0
-        and not getattr(subscription, "duration_days", None)
-    )
-
-
-def _merged_subscription_end(
-    source_subscription: Subscription,
-    target_subscription: Subscription,
-    *,
-    now: datetime,
-) -> tuple[datetime, str]:
-    source_end = type_cast(datetime, source_subscription.end_date)
-    if source_end.tzinfo is None:
-        source_end = source_end.replace(tzinfo=UTC)
-
-    target_end = type_cast(datetime, target_subscription.end_date)
-    if target_end.tzinfo is None:
-        target_end = target_end.replace(tzinfo=UTC)
-
-    if _is_free_grant_subscription(source_subscription) or _is_free_grant_subscription(
-        target_subscription
-    ):
-        # Merging identities must not add a separately claimed free trial or
-        # bonus on top of either another grant or paid time.  Keeping the later
-        # expiry preserves the best existing entitlement without stacking it.
-        return max(source_end, target_end), "ACTIVE_MERGED_FREE_GRANT"
-
-    source_remaining = max(timedelta(0), source_end - now)
-    base_end = target_end if target_end > now else now
-    return base_end + source_remaining, "ACTIVE_EXTENDED_BY_MERGE"
-
-
 async def merge_users(
     session: AsyncSession,
     *,
@@ -216,6 +187,7 @@ async def merge_users(
     target_user_id: int,
     reason: str = "unknown",
     send_user_email: bool = False,
+    cancel_source_recurring: RecurringCancellation | None = None,
 ) -> User:
     """Merge source user data into target user and remove the source row."""
 
@@ -351,9 +323,13 @@ async def merge_users(
     source_active_sub = await _get_active_subscription_for_user(
         session, source_user_id, source_panel_uuid
     )
+    if not source_active_sub and source_panel_uuid:
+        source_active_sub = await _get_active_subscription_for_user(session, source_user_id)
     target_active_sub = await _get_active_subscription_for_user(
         session, target_user_id, target_panel_uuid
     )
+    if not target_active_sub and target_panel_uuid:
+        target_active_sub = await _get_active_subscription_for_user(session, target_user_id)
     target_anchor_sub = target_active_sub
     if not target_anchor_sub and target_panel_uuid:
         target_anchor_sub = await _get_latest_subscription_for_user(
@@ -361,33 +337,60 @@ async def merge_users(
         )
     if not target_anchor_sub and not target_panel_uuid:
         target_anchor_sub = await _get_latest_subscription_for_user(session, target_user_id)
+    if not target_anchor_sub:
+        target_anchor_sub = await _get_latest_subscription_for_user(session, target_user_id)
+
+    recurring_state = await inspect_recurring_merge(
+        session,
+        source_user_id=source_user_id,
+        target_user_id=target_user_id,
+        source_subscription=source_active_sub,
+        target_subscription=target_active_sub,
+        now=now,
+    )
+    if recurring_state.source_has_recurring and recurring_state.target_has_recurring:
+        cancelled = bool(
+            cancel_source_recurring
+            and await cancel_source_recurring(
+                session,
+                source_user_id,
+                source_active_sub,
+                recurring_state.source_managed_providers,
+            )
+        )
+        if not cancelled:
+            raise UserMergeConflictError(
+                "The secondary account recurring payment could not be cancelled safely.",
+                message_key="account_merge_recurring_cancel_failed",
+                code="account_merge_conflict",
+            )
+        recurring_state = type(recurring_state)(
+            source_has_recurring=False,
+            target_has_recurring=True,
+            source_managed_providers=(),
+        )
+
+    from db.dal import auto_renew_dal
+
+    await auto_renew_dal.stop_open_cycles_for_user(
+        session,
+        source_user_id,
+        "account_merged",
+    )
 
     if (
         source_active_sub
         and target_anchor_sub
-        and source_panel_uuid
-        and target_panel_uuid
-        and source_panel_uuid != target_panel_uuid
+        and int(source_active_sub.subscription_id) != int(target_anchor_sub.subscription_id)
     ):
-        source_end = source_active_sub.end_date
-        if source_end.tzinfo is None:
-            source_end = source_end.replace(tzinfo=UTC)
-
-        if source_end > now:
-            merged_end, merged_status = _merged_subscription_end(
-                source_active_sub,
-                target_anchor_sub,
-                now=now,
-            )
-            target_anchor_sub.end_date = merged_end
-            target_anchor_sub.last_notification_sent = None
-            target_anchor_sub.is_active = True
-            target_anchor_sub.status_from_panel = merged_status
-
-        source_active_sub.is_active = False
-        source_active_sub.skip_notifications = True
-        source_active_sub.last_notification_sent = None
-        source_active_sub.status_from_panel = "MERGED_INTO_ACCOUNT"
+        await merge_active_subscription_entitlements(
+            session,
+            source_active_sub,
+            target_anchor_sub,
+            now=now,
+            source_has_recurring=recurring_state.source_has_recurring,
+            target_has_recurring=recurring_state.target_has_recurring,
+        )
     elif (
         source_active_sub
         and target_panel_uuid
@@ -523,29 +526,13 @@ async def merge_users(
         if target.referred_by_id == target_user_id:
             target.referred_by_id = None
 
-    target_method_ids = select(UserPaymentMethod.provider_payment_method_id).where(
-        UserPaymentMethod.user_id == target_user_id
+    await merge_user_billing_state(
+        session,
+        source_user_id=source_user_id,
+        target_user_id=target_user_id,
+        source_subscription=source_active_sub,
+        recurring_state=recurring_state,
     )
-    await session.execute(
-        delete(UserPaymentMethod).where(
-            UserPaymentMethod.user_id == source_user_id,
-            UserPaymentMethod.provider_payment_method_id.in_(target_method_ids),
-        )
-    )
-
-    target_has_billing = (
-        await session.execute(
-            select(UserBilling.user_id).where(UserBilling.user_id == target_user_id)
-        )
-    ).scalar_one_or_none()
-    if target_has_billing:
-        await session.execute(delete(UserBilling).where(UserBilling.user_id == source_user_id))
-    else:
-        await session.execute(
-            update(UserBilling)
-            .where(UserBilling.user_id == source_user_id)
-            .values(user_id=target_user_id)
-        )
 
     target_has_attribution = (
         await session.execute(
@@ -585,7 +572,7 @@ async def merge_users(
         .where(Subscription.user_id == source_user_id)
         .values(**subscription_update_values)
     )
-    for model in (Payment, PromoCodeActivation, UserPaymentMethod):
+    for model in (Payment, PromoCodeActivation):
         await session.execute(
             update(model).where(model.user_id == source_user_id).values(user_id=target_user_id)
         )
@@ -617,6 +604,13 @@ async def merge_users(
         update(User)
         .where(User.referred_by_id == source_user_id)
         .values(referred_by_id=target_user_id)
+    )
+
+    await transfer_entitlement_ownership(
+        session,
+        source_user_id=source_user_id,
+        target_user_id=target_user_id,
+        panel_user_uuid=panel_uuid_to_keep,
     )
 
     await session.execute(

@@ -51,6 +51,7 @@ from .auth_panel import (
     _build_account_merge_notice,
     _delete_merged_source_panel_user,
     _link_telegram_to_user,
+    _merge_users_for_web,
     _sync_merged_panel_identity_for_user,
     _sync_panel_identity_for_user,
 )
@@ -98,6 +99,7 @@ __all__ = [
     "_invalidate_webapp_user_caches",
     "_json_error",
     "_link_telegram_to_user",
+    "_merge_users_for_web",
     "_normalize_language",
     "_normalize_referral_param",
     "_panel_description_for_user",

@@ -79,6 +79,7 @@ def _request(*, purpose: str, user_id: int | None = None, provider: str = "googl
         state["user_id"] = user_id
     return (
         SimpleNamespace(
+            app={},
             match_info={"provider": provider},
             query={"code": "oauth-code"},
             cookies={},
@@ -358,6 +359,7 @@ async def _authenticated_provider_link_merges_claimed_email_before_linking() -> 
         target_user_id=42,
         reason="google_verified_email_link",
         send_user_email=True,
+        cancel_source_recurring=ANY,
     )
     upsert_address.assert_awaited_once()
     factory.session.commit.assert_awaited_once()

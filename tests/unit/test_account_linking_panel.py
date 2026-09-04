@@ -2,7 +2,7 @@ import json
 import unittest
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import ANY, AsyncMock, Mock, patch
 
 from bot.app.web import subscription_webapp  # noqa: F401
 from bot.app.web.webapp import account as account_routes
@@ -11,6 +11,7 @@ from bot.app.web.webapp.auth import (
     _apply_telegram_profile_to_user,
     _ensure_user_from_telegram,
     _link_telegram_to_user,
+    _merge_users_for_web,
     _panel_description_for_user,
     _sync_merged_panel_identity_for_user,
     _sync_panel_identity_for_user,
@@ -262,6 +263,79 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["expireAt"], expected_expire_at)
         self.assertEqual(payload["status"], "ACTIVE")
 
+    async def test_merged_panel_identity_recomputes_entitlements_after_cleanup(self):
+        panel_service = SimpleNamespace(delete_user_from_panel=AsyncMock(return_value=True))
+        sync_entitlements = AsyncMock(return_value=True)
+        request = SimpleNamespace(
+            app={
+                "subscription_service": SimpleNamespace(
+                    panel_service=panel_service,
+                    sync_main_traffic_limit_to_panel=sync_entitlements,
+                )
+            }
+        )
+        session = SimpleNamespace(commit=AsyncMock())
+        user = SimpleNamespace(user_id=42, panel_user_uuid="panel-target")
+
+        result = await _sync_merged_panel_identity_for_user(
+            request,
+            user,
+            source_panel_uuid="panel-source",
+            final_panel_uuid="panel-target",
+            session=session,
+        )
+
+        self.assertTrue(result)
+        sync_entitlements.assert_awaited_once_with(session, 42)
+        session.commit.assert_awaited_once()
+
+    async def test_web_merge_cancels_secondary_managed_and_local_recurrence(self):
+        provider_service = SimpleNamespace(
+            manages_recurrence=True,
+            cancel_provider_recurrence=AsyncMock(return_value=True),
+        )
+        subscription_service = SimpleNamespace(
+            managed_recurring_provider_services={"platega": provider_service}
+        )
+        request = SimpleNamespace(app={"subscription_service": subscription_service})
+        session = SimpleNamespace()
+        subscription = SimpleNamespace(subscription_id=17)
+        merged = SimpleNamespace(user_id=42)
+
+        async def exercise_cancellation(*args, **kwargs):
+            cancel = kwargs["cancel_source_recurring"]
+            self.assertTrue(await cancel(session, -10, subscription, ("platega",)))
+            return merged
+
+        with (
+            patch.object(auth_routes.user_dal, "merge_users", side_effect=exercise_cancellation),
+            patch.object(
+                auth_routes.subscription_dal,
+                "set_auto_renew",
+                AsyncMock(),
+            ) as set_auto_renew,
+        ):
+            result = await _merge_users_for_web(
+                request,
+                session,
+                source_user_id=-10,
+                target_user_id=42,
+                reason="email_link",
+                send_user_email=True,
+            )
+
+        self.assertIs(result, merged)
+        provider_service.cancel_provider_recurrence.assert_awaited_once_with(
+            session,
+            user_id=-10,
+        )
+        set_auto_renew.assert_awaited_once_with(
+            session,
+            17,
+            False,
+            stop_reason="account_merged",
+        )
+
     async def test_telegram_merge_defers_panel_sync_until_source_cleanup(self):
         current_user = SimpleNamespace(
             user_id=-100,
@@ -470,6 +544,7 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
             target_user_id=42,
             reason="telegram_link",
             send_user_email=True,
+            cancel_source_recurring=ANY,
         )
         probe_telegram_notifications.assert_awaited_once_with(request, 42)
         grant_deferred_welcome_bonus.assert_awaited_once_with(request, 42)

@@ -4,7 +4,7 @@ import asyncio
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import cast
-from unittest.mock import AsyncMock, patch
+from unittest.mock import ANY, AsyncMock, patch
 
 import pytest
 from sqlalchemy import Table
@@ -12,6 +12,7 @@ from sqlalchemy.sql.dml import Update
 
 from bot.app.web.webapp.auth_panel import _link_telegram_to_user
 from db.dal import user_merge_dal
+from db.dal.user_merge_entitlements import RecurringMergeState
 
 
 class _Result:
@@ -130,9 +131,19 @@ async def _merge_keeps_established_email_and_notification_and_moves_auth_methods
         for call in session.execute.await_args_list
         if isinstance(call.args[0], Update)
     }
-    assert {"user_email_addresses", "user_external_identities", "user_passkey_credentials"} <= (
-        updated_tables
-    )
+    assert {
+        "auto_renew_cycles",
+        "platega_subscriptions",
+        "promo_codes",
+        "rollypay_subscriptions",
+        "tribute_entitlements",
+        "tribute_product_purchases",
+        "user_balance_ledger_entries",
+        "user_email_addresses",
+        "user_external_identities",
+        "user_panel_squad_overrides",
+        "user_passkey_credentials",
+    } <= updated_tables
 
 
 def test_merge_keeps_established_email_and_notification_and_moves_auth_methods() -> None:
@@ -206,6 +217,139 @@ def test_merge_reports_the_conflicting_external_provider() -> None:
     asyncio.run(_merge_reports_the_conflicting_external_provider())
 
 
+async def _merge_cancels_source_recurrence_and_keeps_target_recurrence() -> None:
+    now = datetime.now(UTC)
+    source = _user(-10)
+    target = _user(42, telegram_id=42)
+    source_sub = SimpleNamespace(
+        subscription_id=10,
+        start_date=now,
+        end_date=now,
+        duration_months=1,
+        provider="platega",
+        status_from_panel="ACTIVE",
+        auto_renew_enabled=True,
+    )
+    target_sub = SimpleNamespace(
+        subscription_id=20,
+        start_date=now,
+        end_date=now,
+        duration_months=1,
+        provider="yookassa",
+        status_from_panel="ACTIVE",
+        auto_renew_enabled=True,
+    )
+    session = SimpleNamespace(
+        execute=AsyncMock(return_value=_Result()),
+        delete=AsyncMock(),
+        flush=AsyncMock(),
+        refresh=AsyncMock(),
+    )
+    cancel_source_recurring = AsyncMock(return_value=True)
+
+    with (
+        patch.object(
+            user_merge_dal,
+            "_lock_users_for_merge",
+            AsyncMock(return_value=(source, target)),
+        ),
+        patch.object(
+            user_merge_dal,
+            "_accounts_share_promo_activation",
+            AsyncMock(return_value=False),
+        ),
+        patch.object(
+            user_merge_dal,
+            "_get_active_subscription_for_user",
+            AsyncMock(side_effect=[source_sub, target_sub]),
+        ),
+        patch.object(
+            user_merge_dal,
+            "inspect_recurring_merge",
+            AsyncMock(
+                return_value=RecurringMergeState(
+                    source_has_recurring=True,
+                    target_has_recurring=True,
+                    source_managed_providers=("platega",),
+                )
+            ),
+        ),
+        patch.object(user_merge_dal.events, "emit_model", AsyncMock()),
+    ):
+        merged = await user_merge_dal.merge_users(
+            session,
+            source_user_id=-10,
+            target_user_id=42,
+            cancel_source_recurring=cancel_source_recurring,
+        )
+
+    assert merged is target
+    cancel_source_recurring.assert_awaited_once_with(
+        session,
+        -10,
+        source_sub,
+        ("platega",),
+    )
+    assert target_sub.auto_renew_enabled is True
+    assert source_sub.auto_renew_enabled is False
+
+
+def test_merge_cancels_source_recurrence_and_keeps_target_recurrence() -> None:
+    asyncio.run(_merge_cancels_source_recurrence_and_keeps_target_recurrence())
+
+
+async def _merge_stops_when_secondary_recurrence_cannot_be_cancelled() -> None:
+    source = _user(-10)
+    target = _user(42, telegram_id=42)
+    session = SimpleNamespace(execute=AsyncMock(return_value=_Result()))
+    source_sub = SimpleNamespace(subscription_id=10)
+    target_sub = SimpleNamespace(subscription_id=20)
+    cancel_source_recurring = AsyncMock(return_value=False)
+
+    with (
+        patch.object(
+            user_merge_dal,
+            "_lock_users_for_merge",
+            AsyncMock(return_value=(source, target)),
+        ),
+        patch.object(
+            user_merge_dal,
+            "_accounts_share_promo_activation",
+            AsyncMock(return_value=False),
+        ),
+        patch.object(
+            user_merge_dal,
+            "_get_active_subscription_for_user",
+            AsyncMock(side_effect=[source_sub, target_sub]),
+        ),
+        patch.object(
+            user_merge_dal,
+            "inspect_recurring_merge",
+            AsyncMock(
+                return_value=RecurringMergeState(
+                    source_has_recurring=True,
+                    target_has_recurring=True,
+                    source_managed_providers=("platega",),
+                )
+            ),
+        ),
+        pytest.raises(user_merge_dal.UserMergeConflictError) as raised,
+    ):
+        await user_merge_dal.merge_users(
+            session,
+            source_user_id=-10,
+            target_user_id=42,
+            cancel_source_recurring=cancel_source_recurring,
+        )
+
+    assert raised.value.message_key == "account_merge_recurring_cancel_failed"
+    cancel_source_recurring.assert_awaited_once()
+
+
+def test_merge_stops_when_secondary_recurrence_cannot_be_cancelled() -> None:
+    asyncio.run(_merge_stops_when_secondary_recurrence_cannot_be_cancelled())
+
+
 async def _telegram_link_allows_distinct_verified_emails_to_merge() -> None:
     current = _user(-10, email="new-yandex@example.test")
     existing = _user(42, email="original@example.test", telegram_id=42)
@@ -249,6 +393,7 @@ async def _telegram_link_allows_distinct_verified_emails_to_merge() -> None:
         target_user_id=42,
         reason="telegram_link",
         send_user_email=False,
+        cancel_source_recurring=ANY,
     )
 
 

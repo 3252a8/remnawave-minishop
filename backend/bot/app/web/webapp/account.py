@@ -30,6 +30,7 @@ from .auth import (
     _build_webapp_auth_response,
     _hash_email_password,
     _link_telegram_to_user,
+    _merge_users_for_web,
     _request_email_code,
     _sync_merged_panel_identity_for_user,
     _sync_panel_identity_for_user,
@@ -182,7 +183,8 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
             )
             if existing_email_user and existing_email_user.user_id != current_user.user_id:
                 source_panel_uuid = existing_email_user.panel_user_uuid
-                current_user = await user_dal.merge_users(
+                current_user = await _merge_users_for_web(
+                    request,
                     session,
                     source_user_id=existing_email_user.user_id,
                     target_user_id=current_user.user_id,
@@ -239,6 +241,7 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
                     source_panel_uuid=source_panel_uuid,
                     final_panel_uuid=final_panel_uuid,
                     expire_at=merge_end_date,
+                    session=session,
                 )
 
         except UserMergeConflictError as exc:
@@ -426,6 +429,7 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
                     source_panel_uuid=source_panel_uuid,
                     final_panel_uuid=final_panel_uuid,
                     expire_at=merge_end_date,
+                    session=session,
                 )
 
         except UserMergeConflictError as exc:

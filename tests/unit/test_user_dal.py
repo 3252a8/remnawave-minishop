@@ -579,6 +579,7 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             referral_code=None,
         )
         source_active_sub = SimpleNamespace(
+            subscription_id=100,
             end_date=before + timedelta(days=30),
             duration_months=1,
             provider="stripe",
@@ -589,6 +590,7 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             panel_user_uuid="panel-email",
         )
         expired_target_sub = SimpleNamespace(
+            subscription_id=200,
             end_date=before - timedelta(days=3),
             duration_months=1,
             provider="yookassa",
