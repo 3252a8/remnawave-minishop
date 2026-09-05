@@ -219,10 +219,7 @@
     font-size: 12px;
   }
   .balance-title-row {
-    display: flex;
-    align-items: baseline;
-    gap: 4px;
-    white-space: nowrap;
+    line-height: 1.25;
   }
   :global(.balance-source-trigger) {
     appearance: none;
@@ -235,6 +232,7 @@
     font: inherit;
     font-weight: 700;
     line-height: inherit;
+    vertical-align: baseline;
     cursor: pointer;
   }
   :global(.balance-source-trigger:hover) {
@@ -279,10 +277,5 @@
   }
   :global(.balance-source-select-item[data-selected] .balance-source-select-check) {
     opacity: 1;
-  }
-  @media (max-width: 520px) {
-    .balance-title-row {
-      white-space: normal;
-    }
   }
 </style>
