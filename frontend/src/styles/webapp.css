@@ -954,6 +954,12 @@ a {
   font-size: 14px;
 }
 
+.device-card-head .device-client-label {
+  display: inline;
+  color: var(--muted);
+  font-weight: 700;
+}
+
 .devices-summary-head small,
 .device-card-head small,
 .device-meta span,
@@ -1022,12 +1028,6 @@ a {
 
 .device-meta code {
   font-family: var(--font-mono);
-}
-
-.device-user-agent small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .device-disconnect-button,
@@ -4572,10 +4572,6 @@ a {
     border: 1px solid var(--surface-subtle-border);
     border-radius: 12px;
     background: var(--surface-subtle);
-  }
-
-  .device-user-agent {
-    grid-column: 1 / -1;
   }
 
   .device-card .device-disconnect-button {

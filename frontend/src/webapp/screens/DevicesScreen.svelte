@@ -16,6 +16,7 @@
     devicesPercent,
     hasFiniteDeviceLimit,
   } from "../../lib/webapp/devicesLabels.js";
+  import { deviceClientLabel } from "../../lib/webapp/deviceClient.js";
   import type {
     DeviceView,
     DevicesData,
@@ -195,13 +196,18 @@
   {:else}
     <div class="devices-list">
       {#each deviceList as device (device.token || device.index)}
+        {@const clientLabel = deviceClientLabel(device.user_agent)}
         <Card class="device-card">
           <div class="device-card-head">
             <div class="device-icon"><DeviceGlyph {device} size={24} /></div>
             <span>
               <strong
                 >{device.display_name ||
-                  t("wa_device_fallback_name", { index: device.index })}</strong
+                  t("wa_device_fallback_name", { index: device.index })}{#if clientLabel}<span
+                    class="device-client-label"
+                  >
+                    · {clientLabel}</span
+                  >{/if}</strong
               >
               <small>{device.platform_label || t("wa_devices_platform_unknown")}</small>
             </span>
@@ -217,12 +223,6 @@
               <div>
                 <span>HWID</span>
                 <code>{device.hwid_short}</code>
-              </div>
-            {/if}
-            {#if device.user_agent}
-              <div class="device-user-agent">
-                <span>User Agent</span>
-                <small>{device.user_agent}</small>
               </div>
             {/if}
           </div>
