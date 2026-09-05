@@ -749,14 +749,6 @@ a {
   white-space: nowrap;
 }
 
-.home-account-actions {
-  display: contents;
-}
-
-.home-tariff-action {
-  display: none;
-}
-
 .traffic-reset-date-row strong {
   color: var(--text);
   font-size: 12px;
@@ -4291,25 +4283,6 @@ a {
     width: min(100%, 560px);
     justify-self: center;
     gap: 12px;
-  }
-
-  .home-account-actions {
-    display: flex;
-    align-items: stretch;
-    justify-content: flex-end;
-    gap: 10px;
-  }
-
-  .home-account-actions .home-tariff-action {
-    display: inline-flex;
-    min-height: 48px;
-    padding-inline: 14px;
-    flex: 0 0 auto;
-    white-space: nowrap;
-  }
-
-  .status-card .status-tariff-action {
-    display: none;
   }
 
   /* Top header (brand on settings/invite/devices) becomes a flat strip. */

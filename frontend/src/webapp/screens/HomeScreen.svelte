@@ -357,18 +357,6 @@
   });
 </script>
 
-{#snippet tariffChangeAction(className: string)}
-  <Button
-    data-webapp-action="open-tariff-change"
-    class={className}
-    variant="secondary"
-    onclick={openTariffChangeModal}
-  >
-    <Repeat2 size={17} />
-    {t("wa_change_tariff")}
-  </Button>
-{/snippet}
-
 <main class="home-layout">
   <div class="login-brand home-brand">
     <BrandMark {brand} size="xl" />
@@ -411,35 +399,28 @@
         {t}
       />
     {:else}
-      {#if balance.enabled || canChangeTariff}
-        <div class="home-account-actions">
-          {#if canChangeTariff}
-            {@render tariffChangeAction("home-tariff-action")}
-          {/if}
-          {#if balance.enabled}
-            <Card class="home-balance-card">
-              <div class="home-balance-summary">
-                <WalletCards size={22} />
-                <span>
-                  <small>{t("wa_balance_title", {}, "Balance")}:</small>
-                  <strong>{formatMoney(balance.amount, balance.currency)}</strong>
-                </span>
-              </div>
-              <Button
-                data-webapp-action="open-balance-topup"
-                class="home-balance-topup"
-                type="button"
-                size="sm"
-                variant="outline"
-                onclick={openBalanceTopup}
-                aria-label={t("wa_balance_topup_short", {}, "Top up")}
-                title={t("wa_balance_topup_short", {}, "Top up")}
-              >
-                <Plus size={16} />
-              </Button>
-            </Card>
-          {/if}
-        </div>
+      {#if balance.enabled}
+        <Card class="home-balance-card">
+          <div class="home-balance-summary">
+            <WalletCards size={22} />
+            <span>
+              <small>{t("wa_balance_title", {}, "Balance")}:</small>
+              <strong>{formatMoney(balance.amount, balance.currency)}</strong>
+            </span>
+          </div>
+          <Button
+            data-webapp-action="open-balance-topup"
+            class="home-balance-topup"
+            type="button"
+            size="sm"
+            variant="outline"
+            onclick={openBalanceTopup}
+            aria-label={t("wa_balance_topup_short", {}, "Top up")}
+            title={t("wa_balance_topup_short", {}, "Top up")}
+          >
+            <Plus size={16} />
+          </Button>
+        </Card>
       {/if}
 
       <Card class={statusCardClass}>
@@ -469,7 +450,15 @@
               </div>
             </div>
             {#if canChangeTariff}
-              {@render tariffChangeAction("status-tariff-action")}
+              <Button
+                data-webapp-action="open-tariff-change"
+                class="status-tariff-action"
+                variant="secondary"
+                onclick={openTariffChangeModal}
+              >
+                <Repeat2 size={17} />
+                {t("wa_change_tariff")}
+              </Button>
             {/if}
           </div>
           {#if autoRenewVisible}

@@ -210,19 +210,35 @@
       {/if}
     </div>
 
-    {#if balance.enabled}
-      <button
-        data-webapp-action="open-balance-topup"
-        type="button"
-        class="compact-balance"
-        onclick={openBalanceTopup}
-        aria-label={t("wa_balance_topup_short", {}, "Top up")}
-        title={t("wa_balance_topup_short", {}, "Top up")}
-      >
-        <WalletCards size={16} />
-        <strong>{formatMoney(balance.amount, balance.currency)}</strong>
-        <Plus size={14} />
-      </button>
+    {#if canChangeTariff || balance.enabled}
+      <div class="compact-summary-head-actions">
+        {#if canChangeTariff}
+          <Button
+            data-webapp-action="open-tariff-change"
+            class="compact-tariff-action"
+            size="sm"
+            variant="secondary"
+            onclick={openTariffChangeModal}
+          >
+            <Repeat2 size={15} />
+            {t("wa_change_tariff")}
+          </Button>
+        {/if}
+        {#if balance.enabled}
+          <button
+            data-webapp-action="open-balance-topup"
+            type="button"
+            class="compact-balance"
+            onclick={openBalanceTopup}
+            aria-label={t("wa_balance_topup_short", {}, "Top up")}
+            title={t("wa_balance_topup_short", {}, "Top up")}
+          >
+            <WalletCards size={16} />
+            <strong>{formatMoney(balance.amount, balance.currency)}</strong>
+            <Plus size={14} />
+          </button>
+        {/if}
+      </div>
     {/if}
   </div>
 
@@ -360,35 +376,22 @@
     </div>
   {/if}
 
-  {#if canChangeTariff || autoRenewVisible}
+  {#if autoRenewVisible}
     <div class="compact-summary-actions">
-      {#if canChangeTariff}
-        <Button
-          data-webapp-action="open-tariff-change"
-          size="sm"
-          variant="secondary"
-          onclick={openTariffChangeModal}
-        >
+      <Button
+        size="sm"
+        variant="secondary"
+        onclick={() => toggleAutoRenew(!autoRenewEnabled)}
+        disabled={autoRenewBusy || (!autoRenewEnabled && !subscription?.auto_renew_can_enable)}
+      >
+        {#if autoRenewEnabled}
+          <CircleX size={15} />
+          {t("wa_auto_renew_disable")}
+        {:else}
           <Repeat2 size={15} />
-          {t("wa_change_tariff")}
-        </Button>
-      {/if}
-      {#if autoRenewVisible}
-        <Button
-          size="sm"
-          variant="secondary"
-          onclick={() => toggleAutoRenew(!autoRenewEnabled)}
-          disabled={autoRenewBusy || (!autoRenewEnabled && !subscription?.auto_renew_can_enable)}
-        >
-          {#if autoRenewEnabled}
-            <CircleX size={15} />
-            {t("wa_auto_renew_disable")}
-          {:else}
-            <Repeat2 size={15} />
-            {t("wa_auto_renew_enable")}
-          {/if}
-        </Button>
-      {/if}
+          {t("wa_auto_renew_enable")}
+        {/if}
+      </Button>
     </div>
   {/if}
 </Card>
@@ -432,6 +435,19 @@
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 9px;
+  }
+  .compact-summary-head-actions {
+    min-width: 0;
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-end;
+    gap: 7px;
+  }
+  :global(section.home-compact-summary .compact-summary-head-actions .compact-tariff-action) {
+    min-height: 32px;
+    padding: 5px 9px;
+    font-size: 11px;
+    white-space: nowrap;
   }
   :global(svg.compact-status-icon) {
     color: var(--accent);
@@ -658,6 +674,15 @@
     .compact-balance {
       min-height: 29px;
       padding: 4px 7px;
+    }
+    .compact-summary-head-actions {
+      grid-column: 1 / -1;
+      justify-content: stretch;
+    }
+    .compact-summary-head-actions .compact-balance,
+    :global(section.home-compact-summary .compact-summary-head-actions .compact-tariff-action) {
+      flex: 1 1 0;
+      justify-content: center;
     }
     .compact-summary-actions {
       justify-content: stretch;
