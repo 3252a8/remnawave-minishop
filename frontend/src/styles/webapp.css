@@ -749,6 +749,14 @@ a {
   white-space: nowrap;
 }
 
+.home-account-actions {
+  display: contents;
+}
+
+.home-tariff-action {
+  display: none;
+}
+
 .traffic-reset-date-row strong {
   color: var(--text);
   font-size: 12px;
@@ -910,6 +918,11 @@ a {
 }
 
 .devices-summary-card {
+  display: grid;
+  gap: 10px;
+}
+
+.devices-summary-actions {
   display: grid;
   gap: 10px;
 }
@@ -4280,6 +4293,25 @@ a {
     gap: 12px;
   }
 
+  .home-account-actions {
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  .home-account-actions .home-tariff-action {
+    display: inline-flex;
+    min-height: 48px;
+    padding-inline: 14px;
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .status-card .status-tariff-action {
+    display: none;
+  }
+
   /* Top header (brand on settings/invite/devices) becomes a flat strip. */
   .app-header.accent-title {
     display: none;
@@ -4466,10 +4498,16 @@ a {
      tall, mostly empty boxes on desktop. Lay the list out as a card grid, put
      the facts into chips side by side, and pin the action to the bottom edge so
      the cards in a row stay aligned. */
-  .devices-summary-card > .btn.wide {
+  .devices-summary-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .devices-summary-actions > .btn.wide {
     width: auto;
     min-width: 260px;
-    justify-self: start;
   }
 
   .devices-list {

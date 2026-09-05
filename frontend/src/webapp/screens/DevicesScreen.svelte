@@ -79,6 +79,19 @@
   const deviceTopupUnavailableReason = $derived(
     String(subscription?.device_topup_unavailable_reason || "").trim()
   );
+  const showDeviceTopupAction = $derived(
+    Boolean(subscription?.active && hasFiniteDevices && subscription?.can_topup_devices)
+  );
+  const showDeviceTopupUnavailable = $derived(
+    Boolean(subscription?.active && hasReachedDeviceLimit && deviceTopupUnavailableReason) &&
+      !showDeviceTopupAction
+  );
+  const showTrialTariffAction = $derived(
+    showDeviceTopupUnavailable && deviceTopupUnavailableReason === "trial_subscription"
+  );
+  const showSubscriptionReissueAction = $derived(
+    Boolean(subscriptionReissueEnabled && subscription?.active)
+  );
 </script>
 
 <main class="content with-nav">
@@ -113,43 +126,47 @@
           })}
         </p>
       {/if}
-      {#if subscription?.active && hasFiniteDevices && subscription?.can_topup_devices}
-        <Button
-          data-webapp-action="open-device-topup"
-          variant="secondary"
-          class="wide"
-          onclick={openDeviceTopupModal}
-        >
-          <Plus size={17} />
-          {t("wa_buy_hwid_devices")}
-        </Button>
-      {:else if subscription?.active && hasReachedDeviceLimit && deviceTopupUnavailableReason}
+      {#if showDeviceTopupUnavailable}
         <StatusMessage>
           {t(`wa_device_topup_unavailable_${deviceTopupUnavailableReason}`)}
         </StatusMessage>
-        {#if deviceTopupUnavailableReason === "trial_subscription"}
-          <Button
-            data-webapp-action="open-trial-tariff-purchase"
-            variant="secondary"
-            class="wide"
-            onclick={openPaymentModal}
-          >
-            {t("wa_trial_device_limit_choose_tariff")}
-            <ArrowRight size={17} />
-          </Button>
-        {/if}
       {/if}
-      {#if subscriptionReissueEnabled && subscription?.active}
-        <Button
-          data-webapp-action="open-subscription-reissue"
-          variant="outline"
-          class="wide subscription-reissue-button"
-          onclick={openSubscriptionReissueDialog}
-          disabled={subscriptionReissueBusy}
-        >
-          <Key size={17} />
-          {t("wa_subscription_reissue_action")}
-        </Button>
+      {#if showDeviceTopupAction || showTrialTariffAction || showSubscriptionReissueAction}
+        <div class="devices-summary-actions">
+          {#if showDeviceTopupAction}
+            <Button
+              data-webapp-action="open-device-topup"
+              variant="secondary"
+              class="wide"
+              onclick={openDeviceTopupModal}
+            >
+              <Plus size={17} />
+              {t("wa_buy_hwid_devices")}
+            </Button>
+          {:else if showTrialTariffAction}
+            <Button
+              data-webapp-action="open-trial-tariff-purchase"
+              variant="secondary"
+              class="wide"
+              onclick={openPaymentModal}
+            >
+              {t("wa_trial_device_limit_choose_tariff")}
+              <ArrowRight size={17} />
+            </Button>
+          {/if}
+          {#if showSubscriptionReissueAction}
+            <Button
+              data-webapp-action="open-subscription-reissue"
+              variant="outline"
+              class="wide subscription-reissue-button"
+              onclick={openSubscriptionReissueDialog}
+              disabled={subscriptionReissueBusy}
+            >
+              <Key size={17} />
+              {t("wa_subscription_reissue_action")}
+            </Button>
+          {/if}
+        </div>
       {/if}
     </Card>
   {/if}
