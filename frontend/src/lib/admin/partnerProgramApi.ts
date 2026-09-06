@@ -206,14 +206,12 @@ export async function loadPartnerLists(
   applications: ApplicationRow[];
   withdrawals: WithdrawalRow[];
 }> {
-  const [partnerPage, applicationsPayload] = await Promise.all([
+  const [partnerPage, applicationsPayload, withdrawalPayload] = await Promise.all([
     loadPartnerPage(api, currency, query),
     api("/admin/partner-applications?limit=200"),
+    api(`/admin/partner-withdrawals?currency=${encodeURIComponent(currency)}&limit=200`),
   ]);
   const partnerMap = new Map(partnerPage.partners.map((partner) => [partner.id, partner]));
-  const withdrawalPayload = await api(
-    `/admin/partner-withdrawals?currency=${encodeURIComponent(currency)}&limit=200`
-  );
   return {
     partners: partnerPage.partners,
     partnerTotal: partnerPage.total,

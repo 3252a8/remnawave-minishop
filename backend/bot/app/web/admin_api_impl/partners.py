@@ -26,7 +26,7 @@ from bot.services.partner_commission_service import PartnerCommissionService
 from bot.services.partner_common import PartnerError, compact_json, currency_scale
 from bot.services.partner_program_service import PartnerProgramService
 from bot.services.partner_withdrawal_service import PartnerWithdrawalService
-from db.dal import partner_dal, user_dal, user_reads_dal
+from db.dal import partner_dal, partner_profile_reporting_dal, user_dal, user_reads_dal
 
 from ..partner_serialization import (
     application_out,
@@ -69,6 +69,7 @@ async def _profile_payload(
     currency: str = "RUB",
     user_labels: dict[int, tuple[str | None, str | None]] | None = None,
     avatar_keys: dict[int, str] | None = None,
+    summary: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     payload = _dump(profile_out(profile))
     user_id = int(profile.user_id) if profile.user_id is not None else None
@@ -88,6 +89,10 @@ async def _profile_payload(
     else:
         payload["username"] = None
         payload["avatar_url"] = None
+    if summary is not None:
+        payload.update(summary)
+        payload["currency"] = currency
+        return payload
     payload["balances"] = [
         _dump(balance_out(item))
         for item in await partner_dal.balance_summaries(session, int(profile.partner_id))
@@ -249,6 +254,14 @@ async def admin_partners_list_route(request: web.Request) -> web.Response:
         user_ids = [int(profile.user_id) for profile in profiles if profile.user_id is not None]
         user_labels = await user_reads_dal.get_user_labels(session, user_ids)
         avatar_keys = await _bulk_user_avatar_keys(session, user_ids)
+        partner_ids = [int(profile.partner_id) for profile in profiles]
+        balances = await partner_profile_reporting_dal.balance_summaries_by_ids(
+            session, partner_ids
+        )
+        clients = await partner_profile_reporting_dal.client_summaries_by_ids(session, partner_ids)
+        metrics = await partner_profile_reporting_dal.currency_metrics_by_ids(
+            session, partner_ids, currency
+        )
         partners = [
             await _profile_payload(
                 session,
@@ -256,6 +269,13 @@ async def admin_partners_list_route(request: web.Request) -> web.Response:
                 currency=currency,
                 user_labels=user_labels,
                 avatar_keys=avatar_keys,
+                summary={
+                    "balances": [
+                        _dump(balance_out(item)) for item in balances[int(profile.partner_id)]
+                    ],
+                    **clients[int(profile.partner_id)],
+                    **metrics[int(profile.partner_id)],
+                },
             )
             for profile in profiles
         ]
