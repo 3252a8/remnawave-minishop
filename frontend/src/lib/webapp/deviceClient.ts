@@ -4,7 +4,7 @@ interface KnownClient {
 }
 
 function clientPattern(alias: string): RegExp {
-  return new RegExp(`^(?:${alias})(?:[\\s/]+v?([0-9][\\w.+-]*))?(?=$|\\s)`, "i");
+  return new RegExp(`^(?:${alias})(?=$|[\\s/])(?:[\\s/]+v?([0-9][\\w.+-]*))?`, "i");
 }
 
 const KNOWN_CLIENTS: readonly KnownClient[] = [

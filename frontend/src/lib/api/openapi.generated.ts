@@ -7503,6 +7503,13 @@ export interface components {
       hwid_short: string;
       /** Index */
       index: number;
+      /**
+       * Last Connected At
+       * @default null
+       */
+      last_connected_at: string | null;
+      /** Last Connected At Text */
+      last_connected_at_text: string;
       /** Os Version */
       os_version: string;
       /** Platform */

@@ -10793,6 +10793,22 @@
             "title": "Index",
             "type": "integer"
           },
+          "last_connected_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Connected At"
+          },
+          "last_connected_at_text": {
+            "title": "Last Connected At Text",
+            "type": "string"
+          },
           "os_version": {
             "title": "Os Version",
             "type": "string"
@@ -10822,6 +10838,7 @@
           "platform_label",
           "user_agent",
           "created_at_text",
+          "last_connected_at_text",
           "hwid_short",
           "token",
           "can_disconnect"

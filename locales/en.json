@@ -1172,7 +1172,7 @@
   "wa_devices_empty_hint": "You can connect up to {max} devices from your subscription app.",
   "wa_device_fallback_name": "Device {index}",
   "wa_devices_platform_unknown": "Platform unknown",
-  "wa_devices_connected_at": "Connected",
+  "wa_devices_last_connected_at": "Last connected",
   "wa_devices_disconnect": "Disconnect device",
   "wa_devices_disconnect_desc": "{device} will be removed from your device list. It may connect again next time you use the subscription on that device.",
   "wa_devices_disconnect_confirm": "Disconnect",

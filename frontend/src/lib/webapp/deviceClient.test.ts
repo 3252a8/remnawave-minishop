@@ -13,6 +13,8 @@ describe("deviceClientLabel", () => {
     ["Mihomo Meta v1.19.14 windows amd64", "Mihomo 1.19.14"],
     ["Streisand/1.6 CFNetwork", "Streisand 1.6"],
     ["v2rayNG/1.9.35", "v2rayNG 1.9.35"],
+    ["Happ/4.3.0/Android/1787736", "Happ 4.3.0"],
+    ["Happ 4.3.0/Android/1787736", "Happ 4.3.0"],
   ])("formats %s as %s", (userAgent, expected) => {
     expect(deviceClientLabel(userAgent)).toBe(expected);
   });

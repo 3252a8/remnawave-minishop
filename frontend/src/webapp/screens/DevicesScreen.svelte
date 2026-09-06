@@ -213,10 +213,10 @@
             </span>
           </div>
           <div class="device-meta">
-            {#if device.created_at_text}
+            {#if device.last_connected_at_text || device.created_at_text}
               <div>
-                <span>{t("wa_devices_connected_at")}</span>
-                <strong>{device.created_at_text}</strong>
+                <span>{t("wa_devices_last_connected_at")}</span>
+                <strong>{device.last_connected_at_text || device.created_at_text}</strong>
               </div>
             {/if}
             {#if device.hwid_short}

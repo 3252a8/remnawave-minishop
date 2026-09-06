@@ -1172,7 +1172,7 @@
   "wa_devices_empty_hint": "Можно подключить до {max} устройств через приложение с подпиской.",
   "wa_device_fallback_name": "Устройство {index}",
   "wa_devices_platform_unknown": "Платформа неизвестна",
-  "wa_devices_connected_at": "Подключено",
+  "wa_devices_last_connected_at": "Последнее подключение",
   "wa_devices_disconnect": "Отключить устройство",
   "wa_devices_disconnect_desc": "{device} будет удалено из списка устройств. Оно может подключиться снова при следующем использовании подписки на этом устройстве.",
   "wa_devices_disconnect_confirm": "Отключить",
