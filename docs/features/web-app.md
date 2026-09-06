@@ -115,6 +115,8 @@ SERVER_STATUS_TIMEOUT_SECONDS=5
 
 Конфиг совместим с Remnawave Subscription Page v1 (`version`, `locales`, `brandingSettings`, `uiConfig`, `baseSettings`, `baseTranslations`, `svgLibrary`, `platforms`). Backend проверяет обязательные locale-строки, допустимые платформы и типы кнопок, ссылки на `svgIconKey`, а SVG из `svgLibrary` санитизирует перед отдачей в UI.
 
+В `brandingSettings.logoUrl` поддерживаются HTTP(S)-ссылки и встроенные изображения `data:image/…` (PNG, JPEG, GIF, WebP, AVIF, BMP, ICO и SVG), включая base64 и URL-кодированные данные. Поле сохраняется для совместимости с конфигом панели; встроенные инструкции не отображают этот логотип. Иконки приложений и шагов берутся отдельно из `svgLibrary`. Это разрешение относится только к изображениям: `supportUrl` должен оставаться HTTP(S)-ссылкой, а `data:` в ссылках кнопок запрещен.
+
 Если `WEBAPP_ENABLED=False`, пользовательское веб-приложение и админ-панель не регистрируются. Чтобы снова попасть в админку, включите `WEBAPP_ENABLED=True` в `.env` и перезапустите backend/frontend контейнеры.
 
 Внешний вид настраивается в админке: раздел **Внешний вид** управляет логотипом, favicon, accent-цветом, выбранной темой и отдельным масштабом логотипа для desktop/mobile layout. Кастомные темы читаются из `WEBAPP_THEMES_DIR`, а `WEBAPP_DEFAULT_THEME` может принудительно выбрать тему по ключу. Подробный контракт `theme.json`, CSS/asset-роуты и пайплайн создания темы описаны в [webapp-themes.md](webapp-themes.md).

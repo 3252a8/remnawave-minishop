@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import copy
 import hashlib
 import json
@@ -9,7 +10,7 @@ import re
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import unquote_to_bytes, urlsplit
 
 
 class SubscriptionGuidesConfigError(ValueError):
@@ -103,6 +104,11 @@ UI_INSTALLATION_GUIDE_TYPES = {"accordion", "cards", "minimal", "timeline"}
 SVG_KEY_RE = re.compile(r"^[A-Za-z]+$")
 HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{3,8}$")
 CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+DATA_IMAGE_URL_RE = re.compile(
+    r"data:image/(?:png|jpeg|gif|webp|avif|bmp|x-icon|vnd\.microsoft\.icon|svg\+xml)"
+    r"(?:;charset=[a-z0-9._-]+)?(?P<base64>;base64)?,",
+    re.IGNORECASE,
+)
 UNSAFE_SVG_RE = re.compile(
     r"(<\s*/?\s*(?:script|foreignObject|iframe|object|embed|image|use|style|a)\b)"
     r"|(\son[a-z]+\s*=)"
@@ -349,7 +355,7 @@ def _validate_branding(value: Any) -> dict[str, str]:
         "logoUrl": _require_text(data, "logoUrl", "brandingSettings.logoUrl"),
         "supportUrl": _require_text(data, "supportUrl", "brandingSettings.supportUrl"),
     }
-    _assert_http_url(result["logoUrl"], "brandingSettings.logoUrl")
+    _assert_image_url(result["logoUrl"], "brandingSettings.logoUrl")
     _assert_http_url(result["supportUrl"], "brandingSettings.supportUrl")
     return result
 
@@ -618,6 +624,26 @@ def _assert_safe_link(value: str, path: str) -> None:
     lower = value.strip().lower()
     if lower.startswith(("javascript:", "data:", "vbscript:")):
         raise SubscriptionGuidesConfigError(f"{path} uses an unsafe URL scheme")
+
+
+def _assert_image_url(value: str, path: str) -> None:
+    if not value.lower().startswith("data:"):
+        _assert_http_url(value, path)
+        return
+
+    match = DATA_IMAGE_URL_RE.match(value)
+    if match is None or CONTROL_CHARS_RE.search(value):
+        raise SubscriptionGuidesConfigError(f"{path} must be an image data URL or an http(s) URL")
+    payload = unquote_to_bytes(value[match.end() :])
+    if match.group("base64"):
+        try:
+            payload = base64.b64decode(payload, validate=True)
+        except ValueError as exc:
+            raise SubscriptionGuidesConfigError(
+                f"{path} contains invalid base64 image data"
+            ) from exc
+    if not payload:
+        raise SubscriptionGuidesConfigError(f"{path} contains empty image data")
 
 
 def _assert_http_url(value: str, path: str) -> None:

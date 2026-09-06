@@ -1,3 +1,4 @@
+import base64
 import json
 
 import pytest
@@ -127,6 +128,71 @@ def test_bundled_default_multiapp_config_is_valid():
         "windows",
     }
     assert config["platforms"]["ios"]["displayName"]["ru"] == "iOS"
+
+
+@pytest.mark.parametrize(
+    "logo_url",
+    [
+        "http://example.com/logo.png",
+        "https://example.com/logo.svg",
+        "data:image/png;base64,iVBORw0KGgo=",
+        "DATA:IMAGE/JPEG;BASE64,/9j/2Q==",
+        "data:image/webp;base64,UklGRg==",
+        "data:image/svg+xml;base64,"
+        + base64.b64encode(b'<svg xmlns="http://www.w3.org/2000/svg"/>').decode(),
+        "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org"
+        "%2F2000%2Fsvg%22%2F%3E",
+        "data:image/png;base64,iVBORw0KGgo%3D",
+    ],
+)
+def test_panel_image_logo_urls_are_preserved(logo_url):
+    config = _config(app_name="Panel App")
+    config["brandingSettings"]["logoUrl"] = logo_url
+
+    validated = validate_panel_subscription_guides_config(
+        {"response": {"config": json.dumps(config)}}
+    )
+
+    assert validated["brandingSettings"]["logoUrl"] == logo_url
+    assert validated["platforms"]["ios"]["apps"][0]["name"] == "Panel App"
+
+
+@pytest.mark.parametrize(
+    "logo_url",
+    [
+        "javascript:alert(1)",
+        "file:///logo.png",
+        "data:text/html;base64,PHNjcmlwdD4=",
+        "data:application/javascript,alert(1)",
+        "data:,image",
+        "data:image/pngfake;base64,aGVsbG8=",
+        "data:image/png;base64",
+        "data:image/png;base64,",
+        "data:image/svg+xml,",
+        "data:image/png;base64,not-base64!",
+        "data:image/png;unexpected=value;base64,aGVsbG8=",
+        "data:image/svg+xml,<svg>\x00</svg>",
+    ],
+)
+def test_invalid_image_logo_urls_are_rejected(logo_url):
+    config = _config()
+    config["brandingSettings"]["logoUrl"] = logo_url
+
+    with pytest.raises(SubscriptionGuidesConfigError, match=r"brandingSettings\.logoUrl"):
+        validate_subscription_guides_config(config)
+
+
+@pytest.mark.parametrize("location", ["support", "button"])
+@pytest.mark.parametrize("data_url", ["data:image/png;base64,iVBORw0KGgo=", "data:text/html,hello"])
+def test_data_urls_remain_forbidden_in_navigation_links(location, data_url):
+    config = _config()
+    if location == "support":
+        config["brandingSettings"]["supportUrl"] = data_url
+    else:
+        config["platforms"]["ios"]["apps"][0]["blocks"][0]["buttons"][0]["link"] = data_url
+
+    with pytest.raises(SubscriptionGuidesConfigError, match="unsafe URL scheme"):
+        validate_subscription_guides_config(config)
 
 
 def test_missing_locale_string_is_rejected():
