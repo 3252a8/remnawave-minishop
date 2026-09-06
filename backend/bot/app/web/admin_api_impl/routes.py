@@ -23,6 +23,11 @@ from .broadcast_shortcodes import (
     admin_broadcast_preview_route,
     admin_broadcast_shortcodes_route,
 )
+from .gift_creation import (
+    admin_gift_create_route,
+    admin_gift_detail_route,
+    admin_gift_options_route,
+)
 from .gifts import admin_gifts_route
 from .health import (
     admin_health_route,
@@ -251,6 +256,9 @@ def setup_admin_routes(app: web.Application) -> None:
         admin_user_telegram_profile_link_route,
     )
     router.add_get("/api/admin/gifts", admin_gifts_route)
+    router.add_get("/api/admin/gifts/options", admin_gift_options_route)
+    router.add_post("/api/admin/gifts", admin_gift_create_route)
+    router.add_get("/api/admin/gifts/{gift_id}", admin_gift_detail_route)
     router.add_post("/api/admin/users/{user_id:-?\\d+}/reset-trial", admin_user_reset_trial_route)
     router.add_post(
         "/api/admin/users/{user_id:-?\\d+}/subscription-reissue",

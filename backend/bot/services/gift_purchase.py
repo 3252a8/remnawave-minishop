@@ -80,7 +80,9 @@ async def issue_paid_gift(session: AsyncSession, payment: Payment) -> Subscripti
         {
             "user_id": payment.user_id,
             "target_user_id": payment.user_id,
-            "event_type": "gift_purchased",
+            "event_type": "gift_created_by_admin"
+            if payment.provider == "admin_gift"
+            else "gift_purchased",
             "is_admin_event": True,
             "content": f"gift_id={gift.gift_id} payment_id={payment.payment_id} "
             f"tariff={payment.tariff_key} "

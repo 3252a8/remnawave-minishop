@@ -487,6 +487,14 @@ export function buildSupportTicketTypingPath(ticketId: string | number): Support
 }
 
 export type AdminSettingsPath = "/admin/settings";
+export function buildAdminGiftPath(
+  id: string | number
+): BuiltApiPath<"/api/admin/gifts/{gift_id}"> {
+  return builtApiPath<"/api/admin/gifts/{gift_id}">(
+    `/admin/gifts/${encodeURIComponent(String(id))}`
+  );
+}
+
 export function buildAdminSettingsPath(): AdminSettingsPath {
   return "/admin/settings";
 }

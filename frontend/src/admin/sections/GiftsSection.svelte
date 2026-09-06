@@ -5,13 +5,15 @@
     AdminPagination,
     AdminTable,
     AdminSortableHeader,
+    AdminSelect,
   } from "$components/patterns/admin/index.js";
   import Dialog from "$components/ui/dialog.svelte";
   import Input from "$components/ui/input.svelte";
-  import { Gift, Search, RefreshCw, User } from "$components/ui/icons.js";
-  import { unwrap, type ApiClient } from "$lib/webapp/publicApi.js";
+  import { Gift, Plus, Copy, Check, RefreshCw, User } from "$components/ui/icons.js";
+  import { unwrap, buildAdminGiftPath, type ApiClient } from "$lib/webapp/publicApi.js";
   import type { components } from "$lib/api/openapi.generated.js";
   import PaymentProviderCell from "./PaymentProviderCell.svelte";
+  import GiftCreateDialog from "./GiftCreateDialog.svelte";
   type AdminGift = components["schemas"]["AdminGiftView"];
   let {
     api,
@@ -32,6 +34,10 @@
   let total = $state(0);
   let page = $state(0);
   let status = $state("");
+  let source = $state("");
+  let createOpen = $state(false);
+  let copied = $state(false);
+  let copyFailed = $state(false);
   let query = $state("");
   let appliedQuery = $state("");
   let busy = $state(false);
@@ -40,7 +46,7 @@
   let sort = $state("date_desc");
   const columns = [
     ["id", "id"],
-    ["buyer", "gifts_buyer"],
+    ["buyer", "gifts_buyer_or_creator"],
     ["recipient", "gifts_recipient"],
     ["tariff", "gifts_tariff"],
     ["amount", "amount"],
@@ -66,7 +72,8 @@
     currentPage: number,
     currentStatus: string,
     currentQuery: string,
-    currentSort: string
+    currentSort: string,
+    currentSource = source
   ) {
     const request = ++requestId;
     busy = true;
@@ -74,7 +81,7 @@
     try {
       const result = unwrap(
         await api(
-          `/admin/gifts?page=${currentPage}&status=${encodeURIComponent(currentStatus)}&q=${encodeURIComponent(currentQuery)}&sort=${encodeURIComponent(currentSort)}`
+          `/admin/gifts?page=${currentPage}&status=${encodeURIComponent(currentStatus)}&q=${encodeURIComponent(currentQuery)}&sort=${encodeURIComponent(currentSort)}&source=${encodeURIComponent(currentSource)}`
         )
       );
       if (request === requestId) {
@@ -88,8 +95,41 @@
     }
   }
   $effect(() => {
-    void load(page, status, appliedQuery, sort);
+    void load(page, status, appliedQuery, sort, source);
   });
+  async function openGift(gift: AdminGift) {
+    selected = gift;
+    copied = false;
+    copyFailed = false;
+    try {
+      const result = unwrap(await api(buildAdminGiftPath(gift.gift_id)));
+      if ("gift" in result && selected?.gift_id === gift.gift_id) selected = result.gift;
+    } catch {
+      /* The list still provides the gift details. */
+    }
+  }
+  async function copyLink(link: string) {
+    try {
+      await navigator.clipboard.writeText(link);
+      copied = true;
+      copyFailed = false;
+    } catch {
+      copyFailed = true;
+    }
+  }
+  function created(gift: AdminGift) {
+    createOpen = false;
+    selected = gift;
+    copied = false;
+    copyFailed = false;
+    page = 0;
+    status = "";
+    source = "";
+    query = "";
+    appliedQuery = "";
+    sort = "date_desc";
+    void load(0, "", "", "date_desc", "");
+  }
   function search(event: SubmitEvent) {
     event.preventDefault();
     page = 0;
@@ -98,37 +138,65 @@
 </script>
 
 <div class="gifts-admin">
-  <form class="gifts-toolbar" onsubmit={search}>
-    <div class="gift-search">
-      <Search size={17} /><Input
+  <form class="admin-toolbar admin-toolbar-users gifts-toolbar" onsubmit={search}>
+    <div class="admin-toolbar-search">
+      <Input
+        class="input"
+        type="search"
         bind:value={query}
-        placeholder={at("gifts_search", {}, "Buyer, recipient, email or gift ID")}
-        aria-label={at("gifts_search", {}, "Search gifts")}
+        placeholder={at("gifts_search")}
+        aria-label={at("gifts_search")}
       />
+      <AdminButton type="submit" variant="primary">{at("find")}</AdminButton>
     </div>
-    <select
-      bind:value={status}
-      onchange={() => (page = 0)}
-      aria-label={at("gifts_status", {}, "Status")}
-      ><option value="">{at("gifts_all", {}, "All statuses")}</option
-      >{#each ["ready", "activating", "activated", "revoked"] as value}<option {value}
-          >{at(`gifts_status_${value}`)}</option
-        >{/each}</select
+    <div class="admin-toolbar-controls">
+      <div class="admin-toolbar-field">
+        <span class="admin-toolbar-field-label">{at("gifts_status")}</span>
+        <AdminSelect
+          bind:value={status}
+          class="admin-toolbar-select"
+          ariaLabel={at("gifts_status")}
+          onValueChange={() => (page = 0)}
+          items={[
+            { value: "", label: at("gifts_all") },
+            ...["ready", "activating", "activated", "revoked"].map((value) => ({
+              value,
+              label: at(`gifts_status_${value}`),
+            })),
+          ]}
+        />
+      </div>
+      <div class="admin-toolbar-field">
+        <span class="admin-toolbar-field-label">{at("gifts_source")}</span>
+        <AdminSelect
+          bind:value={source}
+          class="admin-toolbar-select"
+          ariaLabel={at("gifts_source")}
+          onValueChange={() => (page = 0)}
+          items={[
+            { value: "", label: at("filter_all") },
+            { value: "purchase", label: at("gifts_source_purchase") },
+            { value: "admin", label: at("gifts_source_admin") },
+          ]}
+        />
+      </div>
+      <div class="admin-toolbar-summary">
+        <span class="admin-toolbar-field-label">{at("total")}</span><strong>{total}</strong>
+      </div>
+    </div>
+  </form>
+  <div class="gifts-actions">
+    <AdminButton variant="primary" onclick={() => (createOpen = true)}
+      ><Plus size={16} />{at("gifts_create")}</AdminButton
     >
-    <AdminButton type="submit">{at("search", {}, "Search")}</AdminButton>
     <AdminButton
       variant="ghost"
       disabled={busy}
       onclick={() => load(page, status, appliedQuery, sort)}
-      ><RefreshCw size={15} />{at("refresh", {}, "Refresh")}</AdminButton
-    >
-  </form>
-  {#if failed}<p role="alert">{at("gifts_load_failed", {}, "Could not load gifts")}</p>{/if}
-  <div class="gifts-count">
-    <Gift size={19} /><strong>{at("gifts_count", { count: total }, "Gifts: {count}")}</strong><span
-      >{at("gifts_audit_note", {}, "Payment, delivery and activation in one place")}</span
+      ><RefreshCw size={15} />{at("refresh")}</AdminButton
     >
   </div>
+  {#if failed}<p role="alert">{at("gifts_load_failed")}</p>{/if}
   <div class="gift-desktop" aria-busy={busy}>
     <AdminTable>
       <thead
@@ -148,7 +216,12 @@
         >{#each gifts as gift (gift.gift_id)}
           <tr>
             <td>{@render giftLink(gift)}</td>
-            <td>{@render userLink(gift.purchaser_id, gift.purchaser_label)}</td>
+            <td
+              >{@render userLink(
+                gift.purchaser_id,
+                gift.purchaser_label
+              )}{#if gift.provider === "admin_gift"}<small>{at("gifts_created_by")}</small>{/if}</td
+            >
             <td
               >{#if gift.recipient_id}{@render userLink(
                   gift.recipient_id,
@@ -156,7 +229,7 @@
                 )}{:else}<span class="gift-secondary">{at("gifts_not_claimed")}</span>{/if}</td
             >
             <td
-              ><strong>{gift.tariff_title}</strong><small
+              ><strong>{gift.tariff_title || at("gifts_subscription")}</strong><small
                 >{at("gifts_duration", {
                   days: gift.duration_days,
                   bonus: gift.bonus_days || 0,
@@ -164,7 +237,7 @@
               ></td
             >
             <td><strong>{fmtMoney(gift.total_amount, gift.currency)}</strong></td>
-            <td><PaymentProviderCell provider={gift.provider} /></td>
+            <td>{@render provider(gift)}</td>
             <td>{@render badge(gift.status)}</td>
             <td>{fmtDate(gift.created_at)}</td>
           </tr>
@@ -173,29 +246,31 @@
     </AdminTable>
   </div>
   <div class="gift-mobile" aria-busy={busy}>
-    <label class="gift-mobile-sort"
-      >{at("gifts_sort")}<select bind:value={sort} onchange={() => (page = 0)}>
-        {#each columns as [key, label]}<option value={`${key}_desc`}>{at(label)} ↓</option><option
-            value={`${key}_asc`}>{at(label)} ↑</option
-          >{/each}
-      </select></label
-    >
+    <div class="gift-mobile-sort">
+      <span>{at("gifts_sort")}</span>
+      <AdminSelect
+        bind:value={sort}
+        ariaLabel={at("gifts_sort")}
+        onValueChange={() => (page = 0)}
+        items={columns.flatMap(([key, label]) => [
+          { value: `${key}_desc`, label: `${at(label)} ↓` },
+          { value: `${key}_asc`, label: `${at(label)} ↑` },
+        ])}
+      />
+    </div>
     {#each gifts as gift (gift.gift_id)}
       <article class="gift-mobile-card">
         <span class="gift-mobile-line"
           >{@render giftLink(gift, true)}{@render badge(gift.status)}</span
         >
         <span class="gift-mobile-line"
-          ><PaymentProviderCell provider={gift.provider} /><strong
-            >{fmtMoney(gift.total_amount, gift.currency)}</strong
+          >{@render provider(gift)}<strong>{fmtMoney(gift.total_amount, gift.currency)}</strong
           ></span
         >
         <div class="gift-mobile-users">
           <div>
-            <small>{at("gifts_buyer")}</small>{@render userLink(
-              gift.purchaser_id,
-              gift.purchaser_label
-            )}
+            <small>{at(gift.provider === "admin_gift" ? "gifts_created_by" : "gifts_buyer")}</small
+            >{@render userLink(gift.purchaser_id, gift.purchaser_label)}
           </div>
           <div>
             <small>{at("gifts_recipient")}</small>{#if gift.recipient_id}{@render userLink(
@@ -258,14 +333,25 @@
       size="icon"
       title={at("gifts_detail_title", { id: gift.gift_id })}
       aria-label={at("gifts_detail_title", { id: gift.gift_id })}
-      onclick={() => (selected = gift)}><Gift size={14} /></AdminButton
+      onclick={() => openGift(gift)}><Gift size={14} /></AdminButton
     >
     <span
       ><span class="gift-id">#{gift.gift_id}</span>{#if withTariff}
-        · <strong>{gift.tariff_title}</strong>{/if}</span
+        · <strong>{gift.tariff_title || at("gifts_subscription")}</strong>{/if}</span
     >
   </span>
 {/snippet}
+
+{#snippet provider(gift: AdminGift)}
+  <PaymentProviderCell {at} provider={gift.provider} />
+{/snippet}
+
+{#if createOpen}<GiftCreateDialog
+    {api}
+    {at}
+    onclose={() => (createOpen = false)}
+    oncreated={created}
+  />{/if}
 
 {#snippet badge(status: string)}
   <AdminBadge
@@ -284,7 +370,7 @@
   {#if selected}{@const gift = selected}
     <div class="gift-modal-summary">
       <div>
-        <strong>{gift.tariff_title}</strong><span class="gift-secondary"
+        <strong>{gift.tariff_title || at("gifts_subscription")}</strong><span class="gift-secondary"
           >{at("gifts_duration", { days: gift.duration_days, bonus: gift.bonus_days || 0 })}</span
         >
       </div>
@@ -292,12 +378,32 @@
         <strong>{fmtMoney(gift.total_amount, gift.currency)}</strong>{@render badge(gift.status)}
       </div>
     </div>
+    {#if gift.link}
+      <div class="gift-admin-link-block">
+        <span class="gift-secondary">{at("gifts_link_hint")}</span>
+        <div class="gift-admin-link">
+          <Input
+            class="input"
+            readonly
+            value={gift.link}
+            aria-label={at("gifts_link")}
+            onclick={(event) => event.currentTarget.select()}
+          />
+          <AdminButton variant="primary" onclick={() => copyLink(gift.link || "")}
+            >{#if copied}<Check size={16} />{:else}<Copy size={16} />{/if}{at(
+              copied ? "gifts_copied" : "gifts_copy"
+            )}</AdminButton
+          >
+        </div>
+        {#if copyFailed}<span role="alert" class="gift-secondary">{at("gifts_copy_failed")}</span
+          >{/if}
+      </div>
+    {/if}
     <div class="gift-modal-buyer">
-      <span>{at("gifts_buyer")}</span>{@render userLink(gift.purchaser_id, gift.purchaser_label)}
+      <span>{at(gift.provider === "admin_gift" ? "gifts_created_by" : "gifts_buyer")}</span
+      >{@render userLink(gift.purchaser_id, gift.purchaser_label)}
       <div class="gift-payment-meta">
-        <PaymentProviderCell provider={gift.provider} /><span class="gift-secondary"
-          >{fmtDate(gift.created_at)}</span
-        >
+        {@render provider(gift)}<span class="gift-secondary">{fmtDate(gift.created_at)}</span>
       </div>
     </div>
     <div class="gift-admin-details">
@@ -330,23 +436,28 @@
         >
       </div>
       <div>
-        <small>{at("gifts_funding", {}, "Payment breakdown")}</small><span
-          >{at("gifts_user_balance", {}, "User balance")}: {fmtMoney(
-            gift.user_balance_amount,
-            gift.currency
-          )}</span
-        ><span
-          >{at("gifts_partner_balance", {}, "Partner balance")}: {fmtMoney(
-            gift.partner_balance_amount,
-            gift.currency
-          )}</span
-        ><span
-          >{at("gifts_discount", {}, "Promo discount")}: {fmtMoney(
-            gift.discount_amount,
-            gift.currency
-          )}{gift.promo_code_id ? ` · #${gift.promo_code_id}` : ""}</span
-        ><button class="gift-link" onclick={() => openPayment(gift.payment_id)}
-          >{at("gifts_payment", {}, "Payment")} #{gift.payment_id}</button
+        <small>{at("gifts_funding", {}, "Payment breakdown")}</small>
+        {#if gift.provider === "admin_gift"}<span>{at("gifts_free_accounting")}</span>{:else}<span
+            >{at("gifts_user_balance", {}, "User balance")}: {fmtMoney(
+              gift.user_balance_amount,
+              gift.currency
+            )}</span
+          ><span
+            >{at("gifts_partner_balance", {}, "Partner balance")}: {fmtMoney(
+              gift.partner_balance_amount,
+              gift.currency
+            )}</span
+          ><span
+            >{at("gifts_discount", {}, "Promo discount")}: {fmtMoney(
+              gift.discount_amount,
+              gift.currency
+            )}{gift.promo_code_id ? ` · #${gift.promo_code_id}` : ""}</span
+          >{/if}<AdminButton
+          variant="ghost"
+          size="sm"
+          class="gift-link"
+          onclick={() => openPayment(gift.payment_id)}
+          >{at("gifts_payment", {}, "Payment")} #{gift.payment_id}</AdminButton
         >
       </div>
       <div>
@@ -367,41 +478,41 @@
     min-width: 0;
   }
   .gifts-toolbar {
+    min-width: 0;
+  }
+  .gifts-toolbar :global(.admin-toolbar-search .input),
+  .gifts-toolbar :global(.admin-toolbar-search .admin-btn) {
+    height: 36px;
+    min-height: 36px;
+  }
+  .gifts-toolbar :global(.admin-toolbar-controls) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  }
+  .gifts-actions {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 10px;
-    flex-wrap: wrap;
   }
-  .gift-search {
+  .gift-admin-link-block {
+    display: grid;
+    gap: 8px;
+    padding-bottom: 16px;
+  }
+  .gift-admin-link {
     display: flex;
     align-items: center;
     gap: 8px;
+    min-width: 0;
+  }
+  .gift-admin-link :global(input) {
+    min-width: 0;
     flex: 1;
-    min-width: 220px;
   }
-  .gift-search :global(input) {
-    width: 100%;
+  .gift-admin-link :global(.admin-btn) {
+    flex-shrink: 0;
   }
-  select {
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 9px;
-    background: var(--panel);
-    color: var(--text);
-    font: inherit;
-    font-size: 13px;
-  }
-  .gifts-count {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-  }
-  .gifts-count > span {
-    font-size: 12px;
-    color: var(--muted);
-    margin-left: auto;
-  }
-  .gift-link {
+  :global(.admin-gift-dialog .gift-link) {
     border: 0;
     background: transparent;
     color: var(--accent);
@@ -546,7 +657,7 @@
       font-size: 12px;
       color: var(--muted);
     }
-    .gift-mobile-sort select {
+    .gift-mobile-sort :global(.admin-select-trigger) {
       flex: 1;
       min-width: 0;
     }
@@ -584,8 +695,15 @@
       min-width: 0;
       overflow-wrap: anywhere;
     }
-    .gifts-count > span {
-      display: none;
+    .gifts-toolbar :global(.admin-toolbar-controls) {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .gifts-toolbar :global(.admin-toolbar-summary) {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: space-between;
+      min-height: 20px;
     }
     .gift-admin-details {
       gap: 14px;

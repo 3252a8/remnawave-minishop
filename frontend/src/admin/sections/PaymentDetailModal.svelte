@@ -66,10 +66,15 @@
       ? at("payment_detail_title", { id: payment.payment_id }, `Payment #${payment.payment_id}`)
       : ""
   );
+  const providerLabel = $derived(
+    payment?.provider === "admin_gift"
+      ? at("gifts_source_admin", {}, "From administrator")
+      : payment?.provider
+  );
   const description = $derived(
     payment
       ? [
-          payment.provider,
+          providerLabel,
           payment.created_at ? fmtDate(payment.created_at) : "",
           payment.user_label || payment.user_id,
         ]
@@ -296,7 +301,7 @@
   ] satisfies MetaRow[]);
 
   const providerRows = $derived([
-    { label: at("provider", {}, "Provider"), value: payment?.provider },
+    { label: at("provider", {}, "Provider"), value: providerLabel },
     {
       label: at("payment_detail_provider_payment_id", {}, "Provider ID"),
       value: payment?.provider_payment_id,
@@ -374,7 +379,7 @@
                 >{display(payment.status)}</AdminBadge
               >
               {#if payment.provider}
-                <AdminBadge variant="muted">{payment.provider}</AdminBadge>
+                <AdminBadge variant="muted">{providerLabel}</AdminBadge>
               {/if}
               {#if payment.fulfillment_source === "admin"}
                 <AdminBadge variant="warning">
@@ -389,7 +394,7 @@
           <div class="admin-payment-stat">
             <CreditCard size={15} />
             <span>{at("payment_detail_provider", {}, "Provider")}</span>
-            <strong>{display(payment.provider)}</strong>
+            <strong>{display(providerLabel)}</strong>
           </div>
           <div class="admin-payment-stat">
             <CalendarDays size={15} />

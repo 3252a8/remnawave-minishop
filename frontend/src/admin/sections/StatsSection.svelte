@@ -440,6 +440,13 @@
       <Card.Content>
         <div class="admin-revenue-kpis">
           <div class="admin-revenue-kpi">
+            <div class="admin-revenue-kpi-label">{at("gifts_free_stats")}</div>
+            <div class="admin-revenue-kpi-value">{fin.admin_gifts_count ?? 0}</div>
+            <div class="admin-revenue-kpi-label">
+              {at("gifts_free_stats_hint", { count: fin.admin_gifts_activated_count ?? 0 })}
+            </div>
+          </div>
+          <div class="admin-revenue-kpi">
             <div class="admin-revenue-kpi-label">
               {at("stats_trend_payments", { count: fin.today_payments_count ?? 0 }, "")}
             </div>

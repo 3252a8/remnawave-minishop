@@ -89,7 +89,7 @@
               </td>
               <td data-label={at("date", {}, "Date")}>{fmtDateShort(payment.created_at)}</td>
               <td data-label={at("provider", {}, "Provider")}>
-                <PaymentProviderCell provider={payment.provider} />
+                <PaymentProviderCell {at} provider={payment.provider} />
               </td>
               <td class="admin-cell-wrap" data-label={at("description", {}, "Description")}>
                 {paymentDescriptionDisplay(payment, at)}

@@ -77,7 +77,7 @@ export function paymentProviderDisplay(
         : providerKey;
   const logoFile = PAYMENT_PROVIDER_LOGO_FILES[logoKey];
 
-  if (providerKey === "promo") {
+  if (providerKey === "promo" || providerKey === "admin_gift") {
     return { label: rawLabel || "promo", logoUrl: "", fallbackEmoji: "🎁" };
   }
   if (providerKey === "partner_balance") {

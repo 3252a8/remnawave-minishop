@@ -1,4 +1,5 @@
 import { DEV_MOCK } from "../previewMock.js";
+import { adminGiftDemoStats } from "./giftsDemo";
 import { withDemoAvatarTicket } from "../demoAvatars.js";
 import { jsonBody, paged, queryParams, writeDemoLanguage } from "../demoMockRuntime.js";
 import { DATASET, defaultClone, type DemoRecord, type MockApiContext } from "./dataset";
@@ -121,7 +122,10 @@ export function demoApiResponse(
   const method = String(options.method || "GET").toUpperCase();
   const params = queryParams(path);
 
-  if (cleanPath === "/admin/stats") return clone(DATASET.stats);
+  if (cleanPath === "/admin/stats") {
+    const stats = clone(DATASET.stats) as DemoRecord;
+    return { ...stats, financial: { ...(stats.financial as DemoRecord), ...adminGiftDemoStats() } };
+  }
   if (cleanPath === "/admin/broadcast/audience-counts") {
     return {
       ok: true,

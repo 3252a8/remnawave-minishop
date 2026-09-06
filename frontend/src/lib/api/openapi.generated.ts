@@ -560,6 +560,41 @@ export interface paths {
     /** Admin Gifts */
     get: operations["get_admin_gifts_route"];
     put?: never;
+    /** Admin Gift Create */
+    post: operations["post_admin_gift_create_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/gifts/options": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Gift Options */
+    get: operations["get_admin_gift_options_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/gifts/{gift_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Gift Detail */
+    get: operations["get_admin_gift_detail_route"];
+    put?: never;
     post?: never;
     delete?: never;
     options?: never;
@@ -3423,6 +3458,23 @@ export interface components {
       allowed_tags: string[];
       /** Shortcodes */
       shortcodes: components["schemas"]["AdminBroadcastShortcodeOut"][];
+    };
+    /** AdminGiftCreateBody */
+    AdminGiftCreateBody: {
+      /** @default null */
+      checkout_addons: components["schemas"]["WebAppCheckoutAddonsPayload"] | null;
+      /** Plan Id */
+      plan_id: string;
+      /**
+       * Recipient Email
+       * @default null
+       */
+      recipient_email: string | null;
+      /**
+       * Request Id
+       * Format: uuid
+       */
+      request_id: string;
     };
     /** AdminGiftView */
     AdminGiftView: {
@@ -9511,6 +9563,155 @@ export interface operations {
             /** @constant */
             ok: true;
           } & components["schemas"]["AdminGiftsList"];
+        };
+      };
+    };
+  };
+  post_admin_gift_create_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminGiftCreateBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            gift: components["schemas"]["AdminGiftView"];
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  get_admin_gift_options_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            email_available: boolean;
+            /** @constant */
+            ok: true;
+            plans: {
+              available_payment_method_ids?: string[];
+              billing_model?: string;
+              checkout_addons?: {
+                [key: string]: unknown;
+              };
+              checkout_addons_unavailable_payment_method_ids?: string[];
+              currency?: string;
+              description?: string;
+              device_count?: number;
+              duration_days?: number;
+              effective_hwid_device_limit?: number | null;
+              externally_managed_price_method_ids?: string[];
+              hwid_device_limit?: number | null;
+              hwid_device_packages?: {
+                available_payment_method_ids?: string[];
+                billing_model?: string;
+                currency?: string;
+                device_count?: number;
+                externally_managed_price_method_ids?: string[];
+                id?: string;
+                months?: number;
+                price?: number;
+                sale_mode?: string;
+                stars_price?: number;
+                subtitle?: string;
+                tariff_key?: string;
+                tariff_name?: string;
+                title?: string;
+              }[];
+              hwid_renewal?: {
+                active_until?: string | null;
+                active_until_text?: string | null;
+                available?: boolean;
+                currency?: string;
+                device_count?: number;
+                price?: number;
+                pricing_period_months?: number;
+                stars_price?: number;
+                traffic_bonus_gb?: number;
+                valid_from?: string | null;
+                valid_from_text?: string | null;
+                valid_until?: string | null;
+                valid_until_text?: string | null;
+              };
+              id?: string;
+              is_default_tariff?: boolean;
+              monthly_gb?: number | null;
+              months?: number;
+              premium_enabled?: boolean;
+              premium_monthly_gb?: number | null;
+              premium_title?: string;
+              premium_traffic_limit_strategy?: string;
+              premium_unlimited?: boolean;
+              price?: number;
+              proration_ratio?: number;
+              sale_mode?: string;
+              squad_uuids?: string[];
+              stars_price?: number;
+              subtitle?: string;
+              tariff_key?: string;
+              tariff_name?: string;
+              title?: string;
+              traffic_bonus_gb?: number;
+              traffic_gb?: number;
+              traffic_limit_strategy?: string;
+              valid_from?: string | null;
+              valid_from_text?: string | null;
+              valid_until?: string | null;
+              valid_until_text?: string | null;
+            }[];
+          };
+        };
+      };
+    };
+  };
+  get_admin_gift_detail_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        gift_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            gift: components["schemas"]["AdminGiftView"];
+            /** @constant */
+            ok: true;
+          };
         };
       };
     };

@@ -1,3 +1,4 @@
+import type { components } from "$lib/api/openapi.generated.js";
 import type { GiftView } from "../gifts.svelte.js";
 import type { DemoRecord } from "./dataset";
 import { DEV_MOCK } from "../previewMock.js";
@@ -31,37 +32,152 @@ const gift = (id: number, status = "ready"): GiftView => ({
 let gifts = [gift(4101), gift(4100, "activated")];
 const claimed = new Set<string>();
 let nextId = 4200;
+type AdminGift = components["schemas"]["AdminGiftView"];
+const adminCreated: AdminGift[] = [];
+const adminRequests = new Map<string, AdminGift>();
+export function adminGiftDemoStats() {
+  return { admin_gifts_count: 12 + adminCreated.length, admin_gifts_activated_count: 8 };
+}
+function adminGiftRows(): AdminGift[] {
+  return Array.from({ length: 57 }, (_, index) => ({
+    ...gift(4101 - index, index % 2 ? "activated" : "ready"),
+    link: null,
+    created_at: new Date(Date.UTC(2026, 8, 5) - index * 3600000).toISOString(),
+    tariff_title: index % 3 ? "Premium" : "Standard",
+    purchaser_id: 101 + index,
+    purchaser_label: index ? "anna@example.com" : "alex",
+    recipient_id: index % 2 ? 207 : null,
+    recipient_label: index % 2 ? "maria" : "",
+    amount: index === 2 ? 0 : 1090 + index * 10,
+    total_amount: index === 2 ? 0 : 1490 + index * 10,
+    currency: "RUB",
+    provider: index === 2 ? "admin_gift" : "yookassa",
+    payment_status: "succeeded",
+    user_balance_amount: index === 2 ? 0 : 250,
+    partner_balance_amount: index === 2 ? 0 : 150,
+    discount_amount: index === 2 ? 0 : 160,
+    promo_code_id: index === 2 ? null : 14,
+    delivery_attempts: 1,
+  }));
+}
 
 export function giftsDemoResponse(path: string, options: RequestInit, fullPath = path): unknown {
   const demoGiftsEnabled = DEV_MOCK.config.giftsEnabled !== false;
   const demo = new URLSearchParams(window.location.search).get("gift_demo");
+  if (/^\/admin\/payments\/\d+$/.test(path)) {
+    const row = [...adminCreated, ...adminGiftRows()].find(
+      (item) => item.provider === "admin_gift" && item.payment_id === Number(path.split("/").pop())
+    );
+    if (row)
+      return {
+        ok: true,
+        payment: {
+          payment_id: row.payment_id,
+          user_id: row.purchaser_id,
+          user_label: row.purchaser_label,
+          provider: "admin_gift",
+          funding_source: "admin_grant",
+          amount: 0,
+          currency: row.currency,
+          status: "succeeded",
+          created_at: row.created_at,
+          fulfilled_at: row.created_at,
+          fulfilled_by_admin_id: row.purchaser_id,
+          fulfillment_source: "admin",
+          subscription_duration_days: row.duration_days,
+          subscription_duration_months: null,
+          tariff_key: "standard",
+          sale_mode: `subscription@standard|d${row.duration_days}|gift`,
+          checkout_total_amount: 0,
+          checkout_base_amount: 0,
+          checkout_discount_amount: 0,
+          user_balance_amount: 0,
+          partner_balance_amount: 0,
+          promo_code_id: null,
+          can_manual_finalize: false,
+          can_reverse: false,
+          purchases: [],
+        },
+      };
+  }
+  if (path === "/admin/gifts/options")
+    return {
+      ok: true,
+      email_available: true,
+      plans: (DEV_MOCK.data.plans as DemoRecord[])
+        .filter((p) => !p.sale_mode || p.sale_mode === "subscription")
+        .map((p) => ({
+          ...p,
+          effective_hwid_device_limit: p.effective_hwid_device_limit ?? p.hwid_device_limit ?? 5,
+        })),
+    };
+  if (path === "/admin/gifts" && options.method === "POST") {
+    const body = jsonBody(options);
+    const previous = adminRequests.get(String(body.request_id));
+    if (previous) return { ok: true, gift: previous };
+    const plan = (DEV_MOCK.data.plans as DemoRecord[]).find((p) => String(p.id) === body.plan_id);
+    if (!plan) return { ok: false, error: "invalid_plan" };
+    const addons = (body.checkout_addons || {}) as DemoRecord;
+    const created: AdminGift = {
+      ...adminGiftRows()[2],
+      ...gift(++nextId),
+      tariff_title: String(plan.tariff_name || plan.title),
+      duration_days: Number(plan.duration_days || Number(plan.months) * 30),
+      created_at: new Date().toISOString(),
+      activated_at: null,
+      recipient_id: null,
+      recipient_label: "",
+      purchaser_id: 1,
+      purchaser_label: "admin",
+      amount: 0,
+      total_amount: 0,
+      currency: String(plan.currency || "RUB"),
+      provider: "admin_gift",
+      user_balance_amount: 0,
+      partner_balance_amount: 0,
+      discount_amount: 0,
+      promo_code_id: null,
+      bonus_days: 0,
+      regular_bonus_gb: 0,
+      devices:
+        Number(plan.effective_hwid_device_limit ?? plan.hwid_device_limit ?? 5) +
+        Number(addons.device_count || 0),
+      regular_limit_gb: Number(addons.regular_limit_gb ?? plan.monthly_gb ?? 0),
+      premium_limit_gb: Number(addons.premium_limit_gb ?? plan.premium_monthly_gb ?? 0),
+      recipient_email: String(body.recipient_email || "") || null,
+      delivery_status: body.recipient_email ? "pending" : "not_requested",
+      delivered_at: null,
+      delivery_attempts: 0,
+    };
+    adminCreated.unshift(created);
+    adminRequests.set(String(body.request_id), created);
+    return { ok: true, gift: created };
+  }
+  if (/^\/admin\/gifts\/\d+$/.test(path)) {
+    const row = [...adminCreated, ...adminGiftRows()].find(
+      (item) => item.gift_id === Number(path.split("/").pop())
+    );
+    return row
+      ? {
+          ok: true,
+          gift: {
+            ...row,
+            link:
+              row.provider === "admin_gift" && row.status === "ready"
+                ? row.link || `https://example.com/?gift=${"R".repeat(43)}`
+                : null,
+          },
+        }
+      : { ok: false, error: "gift_unavailable" };
+  }
   if (path === "/admin/gifts") {
     const params = new URLSearchParams(fullPath.split("?")[1] || "");
-    const rows = Array.from({ length: 57 }, (_, index) => ({
-      ...gifts[index % gifts.length],
-      gift_id: 4101 - index,
-      payment_id: 4101 - index,
-      created_at: new Date(Date.UTC(2026, 8, 5) - index * 3600000).toISOString(),
-      tariff_title: index % 3 ? "Premium" : "Standard",
-    }))
-      .map((item, index) => ({
-        ...item,
-        link: null,
-        purchaser_id: 101 + index,
-        purchaser_label: index ? "anna@example.com" : "alex",
-        recipient_id: item.status === "activated" ? 207 : null,
-        recipient_label: "maria",
-        amount: 1090 + index * 10,
-        total_amount: 1490 + index * 10,
-        currency: "RUB",
-        provider: "yookassa",
-        payment_status: "succeeded",
-        user_balance_amount: 250,
-        partner_balance_amount: 150,
-        discount_amount: 160,
-        promo_code_id: 14,
-        delivery_attempts: 1,
-      }))
+    const rows = [...adminCreated, ...adminGiftRows()]
+      .filter(
+        (item) =>
+          !params.get("source") ||
+          (item.provider === "admin_gift" ? "admin" : "purchase") === params.get("source")
+      )
       .filter((item) => !params.get("status") || item.status === params.get("status"))
       .filter(
         (item) =>

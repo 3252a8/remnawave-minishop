@@ -109,6 +109,9 @@ async def admin_gifts_route(request: web.Request) -> web.Response:
     except ValueError:
         return _error(400, "invalid_page")
     status = request.query.get("status", "")
+    source = request.query.get("source", "")
+    if source not in {"", "admin", "purchase"}:
+        return _error(400, "invalid_source")
     sort = request.query.get("sort", "date_desc")
     if sort not in {
         f"{key}_{direction}"
@@ -126,6 +129,7 @@ async def admin_gifts_route(request: web.Request) -> web.Response:
             page=page,
             page_size=25,
             sort=sort,
+            source=source,
         )
         result = AdminGiftsList(
             gifts=[

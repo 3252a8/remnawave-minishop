@@ -120,6 +120,7 @@ async def admin_list(
     page: int,
     page_size: int,
     sort: str = "date_desc",
+    source: str = "",
 ) -> tuple[list[tuple[SubscriptionGift, Payment, User | None, User | None]], int]:
     purchaser = aliased(User)
     recipient = aliased(User)
@@ -129,6 +130,10 @@ async def admin_list(
         .outerjoin(purchaser, purchaser.user_id == SubscriptionGift.purchaser_id)
         .outerjoin(recipient, recipient.user_id == SubscriptionGift.recipient_id)
     )
+    if source == "admin":
+        stmt = stmt.where(Payment.provider == "admin_gift")
+    elif source == "purchase":
+        stmt = stmt.where(Payment.provider != "admin_gift")
     if status:
         if status == "revoked":
             stmt = stmt.where(

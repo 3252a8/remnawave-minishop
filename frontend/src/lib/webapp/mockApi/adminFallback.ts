@@ -1,3 +1,4 @@
+import { adminGiftDemoStats } from "./giftsDemo";
 import { DEV_MOCK } from "../previewMock.js";
 import type { PreviewThemesCatalog } from "../previewMock/types";
 import { defaultClone, type DemoRecord, type MockApiContext } from "./dataset";
@@ -47,6 +48,7 @@ export function adminFallbackResponse(
         referral_users: 34,
       },
       financial: {
+        ...adminGiftDemoStats(),
         today_revenue: 1240,
         week_revenue: 15800,
         month_revenue: 44100,

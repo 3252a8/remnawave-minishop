@@ -677,7 +677,16 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
         # Send to log channel
         if "gift" in str(sale_mode or "").split("|"):
-            message = _("log_gift_purchase", payment_id=payment_id or "—") + "\n\n" + message
+            message = (
+                _(
+                    "log_gift_created_by_admin"
+                    if payment_provider == "admin_gift"
+                    else "log_gift_purchase",
+                    payment_id=payment_id or "—",
+                )
+                + "\n\n"
+                + message
+            )
         profile_keyboard = self._build_profile_keyboard(_, user_id)
         await self._send_to_log_channel(message, reply_markup=profile_keyboard)
 

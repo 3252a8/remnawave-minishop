@@ -1,10 +1,20 @@
 <script lang="ts">
   import { paymentProviderDisplay } from "$lib/admin/paymentTable.js";
 
-  let { provider }: { provider: string | null | undefined } = $props();
+  let {
+    provider,
+    at = (_key, _params, fallback) => fallback || "",
+  }: {
+    provider: string | null | undefined;
+    at?: (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  } = $props();
 
   const providerDisplay = $derived(paymentProviderDisplay(provider));
-  const providerLabel = $derived(providerDisplay.label);
+  const providerLabel = $derived(
+    provider === "admin_gift"
+      ? at("gifts_source_admin", {}, "From administrator")
+      : providerDisplay.label
+  );
   const logoUrl = $derived(providerDisplay.logoUrl);
   let logoFailed = $state(false);
 

@@ -263,7 +263,7 @@
               {paymentDiscountDisplay(p, fmtMoney)}
             </td>
             <td data-label={at("provider", {}, "Provider")}>
-              <PaymentProviderCell provider={p.provider} />
+              <PaymentProviderCell {at} provider={p.provider} />
             </td>
             <td class="admin-cell-wrap" data-label={at("description", {}, "Description")}
               >{paymentDescriptionDisplay(p, at)}</td
@@ -344,7 +344,7 @@
           <PaymentPurchasesCell payment={p} {at} mode="mobile" />
 
           <div class="admin-payment-mobile-foot">
-            <PaymentProviderCell provider={p.provider} />
+            <PaymentProviderCell {at} provider={p.provider} />
             <span>{paymentDescriptionDisplay(p, at)}</span>
           </div>
         </li>
