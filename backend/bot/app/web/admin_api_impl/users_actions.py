@@ -52,6 +52,24 @@ from .users_listing import (
 logger = logging.getLogger(__name__)
 
 
+async def _is_panel_user_confirmed_absent(panel_service: object, panel_uuid: str) -> bool:
+    lookup = getattr(panel_service, "get_user_by_uuid_lookup", None)
+    if not callable(lookup):
+        return False
+
+    try:
+        result = await lookup(panel_uuid, log_response=False)
+    except Exception:
+        logger.warning(
+            "Admin webapp could not verify whether panel user %s is absent.",
+            panel_uuid,
+            exc_info=True,
+        )
+        return False
+
+    return isinstance(result, dict) and result.get("not_found") is True
+
+
 async def admin_user_ban_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
@@ -110,6 +128,17 @@ async def admin_user_delete_route(request: web.Request) -> web.Response:
                 )
                 await session.rollback()
                 return _error(502, "panel_delete_failed", str(exc))
+
+            if not panel_deleted:
+                panel_deleted = await _is_panel_user_confirmed_absent(
+                    panel_service,
+                    panel_uuid,
+                )
+                if panel_deleted:
+                    logger.info(
+                        "Panel user %s is already absent; continuing local user deletion.",
+                        panel_uuid,
+                    )
 
             if not panel_deleted:
                 await session.rollback()
