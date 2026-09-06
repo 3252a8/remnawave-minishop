@@ -97,6 +97,7 @@ from .external_oauth import (
     external_oauth_pending_verify_route,
     external_oauth_start_route,
 )
+from .gifts import gift_claim_route, gift_options_route, gift_preview_route, gifts_route
 from .guides import (
     public_subscription_guides_route,
     subscription_guides_route,
@@ -169,7 +170,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/admin", index_route)
     app.router.add_get(
         (
-            "/admin/{section:stats|users|payments|promos|ads|broadcast|logs|tariffs|"
+            "/admin/{section:stats|users|payments|gifts|promos|ads|broadcast|logs|tariffs|"
             "appearance|settings|translations|support|backups|partners}"
         ),
         index_route,
@@ -323,6 +324,10 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/tariffs/change", tariff_change_route)
     app.router.add_post("/api/tariffs/change-payment", tariff_change_payment_route)
     app.router.add_post("/api/payments", create_payment_route)
+    app.router.add_get("/api/gifts", gifts_route)
+    app.router.add_get("/api/gifts/options", gift_options_route)
+    app.router.add_post("/api/gifts/preview", gift_preview_route)
+    app.router.add_post("/api/gifts/claim", gift_claim_route)
     app.router.add_get("/api/payments/{payment_id}", payment_status_route)
     app.router.add_post("/api/payments/{payment_id}/cancel", cancel_payment_route)
     setup_admin_routes(app)

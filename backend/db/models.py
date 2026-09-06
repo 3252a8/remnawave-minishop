@@ -181,6 +181,7 @@ class Subscription(Base):
     tariff_binding_source = Column(String(32), nullable=True, index=True)
     tariff_bound_at = Column(DateTime(timezone=True), nullable=True)
     tariff_binding_note = Column(String(255), nullable=True)
+    gift_terms_snapshot = Column(Text, nullable=True)
     tier_baseline_bytes = Column(BigInteger, nullable=True)
     topup_balance_bytes = Column(BigInteger, nullable=False, default=0)
     premium_baseline_bytes = Column(BigInteger, nullable=False, default=0)
@@ -969,6 +970,7 @@ from db import activity_models as activity_models  # noqa: E402
 from db import auth_models as auth_models  # noqa: E402
 from db import balance_models as balance_models  # noqa: E402
 from db import broadcast_models as broadcast_models  # noqa: E402
+from db import gift_models as gift_models  # noqa: E402
 from db import message_image_models as message_image_models  # noqa: E402
 from db import partner_models as partner_models  # noqa: E402
 

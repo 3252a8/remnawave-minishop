@@ -17,6 +17,7 @@ export {
   Circle,
   CircleQuestionMark,
   CircleX,
+  Clock,
   Coins,
   Copy,
   CreditCard,

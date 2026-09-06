@@ -2,6 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.services.panel_api_service import PanelApiService
+from bot.services.subscription_order_terms import gift_tariff
 from config.settings import Settings
 from db.dal import subscription_dal
 from db.models import Subscription
@@ -43,7 +44,9 @@ class TariffWorkerLegacyMixin:
         )
         for sub in result.scalars().all():
             try:
-                tariff = self.settings.tariffs_config.require_configured(sub.tariff_key)
+                tariff = gift_tariff(sub) or self.settings.tariffs_config.require_configured(
+                    sub.tariff_key
+                )
             except Exception:
                 continue
             if int(sub.traffic_limit_bytes or 0) <= int(sub.traffic_used_bytes or 0):

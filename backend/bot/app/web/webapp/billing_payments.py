@@ -31,6 +31,7 @@ from bot.payment_providers.shared.entitlement_context import (
 from bot.services.checkout_addons import checkout_addon_grants
 from bot.services.device_topup_availability import resolve_device_topup_availability
 from bot.services.partner_common import PartnerError
+from bot.services.subscription_gifts import gift_payment_method_available, is_gift_sale
 from bot.services.subscription_order_terms import freeze_subscription_terms
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.trial_days import TRIAL_DAYS_START_FROM_PAYMENT
@@ -124,6 +125,21 @@ async def create_payment_route(request: web.Request) -> web.Response:
     hwid_quote: dict[str, Any] | None = None
     quoted_entitlement_context_snapshot: str | None = None
     requested_sale_mode = _sale_mode_base(str(payment_payload.sale_mode or ""))
+    if is_gift_sale(payment_payload.sale_mode) and not payment_payload.gift:
+        return _json_error(400, "gift_purchase_unavailable", "Gift checkout must be explicit")
+    if payment_payload.gift and (
+        not settings.GIFTS_ENABLED
+        or requested_sale_mode not in {"", "subscription"}
+        or payment_payload.renew_hwid_devices
+        or not gift_payment_method_available(method)
+    ):
+        return _json_error(400, "gift_purchase_unavailable", "Unsupported gift purchase options")
+    if payment_payload.gift_recipient_email and (
+        not payment_payload.gift
+        or not settings.smtp_delivery_configured
+        or not settings.SUBSCRIPTION_MINI_APP_URL
+    ):
+        return _json_error(400, "gift_email_unavailable", "Gift email delivery is unavailable")
     payment_units: int | float
     price: float | None = None
     stars_price: int | None = None
@@ -134,6 +150,8 @@ async def create_payment_route(request: web.Request) -> web.Response:
         try:
             return tariffs_config.require(tariff_key)
         except KeyError:
+            if payment_payload.gift:
+                raise
             async with get_session_factory(request)() as eligibility_session:
                 return await require_user_available_tariff(
                     eligibility_session,
@@ -344,6 +362,12 @@ async def create_payment_route(request: web.Request) -> web.Response:
         payment_units = months
         sale_mode = "subscription"
 
+    if payment_payload.gift:
+        if _sale_mode_base(sale_mode) != "subscription":
+            return _json_error(
+                400, "gift_purchase_unavailable", "Gifts require a period subscription"
+            )
+        sale_mode += "|gift"
     async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
@@ -504,6 +528,12 @@ async def create_payment_route(request: web.Request) -> web.Response:
             return _json_error(400, exc.code, exc.message)
         price = bundled_quote.price
         stars_price = bundled_quote.stars_price
+        if payment_payload.gift:
+            from .gift_checkout import attach_gift_delivery
+
+            checkout_bundle = attach_gift_delivery(
+                checkout_bundle, payment_payload, settings.TRIAL_DAYS_STRATEGY
+            )
         admin_ids = {int(item) for item in (settings.ADMIN_IDS or [])}
         is_admin = bool(db_user.telegram_id and int(db_user.telegram_id) in admin_ids)
         return await _create_subscription_payment(
@@ -565,7 +595,11 @@ async def _create_subscription_payment(
         return _json_error(400, "invalid_plan", "Subscription end date is out of range")
     if fixed_days is not None:
         sale_mode = with_period_days(sale_mode, fixed_days)
-    if entitlement_context_snapshot is None and _sale_mode_base(sale_mode) != "balance_topup":
+    if (
+        entitlement_context_snapshot is None
+        and _sale_mode_base(sale_mode) != "balance_topup"
+        and not is_gift_sale(sale_mode)
+    ):
         try:
             entitlement_context_snapshot = await snapshot_current_entitlement_context(
                 session,
@@ -585,7 +619,9 @@ async def _create_subscription_payment(
                 "entitlement_context_changed",
                 "The active subscription no longer matches this purchase",
             )
-    if _sale_mode_base(sale_mode) in {"subscription", "tariff_upgrade"}:
+    if _sale_mode_base(sale_mode) in {"subscription", "tariff_upgrade"} and not is_gift_sale(
+        sale_mode
+    ):
         active_subscription = await subscription_dal.get_active_subscription_by_user_id(
             session,
             int(user_id),

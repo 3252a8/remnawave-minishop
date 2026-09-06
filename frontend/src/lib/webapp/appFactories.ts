@@ -26,6 +26,7 @@ import { createWebappSectionContext } from "./webappSectionContext";
 import { createWebappSessionActions } from "./webappSessionActions.js";
 import { createAdminRuntime } from "./adminRuntime.js";
 import { createBillingActions } from "./billingActions";
+import { giftState } from "./gifts.svelte.js";
 import { invalidateWebappTariffOptionCaches } from "./billingOptionCache.js";
 import { buildAdminPanelProps } from "./adminPanelProps.js";
 import { shellState } from "./shellState.svelte";
@@ -321,6 +322,39 @@ export function createAppFactories({
     getTg: () => getTg() || telegramSdk.refresh(),
     telegramSdk,
   });
+  const giftBillingStore = createBillingStore({
+    billing: {
+      ...billing,
+      planPaymentBody: (plan, method, options) => ({
+        ...billing.planPaymentBody(plan, method, options),
+        gift: true,
+      }),
+      postPayment: async (body) => {
+        const response = await billing.postPayment({
+          ...body,
+          gift: true,
+          renew_hwid_devices: false,
+          gift_recipient_email: giftState.recipientEmail.trim() || null,
+        });
+        if (response.ok) {
+          giftState.receiptId = Number(response.payment_id || 0);
+          giftState.incoming = false;
+          giftState.open = true;
+        }
+        return response;
+      },
+    },
+    loadData: async () => {
+      giftState.revision += 1;
+      await loadData({ fresh: true, preserveView: true });
+    },
+    t,
+    showToast,
+    openExternalLink,
+    tg: initialTg,
+    getTg: () => getTg() || telegramSdk.refresh(),
+    telegramSdk,
+  });
   const { applyPostLoadBillingDeeplinks } = createBillingDeeplinkEffects({
     billingStore,
     // actionsStore is created below; the deeplink fires post-load, so the
@@ -490,6 +524,7 @@ export function createAppFactories({
     authStore,
     billing,
     billingStore,
+    giftBillingStore,
     bootRuntime,
     clearLanguageClickGuard,
     closeActivationSuccessDialog: activation.closeActivationSuccessDialog,

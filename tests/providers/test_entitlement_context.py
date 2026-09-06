@@ -247,6 +247,7 @@ def test_webapp_rejects_cross_tariff_addon_before_provider_creation() -> None:
     active_subscription = AsyncMock(return_value=_subscription(11, "other"))
 
     with (
+        patch("db.dal.gift_dal.activating_for_user", AsyncMock(return_value=None)),
         patch.object(
             billing_payments,
             "get_settings",
@@ -289,6 +290,7 @@ def test_generic_finalizer_fails_closed_before_stale_addon_activation() -> None:
     update_status = AsyncMock(return_value=payment)
 
     with (
+        patch("db.dal.gift_dal.activating_for_user", AsyncMock(return_value=None)),
         patch(
             "bot.payment_providers.shared.success.payment_dal.get_payment_by_db_id_for_update",
             AsyncMock(return_value=payment),
@@ -354,6 +356,7 @@ def test_generic_finalizer_blocks_cross_provider_subscription_race() -> None:
     )
 
     with (
+        patch("db.dal.gift_dal.activating_for_user", AsyncMock(return_value=None)),
         patch(
             "bot.payment_providers.shared.success.payment_dal.get_payment_by_db_id_for_update",
             AsyncMock(return_value=payment),
@@ -425,6 +428,7 @@ def _finalize_against_live_tribute_recurrence(
     update_status = AsyncMock(return_value=payment)
 
     with (
+        patch("db.dal.gift_dal.activating_for_user", AsyncMock(return_value=None)),
         patch(
             "bot.payment_providers.shared.success.payment_dal.get_payment_by_db_id_for_update",
             AsyncMock(return_value=payment),
@@ -503,6 +507,7 @@ def test_generic_finalizer_lets_the_tribute_subscription_webhook_through() -> No
     lock_subscription = AsyncMock(return_value=_live_tribute_recurrence())
 
     with (
+        patch("db.dal.gift_dal.activating_for_user", AsyncMock(return_value=None)),
         patch(
             "bot.payment_providers.shared.success.payment_dal.get_payment_by_db_id_for_update",
             AsyncMock(return_value=payment),

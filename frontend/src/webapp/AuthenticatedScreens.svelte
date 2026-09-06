@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { giftState } from "$lib/webapp/gifts.svelte.js";
   import type { ThemeOption } from "$lib/webapp/themePreference.js";
   import type { AccountStore } from "../lib/webapp/stores/accountStore.js";
   import type { DevicesStore } from "../lib/webapp/stores/devicesStore.js";
@@ -322,6 +323,10 @@
     resolveProgramEntryPlacement({
       partnerProgramEnabled: partnerEnabled,
       referralProgramEnabled,
+      giftsAvailable:
+        giftState.enabled ||
+        giftState.gifts.length > 0 ||
+        Boolean(giftState.token || giftState.pending),
     })
   );
   const menuButtons = $derived(
@@ -480,6 +485,7 @@
       {@const Screen = inviteScreen.component}
       <Screen
         {referral}
+        {referralProgramEnabled}
         {referralBonusDetails}
         {referralOneBonusPerReferee}
         {referralWelcomeBonusDays}

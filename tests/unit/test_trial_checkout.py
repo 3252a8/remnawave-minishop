@@ -74,6 +74,7 @@ class TrialCheckoutTests(IsolatedAsyncioTestCase):
 
         create_payment = AsyncMock(return_value=web.json_response({"ok": True}))
         with (
+            patch("db.dal.gift_dal.activating_for_user", AsyncMock(return_value=None)),
             patch.object(billing_payments, "_require_user_id", return_value=42),
             patch.object(
                 billing_payments,
@@ -186,6 +187,7 @@ class TrialCheckoutTests(IsolatedAsyncioTestCase):
         )
 
         with (
+            patch("db.dal.gift_dal.activating_for_user", AsyncMock(return_value=None)),
             patch(
                 "bot.payment_providers.shared.success.payment_dal.get_payment_by_db_id_for_update",
                 AsyncMock(return_value=payment),

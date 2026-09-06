@@ -7,6 +7,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.services.subscription_order_terms import gift_tariff
 from bot.utils.date_utils import add_months
 from config.subscription_periods import (
     add_period_days,
@@ -68,7 +69,9 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         if not sub:
             return None
 
-        tariff = self._resolve_tariff(sub.tariff_key) if sub.tariff_key else None
+        tariff = (
+            (gift_tariff(sub) or self._resolve_tariff(sub.tariff_key)) if sub.tariff_key else None
+        )
         base_hwid_limit = resolve_hwid_base_limit(
             sub.hwid_device_limit,
             self._base_hwid_limit_for_tariff(tariff),
@@ -421,7 +424,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         if not sub.tariff_key:
             return None
         try:
-            active_tariff = self._resolve_tariff(sub.tariff_key)
+            active_tariff = gift_tariff(sub) or self._resolve_tariff(sub.tariff_key)
             requested_tariff = self._resolve_tariff(tariff_key) if tariff_key else active_tariff
         except (KeyError, ValueError):
             return None

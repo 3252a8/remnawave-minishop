@@ -111,6 +111,7 @@ export default defineConfig({
                 { label: 'Тарифы и подписки', slug: 'features/subscriptions' },
                 { label: 'Настройка тарифов', slug: 'features/tariffs' },
                 { label: 'Платежи', slug: 'features/payments' },
+                { label: 'Подарочные подписки', slug: 'features/gifts' },
                 { label: 'Баланс пользователя', slug: 'features/user-balance' },
                 { label: 'Промокоды', slug: 'features/promocodes' },
                 { label: 'Партнёрская программа', slug: 'features/partner-program' },

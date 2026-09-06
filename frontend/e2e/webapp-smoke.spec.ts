@@ -1292,13 +1292,14 @@ test("program entries follow the enabled feature combination", async ({ page }) 
   let bottomNav = page.locator(".bottom-nav");
   const partnerNavEntry = bottomNav.locator('[data-nav-level="primary"][aria-label="Партнёрка"]');
   await expect(partnerNavEntry).toBeVisible();
-  await expect(bottomNav.locator('[data-nav-level="primary"][aria-label="Бонусы"]')).toHaveCount(0);
+  await expect(bottomNav.locator('[data-nav-level="primary"][aria-label="Бонусы"]')).toBeVisible();
+  await expect(page.locator(".gift-entry")).toBeVisible();
   await expect(partnerNavEntry.locator("svg path").first()).toHaveAttribute(
     "d",
     "m11 17 2 2a1 1 0 1 0 3-3"
   );
   await expect(page.locator(".referral-program-shell")).toHaveCount(0);
-  await expect(page.locator(".promo-code-input")).toHaveCount(0);
+  await expect(page.locator(".promo-code-input")).toBeEditable();
 
   await partnerNavEntry.click();
   await expect(page).toHaveURL(/\/demo\/runtime\/partner\?/);
@@ -1978,7 +1979,9 @@ test("checkout sliders keep price animations bounded and defer quotes while drag
   await closeDialog(dialog);
 });
 
-test("public install share links survive browser focus and visibility changes", async ({ page }) => {
+test("public install share links survive browser focus and visibility changes", async ({
+  page,
+}) => {
   const sharePath = "/s/0123456789abcdef0123456789abcdef";
   await page.clock.install();
   await page.goto(sharePath);

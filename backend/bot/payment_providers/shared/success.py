@@ -33,7 +33,13 @@ from bot.services.user_notification_policy import (
 from bot.utils.config_link import prepare_config_links
 from bot.utils.install_links import ensure_user_install_guide_links
 from bot.utils.text_sanitizer import sanitize_display_name, username_for_display
-from db.dal import auto_renew_dal, message_log_dal, payment_dal, subscription_dal, user_dal
+from db.dal import (
+    auto_renew_dal,
+    message_log_dal,
+    payment_dal,
+    subscription_dal,
+    user_dal,
+)
 from db.models import Payment, User
 
 from .common import (
@@ -48,6 +54,7 @@ from .entitlement_context import (
     payment_uses_entitlement_context,
     preflight_payment_entitlement,
 )
+from .gift_success import resolve_gift_payment
 
 logger = logging.getLogger(__name__)
 
@@ -492,6 +499,10 @@ async def finalize_successful_payment(
         float(req.months) if is_traffic_sale_base(sale_mode_base(req.sale_mode)) else None
     )
     base = sale_mode_base(req.sale_mode)
+
+    handled_gift, gift_outcome = await resolve_gift_payment(req)
+    if handled_gift:
+        return gift_outcome
 
     if base == "balance_topup":
         try:

@@ -1,4 +1,5 @@
 import type { CheckoutAddonPreset } from "$lib/webapp/deeplinks.js";
+import type { Snippet } from "svelte";
 import type { ApiClient } from "$lib/webapp/publicApi.js";
 import type {
   CheckoutAddonSelection,
@@ -25,6 +26,8 @@ type CheckoutPromoAction = (options?: Pick<CheckoutPaymentOptions, "checkoutAddo
 export type PaymentCheckoutDialogProps = {
   api: ApiClient["api"];
   inline?: boolean;
+  gift?: boolean;
+  giftDelivery?: Snippet;
   createPayment?: BalancePaymentAction;
   hasMultipleTariffs?: boolean;
   methods?: PaymentMethodView[];

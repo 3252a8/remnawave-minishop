@@ -5,6 +5,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.services.subscription_order_terms import gift_tariff
 from bot.utils.traffic_reset import (
     panel_traffic_limit_strategy,
     traffic_accounting_period_start,
@@ -212,6 +213,9 @@ class TariffMixin(SubscriptionServiceMixinContract):
         )
 
     def _tariff_for_subscription(self, sub: Any | None) -> Tariff | None:
+        frozen = gift_tariff(sub)
+        if frozen is not None:
+            return frozen
         tariff_key = str(getattr(sub, "tariff_key", "") or "").strip()
         if not tariff_key:
             return None
@@ -599,7 +603,9 @@ class TariffMixin(SubscriptionServiceMixinContract):
         self, sub: Subscription, target_tariff: Tariff
     ) -> dict[str, Any]:
         current_tariff = (
-            self._resolve_tariff(sub.tariff_key) if sub.tariff_key else self._default_tariff()
+            (gift_tariff(sub) or self._resolve_tariff(sub.tariff_key))
+            if sub.tariff_key
+            else self._default_tariff()
         )
         now = datetime.now(UTC)
         remaining_days = max(0, (sub.end_date - now).days) if sub.end_date else 0

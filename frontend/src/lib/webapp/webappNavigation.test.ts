@@ -68,14 +68,14 @@ describe("createWebappNavigation", () => {
     expect(state).toEqual({ activeTab: "home", screen: "status" });
   });
 
-  it("guards the bonus route while the referral program is disabled", () => {
+  it("keeps gifts and promos accessible when referrals are disabled", () => {
     const { deps, navigation, state } = makeNavigation({
       referralProgramEnabled: () => false,
     });
 
-    expect(navigation.goInvite()).toBe(false);
-    expect(state).toEqual({ activeTab: "", screen: "" });
-    expect(deps.syncSectionPath).not.toHaveBeenCalled();
+    expect(navigation.goInvite()).toBe(true);
+    expect(state).toEqual({ activeTab: "invite", screen: "invite" });
+    expect(deps.syncSectionPath).toHaveBeenCalledWith("invite");
   });
 
   it("opens the partner program as a child of Settings when its entry is there", () => {

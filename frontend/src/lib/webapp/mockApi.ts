@@ -4,6 +4,7 @@ import { defaultClone, type MockApiContext } from "./mockApi/dataset";
 import { demoApiResponse } from "./mockApi/datasetApi";
 import { partnerProgramDemoResponse } from "./mockApi/partnerProgramResponse";
 import { webappFallbackResponse } from "./mockApi/webappFallback";
+import { giftsDemoResponse } from "./mockApi/giftsDemo";
 
 export async function mockApi(
   path: string,
@@ -17,6 +18,8 @@ export async function mockApi(
   } = context;
   await new Promise((resolve) => window.setTimeout(resolve, 120));
   const cleanPath = String(path || "").split("?")[0];
+  const giftsResponse = giftsDemoResponse(cleanPath, options, path);
+  if (giftsResponse !== undefined) return giftsResponse;
   const resolvedContext: MockApiContext = { clone, currentLang, normalizeLangCode };
   const demoResponse = demoApiResponse(path, cleanPath, options, resolvedContext);
   if (demoResponse !== undefined) return demoResponse;

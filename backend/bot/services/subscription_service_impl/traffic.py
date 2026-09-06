@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.infra.grants import GrantContext, resolve_effective_grant
 from bot.services.panel_activity import record_subscription_panel_activity
 from bot.services.payment_promo import consume_payment_promo, load_payment_promo_effects
+from bot.services.subscription_order_terms import gift_tariff
 from bot.services.tariff_worker_shared import resolve_flexible_limit_baseline
 from config.tariffs_config import Tariff
 from db.dal import payment_dal, subscription_dal, tariff_dal, user_dal
@@ -393,7 +394,9 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         )
         if not sub:
             return False
-        tariff = self._resolve_tariff(sub.tariff_key) if sub.tariff_key else None
+        tariff = (
+            (gift_tariff(sub) or self._resolve_tariff(sub.tariff_key)) if sub.tariff_key else None
+        )
         if not tariff or not getattr(tariff, "premium_squad_uuids", None):
             return False
 
@@ -459,7 +462,9 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         )
         if not sub:
             return False
-        tariff = self._resolve_tariff(sub.tariff_key) if sub.tariff_key else None
+        tariff = (
+            (gift_tariff(sub) or self._resolve_tariff(sub.tariff_key)) if sub.tariff_key else None
+        )
         baseline = await resolve_main_traffic_baseline(session, sub, tariff)
         sub.tier_baseline_bytes = baseline
         rb = int(getattr(sub, "regular_bonus_bytes", 0) or 0)

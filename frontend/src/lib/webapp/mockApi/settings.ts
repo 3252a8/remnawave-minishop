@@ -20,6 +20,7 @@ function demoSettingsValuesByKey(): Map<string, DemoSettingsField> {
 
 function demoRuntimeSettingValue(key: string): unknown {
   const values: DemoRecord = {
+    GIFTS_ENABLED: DEV_MOCK.config.giftsEnabled ?? true,
     WEBAPP_USER_THEME_MODE_ENABLED: DEV_MOCK.config.userThemeModeEnabled ?? true,
     WEBAPP_COMPACT_HOME_ENABLED: DEV_MOCK.config.compactHomeEnabled ?? false,
     SERVER_STATUS_SHOW_ON_HOME: DEV_MOCK.config.serverStatusShowOnHome ?? false,
@@ -93,6 +94,7 @@ export function demoSettingsSections(clone: CloneFn): ManifestSection[] {
 }
 
 function applyDemoSettingToMock(key: string, value: unknown): void {
+  if (key === "GIFTS_ENABLED") DEV_MOCK.config.giftsEnabled = Boolean(value);
   if (key === "WEBAPP_TITLE") DEV_MOCK.config.title = value || "";
   if (key === "WEBAPP_USER_THEME_MODE_ENABLED") {
     DEV_MOCK.config.userThemeModeEnabled = Boolean(value);

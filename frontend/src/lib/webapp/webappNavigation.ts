@@ -53,7 +53,6 @@ export function createWebappNavigation({
   }
 
   function goInvite() {
-    if (!referralProgramEnabled()) return false;
     showSection("invite");
     return true;
   }

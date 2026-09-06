@@ -8,6 +8,7 @@ from bot.services.panel_activity import (
     panel_status_means_active,
     record_subscription_panel_activity,
 )
+from bot.services.subscription_order_terms import gift_tariff
 from bot.utils.config_link import prepare_config_links
 from bot.utils.locale_defaults import tariff_premium_title
 from bot.utils.traffic_reset import (
@@ -153,9 +154,11 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             else:
                 hwid_limit = self.settings.USER_HWID_DEVICE_LIMIT
         tariff = None
-        if local_active_sub and local_active_sub.tariff_key and self._tariffs_config():
+        if local_active_sub and local_active_sub.tariff_key:
             try:
-                tariff = self._resolve_tariff(local_active_sub.tariff_key)
+                tariff = gift_tariff(local_active_sub) or self._resolve_tariff(
+                    local_active_sub.tariff_key
+                )
             except Exception:
                 tariff = None
         billing_model_display = (

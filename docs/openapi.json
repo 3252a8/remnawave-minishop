@@ -1109,6 +1109,315 @@
         "title": "AdminBroadcastShortcodesOut",
         "type": "object"
       },
+      "AdminGiftView": {
+        "properties": {
+          "activated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Activated At"
+          },
+          "activation_end_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Activation End At"
+          },
+          "amount": {
+            "title": "Amount",
+            "type": "number"
+          },
+          "bonus_days": {
+            "default": 0,
+            "title": "Bonus Days",
+            "type": "integer"
+          },
+          "claimed_by_me": {
+            "default": false,
+            "title": "Claimed By Me",
+            "type": "boolean"
+          },
+          "conflict": {
+            "default": "",
+            "title": "Conflict",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created At"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "delivered_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Delivered At"
+          },
+          "delivery_attempts": {
+            "title": "Delivery Attempts",
+            "type": "integer"
+          },
+          "delivery_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Delivery Status"
+          },
+          "devices": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Devices"
+          },
+          "discount_amount": {
+            "title": "Discount Amount",
+            "type": "number"
+          },
+          "duration_days": {
+            "title": "Duration Days",
+            "type": "integer"
+          },
+          "extends_subscription": {
+            "default": false,
+            "title": "Extends Subscription",
+            "type": "boolean"
+          },
+          "gift_id": {
+            "title": "Gift Id",
+            "type": "integer"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Link"
+          },
+          "owned": {
+            "default": false,
+            "title": "Owned",
+            "type": "boolean"
+          },
+          "partner_balance_amount": {
+            "title": "Partner Balance Amount",
+            "type": "number"
+          },
+          "payment_id": {
+            "title": "Payment Id",
+            "type": "integer"
+          },
+          "payment_status": {
+            "title": "Payment Status",
+            "type": "string"
+          },
+          "premium_bonus_gb": {
+            "default": 0,
+            "title": "Premium Bonus Gb",
+            "type": "number"
+          },
+          "premium_limit_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Premium Limit Gb"
+          },
+          "premium_unlimited": {
+            "default": false,
+            "title": "Premium Unlimited",
+            "type": "boolean"
+          },
+          "promo_code_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promo Code Id"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "purchaser_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purchaser Id"
+          },
+          "purchaser_label": {
+            "title": "Purchaser Label",
+            "type": "string"
+          },
+          "recipient_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Recipient Email"
+          },
+          "recipient_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient Id"
+          },
+          "recipient_label": {
+            "title": "Recipient Label",
+            "type": "string"
+          },
+          "regular_bonus_gb": {
+            "default": 0,
+            "title": "Regular Bonus Gb",
+            "type": "number"
+          },
+          "regular_limit_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Regular Limit Gb"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tariff_title": {
+            "title": "Tariff Title",
+            "type": "string"
+          },
+          "total_amount": {
+            "title": "Total Amount",
+            "type": "number"
+          },
+          "user_balance_amount": {
+            "title": "User Balance Amount",
+            "type": "number"
+          }
+        },
+        "required": [
+          "gift_id",
+          "payment_id",
+          "status",
+          "tariff_title",
+          "duration_days",
+          "purchaser_id",
+          "purchaser_label",
+          "recipient_id",
+          "recipient_label",
+          "amount",
+          "total_amount",
+          "currency",
+          "provider",
+          "payment_status",
+          "user_balance_amount",
+          "partner_balance_amount",
+          "discount_amount",
+          "promo_code_id",
+          "delivery_attempts"
+        ],
+        "title": "AdminGiftView",
+        "type": "object"
+      },
+      "AdminGiftsList": {
+        "properties": {
+          "gifts": {
+            "items": {
+              "$ref": "#/components/schemas/AdminGiftView"
+            },
+            "title": "Gifts",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "gifts",
+          "total"
+        ],
+        "title": "AdminGiftsList",
+        "type": "object"
+      },
       "AdminHealthOut": {
         "properties": {
           "alerts": {
@@ -5609,6 +5918,217 @@
           "price_per_step"
         ],
         "title": "FlexibleTrafficLimitConfig",
+        "type": "object"
+      },
+      "GiftTokenBody": {
+        "properties": {
+          "token": {
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "GiftTokenBody",
+        "type": "object"
+      },
+      "GiftView": {
+        "properties": {
+          "activated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Activated At"
+          },
+          "activation_end_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Activation End At"
+          },
+          "bonus_days": {
+            "default": 0,
+            "title": "Bonus Days",
+            "type": "integer"
+          },
+          "claimed_by_me": {
+            "default": false,
+            "title": "Claimed By Me",
+            "type": "boolean"
+          },
+          "conflict": {
+            "default": "",
+            "title": "Conflict",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created At"
+          },
+          "delivered_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Delivered At"
+          },
+          "delivery_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Delivery Status"
+          },
+          "devices": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Devices"
+          },
+          "duration_days": {
+            "title": "Duration Days",
+            "type": "integer"
+          },
+          "extends_subscription": {
+            "default": false,
+            "title": "Extends Subscription",
+            "type": "boolean"
+          },
+          "gift_id": {
+            "title": "Gift Id",
+            "type": "integer"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Link"
+          },
+          "owned": {
+            "default": false,
+            "title": "Owned",
+            "type": "boolean"
+          },
+          "payment_id": {
+            "title": "Payment Id",
+            "type": "integer"
+          },
+          "premium_bonus_gb": {
+            "default": 0,
+            "title": "Premium Bonus Gb",
+            "type": "number"
+          },
+          "premium_limit_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Premium Limit Gb"
+          },
+          "premium_unlimited": {
+            "default": false,
+            "title": "Premium Unlimited",
+            "type": "boolean"
+          },
+          "recipient_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Recipient Email"
+          },
+          "regular_bonus_gb": {
+            "default": 0,
+            "title": "Regular Bonus Gb",
+            "type": "number"
+          },
+          "regular_limit_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Regular Limit Gb"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tariff_title": {
+            "title": "Tariff Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gift_id",
+          "payment_id",
+          "status",
+          "tariff_title",
+          "duration_days"
+        ],
+        "title": "GiftView",
         "type": "object"
       },
       "HwidDevicePackage": {
@@ -11250,6 +11770,24 @@
             "default": null,
             "title": "Duration Days"
           },
+          "gift": {
+            "default": false,
+            "title": "Gift",
+            "type": "boolean"
+          },
+          "gift_recipient_email": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Gift Recipient Email"
+          },
           "method": {
             "default": "",
             "title": "Method",
@@ -11444,6 +11982,24 @@
             "default": null,
             "title": "Duration Days"
           },
+          "gift": {
+            "default": false,
+            "title": "Gift",
+            "type": "boolean"
+          },
+          "gift_recipient_email": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Gift Recipient Email"
+          },
           "method": {
             "default": "",
             "title": "Method",
@@ -11627,6 +12183,24 @@
             ],
             "default": null,
             "title": "Duration Days"
+          },
+          "gift": {
+            "default": false,
+            "title": "Gift",
+            "type": "boolean"
+          },
+          "gift_recipient_email": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Gift Recipient Email"
           },
           "method": {
             "default": "",
@@ -14268,6 +14842,52 @@
           }
         ],
         "summary": "Admin Broadcast Reschedule",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/gifts": {
+      "get": {
+        "operationId": "get_admin_gifts_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminGiftsList"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Gifts",
         "tags": [
           "admin"
         ]
@@ -21364,6 +21984,480 @@
         "summary": "Device Topup Options",
         "tags": [
           "devices"
+        ]
+      }
+    },
+    "/api/gifts": {
+      "get": {
+        "operationId": "get_gifts_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "gifts": {
+                      "items": {
+                        "$ref": "#/components/schemas/GiftView"
+                      },
+                      "type": "array"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "gifts",
+                    "enabled"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Gifts",
+        "tags": [
+          "gifts"
+        ]
+      }
+    },
+    "/api/gifts/claim": {
+      "post": {
+        "operationId": "post_gift_claim_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GiftTokenBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Gift Claim",
+        "tags": [
+          "gifts"
+        ]
+      }
+    },
+    "/api/gifts/options": {
+      "get": {
+        "operationId": "get_gift_options_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "email_available": {
+                      "type": "boolean"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "plans": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "available_payment_method_ids": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "billing_model": {
+                            "type": "string"
+                          },
+                          "checkout_addons": {
+                            "additionalProperties": true,
+                            "type": "object"
+                          },
+                          "checkout_addons_unavailable_payment_method_ids": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "device_count": {
+                            "type": "integer"
+                          },
+                          "duration_days": {
+                            "type": "integer"
+                          },
+                          "effective_hwid_device_limit": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "externally_managed_price_method_ids": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "hwid_device_limit": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "hwid_device_packages": {
+                            "items": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "available_payment_method_ids": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "billing_model": {
+                                  "type": "string"
+                                },
+                                "currency": {
+                                  "type": "string"
+                                },
+                                "device_count": {
+                                  "type": "integer"
+                                },
+                                "externally_managed_price_method_ids": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "id": {
+                                  "type": "string"
+                                },
+                                "months": {
+                                  "type": "number"
+                                },
+                                "price": {
+                                  "type": "number"
+                                },
+                                "sale_mode": {
+                                  "type": "string"
+                                },
+                                "stars_price": {
+                                  "type": "integer"
+                                },
+                                "subtitle": {
+                                  "type": "string"
+                                },
+                                "tariff_key": {
+                                  "type": "string"
+                                },
+                                "tariff_name": {
+                                  "type": "string"
+                                },
+                                "title": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "type": "array"
+                          },
+                          "hwid_renewal": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "active_until": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "active_until_text": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "available": {
+                                "type": "boolean"
+                              },
+                              "currency": {
+                                "type": "string"
+                              },
+                              "device_count": {
+                                "type": "integer"
+                              },
+                              "price": {
+                                "type": "number"
+                              },
+                              "pricing_period_months": {
+                                "type": "integer"
+                              },
+                              "stars_price": {
+                                "type": "integer"
+                              },
+                              "traffic_bonus_gb": {
+                                "type": "number"
+                              },
+                              "valid_from": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "valid_from_text": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "valid_until": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "valid_until_text": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "is_default_tariff": {
+                            "type": "boolean"
+                          },
+                          "monthly_gb": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "months": {
+                            "type": "number"
+                          },
+                          "premium_enabled": {
+                            "type": "boolean"
+                          },
+                          "premium_monthly_gb": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "premium_title": {
+                            "type": "string"
+                          },
+                          "premium_traffic_limit_strategy": {
+                            "type": "string"
+                          },
+                          "premium_unlimited": {
+                            "type": "boolean"
+                          },
+                          "price": {
+                            "type": "number"
+                          },
+                          "proration_ratio": {
+                            "type": "number"
+                          },
+                          "sale_mode": {
+                            "type": "string"
+                          },
+                          "squad_uuids": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "stars_price": {
+                            "type": "integer"
+                          },
+                          "subtitle": {
+                            "type": "string"
+                          },
+                          "tariff_key": {
+                            "type": "string"
+                          },
+                          "tariff_name": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "traffic_bonus_gb": {
+                            "type": "number"
+                          },
+                          "traffic_gb": {
+                            "type": "number"
+                          },
+                          "traffic_limit_strategy": {
+                            "type": "string"
+                          },
+                          "valid_from": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "valid_from_text": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "valid_until": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "valid_until_text": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "plans",
+                    "email_available",
+                    "enabled"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Gift Options",
+        "tags": [
+          "gifts"
+        ]
+      }
+    },
+    "/api/gifts/preview": {
+      "post": {
+        "operationId": "post_gift_preview_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GiftTokenBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "gift": {
+                      "$ref": "#/components/schemas/GiftView"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "gift"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Gift Preview",
+        "tags": [
+          "gifts"
         ]
       }
     },

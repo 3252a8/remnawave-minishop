@@ -23,6 +23,25 @@
         "updated_at": null
       },
       {
+        "key": "GIFTS_ENABLED",
+        "type": "bool",
+        "section": "general",
+        "section_order": 1,
+        "subsection": null,
+        "label": "Gift subscriptions",
+        "description": "Allow new gift purchases. Paid gifts remain available for activation.",
+        "i18n_label_key": "admin_gifts_enabled",
+        "i18n_description_key": "admin_gifts_enabled_hint",
+        "i18n_subsection_key": null,
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": false,
+        "secret": false,
+        "value": "",
+        "overridden": false,
+        "updated_at": null
+      },
+      {
         "key": "DEFAULT_LANGUAGE",
         "type": "string",
         "section": "general",

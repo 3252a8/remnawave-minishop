@@ -11,6 +11,7 @@ from bot.app.web.webapp.auth import _require_user_id
 from bot.app.web.webapp.common import _json_error, _parse_model_payload
 from bot.app.web.webapp.payloads import WebAppSubscriptionQuotePayload
 from bot.services.checkout_addons import parse_checkout_bundle_snapshot
+from bot.services.subscription_gifts import gift_payment_method_available
 from bot.services.subscription_service_impl.core import SubscriptionService
 from config.settings import Settings
 from config.subscription_periods import add_period_days, multiplied_bonus_days
@@ -47,7 +48,15 @@ async def subscription_quote_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     payload = await _parse_model_payload(request, WebAppSubscriptionQuotePayload)
     method = str(payload.method or "").strip().lower()
+    if payload.gift and (
+        str(payload.sale_mode or "subscription").split("@", 1)[0].split("|", 1)[0] != "subscription"
+        or payload.renew_hwid_devices
+        or not gift_payment_method_available(method)
+    ):
+        return _json_error(400, "gift_purchase_unavailable", "Unsupported gift purchase options")
     settings: Settings = get_settings(request)
+    if payload.gift and not settings.GIFTS_ENABLED:
+        return _json_error(400, "gift_purchase_unavailable", "Gift purchases are disabled")
     subscription_service: SubscriptionService = get_subscription_service(request)
     async_session_factory: sessionmaker = get_session_factory(request)
 
@@ -173,7 +182,7 @@ async def subscription_quote_route(request: web.Request) -> web.Response:
             return _json_error(amount_error.status, amount_error.code, amount_error.message)
 
         end_date = None
-        if quote.duration_days:
+        if quote.duration_days and not payload.gift:
             try:
                 period_start = await _resolve_quote_period_start(
                     session,

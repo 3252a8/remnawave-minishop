@@ -120,7 +120,7 @@ describe("resolvePopstateRoute", () => {
         pathname: "/invite",
         referralProgramEnabled: false,
       })
-    ).toMatchObject({ section: "home" });
+    ).toMatchObject({ section: "invite" });
 
     expect(
       resolvePopstateRoute({

@@ -735,6 +735,9 @@ async def merge_users(
         .values(user_id=target_user_id)
     )
 
+    from .gift_dal import merge_owner
+
+    await merge_owner(session, source_user_id, target_user_id)
     await session.delete(source)
     await session.flush()
     await session.refresh(target)

@@ -550,6 +550,23 @@ export interface paths {
     patch: operations["patch_admin_broadcast_reschedule_route"];
     trace?: never;
   };
+  "/api/admin/gifts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Gifts */
+    get: operations["get_admin_gifts_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/health": {
     parameters: {
       query?: never;
@@ -2144,6 +2161,74 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/gifts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Gifts */
+    get: operations["get_gifts_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/gifts/claim": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Gift Claim */
+    post: operations["post_gift_claim_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/gifts/options": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Gift Options */
+    get: operations["get_gift_options_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/gifts/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Gift Preview */
+    post: operations["post_gift_preview_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/i18n": {
     parameters: {
       query?: never;
@@ -3338,6 +3423,144 @@ export interface components {
       allowed_tags: string[];
       /** Shortcodes */
       shortcodes: components["schemas"]["AdminBroadcastShortcodeOut"][];
+    };
+    /** AdminGiftView */
+    AdminGiftView: {
+      /**
+       * Activated At
+       * @default null
+       */
+      activated_at: string | null;
+      /**
+       * Activation End At
+       * @default null
+       */
+      activation_end_at: string | null;
+      /** Amount */
+      amount: number;
+      /**
+       * Bonus Days
+       * @default 0
+       */
+      bonus_days: number;
+      /**
+       * Claimed By Me
+       * @default false
+       */
+      claimed_by_me: boolean;
+      /**
+       * Conflict
+       * @default
+       */
+      conflict: string;
+      /**
+       * Created At
+       * @default null
+       */
+      created_at: string | null;
+      /** Currency */
+      currency: string;
+      /**
+       * Delivered At
+       * @default null
+       */
+      delivered_at: string | null;
+      /** Delivery Attempts */
+      delivery_attempts: number;
+      /**
+       * Delivery Status
+       * @default null
+       */
+      delivery_status: string | null;
+      /**
+       * Devices
+       * @default null
+       */
+      devices: number | null;
+      /** Discount Amount */
+      discount_amount: number;
+      /** Duration Days */
+      duration_days: number;
+      /**
+       * Extends Subscription
+       * @default false
+       */
+      extends_subscription: boolean;
+      /** Gift Id */
+      gift_id: number;
+      /**
+       * Link
+       * @default null
+       */
+      link: string | null;
+      /**
+       * Owned
+       * @default false
+       */
+      owned: boolean;
+      /** Partner Balance Amount */
+      partner_balance_amount: number;
+      /** Payment Id */
+      payment_id: number;
+      /** Payment Status */
+      payment_status: string;
+      /**
+       * Premium Bonus Gb
+       * @default 0
+       */
+      premium_bonus_gb: number;
+      /**
+       * Premium Limit Gb
+       * @default null
+       */
+      premium_limit_gb: number | null;
+      /**
+       * Premium Unlimited
+       * @default false
+       */
+      premium_unlimited: boolean;
+      /** Promo Code Id */
+      promo_code_id: number | null;
+      /** Provider */
+      provider: string;
+      /** Purchaser Id */
+      purchaser_id: number | null;
+      /** Purchaser Label */
+      purchaser_label: string;
+      /**
+       * Recipient Email
+       * @default null
+       */
+      recipient_email: string | null;
+      /** Recipient Id */
+      recipient_id: number | null;
+      /** Recipient Label */
+      recipient_label: string;
+      /**
+       * Regular Bonus Gb
+       * @default 0
+       */
+      regular_bonus_gb: number;
+      /**
+       * Regular Limit Gb
+       * @default null
+       */
+      regular_limit_gb: number | null;
+      /** Status */
+      status: string;
+      /** Tariff Title */
+      tariff_title: string;
+      /** Total Amount */
+      total_amount: number;
+      /** User Balance Amount */
+      user_balance_amount: number;
+    };
+    /** AdminGiftsList */
+    AdminGiftsList: {
+      /** Gifts */
+      gifts: components["schemas"]["AdminGiftView"][];
+      /** Total */
+      total: number;
     };
     /** AdminHealthOut */
     AdminHealthOut: {
@@ -5277,6 +5500,114 @@ export interface components {
       stars_price_per_step: number | null;
       /** Step Gb */
       step_gb: number;
+    };
+    /** GiftTokenBody */
+    GiftTokenBody: {
+      /** Token */
+      token: string;
+    };
+    /** GiftView */
+    GiftView: {
+      /**
+       * Activated At
+       * @default null
+       */
+      activated_at: string | null;
+      /**
+       * Activation End At
+       * @default null
+       */
+      activation_end_at: string | null;
+      /**
+       * Bonus Days
+       * @default 0
+       */
+      bonus_days: number;
+      /**
+       * Claimed By Me
+       * @default false
+       */
+      claimed_by_me: boolean;
+      /**
+       * Conflict
+       * @default
+       */
+      conflict: string;
+      /**
+       * Created At
+       * @default null
+       */
+      created_at: string | null;
+      /**
+       * Delivered At
+       * @default null
+       */
+      delivered_at: string | null;
+      /**
+       * Delivery Status
+       * @default null
+       */
+      delivery_status: string | null;
+      /**
+       * Devices
+       * @default null
+       */
+      devices: number | null;
+      /** Duration Days */
+      duration_days: number;
+      /**
+       * Extends Subscription
+       * @default false
+       */
+      extends_subscription: boolean;
+      /** Gift Id */
+      gift_id: number;
+      /**
+       * Link
+       * @default null
+       */
+      link: string | null;
+      /**
+       * Owned
+       * @default false
+       */
+      owned: boolean;
+      /** Payment Id */
+      payment_id: number;
+      /**
+       * Premium Bonus Gb
+       * @default 0
+       */
+      premium_bonus_gb: number;
+      /**
+       * Premium Limit Gb
+       * @default null
+       */
+      premium_limit_gb: number | null;
+      /**
+       * Premium Unlimited
+       * @default false
+       */
+      premium_unlimited: boolean;
+      /**
+       * Recipient Email
+       * @default null
+       */
+      recipient_email: string | null;
+      /**
+       * Regular Bonus Gb
+       * @default 0
+       */
+      regular_bonus_gb: number;
+      /**
+       * Regular Limit Gb
+       * @default null
+       */
+      regular_limit_gb: number | null;
+      /** Status */
+      status: string;
+      /** Tariff Title */
+      tariff_title: string;
     };
     /** HwidDevicePackage */
     HwidDevicePackage: {
@@ -7702,6 +8033,16 @@ export interface components {
        */
       duration_days: number | null;
       /**
+       * Gift
+       * @default false
+       */
+      gift: boolean;
+      /**
+       * Gift Recipient Email
+       * @default null
+       */
+      gift_recipient_email: string | null;
+      /**
        * Method
        * @default
        */
@@ -7798,6 +8139,16 @@ export interface components {
        */
       duration_days: number | null;
       /**
+       * Gift
+       * @default false
+       */
+      gift: boolean;
+      /**
+       * Gift Recipient Email
+       * @default null
+       */
+      gift_recipient_email: string | null;
+      /**
        * Method
        * @default
        */
@@ -7878,6 +8229,16 @@ export interface components {
        * @default null
        */
       duration_days: number | null;
+      /**
+       * Gift
+       * @default false
+       */
+      gift: boolean;
+      /**
+       * Gift Recipient Email
+       * @default null
+       */
+      gift_recipient_email: string | null;
       /**
        * Method
        * @default
@@ -9127,6 +9488,29 @@ export interface operations {
             /** @constant */
             ok: true;
           } & components["schemas"]["AdminBroadcastOut"];
+        };
+      };
+    };
+  };
+  get_admin_gifts_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminGiftsList"];
         };
       };
     };
@@ -12318,6 +12702,182 @@ export interface operations {
             topup_kind?: string;
             traffic_percent?: number;
             warning_levels?: number[];
+          };
+        };
+      };
+    };
+  };
+  get_gifts_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            enabled: boolean;
+            gifts: components["schemas"]["GiftView"][];
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_gift_claim_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["GiftTokenBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  get_gift_options_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            email_available: boolean;
+            enabled: boolean;
+            /** @constant */
+            ok: true;
+            plans: {
+              available_payment_method_ids?: string[];
+              billing_model?: string;
+              checkout_addons?: {
+                [key: string]: unknown;
+              };
+              checkout_addons_unavailable_payment_method_ids?: string[];
+              currency?: string;
+              description?: string;
+              device_count?: number;
+              duration_days?: number;
+              effective_hwid_device_limit?: number | null;
+              externally_managed_price_method_ids?: string[];
+              hwid_device_limit?: number | null;
+              hwid_device_packages?: {
+                available_payment_method_ids?: string[];
+                billing_model?: string;
+                currency?: string;
+                device_count?: number;
+                externally_managed_price_method_ids?: string[];
+                id?: string;
+                months?: number;
+                price?: number;
+                sale_mode?: string;
+                stars_price?: number;
+                subtitle?: string;
+                tariff_key?: string;
+                tariff_name?: string;
+                title?: string;
+              }[];
+              hwid_renewal?: {
+                active_until?: string | null;
+                active_until_text?: string | null;
+                available?: boolean;
+                currency?: string;
+                device_count?: number;
+                price?: number;
+                pricing_period_months?: number;
+                stars_price?: number;
+                traffic_bonus_gb?: number;
+                valid_from?: string | null;
+                valid_from_text?: string | null;
+                valid_until?: string | null;
+                valid_until_text?: string | null;
+              };
+              id?: string;
+              is_default_tariff?: boolean;
+              monthly_gb?: number | null;
+              months?: number;
+              premium_enabled?: boolean;
+              premium_monthly_gb?: number | null;
+              premium_title?: string;
+              premium_traffic_limit_strategy?: string;
+              premium_unlimited?: boolean;
+              price?: number;
+              proration_ratio?: number;
+              sale_mode?: string;
+              squad_uuids?: string[];
+              stars_price?: number;
+              subtitle?: string;
+              tariff_key?: string;
+              tariff_name?: string;
+              title?: string;
+              traffic_bonus_gb?: number;
+              traffic_gb?: number;
+              traffic_limit_strategy?: string;
+              valid_from?: string | null;
+              valid_from_text?: string | null;
+              valid_until?: string | null;
+              valid_until_text?: string | null;
+            }[];
+          };
+        };
+      };
+    };
+  };
+  post_gift_preview_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["GiftTokenBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            gift: components["schemas"]["GiftView"];
+            /** @constant */
+            ok: true;
           };
         };
       };

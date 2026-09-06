@@ -20,6 +20,16 @@ SETTINGS_MANIFEST: list[SettingField] = [
         placeholder="My subscription",
     ),
     SettingField(
+        "GIFTS_ENABLED",
+        "bool",
+        "general",
+        "Gift subscriptions",
+        "Allow new gift purchases. Paid gifts remain available for activation.",
+        optional=False,
+        i18n_label_key="admin_gifts_enabled",
+        i18n_description_key="admin_gifts_enabled_hint",
+    ),
+    SettingField(
         "DEFAULT_LANGUAGE",
         "string",
         "general",

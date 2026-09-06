@@ -22,7 +22,7 @@ describe("section availability", () => {
     );
     expect(
       resolveAvailableWebappSection({ referralProgramEnabled: false, section: "invite" })
-    ).toBe("home");
+    ).toBe("invite");
     expect(resolveAvailableWebappSection({ referralProgramEnabled: true, section: "invite" })).toBe(
       "invite"
     );

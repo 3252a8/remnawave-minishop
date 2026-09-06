@@ -17,10 +17,18 @@ from bot.infra.payment_events import build_payment_succeeded_payload
 from bot.middlewares.i18n import JsonI18n
 from bot.services.lknpd_service import LknpdService
 from bot.services.panel_api_service import PanelApiService
+from bot.services.subscription_gifts import is_gift_sale
 from bot.utils.config_link import prepare_config_links
 from bot.utils.install_links import ensure_user_install_guide_links
 from config.settings import Settings
-from db.dal import auto_renew_dal, payment_dal, subscription_dal, user_billing_dal, user_dal
+from db.dal import (
+    auto_renew_dal,
+    gift_dal,
+    payment_dal,
+    subscription_dal,
+    user_billing_dal,
+    user_dal,
+)
 
 from ..shared import (
     PaymentSuccessRequest,
@@ -345,7 +353,7 @@ async def process_successful_payment(
                 yk_payment_id_from_hook,
             )
             return None
-        if sale_mode_base in {"balance_topup", "trial"}:
+        if sale_mode_base in {"balance_topup", "trial"} or is_gift_sale(sale_mode):
             await finalize_successful_payment(
                 PaymentSuccessRequest(
                     bot=bot,
@@ -377,6 +385,11 @@ async def process_successful_payment(
             return None
 
         await user_dal.lock_user_by_id(session, user_id)
+        if await gift_dal.activating_for_user(session, user_id) is not None:
+            await payment_dal.update_payment_status_by_db_id(
+                session, payment_db_id, "activation_failed"
+            )
+            return None
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user:
             logger.error(

@@ -123,6 +123,8 @@ async def _resolve_checkout_pricing_context(
     settings: Settings,
     sale_mode: str,
 ) -> tuple[CheckoutPricingContext | None, web.Response | None]:
+    if payment_payload.gift:
+        return None, None
     tariffs_config = settings.tariffs_config
     if not tariffs_config or _sale_mode_base(sale_mode) != "subscription":
         return None, None

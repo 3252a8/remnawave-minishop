@@ -451,8 +451,6 @@ class TariffWorkerCoreMixin:
         )
 
     async def run(self) -> None:
-        if not self.settings.tariffs_config:
-            return
         full_tick_seconds = max(1, int(self.settings.TARIFF_WORKER_TICK_SECONDS or 0))
         fast_tick_seconds = self.premium_fast_tick_seconds()
         sleep_seconds = fast_tick_seconds or full_tick_seconds

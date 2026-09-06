@@ -362,7 +362,7 @@
 
 Модель данных события: `PaymentSucceededPayload`
 
-Источники события: `backend/bot/infra/payment_events.py`, `backend/bot/payment_providers/shared/success.py`, `backend/bot/payment_providers/yookassa.py`
+Источники события: `backend/bot/infra/payment_events.py`, `backend/bot/payment_providers/shared/gift_success.py`, `backend/bot/payment_providers/shared/success.py`, `backend/bot/payment_providers/yookassa.py`
 
 Реакции Core: `CoreEventReactions.on_payment_succeeded`
 

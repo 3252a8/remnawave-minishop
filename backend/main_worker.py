@@ -476,12 +476,32 @@ def _backup_worker_task(ctx: PluginContext) -> Coroutine[Any, Any, None]:
     ).run()
 
 
+async def _gift_delivery_task(ctx: PluginContext) -> None:
+    from bot.services.gift_delivery import run_gift_delivery_worker
+
+    await run_gift_delivery_worker(ctx.settings, ctx.require_session_factory(), ctx.require_i18n())
+
+
+async def _gift_activation_task(ctx: PluginContext) -> None:
+    from bot.services.gift_activation_worker import run_gift_activation_worker
+
+    await run_gift_activation_worker(
+        ctx.require_session_factory(), ctx.require_subscription_service()
+    )
+
+
 def _core_worker_tasks() -> list[WorkerTaskSpec]:
     return [
+        WorkerTaskSpec(name="GiftActivationWorker", factory=_gift_activation_task),
+        WorkerTaskSpec(
+            name="GiftDeliveryWorker",
+            factory=_gift_delivery_task,
+            enabled=lambda settings: bool(settings.smtp_delivery_configured),
+        ),
         WorkerTaskSpec(
             name="TariffTrafficWorker",
             factory=_tariff_worker_task,
-            enabled=lambda settings: bool(settings.tariffs_config),
+            enabled=lambda settings: True,
         ),
         WorkerTaskSpec(
             name="SubscriptionNotificationWorker",

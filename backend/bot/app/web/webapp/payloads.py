@@ -140,6 +140,8 @@ class WebAppPaymentCreatePayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     method: str = ""
+    gift: bool = False
+    gift_recipient_email: EmailStr | None = None
     months: Any = None
     duration_days: int | None = Field(default=None, strict=True, gt=0, le=2147483647)
     traffic_gb: Any = None

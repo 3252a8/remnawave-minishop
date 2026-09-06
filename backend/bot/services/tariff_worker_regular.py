@@ -18,6 +18,7 @@ from bot.services.message_audit import (
 from bot.services.panel_api_compat import PanelUserIdMode, numeric_panel_user_id
 from bot.services.panel_api_service import PanelApiService
 from bot.services.panel_user_snapshot import should_use_full_panel_user_scan
+from bot.services.subscription_order_terms import gift_tariff
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.subscription_service_impl.hwid_limits import resolve_hwid_base_limit
 from bot.services.subscription_service_impl.traffic import resolve_main_traffic_baseline
@@ -225,7 +226,9 @@ class TariffWorkerRegularMixin(TariffWorkerRegularWarningMixin):
                         continue
                 else:
                     try:
-                        tariff = self.settings.tariffs_config.require_configured(sub.tariff_key)
+                        tariff = gift_tariff(
+                            sub
+                        ) or self.settings.tariffs_config.require_configured(sub.tariff_key)
                     except Exception:
                         continue
                 (

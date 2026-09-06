@@ -25,6 +25,7 @@
   import AuthScreen from "./auth/AuthScreen.svelte";
   import CheckoutEntryScreen from "./checkout/CheckoutEntryScreen.svelte";
   import PaymentCheckoutDialog from "./payment-dialogs/PaymentCheckoutDialog.svelte";
+  import GiftFeature from "./gifts/GiftFeature.svelte";
   import type { CheckoutDeeplink } from "$lib/webapp/deeplinks.js";
   import {
     type BooleanAction,
@@ -49,6 +50,7 @@
     actionsStore: ActionsStore;
     authStore: AuthStore;
     billingStore: BillingStore;
+    giftBillingStore: BillingStore;
     devicesStore: DevicesStore;
     supportStore: SupportStore;
     serverStatusStore: ServerStatusStore;
@@ -344,6 +346,18 @@
 </script>
 
 <div class="app-shell {shellToneClass} {shellThemeClass}" style={shellStyle}>
+  <GiftFeature
+    api={stores.api}
+    billing={stores.giftBillingStore}
+    userId={String(user?.user_id || "")}
+    userLabel={String(user?.email || user?.username || user?.user_id || "")}
+    loggedIn={mode === "app"}
+    {methods}
+    {pendingPayment}
+    {t}
+    {termUnitLabel}
+    onactivated={() => stores.dataClient.loadData({ fresh: true })}
+  />
   {#if mode === "loading"}
     <div class="loader">
       <BrandMark {brand} size="md" />

@@ -2295,7 +2295,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
         self.assertEqual(purchase_kwargs["valid_from"], current_end)
 
     async def test_fixed_day_order_ignores_callback_months_and_current_catalog_periods(self):
-        for days in (7, 365):
+        for days, is_gift in ((7, False), (365, False), (7, True), (365, True)):
             with tempfile.TemporaryDirectory() as tmpdir:
                 settings = _make_settings(_tariffs_config_payload(), tmpdir)
                 service = _make_service(settings)
@@ -2325,7 +2325,9 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 updated_sub = SimpleNamespace(subscription_id=10)
                 from bot.services.subscription_order_terms import freeze_subscription_terms
 
-                frozen = freeze_subscription_terms(settings, f"subscription@standard|d{days}")
+                frozen = freeze_subscription_terms(
+                    settings, f"subscription@standard|d{days}" + ("|gift" if is_gift else "")
+                )
                 await asyncio.to_thread(Path(settings.TARIFFS_CONFIG_PATH).unlink)
                 payment = SimpleNamespace(
                     subscription_terms_snapshot=frozen,
@@ -2350,6 +2352,10 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 )
 
                 with (
+                    patch(
+                        "bot.services.subscription_service_impl.lifecycle_activation.gift_activation_bonuses",
+                        AsyncMock(return_value=(0, 0.0, 0.0)),
+                    ),
                     patch(
                         "bot.services.subscription_service_impl.lifecycle.user_dal.get_user_by_id",
                         AsyncMock(return_value=db_user),
@@ -2391,10 +2397,17 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                         payment_amount=150,
                         payment_db_id=99,
                         sale_mode="subscription@standard",
+                        provider="gift" if is_gift else "manual",
                     )
 
             self.assertEqual(result["hwid_devices_renewed_count"], 1)
             sub_payload = upsert_subscription.await_args.args[1]
+            self.assertEqual(sub_payload["gift_terms_snapshot"], frozen if is_gift else None)
+            if is_gift:
+                preserved = service._tariff_for_subscription(SimpleNamespace(**sub_payload))
+                assert preserved is not None
+                self.assertEqual(preserved.monthly_bytes, 100 * GIB)
+                self.assertEqual(preserved.hwid_device_limit, 3)
             self.assertEqual(sub_payload["start_date"], original_start)
             self.assertEqual(sub_payload["end_date"], provider_end)
             self.assertAlmostEqual(sub_payload["effective_monthly_price_rub"], 100 * 30 / days)

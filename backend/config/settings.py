@@ -367,6 +367,7 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
         default=15, alias="REFEREE_BONUS_DAYS_12_MONTHS"
     )
     # Referral program configuration
+    GIFTS_ENABLED: bool = True
     REFERRAL_PROGRAM_ENABLED: bool = True
     REFERRAL_ONE_BONUS_PER_REFEREE: bool = Field(
         default=True,

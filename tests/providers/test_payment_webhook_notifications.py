@@ -23,6 +23,9 @@ class _I18n:
 
 class PaymentWebhookNotificationTests(IsolatedAsyncioTestCase):
     def setUp(self):
+        gift_patcher = patch("db.dal.gift_dal.activating_for_user", AsyncMock(return_value=None))
+        gift_patcher.start()
+        self.addCleanup(gift_patcher.stop)
         self.locked_user = SimpleNamespace(
             user_id=42,
             language_code="en",

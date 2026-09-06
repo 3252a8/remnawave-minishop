@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CheckoutHeader from "./CheckoutHeader.svelte";
   import { checkoutUnitPrice } from "$lib/webapp/checkoutUnitPrice.js";
   import { ArrowLeft, ArrowRight, CheckCircle2 } from "$components/ui/icons.js";
   import Button from "$components/ui/button.svelte";
@@ -46,6 +47,8 @@
   let {
     api,
     inline = false,
+    gift = false,
+    giftDelivery,
     createPayment = () => {},
     hasMultipleTariffs = false,
     methods = [],
@@ -448,6 +451,7 @@
       return;
     }
     const body = {
+      gift,
       duration_days: selectedPlan.duration_days,
       months: selectedPlan.duration_days ? undefined : selectedPlan.months,
       traffic_gb: selectedPlan.traffic_gb,
@@ -587,6 +591,7 @@
     );
   }
   function paymentTitle() {
+    if (gift) return t("wa_gift_buy_title");
     if (isTrialPaymentPlan(selectedPlan)) return t("wa_trial_payment_title");
     if (singleTariffMode) {
       return selectedTariff?.billing_model === "traffic"
@@ -597,6 +602,7 @@
     return trafficMode ? t("wa_traffic_packages_title") : t("wa_subscription_title");
   }
   function paymentDescription() {
+    if (gift) return "";
     if (isTrialPaymentPlan(selectedPlan)) return t("wa_trial_payment_description");
     if (tariffMode) {
       if (singleTariffMode) {
@@ -618,6 +624,7 @@
     return String(selectedTariff?.billing_model || "period").toLowerCase() !== "traffic";
   }
   function showCompactSubscriptionHeader() {
+    if (gift) return false;
     if (isTrialPaymentPlan(selectedPlan)) return false;
     if (trafficMode) return false;
     if (!tariffMode) return true;
@@ -732,23 +739,19 @@
 {/snippet}
 
 {#snippet paymentHeader()}
-  {#if !showCompactSubscriptionHeader() || showSubscriptionPurchaseDescription()}
-    <div class="payment-checkout-header">
-      {#if !showCompactSubscriptionHeader()}
-        <h2 id="payment-checkout-title">{paymentTitle()}</h2>
-        {#if paymentDescription()}<p>{paymentDescription()}</p>{/if}
-      {/if}
-      {#if showSubscriptionPurchaseDescription()}
-        <div class="subscription-purchase-description subscription-purchase-description-header">
-          <p>{subscriptionPurchaseDescription}</p>
-        </div>
-      {/if}
-    </div>
-  {/if}
+  <CheckoutHeader
+    compact={showCompactSubscriptionHeader()}
+    showPurchaseDescription={showSubscriptionPurchaseDescription()}
+    title={paymentTitle()}
+    description={paymentDescription()}
+    purchaseDescription={subscriptionPurchaseDescription}
+    {inline}
+  />
 {/snippet}
 
 {#snippet paymentBody()}
   <div class="payment-dialog-body">
+    {#if gift && paymentStep === "checkout"}{@render giftDelivery?.()}{/if}
     {#if pendingPayment}
       <PendingPaymentCard
         payment={pendingPayment}
@@ -948,7 +951,7 @@
     description={paymentDescription()}
     closeLabel={t("wa_close")}
     onclose={closePaymentModal}
-    class="payment-dialog-card webapp-payment-dialog"
+    class={`payment-dialog-card webapp-payment-dialog${gift ? " gift-checkout-dialog" : ""}`}
     headerContent={paymentHeader}
   >
     {@render paymentBody()}
@@ -956,43 +959,24 @@
 {/if}
 
 <style>
+  :global(.gift-checkout-dialog > .dialog-head) {
+    position: relative;
+    display: block;
+  }
+  :global(.gift-checkout-dialog .dialog-close-button) {
+    position: absolute;
+    right: 0;
+    top: 0;
+  }
+  :global(.gift-checkout-dialog .payment-checkout-header h2) {
+    padding-right: 44px;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+  }
   .inline-payment-checkout {
     display: grid;
     gap: 18px;
     min-width: 0;
-  }
-
-  .payment-checkout-header {
-    display: grid;
-    gap: 6px;
-    min-width: 0;
-  }
-
-  .payment-checkout-header h2 {
-    margin: 0;
-    color: var(--text);
-    font-size: 19px;
-    line-height: 1.18;
-  }
-
-  .payment-checkout-header > p {
-    margin: 0;
-    color: var(--muted);
-    font-size: 13px;
-    line-height: 1.45;
-  }
-
-  .inline-payment-checkout > .payment-checkout-header {
-    text-align: center;
-  }
-
-  .inline-payment-checkout > .payment-checkout-header h2 {
-    font-size: clamp(25px, 3vw, 32px);
-  }
-
-  .inline-payment-checkout > .payment-checkout-header > p {
-    max-width: 480px;
-    margin-inline: auto;
-    font-size: 14px;
   }
 </style>

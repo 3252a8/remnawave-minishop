@@ -135,6 +135,8 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
         recipient = email_recipient(self.settings, db_user) if db_user else ""
         if not recipient:
             return
+        if provider == "gift":
+            return
         normalized_sale_mode = str(sale_mode or "").strip().lower()
         if normalized_sale_mode in {"traffic", "traffic_package", "topup", "premium_topup"}:
             category = UserNotificationCategory.TRAFFIC

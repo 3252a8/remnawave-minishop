@@ -435,6 +435,9 @@ export function adminFallbackResponse(
         DEV_MOCK.config.referralProgramEnabled = Boolean(updates.REFERRAL_PROGRAM_ENABLED);
         DEV_MOCK.data.settings.referral_program_enabled = Boolean(updates.REFERRAL_PROGRAM_ENABLED);
       }
+      if (Object.prototype.hasOwnProperty.call(updates, "GIFTS_ENABLED")) {
+        DEV_MOCK.config.giftsEnabled = Boolean(updates.GIFTS_ENABLED);
+      }
       if (Object.prototype.hasOwnProperty.call(updates, "REFERRAL_ONE_BONUS_PER_REFEREE")) {
         DEV_MOCK.config.referralOneBonusPerReferee = Boolean(
           updates.REFERRAL_ONE_BONUS_PER_REFEREE

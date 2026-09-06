@@ -546,7 +546,9 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                     }
                     if snapshot.duration_days is not None:
                         notification_kwargs["duration_days"] = snapshot.duration_days
-                    if snapshot.sale_mode_base == "balance_topup":
+                    if snapshot.sale_mode_base == "balance_topup" or "gift" in str(
+                        snapshot.sale_mode
+                    ).split("|"):
                         notification_kwargs.update(
                             sale_mode=snapshot.sale_mode,
                             payment_id=snapshot.payment_db_id,

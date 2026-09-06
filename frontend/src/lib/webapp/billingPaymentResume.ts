@@ -92,7 +92,12 @@ export function createPendingPaymentResume({
       (String(payment.sale_mode || "").split("@", 1)[0] || "subscription") === "subscription";
     const successContext = {
       paymentId,
-      initialSubscriptionPayment: !activeSubscription && subscriptionPayment,
+      initialSubscriptionPayment:
+        !activeSubscription &&
+        subscriptionPayment &&
+        !String(payment.sale_mode || "")
+          .split("|")
+          .includes("gift"),
       renewalSubscriptionPayment: activeSubscription && subscriptionPayment,
     };
     try {

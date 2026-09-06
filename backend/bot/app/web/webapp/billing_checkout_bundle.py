@@ -484,6 +484,8 @@ def build_checkout_bundle(
         if pricing_context
         else None,
     }
+    if getattr(payment_payload, "gift", False):
+        snapshot_data.pop("active_context", None)
     snapshot = json.dumps(snapshot_data, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     digest = hashlib.sha256(snapshot.encode("utf-8")).hexdigest()
     return (

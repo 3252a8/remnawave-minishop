@@ -73,6 +73,7 @@ SHORTCODES: dict[str, ShortcodeSpec] = {
         _spec("traffic_left", "db"),
         _spec("install_link", "db"),
         _spec("miniapp_link", "db"),
+        _spec("gifts_link", "db"),
         _spec("config_link", "panel"),
         _spec("referral_code", "db"),
         _spec("referral_bot_link", "db"),
@@ -585,6 +586,10 @@ def _resolve_value(
 
     if name == "miniapp_link":
         return mini_app_url
+    if name == "gifts_link":
+        from bot.services.message_composition import mini_app_section_link
+
+        return mini_app_section_link(mini_app_url, "invite") or ""
 
     if ctx is None:
         # Raw-id "admins" test target: no local user row → localized fallbacks.

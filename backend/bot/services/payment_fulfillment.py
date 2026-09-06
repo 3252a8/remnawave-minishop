@@ -10,7 +10,8 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra.payment_events import sale_mode_base
-from db.dal import payment_dal, promo_code_dal, subscription_dal
+from bot.services.subscription_gifts import is_gift_sale
+from db.dal import gift_dal, payment_dal, promo_code_dal, subscription_dal
 from db.models import (
     FlexibleTrafficLimit,
     HwidDevicePurchase,
@@ -233,6 +234,11 @@ async def payment_action_state(session: AsyncSession, payment: Payment) -> dict[
         reversal_block_reason = "fulfillment_snapshot_missing"
     elif payment.reversed_at is not None:
         reversal_block_reason = "payment_already_reversed"
+    if status == "succeeded" and is_gift_sale(payment.sale_mode):
+        gift = await gift_dal.by_payment(session, int(payment.payment_id))
+        reversal_block_reason = (
+            None if gift is not None and gift.status == "ready" else "gift_already_claimed"
+        )
     return {
         "can_manual_finalize": can_finalize,
         "manual_finalize_requires_promo_confirmation": promo_conflict,
@@ -404,6 +410,23 @@ async def reverse_payment_fulfillment(
         if updated is None:
             raise PaymentFulfillmentError("not_found", "Payment not found.", status=404)
         return updated
+    if is_gift_sale(payment.sale_mode):
+        gift = await gift_dal.by_payment(session, payment_id, lock=True)
+        if gift is None or gift.status != "ready":
+            raise PaymentFulfillmentError(
+                "gift_already_claimed", "A claimed gift cannot be reversed."
+            )
+        gift.status = "revoked"
+        if restore_promo_usage and payment.promo_code_id:
+            payment.promo_usage_restored = await promo_code_dal.release_promo_activation(
+                session, int(payment.promo_code_id), int(payment.user_id), payment_id=payment_id
+            )
+        payment.reversed_at = datetime.now(UTC)
+        payment.reversed_by_admin_id = actor_admin_id
+        payment.reversal_note = reason
+        await session.flush()
+        await payment_dal.update_payment_status_by_db_id(session, payment_id, "reversed")
+        return payment
     before = _parse_snapshot(payment.fulfillment_before_snapshot)
     after = _parse_snapshot(payment.fulfillment_after_snapshot)
     before_users = _snapshot_users(before)
