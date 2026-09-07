@@ -81,6 +81,7 @@ verify_signature() {
   local expected_tag="$2"
 
   cosign verify \
+    --experimental-oci11 \
     --annotations "tag=$expected_tag" \
     --annotations "org.opencontainers.image.revision=$CI_COMMIT_SHA" \
     --certificate-identity "$certificate_identity" \
