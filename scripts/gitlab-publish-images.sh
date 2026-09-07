@@ -19,7 +19,6 @@ TRIVY_IMAGE="${TRIVY_IMAGE:-aquasec/trivy:0.70.0}"
 OCI_IMAGE_SOURCE="${OCI_IMAGE_SOURCE:-https://github.com/3252a8/remnawave-minishop}"
 dockerhub_owner="$(printf '%s' "$DOCKERHUB_USERNAME" | tr '[:upper:]' '[:lower:]')"
 metadata_dir="${CI_PROJECT_DIR:-$PWD}/.publish-metadata-$CI_JOB_ID"
-builder_name="minishop-$CI_JOB_ID"
 export TRIVY_USERNAME="$DOCKERHUB_USERNAME"
 export TRIVY_PASSWORD="$DOCKERHUB_TOKEN"
 
@@ -114,12 +113,7 @@ fi
 
 mkdir -p "$metadata_dir"
 
-cleanup() {
-  docker buildx rm "$builder_name" > /dev/null 2>&1 || true
-}
-trap cleanup EXIT
-
-docker buildx create --driver docker-container --name "$builder_name" --use > /dev/null
+docker buildx use default
 docker buildx inspect --bootstrap
 
 for target in $TARGETS; do
