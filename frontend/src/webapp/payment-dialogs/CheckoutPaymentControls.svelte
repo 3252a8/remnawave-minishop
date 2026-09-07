@@ -8,7 +8,7 @@
   } from "$components/patterns/webapp/index.js";
   import CheckoutPromoRow from "../CheckoutPromoRow.svelte";
   import PartnerBalanceDiscount from "./PartnerBalanceDiscount.svelte";
-  import type { ApiClient } from "$lib/webapp/publicApi.js";
+  import type { ApiClient, BalanceResponse } from "$lib/webapp/publicApi.js";
   import type { PaymentMethodView, PlanView, StringAction, Translate } from "$lib/webapp/types.js";
 
   type LabelPricePair = { base: string; discounted: string };
@@ -21,6 +21,8 @@
     partnerCurrency = "",
     partnerEligible = false,
     partnerMinimum = 0,
+    prefetchedBalance,
+    balancePreloadComplete = false,
     balanceSource = $bindable<"user" | "partner" | null>(null),
     partnerBalanceDiscount = $bindable(0),
     hasMethods = false,
@@ -54,6 +56,8 @@
     partnerCurrency?: string;
     partnerEligible?: boolean;
     partnerMinimum?: number;
+    prefetchedBalance?: BalanceResponse | null;
+    balancePreloadComplete?: boolean;
     balanceSource?: "user" | "partner" | null;
     partnerBalanceDiscount?: number;
     hasMethods?: boolean;
@@ -119,6 +123,8 @@
   currency={partnerCurrency}
   eligible={partnerEligible}
   minimumExternalAmount={partnerMinimum}
+  {prefetchedBalance}
+  {balancePreloadComplete}
   bind:source={balanceSource}
   bind:discount={partnerBalanceDiscount}
   {t}
