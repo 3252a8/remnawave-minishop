@@ -52,6 +52,7 @@ export type SettingField = {
   key: string;
   label: string;
   value?: unknown;
+  default?: unknown;
   overridden?: boolean;
   value_source?: string | null;
   has_value?: boolean;
@@ -243,6 +244,39 @@ export function createSettingsStore({ api, onToast, at }: SettingsStoreOptions):
     });
   }
 
+  function applySavedSettings(updates: SettingsUpdates, deletes: string[]): void {
+    const deletedKeys = new Set(deletes);
+    updateState((s) => ({
+      ...s,
+      settingsDirty: {},
+      // Do not briefly fall back to the old GET snapshot after PATCH succeeds.
+      // The following GET remains the server reconciliation step, not the source
+      // of the value displayed between a successful save and that response.
+      settingsSections: (s.settingsSections || []).map((section) => ({
+        ...section,
+        fields: (section.fields || []).map((field) => {
+          if (Object.prototype.hasOwnProperty.call(updates, field.key)) {
+            return {
+              ...field,
+              value: updates[field.key],
+              overridden: true,
+              value_source: "database_override",
+            };
+          }
+          if (deletedKeys.has(field.key)) {
+            return {
+              ...field,
+              value: field.default ?? "",
+              overridden: false,
+              value_source: "environment",
+            };
+          }
+          return field;
+        }),
+      })),
+    }));
+  }
+
   async function saveSettings(
     onSettingsSaved?: (payload: SettingsSavedPayload) => void | Promise<void>
   ): Promise<boolean> {
@@ -296,7 +330,7 @@ export function createSettingsStore({ api, onToast, at }: SettingsStoreOptions):
               )
             : at("settings_saved", {}, "Settings saved")
         );
-        updateState((s) => ({ ...s, settingsDirty: {} }));
+        applySavedSettings(updates, deletes);
         if (onSettingsSaved) await onSettingsSaved({ updates, deletes });
         await loadSettings();
         return true;
