@@ -10,6 +10,7 @@ variables:
   DOCKER_CERT_PATH: "/certs/client"
   DOCKER_DRIVER: overlay2
   COSIGN_YES: "true"
+  COSIGN_EXPERIMENTAL: "1"
 
 .publish-dockerhub-images:
   stage: publish
