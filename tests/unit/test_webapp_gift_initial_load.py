@@ -22,3 +22,9 @@ def test_incoming_gift_preview_does_not_wait_for_user_id() -> None:
     assert "if (loggedIn && giftState.token) {" in source
     assert "if (loggedIn && userId && giftState.token) {" not in source
     assert "void loadPreview(giftState.token);" in source
+
+
+def test_incoming_gift_prompt_waits_for_preview() -> None:
+    source = GIFT_FEATURE.read_text(encoding="utf-8")
+
+    assert "{#if !claimBlocked && !error && (success || preview)}" in source
