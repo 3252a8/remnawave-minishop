@@ -216,7 +216,7 @@
     }
   });
   $effect(() => {
-    if (loggedIn && userId && giftState.token) {
+    if (loggedIn && giftState.token) {
       giftState.open = true;
       giftState.incoming = true;
       void loadPreview(giftState.token);
@@ -333,8 +333,7 @@
       <h2 class="gift-ready-title">{t("wa_gift_ready_title")}</h2>
       <p class="gift-lead">{t("wa_gift_ready_description")}</p>
       <GiftCard gift={receipt} {t} oncopy={copy} />{#if copied}<p role="status">
-          {t("wa_link_copied")}
-        </p>{/if}
+          {t("wa_link_copied")}</p>{/if}
     </div>
   {:else}
     {#if giftState.pending || giftState.receiptId}
