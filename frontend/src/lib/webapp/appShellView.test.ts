@@ -45,6 +45,7 @@ describe("computeAppShellView", () => {
         },
         subscription: { active: true, tariff_key: "basic" },
         user: {
+          id: 42,
           email: "user@example.com",
           is_admin: true,
           language_code: "en",
@@ -82,6 +83,7 @@ describe("computeAppShellView", () => {
     expect(view.isAdmin).toBe(true);
     expect(view.currentLang).toBe("en");
     expect(view.languageView.currentLanguageOption?.label).toBe("English");
+    expect(view.user.id).toBe(42);
     expect(view.userLanguage).toBe("Language:en");
     expect(view.accountView.emailLinkStatus).toBe("Linked");
     expect(view.telegramMiniAppAuthAvailable).toBe(true);
