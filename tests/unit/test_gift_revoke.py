@@ -41,11 +41,12 @@ class GiftRevokeTests(IsolatedAsyncioTestCase):
 
     async def revoke(self, **changes: object) -> SubscriptionGift:
         refund_to_balance = bool(changes.pop("refund_to_balance", True))
+        reason = str(changes.pop("reason", " duplicate purchase "))
         return await revoke_paid_gift(
             self.session,
             gift_id=8,
             actor_admin_id=99,
-            reason=" duplicate purchase ",
+            reason=reason,
             restore_promo_usage=True,
             refund_to_balance=refund_to_balance,
             **changes,
@@ -78,7 +79,10 @@ class GiftRevokeTests(IsolatedAsyncioTestCase):
         self.payment.checkout_total_amount = None
         await self.revoke()
 
-        self.assertEqual(self.credit.await_args.kwargs["amount"], 100)
+        credit_call = self.credit.await_args
+        self.assertIsNotNone(credit_call)
+        assert credit_call is not None
+        self.assertEqual(credit_call.kwargs["amount"], 100)
 
     async def test_replay_does_not_credit_a_revoked_gift_twice(self) -> None:
         self.gift.status = "revoked"
@@ -115,7 +119,10 @@ class GiftRevokeTests(IsolatedAsyncioTestCase):
         await self.revoke(reason="   ", without_reason=True)
 
         self.assertEqual(self.payment.reversal_note, "")
-        self.assertEqual(self.credit.await_args.kwargs["reason"], "")
+        credit_call = self.credit.await_args
+        self.assertIsNotNone(credit_call)
+        assert credit_call is not None
+        self.assertEqual(credit_call.kwargs["reason"], "")
 
     async def test_revocation_requires_a_reason_without_the_explicit_flag(self) -> None:
         with self.assertRaisesRegex(GiftRevokeError, "invalid_gift_revoke_reason"):

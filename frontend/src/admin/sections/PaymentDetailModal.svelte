@@ -182,11 +182,17 @@
 
   async function submitAction(): Promise<void> {
     const reason = actionReason.trim();
-    if (!actionMode || !isReversalReasonValid(reason, actionMode === "reverse" && withoutReason)) return;
+    if (!actionMode || !isReversalReasonValid(reason, actionMode === "reverse" && withoutReason))
+      return;
     const succeeded =
       actionMode === "finalize"
         ? await paymentsStore.finalizePayment(reason, confirmPromoConflict)
-        : await paymentsStore.reversePayment(reason, restorePromoUsage, refundToBalance, withoutReason);
+        : await paymentsStore.reversePayment(
+            reason,
+            restorePromoUsage,
+            refundToBalance,
+            withoutReason
+          );
     if (succeeded) cancelAction();
   }
 

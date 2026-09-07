@@ -380,7 +380,11 @@ async def reverse_payment_fulfillment(
 ) -> Payment:
     reason = reason.strip()
     if not without_reason and len(reason) < 3:
-        raise PaymentFulfillmentError("invalid_payment_reverse_reason", "A reversal reason is required.", status=400)
+        raise PaymentFulfillmentError(
+            "invalid_payment_reverse_reason",
+            "A reversal reason is required.",
+            status=400,
+        )
     payment = await payment_dal.get_payment_by_db_id_for_update(session, payment_id)
     if payment is None:
         raise PaymentFulfillmentError("not_found", "Payment not found.", status=404)

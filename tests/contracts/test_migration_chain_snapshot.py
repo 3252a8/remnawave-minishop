@@ -99,6 +99,7 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0076_track_tariff_managed_squads",
     "0077_subscription_gifts",
     "0078_gift_entitlements",
+    "0084_add_gift_refund_ledger_kind",
 ]
 
 

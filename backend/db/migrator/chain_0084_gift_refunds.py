@@ -9,7 +9,8 @@ from .engine import Migration
 def _migration_0084_add_gift_refund_ledger_kind(connection: Connection) -> None:
     connection.execute(
         text(
-            "ALTER TABLE user_balance_ledger_entries DROP CONSTRAINT IF EXISTS ck_user_balance_ledger_kind"
+            "ALTER TABLE user_balance_ledger_entries "
+            "DROP CONSTRAINT IF EXISTS ck_user_balance_ledger_kind"
         )
     )
     connection.execute(

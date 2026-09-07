@@ -135,7 +135,7 @@ class UserBalanceService:
             "sources": [
                 {
                     "id": "user",
-                    "available": bool(config.enabled and amount_minor > 0),
+                    "available": bool(amount_minor > 0),
                     "adjustable": True,
                     "amount_minor": amount_minor,
                     "amount": minor_to_decimal_string(amount_minor, scale=scale),
@@ -188,8 +188,6 @@ class UserBalanceService:
         minimum_external_amount: Any = 0,
     ) -> UserBalanceAllocation:
         config = self.settings.balance_settings
-        if not config.enabled:
-            raise UserBalanceError("user_balance_disabled", 403)
         normalized_currency = str(currency or "").strip().upper()
         if normalized_currency != config.currency:
             raise UserBalanceError("user_balance_currency_mismatch", 409)

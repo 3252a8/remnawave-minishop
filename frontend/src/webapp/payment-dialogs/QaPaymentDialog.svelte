@@ -24,24 +24,24 @@
 
   const paymentId = qaPaymentIdFromSearch(window.location.search);
   let open = $state(new URLSearchParams(window.location.search).has("qa_payment_id"));
-  let state = $state<QaPaymentState>(paymentId ? "loading" : "unavailable");
+  let paymentState = $state<QaPaymentState>(paymentId ? "loading" : "unavailable");
   let busy = $state(false);
 
   const title = $derived(
-    state === "success"
+    paymentState === "success"
       ? t("wa_qa_payment_success_title")
-      : state === "failed"
+      : paymentState === "failed"
         ? t("wa_qa_payment_failed_title")
-        : state === "unavailable"
+        : paymentState === "unavailable"
           ? t("wa_qa_payment_unavailable_title")
           : t("wa_qa_payment_title")
   );
   const description = $derived(
-    state === "success"
+    paymentState === "success"
       ? t("wa_qa_payment_success_description")
-      : state === "failed"
+      : paymentState === "failed"
         ? t("wa_qa_payment_failed_description")
-        : state === "unavailable"
+        : paymentState === "unavailable"
           ? t("wa_qa_payment_unavailable_description")
           : t("wa_qa_payment_description")
   );
@@ -50,10 +50,10 @@
     if (!paymentId) return;
     void fetchQaPaymentState(api, paymentId)
       .then((nextState) => {
-        state = nextState;
+        paymentState = nextState;
       })
       .catch(() => {
-        state = "unavailable";
+        paymentState = "unavailable";
       });
   });
 
@@ -61,10 +61,10 @@
     if (!paymentId || busy) return;
     busy = true;
     try {
-      state = await completeQaPayment(api, paymentId);
-      if (state === "success") await loadData();
+      paymentState = await completeQaPayment(api, paymentId);
+      if (paymentState === "success") await loadData();
     } catch (_error) {
-      state = "unavailable";
+      paymentState = "unavailable";
     } finally {
       busy = false;
     }
@@ -85,9 +85,9 @@
   class="qa-payment-dialog"
 >
   {#snippet titleIcon()}
-    {#if state === "success"}
+    {#if paymentState === "success"}
       <CheckCircle2 size={23} />
-    {:else if state === "failed" || state === "unavailable"}
+    {:else if paymentState === "failed" || paymentState === "unavailable"}
       <TriangleAlert size={23} />
     {:else}
       <ShieldCheck size={23} />
@@ -95,9 +95,9 @@
   {/snippet}
   <div class="qa-payment-dialog-body">
     <p class="qa-payment-label">{t("wa_qa_payment_dev_label")}</p>
-    {#if state === "loading"}
+    {#if paymentState === "loading"}
       <Button class="wide" disabled>{t("wa_loading")}</Button>
-    {:else if state === "pending"}
+    {:else if paymentState === "pending"}
       <Button class="wide" disabled={busy} onclick={complete}>
         {busy ? t("wa_qa_payment_completing") : t("wa_qa_payment_complete")}
       </Button>

@@ -23,7 +23,9 @@ export function isQaPaymentUrl(value: string): boolean {
 }
 
 export function qaPaymentStateForStatus(status: unknown): QaPaymentState {
-  const normalized = String(status || "").trim().toLowerCase();
+  const normalized = String(status || "")
+    .trim()
+    .toLowerCase();
   if (normalized === "succeeded") return "success";
   if (normalized === "pending_qa") return "pending";
   return normalized ? "failed" : "unavailable";
