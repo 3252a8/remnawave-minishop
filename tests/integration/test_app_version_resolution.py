@@ -144,11 +144,19 @@ class BuildVersionFileTests(unittest.TestCase):
 class BuildPipelineVersionMetadataTests(unittest.TestCase):
     def test_gitlab_dev_build_forwards_branch_to_dockerfile(self):
         pipeline = (REPOSITORY_ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
+        publish_script = (REPOSITORY_ROOT / "scripts" / "gitlab-publish-images.sh").read_text(
+            encoding="utf-8"
+        )
         build_script = (REPOSITORY_ROOT / "scripts" / "docker-build-images.sh").read_text(
             encoding="utf-8"
         )
 
-        self.assertIn('REMNAWAVE_MINISHOP_BRANCH="$CI_COMMIT_REF_NAME"', pipeline)
+        self.assertIn("PUBLISH_CHANNEL: dev", pipeline)
+        self.assertIn('build_branch="$CI_COMMIT_REF_NAME"', publish_script)
+        self.assertIn(
+            '--build-arg "REMNAWAVE_MINISHOP_BRANCH=$build_branch"',
+            publish_script,
+        )
         self.assertIn(
             '--build-arg "REMNAWAVE_MINISHOP_BRANCH=$REMNAWAVE_MINISHOP_BRANCH"',
             build_script,
