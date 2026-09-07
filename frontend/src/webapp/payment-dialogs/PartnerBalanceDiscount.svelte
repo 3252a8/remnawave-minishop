@@ -16,6 +16,8 @@
     currency = "",
     eligible = false,
     minimumExternalAmount = 0,
+    prefetchedBalance,
+    balancePreloadComplete = false,
     source = $bindable<BalanceSource | null>(null),
     discount = $bindable(0),
     t = (key) => key,
@@ -26,12 +28,14 @@
     currency?: string;
     eligible?: boolean;
     minimumExternalAmount?: number;
+    prefetchedBalance?: BalanceResponse | null;
+    balancePreloadComplete?: boolean;
     source?: BalanceSource | null;
     discount?: number;
     t?: Translate;
   } = $props();
 
-  let sources = $state<SourceView[]>([]);
+  let loadedSources = $state<SourceView[]>([]);
   let loading = $state(false);
   let requestKey = $state("");
 
@@ -39,6 +43,13 @@
     String(currency || "")
       .trim()
       .toUpperCase()
+  );
+  const sources = $derived(
+    prefetchedBalance !== undefined
+      ? balancePreloadComplete && prefetchedBalance
+        ? normalizeSources(prefetchedBalance)
+        : []
+      : loadedSources
   );
   const selectedSource = $derived(sources.find((item) => item.id === source) || null);
   const preferredSource = $derived(
@@ -72,9 +83,9 @@
     try {
       const response = (await api("/balance")) as BalanceResponse;
       if (requestKey !== key) return;
-      sources = normalizeSources(response);
+      loadedSources = normalizeSources(response);
     } catch {
-      if (requestKey === key) sources = [];
+      if (requestKey === key) loadedSources = [];
     } finally {
       if (requestKey === key) loading = false;
     }
@@ -101,10 +112,16 @@
   }
 
   $effect(() => {
+    if (prefetchedBalance !== undefined) {
+      requestKey = "";
+      loadedSources = [];
+      loading = false;
+      return;
+    }
     const key = open && eligible && normalizedCurrency ? normalizedCurrency : "";
     if (!key) {
       requestKey = "";
-      sources = [];
+      loadedSources = [];
       source = null;
       discount = 0;
       return;

@@ -23,6 +23,10 @@
     normalizedCheckoutPromoDiscount,
     selectPaymentMethodWithPromoReset,
   } from "$lib/webapp/checkoutPromoPolicy.js";
+  import {
+    checkoutBalanceLookupPlan,
+    createCheckoutBalancePreload,
+  } from "$lib/webapp/checkoutBalancePreload.svelte.js";
   import { formatCompactNumber, formatMoney } from "$lib/webapp/formatters.js";
   import { buildSubscriptionQuotePath, type PostPayload } from "$lib/webapp/publicApi.js";
   import {
@@ -664,6 +668,16 @@
     );
   }
 
+  const balancePreload = createCheckoutBalancePreload(
+    () => api,
+    () => paymentModalOpen,
+    () => checkoutBalanceLookupPlan(selectedPlan, selectedTariffPlans, plans),
+    () => {
+      balanceSource = null;
+      partnerBalanceDiscount = 0;
+    }
+  );
+
   function partnerCheckoutPriceParts(plan: PlanView | null) {
     if (!balanceSource || partnerBalanceDiscount <= 0 || !plan) return null;
     return {
@@ -704,6 +718,8 @@
     partnerCurrency={String(selectedPlan?.currency || "")}
     partnerEligible={partnerBalanceEligible()}
     partnerMinimum={selectedMethodMinimum()}
+    prefetchedBalance={balancePreload.response}
+    balancePreloadComplete={balancePreload.complete}
     bind:balanceSource
     bind:partnerBalanceDiscount
     hasMethods={Boolean(methods.length)}
@@ -946,7 +962,7 @@
   </section>
 {:else}
   <Dialog
-    open={paymentModalOpen}
+    open={paymentModalOpen && balancePreload.ready}
     title={paymentTitle()}
     description={paymentDescription()}
     closeLabel={t("wa_close")}
