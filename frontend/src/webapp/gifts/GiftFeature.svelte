@@ -200,9 +200,8 @@
   }
 
   $effect(() => {
-    const identity = userId;
     const revision = giftState.revision;
-    if (loggedIn && identity) {
+    if (loggedIn) {
       if (typeof enabled === "boolean") giftState.enabled = enabled;
       void revision;
       void refreshGifts();
