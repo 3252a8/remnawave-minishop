@@ -6,13 +6,15 @@
     AdminTable,
     AdminSortableHeader,
     AdminSelect,
+    AdminListToolbar,
   } from "$components/patterns/admin/index.js";
   import Dialog from "$components/ui/dialog.svelte";
+  import CopyLinkField from "$components/patterns/CopyLinkField.svelte";
   import Input from "$components/ui/input.svelte";
-  import { Gift, Plus, Copy, Check, RefreshCw, User } from "$components/ui/icons.js";
+  import { Gift, Plus, RefreshCw, User } from "$components/ui/icons.js";
   import { unwrap, buildAdminGiftPath, type ApiClient } from "$lib/webapp/publicApi.js";
   import type { components } from "$lib/api/openapi.generated.js";
-  import PaymentProviderCell from "./PaymentProviderCell.svelte";
+  import PaymentProviderCell from "$components/patterns/admin/PaymentProviderCell.svelte";
   import GiftCreateDialog from "./GiftCreateDialog.svelte";
   type AdminGift = components["schemas"]["AdminGiftView"];
   let {
@@ -130,7 +132,7 @@
     sort = "date_desc";
     void load(0, "", "", "date_desc", "");
   }
-  function search(event: SubmitEvent) {
+  function submitSearch(event: SubmitEvent) {
     event.preventDefault();
     page = 0;
     appliedQuery = query.trim();
@@ -138,8 +140,14 @@
 </script>
 
 <div class="gifts-admin">
-  <form class="admin-toolbar admin-toolbar-users gifts-toolbar" onsubmit={search}>
-    <div class="admin-toolbar-search">
+  <AdminListToolbar
+    class="gifts-toolbar"
+    {total}
+    totalLabel={at("total")}
+    columns={2}
+    onsubmit={submitSearch}
+  >
+    {#snippet search()}
       <Input
         class="input"
         type="search"
@@ -147,9 +155,11 @@
         placeholder={at("gifts_search")}
         aria-label={at("gifts_search")}
       />
+    {/snippet}
+    {#snippet searchActions()}
       <AdminButton type="submit" variant="primary">{at("find")}</AdminButton>
-    </div>
-    <div class="admin-toolbar-controls">
+    {/snippet}
+    {#snippet filters()}
       <div class="admin-toolbar-field">
         <span class="admin-toolbar-field-label">{at("gifts_status")}</span>
         <AdminSelect
@@ -180,22 +190,19 @@
           ]}
         />
       </div>
-      <div class="admin-toolbar-summary">
-        <span class="admin-toolbar-field-label">{at("total")}</span><strong>{total}</strong>
-      </div>
-    </div>
-  </form>
-  <div class="gifts-actions">
-    <AdminButton variant="primary" onclick={() => (createOpen = true)}
-      ><Plus size={16} />{at("gifts_create")}</AdminButton
-    >
-    <AdminButton
-      variant="ghost"
-      disabled={busy}
-      onclick={() => load(page, status, appliedQuery, sort)}
-      ><RefreshCw size={15} />{at("refresh")}</AdminButton
-    >
-  </div>
+    {/snippet}
+    {#snippet actions()}
+      <AdminButton variant="primary" onclick={() => (createOpen = true)}
+        ><Plus size={16} />{at("gifts_create")}</AdminButton
+      >
+      <AdminButton
+        variant="ghost"
+        disabled={busy}
+        onclick={() => load(page, status, appliedQuery, sort)}
+        ><RefreshCw size={15} />{at("refresh")}</AdminButton
+      >
+    {/snippet}
+  </AdminListToolbar>
   {#if failed}<p role="alert">{at("gifts_load_failed")}</p>{/if}
   <div class="gift-desktop" aria-busy={busy}>
     <AdminTable>
@@ -381,20 +388,15 @@
     {#if gift.link}
       <div class="gift-admin-link-block">
         <span class="gift-secondary">{at("gifts_link_hint")}</span>
-        <div class="gift-admin-link">
-          <Input
-            class="input"
-            readonly
-            value={gift.link}
-            aria-label={at("gifts_link")}
-            onclick={(event) => event.currentTarget.select()}
-          />
-          <AdminButton variant="primary" onclick={() => copyLink(gift.link || "")}
-            >{#if copied}<Check size={16} />{:else}<Copy size={16} />{/if}{at(
-              copied ? "gifts_copied" : "gifts_copy"
-            )}</AdminButton
-          >
-        </div>
+        <CopyLinkField
+          class="gift-admin-link"
+          variant="admin"
+          value={gift.link}
+          inputLabel={at("gifts_link")}
+          copyLabel={at(copied ? "gifts_copied" : "gifts_copy")}
+          {copied}
+          oncopy={copyLink}
+        />
         {#if copyFailed}<span role="alert" class="gift-secondary">{at("gifts_copy_failed")}</span
           >{/if}
       </div>
@@ -477,40 +479,10 @@
     gap: 14px;
     min-width: 0;
   }
-  .gifts-toolbar {
-    min-width: 0;
-  }
-  .gifts-toolbar :global(.admin-toolbar-search .input),
-  .gifts-toolbar :global(.admin-toolbar-search .admin-btn) {
-    height: 36px;
-    min-height: 36px;
-  }
-  .gifts-toolbar :global(.admin-toolbar-controls) {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
-  }
-  .gifts-actions {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-  }
   .gift-admin-link-block {
     display: grid;
     gap: 8px;
     padding-bottom: 16px;
-  }
-  .gift-admin-link {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-  }
-  .gift-admin-link :global(input) {
-    min-width: 0;
-    flex: 1;
-  }
-  .gift-admin-link :global(.admin-btn) {
-    flex-shrink: 0;
   }
   :global(.admin-gift-dialog .gift-link) {
     border: 0;
@@ -694,16 +666,6 @@
     .gift-mobile-line > span {
       min-width: 0;
       overflow-wrap: anywhere;
-    }
-    .gifts-toolbar :global(.admin-toolbar-controls) {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .gifts-toolbar :global(.admin-toolbar-summary) {
-      grid-column: 1 / -1;
-      display: flex;
-      justify-content: space-between;
-      min-height: 20px;
     }
     .gift-admin-details {
       gap: 14px;

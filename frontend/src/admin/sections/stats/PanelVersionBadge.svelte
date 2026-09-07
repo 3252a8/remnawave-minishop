@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Popover } from "bits-ui";
+  import { Popover } from "$components/ui/primitives.js";
 
   import { panelVersionBadgeState } from "$lib/admin/panelVersionBadge.js";
   import type { PanelCompatibility } from "$lib/admin/stores/healthStore.svelte.js";

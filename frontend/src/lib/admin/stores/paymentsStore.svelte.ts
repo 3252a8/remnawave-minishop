@@ -37,6 +37,7 @@ type PaymentsState = {
   paymentsTotal: number;
   paymentsPage: number;
   paymentsSort: string;
+  paymentsSearch: string;
   paymentsLoading: boolean;
   openedPaymentId: number | null;
   openedPayment: AdminPayment | null;
@@ -73,6 +74,7 @@ export type PaymentsStore = PaymentsState & {
   loadPayments: (options?: { refresh?: boolean }) => Promise<void>;
   setPage: (page: number) => void;
   setSort: (sort: string) => void;
+  setSearch: (search: string) => void;
   openPayment: (
     paymentOrId: AdminPayment | PaymentOut | number | string,
     opts?: PaymentOpenOptions
@@ -112,6 +114,7 @@ export function createPaymentsStore({
     paymentsTotal: 0,
     paymentsPage: 0,
     paymentsSort: "date_desc",
+    paymentsSearch: "",
     paymentsLoading: false,
     openedPaymentId: null,
     openedPayment: null,
@@ -144,24 +147,30 @@ export function createPaymentsStore({
     window.history.pushState(null, "", `${target}${window.location.search}${window.location.hash}`);
   }
 
-  function paymentsListQueryKey(page: number, sort: string): AdminQueryKey {
+  function paymentsListQueryKey(page: number, sort: string, search: string): AdminQueryKey {
     return [
       PAYMENTS_QUERY_KEY[0],
       PAYMENTS_QUERY_KEY[1],
       {
         page,
         sort,
+        search,
       },
     ];
   }
 
-  async function requestPayments(page: number, sort: string): Promise<PaymentsListResponse> {
+  async function requestPayments(
+    page: number,
+    sort: string,
+    search: string
+  ): Promise<PaymentsListResponse> {
     const data = await api(
       buildAdminPaymentsPath(
         new URLSearchParams({
           page: String(page),
           page_size: String(PAYMENTS_PAGE_SIZE),
           sort,
+          ...(search ? { search } : {}),
         })
       )
     );
@@ -196,13 +205,14 @@ export function createPaymentsStore({
     state.paymentsLoading = true;
     const currentPage = state.paymentsPage;
     const currentSort = state.paymentsSort;
+    const currentSearch = state.paymentsSearch;
     const perf = createAdminPerfSpan("payments");
 
     try {
       const data = await fetchAdminQuery({
         queryClient,
-        queryKey: paymentsListQueryKey(currentPage, currentSort),
-        queryFn: () => requestPayments(currentPage, currentSort),
+        queryKey: paymentsListQueryKey(currentPage, currentSort, currentSearch),
+        queryFn: () => requestPayments(currentPage, currentSort, currentSearch),
         refresh,
       });
       perf.apiResponse();
@@ -232,6 +242,12 @@ export function createPaymentsStore({
 
   function setSort(sort: string): void {
     state.paymentsSort = sort;
+    state.paymentsPage = 0;
+    void loadPayments();
+  }
+
+  function setSearch(search: string): void {
+    state.paymentsSearch = search.trim();
     state.paymentsPage = 0;
     void loadPayments();
   }
@@ -367,6 +383,7 @@ export function createPaymentsStore({
     loadPayments,
     setPage,
     setSort,
+    setSearch,
     openPayment,
     closePayment,
     finalizePayment,

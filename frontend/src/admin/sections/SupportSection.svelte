@@ -6,6 +6,8 @@
   import { onMount, tick } from "svelte";
   import {
     AdminButton,
+    AdminListToolbar,
+    AdminField,
     AdminSelect,
     SupportComposer,
     SupportInboxRow,
@@ -14,7 +16,6 @@
   } from "$components/patterns/admin/index.js";
   import { TicketMessageBubble, TypingIndicator } from "$components/patterns/webapp/index.js";
   import Dialog from "$components/ui/dialog.svelte";
-  import { Search } from "$components/ui/icons.js";
   import { Input, ScrollArea, Skeleton } from "$components/ui/index.js";
   import type {
     SupportFilters,
@@ -62,7 +63,7 @@
     }
   );
   const loading = $derived(Boolean(supportStore.loading));
-  const filters: SupportFilters = $derived(
+  const ticketFilters: SupportFilters = $derived(
     supportStore.filters || {
       status: "active",
       priority: "",
@@ -304,7 +305,7 @@
       {#each statusTabs as tab (tab.value)}
         <button
           type="button"
-          class:active={filters.status === tab.value}
+          class:active={ticketFilters.status === tab.value}
           onclick={() => supportStore.setStatusView(tab.value)}
         >
           <span>{tab.label}</span>
@@ -313,43 +314,48 @@
       {/each}
     </div>
 
-    <div class="support-admin-toolbar admin-toolbar-card">
-      <label class="support-admin-search">
-        <Search size={16} />
+    <AdminListToolbar class="support-list-toolbar" onsubmit={() => supportStore.loadList()}>
+      {#snippet search()}
         <Input
           class="input"
           type="search"
+          aria-label={at("support_search", {}, "Search")}
           placeholder={at("support_search", {}, "Search")}
-          value={filters.search}
+          value={ticketFilters.search}
           oninput={handleSearchInput}
           onkeydown={handleSearchKeydown}
         />
-      </label>
-
-      <div class="support-admin-filter-row">
-        <AdminSelect
-          value={filters.priority || "all"}
-          items={priorityFilterOptions}
-          ariaLabel={at("support_priority", {}, "Priority")}
-          onValueChange={priorityFilterChange}
-        />
-        <AdminSelect
-          value={filters.category || "all"}
-          items={categoryFilterOptions}
-          ariaLabel={at("support_category", {}, "Category")}
-          onValueChange={categoryFilterChange}
-        />
-        <AdminSelect
-          value={filters.sort || "importance_desc"}
-          items={sortOptions}
-          ariaLabel={at("sort", {}, "Sort")}
-          onValueChange={sortFilterChange}
-        />
-        <AdminButton variant="primary" onclick={() => supportStore.loadList()}>
-          {at("apply", {}, "Apply")}
-        </AdminButton>
-      </div>
-    </div>
+      {/snippet}
+      {#snippet searchActions()}
+        <AdminButton variant="primary" type="submit">{at("apply", {}, "Apply")}</AdminButton>
+      {/snippet}
+      {#snippet filters()}
+        <AdminField label={at("support_priority", {}, "Priority")}>
+          <AdminSelect
+            value={ticketFilters.priority || "all"}
+            items={priorityFilterOptions}
+            ariaLabel={at("support_priority", {}, "Priority")}
+            onValueChange={priorityFilterChange}
+          />
+        </AdminField>
+        <AdminField label={at("support_category", {}, "Category")}>
+          <AdminSelect
+            value={ticketFilters.category || "all"}
+            items={categoryFilterOptions}
+            ariaLabel={at("support_category", {}, "Category")}
+            onValueChange={categoryFilterChange}
+          />
+        </AdminField>
+        <AdminField label={at("sort", {}, "Sort")}>
+          <AdminSelect
+            value={ticketFilters.sort || "importance_desc"}
+            items={sortOptions}
+            ariaLabel={at("sort", {}, "Sort")}
+            onValueChange={sortFilterChange}
+          />
+        </AdminField>
+      {/snippet}
+    </AdminListToolbar>
 
     {#if loading}
       <div class="support-ticket-list-skeleton" aria-label={at("loading", {}, "Loading…")}>

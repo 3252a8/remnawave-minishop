@@ -1,6 +1,11 @@
 <script lang="ts">
   import Skeleton from "$components/ui/skeleton.svelte";
-  import { AdminChartSkeleton, AdminTableSkeleton } from "$components/patterns/admin/index.js";
+  import {
+    AdminChartSkeleton,
+    AdminTableSkeleton,
+    AdminListToolbar,
+    AdminField,
+  } from "$components/patterns/admin/index.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
@@ -138,17 +143,17 @@
     </section>
   {:else if isList}
     <section class="partners-list-view">
-      <header class="partners-list-head">
-        <div class="partners-skeleton-copy">
-          <Skeleton variant="title" width="186px" />
-          <Skeleton variant="tiny" width="286px" />
-        </div>
-        <Skeleton class="partners-skeleton-button" width="132px" height="36px" />
-      </header>
-      <div class="partners-filters">
-        <Skeleton class="partners-skeleton-control" height="38px" />
-        <Skeleton class="partners-skeleton-control" width="220px" height="38px" />
-      </div>
+      <AdminListToolbar class="partner-list-toolbar" columns={1}>
+        {#snippet search()}<Skeleton width="100%" height="36px" />{/snippet}
+        {#snippet searchActions()}<Skeleton width="68px" height="36px" />{/snippet}
+        {#snippet filters()}<AdminField label={at("partners_col_status", {}, "Status")}
+            ><Skeleton width="100%" height="36px" /></AdminField
+          >{/snippet}
+        {#snippet actions()}<Skeleton
+            width="56px"
+            height="20px"
+          />{#if view === "partners"}<Skeleton width="150px" height="36px" />{/if}{/snippet}
+      </AdminListToolbar>
       <AdminTableSkeleton
         headers={listHeaders}
         rows={6}

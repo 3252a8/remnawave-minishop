@@ -3,6 +3,7 @@ export {
   Combobox,
   Label,
   Popover,
+  RangeCalendar,
   ScrollArea,
   Select,
   Separator,

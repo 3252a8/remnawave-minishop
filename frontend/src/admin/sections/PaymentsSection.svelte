@@ -1,9 +1,15 @@
 <script lang="ts">
   import { getPaymentsStore } from "$lib/admin/context";
   import { onMount } from "svelte";
-  import { AdminPagination } from "$components/patterns/admin/index.js";
+  import {
+    AdminPagination,
+    AdminListToolbar,
+    AdminButton,
+  } from "$components/patterns/admin/index.js";
   import type { PaymentOut } from "$lib/admin/stores/paymentsStore";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
+  import { RefreshCw } from "$components/ui/icons.js";
+  import Input from "$components/ui/input.svelte";
   import PaymentTable from "./PaymentTable.svelte";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -23,6 +29,7 @@
   } = $props();
 
   const paymentsStore = getPaymentsStore();
+  let searchQuery = $state(paymentsStore.paymentsSearch);
   const PAYMENTS_PAGE_SIZE = 25;
   const payments = $derived(paymentsStore.payments as PaymentOut[]);
   const paymentsTotal = $derived(Number(paymentsStore.paymentsTotal || 0));
@@ -37,6 +44,35 @@
     paymentsStore.loadPayments();
   });
 </script>
+
+<AdminListToolbar
+  total={paymentsTotal}
+  totalLabel={at("total", {}, "Total")}
+  onsubmit={() => paymentsStore.setSearch(searchQuery)}
+>
+  {#snippet search()}
+    <Input
+      type="search"
+      class="input"
+      bind:value={searchQuery}
+      aria-label={at("payments_search_placeholder")}
+      placeholder={at("payments_search_placeholder")}
+    />
+  {/snippet}
+  {#snippet searchActions()}
+    <AdminButton type="submit" variant="primary" disabled={paymentsLoading}
+      >{at("find", {}, "Find")}</AdminButton
+    >
+  {/snippet}
+  {#snippet actions()}
+    <AdminButton
+      variant="ghost"
+      disabled={paymentsLoading}
+      onclick={() => paymentsStore.loadPayments({ refresh: true })}
+      ><RefreshCw size={15} />{at("refresh", {}, "Refresh")}</AdminButton
+    >
+  {/snippet}
+</AdminListToolbar>
 
 <PaymentTable
   {at}

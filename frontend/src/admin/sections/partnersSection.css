@@ -369,46 +369,11 @@
   display: grid;
   gap: 14px;
 }
-.partners-list-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 14px;
-  align-items: end;
-}
-.partners-list-head h2 {
-  margin: 0;
-}
-.partners-list-head p {
-  margin: 5px 0 0;
-  color: var(--admin-muted);
-}
-.partners-filters {
-  display: flex;
-  gap: 8px;
-  min-width: 0;
-}
 /* Same search affordance as the other admin lists: one bordered `.input` with
-   the glyph floated inside it, never a second border around a nested field. */
-.partners-search {
+   the glyph floated inside it{
   position: relative;
   display: block;
   flex: 1 1 360px;
-  min-width: 0;
-}
-.partners-search > svg {
-  position: absolute;
-  top: 50%;
-  left: 12px;
-  color: var(--admin-muted);
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-.partners-search .input {
-  width: 100%;
-  padding-left: 36px;
-}
-.partners-filters > :last-child {
-  flex: 0 1 220px;
   min-width: 0;
 }
 .partners-table-empty {
@@ -653,13 +618,11 @@
     grid-column: 2;
     justify-self: start;
   }
-  .partners-toolbar,
-  .partners-list-head {
+  .partners-toolbar {
     align-items: stretch;
   }
   .partners-toolbar-tabs,
-  .partners-toolbar-actions,
-  .partners-list-head {
+  .partners-toolbar-actions {
     width: 100%;
     flex: 1 1 100%;
   }
@@ -683,13 +646,6 @@
   }
   .partners-dashboard-table tbody tr {
     height: auto;
-  }
-  .partners-filters {
-    flex-direction: column;
-  }
-  .partners-search,
-  .partners-filters > :last-child {
-    flex: 1 1 auto;
   }
   .partners-kpi-detail {
     grid-template-columns: repeat(2, minmax(0, 1fr));

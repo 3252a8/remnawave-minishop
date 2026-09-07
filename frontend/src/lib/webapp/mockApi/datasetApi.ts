@@ -296,7 +296,28 @@ export function demoApiResponse(
   }
 
   if (cleanPath === "/admin/payments") {
-    const payments = DATASET.adminPayments || [];
+    const query = (params.get("search") || "")
+      .trim()
+      .replace(/^[@#]+/, "")
+      .toLowerCase();
+    const payments = (DATASET.adminPayments || []).filter((payment) => {
+      if (!query) return true;
+      const user = (DATASET.adminUsers || []).find((item) => item.user_id === payment.user_id);
+      return (
+        String(payment.user_id) === query ||
+        String(user?.telegram_id) === query ||
+        [
+          payment.user_label,
+          user?.username,
+          user?.email,
+          [user?.first_name, user?.last_name].filter(Boolean).join(" "),
+        ].some((value) =>
+          String(value || "")
+            .toLowerCase()
+            .includes(query)
+        )
+      );
+    });
     const sort = params.get("sort") || "date_desc";
     const sorted = sortAdminRows(payments, sort, [
       {

@@ -23,6 +23,7 @@ from bot.services.payment_fulfillment import (
     reverse_payment_fulfillment,
 )
 from db.dal import payment_dal
+from db.dal.payment_user_search import payment_user_search
 from db.models import Payment, User
 
 from .auth import (
@@ -88,6 +89,8 @@ async def admin_payments_list_route(request: web.Request) -> web.Response:
     page = max(0, int(request.query.get("page", 0) or 0))
     page_size = min(100, max(1, int(request.query.get("page_size", 25) or 25)))
     sort = str(request.query.get("sort") or "date_desc").lower()
+    search = str(request.query.get("search") or "").strip()
+    user_filter = payment_user_search(search)
 
     async with async_session_factory() as session:
         from sqlalchemy.orm import selectinload
@@ -150,12 +153,24 @@ async def admin_payments_list_route(request: web.Request) -> web.Response:
             select(Payment)
             .outerjoin(User, User.user_id == Payment.user_id)
             .options(selectinload(Payment.user))
+            .where(user_filter)
             .order_by(order, tie_breaker)
             .offset(page * page_size)
             .limit(page_size)
         )
         rows = (await session.execute(stmt)).scalars().all()
-        total = await payment_dal.get_all_payments_count(session)
+        total = (
+            (
+                await session.execute(
+                    select(func.count())
+                    .select_from(Payment)
+                    .outerjoin(User, User.user_id == Payment.user_id)
+                    .where(user_filter)
+                )
+            ).scalar_one()
+            if search
+            else await payment_dal.get_all_payments_count(session)
+        )
 
     return _ok(
         {

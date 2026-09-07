@@ -4,6 +4,7 @@
   import { onMount } from "svelte";
   import {
     AdminButton,
+    AdminListToolbar,
     AdminEmptyState,
     AdminPagination,
     AdminSortableHeader,
@@ -96,16 +97,21 @@
   });
 </script>
 
-<div class="admin-toolbar admin-toolbar-card admin-logs-toolbar">
-  <div class="admin-toolbar-search admin-logs-toolbar-search">
+<AdminListToolbar
+  class="admin-logs-toolbar"
+  total={logsTotal}
+  totalLabel={at("total", {}, "Total")}
+  onsubmit={applyLogsFilter}
+>
+  {#snippet search()}
     <div class="admin-logs-filter-input">
       <Input
         type="search"
         class="input"
+        aria-label={at("logs_user_filter_placeholder", {}, "Filter by user ID")}
         placeholder={at("logs_user_filter_placeholder", {}, "Filter by user ID")}
         value={logsUserFilter}
         oninput={(e) => logsStore.setFilter((e.currentTarget as HTMLInputElement).value)}
-        onkeydown={(e) => e.key === "Enter" && applyLogsFilter()}
       />
       {#if logsUserFilter}
         <button
@@ -119,21 +125,20 @@
         </button>
       {/if}
     </div>
-    <AdminButton variant="primary" onclick={applyLogsFilter}>{at("apply", {}, "Apply")}</AdminButton
-    >
+  {/snippet}
+  {#snippet searchActions()}
+    <AdminButton variant="primary" type="submit">{at("apply", {}, "Apply")}</AdminButton>
+  {/snippet}
+  {#snippet actions()}
     <AdminButton
-      class="admin-logs-refresh"
       variant="ghost"
-      size="icon"
       disabled={logsLoading}
-      title={at("btn_refresh", {}, "Refresh")}
-      aria-label={at("btn_refresh", {}, "Refresh")}
       onclick={() => logsStore.loadLogs({ refresh: true })}
     >
-      <RefreshCw size={14} />
+      <RefreshCw size={14} />{at("btn_refresh", {}, "Refresh")}
     </AdminButton>
-  </div>
-</div>
+  {/snippet}
+</AdminListToolbar>
 
 <div class="admin-table-wrap">
   {#if logsLoading}
@@ -280,14 +285,6 @@
 />
 
 <style>
-  :global(.admin-logs-toolbar.admin-toolbar-card) {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .admin-logs-toolbar-search {
-    grid-template-columns: minmax(0, 1fr) auto 36px;
-  }
-
   .admin-logs-filter-input {
     position: relative;
     min-width: 0;
@@ -328,13 +325,6 @@
 
   .admin-logs-filter-clear:focus-visible {
     box-shadow: 0 0 0 2px var(--admin-ring);
-  }
-
-  :global(.admin-logs-refresh.admin-btn) {
-    width: 36px;
-    min-width: 36px;
-    height: 36px;
-    padding: 0;
   }
 
   .admin-logs-user-cell {
@@ -398,10 +388,6 @@
   }
 
   @media (max-width: 560px) {
-    .admin-logs-toolbar-search {
-      grid-template-columns: minmax(0, 1fr) 36px;
-    }
-
     .admin-logs-filter-input {
       grid-column: 1 / -1;
     }

@@ -1,8 +1,8 @@
 <script lang="ts">
   import GiftEntry from "../gifts/GiftEntry.svelte";
-  import { CircleQuestionMark, Copy, Gift } from "$components/ui/icons.js";
+  import { CircleQuestionMark, Gift } from "$components/ui/icons.js";
 
-  import Button from "$components/ui/button.svelte";
+  import CopyLinkField from "$components/patterns/CopyLinkField.svelte";
   import Card from "$components/ui/card.svelte";
   import { StatusMessage } from "$components/patterns/webapp/index.js";
   import { visibleReferralLinks } from "$lib/webapp/referralLinks.js";
@@ -101,27 +101,21 @@
                 {#each referralLinks as link (link.id)}
                   <div class="referral-link-item">
                     <small class="referral-link-label">{t(link.labelKey)}</small>
-                    <div class="copy-row referral-copy-row">
-                      <code>{link.url}</code>
-                      <Button
-                        class="referral-copy-button"
-                        onclick={() => copyText(link.url, t("wa_link_copied"))}
-                      >
-                        {t("wa_copy")}
-                        <Copy size={17} />
-                      </Button>
-                    </div>
+                    <CopyLinkField
+                      value={link.url}
+                      inputLabel={t(link.labelKey)}
+                      copyLabel={t("wa_copy")}
+                      oncopy={(value) => copyText(value, t("wa_link_copied"))}
+                    />
                   </div>
                 {/each}
               </div>
             {:else}
-              <div class="copy-row referral-copy-row">
-                <code>{t("wa_link_unavailable")}</code>
-                <Button class="referral-copy-button" disabled>
-                  {t("wa_copy")}
-                  <Copy size={17} />
-                </Button>
-              </div>
+              <CopyLinkField
+                inputLabel={t("wa_copy_link_label")}
+                copyLabel={t("wa_copy")}
+                unavailableLabel={t("wa_link_unavailable")}
+              />
             {/if}
           </div>
           {#if referralBonusDetails.length || referralWelcomeBonusDays > 0}

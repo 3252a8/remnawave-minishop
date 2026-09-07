@@ -1,4 +1,4 @@
-﻿<script lang="ts">
+<script lang="ts">
   import { Input } from "$components/ui/index.js";
   import { DollarSign, Sliders, X, UsersRound } from "$components/ui/icons.js";
   import Dialog from "$components/ui/dialog.svelte";
@@ -9,6 +9,7 @@
     AdminEmptyState,
     AdminPagination,
     AdminSelect,
+    AdminListToolbar,
     AdminSortHeader,
     AdminTable,
     AdminTableSkeleton,
@@ -207,8 +208,13 @@
   {/if}
 {/snippet}
 
-<div class="admin-toolbar admin-toolbar-users">
-  <div class="admin-toolbar-search">
+<AdminListToolbar
+  total={usersTotal}
+  totalLabel={at("total", {}, "Total")}
+  mobileFilterMode="dialog"
+  class="admin-users-toolbar"
+>
+  {#snippet search()}
     <Input
       type="search"
       class="input"
@@ -217,6 +223,8 @@
       oninput={handleUsersSearchInput}
       onkeydown={handleUsersSearchKeydown}
     />
+  {/snippet}
+  {#snippet searchActions()}
     <AdminButton
       variant="primary"
       class="admin-users-search-button"
@@ -225,6 +233,8 @@
         usersStore.loadUsers();
       }}>{at("find", {}, "Find")}</AdminButton
     >
+  {/snippet}
+  {#snippet mobileFilters()}
     <AdminButton
       variant={activeUsersFilterCount ? "primary" : "default"}
       class="admin-users-filter-toggle"
@@ -241,9 +251,8 @@
         <span class="admin-users-filter-count">{activeUsersFilterCount}</span>
       {/if}
     </AdminButton>
-  </div>
-
-  <div class="admin-toolbar-controls">
+  {/snippet}
+  {#snippet filters()}
     <Label.Root class="admin-toolbar-field">
       <span class="admin-toolbar-field-label">{at("filter", {}, "Filter")}</span>
       <AdminSelect
@@ -278,15 +287,9 @@
         onValueChange={updateToolbarPremiumTraffic}
       />
     </Label.Root>
-
-    <div class="admin-toolbar-summary">
-      <span class="admin-toolbar-field-label">{at("total", {}, "Total")}</span>
-      <strong>{usersTotal}</strong>
-    </div>
-  </div>
-
-  {@render renderActiveUserFilterChips()}
-</div>
+  {/snippet}
+  {#snippet footer()}{@render renderActiveUserFilterChips()}{/snippet}
+</AdminListToolbar>
 
 <Dialog
   open={usersFilterSheetOpen}
@@ -521,17 +524,12 @@
 />
 
 <style>
-  :global(.admin-toolbar-users .admin-toolbar-controls) {
-    grid-template-columns: repeat(3, minmax(150px, 1fr)) minmax(82px, auto);
-    gap: 10px;
-  }
-
   :global(.admin-users-search-button) {
     min-width: 82px;
   }
 
   :global(.admin-btn.admin-users-filter-toggle) {
-    display: none;
+    display: inline-flex;
     position: relative;
     align-items: center;
     gap: 7px;
@@ -717,14 +715,6 @@
   }
 
   @media (max-width: 720px) {
-    :global(.admin-toolbar-users .admin-toolbar-search) {
-      grid-template-columns: minmax(0, 1fr) auto auto;
-    }
-
-    :global(.admin-toolbar-users .admin-toolbar-controls) {
-      display: none;
-    }
-
     :global(.admin-users-search-button) {
       min-width: 0;
       padding-inline: 10px;

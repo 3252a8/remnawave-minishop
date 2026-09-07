@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { CheckCircle2, Copy, Gift } from "$components/ui/icons.js";
-  import Button from "$components/ui/button.svelte";
+  import { CheckCircle2, Gift } from "$components/ui/icons.js";
+  import CopyLinkField from "$components/patterns/CopyLinkField.svelte";
   import type { GiftView } from "$lib/webapp/gifts.svelte.js";
   import type { Translate } from "$lib/webapp/types.js";
   let {
@@ -47,12 +47,13 @@
       >{/if}
   </div>
   {#if gift.link}
-    <div class="copy-row referral-copy-row gift-copy">
-      <code>{gift.link}</code><Button
-        class="referral-copy-button"
-        onclick={() => oncopy(gift.link || "")}>{t("wa_copy")}<Copy size={17} /></Button
-      >
-    </div>
+    <CopyLinkField
+      class="gift-copy"
+      value={gift.link}
+      inputLabel={t("wa_copy_link_label")}
+      copyLabel={t("wa_copy")}
+      {oncopy}
+    />
     <p class="gift-hint">{t("wa_gift_link_private")}</p>
   {/if}
   {#if gift.activated_at}<p class="gift-hint">
@@ -125,7 +126,7 @@
     padding: 6px 10px;
     border-radius: 8px;
   }
-  .gift-copy {
+  .gift-card :global(.gift-copy) {
     min-width: 0;
     margin-top: 12px;
   }

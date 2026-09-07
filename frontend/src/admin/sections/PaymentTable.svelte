@@ -18,7 +18,7 @@
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
   import type { AdminSortColumn } from "$lib/admin/tableSort.js";
   import PaymentPurchasesCell from "./PaymentPurchasesCell.svelte";
-  import PaymentProviderCell from "./PaymentProviderCell.svelte";
+  import PaymentProviderCell from "$components/patterns/admin/PaymentProviderCell.svelte";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 

@@ -8,7 +8,7 @@
     paymentDiscountDisplay,
   } from "$lib/admin/paymentTable.js";
   import type { AdminUserDetail } from "$lib/admin/stores/usersStoreState";
-  import PaymentProviderCell from "../PaymentProviderCell.svelte";
+  import PaymentProviderCell from "$components/patterns/admin/PaymentProviderCell.svelte";
   import type { BadgeVariant, DateFormatter, MoneyFormatter, TranslateFn } from "./userDetailTypes";
 
   let {

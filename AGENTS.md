@@ -21,6 +21,10 @@ Non-negotiables (details in CONTRIBUTING.md §2):
 - User/admin-facing copy is localized, not hard-coded: every new or changed UI/bot text key must
   have at least `locales/ru.json` and `locales/en.json` entries; component fallbacks are not a
   substitute for base locale keys.
+- UI reuse is mandatory: follow CONTRIBUTING.md §4.1 and its component map. Prefer the existing
+  component for the entity/action, inspect two actual consumers, and extend shared patterns before
+  assembling a local replacement. Shared CSS classes are not a substitute for a shared component.
+  Verify every affected consumer on desktop/mobile, including open menus and dialogs.
 - Decompose, then type; no module > ~900 lines without a reason; mind the
   monkeypatch/re-export trap (CONTRIBUTING.md §5).
 - "Compatibility with other bots" is a feature (keep), not legacy.
