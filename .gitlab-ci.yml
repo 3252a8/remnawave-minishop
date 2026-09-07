@@ -31,7 +31,11 @@ publish-dev-images:
         echo "Skipping superseded dev commit $CI_COMMIT_SHA (current: $remote_dev_commit)"
         exit 0
       fi
-      IMAGE_TAG=dev OCI_IMAGE_REVISION="$CI_COMMIT_SHA" REMNAWAVE_MINISHOP_BRANCH="$CI_COMMIT_REF_NAME" REMNAWAVE_MINISHOP_BUILD_PROVENANCE=official bash ./scripts/dockerhub-build-push-images.sh
+      build_provenance=custom
+      if [ "$CI_PROJECT_PATH" = "3252a8/remnawave-minishop" ]; then
+        build_provenance=official
+      fi
+      IMAGE_TAG=dev OCI_IMAGE_REVISION="$CI_COMMIT_SHA" REMNAWAVE_MINISHOP_BRANCH="$CI_COMMIT_REF_NAME" REMNAWAVE_MINISHOP_BUILD_PROVENANCE="$build_provenance" bash ./scripts/dockerhub-build-push-images.sh
   rules:
     - if: '$CI_COMMIT_BRANCH == "dev" && $CI_PIPELINE_SOURCE == "push"'
     - if: '$CI_COMMIT_BRANCH == "dev" && $CI_PIPELINE_SOURCE == "web"'
@@ -51,12 +55,17 @@ publish-release-images:
         exit 1
       fi
 
+      build_provenance=custom
+      if [ "$CI_PROJECT_PATH" = "3252a8/remnawave-minishop" ]; then
+        build_provenance=official
+      fi
+      dockerhub_owner="$(printf '%s' "$DOCKERHUB_USERNAME" | tr '[:upper:]' '[:lower:]')"
       release_version="${CI_COMMIT_TAG#v}"
-      IMAGE_TAG="$release_version" OCI_IMAGE_REVISION="$CI_COMMIT_SHA" REMNAWAVE_MINISHOP_BRANCH=main REMNAWAVE_MINISHOP_BUILD_TAG="$CI_COMMIT_TAG" REMNAWAVE_MINISHOP_BUILD_COMMIT="$CI_COMMIT_SHA" REMNAWAVE_MINISHOP_BUILD_PROVENANCE=official bash ./scripts/dockerhub-build-push-images.sh
+      IMAGE_TAG="$release_version" OCI_IMAGE_REVISION="$CI_COMMIT_SHA" REMNAWAVE_MINISHOP_BRANCH=main REMNAWAVE_MINISHOP_BUILD_TAG="$CI_COMMIT_TAG" REMNAWAVE_MINISHOP_BUILD_COMMIT="$CI_COMMIT_SHA" REMNAWAVE_MINISHOP_BUILD_PROVENANCE="$build_provenance" bash ./scripts/dockerhub-build-push-images.sh
 
       for target in backend worker frontend; do
-        version_image="docker.io/3252a8/remnawave-minishop-$target:$release_version"
-        latest_image="docker.io/3252a8/remnawave-minishop-$target:latest"
+        version_image="docker.io/${dockerhub_owner}/remnawave-minishop-$target:$release_version"
+        latest_image="docker.io/${dockerhub_owner}/remnawave-minishop-$target:latest"
         docker tag "$version_image" "$latest_image"
         docker push "$latest_image"
       done
