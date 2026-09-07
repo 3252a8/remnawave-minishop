@@ -16,7 +16,9 @@ def test_gift_list_refresh_does_not_wait_for_user_id() -> None:
     assert "void refreshGifts();" in refresh_effect
 
 
-def test_incoming_gift_preview_still_requires_user_identity() -> None:
+def test_incoming_gift_preview_does_not_wait_for_user_id() -> None:
     source = GIFT_FEATURE.read_text(encoding="utf-8")
 
-    assert "if (loggedIn && userId && giftState.token) {" in source
+    assert "if (loggedIn && giftState.token) {" in source
+    assert "if (loggedIn && userId && giftState.token) {" not in source
+    assert "void loadPreview(giftState.token);" in source
