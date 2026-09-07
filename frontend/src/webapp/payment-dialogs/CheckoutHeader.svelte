@@ -17,7 +17,11 @@
 </script>
 
 {#if !compact || showPurchaseDescription}
-  <div class="payment-checkout-header" class:inline>
+  <div
+    class="payment-checkout-header"
+    class:inline
+    class:spacious={!compact && showPurchaseDescription && !description}
+  >
     {#if !compact}<h2 id="payment-checkout-title">{title}</h2>
       {#if description}<p>{description}</p>{/if}{/if}
     {#if showPurchaseDescription}<div
@@ -33,6 +37,10 @@
     display: grid;
     gap: 6px;
     min-width: 0;
+  }
+
+  .payment-checkout-header.spacious {
+    gap: 12px;
   }
 
   .payment-checkout-header h2 {
