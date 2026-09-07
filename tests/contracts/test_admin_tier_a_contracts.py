@@ -93,6 +93,7 @@ def test_payment_response_models_match_legacy_serializer():
         "idempotence_key": "idem-10",
         "promo_code": "GIFT",
         "checkout_base_amount": None,
+        "balance_enabled": True,
         "fulfilled_at": None,
         "fulfilled_by_admin_id": None,
         "fulfillment_note": None,

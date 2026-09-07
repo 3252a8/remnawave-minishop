@@ -228,7 +228,12 @@ async def admin_gift_create_route(request: web.Request) -> web.Response:
             if gift is None:
                 return _error(409, "gift_unavailable")
         result = AdminGiftView.from_orm_admin_gift(
-            gift, payment, actor, None, language=settings.DEFAULT_LANGUAGE
+            gift,
+            payment,
+            actor,
+            None,
+            language=settings.DEFAULT_LANGUAGE,
+            balance_enabled=settings.balance_settings.enabled,
         )
         if gift.status == "ready" and payment.status == "succeeded":
             result.link = gift_url(_public_webapp_base_url(settings, request), str(gift.token))
@@ -277,7 +282,12 @@ async def admin_gift_detail_route(request: web.Request) -> web.Response:
         )
         settings = get_settings(request)
         result = AdminGiftView.from_orm_admin_gift(
-            gift, payment, buyer, recipient, language=settings.DEFAULT_LANGUAGE
+            gift,
+            payment,
+            buyer,
+            recipient,
+            language=settings.DEFAULT_LANGUAGE,
+            balance_enabled=settings.balance_settings.enabled,
         )
         # Purchased bearer links remain private to the buyer.
         if (

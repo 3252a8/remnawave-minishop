@@ -221,9 +221,6 @@ export function createAppFactories({
     mergeMessages: (messages) => {
       updateI18nMessages(asWebappRecord(messages));
     },
-    reloadWindow: () => {
-      if (typeof window !== "undefined") window.location.reload();
-    },
     resetInstallGuides: () => {
       installGuidesStore.reset();
     },

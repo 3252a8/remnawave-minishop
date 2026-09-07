@@ -14,6 +14,7 @@
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import { formatMoney } from "$lib/webapp/formatters.js";
+  import { shouldShowUserBalance } from "$lib/webapp/balanceUiPolicy.js";
   import {
     premiumTitle as premiumTitleFn,
     premiumNextResetLabel as premiumNextResetLabelFn,
@@ -210,7 +211,7 @@
       {/if}
     </div>
 
-    {#if canChangeTariff || balance.enabled}
+    {#if canChangeTariff || shouldShowUserBalance(balance)}
       <div class="compact-summary-head-actions">
         {#if canChangeTariff}
           <Button
@@ -237,6 +238,14 @@
             <strong>{formatMoney(balance.amount, balance.currency)}</strong>
             <Plus size={14} />
           </button>
+        {:else if shouldShowUserBalance(balance)}
+          <span
+            class="compact-balance compact-balance-readonly"
+            aria-label={t("wa_balance_title", {}, "Balance")}
+          >
+            <WalletCards size={16} />
+            <strong>{formatMoney(balance.amount, balance.currency)}</strong>
+          </span>
         {/if}
       </div>
     {/if}
@@ -509,6 +518,9 @@
   .compact-balance strong {
     white-space: nowrap;
     font-size: 13px;
+  }
+  .compact-balance-readonly {
+    cursor: default;
   }
   .compact-traffic-grid {
     display: grid;

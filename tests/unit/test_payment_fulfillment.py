@@ -160,6 +160,63 @@ class PaymentFulfillmentTests(IsolatedAsyncioTestCase):
 
         self.assertEqual(raised.exception.code, "balance_topup_credit_missing")
 
+    async def test_gift_reversal_delegates_refund_choice_to_the_atomic_gift_flow(self):
+        payment = _payment(status="succeeded", sale_mode="subscription|gift")
+        gift = SimpleNamespace(gift_id=8, status="ready")
+        revoke = AsyncMock(return_value=gift)
+        for refund_to_balance in (True, False):
+            with (
+                self.subTest(refund_to_balance=refund_to_balance),
+                patch(
+                    "bot.services.payment_fulfillment.payment_dal.get_payment_by_db_id_for_update",
+                    AsyncMock(return_value=payment),
+                ),
+                patch(
+                    "bot.services.payment_fulfillment.gift_dal.by_payment",
+                    AsyncMock(return_value=gift),
+                ),
+                patch("bot.services.gift_revoke.revoke_paid_gift", revoke),
+            ):
+                result = await reverse_payment_fulfillment(
+                    AsyncMock(),
+                    payment_id=77,
+                    actor_admin_id=1,
+                    reason="Duplicate gift",
+                    restore_promo_usage=True,
+                    refund_to_balance=refund_to_balance,
+                    subscription_service=AsyncMock(),
+                )
+                self.assertIs(result, payment)
+                self.assertEqual(revoke.await_args.kwargs["refund_to_balance"], refund_to_balance)
+
+    async def test_gift_reversal_passes_the_explicit_without_reason_flag(self):
+        payment = _payment(status="succeeded", sale_mode="subscription|gift")
+        gift = SimpleNamespace(gift_id=8, status="ready")
+        revoke = AsyncMock(return_value=gift)
+        with (
+            patch(
+                "bot.services.payment_fulfillment.payment_dal.get_payment_by_db_id_for_update",
+                AsyncMock(return_value=payment),
+            ),
+            patch(
+                "bot.services.payment_fulfillment.gift_dal.by_payment",
+                AsyncMock(return_value=gift),
+            ),
+            patch("bot.services.gift_revoke.revoke_paid_gift", revoke),
+        ):
+            await reverse_payment_fulfillment(
+                AsyncMock(),
+                payment_id=77,
+                actor_admin_id=1,
+                reason="   ",
+                without_reason=True,
+                restore_promo_usage=True,
+                subscription_service=AsyncMock(),
+            )
+
+        self.assertEqual(revoke.await_args.kwargs["reason"], "")
+        self.assertTrue(revoke.await_args.kwargs["without_reason"])
+
     async def test_reversal_rejects_a_later_successful_payment(self):
         timestamp = datetime.now(UTC)
         payment = _payment(

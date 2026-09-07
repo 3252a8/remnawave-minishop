@@ -22,7 +22,6 @@ function makeRuntime(overrides: TestOverrides = {}) {
     invalidateTariffOptionCaches: vi.fn(),
     loadData: vi.fn(async () => null),
     mergeMessages: vi.fn(),
-    reloadWindow: vi.fn(),
     resetInstallGuides: vi.fn(),
     setBundleState: vi.fn((api, error) => {
       state.bundleApi = api;
@@ -55,17 +54,16 @@ describe("createAdminRuntime", () => {
     expect(deps.invalidateTariffOptionCaches).toHaveBeenCalledOnce();
     expect(deps.resetInstallGuides).toHaveBeenCalledOnce();
     expect(deps.loadData).toHaveBeenCalledWith({ fresh: true, preserveView: true });
-    expect(deps.reloadWindow).not.toHaveBeenCalled();
   });
 
-  it("reloads the frontend after relevant persisted asset changes", async () => {
+  it("refreshes relevant frontend settings without reloading or leaving admin", async () => {
     const { deps, runtime } = makeRuntime();
 
     await runtime.handleAdminPersistedSaved({
       updates: { WEBAPP_LOGO_URL: "https://example.test/logo.png" },
     });
 
-    expect(deps.reloadWindow).toHaveBeenCalledOnce();
+    expect(deps.loadData).toHaveBeenCalledWith({ fresh: true, preserveView: true });
   });
 
   it("refreshes live app data without reloading for the partner feature flag", async () => {
@@ -76,7 +74,6 @@ describe("createAdminRuntime", () => {
     });
 
     expect(deps.loadData).toHaveBeenCalledWith({ fresh: true, preserveView: true });
-    expect(deps.reloadWindow).not.toHaveBeenCalled();
   });
 
   it("keeps save success when the refresh load fails", async () => {
@@ -92,7 +89,6 @@ describe("createAdminRuntime", () => {
 
     expect(deps.invalidateTariffOptionCaches).toHaveBeenCalledOnce();
     expect(deps.resetInstallGuides).toHaveBeenCalledOnce();
-    expect(deps.reloadWindow).not.toHaveBeenCalled();
   });
 
   it("mounts and destroys admin bundle through the runtime", () => {

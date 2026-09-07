@@ -196,7 +196,9 @@ async def admin_payment_detail_route(request: web.Request) -> web.Response:
         if not payment:
             return _error(404, "not_found", "Payment not found")
 
-        payload = await _payment_detail_payload(session, payment)
+        payload = await _payment_detail_payload(
+            session, payment, balance_enabled=get_settings(request).balance_settings.enabled
+        )
 
     return _ok({"payment": payload})
 
@@ -204,8 +206,10 @@ async def admin_payment_detail_route(request: web.Request) -> web.Response:
 async def _payment_detail_payload(
     session: AsyncSession,
     payment: Payment,
+    *,
+    balance_enabled: bool = True,
 ) -> dict[str, object]:
-    detail = PaymentDetailOut.from_orm_payment_detail(payment)
+    detail = PaymentDetailOut.from_orm_payment_detail(payment, balance_enabled=balance_enabled)
     action_state = await payment_action_state(session, payment)
     return detail.model_copy(update=action_state).model_dump(mode="json")
 
@@ -266,7 +270,9 @@ async def admin_payment_finalize_route(request: web.Request) -> web.Response:
         refreshed = await payment_dal.get_payment_by_db_id(session, payment_id, fresh=True)
         if refreshed is None:
             return _error(404, "not_found", "Payment not found")
-        payload = await _payment_detail_payload(session, refreshed)
+        payload = await _payment_detail_payload(
+            session, refreshed, balance_enabled=get_settings(request).balance_settings.enabled
+        )
     return _ok({"payment": payload})
 
 
@@ -286,7 +292,9 @@ async def admin_payment_reverse_route(request: web.Request) -> web.Response:
                 payment_id=payment_id,
                 actor_admin_id=actor_id,
                 reason=body.reason,
+                without_reason=body.without_reason,
                 restore_promo_usage=body.restore_promo_usage,
+                refund_to_balance=body.refund_to_balance,
                 subscription_service=subscription_service,
             )
             await session.commit()
@@ -301,7 +309,9 @@ async def admin_payment_reverse_route(request: web.Request) -> web.Response:
         refreshed = await payment_dal.get_payment_by_db_id(session, payment_id, fresh=True)
         if refreshed is None:
             return _error(404, "not_found", "Payment not found")
-        payload = await _payment_detail_payload(session, refreshed)
+        payload = await _payment_detail_payload(
+            session, refreshed, balance_enabled=get_settings(request).balance_settings.enabled
+        )
     return _ok({"payment": payload})
 
 

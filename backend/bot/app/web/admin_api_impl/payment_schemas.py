@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, cast
 
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from bot.app.web.http_contracts import HttpBodyModel, HttpResponseModel
 from bot.infra.payment_events import resolve_payment_purchases
@@ -34,16 +34,17 @@ class AdminPaymentFinalizeBody(HttpBodyModel):
 class AdminPaymentReverseBody(HttpBodyModel):
     model_config = ConfigDict(extra="forbid")
 
-    reason: str = Field(min_length=3, max_length=500)
+    reason: str = Field(max_length=500)
+    without_reason: bool = False
     restore_promo_usage: bool = True
+    refund_to_balance: bool = True
 
-    @field_validator("reason")
-    @classmethod
-    def normalize_reason(cls, value: str) -> str:
-        normalized = value.strip()
-        if len(normalized) < 3:
+    @model_validator(mode="after")
+    def normalize_reason(self) -> AdminPaymentReverseBody:
+        self.reason = self.reason.strip()
+        if not self.without_reason and len(self.reason) < 3:
             raise ValueError("reason must contain at least 3 non-whitespace characters")
-        return normalized
+        return self
 
 
 class PaymentPurchaseOut(HttpResponseModel):
@@ -210,6 +211,7 @@ class PaymentOut(HttpResponseModel):
 
 
 class PaymentDetailOut(PaymentOut):
+    balance_enabled: bool = True
     yookassa_payment_id: str | None = None
     idempotence_key: str | None = None
     promo_code: str | None = None
@@ -230,7 +232,9 @@ class PaymentDetailOut(PaymentOut):
     updated_at: datetime | None = None
 
     @classmethod
-    def from_orm_payment_detail(cls, payment: Any) -> PaymentDetailOut:
+    def from_orm_payment_detail(
+        cls, payment: Any, *, balance_enabled: bool = True
+    ) -> PaymentDetailOut:
         payload = PaymentOut.from_orm_payment(payment).model_dump(mode="json")
         promo_code_used = payment.promo_code_used
         promo_code = None
@@ -254,6 +258,7 @@ class PaymentDetailOut(PaymentOut):
                 "reversed_by_admin_id": getattr(payment, "reversed_by_admin_id", None),
                 "reversal_note": getattr(payment, "reversal_note", None),
                 "promo_usage_restored": bool(getattr(payment, "promo_usage_restored", False)),
+                "balance_enabled": balance_enabled,
                 "updated_at": payment.updated_at,
             }
         )

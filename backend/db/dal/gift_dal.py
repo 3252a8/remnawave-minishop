@@ -58,7 +58,11 @@ async def purchased(session: AsyncSession, user_id: int) -> list[tuple[Subscript
     rows = await session.execute(
         select(SubscriptionGift, Payment)
         .join(Payment, Payment.payment_id == SubscriptionGift.payment_id)
-        .where(SubscriptionGift.purchaser_id == user_id)
+        .where(
+            SubscriptionGift.purchaser_id == user_id,
+            SubscriptionGift.status == "ready",
+            Payment.status == "succeeded",
+        )
         .order_by(SubscriptionGift.gift_id.desc())
         .limit(100)
     )

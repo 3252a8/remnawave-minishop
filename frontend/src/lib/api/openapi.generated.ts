@@ -602,6 +602,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/gifts/{gift_id}/revoke": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Gift Revoke */
+    post: operations["post_admin_gift_revoke_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/health": {
     parameters: {
       query?: never;
@@ -2469,6 +2486,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/payments/{payment_id}/qa/complete": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Complete Qa Payment */
+    post: operations["post_complete_qa_payment_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/plans/viewed": {
     parameters: {
       query?: never;
@@ -3476,6 +3510,26 @@ export interface components {
        */
       request_id: string;
     };
+    /** AdminGiftRevokeBody */
+    AdminGiftRevokeBody: {
+      /** Reason */
+      reason: string;
+      /**
+       * Refund To Balance
+       * @default true
+       */
+      refund_to_balance: boolean;
+      /**
+       * Restore Promo Usage
+       * @default true
+       */
+      restore_promo_usage: boolean;
+      /**
+       * Without Reason
+       * @default false
+       */
+      without_reason: boolean;
+    };
     /** AdminGiftView */
     AdminGiftView: {
       /**
@@ -3490,6 +3544,8 @@ export interface components {
       activation_end_at: string | null;
       /** Amount */
       amount: number;
+      /** Balance Enabled */
+      balance_enabled: boolean;
       /**
        * Bonus Days
        * @default 0
@@ -4112,10 +4168,20 @@ export interface components {
       /** Reason */
       reason: string;
       /**
+       * Refund To Balance
+       * @default true
+       */
+      refund_to_balance: boolean;
+      /**
        * Restore Promo Usage
        * @default true
        */
       restore_promo_usage: boolean;
+      /**
+       * Without Reason
+       * @default false
+       */
+      without_reason: boolean;
     };
     /** AdminPaymentsListOut */
     AdminPaymentsListOut: {
@@ -6165,6 +6231,11 @@ export interface components {
     PaymentDetailOut: {
       /** Amount */
       amount: number;
+      /**
+       * Balance Enabled
+       * @default true
+       */
+      balance_enabled: boolean;
       /**
        * Can Manual Finalize
        * @default false
@@ -9700,6 +9771,36 @@ export interface operations {
       cookie?: never;
     };
     requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            gift: components["schemas"]["AdminGiftView"];
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_gift_revoke_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        gift_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminGiftRevokeBody"];
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -13836,6 +13937,35 @@ export interface operations {
         };
         content: {
           "application/json": {
+            /** @constant */
+            ok: true;
+            payment_id: number;
+            status: string;
+          };
+        };
+      };
+    };
+  };
+  post_complete_qa_payment_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        payment_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            duplicate?: boolean;
+            final_end_date?: string | null;
             /** @constant */
             ok: true;
             payment_id: number;

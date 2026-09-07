@@ -24,6 +24,7 @@
   import HomeCompactSummaryCard from "../HomeCompactSummaryCard.svelte";
   import { LinearProgress } from "$components/patterns/webapp/index.js";
   import { formatMoney, formatTrafficGb } from "../../lib/webapp/formatters.js";
+  import { shouldShowUserBalance } from "$lib/webapp/balanceUiPolicy.js";
   import {
     trafficPercent as trafficPercentFn,
     trafficLabel as trafficLabelFn,
@@ -399,7 +400,7 @@
         {t}
       />
     {:else}
-      {#if balance.enabled}
+      {#if shouldShowUserBalance(balance)}
         <Card class="home-balance-card">
           <div class="home-balance-summary">
             <WalletCards size={22} />
@@ -408,18 +409,20 @@
               <strong>{formatMoney(balance.amount, balance.currency)}</strong>
             </span>
           </div>
-          <Button
-            data-webapp-action="open-balance-topup"
-            class="home-balance-topup"
-            type="button"
-            size="sm"
-            variant="outline"
-            onclick={openBalanceTopup}
-            aria-label={t("wa_balance_topup_short", {}, "Top up")}
-            title={t("wa_balance_topup_short", {}, "Top up")}
-          >
-            <Plus size={16} />
-          </Button>
+          {#if balance.enabled}
+            <Button
+              data-webapp-action="open-balance-topup"
+              class="home-balance-topup"
+              type="button"
+              size="sm"
+              variant="outline"
+              onclick={openBalanceTopup}
+              aria-label={t("wa_balance_topup_short", {}, "Top up")}
+              title={t("wa_balance_topup_short", {}, "Top up")}
+            >
+              <Plus size={16} />
+            </Button>
+          {/if}
         </Card>
       {/if}
 

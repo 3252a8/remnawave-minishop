@@ -58,14 +58,31 @@ class UserBalanceQuoteTests(IsolatedAsyncioTestCase):
         self.assertEqual(allocation.applied_minor, 14_000)
         self.assertEqual(allocation.external_minor, 5_000)
 
-    async def test_quote_rejects_disabled_and_mismatched_currency(self) -> None:
-        with self.assertRaisesRegex(UserBalanceError, "user_balance_disabled"):
-            await UserBalanceService(_settings(enabled=False)).quote(
-                cast(AsyncSession, object()),
+    async def test_quote_allows_spending_existing_balance_when_disabled(self) -> None:
+        service = UserBalanceService(_settings(enabled=False))
+        session = cast(AsyncSession, object())
+        with (
+            patch(
+                "bot.services.user_balance_service.user_dal.lock_user_by_id",
+                AsyncMock(return_value=SimpleNamespace(is_banned=False)),
+            ),
+            patch(
+                "bot.services.user_balance_service.user_balance_dal.balance_minor",
+                AsyncMock(return_value=18_000),
+            ),
+        ):
+            allocation = await service.quote(
+                session,
                 user_id=42,
                 currency="RUB",
                 checkout_total=190,
+                minimum_external_amount=50,
             )
+
+        self.assertEqual(allocation.applied_minor, 14_000)
+        self.assertEqual(allocation.external_minor, 5_000)
+
+    async def test_quote_rejects_mismatched_currency(self) -> None:
         with self.assertRaisesRegex(UserBalanceError, "user_balance_currency_mismatch"):
             await UserBalanceService(_settings()).quote(
                 cast(AsyncSession, object()),
@@ -76,6 +93,19 @@ class UserBalanceQuoteTests(IsolatedAsyncioTestCase):
 
 
 class UserBalanceLifecycleTests(IsolatedAsyncioTestCase):
+    async def test_snapshot_keeps_existing_balance_spendable_when_disabled(self) -> None:
+        service = UserBalanceService(_settings(enabled=False, partner_enabled=False))
+        with patch(
+            "bot.services.user_balance_service.user_balance_dal.balance_minor",
+            AsyncMock(return_value=1_000),
+        ):
+            snapshot = await service.snapshot(cast(AsyncSession, object()), user_id=42)
+
+        user_source = next(source for source in snapshot["sources"] if source["id"] == "user")
+        self.assertFalse(snapshot["enabled"])
+        self.assertTrue(user_source["available"])
+        self.assertEqual(user_source["amount_minor"], 1_000)
+
     async def test_snapshot_combines_main_and_partner_history(self) -> None:
         service = UserBalanceService(_settings())
         user_entry = SimpleNamespace(
@@ -225,6 +255,41 @@ class UserBalanceLifecycleTests(IsolatedAsyncioTestCase):
         self.assertEqual(create_call.kwargs["currency"], "USD")
         self.assertEqual(create_call.kwargs["currency_scale"], 2)
         self.assertEqual(create_call.kwargs["amount_minor"], 1_234)
+
+    async def test_gift_refund_credits_even_when_balance_is_disabled(self) -> None:
+        service = UserBalanceService(_settings(enabled=False))
+        create = AsyncMock(return_value=SimpleNamespace(entry_id=9))
+        with (
+            patch(
+                "bot.services.user_balance_service.user_dal.lock_user_by_id",
+                AsyncMock(return_value=SimpleNamespace(is_banned=False)),
+            ),
+            patch(
+                "bot.services.user_balance_service.user_balance_dal.get_ledger_entry_by_key",
+                AsyncMock(return_value=None),
+            ),
+            patch(
+                "bot.services.user_balance_service.user_balance_dal.create_ledger_entry",
+                create,
+            ),
+        ):
+            result = await service.credit_gift_refund(
+                cast(AsyncSession, object()),
+                gift_id=8,
+                purchaser_id=42,
+                amount=12.345,
+                currency="KWD",
+                actor_admin_id=1,
+                reason="duplicate gift",
+            )
+
+        self.assertEqual(result.entry_id, 9)
+        create_call = create.await_args
+        self.assertIsNotNone(create_call)
+        assert create_call is not None
+        self.assertEqual(create_call.kwargs["amount_minor"], 12_345)
+        self.assertEqual(create_call.kwargs["kind"], "gift_refund")
+        self.assertEqual(create_call.kwargs["actor_admin_id"], 1)
 
     async def test_admin_adjustment_cannot_make_balance_negative(self) -> None:
         service = UserBalanceService(_settings())

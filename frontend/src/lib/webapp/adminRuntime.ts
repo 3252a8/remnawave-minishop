@@ -1,5 +1,4 @@
 import { createAdminBundle } from "./adminBundle.js";
-import { adminPayloadHasFrontendReloadChange } from "./adminPersistedSettings.js";
 
 type WebappRecord = Record<string, unknown>;
 
@@ -7,7 +6,6 @@ type AdminBundleApi = WebappRecord | null;
 type AdminPersistOptions = {
   updates?: Record<string, unknown>;
   deletes?: string[];
-  reloadFrontend?: boolean;
   deferFrontendReload?: boolean;
 };
 
@@ -19,7 +17,6 @@ type AdminRuntimeDeps = {
   invalidateTariffOptionCaches: () => void;
   loadData: (options?: WebappRecord) => Promise<unknown>;
   mergeMessages: (messages: unknown) => void;
-  reloadWindow: () => void;
   resetInstallGuides: () => void;
   setBundleState: (api: AdminBundleApi, error: string) => void;
 };
@@ -32,7 +29,6 @@ export function createAdminRuntime({
   invalidateTariffOptionCaches,
   loadData,
   mergeMessages,
-  reloadWindow,
   resetInstallGuides,
   setBundleState,
 }: AdminRuntimeDeps) {
@@ -106,7 +102,7 @@ export function createAdminRuntime({
     destroyAdminMount();
   }
 
-  async function handleAdminPersistedSaved(options: AdminPersistOptions = {}) {
+  async function handleAdminPersistedSaved(_options: AdminPersistOptions = {}) {
     invalidateTariffOptionCaches();
     resetInstallGuides();
     try {
@@ -114,10 +110,6 @@ export function createAdminRuntime({
     } catch {
       // Admin save already succeeded; a later full refresh will pick up new settings or catalog.
     }
-    const shouldReloadFrontend =
-      options.reloadFrontend === true ||
-      (!options.deferFrontendReload && adminPayloadHasFrontendReloadChange(options));
-    if (shouldReloadFrontend) reloadWindow();
   }
 
   async function handleAdminTranslationsSaved(options: AdminPersistOptions = {}) {

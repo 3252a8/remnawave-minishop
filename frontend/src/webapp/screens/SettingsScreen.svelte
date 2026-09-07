@@ -18,6 +18,7 @@
   import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
   import MenuButtonIcon from "../MenuButtonIcon.svelte";
   import { formatMoney } from "$lib/webapp/formatters.js";
+  import { shouldShowUserBalance } from "$lib/webapp/balanceUiPolicy.js";
   import type { ThemeOption } from "$lib/webapp/themePreference.js";
   import type {
     LanguageOption,
@@ -173,16 +174,26 @@
       {/if}
       <small>{profileTelegramId}</small>
     </div>
-    {#if balance.enabled}
-      <button
-        class="settings-profile-balance"
-        type="button"
-        onclick={openBalanceTopup}
-        aria-label={t("wa_balance_topup_short", {}, "Top up")}
-      >
-        <WalletCards size={17} />
-        <strong>{formatMoney(balance.amount, balance.currency)}</strong>
-      </button>
+    {#if shouldShowUserBalance(balance)}
+      {#if balance.enabled}
+        <button
+          class="settings-profile-balance"
+          type="button"
+          onclick={openBalanceTopup}
+          aria-label={t("wa_balance_topup_short", {}, "Top up")}
+        >
+          <WalletCards size={17} />
+          <strong>{formatMoney(balance.amount, balance.currency)}</strong>
+        </button>
+      {:else}
+        <div
+          class="settings-profile-balance settings-profile-balance-readonly"
+          aria-label={t("wa_balance_title", {}, "Balance")}
+        >
+          <WalletCards size={17} />
+          <strong>{formatMoney(balance.amount, balance.currency)}</strong>
+        </div>
+      {/if}
     {/if}
   </Card>
   {#if telegramNotificationsNeedPrompt}
@@ -387,6 +398,13 @@
   .settings-profile-balance:hover {
     border-color: color-mix(in srgb, var(--text) 22%, var(--border));
     background: color-mix(in srgb, var(--text) 5%, var(--panel-2));
+  }
+  .settings-profile-balance-readonly {
+    cursor: default;
+  }
+  .settings-profile-balance-readonly:hover {
+    border-color: var(--border);
+    background: var(--panel-2);
   }
   .settings-profile-balance :global(svg) {
     color: var(--muted);
