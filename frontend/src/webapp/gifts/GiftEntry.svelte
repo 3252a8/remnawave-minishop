@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Gift, ArrowRight } from "$components/ui/icons.js";
   import Button from "$components/ui/button.svelte";
+  import Card from "$components/ui/card.svelte";
   import { giftState } from "$lib/webapp/gifts.svelte.js";
   import type { Translate } from "$lib/webapp/types.js";
   import GiftCard from "./GiftCard.svelte";
@@ -17,7 +18,7 @@
 </script>
 
 {#if giftState.enabled || giftState.gifts.length || giftState.token || giftState.pending}
-  <section class="gift-entry" class:full>
+  <Card class="gift-entry">
     <div class="gift-intro">
       <div class="gift-entry-icon"><Gift size={25} /></div>
       <div>
@@ -64,15 +65,12 @@
           giftState.open = true;
         }}>{t("wa_gift_pending_link")}</button
       >{/if}
-  </section>
+  </Card>
 {/if}
 
 <style>
-  .gift-entry {
+  :global(.card.gift-entry) {
     min-width: 0;
-    border: 1px solid var(--border);
-    padding: 20px;
-    border-radius: 22px;
     background: var(--panel);
   }
   .gift-intro {
@@ -113,18 +111,12 @@
     gap: 14px;
     margin-top: 16px;
   }
-  .full {
-    margin-bottom: 20px;
-  }
   @media (max-width: 520px) {
     .gift-intro {
       flex-wrap: wrap;
     }
     .gift-intro :global(button) {
       width: 100%;
-    }
-    .gift-entry {
-      padding: 18px;
     }
   }
 </style>

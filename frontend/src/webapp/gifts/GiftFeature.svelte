@@ -27,6 +27,7 @@
     userId,
     userLabel = userId,
     loggedIn,
+    enabled,
     methods,
     pendingPayment = null,
     t,
@@ -38,6 +39,7 @@
     userId: string;
     userLabel?: string;
     loggedIn: boolean;
+    enabled?: boolean;
     methods: PaymentMethodView[];
     t: Translate;
     termUnitLabel: TermUnitLabel;
@@ -201,10 +203,14 @@
     const identity = userId;
     const revision = giftState.revision;
     if (loggedIn && identity) {
+      if (typeof enabled === "boolean") giftState.enabled = enabled;
       void revision;
       void refreshGifts();
     } else {
       ++listRequest;
+      giftState.enabled = false;
+      giftState.loading = false;
+      giftState.error = "";
       giftState.gifts = [];
       giftState.pending = null;
       giftState.receiptId = 0;

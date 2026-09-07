@@ -685,6 +685,7 @@ WEBAPP_SETTINGS_SCHEMA: dict[str, Any] = {
         "partner_program_enabled": BOOLEAN_SCHEMA,
         "user_balance_enabled": BOOLEAN_SCHEMA,
         "referral_program_enabled": BOOLEAN_SCHEMA,
+        "gifts_enabled": BOOLEAN_SCHEMA,
         "subscription_reissue_enabled": BOOLEAN_SCHEMA,
         "user_hwid_device_limit": NULLABLE_INTEGER_SCHEMA,
         "trial_enabled": BOOLEAN_SCHEMA,

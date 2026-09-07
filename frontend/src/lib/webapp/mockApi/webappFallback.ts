@@ -158,7 +158,20 @@ export function webappFallbackResponse(
       provider_label: DEV_MOCK.data.subscription.auto_renew_provider_label,
     };
   }
-  if (cleanPath === "/me") return clone(DEV_MOCK.data);
+  if (cleanPath === "/me") {
+    const demo = new URLSearchParams(window.location.search).get("gift_demo") || "";
+    // /me exposes id; user_id belongs to admin rows and must not mask consumers of the wrong field.
+    const { user_id: legacyUserId, ...user } = DEV_MOCK.data.user;
+    return clone({
+      ...DEV_MOCK.data,
+      user: { ...user, id: user.id ?? legacyUserId },
+      settings: {
+        ...DEV_MOCK.data.settings,
+        gifts_enabled:
+          DEV_MOCK.config.giftsEnabled !== false && !["disabled", "disabled-empty"].includes(demo),
+      },
+    });
+  }
   if (cleanPath === "/balance" && method === "GET") return clone(currentDemoBalance());
   if (cleanPath === "/balance/topup" && method === "POST") {
     const body = jsonBody(options);

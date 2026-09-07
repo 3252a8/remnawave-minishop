@@ -324,6 +324,7 @@
       partnerProgramEnabled: partnerEnabled,
       referralProgramEnabled,
       giftsAvailable:
+        appSettings?.gifts_enabled === true ||
         giftState.enabled ||
         giftState.gifts.length > 0 ||
         Boolean(giftState.token || giftState.pending),

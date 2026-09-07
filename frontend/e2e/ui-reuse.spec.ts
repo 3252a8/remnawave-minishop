@@ -47,6 +47,82 @@ for (const [device, viewport] of [
   ["desktop", { width: 1440, height: 900 }],
   ["mobile", { width: 390, height: 844 }],
 ] as const) {
+  test(`gift navigation initializes from the profile on ${device}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    const url = (scenario: string) =>
+      `/demo/runtime/app/?mock=partner-referral-disabled&theme_preview=dark&gift_demo=${scenario}`;
+    const navigation = page.locator(".bottom-nav");
+    const bonuses = navigation.getByRole("button", { name: "Бонусы", exact: true });
+
+    // The demo /me response deliberately exposes id, never the admin-only user_id.
+    await page.goto(url("empty"));
+    await expect(bonuses).toBeVisible();
+    await bonuses.click();
+    await expect(page.locator(".gift-list")).toContainText("Здесь появятся");
+    await expect(
+      page.locator(".gift-entry").getByRole("button", { name: "Подарить" })
+    ).toBeVisible();
+
+    for (const scenario of ["loading", "error"]) {
+      await page.goto(url(scenario));
+      await expect(bonuses).toBeVisible();
+      await bonuses.click();
+      const entry = page.locator(".gift-entry");
+      await expect(entry).toBeVisible();
+      await expect(entry.getByRole("button", { name: "Подарить" })).toBeVisible();
+      if (scenario === "loading")
+        await expect(entry.locator(".gift-list")).toContainText("Загрузка");
+      else await expect(entry.getByRole("alert")).toBeVisible();
+    }
+
+    await page.goto(url("disabled"));
+    await expect(bonuses).toBeVisible();
+    await bonuses.click();
+    await expect(page.locator(".gift-entry .copy-link-field").first()).toBeVisible();
+    await expect(page.locator(".gift-entry").getByRole("button", { name: "Подарить" })).toHaveCount(
+      0
+    );
+    await page.goto(url("disabled-empty"));
+    await expect(navigation).toBeVisible();
+    await expect(navigation.getByRole("button", { name: "Партнёрка", exact: true })).toBeVisible();
+    await expect(bonuses).toHaveCount(0);
+
+    await page.goto(`${url("received")}&gift=${"R".repeat(43)}`);
+    await expect(page.locator(".gift-dialog")).toBeVisible();
+    await expect(
+      page.locator(".gift-dialog").getByRole("button", { name: "Активировать подарок" })
+    ).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+
+  test(`bonus cards share corners and spacing on ${device}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto(
+      "/demo/runtime/app/?mock=checkout-addons&path=/invite&gift_demo=empty&theme_preview=dark"
+    );
+    await expect(page.locator(".gift-entry")).toBeVisible();
+    await expect(page.locator(".gift-entry")).toHaveCSS("background-image", "none");
+    const layout = await page.locator("main.content").evaluate((node) => {
+      const gift = node.querySelector<HTMLElement>(".gift-entry")!;
+      const promo = node
+        .querySelector<HTMLElement>(".promo-heading")!
+        .closest<HTMLElement>(".card")!;
+      const referral = node.querySelector<HTMLElement>(".bonus-card")!;
+      return {
+        radii: [gift, promo, referral].map((card) => getComputedStyle(card).borderRadius),
+        gaps: [
+          promo.getBoundingClientRect().top - gift.getBoundingClientRect().bottom,
+          referral.getBoundingClientRect().top - promo.getBoundingClientRect().bottom,
+        ],
+      };
+    });
+    expect(new Set(layout.radii).size).toBe(1);
+    expect(Math.abs(layout.gaps[0] - layout.gaps[1])).toBeLessThanOrEqual(1);
+    await noOverflow(page.locator(".gift-entry"));
+  });
+
   test(`remaining admin lists reuse toolbar controls on ${device}`, async ({ page }) => {
     await page.setViewportSize(viewport);
     const errors: string[] = [];

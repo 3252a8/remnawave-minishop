@@ -349,9 +349,10 @@
   <GiftFeature
     api={stores.api}
     billing={stores.giftBillingStore}
-    userId={String(user?.user_id || "")}
-    userLabel={String(user?.email || user?.username || user?.user_id || "")}
+    userId={String(user?.id ?? "")}
+    userLabel={String(user?.email || user?.username || user?.id || "")}
     loggedIn={mode === "app"}
+    enabled={typeof appSettings.gifts_enabled === "boolean" ? appSettings.gifts_enabled : undefined}
     {methods}
     {pendingPayment}
     {t}

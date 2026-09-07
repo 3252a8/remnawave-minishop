@@ -62,8 +62,11 @@ function adminGiftRows(): AdminGift[] {
 }
 
 export function giftsDemoResponse(path: string, options: RequestInit, fullPath = path): unknown {
-  const demoGiftsEnabled = DEV_MOCK.config.giftsEnabled !== false;
   const demo = new URLSearchParams(window.location.search).get("gift_demo");
+  const demoGiftsEnabled =
+    DEV_MOCK.config.giftsEnabled !== false && !["disabled", "disabled-empty"].includes(demo || "");
+  if (path === "/gifts" && demo === "loading") return new Promise(() => {});
+  if (path === "/gifts" && demo === "error") throw new Error("Gift list unavailable");
   if (/^\/admin\/payments\/\d+$/.test(path)) {
     const row = [...adminCreated, ...adminGiftRows()].find(
       (item) => item.provider === "admin_gift" && item.payment_id === Number(path.split("/").pop())
@@ -210,9 +213,9 @@ export function giftsDemoResponse(path: string, options: RequestInit, fullPath =
   if (path === "/gifts")
     return {
       ok: true,
-      enabled: demoGiftsEnabled && demo !== "disabled",
+      enabled: demoGiftsEnabled,
       gifts:
-        demo === "empty"
+        demo === "empty" || demo === "disabled-empty"
           ? []
           : gifts.map((item) =>
               demo === "email-failed" && item.status === "ready"

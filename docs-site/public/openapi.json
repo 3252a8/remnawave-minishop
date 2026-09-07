@@ -23656,6 +23656,9 @@
                         "email_auth_enabled": {
                           "type": "boolean"
                         },
+                        "gifts_enabled": {
+                          "type": "boolean"
+                        },
                         "menu_buttons": {
                           "items": {
                             "additionalProperties": false,
