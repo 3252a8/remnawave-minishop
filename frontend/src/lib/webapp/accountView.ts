@@ -5,11 +5,11 @@ type WebappRecord = Record<string, unknown>;
 type TranslateFn = (key: string) => string;
 
 type UserProfile = WebappRecord & {
-  email?: string;
-  telegram_id?: number | string;
+  email?: string | null;
+  telegram_id?: number | string | null;
   telegram_linked?: boolean;
   telegram_notifications_need_prompt?: boolean;
-  telegram_notifications_start_link?: string;
+  telegram_notifications_start_link?: string | null;
   telegram_notifications_status?: string;
   external_identities?: Array<{ provider?: string }>;
   passkeys?: Array<{ credential_id?: string }>;
