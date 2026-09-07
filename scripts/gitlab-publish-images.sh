@@ -18,9 +18,19 @@ TARGETS="${TARGETS:-backend worker frontend}"
 TRIVY_IMAGE="${TRIVY_IMAGE:-aquasec/trivy:0.70.0}"
 OCI_IMAGE_SOURCE="${OCI_IMAGE_SOURCE:-https://github.com/3252a8/remnawave-minishop}"
 dockerhub_owner="$(printf '%s' "$DOCKERHUB_USERNAME" | tr '[:upper:]' '[:lower:]')"
+context_name="minishop-context-$CI_JOB_ID"
+builder_name="minishop-$CI_JOB_ID"
 metadata_dir="${CI_PROJECT_DIR:-$PWD}/.publish-metadata-$CI_JOB_ID"
 export TRIVY_USERNAME="$DOCKERHUB_USERNAME"
 export TRIVY_PASSWORD="$DOCKERHUB_TOKEN"
+
+cleanup() {
+  docker buildx rm "$builder_name" >/dev/null 2>&1 || true
+  unset DOCKER_CONTEXT
+  docker context rm --force "$context_name" >/dev/null 2>&1 || true
+}
+
+trap cleanup EXIT
 
 registry_digest() {
   local reference="$1"
@@ -113,7 +123,19 @@ fi
 
 mkdir -p "$metadata_dir"
 
-docker buildx use default
+docker_host="${DOCKER_HOST:?GitLab DinD must provide DOCKER_HOST}"
+docker_cert_path="${DOCKER_CERT_PATH:?GitLab DinD must provide DOCKER_CERT_PATH}"
+docker context create "$context_name" \
+  --docker "host=$docker_host,ca=$docker_cert_path/ca.pem,cert=$docker_cert_path/cert.pem,key=$docker_cert_path/key.pem" \
+  >/dev/null
+unset DOCKER_HOST DOCKER_TLS_VERIFY DOCKER_CERT_PATH DOCKER_TLS_CERTDIR
+export DOCKER_CONTEXT="$context_name"
+docker buildx create \
+  --driver docker-container \
+  --name "$builder_name" \
+  --use \
+  "$context_name" \
+  >/dev/null
 docker buildx inspect --bootstrap
 
 for target in $TARGETS; do
