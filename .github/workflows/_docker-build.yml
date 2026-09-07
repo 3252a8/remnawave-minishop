@@ -1,0 +1,64 @@
+name: Docker build (reusable)
+
+# Reusable pull-request check for the three image targets. This workflow never
+# authenticates to a registry and never publishes images or attestations.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  lockfiles:
+    name: Validate npm lockfiles
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            docs-site/package-lock.json
+
+      - name: Check npm lockfiles
+        run: npm run check:lockfiles
+
+  build:
+    needs: lockfiles
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [backend, worker, frontend]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build remnawave-minishop-${{ matrix.target }}
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          target: ${{ matrix.target }}
+          platforms: linux/amd64
+          push: false
+          pull: true
+          tags: remnawave-minishop-${{ matrix.target }}:ci
+          build-args: |
+            GITHUB_REF_NAME=${{ github.ref_name }}
+            REMNAWAVE_MINISHOP_BUILD_PROVENANCE=${{ github.repository == '3252a8/remnawave-minishop' && 'official' || 'custom' }}
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
+          provenance: false
+          sbom: false
