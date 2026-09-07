@@ -2,11 +2,13 @@ import { computeAccountView } from "./accountView.js";
 import { computeAppDataView } from "./appDataView.js";
 import { computeBillingView } from "./billingView.js";
 import { computeLanguageView } from "./languageView.js";
+import type { MeResponse } from "./publicApi.js";
 import { computeTelegramLoginView } from "./telegramLoginView.js";
 import { computeThemeView } from "./themeView.js";
 
 type Translate = (key: string) => string;
 type AppShellViewData = Record<string, unknown>;
+type AppShellUser = Extract<MeResponse, { ok: true }>["user"];
 
 export type AppShellViewInput = {
   authBusy: boolean;
@@ -80,7 +82,7 @@ export function computeAppShellView({
     mockData,
     telegramMiniAppContext,
   });
-  const user = (data?.user || {}) as Record<string, unknown>;
+  const user = (data?.user || {}) as AppShellUser;
   const billingView = computeBillingView({
     appSettings: appDataView.appSettings,
     plans: appDataView.plans,
