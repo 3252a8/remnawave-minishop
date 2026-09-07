@@ -79,14 +79,28 @@ promote_tag() {
 verify_signature() {
   local reference="$1"
   local expected_tag="$2"
+  local attempt
+  local sleep_seconds
 
-  cosign verify \
-    --experimental-oci11 \
-    --annotations "tag=$expected_tag" \
-    --annotations "org.opencontainers.image.revision=$CI_COMMIT_SHA" \
-    --certificate-identity "$certificate_identity" \
-    --certificate-oidc-issuer "$CI_SERVER_URL" \
-    "$reference" | jq -e 'length > 0' > /dev/null
+  for attempt in 1 2 3 4 5 6; do
+    if cosign verify \
+      --experimental-oci11 \
+      --annotations "tag=$expected_tag" \
+      --annotations "org.opencontainers.image.revision=$CI_COMMIT_SHA" \
+      --certificate-identity "$certificate_identity" \
+      --certificate-oidc-issuer "$CI_SERVER_URL" \
+      "$reference" | jq -e 'length > 0' > /dev/null; then
+      return 0
+    fi
+    if [ "$attempt" -lt 6 ]; then
+      sleep_seconds=$((attempt * 2))
+      echo "Signature for $reference is not visible yet; retrying in ${sleep_seconds}s."
+      sleep "$sleep_seconds"
+    fi
+  done
+
+  echo "Unable to verify the signature for $reference" >&2
+  return 1
 }
 
 case "$PUBLISH_CHANNEL" in
