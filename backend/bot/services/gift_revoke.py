@@ -27,9 +27,10 @@ async def revoke_paid_gift(
     reason: str,
     restore_promo_usage: bool,
     refund_to_balance: bool,
+    without_reason: bool = False,
 ) -> SubscriptionGift:
     normalized_reason = reason.strip()
-    if len(normalized_reason) < 3:
+    if not without_reason and len(normalized_reason) < 3:
         raise GiftRevokeError("invalid_gift_revoke_reason", 400)
     # Match activation's lock order: payment, gift, then purchaser balance.
     initial = await session.get(SubscriptionGift, gift_id)

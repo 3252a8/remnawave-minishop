@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from aiohttp import web
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, model_validator
 
 from bot.app.web.context import get_session_factory, get_settings
 from bot.app.web.http_contracts import HttpBodyModel, HttpResponseModel
@@ -102,17 +102,17 @@ class AdminGiftsList(HttpResponseModel):
 class AdminGiftRevokeBody(HttpBodyModel):
     model_config = ConfigDict(extra="forbid")
 
-    reason: str = Field(min_length=3, max_length=500)
+    reason: str = Field(max_length=500)
+    without_reason: bool = False
     restore_promo_usage: bool = True
     refund_to_balance: bool = True
 
-    @field_validator("reason")
-    @classmethod
-    def normalize_reason(cls, value: str) -> str:
-        normalized = value.strip()
-        if len(normalized) < 3:
+    @model_validator(mode="after")
+    def normalize_reason(self) -> AdminGiftRevokeBody:
+        self.reason = self.reason.strip()
+        if not self.without_reason and len(self.reason) < 3:
             raise ValueError("reason must contain at least 3 non-whitespace characters")
-        return normalized
+        return self
 
 
 register_contract(
@@ -193,6 +193,7 @@ async def admin_gift_revoke_route(request: web.Request) -> web.Response:
                 gift_id=gift_id,
                 actor_admin_id=actor_id,
                 reason=body.reason,
+                without_reason=body.without_reason,
                 restore_promo_usage=body.restore_promo_usage,
                 refund_to_balance=body.refund_to_balance,
             )

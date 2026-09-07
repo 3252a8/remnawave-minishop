@@ -17,6 +17,7 @@
   import type { AdminPayment } from "../../lib/admin/stores/paymentsStore";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
   import { paymentDiscountDisplay } from "$lib/admin/paymentTable.js";
+  import { isReversalReasonValid } from "$lib/admin/reversalReason.js";
   import { demoPartnerAttributionForPayment } from "$lib/webapp/mockApi/partnerProgram.js";
   import { partnerStatusVariant } from "$lib/admin/partnerProgramUi.js";
   import PaymentPurchasesCell from "./PaymentPurchasesCell.svelte";
@@ -56,6 +57,7 @@
   const paymentActionBusy = $derived(Boolean(paymentsStore.paymentActionBusy));
   let actionMode = $state<"finalize" | "reverse" | null>(null);
   let actionReason = $state("");
+  let withoutReason = $state(false);
   let confirmPromoConflict = $state(false);
   let restorePromoUsage = $state(true);
   let refundToBalance = $state(true);
@@ -166,6 +168,7 @@
   function startAction(mode: "finalize" | "reverse"): void {
     actionMode = mode;
     actionReason = "";
+    withoutReason = false;
     confirmPromoConflict = false;
     restorePromoUsage = true;
     refundToBalance = true;
@@ -174,15 +177,16 @@
   function cancelAction(): void {
     actionMode = null;
     actionReason = "";
+    withoutReason = false;
   }
 
   async function submitAction(): Promise<void> {
     const reason = actionReason.trim();
-    if (reason.length < 3 || !actionMode) return;
+    if (!actionMode || !isReversalReasonValid(reason, actionMode === "reverse" && withoutReason)) return;
     const succeeded =
       actionMode === "finalize"
         ? await paymentsStore.finalizePayment(reason, confirmPromoConflict)
-        : await paymentsStore.reversePayment(reason, restorePromoUsage, refundToBalance);
+        : await paymentsStore.reversePayment(reason, restorePromoUsage, refundToBalance, withoutReason);
     if (succeeded) cancelAction();
   }
 
@@ -694,6 +698,16 @@
                       )}></textarea>
                   </label>
 
+                  {#if actionMode === "reverse"}
+                    <label class="admin-payment-action-check">
+                      <Checkbox
+                        bind:checked={withoutReason}
+                        ariaLabel={at("payment_reverse_without_reason")}
+                      />
+                      <span>{at("payment_reverse_without_reason")}</span>
+                    </label>
+                  {/if}
+
                   <div class="admin-payment-action-buttons">
                     <AdminButton
                       variant="ghost"
@@ -705,7 +719,10 @@
                     <AdminButton
                       variant={actionMode === "reverse" ? "danger" : "primary"}
                       disabled={paymentActionBusy ||
-                        actionReason.trim().length < 3 ||
+                        !isReversalReasonValid(
+                          actionReason,
+                          actionMode === "reverse" && withoutReason
+                        ) ||
                         (actionMode === "finalize" &&
                           payment.manual_finalize_requires_promo_confirmation &&
                           !confirmPromoConflict)}

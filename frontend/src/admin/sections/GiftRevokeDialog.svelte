@@ -4,6 +4,7 @@
   import { AdminButton, AdminField } from "$components/patterns/admin/index.js";
   import type { components } from "$lib/api/openapi.generated.js";
   import { giftRefundWarningKey } from "$lib/admin/giftRevoke.js";
+  import { isReversalReasonValid } from "$lib/admin/reversalReason.js";
   import { buildAdminGiftRevokePath, unwrap, type ApiClient } from "$lib/webapp/publicApi.js";
 
   type AdminGift = components["schemas"]["AdminGiftView"];
@@ -23,13 +24,14 @@
     onrevoked: (gift: AdminGift) => void;
   } = $props();
   let reason = $state("");
+  let withoutReason = $state(false);
   let refundToBalance = $state(true);
   let busy = $state(false);
   let failed = $state(false);
 
   async function revoke(): Promise<void> {
     const normalizedReason = reason.trim();
-    if (busy || normalizedReason.length < 3) return;
+    if (busy || !isReversalReasonValid(normalizedReason, withoutReason)) return;
     busy = true;
     failed = false;
     try {
@@ -38,6 +40,7 @@
           method: "POST",
           body: JSON.stringify({
             reason: normalizedReason,
+            without_reason: withoutReason,
             restore_promo_usage: true,
             refund_to_balance: refundToBalance,
           }),
@@ -74,10 +77,18 @@
     <AdminField label={at("gifts_revoke_reason")}>
       <Textarea bind:value={reason} rows={3} maxlength={500} />
     </AdminField>
+    <label class="gift-revoke-check">
+      <Checkbox bind:checked={withoutReason} ariaLabel={at("gifts_revoke_without_reason")} />
+      {at("gifts_revoke_without_reason")}
+    </label>
     {#if failed}<p role="alert">{at("gifts_revoke_failed")}</p>{/if}
     <div class="admin-dialog-actions">
       <AdminButton disabled={busy} onclick={onclose}>{at("cancel")}</AdminButton>
-      <AdminButton variant="danger" disabled={busy || reason.trim().length < 3} onclick={revoke}>
+      <AdminButton
+        variant="danger"
+        disabled={busy || !isReversalReasonValid(reason, withoutReason)}
+        onclick={revoke}
+      >
         {at(busy ? "gifts_revoking" : "gifts_revoke_confirm_action")}
       </AdminButton>
     </div>

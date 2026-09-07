@@ -1160,7 +1160,6 @@
         "properties": {
           "reason": {
             "maxLength": 500,
-            "minLength": 3,
             "title": "Reason",
             "type": "string"
           },
@@ -1172,6 +1171,11 @@
           "restore_promo_usage": {
             "default": true,
             "title": "Restore Promo Usage",
+            "type": "boolean"
+          },
+          "without_reason": {
+            "default": false,
+            "title": "Without Reason",
             "type": "boolean"
           }
         },
@@ -2745,7 +2749,6 @@
         "properties": {
           "reason": {
             "maxLength": 500,
-            "minLength": 3,
             "title": "Reason",
             "type": "string"
           },
@@ -2757,6 +2760,11 @@
           "restore_promo_usage": {
             "default": true,
             "title": "Restore Promo Usage",
+            "type": "boolean"
+          },
+          "without_reason": {
+            "default": false,
+            "title": "Without Reason",
             "type": "boolean"
           }
         },

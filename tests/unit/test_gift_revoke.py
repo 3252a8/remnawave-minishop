@@ -110,3 +110,13 @@ class GiftRevokeTests(IsolatedAsyncioTestCase):
         await self.revoke(refund_to_balance=False)
 
         self.credit.assert_not_awaited()
+
+    async def test_revocation_without_reason_records_an_empty_reason(self) -> None:
+        await self.revoke(reason="   ", without_reason=True)
+
+        self.assertEqual(self.payment.reversal_note, "")
+        self.assertEqual(self.credit.await_args.kwargs["reason"], "")
+
+    async def test_revocation_requires_a_reason_without_the_explicit_flag(self) -> None:
+        with self.assertRaisesRegex(GiftRevokeError, "invalid_gift_revoke_reason"):
+            await self.revoke(reason="   ")

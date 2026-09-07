@@ -292,6 +292,7 @@ async def admin_payment_reverse_route(request: web.Request) -> web.Response:
                 payment_id=payment_id,
                 actor_admin_id=actor_id,
                 reason=body.reason,
+                without_reason=body.without_reason,
                 restore_promo_usage=body.restore_promo_usage,
                 refund_to_balance=body.refund_to_balance,
                 subscription_service=subscription_service,

@@ -1656,6 +1656,7 @@
   "admin_payment_reverse_confirm": "Reverse only the effects recorded for this payment?",
   "admin_payment_manual_confirm_promo_conflict": "Honor the frozen promo terms and record an extra override use",
   "admin_payment_reverse_restore_promo": "Return this use to the promo code",
+  "admin_payment_reverse_without_reason": "Without reason",
   "admin_payment_reverse_gift_refund": "Return the full paid gift amount to the buyer's balance",
   "admin_payment_reverse_gift_balance_disabled": "The balance is disabled. The credit remains on the buyer's balance and becomes spendable after balances are enabled.",
   "admin_payment_action_reason": "Reason",
@@ -4729,6 +4730,7 @@
   "admin_gifts_revoke_refund_hint": "The full checkout amount, including split-payment funds, will be credited to the buyer's balance.",
   "admin_gifts_revoke_balance_disabled": "The balance is currently disabled. The credit will remain on the buyer's balance and will be available after balances are enabled.",
   "admin_gifts_revoke_reason": "Reason (required)",
+  "admin_gifts_revoke_without_reason": "Without reason",
   "admin_gifts_revoke_confirm_action": "Revoke and refund",
   "admin_gifts_revoking": "Revoking…",
   "admin_gifts_revoke_failed": "Could not revoke this gift. It may have started activation. Refresh and try again."

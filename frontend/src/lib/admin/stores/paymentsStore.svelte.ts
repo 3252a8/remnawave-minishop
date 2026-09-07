@@ -84,7 +84,8 @@ export type PaymentsStore = PaymentsState & {
   reversePayment: (
     reason: string,
     restorePromoUsage: boolean,
-    refundToBalance?: boolean
+    refundToBalance?: boolean,
+    withoutReason?: boolean
   ) => Promise<boolean>;
   copyToClipboard: (text: unknown, successMessage?: string) => void;
 };
@@ -352,7 +353,8 @@ export function createPaymentsStore({
   async function reversePayment(
     reason: string,
     restorePromoUsage: boolean,
-    refundToBalance: boolean = true
+    refundToBalance: boolean = true,
+    withoutReason: boolean = false
   ): Promise<boolean> {
     const paymentId = state.openedPaymentId;
     if (!paymentId || state.paymentActionBusy) return false;
@@ -362,6 +364,7 @@ export function createPaymentsStore({
         method: "POST",
         body: JSON.stringify({
           reason,
+          without_reason: withoutReason,
           restore_promo_usage: restorePromoUsage,
           refund_to_balance: refundToBalance,
         } satisfies PostPayload<"/api/admin/payments/{payment_id}/reverse">),

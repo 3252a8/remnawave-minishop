@@ -3524,6 +3524,11 @@ export interface components {
        * @default true
        */
       restore_promo_usage: boolean;
+      /**
+       * Without Reason
+       * @default false
+       */
+      without_reason: boolean;
     };
     /** AdminGiftView */
     AdminGiftView: {
@@ -4172,6 +4177,11 @@ export interface components {
        * @default true
        */
       restore_promo_usage: boolean;
+      /**
+       * Without Reason
+       * @default false
+       */
+      without_reason: boolean;
     };
     /** AdminPaymentsListOut */
     AdminPaymentsListOut: {

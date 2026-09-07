@@ -376,7 +376,11 @@ async def reverse_payment_fulfillment(
     restore_promo_usage: bool,
     subscription_service: Any,
     refund_to_balance: bool = False,
+    without_reason: bool = False,
 ) -> Payment:
+    reason = reason.strip()
+    if not without_reason and len(reason) < 3:
+        raise PaymentFulfillmentError("invalid_payment_reverse_reason", "A reversal reason is required.", status=400)
     payment = await payment_dal.get_payment_by_db_id_for_update(session, payment_id)
     if payment is None:
         raise PaymentFulfillmentError("not_found", "Payment not found.", status=404)
@@ -425,6 +429,7 @@ async def reverse_payment_fulfillment(
                 gift_id=int(gift.gift_id),
                 actor_admin_id=actor_admin_id,
                 reason=reason,
+                without_reason=without_reason,
                 restore_promo_usage=restore_promo_usage,
                 refund_to_balance=refund_to_balance,
             )

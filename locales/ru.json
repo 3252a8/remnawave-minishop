@@ -1656,6 +1656,7 @@
   "admin_payment_reverse_confirm": "Откатить только эффекты, зафиксированные для этого платежа?",
   "admin_payment_manual_confirm_promo_conflict": "Применить сохранённые условия промокода и записать дополнительное использование",
   "admin_payment_reverse_restore_promo": "Вернуть это использование промокоду",
+  "admin_payment_reverse_without_reason": "Без причины",
   "admin_payment_reverse_gift_refund": "Вернуть полную оплаченную сумму подарка на баланс покупателя",
   "admin_payment_reverse_gift_balance_disabled": "Баланс выключен. Средства останутся на балансе покупателя и станут доступны для трат после включения баланса.",
   "admin_payment_action_reason": "Причина",
@@ -4729,6 +4730,7 @@
   "admin_gifts_revoke_refund_hint": "На баланс покупателя будет зачислена полная сумма заказа, включая средства из смешанной оплаты.",
   "admin_gifts_revoke_balance_disabled": "Баланс сейчас выключен. Средства останутся на балансе покупателя и будут доступны после включения баланса.",
   "admin_gifts_revoke_reason": "Причина (обязательно)",
+  "admin_gifts_revoke_without_reason": "Без причины",
   "admin_gifts_revoke_confirm_action": "Отозвать и вернуть",
   "admin_gifts_revoking": "Отзыв…",
   "admin_gifts_revoke_failed": "Не удалось отозвать подарок. Возможно, началась активация. Обновите список и попробуйте снова."
