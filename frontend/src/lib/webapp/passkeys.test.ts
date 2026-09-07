@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiClient } from "./publicApi.js";
-import { loginWithPasskey, registerPasskey, suggestedPasskeyName } from "./passkeys.js";
+import {
+  loginWithPasskey,
+  passkeyRegistrationBlockReason,
+  registerPasskey,
+  suggestedPasskeyName,
+} from "./passkeys.js";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -16,6 +21,18 @@ describe("suggestedPasskeyName", () => {
   it("falls back safely and stays within the backend storage limit", () => {
     expect(suggestedPasskeyName("", "")).toBe("Passkey");
     expect(suggestedPasskeyName("x".repeat(100), "Linux")).toHaveLength(80);
+  });
+});
+
+describe("passkeyRegistrationBlockReason", () => {
+  it("directs Telegram Mini App users to a regular browser", () => {
+    expect(passkeyRegistrationBlockReason(true, true)).toBe("telegram_mini_app");
+    expect(passkeyRegistrationBlockReason(true, false)).toBe("telegram_mini_app");
+  });
+
+  it("keeps regular browser support detection intact", () => {
+    expect(passkeyRegistrationBlockReason(false, true)).toBe("");
+    expect(passkeyRegistrationBlockReason(false, false)).toBe("unsupported");
   });
 });
 

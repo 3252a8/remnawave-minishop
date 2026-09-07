@@ -1288,6 +1288,7 @@
   "wa_security_passkeys_hint": "Sign in with biometrics or your device PIN",
   "wa_security_passkey_default_name": "Passkey",
   "wa_security_passkey_unsupported": "Passkeys are not supported on this device",
+  "wa_security_passkey_browser_required": "Add passkeys from this site in a regular browser, not inside Telegram",
   "wa_security_passkey_failed": "Could not use the passkey",
   "wa_security_passkey_delete_failed": "Add another login method first",
   "wa_security_passkey_synced": "Synced across devices",
