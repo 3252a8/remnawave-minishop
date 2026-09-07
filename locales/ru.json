@@ -1288,6 +1288,7 @@
   "wa_security_passkeys_hint": "Вход по биометрии или PIN-коду устройства",
   "wa_security_passkey_default_name": "Ключ доступа",
   "wa_security_passkey_unsupported": "Это устройство не поддерживает ключи доступа",
+  "wa_security_passkey_browser_required": "Добавить ключ доступа можно только на сайте в обычном браузере, не внутри Telegram",
   "wa_security_passkey_failed": "Не удалось использовать ключ доступа",
   "wa_security_passkey_delete_failed": "Сначала добавьте другой способ входа",
   "wa_security_passkey_synced": "Синхронизируется между устройствами",

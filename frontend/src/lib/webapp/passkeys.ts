@@ -106,6 +106,16 @@ export function passkeysSupported(): boolean {
   );
 }
 
+export type PasskeyRegistrationBlockReason = "telegram_mini_app" | "unsupported" | "";
+
+export function passkeyRegistrationBlockReason(
+  telegramMiniAppContext: boolean,
+  supported = passkeysSupported()
+): PasskeyRegistrationBlockReason {
+  if (telegramMiniAppContext) return "telegram_mini_app";
+  return supported ? "" : "unsupported";
+}
+
 export async function registerPasskey(
   api: ApiClient["api"],
   fallbackServiceName = "Passkey"

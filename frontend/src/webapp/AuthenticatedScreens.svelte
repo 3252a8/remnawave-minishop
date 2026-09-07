@@ -631,6 +631,7 @@
       {openLinkEmailDialog}
       {openSetPasswordDialog}
       {t}
+      {telegramMiniAppContext}
       {user}
     />
   {:else if screen === "status"}

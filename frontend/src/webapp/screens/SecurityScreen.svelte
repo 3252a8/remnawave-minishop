@@ -15,7 +15,7 @@
   import { AttentionDot } from "$components/ui/index.js";
   import { buildExternalOAuthStartUrl } from "$lib/webapp/authHelpers.js";
   import type { ApiClient } from "$lib/webapp/publicApi.js";
-  import { passkeysSupported, registerPasskey } from "$lib/webapp/passkeys.js";
+  import { passkeyRegistrationBlockReason, registerPasskey } from "$lib/webapp/passkeys.js";
   import type { Translate, UserProfile, VoidAction } from "$lib/webapp/types.js";
   import ProviderLogo from "../auth/ProviderLogo.svelte";
   import ChangeEmailDialog from "../security/ChangeEmailDialog.svelte";
@@ -53,6 +53,7 @@
     openLinkEmailDialog: VoidAction;
     openSetPasswordDialog: VoidAction;
     t: Translate;
+    telegramMiniAppContext?: boolean;
     user?: UserProfile;
   };
 
@@ -67,6 +68,7 @@
     openLinkEmailDialog,
     openSetPasswordDialog,
     t,
+    telegramMiniAppContext = false,
     user = {},
   }: Props = $props();
 
@@ -183,6 +185,18 @@
   }
 
   async function addPasskey(): Promise<void> {
+    const blocked = passkeyRegistrationBlockReason(telegramMiniAppContext);
+    if (blocked) {
+      status =
+        blocked === "telegram_mini_app"
+          ? t(
+              "wa_security_passkey_browser_required",
+              {},
+              "Add passkeys from this site in a regular browser, not inside Telegram"
+            )
+          : t("wa_security_passkey_unsupported", {}, "Passkeys are not supported on this device");
+      return;
+    }
     busy = true;
     status = "";
     try {
@@ -434,10 +448,8 @@
           <h2>{t("wa_security_passkeys", {}, "Passkeys")}</h2>
           <p>{t("wa_security_passkeys_hint", {}, "Sign in with biometrics or your device PIN")}</p>
         </div>
-        {#if passkeyEnabled}<Button
-            size="sm"
-            onclick={addPasskey}
-            disabled={busy || !passkeysSupported()}><Fingerprint size={16} />{t("wa_add")}</Button
+        {#if passkeyEnabled}<Button size="sm" onclick={addPasskey} disabled={busy}
+            ><Fingerprint size={16} />{t("wa_add")}</Button
           >{/if}
       </div>
       {#if passkeys.length}
