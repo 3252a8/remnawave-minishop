@@ -32,6 +32,12 @@ Non-negotiables (details in CONTRIBUTING.md §2):
   navigation may mention minishop PRO, summarize its public capabilities, and link to the official
   PRO site; this exception does not allow copying PRO code, private contracts, assets, or runtime
   dependencies into core.
+- Balance work must include gift-deletion refunds. The temporary user flow that discards an unused
+  paid gift without a refund may exist only until balance refund integration is implemented. When
+  implementing or changing the user-balance flow, replace that behavior with an atomic credit of
+  the gift's actually paid value to the purchaser's balance before revoking/removing the gift
+  entitlement. Keep the `TODO(balance-gift-refund)` marker until the refund path and regression
+  tests are implemented.
 
 Before pushing, run the gates in CONTRIBUTING.md §1 (`pytest`, `ruff`, `mypy`,
 `npm run check`). Commits: Conventional Commits, no `Co-Authored-By` trailer.

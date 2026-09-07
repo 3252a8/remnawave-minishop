@@ -200,9 +200,8 @@
   }
 
   $effect(() => {
-    const identity = userId;
     const revision = giftState.revision;
-    if (loggedIn && identity) {
+    if (loggedIn) {
       if (typeof enabled === "boolean") giftState.enabled = enabled;
       void revision;
       void refreshGifts();
@@ -217,7 +216,7 @@
     }
   });
   $effect(() => {
-    if (loggedIn && userId && giftState.token) {
+    if (loggedIn && giftState.token) {
       giftState.open = true;
       giftState.incoming = true;
       void loadPreview(giftState.token);
@@ -285,7 +284,7 @@
       <div class="gift-hero" class:success>
         {#if success}<CheckCircle2 size={44} />{:else}<Gift size={44} />{/if}
       </div>
-      {#if !claimBlocked && !error}<p class="gift-lead">
+      {#if !claimBlocked && !error && (success || preview)}<p class="gift-lead">
           {t(success ? "wa_gift_activated_description" : "wa_gift_receive_description")}
         </p>{/if}
       {#if previewLoading}<p role="status">{t("wa_loading")}</p>{/if}
