@@ -284,7 +284,7 @@
       <div class="gift-hero" class:success>
         {#if success}<CheckCircle2 size={44} />{:else}<Gift size={44} />{/if}
       </div>
-      {#if !claimBlocked && !error}<p class="gift-lead">
+      {#if !claimBlocked && !error && (success || preview)}<p class="gift-lead">
           {t(success ? "wa_gift_activated_description" : "wa_gift_receive_description")}
         </p>{/if}
       {#if previewLoading}<p role="status">{t("wa_loading")}</p>{/if}
@@ -333,7 +333,8 @@
       <h2 class="gift-ready-title">{t("wa_gift_ready_title")}</h2>
       <p class="gift-lead">{t("wa_gift_ready_description")}</p>
       <GiftCard gift={receipt} {t} oncopy={copy} />{#if copied}<p role="status">
-          {t("wa_link_copied")}</p>{/if}
+          {t("wa_link_copied")}
+        </p>{/if}
     </div>
   {:else}
     {#if giftState.pending || giftState.receiptId}
