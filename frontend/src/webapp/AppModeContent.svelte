@@ -357,7 +357,10 @@
     {pendingPayment}
     {t}
     {termUnitLabel}
-    onactivated={() => stores.dataClient.loadData({ fresh: true })}
+    onactivated={async () => {
+      await stores.dataClient.loadData({ fresh: true });
+      goHome();
+    }}
   />
   {#if mode === "loading"}
     <div class="loader">

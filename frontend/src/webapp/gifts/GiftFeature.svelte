@@ -183,6 +183,8 @@
       success = true;
       await loadPreview(giftState.token);
       await onactivated();
+      forgetGift();
+      giftState.open = false;
     } catch (value) {
       error = errorKey(value);
     } finally {
