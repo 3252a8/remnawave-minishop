@@ -65,6 +65,7 @@ export function createBillingStore({
     notifyOpened: (resumed) =>
       showToast(t(resumed ? "wa_pending_payment_opened" : "wa_payment_created")),
     openExternalLink,
+    openQaPaymentLink: (url) => window.location.assign(url),
     openTelegramInvoice,
     startPaymentStatusPolling,
   });

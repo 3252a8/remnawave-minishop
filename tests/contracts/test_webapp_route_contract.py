@@ -139,6 +139,7 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("POST", "/api/payments"): "create_payment_route",
             ("GET", "/api/payments/{payment_id}"): "payment_status_route",
             ("POST", "/api/payments/{payment_id}/cancel"): "cancel_payment_route",
+            ("POST", "/api/payments/{payment_id}/qa/complete"): "complete_qa_payment_route",
         }
 
         for key, handler_name in expected.items():

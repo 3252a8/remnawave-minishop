@@ -109,6 +109,7 @@ export type DeviceTopupOptionsResponse = GetResponse<"/api/devices/topup-options
 export type PaymentCreateResponse = PostResponse<"/api/payments">;
 export type PaymentStatusResponse = GetResponse<"/api/payments/{payment_id}">;
 export type PaymentCancelResponse = PostResponse<"/api/payments/{payment_id}/cancel">;
+export type QaPaymentCompleteResponse = PostResponse<"/api/payments/{payment_id}/qa/complete">;
 export type PlansViewedResponse = PostResponse<"/api/plans/viewed">;
 export type PromoApplyResponse = PostResponse<"/api/promo/apply">;
 export type PromoStatusResponse = PostResponse<"/api/promo/status">;
@@ -387,6 +388,13 @@ export function buildPaymentCancelPath(paymentId: string | number): PaymentCance
   );
 }
 
+export type QaPaymentCompletePath = BuiltApiPath<"/api/payments/{payment_id}/qa/complete">;
+export function buildQaPaymentCompletePath(paymentId: string | number): QaPaymentCompletePath {
+  return builtApiPath<"/api/payments/{payment_id}/qa/complete">(
+    `/payments/${encodeURIComponent(String(paymentId))}/qa/complete`
+  );
+}
+
 export type SupportTicketPath = BuiltApiPath<"/api/support/tickets/{id}">;
 export function buildSupportTicketPath(ticketId: string | number): SupportTicketPath {
   return builtApiPath<"/api/support/tickets/{id}">(
@@ -492,6 +500,13 @@ export function buildAdminGiftPath(
 ): BuiltApiPath<"/api/admin/gifts/{gift_id}"> {
   return builtApiPath<"/api/admin/gifts/{gift_id}">(
     `/admin/gifts/${encodeURIComponent(String(id))}`
+  );
+}
+
+export type AdminGiftRevokePath = BuiltApiPath<"/api/admin/gifts/{gift_id}/revoke">;
+export function buildAdminGiftRevokePath(id: string | number): AdminGiftRevokePath {
+  return builtApiPath<"/api/admin/gifts/{gift_id}/revoke">(
+    `/admin/gifts/${encodeURIComponent(String(id))}/revoke`
   );
 }
 

@@ -676,6 +676,7 @@
 
     <AuthenticatedDialogs
       api={stores.api}
+      loadData={() => stores.dataClient.loadData({ fresh: true })}
       {accountStore}
       {actionsStore}
       {activationSuccessDialogOpen}

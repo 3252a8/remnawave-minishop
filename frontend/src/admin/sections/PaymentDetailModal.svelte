@@ -13,6 +13,7 @@
   } from "$components/ui/icons.js";
   import { AdminBadge, AdminButton, AdminCopyableValue } from "$components/patterns/admin/index.js";
   import Dialog from "$components/ui/dialog.svelte";
+  import { Checkbox } from "$components/ui/index.js";
   import type { AdminPayment } from "../../lib/admin/stores/paymentsStore";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
   import { paymentDiscountDisplay } from "$lib/admin/paymentTable.js";
@@ -57,6 +58,7 @@
   let actionReason = $state("");
   let confirmPromoConflict = $state(false);
   let restorePromoUsage = $state(true);
+  let refundToBalance = $state(true);
   const payment = $derived(
     (openedPayment ||
       (openedPaymentId ? { payment_id: openedPaymentId } : null)) as AdminPayment | null
@@ -166,6 +168,7 @@
     actionReason = "";
     confirmPromoConflict = false;
     restorePromoUsage = true;
+    refundToBalance = true;
   }
 
   function cancelAction(): void {
@@ -179,7 +182,7 @@
     const succeeded =
       actionMode === "finalize"
         ? await paymentsStore.finalizePayment(reason, confirmPromoConflict)
-        : await paymentsStore.reversePayment(reason, restorePromoUsage);
+        : await paymentsStore.reversePayment(reason, restorePromoUsage, refundToBalance);
     if (succeeded) cancelAction();
   }
 
@@ -661,6 +664,21 @@
                         )}
                       </span>
                     </label>
+                  {/if}
+
+                  {#if actionMode === "reverse" && payment.sale_mode?.split("|").includes("gift")}
+                    <label class="admin-payment-action-check">
+                      <Checkbox
+                        bind:checked={refundToBalance}
+                        ariaLabel={at("payment_reverse_gift_refund")}
+                      />
+                      <span>{at("payment_reverse_gift_refund")}</span>
+                    </label>
+                    {#if refundToBalance && !payment.balance_enabled}
+                      <p class="admin-payment-action-unavailable">
+                        {at("payment_reverse_gift_balance_disabled")}
+                      </p>
+                    {/if}
                   {/if}
 
                   <label class="admin-payment-action-reason">

@@ -58,6 +58,7 @@ function adminGiftRows(): AdminGift[] {
     discount_amount: index === 2 ? 0 : 160,
     promo_code_id: index === 2 ? null : 14,
     delivery_attempts: 1,
+    balance_enabled: DEV_MOCK.config.userBalanceEnabled !== false,
   }));
 }
 
@@ -172,6 +173,16 @@ export function giftsDemoResponse(path: string, options: RequestInit, fullPath =
           },
         }
       : { ok: false, error: "gift_unavailable" };
+  }
+  if (/^\/admin\/gifts\/\d+\/revoke$/.test(path)) {
+    const giftId = Number(path.split("/")[3]);
+    const row = [...adminCreated, ...adminGiftRows()].find((item) => item.gift_id === giftId);
+    if (!row || row.status !== "ready" || row.payment_status !== "succeeded")
+      return { ok: false, error: "gift_revoke_unavailable" };
+    const revoked = { ...row, status: "revoked", link: null };
+    const createdIndex = adminCreated.findIndex((item) => item.gift_id === giftId);
+    if (createdIndex >= 0) adminCreated[createdIndex] = revoked;
+    return { ok: true, gift: revoked };
   }
   if (path === "/admin/gifts") {
     const params = new URLSearchParams(fullPath.split("?")[1] || "");

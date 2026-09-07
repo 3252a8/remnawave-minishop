@@ -1155,6 +1155,32 @@
         "title": "AdminGiftCreateBody",
         "type": "object"
       },
+      "AdminGiftRevokeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "refund_to_balance": {
+            "default": true,
+            "title": "Refund To Balance",
+            "type": "boolean"
+          },
+          "restore_promo_usage": {
+            "default": true,
+            "title": "Restore Promo Usage",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "AdminGiftRevokeBody",
+        "type": "object"
+      },
       "AdminGiftView": {
         "properties": {
           "activated_at": {
@@ -1186,6 +1212,10 @@
           "amount": {
             "title": "Amount",
             "type": "number"
+          },
+          "balance_enabled": {
+            "title": "Balance Enabled",
+            "type": "boolean"
           },
           "bonus_days": {
             "default": 0,
@@ -1438,7 +1468,8 @@
           "partner_balance_amount",
           "discount_amount",
           "promo_code_id",
-          "delivery_attempts"
+          "delivery_attempts",
+          "balance_enabled"
         ],
         "title": "AdminGiftView",
         "type": "object"
@@ -2717,6 +2748,11 @@
             "minLength": 3,
             "title": "Reason",
             "type": "string"
+          },
+          "refund_to_balance": {
+            "default": true,
+            "title": "Refund To Balance",
+            "type": "boolean"
           },
           "restore_promo_usage": {
             "default": true,
@@ -7409,6 +7445,11 @@
           "amount": {
             "title": "Amount",
             "type": "number"
+          },
+          "balance_enabled": {
+            "default": true,
+            "title": "Balance Enabled",
+            "type": "boolean"
           },
           "can_manual_finalize": {
             "default": false,
@@ -15357,6 +15398,69 @@
           }
         ],
         "summary": "Admin Gift Detail",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/gifts/{gift_id}/revoke": {
+      "post": {
+        "operationId": "post_admin_gift_revoke_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "gift_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminGiftRevokeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "gift": {
+                      "$ref": "#/components/schemas/AdminGiftView"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "gift"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Gift Revoke",
         "tags": [
           "admin"
         ]
@@ -25190,6 +25294,73 @@
           }
         ],
         "summary": "Cancel Payment",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/api/payments/{payment_id}/qa/complete": {
+      "post": {
+        "operationId": "post_complete_qa_payment_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "payment_id",
+            "required": true,
+            "schema": {
+              "pattern": "[^{}/]+",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "duplicate": {
+                      "type": "boolean"
+                    },
+                    "final_end_date": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "payment_id": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "payment_id",
+                    "status"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Complete Qa Payment",
         "tags": [
           "payments"
         ]

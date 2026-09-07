@@ -28,7 +28,7 @@ from .gift_creation import (
     admin_gift_detail_route,
     admin_gift_options_route,
 )
-from .gifts import admin_gifts_route
+from .gifts import admin_gift_revoke_route, admin_gifts_route
 from .health import (
     admin_health_route,
 )
@@ -301,6 +301,8 @@ def setup_admin_routes(app: web.Application) -> None:
     router.add_post("/api/admin/payments/{payment_id:\\d+}/finalize", admin_payment_finalize_route)
     router.add_post("/api/admin/payments/{payment_id:\\d+}/reverse", admin_payment_reverse_route)
     router.add_get("/api/admin/payments/export.csv", admin_payments_export_route)
+
+    router.add_post("/api/admin/gifts/{gift_id:\\d+}/revoke", admin_gift_revoke_route)
 
     router.add_get("/api/admin/promos", admin_promos_list_route)
     router.add_post("/api/admin/promos", admin_promo_create_route)

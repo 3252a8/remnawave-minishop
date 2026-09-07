@@ -375,6 +375,7 @@ async def reverse_payment_fulfillment(
     reason: str,
     restore_promo_usage: bool,
     subscription_service: Any,
+    refund_to_balance: bool = False,
 ) -> Payment:
     payment = await payment_dal.get_payment_by_db_id_for_update(session, payment_id)
     if payment is None:
@@ -416,16 +417,19 @@ async def reverse_payment_fulfillment(
             raise PaymentFulfillmentError(
                 "gift_already_claimed", "A claimed gift cannot be reversed."
             )
-        gift.status = "revoked"
-        if restore_promo_usage and payment.promo_code_id:
-            payment.promo_usage_restored = await promo_code_dal.release_promo_activation(
-                session, int(payment.promo_code_id), int(payment.user_id), payment_id=payment_id
+        from bot.services.gift_revoke import GiftRevokeError, revoke_paid_gift
+
+        try:
+            await revoke_paid_gift(
+                session,
+                gift_id=int(gift.gift_id),
+                actor_admin_id=actor_admin_id,
+                reason=reason,
+                restore_promo_usage=restore_promo_usage,
+                refund_to_balance=refund_to_balance,
             )
-        payment.reversed_at = datetime.now(UTC)
-        payment.reversed_by_admin_id = actor_admin_id
-        payment.reversal_note = reason
-        await session.flush()
-        await payment_dal.update_payment_status_by_db_id(session, payment_id, "reversed")
+        except GiftRevokeError as exc:
+            raise PaymentFulfillmentError(exc.code, str(exc), status=exc.status) from exc
         return payment
     before = _parse_snapshot(payment.fulfillment_before_snapshot)
     after = _parse_snapshot(payment.fulfillment_after_snapshot)

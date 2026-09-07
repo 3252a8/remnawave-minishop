@@ -10,6 +10,7 @@
   import type { DevicesStore } from "../lib/webapp/stores/devicesStore.js";
   import PaymentDialogs from "./PaymentDialogs.svelte";
   import SubscriptionReissueDialog from "./payment-dialogs/SubscriptionReissueDialog.svelte";
+  import QaPaymentDialog from "./payment-dialogs/QaPaymentDialog.svelte";
   import TariffDialogs from "./TariffDialogs.svelte";
   import type {
     PaymentMethod,
@@ -44,6 +45,7 @@
     openLinkEmailDialog?: VoidAction;
     hasMultipleTariffs?: boolean;
     methods?: PaymentMethod[];
+    loadData: () => Promise<unknown>;
     paymentMethodsDisplayMode?: "dropdown" | "buttons" | string;
     pendingPayment?: PendingPaymentView | null;
     plans?: PlanView[];
@@ -82,6 +84,7 @@
     openLinkEmailDialog = () => {},
     hasMultipleTariffs = false,
     methods = [],
+    loadData,
     paymentMethodsDisplayMode = "dropdown",
     pendingPayment = null,
     plans = [],
@@ -117,6 +120,8 @@
     return t("wa_promo_deeplink_title_error", {}, "Could not check the promo code");
   });
 </script>
+
+<QaPaymentDialog {api} {loadData} {t} />
 
 <PaymentDialogs
   {api}

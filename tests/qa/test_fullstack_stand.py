@@ -154,6 +154,17 @@ async def _fetch_payment_amount_and_currency(payment_id: int) -> Record:
         await connection.close()
 
 
+async def _fetch_gift_for_payment(payment_id: int) -> Record | None:
+    connection = await asyncpg.connect(DB_DSN)
+    try:
+        return await connection.fetchrow(
+            "select payment_id, purchaser_id, status from subscription_gifts where payment_id = $1",
+            payment_id,
+        )
+    finally:
+        await connection.close()
+
+
 async def _fetch_payment_and_latest_subscription(
     payment_id: int,
     user_id: int,
@@ -310,6 +321,38 @@ def test_qa_payment_webhook_activates_subscription(client: httpx.Client) -> None
     assert subscription["duration_months"] == 1
     assert subscription["is_active"] is True
     assert subscription["panel_user_uuid"]
+
+
+def test_qa_payment_endpoint_issues_gift_once(client: httpx.Client) -> None:
+    session = login_email(client, f"qa-gift-{uuid.uuid4().hex}@example.com")
+    payment_data = _ok(
+        client.post(
+            "/api/payments",
+            headers=session.headers(),
+            json={
+                "method": "qa",
+                "months": 1,
+                "tariff_key": "standard",
+                "sale_mode": "subscription",
+                "gift": True,
+            },
+        )
+    )
+    payment_id = int(payment_data["payment_id"])
+
+    completed = _ok(
+        client.post(f"/api/payments/{payment_id}/qa/complete", headers=session.headers())
+    )
+    duplicate = _ok(
+        client.post(f"/api/payments/{payment_id}/qa/complete", headers=session.headers())
+    )
+
+    assert completed["status"] == "succeeded"
+    assert duplicate["duplicate"] is True
+    gift = asyncio.run(_fetch_gift_for_payment(payment_id))
+    assert gift is not None
+    assert gift["purchaser_id"] == session.user_id
+    assert gift["status"] == "ready"
 
 
 def test_admin_settings_save_roundtrip(client: httpx.Client) -> None:

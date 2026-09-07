@@ -81,7 +81,11 @@ export type PaymentsStore = PaymentsState & {
   ) => Promise<void>;
   closePayment: (opts?: PaymentOpenOptions) => void;
   finalizePayment: (reason: string, confirmPromoConflict: boolean) => Promise<boolean>;
-  reversePayment: (reason: string, restorePromoUsage: boolean) => Promise<boolean>;
+  reversePayment: (
+    reason: string,
+    restorePromoUsage: boolean,
+    refundToBalance?: boolean
+  ) => Promise<boolean>;
   copyToClipboard: (text: unknown, successMessage?: string) => void;
 };
 
@@ -345,7 +349,11 @@ export function createPaymentsStore({
     }
   }
 
-  async function reversePayment(reason: string, restorePromoUsage: boolean): Promise<boolean> {
+  async function reversePayment(
+    reason: string,
+    restorePromoUsage: boolean,
+    refundToBalance: boolean = true
+  ): Promise<boolean> {
     const paymentId = state.openedPaymentId;
     if (!paymentId || state.paymentActionBusy) return false;
     state.paymentActionBusy = true;
@@ -355,6 +363,7 @@ export function createPaymentsStore({
         body: JSON.stringify({
           reason,
           restore_promo_usage: restorePromoUsage,
+          refund_to_balance: refundToBalance,
         } satisfies PostPayload<"/api/admin/payments/{payment_id}/reverse">),
       });
       if (!isOkResponse(response)) {

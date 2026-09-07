@@ -24,7 +24,7 @@ class UserBalanceLedgerEntry(Base):
         CheckConstraint("state IN ('posted', 'void')", name="ck_user_balance_ledger_state"),
         CheckConstraint(
             "kind IN ('payment_topup', 'payment_topup_reversal', 'admin_adjustment', "
-            "'checkout_spend', 'checkout_spend_release', 'partner_conversion_in', "
+            "'checkout_spend', 'checkout_spend_release', 'gift_refund', 'partner_conversion_in', "
             "'partner_conversion_out')",
             name="ck_user_balance_ledger_kind",
         ),

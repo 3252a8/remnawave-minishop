@@ -16,6 +16,8 @@
   import type { components } from "$lib/api/openapi.generated.js";
   import PaymentProviderCell from "$components/patterns/admin/PaymentProviderCell.svelte";
   import GiftCreateDialog from "./GiftCreateDialog.svelte";
+  import GiftRevokeDialog from "./GiftRevokeDialog.svelte";
+  import { canRevokePaidGift } from "$lib/admin/giftRevoke.js";
   type AdminGift = components["schemas"]["AdminGiftView"];
   let {
     api,
@@ -46,6 +48,7 @@
   let failed = $state(false);
   let selected = $state<AdminGift | null>(null);
   let sort = $state("date_desc");
+  let revokeGift = $state<AdminGift | null>(null);
   const columns = [
     ["id", "id"],
     ["buyer", "gifts_buyer_or_creator"],
@@ -136,6 +139,12 @@
     event.preventDefault();
     page = 0;
     appliedQuery = query.trim();
+  }
+  function revoked(gift: AdminGift) {
+    revokeGift = null;
+    selected = gift;
+    gifts = gifts.map((item) => (item.gift_id === gift.gift_id ? gift : item));
+    void load(page, status, appliedQuery, sort);
   }
 </script>
 
@@ -470,8 +479,26 @@
         >
       </div>
     </div>
+    {#if canRevokePaidGift(gift)}
+      <div class="gift-revoke-action">
+        <AdminButton variant="danger" onclick={() => (revokeGift = gift)}>
+          {at("gifts_revoke")}
+        </AdminButton>
+      </div>
+    {/if}
   {/if}
 </Dialog>
+
+{#if revokeGift}
+  <GiftRevokeDialog
+    {api}
+    {at}
+    gift={revokeGift}
+    {fmtMoney}
+    onclose={() => (revokeGift = null)}
+    onrevoked={revoked}
+  />
+{/if}
 
 <style>
   .gifts-admin {
@@ -605,6 +632,11 @@
     gap: 6px;
     min-width: 0;
     overflow-wrap: anywhere;
+  }
+  .gift-revoke-action {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 16px;
   }
   :global(.admin-gift-dialog) {
     width: min(100%, 680px);

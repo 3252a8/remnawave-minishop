@@ -139,4 +139,15 @@ BILLING_ROUTE_CONTRACTS: dict[str, RouteContract] = {
             }
         )
     ),
+    "complete_qa_payment_route": user_contract(
+        response_schema=ok_envelope_with(
+            {
+                "payment_id": INTEGER_SCHEMA,
+                "status": STRING_SCHEMA,
+                "duplicate": BOOLEAN_SCHEMA,
+                "final_end_date": NULLABLE_STRING_SCHEMA,
+            },
+            required=["payment_id", "status"],
+        )
+    ),
 }

@@ -416,6 +416,52 @@ class UserBalanceService:
             posted_at=datetime.now(UTC),
         )
 
+    @staticmethod
+    async def credit_gift_refund(
+        session: AsyncSession,
+        *,
+        gift_id: int,
+        purchaser_id: int,
+        amount: Any,
+        currency: str,
+        actor_admin_id: int,
+        reason: str,
+    ) -> UserBalanceLedgerEntry:
+        normalized_currency = str(currency).strip().upper()
+        scale = currency_scale(normalized_currency)
+        amount_minor = amount_to_minor(amount, scale=scale)
+        if amount_minor <= 0:
+            raise UserBalanceError("user_balance_zero_amount", 400)
+        user = await user_dal.lock_user_by_id(session, purchaser_id)
+        if user is None:
+            raise UserBalanceError("user_not_found", 404)
+        key = f"user-balance-gift-refund:{gift_id}"
+        existing = await user_balance_dal.get_ledger_entry_by_key(session, key)
+        if existing is not None:
+            if (
+                int(existing.user_id) != purchaser_id
+                or str(existing.currency).upper() != normalized_currency
+                or int(existing.amount_minor) != amount_minor
+                or str(existing.kind) != "gift_refund"
+            ):
+                raise UserBalanceError("gift_refund_conflict", 409)
+            return existing
+        return await user_balance_dal.create_ledger_entry(
+            session,
+            user_id=purchaser_id,
+            currency=normalized_currency,
+            currency_scale=scale,
+            amount_minor=amount_minor,
+            kind="gift_refund",
+            state="posted",
+            reference_type="subscription_gift",
+            reference_id=str(gift_id),
+            idempotency_key=key,
+            actor_admin_id=actor_admin_id,
+            reason=reason,
+            posted_at=datetime.now(UTC),
+        )
+
     async def admin_adjust(
         self,
         session: AsyncSession,

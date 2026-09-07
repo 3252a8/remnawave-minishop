@@ -9,6 +9,7 @@ from .chain_0075_period_days import CHAIN_0075_PERIOD_DAYS
 from .chain_0076_tariff_squad_sync import CHAIN_0076_TARIFF_SQUAD_SYNC
 from .chain_0077_subscription_gifts import CHAIN_0077_SUBSCRIPTION_GIFTS
 from .chain_0078_gift_entitlements import CHAIN_0078_GIFT_ENTITLEMENTS
+from .chain_0084_gift_refunds import CHAIN_0084_GIFT_REFUNDS
 from .engine import Migration
 
 MIGRATIONS: list[Migration] = [
@@ -21,4 +22,5 @@ MIGRATIONS: list[Migration] = [
     *CHAIN_0076_TARIFF_SQUAD_SYNC,
     *CHAIN_0077_SUBSCRIPTION_GIFTS,
     *CHAIN_0078_GIFT_ENTITLEMENTS,
+    *CHAIN_0084_GIFT_REFUNDS,
 ]

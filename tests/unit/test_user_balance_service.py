@@ -226,6 +226,38 @@ class UserBalanceLifecycleTests(IsolatedAsyncioTestCase):
         self.assertEqual(create_call.kwargs["currency_scale"], 2)
         self.assertEqual(create_call.kwargs["amount_minor"], 1_234)
 
+    async def test_gift_refund_credits_even_when_balance_is_disabled(self) -> None:
+        service = UserBalanceService(_settings(enabled=False))
+        create = AsyncMock(return_value=SimpleNamespace(entry_id=9))
+        with (
+            patch(
+                "bot.services.user_balance_service.user_dal.lock_user_by_id",
+                AsyncMock(return_value=SimpleNamespace(is_banned=False)),
+            ),
+            patch(
+                "bot.services.user_balance_service.user_balance_dal.get_ledger_entry_by_key",
+                AsyncMock(return_value=None),
+            ),
+            patch(
+                "bot.services.user_balance_service.user_balance_dal.create_ledger_entry",
+                create,
+            ),
+        ):
+            result = await service.credit_gift_refund(
+                cast(AsyncSession, object()),
+                gift_id=8,
+                purchaser_id=42,
+                amount=12.345,
+                currency="KWD",
+                actor_admin_id=1,
+                reason="duplicate gift",
+            )
+
+        self.assertEqual(result.entry_id, 9)
+        self.assertEqual(create.await_args.kwargs["amount_minor"], 12_345)
+        self.assertEqual(create.await_args.kwargs["kind"], "gift_refund")
+        self.assertEqual(create.await_args.kwargs["actor_admin_id"], 1)
+
     async def test_admin_adjustment_cannot_make_balance_negative(self) -> None:
         service = UserBalanceService(_settings())
         with (
