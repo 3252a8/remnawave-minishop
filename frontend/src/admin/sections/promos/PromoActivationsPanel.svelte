@@ -13,6 +13,7 @@
   import type { components } from "../../../lib/api/openapi.generated";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
   import type { AdminSortColumn } from "$lib/admin/tableSort.js";
+  import { formatAdminPromoEffect } from "$lib/admin/promoEffectDisplay.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type PromoActivation = components["schemas"]["PromoActivationOut"];
@@ -82,40 +83,8 @@
       : String(Math.round(parsed * 100) / 100);
   }
 
-  function multiplierText(value: number | null | undefined): string | null {
-    if (value == null || Number(value) === 1) return null;
-    return `x${numberText(value)}`;
-  }
-
-  function effectPieces(row: PromoActivation): string[] {
-    const parts: string[] = [];
-    if (Number(row.bonus_days || 0) > 0) {
-      parts.push(`+${row.bonus_days} ${at("days_short", {}, "d")}`);
-    }
-    if (Number(row.regular_traffic_gb || 0) > 0) {
-      parts.push(
-        `+${numberText(row.regular_traffic_gb)} ${at("promo_regular_traffic_short", {}, "GB regular")}`
-      );
-    }
-    if (Number(row.premium_traffic_gb || 0) > 0) {
-      parts.push(
-        `+${numberText(row.premium_traffic_gb)} ${at("promo_premium_traffic_short", {}, "GB premium")}`
-      );
-    }
-    if (Number(row.discount_percent || 0) > 0) {
-      parts.push(`-${numberText(row.discount_percent)}%`);
-    }
-    const duration = multiplierText(row.duration_multiplier);
-    if (duration) parts.push(`${duration} ${at("promo_effect_duration", {}, "duration")}`);
-    const traffic = multiplierText(row.traffic_multiplier);
-    if (traffic) parts.push(`${traffic} ${at("promo_effect_traffic", {}, "traffic")}`);
-    return parts;
-  }
-
   function activationEffectText(row: PromoActivation): string {
-    if (row.effect_summary) return row.effect_summary;
-    const parts = effectPieces(row);
-    return parts.length ? parts.join(" + ") : "-";
+    return formatAdminPromoEffect(row, at);
   }
 
   function paymentLabel(row: PromoActivation): string {

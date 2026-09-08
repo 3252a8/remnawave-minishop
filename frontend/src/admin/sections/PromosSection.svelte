@@ -20,6 +20,11 @@
   import type { PromoKind } from "$lib/admin/stores/promosStore.svelte";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
   import type { AdminSortColumn } from "$lib/admin/tableSort.js";
+  import {
+    formatAdminPromoEffect,
+    formatAdminPromoEligibility,
+  } from "$lib/admin/promoEffectDisplay.js";
+  import type { PromoEffectSource } from "$lib/admin/promoEffectDisplay.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type Promo = components["schemas"]["PromoOut"];
@@ -61,17 +66,6 @@
     | "traffic_multiplier"
     | "min_subscription_days"
     | "min_traffic_gb";
-  type EffectLike = {
-    bonus_days?: number | null;
-    regular_traffic_gb?: number | null;
-    premium_traffic_gb?: number | null;
-    discount_percent?: number | null;
-    duration_multiplier?: number | null;
-    traffic_multiplier?: number | null;
-    bonus_requires_payment?: boolean | null;
-    effect_summary?: string | null;
-  };
-
   const BASIC_EDIT_FIELDS: readonly PromoEditField[] = [
     "is_active",
     "applies_to",
@@ -231,20 +225,6 @@
     return Number.isFinite(parsed) ? parsed : null;
   }
 
-  function numberText(value: number | string | null | undefined): string {
-    if (value == null || value === "") return "-";
-    const parsed = Number(value);
-    if (!Number.isFinite(parsed)) return "-";
-    return Math.abs(parsed - Math.round(parsed)) < 1e-9
-      ? String(Math.round(parsed))
-      : String(Math.round(parsed * 100) / 100);
-  }
-
-  function multiplierText(value: number | null | undefined): string | null {
-    if (value == null || Number(value) === 1) return null;
-    return `x${numberText(value)}`;
-  }
-
   function positiveNumber(
     value: number | string | null | undefined,
     fallback: number,
@@ -254,7 +234,7 @@
     return Number.isFinite(parsed) && parsed > minimum ? parsed : fallback;
   }
 
-  function hasFixedGrant(promo: EffectLike): boolean {
+  function hasFixedGrant(promo: PromoEffectSource): boolean {
     return (
       Number(promo.bonus_days || 0) > 0 ||
       Number(promo.regular_traffic_gb || 0) > 0 ||
@@ -262,7 +242,7 @@
     );
   }
 
-  function effectUsesCheckout(promo: EffectLike): boolean {
+  function effectUsesCheckout(promo: PromoEffectSource): boolean {
     return (
       Boolean(promo.bonus_requires_payment) ||
       Number(promo.discount_percent || 0) > 0 ||
@@ -317,7 +297,7 @@
   function toggledEffectPatch(
     kind: PromoEffectKind,
     checked: boolean,
-    source: EffectLike
+    source: PromoEffectSource
   ): Partial<PromoDraft> {
     const values: Record<PromoEffectKind, number | null> = {
       bonus_days: checked ? Math.max(1, Math.trunc(positiveNumber(source.bonus_days, 7))) : 0,
@@ -406,26 +386,7 @@
   }
 
   function thresholdText(promo: Promo | PromoPatch): string {
-    const parts: string[] = [];
-    if (promo.min_subscription_days) {
-      parts.push(
-        at(
-          "promo_threshold_months",
-          { months: promo.min_subscription_days },
-          `from ${promo.min_subscription_days} mo`
-        )
-      );
-    }
-    if (promo.min_traffic_gb) {
-      parts.push(
-        at(
-          "promo_threshold_gb",
-          { gb: numberText(promo.min_traffic_gb) },
-          `from ${numberText(promo.min_traffic_gb)} GB`
-        )
-      );
-    }
-    return parts.join(", ") || "-";
+    return formatAdminPromoEligibility(promo, at);
   }
 
   /** Who a personal code was issued for, in whatever form the profile has. */
@@ -456,39 +417,8 @@
     return at("promo_type_bonus", {}, "Bonus");
   }
 
-  function effectPieces(promo: EffectLike): string[] {
-    const parts: string[] = [];
-    if (Number(promo.bonus_days || 0) > 0) {
-      parts.push(`+${promo.bonus_days} ${at("days_short", {}, "d")}`);
-    }
-    if (Number(promo.regular_traffic_gb || 0) > 0) {
-      parts.push(
-        `+${numberText(promo.regular_traffic_gb)} ${at("promo_regular_traffic_short", {}, "GB regular")}`
-      );
-    }
-    if (Number(promo.premium_traffic_gb || 0) > 0) {
-      parts.push(
-        `+${numberText(promo.premium_traffic_gb)} ${at("promo_premium_traffic_short", {}, "GB premium")}`
-      );
-    }
-    if (Number(promo.discount_percent || 0) > 0) {
-      parts.push(`-${numberText(promo.discount_percent)}%`);
-    }
-    const duration = multiplierText(promo.duration_multiplier);
-    if (duration) parts.push(`${duration} ${at("promo_effect_duration", {}, "duration")}`);
-    const traffic = multiplierText(promo.traffic_multiplier);
-    if (traffic) parts.push(`${traffic} ${at("promo_effect_traffic", {}, "traffic")}`);
-    return parts;
-  }
-
-  function effectText(promo: EffectLike): string {
-    const parts = effectPieces(promo);
-    const text = promo.effect_summary || (parts.length ? parts.join(" + ") : "-");
-    if (!hasFixedGrant(promo)) return text;
-    const mode = effectUsesCheckout(promo)
-      ? at("promo_bonus_mode_payment_short", {}, "after payment")
-      : at("promo_bonus_mode_instant_short", {}, "instant");
-    return `${text} · ${mode}`;
+  function effectText(promo: PromoEffectSource): string {
+    return formatAdminPromoEffect(promo, at, { includeGrantMode: true });
   }
 
   function promoStatus(promo: Promo): { label: string; variant: "success" | "warning" | "muted" } {
