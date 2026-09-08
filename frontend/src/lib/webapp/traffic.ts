@@ -90,6 +90,11 @@ export function trafficNextResetLabel(
   return nextResetText(sub?.traffic_next_reset_text, t);
 }
 
+export function trafficNextResetDate(sub: SubscriptionTraffic | null | undefined): string {
+  if (!trafficResetScheduled(sub)) return "";
+  return String(sub?.traffic_next_reset_text || "").trim();
+}
+
 export function premiumTrafficPercent(sub: SubscriptionTraffic | null | undefined): number {
   const used = Number(sub?.premium_used_bytes || 0);
   const limit = Number(sub?.premium_limit_bytes || 0);
@@ -124,6 +129,11 @@ export function premiumNextResetLabel(
 export function premiumTrafficResetScheduled(sub: SubscriptionTraffic | null | undefined): boolean {
   const strategy = normalizedResetStrategy(sub?.premium_traffic_limit_strategy);
   return Boolean(strategy && !strategy.includes("NO_RESET"));
+}
+
+export function premiumNextResetDate(sub: SubscriptionTraffic | null | undefined): string {
+  if (!premiumTrafficResetScheduled(sub)) return "";
+  return String(sub?.premium_next_reset_text || "").trim();
 }
 
 export function premiumTrafficResetLabel(

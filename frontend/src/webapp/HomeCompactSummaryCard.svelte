@@ -17,7 +17,7 @@
   import { shouldShowUserBalance } from "$lib/webapp/balanceUiPolicy.js";
   import {
     premiumTitle as premiumTitleFn,
-    premiumNextResetLabel as premiumNextResetLabelFn,
+    premiumNextResetDate as premiumNextResetDateFn,
     premiumServerLabels as premiumServerLabelsFn,
     premiumTrafficLabel as premiumTrafficLabelFn,
     premiumTrafficLimitVisible as premiumTrafficLimitVisibleFn,
@@ -25,10 +25,9 @@
     premiumTrafficResetLabel as premiumTrafficResetLabelFn,
     regularTrafficLimitVisible as regularTrafficLimitVisibleFn,
     trafficLabel as trafficLabelFn,
-    trafficNextResetLabel as trafficNextResetLabelFn,
+    trafficNextResetDate as trafficNextResetDateFn,
     trafficPercent as trafficPercentFn,
     trafficResetLabel as trafficResetLabelFn,
-    trafficResetScheduled as trafficResetScheduledFn,
   } from "$lib/webapp/traffic.js";
   import type {
     BalanceView,
@@ -86,10 +85,9 @@
     t?: Translate;
   } = $props();
 
-  const REGULAR_TRAFFIC_HELP_ID = "compact-regular-traffic-help";
   const PREMIUM_TRAFFIC_HELP_ID = "compact-premium-traffic-help";
   const HELP_TRANSITION = { duration: 120 };
-  let trafficHelpOpen = $state<"regular" | "premium" | null>(null);
+  let premiumTrafficHelpOpen = $state(false);
 
   const regularTrafficVisible = $derived(
     Boolean(subscription.active && regularTrafficLimitVisibleFn(subscription))
@@ -97,8 +95,7 @@
   const regularTrafficPercent = $derived(trafficPercentFn(subscription));
   const regularTrafficLabel = $derived(trafficLabelFn(subscription, t));
   const regularTrafficMeta = $derived(trafficResetLabelFn(subscription, t));
-  const regularTrafficResetScheduled = $derived(trafficResetScheduledFn(subscription));
-  const regularTrafficNextReset = $derived(trafficNextResetLabelFn(subscription, t));
+  const regularTrafficNextReset = $derived(trafficNextResetDateFn(subscription));
   const regularTrafficDepleted = $derived(
     Number(subscription?.traffic_limit_bytes || 0) > 0 &&
       Number(subscription?.traffic_used_bytes || 0) >=
@@ -112,8 +109,11 @@
   const premiumTrafficPercent = $derived(premiumTrafficPercentFn(subscription));
   const premiumTrafficLabel = $derived(premiumTrafficLabelFn(subscription, t));
   const premiumTrafficTitle = $derived(premiumTitleFn(subscription, t));
-  const premiumTrafficNextReset = $derived(premiumNextResetLabelFn(subscription, t));
+  const premiumTrafficNextReset = $derived(premiumNextResetDateFn(subscription));
   const premiumServerLabels = $derived(premiumServerLabelsFn(subscription).slice(0, 8));
+  const premiumServerDisplayLabels = $derived(
+    premiumServerLabels.length ? premiumServerLabels : [premiumTrafficTitle]
+  );
   const premiumTrafficMeta = $derived(
     subscription?.premium_is_limited
       ? t("wa_premium_access_limited", {}, "Premium access is temporarily limited")
@@ -132,35 +132,24 @@
       .join(" ")
   );
 
-  function toggleTrafficHelp(kind: "regular" | "premium"): void {
-    trafficHelpOpen = trafficHelpOpen === kind ? null : kind;
+  function togglePremiumTrafficHelp(event: MouseEvent): void {
+    event.stopPropagation();
+    premiumTrafficHelpOpen = !premiumTrafficHelpOpen;
   }
 
   function closeTrafficHelpOnOutsideClick(event: MouseEvent): void {
-    if (!trafficHelpOpen) return;
+    if (!premiumTrafficHelpOpen) return;
 
     const target = event.target;
     if (!(target instanceof Node)) {
-      trafficHelpOpen = null;
+      premiumTrafficHelpOpen = false;
       return;
     }
 
-    const openHelpId =
-      trafficHelpOpen === "regular" ? REGULAR_TRAFFIC_HELP_ID : PREMIUM_TRAFFIC_HELP_ID;
-    if (document.getElementById(openHelpId)?.contains(target)) return;
-    if (target instanceof Element && target.closest(".compact-traffic-click-target")) return;
+    if (document.getElementById(PREMIUM_TRAFFIC_HELP_ID)?.contains(target)) return;
+    if (target instanceof Element && target.closest(".compact-traffic-help-trigger")) return;
 
-    trafficHelpOpen = null;
-  }
-
-  function openRegularTopupFromHelp(): void {
-    trafficHelpOpen = null;
-    openRegularTopupModal();
-  }
-
-  function openPremiumTopupFromHelp(): void {
-    trafficHelpOpen = null;
-    openPremiumTopupModal();
+    premiumTrafficHelpOpen = false;
   }
 </script>
 
@@ -255,85 +244,60 @@
     <div class="compact-traffic-grid">
       {#if regularTrafficVisible}
         <div class="compact-traffic-item">
-          <button
-            data-webapp-action="open-regular-traffic-help"
-            class="compact-traffic-click-target"
-            type="button"
-            onclick={() => toggleTrafficHelp("regular")}
-            aria-expanded={trafficHelpOpen === "regular"}
-            aria-controls={REGULAR_TRAFFIC_HELP_ID}
-            aria-label={`${t("wa_home_traffic_used")}: ${regularTrafficMeta}`}
-          ></button>
+          {#if regularTrafficTopupBarClickable}
+            <button
+              data-webapp-action="open-regular-topup"
+              class="compact-traffic-click-target"
+              type="button"
+              onclick={openRegularTopupModal}
+              aria-label={t("wa_add_traffic")}
+            ></button>
+          {/if}
           <div class="compact-traffic-label">
             <span>
               {t("wa_home_traffic_used")}
-              <small>· {regularTrafficMeta}</small>
-              <CircleQuestionMark class="compact-traffic-help-icon" size={12} />
+              <small>
+                · {regularTrafficMeta}
+                {#if regularTrafficNextReset}· {regularTrafficNextReset}{/if}
+              </small>
             </span>
             <strong>{regularTrafficLabel} · {regularTrafficPercent}%</strong>
           </div>
           <LinearProgress value={regularTrafficPercent} label={t("wa_home_traffic_used")} />
-          {#if trafficHelpOpen === "regular"}
-            <div
-              id={REGULAR_TRAFFIC_HELP_ID}
-              class="compact-traffic-help compact-traffic-help-regular"
-              role="dialog"
-              aria-label={t("wa_home_traffic_used")}
-              transition:fade={HELP_TRANSITION}
-            >
-              <button
-                class="compact-traffic-help-close"
-                type="button"
-                onclick={() => (trafficHelpOpen = null)}
-                aria-label={t("wa_close")}
-              >
-                <CircleX size={14} />
-              </button>
-              {#if regularTrafficResetScheduled}
-                <div class="compact-traffic-help-row">
-                  <small>{t("wa_traffic_next_reset_label", {}, "Next reset")}</small>
-                  <strong>{regularTrafficNextReset}</strong>
-                </div>
-              {:else}
-                <div class="compact-traffic-help-row">
-                  <small>{t("wa_traffic_reset_policy", {}, "Traffic reset policy")}</small>
-                  <strong>{regularTrafficMeta}</strong>
-                </div>
-                <p>
-                  {t(
-                    "wa_traffic_reset_none_details",
-                    {},
-                    "Traffic does not reset automatically: available volume stays until you use it. If the tariff supports top-ups, you can add traffic with a separate package."
-                  )}
-                </p>
-              {/if}
-              {#if regularTrafficTopupBarClickable}
-                <Button size="sm" variant="secondary" onclick={openRegularTopupFromHelp}>
-                  <Plus size={14} />
-                  {t("wa_add_traffic")}
-                </Button>
-              {/if}
-            </div>
-          {/if}
         </div>
       {/if}
 
       {#if premiumTrafficVisible}
         <div class="compact-traffic-item">
-          <button
-            data-webapp-action="open-premium-traffic-help"
-            class="compact-traffic-click-target"
-            type="button"
-            onclick={() => toggleTrafficHelp("premium")}
-            aria-expanded={trafficHelpOpen === "premium"}
-            aria-controls={PREMIUM_TRAFFIC_HELP_ID}
-            aria-label={`${premiumTrafficTitle}: ${premiumTrafficMeta}`}
-          ></button>
+          {#if premiumTrafficTopupBarClickable}
+            <button
+              data-webapp-action="open-premium-topup"
+              class="compact-traffic-click-target"
+              type="button"
+              onclick={openPremiumTopupModal}
+              aria-label={t("wa_add_traffic_premium", { target: premiumTrafficTitle })}
+            ></button>
+          {/if}
           <div class="compact-traffic-label">
             <span>
               {premiumTrafficTitle}
-              <small>· {premiumTrafficMeta}</small>
-              <CircleQuestionMark class="compact-traffic-help-icon" size={12} />
+              <small>
+                · {premiumTrafficMeta}
+                {#if premiumTrafficNextReset}· {premiumTrafficNextReset}{/if}
+              </small>
+              <Button
+                data-webapp-action="open-premium-traffic-help"
+                class="compact-traffic-help-trigger"
+                type="button"
+                variant="ghost"
+                size="icon"
+                onclick={togglePremiumTrafficHelp}
+                aria-expanded={premiumTrafficHelpOpen}
+                aria-controls={PREMIUM_TRAFFIC_HELP_ID}
+                aria-label={t("wa_premium_servers_scope_label", {}, "Limit applies to")}
+              >
+                <CircleQuestionMark class="compact-traffic-help-icon" size={12} />
+              </Button>
             </span>
             <strong>{premiumTrafficLabel} · {premiumTrafficPercent}%</strong>
           </div>
@@ -342,7 +306,7 @@
             value={premiumTrafficPercent}
             label={premiumTrafficTitle}
           />
-          {#if trafficHelpOpen === "premium"}
+          {#if premiumTrafficHelpOpen}
             <div
               id={PREMIUM_TRAFFIC_HELP_ID}
               class="compact-traffic-help compact-traffic-help-premium"
@@ -353,31 +317,19 @@
               <button
                 class="compact-traffic-help-close"
                 type="button"
-                onclick={() => (trafficHelpOpen = null)}
+                onclick={() => (premiumTrafficHelpOpen = false)}
                 aria-label={t("wa_close")}
               >
                 <CircleX size={14} />
               </button>
-              <div class="compact-traffic-help-row">
-                <small>{t("wa_traffic_next_reset_label", {}, "Next reset")}</small>
-                <strong>{premiumTrafficNextReset}</strong>
-              </div>
-              {#if premiumServerLabels.length}
-                <div class="compact-traffic-help-scope">
-                  <small>{t("wa_premium_servers_scope_label", {}, "Limit applies to")}</small>
-                  <div>
-                    {#each premiumServerLabels as label}
-                      <span>{label}</span>
-                    {/each}
-                  </div>
+              <div class="compact-traffic-help-scope">
+                <small>{t("wa_premium_servers_scope_label", {}, "Limit applies to")}</small>
+                <div>
+                  {#each premiumServerDisplayLabels as label}
+                    <span>{label}</span>
+                  {/each}
                 </div>
-              {/if}
-              {#if premiumTrafficTopupBarClickable}
-                <Button size="sm" variant="secondary" onclick={openPremiumTopupFromHelp}>
-                  <Plus size={14} />
-                  {t("wa_add_traffic_premium", { target: premiumTrafficTitle })}
-                </Button>
-              {/if}
+              </div>
             </div>
           {/if}
         </div>
@@ -572,6 +524,16 @@
   .compact-traffic-label small {
     font-size: inherit;
   }
+  :global(section.home-compact-summary .compact-traffic-help-trigger.btn) {
+    position: relative;
+    z-index: 3;
+    width: 18px;
+    min-height: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    padding: 0;
+    color: var(--muted);
+  }
   :global(svg.compact-traffic-help-icon) {
     flex: 0 0 auto;
     opacity: 0.72;
@@ -593,9 +555,6 @@
     border-radius: calc(var(--radius) - 1px);
     background: color-mix(in srgb, var(--panel) 96%, transparent);
     box-shadow: 0 12px 34px rgba(0, 0, 0, 0.42);
-  }
-  .compact-traffic-help-regular {
-    top: calc(100% + 5px);
   }
   .compact-traffic-help-premium {
     bottom: calc(100% + 5px);
@@ -620,25 +579,9 @@
     color: var(--text);
     background: var(--surface-hover);
   }
-  .compact-traffic-help-row {
-    min-width: 0;
-    display: grid;
-    gap: 2px;
-    padding-right: 24px;
-  }
-  .compact-traffic-help-row small,
   .compact-traffic-help-scope > small {
     color: var(--muted);
     font-size: 10px;
-  }
-  .compact-traffic-help-row strong {
-    font-size: 12px;
-  }
-  .compact-traffic-help p {
-    margin: 0;
-    color: var(--muted);
-    font-size: 11px;
-    line-height: 1.35;
   }
   .compact-traffic-help-scope {
     display: grid;

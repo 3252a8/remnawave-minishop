@@ -16,12 +16,14 @@ import { ruFractionAware, ruPlural, unitPluralBucket } from "./plurals.js";
 import {
   activeSubscriptionTermLabel,
   isForeverSubscription,
+  premiumNextResetDate,
   premiumNextResetLabel,
   premiumServerLabels,
   premiumTrafficLeftLabel,
   premiumTrafficResetLabel,
   premiumTrafficResetScheduled,
   trafficLabel,
+  trafficNextResetDate,
   trafficNextResetLabel,
   trafficPercent,
   trafficResetLabel,
@@ -88,9 +90,30 @@ describe("webapp traffic helpers", () => {
     expect(trafficResetScheduled({ traffic_limit_strategy: "MONTH_ROLLING" })).toBe(true);
     expect(trafficResetScheduled({ traffic_limit_strategy: "NO_RESET" })).toBe(false);
     expect(trafficNextResetLabel({ traffic_next_reset_text: "05.07.2026" }, t)).toBe("05.07.2026");
+    expect(
+      trafficNextResetDate({
+        traffic_limit_strategy: "MONTH",
+        traffic_next_reset_text: "05.07.2026",
+      })
+    ).toBe("05.07.2026");
+    expect(
+      trafficNextResetDate({ traffic_limit_strategy: "NO_RESET", traffic_next_reset_text: "stale" })
+    ).toBe("");
     expect(premiumNextResetLabel({ premium_next_reset_text: "" }, t)).toBe(
       "wa_traffic_next_reset_none:{}"
     );
+    expect(
+      premiumNextResetDate({
+        premium_traffic_limit_strategy: "WEEK",
+        premium_next_reset_text: "06.07.2026",
+      })
+    ).toBe("06.07.2026");
+    expect(
+      premiumNextResetDate({
+        premium_traffic_limit_strategy: "NO_RESET",
+        premium_next_reset_text: "stale",
+      })
+    ).toBe("");
     expect(premiumTrafficResetLabel({ premium_traffic_limit_strategy: "MONTH" }, t)).toBe(
       "wa_traffic_reset_monthly:{}"
     );
