@@ -546,6 +546,10 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                     }
                     if snapshot.duration_days is not None:
                         notification_kwargs["duration_days"] = snapshot.duration_days
+                    if snapshot.promo_code:
+                        notification_kwargs["promo_code"] = snapshot.promo_code
+                    if snapshot.discount_amount is not None and snapshot.discount_amount > 0:
+                        notification_kwargs["discount_amount"] = snapshot.discount_amount
                     if snapshot.sale_mode_base == "balance_topup" or "gift" in str(
                         snapshot.sale_mode
                     ).split("|"):

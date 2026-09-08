@@ -554,6 +554,8 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         sale_mode: str | None = None,
         payment_id: int | None = None,
         duration_days: int | None = None,
+        promo_code: str | None = None,
+        discount_amount: float | None = None,
     ) -> None:
         """Send notification about successful payment"""
         if not self.settings.LOG_PAYMENTS:
@@ -674,6 +676,22 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
                 payment_provider=payment_provider,
                 timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
             )
+
+        payment_detail_lines: list[str] = []
+        if promo_code:
+            payment_detail_lines.append(
+                _("log_payment_promo_code_line", promo_code=hd.quote(promo_code))
+            )
+        if discount_amount is not None and discount_amount > 0:
+            payment_detail_lines.append(
+                _(
+                    "log_payment_discount_line",
+                    discount_amount=self._format_traffic_gb_admin(discount_amount),
+                    currency=hd.quote(currency),
+                )
+            )
+        if payment_detail_lines:
+            message = f"{message}\n" + "\n".join(payment_detail_lines)
 
         # Send to log channel
         if "gift" in str(sale_mode or "").split("|"):

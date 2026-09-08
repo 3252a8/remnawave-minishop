@@ -542,6 +542,8 @@
   "log_balance_topup_received": "{provider_emoji} <b>Пополнен баланс пользователя</b>\n\n👤 Пользователь: {user_display}\n💰 Зачислено: <b>{amount} {currency}</b>\n🏦 Провайдер: {payment_provider}\n🧾 ID платежа: <code>{payment_id}</code>\n🕐 Время: {timestamp}",
   "log_payment_received_traffic": "{provider_emoji} <b>Получен платеж (докупка трафика)</b>\n\n👤 Пользователь: {user_display}\n💰 Сумма: <b>{amount} {currency}</b>\n🗂 {traffic_summary}\n{tariff_line}🏦 Провайдер: {payment_provider}\n🕐 Время: {timestamp}",
   "log_payment_received_with_purchases": "{provider_emoji} <b>Получен платеж</b>\n\n👤 Пользователь: {user_display}\n💰 Сумма: <b>{amount} {currency}</b>\n{period_line}{purchase_summary_line}{tariff_line}🏦 Провайдер: {payment_provider}\n🕐 Время: {timestamp}",
+  "log_payment_promo_code_line": "🏷 Промокод: <code>{promo_code}</code>",
+  "log_payment_discount_line": "💸 Скидка: <b>{discount_amount} {currency}</b>",
   "log_payment_period_line": "📅 Период: <b>{months} мес.</b>\n",
   "log_payment_purchase_summary_line": "🗂 {summary}\n",
   "log_payment_traffic_purchase_line": "<b>{gb} ГБ</b> · {kind}",

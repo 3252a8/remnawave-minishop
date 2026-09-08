@@ -53,6 +53,8 @@ class _I18n:
         "log_payment_hwid_devices_purchase_line": "+{count} HWID devices",
         "log_payment_generic_purchase_line": "{amount} {unit} - {kind}",
         "log_payment_tariff_line": "Plan: {name}\n",
+        "log_payment_promo_code_line": "Promo code: {promo_code}",
+        "log_payment_discount_line": "Discount: {discount_amount} {currency}",
     }
 
     def gettext(self, _language, key, **kwargs):
@@ -74,6 +76,24 @@ def _service() -> NotificationService:
 
 
 class PaymentLogNotificationTests(IsolatedAsyncioTestCase):
+    async def test_payment_log_includes_promo_code_and_actual_discount(self):
+        service = _service()
+
+        await service.notify_payment_received(
+            user_id=42,
+            amount=72,
+            currency="RUB",
+            months=1,
+            payment_provider="yookassa",
+            username="alice",
+            promo_code="AGATA<&",
+            discount_amount=28,
+        )
+
+        message = service._send_to_log_channel.await_args.args[0]
+        self.assertIn("Promo code: AGATA&lt;&amp;", message)
+        self.assertIn("Discount: 28 RUB", message)
+
     async def test_balance_topup_log_names_the_flow_and_payment(self):
         service = _service()
 

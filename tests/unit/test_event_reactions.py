@@ -331,6 +331,9 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
             provider="yookassa",
             sale_mode="premium_topup@standard",
             tariff_key="standard",
+            promo_code_id=17,
+            promo_code_used=SimpleNamespace(code="AGATA", archived_code=None),
+            checkout_discount_amount=28,
         )
 
         with (
@@ -374,6 +377,8 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
             tariff_key="standard",
             purchased_hwid_devices=None,
             purchases=ANY,
+            promo_code="AGATA",
+            discount_amount=28.0,
         )
         invalidate.assert_awaited_once_with(ctx.settings, 42, include_devices=True)
 

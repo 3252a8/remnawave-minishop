@@ -63,6 +63,7 @@ class PaymentSuccessSnapshot:
     traffic_is_premium: bool
     purchased_hwid_devices: int | None
     promo_code_id: int | None
+    promo_code: str | None
     base_amount: float | None
     discount_amount: float | None
     purchases: tuple[PaymentPurchase, ...]
@@ -121,6 +122,17 @@ def _optional_int(value: Any) -> int | None:
 
 def _getattr_or_none(source: Any, name: str) -> Any:
     return getattr(source, name, None) if source is not None else None
+
+
+def _payment_promo_code(payload: Mapping[str, Any], payment: Any) -> str | None:
+    payload_code = str(payload.get("promo_code") or "").strip()
+    if payload_code:
+        return payload_code
+    promo = _getattr_or_none(payment, "promo_code_used")
+    code = str(
+        _getattr_or_none(promo, "archived_code") or _getattr_or_none(promo, "code") or ""
+    ).strip()
+    return code or None
 
 
 def _resolve_traffic_purchase(ctx: PaymentPurchaseContext) -> Iterable[PaymentPurchase]:
@@ -289,6 +301,7 @@ def resolve_payment_success_snapshot(
         promo_code_id=_optional_int(
             payload.get("promo_code_id") or _getattr_or_none(payment, "promo_code_id")
         ),
+        promo_code=_payment_promo_code(payload, payment),
         base_amount=_first_optional_float(
             payload.get("base_amount"),
             _getattr_or_none(payment, "checkout_base_amount"),

@@ -101,6 +101,34 @@ def test_payment_success_snapshot_backfills_checkout_amounts_from_payment():
     assert snapshot.discount_amount == 25.0
 
 
+def test_payment_success_snapshot_resolves_public_promo_code_from_payment():
+    payment = SimpleNamespace(
+        amount=75.0,
+        currency="RUB",
+        provider="wata",
+        sale_mode="subscription@standard",
+        subscription_duration_months=1,
+        promo_code_id=17,
+        promo_code_used=SimpleNamespace(
+            code="__ARCHIVED_PROMO__17__AGATA",
+            archived_code="AGATA",
+        ),
+        checkout_discount_amount=25.0,
+    )
+
+    snapshot = resolve_payment_success_snapshot(
+        {
+            "user_id": 42,
+            "payment_db_id": 5,
+            "sale_mode": "subscription@standard",
+        },
+        payment,
+    )
+
+    assert snapshot.promo_code == "AGATA"
+    assert snapshot.discount_amount == 25.0
+
+
 def test_payment_success_snapshot_keeps_explicit_zero_discount():
     payment = SimpleNamespace(
         amount=100.0,
