@@ -72,6 +72,7 @@ export function createTelegramRuntime<Tg = TelegramWebApp | null>({
 }): TelegramRuntime<Tg> {
   function setInitData(initData: string) {
     shellState.telegramMiniAppInitData = initData || "";
+    if (initData) shellState.telegramHasLaunchParams = true;
   }
 
   function setStatus(status: string) {
