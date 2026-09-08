@@ -23,6 +23,23 @@ type DemoDatasetShape = Record<string, unknown> & {
 };
 
 const DATASET = DEMO_DATASET as unknown as DemoDatasetShape;
+const USER_BALANCE_PREVIEW_AMOUNT_MINOR = 128_450;
+
+function setUserBalanceScenario(enabled: boolean): void {
+  const balance = DEV_MOCK.data.balance;
+  const currencyScale = Number(balance.currency_scale || 2);
+  const amountMinor = enabled ? USER_BALANCE_PREVIEW_AMOUNT_MINOR : 0;
+  const amount = (amountMinor / 10 ** currencyScale).toFixed(currencyScale);
+
+  Object.assign(balance, { enabled, amount_minor: amountMinor, amount });
+
+  const sources = Array.isArray(balance.sources) ? balance.sources : [];
+  const userSource = sources.find(
+    (item) =>
+      typeof item === "object" && item !== null && (item as Record<string, unknown>).id === "user"
+  ) as Record<string, unknown> | undefined;
+  if (userSource) Object.assign(userSource, { amount_minor: amountMinor, amount });
+}
 
 function applyPaymentPurchasesScenario(): void {
   const payments = DATASET.adminPayments;
@@ -122,6 +139,7 @@ export function applyDemoDataset(): void {
       ...(DATASET.webappSettings || {}),
     },
   });
+  setUserBalanceScenario(false);
 }
 
 function applyDemoTariffScenario(subscriptionPatch: Record<string, unknown> = {}): void {
@@ -259,7 +277,7 @@ export function applyPreviewMock(kind: unknown): void {
 
   if (mode === "user-balance" || mode === "user_balance" || mode === "balance") {
     DEV_MOCK.data.settings.user_balance_enabled = true;
-    DEV_MOCK.data.balance.enabled = true;
+    setUserBalanceScenario(true);
     return;
   }
 

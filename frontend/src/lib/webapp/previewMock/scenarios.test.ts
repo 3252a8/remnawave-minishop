@@ -18,6 +18,13 @@ describe("preview mock scenarios", () => {
   it("keeps optional home widgets disabled in the default demo dataset", () => {
     expect(DEV_MOCK.data.settings.user_balance_enabled).toBe(false);
     expect(DEV_MOCK.data.balance.enabled).toBe(false);
+    expect(DEV_MOCK.data.balance.amount_minor).toBe(0);
+    expect(DEV_MOCK.data.balance.amount).toBe("0.00");
+    expect(DEV_MOCK.data.balance.sources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "user", amount_minor: 0, amount: "0.00" }),
+      ])
+    );
     expect(DEV_MOCK.config.compactHomeEnabled).toBe(false);
     expect(DEV_MOCK.config.serverStatusInternal).toBe(false);
     expect(DEV_MOCK.config.serverStatusShowOnHome).toBe(false);
@@ -28,6 +35,8 @@ describe("preview mock scenarios", () => {
 
     expect(DEV_MOCK.data.settings.user_balance_enabled).toBe(true);
     expect(DEV_MOCK.data.balance.enabled).toBe(true);
+    expect(DEV_MOCK.data.balance.amount_minor).toBe(128_450);
+    expect(DEV_MOCK.data.balance.amount).toBe("1284.50");
     expect(DEV_MOCK.config.compactHomeEnabled).toBe(false);
   });
 
