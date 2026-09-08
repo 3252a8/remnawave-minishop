@@ -359,6 +359,11 @@ class WebAppRouteContractTests(unittest.TestCase):
         self.assertIn("const CLOSE_ATTEMPT_DELAY_MS = 2500", response.text)
         self.assertIn("if (pageLeft || document.hidden) tryCloseWindow();", response.text)
         self.assertIn(r"/^(?:javascript|data|vbscript|https?):/i", response.text)
+        self.assertIn(r"/Telegram-(?:Android|iOS)\//i", response.text)
+        self.assertIn('if (isTelegramInAppBrowser) {\n          render("manual");', response.text)
+        self.assertIn('id="copy-button"', response.text)
+        self.assertIn("navigator.clipboard.writeText(target)", response.text)
+        self.assertIn("Open this page in your browser", response.text)
 
     def test_app_deeplink_gateway_uses_i18n_template(self):
         request = _Request(

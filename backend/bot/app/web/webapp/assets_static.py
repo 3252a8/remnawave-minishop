@@ -185,7 +185,10 @@ APP_DEEPLINK_I18N_KEYS = {
     "title": "wa_app_launch_title",
     "hint": "wa_app_launch_opening_hint",
     "manualHint": "wa_app_launch_hint",
+    "externalBrowserHint": "wa_app_launch_external_browser_hint",
     "button": "wa_app_launch_button",
+    "copyButton": "wa_app_launch_copy_button",
+    "copiedHint": "wa_app_launch_copied_hint",
     "retryButton": "wa_app_launch_retry_button",
     "doneTitle": "wa_app_launch_done_title",
     "doneHint": "wa_app_launch_done_hint",
@@ -197,7 +200,12 @@ APP_DEEPLINK_I18N_FALLBACKS = {
     "wa_app_launch_title": "Opening app",
     "wa_app_launch_opening_hint": "Opening the app on this device...",
     "wa_app_launch_hint": "If the app did not open automatically, tap the button below.",
+    "wa_app_launch_external_browser_hint": (
+        "Open this page in your browser if Telegram cannot launch the app."
+    ),
     "wa_app_launch_button": "Open app",
+    "wa_app_launch_copy_button": "Copy subscription link",
+    "wa_app_launch_copied_hint": "Subscription link copied.",
     "wa_app_launch_retry_button": "Open again",
     "wa_app_launch_done_title": "Settings added",
     "wa_app_launch_done_hint": "If the app opened, you can close this window.",

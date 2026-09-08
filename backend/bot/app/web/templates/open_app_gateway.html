@@ -97,6 +97,7 @@
       <p id="status"></p>
       <div class="actions">
         <a id="open-link" class="button" href="#" rel="noreferrer"></a>
+        <button id="copy-button" class="button secondary" type="button"></button>
         <button id="close-button" class="button secondary" type="button" hidden></button>
       </div>
     </main>
@@ -106,6 +107,7 @@
         const titleEl = document.getElementById("title");
         const statusEl = document.getElementById("status");
         const openLink = document.getElementById("open-link");
+        const copyButton = document.getElementById("copy-button");
         const closeButton = document.getElementById("close-button");
         const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
         const target = String(params.get("url") || "").trim();
@@ -113,6 +115,7 @@
           !target ||
           hasControlChars(target) ||
           /^(?:javascript|data|vbscript|https?):/i.test(target);
+        const isTelegramInAppBrowser = /Telegram-(?:Android|iOS)\//i.test(navigator.userAgent);
         let attempted = false;
         let pageLeft = false;
         let state = "opening";
@@ -147,6 +150,7 @@
             openLink.textContent = text("button", "Open app");
             openLink.setAttribute("aria-disabled", "true");
             openLink.removeAttribute("href");
+            copyButton.hidden = true;
             closeButton.hidden = true;
             return;
           }
@@ -157,6 +161,7 @@
             openLink.textContent = text("retryButton", "Open again");
             openLink.removeAttribute("aria-disabled");
             openLink.href = target;
+            copyButton.hidden = false;
             closeButton.textContent = text("closeButton", "Close window");
             closeButton.hidden = false;
             return;
@@ -165,12 +170,37 @@
           titleEl.textContent = text("title", "Opening app");
           statusEl.textContent =
             nextState === "manual"
-              ? text("manualHint", "If the app did not open automatically, tap the button below.")
+              ? isTelegramInAppBrowser
+                ? text(
+                    "externalBrowserHint",
+                    "Open this page in your browser if Telegram cannot launch the app."
+                  )
+                : text("manualHint", "If the app did not open automatically, tap the button below.")
               : text("hint", "Opening the app on this device...");
           openLink.textContent = text("button", "Open app");
           openLink.removeAttribute("aria-disabled");
           openLink.href = target;
+          copyButton.textContent = text("copyButton", "Copy subscription link");
+          copyButton.hidden = false;
           closeButton.hidden = true;
+        }
+
+        async function copyTarget() {
+          try {
+            await navigator.clipboard.writeText(target);
+            statusEl.textContent = text("copiedHint", "Subscription link copied.");
+          } catch (_error) {
+            const textarea = document.createElement("textarea");
+            textarea.value = target;
+            textarea.setAttribute("readonly", "");
+            textarea.style.position = "fixed";
+            textarea.style.opacity = "0";
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand("copy");
+            textarea.remove();
+            statusEl.textContent = text("copiedHint", "Subscription link copied.");
+          }
         }
 
         function markDone() {
@@ -212,6 +242,7 @@
           tryCloseWindow();
           render("done");
         });
+        copyButton.addEventListener("click", copyTarget);
         window.addEventListener("pagehide", notePageLeft);
         document.addEventListener("visibilitychange", () => {
           if (!attempted) return;
@@ -222,8 +253,12 @@
           }
         });
 
-        render("opening");
-        window.setTimeout(openTarget, 80);
+        if (isTelegramInAppBrowser) {
+          render("manual");
+        } else {
+          render("opening");
+          window.setTimeout(openTarget, 80);
+        }
       })();
     </script>
   </body>
