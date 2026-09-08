@@ -150,6 +150,10 @@ from .users import (
 
 
 def setup_admin_routes(app: web.Application) -> None:
+    from .theme_library import setup_theme_jobs, setup_theme_library
+
+    setup_theme_jobs(app)
+    setup_theme_library(app.router)
     router = app.router
     router.add_get("/api/admin/me", admin_me_route)
     router.add_get("/api/admin/stats", admin_stats_route)

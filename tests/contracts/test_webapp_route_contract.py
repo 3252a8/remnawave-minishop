@@ -240,6 +240,28 @@ class WebAppRouteContractTests(unittest.TestCase):
                 "/api/admin/tariffs/tribute/catalog",
             ): "admin_tariffs_tribute_catalog_route",
             ("GET", "/api/admin/themes"): "admin_themes_get_route",
+            ("GET", "/api/admin/themes/library"): "admin_theme_library_route",
+            ("POST", "/api/admin/themes/imports"): "admin_theme_import_route",
+            ("GET", "/api/admin/themes/imports/{operation_id}"): "admin_theme_import_status_route",
+            (
+                "DELETE",
+                "/api/admin/themes/imports/{operation_id}",
+            ): "admin_theme_import_cancel_route",
+            (
+                "POST",
+                "/api/admin/themes/imports/{operation_id}/install",
+            ): "admin_theme_install_route",
+            (
+                "GET",
+                "/api/admin/themes/imports/{operation_id}/preview/{key}",
+            ): "admin_theme_preview_route",
+            (
+                "GET",
+                "/api/admin/themes/library/{key}/preview",
+            ): "admin_theme_installed_preview_route",
+            ("DELETE", "/api/admin/themes/library/{key}"): "admin_theme_remove_route",
+            ("POST", "/api/admin/themes/library/{key}/rollback"): "admin_theme_rollback_route",
+            ("POST", "/api/admin/themes/export"): "admin_theme_export_route",
             ("PUT", "/api/admin/themes"): "admin_themes_save_route",
             ("POST", "/api/admin/appearance/logo"): "admin_appearance_logo_upload_route",
             ("POST", "/api/admin/appearance/favicon"): "admin_appearance_favicon_upload_route",

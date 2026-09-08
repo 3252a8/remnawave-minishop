@@ -1,3 +1,4 @@
+import { createThemeLibraryStore, type ThemeLibraryStore } from "./themeLibraryStore.svelte";
 import type {
   LogoMode,
   ThemeCatalog,
@@ -15,6 +16,7 @@ import {
 import { snapshotForPayload } from "./snapshotForPayload.svelte";
 
 export type ThemesState = {
+  generation: number;
   themesCatalog: ThemeCatalog;
   savedThemesCatalog: ThemeCatalog;
   themesDirty: boolean;
@@ -26,6 +28,7 @@ type AdminApi = ApiClient["api"];
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type ThemesStoreOptions = {
   api: AdminApi;
+  apiBlob?: ApiClient["apiBlob"];
   onThemesSaved?: () => Promise<void> | void;
   flash: (message: string) => void;
   at: TranslateFn;
@@ -35,6 +38,7 @@ type TokenOptions = { raw?: boolean; variant?: string | null };
 type LogoUploadResult = { logoUrl: string; faviconUrl: string; persisted?: boolean };
 type FaviconUploadResult = { faviconUrl: string; persisted?: boolean };
 export type ThemesStore = ThemesState & {
+  library: ThemeLibraryStore;
   loadThemes: () => Promise<void>;
   saveThemes: (options?: SaveThemesOptions) => Promise<boolean>;
   setCurrentTheme: (key: string) => void;
@@ -259,11 +263,14 @@ function updateThemeInCatalog(
 
 export function createThemesStore({
   api,
+  apiBlob,
   onThemesSaved,
   flash,
   at,
 }: ThemesStoreOptions): ThemesStore {
   const state = $state<ThemesStore>({
+    generation: 0,
+    library: createThemeLibraryStore({ api, apiBlob, at, flash, onChanged: loadThemes }),
     themesCatalog: { default_theme: "dark", themes: [] },
     savedThemesCatalog: { default_theme: "dark", themes: [] },
     themesDirty: false,
@@ -303,6 +310,7 @@ export function createThemesStore({
         const catalog = normalizeThemeCatalog(data.catalog);
         updateState((s) => ({
           ...s,
+          generation: data.generation || 0,
           themesCatalog: catalog,
           savedThemesCatalog: cloneCatalog(catalog),
           themesDirty: false,
@@ -323,17 +331,19 @@ export function createThemesStore({
     try {
       const data = await api(buildAdminThemesPath(), {
         method: "PUT",
-        body: JSON.stringify({ catalog }),
+        body: JSON.stringify({ catalog, expected_generation: state.generation }),
       });
       if (data?.ok) {
         const savedCatalog = normalizeThemeCatalog(data.catalog);
         updateState((s) => ({
           ...s,
+          generation: data.generation || 0,
           themesCatalog: savedCatalog,
           savedThemesCatalog: cloneCatalog(savedCatalog),
           themesDirty: false,
           themesDir: String(data.themes_dir || s.themesDir),
         }));
+        state.library.syncGeneration(data.generation || 0);
         if (!silent) flash(at("themes_saved", {}, "Themes saved"));
         if (typeof onThemesSaved === "function") await onThemesSaved();
         return true;

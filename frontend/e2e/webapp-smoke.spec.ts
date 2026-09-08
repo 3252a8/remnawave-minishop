@@ -2484,26 +2484,26 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
 
   setPhase("admin-appearance:panels");
   const appearanceStage = await openAdminSection(page, "appearance");
-  await expect(appearanceStage.locator(".appearance-stack")).toBeVisible();
-  await expect(appearanceStage.locator(".appearance-logo-grid").first()).toBeVisible();
-  await expect(appearanceStage.locator(".appearance-theme-section").first()).toBeVisible();
+  await expect(appearanceStage.locator(".appearance-library")).toBeVisible();
+  await expect(appearanceStage.locator(".library-theme-card")).toHaveCount(3);
   await assertFormFieldsNamed(page, "admin-appearance:panels");
 
   setPhase("admin-appearance:theme-card-select");
-  const inactiveThemeCard = appearanceStage.locator(".admin-theme-card:not(.is-current)").first();
-  await expect(inactiveThemeCard).toBeVisible();
+  const inactiveThemeCard = appearanceStage.locator(".library-theme-card:not(.active)").first();
   const inactiveThemeKey = await inactiveThemeCard.getAttribute("data-theme-key");
-  expect(inactiveThemeKey, "admin-appearance:theme-card-select: theme key").toBeTruthy();
-  await clickCardBody(page, inactiveThemeCard, "admin-appearance:theme-card-select");
-  const selectedThemeCard = appearanceStage.locator(
-    `.admin-theme-card[data-theme-key="${inactiveThemeKey}"]`
-  );
-  await expect(selectedThemeCard).toHaveClass(/is-current/);
-
-  const defaultThemeCard = appearanceStage.locator(".default-theme-editor");
-  await clickCardBody(page, defaultThemeCard, "admin-appearance:default-card-select");
-  await expect(defaultThemeCard).toHaveClass(/is-current/);
-  await assertFormFieldsNamed(page, "admin-appearance:theme-card-select");
+  await inactiveThemeCard.getByRole("button", { name: "Активировать", exact: true }).click();
+  await expect(
+    appearanceStage.locator('.library-theme-card[data-theme-key="' + inactiveThemeKey + '"]')
+  ).toHaveClass(/active/);
+  const defaultCard = appearanceStage.locator('.library-theme-card[data-theme-key="dark"]');
+  await defaultCard.getByRole("button", { name: "Активировать", exact: true }).click();
+  await expect(defaultCard).toHaveClass(/active/);
+  await appearanceStage.locator("#appearance-default-editor .appearance-editor-trigger").click();
+  await expect(appearanceStage.locator(".default-theme-editor")).toBeVisible();
+  await assertFormFieldsNamed(page, "admin-appearance:default-editor");
+  await appearanceStage.locator(".appearance-editor-trigger").last().click();
+  await expect(appearanceStage.locator(".appearance-logo-grid").first()).toBeVisible();
+  await assertFormFieldsNamed(page, "admin-appearance:brand-editor");
 
   setPhase("admin-translations:panels");
   const translationsStage = await openAdminSection(page, "translations");

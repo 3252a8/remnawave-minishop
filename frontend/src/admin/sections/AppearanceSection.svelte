@@ -1,7 +1,6 @@
 <script lang="ts">
   import { getSettingsStore, getThemesStore } from "$lib/admin/context";
-  import { RefreshCw, Save } from "$components/ui/icons.js";
-  import { AdminButton, AdminEmptyState } from "$components/patterns/admin/index.js";
+  import { AdminEmptyState } from "$components/patterns/admin/index.js";
   import { Switch } from "$components/ui/primitives.js";
   import { onMount } from "svelte";
 
@@ -27,6 +26,7 @@
     TokenMap,
   } from "$lib/admin/appearanceOptions";
   import "./AppearanceSection.css";
+  import AppearanceLibrary from "./appearance/AppearanceLibrary.svelte";
   import AppearanceBrandCard from "./appearance/AppearanceBrandCard.svelte";
   import AppearanceDefaultThemeEditor from "./appearance/AppearanceDefaultThemeEditor.svelte";
   import AppearanceCustomThemes from "./appearance/AppearanceCustomThemes.svelte";
@@ -508,178 +508,156 @@
   });
 </script>
 
+{#snippet brandEditor()}
+  <AppearanceBrandCard
+    {at}
+    {brand}
+    {appFaviconUrl}
+    {appFaviconUseCustom}
+    {appearanceDirtyCount}
+    {settingsSaving}
+    {themesSaving}
+    onSave={saveAppearance}
+  />
+{/snippet}
+
+{#snippet defaultEditor()}
+  <AppearanceDefaultThemeEditor
+    {at}
+    {defaultTheme}
+    {defaultVariant}
+    {defaultThemeIsCurrent}
+    {themesSaving}
+    {defaultTokens}
+    bind:customGoogleFontName
+    {isThemeDirty}
+    {isDefaultVariantDirty}
+    {defaultVariantTitle}
+    {themeDescription}
+    {activateDefaultThemeFromClick}
+    {setDefaultVariantFromSwitch}
+    {previewDefaultVariantFromClick}
+    {applyDefaultPreset}
+    {isDefaultTokenDirty}
+    {tokenTextValue}
+    {fontItemsWithCurrent}
+    {defaultFontSelectHandler}
+    {applyCustomGoogleFont}
+    {radiusNumber}
+    {defaultRadiusRangeHandler}
+    {defaultRadiusInputHandler}
+    {isThemeHomeLogoScaleDirty}
+    {defaultHomeLogoScale}
+    {defaultLogoScaleSelectHandler}
+    {defaultLogoScaleInputHandler}
+    {defaultTokenValue}
+    {pickerHex}
+    {openDefaultColorPicker}
+    {defaultColorInputHandler}
+    {defaultTokenInputHandler}
+    {resetDefaultToken}
+  />
+{/snippet}
+
+{#snippet customEditor(themeKey: string)}
+  <AppearanceCustomThemes
+    {at}
+    customThemes={customThemes.filter((theme) => !themeKey || theme.key === themeKey)}
+    {activeKey}
+    {themesSaving}
+    {isThemeDirty}
+    {themeTitle}
+    {themeDescription}
+    {isThemeTokenDirty}
+    {isThemeAccentSet}
+    {pickerHex}
+    {openThemeAccentPicker}
+    {themeAccentInputHandler}
+    {isThemePropertyDirty}
+    {toggleAdminTheme}
+    {isThemeHomeLogoScaleDirty}
+    {homeLogoScale}
+    {themeLogoScaleSelectHandler}
+    {themeLogoScaleInputHandler}
+    {previewThemeClickHandler}
+    {selectTheme}
+  />
+{/snippet}
+
+{#snippet behaviorEditor()}
+  <section class="appearance-theme-mode-setting">
+    <div class="appearance-theme-mode-copy">
+      <strong>{at("appearance_user_theme_mode_title", {}, "User theme mode selection")}</strong>
+      <small>
+        {at(
+          "appearance_user_theme_mode_sub",
+          {},
+          "Allow users to choose Auto, Light, or Dark within the current theme."
+        )}
+      </small>
+    </div>
+    <div class="admin-setting-switch">
+      <Switch.Root
+        aria-label={at("appearance_user_theme_mode_title", {}, "User theme mode selection")}
+        checked={userThemeModeEnabled}
+        onCheckedChange={setUserThemeModeEnabled}
+        disabled={settingsSaving || themesSaving}
+        class="admin-switch-root"
+      >
+        <Switch.Thumb class="admin-switch-thumb" />
+      </Switch.Root>
+      <span>
+        {userThemeModeEnabled ? at("enabled", {}, "Enabled") : at("disabled", {}, "Disabled")}
+      </span>
+    </div>
+  </section>
+  <section class="appearance-theme-mode-setting">
+    <div class="appearance-theme-mode-copy">
+      <strong>
+        {at("settings_field_webapp_compact_home_enabled_label", {}, "Compact Home screen")}
+      </strong>
+      <small>
+        {at(
+          "settings_field_webapp_compact_home_enabled_description",
+          {},
+          "Combine subscription status, traffic usage, and balance into one compact summary card."
+        )}
+      </small>
+    </div>
+    <div class="admin-setting-switch">
+      <Switch.Root
+        aria-label={at(
+          "settings_field_webapp_compact_home_enabled_label",
+          {},
+          "Compact Home screen"
+        )}
+        checked={compactHomeEnabled}
+        onCheckedChange={setCompactHomeEnabled}
+        disabled={settingsSaving || themesSaving}
+        class="admin-switch-root"
+      >
+        <Switch.Thumb class="admin-switch-thumb" />
+      </Switch.Root>
+      <span>
+        {compactHomeEnabled ? at("enabled", {}, "Enabled") : at("disabled", {}, "Disabled")}
+      </span>
+    </div>
+  </section>
+{/snippet}
+
 {#if themesLoading || settingsLoading}
   <AdminEmptyState>{at("loading", {}, "Loading…")}</AdminEmptyState>
 {:else}
-  <div class="appearance-stack">
-    <AppearanceBrandCard
-      {at}
-      {brand}
-      {appFaviconUrl}
-      {appFaviconUseCustom}
-      {appearanceDirtyCount}
-      {settingsSaving}
-      {themesSaving}
-      onSave={saveAppearance}
-    />
-
-    <article class="admin-card">
-      <header class="admin-card-head">
-        <div>
-          <h3>{at("appearance_themes_title", {}, "Themes")}</h3>
-          <small>{at("appearance_themes_sub", {}, "Global theme, accent color, and preview")}</small
-          >
-        </div>
-        <div class="admin-editor-section-actions">
-          <AdminButton
-            size="sm"
-            onclick={themesStore.loadThemes}
-            disabled={themesLoading || themesSaving}
-          >
-            <RefreshCw size={13} />
-            {at("btn_refresh", {}, "Refresh")}
-          </AdminButton>
-          <AdminButton
-            size="sm"
-            variant="primary"
-            onclick={saveAppearance}
-            disabled={settingsSaving || themesSaving}
-          >
-            <Save size={13} />
-            {at("btn_save", {}, "Save")}
-          </AdminButton>
-        </div>
-      </header>
-      <div class="admin-card-body appearance-themes-body">
-        <section class="appearance-theme-mode-setting">
-          <div class="appearance-theme-mode-copy">
-            <strong
-              >{at("appearance_user_theme_mode_title", {}, "User theme mode selection")}</strong
-            >
-            <small>
-              {at(
-                "appearance_user_theme_mode_sub",
-                {},
-                "Allow users to choose Auto, Light, or Dark within the current theme."
-              )}
-            </small>
-          </div>
-          <div class="admin-setting-switch">
-            <Switch.Root
-              aria-label={at("appearance_user_theme_mode_title", {}, "User theme mode selection")}
-              checked={userThemeModeEnabled}
-              onCheckedChange={setUserThemeModeEnabled}
-              disabled={settingsSaving || themesSaving}
-              class="admin-switch-root"
-            >
-              <Switch.Thumb class="admin-switch-thumb" />
-            </Switch.Root>
-            <span>
-              {userThemeModeEnabled ? at("enabled", {}, "Enabled") : at("disabled", {}, "Disabled")}
-            </span>
-          </div>
-        </section>
-        <section class="appearance-theme-mode-setting">
-          <div class="appearance-theme-mode-copy">
-            <strong>
-              {at("settings_field_webapp_compact_home_enabled_label", {}, "Compact Home screen")}
-            </strong>
-            <small>
-              {at(
-                "settings_field_webapp_compact_home_enabled_description",
-                {},
-                "Combine subscription status, traffic usage, and balance into one compact summary card."
-              )}
-            </small>
-          </div>
-          <div class="admin-setting-switch">
-            <Switch.Root
-              aria-label={at(
-                "settings_field_webapp_compact_home_enabled_label",
-                {},
-                "Compact Home screen"
-              )}
-              checked={compactHomeEnabled}
-              onCheckedChange={setCompactHomeEnabled}
-              disabled={settingsSaving || themesSaving}
-              class="admin-switch-root"
-            >
-              <Switch.Thumb class="admin-switch-thumb" />
-            </Switch.Root>
-            <span>
-              {compactHomeEnabled ? at("enabled", {}, "Enabled") : at("disabled", {}, "Disabled")}
-            </span>
-          </div>
-        </section>
-        {#if !visibleThemes.length}
-          <AdminEmptyState>
-            {at(
-              "themes_catalog_empty",
-              {},
-              "The catalog is empty. Add a theme folder to data/themes and refresh."
-            )}
-          </AdminEmptyState>
-        {:else}
-          <AppearanceDefaultThemeEditor
-            {at}
-            {defaultTheme}
-            {defaultVariant}
-            {defaultThemeIsCurrent}
-            {themesSaving}
-            {defaultTokens}
-            bind:customGoogleFontName
-            {isThemeDirty}
-            {isDefaultVariantDirty}
-            {defaultVariantTitle}
-            {themeDescription}
-            {activateDefaultThemeFromClick}
-            {setDefaultVariantFromSwitch}
-            {previewDefaultVariantFromClick}
-            {applyDefaultPreset}
-            {isDefaultTokenDirty}
-            {tokenTextValue}
-            {fontItemsWithCurrent}
-            {defaultFontSelectHandler}
-            {applyCustomGoogleFont}
-            {radiusNumber}
-            {defaultRadiusRangeHandler}
-            {defaultRadiusInputHandler}
-            {isThemeHomeLogoScaleDirty}
-            {defaultHomeLogoScale}
-            {defaultLogoScaleSelectHandler}
-            {defaultLogoScaleInputHandler}
-            {defaultTokenValue}
-            {pickerHex}
-            {openDefaultColorPicker}
-            {defaultColorInputHandler}
-            {defaultTokenInputHandler}
-            {resetDefaultToken}
-          />
-
-          <AppearanceCustomThemes
-            {at}
-            {customThemes}
-            {activeKey}
-            {themesSaving}
-            {isThemeDirty}
-            {themeTitle}
-            {themeDescription}
-            {isThemeTokenDirty}
-            {isThemeAccentSet}
-            {pickerHex}
-            {openThemeAccentPicker}
-            {themeAccentInputHandler}
-            {isThemePropertyDirty}
-            {toggleAdminTheme}
-            {isThemeHomeLogoScaleDirty}
-            {homeLogoScale}
-            {themeLogoScaleSelectHandler}
-            {themeLogoScaleInputHandler}
-            {previewThemeClickHandler}
-            {selectTheme}
-          />
-        {/if}
-      </div>
-    </article>
-  </div>
+  <AppearanceLibrary
+    {currentLang}
+    {at}
+    themes={visibleThemes}
+    {themeTitle}
+    {defaultEditor}
+    {brandEditor}
+    {customEditor}
+    {behaviorEditor}
+    dirty={appearanceDirtyCount > 0}
+    onsave={saveAppearance}
+  />
 {/if}

@@ -116,6 +116,7 @@ export function createAdminStores({
   });
   const themesStore = createThemesStore({
     api: api as never,
+    apiBlob,
     onThemesSaved,
     flash: onToast,
     at,

@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "themes": [
+    {
+      "path": "ocean"
+    },
+    {
+      "path": "paper"
+    }
+  ]
+}

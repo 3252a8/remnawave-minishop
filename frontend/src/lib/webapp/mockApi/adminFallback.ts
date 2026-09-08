@@ -1,6 +1,6 @@
-import { adminGiftDemoStats } from "./giftsDemo";
 import { DEV_MOCK } from "../previewMock.js";
-import type { PreviewThemesCatalog } from "../previewMock/types";
+import { themePackageResponse } from "./themePackages";
+import { adminGiftDemoStats } from "./giftsDemo";
 import { defaultClone, type DemoRecord, type MockApiContext } from "./dataset";
 import type { AdminDemoFixtures } from "./adminFixtures";
 import { demoProviderCurrencySupport } from "./providers";
@@ -18,6 +18,8 @@ export function adminFallbackResponse(
   context: MockApiContext,
   fixtures: AdminDemoFixtures
 ): unknown {
+  const themeResponse = themePackageResponse(path, options);
+  if (themeResponse !== undefined) return themeResponse;
   const { clone = defaultClone } = context;
   const {
     adminUsers,
@@ -238,30 +240,6 @@ export function adminFallbackResponse(
         { uuid: "ca842d76-63e2-41e9-a563-086050cfad75", name: "Premium NL" },
         { uuid: "2f2f6e0a-1f2d-4e80-a33b-0ebf3a409012", name: "Trial warmup" },
       ],
-    };
-  }
-  if (path === "/admin/themes") {
-    if (String(options.method || "GET").toUpperCase() === "PUT") {
-      try {
-        const body = (options?.body ? JSON.parse(String(options.body)) : {}) as DemoRecord;
-        const catalog = (body.catalog || body) as DemoRecord & { themes?: unknown };
-        if (catalog?.themes) {
-          DEV_MOCK.config.themesCatalog = clone(catalog) as unknown as PreviewThemesCatalog;
-          DEV_MOCK.data.themes_catalog = clone(catalog) as unknown as PreviewThemesCatalog;
-        }
-      } catch (_e) {
-        void _e;
-      }
-      return {
-        ok: true,
-        themes_dir: "data/themes",
-        catalog: clone(DEV_MOCK.config.themesCatalog),
-      };
-    }
-    return {
-      ok: true,
-      themes_dir: "data/themes",
-      catalog: clone(DEV_MOCK.config.themesCatalog),
     };
   }
   if (path === "/admin/appearance/logo") {

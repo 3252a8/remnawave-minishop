@@ -11,6 +11,15 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from .theme_packages.models import PackageError
+from .theme_packages.paths import registry_lock
+from .theme_packages.registry import (
+    check_generation,
+    effective_theme,
+    read_registry,
+    save_preferences,
+    write_registry,
+)
 from .webapp_themes_models import (
     DEFAULT_THEME_KEYS,
     LEGACY_LIGHT_THEME_KEY,
@@ -141,6 +150,12 @@ def load_webapp_theme_dir(theme_dir: str | Path) -> list[WebappTheme]:
             logger.warning("Ignoring duplicate webapp theme key %s from %s", theme.key, path)
             continue
         themes_by_key[theme.key] = theme
+    state = read_registry(root)
+    themes_by_key.update(state.preferences)
+    for key in state.removed:
+        themes_by_key.pop(key, None)
+    for key, entry in state.entries.items():
+        themes_by_key[key] = effective_theme(key, entry)
     return list(themes_by_key.values())
 
 
@@ -284,11 +299,28 @@ def write_webapp_theme_dir(
     config: WebappThemesConfig,
     *,
     delete_missing: bool = False,
+    expected_generation: int | None = None,
 ) -> None:
     """Write one theme.json descriptor per theme into WEBAPP_THEMES_DIR/<key>."""
     root = Path(theme_dir).expanduser()
     root.mkdir(parents=True, exist_ok=True)
     normalized = _config_with_synced_default_flags(config)
+    with registry_lock(root):
+        state = read_registry(root)
+        check_generation(state, expected_generation)
+        if state.entries:
+            if not set(state.entries).issubset({theme.key for theme in normalized.themes}):
+                raise PackageError("managed_theme_removal_requires_library", status=409)
+            save_preferences(root, state, normalized)
+            return
+        _write_legacy_theme_dir(root, normalized, delete_missing=delete_missing)
+        state.preferences.clear()
+        write_registry(root, state)
+
+
+def _write_legacy_theme_dir(
+    root: Path, normalized: WebappThemesConfig, *, delete_missing: bool
+) -> None:
     keep_paths = set()
     for theme in normalized.themes:
         path = _theme_file_path(root, theme.key)

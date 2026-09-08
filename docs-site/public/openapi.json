@@ -4711,6 +4711,11 @@
             "title": "Exists",
             "type": "boolean"
           },
+          "generation": {
+            "default": 0,
+            "title": "Generation",
+            "type": "integer"
+          },
           "themes_dir": {
             "title": "Themes Dir",
             "type": "string"
@@ -5839,6 +5844,86 @@
         "title": "AdminUserWithAvatarOut",
         "type": "object"
       },
+      "Author": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 120,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "Author",
+        "type": "object"
+      },
+      "Candidate": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "default": "",
+            "title": "Detail",
+            "type": "string"
+          },
+          "digest": {
+            "default": "",
+            "title": "Digest",
+            "type": "string"
+          },
+          "error": {
+            "default": "",
+            "title": "Error",
+            "type": "string"
+          },
+          "files": {
+            "default": 0,
+            "title": "Files",
+            "type": "integer"
+          },
+          "key": {
+            "default": "",
+            "title": "Key",
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/PackageMetadata"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "size": {
+            "default": 0,
+            "title": "Size",
+            "type": "integer"
+          },
+          "theme": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WebappTheme"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "Candidate",
+        "type": "object"
+      },
       "CheckoutAddonsConfig": {
         "properties": {
           "devices": {
@@ -5915,6 +6000,19 @@
         "title": "CheckoutTrafficAddonConfig",
         "type": "object"
       },
+      "Compatibility": {
+        "additionalProperties": false,
+        "properties": {
+          "theme_api": {
+            "default": 1,
+            "minimum": 1,
+            "title": "Theme Api",
+            "type": "integer"
+          }
+        },
+        "title": "Compatibility",
+        "type": "object"
+      },
       "CreateTicketPayload": {
         "properties": {
           "body": {
@@ -5969,6 +6067,44 @@
         "additionalProperties": false,
         "properties": {},
         "title": "EmptyObjectOut",
+        "type": "object"
+      },
+      "ExportRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "include_overrides": {
+            "default": false,
+            "title": "Include Overrides",
+            "type": "boolean"
+          },
+          "keys": {
+            "items": {
+              "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Keys",
+            "type": "array"
+          },
+          "new_key": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "New Key"
+          }
+        },
+        "required": [
+          "keys"
+        ],
+        "title": "ExportRequest",
         "type": "object"
       },
       "FlexibleTrafficLimitConfig": {
@@ -6282,6 +6418,144 @@
         "title": "HwidDevicePackageSet",
         "type": "object"
       },
+      "ImportOut": {
+        "additionalProperties": false,
+        "properties": {
+          "operation": {
+            "$ref": "#/components/schemas/ImportRecord"
+          }
+        },
+        "required": [
+          "operation"
+        ],
+        "title": "ImportOut",
+        "type": "object"
+      },
+      "ImportRecord": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "integer"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/Candidate"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "detail": {
+            "default": "",
+            "title": "Detail",
+            "type": "string"
+          },
+          "error": {
+            "default": "",
+            "title": "Error",
+            "type": "string"
+          },
+          "generation": {
+            "default": 0,
+            "title": "Generation",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "installed": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Installed",
+            "type": "array"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ThemeSource"
+          },
+          "state": {
+            "default": "validating",
+            "enum": [
+              "downloading",
+              "validating",
+              "ready",
+              "installed",
+              "cancelled",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "actor",
+          "created_at"
+        ],
+        "title": "ImportRecord",
+        "type": "object"
+      },
+      "InstallChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "default": "install",
+            "enum": [
+              "install",
+              "update",
+              "adopt"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "key": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key"
+        ],
+        "title": "InstallChoice",
+        "type": "object"
+      },
+      "InstallRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "choices": {
+            "items": {
+              "$ref": "#/components/schemas/InstallChoice"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Choices",
+            "type": "array"
+          },
+          "expected_generation": {
+            "minimum": 0,
+            "title": "Expected Generation",
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "pattern": "^[a-zA-Z0-9_-]{16,80}$",
+            "title": "Idempotency Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "choices",
+          "expected_generation",
+          "idempotency_key"
+        ],
+        "title": "InstallRequest",
+        "type": "object"
+      },
       "ItemStatus": {
         "enum": [
           "online",
@@ -6292,6 +6566,42 @@
           "unknown"
         ],
         "type": "string"
+      },
+      "LibraryOut": {
+        "additionalProperties": false,
+        "properties": {
+          "generation": {
+            "title": "Generation",
+            "type": "integer"
+          },
+          "installations": {
+            "items": {
+              "$ref": "#/components/schemas/ThemeInstallation"
+            },
+            "title": "Installations",
+            "type": "array"
+          },
+          "max_archive_bytes": {
+            "default": 20971520,
+            "title": "Max Archive Bytes",
+            "type": "integer"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "writable": {
+            "title": "Writable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "generation",
+          "writable"
+        ],
+        "title": "LibraryOut",
+        "type": "object"
       },
       "LogOut": {
         "properties": {
@@ -6432,6 +6742,42 @@
         "title": "LogOut",
         "type": "object"
       },
+      "MutationOut": {
+        "additionalProperties": false,
+        "properties": {
+          "generation": {
+            "title": "Generation",
+            "type": "integer"
+          },
+          "keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "generation"
+        ],
+        "title": "MutationOut",
+        "type": "object"
+      },
+      "MutationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_generation": {
+            "minimum": 0,
+            "title": "Expected Generation",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_generation"
+        ],
+        "title": "MutationRequest",
+        "type": "object"
+      },
       "NativeStatusProvider": {
         "enum": [
           "uptime-kuma",
@@ -6449,6 +6795,65 @@
           "unknown"
         ],
         "type": "string"
+      },
+      "PackageMetadata": {
+        "additionalProperties": false,
+        "properties": {
+          "author": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Author"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "compatibility": {
+            "$ref": "#/components/schemas/Compatibility"
+          },
+          "description": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 12,
+            "title": "Description",
+            "type": "object"
+          },
+          "homepage": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Homepage",
+            "type": "string"
+          },
+          "license": {
+            "default": "",
+            "maxLength": 120,
+            "title": "License",
+            "type": "string"
+          },
+          "preview": {
+            "default": "",
+            "maxLength": 180,
+            "title": "Preview",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "version": {
+            "default": "",
+            "maxLength": 64,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "title": "PackageMetadata",
+        "type": "object"
       },
       "PackageSet": {
         "additionalProperties": {
@@ -9447,6 +9852,40 @@
         "title": "PublicSubscriptionGuidesOut",
         "type": "object"
       },
+      "RepositoryRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "ref": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Ref",
+            "type": "string"
+          },
+          "source_type": {
+            "const": "repository",
+            "default": "repository",
+            "title": "Source Type",
+            "type": "string"
+          },
+          "subdir": {
+            "default": "",
+            "maxLength": 180,
+            "title": "Subdir",
+            "type": "string"
+          },
+          "url": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "RepositoryRequest",
+        "type": "object"
+      },
       "ServerStatus": {
         "properties": {
           "enabled": {
@@ -10393,6 +10832,124 @@
         "title": "TariffsSaveBody",
         "type": "object"
       },
+      "ThemeInstallation": {
+        "additionalProperties": false,
+        "properties": {
+          "can_rollback": {
+            "default": false,
+            "title": "Can Rollback",
+            "type": "boolean"
+          },
+          "digest": {
+            "default": "",
+            "title": "Digest",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "managed": {
+            "default": false,
+            "title": "Managed",
+            "type": "boolean"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PackageMetadata"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "modified": {
+            "default": false,
+            "title": "Modified",
+            "type": "boolean"
+          },
+          "preview_url": {
+            "default": "",
+            "title": "Preview Url",
+            "type": "string"
+          },
+          "protected": {
+            "default": false,
+            "title": "Protected",
+            "type": "boolean"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ThemeSource"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "version": {
+            "default": "",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key"
+        ],
+        "title": "ThemeInstallation",
+        "type": "object"
+      },
+      "ThemeSource": {
+        "additionalProperties": false,
+        "properties": {
+          "commit": {
+            "default": "",
+            "maxLength": 64,
+            "title": "Commit",
+            "type": "string"
+          },
+          "kind": {
+            "default": "archive",
+            "enum": [
+              "archive",
+              "github",
+              "gitlab"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Label",
+            "type": "string"
+          },
+          "ref": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Ref",
+            "type": "string"
+          },
+          "subdir": {
+            "default": "",
+            "maxLength": 180,
+            "title": "Subdir",
+            "type": "string"
+          },
+          "url": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "title": "ThemeSource",
+        "type": "object"
+      },
       "ThemeTokens": {
         "description": "CSS design tokens for the subscription Mini App shell.",
         "properties": {
@@ -11135,6 +11692,18 @@
           "catalog": {
             "default": null,
             "title": "Catalog"
+          },
+          "expected_generation": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Expected Generation"
           }
         },
         "title": "ThemesSaveBody",
@@ -18770,6 +19339,565 @@
           }
         ],
         "summary": "Admin Themes Save",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/themes/export": {
+      "post": {
+        "operationId": "post_admin_theme_export_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Theme Export",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/themes/imports": {
+      "post": {
+        "operationId": "post_admin_theme_import_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepositoryRequest"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ImportOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Theme Import",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/themes/imports/{operation_id}": {
+      "delete": {
+        "operationId": "delete_admin_theme_import_cancel_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "pattern": "[^{}/]+",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ImportOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Theme Import Cancel",
+        "tags": [
+          "admin"
+        ]
+      },
+      "get": {
+        "operationId": "get_admin_theme_import_status_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "pattern": "[^{}/]+",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ImportOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Theme Import Status",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/themes/imports/{operation_id}/install": {
+      "post": {
+        "operationId": "post_admin_theme_install_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "pattern": "[^{}/]+",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InstallRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/MutationOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Theme Install",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/themes/imports/{operation_id}/preview/{key}": {
+      "get": {
+        "operationId": "get_admin_theme_preview_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "pattern": "[^{}/]+",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "pattern": "[^{}/]+",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Theme Preview",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/themes/library": {
+      "get": {
+        "operationId": "get_admin_theme_library_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/LibraryOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Theme Library",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/themes/library/{key}": {
+      "delete": {
+        "operationId": "delete_admin_theme_remove_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "pattern": "[^{}/]+",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/MutationOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Theme Remove",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/themes/library/{key}/preview": {
+      "get": {
+        "operationId": "get_admin_theme_installed_preview_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "pattern": "[^{}/]+",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Theme Installed Preview",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/themes/library/{key}/rollback": {
+      "post": {
+        "operationId": "post_admin_theme_rollback_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "pattern": "[^{}/]+",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/MutationOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Theme Rollback",
         "tags": [
           "admin"
         ]

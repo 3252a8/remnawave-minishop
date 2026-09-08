@@ -298,6 +298,10 @@ def resolved_webapp_themes_catalog(
     config = _themes_config_from_list(None, themes)
     config, changed = ensure_webapp_core_themes(config, primary_accent)
     if changed:
+        from .theme_packages.registry import read_registry
+
+        if read_registry(Path(theme_dir)).entries:
+            return apply_webapp_theme_env_overrides(config, env_default_theme)
         try:
             write_webapp_theme_dir(theme_dir, config, delete_missing=False)
         except OSError as exc:

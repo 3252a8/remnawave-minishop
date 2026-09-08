@@ -346,6 +346,8 @@ class AdminTariffsOut(HttpResponseModel):
 
 
 class ThemesSaveBody(HttpBodyModel):
+    expected_generation: int | None = None
+
     model_config = ConfigDict(extra="allow")
 
     catalog: Any = None

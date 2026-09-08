@@ -1497,6 +1497,160 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/themes/export": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Theme Export */
+    post: operations["post_admin_theme_export_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/themes/imports": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Theme Import */
+    post: operations["post_admin_theme_import_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/themes/imports/{operation_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Theme Import Status */
+    get: operations["get_admin_theme_import_status_route"];
+    put?: never;
+    post?: never;
+    /** Admin Theme Import Cancel */
+    delete: operations["delete_admin_theme_import_cancel_route"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/themes/imports/{operation_id}/install": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Theme Install */
+    post: operations["post_admin_theme_install_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/themes/imports/{operation_id}/preview/{key}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Theme Preview */
+    get: operations["get_admin_theme_preview_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/themes/library": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Theme Library */
+    get: operations["get_admin_theme_library_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/themes/library/{key}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Admin Theme Remove */
+    delete: operations["delete_admin_theme_remove_route"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/themes/library/{key}/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Theme Installed Preview */
+    get: operations["get_admin_theme_installed_preview_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/themes/library/{key}/rollback": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Theme Rollback */
+    post: operations["post_admin_theme_rollback_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/translations": {
     parameters: {
       query?: never;
@@ -4990,6 +5144,11 @@ export interface components {
       catalog: components["schemas"]["WebappThemesConfig"];
       /** Exists */
       exists: boolean;
+      /**
+       * Generation
+       * @default 0
+       */
+      generation: number;
       /** Themes Dir */
       themes_dir: string;
     };
@@ -5541,6 +5700,51 @@ export interface components {
        */
       username: string | null;
     };
+    /** Author */
+    Author: {
+      /** Name */
+      name: string;
+    };
+    /** Candidate */
+    Candidate: {
+      /**
+       * Detail
+       * @default
+       */
+      detail: string;
+      /**
+       * Digest
+       * @default
+       */
+      digest: string;
+      /**
+       * Error
+       * @default
+       */
+      error: string;
+      /**
+       * Files
+       * @default 0
+       */
+      files: number;
+      /**
+       * Key
+       * @default
+       */
+      key: string;
+      metadata?: components["schemas"]["PackageMetadata"];
+      /** Path */
+      path: string;
+      /**
+       * Size
+       * @default 0
+       */
+      size: number;
+      /** @default null */
+      theme: components["schemas"]["WebappTheme"] | null;
+      /** Warnings */
+      warnings?: string[];
+    };
     /** CheckoutAddonsConfig */
     CheckoutAddonsConfig: {
       devices?: components["schemas"]["CheckoutDeviceAddonConfig"];
@@ -5578,6 +5782,14 @@ export interface components {
        */
       enabled: boolean;
     };
+    /** Compatibility */
+    Compatibility: {
+      /**
+       * Theme Api
+       * @default 1
+       */
+      theme_api: number;
+    };
     /** CreateTicketPayload */
     CreateTicketPayload: {
       /** Body */
@@ -5605,6 +5817,21 @@ export interface components {
     };
     /** EmptyObjectOut */
     EmptyObjectOut: Record<string, never>;
+    /** ExportRequest */
+    ExportRequest: {
+      /**
+       * Include Overrides
+       * @default false
+       */
+      include_overrides: boolean;
+      /** Keys */
+      keys: string[];
+      /**
+       * New Key
+       * @default null
+       */
+      new_key: string | null;
+    };
     /** FlexibleTrafficLimitConfig */
     FlexibleTrafficLimitConfig: {
       /** Max Total Gb */
@@ -5758,8 +5985,86 @@ export interface components {
     HwidDevicePackageSet: {
       [key: string]: components["schemas"]["HwidDevicePackage"][];
     };
+    /** ImportOut */
+    ImportOut: {
+      operation: components["schemas"]["ImportRecord"];
+    };
+    /** ImportRecord */
+    ImportRecord: {
+      /** Actor */
+      actor: number;
+      /** Candidates */
+      candidates?: components["schemas"]["Candidate"][];
+      /** Created At */
+      created_at: number;
+      /**
+       * Detail
+       * @default
+       */
+      detail: string;
+      /**
+       * Error
+       * @default
+       */
+      error: string;
+      /**
+       * Generation
+       * @default 0
+       */
+      generation: number;
+      /** Id */
+      id: string;
+      /** Installed */
+      installed?: string[];
+      source?: components["schemas"]["ThemeSource"];
+      /**
+       * State
+       * @default validating
+       * @enum {string}
+       */
+      state: "downloading" | "validating" | "ready" | "installed" | "cancelled" | "failed";
+    };
+    /** InstallChoice */
+    InstallChoice: {
+      /**
+       * Action
+       * @default install
+       * @enum {string}
+       */
+      action: "install" | "update" | "adopt";
+      /** Key */
+      key: string;
+    };
+    /** InstallRequest */
+    InstallRequest: {
+      /** Choices */
+      choices: components["schemas"]["InstallChoice"][];
+      /** Expected Generation */
+      expected_generation: number;
+      /** Idempotency Key */
+      idempotency_key: string;
+    };
     /** @enum {string} */
     ItemStatus: "online" | "offline" | "degraded" | "maintenance" | "pending" | "unknown";
+    /** LibraryOut */
+    LibraryOut: {
+      /** Generation */
+      generation: number;
+      /** Installations */
+      installations?: components["schemas"]["ThemeInstallation"][];
+      /**
+       * Max Archive Bytes
+       * @default 20971520
+       */
+      max_archive_bytes: number;
+      /**
+       * Reason
+       * @default
+       */
+      reason: string;
+      /** Writable */
+      writable: boolean;
+    };
     /** LogOut */
     LogOut: {
       /**
@@ -5817,11 +6122,59 @@ export interface components {
        */
       user_label: string | null;
     };
+    /** MutationOut */
+    MutationOut: {
+      /** Generation */
+      generation: number;
+      /** Keys */
+      keys?: string[];
+    };
+    /** MutationRequest */
+    MutationRequest: {
+      /** Expected Generation */
+      expected_generation: number;
+    };
     /** @enum {string} */
     NativeStatusProvider: "uptime-kuma" | "xray-checker";
     /** @enum {string} */
     OverallStatus:
       "operational" | "degraded" | "partial_outage" | "major_outage" | "maintenance" | "unknown";
+    /** PackageMetadata */
+    PackageMetadata: {
+      /** @default null */
+      author: components["schemas"]["Author"] | null;
+      compatibility?: components["schemas"]["Compatibility"];
+      /** Description */
+      description?: {
+        [key: string]: string;
+      };
+      /**
+       * Homepage
+       * @default
+       */
+      homepage: string;
+      /**
+       * License
+       * @default
+       */
+      license: string;
+      /**
+       * Preview
+       * @default
+       */
+      preview: string;
+      /**
+       * Schema Version
+       * @default 1
+       * @constant
+       */
+      schema_version: 1;
+      /**
+       * Version
+       * @default
+       */
+      version: string;
+    };
     /** PackageSet */
     PackageSet: {
       [key: string]: components["schemas"]["TrafficPackage"][];
@@ -7100,6 +7453,27 @@ export interface components {
       /** @default null */
       subscription: components["schemas"]["PublicSubscriptionContextOut"] | null;
     };
+    /** RepositoryRequest */
+    RepositoryRequest: {
+      /**
+       * Ref
+       * @default
+       */
+      ref: string;
+      /**
+       * Source Type
+       * @default repository
+       * @constant
+       */
+      source_type: "repository";
+      /**
+       * Subdir
+       * @default
+       */
+      subdir: string;
+      /** Url */
+      url: string;
+    };
     /** ServerStatus */
     ServerStatus: {
       /** Enabled */
@@ -7509,6 +7883,84 @@ export interface components {
     } & {
       [key: string]: unknown;
     };
+    /** ThemeInstallation */
+    ThemeInstallation: {
+      /**
+       * Can Rollback
+       * @default false
+       */
+      can_rollback: boolean;
+      /**
+       * Digest
+       * @default
+       */
+      digest: string;
+      /** Key */
+      key: string;
+      /**
+       * Managed
+       * @default false
+       */
+      managed: boolean;
+      /** @default null */
+      metadata: components["schemas"]["PackageMetadata"] | null;
+      /**
+       * Modified
+       * @default false
+       */
+      modified: boolean;
+      /**
+       * Preview Url
+       * @default
+       */
+      preview_url: string;
+      /**
+       * Protected
+       * @default false
+       */
+      protected: boolean;
+      /** @default null */
+      source: components["schemas"]["ThemeSource"] | null;
+      /**
+       * Version
+       * @default
+       */
+      version: string;
+    };
+    /** ThemeSource */
+    ThemeSource: {
+      /**
+       * Commit
+       * @default
+       */
+      commit: string;
+      /**
+       * Kind
+       * @default archive
+       * @enum {string}
+       */
+      kind: "archive" | "github" | "gitlab";
+      /**
+       * Label
+       * @default
+       */
+      label: string;
+      /**
+       * Ref
+       * @default
+       */
+      ref: string;
+      /**
+       * Subdir
+       * @default
+       */
+      subdir: string;
+      /**
+       * Url
+       * @default
+       */
+      url: string;
+    };
     /**
      * ThemeTokens
      * @description CSS design tokens for the subscription Mini App shell.
@@ -7828,6 +8280,11 @@ export interface components {
        * @default null
        */
       catalog: unknown;
+      /**
+       * Expected Generation
+       * @default null
+       */
+      expected_generation: number | null;
     } & {
       [key: string]: unknown;
     };
@@ -11453,6 +11910,266 @@ export interface operations {
             /** @constant */
             ok: true;
           } & components["schemas"]["AdminThemesOut"];
+        };
+      };
+    };
+  };
+  post_admin_theme_export_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ExportRequest"];
+      };
+    };
+    responses: {
+      /** @description Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/zip": string;
+        };
+      };
+    };
+  };
+  post_admin_theme_import_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RepositoryRequest"];
+        "multipart/form-data": {
+          /** Format: binary */
+          file: string;
+        };
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["ImportOut"];
+        };
+      };
+    };
+  };
+  get_admin_theme_import_status_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        operation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["ImportOut"];
+        };
+      };
+    };
+  };
+  delete_admin_theme_import_cancel_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        operation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["ImportOut"];
+        };
+      };
+    };
+  };
+  post_admin_theme_install_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        operation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["InstallRequest"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["MutationOut"];
+        };
+      };
+    };
+  };
+  get_admin_theme_preview_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        operation_id: string;
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
+        };
+      };
+    };
+  };
+  get_admin_theme_library_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["LibraryOut"];
+        };
+      };
+    };
+  };
+  delete_admin_theme_remove_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MutationRequest"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["MutationOut"];
+        };
+      };
+    };
+  };
+  get_admin_theme_installed_preview_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
+        };
+      };
+    };
+  };
+  post_admin_theme_rollback_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MutationRequest"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["MutationOut"];
         };
       };
     };

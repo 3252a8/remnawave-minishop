@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { defineConfig } from "vite";
+import { accordionLifecycleFix } from "./scripts/vite-accordion-lifecycle.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const srcDir = path.resolve(__dirname, "src");
@@ -41,6 +42,7 @@ export default defineConfig(({ command, mode }) => {
       },
     },
     plugins: [
+      accordionLifecycleFix(),
       tailwindcss(),
       svelte({
         dynamicCompileOptions: firstPartyRunesOptions,

@@ -121,6 +121,7 @@ export default defineConfig({
             { label: 'Веб админ-панель', slug: 'features/admin-panel' },
             { label: 'Способы входа', slug: 'features/login-methods' },
             { label: 'Темы и внешний вид', slug: 'features/webapp-themes' },
+            { label: 'Создание и публикация тем', slug: 'features/theme-packages' },
             { label: 'Уведомления', slug: 'features/notifications' },
             { label: 'Поддержка/тикеты', slug: 'features/support' },
             { label: 'Статус серверов', slug: 'features/server-status' },

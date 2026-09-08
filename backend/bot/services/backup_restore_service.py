@@ -285,6 +285,9 @@ class BackupRestoreService:
                     if tariffs_config_member is not None
                     else None
                 )
+                from config.theme_packages.backup import prepare_restore, restore_themes
+
+                prepared_themes = prepare_restore(archive, temp_dir) if restore_database else None
                 database_restored = False
                 database_migrations_applied: list[str] = []
                 database_sequences_normalized: list[str] = []
@@ -299,6 +302,10 @@ class BackupRestoreService:
                         )
                     database_migrations_applied = self._run_post_restore_migrations()
                     database_sequences_normalized = self._run_post_restore_sequence_normalization()
+                    if prepared_themes is not None:
+                        restore_themes(
+                            prepared_themes, Path(self.settings.WEBAPP_THEMES_DIR).expanduser()
+                        )
                     database_restored = True
 
                 compose_files_restored = 0

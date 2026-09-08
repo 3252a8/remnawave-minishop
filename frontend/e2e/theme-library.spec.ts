@@ -1,0 +1,171 @@
+import { test, expect } from "@playwright/test";
+import path from "node:path";
+import { readFileSync } from "node:fs";
+import { strToU8, zipSync, unzipSync } from "fflate";
+
+const url = "/demo/runtime/app/?screen=admin&admin_section=appearance";
+const sample = path.resolve("../docs-site/public/demo/theme-examples.zip");
+
+for (const viewport of [
+  { width: 1280, height: 900 },
+  { width: 390, height: 844 },
+]) {
+  test("theme library lifecycle " + viewport.width, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto(url);
+    const library = page.locator(".appearance-library");
+    await expect(library).toBeVisible();
+    await expect(library.locator(".library-theme-card")).toHaveCount(3);
+    await expect
+      .poll(async () =>
+        library
+          .locator(".theme-screenshot img")
+          .evaluateAll((images) =>
+            images.every(
+              (image) =>
+                image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0
+            )
+          )
+      )
+      .toBe(true);
+    await expect(page.locator(".default-theme-editor")).toBeHidden();
+    await library.locator("#appearance-default-editor .appearance-editor-trigger").click();
+    await expect(page.locator(".default-theme-editor")).toBeVisible();
+    await library.locator("#appearance-default-editor .appearance-editor-trigger").click();
+
+    await library.getByRole("button", { name: "Добавить темы", exact: true }).click();
+    let dialog = page.locator(".appearance-import-dialog");
+    await expect(dialog).toBeVisible();
+    await dialog.locator('input[type="file"]').setInputFiles(sample);
+    await expect(dialog.locator(".import-candidate")).toHaveCount(2);
+    await dialog.getByRole("button", { name: /Установить/ }).click();
+    await expect(dialog).toBeHidden();
+    await expect(library.locator(".library-theme-card")).toHaveCount(5);
+    await expect(library.locator('[data-theme-key="dark"]')).toHaveClass(/active/);
+
+    const ocean = library.locator('[data-theme-key="ocean"]');
+    await ocean.locator(".theme-card-actions button").first().click();
+    const preview = page.locator(".appearance-preview-dialog");
+    await expect(preview.locator("iframe")).toBeVisible();
+    await expect(preview.locator("iframe")).toHaveAttribute("sandbox", "");
+    await expect(preview.frameLocator("iframe").locator(".app-shell")).toBeVisible();
+    await preview.getByRole("button", { name: "Десктоп", exact: true }).click();
+    await preview.getByRole("button", { name: "Светлая", exact: true }).click();
+    await expect(preview.frameLocator("iframe").locator("html")).toHaveClass(/theme-light/);
+    await preview.locator(".dialog-head button").click();
+
+    await ocean.getByRole("button", { name: "Активировать", exact: true }).click();
+    await expect(ocean).toHaveClass(/active/);
+    await ocean.locator(".theme-card-actions button").last().click();
+    let settings = page.locator(".appearance-settings-dialog");
+    await expect(
+      settings.getByRole("button", { name: "Удалить тему", exact: true })
+    ).toBeDisabled();
+    await settings.locator(".dialog-head button").click();
+    await library
+      .locator('[data-theme-key="dark"]')
+      .getByRole("button", { name: "Активировать", exact: true })
+      .click();
+
+    await library.getByRole("button", { name: "Добавить темы", exact: true }).click();
+    dialog = page.locator(".appearance-import-dialog");
+    await dialog.locator('input[type="file"]').setInputFiles(sample);
+    await expect(dialog.getByRole("button", { name: /Установить/ })).toBeDisabled();
+    const update = unzipSync(readFileSync(sample));
+    update["ocean/theme-package.json"] = strToU8(
+      JSON.stringify({ schema_version: 1, version: "2.0.0", compatibility: { theme_api: 1 } })
+    );
+    await dialog.getByRole("button", { name: "Назад", exact: true }).click();
+    await dialog.locator('input[type="file"]').setInputFiles({
+      name: "update.zip",
+      mimeType: "application/zip",
+      buffer: Buffer.from(zipSync(update)),
+    });
+    await dialog.getByRole("button", { name: "Если тема уже установлена", exact: true }).click();
+    await page.getByRole("option", { name: /Обновить/ }).click();
+    await dialog.getByRole("button", { name: /Установить/ }).click();
+    await expect(dialog).toBeHidden();
+    await ocean.locator(".theme-card-actions button").last().click();
+    settings = page.locator(".appearance-settings-dialog");
+    await settings.getByRole("button", { name: "Вернуть предыдущую версию", exact: true }).click();
+    await expect(settings).toBeHidden();
+
+    await ocean.locator(".theme-card-actions button").last().click();
+    await settings.getByRole("button", { name: "Экспорт / своя копия", exact: true }).click();
+    const exportDialog = page
+      .locator(".dialog-card")
+      .filter({ has: page.getByRole("button", { name: "Скачать ZIP", exact: true }) });
+    await exportDialog.getByRole("textbox").fill("my-ocean");
+    const downloadPromise = page.waitForEvent("download");
+    await exportDialog.getByRole("button", { name: "Скачать ZIP", exact: true }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe("my-ocean.zip");
+    await expect(settings).toBeHidden();
+    await ocean.locator(".theme-card-actions button").last().click();
+    await settings.getByRole("button", { name: "Удалить тему", exact: true }).click();
+    const removeDialog = page
+      .locator(".dialog-card")
+      .filter({ has: page.getByRole("heading", { name: "Удалить тему", exact: true }) });
+    await removeDialog.getByRole("button", { name: "Удалить тему", exact: true }).click();
+    await expect(ocean).toHaveCount(0);
+    expect(
+      await library.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)
+    ).toBe(true);
+    expect(errors).toEqual([]);
+  });
+}
+
+test("theme import rejects unsafe archives and protected keys", async ({ page }) => {
+  await page.goto(url);
+  await page
+    .locator(".appearance-library")
+    .getByRole("button", { name: "Добавить темы", exact: true })
+    .click();
+  const dialog = page.locator(".appearance-import-dialog");
+  await dialog.locator('input[type="file"]').setInputFiles({
+    name: "bad.zip",
+    mimeType: "application/zip",
+    buffer: Buffer.from(zipSync({ "../escape/theme.json": strToU8("{}") })),
+  });
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  await expect(dialog.getByRole("button", { name: /Установить/ })).toHaveCount(0);
+  await dialog.locator('input[type="file"]').setInputFiles({
+    name: "protected.zip",
+    mimeType: "application/zip",
+    buffer: Buffer.from(zipSync({ "dark/theme.json": strToU8(JSON.stringify({ key: "dark" })) })),
+  });
+  await expect(dialog.locator(".import-candidate")).toHaveCount(1);
+  await expect(dialog.getByRole("button", { name: /Установить/ })).toBeDisabled();
+});
+
+test("theme library supports repository review, Escape and archive drop", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(url);
+  const library = page.locator(".appearance-library");
+  await library.getByRole("button", { name: "Добавить темы", exact: true }).click();
+  const dialog = page.locator(".appearance-import-dialog");
+  await dialog.getByRole("button", { name: "Git-репозиторий", exact: true }).click();
+  await dialog.locator('input[type="url"]').fill("https://gitlab.com/author/group/themes");
+  await dialog.getByRole("button", { name: "Найти темы", exact: true }).click();
+  await expect(dialog.locator(".import-candidate")).toHaveCount(2);
+  await expect(dialog.locator(":focus")).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await library.getByRole("button", { name: "Добавить темы", exact: true }).click();
+  const transfer = await page.evaluateHandle(
+    (bytes) => {
+      const data = new DataTransfer();
+      data.items.add(new File([new Uint8Array(bytes)], "dropped.zip", { type: "application/zip" }));
+      return data;
+    },
+    Array.from(readFileSync(sample))
+  );
+  await dialog.locator(".import-drop").dispatchEvent("drop", { dataTransfer: transfer });
+  await expect(dialog.locator(".import-candidate")).toHaveCount(2);
+  await expect(dialog.getByRole("button", { name: /Установить/ })).toBeEnabled();
+  await expect(dialog.locator(":focus")).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+});

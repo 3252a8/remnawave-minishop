@@ -61,6 +61,10 @@ WEBAPP_THEME_ASSET_CONTENT_TYPES = {
     ".png": "image/png",
     ".svg": "image/svg+xml",
     ".webp": "image/webp",
+    ".woff": "font/woff",
+    ".woff2": "font/woff2",
+    ".ttf": "font/ttf",
+    ".otf": "font/otf",
 }
-WEBAPP_THEME_ASSET_MAX_BYTES = 1024 * 1024
-WEBAPP_THEME_CSS_MAX_BYTES = 512 * 1024
+WEBAPP_THEME_ASSET_MAX_BYTES = 10 * 1024 * 1024
+WEBAPP_THEME_CSS_MAX_BYTES = 1024 * 1024

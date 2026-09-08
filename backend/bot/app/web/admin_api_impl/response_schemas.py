@@ -218,6 +218,7 @@ class AdminSyncOut(HttpResponseModel):
 
 
 class AdminThemesOut(HttpResponseModel):
+    generation: int = 0
     exists: bool
     themes_dir: str
     catalog: WebappThemesConfig

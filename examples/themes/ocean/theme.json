@@ -1,0 +1,27 @@
+{
+  "key": "ocean",
+  "names": {
+    "ru": "Океан",
+    "en": "Ocean"
+  },
+  "enabled": true,
+  "default": false,
+  "use_in_admin": false,
+  "css_file": "theme.css",
+  "tokens": {
+    "bg": "#0c1b2a",
+    "accent": "#39bce0"
+  },
+  "variants": {
+    "dark": {
+      "bg": "#0c1b2a",
+      "text": "#edf9ff",
+      "accent": "#39bce0"
+    },
+    "light": {
+      "bg": "#faf6ef",
+      "text": "#29231b",
+      "accent": "#39bce0"
+    }
+  }
+}

@@ -191,6 +191,13 @@ class BackupWorker:
             if self.settings.BACKUP_COMPOSE_ENABLED:
                 compose_files_count = self._stage_compose_source(staging_dir / "compose", warnings)
 
+            from config.theme_packages.backup import snapshot_themes
+
+            themes_included = await asyncio.to_thread(
+                snapshot_themes,
+                Path(self.settings.WEBAPP_THEMES_DIR),
+                staging_dir / "config/themes",
+            )
             completed_at = datetime.now(UTC)
             manifest = {
                 "app": BACKUP_APP_ID,
@@ -218,6 +225,7 @@ class BackupWorker:
                     "archive_path": BACKUP_TARIFFS_CONFIG_MEMBER,
                     "included": tariffs_config_included,
                 },
+                "themes": {"included": themes_included, "archive_path": "config/themes"},
                 "warnings": warnings,
             }
             attach_archive_integrity(

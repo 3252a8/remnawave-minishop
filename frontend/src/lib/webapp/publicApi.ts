@@ -265,7 +265,7 @@ export type ApiClient = {
   ): Promise<Record<string, unknown>>;
 };
 
-function builtApiPath<Template extends RawApiPath>(path: string): BuiltApiPath<Template> {
+export function builtApiPath<Template extends RawApiPath>(path: string): BuiltApiPath<Template> {
   return path as BuiltApiPath<Template>;
 }
 

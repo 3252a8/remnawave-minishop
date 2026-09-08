@@ -27,3 +27,5 @@ pillow-heif==1.5.0
 # aiogram 3.29.1 still caps its optional redis[hiredis] extra at <8, so both
 # first-party and aiogram clients explicitly keep RESP2 while using redis-py 8.
 redis>=8.0.1,<9
+
+tinycss2==1.5.1

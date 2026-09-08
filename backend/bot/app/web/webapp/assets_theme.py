@@ -12,6 +12,9 @@ from bot.app.web.context import (
     get_settings,
 )
 from config.settings import Settings
+from config.theme_packages.css import relocate_css
+from config.theme_packages.models import PackageError
+from config.theme_packages.registry import asset_path
 from config.webapp_themes_config import (
     default_webapp_theme_asset_file,
     default_webapp_theme_css_files,
@@ -42,10 +45,9 @@ WEBAPP_LEGACY_ASSET_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-ag
 
 def _resolve_theme_file_path(theme_dir: str, rel_path: Path, *, not_found_text: str) -> Path:
     root = Path(theme_dir).expanduser().resolve()
-    path = (root / rel_path).resolve()
     try:
-        path.relative_to(root)
-    except ValueError:
+        path, _key, _digest, _resource = asset_path(root, rel_path)
+    except (PackageError, ValueError):
         raise web.HTTPNotFound(text=not_found_text) from None
     return path
 
@@ -62,6 +64,9 @@ def _load_theme_css_asset(theme_dir: str, rel_path: Path) -> tuple[str, str]:
         if stat.st_size > WEBAPP_THEME_CSS_MAX_BYTES:
             raise web.HTTPNotFound(text="theme_css_too_large")
         text = path.read_text(encoding="utf-8")
+        _path, key, digest, resource = asset_path(Path(theme_dir), rel_path)
+        if digest:
+            text = relocate_css(text, key, digest, resource)
         etag = _theme_asset_etag(
             "theme-css",
             rel_path,
@@ -117,14 +122,14 @@ def _load_theme_binary_asset(
 
 
 def _safe_theme_css_relative_path(raw_path: str) -> Path | None:
-    return _safe_theme_relative_path(raw_path, allowed_suffixes={".css"}, max_length=180)
+    return _safe_theme_relative_path(raw_path, allowed_suffixes={".css"}, max_length=400)
 
 
 def _safe_theme_asset_relative_path(raw_path: str) -> Path | None:
     return _safe_theme_relative_path(
         raw_path,
         allowed_suffixes=set(WEBAPP_THEME_ASSET_CONTENT_TYPES),
-        max_length=220,
+        max_length=400,
     )
 
 

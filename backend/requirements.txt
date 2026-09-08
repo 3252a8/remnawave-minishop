@@ -126,6 +126,8 @@ requests==2.34.2
     # via yookassa
 sqlalchemy[asyncio]==2.0.51
     # via -r backend/requirements.in
+tinycss2==1.5.1
+    # via -r backend/requirements.in
 typing-extensions==4.16.0
     # via
     #   aiogram
@@ -147,6 +149,8 @@ urllib3==2.7.0
     #   yookassa
 webauthn==2.8.0
     # via -r backend/requirements.in
+webencodings==0.6.1
+    # via tinycss2
 wrapt==2.3.0
     # via deprecated
 yarl==1.24.5
