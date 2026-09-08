@@ -1,7 +1,9 @@
 type AdminErrorPayload = {
+  code?: unknown;
   detail?: unknown;
   error?: unknown;
   message?: unknown;
+  msg?: unknown;
 };
 
 type AdminTranslate = (key: string, vars?: Record<string, unknown>, fallback?: string) => string;
@@ -100,13 +102,51 @@ const ADMIN_ERROR_KEYS: Record<string, string> = {
   write_failed: "error_write_failed",
 };
 
+function errorPayload(value: unknown): AdminErrorPayload | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as AdminErrorPayload)
+    : null;
+}
+
+function scalarErrorText(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return "";
+}
+
+function structuredErrorText(value: unknown): string {
+  const scalar = scalarErrorText(value);
+  if (scalar) return scalar;
+  if (Array.isArray(value)) {
+    return value.map(structuredErrorText).filter(Boolean).join("; ");
+  }
+  const payload = errorPayload(value);
+  if (!payload) return "";
+  return (
+    scalarErrorText(payload.message) ||
+    scalarErrorText(payload.msg) ||
+    structuredErrorText(payload.detail)
+  );
+}
+
 export function adminErrorMessage(result: unknown, at: AdminTranslate, fallback = ""): string {
   if (!result) return fallback || at("error", {}, "Error");
 
-  const payload = typeof result === "object" ? (result as AdminErrorPayload) : null;
-  const code = typeof result === "string" ? result : String(payload?.error || result || "");
+  const payload = errorPayload(result);
+  const nestedError = errorPayload(payload?.error);
+  const code =
+    scalarErrorText(result) ||
+    scalarErrorText(payload?.error) ||
+    scalarErrorText(nestedError?.code) ||
+    scalarErrorText(nestedError?.error) ||
+    scalarErrorText(payload?.code);
   const rawMessage =
-    typeof result === "string" ? "" : String(payload?.message || payload?.detail || "").trim();
+    typeof result === "string"
+      ? ""
+      : structuredErrorText(payload?.message) ||
+        structuredErrorText(payload?.detail) ||
+        structuredErrorText(nestedError?.message) ||
+        structuredErrorText(nestedError?.detail);
   const key = ADMIN_ERROR_KEYS[code];
 
   if (key) {
