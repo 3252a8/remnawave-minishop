@@ -24,9 +24,10 @@ def is_gift_sale(sale_mode: object) -> bool:
 
 
 def gift_payment_method_available(method: str) -> bool:
-    from bot.payment_providers import provider_manages_recurring
+    from bot.payment_providers import get_provider_spec
 
-    return method != "tribute" and not provider_manages_recurring(method)
+    spec = get_provider_spec(method)
+    return bool(spec and spec.create_webapp_payment and not spec.manages_recurring)
 
 
 def gift_url(base_url: str, token: str) -> str:
