@@ -659,5 +659,6 @@
     {behaviorEditor}
     dirty={appearanceDirtyCount > 0}
     onsave={saveAppearance}
+    onpreview={previewTheme}
   />
 {/if}

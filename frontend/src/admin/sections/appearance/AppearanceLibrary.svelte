@@ -20,7 +20,6 @@
     Plus,
     RotateCcw,
     Settings,
-    Smartphone,
     Trash2,
     Download,
     Save,
@@ -32,6 +31,7 @@
   import AppearanceImportDialog from "./AppearanceImportDialog.svelte";
   import "./AppearanceLibrary.css";
   type LibraryTheme = {
+    entry: ThemeEntry;
     key: string;
     title: string;
     source: string;
@@ -49,6 +49,7 @@
     behaviorEditor,
     dirty,
     onsave,
+    onpreview,
   }: {
     at: (key: string, params?: Record<string, unknown>, fallback?: string) => string;
     themes: ThemeEntry[];
@@ -60,6 +61,7 @@
     behaviorEditor: Snippet;
     dirty: boolean;
     onsave: () => void | Promise<void>;
+    onpreview: (event: MouseEvent, theme: ThemeEntry) => void;
   } = $props();
   const store = getThemesStore();
   const library = store.library;
@@ -71,11 +73,6 @@
   let repository = $state("");
   let repositoryRef = $state("");
   let repositorySubdir = $state("");
-  let preview = $state<LibraryTheme | null>(null);
-  let previewMobile = $state(true);
-  let previewVariant = $state<"light" | "dark">("dark");
-  let previewUrl = $state("");
-  let previewError = $state("");
   let settingsKey = $state("");
   let removal = $state<LibraryTheme | null>(null);
   let exportTheme = $state<LibraryTheme | null>(null);
@@ -89,6 +86,7 @@
     themes.map((theme) => {
       const installation = library.installations.find((item) => item.key === theme.key);
       return {
+        entry: theme,
         key: theme.key,
         title: themeTitle(theme),
         imported: installation?.managed || false,
@@ -112,29 +110,6 @@
   const activeTheme = $derived(catalog.find((theme) => theme.key === active) || catalog[0]);
   onMount(() => {
     void library.load();
-  });
-  $effect(() => {
-    const selected = preview;
-    const variant = previewVariant;
-    let disposed = false;
-    let objectUrl = "";
-    previewUrl = "";
-    previewError = "";
-    if (selected)
-      void library
-        .preview(selected.key, variant)
-        .then((url) => {
-          objectUrl = url;
-          if (disposed) URL.revokeObjectURL(url);
-          else previewUrl = url;
-        })
-        .catch((error) => {
-          if (!disposed) previewError = library.message(error);
-        });
-    return () => {
-      disposed = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
   });
   async function activate(theme: LibraryTheme) {
     if (blocked) return;
@@ -172,26 +147,51 @@
         )}</small
       >
     </div>{/if}
-  <div class="appearance-settings-footer">
-    <span
-      >{dirty
-        ? at("appearance_unsaved", {}, "Save your changes before managing themes.")
-        : at(
-            "appearance_library_hint",
-            {},
-            "Themes are installed without changing the active theme."
-          )}</span
-    >
-    <AdminButton size="sm" disabled={blocked} onclick={library.refresh}
-      ><RefreshCw size={14} />{at("btn_refresh", {}, "Refresh")}</AdminButton
-    >
-    <AdminButton
-      size="sm"
-      variant="primary"
-      disabled={!dirty || library.busy || store.themesSaving}
-      onclick={onsave}><Save size={14} />{at("btn_save", {}, "Save")}</AdminButton
-    >
-  </div>
+  <AdminListToolbar class="appearance-action-bar">
+    {#snippet actions()}
+      <AdminButton
+        size="sm"
+        variant="primary"
+        disabled={blocked}
+        onclick={() => {
+          openImport();
+        }}><Plus size={15} />{at("appearance_demo_add", {}, "Add themes")}</AdminButton
+      >
+      <AdminButton
+        size="sm"
+        disabled={blocked}
+        onclick={() => library.exportThemes(catalog.map((theme) => theme.key))}
+        ><Download size={14} />{at(
+          "appearance_export_collection",
+          {},
+          "Download collection"
+        )}</AdminButton
+      >
+      <AdminButton
+        size="sm"
+        onclick={() => {
+          guideOpen = true;
+        }}
+        ><FileText size={15} />{at(
+          "appearance_demo_author_guide",
+          {},
+          "Create a theme"
+        )}</AdminButton
+      >
+      <AdminButton size="sm" disabled={blocked} onclick={library.refresh}
+        ><RefreshCw size={14} />{at("btn_refresh", {}, "Refresh")}</AdminButton
+      >
+      <AdminButton
+        size="sm"
+        variant="primary"
+        disabled={!dirty || library.busy || store.themesSaving}
+        onclick={onsave}><Save size={14} />{at("btn_save", {}, "Save")}</AdminButton
+      >
+    {/snippet}
+  </AdminListToolbar>
+  {#if dirty}<p class="appearance-unsaved-note">
+      {at("appearance_unsaved", {}, "Save your changes before managing themes.")}
+    </p>{/if}
   {#if library.error}<p class="import-error" role="alert">{library.error}</p>{/if}
   {#if !library.writable}<p class="appearance-settings-note">
       {at(
@@ -200,29 +200,6 @@
         "Theme storage is read-only. Check the volume permissions on the server."
       )}
     </p>{/if}
-  <header class="library-heading">
-    <div>
-      <h2>{at("appearance_demo_title", {}, "Make it yours")}</h2>
-      <p>
-        {at(
-          "appearance_demo_subtitle",
-          {},
-          "Choose a theme, add your own, and shape the look of your shop."
-        )}
-      </p>
-    </div>
-    <AdminButton
-      disabled={blocked}
-      onclick={() => library.exportThemes(catalog.map((theme) => theme.key))}
-      >{at("appearance_export_collection", {}, "Download collection")}</AdminButton
-    >
-    <AdminButton
-      onclick={() => {
-        guideOpen = true;
-      }}
-      ><FileText size={15} />{at("appearance_demo_author_guide", {}, "Create a theme")}</AdminButton
-    >
-  </header>
   <section class="active-theme-summary">
     <span class="active-symbol"><Paintbrush size={21} /></span>
     <div class="active-copy">
@@ -240,8 +217,9 @@
       </p>
     </div>
     <AdminButton
-      onclick={() => {
-        preview = activeTheme || null;
+      disabled={!activeTheme}
+      onclick={(event) => {
+        if (activeTheme) onpreview(event, activeTheme.entry);
       }}><Eye size={15} />{at("appearance_demo_preview", {}, "Preview")}</AdminButton
     >
   </section>
@@ -262,15 +240,6 @@
           placeholder={at("appearance_demo_search", {}, "Search themes")}
           aria-label={at("appearance_demo_search", {}, "Search themes")}
         />
-      {/snippet}
-      {#snippet searchActions()}
-        <AdminButton
-          variant="primary"
-          disabled={blocked}
-          onclick={() => {
-            openImport();
-          }}><Plus size={15} />{at("appearance_demo_add", {}, "Add themes")}</AdminButton
-        >
       {/snippet}
     </AdminListToolbar>
     <div class="theme-library-grid">
@@ -336,9 +305,7 @@
             <div class="theme-card-actions">
               <AdminButton
                 size="sm"
-                onclick={() => {
-                  preview = theme;
-                }}
+                onclick={(event) => onpreview(event, theme.entry)}
                 aria-label={at(
                   "appearance_demo_preview_named",
                   { theme: theme.title },
@@ -468,68 +435,6 @@
   }}
 />
 
-<Dialog
-  open={Boolean(preview)}
-  title={preview?.title || ""}
-  closeLabel={at("close", {}, "Close")}
-  onclose={() => {
-    preview = null;
-  }}
-  class="admin-dialog appearance-preview-dialog"
->
-  {#if preview}
-    <div class="appearance-preview-toolbar">
-      <div class="appearance-preview-size">
-        <AdminButton
-          size="sm"
-          variant={previewMobile ? "primary" : "default"}
-          aria-pressed={previewMobile}
-          onclick={() => {
-            previewMobile = true;
-          }}><Smartphone size={14} />{at("appearance_demo_mobile", {}, "Mobile")}</AdminButton
-        ><AdminButton
-          size="sm"
-          variant={!previewMobile ? "primary" : "default"}
-          aria-pressed={!previewMobile}
-          onclick={() => {
-            previewMobile = false;
-          }}><Monitor size={14} />{at("appearance_demo_desktop", {}, "Desktop")}</AdminButton
-        >
-      </div>
-      <AdminButton
-        size="sm"
-        disabled={blocked || active === preview.key}
-        onclick={() => {
-          if (preview) activate(preview);
-        }}>{at("appearance_demo_activate", {}, "Activate")}</AdminButton
-      >
-    </div>
-    <div class="appearance-preview-size">
-      <AdminButton
-        size="sm"
-        aria-pressed={previewVariant === "dark"}
-        onclick={() => {
-          previewVariant = "dark";
-        }}>{at("appearance_preview_dark", {}, "Dark")}</AdminButton
-      >
-      <AdminButton
-        size="sm"
-        aria-pressed={previewVariant === "light"}
-        onclick={() => {
-          previewVariant = "light";
-        }}>{at("appearance_preview_light", {}, "Light")}</AdminButton
-      >
-    </div>
-    <div class="appearance-live-stage" class:mobile={previewMobile}>
-      {#if previewUrl}<iframe
-          src={previewUrl}
-          title={at("appearance_demo_preview_named", { theme: preview.title }, "Preview {theme}")}
-          class="appearance-live-frame"
-          sandbox=""
-        ></iframe>{:else}<p role="status">{previewError || at("loading", {}, "Loading…")}</p>{/if}
-    </div>
-  {/if}
-</Dialog>
 <Dialog
   open={Boolean(settings)}
   title={settings?.title || ""}

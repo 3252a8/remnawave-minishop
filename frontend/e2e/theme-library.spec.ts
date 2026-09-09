@@ -17,7 +17,32 @@ for (const viewport of [
     await page.goto(url);
     const library = page.locator(".appearance-library");
     await expect(library).toBeVisible();
+    const actionBar = library.locator(".appearance-action-bar");
+    await expect(actionBar.getByRole("button")).toHaveCount(5);
+    expect(
+      new Set(
+        await actionBar
+          .getByRole("button")
+          .evaluateAll((buttons) =>
+            buttons.map((button) => Math.round(button.getBoundingClientRect().top))
+          )
+      ).size
+    ).toBe(1);
+    await expect(library).not.toContainText("Новые темы добавляются в библиотеку");
+    await expect(library).not.toContainText("Ваш магазин, ваш стиль");
+    await expect(library).not.toContainText("Выберите тему, добавьте свою");
     await expect(library.locator(".library-theme-card")).toHaveCount(3);
+    expect(
+      await library.locator(".library-theme-card").evaluateAll((cards) =>
+        cards.every((card) => {
+          const actions = card.querySelector(".theme-card-actions");
+          return (
+            actions &&
+            card.getBoundingClientRect().bottom - actions.getBoundingClientRect().bottom <= 20
+          );
+        })
+      )
+    ).toBe(true);
     await expect
       .poll(async () =>
         library
@@ -46,15 +71,14 @@ for (const viewport of [
     await expect(library.locator('[data-theme-key="dark"]')).toHaveClass(/active/);
 
     const ocean = library.locator('[data-theme-key="ocean"]');
+    const popupPromise = page.waitForEvent("popup");
     await ocean.locator(".theme-card-actions button").first().click();
-    const preview = page.locator(".appearance-preview-dialog");
-    await expect(preview.locator("iframe")).toBeVisible();
-    await expect(preview.locator("iframe")).toHaveAttribute("sandbox", "");
-    await expect(preview.frameLocator("iframe").locator(".app-shell")).toBeVisible();
-    await preview.getByRole("button", { name: "Десктоп", exact: true }).click();
-    await preview.getByRole("button", { name: "Светлая", exact: true }).click();
-    await expect(preview.frameLocator("iframe").locator("html")).toHaveClass(/theme-light/);
-    await preview.locator(".dialog-head button").click();
+    const preview = await popupPromise;
+    await preview.waitForLoadState();
+    await expect(preview).toHaveURL(/\/demo\/runtime\/app\/\?theme_preview=ocean$/);
+    await expect(preview.locator(".app-shell")).toHaveClass(/theme-key-ocean/);
+    await expect(page.locator(".appearance-preview-dialog")).toHaveCount(0);
+    await preview.close();
 
     await ocean.getByRole("button", { name: "Активировать", exact: true }).click();
     await expect(ocean).toHaveClass(/active/);
@@ -140,6 +164,36 @@ test("theme import rejects unsafe archives and protected keys", async ({ page })
   await expect(dialog.getByRole("button", { name: /Установить/ })).toBeDisabled();
 });
 
+for (const layout of [
+  { name: "wide", width: 1600, addCardFillsRow: false },
+  { name: "desktop", width: 1280, addCardFillsRow: true },
+  { name: "mobile", width: 390, addCardFillsRow: true },
+]) {
+  test(`theme grid cards have equal heights on ${layout.name}`, async ({ page }) => {
+    await page.setViewportSize({ width: layout.width, height: 900 });
+    await page.goto(url);
+    const library = page.locator(".appearance-library");
+    await expect(library.locator(".library-theme-card")).toHaveCount(3);
+    const metrics = await library.locator(".theme-library-grid").evaluate((grid) => {
+      const themes = [...grid.querySelectorAll(".library-theme-card")];
+      const addCard = grid.querySelector(".theme-add-card");
+      return {
+        gridWidth: grid.getBoundingClientRect().width,
+        themeWidth: themes[0]?.getBoundingClientRect().width || 0,
+        addCardWidth: addCard?.getBoundingClientRect().width || 0,
+        heights: [...themes, addCard]
+          .filter((card): card is Element => Boolean(card))
+          .map((card) => card.getBoundingClientRect().height),
+      };
+    });
+    expect(Math.max(...metrics.heights) - Math.min(...metrics.heights)).toBeLessThanOrEqual(1);
+    expect(metrics.addCardWidth).toBeCloseTo(
+      layout.addCardFillsRow ? metrics.gridWidth : metrics.themeWidth,
+      0
+    );
+  });
+}
+
 test("theme library supports repository review, Escape and archive drop", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(url);
@@ -196,15 +250,14 @@ for (const width of [1280, 390]) {
     await expect(theme).toHaveClass(/active/);
     await expect(theme.locator(".theme-screenshot img")).toHaveCount(0);
     await expect(theme.locator(".theme-screenshot")).toContainText("Автор не добавил скриншот");
+    const popupPromise = page.waitForEvent("popup");
     await theme.locator(".theme-card-actions button").first().click();
-    const preview = page.locator(".appearance-preview-dialog");
-    await expect(preview.frameLocator("iframe").locator(".app-shell")).toBeVisible();
-    await expect(preview.frameLocator("iframe").locator("html")).toHaveClass(
-      /theme-key-CustomTheme/
-    );
-    await preview.getByRole("button", { name: "Светлая", exact: true }).click();
-    await expect(preview.frameLocator("iframe").locator("html")).toHaveClass(/theme-light/);
-    await preview.locator(".dialog-head button").click();
+    const preview = await popupPromise;
+    await preview.waitForLoadState();
+    await expect(preview).toHaveURL(/theme_preview=CustomTheme/);
+    await expect(preview.locator(".app-shell")).toHaveClass(/theme-key-customtheme/);
+    await expect(page.locator(".appearance-preview-dialog")).toHaveCount(0);
+    await preview.close();
     await library
       .locator('[data-theme-key="dark"]')
       .getByRole("button", { name: "Активировать", exact: true })
