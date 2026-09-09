@@ -4233,6 +4233,7 @@
   "admin_partners_withdrawal_paid": "Вывод отмечен выплаченным",
   "admin_partners_withdrawal_processing": "Вывод передан в обработку",
   "admin_partners_withdrawal_queue": "Очередь выводов",
+  "admin_partners_withdrawal_rejection_reason": "Причина отказа (обязательно для отклонения)",
   "admin_partners_withdrawal_returned": "Вывод отклонён, резерв возвращён",
   "admin_partners_withdrawals_hint": "Очередь ручных выплат с проверкой допустимых переходов статуса.",
   "admin_partners_withdrawals_title": "Выводы",

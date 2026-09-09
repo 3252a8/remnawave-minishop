@@ -266,6 +266,8 @@
   let withdrawalExternalReference = $state("");
   let withdrawalSettlementAmount = $state("");
   let withdrawalSettlementError = $state("");
+  let withdrawalRejectionReason = $state("");
+  let withdrawalRejectionError = $state("");
 
   function syncRouteView(): void {
     actionStatus = "";
@@ -465,6 +467,8 @@
     withdrawalExternalReference = withdrawal.externalReference || "";
     withdrawalSettlementAmount = withdrawal.settlementAmount || "";
     withdrawalSettlementError = "";
+    withdrawalRejectionReason = "";
+    withdrawalRejectionError = "";
     navigate("withdrawal_detail", withdrawal.id);
   }
 
@@ -584,6 +588,13 @@
     actionError = false;
     actionStatus = "";
     withdrawalSettlementError = "";
+    withdrawalRejectionError = "";
+    if (status === "reject" && !withdrawalRejectionReason.trim()) {
+      withdrawalRejectionError = at("partners_reason_required", {}, "Reason (required)");
+      actionStatus = withdrawalRejectionError;
+      actionError = true;
+      return;
+    }
     if (
       status === "paid" &&
       selectedWithdrawal.method === "crypto" &&
@@ -603,6 +614,7 @@
         status === "reject" ? "rejected" : status === "fail" ? "failed" : status;
       selectedWithdrawal.externalReference = withdrawalExternalReference.trim();
       selectedWithdrawal.settlementAmount = withdrawalSettlementAmount.trim();
+      if (status === "reject") selectedWithdrawal.noteKey = withdrawalRejectionReason.trim();
       actionStatus = partnerWithdrawalTransitionMessage(at, status);
       return;
     }
@@ -610,7 +622,8 @@
     try {
       await post(`/admin/partner-withdrawals/${selectedWithdrawal.id}/${status}`, {
         status_version: selectedWithdrawal.statusVersion ?? 1,
-        message: dialogReason.trim() || null,
+        message:
+          status === "reject" ? withdrawalRejectionReason.trim() : dialogReason.trim() || null,
         external_reference: withdrawalExternalReference.trim() || null,
         settlement_amount: withdrawalSettlementAmount.trim() || null,
       });
@@ -621,7 +634,11 @@
     } catch (error) {
       actionError = true;
       actionStatus =
-        error instanceof Error ? error.message : at("partners_action_failed", {}, "Action failed");
+        error instanceof Error && error.message === "withdrawal_rejection_reason_required"
+          ? at("partners_reason_required", {}, "Reason (required)")
+          : error instanceof Error
+            ? error.message
+            : at("partners_action_failed", {}, "Action failed");
     } finally {
       actionBusy = false;
     }
@@ -876,6 +893,8 @@
       bind:withdrawalExternalReference
       bind:withdrawalSettlementAmount
       bind:withdrawalSettlementError
+      bind:withdrawalRejectionReason
+      bind:withdrawalRejectionError
       bind:dialog
       bind:decisionOutcome
       bind:approvalRate

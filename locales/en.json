@@ -4233,6 +4233,7 @@
   "admin_partners_withdrawal_paid": "Withdrawal marked paid",
   "admin_partners_withdrawal_processing": "Withdrawal moved to processing",
   "admin_partners_withdrawal_queue": "Withdrawal queue",
+  "admin_partners_withdrawal_rejection_reason": "Reason for rejection (required to reject)",
   "admin_partners_withdrawal_returned": "Withdrawal rejected and reserve released",
   "admin_partners_withdrawals_hint": "Manual payout queue with status preconditions.",
   "admin_partners_withdrawals_title": "Withdrawals",
