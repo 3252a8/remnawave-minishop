@@ -42,6 +42,29 @@ registry_digest() {
   jq -er '.digest' <<< "$manifest"
 }
 
+wait_for_registry_digest() {
+  local reference="$1"
+  local expected_digest="$2"
+  local actual_digest=""
+  local attempt
+  local sleep_seconds
+
+  for attempt in 1 2 3 4 5 6; do
+    actual_digest="$(registry_digest "$reference" || true)"
+    if [ "$actual_digest" = "$expected_digest" ]; then
+      return 0
+    fi
+    if [ "$attempt" -lt 6 ]; then
+      sleep_seconds=$((attempt * 2))
+      echo "Digest for $reference is not visible yet; retrying in ${sleep_seconds}s."
+      sleep "$sleep_seconds"
+    fi
+  done
+
+  echo "Digest verification failed for $reference (expected $expected_digest, got ${actual_digest:-none})" >&2
+  return 1
+}
+
 verify_remote_head() {
   local branch="$1"
   local remote_commit
@@ -66,14 +89,9 @@ promote_tag() {
   local digest="$2"
   local tag="$3"
   local destination="$image:$tag"
-  local promoted_digest
 
   docker buildx imagetools create --tag "$destination" "$image@$digest"
-  promoted_digest="$(registry_digest "$destination")"
-  if [ "$promoted_digest" != "$digest" ]; then
-    echo "Digest verification failed for $destination" >&2
-    exit 1
-  fi
+  wait_for_registry_digest "$destination" "$digest"
 }
 
 verify_signature() {
@@ -195,10 +213,7 @@ for target in $TARGETS; do
     echo "Build returned a malformed digest for $target: $digest" >&2
     exit 1
   fi
-  if [ "$(registry_digest "$image:$candidate_tag")" != "$digest" ]; then
-    echo "Candidate tag does not resolve to the build digest for $target" >&2
-    exit 1
-  fi
+  wait_for_registry_digest "$image:$candidate_tag" "$digest"
 
   immutable_ref="$image@$digest"
   labels="$(docker buildx imagetools inspect "$immutable_ref" --format '{{json .Image.Config.Labels}}')"
