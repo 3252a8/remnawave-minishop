@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createBillingDeeplinkEffects } from "./billingDeeplinkEffects.js";
+import { readCheckoutPromoDeeplink } from "./deeplinks.js";
 type TestOverrides = Record<string, unknown>;
 
 function makeEffects(overrides: TestOverrides = {}) {
@@ -35,6 +36,10 @@ const activeRegularSubscription = {
 const tariffPlans = [{ tariff_key: "pro" }];
 
 describe("createBillingDeeplinkEffects", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("opens the topup modal and strips the query when a topup deeplink resolves", () => {
     const { deps, effects } = makeEffects();
 
@@ -235,6 +240,26 @@ describe("createBillingDeeplinkEffects", () => {
     expect(deps.stripCheckoutPromoQueryFromUrl).toHaveBeenCalledOnce();
     expect(deps.billingStore.openPaymentModal).not.toHaveBeenCalled();
     expect(deps.billingStore.applyCheckoutPromo).not.toHaveBeenCalled();
+  });
+
+  it("passes a real Telegram startapp promo code to the checkout handler", () => {
+    vi.stubGlobal("window", { location: { search: "?startapp=promo_SAVE20" } });
+    const handleCheckoutPromoDeeplink = vi.fn();
+    const { effects } = makeEffects({
+      handleCheckoutPromoDeeplink,
+      readCheckoutPromoDeeplink,
+    });
+
+    effects.applyPostLoadBillingDeeplinks({
+      defaultMethod: "card",
+      plans: [{ tariff_key: "pro", is_default_tariff: true }],
+      search: "?startapp=promo_SAVE20",
+      subscription: { active: false },
+    });
+
+    expect(handleCheckoutPromoDeeplink).toHaveBeenCalledWith("SAVE20", {
+      modalOpened: false,
+    });
   });
 
   it("reports an already opened deeplink modal to the promo handler", () => {
