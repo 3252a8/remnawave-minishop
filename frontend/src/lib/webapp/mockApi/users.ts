@@ -195,9 +195,13 @@ export function filterDemoUsers(params: URLSearchParams): DemoAdminUser[] {
     if (sort === "id_asc") return Number(a.user_id || 0) - Number(b.user_id || 0);
     if (sort === "id_desc") return Number(b.user_id || 0) - Number(a.user_id || 0);
     if (sort === "premium_ratio_asc")
-      return Number(a.premium_traffic?.percent ?? -1) - Number(b.premium_traffic?.percent ?? -1);
+      return (
+        Number(a.premium_traffic?.used_bytes ?? 0) - Number(b.premium_traffic?.used_bytes ?? 0)
+      );
     if (sort === "premium_ratio_desc")
-      return Number(b.premium_traffic?.percent ?? -1) - Number(a.premium_traffic?.percent ?? -1);
+      return (
+        Number(b.premium_traffic?.used_bytes ?? 0) - Number(a.premium_traffic?.used_bytes ?? 0)
+      );
     if (sort === "payments_total_asc")
       return Number(a.payments_total_amount || 0) - Number(b.payments_total_amount || 0);
     if (sort === "payments_total_desc")

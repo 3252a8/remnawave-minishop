@@ -129,6 +129,33 @@ class AdminUsersListMetricsTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("order by coalesce", sql)
         self.assertIn("desc", sql)
 
+    async def test_filter_sort_users_orders_premium_by_used_bytes(self):
+        for sort_value, direction in (
+            ("premium_ratio_asc", "asc"),
+            ("premium_ratio_desc", "desc"),
+        ):
+            with self.subTest(sort_value=sort_value):
+                session = SimpleNamespace(
+                    execute=AsyncMock(side_effect=[FakeResult([]), FakeResult(scalar_value=0)])
+                )
+
+                await users_module._filter_and_sort_users(
+                    session,
+                    query="",
+                    filter_value="all",
+                    panel_status="all",
+                    premium_traffic="all",
+                    sort_value=sort_value,
+                    page=0,
+                    page_size=25,
+                )
+
+                sql = _compile_sql(session.execute.await_args_list[0].args[0])
+                order_by = sql.split(" order by ", 1)[1]
+                self.assertIn("premium_used_bytes", order_by)
+                self.assertIn(direction, order_by)
+                self.assertNotIn(" / ", order_by)
+
     async def test_active_panel_filter_requires_live_unbanned_subscription(self):
         session = SimpleNamespace(
             execute=AsyncMock(side_effect=[FakeResult([]), FakeResult(scalar_value=0)])

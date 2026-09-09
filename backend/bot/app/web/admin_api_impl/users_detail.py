@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from aiohttp import web
-from sqlalchemy import Float, and_, case, cast, or_, select
+from sqlalchemy import and_, case, or_, select
 from sqlalchemy import func as sa_func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, sessionmaker
@@ -298,7 +298,6 @@ async def _filter_and_sort_users(
     count_stmt = select(sa_func.count(User.user_id))
 
     sq = None
-    ratio_expr = None
     plim_expr = None
     pu_expr = None
     payment_summary_sq = None
@@ -323,12 +322,6 @@ async def _filter_and_sort_users(
             + pb
         )
         pu_expr = sa_func.coalesce(sq.c.premium_used_bytes, 0)
-        ratio_expr = case(
-            (sq.c.user_id.is_(None), None),
-            (sq.c.premium_unlimited_override.is_(True), None),
-            (plim_expr <= 0, None),
-            else_=cast(pu_expr, Float) / cast(plim_expr, Float),
-        )
 
     if sort_key in {
         "payments_total_asc",
@@ -517,10 +510,12 @@ async def _filter_and_sort_users(
         "id_desc": User.user_id.desc(),
     }
 
-    if needs_premium_sq and ratio_expr is not None and sort_key == "premium_ratio_asc":
-        stmt = stmt.order_by(ratio_expr.asc().nullslast(), User.user_id.asc())
-    elif needs_premium_sq and ratio_expr is not None and sort_key == "premium_ratio_desc":
-        stmt = stmt.order_by(ratio_expr.desc().nullslast(), User.user_id.desc())
+    # Keep the historical wire values for bookmarked admin URLs, but the
+    # Premium traffic column sorts by the absolute consumed bytes it displays.
+    if needs_premium_sq and pu_expr is not None and sort_key == "premium_ratio_asc":
+        stmt = stmt.order_by(pu_expr.asc(), User.user_id.asc())
+    elif needs_premium_sq and pu_expr is not None and sort_key == "premium_ratio_desc":
+        stmt = stmt.order_by(pu_expr.desc(), User.user_id.desc())
     elif payment_total_expr is not None and sort_key == "payments_total_asc":
         stmt = stmt.order_by(payment_total_expr.asc(), User.user_id.asc())
     elif payment_total_expr is not None and sort_key == "payments_total_desc":
