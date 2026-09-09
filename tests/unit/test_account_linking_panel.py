@@ -9,6 +9,7 @@ from bot.app.web.webapp import account as account_routes
 from bot.app.web.webapp import auth as auth_routes
 from bot.app.web.webapp.auth import (
     _apply_telegram_profile_to_user,
+    _build_account_merge_notice,
     _ensure_user_from_telegram,
     _link_telegram_to_user,
     _merge_users_for_web,
@@ -225,6 +226,60 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(update_uuid, "panel-target")
         self.assertEqual(payload["email"], "linked@example.com")
         self.assertEqual(payload["telegramId"], 42)
+
+    async def test_merged_panel_identity_keeps_shared_panel_user(self):
+        panel_service = SimpleNamespace(
+            delete_user_from_panel=AsyncMock(return_value=True),
+            update_user_details_on_panel=AsyncMock(return_value={"uuid": "shared-panel"}),
+        )
+        request = SimpleNamespace(
+            app={"subscription_service": SimpleNamespace(panel_service=panel_service)}
+        )
+        user = SimpleNamespace(
+            user_id=42,
+            panel_user_uuid="shared-panel",
+            telegram_id=42,
+            email="linked@example.com",
+        )
+
+        result = await _sync_merged_panel_identity_for_user(
+            request,
+            user,
+            source_panel_uuid="shared-panel",
+            final_panel_uuid="shared-panel",
+        )
+
+        self.assertTrue(result)
+        panel_service.delete_user_from_panel.assert_not_awaited()
+        panel_service.update_user_details_on_panel.assert_awaited_once_with(
+            "shared-panel",
+            {"telegramId": 42, "email": "linked@example.com"},
+            log_response=False,
+        )
+
+    async def test_merge_notice_does_not_report_shared_panel_user_as_removed(self):
+        merged_user = SimpleNamespace(
+            user_id=42,
+            panel_user_uuid="shared-panel",
+            language_code="ru",
+        )
+        settings = SimpleNamespace(DEFAULT_LANGUAGE="en")
+
+        with patch.object(
+            auth_routes.subscription_dal,
+            "get_active_subscription_by_user_id",
+            AsyncMock(return_value=None),
+        ):
+            notice = await _build_account_merge_notice(
+                SimpleNamespace(),
+                merged_user=merged_user,
+                source_user_id=-100,
+                source_panel_uuid="shared-panel",
+                settings=settings,
+            )
+
+        self.assertEqual(notice["primary_panel_user_uuid"], "shared-panel")
+        self.assertIsNone(notice["removed_panel_user_uuid"])
 
     async def test_merged_panel_identity_reactivates_expired_target_with_transferred_time(self):
         expire_at = datetime.now(UTC) + timedelta(days=30)

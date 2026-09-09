@@ -231,13 +231,18 @@ async def _build_account_merge_notice(
     if final_end_date and final_end_date.tzinfo is None:
         final_end_date = final_end_date.replace(tzinfo=UTC)
 
+    primary_panel_uuid = merged_user.panel_user_uuid
+    removed_panel_uuid = source_panel_uuid
+    if source_panel_uuid and source_panel_uuid == primary_panel_uuid:
+        removed_panel_uuid = None
+
     return {
         "merged": True,
         "language": _normalize_language(merged_user.language_code or settings.DEFAULT_LANGUAGE),
         "primary_user_id": int(merged_user.user_id),
         "removed_user_id": int(source_user_id),
-        "primary_panel_user_uuid": merged_user.panel_user_uuid,
-        "removed_panel_user_uuid": source_panel_uuid,
+        "primary_panel_user_uuid": primary_panel_uuid,
+        "removed_panel_user_uuid": removed_panel_uuid,
         "final_end_date": final_end_date.isoformat() if final_end_date else None,
         "final_end_date_text": _format_webapp_datetime(final_end_date),
     }

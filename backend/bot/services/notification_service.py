@@ -470,7 +470,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         first_name: str | None = None,
         final_end_date_text: str | None = None,
         primary_panel_user_uuid: str | None = None,
-        removed_panel_user_uuid: str | None = None,
+        source_panel_user_uuid: str | None = None,
         reason: str | None = None,
         provider: str | None = None,
     ) -> None:
@@ -500,6 +500,27 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
             if source_key:
                 merge_source = hd.quote(_(source_key))
 
+        primary_panel_uuid = str(primary_panel_user_uuid or "").strip()
+        source_panel_uuid = str(source_panel_user_uuid or "").strip()
+        if primary_panel_uuid and source_panel_uuid == primary_panel_uuid:
+            panel_operation = _(
+                "log_account_merge_panel_unchanged",
+                panel_user_uuid=hd.quote(primary_panel_uuid),
+            )
+        elif primary_panel_uuid and source_panel_uuid:
+            panel_operation = _(
+                "log_account_merge_panel_distinct",
+                primary_panel_user_uuid=hd.quote(primary_panel_uuid),
+                source_panel_user_uuid=hd.quote(source_panel_uuid),
+            )
+        elif primary_panel_uuid:
+            panel_operation = _(
+                "log_account_merge_panel_current",
+                panel_user_uuid=hd.quote(primary_panel_uuid),
+            )
+        else:
+            panel_operation = ""
+
         message = _(
             "log_account_merged",
             primary_user_id=primary_user_id,
@@ -508,8 +529,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
             user_display=user_display,
             email=hd.quote(email or ""),
             final_end_date=hd.quote(final_end_date_text or ""),
-            primary_panel_user_uuid=hd.quote(primary_panel_user_uuid or ""),
-            removed_panel_user_uuid=hd.quote(removed_panel_user_uuid or ""),
+            panel_operation=panel_operation,
             merge_source=merge_source,
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )

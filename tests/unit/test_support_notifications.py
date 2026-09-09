@@ -579,6 +579,8 @@ def test_account_merge_notification_goes_to_log_channel():
         def gettext(self, _language, key, **kwargs):
             if key == "log_open_profile_link":
                 return "Open profile"
+            if key == "log_account_merge_panel_distinct":
+                return "different panel users"
             assert key == "log_account_merged"
             return (
                 f"merged primary={kwargs['primary_user_id']} "
@@ -607,7 +609,7 @@ def test_account_merge_notification_goes_to_log_channel():
             first_name="Alice",
             final_end_date_text="2026-06-21 10:00",
             primary_panel_user_uuid="panel-telegram",
-            removed_panel_user_uuid="panel-email",
+            source_panel_user_uuid="panel-email",
         )
     )
 
@@ -618,6 +620,36 @@ def test_account_merge_notification_goes_to_log_channel():
     assert "paid@example.com" in message
     assert thread_id is None
     assert reply_markup.inline_keyboard[0][0].url == "tg://user?id=100200300"
+
+
+def test_account_merge_notification_marks_shared_panel_user_as_kept():
+    messages = []
+    service = NotificationService(
+        bot=SimpleNamespace(),
+        settings=_settings(LOG_CHAT_ID=-100123, DEFAULT_LANGUAGE="ru"),
+        i18n=_i18n(),
+    )
+
+    async def send_to_log_channel(message, thread_id=None, reply_markup=None):
+        messages.append(message)
+
+    service._send_to_log_channel = send_to_log_channel
+
+    asyncio.run(
+        service.notify_account_merged(
+            primary_user_id=42,
+            removed_user_id=-100,
+            email="paid@example.com",
+            telegram_id=None,
+            primary_panel_user_uuid="shared-panel",
+            source_panel_user_uuid="shared-panel",
+        )
+    )
+
+    assert len(messages) == 1
+    assert "Пользователь панели сохранён без удаления" in messages[0]
+    assert messages[0].count("shared-panel") == 1
+    assert "UUID удалённого в панели" not in messages[0]
 
 
 def test_external_auth_notifications_name_provider_and_merge_source():

@@ -814,7 +814,7 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                     first_name=payload.get("first_name"),
                     final_end_date_text=_format_webapp_datetime(final_end_date),
                     primary_panel_user_uuid=payload.get("target_panel_user_uuid"),
-                    removed_panel_user_uuid=payload.get("source_panel_user_uuid"),
+                    source_panel_user_uuid=payload.get("source_panel_user_uuid"),
                     reason=reason,
                     provider=EXTERNAL_MERGE_PROVIDERS.get(reason),
                 )

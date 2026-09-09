@@ -1281,7 +1281,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
             first_name="Alice",
             final_end_date_text="09.01.2026 03:04",
             primary_panel_user_uuid="target-panel",
-            removed_panel_user_uuid="source-panel",
+            source_panel_user_uuid="source-panel",
             reason="telegram_link",
             provider=None,
         )
@@ -1325,7 +1325,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
             first_name="Alice",
             final_end_date_text="",
             primary_panel_user_uuid=None,
-            removed_panel_user_uuid=None,
+            source_panel_user_uuid=None,
             reason="google_verified_email_link",
             provider="google",
         )
