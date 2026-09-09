@@ -1,7 +1,6 @@
 @font-face {
   font-family: "Twemoji Country Flags";
-  src: url("https://cdn.jsdelivr.net/npm/country-flag-emoji-polyfill@0.1/dist/TwemojiCountryFlags.woff2")
-    format("woff2");
+  src: url("/fonts/TwemojiCountryFlags.woff2") format("woff2");
   font-display: swap;
   unicode-range:
     U+1F1E6-1F1FF, U+1F3F4, U+E0062-E0063, U+E0065, U+E0067, U+E006C, U+E006E, U+E0073-E0074,
@@ -9,7 +8,13 @@
 }
 
 :root {
+  /* The font face is restricted to flag code points, so putting it first fixes
+     flags in dynamic text (for example server names) without changing normal text. */
+  --font-country-flags: "Twemoji Country Flags";
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  /* Themes own --font-sans. UI text uses this composed stack so theme overrides
+     cannot accidentally remove the bundled country-flag fallback. */
+  --font-ui: var(--font-country-flags), var(--font-sans);
   --font-mono: "JetBrains Mono", "Fira Code", monospace;
   --font-logo: var(--font-mono);
   color-scheme: dark;
@@ -105,18 +110,20 @@
     calc(100% - (var(--nav-inline-gutter) * 2)),
     calc(440px - (var(--nav-inline-gutter) * 2))
   );
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
 }
 
 /* Some Telegram iOS fullscreen builds report a zero content inset even though
    their floating header still overlays the WebView. Runtime state keeps this
    fallback scoped to fullscreen; the home artwork intentionally ignores it. */
-:root[data-telegram-fullscreen="true"] {
+:root[data-telegram-fullscreen="true"],
+:root[data-telegram-fullscreen-requested="true"] {
   --telegram-fullscreen-fallback-top: 96px;
 }
 
 .theme-light {
   color-scheme: light;
+  --accent-readable: color-mix(in srgb, var(--accent) 44%, #0f172a);
 }
 
 .theme-light .ui-spinner,
@@ -141,6 +148,32 @@
 .theme-light .admin-btn.admin-btn-primary:hover:not(:disabled),
 .theme-light .admin-extend-control .admin-btn.admin-btn-primary:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 52%, #000000);
+}
+
+.theme-light .public-install-brand strong,
+.theme-light .screen-head strong,
+.theme-light .accent-title .brand-row strong,
+.theme-light .brand-mark,
+.theme-light .bottom-nav button.active,
+.theme-light .default-theme-check,
+.theme-light .admin-theme-card-check {
+  color: var(--accent-readable);
+}
+
+.theme-light .ui-checkbox[data-state="checked"],
+.theme-light .ui-checkbox[data-state="indeterminate"] {
+  border-color: var(--accent-readable);
+  background: var(--accent-readable);
+  color: #ffffff;
+}
+
+.theme-light .admin-switch-root[data-state="checked"] {
+  border-color: color-mix(in srgb, var(--success) 72%, var(--admin-border));
+  background: color-mix(in srgb, var(--success) 88%, var(--admin-elev));
+}
+
+.theme-light .admin-switch-thumb {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.24);
 }
 
 .theme-light.app-shell {
@@ -381,7 +414,8 @@ input {
   --home-logo-scale-effective: var(--home-logo-scale-mobile, var(--home-logo-scale, 1));
   min-height: 100dvh;
   background: var(--bg, #02070b) !important;
-  font-family: var(--font-sans);
+  color: var(--text);
+  font-family: var(--font-ui);
 }
 
 :root {

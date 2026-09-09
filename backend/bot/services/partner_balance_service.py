@@ -29,6 +29,7 @@ from bot.services.checkout_promos import checkout_promo_payment_fields
 from bot.services.partner_commission_service import PartnerCommissionService
 from bot.services.partner_common import PartnerError, amount_to_minor, currency_scale
 from config.settings import Settings
+from config.subscription_periods import days_to_legacy_months, resolve_period_days
 from db.dal import partner_dal, payment_dal, subscription_dal, user_dal
 
 
@@ -59,6 +60,7 @@ class PartnerBalanceService:
         user_id: int,
         tariff_key: str,
         months: int,
+        duration_days: int | None = None,
     ) -> None:
         stored_tariff = str(getattr(payment, "tariff_key", "") or "").strip()
         stored_months = int(getattr(payment, "subscription_duration_months", 0) or 0)
@@ -66,7 +68,12 @@ class PartnerBalanceService:
             int(payment.user_id) != user_id
             or str(payment.provider) != "partner_balance"
             or stored_tariff != tariff_key.strip()
-            or stored_months != months
+            or (
+                int(getattr(payment, "subscription_duration_days", 0) or 0) != duration_days
+                if duration_days is not None
+                and getattr(payment, "subscription_duration_days", None) is not None
+                else stored_months != months
+            )
         ):
             raise PartnerError("idempotency_key_conflict", 409)
 
@@ -91,7 +98,8 @@ class PartnerBalanceService:
         *,
         user_id: int,
         tariff_key: str,
-        months: int,
+        months: int | None,
+        duration_days: int | None = None,
         promo_code: str | None,
         idempotency_key: str,
     ) -> dict[str, Any]:
@@ -100,6 +108,11 @@ class PartnerBalanceService:
             raise PartnerError("partner_program_disabled", 403)
         if not config.balance_payment_enabled:
             raise PartnerError("partner_balance_payment_disabled", 403)
+        try:
+            duration_days = resolve_period_days(duration_days=duration_days, months=months)
+        except ValueError as exc:
+            raise PartnerError("invalid_plan", 400) from exc
+        months = days_to_legacy_months(duration_days) or 0
         payment_key = f"partner-balance:{user_id}:{idempotency_key}"
         payment_id: int
         amount: float
@@ -119,6 +132,7 @@ class PartnerBalanceService:
                     user_id=user_id,
                     tariff_key=tariff_key,
                     months=months,
+                    duration_days=duration_days,
                 )
                 payment_id = int(existing.payment_id)
                 amount = float(existing.amount)
@@ -142,6 +156,7 @@ class PartnerBalanceService:
                             user_id=user_id,
                             tariff_key=tariff_key,
                             months=months,
+                            duration_days=duration_days,
                         )
                         payment_id = int(existing.payment_id)
                         amount = float(existing.amount)
@@ -180,14 +195,14 @@ class PartnerBalanceService:
                         tariffs = self.settings.tariffs_config
                         if tariffs:
                             try:
-                                tariff = tariffs.require(tariff_key)
+                                tariff = tariffs.require_configured(tariff_key)
                             except Exception as exc:
                                 raise PartnerError("invalid_plan", 400) from exc
                             if tariff.billing_model != "period":
                                 raise PartnerError("partner_balance_period_only", 400)
                         payment_payload = WebAppPaymentCreatePayload(
                             method="partner_balance",
-                            months=months,
+                            duration_days=duration_days,
                             tariff_key=tariff_key,
                             sale_mode="subscription",
                             renew_hwid_devices=False,

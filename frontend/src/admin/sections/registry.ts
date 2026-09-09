@@ -1,6 +1,7 @@
 import {
   Coins,
   CreditCard,
+  Gift,
   Database,
   FileText,
   Languages,
@@ -159,6 +160,19 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
     fallbackSubtitle: "Create and manage promo codes",
     icon: Tag,
     loadComponent: () => import("./PromosSection.svelte").then((module) => module.default),
+  },
+  {
+    id: "gifts",
+    group: "operations",
+    order: 25,
+    i18nKey: "nav_gifts",
+    fallbackLabel: "Gifts",
+    titleI18nKey: "section_gifts_title",
+    fallbackTitle: "Subscription gifts",
+    subtitleI18nKey: "section_gifts_subtitle",
+    fallbackSubtitle: "Purchases, delivery and activation",
+    icon: Gift,
+    loadComponent: () => import("./GiftsSection.svelte").then((module) => module.default),
   },
   {
     id: "partners",

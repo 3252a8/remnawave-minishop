@@ -67,6 +67,19 @@ async def get_active_subscription_by_user_id(
     return result.scalars().first()
 
 
+async def get_latest_subscription_by_user_id(
+    session: AsyncSession, user_id: int, panel_user_uuid: str | None = None
+) -> Subscription | None:
+    """Return the most recently ended subscription, including inactive rows."""
+
+    stmt = select(Subscription).where(Subscription.user_id == user_id)
+    if panel_user_uuid:
+        stmt = stmt.where(Subscription.panel_user_uuid == panel_user_uuid)
+    stmt = stmt.order_by(Subscription.end_date.desc(), Subscription.subscription_id.desc()).limit(1)
+    result = await session.execute(stmt)
+    return result.scalars().first()
+
+
 async def get_active_subscription_by_user_id_for_update(
     session: AsyncSession,
     user_id: int,

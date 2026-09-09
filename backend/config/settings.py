@@ -14,6 +14,7 @@ from config.settings_defaults import (
 )
 from config.settings_mixins import SettingsComputedMixin, SettingsValidationMixin
 from config.settings_models import (
+    BalanceSettings,
     CompatibilitySettings,
     DBSettings,
     EmailSettings,
@@ -73,6 +74,13 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     ADMIN_DB_STATS_CACHE_TTL_SECONDS: int = Field(default=5)
     ADMIN_USERS_LIST_CACHE_TTL_SECONDS: int = Field(default=3)
     ADMIN_BROADCAST_AUDIENCE_COUNTS_CACHE_TTL_SECONDS: int = Field(default=30)
+    ADMIN_BROADCAST_EXCLUDE_BLOCKED_TELEGRAM: bool = Field(
+        default=False,
+        description=(
+            "Exclude Telegram recipients who are already known to have blocked the bot "
+            "from newly created admin broadcasts."
+        ),
+    )
     PROFILE_SYNC_CACHE_TTL_SECONDS: int = Field(default=900)
     PANEL_SYNC_LIFETIME_TRAFFIC_MIN_INTERVAL_SECONDS: int = Field(default=3600)
     PANEL_SYNC_LIFETIME_TRAFFIC_MIN_DELTA_BYTES: int = Field(default=104857600)
@@ -164,9 +172,31 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
 
     DEFAULT_LANGUAGE: str = Field(default="ru")
     DEFAULT_CURRENCY_SYMBOL: str = Field(default="RUB")
+    USER_BALANCE_ENABLED: bool = Field(default=False)
+    USER_BALANCE_CURRENCY: str = Field(
+        default="",
+        description="Currency code for user balances; blank follows DEFAULT_CURRENCY_SYMBOL.",
+    )
+    USER_BALANCE_TOPUP_MIN_AMOUNT: float = Field(default=100, gt=0, allow_inf_nan=False)
+    USER_BALANCE_TOPUP_MAX_AMOUNT: float = Field(default=100000, gt=0, allow_inf_nan=False)
+    USER_BALANCE_TOPUP_PRESETS: str = Field(
+        default="[500, 1000, 2000, 5000]",
+        description="JSON array of suggested user balance top-up amounts.",
+    )
 
     SUPPORT_LINK: str | None = Field(default=None)
     SERVER_STATUS_URL: str | None = Field(default=None)
+    SERVER_STATUS_ENABLED: bool = Field(default=False)
+    SERVER_STATUS_SHOW_ON_HOME: bool = Field(default=False)
+    SERVER_STATUS_PROVIDER: Literal["url", "uptime-kuma", "xray-checker"] = Field(default="url")
+    SERVER_STATUS_KUMA_URL: str | None = Field(default=None)
+    # DEPRECATED: compatibility fallback for existing base-URL-plus-slug deployments.
+    # New configuration stores the complete published page in SERVER_STATUS_KUMA_URL.
+    SERVER_STATUS_KUMA_SLUG: str | None = Field(default="default")
+    SERVER_STATUS_XRAY_CHECKER_URL: str | None = Field(default=None)
+    SERVER_STATUS_CACHE_TTL_SECONDS: int = Field(default=30, ge=0)
+    SERVER_STATUS_STALE_TTL_SECONDS: int = Field(default=300, ge=0)
+    SERVER_STATUS_TIMEOUT_SECONDS: float = Field(default=5, gt=0)
     PRIVACY_POLICY_URL: str | None = Field(default=None)
     USER_AGREEMENT_URL: str | None = Field(default=None)
     REQUIRED_CHANNEL_ID: int | None = Field(
@@ -277,6 +307,21 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     SUBSCRIPTION_NOTIFY_DAYS_BEFORE: int = Field(default=3)
     SUBSCRIPTION_NOTIFY_HOURS_BEFORE: int = Field(default=3)
     SUBSCRIPTION_NOTIFICATION_WORKER_TICK_SECONDS: int = Field(default=300)
+    USER_NOTIFICATION_SINGLE_CHANNEL_FALLBACK_ENABLED: bool = Field(default=True)
+    USER_NOTIFICATION_PAYMENTS_TELEGRAM_ENABLED: bool = Field(default=True)
+    USER_NOTIFICATION_PAYMENTS_EMAIL_ENABLED: bool = Field(default=True)
+    USER_NOTIFICATION_TRAFFIC_TELEGRAM_ENABLED: bool = Field(default=True)
+    USER_NOTIFICATION_TRAFFIC_EMAIL_ENABLED: bool = Field(default=True)
+    USER_NOTIFICATION_DEVICES_TELEGRAM_ENABLED: bool = Field(default=True)
+    USER_NOTIFICATION_DEVICES_EMAIL_ENABLED: bool = Field(default=True)
+    USER_NOTIFICATION_DEVICE_ACTIVITY_TELEGRAM_ENABLED: bool = Field(default=True)
+    USER_NOTIFICATION_DEVICE_ACTIVITY_EMAIL_ENABLED: bool = Field(default=True)
+    USER_NOTIFICATION_DEVICE_LIMIT_TELEGRAM_ENABLED: bool = Field(default=True)
+    USER_NOTIFICATION_DEVICE_LIMIT_EMAIL_ENABLED: bool = Field(default=True)
+    USER_NOTIFICATION_SUPPORT_TELEGRAM_ENABLED: bool = Field(default=True)
+    USER_NOTIFICATION_SUPPORT_EMAIL_ENABLED: bool = Field(default=True)
+    USER_NOTIFICATION_REFERRALS_TELEGRAM_ENABLED: bool = Field(default=True)
+    USER_NOTIFICATION_REFERRALS_EMAIL_ENABLED: bool = Field(default=True)
     AUTO_RENEW_RETRY_ENABLED: bool = Field(default=False)
     AUTO_RENEW_RETRY_DRY_RUN: bool = Field(default=True)
     AUTO_RENEW_SCHEDULER_ENABLED: bool = Field(default=False)
@@ -322,6 +367,7 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
         default=15, alias="REFEREE_BONUS_DAYS_12_MONTHS"
     )
     # Referral program configuration
+    GIFTS_ENABLED: bool = True
     REFERRAL_PROGRAM_ENABLED: bool = True
     REFERRAL_ONE_BONUS_PER_REFEREE: bool = Field(
         default=True,
@@ -380,7 +426,7 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     PARTNER_LIST_PAGE_LIMIT: int = Field(default=50, ge=10, le=200)
     PARTNER_APPLICATION_RATE_LIMIT_HOURS: int = Field(default=24, ge=1, le=8760)
     PARTNER_WITHDRAWAL_RATE_LIMIT_SECONDS: int = Field(default=10, ge=1, le=3600)
-    PARTNER_AUDIT_RETENTION_DAYS: int = Field(default=1095, ge=30, le=3650)
+    PARTNER_AUDIT_RETENTION_DAYS: int = Field(default=0, ge=0, le=3650)
     PARTNER_REQUISITES_RETENTION_DAYS: int = Field(default=90, ge=1, le=3650)
     PARTNER_REQUISITES_ENCRYPTION_KEY: SecretStr | None = Field(
         default=None,
@@ -469,6 +515,21 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     )
 
     TRIAL_ENABLED: bool = Field(default=True)
+    TRIAL_PAYMENT_ENABLED: bool = Field(
+        default=False,
+        description="Require a successful payment before trial activation.",
+    )
+    TRIAL_PAYMENT_PRICE: float = Field(
+        default=100.0,
+        ge=0,
+        allow_inf_nan=False,
+        description="Trial activation price in the default payment currency.",
+    )
+    TRIAL_PAYMENT_STARS_PRICE: int = Field(
+        default=100,
+        ge=0,
+        description="Trial activation price in Telegram Stars; 0 disables Stars for trial.",
+    )
     TRIAL_DURATION_DAYS: int = Field(default=3)
     TRIAL_TRAFFIC_LIMIT_GB: float | None = Field(default=5.0)
     TRIAL_PREMIUM_TRAFFIC_LIMIT_GB: float | None = Field(
@@ -484,6 +545,13 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
         description=(
             "Hardware device limit for trial subscriptions. "
             "Empty keeps the panel/default limit; 0 means unlimited."
+        ),
+    )
+    TRIAL_DAYS_STRATEGY: Literal["add_remaining", "start_from_payment"] = Field(
+        default="add_remaining",
+        description=(
+            "How a paid tariff starts while a trial is active: keep the remaining trial "
+            "days or start the paid period on the payment date."
         ),
     )
     TRIAL_TRAFFIC_STRATEGY: str = Field(default="NO_RESET")
@@ -538,6 +606,18 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     WEBAPP_SERVER_PORT: int = Field(default=8081)
     WEBAPP_TITLE: str = Field(default="/minishop")
     WEBAPP_PRIMARY_COLOR: str = Field(default="#00fe7a")
+    WEBAPP_USER_THEME_MODE_ENABLED: bool = Field(
+        default=True,
+        description=(
+            "Allow users to choose Auto, Light, or Dark mode within the active Web App theme."
+        ),
+    )
+    WEBAPP_COMPACT_HOME_ENABLED: bool = Field(
+        default=False,
+        description=(
+            "Combine subscription status, traffic usage, and balance into one compact Home card."
+        ),
+    )
     WEBAPP_THEMES_DIR: str = Field(
         default="data/themes",
         description=(
@@ -589,6 +669,9 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     WEBAPP_SESSION_TTL_SECONDS: int = Field(default=24 * 60 * 60)
     WEBAPP_AUTH_MAX_AGE_SECONDS: int = Field(default=24 * 60 * 60)
     WEBAPP_LOGIN_TOKEN_TTL_SECONDS: int = Field(default=10 * 60)
+    TELEGRAM_LOGIN_ENABLED: bool = Field(default=True)
+    EMAIL_LOGIN_ENABLED: bool = Field(default=True)
+    EMAIL_ADDRESS_CHANGE_ENABLED: bool = Field(default=True)
     TELEGRAM_OAUTH_CLIENT_ID: int | None = Field(
         default=None,
         description="Telegram Web Login Client ID from BotFather. Defaults to the numeric bot ID from BOT_TOKEN.",  # noqa: E501
@@ -608,6 +691,25 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
             "when the proxy is configured"
         ),
     )
+    GOOGLE_OIDC_ENABLED: bool = Field(default=False)
+    GOOGLE_OIDC_CLIENT_ID: str | None = Field(default=None)
+    GOOGLE_OIDC_CLIENT_SECRET: str | None = Field(default=None)
+    YANDEX_OIDC_ENABLED: bool = Field(default=False)
+    YANDEX_OIDC_CLIENT_ID: str | None = Field(default=None)
+    YANDEX_OIDC_CLIENT_SECRET: str | None = Field(default=None)
+    PASSKEY_LOGIN_ENABLED: bool = Field(default=False)
+    PASSKEY_RP_ID: str | None = Field(
+        default=None,
+        description="WebAuthn relying-party domain. Empty means the public Web App hostname.",
+    )
+    PASSKEY_RP_NAME: str | None = Field(default=None)
+    PASSKEY_ORIGINS: str | None = Field(
+        default=None,
+        description=(
+            "Comma-separated allowed WebAuthn origins. Empty means the public Web App origin."
+        ),
+    )
+    PASSKEY_CHALLENGE_TTL_SECONDS: int = Field(default=5 * 60)
 
     SMTP_HOST: str = Field(default="smtp-relay.brevo.com")
     SMTP_PORT: int = Field(default=587)
@@ -652,6 +754,8 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     SUPPORT_TICKET_MAX_BODY_LENGTH: int = Field(default=4000)
     SUPPORT_TICKET_MAX_SUBJECT_LENGTH: int = Field(default=160)
     SUPPORT_TICKET_RATE_LIMIT_PER_HOUR: int = Field(default=5)
+    SUPPORT_MESSAGE_RATE_LIMIT_PER_MINUTE: int = Field(default=10)
+    SUPPORT_IMAGE_RATE_LIMIT_PER_DAY: int = Field(default=20)
     SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED: bool = Field(default=False)
     SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS: int = Field(default=5 * 60)
     SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS: int = Field(default=30 * 60)
@@ -681,6 +785,13 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
         description=(
             "Hide the in-bot user interface and /tg command. "
             "User renewal prompts should open the Mini App."
+        ),
+    )
+    MENU_BUTTONS_JSON: str = Field(
+        default="[]",
+        description=(
+            "Validated JSON array of localized custom buttons shown at the bottom of the "
+            "Telegram main menu and Web App settings."
         ),
     )
 
@@ -866,6 +977,7 @@ def get_settings() -> Settings:
 
 
 __all__ = [
+    "BalanceSettings",
     "CompatibilitySettings",
     "DBSettings",
     "EmailSettings",

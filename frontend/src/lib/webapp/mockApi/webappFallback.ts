@@ -10,6 +10,7 @@ import {
   demoAuthConfig,
 } from "./authDemo";
 import { defaultClone, type DemoRecord, type MockApiContext } from "./dataset";
+import { currentDemoBalance } from "./balance";
 import { applyDemoDeviceTopup, demoDeviceTopupPlan } from "./deviceTopup";
 import type { AdminDemoFixtures } from "./adminFixtures";
 import { demoPaymentStatuses, isDeviceTopupSaleMode, nextDemoPaymentId } from "./state";
@@ -71,6 +72,38 @@ export function webappFallbackResponse(
   } = context;
   const method = String(options.method || "GET").toUpperCase();
   const { supportTickets, supportMessages, supportCounts, filterSupportTickets } = fixtures;
+
+  if (cleanPath === "/notification-preferences/unsubscribe") {
+    if (method === "POST") {
+      const body = jsonBody(options);
+      DEV_MOCK.data.user.notification_preferences = {
+        ...(DEV_MOCK.data.user.notification_preferences || {}),
+        marketing_email: body.marketing_email !== false,
+        system_email: body.system_email !== false,
+      };
+    }
+    return {
+      ok: true,
+      email: String(DEV_MOCK.data.user.notification_email || DEV_MOCK.data.user.email || ""),
+      language: String(DEV_MOCK.data.user.language_code || "ru"),
+      notification_preferences: clone(
+        DEV_MOCK.data.user.notification_preferences || {
+          marketing_email: false,
+          marketing_telegram: true,
+          system_email: true,
+          system_telegram: true,
+        }
+      ),
+    };
+  }
+
+  if (cleanPath === "/account/notification-preferences" && method === "POST") {
+    DEV_MOCK.data.user.notification_preferences = jsonBody(options);
+    return {
+      ok: true,
+      notification_preferences: clone(DEV_MOCK.data.user.notification_preferences),
+    };
+  }
 
   if (cleanPath === "/support/tickets" && method === "POST") {
     let payload: DemoRecord = {};
@@ -157,7 +190,70 @@ export function webappFallbackResponse(
       provider_label: DEV_MOCK.data.subscription.auto_renew_provider_label,
     };
   }
-  if (cleanPath === "/me") return clone(DEV_MOCK.data);
+  if (cleanPath === "/me") {
+    const demo = new URLSearchParams(window.location.search).get("gift_demo") || "";
+    // /me exposes id; user_id belongs to admin rows and must not mask consumers of the wrong field.
+    const { user_id: legacyUserId, ...user } = DEV_MOCK.data.user;
+    return clone({
+      ...DEV_MOCK.data,
+      user: { ...user, id: user.id ?? legacyUserId },
+      settings: {
+        ...DEV_MOCK.data.settings,
+        gifts_enabled:
+          DEV_MOCK.config.giftsEnabled !== false && !["disabled", "disabled-empty"].includes(demo),
+      },
+    });
+  }
+  if (cleanPath === "/balance" && method === "GET") return clone(currentDemoBalance());
+  if (cleanPath === "/balance/topup" && method === "POST") {
+    const body = jsonBody(options);
+    return {
+      ok: true,
+      action: "open_link",
+      payment_id: nextDemoPaymentId(),
+      payment_url: `https://example.com/demo-balance-topup?amount=${encodeURIComponent(String(body.amount || 0))}&method=${encodeURIComponent(String(body.method || "demo"))}`,
+      status: "pending",
+      paid: false,
+    };
+  }
+  if (cleanPath === "/status") {
+    return {
+      ok: true,
+      enabled: true,
+      status: "operational",
+      updatedAt: new Date().toISOString(),
+      stale: false,
+      externalUrl: "https://status.example.com",
+      sources: [{ provider: "uptime-kuma", status: "operational", error: null }],
+      incidents: [],
+      groups: [
+        {
+          id: "locations",
+          name: "Locations",
+          items: [
+            {
+              id: "nl-1",
+              name: "Amsterdam",
+              status: "online",
+              provider: "uptime-kuma",
+              latencyMs: 42,
+              uptime24h: 99.98,
+              lastCheck: new Date().toISOString(),
+            },
+            {
+              id: "de-1",
+              name: "Frankfurt",
+              status: "online",
+              provider: "uptime-kuma",
+              latencyMs: 51,
+              uptime24h: 100,
+              lastCheck: new Date().toISOString(),
+            },
+          ],
+        },
+      ],
+    };
+  }
   if (path === "/subscription-guides") return clone(DEV_MOCK.data.subscription_guides);
   if (cleanPath.startsWith("/subscription-guides/public/")) {
     const shareToken = decodeURIComponent(cleanPath.split("/").pop() || "");
@@ -389,21 +485,22 @@ export function webappFallbackResponse(
     const discountPercent = promoCode ? 20 : 0;
     const effective = Math.round(quote.subtotal * (1 - discountPercent / 100) * 100) / 100;
     if (path.endsWith("quote-promo")) {
+      if (!promoCode) {
+        return { ok: true, valid: false };
+      }
       return {
         ok: true,
         valid: true,
         payable: true,
-        code: promoCode || "SAVE20",
+        code: promoCode,
         promo_code_id: 2026,
         currency: quote.stars ? "XTR" : "RUB",
-        discount_percent: discountPercent || 20,
+        discount_percent: discountPercent,
         base_amount: quote.subtotal,
-        effective_amount: promoCode ? effective : quote.subtotal * 0.8,
+        effective_amount: effective,
         base_stars: quote.stars ? quote.subtotal : null,
-        effective_stars: quote.stars
-          ? Math.round(promoCode ? effective : quote.subtotal * 0.8)
-          : null,
-        discount_amount: quote.subtotal - (promoCode ? effective : quote.subtotal * 0.8),
+        effective_stars: quote.stars ? Math.round(effective) : null,
+        discount_amount: quote.subtotal - effective,
         effect_summary: "−20% на всю корзину",
         applies_to: "all",
         min_subscription_months: null,

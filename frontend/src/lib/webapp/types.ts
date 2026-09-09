@@ -54,6 +54,7 @@ export type TermUnitLabel = (value: number, unit: string) => string;
 type MeOkResponse = Extract<MeResponse, { ok: true }>;
 
 export type UserProfile = MeOkResponse["user"] & WebappRecord;
+export type BalanceView = MeOkResponse["balance"] & WebappRecord;
 export type SubscriptionView = MeOkResponse["subscription"] & BillingPlan & WebappRecord;
 export type PendingPaymentView = NonNullable<MeOkResponse["pending_payment"]> & WebappRecord;
 export type BrandConfig = WebappRecord & {
@@ -69,12 +70,14 @@ export type WebappConfig = BootstrapResponse["config"] &
     appRepositoryUrl?: unknown;
     appVersion?: unknown;
     authProviders?: string[];
+    checkoutPlans?: BillingPlan[];
     emailAuthEnabled?: boolean;
     faviconUseCustom?: unknown;
     language?: string;
     languages?: LanguageOption[] | unknown[];
     registrationInviteOnlyEnabled?: boolean;
     themePreviewKey?: unknown;
+    userThemeModeEnabled?: boolean;
   };
 export const FALLBACK_WEBAPP_CONFIG: WebappConfig = {
   adminCssAsset: "",
@@ -83,6 +86,7 @@ export const FALLBACK_WEBAPP_CONFIG: WebappConfig = {
   appRepositoryUrl: "",
   appVersion: "",
   authProviders: ["telegram"],
+  checkoutPlans: [],
   currency: "RUB",
   emailAuthEnabled: false,
   faviconUrl: "",
@@ -93,19 +97,24 @@ export const FALLBACK_WEBAPP_CONFIG: WebappConfig = {
   primaryColor: "#00fe7a",
   privacyPolicyUrl: "",
   registrationInviteOnlyEnabled: false,
+  serverStatusInternal: false,
+  serverStatusShowOnHome: false,
   serverStatusUrl: "",
+  compactHomeEnabled: false,
   supportUrl: "",
   telegramLoginBotId: 0,
   telegramLoginBotUsername: "",
   telegramOAuthClientId: 0,
   telegramOAuthRequestAccess: "",
   themePreviewKey: "",
+  userThemeModeEnabled: true,
   themesCatalog: { default_theme: "dark", themes: [] },
   themesDir: "",
   title: "Subscription",
   userAgreementUrl: "",
 };
 export type AppSettings = MeOkResponse["settings"] & WebappRecord;
+export type MenuButtonView = NonNullable<AppSettings["menu_buttons"]>[number] & WebappRecord;
 export type ReferralState = MeOkResponse["referral"] & WebappRecord;
 export type ReferralBonusDetail = NonNullable<ReferralState["bonus_details"]>[number] &
   WebappRecord;

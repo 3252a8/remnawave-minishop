@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createBillingDeeplinkEffects } from "./billingDeeplinkEffects.js";
+import { readCheckoutPromoDeeplink } from "./deeplinks.js";
 type TestOverrides = Record<string, unknown>;
 
 function makeEffects(overrides: TestOverrides = {}) {
@@ -12,10 +13,12 @@ function makeEffects(overrides: TestOverrides = {}) {
       setCheckoutPromoInput: vi.fn(),
     },
     readCheckoutPromoDeeplink: vi.fn(() => ""),
+    readCheckoutDeeplink: vi.fn(() => null),
     readPlansDeeplink: vi.fn(() => false),
     readRenewalDeeplink: vi.fn(() => null),
     setHomeRoute: vi.fn(),
     stripCheckoutPromoQueryFromUrl: vi.fn(),
+    stripCheckoutDeeplinkFromUrl: vi.fn(),
     stripRenewalLoginQueryFromUrl: vi.fn(),
     stripTopupQueryFromUrl: vi.fn(),
     ...overrides,
@@ -33,6 +36,10 @@ const activeRegularSubscription = {
 const tariffPlans = [{ tariff_key: "pro" }];
 
 describe("createBillingDeeplinkEffects", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("opens the topup modal and strips the query when a topup deeplink resolves", () => {
     const { deps, effects } = makeEffects();
 
@@ -132,6 +139,69 @@ describe("createBillingDeeplinkEffects", () => {
     });
   });
 
+  it("opens an exact plan checkout with URL-selected flexible limits", () => {
+    const checkoutDeeplink = {
+      plan: "pro",
+      months: 6,
+      addons: { deviceTotal: 5, regularLimitGb: 300, premiumLimitGb: 100 },
+    };
+    const { deps, effects } = makeEffects({
+      readCheckoutDeeplink: vi.fn(() => checkoutDeeplink),
+    });
+
+    effects.applyPostLoadBillingDeeplinks({
+      defaultMethod: "card",
+      plans: [{ id: 8, tariff_key: "pro", months: 6 }],
+      search: "",
+      subscription: { active: false },
+    });
+
+    expect(deps.setHomeRoute).toHaveBeenCalledOnce();
+    expect(deps.billingStore.openPaymentModal.mock.calls[0][6]).toEqual({
+      preferCheckout: true,
+      preferredPlanId: "pro",
+      preferredTariffKey: "pro",
+      preferredMonths: 6,
+      checkoutAddonPreset: checkoutDeeplink.addons,
+    });
+    expect(deps.stripCheckoutDeeplinkFromUrl).toHaveBeenCalledOnce();
+  });
+
+  it("consumes checkout entry once when later data refreshes rerun post-load effects", () => {
+    const checkoutDeeplink = { plan: "pro", months: 6, addons: {} };
+    const { deps, effects } = makeEffects({
+      readCheckoutDeeplink: vi.fn(() => checkoutDeeplink),
+      readPlansDeeplink: vi.fn(() => true),
+    });
+    const input = {
+      defaultMethod: "card",
+      plans: [{ id: 8, tariff_key: "pro", months: 6 }],
+      search: "",
+      subscription: { active: false },
+    };
+
+    effects.applyPostLoadBillingDeeplinks(input);
+    effects.applyPostLoadBillingDeeplinks(input);
+
+    expect(deps.billingStore.openPaymentModal).toHaveBeenCalledOnce();
+    expect(deps.stripCheckoutDeeplinkFromUrl).toHaveBeenCalledOnce();
+  });
+
+  it("does not reopen plan selection from a persistent checkout route flag", () => {
+    const { deps, effects } = makeEffects({ readPlansDeeplink: vi.fn(() => true) });
+    const input = {
+      defaultMethod: "card",
+      plans: tariffPlans,
+      search: "",
+      subscription: { active: false },
+    };
+
+    effects.applyPostLoadBillingDeeplinks(input);
+    effects.applyPostLoadBillingDeeplinks(input);
+
+    expect(deps.billingStore.openPaymentModal).toHaveBeenCalledOnce();
+  });
+
   it("lets a more specific billing deeplink win over the checkout route", () => {
     const { deps, effects } = makeEffects({
       readPlansDeeplink: vi.fn(() => true),
@@ -170,6 +240,26 @@ describe("createBillingDeeplinkEffects", () => {
     expect(deps.stripCheckoutPromoQueryFromUrl).toHaveBeenCalledOnce();
     expect(deps.billingStore.openPaymentModal).not.toHaveBeenCalled();
     expect(deps.billingStore.applyCheckoutPromo).not.toHaveBeenCalled();
+  });
+
+  it("passes a real Telegram startapp promo code to the checkout handler", () => {
+    vi.stubGlobal("window", { location: { search: "?startapp=promo_SAVE20" } });
+    const handleCheckoutPromoDeeplink = vi.fn();
+    const { effects } = makeEffects({
+      handleCheckoutPromoDeeplink,
+      readCheckoutPromoDeeplink,
+    });
+
+    effects.applyPostLoadBillingDeeplinks({
+      defaultMethod: "card",
+      plans: [{ tariff_key: "pro", is_default_tariff: true }],
+      search: "?startapp=promo_SAVE20",
+      subscription: { active: false },
+    });
+
+    expect(handleCheckoutPromoDeeplink).toHaveBeenCalledWith("SAVE20", {
+      modalOpened: false,
+    });
   });
 
   it("reports an already opened deeplink modal to the promo handler", () => {

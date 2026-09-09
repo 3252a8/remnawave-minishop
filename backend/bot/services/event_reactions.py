@@ -3,13 +3,13 @@ from __future__ import annotations
 import logging
 import time
 from collections import OrderedDict
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from typing import Any
 
 from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
 from bot.infra import events
-from bot.infra.payment_events import PaymentPurchase, resolve_payment_success_snapshot
+from bot.infra.payment_events import resolve_payment_success_snapshot
 from bot.infra.redis import get_redis, redis_key
 from bot.keyboards.inline.user_keyboards_payments import get_autorenew_cancel_keyboard
 from bot.payment_providers.shared.common import (
@@ -17,19 +17,59 @@ from bot.payment_providers.shared.common import (
 )
 from bot.plugins import PluginContext
 from bot.services.email_templates import render_account_merged
+from bot.services.event_reactions_external_auth import (
+    ACCOUNT_MERGE_NOTIFY_REASONS,
+    EXTERNAL_MERGE_PROVIDERS,
+    EXTERNAL_REGISTRATION_PROVIDERS,
+    react_to_external_identity_link,
+)
 from bot.services.event_reactions_partner import PartnerEventReactionsMixin
+from bot.services.event_reactions_payment_details import (
+    _format_failed_payment_details,
+    _int_or_none,
+)
 from bot.services.notification_service import NotificationService
+from bot.services.telegram_notifications import record_telegram_notification_failure
 from bot.services.user_email_notifications import send_user_notification_email
+from bot.services.user_notification_policy import (
+    UserNotificationCategory,
+    telegram_recipient,
+    user_notification_channel_allowed,
+    user_notification_channel_selected,
+    user_notification_delivery_plan,
+)
 from db.dal import payment_dal, payment_reconciliation_dal, subscription_dal, user_dal
 from db.models import Payment, Subscription, User
 
 logger = logging.getLogger(__name__)
 
 _registered_handlers: list[tuple[str, events.EventHandler]] = []
-_ACCOUNT_MERGE_NOTIFY_REASONS = {"email_link", "telegram_link", "login"}
 _PAYMENT_NOTIFICATION_TTL_SECONDS = 24 * 60 * 60
 _PAYMENT_NOTIFICATION_CACHE_MAX = 4096
 _payment_notification_cache: OrderedDict[str, float] = OrderedDict()
+
+
+async def _log_telegram_notification_failure(
+    ctx: PluginContext,
+    user_id: int,
+    notification: str,
+    exc: Exception,
+) -> bool:
+    telegram_status = await record_telegram_notification_failure(
+        ctx.session_factory,
+        user_id,
+        exc,
+    )
+    if telegram_status is None:
+        return False
+    logger.info(
+        "Telegram notification unavailable; user_id=%s notification=%s status=%s reason=%s",
+        user_id,
+        notification,
+        telegram_status,
+        exc,
+    )
+    return True
 
 
 def _payment_notification_key(
@@ -210,13 +250,6 @@ def _payment_status_timestamp(payment: Any) -> datetime | None:
     return updated_at or created_at
 
 
-def _int_or_none(value: Any) -> int | None:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
-
-
 def _has_superseding_success(
     canceled_payment: Any,
     successful_payments: Iterable[Any],
@@ -235,153 +268,6 @@ def _has_superseding_success(
         if success_at is not None and success_at >= canceled_created_at:
             return True
     return False
-
-
-def _format_plain_amount(value: float) -> str:
-    amount = float(value)
-    if amount.is_integer():
-        return str(int(amount))
-    return f"{amount:g}"
-
-
-def _tariff_display_name(settings: Any, tariff_key: str | None, language: str) -> str:
-    if not tariff_key:
-        return ""
-    cfg = settings.tariffs_config
-    if not cfg:
-        return str(tariff_key)
-    try:
-        tariff = cfg.require(str(tariff_key))
-        return str(tariff.name(language))
-    except Exception:
-        return str(tariff_key)
-
-
-def _format_failed_payment_purchase(
-    translate: Callable[..., str], purchase: PaymentPurchase
-) -> str:
-    if purchase.kind == "traffic":
-        traffic_kind = translate(
-            "payment_failed_traffic_kind_premium"
-            if purchase.scope == "premium"
-            else "payment_failed_traffic_kind_regular"
-        )
-        return translate(
-            "payment_failed_detail_purchase_traffic",
-            gb=_format_plain_amount(float(purchase.amount)),
-            kind=traffic_kind,
-        )
-    if purchase.kind == "hwid_devices":
-        return translate(
-            "payment_failed_detail_purchase_hwid_devices",
-            count=int(float(purchase.amount)),
-        )
-    label_kwargs = {
-        "amount": _format_plain_amount(float(purchase.amount)),
-        "unit": purchase.unit,
-        "kind": purchase.kind,
-        "scope": purchase.scope or "",
-        **dict(purchase.label_kwargs),
-    }
-    if purchase.label_key:
-        return translate(purchase.label_key, **label_kwargs)
-    return translate("payment_failed_detail_purchase_generic", **label_kwargs)
-
-
-def _failed_payment_provider_detail(
-    settings: Any,
-    payment: Any,
-    payload: dict[str, Any],
-    language: str,
-) -> str:
-    provider = str(
-        payload.get("provider")
-        or getattr(payment, "provider", None)
-        or payload.get("notification_provider")
-        or ""
-    ).strip()
-    if not provider:
-        return ""
-    try:
-        from bot.payment_providers import (
-            iter_provider_specs,
-            provider_label_map,
-            resolve_provider_presentation,
-        )
-
-        specs = tuple(iter_provider_specs())
-        exact_spec = next((spec for spec in specs if provider == spec.id), None)
-        provider_specs = [spec for spec in specs if provider == spec.provider_key]
-        provider_label = provider_label_map(settings, language=language).get(provider, provider)
-        if exact_spec is not None:
-            button_label = resolve_provider_presentation(
-                exact_spec,
-                settings,
-                language=language,
-            ).webapp_label
-            return f"{button_label} ({provider_label}; {provider})"
-        if len(provider_specs) == 1:
-            button_label = resolve_provider_presentation(
-                provider_specs[0],
-                settings,
-                language=language,
-            ).webapp_label
-            return f"{button_label} ({provider_label}; {provider})"
-        return f"{provider_label} ({provider})"
-    except Exception:
-        logger.exception("Failed to resolve payment provider label for %s.", provider)
-        return provider
-
-
-def _format_failed_payment_details(
-    *,
-    translate: Callable[..., str],
-    settings: Any,
-    language: str,
-    payment: Any,
-    payload: dict[str, Any],
-) -> str:
-    snapshot = resolve_payment_success_snapshot(
-        payload,
-        payment,
-        default_currency=getattr(settings, "DEFAULT_CURRENCY", "RUB"),
-    )
-    lines: list[str] = []
-
-    tariff_name = _tariff_display_name(settings, snapshot.tariff_key, language)
-    if snapshot.months > 0:
-        key = (
-            "payment_failed_detail_subscription_with_tariff"
-            if tariff_name
-            else "payment_failed_detail_subscription"
-        )
-        lines.append(translate(key, months=snapshot.months, tariff=tariff_name))
-
-    for purchase in snapshot.purchases:
-        detail = _format_failed_payment_purchase(translate, purchase)
-        if detail:
-            lines.append(detail)
-
-    if not lines:
-        description = str(getattr(payment, "description", "") or "").strip()
-        if description:
-            lines.append(description)
-
-    details = [translate("payment_failed_detail_item", item=line) for line in lines if line]
-    details.append(
-        translate(
-            "payment_failed_detail_amount",
-            amount=_format_plain_amount(snapshot.amount),
-            currency=snapshot.currency,
-        )
-    )
-    provider_detail = _failed_payment_provider_detail(settings, payment, payload, language)
-    if provider_detail:
-        details.append(translate("payment_failed_detail_provider", provider=provider_detail))
-    payment_id = getattr(payment, "payment_id", None)
-    if payment_id is not None:
-        details.append(translate("payment_failed_detail_payment_id", payment_id=payment_id))
-    return "\n".join(details)
 
 
 class CoreEventReactions(PartnerEventReactionsMixin):
@@ -511,7 +397,18 @@ class CoreEventReactions(PartnerEventReactionsMixin):
         referred_by_id = payload.get("referred_by_id")
         email = payload.get("email") or getattr(user, "email", None)
         try:
-            if payload.get("registered_via") == "email":
+            registered_via = str(payload.get("registered_via") or "unknown")
+            external_provider = EXTERNAL_REGISTRATION_PROVIDERS.get(registered_via)
+            if external_provider:
+                if not email:
+                    return
+                await service.notify_new_external_user_registration(
+                    user_id=int(user_id),
+                    provider=external_provider,
+                    email=str(email),
+                    referred_by_id=referred_by_id,
+                )
+            elif registered_via == "email":
                 if not email:
                     return
                 await service.notify_new_email_user_registration(
@@ -598,6 +495,12 @@ class CoreEventReactions(PartnerEventReactionsMixin):
         except Exception:
             logger.exception("Failed to react to Telegram link for user %s.", user_id)
 
+    async def on_account_external_identity_linked(
+        self, event_name: str, payload: dict[str, Any]
+    ) -> None:
+        del event_name
+        await react_to_external_identity_link(self, payload)
+
     async def on_payment_succeeded(self, event_name: str, payload: dict[str, Any]) -> None:
         del event_name
         user_id = payload.get("user_id")
@@ -628,20 +531,34 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                         payment,
                         default_currency=getattr(self.ctx.settings, "DEFAULT_CURRENCY", "RUB"),
                     )
-                    await service.notify_payment_received(
-                        user_id=int(user_id),
-                        amount=snapshot.amount,
-                        currency=snapshot.currency,
-                        months=snapshot.months,
-                        traffic_gb=snapshot.traffic_gb,
-                        payment_provider=snapshot.notification_provider,
-                        username=getattr(user, "username", None),
-                        email=getattr(user, "email", None),
-                        traffic_is_premium=snapshot.traffic_is_premium,
-                        tariff_key=snapshot.tariff_key,
-                        purchased_hwid_devices=snapshot.purchased_hwid_devices,
-                        purchases=snapshot.purchases,
-                    )
+                    notification_kwargs: dict[str, Any] = {
+                        "user_id": int(user_id),
+                        "amount": snapshot.amount,
+                        "currency": snapshot.currency,
+                        "months": snapshot.months,
+                        "traffic_gb": snapshot.traffic_gb,
+                        "payment_provider": snapshot.notification_provider,
+                        "username": getattr(user, "username", None),
+                        "email": getattr(user, "email", None),
+                        "traffic_is_premium": snapshot.traffic_is_premium,
+                        "tariff_key": snapshot.tariff_key,
+                        "purchased_hwid_devices": snapshot.purchased_hwid_devices,
+                        "purchases": snapshot.purchases,
+                    }
+                    if snapshot.duration_days is not None:
+                        notification_kwargs["duration_days"] = snapshot.duration_days
+                    if snapshot.promo_code:
+                        notification_kwargs["promo_code"] = snapshot.promo_code
+                    if snapshot.discount_amount is not None and snapshot.discount_amount > 0:
+                        notification_kwargs["discount_amount"] = snapshot.discount_amount
+                    if snapshot.sale_mode_base == "balance_topup" or "gift" in str(
+                        snapshot.sale_mode
+                    ).split("|"):
+                        notification_kwargs.update(
+                            sale_mode=snapshot.sale_mode,
+                            payment_id=snapshot.payment_db_id,
+                        )
+                    await service.notify_payment_received(**notification_kwargs)
             except Exception:
                 logger.exception("Failed to react to successful payment for user %s.", user_id)
 
@@ -674,8 +591,6 @@ class CoreEventReactions(PartnerEventReactionsMixin):
         # Payment-linked codes are consumed in the successful fulfillment
         # transaction. A later cancellation event does not revoke the granted
         # entitlement, so it must never make that one-time code reusable.
-        if self.ctx.bot is None:
-            return
         if payment is not None and await self._payment_failure_is_superseded(payment, user_id):
             logger.info(
                 "Suppressing canceled payment notification for user %s payment %s: "
@@ -691,6 +606,13 @@ class CoreEventReactions(PartnerEventReactionsMixin):
         if not await _claim_payment_failure_notification(self.ctx, payload.get("payment_db_id")):
             return
         user = await self._load_user(user_id)
+        chat_id = telegram_recipient(user, user_id)
+        plan = user_notification_delivery_plan(
+            self.ctx.settings,
+            UserNotificationCategory.PAYMENTS,
+            user,
+            telegram_available=self.ctx.bot is not None and chat_id is not None,
+        )
         language = (
             getattr(user, "language_code", None)
             or getattr(self.ctx.settings, "DEFAULT_LANGUAGE", "ru")
@@ -726,32 +648,50 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                     getattr(payment, "payment_id", None),
                 )
         telegram_error: Exception | None = None
-        try:
-            reply_markup = (
-                get_autorenew_cancel_keyboard(
-                    language,
-                    self.ctx.i18n,
+        if plan.telegram and self.ctx.bot is not None and chat_id is not None:
+            try:
+                reply_markup = (
+                    get_autorenew_cancel_keyboard(
+                        language,
+                        self.ctx.i18n,
+                    )
+                    if _truthy(payload.get("auto_renew_retry_scheduled"))
+                    else None
                 )
-                if _truthy(payload.get("auto_renew_retry_scheduled"))
-                else None
-            )
-            if reply_markup is not None:
-                await self.ctx.bot.send_message(
-                    int(user_id),
-                    message_text,
-                    reply_markup=reply_markup,
+                if reply_markup is not None:
+                    await self.ctx.bot.send_message(
+                        chat_id,
+                        message_text,
+                        reply_markup=reply_markup,
+                    )
+                else:
+                    await self.ctx.bot.send_message(chat_id, message_text)
+            except Exception as exc:
+                expected_failure = await _log_telegram_notification_failure(
+                    self.ctx,
+                    user_id,
+                    "canceled_payment",
+                    exc,
                 )
-            else:
-                await self.ctx.bot.send_message(int(user_id), message_text)
-        except Exception as exc:
-            logger.exception("Failed to notify user %s about canceled payment.", user_id)
-            await _release_payment_failure_notification(
-                self.ctx,
-                payload.get("payment_db_id"),
+                if not expected_failure:
+                    logger.exception("Failed to notify user %s about canceled payment.", user_id)
+                telegram_error = exc
+        email_sent = False
+        email_requested = plan.email or (
+            user is not None
+            and user_notification_channel_selected(
+                self.ctx.settings,
+                UserNotificationCategory.PAYMENTS,
+                "email",
             )
-            telegram_error = exc
-        if user is not None:
-            await send_user_notification_email(
+            and user_notification_channel_allowed(
+                user,
+                UserNotificationCategory.PAYMENTS,
+                "email",
+            )
+        )
+        if email_requested and user is not None:
+            email_sent = await send_user_notification_email(
                 settings=self.ctx.settings,
                 i18n=self.ctx.i18n,
                 user=user,
@@ -759,8 +699,13 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                 message_text=message_text,
                 dashboard_url=(getattr(self.ctx.settings, "SUBSCRIPTION_MINI_APP_URL", "") or None),
             )
-        if telegram_error is None:
+        if telegram_error is None or email_sent is True:
             await _mark_payment_failure_notification_sent(
+                self.ctx,
+                payload.get("payment_db_id"),
+            )
+        else:
+            await _release_payment_failure_notification(
                 self.ctx,
                 payload.get("payment_db_id"),
             )
@@ -771,7 +716,7 @@ class CoreEventReactions(PartnerEventReactionsMixin):
             return
         inviter_user_id = payload.get("inviter_user_id")
         inviter_bonus_days = int(payload.get("inviter_bonus_days") or 0)
-        if inviter_user_id is None or inviter_bonus_days <= 0 or self.ctx.bot is None:
+        if inviter_user_id is None or inviter_bonus_days <= 0:
             return
         inviter = await self._load_user(inviter_user_id)
         if inviter is None:
@@ -794,26 +739,54 @@ class CoreEventReactions(PartnerEventReactionsMixin):
             referee_name=payload.get("referee_name") or f"User {payload.get('referee_user_id')}",
             new_end_date=end_date.strftime("%Y-%m-%d") if end_date else "",
         )
-        try:
-            await self.ctx.bot.send_message(int(inviter_user_id), message_text)
-        except Exception:
-            logger.exception(
-                "Failed to send referral bonus notification to inviter %s.",
-                inviter_user_id,
-            )
-        await send_user_notification_email(
-            settings=self.ctx.settings,
-            i18n=self.ctx.i18n,
-            user=inviter,
-            subject_key="email_referral_bonus_subject",
-            message_text=message_text,
-            dashboard_url=(getattr(self.ctx.settings, "SUBSCRIPTION_MINI_APP_URL", "") or None),
+        chat_id = telegram_recipient(inviter, inviter_user_id)
+        plan = user_notification_delivery_plan(
+            self.ctx.settings,
+            UserNotificationCategory.REFERRALS,
+            inviter,
+            telegram_available=self.ctx.bot is not None and chat_id is not None,
         )
+        if plan.telegram and self.ctx.bot is not None and chat_id is not None:
+            try:
+                await self.ctx.bot.send_message(chat_id, message_text)
+            except Exception as exc:
+                expected_failure = await _log_telegram_notification_failure(
+                    self.ctx,
+                    int(inviter_user_id),
+                    "referral_bonus",
+                    exc,
+                )
+                if not expected_failure:
+                    logger.exception(
+                        "Failed to send referral bonus notification to inviter %s.",
+                        inviter_user_id,
+                    )
+        email_requested = plan.email or (
+            user_notification_channel_selected(
+                self.ctx.settings,
+                UserNotificationCategory.REFERRALS,
+                "email",
+            )
+            and user_notification_channel_allowed(
+                inviter,
+                UserNotificationCategory.REFERRALS,
+                "email",
+            )
+        )
+        if email_requested:
+            await send_user_notification_email(
+                settings=self.ctx.settings,
+                i18n=self.ctx.i18n,
+                user=inviter,
+                subject_key="email_referral_bonus_subject",
+                message_text=message_text,
+                dashboard_url=(getattr(self.ctx.settings, "SUBSCRIPTION_MINI_APP_URL", "") or None),
+            )
 
     async def on_account_merged(self, event_name: str, payload: dict[str, Any]) -> None:
         del event_name
         reason = str(payload.get("reason") or "")
-        if reason not in _ACCOUNT_MERGE_NOTIFY_REASONS:
+        if reason not in ACCOUNT_MERGE_NOTIFY_REASONS:
             return
 
         target_user_id = payload.get("target_user_id")
@@ -841,7 +814,9 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                     first_name=payload.get("first_name"),
                     final_end_date_text=_format_webapp_datetime(final_end_date),
                     primary_panel_user_uuid=payload.get("target_panel_user_uuid"),
-                    removed_panel_user_uuid=payload.get("source_panel_user_uuid"),
+                    source_panel_user_uuid=payload.get("source_panel_user_uuid"),
+                    reason=reason,
+                    provider=EXTERNAL_MERGE_PROVIDERS.get(reason),
                 )
             except Exception:
                 logger.exception(
@@ -881,6 +856,7 @@ def register_core_reactions(ctx: PluginContext) -> None:
         (events.PROMO_CODE_APPLIED, reactions.on_promo_code_applied),
         (events.ACCOUNT_EMAIL_LINKED, reactions.on_account_email_linked),
         (events.ACCOUNT_TELEGRAM_LINKED, reactions.on_account_telegram_linked),
+        (events.ACCOUNT_EXTERNAL_IDENTITY_LINKED, reactions.on_account_external_identity_linked),
         (events.PAYMENT_SUCCEEDED, reactions.on_payment_succeeded),
         (events.PAYMENT_CANCELED, reactions.on_payment_canceled),
         (events.REFERRAL_BONUS_GRANTED, reactions.on_referral_bonus_granted),

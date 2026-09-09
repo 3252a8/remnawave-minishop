@@ -13,6 +13,8 @@ from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
 from bot.services.checkout_promos import CheckoutPromoResult, checkout_promo_payment_fields
+from bot.services.subscription_order_terms import freeze_subscription_terms
+from config.subscription_periods import fixed_day_metadata
 
 if TYPE_CHECKING:
     from bot.services.referral_service import ReferralService
@@ -67,7 +69,7 @@ from ..shared import (
 )
 from ..shared.app_context import app_required
 from ..shared.checkout_expiration import resolve_checkout_expiration
-from .client import CryptoPayApiClient, CryptoPayInvoice, CryptoPayUpdate
+from .client import CryptoPayApiClient, CryptoPayApiError, CryptoPayInvoice, CryptoPayUpdate
 
 logger = logging.getLogger(__name__)
 _LOG = "cryptopay"
@@ -167,6 +169,7 @@ class CryptoPayService(BaseProviderService):
         self._client: CryptoPayApiClient | None = None
         self._client_token: str | None = None
         self._client_network: str | None = None
+        self._invoice_lookup_authorization_blocked = False
         if not self.config.TOKEN:
             logger.warning("CryptoPay token not provided. CryptoPay disabled")
 
@@ -201,6 +204,7 @@ class CryptoPayService(BaseProviderService):
             self._client = client
             self._client_token = token
             self._client_network = network
+            self._invoice_lookup_authorization_blocked = False
         return self._client
 
     async def close(self) -> None:
@@ -257,6 +261,7 @@ class CryptoPayService(BaseProviderService):
             hwid_device_count=hwid_device_count,
         )
         payment_record_data = {
+            "subscription_terms_snapshot": freeze_subscription_terms(self.settings, sale_mode),
             "user_id": user_id,
             "amount": float(amount),
             "currency": currency_code,
@@ -270,6 +275,9 @@ class CryptoPayService(BaseProviderService):
             "purchased_hwid_devices": amounts.purchased_hwid_devices,
             "hwid_valid_from": hwid_quote.get("valid_from") if hwid_quote else None,
             "hwid_valid_until": hwid_quote.get("valid_until") if hwid_quote else None,
+            "hwid_pricing_period_days": hwid_quote.get("pricing_period_days")
+            if hwid_quote
+            else None,
             "hwid_pricing_period_months": (
                 hwid_quote.get("pricing_period_months") if hwid_quote else None
             ),
@@ -320,6 +328,7 @@ class CryptoPayService(BaseProviderService):
             {
                 "user_id": str(user_id),
                 "subscription_months": str(months),
+                **fixed_day_metadata(sale_mode),
                 "payment_db_id": str(payment_record.payment_id),
                 "sale_mode": sale_mode,
                 "traffic_gb": str(months) if sale_mode_is_traffic(sale_mode) else None,
@@ -400,8 +409,22 @@ class CryptoPayService(BaseProviderService):
         client = self.client
         if not self.configured or client is None:
             return None
+        if getattr(self, "_invoice_lookup_authorization_blocked", False):
+            return None
         try:
             invoices = await client.get_invoices(invoice_ids=str(invoice_id))
+        except CryptoPayApiError as exc:
+            if exc.is_unauthorized:
+                self._invoice_lookup_authorization_blocked = True
+                logger.error(
+                    "CryptoPay invoice reconciliation suspended: the API rejected the "
+                    "configured credentials for network=%s. Update CRYPTOPAY_TOKEN or "
+                    "CRYPTOPAY_NETWORK to resume polling.",
+                    self.config.NETWORK,
+                )
+                return None
+            logger.warning("CryptoPay invoice lookup failed for %s: %s", invoice_id, exc)
+            return None
         except Exception:
             logger.exception("CryptoPay invoice lookup failed: invoice_id=%s", invoice_id)
             return None

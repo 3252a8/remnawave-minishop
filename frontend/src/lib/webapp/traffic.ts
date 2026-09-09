@@ -90,6 +90,11 @@ export function trafficNextResetLabel(
   return nextResetText(sub?.traffic_next_reset_text, t);
 }
 
+export function trafficNextResetDate(sub: SubscriptionTraffic | null | undefined): string {
+  if (!trafficResetScheduled(sub)) return "";
+  return String(sub?.traffic_next_reset_text || "").trim();
+}
+
 export function premiumTrafficPercent(sub: SubscriptionTraffic | null | undefined): number {
   const used = Number(sub?.premium_used_bytes || 0);
   const limit = Number(sub?.premium_limit_bytes || 0);
@@ -124,6 +129,11 @@ export function premiumNextResetLabel(
 export function premiumTrafficResetScheduled(sub: SubscriptionTraffic | null | undefined): boolean {
   const strategy = normalizedResetStrategy(sub?.premium_traffic_limit_strategy);
   return Boolean(strategy && !strategy.includes("NO_RESET"));
+}
+
+export function premiumNextResetDate(sub: SubscriptionTraffic | null | undefined): string {
+  if (!premiumTrafficResetScheduled(sub)) return "";
+  return String(sub?.premium_next_reset_text || "").trim();
 }
 
 export function premiumTrafficResetLabel(
@@ -172,6 +182,7 @@ function extractYear(text: unknown): number {
 }
 
 export function isForeverSubscription(sub: SubscriptionTraffic | null | undefined): boolean {
+  if (Number(sub?.duration_days || 0) > 0) return false;
   const raw = String(sub?.end_date_text || "").trim();
   if (!raw) return false;
   return extractYear(raw) >= 2099;
@@ -183,7 +194,8 @@ export function activeSubscriptionTermLabel(
 ): string {
   if (isForeverSubscription(sub)) return t("wa_sub_term_forever");
 
-  const days = Math.max(0, Number(sub?.days_left || 0));
+  const rawDays = Number(sub?.days_left || 0);
+  const days = Number.isFinite(rawDays) ? Math.max(0, rawDays) : 0;
   if (!days) return t("wa_sub_term_value_unit", { value: "0", unit: termUnitLabel(0, "day") });
 
   if (days < 30) {

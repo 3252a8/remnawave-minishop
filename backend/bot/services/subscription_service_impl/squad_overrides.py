@@ -7,6 +7,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.services.subscription_order_terms import gift_tariff
 from db.dal import user_panel_squad_override_dal as override_dal
 from db.models import Subscription, UserPanelSquadOverride
 
@@ -151,7 +152,7 @@ class SquadOverrideMixin(SubscriptionServiceMixinContract):
             tariff = None
             if tariff_key:
                 try:
-                    tariff = self._resolve_tariff(str(tariff_key))
+                    tariff = gift_tariff(subscription) or self._resolve_tariff(str(tariff_key))
                 except Exception as exc:
                     logger.warning(
                         "Failed to resolve tariff %s while building squad overrides: %s",

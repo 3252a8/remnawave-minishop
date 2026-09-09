@@ -51,7 +51,7 @@ function createHarness(postResult: unknown, options: { reject?: boolean } = {}) 
 
 describe("createSubscriptionReissueAction", () => {
   it("posts, toasts the email confirmation, closes the dialog and refreshes data", async () => {
-    const harness: Harness = createHarness({ ok: true, email_sent: true });
+    const harness: Harness = createHarness({ ok: true, delivery_channel: "email" });
 
     await harness.action.confirmSubscriptionReissue();
 
@@ -62,24 +62,22 @@ describe("createSubscriptionReissueAction", () => {
     expect(harness.getBusy()).toBe(false);
   });
 
-  it("uses the email-failed toast when the backend could not send the email", async () => {
-    const harness = createHarness({ ok: true, email_sent: false });
+  it("uses the Telegram confirmation when email delivery falls back", async () => {
+    const harness = createHarness({ ok: true, delivery_channel: "telegram" });
 
     await harness.action.confirmSubscriptionReissue();
 
-    expect(harness.showToast).toHaveBeenCalledWith("wa_subscription_reissue_done_email_failed");
+    expect(harness.showToast).toHaveBeenCalledWith("wa_subscription_reissue_done_telegram");
     expect(harness.getDialogOpen()).toBe(false);
   });
 
-  it("maps email_required errors to the dedicated toast and keeps the dialog open", async () => {
-    const harness = createHarness({ ok: false, error: "email_required" });
+  it("uses the Mini App confirmation when no delivery channel is available", async () => {
+    const harness = createHarness({ ok: true, delivery_channel: "app" });
 
     await harness.action.confirmSubscriptionReissue();
 
-    expect(harness.showToast).toHaveBeenCalledWith("wa_subscription_reissue_email_required");
-    expect(harness.getDialogOpen()).toBe(true);
-    expect(harness.loadData).not.toHaveBeenCalled();
-    expect(harness.getBusy()).toBe(false);
+    expect(harness.showToast).toHaveBeenCalledWith("wa_subscription_reissue_done_app");
+    expect(harness.getDialogOpen()).toBe(false);
   });
 
   it("maps subscription_not_active errors to the dedicated toast", async () => {
@@ -105,7 +103,7 @@ describe("createSubscriptionReissueAction", () => {
   });
 
   it("ignores confirm and close while busy, and open while busy", async () => {
-    const harness = createHarness({ ok: true, email_sent: true });
+    const harness = createHarness({ ok: true, delivery_channel: "email" });
     harness.setBusy(true);
 
     await harness.action.confirmSubscriptionReissue();
@@ -117,7 +115,7 @@ describe("createSubscriptionReissueAction", () => {
   });
 
   it("opens and closes the dialog when idle", () => {
-    const harness = createHarness({ ok: true, email_sent: true });
+    const harness = createHarness({ ok: true, delivery_channel: "email" });
 
     harness.action.closeSubscriptionReissueDialog();
     expect(harness.getDialogOpen()).toBe(false);

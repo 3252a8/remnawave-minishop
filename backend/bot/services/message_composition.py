@@ -22,6 +22,8 @@ from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
+from config.link_targets import normalize_button_link
+
 MESSAGE_CHANNELS = ("telegram", "email")
 BUTTON_KIND_URL = "url"
 BUTTON_KIND_WEBAPP = "webapp"
@@ -48,6 +50,7 @@ MINI_APP_SECTIONS = (
     "devices",
     "support",
     "settings",
+    "notifications",
 )
 MAX_MESSAGE_BUTTONS = 4
 MAX_BUTTON_LABEL_LENGTH = 64
@@ -293,11 +296,12 @@ def _resolve_button(
     bot_username: str | None,
 ) -> MessageButton:
     if button.kind in {BUTTON_KIND_URL, BUTTON_KIND_WEBAPP}:
-        url = button.url
-        if not url:
+        raw_url = str(button.url or "").strip()
+        if not raw_url:
             raise MessageValidationError("button_url_required", label)
-        if not url.lower().startswith(("https://", "http://")):
-            raise MessageValidationError("button_url_invalid", url)
+        url = normalize_button_link(raw_url)
+        if url is None:
+            raise MessageValidationError("button_url_invalid", raw_url)
         # A "webapp" target belongs inside the Mini App. Telegram only accepts
         # https for web_app buttons, so a plain-http target degrades to a
         # normal link rather than being rejected.

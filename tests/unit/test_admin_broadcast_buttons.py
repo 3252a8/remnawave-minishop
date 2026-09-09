@@ -78,6 +78,8 @@ class _FakeAudienceService:
         return target == "all"
 
     async def resolve_user_ids(self, target: str) -> list[int]:
+        if target.startswith("user:"):
+            return [int(target.partition(":")[2])]
         return [-555]
 
 
@@ -113,6 +115,7 @@ class BroadcastBodyTest(unittest.TestCase):
         body = AdminBroadcastBody.model_validate({"text": " hi ", "target": "ALL"})
         self.assertEqual(body.text, "hi")
         self.assertEqual(body.channels, ["telegram"])
+        self.assertIsNone(body.exclude_blocked_telegram)
         self.assertEqual(body.buttons, [])
         self.assertEqual(body.email_subject, "")
 
@@ -123,6 +126,10 @@ class BroadcastBodyTest(unittest.TestCase):
         self.assertEqual(
             AdminBroadcastBody.model_validate({"channels": None}).channels, ["telegram"]
         )
+
+    def test_blocked_telegram_filter_is_opt_in(self):
+        body = AdminBroadcastBody.model_validate({"exclude_blocked_telegram": True})
+        self.assertTrue(body.exclude_blocked_telegram)
 
 
 class BroadcastButtonsTest(unittest.TestCase):
@@ -140,6 +147,12 @@ class BroadcastButtonsTest(unittest.TestCase):
         resolved = self.resolve([_button()])
         self.assertEqual(resolved[0].url, "https://example.com")
         self.assertEqual(resolved[0].label, "Open")
+
+    def test_url_button_normalizes_telegram_shortcuts(self):
+        for source in ("@help_center", "t.me/help_center", "https://telegram.me/help_center"):
+            with self.subTest(source=source):
+                resolved = self.resolve([_button(url=source)])
+                self.assertEqual(resolved[0].url, "https://t.me/help_center")
 
     def test_url_button_requires_http_scheme(self):
         with self.assertRaises(BroadcastValidationError) as ctx:
@@ -270,6 +283,83 @@ class AdminsAudienceTest(unittest.IsolatedAsyncioTestCase):
 
 
 class AdminBroadcastRouteTest(unittest.IsolatedAsyncioTestCase):
+    async def test_direct_user_message_is_visible_and_added_to_user_log(self):
+        request = _FakeBroadcastRequest(
+            {
+                "target": "user:42",
+                "text": "Hello Alice",
+                "channels": ["telegram"],
+                "buttons": [],
+            },
+            {
+                "settings": settings_stub(),
+                "async_session_factory": _FakeSessionFactory(),
+                "i18n": None,
+                "bot_username": "demo_bot",
+            },
+        )
+        now = datetime.now(UTC)
+        stored = SimpleNamespace(
+            broadcast_id=18,
+            status="running",
+            target="user:42",
+            channels=["telegram"],
+            texts={"ru": "Hello Alice"},
+            email_subjects={},
+            buttons=[],
+            scheduled_at=now,
+            created_at=now,
+            started_at=now,
+            finished_at=None,
+            updated_at=now,
+            recipient_count=1,
+            total_deliveries=1,
+            successful_deliveries=0,
+            failed_deliveries=0,
+            telegram_sent=0,
+            telegram_failed=0,
+            email_sent=0,
+            email_failed=0,
+            last_error=None,
+        )
+        create = AsyncMock(return_value=stored)
+        create_log = AsyncMock()
+
+        with (
+            patch.object(broadcast_route_module, "_require_admin_user_id", return_value=999),
+            patch.object(
+                broadcast_route_module,
+                "_resolve_audience_service",
+                return_value=_FakeAudienceService(),
+            ),
+            patch.object(broadcast_route_module, "get_queue_manager", return_value=_FakeQueue()),
+            patch.object(broadcast_route_module.broadcast_dal, "create_broadcast", create),
+            patch.object(
+                broadcast_route_module.broadcast_dal,
+                "get_broadcast",
+                AsyncMock(return_value=stored),
+            ),
+            patch.object(
+                broadcast_route_module.AdminBroadcastDeliveryService,
+                "dispatch",
+                AsyncMock(return_value=BroadcastDispatchResult(1, 0, 0, ["telegram"])),
+            ),
+            patch.object(
+                broadcast_route_module.message_log_dal,
+                "create_message_log_no_commit",
+                create_log,
+            ),
+        ):
+            response = await broadcast_route_module.admin_broadcast_route(cast(Any, request))
+
+        self.assertEqual(response.status, 200)
+        self.assertTrue(create.await_args.kwargs["is_visible"])
+        log_payload = create_log.await_args.args[1]
+        self.assertEqual(log_payload["user_id"], 999)
+        self.assertEqual(log_payload["target_user_id"], 42)
+        self.assertEqual(log_payload["event_type"], "admin_direct_message_webapp")
+        self.assertIn("Hello Alice", log_payload["content"])
+
     async def test_past_scheduled_broadcast_is_rejected(self):
         request = _FakeBroadcastRequest(
             {
@@ -357,7 +447,10 @@ class AdminBroadcastRouteTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(json.loads(response.text)["error"], "invalid_audience")
 
     async def test_immediate_broadcast_is_persisted_before_dispatch(self):
-        settings = settings_stub(email_auth_configured=True)
+        settings = settings_stub(
+            email_auth_configured=True,
+            ADMIN_BROADCAST_EXCLUDE_BLOCKED_TELEGRAM=True,
+        )
         request = _FakeBroadcastRequest(
             {
                 "target": "all",
@@ -435,7 +528,75 @@ class AdminBroadcastRouteTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["queued"], 1)
         self.assertEqual(payload["email_queued"], 1)
         self.assertEqual(create.await_args.kwargs["texts"], {"ru": "Hello"})
+        self.assertTrue(create.await_args.kwargs["exclude_blocked_telegram"])
         dispatch.assert_awaited_once_with(17, user_ids=[-555])
+
+    async def test_explicit_blocked_filter_overrides_admin_default(self):
+        settings = settings_stub(ADMIN_BROADCAST_EXCLUDE_BLOCKED_TELEGRAM=True)
+        request = _FakeBroadcastRequest(
+            {
+                "target": "all",
+                "text": "Hello",
+                "channels": ["telegram"],
+                "exclude_blocked_telegram": False,
+            },
+            {
+                "settings": settings,
+                "async_session_factory": _FakeSessionFactory(),
+                "i18n": None,
+                "bot_username": "demo_bot",
+            },
+        )
+        now = datetime.now(UTC)
+        stored = SimpleNamespace(
+            broadcast_id=18,
+            status="running",
+            target="all",
+            channels=["telegram"],
+            texts={"ru": "Hello"},
+            email_subjects={},
+            buttons=[],
+            scheduled_at=now,
+            created_at=now,
+            started_at=now,
+            finished_at=None,
+            updated_at=now,
+            recipient_count=1,
+            total_deliveries=1,
+            successful_deliveries=0,
+            failed_deliveries=0,
+            telegram_sent=0,
+            telegram_failed=0,
+            email_sent=0,
+            email_failed=0,
+            last_error=None,
+        )
+        create = AsyncMock(return_value=stored)
+
+        with (
+            patch.object(broadcast_route_module, "_require_admin_user_id", return_value=999),
+            patch.object(
+                broadcast_route_module,
+                "_resolve_audience_service",
+                return_value=_FakeAudienceService(),
+            ),
+            patch.object(broadcast_route_module, "get_queue_manager", return_value=_FakeQueue()),
+            patch.object(broadcast_route_module.broadcast_dal, "create_broadcast", create),
+            patch.object(
+                broadcast_route_module.broadcast_dal,
+                "get_broadcast",
+                AsyncMock(return_value=stored),
+            ),
+            patch.object(
+                broadcast_route_module.AdminBroadcastDeliveryService,
+                "dispatch",
+                AsyncMock(return_value=BroadcastDispatchResult(1, 0, 0, ["telegram"])),
+            ),
+        ):
+            response = await broadcast_route_module.admin_broadcast_route(cast(Any, request))
+
+        self.assertEqual(response.status, 200)
+        self.assertFalse(create.await_args.kwargs["exclude_blocked_telegram"])
 
 
 class BroadcastEmailRenderTest(unittest.TestCase):

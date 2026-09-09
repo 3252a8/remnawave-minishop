@@ -8,7 +8,7 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import and_, case, desc, func, or_, select
+from sqlalchemy import and_, desc, func, or_, select
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,9 +21,9 @@ from db.partner_models import (
     PartnerCommission,
     PartnerLedgerEntry,
     PartnerProfile,
-    PartnerWithdrawal,
 )
 
+from . import partner_profile_reporting_dal
 from .partner_reporting_dal import (
     attention_counts as attention_counts,
 )
@@ -620,6 +620,7 @@ async def create_ledger_entry(
     session: AsyncSession,
     **values: Any,
 ) -> PartnerLedgerEntry:
+    values.setdefault("withdrawable_amount_minor", values.get("amount_minor", 0))
     entry = PartnerLedgerEntry(**values)
     session.add(entry)
     await session.flush()
@@ -652,146 +653,72 @@ async def balance_minor(
     return int(result.scalar_one() or 0)
 
 
-async def balance_summaries(
+async def balance_minor_by_user_ids(
     session: AsyncSession,
-    partner_id: int,
-) -> list[dict[str, Any]]:
-    ledger_rows = (
+    user_ids: list[int],
+    currency: str,
+) -> dict[int, int]:
+    unique_ids = sorted({int(user_id) for user_id in user_ids})
+    if not unique_ids:
+        return {}
+    rows = (
         await session.execute(
             select(
-                PartnerLedgerEntry.currency,
-                PartnerLedgerEntry.currency_scale,
-                func.coalesce(
-                    func.sum(
-                        case(
-                            (PartnerLedgerEntry.state == "posted", PartnerLedgerEntry.amount_minor),
-                            else_=0,
-                        )
-                    ),
-                    0,
-                ).label("available"),
-                func.coalesce(
-                    func.sum(
-                        case(
-                            (
-                                and_(
-                                    PartnerLedgerEntry.state == "pending",
-                                    PartnerLedgerEntry.kind == "commission_credit",
-                                ),
-                                PartnerLedgerEntry.amount_minor,
-                            ),
-                            else_=0,
-                        )
-                    ),
-                    0,
-                ).label("pending"),
-                func.coalesce(
-                    func.sum(
-                        case(
-                            (
-                                and_(
-                                    PartnerLedgerEntry.kind.in_(
-                                        ("commission_credit", "commission_reversal")
-                                    ),
-                                    PartnerLedgerEntry.state != "void",
-                                ),
-                                PartnerLedgerEntry.amount_minor,
-                            ),
-                            else_=0,
-                        )
-                    ),
-                    0,
-                ).label("lifetime_earned"),
+                PartnerProfile.user_id,
+                func.coalesce(func.sum(PartnerLedgerEntry.amount_minor), 0).label("amount"),
             )
-            .where(PartnerLedgerEntry.partner_id == partner_id)
-            .group_by(PartnerLedgerEntry.currency, PartnerLedgerEntry.currency_scale)
+            .join(
+                PartnerLedgerEntry,
+                PartnerLedgerEntry.partner_id == PartnerProfile.partner_id,
+            )
+            .where(
+                PartnerProfile.user_id.in_(unique_ids),
+                func.upper(PartnerLedgerEntry.currency) == currency.upper(),
+                PartnerLedgerEntry.state == "posted",
+            )
+            .group_by(PartnerProfile.user_id)
         )
     ).all()
-    active_reserves = {
-        str(row[0]).upper(): int(row[1] or 0)
-        for row in (
+    return {int(row.user_id): int(row.amount or 0) for row in rows if row.user_id is not None}
+
+
+async def withdrawable_balance_minor(
+    session: AsyncSession,
+    partner_id: int,
+    currency: str,
+) -> int:
+    """Return the non-converted part of partner funds that may be withdrawn."""
+
+    withdrawable = int(
+        (
             await session.execute(
                 select(
-                    PartnerWithdrawal.debit_currency,
-                    func.coalesce(func.sum(PartnerWithdrawal.debit_amount_minor), 0),
+                    func.coalesce(func.sum(PartnerLedgerEntry.withdrawable_amount_minor), 0)
+                ).where(
+                    PartnerLedgerEntry.partner_id == partner_id,
+                    func.upper(PartnerLedgerEntry.currency) == currency.upper(),
+                    PartnerLedgerEntry.state == "posted",
                 )
-                .where(
-                    PartnerWithdrawal.partner_id == partner_id,
-                    PartnerWithdrawal.status.in_(("requested", "processing")),
-                )
-                .group_by(PartnerWithdrawal.debit_currency)
             )
-        ).all()
-    }
-    return [
-        {
-            "currency": str(row.currency).upper(),
-            "currency_scale": int(row.currency_scale),
-            "available_minor": int(row.available or 0),
-            "pending_minor": int(row.pending or 0),
-            "reserved_minor": active_reserves.get(str(row.currency).upper(), 0),
-            "lifetime_earned_minor": int(row.lifetime_earned or 0),
-        }
-        for row in ledger_rows
+        ).scalar_one()
+        or 0
+    )
+    available = await balance_minor(session, partner_id, currency)
+    return max(0, min(withdrawable, available))
+
+
+async def balance_summaries(session: AsyncSession, partner_id: int) -> list[dict[str, Any]]:
+    return (await partner_profile_reporting_dal.balance_summaries_by_ids(session, [partner_id]))[
+        partner_id
     ]
 
 
 async def profile_currency_metrics(
-    session: AsyncSession,
-    partner_id: int,
-    currency: str,
+    session: AsyncSession, partner_id: int, currency: str
 ) -> dict[str, int]:
-    row = (
-        await session.execute(
-            select(
-                func.coalesce(
-                    func.sum(
-                        case(
-                            (PartnerCommission.status != "excluded", 1),
-                            else_=0,
-                        )
-                    ),
-                    0,
-                ).label("payments_count"),
-                func.coalesce(
-                    func.sum(
-                        case(
-                            (
-                                PartnerCommission.status != "excluded",
-                                PartnerCommission.gross_amount_minor,
-                            ),
-                            else_=0,
-                        )
-                    ),
-                    0,
-                ).label("gross"),
-                func.coalesce(
-                    func.sum(
-                        case(
-                            (
-                                PartnerCommission.status == "reversed",
-                                -PartnerCommission.commission_amount_minor,
-                            ),
-                            (
-                                PartnerCommission.status != "excluded",
-                                PartnerCommission.commission_amount_minor,
-                            ),
-                            else_=0,
-                        )
-                    ),
-                    0,
-                ).label("earned"),
-            ).where(
-                PartnerCommission.partner_id == partner_id,
-                func.upper(PartnerCommission.currency) == currency.upper(),
-            )
-        )
-    ).one()
-    return {
-        "payments_count": int(row.payments_count or 0),
-        "gross_minor": int(row.gross or 0),
-        "earned_minor": int(row.earned or 0),
-    }
+    return (
+        await partner_profile_reporting_dal.currency_metrics_by_ids(session, [partner_id], currency)
+    )[partner_id]
 
 
 async def list_ledger_entries(

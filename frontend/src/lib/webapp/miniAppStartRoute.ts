@@ -1,5 +1,6 @@
 import { APP_SECTION_PATHS } from "./constants";
-import { PLANS_PATH } from "./routes.js";
+import { isCheckoutStartParam } from "./deeplinks.js";
+import { CHECKOUT_PATH, PLANS_PATH } from "./routes.js";
 
 const START_PARAM_KEYS = ["tgWebAppStartParam", "startapp", "start_param"] as const;
 
@@ -20,6 +21,7 @@ const START_PARAM_SECTIONS = [
   "devices",
   "support",
   "settings",
+  "notifications",
 ] as const;
 
 type StartParamSection = (typeof START_PARAM_SECTIONS)[number];
@@ -30,6 +32,7 @@ function isStartParamSection(value: string): value is StartParamSection {
 
 export function miniAppPathFromStartParam(value: unknown): string | null {
   const startParam = String(value || "").trim();
+  if (isCheckoutStartParam(startParam)) return CHECKOUT_PATH;
   const adminTicket = startParam.match(/^admin_ticket_(\d+)$/i);
   if (adminTicket) return `/admin/support/${adminTicket[1]}`;
 

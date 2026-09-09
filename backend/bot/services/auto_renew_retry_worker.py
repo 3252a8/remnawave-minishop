@@ -215,6 +215,8 @@ class AutoRenewRetryWorker:
                     amount=snapshot.amount,
                     currency=snapshot.currency,
                     months=snapshot.months,
+                    duration_days=snapshot.duration_days,
+                    subscription_terms_snapshot=snapshot.subscription_terms_snapshot,
                     sale_mode=snapshot.sale_mode,
                     description=snapshot.description,
                     metadata=snapshot.metadata,

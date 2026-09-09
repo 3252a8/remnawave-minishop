@@ -21,6 +21,7 @@ class PriceContext:
     promo_code_id: int | None = None
     months: int | None = None
     traffic_gb: float | None = None
+    duration_days: int | None = None
 
 
 @dataclass(frozen=True)
@@ -53,6 +54,7 @@ def _promo_discount_modifier(ctx: PriceContext) -> Iterable[PriceAdjustment]:
         sale_mode_base=ctx.sale_mode_base,
         months=ctx.months,
         traffic_gb=ctx.traffic_gb,
+        duration_days=ctx.duration_days,
     ):
         return ()
     return (PriceAdjustment(discount_percent=float(promo.discount_percent or 0), source="promo"),)

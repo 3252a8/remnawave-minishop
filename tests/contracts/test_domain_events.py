@@ -130,7 +130,10 @@ def test_panel_webhook_service_emits_received_event():
 
     service = PanelWebhookService(
         MagicMock(),
-        make_settings(SUBSCRIPTION_NOTIFICATIONS_ENABLED=False),
+        make_settings(
+            SUBSCRIPTION_NOTIFICATIONS_ENABLED=False,
+            SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED=False,
+        ),
         MagicMock(),
         MagicMock(),
         MagicMock(),

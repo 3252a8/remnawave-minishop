@@ -101,7 +101,17 @@ describe("resolvePopstateRoute", () => {
         partnerProgramEnabled: true,
         pathname: "/partner",
       })
-    ).toMatchObject({ section: "partner" });
+    ).toMatchObject({ activeTab: "settings", section: "partner" });
+
+    expect(
+      resolvePopstateRoute({
+        fallbackAdminSection: "stats",
+        mode: "app",
+        partnerProgramEnabled: true,
+        pathname: "/partner",
+        referralProgramEnabled: false,
+      })
+    ).toMatchObject({ activeTab: "partner", section: "partner" });
 
     expect(
       resolvePopstateRoute({
@@ -110,7 +120,7 @@ describe("resolvePopstateRoute", () => {
         pathname: "/invite",
         referralProgramEnabled: false,
       })
-    ).toMatchObject({ section: "home" });
+    ).toMatchObject({ section: "invite" });
 
     expect(
       resolvePopstateRoute({

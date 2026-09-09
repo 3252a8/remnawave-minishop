@@ -37,6 +37,7 @@ from bot.utils.callback_answer import (
     callback_message,
 )
 from config.settings import Settings
+from config.subscription_periods import tariff_period_key, with_period_days
 from config.tariffs_config import (
     Tariff,
     default_currency_key_for_settings,
@@ -44,6 +45,7 @@ from config.tariffs_config import (
 )
 
 from .core_common import (
+    _assigned_tariff_key,
     _tariff_purchase_markup,
     _tariff_purchase_text,
     _with_subscription_purchase_description,
@@ -251,7 +253,8 @@ async def display_subscription_options(
         return
     user_id = int(from_user.id)
     if tariffs_config:
-        enabled_tariffs = list(tariffs_config.enabled_tariffs)
+        assigned_tariff_key = await _assigned_tariff_key(session, user_id)
+        available_tariffs = tariffs_config.available_tariffs_for_user(assigned_tariff_key)
         callback_context = callback_context_from_back_callback(back_callback)
         candidates = await _promo_candidates(session, user_id=user_id)
         default_currency = default_currency_key_for_settings(settings)
@@ -262,7 +265,7 @@ async def display_subscription_options(
                 int(months),
                 float(price),
             )
-            for tariff in enabled_tariffs
+            for tariff in available_tariffs
             if tariff.billing_model == "period"
             for months in tariff.enabled_periods
             if (price := tariff.period_price(months, default_currency)) is not None
@@ -276,8 +279,8 @@ async def display_subscription_options(
             plans=promo_plans,
         )
         promo_available = bool(all_promo_quotes)
-        if len(enabled_tariffs) == 1:
-            tariff = enabled_tariffs[0]
+        if len(available_tariffs) == 1:
+            tariff = available_tariffs[0]
             tariff_promo_quotes = {
                 months: quote
                 for (tariff_key, months), quote in all_promo_quotes.items()
@@ -285,7 +288,13 @@ async def display_subscription_options(
             }
             plans_count = _tariff_visible_plan_count(tariff, settings)
             viewed_tariff_key = tariff.key
-            text_content = _tariff_purchase_text(tariff, current_lang, i18n, settings)
+            text_content = _tariff_purchase_text(
+                tariff,
+                current_lang,
+                i18n,
+                settings,
+                has_multiple_tariffs=False,
+            )
             text_content = _with_subscription_purchase_description(
                 text_content,
                 settings,
@@ -313,10 +322,10 @@ async def display_subscription_options(
                 text_content,
                 settings,
                 current_lang,
-                include=any(tariff.billing_model == "period" for tariff in enabled_tariffs),
+                include=any(tariff.billing_model == "period" for tariff in available_tariffs),
             )
             reply_markup = get_tariff_catalog_keyboard(
-                enabled_tariffs,
+                available_tariffs,
                 current_lang,
                 i18n,
                 settings=settings,
@@ -329,7 +338,7 @@ async def display_subscription_options(
                     enable=not promo_enabled,
                 ),
             )
-            plans_count = len(enabled_tariffs)
+            plans_count = len(available_tariffs)
             viewed_tariff_key = None
         text_content = _with_checkout_promo_notice(
             text_content,
@@ -464,7 +473,9 @@ async def select_tariff_callback(
     callback_context = BOT_MENU_CONTEXT if BOT_MENU_CONTEXT in callback_tokens else None
     promo_enabled = PROMO_DISABLED_TOKEN not in callback_tokens
     try:
-        tariff = config.require(tariff_key)
+        assigned_tariff_key = await _assigned_tariff_key(session, callback.from_user.id)
+        available_tariffs = config.available_tariffs_for_user(assigned_tariff_key)
+        tariff = config.require_for_user(tariff_key, assigned_tariff_key)
     except Exception:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
@@ -505,7 +516,13 @@ async def select_tariff_callback(
             enable=not promo_enabled,
         ),
     )
-    text = _tariff_purchase_text(tariff, current_lang, i18n, settings)
+    text = _tariff_purchase_text(
+        tariff,
+        current_lang,
+        i18n,
+        settings,
+        has_multiple_tariffs=len(available_tariffs) > 1,
+    )
     text = _with_subscription_purchase_description(
         text,
         settings,
@@ -555,8 +572,17 @@ async def select_tariff_period_callback(
         ),
         None,
     )
-    tariff = config.require(tariff_key)
-    months = int(months_raw)
+    try:
+        assigned_tariff_key = await _assigned_tariff_key(session, callback.from_user.id)
+        tariff = config.require_for_user(tariff_key, assigned_tariff_key)
+        months = (
+            tariff_period_key(tariff, duration_days=int(months_raw[1:]))
+            if months_raw.startswith("d")
+            else tariff_period_key(tariff, months=int(months_raw))
+        )
+    except (ValueError, KeyError):
+        await callback.answer(get_text("error_try_again"), show_alert=True)
+        return
     default_currency = default_currency_key_for_settings(settings)
     currency_code = default_payment_currency_code_for_settings(settings)
     price_rub = tariff.period_price(months, default_currency)
@@ -564,7 +590,10 @@ async def select_tariff_period_callback(
     if price_rub is None:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
-    sale_mode = sale_mode_with_callback_context(f"subscription@{tariff.key}", callback_context)
+    sale_mode = sale_mode_with_callback_context(
+        with_period_days(f"subscription@{tariff.key}", tariff.period_duration_days(months)),
+        callback_context,
+    )
     promo_quote: CheckoutPromoResult | None = None
     stars_promo_quote: CheckoutPromoResult | None = None
     if promo_enabled:
@@ -645,8 +674,13 @@ async def select_tariff_package_callback(
         return
     tariff_key, gb_raw = parts[2], parts[3]
     callback_context = parts[4] if len(parts) > 4 else None
-    tariff = config.require(tariff_key)
-    gb = float(gb_raw)
+    try:
+        assigned_tariff_key = await _assigned_tariff_key(session, callback.from_user.id)
+        tariff = config.require_for_user(tariff_key, assigned_tariff_key)
+        gb = float(gb_raw)
+    except (KeyError, ValueError):
+        await callback.answer(get_text("error_try_again"), show_alert=True)
+        return
     default_currency = default_currency_key_for_settings(settings)
     currency_code = default_payment_currency_code_for_settings(settings)
     packages = (

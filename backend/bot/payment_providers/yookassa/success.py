@@ -17,15 +17,25 @@ from bot.infra.payment_events import build_payment_succeeded_payload
 from bot.middlewares.i18n import JsonI18n
 from bot.services.lknpd_service import LknpdService
 from bot.services.panel_api_service import PanelApiService
+from bot.services.subscription_gifts import is_gift_sale
 from bot.utils.config_link import prepare_config_links
 from bot.utils.install_links import ensure_user_install_guide_links
 from config.settings import Settings
-from db.dal import auto_renew_dal, payment_dal, subscription_dal, user_billing_dal, user_dal
+from db.dal import (
+    auto_renew_dal,
+    gift_dal,
+    payment_dal,
+    subscription_dal,
+    user_billing_dal,
+    user_dal,
+)
 
 from ..shared import (
+    PaymentSuccessRequest,
     SuccessMessage,
     append_hwid_renewal_note,
     build_success_message,
+    finalize_successful_payment,
     format_human_units,
     is_traffic_sale_base,
     make_translator,
@@ -343,6 +353,28 @@ async def process_successful_payment(
                 yk_payment_id_from_hook,
             )
             return None
+        if sale_mode_base in {"balance_topup", "trial"} or is_gift_sale(sale_mode):
+            await finalize_successful_payment(
+                PaymentSuccessRequest(
+                    bot=bot,
+                    settings=settings,
+                    i18n=i18n,
+                    session=session,
+                    subscription_service=subscription_service,
+                    referral_service=referral_service,
+                    payment=payment_record,
+                    user_id=user_id,
+                    amount=payment_value,
+                    currency=payment_currency,
+                    sale_mode=sale_mode,
+                    months=payment_units,
+                    traffic_amount=None,
+                    provider_subscription="yookassa",
+                    provider_notification="yookassa",
+                    log_prefix="YooKassa webhook",
+                )
+            )
+            return None
         payment_record = await payment_dal.claim_payment_finalization(session, payment_db_id)
         if payment_record is None:
             logger.info(
@@ -353,6 +385,11 @@ async def process_successful_payment(
             return None
 
         await user_dal.lock_user_by_id(session, user_id)
+        if await gift_dal.activating_for_user(session, user_id) is not None:
+            await payment_dal.update_payment_status_by_db_id(
+                session, payment_db_id, "activation_failed"
+            )
+            return None
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user:
             logger.error(
@@ -617,6 +654,7 @@ async def process_successful_payment(
                         end_date=activation_details.get("end_date"),
                         provider="yookassa",
                         months=months_for_activation,
+                        duration_days=activation_details.get("duration_days"),
                         payment_db_id=payment_db_id,
                     ).to_payload(),
                 }
@@ -634,10 +672,11 @@ async def process_successful_payment(
                     referral_bonus_info = await referral_service.apply_referral_bonuses_for_payment(
                         session,
                         user_id,
-                        months_for_activation or int(subscription_months) or 1,
+                        months_for_activation,
                         current_payment_db_id=payment_db_id,
                         skip_if_active_before_payment=False,
                         tariff_key=effective_tariff_key,
+                        duration_days=activation_details.get("duration_days"),
                     )
                 except Exception:
                     await referral_savepoint.rollback()
@@ -692,6 +731,11 @@ async def process_successful_payment(
                         "payment_description_hwid_devices",
                         count=hwid_devices_count,
                     )
+                elif activation_details.get("duration_days"):
+                    receipt_item_name = _(
+                        "payment_description_subscription_days",
+                        days=activation_details["duration_days"],
+                    )
                 else:
                     receipt_item_name = settings.LKNPD_RECEIPT_NAME_SUBSCRIPTION.format(
                         months=int(subscription_months)
@@ -715,7 +759,10 @@ async def process_successful_payment(
         # they bypass the shared success-message builder.
         if sale_mode_base == "subscription" and is_auto_renew and final_end_date_for_user:
             details_message = _(
-                "yookassa_auto_renewal",
+                "yookassa_auto_renewal_days"
+                if activation_details.get("duration_days")
+                else "yookassa_auto_renewal",
+                days=activation_details.get("duration_days"),
                 months=int(subscription_months),
                 end_date=final_end_date_for_user.strftime("%Y-%m-%d"),
             )
@@ -739,6 +786,7 @@ async def process_successful_payment(
             details_message = build_success_message(
                 SuccessMessage(
                     translator=translator,
+                    duration_days=activation_details.get("duration_days"),
                     sale_mode=sale_mode,
                     months=(
                         traffic_label
@@ -784,6 +832,8 @@ async def process_successful_payment(
             "install_share_url": install_share_url,
             "include_keyboard": include_keyboard,
             "log_prefix": "YooKassa webhook",
+            "user": db_user,
+            "sale_mode": sale_mode,
         }
 
         return payment_succeeded_payload

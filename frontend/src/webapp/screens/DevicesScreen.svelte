@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowRight, CircleX, Key, Plus, RefreshCw, Smartphone } from "$components/ui/icons.js";
+  import { ArrowRight, CircleX, Plus, RefreshCw, Smartphone } from "$components/ui/icons.js";
 
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
@@ -16,6 +16,7 @@
     devicesPercent,
     hasFiniteDeviceLimit,
   } from "../../lib/webapp/devicesLabels.js";
+  import { deviceClientLabel } from "../../lib/webapp/deviceClient.js";
   import type {
     DeviceView,
     DevicesData,
@@ -36,9 +37,6 @@
     openDeviceDisconnectDialog?: (device: DeviceView) => void;
     openDeviceTopupModal?: VoidAction;
     openPaymentModal?: VoidAction;
-    openSubscriptionReissueDialog?: VoidAction;
-    subscriptionReissueBusy?: boolean;
-    subscriptionReissueEnabled?: boolean;
     t?: Translate;
   };
 
@@ -54,9 +52,6 @@
     openDeviceDisconnectDialog = () => {},
     openDeviceTopupModal = () => {},
     openPaymentModal = () => {},
-    openSubscriptionReissueDialog = () => {},
-    subscriptionReissueBusy = false,
-    subscriptionReissueEnabled = false,
     t = (key: string) => key,
   }: Props = $props();
 
@@ -78,6 +73,16 @@
   );
   const deviceTopupUnavailableReason = $derived(
     String(subscription?.device_topup_unavailable_reason || "").trim()
+  );
+  const showDeviceTopupAction = $derived(
+    Boolean(subscription?.active && hasFiniteDevices && subscription?.can_topup_devices)
+  );
+  const showDeviceTopupUnavailable = $derived(
+    Boolean(subscription?.active && hasReachedDeviceLimit && deviceTopupUnavailableReason) &&
+      !showDeviceTopupAction
+  );
+  const showTrialTariffAction = $derived(
+    showDeviceTopupUnavailable && deviceTopupUnavailableReason === "trial_subscription"
   );
 </script>
 
@@ -113,43 +118,35 @@
           })}
         </p>
       {/if}
-      {#if subscription?.active && hasFiniteDevices && subscription?.can_topup_devices}
-        <Button
-          data-webapp-action="open-device-topup"
-          variant="secondary"
-          class="wide"
-          onclick={openDeviceTopupModal}
-        >
-          <Plus size={17} />
-          {t("wa_buy_hwid_devices")}
-        </Button>
-      {:else if subscription?.active && hasReachedDeviceLimit && deviceTopupUnavailableReason}
+      {#if showDeviceTopupUnavailable}
         <StatusMessage>
           {t(`wa_device_topup_unavailable_${deviceTopupUnavailableReason}`)}
         </StatusMessage>
-        {#if deviceTopupUnavailableReason === "trial_subscription"}
-          <Button
-            data-webapp-action="open-trial-tariff-purchase"
-            variant="secondary"
-            class="wide"
-            onclick={openPaymentModal}
-          >
-            {t("wa_trial_device_limit_choose_tariff")}
-            <ArrowRight size={17} />
-          </Button>
-        {/if}
       {/if}
-      {#if subscriptionReissueEnabled && subscription?.active}
-        <Button
-          data-webapp-action="open-subscription-reissue"
-          variant="outline"
-          class="wide subscription-reissue-button"
-          onclick={openSubscriptionReissueDialog}
-          disabled={subscriptionReissueBusy}
-        >
-          <Key size={17} />
-          {t("wa_subscription_reissue_action")}
-        </Button>
+      {#if showDeviceTopupAction || showTrialTariffAction}
+        <div class="devices-summary-actions">
+          {#if showDeviceTopupAction}
+            <Button
+              data-webapp-action="open-device-topup"
+              variant="secondary"
+              class="wide"
+              onclick={openDeviceTopupModal}
+            >
+              <Plus size={17} />
+              {t("wa_buy_hwid_devices")}
+            </Button>
+          {:else if showTrialTariffAction}
+            <Button
+              data-webapp-action="open-trial-tariff-purchase"
+              variant="secondary"
+              class="wide"
+              onclick={openPaymentModal}
+            >
+              {t("wa_trial_device_limit_choose_tariff")}
+              <ArrowRight size={17} />
+            </Button>
+          {/if}
+        </div>
       {/if}
     </Card>
   {/if}
@@ -178,34 +175,33 @@
   {:else}
     <div class="devices-list">
       {#each deviceList as device (device.token || device.index)}
+        {@const clientLabel = deviceClientLabel(device.user_agent)}
         <Card class="device-card">
           <div class="device-card-head">
             <div class="device-icon"><DeviceGlyph {device} size={24} /></div>
             <span>
               <strong
                 >{device.display_name ||
-                  t("wa_device_fallback_name", { index: device.index })}</strong
+                  t("wa_device_fallback_name", { index: device.index })}{#if clientLabel}<span
+                    class="device-client-label"
+                  >
+                    · {clientLabel}</span
+                  >{/if}</strong
               >
               <small>{device.platform_label || t("wa_devices_platform_unknown")}</small>
             </span>
           </div>
           <div class="device-meta">
-            {#if device.created_at_text}
+            {#if device.last_connected_at_text || device.created_at_text}
               <div>
-                <span>{t("wa_devices_connected_at")}</span>
-                <strong>{device.created_at_text}</strong>
+                <span>{t("wa_devices_last_connected_at")}</span>
+                <strong>{device.last_connected_at_text || device.created_at_text}</strong>
               </div>
             {/if}
             {#if device.hwid_short}
               <div>
                 <span>HWID</span>
                 <code>{device.hwid_short}</code>
-              </div>
-            {/if}
-            {#if device.user_agent}
-              <div class="device-user-agent">
-                <span>User Agent</span>
-                <small>{device.user_agent}</small>
               </div>
             {/if}
           </div>

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { AdminButton, AdminSectionHeader } from "$components/patterns/admin/index.js";
-  import { Input } from "$components/ui/index.js";
+  import { ImageAttachment, Input } from "$components/ui/index.js";
   import { Send } from "$components/ui/icons.js";
   import MessageButtonsEditor from "$lib/admin/components/MessageButtonsEditor.svelte";
   import MessageComposer from "$lib/admin/components/MessageComposer.svelte";
@@ -12,10 +12,12 @@
   let {
     at,
     userId,
+    hasTelegram = false,
     hasEmail = false,
   }: {
     at: TranslateFn;
     userId: number | null;
+    hasTelegram?: boolean;
     hasEmail?: boolean;
   } = $props();
 
@@ -26,8 +28,9 @@
   const shortcodes = $derived(broadcastStore.broadcastShortcodes);
 
   let text = $state("");
+  let image = $state<File | null>(null);
   let emailSubject = $state("");
-  let telegramEnabled = $state(true);
+  let telegramEnabled = $state(false);
   let emailEnabled = $state(false);
   let buttons = $state<BroadcastButtonDraft[]>([]);
   let busy = $state(false);
@@ -47,13 +50,14 @@
     buttons.every((button) => button.label.trim() && Boolean(buttonTarget(button)))
   );
   const canSend = $derived(
-    !busy && userId !== null && Boolean(text.trim()) && channels.length > 0 && buttonsValid
+    !busy && userId !== null && Boolean(text.trim() || image) && channels.length > 0 && buttonsValid
   );
 
-  // An email-only draft is impossible for a customer with no linked address,
-  // so the toggle stays off and disabled rather than failing on send.
+  // Unavailable delivery channels stay off instead of reporting a successful
+  // zero-recipient send. Email becomes the default for email-only accounts.
   $effect(() => {
-    if (!hasEmail && emailEnabled) emailEnabled = false;
+    telegramEnabled = hasTelegram;
+    emailEnabled = !hasTelegram && hasEmail;
   });
 
   function addButton(): void {
@@ -99,11 +103,13 @@
       channels,
       emailSubject,
       buttons,
+      image,
     });
     if (error === null) {
       text = "";
       emailSubject = "";
       buttons = [];
+      image = null;
       result = { kind: "ok", message: at("user_message_sent", {}, "Message sent") };
     } else {
       result = { kind: "error", message: error };
@@ -131,15 +137,39 @@
       placeholder={at("user_placeholder_msg", {}, "Message text")}
     />
 
+    <ImageAttachment
+      bind:file={image}
+      disabled={busy}
+      labels={{
+        drop: at("message_image_drop", {}, "Drop an image here or"),
+        choose: at("message_image_choose", {}, "choose a file"),
+        remove: at("message_image_remove", {}, "Remove image"),
+        hint: at("message_image_hint", {}, "HEIC, HEIF, JPEG, PNG or WebP, up to 8 MB"),
+        invalidType: at(
+          "message_image_invalid_type",
+          {},
+          "Choose a HEIC, HEIF, JPEG, PNG or WebP image"
+        ),
+        tooLarge: at("message_image_too_large", {}, "The image must be no larger than 8 MB"),
+        previewAlt: at("message_image_preview_alt", {}, "Image preview"),
+      }}
+    />
+
     <div class="admin-user-message-channels">
-      <label class="admin-check">
+      <label class="admin-check" class:is-disabled={!hasTelegram}>
         <input
           type="checkbox"
           id="user-message-channel-telegram"
           name="user-message-channel-telegram"
           bind:checked={telegramEnabled}
+          disabled={!hasTelegram}
         />
         {at("broadcast_channel_telegram", {}, "Telegram")}
+        {#if !hasTelegram}
+          <small class="admin-muted">
+            {at("user_message_no_telegram", {}, "no linked account")}
+          </small>
+        {/if}
       </label>
       <label class="admin-check" class:is-disabled={!hasEmail}>
         <input

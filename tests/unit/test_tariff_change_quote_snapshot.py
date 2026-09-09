@@ -62,7 +62,10 @@ def _preflight(
     configured_tariffs: tuple[str, ...] = ("basic", "pro"),
 ) -> TariffChangePreflightResult:
     tariffs = {key: SimpleNamespace(key=key, billing_model="period") for key in configured_tariffs}
-    config: Any = SimpleNamespace(require=lambda key: tariffs[key])
+    config: Any = SimpleNamespace(
+        require=lambda key: tariffs[key],
+        require_configured=lambda key: tariffs[key],
+    )
     return preflight_paid_tariff_change(
         payment=payment,
         active_subscription=active_subscription,
@@ -78,7 +81,10 @@ class TariffChangeQuoteSnapshotTests(IsolatedAsyncioTestCase):
             "legacy-basic": SimpleNamespace(key="basic"),
             "pro": SimpleNamespace(key="pro"),
         }
-        config = SimpleNamespace(require=lambda key: tariffs[key])
+        config = SimpleNamespace(
+            require=lambda key: tariffs[key],
+            require_configured=lambda key: tariffs[key],
+        )
         settings = SimpleNamespace(
             tariffs_config=config,
             DEFAULT_LANGUAGE="en",

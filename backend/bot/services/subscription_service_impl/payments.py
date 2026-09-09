@@ -6,6 +6,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.email_templates import render_payment_success
+from bot.services.user_notification_policy import (
+    UserNotificationCategory,
+    email_recipient,
+    user_notification_delivery_plan,
+)
+from bot.services.user_notification_preferences import add_user_email_preferences_footer
 from config.tariffs_config import default_payment_currency_code_for_settings
 from db.dal import payment_dal, subscription_dal, user_dal
 from db.models import User
@@ -28,6 +34,7 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
         "wata": "Wata",
         "lava": "LAVA",
         "pally": "Pally",
+        "oxapay": "OxaPay",
         "cryptopay": "Crypto Pay",
         "paykilla": "PayKilla",
         "cloudpayments": "CloudPayments",
@@ -115,6 +122,7 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
         payment_amount: float,
         end_date: datetime | None,
         provider: str,
+        duration_days: int | None = None,
     ) -> None:
         """Best-effort branded email confirming the payment. No-op if SMTP or
         the user's email aren't set. Failures are logged and swallowed so the
@@ -125,8 +133,24 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
             getattr(self.settings, "email_auth_configured", False),
         ):
             return
-        recipient = (db_user.email or "").strip() if db_user else ""
+        recipient = email_recipient(self.settings, db_user) if db_user else ""
         if not recipient:
+            return
+        if provider == "gift":
+            return
+        normalized_sale_mode = str(sale_mode or "").strip().lower()
+        if normalized_sale_mode in {"traffic", "traffic_package", "topup", "premium_topup"}:
+            category = UserNotificationCategory.TRAFFIC
+        elif normalized_sale_mode in {"hwid_device", "hwid_devices", "hwid_devices_renewal"}:
+            category = UserNotificationCategory.DEVICES
+        else:
+            category = UserNotificationCategory.PAYMENTS
+        plan = user_notification_delivery_plan(
+            self.settings,
+            category,
+            db_user,
+        )
+        if not plan.email:
             return
 
         end_date_text = end_date.strftime("%Y-%m-%d") if end_date else ""
@@ -148,6 +172,7 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
                 language_code=db_user.language_code or self.settings.DEFAULT_LANGUAGE,
                 sale_mode=sale_mode,
                 months=int(months or 0),
+                duration_days=duration_days,
                 traffic_gb=traffic_gb,
                 amount=float(payment_amount or 0),
                 currency=default_payment_currency_code_for_settings(self.settings),
@@ -155,6 +180,14 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
                 dashboard_url=dashboard_url,
                 provider_label=provider_label,
                 i18n=i18n,
+            )
+            content = add_user_email_preferences_footer(
+                content,
+                settings=self.settings,
+                i18n=i18n,
+                user=db_user,
+                email=recipient,
+                language_code=db_user.language_code,
             )
             email_service = EmailAuthService(self.settings, i18n)
             await email_service.send_rendered_email(email=recipient, content=content)

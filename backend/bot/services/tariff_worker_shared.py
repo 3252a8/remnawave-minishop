@@ -3,13 +3,23 @@
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from inspect import iscoroutine
+from types import SimpleNamespace
 from typing import Any, Protocol
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.services.user_notification_policy import (
+    UserNotificationCategory,
+    telegram_recipient,
+    user_notification_channel_allowed,
+    user_notification_channel_selected,
+    user_notification_delivery_plan,
+)
 from config.settings import Settings
+from db.dal import tariff_dal, user_dal
 
 PREMIUM_WARNING_LEVEL_OFFSET = 1000
 # Single warning per premium billing period when usage reached or exceeded the quota.
@@ -126,6 +136,45 @@ def fmt_bytes(value: int) -> str:
     return f"{size:.1f} TB"
 
 
+async def resolve_flexible_limit_baseline(
+    session: AsyncSession,
+    *,
+    subscription_id: int,
+    kind: str,
+    at: datetime,
+    active_baseline: int | None,
+    stored_baseline: int | None,
+    default_baseline: int,
+    preserve_without_history: bool,
+) -> int:
+    """Resolve a flexible quota without applying a future window early.
+
+    A scheduled renewal row is history in the broad sense, but it is not an
+    expired entitlement. Until its ``valid_from`` arrives, the current stored
+    baseline must remain authoritative. Once any flexible window has started
+    and no row is active anymore, the quota returns to the tariff default.
+    """
+    if active_baseline is not None:
+        return max(0, int(active_baseline))
+
+    history_start = await tariff_dal.get_flexible_traffic_limit_history_start(
+        session,
+        subscription_id=subscription_id,
+        kind=kind,
+    )
+    if history_start is None:
+        resolved = stored_baseline if preserve_without_history else default_baseline
+    else:
+        normalized_start = (
+            history_start.replace(tzinfo=UTC)
+            if history_start.tzinfo is None
+            else history_start.astimezone(UTC)
+        )
+        normalized_at = at.replace(tzinfo=UTC) if at.tzinfo is None else at.astimezone(UTC)
+        resolved = stored_baseline if normalized_start > normalized_at else default_baseline
+    return max(0, int(resolved or default_baseline or 0))
+
+
 class MessageDeliveryLogger(Protocol):
     async def __call__(
         self,
@@ -156,6 +205,7 @@ class TrafficWarningEmailSender(Protocol):
 async def deliver_traffic_warning(
     session: AsyncSession,
     *,
+    settings: Settings,
     bot: Bot | None,
     user_id: int,
     text: str,
@@ -169,10 +219,32 @@ async def deliver_traffic_warning(
     logger: logging.Logger,
     telegram_failure_message: str,
 ) -> None:
-    if bot:
+    try:
+        user = await user_dal.get_user_by_id(session, user_id)
+    except Exception:
+        logger.exception("Failed to load user %s for traffic notification policy", user_id)
+        return
+    if iscoroutine(user):
+        user.close()
+        user = None
+    if user is None:
+        user = SimpleNamespace(
+            user_id=user_id,
+            telegram_id=user_id if user_id > 0 else None,
+            email=None,
+            telegram_notifications_status="unknown",
+        )
+    chat_id = telegram_recipient(user, user_id)
+    plan = user_notification_delivery_plan(
+        settings,
+        UserNotificationCategory.TRAFFIC,
+        user,
+        telegram_available=bot is not None and chat_id is not None,
+    )
+    if plan.telegram and bot and chat_id is not None:
         try:
             await bot.send_message(
-                user_id,
+                chat_id,
                 text,
                 reply_markup=markup,
                 parse_mode="HTML",
@@ -182,18 +254,30 @@ async def deliver_traffic_warning(
                 target_user_id=user_id,
                 event_type="telegram_traffic_warning_sent",
                 channel="telegram",
-                recipient=str(user_id),
+                recipient=str(chat_id),
                 content=audit_content,
             )
         except Exception:
             logger.exception(telegram_failure_message, user_id)
 
-    await email_sender(
-        session,
-        user_id=user_id,
-        subject_key=subject_key,
-        message_text=text,
-        kind=kind,
-        warning_key=warning_key,
-        audit_content=audit_content,
-    )
+    if plan.email or (
+        user_notification_channel_selected(
+            settings,
+            UserNotificationCategory.TRAFFIC,
+            "email",
+        )
+        and user_notification_channel_allowed(
+            user,
+            UserNotificationCategory.TRAFFIC,
+            "email",
+        )
+    ):
+        await email_sender(
+            session,
+            user_id=user_id,
+            subject_key=subject_key,
+            message_text=text,
+            kind=kind,
+            warning_key=warning_key,
+            audit_content=audit_content,
+        )

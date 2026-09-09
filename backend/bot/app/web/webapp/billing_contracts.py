@@ -44,7 +44,13 @@ PROMO_QUOTE_RESPONSE_SCHEMA = ok_envelope_with(
         "discount_amount": NUMBER_SCHEMA,
         "effect_summary": STRING_SCHEMA,
         "applies_to": STRING_SCHEMA,
+        "bonus_days": INTEGER_SCHEMA,
+        "regular_traffic_gb": NUMBER_SCHEMA,
+        "premium_traffic_gb": NUMBER_SCHEMA,
+        "duration_multiplier": NULLABLE_NUMBER_SCHEMA,
+        "traffic_multiplier": NULLABLE_NUMBER_SCHEMA,
         "min_subscription_months": NULLABLE_INTEGER_SCHEMA,
+        "min_subscription_days": NULLABLE_INTEGER_SCHEMA,
         "min_traffic_gb": NULLABLE_NUMBER_SCHEMA,
         "reason": NULLABLE_STRING_SCHEMA,
         "reason_key": NULLABLE_STRING_SCHEMA,
@@ -56,6 +62,9 @@ SUBSCRIPTION_QUOTE_RESPONSE_SCHEMA = ok_envelope_with(
     {
         "payable": BOOLEAN_SCHEMA,
         "quote_key": STRING_SCHEMA,
+        "duration_days": NULLABLE_INTEGER_SCHEMA,
+        "bonus_days": INTEGER_SCHEMA,
+        "end_date": NULLABLE_STRING_SCHEMA,
         "currency": STRING_SCHEMA,
         "base_amount": NUMBER_SCHEMA,
         "addons_amount": NUMBER_SCHEMA,
@@ -70,6 +79,14 @@ SUBSCRIPTION_QUOTE_RESPONSE_SCHEMA = ok_envelope_with(
         "promo_code": NULLABLE_STRING_SCHEMA,
         "discount_percent": NULLABLE_NUMBER_SCHEMA,
         "effect_summary": NULLABLE_STRING_SCHEMA,
+        "applies_to": NULLABLE_STRING_SCHEMA,
+        "regular_traffic_gb": NULLABLE_NUMBER_SCHEMA,
+        "premium_traffic_gb": NULLABLE_NUMBER_SCHEMA,
+        "duration_multiplier": NULLABLE_NUMBER_SCHEMA,
+        "traffic_multiplier": NULLABLE_NUMBER_SCHEMA,
+        "min_subscription_months": NULLABLE_INTEGER_SCHEMA,
+        "min_subscription_days": NULLABLE_INTEGER_SCHEMA,
+        "min_traffic_gb": NULLABLE_NUMBER_SCHEMA,
     },
     required=[
         "payable",
@@ -127,4 +144,23 @@ BILLING_ROUTE_CONTRACTS: dict[str, RouteContract] = {
         response_schema=SUBSCRIPTION_QUOTE_RESPONSE_SCHEMA,
     ),
     "payment_status_route": user_contract(response_schema=PAYMENT_RESPONSE_SCHEMA),
+    "cancel_payment_route": user_contract(
+        response_schema=ok_envelope_with(
+            {
+                "payment_id": INTEGER_SCHEMA,
+                "status": STRING_SCHEMA,
+            }
+        )
+    ),
+    "complete_qa_payment_route": user_contract(
+        response_schema=ok_envelope_with(
+            {
+                "payment_id": INTEGER_SCHEMA,
+                "status": STRING_SCHEMA,
+                "duplicate": BOOLEAN_SCHEMA,
+                "final_end_date": NULLABLE_STRING_SCHEMA,
+            },
+            required=["payment_id", "status"],
+        )
+    ),
 }

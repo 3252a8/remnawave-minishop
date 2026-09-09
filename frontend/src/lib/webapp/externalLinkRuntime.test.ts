@@ -24,6 +24,34 @@ function makeRuntime(overrides: TestOverrides = {}) {
 }
 
 describe("createExternalLinkRuntime", () => {
+  it("opens Telegram links inside Telegram when available", () => {
+    const telegram = { openLink: vi.fn(), openTelegramLink: vi.fn() };
+    const { deps, runtime } = makeRuntime({ telegram });
+
+    runtime.openExternalLink("https://t.me/example_support");
+
+    expect(telegram.openTelegramLink).toHaveBeenCalledWith("https://t.me/example_support");
+    expect(telegram.openLink).not.toHaveBeenCalled();
+    expect(deps.assignLocation).not.toHaveBeenCalled();
+  });
+
+  it("falls back to generic Telegram opening when native Telegram opening fails", () => {
+    const telegram = {
+      openLink: vi.fn(),
+      openTelegramLink: vi.fn(() => {
+        throw new Error("unavailable");
+      }),
+    };
+    const { deps, runtime } = makeRuntime({ telegram });
+
+    runtime.openExternalLink("https://t.me/example_support");
+
+    expect(telegram.openLink).toHaveBeenCalledWith("https://t.me/example_support", {
+      try_instant_view: false,
+    });
+    expect(deps.assignLocation).not.toHaveBeenCalled();
+  });
+
   it("opens external links through Telegram when available", () => {
     const telegram = { openLink: vi.fn() };
     const { deps, runtime } = makeRuntime({ telegram });

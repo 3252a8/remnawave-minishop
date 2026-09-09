@@ -32,9 +32,16 @@ class AdminBroadcast(Base):
     is_visible = Column(Boolean, nullable=False, default=True, index=True)
     target = Column(String(128), nullable=False, default="all")
     channels = Column(JSON, nullable=False, default=list)
+    exclude_blocked_telegram = Column(Boolean, nullable=False, default=False)
     texts = Column(JSON, nullable=False, default=dict)
     email_subjects = Column(JSON, nullable=False, default=dict)
     buttons = Column(JSON, nullable=False, default=list)
+    image_id = Column(
+        String(32),
+        ForeignKey("message_images.image_id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     scheduled_at = Column(DateTime(timezone=True), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     started_at = Column(DateTime(timezone=True), nullable=True)

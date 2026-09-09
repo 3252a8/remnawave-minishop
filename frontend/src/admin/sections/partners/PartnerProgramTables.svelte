@@ -1,10 +1,12 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
-  import { FileText, Plus, Search, UsersRound, WalletCards } from "$components/ui/icons.js";
+  import { FileText, Plus, UsersRound, WalletCards } from "$components/ui/icons.js";
   import { Input } from "$components/ui/index.js";
   import {
     AdminBadge,
     AdminButton,
+    AdminListToolbar,
+    AdminField,
     AdminEmptyState,
     AdminPagination,
     AdminEntityLink,
@@ -227,44 +229,49 @@
 
 {#if view === "partners"}
   <section class="partners-list-view">
-    <div class="partners-list-head">
-      <div>
-        <h2>{at("partners_list_title", {}, "Partners")}</h2>
-        <p>
-          {at(
-            "partners_list_hint",
-            {},
-            "Search, filter, and inspect partner balances by currency."
-          )}
-        </p>
-      </div>
-      <AdminButton variant="primary" onclick={onAddPartner}
-        ><Plus size={15} />{at("partners_add", {}, "Add partner")}</AdminButton
-      >
-    </div>
-    <div class="partners-filters">
-      <label class="partners-search">
-        <span class="sr-only">{at("partners_search", {}, "Search by user or partner ID")}</span>
-        <Search size={16} />
+    <AdminListToolbar
+      class="partner-list-toolbar"
+      total={partnerTotal}
+      totalLabel={at("total", {}, "Total")}
+      columns={1}
+      onsubmit={() => {
+        partnerPage = 0;
+        loadPartnerQuery();
+      }}
+    >
+      {#snippet search()}
         <Input
           class="input"
           type="search"
           value={partnerSearch}
           oninput={(event) => updatePartnerSearch(event.currentTarget.value)}
+          aria-label={at("partners_search", {}, "Search by user or partner ID")}
           placeholder={at("partners_search", {}, "Search by user or partner ID")}
         />
-      </label>
-      <AdminSelect
-        value={partnerStatus}
-        items={[
-          { value: "all", label: at("partners_filter_all", {}, "All statuses") },
-          { value: "active", label: statusLabel("active") },
-          { value: "paused", label: statusLabel("paused") },
-        ]}
-        ariaLabel={at("partners_col_status", {}, "Status")}
-        onValueChange={resetPartnerFilter}
-      />
-    </div>
+      {/snippet}
+      {#snippet searchActions()}
+        <AdminButton type="submit" variant="primary">{at("find", {}, "Find")}</AdminButton>
+      {/snippet}
+      {#snippet filters()}
+        <AdminField label={at("partners_col_status", {}, "Status")}>
+          <AdminSelect
+            value={partnerStatus}
+            items={[
+              { value: "all", label: at("partners_filter_all", {}, "All statuses") },
+              { value: "active", label: statusLabel("active") },
+              { value: "paused", label: statusLabel("paused") },
+            ]}
+            ariaLabel={at("partners_col_status", {}, "Status")}
+            onValueChange={resetPartnerFilter}
+          />
+        </AdminField>
+      {/snippet}
+      {#snippet actions()}
+        <AdminButton variant="primary" onclick={onAddPartner}
+          ><Plus size={15} />{at("partners_add", {}, "Add partner")}</AdminButton
+        >
+      {/snippet}
+    </AdminListToolbar>
     <AdminTable>
       <thead
         ><tr>
@@ -388,16 +395,16 @@
   </section>
 {:else if view === "applications"}
   <section class="partners-list-view">
-    <div class="partners-list-head">
-      <div>
-        <h2>{at("partners_applications_title", {}, "Applications")}</h2>
-        <p>{at("partners_applications_hint", {}, "Pending requests are shown first.")}</p>
-      </div>
-    </div>
-    <div class="partners-filters">
-      <label class="partners-search">
-        <span class="sr-only">{at("partners_search_applications", {}, "Search applications")}</span>
-        <Search size={16} />
+    <AdminListToolbar
+      class="partner-list-toolbar"
+      total={filteredApplications.length}
+      totalLabel={at("total", {}, "Total")}
+      columns={1}
+      onsubmit={() => {
+        applicationPage = 0;
+      }}
+    >
+      {#snippet search()}
         <Input
           class="input"
           type="search"
@@ -406,30 +413,38 @@
             applicationSearch = event.currentTarget.value;
             applicationPage = 0;
           }}
+          aria-label={at("partners_search_applications", {}, "Search applications")}
           placeholder={at("partners_search_applications", {}, "Search applications")}
         />
-      </label>
-      <AdminSelect
-        value={applicationStatus}
-        items={[
-          { value: "all", label: at("partners_filter_all", {}, "All statuses") },
-          {
-            value: "pending",
-            label: `${statusLabel("pending")} (${applications.filter((item) => item.status === "pending").length})`,
-          },
-          {
-            value: "approved",
-            label: `${statusLabel("approved")} (${applications.filter((item) => item.status === "approved").length})`,
-          },
-          {
-            value: "rejected",
-            label: `${statusLabel("rejected")} (${applications.filter((item) => item.status === "rejected").length})`,
-          },
-        ]}
-        ariaLabel={at("partners_col_status", {}, "Status")}
-        onValueChange={resetApplicationFilter}
-      />
-    </div>
+      {/snippet}
+      {#snippet searchActions()}
+        <AdminButton type="submit" variant="primary">{at("find", {}, "Find")}</AdminButton>
+      {/snippet}
+      {#snippet filters()}
+        <AdminField label={at("partners_col_status", {}, "Status")}>
+          <AdminSelect
+            value={applicationStatus}
+            items={[
+              { value: "all", label: at("partners_filter_all", {}, "All statuses") },
+              {
+                value: "pending",
+                label: `${statusLabel("pending")} (${applications.filter((item) => item.status === "pending").length})`,
+              },
+              {
+                value: "approved",
+                label: `${statusLabel("approved")} (${applications.filter((item) => item.status === "approved").length})`,
+              },
+              {
+                value: "rejected",
+                label: `${statusLabel("rejected")} (${applications.filter((item) => item.status === "rejected").length})`,
+              },
+            ]}
+            ariaLabel={at("partners_col_status", {}, "Status")}
+            onValueChange={resetApplicationFilter}
+          />
+        </AdminField>
+      {/snippet}
+    </AdminListToolbar>
     <AdminTable>
       <thead
         ><tr>
@@ -563,18 +578,16 @@
   </section>
 {:else}
   <section class="partners-list-view">
-    <div class="partners-list-head">
-      <div>
-        <h2>{at("partners_withdrawals_title", {}, "Withdrawals")}</h2>
-        <p>
-          {at("partners_withdrawals_hint", {}, "Manual payout queue with status preconditions.")}
-        </p>
-      </div>
-    </div>
-    <div class="partners-filters">
-      <label class="partners-search">
-        <span class="sr-only">{at("partners_search_withdrawals", {}, "Search withdrawals")}</span>
-        <Search size={16} />
+    <AdminListToolbar
+      class="partner-list-toolbar"
+      total={filteredWithdrawals.length}
+      totalLabel={at("total", {}, "Total")}
+      columns={1}
+      onsubmit={() => {
+        withdrawalPage = 0;
+      }}
+    >
+      {#snippet search()}
         <Input
           class="input"
           type="search"
@@ -583,22 +596,30 @@
             withdrawalSearch = event.currentTarget.value;
             withdrawalPage = 0;
           }}
+          aria-label={at("partners_search_withdrawals", {}, "Search withdrawals")}
           placeholder={at("partners_search_withdrawals", {}, "Search withdrawals")}
         />
-      </label>
-      <AdminSelect
-        value={withdrawalStatus}
-        items={[
-          { value: "all", label: at("partners_filter_all", {}, "All statuses") },
-          ...["requested", "processing", "paid", "rejected"].map((status) => ({
-            value: status,
-            label: `${statusLabel(status)} (${withdrawals.filter((item) => item.status === status).length})`,
-          })),
-        ]}
-        ariaLabel={at("partners_col_status", {}, "Status")}
-        onValueChange={resetWithdrawalFilter}
-      />
-    </div>
+      {/snippet}
+      {#snippet searchActions()}
+        <AdminButton type="submit" variant="primary">{at("find", {}, "Find")}</AdminButton>
+      {/snippet}
+      {#snippet filters()}
+        <AdminField label={at("partners_col_status", {}, "Status")}>
+          <AdminSelect
+            value={withdrawalStatus}
+            items={[
+              { value: "all", label: at("partners_filter_all", {}, "All statuses") },
+              ...["requested", "processing", "paid", "rejected"].map((status) => ({
+                value: status,
+                label: `${statusLabel(status)} (${withdrawals.filter((item) => item.status === status).length})`,
+              })),
+            ]}
+            ariaLabel={at("partners_col_status", {}, "Status")}
+            onValueChange={resetWithdrawalFilter}
+          />
+        </AdminField>
+      {/snippet}
+    </AdminListToolbar>
     <AdminTable>
       <thead
         ><tr>

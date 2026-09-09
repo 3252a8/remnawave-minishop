@@ -82,6 +82,42 @@ class EmailContent:
     inline_images: tuple[EmailInlineImage, ...] = ()
 
 
+def add_email_preferences_footer(
+    content: EmailContent,
+    *,
+    url: str,
+    label: str,
+    hint: str,
+) -> EmailContent:
+    """Append an email-safe preference link without rebuilding the template."""
+
+    safe_url = html.escape(str(url or "").strip(), quote=True)
+    if not safe_url:
+        return content
+    safe_label = html.escape(label)
+    safe_hint = html.escape(hint)
+    footer = (
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'border="0" style="max-width:480px;margin:0 auto 28px auto;">'
+        '<tr><td align="center" style="padding:16px 20px;border-top:1px solid #1a1f27;'
+        "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,"
+        'sans-serif;">'
+        f'<div style="font-size:11px;line-height:1.55;color:#5d6573;">{safe_hint}</div>'
+        f'<a href="{safe_url}" target="_blank" rel="noopener" '
+        'style="display:inline-block;margin-top:8px;padding:8px 12px;border:1px solid #303844;'
+        'border-radius:9px;color:#9aa3b2;text-decoration:none;font-size:12px;font-weight:600;">'
+        f"{safe_label}</a></td></tr></table>"
+    )
+    marker = "</body>"
+    html_body = content.html.replace(marker, f"{footer}{marker}", 1)
+    return EmailContent(
+        subject=content.subject,
+        text=f"{content.text.rstrip()}\n\n{hint}\n{label}: {url}",
+        html=html_body,
+        inline_images=content.inline_images,
+    )
+
+
 @dataclass(frozen=True)
 class _EmailLayout:
     html: str

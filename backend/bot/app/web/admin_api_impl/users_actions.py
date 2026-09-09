@@ -1,4 +1,5 @@
 import logging
+from datetime import UTC, datetime, timedelta
 
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
@@ -50,6 +51,24 @@ from .users_listing import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+async def _is_panel_user_confirmed_absent(panel_service: object, panel_uuid: str) -> bool:
+    lookup = getattr(panel_service, "get_user_by_uuid_lookup", None)
+    if not callable(lookup):
+        return False
+
+    try:
+        result = await lookup(panel_uuid, log_response=False)
+    except Exception:
+        logger.warning(
+            "Admin webapp could not verify whether panel user %s is absent.",
+            panel_uuid,
+            exc_info=True,
+        )
+        return False
+
+    return isinstance(result, dict) and result.get("not_found") is True
 
 
 async def admin_user_ban_route(request: web.Request) -> web.Response:
@@ -110,6 +129,17 @@ async def admin_user_delete_route(request: web.Request) -> web.Response:
                 )
                 await session.rollback()
                 return _error(502, "panel_delete_failed", str(exc))
+
+            if not panel_deleted:
+                panel_deleted = await _is_panel_user_confirmed_absent(
+                    panel_service,
+                    panel_uuid,
+                )
+                if panel_deleted:
+                    logger.info(
+                        "Panel user %s is already absent; continuing local user deletion.",
+                        panel_uuid,
+                    )
 
             if not panel_deleted:
                 await session.rollback()
@@ -549,6 +579,7 @@ async def admin_user_hwid_device_limit_route(request: web.Request) -> web.Respon
             return _error(404, "no_active_subscription")
 
         active.hwid_device_limit = hwid_device_limit
+        active.hwid_device_limit_is_override = hwid_device_limit is not None
 
         effective_limit = None
         if subscription_service is not None:
@@ -669,11 +700,11 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
     target_id = int(request.match_info["user_id"])
     settings: Settings = get_settings(request)
     body = await parse_body_or_400(request, AdminUserExtendBody)
-    try:
-        days = int(body.days or 0)
-    except (TypeError, ValueError):
+    requested_end_date = body.end_date
+    if body.days is not None and requested_end_date is not None:
         return _error(400, "invalid_days")
-    if days <= 0:
+    days = int(body.days or 0)
+    if days == 0 and requested_end_date is None:
         return _error(400, "invalid_days")
     extend_hwid_devices = body.extend_hwid_devices
     extend_hwid_devices = True if extend_hwid_devices is None else bool(extend_hwid_devices)
@@ -692,6 +723,30 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
 
     async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
+        if days < 0 or requested_end_date is not None:
+            active = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
+            current_end = getattr(active, "end_date", None) if active else None
+            if not isinstance(current_end, datetime):
+                return _error(404, "no_active_subscription")
+            if current_end.tzinfo is None:
+                current_end = current_end.replace(tzinfo=UTC)
+
+            if requested_end_date is not None:
+                days = (requested_end_date - current_end.date()).days
+                if days == 0:
+                    return _error(400, "invalid_days")
+
+            now = datetime.now(UTC)
+            target_end = max(current_end, now) + timedelta(days=days)
+            if target_end <= now:
+                return _error(
+                    400,
+                    "invalid_end_date",
+                    "Subscription end date must remain in the future",
+                )
+
+        if days < 0:
+            extend_hwid_devices = False
         new_end = await subscription_service.extend_active_subscription_days(
             session,
             target_id,
@@ -711,7 +766,7 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
                 "user_id": actor_id,
                 "event_type": "admin_extend_subscription_webapp",
                 "content": (
-                    f"+{days}d -> {new_end.isoformat()} "
+                    f"{days:+d}d -> {new_end.isoformat()} "
                     f"(hwid={'yes' if extend_hwid_devices else 'no'} "
                     f"tariff={tariff_key or 'legacy'} "
                     f"apply_tariff_hwid_limit={'yes' if apply_tariff_hwid_limit else 'no'})"

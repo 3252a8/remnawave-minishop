@@ -216,7 +216,7 @@ class CheckoutAddonConfigTests(TestCase):
             current_regular_limit_gb=100,
             current_premium_limit_gb=20,
         )
-        upgraded, _bundle = build_checkout_bundle(
+        upgraded, upgrade_bundle = build_checkout_bundle(
             BasePaymentQuote(
                 payment_units=1,
                 price=100,
@@ -232,6 +232,9 @@ class CheckoutAddonConfigTests(TestCase):
         )
         self.assertGreater(upgraded.price, 234.9)
         self.assertLess(upgraded.price, 235.1)
+        device_upgrade = next(item for item in upgrade_bundle.items if item["kind"] == "devices")
+        self.assertTrue(device_upgrade["immediate_applies"])
+        self.assertGreater(device_upgrade["immediate_amount"], 0)
 
         base_payload = WebAppPaymentCreatePayload.model_validate(
             {
@@ -273,6 +276,79 @@ class CheckoutAddonConfigTests(TestCase):
             ["traffic", "premium_traffic"],
             [item["kind"] for item in downgrade_bundle.items],
         )
+
+    def test_trial_carryover_does_not_add_prorated_checkout_charges(self) -> None:
+        config = _checkout_config()
+        context = CheckoutPricingContext(
+            active_subscription_id=7,
+            active_tariff_key=None,
+            active_end_at=datetime.now(UTC) + timedelta(days=15),
+            complimentary_remaining_period=True,
+        )
+
+        quote, bundle = build_checkout_bundle(
+            BasePaymentQuote(
+                payment_units=1,
+                price=100,
+                stars_price=50,
+                sale_mode="subscription@standard",
+                traffic_gb_for_payment=None,
+                default_currency_code="RUB",
+            ),
+            settings=_settings(config),
+            payment_payload=_payload(),
+            method="yookassa",
+            pricing_context=context,
+        )
+
+        self.assertEqual(190, quote.price)
+        self.assertEqual(90, bundle.addon_amount)
+        grants = checkout_addon_grants(bundle.snapshot)
+        self.assertTrue(grants.active_context_present)
+        self.assertEqual(7, grants.active_subscription_id)
+        self.assertEqual(context.active_end_at, grants.active_end_at)
+        self.assertTrue(grants.regular_immediate_applies)
+        self.assertTrue(grants.premium_immediate_applies)
+
+    def test_trial_start_from_payment_is_frozen_without_addons(self) -> None:
+        config = _checkout_config()
+        payload = WebAppPaymentCreatePayload.model_validate(
+            {
+                "method": "yookassa",
+                "months": 1,
+                "tariff_key": "standard",
+                "sale_mode": "subscription",
+            }
+        )
+        context = CheckoutPricingContext(
+            active_subscription_id=7,
+            active_tariff_key=None,
+            active_end_at=datetime.now(UTC) + timedelta(days=15),
+            complimentary_remaining_period=True,
+            trial_days_strategy="start_from_payment",
+        )
+
+        quote, bundle = build_checkout_bundle(
+            BasePaymentQuote(
+                payment_units=1,
+                price=100,
+                stars_price=50,
+                sale_mode="subscription@standard",
+                traffic_gb_for_payment=None,
+                default_currency_code="RUB",
+            ),
+            settings=_settings(config),
+            payment_payload=payload,
+            method="yookassa",
+            pricing_context=context,
+        )
+
+        self.assertEqual(100, quote.price)
+        self.assertFalse(bundle.has_addons)
+        self.assertIsNotNone(bundle.snapshot)
+        grants = checkout_addon_grants(bundle.snapshot)
+        self.assertEqual("start_from_payment", grants.trial_days_strategy)
+        self.assertTrue(grants.active_context_present)
 
     def test_plain_base_limits_do_not_create_an_addon_bundle(self) -> None:
         config = _checkout_config()

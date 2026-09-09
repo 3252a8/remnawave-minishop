@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock
 import pytest
 from pydantic import SecretStr, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.dml import Delete, Update
 
 from bot.app.web.admin_api_impl.partners import (
     _application_payload,
@@ -43,6 +44,7 @@ from config.settings_models import (
     PartnerWithdrawalMethod,
     PartnerWithdrawalNetwork,
 )
+from db.dal.partner_withdrawal_dal import purge_expired_partner_data
 from db.models import Payment
 from db.partner_models import PartnerProfile, PartnerWithdrawal
 
@@ -431,6 +433,49 @@ def _partner_settings(**overrides: object) -> SimpleNamespace:
     }
     values.update(overrides)
     return SimpleNamespace(**values)
+
+
+def test_partner_audit_is_retained_when_retention_is_disabled() -> None:
+    session = SimpleNamespace(
+        execute=AsyncMock(return_value=SimpleNamespace(rowcount=2)),
+    )
+
+    result = asyncio.run(
+        purge_expired_partner_data(
+            session,
+            audit_before=None,
+            requisites_before=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+    )
+
+    statements = [call.args[0] for call in session.execute.await_args_list]
+    assert not any(isinstance(statement, Delete) for statement in statements)
+    assert sum(isinstance(statement, Update) for statement in statements) == 1
+    assert result == {"audit": 0, "requisites": 2}
+
+
+def test_partner_audit_is_purged_only_with_an_explicit_cutoff() -> None:
+    session = SimpleNamespace(
+        execute=AsyncMock(
+            side_effect=[
+                SimpleNamespace(rowcount=3),
+                SimpleNamespace(rowcount=2),
+            ]
+        ),
+    )
+
+    result = asyncio.run(
+        purge_expired_partner_data(
+            session,
+            audit_before=datetime(2025, 1, 1, tzinfo=UTC),
+            requisites_before=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+    )
+
+    statements = [call.args[0] for call in session.execute.await_args_list]
+    assert sum(isinstance(statement, Delete) for statement in statements) == 1
+    assert sum(isinstance(statement, Update) for statement in statements) == 1
+    assert result == {"audit": 3, "requisites": 2}
 
 
 def test_partner_web_link_uses_mini_app_url() -> None:

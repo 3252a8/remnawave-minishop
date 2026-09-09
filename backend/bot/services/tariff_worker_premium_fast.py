@@ -18,6 +18,7 @@ from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.services.panel_api_service import PanelApiService
+from bot.services.subscription_order_terms import gift_tariff
 from bot.services.subscription_service_impl.core import SubscriptionService
 from config.settings import Settings
 from db.models import Subscription
@@ -191,6 +192,8 @@ class TariffWorkerPremiumFastMixin:
                 return None
             return self._trial_premium_tariff()
         try:
-            return self.settings.tariffs_config.require(sub.tariff_key)
+            return gift_tariff(sub) or self.settings.tariffs_config.require_configured(
+                sub.tariff_key
+            )
         except Exception:
             return None

@@ -38,6 +38,7 @@ def render_payment_success(
     dashboard_url: str | None,
     provider_label: str | None = None,
     i18n: JsonI18n | None = None,
+    duration_days: int | None = None,
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
     lang = _normalize_lang(language_code, settings)
@@ -104,6 +105,20 @@ def render_payment_success(
             i18n,
             lang,
             "email_payment_success_text_tariff_upgrade",
+            amount=amount_text,
+            end_date=end_date,
+        )
+    elif duration_days is not None:
+        from bot.utils.subscription_periods import localized_duration_days
+
+        intro = _t_text(i18n, lang, "email_payment_success_intro_days", days=duration_days)
+        period_label = _t_text(i18n, lang, "email_payment_success_row_period")
+        period_value = localized_duration_days(duration_days, i18n, lang)
+        text = _t_text(
+            i18n,
+            lang,
+            "email_payment_success_text_days",
+            days=duration_days,
             amount=amount_text,
             end_date=end_date,
         )

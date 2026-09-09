@@ -53,11 +53,15 @@ class EventPayload(BaseModel):
         exclude_none: bool = False,
     ) -> dict[str, Any]:
         """Return the flat JSON-compatible dict passed to ``events.emit``."""
-        return self.model_dump(
+        payload = self.model_dump(
             mode="json",
             exclude_unset=exclude_unset,
             exclude_none=exclude_none,
         )
+        for key in ("duration_days", "purchased_subscription_days"):
+            if payload.get(key) is None:
+                payload.pop(key, None)
+        return payload
 
 
 class PaymentSucceededPayload(EventPayload):
@@ -72,6 +76,7 @@ class PaymentSucceededPayload(EventPayload):
     sale_mode: str
     tariff_key: str | None = None
     months: int | None = None
+    duration_days: int | None = None
     traffic_gb: float | None = None
     purchased_hwid_devices: int | None = None
     promo_code_id: int | None = None
@@ -141,6 +146,7 @@ class SubscriptionCreatedPayload(EventPayload):
     end_date: datetime | None = None
     provider: str | None = None
     months: int | None = None
+    duration_days: int | None = None
     payment_db_id: int | None = None
 
 
@@ -185,7 +191,14 @@ class UserRegisteredPayload(EventPayload):
     email: str | None = None
     language: str | None = None
     referred_by_id: int | None = None
-    registered_via: Literal["telegram", "email", "panel_sync", "unknown"]
+    registered_via: Literal[
+        "telegram",
+        "email",
+        "google_oauth",
+        "yandex_oauth",
+        "panel_sync",
+        "unknown",
+    ]
 
 
 class AccountEmailLinkedPayload(EventPayload):
@@ -206,6 +219,18 @@ class AccountTelegramLinkedPayload(EventPayload):
     telegram_id: int | None = None
     first_link: bool
     email: str | None = None
+    username: str | None = None
+    first_name: str | None = None
+
+
+class AccountExternalIdentityLinkedPayload(EventPayload):
+    EVENT_NAME: ClassVar[str] = "account.external_identity_linked"
+
+    user_id: int
+    provider: Literal["google", "yandex"]
+    link_source: Literal["settings", "email_confirmation", "provider_verified_email"]
+    email: str | None = None
+    telegram_id: int | None = None
     username: str | None = None
     first_name: str | None = None
 
@@ -252,6 +277,7 @@ class ReferralBonusGrantedPayload(EventPayload):
     referee_name: str | None = None
     payment_db_id: int | None = None
     purchased_subscription_months: int | None = None
+    purchased_subscription_days: int | None = None
     tariff_key: str | None = None
     one_bonus_per_referee: bool | None = None
     reason: Literal["payment", "welcome"]
@@ -272,6 +298,32 @@ class PanelWebhookReceivedPayload(EventPayload):
     event: str
     panel_user_uuid: str | None = None
     telegram_id: int | str | None = None
+
+
+class DeviceConnectedPayload(EventPayload):
+    EVENT_NAME: ClassVar[str] = "device.connected"
+
+    user_id: int
+    subscription_id: int
+    panel_user_uuid: str | None = None
+    device_label: str
+    platform: str | None = None
+    os_version: str | None = None
+    current_devices: int | None = None
+    device_limit: int | None = None
+    occurred_at: datetime
+
+
+class DeviceLimitReachedPayload(EventPayload):
+    EVENT_NAME: ClassVar[str] = "device.limit_reached"
+
+    user_id: int
+    subscription_id: int
+    tariff_key: str | None = None
+    current_devices: int
+    device_limit: int
+    device_topup_available: bool
+    occurred_at: datetime
 
 
 class PartnerApplicationSubmittedPayload(EventPayload):

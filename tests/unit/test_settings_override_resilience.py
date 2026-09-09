@@ -17,6 +17,7 @@ import pytest
 from pydantic import model_validator
 from pydantic_settings import SettingsConfigDict
 
+from bot.app.web.webapp import external_oauth
 from bot.payment_providers import registry
 from bot.payment_providers.base import ProviderEnvConfig
 from bot.payment_providers.tribute.config import TributeConfig
@@ -194,6 +195,56 @@ def test_update_overrides_persists_empty_subscription_purchase_description(
     assert _memory_overrides == {"SUBSCRIPTION_PURCHASE_DESCRIPTION_RU": ""}
     assert settings.SUBSCRIPTION_PURCHASE_DESCRIPTION_RU == ""
     assert settings.subscription_purchase_description("ru") == ""
+
+
+def test_legacy_kuma_slug_override_is_applied_but_not_admin_editable() -> None:
+    settings = Settings(
+        _env_file=None,
+        BOT_TOKEN="token",
+        POSTGRES_USER="app_user",
+        POSTGRES_PASSWORD="app_password",
+        SERVER_STATUS_KUMA_SLUG="environment-slug",
+    )
+
+    applied, skipped = svc._apply_overrides(settings, {"SERVER_STATUS_KUMA_SLUG": "saved-slug"})
+
+    assert applied == ["SERVER_STATUS_KUMA_SLUG"]
+    assert skipped == []
+    assert settings.SERVER_STATUS_KUMA_SLUG == "saved-slug"
+    assert svc.get_field_by_key("SERVER_STATUS_KUMA_SLUG") is None
+
+
+def test_google_oidc_admin_overrides_apply_without_a_restart(_memory_overrides) -> None:
+    settings = Settings(
+        _env_file=None,
+        BOT_TOKEN="token",
+        POSTGRES_USER="app_user",
+        POSTGRES_PASSWORD="app_password",
+        GOOGLE_OIDC_ENABLED=False,
+    )
+    assert external_oauth._provider(settings, "google") is None
+
+    updates = {
+        "GOOGLE_OIDC_ENABLED": True,
+        "GOOGLE_OIDC_CLIENT_ID": "live-client-id",
+        "GOOGLE_OIDC_CLIENT_SECRET": "live-client-secret",
+    }
+    result = asyncio.run(
+        svc.update_overrides(
+            settings,
+            lambda: _FakeSession(),
+            updates=updates,
+            deletes=[],
+            actor_id=1,
+        )
+    )
+
+    provider = external_oauth._provider(settings, "google")
+    assert result["not_applied"] == []
+    assert _memory_overrides == updates
+    assert provider is not None
+    assert provider.client_id == "live-client-id"
+    assert provider.client_secret == "live-client-secret"
 
 
 def test_referral_link_visibility_rejects_disabling_the_last_link() -> None:

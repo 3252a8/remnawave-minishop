@@ -5,13 +5,16 @@ from typing import Any, cast
 from unittest.mock import AsyncMock, patch
 
 from aiogram import Bot
+from aiogram.exceptions import TelegramForbiddenError
+from aiogram.methods import SendMessage
+from aiogram.types import BufferedInputFile
 from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
 from bot.services import admin_broadcast_delivery as delivery_module
 from bot.services.admin_broadcast_delivery import AdminBroadcastDeliveryService
 from bot.services.broadcast_personalization import BroadcastUserContext
-from bot.utils.message_queue import QueuedMessage, TelegramMessageQueue
+from bot.utils.message_queue import MessageQueueManager, QueuedMessage, TelegramMessageQueue
 from db.broadcast_models import AdminBroadcast, AdminBroadcastDelivery
 from tests.support.settings_stub import settings_stub
 
@@ -38,6 +41,9 @@ class _Queue:
     async def send_message(self, chat_id: int, **kwargs: Any) -> None:
         self.messages.append({"chat_id": chat_id, **kwargs})
 
+    async def send_photo(self, chat_id: int, **kwargs: Any) -> None:
+        self.messages.append({"chat_id": chat_id, **kwargs})
+
 
 def _service(queue: _Queue | None = None) -> AdminBroadcastDeliveryService:
     settings = settings_stub(
@@ -60,6 +66,7 @@ def _broadcast(**overrides: Any) -> AdminBroadcast:
         "created_by_admin_id": 99,
         "target": "all",
         "channels": ["telegram", "email"],
+        "exclude_blocked_telegram": False,
         "texts": {"ru": "Привет {first_name}", "en": "Hello {first_name}"},
         "email_subjects": {"ru": "Новости", "en": "News"},
         "buttons": [],
@@ -82,6 +89,34 @@ def _delivery(**overrides: Any) -> AdminBroadcastDelivery:
 
 
 class AdminBroadcastDeliveryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_photo_is_prepared_once_and_reused_for_all_recipients(self) -> None:
+        queue = _Queue()
+        service = _service(queue)
+        stored = SimpleNamespace(path=REPO_ROOT / "pyproject.toml")
+        photo = BufferedInputFile(b"prepared JPEG", filename="message.jpg")
+        prepare = AsyncMock(return_value=photo)
+        deliveries = [
+            _delivery(),
+            _delivery(delivery_id=2, user_id=2, destination="222"),
+        ]
+        with (
+            patch.object(delivery_module, "load_message_image", AsyncMock(return_value=stored)),
+            patch.object(delivery_module, "prepare_telegram_photo", prepare),
+            patch.object(service, "_mark_queued", AsyncMock()),
+            patch.object(delivery_module.broadcast_dal, "refresh_broadcast_stats", AsyncMock()),
+        ):
+            result = await service._queue_deliveries(
+                _broadcast(image_id="1" * 32, texts={"en": "Hello"}),
+                deliveries,
+                [1, 2],
+                ["telegram"],
+            )
+
+        prepare.assert_awaited_once_with(stored)
+        self.assertEqual(result.queued, 2)
+        self.assertEqual(len(queue.messages), 2)
+        self.assertTrue(all(message["photo"] is photo for message in queue.messages))
+
     async def test_recipient_destinations_are_snapshotted_per_channel(self) -> None:
         captured: list[dict[str, Any]] = []
 
@@ -93,6 +128,7 @@ class AdminBroadcastDeliveryTests(unittest.IsolatedAsyncioTestCase):
             captured.extend(deliveries)
             return []
 
+        telegram_recipients = AsyncMock(return_value=[(-555, 123456789)])
         with (
             patch.object(
                 delivery_module.user_dal,
@@ -102,7 +138,7 @@ class AdminBroadcastDeliveryTests(unittest.IsolatedAsyncioTestCase):
             patch.object(
                 delivery_module.user_dal,
                 "get_telegram_recipients_for_broadcast",
-                AsyncMock(return_value=[(-555, 123456789)]),
+                telegram_recipients,
             ),
             patch.object(
                 delivery_module.user_dal,
@@ -125,6 +161,30 @@ class AdminBroadcastDeliveryTests(unittest.IsolatedAsyncioTestCase):
             [(item["channel"], item["destination"]) for item in captured],
             [("telegram", "123456789"), ("email", "linked@example.com")],
         )
+        telegram_recipients.assert_awaited_once_with(
+            unittest.mock.ANY,
+            [-555],
+            exclude_blocked=False,
+        )
+
+    async def test_blocked_filter_keeps_unknown_raw_ids_outside_the_database(self) -> None:
+        result = SimpleNamespace(
+            all=lambda: [
+                (1, 101, "blocked", False, True),
+                (2, 202, "enabled", False, True),
+                (4, 404, "enabled", True, True),
+                (5, 505, "enabled", False, False),
+            ]
+        )
+        session = SimpleNamespace(execute=AsyncMock(return_value=result))
+
+        recipients = await delivery_module.user_dal.get_telegram_recipients_for_broadcast(
+            session,
+            [1, 2, 303, 4, 5],
+            exclude_blocked=True,
+        )
+
+        self.assertEqual(recipients, [(2, 202), (303, 303)])
 
     async def test_personalization_is_rendered_for_telegram_and_email(self) -> None:
         queue = _Queue()
@@ -178,8 +238,56 @@ class AdminBroadcastDeliveryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.queued, 2)
         self.assertEqual(result.email_queued, 2)
 
+    async def test_image_and_text_are_queued_as_one_photo_with_caption(self) -> None:
+        queue = _Queue()
+        service = _service(queue)
+        image = BufferedInputFile(b"prepared JPEG", filename="test-image.jpg")
+
+        with (
+            patch.object(service, "_mark_queued", AsyncMock()) as mark_queued,
+            patch.object(service, "_mark_result", AsyncMock()) as mark_result,
+        ):
+            await service._queue_telegram(
+                _delivery(),
+                "Hello",
+                [],
+                image=image,
+            )
+
+            self.assertEqual(len(queue.messages), 1)
+            queued = queue.messages[0]
+            self.assertIs(queued["photo"], image)
+            self.assertEqual(queued["caption"], "Hello")
+            self.assertEqual(queued["parse_mode"], "HTML")
+            self.assertIsNone(queued["reply_markup"])
+            self.assertNotIn("text", queued)
+            await queued["callback"](object())
+
+        mark_queued.assert_awaited_once_with(1)
+        mark_result.assert_awaited_once_with(1, success=True, error=None)
+
 
 class MessageQueueDeliveryCallbackTests(unittest.IsolatedAsyncioTestCase):
+    async def test_send_photo_routes_delivery_callbacks_outside_bot_kwargs(self) -> None:
+        photo_result = object()
+        bot = SimpleNamespace(send_photo=AsyncMock(return_value=photo_result))
+        manager = MessageQueueManager(cast(Bot, bot))
+        success = AsyncMock()
+        failure = AsyncMock()
+
+        await manager.send_photo(
+            42,
+            photo="photo-id",
+            callback=success,
+            error_callback=failure,
+        )
+        if manager.user_queue._processing_task is not None:
+            await manager.user_queue._processing_task
+
+        bot.send_photo.assert_awaited_once_with(chat_id=42, photo="photo-id")
+        success.assert_awaited_once_with(photo_result)
+        failure.assert_not_awaited()
+
     async def test_failure_callback_receives_terminal_send_error(self) -> None:
         bot = SimpleNamespace(send_message=AsyncMock(side_effect=RuntimeError("offline")))
         queue = TelegramMessageQueue(cast(Bot, bot), messages_per_second=1000)
@@ -201,3 +309,52 @@ class MessageQueueDeliveryCallbackTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(failures, ["offline"])
         self.assertEqual(queue.total_failed, 1)
+
+    async def test_forbidden_delivery_is_logged_without_traceback(self) -> None:
+        error = TelegramForbiddenError(
+            method=SendMessage(chat_id=42, text="Hello"),
+            message="Forbidden: bot was blocked by the user",
+        )
+        bot = SimpleNamespace(send_message=AsyncMock(side_effect=error))
+        queue = TelegramMessageQueue(cast(Bot, bot), messages_per_second=1000)
+        failure = AsyncMock()
+
+        with self.assertLogs("bot.utils.message_queue", level="INFO") as logs:
+            await queue.add_message(
+                QueuedMessage(
+                    chat_id=42,
+                    method_name="send_message",
+                    kwargs={"text": "Hello"},
+                    error_callback=failure,
+                )
+            )
+            if queue._processing_task is not None:
+                await queue._processing_task
+
+        failure.assert_awaited_once_with(error)
+        rendered_logs = "\n".join(logs.output)
+        self.assertIn("chat_id=42", rendered_logs)
+        self.assertNotIn("Traceback", rendered_logs)
+
+    async def test_broadcast_failure_records_blocked_user_status(self) -> None:
+        queue = _Queue()
+        service = _service(queue)
+        error = TelegramForbiddenError(
+            method=SendMessage(chat_id=111, text="Hello"),
+            message="Forbidden: bot was blocked by the user",
+        )
+
+        with (
+            patch.object(
+                delivery_module,
+                "record_telegram_notification_failure",
+                AsyncMock(return_value="blocked"),
+            ) as record_failure,
+            patch.object(service, "_mark_queued", AsyncMock()),
+            patch.object(service, "_mark_result", AsyncMock()) as mark_result,
+        ):
+            await service._queue_telegram(_delivery(user_id=7), "Hello", [])
+            await queue.messages[0]["error_callback"](error)
+
+        record_failure.assert_awaited_once_with(service.session_factory, 7, error)
+        mark_result.assert_awaited_once_with(1, success=False, error=str(error))

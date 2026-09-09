@@ -1,25 +1,29 @@
 <script lang="ts">
   import {
     ArrowRight,
-    CheckCircle2,
     FileText,
     Handshake,
-    Key,
-    Mail,
+    Megaphone,
     Send,
     Server,
     Shield,
     UserRound,
+    WalletCards,
   } from "$components/ui/icons.js";
 
-  import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import { AttentionDot } from "$components/ui/index.js";
-  import { LanguageSelect } from "$components/patterns/webapp/index.js";
+  import { LanguageSelect, ThemeSelect } from "$components/patterns/webapp/index.js";
   import PromoActivationCard from "../PromoActivationCard.svelte";
   import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
+  import MenuButtonIcon from "../MenuButtonIcon.svelte";
+  import { formatMoney } from "$lib/webapp/formatters.js";
+  import { shouldShowUserBalance } from "$lib/webapp/balanceUiPolicy.js";
+  import type { ThemeOption } from "$lib/webapp/themePreference.js";
   import type {
     LanguageOption,
+    BalanceView,
+    MenuButtonView,
     OpenLinkAction,
     StringAction,
     Translate,
@@ -29,17 +33,16 @@
 
   type Props = {
     currentLang?: string;
+    balance?: BalanceView;
     currentLanguageOption?: LanguageOption | null;
     emailAuthEnabled?: boolean;
-    emailLinkStatus?: string;
     isAdmin?: boolean;
     languageBusy?: boolean;
     languageClickGuard?: boolean;
     languageClickGuardArmed?: boolean;
     languageMenuOpen?: boolean;
     languageOptions?: LanguageOption[];
-    linkEmailBusy?: boolean;
-    linkTelegramBusy?: boolean;
+    menuButtons?: MenuButtonView[];
     partnerSettingsVisible?: boolean;
     privacyPolicyUrl?: string;
     profileAvatarUrl?: string;
@@ -52,10 +55,11 @@
     promoIsError?: boolean;
     promoStatus?: string;
     serverStatusUrl?: string;
-    showTelegramLinkedStatus?: boolean;
-    subscriptionReissueBusy?: boolean;
-    subscriptionReissueVisible?: boolean;
+    serverStatusInternal?: boolean;
     supportUrl?: string;
+    themeOptions?: ThemeOption[];
+    themePreference?: string;
+    themeSwitcherVisible?: boolean;
     telegramNotificationsNeedPrompt?: boolean;
     telegramNotificationsStartLink?: string;
     telegramNotificationsStatus?: string;
@@ -64,36 +68,38 @@
     userAgreementUrl?: string;
     userLanguage?: string;
     showLogout?: boolean;
-    linkTelegramAccount?: VoidAction;
+    hasUnlinkedIdentity?: boolean;
     openTelegramNotificationsBot?: VoidAction;
     logout?: VoidAction;
     openAdminPanel?: VoidAction;
+    openBalanceTopup?: VoidAction;
     openPartner?: VoidAction;
     openExternalLink?: OpenLinkAction;
-    openLinkEmailDialog?: VoidAction;
-    openSetPasswordDialog?: VoidAction;
-    openSubscriptionReissueDialog?: VoidAction;
+    openMenuButton?: (button: MenuButtonView) => void;
+    openNotifications?: VoidAction;
+    openSecurity?: VoidAction;
+    openServerStatus?: VoidAction;
     applyPromo?: VoidAction;
     clearPromoFieldError?: VoidAction;
     setLanguageMenuOpen?: (open: boolean) => void;
     setPromoCode?: StringAction;
+    setThemePreference?: StringAction;
     t?: Translate;
     updateAccountLanguage?: StringAction;
   };
 
   let {
     currentLang = "ru",
+    balance = {} as BalanceView,
     currentLanguageOption = null,
     emailAuthEnabled = true,
-    emailLinkStatus = "",
     isAdmin = false,
     languageBusy = false,
     languageClickGuard = false,
     languageClickGuardArmed = false,
     languageMenuOpen = $bindable(false),
     languageOptions = [],
-    linkEmailBusy = false,
-    linkTelegramBusy = false,
+    menuButtons = [],
     partnerSettingsVisible = false,
     privacyPolicyUrl = "",
     profileAvatarUrl = "",
@@ -106,10 +112,11 @@
     promoIsError = false,
     promoStatus = "",
     serverStatusUrl = "",
-    showTelegramLinkedStatus = false,
-    subscriptionReissueBusy = false,
-    subscriptionReissueVisible = false,
+    serverStatusInternal = false,
     supportUrl = "",
+    themeOptions = [],
+    themePreference = "auto",
+    themeSwitcherVisible = false,
     telegramNotificationsNeedPrompt = false,
     telegramNotificationsStartLink = "",
     telegramNotificationsStatus = "unknown",
@@ -118,24 +125,28 @@
     userAgreementUrl = "",
     userLanguage = "",
     showLogout = true,
-    linkTelegramAccount = () => {},
+    hasUnlinkedIdentity = false,
     openTelegramNotificationsBot = () => {},
     logout = () => {},
     openAdminPanel = () => {},
+    openBalanceTopup = () => {},
     openPartner = () => {},
     openExternalLink = () => {},
-    openLinkEmailDialog = () => {},
-    openSetPasswordDialog = () => {},
-    openSubscriptionReissueDialog = () => {},
+    openMenuButton = () => {},
+    openNotifications = () => {},
+    openSecurity = () => {},
+    openServerStatus = () => {},
     applyPromo = () => {},
     clearPromoFieldError = () => {},
     setLanguageMenuOpen = () => {},
     setPromoCode = () => {},
+    setThemePreference = () => {},
     t = (key) => key,
     updateAccountLanguage = () => {},
   }: Props = $props();
 
   const showEmailAccount = $derived(emailAuthEnabled || Boolean(user?.email));
+  let themeMenuOpen = $state(false);
 </script>
 
 <main class="content with-nav">
@@ -159,6 +170,27 @@
       {/if}
       <small>{profileTelegramId}</small>
     </div>
+    {#if shouldShowUserBalance(balance)}
+      {#if balance.enabled}
+        <button
+          class="settings-profile-balance"
+          type="button"
+          onclick={openBalanceTopup}
+          aria-label={t("wa_balance_topup_short", {}, "Top up")}
+        >
+          <WalletCards size={17} />
+          <strong>{formatMoney(balance.amount, balance.currency)}</strong>
+        </button>
+      {:else}
+        <div
+          class="settings-profile-balance settings-profile-balance-readonly"
+          aria-label={t("wa_balance_title", {}, "Balance")}
+        >
+          <WalletCards size={17} />
+          <strong>{formatMoney(balance.amount, balance.currency)}</strong>
+        </div>
+      {/if}
+    {/if}
   </Card>
   {#if telegramNotificationsNeedPrompt}
     <TelegramNotificationsBanner
@@ -188,82 +220,40 @@
   {/if}
   <div class="settings-links-block">
     <div class="settings-divider" aria-hidden="true"></div>
-    {#if user?.telegram_linked}
-      {#if showTelegramLinkedStatus}
-        <div class="settings-row settings-row-linked">
-          <CheckCircle2 size={21} />
-          <span>
-            <strong>{t("wa_settings_telegram_linked_title")}</strong>
-            <small>{profileTelegramId}</small>
-          </span>
-        </div>
-      {/if}
-    {:else}
-      <Button
-        variant="telegram"
-        class="wide settings-telegram-link-btn attention-wrap"
-        onclick={linkTelegramAccount}
-        disabled={linkTelegramBusy}
-      >
-        <AttentionDot />
-        <Send size={18} />
-        {t("wa_settings_link_telegram_action")}
-      </Button>
-    {/if}
-    {#if user?.email}
-      <div class="settings-row settings-row-linked settings-row-linked-with-action">
-        <CheckCircle2 size={21} />
-        <span>
-          <strong>{t("wa_settings_email_linked_title")}</strong>
-          <small>{user?.email}</small>
-        </span>
-        {#if emailAuthEnabled && user?.email_verified}
-          <Button
-            data-webapp-action="open-set-password"
-            variant="secondary"
-            size="sm"
-            class="settings-inline-action"
-            onclick={openSetPasswordDialog}
-          >
-            {user?.password_auth_enabled
-              ? t("wa_settings_change_password_action")
-              : t("wa_settings_set_password_action")}
-          </Button>
-        {/if}
-      </div>
-    {:else if emailAuthEnabled}
-      <button
-        data-webapp-action="open-link-email"
-        class="settings-row attention-wrap"
-        type="button"
-        onclick={openLinkEmailDialog}
-        disabled={linkEmailBusy}
-      >
-        <AttentionDot />
-        <Mail size={21} />
-        <span>
-          <strong>{t("wa_settings_link_email_action")}</strong>
-          <small>{emailLinkStatus}</small>
-        </span>
-        <ArrowRight size={17} />
-      </button>
-    {/if}
-    {#if subscriptionReissueVisible}
-      <button
-        data-webapp-action="open-subscription-reissue"
-        class="settings-row settings-row-subscription-reissue"
-        type="button"
-        onclick={openSubscriptionReissueDialog}
-        disabled={subscriptionReissueBusy}
-      >
-        <Key size={21} />
-        <span>
-          <strong>{t("wa_subscription_reissue_action")}</strong>
-          <small>{t("wa_settings_subscription_reissue_hint")}</small>
-        </span>
-        <ArrowRight size={17} />
-      </button>
-    {/if}
+    <button
+      data-webapp-action="open-notifications"
+      class="settings-row settings-row-notifications"
+      type="button"
+      onclick={openNotifications}
+    >
+      <Megaphone size={21} />
+      <span>
+        <strong>{t("wa_notification_preferences_title", {}, "Notifications")}</strong>
+        <small
+          >{t(
+            "wa_notification_preferences_hint",
+            {},
+            "Choose separately what may be sent to your email and Telegram."
+          )}</small
+        >
+      </span>
+      <ArrowRight size={17} />
+    </button>
+    <div class="settings-divider" aria-hidden="true"></div>
+    <button
+      data-webapp-action="open-security"
+      class="settings-row settings-row-security attention-wrap"
+      type="button"
+      onclick={openSecurity}
+    >
+      {#if hasUnlinkedIdentity}<AttentionDot />{/if}
+      <Shield size={21} />
+      <span>
+        <strong>{t("wa_security_title", {}, "Security")}</strong>
+        <small>{t("wa_security_hint", {}, "Manage how you sign in and recover access")}</small>
+      </span>
+      <ArrowRight size={17} />
+    </button>
     <div class="settings-divider" aria-hidden="true"></div>
   </div>
   {#if promoActivationVisible}
@@ -309,6 +299,15 @@
       onOpenChange={setLanguageMenuOpen}
       onValueChange={updateAccountLanguage}
     />
+    {#if themeSwitcherVisible}
+      <ThemeSelect
+        bind:open={themeMenuOpen}
+        value={themePreference}
+        options={themeOptions}
+        label={t("wa_settings_theme")}
+        onValueChange={setThemePreference}
+      />
+    {/if}
     {#if userAgreementUrl}
       <button
         class="settings-row settings-row-policy"
@@ -331,14 +330,14 @@
         <ArrowRight size={17} />
       </button>
     {/if}
-    {#if serverStatusUrl}
+    {#if serverStatusInternal || serverStatusUrl}
       <button
         class="settings-row settings-row-status"
         type="button"
-        onclick={() => openExternalLink(serverStatusUrl)}
+        onclick={serverStatusInternal ? openServerStatus : () => openExternalLink(serverStatusUrl)}
       >
         <Server size={21} />
-        <span><strong>{t("menu_server_status_button")}</strong></span>
+        <span><strong>{t("wa_server_status_title", {}, "Server status")}</strong></span>
         <ArrowRight size={17} />
       </button>
     {/if}
@@ -361,4 +360,74 @@
       </button>
     {/if}
   </div>
+  {#if menuButtons.length}
+    <div class="settings-list settings-menu-buttons">
+      {#each menuButtons as button (button.id)}
+        <button
+          data-webapp-action={`menu-button-${button.id}`}
+          class="settings-row settings-row-menu-button"
+          type="button"
+          onclick={() => openMenuButton(button)}
+        >
+          <MenuButtonIcon icon={String(button.icon || "")} />
+          <span><strong>{button.label}</strong></span>
+          <ArrowRight size={17} />
+        </button>
+      {/each}
+    </div>
+  {/if}
 </main>
+
+<style>
+  .settings-profile-balance {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    color: var(--text);
+    text-align: right;
+    background: var(--panel-2);
+    cursor: pointer;
+    transition:
+      border-color 0.18s ease,
+      background 0.18s ease;
+  }
+  .settings-profile-balance:hover {
+    border-color: color-mix(in srgb, var(--text) 22%, var(--border));
+    background: color-mix(in srgb, var(--text) 5%, var(--panel-2));
+  }
+  .settings-profile-balance-readonly {
+    cursor: default;
+  }
+  .settings-profile-balance-readonly:hover {
+    border-color: var(--border);
+    background: var(--panel-2);
+  }
+  .settings-profile-balance :global(svg) {
+    color: var(--muted);
+  }
+  .settings-profile-balance strong {
+    color: var(--text);
+    font-size: 13px;
+  }
+  @media (max-width: 460px) {
+    .settings-profile-balance {
+      padding: 7px 8px;
+    }
+    .settings-profile-balance :global(svg) {
+      display: none;
+    }
+    .settings-profile-meta {
+      min-width: 0;
+    }
+    .settings-profile-meta strong,
+    .settings-profile-meta small {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+</style>

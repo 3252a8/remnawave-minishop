@@ -395,6 +395,51 @@ async function swipeUp(page: Page, target: Locator, phase: string): Promise<void
   }
 }
 
+async function assertCompactReadableTicketBubbles(
+  page: Page,
+  scope: Locator,
+  label: string
+): Promise<void> {
+  const bubbles = scope.locator(
+    ".ticket-message-row--admin .ticket-message-bubble, .ticket-message-row--user .ticket-message-bubble"
+  );
+  await expect(scope.locator(".ticket-message-row--admin").first()).toBeVisible();
+  await expect(scope.locator(".ticket-message-row--user").first()).toBeVisible();
+  await expect(bubbles.first()).toBeVisible();
+  const expectedTextColor = await page
+    .locator("body")
+    .evaluate((element) => getComputedStyle(element).color);
+  const paint = await bubbles.evaluateAll((elements) =>
+    elements.map((element) => {
+      const bubbleStyle = getComputedStyle(element);
+      const paragraph = element.querySelector(".ticket-message-text p");
+      return {
+        color: paragraph ? getComputedStyle(paragraph).color : "",
+        paddingBottom: Number.parseFloat(bubbleStyle.paddingBottom),
+        paddingTop: Number.parseFloat(bubbleStyle.paddingTop),
+      };
+    })
+  );
+
+  expect(paint.length, `${label}-support: conversation bubbles must be rendered`).toBeGreaterThan(
+    1
+  );
+  for (const [index, bubble] of paint.entries()) {
+    expect(
+      bubble.color,
+      `${label}-support: bubble ${index + 1} text must use the theme foreground`
+    ).toBe(expectedTextColor);
+    expect(
+      bubble.paddingTop,
+      `${label}-support: bubble ${index + 1} top padding`
+    ).toBeLessThanOrEqual(7);
+    expect(
+      bubble.paddingBottom,
+      `${label}-support: bubble ${index + 1} bottom padding`
+    ).toBeLessThanOrEqual(7);
+  }
+}
+
 async function assertUserTicketScrolling(page: Page, nav: Locator): Promise<void> {
   await page.setViewportSize(DESKTOP_VIEWPORT);
   await nav.getByRole("button", { name: "Поддержка", exact: true }).click();
@@ -405,6 +450,40 @@ async function assertUserTicketScrolling(page: Page, nav: Locator): Promise<void
   );
   const composer = page.locator(".support-ticket-screen .ticket-composer");
   await expect(composer).toBeVisible();
+  await assertCompactReadableTicketBubbles(page, page.locator(".support-ticket-screen"), "webapp");
+  const uploadButton = composer.locator(".message-image-dropzone");
+  const sendButton = composer.locator(".ticket-composer-send");
+  await expect(uploadButton).toContainText("Загрузить файл");
+  const actionHeights = await Promise.all([uploadButton.boundingBox(), sendButton.boundingBox()]);
+  expect(
+    Boolean(
+      actionHeights[0] &&
+      actionHeights[1] &&
+      Math.abs(actionHeights[0].height - actionHeights[1].height) <= 1
+    ),
+    "webapp-support: upload and send buttons must have the same height"
+  ).toBe(true);
+  await page.evaluate(() => {
+    const transfer = new DataTransfer();
+    transfer.items.add(
+      new File([new Uint8Array([1, 2, 3])], "dragged-photo.jpg", { type: "image/jpg" })
+    );
+    window.dispatchEvent(
+      new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer: transfer })
+    );
+  });
+  await expect(page.locator(".message-image-drag-overlay")).toBeVisible();
+  await page.evaluate(() => {
+    const transfer = new DataTransfer();
+    transfer.items.add(
+      new File([new Uint8Array([1, 2, 3])], "dragged-photo.jpg", { type: "image/jpg" })
+    );
+    window.dispatchEvent(
+      new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: transfer })
+    );
+  });
+  await expect(composer.locator(".message-image-preview")).toContainText("dragged-photo.jpg");
+  await composer.locator(".message-image-preview button").click();
   const readReceipt = page
     .locator('.support-ticket-screen .ticket-message-receipt[title="Прочитано"]')
     .first();
@@ -434,13 +513,24 @@ async function assertUserTicketScrolling(page: Page, nav: Locator): Promise<void
     .toBeGreaterThan(0);
 
   await page.setViewportSize(MOBILE_VIEWPORT);
+  await expect
+    .poll(() => messageViewport.evaluate((element) => getComputedStyle(element).overflowY))
+    .toBe("visible");
+  await expect
+    .poll(() =>
+      page
+        .locator(".support-ticket-screen .support-message-scroll")
+        .evaluate((element) => element.getBoundingClientRect().height)
+    )
+    .toBeGreaterThanOrEqual(300);
   await messageViewport.evaluate((element) => {
     element.scrollTop = 0;
   });
+  await page.evaluate(() => window.scrollTo(0, 0));
   await swipeUp(page, messageViewport, "webapp-support:mobile-scroll");
-  await expect
-    .poll(() => messageViewport.evaluate((element) => element.scrollTop))
-    .toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  await expect.poll(() => messageViewport.evaluate((element) => element.scrollTop)).toBe(0);
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   await expect(composer).toBeInViewport();
 
   await page.setViewportSize(DESKTOP_VIEWPORT);
@@ -455,8 +545,46 @@ async function assertAdminTicketScrolling(page: Page, supportDialog: Locator): P
   const messageScroll = supportDialog.locator(".support-admin-message-scroll");
   const messageViewport = messageScroll.locator(":scope > .scroll-area__viewport");
   const composer = supportDialog.locator(".support-admin-composer");
+  await assertCompactReadableTicketBubbles(page, supportDialog, "admin");
+  const ticketHeader = supportDialog.locator(".support-ticket-header");
+  const composerSurface = composer.locator(".rt-surface");
+  const composerCounter = composer.locator(".support-admin-composer-counter");
+  const composerActions = composer.locator(".support-admin-composer-actions");
+  const attachment = composerActions.locator(".message-image-attachment");
+  const uploadButton = attachment.locator(".message-image-dropzone");
+  const sendButton = composerActions.locator(".admin-btn");
 
   await page.waitForTimeout(220);
+  await expect
+    .poll(() => ticketHeader.evaluate((element) => element.getBoundingClientRect().height))
+    .toBeLessThan(72);
+  const counterInsideSurface = await Promise.all([
+    composerSurface.boundingBox(),
+    composerCounter.boundingBox(),
+  ]).then(([surface, counter]) =>
+    Boolean(
+      surface &&
+      counter &&
+      counter.x >= surface.x &&
+      counter.y >= surface.y &&
+      counter.x + counter.width <= surface.x + surface.width &&
+      counter.y + counter.height <= surface.y + surface.height
+    )
+  );
+  expect(counterInsideSurface, "admin-support: counter must stay inside the editor").toBe(true);
+  const actionsShareRow = await Promise.all([
+    attachment.boundingBox(),
+    sendButton.boundingBox(),
+  ]).then(([upload, send]) => Boolean(upload && send && Math.abs(upload.y - send.y) <= 4));
+  expect(actionsShareRow, "admin-support: image and send actions must share one row").toBe(true);
+  await expect(uploadButton).toContainText("Загрузить файл");
+  const actionsMatchHeight = await Promise.all([
+    uploadButton.boundingBox(),
+    sendButton.boundingBox(),
+  ]).then(([upload, send]) =>
+    Boolean(upload && send && Math.abs(upload.height - send.height) <= 1)
+  );
+  expect(actionsMatchHeight, "admin-support: image and send actions must match height").toBe(true);
   await expect
     .poll(() => bodyViewport.evaluate((element) => element.scrollHeight - element.clientHeight))
     .toBeGreaterThan(0);
@@ -471,12 +599,21 @@ async function assertAdminTicketScrolling(page: Page, supportDialog: Locator): P
   await expect
     .poll(() => messageViewport.evaluate((element) => getComputedStyle(element).overflowY))
     .toBe("visible");
-  await bodyViewport.evaluate((element) => {
+  await expect
+    .poll(() => messageScroll.evaluate((element) => element.getBoundingClientRect().height))
+    .toBeGreaterThanOrEqual(300);
+  await expect
+    .poll(() => bodyViewport.evaluate((element) => getComputedStyle(element).overflowY))
+    .toBe("visible");
+  const dialogOverlay = page.locator(".dialog");
+  await dialogOverlay.evaluate((element) => {
     element.scrollTop = 0;
   });
   await swipeUp(page, messageScroll, "admin-support:mobile-scroll");
-  await expect.poll(() => bodyViewport.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
-  await expect.poll(() => page.locator(".dialog").evaluate((element) => element.scrollTop)).toBe(0);
+  await expect
+    .poll(() => dialogOverlay.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+  await expect.poll(() => messageViewport.evaluate((element) => element.scrollTop)).toBe(0);
 
   const modalCoversHeader = await page.evaluate(() => {
     const header = document.querySelector(".admin-header");
@@ -487,11 +624,11 @@ async function assertAdminTicketScrolling(page: Page, supportDialog: Locator): P
   });
   expect(modalCoversHeader, "admin-support: modal must stay above the section header").toBe(true);
 
-  await bodyViewport.evaluate((element) => {
+  await dialogOverlay.evaluate((element) => {
     element.scrollTop = element.scrollHeight;
   });
   await expect(composer).toBeInViewport();
-  await bodyViewport.evaluate((element) => {
+  await dialogOverlay.evaluate((element) => {
     element.scrollTop = 0;
   });
   await page.setViewportSize(DESKTOP_VIEWPORT);
@@ -596,14 +733,14 @@ async function openUserDetailFromCurrentSection(
   page: Page,
   setPhase: (value: string) => void,
   phasePrefix: string,
-  options: { checkMobileTariffTapThrough?: boolean } = {}
+  options: { checkBalanceTileSelection?: boolean; checkMobileTariffTapThrough?: boolean } = {}
 ): Promise<void> {
   const userDialog = page.locator(".dialog-card.admin-user-dialog");
   setPhase(`${phasePrefix}:user-card`);
   await expect(userDialog).toBeVisible();
   await assertFormFieldsNamed(page, `${phasePrefix}:user-card`);
-  // Subscription, Activity, Logs, Actions, Message.
-  await exerciseDialogTabs(userDialog, 5, setPhase, `${phasePrefix}:user-tabs`);
+  // Subscription, Activity, Notifications, Logs, Actions, Message.
+  await exerciseDialogTabs(userDialog, 6, setPhase, `${phasePrefix}:user-tabs`);
 
   setPhase(`${phasePrefix}:user-avatar`);
   if (
@@ -611,10 +748,14 @@ async function openUserDetailFromCurrentSection(
       userDialog.locator(".admin-avatar-preview-trigger:not(:disabled)")
     )
   ) {
-    const avatarDialog = page.locator(".dialog-card.admin-avatar-dialog");
-    await expect(avatarDialog).toBeVisible();
+    const avatarViewer = page.locator("[data-image-viewer]");
+    await expect(avatarViewer).toBeVisible();
     await assertFormFieldsNamed(page, `${phasePrefix}:user-avatar`);
-    await closeDialog(avatarDialog);
+    await expect(avatarViewer.locator(".image-viewer-scale")).toHaveText("100%");
+    await avatarViewer.locator('[data-image-viewer-action="zoom-in"]').click();
+    await expect(avatarViewer.locator(".image-viewer-scale")).toHaveText("125%");
+    await avatarViewer.locator('[data-image-viewer-action="close"]').click();
+    await expect(avatarViewer).toBeHidden();
   }
 
   setPhase(`${phasePrefix}:user-referrals`);
@@ -632,6 +773,23 @@ async function openUserDetailFromCurrentSection(
   const actionsPanel = userDialog.locator(".admin-actions-tab");
   await expect(actionsPanel).toBeVisible();
   await assertFormFieldsNamed(page, `${phasePrefix}:user-actions`);
+
+  if (options.checkBalanceTileSelection) {
+    setPhase(`${phasePrefix}:balance-tile-selection`);
+    const balanceCard = actionsPanel.locator(".admin-user-action-sheet--balance");
+    const mainBalanceTile = balanceCard.locator(".balance-summary-tile").nth(0);
+    const partnerBalanceTile = balanceCard.locator(".balance-summary-tile").nth(1);
+    const targetTrigger = balanceCard.locator(".balance-target-field .admin-select-trigger");
+    await expect(mainBalanceTile).toHaveAttribute("aria-pressed", "true");
+    await expect(partnerBalanceTile).toBeEnabled();
+    await partnerBalanceTile.click();
+    await expect(partnerBalanceTile).toHaveAttribute("aria-pressed", "true");
+    await expect(mainBalanceTile).toHaveAttribute("aria-pressed", "false");
+    await expect(targetTrigger).toContainText("Партнёрский баланс");
+    await mainBalanceTile.click();
+    await expect(mainBalanceTile).toHaveAttribute("aria-pressed", "true");
+    await expect(targetTrigger).toContainText("Основной баланс");
+  }
 
   if (options.checkMobileTariffTapThrough) {
     setPhase(`${phasePrefix}:mobile-extend-tariff-select`);
@@ -837,9 +995,11 @@ async function exerciseActivationSuccessHandoff(
   await expect(page.locator(".dialog-card:visible")).toHaveCount(0);
 }
 
-test("support ticket conversations scroll on desktop and mobile", async ({ page }) => {
+test("support ticket conversations stay readable and scroll on desktop and mobile", async ({
+  page,
+}) => {
   await page.setViewportSize(DESKTOP_VIEWPORT);
-  await page.goto(APP_URL);
+  await page.goto(`${APP_URL}?theme_preview=light`);
   const nav = page.locator("nav.bottom-nav");
   await expect(nav).toBeVisible();
 
@@ -851,6 +1011,41 @@ test("support ticket conversations scroll on desktop and mobile", async ({ page 
   const supportDialog = page.locator(".dialog-card.support-ticket-dialog");
   await expect(supportDialog).toBeVisible();
   await assertAdminTicketScrolling(page, supportDialog);
+});
+
+test("balance top-up dialog uses the demo viewport without an idle scrollbar", async ({ page }) => {
+  await page.setViewportSize({ width: 583, height: 520 });
+  await page.goto(`${APP_URL}?path=/home&mock=user-balance`);
+
+  await page.locator('[data-webapp-action="open-balance-topup"]').click();
+  const dialog = page.locator(".dialog-card.balance-topup-dialog");
+  const viewport = dialog.locator(".dialog-body-scroll > .scroll-area__viewport");
+  const scrollbar = dialog.locator('.scroll-area__scrollbar[data-orientation="vertical"]');
+
+  await expect(dialog).toBeVisible();
+  await expect
+    .poll(() => viewport.evaluate((element) => element.scrollHeight - element.clientHeight))
+    .toBeLessThanOrEqual(1);
+  await expect(scrollbar).toHaveCount(0);
+});
+
+test("optional home widgets stay disabled by default and use dedicated presets", async ({
+  page,
+}) => {
+  await page.goto(`${APP_URL}?path=/home&mock=tariffs`);
+  await expect(page.locator(".home-compact-summary")).toHaveCount(0);
+  await expect(page.locator(".home-balance-card")).toHaveCount(0);
+  await expect(page.locator(".server-status-card")).toHaveCount(0);
+
+  await page.goto(`${APP_URL}?path=/home&mock=compact`);
+  await expect(page.locator(".home-compact-summary")).toBeVisible();
+  await expect(page.locator(".compact-balance")).toHaveCount(0);
+  await expect(page.locator(".server-status-card")).toHaveCount(0);
+
+  await page.goto(`${APP_URL}?path=/home&mock=server-status`);
+  await expect(page.locator(".server-status-card")).toBeVisible();
+  await expect(page.locator(".home-compact-summary")).toHaveCount(0);
+  await expect(page.locator(".home-balance-card")).toHaveCount(0);
 });
 
 test("device traffic bonuses stay legible on mobile", async ({ page }) => {
@@ -886,11 +1081,13 @@ test("Telegram fullscreen fallback protects webapp actions and admin chrome", as
         WebApp: {
           expand() {},
           initData: "",
-          isFullscreen: true,
+          isFullscreen: false,
+          isVersionAtLeast: () => true,
           offEvent() {},
           onEvent() {},
           platform: "ios",
           ready() {},
+          requestFullscreen() {},
         },
       },
     });
@@ -902,7 +1099,7 @@ test("Telegram fullscreen fallback protects webapp actions and admin chrome", as
     style.setProperty("--tg-content-safe-area-inset-bottom", "34px");
   };
   await page.evaluate(applyTelegramFullscreenInsets);
-  await expect(page.locator("html")).toHaveAttribute("data-telegram-fullscreen", "true");
+  await expect(page.locator("html")).toHaveAttribute("data-telegram-fullscreen-requested", "true");
 
   const phoneScreen = page.locator(".phone-screen");
   const bottomNav = page.locator("nav.bottom-nav");
@@ -925,6 +1122,18 @@ test("Telegram fullscreen fallback protects webapp actions and admin chrome", as
   expect(homeInsets.bottom).toBeGreaterThanOrEqual(34);
   expect(homeInsets.homeClearance).toBeGreaterThanOrEqual(110);
   expect(homeInsets.navBottom).toBeGreaterThanOrEqual(34);
+
+  await renewalAction.click();
+  const webappDialog = page.locator(".dialog:has(.webapp-payment-dialog)");
+  const webappDialogCard = webappDialog.locator(".webapp-payment-dialog");
+  await expect(webappDialogCard).toBeVisible();
+  const webappDialogGeometry = await webappDialog.evaluate((element) => ({
+    paddingTop: Number.parseFloat(window.getComputedStyle(element).paddingTop),
+    cardTop: element.querySelector(".dialog-card")!.getBoundingClientRect().top,
+  }));
+  expect(webappDialogGeometry.paddingTop).toBeGreaterThanOrEqual(96);
+  expect(webappDialogGeometry.cardTop).toBeGreaterThanOrEqual(96);
+  await closeDialog(webappDialogCard);
 
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   await expect
@@ -956,6 +1165,34 @@ test("Telegram fullscreen fallback protects webapp actions and admin chrome", as
   }));
   expect(adminGeometry.paddingTop).toBeGreaterThanOrEqual(96);
   expect(adminGeometry.headerTop).toBeGreaterThanOrEqual(96);
+
+  await page.goto("/demo/runtime/admin/users?theme_preview=dark");
+  await page.evaluate(applyTelegramFullscreenInsets);
+  await page.locator(".admin-user-mobile-card").first().click();
+  const userDialog = page.locator(".dialog:has(.admin-user-dialog)");
+  const userDialogCard = userDialog.locator(".admin-user-dialog");
+  await expect(userDialogCard).toBeVisible();
+  const adminDialogGeometry = await userDialog.evaluate((element) => ({
+    paddingTop: Number.parseFloat(window.getComputedStyle(element).paddingTop),
+    cardTop: element.querySelector(".dialog-card")!.getBoundingClientRect().top,
+  }));
+  expect(adminDialogGeometry.paddingTop).toBeGreaterThanOrEqual(96);
+  expect(adminDialogGeometry.cardTop).toBeGreaterThanOrEqual(96);
+
+  const avatarTrigger = userDialogCard.locator(".admin-avatar-preview-trigger:not(:disabled)");
+  await expect(avatarTrigger).toBeVisible();
+  await avatarTrigger.click();
+  const imageViewer = page.locator("[data-image-viewer]");
+  const imageViewerPanel = imageViewer.locator(".image-viewer-panel");
+  await expect(imageViewerPanel).toBeVisible();
+  const imageViewerGeometry = await imageViewerPanel.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return { top: rect.top, bottom: rect.bottom, viewportHeight: window.innerHeight };
+  });
+  expect(imageViewerGeometry.top).toBeGreaterThanOrEqual(96);
+  expect(imageViewerGeometry.bottom).toBeLessThanOrEqual(imageViewerGeometry.viewportHeight - 34);
+  await imageViewer.locator('[data-image-viewer-action="close"]').click();
+  await closeDialog(userDialogCard);
 });
 
 test("partner operations open their linked payment card", async ({ page }) => {
@@ -1053,15 +1290,21 @@ test("program entries follow the enabled feature combination", async ({ page }) 
   await page.goto("/demo/runtime/invite?mock=partner-referral-disabled&theme_preview=dark");
 
   let bottomNav = page.locator(".bottom-nav");
-  const partnerNavEntry = bottomNav.getByRole("button", { name: "Партнёрка", exact: true });
+  const partnerNavEntry = bottomNav.locator('[data-nav-level="primary"][aria-label="Партнёрка"]');
   await expect(partnerNavEntry).toBeVisible();
-  await expect(bottomNav.getByRole("button", { name: "Бонусы", exact: true })).toHaveCount(0);
+  await expect(bottomNav.locator('[data-nav-level="primary"][aria-label="Бонусы"]')).toBeVisible();
+  await expect(page.locator(".gift-entry")).toBeVisible();
   await expect(partnerNavEntry.locator("svg path").first()).toHaveAttribute(
     "d",
     "m11 17 2 2a1 1 0 1 0 3-3"
   );
   await expect(page.locator(".referral-program-shell")).toHaveCount(0);
-  await expect(page.locator(".promo-code-input")).toHaveCount(0);
+  await expect(page.locator(".promo-code-input")).toBeEditable();
+
+  await partnerNavEntry.click();
+  await expect(page).toHaveURL(/\/demo\/runtime\/partner\?/);
+  await expect(partnerNavEntry).toHaveClass(/active/);
+  await expect(page.locator(".partner-back")).toHaveCount(0);
 
   await bottomNav.getByRole("button", { name: "Настройки", exact: true }).click();
   await expect(page.locator(".promo-code-input")).toBeEditable();
@@ -1070,8 +1313,16 @@ test("program entries follow the enabled feature combination", async ({ page }) 
   await page.goto("/demo/runtime/settings?mock=partner-referral-enabled&theme_preview=dark");
 
   bottomNav = page.locator(".bottom-nav");
-  await expect(bottomNav.getByRole("button", { name: "Бонусы", exact: true })).toBeVisible();
-  await expect(bottomNav.getByRole("button", { name: "Партнёрка", exact: true })).toHaveCount(0);
+  await expect(bottomNav.locator('[data-nav-level="primary"][aria-label="Бонусы"]')).toBeVisible();
+  await expect(bottomNav.locator('[data-nav-level="primary"][aria-label="Партнёрка"]')).toHaveCount(
+    0
+  );
+  await expect(
+    bottomNav.locator(".rail-settings-subnav").getByRole("button", {
+      name: "Партнёрка",
+      exact: true,
+    })
+  ).toBeVisible();
   await expect(page.locator(".promo-code-input")).toHaveCount(0);
   const partnerSettingsEntry = page.locator('[data-webapp-action="open-partner-program"]');
   await expect(partnerSettingsEntry).toBeVisible();
@@ -1082,6 +1333,21 @@ test("program entries follow the enabled feature combination", async ({ page }) 
 
   await partnerSettingsEntry.click();
   await expect(page).toHaveURL(/\/demo\/runtime\/partner\?/);
+  await expect(bottomNav.locator('[data-nav-level="primary"][aria-label="Настройки"]')).toHaveClass(
+    /active/
+  );
+  await expect(
+    bottomNav.locator(".rail-settings-subnav").getByRole("button", {
+      name: "Партнёрка",
+      exact: true,
+    })
+  ).toHaveClass(/active/);
+
+  const partnerBack = page.locator(".partner-back");
+  await expect(partnerBack).toBeVisible();
+  await expect(partnerBack).toContainText("Назад");
+  await partnerBack.click();
+  await expect(page).toHaveURL(/\/demo\/runtime\/settings\?/);
 });
 
 test("partner encryption diagnostic explains safe initial key setup", async ({ page }) => {
@@ -1595,7 +1861,12 @@ test("checkout sliders keep price animations bounded and defer quotes while drag
   let quoteRequests = 0;
   page.on("request", (request) => {
     const path = new URL(request.url()).pathname;
-    if (path.endsWith("/api/subscription/quote")) quoteRequests += 1;
+    if (
+      path.endsWith("/api/subscription/quote") ||
+      path.endsWith("/api/subscription/quote-promo")
+    ) {
+      quoteRequests += 1;
+    }
   });
 
   await page.goto("/demo/runtime/home?mock=checkout-addons");
@@ -1617,6 +1888,17 @@ test("checkout sliders keep price animations bounded and defer quotes while drag
   await expect(
     dialog.locator(".payment-dialog-body > .subscription-purchase-description")
   ).toHaveCount(0);
+
+  const promoInput = dialog.locator(".checkout-promo-input");
+  const promoApplyButton = dialog.locator(".checkout-promo-action .btn");
+  await expect(promoInput).toBeEditable();
+  await promoInput.pressSequentially("SAVE20");
+  await expect(promoInput).toHaveValue("SAVE20");
+  await expect(promoApplyButton).toBeEnabled();
+  await promoApplyButton.click();
+  await expect(promoInput).toHaveAttribute("readonly", "");
+  await expect(dialog.locator(".checkout-promo-discount-marker")).toBeVisible();
+
   const dialogInsets = await dialog.evaluate((element) => {
     const dialogRect = element.getBoundingClientRect();
     const headerRect = element.querySelector(".dialog-head")!.getBoundingClientRect();
@@ -1691,7 +1973,126 @@ test("checkout sliders keep price animations bounded and defer quotes while drag
   await page.mouse.up();
   await page.waitForTimeout(250);
   expect(quoteRequests).toBeLessThanOrEqual(quoteRequestsBeforeDrag + 1);
+  await expect(promoInput).toHaveValue("SAVE20");
+  await expect(promoInput).toHaveAttribute("readonly", "");
+  await expect(dialog.locator(".checkout-promo-discount-marker")).toBeVisible();
   await closeDialog(dialog);
+});
+
+test("public install share links survive browser focus and visibility changes", async ({
+  page,
+}) => {
+  const sharePath = "/s/0123456789abcdef0123456789abcdef";
+  await page.clock.install();
+  await page.goto(sharePath);
+  const publicShell = page.locator(".public-install-shell");
+  await expect(publicShell).toBeVisible();
+  const shareUrl = page.url();
+
+  for (const event of ["blur", "hidden", "visible", "focus", "pageshow"]) {
+    await page.evaluate((event) => {
+      if (event === "hidden" || event === "visible") {
+        Object.defineProperty(document, "visibilityState", { configurable: true, value: event });
+        document.dispatchEvent(new Event("visibilitychange"));
+      } else {
+        window.dispatchEvent(new Event(event));
+      }
+    }, event);
+    await page.clock.runFor(1_000);
+    await expect(page).toHaveURL(shareUrl);
+    await expect(publicShell).toBeVisible();
+  }
+});
+
+test("checkout promo code is editable and applies its quoted discount", async ({ page }) => {
+  await page.setViewportSize(DESKTOP_VIEWPORT);
+  await page.goto("/demo/runtime/home?mock=checkout-no-addons");
+  await expect(page.locator("nav.bottom-nav")).toBeVisible();
+  expect(await clickFirstVisibleEnabled(webappAction(page, "open-payment"))).toBe(true);
+
+  const dialog = page.locator(".dialog-card.webapp-payment-dialog");
+  await expect(dialog).toBeVisible();
+  const tariffRows = dialog.locator(".tariff-row");
+  if ((await tariffRows.count()) > 0) {
+    await tariffRows.first().click();
+    const nextButton = dialog.locator(".payment-submit-button").first();
+    if (!(await nextButton.isDisabled())) await nextButton.click();
+  }
+
+  const promoInput = dialog.locator(".checkout-promo-input");
+  const promoApplyButton = dialog.locator(".checkout-promo-action .btn");
+  await expect(promoInput).toBeEditable();
+  await promoInput.fill("save20");
+  await expect(promoApplyButton).toBeEnabled();
+  await promoApplyButton.click();
+
+  await expect(promoInput).toHaveValue("SAVE20");
+  await expect(promoInput).toHaveAttribute("readonly", "");
+  await expect(dialog.locator(".checkout-promo-discount-marker")).toBeVisible();
+});
+
+test("admin deep links do not pin the first opened record", async ({ page }) => {
+  await page.setViewportSize(DESKTOP_VIEWPORT);
+  await page.goto(`${APP_URL}?screen=admin&admin_section=payments`);
+
+  const paymentUserButtons = page.locator(".admin-payments-table .admin-payments-user-btn");
+  await expect(paymentUserButtons.nth(1)).toBeVisible();
+  await paymentUserButtons.first().click();
+
+  const firstPaymentUserId = new URL(page.url()).pathname.split("/").pop();
+  expect(firstPaymentUserId).toBeTruthy();
+  await page.reload();
+
+  const userDialog = page.locator(".dialog-card.admin-user-dialog");
+  await expect(userDialog).toBeVisible();
+  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`#${firstPaymentUserId}`);
+  await closeDialog(userDialog);
+
+  await paymentUserButtons.nth(1).click();
+  const secondPaymentUserId = new URL(page.url()).pathname.split("/").pop();
+  expect(secondPaymentUserId).toBeTruthy();
+  expect(secondPaymentUserId).not.toBe(firstPaymentUserId);
+  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(
+    `#${secondPaymentUserId}`
+  );
+  await closeDialog(userDialog);
+
+  const paymentButtons = page.locator(".admin-payments-table .admin-payment-id-btn");
+  await expect(paymentButtons.nth(1)).toBeVisible();
+  await paymentButtons.first().click();
+  const firstPaymentId = new URL(page.url()).pathname.split("/").pop();
+  expect(firstPaymentId).toBeTruthy();
+  await page.reload();
+
+  const paymentDialog = page.locator(".dialog-card.admin-payment-dialog");
+  await expect(paymentDialog).toBeVisible();
+  await expect(paymentDialog.locator(".dialog-title-copy h2")).toContainText(`#${firstPaymentId}`);
+  await closeDialog(paymentDialog);
+
+  await paymentButtons.nth(1).click();
+  const secondPaymentId = new URL(page.url()).pathname.split("/").pop();
+  expect(secondPaymentId).toBeTruthy();
+  expect(secondPaymentId).not.toBe(firstPaymentId);
+  await expect(paymentDialog.locator(".dialog-title-copy h2")).toContainText(`#${secondPaymentId}`);
+  await closeDialog(paymentDialog);
+
+  await openAdminSection(page, "users");
+  const userRows = activeAdminSection(page, "users").locator("tr[data-user-id]");
+  await expect(userRows.nth(1)).toBeVisible();
+  await userRows.first().click();
+  const firstUserId = new URL(page.url()).pathname.split("/").pop();
+  expect(firstUserId).toBeTruthy();
+  await page.reload();
+
+  await expect(userDialog).toBeVisible();
+  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`#${firstUserId}`);
+  await closeDialog(userDialog);
+
+  await userRows.nth(1).click();
+  const secondUserId = new URL(page.url()).pathname.split("/").pop();
+  expect(secondUserId).toBeTruthy();
+  expect(secondUserId).not.toBe(firstUserId);
+  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`#${secondUserId}`);
 });
 
 test("webapp and admin sections, dialogs, tabs stay interactive without console errors", async ({
@@ -1702,6 +2103,43 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
     phase = value;
   };
   const errors = trackErrors(page, () => phase);
+
+  // Exercise the separately mounted admin bundle with a warning-bearing archive.
+  // A warning-free listing never creates Tooltip.Root and hides missing context.
+  await page.addInitScript(() => {
+    type AdminProps = Record<string, unknown> & {
+      api: (path: string, options?: RequestInit) => Promise<Record<string, unknown>>;
+    };
+    type AdminBundle = {
+      mount: (target: HTMLElement, props: AdminProps) => unknown;
+    };
+    let bundle: AdminBundle | undefined;
+    Object.defineProperty(window, "SubscriptionWebAppAdmin", {
+      configurable: true,
+      get: () => bundle,
+      set(value: AdminBundle) {
+        const mount = value.mount;
+        value.mount = (target, props) =>
+          mount(target, {
+            ...props,
+            api: async (path, options) => {
+              const response = await props.api(path, options);
+              if (path === "/admin/backups" && Array.isArray(response.archives)) {
+                return {
+                  ...response,
+                  archives: response.archives.map((archive, index) => ({
+                    ...archive,
+                    warnings: index === 0 ? ["Archive warning fixture"] : [],
+                  })),
+                };
+              }
+              return response;
+            },
+          });
+        bundle = value;
+      },
+    });
+  });
 
   setPhase("boot");
   await page.setViewportSize(DESKTOP_VIEWPORT);
@@ -1733,7 +2171,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
     ".admin-panel-version-trigger"
   );
   await expect(panelVersionTrigger).toBeVisible();
-  await expect(panelVersionTrigger).toContainText("v3.2.3");
+  await expect(panelVersionTrigger).toContainText("v3.4.3");
   await panelVersionTrigger.click();
   const panelVersionPopover = page.locator(".admin-panel-version-popover");
   await expect(panelVersionPopover).toBeVisible();
@@ -1826,6 +2264,25 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
     await openAdminSection(page, id);
   }
 
+  setPhase("admin-backups:archive-contents");
+  const backupsStage = await openAdminSection(page, "backups");
+  await expect(backupsStage.getByRole("checkbox", { name: "БД" })).toBeEnabled();
+  await expect(backupsStage.getByRole("checkbox", { name: "compose-папка" })).toBeEnabled();
+  await expect(backupsStage.locator(".backups-badges").first()).toContainText("БД");
+  await expect(backupsStage.locator(".backups-badges").first()).toContainText("Compose");
+  const backupWarning = backupsStage.getByRole("button", { name: "Archive warning fixture" });
+  await backupWarning.press("Shift+Tab");
+  await page.keyboard.press("Tab");
+  await expect(backupWarning).toBeFocused();
+  const backupTooltip = page.locator(".backups-warning-tooltip");
+  await expect(backupTooltip).toBeVisible();
+  await expect(backupTooltip).toContainText("Archive warning fixture");
+  await page.keyboard.press("Escape");
+  await expect(backupTooltip).toHaveCount(0);
+  await backupsStage.getByRole("button", { name: "Обновить", exact: true }).click();
+  await expect(backupWarning).toBeVisible();
+  await expect(backupsStage.getByRole("radio")).toHaveCount(2);
+
   setPhase("admin-broadcast:shortcode-picker");
   await openAdminSection(page, "broadcast");
   const shortcodeToggle = page.locator("[data-rt-shortcodes-toggle]");
@@ -1865,18 +2322,73 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   await expect(usersFilterDialog).toBeVisible();
   await assertFormFieldsNamed(page, "admin-users:filter-dialog");
   await closeDialog(usersFilterDialog);
+  const usersShell = page.locator(".admin-users-table-wrap");
+  const mobileUserCard = usersShell.locator(".admin-user-mobile-card").first();
+  await expect(mobileUserCard).toBeVisible();
+  await expect(usersShell.locator(".admin-table-wrap")).toBeHidden();
+  await expect(mobileUserCard.locator(".admin-user-mobile-metrics > div")).toHaveCount(4);
+  await expect(mobileUserCard.locator(".admin-user-mobile-dates > div")).toHaveCount(2);
+  const mobileUsersGeometry = await usersShell.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }));
+  expect(mobileUsersGeometry.scrollWidth).toBeLessThanOrEqual(mobileUsersGeometry.clientWidth);
+  const mobileUserCardBox = await mobileUserCard.boundingBox();
+  expect(mobileUserCardBox).not.toBeNull();
+  expect(mobileUserCardBox!.height).toBeLessThan(320);
   await page.setViewportSize(DESKTOP_VIEWPORT);
   await expect(adminSidebar).toBeVisible();
 
   setPhase("admin-users:row-card");
   await page.locator("tr[data-user-id]").first().click();
   await openUserDetailFromCurrentSection(page, setPhase, "admin-users", {
+    checkBalanceTileSelection: true,
     checkMobileTariffTapThrough: true,
   });
   await page.setViewportSize(DESKTOP_VIEWPORT);
 
-  setPhase("admin-payments:payment-dialog");
+  setPhase("admin-payments:mobile-list");
   await openAdminSection(page, "payments");
+  await page.setViewportSize(MOBILE_VIEWPORT);
+  const paymentsShell = page.locator(".admin-payments-table-shell");
+  const mobilePaymentCard = paymentsShell.locator(".admin-payment-mobile-card").first();
+  await expect(mobilePaymentCard).toBeVisible();
+  await expect(paymentsShell.locator(".admin-table-wrap")).toBeHidden();
+  await expect(paymentsShell.locator(".admin-payments-table")).toBeHidden();
+  const mobilePaymentsGeometry = await paymentsShell.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+    documentClientWidth: document.documentElement.clientWidth,
+    documentScrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(mobilePaymentsGeometry.scrollWidth).toBeLessThanOrEqual(
+    mobilePaymentsGeometry.clientWidth
+  );
+  expect(mobilePaymentsGeometry.documentScrollWidth).toBeLessThanOrEqual(
+    mobilePaymentsGeometry.documentClientWidth
+  );
+  const mobilePaymentCardBox = await mobilePaymentCard.boundingBox();
+  expect(mobilePaymentCardBox).not.toBeNull();
+  expect(mobilePaymentCardBox!.height).toBeLessThan(300);
+  await expect(mobilePaymentCard.locator(".admin-payment-mobile-metrics dd")).toHaveCount(2);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (value: string) => {
+          document.documentElement.dataset.copiedValue = value;
+        },
+      },
+    });
+  });
+  const mobilePaymentId = await mobilePaymentCard.getAttribute("data-mobile-payment-id");
+  await mobilePaymentCard.locator('[data-copy-kind="payment-id"]').click();
+  await expect(page.locator("html")).toHaveAttribute("data-copied-value", mobilePaymentId!);
+  await expect(page.getByText("Значение скопировано", { exact: true }).last()).toBeVisible();
+  await page.setViewportSize(DESKTOP_VIEWPORT);
+  await expect(adminSidebar).toBeVisible();
+
+  setPhase("admin-payments:payment-dialog");
   await page.locator(".admin-payment-id-btn").first().click();
   const paymentDialog = page.locator(".dialog-card.admin-payment-dialog");
   await expect(paymentDialog).toBeVisible();
@@ -1972,26 +2484,26 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
 
   setPhase("admin-appearance:panels");
   const appearanceStage = await openAdminSection(page, "appearance");
-  await expect(appearanceStage.locator(".appearance-stack")).toBeVisible();
-  await expect(appearanceStage.locator(".appearance-logo-grid").first()).toBeVisible();
-  await expect(appearanceStage.locator(".appearance-theme-section").first()).toBeVisible();
+  await expect(appearanceStage.locator(".appearance-library")).toBeVisible();
+  await expect(appearanceStage.locator(".library-theme-card")).toHaveCount(3);
   await assertFormFieldsNamed(page, "admin-appearance:panels");
 
   setPhase("admin-appearance:theme-card-select");
-  const inactiveThemeCard = appearanceStage.locator(".admin-theme-card:not(.is-current)").first();
-  await expect(inactiveThemeCard).toBeVisible();
+  const inactiveThemeCard = appearanceStage.locator(".library-theme-card:not(.active)").first();
   const inactiveThemeKey = await inactiveThemeCard.getAttribute("data-theme-key");
-  expect(inactiveThemeKey, "admin-appearance:theme-card-select: theme key").toBeTruthy();
-  await clickCardBody(page, inactiveThemeCard, "admin-appearance:theme-card-select");
-  const selectedThemeCard = appearanceStage.locator(
-    `.admin-theme-card[data-theme-key="${inactiveThemeKey}"]`
-  );
-  await expect(selectedThemeCard).toHaveClass(/is-current/);
-
-  const defaultThemeCard = appearanceStage.locator(".default-theme-editor");
-  await clickCardBody(page, defaultThemeCard, "admin-appearance:default-card-select");
-  await expect(defaultThemeCard).toHaveClass(/is-current/);
-  await assertFormFieldsNamed(page, "admin-appearance:theme-card-select");
+  await inactiveThemeCard.getByRole("button", { name: "Активировать", exact: true }).click();
+  await expect(
+    appearanceStage.locator('.library-theme-card[data-theme-key="' + inactiveThemeKey + '"]')
+  ).toHaveClass(/active/);
+  const defaultCard = appearanceStage.locator('.library-theme-card[data-theme-key="dark"]');
+  await defaultCard.getByRole("button", { name: "Активировать", exact: true }).click();
+  await expect(defaultCard).toHaveClass(/active/);
+  await appearanceStage.locator("#appearance-default-editor .appearance-editor-trigger").click();
+  await expect(appearanceStage.locator(".default-theme-editor")).toBeVisible();
+  await assertFormFieldsNamed(page, "admin-appearance:default-editor");
+  await appearanceStage.locator(".appearance-editor-trigger").last().click();
+  await expect(appearanceStage.locator(".appearance-logo-grid").first()).toBeVisible();
+  await assertFormFieldsNamed(page, "admin-appearance:brand-editor");
 
   setPhase("admin-translations:panels");
   const translationsStage = await openAdminSection(page, "translations");

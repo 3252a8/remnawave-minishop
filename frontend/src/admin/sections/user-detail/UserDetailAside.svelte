@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { AdminBadge, AdminButton } from "$components/patterns/admin/index.js";
+  import { AdminBadge, AdminButton, AdminCopyableValue } from "$components/patterns/admin/index.js";
   import { Copy, ExternalLink, UsersRound } from "$components/ui/icons.js";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
   import type { AdminUserDetail } from "$lib/admin/stores/usersStoreState";
@@ -50,6 +50,82 @@
     referralInviteesTotal: number;
     openRelatedUser: RelatedUserOpener;
   } = $props();
+
+  const telegramNotifications = $derived(
+    openedUserDetail.telegram_notifications ?? {
+      status: "unknown",
+      checked_at: null,
+      enabled_at: null,
+      blocked_at: null,
+    }
+  );
+  const notificationPreferences = $derived(
+    openedUserDetail.notification_preferences ?? {
+      marketing_email: true,
+      marketing_telegram: true,
+      system_email: true,
+      system_telegram: true,
+    }
+  );
+
+  function preferenceSummary(
+    emailEnabled: boolean,
+    telegramEnabled: boolean
+  ): {
+    label: string;
+    variant: "success" | "warning" | "muted";
+  } {
+    if (emailEnabled && telegramEnabled) {
+      return { label: at("user_notifications_on", {}, "On"), variant: "success" };
+    }
+    if (!emailEnabled && !telegramEnabled) {
+      return { label: at("user_notifications_off", {}, "Off"), variant: "muted" };
+    }
+    return { label: at("user_notifications_partial", {}, "Partial"), variant: "warning" };
+  }
+  const marketingSummary = $derived(
+    preferenceSummary(
+      notificationPreferences.marketing_email,
+      notificationPreferences.marketing_telegram
+    )
+  );
+  const systemSummary = $derived(
+    preferenceSummary(notificationPreferences.system_email, notificationPreferences.system_telegram)
+  );
+  const referralCode = $derived(
+    openedUserDetail.referral?.code || openedUserDetail.user?.referral_code || ""
+  );
+  const userBalance = $derived(openedUserDetail.balance);
+  const userBalanceAmount = $derived.by(() => {
+    const amount = Number(userBalance?.amount || 0);
+    return fmtMoney(Number.isFinite(amount) ? amount : 0, userBalance?.currency || "RUB");
+  });
+  const hwidDevicesUsageLabel = $derived.by(() => {
+    const current = openedUserDetail.hwid_devices?.current_devices ?? "—";
+    const max = openedUserDetail.hwid_devices?.max_devices ?? "∞";
+    return at("user_hwid_devices_usage", { current, max }, "{current} of {max}");
+  });
+
+  function telegramNotificationsLabel(status: string): string {
+    if (status === "blocked") {
+      return at("user_bot_messages_blocked", {}, "Blocked by user");
+    }
+    if (status === "enabled") {
+      return at("user_bot_messages_enabled", {}, "Available");
+    }
+    if (status === "needs_start") {
+      return at("user_bot_messages_needs_start", {}, "Bot not started");
+    }
+    return at("user_bot_messages_unknown", {}, "Unknown");
+  }
+
+  function copyLabel(value: unknown): string {
+    return at("copy_value", { value }, "Copy {value}");
+  }
+
+  function copyValue(value: string): void {
+    usersStore.copyToClipboard(value, at("value_copied", {}, "Value copied"));
+  }
 </script>
 
 <aside class="admin-user-aside">
@@ -85,6 +161,15 @@
             >{at("badge_no_subscription", {}, "No subscription")}</AdminBadge
           >
         {/if}
+        {#if telegramNotifications.status === "blocked"}
+          <AdminBadge variant="danger">{at("badge_bot_blocked", {}, "Bot blocked")}</AdminBadge>
+        {/if}
+        <AdminBadge variant={marketingSummary.variant}
+          >{at("user_notifications_marketing_short", {}, "Marketing")}: {marketingSummary.label}</AdminBadge
+        >
+        <AdminBadge variant={systemSummary.variant}
+          >{at("user_notifications_system_short", {}, "System")}: {systemSummary.label}</AdminBadge
+        >
       </div>
       <div class="admin-user-summary-actions">
         <AdminButton
@@ -111,21 +196,87 @@
       <span>{at("user_label_logs", {}, "Logs")}</span>
       <strong>{openedUserDetail.log_count}</strong>
     </div>
+    <div class="admin-user-stat">
+      <span>{at("user_label_hwid_devices", {}, "HWID devices")}</span>
+      <strong>{hwidDevicesUsageLabel}</strong>
+    </div>
+    {#if userBalance?.enabled}
+      <div class="admin-user-stat">
+        <span>{at("user_label_balance", {}, "Balance")}</span>
+        <strong>{userBalanceAmount}</strong>
+      </div>
+    {/if}
   </div>
 
   <div class="admin-subsection-title">{at("user_section_profile", {}, "Profile")}</div>
   <ul class="admin-meta-list">
-    <li><span>ID</span><strong>{openedUser.user_id}</strong></li>
-    <li><span>Telegram ID</span><strong>{openedUser.telegram_id || "—"}</strong></li>
     <li>
-      <span>Username</span><strong>{openedUser.username ? "@" + openedUser.username : "—"}</strong>
+      <span>ID</span>
+      <strong>
+        <AdminCopyableValue
+          value={openedUser.user_id}
+          copyLabel={copyLabel(openedUser.user_id)}
+          kind="user-id"
+          oncopy={copyValue}
+        />
+      </strong>
     </li>
     <li>
-      <span>Email</span><strong class="admin-meta-truncate">{openedUser.email || "—"}</strong>
+      <span>Telegram ID</span>
+      <strong>
+        {#if openedUser.telegram_id}
+          <AdminCopyableValue
+            value={openedUser.telegram_id}
+            copyLabel={copyLabel(openedUser.telegram_id)}
+            kind="telegram-id"
+            oncopy={copyValue}
+          />
+        {:else}
+          —
+        {/if}
+      </strong>
+    </li>
+    <li>
+      <span>Username</span>
+      <strong>
+        {#if openedUser.username}
+          <AdminCopyableValue
+            value={`@${openedUser.username}`}
+            copyLabel={copyLabel(`@${openedUser.username}`)}
+            kind="username"
+            oncopy={copyValue}
+          />
+        {:else}
+          —
+        {/if}
+      </strong>
+    </li>
+    <li>
+      <span>Email</span>
+      <strong class="admin-meta-truncate">
+        {#if openedUser.email}
+          <AdminCopyableValue
+            value={openedUser.email}
+            copyLabel={copyLabel(openedUser.email)}
+            kind="email"
+            oncopy={copyValue}
+          />
+        {:else}
+          —
+        {/if}
+      </strong>
     </li>
     <li>
       <span>{at("user_label_registration", {}, "Registration")}</span><strong
         >{fmtDate(openedUser.registration_date)}</strong
+      >
+    </li>
+    <li>
+      <span>{at("user_label_bot_messages", {}, "Bot messages")}</span><strong
+        >{telegramNotificationsLabel(
+          telegramNotifications.status
+        )}{#if telegramNotifications.status === "blocked" && telegramNotifications.blocked_at}
+          · {fmtDate(telegramNotifications.blocked_at)}{/if}</strong
       >
     </li>
     <li>
@@ -134,9 +285,19 @@
       >
     </li>
     <li>
-      <span>{at("user_label_ref_code", {}, "Referral Code")}</span><strong
-        >{openedUserDetail.referral?.code || openedUserDetail.user?.referral_code || "—"}</strong
-      >
+      <span>{at("user_label_ref_code", {}, "Referral Code")}</span>
+      <strong>
+        {#if referralCode}
+          <AdminCopyableValue
+            value={referralCode}
+            copyLabel={copyLabel(referralCode)}
+            kind="referral-code"
+            oncopy={copyValue}
+          />
+        {:else}
+          —
+        {/if}
+      </strong>
     </li>
     <li class="admin-user-ref-row">
       <span>{at("user_label_invited_by", {}, "Invited by")}</span>

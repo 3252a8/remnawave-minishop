@@ -7,6 +7,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.types import InlineKeyboardMarkup
+from aiogram.utils.text_decorations import html_decoration as hd
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.user_keyboards import get_subscribe_only_markup
@@ -22,6 +23,13 @@ from bot.services.telegram_notifications import (
     normalize_telegram_notification_status,
     telegram_notification_status_from_error,
 )
+from bot.services.user_notification_policy import (
+    UserNotificationCategory,
+    email_recipient,
+    user_notification_delivery_plan,
+)
+from bot.services.user_notification_preferences import add_user_email_preferences_footer
+from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
 from config.settings import Settings
 from db.dal import subscription_dal
 from db.models import Subscription, User
@@ -79,18 +87,20 @@ class SubscriptionLifecycleNotificationService:
 
         resolved_user = user or getattr(sub, "user", None)
         lang = getattr(resolved_user, "language_code", None) or self.settings.DEFAULT_LANGUAGE
-        user_id = int(getattr(sub, "user_id", 0) or 0)
         final_end_date_text = end_date_text
         if final_end_date_text is None:
             end_date = self._as_utc(getattr(sub, "end_date", None))
             final_end_date_text = end_date.strftime("%Y-%m-%d") if end_date else ""
 
         recipient_email = self._email_recipient(resolved_user)
-        telegram_user_name = self._telegram_display_name(resolved_user, user_id)
+        user_name_fallback = self.i18n.gettext(lang, "user_name_fallback")
+        telegram_user_name = self._user_display_name(
+            resolved_user,
+            fallback=user_name_fallback,
+        )
         email_user_name = self._email_display_name(
             resolved_user,
-            recipient_email=recipient_email,
-            fallback=telegram_user_name,
+            fallback=user_name_fallback,
         )
 
         kwargs: dict[str, Any] = {
@@ -110,6 +120,18 @@ class SubscriptionLifecycleNotificationService:
             message_text = f"{message_text}\n\n{final_extra_text}"
             email_message_text = f"{email_message_text}\n\n{final_extra_text}"
 
+        plan = user_notification_delivery_plan(
+            self.settings,
+            UserNotificationCategory.SUBSCRIPTIONS,
+            resolved_user,
+            telegram_available=self._telegram_recipient_available(
+                resolved_user,
+                getattr(sub, "user_id", None),
+            ),
+            email_available=bool(recipient_email)
+            and bool(getattr(self.settings, "email_auth_configured", False)),
+        )
+
         telegram_sent = await self._send_telegram(
             session,
             sub,
@@ -125,6 +147,7 @@ class SubscriptionLifecycleNotificationService:
                 tariff_key=self._renewal_tariff_key(sub),
             ),
             sent_at=sent_at,
+            enabled=plan.telegram,
         )
         email_sent = await self._send_email(
             session,
@@ -137,6 +160,7 @@ class SubscriptionLifecycleNotificationService:
             recipient=recipient_email,
             telegram_sent=telegram_sent,
             sent_at=sent_at,
+            enabled=plan.email,
         )
         return SubscriptionNotificationDelivery(
             telegram_sent=telegram_sent,
@@ -154,7 +178,10 @@ class SubscriptionLifecycleNotificationService:
         message_text: str,
         markup: InlineKeyboardMarkup | None,
         sent_at: datetime,
+        enabled: bool,
     ) -> bool:
+        if not enabled:
+            return False
         chat_id = self._telegram_chat_id(user, getattr(sub, "user_id", None))
         if chat_id is None:
             return False
@@ -242,8 +269,9 @@ class SubscriptionLifecycleNotificationService:
         recipient: str,
         telegram_sent: bool,
         sent_at: datetime,
+        enabled: bool,
     ) -> bool:
-        if not getattr(self.settings, "SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED", True):
+        if not enabled:
             return False
         if not getattr(self.settings, "email_auth_configured", False):
             return False
@@ -266,6 +294,15 @@ class SubscriptionLifecycleNotificationService:
                 hours_after=stage.hours_after,
                 i18n=self.i18n,
             )
+            if user is not None:
+                content = add_user_email_preferences_footer(
+                    content,
+                    settings=self.settings,
+                    i18n=self.i18n,
+                    user=user,
+                    email=recipient,
+                    language_code=lang,
+                )
             email_service = self.email_service or EmailAuthService(self.settings, self.i18n)
             await email_service.send_rendered_email(email=recipient, content=content)
         except Exception:
@@ -323,22 +360,36 @@ class SubscriptionLifecycleNotificationService:
     def _channel_key(stage_key: str, channel: str) -> str:
         return f"{stage_key}:{channel}"
 
-    @staticmethod
-    def _email_recipient(user: User | None) -> str:
-        return str(getattr(user, "email", "") or "").strip().lower() if user else ""
+    def _email_recipient(self, user: User | None) -> str:
+        return email_recipient(self.settings, user) if user else ""
 
     @staticmethod
-    def _telegram_display_name(user: User | None, fallback_user_id: int) -> str:
-        return str(getattr(user, "first_name", "") or "").strip() or f"User {fallback_user_id}"
+    def _user_display_name(user: User | None, *, fallback: str) -> str:
+        name_parts = [
+            clean
+            for value in (
+                getattr(user, "first_name", None),
+                getattr(user, "last_name", None),
+            )
+            if (clean := sanitize_display_name(value))
+        ]
+        if name_parts:
+            return hd.quote(" ".join(name_parts))
+        username = sanitize_username(getattr(user, "username", None))
+        if username:
+            return hd.quote(f"@{username}")
+        return hd.quote(fallback)
 
-    @staticmethod
+    @classmethod
     def _email_display_name(
+        cls,
         user: User | None,
         *,
-        recipient_email: str,
         fallback: str,
     ) -> str:
-        return str(getattr(user, "first_name", "") or "").strip() or recipient_email or fallback
+        if not getattr(user, "telegram_id", None):
+            return hd.quote(fallback)
+        return cls._user_display_name(user, fallback=fallback)
 
     def _renewal_dashboard_url(self, recipient_email: str, sub: Subscription) -> str | None:
         base_url = (self.settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
@@ -391,6 +442,24 @@ class SubscriptionLifecycleNotificationService:
             if chat_id > 0:
                 return chat_id
         return None
+
+    @classmethod
+    def _telegram_recipient_available(
+        cls,
+        user: User | None,
+        fallback_user_id: int | None,
+    ) -> bool:
+        if cls._telegram_chat_id(user, fallback_user_id) is None:
+            return False
+        if user is None:
+            return True
+        status = normalize_telegram_notification_status(
+            getattr(user, "telegram_notifications_status", None)
+        )
+        return status not in {
+            TELEGRAM_NOTIFICATIONS_NEEDS_START,
+            TELEGRAM_NOTIFICATIONS_BLOCKED,
+        }
 
     @staticmethod
     def _as_utc(value: datetime | None) -> datetime | None:

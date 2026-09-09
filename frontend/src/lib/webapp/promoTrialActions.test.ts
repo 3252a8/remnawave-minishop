@@ -10,7 +10,14 @@ function makeActions() {
     openPromoCheckout: vi.fn(),
     setPromoCode: vi.fn(),
   };
-  return { actions: createPromoTrialActions({ actionsStore: store }), store };
+  const getAppSettings = vi.fn(() => ({}));
+  const openTrialPayment = vi.fn(() => "checkout");
+  return {
+    actions: createPromoTrialActions({ actionsStore: store, getAppSettings, openTrialPayment }),
+    getAppSettings,
+    openTrialPayment,
+    store,
+  };
 }
 
 describe("createPromoTrialActions", () => {
@@ -34,5 +41,16 @@ describe("createPromoTrialActions", () => {
     expect(actions.activateTrial()).toBe("activated");
 
     expect(store.activateTrial).toHaveBeenCalledOnce();
+  });
+
+  it("opens the dedicated checkout when paid trial activation is enabled", () => {
+    const { getAppSettings, openTrialPayment, actions, store } = makeActions();
+    const plan = { id: "trial:activation", sale_mode: "trial", price: 100 };
+    getAppSettings.mockReturnValue({ trial_payment_enabled: true, trial_payment_plan: plan });
+
+    expect(actions.activateTrial()).toBe("checkout");
+
+    expect(openTrialPayment).toHaveBeenCalledWith(plan);
+    expect(store.activateTrial).not.toHaveBeenCalled();
   });
 });

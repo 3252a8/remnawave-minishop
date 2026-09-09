@@ -27,11 +27,13 @@ async def create_broadcast(
     actor_id: int | None,
     target: str,
     channels: list[str],
+    exclude_blocked_telegram: bool,
     texts: dict[str, str],
     email_subjects: dict[str, str],
     buttons: list[dict[str, Any]],
     scheduled_at: datetime,
     is_visible: bool = True,
+    image_id: str | None = None,
 ) -> AdminBroadcast:
     status = "scheduled" if scheduled_at > utc_now() else "queued"
     item = AdminBroadcast(
@@ -40,9 +42,11 @@ async def create_broadcast(
         is_visible=is_visible,
         target=target,
         channels=list(channels),
+        exclude_blocked_telegram=bool(exclude_blocked_telegram),
         texts=dict(texts),
         email_subjects=dict(email_subjects),
         buttons=list(buttons),
+        image_id=image_id,
         scheduled_at=scheduled_at,
     )
     session.add(item)

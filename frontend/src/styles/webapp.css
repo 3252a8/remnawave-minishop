@@ -743,8 +743,10 @@ a {
 }
 
 .premium-server-list .traffic-reset-date-row {
-  display: grid;
-  gap: 2px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
 }
 
 .traffic-reset-date-row strong {
@@ -912,6 +914,11 @@ a {
   gap: 10px;
 }
 
+.devices-summary-actions {
+  display: grid;
+  gap: 10px;
+}
+
 .devices-summary-head,
 .device-card-head {
   display: grid;
@@ -937,6 +944,12 @@ a {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 14px;
+}
+
+.device-card-head .device-client-label {
+  display: inline;
+  color: var(--muted);
+  font-weight: 700;
 }
 
 .devices-summary-head small,
@@ -1009,12 +1022,6 @@ a {
   font-family: var(--font-mono);
 }
 
-.device-user-agent small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .device-disconnect-button,
 .device-danger-button {
   border-color: var(--danger-border);
@@ -1067,6 +1074,190 @@ a {
   background: linear-gradient(135deg, var(--surface-sheen), var(--surface-sheen-soft));
   color: var(--text);
   box-shadow: inset 0 1px 0 var(--inset-highlight);
+}
+
+.rail-settings-subnav {
+  display: none;
+}
+
+.security-screen {
+  display: grid;
+  gap: 14px;
+}
+
+.security-overview-card {
+  display: grid;
+  min-width: 0;
+}
+
+.security-back {
+  width: max-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 4px 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.security-heading {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.security-heading > span {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+}
+
+.security-heading h1,
+.security-card h2,
+.security-heading p,
+.security-card p {
+  margin: 0;
+}
+
+.security-heading h1 {
+  color: var(--accent);
+  font-size: 17px;
+  font-weight: 850;
+  line-height: 1.16;
+}
+
+.security-heading p,
+.security-card p,
+.security-empty {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.security-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.security-card h2 {
+  font-size: 15px;
+}
+
+.security-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.security-card-head > div {
+  display: grid;
+  gap: 4px;
+}
+
+.security-methods,
+.security-passkey-list,
+.security-email-addresses,
+.security-email-change {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-list.security-methods,
+.settings-list.security-passkey-list,
+.settings-list.security-email-addresses {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.security-methods .settings-row,
+.security-passkey-list .settings-row {
+  min-height: 54px;
+}
+
+.security-delete {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  box-sizing: border-box;
+  justify-self: end;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  color: var(--danger);
+  cursor: pointer;
+}
+
+.settings-row.security-deletable-row {
+  grid-template-columns: 28px minmax(0, 1fr) 34px;
+}
+
+.security-passkey-row {
+  align-items: start;
+}
+
+.security-passkey-row > svg,
+.security-passkey-row > .security-delete {
+  margin-top: 2px;
+}
+
+.security-passkey-content {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.security-passkey-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.settings-row .security-passkey-meta small {
+  overflow: visible;
+  white-space: normal;
+}
+
+.security-notification-email-row {
+  grid-template-columns: 28px minmax(0, 1fr) 20px;
+}
+
+.security-notification-email-row.is-selected {
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-muted));
+}
+
+.security-notification-email-row > svg:last-child {
+  color: var(--accent);
+}
+
+.security-email-source-logos {
+  display: flex;
+  width: 28px;
+  align-items: center;
+}
+
+.security-email-source-logos > :not(:first-child) {
+  margin-left: -7px;
+  filter: drop-shadow(0 0 2px var(--surface));
+}
+
+.security-status {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 9%, transparent);
+  font-size: 13px;
 }
 
 .period-card {
@@ -1141,6 +1332,7 @@ a {
 
 .period-card .period-unit-price {
   display: inline-flex;
+  gap: 0.25em;
   align-items: baseline;
   justify-content: center;
   white-space: nowrap;
@@ -1886,15 +2078,14 @@ a {
 
 .pending-payment-heading {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 10px;
-  align-items: flex-start;
+  gap: 7px;
 }
 
-.pending-payment-heading > span:last-child {
-  display: grid;
+.pending-payment-title-row {
+  display: flex;
   min-width: 0;
-  gap: 3px;
+  gap: 10px;
+  align-items: center;
 }
 
 .pending-payment-heading strong {
@@ -1903,7 +2094,8 @@ a {
   line-height: 1.35;
 }
 
-.pending-payment-heading small {
+.pending-payment-description {
+  display: block;
   color: var(--muted);
   font-size: 11px;
   line-height: 1.4;
@@ -1928,7 +2120,9 @@ a {
 
 .pending-payment-facts > span {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
+  min-height: 74px;
   gap: 3px;
   padding: 8px;
   border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
@@ -1945,6 +2139,7 @@ a {
 }
 
 .pending-payment-facts strong {
+  align-self: center;
   color: var(--text);
   font-size: 11px;
   line-height: 1.3;
@@ -1964,6 +2159,10 @@ a {
 
 .pending-payment-action {
   min-height: 40px;
+}
+
+.pending-payment-reuse-action {
+  min-height: 38px;
 }
 
 .hwid-renewal-option {
@@ -2809,10 +3008,7 @@ a {
 }
 
 .emoji-flag {
-  font-family:
-    "Twemoji Country Flags", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
-    "Noto Color Emoji", sans-serif;
-  font-variant-emoji: emoji;
+  font-family: var(--font-ui);
   line-height: 1;
 }
 
@@ -3303,6 +3499,16 @@ a {
   gap: 10px;
 }
 
+.auth-provider-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.auth-provider-logo {
+  display: block;
+  flex: 0 0 auto;
+}
+
 .auth-email-stack {
   display: grid;
   gap: 12px;
@@ -3333,14 +3539,6 @@ a {
 
 .telegram-login-button.checking:disabled {
   opacity: 0.82;
-}
-
-.telegram-login-text {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
 }
 
 .telegram-button-spinner {
@@ -3562,6 +3760,7 @@ a {
 }
 
 .app-toast {
+  pointer-events: none;
   width: var(--width);
   max-width: min(420px, calc(100vw - 32px));
   display: flex;
@@ -4184,6 +4383,31 @@ a {
     display: grid !important;
   }
 
+  .rail-settings-subnav {
+    display: grid;
+    gap: 2px;
+    margin: 4px 0 4px 22px;
+    padding-left: 10px;
+    border-left: 1px solid var(--border);
+  }
+
+  .bottom-nav .rail-settings-subnav button {
+    grid-template-columns: 18px 1fr !important;
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+  }
+
+  .security-screen {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .security-screen > .security-back,
+  .security-screen > .security-heading,
+  .security-screen > .security-status {
+    grid-column: 1 / -1;
+  }
+
   .settings-admin-block {
     display: none !important;
   }
@@ -4208,6 +4432,11 @@ a {
   .settings-links-block .settings-row,
   .settings-links-block .settings-telegram-link-btn {
     min-height: 48px;
+  }
+
+  .settings-links-block .settings-row-notifications,
+  .settings-links-block .settings-row-security {
+    grid-column: 1 / -1;
   }
 
   .settings-row-linked-with-action {
@@ -4243,10 +4472,16 @@ a {
      tall, mostly empty boxes on desktop. Lay the list out as a card grid, put
      the facts into chips side by side, and pin the action to the bottom edge so
      the cards in a row stay aligned. */
-  .devices-summary-card > .btn.wide {
+  .devices-summary-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .devices-summary-actions > .btn.wide {
     width: auto;
     min-width: 260px;
-    justify-self: start;
   }
 
   .devices-list {
@@ -4311,10 +4546,6 @@ a {
     border: 1px solid var(--surface-subtle-border);
     border-radius: 12px;
     background: var(--surface-subtle);
-  }
-
-  .device-user-agent {
-    grid-column: 1 / -1;
   }
 
   .device-card .device-disconnect-button {

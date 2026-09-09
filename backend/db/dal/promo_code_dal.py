@@ -228,7 +228,11 @@ async def get_all_promo_codes_with_details(
             PromoCode.traffic_multiplier,
         ),
         "scope": (PromoCode.applies_to,),
-        "eligibility": (PromoCode.min_subscription_months, PromoCode.min_traffic_gb),
+        "eligibility": (
+            PromoCode.min_subscription_days,
+            PromoCode.min_subscription_months,
+            PromoCode.min_traffic_gb,
+        ),
         "activations": (PromoCode.current_activations, PromoCode.max_activations),
         "status": (status_rank,),
         "valid_until": (PromoCode.valid_until,),
@@ -417,6 +421,10 @@ async def get_user_activation_for_promo(
             PromoCodeActivation.promo_code_id == promo_code_id,
             PromoCodeActivation.user_id == user_id,
         )
+        .order_by(
+            PromoCodeActivation.is_manual_override.asc(),
+            PromoCodeActivation.activated_at.asc(),
+        )
         .limit(1)
     )
     result = await session.execute(stmt)
@@ -440,6 +448,7 @@ async def record_promo_activation(
     base_amount: float | None = None,
     discount_amount: float | None = None,
     charged_months: int | None = None,
+    charged_days: int | None = None,
     charged_gb: float | None = None,
     granted_days: int | None = None,
     granted_gb: float | None = None,
@@ -495,6 +504,7 @@ async def record_promo_activation(
         "base_amount": base_amount,
         "discount_amount": discount_amount,
         "charged_months": charged_months,
+        "charged_days": charged_days,
         "charged_gb": charged_gb,
         "granted_days": granted_days,
         "granted_gb": granted_gb,
@@ -533,11 +543,13 @@ async def consume_promo_activation(
     base_amount: float | None = None,
     discount_amount: float | None = None,
     charged_months: int | None = None,
+    charged_days: int | None = None,
     charged_gb: float | None = None,
     granted_days: int | None = None,
     granted_gb: float | None = None,
     granted_regular_traffic_gb: float | None = None,
     granted_premium_traffic_gb: float | None = None,
+    allow_existing_user: bool = False,
 ) -> PromoCodeActivation | None:
     """Atomically increment usage and record the activation in one transaction.
 
@@ -556,13 +568,14 @@ async def consume_promo_activation(
         existing_payment_id = int(getattr(existing_activation, "payment_id", 0) or 0)
         if payment_id is not None and existing_payment_id == int(payment_id):
             return existing_activation
-        logger.info(
-            "User %s has already activated promo code %s. Activation ID: %s",
-            user_id,
-            promo_code_id,
-            existing_activation.activation_id,
-        )
-        return None
+        if not allow_existing_user:
+            logger.info(
+                "User %s has already activated promo code %s. Activation ID: %s",
+                user_id,
+                promo_code_id,
+                existing_activation.activation_id,
+            )
+            return None
 
     update_conditions = [PromoCode.promo_code_id == promo_code_id]
     if enforce_limit:
@@ -594,11 +607,13 @@ async def consume_promo_activation(
         "base_amount": base_amount,
         "discount_amount": discount_amount,
         "charged_months": charged_months,
+        "charged_days": charged_days,
         "charged_gb": charged_gb,
         "granted_days": granted_days,
         "granted_gb": granted_gb,
         "granted_regular_traffic_gb": granted_regular_traffic_gb,
         "granted_premium_traffic_gb": granted_premium_traffic_gb,
+        "is_manual_override": bool(existing_activation and allow_existing_user),
         "activated_at": datetime.now(UTC),
     }
     activation = PromoCodeActivation(**activation_data)

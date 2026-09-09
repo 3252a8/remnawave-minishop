@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from bot.app.web.http_contracts import HttpResponseModel
+from bot.services.telegram_notifications import normalize_telegram_notification_status
 
 
 class AdminUserOut(HttpResponseModel):
@@ -51,6 +52,33 @@ class AdminUserWithAvatarOut(AdminUserOut):
     avatar_url: str | None = None
 
 
+class AdminTelegramNotificationsOut(HttpResponseModel):
+    status: str
+    checked_at: str | None = None
+    enabled_at: str | None = None
+    blocked_at: str | None = None
+
+    @classmethod
+    def from_orm_user(cls, user: Any) -> AdminTelegramNotificationsOut:
+        def iso(attribute: str) -> str | None:
+            value = getattr(user, attribute, None)
+            return value.isoformat() if value else None
+
+        return cls(
+            status=normalize_telegram_notification_status(
+                getattr(user, "telegram_notifications_status", None)
+            ),
+            checked_at=iso("telegram_notifications_checked_at"),
+            enabled_at=iso("telegram_notifications_enabled_at"),
+            blocked_at=iso("telegram_notifications_blocked_at"),
+        )
+
+
+class AdminUserHwidDevicesOut(HttpResponseModel):
+    current_devices: int | None = None
+    max_devices: int | None = None
+
+
 class AdminUserTrialOut(HttpResponseModel):
     # Field order mirrors the legacy ``_serialize_trial_summary`` dict.
     used: bool
@@ -89,6 +117,8 @@ class AdminSubscriptionOut(HttpResponseModel):
     start_date: str | None = None
     end_date: str | None = None
     duration_months: int | None = None
+    duration_days: int | None = None
+    period_semantics: str | None = None
     is_active: bool
     status_from_panel: str | None = None
     traffic_limit_bytes: int | None = None
@@ -140,6 +170,8 @@ class AdminSubscriptionOut(HttpResponseModel):
             panel_subscription_uuid=sub.panel_subscription_uuid,
             start_date=sub.start_date.isoformat() if sub.start_date else None,
             end_date=sub.end_date.isoformat() if sub.end_date else None,
+            duration_days=getattr(sub, "duration_days", None),
+            period_semantics=getattr(sub, "period_semantics", None),
             duration_months=sub.duration_months,
             is_active=bool(sub.is_active),
             status_from_panel=sub.status_from_panel,

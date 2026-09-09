@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Внешний вид — интерактивное демо</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;height:100%;font-family:Inter,ui-sans-serif,system-ui,sans-serif;background:#101114;color:#eceef3}body{display:flex;flex-direction:column}header{display:flex;align-items:center;gap:22px;padding:13px 22px;border-bottom:1px solid #2a2d34;background:#17191e;flex-wrap:wrap}h1{font-size:14px;margin:0;font-weight:600}h1 small{display:block;font-weight:400;color:#949ba8;font-size:11px;margin-top:5px}.controls{display:flex;gap:5px;padding:4px;border:1px solid #30343c;border-radius:9px}button,a{font:inherit;font-size:12px;color:#aeb4c0;cursor:pointer}button{border:0;border-radius:5px;background:transparent;padding:8px 12px}button[aria-pressed="true"]{background:#343a43;color:#f2f5fa}button:hover{color:#fff}a{margin-left:auto;text-decoration:none}.dimensions{color:#858d9a;font-size:11px;min-width:100px;text-align:right}main{flex:1;min-height:0;display:flex;justify-content:center;overflow:auto;padding:16px;background:radial-gradient(ellipse at top,#20242c,#101114 65%)}iframe{background:#111418;border:1px solid #353a44;border-radius:12px;width:100%;height:100%;transition:width .18s ease;box-shadow:0 14px 65px #0004}iframe.mobile{width:392px;max-width:100%;height:844px;max-height:100%;border-radius:24px}.hint{display:flex;gap:20px;justify-content:center;color:#8993a1;font-size:11px;padding:9px 15px;line-height:1.5;border-top:1px solid #262a30}button:focus-visible,a:focus-visible{outline:2px solid #b8eb7f;outline-offset:3px}@media(max-width:650px){header{padding:10px 12px;gap:10px}h1{width:100%}a{display:none}main{padding:8px}.hint{font-size:10px;text-align:center}.dimensions{display:none}}@media(prefers-reduced-motion:reduce){iframe{transition:none}}
+</style></head>
+<body>
+<header><h1>Внешний вид<small>Интерактивное демо</small></h1><div class="controls" aria-label="Размер экрана"><button data-device="desktop" aria-pressed="true">Десктоп</button><button data-device="mobile" aria-pressed="false">Мобильный</button></div><span class="dimensions" id="dimensions"></span><a id="direct" href="/demo/runtime/app/?screen=admin&amp;admin_section=appearance" target="_blank" rel="noreferrer">Открыть отдельно ↗</a></header>
+<main><iframe id="demo" title="Интерактивное демо раздела Внешний вид" src="/demo/runtime/app/?screen=admin&amp;admin_section=appearance"></iframe></main>
+<div class="hint">Default · Windows 95 · ASCII &nbsp; / &nbsp; Попробуйте «Добавить темы» → «Попробовать на примере коллекции»</div>
+<script>
+const frame=document.getElementById("demo");
+let device="desktop";
+function size(){document.getElementById("dimensions").textContent=Math.round(frame.clientWidth)+" × "+Math.round(frame.clientHeight);}
+document.querySelectorAll("[data-device]").forEach(button=>button.addEventListener("click",()=>{device=button.dataset.device;frame.classList.toggle("mobile",device==="mobile");document.querySelectorAll("[data-device]").forEach(item=>item.setAttribute("aria-pressed",String(item===button)));}));
+new ResizeObserver(size).observe(frame);
+</script>
+</body></html>

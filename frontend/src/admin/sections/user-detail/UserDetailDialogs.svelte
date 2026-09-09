@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getUsersStore } from "$lib/admin/context";
-  import { ScrollArea } from "$components/ui/index.js";
+  import { ImageViewer, ScrollArea } from "$components/ui/index.js";
   import Dialog from "$components/ui/dialog.svelte";
   import {
     AdminButton,
@@ -192,24 +192,17 @@
   </div>
 </Dialog>
 
-<Dialog
+<ImageViewer
   open={avatarPreviewOpen}
+  src={avatarPreviewUrl}
+  alt={avatarPreviewName || at("user_avatar_title", {}, "Avatar")}
   title={avatarPreviewName || at("user_avatar_title", {}, "Avatar")}
   closeLabel={at("close", {}, "Close")}
+  zoomInLabel={at("image_viewer_zoom_in", {}, "Zoom in")}
+  zoomOutLabel={at("image_viewer_zoom_out", {}, "Zoom out")}
+  resetLabel={at("image_viewer_reset", {}, "Reset zoom")}
   onclose={closeAvatarPreview}
-  class="admin-dialog admin-avatar-dialog"
->
-  {#if avatarPreviewUrl}
-    <div class="admin-avatar-preview">
-      <img
-        src={avatarPreviewUrl}
-        alt={avatarPreviewName}
-        loading="eager"
-        referrerpolicy="no-referrer"
-      />
-    </div>
-  {/if}
-</Dialog>
+/>
 
 <Dialog
   open={userBanConfirmOpen}

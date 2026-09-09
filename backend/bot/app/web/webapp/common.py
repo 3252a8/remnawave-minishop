@@ -224,6 +224,20 @@ def _select_compact_telegram_photo_size(sizes: list[Any]) -> Any | None:
     )
 
 
+def _select_full_telegram_photo_size(sizes: list[Any]) -> Any | None:
+    if not sizes:
+        return None
+    return max(
+        sizes,
+        key=lambda size: (
+            int(getattr(size, "width", 0) or 0) * int(getattr(size, "height", 0) or 0),
+            int(getattr(size, "width", 0) or 0),
+            int(getattr(size, "height", 0) or 0),
+            int(getattr(size, "file_size", 0) or 0),
+        ),
+    )
+
+
 def _telegram_file_content_type(file_path: str | None) -> str:
     path = str(file_path or "").lower()
     if path.endswith(".png"):
@@ -233,14 +247,14 @@ def _telegram_file_content_type(file_path: str | None) -> str:
     return "image/jpeg"
 
 
-async def _fetch_compact_telegram_avatar(
+async def _fetch_telegram_avatar(
     bot: Bot, telegram_id: int
 ) -> tuple[bytes, str, str | None] | None:
     photos = await bot.get_user_profile_photos(user_id=telegram_id, limit=1)
     if not photos or not photos.photos:
         return None
 
-    photo_size = _select_compact_telegram_photo_size(list(photos.photos[0] or []))
+    photo_size = _select_full_telegram_photo_size(list(photos.photos[0] or []))
     if not photo_size:
         return None
 
@@ -264,18 +278,20 @@ async def _ensure_cached_telegram_avatar(
     request: web.Request,
     session: AsyncSession,
     user: User,
+    *,
+    force_refresh: bool = False,
 ) -> UserTelegramAvatar | None:
     avatar = await user_dal.get_user_telegram_avatar(session, int(user.user_id))
     telegram_id = _telegram_id_for_user(user)
     if not telegram_id:
         return avatar
-    if avatar and not _telegram_avatar_is_stale(avatar):
+    if avatar and not force_refresh and not _telegram_avatar_is_stale(avatar):
         return avatar
 
     bot: Bot = get_bot(request)
     try:
         fetched = await asyncio.wait_for(
-            _fetch_compact_telegram_avatar(bot, int(telegram_id)),
+            _fetch_telegram_avatar(bot, int(telegram_id)),
             timeout=WEBAPP_TELEGRAM_AVATAR_FETCH_TIMEOUT_SECONDS,
         )
     except Exception as exc:
@@ -370,3 +386,9 @@ def _resolve_numeric_option_key(options: dict[Any, Any], target: float) -> Any |
         except (TypeError, ValueError):
             continue
     return None
+
+
+def _format_days_title(duration_days: int, lang: str) -> str:
+    from bot.utils.subscription_periods import localized_duration_days
+
+    return localized_duration_days(duration_days, get_i18n_instance(), lang)

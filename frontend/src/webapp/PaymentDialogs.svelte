@@ -12,16 +12,20 @@
     PlanView,
     SubscriptionView,
     TariffView,
+    StringAction,
     TermUnitLabel,
     Translate,
     VoidAction,
   } from "$lib/webapp/types.js";
+  import type { CheckoutAddonPreset } from "$lib/webapp/deeplinks.js";
+  import { loadPartnerBalanceSnapshot } from "$lib/webapp/partnerBalanceLookup.js";
 
   type DeviceToDisconnect = DeviceView & {
     display_name?: string | null;
     index?: number | string | null;
   };
   type CheckoutPaymentOptions = {
+    balanceSource?: "user" | "partner" | null;
     usePartnerBalance?: boolean;
     checkoutAddons?: CheckoutAddonSelection;
   };
@@ -79,23 +83,26 @@
     closePaymentModal = () => {},
     closeSetPasswordDialog = () => {},
     checkoutPromoAppliedCode = "",
-    checkoutPromoInput = $bindable(""),
+    checkoutPromoInput = "",
     checkoutPromoIsError = false,
     checkoutPromoPriceText = "",
     checkoutPromoEffectiveAmount = 0,
     checkoutPromoStatus = "",
     checkoutPromoDiscountPercent = 0,
     checkoutPromoAppliesTo = "all",
-    checkoutPromoMinSubscriptionMonths = null,
+    checkoutPromoMinSubscriptionDays = null,
     checkoutPromoMinTrafficGb = null,
+    checkoutAddonPreset = null,
     applyCheckoutPromo = () => {},
     backToTariffList = () => {},
     clearCheckoutPromo = () => {},
     continueWithSelectedTariff = () => {},
     resumePendingPayment = () => {},
+    cancelPendingPayment = () => {},
     requestLinkEmailCode = () => {},
     requestSetPasswordCode = () => {},
     selectTariff = () => {},
+    setCheckoutPromoInput = () => {},
     t = (key) => key,
     termUnitLabel = () => "",
     verifyLinkEmailCode = () => {},
@@ -158,21 +165,30 @@
     checkoutPromoStatus?: string;
     checkoutPromoDiscountPercent?: number;
     checkoutPromoAppliesTo?: string;
-    checkoutPromoMinSubscriptionMonths?: number | null;
+    checkoutPromoMinSubscriptionDays?: number | null;
     checkoutPromoMinTrafficGb?: number | null;
+    checkoutAddonPreset?: CheckoutAddonPreset | null;
     applyCheckoutPromo?: CheckoutPromoAction;
     backToTariffList?: VoidAction;
     clearCheckoutPromo?: VoidAction;
     continueWithSelectedTariff?: VoidAction;
     resumePendingPayment?: (payment: PendingPaymentView) => void;
+    cancelPendingPayment?: (payment: PendingPaymentView) => void;
     requestLinkEmailCode?: VoidAction;
     requestSetPasswordCode?: VoidAction;
     selectTariff?: (tariff: TariffView) => void;
+    setCheckoutPromoInput?: StringAction;
     t?: Translate;
     termUnitLabel?: TermUnitLabel;
     verifyLinkEmailCode?: VoidAction;
     confirmSetPassword?: VoidAction;
   } = $props();
+
+  $effect(() => {
+    const currency = String(selectedPlan?.currency || "").toUpperCase();
+    if (!currency) return;
+    void loadPartnerBalanceSnapshot(api, currency).catch(() => {});
+  });
 </script>
 
 <PaymentCheckoutDialog
@@ -200,21 +216,24 @@
   {trafficMode}
   {closePaymentModal}
   {checkoutPromoAppliedCode}
-  bind:checkoutPromoInput
+  {checkoutPromoInput}
   {checkoutPromoIsError}
   {checkoutPromoPriceText}
   {checkoutPromoEffectiveAmount}
   {checkoutPromoStatus}
   {checkoutPromoDiscountPercent}
   {checkoutPromoAppliesTo}
-  {checkoutPromoMinSubscriptionMonths}
+  {checkoutPromoMinSubscriptionDays}
   {checkoutPromoMinTrafficGb}
+  {checkoutAddonPreset}
   {applyCheckoutPromo}
   {backToTariffList}
   {clearCheckoutPromo}
   {continueWithSelectedTariff}
   {resumePendingPayment}
+  {cancelPendingPayment}
   {selectTariff}
+  {setCheckoutPromoInput}
   {t}
   {termUnitLabel}
 />

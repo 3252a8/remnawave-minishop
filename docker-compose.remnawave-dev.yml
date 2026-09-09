@@ -11,12 +11,18 @@ services:
       remnawave:
         condition: service_healthy
 
+  frontend:
+    depends_on:
+      dev-mock-data:
+        condition: service_completed_successfully
+        required: false
+
   postgres:
     ports:
       - "127.0.0.1:${DEV_POSTGRES_PORT:-6768}:5432"
 
   remnawave:
-    image: remnawave/backend:${REMNAWAVE_DEV_VERSION:-3.2.3}
+    image: remnawave/backend:${REMNAWAVE_DEV_VERSION:-3.4.3}
     container_name: remnawave-dev-panel
     hostname: remnawave
     restart: unless-stopped
@@ -172,6 +178,37 @@ services:
     command: ["sh", "-ec", "psql -v ON_ERROR_STOP=1 -f /seed/seed-minishop.sql"]
     depends_on:
       migrate:
+        condition: service_completed_successfully
+
+  dev-mock-data:
+    image: postgres:17.6
+    container_name: remnawave-minishop-dev-mock-data
+    profiles:
+      - mock-data
+    env_file:
+      - ${APP_ENV_FILE:-.env}
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+    volumes:
+      - ./deploy/dev/seed-minishop-mock-data.sql:/seed/seed-minishop-mock-data.sql:ro
+      - ./deploy/dev/seed-remnawave-mock-data.sql:/seed/seed-remnawave-mock-data.sql:ro
+    networks:
+      - remnawave-minishop
+    command:
+      - sh
+      - -ec
+      - >-
+        PGHOST=remnawave-db PGPORT=5432 PGUSER=postgres PGPASSWORD=postgres PGDATABASE=postgres
+        psql -v ON_ERROR_STOP=1 -f /seed/seed-remnawave-mock-data.sql &&
+        psql -v ON_ERROR_STOP=1 -f /seed/seed-minishop-mock-data.sql
+    depends_on:
+      dev-seed:
+        condition: service_completed_successfully
+      remnawave-dev-seed:
         condition: service_completed_successfully
 
 volumes:

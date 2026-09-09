@@ -16,6 +16,7 @@ from bot.app.web.admin_api_impl.auth import (
 from bot.app.web.cache_headers import api_no_store_middleware
 from bot.app.web.context import (
     EMAIL_AUTH_SERVICE,
+    SERVER_STATUS_SERVICE,
     get_app_i18n,
     initialize_webapp_runtime_context,
     set_bot_username,
@@ -24,8 +25,11 @@ from bot.app.web.context import (
 )
 from bot.infra.observability import observability_error_middleware
 from bot.services.email_auth_service import EmailAuthService
+from bot.services.message_image_service import MESSAGE_IMAGE_REQUEST_MAX_BYTES
+from bot.services.server_status import ServerStatusService
 from config.settings import Settings
 
+from .action_audit import webapp_action_audit_middleware
 from .assets import (
     _close_shared_http_session,
     _csrf_protection_middleware,
@@ -50,6 +54,7 @@ def create_subscription_webapp_application(
     async_session_factory: sessionmaker,
 ) -> web.Application:
     app = web.Application(
+        client_max_size=MESSAGE_IMAGE_REQUEST_MAX_BYTES,
         middlewares=[
             observability_error_middleware,
             api_no_store_middleware,
@@ -57,7 +62,8 @@ def create_subscription_webapp_application(
             _webapp_edge_token_middleware,
             _csrf_protection_middleware,
             admin_auth_middleware,
-        ]
+            webapp_action_audit_middleware,
+        ],
     )
     set_core_context(
         app,
@@ -69,6 +75,7 @@ def create_subscription_webapp_application(
     initialize_webapp_runtime_context(app)
     app[EMAIL_AUTH_SERVICE] = EmailAuthService(settings, get_app_i18n(app))
     set_service_context(app, "email_auth_service", app[EMAIL_AUTH_SERVICE])
+    app[SERVER_STATUS_SERVICE] = ServerStatusService(settings)
 
     async def _warm_caches(app_obj: web.Application) -> None:
         try:
@@ -84,6 +91,7 @@ def create_subscription_webapp_application(
     # must not delay opening the webapp listener.
     async def _startup(app_obj: web.Application) -> None:
         nonlocal warmup_task
+        await app_obj[SERVER_STATUS_SERVICE].start()
         await _ensure_shared_http_session()
         warmup_task = asyncio.create_task(_warm_caches(app_obj))
 
@@ -94,6 +102,7 @@ def create_subscription_webapp_application(
                 await warmup_task
         await close_telegram_oauth_http_session()
         await _close_shared_http_session()
+        await app_obj[SERVER_STATUS_SERVICE].close()
 
     app.on_startup.append(_startup)
     app.on_shutdown.append(_shutdown)

@@ -44,11 +44,13 @@ async def get_email_recipients_for_broadcast(
     recipients: list[tuple[int, str, str | None]] = []
     for start in range(0, len(user_ids), chunk_size):
         chunk = user_ids[start : start + chunk_size]
-        stmt = select(User.user_id, User.email, User.language_code).where(
+        recipient_email = func.coalesce(User.notification_email, User.email)
+        stmt = select(User.user_id, recipient_email, User.language_code).where(
             User.user_id.in_(chunk),
             User.is_banned == False,
-            User.email.is_not(None),
-            User.email != "",
+            User.marketing_notifications_email_enabled == True,
+            recipient_email.is_not(None),
+            recipient_email != "",
         )
         result = await session.execute(stmt)
         recipients.extend(
@@ -62,6 +64,7 @@ async def get_telegram_recipients_for_broadcast(
     session: AsyncSession,
     user_ids: list[int],
     *,
+    exclude_blocked: bool = False,
     chunk_size: int = 900,
 ) -> list[tuple[int, int]]:
     """Return ``(user_id, telegram_chat_id)`` for Telegram broadcast delivery.
@@ -78,14 +81,27 @@ async def get_telegram_recipients_for_broadcast(
     found_user_ids: set[int] = set()
     for start in range(0, len(normalized_user_ids), chunk_size):
         chunk = normalized_user_ids[start : start + chunk_size]
-        stmt = select(User.user_id, User.telegram_id).where(
-            User.user_id.in_(chunk),
-            User.is_banned == False,
-        )
+        stmt = select(
+            User.user_id,
+            User.telegram_id,
+            User.telegram_notifications_status,
+            User.is_banned,
+            User.marketing_notifications_telegram_enabled,
+        ).where(User.user_id.in_(chunk))
         result = await session.execute(stmt)
-        for user_id, telegram_id in result.all():
+        for (
+            user_id,
+            telegram_id,
+            notification_status,
+            is_banned,
+            marketing_enabled,
+        ) in result.all():
             local_user_id = int(user_id)
             found_user_ids.add(local_user_id)
+            if bool(is_banned) or not bool(marketing_enabled):
+                continue
+            if exclude_blocked and str(notification_status or "").lower() == "blocked":
+                continue
             chat_id = int(telegram_id or local_user_id)
             if chat_id > 0:
                 chat_ids_by_user_id[local_user_id] = chat_id

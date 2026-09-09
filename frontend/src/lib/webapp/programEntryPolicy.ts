@@ -8,12 +8,14 @@ export type ProgramEntryPlacement = {
 export function resolveProgramEntryPlacement({
   partnerProgramEnabled,
   referralProgramEnabled,
+  giftsAvailable = false,
 }: {
   partnerProgramEnabled: boolean;
   referralProgramEnabled: boolean;
+  giftsAvailable?: boolean;
 }): ProgramEntryPlacement {
   return {
-    bonusesNavigationVisible: referralProgramEnabled,
+    bonusesNavigationVisible: referralProgramEnabled || giftsAvailable,
     partnerNavigationVisible: partnerProgramEnabled && !referralProgramEnabled,
     partnerSettingsVisible: partnerProgramEnabled && referralProgramEnabled,
     promoSettingsVisible: !referralProgramEnabled,

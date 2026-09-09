@@ -1,4 +1,4 @@
-﻿<script lang="ts">
+<script lang="ts">
   import { Input } from "$components/ui/index.js";
   import { DollarSign, Sliders, X, UsersRound } from "$components/ui/icons.js";
   import Dialog from "$components/ui/dialog.svelte";
@@ -9,6 +9,7 @@
     AdminEmptyState,
     AdminPagination,
     AdminSelect,
+    AdminListToolbar,
     AdminSortHeader,
     AdminTable,
     AdminTableSkeleton,
@@ -17,6 +18,7 @@
   } from "$components/patterns/admin/index.js";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
+  import UserMobileCard from "./UserMobileCard.svelte";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type SelectOption = { value: string; label: string };
@@ -68,6 +70,10 @@
     activeUsersFilterCount,
     activeUserFilterChips,
     userTableHeaders,
+    userTableWidths,
+    userTableColumnCount,
+    userBalanceEnabled,
+    partnerBalanceEnabled,
     updateUsersFilter,
     updateUsersPanelStatus,
     updateUsersPremiumTraffic,
@@ -90,6 +96,7 @@
     premiumTrafficBadgeVariant,
     premiumTrafficBadgeText,
     rowPaymentsTotal,
+    rowBalance,
     fmtDateShort,
   }: {
     at: TranslateFn;
@@ -111,6 +118,10 @@
     activeUsersFilterCount: number;
     activeUserFilterChips: FilterChip[];
     userTableHeaders: string[];
+    userTableWidths: string[];
+    userTableColumnCount: number;
+    userBalanceEnabled: boolean;
+    partnerBalanceEnabled: boolean;
     updateUsersFilter: ComponentCallback;
     updateUsersPanelStatus: ComponentCallback;
     updateUsersPremiumTraffic: ComponentCallback;
@@ -133,6 +144,7 @@
     premiumTrafficBadgeVariant: (pt: TrafficBadge) => AdminBadgeVariant;
     premiumTrafficBadgeText: (pt: TrafficBadge) => string;
     rowPaymentsTotal: (user: AdminUser) => string;
+    rowBalance: (user: AdminUser, source: "user" | "partner") => string;
     fmtDateShort: (value: string | null | undefined) => string;
   } = $props();
 </script>
@@ -196,8 +208,13 @@
   {/if}
 {/snippet}
 
-<div class="admin-toolbar admin-toolbar-users">
-  <div class="admin-toolbar-search">
+<AdminListToolbar
+  total={usersTotal}
+  totalLabel={at("total", {}, "Total")}
+  mobileFilterMode="dialog"
+  class="admin-users-toolbar"
+>
+  {#snippet search()}
     <Input
       type="search"
       class="input"
@@ -206,6 +223,8 @@
       oninput={handleUsersSearchInput}
       onkeydown={handleUsersSearchKeydown}
     />
+  {/snippet}
+  {#snippet searchActions()}
     <AdminButton
       variant="primary"
       class="admin-users-search-button"
@@ -214,6 +233,8 @@
         usersStore.loadUsers();
       }}>{at("find", {}, "Find")}</AdminButton
     >
+  {/snippet}
+  {#snippet mobileFilters()}
     <AdminButton
       variant={activeUsersFilterCount ? "primary" : "default"}
       class="admin-users-filter-toggle"
@@ -230,9 +251,8 @@
         <span class="admin-users-filter-count">{activeUsersFilterCount}</span>
       {/if}
     </AdminButton>
-  </div>
-
-  <div class="admin-toolbar-controls">
+  {/snippet}
+  {#snippet filters()}
     <Label.Root class="admin-toolbar-field">
       <span class="admin-toolbar-field-label">{at("filter", {}, "Filter")}</span>
       <AdminSelect
@@ -267,15 +287,9 @@
         onValueChange={updateToolbarPremiumTraffic}
       />
     </Label.Root>
-
-    <div class="admin-toolbar-summary">
-      <span class="admin-toolbar-field-label">{at("total", {}, "Total")}</span>
-      <strong>{usersTotal}</strong>
-    </div>
-  </div>
-
-  {@render renderActiveUserFilterChips()}
-</div>
+  {/snippet}
+  {#snippet footer()}{@render renderActiveUserFilterChips()}{/snippet}
+</AdminListToolbar>
 
 <Dialog
   open={usersFilterSheetOpen}
@@ -316,7 +330,11 @@
   </div>
 </Dialog>
 
-<div class="admin-users-table-wrap">
+<div
+  class="admin-users-table-wrap"
+  class:has-user-balance={userBalanceEnabled}
+  class:has-partner-balance={partnerBalanceEnabled}
+>
   {#if usersLoading}
     <AdminTableSkeleton
       headers={userTableHeaders}
@@ -324,7 +342,7 @@
       rowHeight={76}
       preserveRowHeightOnMobile
       class="admin-users-table"
-      widths={["220px", "128px", "112px", "78px", "88px", "96px", "112px", "112px"]}
+      widths={userTableWidths}
     />
   {:else if !usersTable.rows.length}
     <AdminEmptyState tone="card"
@@ -352,7 +370,7 @@
       </thead>
       <VirtualTableRows
         rows={usersTable.rows}
-        colspan={8}
+        colspan={userTableColumnCount}
         rowHeight={76}
         getKey={(user) => user.user_id}
       >
@@ -384,6 +402,22 @@
                 avatarUrl={avatar}
               />
             </td>
+            {#if userBalanceEnabled}
+              <td
+                class="admin-users-cell-money"
+                data-label={at("users_col_user_balance", {}, "Balance")}
+              >
+                <span class="admin-user-balance-value">{rowBalance(user, "user")}</span>
+              </td>
+            {/if}
+            {#if partnerBalanceEnabled}
+              <td
+                class="admin-users-cell-money"
+                data-label={at("users_col_partner_balance", {}, "Partner balance")}
+              >
+                <span class="admin-user-balance-value">{rowBalance(user, "partner")}</span>
+              </td>
+            {/if}
             <td
               class="admin-users-cell-premium"
               data-label={at("premium_traffic_filter_label", {}, "Premium traffic")}
@@ -446,6 +480,28 @@
         {/snippet}
       </VirtualTableRows>
     </AdminTable>
+
+    <ul class="admin-users-mobile-list">
+      {#each usersTable.rows as user (user.user_id)}
+        <UserMobileCard
+          {at}
+          {user}
+          onopen={() => usersStore.openUser(user)}
+          {resolvedAvatarUrl}
+          {panelStatusBadge}
+          {userInitials}
+          {userDisplayName}
+          {userSecondaryName}
+          {premiumTrafficBadgeVariant}
+          {premiumTrafficBadgeText}
+          {rowPaymentsTotal}
+          {rowBalance}
+          {userBalanceEnabled}
+          {partnerBalanceEnabled}
+          {fmtDateShort}
+        />
+      {/each}
+    </ul>
   {/if}
 </div>
 
@@ -468,17 +524,12 @@
 />
 
 <style>
-  :global(.admin-toolbar-users .admin-toolbar-controls) {
-    grid-template-columns: repeat(3, minmax(150px, 1fr)) minmax(82px, auto);
-    gap: 10px;
-  }
-
   :global(.admin-users-search-button) {
     min-width: 82px;
   }
 
   :global(.admin-btn.admin-users-filter-toggle) {
-    display: none;
+    display: inline-flex;
     position: relative;
     align-items: center;
     gap: 7px;
@@ -580,9 +631,25 @@
     overflow-x: auto;
   }
 
+  .admin-users-mobile-list {
+    display: none;
+  }
+
   @media (min-width: 721px) {
     .admin-users-table-wrap :global(.admin-users-table) {
       min-width: 1080px;
+    }
+
+    .admin-users-table-wrap.has-user-balance :global(.admin-users-table) {
+      min-width: 1200px;
+    }
+
+    .admin-users-table-wrap.has-partner-balance :global(.admin-users-table) {
+      min-width: 1220px;
+    }
+
+    .admin-users-table-wrap.has-user-balance.has-partner-balance :global(.admin-users-table) {
+      min-width: 1340px;
     }
   }
 
@@ -614,6 +681,13 @@
     font-variant-numeric: tabular-nums;
   }
 
+  .admin-user-balance-value {
+    color: var(--admin-text);
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
   .admin-user-counter {
     display: inline-flex;
     align-items: center;
@@ -641,14 +715,6 @@
   }
 
   @media (max-width: 720px) {
-    :global(.admin-toolbar-users .admin-toolbar-search) {
-      grid-template-columns: minmax(0, 1fr) auto auto;
-    }
-
-    :global(.admin-toolbar-users .admin-toolbar-controls) {
-      display: none;
-    }
-
     :global(.admin-users-search-button) {
       min-width: 0;
       padding-inline: 10px;
@@ -674,7 +740,8 @@
 
     :global(.dialog:has(.admin-users-filter-dialog)) {
       align-items: end;
-      padding: max(12px, env(safe-area-inset-top)) 0 0;
+      padding: max(12px, var(--content-safe-area-top)) var(--content-safe-area-right)
+        var(--content-safe-area-bottom) var(--content-safe-area-left);
     }
 
     :global(.admin-users-filter-dialog) {
@@ -685,6 +752,21 @@
       border-bottom: 0;
       border-left: 0;
       border-radius: 18px 18px 0 0;
+    }
+
+    .admin-users-table-wrap
+      :global(.admin-table-wrap:has(.admin-users-table:not(.admin-table-skeleton))) {
+      display: none;
+    }
+
+    .admin-users-mobile-list {
+      display: grid;
+      gap: 10px;
+      width: 100%;
+      min-width: 0;
+      margin: 0;
+      padding: 0;
+      list-style: none;
     }
   }
 </style>

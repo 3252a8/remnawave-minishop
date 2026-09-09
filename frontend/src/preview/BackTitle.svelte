@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ArrowLeft } from "$components/ui/icons.js";
+  import Button from "$components/ui/button.svelte";
 
   type Props = {
     title?: string;
@@ -10,9 +11,9 @@
 </script>
 
 <header class="screen-head">
-  <button class="btn btn-icon btn-square" type="button" aria-label="Назад">
+  <Button variant="icon" size="icon" aria-label="Назад">
     <ArrowLeft size={18} />
-  </button>
+  </Button>
   <div class="center-copy">
     <h1>{title}</h1>
     <p>{subtitle}</p>

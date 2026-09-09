@@ -892,6 +892,7 @@ async def _perform_sync_impl(
             panel_records_checked,
             subscriptions_synced_count,
         )
+        await session.commit()
 
         return {
             "status": "failed",

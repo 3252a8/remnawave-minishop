@@ -11,14 +11,13 @@ from aiohttp import web
 import bot.app.web.admin_api  # noqa: F401 - populates admin_api_impl module namespaces
 from bot.app.web.admin_api_impl import ads as ads_module
 from bot.app.web.admin_api_impl import common as common_module
+from bot.app.web.admin_api_impl.payment_schemas import PaymentDetailOut, PaymentOut
 from bot.app.web.admin_api_impl.schemas import (
     AdminTariffsCatalogOut,
     AdminTariffsOut,
     AdOut,
     AdStatsOut,
     LogOut,
-    PaymentDetailOut,
-    PaymentOut,
     ProviderCurrencySupportOut,
 )
 from bot.payment_providers.base import PaymentProviderPresentation, PaymentProviderSpec
@@ -93,6 +92,21 @@ def test_payment_response_models_match_legacy_serializer():
         "yookassa_payment_id": None,
         "idempotence_key": "idem-10",
         "promo_code": "GIFT",
+        "checkout_base_amount": None,
+        "balance_enabled": True,
+        "fulfilled_at": None,
+        "fulfilled_by_admin_id": None,
+        "fulfillment_note": None,
+        "promo_conflict_override": False,
+        "reversed_at": None,
+        "reversed_by_admin_id": None,
+        "reversal_note": None,
+        "promo_usage_restored": False,
+        "can_manual_finalize": False,
+        "manual_finalize_requires_promo_confirmation": False,
+        "manual_finalize_warnings": [],
+        "can_reverse": False,
+        "reversal_block_reason": None,
         "updated_at": "2026-01-02T04:05:00+00:00",
     }
 
@@ -195,6 +209,8 @@ def test_tariffs_response_models_match_legacy_catalog_payload():
         exclude_none=True,
     )
     assert AdminTariffsCatalogOut.empty().to_legacy_payload() == {
+        "schema_version": 2,
+        "period_unit": "day",
         "default_tariff": "",
         "default_currency": "rub",
         "topup_packages_default": {"rub": [], "stars": []},
@@ -263,6 +279,8 @@ def test_admin_tariffs_response_model_preserves_nested_legacy_payload_shape():
         "path": "data/tariffs.json",
         "user_hwid_device_limit": None,
         "catalog": {
+            "schema_version": 2,
+            "period_unit": "day",
             "default_tariff": "",
             "default_currency": "rub",
             "topup_packages_default": {"rub": [], "stars": []},

@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from pydantic import ValidationError
 
+from bot.app.web.admin_payment_method_order import payment_method_order_options
 from bot.services import settings_override_service
 from config.settings import Settings
 from config.telegram_proxy import redact_telegram_proxy_credentials
@@ -22,6 +23,29 @@ class SettingsTests(unittest.TestCase):
         }
         values.update(overrides)
         return Settings(**values)
+
+    def test_user_theme_mode_selection_defaults_on_and_can_be_disabled(self):
+        self.assertTrue(self._settings().webapp_settings.user_theme_mode_enabled)
+        self.assertFalse(
+            self._settings(
+                WEBAPP_USER_THEME_MODE_ENABLED=False
+            ).webapp_settings.user_theme_mode_enabled
+        )
+
+    def test_compact_home_defaults_off_and_can_be_enabled(self):
+        self.assertFalse(self._settings().webapp_settings.compact_home_enabled)
+        self.assertTrue(
+            self._settings(WEBAPP_COMPACT_HOME_ENABLED=True).webapp_settings.compact_home_enabled
+        )
+
+    def test_server_status_home_card_defaults_off_and_can_be_enabled(self):
+        self.assertFalse(self._settings().SERVER_STATUS_SHOW_ON_HOME)
+        self.assertTrue(self._settings(SERVER_STATUS_SHOW_ON_HOME=True).SERVER_STATUS_SHOW_ON_HOME)
+
+    def test_user_balance_topup_limits_must_be_finite(self):
+        for field in ("USER_BALANCE_TOPUP_MIN_AMOUNT", "USER_BALANCE_TOPUP_MAX_AMOUNT"):
+            with self.subTest(field=field), self.assertRaises(ValidationError):
+                self._settings(**{field: float("inf")})
 
     def test_telegram_bot_proxy_defaults_to_none_and_normalizes_blank(self):
         self.assertIsNone(self._settings().TELEGRAM_BOT_PROXY_URL)
@@ -315,6 +339,25 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(payment_settings.stars_traffic_packages, {10.0: 1000})
         self.assertTrue(payment_settings.traffic_sale_mode)
 
+    def test_payment_method_order_options_keep_legacy_and_multi_button_providers(self):
+        settings = self._settings(
+            PAYMENT_METHODS_ORDER="custom_gateway,platega,stars",
+            STARS_ENABLED=True,
+        )
+
+        options = payment_method_order_options(settings)
+        options_by_id = {option["id"]: option for option in options}
+        option_ids = [option["id"] for option in options]
+
+        self.assertEqual(option_ids[0], "custom_gateway")
+        self.assertFalse(options_by_id["custom_gateway"]["known"])
+        self.assertTrue(options_by_id["stars"]["enabled"])
+        self.assertGreater(
+            len([option for option in options if option["provider_id"] == "platega"]),
+            1,
+        )
+        self.assertEqual(len(option_ids), len(set(option_ids)))
+
     def test_referral_settings_view_reflects_referral_fields(self):
         settings = Settings(
             _env_file=None,
@@ -438,6 +481,8 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(support_settings.ticket_max_body_length, 1000)
         self.assertEqual(support_settings.ticket_max_subject_length, 160)
         self.assertEqual(support_settings.ticket_rate_limit_per_hour, 2)
+        self.assertEqual(support_settings.message_rate_limit_per_minute, 10)
+        self.assertEqual(support_settings.image_rate_limit_per_day, 20)
         self.assertTrue(support_settings.admin_email_notifications_enabled)
         self.assertEqual(support_settings.admin_notification_cooldown_seconds, 300)
         self.assertEqual(support_settings.admin_email_cooldown_seconds, 1800)
@@ -627,6 +672,7 @@ class SettingsTests(unittest.TestCase):
         settings.WEBAPP_FAVICON_USE_CUSTOM = True
         settings.WEBAPP_FAVICON_URL = "/webapp-favicon/bbbbbbbbbbbbbbbb/icon-180.png"
         settings.WEBAPP_PRIMARY_COLOR = "#123456"
+        settings.WEBAPP_COMPACT_HOME_ENABLED = True
 
         with tempfile.TemporaryDirectory() as tmpdir:
             backup_path = Path(tmpdir) / "appearance-settings.json"
@@ -643,6 +689,7 @@ class SettingsTests(unittest.TestCase):
             "/webapp-uploaded-logo/logo-1111111111111111.png",
         )
         self.assertEqual(restored["WEBAPP_PRIMARY_COLOR"], "#123456")
+        self.assertTrue(restored["WEBAPP_COMPACT_HOME_ENABLED"])
         self.assertEqual(
             restored["WEBAPP_FAVICON_URL"],
             "/webapp-favicon/bbbbbbbbbbbbbbbb/icon-180.png",
@@ -658,6 +705,13 @@ class SettingsTests(unittest.TestCase):
         )
 
         self.assertEqual(settings.TRIAL_TRAFFIC_STRATEGY, "WEEK")
+
+    def test_trial_days_strategy_is_admin_configured(self):
+        settings = self._settings(TRIAL_DAYS_STRATEGY="start_from_payment")
+
+        self.assertEqual(settings.TRIAL_DAYS_STRATEGY, "start_from_payment")
+        with self.assertRaises(ValidationError):
+            self._settings(TRIAL_DAYS_STRATEGY="unexpected")
 
     def test_trial_hwid_device_limit_accepts_count_and_blank(self):
         configured = Settings(
@@ -700,6 +754,17 @@ class SettingsTests(unittest.TestCase):
         )
 
         self.assertFalse(settings.SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED)
+
+    def test_partner_audit_retention_defaults_to_forever(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+        )
+
+        self.assertEqual(settings.PARTNER_AUDIT_RETENTION_DAYS, 0)
+        self.assertEqual(settings.partner_settings.audit_retention_days, 0)
 
     def test_backup_defaults_are_safe_and_blank_targets_use_log_fallback(self):
         settings = Settings(
@@ -799,6 +864,24 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(settings.SUBSCRIPTION_NOTIFY_HOURS_BEFORE, 3)
         self.assertEqual(settings.SUBSCRIPTION_NOTIFICATION_WORKER_TICK_SECONDS, 300)
         self.assertTrue(settings.SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED)
+        self.assertTrue(settings.USER_NOTIFICATION_SINGLE_CHANNEL_FALLBACK_ENABLED)
+        for key in (
+            "USER_NOTIFICATION_PAYMENTS_TELEGRAM_ENABLED",
+            "USER_NOTIFICATION_PAYMENTS_EMAIL_ENABLED",
+            "USER_NOTIFICATION_TRAFFIC_TELEGRAM_ENABLED",
+            "USER_NOTIFICATION_TRAFFIC_EMAIL_ENABLED",
+            "USER_NOTIFICATION_DEVICES_TELEGRAM_ENABLED",
+            "USER_NOTIFICATION_DEVICES_EMAIL_ENABLED",
+            "USER_NOTIFICATION_DEVICE_ACTIVITY_TELEGRAM_ENABLED",
+            "USER_NOTIFICATION_DEVICE_ACTIVITY_EMAIL_ENABLED",
+            "USER_NOTIFICATION_DEVICE_LIMIT_TELEGRAM_ENABLED",
+            "USER_NOTIFICATION_DEVICE_LIMIT_EMAIL_ENABLED",
+            "USER_NOTIFICATION_SUPPORT_TELEGRAM_ENABLED",
+            "USER_NOTIFICATION_SUPPORT_EMAIL_ENABLED",
+            "USER_NOTIFICATION_REFERRALS_TELEGRAM_ENABLED",
+            "USER_NOTIFICATION_REFERRALS_EMAIL_ENABLED",
+        ):
+            self.assertTrue(getattr(settings, key), key)
 
     def test_torrent_blocker_notifications_are_private_opt_in_by_default(self):
         settings = Settings(

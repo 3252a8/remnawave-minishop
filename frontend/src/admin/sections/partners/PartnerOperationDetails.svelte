@@ -62,6 +62,8 @@
     withdrawalExternalReference = $bindable(),
     withdrawalSettlementAmount = $bindable(),
     withdrawalSettlementError = $bindable(),
+    withdrawalRejectionReason = $bindable(),
+    withdrawalRejectionError = $bindable(),
     dialog = $bindable(),
     decisionOutcome = $bindable(),
     approvalRate = $bindable(),
@@ -95,6 +97,8 @@
     withdrawalExternalReference: string;
     withdrawalSettlementAmount: string;
     withdrawalSettlementError: string;
+    withdrawalRejectionReason: string;
+    withdrawalRejectionError: string;
     dialog: DialogKind;
     decisionOutcome: "approved" | "rejected";
     approvalRate: string;
@@ -416,6 +420,33 @@
               </AdminField>
             </div>
           {/if}
+        </div>
+      {/if}
+      {#if selectedWithdrawal.status === "requested" || selectedWithdrawal.status === "processing"}
+        <div class="partners-withdrawal-settlement">
+          <div
+            class="partners-settlement-field"
+            class:has-error={Boolean(withdrawalRejectionError)}
+          >
+            <AdminField
+              label={at(
+                "partners_withdrawal_rejection_reason",
+                {},
+                "Reason for rejection (required to reject)"
+              )}
+              hint={withdrawalRejectionError}
+            >
+              <Textarea
+                class={withdrawalRejectionError ? "partners-input-error" : ""}
+                aria-invalid={Boolean(withdrawalRejectionError)}
+                aria-required="true"
+                required
+                rows={3}
+                bind:value={withdrawalRejectionReason}
+                oninput={() => (withdrawalRejectionError = "")}
+              />
+            </AdminField>
+          </div>
         </div>
       {/if}
       <AdminCardActions>

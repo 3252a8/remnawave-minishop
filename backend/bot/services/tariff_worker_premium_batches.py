@@ -13,17 +13,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.services.panel_api_contracts import PanelApiCapability
 from bot.services.panel_api_service import PanelApiService
 from db.models import Subscription
+from db.tariff_squad_sync import remember_subscription_tariff_managed_squads
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
-class PremiumSquadMutationPlan:
+class TariffSquadMutationPlan:
     sub: Subscription
     tariff: Any
     desired_squads: tuple[str, ...]
     effective_payload: dict[str, Any]
     squad_match_cache_key: tuple[str, tuple[str, ...]]
+
+
+@dataclass(slots=True)
+class PremiumSquadMutationPlan(TariffSquadMutationPlan):
     should_limit: bool
     newly_limited: bool
     node_uuids: list[str]
@@ -48,7 +53,7 @@ class PremiumConnectionDropPlan:
 class TariffWorkerPremiumBatchMixin:
     panel_service: PanelApiService
     _premium_batching_active: bool
-    _premium_squad_mutations: list[PremiumSquadMutationPlan]
+    _premium_squad_mutations: list[TariffSquadMutationPlan]
     _premium_connection_drops: list[PremiumConnectionDropPlan]
     _premium_drop_connections_at: dict[int, float]
 
@@ -96,7 +101,7 @@ class TariffWorkerPremiumBatchMixin:
             self._premium_squad_mutations.clear()
             self._premium_connection_drops.clear()
 
-    def _queue_premium_squad_mutation(self, plan: PremiumSquadMutationPlan) -> bool:
+    def _queue_premium_squad_mutation(self, plan: TariffSquadMutationPlan) -> bool:
         if not self._premium_batching_active:
             return False
         self._premium_squad_mutations.append(plan)
@@ -114,7 +119,7 @@ class TariffWorkerPremiumBatchMixin:
         return True
 
     async def _flush_premium_squad_mutations(self, session: AsyncSession) -> None:
-        grouped: dict[tuple[str, ...], list[PremiumSquadMutationPlan]] = defaultdict(list)
+        grouped: dict[tuple[str, ...], list[TariffSquadMutationPlan]] = defaultdict(list)
         for plan in self._premium_squad_mutations:
             grouped[plan.desired_squads].append(plan)
         for desired_squads, plans in grouped.items():
@@ -159,11 +164,11 @@ class TariffWorkerPremiumBatchMixin:
 
     async def _fallback_premium_squad_patches(
         self,
-        plans: list[PremiumSquadMutationPlan],
-    ) -> list[PremiumSquadMutationPlan]:
+        plans: list[TariffSquadMutationPlan],
+    ) -> list[TariffSquadMutationPlan]:
         semaphore = asyncio.Semaphore(10)
 
-        async def patch(plan: PremiumSquadMutationPlan) -> PremiumSquadMutationPlan | None:
+        async def patch(plan: TariffSquadMutationPlan) -> TariffSquadMutationPlan | None:
             async with semaphore:
                 updated = await self.panel_service.update_user_details_on_panel(
                     str(plan.sub.panel_user_uuid),
@@ -178,9 +183,17 @@ class TariffWorkerPremiumBatchMixin:
     async def _complete_premium_squad_mutation(
         self,
         session: AsyncSession,
-        plan: PremiumSquadMutationPlan,
+        plan: TariffSquadMutationPlan,
     ) -> None:
         self._remember_premium_squad_match(plan.squad_match_cache_key)
+        remember_subscription_tariff_managed_squads(plan.sub, plan.tariff)
+        if not isinstance(plan, PremiumSquadMutationPlan):
+            logger.info(
+                "Tariff squads synchronized for user %s tariff %s",
+                plan.sub.user_id,
+                getattr(plan.tariff, "key", "unknown"),
+            )
+            return
         if plan.send_reset_notice:
             await self._maybe_send_premium_reset_notice(
                 session,

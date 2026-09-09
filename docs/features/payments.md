@@ -1,5 +1,10 @@
 # Платежи
 
+В таблице платежей админки доступен поиск по владельцу: ID пользователя или Telegram ID,
+`@username`, имени и email. Поиск выполняется на сервере до сортировки и разбивки на страницы;
+счётчик показывает общее число найденных платежей. Очистите поле и нажмите «Найти», чтобы
+вернуться ко всем платежам. Кнопка «Обновить» обновляет текущую выборку.
+
 Платежные методы включаются через `.env` или админ-панель, если параметр добавлен в allowlist настроек. В Mini App способы оплаты по умолчанию собраны в компактный выпадающий список; настройка `PAYMENT_METHODS_DISPLAY_MODE=buttons` возвращает отдельные кнопки. Telegram-сценарии продолжают использовать кнопки.
 
 ## Общий порядок настройки
@@ -36,11 +41,13 @@
 ## Общие ссылки
 
 - [Справочник `.env`](../configuration/env-vars.md) — все ключи платежных провайдеров.
-- [Админ-панель](admin-panel.md) — UI-настройки платежей.
+- [Веб админ-панель](admin-panel.md) — UI-настройки платежей.
 - [Тарифы](tariffs.md) — цены, Telegram Stars и сценарии покупки.
 - [Промокоды](promocodes.md) — скидки, множители и checkout-активация.
 - [Партнёрская программа](partner-program.md) — комиссии с внешних платежей и полная/частичная
   оплата покупок из баланса.
+- [Баланс пользователя](user-balance.md) — пополнение через провайдера, внутренние списания,
+  конвертация и обработка возвратов.
 - [Логи](../troubleshooting/logs.md) — проверка webhook и создания платежных ссылок.
 
 ## Проверка расчёта
@@ -56,13 +63,15 @@
 средства, возврат или отдельная доплата оформляются через этого провайдера, а не выдачей
 полного заказа за меньшую сумму.
 
-Партнёрский баланс можно применить к покупке полностью или частично. При смешанной оплате
-провайдеру передаётся только остаток после баланса, а `Payment` хранит также полный checkout total и
-сумму внутреннего списания. В денежную выручку попадает только внешний остаток. Полностью покрытая
-балансом покупка создаёт внутренний `Payment` для аудита и общей активации, но не увеличивает
-денежную выручку и не порождает новую комиссию или реферальный бонус. Подробности, ограничения и
-восстановление отменённых операций описаны в
-[руководстве по партнёрской программе](partner-program.md#оплата-из-баланса).
+Обычный или партнёрский баланс можно применить к покупке полностью или частично. При смешанной
+оплате провайдеру передаётся только остаток после выбранного баланса, а `Payment` хранит также
+полный checkout total и сумму внутреннего списания. В денежную выручку попадает только внешний
+остаток. Полностью покрытая балансом покупка создаёт внутренний `Payment` для аудита и общей
+активации, но не увеличивает денежную выручку и не порождает новую комиссию или реферальный бонус.
+Одновременно списывается только один явно выбранный источник. Подробности, ограничения и
+восстановление отменённых операций описаны в руководствах по
+[балансу пользователя](user-balance.md#оплата-из-баланса) и
+[партнёрской программе](partner-program.md#оплата-из-баланса).
 
 ## Webhook URL провайдеров
 > [!TIP]
@@ -71,7 +80,8 @@
 Все платежные webhook URL строятся от `WEBHOOK_BASE_URL` - публичного HTTPS-адреса backend/webhook-домена. Это должен быть домен, который проксируется на backend-сервер вебхуков (`backend:8080`), а не `SUBSCRIPTION_MINI_APP_URL` frontend/Mini App. Если `WEBHOOK_BASE_URL=https://bot.example.com`, то полный адрес получается как `https://bot.example.com` + путь из таблицы.
 
 Если у провайдера включена IP-фильтрация (`FREEKASSA_TRUSTED_IPS`, `WATA_TRUSTED_IPS`,
-`HELEKET_TRUSTED_IPS`, `PAYKILLA_TRUSTED_IPS` или встроенный allowlist YooKassa),
+`HELEKET_TRUSTED_IPS`, `OXAPAY_TRUSTED_IPS`, `PAYKILLA_TRUSTED_IPS` или встроенный allowlist
+YooKassa),
 reverse proxy должен прокидывать `X-Forwarded-For`, а его IP/CIDR должен входить в
 `TRUSTED_PROXIES`. Иначе backend увидит IP proxy/Docker gateway и может отклонить
 валидный webhook с ошибкой `403`. Для webhook-домена за Cloudflare backend использует
@@ -83,10 +93,12 @@ reverse proxy должен прокидывать `X-Forwarded-For`, а его I
 | YooKassa | `WEBHOOK_BASE_URL` + `/webhook/yookassa` | Например `https://bot.example.com/webhook/yookassa`. |
 | FreeKassa | `WEBHOOK_BASE_URL` + `/webhook/freekassa` | Используйте как notification/webhook URL; при IP-фильтрации заполните `FREEKASSA_TRUSTED_IPS`. |
 | Platega | `WEBHOOK_BASE_URL` + `/webhook/platega` | Один общий webhook для всех разовых методов и рекуррентной подписки Platega. |
+| RollyPay | `WEBHOOK_BASE_URL` + `/webhook/rollypay` | Один подписанный webhook для разовых и всех регулярных списаний RollyPay. |
 | SeverPay | `WEBHOOK_BASE_URL` + `/webhook/severpay` | Укажите как callback/webhook URL, если поле есть в кабинете мерчанта. |
 | Wata | `WEBHOOK_BASE_URL` + `/webhook/wata` | Если включена проверка подписи, настройте `WATA_WEBHOOK_VERIFY_SIGNATURE` и `WATA_PUBLIC_KEY`. |
 | CryptoPay | `WEBHOOK_BASE_URL` + `/webhook/cryptopay` | Указывается в настройках Crypto Bot / CryptoPay webhook. |
 | Heleket | `WEBHOOK_BASE_URL` + `/webhook/heleket` | При необходимости включите `HELEKET_VERIFY_WEBHOOK_SIGNATURE` и `HELEKET_TRUSTED_IPS`. |
+| OxaPay | `WEBHOOK_BASE_URL` + `/webhook/oxapay` | Передаётся автоматически как `callback_url` при Generate Invoice. HMAC-SHA512 по raw body проверяется всегда. |
 | PayKilla | `WEBHOOK_BASE_URL` + `/webhook/paykilla` | Указывается в PayKilla Dashboard -> Settings -> Webhooks; включите события оплаты инвойсов. |
 | LAVA | `WEBHOOK_BASE_URL` + `/webhook/lava` | Передается автоматически как `hookUrl` при создании счета; можно также указать в кабинете LAVA Business. |
 | Pally | `WEBHOOK_BASE_URL` + `/webhook/pally` | Укажите как Result URL в настройках магазина Pally / PayPalych. Postback приходит в формате `application/x-www-form-urlencoded`. |
@@ -97,6 +109,10 @@ reverse proxy должен прокидывать `X-Forwarded-For`, а его I
 | Telegram Stars | Отдельный платежный webhook не нужен | Stars-события приходят через webhook Telegram-бота: `WEBHOOK_BASE_URL` + `/tg/webhook`. |
 
 После настройки сделайте тестовый платеж и проверьте, что в логах `backend` видно входящий `POST` на нужный путь. Если провайдер сообщает, что адрес недоступен, сначала проверьте DNS/HTTPS и reverse proxy для `WEBHOOK_BASE_URL`, затем убедитесь, что путь начинается ровно с `/webhook/...` без `/api`, `/auth` и frontend-домена.
+
+## Платёжные провайдеры
+
+Ниже собраны параметры, вебхуки и особенности каждого поддерживаемого способа оплаты.
 
 ## YooKassa
 
@@ -168,7 +184,8 @@ Platega подключается как отдельный платежный п
 1. Включите `PLATEGA_ENABLED`.
 2. Укажите `PLATEGA_MERCHANT_ID` и `PLATEGA_SECRET`.
 3. Включите нужные кнопки: `PLATEGA_SBP_ENABLED`, `PLATEGA_CARD_ENABLED`, `PLATEGA_CRYPTO_ENABLED`, `PLATEGA_INTERNATIONAL_ENABLED`, `PLATEGA_ALL_METHODS_ENABLED` и/или `PLATEGA_SUBSCRIPTION_ENABLED`.
-4. Скопируйте URL вебхука из админ-панели и укажите его в кабинете Platega. Один и тот же URL принимает и разовые транзакции, и колбэки подписок.
+4. Скопируйте URL вебхука из админ-панели и укажите его в кабинете Platega. Он должен быть публичным HTTPS URL с сертификатом доверенного центра: HTTP, localhost, приватные IP и self-signed сертификаты Platega не принимает. Один и тот же URL принимает и разовые транзакции, и колбэки подписок.
+5. Уточните у менеджера Platega, обязательно ли для категории вашего магазина поле `metadata.userId`. Minishop автоматически передаёт идентификатор плательщика в `metadata` всех разовых Platega-чекаутов.
 
 ### Разовые способы оплаты
 
@@ -200,6 +217,85 @@ Platega подключается как отдельный платежный п
 - [Platega](../configuration/env-vars.md#platega)
 - [Ссылка без заданного метода](https://docs.platega.io/создание-платежной-ссылки-без-заданного-метода-33845703e0)
 - [Ссылка с заданным методом](https://docs.platega.io/создание-платежной-ссылки-с-заданным-методом-29203843e0)
+
+## RollyPay
+
+RollyPay предоставляет отдельные кнопки СБП, российских карт, зарубежных карт,
+криптовалюты, единую hosted-страницу выбора метода и регулярную СБП-подписку.
+
+### Настройка
+
+1. Включите `ROLLYPAY_ENABLED`, заполните `ROLLYPAY_API_KEY` и
+   `ROLLYPAY_SIGNING_SECRET`.
+2. Включите нужные кнопки: `ROLLYPAY_ALL_METHODS_ENABLED`, `ROLLYPAY_SBP_ENABLED`,
+   `ROLLYPAY_CARD_ENABLED`, `ROLLYPAY_INTERNATIONAL_ENABLED`,
+   `ROLLYPAY_CRYPTO_ENABLED` и/или `ROLLYPAY_SUBSCRIPTION_ENABLED`.
+3. Для привязки к конкретному терминалу и для подписок заполните
+   `ROLLYPAY_TERMINAL_ID`.
+4. Укажите в терминале webhook `WEBHOOK_BASE_URL` + `/webhook/rollypay`.
+   Скопируйте signing secret именно этого webhook в `ROLLYPAY_SIGNING_SECRET`.
+
+Каждый API-запрос получает новый UUID в `X-Nonce`. Webhook проверяется по raw body:
+HMAC-SHA256 от `<X-Timestamp>.<body>`, а события старше допустимого окна отклоняются.
+После подписи Minishop всегда читает актуальный платёж через `GET /payments/{id}` и
+сверяет id заказа, сумму, валюту и состояние. Поэтому поздний переход `expired → paid`
+корректно активирует покупку, а старое событие не может перезаписать более новое состояние.
+
+### Разовые платежи
+
+- Страница выбора метода не передаёт `payment_method`.
+- СБП, карта, зарубежная карта и криптовалюта передают соответственно `sbp`, `card`,
+  `intl_card` и `crypto`.
+- СБП, российские карты и крипто принимают тарифы в `RUB`; зарубежная карта — в
+  `RUB` и `EUR`.
+- `created` и `processing` сверяются фоновым worker; `canceled` и `expired` освобождают
+  локальные резервы, а `paid` остаётся окончательным даже после более раннего `expired`.
+- `refunded` и `chargeback` зеркалятся в локальный статус платежа. События выплат и
+  завершения refund request безопасно подтверждаются, но управление балансом и выплатами
+  мерчанта не относится к пользовательскому checkout Minishop.
+
+### Регулярные СБП-подписки
+
+RollyPay владеет расписанием списаний. Minishop получает планы терминала через
+`GET /subscription-plans`, выбирает последнюю версию подходящего периода и проверяет
+`cap_amount_rub`. Поддерживаются периоды Core на **1, 3 и 12 месяцев** (`month`,
+`quarter`, `year`). Дневной план RollyPay не используется: каталог Core выражает срок
+целыми месяцами.
+
+Создание выполняется через `POST /subscriptions` с постоянным `Idempotency-Key` и только
+с разрешёнными API полями. Мандат записывается локально до возврата ссылки пользователю.
+Первое и каждое следующее списание приходит как обычный `payment.paid`; Minishop читает
+платёж, получает из него `subscription_id`, проверяет сумму и создаёт отдельный
+идемпотентный локальный платёж для каждого продления. Повтор webhook не продлевает доступ
+дважды.
+
+RollyPay не присылает отдельные webhook о состоянии мандата, поэтому worker периодически
+сверяет `provider_state` и `billing_status`. Выключение автопродления вызывает идемпотентный
+`POST /subscriptions/{id}/stop`. `stopped` выключает локальный флаг; `review` остаётся
+живым состоянием до решения провайдера. Chargeback останавливает соответствующий мандат.
+Перед полным выключением `ROLLYPAY_ENABLED` остановите живые мандаты: выключение только
+кнопки `ROLLYPAY_SUBSCRIPTION_ENABLED` не мешает сверке и отмене уже созданных подписок.
+
+Промокоды и checkout-докупки для кнопки подписки отключены: RollyPay повторяет одну
+зафиксированную сумму, а разовая скидка или изменяемый состав покупки не должны незаметно
+переходить на будущие списания. Изменение цены тарифа не меняет существующий мандат.
+
+### Sandbox и SDK
+
+`ROLLYPAY_TEST_MODE=True` добавляет `test: true`, скрывает публичные кнопки и показывает
+разовые тестовые способы только администраторам из `ADMIN_IDS`; тестовый webhook не может
+активировать покупку обычного пользователя. Подписки в этом режиме отключены, потому что
+публичная документация не гарантирует sandbox для recurring API.
+
+Официальный Python SDK на момент интеграции синхронный, не добавляет обязательный
+`X-Nonce` и не содержит subscription endpoints. Поэтому Core использует тот же
+документированный REST API через общий асинхронный HTTP-клиент, включая nonce,
+идемпотентность и recurring-функции.
+
+### Справочник
+
+- [RollyPay](../configuration/env-vars.md#rollypay)
+- [Официальная документация RollyPay](https://docs.rollypay.io/)
 
 ## SeverPay
 
@@ -423,6 +519,54 @@ Heleket используется для крипто-инвойсов с merchan
 ### Справочник
 
 - [Heleket](../configuration/env-vars.md#heleket)
+
+## OxaPay
+
+OxaPay подключён через актуальный Merchant API v1 и создаёт hosted-ссылку методом
+`Generate Invoice`. Сумма и валюта берутся из локального заказа, `order_id` содержит ID
+платежа Minishop, а `callback_url` собирается из `WEBHOOK_BASE_URL`.
+
+### Настройка
+
+1. Создайте Merchant API key в кабинете OxaPay.
+2. Включите `OXAPAY_ENABLED` и сохраните ключ в `OXAPAY_MERCHANT_API_KEY`.
+3. Проверьте публичный `WEBHOOK_BASE_URL`; готовый адрес должен оканчиваться на
+   `/webhook/oxapay`.
+4. При необходимости настройте `OXAPAY_RETURN_URL` и срок счёта
+   `OXAPAY_LIFETIME_MINUTES` от `15` до `2880` минут.
+5. Для тестового платежа временно включите `OXAPAY_SANDBOX`.
+
+### Комиссия, недоплата и расчёты
+
+- Пустые `OXAPAY_FEE_PAID_BY_PAYER`, `OXAPAY_UNDER_PAID_COVERAGE`,
+  `OXAPAY_AUTO_WITHDRAWAL` и `OXAPAY_MIXED_PAYMENT` оставляют соответствующее решение
+  настройкам Merchant Service в OxaPay.
+- `OXAPAY_TO_CURRENCY=USDT` включает поддерживаемую OxaPay автоматическую конвертацию;
+  другие target currencies API не принимает.
+- OxaPay может выставлять invoice как в fiat, так и в crypto currency. Локальный список
+  намеренно не зафиксирован: окончательную доступность валюты проверяет API для конкретного
+  merchant account.
+
+### Webhook и восстановление
+
+- OxaPay подписывает точные сырые байты JSON заголовком `HMAC`, используя Merchant API key
+  как секрет HMAC-SHA512. Проверку нельзя отключить.
+- Первый callback со статусом `Paying` означает только отправку транзакции. Доступ выдаётся
+  после `Paid`; `manual_accept` также считается завершённым статусом Merchant Service.
+- Перед активацией Minishop сверяет `type=invoice`, `track_id`, `order_id`, сумму и валюту.
+  Повторный callback идемпотентен и получает обязательный для OxaPay ответ `200 ok`.
+- Если callback потерян, общий reconciliation worker читает
+  `GET /v1/payment/{track_id}` и безопасно завершает `paid` invoice либо закрывает `expired`.
+- `OXAPAY_TRUSTED_IPS` — дополнительная необязательная защита. Актуальный список IP OxaPay
+  выдаёт через поддержку; без списка обязательная HMAC-проверка продолжает работать.
+
+### Справочник
+
+- [Generate Invoice](https://docs.oxapay.com/api-reference/payment/generate-invoice)
+- [Payment Information](https://docs.oxapay.com/api-reference/payment/payment-information)
+- [Webhook](https://docs.oxapay.com/webhook)
+- [Payment status table](https://docs.oxapay.com/api-reference/payment/payment-status-table)
+- [Переменные OxaPay](../configuration/env-vars.md#oxapay)
 
 ## PayKilla
 

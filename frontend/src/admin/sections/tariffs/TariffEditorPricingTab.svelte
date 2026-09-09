@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { adminDurationLabel } from "$lib/admin/tariffPeriods";
   import { getTariffsStore } from "$lib/admin/context";
   import { Input, Sortable } from "$components/ui/index.js";
   import { Tabs } from "$components/ui/primitives.js";
@@ -47,9 +48,9 @@
   const movePeriodRow: ReorderHandler = moveDraftRowHandler(tariffsStore, "periodRows");
   const moveTrafficRow: ReorderHandler = moveDraftRowHandler(tariffsStore, "trafficRows");
 
-  function addPeriodRow(): void {
+  function addPeriodRow(days = 1): void {
     tariffsStore.addDraftRow("periodRows", {
-      months: 1,
+      duration_days: days,
       rub: "",
       stars: "",
       referral_inviter: "",
@@ -115,15 +116,31 @@
             >{at(
               "tariff_pricing_period_subtitle",
               {},
-              "Each row is a separate storefront option: how many months the user pays for and how much it costs. Drag rows by the handle to set the period order in the bot and the web app"
+              "Each row is a separate storefront option: how many days the user pays for and how much it costs. Drag rows by the handle to set the period order in the bot and the web app"
             )}</small
           >
         </div>
-        <AdminButton size="sm" onclick={addPeriodRow}>
+        <AdminButton size="sm" onclick={() => addPeriodRow()}>
           <Plus size={13} />
           {at("tariff_btn_period", {}, "Period")}
         </AdminButton>
       </header>
+      <p class="admin-muted">
+        {at(
+          "tariff_period_days_hint",
+          {},
+          "30 days = 1 month; 365 days = 1 year. Other durations are shown in days."
+        )}
+      </p>
+      <div class="admin-editor-section-actions">
+        {#each [7, 14, 30, 90, 180, 365] as days (days)}
+          <AdminButton
+            size="sm"
+            disabled={tariffDraft.periodRows.some((row) => Number(row.duration_days) === days)}
+            onclick={() => addPeriodRow(days)}>{adminDurationLabel(days, at)}</AdminButton
+          >
+        {/each}
+      </div>
       {#if !tariffDraft.periodRows.length}
         <p class="admin-muted">
           {at(
@@ -136,7 +153,7 @@
         <div class="admin-row-editor">
           <div class="admin-row-editor-line admin-row-editor-period admin-row-editor-header">
             <span></span>
-            <span>{at("tariff_col_period_months", {}, "Period, mo.")}</span>
+            <span>{at("tariff_period_days", {}, "Period, days")}</span>
             <span>{currencyPriceColumnLabel}</span>
             <span>{at("tariff_col_price_stars_full", {}, "⭐ Stars")}</span>
             <span>{at("tariff_col_ref_inviter", {}, "Inviter bonus")}</span>
@@ -152,16 +169,17 @@
           >
             {#snippet children(row: DraftRow, index: number)}
               <span class="admin-row-editor-mobile-label" aria-hidden="true"
-                >{at("tariff_col_period_months", {}, "Period, mo.")}</span
+                >{at("tariff_period_days", {}, "Period, days")}</span
               >
               <Input
                 class="input"
                 type="number"
                 min="1"
                 placeholder="1"
-                value={row.months}
-                oninput={draftRowInputHandler(tariffsStore, "periodRows", index, "months")}
-                aria-label={at("tariff_col_period_months", {}, "Period, mo.")}
+                value={row.duration_days}
+                title={adminDurationLabel(row.duration_days, at)}
+                oninput={draftRowInputHandler(tariffsStore, "periodRows", index, "duration_days")}
+                aria-label={at("tariff_period_days", {}, "Period, days")}
               />
               <span class="admin-row-editor-mobile-label" aria-hidden="true"
                 >{currencyPriceColumnLabel}</span
@@ -300,7 +318,7 @@
             <div
               class="admin-row-editor-line admin-row-editor-tribute-period admin-row-editor-header"
             >
-              <span>{at("tariff_col_period_months", {}, "Period, mo.")}</span>
+              <span>{at("tariff_period_days", {}, "Period, days")}</span>
               <span>{at("tariff_col_tribute_link", {}, "Tribute subscription link")}</span>
               <span>{at("tariff_col_tribute_subscription_id", {}, "Tribute subscription ID")}</span>
               <span>{at("tariff_col_tribute_period_id", {}, "Tribute period ID")}</span>
@@ -309,7 +327,7 @@
               {@const row = periodRow as DraftRow}
               <div class="admin-row-editor-line admin-row-editor-tribute-period">
                 <span class="admin-row-editor-static">
-                  {at("tariff_tribute_period_months", { months: row.months }, "{months} mo.")}
+                  {adminDurationLabel(row.duration_days, at)}
                 </span>
                 <span class="admin-row-editor-mobile-label" aria-hidden="true"
                   >{at("tariff_col_tribute_link", {}, "Tribute subscription link")}</span

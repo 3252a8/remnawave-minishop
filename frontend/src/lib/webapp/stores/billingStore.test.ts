@@ -3,6 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import { createBillingStore } from "./billingStore.js";
 type TestOverrides = Record<string, unknown>;
 
+const translateFallback = (key: string, params: Record<string, unknown> = {}, fallback = "") =>
+  String(fallback || key).replace(/\{(\w+)\}/g, (_, name) => String(params[name] ?? `{${name}}`));
+
 function makeBillingStore(overrides: TestOverrides = {}) {
   const { billing: rawBillingOverrides, ...depOverrides } = overrides;
   const billingOverrides = (rawBillingOverrides || {}) as Record<string, unknown>;
@@ -12,6 +15,7 @@ function makeBillingStore(overrides: TestOverrides = {}) {
     fetchTariffChangeOptions: vi.fn(),
     notifyPlansViewed: vi.fn().mockResolvedValue({ ok: true }),
     postPayment: vi.fn(),
+    cancelPayment: vi.fn(),
     quotePromo: vi.fn(),
     postTariffChange: vi.fn(),
     postTariffChangePayment: vi.fn(),
@@ -26,6 +30,7 @@ function makeBillingStore(overrides: TestOverrides = {}) {
     billing,
     loadData: vi.fn(),
     t: (key: string) => key,
+    termUnitLabel: (value: number, unit: string) => (value === 1 ? unit : `${unit}s`),
     showToast: vi.fn(),
     openExternalLink: vi.fn(),
     ...depOverrides,
@@ -65,6 +70,37 @@ describe("billingStore", () => {
     });
   });
 
+  it("selects the requested plan period and retains flexible checkout presets", () => {
+    const { store } = makeBillingStore();
+    const preset = { deviceTotal: 5, regularLimitGb: 300, premiumLimitGb: 100 };
+
+    store.openPaymentModal(
+      true,
+      false,
+      [{ key: "pro", is_default: true }] as unknown as Parameters<typeof store.openPaymentModal>[2],
+      { active: false },
+      [
+        { id: "pro-1", tariff_key: "pro", months: 1 },
+        { id: "pro-6", tariff_key: "pro", months: 6 },
+      ],
+      "card",
+      {
+        preferredPlanId: "pro",
+        preferredTariffKey: "pro",
+        preferredMonths: 6,
+        checkoutAddonPreset: preset,
+      }
+    );
+
+    expect(store).toMatchObject({
+      paymentModalOpen: true,
+      paymentStep: "checkout",
+      selectedTariffKey: "pro",
+      selectedPlan: { id: "pro-6", months: 6 },
+      checkoutAddonPreset: preset,
+    });
+  });
+
   it("loads topup options and selects the first plan", async () => {
     const { store, billing } = makeBillingStore({
       billing: {
@@ -93,6 +129,7 @@ describe("billingStore", () => {
 
   it("applies checkout code quote and includes it in payment creation", async () => {
     const { store, deps, billing } = makeBillingStore({
+      t: translateFallback,
       billing: {
         postPayment: vi.fn().mockResolvedValue({
           ok: true,
@@ -137,7 +174,7 @@ describe("billingStore", () => {
       checkoutPromoInput: "SAVE10",
       checkoutPromoAppliedCode: "SAVE10",
       checkoutPromoPriceText: "90 ₽",
-      checkoutPromoStatus: "-10%",
+      checkoutPromoStatus: "10% discount",
       checkoutPromoDiscountPercent: 10,
       checkoutPromoAppliesTo: "subscription",
     });
@@ -158,6 +195,7 @@ describe("billingStore", () => {
 
   it("automatically applies a suggested personal code and lets the user remove it", async () => {
     const { store, billing } = makeBillingStore({
+      t: translateFallback,
       billing: {
         quotePromo: vi.fn().mockResolvedValue({
           ok: true,
@@ -187,7 +225,7 @@ describe("billingStore", () => {
 
     await vi.waitFor(() => expect(store.checkoutPromoAppliedCode).toBe("PERSONAL20"));
     expect(billing.quotePromo).toHaveBeenCalledOnce();
-    expect(store.checkoutPromoStatus).toBe("-20%");
+    expect(store.checkoutPromoStatus).toBe("20% discount");
 
     store.clearCheckoutPromo();
     expect(store).toMatchObject({
@@ -286,7 +324,8 @@ describe("billingStore", () => {
       [],
       { active: false },
       [{ id: "plan-1", price: 900, currency: "RUB" }],
-      "yookassa"
+      "yookassa",
+      { preferredPlanId: "plan-1" }
     );
 
     await store.resumePendingPayment({
@@ -303,6 +342,75 @@ describe("billingStore", () => {
     await vi.advanceTimersByTimeAsync(1500);
     expect(billing.fetchPaymentStatus).toHaveBeenCalledWith(17);
     vi.useRealTimers();
+  });
+
+  it("cancels a pending checkout and reapplies its promo to the selected plan", async () => {
+    const { store, deps, billing } = makeBillingStore({
+      t: translateFallback,
+      billing: {
+        cancelPayment: vi.fn().mockResolvedValue({
+          ok: true,
+          payment_id: 17,
+          status: "canceled",
+        }),
+        quotePromo: vi.fn().mockResolvedValue({
+          ok: true,
+          valid: true,
+          code: "SAVE20",
+          effect_summary: "-20%",
+          discount_percent: 20,
+          applies_to: "subscription",
+          effective_amount: 720,
+        }),
+      },
+    });
+    store.openPaymentModal(
+      false,
+      false,
+      [],
+      { active: false },
+      [{ id: "plan-1", price: 900, currency: "RUB" }],
+      "yookassa",
+      { preferredPlanId: "plan-1" }
+    );
+
+    await store.cancelPendingPayment({
+      payment_id: 17,
+      payment_url: "https://pay.example/17",
+      provider: "yookassa",
+      promo_code: "SAVE20",
+    } as Parameters<typeof store.cancelPendingPayment>[0]);
+
+    expect(billing.cancelPayment).toHaveBeenCalledWith(17);
+    expect(deps.loadData).toHaveBeenCalledWith({ fresh: true, preserveView: true });
+    expect(billing.quotePromo).toHaveBeenCalledOnce();
+    expect(store).toMatchObject({
+      paymentModalOpen: true,
+      checkoutPromoInput: "SAVE20",
+      checkoutPromoAppliedCode: "SAVE20",
+      checkoutPromoStatus: "20% discount",
+    });
+    expect(deps.showToast).toHaveBeenCalledWith("wa_pending_payment_canceled");
+  });
+
+  it("keeps a pending promo reserved when provider cancellation is unavailable", async () => {
+    const { store, deps, billing } = makeBillingStore({
+      billing: {
+        cancelPayment: vi.fn().mockResolvedValue({
+          ok: false,
+          error: "payment_cancel_unavailable",
+        }),
+      },
+    });
+
+    await store.cancelPendingPayment({
+      payment_id: 17,
+      promo_code: "SAVE20",
+    } as Parameters<typeof store.cancelPendingPayment>[0]);
+
+    expect(billing.cancelPayment).toHaveBeenCalledWith(17);
+    expect(deps.loadData).not.toHaveBeenCalled();
+    expect(deps.showToast).toHaveBeenCalledWith("wa_pending_payment_cancel_unavailable");
   });
 
   it("applies no-payment tariff changes and refreshes data", async () => {

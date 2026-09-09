@@ -130,6 +130,65 @@ class AdminUserDeleteRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(session.committed)
         self.assertFalse(session.rolled_back)
 
+    async def test_deletes_local_user_when_panel_lookup_confirms_user_is_absent(self):
+        session = FakeSession()
+        panel_service = SimpleNamespace(
+            delete_user_from_panel=AsyncMock(return_value=False),
+            get_user_by_uuid_lookup=AsyncMock(
+                return_value={
+                    "ok": False,
+                    "user": None,
+                    "not_found": True,
+                    "failure_reason": (
+                        "classification=confirmed_not_found status_code=404 error_code=A025"
+                    ),
+                    "response": {
+                        "error": True,
+                        "status_code": 404,
+                        "details": {"errorCode": "A025", "message": "User not found"},
+                    },
+                }
+            ),
+        )
+        request = self._request(session, {"panel_service": panel_service})
+        user = SimpleNamespace(user_id=42, panel_user_uuid="panel-main")
+
+        with (
+            patch.object(users_actions, "_require_admin_user_id", return_value=100),
+            patch.object(admin_users.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
+            patch.object(
+                admin_users.user_dal,
+                "get_panel_user_uuids_for_user",
+                AsyncMock(return_value=["panel-main"]),
+            ),
+            patch.object(
+                admin_users.user_dal,
+                "delete_user_and_relations",
+                AsyncMock(return_value=True),
+            ) as delete_db,
+            patch.object(
+                admin_users.message_log_dal,
+                "create_message_log_no_commit",
+                AsyncMock(),
+            ),
+            patch.object(users_actions, "_invalidate_after_admin_user_mutation", AsyncMock()),
+        ):
+            response = await admin_users.admin_user_delete_route(request)
+
+        self.assertEqual(response.status, 200)
+        self.assertEqual(json.loads(response.text)["ok"], True)
+        panel_service.delete_user_from_panel.assert_awaited_once_with(
+            "panel-main",
+            log_response=False,
+        )
+        panel_service.get_user_by_uuid_lookup.assert_awaited_once_with(
+            "panel-main",
+            log_response=False,
+        )
+        delete_db.assert_awaited_once_with(session, 42)
+        self.assertTrue(session.committed)
+        self.assertFalse(session.rolled_back)
+
     async def test_aborts_when_panel_service_is_unavailable_for_panel_user(self):
         session = FakeSession()
         request = self._request(session)

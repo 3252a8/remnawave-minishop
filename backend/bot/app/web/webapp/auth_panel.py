@@ -8,6 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.app.web.context import (
     get_optional_subscription_service,
 )
+from bot.infra.auto_renew import (
+    managed_recurring_service_for,
+    stop_provider_managed_recurrence,
+)
+from bot.payment_providers.shared import service_manages_recurrence
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
 from config.settings import Settings
@@ -33,9 +38,9 @@ async def _sync_panel_identity_for_user(
     *,
     expire_at: datetime | None = None,
 ) -> bool:
-    if not user.panel_user_uuid:
+    if not getattr(user, "panel_user_uuid", None):
         return False
-    subscription_service: SubscriptionService = get_optional_subscription_service(request)
+    subscription_service: SubscriptionService | None = get_optional_subscription_service(request)
     if not subscription_service or not subscription_service.panel_service:
         return False
 
@@ -85,7 +90,7 @@ async def _delete_merged_source_panel_user(
     if not source_panel_uuid or not final_panel_uuid or source_panel_uuid == final_panel_uuid:
         return True
 
-    subscription_service: SubscriptionService = get_optional_subscription_service(request)
+    subscription_service: SubscriptionService | None = get_optional_subscription_service(request)
     if not subscription_service or not subscription_service.panel_service:
         return False
 
@@ -105,6 +110,65 @@ async def _delete_merged_source_panel_user(
         return False
 
 
+async def _merge_users_for_web(
+    request: web.Request,
+    session: AsyncSession,
+    *,
+    source_user_id: int,
+    target_user_id: int,
+    reason: str,
+    send_user_email: bool,
+) -> User:
+    """Merge two users while keeping at most one recurring billing agreement."""
+
+    subscription_service: SubscriptionService | None = get_optional_subscription_service(request)
+
+    async def cancel_source_recurring(
+        merge_session: AsyncSession,
+        user_id: int,
+        subscription: Any,
+        managed_providers: tuple[str, ...],
+    ) -> bool:
+        try:
+            for provider in managed_providers:
+                managed_service = managed_recurring_service_for(
+                    subscription_service,
+                    provider,
+                )
+                if not service_manages_recurrence(managed_service):
+                    return False
+                if not await stop_provider_managed_recurrence(
+                    subscription_service,
+                    merge_session,
+                    user_id=user_id,
+                    provider=provider,
+                ):
+                    return False
+            if subscription is not None:
+                await subscription_dal.set_auto_renew(
+                    merge_session,
+                    int(subscription.subscription_id),
+                    False,
+                    stop_reason="account_merged",
+                )
+            return True
+        except Exception:
+            logger.exception(
+                "Failed to cancel recurring billing before merging user %s",
+                user_id,
+            )
+            return False
+
+    return await user_dal.merge_users(
+        session,
+        source_user_id=source_user_id,
+        target_user_id=target_user_id,
+        reason=reason,
+        send_user_email=send_user_email,
+        cancel_source_recurring=cancel_source_recurring,
+    )
+
+
 async def _sync_merged_panel_identity_for_user(
     request: web.Request,
     user: User,
@@ -112,15 +176,34 @@ async def _sync_merged_panel_identity_for_user(
     source_panel_uuid: str | None,
     final_panel_uuid: str | None,
     expire_at: datetime | None = None,
+    session: AsyncSession | None = None,
 ) -> bool:
     # Remnawave keeps email/telegramId unique. Remove the losing panel identity
     # before patching the surviving one so merged accounts can accept both IDs.
-    await _delete_merged_source_panel_user(
+    removed = await _delete_merged_source_panel_user(
         request,
         source_panel_uuid=source_panel_uuid,
-        final_panel_uuid=final_panel_uuid or user.panel_user_uuid,
+        final_panel_uuid=final_panel_uuid or getattr(user, "panel_user_uuid", None),
     )
-    return await _sync_panel_identity_for_user(request, user, expire_at=expire_at)
+    if not removed:
+        logger.warning(
+            "Merged source panel user %s could not be removed; continuing entitlement sync",
+            source_panel_uuid,
+        )
+
+    subscription_service: SubscriptionService = get_optional_subscription_service(request)
+    sync_entitlements = getattr(
+        subscription_service,
+        "sync_main_traffic_limit_to_panel",
+        None,
+    )
+    if session is not None and callable(sync_entitlements):
+        synced = await sync_entitlements(session, int(user.user_id))
+        await session.commit()
+        if synced:
+            return removed
+    identity_synced = await _sync_panel_identity_for_user(request, user, expire_at=expire_at)
+    return removed and identity_synced
 
 
 async def _build_account_merge_notice(
@@ -148,13 +231,18 @@ async def _build_account_merge_notice(
     if final_end_date and final_end_date.tzinfo is None:
         final_end_date = final_end_date.replace(tzinfo=UTC)
 
+    primary_panel_uuid = merged_user.panel_user_uuid
+    removed_panel_uuid = source_panel_uuid
+    if source_panel_uuid and source_panel_uuid == primary_panel_uuid:
+        removed_panel_uuid = None
+
     return {
         "merged": True,
         "language": _normalize_language(merged_user.language_code or settings.DEFAULT_LANGUAGE),
         "primary_user_id": int(merged_user.user_id),
         "removed_user_id": int(source_user_id),
-        "primary_panel_user_uuid": merged_user.panel_user_uuid,
-        "removed_panel_user_uuid": source_panel_uuid,
+        "primary_panel_user_uuid": primary_panel_uuid,
+        "removed_panel_user_uuid": removed_panel_uuid,
         "final_end_date": final_end_date.isoformat() if final_end_date else None,
         "final_end_date_text": _format_webapp_datetime(final_end_date),
     }
@@ -199,13 +287,8 @@ async def _link_telegram_to_user(
         existing_telegram_user = await user_dal.get_user_by_id(session, telegram_id)
 
     if existing_telegram_user and existing_telegram_user.user_id != current_user.user_id:
-        if (
-            current_user.email
-            and existing_telegram_user.email
-            and current_user.email != existing_telegram_user.email
-        ):
-            raise UserMergeConflictError("Telegram account is already linked to a different email.")
-        merged_user = await user_dal.merge_users(
+        merged_user = await _merge_users_for_web(
+            request,
             session,
             source_user_id=current_user.user_id,
             target_user_id=existing_telegram_user.user_id,
@@ -239,7 +322,8 @@ async def _link_telegram_to_user(
         )
         target_user.referral_code = None
         await session.flush()
-        merged_user = await user_dal.merge_users(
+        merged_user = await _merge_users_for_web(
+            request,
             session,
             source_user_id=current_user.user_id,
             target_user_id=target_user.user_id,
@@ -251,7 +335,11 @@ async def _link_telegram_to_user(
         return merged_user
 
     if current_user.telegram_id and int(current_user.telegram_id) != telegram_id:
-        raise UserMergeConflictError("Current account is already linked to Telegram.")
+        raise UserMergeConflictError(
+            "Current account is already linked to Telegram.",
+            message_key="account_merge_telegram_conflict",
+            code="account_merge_telegram_conflict",
+        )
 
     _apply_telegram_profile_to_user(current_user, telegram_user, settings)
     await session.flush()

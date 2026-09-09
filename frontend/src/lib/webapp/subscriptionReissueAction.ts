@@ -44,19 +44,20 @@ export function createSubscriptionReissueAction({
     try {
       const response = await billing.postSubscriptionReissue();
       if (!response.ok) throw response;
+      const deliveryChannel = String(response.delivery_channel || "app");
       showToast(
-        response.email_sent
+        deliveryChannel === "email"
           ? t("wa_subscription_reissue_done")
-          : t("wa_subscription_reissue_done_email_failed")
+          : deliveryChannel === "telegram"
+            ? t("wa_subscription_reissue_done_telegram")
+            : t("wa_subscription_reissue_done_app")
       );
       setDialogOpen(false);
       await loadData({ fresh: true, preserveView: true });
       await refreshDevices();
     } catch (error: unknown) {
       const errorRecord = asRecord(error);
-      if (errorRecord.error === "email_required") {
-        showToast(t("wa_subscription_reissue_email_required"));
-      } else if (errorRecord.error === "subscription_not_active") {
+      if (errorRecord.error === "subscription_not_active") {
         showToast(t("wa_subscription_reissue_requires_subscription"));
       } else {
         showToast(errorRecord.message || t("wa_subscription_reissue_failed"));

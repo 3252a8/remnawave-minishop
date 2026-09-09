@@ -626,6 +626,76 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 now.replace(day=1, hour=0, minute=0, second=0, microsecond=0),
             )
 
+    async def test_scheduled_flexible_limit_keeps_current_regular_baseline(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "tariffs.json"
+            config_path.write_text(json.dumps(_tariffs_config_payload()), encoding="utf-8")
+            settings = Settings(
+                _env_file=None,
+                BOT_TOKEN="token",
+                POSTGRES_USER="app_user",
+                POSTGRES_PASSWORD="app_password",
+                TARIFFS_CONFIG_PATH=str(config_path),
+            )
+            panel_service = AsyncMock(spec=PanelApiService)
+            panel_service.update_user_details_on_panel = AsyncMock(return_value={"response": {}})
+            subscription_service = SubscriptionService(settings, panel_service)
+            worker = TariffTrafficWorker(
+                settings=settings,
+                session_factory=SimpleNamespace(),
+                panel_service=panel_service,
+                subscription_service=subscription_service,
+            )
+            current_limit = 1000 * (1024**3)
+            sub = SimpleNamespace(
+                subscription_id=652,
+                user_id=123,
+                panel_user_uuid="panel-uuid",
+                end_date=datetime.now(UTC) + timedelta(days=30),
+                traffic_limit_bytes=current_limit,
+                traffic_used_bytes=0,
+                tier_baseline_bytes=current_limit,
+                topup_balance_bytes=0,
+                regular_bonus_bytes=0,
+                regular_unlimited_override=False,
+                hwid_device_limit=0,
+                extra_hwid_devices=0,
+            )
+            tariff = settings.tariffs_config.require("standard")
+
+            with (
+                patch(
+                    "bot.services.tariff_worker_regular.tariff_dal.get_active_flexible_traffic_limits",
+                    new=AsyncMock(return_value={}),
+                ),
+                patch(
+                    "bot.services.tariff_worker_shared.tariff_dal.get_flexible_traffic_limit_history_start",
+                    new=AsyncMock(return_value=datetime.now(UTC) + timedelta(days=2)),
+                ),
+                patch(
+                    "bot.services.tariff_worker_regular.tariff_dal.get_hwid_device_entitlement_summary",
+                    new=AsyncMock(
+                        return_value={
+                            "active_devices": 0,
+                            "traffic_bonus_bytes": 0,
+                            "legacy_active_devices": 0,
+                        }
+                    ),
+                ),
+            ):
+                await worker._sync_hwid_device_limit(
+                    AsyncMock(spec=AsyncSession),
+                    sub,
+                    tariff,
+                    {
+                        "trafficLimitBytes": current_limit,
+                        "hwidDeviceLimit": 0,
+                    },
+                )
+
+            self.assertEqual(sub.tier_baseline_bytes, current_limit)
+            panel_service.update_user_details_on_panel.assert_not_awaited()
+
     async def test_limit_reached_does_not_remove_user_from_squad(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "tariffs.json"
@@ -676,7 +746,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             panel_service.remove_users_from_internal_squad.assert_not_awaited()
             self.assertFalse(sub.is_throttled)
 
-    async def test_premium_limit_removes_only_premium_squad(self):
+    async def test_premium_limit_uses_updated_tariff_baseline(self):
         payload = _tariffs_config_payload()
         payload["tariffs"][0]["premium_squad_uuids"] = ["premium-squad"]
         payload["tariffs"][0]["premium_monthly_gb"] = 1
@@ -717,7 +787,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 subscription_id=1,
                 user_id=123,
                 panel_user_uuid="panel-uuid",
-                premium_baseline_bytes=1 * (1024**3),
+                premium_baseline_bytes=50 * (1024**3),
                 premium_topup_balance_bytes=0,
                 premium_topup_used_bytes=0,
                 premium_used_bytes=0,
@@ -739,6 +809,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 )
 
             self.assertTrue(sub.premium_is_limited)
+            self.assertEqual(sub.premium_baseline_bytes, 1 * (1024**3))
             panel_service.update_user_details_on_panel.assert_awaited_once()
             payload = panel_service.update_user_details_on_panel.await_args.args[1]
             self.assertEqual(payload["activeInternalSquads"], ["squad-1"])
@@ -896,6 +967,97 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             )
             panel_service.get_internal_squad_accessible_nodes.assert_not_awaited()
             panel_service.get_node_users_bandwidth_stats.assert_not_awaited()
+            self.assertFalse(sub.premium_is_limited)
+
+    async def test_tariff_squad_edit_replaces_managed_squads_and_keeps_manual_override(self):
+        payload = _tariffs_config_payload()
+        payload["tariffs"][0]["squad_uuids"] = ["new-base"]
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "tariffs.json"
+            config_path.write_text(json.dumps(payload), encoding="utf-8")
+
+            settings = Settings(
+                _env_file=None,
+                BOT_TOKEN="token",
+                POSTGRES_USER="app_user",
+                POSTGRES_PASSWORD="app_password",
+                TARIFFS_CONFIG_PATH=str(config_path),
+            )
+            panel_service = AsyncMock(spec=PanelApiService)
+            panel_service.update_user_details_on_panel = AsyncMock(return_value={"response": {}})
+            subscription_service = SubscriptionService(settings, panel_service)
+            worker = TariffTrafficWorker(
+                settings=settings,
+                session_factory=SimpleNamespace(),
+                panel_service=panel_service,
+                subscription_service=subscription_service,
+            )
+            sub = SimpleNamespace(
+                subscription_id=1,
+                user_id=123,
+                panel_user_uuid="panel-uuid",
+                premium_baseline_bytes=10,
+                premium_topup_balance_bytes=5,
+                premium_used_bytes=3,
+                premium_is_limited=True,
+                tariff_managed_squad_uuids='["old-base","old-premium"]',
+            )
+            session = AsyncMock(spec=AsyncSession)
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.squad_overrides."
+                    "override_dal.deactivate_panel_internal_overrides_for_squads",
+                    new=AsyncMock(return_value=0),
+                ) as deactivate_overrides,
+                patch(
+                    "bot.services.subscription_service_impl.squad_overrides."
+                    "override_dal.upsert_internal_override",
+                    new=AsyncMock(),
+                ) as upsert_override,
+                patch(
+                    "bot.services.subscription_service_impl.squad_overrides."
+                    "override_dal.get_active_internal_squad_uuids",
+                    new=AsyncMock(return_value=["manual-squad"]),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.squad_overrides."
+                    "override_dal.get_active_external_override",
+                    new=AsyncMock(return_value=None),
+                ),
+            ):
+                await worker._sync_premium_squad_limit(
+                    session,
+                    sub,
+                    settings.tariffs_config.require("standard"),
+                    datetime.now(UTC),
+                    panel_user_dict={
+                        "activeInternalSquads": [
+                            {"uuid": "old-base"},
+                            {"uuid": "old-premium"},
+                            {"uuid": "manual-squad"},
+                        ]
+                    },
+                    panel_view="full_fetch",
+                )
+
+            panel_service.update_user_details_on_panel.assert_awaited_once()
+            panel_payload = panel_service.update_user_details_on_panel.await_args.args[1]
+            self.assertEqual(
+                panel_payload["activeInternalSquads"],
+                ["new-base", "manual-squad"],
+            )
+            deactivate_kwargs = deactivate_overrides.await_args.kwargs
+            self.assertEqual(
+                deactivate_kwargs["squad_uuids"],
+                ["old-base", "old-premium", "new-base"],
+            )
+            upsert_override.assert_awaited_once()
+            self.assertEqual(upsert_override.await_args.kwargs["squad_uuid"], "manual-squad")
+            self.assertEqual(json.loads(sub.tariff_managed_squad_uuids), ["new-base"])
+            self.assertEqual(sub.premium_baseline_bytes, 0)
+            self.assertEqual(sub.premium_topup_balance_bytes, 0)
+            self.assertEqual(sub.premium_used_bytes, 0)
             self.assertFalse(sub.premium_is_limited)
 
     async def test_trial_premium_limit_uses_trial_premium_traffic_limit(self):
@@ -2535,7 +2697,10 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             TARIFF_PREMIUM_FAST_WATCH_PERCENT=80,
             TARIFF_PREMIUM_FAST_BATCH_LIMIT=200,
             tariffs_config=SimpleNamespace(
-                require=lambda key: premium_tariff if key == "standard" else regular_tariff
+                require=lambda key: premium_tariff if key == "standard" else regular_tariff,
+                require_configured=lambda key: (
+                    premium_tariff if key == "standard" else regular_tariff
+                ),
             ),
         )
         panel_service = AsyncMock(spec=PanelApiService)

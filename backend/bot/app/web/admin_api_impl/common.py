@@ -14,7 +14,8 @@ from config.tariffs_config import TariffsConfig
 from config.traffic_strategy import normalize_traffic_limit_strategy
 from db.models import AdCampaign, MessageLog, Payment, PromoCode, Subscription, User
 
-from .schemas import AdminSubscriptionOut, AdminUserOut, AdOut, LogOut, PaymentOut, PromoOut
+from .payment_schemas import PaymentOut
+from .schemas import AdminSubscriptionOut, AdminUserOut, AdOut, LogOut, PromoOut
 
 
 def _ok(payload: dict[str, Any], **extra: Any) -> web.Response:
@@ -141,7 +142,7 @@ def _admin_subscription_billing_model(
             tariffs_config = None
         if tariffs_config is not None:
             try:
-                tariff = tariffs_config.require(tariff_key)
+                tariff = tariffs_config.require_configured(tariff_key)
             except Exception:
                 tariff = None
             billing_model = str(getattr(tariff, "billing_model", "") or "").strip().lower()
@@ -168,7 +169,7 @@ def _admin_subscription_traffic_strategy_fallback(
     tariff_key = str(getattr(sub, "tariff_key", "") or "").strip()
     if tariff_key:
         try:
-            tariff = settings.tariffs_config.require(tariff_key)
+            tariff = settings.tariffs_config.require_configured(tariff_key)
         except Exception:
             tariff = None
         configured_strategy = getattr(tariff, "traffic_limit_strategy", None)
@@ -316,6 +317,20 @@ def _write_tariffs_config_file(path: Path, config: TariffsConfig) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(f"{path.suffix}.tmp")
     payload = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+    if path.exists() and config.schema_version == 2:
+        previous = path.read_bytes()
+        try:
+            legacy = json.loads(previous).get("schema_version", 1) == 1
+        except (ValueError, AttributeError):
+            legacy = False
+        if legacy:
+            backup = path.with_suffix(f"{path.suffix}.v1.bak")
+            try:
+                with backup.open("xb") as stream:
+                    stream.write(previous)
+            except FileExistsError:
+                pass
+
     try:
         tmp_path.write_text(payload, encoding="utf-8")
         tmp_path.replace(path)

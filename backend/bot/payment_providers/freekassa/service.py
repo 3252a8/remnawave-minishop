@@ -422,17 +422,32 @@ class FreeKassaService(HttpClientMixin):
             self.api_key.encode("utf-8"), message.encode("utf-8"), hashlib.sha256
         ).hexdigest()
 
-    def _validate_signature(self, raw_body: bytes, provided_signature: str) -> bool:
+    def _validate_signature(
+        self,
+        *,
+        merchant_id: str,
+        amount: str,
+        order_id: str,
+        provided_signature: str,
+    ) -> bool:
         if not provided_signature or not self.second_secret:
             return False
-        expected_signature = hmac.new(
-            self.second_secret.encode("utf-8"),
-            raw_body,
-            hashlib.sha256,
+        signature_payload = f"{merchant_id}:{amount}:{self.second_secret}:{order_id}"
+        expected_signature = hashlib.md5(
+            signature_payload.encode("utf-8"),
+            usedforsecurity=False,
         ).hexdigest()
-        return constant_time_compare(expected_signature, provided_signature)
+        return constant_time_compare(
+            expected_signature,
+            provided_signature,
+            case_sensitive=False,
+        )
 
     async def webhook_route(self, request: web.Request) -> web.Response:
+        request_method = str(getattr(request, "method", "POST")).upper()
+        if request_method == "GET" and request.query.get("status_check") == "1":
+            return web.Response(text="YES")
+
         if not self.api_configured:
             return web.Response(status=503, text="freekassa_disabled")
 
@@ -460,7 +475,9 @@ class FreeKassaService(HttpClientMixin):
             return web.Response(status=400, text="bad_request")
 
         payload_dict: dict[str, Any] = {}
-        if raw_body:
+        if request_method == "GET":
+            payload_dict = {str(key): value for key, value in request.query.items()}
+        elif raw_body:
             try:
                 if request.content_type.startswith("application/json"):
                     decoded_json = json.loads(raw_body.decode("utf-8"))
@@ -480,7 +497,7 @@ class FreeKassaService(HttpClientMixin):
             return payload_dict.get(key) or payload_dict.get(key.lower()) or default
 
         merchant_id = _get("MERCHANT_ID")
-        if merchant_id != self.shop_id:
+        if not merchant_id or merchant_id != self.shop_id:
             return web.Response(status=403)
 
         signature = _get("SIGN") or _get("signature")
@@ -494,7 +511,12 @@ class FreeKassaService(HttpClientMixin):
         if not order_id_str or not amount_str:
             return web.Response(status=400, text="missing_data")
 
-        if not self._validate_signature(raw_body, signature):
+        if not self._validate_signature(
+            merchant_id=merchant_id,
+            amount=amount_str,
+            order_id=order_id_str,
+            provided_signature=signature,
+        ):
             return web.Response(status=403, text="invalid_signature")
 
         try:
@@ -794,6 +816,7 @@ SPEC = PaymentProviderSpec(
     create_service=create_service,
     webhook_path=lambda source: "/webhook/freekassa",
     webhook_route=freekassa_webhook_route,
+    webhook_methods=("GET", "POST"),
     create_webapp_payment=create_webapp_payment,
     reuse_webapp_payment=reuse_webapp_payment,
     config_class=FreeKassaConfig,

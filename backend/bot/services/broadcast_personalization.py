@@ -73,6 +73,7 @@ SHORTCODES: dict[str, ShortcodeSpec] = {
         _spec("traffic_left", "db"),
         _spec("install_link", "db"),
         _spec("miniapp_link", "db"),
+        _spec("gifts_link", "db"),
         _spec("config_link", "panel"),
         _spec("referral_code", "db"),
         _spec("referral_bot_link", "db"),
@@ -194,6 +195,7 @@ class BroadcastUserContext:
     tariff_key: str | None = None
     effective_monthly_price_rub: float | None = None
     duration_months: int | None = None
+    duration_days: int | None = None
     panel_user_uuid: str | None = None
     install_link: str | None = None
     config_link: str | None = None
@@ -208,6 +210,7 @@ class _ActiveSubRow:
     effective_monthly_price_rub: float | None
     duration_months: int | None
     panel_user_uuid: str | None
+    duration_days: int | None = None
 
 
 def _chunked(values: list[int], size: int = _CHUNK_SIZE) -> list[list[int]]:
@@ -252,7 +255,7 @@ async def load_broadcast_contexts(
                 first_name=user.first_name,
                 last_name=user.last_name,
                 username=user.username,
-                email=user.email,
+                email=getattr(user, "notification_email", None) or user.email,
                 language_code=user.language_code,
                 referral_code=user.referral_code,
             )
@@ -274,6 +277,7 @@ async def load_broadcast_contexts(
             ctx.tariff_key = row.tariff_key
             ctx.effective_monthly_price_rub = row.effective_monthly_price_rub
             ctx.duration_months = row.duration_months
+            ctx.duration_days = row.duration_days
             ctx.panel_user_uuid = row.panel_user_uuid
 
     if "subscription_status" in known:
@@ -329,6 +333,7 @@ async def _load_latest_active_subscriptions(
                 Subscription.effective_monthly_price_rub,
                 Subscription.duration_months,
                 Subscription.panel_user_uuid,
+                Subscription.duration_days,
             )
             .where(
                 Subscription.user_id.in_(chunk),
@@ -350,6 +355,7 @@ async def _load_latest_active_subscriptions(
                 effective_monthly_price_rub=float(row[5]) if row[5] is not None else None,
                 duration_months=int(row[6]) if row[6] is not None else None,
                 panel_user_uuid=str(row[7]).strip() if row[7] else None,
+                duration_days=int(row[8]) if len(row) > 8 and row[8] is not None else None,
             )
     return latest
 
@@ -534,9 +540,13 @@ def _tariff_price_value(
             tariff = tariffs_config.get(ctx.tariff_key) if tariffs_config else None
         except Exception:
             tariff = None
-        if tariff is not None and ctx.duration_months:
+        if tariff is not None and (ctx.duration_days or ctx.duration_months):
+            from config.subscription_periods import legacy_months_to_days
+
             currency_key = default_currency_key_for_settings(settings)
-            price = tariff.period_price(ctx.duration_months, currency_key)
+            days = ctx.duration_days or legacy_months_to_days(ctx.duration_months)
+            period = tariff.period_for_days(days)
+            price = tariff.period_price(period, currency_key) if period is not None else None
     if price is None:
         return dash
     symbol = str(settings.DEFAULT_CURRENCY_SYMBOL or "").strip()
@@ -576,11 +586,15 @@ def _resolve_value(
 
     if name == "miniapp_link":
         return mini_app_url
+    if name == "gifts_link":
+        from bot.services.message_composition import mini_app_section_link
+
+        return mini_app_section_link(mini_app_url, "invite") or ""
 
     if ctx is None:
         # Raw-id "admins" test target: no local user row → localized fallbacks.
         if name == "first_name":
-            return t("broadcast_value_friend")
+            return t("user_name_fallback")
         if name == "subscription_status":
             return t("broadcast_value_status_none")
         if name == "end_date":
@@ -600,7 +614,7 @@ def _resolve_value(
         return "" if name in _empty_without_user else dash
 
     if name == "first_name":
-        return ctx.first_name or ctx.username or t("broadcast_value_friend")
+        return ctx.first_name or ctx.username or t("user_name_fallback")
     if name == "last_name":
         return ctx.last_name or ""
     if name == "username":

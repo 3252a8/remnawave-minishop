@@ -6,6 +6,16 @@ import {
 import { buildTariffCatalog } from "./tariffs.js";
 import type { BillingPlan } from "./tariffs.js";
 import type { SubscriptionView } from "./types";
+import type { CheckoutDeeplink } from "./deeplinks.js";
+
+type BillingDeeplinkPaymentOptions = {
+  checkoutAddonPreset?: CheckoutDeeplink["addons"];
+  preferCheckout?: boolean;
+  preferredMonths?: number | null;
+  preferredPlanId?: string;
+  preferredTariffKey?: string;
+  selectDefaultTariff?: boolean;
+};
 
 type BillingDeeplinkStore = {
   applyCheckoutPromo?: () => Promise<void>;
@@ -16,7 +26,7 @@ type BillingDeeplinkStore = {
     subscription: SubscriptionView,
     plans: BillingPlan[],
     defaultMethod: string,
-    options: RenewalPaymentConfig["options"]
+    options: BillingDeeplinkPaymentOptions
   ) => void;
   openTopupModal: (kind: "premium" | "regular", defaultMethod: string) => void;
   setCheckoutPromoInput?: (value: string) => void;
@@ -31,11 +41,13 @@ export type BillingDeeplinkEffectsDeps = {
    */
   handleCheckoutPromoDeeplink?: (code: string, context: { modalOpened: boolean }) => void;
   readCheckoutPromoDeeplink?: () => string;
+  readCheckoutDeeplink?: () => CheckoutDeeplink | null;
   /** True when the app was opened on the checkout route. */
   readPlansDeeplink?: () => boolean;
   readRenewalDeeplink: () => { tariffKey: string } | null;
   setHomeRoute: () => void;
   stripCheckoutPromoQueryFromUrl?: () => void;
+  stripCheckoutDeeplinkFromUrl?: () => void;
   stripRenewalLoginQueryFromUrl: () => void;
   stripTopupQueryFromUrl: () => void;
 };
@@ -51,13 +63,21 @@ export function createBillingDeeplinkEffects({
   billingStore,
   handleCheckoutPromoDeeplink,
   readCheckoutPromoDeeplink = () => "",
+  readCheckoutDeeplink = () => null,
   readPlansDeeplink = () => false,
   readRenewalDeeplink,
   setHomeRoute,
   stripCheckoutPromoQueryFromUrl = () => {},
+  stripCheckoutDeeplinkFromUrl = () => {},
   stripRenewalLoginQueryFromUrl,
   stripTopupQueryFromUrl,
 }: BillingDeeplinkEffectsDeps) {
+  // Checkout routing is an entry intent, not persistent UI state. loadData()
+  // runs again for quotes, resume refreshes, and other background updates; if
+  // the route were read on every pass it could reopen plan selection over an
+  // in-progress checkout.
+  let checkoutEntryConsumed = false;
+
   function applyPostLoadBillingDeeplinks({
     defaultMethod,
     plans,
@@ -65,6 +85,10 @@ export function createBillingDeeplinkEffects({
     subscription,
   }: ApplyPostLoadBillingDeeplinksInput): void {
     let openedBillingDeeplink = false;
+    const checkoutDeeplink = checkoutEntryConsumed ? null : readCheckoutDeeplink();
+    const plansDeeplinkRequested = !checkoutEntryConsumed && readPlansDeeplink();
+    if (checkoutDeeplink || plansDeeplinkRequested) checkoutEntryConsumed = true;
+
     const topupDeeplinkKind = resolveTopupDeeplinkKind({ plans, search, subscription });
     if (topupDeeplinkKind) {
       billingStore.openTopupModal(topupDeeplinkKind, defaultMethod);
@@ -72,7 +96,29 @@ export function createBillingDeeplinkEffects({
       openedBillingDeeplink = true;
     }
 
-    if (!openedBillingDeeplink && readPlansDeeplink()) {
+    if (!openedBillingDeeplink && checkoutDeeplink) {
+      setHomeRoute();
+      billingStore.openPaymentModal(
+        plans.some((plan) => plan?.tariff_key),
+        false,
+        buildTariffCatalog(plans),
+        subscription,
+        plans,
+        defaultMethod,
+        {
+          preferCheckout: true,
+          preferredPlanId: checkoutDeeplink.plan,
+          preferredTariffKey: checkoutDeeplink.plan,
+          preferredMonths: checkoutDeeplink.months,
+          checkoutAddonPreset: checkoutDeeplink.addons,
+          ...(checkoutDeeplink.plan ? {} : { selectDefaultTariff: true }),
+        }
+      );
+      stripCheckoutDeeplinkFromUrl();
+      openedBillingDeeplink = true;
+    }
+
+    if (!openedBillingDeeplink && plansDeeplinkRequested) {
       // The checkout route has no screen of its own: it lands on home and
       // opens plan selection, so the customer picks a plan and a period in
       // one step instead of hunting for the button.

@@ -3,8 +3,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME:?Set DOCKERHUB_USERNAME to the Docker Hub account namespace}"
 IMAGE_REGISTRY="docker.io"
-IMAGE_NAMESPACE="3252a8"
+IMAGE_NAMESPACE="$(printf '%s' "$DOCKERHUB_USERNAME" | tr '[:upper:]' '[:lower:]')"
 IMAGE_TAG="${IMAGE_TAG:?Set IMAGE_TAG to the release tag you want to build and push}"
 export IMAGE_REGISTRY IMAGE_NAMESPACE IMAGE_TAG
 

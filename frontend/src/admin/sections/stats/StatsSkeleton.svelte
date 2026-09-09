@@ -180,8 +180,8 @@
       <AdminTableSkeleton
         {headers}
         rows={5}
-        rowHeight={62}
-        widths={["48px", "148px", "88px", "72px", "72px", "78px", "82px", "140px", "72px", "96px"]}
+        rowHeight={76}
+        widths={["11%", "15.5%", "18%", "9%", "7%", "9%", "9.5%", "9%", "12%"]}
       />
     </Card.Content>
   </Card.Root>

@@ -68,6 +68,7 @@ _PROVIDER_MODULES = {
     "stars": "StarsService",
     "wata": "WataService",
     "heleket": "HeleketService",
+    "oxapay": "OxaPayService",
     "paykilla": "PaykillaService",
     "lava": "LavaService",
     "pally": "PallyService",
@@ -160,6 +161,7 @@ def test_service_keys_and_statuses_come_from_provider_specs():
         "yookassa_service",
         "freekassa_service",
         "platega_service",
+        "rollypay_service",
         "severpay_service",
         "wata_service",
         "stars_service",
@@ -170,6 +172,7 @@ def test_service_keys_and_statuses_come_from_provider_specs():
         "pally_service",
         "cloudpayments_service",
         "overpay_service",
+        "oxapay_service",
         "stripe_service",
         "tribute_service",
         "qa_service",
@@ -189,6 +192,7 @@ def test_service_keys_and_statuses_come_from_provider_specs():
         "pending_pally",
         "pending_cloudpayments",
         "pending_overpay",
+        "pending_oxapay",
         "pending_stripe",
         "pending_tribute",
         "pending_qa",
@@ -364,7 +368,10 @@ def test_subscription_callback_uses_current_server_price():
         period_price=lambda months, currency: 299 if (months, currency) == (1, "rub") else None,
     )
     settings = SimpleNamespace(
-        tariffs_config=SimpleNamespace(require=lambda key: tariff if key == "standard" else None)
+        tariffs_config=SimpleNamespace(
+            require=lambda key: tariff if key == "standard" else None,
+            require_configured=lambda key: tariff if key == "standard" else None,
+        )
     )
 
     with patch(
@@ -401,7 +408,10 @@ def test_subscription_callback_revalidates_promo_before_adding_hwid_price():
         period_price=lambda months, currency: 299 if (months, currency) == (1, "rub") else None,
     )
     settings = SimpleNamespace(
-        tariffs_config=SimpleNamespace(require=lambda key: tariff if key == "standard" else None)
+        tariffs_config=SimpleNamespace(
+            require=lambda key: tariff if key == "standard" else None,
+            require_configured=lambda key: tariff if key == "standard" else None,
+        )
     )
     promo = SimpleNamespace(
         promo_code_id=17,
@@ -515,7 +525,10 @@ def test_subscription_callback_is_blocked_during_active_tribute_recurrence():
 def test_tariff_upgrade_callback_uses_current_server_quote():
     target = SimpleNamespace(key="premium")
     settings = SimpleNamespace(
-        tariffs_config=SimpleNamespace(require=lambda key: target if key == "premium" else None)
+        tariffs_config=SimpleNamespace(
+            require=lambda key: target if key == "premium" else None,
+            require_configured=lambda key: target if key == "premium" else None,
+        )
     )
     subscription_service = SimpleNamespace(
         calculate_tariff_switch_options_with_hwid=AsyncMock(return_value={"paid_diff_rub": 450})
@@ -581,7 +594,7 @@ def test_payment_method_keyboard_uses_custom_telegram_text_without_changing_call
 
     button = markup.inline_keyboard[0][0]
     assert button.text == "💸 Wata custom"
-    assert button.callback_data == "pay_wata:1:150:subscription"
+    assert button.callback_data == "pay_wata:1:150:subscription|d30"
 
 
 def test_payment_method_keyboard_filters_providers_by_payment_currency(monkeypatch):
@@ -616,7 +629,7 @@ def test_payment_method_keyboard_filters_providers_by_payment_currency(monkeypat
         for button in row
         if button.callback_data
     ]
-    assert "pay_wata:1:10:subscription" in callbacks
+    assert "pay_wata:1:10:subscription|d30" in callbacks
     assert all(not callback.startswith("pay_yk:") for callback in callbacks)
 
 
@@ -661,13 +674,13 @@ def test_payment_method_keyboard_uses_payment_currency_for_symbol_labels(monkeyp
         for button in row
         if button.callback_data
     ]
-    assert "pay_platega_sbp:1:150:subscription" in callbacks
-    assert "pay_platega_card:1:150:subscription" in callbacks
-    assert callbacks.index("pay_platega_card:1:150:subscription") == (
-        callbacks.index("pay_platega_sbp:1:150:subscription") + 1
+    assert "pay_platega_sbp:1:150:subscription|d30" in callbacks
+    assert "pay_platega_card:1:150:subscription|d30" in callbacks
+    assert callbacks.index("pay_platega_card:1:150:subscription|d30") == (
+        callbacks.index("pay_platega_sbp:1:150:subscription|d30") + 1
     )
-    assert "pay_yk:1:150:subscription" in callbacks
-    assert "pay_wata:1:150:subscription" in callbacks
+    assert "pay_yk:1:150:subscription|d30" in callbacks
+    assert "pay_wata:1:150:subscription|d30" in callbacks
 
 
 def test_payment_method_keyboard_filters_paykilla_by_converted_minimum(monkeypatch):
@@ -728,7 +741,7 @@ def test_payment_method_keyboard_filters_paykilla_by_converted_minimum(monkeypat
         if button.callback_data
     ]
     assert all(not callback.startswith("pay_paykilla:") for callback in below_callbacks)
-    assert "pay_paykilla:1:1000:subscription" in above_callbacks
+    assert "pay_paykilla:1:1000:subscription|d30" in above_callbacks
 
 
 def test_admin_only_provider_is_visible_only_to_admins(monkeypatch):
@@ -783,7 +796,7 @@ def test_admin_only_provider_is_visible_only_to_admins(monkeypatch):
         for row in regular_markup.inline_keyboard
         for button in row
     )
-    assert admin_markup.inline_keyboard[0][0].callback_data == "pay_wata:1:150:subscription"
+    assert admin_markup.inline_keyboard[0][0].callback_data == "pay_wata:1:150:subscription|d30"
     assert _serialize_payment_methods(settings, app, "en", is_admin=False) == []
     assert _serialize_payment_methods(settings, app, "en", is_admin=True)[0]["id"] == "wata"
 

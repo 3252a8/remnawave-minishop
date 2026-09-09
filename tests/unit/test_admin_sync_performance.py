@@ -11,6 +11,7 @@ from bot.handlers.admin.sync_admin import (
     _description_without_email,
     _format_panel_update_changes,
     _identity_panel_update_reasons,
+    _merge_local_duplicate_panel_user_if_needed,
     _panel_description_for_user,
     _panel_identity_fields_update_payload,
     _panel_identity_matches_user,
@@ -19,10 +20,13 @@ from bot.handlers.admin.sync_admin import (
     _panel_identity_payload_with_expiry,
     _panel_identity_view_for_comparison,
     _panel_update_changes,
+    _perform_sync_impl,
     _should_update_lifetime_used_traffic,
     _subscription_update_delta,
 )
 from bot.handlers.admin.sync_admin_common import _subscription_update_reason_labels
+from bot.handlers.admin.sync_admin_summary import localized_sync_details
+from bot.middlewares.i18n import JsonI18n
 from db.models import Subscription
 
 
@@ -484,6 +488,99 @@ def test_lifetime_traffic_update_allows_large_delta_and_skips_duplicate_panel_id
         settings=settings,
         is_duplicate_panel_identity=True,
     )
+
+
+def test_duplicate_panel_user_merge_uses_savepoint():
+    class NestedTransaction:
+        entered = False
+        exited = False
+
+        async def __aenter__(self):
+            self.entered = True
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            self.exited = True
+            return False
+
+    nested_transaction = NestedTransaction()
+    session = SimpleNamespace(begin_nested=lambda: nested_transaction)
+    existing_user = SimpleNamespace(user_id=42)
+    duplicate_user = SimpleNamespace(user_id=77)
+
+    with (
+        patch(
+            "bot.handlers.admin.sync_admin_identity.user_dal.get_user_by_panel_uuid",
+            AsyncMock(return_value=duplicate_user),
+        ),
+        patch(
+            "bot.handlers.admin.sync_admin_identity.user_dal.merge_users",
+            AsyncMock(side_effect=RuntimeError("merge failed")),
+        ),
+    ):
+        result = asyncio.run(
+            _merge_local_duplicate_panel_user_if_needed(
+                session,
+                existing_user=existing_user,
+                duplicate_panel_uuid="panel-duplicate",
+            )
+        )
+
+    assert result == (existing_user, False)
+    assert nested_transaction.entered
+    assert nested_transaction.exited
+
+
+def test_sync_failure_status_is_committed_after_rollback():
+    panel_service = SimpleNamespace(
+        get_all_panel_users=AsyncMock(side_effect=RuntimeError("panel unavailable"))
+    )
+    session = SimpleNamespace(rollback=AsyncMock(), commit=AsyncMock())
+    update_status = AsyncMock()
+
+    with patch(
+        "bot.handlers.admin.sync_admin_runner.panel_sync_dal.update_panel_sync_status",
+        update_status,
+    ):
+        result = asyncio.run(
+            _perform_sync_impl(
+                panel_service=panel_service,
+                session=session,
+                settings=SimpleNamespace(),
+                i18n_instance=SimpleNamespace(),
+            )
+        )
+
+    assert result["status"] == "failed"
+    session.rollback.assert_awaited_once()
+    update_status.assert_awaited_once()
+    session.commit.assert_awaited_once()
+
+
+def test_sync_summary_translates_error_count():
+    i18n = JsonI18n("locales", default="ru")
+
+    for language, expected in (
+        ("ru", "Ошибок синхронизации: 2"),
+        ("en", "Synchronization errors: 2"),
+    ):
+        details = localized_sync_details(
+            i18n,
+            language,
+            panel_records_checked=1,
+            users_found_in_db=1,
+            users_created=0,
+            users_updated=0,
+            subscriptions_synced_count=0,
+            subscriptions_created=0,
+            subscriptions_updated=0,
+            users_without_telegram_id=0,
+            users_not_found_in_db=0,
+            error_count=2,
+        )
+
+        assert expected in details
+        assert "admin_sync_errors" not in details
 
 
 def test_absorb_duplicate_panel_identity_extends_kept_user_and_deletes_duplicate():

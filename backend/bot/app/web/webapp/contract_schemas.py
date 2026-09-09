@@ -44,6 +44,8 @@ class WebappBootstrapConfigOut(HttpResponseModel):
 
     title: str
     primary_color: str | None = Field(default=None, alias="primaryColor")
+    user_theme_mode_enabled: bool = Field(alias="userThemeModeEnabled")
+    compact_home_enabled: bool = Field(alias="compactHomeEnabled")
     themes_catalog: dict[str, Any] = Field(default_factory=dict, alias="themesCatalog")
     themes_dir: str = Field(alias="themesDir")
     theme_preview_key: str = Field(alias="themePreviewKey")
@@ -59,6 +61,8 @@ class WebappBootstrapConfigOut(HttpResponseModel):
     telegram_oauth_request_access: str = Field(alias="telegramOAuthRequestAccess")
     support_url: str = Field(alias="supportUrl")
     server_status_url: str = Field(alias="serverStatusUrl")
+    server_status_internal: bool = Field(alias="serverStatusInternal")
+    server_status_show_on_home: bool = Field(alias="serverStatusShowOnHome")
     privacy_policy_url: str = Field(alias="privacyPolicyUrl")
     user_agreement_url: str = Field(alias="userAgreementUrl")
     currency: str
@@ -67,6 +71,7 @@ class WebappBootstrapConfigOut(HttpResponseModel):
     email_auth_enabled: bool = Field(alias="emailAuthEnabled")
     auth_providers: list[str] = Field(alias="authProviders")
     registration_invite_only_enabled: bool = Field(alias="registrationInviteOnlyEnabled")
+    checkout_plans: list[dict[str, Any]] = Field(default_factory=list, alias="checkoutPlans")
     app_version: str = Field(alias="appVersion")
     app_repository_url: str = Field(alias="appRepositoryUrl")
 
@@ -232,6 +237,60 @@ PENDING_PAYMENT_SCHEMA: dict[str, Any] = {
         "created_at": STRING_SCHEMA,
     },
 }
+BALANCE_SOURCE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "id": STRING_SCHEMA,
+        "available": BOOLEAN_SCHEMA,
+        "adjustable": BOOLEAN_SCHEMA,
+        "convertible": BOOLEAN_SCHEMA,
+        "status": NULLABLE_STRING_SCHEMA,
+        "amount_minor": INTEGER_SCHEMA,
+        "amount": STRING_SCHEMA,
+        "currency": STRING_SCHEMA,
+    },
+}
+BALANCE_ENTRY_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "entry_id": INTEGER_SCHEMA,
+        "source_id": STRING_SCHEMA,
+        "amount_minor": INTEGER_SCHEMA,
+        "kind": STRING_SCHEMA,
+        "state": STRING_SCHEMA,
+        "reason": NULLABLE_STRING_SCHEMA,
+        "reference_type": STRING_SCHEMA,
+        "reference_id": STRING_SCHEMA,
+        "created_at": NULLABLE_STRING_SCHEMA,
+    },
+}
+BALANCE_SCHEMA: dict[str, Any] = ok_envelope_with(
+    {
+        "enabled": BOOLEAN_SCHEMA,
+        "currency": STRING_SCHEMA,
+        "currency_scale": INTEGER_SCHEMA,
+        "amount_minor": INTEGER_SCHEMA,
+        "amount": STRING_SCHEMA,
+        "topup_min_amount": NUMBER_SCHEMA,
+        "topup_max_amount": NUMBER_SCHEMA,
+        "topup_presets": NUMBER_ARRAY_SCHEMA,
+        "sources": {"type": "array", "items": BALANCE_SOURCE_SCHEMA},
+        "history": {"type": "array", "items": BALANCE_ENTRY_SCHEMA},
+    },
+    required=[
+        "enabled",
+        "currency",
+        "currency_scale",
+        "amount_minor",
+        "amount",
+        "topup_min_amount",
+        "topup_max_amount",
+        "topup_presets",
+        "sources",
+    ],
+)
 HWID_RENEWAL_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
@@ -287,12 +346,14 @@ PLAN_SCHEMA: dict[str, Any] = {
         "effective_hwid_device_limit": NULLABLE_INTEGER_SCHEMA,
         "premium_enabled": BOOLEAN_SCHEMA,
         "premium_monthly_gb": NULLABLE_NUMBER_SCHEMA,
+        "premium_title": STRING_SCHEMA,
         "premium_unlimited": BOOLEAN_SCHEMA,
         "traffic_limit_strategy": STRING_SCHEMA,
         "premium_traffic_limit_strategy": STRING_SCHEMA,
         "hwid_device_packages": {"type": "array", "items": HWID_DEVICE_PACKAGE_SCHEMA},
         "sale_mode": STRING_SCHEMA,
         "months": NUMBER_SCHEMA,
+        "duration_days": INTEGER_SCHEMA,
         "traffic_gb": NUMBER_SCHEMA,
         "device_count": INTEGER_SCHEMA,
         "price": NUMBER_SCHEMA,
@@ -417,6 +478,37 @@ WEBAPP_USER_SCHEMA: dict[str, Any] = {
         "username": NULLABLE_STRING_SCHEMA,
         "email": NULLABLE_STRING_SCHEMA,
         "email_verified": BOOLEAN_SCHEMA,
+        "notification_email": NULLABLE_STRING_SCHEMA,
+        "notification_preferences": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "marketing_email",
+                "marketing_telegram",
+                "system_email",
+                "system_telegram",
+            ],
+            "properties": {
+                "marketing_email": BOOLEAN_SCHEMA,
+                "marketing_telegram": BOOLEAN_SCHEMA,
+                "system_email": BOOLEAN_SCHEMA,
+                "system_telegram": BOOLEAN_SCHEMA,
+            },
+        },
+        "email_addresses": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "email": STRING_SCHEMA,
+                    "verified": BOOLEAN_SCHEMA,
+                    "is_primary": BOOLEAN_SCHEMA,
+                    "is_notification": BOOLEAN_SCHEMA,
+                    "sources": STRING_ARRAY_SCHEMA,
+                },
+            },
+        },
         "password_auth_enabled": BOOLEAN_SCHEMA,
         "telegram_id": NULLABLE_INTEGER_SCHEMA,
         "telegram_linked": BOOLEAN_SCHEMA,
@@ -428,6 +520,34 @@ WEBAPP_USER_SCHEMA: dict[str, Any] = {
         "first_name": NULLABLE_STRING_SCHEMA,
         "language_code": STRING_SCHEMA,
         "is_admin": BOOLEAN_SCHEMA,
+        "external_identities": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "provider": STRING_SCHEMA,
+                    "email": NULLABLE_STRING_SCHEMA,
+                    "email_verified": BOOLEAN_SCHEMA,
+                    "display_name": NULLABLE_STRING_SCHEMA,
+                    "can_unlink": BOOLEAN_SCHEMA,
+                },
+            },
+        },
+        "passkeys": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "credential_id": STRING_SCHEMA,
+                    "name": STRING_SCHEMA,
+                    "created_at": NULLABLE_STRING_SCHEMA,
+                    "last_used_at": NULLABLE_STRING_SCHEMA,
+                    "backed_up": BOOLEAN_SCHEMA,
+                },
+            },
+        },
     },
 }
 WEBAPP_SUBSCRIPTION_SCHEMA: dict[str, Any] = {
@@ -555,6 +675,18 @@ THEMES_CATALOG_SCHEMA: dict[str, Any] = {
         "themes": {"type": "array", "items": THEME_SCHEMA},
     },
 }
+MENU_BUTTON_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["id", "kind", "target", "icon", "label"],
+    "properties": {
+        "id": STRING_SCHEMA,
+        "kind": {"type": "string", "enum": ["external", "telegram", "webapp"]},
+        "target": STRING_SCHEMA,
+        "icon": STRING_SCHEMA,
+        "label": STRING_SCHEMA,
+    },
+}
 WEBAPP_SETTINGS_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
@@ -567,11 +699,15 @@ WEBAPP_SETTINGS_SCHEMA: dict[str, Any] = {
         "traffic_mode": BOOLEAN_SCHEMA,
         "my_devices_enabled": BOOLEAN_SCHEMA,
         "partner_program_enabled": BOOLEAN_SCHEMA,
+        "user_balance_enabled": BOOLEAN_SCHEMA,
         "referral_program_enabled": BOOLEAN_SCHEMA,
+        "gifts_enabled": BOOLEAN_SCHEMA,
         "subscription_reissue_enabled": BOOLEAN_SCHEMA,
         "user_hwid_device_limit": NULLABLE_INTEGER_SCHEMA,
         "trial_enabled": BOOLEAN_SCHEMA,
         "trial_available": BOOLEAN_SCHEMA,
+        "trial_payment_enabled": BOOLEAN_SCHEMA,
+        "trial_payment_plan": {"anyOf": [PLAN_SCHEMA, {"type": "null"}]},
         "trial_without_telegram_enabled": BOOLEAN_SCHEMA,
         "trial_requires_telegram": BOOLEAN_SCHEMA,
         "trial_block_reason": NULLABLE_STRING_SCHEMA,
@@ -582,7 +718,9 @@ WEBAPP_SETTINGS_SCHEMA: dict[str, Any] = {
         "payment_methods_display_mode": STRING_SCHEMA,
         "subscription_guides_enabled": BOOLEAN_SCHEMA,
         "email_auth_enabled": BOOLEAN_SCHEMA,
+        "email_address_change_enabled": BOOLEAN_SCHEMA,
         "auth_providers": STRING_ARRAY_SCHEMA,
+        "menu_buttons": {"type": "array", "items": MENU_BUTTON_SCHEMA},
     },
 }
 ME_RESPONSE_SCHEMA: dict[str, Any] = ok_envelope_with(
@@ -601,6 +739,7 @@ ME_RESPONSE_SCHEMA: dict[str, Any] = ok_envelope_with(
         "payment_methods": {"type": "array", "items": PAYMENT_METHOD_SCHEMA},
         "themes_catalog": THEMES_CATALOG_SCHEMA,
         "support_unread_count": INTEGER_SCHEMA,
+        "balance": BALANCE_SCHEMA,
         "settings": WEBAPP_SETTINGS_SCHEMA,
     },
 )

@@ -5,6 +5,7 @@ import { buildAdminPanelProps } from "./adminPanelProps.js";
 const base = {
   adminActiveSection: "users",
   api: vi.fn(),
+  apiBlob: vi.fn(),
   appFaviconUrl: "/favicon.png",
   appFaviconUseCustom: true,
   appRepositoryUrl: "https://example.invalid/repo",
@@ -32,10 +33,20 @@ const base = {
 describe("buildAdminPanelProps", () => {
   it("uses the active admin section when the shell is already on admin", () => {
     expect(buildAdminPanelProps(base)).toMatchObject({
+      appRepositoryUrl: "https://minishop.minidoc.cc/",
       initialSection: "users",
       initialUserId: 42,
       routePrefix: "",
     });
+  });
+
+  it("uses dev documentation for a non-release build", () => {
+    expect(
+      buildAdminPanelProps({
+        ...base,
+        appVersion: "v1.2.3-dev+gabcdef1",
+      }).appRepositoryUrl
+    ).toBe("https://dev.minishop.minidoc.cc/");
   });
 
   it("uses the route-derived fallback section before admin is mounted", () => {

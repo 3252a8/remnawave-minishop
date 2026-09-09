@@ -3,6 +3,18 @@
   gap: 12px;
   color: var(--text);
 }
+.partner-back {
+  width: max-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  padding: 4px 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
 .partner-overview-card,
 .partner-balance-card,
 .partner-stats-card {
@@ -176,7 +188,7 @@
   border-radius: var(--radius);
   background: var(--panel-2);
   color: var(--text);
-  font-family: var(--font-sans, system-ui, sans-serif);
+  font-family: var(--font-ui, var(--font-sans, system-ui, sans-serif));
   font-size: 14px;
   font-weight: 500;
   line-height: 1.35;
@@ -198,7 +210,7 @@
   background: var(--panel-2);
   color: var(--text);
   box-shadow: var(--shadow-soft);
-  font-family: var(--font-sans, system-ui, sans-serif);
+  font-family: var(--font-ui, var(--font-sans, system-ui, sans-serif));
   font-size: 14px;
   font-weight: 500;
   line-height: 1.35;

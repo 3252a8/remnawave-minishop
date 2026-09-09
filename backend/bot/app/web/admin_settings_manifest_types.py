@@ -8,7 +8,8 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class SettingField:
     key: str
-    type: str  # "string" | "int" | "float" | "bool" | "text" | "url" | "color" | "icon" | "json"
+    # string | int | float | bool | text | url | color | icon | json | menu_buttons
+    type: str
     section: str
     label: str
     description: str = ""

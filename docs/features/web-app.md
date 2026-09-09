@@ -14,6 +14,11 @@
 - встроенную инструкцию установки: подбор платформы, список приложений, deeplink-кнопки, QR и действия со ссылкой подписки;
 - раздел "Мои устройства" при `MY_DEVICES_SECTION_ENABLED=True`;
 - раздел "Поддержка" с тикетами и внешней ссылкой `SUPPORT_LINK` при включенном `SUPPORT_TICKETS_ENABLED`;
+- раздел статуса серверов при `SERVER_STATUS_ENABLED=True`: внешнюю страницу статуса или
+  встроенные данные Uptime Kuma и xray-checker;
+- отдельный подраздел **Настройки → Уведомления** для рекламных и системных уведомлений по email
+  и Telegram; прямой путь `/settings/notifications` и `startapp=notifications` можно использовать
+  в кнопках сообщений и меню;
 - реферальную ссылку и статистику приглашений;
 - раздел **Партнёрство** при включённой партнёрской программе: заявку, отдельные ссылки, клиентов,
   комиссии, раздельные балансы, выплаты и полную или частичную оплату покупок из баланса;
@@ -70,6 +75,15 @@ WEBAPP_LOGIN_TOKEN_TTL_SECONDS=600
 SUPPORT_LINK=https://t.me/your_support_link
 SUPPORT_TICKETS_ENABLED=True
 SUPPORT_TICKET_RATE_LIMIT_PER_HOUR=5
+
+SERVER_STATUS_ENABLED=False
+SERVER_STATUS_PROVIDER=url
+SERVER_STATUS_URL=
+SERVER_STATUS_KUMA_URL=
+SERVER_STATUS_XRAY_CHECKER_URL=
+SERVER_STATUS_CACHE_TTL_SECONDS=30
+SERVER_STATUS_STALE_TTL_SECONDS=300
+SERVER_STATUS_TIMEOUT_SECONDS=5
 ```
 
 `SUBSCRIPTION_MINI_APP_URL` - это публичный HTTPS URL именно frontend/Mini App, обычно отдельный домен вроде `https://app.domain.com/`. Его указывают в BotFather в Mini Apps, а бот использует его для кнопок личного кабинета, реферальных ссылок и входа по email. Не добавляйте в него `/api`, `/webhook` или путь конкретной страницы.
@@ -77,6 +91,11 @@ SUPPORT_TICKET_RATE_LIMIT_PER_HOUR=5
 `WEBAPP_API_BASE_URL` - это browser-visible base URL для frontend-запросов. Оставляйте `/api` и для обычного compose, и для разнесенных frontend/backend серверов. Разнесение делается server-side настройкой `WEBAPP_BACKEND_UPSTREAM` у frontend nginx, а не публичным backend origin в JavaScript.
 
 `WEBAPP_BACKEND_UPSTREAM` - приватный/protected upstream, куда frontend nginx проксирует `/api`, `/auth`, `/open-app` и ассеты Web App. По умолчанию это `http://backend:8081`. Для split-сервера используйте защищенный backend-домен с `MINISHOP_EDGE_TOKEN`, private IP/VPN или Rathole tunnel.
+
+`SERVER_STATUS_ENABLED=True` добавляет пользовательский раздел статуса. Источник `url` открывает
+`SERVER_STATUS_URL`, а `uptime-kuma` и `xray-checker` открывают внутренний экран Mini App и не
+используют `SERVER_STATUS_URL`. Настройка опубликованной страницы статуса, кэша, безопасности и
+диагностики: [статус серверов](server-status.md).
 
 ## Инструкции установки
 
@@ -99,16 +118,17 @@ SUPPORT_TICKET_RATE_LIMIT_PER_HOUR=5
 
 Конфиг совместим с Remnawave Subscription Page v1 (`version`, `locales`, `brandingSettings`, `uiConfig`, `baseSettings`, `baseTranslations`, `svgLibrary`, `platforms`). Backend проверяет обязательные locale-строки, допустимые платформы и типы кнопок, ссылки на `svgIconKey`, а SVG из `svgLibrary` санитизирует перед отдачей в UI.
 
+В `brandingSettings.logoUrl` поддерживаются HTTP(S)-ссылки и встроенные изображения `data:image/…` (PNG, JPEG, GIF, WebP, AVIF, BMP, ICO и SVG), включая base64 и URL-кодированные данные. Поле сохраняется для совместимости с конфигом панели; встроенные инструкции не отображают этот логотип. Иконки приложений и шагов берутся отдельно из `svgLibrary`. Это разрешение относится только к изображениям: `supportUrl` должен оставаться HTTP(S)-ссылкой, а `data:` в ссылках кнопок запрещен.
+
 Если `WEBAPP_ENABLED=False`, пользовательское веб-приложение и админ-панель не регистрируются. Чтобы снова попасть в админку, включите `WEBAPP_ENABLED=True` в `.env` и перезапустите backend/frontend контейнеры.
 
 Внешний вид настраивается в админке: раздел **Внешний вид** управляет логотипом, favicon, accent-цветом, выбранной темой и отдельным масштабом логотипа для desktop/mobile layout. Кастомные темы читаются из `WEBAPP_THEMES_DIR`, а `WEBAPP_DEFAULT_THEME` может принудительно выбрать тему по ключу. Подробный контракт `theme.json`, CSS/asset-роуты и пайплайн создания темы описаны в [webapp-themes.md](webapp-themes.md).
 
 ## Авторизация
 
-Mini App поддерживает вход через Telegram Mini Apps `initData`, Telegram OAuth / OpenID Connect вне Telegram и email-код. Подробная настройка вынесена в отдельные разделы:
-
-- [Telegram-авторизация](telegram-auth.md) - BotFather, Mini Apps, Web Login, callback `/auth/telegram/callback`, OAuth-переменные и типичные ошибки.
-- [Вход по email](email-login.md) - SMTP, одноразовые коды, magic link, парольный вход и проверки доставки писем.
+Mini App поддерживает email-код, email/пароль, Telegram Mini Apps `initData`, Telegram OAuth /
+OpenID Connect, Google, Yandex ID и passkey. Настройка всех вариантов собрана в разделе
+[«Способы входа»](login-methods.md).
 
 Если SMTP-настройки не заполнены, вход по email скрывается. Если Telegram OAuth не настроен, вход через Telegram продолжает работать внутри Telegram Mini App через `initData`, но внешняя браузерная авторизация не сможет стартовать.
 
@@ -170,6 +190,8 @@ services:
 Если включён `REGISTRATION_INVITE_ONLY_ENABLED`, новая регистрация в Web App проходит только через такую ссылку; отдельного ручного поля для ввода кода нет. Существующие пользователи могут входить без реферального параметра.
 
 Для email-регистраций пользователь в Remnawave создается с username вида `em_<referral_code>`. Email добавляется в описание пользователя панели и, если API панели принимает поле `email`, передается отдельным полем. Для Telegram-регистраций используется username `tg_<telegram_id>`.
+
+Если email- и Telegram-аккаунты при объединении уже ссылаются на один panel UUID, этот пользователь Remnawave сохраняется без удаления и повторного создания. Его неизменяемый username может остаться в формате `em_...`; Telegram ID и email синхронизируются в поддерживаемые поля панели, а исходная локальная запись аккаунта удаляется после переноса зависимых данных.
 
 ## Партнёрские ссылки
 

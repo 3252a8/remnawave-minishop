@@ -23,6 +23,7 @@ export type PreviewMockConfig = Record<string, unknown> & {
   language: string;
   languages: { code: string; label: string; flag: string; base?: boolean }[];
   themesCatalog: PreviewThemesCatalog;
+  userThemeModeEnabled: boolean;
 };
 
 export type PreviewMockData = Record<string, unknown> & {
@@ -34,6 +35,7 @@ export type PreviewMockData = Record<string, unknown> & {
   devices: Record<string, unknown>;
   plans: Record<string, unknown>[];
   payment_methods: Record<string, unknown>[];
+  balance: Record<string, unknown>;
   referral: Record<string, unknown>;
   themes_catalog: PreviewThemesCatalog;
   settings: Record<string, unknown>;

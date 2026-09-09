@@ -34,6 +34,15 @@ from config.settings import Settings
 from db.dal import subscription_dal, tariff_dal, user_dal
 from db.models import Subscription, User
 
+from .hwid_device_notifications import (
+    HwidDeviceNotificationRetryError,
+    HwidDeviceNotificationService,
+)
+from .hwid_device_webhook import (
+    HWID_DEVICE_ADDED_EVENT,
+    HWID_DEVICE_EVENTS,
+    hwid_device_webhook_context,
+)
 from .panel_api_service import PanelApiService
 from .panel_webhook_payloads import PanelWebhookPayloadMixin
 from .torrent_blocker_notifications import (
@@ -110,6 +119,12 @@ class PanelWebhookService(PanelWebhookPayloadMixin):
             bot,
             i18n,
             async_session_factory,
+        )
+        self.hwid_device_notifications = HwidDeviceNotificationService(
+            settings,
+            bot,
+            i18n,
+            panel_service,
         )
         self.subscription_service: SubscriptionService | None = None
         self._event_semaphore = asyncio.Semaphore(self._MAX_CONCURRENT_EVENTS)
@@ -188,7 +203,34 @@ class PanelWebhookService(PanelWebhookPayloadMixin):
             await self.torrent_blocker_notifications.handle(user_payload, context or {})
             return
 
-        if not self.settings.SUBSCRIPTION_NOTIFICATIONS_ENABLED:
+        if event_name == HWID_DEVICE_ADDED_EVENT:
+            async with self.async_session_factory() as session:
+                db_user = await self._user_for_payload(session, user_payload)
+                sub = await self._subscription_for_payload(session, user_payload, db_user)
+                resolved_user = db_user or (getattr(sub, "user", None) if sub else None)
+                if not sub or not resolved_user:
+                    logger.warning(
+                        "Panel HWID device event cannot be matched to a local subscription; "
+                        "notification skipped. %s",
+                        self._payload_log_context(user_payload),
+                    )
+                    return
+                result = await self.hwid_device_notifications.handle_added(
+                    session,
+                    user=resolved_user,
+                    subscription=sub,
+                    user_payload=user_payload,
+                    context=context or {},
+                )
+                await session.commit()
+            if result.needs_retry:
+                raise HwidDeviceNotificationRetryError(result.retry_channels)
+            return
+
+        if not (
+            self.settings.SUBSCRIPTION_NOTIFICATIONS_ENABLED
+            or self.settings.SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED
+        ):
             return
 
         if event_name not in ACTIONABLE_EVENTS:
@@ -765,6 +807,11 @@ class PanelWebhookService(PanelWebhookPayloadMixin):
             if "user" in event_data_dict:
                 nested_user = event_data_dict.get("user")
                 user_data = nested_user if isinstance(nested_user, dict) else event_data_dict
+            if event_name_text in HWID_DEVICE_EVENTS:
+                context = hwid_device_webhook_context(
+                    event_data_dict,
+                    secret=self.settings.PANEL_WEBHOOK_SECRET or "",
+                )
 
         if isinstance(user_data, dict):
             user_data = normalize_panel_user(user_data) or user_data

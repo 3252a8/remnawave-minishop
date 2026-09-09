@@ -270,6 +270,7 @@ async def partner_balance_renew_route(request: web.Request) -> web.Response:
             user_id=user_id,
             tariff_key=body.tariff_key,
             months=body.months,
+            duration_days=body.duration_days,
             promo_code=body.promo_code,
             idempotency_key=body.idempotency_key,
         )

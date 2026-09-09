@@ -35,6 +35,7 @@ from .billing_payments import _active_tribute_recurrence, _create_subscription_p
 from .common import (
     _coerce_int_or_none,
 )
+from .period_contracts import targets_for_client
 from .response_helpers import json_response
 from .serializers import (
     _serialize_tariff_change_target,
@@ -80,7 +81,7 @@ async def tariff_topup_options_route(request: web.Request) -> web.Response:
                 400, "subscription_required", "Active tariff subscription is required"
             )
         lang = db_user.language_code or settings.DEFAULT_LANGUAGE
-        tariff = config.require(sub.tariff_key)
+        tariff = config.require_configured(sub.tariff_key)
         plans = (
             _serialize_topup_packages(settings, tariff, config.topup_packages_for(tariff), lang)
             if topup_kind in {"all", "regular"}
@@ -176,7 +177,7 @@ async def tariff_change_options_route(request: web.Request) -> web.Response:
                 "Cancel the active Tribute subscription before changing the tariff",
             )
         lang = db_user.language_code or settings.DEFAULT_LANGUAGE
-        current = config.require(sub.tariff_key)
+        current = config.require_configured(sub.tariff_key)
         targets = []
         for tariff in config.enabled_tariffs:
             if tariff.key == current.key:
@@ -201,7 +202,7 @@ async def tariff_change_options_route(request: web.Request) -> web.Response:
                     "description": current.description(lang),
                     "billing_model": current.billing_model,
                 },
-                "targets": targets,
+                "targets": targets_for_client(request, targets),
             }
         )
 
@@ -287,7 +288,7 @@ async def tariff_change_payment_route(request: web.Request) -> web.Response:
             return _json_error(
                 400, "payment_not_required", "Payment is not required for this tariff change"
             )
-        source = config.require(str(sub.tariff_key or ""))
+        source = config.require_configured(str(sub.tariff_key or ""))
         quote_snapshot = build_tariff_change_quote_snapshot(
             source_tariff_key=source.key,
             target_tariff_key=target.key,

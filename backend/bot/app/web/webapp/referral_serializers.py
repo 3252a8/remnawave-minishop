@@ -2,8 +2,9 @@ from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from config.settings import Settings
+from config.subscription_periods import days_to_legacy_months, legacy_months_to_days
 
-from .common import _format_months_title
+from .common import _format_days_title
 
 
 def _legacy_referral_bonus_periods(settings: Settings) -> list[int]:
@@ -24,8 +25,9 @@ def _serialize_tariff_period_referral_bonus_details(tariff: Any, lang: str) -> l
                 "id": f"{tariff.key}:{months}",
                 "tariff_key": tariff.key,
                 "tariff_name": tariff.name(lang),
-                "months": int(months),
-                "title": _format_months_title(int(months), lang),
+                "months": days_to_legacy_months(tariff.period_duration_days(int(months))),
+                "duration_days": tariff.period_duration_days(int(months)),
+                "title": _format_days_title(tariff.period_duration_days(int(months)), lang),
                 "inviter_days": int(inviter_days or 0),
                 "friend_days": int(friend_days or 0),
             }
@@ -84,7 +86,7 @@ def _serialize_referral_bonus_details(settings: Settings, lang: str) -> list[dic
         details.append(
             {
                 "months": int(months),
-                "title": _format_months_title(int(months), lang),
+                "title": _format_days_title(legacy_months_to_days(int(months)), lang),
                 "inviter_days": int(inviter_days or 0),
                 "friend_days": int(friend_days or 0),
             }

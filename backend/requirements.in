@@ -17,9 +17,15 @@ sqlalchemy[asyncio]==2.0.51
 asyncpg==0.31.0
 certifi>=2024.7.4
 PyJWT[crypto]==2.13.0
+webauthn>=2.7,<3
 cryptography>=50.0.0
 Pillow==12.3.0
+# Checked 2026-08-22: 1.5.0 provides CPython 3.12 wheels and registers
+# libheif-backed HEIC/HEIF decoding as a Pillow plugin.
+pillow-heif==1.5.0
 # Checked 2026-07-16: https://pypi.org/pypi/redis/json latest is 8.0.1.
 # aiogram 3.29.1 still caps its optional redis[hiredis] extra at <8, so both
 # first-party and aiogram clients explicitly keep RESP2 while using redis-py 8.
 redis>=8.0.1,<9
+
+tinycss2==1.5.1

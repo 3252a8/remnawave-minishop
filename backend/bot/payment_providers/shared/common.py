@@ -9,6 +9,11 @@ from typing import Any
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config.subscription_periods import (
+    days_to_legacy_months,
+    positive_period,
+    sale_mode_duration_days,
+)
 from db.dal import payment_checkout_dal, payment_dal
 from db.models import Payment
 
@@ -154,6 +159,11 @@ def build_payment_description(
         )
     if base in {"hwid_device", "hwid_devices", "hwid_devices_renewal"}:
         return translator("payment_description_hwid_devices", count=int(float(months)))
+    if base == "trial":
+        return translator("payment_description_trial")
+    days = sale_mode_duration_days(sale_mode)
+    if days is not None:
+        return translator("payment_description_subscription_days", days=days)
     return translator("payment_description_subscription", months=int(float(months)))
 
 
@@ -167,6 +177,8 @@ def build_payment_record_payload(
     months: Any,
     provider: str,
     sale_mode: str,
+    duration_days: int | None = None,
+    subscription_terms_snapshot: str | None = None,
     hwid_quote: dict | None = None,
     is_auto_renew: bool = False,
     renewal_subscription_id: int | None = None,
@@ -195,7 +207,16 @@ def build_payment_record_payload(
         "currency": currency,
         "status": status,
         "description": description,
-        "subscription_duration_months": int(float(months)) if base == "subscription" else None,
+        "subscription_duration_months": (
+            days_to_legacy_months(duration_days)
+            if duration_days is not None
+            else int(float(months))
+            if base == "subscription"
+            else None
+        ),
+        "subscription_duration_days": duration_days if base == "subscription" else None,
+        "subscription_terms_snapshot": subscription_terms_snapshot,
+        "period_semantics": "fixed_days" if duration_days is not None else None,
         "provider": provider,
         "is_auto_renew": bool(is_auto_renew),
         "renewal_subscription_id": renewal_subscription_id,
@@ -211,6 +232,7 @@ def build_payment_record_payload(
                 "hwid_valid_from": hwid_quote.get("valid_from"),
                 "hwid_valid_until": hwid_quote.get("valid_until"),
                 "hwid_pricing_period_months": hwid_quote.get("pricing_period_months"),
+                "hwid_pricing_period_days": hwid_quote.get("pricing_period_days"),
                 "hwid_proration_ratio": hwid_quote.get("proration_ratio"),
                 "hwid_full_price": hwid_quote.get("full_price"),
                 "hwid_traffic_bonus_bytes": hwid_quote.get("traffic_bonus_bytes"),
@@ -300,6 +322,8 @@ def payment_units_for_activation(payment: Any, sale_mode: str) -> Any:
             or getattr(payment, "subscription_duration_months", None)
             or 1
         )
+    if getattr(payment, "period_semantics", None) == "fixed_days":
+        return days_to_legacy_months(getattr(payment, "subscription_duration_days", None)) or 0
     return getattr(payment, "subscription_duration_months", None) or 1
 
 
@@ -403,6 +427,7 @@ async def create_base_payment_record(
     hwid_valid_from: Any | None = None,
     hwid_valid_until: Any | None = None,
     hwid_pricing_period_months: int | None = None,
+    hwid_pricing_period_days: int | None = None,
     hwid_proration_ratio: float | None = None,
     hwid_full_price: float | None = None,
     hwid_traffic_bonus_bytes: int | None = None,
@@ -416,17 +441,24 @@ async def create_base_payment_record(
     promo_traffic_multiplier: float | None = None,
     promo_applies_to: str | None = None,
     promo_min_subscription_months: int | None = None,
+    promo_min_subscription_days: int | None = None,
     promo_min_traffic_gb: float | None = None,
     checkout_base_amount: float | None = None,
     checkout_discount_amount: float | None = None,
     checkout_charged_months: int | None = None,
+    checkout_charged_days: int | None = None,
     checkout_charged_gb: float | None = None,
     checkout_quoted_at: Any | None = None,
     checkout_total_amount: float | None = None,
+    user_balance_user_id: int | None = None,
+    user_balance_amount_minor: int | None = None,
+    user_balance_currency_scale: int | None = None,
     partner_balance_partner_id: int | None = None,
     partner_balance_amount_minor: int | None = None,
     partner_balance_currency_scale: int | None = None,
     funding_source: str = "external",
+    duration_days: int | None = None,
+    subscription_terms_snapshot: str | None = None,
     tariff_change_quote_snapshot: str | None = None,
     entitlement_context_snapshot: str | None = None,
     checkout_bundle_snapshot: str | None = None,
@@ -440,7 +472,14 @@ async def create_base_payment_record(
             "currency": currency,
             "status": status,
             "description": description,
-            "subscription_duration_months": months,
+            "subscription_terms_snapshot": subscription_terms_snapshot,
+            "subscription_duration_months": days_to_legacy_months(duration_days)
+            if duration_days is not None
+            else months,
+            "subscription_duration_days": positive_period(duration_days)
+            if duration_days is not None
+            else None,
+            "period_semantics": "fixed_days" if duration_days is not None else None,
             "provider": provider,
             "funding_source": funding_source,
             "sale_mode": sale_mode,
@@ -450,6 +489,7 @@ async def create_base_payment_record(
             "hwid_valid_from": hwid_valid_from,
             "hwid_valid_until": hwid_valid_until,
             "hwid_pricing_period_months": hwid_pricing_period_months,
+            "hwid_pricing_period_days": hwid_pricing_period_days,
             "hwid_proration_ratio": hwid_proration_ratio,
             "hwid_full_price": hwid_full_price,
             "hwid_traffic_bonus_bytes": hwid_traffic_bonus_bytes,
@@ -463,13 +503,17 @@ async def create_base_payment_record(
             "promo_traffic_multiplier": promo_traffic_multiplier,
             "promo_applies_to": promo_applies_to,
             "promo_min_subscription_months": promo_min_subscription_months,
+            "promo_min_subscription_days": promo_min_subscription_days,
             "promo_min_traffic_gb": promo_min_traffic_gb,
             "checkout_base_amount": checkout_base_amount,
             "checkout_discount_amount": checkout_discount_amount,
             "checkout_charged_months": checkout_charged_months,
+            "checkout_charged_days": checkout_charged_days,
             "checkout_charged_gb": checkout_charged_gb,
             "checkout_quoted_at": checkout_quoted_at,
             "checkout_total_amount": checkout_total_amount,
+            "user_balance_amount_minor": user_balance_amount_minor,
+            "user_balance_currency_scale": user_balance_currency_scale,
             "partner_balance_amount_minor": partner_balance_amount_minor,
             "partner_balance_currency_scale": partner_balance_currency_scale,
             "tariff_change_quote_snapshot": tariff_change_quote_snapshot,
@@ -478,6 +522,34 @@ async def create_base_payment_record(
             "checkout_bundle_hash": checkout_bundle_hash,
         },
     )
+    if user_balance_amount_minor:
+        if (
+            user_balance_user_id is None
+            or user_balance_currency_scale is None
+            or checkout_total_amount is None
+        ):
+            raise ValueError("Incomplete user balance allocation")
+        from bot.services.partner_common import amount_to_minor
+        from bot.services.user_balance_service import (
+            UserBalanceAllocation,
+            UserBalanceService,
+        )
+
+        allocation = UserBalanceAllocation(
+            user_id=user_balance_user_id,
+            currency=currency.upper(),
+            currency_scale=user_balance_currency_scale,
+            checkout_total_minor=amount_to_minor(
+                checkout_total_amount,
+                scale=user_balance_currency_scale,
+            ),
+            applied_minor=user_balance_amount_minor,
+        )
+        await UserBalanceService.reserve(
+            session,
+            payment_id=int(payment.payment_id),
+            allocation=allocation,
+        )
     if partner_balance_amount_minor:
         if (
             partner_balance_partner_id is None
@@ -533,6 +605,8 @@ async def create_webapp_payment_record(
         status=status,
         description=ctx.description,
         months=amounts.months,
+        duration_days=ctx.duration_days,
+        subscription_terms_snapshot=ctx.subscription_terms_snapshot,
         provider=provider,
         sale_mode=ctx.sale_mode,
         tariff_key=amounts.tariff_key,
@@ -541,6 +615,7 @@ async def create_webapp_payment_record(
         hwid_valid_from=ctx.hwid_valid_from,
         hwid_valid_until=ctx.hwid_valid_until,
         hwid_pricing_period_months=ctx.hwid_pricing_period_months,
+        hwid_pricing_period_days=ctx.hwid_pricing_period_days,
         hwid_proration_ratio=ctx.hwid_proration_ratio,
         hwid_full_price=ctx.hwid_full_price,
         hwid_traffic_bonus_bytes=ctx.hwid_traffic_bonus_bytes,
@@ -554,13 +629,18 @@ async def create_webapp_payment_record(
         promo_traffic_multiplier=ctx.promo_traffic_multiplier,
         promo_applies_to=ctx.promo_applies_to,
         promo_min_subscription_months=ctx.promo_min_subscription_months,
+        promo_min_subscription_days=ctx.promo_min_subscription_days,
         promo_min_traffic_gb=ctx.promo_min_traffic_gb,
         checkout_base_amount=ctx.checkout_base_amount,
         checkout_discount_amount=ctx.checkout_discount_amount,
         checkout_charged_months=ctx.checkout_charged_months,
+        checkout_charged_days=ctx.checkout_charged_days,
         checkout_charged_gb=ctx.checkout_charged_gb,
         checkout_quoted_at=ctx.checkout_quoted_at,
         checkout_total_amount=ctx.checkout_total_amount,
+        user_balance_user_id=ctx.user_balance_user_id,
+        user_balance_amount_minor=ctx.user_balance_amount_minor,
+        user_balance_currency_scale=ctx.user_balance_currency_scale,
         partner_balance_partner_id=ctx.partner_balance_partner_id,
         partner_balance_amount_minor=ctx.partner_balance_amount_minor,
         partner_balance_currency_scale=ctx.partner_balance_currency_scale,

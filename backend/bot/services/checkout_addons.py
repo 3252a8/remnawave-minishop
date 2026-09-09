@@ -6,11 +6,18 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+from bot.services.trial_days import (
+    TRIAL_DAYS_ADD_REMAINING,
+    TrialDaysStrategy,
+    normalize_trial_days_strategy,
+)
+
 
 @dataclass(frozen=True)
 class CheckoutAddonGrants:
     tariff_key: str | None = None
     months: int | None = None
+    duration_days: int | None = None
     base_subscription_amount: float | None = None
     addons_amount: float = 0.0
     device_count: int = 0
@@ -28,6 +35,7 @@ class CheckoutAddonGrants:
     active_context_present: bool = False
     active_subscription_id: int | None = None
     active_end_at: datetime | None = None
+    trial_days_strategy: TrialDaysStrategy = TRIAL_DAYS_ADD_REMAINING
 
     @property
     def has_addons(self) -> bool:
@@ -47,7 +55,7 @@ def parse_checkout_bundle_snapshot(value: str | None) -> dict[str, Any] | None:
         payload = json.loads(value)
     except (TypeError, ValueError):
         return None
-    if not isinstance(payload, dict) or payload.get("version") not in {1, 2}:
+    if not isinstance(payload, dict) or payload.get("version") not in {1, 2, 3}:
         return None
     if not isinstance(payload.get("items"), list):
         return None
@@ -146,7 +154,14 @@ def checkout_addon_grants(value: str | None) -> CheckoutAddonGrants:
     if months is not None and months <= 0:
         months = None
     tariff_key = str(snapshot.get("tariff_key") or "").strip() or None
+    duration_days = int(snapshot["duration_days"]) if version >= 3 else None
+    factor = (
+        float(snapshot.get("addon_period_factor") or 0) if version >= 3 else max(1, months or 1)
+    )
+    if factor <= 0 or (duration_days is not None and duration_days <= 0):
+        raise ValueError("invalid checkout billing period")
     return CheckoutAddonGrants(
+        duration_days=duration_days,
         tariff_key=tariff_key,
         months=months,
         base_subscription_amount=base_subscription_amount,
@@ -155,10 +170,10 @@ def checkout_addon_grants(value: str | None) -> CheckoutAddonGrants:
         device_traffic_bonus_gb=device_traffic_bonus_gb,
         regular_limit_gb=regular_limit_gb,
         premium_limit_gb=premium_limit_gb,
-        regular_monthly_amount=regular_future_amount / max(1, months or 1),
-        premium_monthly_amount=premium_future_amount / max(1, months or 1),
-        regular_monthly_stars=regular_future_stars // max(1, months or 1),
-        premium_monthly_stars=premium_future_stars // max(1, months or 1),
+        regular_monthly_amount=regular_future_amount / factor,
+        premium_monthly_amount=premium_future_amount / factor,
+        regular_monthly_stars=round(regular_future_stars / factor),
+        premium_monthly_stars=round(premium_future_stars / factor),
         regular_immediate_applies=regular_immediate_applies,
         premium_immediate_applies=premium_immediate_applies,
         legacy_regular_topup_gb=legacy_regular_topup_gb,
@@ -166,4 +181,5 @@ def checkout_addon_grants(value: str | None) -> CheckoutAddonGrants:
         active_context_present=active_context_present,
         active_subscription_id=active_subscription_id,
         active_end_at=active_end_at,
+        trial_days_strategy=normalize_trial_days_strategy(snapshot.get("trial_days_strategy")),
     )

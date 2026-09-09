@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { emailError, readReferralParam, shouldShowInviteOnlyHint } from "./authHelpers.js";
+import {
+  buildExternalOAuthStartUrl,
+  emailError,
+  readReferralParam,
+  shouldShowInviteOnlyHint,
+} from "./authHelpers.js";
 import { REFERRAL_STORAGE_KEY } from "./session.js";
 
 function installBrowser(search = "") {
@@ -27,6 +32,15 @@ afterEach(() => {
 });
 
 describe("auth referral helpers", () => {
+  it("builds external OAuth URLs with the application language", () => {
+    expect(buildExternalOAuthStartUrl("yandex", "login", "ru", "ABC 123")).toBe(
+      "/auth/yandex/start?purpose=login&lang=ru&ref=ABC+123"
+    );
+    expect(buildExternalOAuthStartUrl("google", "link", "en")).toBe(
+      "/auth/google/start?purpose=link&lang=en"
+    );
+  });
+
   it("reads referral params from supported query names", () => {
     for (const [search, expected] of [
       ["?ref=ABC123", "ABC123"],
@@ -46,6 +60,17 @@ describe("auth referral helpers", () => {
 
     expect(readReferralParam({ initDataUnsafe: { start_param: "TG123" } })).toBe("TG123");
     expect(storage.get(REFERRAL_STORAGE_KEY)).toBe("TG123");
+  });
+
+  it("does not treat a Telegram plan checkout payload as a referral", () => {
+    const { storage } = installBrowser("");
+
+    expect(
+      readReferralParam({
+        initDataUnsafe: { start_param: "plan_standard__months_3__traffic_200" },
+      })
+    ).toBe("");
+    expect(storage.has(REFERRAL_STORAGE_KEY)).toBe(false);
   });
 
   it("shows the invite-only hint only when no referral is available", () => {

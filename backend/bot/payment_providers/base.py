@@ -116,11 +116,14 @@ class WebAppPaymentContext:
     description: str
     sale_mode: str
     currency: str = "RUB"
+    duration_days: int | None = None
+    subscription_terms_snapshot: str | None = None
     traffic_gb: float | None = None
     hwid_device_count: int | None = None
     hwid_valid_from: Any | None = None
     hwid_valid_until: Any | None = None
     hwid_pricing_period_months: int | None = None
+    hwid_pricing_period_days: int | None = None
     hwid_proration_ratio: float | None = None
     hwid_full_price: float | None = None
     hwid_traffic_bonus_bytes: int | None = None
@@ -134,13 +137,18 @@ class WebAppPaymentContext:
     promo_traffic_multiplier: float | None = None
     promo_applies_to: str | None = None
     promo_min_subscription_months: int | None = None
+    promo_min_subscription_days: int | None = None
     promo_min_traffic_gb: float | None = None
     checkout_base_amount: float | None = None
     checkout_discount_amount: float | None = None
     checkout_charged_months: int | None = None
+    checkout_charged_days: int | None = None
     checkout_charged_gb: float | None = None
     checkout_quoted_at: Any | None = None
     checkout_total_amount: float | None = None
+    user_balance_user_id: int | None = None
+    user_balance_amount_minor: int | None = None
+    user_balance_currency_scale: int | None = None
     partner_balance_partner_id: int | None = None
     partner_balance_amount_minor: int | None = None
     partner_balance_currency_scale: int | None = None
@@ -250,6 +258,7 @@ class PaymentProviderSpec:
     create_service: ServiceFactory | None = None
     webhook_path: WebhookPathGetter | None = None
     webhook_route: WebhookRoute | None = None
+    webhook_methods: Sequence[str] = ("POST",)
     webhook_requires_base_url: bool = False
     create_webapp_payment: WebAppPaymentFactory | None = None
     reuse_webapp_payment: ReusableWebAppPaymentResolver | None = None

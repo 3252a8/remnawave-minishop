@@ -98,6 +98,61 @@
   --win95-icon-x: url("/webapp-theme-assets/windows95/icons/x.png?v=9");
 }
 
+/* A Windows-style high-contrast dark mode. Classic raised controls remain
+   recognisably grey, while the desktop, application panels and chrome switch
+   to a dark system palette. */
+.theme-key-windows95.theme-variant-dark {
+  color-scheme: dark;
+  --accent: #1084d0;
+  --bg: #101820;
+  --panel: #2d2d2d;
+  --panel-2: #3a3a3a;
+  --panel-3: #1d1d1d;
+  --border: #707070;
+  --border-strong: #dfdfdf;
+  --text: #f4f4f4;
+  --muted: #d0d0d0;
+  --dim: #a8a8a8;
+  --danger: #ff7b72;
+  --danger-text: #ffb4ad;
+  --danger-soft: #3a2020;
+  --danger-border: #a33a32;
+  --success: #57c785;
+  --success-text: #8ee3ac;
+  --success-soft: #173323;
+  --success-border: #328554;
+  --warning: #f0c75e;
+  --warning-text: #ffe39b;
+  --warning-soft: #3b321a;
+  --warning-border: #9a7b2d;
+  --info: #66b3ff;
+  --info-text: #a7d3ff;
+  --info-soft: #192d43;
+  --info-border: #3f78aa;
+  --blue: #66b3ff;
+  --accent-contrast: #ffffff;
+  --surface-hover: rgba(255, 255, 255, 0.08);
+  --surface-muted: #333333;
+  --surface-subtle: #262626;
+  --surface-subtle-border: #707070;
+  --overlay-scrim: rgba(0, 0, 0, 0.72);
+  --nav-bg: #262626;
+  --rail-bg: #202020;
+  --shadow-soft: 2px 2px 0 #000000;
+  --shadow-strong: 3px 3px 0 #000000;
+  --shadow-popover: 2px 2px 0 #000000;
+  --inset-highlight: #5c5c5c;
+  --admin-bg: #101820;
+  --admin-surface: #2d2d2d;
+  --admin-surface-2: #3a3a3a;
+  --admin-elev: #1d1d1d;
+  --admin-border: #707070;
+  --admin-border-strong: #dfdfdf;
+  --admin-text: #f4f4f4;
+  --admin-muted: #d0d0d0;
+  --admin-dim: #a8a8a8;
+}
+
 .theme-key-windows95.app-shell {
   background: var(--bg) !important;
 }

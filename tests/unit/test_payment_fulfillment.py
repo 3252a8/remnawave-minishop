@@ -1,0 +1,247 @@
+from datetime import UTC, datetime
+from types import SimpleNamespace
+from unittest import IsolatedAsyncioTestCase
+from unittest.mock import AsyncMock, patch
+
+from bot.services.payment_fulfillment import (
+    PaymentFulfillmentError,
+    payment_action_state,
+    persist_payment_fulfillment,
+    reverse_payment_fulfillment,
+)
+
+
+def _payment(**overrides):
+    data = {
+        "payment_id": 77,
+        "user_id": 42,
+        "status": "failed",
+        "sale_mode": "subscription",
+        "provider_payment_id": "provider-77",
+        "yookassa_payment_id": None,
+        "promo_code_id": None,
+        "fulfillment_before_snapshot": None,
+        "fulfillment_after_snapshot": None,
+        "fulfillment_source": None,
+        "reversed_at": None,
+    }
+    data.update(overrides)
+    return SimpleNamespace(**data)
+
+
+class PaymentFulfillmentTests(IsolatedAsyncioTestCase):
+    async def test_action_state_requires_confirmation_for_reused_promo(self):
+        payment = _payment(promo_code_id=5)
+        with patch(
+            "bot.services.payment_fulfillment.promo_code_dal.get_user_activation_for_promo",
+            AsyncMock(return_value=SimpleNamespace(payment_id=76)),
+        ):
+            state = await payment_action_state(AsyncMock(), payment)
+
+        self.assertTrue(state["can_manual_finalize"])
+        self.assertTrue(state["manual_finalize_requires_promo_confirmation"])
+        self.assertIn("promo_used_by_another_payment", state["manual_finalize_warnings"])
+
+    async def test_action_state_allows_reversal_only_with_snapshots(self):
+        state = await payment_action_state(
+            AsyncMock(),
+            _payment(
+                status="succeeded",
+                fulfillment_before_snapshot='{"version": 1, "users": []}',
+                fulfillment_after_snapshot='{"version": 1, "users": []}',
+            ),
+        )
+
+        self.assertTrue(state["can_reverse"])
+        self.assertFalse(state["can_manual_finalize"])
+
+    async def test_action_state_allows_balance_topup_reversal_without_snapshots(self):
+        state = await payment_action_state(
+            AsyncMock(),
+            _payment(status="succeeded", sale_mode="balance_topup|account"),
+        )
+
+        self.assertTrue(state["can_reverse"])
+        self.assertIsNone(state["reversal_block_reason"])
+
+    def test_persist_fulfillment_records_auditable_snapshots(self):
+        payment = _payment()
+
+        persist_payment_fulfillment(
+            payment,
+            before={"version": 1, "users": []},
+            after={"version": 1, "users": [{"user_id": 42}]},
+        )
+
+        self.assertEqual(payment.fulfillment_source, "provider")
+        self.assertIsNotNone(payment.fulfilled_at)
+        self.assertIn('"version": 1', payment.fulfillment_before_snapshot)
+        self.assertIn('"user_id": 42', payment.fulfillment_after_snapshot)
+
+    async def test_reversal_rejects_payment_without_snapshot(self):
+        payment = _payment(status="succeeded")
+        with (
+            patch(
+                "bot.services.payment_fulfillment.payment_dal.get_payment_by_db_id_for_update",
+                AsyncMock(return_value=payment),
+            ),
+            self.assertRaisesRegex(PaymentFulfillmentError, "has no reversible"),
+        ):
+            await reverse_payment_fulfillment(
+                AsyncMock(),
+                payment_id=77,
+                actor_admin_id=1,
+                reason="Provider refund",
+                restore_promo_usage=True,
+                subscription_service=AsyncMock(),
+            )
+
+    async def test_balance_topup_reversal_debits_ledger_without_entitlement_snapshot(self):
+        payment = _payment(status="succeeded", sale_mode="balance_topup")
+        updated = SimpleNamespace(payment_id=77, status="reversed")
+        reverse_topup = AsyncMock(return_value=SimpleNamespace(entry_id=8))
+        update_status = AsyncMock(return_value=updated)
+        session = AsyncMock()
+        with (
+            patch(
+                "bot.services.payment_fulfillment.payment_dal.get_payment_by_db_id_for_update",
+                AsyncMock(return_value=payment),
+            ),
+            patch(
+                "bot.services.user_balance_service.UserBalanceService.reverse_payment_topup",
+                reverse_topup,
+            ),
+            patch(
+                "bot.services.payment_fulfillment.payment_dal.update_payment_status_by_db_id",
+                update_status,
+            ),
+        ):
+            result = await reverse_payment_fulfillment(
+                session,
+                payment_id=77,
+                actor_admin_id=1,
+                reason="Provider refund",
+                restore_promo_usage=True,
+                subscription_service=AsyncMock(),
+            )
+
+        self.assertIs(result, updated)
+        reverse_topup.assert_awaited_once_with(
+            session,
+            payment_id=77,
+            reason="Provider refund",
+        )
+        update_status.assert_awaited_once_with(session, 77, "reversed")
+        self.assertEqual(payment.reversed_by_admin_id, 1)
+        self.assertEqual(payment.reversal_note, "Provider refund")
+        self.assertFalse(payment.promo_usage_restored)
+
+    async def test_balance_topup_reversal_rejects_missing_credit(self):
+        payment = _payment(status="succeeded", sale_mode="balance_topup")
+        with (
+            patch(
+                "bot.services.payment_fulfillment.payment_dal.get_payment_by_db_id_for_update",
+                AsyncMock(return_value=payment),
+            ),
+            patch(
+                "bot.services.user_balance_service.UserBalanceService.reverse_payment_topup",
+                AsyncMock(return_value=None),
+            ),
+            self.assertRaises(PaymentFulfillmentError) as raised,
+        ):
+            await reverse_payment_fulfillment(
+                AsyncMock(),
+                payment_id=77,
+                actor_admin_id=1,
+                reason="Provider refund",
+                restore_promo_usage=False,
+                subscription_service=AsyncMock(),
+            )
+
+        self.assertEqual(raised.exception.code, "balance_topup_credit_missing")
+
+    async def test_gift_reversal_delegates_refund_choice_to_the_atomic_gift_flow(self):
+        payment = _payment(status="succeeded", sale_mode="subscription|gift")
+        gift = SimpleNamespace(gift_id=8, status="ready")
+        revoke = AsyncMock(return_value=gift)
+        for refund_to_balance in (True, False):
+            with (
+                self.subTest(refund_to_balance=refund_to_balance),
+                patch(
+                    "bot.services.payment_fulfillment.payment_dal.get_payment_by_db_id_for_update",
+                    AsyncMock(return_value=payment),
+                ),
+                patch(
+                    "bot.services.payment_fulfillment.gift_dal.by_payment",
+                    AsyncMock(return_value=gift),
+                ),
+                patch("bot.services.gift_revoke.revoke_paid_gift", revoke),
+            ):
+                result = await reverse_payment_fulfillment(
+                    AsyncMock(),
+                    payment_id=77,
+                    actor_admin_id=1,
+                    reason="Duplicate gift",
+                    restore_promo_usage=True,
+                    refund_to_balance=refund_to_balance,
+                    subscription_service=AsyncMock(),
+                )
+                self.assertIs(result, payment)
+                self.assertEqual(revoke.await_args.kwargs["refund_to_balance"], refund_to_balance)
+
+    async def test_gift_reversal_passes_the_explicit_without_reason_flag(self):
+        payment = _payment(status="succeeded", sale_mode="subscription|gift")
+        gift = SimpleNamespace(gift_id=8, status="ready")
+        revoke = AsyncMock(return_value=gift)
+        with (
+            patch(
+                "bot.services.payment_fulfillment.payment_dal.get_payment_by_db_id_for_update",
+                AsyncMock(return_value=payment),
+            ),
+            patch(
+                "bot.services.payment_fulfillment.gift_dal.by_payment",
+                AsyncMock(return_value=gift),
+            ),
+            patch("bot.services.gift_revoke.revoke_paid_gift", revoke),
+        ):
+            await reverse_payment_fulfillment(
+                AsyncMock(),
+                payment_id=77,
+                actor_admin_id=1,
+                reason="   ",
+                without_reason=True,
+                restore_promo_usage=True,
+                subscription_service=AsyncMock(),
+            )
+
+        self.assertEqual(revoke.await_args.kwargs["reason"], "")
+        self.assertTrue(revoke.await_args.kwargs["without_reason"])
+
+    async def test_reversal_rejects_a_later_successful_payment(self):
+        timestamp = datetime.now(UTC)
+        payment = _payment(
+            status="succeeded",
+            fulfilled_at=timestamp,
+            fulfillment_before_snapshot='{"version": 1, "users": []}',
+            fulfillment_after_snapshot='{"version": 1, "users": []}',
+        )
+        session = AsyncMock()
+        session.scalar.return_value = 88
+        with (
+            patch(
+                "bot.services.payment_fulfillment.payment_dal.get_payment_by_db_id_for_update",
+                AsyncMock(return_value=payment),
+            ),
+            self.assertRaises(PaymentFulfillmentError) as raised,
+        ):
+            await reverse_payment_fulfillment(
+                session,
+                payment_id=77,
+                actor_admin_id=1,
+                reason="Provider refund",
+                restore_promo_usage=True,
+                subscription_service=AsyncMock(),
+            )
+
+        self.assertEqual(raised.exception.code, "payment_reversal_conflict")
+        self.assertEqual(raised.exception.details, ["later_payment:88"])

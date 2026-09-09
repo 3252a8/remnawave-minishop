@@ -1,3 +1,4 @@
+import io
 import unittest
 from collections import deque
 from datetime import UTC, datetime, timedelta
@@ -5,6 +6,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
 from unittest.mock import AsyncMock, patch
+
+from PIL import Image
 
 from bot.app.web.admin_api_impl import broadcast as broadcast_route_module
 from bot.app.web.admin_api_impl import broadcast_shortcodes as broadcast_shortcodes_module
@@ -22,6 +25,7 @@ from bot.services.broadcast_personalization import (
     unknown_shortcodes,
 )
 from bot.services.email_templates_common import _telegram_html_to_email_html
+from bot.services.message_image_service import UploadedMessageImage, _prepare_message_image
 from config.tariffs_config import TariffsConfig
 from tests.support.settings_stub import settings_stub
 
@@ -149,10 +153,10 @@ class RenderTest(unittest.TestCase):
 
     def test_first_name_falls_back_to_username_then_localized(self):
         self.assertEqual(self.render("{first_name}", _full_ctx(first_name=None)), "alice")
-        friend = self.i18n.gettext("en", "broadcast_value_friend")
+        fallback = self.i18n.gettext("en", "user_name_fallback")
         self.assertEqual(
             self.render("{first_name}", _full_ctx(first_name=None, username=None)),
-            friend,
+            fallback,
         )
 
     def test_subscription_fields_with_active_sub(self):
@@ -246,8 +250,8 @@ class RenderTest(unittest.TestCase):
         )
 
     def test_none_context_uses_localized_fallbacks(self):
-        friend = self.i18n.gettext("ru", "broadcast_value_friend")
-        self.assertEqual(self.render("{first_name}", None, lang="ru"), friend)
+        fallback = self.i18n.gettext("ru", "user_name_fallback")
+        self.assertEqual(self.render("{first_name}", None, lang="ru"), fallback)
         self.assertEqual(self.render("{last_name}", None), "")
         self.assertEqual(self.render("{referral_bot_link}", None), "")
         self.assertEqual(self.render("{partner_bot_link}", None), "")
@@ -434,9 +438,13 @@ class _FakeCommitSessionFactory:
 class _FakeQueue:
     def __init__(self) -> None:
         self.messages: list[dict[str, Any]] = []
+        self.photos: list[dict[str, Any]] = []
 
     async def send_message(self, **kwargs: Any) -> None:
         self.messages.append(kwargs)
+
+    async def send_photo(self, chat_id: int, **kwargs: Any) -> None:
+        self.photos.append({"chat_id": chat_id, **kwargs})
 
 
 class _FakeRequest:
@@ -592,7 +600,7 @@ class BroadcastEndpointsTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["unknown_shortcodes"], [])
         self.assertFalse(payload["sent"])
 
-    async def test_preview_send_mode_includes_broadcast_buttons(self):
+    async def test_preview_send_mode_attaches_text_and_buttons_to_photo(self):
         request = _request(
             {
                 "text": "Hi!",
@@ -609,9 +617,17 @@ class BroadcastEndpointsTest(unittest.IsolatedAsyncioTestCase):
             admin_telegram_id=123456789,
         )
         queue = _FakeQueue()
+        image_bytes = io.BytesIO()
+        Image.new("RGBA", (160, 120), (0, 0, 0, 0)).save(image_bytes, format="PNG")
+        prepared = _prepare_message_image(UploadedMessageImage(data=image_bytes.getvalue()))
         with (
             patch.object(broadcast_shortcodes_module, "_require_admin_user_id", return_value=999),
             patch.object(broadcast_shortcodes_module, "get_queue_manager", return_value=queue),
+            patch.object(
+                broadcast_shortcodes_module,
+                "prepare_message_image",
+                AsyncMock(return_value=prepared),
+            ),
             patch.object(
                 broadcast_shortcodes_module.user_dal,
                 "get_user_by_id",
@@ -631,7 +647,17 @@ class BroadcastEndpointsTest(unittest.IsolatedAsyncioTestCase):
         payload = json.loads(response.body)
         self.assertTrue(payload["ok"])
         self.assertTrue(payload["sent"])
-        markup = queue.messages[0]["reply_markup"]
+        self.assertEqual(queue.messages, [])
+        self.assertEqual(len(queue.photos), 1)
+        photo = queue.photos[0]
+        self.assertTrue(photo["photo"].filename.endswith(".jpg"))
+        with Image.open(io.BytesIO(photo["photo"].data)) as decoded:
+            self.assertEqual(decoded.format, "JPEG")
+            self.assertEqual(decoded.getpixel((0, 0)), (255, 255, 255))
+        self.assertEqual(photo["chat_id"], 123456789)
+        self.assertEqual(photo["caption"], "Hi!")
+        self.assertEqual(photo["parse_mode"], "HTML")
+        markup = photo["reply_markup"]
         self.assertEqual(markup.inline_keyboard[0][0].text, "Open")
         self.assertEqual(markup.inline_keyboard[0][0].url, "https://example.com")
 

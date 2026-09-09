@@ -1,3 +1,4 @@
+import { daysToLegacyMonths } from "../webapp/subscriptionPeriods";
 import type { components } from "../api/openapi.generated";
 
 /**
@@ -135,7 +136,8 @@ export function applySubscriptionToPeriodRows(
   const actual = currencyCode(subscription.currency);
 
   rows.forEach((row, index) => {
-    const months = positiveInt(row.months);
+    const months =
+      row.duration_days != null ? daysToLegacyMonths(row.duration_days) : positiveInt(row.months);
     if (months === null) return;
     const period = periods.get(months);
     if (!period) {
@@ -171,7 +173,8 @@ export function checkPeriodRows(
   const expected = currencyCode(tariffCurrency);
 
   rows.forEach((row) => {
-    const months = positiveInt(row.months);
+    const months =
+      row.duration_days != null ? daysToLegacyMonths(row.duration_days) : positiveInt(row.months);
     const subscriptionId = positiveInt(row.tribute_subscription_id);
     const periodId = positiveInt(row.tribute_period_id);
     if (months === null || subscriptionId === null || periodId === null) return;

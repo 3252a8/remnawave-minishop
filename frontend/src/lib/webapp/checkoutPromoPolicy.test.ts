@@ -3,6 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   checkoutPromoAffectsQuotedPlan,
   checkoutPromoBlockVisible,
+  checkoutPromoMatchesPlan,
+  discountedCheckoutPlan,
+  normalizedCheckoutPromoDiscount,
   selectPaymentMethodWithPromoReset,
 } from "./checkoutPromoPolicy.js";
 
@@ -48,5 +51,26 @@ describe("checkout promo policy", () => {
 
   it("still hides checkout promos when the provider manages its own price", () => {
     expect(checkoutPromoBlockVisible(true, true)).toBe(false);
+  });
+
+  it("normalizes checkout discounts and applies them to local prices", () => {
+    expect(normalizedCheckoutPromoDiscount("SAVE", 125)).toBe(100);
+    expect(normalizedCheckoutPromoDiscount("", 20)).toBe(0);
+    expect(discountedCheckoutPlan({ price: 190, stars_price: 200 }, 20)).toMatchObject({
+      price: 152,
+      stars_price: 160,
+    });
+  });
+
+  it("matches promo scope and thresholds against the selected plan", () => {
+    expect(
+      checkoutPromoMatchesPlan({ sale_mode: "subscription", months: 3 }, "subscription", 90, null)
+    ).toBe(true);
+    expect(
+      checkoutPromoMatchesPlan({ sale_mode: "subscription", months: 1 }, "subscription", 90, null)
+    ).toBe(false);
+    expect(
+      checkoutPromoMatchesPlan({ sale_mode: "traffic", traffic_gb: 50 }, "traffic", null, 100)
+    ).toBe(false);
   });
 });

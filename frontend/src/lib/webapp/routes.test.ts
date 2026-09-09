@@ -4,7 +4,17 @@ import {
   adminPartnersDeepLinkFromPath,
   adminSectionFromPath,
   normalizeAdminSection,
+  sectionFromPath,
 } from "./routes";
+
+describe("sectionFromPath", () => {
+  it("recognizes notification preferences as a Settings subsection", () => {
+    expect(sectionFromPath("/settings/notifications")).toBe("notifications");
+    expect(sectionFromPath("/demo/runtime/settings/notifications", "/demo/runtime")).toBe(
+      "notifications"
+    );
+  });
+});
 
 describe("normalizeAdminSection", () => {
   it("keeps known core sections", () => {

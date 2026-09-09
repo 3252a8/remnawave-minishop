@@ -6,6 +6,7 @@ from datetime import datetime
 
 from bot.services.promo_effects import PromoEffects
 from bot.utils.date_utils import add_months
+from config.subscription_periods import multiplied_bonus_days
 
 
 @dataclass(frozen=True)
@@ -19,6 +20,7 @@ class GrantContext:
     promo: PromoEffects | None = None
     period_start: datetime | None = None
     base_period_end: datetime | None = None
+    duration_days: int | None = None
 
     @property
     def traffic_gb(self) -> float | None:
@@ -47,6 +49,8 @@ _extra_grant_modifiers: list[GrantModifier] = []
 def _duration_multiplier_extra_days(ctx: GrantContext, multiplier: float) -> int:
     if multiplier <= 1.0 or ctx.base_period_days <= 0:
         return 0
+    if ctx.duration_days is not None:
+        return multiplied_bonus_days(ctx.duration_days, multiplier)
     if (
         ctx.period_start is not None
         and ctx.base_period_end is not None
@@ -68,6 +72,7 @@ def _promo_grant_modifier(ctx: GrantContext) -> Iterable[GrantAdjustment]:
         sale_mode_base=ctx.sale_mode_base,
         months=ctx.months,
         traffic_gb=ctx.traffic_gb,
+        duration_days=ctx.duration_days,
     ):
         return ()
     if ctx.sale_mode_base == "subscription":

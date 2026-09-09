@@ -163,6 +163,8 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
                 "start_date": start_date,
                 "end_date": new_end_date_obj,
                 "duration_months": 0,
+                "duration_days": None,
+                "period_semantics": None,
                 "is_active": True,
                 "status_from_panel": "ACTIVE_BONUS",
                 "traffic_limit_bytes": traffic_limit,

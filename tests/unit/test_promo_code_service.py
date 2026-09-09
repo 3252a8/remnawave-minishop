@@ -260,6 +260,7 @@ class PromoCodeServiceTests(IsolatedAsyncioTestCase):
             tariffs_config=SimpleNamespace(
                 default_tariff="standard",
                 require=lambda key: tariff,
+                require_configured=lambda key: tariff,
             ),
         )
         subscription_service = SimpleNamespace(
@@ -429,6 +430,7 @@ class PromoCodeServiceTests(IsolatedAsyncioTestCase):
         assert isinstance(result, PromoCheckoutRequired)
         self.assertEqual(result.code, "HELLO")
         self.assertEqual(result.effect_summary, "+7 days")
+        self.assertEqual(result.bonus_days, 7)
         subscription_service.extend_active_subscription_days.assert_not_awaited()
         consume_activation.assert_not_awaited()
         clear_throttle.assert_awaited_once()
@@ -472,7 +474,7 @@ class PromoCodeStatusTests(IsolatedAsyncioTestCase):
             bonus_days=0,
             discount_percent=20,
             applies_to="subscription",
-            min_subscription_months=3,
+            min_subscription_days=90,
         )
         with (
             patch(
@@ -492,7 +494,8 @@ class PromoCodeStatusTests(IsolatedAsyncioTestCase):
 
         self.assertEqual(status.status, PROMO_STATUS_REQUIRES_CHECKOUT)
         self.assertEqual(status.code, "SALE20")
-        self.assertEqual(status.min_subscription_months, 3)
+        self.assertEqual(status.discount_percent, 20)
+        self.assertEqual(status.min_subscription_days, 90)
 
     async def test_status_already_used_includes_dates(self):
         service = _status_service()

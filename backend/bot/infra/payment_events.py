@@ -63,9 +63,11 @@ class PaymentSuccessSnapshot:
     traffic_is_premium: bool
     purchased_hwid_devices: int | None
     promo_code_id: int | None
+    promo_code: str | None
     base_amount: float | None
     discount_amount: float | None
     purchases: tuple[PaymentPurchase, ...]
+    duration_days: int | None = None
 
 
 PaymentPurchaseResolver = Callable[[PaymentPurchaseContext], Iterable[PaymentPurchase]]
@@ -120,6 +122,17 @@ def _optional_int(value: Any) -> int | None:
 
 def _getattr_or_none(source: Any, name: str) -> Any:
     return getattr(source, name, None) if source is not None else None
+
+
+def _payment_promo_code(payload: Mapping[str, Any], payment: Any) -> str | None:
+    payload_code = str(payload.get("promo_code") or "").strip()
+    if payload_code:
+        return payload_code
+    promo = _getattr_or_none(payment, "promo_code_used")
+    code = str(
+        _getattr_or_none(promo, "archived_code") or _getattr_or_none(promo, "code") or ""
+    ).strip()
+    return code or None
 
 
 def _resolve_traffic_purchase(ctx: PaymentPurchaseContext) -> Iterable[PaymentPurchase]:
@@ -276,6 +289,9 @@ def resolve_payment_success_snapshot(
         sale_mode_base=base,
         tariff_key=str(tariff_key) if tariff_key else None,
         months=months,
+        duration_days=_optional_positive_int(
+            payload.get("duration_days") or _getattr_or_none(payment, "subscription_duration_days")
+        ),
         traffic_gb=traffic_purchase.amount if traffic_purchase else None,
         traffic_is_premium=bool(
             base == "premium_topup"
@@ -285,6 +301,7 @@ def resolve_payment_success_snapshot(
         promo_code_id=_optional_int(
             payload.get("promo_code_id") or _getattr_or_none(payment, "promo_code_id")
         ),
+        promo_code=_payment_promo_code(payload, payment),
         base_amount=_first_optional_float(
             payload.get("base_amount"),
             _getattr_or_none(payment, "checkout_base_amount"),
@@ -329,7 +346,9 @@ def build_payment_succeeded_payload(
         "currency": currency,
         "sale_mode": sale_mode,
         "tariff_key": tariff_key,
-        "months": months,
+        "months": months or None,
+        "duration_days": _getattr_or_none(payment, "subscription_duration_days")
+        or activation.get("duration_days"),
         "traffic_gb": traffic_gb,
         "purchased_hwid_devices": (
             purchased_hwid_devices

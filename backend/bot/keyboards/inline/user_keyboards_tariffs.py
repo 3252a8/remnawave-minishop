@@ -5,7 +5,9 @@ from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 
 from bot.middlewares.i18n import JsonI18n
+from bot.utils.subscription_periods import localized_duration_days
 from config.settings import Settings
+from config.subscription_periods import legacy_months_to_days, period_to_days
 from config.tariffs_config import (
     default_currency_key_for_settings,
     default_payment_currency_code_for_settings,
@@ -103,16 +105,20 @@ def get_subscription_options_keyboard(
                     effective_price = float(_promo_value(quote, "effective_amount", price))
                     button_text = (
                         _(
-                            "subscribe_for_months_discounted_button",
-                            months=months,
+                            "subscribe_for_period_discounted_button",
+                            period=localized_duration_days(
+                                legacy_months_to_days(months), i18n_instance, lang
+                            ),
                             old_price=price,
                             price=effective_price,
                             currency_symbol=currency_symbol_val,
                         )
                         if quote is not None and effective_price < float(price)
                         else _(
-                            "subscribe_for_months_button",
-                            months=months,
+                            "subscribe_for_period_button",
+                            period=localized_duration_days(
+                                legacy_months_to_days(months), i18n_instance, lang
+                            ),
                             price=price,
                             currency_symbol=currency_symbol_val,
                         )
@@ -212,6 +218,9 @@ def get_tariff_periods_keyboard(
     default_currency = default_currency_key_for_settings(settings)
     currency_code = default_payment_currency_code_for_settings(settings)
     for months in tariff.enabled_periods:
+        duration_days = period_to_days(
+            months, tariff.period_unit if hasattr(tariff, "period_unit") else "month"
+        )
         rub_price = tariff.period_price(months, default_currency)
         if rub_price and rub_price > 0:
             quote = (promo_quotes or {}).get(int(months)) if promo_enabled else None
@@ -225,21 +234,39 @@ def get_tariff_periods_keyboard(
                 InlineKeyboardButton(
                     text=(
                         _(
-                            "subscribe_for_months_discounted_button",
-                            months=months,
+                            "subscribe_for_period_discounted_button",
+                            period=localized_duration_days(
+                                period_to_days(
+                                    months,
+                                    tariff.period_unit
+                                    if hasattr(tariff, "period_unit")
+                                    else "month",
+                                ),
+                                i18n_instance,
+                                lang,
+                            ),
                             old_price=rub_price,
                             price=effective_price,
                             currency_symbol=currency_code,
                         )
                         if quote is not None and effective_price < float(rub_price)
                         else _(
-                            "subscribe_for_months_button",
-                            months=months,
+                            "subscribe_for_period_button",
+                            period=localized_duration_days(
+                                period_to_days(
+                                    months,
+                                    tariff.period_unit
+                                    if hasattr(tariff, "period_unit")
+                                    else "month",
+                                ),
+                                i18n_instance,
+                                lang,
+                            ),
                             price=rub_price,
                             currency_symbol=currency_code,
                         )
                     ),
-                    callback_data=f"tariff:period:{tariff.key}:{months}{promo_suffix}",
+                    callback_data=f"tariff:period:{tariff.key}:d{duration_days}{promo_suffix}",
                 )
             )
     _add_promo_toggle(

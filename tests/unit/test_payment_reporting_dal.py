@@ -10,6 +10,35 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.dal import payment_reporting_dal
 
 
+def test_complimentary_gifts_are_separate_from_cash_revenue(monkeypatch):
+    session = AsyncMock(spec=AsyncSession)
+    revenue = MagicMock()
+    revenue.one.return_value = (100, 200, 300, 400, 1)
+    gifts = MagicMock()
+    gifts.one.return_value = (12, 8)
+    session.execute.side_effect = [revenue, gifts]
+    monkeypatch.setattr(
+        payment_reporting_dal, "_daily_revenue_series_utc", AsyncMock(return_value=[])
+    )
+    result = asyncio.run(payment_reporting_dal.get_financial_statistics(session))
+    assert result["all_time_revenue"] == 400
+    assert result["today_payments_count"] == 1
+    assert result["admin_gifts_count"] == 12
+    assert result["admin_gifts_activated_count"] == 8
+    queries = [
+        str(
+            call.args[0].compile(
+                dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+            )
+        )
+        for call in session.execute.await_args_list
+    ]
+    assert "payments.funding_source = 'external'" in queries[0]
+    assert "payments.funding_source = 'admin_grant'" in queries[1]
+    assert "payments.status = 'succeeded'" in queries[1]
+    assert "subscription_gifts.status != 'revoked'" in queries[1]
+
+
 class _FrozenDateTime(datetime):
     @classmethod
     def now(cls, tz: object = None) -> _FrozenDateTime:

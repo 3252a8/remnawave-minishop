@@ -13,7 +13,8 @@ from bot.app.web.context import (
     get_session_factory,
     get_settings,
 )
-from bot.app.web.request_parsing import parse_body_or_400
+from bot.app.web.message_image_contracts import message_image_request_content
+from bot.app.web.request_parsing import parse_body_or_400, parse_body_with_optional_image_or_400
 from bot.app.web.route_contracts import (
     RouteContract,
     ok_envelope_for,
@@ -42,6 +43,11 @@ from bot.services.broadcast_personalization import (
     render_broadcast_text,
     telegram_html_error,
     unknown_shortcodes,
+)
+from bot.services.message_image_service import (
+    MessageImageError,
+    persist_message_image,
+    prepare_message_image,
 )
 from bot.utils import MessageContent, send_message_via_queue
 from bot.utils.message_queue import get_queue_manager
@@ -91,9 +97,14 @@ _ADMIN_BROADCAST_AUDIENCE_COUNT_CACHES: dict[tuple[int, int], AsyncTTLCache] = {
 register_contract(
     "admin_broadcast_route",
     RouteContract(
-        request_model=AdminBroadcastBody,
+        request_content=message_image_request_content(AdminBroadcastBody),
         response_schema=ok_envelope_for(AdminBroadcastCreateOut),
-        models=(AdminBroadcastCreateOut, AdminBroadcastOut, AdminBroadcastButtonOut),
+        models=(
+            AdminBroadcastBody,
+            AdminBroadcastCreateOut,
+            AdminBroadcastOut,
+            AdminBroadcastButtonOut,
+        ),
     ),
 )
 register_contract(
@@ -489,15 +500,26 @@ def _utc_datetime(value: datetime | None) -> datetime:
     return value.astimezone(UTC)
 
 
+def _personal_broadcast_target_id(target: str) -> int | None:
+    if not target.startswith("user:"):
+        return None
+    try:
+        return int(target.partition(":")[2])
+    except (TypeError, ValueError):
+        return None
+
+
 def _broadcast_out(item: AdminBroadcast) -> AdminBroadcastOut:
     created_at = _utc_datetime(cast(datetime | None, item.created_at))
     updated_at = _utc_datetime(cast(datetime | None, item.updated_at) or created_at)
+    image_id = getattr(item, "image_id", None)
     raw_buttons = list(cast(list[dict[str, Any]], item.buttons or []))
     return AdminBroadcastOut(
         broadcast_id=int(item.broadcast_id),
         status=str(item.status),
         target=str(item.target),
         channels=[str(value) for value in list(item.channels or [])],
+        exclude_blocked_telegram=bool(getattr(item, "exclude_blocked_telegram", False)),
         texts={str(key): str(value) for key, value in dict(item.texts or {}).items()},
         email_subjects={
             str(key): str(value) for key, value in dict(item.email_subjects or {}).items()
@@ -516,6 +538,7 @@ def _broadcast_out(item: AdminBroadcast) -> AdminBroadcastOut:
             for button in raw_buttons
             if isinstance(button, dict)
         ],
+        image_id=str(image_id) if image_id else None,
         scheduled_at=_utc_datetime(cast(datetime | None, item.scheduled_at)),
         created_at=created_at,
         started_at=cast(datetime | None, item.started_at),
@@ -535,7 +558,11 @@ def _broadcast_out(item: AdminBroadcast) -> AdminBroadcastOut:
 
 async def admin_broadcast_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
-    body = await parse_body_or_400(request, AdminBroadcastBody)
+    body, upload = await parse_body_with_optional_image_or_400(request, AdminBroadcastBody)
+    try:
+        image = await prepare_message_image(upload)
+    except MessageImageError as exc:
+        return _error(400, exc.code, exc.detail)
     settings: Settings = get_settings(request)
     target = str(body.target or "all").strip().lower()
     texts = dict(body.texts)
@@ -543,7 +570,7 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
     default_language = str(settings.DEFAULT_LANGUAGE or "").strip().lower() or "en"
     if text:
         texts.setdefault(default_language, text)
-    if not texts:
+    if not texts and image is None:
         return _error(400, "empty_text")
 
     email_subjects = dict(body.email_subjects)
@@ -594,6 +621,12 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
     if immediate and "telegram" in channels and queue_manager is None:
         return _error(503, "queue_unavailable")
 
+    exclude_blocked_telegram = (
+        body.exclude_blocked_telegram
+        if body.exclude_blocked_telegram is not None
+        else settings.ADMIN_BROADCAST_EXCLUDE_BLOCKED_TELEGRAM
+    )
+
     async_session_factory = get_session_factory(request)
     async with async_session_factory() as session:
         promo_error = await _validate_broadcast_promo_codes(
@@ -601,16 +634,33 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
         )
         if promo_error is not None:
             return promo_error
+        stored_image = await persist_message_image(session, image)
+        personal_target_id = _personal_broadcast_target_id(target)
+        if personal_target_id is not None:
+            audit_text = text or next(iter(texts.values()), "") or "[image]"
+            await message_log_dal.create_message_log_no_commit(
+                session,
+                {
+                    "user_id": actor_id,
+                    "event_type": "admin_direct_message_webapp",
+                    "content": f"channels={','.join(channels)} | {audit_text}"[:4000],
+                    "is_admin_event": True,
+                    "target_user_id": personal_target_id,
+                    "timestamp": datetime.now(UTC),
+                },
+            )
         item = await broadcast_dal.create_broadcast(
             session,
             actor_id=actor_id,
             target=target,
             channels=channels,
+            exclude_blocked_telegram=exclude_blocked_telegram,
             texts=texts,
             email_subjects=email_subjects,
             buttons=[button.model_dump(mode="json") for button in body.buttons],
             scheduled_at=scheduled_at,
-            is_visible=not target.startswith("user:"),
+            is_visible=True,
+            image_id=str(stored_image.image_id) if stored_image is not None else None,
         )
 
     dispatch_result = BroadcastDispatchResult(0, 0, 0, channels)

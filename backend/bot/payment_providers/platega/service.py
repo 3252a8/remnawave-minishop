@@ -482,11 +482,13 @@ async def _create_payment(
             months=request.months,
             payload=json.dumps(payload_data),
         )
+    payer_id = str(request.user_id)
     return await service.create_transaction(
         amount=request.amount,
         currency=request.currency,
         description=request.description,
         payload=json.dumps(payload_data),
+        metadata={"userId": payer_id, "userName": payer_id},
         payment_method=_platega_method_id(service, variant),
         allow_method_selection=variant == "all_methods",
     )

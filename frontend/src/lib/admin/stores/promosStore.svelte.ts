@@ -1,3 +1,4 @@
+import { legacyMonthsToDays } from "../../webapp/subscriptionPeriods";
 import { adminErrorMessage } from "../errors.js";
 import { copyTextToClipboard } from "../../webapp/clipboard.js";
 import {
@@ -41,6 +42,7 @@ type PromoEffectPayload = {
   bonus_requires_payment?: boolean | null;
 };
 type PromosListResponse = GetResponse<"/api/admin/promos">;
+type PromoDetailResponse = GetResponse<"/api/admin/promos/{promo_id}">;
 type PromoActivationsResponse = GetResponse<"/api/admin/promos/{promo_id}/activations">;
 type PromosState = {
   promos: Promo[];
@@ -76,6 +78,7 @@ export type PromosStore = PromosState & {
   togglePromo: (promo: Promo) => Promise<void>;
   deletePromo: (promo: Promo) => Promise<void>;
   openEditPromo: (promo: Promo) => void;
+  openPromoById: (promoId: number) => Promise<void>;
   closeEditPromo: () => void;
   updateEditDraft: (fields: Partial<PromoPatch>) => void;
   copyToClipboard: (text: string | null | undefined, successMessage?: string) => Promise<void>;
@@ -120,6 +123,7 @@ const defaultPromoDraft = (): PromoDraft => ({
   bonus_requires_payment: false,
   applies_to: "all",
   min_subscription_months: null,
+  min_subscription_days: null,
   min_traffic_gb: null,
   origin: "admin",
   max_activations: 1,
@@ -137,6 +141,7 @@ const defaultPromoPatchDraft = (): PromoPatch => ({
   bonus_requires_payment: null,
   applies_to: null,
   min_subscription_months: null,
+  min_subscription_days: null,
   min_traffic_gb: null,
   origin: null,
   max_activations: null,
@@ -155,7 +160,9 @@ function promoToPatchDraft(promo: Promo): PromoPatch {
     traffic_multiplier: promo.traffic_multiplier,
     bonus_requires_payment: promo.bonus_requires_payment,
     applies_to: promo.applies_to,
-    min_subscription_months: promo.min_subscription_months,
+    min_subscription_months: null,
+    min_subscription_days:
+      promo.min_subscription_days ?? legacyMonthsToDays(promo.min_subscription_months),
     min_traffic_gb: promo.min_traffic_gb,
     origin: promo.origin,
     max_activations: promo.max_activations,
@@ -417,6 +424,25 @@ export function createPromosStore({
     state.promoEditOpen = true;
   }
 
+  async function openPromoById(promoId: number): Promise<void> {
+    const cached = promos.find((promo) => promo.id === promoId);
+    if (cached) {
+      openEditPromo(cached);
+      return;
+    }
+    try {
+      const response: PromoDetailResponse = await api(buildAdminPromoPath(promoId));
+      if (!isOkResponse(response)) {
+        onToast(adminErrorMessage(response, at, "promo_load_failed"));
+        return;
+      }
+      const promo = unwrap(response).promo;
+      openEditPromo(promo);
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : String(error || "promo_load_failed"));
+    }
+  }
+
   function closeEditPromo(): void {
     state.promoEditOpen = false;
     state.promoEditing = null;
@@ -528,6 +554,7 @@ export function createPromosStore({
     togglePromo,
     deletePromo,
     openEditPromo,
+    openPromoById,
     closeEditPromo,
     updateEditDraft,
     copyToClipboard,

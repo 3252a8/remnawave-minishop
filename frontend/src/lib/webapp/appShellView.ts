@@ -2,11 +2,13 @@ import { computeAccountView } from "./accountView.js";
 import { computeAppDataView } from "./appDataView.js";
 import { computeBillingView } from "./billingView.js";
 import { computeLanguageView } from "./languageView.js";
+import type { MeResponse } from "./publicApi.js";
 import { computeTelegramLoginView } from "./telegramLoginView.js";
 import { computeThemeView } from "./themeView.js";
 
 type Translate = (key: string) => string;
 type AppShellViewData = Record<string, unknown>;
+type AppShellUser = Extract<MeResponse, { ok: true }>["user"];
 
 export type AppShellViewInput = {
   authBusy: boolean;
@@ -32,6 +34,8 @@ export type AppShellViewInput = {
   themePreviewDraft: AppShellViewData | null;
   themePreviewKey: string;
   topupUnlockPercent: number;
+  themePreference?: string;
+  systemColorScheme?: string;
   t: Translate;
 };
 
@@ -39,6 +43,7 @@ type AppShellConfig = AppShellViewData & {
   themesCatalog?: Record<string, unknown> | null;
   primaryColor?: string;
   language?: string;
+  userThemeModeEnabled?: boolean;
 };
 
 export function computeAppShellView({
@@ -65,6 +70,8 @@ export function computeAppShellView({
   themePreviewDraft,
   themePreviewKey,
   topupUnlockPercent,
+  themePreference = "auto",
+  systemColorScheme = "",
   t,
 }: AppShellViewInput) {
   const telegramMiniAppContext = hasTelegramLaunchParams();
@@ -75,7 +82,7 @@ export function computeAppShellView({
     mockData,
     telegramMiniAppContext,
   });
-  const user = (data?.user || {}) as Record<string, unknown>;
+  const user = (data?.user || {}) as AppShellUser;
   const billingView = computeBillingView({
     appSettings: appDataView.appSettings,
     plans: appDataView.plans,
@@ -91,6 +98,9 @@ export function computeAppShellView({
     screen,
     cfgThemesCatalog: (cfg as AppShellConfig).themesCatalog,
     primaryColor: typeof cfg.primaryColor === "string" ? cfg.primaryColor : undefined,
+    themePreference,
+    systemColorScheme,
+    userThemeModeEnabled: (cfg as AppShellConfig).userThemeModeEnabled !== false,
   });
   const isAdmin = Boolean(user?.is_admin);
   const cfgLanguage = String((cfg as AppShellConfig).language || "");

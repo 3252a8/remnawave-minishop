@@ -3,6 +3,7 @@ from typing import Any, Protocol, cast
 
 from aiogram import Router, types
 from aiogram.types import InlineKeyboardMarkup
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.user_keyboards import (
     get_tariff_packages_keyboard,
@@ -21,6 +22,7 @@ from config.tariffs_config import (
     default_currency_key_for_settings,
     default_payment_currency_code_for_settings,
 )
+from db.dal import subscription_dal
 from db.models import Subscription
 
 router = Router(name="user_subscription_core_router")
@@ -65,6 +67,14 @@ def _enabled_tariffs(settings: Settings) -> list:
 
 def _has_multiple_enabled_tariffs(settings: Settings) -> bool:
     return len(_enabled_tariffs(settings)) > 1
+
+
+async def _assigned_tariff_key(session: AsyncSession, user_id: int) -> str | None:
+    subscription = await subscription_dal.get_active_subscription_by_user_id(session, user_id)
+    if subscription is None:
+        subscription = await subscription_dal.get_latest_subscription_by_user_id(session, user_id)
+    tariff_key = str(getattr(subscription, "tariff_key", "") or "").strip()
+    return tariff_key or None
 
 
 def _recurring_service_for_subscription(
@@ -143,9 +153,19 @@ def _tariff_purchase_markup(
 
 
 def _tariff_purchase_text(
-    tariff: _PurchaseTariff, current_lang: str, i18n: JsonI18n, settings: Settings
+    tariff: _PurchaseTariff,
+    current_lang: str,
+    i18n: JsonI18n,
+    settings: Settings,
+    *,
+    has_multiple_tariffs: bool | None = None,
 ) -> str:
-    if not _has_multiple_enabled_tariffs(settings):
+    multiple_tariffs = (
+        _has_multiple_enabled_tariffs(settings)
+        if has_multiple_tariffs is None
+        else has_multiple_tariffs
+    )
+    if not multiple_tariffs:
         if tariff.billing_model == "period":
             return str(i18n.gettext(current_lang, "select_subscription_period"))
         return str(i18n.gettext(current_lang, "select_traffic_package"))

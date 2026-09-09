@@ -261,6 +261,8 @@ class PendingPromoPaymentTests(IsolatedAsyncioTestCase):
                 "partner_balance_amount_minor": 0,
                 "partner_balance_currency_scale": 0,
                 "months": 3,
+                "duration_days": None,
+                "period_semantics": None,
                 "purchased_gb": None,
                 "purchased_hwid_devices": None,
                 "sale_mode": "subscription@pro",

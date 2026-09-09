@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getBroadcastStore, getTranslationsStore } from "$lib/admin/context";
-  import { Checkbox, Input } from "$components/ui/index.js";
+  import { Checkbox, ImageAttachment, Input } from "$components/ui/index.js";
   import { Send } from "$components/ui/icons.js";
   import { onMount } from "svelte";
   import { Label } from "$components/ui/primitives.js";
@@ -341,13 +341,34 @@
       </div>
 
       <div class="admin-field-label">
+        <span>{at("message_image_label", {}, "Image")}</span>
+        <ImageAttachment
+          bind:file={broadcastStore.broadcastImage}
+          disabled={broadcastBusy}
+          labels={{
+            drop: at("message_image_drop", {}, "Drop an image here or"),
+            choose: at("message_image_choose", {}, "choose a file"),
+            remove: at("message_image_remove", {}, "Remove image"),
+            hint: at("message_image_hint", {}, "HEIC, HEIF, JPEG, PNG or WebP, up to 8 MB"),
+            invalidType: at(
+              "message_image_invalid_type",
+              {},
+              "Choose a HEIC, HEIF, JPEG, PNG or WebP image"
+            ),
+            tooLarge: at("message_image_too_large", {}, "The image must be no larger than 8 MB"),
+            previewAlt: at("message_image_preview_alt", {}, "Image preview"),
+          }}
+        />
+      </div>
+
+      <div class="admin-field-label">
         <div class="broadcast-preview-head">
           <span>{at("broadcast_preview_title", {}, "Preview")}</span>
           <div class="broadcast-preview-actions">
             <AdminButton
               size="sm"
               variant="ghost"
-              disabled={previewBusy || !activeText.trim()}
+              disabled={previewBusy || (!activeText.trim() && !broadcastStore.broadcastImage)}
               onclick={() => broadcastStore.sendPreview("render")}
             >
               {at("broadcast_preview_render", {}, "Refresh with data")}
@@ -355,7 +376,7 @@
             <AdminButton
               size="sm"
               variant="ghost"
-              disabled={previewBusy || !activeText.trim()}
+              disabled={previewBusy || (!activeText.trim() && !broadcastStore.broadcastImage)}
               onclick={() => broadcastStore.sendPreview("send_telegram")}
             >
               {at("broadcast_preview_send", {}, "Send to my Telegram")}

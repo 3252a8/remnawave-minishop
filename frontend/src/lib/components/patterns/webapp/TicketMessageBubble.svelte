@@ -1,5 +1,6 @@
 <script lang="ts">
   import BrandMark from "$lib/webapp/BrandMark.svelte";
+  import { ImageViewer } from "$components/ui/index.js";
   import {
     Check,
     CheckCheck,
@@ -13,10 +14,20 @@
   import type { TicketMessageButtonLike } from "./types.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type ImageViewerLabels = {
+    open: string;
+    title: string;
+    close: string;
+    zoomIn: string;
+    zoomOut: string;
+    reset: string;
+  };
   type Props = {
     role?: string;
     body?: string;
     bodyFormat?: string;
+    imageUrl?: string;
+    loadImage?: (url: string) => Promise<Blob>;
     buttons?: TicketMessageButtonLike[];
     createdAt?: string;
     isInternalNote?: boolean;
@@ -27,6 +38,7 @@
     readByUserAt?: string | null;
     readByAdminAt?: string | null;
     supportBrand?: Record<string, unknown>;
+    imageViewerLabels?: ImageViewerLabels;
     t?: TranslateFn;
   };
 
@@ -34,6 +46,8 @@
     role = "user",
     body = "",
     bodyFormat = "text",
+    imageUrl = "",
+    loadImage = undefined,
     buttons = [],
     createdAt = "",
     isInternalNote = false,
@@ -44,6 +58,14 @@
     readByUserAt = null,
     readByAdminAt = null,
     supportBrand = {},
+    imageViewerLabels = {
+      open: "Open image",
+      title: "Image",
+      close: "Close image",
+      zoomIn: "Zoom in",
+      zoomOut: "Zoom out",
+      reset: "Reset zoom",
+    },
     t = (key, _params = {}, fallback = "") => fallback || key,
   }: Props = $props();
 
@@ -72,6 +94,38 @@
   const receiptLabel = $derived(
     t(messageRead ? "wa_support_message_read" : "wa_support_message_sent")
   );
+  let resolvedImageUrl = $state("");
+  let imageLoadFailed = $state(false);
+  let imageViewerOpen = $state(false);
+
+  $effect(() => {
+    const source = imageUrl;
+    const loader = loadImage;
+    resolvedImageUrl = "";
+    imageLoadFailed = false;
+    imageViewerOpen = false;
+    if (!source) return;
+    if (!loader) {
+      resolvedImageUrl = source;
+      return;
+    }
+
+    let active = true;
+    let objectUrl = "";
+    void loader(source)
+      .then((blob) => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        resolvedImageUrl = objectUrl;
+      })
+      .catch(() => {
+        if (active) imageLoadFailed = true;
+      });
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  });
 
   function formatTime(value: string): string {
     if (!value) return "";
@@ -129,8 +183,29 @@
     </div>
 
     <div class="ticket-message-bubble">
-      <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-      <div class="ticket-message-text">{@html bodyHtml}</div>
+      {#if resolvedImageUrl}
+        <button
+          class="ticket-message-image-trigger"
+          type="button"
+          aria-label={imageViewerLabels.open}
+          onclick={() => (imageViewerOpen = true)}
+        >
+          <img
+            class="ticket-message-image"
+            src={resolvedImageUrl}
+            alt={t("wa_message_image_alt", {}, "Attached image")}
+            loading="lazy"
+          />
+        </button>
+      {:else if imageLoadFailed}
+        <span class="ticket-message-image-error" role="alert">
+          {t("wa_message_image_load_failed", {}, "The attached image could not be loaded")}
+        </span>
+      {/if}
+      {#if bodyHtml}
+        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+        <div class="ticket-message-text">{@html bodyHtml}</div>
+      {/if}
       {#if messageButtons.length}
         <div class="ticket-message-buttons">
           {#each messageButtons as button, index (`${index}:${button.url}`)}
@@ -148,3 +223,15 @@
     </div>
   </div>
 </article>
+
+<ImageViewer
+  open={imageViewerOpen}
+  src={resolvedImageUrl}
+  alt={t("wa_message_image_alt", {}, "Attached image")}
+  title={imageViewerLabels.title}
+  closeLabel={imageViewerLabels.close}
+  zoomInLabel={imageViewerLabels.zoomIn}
+  zoomOutLabel={imageViewerLabels.zoomOut}
+  resetLabel={imageViewerLabels.reset}
+  onclose={() => (imageViewerOpen = false)}
+/>

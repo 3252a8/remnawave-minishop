@@ -20,6 +20,9 @@ class _I18n:
 
 class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
     def setUp(self):
+        gift_patcher = patch("db.dal.gift_dal.activating_for_user", AsyncMock(return_value=None))
+        gift_patcher.start()
+        self.addCleanup(gift_patcher.stop)
         patcher = patch.object(
             yookassa_success.user_dal,
             "lock_user_by_id",

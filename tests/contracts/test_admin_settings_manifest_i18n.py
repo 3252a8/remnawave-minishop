@@ -20,6 +20,8 @@ SUPPORT_RELATED_SETTINGS = (
     "SUPPORT_TICKET_MAX_BODY_LENGTH",
     "SUPPORT_TICKET_MAX_SUBJECT_LENGTH",
     "SUPPORT_TICKET_RATE_LIMIT_PER_HOUR",
+    "SUPPORT_MESSAGE_RATE_LIMIT_PER_MINUTE",
+    "SUPPORT_IMAGE_RATE_LIMIT_PER_DAY",
 )
 
 SUBSCRIPTION_PURCHASE_DESCRIPTION_SETTINGS = (
@@ -208,15 +210,70 @@ def test_webapp_title_is_first_general_admin_setting():
     assert next(item["key"] for item in items if item["section"] == "general") == "WEBAPP_TITLE"
 
 
+def test_broadcast_blocked_filter_is_a_general_admin_setting():
+    field = _manifest_by_key()["ADMIN_BROADCAST_EXCLUDE_BLOCKED_TELEGRAM"]
+
+    assert field["type"] == "bool"
+    assert field["section"] == "general"
+    assert field["i18n_label_key"] == "admin_broadcast_exclude_blocked_telegram"
+    assert field["i18n_description_key"] == "admin_broadcast_exclude_blocked_telegram_hint"
+
+
 def test_server_status_url_is_admin_editable():
     manifest = _manifest_by_key()
     field = manifest["SERVER_STATUS_URL"]
 
     assert field["type"] == "url"
-    assert field["section"] == "general"
+    assert field["section"] == "system"
+    assert field["subsection"] == "server_status"
     assert field["i18n_label_key"] == "admin_settings_field_server_status_url_label"
     for language in ("ru", "en"):
         assert field["i18n_label_key"] in _locale(language)
+
+
+def test_server_status_manifest_has_typed_provider_choices():
+    manifest = _manifest_by_key()
+    keys = {
+        "SERVER_STATUS_ENABLED",
+        "SERVER_STATUS_SHOW_ON_HOME",
+        "SERVER_STATUS_PROVIDER",
+        "SERVER_STATUS_URL",
+        "SERVER_STATUS_KUMA_URL",
+        "SERVER_STATUS_XRAY_CHECKER_URL",
+        "SERVER_STATUS_CACHE_TTL_SECONDS",
+        "SERVER_STATUS_STALE_TTL_SECONDS",
+        "SERVER_STATUS_TIMEOUT_SECONDS",
+    }
+
+    assert all(manifest[key]["section"] == "system" for key in keys)
+    assert all(manifest[key]["subsection"] == "server_status" for key in keys)
+    assert "SERVER_STATUS_KUMA_SLUG" not in manifest
+    assert [choice["value"] for choice in manifest["SERVER_STATUS_PROVIDER"]["choices"]] == [
+        "url",
+        "uptime-kuma",
+        "xray-checker",
+    ]
+    provider_field = get_field_by_key("SERVER_STATUS_PROVIDER")
+    assert provider_field is not None
+    assert coerce_value(provider_field, "uptime-kuma") == "uptime-kuma"
+    with pytest.raises(ValueError, match="unsupported choice"):
+        coerce_value(provider_field, "both")
+
+    kuma_field = get_field_by_key("SERVER_STATUS_KUMA_URL")
+    assert kuma_field is not None
+    assert (
+        coerce_value(kuma_field, "https://status.example.test/kuma/status/services/")
+        == "https://status.example.test/kuma/status/services/"
+    )
+    with pytest.raises(ValueError, match="published /status/<slug> URL expected"):
+        coerce_value(kuma_field, "https://status.example.test/kuma//status/services")
+
+    home_field = manifest["SERVER_STATUS_SHOW_ON_HOME"]
+    assert home_field["type"] == "bool"
+    for language in ("ru", "en"):
+        messages = _locale(language)
+        assert home_field["i18n_label_key"] in messages
+        assert home_field["i18n_description_key"] in messages
 
 
 def test_default_user_traffic_strategy_is_a_general_admin_setting():
@@ -243,6 +300,30 @@ def test_telegram_bot_menu_toggle_is_general_admin_setting():
     for language in ("ru", "en"):
         messages = _locale(language)
         assert "admin_settings_section_general" in messages
+        assert field["i18n_label_key"] in messages
+        assert field["i18n_description_key"] in messages
+
+
+def test_user_theme_mode_toggle_is_an_appearance_setting():
+    field = _manifest_by_key()["WEBAPP_USER_THEME_MODE_ENABLED"]
+
+    assert field["type"] == "bool"
+    assert field["section"] == "appearance"
+    assert field["section_order"] == 2
+    for language in ("ru", "en"):
+        messages = _locale(language)
+        assert field["i18n_label_key"] in messages
+        assert field["i18n_description_key"] in messages
+
+
+def test_compact_home_toggle_is_an_appearance_setting():
+    field = _manifest_by_key()["WEBAPP_COMPACT_HOME_ENABLED"]
+
+    assert field["type"] == "bool"
+    assert field["section"] == "appearance"
+    assert field["section_order"] == 2
+    for language in ("ru", "en"):
+        messages = _locale(language)
         assert field["i18n_label_key"] in messages
         assert field["i18n_description_key"] in messages
 
@@ -509,7 +590,11 @@ def test_support_link_coercion_rejects_invalid_button_urls():
 def test_trial_required_settings_reject_empty_values():
     for key in (
         "TRIAL_ENABLED",
+        "TRIAL_PAYMENT_ENABLED",
+        "TRIAL_PAYMENT_PRICE",
+        "TRIAL_PAYMENT_STARS_PRICE",
         "TRIAL_DURATION_DAYS",
+        "TRIAL_DAYS_STRATEGY",
         "TRIAL_TRAFFIC_LIMIT_GB",
         "TRIAL_TRAFFIC_STRATEGY",
         "TRIAL_WITHOUT_TELEGRAM_ENABLED",
@@ -660,18 +745,29 @@ def test_payment_provider_admin_only_toggles_are_mutually_exclusive():
 
 def test_legacy_tariff_settings_are_separated_from_payment_settings():
     manifest = _manifest_by_key()
+    payment_fields = [item for item in _manifest_items() if item["section"] == "payments"]
     payment_method_fields = [
-        item for item in _manifest_items() if item["key"] == "PAYMENT_METHODS_ORDER"
+        item for item in payment_fields if item["key"] == "PAYMENT_METHODS_ORDER"
     ]
+    payment_subsections = list(dict.fromkeys(item["subsection"] for item in payment_fields))
 
     assert len(payment_method_fields) == 1
     assert payment_method_fields[0]["section"] == "payments"
+    assert payment_method_fields[0]["subsection"] == "payment_button_order"
+    assert payment_subsections.index("payment_button_order") < payment_subsections.index(
+        "Telegram Stars"
+    )
+    assert payment_subsections.index("Telegram Stars") < payment_subsections.index("FreeKassa")
     assert manifest["MONTH_1_ENABLED"]["section"] == "pricing"
     assert manifest["MONTH_1_ENABLED"]["section_order"] == 11
     assert manifest["TRIAL_ENABLED"]["section"] == "pricing"
     assert manifest["TRIAL_ENABLED"]["subsection"] == "trial"
-    assert manifest["TRIAL_WITHOUT_TELEGRAM_ENABLED"]["section"] == "pricing"
-    assert manifest["TRIAL_WITHOUT_TELEGRAM_ENABLED"]["subsection"] == "trial"
+    assert manifest["TRIAL_PAYMENT_ENABLED"]["section"] == "pricing"
+    assert manifest["TRIAL_PAYMENT_ENABLED"]["subsection"] == "trial"
+    assert manifest["TRIAL_PAYMENT_PRICE"]["min"] == 0
+    assert manifest["TRIAL_PAYMENT_STARS_PRICE"]["min"] == 0
+    assert manifest["TRIAL_WITHOUT_TELEGRAM_ENABLED"]["section"] == "system"
+    assert manifest["TRIAL_WITHOUT_TELEGRAM_ENABLED"]["subsection"] == "email_anti_abuse"
     assert manifest["TRIAL_SQUAD_UUIDS"]["section"] == "pricing"
     assert manifest["TRIAL_SQUAD_UUIDS"]["subsection"] == "trial"
     assert manifest["TRIAL_PREMIUM_TRAFFIC_LIMIT_GB"]["section"] == "pricing"
@@ -690,8 +786,11 @@ def test_legacy_tariff_settings_are_separated_from_payment_settings():
     assert manifest["REFERRAL_PROGRAM_ENABLED"]["subsection"] == "referral"
     assert manifest["REFERRAL_WELCOME_BONUS_DAYS"]["section"] == "pricing"
     assert manifest["REFERRAL_WELCOME_BONUS_DAYS"]["subsection"] == "referral"
-    assert manifest["REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED"]["section"] == "pricing"
-    assert manifest["REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED"]["subsection"] == "referral"
+    assert manifest["REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED"]["section"] == "system"
+    assert (
+        manifest["REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED"]["subsection"]
+        == "email_anti_abuse"
+    )
     assert manifest["REFERRAL_ONE_BONUS_PER_REFEREE"]["section"] == "pricing"
     assert manifest["REFERRAL_ONE_BONUS_PER_REFEREE"]["subsection"] == "referral"
     assert manifest["REFERRAL_WEBAPP_LINK_ENABLED"]["section"] == "pricing"
@@ -710,8 +809,17 @@ def test_legacy_tariff_settings_are_separated_from_payment_settings():
     assert manifest["PARTNER_ONE_BONUS_PER_CLIENT"]["subsection"] == "partner"
     assert manifest["LEGACY_REFS"]["section"] == "pricing"
     assert manifest["LEGACY_REFS"]["subsection"] == "legacy_tariffs"
-    assert manifest["DISPOSABLE_EMAIL_DOMAINS"]["section"] == "pricing"
-    assert manifest["DISPOSABLE_EMAIL_DOMAINS"]["subsection"] == "referral"
+    assert manifest["DISPOSABLE_EMAIL_DOMAINS"]["section"] == "system"
+    assert manifest["DISPOSABLE_EMAIL_DOMAINS"]["subsection"] == "email_anti_abuse"
+    for key in (
+        "TRIAL_WITHOUT_TELEGRAM_ENABLED",
+        "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
+        "DISPOSABLE_EMAIL_DOMAINS",
+    ):
+        assert manifest[key]["section_order"] == 12
+        assert manifest[key]["i18n_subsection_key"] == (
+            "admin_settings_subsection_email_anti_abuse"
+        )
 
 
 def test_platega_settings_share_one_admin_subsection():

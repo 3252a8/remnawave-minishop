@@ -250,7 +250,4 @@ jobs:
 
   build:
     name: Docker build
-    uses: ./.github/workflows/_docker-build-push.yml
-    with:
-      push: false
-      tag_mode: dev
+    uses: ./.github/workflows/_docker-build.yml

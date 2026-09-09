@@ -68,10 +68,12 @@ async def consume_payment_promo(
         promo_code_id,
         user_id,
     )
+    allow_existing_user = bool(getattr(payment, "promo_conflict_override", False))
     if existing is not None:
         if int(getattr(existing, "payment_id", 0) or 0) == int(payment_id):
             return True
-        raise PaymentPromoRedemptionError("Attached code was consumed by another payment")
+        if not allow_existing_user:
+            raise PaymentPromoRedemptionError("Attached code was consumed by another payment")
 
     if (
         (effects.has_fixed_grant and sale_mode_base != "subscription")
@@ -79,6 +81,9 @@ async def consume_payment_promo(
         or not effects.meets_threshold(
             sale_mode_base=sale_mode_base,
             months=months,
+            duration_days=getattr(payment, "subscription_duration_days", None)
+            if getattr(payment, "period_semantics", None) == "fixed_days"
+            else None,
             traffic_gb=traffic_gb,
         )
     ):
@@ -110,11 +115,13 @@ async def consume_payment_promo(
         base_amount=_optional_float(getattr(payment, "checkout_base_amount", None)),
         discount_amount=_optional_float(getattr(payment, "checkout_discount_amount", None)),
         charged_months=months,
+        charged_days=getattr(payment, "subscription_duration_days", None),
         charged_gb=traffic_gb,
         granted_days=granted_days,
         granted_gb=granted_gb,
         granted_regular_traffic_gb=granted_regular_traffic_gb,
         granted_premium_traffic_gb=granted_premium_traffic_gb,
+        allow_existing_user=allow_existing_user,
     )
     if activation is None:
         raise PaymentPromoRedemptionError("Attached code could not be consumed")

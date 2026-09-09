@@ -27,6 +27,7 @@ async function makeSupportStore() {
   });
   const store = createAdminSupportStore({
     api: api as unknown as ApiClient["api"],
+    apiBlob: vi.fn() as unknown as ApiClient["apiBlob"],
     at: (key: string) => key,
     onToast: vi.fn(),
   });

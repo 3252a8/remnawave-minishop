@@ -26,6 +26,8 @@ export type ShellState = {
   telegramNotificationsResumeLastCheckAt: number;
   languageMenuOpen: boolean;
   languageClickGuard: boolean;
+  themePreference: string;
+  systemColorScheme: string;
   languageClickGuardArmed: boolean;
   guestLanguage: string;
   emailAvatarUrl: string;
@@ -66,6 +68,8 @@ export function createInitialShellState(overrides: ShellStateInit = {}): ShellSt
     telegramNotificationsResumeLastCheckAt: 0,
     languageMenuOpen: false,
     languageClickGuard: false,
+    themePreference: "auto",
+    systemColorScheme: "",
     languageClickGuardArmed: false,
     guestLanguage: "",
     emailAvatarUrl: "",

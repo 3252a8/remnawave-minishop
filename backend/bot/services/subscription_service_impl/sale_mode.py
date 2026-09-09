@@ -38,7 +38,10 @@ def parse_sale_mode_context(
             base, suffix = mode.split(separator, 1)
             mode = base or mode
             suffix_key = suffix.split("|", 1)[0]
-            if separator == "|" and suffix_key in {"bot"}:
+            if separator == "|" and (
+                suffix_key in {"bot", "pd", "hwid_renewal"}
+                or (suffix_key[:1] in {"d", "p"} and suffix_key[1:].isdigit())
+            ):
                 suffix_key = ""
             tariff_key = tariff_key or suffix_key or None
             break

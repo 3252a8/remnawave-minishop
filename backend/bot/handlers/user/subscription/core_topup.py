@@ -30,6 +30,7 @@ from config.tariffs_config import (
 from db.dal import subscription_dal
 
 from .core_common import (
+    _assigned_tariff_key,
     _format_premium_usage_limit,
     router,
 )
@@ -83,7 +84,7 @@ async def tariff_topup_list_callback(
             callback_bot(callback),
         )
         return
-    tariff = config.require(active["tariff_key"])
+    tariff = config.require_configured(active["tariff_key"])
     packages = config.topup_packages_for(tariff)
     default_currency = default_currency_key_for_settings(settings)
     currency = default_payment_currency_code_for_settings(settings)
@@ -178,8 +179,13 @@ async def select_tariff_premium_package_callback(
         await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
         return
     _, _, tariff_key, gb_raw = callback_data(callback).split(":", 3)
-    tariff = config.require(tariff_key)
-    gb = float(gb_raw)
+    try:
+        assigned_tariff_key = await _assigned_tariff_key(session, callback.from_user.id)
+        tariff = config.require_for_user(tariff_key, assigned_tariff_key)
+        gb = float(gb_raw)
+    except (KeyError, ValueError):
+        await callback.answer(get_text("error_try_again"), show_alert=True)
+        return
     default_currency = default_currency_key_for_settings(settings)
     currency_code = default_payment_currency_code_for_settings(settings)
     packages = (
@@ -378,21 +384,24 @@ async def tariff_change_list_callback(
     if not config or not active or not callback.message:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
-    if len(config.enabled_tariffs) <= 1:
+    current_tariff = config.get(str(active.get("tariff_key") or ""))
+    targets = [
+        tariff
+        for tariff in config.enabled_tariffs
+        if current_tariff is None or tariff.key != current_tariff.key
+    ]
+    if not targets:
         await callback.answer(get_text("wa_no_tariff_change_options"), show_alert=True)
         return
-    rows = []
-    for tariff in config.enabled_tariffs:
-        if tariff.key == active.get("tariff_key"):
-            continue
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text=tariff.name(current_lang),
-                    callback_data=f"tariff_change:select:{tariff.key}",
-                )
-            ]
-        )
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=tariff.name(current_lang),
+                callback_data=f"tariff_change:select:{tariff.key}",
+            )
+        ]
+        for tariff in targets
+    ]
     rows.append(
         [
             InlineKeyboardButton(

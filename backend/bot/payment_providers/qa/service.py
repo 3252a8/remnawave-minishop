@@ -10,6 +10,7 @@ from typing import Any
 
 from aiohttp import web
 from pydantic_settings import SettingsConfigDict
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.dal import payment_dal
 
@@ -152,6 +153,92 @@ class QaPaymentService(BaseProviderService):
         expected = hmac.new(secret.encode("utf-8"), payload.raw_body, hashlib.sha256).hexdigest()
         return hmac.compare_digest(expected, signature)
 
+    async def complete_payment(
+        self,
+        session: AsyncSession,
+        payment: Any,
+        *,
+        provider_payment_id: str | None = None,
+    ) -> web.Response:
+        payment_id = int(payment.payment_id)
+        normalized_status = str(payment.status or "").strip().lower()
+        if normalized_status == "succeeded":
+            return web.json_response(
+                {
+                    "ok": True,
+                    "payment_id": payment_id,
+                    "status": "succeeded",
+                    "duplicate": True,
+                }
+            )
+        if normalized_status != QA_PENDING_STATUS:
+            return web.json_response(
+                {"ok": False, "error": "payment_not_pending", "status": normalized_status},
+                status=409,
+            )
+
+        remote_id = str(provider_payment_id or payment.provider_payment_id or f"qa:{payment_id}")
+        try:
+            claimed_payment = await payment_dal.claim_payment_finalization(
+                session,
+                payment_id,
+                provider_payment_id=remote_id,
+            )
+        except Exception:
+            await session.rollback()
+            logger.exception("QA payment failed to claim payment %s.", payment_id)
+            return web.json_response({"ok": False, "error": "processing_error"}, status=500)
+
+        if claimed_payment is None:
+            return web.json_response(
+                {
+                    "ok": True,
+                    "payment_id": payment_id,
+                    "status": "succeeded",
+                    "duplicate": True,
+                }
+            )
+
+        sale_mode = claimed_payment.sale_mode or "subscription"
+        payment_units = payment_units_for_activation(claimed_payment, sale_mode)
+        outcome = await finalize_successful_payment(
+            PaymentSuccessRequest(
+                bot=self.bot,
+                settings=self.settings,
+                i18n=self.i18n,
+                session=session,
+                subscription_service=self.subscription_service,
+                referral_service=self.referral_service,
+                payment=claimed_payment,
+                user_id=int(claimed_payment.user_id),
+                amount=float(claimed_payment.amount),
+                currency=str(claimed_payment.currency or "RUB"),
+                sale_mode=sale_mode,
+                months=payment_units,
+                traffic_amount=float(payment_units) if sale_mode_is_traffic(sale_mode) else None,
+                provider_subscription=QA_PROVIDER,
+                provider_notification=QA_PROVIDER,
+                db_user=claimed_payment.user,
+                log_prefix="QA payment",
+                skip_keyboard=True,
+                skip_user_notification=True,
+            )
+        )
+        if outcome is None:
+            return web.json_response({"ok": False, "error": "activation_failed"}, status=500)
+
+        final_end_date = outcome.final_end_date
+        return web.json_response(
+            {
+                "ok": True,
+                "payment_id": payment_id,
+                "status": "succeeded",
+                "final_end_date": final_end_date.isoformat()
+                if isinstance(final_end_date, datetime)
+                else None,
+            }
+        )
+
     async def handle_verified_webhook(
         self,
         request: web.Request,
@@ -203,7 +290,12 @@ class QaPaymentService(BaseProviderService):
                 return web.json_response({"ok": False, "error": "unsupported_status"}, status=400)
 
             if str(payment.status or "").strip().lower() == "succeeded":
-                return web.json_response({"ok": True, "status": "succeeded", "duplicate": True})
+                return await QaPaymentService.complete_payment(
+                    self,
+                    session,
+                    payment,
+                    provider_payment_id=provider_payment_id,
+                )
 
             amount = data.get("amount")
             currency = data.get("currency")
@@ -226,65 +318,11 @@ class QaPaymentService(BaseProviderService):
                 )
                 return web.json_response({"ok": False, "error": "amount_mismatch"}, status=400)
 
-            try:
-                claimed_payment = await payment_dal.claim_payment_finalization(
-                    session,
-                    payment.payment_id,
-                    provider_payment_id=provider_payment_id,
-                )
-            except Exception:
-                await session.rollback()
-                logger.exception(
-                    "QA payment webhook failed to mark payment %s pending.", payment_id
-                )
-                return web.json_response({"ok": False, "error": "processing_error"}, status=500)
-
-            if claimed_payment is None:
-                return web.json_response({"ok": True, "status": "succeeded", "duplicate": True})
-            payment = claimed_payment
-
-            sale_mode = payment.sale_mode or "subscription"
-            payment_units = payment_units_for_activation(payment, sale_mode)
-
-            outcome = await finalize_successful_payment(
-                PaymentSuccessRequest(
-                    bot=self.bot,
-                    settings=self.settings,
-                    i18n=self.i18n,
-                    session=session,
-                    subscription_service=self.subscription_service,
-                    referral_service=self.referral_service,
-                    payment=payment,
-                    user_id=int(payment.user_id),
-                    amount=float(payment.amount),
-                    currency=str(payment.currency or "RUB"),
-                    sale_mode=sale_mode,
-                    months=payment_units,
-                    traffic_amount=float(payment_units)
-                    if sale_mode_is_traffic(sale_mode)
-                    else None,
-                    provider_subscription=QA_PROVIDER,
-                    provider_notification=QA_PROVIDER,
-                    db_user=payment.user,
-                    log_prefix="QA payment webhook",
-                    skip_keyboard=True,
-                    skip_user_notification=True,
-                )
-            )
-            if outcome is None:
-                return web.json_response({"ok": False, "error": "activation_failed"}, status=500)
-
-            final_end_date = outcome.final_end_date
-            final_end_date_text = (
-                final_end_date.isoformat() if isinstance(final_end_date, datetime) else None
-            )
-            return web.json_response(
-                {
-                    "ok": True,
-                    "payment_id": payment.payment_id,
-                    "status": "succeeded",
-                    "final_end_date": final_end_date_text,
-                }
+            return await QaPaymentService.complete_payment(
+                self,
+                session,
+                payment,
+                provider_payment_id=provider_payment_id,
             )
 
 

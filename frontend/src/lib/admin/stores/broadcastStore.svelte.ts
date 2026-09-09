@@ -17,6 +17,8 @@ import {
 import type { components } from "../../api/openapi.generated";
 import { historyItemFromWire, type BroadcastHistoryItem } from "./broadcastHistory";
 import { snapshotForPayload } from "./snapshotForPayload.svelte";
+import { messageRequestBody } from "$lib/messageImage";
+import { normalizeMessageButtonLink } from "$lib/admin/messageButtonTargets.js";
 
 type AdminApi = ApiClient["api"];
 type ToastFn = (message: string) => void;
@@ -71,6 +73,7 @@ export type SingleUserMessage = {
   channels: string[];
   emailSubject: string;
   buttons: BroadcastButtonDraft[];
+  image?: File | null;
 };
 /** Kept as the broadcast-flavoured name of the shared composer type. */
 export type BroadcastShortcodeInfo = MessageShortcodeInfo;
@@ -86,6 +89,7 @@ export type BroadcastState = {
   broadcastTargetError: string | null;
   broadcastText: string;
   broadcastTexts: Record<string, string>;
+  broadcastImage: File | null;
   broadcastLanguage: string;
   broadcastBusy: boolean;
   broadcastResult: BroadcastResult | null;
@@ -148,8 +152,7 @@ function buttonDraftValid(button: BroadcastButtonDraft): boolean {
   if (button.label.trim().length > 64) return false;
   if (Object.values(button.labels ?? {}).some((label) => label.trim().length > 64)) return false;
   if (button.kind === "url") {
-    const url = button.url.trim().toLowerCase();
-    return url.startsWith("https://") || url.startsWith("http://");
+    return normalizeMessageButtonLink(button.url) !== null;
   }
   if (button.kind === "webapp_section") return Boolean(button.section.trim());
   return /^[A-Za-z0-9_-]{1,58}$/.test(button.promoCode.trim());
@@ -172,7 +175,7 @@ export function buttonsForPayload(buttons: BroadcastButtonDraft[]) {
     kind: button.kind,
     label: button.label.trim(),
     labels: localizedForPayload(button.labels),
-    url: button.kind === "url" ? button.url.trim() : "",
+    url: button.kind === "url" ? normalizeMessageButtonLink(button.url) || button.url.trim() : "",
     promo_code:
       button.kind === "url" || button.kind === "webapp_section" ? "" : button.promoCode.trim(),
     section: button.kind === "webapp_section" ? button.section.trim() : "",
@@ -361,6 +364,7 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
     broadcastTargetError: null,
     broadcastText: "",
     broadcastTexts: {},
+    broadcastImage: null,
     broadcastLanguage: "",
     broadcastBusy: false,
     broadcastResult: null,
@@ -544,7 +548,8 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
     // block a shop that serves one.
     if (
       !state.broadcastText.trim() &&
-      !Object.keys(localizedForPayload(state.broadcastTexts)).length
+      !Object.keys(localizedForPayload(state.broadcastTexts)).length &&
+      !state.broadcastImage
     )
       return false;
     if (!channelsForPayload(state).length) return false;
@@ -565,16 +570,18 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
   async function sendToUser(input: SingleUserMessage): Promise<string | null> {
     const failure = at("user_message_failed", {}, "Message was not sent");
     try {
+      const body = {
+        target: `user:${Math.trunc(input.userId)}`,
+        text: input.text.trim(),
+        channels: input.channels,
+        exclude_blocked_telegram: false,
+        email_subject: input.emailSubject.trim(),
+        buttons: buttonsForPayload(input.buttons),
+        scheduled_at: null,
+      } satisfies PostPayload<"/api/admin/broadcast">;
       const res = await api(buildAdminBroadcastPath(), {
         method: "POST",
-        body: JSON.stringify({
-          target: `user:${Math.trunc(input.userId)}`,
-          text: input.text.trim(),
-          channels: input.channels,
-          email_subject: input.emailSubject.trim(),
-          buttons: buttonsForPayload(input.buttons),
-          scheduled_at: null,
-        } satisfies PostPayload<"/api/admin/broadcast">),
+        body: messageRequestBody(body as unknown as Record<string, unknown>, input.image),
       });
       if (res?.ok) {
         unwrap(res);
@@ -604,6 +611,7 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
         channels: channelsForPayload(state),
       });
     updateState((s) => ({ ...s, broadcastBusy: true, broadcastResult: null }));
+    const image = state.broadcastImage;
 
     try {
       const body = {
@@ -611,6 +619,7 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
         text,
         texts: localizedForPayload(texts),
         channels,
+        exclude_blocked_telegram: null,
         email_subject: emailSubject.trim(),
         email_subjects: localizedForPayload(emailSubjects),
         buttons: buttonsForPayload(buttons),
@@ -620,7 +629,7 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
       } satisfies PostPayload<"/api/admin/broadcast">;
       const res = await api(buildAdminBroadcastPath(), {
         method: "POST",
-        body: JSON.stringify(body),
+        body: messageRequestBody(body as unknown as Record<string, unknown>, image),
       });
       if (res?.ok) {
         const payload = unwrap(res);
@@ -628,6 +637,7 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
           ...s,
           broadcastText: "",
           broadcastTexts: {},
+          broadcastImage: null,
           broadcastLanguage: "",
           broadcastButtons: [],
           broadcastEmailSubject: "",
@@ -817,7 +827,7 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
       written[state.broadcastLanguage] ||
       Object.values(written)[0] ||
       "";
-    if (!text && !Object.keys(written).length) {
+    if (!text && !Object.keys(written).length && !state.broadcastImage) {
       onToast(at("broadcast_preview_empty", {}, "Enter text to preview"));
       return;
     }
@@ -835,7 +845,7 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
       } satisfies PostPayload<"/api/admin/broadcast/preview">;
       const res = await api(buildAdminBroadcastPreviewPath(), {
         method: "POST",
-        body: JSON.stringify(body),
+        body: messageRequestBody(body as unknown as Record<string, unknown>, state.broadcastImage),
       });
       if (res?.ok) {
         const payload = unwrap(res);

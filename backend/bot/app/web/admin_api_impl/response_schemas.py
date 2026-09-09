@@ -28,7 +28,13 @@ class AdminBackupArchiveOut(HttpResponseModel):
 
     @classmethod
     def from_archive(cls, archive: BackupArchiveInfo) -> AdminBackupArchiveOut:
-        return cls.model_validate(archive.to_payload())
+        payload = archive.to_payload()
+        # Per-file checksums are only needed while validating a restore and make
+        # the archive listing grow with every file stored in every backup.
+        payload["manifest"] = {
+            key: value for key, value in archive.manifest.items() if key != "archive"
+        }
+        return cls.model_validate(payload)
 
 
 class AdminBackupCreateResultOut(HttpResponseModel):
@@ -113,9 +119,11 @@ class AdminBroadcastOut(HttpResponseModel):
     status: str
     target: str
     channels: list[str]
+    exclude_blocked_telegram: bool = False
     texts: dict[str, str]
     email_subjects: dict[str, str]
     buttons: list[AdminBroadcastButtonOut]
+    image_id: str | None = None
     scheduled_at: datetime
     created_at: datetime
     started_at: datetime | None = None
@@ -210,6 +218,7 @@ class AdminSyncOut(HttpResponseModel):
 
 
 class AdminThemesOut(HttpResponseModel):
+    generation: int = 0
     exists: bool
     themes_dir: str
     catalog: WebappThemesConfig
@@ -224,6 +233,16 @@ class AdminSettingChoiceOut(HttpResponseModel):
     value: Any
     label: str
     i18n_label_key: str | None = None
+
+
+class AdminPaymentMethodOrderOptionOut(HttpResponseModel):
+    id: str
+    label: str
+    provider_id: str
+    provider_label: str
+    enabled: bool
+    admin_only: bool
+    known: bool
 
 
 class AdminSettingsFieldOut(HttpResponseModel):
@@ -246,6 +265,7 @@ class AdminSettingsFieldOut(HttpResponseModel):
     min: float | None = None
     max: float | None = None
     choices: list[AdminSettingChoiceOut] | None = None
+    payment_method_options: list[AdminPaymentMethodOrderOptionOut] | None = None
     mutually_exclusive_key: str | None = None
     default: Any = None
     webhook_path: str | None = None

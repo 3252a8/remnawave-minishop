@@ -23,6 +23,12 @@ from .broadcast_shortcodes import (
     admin_broadcast_preview_route,
     admin_broadcast_shortcodes_route,
 )
+from .gift_creation import (
+    admin_gift_create_route,
+    admin_gift_detail_route,
+    admin_gift_options_route,
+)
+from .gifts import admin_gift_revoke_route, admin_gifts_route
 from .health import (
     admin_health_route,
 )
@@ -63,6 +69,8 @@ from .partners import (
 )
 from .payments import (
     admin_payment_detail_route,
+    admin_payment_finalize_route,
+    admin_payment_reverse_route,
     admin_payments_export_route,
     admin_payments_list_route,
 )
@@ -70,6 +78,7 @@ from .promos import (
     admin_promo_activations_route,
     admin_promo_create_route,
     admin_promo_delete_route,
+    admin_promo_detail_route,
     admin_promo_options_route,
     admin_promo_update_route,
     admin_promos_list_route,
@@ -83,6 +92,7 @@ from .stats import (
     admin_stats_route,
 )
 from .support import (
+    admin_message_image_route,
     admin_support_stats_route,
     admin_support_ticket_detail_route,
     admin_support_ticket_patch_route,
@@ -115,6 +125,8 @@ from .translations import (
 )
 from .users import (
     admin_user_avatar_route,
+    admin_user_balance_adjustment_route,
+    admin_user_balance_conversion_route,
     admin_user_ban_route,
     admin_user_delete_route,
     admin_user_detail_route,
@@ -122,6 +134,7 @@ from .users import (
     admin_user_hwid_device_limit_route,
     admin_user_message_preview_route,
     admin_user_message_route,
+    admin_user_notification_preferences_route,
     admin_user_premium_override_route,
     admin_user_referrals_route,
     admin_user_regular_traffic_override_route,
@@ -138,6 +151,10 @@ from .users import (
 
 
 def setup_admin_routes(app: web.Application) -> None:
+    from .theme_library import setup_theme_jobs, setup_theme_library
+
+    setup_theme_jobs(app)
+    setup_theme_library(app.router)
     router = app.router
     router.add_get("/api/admin/me", admin_me_route)
     router.add_get("/api/admin/stats", admin_stats_route)
@@ -227,7 +244,19 @@ def setup_admin_routes(app: web.Application) -> None:
     router.add_get("/api/admin/users/{user_id:-?\\d+}/referrals", admin_user_referrals_route)
     router.add_get("/api/admin/users/{user_id:-?\\d+}/avatar", admin_user_avatar_route)
     router.add_post("/api/admin/users/{user_id:-?\\d+}/ban", admin_user_ban_route)
+    router.add_post(
+        "/api/admin/users/{user_id:-?\\d+}/balance-adjustment",
+        admin_user_balance_adjustment_route,
+    )
+    router.add_post(
+        "/api/admin/users/{user_id:-?\\d+}/balance-conversion",
+        admin_user_balance_conversion_route,
+    )
     router.add_post("/api/admin/users/{user_id:-?\\d+}/message", admin_user_message_route)
+    router.add_patch(
+        "/api/admin/users/{user_id:-?\\d+}/notification-preferences",
+        admin_user_notification_preferences_route,
+    )
     router.add_post(
         "/api/admin/users/{user_id:-?\\d+}/message/preview", admin_user_message_preview_route
     )
@@ -235,6 +264,10 @@ def setup_admin_routes(app: web.Application) -> None:
         "/api/admin/users/{user_id:-?\\d+}/telegram-profile-link",
         admin_user_telegram_profile_link_route,
     )
+    router.add_get("/api/admin/gifts", admin_gifts_route)
+    router.add_get("/api/admin/gifts/options", admin_gift_options_route)
+    router.add_post("/api/admin/gifts", admin_gift_create_route)
+    router.add_get("/api/admin/gifts/{gift_id}", admin_gift_detail_route)
     router.add_post("/api/admin/users/{user_id:-?\\d+}/reset-trial", admin_user_reset_trial_route)
     router.add_post(
         "/api/admin/users/{user_id:-?\\d+}/subscription-reissue",
@@ -274,11 +307,16 @@ def setup_admin_routes(app: web.Application) -> None:
 
     router.add_get("/api/admin/payments", admin_payments_list_route)
     router.add_get("/api/admin/payments/{payment_id:\\d+}", admin_payment_detail_route)
+    router.add_post("/api/admin/payments/{payment_id:\\d+}/finalize", admin_payment_finalize_route)
+    router.add_post("/api/admin/payments/{payment_id:\\d+}/reverse", admin_payment_reverse_route)
     router.add_get("/api/admin/payments/export.csv", admin_payments_export_route)
+
+    router.add_post("/api/admin/gifts/{gift_id:\\d+}/revoke", admin_gift_revoke_route)
 
     router.add_get("/api/admin/promos", admin_promos_list_route)
     router.add_post("/api/admin/promos", admin_promo_create_route)
     router.add_get("/api/admin/promos/options", admin_promo_options_route)
+    router.add_get("/api/admin/promos/{promo_id:\\d+}", admin_promo_detail_route)
     router.add_get("/api/admin/promos/{promo_id:\\d+}/activations", admin_promo_activations_route)
     router.add_patch("/api/admin/promos/{promo_id:\\d+}", admin_promo_update_route)
     router.add_delete("/api/admin/promos/{promo_id:\\d+}", admin_promo_delete_route)
@@ -298,6 +336,10 @@ def setup_admin_routes(app: web.Application) -> None:
         admin_support_ticket_typing_route,
     )
     router.add_get("/api/admin/support/stats", admin_support_stats_route)
+    router.add_get(
+        r"/api/admin/message-images/{image_id:[0-9a-f]{32}}",
+        admin_message_image_route,
+    )
 
     router.add_get("/api/admin/broadcast/audience-counts", admin_broadcast_audience_counts_route)
     router.add_get("/api/admin/broadcast/shortcodes", admin_broadcast_shortcodes_route)

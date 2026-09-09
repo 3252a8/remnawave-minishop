@@ -160,24 +160,22 @@ async def list_flexible_traffic_limit_records_in_window(
     return list(await _resolve_result_value(scalars.all()))
 
 
-async def has_flexible_traffic_limit_history(
+async def get_flexible_traffic_limit_history_start(
     session: AsyncSession,
     *,
     subscription_id: int,
     kind: str,
-) -> bool:
+) -> datetime | None:
     load_scalar = getattr(session, "scalar", None)
     if not callable(load_scalar):
-        return False
+        return None
     value = await load_scalar(
-        select(FlexibleTrafficLimit.limit_id)
-        .where(
+        select(func.min(FlexibleTrafficLimit.valid_from)).where(
             FlexibleTrafficLimit.subscription_id == subscription_id,
             FlexibleTrafficLimit.kind == kind,
         )
-        .limit(1)
     )
-    return isinstance(value, int) and value > 0
+    return value if isinstance(value, datetime) else None
 
 
 async def sum_traffic_topups(

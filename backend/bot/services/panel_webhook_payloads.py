@@ -3,6 +3,7 @@ import json
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+from .hwid_device_webhook import HWID_DEVICE_EVENTS, hwid_device_context_fingerprint
 from .torrent_blocker_notifications import torrent_blocker_event_fingerprint
 from .torrent_blocker_webhook import TORRENT_BLOCKER_EVENT
 
@@ -156,6 +157,12 @@ class PanelWebhookPayloadMixin:
                 secret=fingerprint_secret or "",
             )
             event_id = f"{event_id}:{fingerprint}"
+        elif event_name in HWID_DEVICE_EVENTS:
+            fingerprint = hwid_device_context_fingerprint(context)
+            if fingerprint:
+                event_id = f"{event_id}:{fingerprint}"
+            else:
+                event_id = f"{event_id}:{cls._payload_fingerprint(user_payload, meta)}"
         elif event_name not in ACTIONABLE_EVENTS:
             event_id = f"{event_id}:{cls._payload_fingerprint(user_payload, meta)}"
         return event_id

@@ -1,8 +1,9 @@
+import { billingDurationDays, durationParts } from "./subscriptionPeriods.js";
 import { formatMoney, formatTrafficGb } from "./formatters.js";
 import type { WebappRecord } from "./domainTypes.js";
 
 type TranslateFn = (key: string, params?: Record<string, string>, fallback?: string) => string;
-type TermUnitLabel = (value: number, unit: "month") => string;
+type TermUnitLabel = (value: number, unit: "day" | "month" | "year") => string;
 
 export type CheckoutAddonKind = "devices" | "traffic" | "premium_traffic";
 export type CheckoutAddonOption = {
@@ -64,9 +65,11 @@ export type BillingPlan = WebappRecord & {
   min_currency?: string | null;
   mode?: string | null;
   months?: number | string | null;
+  duration_days?: number | string | null;
   monthly_gb?: number | string | null;
   premium_enabled?: boolean | null;
   premium_monthly_gb?: number | string | null;
+  premium_title?: string | null;
   premium_traffic_limit_strategy?: string | null;
   premium_unlimited?: boolean | null;
   price?: number | string | null;
@@ -129,12 +132,14 @@ export function checkoutTariffSummary(plan: BillingPlan | null | undefined): Che
   );
   const traffic = firstFiniteValue(addons.traffic?.base_units, plan?.monthly_gb);
   const premiumEnabled = plan?.premium_enabled;
-  const premium =
-    premiumEnabled === false
-      ? 0
-      : firstFiniteValue(addons.premium_traffic?.base_units, plan?.premium_monthly_gb);
+  const premiumAddon = addons.premium_traffic;
+  const premiumAvailable = premiumEnabled !== false || Boolean(premiumAddon);
+  const premium = premiumAvailable
+    ? firstFiniteValue(premiumAddon?.base_units, plan?.premium_monthly_gb)
+    : null;
   const premiumKnown =
-    typeof premiumEnabled === "boolean" || premium !== null || Boolean(addons.premium_traffic);
+    premiumAvailable &&
+    (typeof premiumEnabled === "boolean" || premium !== null || Boolean(premiumAddon));
 
   return {
     devices: {
@@ -195,7 +200,7 @@ export function paymentMethodsForContext(
 export function planKey(plan: BillingPlan | null | undefined): string | number {
   return (
     plan?.id ||
-    `${plan?.tariff_key || "legacy"}:${plan?.sale_mode || "subscription"}:${plan?.months || plan?.traffic_gb || ""}`
+    `${plan?.tariff_key || "legacy"}:${plan?.sale_mode || "subscription"}:${plan?.duration_days || plan?.months || plan?.traffic_gb || ""}`
   );
 }
 
@@ -235,6 +240,15 @@ export function buildTariffCatalog(
   return Array.from(byKey.values());
 }
 
+export function initialCheckoutTariffKey(
+  catalog: TariffCatalogEntry[],
+  linkedPlan: BillingPlan | null | undefined
+): string {
+  const linkedKey = String(linkedPlan?.tariff_key || "").trim();
+  if (linkedKey && catalog.some((entry) => entry.key === linkedKey)) return linkedKey;
+  return catalog.length === 1 ? catalog[0].key : "";
+}
+
 export function activeTariffName(
   sub: BillingPlan | null | undefined,
   planList: BillingPlan[] | null | undefined
@@ -252,6 +266,10 @@ export function priceLabel(plan: BillingPlan | null | undefined, methodId = ""):
     return `${Number(plan?.stars_price)} ⭐`;
   }
   return formatMoney(plan?.price || 0, plan?.currency || undefined);
+}
+
+export function isTrialPaymentPlan(plan: BillingPlan | null | undefined): boolean {
+  return String(plan?.sale_mode || "").toLowerCase() === "trial";
 }
 
 export function methodAmountForPlan(
@@ -327,18 +345,18 @@ export function tariffLimitLabel(
 }
 
 export function actionKey(action: BillingPlan | null | undefined): string {
-  return `${action?.mode || ""}:${action?.months || ""}:${action?.traffic_gb || ""}:${action?.price || ""}`;
+  return `${action?.mode || ""}:${action?.duration_days || action?.months || ""}:${action?.traffic_gb || ""}:${action?.price || ""}`;
 }
 
-function formatMonthsForClient(
+function formatPeriodForClient(
   value: unknown,
   { t, termUnitLabel }: { t: TranslateFn; termUnitLabel: TermUnitLabel }
 ): string {
-  const months = Number(value || 0);
-  if (months === 12) return t("wa_plan_one_year");
+  const parts = durationParts(value);
+  if (!parts) return "";
   return t("wa_sub_term_value_unit", {
-    value: String(months),
-    unit: termUnitLabel(months, "month"),
+    value: String(parts.count),
+    unit: termUnitLabel(parts.count, parts.unit),
   });
 }
 
@@ -352,8 +370,7 @@ export function planDisplayTitle(
   if (trafficMode || plan?.sale_mode === "traffic") {
     return String(plan?.title || formatTrafficGb(plan?.traffic_gb || plan?.months));
   }
-  const months = Number(plan?.months || 0);
-  if (months === 12) return t("wa_plan_one_year");
+  if (billingDurationDays(plan) === 365 && !plan?.title) return t("wa_plan_one_year");
   return String(plan?.title || "");
 }
 
@@ -371,7 +388,7 @@ export function planSubtitle(
   ) {
     return formatTrafficGb(plan?.traffic_gb || plan?.months);
   }
-  return formatMonthsForClient(plan?.months, { t, termUnitLabel });
+  return formatPeriodForClient(billingDurationDays(plan), { t, termUnitLabel });
 }
 
 export function planUnitHint(
@@ -396,10 +413,11 @@ export function planUnitHint(
     }
     return `${formatMoney(Number(plan?.price || 0) / gb, plan?.currency || undefined)}${t("wa_per_gb_short")}`;
   }
-  const months = Number(plan?.months || 0);
-  if (!months || months <= 1) return "";
+  const days = billingDurationDays(plan);
+  if (!days || days < 30) return "";
   if (isStarsPaymentMethod(selectedMethod) && Number(plan?.stars_price || 0) > 0) {
-    return `${Number(Number(plan?.stars_price) / months).toFixed(0)} ⭐${t("wa_per_month_short")}`;
+    const rate = (Number(plan?.stars_price) * 30) / days;
+    return `${rate < 1 ? "<1" : rate.toFixed(0)} ⭐ ${t("wa_per_month_label")}`;
   }
-  return `${formatMoney(Number(plan?.price || 0) / months, plan?.currency || undefined)}${t("wa_per_month_short")}`;
+  return `${formatMoney((Number(plan?.price || 0) * 30) / days, plan?.currency || undefined)} ${t("wa_per_month_label")}`;
 }

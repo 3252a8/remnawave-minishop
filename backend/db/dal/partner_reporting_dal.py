@@ -154,18 +154,23 @@ async def list_profiles(
     tie_breaker = (
         PartnerProfile.partner_id.asc() if direction == "asc" else PartnerProfile.partner_id.desc()
     )
-    result = await session.execute(
-        select(PartnerProfile)
-        .outerjoin(client_metrics, client_metrics.c.partner_id == PartnerProfile.partner_id)
-        .outerjoin(
-            commission_metrics,
-            commission_metrics.c.partner_id == PartnerProfile.partner_id,
+    # Aggregate the full population only for the metric actually used to sort.
+    # The selected page's display metrics are fetched in bounded batches.
+    statement = select(PartnerProfile)
+    if sort_key == "clients" or sort_key not in sort_expressions:
+        statement = statement.outerjoin(
+            client_metrics, client_metrics.c.partner_id == PartnerProfile.partner_id
         )
-        .outerjoin(balance_metrics, balance_metrics.c.partner_id == PartnerProfile.partner_id)
-        .where(where)
-        .order_by(ordered, tie_breaker)
-        .limit(limit)
-        .offset(offset)
+    elif sort_key in {"gross", "earned"}:
+        statement = statement.outerjoin(
+            commission_metrics, commission_metrics.c.partner_id == PartnerProfile.partner_id
+        )
+    elif sort_key == "available":
+        statement = statement.outerjoin(
+            balance_metrics, balance_metrics.c.partner_id == PartnerProfile.partner_id
+        )
+    result = await session.execute(
+        statement.where(where).order_by(ordered, tie_breaker).limit(limit).offset(offset)
     )
     return list(result.scalars().all()), total
 

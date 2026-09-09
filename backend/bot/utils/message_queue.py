@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from aiogram import Bot
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 
 from bot.utils.telegram_markup import (
     is_profile_link_error,
@@ -79,6 +79,15 @@ class MessageQueue:
                 try:
                     await self._send_message(message)
                     self._record_send_time(message.chat_id)
+
+                except TelegramForbiddenError as exc:
+                    self.total_failed += 1
+                    logger.info(
+                        "Telegram queued delivery unavailable; chat_id=%s reason=%s",
+                        message.chat_id,
+                        exc,
+                    )
+                    await self._notify_failure(message, exc)
 
                 except TelegramBadRequest as exc:
                     fallback_message = self._build_profile_link_fallback(message, exc)
@@ -261,10 +270,23 @@ class MessageQueueManager:
         message = QueuedMessage(chat_id=chat_id, method_name="send_document", kwargs=kwargs)
         await queue.add_message(message)
 
-    async def send_photo(self, chat_id: int, **kwargs: Any) -> None:
+    async def send_photo(
+        self,
+        chat_id: int,
+        *,
+        callback: Callable[[Any], Awaitable[None]] | None = None,
+        error_callback: Callable[[Exception], Awaitable[None]] | None = None,
+        **kwargs: Any,
+    ) -> None:
         """Queue a send_photo call"""
         queue = self.group_queue if self._is_group_chat(chat_id) else self.user_queue
-        message = QueuedMessage(chat_id=chat_id, method_name="send_photo", kwargs=kwargs)
+        message = QueuedMessage(
+            chat_id=chat_id,
+            method_name="send_photo",
+            kwargs=kwargs,
+            callback=callback,
+            error_callback=error_callback,
+        )
         await queue.add_message(message)
 
     async def send_video(self, chat_id: int, **kwargs: Any) -> None:

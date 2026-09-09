@@ -38,6 +38,7 @@
     userTelegramProfileLink = () => "",
     userTelegramProfileLinkKind = () => "",
     openTelegramProfileLink = () => false,
+    onOpenPaymentCard,
     onClose = () => usersStore.closeUser(),
     routePrefix = "",
   }: {
@@ -56,6 +57,7 @@
     userTelegramProfileLink?: (user: AdminUser) => string;
     userTelegramProfileLinkKind?: (user: AdminUser) => string;
     openTelegramProfileLink?: (url: string) => boolean;
+    onOpenPaymentCard: (paymentId: number) => void;
     onClose?: () => void;
     routePrefix?: string;
   } = $props();
@@ -185,12 +187,16 @@
   ): SelectOption {
     const value = String(tariff?.key || "");
     const label = tariffLabel(tariff);
+    const badges = [];
+    if (markCurrent && value && value === currentKey) {
+      badges.push(at("user_tariff_current_badge", {}, "current"));
+    }
+    if (tariff?.enabled === false) {
+      badges.push(at("user_tariff_hidden_badge", {}, "hidden"));
+    }
     return {
       value,
-      label:
-        markCurrent && value && value === currentKey
-          ? `${label} (${at("user_tariff_current_badge", {}, "current")})`
-          : label,
+      label: badges.length ? `${label} (${badges.join(", ")})` : label,
     };
   }
 
@@ -329,7 +335,7 @@
     tariffCatalogItems.find((tariff) => String(tariff?.key || "") === userTariffActionKey) || null
   );
   const periodTariffs = $derived(
-    enabledTariffs.filter((tariff) => tariff?.billing_model === "period")
+    tariffCatalogItems.filter((tariff) => tariff?.billing_model === "period")
   );
   const periodTariffItems = $derived(periodTariffs.map((tariff) => tariffSelectItem(tariff)));
   const extendPeriodTariffs = $derived(
@@ -349,7 +355,25 @@
       !extendTariffItems.length ||
       extendTariffItems.some((item) => item.value === usersState.userExtendTariffKey)
   );
-  const userExtendDaysValid = $derived(Number(usersState.userExtendDays) > 0);
+  const userExtendDaysValid = $derived.by(() => {
+    if (usersState.userExtendMode === "date") {
+      const selected = String(usersState.userExtendEndDate || "");
+      const current = String(openedUserDetail?.active_subscription?.end_date || "").slice(0, 10);
+      return (
+        Boolean(selected) &&
+        selected !== current &&
+        Date.parse(`${selected}T23:59:59Z`) > Date.now()
+      );
+    }
+    const days = Number(usersState.userExtendDays);
+    if (!Number.isInteger(days) || days === 0 || Math.abs(days) > 3650) return false;
+    if (days > 0) return true;
+    const currentEnd = Date.parse(String(openedUserDetail?.active_subscription?.end_date || ""));
+    return (
+      Number.isFinite(currentEnd) &&
+      Math.max(currentEnd, Date.now()) + days * 86_400_000 > Date.now()
+    );
+  });
   const extendTariffsLoading = $derived(
     Boolean(openedUser && tariffsState.tariffsLoading && !extendTariffItems.length)
   );
@@ -486,7 +510,8 @@
 
   function openAvatarPreview() {
     if (!openedUserAvatarUrl || !openedUser) return;
-    avatarPreviewUrl = openedUserAvatarUrl;
+    const separator = openedUserAvatarUrl.includes("?") ? "&" : "?";
+    avatarPreviewUrl = `${openedUserAvatarUrl}${separator}quality=full`;
     avatarPreviewName = userDisplayName(openedUser);
     avatarPreviewOpen = true;
   }
@@ -548,6 +573,7 @@
   {trialSummaryText}
   {fmtDateShort}
   {paymentStatusVariant}
+  {onOpenPaymentCard}
   userLogsRows={userLogsTable.rows}
   {userLogsTotal}
   {userLogsPage}

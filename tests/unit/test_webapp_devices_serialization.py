@@ -39,6 +39,7 @@ class _JsonRequest:
 
 def test_serialize_device_matches_contract():
     created = datetime(2099, 1, 2, 3, 4, 0, tzinfo=UTC)
+    last_connected = datetime(2099, 1, 3, 4, 5, 0, tzinfo=UTC)
     result = _serialize_device(
         {
             "hwid": "ABC123XYZ",
@@ -47,6 +48,7 @@ def test_serialize_device_matches_contract():
             "osVersion": "17.2",
             "userAgent": "TgWeb/1.0",
             "createdAt": created,
+            "updatedAt": last_connected,
         },
         3,
     )
@@ -59,6 +61,8 @@ def test_serialize_device_matches_contract():
         "user_agent": "TgWeb/1.0",
         "created_at": created.isoformat(),
         "created_at_text": "02.01.2099 03:04",
+        "last_connected_at": last_connected.isoformat(),
+        "last_connected_at_text": "03.01.2099 04:05",
         "hwid_short": "ABC123XYZ",
         "token": hashlib.sha256(b"ABC123XYZ").hexdigest()[:32],
         "can_disconnect": True,
@@ -74,6 +78,8 @@ def test_serialize_device_without_hwid_cannot_disconnect():
     assert result["display_name"] == "Android"
     assert result["created_at"] is None
     assert result["created_at_text"] == ""
+    assert result["last_connected_at"] is None
+    assert result["last_connected_at_text"] == ""
 
 
 def test_device_serializer_accepts_datetime_created_at():
@@ -90,6 +96,8 @@ def test_device_serializer_accepts_datetime_created_at():
 
     assert payload["created_at"] == created_at.isoformat()
     assert payload["created_at_text"] == "02.01.2099 03:04"
+    assert payload["last_connected_at"] == created_at.isoformat()
+    assert payload["last_connected_at_text"] == "02.01.2099 03:04"
     json.dumps(payload)
 
 

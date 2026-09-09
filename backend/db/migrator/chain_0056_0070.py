@@ -539,6 +539,128 @@ def _migration_0065_add_flexible_traffic_limits(connection: Connection) -> None:
     )
 
 
+def _migration_0066_add_payment_fulfillment_audit(connection: Connection) -> None:
+    """Persist reversible payment fulfillment and explicit promo overrides."""
+
+    inspector = inspect(connection)
+    tables = set(inspector.get_table_names())
+    if "payments" in tables:
+        payment_columns = {column["name"] for column in inspector.get_columns("payments")}
+        additions = {
+            "fulfillment_source": "VARCHAR(16)",
+            "fulfilled_at": "TIMESTAMPTZ",
+            "fulfilled_by_admin_id": "BIGINT",
+            "fulfillment_note": "VARCHAR(500)",
+            "fulfillment_before_snapshot": "TEXT",
+            "fulfillment_after_snapshot": "TEXT",
+            "promo_conflict_override": "BOOLEAN NOT NULL DEFAULT FALSE",
+            "reversed_at": "TIMESTAMPTZ",
+            "reversed_by_admin_id": "BIGINT",
+            "reversal_note": "VARCHAR(500)",
+            "promo_usage_restored": "BOOLEAN NOT NULL DEFAULT FALSE",
+        }
+        for column, definition in additions.items():
+            if column not in payment_columns:
+                connection.execute(text(f"ALTER TABLE payments ADD COLUMN {column} {definition}"))
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_payments_fulfillment_source "
+                "ON payments (fulfillment_source)"
+            )
+        )
+        connection.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_payments_fulfilled_at ON payments (fulfilled_at)")
+        )
+        connection.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_payments_reversed_at ON payments (reversed_at)")
+        )
+
+    if "promo_code_activations" not in tables:
+        return
+    activation_columns = {
+        column["name"] for column in inspector.get_columns("promo_code_activations")
+    }
+    if "is_manual_override" not in activation_columns:
+        connection.execute(
+            text(
+                "ALTER TABLE promo_code_activations "
+                "ADD COLUMN is_manual_override BOOLEAN NOT NULL DEFAULT FALSE"
+            )
+        )
+    unique_constraints = {
+        constraint.get("name")
+        for constraint in inspector.get_unique_constraints("promo_code_activations")
+    }
+    if "uq_promo_user_activation" in unique_constraints:
+        connection.execute(
+            text("ALTER TABLE promo_code_activations DROP CONSTRAINT uq_promo_user_activation")
+        )
+    connection.execute(
+        text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_promo_user_activation_standard "
+            "ON promo_code_activations (promo_code_id, user_id) "
+            "WHERE is_manual_override = FALSE"
+        )
+    )
+
+
+def _migration_0067_add_message_images(connection: Connection) -> None:
+    """Persist normalized images once and reference them from authored messages."""
+
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS message_images (
+                image_id VARCHAR(32) PRIMARY KEY,
+                digest VARCHAR(64) NOT NULL,
+                filename VARCHAR(96) NOT NULL,
+                content_type VARCHAR(32) NOT NULL DEFAULT 'image/webp',
+                size_bytes BIGINT NOT NULL,
+                width INTEGER NOT NULL,
+                height INTEGER NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """
+        )
+    )
+    connection.execute(
+        text("CREATE INDEX IF NOT EXISTS ix_message_images_digest ON message_images (digest)")
+    )
+
+    inspector = inspect(connection)
+    tables = set(inspector.get_table_names())
+    for table_name in ("support_ticket_messages", "admin_broadcasts"):
+        if table_name not in tables:
+            continue
+        columns = {column["name"] for column in inspector.get_columns(table_name)}
+        if "image_id" not in columns:
+            connection.execute(
+                text(
+                    f"ALTER TABLE {table_name} ADD COLUMN image_id VARCHAR(32) "
+                    "REFERENCES message_images(image_id) ON DELETE SET NULL"
+                )
+            )
+        connection.execute(
+            text(f"CREATE INDEX IF NOT EXISTS ix_{table_name}_image_id ON {table_name} (image_id)")
+        )
+
+
+def _migration_0068_add_broadcast_blocked_filter(connection: Connection) -> None:
+    """Persist whether a broadcast excludes known blocked Telegram chats."""
+
+    inspector = inspect(connection)
+    if "admin_broadcasts" not in set(inspector.get_table_names()):
+        return
+    columns = {column["name"] for column in inspector.get_columns("admin_broadcasts")}
+    if "exclude_blocked_telegram" not in columns:
+        connection.execute(
+            text(
+                "ALTER TABLE admin_broadcasts ADD COLUMN "
+                "exclude_blocked_telegram BOOLEAN NOT NULL DEFAULT FALSE"
+            )
+        )
+
+
 CHAIN_0056_0070: list[Migration] = [
     Migration(
         id="0056_add_tariff_binding_audit",
@@ -589,5 +711,20 @@ CHAIN_0056_0070: list[Migration] = [
         id="0065_add_flexible_traffic_limits",
         description="Store resettable subscription traffic limit windows",
         upgrade=_migration_0065_add_flexible_traffic_limits,
+    ),
+    Migration(
+        id="0066_add_payment_fulfillment_audit",
+        description="Persist reversible payment fulfillment and promo override audit",
+        upgrade=_migration_0066_add_payment_fulfillment_audit,
+    ),
+    Migration(
+        id="0067_add_message_images",
+        description="Persist normalized images for support and outbound messages",
+        upgrade=_migration_0067_add_message_images,
+    ),
+    Migration(
+        id="0068_add_broadcast_blocked_filter",
+        description="Store the blocked Telegram recipient filter for broadcasts",
+        upgrade=_migration_0068_add_broadcast_blocked_filter,
     ),
 ]

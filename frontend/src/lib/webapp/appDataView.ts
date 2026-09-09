@@ -18,6 +18,7 @@ export type AppDataViewInput = {
 
 export type AppDataView = {
   appSettings: WebappRecord;
+  balance: WebappRecord;
   authProviders: string[];
   brand: WebappRecord;
   brandTitle: string;
@@ -99,6 +100,7 @@ export function computeAppDataView({
 
   return {
     appSettings,
+    balance: recordField(dataRecord.balance || mock.balance),
     authProviders,
     brand,
     brandTitle,

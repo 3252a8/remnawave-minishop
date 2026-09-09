@@ -114,6 +114,38 @@
   gap: 14px;
 }
 
+.appearance-theme-mode-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 13px 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--admin-surface-2) 42%, var(--admin-surface));
+}
+
+.appearance-theme-mode-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.appearance-theme-mode-copy strong {
+  color: var(--admin-text);
+  font-size: 13px;
+}
+
+.appearance-theme-mode-copy small {
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.appearance-theme-mode-setting .admin-setting-switch {
+  flex: 0 0 auto;
+}
+
 .appearance-theme-section {
   display: grid;
   gap: 12px;
@@ -603,6 +635,10 @@
   }
 
   .appearance-theme-section-head {
+    display: grid;
+  }
+
+  .appearance-theme-mode-setting {
     display: grid;
   }
 

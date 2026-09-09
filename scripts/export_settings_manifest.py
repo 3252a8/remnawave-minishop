@@ -35,6 +35,7 @@ for _path in (str(BACKEND), str(ROOT)):
     if _path not in sys.path:
         sys.path.insert(0, _path)
 
+from bot.app.web.admin_payment_method_order import payment_method_order_options  # noqa: E402
 from bot.app.web.admin_settings_manifest import manifest_payload  # noqa: E402
 
 OUTPUT_PATH = ROOT / "frontend" / "src" / "lib" / "webapp" / "settingsManifest.generated.json"
@@ -67,6 +68,8 @@ def build_demo_settings_sections() -> list[dict[str, Any]]:
         }
         if is_secret:
             response_field["has_value"] = False
+        if field["key"] == "PAYMENT_METHODS_ORDER":
+            response_field["payment_method_options"] = payment_method_order_options()
         webhook_path = str(response_field.get("webhook_path") or "").strip()
         if webhook_path:
             if not webhook_path.startswith("/"):

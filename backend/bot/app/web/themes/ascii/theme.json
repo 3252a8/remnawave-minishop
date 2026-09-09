@@ -9,7 +9,16 @@
   "use_primary_accent": false,
   "use_in_admin": true,
   "css_file": "style.css",
-  "assets_version": 8,
+  "assets_version": 9,
+  "active_variant": "dark",
+  "variants": {
+    "light": {
+      "color_scheme": "light"
+    },
+    "dark": {
+      "color_scheme": "dark"
+    }
+  },
   "tokens": {
     "color_scheme": "dark",
     "style_preset": "ascii"

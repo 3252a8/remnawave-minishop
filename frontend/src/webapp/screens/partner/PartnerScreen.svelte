@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import "./partnerScreen.css";
   import {
+    ArrowLeft,
     ArrowRight,
     Check,
     CheckCircle2,
@@ -45,7 +46,7 @@
     type PartnerCurrency,
     type PartnerWithdrawalMethodPreview,
   } from "$lib/webapp/previewMock/partnerProgram.js";
-  import type { CopyTextAction, Translate } from "$lib/webapp/types.js";
+  import type { CopyTextAction, Translate, VoidAction } from "$lib/webapp/types.js";
   import { buildPartnerWithdrawalCancelPath, type ApiClient } from "$lib/webapp/publicApi.js";
   import { loadPartnerProgram, partnerPreviewMode } from "$lib/webapp/partnerProgramApi.js";
   import { partnerLoadingPlaceholder } from "$lib/webapp/partnerUiPolicy.js";
@@ -57,10 +58,12 @@
   let {
     copyText = async () => {},
     api,
+    goBack,
     t = (key) => key,
   }: {
     copyText?: CopyTextAction;
     api?: ApiClient["api"];
+    goBack?: VoidAction;
     t?: Translate;
   } = $props();
 
@@ -426,6 +429,12 @@
 </script>
 
 <main class="content with-nav partner-page" aria-busy={preview.loading}>
+  {#if goBack}
+    <button class="partner-back" type="button" onclick={goBack}>
+      <ArrowLeft size={19} />
+      {t("wa_back")}
+    </button>
+  {/if}
   {#if preview.loading}
     {#if loadingPlaceholder === "dashboard"}
       <PartnerScreenSkeleton label={t("wa_loading")} />

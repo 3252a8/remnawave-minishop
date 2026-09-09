@@ -126,6 +126,7 @@ class SupportMessageOut(HttpResponseModel):
     #: than trusting the string.
     body_format: str = "text"
     buttons: list[SupportMessageButtonOut] = Field(default_factory=list)
+    image_id: str | None = None
     is_internal_note: bool
     created_at: datetime | None = None
     read_by_user_at: datetime | None = None
@@ -146,6 +147,7 @@ class SupportMessageOut(HttpResponseModel):
                 SupportMessageButtonOut(**button)
                 for button in support_buttons_payload(message.__dict__.get("buttons"))
             ],
+            image_id=str(message.image_id) if message.__dict__.get("image_id") else None,
             is_internal_note=bool(message.is_internal_note),
             created_at=message.created_at,
             read_by_user_at=message.read_by_user_at,

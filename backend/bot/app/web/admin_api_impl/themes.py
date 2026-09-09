@@ -34,6 +34,8 @@ from bot.app.web.route_contracts import (
 from bot.app.web.webapp.cache_helpers import refresh_webapp_runtime_after_settings_change
 from bot.services.settings_override_service import update_overrides
 from config.settings import Settings
+from config.theme_packages.models import PackageError
+from config.theme_packages.registry import read_registry
 from config.webapp_themes_config import (
     WebappThemesConfig,
     ensure_webapp_core_themes,
@@ -531,6 +533,7 @@ async def admin_themes_get_route(request: web.Request) -> web.Response:
 
     return _ok(
         AdminThemesOut(
+            generation=read_registry(Path(themes_dir)).generation,
             exists=themes_dir_exists,
             themes_dir=themes_dir,
             catalog=catalog,
@@ -560,7 +563,15 @@ async def admin_themes_save_route(request: web.Request) -> web.Response:
     config = _bump_theme_asset_versions(config, previous_config)
 
     try:
-        write_webapp_theme_dir(settings.WEBAPP_THEMES_DIR, config, delete_missing=True)
+        await asyncio.to_thread(
+            write_webapp_theme_dir,
+            settings.WEBAPP_THEMES_DIR,
+            config,
+            delete_missing=True,
+            expected_generation=body.expected_generation,
+        )
+    except PackageError as exc:
+        return _error(exc.status, exc.code)
     except OSError as exc:
         logger.exception("Failed to write webapp themes to %s", settings.WEBAPP_THEMES_DIR)
         return _error(500, "write_failed", str(exc))
@@ -572,5 +583,14 @@ async def admin_themes_save_route(request: web.Request) -> web.Response:
     )
 
     return _ok(
-        AdminThemesOut(exists=True, themes_dir=themes_dir, catalog=config).to_legacy_payload()
+        AdminThemesOut(
+            exists=True,
+            themes_dir=themes_dir,
+            catalog=resolved_webapp_themes_catalog(
+                primary_accent=settings.WEBAPP_PRIMARY_COLOR or "#00fe7a",
+                env_default_theme=settings.WEBAPP_DEFAULT_THEME,
+                theme_dir=settings.WEBAPP_THEMES_DIR,
+            ),
+            generation=read_registry(Path(themes_dir)).generation,
+        ).to_legacy_payload()
     )

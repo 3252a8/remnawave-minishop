@@ -22,7 +22,7 @@ describe("section availability", () => {
     );
     expect(
       resolveAvailableWebappSection({ referralProgramEnabled: false, section: "invite" })
-    ).toBe("home");
+    ).toBe("invite");
     expect(resolveAvailableWebappSection({ referralProgramEnabled: true, section: "invite" })).toBe(
       "invite"
     );
@@ -43,9 +43,15 @@ describe("section availability", () => {
 
   it("maps non-tab sections to their visible tab", () => {
     expect(activeTabForWebappSection("admin")).toBe("settings");
+    expect(activeTabForWebappSection("notifications")).toBe("settings");
     expect(activeTabForWebappSection("install")).toBe("home");
     expect(activeTabForWebappSection("trial")).toBe("home");
     expect(activeTabForWebappSection("partner")).toBe("partner");
+    expect(
+      activeTabForWebappSection("partner", {
+        partnerSettingsVisible: true,
+      })
+    ).toBe("settings");
     expect(activeTabForWebappSection("support")).toBe("support");
   });
 });

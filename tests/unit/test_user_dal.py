@@ -241,6 +241,8 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             delete_tables.index("support_tickets"),
         )
         self.assertIn("support_ticket_messages", update_tables)
+        self.assertEqual(update_tables.count("message_logs"), 2)
+        self.assertNotIn("message_logs", delete_tables)
         self.assertIn("email_verification_codes", delete_tables)
         self.assertIn("legacy_referral_codes", delete_tables)
         self.assertIn("legacy_import_mappings", delete_tables)
@@ -338,10 +340,16 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             referred_by_id=None,
             referral_code=None,
         )
+
+        flush_states = []
+
+        async def _flush():
+            flush_states.append((source.panel_user_uuid, target.panel_user_uuid))
+
         session = SimpleNamespace(
             execute=AsyncMock(side_effect=lambda stmt: FakeResult()),
             delete=AsyncMock(),
-            flush=AsyncMock(),
+            flush=AsyncMock(side_effect=_flush),
             refresh=AsyncMock(),
         )
 
@@ -360,6 +368,8 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertIs(merged, target)
+        self.assertEqual(flush_states[0], (None, None))
+        self.assertEqual(flush_states[-1], (None, "panel-source"))
 
         update_tables = []
         delete_tables = []
@@ -571,6 +581,7 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             referral_code=None,
         )
         source_active_sub = SimpleNamespace(
+            subscription_id=100,
             end_date=before + timedelta(days=30),
             duration_months=1,
             provider="stripe",
@@ -581,6 +592,7 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             panel_user_uuid="panel-email",
         )
         expired_target_sub = SimpleNamespace(
+            subscription_id=200,
             end_date=before - timedelta(days=3),
             duration_months=1,
             provider="yookassa",

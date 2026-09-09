@@ -2,9 +2,12 @@
   import { getAdminSupportStore, getBroadcastStore } from "$lib/admin/context";
   import { buttonsForPayload } from "$lib/admin/stores/broadcastStore.svelte";
   import type { BroadcastButtonDraft } from "$lib/admin/stores/broadcastStore.svelte";
+  import { supportMessageImageUrl } from "$lib/messageImage";
   import { onMount, tick } from "svelte";
   import {
     AdminButton,
+    AdminListToolbar,
+    AdminField,
     AdminSelect,
     SupportComposer,
     SupportInboxRow,
@@ -13,7 +16,6 @@
   } from "$components/patterns/admin/index.js";
   import { TicketMessageBubble, TypingIndicator } from "$components/patterns/webapp/index.js";
   import Dialog from "$components/ui/dialog.svelte";
-  import { Search } from "$components/ui/icons.js";
   import { Input, ScrollArea, Skeleton } from "$components/ui/index.js";
   import type {
     SupportFilters,
@@ -45,6 +47,7 @@
   // so the reply composer offers exactly what the broadcast screen offers.
   const broadcastStore = getBroadcastStore();
   let reply = $state("");
+  let replyImage = $state<File | null>(null);
   let replyButtons = $state<BroadcastButtonDraft[]>([]);
   let messagesScrollEl = $state<HTMLElement | null>(null);
   let lastMessageScrollKey = $state("");
@@ -55,11 +58,12 @@
       closed: 0,
       open: 0,
       awaiting_admin: 0,
+      awaiting_user: 0,
       total_unread_admin: 0,
     }
   );
   const loading = $derived(Boolean(supportStore.loading));
-  const filters: SupportFilters = $derived(
+  const ticketFilters: SupportFilters = $derived(
     supportStore.filters || {
       status: "active",
       priority: "",
@@ -87,14 +91,32 @@
     void supportStore.patchTicket(updates)) as ComponentCallback;
   const openSupportUser = ((userId: number | string | undefined) =>
     onOpenUserCard(userId)) as ComponentCallback;
-  const sendComposerReply = ((body: string) => void send(body)) as ComponentCallback;
+  const sendComposerReply = (body: string, image: File | null) => void send(body, image);
   const maxBodyLength = 4000;
+  const imageViewerLabels = $derived({
+    open: at("image_viewer_open", {}, "Open image"),
+    title: at("image_viewer_title", {}, "Image"),
+    close: at("image_viewer_close", {}, "Close image"),
+    zoomIn: at("image_viewer_zoom_in", {}, "Zoom in"),
+    zoomOut: at("image_viewer_zoom_out", {}, "Zoom out"),
+    reset: at("image_viewer_reset", {}, "Reset zoom"),
+  });
 
   const statusTabs = $derived([
     {
       value: "active",
-      label: at("support_filter_active", {}, "Active"),
+      label: at("support_filter_active", {}, "Open"),
       count: stats?.active || 0,
+    },
+    {
+      value: "awaiting_admin",
+      label: at("support_status_awaiting_admin", {}, "Awaiting admin"),
+      count: stats?.awaiting_admin || 0,
+    },
+    {
+      value: "awaiting_user",
+      label: at("support_status_awaiting_user", {}, "Awaiting user"),
+      count: stats?.awaiting_user || 0,
     },
     {
       value: "closed",
@@ -142,6 +164,7 @@
   $effect(() => {
     if (!openedTicketId) {
       reply = "";
+      replyImage = null;
       replyButtons = [];
       lastMessageScrollKey = "";
     }
@@ -155,13 +178,15 @@
     if (initialTicketId) supportStore.openTicket(initialTicketId, { skipPush: true });
   });
 
-  async function send(body: string): Promise<void> {
+  async function send(body: string, image: File | null): Promise<void> {
     const sent = await supportStore.sendReply(body, {
       bodyFormat: "html",
       buttons: buttonsForPayload(replyButtons),
+      image,
     });
     if (!sent) return;
     reply = "";
+    replyImage = null;
     replyButtons = [];
   }
 
@@ -179,6 +204,7 @@
 
   function closeTicketModal(): void {
     reply = "";
+    replyImage = null;
     replyButtons = [];
     supportStore.closeTicketView();
   }
@@ -279,7 +305,7 @@
       {#each statusTabs as tab (tab.value)}
         <button
           type="button"
-          class:active={filters.status === tab.value}
+          class:active={ticketFilters.status === tab.value}
           onclick={() => supportStore.setStatusView(tab.value)}
         >
           <span>{tab.label}</span>
@@ -288,43 +314,48 @@
       {/each}
     </div>
 
-    <div class="support-admin-toolbar admin-toolbar-card">
-      <label class="support-admin-search">
-        <Search size={16} />
+    <AdminListToolbar class="support-list-toolbar" onsubmit={() => supportStore.loadList()}>
+      {#snippet search()}
         <Input
           class="input"
           type="search"
+          aria-label={at("support_search", {}, "Search")}
           placeholder={at("support_search", {}, "Search")}
-          value={filters.search}
+          value={ticketFilters.search}
           oninput={handleSearchInput}
           onkeydown={handleSearchKeydown}
         />
-      </label>
-
-      <div class="support-admin-filter-row">
-        <AdminSelect
-          value={filters.priority || "all"}
-          items={priorityFilterOptions}
-          ariaLabel={at("support_priority", {}, "Priority")}
-          onValueChange={priorityFilterChange}
-        />
-        <AdminSelect
-          value={filters.category || "all"}
-          items={categoryFilterOptions}
-          ariaLabel={at("support_category", {}, "Category")}
-          onValueChange={categoryFilterChange}
-        />
-        <AdminSelect
-          value={filters.sort || "importance_desc"}
-          items={sortOptions}
-          ariaLabel={at("sort", {}, "Sort")}
-          onValueChange={sortFilterChange}
-        />
-        <AdminButton variant="primary" onclick={() => supportStore.loadList()}>
-          {at("apply", {}, "Apply")}
-        </AdminButton>
-      </div>
-    </div>
+      {/snippet}
+      {#snippet searchActions()}
+        <AdminButton variant="primary" type="submit">{at("apply", {}, "Apply")}</AdminButton>
+      {/snippet}
+      {#snippet filters()}
+        <AdminField label={at("support_priority", {}, "Priority")}>
+          <AdminSelect
+            value={ticketFilters.priority || "all"}
+            items={priorityFilterOptions}
+            ariaLabel={at("support_priority", {}, "Priority")}
+            onValueChange={priorityFilterChange}
+          />
+        </AdminField>
+        <AdminField label={at("support_category", {}, "Category")}>
+          <AdminSelect
+            value={ticketFilters.category || "all"}
+            items={categoryFilterOptions}
+            ariaLabel={at("support_category", {}, "Category")}
+            onValueChange={categoryFilterChange}
+          />
+        </AdminField>
+        <AdminField label={at("sort", {}, "Sort")}>
+          <AdminSelect
+            value={ticketFilters.sort || "importance_desc"}
+            items={sortOptions}
+            ariaLabel={at("sort", {}, "Sort")}
+            onValueChange={sortFilterChange}
+          />
+        </AdminField>
+      {/snippet}
+    </AdminListToolbar>
 
     {#if loading}
       <div class="support-ticket-list-skeleton" aria-label={at("loading", {}, "Loading…")}>
@@ -403,11 +434,14 @@
                 role={message.author_role}
                 body={message.body}
                 bodyFormat={message.body_format}
+                imageUrl={message.image_id ? supportMessageImageUrl(message.image_id, true) : ""}
+                loadImage={supportStore.loadImage}
                 buttons={message.buttons}
                 createdAt={message.created_at ?? undefined}
                 isInternalNote={message.is_internal_note}
                 perspective="admin"
                 supportBrand={brand}
+                {imageViewerLabels}
                 userAvatarUrl={openedTicketUserAvatarUrl}
                 userInitials={openedTicketUserInitials}
                 authorName={messageAuthorName(message)}
@@ -428,6 +462,7 @@
       {/if}
       <SupportComposer
         bind:value={reply}
+        bind:image={replyImage}
         bind:buttons={replyButtons}
         internal={composerInternalNote}
         {sending}

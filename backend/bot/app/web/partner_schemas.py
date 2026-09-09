@@ -166,7 +166,8 @@ class PartnerWithdrawalCreateIn(PartnerModel):
 
 class PartnerBalanceRenewIn(PartnerModel):
     tariff_key: str = Field(min_length=1, max_length=128)
-    months: int = Field(ge=1, le=60)
+    months: int | None = Field(default=None, ge=1, le=60)
+    duration_days: int | None = Field(default=None, gt=0, le=2147483647, strict=True)
     promo_code: str | None = Field(default=None, max_length=128)
     idempotency_key: str = Field(min_length=8, max_length=128)
 

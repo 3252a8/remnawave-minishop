@@ -16,12 +16,20 @@ from bot.services.email_templates import (
 )
 from bot.services.email_templates_common import EmailContent
 from bot.services.message_composition import telegram_markup_for_buttons
+from bot.services.message_image_service import StoredMessageImage, load_message_image
+from bot.services.message_image_telegram import prepare_telegram_photo
 from bot.services.support_message_body import (
     BODY_FORMAT_TEXT,
     support_body_plain_text,
     support_body_telegram_html,
 )
 from bot.services.support_message_buttons import decode_support_buttons
+from bot.services.user_notification_policy import (
+    UserNotificationCategory,
+    email_recipient,
+    telegram_recipient,
+    user_notification_delivery_plan,
+)
 from bot.utils import MessageContent, send_message_via_queue
 from bot.utils.message_queue import get_queue_manager
 from bot.utils.mini_app_url import subscription_main_mini_app_deep_link
@@ -271,15 +279,56 @@ class NotificationSupportMixin:
         *,
         admin_markup: InlineKeyboardMarkup,
         log_markup: InlineKeyboardMarkup,
+        image: StoredMessageImage | None = None,
     ) -> None:
         thread_id = self._support_log_thread_id()
         if not self._support_thread_is_configured():
+            if image is not None:
+                for admin_id in self.settings.ADMIN_IDS:
+                    await self._send_support_photo(int(admin_id), image)
             await self._send_to_admins(message, reply_markup=admin_markup)
+        if image is not None and self.settings.LOG_CHAT_ID:
+            await self._send_support_photo(
+                int(self.settings.LOG_CHAT_ID),
+                image,
+                thread_id=thread_id,
+            )
         await self._send_to_log_channel(
             message,
             thread_id=thread_id,
             reply_markup=log_markup,
         )
+
+    async def _send_support_photo(
+        self,
+        chat_id: int,
+        image: StoredMessageImage,
+        *,
+        thread_id: int | None = None,
+    ) -> None:
+        queue_manager = get_queue_manager()
+        try:
+            photo = await prepare_telegram_photo(image)
+            if queue_manager is not None:
+                await queue_manager.send_photo(
+                    chat_id=chat_id,
+                    photo=photo,
+                    message_thread_id=thread_id,
+                )
+            else:
+                await self.bot.send_photo(
+                    chat_id=chat_id,
+                    photo=photo,
+                    message_thread_id=thread_id,
+                )
+        except Exception:
+            logger.exception("Failed to send support image to chat %s.", chat_id)
+
+    async def _stored_support_image(self, image_id: str | None) -> StoredMessageImage | None:
+        if not image_id or not self.session_factory:
+            return None
+        async with self.session_factory() as session:
+            return await load_message_image(session, image_id)
 
     def _support_user_keyboard(
         self,
@@ -350,6 +399,7 @@ class NotificationSupportMixin:
         snapshot: dict[str, object],
         *,
         body_format: str = BODY_FORMAT_TEXT,
+        image_id: str | None = None,
     ) -> None:
         if not getattr(self.settings, "LOG_SUPPORT", True):
             return
@@ -384,11 +434,14 @@ class NotificationSupportMixin:
         )
         admin_keyboard = self._support_keyboard(ticket, user, admin=True)
         log_keyboard = self._support_keyboard(ticket, user, admin=True, web_app_buttons=False)
+        image = await self._stored_support_image(image_id)
         await self._send_admin_support_telegram(
             message,
             admin_markup=admin_keyboard,
             log_markup=log_keyboard,
+            image=image,
         )
+        email_image = await image.email_inline() if image is not None else None
         await self._send_admin_support_email(
             render_support_new_ticket_admin,
             ticket_id=ticket.ticket_id,
@@ -397,6 +450,7 @@ class NotificationSupportMixin:
             body_preview=preview,
             snapshot_rows=self._support_snapshot_rows(snapshot),
             ticket_url=self._support_ticket_url(ticket.ticket_id, admin=True),
+            image=email_image,
         )
 
     async def notify_support_user_reply(
@@ -415,6 +469,7 @@ class NotificationSupportMixin:
         body_format = str(getattr(message, "body_format", BODY_FORMAT_TEXT) or BODY_FORMAT_TEXT)
         preview = self._support_preview(message.body, body_format)
         preview_html = self._support_preview_html(message.body, body_format)
+        image = await self._stored_support_image(getattr(message, "image_id", None))
         user_display = self._support_user_display(user)
         unread_line = (
             "\n"
@@ -443,8 +498,10 @@ class NotificationSupportMixin:
                 text,
                 admin_markup=admin_keyboard,
                 log_markup=log_keyboard,
+                image=image,
             )
         if send_email:
+            email_image = await image.email_inline() if image is not None else None
             await self._send_admin_support_email(
                 render_support_user_reply_admin,
                 ticket_id=ticket.ticket_id,
@@ -453,6 +510,7 @@ class NotificationSupportMixin:
                 body_preview=preview,
                 snapshot_rows=self._support_snapshot_rows(snapshot),
                 ticket_url=self._support_ticket_url(ticket.ticket_id, admin=True),
+                image=email_image,
             )
 
     async def notify_support_admin_reply(
@@ -469,26 +527,41 @@ class NotificationSupportMixin:
             message=self._support_preview_html(message.body, body_format, limit=500),
         )
         keyboard = self._support_user_keyboard(ticket, user, message=message)
-        if int(user.user_id) > 0:
+        image = await self._stored_support_image(getattr(message, "image_id", None))
+        chat_id = telegram_recipient(user, user.user_id)
+        recipient_email = email_recipient(self.settings, user)
+        plan = user_notification_delivery_plan(
+            self.settings,
+            UserNotificationCategory.SUPPORT,
+            user,
+            telegram_available=chat_id is not None,
+            email_available=bool(self.email_auth_service and recipient_email),
+        )
+        if plan.telegram and chat_id is not None:
             queue_manager = get_queue_manager()
             if queue_manager:
+                if image is not None:
+                    await self._send_support_photo(chat_id, image)
                 await send_message_via_queue(
                     queue_manager,
-                    int(user.user_id),
+                    chat_id,
                     MessageContent(content_type="text", text=text),
                     parse_mode="HTML",
                     disable_web_page_preview=True,
                     reply_markup=keyboard,
                 )
             else:
+                if image is not None:
+                    await self._send_support_photo(chat_id, image)
                 await self.bot.send_message(
-                    chat_id=int(user.user_id),
+                    chat_id=chat_id,
                     text=text,
                     parse_mode="HTML",
                     disable_web_page_preview=True,
                     reply_markup=keyboard,
                 )
-        if self.email_auth_service and getattr(user, "email", None):
+        if plan.email and self.email_auth_service and recipient_email:
+            email_image = await image.email_inline() if image is not None else None
             content = render_support_admin_reply_user(
                 self.settings,
                 self.i18n,
@@ -497,8 +570,11 @@ class NotificationSupportMixin:
                 subject=ticket.subject,
                 body_preview=preview,
                 ticket_url=url,
+                image=email_image,
             )
-            await self.email_auth_service.send_rendered_email(email=user.email, content=content)
+            await self.email_auth_service.send_rendered_email(
+                email=recipient_email, content=content
+            )
 
     async def notify_support_ticket_closed(
         self, ticket: SupportTicket, user: User, closing_admin: User | None
@@ -512,12 +588,21 @@ class NotificationSupportMixin:
             subject=hd.quote(ticket.subject),
         )
         keyboard = self._support_user_keyboard(ticket, user)
-        if int(user.user_id) > 0:
+        chat_id = telegram_recipient(user, user.user_id)
+        recipient_email = email_recipient(self.settings, user)
+        plan = user_notification_delivery_plan(
+            self.settings,
+            UserNotificationCategory.SUPPORT,
+            user,
+            telegram_available=chat_id is not None,
+            email_available=bool(self.email_auth_service and recipient_email),
+        )
+        if plan.telegram and chat_id is not None:
             queue_manager = get_queue_manager()
             if queue_manager:
                 await send_message_via_queue(
                     queue_manager,
-                    int(user.user_id),
+                    chat_id,
                     MessageContent(content_type="text", text=text),
                     parse_mode="HTML",
                     disable_web_page_preview=True,
@@ -525,13 +610,13 @@ class NotificationSupportMixin:
                 )
             else:
                 await self.bot.send_message(
-                    chat_id=int(user.user_id),
+                    chat_id=chat_id,
                     text=text,
                     parse_mode="HTML",
                     disable_web_page_preview=True,
                     reply_markup=keyboard,
                 )
-        if self.email_auth_service and getattr(user, "email", None):
+        if plan.email and self.email_auth_service and recipient_email:
             content = render_support_ticket_closed_user(
                 self.settings,
                 self.i18n,
@@ -540,4 +625,6 @@ class NotificationSupportMixin:
                 subject=ticket.subject,
                 ticket_url=url,
             )
-            await self.email_auth_service.send_rendered_email(email=user.email, content=content)
+            await self.email_auth_service.send_rendered_email(
+                email=recipient_email, content=content
+            )

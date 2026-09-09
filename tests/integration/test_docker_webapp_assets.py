@@ -67,6 +67,17 @@ class DockerWebappAssetTests(unittest.TestCase):
             nginx_conf,
         )
 
+    def test_theme_upload_limit_fits_frontend_and_example_ingress(self) -> None:
+        from config.theme_packages.models import MAX_ARCHIVE
+
+        ingress_path = NGINX_CONF_PATH.parent.parent / "nginx/remnawave-minishop.conf"
+        ingress = ingress_path.read_text(encoding="utf-8").split("# SUBSCRIPTION_MINI_APP_URL.")[1]
+        for config in (NGINX_CONF_PATH.read_text(encoding="utf-8"), ingress):
+            match = re.search(r"client_max_body_size\s+(\d+)m;", config)
+            self.assertIsNotNone(match)
+            assert match is not None
+            self.assertGreaterEqual(int(match[1]) * 1024 * 1024, MAX_ARCHIVE + 65536)
+
     def test_worker_stage_does_not_copy_webapp_assets(self) -> None:
         # The worker runs background jobs and never serves the web shell, so it
         # should stay lean and not depend on the frontend build.

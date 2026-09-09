@@ -87,6 +87,7 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("GET", "/invite"): "index_route",
             ("GET", "/devices"): "index_route",
             ("GET", "/settings"): "index_route",
+            ("GET", "/status"): "index_route",
             ("GET", "/admin"): "index_route",
             ("GET", "/admin/{section}"): "index_route",
             ("GET", "/admin/settings/{settings_path}"): "index_route",
@@ -112,6 +113,7 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("POST", "/api/auth/email/password"): "email_password_auth_route",
             ("POST", "/api/auth/logout"): "logout_route",
             ("GET", "/api/me"): "me_route",
+            ("GET", "/api/status"): "server_status_route",
             ("GET", "/api/subscription-guides"): "subscription_guides_route",
             (
                 "GET",
@@ -136,6 +138,8 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("POST", "/api/tariffs/change-payment"): "tariff_change_payment_route",
             ("POST", "/api/payments"): "create_payment_route",
             ("GET", "/api/payments/{payment_id}"): "payment_status_route",
+            ("POST", "/api/payments/{payment_id}/cancel"): "cancel_payment_route",
+            ("POST", "/api/payments/{payment_id}/qa/complete"): "complete_qa_payment_route",
         }
 
         for key, handler_name in expected.items():
@@ -236,6 +240,28 @@ class WebAppRouteContractTests(unittest.TestCase):
                 "/api/admin/tariffs/tribute/catalog",
             ): "admin_tariffs_tribute_catalog_route",
             ("GET", "/api/admin/themes"): "admin_themes_get_route",
+            ("GET", "/api/admin/themes/library"): "admin_theme_library_route",
+            ("POST", "/api/admin/themes/imports"): "admin_theme_import_route",
+            ("GET", "/api/admin/themes/imports/{operation_id}"): "admin_theme_import_status_route",
+            (
+                "DELETE",
+                "/api/admin/themes/imports/{operation_id}",
+            ): "admin_theme_import_cancel_route",
+            (
+                "POST",
+                "/api/admin/themes/imports/{operation_id}/install",
+            ): "admin_theme_install_route",
+            (
+                "GET",
+                "/api/admin/themes/imports/{operation_id}/preview/{key}",
+            ): "admin_theme_preview_route",
+            (
+                "GET",
+                "/api/admin/themes/library/{key}/preview",
+            ): "admin_theme_installed_preview_route",
+            ("DELETE", "/api/admin/themes/library/{key}"): "admin_theme_remove_route",
+            ("POST", "/api/admin/themes/library/{key}/rollback"): "admin_theme_rollback_route",
+            ("POST", "/api/admin/themes/export"): "admin_theme_export_route",
             ("PUT", "/api/admin/themes"): "admin_themes_save_route",
             ("POST", "/api/admin/appearance/logo"): "admin_appearance_logo_upload_route",
             ("POST", "/api/admin/appearance/favicon"): "admin_appearance_favicon_upload_route",
@@ -355,6 +381,11 @@ class WebAppRouteContractTests(unittest.TestCase):
         self.assertIn("const CLOSE_ATTEMPT_DELAY_MS = 2500", response.text)
         self.assertIn("if (pageLeft || document.hidden) tryCloseWindow();", response.text)
         self.assertIn(r"/^(?:javascript|data|vbscript|https?):/i", response.text)
+        self.assertIn(r"/Telegram-(?:Android|iOS)\//i", response.text)
+        self.assertIn('if (isTelegramInAppBrowser) {\n          render("manual");', response.text)
+        self.assertIn('id="copy-button"', response.text)
+        self.assertIn("navigator.clipboard.writeText(target)", response.text)
+        self.assertIn("Open this page in your browser", response.text)
 
     def test_app_deeplink_gateway_uses_i18n_template(self):
         request = _Request(

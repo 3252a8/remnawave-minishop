@@ -16,7 +16,7 @@
     | "discount_percent"
     | "duration_multiplier"
     | "traffic_multiplier"
-    | "min_subscription_months"
+    | "min_subscription_days"
     | "min_traffic_gb"
     | "max_activations"
     | "valid_days";
@@ -146,25 +146,6 @@
         </div>
       </section>
 
-      <section class="admin-editor-section admin-promo-editor-section admin-promo-effect-section">
-        <header class="admin-editor-section-head">
-          <div class="admin-editor-section-title">
-            <strong>{at("promo_col_effect", {}, "Effect")}</strong>
-            <small>
-              {at("promo_effect_multiple_hint", {}, "Select one or more effects to combine.")}
-            </small>
-          </div>
-        </header>
-        <PromoEffectSelector
-          {at}
-          values={draft}
-          bonusRequiresPayment={Boolean(draft.bonus_requires_payment)}
-          onEnabledChange={onEffectEnabledChange}
-          {onNumberInput}
-          {onBonusRequiresPaymentChange}
-        />
-      </section>
-
       <section
         class="admin-editor-section admin-promo-editor-section admin-promo-eligibility-section"
       >
@@ -188,16 +169,16 @@
         </header>
         <div class="admin-promo-fields-grid admin-promo-eligibility-grid">
           <div class="admin-promo-field-shell">
-            <AdminField label={at("promo_label_min_months", {}, "Min months")}>
+            <AdminField label={at("promo_label_min_days", {}, "Minimum duration, days")}>
               <Input
                 type="number"
                 class="input"
                 min="1"
                 disabled={!usesCheckout}
-                value={draft.min_subscription_months == null
+                value={draft.min_subscription_days == null
                   ? ""
-                  : String(draft.min_subscription_months)}
-                oninput={(event) => onNumberInput("min_subscription_months", inputValue(event))}
+                  : String(draft.min_subscription_days)}
+                oninput={(event) => onNumberInput("min_subscription_days", inputValue(event))}
               />
             </AdminField>
           </div>
@@ -215,6 +196,25 @@
             </AdminField>
           </div>
         </div>
+      </section>
+
+      <section class="admin-editor-section admin-promo-editor-section admin-promo-effect-section">
+        <header class="admin-editor-section-head">
+          <div class="admin-editor-section-title">
+            <strong>{at("promo_col_effect", {}, "Effect")}</strong>
+            <small>
+              {at("promo_effect_multiple_hint", {}, "Select one or more effects to combine.")}
+            </small>
+          </div>
+        </header>
+        <PromoEffectSelector
+          {at}
+          values={draft}
+          bonusRequiresPayment={Boolean(draft.bonus_requires_payment)}
+          onEnabledChange={onEffectEnabledChange}
+          {onNumberInput}
+          {onBonusRequiresPaymentChange}
+        />
       </section>
     </div>
 

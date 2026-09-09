@@ -24,6 +24,8 @@
     userTelegramProfileLinkKind,
     onCloseUser,
     onOpenPaymentUserCard,
+    onOpenPaymentPromoCard,
+    onOpenPaymentCard,
     onOpenPartnerCard,
     routePrefix,
   }: {
@@ -44,6 +46,8 @@
     userTelegramProfileLinkKind: (user: AdminUser) => string;
     onCloseUser: () => void;
     onOpenPaymentUserCard: (userId: unknown) => void;
+    onOpenPaymentPromoCard: (promoId: number) => void;
+    onOpenPaymentCard: (paymentId: number) => void;
     onOpenPartnerCard: (partnerId: string) => void;
     routePrefix: string;
   } = $props();
@@ -97,17 +101,6 @@
   <TariffEditorModalComponent {at} {routePrefix} />
 {/if}
 
-{#if PaymentDetailModalComponent}
-  <PaymentDetailModalComponent
-    {at}
-    {fmtDate}
-    {fmtMoney}
-    {paymentStatusVariant}
-    onOpenUserCard={onOpenPaymentUserCard}
-    {onOpenPartnerCard}
-  />
-{/if}
-
 {#if UserDetailModalComponent}
   <UserDetailModalComponent
     {at}
@@ -122,10 +115,23 @@
     {userTelegramProfileLinkKind}
     {openTelegramProfileLink}
     {paymentStatusVariant}
+    {onOpenPaymentCard}
     {trafficPercentValue}
     {trafficLeftLabel}
     {trafficOfLabel}
     {routePrefix}
     onClose={onCloseUser}
+  />
+{/if}
+
+{#if PaymentDetailModalComponent}
+  <PaymentDetailModalComponent
+    {at}
+    {fmtDate}
+    {fmtMoney}
+    {paymentStatusVariant}
+    onOpenUserCard={onOpenPaymentUserCard}
+    onOpenPromoCard={onOpenPaymentPromoCard}
+    {onOpenPartnerCard}
   />
 {/if}

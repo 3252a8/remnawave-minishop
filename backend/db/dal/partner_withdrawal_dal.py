@@ -169,12 +169,15 @@ async def create_audit_event(
 async def purge_expired_partner_data(
     session: AsyncSession,
     *,
-    audit_before: datetime,
+    audit_before: datetime | None,
     requisites_before: datetime,
 ) -> dict[str, int]:
-    audit_result = await session.execute(
-        delete(PartnerAuditEvent).where(PartnerAuditEvent.created_at < audit_before)
-    )
+    audit_count = 0
+    if audit_before is not None:
+        audit_result = await session.execute(
+            delete(PartnerAuditEvent).where(PartnerAuditEvent.created_at < audit_before)
+        )
+        audit_count = int(getattr(audit_result, "rowcount", 0) or 0)
     requisites_result = await session.execute(
         update(PartnerWithdrawal)
         .where(
@@ -186,6 +189,6 @@ async def purge_expired_partner_data(
         .values(requisites_ciphertext=None)
     )
     return {
-        "audit": int(getattr(audit_result, "rowcount", 0) or 0),
+        "audit": audit_count,
         "requisites": int(getattr(requisites_result, "rowcount", 0) or 0),
     }

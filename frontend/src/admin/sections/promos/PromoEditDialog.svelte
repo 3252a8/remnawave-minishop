@@ -37,7 +37,7 @@
     | "discount_percent"
     | "duration_multiplier"
     | "traffic_multiplier"
-    | "min_subscription_months"
+    | "min_subscription_days"
     | "min_traffic_gb";
   type PromoStatus = { label: string; variant: "success" | "warning" | "muted" };
   type PromosStoreBridge = {
@@ -376,21 +376,21 @@
               <div class="admin-promo-fields-grid admin-promo-eligibility-grid">
                 <div
                   class="admin-promo-field-shell"
-                  class:is-dirty={editFieldDirty("min_subscription_months")}
+                  class:is-dirty={editFieldDirty("min_subscription_days")}
                 >
-                  <AdminField label={at("promo_label_min_months", {}, "Min months")}>
+                  <AdminField label={at("promo_label_min_days", {}, "Minimum duration, days")}>
                     <Input
                       type="number"
                       class="input"
                       min="1"
                       disabled={!promoEditUsesCheckout}
-                      value={promoEditDraft.min_subscription_months == null
+                      value={promoEditDraft.min_subscription_days == null
                         ? ""
-                        : String(promoEditDraft.min_subscription_months)}
-                      oninput={(e) => updateEditNumber("min_subscription_months", inputValue(e))}
+                        : String(promoEditDraft.min_subscription_days)}
+                      oninput={(e) => updateEditNumber("min_subscription_days", inputValue(e))}
                     />
                   </AdminField>
-                  {#if editFieldDirty("min_subscription_months")}
+                  {#if editFieldDirty("min_subscription_days")}
                     <AdminBadge variant="warning"
                       >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                     >

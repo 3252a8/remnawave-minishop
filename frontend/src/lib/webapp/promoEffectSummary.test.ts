@@ -10,6 +10,11 @@ const i18n = createI18n({
       wa_promo_effect_bonus_days: "+{value} {unit}",
       wa_promo_effect_regular_traffic: "+{value} ГБ обычного трафика",
       wa_promo_effect_premium_traffic: "+{value} ГБ премиум-трафика",
+      wa_promo_effect_discount: "Скидка {value}%",
+      wa_promo_effect_duration_multiplier: "Срок ×{value}",
+      wa_promo_effect_traffic_multiplier: "Трафик ×{value}",
+      wa_promo_condition_min_term: "От {value} {unit}",
+      wa_promo_condition_min_traffic: "От {value} ГБ",
       wa_sub_term_day_one: "день",
       wa_sub_term_day_few: "дня",
       wa_sub_term_day_many: "дней",
@@ -52,5 +57,18 @@ describe("formatPromoEffectSummary", () => {
     expect(formatPromoEffectSummary({ effect_summary: "Custom effect" }, i18n)).toBe(
       "Custom effect"
     );
+  });
+
+  it("localizes checkout effects and the exact minimum term in days", () => {
+    expect(
+      formatPromoEffectSummary(
+        {
+          discount_percent: 25,
+          min_subscription_days: 90,
+          effect_summary: "-25%, from 90 days",
+        },
+        i18n
+      )
+    ).toBe("Скидка 25%, От 90 дней");
   });
 });

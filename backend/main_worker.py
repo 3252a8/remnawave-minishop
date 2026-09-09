@@ -27,6 +27,7 @@ from bot.infra.webhook_queue import (
     webhook_queue_depth,
 )
 from bot.middlewares.i18n import JsonI18n
+from bot.payment_providers.rollypay.service import RollyPayService
 from bot.payment_providers.wata.service import WataService
 from bot.payment_providers.yookassa import (
     YOOKASSA_EVENT_PAYMENT_CANCELED,
@@ -50,9 +51,14 @@ from bot.services.admin_broadcast_worker import AdminBroadcastWorker
 from bot.services.auto_renew_retry_worker import AutoRenewRetryWorker
 from bot.services.backup_worker import BackupWorker
 from bot.services.event_reactions import register_core_reactions
+from bot.services.hwid_device_notifications import (
+    HWID_DEVICE_NOTIFICATION_RUNTIME_SETTING_KEYS,
+)
+from bot.services.hwid_device_webhook import HWID_DEVICE_EVENTS
 from bot.services.message_log_notifier import configure_message_log_notifier
 from bot.services.partner_program_worker import PartnerProgramWorker
 from bot.services.payment_reconciliation_worker import PaymentReconciliationWorker
+from bot.services.rollypay_reconciliation_worker import RollyPayReconciliationWorker
 from bot.services.settings_override_service import refresh_overrides_from_db
 from bot.services.subscription_notification_worker import SubscriptionNotificationWorker
 from bot.services.tariff_worker import TariffTrafficWorker
@@ -142,6 +148,12 @@ async def _handle_panel_event(ctx: PluginContext, payload: dict[str, Any]) -> No
             ctx.settings,
             ctx.require_session_factory(),
             keys=TORRENT_BLOCKER_RUNTIME_SETTING_KEYS,
+        )
+    elif event_name in HWID_DEVICE_EVENTS:
+        await refresh_overrides_from_db(
+            ctx.settings,
+            ctx.require_session_factory(),
+            keys=HWID_DEVICE_NOTIFICATION_RUNTIME_SETTING_KEYS,
         )
     if isinstance(context, dict):
         await service.handle_event(
@@ -423,6 +435,14 @@ async def _payment_reconciliation_task(ctx: PluginContext) -> None:
     ).run()
 
 
+async def _rollypay_reconciliation_task(ctx: PluginContext) -> None:
+    service = ctx.get_service("rollypay_service", RollyPayService)
+    if service is None:
+        logger.info("RollyPay reconciliation worker disabled: service is unavailable")
+        return
+    await RollyPayReconciliationWorker(ctx.require_session_factory(), service).run()
+
+
 async def _partner_program_task(ctx: PluginContext) -> None:
     await PartnerProgramWorker(
         ctx.settings,
@@ -456,12 +476,32 @@ def _backup_worker_task(ctx: PluginContext) -> Coroutine[Any, Any, None]:
     ).run()
 
 
+async def _gift_delivery_task(ctx: PluginContext) -> None:
+    from bot.services.gift_delivery import run_gift_delivery_worker
+
+    await run_gift_delivery_worker(ctx.settings, ctx.require_session_factory(), ctx.require_i18n())
+
+
+async def _gift_activation_task(ctx: PluginContext) -> None:
+    from bot.services.gift_activation_worker import run_gift_activation_worker
+
+    await run_gift_activation_worker(
+        ctx.require_session_factory(), ctx.require_subscription_service()
+    )
+
+
 def _core_worker_tasks() -> list[WorkerTaskSpec]:
     return [
+        WorkerTaskSpec(name="GiftActivationWorker", factory=_gift_activation_task),
+        WorkerTaskSpec(
+            name="GiftDeliveryWorker",
+            factory=_gift_delivery_task,
+            enabled=lambda settings: bool(settings.smtp_delivery_configured),
+        ),
         WorkerTaskSpec(
             name="TariffTrafficWorker",
             factory=_tariff_worker_task,
-            enabled=lambda settings: bool(settings.tariffs_config),
+            enabled=lambda settings: True,
         ),
         WorkerTaskSpec(
             name="SubscriptionNotificationWorker",
@@ -485,6 +525,10 @@ def _core_worker_tasks() -> list[WorkerTaskSpec]:
         WorkerTaskSpec(
             name="PaymentReconciliationWorker",
             factory=_payment_reconciliation_task,
+        ),
+        WorkerTaskSpec(
+            name="RollyPayReconciliationWorker",
+            factory=_rollypay_reconciliation_task,
         ),
         WorkerTaskSpec(
             name="PartnerProgramWorker",

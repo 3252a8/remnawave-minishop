@@ -40,6 +40,8 @@ _VERSION_ENV_NAMES = (
     "CI_COMMIT_REF_NAME",
 )
 
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+
 
 def _reset_cache() -> None:
     # The resolver memoizes the first result in a module-level global.
@@ -137,6 +139,28 @@ class BuildVersionFileTests(unittest.TestCase):
             ):
                 # No env, empty file, no live git: ultimate fallback.
                 self.assertEqual(_resolve(), "dev+unknown")
+
+
+class BuildPipelineVersionMetadataTests(unittest.TestCase):
+    def test_gitlab_dev_build_forwards_branch_to_dockerfile(self):
+        pipeline = (REPOSITORY_ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
+        publish_script = (REPOSITORY_ROOT / "scripts" / "gitlab-publish-images.sh").read_text(
+            encoding="utf-8"
+        )
+        build_script = (REPOSITORY_ROOT / "scripts" / "docker-build-images.sh").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("PUBLISH_CHANNEL: dev", pipeline)
+        self.assertIn('build_branch="$CI_COMMIT_REF_NAME"', publish_script)
+        self.assertIn(
+            '--build-arg "REMNAWAVE_MINISHOP_BRANCH=$build_branch"',
+            publish_script,
+        )
+        self.assertIn(
+            '--build-arg "REMNAWAVE_MINISHOP_BRANCH=$REMNAWAVE_MINISHOP_BRANCH"',
+            build_script,
+        )
 
 
 class LiveGitFallbackTests(unittest.TestCase):

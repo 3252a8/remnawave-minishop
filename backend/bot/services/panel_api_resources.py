@@ -195,7 +195,14 @@ class PanelApiResourcesMixin:
         logger.error("Failed to get external squad %s. Response: %s", squad_uuid, response_data)
         return None
 
-    async def get_user_devices(self, user_uuid: str) -> list[dict[str, Any]] | None:
+    async def get_user_devices(
+        self,
+        user_uuid: str,
+        *,
+        force_refresh: bool = False,
+    ) -> list[dict[str, Any]] | None:
+        if force_refresh:
+            await self._invalidate_devices_cache(user_uuid)
         if self._devices_cache.ttl_seconds <= 0:
             return await self._get_user_devices_uncached(user_uuid)
         cached = await self._devices_cache.get_or_load(

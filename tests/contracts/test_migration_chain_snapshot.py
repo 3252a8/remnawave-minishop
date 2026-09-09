@@ -86,6 +86,21 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0063_reconcile_tgshop_promo_codes",
     "0064_add_checkout_bundle_snapshot",
     "0065_add_flexible_traffic_limits",
+    "0066_add_payment_fulfillment_audit",
+    "0067_add_message_images",
+    "0068_add_broadcast_blocked_filter",
+    "0069_normalize_auto_renew_attempt_index",
+    "0070_add_rollypay_subscriptions",
+    "0071_add_hwid_device_limit_override",
+    "0072_add_external_login_credentials",
+    "0073_add_user_email_addresses",
+    "0074_add_user_balance",
+    "0075_add_period_days",
+    "0076_track_tariff_managed_squads",
+    "0077_subscription_gifts",
+    "0078_gift_entitlements",
+    "0084_add_gift_refund_ledger_kind",
+    "0085_add_user_notification_preferences",
 ]
 
 

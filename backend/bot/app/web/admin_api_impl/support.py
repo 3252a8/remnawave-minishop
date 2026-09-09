@@ -11,8 +11,14 @@ from bot.app.web.context import (
     get_settings,
     get_support_service,
 )
-from bot.app.web.request_parsing import parse_body_or_400
+from bot.app.web.message_image_contracts import message_image_request_content
+from bot.app.web.message_image_responses import message_image_response
+from bot.app.web.request_parsing import (
+    parse_body_or_400,
+    parse_body_with_optional_image_or_400,
+)
 from bot.app.web.route_contracts import (
+    BINARY_RESPONSE_SCHEMA,
     BOOLEAN_SCHEMA,
     RouteContract,
     ok_envelope_with,
@@ -36,6 +42,11 @@ from bot.services.broadcast_personalization import (
     render_broadcast_text,
     telegram_html_error,
     unknown_shortcodes,
+)
+from bot.services.message_image_service import (
+    MessageImageError,
+    load_message_image,
+    prepare_message_image,
 )
 from bot.services.support_message_body import SupportBodyError
 from bot.services.support_message_buttons import (
@@ -63,7 +74,7 @@ from .schemas import AdminBroadcastButtonBody
 
 # The transport cap only: the message cap counts visible characters and is
 # applied after sanitizing, so markup does not eat into what an admin may say.
-TicketBodyString = Annotated[str, StringConstraints(min_length=1, max_length=32000)]
+TicketBodyString = Annotated[str, StringConstraints(max_length=32000)]
 
 
 class AdminTicketReplyPayload(BaseModel):
@@ -81,10 +92,7 @@ class AdminTicketReplyPayload(BaseModel):
     @field_validator("body")
     @classmethod
     def _strip_body(cls, value: str) -> str:
-        stripped = value.strip()
-        if not stripped:
-            raise ValueError("empty_text")
-        return stripped
+        return value.strip()
 
 
 class AdminTicketPatchPayload(BaseModel):
@@ -142,7 +150,7 @@ register_contract(
 register_contract(
     "admin_support_ticket_reply_route",
     RouteContract(
-        request_model=AdminTicketReplyPayload,
+        request_content=message_image_request_content(AdminTicketReplyPayload),
         response_schema=ok_envelope_with(
             {
                 "ticket": schema_ref(SupportTicketOut),
@@ -156,6 +164,13 @@ register_contract(
             SupportMessageButtonOut,
             SupportTicketOut,
         ),
+    ),
+)
+register_contract(
+    "admin_message_image_route",
+    RouteContract(
+        response_schema=BINARY_RESPONSE_SCHEMA,
+        response_content_type="image/webp",
     ),
 )
 register_contract(
@@ -343,11 +358,17 @@ async def _personalize_reply_body(
 async def admin_support_ticket_reply_route(request: web.Request) -> web.Response:
     admin_id = _require_admin_user_id(request)
     ticket_id = int(request.match_info["id"])
-    payload = await parse_body_or_400(
+    payload, upload = await parse_body_with_optional_image_or_400(
         request,
         AdminTicketReplyPayload,
         validation_error_response_factory=_invalid_request_payload_response,
     )
+    try:
+        image = await prepare_message_image(upload)
+    except MessageImageError as exc:
+        return _error(400, exc.code, exc.detail)
+    if not payload.body and image is None:
+        return _error(400, "empty_text", "Message is empty")
     unknown = sorted(unknown_shortcodes(payload.body))
     if unknown:
         return _error(400, "unknown_shortcode", ", ".join(unknown))
@@ -391,6 +412,7 @@ async def admin_support_ticket_reply_route(request: web.Request) -> web.Response
             is_internal_note=payload.is_internal_note,
             body_format=payload.body_format,
             buttons=encoded_buttons,
+            image=image,
         )
     except SupportBodyError:
         return _error(400, "empty_text", "Message is empty")
@@ -407,6 +429,17 @@ async def admin_support_ticket_reply_route(request: web.Request) -> web.Response
             ),
         }
     )
+
+
+async def admin_message_image_route(request: web.Request) -> web.StreamResponse:
+    _require_admin_user_id(request)
+    image_id = str(request.match_info["image_id"]).lower()
+    async_session_factory: sessionmaker = get_session_factory(request)
+    async with async_session_factory() as session:
+        image = await load_message_image(session, image_id)
+    if image is None:
+        raise web.HTTPNotFound()
+    return await message_image_response(image)
 
 
 async def admin_support_ticket_patch_route(request: web.Request) -> web.Response:

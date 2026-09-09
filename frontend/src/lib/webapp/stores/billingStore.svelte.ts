@@ -1,3 +1,5 @@
+import { legacyMonthsToDays } from "../subscriptionPeriods.js";
+import { formatPromoEffectSummary } from "../promoEffectSummary.js";
 import type { LoadDataOptions } from "../dataClient";
 import {
   asBillingRecord as asRecord,
@@ -12,7 +14,9 @@ import {
 export type { BillingState, BillingStore } from "./billingStoreSupport";
 import type { BillingActions, PartnerBalancePaymentOptions } from "../billingActions";
 import type { CheckoutAddonSelection } from "../tariffs";
+import type { CheckoutAddonPreset } from "../deeplinks.js";
 import {
+  createPendingPaymentCancellation,
   createPaymentResponseHandler,
   createPendingPaymentResume,
 } from "../billingPaymentResume.js";
@@ -23,16 +27,19 @@ import {
   type TelegramWebApp,
 } from "../telegramInvoice";
 import type {
+  PendingPaymentView,
   PlanView,
   SubscriptionView,
   TariffChangeTarget,
   TariffView,
+  TermUnitLabel,
   WebappRecord,
 } from "../types";
 export function createBillingStore({
   billing,
   loadData,
   t,
+  termUnitLabel,
   showToast,
   openExternalLink,
   onSubscriptionActivationPending = null,
@@ -44,6 +51,7 @@ export function createBillingStore({
   billing: BillingActions;
   loadData: (options?: LoadDataOptions & Record<string, unknown>) => Promise<unknown>;
   t: (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  termUnitLabel: TermUnitLabel;
   showToast: (message: string) => void;
   openExternalLink: (url: string) => void;
   onSubscriptionActivationPending?: ((context: Record<string, unknown>) => void) | null;
@@ -61,6 +69,7 @@ export function createBillingStore({
     notifyOpened: (resumed) =>
       showToast(t(resumed ? "wa_pending_payment_opened" : "wa_payment_created")),
     openExternalLink,
+    openQaPaymentLink: (url) => window.location.assign(url),
     openTelegramInvoice,
     startPaymentStatusPolling,
   });
@@ -72,6 +81,23 @@ export function createBillingStore({
     onError: (error) =>
       showToast(stringField(asRecord(error).message) || t("wa_payment_create_failed")),
     rememberPending: rememberSubscriptionActivationPending,
+    setBusy: (payBusy) => updateState((s) => ({ ...s, payBusy })),
+  });
+  const cancelPendingPayment = createPendingPaymentCancellation({
+    afterCanceled: applyCanceledPaymentPromo,
+    cancelPayment: billing.cancelPayment,
+    isBusy: () => state.payBusy,
+    notifyCanceled: () => showToast(t("wa_pending_payment_canceled")),
+    onError: (error) => {
+      const code = stringField(asRecord(error).error);
+      showToast(
+        t(
+          code === "payment_cancel_unavailable"
+            ? "wa_pending_payment_cancel_unavailable"
+            : "wa_pending_payment_cancel_failed"
+        )
+      );
+    },
     setBusy: (payBusy) => updateState((s) => ({ ...s, payBusy })),
   });
 
@@ -106,8 +132,9 @@ export function createBillingStore({
     checkoutPromoEffectiveAmount: 0,
     checkoutPromoDiscountPercent: 0,
     checkoutPromoAppliesTo: "all",
-    checkoutPromoMinSubscriptionMonths: null,
+    checkoutPromoMinSubscriptionDays: null,
     checkoutPromoMinTrafficGb: null,
+    checkoutAddonPreset: null,
     update: updateState,
     openPaymentModal,
     closePaymentModal,
@@ -116,6 +143,7 @@ export function createBillingStore({
     backToTariffList,
     createPayment,
     resumePendingPayment,
+    cancelPendingPayment,
     setCheckoutPromoInput,
     applyCheckoutPromo,
     clearCheckoutPromo,
@@ -323,12 +351,14 @@ export function createBillingStore({
         checkoutPromoAutoApply: false,
         checkoutPromoAppliedCode: appliedCode,
         checkoutPromoIsError: false,
-        checkoutPromoStatus: stringField(payload.effect_summary),
+        checkoutPromoStatus: formatPromoEffectSummary(payload, { t, termUnitLabel }),
         checkoutPromoPriceText: promoPriceText(payload),
         checkoutPromoEffectiveAmount: Math.max(0, Number(payload.effective_amount || 0)),
         checkoutPromoDiscountPercent: Math.max(0, Number(payload.discount_percent || 0)),
         checkoutPromoAppliesTo: stringField(payload.applies_to) || "all",
-        checkoutPromoMinSubscriptionMonths: optionalNumber(payload.min_subscription_months),
+        checkoutPromoMinSubscriptionDays:
+          optionalNumber(payload.min_subscription_days) ??
+          legacyMonthsToDays(payload.min_subscription_months),
         checkoutPromoMinTrafficGb: optionalNumber(payload.min_traffic_gb),
       }));
     } catch (error: unknown) {
@@ -360,6 +390,26 @@ export function createBillingStore({
       checkoutPromoPriceText: "",
       ...emptyCheckoutPromoQuote(),
     }));
+  }
+
+  async function applyCanceledPaymentPromo(payment: PendingPaymentView): Promise<void> {
+    const code = String(payment.promo_code || "").trim();
+    checkoutPromoRequestId += 1;
+    lastCheckoutQuoteKey = "";
+    updateState((s) => ({
+      ...s,
+      checkoutPromoInput: code,
+      checkoutPromoAutoApply: true,
+      checkoutPromoAppliedCode: "",
+      checkoutPromoStatus: "",
+      checkoutPromoIsError: false,
+      checkoutPromoPriceText: "",
+      ...emptyCheckoutPromoQuote(),
+    }));
+    const quoteReady = Boolean(checkoutQuoteBody());
+    if (quoteReady) lastCheckoutQuoteKey = checkoutQuoteKey();
+    await loadData({ fresh: true, preserveView: true });
+    if (quoteReady) await applyCheckoutPromo();
   }
 
   function isSubscriptionSale(plan: PlanView | null) {
@@ -491,7 +541,17 @@ export function createBillingStore({
       let tariffKey = s.selectedTariffKey;
       const catalog = tariffCatalog || [];
       const planList = plans || [];
+      const preferredPlanId = String(options?.preferredPlanId || "").trim();
+      const preferredMonths = optionalNumber(options?.preferredMonths);
       const preferredTariffKey = String(options?.preferredTariffKey || "").trim();
+      const preferredPlan = planList.find((candidate) => {
+        const exactId = preferredPlanId && String(candidate?.id || "") === preferredPlanId;
+        const matchingTariff =
+          preferredTariffKey && String(candidate?.tariff_key || "") === preferredTariffKey;
+        const matchingMonths =
+          preferredMonths == null || Number(candidate?.months || 0) === preferredMonths;
+        return exactId || (matchingTariff && matchingMonths);
+      });
       const preferredTariff = preferredTariffKey
         ? catalog.find((tariff) => tariff.key === preferredTariffKey)
         : null;
@@ -504,7 +564,11 @@ export function createBillingStore({
         preferredTariff || (options?.selectDefaultTariff ? fallbackTariff : null);
 
       if (tariffMode) {
-        if (deeplinkTariff?.key) {
+        if (preferredPlan) {
+          tariffKey = String(preferredPlan.tariff_key || preferredTariffKey);
+          plan = preferredPlan;
+          step = "checkout";
+        } else if (deeplinkTariff?.key) {
           tariffKey = String(deeplinkTariff.key);
           plan = planList.find((p) => p?.tariff_key === tariffKey) || null;
           step = options?.preferCheckout && plan ? "checkout" : "tariff";
@@ -527,6 +591,7 @@ export function createBillingStore({
         }
       } else {
         step = "checkout";
+        if (preferredPlan) plan = preferredPlan;
       }
       return {
         ...s,
@@ -537,6 +602,10 @@ export function createBillingStore({
         selectedMethod: s.selectedMethod || defaultMethod,
         renewHwidDevices: true,
         paymentStartedWithActiveSubscription: Boolean(subscription?.active),
+        checkoutAddonPreset:
+          options?.checkoutAddonPreset && typeof options.checkoutAddonPreset === "object"
+            ? (options.checkoutAddonPreset as CheckoutAddonPreset)
+            : null,
         ...suggestedCheckoutPromoPatch(s, options),
       };
     });
@@ -702,6 +771,7 @@ export function createBillingStore({
         billing.planPaymentBody(s.selectedPlan, s.selectedMethod, {
           renewHwidDevices: s.renewHwidDevices && Boolean(s.selectedPlan?.hwid_renewal?.available),
           promoCode: checkoutPromoCode(),
+          balanceSource: options.balanceSource,
           usePartnerBalance: options.usePartnerBalance,
           checkoutAddons: options.checkoutAddons,
         })
@@ -760,7 +830,8 @@ export function createBillingStore({
           s.selectedMethod,
           stringField(s.topupOptions?.tariff_key),
           checkoutPromoCode(),
-          options.usePartnerBalance
+          options.usePartnerBalance,
+          options.balanceSource
         )
       );
       await handlePaymentResponse(response, {}, () => {
@@ -837,7 +908,8 @@ export function createBillingStore({
         s.selectedChangeAction,
         s.selectedChangeTarget,
         s.selectedMethod,
-        options.usePartnerBalance
+        options.usePartnerBalance,
+        options.balanceSource
       );
       const response =
         s.selectedChangeAction.mode === "buy_package" ||
@@ -886,7 +958,8 @@ export function createBillingStore({
           s.selectedMethod,
           stringField(s.deviceTopupOptions?.tariff_key),
           checkoutPromoCode(),
-          options.usePartnerBalance
+          options.usePartnerBalance,
+          options.balanceSource
         )
       );
       await handlePaymentResponse(response, {}, () => {

@@ -33,6 +33,8 @@ class EmailSettings(BaseModel):
 class WebAppSettings(BaseModel):
     title: str
     primary_color: str
+    user_theme_mode_enabled: bool
+    compact_home_enabled: bool
     logo_url: str | None
     favicon_use_custom: bool
     favicon_url: str | None
@@ -57,6 +59,36 @@ class PaymentSettings(BaseModel):
     traffic_packages: dict[float, float]
     stars_traffic_packages: dict[float, int]
     traffic_sale_mode: bool
+
+
+class BalanceSettings(BaseModel):
+    enabled: bool = False
+    currency: str = "RUB"
+    topup_min_amount: float = Field(default=100, gt=0, allow_inf_nan=False)
+    topup_max_amount: float = Field(default=100000, gt=0, allow_inf_nan=False)
+    topup_presets: list[float] = Field(default_factory=lambda: [500.0, 1000.0, 2000.0, 5000.0])
+
+    @field_validator("currency")
+    @classmethod
+    def normalize_currency(cls, value: str) -> str:
+        normalized = value.strip().upper()
+        if not 2 <= len(normalized) <= 16 or not normalized.isalnum():
+            raise ValueError("balance currency must be a 2-16 character code")
+        return normalized
+
+    @model_validator(mode="after")
+    def validate_amounts(self) -> "BalanceSettings":
+        if self.topup_max_amount < self.topup_min_amount:
+            raise ValueError("balance top-up maximum must not be lower than the minimum")
+        normalized = sorted(
+            {
+                float(value)
+                for value in self.topup_presets
+                if self.topup_min_amount <= float(value) <= self.topup_max_amount
+            }
+        )
+        self.topup_presets = normalized
+        return self
 
 
 class CompatibilitySettings(BaseModel):
@@ -89,6 +121,8 @@ class SupportSettings(BaseModel):
     ticket_max_body_length: int
     ticket_max_subject_length: int
     ticket_rate_limit_per_hour: int
+    message_rate_limit_per_minute: int
+    image_rate_limit_per_day: int
     admin_email_notifications_enabled: bool
     admin_notification_cooldown_seconds: int
     admin_email_cooldown_seconds: int
@@ -213,7 +247,7 @@ class PartnerSettings(BaseModel):
     list_page_limit: int = Field(default=50, ge=10, le=200)
     application_rate_limit_hours: int = Field(default=24, ge=1, le=8760)
     withdrawal_rate_limit_seconds: int = Field(default=10, ge=1, le=3600)
-    audit_retention_days: int = Field(default=1095, ge=30, le=3650)
+    audit_retention_days: int = Field(default=0, ge=0, le=3650)
     requisites_retention_days: int = Field(default=90, ge=1, le=3650)
 
     @field_validator("eligible_currencies")

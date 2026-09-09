@@ -1,3 +1,4 @@
+import asyncio
 import json
 import tempfile
 import unittest
@@ -32,7 +33,7 @@ def _tariffs_config_payload() -> dict:
                 "names": {"en": "Standard"},
                 "descriptions": {"en": "Base period plan"},
                 "squad_uuids": ["main-squad", "shared-squad"],
-                "premium_squad_uuids": ["premium-squad", "shared-squad"],
+                "premium_squad_uuids": ["premium-squad"],
                 "premium_monthly_gb": 25,
                 "billing_model": "period",
                 "monthly_gb": 100,
@@ -181,6 +182,23 @@ class SubscriptionServiceCalculationTests(unittest.TestCase):
             self.assertEqual(
                 service._panel_squads_for_tariff(tariff, include_premium=False),
                 ["main-squad", "shared-squad"],
+            )
+
+    def test_panel_squads_defensively_remove_premium_overlap_when_limited(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(_tariffs_config_payload(), tmpdir)
+            service = _make_service(settings)
+            conflicting_tariff = SimpleNamespace(
+                squad_uuids=["main-squad", "premium-squad"],
+                premium_squad_uuids=["premium-squad"],
+            )
+
+            self.assertEqual(
+                service._panel_squads_for_tariff(
+                    conflicting_tariff,
+                    include_premium=False,
+                ),
+                ["main-squad"],
             )
 
     def test_panel_squads_falls_back_to_default_settings_without_tariff(self):
@@ -421,6 +439,7 @@ class SubscriptionServicePremiumAccessTests(unittest.IsolatedAsyncioTestCase):
             settings = _make_settings(_tariffs_config_payload(), tmpdir)
             service = _make_service(settings)
             tariff = settings.tariffs_config.require("standard")
+            tariff.premium_squad_uuids.append("secondary-premium-squad")
             service.panel_service.get_internal_squads = AsyncMock(
                 return_value=[
                     {
@@ -433,7 +452,7 @@ class SubscriptionServicePremiumAccessTests(unittest.IsolatedAsyncioTestCase):
                         ],
                     },
                     {
-                        "uuid": "shared-squad",
+                        "uuid": "secondary-premium-squad",
                         "name": "Shared Premium",
                         "inbounds": [{"uuid": "in-shared"}],
                     },
@@ -1120,15 +1139,19 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             )
             service = _make_service(settings)
 
-            result = await service.activate_subscription(
-                session=AsyncMock(),
-                user_id=42,
-                months=1,
-                payment_amount=249,
-                payment_db_id=34,
-                provider="yookassa",
-                sale_mode="subscription@pro",
-            )
+            with patch(
+                "bot.services.subscription_service_impl.lifecycle.payment_dal.get_payment_by_db_id",
+                AsyncMock(return_value=None),
+            ):
+                result = await service.activate_subscription(
+                    session=AsyncMock(),
+                    user_id=42,
+                    months=1,
+                    payment_amount=249,
+                    payment_db_id=34,
+                    provider="yookassa",
+                    sale_mode="subscription@pro",
+                )
 
             self.assertIsNone(result)
             service.panel_service.update_user_details_on_panel.assert_not_awaited()
@@ -1138,15 +1161,19 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             settings = _make_settings(_tariffs_config_payload(), tmpdir)
             service = _make_service(settings)
 
-            result = await service.activate_subscription(
-                session=AsyncMock(),
-                user_id=42,
-                months=1,
-                payment_amount=249,
-                payment_db_id=34,
-                provider="yookassa",
-                sale_mode="subscription@pro",
-            )
+            with patch(
+                "bot.services.subscription_service_impl.lifecycle.payment_dal.get_payment_by_db_id",
+                AsyncMock(return_value=None),
+            ):
+                result = await service.activate_subscription(
+                    session=AsyncMock(),
+                    user_id=42,
+                    months=1,
+                    payment_amount=249,
+                    payment_db_id=34,
+                    provider="yookassa",
+                    sale_mode="subscription@pro",
+                )
 
             self.assertIsNone(result)
             service.panel_service.update_user_details_on_panel.assert_not_awaited()
@@ -1157,23 +1184,138 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             service = _make_service(settings)
             service._record_payment_context = AsyncMock()
 
-            result = await service.activate_subscription(
-                session=AsyncMock(),
-                user_id=42,
-                months=1,
-                payment_amount=249,
-                payment_db_id=34,
-                provider="yookassa",
-                sale_mode="subscription",
-            )
+            with patch(
+                "bot.services.subscription_service_impl.lifecycle.payment_dal.get_payment_by_db_id",
+                AsyncMock(return_value=None),
+            ):
+                result = await service.activate_subscription(
+                    session=AsyncMock(),
+                    user_id=42,
+                    months=1,
+                    payment_amount=249,
+                    payment_db_id=34,
+                    provider="yookassa",
+                    sale_mode="subscription",
+                )
 
             self.assertIsNone(result)
             service._record_payment_context.assert_not_awaited()
             service.panel_service.update_user_details_on_panel.assert_not_awaited()
 
-    async def test_paid_activation_does_not_promote_trial_squads_to_manual_overrides(self):
-        for expired in (False, True):
-            with self.subTest(expired=expired), tempfile.TemporaryDirectory() as tmpdir:
+    async def test_period_renewal_reloads_updated_tariff_traffic_baseline(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            payload = _tariffs_config_payload()
+            payload["tariffs"][0]["monthly_gb"] = 500
+            settings = _make_settings(payload, tmpdir)
+            service = _make_service(settings)
+            service._record_payment_context = AsyncMock()
+            service._get_or_create_panel_user_link_details = AsyncMock(
+                return_value=("panel-user", "panel-sub", "short", False)
+            )
+            service._send_payment_success_email = AsyncMock()
+            service.deactivate_panel_managed_internal_overrides = AsyncMock(return_value=0)
+            service.build_effective_panel_squad_fields = AsyncMock(return_value={})
+            _configure_persisted_panel_echo(
+                service,
+                initial={"trafficLimitBytes": 500 * GIB},
+            )
+
+            now = datetime.now(UTC)
+            current_sub = SimpleNamespace(
+                subscription_id=10,
+                start_date=now - timedelta(days=30),
+                end_date=now + timedelta(days=1),
+                tariff_key="standard",
+                tier_baseline_bytes=1000 * GIB,
+                topup_balance_bytes=0,
+                extra_hwid_devices=0,
+                premium_baseline_bytes=25 * GIB,
+                premium_topup_balance_bytes=0,
+                premium_topup_used_bytes=0,
+                premium_used_bytes=0,
+                premium_period_start_at=None,
+                regular_bonus_bytes=0,
+                regular_unlimited_override=False,
+            )
+            db_user = SimpleNamespace(
+                user_id=42,
+                panel_user_uuid="panel-user",
+                telegram_id=42,
+                username="renewal-user",
+                email=None,
+                language_code="en",
+            )
+            payment = SimpleNamespace(
+                checkout_bundle_snapshot=None,
+                purchased_hwid_devices=0,
+                hwid_full_price=0,
+                hwid_valid_from=None,
+                hwid_valid_until=None,
+            )
+            updated_sub = SimpleNamespace(subscription_id=10)
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_activation.user_dal.get_user_by_id",
+                    AsyncMock(return_value=db_user),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_activation.payment_dal.get_payment_by_db_id",
+                    AsyncMock(return_value=payment),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_activation.subscription_dal.get_active_subscription_by_user_id",
+                    AsyncMock(return_value=current_sub),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_activation.subscription_dal.deactivate_other_active_subscriptions",
+                    AsyncMock(),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_activation.subscription_dal.upsert_subscription",
+                    AsyncMock(return_value=updated_sub),
+                ) as upsert_subscription,
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_activation.tariff_dal.get_hwid_device_entitlement_summary",
+                    AsyncMock(return_value={"active_devices": 0, "active_until": None}),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.traffic.tariff_dal.get_active_flexible_traffic_limits",
+                    AsyncMock(return_value={}),
+                ),
+                patch(
+                    "bot.services.tariff_worker_shared.tariff_dal.get_flexible_traffic_limit_history_start",
+                    AsyncMock(return_value=None),
+                ),
+            ):
+                result = await service.activate_subscription(
+                    session=AsyncMock(),
+                    user_id=42,
+                    months=1,
+                    payment_amount=150,
+                    payment_db_id=99,
+                    provider="qa",
+                    sale_mode="subscription@standard",
+                )
+
+            self.assertIsNotNone(result)
+            sub_payload = upsert_subscription.await_args.args[1]
+            self.assertEqual(sub_payload["tier_baseline_bytes"], 500 * GIB)
+            self.assertEqual(sub_payload["traffic_limit_bytes"], 500 * GIB)
+            panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]
+            self.assertEqual(panel_payload["trafficLimitBytes"], 500 * GIB)
+
+    async def test_paid_activation_from_trial_applies_day_strategy_and_checkout_terms(self):
+        cases = (
+            (False, "add_remaining"),
+            (False, "start_from_payment"),
+            (True, "add_remaining"),
+        )
+        for expired, trial_days_strategy in cases:
+            with (
+                self.subTest(expired=expired, trial_days_strategy=trial_days_strategy),
+                tempfile.TemporaryDirectory() as tmpdir,
+            ):
                 payload = _tariffs_config_payload()
                 payload["tariffs"][0]["premium_squad_uuids"] = []
                 payload["tariffs"][0]["premium_monthly_gb"] = 0
@@ -1189,6 +1331,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                     return_value=("panel-user", "panel-sub", "short", False)
                 )
                 service._send_payment_success_email = AsyncMock()
+                service.deactivate_panel_managed_internal_overrides = AsyncMock(return_value=2)
                 service.build_effective_panel_squad_fields = AsyncMock(
                     return_value={
                         "activeInternalSquads": ["main-squad", "shared-squad"],
@@ -1231,8 +1374,43 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                     hwid_full_price=0,
                     hwid_valid_from=None,
                     hwid_valid_until=None,
+                    subscription_duration_months=1,
+                    subscription_duration_days=30,
+                    period_semantics="fixed_days",
+                    checkout_bundle_snapshot=(
+                        json.dumps(
+                            {
+                                "version": 3,
+                                "tariff_key": "standard",
+                                "months": 1,
+                                "duration_days": 30,
+                                "addon_period_factor": 1,
+                                "base_subscription_amount": 150,
+                                "addons_amount": 40,
+                                "trial_days_strategy": trial_days_strategy,
+                                "items": [
+                                    {
+                                        "kind": "traffic",
+                                        "extra_units": 50,
+                                        "total_units": 150,
+                                        "future_amount": 40,
+                                        "future_stars_amount": 20,
+                                        "immediate_applies": True,
+                                    }
+                                ],
+                                "active_context": {
+                                    "subscription_id": 10,
+                                    "tariff_key": None,
+                                    "end_at": trial_sub.end_date.isoformat(),
+                                },
+                            }
+                        )
+                        if not expired
+                        else None
+                    ),
                 )
                 latest_panel_sub = AsyncMock(return_value=trial_sub)
+                create_flexible_limit = AsyncMock()
 
                 with (
                     patch(
@@ -1245,6 +1423,10 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                     ),
                     patch(
                         "bot.services.subscription_service_impl.lifecycle_activation.subscription_dal.get_active_subscription_by_user_id",
+                        AsyncMock(return_value=None if expired else trial_sub),
+                    ),
+                    patch(
+                        "bot.services.subscription_service_impl.lifecycle_activation.subscription_dal.get_active_subscription_by_user_id_for_update",
                         AsyncMock(return_value=None if expired else trial_sub),
                     ),
                     patch(
@@ -1263,18 +1445,33 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                         "bot.services.subscription_service_impl.lifecycle_activation.tariff_dal.get_hwid_device_entitlement_summary",
                         AsyncMock(return_value={"active_devices": 0, "active_until": None}),
                     ),
+                    patch(
+                        "bot.services.subscription_service_impl.lifecycle_activation.tariff_dal.create_flexible_traffic_limit",
+                        create_flexible_limit,
+                    ),
                 ):
+                    activation_started_at = datetime.now(UTC)
                     result = await service.activate_subscription(
                         session=AsyncMock(),
                         user_id=42,
                         months=1,
-                        payment_amount=150,
+                        payment_amount=190,
                         payment_db_id=99,
                         provider="qa",
                         sale_mode="subscription@standard",
                     )
+                    activation_finished_at = datetime.now(UTC)
 
                 self.assertIsNotNone(result)
+                cleanup_kwargs = (
+                    service.deactivate_panel_managed_internal_overrides.await_args.kwargs
+                )
+                self.assertEqual(cleanup_kwargs["user_id"], 42)
+                self.assertEqual(cleanup_kwargs["panel_user_uuid"], "panel-user")
+                self.assertEqual(
+                    cleanup_kwargs["managed_internal_squads"],
+                    ["trial-main", "trial-premium"],
+                )
                 squad_kwargs = service.build_effective_panel_squad_fields.await_args.kwargs
                 self.assertEqual(
                     squad_kwargs["managed_internal_squads"],
@@ -1301,8 +1498,24 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                         ANY,
                         "panel-sub",
                     )
+                    create_flexible_limit.assert_not_awaited()
                 else:
                     latest_panel_sub.assert_not_awaited()
+                    assert result is not None
+                    if trial_days_strategy == "add_remaining":
+                        self.assertEqual(
+                            result["end_date"], trial_sub.end_date + timedelta(days=30)
+                        )
+                        self.assertEqual(create_flexible_limit.await_count, 2)
+                    else:
+                        self.assertGreaterEqual(
+                            result["end_date"], activation_started_at + timedelta(days=30)
+                        )
+                        self.assertLessEqual(
+                            result["end_date"], activation_finished_at + timedelta(days=30)
+                        )
+                        self.assertEqual(create_flexible_limit.await_count, 1)
+                    self.assertEqual(panel_payload["trafficLimitBytes"], 150 * GIB)
 
     async def test_period_purchase_after_traffic_starts_now_and_carries_remaining_package(
         self,
@@ -2080,6 +2293,140 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
         self.assertEqual(purchase_kwargs["payment_id"], 99)
         self.assertEqual(purchase_kwargs["purchased_devices"], 1)
         self.assertEqual(purchase_kwargs["valid_from"], current_end)
+
+    async def test_fixed_day_order_ignores_callback_months_and_current_catalog_periods(self):
+        for days, is_gift in ((7, False), (365, False), (7, True), (365, True)):
+            with tempfile.TemporaryDirectory() as tmpdir:
+                settings = _make_settings(_tariffs_config_payload(), tmpdir)
+                service = _make_service(settings)
+                service._get_or_create_panel_user_link_details = AsyncMock(
+                    return_value=("panel-user", "short-uuid", "short", False)
+                )
+                _configure_persisted_panel_echo(service)
+                service._send_payment_success_email = AsyncMock()
+                now = datetime.now(UTC)
+                original_start = now - timedelta(days=120)
+                current_end = now + timedelta(days=20)
+                provider_end = current_end + timedelta(days=days)
+                current_sub = SimpleNamespace(
+                    subscription_id=10,
+                    start_date=original_start,
+                    end_date=current_end,
+                    tariff_key="standard",
+                    topup_balance_bytes=0,
+                    extra_hwid_devices=1,
+                    premium_topup_balance_bytes=0,
+                    premium_topup_used_bytes=0,
+                    premium_used_bytes=0,
+                    premium_period_start_at=None,
+                    regular_bonus_bytes=0,
+                    regular_unlimited_override=False,
+                )
+                updated_sub = SimpleNamespace(subscription_id=10)
+                from bot.services.subscription_order_terms import freeze_subscription_terms
+
+                frozen = freeze_subscription_terms(
+                    settings, f"subscription@standard|d{days}" + ("|gift" if is_gift else "")
+                )
+                await asyncio.to_thread(Path(settings.TARIFFS_CONFIG_PATH).unlink)
+                payment = SimpleNamespace(
+                    subscription_terms_snapshot=frozen,
+                    tariff_key="standard",
+                    subscription_duration_days=days,
+                    subscription_duration_months=None,
+                    period_semantics="fixed_days",
+                    purchased_hwid_devices=1,
+                    hwid_valid_from=current_end,
+                    hwid_valid_until=current_end + timedelta(days=30),
+                    hwid_full_price=50,
+                    hwid_pricing_period_months=1,
+                    hwid_proration_ratio=1.0,
+                )
+                db_user = SimpleNamespace(
+                    user_id=42,
+                    panel_user_uuid="panel-user",
+                    telegram_id=42,
+                    username="alice",
+                    email=None,
+                    language_code="en",
+                )
+
+                with (
+                    patch(
+                        "bot.services.subscription_service_impl.lifecycle_activation.gift_activation_bonuses",
+                        AsyncMock(return_value=(0, 0.0, 0.0)),
+                    ),
+                    patch(
+                        "bot.services.subscription_service_impl.lifecycle.user_dal.get_user_by_id",
+                        AsyncMock(return_value=db_user),
+                    ),
+                    patch(
+                        "bot.services.subscription_service_impl.lifecycle.payment_dal.get_payment_by_db_id",
+                        AsyncMock(return_value=payment),
+                    ),
+                    patch(
+                        "bot.services.subscription_service_impl.lifecycle.subscription_dal.get_active_subscription_by_user_id",
+                        AsyncMock(return_value=current_sub),
+                    ),
+                    patch(
+                        "bot.services.subscription_service_impl.lifecycle.subscription_dal.deactivate_other_active_subscriptions",
+                        AsyncMock(),
+                    ),
+                    patch(
+                        "bot.services.subscription_service_impl.lifecycle.subscription_dal.upsert_subscription",
+                        AsyncMock(return_value=updated_sub),
+                    ) as upsert_subscription,
+                    patch(
+                        "bot.services.subscription_service_impl.lifecycle.tariff_dal.get_hwid_device_entitlement_summary",
+                        AsyncMock(
+                            return_value={
+                                "active_devices": 1,
+                                "active_until": current_end,
+                            }
+                        ),
+                    ),
+                    patch(
+                        "bot.services.subscription_service_impl.lifecycle.tariff_dal.create_hwid_device_purchase",
+                        AsyncMock(),
+                    ) as create_hwid_purchase,
+                ):
+                    result = await service.activate_subscription(
+                        session=AsyncMock(),
+                        user_id=42,
+                        months=999,
+                        payment_amount=150,
+                        payment_db_id=99,
+                        sale_mode="subscription@standard",
+                        provider="gift" if is_gift else "manual",
+                    )
+
+            self.assertEqual(result["hwid_devices_renewed_count"], 1)
+            sub_payload = upsert_subscription.await_args.args[1]
+            self.assertEqual(sub_payload["gift_terms_snapshot"], frozen if is_gift else None)
+            if is_gift:
+                preserved = service._tariff_for_subscription(SimpleNamespace(**sub_payload))
+                assert preserved is not None
+                self.assertEqual(preserved.monthly_bytes, 100 * GIB)
+                self.assertEqual(preserved.hwid_device_limit, 3)
+            self.assertEqual(sub_payload["start_date"], original_start)
+            self.assertEqual(sub_payload["end_date"], provider_end)
+            self.assertAlmostEqual(sub_payload["effective_monthly_price_rub"], 100 * 30 / days)
+            self.assertEqual(sub_payload["duration_days"], days)
+            self.assertEqual(sub_payload["period_semantics"], "fixed_days")
+            create_options = service._get_or_create_panel_user_link_details.await_args.kwargs[
+                "create_options"
+            ]
+            self.assertEqual(create_options.default_traffic_limit_bytes, 100 * GIB)
+            self.assertEqual(
+                create_options.specific_squad_uuids,
+                ("main-squad", "shared-squad", "premium-squad"),
+            )
+            self.assertEqual(create_options.hwid_device_limit, 4)
+            create_hwid_purchase.assert_awaited_once()
+            purchase_kwargs = create_hwid_purchase.await_args.kwargs
+            self.assertEqual(purchase_kwargs["payment_id"], 99)
+            self.assertEqual(purchase_kwargs["purchased_devices"], 1)
+            self.assertEqual(purchase_kwargs["valid_from"], current_end)
 
 
 class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):

@@ -19,15 +19,26 @@ from .contract_schemas import (
     user_contract,
 )
 from .payloads import (
+    WebAppEmailChangeCurrentPayload,
     WebAppEmailCodeAuthPayload,
     WebAppEmailMagicAuthPayload,
     WebAppEmailPasswordPayload,
     WebAppEmailRequestPayload,
+    WebAppPasskeyCredentialPayload,
     WebAppPromoApplyPayload,
     WebAppTelegramAuthPayload,
 )
 
 AUTH_ROUTE_CONTRACTS: dict[str, RouteContract] = {
+    "passkey_auth_options_route": public_contract(
+        response_schema=ok_envelope_with(
+            {"options": {"type": "object", "additionalProperties": True}}
+        )
+    ),
+    "passkey_auth_verify_route": public_contract(
+        request_model=WebAppPasskeyCredentialPayload,
+        response_schema=AUTH_RESPONSE_SCHEMA,
+    ),
     "telegram_oauth_nonce_route": public_contract(
         response_schema=ok_envelope_with(
             {
@@ -56,6 +67,27 @@ AUTH_ROUTE_CONTRACTS: dict[str, RouteContract] = {
     "email_password_auth_route": public_contract(
         request_model=WebAppEmailPasswordPayload,
         response_schema=AUTH_RESPONSE_SCHEMA,
+    ),
+    "external_oauth_pending_status_route": public_contract(
+        response_schema=ok_envelope_with(
+            {
+                "provider": STRING_SCHEMA,
+                "email": STRING_SCHEMA,
+                "retry_after": INTEGER_SCHEMA,
+                "email_code": STRING_SCHEMA,
+            },
+            required=["provider", "email", "retry_after"],
+        )
+    ),
+    "external_oauth_pending_request_route": public_contract(
+        response_schema=EMAIL_REQUEST_RESPONSE_SCHEMA,
+    ),
+    "external_oauth_pending_verify_route": public_contract(
+        request_model=WebAppEmailChangeCurrentPayload,
+        response_schema=AUTH_RESPONSE_SCHEMA,
+    ),
+    "external_oauth_pending_cancel_route": public_contract(
+        response_schema=ok_envelope_with(),
     ),
     "logout_route": public_contract(response_schema=ok_envelope_with()),
     "session_route": public_contract(
@@ -86,10 +118,14 @@ AUTH_ROUTE_CONTRACTS: dict[str, RouteContract] = {
                 "effect_summary": STRING_SCHEMA,
                 "applies_to": STRING_SCHEMA,
                 "min_subscription_months": NULLABLE_INTEGER_SCHEMA,
+                "min_subscription_days": NULLABLE_INTEGER_SCHEMA,
                 "min_traffic_gb": NULLABLE_NUMBER_SCHEMA,
                 "bonus_days": INTEGER_SCHEMA,
                 "regular_traffic_gb": NUMBER_SCHEMA,
                 "premium_traffic_gb": NUMBER_SCHEMA,
+                "discount_percent": NULLABLE_NUMBER_SCHEMA,
+                "duration_multiplier": NULLABLE_NUMBER_SCHEMA,
+                "traffic_multiplier": NULLABLE_NUMBER_SCHEMA,
                 "end_date_text": NULLABLE_STRING_SCHEMA,
             },
             required=["status", "code"],
@@ -106,7 +142,14 @@ AUTH_ROUTE_CONTRACTS: dict[str, RouteContract] = {
                 "effect_summary": STRING_SCHEMA,
                 "applies_to": STRING_SCHEMA,
                 "min_subscription_months": NULLABLE_INTEGER_SCHEMA,
+                "min_subscription_days": NULLABLE_INTEGER_SCHEMA,
                 "min_traffic_gb": NULLABLE_NUMBER_SCHEMA,
+                "bonus_days": INTEGER_SCHEMA,
+                "regular_traffic_gb": NUMBER_SCHEMA,
+                "premium_traffic_gb": NUMBER_SCHEMA,
+                "discount_percent": NULLABLE_NUMBER_SCHEMA,
+                "duration_multiplier": NULLABLE_NUMBER_SCHEMA,
+                "traffic_multiplier": NULLABLE_NUMBER_SCHEMA,
             },
             required=[],
         ),

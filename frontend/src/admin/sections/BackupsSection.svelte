@@ -4,6 +4,7 @@
   import {
     AdminBadge,
     AdminButton,
+    AdminListToolbar,
     AdminEmptyState,
     AdminPagination,
     AdminSortableHeader,
@@ -20,7 +21,7 @@
     TriangleAlert,
     Upload,
   } from "$components/ui/icons.js";
-  import { Tooltip } from "$components/ui/primitives.js";
+  import { Label, Tooltip } from "$components/ui/primitives.js";
   import { TableHandler } from "@vincjo/datatables";
   import type { BackupArchive, BackupRestoreResult } from "../../lib/admin/stores/backupsStore";
   import { sortAdminRows, type AdminSortColumn } from "$lib/admin/tableSort.js";
@@ -127,14 +128,14 @@
   const canRestore = $derived(
     Boolean(
       selectedArchive &&
-      (restoreDatabase || restoreCompose) &&
+      restoreCompose &&
+      !restoreDatabase &&
       restoreConfirmationMatches &&
       !backupsRestoring &&
       !backupsCreating
     )
   );
   const backupHeaders = $derived([
-    "",
     at("backups_col_archive", {}, "Archive"),
     at("backups_col_created", {}, "Created"),
     at("backups_col_size", {}, "Size"),
@@ -216,8 +217,8 @@
 </script>
 
 <div class="backups-layout">
-  <div class="admin-toolbar admin-toolbar-card backups-toolbar">
-    <div class="backups-toolbar-main">
+  <AdminListToolbar class="backups-list-toolbar">
+    {#snippet actions()}
       <AdminButton onclick={() => backupsStore.loadArchives()} disabled={backupsLoading}>
         <RefreshCw size={14} />
         {at("btn_refresh", {}, "Refresh")}
@@ -240,12 +241,15 @@
         accept=".zip,application/zip"
         onchange={uploadSelectedFile}
       />
-    </div>
-    <div class="admin-toolbar-summary">
-      <span class="admin-toolbar-field-label">{at("backups_dir", {}, "Directory")}</span>
-      <strong class="backups-dir">{backupDir || "data/backups"}</strong>
-    </div>
-  </div>
+    {/snippet}
+    {#snippet metadata()}
+      <div class="backups-dir-meta">
+        <span>{at("backups_dir", {}, "Directory")}</span><strong class="backups-dir"
+          >{backupDir || "data/backups"}</strong
+        >
+      </div>
+    {/snippet}
+  </AdminListToolbar>
 
   <article class="admin-card backups-restore-card">
     <header class="admin-card-head">
@@ -302,9 +306,18 @@
         <RefreshCw size={14} />
         {backupsRestoring
           ? at("backups_restoring", {}, "Restoring...")
-          : at("backups_restore_run", {}, "Start")}
+          : at("backups_restore_run", {}, "Restore from backup")}
       </AdminButton>
     </div>
+    {#if restoreDatabase}
+      <div class="backups-restore-note" role="status">
+        {at(
+          "error_backup_restore_requires_maintenance",
+          {},
+          "Database restore requires the maintenance command on the server. See the backup documentation."
+        )}
+      </div>
+    {/if}
     {#if lastRestore?.compose_pre_restore_archive}
       <div class="backups-restore-note">
         {at(
@@ -332,7 +345,7 @@
         rows={6}
         rowHeight={62}
         class="backups-table"
-        widths={["36px", "minmax(220px, 1fr)", "150px", "80px", "150px", "120px"]}
+        widths={["minmax(220px, 1fr)", "150px", "80px", "150px", "120px"]}
       />
     {:else if !archives?.length}
       <AdminEmptyState tone="card">
@@ -348,7 +361,6 @@
         <AdminTable class="backups-table">
           <thead>
             <tr>
-              <th aria-label={at("select", {}, "Select")}></th>
               <AdminSortableHeader
                 label={at("backups_col_archive", {}, "Archive")}
                 column={backupSortColumns[0]}
@@ -388,27 +400,26 @@
           </thead>
           <tbody>
             {#each backupsTable.rows as archive (archive.name)}
-              <tr class:is-selected={archive.name === selectedName}>
-                <td data-label={at("select", {}, "Select")}>
-                  <RadioGroupItem
-                    value={archive.name}
-                    ariaLabel={archive.name}
-                    class="backups-radio"
-                  />
-                </td>
+              <tr class="backups-row" class:is-selected={archive.name === selectedName}>
                 <td
-                  class="admin-cell-wrap backups-name"
+                  class="admin-cell-primary admin-cell-wrap backups-name"
                   data-label={at("backups_col_archive", {}, "Archive")}
                 >
-                  {archive.name}
+                  <Label.Root class="backups-archive-choice">
+                    <RadioGroupItem value={archive.name} ariaLabel={archive.name} />
+                    <span>{archive.name}</span>
+                  </Label.Root>
                 </td>
-                <td data-label={at("backups_col_created", {}, "Created")}
+                <td class="backups-meta" data-label={at("backups_col_created", {}, "Created")}
                   >{fmtDate(archiveDate(archive))}</td
                 >
-                <td data-label={at("backups_col_size", {}, "Size")}
+                <td class="backups-meta" data-label={at("backups_col_size", {}, "Size")}
                   >{formatSize(archive.size_bytes)}</td
                 >
-                <td data-label={at("backups_col_contents", {}, "Contents")}>
+                <td
+                  class="backups-contents"
+                  data-label={at("backups_col_contents", {}, "Contents")}
+                >
                   <span class="backups-badges">
                     {#if archive.has_database}
                       <AdminBadge variant="success">{at("backups_badge_db", {}, "DB")}</AdminBadge>
@@ -420,7 +431,11 @@
                     {/if}
                   </span>
                 </td>
-                <td data-label={at("backups_col_warnings", {}, "Warnings")}>
+                <td
+                  class="backups-warnings"
+                  class:is-empty={!archive.warnings?.length}
+                  data-label={at("backups_col_warnings", {}, "Warnings")}
+                >
                   {#if archive.warnings?.length}
                     <Tooltip.Root>
                       <Tooltip.Trigger
@@ -470,11 +485,18 @@
     gap: 12px;
   }
 
-  .backups-toolbar-main {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
+  .backups-dir-meta {
+    display: grid;
+    color: var(--admin-muted);
+    font-size: 13px;
+  }
+  .backups-dir-meta > span {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .backups-dir-meta > strong {
+    color: var(--admin-text);
   }
 
   :global(.backups-file-input) {
@@ -557,8 +579,18 @@
     display: block;
   }
 
-  :global(.backups-radio.ui-radio-item) {
-    margin-inline: auto;
+  :global(.backups-archive-choice) {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+    cursor: pointer;
+    line-height: 1.45;
+  }
+
+  :global(.backups-archive-choice > span) {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   :global(.backups-warning-trigger) {
@@ -610,6 +642,44 @@
 
     :global(.backups-restore-body .admin-btn) {
       width: 100%;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .backups-layout :global(.backups-table tbody tr.backups-row) {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px 16px;
+    }
+
+    .backups-layout :global(.backups-table .backups-row.is-selected) {
+      border-color: color-mix(in srgb, var(--accent) 55%, var(--admin-border));
+      background: color-mix(in srgb, var(--accent) 6%, var(--admin-surface-2));
+    }
+
+    .backups-layout :global(.backups-table .backups-row td) {
+      min-width: 0;
+      padding: 0;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 4px;
+    }
+
+    .backups-layout :global(.backups-table .backups-row .backups-name) {
+      grid-column: 1 / -1;
+      margin: 0;
+      padding-bottom: 10px;
+    }
+
+    :global(.backups-archive-choice) {
+      font-size: 13px;
+    }
+
+    .backups-layout :global(.backups-table .backups-row .backups-warnings.is-empty) {
+      display: none;
+    }
+
+    :global(.backups-warning-trigger) {
+      justify-self: start;
     }
   }
 </style>

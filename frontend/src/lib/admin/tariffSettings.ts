@@ -15,22 +15,31 @@ type ProviderKey = keyof typeof PROVIDER_FALLBACK_LABELS;
 
 export const TRIAL_SETTING_KEYS = [
   "TRIAL_ENABLED",
+  "TRIAL_PAYMENT_ENABLED",
+  "TRIAL_PAYMENT_PRICE",
+  "TRIAL_PAYMENT_STARS_PRICE",
   "TRIAL_DURATION_DAYS",
   "TRIAL_TRAFFIC_LIMIT_GB",
   "TRIAL_PREMIUM_TRAFFIC_LIMIT_GB",
   "TRIAL_HWID_DEVICE_LIMIT",
+  "TRIAL_DAYS_STRATEGY",
   "TRIAL_TRAFFIC_STRATEGY",
-  "TRIAL_WITHOUT_TELEGRAM_ENABLED",
   "TRIAL_SQUAD_UUIDS",
   "TRIAL_PREMIUM_SQUAD_UUIDS",
 ];
-export const TRIAL_SWITCH_KEYS = ["TRIAL_ENABLED", "TRIAL_WITHOUT_TELEGRAM_ENABLED"];
+export const TRIAL_SWITCH_KEYS = ["TRIAL_ENABLED"];
+export const TRIAL_PAYMENT_KEYS = [
+  "TRIAL_PAYMENT_ENABLED",
+  "TRIAL_PAYMENT_PRICE",
+  "TRIAL_PAYMENT_STARS_PRICE",
+];
 export const TRIAL_GENERAL_KEYS = [
   "TRIAL_DURATION_DAYS",
   "TRIAL_TRAFFIC_LIMIT_GB",
   "TRIAL_PREMIUM_TRAFFIC_LIMIT_GB",
   "TRIAL_HWID_DEVICE_LIMIT",
 ];
+export const TRIAL_PURCHASE_KEYS = ["TRIAL_DAYS_STRATEGY"];
 export const TRIAL_RESET_KEYS = ["TRIAL_TRAFFIC_STRATEGY"];
 export const TRIAL_SQUAD_KEYS = ["TRIAL_SQUAD_UUIDS", "TRIAL_PREMIUM_SQUAD_UUIDS"];
 export const REFERRAL_SETTING_KEYS = [
@@ -38,21 +47,15 @@ export const REFERRAL_SETTING_KEYS = [
   "REFERRAL_WEBAPP_LINK_ENABLED",
   "REFERRAL_TELEGRAM_LINK_ENABLED",
   "REFERRAL_WELCOME_BONUS_DAYS",
-  "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
   "REFERRAL_ONE_BONUS_PER_REFEREE",
-  "DISPOSABLE_EMAIL_DOMAINS",
 ];
 export const REFERRAL_LINK_KEYS = [
   "REFERRAL_WEBAPP_LINK_ENABLED",
   "REFERRAL_TELEGRAM_LINK_ENABLED",
 ] as const;
 export type ReferralLinkSettingKey = (typeof REFERRAL_LINK_KEYS)[number];
-export const REFERRAL_WELCOME_KEYS = [
-  "REFERRAL_WELCOME_BONUS_DAYS",
-  "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
-];
-export const REFERRAL_RULE_KEYS = ["REFERRAL_ONE_BONUS_PER_REFEREE", "DISPOSABLE_EMAIL_DOMAINS"];
-export const DISPOSABLE_EMAIL_DOMAINS_PLACEHOLDER = "mailinator.com\ntemp-mail.org\nyopmail.com";
+export const REFERRAL_WELCOME_KEYS = ["REFERRAL_WELCOME_BONUS_DAYS"];
+export const REFERRAL_RULE_KEYS = ["REFERRAL_ONE_BONUS_PER_REFEREE"];
 export const LEGACY_PERIODS = [
   [
     "1",
@@ -124,6 +127,19 @@ export function trafficStrategyOptions(at: TranslateFn): SelectOption[] {
   ];
 }
 
+export function trialDaysStrategyOptions(at: TranslateFn): SelectOption[] {
+  return [
+    {
+      value: "add_remaining",
+      label: at("tariffs_trial_days_strategy_add_remaining", {}, "Add remaining trial days"),
+    },
+    {
+      value: "start_from_payment",
+      label: at("tariffs_trial_days_strategy_start_from_payment", {}, "Start from payment date"),
+    },
+  ];
+}
+
 const PROVIDER_FALLBACK_LABELS = {
   cryptopay: "CryptoPay",
   freekassa: "FreeKassa",
@@ -136,6 +152,12 @@ const PROVIDER_FALLBACK_LABELS = {
   platega_crypto: "Platega Crypto",
   platega_international: "Platega International",
   platega_sbp: "Platega SBP/card",
+  rollypay: "RollyPay All methods",
+  rollypay_card: "RollyPay Card",
+  rollypay_crypto: "RollyPay Crypto",
+  rollypay_international: "RollyPay International",
+  rollypay_sbp: "RollyPay SBP",
+  rollypay_subscription: "RollyPay Subscription",
   severpay: "SeverPay",
   stars: "Telegram Stars",
   telegram_stars: "Telegram Stars",
@@ -155,6 +177,12 @@ const PROVIDER_SETTINGS_PATHS: Partial<Record<ProviderKey, string[]>> = {
   platega_crypto: ["payments", "platega", "crypto"],
   platega_international: ["payments", "platega", "international"],
   platega_sbp: ["payments", "platega", "sbp"],
+  rollypay: ["payments", "rollypay", "all-methods"],
+  rollypay_card: ["payments", "rollypay", "card"],
+  rollypay_crypto: ["payments", "rollypay", "crypto"],
+  rollypay_international: ["payments", "rollypay", "international"],
+  rollypay_sbp: ["payments", "rollypay", "sbp"],
+  rollypay_subscription: ["payments", "rollypay", "subscription"],
   severpay: ["payments", "severpay"],
   stars: ["payments", "telegram-stars"],
   telegram_stars: ["payments", "telegram-stars"],

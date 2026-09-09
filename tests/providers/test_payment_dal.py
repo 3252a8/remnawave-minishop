@@ -5,7 +5,9 @@ from unittest.mock import AsyncMock, patch
 from sqlalchemy.dialects import postgresql
 
 from bot.services.partner_checkout_balance import PartnerCheckoutBalanceService
-from db.dal import payment_dal
+from bot.services.partner_commission_service import PartnerCommissionService
+from bot.services.user_balance_service import UserBalanceService
+from db.dal import message_log_dal, payment_dal
 
 
 class PaymentDalIdempotenceTests(IsolatedAsyncioTestCase):
@@ -179,11 +181,112 @@ class PaymentDalStatusUpdateTests(IsolatedAsyncioTestCase):
                 "release_if_terminal",
                 AsyncMock(),
             ),
+            patch.object(payment_dal, "_add_payment_success_log", AsyncMock()),
         ):
             await payment_dal.update_payment_status_by_db_id(session, 4, "succeeded")
 
         ensure_consumed.assert_awaited_once_with(session, payment_id=4)
         self.assertEqual(payment.status, "succeeded")
+
+    async def test_success_adds_user_payment_log_once(self):
+        savepoint = AsyncMock()
+        session = SimpleNamespace(
+            begin_nested=AsyncMock(return_value=savepoint),
+            flush=AsyncMock(),
+            refresh=AsyncMock(),
+        )
+        payment = SimpleNamespace(
+            payment_id=91,
+            user_id=42,
+            status="pending_yookassa",
+            amount=0.0,
+            currency="rub",
+            provider="yookassa",
+            sale_mode="subscription@standard",
+        )
+
+        with (
+            patch.object(
+                payment_dal,
+                "get_payment_by_db_id_for_update",
+                AsyncMock(return_value=payment),
+            ),
+            patch.object(
+                PartnerCheckoutBalanceService,
+                "ensure_consumed",
+                AsyncMock(),
+            ),
+            patch.object(
+                PartnerCheckoutBalanceService,
+                "release_if_terminal",
+                AsyncMock(),
+            ),
+            patch.object(
+                message_log_dal,
+                "create_message_log_no_commit",
+                AsyncMock(),
+            ) as create_log,
+        ):
+            await payment_dal.update_payment_status_by_db_id(session, 91, "succeeded")
+            await payment_dal.update_payment_status_by_db_id(session, 91, "succeeded")
+
+        create_log.assert_awaited_once_with(
+            session,
+            {
+                "user_id": 42,
+                "event_type": "payment_succeeded",
+                "content": (
+                    "amount=0.0 currency=RUB payment_id=91 "
+                    "provider=yookassa sale_mode=subscription@standard"
+                ),
+                "is_admin_event": False,
+                "target_user_id": 42,
+            },
+        )
+        self.assertEqual(payment.status, "succeeded")
+
+    async def test_balance_topup_keeps_its_specialized_success_log(self):
+        savepoint = AsyncMock()
+        session = SimpleNamespace(
+            begin_nested=AsyncMock(return_value=savepoint),
+            flush=AsyncMock(),
+            refresh=AsyncMock(),
+        )
+        payment = SimpleNamespace(
+            payment_id=1041,
+            user_id=42,
+            status="pending",
+            amount=500.0,
+            currency="RUB",
+            provider="yookassa",
+            sale_mode="balance_topup|account",
+        )
+
+        with (
+            patch.object(
+                payment_dal,
+                "get_payment_by_db_id_for_update",
+                AsyncMock(return_value=payment),
+            ),
+            patch.object(
+                PartnerCheckoutBalanceService,
+                "ensure_consumed",
+                AsyncMock(),
+            ),
+            patch.object(
+                PartnerCheckoutBalanceService,
+                "release_if_terminal",
+                AsyncMock(),
+            ),
+            patch.object(
+                message_log_dal,
+                "create_message_log_no_commit",
+                AsyncMock(),
+            ) as create_log,
+        ):
+            await payment_dal.update_payment_status_by_db_id(session, 1041, "succeeded")
+
+        create_log.assert_not_awaited()
 
     async def test_terminal_status_releases_partner_spend(self):
         savepoint = AsyncMock()
@@ -214,6 +317,83 @@ class PaymentDalStatusUpdateTests(IsolatedAsyncioTestCase):
             status="canceled",
         )
         self.assertEqual(payment.status, "canceled")
+
+    async def test_balance_topup_reversal_is_retried_idempotently(self):
+        savepoint = AsyncMock()
+        session = SimpleNamespace(
+            begin_nested=AsyncMock(return_value=savepoint),
+            flush=AsyncMock(),
+            refresh=AsyncMock(),
+        )
+        payment = SimpleNamespace(
+            payment_id=6,
+            status="reversed",
+            sale_mode="balance_topup|account",
+            user_balance_amount_minor=None,
+            yookassa_payment_id=None,
+        )
+        reverse_topup = AsyncMock(return_value=SimpleNamespace(entry_id=9))
+
+        with (
+            patch.object(
+                payment_dal,
+                "get_payment_by_db_id_for_update",
+                AsyncMock(return_value=payment),
+            ),
+            patch.object(
+                PartnerCheckoutBalanceService,
+                "release_if_terminal",
+                AsyncMock(),
+            ),
+            patch.object(UserBalanceService, "reverse_payment_topup", reverse_topup),
+        ):
+            await payment_dal.update_payment_status_by_db_id(session, 6, "reversed")
+
+        reverse_topup.assert_awaited_once_with(
+            session,
+            payment_id=6,
+            reason="payment reversed",
+        )
+        self.assertEqual(payment.status, "reversed")
+
+    async def test_balance_topup_reversal_failure_aborts_status_update(self):
+        savepoint = AsyncMock()
+        session = SimpleNamespace(
+            begin_nested=AsyncMock(return_value=savepoint),
+            flush=AsyncMock(),
+            refresh=AsyncMock(),
+        )
+        payment = SimpleNamespace(
+            payment_id=7,
+            status="succeeded",
+            sale_mode="balance_topup",
+            user_balance_amount_minor=None,
+            yookassa_payment_id=None,
+        )
+
+        with (
+            patch.object(
+                payment_dal,
+                "get_payment_by_db_id_for_update",
+                AsyncMock(return_value=payment),
+            ),
+            patch.object(
+                PartnerCheckoutBalanceService,
+                "release_if_terminal",
+                AsyncMock(),
+            ),
+            patch.object(PartnerCommissionService, "reverse_payment", AsyncMock()),
+            patch.object(
+                UserBalanceService,
+                "reverse_payment_topup",
+                AsyncMock(side_effect=RuntimeError("ledger unavailable")),
+            ),
+            self.assertRaisesRegex(RuntimeError, "ledger unavailable"),
+        ):
+            await payment_dal.update_payment_status_by_db_id(session, 7, "refunded")
+
+        session.flush.assert_not_awaited()
+        session.refresh.assert_not_awaited()
 
 
 class PaymentDalFinalizationClaimTests(IsolatedAsyncioTestCase):

@@ -6,6 +6,7 @@ from urllib.parse import quote, urlsplit, urlunsplit
 
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
@@ -34,15 +35,17 @@ from bot.services.telegram_notifications import (
     telegram_notifications_need_prompt,
     telegram_notifications_start_link,
 )
+from bot.services.user_balance_service import UserBalanceService
+from bot.services.user_notification_preferences import UserNotificationPreferences
 from bot.utils.locale_defaults import subscription_purchase_description_text
 from bot.utils.traffic_reset import format_traffic_reset_date, parse_panel_datetime
+from config.menu_buttons import public_menu_buttons
 from config.settings import Settings
 from config.subscription_guides_config import subscription_guides_available
-from config.tariff_checkout import serialize_checkout_addons
 from config.tariffs_config import default_currency_key_for_settings, payment_currency_code
-from config.traffic_strategy import normalize_traffic_limit_strategy
 from config.webapp_themes_config import public_themes_catalog_payload
 from db.dal import payment_dal, subscription_dal, support_dal, user_dal
+from db.models import UserEmailAddress, UserExternalIdentity, UserPasskeyCredential
 
 from .assets import (
     _get_cached_webapp_settings,
@@ -52,13 +55,13 @@ from .common import (
     _coerce_int_or_none,
     _ensure_cached_telegram_avatar,
     _format_bytes,
-    _format_months_title,
-    _format_number_for_payload,
     _format_remaining,
-    _format_traffic_title,
     _normalize_language,
     _telegram_avatar_url,
 )
+from .email_address_serializers import serialize_user_email_addresses
+from .external_identity_state import external_identity_can_unlink_for_account
+from .period_contracts import periods_for_client
 from .referral_links import visible_referral_links
 from .referral_serializers import (
     _build_webapp_referral_link,
@@ -67,15 +70,17 @@ from .referral_serializers import (
 from .referral_welcome_state import resolve_referral_welcome_state
 from .serializers_auto_renew import resolve_auto_renew_capabilities
 from .serializers_billing_options import (
-    _attach_payment_methods_to_plans,
     _serialize_hwid_device_packages,
     _serialize_payment_methods,
     _serialize_tariff_change_target,
     _serialize_topup_packages,
+    _serialize_trial_payment_plan,
     _traffic_percent,
 )
 from .serializers_checkout import attach_checkout_pricing_context_to_plans
 from .serializers_payments import _serialize_pending_promo_payment
+from .serializers_plans import _serialize_plans
+from .serializers_subscription import serialize_inactive_subscription
 
 logger = logging.getLogger(__name__)
 _MAX_PENDING_PROMO_REFRESHES = 10
@@ -218,6 +223,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             if support_settings.tickets_enabled
             else 0
         )
+        balance_payload = await UserBalanceService(settings).snapshot(session, user_id=user_id)
         local_sub = (
             await subscription_dal.get_active_subscription_by_user_id(
                 session,
@@ -227,6 +233,12 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             if db_user.panel_user_uuid
             else None
         )
+        if not active and db_user.panel_user_uuid:
+            local_sub = await subscription_dal.get_latest_subscription_by_user_id(
+                session,
+                user_id,
+                db_user.panel_user_uuid,
+            )
         suggested_promo_code = await _suggested_checkout_promo(
             session,
             user_id=user_id,
@@ -254,6 +266,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             stars_subscription_options=cached["stars_subscription_options"],
             traffic_packages=cached["traffic_packages"],
             stars_traffic_packages=cached["stars_traffic_packages"],
+            assigned_tariff_key=local_sub.tariff_key if local_sub else None,
         )
         await _attach_hwid_renewal_quotes_to_plans(
             session,
@@ -271,6 +284,43 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             plans=plans_payload,
         )
         avatar = await _ensure_cached_telegram_avatar(request, session, db_user)
+        external_identities = (
+            (
+                await session.execute(
+                    select(UserExternalIdentity)
+                    .where(UserExternalIdentity.user_id == user_id)
+                    .order_by(UserExternalIdentity.provider)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        email_addresses = (
+            (
+                await session.execute(
+                    select(UserEmailAddress)
+                    .where(UserEmailAddress.user_id == user_id)
+                    .order_by(
+                        UserEmailAddress.is_primary.desc(),
+                        UserEmailAddress.is_notification.desc(),
+                        UserEmailAddress.created_at.asc(),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        passkey_credentials = (
+            (
+                await session.execute(
+                    select(UserPasskeyCredential)
+                    .where(UserPasskeyCredential.user_id == user_id)
+                    .order_by(UserPasskeyCredential.created_at.desc())
+                )
+            )
+            .scalars()
+            .all()
+        )
         try:
             await session.commit()
         except Exception:
@@ -292,12 +342,20 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
         getattr(db_user, "telegram_notifications_status", None)
     )
     telegram_notifications_link = telegram_notifications_start_link(get_bot_username(request))
+    serialized_email_addresses, notification_email = serialize_user_email_addresses(
+        db_user,
+        email_addresses,
+        external_identities,
+    )
     return {
         "user": {
             "id": user_id,
             "username": db_user.username,
             "email": db_user.email,
             "email_verified": bool(db_user.email_verified_at),
+            "notification_email": notification_email or None,
+            "notification_preferences": UserNotificationPreferences.from_user(db_user).as_dict(),
+            "email_addresses": serialized_email_addresses,
             "password_auth_enabled": bool(
                 db_user.email and db_user.email_verified_at and db_user.password_hash
             ),
@@ -313,6 +371,43 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             "first_name": db_user.first_name,
             "language_code": lang,
             "is_admin": is_admin,
+            "external_identities": [
+                {
+                    "provider": str(identity.provider),
+                    "email": identity.email,
+                    "email_verified": bool(identity.email_verified),
+                    "display_name": identity.display_name,
+                    "can_unlink": external_identity_can_unlink_for_account(
+                        identity,
+                        email_addresses,
+                        external_identities,
+                        passkey_credentials,
+                        user=db_user,
+                        settings=settings,
+                    ),
+                }
+                for identity in external_identities
+            ],
+            "passkeys": [
+                {
+                    "credential_id": str(credential.credential_id),
+                    "name": str(credential.name or "Passkey"),
+                    "created_at": credential.created_at.isoformat()
+                    if credential.created_at
+                    else None,
+                    "last_used_at": credential.last_used_at.isoformat()
+                    if credential.last_used_at
+                    else None,
+                    "backed_up": bool(credential.backed_up),
+                    "device_type": credential.device_type,
+                    "transports": [
+                        value.strip()
+                        for value in str(credential.transports or "").split(",")
+                        if value.strip()
+                    ],
+                }
+                for credential in passkey_credentials
+            ],
         },
         "subscription": _serialize_subscription(
             request,
@@ -339,7 +434,9 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             "one_bonus_per_referee": bool(referral_settings.one_bonus_per_referee),
             "bonus_details": _serialize_referral_bonus_details(settings, lang),
         },
-        "plans": plans_payload,
+        "plans": periods_for_client(request, plans_payload),
+        "billing_period_unit": "day",
+        "billing_period_schema_version": 2,
         "pending_payment": pending_promo_payment,
         "suggested_promo_code": suggested_promo_code,
         "payment_methods": _serialize_payment_methods(
@@ -354,9 +451,10 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             enabled_only=True,
         ),
         "support_unread_count": int(support_unread_count or 0),
+        "balance": {"ok": True, **balance_payload},
         "settings": {
             "support_url": support_settings.link,
-            "server_status_url": settings.SERVER_STATUS_URL,
+            "server_status_url": settings.server_status_external_url,
             "support_tickets_enabled": bool(support_settings.tickets_enabled),
             "support_ticket_max_body_length": int(support_settings.ticket_max_body_length or 4000),
             "support_ticket_max_subject_length": int(
@@ -366,10 +464,10 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             "my_devices_enabled": bool(settings.MY_DEVICES_SECTION_ENABLED),
             "payment_methods_display_mode": settings.PAYMENT_METHODS_DISPLAY_MODE,
             "partner_program_enabled": bool(settings.partner_settings.enabled),
+            "user_balance_enabled": bool(settings.balance_settings.enabled),
             "referral_program_enabled": referral_program_enabled,
-            "subscription_reissue_enabled": bool(
-                settings.SUBSCRIPTION_REISSUE_ENABLED and settings.email_auth_configured
-            ),
+            "gifts_enabled": bool(settings.GIFTS_ENABLED),
+            "subscription_reissue_enabled": bool(settings.SUBSCRIPTION_REISSUE_ENABLED),
             "user_hwid_device_limit": (
                 int(settings.USER_HWID_DEVICE_LIMIT)
                 if settings.USER_HWID_DEVICE_LIMIT is not None
@@ -377,6 +475,8 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             ),
             "trial_enabled": bool(settings.TRIAL_ENABLED),
             "trial_available": trial_available,
+            "trial_payment_enabled": bool(settings.TRIAL_PAYMENT_ENABLED),
+            "trial_payment_plan": _serialize_trial_payment_plan(settings),
             "trial_without_telegram_enabled": bool(settings.TRIAL_WITHOUT_TELEGRAM_ENABLED),
             "trial_requires_telegram": bool(trial_telegram_required_reason and not telegram_linked),
             "trial_block_reason": trial_telegram_required_reason,
@@ -388,7 +488,13 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             ),
             "subscription_guides_enabled": subscription_guides_available(settings),
             "email_auth_enabled": settings.email_auth_configured,
+            "email_address_change_enabled": bool(settings.EMAIL_ADDRESS_CHANGE_ENABLED),
             "auth_providers": settings.webapp_auth_providers,
+            "menu_buttons": public_menu_buttons(
+                settings.MENU_BUTTONS_JSON,
+                lang,
+                default_language=settings.DEFAULT_LANGUAGE,
+            ),
         },
     }
 
@@ -415,17 +521,10 @@ def _serialize_subscription(
         local_sub = local_sub_or_lang
 
     if not active:
-        return {
-            "active": False,
-            "status": "INACTIVE",
-            "remaining_text": _format_remaining(0, lang),
-            "days_left": 0,
-            "config_link": None,
-            "connect_url": None,
-            "panel_short_uuid": None,
-            "install_share_token": None,
-            "install_share_url": None,
-        }
+        return serialize_inactive_subscription(
+            local_sub,
+            remaining_text=_format_remaining(0, lang),
+        )
 
     end_date = active.get("end_date")
     if end_date and end_date.tzinfo is None:
@@ -460,7 +559,7 @@ def _serialize_subscription(
     can_topup_devices = device_topup_availability.allowed
     if settings.tariffs_config and active.get("tariff_key"):
         try:
-            tariff = settings.tariffs_config.require(str(active.get("tariff_key")))
+            tariff = settings.tariffs_config.require_configured(str(active.get("tariff_key")))
             packages = settings.tariffs_config.topup_packages_for(tariff)
             can_topup_regular_traffic = bool(packages and packages.has_any())
             can_topup_premium_traffic = bool(
@@ -509,6 +608,8 @@ def _serialize_subscription(
         "status": active.get("status_from_panel") or "UNKNOWN",
         "end_date": end_date.isoformat() if end_date else None,
         "end_date_text": end_date.strftime("%d.%m.%Y %H:%M") if end_date else "N/A",
+        "duration_days": getattr(local_sub, "duration_days", None),
+        "period_semantics": getattr(local_sub, "period_semantics", None),
         "days_left": seconds_left // 86400,
         "remaining_text": _format_remaining(seconds_left, lang),
         "config_link": active.get("config_link"),
@@ -644,7 +745,7 @@ async def _attach_hwid_renewal_quotes_to_plans(
         if not target_tariff_key:
             continue
         try:
-            months = int(plan.get("months") or 0)
+            months = int(plan.get("period_key", plan.get("months")) or 0)
         except (TypeError, ValueError):
             continue
         if months <= 0:
@@ -688,7 +789,8 @@ async def _attach_hwid_renewal_quotes_to_plans(
             "valid_until_text": _webapp_datetime_text(valid_until),
             "active_until": _webapp_iso_datetime(active_until),
             "active_until_text": _webapp_datetime_text(active_until),
-            "pricing_period_months": int(quote.get("pricing_period_months") or months),
+            "pricing_period_months": quote.get("pricing_period_months"),
+            "pricing_period_days": quote.get("pricing_period_days"),
             "traffic_bonus_gb": float(quote.get("traffic_bonus_gb") or 0),
         }
         if stars_quote and int(stars_quote.get("price") or 0) > 0:
@@ -718,184 +820,3 @@ def _build_install_share_link(
         proto = request.headers.get("X-Forwarded-Proto") or request.scheme or "https"
         base = f"{proto}://{host}"
     return f"{base.rstrip('/')}/s/{quote(share_token)}"
-
-
-def _serialize_plans(
-    settings: Settings,
-    lang: str,
-    *,
-    subscription_options: dict[int, float] | None = None,
-    stars_subscription_options: dict[int, int] | None = None,
-    traffic_packages: dict[float, float] | None = None,
-    stars_traffic_packages: dict[float, int] | None = None,
-) -> list[dict[str, Any]]:
-    tariffs_config = settings.tariffs_config
-    if tariffs_config:
-        default_currency = default_currency_key_for_settings(settings)
-        default_currency_code = payment_currency_code(default_currency)
-        plans = []
-        for tariff in tariffs_config.enabled_tariffs:
-            effective_hwid_device_limit = (
-                tariff.hwid_device_limit
-                if tariff.hwid_device_limit is not None
-                else settings.USER_HWID_DEVICE_LIMIT
-            )
-            traffic_limit_strategy = (
-                normalize_traffic_limit_strategy(
-                    tariff.traffic_limit_strategy or settings.USER_TRAFFIC_STRATEGY,
-                    default="MONTH",
-                )
-                if tariff.billing_model == "period"
-                else "NO_RESET"
-            )
-            premium_traffic_limit_strategy = (
-                normalize_traffic_limit_strategy(
-                    tariff.premium_traffic_limit_strategy,
-                    default=traffic_limit_strategy,
-                )
-                if tariff.premium_traffic_limit_strategy is not None
-                else traffic_limit_strategy
-            )
-            common = {
-                "tariff_key": tariff.key,
-                "is_default_tariff": tariff.key == tariffs_config.default_tariff,
-                "tariff_name": tariff.name(lang),
-                "billing_model": tariff.billing_model,
-                "description": tariff.description(lang),
-                "squad_uuids": tariff.squad_uuids,
-                "currency": default_currency_code,
-                "hwid_device_limit": tariff.hwid_device_limit,
-                "effective_hwid_device_limit": effective_hwid_device_limit,
-                "premium_enabled": bool(tariff.premium_squad_uuids),
-                "premium_monthly_gb": tariff.premium_monthly_gb,
-                "premium_unlimited": bool(tariff.premium_unlimited),
-                "traffic_limit_strategy": traffic_limit_strategy,
-                "premium_traffic_limit_strategy": premium_traffic_limit_strategy,
-                "hwid_device_packages": _serialize_hwid_device_packages(
-                    settings,
-                    tariff,
-                    tariff.hwid_device_packages,
-                    lang,
-                )
-                if tariff.billing_model == "period"
-                else [],
-            }
-            if tariff.billing_model == "period":
-                # Render periods in the configured order (enabled_periods is the
-                # source of truth for purchase-period ordering, matching the bot
-                # keyboards). Do not sort so admins can reorder via drag & drop.
-                for months in tariff.enabled_periods:
-                    price = tariff.period_price(int(months), default_currency)
-                    stars_price = tariff.period_price(int(months), "stars")
-                    if price is None and (stars_price is None or int(stars_price) <= 0):
-                        continue
-                    plan = {
-                        **common,
-                        "id": f"{tariff.key}:period:{int(months)}",
-                        "sale_mode": "subscription",
-                        "months": int(months),
-                        "price": float(price or 0),
-                        "title": tariff.name(lang),
-                        "subtitle": _format_months_title(int(months), lang),
-                        "monthly_gb": tariff.monthly_gb,
-                        "checkout_addons": serialize_checkout_addons(
-                            tariff,
-                            default_currency=default_currency,
-                            months=int(months),
-                            fallback_hwid_limit=settings.USER_HWID_DEVICE_LIMIT,
-                            devices_feature_enabled=bool(settings.MY_DEVICES_SECTION_ENABLED),
-                        ),
-                    }
-                    if stars_price is not None and int(stars_price) > 0:
-                        plan["stars_price"] = int(stars_price)
-                    plans.append(plan)
-            else:
-                currency_packages = {
-                    float(package.gb): float(package.price)
-                    for package in (
-                        tariff.traffic_packages.for_currency(default_currency)
-                        if tariff.traffic_packages
-                        else []
-                    )
-                }
-                stars_packages = {
-                    float(package.gb): int(float(package.price))
-                    for package in (
-                        tariff.traffic_packages.stars if tariff.traffic_packages else []
-                    )
-                }
-                # Preserve the configured package order (default-currency list first,
-                # then any Stars-only volumes) so admins can reorder via drag & drop.
-                # Matches the bot keyboard, which iterates the package list as-is.
-                ordered_gb: list[float] = []
-                for traffic_gb in list(currency_packages) + list(stars_packages):
-                    if traffic_gb not in ordered_gb:
-                        ordered_gb.append(traffic_gb)
-                for traffic_gb in ordered_gb:
-                    price = currency_packages.get(traffic_gb)
-                    stars_price = stars_packages.get(traffic_gb)
-                    if price is None and (stars_price is None or int(stars_price) <= 0):
-                        continue
-                    traffic_value = float(traffic_gb)
-                    plan = {
-                        **common,
-                        "id": f"{tariff.key}:traffic:{_format_number_for_payload(traffic_value)}",
-                        "sale_mode": "traffic_package",
-                        "months": int(traffic_value)
-                        if traffic_value.is_integer()
-                        else traffic_value,
-                        "traffic_gb": traffic_value,
-                        "price": float(price or 0),
-                        "title": tariff.name(lang),
-                        "subtitle": _format_traffic_title(traffic_value, lang),
-                    }
-                    if stars_price is not None and int(stars_price) > 0:
-                        plan["stars_price"] = int(stars_price)
-                    plans.append(plan)
-        return _attach_payment_methods_to_plans(settings, plans)
-
-    if settings.traffic_sale_mode:
-        active_traffic_packages = traffic_packages or settings.traffic_packages
-        active_stars_traffic_packages = stars_traffic_packages or settings.stars_traffic_packages
-        traffic_units = sorted(set(active_traffic_packages) | set(active_stars_traffic_packages))
-        plans = []
-        for traffic_gb in traffic_units:
-            price = active_traffic_packages.get(traffic_gb)
-            stars_price = active_stars_traffic_packages.get(traffic_gb)
-            if price is None and (stars_price is None or int(stars_price) <= 0):
-                continue
-            traffic_value = float(traffic_gb)
-            plan = {
-                "months": int(traffic_value) if traffic_value.is_integer() else traffic_value,
-                "traffic_gb": traffic_value,
-                "price": float(price or 0),
-                "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
-                "title": _format_traffic_title(traffic_value, lang),
-                "sale_mode": "traffic",
-            }
-            if stars_price is not None and int(stars_price) > 0:
-                plan["stars_price"] = int(stars_price)
-            plans.append(plan)
-        return _attach_payment_methods_to_plans(settings, plans)
-
-    active_subscription_options = subscription_options or settings.subscription_options
-    active_stars_subscription_options = (
-        stars_subscription_options or settings.stars_subscription_options
-    )
-    plans = []
-    for months in sorted(set(active_subscription_options) | set(active_stars_subscription_options)):
-        price = active_subscription_options.get(months)
-        stars_price = active_stars_subscription_options.get(months)
-        if price is None and (stars_price is None or int(stars_price) <= 0):
-            continue
-        plan = {
-            "months": int(months),
-            "price": float(price or 0),
-            "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
-            "title": _format_months_title(int(months), lang),
-            "sale_mode": "subscription",
-        }
-        if stars_price is not None and int(stars_price) > 0:
-            plan["stars_price"] = int(stars_price)
-        plans.append(plan)
-    return _attach_payment_methods_to_plans(settings, plans)

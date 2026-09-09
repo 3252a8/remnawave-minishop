@@ -17,11 +17,13 @@ describe("billingActions partner balance funding", () => {
       actions.planPaymentBody(plan, "card", {
         usePartnerBalance: true,
       })
-    ).toMatchObject({ use_partner_balance: true });
+    ).toMatchObject({ balance_source: "partner", use_partner_balance: true });
     expect(actions.topupPaymentBody(plan, "card", "pro", null, true)).toMatchObject({
+      balance_source: "partner",
       use_partner_balance: true,
     });
     expect(actions.deviceTopupPaymentBody(plan, "card", "pro", null, true)).toMatchObject({
+      balance_source: "partner",
       use_partner_balance: true,
     });
     expect(
@@ -31,7 +33,38 @@ describe("billingActions partner balance funding", () => {
         "card",
         true
       )
-    ).toMatchObject({ use_partner_balance: true });
+    ).toMatchObject({ balance_source: "partner", use_partner_balance: true });
+  });
+
+  it("sends the explicit main balance source through every checkout flow", () => {
+    const actions = createBillingActions({ api: vi.fn() });
+    const plan = {
+      months: 3,
+      traffic_gb: 50,
+      device_count: 2,
+      tariff_key: "pro",
+      sale_mode: "subscription@pro",
+    };
+
+    expect(actions.planPaymentBody(plan, "card", { balanceSource: "user" })).toMatchObject({
+      balance_source: "user",
+      use_partner_balance: false,
+    });
+    expect(actions.topupPaymentBody(plan, "card", "pro", null, false, "user")).toMatchObject({
+      balance_source: "user",
+    });
+    expect(actions.deviceTopupPaymentBody(plan, "card", "pro", null, false, "user")).toMatchObject({
+      balance_source: "user",
+    });
+    expect(
+      actions.changePaymentBody(
+        { mode: "buy_period", months: 3 },
+        { tariff_key: "pro" },
+        "card",
+        false,
+        "user"
+      )
+    ).toMatchObject({ balance_source: "user" });
   });
 
   it("prefers a device checkout add-on over legacy device renewal", () => {

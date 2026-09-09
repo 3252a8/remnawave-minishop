@@ -1,5 +1,6 @@
 ﻿<script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
+  import { Tooltip } from "$components/ui/primitives.js";
 
   import AdminPanelLayout from "./AdminPanelLayout.svelte";
   import {
@@ -37,6 +38,7 @@
     withRoutePrefix,
   } from "../lib/webapp/routes.js";
   import { buildAdminPaymentsExportPath } from "../lib/webapp/publicApi";
+  import type { ApiClient } from "../lib/webapp/publicApi";
   import {
     DEFAULT_USERS_ROUTE_FILTERS,
     normalizeUsersRouteFilters,
@@ -68,6 +70,7 @@
 
   let {
     api,
+    apiBlob,
     onClose = () => {},
     onToast = () => {},
     initialSection = "stats",
@@ -94,6 +97,7 @@
     t = (key, _params = {}, fallback = "") => fallback || key,
   }: {
     api: AdminApi;
+    apiBlob: ApiClient["apiBlob"];
     onClose?: () => void;
     onToast?: (message: string) => void;
     initialSection?: string;
@@ -127,6 +131,10 @@
     return api;
   }
 
+  function initialApiBlob(): ApiClient["apiBlob"] {
+    return apiBlob;
+  }
+
   function initialRoutePrefix(): string {
     return routePrefix;
   }
@@ -140,6 +148,7 @@
   }
 
   const stableApi = initialApi();
+  const stableApiBlob = initialApiBlob();
   const stableRoutePrefix = initialRoutePrefix();
   const stableOnTariffsSaved = initialTariffsSaved();
   const stableOnThemesSaved = initialThemesSaved();
@@ -158,6 +167,7 @@
     usersStore,
   } = createAdminStores({
     api: stableApi,
+    apiBlob: stableApiBlob,
     onToast: flash,
     at,
     routePrefix: stableRoutePrefix,
@@ -251,7 +261,8 @@
 
   let sidebarOpen = $state(false);
   let dismissedUserRouteKey = $state("");
-  let lastUserRouteKey = $state("");
+  let handledUserRouteKey = $state("");
+  let handledPaymentRouteKey = $state("");
 
   function flash(text: string): void {
     onToast(text);
@@ -547,7 +558,6 @@
     const uid = Number(userId);
     // Synthetic email-only users use negative user_id; still a valid admin target.
     if (!Number.isFinite(uid) || uid === 0) return;
-    dismissedUserRouteKey = "";
     const next = normalizeSection("payments");
     sidebarOpen = false;
     if (active !== next) {
@@ -598,10 +608,24 @@
     window.dispatchEvent(new PopStateEvent("popstate"));
   }
 
+  function openPaymentPromoCard(promoId: number): void {
+    const id = Number(promoId);
+    if (!Number.isFinite(id) || id <= 0) return;
+    const next = normalizeSection("promos");
+    sidebarOpen = false;
+    paymentsStore.closePayment({ skipPush: true });
+    if (active !== next) {
+      active = next;
+      usersStore.closeUser();
+      onSectionChange(next);
+    }
+    usersStore.setActive(next);
+    void promosStore.openPromoById(id);
+  }
+
   function openLogsUserCard(userId: unknown): void {
     const uid = Number(userId);
     if (!Number.isFinite(uid) || uid === 0) return;
-    dismissedUserRouteKey = "";
     const next = normalizeSection("logs");
     sidebarOpen = false;
     if (active !== next) {
@@ -617,7 +641,6 @@
   function openUserCard(userId: unknown): void {
     const uid = Number(userId);
     if (!Number.isFinite(uid) || uid === 0) return;
-    dismissedUserRouteKey = "";
     sidebarOpen = false;
     usersStore.setActive(active);
     void usersStore.openUser(uid, {
@@ -626,14 +649,14 @@
     });
   }
 
-  function userRouteKey(section = active): string {
+  function userRouteKey(section: string): string {
     if (section === "users" && initialUserId) return `users:${initialUserId}`;
     if (section === "payments" && initialPaymentUserId) return `payments:${initialPaymentUserId}`;
     return "";
   }
 
   function closeUserCard(): void {
-    dismissedUserRouteKey = userRouteKey();
+    dismissedUserRouteKey = userRouteKey(active);
     usersStore.closeUser({ skipPush: true });
     if (active === "users" || active === "payments") {
       onSectionChange(active, 0);
@@ -701,113 +724,112 @@
   });
 
   $effect(() => {
-    const currentUserRouteKey = userRouteKey();
-    if (currentUserRouteKey !== lastUserRouteKey) {
-      if (currentUserRouteKey !== dismissedUserRouteKey) dismissedUserRouteKey = "";
-      lastUserRouteKey = currentUserRouteKey;
+    const routeSection = normalizeSection(initialSection);
+    const routeKey = userRouteKey(routeSection);
+    if (!routeKey) {
+      handledUserRouteKey = "";
+      dismissedUserRouteKey = "";
+      return;
+    }
+    if (routeKey === handledUserRouteKey || routeKey === dismissedUserRouteKey) return;
+    handledUserRouteKey = routeKey;
+    if (routeSection === "users" && initialUserId) {
+      void untrack(() => usersStore.openUser(initialUserId, { skipPush: true }));
+    } else if (routeSection === "payments" && initialPaymentUserId) {
+      void untrack(() =>
+        usersStore.openUser(initialPaymentUserId, {
+          skipPush: true,
+          pathContext: "payments",
+        })
+      );
     }
   });
 
   $effect(() => {
-    if (
-      active === "users" &&
-      initialUserId &&
-      dismissedUserRouteKey !== `users:${initialUserId}` &&
-      (!usersStore.openedUser || usersStore.openedUser.user_id !== initialUserId)
-    ) {
-      void usersStore.openUser(initialUserId, { skipPush: true });
+    const routeSection = normalizeSection(initialSection);
+    const paymentId = routeSection === "payments" ? initialPaymentId : null;
+    if (!paymentId) {
+      handledPaymentRouteKey = "";
+      return;
     }
-  });
-
-  $effect(() => {
-    if (
-      active === "payments" &&
-      initialPaymentId &&
-      (!paymentsStore.openedPaymentId || paymentsStore.openedPaymentId !== initialPaymentId)
-    ) {
-      void paymentsStore.openPayment(initialPaymentId, { skipPush: true });
-    }
-  });
-
-  $effect(() => {
-    if (
-      active === "payments" &&
-      initialPaymentUserId &&
-      dismissedUserRouteKey !== `payments:${initialPaymentUserId}` &&
-      (!usersStore.openedUser || usersStore.openedUser.user_id !== initialPaymentUserId)
-    ) {
-      void usersStore.openUser(initialPaymentUserId, { skipPush: true, pathContext: "payments" });
-    }
+    const routeKey = `payments:${paymentId}`;
+    if (routeKey === handledPaymentRouteKey) return;
+    handledPaymentRouteKey = routeKey;
+    void untrack(() => paymentsStore.openPayment(paymentId, { skipPush: true }));
   });
 </script>
 
-<AdminPanelLayout
-  api={stableApi}
-  {active}
-  {activeSectionComponent}
-  {activeSectionLoading}
-  featureAvailable={activeSectionFeatureAvailable}
-  {featuresResolved}
-  {availableFeatures}
-  {adsStore}
-  {appFaviconUrl}
-  {appFaviconUseCustom}
-  {appRepositoryUrl}
-  {appVersion}
-  {at}
-  {brand}
-  {brandTitle}
-  {currentLang}
-  {dirtyCount}
-  {fmtDate}
-  {fmtDateShort}
-  {fmtMoney}
-  initialTicketId={readSupportTicketIdFromPath()}
-  {languageBusy}
-  {languageOptions}
-  {logsStore}
-  {meta}
-  {NAV_GROUPS}
-  {onClose}
-  {onLanguageChange}
-  onCloseUser={closeUserCard}
-  onExportPayments={exportPayments}
-  onOpenPaymentUserCard={openPaymentUserCard}
-  onOpenPartnerCard={openPartnerCard}
-  onOpenPaymentCard={openPaymentCard}
-  onOpenSettingsPath={openSettingsPath}
-  onOpenUserCard={openSectionUserCard}
-  onOpenUsersFilter={openUsersFilter}
-  {onUsersFiltersChange}
-  onSaveSettings={onSettingsSaved}
-  onSaveTranslations={onTranslationsSaved}
-  onSetActive={setActive}
-  onSettingsPathChange={(path: SettingsPath) => (settingsPath = path)}
-  {openTelegramProfileLink}
-  {paymentStatusVariant}
-  {panelStatusBadge}
-  {promosStore}
-  {resolvedAvatarUrl}
-  {routePrefix}
-  {settingsPath}
-  {settingsSaving}
-  {settingsStore}
-  bind:sidebarOpen
-  {statsStore}
-  {supportStore}
-  {syncBusy}
-  {tariffsStore}
-  {translationsDirtyCount}
-  {translationsSaving}
-  {translationsStore}
-  {trafficLeftLabel}
-  {trafficOfLabel}
-  {trafficPercentValue}
-  {userDisplayName}
-  {userInitials}
-  {userSecondaryName}
-  {userTelegramProfileLink}
-  {userTelegramProfileLinkKind}
-  {warmSectionComponent}
-  {t}
-/>
+<!-- The admin bundle mounts as its own root, outside the webapp provider. -->
+<Tooltip.Provider>
+  <AdminPanelLayout
+    api={stableApi}
+    {active}
+    {activeSectionComponent}
+    {activeSectionLoading}
+    featureAvailable={activeSectionFeatureAvailable}
+    {featuresResolved}
+    {availableFeatures}
+    {adsStore}
+    {appFaviconUrl}
+    {appFaviconUseCustom}
+    {appRepositoryUrl}
+    {appVersion}
+    {at}
+    {brand}
+    {brandTitle}
+    {currentLang}
+    {dirtyCount}
+    {fmtDate}
+    {fmtDateShort}
+    {fmtMoney}
+    initialTicketId={readSupportTicketIdFromPath()}
+    {languageBusy}
+    {languageOptions}
+    {logsStore}
+    {meta}
+    {NAV_GROUPS}
+    {onClose}
+    {onLanguageChange}
+    onCloseUser={closeUserCard}
+    onExportPayments={exportPayments}
+    onOpenPaymentUserCard={openPaymentUserCard}
+    onOpenPaymentPromoCard={openPaymentPromoCard}
+    onOpenPartnerCard={openPartnerCard}
+    onOpenPaymentCard={openPaymentCard}
+    onOpenSettingsPath={openSettingsPath}
+    onOpenUserCard={openSectionUserCard}
+    onOpenUsersFilter={openUsersFilter}
+    {onUsersFiltersChange}
+    onSaveSettings={onSettingsSaved}
+    onSaveTranslations={onTranslationsSaved}
+    onSetActive={setActive}
+    onSettingsPathChange={(path: SettingsPath) => (settingsPath = path)}
+    {openTelegramProfileLink}
+    {paymentStatusVariant}
+    {panelStatusBadge}
+    {promosStore}
+    {resolvedAvatarUrl}
+    {routePrefix}
+    {settingsPath}
+    {settingsSaving}
+    {settingsStore}
+    bind:sidebarOpen
+    {statsStore}
+    {supportStore}
+    {syncBusy}
+    {tariffsStore}
+    {translationsDirtyCount}
+    {translationsSaving}
+    {translationsStore}
+    {trafficLeftLabel}
+    {trafficOfLabel}
+    {trafficPercentValue}
+    {userDisplayName}
+    {userInitials}
+    {userSecondaryName}
+    {userTelegramProfileLink}
+    {userTelegramProfileLinkKind}
+    {warmSectionComponent}
+    {t}
+  />
+</Tooltip.Provider>

@@ -99,7 +99,7 @@ docker compose logs -f backend
 - `/auth/telegram/start` и `/auth/telegram/callback` проходят через frontend nginx в `backend:8081`;
 - в браузере после callback нет статуса `telegram_auth=invalid_state`, `invalid_token`, `not_configured`, `unauthorized` или `failed`.
 
-Подробности по маршрутам и настройке OAuth: [Telegram-авторизация](../features/telegram-auth.md).
+Подробности по маршрутам и настройке OAuth: [Telegram](../features/login-methods.md#telegram).
 
 ## После изменения конфигурации
 

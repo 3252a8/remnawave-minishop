@@ -1,6 +1,7 @@
 import { publicInstallTokenFromPath } from "./routes.js";
 import { shellState } from "./shellState.svelte";
 import { refreshTelegramNotificationsAfterResume } from "./telegramNotificationsResume.js";
+import { applyPreferredTelegramViewportMode } from "./telegramViewport.js";
 import { runWebappBoot } from "./webappBoot.js";
 
 type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -29,7 +30,10 @@ type AppBootRuntimeDeps = {
     authData: unknown,
     source: "auth_data" | "init_data" | "id_token"
   ) => unknown;
+  linkTelegramAfterExternalAuth: () => Promise<unknown> | unknown;
+  restorePendingExternalOauth: () => Promise<boolean> | boolean;
   setAuthStatus: (message: string, isError?: boolean) => void;
+  showToast: (message: unknown) => void;
   t: Translate;
   readTelegramMiniAppInitDataFromLocation: () => string;
   // Post-boot activation handoff.
@@ -75,6 +79,7 @@ export function createAppBootRuntime(deps: AppBootRuntimeDeps) {
         try {
           telegram.ready?.();
           telegram.expand?.();
+          applyPreferredTelegramViewportMode(telegram);
         } catch (_error) {
           void _error;
         }
@@ -91,7 +96,10 @@ export function createAppBootRuntime(deps: AppBootRuntimeDeps) {
       hasEmailCodeLoginDeeplink: deps.hasEmailCodeLoginDeeplink,
       finalizeMagicLogin: deps.finalizeMagicLogin,
       finalizeTelegramAuth: deps.finalizeTelegramAuth,
+      linkTelegramAfterExternalAuth: deps.linkTelegramAfterExternalAuth,
+      restorePendingExternalOauth: deps.restorePendingExternalOauth,
       setAuthStatus: deps.setAuthStatus,
+      showAccountLinkStatus: deps.showToast,
       t: deps.t,
       getInitDataForBoot: () =>
         shellState.telegramMiniAppInitData ||

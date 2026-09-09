@@ -15,7 +15,7 @@ from bot.services.email_auth_service import EmailAuthService
 from bot.services.partner_program_service import PartnerProgramService
 from bot.services.registration_invite_gate import evaluate_registration_invite
 from config.settings import Settings
-from db.dal import security_dal, user_dal
+from db.dal import security_dal, user_dal, user_email_dal
 from db.models import User
 
 from .auth_common import (
@@ -98,7 +98,9 @@ async def email_password_auth_route(request: web.Request) -> web.Response:
                     "Too many password attempts",
                 )
 
-            db_user = await user_dal.get_user_by_email(session, email)
+            db_user = await user_dal.get_user_by_email(session, email) or (
+                await user_email_dal.get_user_by_verified_email_address(session, email)
+            )
             password_ok = bool(
                 db_user
                 and db_user.email_verified_at
@@ -202,7 +204,9 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
                     status=status,
                 )
 
-            db_user = await user_dal.get_user_by_email(session, email)
+            db_user = await user_dal.get_user_by_email(session, email) or (
+                await user_email_dal.get_user_by_verified_email_address(session, email)
+            )
             if not db_user:
                 invite_check = await evaluate_registration_invite(
                     session,
@@ -232,6 +236,7 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
                     )
             elif not db_user.email_verified_at:
                 db_user.email_verified_at = datetime.now(UTC)
+            await user_email_dal.ensure_primary_user_email_address(session, db_user)
 
             referral_applied = await _apply_referral_to_existing_user(
                 request,
@@ -301,7 +306,9 @@ async def email_auth_magic_route(request: web.Request) -> web.Response:
                 )
 
             verified_email = magic_result.email or ""
-            db_user = await user_dal.get_user_by_email(session, verified_email)
+            db_user = await user_dal.get_user_by_email(session, verified_email) or (
+                await user_email_dal.get_user_by_verified_email_address(session, verified_email)
+            )
             if not db_user:
                 invite_check = await evaluate_registration_invite(
                     session,
@@ -331,6 +338,7 @@ async def email_auth_magic_route(request: web.Request) -> web.Response:
                     )
             elif not db_user.email_verified_at:
                 db_user.email_verified_at = datetime.now(UTC)
+            await user_email_dal.ensure_primary_user_email_address(session, db_user)
 
             referral_applied = await _apply_referral_to_existing_user(
                 request,

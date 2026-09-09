@@ -8,6 +8,7 @@ from bot.services.panel_activity import (
     panel_status_means_active,
     record_subscription_panel_activity,
 )
+from bot.services.subscription_order_terms import gift_tariff
 from bot.utils.config_link import prepare_config_links
 from bot.utils.locale_defaults import tariff_premium_title
 from bot.utils.traffic_reset import (
@@ -18,6 +19,7 @@ from bot.utils.traffic_reset import (
 from db.dal import subscription_dal, tariff_dal, user_dal
 
 from ._typing import SubscriptionServiceMixinContract
+from .hwid_limits import resolve_hwid_base_limit
 
 logger = logging.getLogger(__name__)
 
@@ -152,9 +154,11 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             else:
                 hwid_limit = self.settings.USER_HWID_DEVICE_LIMIT
         tariff = None
-        if local_active_sub and local_active_sub.tariff_key and self._tariffs_config():
+        if local_active_sub and local_active_sub.tariff_key:
             try:
-                tariff = self._resolve_tariff(local_active_sub.tariff_key)
+                tariff = gift_tariff(local_active_sub) or self._resolve_tariff(
+                    local_active_sub.tariff_key
+                )
             except Exception:
                 tariff = None
         billing_model_display = (
@@ -207,6 +211,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             else False
         )
         hwid_entitlement_summary: dict[str, Any] = {}
+        base_hwid_limit_for_payload: int | None = None
         active_extra_hwid_devices = (
             int(local_active_sub.extra_hwid_devices or 0) if local_active_sub else 0
         )
@@ -230,10 +235,10 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                     "Failed to load HWID entitlement summary for subscription %s",
                     local_active_sub.subscription_id,
                 )
-            base_hwid_limit_for_payload = (
-                local_active_sub.hwid_device_limit
-                if local_active_sub.hwid_device_limit is not None
-                else self._base_hwid_limit_for_tariff(tariff)
+            base_hwid_limit_for_payload = resolve_hwid_base_limit(
+                local_active_sub.hwid_device_limit,
+                self._base_hwid_limit_for_tariff(tariff),
+                is_override=bool(getattr(local_active_sub, "hwid_device_limit_is_override", False)),
             )
             expected_hwid_limit = self._effective_hwid_limit(
                 base_hwid_limit_for_payload,
@@ -357,9 +362,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             or (local_active_sub.period_start_at if local_active_sub else None),
             "traffic_next_reset_at": traffic_next_reset_at,
             "is_throttled": bool(local_active_sub.is_throttled) if local_active_sub else False,
-            "base_hwid_device_limit": local_active_sub.hwid_device_limit
-            if local_active_sub
-            else None,
+            "base_hwid_device_limit": base_hwid_limit_for_payload,
             "extra_hwid_devices": active_extra_hwid_devices,
             "extra_hwid_devices_valid_until": extra_hwid_valid_until,
             "extra_hwid_devices_valid_until_text": self._display_datetime_text(

@@ -13,6 +13,7 @@ from .billing_checkout_bundle import (
     checkout_pricing_windows_from_records,
     price_checkout_addon_definitions,
 )
+from .billing_common import _subscription_is_trial
 
 
 async def attach_checkout_pricing_context_to_plans(
@@ -24,8 +25,14 @@ async def attach_checkout_pricing_context_to_plans(
 ) -> None:
     if local_sub is None or not settings.tariffs_config:
         return
+    if _subscription_is_trial(local_sub):
+        for plan in plans:
+            if str(plan.get("sale_mode") or "subscription") != "subscription":
+                continue
+            plan.pop("tariff_switch_required", None)
+        return
     try:
-        active_tariff = settings.tariffs_config.require(local_sub.tariff_key)
+        active_tariff = settings.tariffs_config.require_configured(local_sub.tariff_key)
     except Exception:
         active_tariff = None
     pricing_now = datetime.now(UTC)

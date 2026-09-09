@@ -9,6 +9,7 @@ import type { PreviewThemesCatalog } from "./types";
 // optional fields that older snapshots may not carry.
 type DemoDatasetShape = Record<string, unknown> & {
   config?: Record<string, unknown>;
+  adminPayments?: Record<string, unknown>[];
   currentUser?: Record<string, unknown> | null;
   currentSubscription?: Record<string, unknown> | null;
   devices?: Record<string, unknown>;
@@ -22,6 +23,85 @@ type DemoDatasetShape = Record<string, unknown> & {
 };
 
 const DATASET = DEMO_DATASET as unknown as DemoDatasetShape;
+const USER_BALANCE_PREVIEW_AMOUNT_MINOR = 128_450;
+
+function setUserBalanceScenario(enabled: boolean): void {
+  const balance = DEV_MOCK.data.balance;
+  const currencyScale = Number(balance.currency_scale || 2);
+  const amountMinor = enabled ? USER_BALANCE_PREVIEW_AMOUNT_MINOR : 0;
+  const amount = (amountMinor / 10 ** currencyScale).toFixed(currencyScale);
+
+  Object.assign(balance, { enabled, amount_minor: amountMinor, amount });
+
+  const sources = Array.isArray(balance.sources) ? balance.sources : [];
+  const userSource = sources.find(
+    (item) =>
+      typeof item === "object" && item !== null && (item as Record<string, unknown>).id === "user"
+  ) as Record<string, unknown> | undefined;
+  if (userSource) Object.assign(userSource, { amount_minor: amountMinor, amount });
+}
+
+function applyPaymentPurchasesScenario(): void {
+  const payments = DATASET.adminPayments;
+  if (!payments?.length) return;
+  const examples: Record<string, unknown>[] = [
+    {
+      amount: 1590,
+      status: "succeeded",
+      description: "Standard · 3 months",
+      subscription_duration_months: 3,
+      sale_mode: "subscription@standard",
+      traffic_regular_gb: null,
+      traffic_premium_gb: null,
+      purchased_gb: null,
+      purchased_hwid_devices: 2,
+      purchases: [
+        { kind: "traffic", amount: 150, unit: "gb", scope: "regular", mode: "limit" },
+        { kind: "traffic", amount: 50, unit: "gb", scope: "premium", mode: "limit" },
+        { kind: "hwid_devices", amount: 2, unit: "device", scope: null, mode: "limit" },
+      ],
+    },
+    {
+      amount: 480,
+      status: "succeeded",
+      description: "Standard · 1 month",
+      subscription_duration_months: 1,
+      sale_mode: "subscription@standard",
+      traffic_regular_gb: null,
+      traffic_premium_gb: null,
+      purchased_gb: null,
+      purchased_hwid_devices: 1,
+      purchases: [{ kind: "hwid_devices", amount: 1, unit: "device", scope: null, mode: "limit" }],
+    },
+    {
+      amount: 290,
+      status: "succeeded",
+      description: "",
+      subscription_duration_months: null,
+      sale_mode: "topup@standard",
+      traffic_regular_gb: 50,
+      traffic_premium_gb: null,
+      purchased_gb: 50,
+      purchased_hwid_devices: null,
+      purchases: [{ kind: "traffic", amount: 50, unit: "gb", scope: "regular", mode: "topup" }],
+    },
+    {
+      amount: 390,
+      status: "succeeded",
+      description: "",
+      subscription_duration_months: null,
+      sale_mode: "premium_topup@standard",
+      traffic_regular_gb: null,
+      traffic_premium_gb: 25,
+      purchased_gb: 25,
+      purchased_hwid_devices: null,
+      purchases: [{ kind: "traffic", amount: 25, unit: "gb", scope: "premium", mode: "topup" }],
+    },
+  ];
+  DATASET.adminPayments = payments.map((payment, index) =>
+    examples[index] ? { ...payment, ...examples[index] } : payment
+  );
+}
 
 export function applyDemoDataset(): void {
   const storedLanguage = readStoredDemoLanguage();
@@ -59,6 +139,7 @@ export function applyDemoDataset(): void {
       ...(DATASET.webappSettings || {}),
     },
   });
+  setUserBalanceScenario(false);
 }
 
 function applyDemoTariffScenario(subscriptionPatch: Record<string, unknown> = {}): void {
@@ -166,6 +247,21 @@ export function applyPreviewMock(kind: unknown): void {
     .trim()
     .toLowerCase();
 
+  if (mode === "legacy-themes") {
+    for (const catalog of [DEV_MOCK.config.themesCatalog, DEV_MOCK.data.themes_catalog]) {
+      if (!catalog.themes.some((theme) => theme.key === "CustomTheme"))
+        catalog.themes.push({
+          key: "CustomTheme",
+          names: { en: "CustomTheme", ru: "CustomTheme" },
+          enabled: true,
+          tokens: { bg: "#123456", accent: "#abcdef" },
+          variants: { light: { bg: "#f1f5f9" } },
+        });
+      applyPreviewThemeToCatalog(catalog, "CustomTheme", null);
+    }
+    return;
+  }
+
   const previewTheme = (DEV_MOCK.config.themesCatalog.themes || []).find(
     (theme) => theme.key === mode
   );
@@ -179,6 +275,11 @@ export function applyPreviewMock(kind: unknown): void {
     return;
   }
 
+  if (mode === "payments-addons" || mode === "payments_addons" || mode === "payment-purchases") {
+    applyPaymentPurchasesScenario();
+    return;
+  }
+
   if (mode === "guides" || mode === "install") {
     DEV_MOCK.data.settings.subscription_guides_enabled = true;
     DEV_MOCK.data.subscription_guides = {
@@ -186,6 +287,23 @@ export function applyPreviewMock(kind: unknown): void {
       enabled: true,
       config: INSTALL_GUIDES_CONFIG,
     };
+    return;
+  }
+
+  if (mode === "user-balance" || mode === "user_balance" || mode === "balance") {
+    DEV_MOCK.data.settings.user_balance_enabled = true;
+    setUserBalanceScenario(true);
+    return;
+  }
+
+  if (mode === "compact" || mode === "compact-home" || mode === "compact_home") {
+    DEV_MOCK.config.compactHomeEnabled = true;
+    return;
+  }
+
+  if (mode === "server-status" || mode === "server_status" || mode === "status") {
+    DEV_MOCK.config.serverStatusInternal = true;
+    DEV_MOCK.config.serverStatusShowOnHome = true;
     return;
   }
 
@@ -201,7 +319,9 @@ export function applyPreviewMock(kind: unknown): void {
       telegram_first_name: "3252a8",
       telegram_last_name: "",
     };
+    DEV_MOCK.config.authProviders = ["telegram", "email", "google"];
     DEV_MOCK.data.settings.email_auth_enabled = true;
+    DEV_MOCK.data.settings.auth_providers = ["telegram", "email", "google"];
     DEV_MOCK.data.settings.trial_enabled = true;
     DEV_MOCK.data.settings.trial_available = true;
     return;
@@ -285,7 +405,12 @@ export function applyPreviewMock(kind: unknown): void {
     return;
   }
 
-  if (mode === "checkout-addons" || mode === "checkout_addons" || mode === "subscription-extras") {
+  if (
+    mode === "checkout-addons" ||
+    mode === "checkout_addons" ||
+    mode === "subscription-extras" ||
+    mode === "checkout-no-addons"
+  ) {
     DEV_MOCK.data.settings = {
       ...DEV_MOCK.data.settings,
       traffic_mode: false,
@@ -305,12 +430,16 @@ export function applyPreviewMock(kind: unknown): void {
       premium_baseline_bytes: 53687091200,
       max_devices: 5,
     };
-    DEV_MOCK.data.plans = [
+    const plans = [
       previewPeriodPlan(1, 290, 145, "1 месяц"),
       previewPeriodPlan(3, 790, 395, "3 месяца"),
       previewPeriodPlan(6, 1490, 745, "6 месяцев"),
       previewPeriodPlan(12, 2690, 1345, "1 год"),
     ];
+    DEV_MOCK.data.plans =
+      mode === "checkout-no-addons"
+        ? plans.map(({ checkout_addons: _checkoutAddons, ...plan }) => plan)
+        : plans;
     DEV_MOCK.data.payment_methods = [
       {
         id: "cloudpayments",

@@ -1,24 +1,34 @@
 <script lang="ts">
+  import CheckoutHeader from "./CheckoutHeader.svelte";
+  import { checkoutUnitPrice } from "$lib/webapp/checkoutUnitPrice.js";
   import { ArrowLeft, ArrowRight, CheckCircle2 } from "$components/ui/icons.js";
-
   import Button from "$components/ui/button.svelte";
   import Checkbox from "$components/ui/checkbox.svelte";
   import Dialog from "$components/ui/dialog.svelte";
   import { CheckoutAddonSliders, EmptyCard } from "$components/patterns/webapp/index.js";
   import CheckoutPeriodPrice from "./CheckoutPeriodPrice.svelte";
   import CheckoutPaymentControls from "./CheckoutPaymentControls.svelte";
+  import CheckoutTariffPicker from "./CheckoutTariffPicker.svelte";
   import PendingPaymentCard from "./PendingPaymentCard.svelte";
+  import TrialPaymentSummary from "./TrialPaymentSummary.svelte";
+  import type {
+    CheckoutPaymentOptions,
+    PaymentCheckoutDialogProps,
+  } from "./PaymentCheckoutDialog.types.js";
   import {
     checkoutPromoAffectsQuotedPlan,
     checkoutPromoBlockVisible,
+    checkoutPromoMatchesPlan,
+    discountedCheckoutPlan as discountedCheckoutPlanFn,
+    normalizedCheckoutPromoDiscount,
     selectPaymentMethodWithPromoReset,
   } from "$lib/webapp/checkoutPromoPolicy.js";
-  import { formatCompactNumber, formatMoney } from "$lib/webapp/formatters.js";
   import {
-    buildSubscriptionQuotePath,
-    type ApiClient,
-    type PostPayload,
-  } from "$lib/webapp/publicApi.js";
+    checkoutBalanceLookupPlan,
+    createCheckoutBalancePreload,
+  } from "$lib/webapp/checkoutBalancePreload.svelte.js";
+  import { formatCompactNumber, formatMoney } from "$lib/webapp/formatters.js";
+  import { buildSubscriptionQuotePath, type PostPayload } from "$lib/webapp/publicApi.js";
   import {
     planKey as planKeyFn,
     planDisplayTitle as planDisplayTitleFn,
@@ -27,6 +37,7 @@
     tariffLimitLabel as tariffLimitLabelFn,
     priceLabel as priceLabelFn,
     firstAvailableMethod,
+    isTrialPaymentPlan,
     methodSelectable,
     methodsForPlan,
   } from "$lib/webapp/tariffs.js";
@@ -34,25 +45,14 @@
     CheckoutAddonDefinition,
     CheckoutAddonKind,
     CheckoutAddonSelection,
-    PaymentMethodView,
-    PendingPaymentView,
     PlanView,
-    SubscriptionView,
     TariffView,
-    TermUnitLabel,
-    Translate,
-    VoidAction,
   } from "$lib/webapp/types.js";
-
-  type CheckoutPaymentOptions = {
-    usePartnerBalance?: boolean;
-    checkoutAddons?: CheckoutAddonSelection;
-  };
-  type BalancePaymentAction = (options?: CheckoutPaymentOptions) => unknown;
-  type CheckoutPromoAction = (options?: Pick<CheckoutPaymentOptions, "checkoutAddons">) => unknown;
-
   let {
     api,
+    inline = false,
+    gift = false,
+    giftDelivery,
     createPayment = () => {},
     hasMultipleTariffs = false,
     methods = [],
@@ -76,66 +76,27 @@
     trafficMode = false,
     closePaymentModal = () => {},
     checkoutPromoAppliedCode = "",
-    checkoutPromoInput = $bindable(""),
+    checkoutPromoInput = "",
     checkoutPromoIsError = false,
     checkoutPromoPriceText = "",
     checkoutPromoEffectiveAmount = 0,
     checkoutPromoStatus = "",
     checkoutPromoDiscountPercent = 0,
     checkoutPromoAppliesTo = "all",
-    checkoutPromoMinSubscriptionMonths = null,
+    checkoutPromoMinSubscriptionDays = null,
     checkoutPromoMinTrafficGb = null,
+    checkoutAddonPreset = null,
     applyCheckoutPromo = () => {},
     backToTariffList = () => {},
     clearCheckoutPromo = () => {},
     continueWithSelectedTariff = () => {},
     resumePendingPayment = () => {},
+    cancelPendingPayment = () => {},
     selectTariff = () => {},
+    setCheckoutPromoInput = () => {},
     t = (key) => key,
     termUnitLabel = () => "",
-  }: {
-    api: ApiClient["api"];
-    createPayment?: BalancePaymentAction;
-    hasMultipleTariffs?: boolean;
-    methods?: PaymentMethodView[];
-    paymentMethodsDisplayMode?: "dropdown" | "buttons" | string;
-    pendingPayment?: PendingPaymentView | null;
-    payBusy?: boolean;
-    paymentModalOpen?: boolean;
-    paymentStep?: string;
-    plans?: PlanView[];
-    selectedMethod?: string;
-    selectedPlan?: PlanView | null;
-    selectedTariff?: TariffView | null;
-    selectedTariffKey?: string;
-    selectedTariffPlans?: PlanView[];
-    renewHwidDevices?: boolean;
-    singleTariffMode?: boolean;
-    subscription?: SubscriptionView;
-    subscriptionPurchaseDescription?: string;
-    tariffCatalog?: TariffView[];
-    tariffMode?: boolean;
-    trafficMode?: boolean;
-    closePaymentModal?: VoidAction;
-    checkoutPromoAppliedCode?: string;
-    checkoutPromoInput?: string;
-    checkoutPromoIsError?: boolean;
-    checkoutPromoPriceText?: string;
-    checkoutPromoEffectiveAmount?: number;
-    checkoutPromoStatus?: string;
-    checkoutPromoDiscountPercent?: number;
-    checkoutPromoAppliesTo?: string;
-    checkoutPromoMinSubscriptionMonths?: number | null;
-    checkoutPromoMinTrafficGb?: number | null;
-    applyCheckoutPromo?: CheckoutPromoAction;
-    backToTariffList?: VoidAction;
-    clearCheckoutPromo?: VoidAction;
-    continueWithSelectedTariff?: VoidAction;
-    resumePendingPayment?: (payment: PendingPaymentView) => void;
-    selectTariff?: (tariff: TariffView) => void;
-    t?: Translate;
-    termUnitLabel?: TermUnitLabel;
-  } = $props();
+  }: PaymentCheckoutDialogProps = $props();
 
   function methodUsesStars() {
     return String(selectedMethod || "")
@@ -180,13 +141,11 @@
   let checkoutQuoteError = $state("");
   let checkoutQuoteRequestId = 0;
   let checkoutSliderInteracting = $state(false);
-
   const checkoutAddonSelection = $derived<CheckoutAddonSelection>({
     device_count: checkoutDeviceCount,
     regular_limit_gb: checkoutRegularLimitGb,
     premium_limit_gb: checkoutPremiumLimitGb,
   });
-
   function checkoutAddonDefinitions(
     plan: PlanView | null
   ): Partial<Record<CheckoutAddonKind, CheckoutAddonDefinition>> {
@@ -274,6 +233,25 @@
     }
   }
 
+  function checkoutPresetValue(
+    kind: CheckoutAddonKind,
+    requested: number | null,
+    fallback: number | null
+  ): number | null {
+    if (requested == null) return fallback;
+    const definition = checkoutAddonDefinitions(selectedPlan)[kind];
+    if (!definition) return fallback;
+    const option = definition.options.find((candidate) => {
+      const candidateValue =
+        kind === "devices"
+          ? Number(candidate.total_units ?? candidate.extra_units ?? 0)
+          : Number(candidate.total_units || 0);
+      return Math.abs(candidateValue - requested) < 1e-9;
+    });
+    if (!option) return fallback;
+    return kind === "devices" ? Number(option.extra_units || 0) : Number(option.total_units || 0);
+  }
+
   function handleCheckoutSliderInteraction(active: boolean): void {
     if (checkoutSliderInteracting === active) return;
     checkoutSliderInteracting = active;
@@ -286,7 +264,7 @@
   }
 
   function checkoutPaymentOptions(): CheckoutPaymentOptions {
-    return { usePartnerBalance, checkoutAddons: checkoutAddonSelection };
+    return { balanceSource, checkoutAddons: checkoutAddonSelection };
   }
 
   function checkoutQuotePlan(plan: PlanView | null): PlanView | null {
@@ -376,59 +354,23 @@
     return paymentPriceLabel(plan);
   }
   function checkoutPromoDiscount() {
-    const value = Number(checkoutPromoDiscountPercent || 0);
-    if (!checkoutPromoAppliedCode || !Number.isFinite(value) || value <= 0) return 0;
-    return Math.min(100, value);
-  }
-  function planSaleModeBase(plan: PlanView | null) {
-    const fallback =
-      Number(plan?.device_count || 0) > 0
-        ? "hwid_devices"
-        : Number(plan?.traffic_gb || 0) > 0
-          ? "traffic"
-          : "subscription";
-    const saleMode = String(plan?.sale_mode || fallback).toLowerCase();
-    if (["traffic", "traffic_package"].includes(saleMode)) return "traffic";
-    if (["topup", "premium_topup"].includes(saleMode)) return "traffic_topup";
-    if (["hwid_device", "hwid_devices", "hwid_devices_renewal"].includes(saleMode)) return "hwid";
-    return "subscription";
-  }
-  function checkoutPromoScopeMatches(plan: PlanView | null) {
-    const scope = String(checkoutPromoAppliesTo || "all").toLowerCase();
-    const base = planSaleModeBase(plan);
-    return scope === "all" || scope === base;
-  }
-  function checkoutPromoThresholdMatches(plan: PlanView | null) {
-    const base = planSaleModeBase(plan);
-    const minMonths = Number(checkoutPromoMinSubscriptionMonths || 0);
-    const minTrafficGb = Number(checkoutPromoMinTrafficGb || 0);
-    if (base === "subscription" && minMonths > 0) {
-      return Number(plan?.months || 0) >= minMonths;
-    }
-    if ((base === "traffic" || base === "traffic_topup") && minTrafficGb > 0) {
-      return Number(plan?.traffic_gb || plan?.months || 0) >= minTrafficGb;
-    }
-    return true;
+    return normalizedCheckoutPromoDiscount(checkoutPromoAppliedCode, checkoutPromoDiscountPercent);
   }
   function checkoutPromoAffectsPlan(plan: PlanView | null) {
+    if (isTrialPaymentPlan(plan)) return false;
     return checkoutPromoAffectsQuotedPlan(
       checkoutPromoDiscount(),
-      checkoutPromoScopeMatches(plan),
-      checkoutPromoThresholdMatches(plan)
+      checkoutPromoMatchesPlan(
+        plan,
+        checkoutPromoAppliesTo,
+        checkoutPromoMinSubscriptionDays,
+        checkoutPromoMinTrafficGb
+      ),
+      true
     );
   }
   function discountedCheckoutPlan(plan: PlanView | null) {
-    const discount = checkoutPromoDiscount();
-    if (!plan || discount <= 0) return plan;
-    const multiplier = Math.max(0, 1 - discount / 100);
-    const next: PlanView = { ...plan };
-    if (Number(plan.price || 0) > 0) {
-      next.price = Math.round(Number(plan.price || 0) * multiplier * 100) / 100;
-    }
-    if (Number(plan.stars_price || 0) > 0) {
-      next.stars_price = Math.max(1, Math.round(Number(plan.stars_price || 0) * multiplier));
-    }
-    return next;
+    return discountedCheckoutPlanFn(plan, checkoutPromoDiscount());
   }
   function checkoutPromoPlanParts(plan: PlanView | null) {
     const checkoutPlan = planWithCheckoutSelection(plan);
@@ -460,7 +402,6 @@
 
   $effect(() => {
     const definitions = checkoutAddonDefinitions(selectedPlan);
-    let resetPromo = false;
     const supported = (kind: CheckoutAddonKind, value: number | null) =>
       value === null ||
       Boolean(
@@ -472,20 +413,21 @@
             ) < 1e-9
         )
       );
-    if (!supported("devices", checkoutDeviceCount)) {
+    if (!supported("devices", checkoutDeviceCount) && checkoutDeviceCount !== 0) {
       checkoutDeviceCount = 0;
-      resetPromo = true;
     }
     if (!supported("traffic", checkoutRegularLimitGb)) {
-      checkoutRegularLimitGb = Number(definitions.traffic?.base_units || 0) || null;
-      resetPromo = true;
+      const defaultRegularLimitGb = Number(definitions.traffic?.base_units || 0) || null;
+      if (checkoutRegularLimitGb !== defaultRegularLimitGb)
+        checkoutRegularLimitGb = defaultRegularLimitGb;
     }
     if (!supported("premium_traffic", checkoutPremiumLimitGb)) {
-      checkoutPremiumLimitGb = Number(definitions.premium_traffic?.base_units || 0) || null;
-      resetPromo = true;
+      const defaultPremiumLimitGb = Number(definitions.premium_traffic?.base_units || 0) || null;
+      if (checkoutPremiumLimitGb !== defaultPremiumLimitGb) {
+        checkoutPremiumLimitGb = defaultPremiumLimitGb;
+      }
     }
     if (checkoutDeviceCount > 0 && renewHwidDevices) renewHwidDevices = false;
-    if (resetPromo) clearCheckoutPromo();
   });
 
   $effect(() => {
@@ -502,12 +444,20 @@
       checkoutQuoteBusy = false;
       return;
     }
+    if (isTrialPaymentPlan(selectedPlan)) {
+      checkoutQuote = null;
+      checkoutQuoteError = "";
+      checkoutQuoteBusy = false;
+      return;
+    }
     if (checkoutSliderInteracting) {
       checkoutQuoteBusy = false;
       return;
     }
     const body = {
-      months: selectedPlan.months,
+      gift,
+      duration_days: selectedPlan.duration_days,
+      months: selectedPlan.duration_days ? undefined : selectedPlan.months,
       traffic_gb: selectedPlan.traffic_gb,
       device_count: selectedPlan.device_count,
       tariff_key: selectedPlan.tariff_key,
@@ -527,17 +477,37 @@
     return () => window.clearTimeout(timer);
   });
   $effect(() => {
-    const identity = String(selectedPlan?.tariff_key || selectedTariffKey || "legacy");
+    const identity = [
+      planKeyFn(selectedPlan),
+      selectedTariffKey || "legacy",
+      checkoutAddonPreset?.deviceTotal ?? "",
+      checkoutAddonPreset?.regularLimitGb ?? "",
+      checkoutAddonPreset?.premiumLimitGb ?? "",
+    ].join(":");
     if (identity !== checkoutPlanIdentity) {
       checkoutPlanIdentity = identity;
       const definitions = checkoutAddonDefinitions(selectedPlan);
-      checkoutDeviceCount = Number(definitions.devices?.initial_units || 0);
-      checkoutRegularLimitGb =
+      const defaultDevices = Number(definitions.devices?.initial_units || 0);
+      const defaultRegular =
         Number(definitions.traffic?.initial_units ?? definitions.traffic?.base_units ?? 0) || null;
-      checkoutPremiumLimitGb =
+      const defaultPremium =
         Number(
           definitions.premium_traffic?.initial_units ?? definitions.premium_traffic?.base_units ?? 0
         ) || null;
+      checkoutDeviceCount = Number(
+        checkoutPresetValue("devices", checkoutAddonPreset?.deviceTotal ?? null, defaultDevices) ||
+          0
+      );
+      checkoutRegularLimitGb = checkoutPresetValue(
+        "traffic",
+        checkoutAddonPreset?.regularLimitGb ?? null,
+        defaultRegular
+      );
+      checkoutPremiumLimitGb = checkoutPresetValue(
+        "premium_traffic",
+        checkoutAddonPreset?.premiumLimitGb ?? null,
+        defaultPremium
+      );
     }
   });
   function hwidRenewalPriceLabel(plan: PlanView | null = selectedPlan) {
@@ -605,44 +575,28 @@
     const checkoutPlan =
       checkoutPromoPlanParts(plan)?.discounted || planWithCheckoutSelection(plan);
     if (!checkoutPlan) return null;
-    const trafficUnit =
-      trafficMode ||
-      ["traffic", "traffic_package", "topup", "premium_topup"].includes(
-        String(plan?.sale_mode || "").toLowerCase()
-      );
-    const divisor = trafficUnit
-      ? Number(plan?.traffic_gb || plan?.months || 0)
-      : Number(plan?.months || 0);
-    if (!(divisor > 0)) return null;
-    return {
-      ...checkoutPlan,
-      price: Math.round((Number(checkoutPlan.price || 0) / divisor) * 100) / 100,
-      stars_price:
-        Number(checkoutPlan.stars_price || 0) > 0
-          ? Math.round(Number(checkoutPlan.stars_price || 0) / divisor)
-          : checkoutPlan.stars_price,
-    };
+    const trafficUnit = trafficMode || !isSubscriptionPlan(plan);
+    return checkoutUnitPrice(checkoutPlan, plan, trafficUnit, methodUsesStars());
   }
   function checkoutUnitPriceSuffix(plan: PlanView | null): string {
-    const trafficUnit =
-      trafficMode ||
-      ["traffic", "traffic_package", "topup", "premium_topup"].includes(
-        String(plan?.sale_mode || "").toLowerCase()
-      );
-    return t(trafficUnit ? "wa_per_gb_short" : "wa_per_month_short");
+    const trafficUnit = trafficMode || !isSubscriptionPlan(plan);
+    return t(trafficUnit ? "wa_per_gb_short" : "wa_per_month_label");
   }
   function tariffLimitLabel(tariff: TariffView) {
     return tariffLimitLabelFn(tariff, { t });
   }
-
   function checkoutPromoBlock() {
-    return checkoutPromoBlockVisible(
-      providerManagesPrice(),
-      Boolean(checkoutPromoAppliedCode || checkoutPromoStatus || selectedPlan)
+    return (
+      !isTrialPaymentPlan(selectedPlan) &&
+      checkoutPromoBlockVisible(
+        providerManagesPrice(),
+        Boolean(checkoutPromoAppliedCode || checkoutPromoStatus || selectedPlan)
+      )
     );
   }
-
   function paymentTitle() {
+    if (gift) return t("wa_gift_buy_title");
+    if (isTrialPaymentPlan(selectedPlan)) return t("wa_trial_payment_title");
     if (singleTariffMode) {
       return selectedTariff?.billing_model === "traffic"
         ? t("wa_traffic_packages_title")
@@ -651,8 +605,9 @@
     if (tariffMode) return t("wa_tariffs_title");
     return trafficMode ? t("wa_traffic_packages_title") : t("wa_subscription_title");
   }
-
   function paymentDescription() {
+    if (gift) return "";
+    if (isTrialPaymentPlan(selectedPlan)) return t("wa_trial_payment_description");
     if (tariffMode) {
       if (singleTariffMode) {
         return selectedTariff?.billing_model === "traffic"
@@ -665,21 +620,23 @@
     }
     return trafficMode ? t("wa_traffic_packages_choose") : t("wa_subscription_choose_period");
   }
-
   function showSubscriptionPurchaseDescription() {
+    if (isTrialPaymentPlan(selectedPlan)) return false;
     if (!subscriptionPurchaseDescription.trim() || trafficMode) return false;
     if (!tariffMode) return true;
     if (paymentStep === "tariff") return false;
     return String(selectedTariff?.billing_model || "period").toLowerCase() !== "traffic";
   }
-
   function showCompactSubscriptionHeader() {
+    if (gift) return false;
+    if (isTrialPaymentPlan(selectedPlan)) return false;
     if (trafficMode) return false;
     if (!tariffMode) return true;
     if (paymentStep === "tariff") return false;
     return String(selectedTariff?.billing_model || "period").toLowerCase() !== "traffic";
   }
-  let usePartnerBalance = $state(false);
+
+  let balanceSource = $state<"user" | "partner" | null>(null);
   let partnerBalanceDiscount = $state(0);
 
   function checkoutAmount(plan: PlanView | null) {
@@ -703,6 +660,7 @@
   function partnerBalanceEligible() {
     return Boolean(
       selectedPlan &&
+      !isTrialPaymentPlan(selectedPlan) &&
       selectedMethod &&
       checkoutAmount(selectedPlan) > 0 &&
       !methodUsesStars() &&
@@ -710,8 +668,18 @@
     );
   }
 
+  const balancePreload = createCheckoutBalancePreload(
+    () => api,
+    () => paymentModalOpen,
+    () => checkoutBalanceLookupPlan(selectedPlan, selectedTariffPlans, plans),
+    () => {
+      balanceSource = null;
+      partnerBalanceDiscount = 0;
+    }
+  );
+
   function partnerCheckoutPriceParts(plan: PlanView | null) {
-    if (!usePartnerBalance || partnerBalanceDiscount <= 0 || !plan) return null;
+    if (!balanceSource || partnerBalanceDiscount <= 0 || !plan) return null;
     return {
       base: checkoutPaymentPriceLabel(plan),
       discounted: formatMoney(
@@ -750,7 +718,9 @@
     partnerCurrency={String(selectedPlan?.currency || "")}
     partnerEligible={partnerBalanceEligible()}
     partnerMinimum={selectedMethodMinimum()}
-    bind:usePartnerBalance
+    prefetchedBalance={balancePreload.response}
+    balancePreloadComplete={balancePreload.complete}
+    bind:balanceSource
     bind:partnerBalanceDiscount
     hasMethods={Boolean(methods.length)}
     {paymentMethods}
@@ -759,12 +729,13 @@
     {selectPaymentMethod}
     {checkoutQuoteError}
     showCheckoutPromo={checkoutPromoBlock()}
-    bind:checkoutPromoInput
+    {checkoutPromoInput}
     {checkoutPromoAppliedCode}
     {checkoutPromoIsError}
     {checkoutPromoStatus}
     applyCheckoutPromo={applyPromoWithCheckoutAddons}
     {clearCheckoutPromo}
+    {setCheckoutPromoInput}
     payDisabled={!selectedPlan ||
       !paymentMethodSelected ||
       payBusy ||
@@ -783,58 +754,42 @@
   />
 {/snippet}
 
-{#snippet compactSubscriptionHeader()}
-  {#if showSubscriptionPurchaseDescription()}
-    <div class="subscription-purchase-description subscription-purchase-description-header">
-      <p>{subscriptionPurchaseDescription}</p>
-    </div>
-  {/if}
+{#snippet paymentHeader()}
+  <CheckoutHeader
+    compact={showCompactSubscriptionHeader()}
+    showPurchaseDescription={showSubscriptionPurchaseDescription()}
+    title={paymentTitle()}
+    description={paymentDescription()}
+    purchaseDescription={subscriptionPurchaseDescription}
+    {inline}
+  />
 {/snippet}
 
-<Dialog
-  open={paymentModalOpen}
-  title={paymentTitle()}
-  description={paymentDescription()}
-  closeLabel={t("wa_close")}
-  onclose={closePaymentModal}
-  class="payment-dialog-card webapp-payment-dialog"
-  headerContent={showCompactSubscriptionHeader() ? compactSubscriptionHeader : undefined}
->
+{#snippet paymentBody()}
   <div class="payment-dialog-body">
+    {#if gift && paymentStep === "checkout"}{@render giftDelivery?.()}{/if}
     {#if pendingPayment}
       <PendingPaymentCard
         payment={pendingPayment}
         {payBusy}
         resume={resumePendingPayment}
+        cancel={cancelPendingPayment}
         {t}
         {termUnitLabel}
       />
     {/if}
-    {#if tariffMode && !singleTariffMode && paymentStep === "tariff"}
+    {#if isTrialPaymentPlan(selectedPlan)}
+      <TrialPaymentSummary plan={selectedPlan as PlanView} {t} />
+      {@render checkoutPaymentControls()}
+    {:else if tariffMode && !singleTariffMode && paymentStep === "tariff"}
       {#if tariffCatalog.length}
-        <div class="option-list tariff-list">
-          {#each tariffCatalog as tariff}
-            <button
-              class:active={selectedTariffKey === tariff.key}
-              class="option-row tariff-row"
-              type="button"
-              onclick={() => selectTariff(tariff)}
-            >
-              <span class="option-row-main">
-                <strong>{tariff.title}</strong>
-                <small>{tariff.description || t("wa_tariff_no_description")}</small>
-              </span>
-              <span class="option-row-meta">
-                <em>{tariffLimitLabel(tariff)}</em>
-                {#if selectedTariffKey === tariff.key}
-                  <CheckCircle2 size={18} />
-                {:else}
-                  <ArrowRight size={17} />
-                {/if}
-              </span>
-            </button>
-          {/each}
-        </div>
+        <CheckoutTariffPicker
+          tariffs={tariffCatalog}
+          {selectedTariffKey}
+          metaLabel={tariffLimitLabel}
+          {selectTariff}
+          {t}
+        />
         <Button
           class="wide bottom-action payment-submit-button"
           onclick={continueWithSelectedTariff}
@@ -994,4 +949,50 @@
       {@render checkoutPaymentControls()}
     {/if}
   </div>
-</Dialog>
+{/snippet}
+
+{#if inline}
+  <section
+    class="inline-payment-checkout"
+    aria-label={showCompactSubscriptionHeader() ? t("wa_checkout_step_payment") : undefined}
+    aria-labelledby={showCompactSubscriptionHeader() ? undefined : "payment-checkout-title"}
+  >
+    {@render paymentHeader()}
+    {@render paymentBody()}
+  </section>
+{:else}
+  <Dialog
+    open={paymentModalOpen && balancePreload.ready}
+    title={paymentTitle()}
+    description={paymentDescription()}
+    closeLabel={t("wa_close")}
+    onclose={closePaymentModal}
+    class={`payment-dialog-card webapp-payment-dialog${gift ? " gift-checkout-dialog" : ""}`}
+    headerContent={paymentHeader}
+  >
+    {@render paymentBody()}
+  </Dialog>
+{/if}
+
+<style>
+  :global(.gift-checkout-dialog > .dialog-head) {
+    position: relative;
+    display: block;
+  }
+  :global(.gift-checkout-dialog .dialog-close-button) {
+    position: absolute;
+    right: 0;
+    top: 0;
+  }
+  :global(.gift-checkout-dialog .payment-checkout-header h2) {
+    padding-right: 44px;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+  }
+  .inline-payment-checkout {
+    display: grid;
+    gap: 18px;
+    min-width: 0;
+  }
+</style>

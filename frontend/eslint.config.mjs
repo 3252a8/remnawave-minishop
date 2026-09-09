@@ -3,6 +3,7 @@ import eslintConfigPrettier from "eslint-config-prettier";
 import svelte from "eslint-plugin-svelte";
 import globals from "globals";
 import tseslint from "typescript-eslint";
+import uiReuse from "./scripts/eslint-ui-reuse.mjs";
 
 /** @type {import("eslint").Linter.Config[]} */
 export default [
@@ -11,6 +12,43 @@ export default [
   },
   js.configs.recommended,
   ...svelte.configs["flat/base"],
+  {
+    files: ["src/**/*.svelte"],
+    rules: {
+      "svelte/no-restricted-html-elements": [
+        "error",
+        {
+          elements: ["select"],
+          message:
+            "Use AdminSelect or the shared Select pattern; native menus bypass the UI library.",
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/**/*.svelte", "src/**/*.ts"],
+    ignores: ["src/lib/components/ui/**", "src/**/*.test.ts", "src/**/*.spec.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["bits-ui", "bits-ui/*", "@lucide/*", "lucide-svelte"],
+              message:
+                "Import shared UI primitives/icons through $components/ui; reuse a higher-level pattern first.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/**/*.svelte"],
+    ignores: ["src/lib/components/ui/**"],
+    plugins: { "ui-reuse": uiReuse },
+    rules: { "ui-reuse/native-controls": "error" },
+  },
   {
     files: ["src/**/*.{js,ts,svelte}", "scripts/**/*.mjs"],
     rules: {

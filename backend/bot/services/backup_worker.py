@@ -12,6 +12,8 @@ from pathlib import Path
 
 from aiogram import Bot
 from aiogram.types import FSInputFile
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from bot.infra.redis import redis_lock
@@ -26,7 +28,10 @@ from bot.services.backup_archive import (
     write_manifest,
     write_zip_from_directory,
 )
+from bot.services.backup_restore_db import applied_migration_ids
+from bot.utils.app_version import resolve_app_version
 from config.settings import Settings
+from db.database_setup import DB_INIT_ADVISORY_LOCK_ID
 
 logger = logging.getLogger(__name__)
 
@@ -173,23 +178,33 @@ class BackupWorker:
             db_dump_included = False
             tariffs_config_included = False
             compose_files_count = 0
+            database_metadata: dict[str, object] = {}
 
             if force_database or self.settings.BACKUP_POSTGRES_DUMP_ENABLED:
                 dump_dir = staging_dir / "database"
                 dump_dir.mkdir(parents=True, exist_ok=True)
                 dump_path = dump_dir / f"{self.settings.POSTGRES_DB}.dump"
-                await self._dump_database(dump_path)
+                database_metadata = await self._dump_database(dump_path)
                 db_dump_included = True
                 tariffs_config_included = self._stage_tariffs_config(staging_dir, warnings)
 
             if self.settings.BACKUP_COMPOSE_ENABLED:
                 compose_files_count = self._stage_compose_source(staging_dir / "compose", warnings)
 
+            from config.theme_packages.backup import snapshot_themes
+
+            themes_included = await asyncio.to_thread(
+                snapshot_themes,
+                Path(self.settings.WEBAPP_THEMES_DIR),
+                staging_dir / "config/themes",
+            )
             completed_at = datetime.now(UTC)
             manifest = {
                 "app": BACKUP_APP_ID,
                 "format_version": BACKUP_FORMAT_VERSION,
                 "type": str(backup_type or "scheduled"),
+                "minishop_version": resolve_app_version(),
+                "database_metadata": database_metadata,
                 "created_at": completed_at.isoformat(),
                 "created_at_local": completed_at.astimezone().isoformat(),
                 "postgres": {
@@ -210,6 +225,7 @@ class BackupWorker:
                     "archive_path": BACKUP_TARIFFS_CONFIG_MEMBER,
                     "included": tariffs_config_included,
                 },
+                "themes": {"included": themes_included, "archive_path": "config/themes"},
                 "warnings": warnings,
             }
             attach_archive_integrity(
@@ -247,10 +263,32 @@ class BackupWorker:
         archive_path = self._unique_archive_path(backup_dir / archive_name)
         return backup_dir, archive_path
 
-    async def _dump_database(self, dump_path: Path) -> None:
-        await asyncio.to_thread(self._run_pg_dump, dump_path)
+    async def _dump_database(self, dump_path: Path) -> dict[str, object]:
+        engine = create_async_engine(self.settings.DATABASE_URL, isolation_level="REPEATABLE READ")
+        try:
+            async with engine.connect() as connection:
+                await connection.execute(
+                    text("SELECT pg_advisory_lock_shared(:key)"),
+                    {"key": DB_INIT_ADVISORY_LOCK_ID},
+                )
+                await connection.commit()
+                try:
+                    async with connection.begin():
+                        # Start the snapshot only after any concurrent migration has finished.
+                        snapshot = str(await connection.scalar(text("SELECT pg_export_snapshot()")))
+                        revisions = sorted(await connection.run_sync(applied_migration_ids))
+                        server_version = str(await connection.scalar(text("SHOW server_version")))
+                        await asyncio.to_thread(self._run_pg_dump, dump_path, snapshot)
+                        return {"migration_ids": revisions, "postgres_version": server_version}
+                finally:
+                    await connection.execute(
+                        text("SELECT pg_advisory_unlock_shared(:key)"),
+                        {"key": DB_INIT_ADVISORY_LOCK_ID},
+                    )
+        finally:
+            await engine.dispose()
 
-    def _run_pg_dump(self, dump_path: Path) -> None:
+    def _run_pg_dump(self, dump_path: Path, snapshot: str) -> None:
         pg_dump_path = str(self.settings.BACKUP_PG_DUMP_PATH or "pg_dump")
         if shutil.which(pg_dump_path) is None and Path(pg_dump_path).name == pg_dump_path:
             raise RuntimeError(
@@ -271,6 +309,7 @@ class BackupWorker:
             "-d",
             self.settings.POSTGRES_DB,
             "--format=custom",
+            f"--snapshot={snapshot}",
             "--no-owner",
             "--no-privileges",
             "--file",

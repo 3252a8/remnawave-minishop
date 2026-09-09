@@ -7,6 +7,7 @@ import {
 } from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
 import { snapshotForPayload } from "./snapshotForPayload.svelte";
+import { effectiveServerStatusProvider, isKumaStatusPageUrlValid } from "../serverStatusSettings";
 
 type AdminErrorResponse = {
   ok?: false;
@@ -38,10 +39,20 @@ export type SettingWebhookHint = {
   hintI18nKey?: string;
   hintFallback?: string;
 };
+export type PaymentMethodOrderOption = {
+  id: string;
+  label: string;
+  provider_id: string;
+  provider_label: string;
+  enabled: boolean;
+  admin_only: boolean;
+  known: boolean;
+};
 export type SettingField = {
   key: string;
   label: string;
   value?: unknown;
+  default?: unknown;
   overridden?: boolean;
   value_source?: string | null;
   has_value?: boolean;
@@ -52,6 +63,7 @@ export type SettingField = {
   min?: number | null;
   max?: number | null;
   choices?: SettingChoice[];
+  payment_method_options?: PaymentMethodOrderOption[];
   i18n_label_key?: string;
   i18n_description_key?: string;
   i18n_placeholder_key?: string;
@@ -232,12 +244,63 @@ export function createSettingsStore({ api, onToast, at }: SettingsStoreOptions):
     });
   }
 
+  function applySavedSettings(updates: SettingsUpdates, deletes: string[]): void {
+    const deletedKeys = new Set(deletes);
+    updateState((s) => ({
+      ...s,
+      settingsDirty: {},
+      // Do not briefly fall back to the old GET snapshot after PATCH succeeds.
+      // The following GET remains the server reconciliation step, not the source
+      // of the value displayed between a successful save and that response.
+      settingsSections: (s.settingsSections || []).map((section) => ({
+        ...section,
+        fields: (section.fields || []).map((field) => {
+          if (Object.prototype.hasOwnProperty.call(updates, field.key)) {
+            return {
+              ...field,
+              value: updates[field.key],
+              overridden: true,
+              value_source: "database_override",
+            };
+          }
+          if (deletedKeys.has(field.key)) {
+            return {
+              ...field,
+              value: field.default ?? "",
+              overridden: false,
+              value_source: "environment",
+            };
+          }
+          return field;
+        }),
+      })),
+    }));
+  }
+
   async function saveSettings(
     onSettingsSaved?: (payload: SettingsSavedPayload) => void | Promise<void>
   ): Promise<boolean> {
     const dirty = snapshotForPayload(state.settingsDirty);
     const savers = [...extraSavers];
     if (!Object.keys(dirty).length && !savers.length) return true;
+    const kumaField = state.settingsSections
+      .flatMap((section) => section.fields)
+      .find((field) => field.key === "SERVER_STATUS_KUMA_URL");
+    const dirtyKumaUrl = dirty.SERVER_STATUS_KUMA_URL;
+    const kumaUrl = dirtyKumaUrl && !dirtyKumaUrl.deleted ? dirtyKumaUrl.value : kumaField?.value;
+    if (
+      effectiveServerStatusProvider(state.settingsSections, dirty) === "uptime-kuma" &&
+      !isKumaStatusPageUrlValid(kumaUrl)
+    ) {
+      onToast(
+        at(
+          "settings_server_status_kuma_url_invalid",
+          {},
+          "Enter the full Uptime Kuma status page URL, including /status/<slug>."
+        )
+      );
+      return false;
+    }
 
     updateState((s) => ({ ...s, settingsSaving: true }));
     try {
@@ -267,7 +330,7 @@ export function createSettingsStore({ api, onToast, at }: SettingsStoreOptions):
               )
             : at("settings_saved", {}, "Settings saved")
         );
-        updateState((s) => ({ ...s, settingsDirty: {} }));
+        applySavedSettings(updates, deletes);
         if (onSettingsSaved) await onSettingsSaved({ updates, deletes });
         await loadSettings();
         return true;

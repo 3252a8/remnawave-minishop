@@ -288,6 +288,8 @@ class WebAppDeviceOut(HttpResponseModel):
     user_agent: str
     created_at: str | None = None
     created_at_text: str
+    last_connected_at: str | None = None
+    last_connected_at_text: str
     hwid_short: str
     token: str
     can_disconnect: bool
@@ -301,6 +303,7 @@ class WebAppDeviceOut(HttpResponseModel):
         user_agent = str(device.get("userAgent") or "").strip()
         display_name = model or platform or f"Device {index}"
         platform_label = " ".join(part for part in (platform, os_version) if part).strip()
+        last_connected_at = device.get("updatedAt") or device.get("createdAt")
         return cls(
             index=index,
             display_name=display_name,
@@ -310,6 +313,8 @@ class WebAppDeviceOut(HttpResponseModel):
             user_agent=user_agent,
             created_at=_serialize_device_datetime(device.get("createdAt")),
             created_at_text=_format_device_datetime(device.get("createdAt")),
+            last_connected_at=_serialize_device_datetime(last_connected_at),
+            last_connected_at_text=_format_device_datetime(last_connected_at),
             hwid_short=_shorten_hwid_for_display(hwid),
             token=_device_hwid_token(hwid) if hwid else "",
             can_disconnect=bool(hwid),

@@ -272,6 +272,8 @@
   .admin-promo-effect-options {
     display: grid;
     gap: 8px;
+    max-width: 100%;
+    min-width: 0;
   }
 
   .admin-promo-effect-row {
@@ -338,8 +340,9 @@
   .admin-promo-effect-mode {
     display: flex;
     align-items: center;
-    grid-column: 2 / -1;
+    grid-column: 1 / -1;
     gap: 8px;
+    max-width: 100%;
     min-width: 0;
     padding: 6px 8px;
     border: 1px solid transparent;
@@ -388,8 +391,7 @@
       grid-template-columns: auto minmax(0, 1fr);
     }
 
-    .admin-promo-effect-input,
-    .admin-promo-effect-mode {
+    .admin-promo-effect-input {
       grid-column: 2;
     }
 
@@ -399,12 +401,18 @@
     }
 
     .admin-promo-effect-mode-line {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
       align-items: flex-start;
-      flex-wrap: wrap;
+      width: 100%;
+    }
+
+    .admin-promo-effect-mode-label {
+      min-width: 0;
     }
 
     .admin-promo-effect-mode small {
-      flex-basis: 100%;
+      grid-column: 2;
       white-space: normal;
     }
 

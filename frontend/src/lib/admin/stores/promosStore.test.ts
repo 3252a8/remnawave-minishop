@@ -16,6 +16,7 @@ function promo(overrides: TestOverrides = {}) {
     bonus_requires_payment: false,
     applies_to: "subscription",
     min_subscription_months: null,
+    min_subscription_days: null,
     min_traffic_gb: null,
     origin: "admin",
     effect_summary: "-20%",

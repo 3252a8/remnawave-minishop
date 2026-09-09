@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createTelegramViewportBridge, type TelegramViewportWebApp } from "./telegramViewport.js";
+import {
+  applyPreferredTelegramViewportMode,
+  createTelegramViewportBridge,
+  type TelegramViewportWebApp,
+} from "./telegramViewport.js";
 
 function makeRoot() {
   const attributes = new Map<string, string>();
@@ -58,5 +62,87 @@ describe("createTelegramViewportBridge", () => {
       expect.any(Function)
     );
     expect(root.attributes.has("data-telegram-fullscreen")).toBe(false);
+  });
+
+  it("clears a pending fullscreen fallback after Telegram reports a rejected request", () => {
+    const root = makeRoot();
+    root.setAttribute("data-telegram-fullscreen-requested", "true");
+    const { handlers, telegram } = makeTelegram(false);
+    const bridge = createTelegramViewportBridge({ root });
+
+    bridge.setTelegram(telegram);
+    expect(root.attributes.get("data-telegram-fullscreen-requested")).toBe("true");
+
+    handlers.get("fullscreenChanged")?.();
+    expect(root.attributes.has("data-telegram-fullscreen-requested")).toBe(false);
+  });
+});
+
+describe("applyPreferredTelegramViewportMode", () => {
+  it.each(["android", "android_x", "ios"])("requests fullscreen on %s", (platform) => {
+    const root = makeRoot();
+    const requestFullscreen = vi.fn();
+    const exitFullscreen = vi.fn();
+
+    applyPreferredTelegramViewportMode(
+      {
+        exitFullscreen,
+        isFullscreen: false,
+        isVersionAtLeast: () => true,
+        platform,
+        requestFullscreen,
+      },
+      { root }
+    );
+
+    expect(requestFullscreen).toHaveBeenCalledOnce();
+    expect(exitFullscreen).not.toHaveBeenCalled();
+    expect(root.attributes.get("data-telegram-fullscreen-requested")).toBe("true");
+  });
+
+  it.each(["macos", "tdesktop", "unigram", "weba", "webk"])(
+    "returns %s to fullsize when Telegram opened it in fullscreen",
+    (platform) => {
+      const requestFullscreen = vi.fn();
+      const exitFullscreen = vi.fn();
+
+      applyPreferredTelegramViewportMode({
+        exitFullscreen,
+        isFullscreen: true,
+        platform,
+        requestFullscreen,
+      });
+
+      expect(exitFullscreen).toHaveBeenCalledOnce();
+      expect(requestFullscreen).not.toHaveBeenCalled();
+    }
+  );
+
+  it("does not force a viewport mode on unknown platforms", () => {
+    const requestFullscreen = vi.fn();
+    const exitFullscreen = vi.fn();
+
+    applyPreferredTelegramViewportMode({
+      exitFullscreen,
+      isFullscreen: true,
+      platform: "unknown-client",
+      requestFullscreen,
+    });
+
+    expect(requestFullscreen).not.toHaveBeenCalled();
+    expect(exitFullscreen).not.toHaveBeenCalled();
+  });
+
+  it("keeps the expanded fallback on mobile clients older than Bot API 8.0", () => {
+    const requestFullscreen = vi.fn();
+
+    applyPreferredTelegramViewportMode({
+      isFullscreen: false,
+      isVersionAtLeast: () => false,
+      platform: "ios",
+      requestFullscreen,
+    });
+
+    expect(requestFullscreen).not.toHaveBeenCalled();
   });
 });

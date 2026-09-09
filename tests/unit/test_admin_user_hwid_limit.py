@@ -1,6 +1,6 @@
 import json
 import unittest
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -33,13 +33,20 @@ class FakeSession:
 
 class FakeTariffsConfig:
     def __init__(self, tariffs):
+        self.tariffs = list(tariffs)
         self._tariffs = {tariff.key: tariff for tariff in tariffs}
-        self.enabled_tariffs = list(tariffs)
+        self.enabled_tariffs = [tariff for tariff in tariffs if getattr(tariff, "enabled", True)]
         self.default_tariff = tariffs[0].key if tariffs else ""
 
-    def require(self, key):
+    def require_configured(self, key):
         tariff = self._tariffs.get(key)
         if not tariff:
+            raise KeyError(key)
+        return tariff
+
+    def require(self, key):
+        tariff = self.require_configured(key)
+        if not getattr(tariff, "enabled", True):
             raise KeyError(key)
         return tariff
 
@@ -89,6 +96,7 @@ class AdminUserHwidLimitRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status, 200)
         self.assertEqual(json.loads(response.text)["subscription"]["hwid_device_limit"], 0)
         self.assertEqual(active.hwid_device_limit, 0)
+        self.assertTrue(active.hwid_device_limit_is_override)
         subscription_service.sync_hwid_device_limit_to_panel.assert_awaited_once_with(session, 42)
         self.assertTrue(session.committed)
         self.assertEqual(session.refreshed, active)
@@ -121,6 +129,7 @@ class AdminUserHwidLimitRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status, 200)
         self.assertIsNone(json.loads(response.text)["subscription"]["hwid_device_limit"])
         self.assertIsNone(active.hwid_device_limit)
+        self.assertFalse(active.hwid_device_limit_is_override)
         subscription_service.sync_hwid_device_limit_to_panel.assert_awaited_once_with(session, 42)
 
     async def test_hwid_sync_failure_rolls_back_without_audit_log(self):
@@ -167,6 +176,97 @@ class AdminUserHwidLimitRouteTests(unittest.IsolatedAsyncioTestCase):
 
 
 class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
+    async def test_extend_route_accepts_negative_days_when_end_stays_future(self):
+        session = FakeSession()
+        current_end = datetime.now(UTC) + timedelta(days=400)
+        new_end = current_end - timedelta(days=365)
+        active = SimpleNamespace(subscription_id=1, end_date=current_end)
+        subscription_service = SimpleNamespace(
+            extend_active_subscription_days=AsyncMock(return_value=new_end)
+        )
+        request = FakeRequest({"days": -365}, session, subscription_service)
+
+        with (
+            patch.object(users_actions, "_require_admin_user_id", return_value=100),
+            patch.object(admin_users.message_log_dal, "create_message_log", AsyncMock()),
+            patch.object(
+                admin_users.subscription_dal,
+                "get_active_subscription_by_user_id",
+                AsyncMock(return_value=active),
+            ),
+            patch.object(users_actions, "_invalidate_after_admin_user_mutation", AsyncMock()),
+            patch.object(users_actions, "_serialize_subscription", return_value={"ok": True}),
+        ):
+            response = await admin_users.admin_user_extend_route(request)
+
+        self.assertEqual(response.status, 200)
+        subscription_service.extend_active_subscription_days.assert_awaited_once_with(
+            session,
+            42,
+            -365,
+            "admin_extend_subscription_webapp",
+            extend_hwid_devices=False,
+            apply_tariff_hwid_limit=False,
+        )
+
+    async def test_extend_route_converts_exact_date_to_day_delta(self):
+        session = FakeSession()
+        current_end = datetime(2099, 1, 1, 12, tzinfo=UTC)
+        new_end = datetime(2099, 2, 1, 12, tzinfo=UTC)
+        active = SimpleNamespace(subscription_id=1, end_date=current_end)
+        subscription_service = SimpleNamespace(
+            extend_active_subscription_days=AsyncMock(return_value=new_end)
+        )
+        request = FakeRequest({"end_date": "2099-02-01"}, session, subscription_service)
+
+        with (
+            patch.object(users_actions, "_require_admin_user_id", return_value=100),
+            patch.object(admin_users.message_log_dal, "create_message_log", AsyncMock()),
+            patch.object(
+                admin_users.subscription_dal,
+                "get_active_subscription_by_user_id",
+                AsyncMock(return_value=active),
+            ),
+            patch.object(users_actions, "_invalidate_after_admin_user_mutation", AsyncMock()),
+            patch.object(users_actions, "_serialize_subscription", return_value={"ok": True}),
+        ):
+            response = await admin_users.admin_user_extend_route(request)
+
+        self.assertEqual(response.status, 200)
+        subscription_service.extend_active_subscription_days.assert_awaited_once_with(
+            session,
+            42,
+            31,
+            "admin_extend_subscription_webapp",
+            extend_hwid_devices=True,
+            apply_tariff_hwid_limit=False,
+        )
+
+    async def test_extend_route_rejects_a_past_result(self):
+        session = FakeSession()
+        active = SimpleNamespace(
+            subscription_id=1,
+            end_date=datetime.now(UTC) + timedelta(days=30),
+        )
+        subscription_service = SimpleNamespace(
+            extend_active_subscription_days=AsyncMock(return_value=None)
+        )
+        request = FakeRequest({"days": -365}, session, subscription_service)
+
+        with (
+            patch.object(users_actions, "_require_admin_user_id", return_value=100),
+            patch.object(
+                admin_users.subscription_dal,
+                "get_active_subscription_by_user_id",
+                AsyncMock(return_value=active),
+            ),
+        ):
+            response = await admin_users.admin_user_extend_route(request)
+
+        self.assertEqual(response.status, 400)
+        self.assertEqual(json.loads(response.text)["error"], "invalid_end_date")
+        subscription_service.extend_active_subscription_days.assert_not_awaited()
+
     async def test_extend_route_can_skip_hwid_device_extension(self):
         session = FakeSession()
         new_end = datetime(2099, 2, 1, tzinfo=UTC)
@@ -283,7 +383,7 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
             tariffs_config=FakeTariffsConfig(
                 [
                     SimpleNamespace(key="standard", billing_model="period"),
-                    SimpleNamespace(key="plus", billing_model="period"),
+                    SimpleNamespace(key="plus", billing_model="period", enabled=False),
                 ]
             )
         )
@@ -305,7 +405,7 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
             tariffs_config=FakeTariffsConfig(
                 [
                     SimpleNamespace(key="standard", billing_model="period"),
-                    SimpleNamespace(key="plus", billing_model="period"),
+                    SimpleNamespace(key="plus", billing_model="period", enabled=False),
                 ]
             )
         )

@@ -233,12 +233,13 @@ async def _merge_local_duplicate_panel_user_if_needed(
         return existing_user, True
 
     try:
-        merged_user = await user_dal.merge_users(
-            session,
-            source_user_id=duplicate_local_user.user_id,
-            target_user_id=existing_user.user_id,
-            reason="panel_sync",
-        )
+        async with session.begin_nested():
+            merged_user = await user_dal.merge_users(
+                session,
+                source_user_id=duplicate_local_user.user_id,
+                target_user_id=existing_user.user_id,
+                reason="panel_sync",
+            )
         logger.info(
             "Sync: merged local duplicate user %s into %s for duplicate panel UUID %s.",
             duplicate_local_user.user_id,

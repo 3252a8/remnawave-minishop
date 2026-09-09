@@ -3,6 +3,7 @@ set -u
 
 # Интерактивный установщик для Docker Compose серверов.
 
+DEFAULT_SOURCE="${MINISHOP_INSTALL_SOURCE:-gitlab}"
 DEFAULT_REPO="${MINISHOP_INSTALL_REPO:-3252a8/remnawave-minishop}"
 DEFAULT_REF="${MINISHOP_INSTALL_REF:-main}"
 DEFAULT_IMAGE_TAG="${MINISHOP_IMAGE_TAG:-latest}"
@@ -43,6 +44,7 @@ else
 fi
 
 TARGET_DIR=""
+SOURCE_PROVIDER="$DEFAULT_SOURCE"
 SOURCE_REPO="$DEFAULT_REPO"
 SOURCE_REF="$DEFAULT_REF"
 PROFILE_KEY=""
@@ -158,6 +160,7 @@ print_help() {
     cat <<EOF
 Переменные окружения для значений по умолчанию:
   MINISHOP_INSTALL_DIR      папка установки ($DEFAULT_INSTALL_DIR)
+  MINISHOP_INSTALL_SOURCE   источник файлов: github или gitlab ($DEFAULT_SOURCE)
   MINISHOP_INSTALL_REPO     репозиторий owner/name ($DEFAULT_REPO)
   MINISHOP_INSTALL_REF      ветка/тег/ref ($DEFAULT_REF)
   MINISHOP_IMAGE_TAG        тег Docker-образа ($DEFAULT_IMAGE_TAG)
@@ -567,7 +570,14 @@ raw_url() {
     repo=$(printf '%s' "$1" | sed 's#^/*##; s#/*$##')
     ref=$(printf '%s' "$2" | sed 's#^/*##; s#/*$##')
     path=$(printf '%s' "$3" | sed 's#^/*##')
-    printf 'https://gitlab.com/%s/-/raw/%s/%s' "$repo" "$ref" "$path"
+    case "$SOURCE_PROVIDER" in
+        gitlab)
+            printf 'https://gitlab.com/%s/-/raw/%s/%s' "$repo" "$ref" "$path"
+            ;;
+        github|*)
+            printf 'https://raw.githubusercontent.com/%s/%s/%s' "$repo" "$ref" "$path"
+            ;;
+    esac
 }
 
 download_to() {
@@ -4543,6 +4553,7 @@ remnashop_webhook_checklist() {
     printf '  PayKilla Dashboard -> Settings -> Webhooks URL: %s/webhook/paykilla\n' "$base_url"
     printf '  FreeKassa shop settings -> notification/result URL: %s/webhook/freekassa\n' "$base_url"
     printf '  Platega merchant/project settings -> webhook URL: %s/webhook/platega\n' "$base_url"
+    printf '  RollyPay terminal settings -> webhook URL: %s/webhook/rollypay\n' "$base_url"
     printf '  Telegram webhook: %s/tg/webhook (backend ставит его автоматически при старте)\n' "$base_url"
 }
 
@@ -4587,6 +4598,7 @@ remnashop_post_migration_next_steps() {
     printf '  PayKilla: %s/webhook/paykilla\n' "$base_url"
     printf '  FreeKassa: %s/webhook/freekassa\n' "$base_url"
     printf '  Platega: %s/webhook/platega\n' "$base_url"
+    printf '  RollyPay: %s/webhook/rollypay\n' "$base_url"
 }
 
 extract_import_summary() {
@@ -5601,10 +5613,32 @@ installation_directory() {
     mkdir -p "$TARGET_DIR"
 }
 
+choose_source_provider() {
+    source_default="1"
+    case "$(printf '%s' "${SOURCE_PROVIDER:-github}" | tr '[:upper:]' '[:lower:]')" in
+        gitlab) source_default="2" ;;
+        github|*) source_default="1" ;;
+    esac
+
+    choose "Источник файлов установки" "$source_default" "1|2" \
+        "1. GitHub." \
+        "2. GitLab (по умолчанию)." || return 1
+
+    case "$CHOICE_VALUE" in
+        1) SOURCE_PROVIDER="github" ;;
+        2) SOURCE_PROVIDER="gitlab" ;;
+    esac
+    ok "Источник файлов: $SOURCE_PROVIDER."
+}
+
 install_source() {
     [ -n "$SOURCE_REPO" ] || SOURCE_REPO="$DEFAULT_REPO"
     [ -n "$SOURCE_REF" ] || SOURCE_REF="$DEFAULT_REF"
-    info "Файлы установки будут скачаны из GitLab: $SOURCE_REPO@$SOURCE_REF."
+    case "$SOURCE_PROVIDER" in
+        gitlab) source_name="GitLab" ;;
+        *) source_name="GitHub" ;;
+    esac
+    info "Файлы установки будут скачаны из $source_name: $SOURCE_REPO@$SOURCE_REF."
     info "Для fork, dev-ветки или тега задайте MINISHOP_INSTALL_REPO и MINISHOP_INSTALL_REF перед запуском."
 }
 
@@ -5733,4 +5767,5 @@ case "${1:-}" in
         ;;
 esac
 
+choose_source_provider || exit 1
 main_menu

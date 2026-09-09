@@ -14,7 +14,9 @@ from typing import (
 
 from pydantic import field_validator
 
+from config.menu_buttons import normalize_menu_buttons_json
 from config.settings_models import (
+    BalanceSettings,
     CompatibilitySettings,
     DBSettings,
     EmailSettings,
@@ -29,7 +31,11 @@ from config.settings_models import (
 )
 from config.settings_validation import SettingsValidationMixin as SettingsValidationMixin
 from config.support_links import normalize_support_link
-from config.tariffs_config import TariffsConfig, load_tariffs_config
+from config.tariffs_config import (
+    TariffsConfig,
+    default_payment_currency_code_for_settings,
+    load_tariffs_config,
+)
 from config.webapp_themes_config import WebappThemesConfig, resolved_webapp_themes_catalog
 
 logger = logging.getLogger(__name__)
@@ -78,6 +84,8 @@ if TYPE_CHECKING:
         BRUTE_FORCE_LOCK_SECONDS: int
         WEBAPP_TITLE: str
         WEBAPP_PRIMARY_COLOR: str
+        WEBAPP_USER_THEME_MODE_ENABLED: bool
+        WEBAPP_COMPACT_HOME_ENABLED: bool
         WEBAPP_LOGO_URL: str | None
         WEBAPP_FAVICON_USE_CUSTOM: bool
         WEBAPP_FAVICON_URL: str | None
@@ -87,10 +95,29 @@ if TYPE_CHECKING:
         WEBHOOK_SECRET_TOKEN: str
         WEBAPP_AUTH_MAX_AGE_SECONDS: int
         WEBAPP_LOGIN_TOKEN_TTL_SECONDS: int
+        TELEGRAM_LOGIN_ENABLED: bool
+        EMAIL_LOGIN_ENABLED: bool
+        EMAIL_ADDRESS_CHANGE_ENABLED: bool
+        GOOGLE_OIDC_ENABLED: bool
+        GOOGLE_OIDC_CLIENT_ID: str | None
+        GOOGLE_OIDC_CLIENT_SECRET: str | None
+        YANDEX_OIDC_ENABLED: bool
+        YANDEX_OIDC_CLIENT_ID: str | None
+        YANDEX_OIDC_CLIENT_SECRET: str | None
+        PASSKEY_LOGIN_ENABLED: bool
+        PASSKEY_RP_ID: str | None
+        PASSKEY_RP_NAME: str | None
+        PASSKEY_ORIGINS: str | None
+        PASSKEY_CHALLENGE_TTL_SECONDS: int
         WEBAPP_SERVER_HOST: str
         WEBAPP_SERVER_PORT: int
         WEBAPP_ENABLED: bool
         DEFAULT_CURRENCY_SYMBOL: str
+        USER_BALANCE_ENABLED: bool
+        USER_BALANCE_CURRENCY: str
+        USER_BALANCE_TOPUP_MIN_AMOUNT: float
+        USER_BALANCE_TOPUP_MAX_AMOUNT: float
+        USER_BALANCE_TOPUP_PRESETS: str
         PAYMENT_REQUEST_TIMEOUT_SECONDS: float
         ADMIN_IDS_STR: str
         PANEL_WRITE_MODE: str
@@ -183,16 +210,22 @@ if TYPE_CHECKING:
         MIGRATION_REMNASHOP_IMPORTED_AT: str | None
         MIGRATION_REMNASHOP_NOTES: str | None
         SUPPORT_LINK: str | None
+        SERVER_STATUS_ENABLED: bool
+        SERVER_STATUS_PROVIDER: str
+        SERVER_STATUS_URL: str | None
         SUPPORT_TICKETS_ENABLED: bool
         SUPPORT_TICKET_MAX_BODY_LENGTH: int
         SUPPORT_TICKET_MAX_SUBJECT_LENGTH: int
         SUPPORT_TICKET_RATE_LIMIT_PER_HOUR: int
+        SUPPORT_MESSAGE_RATE_LIMIT_PER_MINUTE: int
+        SUPPORT_IMAGE_RATE_LIMIT_PER_DAY: int
         SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED: bool
         SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS: int
         SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS: int
         PAYMENT_METHODS_ORDER: str | None
         SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED: bool
         DEFAULT_LANGUAGE: str
+        MENU_BUTTONS_JSON: str
         SUBSCRIPTION_PURCHASE_DESCRIPTION_EN: str
         SUBSCRIPTION_PURCHASE_DESCRIPTION_RU: str
 
@@ -213,6 +246,11 @@ def _split_csv(value: str | None) -> list[str]:
 
 
 class SettingsComputedMixin(_SettingsComputedMixinBase):
+    @field_validator("MENU_BUTTONS_JSON", mode="before")
+    @classmethod
+    def validate_menu_buttons_json(cls, value: Any) -> str:
+        return normalize_menu_buttons_json(value)
+
     @computed_field
     def DATABASE_URL(self) -> str:
         return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
@@ -253,6 +291,8 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         return WebAppSettings(
             title=self.WEBAPP_TITLE,
             primary_color=self.WEBAPP_PRIMARY_COLOR,
+            user_theme_mode_enabled=self.WEBAPP_USER_THEME_MODE_ENABLED,
+            compact_home_enabled=self.WEBAPP_COMPACT_HOME_ENABLED,
             logo_url=self.WEBAPP_LOGO_URL,
             favicon_use_custom=self.WEBAPP_FAVICON_USE_CUSTOM,
             favicon_url=self.WEBAPP_FAVICON_URL,
@@ -279,6 +319,25 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             traffic_packages=self.traffic_packages,
             stars_traffic_packages=self.stars_traffic_packages,
             traffic_sale_mode=self.traffic_sale_mode,
+        )
+
+    @property
+    def balance_settings(self) -> BalanceSettings:
+        try:
+            raw_presets = json.loads(self.USER_BALANCE_TOPUP_PRESETS or "[]")
+        except (TypeError, ValueError) as exc:
+            raise ValueError("USER_BALANCE_TOPUP_PRESETS must be valid JSON") from exc
+        if not isinstance(raw_presets, list):
+            raise ValueError("USER_BALANCE_TOPUP_PRESETS must be a JSON array")
+        currency = (
+            self.USER_BALANCE_CURRENCY or default_payment_currency_code_for_settings(self) or "RUB"
+        ).strip()
+        return BalanceSettings(
+            enabled=self.USER_BALANCE_ENABLED,
+            currency=currency,
+            topup_min_amount=self.USER_BALANCE_TOPUP_MIN_AMOUNT,
+            topup_max_amount=self.USER_BALANCE_TOPUP_MAX_AMOUNT,
+            topup_presets=raw_presets,
         )
 
     @property
@@ -365,10 +424,19 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             ticket_max_body_length=self.SUPPORT_TICKET_MAX_BODY_LENGTH,
             ticket_max_subject_length=self.SUPPORT_TICKET_MAX_SUBJECT_LENGTH,
             ticket_rate_limit_per_hour=self.SUPPORT_TICKET_RATE_LIMIT_PER_HOUR,
+            message_rate_limit_per_minute=self.SUPPORT_MESSAGE_RATE_LIMIT_PER_MINUTE,
+            image_rate_limit_per_day=self.SUPPORT_IMAGE_RATE_LIMIT_PER_DAY,
             admin_email_notifications_enabled=self.SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED,
             admin_notification_cooldown_seconds=self.SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS,
             admin_email_cooldown_seconds=self.SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS,
         )
+
+    @property
+    def server_status_external_url(self) -> str | None:
+        if not self.SERVER_STATUS_ENABLED or self.SERVER_STATUS_PROVIDER != "url":
+            return None
+        value = str(self.SERVER_STATUS_URL or "").strip()
+        return value or None
 
     @property
     def panel_settings(self) -> PanelSettings:
@@ -782,13 +850,31 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
 
     @computed_field
     def email_auth_configured(self) -> bool:
-        return bool(self.qa_auth_enabled or self.smtp_delivery_configured)
+        return bool(
+            self.EMAIL_LOGIN_ENABLED and (self.qa_auth_enabled or self.smtp_delivery_configured)
+        )
 
     @computed_field
     def webapp_auth_providers(self) -> list[str]:
-        providers = ["telegram"]
+        providers: list[str] = []
+        if self.TELEGRAM_LOGIN_ENABLED:
+            providers.append("telegram")
         if self.email_auth_configured:
             providers.append("email")
+        if (
+            self.GOOGLE_OIDC_ENABLED
+            and self.GOOGLE_OIDC_CLIENT_ID
+            and self.GOOGLE_OIDC_CLIENT_SECRET
+        ):
+            providers.append("google")
+        if (
+            self.YANDEX_OIDC_ENABLED
+            and self.YANDEX_OIDC_CLIENT_ID
+            and self.YANDEX_OIDC_CLIENT_SECRET
+        ):
+            providers.append("yandex")
+        if self.PASSKEY_LOGIN_ENABLED:
+            providers.append("passkey")
         return providers
 
     @computed_field

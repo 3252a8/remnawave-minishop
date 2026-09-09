@@ -31,6 +31,8 @@ class OutboundMessagingService:
         disable_web_page_preview: bool = True,
         event_type: str = "outbound_message_sent",
         buttons: list[MessageButton] | None = None,
+        audit_user_id: int | None = None,
+        audit_content: str | None = None,
     ) -> bool:
         """Deliver an authored message to one user over Telegram.
 
@@ -52,11 +54,11 @@ class OutboundMessagingService:
             )
             await log_user_message_delivery(
                 session,
-                target_user_id=int(user_id),
+                target_user_id=int(audit_user_id if audit_user_id is not None else user_id),
                 event_type=event_type,
                 channel="telegram_queue",
                 recipient=str(user_id),
-                content=text[:4096],
+                content=(audit_content if audit_content is not None else text)[:4096],
                 timestamp=datetime.now(UTC),
             )
             return True
@@ -80,11 +82,11 @@ class OutboundMessagingService:
             return False
         await log_user_message_delivery(
             session,
-            target_user_id=int(user_id),
+            target_user_id=int(audit_user_id if audit_user_id is not None else user_id),
             event_type=event_type,
             channel="telegram",
             recipient=str(user_id),
-            content=text[:4096],
+            content=(audit_content if audit_content is not None else text)[:4096],
             timestamp=datetime.now(UTC),
         )
         return True

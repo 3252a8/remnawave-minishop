@@ -191,6 +191,7 @@ async function main() {
   const adminChunkNames = await copyChunkAssets(entries, isAdminChunkName);
   const webappChunkNames = await copyChunkAssets(entries, isWebappChunkName);
   const providerLogoAssetsCopied = await copyDirectoryIfExists("provider-logos");
+  const fontAssetsCopied = await copyDirectoryIfExists("fonts");
 
   const indexTemplate = await readFile(path.join(templatesDir, "subscription_webapp.html"), "utf8");
   await writeFile(
@@ -200,7 +201,7 @@ async function main() {
   );
 
   console.log(
-    `Prepared nginx assets in ${path.relative(repoRoot, outDir)}: ${mainJsName}, ${mainCssName}, ${adminJsName}, ${adminCssName}, ${webappChunkNames.length} app chunks, ${adminChunkNames.length} admin chunks, ${providerLogoAssetsCopied ? "provider logos" : "no provider logos"}`
+    `Prepared nginx assets in ${path.relative(repoRoot, outDir)}: ${mainJsName}, ${mainCssName}, ${adminJsName}, ${adminCssName}, ${webappChunkNames.length} app chunks, ${adminChunkNames.length} admin chunks, ${providerLogoAssetsCopied ? "provider logos" : "no provider logos"}, ${fontAssetsCopied ? "fonts" : "no fonts"}`
   );
 }
 

@@ -11,13 +11,22 @@ from bot.app.web.route_contracts import (
     register_contract,
     schema_ref,
 )
+from bot.app.web.webapp.contract_schemas import BALANCE_SCHEMA
+from bot.app.web.webapp.notification_preference_schemas import (
+    NotificationPreferencesOut,
+    NotificationPreferencesPatchBody,
+)
 from db.dal import message_log_dal, payment_dal, subscription_dal, user_dal
 
 from .schemas import (
     AdminSubscriptionOut,
+    AdminTelegramNotificationsOut,
+    AdminUserBalanceAdjustmentBody,
+    AdminUserBalanceConversionBody,
     AdminUserBanBody,
     AdminUserExtendBody,
     AdminUserHwidDeviceLimitBody,
+    AdminUserHwidDevicesOut,
     AdminUserMessageBody,
     AdminUserOut,
     AdminUserPremiumOverrideBody,
@@ -49,6 +58,10 @@ from .users_actions import (
     admin_user_traffic_grant_route,
     admin_user_traffic_strategy_route,
 )
+from .users_balance import (
+    admin_user_balance_adjustment_route,
+    admin_user_balance_conversion_route,
+)
 from .users_common import (
     _ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA,
     _ADMIN_USER_RESPONSE_SCHEMA,
@@ -72,6 +85,7 @@ from .users_listing import (
     _load_admin_users_list_payload_uncached,
     admin_users_list_route,
 )
+from .users_notification_preferences import admin_user_notification_preferences_route
 from .users_squad_overrides import (
     admin_user_squad_overrides_refresh_route,
     admin_user_squad_overrides_route,
@@ -102,6 +116,8 @@ register_contract(
                                     "payments_count": INTEGER_SCHEMA,
                                     "payments_currency": NULLABLE_STRING_SCHEMA,
                                     "invited_users_count": INTEGER_SCHEMA,
+                                    "user_balance_amount_minor": INTEGER_SCHEMA,
+                                    "partner_balance_amount_minor": INTEGER_SCHEMA,
                                 },
                                 "required": [
                                     "panel_status",
@@ -111,6 +127,8 @@ register_contract(
                                     "payments_count",
                                     "payments_currency",
                                     "invited_users_count",
+                                    "user_balance_amount_minor",
+                                    "partner_balance_amount_minor",
                                 ],
                             },
                         ],
@@ -119,6 +137,10 @@ register_contract(
                 "page": INTEGER_SCHEMA,
                 "page_size": INTEGER_SCHEMA,
                 "total": INTEGER_SCHEMA,
+                "user_balance_enabled": BOOLEAN_SCHEMA,
+                "partner_balance_enabled": BOOLEAN_SCHEMA,
+                "balance_currency": STRING_SCHEMA,
+                "balance_currency_scale": INTEGER_SCHEMA,
             }
         ),
     ),
@@ -130,8 +152,11 @@ register_contract(
             AdminUserWithAvatarOut,
             AdminSubscriptionOut,
             AdminUserTrialOut,
+            AdminUserHwidDevicesOut,
             PaymentOut,
             AdminPanelSquadOverridesOut,
+            AdminTelegramNotificationsOut,
+            NotificationPreferencesOut,
         ),
         response_schema=ok_envelope_with(
             {
@@ -144,10 +169,14 @@ register_contract(
                 "total_paid": NUMBER_SCHEMA,
                 "recent_payments": {"type": "array", "items": schema_ref(PaymentOut)},
                 "log_count": INTEGER_SCHEMA,
+                "balance": BALANCE_SCHEMA,
                 "subscription_url": NULLABLE_STRING_SCHEMA,
                 "install_share_url": NULLABLE_STRING_SCHEMA,
                 "last_vpn_connected_at": NULLABLE_STRING_SCHEMA,
                 "vpn_connection_status": STRING_SCHEMA,
+                "hwid_devices": schema_ref(AdminUserHwidDevicesOut),
+                "telegram_notifications": schema_ref(AdminTelegramNotificationsOut),
+                "notification_preferences": schema_ref(NotificationPreferencesOut),
                 "panel_squad_overrides": {
                     "anyOf": [schema_ref(AdminPanelSquadOverridesOut), {"type": "null"}]
                 },
@@ -180,6 +209,16 @@ register_contract(
     ),
 )
 register_contract(
+    "admin_user_notification_preferences_route",
+    RouteContract(
+        request_model=NotificationPreferencesPatchBody,
+        response_schema=ok_envelope_with(
+            {"notification_preferences": schema_ref(NotificationPreferencesOut)}
+        ),
+        models=(NotificationPreferencesOut,),
+    ),
+)
+register_contract(
     "admin_user_squad_overrides_refresh_route",
     RouteContract(
         response_schema=ok_envelope_with(
@@ -207,6 +246,20 @@ register_contract(
 register_contract(
     "admin_user_avatar_route",
     RouteContract(response_schema=BINARY_RESPONSE_SCHEMA, response_content_type="image/jpeg"),
+)
+register_contract(
+    "admin_user_balance_adjustment_route",
+    RouteContract(
+        request_model=AdminUserBalanceAdjustmentBody,
+        response_schema=ok_envelope_with({"balance": BALANCE_SCHEMA}),
+    ),
+)
+register_contract(
+    "admin_user_balance_conversion_route",
+    RouteContract(
+        request_model=AdminUserBalanceConversionBody,
+        response_schema=ok_envelope_with({"balance": BALANCE_SCHEMA}),
+    ),
 )
 register_contract(
     "admin_user_ban_route",
@@ -325,6 +378,8 @@ __all__ = [
     "_serialize_admin_user_with_avatar",
     "_serialize_trial_summary",
     "admin_user_avatar_route",
+    "admin_user_balance_adjustment_route",
+    "admin_user_balance_conversion_route",
     "admin_user_ban_route",
     "admin_user_delete_route",
     "admin_user_detail_route",
@@ -332,6 +387,7 @@ __all__ = [
     "admin_user_hwid_device_limit_route",
     "admin_user_message_preview_route",
     "admin_user_message_route",
+    "admin_user_notification_preferences_route",
     "admin_user_premium_override_route",
     "admin_user_referrals_route",
     "admin_user_regular_traffic_override_route",

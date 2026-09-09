@@ -41,7 +41,13 @@ def render_login_code(
     minutes = _format_minutes(settings.EMAIL_CODE_TTL_SECONDS)
     accent = _theme_accent(settings)
     brand = _brand_title(settings)
-    template_prefix = "email_set_password_code" if purpose == "set_password" else "email_login_code"
+    template_prefix = (
+        "email_set_password_code"
+        if purpose == "set_password"
+        else "email_change_code"
+        if purpose.startswith("change_email_")
+        else "email_login_code"
+    )
     safe_magic_link = (magic_link or "").strip() if template_prefix == "email_login_code" else ""
 
     subject = _t_text(i18n, lang, f"{template_prefix}_subject", code=code)

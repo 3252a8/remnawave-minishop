@@ -18,7 +18,8 @@ INSTALL_SCRIPT = REPO_ROOT / "scripts" / "install.sh"
 
 def _run_installer_function(tmp_path: Path, shell_body: str) -> subprocess.CompletedProcess[str]:
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
-    library = script.rsplit("\nmain_menu\n", 1)[0]
+    library, marker, _ = script.rpartition('\ncase "${1:-}" in\n')
+    assert marker, "installer CLI entrypoint marker is missing"
     test_script = tmp_path / "installer-function-test.sh"
     test_script.write_text(f"{library}\n{shell_body}\n", encoding="utf-8")
     return subprocess.run(
@@ -62,6 +63,62 @@ def test_shell_installer_exits_on_stdin_eof():
 
     assert result.returncode != 0
     assert "Ввод завершился во время выбора пункта" in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("choice", "expected_provider"),
+    [("1", "github"), ("2", "gitlab")],
+)
+def test_shell_installer_selects_source_provider(
+    tmp_path: Path,
+    choice: str,
+    expected_provider: str,
+) -> None:
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    result = _run_installer_function(
+        tmp_path,
+        f"""
+choose() {{ CHOICE_VALUE={choice}; }}
+choose_source_provider || exit 20
+[ "$SOURCE_PROVIDER" = {expected_provider} ] || exit 21
+""",
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize(
+    ("provider", "expected_url"),
+    [
+        (
+            "github",
+            "https://raw.githubusercontent.com/owner/repo/dev/deploy/example.yml",
+        ),
+        (
+            "gitlab",
+            "https://gitlab.com/owner/repo/-/raw/dev/deploy/example.yml",
+        ),
+    ],
+)
+def test_shell_installer_builds_provider_raw_url(
+    tmp_path: Path,
+    provider: str,
+    expected_url: str,
+) -> None:
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    result = _run_installer_function(
+        tmp_path,
+        f"""
+SOURCE_PROVIDER={shlex.quote(provider)}
+[ "$(raw_url owner/repo dev deploy/example.yml)" = {shlex.quote(expected_url)} ] || exit 20
+""",
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_shell_installer_validates_telegram_socks5_proxy_urls(tmp_path: Path):
@@ -180,6 +237,11 @@ def test_shell_installer_downloads_raw_files_and_runs_import_in_container():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
     assert script.startswith("#!/bin/sh")
+    assert 'DEFAULT_SOURCE="${MINISHOP_INSTALL_SOURCE:-gitlab}"' in script
+    raw_github_template = (
+        'printf \'https://raw.githubusercontent.com/%s/%s/%s\' "$repo" "$ref" "$path"'
+    )
+    assert raw_github_template in script
     raw_gitlab_template = 'printf \'https://gitlab.com/%s/-/raw/%s/%s\' "$repo" "$ref" "$path"'
     assert raw_gitlab_template in script
     assert "git clone" not in script

@@ -5,7 +5,7 @@ export function emptyCheckoutPromoQuote() {
     checkoutPromoEffectiveAmount: 0,
     checkoutPromoDiscountPercent: 0,
     checkoutPromoAppliesTo: "all",
-    checkoutPromoMinSubscriptionMonths: null,
+    checkoutPromoMinSubscriptionDays: null,
     checkoutPromoMinTrafficGb: null,
   };
 }

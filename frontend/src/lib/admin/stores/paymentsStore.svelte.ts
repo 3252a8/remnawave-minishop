@@ -1,7 +1,11 @@
 import { withRoutePrefix } from "../../webapp/routes.js";
+import { copyTextToClipboard } from "../../webapp/clipboard.js";
 import {
+  buildAdminPaymentFinalizePath,
   buildAdminPaymentPath,
+  buildAdminPaymentReversePath,
   buildAdminPaymentsPath,
+  type PostPayload,
   unwrap,
   type ApiClient,
   type GetResponse,
@@ -33,10 +37,12 @@ type PaymentsState = {
   paymentsTotal: number;
   paymentsPage: number;
   paymentsSort: string;
+  paymentsSearch: string;
   paymentsLoading: boolean;
   openedPaymentId: number | null;
   openedPayment: AdminPayment | null;
   paymentDetailLoading: boolean;
+  paymentActionBusy: boolean;
 };
 type PaymentOpenOptions = { skipPush?: boolean };
 type PaymentsStoreOptions = {
@@ -46,16 +52,41 @@ type PaymentsStoreOptions = {
   routePrefix?: string;
   queryClient?: AdminQueryClient | null;
 };
+
+export async function copyPaymentText(
+  text: unknown,
+  successMessage: string,
+  onToast: ToastFn,
+  copy: (value: string) => Promise<boolean> = copyTextToClipboard
+): Promise<void> {
+  if (text === null || text === undefined || text === "") return;
+  const value = String(text);
+  let copied: boolean;
+  try {
+    copied = await copy(value);
+  } catch {
+    copied = false;
+  }
+  onToast(copied ? successMessage : value);
+}
 export type PaymentsStore = PaymentsState & {
   setActive: (section: string) => void;
   loadPayments: (options?: { refresh?: boolean }) => Promise<void>;
   setPage: (page: number) => void;
   setSort: (sort: string) => void;
+  setSearch: (search: string) => void;
   openPayment: (
     paymentOrId: AdminPayment | PaymentOut | number | string,
     opts?: PaymentOpenOptions
   ) => Promise<void>;
   closePayment: (opts?: PaymentOpenOptions) => void;
+  finalizePayment: (reason: string, confirmPromoConflict: boolean) => Promise<boolean>;
+  reversePayment: (
+    reason: string,
+    restorePromoUsage: boolean,
+    refundToBalance?: boolean,
+    withoutReason?: boolean
+  ) => Promise<boolean>;
   copyToClipboard: (text: unknown, successMessage?: string) => void;
 };
 
@@ -88,10 +119,12 @@ export function createPaymentsStore({
     paymentsTotal: 0,
     paymentsPage: 0,
     paymentsSort: "date_desc",
+    paymentsSearch: "",
     paymentsLoading: false,
     openedPaymentId: null,
     openedPayment: null,
     paymentDetailLoading: false,
+    paymentActionBusy: false,
   });
   const store = Object.create(state) as PaymentsStore;
   defineRawStateProperty(store, "payments", {
@@ -119,24 +152,30 @@ export function createPaymentsStore({
     window.history.pushState(null, "", `${target}${window.location.search}${window.location.hash}`);
   }
 
-  function paymentsListQueryKey(page: number, sort: string): AdminQueryKey {
+  function paymentsListQueryKey(page: number, sort: string, search: string): AdminQueryKey {
     return [
       PAYMENTS_QUERY_KEY[0],
       PAYMENTS_QUERY_KEY[1],
       {
         page,
         sort,
+        search,
       },
     ];
   }
 
-  async function requestPayments(page: number, sort: string): Promise<PaymentsListResponse> {
+  async function requestPayments(
+    page: number,
+    sort: string,
+    search: string
+  ): Promise<PaymentsListResponse> {
     const data = await api(
       buildAdminPaymentsPath(
         new URLSearchParams({
           page: String(page),
           page_size: String(PAYMENTS_PAGE_SIZE),
           sort,
+          ...(search ? { search } : {}),
         })
       )
     );
@@ -171,13 +210,14 @@ export function createPaymentsStore({
     state.paymentsLoading = true;
     const currentPage = state.paymentsPage;
     const currentSort = state.paymentsSort;
+    const currentSearch = state.paymentsSearch;
     const perf = createAdminPerfSpan("payments");
 
     try {
       const data = await fetchAdminQuery({
         queryClient,
-        queryKey: paymentsListQueryKey(currentPage, currentSort),
-        queryFn: () => requestPayments(currentPage, currentSort),
+        queryKey: paymentsListQueryKey(currentPage, currentSort, currentSearch),
+        queryFn: () => requestPayments(currentPage, currentSort, currentSearch),
         refresh,
       });
       perf.apiResponse();
@@ -207,6 +247,12 @@ export function createPaymentsStore({
 
   function setSort(sort: string): void {
     state.paymentsSort = sort;
+    state.paymentsPage = 0;
+    void loadPayments();
+  }
+
+  function setSearch(search: string): void {
+    state.paymentsSearch = search.trim();
     state.paymentsPage = 0;
     void loadPayments();
   }
@@ -268,16 +314,80 @@ export function createPaymentsStore({
     if (wasOpen && !opts.skipPush) pushPaymentPath(null);
   }
 
-  function copyToClipboard(text: unknown, successMessage = at("copied", {}, "Copied")): void {
-    if (!text) return;
-    if (typeof navigator !== "undefined" && navigator?.clipboard?.writeText) {
-      navigator.clipboard.writeText(String(text)).then(
-        () => onToast(successMessage),
-        () => onToast(String(text))
-      );
-    } else {
-      onToast(String(text));
+  function acceptActionPayment(payment: PaymentDetailOut): void {
+    state.openedPayment = payment;
+    payments = payments.map((row) =>
+      row.payment_id === payment.payment_id ? { ...row, ...payment } : row
+    );
+  }
+
+  async function finalizePayment(reason: string, confirmPromoConflict: boolean): Promise<boolean> {
+    const paymentId = state.openedPaymentId;
+    if (!paymentId || state.paymentActionBusy) return false;
+    state.paymentActionBusy = true;
+    try {
+      const response = await api(buildAdminPaymentFinalizePath(paymentId), {
+        method: "POST",
+        body: JSON.stringify({
+          reason,
+          confirm_promo_conflict: confirmPromoConflict,
+        } satisfies PostPayload<"/api/admin/payments/{payment_id}/finalize">),
+      });
+      if (!isOkResponse(response)) {
+        onToast(adminErrorMessage(response, at, "payment_manual_finalize_failed"));
+        return false;
+      }
+      const result = unwrap(response);
+      acceptActionPayment(result.payment);
+      onToast(at("payment_manual_finalize_success", {}, "Payment applied"));
+      void loadPayments({ refresh: true });
+      return true;
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : String(error || "payment_action_failed"));
+      return false;
+    } finally {
+      state.paymentActionBusy = false;
     }
+  }
+
+  async function reversePayment(
+    reason: string,
+    restorePromoUsage: boolean,
+    refundToBalance: boolean = true,
+    withoutReason: boolean = false
+  ): Promise<boolean> {
+    const paymentId = state.openedPaymentId;
+    if (!paymentId || state.paymentActionBusy) return false;
+    state.paymentActionBusy = true;
+    try {
+      const response = await api(buildAdminPaymentReversePath(paymentId), {
+        method: "POST",
+        body: JSON.stringify({
+          reason,
+          without_reason: withoutReason,
+          restore_promo_usage: restorePromoUsage,
+          refund_to_balance: refundToBalance,
+        } satisfies PostPayload<"/api/admin/payments/{payment_id}/reverse">),
+      });
+      if (!isOkResponse(response)) {
+        onToast(adminErrorMessage(response, at, "payment_reverse_failed"));
+        return false;
+      }
+      const result = unwrap(response);
+      acceptActionPayment(result.payment);
+      onToast(at("payment_reverse_success", {}, "Payment reversed"));
+      void loadPayments({ refresh: true });
+      return true;
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : String(error || "payment_action_failed"));
+      return false;
+    } finally {
+      state.paymentActionBusy = false;
+    }
+  }
+
+  function copyToClipboard(text: unknown, successMessage = at("copied", {}, "Copied")): void {
+    void copyPaymentText(text, successMessage, onToast);
   }
 
   return Object.assign(store, {
@@ -285,8 +395,11 @@ export function createPaymentsStore({
     loadPayments,
     setPage,
     setSort,
+    setSearch,
     openPayment,
     closePayment,
+    finalizePayment,
+    reversePayment,
     copyToClipboard,
   });
 }

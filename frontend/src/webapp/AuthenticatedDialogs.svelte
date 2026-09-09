@@ -10,6 +10,7 @@
   import type { DevicesStore } from "../lib/webapp/stores/devicesStore.js";
   import PaymentDialogs from "./PaymentDialogs.svelte";
   import SubscriptionReissueDialog from "./payment-dialogs/SubscriptionReissueDialog.svelte";
+  import QaPaymentDialog from "./payment-dialogs/QaPaymentDialog.svelte";
   import TariffDialogs from "./TariffDialogs.svelte";
   import type {
     PaymentMethod,
@@ -41,9 +42,9 @@
     subscriptionReissueBusy?: boolean;
     confirmSubscriptionReissue?: VoidAction;
     closeSubscriptionReissueDialog?: VoidAction;
-    openLinkEmailDialog?: VoidAction;
     hasMultipleTariffs?: boolean;
     methods?: PaymentMethod[];
+    loadData: () => Promise<unknown>;
     paymentMethodsDisplayMode?: "dropdown" | "buttons" | string;
     pendingPayment?: PendingPaymentView | null;
     plans?: PlanView[];
@@ -79,9 +80,9 @@
     subscriptionReissueBusy = false,
     confirmSubscriptionReissue = () => {},
     closeSubscriptionReissueDialog = () => {},
-    openLinkEmailDialog = () => {},
     hasMultipleTariffs = false,
     methods = [],
+    loadData,
     paymentMethodsDisplayMode = "dropdown",
     pendingPayment = null,
     plans = [],
@@ -118,6 +119,8 @@
   });
 </script>
 
+<QaPaymentDialog {api} {loadData} {t} />
+
 <PaymentDialogs
   {api}
   bind:linkEmailCode={accountStore.linkEmailCode}
@@ -135,6 +138,7 @@
   setPasswordEmail={user?.email || ""}
   createPayment={billingStore.createPayment}
   resumePendingPayment={billingStore.resumePendingPayment}
+  cancelPendingPayment={billingStore.cancelPendingPayment}
   deviceConfirmOpen={devicesStore.deviceConfirmOpen}
   deviceDisconnectBusy={devicesStore.deviceDisconnectBusy}
   deviceToDisconnect={devicesStore.deviceToDisconnect}
@@ -151,7 +155,7 @@
   setPasswordPending={accountStore.setPasswordPending}
   setPasswordResendCooldown={accountStore.setPasswordResendCooldown}
   setPasswordStatus={accountStore.setPasswordStatus}
-  bind:checkoutPromoInput={billingStore.checkoutPromoInput}
+  checkoutPromoInput={billingStore.checkoutPromoInput}
   checkoutPromoAppliedCode={billingStore.checkoutPromoAppliedCode}
   checkoutPromoIsError={billingStore.checkoutPromoIsError}
   checkoutPromoPriceText={billingStore.checkoutPromoPriceText}
@@ -159,10 +163,12 @@
   checkoutPromoStatus={billingStore.checkoutPromoStatus}
   checkoutPromoDiscountPercent={billingStore.checkoutPromoDiscountPercent}
   checkoutPromoAppliesTo={billingStore.checkoutPromoAppliesTo}
-  checkoutPromoMinSubscriptionMonths={billingStore.checkoutPromoMinSubscriptionMonths}
+  checkoutPromoMinSubscriptionDays={billingStore.checkoutPromoMinSubscriptionDays}
   checkoutPromoMinTrafficGb={billingStore.checkoutPromoMinTrafficGb}
+  checkoutAddonPreset={billingStore.checkoutAddonPreset}
   applyCheckoutPromo={billingStore.applyCheckoutPromo}
   clearCheckoutPromo={billingStore.clearCheckoutPromo}
+  setCheckoutPromoInput={billingStore.setCheckoutPromoInput}
   {hasMultipleTariffs}
   {methods}
   {paymentMethodsDisplayMode}
@@ -194,10 +200,8 @@
 <SubscriptionReissueDialog
   {subscriptionReissueDialogOpen}
   {subscriptionReissueBusy}
-  userEmail={user?.email || ""}
   {confirmSubscriptionReissue}
   {closeSubscriptionReissueDialog}
-  {openLinkEmailDialog}
   {t}
 />
 
@@ -218,7 +222,7 @@
   closeTariffChangeConfirm={billingStore.closeTariffChangeConfirm}
   closeTariffChangeModal={billingStore.closeTariffChangeModal}
   closeTopupModal={billingStore.closeTopupModal}
-  bind:checkoutPromoInput={billingStore.checkoutPromoInput}
+  checkoutPromoInput={billingStore.checkoutPromoInput}
   checkoutPromoAppliedCode={billingStore.checkoutPromoAppliedCode}
   checkoutPromoIsError={billingStore.checkoutPromoIsError}
   checkoutPromoPriceText={billingStore.checkoutPromoPriceText}
@@ -226,10 +230,11 @@
   checkoutPromoStatus={billingStore.checkoutPromoStatus}
   checkoutPromoDiscountPercent={billingStore.checkoutPromoDiscountPercent}
   checkoutPromoAppliesTo={billingStore.checkoutPromoAppliesTo}
-  checkoutPromoMinSubscriptionMonths={billingStore.checkoutPromoMinSubscriptionMonths}
+  checkoutPromoMinSubscriptionDays={billingStore.checkoutPromoMinSubscriptionDays}
   checkoutPromoMinTrafficGb={billingStore.checkoutPromoMinTrafficGb}
   applyCheckoutPromo={billingStore.applyCheckoutPromo}
   clearCheckoutPromo={billingStore.clearCheckoutPromo}
+  setCheckoutPromoInput={billingStore.setCheckoutPromoInput}
   createDeviceTopupPayment={billingStore.createDeviceTopupPayment}
   createTopupPayment={billingStore.createTopupPayment}
   deviceTopupOptions={billingStore.deviceTopupOptions}

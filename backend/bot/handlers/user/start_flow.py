@@ -189,38 +189,6 @@ async def start_command_handler(
             await message.answer(_("admin_user_card_error"))
             return
 
-    if ticket_match:
-        ticket_id = int(ticket_match.group(1))
-        base_url = (settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
-        if base_url:
-            started_user = await user_dal.get_user_by_id(session, user_id)
-            await emit_bot_started(
-                user_id=user_id,
-                returning=started_user is not None,
-                source=start_source,
-                start_param=start_param,
-            )
-            ticket_url = f"{base_url.rstrip('/')}/support/{ticket_id}"
-            keyboard = types.InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        types.InlineKeyboardButton(
-                            text=i18n.gettext(current_lang, "wa_support_open_ticket")
-                            if i18n
-                            else "Open ticket",
-                            web_app=types.WebAppInfo(url=ticket_url),
-                        )
-                    ]
-                ]
-            )
-            await message.answer(
-                i18n.gettext(current_lang, "wa_support_open_ticket_hint")
-                if i18n
-                else "Open the ticket in the Mini App.",
-                reply_markup=keyboard,
-            )
-            return
-
     referred_by_user_id: int | None = None
     partner_code: str | None = None
     raw_ref_value: str | None = None
@@ -251,7 +219,9 @@ async def start_command_handler(
     sanitized_last_name = sanitize_display_name(user.last_name)
     notification_status_now = datetime.now(UTC)
 
-    db_user = await user_dal.get_user_by_id(session, user_id)
+    db_user = await user_dal.get_user_by_telegram_id(session, user_id)
+    if not db_user:
+        db_user = await user_dal.get_user_by_id(session, user_id)
     is_existing_user = db_user is not None
     if db_user:
         if raw_ref_value:
@@ -280,6 +250,37 @@ async def start_command_handler(
             return
         referred_by_user_id = invite_check.referrer_user_id
         partner_code = invite_check.partner_code
+
+    if ticket_match:
+        ticket_id = int(ticket_match.group(1))
+        base_url = (settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
+        if base_url:
+            await emit_bot_started(
+                user_id=user_id,
+                returning=is_existing_user,
+                source=start_source,
+                start_param=start_param,
+            )
+            ticket_url = f"{base_url.rstrip('/')}/support/{ticket_id}"
+            keyboard = types.InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        types.InlineKeyboardButton(
+                            text=i18n.gettext(current_lang, "wa_support_open_ticket")
+                            if i18n
+                            else "Open ticket",
+                            web_app=types.WebAppInfo(url=ticket_url),
+                        )
+                    ]
+                ]
+            )
+            await message.answer(
+                i18n.gettext(current_lang, "wa_support_open_ticket_hint")
+                if i18n
+                else "Open the ticket in the Mini App.",
+                reply_markup=keyboard,
+            )
+            return
 
     if not db_user:
         user_data_to_create = {

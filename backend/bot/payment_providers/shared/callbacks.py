@@ -20,6 +20,7 @@ from bot.keyboards.inline.user_keyboards import (
 from bot.middlewares.i18n import JsonI18n
 from bot.services.checkout_promos import CheckoutPromoResult, resolve_checkout_promo
 from bot.utils.callback_answer import callback_message_or_none
+from config.subscription_periods import sale_mode_duration_days
 from config.tariffs_config import default_payment_currency_code_for_settings
 from db.dal import payment_dal, subscription_dal
 from db.models import Payment
@@ -442,7 +443,7 @@ async def _quote_configured_callback_parts(
         if not tariff_key or normalized_currency == "stars":
             return None
         try:
-            target = tariffs_config.require(tariff_key)
+            target = tariffs_config.require_configured(tariff_key)
         except Exception:
             return None
         active_sub = await subscription_dal.get_active_subscription_by_user_id(session, user_id)
@@ -463,7 +464,7 @@ async def _quote_configured_callback_parts(
     if not tariff_key:
         return None
     try:
-        tariff = tariffs_config.require(tariff_key)
+        tariff = tariffs_config.require_configured(tariff_key)
     except Exception:
         return None
 
@@ -534,12 +535,12 @@ def payment_link_message_text(
         "topup",
         "premium_topup",
     }
-    key = "payment_link_message_traffic" if traffic_like else "payment_link_message"
-    body = translator(
-        key,
-        months=int(parts.months),
-        traffic_gb=parts.human_value,
-    )
+    if traffic_like:
+        body = translator("payment_link_message_traffic", traffic_gb=parts.human_value)
+    elif (duration_days := sale_mode_duration_days(parts.sale_mode)) is not None:
+        body = translator("payment_link_message_days", days=duration_days)
+    else:
+        body = translator("payment_link_message", months=int(parts.months))
     if lead_text:
         return f"{lead_text}\n\n{body}"
     return body

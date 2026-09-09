@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Tabs } from "$components/ui/primitives.js";
   import UserDangerActionsCard from "./UserDangerActionsCard.svelte";
+  import UserBalanceActionCard from "./UserBalanceActionCard.svelte";
   import UserHwidLimitActionCard from "./UserHwidLimitActionCard.svelte";
   import UserQuickActionsBlock from "./UserQuickActionsBlock.svelte";
   import UserSquadOverridesActionCard from "./UserSquadOverridesActionCard.svelte";
@@ -106,6 +107,7 @@
 
   const activeSubscription = $derived(openedUserDetail?.active_subscription ?? null);
   const extraHwidDevices = $derived(Number(activeSubscription?.extra_hwid_devices || 0));
+  const activeSubscriptionEndDate = $derived(String(activeSubscription?.end_date || ""));
   const openedUserIsBanned = $derived(Boolean(openedUser?.is_banned));
 </script>
 
@@ -119,8 +121,13 @@
     {userExtendTariffValid}
     {extendTariffRequired}
     {extraHwidDevices}
+    {activeSubscriptionEndDate}
     {selectExtendTariff}
   />
+
+  {#if openedUserDetail?.balance}
+    <UserBalanceActionCard {at} {openedUserDetail} {userActionBusy} />
+  {/if}
 
   {#if activeSubscription}
     {#if periodTariffItems.length}

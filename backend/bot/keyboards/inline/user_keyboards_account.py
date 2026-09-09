@@ -42,15 +42,14 @@ def get_subscribe_only_markup(
     settings: Settings | None = None,
     *,
     tariff_key: str | None = None,
-) -> InlineKeyboardMarkup:
+) -> InlineKeyboardMarkup | None:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
-    renew_url = (
-        subscription_mini_app_renew_url(settings, tariff_key)
-        if settings and bool(settings.TELEGRAM_BOT_MENU_DISABLED)
-        else None
-    )
-    if renew_url:
+    bot_menu_disabled = bool(settings and settings.TELEGRAM_BOT_MENU_DISABLED)
+    if bot_menu_disabled:
+        renew_url = subscription_mini_app_renew_url(settings, tariff_key)
+        if not renew_url:
+            return None
         builder.button(
             text=_(key="menu_subscribe_inline"),
             web_app=WebAppInfo(url=renew_url),

@@ -114,6 +114,7 @@ class TariffWorkerPremiumWarningMixin:
             markup = self._traffic_topup_markup(user_lang, "premium") if self.bot else None
             await deliver_traffic_warning(
                 session,
+                settings=self.settings,
                 user_id=sub.user_id,
                 bot=self.bot,
                 text=text,
@@ -187,6 +188,7 @@ class TariffWorkerPremiumWarningMixin:
             markup = self._traffic_topup_markup(user_lang, "premium") if self.bot else None
             await deliver_traffic_warning(
                 session,
+                settings=self.settings,
                 user_id=sub.user_id,
                 bot=self.bot,
                 text=text,

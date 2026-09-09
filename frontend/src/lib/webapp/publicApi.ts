@@ -84,6 +84,9 @@ export type PostResponse<Path extends string> = JsonResponse<OperationFor<Path, 
 
 export type BootstrapResponse = GetResponse<"/api/bootstrap">;
 export type MeResponse = GetResponse<"/api/me">;
+export type BalanceResponse = GetResponse<"/api/balance">;
+export type BalanceTopupResponse = PostResponse<"/api/balance/topup">;
+export type ServerStatusResponse = GetResponse<"/api/status">;
 export type AccountEmailRequestResponse = PostResponse<"/api/account/email/request">;
 export type AccountEmailVerifyResponse = PostResponse<"/api/account/email/verify">;
 export type AccountLanguageResponse = PostResponse<"/api/account/language">;
@@ -94,6 +97,9 @@ export type AuthEmailMagicResponse = PostResponse<"/api/auth/email/magic">;
 export type AuthEmailPasswordResponse = PostResponse<"/api/auth/email/password">;
 export type AuthEmailRequestResponse = PostResponse<"/api/auth/email/request">;
 export type AuthEmailVerifyResponse = PostResponse<"/api/auth/email/verify">;
+export type AuthExternalPendingResponse = PostResponse<"/api/auth/external/pending">;
+export type AuthExternalRequestResponse = PostResponse<"/api/auth/external/request">;
+export type AuthExternalVerifyResponse = PostResponse<"/api/auth/external/verify">;
 export type AuthLogoutResponse = PostResponse<"/api/auth/logout">;
 export type AuthSessionResponse = GetResponse<"/api/auth/session">;
 export type AuthTokenResponse = PostResponse<"/api/auth/token">;
@@ -102,6 +108,8 @@ export type DevicesDisconnectResponse = PostResponse<"/api/devices/disconnect">;
 export type DeviceTopupOptionsResponse = GetResponse<"/api/devices/topup-options">;
 export type PaymentCreateResponse = PostResponse<"/api/payments">;
 export type PaymentStatusResponse = GetResponse<"/api/payments/{payment_id}">;
+export type PaymentCancelResponse = PostResponse<"/api/payments/{payment_id}/cancel">;
+export type QaPaymentCompleteResponse = PostResponse<"/api/payments/{payment_id}/qa/complete">;
 export type PlansViewedResponse = PostResponse<"/api/plans/viewed">;
 export type PromoApplyResponse = PostResponse<"/api/promo/apply">;
 export type PromoStatusResponse = PostResponse<"/api/promo/status">;
@@ -137,6 +145,7 @@ export type PartnerBalanceRenewResponse = PostResponse<"/api/partner/balance/ren
 export type AccountEmailRequestPath = "/account/email/request";
 export type AccountEmailVerifyPath = "/account/email/verify";
 export type AccountLanguagePath = "/account/language";
+export type AccountNotificationPreferencesPath = "/account/notification-preferences";
 export type AccountPasswordRequestPath = "/account/password/request";
 export type AccountPasswordConfirmPath = "/account/password/confirm";
 export type AccountTelegramLinkPath = "/account/telegram/link";
@@ -144,8 +153,13 @@ export type AuthEmailMagicPath = "/auth/email/magic";
 export type AuthEmailPasswordPath = "/auth/email/password";
 export type AuthEmailRequestPath = "/auth/email/request";
 export type AuthEmailVerifyPath = "/auth/email/verify";
+export type AuthExternalPendingPath = "/auth/external/pending";
+export type AuthExternalRequestPath = "/auth/external/request";
+export type AuthExternalVerifyPath = "/auth/external/verify";
+export type AuthExternalCancelPath = "/auth/external/cancel";
 export type AuthLogoutPath = "/auth/logout";
 export type AuthTokenPath = "/auth/token";
+export type ServerStatusPath = "/status";
 export type DeviceTopupOptionsPath = "/devices/topup-options";
 export type DevicesDisconnectPath = "/devices/disconnect";
 export type TariffChangeOptionsPath = "/tariffs/change-options";
@@ -239,6 +253,7 @@ export type ApiClient = {
     options?: Options
   ): Promise<ApiResponseFor<Path, Options>>;
   apiUnchecked(path: string, options?: RequestInit): Promise<Record<string, unknown>>;
+  apiBlob(path: string, options?: RequestInit): Promise<Blob>;
   publicApi<Path extends ApiPathInput>(
     path: Path,
     payload?: PostPayload<Path>,
@@ -251,7 +266,7 @@ export type ApiClient = {
   ): Promise<Record<string, unknown>>;
 };
 
-function builtApiPath<Template extends RawApiPath>(path: string): BuiltApiPath<Template> {
+export function builtApiPath<Template extends RawApiPath>(path: string): BuiltApiPath<Template> {
   return path as BuiltApiPath<Template>;
 }
 
@@ -276,6 +291,10 @@ export function buildAccountEmailVerifyPath(): AccountEmailVerifyPath {
 
 export function buildAccountLanguagePath(): AccountLanguagePath {
   return "/account/language";
+}
+
+export function buildAccountNotificationPreferencesPath(): AccountNotificationPreferencesPath {
+  return "/account/notification-preferences";
 }
 
 export function buildAccountPasswordRequestPath(): AccountPasswordRequestPath {
@@ -306,6 +325,22 @@ export function buildAuthEmailVerifyPath(): AuthEmailVerifyPath {
   return "/auth/email/verify";
 }
 
+export function buildAuthExternalPendingPath(): AuthExternalPendingPath {
+  return "/auth/external/pending";
+}
+
+export function buildAuthExternalRequestPath(): AuthExternalRequestPath {
+  return "/auth/external/request";
+}
+
+export function buildAuthExternalVerifyPath(): AuthExternalVerifyPath {
+  return "/auth/external/verify";
+}
+
+export function buildAuthExternalCancelPath(): AuthExternalCancelPath {
+  return "/auth/external/cancel";
+}
+
 export function buildAuthLogoutPath(): AuthLogoutPath {
   return "/auth/logout";
 }
@@ -316,6 +351,10 @@ export function buildAuthTokenPath(): AuthTokenPath {
 
 export function buildDevicesPath(): "/devices" {
   return "/devices";
+}
+
+export function buildServerStatusPath(): ServerStatusPath {
+  return "/status";
 }
 
 export function buildDevicesDisconnectPath(): DevicesDisconnectPath {
@@ -344,6 +383,20 @@ export type PaymentStatusPath = BuiltApiPath<"/api/payments/{payment_id}">;
 export function buildPaymentStatusPath(paymentId: string | number): PaymentStatusPath {
   return builtApiPath<"/api/payments/{payment_id}">(
     `/payments/${encodeURIComponent(String(paymentId))}`
+  );
+}
+
+export type PaymentCancelPath = BuiltApiPath<"/api/payments/{payment_id}/cancel">;
+export function buildPaymentCancelPath(paymentId: string | number): PaymentCancelPath {
+  return builtApiPath<"/api/payments/{payment_id}/cancel">(
+    `/payments/${encodeURIComponent(String(paymentId))}/cancel`
+  );
+}
+
+export type QaPaymentCompletePath = BuiltApiPath<"/api/payments/{payment_id}/qa/complete">;
+export function buildQaPaymentCompletePath(paymentId: string | number): QaPaymentCompletePath {
+  return builtApiPath<"/api/payments/{payment_id}/qa/complete">(
+    `/payments/${encodeURIComponent(String(paymentId))}/qa/complete`
   );
 }
 
@@ -447,6 +500,21 @@ export function buildSupportTicketTypingPath(ticketId: string | number): Support
 }
 
 export type AdminSettingsPath = "/admin/settings";
+export function buildAdminGiftPath(
+  id: string | number
+): BuiltApiPath<"/api/admin/gifts/{gift_id}"> {
+  return builtApiPath<"/api/admin/gifts/{gift_id}">(
+    `/admin/gifts/${encodeURIComponent(String(id))}`
+  );
+}
+
+export type AdminGiftRevokePath = BuiltApiPath<"/api/admin/gifts/{gift_id}/revoke">;
+export function buildAdminGiftRevokePath(id: string | number): AdminGiftRevokePath {
+  return builtApiPath<"/api/admin/gifts/{gift_id}/revoke">(
+    `/admin/gifts/${encodeURIComponent(String(id))}/revoke`
+  );
+}
+
 export function buildAdminSettingsPath(): AdminSettingsPath {
   return "/admin/settings";
 }
@@ -515,7 +583,10 @@ export type AdminUserAction =
   | "regular-traffic-override"
   | "traffic-strategy"
   | "hwid-device-limit"
-  | "traffic-grant";
+  | "traffic-grant"
+  | "balance-adjustment"
+  | "balance-conversion"
+  | "notification-preferences";
 type AdminUserActionTemplate =
   | "/api/admin/users/{user_id}/ban"
   | "/api/admin/users/{user_id}/message"
@@ -531,7 +602,10 @@ type AdminUserActionTemplate =
   | "/api/admin/users/{user_id}/regular-traffic-override"
   | "/api/admin/users/{user_id}/traffic-strategy"
   | "/api/admin/users/{user_id}/hwid-device-limit"
-  | "/api/admin/users/{user_id}/traffic-grant";
+  | "/api/admin/users/{user_id}/traffic-grant"
+  | "/api/admin/users/{user_id}/balance-adjustment"
+  | "/api/admin/users/{user_id}/balance-conversion"
+  | "/api/admin/users/{user_id}/notification-preferences";
 export type AdminUserActionPath = BuiltApiPath<AdminUserActionTemplate>;
 export function buildAdminUserActionPath(
   userId: string | number,
@@ -754,6 +828,22 @@ export function buildAdminPaymentPath(paymentId: string | number): AdminPaymentP
   );
 }
 
+export type AdminPaymentFinalizePath = BuiltApiPath<"/api/admin/payments/{payment_id}/finalize">;
+export function buildAdminPaymentFinalizePath(
+  paymentId: string | number
+): AdminPaymentFinalizePath {
+  return builtApiPath<"/api/admin/payments/{payment_id}/finalize">(
+    `/admin/payments/${encodeURIComponent(String(paymentId))}/finalize`
+  );
+}
+
+export type AdminPaymentReversePath = BuiltApiPath<"/api/admin/payments/{payment_id}/reverse">;
+export function buildAdminPaymentReversePath(paymentId: string | number): AdminPaymentReversePath {
+  return builtApiPath<"/api/admin/payments/{payment_id}/reverse">(
+    `/admin/payments/${encodeURIComponent(String(paymentId))}/reverse`
+  );
+}
+
 export type AdminPaymentsExportPath = "/api/admin/payments/export.csv";
 export function buildAdminPaymentsExportPath(): AdminPaymentsExportPath {
   return "/api/admin/payments/export.csv";
@@ -776,15 +866,10 @@ export function createApiClient({
   const isFormDataBody = (body: BodyInit | null | undefined) =>
     typeof FormData !== "undefined" && body instanceof FormData;
 
-  async function requestJson(
-    path: string,
-    options: RequestInit = {}
-  ): Promise<Record<string, unknown>> {
-    if (mockApi) return (await mockApi(path, options, getMockContext())) as Record<string, unknown>;
-
+  function authenticatedHeaders(options: RequestInit): Headers {
     const method = String(options.method || "GET").toUpperCase();
     const headers = new Headers(options.headers);
-
+    headers.set("X-Billing-Period-Unit", "day");
     const csrf = getCsrfToken() || readCookie(csrfCookieName) || "";
     const authToken = getAuthToken();
     if (authToken && !headers.has("Authorization")) {
@@ -793,6 +878,16 @@ export function createApiClient({
     if (csrf && ["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
       headers.set("X-CSRF-Token", csrf);
     }
+    return headers;
+  }
+
+  async function requestJson(
+    path: string,
+    options: RequestInit = {}
+  ): Promise<Record<string, unknown>> {
+    if (mockApi) return (await mockApi(path, options, getMockContext())) as Record<string, unknown>;
+
+    const headers = authenticatedHeaders(options);
     if (options.body && !headers.has("Content-Type") && !isFormDataBody(options.body)) {
       headers.set("Content-Type", "application/json");
     }
@@ -832,6 +927,38 @@ export function createApiClient({
     return requestJson(path, options);
   }
 
+  async function apiBlob(path: string, options: RequestInit = {}): Promise<Blob> {
+    if (mockApi) {
+      const value = await mockApi(path, options, getMockContext());
+      if (typeof Blob !== "undefined" && value instanceof Blob) return value;
+      throw new Error("mock_binary_response_unavailable");
+    }
+
+    const headers = authenticatedHeaders(options);
+    const { signal, cleanup } = requestSignal(options.signal, requestTimeoutMs);
+    try {
+      const response = await fetch(buildApiUrl(path), {
+        cache: "no-store",
+        ...options,
+        headers,
+        credentials: "same-origin",
+        signal,
+      });
+      if (response.status === 401) onUnauthorized();
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({
+          ok: false,
+          error: "image_load_failed",
+          status: response.status,
+        }));
+        throw payload;
+      }
+      return response.blob();
+    } finally {
+      cleanup();
+    }
+  }
+
   async function publicApiUnchecked(
     path: string,
     payload: Record<string, unknown> = {},
@@ -867,5 +994,5 @@ export function createApiClient({
     return (await publicApiUnchecked(path, payload, options)) as PostResponse<Path>;
   }
 
-  return { api, apiUnchecked, publicApi, publicApiUnchecked } as ApiClient;
+  return { api, apiUnchecked, apiBlob, publicApi, publicApiUnchecked } as ApiClient;
 }

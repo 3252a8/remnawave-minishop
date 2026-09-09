@@ -8,8 +8,8 @@
   } from "$components/patterns/webapp/index.js";
   import CheckoutPromoRow from "../CheckoutPromoRow.svelte";
   import PartnerBalanceDiscount from "./PartnerBalanceDiscount.svelte";
-  import type { ApiClient } from "$lib/webapp/publicApi.js";
-  import type { PaymentMethodView, PlanView, Translate } from "$lib/webapp/types.js";
+  import type { ApiClient, BalanceResponse } from "$lib/webapp/publicApi.js";
+  import type { PaymentMethodView, PlanView, StringAction, Translate } from "$lib/webapp/types.js";
 
   type LabelPricePair = { base: string; discounted: string };
   type PlanPricePair = { base: PlanView; discounted: PlanView };
@@ -21,7 +21,9 @@
     partnerCurrency = "",
     partnerEligible = false,
     partnerMinimum = 0,
-    usePartnerBalance = $bindable(false),
+    prefetchedBalance,
+    balancePreloadComplete = false,
+    balanceSource = $bindable<"user" | "partner" | null>(null),
     partnerBalanceDiscount = $bindable(0),
     hasMethods = false,
     paymentMethods = [],
@@ -30,12 +32,13 @@
     selectPaymentMethod = () => {},
     checkoutQuoteError = "",
     showCheckoutPromo = false,
-    checkoutPromoInput = $bindable(""),
+    checkoutPromoInput = "",
     checkoutPromoAppliedCode = "",
     checkoutPromoIsError = false,
     checkoutPromoStatus = "",
     applyCheckoutPromo = () => {},
     clearCheckoutPromo = () => {},
+    setCheckoutPromoInput = () => {},
     payDisabled = false,
     createPayment = () => {},
     partnerPrice = null,
@@ -53,7 +56,9 @@
     partnerCurrency?: string;
     partnerEligible?: boolean;
     partnerMinimum?: number;
-    usePartnerBalance?: boolean;
+    prefetchedBalance?: BalanceResponse | null;
+    balancePreloadComplete?: boolean;
+    balanceSource?: "user" | "partner" | null;
     partnerBalanceDiscount?: number;
     hasMethods?: boolean;
     paymentMethods?: PaymentMethodView[];
@@ -68,6 +73,7 @@
     checkoutPromoStatus?: string;
     applyCheckoutPromo?: () => unknown;
     clearCheckoutPromo?: () => unknown;
+    setCheckoutPromoInput?: StringAction;
     payDisabled?: boolean;
     createPayment?: () => unknown;
     partnerPrice?: LabelPricePair | null;
@@ -100,12 +106,13 @@
 {/if}
 {#if showCheckoutPromo}
   <CheckoutPromoRow
-    bind:value={checkoutPromoInput}
+    value={checkoutPromoInput}
     appliedCode={checkoutPromoAppliedCode}
     isError={checkoutPromoIsError}
     status={checkoutPromoStatus}
     onApply={applyCheckoutPromo}
     onClear={clearCheckoutPromo}
+    onValueChange={setCheckoutPromoInput}
     {t}
   />
 {/if}
@@ -116,7 +123,9 @@
   currency={partnerCurrency}
   eligible={partnerEligible}
   minimumExternalAmount={partnerMinimum}
-  bind:selected={usePartnerBalance}
+  {prefetchedBalance}
+  {balancePreloadComplete}
+  bind:source={balanceSource}
   bind:discount={partnerBalanceDiscount}
   {t}
 />

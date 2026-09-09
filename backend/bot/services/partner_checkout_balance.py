@@ -29,6 +29,7 @@ TERMINAL_CHECKOUT_STATUSES = frozenset(
         "failed",
         "failed_creation",
         "refunded",
+        "reversed",
         "void",
     }
 )

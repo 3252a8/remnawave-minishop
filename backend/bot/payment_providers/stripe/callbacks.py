@@ -7,7 +7,9 @@ from aiogram import F, types
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.middlewares.i18n import JsonI18n
+from bot.services.subscription_order_terms import freeze_subscription_terms
 from config.settings import Settings
+from config.subscription_periods import fixed_day_metadata
 from config.tariffs_config import (
     default_currency_key_for_settings,
     default_payment_currency_code_for_settings,
@@ -128,6 +130,7 @@ async def pay_stripe_callback_handler(
         description=payment_description,
         months=parts.months,
         provider="stripe",
+        subscription_terms_snapshot=freeze_subscription_terms(settings, parts.sale_mode),
         sale_mode=parts.sale_mode,
         hwid_quote=hwid_quote,
         entitlement_context_snapshot=parts.entitlement_context_snapshot,
@@ -156,6 +159,7 @@ async def pay_stripe_callback_handler(
             if parts.sale_base == "subscription"
             else "0",
             "sale_mode": parts.sale_mode,
+            **fixed_day_metadata(parts.sale_mode),
             "source": "telegram",
         },
     )

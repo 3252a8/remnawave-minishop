@@ -27,6 +27,9 @@ WEBAPP_HTML_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
 WEBAPP_LEGACY_ASSET_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
 PROVIDER_LOGO_MAX_BYTES = 128 * 1024
 PROVIDER_LOGO_SOURCE_DIR = APP_ROOT / "frontend" / "public" / "provider-logos"
+FLAG_FONT_FILENAME = "TwemojiCountryFlags.woff2"
+FLAG_FONT_MAX_BYTES = 128 * 1024
+FLAG_FONT_SOURCE_PATH = APP_ROOT / "frontend" / "public" / "fonts" / FLAG_FONT_FILENAME
 _PROVIDER_LOGO_NAME_CHARS = frozenset(string.ascii_letters + string.digits + "_-")
 _PROVIDER_LOGO_NAME_MAX_LEN = 64
 
@@ -77,6 +80,26 @@ def _provider_logo_asset_path(filename: str) -> Path:
     if built_path.is_file():
         return built_path
     return PROVIDER_LOGO_SOURCE_DIR / filename
+
+
+async def flag_font_asset_route(request: web.Request) -> web.Response:
+    settings: Settings = get_settings(request)
+    if not settings.WEBAPP_ENABLED:
+        raise web.HTTPNotFound(text="webapp_disabled")
+
+    built_path = ASSET_DIR / "fonts" / FLAG_FONT_FILENAME
+    path = built_path if built_path.is_file() else FLAG_FONT_SOURCE_PATH
+    try:
+        body = _read_template_binary_cached(path)
+    except OSError:
+        raise web.HTTPNotFound(text="flag_font_not_found") from None
+    if not body or len(body) > FLAG_FONT_MAX_BYTES:
+        raise web.HTTPNotFound(text="flag_font_not_found")
+
+    response = web.Response(body=body, content_type="font/woff2")
+    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 async def css_asset_route(request: web.Request) -> web.Response:
@@ -156,13 +179,16 @@ async def _js_asset_route(request: web.Request, *, base_name: str) -> web.Respon
 
 
 WEBAPP_BOOTSTRAP_I18N_PREFIXES = ("wa_",)
-WEBAPP_BOOTSTRAP_I18N_KEYS = {"menu_support_button", "menu_server_status_button"}
+WEBAPP_BOOTSTRAP_I18N_KEYS = {"menu_support_button"}
 WEBAPP_I18N_SCOPES = {"webapp", "admin"}
 APP_DEEPLINK_I18N_KEYS = {
     "title": "wa_app_launch_title",
     "hint": "wa_app_launch_opening_hint",
     "manualHint": "wa_app_launch_hint",
+    "externalBrowserHint": "wa_app_launch_external_browser_hint",
     "button": "wa_app_launch_button",
+    "copyButton": "wa_app_launch_copy_button",
+    "copiedHint": "wa_app_launch_copied_hint",
     "retryButton": "wa_app_launch_retry_button",
     "doneTitle": "wa_app_launch_done_title",
     "doneHint": "wa_app_launch_done_hint",
@@ -174,7 +200,12 @@ APP_DEEPLINK_I18N_FALLBACKS = {
     "wa_app_launch_title": "Opening app",
     "wa_app_launch_opening_hint": "Opening the app on this device...",
     "wa_app_launch_hint": "If the app did not open automatically, tap the button below.",
+    "wa_app_launch_external_browser_hint": (
+        "Open this page in your browser if Telegram cannot launch the app."
+    ),
     "wa_app_launch_button": "Open app",
+    "wa_app_launch_copy_button": "Copy subscription link",
+    "wa_app_launch_copied_hint": "Subscription link copied.",
     "wa_app_launch_retry_button": "Open again",
     "wa_app_launch_done_title": "Settings added",
     "wa_app_launch_done_hint": "If the app opened, you can close this window.",

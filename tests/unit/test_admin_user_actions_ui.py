@@ -5,6 +5,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 USER_DETAIL = REPO_ROOT / "frontend/src/admin/sections/UserDetailModal.svelte"
 USER_DETAIL_VIEW = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserDetailView.svelte"
+USER_ACTIVITY = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserActivityTab.svelte"
 USER_DETAIL_ASIDE = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserDetailAside.svelte"
 USER_DETAIL_CSS = REPO_ROOT / "frontend/src/admin/sections/UserDetailModal.css"
 USER_ACTIONS = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserActionsTab.svelte"
@@ -23,9 +24,22 @@ USER_HWID_ACTION = (
 USER_TRAFFIC_GRANT_ACTION = (
     REPO_ROOT / "frontend/src/admin/sections/user-detail/UserTrafficGrantActionCard.svelte"
 )
+USER_BALANCE_ACTION = (
+    REPO_ROOT / "frontend/src/admin/sections/user-detail/UserBalanceActionCard.svelte"
+)
 USER_DIALOGS = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserDetailDialogs.svelte"
+PAYMENTS_SECTION = REPO_ROOT / "frontend/src/admin/sections/PaymentsSection.svelte"
+PAYMENT_TABLE = REPO_ROOT / "frontend/src/admin/sections/PaymentTable.svelte"
+PAYMENT_PURCHASES_CELL = REPO_ROOT / "frontend/src/admin/sections/PaymentPurchasesCell.svelte"
+PAYMENT_DETAIL_MODAL = REPO_ROOT / "frontend/src/admin/sections/PaymentDetailModal.svelte"
+TICKET_MESSAGE_BUBBLE = (
+    REPO_ROOT / "frontend/src/lib/components/patterns/webapp/TicketMessageBubble.svelte"
+)
+IMAGE_VIEWER = REPO_ROOT / "frontend/src/lib/components/ui/image-viewer.svelte"
 STATS_SECTION = REPO_ROOT / "frontend/src/admin/sections/StatsSection.svelte"
 ADMIN_PANEL = REPO_ROOT / "frontend/src/admin/AdminPanel.svelte"
+ADMIN_PANEL_LAYOUT = REPO_ROOT / "frontend/src/admin/AdminPanelLayout.svelte"
+ADMIN_LAZY_MODALS = REPO_ROOT / "frontend/src/admin/AdminLazyModals.svelte"
 ADMIN_CSS = REPO_ROOT / "frontend/src/styles/admin.css"
 USERS_STORE = REPO_ROOT / "frontend/src/lib/admin/stores/usersStore.svelte.ts"
 
@@ -89,9 +103,11 @@ def test_extend_tariff_dropdown_uses_admin_select_and_marks_current_tariff():
     assert 'currentSubscriptionTariff?.billing_model === "period"' in source
 
 
-def test_extend_tariff_state_blocks_invalid_hidden_selection():
+def test_extend_tariff_state_accepts_configured_hidden_selection():
     source = _source()
 
+    assert "tariffCatalogItems.filter" in source
+    assert "user_tariff_hidden_badge" in source
     assert "userExtendTariffValid" in source
     assert 'usersStore.updateState({ userExtendTariffKey: "" })' in source
     assert "!userExtendTariffValid" in source
@@ -135,6 +151,7 @@ def test_extend_tariff_current_badge_is_localized():
     for language in ("ru", "en"):
         messages = json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text("utf-8"))
         assert messages["admin_user_tariff_current_badge"]
+        assert messages["admin_user_tariff_hidden_badge"]
 
 
 def test_user_detail_links_include_install_share_link():
@@ -149,6 +166,20 @@ def test_user_detail_links_include_install_share_link():
         assert messages["admin_user_install_share_link_label"]
         assert messages["admin_user_label_install_share"]
         assert messages["admin_user_install_share_link_copied"]
+
+
+def test_user_detail_shows_hwid_device_usage():
+    source = _aside_source()
+
+    assert 'openedUserDetail.hwid_devices?.current_devices ?? "—"' in source
+    assert 'openedUserDetail.hwid_devices?.max_devices ?? "∞"' in source
+    assert 'at("user_hwid_devices_usage", { current, max }' in source
+    assert 'at("user_label_hwid_devices"' in source
+
+    expected = {"ru": "{current} из {max}", "en": "{current} of {max}"}
+    for language, value in expected.items():
+        messages = json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text("utf-8"))
+        assert messages["admin_user_hwid_devices_usage"] == value
 
 
 def test_action_save_buttons_require_dirty_valid_state():
@@ -192,6 +223,30 @@ def test_action_cards_surface_unsaved_state():
     for language in ("ru", "en"):
         messages = json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text("utf-8"))
         assert messages["admin_user_action_unsaved_hint"]
+
+
+def test_balance_actions_select_target_and_keep_horizontal_sections_separate():
+    source = USER_BALANCE_ACTION.read_text(encoding="utf-8")
+
+    summary = source.index("balance-section-block--summary")
+    adjustment = source.index("balance-section-block--adjustment")
+    conversion = source.index("balance-section-block--conversion")
+    history = source.index('class="balance-history"')
+
+    assert summary < adjustment < conversion < history
+    assert "resolveBalanceTarget(" in source
+    assert "value={adjustmentTarget}" in source
+    assert "items={adjustmentTargets}" in source
+    assert "manageableTargetCount <= 1" in source
+    assert "target: adjustmentTarget" in source
+    assert "entry.source_id" in source
+    assert "grid-template-columns:" in source
+
+    for language in ("ru", "en"):
+        messages = json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text("utf-8"))
+        assert messages["admin_user_balance_target"]
+        assert messages["admin_user_balance_adjustment_unavailable"]
+        assert messages["admin_user_balance_history_manual_adjustment"]
 
 
 def test_danger_actions_stay_last_in_user_actions_tab():
@@ -242,17 +297,18 @@ def test_tariff_hwid_limit_confirm_flow_is_localized():
 
 
 def test_stats_recent_payments_open_payment_and_user_cards():
-    source = STATS_SECTION.read_text(encoding="utf-8")
-    table_start = source.index("{#each recentPayments as p (p.payment_id)}")
-    table_end = source.index("{/each}", table_start)
-    table_block = source[table_start:table_end]
+    stats = STATS_SECTION.read_text(encoding="utf-8")
+    table = PAYMENT_TABLE.read_text(encoding="utf-8")
 
-    assert "paymentsStore.openPayment(p)" in table_block
-    assert "onOpenUserCard(p.user_id)" in table_block
-    assert "payment_detail_open" in table_block
-    assert "payments_open_user" in table_block
-    assert "admin-payment-id-btn" in source
-    assert "admin-payments-user-btn" in source
+    assert "<PaymentTable" in stats
+    assert "payments={recentPayments}" in stats
+    assert 'payment.status === "succeeded"' in stats
+    assert "paymentsStore.openPayment(p)" in table
+    assert "onOpenUserCard(p.user_id)" in table
+    assert "payment_detail_open" in table
+    assert "payments_open_user" in table
+    assert "admin-payment-id-btn" in table
+    assert "admin-payments-user-btn" in table
 
 
 def test_stats_recent_payment_user_button_stays_in_current_section():
@@ -264,3 +320,90 @@ def test_stats_recent_payment_user_button_stays_in_current_section():
     assert "openPaymentUserCard" in source
     assert 'active === "logs"' in source
     assert "openLogsUserCard" in source
+
+
+def test_user_recent_payments_open_payment_cards():
+    activity = USER_ACTIVITY.read_text(encoding="utf-8")
+    modal = USER_DETAIL.read_text(encoding="utf-8")
+    view = USER_DETAIL_VIEW.read_text(encoding="utf-8")
+    layout = ADMIN_PANEL_LAYOUT.read_text(encoding="utf-8")
+    lazy_modals = ADMIN_LAZY_MODALS.read_text(encoding="utf-8")
+    panel = ADMIN_PANEL.read_text(encoding="utf-8")
+
+    assert "onOpenPaymentCard(payment.payment_id)" in activity
+    assert "payment_detail_open" in activity
+    assert "admin-payment-id-btn" in activity
+    assert "{onOpenPaymentCard}" in modal
+    assert "{onOpenPaymentCard}" in view
+    assert "{onOpenPaymentCard}" in layout
+    assert "{onOpenPaymentCard}" in lazy_modals
+    assert lazy_modals.index("{#if UserDetailModalComponent}") < lazy_modals.index(
+        "{#if PaymentDetailModalComponent}"
+    )
+    assert "void paymentsStore.openPayment(id)" in panel
+
+
+def test_payment_tables_keep_identity_and_primary_fields_visible_first():
+    payments = PAYMENTS_SECTION.read_text(encoding="utf-8")
+    stats = STATS_SECTION.read_text(encoding="utf-8")
+    table = PAYMENT_TABLE.read_text(encoding="utf-8")
+    activity = USER_ACTIVITY.read_text(encoding="utf-8")
+    header = activity[activity.index("<thead>") : activity.index("</thead>")]
+
+    assert "<PaymentTable" in payments
+    assert "<PaymentTable" in stats
+    assert 'class="admin-payments-table"' in table
+    assert "table-layout: fixed" in table
+    assert "overflow-x: auto" in table
+    assert "<Popover.Trigger" in table
+    assert "admin-payments-user-popover" in table
+    assert header.index('at("amount"') < header.index('at("provider"')
+    assert header.index('at("status"') < header.index('at("provider"')
+    assert header.index('at("date"') < header.index('at("provider"')
+    assert header.index('at("provider"') < header.index('at("payments_col_traffic_regular"')
+
+
+def test_payments_list_combines_purchases_for_desktop_and_mobile():
+    payments = PAYMENT_TABLE.read_text(encoding="utf-8")
+    purchases = PAYMENT_PURCHASES_CELL.read_text(encoding="utf-8")
+    table_header = payments[payments.index("<thead>") : payments.index("</thead>")]
+
+    assert 'at("payments_col_purchases"' in table_header
+    assert 'at("payments_col_traffic_regular"' not in table_header
+    assert 'at("payments_col_traffic_premium"' not in table_header
+    assert payments.count("<PaymentPurchasesCell") == 2
+    assert 'mode="mobile"' in payments
+    assert "data-payment-purchases={mode}" in purchases
+
+
+def test_payment_detail_highlights_flexible_limits_and_addons():
+    detail = PAYMENT_DETAIL_MODAL.read_text(encoding="utf-8")
+    purchases = PAYMENT_PURCHASES_CELL.read_text(encoding="utf-8")
+
+    assert '<PaymentPurchasesCell {payment} {at} mode="detail" />' in detail
+    assert "payment_detail_purchases_flexible_note" in purchases
+    assert "payment_detail_purchase_mode_limit" in purchases
+    assert "admin-payment-purchases-detail-list" in purchases
+    assert "admin-payment-purchases-detail-head" not in purchases
+
+
+def test_ticket_images_and_user_avatars_share_zoomable_viewer():
+    bubble = TICKET_MESSAGE_BUBBLE.read_text(encoding="utf-8")
+    dialogs = USER_DIALOGS.read_text(encoding="utf-8")
+    modal = USER_DETAIL.read_text(encoding="utf-8")
+    viewer = IMAGE_VIEWER.read_text(encoding="utf-8")
+
+    assert "<ImageViewer" in bubble
+    assert "ticket-message-image-trigger" in bubble
+    assert "<ImageViewer" in dialogs
+    assert "quality=full" in modal
+    assert "handleWheel" in viewer
+    assert "handleDoubleClick" in viewer
+    assert "handlePointerMove" in viewer
+    assert "MAX_SCALE = 5" in viewer
+    for language in ("ru", "en"):
+        messages = json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text("utf-8"))
+        assert messages["admin_image_viewer_open"]
+        assert messages["admin_image_viewer_title"]
+        assert messages["admin_image_viewer_close"]
+        assert messages["wa_image_viewer_open"]

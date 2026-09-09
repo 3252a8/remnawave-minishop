@@ -9,9 +9,9 @@ compatibility).
 """
 
 import logging
-from datetime import UTC, datetime, timedelta
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from typing import Any
-from typing import cast as type_cast
 
 from sqlalchemy import String, and_, case, cast, delete, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,8 +39,12 @@ from ..models import (
     TrafficWarning,
     User,
     UserBilling,
+    UserEmailAddress,
+    UserExternalIdentity,
+    UserPasskeyCredential,
     UserPaymentMethod,
     UserTelegramAvatar,
+    WebAuthnChallenge,
 )
 from ..partner_models import (
     PartnerApplication,
@@ -50,15 +54,36 @@ from ..partner_models import (
     PartnerProfile,
     PartnerWithdrawal,
 )
+from .user_merge_entitlements import (
+    _merged_subscription_end as _merged_subscription_end,
+)
+from .user_merge_entitlements import (
+    inspect_recurring_merge,
+    merge_active_subscription_entitlements,
+    merge_user_billing_state,
+    transfer_entitlement_ownership,
+)
 from .user_reads_dal import get_user_by_id
 
 logger = logging.getLogger(__name__)
 
+RecurringCancellation = Callable[
+    [AsyncSession, int, Subscription | None, tuple[str, ...]],
+    Awaitable[bool],
+]
+
 
 class UserMergeConflictError(ValueError):
-    def __init__(self, message: str, *, message_key: str | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        message_key: str | None = None,
+        code: str = "account_merge_conflict",
+    ) -> None:
         super().__init__(message)
         self.message_key = message_key
+        self.code = code
 
 
 async def _has_active_panel_subscription(
@@ -155,45 +180,6 @@ async def _accounts_share_promo_activation(
     return result.scalar_one_or_none() is not None
 
 
-def _is_free_grant_subscription(subscription: Subscription) -> bool:
-    status = str(getattr(subscription, "status_from_panel", "") or "").strip().upper()
-    if status in {"TRIAL", "ACTIVE_BONUS", "ACTIVE_MERGED_FREE_GRANT"}:
-        return True
-    provider = str(getattr(subscription, "provider", "") or "").strip().lower()
-    try:
-        duration_months = int(getattr(subscription, "duration_months", 0) or 0)
-    except (TypeError, ValueError):
-        duration_months = 0
-    return provider in {"", "trial"} and duration_months <= 0
-
-
-def _merged_subscription_end(
-    source_subscription: Subscription,
-    target_subscription: Subscription,
-    *,
-    now: datetime,
-) -> tuple[datetime, str]:
-    source_end = type_cast(datetime, source_subscription.end_date)
-    if source_end.tzinfo is None:
-        source_end = source_end.replace(tzinfo=UTC)
-
-    target_end = type_cast(datetime, target_subscription.end_date)
-    if target_end.tzinfo is None:
-        target_end = target_end.replace(tzinfo=UTC)
-
-    if _is_free_grant_subscription(source_subscription) or _is_free_grant_subscription(
-        target_subscription
-    ):
-        # Merging identities must not add a separately claimed free trial or
-        # bonus on top of either another grant or paid time.  Keeping the later
-        # expiry preserves the best existing entitlement without stacking it.
-        return max(source_end, target_end), "ACTIVE_MERGED_FREE_GRANT"
-
-    source_remaining = max(timedelta(0), source_end - now)
-    base_end = target_end if target_end > now else now
-    return base_end + source_remaining, "ACTIVE_EXTENDED_BY_MERGE"
-
-
 async def merge_users(
     session: AsyncSession,
     *,
@@ -201,6 +187,7 @@ async def merge_users(
     target_user_id: int,
     reason: str = "unknown",
     send_user_email: bool = False,
+    cancel_source_recurring: RecurringCancellation | None = None,
 ) -> User:
     """Merge source user data into target user and remove the source row."""
 
@@ -219,18 +206,58 @@ async def merge_users(
             message_key="wa_auth_access_denied",
         )
 
-    if source.email and target.email and source.email != target.email:
-        raise UserMergeConflictError("Both accounts already have different emails.")
     if (
         source.telegram_id
         and target.telegram_id
         and int(source.telegram_id) != int(target.telegram_id)
     ):
-        raise UserMergeConflictError("Both accounts already have different Telegram IDs.")
+        raise UserMergeConflictError(
+            "Both accounts already have different Telegram IDs.",
+            message_key="account_merge_telegram_conflict",
+            code="account_merge_telegram_conflict",
+        )
     if await _accounts_share_promo_activation(session, source_user_id, target_user_id):
         raise UserMergeConflictError(
             "Both accounts already redeemed the same one-time code.",
             message_key="account_merge_duplicate_promo_conflict",
+            code="account_merge_duplicate_promo_conflict",
+        )
+    source_provider_rows = (
+        (
+            await session.execute(
+                select(UserExternalIdentity.provider).where(
+                    UserExternalIdentity.user_id == source_user_id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    target_provider_rows = set(
+        (
+            await session.execute(
+                select(UserExternalIdentity.provider).where(
+                    UserExternalIdentity.user_id == target_user_id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    overlapping_provider = next(
+        (provider for provider in source_provider_rows if provider in target_provider_rows), None
+    )
+    if overlapping_provider:
+        provider = str(overlapping_provider).strip().lower()
+        message_key = (
+            f"account_merge_{provider}_conflict"
+            if provider in {"google", "yandex"}
+            else "account_merge_provider_conflict"
+        )
+        raise UserMergeConflictError(
+            f"Both accounts already have different {provider} identities.",
+            message_key=message_key,
+            code=message_key,
         )
 
     source_partner = (
@@ -296,9 +323,13 @@ async def merge_users(
     source_active_sub = await _get_active_subscription_for_user(
         session, source_user_id, source_panel_uuid
     )
+    if not source_active_sub and source_panel_uuid:
+        source_active_sub = await _get_active_subscription_for_user(session, source_user_id)
     target_active_sub = await _get_active_subscription_for_user(
         session, target_user_id, target_panel_uuid
     )
+    if not target_active_sub and target_panel_uuid:
+        target_active_sub = await _get_active_subscription_for_user(session, target_user_id)
     target_anchor_sub = target_active_sub
     if not target_anchor_sub and target_panel_uuid:
         target_anchor_sub = await _get_latest_subscription_for_user(
@@ -306,33 +337,60 @@ async def merge_users(
         )
     if not target_anchor_sub and not target_panel_uuid:
         target_anchor_sub = await _get_latest_subscription_for_user(session, target_user_id)
+    if not target_anchor_sub:
+        target_anchor_sub = await _get_latest_subscription_for_user(session, target_user_id)
+
+    recurring_state = await inspect_recurring_merge(
+        session,
+        source_user_id=source_user_id,
+        target_user_id=target_user_id,
+        source_subscription=source_active_sub,
+        target_subscription=target_active_sub,
+        now=now,
+    )
+    if recurring_state.source_has_recurring and recurring_state.target_has_recurring:
+        cancelled = bool(
+            cancel_source_recurring
+            and await cancel_source_recurring(
+                session,
+                source_user_id,
+                source_active_sub,
+                recurring_state.source_managed_providers,
+            )
+        )
+        if not cancelled:
+            raise UserMergeConflictError(
+                "The secondary account recurring payment could not be cancelled safely.",
+                message_key="account_merge_recurring_cancel_failed",
+                code="account_merge_conflict",
+            )
+        recurring_state = type(recurring_state)(
+            source_has_recurring=False,
+            target_has_recurring=True,
+            source_managed_providers=(),
+        )
+
+    from db.dal import auto_renew_dal
+
+    await auto_renew_dal.stop_open_cycles_for_user(
+        session,
+        source_user_id,
+        "account_merged",
+    )
 
     if (
         source_active_sub
         and target_anchor_sub
-        and source_panel_uuid
-        and target_panel_uuid
-        and source_panel_uuid != target_panel_uuid
+        and int(source_active_sub.subscription_id) != int(target_anchor_sub.subscription_id)
     ):
-        source_end = source_active_sub.end_date
-        if source_end.tzinfo is None:
-            source_end = source_end.replace(tzinfo=UTC)
-
-        if source_end > now:
-            merged_end, merged_status = _merged_subscription_end(
-                source_active_sub,
-                target_anchor_sub,
-                now=now,
-            )
-            target_anchor_sub.end_date = merged_end
-            target_anchor_sub.last_notification_sent = None
-            target_anchor_sub.is_active = True
-            target_anchor_sub.status_from_panel = merged_status
-
-        source_active_sub.is_active = False
-        source_active_sub.skip_notifications = True
-        source_active_sub.last_notification_sent = None
-        source_active_sub.status_from_panel = "MERGED_INTO_ACCOUNT"
+        await merge_active_subscription_entitlements(
+            session,
+            source_active_sub,
+            target_anchor_sub,
+            now=now,
+            source_has_recurring=recurring_state.source_has_recurring,
+            target_has_recurring=recurring_state.target_has_recurring,
+        )
     elif (
         source_active_sub
         and target_panel_uuid
@@ -344,23 +402,44 @@ async def merge_users(
         source_active_sub.last_notification_sent = None
         source_active_sub.status_from_panel = "ACTIVE_EXTENDED_BY_MERGE"
 
-    email_to_move = source.email if source.email and not target.email else None
-    email_verified_at_to_move = (
-        source.email_verified_at
-        if source.email and (not target.email_verified_at or email_to_move)
-        else None
+    source_primary_email = str(source.email or "").strip().lower()
+    target_primary_email = str(target.email or "").strip().lower()
+    source_primary_verified = bool(source_primary_email and source.email_verified_at)
+    target_primary_verified = bool(target_primary_email and target.email_verified_at)
+    # The established target account keeps its verified primary address. A
+    # verified source address replaces only an empty or unverified target
+    # address; otherwise it is retained below as an additional verified login.
+    promote_source_primary = bool(
+        source_primary_email
+        and (not target_primary_email or (source_primary_verified and not target_primary_verified))
     )
+    email_to_move = source.email if promote_source_primary else None
+    email_verified_at_to_move = source.email_verified_at if email_to_move else None
     telegram_id_to_move = (
         source.telegram_id if source.telegram_id and not target.telegram_id else None
     )
     referral_code_to_move = (
         source.referral_code if source.referral_code and not target.referral_code else None
     )
+    source_notification_email = (
+        str(getattr(source, "notification_email", None) or source.email or "").strip().lower()
+    )
+    target_notification_email = (
+        str(
+            getattr(target, "notification_email", None)
+            or (target.email if target_primary_verified else "")
+            or ""
+        )
+        .strip()
+        .lower()
+    )
 
     if email_to_move:
         source.email = None
     if telegram_id_to_move:
         source.telegram_id = None
+    if source_panel_uuid:
+        source.panel_user_uuid = None
     if referral_code_to_move:
         source.referral_code = None
     if email_to_move or source_panel_uuid or telegram_id_to_move or referral_code_to_move:
@@ -376,6 +455,34 @@ async def merge_users(
         target.panel_user_uuid = panel_uuid_to_keep
     if referral_code_to_move:
         target.referral_code = referral_code_to_move
+    if target_notification_email:
+        # Preserve the established account's notification destination even
+        # when the merged source contributes another verified address.
+        target.notification_email = target_notification_email
+    elif source_notification_email:
+        target.notification_email = source_notification_email
+
+    # An opt-out on either identity wins. Account linking must never silently
+    # re-enable a channel that the person already disabled.
+    for preference_attr in (
+        "marketing_notifications_email_enabled",
+        "marketing_notifications_telegram_enabled",
+        "system_notifications_email_enabled",
+        "system_notifications_telegram_enabled",
+    ):
+        setattr(
+            target,
+            preference_attr,
+            bool(getattr(target, preference_attr, True))
+            and bool(getattr(source, preference_attr, True)),
+        )
+    source_password_hash = getattr(source, "password_hash", None)
+    if source_password_hash and not getattr(target, "password_hash", None):
+        # A user has already proved control of both accounts. Preserve the only
+        # password credential; when both sides have one, the established target
+        # password wins and can be reset later from Security settings.
+        target.password_hash = source_password_hash
+        target.password_set_at = getattr(source, "password_set_at", None)
 
     for attr in ("username", "first_name", "last_name", "language_code", "telegram_photo_url"):
         if not getattr(target, attr) and getattr(source, attr):
@@ -434,29 +541,13 @@ async def merge_users(
         if target.referred_by_id == target_user_id:
             target.referred_by_id = None
 
-    target_method_ids = select(UserPaymentMethod.provider_payment_method_id).where(
-        UserPaymentMethod.user_id == target_user_id
+    await merge_user_billing_state(
+        session,
+        source_user_id=source_user_id,
+        target_user_id=target_user_id,
+        source_subscription=source_active_sub,
+        recurring_state=recurring_state,
     )
-    await session.execute(
-        delete(UserPaymentMethod).where(
-            UserPaymentMethod.user_id == source_user_id,
-            UserPaymentMethod.provider_payment_method_id.in_(target_method_ids),
-        )
-    )
-
-    target_has_billing = (
-        await session.execute(
-            select(UserBilling.user_id).where(UserBilling.user_id == target_user_id)
-        )
-    ).scalar_one_or_none()
-    if target_has_billing:
-        await session.execute(delete(UserBilling).where(UserBilling.user_id == source_user_id))
-    else:
-        await session.execute(
-            update(UserBilling)
-            .where(UserBilling.user_id == source_user_id)
-            .values(user_id=target_user_id)
-        )
 
     target_has_attribution = (
         await session.execute(
@@ -496,7 +587,7 @@ async def merge_users(
         .where(Subscription.user_id == source_user_id)
         .values(**subscription_update_values)
     )
-    for model in (Payment, PromoCodeActivation, UserPaymentMethod):
+    for model in (Payment, PromoCodeActivation):
         await session.execute(
             update(model).where(model.user_id == source_user_id).values(user_id=target_user_id)
         )
@@ -528,6 +619,13 @@ async def merge_users(
         update(User)
         .where(User.referred_by_id == source_user_id)
         .values(referred_by_id=target_user_id)
+    )
+
+    await transfer_entitlement_ownership(
+        session,
+        source_user_id=source_user_id,
+        target_user_id=target_user_id,
+        panel_user_uuid=panel_uuid_to_keep,
     )
 
     await session.execute(
@@ -592,11 +690,79 @@ async def merge_users(
         .where(EmailVerificationCode.target_user_id == source_user_id)
         .values(target_user_id=target_user_id)
     )
+    target_address_emails = select(UserEmailAddress.email).where(
+        UserEmailAddress.user_id == target_user_id
+    )
+    await session.execute(
+        delete(UserEmailAddress).where(
+            UserEmailAddress.user_id == source_user_id,
+            UserEmailAddress.email.in_(target_address_emails),
+        )
+    )
+    # Clear both partial-unique flags before moving addresses, then restore
+    # them according to the surviving account policy. This lets distinct
+    # verified addresses coexist without a transient uniqueness violation.
+    await session.execute(
+        update(UserEmailAddress)
+        .where(UserEmailAddress.user_id.in_([source_user_id, target_user_id]))
+        .values(is_primary=False, is_notification=False)
+    )
+    await session.execute(
+        update(UserEmailAddress)
+        .where(UserEmailAddress.user_id == source_user_id)
+        .values(user_id=target_user_id)
+    )
+    final_primary_email = str(target.email or "").strip().lower()
+    final_notification_email = (
+        str(getattr(target, "notification_email", None) or final_primary_email).strip().lower()
+    )
+    if final_primary_email and target.email_verified_at:
+        await session.execute(
+            update(UserEmailAddress)
+            .where(
+                UserEmailAddress.user_id == target_user_id,
+                UserEmailAddress.email == final_primary_email,
+            )
+            .values(is_primary=True)
+        )
+    if final_notification_email:
+        await session.execute(
+            update(UserEmailAddress)
+            .where(
+                UserEmailAddress.user_id == target_user_id,
+                UserEmailAddress.email == final_notification_email,
+            )
+            .values(is_notification=True)
+        )
+    await session.execute(
+        update(UserExternalIdentity)
+        .where(UserExternalIdentity.user_id == source_user_id)
+        .values(user_id=target_user_id)
+    )
+    await session.execute(
+        update(UserPasskeyCredential)
+        .where(UserPasskeyCredential.user_id == source_user_id)
+        .values(user_id=target_user_id)
+    )
+    await session.execute(
+        update(WebAuthnChallenge)
+        .where(WebAuthnChallenge.user_id == source_user_id)
+        .values(user_id=target_user_id)
+    )
 
+    from .gift_dal import merge_owner
+
+    await merge_owner(session, source_user_id, target_user_id)
     await session.delete(source)
     await session.flush()
     await session.refresh(target)
 
+    logger.info(
+        "Account merge staged source_user_id=%s target_user_id=%s reason=%s",
+        source_user_id,
+        target_user_id,
+        reason,
+    )
     await events.emit_model(
         AccountMergedPayload(
             source_user_id=int(source_user_id),
@@ -605,7 +771,7 @@ async def merge_users(
             send_user_email=send_user_email,
             source_panel_user_uuid=source_panel_uuid,
             target_panel_user_uuid=target.panel_user_uuid,
-            email=target.email,
+            email=getattr(target, "notification_email", None) or target.email,
             telegram_id=target.telegram_id,
             username=target.username,
             first_name=target.first_name,
@@ -629,6 +795,14 @@ async def delete_user_and_relations(session: AsyncSession, user_id: int) -> bool
     await session.execute(
         update(User).where(User.referred_by_id == user_id).values(referred_by_id=None)
     )
+    await session.execute(delete(UserEmailAddress).where(UserEmailAddress.user_id == user_id))
+    await session.execute(
+        delete(UserExternalIdentity).where(UserExternalIdentity.user_id == user_id)
+    )
+    await session.execute(
+        delete(UserPasskeyCredential).where(UserPasskeyCredential.user_id == user_id)
+    )
+    await session.execute(delete(WebAuthnChallenge).where(WebAuthnChallenge.user_id == user_id))
 
     # Financial partner history is intentionally retained, but the deleted
     # account must no longer be identifiable or able to receive attribution.
@@ -737,10 +911,14 @@ async def delete_user_and_relations(session: AsyncSession, user_id: int) -> bool
     await session.execute(
         delete(EmailVerificationCode).where(EmailVerificationCode.target_user_id == user_id)
     )
+    # Keep the append-only audit trail when an account is removed.  The user
+    # foreign keys are nullable specifically so historical events can survive
+    # without blocking deletion of the personally identifiable user row.
     await session.execute(
-        delete(MessageLog).where(
-            or_(MessageLog.user_id == user_id, MessageLog.target_user_id == user_id)
-        )
+        update(MessageLog).where(MessageLog.user_id == user_id).values(user_id=None)
+    )
+    await session.execute(
+        update(MessageLog).where(MessageLog.target_user_id == user_id).values(target_user_id=None)
     )
     await session.execute(
         delete(PromoCodeActivation).where(

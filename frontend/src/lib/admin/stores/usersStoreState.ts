@@ -42,10 +42,16 @@ export type AdminStoreState = {
   usersPremiumTraffic: string;
   usersSort: string;
   usersLoading: boolean;
+  userBalanceEnabled: boolean;
+  partnerBalanceEnabled: boolean;
+  balanceCurrency: string;
+  balanceCurrencyScale: number;
   openedUser: AdminUser | null;
   openedUserDetail: AdminUserDetail | null;
   userDetailLoading: boolean;
+  userExtendMode: "days" | "date";
   userExtendDays: DraftNumber;
+  userExtendEndDate: string;
   userExtendHwidDevices: boolean;
   userExtendTariffKey: string;
   userTariffActionKey: string;
@@ -136,11 +142,17 @@ export function createInitialUsersState(): AdminStoreState {
     usersPremiumTraffic: "all",
     usersSort: "",
     usersLoading: false,
+    userBalanceEnabled: false,
+    partnerBalanceEnabled: false,
+    balanceCurrency: "RUB",
+    balanceCurrencyScale: 0,
 
     openedUser: null,
     openedUserDetail: null,
     userDetailLoading: false,
+    userExtendMode: "days",
     userExtendDays: 30,
+    userExtendEndDate: "",
     userExtendHwidDevices: true,
     userExtendTariffKey: "",
     userTariffActionKey: "",
@@ -196,7 +208,9 @@ export function closedUserModalState(): Partial<AdminStoreState> {
     openedUser: null,
     openedUserDetail: null,
     userDetailLoading: false,
+    userExtendMode: "days",
     userExtendDays: 30,
+    userExtendEndDate: "",
     userExtendHwidDevices: true,
     userExtendTariffKey: "",
     userTariffActionKey: "",

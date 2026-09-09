@@ -67,7 +67,10 @@ def _source_files(*roots: str) -> list[Path]:
             result.append(path)
         else:
             result.extend(
-                child for child in path.rglob("*") if child.suffix in {".py", ".js", ".svelte"}
+                child
+                for child in path.rglob("*")
+                if child.suffix in {".py", ".js", ".ts", ".svelte"}
+                and not any(marker in child.name for marker in (".test.", ".spec.", ".generated."))
             )
     return result
 

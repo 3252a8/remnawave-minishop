@@ -377,6 +377,7 @@ def test_backup_restore_service_validates_dump_and_restores_atomically(tmp_path)
         return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
 
     with (
+        patch.object(BackupRestoreService, "_assert_empty_restore_target"),
         patch(
             "bot.services.backup_restore_service.shutil.which",
             return_value="/usr/bin/pg_restore",
@@ -389,6 +390,8 @@ def test_backup_restore_service_validates_dump_and_restores_atomically(tmp_path)
         BackupRestoreService(settings)._run_pg_restore(dump_path)
 
     assert commands[0] == ["pg_restore", "--list", str(dump_path)]
+    assert "--clean" not in commands[1]
+    assert "--if-exists" not in commands[1]
     assert "--single-transaction" in commands[1]
     assert "--exit-on-error" in commands[1]
     assert commands[1][-1] == str(dump_path)

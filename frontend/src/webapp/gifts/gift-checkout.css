@@ -1,0 +1,24 @@
+.gift-checkout-dialog .payment-dialog-body {
+  gap: 8px;
+}
+
+.gift-checkout-dialog .checkout-tariff-description-line,
+.dialog-card.gift-checkout-dialog .period-card .period-unit-price {
+  display: none;
+}
+
+.dialog-card.gift-checkout-dialog .period-grid .period-card {
+  min-height: 58px;
+  padding: 8px;
+  gap: 3px;
+}
+
+.gift-checkout-dialog .payment-divider {
+  margin-block: 2px;
+}
+
+@media (max-width: 520px) {
+  .gift-checkout-dialog .checkout-tariff-fact {
+    padding-block: 2px;
+  }
+}

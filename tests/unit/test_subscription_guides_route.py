@@ -119,6 +119,7 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
         custom_uuid = "11111111-1111-1111-1111-111111111111"
         resolved_config = json.loads(default_subscription_guides_config_text())
         resolved_config["platforms"]["windows"]["apps"][0]["name"] = "External Squad App"
+        resolved_config["brandingSettings"]["logoUrl"] = "data:image/png;base64,iVBORw0KGgo="
         panel_service = SimpleNamespace(
             get_user_by_uuid=AsyncMock(
                 return_value={
@@ -157,6 +158,10 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(body["source"], "panel")
         windows_apps = [app["name"] for app in body["config"]["platforms"]["windows"]["apps"]]
         self.assertIn("External Squad App", windows_apps)
+        self.assertEqual(
+            body["config"]["brandingSettings"]["logoUrl"],
+            resolved_config["brandingSettings"]["logoUrl"],
+        )
         panel_service.get_user_by_uuid.assert_not_called()
         panel_service.get_subscription_page_config_by_short_uuid.assert_awaited_once()
         call = panel_service.get_subscription_page_config_by_short_uuid.await_args
@@ -539,6 +544,7 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
         panel_config["platforms"]["windows"]["apps"][0]["name"] = "Shared App"
         resolved_config = json.loads(default_subscription_guides_config_text())
         resolved_config["platforms"]["windows"]["apps"][0]["name"] = "Shared External App"
+        resolved_config["brandingSettings"]["logoUrl"] = "data:image/svg+xml,%3Csvg%2F%3E"
         panel_service = SimpleNamespace(
             get_subscription_page_config_list=AsyncMock(
                 return_value={"configs": [{"uuid": default_uuid, "viewPosition": 1}]}
@@ -597,6 +603,10 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
         panel_service.get_subscription_page_config_list.assert_not_called()
         windows_apps = [app["name"] for app in body["config"]["platforms"]["windows"]["apps"]]
         self.assertIn("Shared External App", windows_apps)
+        self.assertEqual(
+            body["config"]["brandingSettings"]["logoUrl"],
+            resolved_config["brandingSettings"]["logoUrl"],
+        )
 
     async def test_public_route_caches_active_subscription_payload(self):
         default_uuid = "00000000-0000-0000-0000-000000000000"

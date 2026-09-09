@@ -1,0 +1,27 @@
+{
+  "key": "paper",
+  "names": {
+    "ru": "Бумага",
+    "en": "Paper"
+  },
+  "enabled": true,
+  "default": false,
+  "use_in_admin": false,
+  "css_file": "theme.css",
+  "tokens": {
+    "bg": "#faf6ef",
+    "accent": "#946c38"
+  },
+  "variants": {
+    "dark": {
+      "bg": "#0c1b2a",
+      "text": "#edf9ff",
+      "accent": "#946c38"
+    },
+    "light": {
+      "bg": "#faf6ef",
+      "text": "#29231b",
+      "accent": "#946c38"
+    }
+  }
+}

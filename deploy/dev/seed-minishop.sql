@@ -80,6 +80,8 @@ INSERT INTO subscriptions (
     start_date,
     end_date,
     duration_months,
+    duration_days,
+    period_semantics,
     is_active,
     status_from_panel,
     traffic_limit_bytes,
@@ -105,6 +107,7 @@ INSERT INTO subscriptions (
     is_throttled,
     effective_monthly_price_rub,
     hwid_device_limit,
+    hwid_device_limit_is_override,
     extra_hwid_devices
 ) VALUES
     (
@@ -115,6 +118,8 @@ INSERT INTO subscriptions (
         now() - interval '10 days',
         now() + interval '20 days',
         1,
+        30,
+        'calendar_months',
         true,
         'ACTIVE',
         107374182400,
@@ -140,6 +145,7 @@ INSERT INTO subscriptions (
         false,
         299.00,
         3,
+        false,
         1
     ),
     (
@@ -150,6 +156,8 @@ INSERT INTO subscriptions (
         now() - interval '5 days',
         now() + interval '55 days',
         2,
+        60,
+        'calendar_months',
         true,
         'LIMITED',
         214748364800,
@@ -175,6 +183,7 @@ INSERT INTO subscriptions (
         true,
         499.00,
         5,
+        false,
         0
     ),
     (
@@ -185,6 +194,8 @@ INSERT INTO subscriptions (
         now() - interval '75 days',
         now() - interval '15 days',
         1,
+        30,
+        'calendar_months',
         false,
         'EXPIRED',
         53687091200,
@@ -210,6 +221,7 @@ INSERT INTO subscriptions (
         false,
         299.00,
         1,
+        false,
         0
     )
 ON CONFLICT (panel_subscription_uuid) DO UPDATE SET
@@ -219,6 +231,8 @@ ON CONFLICT (panel_subscription_uuid) DO UPDATE SET
     start_date = EXCLUDED.start_date,
     end_date = EXCLUDED.end_date,
     duration_months = EXCLUDED.duration_months,
+    duration_days = EXCLUDED.duration_days,
+    period_semantics = EXCLUDED.period_semantics,
     is_active = EXCLUDED.is_active,
     status_from_panel = EXCLUDED.status_from_panel,
     traffic_limit_bytes = EXCLUDED.traffic_limit_bytes,
@@ -244,6 +258,7 @@ ON CONFLICT (panel_subscription_uuid) DO UPDATE SET
     is_throttled = EXCLUDED.is_throttled,
     effective_monthly_price_rub = EXCLUDED.effective_monthly_price_rub,
     hwid_device_limit = EXCLUDED.hwid_device_limit,
+    hwid_device_limit_is_override = EXCLUDED.hwid_device_limit_is_override,
     extra_hwid_devices = EXCLUDED.extra_hwid_devices;
 
 INSERT INTO payments (
@@ -251,6 +266,7 @@ INSERT INTO payments (
     provider_payment_id,
     provider_payment_url,
     provider,
+    funding_source,
     idempotence_key,
     amount,
     currency,
@@ -262,6 +278,8 @@ INSERT INTO payments (
     tariff_key,
     purchased_gb,
     purchased_hwid_devices,
+    promo_conflict_override,
+    promo_usage_restored,
     created_at,
     updated_at
 ) VALUES
@@ -270,6 +288,7 @@ INSERT INTO payments (
         'dev-payment-runes-admin-001',
         'https://payments.example.test/dev-payment-runes-admin-001',
         'dev_seed',
+        'external',
         'dev-idempotence-runes-admin-001',
         299.00,
         'RUB',
@@ -281,6 +300,8 @@ INSERT INTO payments (
         'standard',
         null,
         null,
+        false,
+        false,
         now() - interval '10 days',
         now() - interval '10 days'
     ),
@@ -289,6 +310,7 @@ INSERT INTO payments (
         'dev-payment-runes-active-001',
         'https://payments.example.test/dev-payment-runes-active-001',
         'dev_seed',
+        'external',
         'dev-idempotence-runes-active-001',
         499.00,
         'RUB',
@@ -300,6 +322,8 @@ INSERT INTO payments (
         'premium',
         null,
         null,
+        false,
+        false,
         now() - interval '5 days',
         now() - interval '5 days'
     ),
@@ -308,6 +332,7 @@ INSERT INTO payments (
         'dev-payment-runes-active-topup-001',
         'https://payments.example.test/dev-payment-runes-active-topup-001',
         'dev_seed',
+        'external',
         'dev-idempotence-runes-active-topup-001',
         149.00,
         'RUB',
@@ -319,6 +344,8 @@ INSERT INTO payments (
         'premium',
         10,
         null,
+        false,
+        false,
         now() - interval '1 day',
         now() - interval '1 day'
     )
@@ -326,6 +353,7 @@ ON CONFLICT (provider, provider_payment_id) DO UPDATE SET
     user_id = EXCLUDED.user_id,
     provider_payment_url = EXCLUDED.provider_payment_url,
     provider = EXCLUDED.provider,
+    funding_source = EXCLUDED.funding_source,
     idempotence_key = EXCLUDED.idempotence_key,
     amount = EXCLUDED.amount,
     currency = EXCLUDED.currency,
@@ -337,4 +365,6 @@ ON CONFLICT (provider, provider_payment_id) DO UPDATE SET
     tariff_key = EXCLUDED.tariff_key,
     purchased_gb = EXCLUDED.purchased_gb,
     purchased_hwid_devices = EXCLUDED.purchased_hwid_devices,
+    promo_conflict_override = EXCLUDED.promo_conflict_override,
+    promo_usage_restored = EXCLUDED.promo_usage_restored,
     updated_at = now();

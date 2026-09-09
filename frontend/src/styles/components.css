@@ -371,6 +371,7 @@
 }
 
 .attention-dot {
+  --attention-dot-color: #ff4b4b;
   position: absolute;
   top: 0;
   right: 0;
@@ -378,8 +379,8 @@
   width: 13px;
   height: 13px;
   border-radius: 999px;
-  background: #ff4b4b;
-  box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.75);
+  background: var(--attention-dot-color);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--attention-dot-color) 75%, transparent);
   animation: attention-pulse 1.6s ease-out infinite;
   transform: translate(50%, -50%);
   pointer-events: none;
@@ -394,15 +395,21 @@
 
 @keyframes attention-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.75);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--attention-dot-color) 75%, transparent);
   }
 
   70% {
-    box-shadow: 0 0 0 8px rgba(255, 75, 75, 0);
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--attention-dot-color) 0%, transparent);
   }
 
   100% {
-    box-shadow: 0 0 0 0 rgba(255, 75, 75, 0);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--attention-dot-color) 0%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .attention-dot {
+    animation: none;
   }
 }
 
@@ -428,7 +435,7 @@
 .numeric-badge-value {
   display: block;
   min-width: 0;
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   font-size: inherit;
   font-weight: inherit;
   line-height: 1;
@@ -782,6 +789,12 @@
     transform 0.16s ease;
 }
 
+.support-status-tabs-trigger {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+}
+
 .support-status-tabs-trigger b,
 .partner-tabs-trigger b {
   display: inline-grid;
@@ -811,7 +824,7 @@
 .support-status-tabs-trigger[data-state="active"] b,
 .partner-tabs-trigger[data-state="active"] b {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
-  color: color-mix(in srgb, var(--accent) 78%, white);
+  color: var(--accent-readable, color-mix(in srgb, var(--accent) 78%, white));
 }
 
 .support-status-tabs-trigger:focus-visible,
@@ -1018,7 +1031,7 @@
 .ticket-status-badge--awaiting_admin {
   border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
   background: color-mix(in srgb, var(--accent) 14%, transparent);
-  color: color-mix(in srgb, var(--accent) 80%, white);
+  color: var(--accent-readable, color-mix(in srgb, var(--accent) 80%, white));
 }
 
 .ticket-status-badge--awaiting_user {
@@ -1325,13 +1338,13 @@
 .ticket-message-row--admin {
   --ticket-bubble-bg: color-mix(in srgb, var(--info) 14%, var(--panel-2));
   --ticket-bubble-border: color-mix(in srgb, var(--info) 32%, var(--border));
-  --ticket-bubble-text: #eaf3ff;
+  --ticket-bubble-text: var(--text);
 }
 
 .ticket-message-row--user {
   --ticket-bubble-bg: color-mix(in srgb, var(--accent) 18%, var(--panel-2));
   --ticket-bubble-border: color-mix(in srgb, var(--accent) 38%, var(--border));
-  --ticket-bubble-text: #f4fff9;
+  --ticket-bubble-text: var(--text);
 }
 
 .ticket-message-row--system {
@@ -1405,7 +1418,7 @@
   border: 1px solid var(--ticket-bubble-border, var(--border));
   border-radius: 14px 14px 14px 4px;
   background: var(--ticket-bubble-bg, color-mix(in srgb, var(--panel-2) 92%, transparent));
-  padding: 10px 13px;
+  padding: 7px 11px;
   white-space: pre-wrap;
 }
 
@@ -1416,6 +1429,47 @@
   color: var(--ticket-bubble-text, var(--text));
   font-size: 14px;
   line-height: 1.5;
+}
+
+.ticket-message-image {
+  display: block;
+  width: min(100%, 520px);
+  max-height: 520px;
+  border-radius: 10px;
+  object-fit: contain;
+}
+
+.ticket-message-image-trigger {
+  display: block;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.ticket-message-image-trigger:hover .ticket-message-image,
+.ticket-message-image-trigger:focus-visible .ticket-message-image {
+  filter: brightness(1.06);
+  transform: scale(1.01);
+}
+
+.ticket-message-image-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ticket-message-image-trigger .ticket-message-image {
+  transition:
+    transform 120ms ease,
+    filter 120ms ease;
+}
+
+.ticket-message-image-trigger + .ticket-message-text {
+  margin-top: 8px;
 }
 
 .ticket-message-row--outgoing .ticket-message-bubble {
@@ -1651,11 +1705,6 @@
     padding: 14px;
   }
 
-  .support-status-tabs-trigger {
-    flex: 1 1 0;
-    text-align: center;
-  }
-
   .ticket-card {
     min-height: 84px;
     padding: 16px 16px 16px 20px;
@@ -1668,8 +1717,21 @@
   .support-ticket-detail-header {
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: 14px;
+    gap: 10px;
     margin-bottom: 0;
+  }
+
+  .support-ticket-screen > .support-ticket-card {
+    gap: 10px;
+    padding: 11px 14px;
+  }
+
+  .support-ticket-screen .ticket-detail-title small {
+    margin-bottom: 2px;
+  }
+
+  .support-ticket-screen .ticket-detail-title h1 {
+    font-size: 18px;
   }
 
   .support-ticket-detail-header .ticket-badges {
@@ -1739,12 +1801,12 @@
   }
 
   .support-ticket-screen {
-    height: calc(100dvh - max(16px, env(safe-area-inset-top)) - 48px);
+    height: auto;
     min-height: 0;
-    grid-template-rows: auto minmax(0, 1fr);
-    align-content: stretch;
+    grid-template-rows: auto auto;
+    align-content: start;
     gap: 10px;
-    overflow: hidden;
+    overflow: visible;
     padding-bottom: calc(
       var(--bottom-nav-height) + max(var(--bottom-nav-offset), env(safe-area-inset-bottom)) + 12px
     );
@@ -1755,10 +1817,10 @@
   }
 
   .support-ticket-screen .support-conversation-card {
-    min-height: 0;
-    grid-template-rows: minmax(0, 1fr) auto;
-    align-content: stretch;
-    overflow: hidden;
+    min-height: clamp(320px, 52dvh, 460px);
+    grid-template-rows: auto auto;
+    align-content: start;
+    overflow: visible;
   }
 
   .support-ticket-screen .support-conversation-card--loading {
@@ -1792,7 +1854,8 @@
   }
 
   .support-status-tabs-trigger {
-    flex: 0 0 auto;
+    flex: 1 1 0;
+    min-width: 0;
     padding-inline: 10px;
     white-space: nowrap;
     line-height: 1;
@@ -1874,20 +1937,26 @@
   }
 
   .support-ticket-screen .support-message-scroll {
-    min-height: 0;
-    height: 100%;
-    overflow: hidden;
+    min-height: clamp(300px, 48dvh, 420px);
+    height: auto;
+    overflow: visible;
     padding: 10px;
   }
 
+  .support-ticket-screen .support-message-scroll > .scroll-area__viewport {
+    height: auto;
+    min-height: inherit;
+    overflow: visible !important;
+  }
+
   .support-ticket-screen .ticket-message-list {
-    min-height: 100%;
+    min-height: clamp(278px, calc(48dvh - 22px), 398px);
     justify-content: flex-end;
   }
 
   .support-ticket-screen .support-messages-empty {
-    min-height: 0;
-    height: 100%;
+    min-height: clamp(278px, calc(48dvh - 22px), 398px);
+    height: auto;
   }
 
   .ticket-message-list,
@@ -1964,6 +2033,7 @@
   .ticket-composer-row {
     align-items: center;
     flex-direction: row;
+    justify-content: flex-end;
   }
 
   .ticket-composer-send {

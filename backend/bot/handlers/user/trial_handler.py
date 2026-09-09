@@ -58,6 +58,15 @@ async def request_trial_confirmation_handler(
             await callback.answer()
         return
 
+    if settings.TRIAL_PAYMENT_ENABLED:
+        await callback_message(callback).edit_text(
+            _("trial_payment_required"),
+            reply_markup=get_main_menu_inline_keyboard(current_lang, i18n, settings, True),
+        )
+        with contextlib.suppress(Exception):
+            await callback.answer()
+        return
+
     if await subscription_service.has_trial_blocking_subscription(session, user_id):
         await callback_message(callback).edit_text(
             _("trial_already_had_subscription_or_trial"),
@@ -194,6 +203,13 @@ async def confirm_activate_trial_handler(
         with contextlib.suppress(Exception):
             await callback.answer(_("trial_feature_disabled"), show_alert=True)
 
+        await send_main_menu(
+            callback, settings, i18n_data, subscription_service, session, is_edit=True
+        )
+        return
+    if settings.TRIAL_PAYMENT_ENABLED:
+        with contextlib.suppress(Exception):
+            await callback.answer(_("trial_payment_required"), show_alert=True)
         await send_main_menu(
             callback, settings, i18n_data, subscription_service, session, is_edit=True
         )

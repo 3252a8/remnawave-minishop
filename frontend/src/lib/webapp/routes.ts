@@ -9,6 +9,9 @@ export type WebappSection =
   | "devices"
   | "support"
   | "settings"
+  | "notifications"
+  | "security"
+  | "status"
   | "admin";
 
 type AdminUserRouteId = string | number | boolean | null | undefined;
@@ -25,6 +28,9 @@ export function normalizeSection(value: unknown): WebappSection {
     section === "devices" ||
     section === "support" ||
     section === "settings" ||
+    section === "notifications" ||
+    section === "security" ||
+    section === "status" ||
     section === "admin"
   ) {
     return section;
@@ -80,6 +86,8 @@ export function sectionFromPath(pathname: unknown, routePrefix: unknown = ""): W
   if (!routePath || routePath === "/") return "home";
   if (routePath === "/admin" || routePath.startsWith("/admin/")) return "admin";
   if (routePath === "/support" || routePath.startsWith("/support/")) return "support";
+  if (routePath === "/settings/notifications") return "notifications";
+  if (routePath === "/settings/security") return "security";
   const section = routePath.startsWith("/") ? routePath.slice(1) : routePath;
   return normalizeSection(section);
 }
@@ -92,6 +100,7 @@ export function sectionFromPath(pathname: unknown, routePrefix: unknown = ""): W
  * then the URL settles back on home.
  */
 export const PLANS_PATH = "/plans";
+export const CHECKOUT_PATH = "/checkout";
 
 export function publicInstallTokenFromPath(pathname: unknown): string {
   const normalized = String(pathname || "")

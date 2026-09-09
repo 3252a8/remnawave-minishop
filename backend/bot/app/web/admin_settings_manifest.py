@@ -12,6 +12,8 @@ import re
 from typing import Any
 
 from bot.app.web.admin_settings_manifest_fields import SETTINGS_MANIFEST, SettingField
+from config.menu_buttons import normalize_menu_buttons_json
+from config.server_status import KumaStatusPageUrlError, parse_kuma_status_page_url
 from config.support_links import normalize_support_link
 
 
@@ -58,6 +60,9 @@ def manifest_keys() -> list[str]:
 
 def coerce_value(field: SettingField, raw: Any) -> Any:
     """Coerce a value coming from JSON to the type declared by the field."""
+
+    if field.type == "menu_buttons":
+        return normalize_menu_buttons_json(raw)
 
     if field.type == "json":
         if raw is None:
@@ -122,8 +127,22 @@ def coerce_value(field: SettingField, raw: Any) -> Any:
             )
         return normalized
 
+    if field.key == "SERVER_STATUS_KUMA_URL":
+        try:
+            parse_kuma_status_page_url(str(raw))
+        except KumaStatusPageUrlError as exc:
+            raise ValueError(
+                "SERVER_STATUS_KUMA_URL: published /status/<slug> URL expected"
+            ) from exc
+        return str(raw).strip()
+
     if isinstance(raw, str):
-        return raw.strip()
+        string_value = raw.strip()
+        if field.type == "string" and field.choices:
+            allowed = {choice_value for choice_value, _label in field.choices}
+            if string_value not in allowed:
+                raise ValueError(f"{field.key}: unsupported choice")
+        return string_value
     return str(raw)
 
 
@@ -411,7 +430,9 @@ def manifest_payload() -> list[dict]:
 
     sections_order = {
         "general": 1,
+        "login_methods": 2,
         "appearance": 2,
+        "menu_buttons": 3,
         "remnawave": 3,
         "pricing": 11,
         "payments": 4,

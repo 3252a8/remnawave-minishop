@@ -97,6 +97,8 @@ async def prepare_durable_recurring_charge(
         amount=float(context.amount),
         currency=str(context.currency).strip().upper(),
         months=int(context.months),
+        duration_days=context.duration_days,
+        subscription_terms_snapshot=context.subscription_terms_snapshot,
         sale_mode=str(context.sale_mode),
         description=str(context.description),
         metadata={str(key): str(value) for key, value in context.metadata.items()},
@@ -159,7 +161,6 @@ async def prepare_durable_recurring_charge(
             str(cycle.payment_method_provider_id),
             saved_method_id,
         ),
-        "request_snapshot": (str(cycle.request_snapshot), snapshot_json),
     }
     mismatches = [
         field for field, (stored, expected) in immutable_values.items() if stored != expected
@@ -185,6 +186,21 @@ async def prepare_durable_recurring_charge(
             result=RecurringChargeResult.failed(
                 f"cycle_stopped:{cycle.stopped_reason or 'unknown'}"
             )
+        )
+
+    if not created_cycle and context.auto_renew_cycle_id is None:
+        return DurableRecurringPreparation(result=RecurringChargeResult.ok(status="pending"))
+    try:
+        snapshot_matches = RecurringRequestSnapshot.from_json(
+            str(cycle.request_snapshot)
+        ) == RecurringRequestSnapshot.from_json(snapshot_json)
+    except (ValueError, KeyError, TypeError):
+        snapshot_matches = False
+    if not snapshot_matches:
+        await auto_renew_dal.stop_cycle(context.session, cycle_id, "immutable_context_changed")
+        await context.session.commit()
+        return DurableRecurringPreparation(
+            result=RecurringChargeResult.failed("immutable_context_changed")
         )
 
     payment = None
@@ -222,6 +238,8 @@ async def prepare_durable_recurring_charge(
         status=pending_status,
         description=context.description,
         months=context.months,
+        duration_days=context.duration_days,
+        subscription_terms_snapshot=context.subscription_terms_snapshot,
         provider=provider_key,
         sale_mode=context.sale_mode,
         hwid_quote=dict(context.hwid_quote or {}) or None,

@@ -61,7 +61,7 @@ def test_freekassa_rejects_mismatched_amount_before_claim(monkeypatch):
         config=SimpleNamespace(trusted_ips_list=["127.0.0.1"]),
         settings=SimpleNamespace(trusted_proxies=[]),
         shop_id="merchant",
-        _validate_signature=lambda _body, _signature: True,
+        _validate_signature=lambda **_kwargs: True,
         async_session_factory=session,
     )
     body = urlencode(
@@ -102,7 +102,7 @@ def test_freekassa_requires_provider_order_currency_before_claim(monkeypatch):
         config=SimpleNamespace(trusted_ips_list=["127.0.0.1"]),
         settings=SimpleNamespace(trusted_proxies=[]),
         shop_id="merchant",
-        _validate_signature=lambda _body, _signature: True,
+        _validate_signature=lambda **_kwargs: True,
         _verify_paid_order=AsyncMock(return_value=(False, "currency_mismatch")),
         async_session_factory=session,
     )

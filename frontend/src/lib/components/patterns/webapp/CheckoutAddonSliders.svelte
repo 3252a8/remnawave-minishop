@@ -144,6 +144,22 @@
 
   function title(kind: CheckoutAddonKind): string {
     if (kind === "devices") return t("wa_checkout_addon_devices", {}, "Devices");
+    const premiumTitle = String(plan?.premium_title || "").trim();
+    if (kind === "premium_traffic" && premiumTitle) {
+      if (limitUnlimited(kind)) return premiumTitle;
+      const period = trafficPeriod(kind);
+      return period
+        ? t(
+            "wa_checkout_named_traffic_with_period",
+            { name: premiumTitle, period },
+            `${premiumTitle} ${period}`
+          )
+        : t(
+            "wa_checkout_named_traffic_period",
+            { name: premiumTitle },
+            `${premiumTitle} per period`
+          );
+    }
     if (limitUnlimited(kind)) {
       return kind === "traffic"
         ? t("wa_checkout_addon_traffic", {}, "Traffic")
@@ -299,13 +315,15 @@
   <div class="checkout-tariff-facts">
     {#each kinds as kind}
       {@const definition = definitionFor(kind)}
-      <div class:adjustable={Boolean(definition)} class="checkout-tariff-fact">
-        {@render addonValue(kind)}
-        <span class="checkout-tariff-fact-label">
-          {@render limitIcon(kind)}
-          <span class="checkout-addon-label">{title(kind)}</span>
-        </span>
-      </div>
+      {#if kind !== "premium_traffic" || definition || limitKnown(kind)}
+        <div class:adjustable={Boolean(definition)} class="checkout-tariff-fact">
+          {@render addonValue(kind)}
+          <span class="checkout-tariff-fact-label">
+            {@render limitIcon(kind)}
+            <span class="checkout-addon-label">{title(kind)}</span>
+          </span>
+        </div>
+      {/if}
     {/each}
   </div>
 {/snippet}

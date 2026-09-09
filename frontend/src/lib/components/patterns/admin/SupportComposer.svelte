@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Lock, Send } from "$components/ui/icons.js";
-  import { Spinner } from "$components/ui/index.js";
+  import { ImageAttachment, Spinner } from "$components/ui/index.js";
   import { Switch } from "$components/ui/primitives.js";
   import { AdminButton } from "$components/patterns/admin/index.js";
   import MessageButtonsEditor from "$lib/admin/components/MessageButtonsEditor.svelte";
@@ -17,6 +17,7 @@
 
   type Props = {
     value?: string;
+    image?: File | null;
     buttons?: BroadcastButtonDraft[];
     internal?: boolean;
     sending?: boolean;
@@ -29,12 +30,13 @@
     onRequestShortcodes?: () => void;
     onRequestPromoOptions?: () => void;
     onToggleInternal?: (checked: boolean) => void;
-    onSend?: (body: string) => void;
+    onSend?: (body: string, image: File | null) => void;
     onTyping?: (typing: boolean) => void;
   };
 
   let {
     value = $bindable(""),
+    image = $bindable(null),
     buttons = $bindable([]),
     internal = false,
     sending = false,
@@ -110,7 +112,7 @@
   }
 
   const buttonsValid = $derived(buttons.every((button) => Boolean(buttonTarget(button))));
-  const canSend = $derived(!sending && !empty && !overLimit && buttonsValid);
+  const canSend = $derived(!sending && (!empty || image !== null) && !overLimit && buttonsValid);
 
   // A note never reaches the customer, so the buttons it would have carried are
   // dropped rather than silently sent with the next reply.
@@ -120,7 +122,7 @@
 
   function submit(): void {
     if (!canSend) return;
-    onSend(value);
+    onSend(value, image);
   }
 
   function addButton(): void {
@@ -158,20 +160,25 @@
 </script>
 
 <div class="support-admin-composer">
-  <RichTextEditor
-    {value}
-    onInput={(next) => (value = next)}
-    {labels}
-    {shortcodes}
-    {onRequestShortcodes}
-    {quickInserts}
-    placeholder={at("support_reply_placeholder", {}, "Reply")}
-    minHeight="120px"
-    autolink
-    showSource
-    onSubmit={submit}
-    {onTyping}
-  />
+  <div class="support-admin-composer-editor">
+    <RichTextEditor
+      {value}
+      onInput={(next) => (value = next)}
+      {labels}
+      {shortcodes}
+      {onRequestShortcodes}
+      {quickInserts}
+      placeholder={at("support_reply_placeholder", {}, "Reply")}
+      minHeight="120px"
+      autolink
+      showSource
+      onSubmit={submit}
+      {onTyping}
+    />
+    <small class="support-admin-composer-counter" class:is-over={overLimit}>
+      {length}/{maxLength}
+    </small>
+  </div>
 
   {#if !internal}
     <div class="support-admin-composer-buttons">
@@ -218,14 +225,33 @@
       </label>
     </div>
 
-    <small class="support-admin-composer-counter" class:is-over={overLimit}>
-      {length}/{maxLength}
-    </small>
+    <div class="support-admin-composer-actions">
+      <ImageAttachment
+        bind:file={image}
+        disabled={sending}
+        compact
+        globalDropzone
+        labels={{
+          drop: at("message_image_drop", {}, "Drop an image here or"),
+          choose: at("message_image_choose", {}, "choose a file"),
+          upload: at("message_image_upload", {}, "Upload file"),
+          remove: at("message_image_remove", {}, "Remove image"),
+          hint: at("message_image_hint", {}, "HEIC, HEIF, JPEG, PNG or WebP, up to 8 MB"),
+          invalidType: at(
+            "message_image_invalid_type",
+            {},
+            "Choose a HEIC, HEIF, JPEG, PNG or WebP image"
+          ),
+          tooLarge: at("message_image_too_large", {}, "The image must be no larger than 8 MB"),
+          previewAlt: at("message_image_preview_alt", {}, "Image preview"),
+        }}
+      />
 
-    <AdminButton variant="primary" disabled={!canSend} onclick={submit}>
-      {#if sending}<Spinner size="sm" />{:else}<Send size={14} />{/if}
-      {at("send", {}, "Send")}
-    </AdminButton>
+      <AdminButton variant="primary" disabled={!canSend} onclick={submit}>
+        {#if sending}<Spinner size="sm" />{:else}<Send size={14} />{/if}
+        {at("send", {}, "Send")}
+      </AdminButton>
+    </div>
   </div>
 </div>
 
@@ -236,13 +262,46 @@
     gap: 6px;
   }
 
+  .support-admin-composer-editor {
+    position: relative;
+    min-width: 0;
+  }
+
   .support-admin-composer-counter {
-    margin-left: auto;
+    position: absolute;
+    right: 10px;
+    bottom: 8px;
+    z-index: 1;
     font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
     color: var(--admin-text-muted, #9aa3b2);
+    pointer-events: none;
+  }
+
+  .support-admin-composer-editor :global(.rt-surface),
+  .support-admin-composer-editor :global(.rt-source) {
+    padding-bottom: 26px;
   }
 
   .support-admin-composer-counter.is-over {
     color: var(--admin-danger, #ff5c5c);
+  }
+
+  .support-admin-composer-actions {
+    --message-image-compact-height: 34px;
+
+    display: flex;
+    min-width: 0;
+    align-items: stretch;
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  @media (max-width: 720px) {
+    .support-admin-composer-actions {
+      width: 100%;
+      margin-left: 0;
+    }
   }
 </style>

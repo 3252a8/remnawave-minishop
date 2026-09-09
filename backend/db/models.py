@@ -13,20 +13,23 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from db.base import Base
+from db.user_notification_preference_columns import UserNotificationPreferenceColumns
 
 
-class User(Base):
+class User(UserNotificationPreferenceColumns, Base):
     __tablename__ = "users"
 
     user_id = Column(BigInteger, primary_key=True, index=True)
     username = Column(String, nullable=True, index=True)
     email = Column(String, nullable=True, unique=True, index=True)
     email_verified_at = Column(DateTime(timezone=True), nullable=True)
+    notification_email = Column(String(254), nullable=True)
     password_hash = Column(String, nullable=True)
     password_set_at = Column(DateTime(timezone=True), nullable=True)
     telegram_id = Column(BigInteger, nullable=True, unique=True, index=True)
@@ -157,6 +160,8 @@ class Subscription(Base):
     start_date = Column(DateTime(timezone=True), nullable=True)
     end_date = Column(DateTime(timezone=True), nullable=False, index=True)
     duration_months = Column(Integer, nullable=True)
+    duration_days = Column(Integer, nullable=True)
+    period_semantics = Column(String(32), nullable=True)
     is_active = Column(Boolean, default=True, index=True)
     status_from_panel = Column(String, nullable=True)
     traffic_limit_bytes = Column(BigInteger, nullable=True)
@@ -177,6 +182,7 @@ class Subscription(Base):
     tariff_binding_source = Column(String(32), nullable=True, index=True)
     tariff_bound_at = Column(DateTime(timezone=True), nullable=True)
     tariff_binding_note = Column(String(255), nullable=True)
+    gift_terms_snapshot = Column(Text, nullable=True)
     tier_baseline_bytes = Column(BigInteger, nullable=True)
     topup_balance_bytes = Column(BigInteger, nullable=False, default=0)
     premium_baseline_bytes = Column(BigInteger, nullable=False, default=0)
@@ -193,7 +199,9 @@ class Subscription(Base):
     is_throttled = Column(Boolean, nullable=False, default=False, index=True)
     effective_monthly_price_rub = Column(Numeric, nullable=True)
     hwid_device_limit = Column(Integer, nullable=True)
+    hwid_device_limit_is_override = Column(Boolean, nullable=False, default=False)
     extra_hwid_devices = Column(Integer, nullable=False, default=0)
+    tariff_managed_squad_uuids = Column(Text, nullable=True)
 
     user = relationship("User", back_populates="subscriptions")
 
@@ -313,10 +321,17 @@ class Payment(Base):
             "provider_payment_id",
             name="uq_payments_provider_payment_id",
         ),
-        UniqueConstraint(
+        Index(
+            "uq_payments_auto_renew_cycle_attempt",
             "auto_renew_cycle_id",
             "renewal_attempt_number",
-            name="uq_payments_auto_renew_cycle_attempt",
+            unique=True,
+            postgresql_where=text(
+                "auto_renew_cycle_id IS NOT NULL AND renewal_attempt_number IS NOT NULL"
+            ),
+            sqlite_where=text(
+                "auto_renew_cycle_id IS NOT NULL AND renewal_attempt_number IS NOT NULL"
+            ),
         ),
     )
 
@@ -336,6 +351,9 @@ class Payment(Base):
     status = Column(String, nullable=False, index=True)
     description = Column(String, nullable=True)
     subscription_duration_months = Column(Integer, nullable=True)
+    subscription_duration_days = Column(Integer, nullable=True)
+    subscription_terms_snapshot = Column(Text, nullable=True)
+    period_semantics = Column(String(32), nullable=True)
     # Persistent attribution for merchant-initiated recurring charges. These
     # fields stay nullable for historic and ordinary one-off payments.
     is_auto_renew = Column(Boolean, nullable=False, default=False, index=True)
@@ -363,6 +381,7 @@ class Payment(Base):
     hwid_valid_from = Column(DateTime(timezone=True), nullable=True)
     hwid_valid_until = Column(DateTime(timezone=True), nullable=True)
     hwid_pricing_period_months = Column(Integer, nullable=True)
+    hwid_pricing_period_days = Column(Integer, nullable=True)
     hwid_proration_ratio = Column(Float, nullable=True)
     hwid_full_price = Column(Float, nullable=True)
     hwid_traffic_bonus_bytes = Column(BigInteger, nullable=True)
@@ -376,19 +395,34 @@ class Payment(Base):
     promo_traffic_multiplier = Column(Numeric(6, 3), nullable=True)
     promo_applies_to = Column(String(32), nullable=True)
     promo_min_subscription_months = Column(Integer, nullable=True)
+    promo_min_subscription_days = Column(Integer, nullable=True)
     promo_min_traffic_gb = Column(Numeric(10, 2), nullable=True)
     checkout_base_amount = Column(Float, nullable=True)
     checkout_discount_amount = Column(Float, nullable=True)
     checkout_charged_months = Column(Integer, nullable=True)
+    checkout_charged_days = Column(Integer, nullable=True)
     checkout_charged_gb = Column(Float, nullable=True)
     checkout_quoted_at = Column(DateTime(timezone=True), nullable=True)
     checkout_total_amount = Column(Float, nullable=True)
+    user_balance_amount_minor = Column(BigInteger, nullable=True)
+    user_balance_currency_scale = Column(Integer, nullable=True)
     partner_balance_amount_minor = Column(BigInteger, nullable=True)
     partner_balance_currency_scale = Column(Integer, nullable=True)
     tariff_change_quote_snapshot = Column(Text, nullable=True)
     entitlement_context_snapshot = Column(Text, nullable=True)
     checkout_bundle_snapshot = Column(Text, nullable=True)
     checkout_bundle_hash = Column(String(64), nullable=True, index=True)
+    fulfillment_source = Column(String(16), nullable=True, index=True)
+    fulfilled_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    fulfilled_by_admin_id = Column(BigInteger, nullable=True)
+    fulfillment_note = Column(String(500), nullable=True)
+    fulfillment_before_snapshot = Column(Text, nullable=True)
+    fulfillment_after_snapshot = Column(Text, nullable=True)
+    promo_conflict_override = Column(Boolean, nullable=False, default=False)
+    reversed_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    reversed_by_admin_id = Column(BigInteger, nullable=True)
+    reversal_note = Column(String(500), nullable=True)
+    promo_usage_restored = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
 
@@ -422,6 +456,8 @@ class TributeEntitlement(Base):
     user_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=True, index=True)
     tariff_key = Column(String, nullable=True, index=True)
     duration_months = Column(Integer, nullable=True)
+    duration_days = Column(Integer, nullable=True)
+    period_semantics = Column(String(32), nullable=True)
     subscription_type = Column(String(16), nullable=True)
     status = Column(String(32), nullable=False, default="active", index=True)
     active_until = Column(DateTime(timezone=True), nullable=False, index=True)
@@ -749,6 +785,8 @@ class PlategaSubscription(Base):
     # Platega SubscriptionInterval (1=day, 2=week, 3=month, 4=year).
     interval_code = Column(Integer, nullable=False)
     months = Column(Integer, nullable=False)
+    duration_days = Column(Integer, nullable=True)
+    period_semantics = Column(String(32), nullable=True)
     sale_mode = Column(String, nullable=True)
     tariff_key = Column(String, nullable=True, index=True)
     next_charge_at = Column(DateTime(timezone=True), nullable=True)
@@ -766,6 +804,60 @@ class PlategaSubscription(Base):
     user = relationship("User")
 
 
+class RollyPaySubscription(Base):
+    """Local mirror of a provider-managed RollyPay recurring SBP mandate."""
+
+    __tablename__ = "rollypay_subscriptions"
+    __table_args__ = (
+        Index(
+            "ix_rollypay_subscriptions_user_billing_status",
+            "user_id",
+            "billing_status",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    rollypay_subscription_id = Column(String, nullable=False, unique=True, index=True)
+    anchor_payment_id = Column(
+        Integer,
+        ForeignKey("payments.payment_id"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    user_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=False, index=True)
+    provider_state = Column(String(32), nullable=False, default="new", index=True)
+    billing_status = Column(String(32), nullable=False, default="consent_pending", index=True)
+    plan_id = Column(String, nullable=False)
+    plan_code = Column(String, nullable=False)
+    plan_version = Column(Integer, nullable=False)
+    interval = Column(String(16), nullable=False)
+    max_cycles = Column(Integer, nullable=True)
+    amount = Column(Float, nullable=False)
+    currency = Column(String(8), nullable=False, default="RUB")
+    months = Column(Integer, nullable=False)
+    duration_days = Column(Integer, nullable=True)
+    period_semantics = Column(String(32), nullable=True)
+    sale_mode = Column(String, nullable=True)
+    tariff_key = Column(String, nullable=True, index=True)
+    next_charge_at = Column(DateTime(timezone=True), nullable=True)
+    last_charge_at = Column(DateTime(timezone=True), nullable=True)
+    charges_count = Column(Integer, nullable=False, default=0)
+    first_provider_payment_id = Column(String, nullable=True, unique=True, index=True)
+    activated_at = Column(DateTime(timezone=True), nullable=True)
+    stopped_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    user = relationship("User")
+    anchor_payment = relationship("Payment")
+
+
 class PromoCode(Base):
     __tablename__ = "promo_codes"
 
@@ -780,6 +872,7 @@ class PromoCode(Base):
     bonus_requires_payment = Column(Boolean, nullable=False, default=False)
     applies_to = Column(String(32), nullable=False, default="all")
     min_subscription_months = Column(Integer, nullable=True)
+    min_subscription_days = Column(Integer, nullable=True)
     min_traffic_gb = Column(Numeric(10, 2), nullable=True)
     origin = Column(String(32), nullable=False, default="admin")
     # Set only for a code minted for one customer; NULL means a shared code.
@@ -818,18 +911,27 @@ class PromoCodeActivation(Base):
     base_amount = Column(Float, nullable=True)
     discount_amount = Column(Float, nullable=True)
     charged_months = Column(Integer, nullable=True)
+    charged_days = Column(Integer, nullable=True)
     charged_gb = Column(Float, nullable=True)
     granted_days = Column(Integer, nullable=True)
     granted_gb = Column(Float, nullable=True)
     granted_regular_traffic_gb = Column(Numeric(12, 3), nullable=True)
     granted_premium_traffic_gb = Column(Numeric(12, 3), nullable=True)
+    is_manual_override = Column(Boolean, nullable=False, default=False)
 
     promo_code = relationship("PromoCode", back_populates="activations")
     user = relationship("User", back_populates="promo_code_activations")
     payment = relationship("Payment")
 
     __table_args__ = (
-        UniqueConstraint("promo_code_id", "user_id", name="uq_promo_user_activation"),
+        Index(
+            "uq_promo_user_activation_standard",
+            "promo_code_id",
+            "user_id",
+            unique=True,
+            postgresql_where=is_manual_override.is_(False),
+            sqlite_where=is_manual_override.is_(False),
+        ),
     )
 
 
@@ -866,7 +968,11 @@ class LegacyImportMapping(Base):
 # backup/restore and migration tests.  Domain code imports the classes from
 # ``db.partner_models`` directly; this import exists only for registration.
 from db import activity_models as activity_models  # noqa: E402
+from db import auth_models as auth_models  # noqa: E402
+from db import balance_models as balance_models  # noqa: E402
 from db import broadcast_models as broadcast_models  # noqa: E402
+from db import gift_models as gift_models  # noqa: E402
+from db import message_image_models as message_image_models  # noqa: E402
 from db import partner_models as partner_models  # noqa: E402
 
 AdAttribution = activity_models.AdAttribution
@@ -877,5 +983,11 @@ MessageLog = activity_models.MessageLog
 PanelSyncStatus = activity_models.PanelSyncStatus
 SupportTicket = activity_models.SupportTicket
 SupportTicketMessage = activity_models.SupportTicketMessage
+UserExternalIdentity = auth_models.UserExternalIdentity
+UserEmailAddress = auth_models.UserEmailAddress
+UserPasskeyCredential = auth_models.UserPasskeyCredential
+WebAuthnChallenge = auth_models.WebAuthnChallenge
 AdminBroadcast = broadcast_models.AdminBroadcast
 AdminBroadcastDelivery = broadcast_models.AdminBroadcastDelivery
+MessageImage = message_image_models.MessageImage
+UserBalanceLedgerEntry = balance_models.UserBalanceLedgerEntry

@@ -224,6 +224,9 @@ class LegacyAutoRenewOrderTests(IsolatedAsyncioTestCase):
 
 class LegacyAutoRenewFulfillmentTests(IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
+        gift_patcher = patch("db.dal.gift_dal.activating_for_user", AsyncMock(return_value=None))
+        gift_patcher.start()
+        self.addCleanup(gift_patcher.stop)
         self.session = AsyncMock()
         self.session.get.return_value = _subscription()
         self.payment = SimpleNamespace(

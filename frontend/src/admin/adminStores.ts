@@ -33,10 +33,12 @@ import type { TariffsCatalog } from "../lib/admin/stores/tariffsStore";
 import type { ApiClient } from "../lib/webapp/publicApi";
 
 export type AdminApi = ApiClient["api"];
+export type AdminApiBlob = ApiClient["apiBlob"];
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
 type AdminStoresOptions = {
   api: AdminApi;
+  apiBlob: AdminApiBlob;
   at: TranslateFn;
   onToast: (message: string) => void;
   onTariffsSaved: (catalog: TariffsCatalog) => void | Promise<void>;
@@ -46,6 +48,7 @@ type AdminStoresOptions = {
 
 export function createAdminStores({
   api,
+  apiBlob,
   at,
   onToast,
   onTariffsSaved,
@@ -100,6 +103,7 @@ export function createAdminStores({
   });
   const supportStore = createAdminSupportStore({
     api: api as never,
+    apiBlob,
     onToast,
     at,
     routePrefix,
@@ -112,6 +116,7 @@ export function createAdminStores({
   });
   const themesStore = createThemesStore({
     api: api as never,
+    apiBlob,
     onThemesSaved,
     flash: onToast,
     at,

@@ -2,7 +2,8 @@ from aiogram.types import InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 
 from bot.middlewares.i18n import JsonI18n, locale_language_options
-from bot.utils.mini_app_url import subscription_mini_app_trial_url
+from bot.utils.mini_app_url import subscription_mini_app_path_url, subscription_mini_app_trial_url
+from config.menu_buttons import configured_menu_buttons, telegram_menu_button_text
 from config.settings import Settings
 from config.support_links import normalize_support_link
 
@@ -63,10 +64,10 @@ def get_main_menu_inline_keyboard(
             )
         )
 
-    if settings.SERVER_STATUS_URL:
+    if settings.server_status_external_url:
         builder.row(
             InlineKeyboardButton(
-                text=_(key="menu_server_status_button"), url=settings.SERVER_STATUS_URL
+                text=_(key="menu_server_status_button"), url=settings.server_status_external_url
             )
         )
 
@@ -77,6 +78,21 @@ def get_main_menu_inline_keyboard(
         builder.row(
             InlineKeyboardButton(text=_(key="menu_info_button"), callback_data="main_action:info")
         )
+
+    for button in configured_menu_buttons(settings.MENU_BUTTONS_JSON):
+        if not button.show_in_bot:
+            continue
+        text = telegram_menu_button_text(
+            button,
+            lang,
+            default_language=settings.DEFAULT_LANGUAGE,
+        )
+        if button.kind == "webapp":
+            target_url = subscription_mini_app_path_url(settings, button.target)
+            if target_url:
+                builder.row(InlineKeyboardButton(text=text, web_app=WebAppInfo(url=target_url)))
+        else:
+            builder.row(InlineKeyboardButton(text=text, url=button.target))
 
     return builder.as_markup()
 
@@ -132,10 +148,10 @@ def get_bot_interface_inline_keyboard(
     )
     builder.row(language_button)
 
-    if settings.SERVER_STATUS_URL:
+    if settings.server_status_external_url:
         builder.row(
             InlineKeyboardButton(
-                text=_(key="menu_server_status_button"), url=settings.SERVER_STATUS_URL
+                text=_(key="menu_server_status_button"), url=settings.server_status_external_url
             )
         )
 

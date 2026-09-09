@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra.grants import GrantContext, resolve_effective_grant
 from bot.services.payment_promo import consume_payment_promo, load_payment_promo_effects
+from bot.services.subscription_order_terms import gift_tariff
 from db.dal import payment_dal, subscription_dal, tariff_dal, user_dal
 
 from ._typing import SubscriptionServiceMixinContract
@@ -43,7 +44,9 @@ class TopupMixin(PanelSquadSyncMixin, SubscriptionServiceMixinContract):
         sub = await subscription_dal.get_active_subscription_by_user_id_for_update(session, user_id)
         if not sub:
             return None
-        tariff = self._resolve_tariff(sub.tariff_key) if sub.tariff_key else None
+        tariff = (
+            (gift_tariff(sub) or self._resolve_tariff(sub.tariff_key)) if sub.tariff_key else None
+        )
         if premium_gb > 0 and (tariff is None or not tariff.premium_squad_uuids):
             return None
 
@@ -638,7 +641,9 @@ class TopupMixin(PanelSquadSyncMixin, SubscriptionServiceMixinContract):
         if not sub:
             return None
 
-        tariff = self._resolve_tariff(sub.tariff_key) if sub.tariff_key else None
+        tariff = (
+            (gift_tariff(sub) or self._resolve_tariff(sub.tariff_key)) if sub.tariff_key else None
+        )
         purchase_bytes = self.gb_to_bytes(gb_value)
         baseline_bytes = int(
             sub.tier_baseline_bytes or (tariff.monthly_bytes if tariff else 0) or 0
@@ -753,7 +758,9 @@ class TopupMixin(PanelSquadSyncMixin, SubscriptionServiceMixinContract):
         )
         if not sub:
             return None
-        tariff = self._resolve_tariff(sub.tariff_key) if sub.tariff_key else None
+        tariff = (
+            (gift_tariff(sub) or self._resolve_tariff(sub.tariff_key)) if sub.tariff_key else None
+        )
         if not tariff or not tariff.premium_squad_uuids:
             logger.error(
                 "admin_grant_premium_topup: tariff %s has no premium squads (user %s)",

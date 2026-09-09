@@ -29,6 +29,14 @@ export function createExternalLinkRuntime({
   function openExternalLink(url: string) {
     if (!url) return;
     const telegram = shellState.tg;
+    if (/^https:\/\/(?:t|telegram)\.me\//i.test(url) && telegram?.openTelegramLink) {
+      try {
+        telegram.openTelegramLink(url);
+        return;
+      } catch {
+        // Fall back to generic external opening below.
+      }
+    }
     if (telegram?.openLink) {
       telegram.openLink(url, { try_instant_view: false });
       return;

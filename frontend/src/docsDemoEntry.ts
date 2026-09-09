@@ -2,7 +2,9 @@ import { mount } from "svelte";
 
 import App from "./App.svelte";
 import PreviewBoard from "./PreviewBoard.svelte";
+import NotificationUnsubscribeApp from "./webapp/NotificationUnsubscribeApp.svelte";
 import { mockApi } from "./lib/webapp/mockApi.js";
+import { persistDemoSettings, restoreDemoSettings } from "./lib/webapp/mockApi/settings.js";
 import { DEV_MOCK, applyPreviewMock } from "./lib/webapp/previewMock.js";
 import type { WebappMockSource } from "./lib/webapp/types";
 import "./styles.css";
@@ -68,7 +70,8 @@ async function loadInstallGuidesConfig(): Promise<void> {
   };
 }
 
-function prepareMockConfig(): void {
+function prepareMockConfig(mockMode: string): void {
+  restoreDemoSettings();
   const logoUrl = runtimePath("default-brand/default-logo.webp");
   const faviconUrl = runtimePath(`default-brand/favicons/${DEFAULT_FAVICON_DIGEST}/icon-180.png`);
   DEV_MOCK.config.logoUrl = logoUrl;
@@ -80,6 +83,15 @@ function prepareMockConfig(): void {
   DEV_MOCK.config.adminCssAsset = runtimePath("subscription_webapp_admin.css");
   DEV_MOCK.config.appVersion = "demo";
   DEV_MOCK.config.apiBase = "/api";
+  if (!mockMode.startsWith("partner-referral-") && !mockMode.startsWith("partner_referral_")) {
+    persistDemoSettings({
+      PARTNER_PROGRAM_ENABLED: true,
+      PARTNER_REFERRAL_PROGRAM_DISABLED: false,
+      PARTNER_WITHDRAWALS_ENABLED: true,
+      PARTNER_BALANCE_PAYMENT_ENABLED: true,
+      REFERRAL_PROGRAM_ENABLED: true,
+    });
+  }
   applyDemoThemeTokens(DEV_MOCK.config.themesCatalog);
   applyDemoThemeTokens(DEV_MOCK.data.themes_catalog);
   copyThemeAssets(DEV_MOCK.config.themesCatalog);
@@ -98,8 +110,9 @@ function parentSearchParams(): URLSearchParams | null {
 async function bootstrap(): Promise<void> {
   const params = new URLSearchParams(window.location.search);
   const parentParams = parentSearchParams();
-  applyPreviewMock(params.get("mock") || parentParams?.get("mock"));
-  prepareMockConfig();
+  const mockMode = String(params.get("mock") || parentParams?.get("mock") || "").toLowerCase();
+  applyPreviewMock(mockMode);
+  prepareMockConfig(mockMode);
   try {
     await loadInstallGuidesConfig();
   } catch (error) {
@@ -109,6 +122,17 @@ async function bootstrap(): Promise<void> {
   const target = document.getElementById("app");
   if (target) {
     target.replaceChildren();
+    if (window.location.pathname.replace(/\/$/, "").endsWith("/unsubscribe")) {
+      mount(NotificationUnsubscribeApp, {
+        target,
+        props: {
+          request: (path: string, options: RequestInit = {}) => mockApi(path, options),
+          brandTitle: String(DEV_MOCK.config.title || ""),
+          logoUrl: String(DEV_MOCK.config.logoUrl || ""),
+        },
+      });
+      return;
+    }
     mount(App, {
       target,
       props: {

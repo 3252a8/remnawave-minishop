@@ -22,6 +22,7 @@ import {
 } from "../publicApi";
 import { unwrap } from "../publicApi";
 import { createSupportTypingHeartbeat } from "../supportTyping.js";
+import { messageRequestBody } from "$lib/messageImage";
 
 type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type TicketRecord = Record<string, unknown> & {
@@ -39,6 +40,7 @@ type MessageRecord = Record<string, unknown> & {
   buttons?: TicketMessageButtonLike[];
   created_at?: string;
   is_internal_note?: boolean;
+  image_id?: string | null;
   message_id?: number;
   read_by_admin_at?: string | null;
   read_by_user_at?: string | null;
@@ -71,12 +73,16 @@ export type SupportState = {
   polling: boolean;
 };
 export type SupportStore = SupportState & {
+  loadImage(url: string): Promise<Blob>;
   loadList(options?: LoadListOptions): Promise<SupportTicketsResponse>;
   hydrateUnread(value: unknown): void;
-  createTicket(payload: PostPayload<"/api/support/tickets">): Promise<TicketRecord | null>;
+  createTicket(
+    payload: PostPayload<"/api/support/tickets">,
+    image?: File | null
+  ): Promise<TicketRecord | null>;
   openTicket(ticketId: number | string, opts?: TicketViewOptions): Promise<void>;
   closeTicketView(opts?: TicketViewOptions): void;
-  sendReply(body: string): Promise<boolean>;
+  sendReply(body: string, image?: File | null): Promise<boolean>;
   notifyTyping(typing: boolean): void;
   markRead(ticketId?: number | null, options?: RefreshUnreadOptions): Promise<void>;
   refreshUnread(options?: RefreshUnreadOptions): Promise<unknown>;
@@ -128,13 +134,35 @@ function stringField(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
+function supportErrorMessage(error: unknown, t: Translate, fallbackKey: string): string {
+  const payload = asRecord(error);
+  const code = stringField(payload.error);
+  const keys: Record<string, string> = {
+    animated_image: "wa_message_image_animated",
+    empty_image: "wa_message_image_invalid",
+    image_dimensions: "wa_message_image_dimensions",
+    image_too_large: "wa_message_image_too_large",
+    invalid_image: "wa_message_image_invalid",
+    payload_too_large: "wa_message_image_too_large",
+    support_image_rate_limited: "wa_support_image_rate_limited",
+    support_message_rate_limited: "wa_support_message_rate_limited",
+    ticket_rate_limited: "wa_support_ticket_rate_limited",
+    unsupported_image: "wa_message_image_invalid_type",
+  };
+  return keys[code]
+    ? t(keys[code])
+    : stringField(payload.message) || stringField(payload.error) || t(fallbackKey);
+}
+
 export function createSupportStore({
   api,
+  apiBlob,
   t,
   showToast,
   routePrefix = "",
 }: {
   api: ApiClient["api"];
+  apiBlob: ApiClient["apiBlob"];
   t: Translate;
   showToast: (message: string) => void;
   routePrefix?: string;
@@ -166,6 +194,7 @@ export function createSupportStore({
     creating: false,
     statusFilter: "active",
     polling: false,
+    loadImage,
     loadList,
     hydrateUnread,
     createTicket,
@@ -194,6 +223,10 @@ export function createSupportStore({
   let listPromiseKey = "";
   let unreadPromise: Promise<unknown> | null = null;
 
+  function loadImage(url: string): Promise<Blob> {
+    return apiBlob(url);
+  }
+
   function fetchTicketList(path: SupportTicketsListPath): Promise<SupportTicketsResponse> {
     return api(path) as Promise<SupportTicketsResponse>;
   }
@@ -203,21 +236,23 @@ export function createSupportStore({
   }
 
   function postCreateTicket(
-    payload: PostPayload<"/api/support/tickets">
+    payload: PostPayload<"/api/support/tickets">,
+    image?: File | null
   ): Promise<SupportTicketCreateResponse> {
     return api(buildSupportTicketsPath(), {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: messageRequestBody(payload as unknown as Record<string, unknown>, image),
     }) as Promise<SupportTicketCreateResponse>;
   }
 
   function postTicketReply(
     id: number,
-    payload: PostPayload<"/api/support/tickets/{id}/messages">
+    payload: PostPayload<"/api/support/tickets/{id}/messages">,
+    image?: File | null
   ): Promise<SupportTicketReplyResponse> {
     return api(buildSupportTicketMessagesPath(id), {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: messageRequestBody(payload as unknown as Record<string, unknown>, image),
     }) as Promise<SupportTicketReplyResponse>;
   }
 
@@ -349,10 +384,13 @@ export function createSupportStore({
     }
   }
 
-  async function createTicket(payload: PostPayload<"/api/support/tickets">) {
+  async function createTicket(
+    payload: PostPayload<"/api/support/tickets">,
+    image: File | null = null
+  ) {
     state.creating = true;
     try {
-      const res = await postCreateTicket(payload);
+      const res = await postCreateTicket(payload, image);
       if (!res?.ok) throw res;
       const responsePayload = unwrap(res);
       const ticket = asRecord(responsePayload.ticket) as TicketRecord;
@@ -361,7 +399,7 @@ export function createSupportStore({
       await openTicket(ticket.ticket_id || 0);
       return ticket;
     } catch (error: unknown) {
-      showToast(stringField(asRecord(error).message) || t("wa_support_create_failed"));
+      showToast(supportErrorMessage(error, t, "wa_support_create_failed"));
       return null;
     } finally {
       state.creating = false;
@@ -427,7 +465,7 @@ export function createSupportStore({
     }
   }
 
-  async function sendReply(body: string) {
+  async function sendReply(body: string, image: File | null = null) {
     if (state.sending) return false;
     const ticketId = state.openedTicketId;
     state.sending = true;
@@ -437,7 +475,7 @@ export function createSupportStore({
     }
     typingHeartbeat.stop(ticketId);
     try {
-      const res = await postTicketReply(ticketId, { body, body_format: "html" });
+      const res = await postTicketReply(ticketId, { body, body_format: "html" }, image);
       if (!res?.ok) throw res;
       const payload = unwrap(res);
       if (state.openedTicketId === ticketId) {
@@ -454,7 +492,7 @@ export function createSupportStore({
       ]);
       return true;
     } catch (error: unknown) {
-      showToast(stringField(asRecord(error).message) || t("wa_support_send_failed"));
+      showToast(supportErrorMessage(error, t, "wa_support_send_failed"));
       return false;
     } finally {
       state.sending = false;

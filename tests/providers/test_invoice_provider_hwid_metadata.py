@@ -31,6 +31,7 @@ class InvoiceProviderHwidMetadataTests(IsolatedAsyncioTestCase):
             )
         )
         service = cryptopay.CryptoPayService.__new__(cryptopay.CryptoPayService)
+        service.settings = SimpleNamespace()
         service.config = SimpleNamespace(
             ENABLED=True,
             TOKEN="token",

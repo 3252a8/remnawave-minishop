@@ -6,6 +6,8 @@ from decimal import Decimal
 from math import isclose, isfinite
 from typing import Any
 
+from config.subscription_periods import legacy_months_to_days
+
 PROMO_APPLIES_TO_ALL = "all"
 PROMO_APPLIES_TO_SUBSCRIPTION = "subscription"
 PROMO_APPLIES_TO_TRAFFIC = "traffic"
@@ -75,6 +77,7 @@ class PromoEffects:
     bonus_requires_payment: bool = False
     applies_to: str = PROMO_APPLIES_TO_ALL
     min_subscription_months: int | None = None
+    min_subscription_days: int | None = None
     min_traffic_gb: float | None = None
 
     @classmethod
@@ -97,6 +100,7 @@ class PromoEffects:
             bonus_requires_payment=bool(getattr(promo, "bonus_requires_payment", False)),
             applies_to=applies_to if applies_to in ALLOWED_PROMO_SCOPES else PROMO_APPLIES_TO_ALL,
             min_subscription_months=min_subscription_months,
+            min_subscription_days=_optional_int(getattr(promo, "min_subscription_days", None)),
             min_traffic_gb=min_traffic_gb,
         )
 
@@ -144,6 +148,9 @@ class PromoEffects:
             min_subscription_months=_optional_int(
                 getattr(payment, "promo_min_subscription_months", None)
             ),
+            min_subscription_days=_optional_int(
+                getattr(payment, "promo_min_subscription_days", None)
+            ),
             min_traffic_gb=_optional_float(getattr(payment, "promo_min_traffic_gb", None)),
         )
 
@@ -157,7 +164,11 @@ class PromoEffects:
 
     @property
     def has_threshold(self) -> bool:
-        return self.min_subscription_months is not None or self.min_traffic_gb is not None
+        return (
+            self.min_subscription_days is not None
+            or self.min_subscription_months is not None
+            or self.min_traffic_gb is not None
+        )
 
     @property
     def has_traffic_grant(self) -> bool:
@@ -218,8 +229,19 @@ class PromoEffects:
         sale_mode_base: str,
         months: int | None,
         traffic_gb: float | None,
+        duration_days: int | None = None,
     ) -> bool:
         scope = sale_mode_bonus_scope(sale_mode_base)
+        if scope == PROMO_APPLIES_TO_SUBSCRIPTION and (
+            duration_days is not None or self.min_subscription_days is not None
+        ):
+            threshold = self.min_subscription_days
+            if threshold is None and self.min_subscription_months is not None:
+                threshold = legacy_months_to_days(self.min_subscription_months)
+            actual = duration_days
+            if actual is None and months is not None and months > 0:
+                actual = legacy_months_to_days(months)
+            return threshold is None or (actual is not None and actual >= threshold)
         if scope == PROMO_APPLIES_TO_SUBSCRIPTION and self.min_subscription_months is not None:
             return months is not None and int(months) >= self.min_subscription_months
         if (
@@ -273,9 +295,22 @@ def validate_effects(
         errors.append("invalid_traffic_multiplier")
     if effects.min_subscription_months is not None and effects.min_subscription_months <= 0:
         errors.append("invalid_min_subscription_months")
+    if (
+        effects.min_subscription_days is not None
+        and not 0 < effects.min_subscription_days <= 2147483647
+    ):
+        errors.append("invalid_min_subscription_days")
+    if (
+        effects.min_subscription_days is not None
+        and effects.min_subscription_months is not None
+        and legacy_months_to_days(effects.min_subscription_months) != effects.min_subscription_days
+    ):
+        errors.append("conflicting_subscription_thresholds")
     if effects.min_traffic_gb is not None and effects.min_traffic_gb <= 0:
         errors.append("invalid_min_traffic_gb")
-    if effects.min_subscription_months is not None and effects.applies_to not in {
+    if (
+        effects.min_subscription_days is not None or effects.min_subscription_months is not None
+    ) and effects.applies_to not in {
         PROMO_APPLIES_TO_ALL,
         PROMO_APPLIES_TO_SUBSCRIPTION,
     }:
@@ -331,7 +366,9 @@ def summarize_effects(effects: PromoEffects) -> str:
         parts.append(f"+{effects.regular_traffic_gb:g} GB regular")
     if effects.premium_traffic_gb > 0:
         parts.append(f"+{effects.premium_traffic_gb:g} GB premium")
-    if effects.min_subscription_months:
+    if effects.min_subscription_days:
+        parts.append(f"from {effects.min_subscription_days} days")
+    elif effects.min_subscription_months:
         parts.append(f"from {effects.min_subscription_months} months")
     if effects.min_traffic_gb:
         parts.append(f"from {effects.min_traffic_gb:g} GB")

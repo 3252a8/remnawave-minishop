@@ -113,6 +113,23 @@ class MiniAppUrlTests(unittest.TestCase):
             subscription_mini_app_trial_url(s),
             "https://app.example.com/webapp/trial",
         )
+        self.assertEqual(
+            subscription_mini_app_path_url(s, "notifications"),
+            "https://app.example.com/webapp/settings/notifications",
+        )
+
+    def test_subscription_mini_app_path_url_preserves_base_query(self):
+        s = Settings(
+            _env_file=None,
+            BOT_TOKEN="x",
+            POSTGRES_USER="u",
+            POSTGRES_PASSWORD="p",
+            SUBSCRIPTION_MINI_APP_URL="https://app.example.com/webapp?lang=ru",
+        )
+        self.assertEqual(
+            subscription_mini_app_path_url(s, "notifications"),
+            "https://app.example.com/webapp/settings/notifications?lang=ru",
+        )
 
     def test_subscription_main_mini_app_deep_link(self):
         s = Settings(

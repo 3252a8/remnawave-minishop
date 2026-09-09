@@ -31,6 +31,8 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any, Protocol
 
+from config.subscription_periods import positive_period
+
 
 @dataclass(frozen=True)
 class RecurringChargeContext:
@@ -66,6 +68,8 @@ class RecurringChargeContext:
     auto_renew_cycle_id: int | None = None
     attempt_number: int = 1
     retry_kind: str | None = None
+    duration_days: int | None = None
+    subscription_terms_snapshot: str | None = None
 
 
 def _snapshot_json_default(value: object) -> str:
@@ -87,10 +91,12 @@ class RecurringRequestSnapshot:
     hwid_quote: dict[str, Any] | None
     entitlement_context_snapshot: str | None
     checkout_bundle_snapshot: str | None = None
+    duration_days: int | None = None
+    subscription_terms_snapshot: str | None = None
 
     def to_json(self) -> str:
         return json.dumps(
-            asdict(self),
+            {**asdict(self), "version": 2},
             ensure_ascii=False,
             sort_keys=True,
             separators=(",", ":"),
@@ -102,6 +108,8 @@ class RecurringRequestSnapshot:
         payload = json.loads(raw)
         if not isinstance(payload, dict):
             raise ValueError("Auto-renew request snapshot must be an object")
+        if payload.get("version", 1) not in {1, 2}:
+            raise ValueError("Unsupported auto-renew snapshot version")
         metadata = payload.get("metadata")
         hwid_quote = payload.get("hwid_quote")
         if not isinstance(metadata, dict):
@@ -112,6 +120,10 @@ class RecurringRequestSnapshot:
             amount=float(payload["amount"]),
             currency=str(payload["currency"]),
             months=int(payload["months"]),
+            subscription_terms_snapshot=payload.get("subscription_terms_snapshot"),
+            duration_days=positive_period(payload["duration_days"])
+            if payload.get("duration_days") is not None
+            else None,
             sale_mode=str(payload["sale_mode"]),
             description=str(payload["description"]),
             metadata={str(key): str(value) for key, value in metadata.items()},

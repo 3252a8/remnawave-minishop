@@ -51,4 +51,93 @@ describe("computeThemeView", () => {
     });
     expect(view.resolvedThemeKey).toBe("ocean");
   });
+
+  it("materializes the explicit mode inside the administrator-selected theme family", () => {
+    const catalog = {
+      default_theme: "dark",
+      themes: [
+        {
+          key: "dark",
+          active_variant: "dark",
+          tokens: { color_scheme: "dark", bg: "#03070b" },
+          variants: {
+            dark: { color_scheme: "dark", bg: "#03070b" },
+            light: { color_scheme: "light", bg: "#f7f8fb" },
+          },
+        },
+        { key: "ascii", tokens: { color_scheme: "dark", style_preset: "ascii" } },
+      ],
+    };
+    const view = computeThemeView({
+      ...BASE,
+      cfgThemesCatalog: catalog,
+      themePreference: "light",
+      systemColorScheme: "dark",
+    });
+    expect(view.resolvedThemeKey).toBe("dark");
+    expect(view.effectiveThemeEntry?.active_variant).toBe("light");
+    expect(view.effectiveThemeEntry?.tokens?.bg).toBe("#f7f8fb");
+    expect(view.shellToneClass).toBe("theme-light");
+  });
+
+  it("never changes the current theme family when the user changes mode", () => {
+    const catalog = {
+      default_theme: "ascii",
+      themes: [
+        {
+          key: "dark",
+          tokens: { color_scheme: "dark" },
+          variants: {
+            dark: { color_scheme: "dark" },
+            light: { color_scheme: "light" },
+          },
+        },
+        {
+          key: "ascii",
+          tokens: { color_scheme: "dark", style_preset: "ascii" },
+          variants: {
+            dark: { color_scheme: "dark" },
+            light: { color_scheme: "light" },
+          },
+        },
+      ],
+    };
+    const view = computeThemeView({
+      ...BASE,
+      cfgThemesCatalog: catalog,
+      themePreference: "light",
+      systemColorScheme: "dark",
+    });
+    expect(view.resolvedThemeKey).toBe("ascii");
+    expect(view.effectiveThemeEntry?.active_variant).toBe("light");
+    expect(view.shellToneClass).toBe("theme-light");
+  });
+
+  it("ignores the stored user mode when selection is disabled by the administrator", () => {
+    const catalog = {
+      default_theme: "dark",
+      themes: [
+        {
+          key: "dark",
+          active_variant: "dark",
+          tokens: { color_scheme: "dark", bg: "#03070b" },
+          variants: {
+            dark: { color_scheme: "dark", bg: "#03070b" },
+            light: { color_scheme: "light", bg: "#f7f8fb" },
+          },
+        },
+      ],
+    };
+    const view = computeThemeView({
+      ...BASE,
+      cfgThemesCatalog: catalog,
+      themePreference: "light",
+      systemColorScheme: "light",
+      userThemeModeEnabled: false,
+    });
+
+    expect(view.userThemeModeEnabled).toBe(false);
+    expect(view.effectiveThemeEntry?.active_variant).toBe("dark");
+    expect(view.shellToneClass).toBe("theme-dark");
+  });
 });

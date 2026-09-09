@@ -32,12 +32,18 @@ RECONCILABLE_PROVIDER_KEYS = (
     "heleket",
     "lava",
     "overpay",
+    "oxapay",
     "pally",
     "paykilla",
     "platega",
     "platega_card",
     "platega_crypto",
     "platega_sbp",
+    "rollypay",
+    "rollypay_card",
+    "rollypay_crypto",
+    "rollypay_international",
+    "rollypay_sbp",
     "severpay",
     "stripe",
     "tribute",
@@ -49,6 +55,7 @@ _FAILED_STATUSES = {
     "cryptopay": {"expired"},
     "heleket": {"cancel", "fail", "system_fail", "wrong_amount"},
     "lava": {"cancel", "cancelled", "error", "expired", "failed"},
+    "oxapay": {"expired", "refunded"},
     "pally": {"cancelled", "canceled", "fail", "failed"},
     "paykilla": {
         "cancelled",
@@ -61,25 +68,30 @@ _FAILED_STATUSES = {
         "payment_failed",
     },
     "platega": {"canceled", "cancelled", "chargebacked"},
+    "rollypay": {"canceled", "cancelled", "expired", "chargeback", "refunded"},
     "severpay": {"decline", "fail"},
 }
 _SUCCESS_STATUSES = {
     "cryptopay": {"paid"},
     "heleket": {"paid", "paid_over"},
+    "oxapay": {"manual_accept", "paid"},
     "lava": {"success"},
     "pally": {"overpaid", "success"},
     "paykilla": {"completed", "paid", "success"},
     "platega": {"confirmed"},
+    "rollypay": {"paid"},
     "severpay": {"success"},
 }
 _PENDING_STATUSES = {
     "cloudpayments": {"authorized", "awaitingauthentication", "created", "pending"},
     "cryptopay": {"active"},
     "heleket": {"check"},
+    "oxapay": {"new", "paying", "refunding", "underpaid", "waiting"},
     "lava": {"created", "pending", "processing"},
     "pally": {"new", "process", "underpaid"},
     "paykilla": {"created", "new", "pending", "processing"},
     "platega": {"pending"},
+    "rollypay": {"created", "processing"},
     "severpay": {"new", "process"},
 }
 
@@ -266,6 +278,25 @@ async def _inspect_provider_payment(service: Any, payment: Payment) -> ProviderL
             payment_verified=payment_verified,
             provider_payment_id=provider_id or None,
         )
+    elif provider == "oxapay":
+        success, data = await service.get_payment_info(provider_id)
+        if success and (
+            not _id_matches(data, provider_id, "track_id")
+            or str(data.get("order_id") or "") != str(payment.payment_id)
+        ):
+            return ProviderLifecycle("unknown")
+        status = data.get("status")
+        payment_verified = bool(
+            success
+            and _state_for("oxapay", status) == "succeeded"
+            and payment_amount_and_currency_match(
+                expected_amount=payment.amount,
+                expected_currency=payment.currency,
+                received_amount=data.get("amount"),
+                received_currency=data.get("currency"),
+                places=None,
+            )
+        )
     elif provider == "heleket":
         success, data = await service.get_payment_info(provider_id)
         if success and (
@@ -292,6 +323,12 @@ async def _inspect_provider_payment(service: Any, payment: Payment) -> ProviderL
         payload_payment_id = _payload_payment_id(data.get("payload")) if success else None
         if payload_payment_id and payload_payment_id != str(payment.payment_id):
             return ProviderLifecycle("unknown")
+        received_amount = data.get("amount")
+        received_currency = data.get("currency")
+        payment_details = data.get("paymentDetails")
+        if isinstance(payment_details, dict):
+            received_amount = payment_details.get("amount", received_amount)
+            received_currency = payment_details.get("currency", received_currency)
         status = data.get("status")
         state_provider = "platega"
         payment_verified = bool(
@@ -300,8 +337,35 @@ async def _inspect_provider_payment(service: Any, payment: Payment) -> ProviderL
             and payment_amount_and_currency_match(
                 expected_amount=payment.amount,
                 expected_currency=payment.currency,
+                received_amount=received_amount,
+                received_currency=received_currency,
+                places=None,
+                allow_overpayment=True,
+            )
+        )
+    elif provider in {
+        "rollypay",
+        "rollypay_sbp",
+        "rollypay_card",
+        "rollypay_international",
+        "rollypay_crypto",
+    }:
+        success, data = await service.get_payment(provider_id)
+        if success and not _id_matches(data, provider_id, "payment_id", "id"):
+            return ProviderLifecycle("unknown")
+        if success and str(data.get("order_id") or "") != f"minishop-{payment.payment_id}":
+            return ProviderLifecycle("unknown")
+        status = data.get("status")
+        state_provider = "rollypay"
+        payment_verified = bool(
+            success
+            and _state_for("rollypay", status) == "succeeded"
+            and payment_amount_and_currency_match(
+                expected_amount=payment.amount,
+                expected_currency=payment.currency,
                 received_amount=data.get("amount"),
-                received_currency=data.get("currency"),
+                received_currency=data.get("currency") or data.get("payment_currency"),
+                places=2,
             )
         )
     elif provider == "lava":
@@ -367,9 +431,21 @@ async def _inspect_provider_payment(service: Any, payment: Payment) -> ProviderL
         status = data.get("status") or data.get("Status")
         if success and _state_for("pally", status) == "succeeded":
             normalized_status = _normalized(status)
-            payment_verified = bool(
-                service._currency_matches_payment(data, payment)
-                and service._amount_matches_payment(data, payment, normalized_status)
+            received_amount = data.get("amount")
+            if received_amount is None:
+                received_amount = data.get("OutSum") or data.get("out_sum")
+            received_currency = data.get("currency_in")
+            if received_currency is None:
+                received_currency = data.get("CurrencyIn") or data.get("currency")
+            payer_pays_commission = bool(
+                getattr(getattr(service, "config", None), "PAYER_PAYS_COMMISSION", False)
+            )
+            payment_verified = payment_amount_and_currency_match(
+                expected_amount=payment.amount,
+                expected_currency=payment.currency,
+                received_amount=received_amount,
+                received_currency=received_currency,
+                allow_overpayment=(normalized_status == "overpaid" or payer_pays_commission),
             )
     elif provider == "severpay":
         success, data = await service.get_payment(provider_id)

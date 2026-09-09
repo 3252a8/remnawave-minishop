@@ -120,7 +120,7 @@ def test_remnashop_subscription_provider_parses_string_booleans():
         assert remnashop_subscription_provider(value) == "trial"
 
 
-def test_remnashop_plan_months_prefers_snapshot_then_dates():
+def test_remnashop_period_uses_snapshot_without_inferring_billing_from_dates():
     assert remnashop_months_from_plan_snapshot({"duration_days": 90}) == 3
     assert remnashop_months_from_plan_snapshot({"months": 12}) == 12
     assert (
@@ -129,7 +129,7 @@ def test_remnashop_plan_months_prefers_snapshot_then_dates():
             created_at=datetime(2026, 1, 1, tzinfo=UTC),
             expire_at=datetime(2026, 4, 1, tzinfo=UTC),
         )
-        == 3
+        is None
     )
 
 
@@ -250,8 +250,8 @@ def test_remnashop_tariff_catalog_is_generated_from_plans_durations_and_prices()
     assert pro["names"]["ru"] == "Pro 300ГБ"
     assert pro["billing_model"] == "period"
     assert pro["monthly_gb"] == 300
-    assert pro["prices"]["rub"] == {"1": 599.0, "6": 2990.0}
-    assert pro["prices"]["stars"] == {"1": 299.0}
+    assert pro["prices"]["rub"] == {"30": 599.0, "180": 2990.0}
+    assert pro["prices"]["stars"] == {"30": 299.0}
     assert traffic["names"]["ru"] == "Трафик 50ГБ"
     assert traffic["billing_model"] == "traffic"
     assert traffic["hwid_device_limit"] == 0

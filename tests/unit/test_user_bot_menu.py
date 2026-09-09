@@ -128,17 +128,16 @@ class UserBotMenuTests(unittest.TestCase):
             button.web_app.url, "https://app.example.com/?renew=1&renew_tariff=premium"
         )
 
-    def test_subscribe_only_markup_falls_back_to_bot_callback_without_mini_app(self):
+    def test_subscribe_only_markup_omits_bot_callback_without_mini_app(self):
         self.settings.TELEGRAM_BOT_MENU_DISABLED = True
         self.settings.SUBSCRIPTION_MINI_APP_URL = ""
         markup = get_subscribe_only_markup("en", self.i18n, self.settings)
 
-        button = markup.inline_keyboard[0][0]
-
-        self.assertEqual(button.callback_data, "main_action:subscribe")
-        self.assertIsNone(button.web_app)
+        self.assertIsNone(markup)
 
     def test_server_status_link_appears_in_bot_menus_when_configured(self):
+        self.settings.SERVER_STATUS_ENABLED = True
+        self.settings.SERVER_STATUS_PROVIDER = "url"
         self.settings.SERVER_STATUS_URL = "https://status.example.com"
         expected = (
             self.i18n.gettext("en", "menu_server_status_button"),
@@ -150,6 +149,23 @@ class UserBotMenuTests(unittest.TestCase):
 
         self.assertIn(expected, self._url_buttons(main_markup))
         self.assertIn(expected, self._url_buttons(bot_markup))
+
+    def test_server_status_link_is_hidden_when_disabled_or_embedded(self):
+        self.settings.SERVER_STATUS_URL = "https://status.example.com"
+        expected = (
+            self.i18n.gettext("en", "menu_server_status_button"),
+            "https://status.example.com",
+        )
+
+        for enabled, provider in ((False, "url"), (True, "uptime-kuma")):
+            with self.subTest(enabled=enabled, provider=provider):
+                self.settings.SERVER_STATUS_ENABLED = enabled
+                self.settings.SERVER_STATUS_PROVIDER = provider
+                main_markup = get_main_menu_inline_keyboard("en", self.i18n, self.settings)
+                bot_markup = get_bot_interface_inline_keyboard("en", self.i18n, self.settings)
+
+                self.assertNotIn(expected, self._url_buttons(main_markup))
+                self.assertNotIn(expected, self._url_buttons(bot_markup))
 
     def test_support_telegram_shortcuts_are_normalized_in_bot_menus(self):
         expected = (
@@ -208,6 +224,99 @@ class UserBotMenuTests(unittest.TestCase):
 
         self.assertEqual(trial_button.callback_data, "main_action:request_trial")
         self.assertIsNone(trial_button.web_app)
+
+    def test_custom_buttons_are_last_and_use_native_targets(self):
+        self.settings.MENU_BUTTONS_JSON = json.dumps(
+            [
+                {
+                    "id": "website",
+                    "kind": "external",
+                    "target": "https://example.com/news",
+                    "webapp_icon": "Globe2",
+                    "telegram_emoji": "📰",
+                    "labels": {"ru": "Новости", "en": "News"},
+                },
+                {
+                    "id": "community",
+                    "kind": "telegram",
+                    "target": "https://t.me/example_group",
+                    "webapp_icon": "Users",
+                    "telegram_emoji": "✈️",
+                    "labels": {"ru": "Сообщество", "en": "Community"},
+                },
+                {
+                    "id": "devices",
+                    "kind": "webapp",
+                    "target": "devices",
+                    "webapp_icon": "Smartphone",
+                    "telegram_emoji": "📱",
+                    "labels": {"ru": "Устройства", "en": "Devices"},
+                },
+            ]
+        )
+
+        markup = get_main_menu_inline_keyboard("en", self.i18n, self.settings)
+        custom_rows = markup.inline_keyboard[-3:]
+
+        self.assertEqual(custom_rows[0][0].text, "📰 News")
+        self.assertEqual(custom_rows[0][0].url, "https://example.com/news")
+        self.assertEqual(custom_rows[1][0].text, "✈️ Community")
+        self.assertEqual(custom_rows[1][0].url, "https://t.me/example_group")
+        self.assertEqual(custom_rows[2][0].text, "📱 Devices")
+        self.assertEqual(custom_rows[2][0].web_app.url, "https://app.example.com/devices")
+
+    def test_webapp_custom_button_is_skipped_without_mini_app(self):
+        self.settings.SUBSCRIPTION_MINI_APP_URL = ""
+        self.settings.MENU_BUTTONS_JSON = json.dumps(
+            [
+                {
+                    "id": "devices",
+                    "kind": "webapp",
+                    "target": "devices",
+                    "webapp_icon": "Smartphone",
+                    "telegram_emoji": "",
+                    "labels": {"ru": "Устройства", "en": "Devices"},
+                }
+            ]
+        )
+
+        markup = get_main_menu_inline_keyboard("en", self.i18n, self.settings)
+
+        self.assertFalse(
+            any(button.text == "Devices" for row in markup.inline_keyboard for button in row)
+        )
+
+    def test_custom_buttons_respect_bot_visibility(self):
+        self.settings.MENU_BUTTONS_JSON = json.dumps(
+            [
+                {
+                    "id": "webapp_only",
+                    "kind": "external",
+                    "target": "https://example.com/webapp",
+                    "webapp_icon": "ExternalLink",
+                    "telegram_emoji": "",
+                    "labels": {"ru": "Только Web App", "en": "Web App only"},
+                    "show_in_bot": False,
+                    "show_in_webapp": True,
+                },
+                {
+                    "id": "bot_only",
+                    "kind": "external",
+                    "target": "https://example.com/bot",
+                    "webapp_icon": "ExternalLink",
+                    "telegram_emoji": "",
+                    "labels": {"ru": "Только бот", "en": "Bot only"},
+                    "show_in_bot": True,
+                    "show_in_webapp": False,
+                },
+            ]
+        )
+
+        markup = get_main_menu_inline_keyboard("en", self.i18n, self.settings)
+        texts = [button.text for row in markup.inline_keyboard for button in row]
+
+        self.assertNotIn("Web App only", texts)
+        self.assertIn("Bot only", texts)
 
     def test_bot_interface_trial_button_uses_mini_app_deeplink_when_available(self):
         markup = get_bot_interface_inline_keyboard(
@@ -414,8 +523,8 @@ class UserBotMenuTests(unittest.TestCase):
             hwid_renewal_selected=False,
         )
 
-        self.assertIn("tariff:period:basic:1:bot:no_hwid", self._callback_data(selected))
-        self.assertIn("tariff:period:basic:1:bot:hwid", self._callback_data(disabled))
+        self.assertIn("tariff:period:basic:d30:bot:no_hwid", self._callback_data(selected))
+        self.assertIn("tariff:period:basic:d30:bot:hwid", self._callback_data(disabled))
 
     def test_yookassa_saved_card_choice_keeps_sale_mode_after_page_token(self):
         markup = get_yk_autopay_choice_keyboard(
@@ -463,7 +572,7 @@ class UserBotMenuTests(unittest.TestCase):
 
         self.assertIn("tariff:select:basic:bot", self._callback_data(catalog))
         self.assertIn("main_action:bot_interface", self._callback_data(catalog))
-        self.assertIn("tariff:period:basic:1:bot", self._callback_data(periods))
+        self.assertIn("tariff:period:basic:d30:bot", self._callback_data(periods))
         self.assertIn("main_action:bot_interface", self._callback_data(periods))
         self.assertEqual(tariff_purchase_back_callback("bot"), "main_action:bot_interface")
         self.assertEqual(tariff_purchase_back_callback(None), "main_action:subscribe")
@@ -504,7 +613,7 @@ class UserBotMenuTests(unittest.TestCase):
         )
         applied_buttons = [button for row in applied.inline_keyboard for button in row]
         self.assertIn("100 → 75", applied_buttons[0].text)
-        self.assertEqual(applied_buttons[0].callback_data, "tariff:period:basic:1:bot:p17")
+        self.assertEqual(applied_buttons[0].callback_data, "tariff:period:basic:d30:bot:p17")
         self.assertTrue(any("Cancel promo code" in button.text for button in applied_buttons))
 
         disabled = get_tariff_periods_keyboard(
@@ -520,7 +629,7 @@ class UserBotMenuTests(unittest.TestCase):
         )
         disabled_buttons = [button for row in disabled.inline_keyboard for button in row]
         self.assertNotIn("→", disabled_buttons[0].text)
-        self.assertEqual(disabled_buttons[0].callback_data, "tariff:period:basic:1:bot:pd")
+        self.assertEqual(disabled_buttons[0].callback_data, "tariff:period:basic:d30:bot:pd")
         self.assertTrue(any("Apply discount" in button.text for button in disabled_buttons))
 
     def test_traffic_buttons_never_include_personal_promo_controls(self):

@@ -42,6 +42,7 @@ _PAYMENT_TERMINAL_STATUSES = frozenset(
         "cancelled",
         "failed_creation",
         "refunded",
+        "reversed",
     }
 )
 _YOOKASSA_RECONCILABLE_STATUSES = (
@@ -50,6 +51,36 @@ _YOOKASSA_RECONCILABLE_STATUSES = (
     "waiting_for_capture",
     _PAYMENT_STATUS_PENDING_FINALIZATION,
 )
+
+
+def _sale_mode_base(value: Any) -> str:
+    return str(value or "").split("@", 1)[0].split("|", 1)[0]
+
+
+async def _add_payment_success_log(session: AsyncSession, payment: Payment) -> None:
+    """Add the user-visible audit row for a newly successful payment."""
+
+    from . import message_log_dal
+
+    user_id = int(payment.user_id)
+    payment_id = int(payment.payment_id)
+    amount = str(payment.amount).strip()
+    currency = str(getattr(payment, "currency", "") or "").strip().upper()
+    provider = str(getattr(payment, "provider", "") or "").strip()
+    sale_mode = str(getattr(payment, "sale_mode", "") or "").strip()
+    await message_log_dal.create_message_log_no_commit(
+        session,
+        {
+            "user_id": user_id,
+            "event_type": "payment_succeeded",
+            "content": (
+                f"amount={amount} currency={currency} payment_id={payment_id} "
+                f"provider={provider} sale_mode={sale_mode}"
+            ),
+            "is_admin_event": False,
+            "target_user_id": user_id,
+        },
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,6 +168,9 @@ async def _validate_payment_record_references(
 
 
 async def create_payment_record(session: AsyncSession, payment_data: dict[str, Any]) -> Payment:
+    from .payment_periods import normalize_payment_period
+
+    payment_data = normalize_payment_period(payment_data)
     await _validate_payment_record_references(session, payment_data)
 
     new_payment = Payment(**payment_data)
@@ -178,7 +212,9 @@ async def create_or_get_payment_record_by_idempotence_key(
     newly created row before issuing that API call; a concurrent caller then
     loads the same row and can safely reuse the provider idempotence key.
     """
-    payload = dict(payment_data)
+    from .payment_periods import normalize_payment_period
+
+    payload = normalize_payment_period(payment_data)
     idempotence_key = str(payload.get("idempotence_key") or "").strip()
     if not idempotence_key:
         raise ValueError("idempotence_key is required for idempotent payment creation.")
@@ -440,6 +476,8 @@ async def claim_payment_finalization(
         .where(
             Payment.payment_id == payment_db_id,
             func.lower(Payment.status) != _PAYMENT_STATUS_SUCCEEDED,
+            func.lower(Payment.status) != "refunded",
+            func.lower(Payment.status) != "reversed",
         )
         .values(**values)
         .returning(Payment.payment_id)
@@ -626,6 +664,7 @@ async def update_payment_status_by_db_id(
         else:
             payment.status = new_status
             payment.updated_at = func.now()
+            uses_user_balance = bool(int(getattr(payment, "user_balance_amount_minor", 0) or 0))
             if failure_kind is not None:
                 payment.failure_kind = str(failure_kind)[:64]
             if failure_http_status is not None:
@@ -642,6 +681,13 @@ async def update_payment_status_by_db_id(
                     session,
                     payment_id=payment_db_id,
                 )
+                if uses_user_balance:
+                    from bot.services.user_balance_service import UserBalanceService
+
+                    await UserBalanceService.ensure_consumed(
+                        session,
+                        payment_id=payment_db_id,
+                    )
             try:
                 balance_savepoint = await session.begin_nested()
                 try:
@@ -654,6 +700,14 @@ async def update_payment_status_by_db_id(
                         payment_id=payment_db_id,
                         status=new_status,
                     )
+                    if uses_user_balance:
+                        from bot.services.user_balance_service import UserBalanceService
+
+                        await UserBalanceService.release_if_terminal(
+                            session,
+                            payment_id=payment_db_id,
+                            status=new_status,
+                        )
                 except Exception:
                     await balance_savepoint.rollback()
                     raise
@@ -666,9 +720,16 @@ async def update_payment_status_by_db_id(
                     payment_db_id,
                 )
             if (
-                previous_status == "succeeded"
-                and _normalize_payment_status(new_status) == "refunded"
+                normalized_new_status == _PAYMENT_STATUS_SUCCEEDED
+                and previous_status != _PAYMENT_STATUS_SUCCEEDED
+                and _sale_mode_base(getattr(payment, "sale_mode", "")) != "balance_topup"
             ):
+                await _add_payment_success_log(session, payment)
+            is_reversal = normalized_new_status in {
+                "refunded",
+                "reversed",
+            }
+            if previous_status == "succeeded" and is_reversal:
                 try:
                     reversal_savepoint = await session.begin_nested()
                     try:
@@ -687,6 +748,19 @@ async def update_payment_status_by_db_id(
                         "Partner commission reversal failed for refunded payment %s; "
                         "the reconciler will retry it.",
                         payment_db_id,
+                    )
+            is_balance_topup = _sale_mode_base(getattr(payment, "sale_mode", "")) == "balance_topup"
+            if is_reversal and is_balance_topup:
+                from bot.services.user_balance_service import UserBalanceService
+
+                topup_reversal = await UserBalanceService.reverse_payment_topup(
+                    session,
+                    payment_id=payment_db_id,
+                    reason=f"payment {new_status}",
+                )
+                if topup_reversal is None:
+                    raise RuntimeError(
+                        f"User balance top-up credit is missing for payment {payment_db_id}."
                     )
         if yk_payment_id and payment.yookassa_payment_id is None:
             payment.yookassa_payment_id = yk_payment_id
@@ -722,6 +796,12 @@ async def get_payments_count(session: AsyncSession) -> int:
     """Get total count of successful payments."""
     stmt = select(func.count(Payment.payment_id)).where(Payment.status == "succeeded")
     result = await session.execute(stmt)
+    return result.scalar() or 0
+
+
+async def get_all_payments_count(session: AsyncSession) -> int:
+    """Count all payment attempts shown in the Web Admin table."""
+    result = await session.execute(select(func.count(Payment.payment_id)))
     return result.scalar() or 0
 
 

@@ -6,6 +6,7 @@ from typing import Any
 from sqlalchemy import Date, and_, case, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from db.gift_models import SubscriptionGift
 from db.models import Payment, User
 
 
@@ -84,7 +85,27 @@ async def get_financial_statistics(session: AsyncSession) -> dict[str, Any]:
             ).where(Payment.status == "succeeded", Payment.funding_source == "external")
         )
     ).one()
+    free_gifts = (
+        await session.execute(
+            select(
+                func.count(),
+                func.coalesce(
+                    func.sum(case((SubscriptionGift.status == "activated", 1), else_=0)), 0
+                ),
+            )
+            .select_from(SubscriptionGift)
+            .join(Payment, Payment.payment_id == SubscriptionGift.payment_id)
+            .where(
+                Payment.provider == "admin_gift",
+                Payment.funding_source == "admin_grant",
+                Payment.status == "succeeded",
+                SubscriptionGift.status != "revoked",
+            )
+        )
+    ).one()
     return {
+        "admin_gifts_count": int(free_gifts[0] or 0),
+        "admin_gifts_activated_count": int(free_gifts[1] or 0),
         "today_revenue": float(revenue_row[0] or 0),
         "week_revenue": float(revenue_row[1] or 0),
         "month_revenue": float(revenue_row[2] or 0),

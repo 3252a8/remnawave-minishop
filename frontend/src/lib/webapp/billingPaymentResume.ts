@@ -1,4 +1,5 @@
 import type { PendingPaymentView, WebappRecord } from "./types.js";
+import { isQaPaymentUrl } from "./qaPayment.js";
 
 export type BillingPaymentResponse = WebappRecord & {
   action?: string;
@@ -17,12 +18,14 @@ export function createPaymentResponseHandler({
   afterOpened,
   notifyOpened,
   openExternalLink,
+  openQaPaymentLink,
   openTelegramInvoice,
   startPaymentStatusPolling,
 }: {
   afterOpened?: () => Promise<unknown> | unknown;
   notifyOpened: (resumed: boolean) => void;
   openExternalLink: (url: string) => void;
+  openQaPaymentLink: (url: string) => void;
   openTelegramInvoice: (url: string, context: PaymentSuccessContext) => Promise<boolean>;
   startPaymentStatusPolling: (
     paymentId: string | number | undefined,
@@ -55,7 +58,8 @@ export function createPaymentResponseHandler({
       return true;
     } else {
       if (!response.payment_url) throw response;
-      openExternalLink(response.payment_url);
+      if (isQaPaymentUrl(response.payment_url)) openQaPaymentLink(response.payment_url);
+      else openExternalLink(response.payment_url);
     }
     startPaymentStatusPolling(response.payment_id, successContext);
     closeModal();
@@ -92,7 +96,12 @@ export function createPendingPaymentResume({
       (String(payment.sale_mode || "").split("@", 1)[0] || "subscription") === "subscription";
     const successContext = {
       paymentId,
-      initialSubscriptionPayment: !activeSubscription && subscriptionPayment,
+      initialSubscriptionPayment:
+        !activeSubscription &&
+        subscriptionPayment &&
+        !String(payment.sale_mode || "")
+          .split("|")
+          .includes("gift"),
       renewalSubscriptionPayment: activeSubscription && subscriptionPayment,
     };
     try {
@@ -112,6 +121,40 @@ export function createPendingPaymentResume({
         closeModal,
         true
       );
+    } catch (error: unknown) {
+      onError(error);
+    } finally {
+      setBusy(false);
+    }
+  };
+}
+
+export function createPendingPaymentCancellation({
+  afterCanceled,
+  cancelPayment,
+  isBusy,
+  notifyCanceled,
+  onError,
+  setBusy,
+}: {
+  afterCanceled: (payment: PendingPaymentView) => Promise<void>;
+  cancelPayment: (paymentId: string | number) => Promise<BillingPaymentResponse>;
+  isBusy: () => boolean;
+  notifyCanceled: () => void;
+  onError: (error: unknown) => void;
+  setBusy: (busy: boolean) => void;
+}) {
+  return async function cancelPendingPayment(payment: PendingPaymentView): Promise<void> {
+    const paymentId = payment.payment_id;
+    const promoCode = String(payment.promo_code || "").trim();
+    if (!paymentId || !promoCode || isBusy()) return;
+
+    setBusy(true);
+    try {
+      const response = await cancelPayment(paymentId);
+      if (!response.ok) throw response;
+      await afterCanceled(payment);
+      notifyCanceled();
     } catch (error: unknown) {
       onError(error);
     } finally {

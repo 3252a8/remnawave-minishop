@@ -21,6 +21,10 @@ Non-negotiables (details in CONTRIBUTING.md §2):
 - User/admin-facing copy is localized, not hard-coded: every new or changed UI/bot text key must
   have at least `locales/ru.json` and `locales/en.json` entries; component fallbacks are not a
   substitute for base locale keys.
+- UI reuse is mandatory: follow CONTRIBUTING.md §4.1 and its component map. Prefer the existing
+  component for the entity/action, inspect two actual consumers, and extend shared patterns before
+  assembling a local replacement. Shared CSS classes are not a substitute for a shared component.
+  Verify every affected consumer on desktop/mobile, including open menus and dialogs.
 - Decompose, then type; no module > ~900 lines without a reason; mind the
   monkeypatch/re-export trap (CONTRIBUTING.md §5).
 - "Compatibility with other bots" is a feature (keep), not legacy.
@@ -28,6 +32,12 @@ Non-negotiables (details in CONTRIBUTING.md §2):
   navigation may mention minishop PRO, summarize its public capabilities, and link to the official
   PRO site; this exception does not allow copying PRO code, private contracts, assets, or runtime
   dependencies into core.
+- Balance work must include gift-deletion refunds. The temporary user flow that discards an unused
+  paid gift without a refund may exist only until balance refund integration is implemented. When
+  implementing or changing the user-balance flow, replace that behavior with an atomic credit of
+  the gift's actually paid value to the purchaser's balance before revoking/removing the gift
+  entitlement. Keep the `TODO(balance-gift-refund)` marker until the refund path and regression
+  tests are implemented.
 
 Before pushing, run the gates in CONTRIBUTING.md §1 (`pytest`, `ruff`, `mypy`,
 `npm run check`). Commits: Conventional Commits, no `Co-Authored-By` trailer.

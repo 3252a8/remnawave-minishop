@@ -101,7 +101,7 @@ WEBAPP_THEME_ASSET_CONTENT_TYPES = {
     ".svg": "image/svg+xml",
     ".webp": "image/webp",
 }
-WEBAPP_TELEGRAM_AVATAR_MAX_BYTES = 128 * 1024
+WEBAPP_TELEGRAM_AVATAR_MAX_BYTES = 512 * 1024
 WEBAPP_TELEGRAM_AVATAR_REFRESH_SECONDS = 24 * 60 * 60
 WEBAPP_TELEGRAM_AVATAR_FETCH_TIMEOUT_SECONDS = 4
 WEBAPP_SESSION_COOKIE_NAME = "rw_webapp_session"
@@ -145,6 +145,7 @@ WEBAPP_CSRF_EXEMPT_PATHS = {
     "/api/auth/email/magic",
     "/api/auth/email/password",
     "/api/auth/logout",
+    "/api/notification-preferences/unsubscribe",
 }
 
 _SHARED_HTTP_SESSION: ClientSession | None = None

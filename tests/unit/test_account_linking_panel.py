@@ -2,15 +2,17 @@ import json
 import unittest
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import ANY, AsyncMock, Mock, patch
 
 from bot.app.web import subscription_webapp  # noqa: F401
 from bot.app.web.webapp import account as account_routes
 from bot.app.web.webapp import auth as auth_routes
 from bot.app.web.webapp.auth import (
     _apply_telegram_profile_to_user,
+    _build_account_merge_notice,
     _ensure_user_from_telegram,
     _link_telegram_to_user,
+    _merge_users_for_web,
     _panel_description_for_user,
     _sync_merged_panel_identity_for_user,
     _sync_panel_identity_for_user,
@@ -225,6 +227,60 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["email"], "linked@example.com")
         self.assertEqual(payload["telegramId"], 42)
 
+    async def test_merged_panel_identity_keeps_shared_panel_user(self):
+        panel_service = SimpleNamespace(
+            delete_user_from_panel=AsyncMock(return_value=True),
+            update_user_details_on_panel=AsyncMock(return_value={"uuid": "shared-panel"}),
+        )
+        request = SimpleNamespace(
+            app={"subscription_service": SimpleNamespace(panel_service=panel_service)}
+        )
+        user = SimpleNamespace(
+            user_id=42,
+            panel_user_uuid="shared-panel",
+            telegram_id=42,
+            email="linked@example.com",
+        )
+
+        result = await _sync_merged_panel_identity_for_user(
+            request,
+            user,
+            source_panel_uuid="shared-panel",
+            final_panel_uuid="shared-panel",
+        )
+
+        self.assertTrue(result)
+        panel_service.delete_user_from_panel.assert_not_awaited()
+        panel_service.update_user_details_on_panel.assert_awaited_once_with(
+            "shared-panel",
+            {"telegramId": 42, "email": "linked@example.com"},
+            log_response=False,
+        )
+
+    async def test_merge_notice_does_not_report_shared_panel_user_as_removed(self):
+        merged_user = SimpleNamespace(
+            user_id=42,
+            panel_user_uuid="shared-panel",
+            language_code="ru",
+        )
+        settings = SimpleNamespace(DEFAULT_LANGUAGE="en")
+
+        with patch.object(
+            auth_routes.subscription_dal,
+            "get_active_subscription_by_user_id",
+            AsyncMock(return_value=None),
+        ):
+            notice = await _build_account_merge_notice(
+                SimpleNamespace(),
+                merged_user=merged_user,
+                source_user_id=-100,
+                source_panel_uuid="shared-panel",
+                settings=settings,
+            )
+
+        self.assertEqual(notice["primary_panel_user_uuid"], "shared-panel")
+        self.assertIsNone(notice["removed_panel_user_uuid"])
+
     async def test_merged_panel_identity_reactivates_expired_target_with_transferred_time(self):
         expire_at = datetime.now(UTC) + timedelta(days=30)
         panel_service = SimpleNamespace(
@@ -261,6 +317,79 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
         expected_expire_at = expire_at.isoformat(timespec="milliseconds").replace("+00:00", "Z")
         self.assertEqual(payload["expireAt"], expected_expire_at)
         self.assertEqual(payload["status"], "ACTIVE")
+
+    async def test_merged_panel_identity_recomputes_entitlements_after_cleanup(self):
+        panel_service = SimpleNamespace(delete_user_from_panel=AsyncMock(return_value=True))
+        sync_entitlements = AsyncMock(return_value=True)
+        request = SimpleNamespace(
+            app={
+                "subscription_service": SimpleNamespace(
+                    panel_service=panel_service,
+                    sync_main_traffic_limit_to_panel=sync_entitlements,
+                )
+            }
+        )
+        session = SimpleNamespace(commit=AsyncMock())
+        user = SimpleNamespace(user_id=42, panel_user_uuid="panel-target")
+
+        result = await _sync_merged_panel_identity_for_user(
+            request,
+            user,
+            source_panel_uuid="panel-source",
+            final_panel_uuid="panel-target",
+            session=session,
+        )
+
+        self.assertTrue(result)
+        sync_entitlements.assert_awaited_once_with(session, 42)
+        session.commit.assert_awaited_once()
+
+    async def test_web_merge_cancels_secondary_managed_and_local_recurrence(self):
+        provider_service = SimpleNamespace(
+            manages_recurrence=True,
+            cancel_provider_recurrence=AsyncMock(return_value=True),
+        )
+        subscription_service = SimpleNamespace(
+            managed_recurring_provider_services={"platega": provider_service}
+        )
+        request = SimpleNamespace(app={"subscription_service": subscription_service})
+        session = SimpleNamespace()
+        subscription = SimpleNamespace(subscription_id=17)
+        merged = SimpleNamespace(user_id=42)
+
+        async def exercise_cancellation(*args, **kwargs):
+            cancel = kwargs["cancel_source_recurring"]
+            self.assertTrue(await cancel(session, -10, subscription, ("platega",)))
+            return merged
+
+        with (
+            patch.object(auth_routes.user_dal, "merge_users", side_effect=exercise_cancellation),
+            patch.object(
+                auth_routes.subscription_dal,
+                "set_auto_renew",
+                AsyncMock(),
+            ) as set_auto_renew,
+        ):
+            result = await _merge_users_for_web(
+                request,
+                session,
+                source_user_id=-10,
+                target_user_id=42,
+                reason="email_link",
+                send_user_email=True,
+            )
+
+        self.assertIs(result, merged)
+        provider_service.cancel_provider_recurrence.assert_awaited_once_with(
+            session,
+            user_id=-10,
+        )
+        set_auto_renew.assert_awaited_once_with(
+            session,
+            17,
+            False,
+            stop_reason="account_merged",
+        )
 
     async def test_telegram_merge_defers_panel_sync_until_source_cleanup(self):
         current_user = SimpleNamespace(
@@ -449,6 +578,11 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
                 "_probe_telegram_notifications_for_user_id",
                 AsyncMock(),
             ) as probe_telegram_notifications,
+            patch.object(
+                account_routes,
+                "_grant_deferred_referral_welcome_bonus_after_telegram_link",
+                AsyncMock(),
+            ) as grant_deferred_welcome_bonus,
         ):
             response = await account_routes.account_telegram_link_route(request)
 
@@ -465,8 +599,10 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
             target_user_id=42,
             reason="telegram_link",
             send_user_email=True,
+            cancel_source_recurring=ANY,
         )
         probe_telegram_notifications.assert_awaited_once_with(request, 42)
+        grant_deferred_welcome_bonus.assert_awaited_once_with(request, 42)
         self.assertEqual(panel_calls, ["delete", "update"])
         panel_service.delete_user_from_panel.assert_awaited_once_with(
             "panel-email",

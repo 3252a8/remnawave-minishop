@@ -19,7 +19,7 @@ TicketSubjectString = Annotated[str, StringConstraints(min_length=1, max_length=
 # The transport cap, not the message cap: markup costs characters the reader
 # never sees, so the real limit is applied to the visible text after
 # sanitizing (``support_message_body``). This only stops absurd payloads.
-TicketBodyString = Annotated[str, StringConstraints(min_length=1, max_length=32000)]
+TicketBodyString = Annotated[str, StringConstraints(max_length=32000)]
 TicketBodyFormat = Literal["text", "html"]
 
 
@@ -86,6 +86,40 @@ class WebAppTelegramAuthPayload(BaseModel):
     start_param: str | None = None
 
 
+class WebAppPasskeyCredentialPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    challenge: Annotated[str, StringConstraints(min_length=16, max_length=1024)]
+    credential: dict[str, Any]
+    name: Annotated[str, StringConstraints(max_length=80)] | None = None
+
+
+class WebAppPasskeyDeletePayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    credential_id: Annotated[str, StringConstraints(min_length=8, max_length=1024)]
+
+
+class WebAppExternalIdentityPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    provider: Literal["google", "yandex"]
+
+
+class WebAppEmailChangeCurrentPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    code: ShortCodeString
+
+
+class WebAppEmailChangeNewPayload(WebAppEmailPayload):
+    change_token: MagicTokenString
+
+
+class WebAppEmailChangeConfirmPayload(WebAppEmailChangeNewPayload):
+    code: ShortCodeString
+
+
 class WebAppPromoApplyPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -106,18 +140,29 @@ class WebAppPaymentCreatePayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     method: str = ""
+    gift: bool = False
+    gift_recipient_email: EmailStr | None = None
     months: Any = None
+    duration_days: int | None = Field(default=None, strict=True, gt=0, le=2147483647)
     traffic_gb: Any = None
     device_count: Any = None
     tariff_key: OptionalTariffKeyString | None = None
     sale_mode: SaleModeString | None = None
     renew_hwid_devices: bool | None = None
     checkout_addons: WebAppCheckoutAddonsPayload | None = None
+    balance_source: Literal["user", "partner"] | None = None
     use_partner_balance: bool = False
     promo_code: ShortCodeString | None = None
     description: LongTextString | None = None
     comment: LongTextString | None = None
     note: LongTextString | None = None
+
+
+class WebAppBalanceTopupPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    method: Annotated[str, StringConstraints(min_length=1, max_length=64)]
+    amount: float = Field(gt=0, allow_inf_nan=False)
 
 
 class WebAppPlansViewedPayload(BaseModel):
@@ -182,13 +227,18 @@ class CreateTicketPayload(BaseModel):
     body: TicketBodyString
     body_format: TicketBodyFormat = "text"
 
-    @field_validator("subject", "body")
+    @field_validator("subject")
     @classmethod
     def _strip_required_text(cls, value: str) -> str:
         stripped = value.strip()
         if not stripped:
             raise ValueError("empty_text")
         return stripped
+
+    @field_validator("body")
+    @classmethod
+    def _strip_body(cls, value: str) -> str:
+        return value.strip()
 
 
 class TicketReplyPayload(BaseModel):
@@ -200,10 +250,7 @@ class TicketReplyPayload(BaseModel):
     @field_validator("body")
     @classmethod
     def _strip_body(cls, value: str) -> str:
-        stripped = value.strip()
-        if not stripped:
-            raise ValueError("empty_text")
-        return stripped
+        return value.strip()
 
 
 class AdminTicketReplyPayload(TicketReplyPayload):

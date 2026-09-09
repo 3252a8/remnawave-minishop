@@ -10,8 +10,10 @@ from bot.infra.event_payloads import ReferralBonusGrantedPayload
 from bot.middlewares.i18n import JsonI18n
 from bot.services.partner_program_service import PartnerProgramService
 from bot.services.registration_invite_gate import referral_program_enabled
+from bot.services.subscription_order_terms import read_subscription_terms
 from bot.utils.referral_links import build_bot_referral_link
 from config.settings import Settings
+from config.subscription_periods import days_to_legacy_months, legacy_months_to_days
 from db.dal import payment_dal, subscription_dal, user_dal
 
 logger = logging.getLogger(__name__)
@@ -51,6 +53,7 @@ class ReferralService:
         current_payment_db_id: int | None = None,
         skip_if_active_before_payment: bool = True,
         tariff_key: str | None = None,
+        duration_days: int | None = None,
     ) -> dict[str, Any]:
 
         referee_final_end_date: datetime | None = None
@@ -147,10 +150,24 @@ class ReferralService:
             if inviter_user_model and inviter_user_model.first_name:
                 inviter_name_for_referee_msg = inviter_user_model.first_name
 
-            inviter_bonus_days, referee_bonus_days = self._referral_bonus_days_for_payment(
-                purchased_subscription_months,
-                tariff_key=tariff_key,
+            payment_terms = (
+                read_subscription_terms(
+                    await payment_dal.get_payment_by_db_id(session, current_payment_db_id)
+                )
+                if current_payment_db_id is not None and duration_days is not None
+                else None
             )
+            if payment_terms is not None:
+                inviter_bonus_days, referee_bonus_days = (
+                    payment_terms.inviter_days,
+                    payment_terms.referee_days,
+                )
+            else:
+                inviter_bonus_days, referee_bonus_days = self._referral_bonus_days_for_payment(
+                    purchased_subscription_months,
+                    tariff_key=tariff_key,
+                    duration_days=duration_days,
+                )
             if partner_client_bonus:
                 inviter_bonus_days = None
             logger.info(
@@ -256,7 +273,8 @@ class ReferralService:
                     inviter_bonus_kind=inviter_bonus_kind,
                     referee_name=referee_name_for_msg,
                     payment_db_id=current_payment_db_id,
-                    purchased_subscription_months=purchased_subscription_months,
+                    purchased_subscription_months=purchased_subscription_months or None,
+                    purchased_subscription_days=duration_days,
                     tariff_key=tariff_key,
                     one_bonus_per_referee=one_bonus_per_client,
                     reason="payment",
@@ -283,12 +301,13 @@ class ReferralService:
         purchased_subscription_months: int,
         *,
         tariff_key: str | None = None,
+        duration_days: int | None = None,
     ) -> tuple[int | None, int | None]:
         months = int(purchased_subscription_months)
         tariffs_config = getattr(self.settings, "tariffs_config", None)
         if tariff_key and tariffs_config:
             try:
-                tariff = tariffs_config.require(str(tariff_key))
+                tariff = tariffs_config.require_configured(str(tariff_key))
             except Exception:
                 logger.warning(
                     "Referral bonuses skipped: tariff %s was not found.",
@@ -297,11 +316,17 @@ class ReferralService:
                 return None, None
             if tariff.billing_model != "period":
                 return None, None
+            if getattr(tariff, "period_unit", "month") == "day":
+                months = duration_days or legacy_months_to_days(months)
+            elif duration_days is not None:
+                months = days_to_legacy_months(duration_days) or 0
             return (
                 tariff.referral_inviter_bonus_days(months),
                 tariff.referral_referee_bonus_days(months),
             )
 
+        if duration_days is not None:
+            months = days_to_legacy_months(duration_days) or 0
         return (
             self.settings.referral_bonus_inviter.get(months),
             self.settings.referral_bonus_referee.get(months),

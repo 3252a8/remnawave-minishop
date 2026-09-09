@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   applyThemeDocumentEffects,
+  applyThemeRootTokens,
   closeDisabledEmailAuthDialogs,
   syncShellBillingSelection,
   syncShellEmailAvatar,
@@ -33,6 +34,47 @@ describe("shell effects", () => {
     applyThemeDocumentEffects(null);
 
     expect(documentElement.style.colorScheme).toBe("");
+    expect(body.style.backgroundColor).toBe("");
+  });
+
+  it("mirrors theme tokens onto the document element and drops stale ones", () => {
+    const properties = new Map<string, string>();
+    const classes = new Set<string>();
+    const documentElement = {
+      style: {
+        setProperty: (name: string, value: string) => void properties.set(name, value),
+        removeProperty: (name: string) => void properties.delete(name),
+      },
+      classList: {
+        add: (name: string) => void classes.add(name),
+        remove: (name: string) => void classes.delete(name),
+      },
+    };
+    vi.stubGlobal("document", { body: { style: {} }, documentElement });
+
+    applyThemeRootTokens(
+      "--accent:#00fe7a;--bg:#03070b;--font-sans:Inter, Arial, sans-serif",
+      "theme-key-dark theme-variant-dark"
+    );
+    expect(properties.get("--accent")).toBe("#00fe7a");
+    expect(properties.get("--font-sans")).toBe("Inter, Arial, sans-serif");
+    expect(classes).toEqual(new Set(["theme-key-dark", "theme-variant-dark"]));
+
+    // Switching to a theme that does not define --bg must not leave the old
+    // value behind on the document element.
+    applyThemeRootTokens("--accent:#10b981", "theme-key-windows95 theme-variant-light");
+    expect(properties.get("--accent")).toBe("#10b981");
+    expect(properties.has("--bg")).toBe(false);
+    expect(classes).toEqual(new Set(["theme-key-windows95", "theme-variant-light"]));
+  });
+
+  it("clears a stale inline body background for CSS-file themes", () => {
+    const documentElement = { style: { colorScheme: "" } };
+    const body = { style: { backgroundColor: "#03070b" } };
+    vi.stubGlobal("document", { body, documentElement });
+
+    applyThemeDocumentEffects({ tokens: { color_scheme: "light" } });
+
     expect(body.style.backgroundColor).toBe("");
   });
 

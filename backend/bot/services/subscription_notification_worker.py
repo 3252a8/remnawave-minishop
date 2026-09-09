@@ -33,6 +33,10 @@ from bot.services.telegram_notifications import (
     telegram_notification_status_from_error,
 )
 from bot.services.user_email_notifications import send_user_notification_email
+from bot.services.user_notification_policy import (
+    UserNotificationCategory,
+    user_notification_delivery_plan,
+)
 from config.settings import Settings
 from db.advisory_locks import acquire_subscription_background_sync_lock
 from db.dal import subscription_dal
@@ -112,7 +116,10 @@ class SubscriptionNotificationWorker:
         )
 
     async def expiry_tick(self, session: AsyncSession) -> None:
-        delivery_enabled = bool(getattr(self.settings, "SUBSCRIPTION_NOTIFICATIONS_ENABLED", True))
+        delivery_enabled = bool(
+            getattr(self.settings, "SUBSCRIPTION_NOTIFICATIONS_ENABLED", True)
+            or getattr(self.settings, "SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED", True)
+        )
         now = datetime.now(UTC)
         lower = now - EXPIRED_AFTER_NOTIFICATION_WINDOW
         upper = now + self._max_before_window()
@@ -265,6 +272,9 @@ class SubscriptionNotificationWorker:
             for days_before, message_key in day_stages:
                 if days_before > days_before_limit:
                     continue
+                paid_days = getattr(sub, "duration_days", None)
+                if isinstance(paid_days, int) and paid_days > 0 and days_before >= paid_days:
+                    continue
                 if seconds_left <= days_before * 24 * 3600:
                     return SubscriptionNotificationStage(
                         key=f"before_{days_before}d",
@@ -332,7 +342,10 @@ class SubscriptionNotificationWorker:
         )
 
     async def trial_traffic_tick(self, session: AsyncSession) -> None:
-        if not getattr(self.settings, "SUBSCRIPTION_NOTIFICATIONS_ENABLED", True):
+        if not (
+            getattr(self.settings, "USER_NOTIFICATION_TRAFFIC_TELEGRAM_ENABLED", True)
+            or getattr(self.settings, "USER_NOTIFICATION_TRAFFIC_EMAIL_ENABLED", True)
+        ):
             return
         now = datetime.now(UTC)
         result = await session.execute(
@@ -347,6 +360,7 @@ class SubscriptionNotificationWorker:
                     Subscription.provider == "trial",
                     Subscription.status_from_panel == "TRIAL",
                     Subscription.duration_months == 0,
+                    Subscription.duration_days.is_(None),
                 ),
             )
             .options(selectinload(Subscription.user))
@@ -458,7 +472,13 @@ class SubscriptionNotificationWorker:
             TELEGRAM_NOTIFICATIONS_NEEDS_START,
             TELEGRAM_NOTIFICATIONS_BLOCKED,
         }
-        if send_telegram and telegram_chat_id > 0 and can_try_telegram:
+        plan = user_notification_delivery_plan(
+            self.settings,
+            UserNotificationCategory.TRAFFIC,
+            user,
+            telegram_available=telegram_chat_id > 0 and can_try_telegram,
+        )
+        if send_telegram and plan.telegram:
             try:
                 await self.bot.send_message(
                     telegram_chat_id,
@@ -494,7 +514,7 @@ class SubscriptionNotificationWorker:
                         TELEGRAM_NOTIFICATIONS_ENABLED,
                         telegram_id=telegram_chat_id,
                     )
-        if send_email and user:
+        if send_email and plan.email and user:
             email_sent = await send_user_notification_email(
                 settings=self.settings,
                 i18n=self.i18n,

@@ -60,6 +60,7 @@
 
   const trialEnabled = $derived(Boolean(appSettings?.trial_enabled));
   const trialAvailable = $derived(Boolean(appSettings?.trial_available));
+  const trialPaymentEnabled = $derived(Boolean(appSettings?.trial_payment_enabled));
   const trialRequiresTelegram = $derived(
     Boolean(trialEnabled && appSettings?.trial_requires_telegram && !subscription?.active)
   );
@@ -156,6 +157,23 @@
             <dd>{trafficLabel}</dd>
           </div>
         </dl>
+      {:else if trialPaymentEnabled && canRequestTrial}
+        <h2>{t("wa_trial_payment_title", {}, "Activate trial")}</h2>
+        <p>
+          {t("wa_trial_payment_description", {}, "Choose a payment method to activate the trial.")}
+        </p>
+        <dl class="trial-activation-facts">
+          {#if daysLeft > 0}
+            <div>
+              <dt>{t("wa_trial_duration_label", {}, "Duration")}</dt>
+              <dd>{t("wa_trial_days_left", { days: daysLeft }, "{days} days")}</dd>
+            </div>
+          {/if}
+          <div>
+            <dt>{t("wa_trial_traffic_label", {}, "Traffic")}</dt>
+            <dd>{trafficLabel}</dd>
+          </div>
+        </dl>
       {:else if trialRequiresTelegram}
         <h2>{t("wa_trial_telegram_required_title", {}, "Link Telegram to start trial")}</h2>
         <p>
@@ -218,6 +236,11 @@
       <Button class="wide" onclick={activateTrial} disabled={trialBusy}>
         <RefreshCw size={18} />
         {t("wa_trial_retry", {}, "Try again")}
+      </Button>
+    {:else if trialPaymentEnabled && canRequestTrial}
+      <Button class="wide" onclick={activateTrial} disabled={trialBusy}>
+        <Gift size={18} />
+        {t("wa_trial_pay_and_activate", {}, "Pay and activate")}
       </Button>
     {/if}
     <Button class="wide" variant="secondary" onclick={goHome}>

@@ -34,6 +34,7 @@ APPEARANCE_OVERRIDE_KEYS = {
     "WEBAPP_FAVICON_URL",
     "WEBAPP_LOGO_FAVICON_URL",
     "WEBAPP_PRIMARY_COLOR",
+    "WEBAPP_COMPACT_HOME_ENABLED",
 }
 REFERRAL_LINK_VISIBILITY_KEYS = (
     "REFERRAL_WEBAPP_LINK_ENABLED",
@@ -65,6 +66,8 @@ PARTNER_SETTING_KEYS = {
     "PARTNER_AUDIT_RETENTION_DAYS",
     "PARTNER_REQUISITES_RETENTION_DAYS",
 }
+# DEPRECATED: apply only to persisted overrides from pre-full-URL installations.
+LEGACY_RUNTIME_OVERRIDE_KEYS = {"SERVER_STATUS_KUMA_SLUG"}
 APP_ROOT = Path(__file__).resolve().parents[3]
 APPEARANCE_OVERRIDES_BACKUP_PATH = APP_ROOT / "data" / "webapp-logo" / "appearance-settings.json"
 
@@ -160,6 +163,15 @@ def _apply_overrides(
     for key, raw_value in overrides.items():
         field = get_field_by_key(key)
         if not field:
+            # This key was once editable and may still exist in the overrides
+            # table. Apply it at startup, but keep it absent from the manifest.
+            if key in LEGACY_RUNTIME_OVERRIDE_KEYS:
+                value = str(raw_value).strip() if raw_value is not None else None
+                if _apply_value(settings, key, value):
+                    applied.append(key)
+                else:
+                    skipped.append(key)
+                continue
             skipped.append(key)
             continue
         try:
@@ -279,6 +291,8 @@ def _appearance_snapshot(settings: Settings) -> dict[str, Any]:
     primary_color = settings.WEBAPP_PRIMARY_COLOR
     if primary_color and primary_color != "#00fe7a":
         snapshot["WEBAPP_PRIMARY_COLOR"] = primary_color
+    if settings.WEBAPP_COMPACT_HOME_ENABLED:
+        snapshot["WEBAPP_COMPACT_HOME_ENABLED"] = True
     return snapshot
 
 

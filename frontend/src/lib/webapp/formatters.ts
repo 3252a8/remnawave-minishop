@@ -17,8 +17,14 @@ export function formatTemplate(template: unknown, params: TemplateParams = {}): 
 export function formatMoney(value: unknown, currency = "RUB"): string {
   const numeric = Number(value || 0);
   const formatted = Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(2);
-  const symbol = currency === "RUB" ? "₽" : currency;
-  return `${formatted} ${symbol}`;
+  const currencyCode = String(currency || "RUB").trim();
+  const symbol = currencyCode.toUpperCase() === "RUB" ? "₽" : currencyCode;
+  const [integer, fraction] = formatted.split(".");
+  const sign = integer.startsWith("-") ? "-" : "";
+  const digits = sign ? integer.slice(1) : integer;
+  const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, "\u00a0");
+  const amount = `${sign}${grouped}${fraction === undefined ? "" : `.${fraction}`}`;
+  return `${amount} ${symbol}`;
 }
 
 export function formatTrafficGb(value: unknown): string {

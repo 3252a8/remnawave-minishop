@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from bot.app.web.admin_settings_manifest_email_fields import EMAIL_SETTINGS_FIELDS
+from bot.app.web.admin_settings_manifest_login_fields import LOGIN_METHOD_SETTINGS_FIELDS
 from bot.app.web.admin_settings_manifest_types import TRAFFIC_STRATEGY_CHOICES, SettingField
 from bot.app.web.admin_settings_notification_manifest_fields import (
     NOTIFICATION_SETTINGS_FIELDS,
@@ -17,6 +18,16 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "general",
         "Web App title",
         placeholder="My subscription",
+    ),
+    SettingField(
+        "GIFTS_ENABLED",
+        "bool",
+        "general",
+        "Gift subscriptions",
+        "Allow new gift purchases. Paid gifts remain available for activation.",
+        optional=False,
+        i18n_label_key="admin_gifts_enabled",
+        i18n_description_key="admin_gifts_enabled_hint",
     ),
     SettingField(
         "DEFAULT_LANGUAGE",
@@ -47,10 +58,19 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "Support Link",
         "Controls the 'Support Link' setting in admin overrides.",
     ),
-    SettingField("SERVER_STATUS_URL", "url", "general", "Server Status URL"),
     SettingField("PRIVACY_POLICY_URL", "url", "general", "Privacy Policy URL"),
     SettingField("USER_AGREEMENT_URL", "url", "general", "User Agreement URL"),
     SettingField("DISABLE_WELCOME_MESSAGE", "bool", "general", "Disable Welcome Message"),
+    SettingField(
+        "ADMIN_BROADCAST_EXCLUDE_BLOCKED_TELEGRAM",
+        "bool",
+        "general",
+        "Skip users who blocked the bot",
+        "For new broadcasts, only Telegram delivery is skipped; email delivery is unchanged.",
+        optional=False,
+        i18n_label_key="admin_broadcast_exclude_blocked_telegram",
+        i18n_description_key="admin_broadcast_exclude_blocked_telegram_hint",
+    ),
     SettingField(
         "START_COMMAND_DESCRIPTION",
         "string",
@@ -77,6 +97,14 @@ SETTINGS_MANIFEST: list[SettingField] = [
         ("Hide the in-bot user interface and /tg command. Renewal prompts open the Mini App."),
     ),
     SettingField(
+        "MENU_BUTTONS_JSON",
+        "menu_buttons",
+        "menu_buttons",
+        "Custom menu buttons",
+        ("Localized links shown at the bottom of the Telegram main menu and Web App settings."),
+        optional=False,
+    ),
+    SettingField(
         "REQUIRED_CHANNEL_ID",
         "int",
         "general",
@@ -90,6 +118,8 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "Required Channel Link",
         ("Controls the 'Required Channel Link' setting in admin overrides."),
     ),
+    # ─── Login methods ─────────────────────────────────────────────
+    *LOGIN_METHOD_SETTINGS_FIELDS,
     # ─── Email auth & SMTP ─────────────────────────────────────────
     *EMAIL_SETTINGS_FIELDS,
     SettingField(
@@ -191,6 +221,22 @@ SETTINGS_MANIFEST: list[SettingField] = [
     ),
     SettingField(
         "WEBAPP_PRIMARY_COLOR", "color", "appearance", "WebApp Primary Color", placeholder="#00fe7a"
+    ),
+    SettingField(
+        "WEBAPP_USER_THEME_MODE_ENABLED",
+        "bool",
+        "appearance",
+        "User theme mode selection",
+        "Allow users to choose Auto, Light, or Dark mode within the active theme.",
+        optional=False,
+    ),
+    SettingField(
+        "WEBAPP_COMPACT_HOME_ENABLED",
+        "bool",
+        "appearance",
+        "Compact Home screen",
+        "Combine subscription status, traffic usage, and balance into one compact summary card.",
+        optional=False,
     ),
     SettingField("WEBAPP_LOGO_URL", "url", "appearance", "WebApp Logo URL"),
     SettingField(
@@ -400,6 +446,17 @@ SETTINGS_MANIFEST: list[SettingField] = [
         min=0,
         subsection="checkout",
     ),
+    SettingField(
+        "PAYMENT_METHODS_ORDER",
+        "string",
+        "payments",
+        "Payment button order",
+        (
+            "Drag payment buttons into the order used by the bot and Web App. "
+            "New provider buttons are appended automatically."
+        ),
+        subsection="payment_button_order",
+    ),
     # ─── Payment providers (toggles) ───────────────────────────────
     SettingField(
         "STARS_ENABLED",
@@ -422,14 +479,6 @@ SETTINGS_MANIFEST: list[SettingField] = [
         i18n_description_key="admin_settings_provider_admin_only_description",
     ),
     SettingField(
-        "PAYMENT_METHODS_ORDER",
-        "string",
-        "payments",
-        "Payment Methods Order",
-        "Controls the 'Payment Methods Order' setting in admin overrides.",
-        subsection="common",
-    ),
-    SettingField(
         "PAYMENT_METHODS_DISPLAY_MODE",
         "string",
         "payments",
@@ -448,6 +497,38 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "pricing",
         "Trial Enabled",
         optional=False,
+        subsection="trial",
+    ),
+    SettingField(
+        "TRIAL_PAYMENT_ENABLED",
+        "bool",
+        "pricing",
+        "Paid trial activation",
+        "Require a successful payment before trial activation.",
+        optional=False,
+        subsection="trial",
+    ),
+    SettingField(
+        "TRIAL_PAYMENT_PRICE",
+        "float",
+        "pricing",
+        "Trial activation price",
+        (
+            "Price in the default payment currency. "
+            "Set a positive value when paid activation is enabled."
+        ),
+        optional=False,
+        min=0,
+        subsection="trial",
+    ),
+    SettingField(
+        "TRIAL_PAYMENT_STARS_PRICE",
+        "int",
+        "pricing",
+        "Trial activation price in Stars",
+        "Telegram Stars price. Set to 0 to hide Stars from the trial checkout.",
+        optional=False,
+        min=0,
         subsection="trial",
     ),
     SettingField(
@@ -493,6 +574,22 @@ SETTINGS_MANIFEST: list[SettingField] = [
         subsection="trial",
     ),
     SettingField(
+        "TRIAL_DAYS_STRATEGY",
+        "string",
+        "pricing",
+        "Trial days purchase strategy",
+        (
+            "Choose whether remaining trial days are added to a purchased tariff or the paid "
+            "period starts on the payment date."
+        ),
+        optional=False,
+        choices=(
+            ("add_remaining", "Add remaining trial days"),
+            ("start_from_payment", "Start from payment date"),
+        ),
+        subsection="trial",
+    ),
+    SettingField(
         "TRIAL_TRAFFIC_STRATEGY",
         "string",
         "pricing",
@@ -504,14 +601,14 @@ SETTINGS_MANIFEST: list[SettingField] = [
     SettingField(
         "TRIAL_WITHOUT_TELEGRAM_ENABLED",
         "bool",
-        "pricing",
+        "system",
         "Trial Without Telegram",
         (
             "If disabled, email-only users must link Telegram before activating a trial. "
             "Disposable email domains always require Telegram."
         ),
         optional=False,
-        subsection="trial",
+        subsection="email_anti_abuse",
     ),
     SettingField(
         "TRIAL_SQUAD_UUIDS",
@@ -566,13 +663,13 @@ SETTINGS_MANIFEST: list[SettingField] = [
     SettingField(
         "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
         "bool",
-        "pricing",
+        "system",
         "Referral Welcome Bonus Without Telegram",
         (
             "If disabled, email-only users must link Telegram before receiving the referral "
             "welcome bonus. Disposable email domains always require Telegram."
         ),
-        subsection="referral",
+        subsection="email_anti_abuse",
     ),
     SettingField(
         "REFERRAL_WEBAPP_LINK_ENABLED",
@@ -605,14 +702,14 @@ SETTINGS_MANIFEST: list[SettingField] = [
     SettingField(
         "DISPOSABLE_EMAIL_DOMAINS",
         "text",
-        "pricing",
+        "system",
         "Disposable Email Domains",
         (
             "Comma-separated domains. Users without Telegram using these emails cannot "
             "claim trial or referral welcome bonus."
         ),
         placeholder="mailinator.com\ntemp-mail.org\nyopmail.com",
-        subsection="referral",
+        subsection="email_anti_abuse",
     ),
     SettingField(
         "MIGRATION_REMNASHOP_REFERRAL_CODE_COMPAT_ENABLED",
@@ -659,6 +756,95 @@ SETTINGS_MANIFEST: list[SettingField] = [
     SettingField("USER_HWID_DEVICE_LIMIT", "int", "devices", "User HWID Device Limit", min=0),
     SettingField("USER_TRAFFIC_LIMIT_GB", "float", "devices", "User Traffic Limit Gb"),
     # ─── System ────────────────────────────────────────────────────
+    SettingField(
+        "SERVER_STATUS_ENABLED",
+        "bool",
+        "system",
+        "Server status enabled",
+        "Shows server availability in the Mini App or links to an external status page.",
+        optional=False,
+        subsection="server_status",
+    ),
+    SettingField(
+        "SERVER_STATUS_SHOW_ON_HOME",
+        "bool",
+        "system",
+        "Show server status on Home screen",
+        (
+            "Display the server status card on the Mini App Home screen. "
+            "The Settings entry remains available."
+        ),
+        optional=False,
+        subsection="server_status",
+    ),
+    SettingField(
+        "SERVER_STATUS_PROVIDER",
+        "string",
+        "system",
+        "Server status provider",
+        "Choose an external URL or a provider displayed inside the Mini App.",
+        optional=False,
+        choices=(
+            ("url", "URL"),
+            ("uptime-kuma", "Uptime Kuma"),
+            ("xray-checker", "xray-checker"),
+        ),
+        subsection="server_status",
+    ),
+    SettingField(
+        "SERVER_STATUS_URL",
+        "url",
+        "system",
+        "Server Status URL",
+        "Status page opened directly when the URL provider is selected.",
+        subsection="server_status",
+    ),
+    SettingField(
+        "SERVER_STATUS_KUMA_URL",
+        "url",
+        "system",
+        "Uptime Kuma URL",
+        "Full published status page URL, for example https://status.example.com/status/default.",
+        subsection="server_status",
+    ),
+    SettingField(
+        "SERVER_STATUS_XRAY_CHECKER_URL",
+        "url",
+        "system",
+        "xray-checker URL",
+        "Base URL of the xray-checker service.",
+        subsection="server_status",
+    ),
+    SettingField(
+        "SERVER_STATUS_CACHE_TTL_SECONDS",
+        "int",
+        "system",
+        "Server status cache TTL",
+        "How long a successful provider response is cached, in seconds.",
+        optional=False,
+        min=0,
+        subsection="server_status",
+    ),
+    SettingField(
+        "SERVER_STATUS_STALE_TTL_SECONDS",
+        "int",
+        "system",
+        "Server status stale TTL",
+        "How long the last successful response may be shown after a provider error, in seconds.",
+        optional=False,
+        min=0,
+        subsection="server_status",
+    ),
+    SettingField(
+        "SERVER_STATUS_TIMEOUT_SECONDS",
+        "float",
+        "system",
+        "Server status request timeout",
+        "Maximum duration of one provider request, in seconds.",
+        optional=False,
+        min=0.1,
+        subsection="server_status",
+    ),
     SettingField(
         "TELEGRAM_DROP_NON_PRIVATE_UPDATES",
         "bool",

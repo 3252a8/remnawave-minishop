@@ -1161,7 +1161,7 @@
 /* uPlot (canvas) — dark admin theme */
 .admin-uplot.uplot {
   color: var(--admin-muted);
-  font-family: var(--font-sans, system-ui, sans-serif);
+  font-family: var(--font-ui, var(--font-sans, system-ui, sans-serif));
 }
 
 .admin-uplot .u-title {
@@ -2714,6 +2714,92 @@
   color: var(--admin-text);
 }
 
+.admin-login-method-hints {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-login-provider-help {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin: 12px 18px 4px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--admin-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 6%, var(--admin-surface));
+}
+
+.admin-login-provider-help-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-login-provider-help-copy strong {
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.admin-login-provider-help-copy p {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.admin-login-provider-help-copy .admin-login-provider-runtime-hint {
+  margin-top: 4px;
+  color: var(--admin-text);
+  font-weight: 650;
+}
+
+.admin-login-provider-setup-values {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin-top: 6px;
+}
+
+.admin-login-provider-setup-row {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.admin-login-provider-setup-row > span {
+  color: var(--admin-muted);
+  font-size: 11px;
+}
+
+.admin-login-provider-setup-row > p {
+  margin: 0;
+}
+
+.admin-login-provider-setup-row code,
+.admin-login-provider-value code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--admin-text);
+  font-size: 11px;
+}
+
+.admin-login-provider-value {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-login-provider-help-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
 .admin-settings-warning > svg {
   color: var(--warning);
 }
@@ -2736,16 +2822,9 @@
   line-height: 1.45;
 }
 
-.admin-settings-warning-link {
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 700;
-  text-decoration: none;
+.admin-settings-warning-action {
+  justify-self: end;
   white-space: nowrap;
-}
-
-.admin-settings-warning-link:hover {
-  text-decoration: underline;
 }
 
 .admin-settings-field-groups {
@@ -3178,6 +3257,16 @@
   grid-template-columns: minmax(100px, 150px) auto;
   gap: 8px;
   align-items: center;
+}
+
+@media (max-width: 640px) {
+  .admin-login-provider-value {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-login-provider-value .admin-btn {
+    width: 100%;
+  }
 }
 
 .admin-translations-audience-tabs {
@@ -4538,12 +4627,37 @@
 
   .admin-settings-warning {
     grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    column-gap: 10px;
+    row-gap: 10px;
     margin: 12px 14px 4px;
+    padding: 12px;
   }
 
-  .admin-settings-warning-link {
-    grid-column: 2;
-    justify-self: start;
+  .admin-settings-warning > svg {
+    margin-top: 1px;
+  }
+
+  .admin-settings-warning-action {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    width: 100%;
+  }
+
+  .admin-login-provider-help {
+    grid-template-columns: minmax(0, 1fr);
+    margin: 12px 14px 4px;
+    padding: 12px;
+  }
+
+  .admin-login-provider-help-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-content: stretch;
+  }
+
+  .admin-login-provider-help-actions .admin-btn {
+    width: 100%;
   }
 
   .admin-settings-field-groups {
@@ -5278,6 +5392,29 @@
   gap: 10px;
 }
 
+.admin-user-extend-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-user-extend-days-control {
+  display: grid;
+  grid-template-columns: 36px minmax(72px, 1fr) 36px;
+  gap: 6px;
+  align-items: center;
+}
+
+.admin-user-extend-days-control .admin-btn {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+}
+
+.admin-user-extend-days-control .input {
+  text-align: center;
+}
+
 .admin-user-extend-grid {
   display: grid;
   grid-template-columns: minmax(112px, 0.72fr) minmax(220px, 1.28fr) minmax(136px, auto);
@@ -5702,51 +5839,6 @@
   border-radius: 14px;
   background: color-mix(in srgb, var(--admin-surface) 88%, var(--admin-bg));
   padding: 14px;
-}
-
-.support-admin-toolbar {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-  align-items: stretch;
-}
-
-.support-admin-inbox .support-admin-toolbar {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.support-admin-search {
-  position: relative;
-  display: block;
-  min-width: 0;
-}
-
-.support-admin-search svg {
-  position: absolute;
-  top: 50%;
-  left: 12px;
-  color: var(--admin-muted);
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-
-.support-admin-search .input {
-  width: 100%;
-  padding-left: 36px;
-}
-
-.support-admin-filter-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  align-items: center;
-}
-
-.support-admin-filter-row > :last-child {
-  grid-column: 1 / -1;
 }
 
 .support-inbox-list {
@@ -6238,8 +6330,6 @@
     border-radius: 12px;
     padding: 12px;
   }
-
-  .support-admin-filter-row,
   .support-ticket-controls {
     grid-template-columns: 1fr;
   }
@@ -6367,23 +6457,6 @@
   min-width: 0;
   min-height: 0;
   padding: 14px;
-}
-
-.support-admin-inbox .support-admin-toolbar {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.support-admin-filter-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.support-admin-filter-row > :last-child {
-  grid-column: 1 / -1;
 }
 
 .support-inbox-list {
@@ -6707,7 +6780,7 @@
 
 .support-admin-ticket-tabs {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 8px;
   min-width: 0;
   border: 1px solid var(--admin-border);
@@ -6754,41 +6827,7 @@
 
 .support-admin-ticket-tabs button.active b {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
-  color: color-mix(in srgb, var(--accent) 78%, white);
-}
-
-.support-admin-list-panel .support-admin-toolbar {
-  display: grid;
-  grid-template-columns: minmax(260px, 0.85fr) minmax(0, 1.35fr);
-  gap: 10px;
-  align-items: start;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.support-admin-list-panel .support-admin-search .input {
-  box-sizing: border-box;
-  height: 36px;
-  padding-left: 42px;
-}
-
-.support-admin-list-panel .support-admin-filter-row {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  align-items: stretch;
-}
-
-.support-admin-list-panel .support-admin-filter-row .admin-select-trigger,
-.support-admin-list-panel .support-admin-filter-row .admin-btn {
-  height: 46px;
-  min-height: 46px;
-}
-
-.support-admin-list-panel .support-admin-filter-row > :last-child {
-  grid-column: auto;
+  color: var(--accent-readable, color-mix(in srgb, var(--accent) 78%, white));
 }
 
 .support-admin-list-panel .support-inbox-list {
@@ -6939,13 +6978,6 @@
   display: grid;
   gap: 12px;
   min-width: 0;
-}
-
-@media (max-width: 1120px) {
-  .support-admin-list-panel .support-admin-toolbar,
-  .support-admin-list-panel .support-admin-filter-row {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 @media (max-width: 720px) {
@@ -7268,6 +7300,29 @@
     overflow: hidden;
   }
 
+  .support-ticket-dialog .support-ticket-header {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .support-ticket-dialog .support-ticket-statusbar {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .support-ticket-dialog .support-ticket-controls {
+    grid-column: 2;
+    grid-row: 1;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .support-ticket-dialog .support-ticket-actions {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
   .support-ticket-dialog .support-admin-message-scroll {
     height: 100%;
     min-height: 320px;
@@ -7277,32 +7332,34 @@
 
 @media (max-width: 720px) {
   .dialog:has(.support-ticket-dialog) {
-    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
-      max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
-    overflow: hidden;
+    align-items: start;
+    padding: max(8px, var(--content-safe-area-top)) max(8px, var(--content-safe-area-right))
+      max(8px, var(--content-safe-area-bottom)) max(8px, var(--content-safe-area-left));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .support-ticket-dialog {
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
     width: 100%;
-    height: 100%;
-    min-height: 0;
-    max-height: 100%;
+    height: auto;
+    min-height: 100%;
+    max-height: none;
     padding: 12px;
     border-radius: 14px;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .support-ticket-dialog > .dialog-body-scroll {
-    min-height: 0;
-    overflow: hidden;
+    min-height: auto;
+    overflow: visible;
   }
 
   .support-ticket-dialog > .dialog-body-scroll > .scroll-area__viewport {
-    height: 100%;
-    overflow: auto !important;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
+    height: auto;
+    overflow: visible !important;
+    overscroll-behavior: auto;
   }
 
   .support-ticket-dialog .dialog-head {
@@ -7358,18 +7415,20 @@
 
   .support-ticket-dialog .support-admin-message-scroll {
     height: auto;
-    min-height: 0;
+    min-height: clamp(300px, 48dvh, 420px);
     max-height: none !important;
     padding: 10px 8px;
   }
 
   .support-ticket-dialog .support-admin-message-scroll > .scroll-area__viewport {
     height: auto;
+    min-height: inherit;
     overflow: visible !important;
   }
 
   .support-ticket-dialog .support-admin-composer-row {
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
   }
 
@@ -7447,7 +7506,7 @@
   inline-size: min(1040px, calc(100vw - 32px));
   max-width: none;
   max-height: min(
-    calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)),
+    calc(100dvh - 24px - var(--content-safe-area-top) - var(--content-safe-area-bottom)),
     780px
   );
 }
@@ -7456,6 +7515,11 @@
 .dialog-card.admin-dialog.admin-promo-create-dialog {
   width: min(1240px, calc(100vw - 32px));
   inline-size: min(1240px, calc(100vw - 32px));
+}
+
+.dialog-card.admin-dialog.admin-promo-create-dialog {
+  width: min(1120px, calc(100vw - 32px));
+  inline-size: min(1120px, calc(100vw - 32px));
 }
 
 .admin-promo-dialog > .dialog-body-scroll,
@@ -7567,7 +7631,8 @@
   gap: 10px;
   min-height: 0;
   min-width: 0;
-  overflow: auto;
+  overflow-x: clip;
+  overflow-y: auto;
   padding-right: 2px;
 }
 
@@ -7694,10 +7759,12 @@
     width: min(100%, calc(100vw - 24px));
     inline-size: min(100%, calc(100vw - 24px));
     height: min(
-      calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)),
+      calc(100dvh - 24px - var(--content-safe-area-top) - var(--content-safe-area-bottom)),
       780px
     );
-    max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    max-height: calc(
+      100dvh - 24px - var(--content-safe-area-top) - var(--content-safe-area-bottom)
+    );
     padding: 14px;
     border-radius: 18px;
   }
@@ -7728,7 +7795,8 @@
   }
 
   .admin-promo-settings-grid {
-    overflow: auto;
+    overflow-x: clip;
+    overflow-y: auto;
     padding-right: 0;
   }
 
@@ -7760,6 +7828,25 @@
   .admin-promo-effect-section {
     grid-column: 2;
     grid-row: 1 / span 2;
+  }
+
+  .admin-promo-create-dialog .admin-promo-settings-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-promo-create-dialog .admin-promo-basics-section {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .admin-promo-create-dialog .admin-promo-eligibility-section {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .admin-promo-create-dialog .admin-promo-effect-section {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 
   .admin-promo-editor-section {

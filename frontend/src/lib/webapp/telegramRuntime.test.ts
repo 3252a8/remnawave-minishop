@@ -5,6 +5,7 @@ import { resetShellState, shellState } from "./shellState.svelte";
 
 type FakeTelegram = { platform: string } | null;
 type FakeSdkOptions = {
+  onInitDataChange: (initData: string) => void;
   onTelegramChange: (telegram: FakeTelegram) => void;
 };
 
@@ -32,8 +33,10 @@ function makeRuntime({
       return state.telegram;
     }),
   };
+  let reportInitData: FakeSdkOptions["onInitDataChange"] = () => {};
   let reportTelegram: FakeSdkOptions["onTelegramChange"] = () => {};
   const createSdk = vi.fn((options: FakeSdkOptions) => {
+    reportInitData = options.onInitDataChange;
     reportTelegram = options.onTelegramChange;
     return sdk;
   });
@@ -46,6 +49,7 @@ function makeRuntime({
   } as unknown as Parameters<typeof createTelegramRuntime>[0]);
   return {
     createSdk,
+    reportInitData: (next: string) => reportInitData(next),
     reportTelegram: (next: FakeTelegram) => reportTelegram(next),
     runtime,
     sdk,
@@ -70,6 +74,7 @@ describe("createTelegramRuntime", () => {
     expect(shellState.tg).toBe(state.telegram);
     expect(shellState.telegramSdkStatus).toBe("ready");
     expect(shellState.telegramMiniAppInitData).toBe("initial-init");
+    expect(shellState.telegramHasLaunchParams).toBe(true);
   });
 
   it("keeps status idle when the initial refresh has no web app", () => {
@@ -78,6 +83,16 @@ describe("createTelegramRuntime", () => {
     expect(shellState.tg).toBeNull();
     expect(shellState.telegramSdkStatus).toBe("idle");
     expect(shellState.telegramMiniAppInitData).toBe("");
+    expect(shellState.telegramHasLaunchParams).toBe(false);
+  });
+
+  it("recognizes init data reported after the initial sdk refresh", () => {
+    const { reportInitData } = makeRuntime({ initData: "", telegram: null });
+
+    reportInitData("late-init");
+
+    expect(shellState.telegramMiniAppInitData).toBe("late-init");
+    expect(shellState.telegramHasLaunchParams).toBe(true);
   });
 
   it("updates telegram and init data after launch loading", async () => {

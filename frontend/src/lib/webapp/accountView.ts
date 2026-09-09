@@ -5,12 +5,14 @@ type WebappRecord = Record<string, unknown>;
 type TranslateFn = (key: string) => string;
 
 type UserProfile = WebappRecord & {
-  email?: string;
-  telegram_id?: number | string;
+  email?: string | null;
+  telegram_id?: number | string | null;
   telegram_linked?: boolean;
   telegram_notifications_need_prompt?: boolean;
-  telegram_notifications_start_link?: string;
+  telegram_notifications_start_link?: string | null;
   telegram_notifications_status?: string;
+  external_identities?: Array<{ provider?: string }>;
+  passkeys?: Array<{ credential_id?: string }>;
 };
 
 export interface AccountView {
@@ -54,13 +56,21 @@ export function computeAccountView({
     user?.telegram_linked && user?.telegram_notifications_need_prompt
   );
   const telegramNotificationsStartLink = String(user?.telegram_notifications_start_link || "");
-  const hasUnlinkedIdentity = Boolean(
-    !user?.telegram_linked || (emailAuthEnabled && !user?.email) || telegramNotificationsNeedPrompt
-  );
-  const telegramProfileName = telegramName(user);
   const resolvedAuthProviders = authProviders?.length
     ? authProviders
     : ["telegram", ...(emailAuthEnabled ? ["email"] : [])];
+  const linkedExternalProviders = new Set(
+    (user.external_identities || []).map((identity) => String(identity.provider || ""))
+  );
+  const hasUnlinkedIdentity = Boolean(
+    (resolvedAuthProviders.includes("telegram") && !user?.telegram_linked) ||
+    (resolvedAuthProviders.includes("email") && !user?.email) ||
+    (resolvedAuthProviders.includes("google") && !linkedExternalProviders.has("google")) ||
+    (resolvedAuthProviders.includes("yandex") && !linkedExternalProviders.has("yandex")) ||
+    (resolvedAuthProviders.includes("passkey") && !(user.passkeys || []).length) ||
+    telegramNotificationsNeedPrompt
+  );
+  const telegramProfileName = telegramName(user);
   const showTelegramLinkedStatus = resolvedAuthProviders.some(
     (provider) =>
       String(provider || "")

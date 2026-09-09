@@ -1,3 +1,4 @@
+import json
 import logging
 from pathlib import Path
 
@@ -19,12 +20,14 @@ from bot.app.web.webapp.cache_helpers import (
     refresh_webapp_runtime_after_settings_change,
 )
 from config.settings import Settings
+from config.tariff_period_migration import normalize_tariff_catalog
 from config.tariffs_config import TariffsConfig, default_payment_currency_code_for_settings
 from db.dal import message_log_dal
 from db.tariff_reconciliation import (
     TariffReconciliationReport,
     reconcile_subscription_tariffs,
 )
+from db.tariff_squad_sync import snapshot_previous_tariff_squads
 
 from .auth import (
     _require_admin_user_id,
@@ -106,10 +109,32 @@ async def admin_tariffs_save_route(request: web.Request) -> web.Response:
     if not isinstance(catalog, dict):
         return _error(400, "invalid_payload", "catalog must be an object")
 
+    path = _tariffs_config_path(settings)
     try:
-        config = TariffsConfig.model_validate(catalog)
+        previous_config = settings.tariffs_config
+    except Exception:
+        previous_config = None
+    if path.exists() and catalog.get("schema_version", 1) != 2:
+        try:
+            current_catalog = json.loads(path.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            current_catalog = {}
+        if isinstance(current_catalog, dict) and current_catalog.get("schema_version") == 2:
+            return _error(
+                409, "tariff_catalog_version_changed", "Reload the tariff editor before saving"
+            )
+
+    try:
+        config = TariffsConfig.model_validate(normalize_tariff_catalog(catalog))
     except (ValidationError, ValueError) as exc:
         return _error(400, "invalid_tariffs_config", str(exc))
+
+    if previous_config is not None:
+        try:
+            await _snapshot_previous_tariff_squads(request, previous_config, config)
+        except Exception as exc:
+            logger.exception("Failed to snapshot tariff squads before catalog save")
+            return _error(500, "tariff_squad_snapshot_failed", str(exc))
 
     path = _tariffs_config_path(settings)
     try:
@@ -196,6 +221,17 @@ async def _run_tariff_reconciliation(
         await _invalidate_admin_users_list_cache(settings)
         await invalidate_all_webapp_user_payloads(settings, include_devices=True)
     return report
+
+
+async def _snapshot_previous_tariff_squads(
+    request: web.Request,
+    previous_config: TariffsConfig,
+    next_config: TariffsConfig,
+) -> None:
+    async_session_factory = get_session_factory(request)
+    async with async_session_factory() as session:
+        await snapshot_previous_tariff_squads(session, previous_config, next_config)
+        await session.commit()
 
 
 def _tariffs_response_payload(

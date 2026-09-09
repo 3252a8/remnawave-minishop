@@ -26,6 +26,11 @@ from bot.services.telegram_notifications import (
     telegram_notification_status_from_error,
 )
 from bot.services.user_email_notifications import send_user_notification_email
+from bot.services.user_notification_policy import (
+    UserNotificationCategory,
+    email_recipient,
+    user_notification_delivery_plan,
+)
 from config.settings import Settings
 from db.dal import message_log_dal, user_dal
 from db.models import User
@@ -204,12 +209,28 @@ class TorrentBlockerNotificationService:
             user_id = int(user.user_id)
             language = str(user.language_code or self.settings.DEFAULT_LANGUAGE or "ru")
             message_text = self._message_text(language, report)
+            telegram_status = normalize_telegram_notification_status(
+                user.telegram_notifications_status
+            )
+            plan = user_notification_delivery_plan(
+                self.settings,
+                UserNotificationCategory.LIMITS,
+                user,
+                telegram_available=(
+                    self._telegram_chat_id(user, user_payload) is not None
+                    and telegram_status
+                    not in {
+                        TELEGRAM_NOTIFICATIONS_NEEDS_START,
+                        TELEGRAM_NOTIFICATIONS_BLOCKED,
+                    }
+                ),
+            )
             failures: list[tuple[str, Exception]] = []
             telegram_sent, telegram_error = await self._deliver_channel(
                 session,
                 user_id=user_id,
                 channel="telegram",
-                enabled=self.settings.TORRENT_BLOCKER_TELEGRAM_NOTIFICATIONS_ENABLED,
+                enabled=plan.telegram,
                 fingerprint=report.fingerprint,
                 deliver=lambda locked_session, locked_user: self._send_telegram(
                     locked_session,
@@ -227,7 +248,7 @@ class TorrentBlockerNotificationService:
                 session,
                 user_id=user_id,
                 channel="email",
-                enabled=self.settings.TORRENT_BLOCKER_EMAIL_NOTIFICATIONS_ENABLED,
+                enabled=plan.email,
                 fingerprint=report.fingerprint,
                 deliver=lambda locked_session, locked_user: self._send_email(
                     locked_session,
@@ -455,7 +476,7 @@ class TorrentBlockerNotificationService:
                 fingerprint=report.fingerprint,
             )
             return False
-        if not str(user.email or "").strip():
+        if not email_recipient(self.settings, user):
             self._log_outcome(
                 outcome="no_recipient",
                 channel="email",

@@ -11,6 +11,10 @@ import {
   buildAuthEmailPasswordPath,
   buildAuthEmailRequestPath,
   buildAuthEmailVerifyPath,
+  buildAuthExternalCancelPath,
+  buildAuthExternalPendingPath,
+  buildAuthExternalRequestPath,
+  buildAuthExternalVerifyPath,
   buildAuthTokenPath,
   unwrap,
 } from "../publicApi";
@@ -43,6 +47,7 @@ type AuthStoreDeps = {
   loadData: (options?: LoadDataOptions) => Promise<unknown>;
   telegramSdk: TelegramSdk;
   getTg: () => unknown;
+  linkTelegramAfterExternalAuth?: (() => Promise<unknown> | unknown) | null;
   t: Translate;
   currentLang: () => string;
 };
@@ -61,6 +66,8 @@ export type AuthState = {
   emailCode: string;
   passwordLoginMode: boolean;
   passwordLoginFallback: boolean;
+  externalOauthPending: boolean;
+  pendingExternalProvider: string;
 };
 export type AuthStore = AuthState & {
   update(updater: (snapshot: AuthState) => AuthState): void;
@@ -78,6 +85,8 @@ export type AuthStore = AuthState & {
     getTelegramMiniAppInitData: () => string
   ): Promise<void>;
   restorePendingEmailCode(changeScreen?: (screen: string) => void): boolean;
+  restorePendingExternalOauth(changeScreen: (screen: string) => void): Promise<boolean>;
+  cancelPendingExternalOauth(): Promise<void>;
   clearPendingEmailCode(): void;
   clearCooldownTimer(): void;
   stopTelegramLoginWatchdog(attemptId?: number | null): void;
@@ -113,6 +122,7 @@ export function createAuthStore({
   loadData,
   telegramSdk,
   getTg,
+  linkTelegramAfterExternalAuth,
   t,
   currentLang,
 }: AuthStoreDeps) {
@@ -131,6 +141,8 @@ export function createAuthStore({
     emailCode: "",
     passwordLoginMode: false,
     passwordLoginFallback: false,
+    externalOauthPending: false,
+    pendingExternalProvider: "",
     update: updateState,
     finalizeMagicLogin,
     finalizeTelegramAuth,
@@ -139,6 +151,8 @@ export function createAuthStore({
     verifyEmailCode,
     openTelegramLogin,
     restorePendingEmailCode,
+    restorePendingExternalOauth,
+    cancelPendingExternalOauth,
     clearPendingEmailCode,
     clearCooldownTimer,
     stopTelegramLoginWatchdog,
@@ -230,6 +244,86 @@ export function createAuthStore({
 
   function setAuthStatus(message: string, isError = false) {
     updateState((s) => ({ ...s, authStatus: message, authIsError: isError }));
+  }
+
+  function externalProviderName(provider: string): string {
+    if (provider === "google") return "Google";
+    if (provider === "yandex") return "Yandex";
+    return provider;
+  }
+
+  function externalConfirmationError(error: unknown, fallbackKey: string): string {
+    const code = stringField(asRecord(error).error);
+    if (["pending_expired", "provider_disabled", "email_owner_changed"].includes(code)) {
+      return t("wa_auth_external_confirmation_expired");
+    }
+    if (["identity_conflict", "provider_conflict"].includes(code)) {
+      return t("wa_auth_external_confirmation_conflict");
+    }
+    if (code === "access_denied") return t("wa_auth_access_denied");
+    return emailError(error, t(fallbackKey), t);
+  }
+
+  async function restorePendingExternalOauth(changeScreen: (screen: string) => void) {
+    clearPendingEmailCode();
+    updateState((s) => ({ ...s, authBusy: true, authStatus: "", authIsError: false }));
+    try {
+      const response = await publicApi(buildAuthExternalPendingPath(), {});
+      if (!response.ok) throw response;
+      const payload = unwrap(response);
+      const provider = stringField(payload.provider);
+      const presetCode = String(payload.email_code || "")
+        .replace(/\D/g, "")
+        .slice(0, 6);
+      updateState((s) => ({
+        ...s,
+        pendingEmail: stringField(payload.email),
+        emailCode: presetCode,
+        externalOauthPending: true,
+        pendingExternalProvider: provider,
+        passwordLoginMode: false,
+        passwordLoginFallback: false,
+        authStatus: t("wa_auth_external_confirmation_hint", {
+          provider: externalProviderName(provider),
+        }),
+        authIsError: false,
+      }));
+      startCooldownTimer(Number(payload.retry_after || 0));
+      changeScreen("code");
+      return true;
+    } catch (error: unknown) {
+      updateState((s) => ({
+        ...s,
+        externalOauthPending: false,
+        pendingExternalProvider: "",
+        pendingEmail: "",
+      }));
+      changeScreen("login");
+      setAuthStatus(externalConfirmationError(error, "wa_auth_external_confirmation_failed"), true);
+      return false;
+    } finally {
+      updateState((s) => ({ ...s, authBusy: false }));
+    }
+  }
+
+  async function cancelPendingExternalOauth() {
+    const wasPending = state.externalOauthPending;
+    updateState((s) => ({
+      ...s,
+      externalOauthPending: false,
+      pendingExternalProvider: "",
+      pendingEmail: "",
+      emailCode: "",
+      authStatus: "",
+      authIsError: false,
+    }));
+    clearCooldownTimer();
+    if (!wasPending) return;
+    try {
+      await publicApi(buildAuthExternalCancelPath(), {});
+    } catch (_error) {
+      void _error;
+    }
   }
 
   function clearCooldownTimer() {
@@ -384,6 +478,34 @@ export function createAuthStore({
 
   async function requestEmailCode(changeScreen: (screen: string) => void) {
     const s = state;
+    if (s.externalOauthPending) {
+      if (s.authResendCooldown > 0) {
+        changeScreen("code");
+        return;
+      }
+      updateState((s) => ({ ...s, authBusy: true }));
+      setAuthStatus(t("wa_auth_sending_code"));
+      try {
+        const response = await publicApi(buildAuthExternalRequestPath(), {});
+        if (!response.ok) throw response;
+        const payload = unwrap(response);
+        const presetCode = String(payload.email_code || "")
+          .replace(/\D/g, "")
+          .slice(0, 6);
+        updateState((s) => ({ ...s, emailCode: presetCode }));
+        setAuthStatus(
+          t("wa_auth_external_confirmation_hint", {
+            provider: externalProviderName(state.pendingExternalProvider),
+          })
+        );
+        startCooldownTimer(Number(payload.retry_after || 60));
+      } catch (error: unknown) {
+        setAuthStatus(externalConfirmationError(error, "wa_auth_send_code_failed"), true);
+      } finally {
+        updateState((s) => ({ ...s, authBusy: false }));
+      }
+      return;
+    }
     const normalized = s.email.trim().toLowerCase();
     if (
       s.authResendCooldown > 0 &&
@@ -486,6 +608,7 @@ export function createAuthStore({
 
   async function verifyEmailCode() {
     const s = state;
+    const externalOauthPending = s.externalOauthPending;
     const code = s.emailCode.replace(/\\D/g, "").slice(0, 6);
     if (code.length !== 6) {
       setAuthStatus(t("wa_auth_enter_code_6digits"), true);
@@ -494,6 +617,25 @@ export function createAuthStore({
     updateState((s) => ({ ...s, authBusy: true }));
     setAuthStatus(t("wa_auth_checking_code"));
     try {
+      if (externalOauthPending) {
+        const response = await publicApi(buildAuthExternalVerifyPath(), { code });
+        if (!response.ok) throw response;
+        const responsePayload = unwrap(response);
+        if (!setSessionFromAuthResponse(responsePayload, setToken)) throw response;
+        updateState((s) => ({
+          ...s,
+          externalOauthPending: false,
+          pendingExternalProvider: "",
+          pendingEmail: "",
+          emailCode: "",
+        }));
+        clearCooldownTimer();
+        clearAuthQuery();
+        await loadData();
+        await linkTelegramAfterExternalAuth?.();
+        setAuthStatus("");
+        return;
+      }
       const payload: Record<string, unknown> = { email: s.pendingEmail, code };
       const referralParam = readReferralParam(getTg());
       if (referralParam) payload.referral_code = referralParam;
@@ -508,7 +650,12 @@ export function createAuthStore({
       await loadData();
       setAuthStatus("");
     } catch (error: unknown) {
-      setAuthStatus(emailError(error, t("wa_auth_invalid_code"), t), true);
+      setAuthStatus(
+        externalOauthPending
+          ? externalConfirmationError(error, "wa_auth_invalid_code")
+          : emailError(error, t("wa_auth_invalid_code"), t),
+        true
+      );
     } finally {
       updateState((s) => ({ ...s, authBusy: false }));
     }

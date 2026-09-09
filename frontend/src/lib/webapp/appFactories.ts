@@ -2,6 +2,7 @@ import { createAuthStore } from "./stores/authStore";
 import { createBillingStore } from "./stores/billingStore";
 import { createAccountStore } from "./stores/accountStore";
 import { createActionsStore } from "./stores/actionsStore";
+import { createServerStatusStore } from "./stores/serverStatusStore.svelte";
 import { createWebappDataClient } from "./dataClient";
 import { buildApiUrl } from "./publicApi";
 import { createWebappActivationContext } from "./webappActivationContext";
@@ -25,6 +26,7 @@ import { createWebappSectionContext } from "./webappSectionContext";
 import { createWebappSessionActions } from "./webappSessionActions.js";
 import { createAdminRuntime } from "./adminRuntime.js";
 import { createBillingActions } from "./billingActions";
+import { giftState } from "./gifts.svelte.js";
 import { invalidateWebappTariffOptionCaches } from "./billingOptionCache.js";
 import { buildAdminPanelProps } from "./adminPanelProps.js";
 import { shellState } from "./shellState.svelte";
@@ -36,6 +38,7 @@ import {
 } from "./appActionRuntime.js";
 import type { AppLoadDataOptions } from "./appLoadExecutor.js";
 import type { AppShellView } from "./appShellView.js";
+import type { CheckoutDeeplink } from "./deeplinks.js";
 import type { TelegramRuntime, TelegramWebApp } from "./telegramRuntime.js";
 import {
   asWebappRecord,
@@ -105,6 +108,7 @@ export type AppFactoriesDeps = {
   normalizeLangCode: (language: string) => string;
   openExternalLink: (url: string) => void;
   readCheckoutPromoDeeplink: () => string;
+  readCheckoutDeeplink: () => CheckoutDeeplink | null;
   readRenewalDeeplink: () => { tariffKey: string } | null;
   readTelegramMiniAppInitDataFromLocation: () => string;
   /** The app was opened on the checkout route, captured before boot sync. */
@@ -113,6 +117,7 @@ export type AppFactoriesDeps = {
   routePrefix: string;
   showToast: (message: unknown) => void;
   stripCheckoutPromoQueryFromUrl: () => void;
+  stripCheckoutDeeplinkFromUrl: () => void;
   stripRenewalLoginQueryFromUrl: () => void;
   stripTopupQueryFromUrl: () => void;
   syncAppSectionPath: SyncAppSectionPath;
@@ -168,6 +173,7 @@ export function createAppFactories({
   normalizeLangCode,
   openExternalLink,
   readCheckoutPromoDeeplink,
+  readCheckoutDeeplink,
   readRenewalDeeplink,
   readTelegramMiniAppInitDataFromLocation,
   plansRouteRequested,
@@ -175,6 +181,7 @@ export function createAppFactories({
   routePrefix,
   showToast,
   stripCheckoutPromoQueryFromUrl,
+  stripCheckoutDeeplinkFromUrl,
   stripRenewalLoginQueryFromUrl,
   stripTopupQueryFromUrl,
   syncAppSectionPath,
@@ -213,9 +220,6 @@ export function createAppFactories({
     loadData: (options) => loadData(options as AppLoadDataOptions),
     mergeMessages: (messages) => {
       updateI18nMessages(asWebappRecord(messages));
-    },
-    reloadWindow: () => {
-      if (typeof window !== "undefined") window.location.reload();
     },
     resetInstallGuides: () => {
       installGuidesStore.reset();
@@ -257,7 +261,9 @@ export function createAppFactories({
     }),
   });
   const api = dataClient.api;
+  const apiBlob = dataClient.apiClient.apiBlob;
   const publicApi = dataClient.publicApi;
+  const serverStatusStore = createServerStatusStore(api);
   const billing = createBillingActions({
     api,
   });
@@ -276,12 +282,21 @@ export function createAppFactories({
     openActivationConnectLink: () => getAppActions().openActivationConnectLink(),
     syncAppSectionPath,
   });
+  const linkTelegramAfterExternalAuth = async () => {
+    const initData =
+      getTelegramMiniAppInitData() ||
+      getTg()?.initData ||
+      readTelegramMiniAppInitDataFromLocation();
+    if (!initData) return;
+    await accountStore.linkTelegramAccount(() => initData);
+  };
   authStore = createAuthStore({
     publicApi,
     setToken,
     loadData,
     telegramSdk,
     getTg,
+    linkTelegramAfterExternalAuth,
     t,
     currentLang: getCurrentLang,
   });
@@ -296,10 +311,45 @@ export function createAppFactories({
     billing,
     loadData,
     t,
+    termUnitLabel,
     showToast,
     openExternalLink,
     onSubscriptionActivationPending: activation.rememberActivationPending,
     onSubscriptionActivated: activation.handleSubscriptionActivated,
+    tg: initialTg,
+    getTg: () => getTg() || telegramSdk.refresh(),
+    telegramSdk,
+  });
+  const giftBillingStore = createBillingStore({
+    billing: {
+      ...billing,
+      planPaymentBody: (plan, method, options) => ({
+        ...billing.planPaymentBody(plan, method, options),
+        gift: true,
+      }),
+      postPayment: async (body) => {
+        const response = await billing.postPayment({
+          ...body,
+          gift: true,
+          renew_hwid_devices: false,
+          gift_recipient_email: giftState.recipientEmail.trim() || null,
+        });
+        if (response.ok) {
+          giftState.receiptId = Number(response.payment_id || 0);
+          giftState.incoming = false;
+          giftState.open = true;
+        }
+        return response;
+      },
+    },
+    loadData: async () => {
+      giftState.revision += 1;
+      await loadData({ fresh: true, preserveView: true });
+    },
+    t,
+    termUnitLabel,
+    showToast,
+    openExternalLink,
     tg: initialTg,
     getTg: () => getTg() || telegramSdk.refresh(),
     telegramSdk,
@@ -312,6 +362,7 @@ export function createAppFactories({
       void actionsStore.handlePromoDeeplink(code, context);
     },
     readCheckoutPromoDeeplink,
+    readCheckoutDeeplink,
     readPlansDeeplink: () => plansRouteRequested,
     readRenewalDeeplink,
     setHomeRoute: () => {
@@ -320,11 +371,13 @@ export function createAppFactories({
       syncAppSectionPath("home", true);
     },
     stripCheckoutPromoQueryFromUrl,
+    stripCheckoutDeeplinkFromUrl,
     stripRenewalLoginQueryFromUrl,
     stripTopupQueryFromUrl,
   });
   const sectionContext = createWebappSectionContext({
     api,
+    apiBlob,
     t,
     showToast,
     routePrefix,
@@ -391,7 +444,13 @@ export function createAppFactories({
     hasEmailCodeLoginDeeplink,
     finalizeMagicLogin: (loginToken) => authStore.finalizeMagicLogin(loginToken),
     finalizeTelegramAuth: (authData, source) => authStore.finalizeTelegramAuth(authData, source),
+    linkTelegramAfterExternalAuth,
+    restorePendingExternalOauth: () =>
+      authStore.restorePendingExternalOauth((nextScreen) => {
+        shellState.screen = nextScreen;
+      }),
     setAuthStatus: (message, isError = false) => authStore.setAuthStatus(message, isError),
+    showToast,
     t,
     readTelegramMiniAppInitDataFromLocation,
     continueTelegramLinkPendingAction: () => getAppActions().continueTelegramLinkPendingAction(),
@@ -443,7 +502,7 @@ export function createAppFactories({
       if (!data?.user) return;
       shellState.data = { ...data, user: { ...data.user, language_code: updatedLanguage } };
     },
-    activateTrial: () => actionsStore.activateTrial(),
+    activateTrial: async () => getAppActions().activateTrial(),
     claimReferralWelcomeBonus: () => actionsStore.claimReferralWelcomeBonus(),
   });
 
@@ -464,6 +523,7 @@ export function createAppFactories({
     authStore,
     billing,
     billingStore,
+    giftBillingStore,
     bootRuntime,
     clearLanguageClickGuard,
     closeActivationSuccessDialog: activation.closeActivationSuccessDialog,
@@ -477,6 +537,7 @@ export function createAppFactories({
     resumeLifecycle,
     setLanguageMenuOpen,
     setPasswordLoginMode: authRuntimeActions.setPasswordLoginMode,
+    serverStatusStore,
     showLogin,
     stopPendingActivationWatch: activation.stopPendingActivationWatch,
     submitEmailOnEnter: authRuntimeActions.submitEmailOnEnter,
@@ -591,6 +652,7 @@ export type AppAdminPanelPropsDeps = {
   adminActiveSection: string;
   adminRuntime: ReturnType<typeof createAdminRuntime>;
   api: ReturnType<typeof createWebappDataClient>["api"];
+  apiBlob: ReturnType<typeof createWebappDataClient>["apiClient"]["apiBlob"];
   appActions: AppActionRuntime;
   cfg: WebappConfig;
   getShellView: () => AppShellView;
@@ -608,6 +670,7 @@ export function buildAppAdminPanelProps({
   adminActiveSection,
   adminRuntime,
   api,
+  apiBlob,
   appActions,
   cfg,
   getShellView,
@@ -624,6 +687,7 @@ export function buildAppAdminPanelProps({
   return buildAdminPanelProps({
     adminActiveSection,
     api,
+    apiBlob,
     appFaviconUrl: cfg.faviconUrl,
     appFaviconUseCustom: cfg.faviconUseCustom,
     appRepositoryUrl: cfg.appRepositoryUrl,

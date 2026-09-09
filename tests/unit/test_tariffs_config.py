@@ -508,6 +508,28 @@ class TariffsConfigTests(unittest.TestCase):
         self.assertEqual(config.require("old-key").key, "current")
         self.assertEqual(config.require("current").legacy_keys, ["old-key"])
 
+    def test_hidden_tariff_is_available_only_when_assigned(self):
+        data = _valid_config()
+        data["tariffs"][1]["enabled"] = False
+        data["tariffs"][1]["legacy_keys"] = ["private-old"]
+
+        config = TariffsConfig.model_validate(data)
+
+        with self.assertRaises(KeyError):
+            config.require("traffic")
+        self.assertEqual(config.require_configured("traffic").key, "traffic")
+        self.assertEqual(config.require_for_user("private-old", "traffic").key, "traffic")
+        with self.assertRaises(KeyError):
+            config.require_for_user("traffic", "standard")
+        self.assertEqual(
+            [tariff.key for tariff in config.available_tariffs_for_user(None)],
+            ["standard"],
+        )
+        self.assertEqual(
+            [tariff.key for tariff in config.available_tariffs_for_user("private-old")],
+            ["standard", "traffic"],
+        )
+
     def test_legacy_key_cannot_shadow_another_tariff(self):
         data = _valid_config()
         data["tariffs"][0]["legacy_keys"] = ["traffic"]
@@ -691,6 +713,17 @@ class TariffsConfigTests(unittest.TestCase):
         self.assertEqual(tariff.premium_name("en"), "Anti-jamming")
         self.assertEqual(tariff.premium_monthly_bytes, 50 * 1024**3)
         self.assertTrue(tariff.has_premium_squad_limit())
+
+    def test_premium_squads_cannot_overlap_base_squads(self):
+        data = _valid_config()
+        data["tariffs"][0]["squad_uuids"] = ["base-squad", "shared-squad"]
+        data["tariffs"][0]["premium_squad_uuids"] = ["shared-squad"]
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "squad_uuids and premium_squad_uuids must not overlap: shared-squad",
+        ):
+            TariffsConfig.model_validate(data)
 
     def test_premium_limit_requires_premium_squad(self):
         data = _valid_config()

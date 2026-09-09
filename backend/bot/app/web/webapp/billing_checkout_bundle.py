@@ -9,6 +9,11 @@ from decimal import ROUND_HALF_UP, Decimal
 from itertools import pairwise
 from typing import Any
 
+from bot.services.trial_days import (
+    TRIAL_DAYS_ADD_REMAINING,
+    TrialDaysStrategy,
+    normalize_trial_days_strategy,
+)
 from config.tariff_checkout import serialize_checkout_addons
 from config.tariffs_config import default_currency_key_for_settings
 
@@ -57,6 +62,8 @@ class CheckoutPricingContext:
     current_premium_monthly_stars: int = 0
     regular_windows: tuple[CheckoutPricingWindow, ...] = ()
     premium_windows: tuple[CheckoutPricingWindow, ...] = ()
+    complimentary_remaining_period: bool = False
+    trial_days_strategy: TrialDaysStrategy = TRIAL_DAYS_ADD_REMAINING
 
     @property
     def remaining_month_fraction(self) -> float:
@@ -216,6 +223,17 @@ def _priced_option(
     if context is None or context.remaining_month_fraction <= 0:
         return full_price, full_stars, 0.0, 0, False
 
+    if context.complimentary_remaining_period:
+        base = float(addon.get("base_units") or 0)
+        selected_total = float(option.get("total_units") or 0)
+        return (
+            full_price,
+            full_stars,
+            0.0,
+            0,
+            selected_total > base + 1e-9,
+        )
+
     options = list(addon.get("options") or [])
     base = float(addon.get("base_units") or 0)
     current_total = _current_total(context, kind, base)
@@ -342,7 +360,10 @@ def build_checkout_bundle(
                 "Checkout add-ons are not available for this subscription",
             )
         return base_quote, CheckoutBundle()
-    tariff = tariffs_config.require(tariff_key)
+    tariff = tariffs_config.require_for_user(
+        tariff_key,
+        pricing_context.active_tariff_key if pricing_context else None,
+    )
     options = serialize_checkout_addons(
         tariff,
         default_currency=default_currency_key_for_settings(settings),
@@ -418,7 +439,15 @@ def build_checkout_bundle(
         addon_amount += price
         addon_stars += stars_price
 
-    if not items:
+    trial_days_strategy = normalize_trial_days_strategy(
+        pricing_context.trial_days_strategy if pricing_context else None
+    )
+    persist_trial_days_strategy = bool(
+        pricing_context
+        and pricing_context.complimentary_remaining_period
+        and trial_days_strategy != TRIAL_DAYS_ADD_REMAINING
+    )
+    if not items and not persist_trial_days_strategy:
         return base_quote, CheckoutBundle()
     if bool(getattr(payment_payload, "renew_hwid_devices", False)) and any(
         item["kind"] == "devices" for item in items
@@ -431,15 +460,18 @@ def build_checkout_bundle(
     base_amount = float(base_quote.price or 0)
     base_stars = int(base_quote.stars_price or 0)
     snapshot_data = {
-        "version": 2,
+        "version": 3,
         "tariff_key": tariff.key,
         "months": int(base_quote.payment_units),
+        "duration_days": tariff.period_duration_days(int(base_quote.payment_units)),
+        "addon_period_factor": tariff.addon_period_factor(int(base_quote.payment_units)),
         "currency": "XTR" if method == "stars" else base_quote.default_currency_code,
         "base_subscription_amount": base_amount,
         "base_subscription_stars": base_stars,
         "addons_amount": round(addon_amount, 8),
         "addons_stars": addon_stars,
         "items": items,
+        "trial_days_strategy": trial_days_strategy,
         "active_context": {
             "subscription_id": pricing_context.active_subscription_id,
             "tariff_key": pricing_context.active_tariff_key,
@@ -452,6 +484,8 @@ def build_checkout_bundle(
         if pricing_context
         else None,
     }
+    if getattr(payment_payload, "gift", False):
+        snapshot_data.pop("active_context", None)
     snapshot = json.dumps(snapshot_data, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     digest = hashlib.sha256(snapshot.encode("utf-8")).hexdigest()
     return (

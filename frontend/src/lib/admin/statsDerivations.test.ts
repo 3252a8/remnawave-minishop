@@ -7,13 +7,9 @@ import {
   parsePanelBandwidth,
   parsePanelNodeTraffic,
   parsePanelSystem,
-  paymentDescriptionDisplay,
 } from "./statsDerivations";
 
 describe("statsDerivations", () => {
-  const at = (key: string, params: Record<string, unknown> = {}, fallback = key) =>
-    `${fallback}:${JSON.stringify(params)}`;
-
   it("derives panel system and bandwidth metrics from mixed panel payloads", () => {
     expect(
       parsePanelSystem({
@@ -86,12 +82,8 @@ describe("statsDerivations", () => {
     expect(growthBadgeVariant(null)).toBe("outline");
   });
 
-  it("formats payment traffic descriptions and GB cells", () => {
+  it("formats GB cells", () => {
     expect(formatTrafficGbCell(12.345)).toBe("12.35 GB");
     expect(formatTrafficGbCell("")).toBe("—");
-    expect(
-      paymentDescriptionDisplay({ traffic_regular_gb: 10, description: "" } as never, at)
-    ).toBe('Traffic package {gb} GB (standard):{"gb":"10"}');
-    expect(paymentDescriptionDisplay({ description: "Manual" } as never, at)).toBe("Manual");
   });
 });

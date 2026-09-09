@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { getPaymentsStore, getStatsStore } from "$lib/admin/context";
-  import { FileText, TrendingDown, TrendingUp, User } from "$components/ui/icons.js";
+  import { getStatsStore } from "$lib/admin/context";
+  import { TrendingDown, TrendingUp } from "$components/ui/icons.js";
   import { onMount, type ComponentType, type SvelteComponent } from "svelte";
 
   import Badge from "$components/ui/badge.svelte";
@@ -8,17 +8,13 @@
   import {
     AdminDashboardGrid,
     AdminDashboardStack,
-    AdminBadge,
-    AdminButton,
     AdminChartEmptyState,
     AdminChartSkeleton,
     AdminEmptyState,
     AdminRevenueCustomRangePopover,
     AdminRevenueTabs,
-    AdminSortableHeader,
-    AdminTable,
-    AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
+  import PaymentTable from "./PaymentTable.svelte";
   import StatsPanelDashboard from "./stats/StatsPanelDashboard.svelte";
   import StatsSkeleton from "./stats/StatsSkeleton.svelte";
   import StatsSyncStrip from "./stats/StatsSyncStrip.svelte";
@@ -37,12 +33,10 @@
   } from "../../lib/admin/revenueSeriesAgg.js";
   import {
     computeRevenueKpis,
-    formatTrafficGbCell,
     growthBadgeVariant,
     parsePanelBandwidth,
     parsePanelNodeTraffic,
     parsePanelSystem,
-    paymentDescriptionDisplay,
     type AdminStats,
     type CustomRangeApply,
     type PanelNodeTraffic,
@@ -51,13 +45,14 @@
     type RevenueKpis,
     type RevenuePoint,
   } from "$lib/admin/statsDerivations";
+  import { paymentDescriptionDisplay } from "$lib/admin/paymentTable.js";
   import type { PaymentOut } from "$lib/admin/stores/paymentsStore";
   import type { StatsState } from "$lib/admin/stores/statsStore";
   import type { UsersFilter } from "$lib/admin/usersRouteFilters";
   import { sortAdminRows, type AdminSortColumn } from "$lib/admin/tableSort.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-  type FormatterFn = (value: unknown, currency?: string) => string;
+  type FormatterFn = (value: unknown, currency?: string | null) => string;
   type DateFormatterFn = (value: unknown) => string;
   type AdminBadgeVariant = "success" | "danger" | "warning" | "muted";
   type RevenueRangeMode = "preset" | "custom";
@@ -84,7 +79,6 @@
     onOpenUsersFilter?: (filter: UsersFilter) => void;
   } = $props();
 
-  const paymentsStore = getPaymentsStore();
   const statsStore = getStatsStore();
 
   const statsState = $derived(statsStore);
@@ -203,10 +197,9 @@
   const recentPaymentHeaders = $derived([
     at("id", {}, "ID"),
     at("user", {}, "User"),
-    at("payments_col_user_id", {}, "ID"),
-    at("payments_col_traffic_regular", {}, "Main traffic"),
-    at("payments_col_traffic_premium", {}, "Premium traffic"),
+    at("payments_col_purchases", {}, "Add-ons"),
     at("amount", {}, "Amount"),
+    at("payments_col_discount", {}, "Discount"),
     at("provider", {}, "Provider"),
     at("description", {}, "Description"),
     at("status", {}, "Status"),
@@ -217,28 +210,17 @@
     { asc: "id_asc", desc: "id_desc", defaultDirection: "desc", value: (row) => row.payment_id },
     { asc: "user_asc", desc: "user_desc", defaultDirection: "asc", value: (row) => row.user_label },
     {
-      asc: "user_id_asc",
-      desc: "user_id_desc",
-      defaultDirection: "desc",
-      value: (row) => row.user_id,
-    },
-    {
-      asc: "traffic_regular_asc",
-      desc: "traffic_regular_desc",
-      defaultDirection: "desc",
-      value: (row) => row.traffic_regular_gb,
-    },
-    {
-      asc: "traffic_premium_asc",
-      desc: "traffic_premium_desc",
-      defaultDirection: "desc",
-      value: (row) => row.traffic_premium_gb,
-    },
-    {
       asc: "amount_asc",
       desc: "amount_desc",
       defaultDirection: "desc",
       value: (row) => row.amount,
+    },
+    {
+      asc: "discount_asc",
+      desc: "discount_desc",
+      defaultDirection: "desc",
+      value: (row) =>
+        Number(row.checkout_discount_amount || 0) || Number(row.promo_discount_percent || 0),
     },
     {
       asc: "provider_asc",
@@ -262,7 +244,9 @@
   ] satisfies AdminSortColumn<PaymentOut>[];
   const recentPayments: PaymentOut[] = $derived(
     sortAdminRows(
-      (stats?.recent_payments || []).slice(0, 10),
+      (stats?.recent_payments || [])
+        .filter((payment) => payment.status === "succeeded")
+        .slice(0, 10),
       recentPaymentsSort,
       recentPaymentSortColumns
     )
@@ -456,6 +440,13 @@
       <Card.Content>
         <div class="admin-revenue-kpis">
           <div class="admin-revenue-kpi">
+            <div class="admin-revenue-kpi-label">{at("gifts_free_stats")}</div>
+            <div class="admin-revenue-kpi-value">{fin.admin_gifts_count ?? 0}</div>
+            <div class="admin-revenue-kpi-label">
+              {at("gifts_free_stats_hint", { count: fin.admin_gifts_activated_count ?? 0 })}
+            </div>
+          </div>
+          <div class="admin-revenue-kpi">
             <div class="admin-revenue-kpi-label">
               {at("stats_trend_payments", { count: fin.today_payments_count ?? 0 }, "")}
             </div>
@@ -628,168 +619,19 @@
         >
       </Card.Header>
       <Card.Content class="admin-cn-card-content--flush">
-        <div class="admin-table-wrap">
-          {#if statsLoading}
-            <AdminTableSkeleton
-              headers={recentPaymentHeaders}
-              rows={5}
-              rowHeight={62}
-              widths={[
-                "48px",
-                "148px",
-                "88px",
-                "72px",
-                "72px",
-                "78px",
-                "82px",
-                "140px",
-                "72px",
-                "96px",
-              ]}
-            />
-          {:else if recentPayments.length}
-            <AdminTable>
-              <thead>
-                <tr>
-                  <AdminSortableHeader
-                    label={at("id", {}, "ID")}
-                    column={recentPaymentSortColumns[0]}
-                    currentSort={recentPaymentsSort}
-                    {at}
-                    onSort={(sort) => (recentPaymentsSort = sort)}
-                  />
-                  <AdminSortableHeader
-                    label={at("user", {}, "User")}
-                    column={recentPaymentSortColumns[1]}
-                    currentSort={recentPaymentsSort}
-                    {at}
-                    onSort={(sort) => (recentPaymentsSort = sort)}
-                  />
-                  <AdminSortableHeader
-                    label={at("payments_col_user_id", {}, "ID")}
-                    column={recentPaymentSortColumns[2]}
-                    currentSort={recentPaymentsSort}
-                    {at}
-                    onSort={(sort) => (recentPaymentsSort = sort)}
-                  />
-                  <AdminSortableHeader
-                    label={at("payments_col_traffic_regular", {}, "Main traffic")}
-                    column={recentPaymentSortColumns[3]}
-                    currentSort={recentPaymentsSort}
-                    {at}
-                    onSort={(sort) => (recentPaymentsSort = sort)}
-                  />
-                  <AdminSortableHeader
-                    label={at("payments_col_traffic_premium", {}, "Premium traffic")}
-                    column={recentPaymentSortColumns[4]}
-                    currentSort={recentPaymentsSort}
-                    {at}
-                    onSort={(sort) => (recentPaymentsSort = sort)}
-                  />
-                  <AdminSortableHeader
-                    label={at("amount", {}, "Amount")}
-                    column={recentPaymentSortColumns[5]}
-                    currentSort={recentPaymentsSort}
-                    {at}
-                    onSort={(sort) => (recentPaymentsSort = sort)}
-                  />
-                  <AdminSortableHeader
-                    label={at("provider", {}, "Provider")}
-                    column={recentPaymentSortColumns[6]}
-                    currentSort={recentPaymentsSort}
-                    {at}
-                    onSort={(sort) => (recentPaymentsSort = sort)}
-                  />
-                  <AdminSortableHeader
-                    label={at("description", {}, "Description")}
-                    column={recentPaymentSortColumns[7]}
-                    currentSort={recentPaymentsSort}
-                    {at}
-                    onSort={(sort) => (recentPaymentsSort = sort)}
-                  />
-                  <AdminSortableHeader
-                    label={at("status", {}, "Status")}
-                    column={recentPaymentSortColumns[8]}
-                    currentSort={recentPaymentsSort}
-                    {at}
-                    onSort={(sort) => (recentPaymentsSort = sort)}
-                  />
-                  <AdminSortableHeader
-                    label={at("date", {}, "Date")}
-                    column={recentPaymentSortColumns[9]}
-                    currentSort={recentPaymentsSort}
-                    {at}
-                    onSort={(sort) => (recentPaymentsSort = sort)}
-                  />
-                </tr>
-              </thead>
-              <tbody>
-                {#each recentPayments as p (p.payment_id)}
-                  <tr>
-                    <td class="admin-cell-id" data-label="ID">
-                      <AdminButton
-                        class="admin-payment-id-btn"
-                        variant="ghost"
-                        size="sm"
-                        title={at("payment_detail_open", {}, "Open payment")}
-                        aria-label={at("payment_detail_open", {}, "Open payment")}
-                        onclick={() => paymentsStore.openPayment(p)}
-                      >
-                        <FileText size={14} />
-                        #{p.payment_id}
-                      </AdminButton>
-                    </td>
-                    <td class="admin-cell-user-with-action" data-label={at("user", {}, "User")}>
-                      <span class="admin-payments-user-cell">
-                        <AdminButton
-                          class="admin-payments-user-btn"
-                          variant="ghost"
-                          size="icon"
-                          title={at("payments_open_user", {}, "Open user card")}
-                          aria-label={at("payments_open_user", {}, "Open user card")}
-                          onclick={() => onOpenUserCard(p.user_id)}
-                        >
-                          <User size={14} />
-                        </AdminButton>
-                        <span class="admin-payments-user-name">{p.user_label || p.user_id}</span>
-                      </span>
-                    </td>
-                    <td class="admin-cell-mono" data-label={at("payments_col_user_id", {}, "ID")}>
-                      {p.user_id != null ? p.user_id : "—"}
-                    </td>
-                    <td
-                      class="admin-cell-traffic-gb"
-                      data-label={at("payments_col_traffic_regular", {}, "Main traffic")}
-                    >
-                      {formatTrafficGbCell(p.traffic_regular_gb)}
-                    </td>
-                    <td
-                      class="admin-cell-traffic-gb"
-                      data-label={at("payments_col_traffic_premium", {}, "Premium traffic")}
-                    >
-                      {formatTrafficGbCell(p.traffic_premium_gb)}
-                    </td>
-                    <td data-label={at("amount", {}, "Amount")}>
-                      {fmtMoney(p.amount, p.currency ?? undefined)}
-                    </td>
-                    <td data-label={at("provider", {}, "Provider")}>{p.provider}</td>
-                    <td class="admin-cell-wrap" data-label={at("description", {}, "Description")}
-                      >{paymentDescriptionDisplay(p, at)}</td
-                    >
-                    <td data-label={at("status", {}, "Status")}>
-                      <AdminBadge variant={paymentStatusVariant(p.status)}>{p.status}</AdminBadge>
-                    </td>
-                    <td data-label={at("date", {}, "Date")}>{fmtDate(p.created_at)}</td>
-                  </tr>
-                {/each}
-              </tbody>
-            </AdminTable>
-          {:else}
-            <AdminEmptyState tone="card"
-              ><span class="admin-muted">{at("no_data", {}, "")}</span></AdminEmptyState
-            >
-          {/if}
-        </div>
+        <PaymentTable
+          {at}
+          payments={recentPayments}
+          loading={statsLoading}
+          sort={recentPaymentsSort}
+          skeletonRows={5}
+          emptyLabel={at("no_data", {}, "")}
+          {fmtDate}
+          {fmtMoney}
+          {paymentStatusVariant}
+          onSort={(sort) => (recentPaymentsSort = sort)}
+          {onOpenUserCard}
+        />
       </Card.Content>
     </Card.Root>
   </AdminDashboardStack>
@@ -836,45 +678,5 @@
   .admin-stats-user-filter--badge {
     display: block;
     border-radius: 999px;
-  }
-
-  .admin-payments-user-cell {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-  }
-
-  .admin-payments-user-name {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .admin-cell-user-with-action :global(.admin-payments-user-btn.admin-btn) {
-    width: 30px;
-    height: 30px;
-    min-width: 30px;
-    min-height: 30px;
-    flex-shrink: 0;
-    padding: 0;
-    border-radius: 7px;
-  }
-
-  .admin-cell-user-with-action :global(.admin-payments-user-btn svg) {
-    width: 14px;
-    height: 14px;
-  }
-
-  .admin-cell-id :global(.admin-payment-id-btn.admin-btn) {
-    height: 28px;
-    min-height: 28px;
-    padding: 0 8px;
-    gap: 6px;
-    border-radius: 7px;
-    color: var(--admin-text);
-    font-family: var(--font-mono);
-    font-size: 12px;
   }
 </style>

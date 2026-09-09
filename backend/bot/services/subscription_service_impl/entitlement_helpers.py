@@ -11,6 +11,14 @@ from .panel_identity import PanelUserCreateOptions
 logger = logging.getLogger(__name__)
 
 
+def subscription_is_trial(subscription: Any | None) -> bool:
+    if subscription is None:
+        return False
+    provider = str(getattr(subscription, "provider", "") or "").strip().lower()
+    status = str(getattr(subscription, "status_from_panel", "") or "").strip().upper()
+    return provider == "trial" or status == "TRIAL"
+
+
 def immutable_subscription_start(
     current_subscription: Any | None,
     *,

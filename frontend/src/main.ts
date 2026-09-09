@@ -1,6 +1,7 @@
 import { mount } from "svelte";
 
 import App from "./App.svelte";
+import NotificationUnsubscribeApp from "./webapp/NotificationUnsubscribeApp.svelte";
 import { buildApiUrl } from "./lib/webapp/publicApi";
 import "./styles.css";
 
@@ -79,6 +80,10 @@ if (target) {
   startPublicInstallPreload();
   loadBootstrap().finally(() => {
     target.replaceChildren();
-    mount(App, { target });
+    if (window.location.pathname.replace(/\/$/, "").endsWith("/unsubscribe")) {
+      mount(NotificationUnsubscribeApp, { target });
+    } else {
+      mount(App, { target });
+    }
   });
 }

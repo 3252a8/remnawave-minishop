@@ -5,6 +5,7 @@ import {
   buildTariffCatalog,
   checkoutTariffSummary,
   firstAvailableMethod,
+  initialCheckoutTariffKey,
   methodSelectable,
   methodsForPlan,
   paymentMethodMinimum,
@@ -71,6 +72,24 @@ describe("webapp tariff helpers", () => {
     ]);
   });
 
+  it("skips the tariff picker when only one public tariff is available", () => {
+    const catalog = buildTariffCatalog([{ tariff_key: "standard", tariff_name: "Standard" }]);
+
+    expect(initialCheckoutTariffKey(catalog, null)).toBe("standard");
+    expect(
+      initialCheckoutTariffKey(
+        buildTariffCatalog([{ tariff_key: "standard" }, { tariff_key: "plus" }]),
+        null
+      )
+    ).toBe("");
+    expect(
+      initialCheckoutTariffKey(
+        buildTariffCatalog([{ tariff_key: "standard" }, { tariff_key: "plus" }]),
+        { tariff_key: "plus" }
+      )
+    ).toBe("plus");
+  });
+
   it("builds a checkout tariff summary with finite and unlimited limits", () => {
     expect(
       checkoutTariffSummary({
@@ -101,14 +120,41 @@ describe("webapp tariff helpers", () => {
     });
   });
 
-  it("keeps disabled or unknown premium traffic distinct from unlimited traffic", () => {
+  it("hides fully disabled premium traffic without hiding configurable limits", () => {
     expect(checkoutTariffSummary({ premium_enabled: false }).premiumTraffic).toEqual({
-      known: true,
+      known: false,
       units: 0,
       unlimited: false,
     });
     expect(checkoutTariffSummary({}).premiumTraffic).toEqual({
       known: false,
+      units: 0,
+      unlimited: false,
+    });
+    expect(
+      checkoutTariffSummary({
+        premium_enabled: false,
+        checkout_addons: {
+          premium_traffic: {
+            kind: "premium_traffic",
+            base_units: 0,
+            max_total_units: 100,
+            options: [
+              { extra_units: 0, total_units: 0, price: 0 },
+              { extra_units: 50, total_units: 50, price: 100 },
+            ],
+          },
+        },
+      }).premiumTraffic
+    ).toEqual({
+      known: true,
+      units: 0,
+      unlimited: false,
+    });
+    expect(
+      checkoutTariffSummary({ premium_enabled: true, premium_monthly_gb: 0 }).premiumTraffic
+    ).toEqual({
+      known: true,
       units: 0,
       unlimited: false,
     });

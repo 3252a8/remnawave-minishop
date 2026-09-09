@@ -37,7 +37,10 @@ WEBAPP_CSRF_EXEMPT_PATHS = {
     "/api/auth/email/verify",
     "/api/auth/email/magic",
     "/api/auth/email/password",
+    "/api/auth/passkey/options",
+    "/api/auth/passkey/verify",
     "/api/auth/logout",
+    "/api/notification-preferences/unsubscribe",
 }
 WEBAPP_CSRF_HEADER_NAME = "X-CSRF-Token"
 WEBAPP_I18N_PLACEHOLDER = "<!-- WEBAPP_I18N_SCRIPT -->"
@@ -48,7 +51,7 @@ WEBAPP_RATE_LIMIT_WINDOW_SECONDS = 60
 WEBAPP_SESSION_COOKIE_NAME = "rw_webapp_session"
 WEBAPP_STATE_CHANGING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 WEBAPP_TELEGRAM_AVATAR_FETCH_TIMEOUT_SECONDS = 4
-WEBAPP_TELEGRAM_AVATAR_MAX_BYTES = 128 * 1024
+WEBAPP_TELEGRAM_AVATAR_MAX_BYTES = 512 * 1024
 WEBAPP_TELEGRAM_AVATAR_REFRESH_SECONDS = 24 * 60 * 60
 WEBAPP_TELEGRAM_OAUTH_STATE_COOKIE_NAME = "rw_tg_oauth_state"
 WEBAPP_THEME_ASSET_CONTENT_TYPES = {
@@ -59,6 +62,10 @@ WEBAPP_THEME_ASSET_CONTENT_TYPES = {
     ".png": "image/png",
     ".svg": "image/svg+xml",
     ".webp": "image/webp",
+    ".woff": "font/woff",
+    ".woff2": "font/woff2",
+    ".ttf": "font/ttf",
+    ".otf": "font/otf",
 }
-WEBAPP_THEME_ASSET_MAX_BYTES = 1024 * 1024
-WEBAPP_THEME_CSS_MAX_BYTES = 512 * 1024
+WEBAPP_THEME_ASSET_MAX_BYTES = 10 * 1024 * 1024
+WEBAPP_THEME_CSS_MAX_BYTES = 1024 * 1024

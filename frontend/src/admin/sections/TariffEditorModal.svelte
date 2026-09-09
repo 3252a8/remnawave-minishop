@@ -12,7 +12,7 @@
   import type { Tariff } from "$lib/admin/stores/tariffsStore";
   import type { TranslateFn } from "./tariffs/tariffEditorTabUtils.js";
 
-  let { at }: { at: TranslateFn } = $props();
+  let { at, routePrefix = "" }: { at: TranslateFn; routePrefix?: string } = $props();
   const tariffsStore = getTariffsStore();
 
   const tariffsState = $derived(tariffsStore);
@@ -54,7 +54,7 @@
         >
       </Tabs.List>
 
-      <TariffEditorGeneralTab {at} />
+      <TariffEditorGeneralTab {at} {routePrefix} />
       <TariffEditorPremiumTab {at} />
       <TariffEditorPricingTab {at} />
       <TariffEditorTopupTab {at} />

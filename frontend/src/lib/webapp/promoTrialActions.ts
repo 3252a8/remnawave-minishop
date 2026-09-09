@@ -1,3 +1,5 @@
+import type { AppSettings, PlanView } from "./types.js";
+
 type PromoTrialStore = {
   activateTrial: () => unknown;
   applyPromo: () => unknown;
@@ -8,9 +10,15 @@ type PromoTrialStore = {
 
 type PromoTrialActionDeps = {
   actionsStore: PromoTrialStore;
+  getAppSettings: () => AppSettings | null | undefined;
+  openTrialPayment: (plan: PlanView) => unknown;
 };
 
-export function createPromoTrialActions({ actionsStore }: PromoTrialActionDeps) {
+export function createPromoTrialActions({
+  actionsStore,
+  getAppSettings,
+  openTrialPayment,
+}: PromoTrialActionDeps) {
   function applyPromo() {
     return actionsStore.applyPromo();
   }
@@ -28,6 +36,11 @@ export function createPromoTrialActions({ actionsStore }: PromoTrialActionDeps) 
   }
 
   function activateTrial() {
+    const settings = getAppSettings();
+    const paymentPlan = settings?.trial_payment_plan as PlanView | null | undefined;
+    if (settings?.trial_payment_enabled && paymentPlan) {
+      return openTrialPayment(paymentPlan);
+    }
     return actionsStore.activateTrial();
   }
 

@@ -11,6 +11,7 @@ from bot.infra.pricing import PriceContext, resolve_effective_price
 from bot.infra.promo_policies import PromoRedemptionContext, evaluate_promo_redemption
 from bot.services.promo_effects import PromoEffects, summarize_effects, validate_effects
 from config.settings import Settings
+from config.subscription_periods import checkout_duration_days
 from config.tariffs_config import default_payment_currency_code_for_settings
 from db.dal import promo_code_dal
 
@@ -29,6 +30,7 @@ class CheckoutPromoResult:
     charged_months: int | None
     charged_gb: float | None
     quoted_at: datetime
+    charged_days: int | None = None
 
 
 @dataclass(frozen=True)
@@ -142,7 +144,11 @@ async def resolve_checkout_promo(
             tariffs_config, "default_tariff", None
         )
         try:
-            tariff = tariffs_config.require(tariff_key) if tariffs_config and tariff_key else None
+            tariff = (
+                tariffs_config.require_configured(tariff_key)
+                if tariffs_config and tariff_key
+                else None
+            )
         except (KeyError, ValueError):
             tariff = None
         if tariff is None or not tariff.premium_squad_uuids:
@@ -172,13 +178,22 @@ async def resolve_checkout_promo(
             effects=effects,
             sale_mode_base=sale_base,
             months=months,
+            duration_days=checkout_duration_days(settings, payment_units, sale_mode),
             traffic_gb=traffic_units,
         )
     )
     if not decision.allowed:
         reason_key = decision.reason_key or "promo_code_not_applicable"
         message = reason_key
-        if reason_key == "promo_code_min_period_required":
+        if reason_key == "promo_code_min_days_required":
+            from bot.middlewares.i18n import get_i18n_instance
+
+            message = get_i18n_instance().gettext(
+                settings.DEFAULT_LANGUAGE,
+                "promo_code_min_days_required",
+                days=effects.min_subscription_days,
+            )
+        elif reason_key == "promo_code_min_period_required":
             message = f"Code applies from {effects.min_subscription_months} months"
         elif reason_key == "promo_code_min_traffic_required":
             required_gb = float(effects.min_traffic_gb or 0)
@@ -205,6 +220,7 @@ async def resolve_checkout_promo(
             promo=effects,
             promo_code_id=int(promo.promo_code_id),
             months=months,
+            duration_days=checkout_duration_days(settings, payment_units, sale_mode),
             traffic_gb=traffic_units,
         )
     )
@@ -220,6 +236,7 @@ async def resolve_checkout_promo(
             discount_amount=effective.discount_amount,
             effect_summary=summarize_effects(effects),
             charged_months=months,
+            charged_days=checkout_duration_days(settings, payment_units, sale_mode),
             charged_gb=traffic_units,
             quoted_at=datetime.now(UTC),
         ),
@@ -295,6 +312,8 @@ def checkout_promo_payment_fields(promo: CheckoutPromoResult | None) -> Mapping[
         "checkout_base_amount": promo.base_amount,
         "checkout_discount_amount": promo.discount_amount,
         "checkout_charged_months": promo.charged_months,
+        "checkout_charged_days": promo.charged_days,
+        "promo_min_subscription_days": promo.effects.min_subscription_days,
         "checkout_charged_gb": promo.charged_gb,
         "checkout_quoted_at": promo.quoted_at,
     }

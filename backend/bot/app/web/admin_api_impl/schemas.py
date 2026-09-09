@@ -19,8 +19,8 @@ Template for migrated domains:
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any, cast
+from datetime import date, datetime
+from typing import Any, Literal, cast
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
@@ -56,6 +56,21 @@ from .activity_schemas import (
 from .activity_schemas import (
     LogOut as LogOut,
 )
+from .payment_schemas import (
+    AdminPaymentFinalizeBody as AdminPaymentFinalizeBody,
+)
+from .payment_schemas import (
+    AdminPaymentReverseBody as AdminPaymentReverseBody,
+)
+from .payment_schemas import (
+    PaymentDetailOut as PaymentDetailOut,
+)
+from .payment_schemas import (
+    PaymentOut as PaymentOut,
+)
+from .payment_schemas import (
+    PaymentPurchaseOut as PaymentPurchaseOut,
+)
 from .schema_helpers import (
     display_label as _display_label,
 )
@@ -65,14 +80,14 @@ from .schema_helpers import (
 from .schema_helpers import (
     float_or_none as _float_or_none,
 )
-from .schema_helpers import (
-    payment_user_display_label as _payment_user_display_label,
-)
-from .schema_helpers import (
-    traffic_gb_split as _traffic_gb_split,
-)
 from .user_schemas import (
     AdminSubscriptionOut as AdminSubscriptionOut,
+)
+from .user_schemas import (
+    AdminTelegramNotificationsOut as AdminTelegramNotificationsOut,
+)
+from .user_schemas import (
+    AdminUserHwidDevicesOut as AdminUserHwidDevicesOut,
 )
 from .user_schemas import (
     AdminUserOut as AdminUserOut,
@@ -96,6 +111,7 @@ class PromoCreateBody(HttpBodyModel):
     bonus_requires_payment: bool = False
     applies_to: str = "all"
     min_subscription_months: int | None = Field(default=None, gt=0)
+    min_subscription_days: int | None = Field(default=None, gt=0, le=2147483647, strict=True)
     min_traffic_gb: float | None = Field(default=None, gt=0)
     max_activations: int = Field(gt=0)
     valid_days: Any = None
@@ -128,6 +144,7 @@ class PromoCreateBody(HttpBodyModel):
             bonus_requires_payment=bool(self.bonus_requires_payment),
             applies_to=self.applies_to or "all",
             min_subscription_months=self.min_subscription_months,
+            min_subscription_days=self.min_subscription_days,
             min_traffic_gb=self.min_traffic_gb,
         )
 
@@ -143,6 +160,7 @@ class PromoUpdateBody(HttpBodyModel):
     bonus_requires_payment: bool | None = None
     applies_to: str | None = None
     min_subscription_months: int | None = Field(default=None, gt=0)
+    min_subscription_days: int | None = Field(default=None, gt=0, le=2147483647, strict=True)
     min_traffic_gb: float | None = Field(default=None, gt=0)
     max_activations: int | None = Field(default=None, gt=0)
     origin: str | None = None
@@ -202,6 +220,8 @@ class TariffsSaveBody(HttpBodyModel):
 
 
 class AdminTariffsCatalogOut(HttpResponseModel):
+    schema_version: int = 2
+    period_unit: str = "day"
     default_tariff: str
     referral_welcome_bonus_tariff: str | None = None
     default_currency: str = "rub"
@@ -326,6 +346,8 @@ class AdminTariffsOut(HttpResponseModel):
 
 
 class ThemesSaveBody(HttpBodyModel):
+    expected_generation: int | None = None
+
     model_config = ConfigDict(extra="allow")
 
     catalog: Any = None
@@ -397,6 +419,7 @@ class AdminBroadcastBody(HttpBodyModel):
         return _normalize_localized_text(value)
 
     channels: list[str] = Field(default_factory=lambda: ["telegram"])
+    exclude_blocked_telegram: bool | None = None
     email_subject: Any = ""
     buttons: list[AdminBroadcastButtonBody] = Field(default_factory=list)
     scheduled_at: datetime | None = None
@@ -509,7 +532,8 @@ class AdminUserTrafficStrategyBody(HttpBodyModel):
 
 
 class AdminUserExtendBody(HttpBodyModel):
-    days: Any = None
+    days: int | None = None
+    end_date: date | None = None
     tariff_key: Any = None
     extend_hwid_devices: Any = None
     apply_tariff_hwid_limit: Any = False
@@ -518,6 +542,21 @@ class AdminUserExtendBody(HttpBodyModel):
 class AdminUserTariffBody(HttpBodyModel):
     tariff_key: Any = None
     apply_tariff_hwid_limit: Any = False
+
+
+class AdminUserBalanceAdjustmentBody(HttpBodyModel):
+    target: Literal["user", "partner"] = "user"
+    mode: Literal["add", "subtract", "set"] = "add"
+    amount: float = Field(ge=0, allow_inf_nan=False)
+    reason: str = Field(default="", max_length=500)
+    idempotency_key: str = Field(default="", max_length=128)
+
+
+class AdminUserBalanceConversionBody(HttpBodyModel):
+    direction: Literal["partner_to_user", "user_to_partner"]
+    amount: float = Field(gt=0, allow_inf_nan=False)
+    reason: str = Field(default="", max_length=500)
+    idempotency_key: str = Field(default="", max_length=128)
 
 
 class PromoOptionOut(HttpResponseModel):
@@ -550,6 +589,7 @@ class PromoOut(HttpResponseModel):
     bonus_requires_payment: bool = False
     applies_to: str
     min_subscription_months: int | None = None
+    min_subscription_days: int | None = None
     min_traffic_gb: float | None = None
     origin: str
     effect_summary: str
@@ -593,6 +633,7 @@ class PromoOut(HttpResponseModel):
             bonus_requires_payment=bool(effects.bonus_requires_payment),
             applies_to=effects.applies_to,
             min_subscription_months=effects.min_subscription_months,
+            min_subscription_days=effects.min_subscription_days,
             min_traffic_gb=effects.min_traffic_gb,
             origin=str(getattr(promo, "origin", None) or "admin"),
             effect_summary=summarize_effects(effects),
@@ -661,6 +702,7 @@ class PromoActivationOut(HttpResponseModel):
     base_amount: float | None = None
     discount_amount: float | None = None
     charged_months: int | None = None
+    charged_days: int | None = None
     charged_gb: float | None = None
     granted_days: int | None = None
     granted_gb: float | None = None
@@ -721,6 +763,8 @@ class PromoActivationOut(HttpResponseModel):
                 if loaded_payment is not None
                 else None,
             ),
+            charged_days=getattr(activation, "charged_days", None)
+            or getattr(loaded_payment, "checkout_charged_days", None),
             charged_months=(
                 int(getattr(activation, "charged_months", 0) or 0)
                 if getattr(activation, "charged_months", None) is not None
@@ -750,89 +794,6 @@ class PromoActivationOut(HttpResponseModel):
                 getattr(activation, "granted_premium_traffic_gb", None)
             ),
         )
-
-
-class PaymentOut(HttpResponseModel):
-    payment_id: int
-    user_id: int
-    user_label: str
-    telegram_id: int | None = None
-    traffic_regular_gb: float | None = None
-    traffic_premium_gb: float | None = None
-    provider: str | None = None
-    funding_source: str = "external"
-    provider_payment_id: str | None = None
-    amount: float
-    currency: str | None = None
-    status: str | None = None
-    description: str | None = None
-    subscription_duration_months: int | None = None
-    sale_mode: str | None = None
-    tariff_key: str | None = None
-    purchased_gb: Any = None
-    purchased_hwid_devices: int | None = None
-    created_at: datetime | None = None
-
-    @classmethod
-    def from_orm_payment(cls, payment: Any) -> PaymentOut:
-        telegram_id = None
-        loaded_user = payment.__dict__.get("user")
-        user_label = _payment_user_display_label(loaded_user, int(payment.user_id))
-        if loaded_user is not None:
-            raw_telegram_id = getattr(loaded_user, "telegram_id", None)
-            if raw_telegram_id is not None:
-                try:
-                    telegram_id = int(raw_telegram_id)
-                except (TypeError, ValueError):
-                    telegram_id = None
-        regular_gb, premium_gb = _traffic_gb_split(payment)
-        return cls(
-            payment_id=int(payment.payment_id),
-            user_id=int(payment.user_id),
-            user_label=user_label,
-            telegram_id=telegram_id,
-            traffic_regular_gb=regular_gb,
-            traffic_premium_gb=premium_gb,
-            provider=payment.provider,
-            funding_source=str(getattr(payment, "funding_source", "external") or "external"),
-            provider_payment_id=payment.provider_payment_id,
-            amount=float(payment.amount),
-            currency=payment.currency,
-            status=payment.status,
-            description=payment.description,
-            subscription_duration_months=payment.subscription_duration_months,
-            sale_mode=payment.sale_mode,
-            tariff_key=payment.tariff_key,
-            purchased_gb=payment.purchased_gb,
-            purchased_hwid_devices=payment.purchased_hwid_devices,
-            created_at=payment.created_at,
-        )
-
-
-class PaymentDetailOut(PaymentOut):
-    yookassa_payment_id: str | None = None
-    idempotence_key: str | None = None
-    promo_code: str | None = None
-    updated_at: datetime | None = None
-
-    @classmethod
-    def from_orm_payment_detail(cls, payment: Any) -> PaymentDetailOut:
-        payload = PaymentOut.from_orm_payment(payment).model_dump(mode="json")
-        promo_code_used = payment.promo_code_used
-        promo_code = None
-        if promo_code_used is not None:
-            promo_code = getattr(promo_code_used, "archived_code", None) or getattr(
-                promo_code_used, "code", None
-            )
-        payload.update(
-            {
-                "yookassa_payment_id": payment.yookassa_payment_id,
-                "idempotence_key": payment.idempotence_key,
-                "promo_code": promo_code,
-                "updated_at": payment.updated_at,
-            }
-        )
-        return cast("PaymentDetailOut", cls.model_validate(payload))
 
 
 class AdminStatsOut(HttpResponseModel):

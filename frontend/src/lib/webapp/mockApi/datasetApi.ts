@@ -1,7 +1,13 @@
 import { DEV_MOCK } from "../previewMock.js";
+import { adminGiftDemoStats } from "./giftsDemo";
 import { withDemoAvatarTicket } from "../demoAvatars.js";
 import { jsonBody, paged, queryParams, writeDemoLanguage } from "../demoMockRuntime.js";
 import { DATASET, defaultClone, type DemoRecord, type MockApiContext } from "./dataset";
+import {
+  adminDemoBalance,
+  applyDemoBalanceAdjustment,
+  applyDemoBalanceConversion,
+} from "./balance";
 import { demoProviderCurrencySupport } from "./providers";
 import { demoSettingsSections, persistDemoSettings } from "./settings";
 import {
@@ -116,7 +122,10 @@ export function demoApiResponse(
   const method = String(options.method || "GET").toUpperCase();
   const params = queryParams(path);
 
-  if (cleanPath === "/admin/stats") return clone(DATASET.stats);
+  if (cleanPath === "/admin/stats") {
+    const stats = clone(DATASET.stats) as DemoRecord;
+    return { ...stats, financial: { ...(stats.financial as DemoRecord), ...adminGiftDemoStats() } };
+  }
   if (cleanPath === "/admin/broadcast/audience-counts") {
     return {
       ok: true,
@@ -265,10 +274,21 @@ export function demoApiResponse(
       ],
       checked_at: new Date().toISOString(),
       panel_compatibility: {
-        version: "3.2.3",
+        version: "3.4.3",
         generation: "rw3-numeric-user-id",
         support_status: "current",
-        certified_versions: ["3.2.3", "3.2.1", "3.2.0", "3.1.0", "3.0.0"],
+        certified_versions: [
+          "3.4.3",
+          "3.4.2",
+          "3.4.1",
+          "3.3.2",
+          "3.3.0",
+          "3.2.3",
+          "3.2.1",
+          "3.2.0",
+          "3.1.0",
+          "3.0.0",
+        ],
         capabilities: ["numeric-user-ids", "user-stream"],
         observed_capabilities: {},
       },
@@ -276,7 +296,28 @@ export function demoApiResponse(
   }
 
   if (cleanPath === "/admin/payments") {
-    const payments = DATASET.adminPayments || [];
+    const query = (params.get("search") || "")
+      .trim()
+      .replace(/^[@#]+/, "")
+      .toLowerCase();
+    const payments = (DATASET.adminPayments || []).filter((payment) => {
+      if (!query) return true;
+      const user = (DATASET.adminUsers || []).find((item) => item.user_id === payment.user_id);
+      return (
+        String(payment.user_id) === query ||
+        String(user?.telegram_id) === query ||
+        [
+          payment.user_label,
+          user?.username,
+          user?.email,
+          [user?.first_name, user?.last_name].filter(Boolean).join(" "),
+        ].some((value) =>
+          String(value || "")
+            .toLowerCase()
+            .includes(query)
+        )
+      );
+    });
     const sort = params.get("sort") || "date_desc";
     const sorted = sortAdminRows(payments, sort, [
       {
@@ -371,8 +412,22 @@ export function demoApiResponse(
     const id = Number(parts[3]);
     const detail = DATASET.adminUserDetails?.[String(id)];
     if (!detail) return { ok: false, error: "not_found" };
-    const decoratedDetail = withDemoReferralSummary(detail);
+    const decoratedDetail = {
+      ...withDemoReferralSummary(detail),
+      balance: clone(adminDemoBalance(id)),
+      notification_preferences: detail.notification_preferences || {
+        marketing_email: false,
+        marketing_telegram: true,
+        system_email: true,
+        system_telegram: true,
+      },
+    };
     if (parts[4]) {
+      if (parts[4] === "notification-preferences" && method === "PATCH") {
+        const notificationPreferences = jsonBody(options);
+        detail.notification_preferences = notificationPreferences;
+        return { ok: true, notification_preferences: clone(notificationPreferences) };
+      }
       if (parts[4] === "referrals") {
         const invitees = demoInviteesForUser(id);
         const sort = params.get("sort") || "registration_desc";
@@ -410,6 +465,12 @@ export function demoApiResponse(
       }
       if (parts[4] === "message" && parts[5] === "preview") {
         return { ok: true, text: "Demo broadcast preview for the selected account." };
+      }
+      if (parts[4] === "balance-adjustment" && method === "POST") {
+        return { ok: true, balance: clone(applyDemoBalanceAdjustment(id, jsonBody(options))) };
+      }
+      if (parts[4] === "balance-conversion" && method === "POST") {
+        return { ok: true, balance: clone(applyDemoBalanceConversion(id, jsonBody(options))) };
       }
       return { ok: true, user: clone(decoratedDetail.user), detail: clone(decoratedDetail) };
     }

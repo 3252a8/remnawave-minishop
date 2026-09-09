@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Popover, RangeCalendar } from "bits-ui";
+  import { Popover, RangeCalendar } from "$components/ui/primitives.js";
   import { parseDate, type DateValue } from "@internationalized/date";
   import Button from "$components/ui/button.svelte";
   import { ChevronLeft, ChevronRight } from "$components/ui/icons.js";

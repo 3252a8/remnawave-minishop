@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "version": "1.0.0",
+  "description": {
+    "ru": "Пример пользовательской темы",
+    "en": "Example custom theme"
+  },
+  "author": {
+    "name": "Minishop contributors"
+  },
+  "license": "MIT",
+  "compatibility": {
+    "theme_api": 1
+  }
+}

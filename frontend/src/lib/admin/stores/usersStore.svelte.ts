@@ -14,6 +14,7 @@ import { defineRawStateProperty } from "./rawStateProperty";
 import { AdminUsersError, createUsersStoreQueries } from "./usersStoreQueries";
 import { createUsersStoreSquadOverrideActions } from "./usersStoreSquadOverrides";
 import { createUsersStoreSubscriptionReissueAction } from "./usersStoreSubscriptionReissue";
+import { createUsersStoreNotificationPreferenceActions } from "./usersStoreNotificationPreferences";
 import { buildAdminUserActionPath, buildAdminUserPath } from "../../webapp/publicApi";
 import {
   USERS_PAGE_SIZE,
@@ -150,6 +151,9 @@ export function createUsersStore({
     };
 
     if (resetExtendTariff) {
+      next.userExtendMode = "days";
+      next.userExtendDays = 30;
+      next.userExtendEndDate = "";
       next.userExtendTariffKey = draft.tariffKey || s.userExtendTariffKey || "";
     }
     if (resetTariffAction) {
@@ -222,6 +226,10 @@ export function createUsersStore({
           ...st,
           users: data.users || [],
           usersTotal: data.total || (data.users || []).length,
+          userBalanceEnabled: Boolean(data.user_balance_enabled),
+          partnerBalanceEnabled: Boolean(data.partner_balance_enabled),
+          balanceCurrency: String(data.balance_currency || "RUB"),
+          balanceCurrencyScale: Number(data.balance_currency_scale || 0),
         }));
         perf.stateAssign();
         void perf.renderSettled();
@@ -435,7 +443,7 @@ export function createUsersStore({
     text: string | null | undefined,
     successMessage = at("link_copied", {}, "Link copied")
   ) {
-    copyText(text, successMessage, onToast);
+    void copyText(text, successMessage, onToast);
   }
 
   function requestBanToggle() {
@@ -508,13 +516,17 @@ export function createUsersStore({
     const s = readStateSnapshot();
     if (!s.openedUser) return;
     const days = Number(s.userExtendDays);
-    if (!days || days <= 0) return;
+    const byDate = s.userExtendMode === "date";
+    if ((byDate && !s.userExtendEndDate) || (!byDate && (!Number.isInteger(days) || days === 0))) {
+      return;
+    }
     applyState((st) => ({ ...st, userActionBusy: true }));
     try {
       const body: Record<string, unknown> = {
-        days,
         extend_hwid_devices: Boolean(s.userExtendHwidDevices),
       };
+      if (byDate) body.end_date = s.userExtendEndDate;
+      else body.days = days;
       if (s.userExtendTariffKey) body.tariff_key = s.userExtendTariffKey;
       if (s.userApplyTariffHwidLimit) body.apply_tariff_hwid_limit = true;
       const res = await api(buildAdminUserActionPath(s.openedUser.user_id, "extend"), {
@@ -523,7 +535,17 @@ export function createUsersStore({
       });
       if (res?.ok) {
         invalidateUsersQueries(s.openedUser.user_id);
-        onToast(at("subscription_extended", { days }, "Subscription extended by {days} days"));
+        onToast(
+          byDate
+            ? at("subscription_end_date_changed", {}, "Subscription end date changed")
+            : days > 0
+              ? at("subscription_extended", { days }, "Subscription extended by {days} days")
+              : at(
+                  "subscription_shortened",
+                  { days: Math.abs(days) },
+                  "Subscription shortened by {days} days"
+                )
+        );
         await refreshOpenedUserDetail({
           resetTrafficStrategy: false,
           resetPremium: false,
@@ -813,6 +835,79 @@ export function createUsersStore({
     }
   }
 
+  async function adjustUserBalance(payload: {
+    target: "user" | "partner";
+    mode: "add" | "subtract" | "set";
+    amount: number;
+    reason: string;
+    idempotency_key: string;
+  }) {
+    const s = readStateSnapshot();
+    if (!s.openedUser) return false;
+    applyState((st) => ({ ...st, userActionBusy: true }));
+    try {
+      const res = await api(buildAdminUserActionPath(s.openedUser.user_id, "balance-adjustment"), {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (!res?.ok) {
+        onToast(adminErrorMessage(res, at));
+        return false;
+      }
+      invalidateUsersQueries(s.openedUser.user_id);
+      onToast(at("user_balance_adjustment_saved", {}, "Balance updated"));
+      await refreshOpenedUserDetail({
+        resetExtendTariff: false,
+        resetTariffAction: false,
+        resetTrafficStrategy: false,
+        resetPremium: false,
+        resetRegular: false,
+        resetHwid: false,
+        resetGrant: false,
+        resetSquadOverrides: false,
+      });
+      return true;
+    } finally {
+      applyState((st) => ({ ...st, userActionBusy: false }));
+    }
+  }
+
+  async function convertUserBalance(payload: {
+    direction: "partner_to_user" | "user_to_partner";
+    amount: number;
+    reason: string;
+    idempotency_key: string;
+  }) {
+    const s = readStateSnapshot();
+    if (!s.openedUser) return false;
+    applyState((st) => ({ ...st, userActionBusy: true }));
+    try {
+      const res = await api(buildAdminUserActionPath(s.openedUser.user_id, "balance-conversion"), {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (!res?.ok) {
+        onToast(adminErrorMessage(res, at));
+        return false;
+      }
+      invalidateUsersQueries(s.openedUser.user_id);
+      onToast(at("user_balance_conversion_saved", {}, "Balance converted"));
+      await refreshOpenedUserDetail({
+        resetExtendTariff: false,
+        resetTariffAction: false,
+        resetTrafficStrategy: false,
+        resetPremium: false,
+        resetRegular: false,
+        resetHwid: false,
+        resetGrant: false,
+        resetSquadOverrides: false,
+      });
+      return true;
+    } finally {
+      applyState((st) => ({ ...st, userActionBusy: false }));
+    }
+  }
+
   async function deleteUser() {
     const s = readStateSnapshot();
     const openedUser = s.openedUser;
@@ -858,6 +953,15 @@ export function createUsersStore({
     refreshOpenedUserDetail,
   });
 
+  const notificationPreferenceActions = createUsersStoreNotificationPreferenceActions({
+    api,
+    onToast,
+    at,
+    readStateSnapshot,
+    applyState,
+    invalidateUsersQueries,
+  });
+
   return Object.assign(store, {
     updateState,
     setActive,
@@ -877,8 +981,11 @@ export function createUsersStore({
     saveTrafficStrategy,
     saveHwidDeviceLimit,
     grantTraffic,
+    adjustUserBalance,
+    convertUserBalance,
     ...squadOverrideActions,
     ...subscriptionReissueActions,
+    ...notificationPreferenceActions,
     loadUserLogs,
     setUserLogsSort,
     setUserLogsPage,

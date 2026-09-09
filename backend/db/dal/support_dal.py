@@ -38,6 +38,7 @@ async def create_ticket(
     priority: str,
     first_message_body: str,
     first_message_format: str = "text",
+    image_id: str | None = None,
 ) -> SupportTicket:
     now = datetime.now(UTC)
     ticket = SupportTicket(
@@ -61,6 +62,7 @@ async def create_ticket(
         author_user_id=user_id,
         body=first_message_body,
         body_format=first_message_format,
+        image_id=image_id,
         is_internal_note=False,
         created_at=now,
     )
@@ -79,6 +81,7 @@ async def add_message(
     is_internal_note: bool = False,
     body_format: str = "text",
     buttons: str | None = None,
+    image_id: str | None = None,
 ) -> SupportTicketMessage | None:
     stmt = select(SupportTicket).where(SupportTicket.ticket_id == ticket_id).with_for_update()
     result = await session.execute(stmt)
@@ -94,6 +97,7 @@ async def add_message(
         body=body,
         body_format=body_format,
         buttons=buttons,
+        image_id=image_id,
         is_internal_note=bool(is_internal_note),
         created_at=now,
     )
@@ -383,3 +387,37 @@ async def count_recent_tickets_for_user(
     )
     result = await session.execute(stmt)
     return int(result.scalar_one() or 0)
+
+
+async def count_recent_messages_for_user(
+    session: AsyncSession,
+    user_id: int,
+    window_seconds: int,
+    *,
+    images_only: bool = False,
+) -> int:
+    cutoff = datetime.now(UTC) - timedelta(seconds=max(1, int(window_seconds)))
+    conditions = [
+        SupportTicketMessage.author_role == "user",
+        SupportTicketMessage.author_user_id == user_id,
+        SupportTicketMessage.created_at >= cutoff,
+    ]
+    if images_only:
+        conditions.append(SupportTicketMessage.image_id.is_not(None))
+    stmt = select(func.count()).select_from(SupportTicketMessage).where(*conditions)
+    result = await session.execute(stmt)
+    return int(result.scalar_one() or 0)
+
+
+async def user_can_access_image(session: AsyncSession, user_id: int, image_id: str) -> bool:
+    stmt = (
+        select(SupportTicketMessage.message_id)
+        .join(SupportTicket, SupportTicket.ticket_id == SupportTicketMessage.ticket_id)
+        .where(
+            SupportTicket.user_id == user_id,
+            SupportTicketMessage.image_id == image_id,
+            SupportTicketMessage.is_internal_note.is_(False),
+        )
+        .limit(1)
+    )
+    return (await session.execute(stmt)).scalar_one_or_none() is not None

@@ -4,14 +4,38 @@ import type { AdminApi } from "../../admin/adminStores.js";
 import {
   DEFAULT_PARTNER_LIST_QUERY,
   loadPartnerDashboard,
+  loadPartnerLists,
   loadPartnerPage,
   mapApplication,
   mapPartner,
   mapWithdrawal,
   PARTNER_LIST_PAGE_SIZE,
+  requirePartnerAdminResponse,
 } from "./partnerProgramApi.js";
 
 describe("partner program admin API", () => {
+  it("starts withdrawals without waiting for partner rows and preserves the identity fallback", async () => {
+    let releasePartners!: (value: object) => void;
+    const partners = new Promise((resolve) => {
+      releasePartners = resolve;
+    });
+    const api = vi.fn((path: string) => {
+      if (path.startsWith("/admin/partners?")) return partners;
+      if (path.startsWith("/admin/partner-withdrawals?"))
+        return Promise.resolve({ withdrawals: [{ partner_id: 12, withdrawal_id: 7 }] });
+      return Promise.resolve({ applications: [] });
+    });
+    const loading = loadPartnerLists(api as unknown as AdminApi, "RUB");
+    expect(api).toHaveBeenCalledTimes(3);
+    releasePartners({
+      partners: [{ partner_id: 12, user_id: 34, display_label: "Alice", balances: [] }],
+      total: 1,
+    });
+    const result = await loading;
+    expect(result.withdrawals[0].partner).toBe("Alice");
+    expect(result.withdrawals[0].handle).toBe("#34");
+  });
+
   it("requests the selected server-side page and sort order", async () => {
     const request = vi.fn().mockResolvedValue({
       partners: [
@@ -150,5 +174,11 @@ describe("partner program admin API", () => {
     await loadPartnerDashboard(request as unknown as AdminApi, "RUB");
 
     expect(String(request.mock.calls[0][0])).toContain("days=all");
+  });
+
+  it("rejects failed partner admin actions instead of reporting them as saved", () => {
+    expect(() => requirePartnerAdminResponse({ ok: false, error: "reason_required" })).toThrow(
+      "reason_required"
+    );
   });
 });

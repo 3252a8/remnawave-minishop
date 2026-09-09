@@ -9,6 +9,7 @@
   import type { TicketMessageButtonLike } from "$components/patterns/webapp/types";
   import { webappRichTextLabels } from "$lib/webapp/richTextLabels.js";
   import { wireTextLength } from "$lib/richtext/telegramHtml";
+  import { supportMessageImageUrl } from "$lib/messageImage";
   import {
     clearSupportDraft,
     readSupportDraft,
@@ -25,6 +26,7 @@
     buttons?: TicketMessageButtonLike[];
     created_at?: string;
     is_internal_note?: boolean;
+    image_id?: string | null;
     message_id?: number;
     read_by_admin_at?: string | null;
     read_by_user_at?: string | null;
@@ -50,17 +52,39 @@
 
   const supportStore = getSupportStore();
   let reply = $state("");
+  let replyImage = $state<File | null>(null);
   let messagesScrollEl = $state<HTMLElement | null>(null);
   let lastMessageKey = $state("");
   let replyDraftKey = $state("");
 
   const labels = $derived(webappRichTextLabels(t));
+  const imageLabels = $derived({
+    drop: t("wa_message_image_drop"),
+    choose: t("wa_message_image_choose"),
+    upload: t("wa_message_image_upload"),
+    remove: t("wa_message_image_remove"),
+    hint: t("wa_message_image_hint"),
+    invalidType: t("wa_message_image_invalid_type"),
+    tooLarge: t("wa_message_image_too_large"),
+    previewAlt: t("wa_message_image_preview_alt"),
+  });
+  const imageViewerLabels = $derived({
+    open: t("wa_image_viewer_open", {}, "Open image"),
+    title: t("wa_image_viewer_title", {}, "Image"),
+    close: t("wa_image_viewer_close", {}, "Close image"),
+    zoomIn: t("wa_image_viewer_zoom_in", {}, "Zoom in"),
+    zoomOut: t("wa_image_viewer_zoom_out", {}, "Zoom out"),
+    reset: t("wa_image_viewer_reset", {}, "Reset zoom"),
+  });
   const openedTicket = $derived(supportStore.openedTicket);
   const messages = $derived(supportStore.messages);
   const detailLoading = $derived(supportStore.detailLoading);
   const sending = $derived(supportStore.sending);
   const peerTyping = $derived(supportStore.peerTyping);
-  const closed = $derived(["resolved", "closed"].includes(String(openedTicket?.status || "")));
+  const visibleStatus = $derived(
+    ["resolved", "closed"].includes(String(openedTicket?.status || "")) ? "closed" : "open"
+  );
+  const closed = $derived(visibleStatus === "closed");
   const ticketId = $derived(String(openedTicket?.ticket_id || ""));
   const draftScope = $derived(supportDraftScope(user));
   const nextReplyDraftKey = $derived(ticketId ? `${draftScope}:${ticketId}` : "");
@@ -79,13 +103,14 @@
     else clearSupportDraft("reply", draftScope, ticketId);
   });
 
-  async function send(body: string) {
+  async function send(body: string, image: File | null) {
     const currentTicketId = ticketId;
     const currentDraftScope = draftScope;
-    const sent = await supportStore.sendReply(body);
+    const sent = await supportStore.sendReply(body, image);
     if (!sent) return;
     if (currentTicketId) clearSupportDraft("reply", currentDraftScope, currentTicketId);
     reply = "";
+    replyImage = null;
   }
 
   function scrollMessagesToBottom() {
@@ -181,9 +206,9 @@
         <div class="ticket-badges">
           <Badge
             variant="outline"
-            class={`ticket-status-badge ticket-status-badge--${openedTicket.status}`}
+            class={`ticket-status-badge ticket-status-badge--${visibleStatus}`}
           >
-            {t(`wa_support_status_${openedTicket.status}`)}
+            {t(`wa_support_status_${visibleStatus}`)}
           </Badge>
           <Badge
             variant="muted"
@@ -208,10 +233,13 @@
                 role={message.author_role}
                 body={message.body}
                 bodyFormat={message.body_format}
+                imageUrl={message.image_id ? supportMessageImageUrl(message.image_id) : ""}
+                loadImage={supportStore.loadImage}
                 buttons={message.buttons}
                 createdAt={message.created_at}
                 isInternalNote={message.is_internal_note}
                 supportBrand={brand}
+                {imageViewerLabels}
                 {userAvatarUrl}
                 {userInitials}
                 authorName={messageAuthorName(message)}
@@ -232,7 +260,9 @@
 
       <TicketComposer
         bind:value={reply}
+        bind:image={replyImage}
         {labels}
+        {imageLabels}
         maxLength={maxBodyLength}
         disabled={closed}
         {sending}

@@ -13,8 +13,10 @@ export function handleDialogFocusTrap(
   dialog: HTMLElement | null,
   onEscape: () => void
 ): void {
-  if (!dialog) return;
+  if (!dialog || event.defaultPrevented) return;
   if (event.key === "Escape") {
+    // Portalled menus handle Escape after it bubbles past the dialog trigger.
+    if (dialog.querySelector('[aria-haspopup][aria-expanded="true"]')) return;
     event.preventDefault();
     onEscape();
     return;

@@ -5,6 +5,7 @@ from typing import Any
 
 from config.settings_mixins import _split_csv
 from config.settings_models import (
+    BalanceSettings,
     PanelSettings,
     PartnerSettings,
     PartnerWithdrawalMethod,
@@ -17,6 +18,7 @@ from config.webapp_themes_config import WebappThemesConfig
 
 DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "ADMIN_BROADCAST_AUDIENCE_COUNTS_CACHE_TTL_SECONDS": 30,
+    "ADMIN_BROADCAST_EXCLUDE_BLOCKED_TELEGRAM": False,
     "ADMIN_DB_STATS_CACHE_TTL_SECONDS": 5,
     "ADMIN_PANEL_STATS_CACHE_TTL_SECONDS": 15,
     "ADMIN_USERS_LIST_CACHE_TTL_SECONDS": 3,
@@ -29,6 +31,11 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "CRYPT4_REDIRECT_URL": None,
     "DEFAULT_CURRENCY_SYMBOL": "RUB",
     "DEFAULT_LANGUAGE": "ru",
+    "USER_BALANCE_ENABLED": False,
+    "USER_BALANCE_CURRENCY": "",
+    "USER_BALANCE_TOPUP_MIN_AMOUNT": 100,
+    "USER_BALANCE_TOPUP_MAX_AMOUNT": 100000,
+    "USER_BALANCE_TOPUP_PRESETS": "[500, 1000, 2000, 5000]",
     "DISPOSABLE_EMAIL_DOMAINS": "",
     "EMAIL_CODE_MAX_ATTEMPTS": 5,
     "EMAIL_CODE_RESEND_SECONDS": 60,
@@ -72,13 +79,23 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "PARTNER_LIST_PAGE_LIMIT": 50,
     "PARTNER_APPLICATION_RATE_LIMIT_HOURS": 24,
     "PARTNER_WITHDRAWAL_RATE_LIMIT_SECONDS": 10,
-    "PARTNER_AUDIT_RETENTION_DAYS": 1095,
+    "PARTNER_AUDIT_RETENTION_DAYS": 0,
     "PARTNER_REQUISITES_RETENTION_DAYS": 90,
     "PARTNER_REQUISITES_ENCRYPTION_KEY": None,
     "PARTNER_REQUISITES_KEY_ID": "v1",
     "PROFILE_SYNC_CACHE_TTL_SECONDS": 900,
     "REDIS_KEY_PREFIX": "tests",
     "REDIS_URL": None,
+    "SERVER_STATUS_CACHE_TTL_SECONDS": 30,
+    "SERVER_STATUS_ENABLED": False,
+    "SERVER_STATUS_SHOW_ON_HOME": False,
+    "SERVER_STATUS_KUMA_SLUG": "default",
+    "SERVER_STATUS_KUMA_URL": None,
+    "SERVER_STATUS_PROVIDER": "url",
+    "SERVER_STATUS_STALE_TTL_SECONDS": 300,
+    "SERVER_STATUS_TIMEOUT_SECONDS": 5,
+    "SERVER_STATUS_URL": None,
+    "SERVER_STATUS_XRAY_CHECKER_URL": None,
     "REFERRAL_PROGRAM_ENABLED": True,
     "REFERRAL_ONE_BONUS_PER_REFEREE": False,
     "REFERRAL_WELCOME_BONUS_DAYS": 0,
@@ -122,8 +139,12 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "TORRENT_BLOCKER_NOTIFICATION_INCLUDE_IP": False,
     "TORRENT_BLOCKER_TELEGRAM_NOTIFICATIONS_ENABLED": True,
     "TRIAL_DURATION_DAYS": 3,
+    "TRIAL_DAYS_STRATEGY": "add_remaining",
     "TRIAL_ENABLED": True,
     "TRIAL_HWID_DEVICE_LIMIT": None,
+    "TRIAL_PAYMENT_ENABLED": False,
+    "TRIAL_PAYMENT_PRICE": 100.0,
+    "TRIAL_PAYMENT_STARS_PRICE": 100,
     "TRIAL_TRAFFIC_LIMIT_GB": 5.0,
     "TRIAL_TRAFFIC_STRATEGY": "NO_RESET",
     "TRIAL_WITHOUT_TELEGRAM_ENABLED": True,
@@ -139,7 +160,9 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "WEBAPP_API_BASE_URL": "/api",
     "MINISHOP_EDGE_TOKEN": "",
     "MINISHOP_EDGE_TOKEN_HEADER": "X-Minishop-Edge-Token",
+    "MENU_BUTTONS_JSON": "[]",
     "WEBAPP_PRIMARY_COLOR": "#00fe7a",
+    "WEBAPP_COMPACT_HOME_ENABLED": False,
     "WEBAPP_SERVER_HOST": "0.0.0.0",
     "WEBAPP_SERVER_PORT": 8080,
     "WEBAPP_SESSION_SECRET": "test-session-secret",
@@ -205,6 +228,8 @@ class SettingsStub(SimpleNamespace):
         return WebAppSettings(
             title=getattr(self, "WEBAPP_TITLE", "/minishop"),
             primary_color=getattr(self, "WEBAPP_PRIMARY_COLOR", "#00fe7a"),
+            user_theme_mode_enabled=bool(getattr(self, "WEBAPP_USER_THEME_MODE_ENABLED", True)),
+            compact_home_enabled=bool(getattr(self, "WEBAPP_COMPACT_HOME_ENABLED", False)),
             logo_url=getattr(self, "WEBAPP_LOGO_URL", None),
             favicon_use_custom=bool(getattr(self, "WEBAPP_FAVICON_USE_CUSTOM", False)),
             favicon_url=getattr(self, "WEBAPP_FAVICON_URL", None),
@@ -267,6 +292,10 @@ class SettingsStub(SimpleNamespace):
             ticket_max_body_length=int(getattr(self, "SUPPORT_TICKET_MAX_BODY_LENGTH", 4000)),
             ticket_max_subject_length=int(getattr(self, "SUPPORT_TICKET_MAX_SUBJECT_LENGTH", 160)),
             ticket_rate_limit_per_hour=int(getattr(self, "SUPPORT_TICKET_RATE_LIMIT_PER_HOUR", 5)),
+            message_rate_limit_per_minute=int(
+                getattr(self, "SUPPORT_MESSAGE_RATE_LIMIT_PER_MINUTE", 10)
+            ),
+            image_rate_limit_per_day=int(getattr(self, "SUPPORT_IMAGE_RATE_LIMIT_PER_DAY", 20)),
             admin_email_notifications_enabled=bool(
                 getattr(self, "SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED", False)
             ),
@@ -277,6 +306,13 @@ class SettingsStub(SimpleNamespace):
                 getattr(self, "SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS", 1800)
             ),
         )
+
+    @property
+    def server_status_external_url(self) -> str | None:
+        if not self.SERVER_STATUS_ENABLED or self.SERVER_STATUS_PROVIDER != "url":
+            return None
+        value = str(self.SERVER_STATUS_URL or "").strip()
+        return value or None
 
     @property
     def referral_settings(self) -> ReferralSettings:
@@ -304,6 +340,18 @@ class SettingsStub(SimpleNamespace):
     def registration_settings(self) -> RegistrationSettings:
         return RegistrationSettings(
             invite_only_enabled=bool(getattr(self, "REGISTRATION_INVITE_ONLY_ENABLED", False)),
+        )
+
+    @property
+    def balance_settings(self) -> BalanceSettings:
+        import json
+
+        return BalanceSettings(
+            enabled=bool(self.USER_BALANCE_ENABLED),
+            currency=str(self.USER_BALANCE_CURRENCY or self.DEFAULT_CURRENCY_SYMBOL or "RUB"),
+            topup_min_amount=float(self.USER_BALANCE_TOPUP_MIN_AMOUNT),
+            topup_max_amount=float(self.USER_BALANCE_TOPUP_MAX_AMOUNT),
+            topup_presets=json.loads(self.USER_BALANCE_TOPUP_PRESETS),
         )
 
     @property

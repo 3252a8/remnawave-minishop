@@ -1,5 +1,6 @@
 import { DEV_MOCK } from "../previewMock.js";
-import type { PreviewThemesCatalog } from "../previewMock/types";
+import { themePackageResponse } from "./themePackages";
+import { adminGiftDemoStats } from "./giftsDemo";
 import { defaultClone, type DemoRecord, type MockApiContext } from "./dataset";
 import type { AdminDemoFixtures } from "./adminFixtures";
 import { demoProviderCurrencySupport } from "./providers";
@@ -17,6 +18,8 @@ export function adminFallbackResponse(
   context: MockApiContext,
   fixtures: AdminDemoFixtures
 ): unknown {
+  const themeResponse = themePackageResponse(path, options);
+  if (themeResponse !== undefined) return themeResponse;
   const { clone = defaultClone } = context;
   const {
     adminUsers,
@@ -47,6 +50,7 @@ export function adminFallbackResponse(
         referral_users: 34,
       },
       financial: {
+        ...adminGiftDemoStats(),
         today_revenue: 1240,
         week_revenue: 15800,
         month_revenue: 44100,
@@ -238,30 +242,6 @@ export function adminFallbackResponse(
       ],
     };
   }
-  if (path === "/admin/themes") {
-    if (String(options.method || "GET").toUpperCase() === "PUT") {
-      try {
-        const body = (options?.body ? JSON.parse(String(options.body)) : {}) as DemoRecord;
-        const catalog = (body.catalog || body) as DemoRecord & { themes?: unknown };
-        if (catalog?.themes) {
-          DEV_MOCK.config.themesCatalog = clone(catalog) as unknown as PreviewThemesCatalog;
-          DEV_MOCK.data.themes_catalog = clone(catalog) as unknown as PreviewThemesCatalog;
-        }
-      } catch (_e) {
-        void _e;
-      }
-      return {
-        ok: true,
-        themes_dir: "data/themes",
-        catalog: clone(DEV_MOCK.config.themesCatalog),
-      };
-    }
-    return {
-      ok: true,
-      themes_dir: "data/themes",
-      catalog: clone(DEV_MOCK.config.themesCatalog),
-    };
-  }
   if (path === "/admin/appearance/logo") {
     const logoUrl = "/webapp-uploaded-logo/logo-0000000000000000.png";
     const faviconUrl = "/webapp-favicon/0000000000000000/icon-180.png";
@@ -358,6 +338,15 @@ export function adminFallbackResponse(
       if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_TITLE")) {
         DEV_MOCK.config.title = updates.WEBAPP_TITLE || "";
       }
+      if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_USER_THEME_MODE_ENABLED")) {
+        DEV_MOCK.config.userThemeModeEnabled = Boolean(updates.WEBAPP_USER_THEME_MODE_ENABLED);
+      }
+      if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_COMPACT_HOME_ENABLED")) {
+        DEV_MOCK.config.compactHomeEnabled = Boolean(updates.WEBAPP_COMPACT_HOME_ENABLED);
+      }
+      if (Object.prototype.hasOwnProperty.call(updates, "SERVER_STATUS_SHOW_ON_HOME")) {
+        DEV_MOCK.config.serverStatusShowOnHome = Boolean(updates.SERVER_STATUS_SHOW_ON_HOME);
+      }
       if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_LOGO_URL")) {
         DEV_MOCK.config.logoUrl = updates.WEBAPP_LOGO_URL || "";
       }
@@ -425,6 +414,9 @@ export function adminFallbackResponse(
       if (Object.prototype.hasOwnProperty.call(updates, "REFERRAL_PROGRAM_ENABLED")) {
         DEV_MOCK.config.referralProgramEnabled = Boolean(updates.REFERRAL_PROGRAM_ENABLED);
         DEV_MOCK.data.settings.referral_program_enabled = Boolean(updates.REFERRAL_PROGRAM_ENABLED);
+      }
+      if (Object.prototype.hasOwnProperty.call(updates, "GIFTS_ENABLED")) {
+        DEV_MOCK.config.giftsEnabled = Boolean(updates.GIFTS_ENABLED);
       }
       if (Object.prototype.hasOwnProperty.call(updates, "REFERRAL_ONE_BONUS_PER_REFEREE")) {
         DEV_MOCK.config.referralOneBonusPerReferee = Boolean(
@@ -557,6 +549,20 @@ export function adminFallbackResponse(
           order: 2,
           fields: [
             {
+              key: "WEBAPP_USER_THEME_MODE_ENABLED",
+              type: "bool",
+              section: "appearance",
+              label: "User theme mode selection",
+              value: Boolean(DEV_MOCK.config.userThemeModeEnabled),
+            },
+            {
+              key: "WEBAPP_COMPACT_HOME_ENABLED",
+              type: "bool",
+              section: "appearance",
+              label: "Compact Home screen",
+              value: Boolean(DEV_MOCK.config.compactHomeEnabled),
+            },
+            {
               key: "WEBAPP_LOGO_URL",
               type: "url",
               section: "appearance",
@@ -665,8 +671,8 @@ export function adminFallbackResponse(
             {
               key: "REFERRAL_PROGRAM_ENABLED",
               type: "bool",
-              section: "pricing",
-              subsection: "referral",
+              section: "system",
+              subsection: "email_anti_abuse",
               label: "Реферальная программа",
               description:
                 "Отключает реферальные ссылки, атрибуцию и бонусы, но оставляет доступными промокоды.",

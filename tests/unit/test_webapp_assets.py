@@ -41,6 +41,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                                 "hwid_device_limit": 5,
                                 "premium_squad_uuids": ["premium-uuid"],
                                 "premium_monthly_gb": 25,
+                                "premium_names": {"en": "Fast lane", "ru": "Быстрый доступ"},
                                 "premium_traffic_limit_strategy": "DAY",
                                 "hwid_device_packages": {
                                     "rub": [{"count": 1, "price": 99}],
@@ -63,6 +64,18 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                                 },
                                 "enabled": True,
                             },
+                            {
+                                "key": "private",
+                                "names": {"en": "Private"},
+                                "descriptions": {"en": "Assigned by an administrator"},
+                                "squad_uuids": ["uuid"],
+                                "billing_model": "period",
+                                "monthly_gb": 200,
+                                "prices_rub": {"1": 250},
+                                "prices_stars": {"1": 0},
+                                "enabled_periods": [1],
+                                "enabled": False,
+                            },
                         ],
                     }
                 ),
@@ -78,14 +91,26 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             )
 
             plans = subscription_webapp._serialize_plans(settings, "en")
+            russian_plans = subscription_webapp._serialize_plans(settings, "ru")
+            assigned_plans = subscription_webapp._serialize_plans(
+                settings,
+                "en",
+                assigned_tariff_key="private",
+            )
 
         self.assertEqual([plan["tariff_key"] for plan in plans], ["standard", "traffic"])
+        self.assertEqual(
+            [plan["tariff_key"] for plan in assigned_plans],
+            ["standard", "traffic", "private"],
+        )
         self.assertEqual(plans[0]["sale_mode"], "subscription")
         self.assertTrue(plans[0]["is_default_tariff"])
         self.assertEqual(plans[0]["months"], 1)
         self.assertEqual(plans[0]["hwid_device_limit"], 5)
         self.assertEqual(plans[0]["effective_hwid_device_limit"], 5)
         self.assertTrue(plans[0]["premium_enabled"])
+        self.assertEqual(plans[0]["premium_title"], "Fast lane")
+        self.assertEqual(russian_plans[0]["premium_title"], "Быстрый доступ")
         self.assertEqual(plans[0]["premium_monthly_gb"], 25)
         self.assertFalse(plans[0]["premium_unlimited"])
         self.assertEqual(plans[0]["traffic_limit_strategy"], "WEEK")
@@ -233,38 +258,42 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             details,
             [
                 {
-                    "id": "standard:2",
+                    "id": "standard:60",
                     "tariff_key": "standard",
                     "tariff_name": "Standard",
                     "months": 2,
+                    "duration_days": 60,
                     "title": "2 months",
                     "inviter_days": 5,
                     "friend_days": 1,
                 },
                 {
-                    "id": "standard:4",
+                    "id": "standard:120",
                     "tariff_key": "standard",
                     "tariff_name": "Standard",
                     "months": 4,
+                    "duration_days": 120,
                     "title": "4 months",
                     "inviter_days": 10,
                     "friend_days": 2,
                 },
                 {
-                    "id": "standard:8",
+                    "id": "standard:240",
                     "tariff_key": "standard",
                     "tariff_name": "Standard",
                     "months": 8,
+                    "duration_days": 240,
                     "title": "8 months",
                     "inviter_days": 0,
                     "friend_days": 4,
                 },
                 {
-                    "id": "standard:16",
+                    "id": "standard:485",
                     "tariff_key": "standard",
                     "tariff_name": "Standard",
                     "months": 16,
-                    "title": "16 months",
+                    "duration_days": 485,
+                    "title": "485 days",
                     "inviter_days": 40,
                     "friend_days": 0,
                 },
@@ -368,39 +397,39 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             css,
         )
 
-    def test_settings_screen_places_server_status_between_legal_and_support_links(self):
-        app_source = (Path(__file__).resolve().parents[2] / "frontend/src/App.svelte").read_text(
+    def test_server_status_defaults_to_settings_and_home_card_is_opt_in(self):
+        root = Path(__file__).resolve().parents[2]
+        app_mode_source = (root / "frontend/src/webapp/AppModeContent.svelte").read_text(
             encoding="utf-8"
         )
-        app_mode_source = (
-            Path(__file__).resolve().parents[2] / "frontend/src/webapp/AppModeContent.svelte"
-        ).read_text(encoding="utf-8")
-        account_view_source = (
-            Path(__file__).resolve().parents[2] / "frontend/src/lib/webapp/accountView.ts"
-        ).read_text(encoding="utf-8")
-        settings_source = (
-            Path(__file__).resolve().parents[2]
-            / "frontend/src/webapp/screens/SettingsScreen.svelte"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn("cfg.serverStatusUrl", account_view_source)
-        self.assertIn("appSettings?.server_status_url", account_view_source)
-        self.assertIn("{shellView}", app_source)
-        self.assertIn("const accountView = $derived(shellView.accountView)", app_mode_source)
-        self.assertIn(
-            "const serverStatusUrl = $derived(accountView.serverStatusUrl)", app_mode_source
+        card_source = (root / "frontend/src/webapp/ServerStatusCard.svelte").read_text(
+            encoding="utf-8"
         )
-        self.assertIn("{serverStatusUrl}", app_mode_source)
-        self.assertIn('t("menu_server_status_button")', settings_source)
+        home_source = (root / "frontend/src/webapp/screens/HomeScreen.svelte").read_text(
+            encoding="utf-8"
+        )
+        settings_source = (root / "frontend/src/webapp/screens/SettingsScreen.svelte").read_text(
+            encoding="utf-8"
+        )
+        authenticated_screens_source = (
+            root / "frontend/src/webapp/AuthenticatedScreens.svelte"
+        ).read_text(encoding="utf-8")
 
-        agreement_pos = settings_source.index("{#if userAgreementUrl}")
-        privacy_pos = settings_source.index("{#if privacyPolicyUrl}")
-        status_pos = settings_source.index("{#if serverStatusUrl}")
-        support_pos = settings_source.index("{#if supportUrl}")
-
-        self.assertLess(agreement_pos, status_pos)
-        self.assertLess(privacy_pos, status_pos)
-        self.assertLess(status_pos, support_pos)
+        self.assertEqual(home_source.count("<ServerStatusCard"), 1)
+        self.assertIn("{#if serverStatusShowOnHome}", home_source)
+        status_card_index = home_source.index("<ServerStatusCard")
+        self.assertGreater(status_card_index, home_source.index('class="premium-progress"'))
+        self.assertLess(status_card_index, home_source.index('<div class="action-stack">'))
+        self.assertIn("{#if status?.enabled}", card_source)
+        self.assertIn("settings-row-status", settings_source)
+        self.assertIn('t("wa_server_status_title", {}, "Server status")', settings_source)
+        self.assertIn("serverStatusInternal", authenticated_screens_source)
+        self.assertIn('goStatus={() => goStatus("home")}', authenticated_screens_source)
+        self.assertIn('openServerStatus={() => goStatus("settings")}', authenticated_screens_source)
+        self.assertIn(
+            "const serverStatusShowOnHome = $derived(cfg.serverStatusShowOnHome === true)",
+            app_mode_source,
+        )
 
     def test_subscription_reissue_settings_action_and_dialog_use_danger_layout(self):
         root = Path(__file__).resolve().parents[2]
@@ -409,6 +438,15 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         dialog_source = (
             root / "frontend/src/webapp/payment-dialogs/SubscriptionReissueDialog.svelte"
         ).read_text(encoding="utf-8")
+        security_source = (root / "frontend/src/webapp/screens/SecurityScreen.svelte").read_text(
+            encoding="utf-8"
+        )
+        settings_source = (root / "frontend/src/webapp/screens/SettingsScreen.svelte").read_text(
+            encoding="utf-8"
+        )
+        devices_source = (root / "frontend/src/webapp/screens/DevicesScreen.svelte").read_text(
+            encoding="utf-8"
+        )
 
         self.assertIn(
             ".settings-row-subscription-reissue {\n  grid-column: 1 / -1;\n}",
@@ -423,6 +461,9 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             ".webapp-subscription-reissue-dialog .device-danger-button",
             dialogs_css,
         )
+        self.assertIn('data-webapp-action="open-subscription-reissue"', security_source)
+        self.assertNotIn('data-webapp-action="open-subscription-reissue"', settings_source)
+        self.assertNotIn('data-webapp-action="open-subscription-reissue"', devices_source)
 
     def test_webapp_bootstrap_exposes_server_status_url(self):
         settings = Settings(
@@ -430,7 +471,11 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             BOT_TOKEN="123456:token",
             POSTGRES_USER="app_user",
             POSTGRES_PASSWORD="app_password",
+            SERVER_STATUS_ENABLED=True,
+            SERVER_STATUS_PROVIDER="url",
             SERVER_STATUS_URL="https://status.example.com",
+            SERVER_STATUS_SHOW_ON_HOME=True,
+            WEBAPP_COMPACT_HOME_ENABLED=True,
             SUPPORT_LINK="https://t.me/support",
             PRIVACY_POLICY_URL="https://example.com/privacy",
             USER_AGREEMENT_URL="https://example.com/agreement",
@@ -440,11 +485,13 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 "en": {
                     "menu_support_button": "Support",
                     "menu_server_status_button": "Server status",
+                    "wa_server_status_title": "Custom app status",
                     "wa_nav_admin": "Admin panel",
                     "wa_promo_requires_checkout": "Apply this code at checkout.",
                     "admin_settings_title": "Admin settings",
                 },
                 "ru": {
+                    "wa_server_status_title": "Статус в приложении",
                     "wa_nav_admin": "Админ-панель",
                     "wa_promo_requires_checkout": "Примените этот промокод при оплате.",
                 },
@@ -464,12 +511,18 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         payload = subscription_webapp._build_webapp_bootstrap_payload(request)
 
         self.assertEqual(payload["config"]["serverStatusUrl"], "https://status.example.com")
+        self.assertFalse(payload["config"]["serverStatusInternal"])
+        self.assertTrue(payload["config"]["serverStatusShowOnHome"])
         self.assertEqual(payload["config"]["apiBase"], "/api")
+        self.assertTrue(payload["config"]["userThemeModeEnabled"])
+        self.assertTrue(payload["config"]["compactHomeEnabled"])
         self.assertEqual(
             request.app["webapp_settings_cache"]["data"]["server_status_url"],
             "https://status.example.com",
         )
-        self.assertEqual(payload["i18n"]["en"]["menu_server_status_button"], "Server status")
+        self.assertNotIn("menu_server_status_button", payload["i18n"]["en"])
+        self.assertEqual(payload["i18n"]["en"]["wa_server_status_title"], "Custom app status")
+        self.assertEqual(payload["i18n"]["ru"]["wa_server_status_title"], "Статус в приложении")
         self.assertEqual(payload["i18n"]["en"]["menu_support_button"], "Support")
         self.assertEqual(payload["i18n"]["ru"]["wa_nav_admin"], "Админ-панель")
         self.assertEqual(
@@ -477,6 +530,64 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             "Примените этот промокод при оплате.",
         )
         self.assertNotIn("admin_settings_title", payload["i18n"]["en"])
+
+    def test_webapp_bootstrap_hides_server_status_url_outside_enabled_url_mode(self):
+        for enabled, provider in ((False, "url"), (True, "uptime-kuma")):
+            with self.subTest(enabled=enabled, provider=provider):
+                settings = Settings(
+                    _env_file=None,
+                    BOT_TOKEN="123456:token",
+                    POSTGRES_USER="app_user",
+                    POSTGRES_PASSWORD="app_password",
+                    SERVER_STATUS_ENABLED=enabled,
+                    SERVER_STATUS_PROVIDER=provider,
+                    SERVER_STATUS_URL="https://status.example.com",
+                )
+                request = SimpleNamespace(
+                    app={
+                        "settings": settings,
+                        "webapp_settings_cache": {"ts": 0.0, "data": {}},
+                        "i18n": None,
+                    },
+                    query={},
+                )
+
+                payload = subscription_webapp._build_webapp_bootstrap_payload(request)
+
+                self.assertEqual(payload["config"]["serverStatusUrl"], "")
+                self.assertEqual(
+                    payload["config"]["serverStatusInternal"],
+                    enabled and provider != "url",
+                )
+                self.assertFalse(payload["config"]["serverStatusShowOnHome"])
+
+    def test_server_status_polling_starts_only_after_authenticated_data_loads(self):
+        root = Path(__file__).resolve().parents[2]
+        app_source = (root / "frontend/src/App.svelte").read_text(encoding="utf-8")
+
+        self.assertIn('if (mode !== "app" || !data?.user) return;', app_source)
+        self.assertIn("untrack(() => serverStatusStore.start())", app_source)
+
+    def test_webapp_bootstrap_exposes_disabled_user_theme_mode_selection(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="123456:token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            WEBAPP_USER_THEME_MODE_ENABLED=False,
+        )
+        request = SimpleNamespace(
+            app={
+                "settings": settings,
+                "webapp_settings_cache": {"ts": 0.0, "data": {}},
+                "i18n": None,
+            },
+            query={},
+        )
+
+        payload = subscription_webapp._build_webapp_bootstrap_payload(request)
+
+        self.assertFalse(payload["config"]["userThemeModeEnabled"])
 
     def test_webapp_shell_preload_markup_includes_public_guide_fetch(self):
         token = "8f559061460e8fede78ef18dce887236"
@@ -1001,6 +1112,18 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             medium,
         )
 
+    def test_select_full_telegram_photo_size_prefers_largest_photo(self):
+        from bot.app.web.webapp.common import _select_full_telegram_photo_size
+
+        small = SimpleNamespace(width=80, height=80, file_size=5000)
+        medium = SimpleNamespace(width=160, height=160, file_size=12000)
+        large = SimpleNamespace(width=640, height=640, file_size=90000)
+
+        self.assertIs(
+            _select_full_telegram_photo_size([small, large, medium]),
+            large,
+        )
+
     def test_serialize_plans_uses_traffic_packages_in_traffic_mode(self):
         settings = Settings(
             _env_file=None,
@@ -1300,6 +1423,24 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 self.assertRaises(web.HTTPNotFound),
             ):
                 await assets_static.provider_logo_asset_route(request)
+
+    async def test_flag_font_route_serves_local_woff2_asset(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            asset_dir = Path(tmpdir)
+            font_dir = asset_dir / "fonts"
+            font_dir.mkdir()
+            (font_dir / assets_static.FLAG_FONT_FILENAME).write_bytes(b"wOF2font")
+
+            request = SimpleNamespace(app={"settings": SimpleNamespace(WEBAPP_ENABLED=True)})
+
+            with patch.object(assets_static, "ASSET_DIR", asset_dir):
+                response = await assets_static.flag_font_asset_route(request)
+
+            self.assertEqual(response.content_type, "font/woff2")
+            self.assertEqual(response.body, b"wOF2font")
+            self.assertEqual(
+                response.headers["Cache-Control"], "public, max-age=31536000, immutable"
+            )
 
     async def test_js_asset_route_sets_immutable_cache_control_for_minified_asset(self):
         with tempfile.TemporaryDirectory() as tmpdir:

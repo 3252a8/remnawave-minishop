@@ -1,0 +1,10 @@
+/* Telegram's iOS WebView does not always opt page content into native text
+   selection. Explicitly enable long-press selection and the copy callout;
+   component-level rules still disable selection for drag-only controls. */
+html,
+body,
+body * {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}

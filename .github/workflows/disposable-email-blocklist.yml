@@ -1,0 +1,62 @@
+name: Refresh disposable-email blocklist
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: disposable-email-blocklist-refresh
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh:
+    name: Refresh snapshot
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout dev
+        uses: actions/checkout@v5
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Refresh blocklist
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python scripts/update_disposable_email_blocklist.py
+
+      - name: Create or update review pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet -- backend/config/disposable_email_blocklist.conf; then
+            echo "The snapshot is already current."
+            exit 0
+          fi
+
+          branch="automation/disposable-email-blocklist"
+          git fetch origin "refs/heads/$branch:refs/remotes/origin/$branch" || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch"
+          git add backend/config/disposable_email_blocklist.conf
+          git commit -m "chore: refresh disposable email domains"
+          git push --force-with-lease origin "HEAD:$branch"
+
+          existing_pr="$(gh pr list --base dev --head "$branch" --state open --json number --jq '.[0].number // empty')"
+          if [ -z "$existing_pr" ]; then
+            gh pr create \
+              --base dev \
+              --head "$branch" \
+              --title "chore: refresh disposable email domains" \
+              --body "Automated weekly refresh of the vendored disposable-email snapshot. Review source changes before merging; production never fetches these lists at runtime."
+          fi

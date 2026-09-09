@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { formatTemplate } from "../../webapp/formatters.js";
 import { createUsersStore } from "./usersStore.js";
+import { copyText } from "./usersStoreHelpers.js";
 
 function makeStore(api = vi.fn()) {
   return createUsersStore({
@@ -12,6 +13,19 @@ function makeStore(api = vi.fn()) {
 }
 
 describe("usersStore", () => {
+  it("reports whether the shared clipboard path copied a user value", async () => {
+    const onToast = vi.fn();
+    const copy = vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+
+    await copyText("alice@example.test", "Copied", onToast, copy);
+    await copyText("@alice", "Copied", onToast, copy);
+
+    expect(copy).toHaveBeenNthCalledWith(1, "alice@example.test");
+    expect(copy).toHaveBeenNthCalledWith(2, "@alice");
+    expect(onToast).toHaveBeenNthCalledWith(1, "Copied");
+    expect(onToast).toHaveBeenNthCalledWith(2, "@alice");
+  });
+
   it("loads users with page, filter and sorting parameters", async () => {
     const api = vi.fn().mockResolvedValue({ ok: true, users: [{ user_id: 42 }], total: 1 });
     const store = makeStore(api);
@@ -106,6 +120,36 @@ describe("usersStore", () => {
     expect(store.userApplyTariffHwidLimit).toBe(false);
   });
 
+  it("sends signed day and exact-date subscription term changes", async () => {
+    const api = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ ok: true, user: { user_id: 42 }, active_subscription: null })
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ ok: true, user: { user_id: 42 }, active_subscription: null });
+    const store = makeStore(api);
+    store.updateState({
+      openedUser: { user_id: 42 },
+      userExtendMode: "days",
+      userExtendDays: -365,
+    });
+
+    await store.extendUser();
+
+    expect(api).toHaveBeenNthCalledWith(1, "/admin/users/42/extend", {
+      method: "POST",
+      body: JSON.stringify({ extend_hwid_devices: true, days: -365 }),
+    });
+
+    store.updateState({ userExtendMode: "date", userExtendEndDate: "2031-01-01" });
+    await store.extendUser();
+
+    expect(api).toHaveBeenNthCalledWith(3, "/admin/users/42/extend", {
+      method: "POST",
+      body: JSON.stringify({ extend_hwid_devices: true, end_date: "2031-01-01" }),
+    });
+  });
+
   it("shows traffic grant toasts with interpolated user identity", async () => {
     const api = vi
       .fn()
@@ -145,5 +189,40 @@ describe("usersStore", () => {
     );
     expect(onToast).toHaveBeenCalledWith("+25 GB premium granted to Ann Lee (ID: 77)");
     expect(onToast.mock.calls[0][0]).not.toContain("{user_id}");
+  });
+
+  it("posts a balance adjustment and refreshes the immutable ledger", async () => {
+    const api = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, balance: { amount: "500.00", currency: "RUB" } })
+      .mockResolvedValueOnce({
+        ok: true,
+        user: { user_id: 77, first_name: "Ann" },
+        active_subscription: null,
+        balance: { amount: "500.00", currency: "RUB", history: [{ entry_id: 1 }] },
+      });
+    const store = makeStore(api);
+    store.updateState({ openedUser: { user_id: 77 } });
+
+    await store.adjustUserBalance({
+      target: "partner",
+      mode: "add",
+      amount: 500,
+      reason: "Goodwill credit",
+      idempotency_key: "adjust:77:1",
+    });
+
+    expect(api).toHaveBeenNthCalledWith(1, "/admin/users/77/balance-adjustment", {
+      method: "POST",
+      body: JSON.stringify({
+        target: "partner",
+        mode: "add",
+        amount: 500,
+        reason: "Goodwill credit",
+        idempotency_key: "adjust:77:1",
+      }),
+    });
+    expect(api).toHaveBeenNthCalledWith(2, "/admin/users/77");
+    expect(store.openedUserDetail?.balance.history).toEqual([{ entry_id: 1 }]);
   });
 });
