@@ -49,6 +49,13 @@ def test_menu_buttons_are_normalized_and_keep_order() -> None:
     assert "icon" not in json.loads(normalized)[0]
 
 
+def test_notification_settings_is_a_supported_webapp_target() -> None:
+    payload = _payload()
+    payload[1]["target"] = "/notifications/"
+
+    assert parse_menu_buttons(payload)[1].target == "notifications"
+
+
 def test_generic_link_automatically_becomes_a_telegram_target() -> None:
     payload = _payload()
     payload[0]["kind"] = "external"

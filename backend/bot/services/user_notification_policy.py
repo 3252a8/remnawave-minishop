@@ -11,9 +11,11 @@ from bot.services.telegram_notifications import (
     TELEGRAM_NOTIFICATIONS_NEEDS_START,
     normalize_telegram_notification_status,
 )
+from bot.services.user_notification_preferences import UserNotificationPreferences
 
 
 class UserNotificationCategory(StrEnum):
+    MARKETING = "marketing"
     PAYMENTS = "payments"
     SUBSCRIPTIONS = "subscriptions"
     TRAFFIC = "traffic"
@@ -36,6 +38,10 @@ class UserNotificationDeliveryPlan:
 
 
 _CATEGORY_SETTING_KEYS: dict[UserNotificationCategory, tuple[str, str]] = {
+    UserNotificationCategory.MARKETING: (
+        "USER_NOTIFICATION_MARKETING_TELEGRAM_ENABLED",
+        "USER_NOTIFICATION_MARKETING_EMAIL_ENABLED",
+    ),
     UserNotificationCategory.PAYMENTS: (
         "USER_NOTIFICATION_PAYMENTS_TELEGRAM_ENABLED",
         "USER_NOTIFICATION_PAYMENTS_EMAIL_ENABLED",
@@ -83,6 +89,23 @@ def user_notification_channel_selected(
     telegram_key, email_key = _CATEGORY_SETTING_KEYS[category]
     key = telegram_key if channel == "telegram" else email_key
     return bool(getattr(settings, key, True))
+
+
+def user_notification_channel_allowed(
+    user: Any,
+    category: UserNotificationCategory,
+    channel: str,
+) -> bool:
+    """Return the user's opt-in independently from channel availability."""
+
+    preferences = UserNotificationPreferences.from_user(user)
+    if category == UserNotificationCategory.SUPPORT:
+        return True
+    if category == UserNotificationCategory.MARKETING:
+        return (
+            preferences.marketing_telegram if channel == "telegram" else preferences.marketing_email
+        )
+    return preferences.system_telegram if channel == "telegram" else preferences.system_email
 
 
 def telegram_recipient(user: Any, fallback_user_id: Any = None) -> int | None:
@@ -140,7 +163,12 @@ def user_notification_delivery_plan(
 
     telegram_selected = user_notification_channel_selected(settings, category, "telegram")
     email_selected = user_notification_channel_selected(settings, category, "email")
-    if not telegram_selected and not email_selected:
+    telegram_allowed = user_notification_channel_allowed(user, category, "telegram")
+    email_allowed = user_notification_channel_allowed(user, category, "email")
+
+    effective_telegram_selected = telegram_selected and telegram_allowed
+    effective_email_selected = email_selected and email_allowed
+    if not effective_telegram_selected and not effective_email_selected:
         return UserNotificationDeliveryPlan()
 
     if telegram_available is None:
@@ -148,8 +176,8 @@ def user_notification_delivery_plan(
     if email_available is None:
         email_available = bool(email_recipient(settings, user))
 
-    send_telegram = telegram_selected and telegram_available
-    send_email = email_selected and email_available
+    send_telegram = effective_telegram_selected and telegram_available
+    send_email = effective_email_selected and email_available
     if send_telegram or send_email:
         return UserNotificationDeliveryPlan(
             telegram=send_telegram,
@@ -161,6 +189,6 @@ def user_notification_delivery_plan(
         return UserNotificationDeliveryPlan()
 
     return UserNotificationDeliveryPlan(
-        telegram=bool(telegram_available),
-        email=bool(email_available),
+        telegram=bool(telegram_allowed and telegram_available),
+        email=bool(email_allowed and email_available),
     )

@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.services.user_notification_policy import (
     UserNotificationCategory,
     telegram_recipient,
+    user_notification_channel_allowed,
     user_notification_channel_selected,
     user_notification_delivery_plan,
 )
@@ -259,10 +260,17 @@ async def deliver_traffic_warning(
         except Exception:
             logger.exception(telegram_failure_message, user_id)
 
-    if plan.email or user_notification_channel_selected(
-        settings,
-        UserNotificationCategory.TRAFFIC,
-        "email",
+    if plan.email or (
+        user_notification_channel_selected(
+            settings,
+            UserNotificationCategory.TRAFFIC,
+            "email",
+        )
+        and user_notification_channel_allowed(
+            user,
+            UserNotificationCategory.TRAFFIC,
+            "email",
+        )
     ):
         await email_sender(
             session,

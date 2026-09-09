@@ -20,6 +20,7 @@
     partnerNavigationVisible?: boolean;
     partnerSettingsVisible?: boolean;
     goSettings: Action;
+    goNotifications: Action;
     goSecurity: Action;
     goSupport: Action;
     hasUnlinkedIdentity?: boolean;
@@ -55,6 +56,7 @@
     partnerSettingsVisible = false,
     goSupport,
     goSettings,
+    goNotifications,
     goSecurity,
     t,
     children,
@@ -62,7 +64,7 @@
 </script>
 
 <div class="phone-screen" class:home-screen={screen === "home"}>
-  {#if screen === "install" || screen === "invite" || screen === "partner" || screen === "devices" || screen === "support" || screen === "settings" || screen === "security" || screen === "status"}
+  {#if screen === "install" || screen === "invite" || screen === "partner" || screen === "devices" || screen === "support" || screen === "settings" || screen === "notifications" || screen === "security" || screen === "status"}
     <header class="app-header accent-title">
       <div class="brand-row">
         <BrandMark {brand} />
@@ -95,6 +97,7 @@
     {partnerSettingsVisible}
     onSupport={goSupport}
     onSettings={goSettings}
+    onNotifications={goNotifications}
     onSecurity={goSecurity}
     {t}
   />

@@ -14,6 +14,7 @@ import { defineRawStateProperty } from "./rawStateProperty";
 import { AdminUsersError, createUsersStoreQueries } from "./usersStoreQueries";
 import { createUsersStoreSquadOverrideActions } from "./usersStoreSquadOverrides";
 import { createUsersStoreSubscriptionReissueAction } from "./usersStoreSubscriptionReissue";
+import { createUsersStoreNotificationPreferenceActions } from "./usersStoreNotificationPreferences";
 import { buildAdminUserActionPath, buildAdminUserPath } from "../../webapp/publicApi";
 import {
   USERS_PAGE_SIZE,
@@ -952,6 +953,15 @@ export function createUsersStore({
     refreshOpenedUserDetail,
   });
 
+  const notificationPreferenceActions = createUsersStoreNotificationPreferenceActions({
+    api,
+    onToast,
+    at,
+    readStateSnapshot,
+    applyState,
+    invalidateUsersQueries,
+  });
+
   return Object.assign(store, {
     updateState,
     setActive,
@@ -975,6 +985,7 @@ export function createUsersStore({
     convertUserBalance,
     ...squadOverrideActions,
     ...subscriptionReissueActions,
+    ...notificationPreferenceActions,
     loadUserLogs,
     setUserLogsSort,
     setUserLogsPage,

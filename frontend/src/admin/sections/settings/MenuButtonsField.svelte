@@ -91,6 +91,7 @@
     devices: "Devices",
     support: "Support",
     settings: "Settings",
+    notifications: "Notification settings",
     status: "Service status",
   };
   const sectionOptions = $derived(

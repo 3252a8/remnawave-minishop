@@ -6084,6 +6084,29 @@
         "title": "CreateTicketPayload",
         "type": "object"
       },
+      "EmailNotificationPreferencesPatchBody": {
+        "properties": {
+          "marketing_email": {
+            "title": "Marketing Email",
+            "type": "boolean"
+          },
+          "system_email": {
+            "title": "System Email",
+            "type": "boolean"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "marketing_email",
+          "system_email"
+        ],
+        "title": "EmailNotificationPreferencesPatchBody",
+        "type": "object"
+      },
       "EmptyObjectOut": {
         "additionalProperties": false,
         "properties": {},
@@ -6805,6 +6828,62 @@
           "xray-checker"
         ],
         "type": "string"
+      },
+      "NotificationPreferencesOut": {
+        "properties": {
+          "marketing_email": {
+            "title": "Marketing Email",
+            "type": "boolean"
+          },
+          "marketing_telegram": {
+            "title": "Marketing Telegram",
+            "type": "boolean"
+          },
+          "system_email": {
+            "title": "System Email",
+            "type": "boolean"
+          },
+          "system_telegram": {
+            "title": "System Telegram",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "marketing_email",
+          "marketing_telegram",
+          "system_email",
+          "system_telegram"
+        ],
+        "title": "NotificationPreferencesOut",
+        "type": "object"
+      },
+      "NotificationPreferencesPatchBody": {
+        "properties": {
+          "marketing_email": {
+            "title": "Marketing Email",
+            "type": "boolean"
+          },
+          "marketing_telegram": {
+            "title": "Marketing Telegram",
+            "type": "boolean"
+          },
+          "system_email": {
+            "title": "System Email",
+            "type": "boolean"
+          },
+          "system_telegram": {
+            "title": "System Telegram",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "marketing_email",
+          "marketing_telegram",
+          "system_email",
+          "system_telegram"
+        ],
+        "title": "NotificationPreferencesPatchBody",
+        "type": "object"
       },
       "OverallStatus": {
         "enum": [
@@ -14118,6 +14197,59 @@
         ]
       }
     },
+    "/api/account/notification-preferences": {
+      "post": {
+        "operationId": "post_account_notification_preferences_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationPreferencesPatchBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "notification_preferences": {
+                      "$ref": "#/components/schemas/NotificationPreferencesOut"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "notification_preferences"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Notification Preferences",
+        "tags": [
+          "account"
+        ]
+      }
+    },
     "/api/account/passkeys/delete": {
       "post": {
         "operationId": "post_account_passkey_delete_route",
@@ -20388,6 +20520,9 @@
                     "log_count": {
                       "type": "integer"
                     },
+                    "notification_preferences": {
+                      "$ref": "#/components/schemas/NotificationPreferencesOut"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
@@ -20496,6 +20631,7 @@
                     "vpn_connection_status",
                     "hwid_devices",
                     "telegram_notifications",
+                    "notification_preferences",
                     "panel_squad_overrides",
                     "referral"
                   ],
@@ -21234,6 +21370,69 @@
           }
         ],
         "summary": "Admin User Message Preview",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}/notification-preferences": {
+      "patch": {
+        "operationId": "patch_admin_user_notification_preferences_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationPreferencesPatchBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "notification_preferences": {
+                      "$ref": "#/components/schemas/NotificationPreferencesOut"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "notification_preferences"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Notification Preferences",
         "tags": [
           "admin"
         ]
@@ -25762,6 +25961,30 @@
                             "null"
                           ]
                         },
+                        "notification_preferences": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "marketing_email": {
+                              "type": "boolean"
+                            },
+                            "marketing_telegram": {
+                              "type": "boolean"
+                            },
+                            "system_email": {
+                              "type": "boolean"
+                            },
+                            "system_telegram": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "marketing_email",
+                            "marketing_telegram",
+                            "system_email",
+                            "system_telegram"
+                          ],
+                          "type": "object"
+                        },
                         "passkeys": {
                           "items": {
                             "additionalProperties": false,
@@ -25864,6 +26087,100 @@
         "summary": "Me",
         "tags": [
           "me"
+        ]
+      }
+    },
+    "/api/notification-preferences/unsubscribe": {
+      "get": {
+        "operationId": "get_email_notification_preferences_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "email": {
+                      "type": "string"
+                    },
+                    "language": {
+                      "type": "string"
+                    },
+                    "notification_preferences": {
+                      "$ref": "#/components/schemas/NotificationPreferencesOut"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "email",
+                    "language",
+                    "notification_preferences"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "summary": "Email Notification Preferences",
+        "tags": [
+          "notification-preferences"
+        ]
+      },
+      "post": {
+        "operationId": "post_email_notification_preferences_update_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailNotificationPreferencesPatchBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "email": {
+                      "type": "string"
+                    },
+                    "language": {
+                      "type": "string"
+                    },
+                    "notification_preferences": {
+                      "$ref": "#/components/schemas/NotificationPreferencesOut"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "email",
+                    "language",
+                    "notification_preferences"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "summary": "Email Notification Preferences Update",
+        "tags": [
+          "notification-preferences"
         ]
       }
     },

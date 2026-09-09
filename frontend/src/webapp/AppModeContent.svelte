@@ -305,6 +305,7 @@
   const goInvite = $derived(appActions.goInvite);
   const goPartner = $derived(appActions.goPartner);
   const goSettings = $derived(appActions.goSettings);
+  const goNotifications = $derived(appActions.goNotifications);
   const goSecurity = $derived(appActions.goSecurity);
   const goTrial = $derived(appActions.goTrial);
   const goStatus = $derived(appActions.goStatus);
@@ -590,6 +591,7 @@
       {goPartner}
       {partnerEnabled}
       {goSettings}
+      {goNotifications}
       {goSecurity}
       {goTrial}
       {goStatus}

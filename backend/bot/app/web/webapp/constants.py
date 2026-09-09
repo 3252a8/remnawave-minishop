@@ -40,6 +40,7 @@ WEBAPP_CSRF_EXEMPT_PATHS = {
     "/api/auth/passkey/options",
     "/api/auth/passkey/verify",
     "/api/auth/logout",
+    "/api/notification-preferences/unsubscribe",
 }
 WEBAPP_CSRF_HEADER_NAME = "X-CSRF-Token"
 WEBAPP_I18N_PLACEHOLDER = "<!-- WEBAPP_I18N_SCRIPT -->"

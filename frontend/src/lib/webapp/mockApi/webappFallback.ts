@@ -73,6 +73,38 @@ export function webappFallbackResponse(
   const method = String(options.method || "GET").toUpperCase();
   const { supportTickets, supportMessages, supportCounts, filterSupportTickets } = fixtures;
 
+  if (cleanPath === "/notification-preferences/unsubscribe") {
+    if (method === "POST") {
+      const body = jsonBody(options);
+      DEV_MOCK.data.user.notification_preferences = {
+        ...(DEV_MOCK.data.user.notification_preferences || {}),
+        marketing_email: body.marketing_email !== false,
+        system_email: body.system_email !== false,
+      };
+    }
+    return {
+      ok: true,
+      email: String(DEV_MOCK.data.user.notification_email || DEV_MOCK.data.user.email || ""),
+      language: String(DEV_MOCK.data.user.language_code || "ru"),
+      notification_preferences: clone(
+        DEV_MOCK.data.user.notification_preferences || {
+          marketing_email: false,
+          marketing_telegram: true,
+          system_email: true,
+          system_telegram: true,
+        }
+      ),
+    };
+  }
+
+  if (cleanPath === "/account/notification-preferences" && method === "POST") {
+    DEV_MOCK.data.user.notification_preferences = jsonBody(options);
+    return {
+      ok: true,
+      notification_preferences: clone(DEV_MOCK.data.user.notification_preferences),
+    };
+  }
+
   if (cleanPath === "/support/tickets" && method === "POST") {
     let payload: DemoRecord = {};
     try {

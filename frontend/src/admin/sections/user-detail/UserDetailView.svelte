@@ -7,6 +7,7 @@
   import UserActivityTab from "./UserActivityTab.svelte";
   import UserActionsTab from "./UserActionsTab.svelte";
   import UserMessageComposerCard from "./UserMessageComposerCard.svelte";
+  import UserNotificationPreferencesCard from "./UserNotificationPreferencesCard.svelte";
   import UserDetailAside from "./UserDetailAside.svelte";
   import UserLogsTab from "./UserLogsTab.svelte";
   import UserSubscriptionTab from "./UserSubscriptionTab.svelte";
@@ -255,6 +256,9 @@
               <Tabs.Trigger value="message" class="admin-tabs-trigger"
                 >{at("user_tab_message", {}, "Message")}</Tabs.Trigger
               >
+              <Tabs.Trigger value="notifications" class="admin-tabs-trigger"
+                >{at("user_tab_notifications", {}, "Notifications")}</Tabs.Trigger
+              >
               {#each visibleExtensionPanels as panel (panel.id)}
                 <Tabs.Trigger value={`extension:${panel.id}`} class="admin-tabs-trigger">
                   {at(panel.i18nKey, {}, panel.fallbackLabel)}
@@ -349,6 +353,15 @@
                 userId={openedUser?.user_id ?? null}
                 hasTelegram={Boolean(openedUser?.telegram_id)}
                 hasEmail={Boolean(openedUser?.email)}
+              />
+            </Tabs.Content>
+
+            <Tabs.Content value="notifications" class="admin-tabs-content">
+              <UserNotificationPreferencesCard
+                {at}
+                {usersStore}
+                {openedUserDetail}
+                busy={userActionBusy}
               />
             </Tabs.Content>
 

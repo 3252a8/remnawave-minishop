@@ -14,6 +14,7 @@ describe("Mini App start routes", () => {
     ["partner", "/partner"],
     ["Support", "/support"],
     ["devices", "/devices"],
+    ["notifications", "/settings/notifications"],
     ["home", "/home"],
   ])("maps %s to %s", (startParam, expected) => {
     expect(miniAppPathFromStartParam(startParam)).toBe(expected);

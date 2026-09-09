@@ -170,16 +170,17 @@ class AdminBroadcastDeliveryTests(unittest.IsolatedAsyncioTestCase):
     async def test_blocked_filter_keeps_unknown_raw_ids_outside_the_database(self) -> None:
         result = SimpleNamespace(
             all=lambda: [
-                (1, 101, "blocked", False),
-                (2, 202, "enabled", False),
-                (4, 404, "enabled", True),
+                (1, 101, "blocked", False, True),
+                (2, 202, "enabled", False, True),
+                (4, 404, "enabled", True, True),
+                (5, 505, "enabled", False, False),
             ]
         )
         session = SimpleNamespace(execute=AsyncMock(return_value=result))
 
         recipients = await delivery_module.user_dal.get_telegram_recipients_for_broadcast(
             session,
-            [1, 2, 303, 4],
+            [1, 2, 303, 4, 5],
             exclude_blocked=True,
         )
 

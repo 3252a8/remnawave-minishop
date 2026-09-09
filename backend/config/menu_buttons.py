@@ -25,6 +25,7 @@ WEBAPP_MENU_SECTIONS = frozenset(
         "devices",
         "support",
         "settings",
+        "notifications",
         "status",
     }
 )

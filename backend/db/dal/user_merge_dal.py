@@ -461,6 +461,21 @@ async def merge_users(
         target.notification_email = target_notification_email
     elif source_notification_email:
         target.notification_email = source_notification_email
+
+    # An opt-out on either identity wins. Account linking must never silently
+    # re-enable a channel that the person already disabled.
+    for preference_attr in (
+        "marketing_notifications_email_enabled",
+        "marketing_notifications_telegram_enabled",
+        "system_notifications_email_enabled",
+        "system_notifications_telegram_enabled",
+    ):
+        setattr(
+            target,
+            preference_attr,
+            bool(getattr(target, preference_attr, True))
+            and bool(getattr(source, preference_attr, True)),
+        )
     source_password_hash = getattr(source, "password_hash", None)
     if source_password_hash and not getattr(target, "password_hash", None):
         # A user has already proved control of both accounts. Preserve the only

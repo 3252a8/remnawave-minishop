@@ -19,6 +19,7 @@ from bot.middlewares.i18n import JsonI18n
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.email_templates import render_broadcast_email
 from bot.services.email_templates_common import EmailInlineImage
+from bot.services.user_notification_preferences import add_user_email_preferences_footer
 from config.settings import Settings
 from db.dal import message_log_dal
 
@@ -76,6 +77,14 @@ async def _send_one(
                 buttons=buttons,
                 i18n=i18n,
                 image=image,
+            )
+            content = add_user_email_preferences_footer(
+                content,
+                settings=settings,
+                i18n=i18n,
+                user=recipient,
+                email=recipient.email,
+                language_code=recipient.language_code,
             )
             await email_service.send_rendered_email(email=recipient.email, content=content)
             success = True

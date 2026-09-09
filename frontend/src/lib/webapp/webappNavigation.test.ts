@@ -60,6 +60,15 @@ describe("createWebappNavigation", () => {
     expect(deps.syncSectionPath).toHaveBeenCalledWith("status");
   });
 
+  it("opens notification preferences as a child of Settings", () => {
+    const { deps, navigation, state } = makeNavigation();
+
+    navigation.goNotifications();
+
+    expect(state).toEqual({ activeTab: "settings", screen: "notifications" });
+    expect(deps.syncSectionPath).toHaveBeenCalledWith("notifications");
+  });
+
   it("keeps Home active when status is opened from the Home card", () => {
     const { navigation, state } = makeNavigation();
 

@@ -415,8 +415,19 @@ export function demoApiResponse(
     const decoratedDetail = {
       ...withDemoReferralSummary(detail),
       balance: clone(adminDemoBalance(id)),
+      notification_preferences: detail.notification_preferences || {
+        marketing_email: false,
+        marketing_telegram: true,
+        system_email: true,
+        system_telegram: true,
+      },
     };
     if (parts[4]) {
+      if (parts[4] === "notification-preferences" && method === "PATCH") {
+        const notificationPreferences = jsonBody(options);
+        detail.notification_preferences = notificationPreferences;
+        return { ok: true, notification_preferences: clone(notificationPreferences) };
+      }
       if (parts[4] === "referrals") {
         const invitees = demoInviteesForUser(id);
         const sort = params.get("sort") || "registration_desc";

@@ -35,6 +35,10 @@ def _user(user_id: int, **overrides: object) -> SimpleNamespace:
         "email": None,
         "email_verified_at": None,
         "notification_email": None,
+        "marketing_notifications_email_enabled": True,
+        "marketing_notifications_telegram_enabled": True,
+        "system_notifications_email_enabled": True,
+        "system_notifications_telegram_enabled": True,
         "password_hash": None,
         "password_set_at": None,
         "telegram_id": None,
@@ -169,6 +173,31 @@ async def _merge_promotes_verified_source_over_unverified_target_email() -> None
 
 def test_merge_promotes_verified_source_over_unverified_target_email() -> None:
     asyncio.run(_merge_promotes_verified_source_over_unverified_target_email())
+
+
+async def _merge_preserves_every_opt_out_from_either_account() -> None:
+    source = _user(
+        -10,
+        marketing_notifications_email_enabled=False,
+        system_notifications_telegram_enabled=False,
+    )
+    target = _user(
+        42,
+        telegram_id=42,
+        marketing_notifications_telegram_enabled=False,
+        system_notifications_email_enabled=False,
+    )
+
+    await _merge(source, target)
+
+    assert target.marketing_notifications_email_enabled is False
+    assert target.marketing_notifications_telegram_enabled is False
+    assert target.system_notifications_email_enabled is False
+    assert target.system_notifications_telegram_enabled is False
+
+
+def test_merge_preserves_every_opt_out_from_either_account() -> None:
+    asyncio.run(_merge_preserves_every_opt_out_from_either_account())
 
 
 async def _merge_keeps_established_password_when_both_accounts_have_one() -> None:

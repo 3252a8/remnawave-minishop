@@ -103,6 +103,11 @@ from .guides import (
     public_subscription_guides_route,
     subscription_guides_route,
 )
+from .notification_preferences import (
+    account_notification_preferences_route,
+    email_notification_preferences_route,
+    email_notification_preferences_update_route,
+)
 from .partner import (
     partner_application_create_route,
     partner_balance_renew_route,
@@ -164,6 +169,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/partner", index_route)
     app.router.add_get("/devices", index_route)
     app.router.add_get("/settings", index_route)
+    app.router.add_get("/unsubscribe", index_route)
     app.router.add_get("/settings/security", index_route)
     app.router.add_get("/status", index_route)
     app.router.add_get("/support", index_route)
@@ -248,6 +254,14 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/auth/logout", logout_route)
     app.router.add_get("/api/bootstrap", bootstrap_route)
     app.router.add_get("/api/i18n", i18n_route)
+    app.router.add_get(
+        "/api/notification-preferences/unsubscribe",
+        email_notification_preferences_route,
+    )
+    app.router.add_post(
+        "/api/notification-preferences/unsubscribe",
+        email_notification_preferences_update_route,
+    )
     app.router.add_get("/api/me", me_route)
     app.router.add_get("/api/balance", balance_route)
     app.router.add_post("/api/balance/topup", balance_topup_route)
@@ -259,6 +273,10 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     )
     app.router.add_get("/api/account/avatar", account_avatar_route)
     app.router.add_post("/api/account/language", account_language_route)
+    app.router.add_post(
+        "/api/account/notification-preferences",
+        account_notification_preferences_route,
+    )
     app.router.add_post("/api/account/email/request", account_email_request_route)
     app.router.add_post("/api/account/email/verify", account_email_verify_route)
     app.router.add_post(

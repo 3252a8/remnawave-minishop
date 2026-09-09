@@ -48,6 +48,7 @@ async def get_email_recipients_for_broadcast(
         stmt = select(User.user_id, recipient_email, User.language_code).where(
             User.user_id.in_(chunk),
             User.is_banned == False,
+            User.marketing_notifications_email_enabled == True,
             recipient_email.is_not(None),
             recipient_email != "",
         )
@@ -85,12 +86,19 @@ async def get_telegram_recipients_for_broadcast(
             User.telegram_id,
             User.telegram_notifications_status,
             User.is_banned,
+            User.marketing_notifications_telegram_enabled,
         ).where(User.user_id.in_(chunk))
         result = await session.execute(stmt)
-        for user_id, telegram_id, notification_status, is_banned in result.all():
+        for (
+            user_id,
+            telegram_id,
+            notification_status,
+            is_banned,
+            marketing_enabled,
+        ) in result.all():
             local_user_id = int(user_id)
             found_user_ids.add(local_user_id)
-            if bool(is_banned):
+            if bool(is_banned) or not bool(marketing_enabled):
                 continue
             if exclude_blocked and str(notification_status or "").lower() == "blocked":
                 continue

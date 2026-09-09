@@ -26,6 +26,7 @@ describe("message button targets", () => {
 
   it("shares the customer Web App screens without promo targets", () => {
     expect(CUSTOMER_WEBAPP_SECTIONS).toContain("plans");
+    expect(CUSTOMER_WEBAPP_SECTIONS).toContain("notifications");
     expect(CUSTOMER_WEBAPP_SECTIONS).not.toContain("promo" as never);
   });
 });

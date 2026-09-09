@@ -479,6 +479,22 @@ WEBAPP_USER_SCHEMA: dict[str, Any] = {
         "email": NULLABLE_STRING_SCHEMA,
         "email_verified": BOOLEAN_SCHEMA,
         "notification_email": NULLABLE_STRING_SCHEMA,
+        "notification_preferences": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "marketing_email",
+                "marketing_telegram",
+                "system_email",
+                "system_telegram",
+            ],
+            "properties": {
+                "marketing_email": BOOLEAN_SCHEMA,
+                "marketing_telegram": BOOLEAN_SCHEMA,
+                "system_email": BOOLEAN_SCHEMA,
+                "system_telegram": BOOLEAN_SCHEMA,
+            },
+        },
         "email_addresses": {
             "type": "array",
             "items": {

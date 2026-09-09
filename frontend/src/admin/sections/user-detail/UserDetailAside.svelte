@@ -59,6 +59,39 @@
       blocked_at: null,
     }
   );
+  const notificationPreferences = $derived(
+    openedUserDetail.notification_preferences ?? {
+      marketing_email: true,
+      marketing_telegram: true,
+      system_email: true,
+      system_telegram: true,
+    }
+  );
+
+  function preferenceSummary(
+    emailEnabled: boolean,
+    telegramEnabled: boolean
+  ): {
+    label: string;
+    variant: "success" | "warning" | "muted";
+  } {
+    if (emailEnabled && telegramEnabled) {
+      return { label: at("user_notifications_on", {}, "On"), variant: "success" };
+    }
+    if (!emailEnabled && !telegramEnabled) {
+      return { label: at("user_notifications_off", {}, "Off"), variant: "muted" };
+    }
+    return { label: at("user_notifications_partial", {}, "Partial"), variant: "warning" };
+  }
+  const marketingSummary = $derived(
+    preferenceSummary(
+      notificationPreferences.marketing_email,
+      notificationPreferences.marketing_telegram
+    )
+  );
+  const systemSummary = $derived(
+    preferenceSummary(notificationPreferences.system_email, notificationPreferences.system_telegram)
+  );
   const referralCode = $derived(
     openedUserDetail.referral?.code || openedUserDetail.user?.referral_code || ""
   );
@@ -131,6 +164,12 @@
         {#if telegramNotifications.status === "blocked"}
           <AdminBadge variant="danger">{at("badge_bot_blocked", {}, "Bot blocked")}</AdminBadge>
         {/if}
+        <AdminBadge variant={marketingSummary.variant}
+          >{at("user_notifications_marketing_short", {}, "Marketing")}: {marketingSummary.label}</AdminBadge
+        >
+        <AdminBadge variant={systemSummary.variant}
+          >{at("user_notifications_system_short", {}, "System")}: {systemSummary.label}</AdminBadge
+        >
       </div>
       <div class="admin-user-summary-actions">
         <AdminButton

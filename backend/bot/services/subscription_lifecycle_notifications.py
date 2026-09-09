@@ -28,6 +28,7 @@ from bot.services.user_notification_policy import (
     email_recipient,
     user_notification_delivery_plan,
 )
+from bot.services.user_notification_preferences import add_user_email_preferences_footer
 from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
 from config.settings import Settings
 from db.dal import subscription_dal
@@ -293,6 +294,15 @@ class SubscriptionLifecycleNotificationService:
                 hours_after=stage.hours_after,
                 i18n=self.i18n,
             )
+            if user is not None:
+                content = add_user_email_preferences_footer(
+                    content,
+                    settings=self.settings,
+                    i18n=self.i18n,
+                    user=user,
+                    email=recipient,
+                    language_code=lang,
+                )
             email_service = self.email_service or EmailAuthService(self.settings, self.i18n)
             await email_service.send_rendered_email(email=recipient, content=content)
         except Exception:

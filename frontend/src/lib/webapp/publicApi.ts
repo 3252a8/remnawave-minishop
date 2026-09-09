@@ -145,6 +145,7 @@ export type PartnerBalanceRenewResponse = PostResponse<"/api/partner/balance/ren
 export type AccountEmailRequestPath = "/account/email/request";
 export type AccountEmailVerifyPath = "/account/email/verify";
 export type AccountLanguagePath = "/account/language";
+export type AccountNotificationPreferencesPath = "/account/notification-preferences";
 export type AccountPasswordRequestPath = "/account/password/request";
 export type AccountPasswordConfirmPath = "/account/password/confirm";
 export type AccountTelegramLinkPath = "/account/telegram/link";
@@ -290,6 +291,10 @@ export function buildAccountEmailVerifyPath(): AccountEmailVerifyPath {
 
 export function buildAccountLanguagePath(): AccountLanguagePath {
   return "/account/language";
+}
+
+export function buildAccountNotificationPreferencesPath(): AccountNotificationPreferencesPath {
+  return "/account/notification-preferences";
 }
 
 export function buildAccountPasswordRequestPath(): AccountPasswordRequestPath {
@@ -580,7 +585,8 @@ export type AdminUserAction =
   | "hwid-device-limit"
   | "traffic-grant"
   | "balance-adjustment"
-  | "balance-conversion";
+  | "balance-conversion"
+  | "notification-preferences";
 type AdminUserActionTemplate =
   | "/api/admin/users/{user_id}/ban"
   | "/api/admin/users/{user_id}/message"
@@ -598,7 +604,8 @@ type AdminUserActionTemplate =
   | "/api/admin/users/{user_id}/hwid-device-limit"
   | "/api/admin/users/{user_id}/traffic-grant"
   | "/api/admin/users/{user_id}/balance-adjustment"
-  | "/api/admin/users/{user_id}/balance-conversion";
+  | "/api/admin/users/{user_id}/balance-conversion"
+  | "/api/admin/users/{user_id}/notification-preferences";
 export type AdminUserActionPath = BuiltApiPath<AdminUserActionTemplate>;
 export function buildAdminUserActionPath(
   userId: string | number,

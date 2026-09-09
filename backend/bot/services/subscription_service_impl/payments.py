@@ -11,6 +11,7 @@ from bot.services.user_notification_policy import (
     email_recipient,
     user_notification_delivery_plan,
 )
+from bot.services.user_notification_preferences import add_user_email_preferences_footer
 from config.tariffs_config import default_payment_currency_code_for_settings
 from db.dal import payment_dal, subscription_dal, user_dal
 from db.models import User
@@ -179,6 +180,14 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
                 dashboard_url=dashboard_url,
                 provider_label=provider_label,
                 i18n=i18n,
+            )
+            content = add_user_email_preferences_footer(
+                content,
+                settings=self.settings,
+                i18n=i18n,
+                user=db_user,
+                email=recipient,
+                language_code=db_user.language_code,
             )
             email_service = EmailAuthService(self.settings, i18n)
             await email_service.send_rendered_email(email=recipient, content=content)

@@ -100,6 +100,7 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0077_subscription_gifts",
     "0078_gift_entitlements",
     "0084_add_gift_refund_ledger_kind",
+    "0085_add_user_notification_preferences",
 ]
 
 

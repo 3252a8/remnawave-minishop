@@ -174,6 +174,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/account/notification-preferences": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Notification Preferences */
+    post: operations["post_account_notification_preferences_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/account/passkeys/delete": {
     parameters: {
       query?: never;
@@ -1840,6 +1857,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/users/{user_id}/notification-preferences": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Admin User Notification Preferences */
+    patch: operations["patch_admin_user_notification_preferences_route"];
+    trace?: never;
+  };
   "/api/admin/users/{user_id}/premium-override": {
     parameters: {
       query?: never;
@@ -2463,6 +2497,24 @@ export interface paths {
     get: operations["get_me_route"];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/notification-preferences/unsubscribe": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Email Notification Preferences */
+    get: operations["get_email_notification_preferences_route"];
+    put?: never;
+    /** Email Notification Preferences Update */
+    post: operations["post_email_notification_preferences_update_route"];
     delete?: never;
     options?: never;
     head?: never;
@@ -5820,6 +5872,15 @@ export interface components {
       /** Subject */
       subject: string;
     };
+    /** EmailNotificationPreferencesPatchBody */
+    EmailNotificationPreferencesPatchBody: {
+      /** Marketing Email */
+      marketing_email: boolean;
+      /** System Email */
+      system_email: boolean;
+      /** Token */
+      token: string;
+    };
     /** EmptyObjectOut */
     EmptyObjectOut: Record<string, never>;
     /** ExportRequest */
@@ -6141,6 +6202,28 @@ export interface components {
     };
     /** @enum {string} */
     NativeStatusProvider: "uptime-kuma" | "xray-checker";
+    /** NotificationPreferencesOut */
+    NotificationPreferencesOut: {
+      /** Marketing Email */
+      marketing_email: boolean;
+      /** Marketing Telegram */
+      marketing_telegram: boolean;
+      /** System Email */
+      system_email: boolean;
+      /** System Telegram */
+      system_telegram: boolean;
+    };
+    /** NotificationPreferencesPatchBody */
+    NotificationPreferencesPatchBody: {
+      /** Marketing Email */
+      marketing_email: boolean;
+      /** Marketing Telegram */
+      marketing_telegram: boolean;
+      /** System Email */
+      system_email: boolean;
+      /** System Telegram */
+      system_telegram: boolean;
+    };
     /** @enum {string} */
     OverallStatus:
       "operational" | "degraded" | "partial_outage" | "major_outage" | "maintenance" | "unknown";
@@ -9407,6 +9490,34 @@ export interface operations {
       };
     };
   };
+  post_account_notification_preferences_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NotificationPreferencesPatchBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            notification_preferences: components["schemas"]["NotificationPreferencesOut"];
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
   post_account_passkey_delete_route: {
     parameters: {
       query?: never;
@@ -12332,6 +12443,7 @@ export interface operations {
             install_share_url: string | null;
             last_vpn_connected_at: string | null;
             log_count: number;
+            notification_preferences: components["schemas"]["NotificationPreferencesOut"];
             /** @constant */
             ok: true;
             panel_squad_overrides: components["schemas"]["AdminPanelSquadOverridesOut"] | null;
@@ -12667,6 +12779,36 @@ export interface operations {
         };
         content: {
           "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  patch_admin_user_notification_preferences_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NotificationPreferencesPatchBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            notification_preferences: components["schemas"]["NotificationPreferencesOut"];
             /** @constant */
             ok: true;
           };
@@ -14331,6 +14473,12 @@ export interface operations {
               is_admin?: boolean;
               language_code?: string;
               notification_email?: string | null;
+              notification_preferences?: {
+                marketing_email: boolean;
+                marketing_telegram: boolean;
+                system_email: boolean;
+                system_telegram: boolean;
+              };
               passkeys?: {
                 backed_up?: boolean;
                 created_at?: string | null;
@@ -14348,6 +14496,62 @@ export interface operations {
               telegram_photo_url?: string;
               username?: string | null;
             };
+          };
+        };
+      };
+    };
+  };
+  get_email_notification_preferences_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            email: string;
+            language: string;
+            notification_preferences: components["schemas"]["NotificationPreferencesOut"];
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_email_notification_preferences_update_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EmailNotificationPreferencesPatchBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            email: string;
+            language: string;
+            notification_preferences: components["schemas"]["NotificationPreferencesOut"];
+            /** @constant */
+            ok: true;
           };
         };
       };

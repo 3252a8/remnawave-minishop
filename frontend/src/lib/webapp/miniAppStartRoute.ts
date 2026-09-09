@@ -21,6 +21,7 @@ const START_PARAM_SECTIONS = [
   "devices",
   "support",
   "settings",
+  "notifications",
 ] as const;
 
 type StartParamSection = (typeof START_PARAM_SECTIONS)[number];

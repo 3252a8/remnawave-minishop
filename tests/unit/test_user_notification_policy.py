@@ -19,11 +19,12 @@ def _settings(**overrides):
     return SimpleNamespace(**values)
 
 
-def _user(*, telegram_id=42, email="user@example.com", status="enabled"):
+def _user(*, telegram_id=42, email="user@example.com", status="enabled", **preferences):
     return SimpleNamespace(
         telegram_id=telegram_id,
         email=email,
         telegram_notifications_status=status,
+        **preferences,
     )
 
 
@@ -96,3 +97,50 @@ def test_email_requires_configured_delivery():
     )
 
     assert not plan.any_enabled
+
+
+def test_system_opt_out_never_falls_back_to_disabled_channel():
+    plan = user_notification_delivery_plan(
+        _settings(
+            USER_NOTIFICATION_PAYMENTS_TELEGRAM_ENABLED=True,
+            USER_NOTIFICATION_PAYMENTS_EMAIL_ENABLED=False,
+        ),
+        UserNotificationCategory.PAYMENTS,
+        _user(
+            telegram_id=42,
+            system_notifications_telegram_enabled=False,
+            system_notifications_email_enabled=True,
+        ),
+    )
+
+    assert not plan.any_enabled
+
+
+def test_system_channels_respect_independent_user_preferences():
+    plan = user_notification_delivery_plan(
+        _settings(),
+        UserNotificationCategory.PAYMENTS,
+        _user(
+            system_notifications_telegram_enabled=False,
+            system_notifications_email_enabled=True,
+        ),
+    )
+
+    assert (plan.telegram, plan.email) == (False, True)
+
+
+def test_support_replies_are_not_suppressed_by_system_opt_out():
+    settings = _settings(
+        USER_NOTIFICATION_SUPPORT_TELEGRAM_ENABLED=True,
+        USER_NOTIFICATION_SUPPORT_EMAIL_ENABLED=True,
+    )
+    plan = user_notification_delivery_plan(
+        settings,
+        UserNotificationCategory.SUPPORT,
+        _user(
+            system_notifications_telegram_enabled=False,
+            system_notifications_email_enabled=False,
+        ),
+    )
+
+    assert (plan.telegram, plan.email) == (True, True)

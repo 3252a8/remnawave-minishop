@@ -19,6 +19,7 @@ from bot.app.web.context import (
     get_settings,
 )
 from bot.app.web.webapp.common import _ensure_cached_telegram_avatar
+from bot.app.web.webapp.notification_preference_schemas import NotificationPreferencesOut
 from bot.services.panel_activity import (
     _panel_user_connection_activity,
     connection_activity_from_snapshot,
@@ -849,6 +850,9 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
             "vpn_connection_status": vpn_connection_status,
             "hwid_devices": hwid_devices.model_dump(mode="json"),
             "telegram_notifications": AdminTelegramNotificationsOut.from_orm_user(user).model_dump(
+                mode="json"
+            ),
+            "notification_preferences": NotificationPreferencesOut.from_user(user).model_dump(
                 mode="json"
             ),
             "panel_squad_overrides": panel_squad_overrides,

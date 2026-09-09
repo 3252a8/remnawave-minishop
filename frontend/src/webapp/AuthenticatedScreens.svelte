@@ -14,6 +14,7 @@
   import HomeScreen from "./screens/HomeScreen.svelte";
   import ScreenLoading from "./screens/ScreenLoading.svelte";
   import SettingsScreen from "./screens/SettingsScreen.svelte";
+  import NotificationSettingsScreen from "./screens/NotificationSettingsScreen.svelte";
   import SecurityScreen from "./screens/SecurityScreen.svelte";
   import BalanceTopupDialog from "./payment-dialogs/BalanceTopupDialog.svelte";
   import type {
@@ -76,6 +77,7 @@
     goPartner: VoidAction;
     partnerEnabled?: boolean;
     goSettings: VoidAction;
+    goNotifications: VoidAction;
     goSecurity: VoidAction;
     goTrial: VoidAction;
     goStatus: (parent?: "home" | "settings") => void;
@@ -201,6 +203,7 @@
     goPartner,
     partnerEnabled = false,
     goSettings,
+    goNotifications,
     goSecurity,
     goTrial,
     goStatus,
@@ -360,6 +363,9 @@
       case "settings":
         goSettings();
         break;
+      case "notifications":
+        goNotifications();
+        break;
       case "status":
         goStatus("settings");
         break;
@@ -391,6 +397,7 @@
   partnerSettingsVisible={programEntryPlacement.partnerSettingsVisible}
   {goSupport}
   {goSettings}
+  {goNotifications}
   {goSecurity}
   {t}
 >
@@ -599,6 +606,7 @@
       {openExternalLink}
       openBalanceTopup={() => (balanceTopupOpen = true)}
       {openMenuButton}
+      openNotifications={goNotifications}
       openSecurity={goSecurity}
       openServerStatus={() => goStatus("settings")}
       {applyPromo}
@@ -608,6 +616,8 @@
       {t}
       updateAccountLanguage={accountStore.updateAccountLanguage}
     />
+  {:else if screen === "notifications"}
+    <NotificationSettingsScreen {api} {goSettings} {t} {user} />
   {:else if screen === "security"}
     <SecurityScreen
       {api}

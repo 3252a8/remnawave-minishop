@@ -80,6 +80,17 @@ class MiniAppSectionButtonTests(unittest.TestCase):
         self.assertEqual(button.telegram_web_app_url, button.url)
         self.assertEqual(button.section, "partner")
 
+    def test_notifications_section_opens_notification_settings(self) -> None:
+        [button] = _resolve(
+            MessageButtonInput(
+                kind="webapp_section", label="Notifications", section="notifications"
+            )
+        )
+
+        self.assertEqual(button.url, f"{MINI_APP_HTTPS}?startapp=notifications")
+        self.assertEqual(button.telegram_web_app_url, button.url)
+        self.assertEqual(button.section, "notifications")
+
     def test_unknown_and_admin_sections_are_rejected(self) -> None:
         for section in ("", "tariffs", "admin", "Admin"):
             with self.subTest(section=section), self.assertRaises(MessageValidationError):

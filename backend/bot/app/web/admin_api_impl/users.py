@@ -12,6 +12,10 @@ from bot.app.web.route_contracts import (
     schema_ref,
 )
 from bot.app.web.webapp.contract_schemas import BALANCE_SCHEMA
+from bot.app.web.webapp.notification_preference_schemas import (
+    NotificationPreferencesOut,
+    NotificationPreferencesPatchBody,
+)
 from db.dal import message_log_dal, payment_dal, subscription_dal, user_dal
 
 from .schemas import (
@@ -81,6 +85,7 @@ from .users_listing import (
     _load_admin_users_list_payload_uncached,
     admin_users_list_route,
 )
+from .users_notification_preferences import admin_user_notification_preferences_route
 from .users_squad_overrides import (
     admin_user_squad_overrides_refresh_route,
     admin_user_squad_overrides_route,
@@ -151,6 +156,7 @@ register_contract(
             PaymentOut,
             AdminPanelSquadOverridesOut,
             AdminTelegramNotificationsOut,
+            NotificationPreferencesOut,
         ),
         response_schema=ok_envelope_with(
             {
@@ -170,6 +176,7 @@ register_contract(
                 "vpn_connection_status": STRING_SCHEMA,
                 "hwid_devices": schema_ref(AdminUserHwidDevicesOut),
                 "telegram_notifications": schema_ref(AdminTelegramNotificationsOut),
+                "notification_preferences": schema_ref(NotificationPreferencesOut),
                 "panel_squad_overrides": {
                     "anyOf": [schema_ref(AdminPanelSquadOverridesOut), {"type": "null"}]
                 },
@@ -199,6 +206,16 @@ register_contract(
             {"panel_squad_overrides": schema_ref(AdminPanelSquadOverridesOut)}
         ),
         models=(AdminPanelSquadOverridesOut,),
+    ),
+)
+register_contract(
+    "admin_user_notification_preferences_route",
+    RouteContract(
+        request_model=NotificationPreferencesPatchBody,
+        response_schema=ok_envelope_with(
+            {"notification_preferences": schema_ref(NotificationPreferencesOut)}
+        ),
+        models=(NotificationPreferencesOut,),
     ),
 )
 register_contract(
@@ -370,6 +387,7 @@ __all__ = [
     "admin_user_hwid_device_limit_route",
     "admin_user_message_preview_route",
     "admin_user_message_route",
+    "admin_user_notification_preferences_route",
     "admin_user_premium_override_route",
     "admin_user_referrals_route",
     "admin_user_regular_traffic_override_route",

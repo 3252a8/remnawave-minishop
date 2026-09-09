@@ -134,6 +134,7 @@ from .users import (
     admin_user_hwid_device_limit_route,
     admin_user_message_preview_route,
     admin_user_message_route,
+    admin_user_notification_preferences_route,
     admin_user_premium_override_route,
     admin_user_referrals_route,
     admin_user_regular_traffic_override_route,
@@ -252,6 +253,10 @@ def setup_admin_routes(app: web.Application) -> None:
         admin_user_balance_conversion_route,
     )
     router.add_post("/api/admin/users/{user_id:-?\\d+}/message", admin_user_message_route)
+    router.add_patch(
+        "/api/admin/users/{user_id:-?\\d+}/notification-preferences",
+        admin_user_notification_preferences_route,
+    )
     router.add_post(
         "/api/admin/users/{user_id:-?\\d+}/message/preview", admin_user_message_preview_route
     )

@@ -174,6 +174,13 @@ export const DEV_MOCK: PreviewMock = {
       username: "username",
       email: "user@example.com",
       email_verified: true,
+      notification_email: "user@example.com",
+      notification_preferences: {
+        marketing_email: false,
+        marketing_telegram: true,
+        system_email: true,
+        system_telegram: true,
+      },
       password_auth_enabled: false,
       telegram_id: 100200300,
       telegram_linked: true,

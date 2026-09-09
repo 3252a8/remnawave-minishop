@@ -145,6 +145,7 @@ export const APP_SECTION_PATHS = {
   devices: "/devices",
   support: "/support",
   settings: "/settings",
+  notifications: "/settings/notifications",
   security: "/settings/security",
   status: "/status",
   admin: "/admin",

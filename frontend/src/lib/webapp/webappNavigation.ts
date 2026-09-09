@@ -91,6 +91,10 @@ export function createWebappNavigation({
     showSection("settings");
   }
 
+  function goNotifications() {
+    showSection("notifications", "settings");
+  }
+
   function goSecurity() {
     showSection("security", "settings");
   }
@@ -106,6 +110,7 @@ export function createWebappNavigation({
     goInvite,
     goPartner,
     goSettings,
+    goNotifications,
     goSecurity,
     goStatus,
     goSupport,

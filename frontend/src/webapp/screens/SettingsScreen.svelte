@@ -3,6 +3,7 @@
     ArrowRight,
     FileText,
     Handshake,
+    Megaphone,
     Send,
     Server,
     Shield,
@@ -75,6 +76,7 @@
     openPartner?: VoidAction;
     openExternalLink?: OpenLinkAction;
     openMenuButton?: (button: MenuButtonView) => void;
+    openNotifications?: VoidAction;
     openSecurity?: VoidAction;
     openServerStatus?: VoidAction;
     applyPromo?: VoidAction;
@@ -131,6 +133,7 @@
     openPartner = () => {},
     openExternalLink = () => {},
     openMenuButton = () => {},
+    openNotifications = () => {},
     openSecurity = () => {},
     openServerStatus = () => {},
     applyPromo = () => {},
@@ -216,6 +219,26 @@
     </div>
   {/if}
   <div class="settings-links-block">
+    <div class="settings-divider" aria-hidden="true"></div>
+    <button
+      data-webapp-action="open-notifications"
+      class="settings-row settings-row-notifications"
+      type="button"
+      onclick={openNotifications}
+    >
+      <Megaphone size={21} />
+      <span>
+        <strong>{t("wa_notification_preferences_title", {}, "Notifications")}</strong>
+        <small
+          >{t(
+            "wa_notification_preferences_hint",
+            {},
+            "Choose separately what may be sent to your email and Telegram."
+          )}</small
+        >
+      </span>
+      <ArrowRight size={17} />
+    </button>
     <div class="settings-divider" aria-hidden="true"></div>
     <button
       data-webapp-action="open-security"

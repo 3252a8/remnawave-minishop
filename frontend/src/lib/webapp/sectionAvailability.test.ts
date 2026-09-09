@@ -43,6 +43,7 @@ describe("section availability", () => {
 
   it("maps non-tab sections to their visible tab", () => {
     expect(activeTabForWebappSection("admin")).toBe("settings");
+    expect(activeTabForWebappSection("notifications")).toBe("settings");
     expect(activeTabForWebappSection("install")).toBe("home");
     expect(activeTabForWebappSection("trial")).toBe("home");
     expect(activeTabForWebappSection("partner")).toBe("partner");

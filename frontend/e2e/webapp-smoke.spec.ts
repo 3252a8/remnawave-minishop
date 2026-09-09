@@ -739,8 +739,8 @@ async function openUserDetailFromCurrentSection(
   setPhase(`${phasePrefix}:user-card`);
   await expect(userDialog).toBeVisible();
   await assertFormFieldsNamed(page, `${phasePrefix}:user-card`);
-  // Subscription, Activity, Logs, Actions, Message.
-  await exerciseDialogTabs(userDialog, 5, setPhase, `${phasePrefix}:user-tabs`);
+  // Subscription, Activity, Notifications, Logs, Actions, Message.
+  await exerciseDialogTabs(userDialog, 6, setPhase, `${phasePrefix}:user-tabs`);
 
   setPhase(`${phasePrefix}:user-avatar`);
   if (

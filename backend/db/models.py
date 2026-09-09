@@ -19,9 +19,10 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from db.base import Base
+from db.user_notification_preference_columns import UserNotificationPreferenceColumns
 
 
-class User(Base):
+class User(UserNotificationPreferenceColumns, Base):
     __tablename__ = "users"
 
     user_id = Column(BigInteger, primary_key=True, index=True)

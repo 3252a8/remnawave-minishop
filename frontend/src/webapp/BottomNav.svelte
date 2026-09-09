@@ -4,6 +4,7 @@
     Handshake,
     Home,
     LifeBuoy,
+    Megaphone,
     Settings as SettingsIcon,
     Shield,
     ShieldCheck,
@@ -32,6 +33,7 @@
     partnerNavigationVisible?: boolean;
     partnerSettingsVisible?: boolean;
     onSettings?: Action;
+    onNotifications?: Action;
     onSecurity?: Action;
     screen?: string;
     onSupport?: Action;
@@ -64,6 +66,7 @@
     screen = "home",
     onSupport = () => {},
     onSettings = () => {},
+    onNotifications = () => {},
     onSecurity = () => {},
     t = (key) => key,
   }: Props = $props();
@@ -172,6 +175,12 @@
     <span class="bottom-nav-label">{t("wa_nav_settings")}</span>
   </button>
   <div class="rail-settings-subnav">
+    <button class:active={screen === "notifications"} type="button" onclick={onNotifications}>
+      <Megaphone size={18} />
+      <span class="bottom-nav-label"
+        >{t("wa_notification_preferences_title", {}, "Notifications")}</span
+      >
+    </button>
     <button class:active={screen === "security"} type="button" onclick={onSecurity}>
       <ShieldCheck size={18} />
       <span class="bottom-nav-label">{t("wa_security_title", {}, "Security")}</span>

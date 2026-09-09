@@ -2,6 +2,7 @@ import { mount } from "svelte";
 
 import App from "./App.svelte";
 import PreviewBoard from "./PreviewBoard.svelte";
+import NotificationUnsubscribeApp from "./webapp/NotificationUnsubscribeApp.svelte";
 import { mockApi } from "./lib/webapp/mockApi.js";
 import { persistDemoSettings, restoreDemoSettings } from "./lib/webapp/mockApi/settings.js";
 import { DEV_MOCK, applyPreviewMock } from "./lib/webapp/previewMock.js";
@@ -121,6 +122,17 @@ async function bootstrap(): Promise<void> {
   const target = document.getElementById("app");
   if (target) {
     target.replaceChildren();
+    if (window.location.pathname.replace(/\/$/, "").endsWith("/unsubscribe")) {
+      mount(NotificationUnsubscribeApp, {
+        target,
+        props: {
+          request: (path: string, options: RequestInit = {}) => mockApi(path, options),
+          brandTitle: String(DEV_MOCK.config.title || ""),
+          logoUrl: String(DEV_MOCK.config.logoUrl || ""),
+        },
+      });
+      return;
+    }
     mount(App, {
       target,
       props: {

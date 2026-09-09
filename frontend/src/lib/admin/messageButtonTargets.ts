@@ -8,6 +8,7 @@ export const CUSTOMER_WEBAPP_SECTIONS = [
   "devices",
   "support",
   "settings",
+  "notifications",
 ] as const;
 
 const TELEGRAM_HOSTS = new Set(["t.me", "telegram.me", "www.t.me", "www.telegram.me"]);

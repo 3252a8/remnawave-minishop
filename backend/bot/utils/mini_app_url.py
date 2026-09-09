@@ -10,6 +10,7 @@ from db.dal.subscription_dal import normalize_install_share_token
 
 _MINI_APP_START_PARAM_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 _TELEGRAM_BOT_USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{5,32}$")
+_MINI_APP_SECTION_PATHS = {"notifications": "settings/notifications"}
 
 
 def append_query_params(base_url: str, params: dict[str, str]) -> str:
@@ -65,8 +66,11 @@ def subscription_mini_app_path_url(settings: Settings, path: str) -> str | None:
     base = str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
     if not base:
         return None
-    normalized_path = f"/{str(path or '').lstrip('/')}"
-    return f"{base.rstrip('/')}{normalized_path}"
+    requested_path = str(path or "").strip().strip("/")
+    normalized_path = _MINI_APP_SECTION_PATHS.get(requested_path.lower(), requested_path)
+    parts = urlsplit(base)
+    joined_path = f"{parts.path.rstrip('/')}/{normalized_path}"
+    return urlunsplit((parts.scheme, parts.netloc, joined_path, parts.query, parts.fragment))
 
 
 def subscription_main_mini_app_deep_link(

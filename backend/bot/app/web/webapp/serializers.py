@@ -36,6 +36,7 @@ from bot.services.telegram_notifications import (
     telegram_notifications_start_link,
 )
 from bot.services.user_balance_service import UserBalanceService
+from bot.services.user_notification_preferences import UserNotificationPreferences
 from bot.utils.locale_defaults import subscription_purchase_description_text
 from bot.utils.traffic_reset import format_traffic_reset_date, parse_panel_datetime
 from config.menu_buttons import public_menu_buttons
@@ -353,6 +354,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             "email": db_user.email,
             "email_verified": bool(db_user.email_verified_at),
             "notification_email": notification_email or None,
+            "notification_preferences": UserNotificationPreferences.from_user(db_user).as_dict(),
             "email_addresses": serialized_email_addresses,
             "password_auth_enabled": bool(
                 db_user.email and db_user.email_verified_at and db_user.password_hash

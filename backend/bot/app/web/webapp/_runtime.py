@@ -145,6 +145,7 @@ WEBAPP_CSRF_EXEMPT_PATHS = {
     "/api/auth/email/magic",
     "/api/auth/email/password",
     "/api/auth/logout",
+    "/api/notification-preferences/unsubscribe",
 }
 
 _SHARED_HTTP_SESSION: ClientSession | None = None

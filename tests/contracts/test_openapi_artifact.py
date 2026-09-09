@@ -58,6 +58,11 @@ def test_openapi_marks_user_session_security():
     assert (
         "security" not in document["paths"]["/api/subscription-guides/public/{share_token}"]["get"]
     )
+    assert "security" not in document["paths"]["/api/notification-preferences/unsubscribe"]["get"]
+    assert (
+        document["paths"]["/api/account/notification-preferences"]["post"]["security"]
+        == user_security
+    )
 
 
 def test_openapi_lists_every_live_api_route():

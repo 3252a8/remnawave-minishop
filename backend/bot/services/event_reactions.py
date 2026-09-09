@@ -34,6 +34,7 @@ from bot.services.user_email_notifications import send_user_notification_email
 from bot.services.user_notification_policy import (
     UserNotificationCategory,
     telegram_recipient,
+    user_notification_channel_allowed,
     user_notification_channel_selected,
     user_notification_delivery_plan,
 )
@@ -676,10 +677,18 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                     logger.exception("Failed to notify user %s about canceled payment.", user_id)
                 telegram_error = exc
         email_sent = False
-        email_requested = plan.email or user_notification_channel_selected(
-            self.ctx.settings,
-            UserNotificationCategory.PAYMENTS,
-            "email",
+        email_requested = plan.email or (
+            user is not None
+            and user_notification_channel_selected(
+                self.ctx.settings,
+                UserNotificationCategory.PAYMENTS,
+                "email",
+            )
+            and user_notification_channel_allowed(
+                user,
+                UserNotificationCategory.PAYMENTS,
+                "email",
+            )
         )
         if email_requested and user is not None:
             email_sent = await send_user_notification_email(
@@ -752,10 +761,17 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                         "Failed to send referral bonus notification to inviter %s.",
                         inviter_user_id,
                     )
-        email_requested = plan.email or user_notification_channel_selected(
-            self.ctx.settings,
-            UserNotificationCategory.REFERRALS,
-            "email",
+        email_requested = plan.email or (
+            user_notification_channel_selected(
+                self.ctx.settings,
+                UserNotificationCategory.REFERRALS,
+                "email",
+            )
+            and user_notification_channel_allowed(
+                inviter,
+                UserNotificationCategory.REFERRALS,
+                "email",
+            )
         )
         if email_requested:
             await send_user_notification_email(

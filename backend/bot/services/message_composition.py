@@ -50,6 +50,7 @@ MINI_APP_SECTIONS = (
     "devices",
     "support",
     "settings",
+    "notifications",
 )
 MAX_MESSAGE_BUTTONS = 4
 MAX_BUTTON_LABEL_LENGTH = 64
