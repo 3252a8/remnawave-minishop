@@ -438,6 +438,15 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         dialog_source = (
             root / "frontend/src/webapp/payment-dialogs/SubscriptionReissueDialog.svelte"
         ).read_text(encoding="utf-8")
+        security_source = (root / "frontend/src/webapp/screens/SecurityScreen.svelte").read_text(
+            encoding="utf-8"
+        )
+        settings_source = (root / "frontend/src/webapp/screens/SettingsScreen.svelte").read_text(
+            encoding="utf-8"
+        )
+        devices_source = (root / "frontend/src/webapp/screens/DevicesScreen.svelte").read_text(
+            encoding="utf-8"
+        )
 
         self.assertIn(
             ".settings-row-subscription-reissue {\n  grid-column: 1 / -1;\n}",
@@ -452,6 +461,9 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             ".webapp-subscription-reissue-dialog .device-danger-button",
             dialogs_css,
         )
+        self.assertIn('data-webapp-action="open-subscription-reissue"', security_source)
+        self.assertNotIn('data-webapp-action="open-subscription-reissue"', settings_source)
+        self.assertNotIn('data-webapp-action="open-subscription-reissue"', devices_source)
 
     def test_webapp_bootstrap_exposes_server_status_url(self):
         settings = Settings(

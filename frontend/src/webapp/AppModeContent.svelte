@@ -694,7 +694,6 @@
       {subscriptionReissueBusy}
       {confirmSubscriptionReissue}
       {closeSubscriptionReissueDialog}
-      openLinkEmailDialog={openSettingsLinkEmailDialog}
       {hasMultipleTariffs}
       {methods}
       {paymentMethodsDisplayMode}

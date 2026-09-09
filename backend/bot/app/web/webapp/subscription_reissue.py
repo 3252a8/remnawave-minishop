@@ -1,20 +1,22 @@
 """User-initiated subscription link reissue for the Mini App.
 
 Revokes the subscription on the panel (which regenerates the short UUID and
-therefore disconnects every device still using the previous link) and emails
-the new link together with connection instructions to the user's linked
-email address. The feature is intentionally unavailable without a linked
-email so the user cannot lock themselves out of their own subscription.
+therefore disconnects every device still using the previous link). The new
+link is delivered by email when possible, falls back to a linked Telegram
+account, and always remains available in the Mini App.
 """
 
 import logging
+from html import escape as html_escape
 from typing import Any
 
+from aiogram import Bot
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
+    get_bot,
     get_i18n,
     get_session_factory,
     get_settings,
@@ -22,9 +24,10 @@ from bot.app.web.context import (
 )
 from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
 from bot.middlewares.i18n import JsonI18n
+from bot.services.outbound_messaging import OutboundMessagingService
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.user_email_notifications import send_user_notification_email
-from bot.services.user_notification_policy import email_recipient
+from bot.services.user_notification_policy import email_recipient, telegram_recipient
 from bot.utils.config_link import prepare_config_links
 from bot.utils.mini_app_url import (
     subscription_mini_app_install_url,
@@ -50,8 +53,8 @@ logger = logging.getLogger(__name__)
 
 
 def subscription_reissue_feature_enabled(settings: Settings) -> bool:
-    """Reissue requires email delivery, so it is gated on configured email auth."""
-    return bool(settings.SUBSCRIPTION_REISSUE_ENABLED and settings.email_auth_configured)
+    """Return whether users may rotate their subscription link."""
+    return bool(settings.SUBSCRIPTION_REISSUE_ENABLED)
 
 
 async def subscription_reissue_route(request: web.Request) -> web.Response:
@@ -78,10 +81,6 @@ async def subscription_reissue_route(request: web.Request) -> web.Response:
         if not db_user or db_user.is_banned:
             return _json_error(403, "access_denied", "Access denied")
 
-        email = email_recipient(settings, db_user)
-        if not email:
-            return _json_error(400, "email_required", "A linked email address is required")
-
         active = await subscription_service.get_active_subscription_details(session, user_id)
         panel_user_uuid = str((active or {}).get("user_id") or "").strip()
         if not active or not panel_user_uuid:
@@ -99,13 +98,34 @@ async def subscription_reissue_route(request: web.Request) -> web.Response:
         if not updated_panel_user:
             return _json_error(502, "subscription_reissue_failed", "Failed to reissue subscription")
 
-        email_sent = await send_subscription_reissue_email(
-            settings=settings,
-            i18n=i18n,
-            session=session,
-            db_user=db_user,
-            updated_panel_user=updated_panel_user,
-        )
+        email_sent = False
+        if email_recipient(settings, db_user):
+            email_sent = await send_subscription_reissue_email(
+                settings=settings,
+                i18n=i18n,
+                session=session,
+                db_user=db_user,
+                updated_panel_user=updated_panel_user,
+            )
+
+        telegram_sent = False
+        telegram_id = telegram_recipient(db_user) if getattr(db_user, "telegram_id", None) else None
+        if not email_sent and telegram_id is not None:
+            try:
+                telegram_sent = await send_subscription_reissue_telegram(
+                    settings=settings,
+                    i18n=i18n,
+                    session=session,
+                    db_user=db_user,
+                    updated_panel_user=updated_panel_user,
+                    bot=get_bot(request),
+                    telegram_id=telegram_id,
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to deliver reissued subscription to Telegram user %s",
+                    user_id,
+                )
 
         await invalidate_webapp_user_caches(
             settings,
@@ -116,11 +136,20 @@ async def subscription_reissue_route(request: web.Request) -> web.Response:
         await session.commit()
 
     logger.info(
-        "User %s reissued their subscription via WebApp (email_sent=%s).",
+        "User %s reissued their subscription via WebApp (email_sent=%s, telegram_sent=%s).",
         user_id,
         email_sent,
+        telegram_sent,
     )
-    return json_response({"ok": True, "email_sent": bool(email_sent)})
+    delivery_channel = "email" if email_sent else "telegram" if telegram_sent else "app"
+    return json_response(
+        {
+            "ok": True,
+            "email_sent": bool(email_sent),
+            "telegram_sent": bool(telegram_sent),
+            "delivery_channel": delivery_channel,
+        }
+    )
 
 
 def _reissue_email_text(
@@ -193,5 +222,56 @@ async def send_subscription_reissue_email(
         intro_key="email_subscription_reissue_intro",
         session=session,
         audit_event_type="subscription_reissue_email",
+        audit_content="subscription reissue: new link and connection instructions",
+    )
+
+
+async def send_subscription_reissue_telegram(
+    *,
+    settings: Settings,
+    i18n: JsonI18n | None,
+    session: AsyncSession,
+    db_user: Any,
+    updated_panel_user: dict[str, Any],
+    bot: Bot,
+    telegram_id: int,
+) -> bool:
+    raw_link = str(updated_panel_user.get("subscriptionUrl") or "").strip() or None
+    display_link, _connect_url = await prepare_config_links(settings, raw_link)
+    language = (
+        str(getattr(db_user, "language_code", "") or "").strip()
+        or settings.DEFAULT_LANGUAGE
+        or "ru"
+    )
+    install_guide_url = subscription_mini_app_install_url(settings)
+
+    message_lines = [
+        _reissue_email_text(i18n, language, "email_subscription_reissue_message_intro")
+    ]
+    if display_link:
+        message_lines.append(
+            _reissue_email_text(
+                i18n,
+                language,
+                "email_subscription_reissue_link_line",
+                config_link=html_escape(display_link),
+            )
+        )
+    if install_guide_url:
+        message_lines.append(
+            _reissue_email_text(
+                i18n,
+                language,
+                "email_subscription_reissue_instructions_line",
+                install_guide_url=html_escape(install_guide_url),
+            )
+        )
+
+    return await OutboundMessagingService(bot).send_text(
+        session,
+        user_id=telegram_id,
+        text="\n\n".join(line for line in message_lines if line),
+        event_type="subscription_reissue_telegram",
+        audit_user_id=int(db_user.user_id),
         audit_content="subscription reissue: new link and connection instructions",
     )

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from bot.app.web.route_contracts import (
     BOOLEAN_SCHEMA,
+    STRING_SCHEMA,
     RouteContract,
     ok_envelope_with,
 )
@@ -15,6 +16,8 @@ SUBSCRIPTION_REISSUE_ROUTE_CONTRACTS: dict[str, RouteContract] = {
         response_schema=ok_envelope_with(
             {
                 "email_sent": BOOLEAN_SCHEMA,
+                "telegram_sent": BOOLEAN_SCHEMA,
+                "delivery_channel": STRING_SCHEMA,
             },
         ),
     ),

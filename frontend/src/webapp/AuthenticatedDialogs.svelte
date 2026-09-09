@@ -42,7 +42,6 @@
     subscriptionReissueBusy?: boolean;
     confirmSubscriptionReissue?: VoidAction;
     closeSubscriptionReissueDialog?: VoidAction;
-    openLinkEmailDialog?: VoidAction;
     hasMultipleTariffs?: boolean;
     methods?: PaymentMethod[];
     loadData: () => Promise<unknown>;
@@ -81,7 +80,6 @@
     subscriptionReissueBusy = false,
     confirmSubscriptionReissue = () => {},
     closeSubscriptionReissueDialog = () => {},
-    openLinkEmailDialog = () => {},
     hasMultipleTariffs = false,
     methods = [],
     loadData,
@@ -202,10 +200,8 @@
 <SubscriptionReissueDialog
   {subscriptionReissueDialogOpen}
   {subscriptionReissueBusy}
-  userEmail={user?.email || ""}
   {confirmSubscriptionReissue}
   {closeSubscriptionReissueDialog}
-  {openLinkEmailDialog}
   {t}
 />
 

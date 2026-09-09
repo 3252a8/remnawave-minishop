@@ -465,9 +465,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             "user_balance_enabled": bool(settings.balance_settings.enabled),
             "referral_program_enabled": referral_program_enabled,
             "gifts_enabled": bool(settings.GIFTS_ENABLED),
-            "subscription_reissue_enabled": bool(
-                settings.SUBSCRIPTION_REISSUE_ENABLED and settings.email_auth_configured
-            ),
+            "subscription_reissue_enabled": bool(settings.SUBSCRIPTION_REISSUE_ENABLED),
             "user_hwid_device_limit": (
                 int(settings.USER_HWID_DEVICE_LIMIT)
                 if settings.USER_HWID_DEVICE_LIMIT is not None

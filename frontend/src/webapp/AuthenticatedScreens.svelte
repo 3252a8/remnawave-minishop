@@ -314,11 +314,6 @@
     } else if (screen === "status") statusScreen.load();
   });
 
-  // Without the Devices section the reissue action has no home screen, so it
-  // moves to Settings.
-  const settingsSubscriptionReissueVisible = $derived(
-    subscriptionReissueEnabled && !devicesEnabled && Boolean(subscription?.active)
-  );
   const programEntryPlacement = $derived(
     resolveProgramEntryPlacement({
       partnerProgramEnabled: partnerEnabled,
@@ -524,9 +519,6 @@
         {subscription}
         {loadDevices}
         openDeviceDisconnectDialog={devicesStore.openDeviceDisconnectDialog}
-        {subscriptionReissueEnabled}
-        {subscriptionReissueBusy}
-        {openSubscriptionReissueDialog}
         {openDeviceTopupModal}
         {openPaymentModal}
         {t}
@@ -586,8 +578,6 @@
       {promoStatus}
       {serverStatusUrl}
       {serverStatusInternal}
-      {subscriptionReissueBusy}
-      subscriptionReissueVisible={settingsSubscriptionReissueVisible}
       {supportUrl}
       {themeOptions}
       {themePreference}
@@ -611,7 +601,6 @@
       {openMenuButton}
       openSecurity={goSecurity}
       openServerStatus={() => goStatus("settings")}
-      {openSubscriptionReissueDialog}
       {applyPromo}
       {clearPromoFieldError}
       {setLanguageMenuOpen}
@@ -630,6 +619,9 @@
       linkTelegramAccount={accountStore.linkTelegramFromSettings}
       {openLinkEmailDialog}
       {openSetPasswordDialog}
+      {subscriptionReissueBusy}
+      subscriptionReissueVisible={subscriptionReissueEnabled && Boolean(subscription?.active)}
+      {openSubscriptionReissueDialog}
       {t}
       {telegramMiniAppContext}
       {user}

@@ -15061,9 +15061,11 @@ export interface operations {
         };
         content: {
           "application/json": {
+            delivery_channel: string;
             email_sent: boolean;
             /** @constant */
             ok: true;
+            telegram_sent: boolean;
           };
         };
       };

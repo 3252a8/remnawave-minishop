@@ -3,7 +3,6 @@
     ArrowRight,
     FileText,
     Handshake,
-    Key,
     Send,
     Server,
     Shield,
@@ -56,8 +55,6 @@
     promoStatus?: string;
     serverStatusUrl?: string;
     serverStatusInternal?: boolean;
-    subscriptionReissueBusy?: boolean;
-    subscriptionReissueVisible?: boolean;
     supportUrl?: string;
     themeOptions?: ThemeOption[];
     themePreference?: string;
@@ -80,7 +77,6 @@
     openMenuButton?: (button: MenuButtonView) => void;
     openSecurity?: VoidAction;
     openServerStatus?: VoidAction;
-    openSubscriptionReissueDialog?: VoidAction;
     applyPromo?: VoidAction;
     clearPromoFieldError?: VoidAction;
     setLanguageMenuOpen?: (open: boolean) => void;
@@ -115,8 +111,6 @@
     promoStatus = "",
     serverStatusUrl = "",
     serverStatusInternal = false,
-    subscriptionReissueBusy = false,
-    subscriptionReissueVisible = false,
     supportUrl = "",
     themeOptions = [],
     themePreference = "auto",
@@ -139,7 +133,6 @@
     openMenuButton = () => {},
     openSecurity = () => {},
     openServerStatus = () => {},
-    openSubscriptionReissueDialog = () => {},
     applyPromo = () => {},
     clearPromoFieldError = () => {},
     setLanguageMenuOpen = () => {},
@@ -238,22 +231,6 @@
       </span>
       <ArrowRight size={17} />
     </button>
-    {#if subscriptionReissueVisible}
-      <button
-        data-webapp-action="open-subscription-reissue"
-        class="settings-row settings-row-subscription-reissue"
-        type="button"
-        onclick={openSubscriptionReissueDialog}
-        disabled={subscriptionReissueBusy}
-      >
-        <Key size={21} />
-        <span>
-          <strong>{t("wa_subscription_reissue_action")}</strong>
-          <small>{t("wa_settings_subscription_reissue_hint")}</small>
-        </span>
-        <ArrowRight size={17} />
-      </button>
-    {/if}
     <div class="settings-divider" aria-hidden="true"></div>
   </div>
   {#if promoActivationVisible}

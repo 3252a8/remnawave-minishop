@@ -27422,17 +27422,25 @@
                 "schema": {
                   "additionalProperties": false,
                   "properties": {
+                    "delivery_channel": {
+                      "type": "string"
+                    },
                     "email_sent": {
                       "type": "boolean"
                     },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "telegram_sent": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
                     "ok",
-                    "email_sent"
+                    "email_sent",
+                    "telegram_sent",
+                    "delivery_channel"
                   ],
                   "type": "object"
                 }

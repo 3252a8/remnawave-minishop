@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowRight, CircleX, Key, Plus, RefreshCw, Smartphone } from "$components/ui/icons.js";
+  import { ArrowRight, CircleX, Plus, RefreshCw, Smartphone } from "$components/ui/icons.js";
 
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
@@ -37,9 +37,6 @@
     openDeviceDisconnectDialog?: (device: DeviceView) => void;
     openDeviceTopupModal?: VoidAction;
     openPaymentModal?: VoidAction;
-    openSubscriptionReissueDialog?: VoidAction;
-    subscriptionReissueBusy?: boolean;
-    subscriptionReissueEnabled?: boolean;
     t?: Translate;
   };
 
@@ -55,9 +52,6 @@
     openDeviceDisconnectDialog = () => {},
     openDeviceTopupModal = () => {},
     openPaymentModal = () => {},
-    openSubscriptionReissueDialog = () => {},
-    subscriptionReissueBusy = false,
-    subscriptionReissueEnabled = false,
     t = (key: string) => key,
   }: Props = $props();
 
@@ -89,9 +83,6 @@
   );
   const showTrialTariffAction = $derived(
     showDeviceTopupUnavailable && deviceTopupUnavailableReason === "trial_subscription"
-  );
-  const showSubscriptionReissueAction = $derived(
-    Boolean(subscriptionReissueEnabled && subscription?.active)
   );
 </script>
 
@@ -132,7 +123,7 @@
           {t(`wa_device_topup_unavailable_${deviceTopupUnavailableReason}`)}
         </StatusMessage>
       {/if}
-      {#if showDeviceTopupAction || showTrialTariffAction || showSubscriptionReissueAction}
+      {#if showDeviceTopupAction || showTrialTariffAction}
         <div class="devices-summary-actions">
           {#if showDeviceTopupAction}
             <Button
@@ -153,18 +144,6 @@
             >
               {t("wa_trial_device_limit_choose_tariff")}
               <ArrowRight size={17} />
-            </Button>
-          {/if}
-          {#if showSubscriptionReissueAction}
-            <Button
-              data-webapp-action="open-subscription-reissue"
-              variant="outline"
-              class="wide subscription-reissue-button"
-              onclick={openSubscriptionReissueDialog}
-              disabled={subscriptionReissueBusy}
-            >
-              <Key size={17} />
-              {t("wa_subscription_reissue_action")}
             </Button>
           {/if}
         </div>

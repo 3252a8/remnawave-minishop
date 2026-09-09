@@ -44,10 +44,13 @@ def _settings(**overrides):
     return SimpleNamespace(**values)
 
 
-def _db_user(email="user@example.test"):
+def _db_user(email="user@example.test", telegram_id=42):
     return SimpleNamespace(
         user_id=42,
         email=email,
+        notification_email=None,
+        telegram_id=telegram_id,
+        telegram_notifications_status="enabled",
         is_banned=False,
         language_code="en",
         panel_user_uuid="panel-uuid",
@@ -58,12 +61,12 @@ def _response_body(response):
     return json.loads(response.body.decode())
 
 
-def test_feature_flag_requires_email_auth():
+def test_feature_flag_is_independent_from_email_auth():
     assert subscription_reissue_feature_enabled(_settings()) is True
     assert (
         subscription_reissue_feature_enabled(_settings(SUBSCRIPTION_REISSUE_ENABLED=False)) is False
     )
-    assert subscription_reissue_feature_enabled(_settings(email_auth_configured=False)) is False
+    assert subscription_reissue_feature_enabled(_settings(email_auth_configured=False)) is True
 
 
 class WebAppSubscriptionReissueRouteTests(IsolatedAsyncioTestCase):
@@ -82,6 +85,7 @@ class WebAppSubscriptionReissueRouteTests(IsolatedAsyncioTestCase):
                 reissue_module, "get_subscription_service", return_value=subscription_service
             ),
             patch.object(reissue_module, "get_i18n", return_value=None),
+            patch.object(reissue_module, "get_bot", return_value=SimpleNamespace()),
             patch.object(reissue_module, "_require_user_id", return_value=42),
             patch.object(
                 reissue_module,
@@ -117,10 +121,14 @@ class WebAppSubscriptionReissueRouteTests(IsolatedAsyncioTestCase):
         assert _response_body(response)["error"] == "subscription_reissue_disabled"
         subscription_service.get_active_subscription_details.assert_not_awaited()
 
-    async def test_missing_email_returns_400_before_touching_the_panel(self):
-        panel_service = SimpleNamespace(revoke_user_subscription=AsyncMock())
+    async def test_missing_email_reissues_and_delivers_to_linked_telegram(self):
+        panel_service = SimpleNamespace(
+            revoke_user_subscription=AsyncMock(
+                return_value={"subscriptionUrl": "https://sub.example.test/new-short-uuid"}
+            )
+        )
         subscription_service = SimpleNamespace(
-            get_active_subscription_details=AsyncMock(),
+            get_active_subscription_details=AsyncMock(return_value={"user_id": "panel-uuid"}),
             panel_service=panel_service,
         )
         self._patch_context(
@@ -129,12 +137,24 @@ class WebAppSubscriptionReissueRouteTests(IsolatedAsyncioTestCase):
             db_user=_db_user(email=""),
         )
 
-        response = await subscription_reissue_route(_JsonRequest())
+        send_email = AsyncMock()
+        send_telegram = AsyncMock(return_value=True)
+        with (
+            patch.object(reissue_module, "send_subscription_reissue_email", send_email),
+            patch.object(reissue_module, "send_subscription_reissue_telegram", send_telegram),
+        ):
+            response = await subscription_reissue_route(_JsonRequest())
 
-        assert response.status == 400
-        assert _response_body(response)["error"] == "email_required"
-        subscription_service.get_active_subscription_details.assert_not_awaited()
-        panel_service.revoke_user_subscription.assert_not_awaited()
+        assert response.status == 200
+        assert _response_body(response) == {
+            "ok": True,
+            "email_sent": False,
+            "telegram_sent": True,
+            "delivery_channel": "telegram",
+        }
+        panel_service.revoke_user_subscription.assert_awaited_once_with("panel-uuid")
+        send_email.assert_not_awaited()
+        send_telegram.assert_awaited_once()
 
     async def test_inactive_subscription_returns_400(self):
         panel_service = SimpleNamespace(revoke_user_subscription=AsyncMock())
@@ -223,7 +243,12 @@ class WebAppSubscriptionReissueRouteTests(IsolatedAsyncioTestCase):
 
         assert response.status == 200
         body = _response_body(response)
-        assert body == {"ok": True, "email_sent": True}
+        assert body == {
+            "ok": True,
+            "email_sent": True,
+            "telegram_sent": False,
+            "delivery_channel": "email",
+        }
         panel_service.revoke_user_subscription.assert_awaited_once_with("panel-uuid")
         prepare_links.assert_awaited_once_with(settings, "https://sub.example.test/new-short-uuid")
         send_email.assert_awaited_once()
@@ -236,7 +261,7 @@ class WebAppSubscriptionReissueRouteTests(IsolatedAsyncioTestCase):
             settings, 42, include_devices=True, include_me=True
         )
 
-    async def test_email_failure_still_reports_reissue_with_email_sent_false(self):
+    async def test_email_failure_falls_back_to_linked_telegram(self):
         panel_service = SimpleNamespace(
             revoke_user_subscription=AsyncMock(
                 return_value={"subscriptionUrl": "https://sub.example.test/new-short-uuid"}
@@ -252,8 +277,10 @@ class WebAppSubscriptionReissueRouteTests(IsolatedAsyncioTestCase):
             db_user=_db_user(),
         )
         send_email = AsyncMock(return_value=False)
+        send_telegram = AsyncMock(return_value=True)
         with (
             patch.object(reissue_module, "send_user_notification_email", send_email),
+            patch.object(reissue_module, "send_subscription_reissue_telegram", send_telegram),
             patch.object(
                 reissue_module,
                 "prepare_config_links",
@@ -269,7 +296,121 @@ class WebAppSubscriptionReissueRouteTests(IsolatedAsyncioTestCase):
             response = await subscription_reissue_route(_JsonRequest())
 
         assert response.status == 200
-        assert _response_body(response) == {"ok": True, "email_sent": False}
+        assert _response_body(response) == {
+            "ok": True,
+            "email_sent": False,
+            "telegram_sent": True,
+            "delivery_channel": "telegram",
+        }
         email_kwargs = send_email.await_args.kwargs
         assert email_kwargs["dashboard_url"] == "https://miniapp.example.test/"
         assert email_kwargs["cta_label_key"] == "email_user_notification_cta"
+        send_telegram.assert_awaited_once()
+
+    async def test_smtp_unavailable_skips_email_and_uses_telegram(self):
+        panel_service = SimpleNamespace(
+            revoke_user_subscription=AsyncMock(
+                return_value={"subscriptionUrl": "https://sub.example.test/new-short-uuid"}
+            )
+        )
+        subscription_service = SimpleNamespace(
+            get_active_subscription_details=AsyncMock(return_value={"user_id": "panel-uuid"}),
+            panel_service=panel_service,
+        )
+        self._patch_context(
+            settings=_settings(email_auth_configured=False),
+            subscription_service=subscription_service,
+            db_user=_db_user(),
+        )
+        send_email = AsyncMock()
+        send_telegram = AsyncMock(return_value=True)
+        with (
+            patch.object(reissue_module, "send_subscription_reissue_email", send_email),
+            patch.object(reissue_module, "send_subscription_reissue_telegram", send_telegram),
+        ):
+            response = await subscription_reissue_route(_JsonRequest())
+
+        assert _response_body(response)["delivery_channel"] == "telegram"
+        send_email.assert_not_awaited()
+        send_telegram.assert_awaited_once()
+
+    async def test_no_delivery_channel_still_reissues_for_mini_app(self):
+        panel_service = SimpleNamespace(
+            revoke_user_subscription=AsyncMock(
+                return_value={"subscriptionUrl": "https://sub.example.test/new-short-uuid"}
+            )
+        )
+        subscription_service = SimpleNamespace(
+            get_active_subscription_details=AsyncMock(return_value={"user_id": "panel-uuid"}),
+            panel_service=panel_service,
+        )
+        self._patch_context(
+            settings=_settings(email_auth_configured=False),
+            subscription_service=subscription_service,
+            db_user=_db_user(email="", telegram_id=None),
+        )
+        send_email = AsyncMock()
+        send_telegram = AsyncMock()
+        with (
+            patch.object(reissue_module, "send_subscription_reissue_email", send_email),
+            patch.object(reissue_module, "send_subscription_reissue_telegram", send_telegram),
+        ):
+            response = await subscription_reissue_route(_JsonRequest())
+
+        assert _response_body(response) == {
+            "ok": True,
+            "email_sent": False,
+            "telegram_sent": False,
+            "delivery_channel": "app",
+        }
+        panel_service.revoke_user_subscription.assert_awaited_once_with("panel-uuid")
+        send_email.assert_not_awaited()
+        send_telegram.assert_not_awaited()
+
+    async def test_telegram_delivery_sends_escaped_link_and_sanitizes_audit(self):
+        translations = {
+            "email_subscription_reissue_message_intro": "Reconnect your devices.",
+            "email_subscription_reissue_link_line": "New link: <code>{config_link}</code>",
+            "email_subscription_reissue_instructions_line": "Guide: {install_guide_url}",
+        }
+        i18n = SimpleNamespace(
+            gettext=lambda _language, key, **kwargs: translations[key].format(**kwargs)
+        )
+        sender = AsyncMock(return_value=True)
+        bot = SimpleNamespace()
+        settings = _settings()
+        with (
+            patch.object(
+                reissue_module,
+                "prepare_config_links",
+                AsyncMock(return_value=("happ://crypt4/token?a=1&b=2", "")),
+            ),
+            patch.object(
+                reissue_module,
+                "subscription_mini_app_install_url",
+                return_value="https://miniapp.example.test/install?a=1&b=2",
+            ),
+            patch.object(
+                reissue_module,
+                "OutboundMessagingService",
+                return_value=SimpleNamespace(send_text=sender),
+            ) as service_class,
+        ):
+            result = await reissue_module.send_subscription_reissue_telegram(
+                settings=settings,
+                i18n=i18n,
+                session=AsyncMock(),
+                db_user=_db_user(telegram_id=777),
+                updated_panel_user={"subscriptionUrl": "https://sub.example.test/new"},
+                bot=bot,
+                telegram_id=777,
+            )
+
+        assert result is True
+        service_class.assert_called_once_with(bot)
+        telegram_kwargs = sender.await_args.kwargs
+        assert telegram_kwargs["user_id"] == 777
+        assert "happ://crypt4/token?a=1&amp;b=2" in telegram_kwargs["text"]
+        assert "install?a=1&amp;b=2" in telegram_kwargs["text"]
+        assert telegram_kwargs["audit_user_id"] == 42
+        assert "happ://" not in telegram_kwargs["audit_content"]

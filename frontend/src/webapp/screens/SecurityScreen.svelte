@@ -52,6 +52,9 @@
     linkTelegramAccount: VoidAction;
     openLinkEmailDialog: VoidAction;
     openSetPasswordDialog: VoidAction;
+    openSubscriptionReissueDialog?: VoidAction;
+    subscriptionReissueBusy?: boolean;
+    subscriptionReissueVisible?: boolean;
     t: Translate;
     telegramMiniAppContext?: boolean;
     user?: UserProfile;
@@ -67,6 +70,9 @@
     linkTelegramAccount,
     openLinkEmailDialog,
     openSetPasswordDialog,
+    openSubscriptionReissueDialog = () => {},
+    subscriptionReissueBusy = false,
+    subscriptionReissueVisible = false,
     t,
     telegramMiniAppContext = false,
     user = {},
@@ -264,6 +270,28 @@
       </div>
     </div>
   </Card>
+
+  {#if subscriptionReissueVisible}
+    <Card class="security-card">
+      <h2>{t("wa_security_subscription_access", {}, "Subscription access")}</h2>
+      <div class="settings-list">
+        <button
+          data-webapp-action="open-subscription-reissue"
+          class="settings-row settings-row-subscription-reissue"
+          type="button"
+          onclick={openSubscriptionReissueDialog}
+          disabled={subscriptionReissueBusy}
+        >
+          <Key size={21} />
+          <span>
+            <strong>{t("wa_subscription_reissue_action")}</strong>
+            <small>{t("wa_settings_subscription_reissue_hint")}</small>
+          </span>
+          <ArrowRight size={17} />
+        </button>
+      </div>
+    </Card>
+  {/if}
 
   <Card class="security-card">
     <h2>{t("wa_security_login_methods", {}, "Login methods")}</h2>
