@@ -150,6 +150,9 @@ export function createUsersStore({
     };
 
     if (resetExtendTariff) {
+      next.userExtendMode = "days";
+      next.userExtendDays = 30;
+      next.userExtendEndDate = "";
       next.userExtendTariffKey = draft.tariffKey || s.userExtendTariffKey || "";
     }
     if (resetTariffAction) {
@@ -512,13 +515,17 @@ export function createUsersStore({
     const s = readStateSnapshot();
     if (!s.openedUser) return;
     const days = Number(s.userExtendDays);
-    if (!days || days <= 0) return;
+    const byDate = s.userExtendMode === "date";
+    if ((byDate && !s.userExtendEndDate) || (!byDate && (!Number.isInteger(days) || days === 0))) {
+      return;
+    }
     applyState((st) => ({ ...st, userActionBusy: true }));
     try {
       const body: Record<string, unknown> = {
-        days,
         extend_hwid_devices: Boolean(s.userExtendHwidDevices),
       };
+      if (byDate) body.end_date = s.userExtendEndDate;
+      else body.days = days;
       if (s.userExtendTariffKey) body.tariff_key = s.userExtendTariffKey;
       if (s.userApplyTariffHwidLimit) body.apply_tariff_hwid_limit = true;
       const res = await api(buildAdminUserActionPath(s.openedUser.user_id, "extend"), {
@@ -527,7 +534,17 @@ export function createUsersStore({
       });
       if (res?.ok) {
         invalidateUsersQueries(s.openedUser.user_id);
-        onToast(at("subscription_extended", { days }, "Subscription extended by {days} days"));
+        onToast(
+          byDate
+            ? at("subscription_end_date_changed", {}, "Subscription end date changed")
+            : days > 0
+              ? at("subscription_extended", { days }, "Subscription extended by {days} days")
+              : at(
+                  "subscription_shortened",
+                  { days: Math.abs(days) },
+                  "Subscription shortened by {days} days"
+                )
+        );
         await refreshOpenedUserDetail({
           resetTrafficStrategy: false,
           resetPremium: false,

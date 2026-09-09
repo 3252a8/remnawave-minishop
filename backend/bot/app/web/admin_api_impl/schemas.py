@@ -19,7 +19,7 @@ Template for migrated domains:
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal, cast
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
@@ -532,7 +532,8 @@ class AdminUserTrafficStrategyBody(HttpBodyModel):
 
 
 class AdminUserExtendBody(HttpBodyModel):
-    days: Any = None
+    days: int | None = None
+    end_date: date | None = None
     tariff_key: Any = None
     extend_hwid_devices: Any = None
     apply_tariff_hwid_limit: Any = False

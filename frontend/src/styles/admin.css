@@ -5392,6 +5392,29 @@
   gap: 10px;
 }
 
+.admin-user-extend-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-user-extend-days-control {
+  display: grid;
+  grid-template-columns: 36px minmax(72px, 1fr) 36px;
+  gap: 6px;
+  align-items: center;
+}
+
+.admin-user-extend-days-control .admin-btn {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+}
+
+.admin-user-extend-days-control .input {
+  text-align: center;
+}
+
 .admin-user-extend-grid {
   display: grid;
   grid-template-columns: minmax(112px, 0.72fr) minmax(220px, 1.28fr) minmax(136px, auto);

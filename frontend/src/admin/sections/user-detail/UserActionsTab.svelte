@@ -107,6 +107,7 @@
 
   const activeSubscription = $derived(openedUserDetail?.active_subscription ?? null);
   const extraHwidDevices = $derived(Number(activeSubscription?.extra_hwid_devices || 0));
+  const activeSubscriptionEndDate = $derived(String(activeSubscription?.end_date || ""));
   const openedUserIsBanned = $derived(Boolean(openedUser?.is_banned));
 </script>
 
@@ -120,6 +121,7 @@
     {userExtendTariffValid}
     {extendTariffRequired}
     {extraHwidDevices}
+    {activeSubscriptionEndDate}
     {selectExtendTariff}
   />
 

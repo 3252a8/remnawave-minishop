@@ -5253,8 +5253,29 @@
             "title": "Apply Tariff Hwid Limit"
           },
           "days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "default": null,
             "title": "Days"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "End Date"
           },
           "extend_hwid_devices": {
             "default": null,

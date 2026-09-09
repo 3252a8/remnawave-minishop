@@ -5384,7 +5384,12 @@ export interface components {
        * Days
        * @default null
        */
-      days: unknown;
+      days: number | null;
+      /**
+       * End Date
+       * @default null
+       */
+      end_date: string | null;
       /**
        * Extend Hwid Devices
        * @default null

@@ -355,7 +355,25 @@
       !extendTariffItems.length ||
       extendTariffItems.some((item) => item.value === usersState.userExtendTariffKey)
   );
-  const userExtendDaysValid = $derived(Number(usersState.userExtendDays) > 0);
+  const userExtendDaysValid = $derived.by(() => {
+    if (usersState.userExtendMode === "date") {
+      const selected = String(usersState.userExtendEndDate || "");
+      const current = String(openedUserDetail?.active_subscription?.end_date || "").slice(0, 10);
+      return (
+        Boolean(selected) &&
+        selected !== current &&
+        Date.parse(`${selected}T23:59:59Z`) > Date.now()
+      );
+    }
+    const days = Number(usersState.userExtendDays);
+    if (!Number.isInteger(days) || days === 0 || Math.abs(days) > 3650) return false;
+    if (days > 0) return true;
+    const currentEnd = Date.parse(String(openedUserDetail?.active_subscription?.end_date || ""));
+    return (
+      Number.isFinite(currentEnd) &&
+      Math.max(currentEnd, Date.now()) + days * 86_400_000 > Date.now()
+    );
+  });
   const extendTariffsLoading = $derived(
     Boolean(openedUser && tariffsState.tariffsLoading && !extendTariffItems.length)
   );

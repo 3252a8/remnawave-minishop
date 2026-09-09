@@ -1,4 +1,5 @@
 import logging
+from datetime import UTC, datetime, timedelta
 
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
@@ -699,11 +700,11 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
     target_id = int(request.match_info["user_id"])
     settings: Settings = get_settings(request)
     body = await parse_body_or_400(request, AdminUserExtendBody)
-    try:
-        days = int(body.days or 0)
-    except (TypeError, ValueError):
+    requested_end_date = body.end_date
+    if body.days is not None and requested_end_date is not None:
         return _error(400, "invalid_days")
-    if days <= 0:
+    days = int(body.days or 0)
+    if days == 0 and requested_end_date is None:
         return _error(400, "invalid_days")
     extend_hwid_devices = body.extend_hwid_devices
     extend_hwid_devices = True if extend_hwid_devices is None else bool(extend_hwid_devices)
@@ -722,6 +723,30 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
 
     async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
+        if days < 0 or requested_end_date is not None:
+            active = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
+            current_end = getattr(active, "end_date", None) if active else None
+            if not isinstance(current_end, datetime):
+                return _error(404, "no_active_subscription")
+            if current_end.tzinfo is None:
+                current_end = current_end.replace(tzinfo=UTC)
+
+            if requested_end_date is not None:
+                days = (requested_end_date - current_end.date()).days
+                if days == 0:
+                    return _error(400, "invalid_days")
+
+            now = datetime.now(UTC)
+            target_end = max(current_end, now) + timedelta(days=days)
+            if target_end <= now:
+                return _error(
+                    400,
+                    "invalid_end_date",
+                    "Subscription end date must remain in the future",
+                )
+
+        if days < 0:
+            extend_hwid_devices = False
         new_end = await subscription_service.extend_active_subscription_days(
             session,
             target_id,
@@ -741,7 +766,7 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
                 "user_id": actor_id,
                 "event_type": "admin_extend_subscription_webapp",
                 "content": (
-                    f"+{days}d -> {new_end.isoformat()} "
+                    f"{days:+d}d -> {new_end.isoformat()} "
                     f"(hwid={'yes' if extend_hwid_devices else 'no'} "
                     f"tariff={tariff_key or 'legacy'} "
                     f"apply_tariff_hwid_limit={'yes' if apply_tariff_hwid_limit else 'no'})"
