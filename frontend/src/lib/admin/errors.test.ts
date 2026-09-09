@@ -5,6 +5,8 @@ import { adminErrorMessage } from "./errors.js";
 const messages: Record<string, string> = {
   error_image_dimensions: "Image dimensions are not supported",
   error_image_type: "Image type is not supported",
+  error_invalid_audience:
+    "The recipient was not found. Refresh or reopen the user card and try again.",
 };
 
 function at(key: string, vars: Record<string, unknown> = {}, fallback = ""): string {
@@ -21,6 +23,12 @@ describe("adminErrorMessage", () => {
         "Broadcast failed"
       )
     ).toBe("Image type is not supported: image/tiff");
+  });
+
+  it("explains an invalid direct-message audience", () => {
+    expect(adminErrorMessage({ error: "invalid_audience" }, at, "Broadcast failed")).toBe(
+      "The recipient was not found. Refresh or reopen the user card and try again."
+    );
   });
 
   it("extracts a code and reason from nested error objects", () => {

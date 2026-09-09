@@ -114,6 +114,7 @@ const ADMIN_ERROR_KEYS: Record<string, string> = {
   fulfillment_snapshot_invalid: "error_fulfillment_snapshot_invalid",
   fulfillment_snapshot_missing: "error_fulfillment_snapshot_missing",
   i18n_unavailable: "error_i18n_unavailable",
+  invalid_audience: "error_invalid_audience",
   invalid_amount: "error_invalid_amount",
   invalid_backup_archive: "error_invalid_backup_archive",
   invalid_bonus: "error_invalid_amount",
