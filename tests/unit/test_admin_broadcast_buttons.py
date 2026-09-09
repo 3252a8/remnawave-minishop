@@ -78,6 +78,8 @@ class _FakeAudienceService:
         return target == "all"
 
     async def resolve_user_ids(self, target: str) -> list[int]:
+        if target.startswith("user:"):
+            return [int(target.partition(":")[2])]
         return [-555]
 
 
@@ -281,6 +283,83 @@ class AdminsAudienceTest(unittest.IsolatedAsyncioTestCase):
 
 
 class AdminBroadcastRouteTest(unittest.IsolatedAsyncioTestCase):
+    async def test_direct_user_message_is_visible_and_added_to_user_log(self):
+        request = _FakeBroadcastRequest(
+            {
+                "target": "user:42",
+                "text": "Hello Alice",
+                "channels": ["telegram"],
+                "buttons": [],
+            },
+            {
+                "settings": settings_stub(),
+                "async_session_factory": _FakeSessionFactory(),
+                "i18n": None,
+                "bot_username": "demo_bot",
+            },
+        )
+        now = datetime.now(UTC)
+        stored = SimpleNamespace(
+            broadcast_id=18,
+            status="running",
+            target="user:42",
+            channels=["telegram"],
+            texts={"ru": "Hello Alice"},
+            email_subjects={},
+            buttons=[],
+            scheduled_at=now,
+            created_at=now,
+            started_at=now,
+            finished_at=None,
+            updated_at=now,
+            recipient_count=1,
+            total_deliveries=1,
+            successful_deliveries=0,
+            failed_deliveries=0,
+            telegram_sent=0,
+            telegram_failed=0,
+            email_sent=0,
+            email_failed=0,
+            last_error=None,
+        )
+        create = AsyncMock(return_value=stored)
+        create_log = AsyncMock()
+
+        with (
+            patch.object(broadcast_route_module, "_require_admin_user_id", return_value=999),
+            patch.object(
+                broadcast_route_module,
+                "_resolve_audience_service",
+                return_value=_FakeAudienceService(),
+            ),
+            patch.object(broadcast_route_module, "get_queue_manager", return_value=_FakeQueue()),
+            patch.object(broadcast_route_module.broadcast_dal, "create_broadcast", create),
+            patch.object(
+                broadcast_route_module.broadcast_dal,
+                "get_broadcast",
+                AsyncMock(return_value=stored),
+            ),
+            patch.object(
+                broadcast_route_module.AdminBroadcastDeliveryService,
+                "dispatch",
+                AsyncMock(return_value=BroadcastDispatchResult(1, 0, 0, ["telegram"])),
+            ),
+            patch.object(
+                broadcast_route_module.message_log_dal,
+                "create_message_log_no_commit",
+                create_log,
+            ),
+        ):
+            response = await broadcast_route_module.admin_broadcast_route(cast(Any, request))
+
+        self.assertEqual(response.status, 200)
+        self.assertTrue(create.await_args.kwargs["is_visible"])
+        log_payload = create_log.await_args.args[1]
+        self.assertEqual(log_payload["user_id"], 999)
+        self.assertEqual(log_payload["target_user_id"], 42)
+        self.assertEqual(log_payload["event_type"], "admin_direct_message_webapp")
+        self.assertIn("Hello Alice", log_payload["content"])
+
     async def test_past_scheduled_broadcast_is_rejected(self):
         request = _FakeBroadcastRequest(
             {

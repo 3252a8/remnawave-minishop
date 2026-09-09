@@ -500,6 +500,15 @@ def _utc_datetime(value: datetime | None) -> datetime:
     return value.astimezone(UTC)
 
 
+def _personal_broadcast_target_id(target: str) -> int | None:
+    if not target.startswith("user:"):
+        return None
+    try:
+        return int(target.partition(":")[2])
+    except (TypeError, ValueError):
+        return None
+
+
 def _broadcast_out(item: AdminBroadcast) -> AdminBroadcastOut:
     created_at = _utc_datetime(cast(datetime | None, item.created_at))
     updated_at = _utc_datetime(cast(datetime | None, item.updated_at) or created_at)
@@ -626,6 +635,20 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
         if promo_error is not None:
             return promo_error
         stored_image = await persist_message_image(session, image)
+        personal_target_id = _personal_broadcast_target_id(target)
+        if personal_target_id is not None:
+            audit_text = text or next(iter(texts.values()), "") or "[image]"
+            await message_log_dal.create_message_log_no_commit(
+                session,
+                {
+                    "user_id": actor_id,
+                    "event_type": "admin_direct_message_webapp",
+                    "content": f"channels={','.join(channels)} | {audit_text}"[:4000],
+                    "is_admin_event": True,
+                    "target_user_id": personal_target_id,
+                    "timestamp": datetime.now(UTC),
+                },
+            )
         item = await broadcast_dal.create_broadcast(
             session,
             actor_id=actor_id,
@@ -636,7 +659,7 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
             email_subjects=email_subjects,
             buttons=[button.model_dump(mode="json") for button in body.buttons],
             scheduled_at=scheduled_at,
-            is_visible=not target.startswith("user:"),
+            is_visible=True,
             image_id=str(stored_image.image_id) if stored_image is not None else None,
         )
 
