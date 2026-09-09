@@ -29,6 +29,7 @@ from bot.services.message_image_service import MESSAGE_IMAGE_REQUEST_MAX_BYTES
 from bot.services.server_status import ServerStatusService
 from config.settings import Settings
 
+from .action_audit import webapp_action_audit_middleware
 from .assets import (
     _close_shared_http_session,
     _csrf_protection_middleware,
@@ -61,6 +62,7 @@ def create_subscription_webapp_application(
             _webapp_edge_token_middleware,
             _csrf_protection_middleware,
             admin_auth_middleware,
+            webapp_action_audit_middleware,
         ],
     )
     set_core_context(
