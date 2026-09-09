@@ -354,6 +354,7 @@
     loggedIn={mode === "app"}
     enabled={typeof appSettings.gifts_enabled === "boolean" ? appSettings.gifts_enabled : undefined}
     {methods}
+    {paymentMethodsDisplayMode}
     {pendingPayment}
     {t}
     {termUnitLabel}

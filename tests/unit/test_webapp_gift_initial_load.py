@@ -47,3 +47,16 @@ def test_successful_gift_activation_refreshes_and_opens_home() -> None:
 
     assert "await stores.dataClient.loadData({ fresh: true });" in callback
     assert callback.index("await stores.dataClient.loadData") < callback.index("goHome();")
+
+
+def test_gift_checkout_uses_configured_payment_method_display_mode() -> None:
+    feature_source = GIFT_FEATURE.read_text(encoding="utf-8")
+    app_source = APP_MODE_CONTENT.read_text(encoding="utf-8")
+
+    gift_mount_start = app_source.index("  <GiftFeature")
+    gift_mount_end = app_source.index("  />", gift_mount_start)
+    assert "{paymentMethodsDisplayMode}" in app_source[gift_mount_start:gift_mount_end]
+
+    checkout_start = feature_source.index("<PaymentCheckoutDialog")
+    checkout_end = feature_source.index("/>", checkout_start)
+    assert "{paymentMethodsDisplayMode}" in feature_source[checkout_start:checkout_end]

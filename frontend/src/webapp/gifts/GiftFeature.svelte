@@ -29,6 +29,7 @@
     loggedIn,
     enabled,
     methods,
+    paymentMethodsDisplayMode = "dropdown",
     pendingPayment = null,
     t,
     termUnitLabel,
@@ -41,6 +42,7 @@
     loggedIn: boolean;
     enabled?: boolean;
     methods: PaymentMethodView[];
+    paymentMethodsDisplayMode?: "dropdown" | "buttons" | string;
     t: Translate;
     termUnitLabel: TermUnitLabel;
     onactivated?: () => unknown;
@@ -369,6 +371,7 @@
   tariffCatalog={catalog}
   selectedTariffPlans={selectedPlans}
   methods={paymentMethods}
+  {paymentMethodsDisplayMode}
   singleTariffMode={catalog.length === 1}
   hasMultipleTariffs={catalog.length > 1}
   bind:paymentModalOpen={billing.paymentModalOpen}
