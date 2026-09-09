@@ -84,6 +84,7 @@
   "balance_topup_success": "✅ Баланс успешно пополнен на {amount} {currency}.",
   "payment_description_traffic": "Пакет трафика {traffic_gb} ГБ",
   "payment_link_message": "Для оплаты подписки на {months} мес., нажмите кнопку ниже:",
+  "payment_link_message_days": "Для оплаты подписки на {days} дн. нажмите кнопку ниже:",
   "payment_link_message_traffic": "Для оплаты пакета {traffic_gb} ГБ нажмите кнопку ниже:",
   "free_kassa_order_info": "Заказ №{order_id} от {date}",
   "payment_invoice_sent_message": "Счёт Telegram Stars отправлен выше. Нажмите «Оплатить» или вернитесь к выбору способа ниже.",

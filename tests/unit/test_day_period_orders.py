@@ -114,6 +114,27 @@ def test_new_and_old_bot_back_buttons_keep_explicit_units() -> None:
     )
 
 
+def test_payment_link_message_uses_days_for_fixed_period() -> None:
+    from bot.payment_providers.shared.callbacks import (
+        PaymentCallbackParts,
+        payment_link_message_text,
+    )
+
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    def translator(key: str, **kwargs: object) -> str:
+        calls.append((key, kwargs))
+        return key
+
+    text = payment_link_message_text(
+        translator,
+        PaymentCallbackParts(months=90, price=100, sale_mode="subscription@base|d90"),
+    )
+
+    assert text == "payment_link_message_days"
+    assert calls == [("payment_link_message_days", {"days": 90})]
+
+
 def test_corrupt_or_overflowing_periods_fail_before_payment() -> None:
     from types import SimpleNamespace
 

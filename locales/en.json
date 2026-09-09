@@ -84,6 +84,7 @@
   "balance_topup_success": "✅ Balance topped up by {amount} {currency}.",
   "payment_description_traffic": "Traffic package {traffic_gb} GB",
   "payment_link_message": "To pay for {months} mo. subscription, click the button below:",
+  "payment_link_message_days": "To pay for a {days}-day subscription, click the button below:",
   "payment_link_message_traffic": "To pay for a {traffic_gb} GB package, tap the button below:",
   "free_kassa_order_info": "Order #{order_id} from {date}",
   "payment_invoice_sent_message": "Telegram has sent the invoice above. Complete the payment or pick another method below.",
