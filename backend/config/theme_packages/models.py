@@ -129,6 +129,7 @@ class Registry(StrictModel):
     generation: int = 0
     entries: dict[str, InstalledTheme] = Field(default_factory=dict)
     preferences: dict[str, WebappTheme] = Field(default_factory=dict)
+    preference_bases: dict[str, WebappTheme] = Field(default_factory=dict)
     removed: list[str] = Field(default_factory=list)
     retired: dict[str, dict[str, float]] = Field(default_factory=dict)
     completed: dict[str, list[str]] = Field(default_factory=dict)

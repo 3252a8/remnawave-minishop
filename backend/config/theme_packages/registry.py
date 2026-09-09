@@ -81,9 +81,13 @@ def managed_themes(root: Path) -> list[WebappTheme]:
 
 def asset_path(root: Path, relative: Path) -> tuple[Path, str, str, str]:
     parts = relative.parts
-    if len(parts) >= 4 and parts[1] == "revisions":
+    state = read_registry(root)
+    if (
+        len(parts) >= 4
+        and parts[1] == "revisions"
+        and (parts[0] in state.entries or parts[0] in state.retired)
+    ):
         key, digest = parts[0], parts[2]
-        state = read_registry(root)
         entry = state.entries.get(key)
         allowed = {entry.digest, *(version.digest for version in entry.history)} if entry else set()
         allowed.update(d for d, until in state.retired.get(key, {}).items() if until > time.time())
@@ -91,8 +95,8 @@ def asset_path(root: Path, relative: Path) -> tuple[Path, str, str, str]:
             raise PackageError("theme_asset_not_found", status=404)
         resource = Path(*parts[3:]).as_posix()
         return confined(root, f"_packages/{digest}/{resource}"), key, digest, resource
-    if parts and parts[0] in read_registry(root).entries:
-        entry = read_registry(root).entries[parts[0]]
+    if parts and parts[0] in state.entries:
+        entry = state.entries[parts[0]]
         resource = Path(*parts[1:]).as_posix()
         return (
             confined(root, f"_packages/{entry.digest}/{resource}"),
@@ -100,7 +104,12 @@ def asset_path(root: Path, relative: Path) -> tuple[Path, str, str, str]:
             entry.digest,
             resource,
         )
-    return confined(root, relative.as_posix()), "", "", ""
+    # Server-installed themes retain their original path contract, including
+    # symlinks within the theme volume. Uploaded packages use confined() above.
+    path = (root / relative).resolve()
+    if not path.is_relative_to(root.resolve()):
+        raise PackageError("unsafe_path", relative.as_posix())
+    return path, "", "", ""
 
 
 def owner_overrides(original: WebappTheme, changed: WebappTheme) -> dict[str, object]:
@@ -157,7 +166,43 @@ def preserve_unchanged_overrides(
             changes[key] = value
 
 
+def legacy_preferences(
+    current: WebappTheme, saved: WebappTheme, base: WebappTheme | None
+) -> WebappTheme:
+    """Keep admin edits while allowing subsequent edits to the original descriptor."""
+    if base is None:
+        # Catalogues written before source baselines existed keep their settings.
+        return saved
+
+    def merge(current: JsonValue, saved: JsonValue, base: JsonValue) -> JsonValue:
+        if current == base:
+            return saved
+        if isinstance(current, dict) and isinstance(saved, dict) and isinstance(base, dict):
+            return {
+                key: merge(current.get(key), saved.get(key, current.get(key)), base.get(key))
+                for key in current.keys() | saved.keys()
+                if key in current or key not in base
+            }
+        return current
+
+    return WebappTheme.model_validate(
+        merge(
+            current.model_dump(mode="json"),
+            saved.model_dump(mode="json"),
+            base.model_dump(mode="json"),
+        )
+    )
+
+
 def save_preferences(root: Path, state: Registry, config: WebappThemesConfig) -> None:
+    from config.webapp_themes_store import load_webapp_theme_file
+
+    sources: dict[str, WebappTheme] = {}
+    for path in sorted(root.glob("*/theme.json")):
+        if not path.parent.name.startswith("_") and (source := load_webapp_theme_file(path)):
+            sources.setdefault(source.key, source)
+    state.preferences.clear()
+    state.preference_bases.clear()
     for theme in config.themes:
         if entry := state.entries.get(theme.key):
             data = entry.model_dump(mode="json")
@@ -172,6 +217,8 @@ def save_preferences(root: Path, state: Registry, config: WebappThemesConfig) ->
             state.entries[theme.key] = InstalledTheme.model_validate(data)
         else:
             state.preferences[theme.key] = theme
+            if theme.key in sources:
+                state.preference_bases[theme.key] = sources[theme.key]
     write_registry(root, state)
 
 

@@ -169,3 +169,68 @@ test("theme library supports repository review, Escape and archive drop", async 
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
 });
+
+for (const width of [1280, 390]) {
+  test("legacy theme without metadata remains usable " + width, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const errors: string[] = [];
+    const thumbnails: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    page.on("console", (message) => {
+      if (message.type() === "error") errors.push(message.text());
+    });
+    page.on("request", (request) => {
+      if (request.url().includes("CustomTheme/preview")) thumbnails.push(request.url());
+    });
+    await page.route("**/themes/ascii/preview.webp*", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "image/webp",
+        body: "broken image",
+      })
+    );
+    await page.goto(url + "&mock=legacy-themes");
+    const library = page.locator(".appearance-library");
+    const theme = library.locator('[data-theme-key="CustomTheme"]');
+    await expect(theme).toBeVisible();
+    await expect(theme).toHaveClass(/active/);
+    await expect(theme.locator(".theme-screenshot img")).toHaveCount(0);
+    await expect(theme.locator(".theme-screenshot")).toContainText("Автор не добавил скриншот");
+    await theme.locator(".theme-card-actions button").first().click();
+    const preview = page.locator(".appearance-preview-dialog");
+    await expect(preview.frameLocator("iframe").locator(".app-shell")).toBeVisible();
+    await expect(preview.frameLocator("iframe").locator("html")).toHaveClass(
+      /theme-key-CustomTheme/
+    );
+    await preview.getByRole("button", { name: "Светлая", exact: true }).click();
+    await expect(preview.frameLocator("iframe").locator("html")).toHaveClass(/theme-light/);
+    await preview.locator(".dialog-head button").click();
+    await library
+      .locator('[data-theme-key="dark"]')
+      .getByRole("button", { name: "Активировать", exact: true })
+      .click();
+    await theme.getByRole("button", { name: "Активировать", exact: true }).click();
+    await expect(theme).toHaveClass(/active/);
+    await theme.locator(".theme-card-actions button").last().click();
+    const settings = page.locator(".appearance-settings-dialog");
+    await expect(settings).toBeVisible();
+    const accent = settings.locator("input.appearance-color-text");
+    await accent.fill("#aabbcc");
+    await settings.locator(".dialog-head button").click();
+    await expect(settings).toBeHidden();
+    const save = library.getByRole("button", { name: "Сохранить", exact: true });
+    await save.click();
+    await expect(save).toBeDisabled();
+    await theme.locator(".theme-card-actions button").last().click();
+    await expect(accent).toHaveValue("#aabbcc");
+    await settings.locator(".dialog-head button").click();
+    expect(
+      await library.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)
+    ).toBe(true);
+    await expect(library.locator('[data-theme-key="ascii"] .theme-screenshot')).toContainText(
+      "Автор не добавил скриншот"
+    );
+    expect(thumbnails).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+}

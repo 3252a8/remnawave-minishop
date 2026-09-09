@@ -36,7 +36,7 @@ export async function demoThemePreview(item: DemoPackage, variant: string): Prom
   const base = rawBase
     .replace(/@font-face\s*\{[^}]*\}/gi, "")
     .replace(/url\((?!['"]?data:)[^)]*\)/gi, "none");
-  const key = /^[a-z0-9][a-z0-9_-]{0,63}$/.test(item.theme.key) ? item.theme.key : "dark";
+  const key = /^[A-Za-z0-9_-]{1,64}$/.test(item.theme.key) ? item.theme.key : "dark";
   let css = item.files[item.theme.css_file || ""]
     ? strFromU8(item.files[item.theme.css_file || ""])
     : "";

@@ -247,6 +247,21 @@ export function applyPreviewMock(kind: unknown): void {
     .trim()
     .toLowerCase();
 
+  if (mode === "legacy-themes") {
+    for (const catalog of [DEV_MOCK.config.themesCatalog, DEV_MOCK.data.themes_catalog]) {
+      if (!catalog.themes.some((theme) => theme.key === "CustomTheme"))
+        catalog.themes.push({
+          key: "CustomTheme",
+          names: { en: "CustomTheme", ru: "CustomTheme" },
+          enabled: true,
+          tokens: { bg: "#123456", accent: "#abcdef" },
+          variants: { light: { bg: "#f1f5f9" } },
+        });
+      applyPreviewThemeToCatalog(catalog, "CustomTheme", null);
+    }
+    return;
+  }
+
   const previewTheme = (DEV_MOCK.config.themesCatalog.themes || []).find(
     (theme) => theme.key === mode
   );

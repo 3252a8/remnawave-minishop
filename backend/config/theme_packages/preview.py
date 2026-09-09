@@ -7,6 +7,7 @@ import html
 import mimetypes
 import re
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import tinycss2
 
@@ -45,12 +46,58 @@ def preview_installed(root: Path, key: str, variant: str) -> str:
         if theme is None:
             raise PackageError("theme_not_found", status=404)
         folder = confined(root, key)
-    return render_preview(folder, theme, variant)
+    return render_preview(folder, theme, variant, legacy=entry is None)
 
 
-def render_preview(folder: Path, theme: WebappTheme, variant: str) -> str:
+def _legacy_preview_css(folder: Path, theme: WebappTheme) -> str:
+    """Render old CSS best-effort; unavailable resources never block the preview."""
+    try:
+        path = confined(folder, theme.css_file or "")
+        if path.stat().st_size > 1024 * 1024:
+            return ""
+        nodes = tinycss2.parse_stylesheet(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, PackageError):
+        return ""
+    budget = 20 * 1024 * 1024
+
+    def embed(value: str) -> str:
+        nonlocal budget
+        try:
+            parsed = urlsplit(value)
+            if parsed.scheme or parsed.netloc:
+                return "data:,"
+            value = parsed.path
+            prefix = f"/webapp-theme-assets/{theme.key}/"
+            relative = (
+                value[len(prefix) :]
+                if value.startswith(prefix)
+                else local_reference(value, theme.css_file or "")
+            )
+            resource = confined(folder, relative)
+            size = resource.stat().st_size
+            if size > min(budget, 10 * 1024 * 1024):
+                return "data:,"
+            budget -= size
+            mime = mimetypes.guess_type(resource.name)[0] or "application/octet-stream"
+            return "data:" + mime + ";base64," + base64.b64encode(resource.read_bytes()).decode()
+        except (OSError, ValueError, PackageError):
+            return "data:,"
+
+    safe: list[object] = []
+    for node in nodes:
+        try:
+            walk([node], embed)
+        except PackageError:
+            continue
+        safe.append(node)
+    return str(tinycss2.serialize(safe))
+
+
+def render_preview(folder: Path, theme: WebappTheme, variant: str, *, legacy: bool = False) -> str:
     css = ""
-    if theme.css_file:
+    if theme.css_file and legacy:
+        css = _legacy_preview_css(folder, theme)
+    elif theme.css_file:
         css = confined(folder, theme.css_file).read_text(encoding="utf-8")
         nodes = tinycss2.parse_stylesheet(fork_css(css, theme.key, theme.key, theme.css_file))
 
@@ -70,7 +117,12 @@ def render_preview(folder: Path, theme: WebappTheme, variant: str) -> str:
             scale = float(value)
             declarations.append(f"--{css_name}:{scale / 100:g}")
         elif isinstance(value, str):
-            validate_token(value)
+            try:
+                validate_token(value)
+            except PackageError:
+                if legacy:
+                    continue
+                raise
             declarations.append(f"--{css_name}:{value}")
     base_css = (SNAPSHOT / "home.css").read_text(encoding="utf-8")
     base_css = re.sub(r"@font-face\s*\{[^}]*\}", "", base_css, flags=re.I)

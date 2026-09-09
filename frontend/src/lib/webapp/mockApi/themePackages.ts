@@ -117,6 +117,22 @@ export function readDemoZip(bytes: Uint8Array): DemoPackage[] {
   });
 }
 async function builtinPackage(key: string): Promise<DemoPackage> {
+  if (!protectedKeys.has(key)) {
+    const theme = themes().find((item) => item.key === key);
+    if (!theme) throw { error: "theme_not_found" };
+    return {
+      theme,
+      files: { "theme.json": strToU8(JSON.stringify(theme)) },
+      metadata: {
+        schema_version: 1,
+        version: "",
+        author: null,
+        homepage: "",
+        license: "",
+        preview: "",
+      },
+    };
+  }
   const bytes = new Uint8Array(
     await (await fetch("/demo/theme-starters/" + key + ".zip")).arrayBuffer()
   );
@@ -147,7 +163,10 @@ function installation(theme: Theme): Installation {
     source:
       item?.source ||
       (item ? { kind: "archive", label: "ZIP", commit: "", ref: "", subdir: "", url: "" } : null),
-    preview_url: item ? "" : "/demo/runtime/themes/" + theme.key + "/preview.webp",
+    preview_url:
+      !item && protectedKeys.has(theme.key)
+        ? "/demo/runtime/themes/" + theme.key + "/preview.webp"
+        : "",
   };
 }
 export function themePackageResponse(

@@ -282,7 +282,7 @@
         >
           <div class="card-preview-wrap">
             <AppearanceThemePreview
-              url={theme.installation?.preview_url}
+              url={theme.installation?.preview_url || ""}
               themeKey={theme.key}
               title={theme.title}
               {at}

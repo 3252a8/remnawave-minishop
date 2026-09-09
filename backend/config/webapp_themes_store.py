@@ -16,6 +16,7 @@ from .theme_packages.paths import registry_lock
 from .theme_packages.registry import (
     check_generation,
     effective_theme,
+    legacy_preferences,
     read_registry,
     save_preferences,
     write_registry,
@@ -151,7 +152,9 @@ def load_webapp_theme_dir(theme_dir: str | Path) -> list[WebappTheme]:
             continue
         themes_by_key[theme.key] = theme
     state = read_registry(root)
-    themes_by_key.update(state.preferences)
+    for key, saved in state.preferences.items():
+        if current := themes_by_key.get(key):
+            themes_by_key[key] = legacy_preferences(current, saved, state.preference_bases.get(key))
     for key in state.removed:
         themes_by_key.pop(key, None)
     for key, entry in state.entries.items():
@@ -315,6 +318,7 @@ def write_webapp_theme_dir(
             return
         _write_legacy_theme_dir(root, normalized, delete_missing=delete_missing)
         state.preferences.clear()
+        state.preference_bases.clear()
         write_registry(root, state)
 
 
