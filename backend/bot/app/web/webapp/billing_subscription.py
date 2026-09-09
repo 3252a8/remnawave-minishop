@@ -91,10 +91,14 @@ async def promo_status_route(request: web.Request) -> web.Response:
                     "effect_summary": status.effect_summary,
                     "applies_to": status.applies_to,
                     "min_subscription_months": status.min_subscription_months,
+                    "min_subscription_days": status.min_subscription_days,
                     "min_traffic_gb": status.min_traffic_gb,
                     "bonus_days": status.bonus_days,
                     "regular_traffic_gb": status.regular_traffic_gb,
                     "premium_traffic_gb": status.premium_traffic_gb,
+                    "discount_percent": status.discount_percent,
+                    "duration_multiplier": status.duration_multiplier,
+                    "traffic_multiplier": status.traffic_multiplier,
                     "end_date_text": (
                         _format_webapp_datetime(status.subscription_end_date)
                         if status.subscription_end_date
@@ -147,7 +151,14 @@ async def apply_promo_route(request: web.Request) -> web.Response:
                         "effect_summary": result.effect_summary,
                         "applies_to": result.applies_to,
                         "min_subscription_months": result.min_subscription_months,
+                        "min_subscription_days": result.min_subscription_days,
                         "min_traffic_gb": result.min_traffic_gb,
+                        "bonus_days": result.bonus_days,
+                        "regular_traffic_gb": result.regular_traffic_gb,
+                        "premium_traffic_gb": result.premium_traffic_gb,
+                        "discount_percent": result.discount_percent,
+                        "duration_multiplier": result.duration_multiplier,
+                        "traffic_multiplier": result.traffic_multiplier,
                     }
                 )
             end_date = result if isinstance(result, datetime) else None

@@ -311,6 +311,7 @@ export function createAppFactories({
     billing,
     loadData,
     t,
+    termUnitLabel,
     showToast,
     openExternalLink,
     onSubscriptionActivationPending: activation.rememberActivationPending,
@@ -346,6 +347,7 @@ export function createAppFactories({
       await loadData({ fresh: true, preserveView: true });
     },
     t,
+    termUnitLabel,
     showToast,
     openExternalLink,
     tg: initialTg,

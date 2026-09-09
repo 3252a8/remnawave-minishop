@@ -170,6 +170,19 @@ async def quote_promo_route(request: web.Request) -> web.Response:
                 "discount_amount": promo_result.discount_amount,
                 "effect_summary": promo_result.effect_summary,
                 "applies_to": promo_result.effects.applies_to,
+                "bonus_days": promo_result.effects.bonus_days,
+                "regular_traffic_gb": promo_result.effects.regular_traffic_gb,
+                "premium_traffic_gb": promo_result.effects.premium_traffic_gb,
+                "duration_multiplier": (
+                    promo_result.effects.duration_multiplier
+                    if promo_result.effects.duration_multiplier != 1.0
+                    else None
+                ),
+                "traffic_multiplier": (
+                    promo_result.effects.traffic_multiplier
+                    if promo_result.effects.traffic_multiplier != 1.0
+                    else None
+                ),
                 "min_subscription_months": promo_result.effects.min_subscription_months,
                 "min_subscription_days": promo_result.effects.min_subscription_days,
                 "min_traffic_gb": promo_result.effects.min_traffic_gb,

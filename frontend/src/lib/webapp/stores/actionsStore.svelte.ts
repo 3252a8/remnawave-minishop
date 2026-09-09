@@ -163,7 +163,7 @@ export function createActionsStore({
       const responsePayload = unwrap(response);
       const payloadRecord = asRecord(responsePayload);
       if (payloadRecord.requires_checkout === true) {
-        const summary = stringField(payloadRecord.effect_summary);
+        const summary = formatPromoEffectSummary(payloadRecord, { t, termUnitLabel });
         state.promoCheckoutCode = stringField(payloadRecord.code) || code;
         state.promoCheckoutSummary = summary;
         state.promoStatus =

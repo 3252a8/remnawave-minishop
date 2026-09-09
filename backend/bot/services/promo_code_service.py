@@ -33,6 +33,12 @@ class PromoCheckoutRequired:
     code: str
     effect_summary: str
     applies_to: str
+    bonus_days: int = 0
+    regular_traffic_gb: float = 0
+    premium_traffic_gb: float = 0
+    discount_percent: float | None = None
+    duration_multiplier: float | None = None
+    traffic_multiplier: float | None = None
     min_subscription_months: int | None = None
     min_subscription_days: int | None = None
     min_traffic_gb: float | None = None
@@ -58,6 +64,9 @@ class PromoCodeStatus:
     bonus_days: int = 0
     regular_traffic_gb: float = 0
     premium_traffic_gb: float = 0
+    discount_percent: float | None = None
+    duration_multiplier: float | None = None
+    traffic_multiplier: float | None = None
     activated_at: datetime | None = None
     subscription_end_date: datetime | None = None
 
@@ -290,6 +299,16 @@ class PromoCodeService:
                 code=applied_code,
                 effect_summary=summary,
                 applies_to=effects.applies_to,
+                bonus_days=effects.bonus_days,
+                regular_traffic_gb=effects.regular_traffic_gb,
+                premium_traffic_gb=effects.premium_traffic_gb,
+                discount_percent=effects.discount_percent,
+                duration_multiplier=(
+                    effects.duration_multiplier if effects.duration_multiplier != 1.0 else None
+                ),
+                traffic_multiplier=(
+                    effects.traffic_multiplier if effects.traffic_multiplier != 1.0 else None
+                ),
                 min_subscription_months=effects.min_subscription_months,
                 min_subscription_days=effects.min_subscription_days,
                 min_traffic_gb=effects.min_traffic_gb,
@@ -378,6 +397,16 @@ class PromoCodeService:
                 code=applied_code,
                 effect_summary=summarize_effects(effects),
                 applies_to=effects.applies_to,
+                bonus_days=effects.bonus_days,
+                regular_traffic_gb=effects.regular_traffic_gb,
+                premium_traffic_gb=effects.premium_traffic_gb,
+                discount_percent=effects.discount_percent,
+                duration_multiplier=(
+                    effects.duration_multiplier if effects.duration_multiplier != 1.0 else None
+                ),
+                traffic_multiplier=(
+                    effects.traffic_multiplier if effects.traffic_multiplier != 1.0 else None
+                ),
                 min_subscription_months=effects.min_subscription_months,
                 min_subscription_days=effects.min_subscription_days,
                 min_traffic_gb=effects.min_traffic_gb,

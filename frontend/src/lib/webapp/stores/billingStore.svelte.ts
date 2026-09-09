@@ -1,4 +1,5 @@
 import { legacyMonthsToDays } from "../subscriptionPeriods.js";
+import { formatPromoEffectSummary } from "../promoEffectSummary.js";
 import type { LoadDataOptions } from "../dataClient";
 import {
   asBillingRecord as asRecord,
@@ -31,12 +32,14 @@ import type {
   SubscriptionView,
   TariffChangeTarget,
   TariffView,
+  TermUnitLabel,
   WebappRecord,
 } from "../types";
 export function createBillingStore({
   billing,
   loadData,
   t,
+  termUnitLabel,
   showToast,
   openExternalLink,
   onSubscriptionActivationPending = null,
@@ -48,6 +51,7 @@ export function createBillingStore({
   billing: BillingActions;
   loadData: (options?: LoadDataOptions & Record<string, unknown>) => Promise<unknown>;
   t: (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  termUnitLabel: TermUnitLabel;
   showToast: (message: string) => void;
   openExternalLink: (url: string) => void;
   onSubscriptionActivationPending?: ((context: Record<string, unknown>) => void) | null;
@@ -347,7 +351,7 @@ export function createBillingStore({
         checkoutPromoAutoApply: false,
         checkoutPromoAppliedCode: appliedCode,
         checkoutPromoIsError: false,
-        checkoutPromoStatus: stringField(payload.effect_summary),
+        checkoutPromoStatus: formatPromoEffectSummary(payload, { t, termUnitLabel }),
         checkoutPromoPriceText: promoPriceText(payload),
         checkoutPromoEffectiveAmount: Math.max(0, Number(payload.effective_amount || 0)),
         checkoutPromoDiscountPercent: Math.max(0, Number(payload.discount_percent || 0)),

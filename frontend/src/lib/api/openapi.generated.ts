@@ -14740,15 +14740,22 @@ export interface operations {
         content: {
           "application/json": {
             applies_to?: string;
+            bonus_days?: number;
             code?: string;
+            discount_percent?: number | null;
+            duration_multiplier?: number | null;
             effect_summary?: string;
             end_date?: string | null;
             end_date_text?: string | null;
+            min_subscription_days?: number | null;
             min_subscription_months?: number | null;
             min_traffic_gb?: number | null;
             /** @constant */
             ok: true;
+            premium_traffic_gb?: number;
+            regular_traffic_gb?: number;
             requires_checkout?: boolean;
+            traffic_multiplier?: number | null;
           };
         };
       };
@@ -14777,9 +14784,12 @@ export interface operations {
             applies_to?: string;
             bonus_days?: number;
             code: string;
+            discount_percent?: number | null;
+            duration_multiplier?: number | null;
             effect_summary?: string;
             end_date_text?: string | null;
             message?: string;
+            min_subscription_days?: number | null;
             min_subscription_months?: number | null;
             min_traffic_gb?: number | null;
             /** @constant */
@@ -14787,6 +14797,7 @@ export interface operations {
             premium_traffic_gb?: number;
             regular_traffic_gb?: number;
             status: string;
+            traffic_multiplier?: number | null;
           };
         };
       };
@@ -14941,6 +14952,7 @@ export interface operations {
           "application/json": {
             addons_amount: number;
             addons_stars: number;
+            applies_to?: string | null;
             base_amount: number;
             base_stars?: number | null;
             bonus_days?: number;
@@ -14948,6 +14960,7 @@ export interface operations {
             discount_amount: number;
             discount_percent?: number | null;
             duration_days?: number | null;
+            duration_multiplier?: number | null;
             effect_summary?: string | null;
             effective_amount: number;
             effective_stars?: number | null;
@@ -14955,13 +14968,19 @@ export interface operations {
             items: {
               [key: string]: unknown;
             }[];
+            min_subscription_days?: number | null;
+            min_subscription_months?: number | null;
+            min_traffic_gb?: number | null;
             /** @constant */
             ok: true;
             payable: boolean;
+            premium_traffic_gb?: number | null;
             promo_code?: string | null;
             quote_key: string;
+            regular_traffic_gb?: number | null;
             renewal_amount: number;
             subtotal_amount: number;
+            traffic_multiplier?: number | null;
           };
         };
       };
@@ -14990,10 +15009,12 @@ export interface operations {
             applies_to?: string;
             base_amount?: number;
             base_stars?: number | null;
+            bonus_days?: number;
             code?: string;
             currency?: string;
             discount_amount?: number;
             discount_percent?: number;
+            duration_multiplier?: number | null;
             effect_summary?: string;
             effective_amount?: number;
             effective_stars?: number | null;
@@ -15003,9 +15024,12 @@ export interface operations {
             /** @constant */
             ok: true;
             payable?: boolean;
+            premium_traffic_gb?: number;
             promo_code_id?: number;
             reason?: string | null;
             reason_key?: string | null;
+            regular_traffic_gb?: number;
+            traffic_multiplier?: number | null;
             valid: boolean;
           };
         };

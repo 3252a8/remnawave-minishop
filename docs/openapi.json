@@ -26574,8 +26574,23 @@
                     "applies_to": {
                       "type": "string"
                     },
+                    "bonus_days": {
+                      "type": "integer"
+                    },
                     "code": {
                       "type": "string"
+                    },
+                    "discount_percent": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "duration_multiplier": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
                     },
                     "effect_summary": {
                       "type": "string"
@@ -26589,6 +26604,12 @@
                     "end_date_text": {
                       "type": [
                         "string",
+                        "null"
+                      ]
+                    },
+                    "min_subscription_days": {
+                      "type": [
+                        "integer",
                         "null"
                       ]
                     },
@@ -26608,8 +26629,20 @@
                       "const": true,
                       "type": "boolean"
                     },
+                    "premium_traffic_gb": {
+                      "type": "number"
+                    },
+                    "regular_traffic_gb": {
+                      "type": "number"
+                    },
                     "requires_checkout": {
                       "type": "boolean"
+                    },
+                    "traffic_multiplier": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -26665,6 +26698,18 @@
                     "code": {
                       "type": "string"
                     },
+                    "discount_percent": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "duration_multiplier": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
                     "effect_summary": {
                       "type": "string"
                     },
@@ -26676,6 +26721,12 @@
                     },
                     "message": {
                       "type": "string"
+                    },
+                    "min_subscription_days": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
                     },
                     "min_subscription_months": {
                       "type": [
@@ -26701,6 +26752,12 @@
                     },
                     "status": {
                       "type": "string"
+                    },
+                    "traffic_multiplier": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -27014,6 +27071,12 @@
                     "addons_stars": {
                       "type": "integer"
                     },
+                    "applies_to": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "base_amount": {
                       "type": "number"
                     },
@@ -27041,6 +27104,12 @@
                     "duration_days": {
                       "type": [
                         "integer",
+                        "null"
+                      ]
+                    },
+                    "duration_multiplier": {
+                      "type": [
+                        "number",
                         "null"
                       ]
                     },
@@ -27072,12 +27141,36 @@
                       },
                       "type": "array"
                     },
+                    "min_subscription_days": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "min_subscription_months": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "min_traffic_gb": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
                     },
                     "payable": {
                       "type": "boolean"
+                    },
+                    "premium_traffic_gb": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
                     },
                     "promo_code": {
                       "type": [
@@ -27088,11 +27181,23 @@
                     "quote_key": {
                       "type": "string"
                     },
+                    "regular_traffic_gb": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
                     "renewal_amount": {
                       "type": "number"
                     },
                     "subtotal_amount": {
                       "type": "number"
+                    },
+                    "traffic_multiplier": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -27162,6 +27267,9 @@
                         "null"
                       ]
                     },
+                    "bonus_days": {
+                      "type": "integer"
+                    },
                     "code": {
                       "type": "string"
                     },
@@ -27173,6 +27281,12 @@
                     },
                     "discount_percent": {
                       "type": "number"
+                    },
+                    "duration_multiplier": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
                     },
                     "effect_summary": {
                       "type": "string"
@@ -27211,6 +27325,9 @@
                     "payable": {
                       "type": "boolean"
                     },
+                    "premium_traffic_gb": {
+                      "type": "number"
+                    },
                     "promo_code_id": {
                       "type": "integer"
                     },
@@ -27223,6 +27340,15 @@
                     "reason_key": {
                       "type": [
                         "string",
+                        "null"
+                      ]
+                    },
+                    "regular_traffic_gb": {
+                      "type": "number"
+                    },
+                    "traffic_multiplier": {
+                      "type": [
+                        "number",
                         "null"
                       ]
                     },

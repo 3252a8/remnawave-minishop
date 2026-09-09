@@ -3,6 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import { createBillingStore } from "./billingStore.js";
 type TestOverrides = Record<string, unknown>;
 
+const translateFallback = (key: string, params: Record<string, unknown> = {}, fallback = "") =>
+  String(fallback || key).replace(/\{(\w+)\}/g, (_, name) => String(params[name] ?? `{${name}}`));
+
 function makeBillingStore(overrides: TestOverrides = {}) {
   const { billing: rawBillingOverrides, ...depOverrides } = overrides;
   const billingOverrides = (rawBillingOverrides || {}) as Record<string, unknown>;
@@ -27,6 +30,7 @@ function makeBillingStore(overrides: TestOverrides = {}) {
     billing,
     loadData: vi.fn(),
     t: (key: string) => key,
+    termUnitLabel: (value: number, unit: string) => (value === 1 ? unit : `${unit}s`),
     showToast: vi.fn(),
     openExternalLink: vi.fn(),
     ...depOverrides,
@@ -125,6 +129,7 @@ describe("billingStore", () => {
 
   it("applies checkout code quote and includes it in payment creation", async () => {
     const { store, deps, billing } = makeBillingStore({
+      t: translateFallback,
       billing: {
         postPayment: vi.fn().mockResolvedValue({
           ok: true,
@@ -169,7 +174,7 @@ describe("billingStore", () => {
       checkoutPromoInput: "SAVE10",
       checkoutPromoAppliedCode: "SAVE10",
       checkoutPromoPriceText: "90 ₽",
-      checkoutPromoStatus: "-10%",
+      checkoutPromoStatus: "10% discount",
       checkoutPromoDiscountPercent: 10,
       checkoutPromoAppliesTo: "subscription",
     });
@@ -190,6 +195,7 @@ describe("billingStore", () => {
 
   it("automatically applies a suggested personal code and lets the user remove it", async () => {
     const { store, billing } = makeBillingStore({
+      t: translateFallback,
       billing: {
         quotePromo: vi.fn().mockResolvedValue({
           ok: true,
@@ -219,7 +225,7 @@ describe("billingStore", () => {
 
     await vi.waitFor(() => expect(store.checkoutPromoAppliedCode).toBe("PERSONAL20"));
     expect(billing.quotePromo).toHaveBeenCalledOnce();
-    expect(store.checkoutPromoStatus).toBe("-20%");
+    expect(store.checkoutPromoStatus).toBe("20% discount");
 
     store.clearCheckoutPromo();
     expect(store).toMatchObject({
@@ -340,6 +346,7 @@ describe("billingStore", () => {
 
   it("cancels a pending checkout and reapplies its promo to the selected plan", async () => {
     const { store, deps, billing } = makeBillingStore({
+      t: translateFallback,
       billing: {
         cancelPayment: vi.fn().mockResolvedValue({
           ok: true,
@@ -381,7 +388,7 @@ describe("billingStore", () => {
       paymentModalOpen: true,
       checkoutPromoInput: "SAVE20",
       checkoutPromoAppliedCode: "SAVE20",
-      checkoutPromoStatus: "-20%",
+      checkoutPromoStatus: "20% discount",
     });
     expect(deps.showToast).toHaveBeenCalledWith("wa_pending_payment_canceled");
   });
