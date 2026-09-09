@@ -34,7 +34,7 @@
 | --- | --- | --- |
 | `user_id` | `int` | обязательно |
 | `provider` | `'google' | 'yandex'` | обязательно |
-| `link_source` | `'settings' | 'email_confirmation'` | обязательно |
+| `link_source` | `'settings' | 'email_confirmation' | 'provider_verified_email'` | обязательно |
 | `email` | `str | None` | `None` |
 | `telegram_id` | `int | None` | `None` |
 | `username` | `str | None` | `None` |

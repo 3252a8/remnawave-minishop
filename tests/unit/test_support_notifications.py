@@ -628,6 +628,7 @@ def test_external_auth_notifications_name_provider_and_merge_source():
             labels = {
                 "log_auth_provider_google": "Google",
                 "log_external_link_source_email_confirmation": "existing email confirmation",
+                "log_external_link_source_provider_verified_email": "provider-verified email",
                 "log_open_profile_link": "Open profile",
             }
             if key in labels:
@@ -664,6 +665,13 @@ def test_external_auth_notifications_name_provider_and_merge_source():
             email="user@example.test",
             telegram_id=100200300,
         )
+        await service.notify_account_external_identity_linked(
+            user_id=42,
+            provider="google",
+            link_source="provider_verified_email",
+            email="user@example.test",
+            telegram_id=100200300,
+        )
         await service.notify_account_merged(
             primary_user_id=42,
             removed_user_id=-42,
@@ -678,6 +686,7 @@ def test_external_auth_notifications_name_provider_and_merge_source():
     assert [message for message, _, _ in messages] == [
         "registered provider=Google email=user@example.test",
         "linked provider=Google source=existing email confirmation",
+        "linked provider=Google source=provider-verified email",
         "merged source=Google",
     ]
     assert messages[0][2] is None

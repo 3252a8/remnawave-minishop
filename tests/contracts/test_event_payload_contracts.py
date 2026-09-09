@@ -330,6 +330,14 @@ def test_external_registration_and_identity_link_payloads_are_provider_aware():
         "username": "neo",
         "first_name": "Neo",
     }
+    assert (
+        AccountExternalIdentityLinkedPayload(
+            user_id=42,
+            provider="google",
+            link_source="provider_verified_email",
+        ).link_source
+        == "provider_verified_email"
+    )
 
 
 def test_account_merged_payload_matches_legacy_wire_dict():

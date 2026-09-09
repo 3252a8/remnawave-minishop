@@ -508,6 +508,7 @@
   "log_auth_provider_yandex": "Яндекс",
   "log_external_link_source_settings": "раздел безопасности",
   "log_external_link_source_email_confirmation": "подтверждение существующей почты",
+  "log_external_link_source_provider_verified_email": "почта, подтверждённая провайдером",
   "log_account_merge_source_email": "подтверждённая почта",
   "log_account_merge_source_telegram": "Telegram",
   "log_account_merge_source_login": "подтверждение входа",

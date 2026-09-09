@@ -391,12 +391,20 @@ async def _google_profile(
             "subject": str(claims["sub"]),
             "email": str(claims.get("email") or "").strip().lower() or None,
             "email_verified": bool(claims.get("email_verified")),
+            "hosted_domain": str(claims.get("hd") or "").strip().lower() or None,
             "display_name": str(claims.get("name") or "").strip() or None,
             "picture_url": str(claims.get("picture") or "").strip() or None,
         }
     except Exception:
         logger.exception("Google ID token validation failed")
         return None
+
+
+def _google_email_is_authoritative(profile: dict[str, Any]) -> bool:
+    email = str(profile.get("email") or "").strip().lower()
+    return bool(profile.get("email_verified")) and (
+        email.endswith("@gmail.com") or bool(str(profile.get("hosted_domain") or "").strip())
+    )
 
 
 async def _yandex_profile(token_payload: dict[str, Any]) -> dict[str, Any] | None:
@@ -467,7 +475,7 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
     async_session_factory: sessionmaker = get_session_factory(request)
     user_id: int | None = None
     created_user = False
-    identity_was_linked = False
+    identity_link_source: Literal["settings", "provider_verified_email"] | None = None
     merged_source_user_ids: list[int] = []
     merged_source_panel_uuids: list[str] = []
     registration_event: UserRegisteredPayload | None = None
@@ -503,7 +511,8 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
                 ).scalar_one_or_none()
                 if existing_for_user and existing_for_user.subject != profile["subject"]:
                     return finish("provider_conflict")
-                identity_was_linked = identity is None or int(identity.user_id) != requested_user_id
+                if identity is None or int(identity.user_id) != requested_user_id:
+                    identity_link_source = "settings"
                 merge_sources: list[tuple[int, str]] = []
                 if email_owner and int(email_owner.user_id) != requested_user_id:
                     merge_sources.append((int(email_owner.user_id), f"{key}_verified_email_link"))
@@ -544,80 +553,87 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
                     if email_owner.is_banned:
                         return finish("access_denied")
                     await user_email_dal.ensure_primary_user_email_address(session, email_owner)
-                    email_service = get_email_auth_service(request)
-                    request_result = await email_service.request_code(
+                    if provider.key == "google" and _google_email_is_authoritative(profile):
+                        user_id = int(email_owner.user_id)
+                        identity_link_source = "provider_verified_email"
+                    else:
+                        email_service = get_email_auth_service(request)
+                        request_result = await email_service.request_code(
+                            session,
+                            email=email,
+                            purpose=_PENDING_PURPOSE,
+                            language_code=_normalize_language(
+                                str(email_owner.language_code or settings.DEFAULT_LANGUAGE)
+                            ),
+                            target_user_id=int(email_owner.user_id),
+                        )
+                        if not request_result.ok and request_result.error != "rate_limited":
+                            await session.rollback()
+                            logger.info(
+                                "External OAuth email confirmation could not start for %s: %s",
+                                key,
+                                request_result.error,
+                            )
+                            return finish("email_confirmation_unavailable")
+                        await session.commit()
+                        now = int(time.time())
+                        retry_after = int(
+                            request_result.retry_after or settings.EMAIL_CODE_RESEND_SECONDS or 60
+                        )
+                        pending_payload: dict[str, Any] = {
+                            "provider": key,
+                            "subject": str(profile["subject"])[:255],
+                            "email": email,
+                            "target_user_id": int(email_owner.user_id),
+                            "display_name": str(profile.get("display_name") or "")[:255],
+                            "picture_url": str(profile.get("picture_url") or "")[:1024],
+                            "referral": str(state.get("referral") or "")[:128],
+                            "resend_at": now + max(0, retry_after),
+                        }
+                        if request_result.code:
+                            pending_payload["email_code"] = str(request_result.code)
+                        response = web.HTTPFound(
+                            _redirect(key, purpose, "email_confirmation_required")
+                        )
+                        _clear_state_cookie(response)
+                        _set_pending_cookie(response, settings, pending_payload)
+                        return response
+                if user_id is None:
+                    user = await user_dal.get_user_by_email(session, email) if email else None
+                    if user:
+                        return finish("account_exists")
+                    invite = await evaluate_registration_invite(
+                        session,
+                        str(state.get("referral") or ""),
+                        settings=settings,
+                        current_user_id=None,
+                        source="webapp",
+                    )
+                    if invite.requires_invite:
+                        return finish("invite_required")
+                    if not email:
+                        return finish("email_required")
+                    user, _ = await user_dal.create_email_user(
                         session,
                         email=email,
-                        purpose=_PENDING_PURPOSE,
                         language_code=_normalize_language(
-                            str(email_owner.language_code or settings.DEFAULT_LANGUAGE)
+                            str(state.get("language") or settings.DEFAULT_LANGUAGE)
                         ),
-                        target_user_id=int(email_owner.user_id),
+                        email_verified_at=datetime.now(UTC),
+                        referred_by_id=invite.referrer_user_id,
+                        registered_via=None,
+                        email_source=key,
                     )
-                    if not request_result.ok and request_result.error != "rate_limited":
-                        await session.rollback()
-                        logger.info(
-                            "External OAuth email confirmation could not start for %s: %s",
-                            key,
-                            request_result.error,
+                    created_user = True
+                    if invite.partner_code:
+                        await PartnerProgramService(settings).attribute_user(
+                            session,
+                            user=user,
+                            partner_code=invite.partner_code,
+                            source="partner_web_link",
+                            registered_via_partner_link=True,
                         )
-                        return finish("email_confirmation_unavailable")
-                    await session.commit()
-                    now = int(time.time())
-                    retry_after = int(
-                        request_result.retry_after or settings.EMAIL_CODE_RESEND_SECONDS or 60
-                    )
-                    pending_payload: dict[str, Any] = {
-                        "provider": key,
-                        "subject": str(profile["subject"])[:255],
-                        "email": email,
-                        "target_user_id": int(email_owner.user_id),
-                        "display_name": str(profile.get("display_name") or "")[:255],
-                        "picture_url": str(profile.get("picture_url") or "")[:1024],
-                        "referral": str(state.get("referral") or "")[:128],
-                        "resend_at": now + max(0, retry_after),
-                    }
-                    if request_result.code:
-                        pending_payload["email_code"] = str(request_result.code)
-                    response = web.HTTPFound(_redirect(key, purpose, "email_confirmation_required"))
-                    _clear_state_cookie(response)
-                    _set_pending_cookie(response, settings, pending_payload)
-                    return response
-                user = await user_dal.get_user_by_email(session, email) if email else None
-                if user:
-                    return finish("account_exists")
-                invite = await evaluate_registration_invite(
-                    session,
-                    str(state.get("referral") or ""),
-                    settings=settings,
-                    current_user_id=None,
-                    source="webapp",
-                )
-                if invite.requires_invite:
-                    return finish("invite_required")
-                if not email:
-                    return finish("email_required")
-                user, _ = await user_dal.create_email_user(
-                    session,
-                    email=email,
-                    language_code=_normalize_language(
-                        str(state.get("language") or settings.DEFAULT_LANGUAGE)
-                    ),
-                    email_verified_at=datetime.now(UTC),
-                    referred_by_id=invite.referrer_user_id,
-                    registered_via=None,
-                    email_source=key,
-                )
-                created_user = True
-                if invite.partner_code:
-                    await PartnerProgramService(settings).attribute_user(
-                        session,
-                        user=user,
-                        partner_code=invite.partner_code,
-                        source="partner_web_link",
-                        registered_via_partner_link=True,
-                    )
-                user_id = int(user.user_id)
+                    user_id = int(user.user_id)
 
             user = await user_dal.get_user_by_id(session, int(user_id))
             if not user or user.is_banned:
@@ -687,11 +703,11 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
                     first_name=getattr(user, "first_name", None),
                     email=getattr(user, "email", None),
                 )
-            elif purpose == "link" and identity_was_linked:
+            elif identity_link_source is not None:
                 identity_link_event = AccountExternalIdentityLinkedPayload(
                     user_id=int(user.user_id),
                     provider=provider.key,
-                    link_source="settings",
+                    link_source=identity_link_source,
                     email=identity.email or getattr(user, "email", None),
                     telegram_id=getattr(user, "telegram_id", None),
                     username=getattr(user, "username", None),

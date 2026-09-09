@@ -228,7 +228,7 @@ class AccountExternalIdentityLinkedPayload(EventPayload):
 
     user_id: int
     provider: Literal["google", "yandex"]
-    link_source: Literal["settings", "email_confirmation"]
+    link_source: Literal["settings", "email_confirmation", "provider_verified_email"]
     email: str | None = None
     telegram_id: int | None = None
     username: str | None = None

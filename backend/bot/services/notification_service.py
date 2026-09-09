@@ -438,6 +438,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         source_key = {
             "settings": "log_external_link_source_settings",
             "email_confirmation": "log_external_link_source_email_confirmation",
+            "provider_verified_email": "log_external_link_source_provider_verified_email",
         }.get(link_source, "log_external_link_source_settings")
         display_user_id = int(telegram_id or user_id)
         user_display = self._format_user_display(

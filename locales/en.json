@@ -508,6 +508,7 @@
   "log_auth_provider_yandex": "Yandex",
   "log_external_link_source_settings": "Security settings",
   "log_external_link_source_email_confirmation": "existing email confirmation",
+  "log_external_link_source_provider_verified_email": "provider-verified email",
   "log_account_merge_source_email": "verified email",
   "log_account_merge_source_telegram": "Telegram",
   "log_account_merge_source_login": "sign-in confirmation",

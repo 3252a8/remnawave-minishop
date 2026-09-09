@@ -88,11 +88,16 @@ def _request(*, purpose: str, user_id: int | None = None, provider: str = "googl
     )
 
 
-def _profile() -> dict[str, object]:
+def _profile(
+    *,
+    email: str = "same@example.com",
+    hosted_domain: str | None = None,
+) -> dict[str, object]:
     return {
         "subject": "google-subject",
-        "email": "same@example.com",
+        "email": email,
         "email_verified": True,
+        "hosted_domain": hosted_domain,
         "display_name": "Example User",
         "picture_url": None,
     }
@@ -131,7 +136,87 @@ def test_external_oauth_start_uses_application_language() -> None:
     asyncio.run(_external_oauth_start_uses_application_language())
 
 
-async def _login_with_claimed_oidc_email_requires_confirmation_without_duplicate() -> None:
+async def _google_login_with_authoritative_email_uses_existing_account_without_code() -> None:
+    for email, hosted_domain in (
+        ("member@gmail.com", None),
+        ("member@example.com", "example.com"),
+    ):
+        factory = _SessionFactory()
+        request, state = _request(purpose="login")
+        profile = _profile(email=email, hosted_domain=hosted_domain)
+        existing = SimpleNamespace(
+            user_id=41,
+            is_banned=False,
+            language_code="ru",
+            email=email,
+            email_verified_at=object(),
+            notification_email=email,
+            first_name="Existing User",
+            telegram_id=None,
+            username=None,
+        )
+        request_code = AsyncMock()
+        ensure_primary = AsyncMock()
+        create_email_user = AsyncMock()
+        upsert_address = AsyncMock()
+        emit_model = AsyncMock()
+
+        with (
+            patch.multiple(
+                external_oauth,
+                get_settings=Mock(return_value=SimpleNamespace(DEFAULT_LANGUAGE="ru")),
+                get_session_factory=Mock(return_value=factory),
+                get_email_auth_service=Mock(
+                    return_value=SimpleNamespace(request_code=request_code)
+                ),
+                _provider=Mock(return_value=_provider()),
+                _read_state=Mock(return_value=state),
+                _callback_url=Mock(return_value="https://app/callback"),
+                _post_token=AsyncMock(return_value={"id_token": "x"}),
+                _google_profile=AsyncMock(return_value=profile),
+                _verified_email_owner=AsyncMock(return_value=existing),
+                _apply_referral_to_existing_user=AsyncMock(return_value=False),
+                _sync_panel_identity_for_user=AsyncMock(),
+                _invalidate_webapp_user_caches=AsyncMock(),
+                create_webapp_session_token=Mock(return_value="token"),
+                _set_webapp_auth_cookies=Mock(),
+            ),
+            patch.multiple(
+                external_oauth.user_email_dal,
+                ensure_primary_user_email_address=ensure_primary,
+                upsert_user_email_address=upsert_address,
+            ),
+            patch.multiple(
+                external_oauth.user_dal,
+                get_user_by_id=AsyncMock(return_value=existing),
+                create_email_user=create_email_user,
+            ),
+            patch.object(external_oauth.events, "emit_model", emit_model),
+        ):
+            response = await external_oauth.external_oauth_callback_route(request)
+
+        assert response.headers["Location"] == "/?external_auth=google:success"
+        request_code.assert_not_awaited()
+        ensure_primary.assert_awaited_once_with(factory.session, existing)
+        create_email_user.assert_not_awaited()
+        identity = factory.session.add.call_args.args[0]
+        assert identity.provider == "google"
+        assert identity.subject == "google-subject"
+        assert identity.user_id == 41
+        upsert_address.assert_awaited_once()
+        factory.session.commit.assert_awaited_once()
+        assert emit_model.await_args is not None
+        payload = emit_model.await_args.args[0]
+        assert payload.provider == "google"
+        assert payload.link_source == "provider_verified_email"
+        assert payload.user_id == 41
+
+
+def test_google_login_with_authoritative_email_uses_existing_account_without_code() -> None:
+    asyncio.run(_google_login_with_authoritative_email_uses_existing_account_without_code())
+
+
+async def _login_with_non_authoritative_email_requires_confirmation_without_duplicate() -> None:
     for provider_key in ("google", "yandex"):
         factory = _SessionFactory()
         request, state = _request(purpose="login", provider=provider_key)
@@ -196,8 +281,8 @@ async def _login_with_claimed_oidc_email_requires_confirmation_without_duplicate
         factory.session.commit.assert_awaited_once()
 
 
-def test_login_with_claimed_oidc_email_requires_confirmation_without_duplicate() -> None:
-    asyncio.run(_login_with_claimed_oidc_email_requires_confirmation_without_duplicate())
+def test_login_with_non_authoritative_email_requires_confirmation_without_duplicate() -> None:
+    asyncio.run(_login_with_non_authoritative_email_requires_confirmation_without_duplicate())
 
 
 async def _new_oidc_registration_emits_provider_registration_after_commit() -> None:
