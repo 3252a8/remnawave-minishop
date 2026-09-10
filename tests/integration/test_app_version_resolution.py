@@ -162,6 +162,21 @@ class BuildPipelineVersionMetadataTests(unittest.TestCase):
             build_script,
         )
 
+    def test_gitlab_dev_publish_triggers_the_pro_dev_pipeline(self):
+        pipeline = (REPOSITORY_ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
+
+        self.assertIn("dispatch-dev-image-consumer:", pipeline)
+        self.assertIn("needs:\n    - publish-dev-images", pipeline)
+        self.assertIn("project: $IMAGE_CHANNEL_DOWNSTREAM_PROJECT", pipeline)
+        self.assertIn("branch: $IMAGE_CHANNEL_DOWNSTREAM_REF", pipeline)
+        self.assertIn("strategy: depend", pipeline)
+        self.assertIn("CORE_DEV_COMMIT: $CI_COMMIT_SHA", pipeline)
+        self.assertIn(
+            "CORE_DEV_IMAGE_PREFIX: docker.io/3252a8/remnawave-minishop",
+            pipeline,
+        )
+        self.assertNotIn("remnawave-minishop-pro", pipeline)
+
 
 class LiveGitFallbackTests(unittest.TestCase):
     """Local dev path: no env, no baked file, but ``git`` works."""
