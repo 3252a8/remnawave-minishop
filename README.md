@@ -70,7 +70,7 @@ Remnawave Minishop - Telegram-бот и Web App (Mini App) для продажи
 | Данные | **PostgreSQL** **17** (сервис `postgres` в Compose) и **Redis** **7** (сервис `redis`) |
 | Сборка Web App | **Node.js** **22**, **Svelte** **5**, **Vite**, **Tailwind CSS** 4; артефакты попадают в шаблоны `backend/bot/app/web/templates/` |
 
-Локальная разработка без Docker возможна при установленных Python 3.12, PostgreSQL и (для пересборки фронта) Node 22; типичный сценарий — всё через Compose.
+Локальная разработка без Docker возможна при установленных Python 3.12, PostgreSQL и (для пересборки фронта) Node 24; типичный сценарий — всё через Compose.
 
 ## Быстрый старт
 
