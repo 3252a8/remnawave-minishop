@@ -8747,6 +8747,20 @@
         "title": "PaymentPurchaseOut",
         "type": "object"
       },
+      "PreviewUploadOut": {
+        "additionalProperties": false,
+        "properties": {
+          "preview_url": {
+            "title": "Preview Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "preview_url"
+        ],
+        "title": "PreviewUploadOut",
+        "type": "object"
+      },
       "PromoActivationOut": {
         "properties": {
           "activated_at": {
@@ -11051,6 +11065,7 @@
         "type": "object"
       },
       "ThemeTokens": {
+        "additionalProperties": true,
         "description": "CSS design tokens for the subscription Mini App shell.",
         "properties": {
           "accent": {
@@ -13176,6 +13191,10 @@
             "title": "Currency",
             "type": "string"
           },
+          "devMode": {
+            "title": "Devmode",
+            "type": "boolean"
+          },
           "emailAuthEnabled": {
             "title": "Emailauthenabled",
             "type": "boolean"
@@ -13307,6 +13326,7 @@
           "language",
           "languages",
           "emailAuthEnabled",
+          "devMode",
           "authProviders",
           "registrationInviteOnlyEnabled",
           "appVersion",
@@ -13421,6 +13441,29 @@
             ],
             "default": null,
             "title": "Css File"
+          },
+          "css_variables": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Css Variables",
+            "type": "object"
+          },
+          "css_variables_by_variant": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "propertyNames": {
+              "enum": [
+                "light",
+                "dark"
+              ]
+            },
+            "title": "Css Variables By Variant",
+            "type": "object"
           },
           "default": {
             "default": false,
@@ -19984,6 +20027,80 @@
           }
         ],
         "summary": "Admin Theme Installed Preview",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "post_admin_theme_preview_upload_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "pattern": "[^{}/]+",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PreviewUploadOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Theme Preview Upload",
         "tags": [
           "admin"
         ]
