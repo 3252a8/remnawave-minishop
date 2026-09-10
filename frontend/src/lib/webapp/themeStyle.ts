@@ -81,6 +81,7 @@ const TOKEN_TO_CSS_VAR: Record<string, string> = {
   font_sans: "--font-sans",
   font_logo: "--font-logo",
   font_mono: "--font-mono",
+  transparency: "--theme-transparency",
   home_logo_scale: "--home-logo-scale",
   home_logo_scale_desktop: "--home-logo-scale-desktop",
   home_logo_scale_mobile: "--home-logo-scale-mobile",
@@ -114,6 +115,7 @@ const LOGO_SCALE_TOKEN_KEYS = new Set([
   "home_logo_scale_desktop",
   "home_logo_scale_mobile",
 ]);
+const PERCENTAGE_TOKEN_KEYS = new Set(["transparency"]);
 const THEME_VARIANTS = new Set(["dark", "light"]);
 const GOOGLE_FONT_LINK_ID = "webapp-theme-google-fonts";
 const SYSTEM_FONT_FAMILIES = new Set([
@@ -160,6 +162,12 @@ export function themeTokensToInlineStyle(
       const scale = Number(value);
       if (!Number.isFinite(scale) || scale <= 0) continue;
       parts.push(`${cssVar}:${scale / 100}`);
+      continue;
+    }
+    if (PERCENTAGE_TOKEN_KEYS.has(key)) {
+      const percentage = Number(value);
+      if (!Number.isFinite(percentage)) continue;
+      parts.push(`${cssVar}:${Math.min(100, Math.max(0, percentage)) / 100}`);
       continue;
     }
     parts.push(`${cssVar}:${String(value)}`);
@@ -295,9 +303,7 @@ export function themeEntryToInlineStyle(
   primaryFallback: string | undefined = "#00fe7a"
 ): string {
   const materialized = materializeThemeEntry(theme);
-  return themeTokensToInlineStyle(materialized?.tokens, primaryFallback, {
-    fallbackAccent: !materialized?.css_file,
-  });
+  return themeTokensToInlineStyle(materialized?.tokens, primaryFallback);
 }
 
 function stripQuotes(value: unknown): string {

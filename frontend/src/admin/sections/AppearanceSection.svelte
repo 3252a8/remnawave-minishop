@@ -337,6 +337,21 @@
     return match ? Math.min(28, Math.max(0, Number(match[1]))) : 8;
   }
 
+  function setCustomThemeTransparency(
+    theme: ThemeEntry,
+    value: unknown,
+    variant = themeVariant(theme)
+  ): void {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return;
+    setCustomThemeToken(theme, "transparency", Math.min(100, Math.max(0, Math.round(numeric))), variant);
+  }
+
+  function customThemeTransparencyNumber(theme: ThemeEntry, variant = themeVariant(theme)): number {
+    const numeric = Number(customThemeTokenValue(theme, "transparency", variant));
+    return Number.isFinite(numeric) ? Math.min(100, Math.max(0, Math.round(numeric))) : 100;
+  }
+
   function applyCustomThemePreset(
     theme: ThemeEntry,
     preset: { tokens?: TokenMap } | null | undefined,
@@ -379,12 +394,32 @@
     setDefaultToken("radius", `${Math.min(28, Math.max(4, Math.round(numeric)))}px`, variant);
   }
 
+  function setDefaultTransparency(
+    value: unknown,
+    variant: ThemeVariant = defaultEditorVariant
+  ): void {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return;
+    setDefaultToken(
+      "transparency",
+      Math.min(100, Math.max(0, Math.round(numeric))),
+      variant
+    );
+  }
+
   const defaultRadiusRangeHandler = ((value: number, variant?: ThemeVariant) =>
     setDefaultRadius(value, variant)) as SelectCallback;
+  const defaultTransparencyRangeHandler = ((value: number, variant?: ThemeVariant) =>
+    setDefaultTransparency(value, variant)) as SelectCallback;
 
   function radiusNumber(tokens: TokenMap = defaultTokens): number {
     const match = String(defaultTokenValue("radius", tokens) || "").match(/(\d+)/);
     return match ? Math.min(28, Math.max(4, Number(match[1]))) : 8;
+  }
+
+  function transparencyNumber(tokens: TokenMap = defaultTokens): number {
+    const numeric = Number(tokens.transparency);
+    return Number.isFinite(numeric) ? Math.min(100, Math.max(0, Math.round(numeric))) : 100;
   }
 
   function setDefaultFont(tokenKey: string, value: unknown): void {
@@ -428,6 +463,10 @@
 
   function defaultRadiusInputHandler(event: Event, variant?: ThemeVariant): void {
     setDefaultRadius(inputValue(event), variant);
+  }
+
+  function defaultTransparencyInputHandler(event: Event, variant?: ThemeVariant): void {
+    setDefaultTransparency(inputValue(event), variant);
   }
 
   function defaultLogoScaleInputHandler(mode: LogoMode, variant: ThemeVariant = defaultEditorVariant): (event: Event) => void {
@@ -632,8 +671,11 @@
     {defaultFontSelectHandler}
     {applyCustomGoogleFont}
     {radiusNumber}
+    {transparencyNumber}
     {defaultRadiusRangeHandler}
     {defaultRadiusInputHandler}
+    {defaultTransparencyRangeHandler}
+    {defaultTransparencyInputHandler}
     {isThemeHomeLogoScaleDirty}
     {defaultHomeLogoScale}
     {defaultLogoScaleSelectHandler}
@@ -668,7 +710,9 @@
     {setCustomThemeFont}
     {applyCustomThemeGoogleFont}
     {customThemeRadiusNumber}
+    {customThemeTransparencyNumber}
     {setCustomThemeRadius}
+    {setCustomThemeTransparency}
     {customThemePickerHex}
     {themeCssPickerHex}
     {customThemeTokenValue}

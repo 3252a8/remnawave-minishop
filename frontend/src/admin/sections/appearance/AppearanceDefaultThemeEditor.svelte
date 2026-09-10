@@ -89,8 +89,11 @@
     defaultFontSelectHandler,
     applyCustomGoogleFont,
     radiusNumber,
+    transparencyNumber,
      defaultRadiusRangeHandler,
-    defaultRadiusInputHandler,
+     defaultRadiusInputHandler,
+     defaultTransparencyRangeHandler,
+     defaultTransparencyInputHandler,
     isThemeHomeLogoScaleDirty,
     defaultHomeLogoScale,
      defaultLogoScaleSelectHandler,
@@ -128,8 +131,11 @@
     defaultFontSelectHandler: (tokenKey: string) => (value: string) => void;
     applyCustomGoogleFont: (tokenKey: string, kind?: "sans" | "mono") => void;
     radiusNumber: (tokens?: TokenMap) => number;
+    transparencyNumber: (tokens?: TokenMap) => number;
      defaultRadiusRangeHandler: SelectCallback;
      defaultRadiusInputHandler: (event: Event, variant?: ThemeVariant) => void;
+     defaultTransparencyRangeHandler: SelectCallback;
+     defaultTransparencyInputHandler: (event: Event, variant?: ThemeVariant) => void;
     isThemeHomeLogoScaleDirty: (
       theme: ThemeEntry | null | undefined,
       mode: LogoMode,
@@ -407,6 +413,40 @@
                  oninput={(event) => defaultRadiusInputHandler(event, selectedVariant)}
               />
               px
+            </span>
+          </div>
+          <div
+            class="appearance-logo-scale-row appearance-default-scale-row"
+            class:is-dirty={isDefaultTokenDirty("transparency")}
+          >
+            <span class="appearance-logo-scale-label">
+              {at("appearance_transparency", {}, "Transparency")}
+              {#if isDefaultTokenDirty("transparency")}
+                <AdminBadge variant="warning"
+                  >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
+                >
+              {/if}
+            </span>
+            <RangeInput
+              class="appearance-logo-scale-range"
+              min="0"
+              max="100"
+              step="1"
+              ariaLabel={at("appearance_transparency", {}, "Transparency")}
+              value={transparencyNumber(defaultTokens)}
+              onValueChange={(value) => defaultTransparencyRangeHandler(value, selectedVariant)}
+            />
+            <span class="appearance-logo-scale-value">
+              <Input
+                class="input"
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                value={transparencyNumber(defaultTokens)}
+                oninput={(event) => defaultTransparencyInputHandler(event, selectedVariant)}
+              />
+              %
             </span>
           </div>
           <div

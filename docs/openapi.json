@@ -11749,6 +11749,20 @@
             "default": null,
             "title": "Text"
           },
+          "transparency": {
+            "anyOf": [
+              {
+                "maximum": 100,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Transparency"
+          },
           "warning": {
             "anyOf": [
               {

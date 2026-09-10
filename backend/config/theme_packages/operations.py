@@ -213,7 +213,8 @@ def install_import(
                 source=record.source,
                 installed_at=time.time(),
                 original=candidate.theme,
-                overrides={"default": False, "use_in_admin": False, "enabled": True},
+                # Package authors decide whether their theme also styles the admin panel.
+                overrides={"default": False, "enabled": True},
             )
             if previous:
                 if (
@@ -323,7 +324,9 @@ def rollback_theme(root: Path, key: str, generation: int) -> MutationOut:
             overrides=entry.overrides,
             history=[
                 InstalledVersion.model_validate(
-                    entry.model_dump(exclude={"overrides", "history", "adopted_digest"})
+                    entry.model_dump(
+                        exclude={"overrides", "history", "adopted_digest", "preview_override"}
+                    )
                 ),
                 *entry.history[1:],
             ][:5],

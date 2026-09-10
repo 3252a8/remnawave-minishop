@@ -527,6 +527,31 @@ class WebappThemesConfigTests(unittest.TestCase):
                 ],
             )
 
+    def test_theme_transparency_is_bounded_percentage(self):
+        cfg = WebappThemesConfig(
+            default_theme="custom",
+            themes=[
+                {
+                    "key": "custom",
+                    "default": True,
+                    "tokens": {"color_scheme": "dark", "transparency": 42},
+                }
+            ],
+        )
+
+        self.assertEqual(cfg.theme_by_key("custom").tokens.transparency, 42)
+        with self.assertRaises(ValueError):
+            WebappThemesConfig(
+                default_theme="custom",
+                themes=[
+                    {
+                        "key": "custom",
+                        "default": True,
+                        "tokens": {"transparency": 101},
+                    }
+                ],
+            )
+
     def test_public_payload_keeps_admin_usage_flag(self):
         cfg = WebappThemesConfig(
             default_theme="custom",

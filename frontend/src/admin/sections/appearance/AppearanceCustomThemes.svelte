@@ -35,7 +35,9 @@
     setCustomThemeFont,
     applyCustomThemeGoogleFont,
     customThemeRadiusNumber,
+    customThemeTransparencyNumber,
     setCustomThemeRadius,
+    setCustomThemeTransparency,
     isThemeHomeLogoScaleDirty,
     homeLogoScale,
     themeLogoScaleSelectHandler,
@@ -81,7 +83,9 @@
       kind?: "sans" | "mono"
     ) => void;
      customThemeRadiusNumber: (theme: ThemeEntry, variant?: ThemeVariant) => number;
+     customThemeTransparencyNumber: (theme: ThemeEntry, variant?: ThemeVariant) => number;
      setCustomThemeRadius: (theme: ThemeEntry, value: unknown, variant?: ThemeVariant) => void;
+     setCustomThemeTransparency: (theme: ThemeEntry, value: unknown, variant?: ThemeVariant) => void;
     isThemeHomeLogoScaleDirty: (
       theme: ThemeEntry | null | undefined,
       mode: LogoMode,
@@ -149,9 +153,14 @@
         defaultFontSelectHandler={(key) => (value) => setCustomThemeFont(theme, key, value)}
         applyCustomGoogleFont={(key, kind) => applyCustomThemeGoogleFont(theme, key, kind)}
          radiusNumber={() => customThemeRadiusNumber(theme, selectedVariant)}
-        defaultRadiusRangeHandler={((value: number) =>
-           setCustomThemeRadius(theme, value, selectedVariant)) as SelectCallback}
+         transparencyNumber={() => customThemeTransparencyNumber(theme, selectedVariant)}
+         defaultRadiusRangeHandler={((value: number) =>
+            setCustomThemeRadius(theme, value, selectedVariant)) as SelectCallback}
          defaultRadiusInputHandler={(event) => setCustomThemeRadius(theme, inputValue(event), selectedVariant)}
+         defaultTransparencyRangeHandler={((value: number) =>
+            setCustomThemeTransparency(theme, value, selectedVariant)) as SelectCallback}
+         defaultTransparencyInputHandler={(event) =>
+            setCustomThemeTransparency(theme, inputValue(event), selectedVariant)}
         {isThemeHomeLogoScaleDirty}
          defaultHomeLogoScale={(mode, _theme, nextVariant) => homeLogoScale(theme, mode, nextVariant ?? selectedVariant)}
          defaultLogoScaleSelectHandler={(mode, nextVariant) => themeLogoScaleSelectHandler(theme, mode, nextVariant ?? selectedVariant)}

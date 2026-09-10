@@ -97,6 +97,26 @@ describe("computeThemeView", () => {
     expect(view.shellToneClass).toBe("theme-light");
   });
 
+  it("keeps a fallback accent and serializes transparency for CSS-backed themes", () => {
+    const view = computeThemeView({
+      ...BASE,
+      primaryColor: "#39bce0",
+      cfgThemesCatalog: {
+        default_theme: "liquid-glass",
+        themes: [
+          {
+            key: "liquid-glass",
+            css_file: "theme.css",
+            tokens: { color_scheme: "dark", transparency: 46 },
+          },
+        ],
+      },
+    });
+
+    expect(view.shellStyle).toContain("--accent:#39bce0");
+    expect(view.shellStyle).toContain("--theme-transparency:0.46");
+  });
+
   it("honours an allowed preview theme key", () => {
     const view = computeThemeView({ ...BASE, themePreviewKey: "dark" });
     expect(view.resolvedThemeKey).toBe("dark");

@@ -8347,6 +8347,11 @@ export interface components {
        */
       text: string | null;
       /**
+       * Transparency
+       * @default null
+       */
+      transparency: number | null;
+      /**
        * Warning
        * @default null
        */

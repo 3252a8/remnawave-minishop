@@ -100,7 +100,7 @@ def test_install_update_preserves_overrides_rollback_delete_and_export(tmp_path:
     result = install(tmp_path, record)
     assert result.generation == 1
     installed = load_webapp_theme_dir(tmp_path)[0]
-    assert not installed.default and not installed.use_in_admin
+    assert not installed.default and installed.use_in_admin
     original_digest = read_registry(tmp_path).entries["ocean"].digest
     installed.tokens.bg = "#abcdef"
     write_webapp_theme_dir(
@@ -138,6 +138,18 @@ def test_install_update_preserves_overrides_rollback_delete_and_export(tmp_path:
         remove_theme(tmp_path, "ocean", state.generation, "ocean")
     remove_theme(tmp_path, "ocean", state.generation, "dark")
     assert not read_registry(tmp_path).entries
+
+
+def test_install_preserves_package_admin_usage_preference(tmp_path: Path) -> None:
+    files = package()
+    descriptor = json.loads(files["ocean/theme.json"])
+    descriptor["use_in_admin"] = False
+    files["ocean/theme.json"] = json.dumps(descriptor).encode()
+
+    install(tmp_path, ready(tmp_path, files))
+
+    installed = load_webapp_theme_dir(tmp_path)[0]
+    assert not installed.use_in_admin
 
 
 def test_missing_variant_override_does_not_break_managed_theme_loading(tmp_path: Path) -> None:

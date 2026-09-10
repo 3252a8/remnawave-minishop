@@ -84,6 +84,7 @@ class ThemeTokens(BaseModel):
     font_sans: str | None = None
     font_logo: str | None = None
     font_mono: str | None = None
+    transparency: int | None = Field(default=None, ge=0, le=100)
     home_logo_scale: int | None = None
     home_logo_scale_desktop: int | None = None
     home_logo_scale_mobile: int | None = None
