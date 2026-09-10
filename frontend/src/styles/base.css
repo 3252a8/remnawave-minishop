@@ -46,6 +46,10 @@
   --info-border: color-mix(in srgb, var(--info) 34%, var(--border));
   --blue: #2d9cff;
   --radius: 8px;
+  --radius-card: var(--radius);
+  --radius-control: var(--radius);
+  --radius-dialog: var(--radius);
+  --radius-inner: max(0px, calc(var(--radius) - 2px));
   --accent-contrast: #03100a;
   --surface-sheen: rgba(255, 255, 255, 0.055);
   --surface-sheen-soft: rgba(255, 255, 255, 0.018);

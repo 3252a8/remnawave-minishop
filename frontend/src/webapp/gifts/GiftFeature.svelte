@@ -430,7 +430,7 @@
 <style>
   .gift-email {
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: var(--radius-card);
     padding: 10px;
     display: grid;
     gap: 10px;
@@ -451,7 +451,7 @@
     gap: 14px;
     align-items: center;
     padding: 18px;
-    border-radius: 18px;
+    border-radius: var(--radius-card);
     background: color-mix(in srgb, var(--accent) 10%, var(--panel));
     color: var(--accent);
   }
@@ -496,7 +496,7 @@
     width: 60px;
     height: 60px;
     margin: 0 auto;
-    border-radius: 26px;
+    border-radius: var(--radius-card);
     color: var(--accent);
     background: color-mix(in srgb, var(--accent) 12%, transparent);
   }
@@ -513,7 +513,7 @@
     color: var(--danger);
     background: color-mix(in srgb, var(--danger) 8%, transparent);
     padding: 14px;
-    border-radius: 12px;
+    border-radius: var(--radius-inner);
     font-size: 13px;
     line-height: 1.6;
     margin: 0;

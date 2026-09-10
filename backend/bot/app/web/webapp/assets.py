@@ -551,6 +551,7 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
                 base_languages=base_locales_data.keys(),
             ),
             "emailAuthEnabled": cached["email_auth_enabled"],
+            "devMode": bool(settings.qa_auth_enabled),
             "authProviders": cached["auth_providers"],
             "registrationInviteOnlyEnabled": cached["registration_invite_only_enabled"],
             "checkoutPlans": _serialize_plans(settings, str(cached["language"] or "ru")),

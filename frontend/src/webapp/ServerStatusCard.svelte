@@ -82,7 +82,7 @@
   .server-status-card-icon {
     width: 34px;
     height: 34px;
-    border-radius: 11px;
+    border-radius: var(--radius-inner);
     display: grid;
     place-items: center;
     color: var(--accent, #00b86b);

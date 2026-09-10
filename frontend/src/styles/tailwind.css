@@ -26,6 +26,6 @@
   --color-admin-muted: var(--admin-muted);
   --color-admin-dim: var(--admin-dim);
 
-  --radius-card: 12px;
+  --radius-card: var(--radius);
   --radius-control: var(--radius);
 }

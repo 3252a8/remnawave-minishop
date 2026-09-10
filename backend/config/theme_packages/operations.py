@@ -46,6 +46,7 @@ from .registry import (
     require_capacity,
     write_registry,
 )
+from .preview_storage import preview_file
 
 
 def operation_dir(root: Path, operation_id: str) -> Path:
@@ -212,7 +213,8 @@ def install_import(
                 source=record.source,
                 installed_at=time.time(),
                 original=candidate.theme,
-                overrides={"default": False, "use_in_admin": False, "enabled": True},
+                # Package authors decide whether their theme also styles the admin panel.
+                overrides={"default": False, "enabled": True},
             )
             if previous:
                 if (
@@ -223,7 +225,9 @@ def install_import(
                 entry.overrides = previous.overrides
                 entry.history = [
                     InstalledVersion.model_validate(
-                        previous.model_dump(exclude={"overrides", "history", "adopted_digest"})
+                        previous.model_dump(
+                            exclude={"overrides", "history", "adopted_digest", "preview_override"}
+                        )
                     ),
                     *previous.history,
                 ][:5]
@@ -231,6 +235,7 @@ def install_import(
                     entry.history = previous.history
                     entry.installed_at = previous.installed_at
                 entry.adopted_digest = previous.adopted_digest
+                entry.preview_override = previous.preview_override
                 if (
                     entry.adopted_digest
                     and legacy.is_dir()
@@ -299,6 +304,7 @@ def remove_theme(root: Path, key: str, generation: int, active_key: str) -> Muta
         state.removed.append(key)
         state.preferences.pop(key, None)
         del state.entries[key]
+        preview_file(root, key).unlink(missing_ok=True)
         write_registry(root, state)
         return MutationOut(generation=state.generation, keys=[key])
 
@@ -318,11 +324,14 @@ def rollback_theme(root: Path, key: str, generation: int) -> MutationOut:
             overrides=entry.overrides,
             history=[
                 InstalledVersion.model_validate(
-                    entry.model_dump(exclude={"overrides", "history", "adopted_digest"})
+                    entry.model_dump(
+                        exclude={"overrides", "history", "adopted_digest", "preview_override"}
+                    )
                 ),
                 *entry.history[1:],
             ][:5],
             adopted_digest=entry.adopted_digest,
+            preview_override=entry.preview_override,
         )
         effective_theme(key, changed)
         state.entries[key] = changed
@@ -369,6 +378,16 @@ def export_themes(root: Path, request: ExportRequest) -> bytes:
                 elif path.suffix.lower() == ".css" and (request.new_key or key in BUILTINS):
                     content = fork_css(content.decode("utf-8"), key, new_key, name).encode("utf-8")
                 output[f"{new_key}/{name}"] = content
+            captured = preview_file(root, key)
+            if captured.is_file():
+                output[f"{new_key}/preview.webp"] = captured.read_bytes()
+                metadata_path = f"{new_key}/theme-package.json"
+                if metadata_path in output:
+                    metadata = json.loads(output[metadata_path])
+                    metadata["preview"] = "preview.webp"
+                    output[metadata_path] = (
+                        json.dumps(metadata, ensure_ascii=False, indent=2) + "\n"
+                    ).encode()
         output["minishop-themes.json"] = json.dumps(
             {
                 "schema_version": 1,

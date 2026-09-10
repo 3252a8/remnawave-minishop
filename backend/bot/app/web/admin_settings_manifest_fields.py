@@ -238,6 +238,15 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "Combine subscription status, traffic usage, and balance into one compact summary card.",
         optional=False,
     ),
+    SettingField(
+        "WEBAPP_DEFAULT_THEME",
+        "string",
+        "appearance",
+        "Active WebApp theme",
+        "Theme key selected in the appearance library.",
+        i18n_label_key="admin_appearance_active_theme_setting",
+        i18n_description_key="admin_appearance_active_theme_setting_hint",
+    ),
     SettingField("WEBAPP_LOGO_URL", "url", "appearance", "WebApp Logo URL"),
     SettingField(
         "WEBAPP_FAVICON_USE_CUSTOM",

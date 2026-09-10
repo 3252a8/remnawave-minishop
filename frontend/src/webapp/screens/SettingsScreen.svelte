@@ -386,7 +386,7 @@
     gap: 7px;
     padding: 8px 10px;
     border: 1px solid var(--border);
-    border-radius: 11px;
+    border-radius: var(--radius-inner);
     color: var(--text);
     text-align: right;
     background: var(--panel-2);

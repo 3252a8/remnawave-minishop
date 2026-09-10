@@ -337,7 +337,7 @@
     min-width: 0;
     padding: 9px 10px;
     border: 1px solid var(--surface-subtle-border);
-    border-radius: 12px;
+    border-radius: var(--radius-inner);
     background: var(--surface-subtle);
     text-align: left;
   }

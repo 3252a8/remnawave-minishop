@@ -234,7 +234,7 @@
     align-items: center;
     justify-content: center;
     border: 1px solid transparent;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     background: var(--accent);
     color: var(--accent-contrast);
     padding: 0 18px;

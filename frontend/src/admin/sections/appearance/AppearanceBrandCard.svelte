@@ -269,32 +269,35 @@
   });
 </script>
 
-<article class="admin-card">
-  <header class="admin-card-head">
-    <div>
-      <h3>{at("appearance_brand_title", {}, "Logo")}</h3>
-      <small>{at("appearance_brand_sub", {}, "Upload a logo as a file or from a URL")}</small>
-    </div>
-    <div class="admin-editor-section-actions">
-      {#if appearanceDirtyCount}
-        <AdminBadge variant="warning">
-          {at("settings_dirty_count", { count: appearanceDirtyCount }, "Changes: {count}")}
-        </AdminBadge>
-      {/if}
-      <AdminButton
-        size="sm"
-        variant="primary"
-        onclick={onSave}
-        disabled={settingsSaving || themesSaving}
-      >
-        <Save size={13} />
-        {settingsSaving || themesSaving
-          ? at("btn_saving", {}, "Saving...")
-          : at("btn_save", {}, "Save")}
-      </AdminButton>
-    </div>
-  </header>
-  <div class="admin-card-body appearance-logo-grid">
+<div class="appearance-brand-settings">
+    <header class="appearance-brand-accordion-header">
+      <div class="appearance-brand-accordion-trigger">
+        <span class="appearance-brand-accordion-copy">
+          <strong>{at("appearance_brand_title", {}, "Logo")}</strong>
+          <small>{at("appearance_brand_sub", {}, "Upload a logo as a file or from a URL")}</small>
+        </span>
+      <div class="appearance-brand-accordion-actions">
+        {#if appearanceDirtyCount}
+          <AdminBadge variant="warning">
+            {at("settings_dirty_count", { count: appearanceDirtyCount }, "Changes: {count}")}
+          </AdminBadge>
+        {/if}
+        <AdminButton
+          size="sm"
+          variant="primary"
+          onclick={onSave}
+          disabled={settingsSaving || themesSaving}
+        >
+          <Save size={13} />
+          {settingsSaving || themesSaving
+            ? at("btn_saving", {}, "Saving...")
+            : at("btn_save", {}, "Save")}
+        </AdminButton>
+      </div>
+      </div>
+    </header>
+    <div class="appearance-brand-accordion-content">
+      <div class="appearance-logo-grid">
     <div class="appearance-logo-preview">
       {#if previewLogoUrl && !logoPreviewFailed}
         <img
@@ -347,9 +350,9 @@
         </div>
       </section>
     </div>
-  </div>
+      </div>
 
-  <div class="admin-card-body appearance-logo-grid appearance-favicon-grid">
+      <div class="appearance-logo-grid appearance-favicon-grid">
     <div class="appearance-logo-preview appearance-favicon-preview">
       {#if previewFaviconUrl && !faviconPreviewFailed}
         <img
@@ -413,5 +416,6 @@
         </div>
       </section>
     </div>
-  </div>
-</article>
+      </div>
+    </div>
+</div>

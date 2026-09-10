@@ -476,7 +476,7 @@
     margin: 16px 20px 0;
     padding: 0 20px;
     border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
-    border-radius: 14px;
+    border-radius: var(--radius-card);
     background: color-mix(in srgb, var(--accent) 5%, var(--panel));
     color: var(--text);
     font-size: 14px;
@@ -505,7 +505,7 @@
     width: min(100%, 590px);
     padding: 42px;
     border: 1px solid color-mix(in srgb, var(--text) 18%, var(--border));
-    border-radius: 24px;
+    border-radius: var(--radius-card);
     background: color-mix(in srgb, var(--panel) 96%, transparent);
     box-shadow: 0 28px 80px rgba(0, 0, 0, 0.24);
   }
@@ -542,7 +542,7 @@
     width: 100%;
     box-sizing: border-box;
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: var(--radius-control);
     background: var(--input-bg, var(--surface-muted));
     color: var(--text);
     font: inherit;
@@ -647,7 +647,7 @@
     .checkout-card {
       box-sizing: border-box;
       padding: 34px 24px;
-      border-radius: 22px;
+      border-radius: var(--radius-card);
     }
 
     .checkout-card.payment-card {

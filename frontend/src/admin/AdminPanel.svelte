@@ -32,6 +32,7 @@
     userTelegramProfileLink,
     userTelegramProfileLinkKind,
   } from "../lib/admin/users.js";
+  import { adminErrorMessage } from "../lib/admin/errors.js";
   import {
     adminSettingsPathFromPath,
     stripRoutePrefix,
@@ -549,9 +550,25 @@
     }
   }
 
-  function exportPayments(): void {
+  async function exportPayments(): Promise<void> {
     if (typeof window === "undefined") return;
-    window.open(buildAdminPaymentsExportPath(), "_blank", "noopener");
+    try {
+      const blob = await stableApiBlob(buildAdminPaymentsExportPath());
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "payments.csv";
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch (error) {
+      flash(
+        at(
+          "payments_export_error",
+          { error: adminErrorMessage(error, at, "Export failed") },
+          "Export failed: {error}"
+        )
+      );
+    }
   }
 
   function openPaymentUserCard(userId: unknown): void {

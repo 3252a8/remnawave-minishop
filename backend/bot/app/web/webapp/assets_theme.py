@@ -423,6 +423,9 @@ def _initial_theme_declarations(tokens: dict[str, Any]) -> list[str]:
         value = str(tokens.get(token_key) or "").strip()
         if value:
             declarations.append(f"{css_name}:{value}")
+    for token_key, value in tokens.items():
+        if token_key.startswith("--") and value not in {None, ""}:
+            declarations.append(f"{token_key}:{value}")
     return declarations
 
 

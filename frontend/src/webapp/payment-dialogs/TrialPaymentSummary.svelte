@@ -42,7 +42,7 @@
     gap: 4px;
     padding: 12px;
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: var(--radius-inner);
     background: var(--surface-soft, color-mix(in srgb, var(--surface) 92%, var(--primary)));
   }
 

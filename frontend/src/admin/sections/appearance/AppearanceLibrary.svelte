@@ -8,22 +8,20 @@
     AdminEmptyState,
     AdminListToolbar,
   } from "$components/patterns/admin/index.js";
-  import { Accordion, Checkbox, Dialog, Input } from "$components/ui/index.js";
+   import { Checkbox, Dialog, Input } from "$components/ui/index.js";
   import {
     Check,
-    ChevronDown,
     ExternalLink,
     Eye,
     FileText,
-    Monitor,
-    Paintbrush,
     Plus,
     RotateCcw,
     Settings,
     Trash2,
     Download,
     Save,
-    RefreshCw,
+     RefreshCw,
+     ChevronDown,
   } from "$components/ui/icons.js";
   import type { ThemeEntry } from "$lib/admin/appearanceOptions";
   import type { ThemeInstallation } from "$lib/admin/stores/themeLibraryStore.svelte";
@@ -48,8 +46,10 @@
     customEditor,
     behaviorEditor,
     dirty,
+    saving = false,
     onsave,
-    onpreview,
+     onpreview,
+     oncapture,
   }: {
     at: (key: string, params?: Record<string, unknown>, fallback?: string) => string;
     themes: ThemeEntry[];
@@ -60,8 +60,10 @@
     customEditor: Snippet<[string]>;
     behaviorEditor: Snippet;
     dirty: boolean;
+    saving?: boolean;
     onsave: () => void | Promise<void>;
     onpreview: (event: MouseEvent, theme: ThemeEntry) => void;
+    oncapture: (theme: ThemeEntry) => Promise<void>;
   } = $props();
   const store = getThemesStore();
   const library = store.library;
@@ -79,9 +81,10 @@
   let newKey = $state("");
   let includeOverrides = $state(false);
   let guideOpen = $state(false);
-  let announcement = $state("");
-  let editorOpen = $state("");
-  const blocked = $derived(dirty || library.busy || store.themesSaving || !library.writable);
+  let preferencesOpen = $state(false);
+  let captureBusy = $state(false);
+  let addCardDragging = $state(false);
+  const blocked = $derived(dirty || library.busy || saving || !library.writable);
   const catalog = $derived<LibraryTheme[]>(
     themes.map((theme) => {
       const installation = library.installations.find((item) => item.key === theme.key);
@@ -107,7 +110,6 @@
       (theme.title + " " + theme.key).toLowerCase().includes(query.toLowerCase())
     )
   );
-  const activeTheme = $derived(catalog.find((theme) => theme.key === active) || catalog[0]);
   onMount(() => {
     void library.load();
   });
@@ -115,10 +117,8 @@
     if (blocked) return;
     store.setCurrentTheme(theme.key);
     if (await store.saveThemes()) {
-      announcement = at(
-        "appearance_demo_active_notice",
-        { theme: theme.title },
-        "{theme} is now active."
+      library.notify(
+        at("appearance_demo_active_notice", { theme: theme.title }, "{theme} is now active.")
       );
       await library.load();
     }
@@ -128,6 +128,11 @@
     repositoryRef = ref;
     repositorySubdir = subdir;
     importOpen = true;
+  }
+  async function inspectThemeFile(file?: File): Promise<void> {
+    if (!file || blocked) return;
+    openImport();
+    await library.inspect(file);
   }
 </script>
 
@@ -184,7 +189,7 @@
       <AdminButton
         size="sm"
         variant="primary"
-        disabled={!dirty || library.busy || store.themesSaving}
+        disabled={!dirty || library.busy || saving}
         onclick={onsave}><Save size={14} />{at("btn_save", {}, "Save")}</AdminButton
       >
     {/snippet}
@@ -200,30 +205,28 @@
         "Theme storage is read-only. Check the volume permissions on the server."
       )}
     </p>{/if}
-  <section class="active-theme-summary">
-    <span class="active-symbol"><Paintbrush size={21} /></span>
-    <div class="active-copy">
-      <small>{at("appearance_demo_active_global", {}, "Active theme for all users")}</small><strong
-        >{activeTheme?.title || "Default"}<AdminBadge variant="success"
-          >{at("appearance_demo_active", {}, "Active")}</AdminBadge
-        ></strong
-      >
-      <p>
-        {at(
-          "appearance_demo_activate_hint",
-          {},
-          "Installing a theme adds it to your library. You choose when to activate it."
-        )}
-      </p>
-    </div>
-    <AdminButton
-      disabled={!activeTheme}
-      onclick={(event) => {
-        if (activeTheme) onpreview(event, activeTheme.entry);
-      }}><Eye size={15} />{at("appearance_demo_preview", {}, "Preview")}</AdminButton
-    >
+  <section class="appearance-preferences-card">
+      <header class="appearance-preferences-header">
+        <button
+          type="button"
+          class="appearance-preferences-trigger"
+          aria-expanded={preferencesOpen}
+          onclick={() => (preferencesOpen = !preferencesOpen)}
+        >
+          <span>
+            <strong>{at("appearance_preferences_title", {}, "Appearance settings")}</strong>
+            <small>{at("appearance_preferences_sub", {}, "Behavior and branding")}</small>
+          </span>
+          <ChevronDown size={17} />
+        </button>
+      </header>
+      {#if preferencesOpen}
+        <div class="appearance-preferences-content" data-state="open">
+          {@render behaviorEditor()}
+          {@render brandEditor()}
+        </div>
+      {/if}
   </section>
-
   <section class="library-section">
     <div class="library-title">
       <h3>{at("appearance_demo_library", {}, "Theme library")}</h3>
@@ -271,7 +274,7 @@
                     {},
                     "Unversioned"
                   )}</AdminBadge
-              >
+                >
             </div>
             <p class="theme-description">
               {theme.installation?.metadata?.description?.[currentLang] ||
@@ -330,27 +333,55 @@
                   "Settings for {theme}"
                 )}
                 onclick={() => {
-                  if (theme.key === "dark") {
-                    editorOpen = "default";
-                    document
-                      .getElementById("appearance-default-editor")
-                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  } else {
-                    settingsKey = theme.key;
-                  }
+                  settingsKey = theme.key;
                 }}><Settings size={15} /></AdminButton
               >
             </div>
           </div>
         </article>
       {/each}
-      {#if !query}<button
+      {#if !query}<div
           class="theme-add-card"
-          disabled={blocked}
+          class:dragging={addCardDragging}
+          role="button"
+          tabindex={blocked ? -1 : 0}
+          aria-disabled={blocked}
+          aria-label={at("appearance_demo_drop", {}, "Drop an archive here")}
           onclick={() => {
-            openImport();
+            if (!blocked) openImport();
           }}
-          ><span class="add-symbol"><Plus size={25} /></span><strong
+          onkeydown={(event) => {
+            if (!blocked && (event.key === "Enter" || event.key === " ")) {
+              event.preventDefault();
+              openImport();
+            }
+          }}
+          ondragover={(event) => {
+            event.preventDefault();
+            if (!blocked) addCardDragging = true;
+          }}
+          ondragleave={() => {
+            addCardDragging = false;
+          }}
+          ondrop={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            addCardDragging = false;
+            if (event.dataTransfer?.files.length === 1) {
+              void inspectThemeFile(event.dataTransfer.files[0]);
+            }
+          }}
+          ><input
+            class="theme-add-file-input"
+            type="file"
+            accept=".zip,application/zip,application/x-zip-compressed"
+            tabindex="-1"
+            aria-hidden="true"
+            onchange={(event) => {
+              void inspectThemeFile(event.currentTarget.files?.[0]);
+              event.currentTarget.value = "";
+            }}
+          /><span class="add-symbol"><Plus size={25} /></span><strong
             >{at("appearance_demo_your_theme", {}, "Room for your idea")}</strong
           ><span
             >{at(
@@ -360,7 +391,7 @@
             )}</span
           ><span class="add-card-link"
             >{at("appearance_demo_add", {}, "Add themes")} <Plus size={14} /></span
-          ></button
+           ></div
         >{/if}
     </div>
     {#if !filtered.length}<AdminEmptyState
@@ -371,57 +402,6 @@
         )}</AdminEmptyState
       >{/if}
   </section>
-  <Accordion.Root type="single" bind:value={editorOpen} class="appearance-editor-accordion">
-    <Accordion.Item value="default" class="appearance-editor-item" id="appearance-default-editor"
-      ><Accordion.Header
-        ><Accordion.Trigger class="appearance-editor-trigger"
-          ><span class="editor-symbol"><Settings size={19} /></span><span class="editor-copy"
-            ><strong>{at("appearance_demo_default_settings", {}, "Customize Default")}</strong
-            ><small
-              >{at(
-                "appearance_demo_default_settings_hint",
-                {},
-                "Palette, fonts, corners and logo size"
-              )}</small
-            ></span
-          ><AdminBadge>Default</AdminBadge><ChevronDown size={17} /></Accordion.Trigger
-        ></Accordion.Header
-      ><Accordion.Content class="appearance-editor-content"
-        >{@render defaultEditor()}</Accordion.Content
-      ></Accordion.Item
-    >
-    <Accordion.Item value="behavior" class="appearance-editor-item"
-      ><Accordion.Header
-        ><Accordion.Trigger class="appearance-editor-trigger"
-          ><span class="editor-symbol"><Monitor size={19} /></span><span class="editor-copy"
-            ><strong>{at("appearance_demo_behavior", {}, "Display and behavior")}</strong><small
-              >{at(
-                "appearance_demo_behavior_hint",
-                {},
-                "User theme mode and compact home screen"
-              )}</small
-            ></span
-          ><ChevronDown size={17} /></Accordion.Trigger
-        ></Accordion.Header
-      ><Accordion.Content class="appearance-editor-content"
-        >{@render behaviorEditor()}</Accordion.Content
-      ></Accordion.Item
-    >
-    <Accordion.Item value="brand" class="appearance-editor-item"
-      ><Accordion.Header
-        ><Accordion.Trigger class="appearance-editor-trigger"
-          ><span class="editor-symbol"><Paintbrush size={19} /></span><span class="editor-copy"
-            ><strong>{at("appearance_demo_brand", {}, "Brand and app icon")}</strong><small
-              >{at("appearance_demo_brand_hint", {}, "Logo, favicon and brand assets")}</small
-            ></span
-          ><ChevronDown size={17} /></Accordion.Trigger
-        ></Accordion.Header
-      ><Accordion.Content class="appearance-editor-content"
-        >{@render brandEditor()}</Accordion.Content
-      ></Accordion.Item
-    >
-  </Accordion.Root>
-  <div class="appearance-announcement" role="status" aria-live="polite">{announcement}</div>
 </div>
 <AppearanceImportDialog
   {currentLang}
@@ -445,7 +425,11 @@
   class="admin-dialog appearance-settings-dialog"
 >
   {#if settings}
-    {@render customEditor(settings.key)}
+    {#if settings.key === "dark"}
+      {@render defaultEditor()}
+    {:else}
+      {@render customEditor(settings.key)}
+    {/if}
     {#if settings.installation?.metadata?.author}<p class="appearance-settings-note">
         {at(
           "appearance_author",
@@ -461,14 +445,44 @@
         )}
       </p>{/if}
     <div class="appearance-settings-footer">
+      <div class="appearance-settings-footer-group">
+        <AdminButton
+          disabled={blocked || captureBusy}
+          onclick={async () => {
+            if (!settings) return;
+            captureBusy = true;
+            try {
+              await oncapture(settings.entry);
+              library.notify(at("appearance_preview_saved", {}, "Preview saved."));
+            } catch {
+              library.notify(
+                at("appearance_preview_save_failed", {}, "Could not save preview.")
+              );
+            } finally {
+              captureBusy = false;
+            }
+          }}
+          ><Eye size={14} />{at("appearance_capture_preview", {}, "Save preview")}</AdminButton
+        >
+        <AdminButton
+          disabled={blocked}
+          onclick={() => {
+            exportTheme = settings;
+            settingsKey = "";
+            newKey = "";
+          }}><Download size={14} />{at("appearance_export", {}, "Download")}</AdminButton
+        >
+      </div>
       <AdminButton
-        disabled={blocked}
-        onclick={() => {
-          exportTheme = settings;
-          settingsKey = "";
-          newKey = "";
-        }}><Download size={14} />{at("appearance_export", {}, "Export / make a copy")}</AdminButton
+        variant="primary"
+        disabled={!dirty || library.busy || store.themesSaving}
+        onclick={onsave}
       >
+        <Save size={14} />
+        {saving
+          ? at("btn_saving", {}, "Saving...")
+          : at("btn_save", {}, "Save")}
+      </AdminButton>
       {#if settings.installation?.source?.url}<AdminButton
           disabled={blocked}
           onclick={() => {
@@ -542,7 +556,11 @@
       variant="danger"
       disabled={blocked}
       onclick={async () => {
-        if (removal && (await library.mutate(removal.key, "remove"))) removal = null;
+        if (!removal) return;
+        const removed = await library.mutate(removal.key, "remove");
+        if (removed) {
+          removal = null;
+        }
       }}>{at("appearance_demo_remove", {}, "Remove theme")}</AdminButton
     >
   </div>
@@ -615,7 +633,7 @@
 
 <Dialog
   open={Boolean(exportTheme)}
-  title={at("appearance_export", {}, "Export / make a copy")}
+  title={at("appearance_export", {}, "Download")}
   closeLabel={at("close", {}, "Close")}
   onclose={() => {
     exportTheme = null;
