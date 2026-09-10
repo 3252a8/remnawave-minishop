@@ -290,12 +290,16 @@
   }
 
   function customThemeTokenValue(theme: ThemeEntry, tokenKey: string, variant = themeVariant(theme)): unknown {
-    return appearanceThemeTokenValue(
+    const value = appearanceThemeTokenValue(
       theme,
       customThemeTokens(theme, variant),
       tokenKey,
       themeCssVariables(theme, variant)
     );
+    if (tokenKey === "accent" && (value == null || value === "") && theme.use_primary_accent !== false) {
+      return appearanceSettingValue("WEBAPP_PRIMARY_COLOR", "#00fe7a") || "#00fe7a";
+    }
+    return value;
   }
 
   function customThemeTokenText(theme: ThemeEntry, tokenKey: string, variant = themeVariant(theme)): string {
