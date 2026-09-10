@@ -197,6 +197,31 @@ def test_update_overrides_persists_empty_subscription_purchase_description(
     assert settings.subscription_purchase_description("ru") == ""
 
 
+def test_update_overrides_persists_selected_webapp_theme(_memory_overrides) -> None:
+    settings = Settings(
+        _env_file=None,
+        BOT_TOKEN="token",
+        POSTGRES_USER="app_user",
+        POSTGRES_PASSWORD="app_password",
+        WEBAPP_DEFAULT_THEME=None,
+    )
+
+    result = asyncio.run(
+        svc.update_overrides(
+            settings,
+            lambda: _FakeSession(),
+            updates={"WEBAPP_DEFAULT_THEME": "ocean"},
+            deletes=[],
+            actor_id=1,
+        )
+    )
+
+    assert result["ok"] is True
+    assert result["not_applied"] == []
+    assert _memory_overrides == {"WEBAPP_DEFAULT_THEME": "ocean"}
+    assert settings.WEBAPP_DEFAULT_THEME == "ocean"
+
+
 def test_legacy_kuma_slug_override_is_applied_but_not_admin_editable() -> None:
     settings = Settings(
         _env_file=None,

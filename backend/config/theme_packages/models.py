@@ -122,6 +122,7 @@ class InstalledTheme(InstalledVersion):
     overrides: dict[str, JsonValue] = Field(default_factory=dict)
     history: list[InstalledVersion] = Field(default_factory=list)
     adopted_digest: str = ""
+    preview_override: str = ""
 
 
 class Registry(StrictModel):
@@ -189,6 +190,10 @@ class ThemeInstallation(StrictModel):
     can_rollback: bool = False
     modified: bool = False
     preview_url: str = ""
+
+
+class PreviewUploadOut(StrictModel):
+    preview_url: str
 
 
 class LibraryOut(StrictModel):

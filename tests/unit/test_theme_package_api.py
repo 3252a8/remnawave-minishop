@@ -13,6 +13,7 @@ import pytest
 from aiohttp import FormData, web
 from aiohttp.test_utils import TestClient, TestServer
 from aiohttp.web_exceptions import NotAppKeyWarning
+from PIL import Image
 
 from bot.app.web import session as web_session
 from bot.app.web.admin_api_impl import auth, theme_library
@@ -138,6 +139,18 @@ def test_upload_preview_install_export_and_owner_isolation(
             assert response.content_type == "application/zip"
             with zipfile.ZipFile(io.BytesIO(await response.read())) as archive:
                 assert json.loads(archive.read("ocean-copy/theme.json"))["key"] == "ocean-copy"
+
+            image = io.BytesIO()
+            Image.new("RGB", (24, 16), "#112233").save(image, format="PNG")
+            form = FormData()
+            form.add_field("file", image.getvalue(), filename="preview.png", content_type="image/png")
+            response = await client.post(
+                "/api/admin/themes/library/ocean/preview", data=form, headers=headers
+            )
+            assert response.status == 200, await response.text()
+            preview_url = (await response.json())["preview_url"]
+            assert "/previews/desktop.webp" in preview_url
+            assert (tmp_path / "_previews/ocean.webp").is_file()
 
     asyncio.run(scenario())
 

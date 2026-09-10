@@ -1644,7 +1644,8 @@ export interface paths {
     /** Admin Theme Installed Preview */
     get: operations["get_admin_theme_installed_preview_route"];
     put?: never;
-    post?: never;
+    /** Admin Theme Preview Upload */
+    post: operations["post_admin_theme_preview_upload_route"];
     delete?: never;
     options?: never;
     head?: never;
@@ -7025,6 +7026,11 @@ export interface components {
       /** Unit */
       unit: string;
     };
+    /** PreviewUploadOut */
+    PreviewUploadOut: {
+      /** Preview Url */
+      preview_url: string;
+    };
     /** PromoActivationOut */
     PromoActivationOut: {
       /**
@@ -8360,6 +8366,8 @@ export interface components {
        * @default null
        */
       warning_text: string | null;
+    } & {
+      [key: string]: unknown;
     };
     /** ThemesSaveBody */
     ThemesSaveBody: {
@@ -9020,6 +9028,8 @@ export interface components {
       compactHomeEnabled: boolean;
       /** Currency */
       currency: string;
+      /** Devmode */
+      devMode: boolean;
       /** Emailauthenabled */
       emailAuthEnabled: boolean;
       /** Faviconurl */
@@ -9126,6 +9136,16 @@ export interface components {
        * @default null
        */
       css_file: string | null;
+      /** Css Variables */
+      css_variables?: {
+        [key: string]: string;
+      };
+      /** Css Variables By Variant */
+      css_variables_by_variant?: {
+        [key: string]: {
+          [key: string]: string;
+        };
+      };
       /**
        * Default
        * @default false
@@ -12257,6 +12277,38 @@ export interface operations {
         };
         content: {
           "text/html": string;
+        };
+      };
+    };
+  };
+  post_admin_theme_preview_upload_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": {
+          /** Format: binary */
+          file: string;
+        };
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["PreviewUploadOut"];
         };
       };
     };

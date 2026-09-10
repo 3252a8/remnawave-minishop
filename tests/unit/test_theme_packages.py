@@ -33,6 +33,7 @@ from config.theme_packages.operations import (
 )
 from config.theme_packages.providers import repository_parts, safe_url
 from config.theme_packages.registry import asset_path, effective_theme, read_registry
+from config.theme_packages.preview_storage import save_preview
 from config.webapp_themes_models import WebappThemesConfig
 from config.webapp_themes_store import load_webapp_theme_dir, write_webapp_theme_dir
 
@@ -137,6 +138,27 @@ def test_install_update_preserves_overrides_rollback_delete_and_export(tmp_path:
         remove_theme(tmp_path, "ocean", state.generation, "ocean")
     remove_theme(tmp_path, "ocean", state.generation, "dark")
     assert not read_registry(tmp_path).entries
+
+
+def test_preview_override_is_outside_digest_and_is_exported(tmp_path: Path) -> None:
+    record = ready(tmp_path)
+    install(tmp_path, record)
+    digest = read_registry(tmp_path).entries["ocean"].digest
+
+    from PIL import Image
+
+    image = io.BytesIO()
+    Image.new("RGB", (32, 20), "#112233").save(image, format="PNG")
+    url, _generation = save_preview(tmp_path, "ocean", image.getvalue())
+
+    state = read_registry(tmp_path)
+    assert state.entries["ocean"].digest == digest
+    assert state.entries["ocean"].preview_override == "desktop.webp"
+    assert url.startswith("/webapp-theme-assets/ocean/previews/")
+    exported = export_themes(tmp_path, ExportRequest(keys=["ocean"], new_key="copy"))
+    target = tmp_path / "preview-export"
+    extract_archive(exported, target)
+    assert (target / "copy/preview.webp").is_file()
 
 
 def test_replay_is_idempotent_and_stale_generations_do_not_write(tmp_path: Path) -> None:

@@ -33,7 +33,9 @@ THEME_DISPLAY_ORDER = ("dark", "light")
 class ThemeTokens(BaseModel):
     """CSS design tokens for the subscription Mini App shell."""
 
-    model_config = {"extra": "ignore"}
+    # Theme packages may define their own CSS custom properties. Keep those
+    # overrides alongside the documented tokens instead of discarding them.
+    model_config = {"extra": "allow"}
 
     color_scheme: ColorScheme = "dark"
     style_preset: str | None = None
@@ -136,6 +138,8 @@ class WebappTheme(BaseModel):
     use_primary_accent: bool = True
     use_in_admin: bool = True
     css_file: str | None = None
+    css_variables: dict[str, str] = Field(default_factory=dict)
+    css_variables_by_variant: dict[ColorScheme, dict[str, str]] = Field(default_factory=dict)
     assets_version: int = 1
     active_variant: ColorScheme | None = None
     variants: dict[str, ThemeTokens] = Field(default_factory=dict)

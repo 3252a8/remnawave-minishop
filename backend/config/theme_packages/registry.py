@@ -23,6 +23,7 @@ from .models import (
     ThemeInstallation,
 )
 from .paths import atomic_model, confined, registry_lock
+from .preview_storage import PREVIEW_NAME, preview_file, preview_url
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,13 @@ def effective_theme(key: str, entry: InstalledTheme) -> WebappTheme:
             else:
                 original.update(value)
             data[field] = original
-        elif field not in {"key", "css_file", "assets_version"}:
+        elif field not in {
+            "key",
+            "css_file",
+            "css_variables",
+            "css_variables_by_variant",
+            "assets_version",
+        }:
             data[field] = value
     data["key"] = key
     if entry.original.css_file:
@@ -82,6 +89,13 @@ def managed_themes(root: Path) -> list[WebappTheme]:
 def asset_path(root: Path, relative: Path) -> tuple[Path, str, str, str]:
     parts = relative.parts
     state = read_registry(root)
+    if (
+        len(parts) == 3
+        and parts[1] == "previews"
+        and parts[2] == PREVIEW_NAME
+        and preview_file(root, parts[0]).is_file()
+    ):
+        return preview_file(root, parts[0]), parts[0], "", ""
     if (
         len(parts) >= 4
         and parts[1] == "revisions"
@@ -117,7 +131,13 @@ def owner_overrides(original: WebappTheme, changed: WebappTheme) -> dict[str, ob
     new = changed.model_dump(mode="json")
     result: dict[str, object] = {}
     for field, value in new.items():
-        if field in {"key", "css_file", "assets_version"}:
+        if field in {
+            "key",
+            "css_file",
+            "css_variables",
+            "css_variables_by_variant",
+            "assets_version",
+        }:
             continue
         if field in {"default", "enabled", "use_in_admin", "active_variant", "use_primary_accent"}:
             result[field] = value
@@ -252,7 +272,9 @@ def library(root: Path, catalog: WebappThemesConfig) -> LibraryOut:
             item.modified = (
                 content_digest(confined(root, f"_packages/{entry.digest}")) != entry.digest
             )
-            if entry.metadata.preview:
+            if entry.preview_override and preview_file(root, theme.key).is_file():
+                item.preview_url = preview_url(theme.key, state.generation)
+            elif entry.metadata.preview:
                 item.preview_url = (
                     f"/webapp-theme-assets/{theme.key}/revisions/{entry.digest}/"
                     f"{entry.metadata.preview}"
@@ -261,8 +283,11 @@ def library(root: Path, catalog: WebappThemesConfig) -> LibraryOut:
             if entry.adopted_digest and legacy.is_dir():
                 item.modified = item.modified or content_digest(legacy) != entry.adopted_digest
         else:
+            override = preview_file(root, theme.key)
             preview = root / theme.key / "preview.webp"
-            if preview.is_file():
+            if override.is_file():
+                item.preview_url = preview_url(theme.key, state.generation)
+            elif preview.is_file():
                 item.preview_url = (
                     f"/webapp-theme-assets/{theme.key}/preview.webp?v={theme.assets_version}"
                 )

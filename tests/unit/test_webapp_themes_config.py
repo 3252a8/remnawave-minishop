@@ -108,6 +108,49 @@ class WebappThemesConfigTests(unittest.TestCase):
         self.assertEqual(set(descriptors["windows95"]["variants"]), {"light", "dark"})
         self.assertEqual(set(descriptors["ascii"]["variants"]), {"light", "dark"})
 
+    def test_css_color_variables_are_exposed_without_persisting_their_defaults(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            theme_dir = root / "ocean"
+            theme_dir.mkdir()
+            (theme_dir / "theme.json").write_text(
+                json.dumps(
+                    {
+                        "key": "ocean",
+                        "css_file": "style.css",
+                        "tokens": {"color_scheme": "dark"},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (theme_dir / "style.css").write_text(
+                ".theme-key-ocean { --ocean-water: #0478aa; --icon: url(icon.svg); }",
+                encoding="utf-8",
+            )
+
+            theme = load_webapp_theme_dir(root)[0]
+
+            self.assertEqual(theme.css_variables, {"--ocean-water": "#0478aa"})
+            self.assertEqual(theme.css_variables_by_variant, {"dark": {"--ocean-water": "#0478aa"}})
+            write_webapp_theme_dir(root, WebappThemesConfig(default_theme="ocean", themes=[theme]))
+            saved = json.loads((theme_dir / "theme.json").read_text(encoding="utf-8"))
+            self.assertNotIn("css_variables", saved)
+            self.assertNotIn("css_variables_by_variant", saved)
+
+    def test_css_variables_include_each_ascii_variant(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = resolved_webapp_themes_catalog(
+                theme_dir=Path(tmp) / "themes",
+                primary_accent="#00fe7a",
+                env_default_theme=None,
+            )
+            theme = cfg.theme_by_key("ascii")
+
+            self.assertIsNotNone(theme)
+            self.assertEqual(theme.css_variables_by_variant["dark"]["--ascii-bg"], "#000000")
+            self.assertEqual(theme.css_variables_by_variant["light"]["--ascii-bg"], "#ffffff")
+            self.assertEqual(theme.css_variables_by_variant["light"]["--nav-bg"], "var(--ascii-bg)")
+
     def test_resolved_creates_default_files_when_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
             themes_dir = Path(tmp) / "themes"

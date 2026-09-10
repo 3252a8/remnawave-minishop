@@ -69,6 +69,7 @@ class WebappBootstrapConfigOut(HttpResponseModel):
     language: str
     languages: list[WebappBootstrapLanguageOut]
     email_auth_enabled: bool = Field(alias="emailAuthEnabled")
+    dev_mode: bool = Field(alias="devMode")
     auth_providers: list[str] = Field(alias="authProviders")
     registration_invite_only_enabled: bool = Field(alias="registrationInviteOnlyEnabled")
     checkout_plans: list[dict[str, Any]] = Field(default_factory=list, alias="checkoutPlans")

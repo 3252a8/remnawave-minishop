@@ -43,11 +43,17 @@ export type ThemesStore = ThemesState & {
   saveThemes: (options?: SaveThemesOptions) => Promise<boolean>;
   setCurrentTheme: (key: string) => void;
   setDefaultThemeVariant: (variant: string) => void;
+  setThemeVariant: (key: string, variant: string) => void;
   setThemeAccent: (key: string, accent: unknown) => void;
   setThemeToken: (key: string, tokenKey: string, value: unknown, options?: TokenOptions) => void;
   resetThemeToken: (key: string, tokenKey: string, options?: TokenOptions) => void;
   applyThemePreset: (key: string, variant: string, tokens: unknown) => void;
-  setThemeHomeLogoScale: (key: string, mode: LogoMode, scale: unknown) => void;
+  setThemeHomeLogoScale: (
+    key: string,
+    mode: LogoMode,
+    scale: unknown,
+    variant?: string | null
+  ) => void;
   resolveThemeHomeLogoScale: (
     theme: ThemeEntry | null | undefined,
     mode?: LogoMode,
@@ -207,7 +213,7 @@ function setTokenOnTheme(
 ): ThemeEntry {
   const variant = options.variant ? normalizeThemeVariant(options.variant) : "";
   const nextValue = options.raw === true ? value : normalizeTokenValue(value);
-  if (variant && theme.key === DEFAULT_THEME_KEY) {
+  if (variant) {
     return {
       ...theme,
       variants: {
@@ -234,7 +240,7 @@ function resetTokenOnTheme(
   options: TokenOptions = {}
 ): ThemeEntry {
   const variant = options.variant ? normalizeThemeVariant(options.variant) : "";
-  if (variant && theme.key === DEFAULT_THEME_KEY) {
+  if (variant) {
     const nextVariant = { ...asTokenMap((theme.variants || {})[variant]) };
     delete nextVariant[tokenKey];
     return {
@@ -281,6 +287,7 @@ export function createThemesStore({
     saveThemes,
     setCurrentTheme,
     setDefaultThemeVariant,
+    setThemeVariant,
     setThemeAccent,
     setThemeToken,
     resetThemeToken,
@@ -498,6 +505,19 @@ export function createThemesStore({
     );
   }
 
+  function setThemeVariant(key: string, variant: string): void {
+    const nextVariant = normalizeThemeVariant(variant);
+    updateState((s) =>
+      withCatalogState(
+        s,
+        updateThemeInCatalog(s.themesCatalog, key, (theme) => ({
+          ...theme,
+          active_variant: nextVariant,
+        }))
+      )
+    );
+  }
+
   function togglePrimaryAccent(key: string, enabled: boolean): void {
     updateState((s) =>
       withCatalogState(s, {
@@ -557,33 +577,27 @@ export function createThemesStore({
     updateState((s) =>
       withCatalogState(
         s,
-        updateThemeInCatalog(s.themesCatalog, key, (theme) => {
-          if (theme.key === DEFAULT_THEME_KEY) {
-            return {
-              ...theme,
-              active_variant: normalizedVariant,
-              variants: {
-                ...(theme.variants || {}),
-                [normalizedVariant]: {
-                  ...asTokenMap((theme.variants || {})[normalizedVariant]),
-                  ...nextTokens,
-                },
-              },
-            };
-          }
-          return {
-            ...theme,
-            tokens: {
-              ...asTokenMap(theme.tokens),
+        updateThemeInCatalog(s.themesCatalog, key, (theme) => ({
+          ...theme,
+          active_variant: normalizedVariant,
+          variants: {
+            ...(theme.variants || {}),
+            [normalizedVariant]: {
+              ...asTokenMap((theme.variants || {})[normalizedVariant]),
               ...nextTokens,
             },
-          };
-        })
+          },
+        }))
       )
     );
   }
 
-  function setThemeHomeLogoScale(key: string, mode: LogoMode, scale: unknown): void {
+  function setThemeHomeLogoScale(
+    key: string,
+    mode: LogoMode,
+    scale: unknown,
+    variant: string | null = null
+  ): void {
     const normalizedMode = mode === "mobile" ? "mobile" : "desktop";
     const nextScale = normalizeHomeLogoScale(scale);
     updateState((s) =>
@@ -591,27 +605,32 @@ export function createThemesStore({
         ...s.themesCatalog,
         themes: (s.themesCatalog.themes || []).map((theme) => {
           if (theme.key !== key) return theme;
+          const tokenVariant = variant || theme.active_variant || null;
           const desktopScale =
-            normalizedMode === "desktop" ? nextScale : resolveThemeHomeLogoScale(theme, "desktop");
+            normalizedMode === "desktop"
+              ? nextScale
+              : resolveThemeHomeLogoScale(theme, "desktop", tokenVariant);
           const mobileScale =
-            normalizedMode === "mobile" ? nextScale : resolveThemeHomeLogoScale(theme, "mobile");
+            normalizedMode === "mobile"
+              ? nextScale
+              : resolveThemeHomeLogoScale(theme, "mobile", tokenVariant);
           return {
             ...setTokenOnTheme(
               setTokenOnTheme(
                 setTokenOnTheme(theme, "home_logo_scale", null, {
                   raw: true,
-                  variant: theme.key === DEFAULT_THEME_KEY ? theme.active_variant : null,
+                  variant: tokenVariant,
                 }),
                 "home_logo_scale_desktop",
                 desktopScale === 100 ? null : desktopScale,
                 {
                   raw: true,
-                  variant: theme.key === DEFAULT_THEME_KEY ? theme.active_variant : null,
+                  variant: tokenVariant,
                 }
               ),
               "home_logo_scale_mobile",
               mobileScale === 100 ? null : mobileScale,
-              { raw: true, variant: theme.key === DEFAULT_THEME_KEY ? theme.active_variant : null }
+              { raw: true, variant: tokenVariant }
             ),
           };
         }),

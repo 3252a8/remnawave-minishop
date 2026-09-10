@@ -164,6 +164,11 @@ export function themeTokensToInlineStyle(
     }
     parts.push(`${cssVar}:${String(value)}`);
   }
+  for (const [key, value] of Object.entries(t)) {
+    if (key.startsWith("--") && value !== undefined && value !== null && value !== "") {
+      parts.push(`${key}:${String(value)}`);
+    }
+  }
   return parts.join(";");
 }
 

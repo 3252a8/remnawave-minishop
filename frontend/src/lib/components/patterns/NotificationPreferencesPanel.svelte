@@ -111,7 +111,7 @@
     gap: 16px;
     padding: 18px;
     border: 1px solid var(--border, var(--admin-border, #26303b));
-    border-radius: var(--radius-lg, 18px);
+    border-radius: var(--radius-card, var(--radius));
     background: var(--card, var(--admin-surface, #0e1319));
     color: var(--foreground, var(--admin-text, #f4f7fa));
   }
@@ -137,7 +137,7 @@
     grid-template-columns: minmax(0, 1fr) 86px 86px;
     overflow: hidden;
     border: 1px solid var(--border, var(--admin-border, #26303b));
-    border-radius: 14px;
+    border-radius: var(--radius-inner, var(--radius));
   }
 
   .notification-preferences__grid.email-only {

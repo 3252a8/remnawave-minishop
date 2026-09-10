@@ -265,7 +265,7 @@
     align-items: center;
     gap: 11px;
     padding: 13px;
-    border-radius: 14px;
+    border-radius: var(--radius-card);
     background: color-mix(in srgb, var(--accent) 12%, var(--panel-2));
   }
   .balance-topup-current > span {
@@ -273,7 +273,7 @@
     height: 42px;
     display: grid;
     place-items: center;
-    border-radius: 12px;
+    border-radius: var(--radius-inner);
     color: var(--accent);
     background: color-mix(in srgb, var(--accent) 15%, var(--panel));
   }
@@ -300,7 +300,7 @@
     min-height: 48px;
     padding: 0 70px 0 13px;
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: var(--radius-inner);
     color: var(--text);
     background: var(--panel-2);
     font: inherit;
@@ -344,7 +344,7 @@
     flex: 1 1 100px;
     padding: 9px 10px;
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: var(--radius-inner);
     color: var(--text);
     background: var(--panel-2);
     cursor: pointer;

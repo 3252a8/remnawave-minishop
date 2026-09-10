@@ -7,3 +7,36 @@
 .admin-mount {
   display: contents;
 }
+
+/* Admin themes share the WebApp radius token. Keep structural square regions
+   (sidebar, table cells, separators) untouched while aligning actual surfaces. */
+body:has(.admin-screen-wrap)
+  :where(
+    .admin-card,
+    .admin-cn-card,
+    .admin-dialog,
+    .admin-table-wrap,
+    .admin-list-toolbar,
+    .admin-settings-group,
+    .admin-setting-card,
+    .admin-theme-card,
+    .default-theme-editor
+  ) {
+  border-radius: var(--radius-card);
+}
+
+body:has(.admin-screen-wrap)
+  :where(
+    .admin-btn,
+    .input,
+    .textarea,
+    .admin-select-trigger,
+    .admin-select-content,
+    .admin-combobox-trigger,
+    .admin-combobox-content,
+    .admin-nav-item,
+    .admin-tabs-list,
+    .admin-tabs-trigger
+  ) {
+  border-radius: var(--radius-control);
+}
