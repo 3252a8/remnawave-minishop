@@ -59,8 +59,10 @@ def effective_theme(key: str, entry: InstalledTheme) -> WebappTheme:
             original = data.get(field) or {}
             if field == "variants":
                 for variant, changed in value.items():
-                    if variant not in original and changed:
-                        raise PackageError("incompatible_overrides", variant, 409)
+                    if variant not in original:
+                        # Keep stale editor data for a future package version, but a
+                        # one-variant package must remain usable.
+                        continue
                     if isinstance(changed, dict):
                         original[variant] = {**original.get(variant, {}), **changed}
             else:
