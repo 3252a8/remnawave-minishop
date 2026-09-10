@@ -13,6 +13,8 @@ variables:
   DOCKER_DRIVER: overlay2
   COSIGN_YES: "true"
   COSIGN_EXPERIMENTAL: "1"
+  # Forks do not have the optional downstream consumer project configured.
+  IMAGE_CHANNEL_DOWNSTREAM_PROJECT: ""
 
 .publish-dockerhub-images:
   stage: publish
