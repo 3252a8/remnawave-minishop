@@ -1,9 +1,11 @@
 stages:
   - publish
+  - dispatch
 
 variables:
   # The Dockerfile derives the application version from the repository history.
   GIT_DEPTH: "0"
+  IMAGE_CHANNEL_DOWNSTREAM_REF: dev
   DOCKER_HOST: tcp://docker:2376
   DOCKER_TLS_CERTDIR: "/certs"
   DOCKER_TLS_VERIFY: "1"
@@ -53,3 +55,19 @@ publish-release-images:
     expire_in: 90 days
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+$/'
+
+dispatch-dev-image-consumer:
+  stage: dispatch
+  needs:
+    - publish-dev-images
+  variables:
+    CORE_DEV_COMMIT: $CI_COMMIT_SHA
+    CORE_DEV_IMAGE_PREFIX: docker.io/3252a8/remnawave-minishop
+    CORE_DEV_UPSTREAM_PIPELINE_URL: $CI_PIPELINE_URL
+  trigger:
+    project: $IMAGE_CHANNEL_DOWNSTREAM_PROJECT
+    branch: $IMAGE_CHANNEL_DOWNSTREAM_REF
+    strategy: depend
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev" && $CI_PIPELINE_SOURCE == "push" && $IMAGE_CHANNEL_DOWNSTREAM_PROJECT != ""'
+    - if: '$CI_COMMIT_BRANCH == "dev" && $CI_PIPELINE_SOURCE == "web" && $IMAGE_CHANNEL_DOWNSTREAM_PROJECT != ""'
