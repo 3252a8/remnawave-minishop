@@ -98,7 +98,7 @@
 
   const stableMockRuntime = initialMockRuntime();
 
-  const FALLBACK_BRAND_TITLE = "Subscription";
+  const FALLBACK_BRAND_TITLE = "/minishop";
   const EMPTY_MOCK: WebappMockSource = {
     config: {
       ...FALLBACK_WEBAPP_CONFIG,
@@ -146,11 +146,20 @@
     stableMockRuntime?.mockApi && !injectedConfig && (isLocalShell || isDocsDemo)
       ? MOCK_SOURCE
       : null;
-  const CFG = {
-    ...MOCK_SOURCE.config,
-    ...(MOCK ? MOCK.config : {}),
-    ...(injectedConfig || {}),
-  } as WebappConfig;
+   const requestedThemePreviewKey = String(query.get("theme_preview") || "").trim();
+   const themePreviewDraft = readThemePreviewDraft(requestedThemePreviewKey);
+   const CFG = {
+     ...MOCK_SOURCE.config,
+     ...(MOCK ? MOCK.config : {}),
+     ...(injectedConfig || {}),
+     ...(requestedThemePreviewKey
+       ? {
+           // Theme previews use the package's neutral brand, not installation branding.
+           title: FALLBACK_BRAND_TITLE,
+           logoUrl: "",
+         }
+       : {}),
+   } as WebappConfig;
   const docsDemoRouter = createDocsDemoRouter({
     currentSearchParams,
     getParentRouteConsumed: () => docsDemoParentRouteConsumed,
@@ -163,8 +172,7 @@
   const initialAdminSectionFromLocation = docsDemoRouter.initialAdminSectionFromLocation;
   const routePathnameFromLocation = docsDemoRouter.routePathnameFromLocation;
   const syncAppSectionPath = docsDemoRouter.syncAppSectionPath;
-  const themePreviewKey = String(CFG.themePreviewKey || query.get("theme_preview") || "").trim();
-  const themePreviewDraft = readThemePreviewDraft(themePreviewKey);
+   const themePreviewKey = String(CFG.themePreviewKey || requestedThemePreviewKey).trim();
   const I18N: WebappRecord = injectedI18n || {};
 
   resetShellState({

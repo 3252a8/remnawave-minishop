@@ -324,7 +324,7 @@ a {
   margin-top: 8px;
   padding: 5px 6px 5px 8px;
   border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  border-radius: 8px;
+  border-radius: var(--radius-inner);
   background: color-mix(in srgb, var(--surface-muted) 62%, transparent);
 }
 
@@ -888,7 +888,7 @@ a {
   min-width: 0;
   padding: 9px 10px;
   border: 1px solid var(--surface-subtle-border);
-  border-radius: 12px;
+  border-radius: var(--radius-inner);
   background: var(--surface-subtle);
 }
 
@@ -1191,7 +1191,7 @@ a {
   justify-self: end;
   padding: 0;
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--danger) 10%, transparent);
   color: var(--danger);
   cursor: pointer;
@@ -1254,7 +1254,7 @@ a {
 .security-status {
   margin: 0;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   color: var(--danger);
   background: color-mix(in srgb, var(--danger) 9%, transparent);
   font-size: 13px;
@@ -1569,7 +1569,7 @@ a {
   flex: 0 0 auto;
   place-items: center;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--radius-inner);
   background: transparent;
   color: var(--muted);
   transition:
@@ -1655,7 +1655,7 @@ a {
   gap: 1px;
   padding: 5px 9px 4px;
   border: 1px solid var(--border);
-  border-radius: 13px;
+  border-radius: var(--radius-inner);
   background: var(--surface-muted);
   box-shadow: inset 0 1px 0 var(--inset-highlight);
 }
@@ -1815,7 +1815,7 @@ a {
   gap: 10px;
   padding: 0 12px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   background: linear-gradient(135deg, var(--surface-sheen), var(--surface-sheen-soft));
   color: var(--text);
   font: inherit;
@@ -1838,7 +1838,7 @@ a {
   overflow: hidden;
   padding: 5px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--panel) 97%, var(--bg));
   color: var(--text);
   box-shadow: var(--shadow-strong);
@@ -1856,7 +1856,7 @@ a {
   justify-content: space-between;
   gap: 10px;
   padding: 0 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-inner);
   color: var(--text);
   font-size: 12px;
   font-weight: 750;
@@ -1876,7 +1876,7 @@ a {
 
 .payment-method-disabled-tooltip-trigger {
   display: block;
-  border-radius: 8px;
+  border-radius: var(--radius-inner);
   outline: none;
   cursor: not-allowed;
 }
@@ -2107,7 +2107,7 @@ a {
   width: 32px;
   height: 32px;
   place-items: center;
-  border-radius: 10px;
+  border-radius: var(--radius-inner);
   background: color-mix(in srgb, var(--accent) 18%, var(--panel-2));
   color: var(--accent);
 }
@@ -2126,7 +2126,7 @@ a {
   gap: 3px;
   padding: 8px;
   border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-  border-radius: 10px;
+  border-radius: var(--radius-inner);
   background: color-mix(in srgb, var(--panel-2) 74%, transparent);
 }
 
@@ -2424,7 +2424,7 @@ a {
   z-index: 520;
   max-width: min(280px, calc(100vw - 32px));
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--panel-2);
   color: var(--text);
   box-shadow: var(--shadow-popover);
@@ -2538,7 +2538,7 @@ a {
   z-index: 120;
   max-width: 280px;
   border: 1px solid var(--danger-border);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--danger-soft);
   color: var(--danger-text);
   padding: 8px 10px;
@@ -3034,7 +3034,7 @@ a {
 .language-select-trigger:focus-visible {
   outline: 0;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
-  border-radius: 6px;
+  border-radius: var(--radius-inner);
 }
 
 .language-select-trigger > svg {
@@ -3091,7 +3091,7 @@ a {
   justify-content: space-between;
   gap: 12px;
   min-height: 36px;
-  border-radius: 6px;
+  border-radius: var(--radius-inner);
   padding: 7px 9px;
   color: var(--text);
   font-size: 13px;
@@ -3187,7 +3187,7 @@ a {
   width: 38px;
   height: 38px;
   place-items: center;
-  border-radius: 10px;
+  border-radius: var(--radius-inner);
   background: color-mix(in srgb, #ff4b4b 16%, var(--panel-2));
   color: #ff6b6b;
 }
@@ -3483,6 +3483,45 @@ a {
   will-change: height;
 }
 
+.dev-login-panel {
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--card) 78%, var(--accent) 22%);
+}
+
+.dev-login-heading {
+  display: grid;
+  gap: 2px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dev-login-heading small,
+.dev-login-button small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.dev-login-actions {
+  display: grid;
+  gap: 6px;
+}
+
+.dev-login-button {
+  display: grid;
+  justify-items: start;
+  gap: 1px;
+  height: auto;
+  min-height: 42px;
+  padding: 8px 11px;
+  text-align: left;
+}
+
 .auth-mode-panel {
   display: grid;
   gap: 10px;
@@ -3627,7 +3666,7 @@ a {
   gap: 5px;
   min-height: 26px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-inner);
   background: transparent;
   color: var(--muted);
   font: inherit;
@@ -3935,7 +3974,7 @@ a {
   gap: 8px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.015)), #071017;
   box-shadow:
@@ -4039,7 +4078,7 @@ a {
   gap: 8px;
   justify-items: center;
   border: 1px solid var(--border-strong);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: rgba(20, 29, 35, 0.94);
   box-shadow: 0 18px 52px rgba(0, 0, 0, 0.46);
   padding: 16px;
@@ -4338,7 +4377,7 @@ a {
     justify-items: start !important;
     gap: 12px !important;
     padding: 12px 42px 12px 14px !important;
-    border-radius: 10px !important;
+    border-radius: var(--radius-control) !important;
     text-align: left !important;
     font-size: 13px !important;
     color: var(--muted);
@@ -4544,7 +4583,7 @@ a {
     min-width: 0;
     padding: 8px 10px;
     border: 1px solid var(--surface-subtle-border);
-    border-radius: 12px;
+    border-radius: var(--radius-inner);
     background: var(--surface-subtle);
   }
 

@@ -3,6 +3,7 @@
   import { AdminEmptyState } from "$components/patterns/admin/index.js";
   import { Switch } from "$components/ui/primitives.js";
   import { onMount } from "svelte";
+  import { captureThemePreview } from "$lib/admin/captureThemePreview";
 
   import {
     firstFontFamily,
@@ -12,9 +13,11 @@
   import {
     DEFAULT_THEME_KEY,
     DEFAULT_THEME_VARIANTS,
-    VARIANT_LABELS,
+    appearanceColorVariables,
+    appearanceThemeTokenValue,
     googleMonoFontStack,
     googleSansFontStack,
+    resolveAppearanceColor,
   } from "$lib/admin/appearanceOptions";
   import type {
     BrandInfo,
@@ -71,6 +74,7 @@
     "WEBAPP_ENABLED",
   ]);
   let customGoogleFontName = $state("");
+  let defaultEditorVariant = $state<ThemeVariant>("dark");
 
   const settingsSections = $derived(settingsStore.settingsSections);
   const settingsLoading = $derived(settingsStore.settingsLoading);
@@ -99,8 +103,11 @@
   const defaultVariant: ThemeVariant = $derived(
     normalizeVariant(defaultTheme?.active_variant || defaultTheme?.tokens?.color_scheme)
   );
+  $effect(() => {
+    defaultEditorVariant = defaultVariant;
+  });
   const defaultTokens: TokenMap = $derived(
-    defaultTheme ? themesStore.resolveThemeTokens(defaultTheme, defaultVariant) : {}
+    defaultTheme ? themesStore.resolveThemeTokens(defaultTheme, defaultEditorVariant) : {}
   );
   const visibleThemes: ThemeEntry[] = $derived(
     (themesCatalog.themes || []).filter((theme) => !theme.hidden && !theme.variant_alias_for)
@@ -154,21 +161,8 @@
     return theme.css_file ? `${folder}/${theme.css_file}` : `${folder}/theme.json`;
   }
 
-  function isThemeAccentSet(theme: ThemeEntry): boolean {
-    return Boolean(String(theme.tokens?.accent || "").trim());
-  }
-
-  function pickerHex(value: unknown): string {
-    const raw = String(value || "").trim();
-    const match = raw.match(/^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
-    if (!match) return "#000000";
-    let hex = match[1].toLowerCase();
-    if (hex.length === 3)
-      hex = hex
-        .split("")
-        .map((char) => char + char)
-        .join("");
-    return `#${hex}`;
+  function pickerHex(value: unknown, tokens: TokenMap = defaultTokens): string | null {
+    return resolveAppearanceColor(value, appearanceColorVariables({}, tokens));
   }
 
   function normalizeVariant(variant: unknown): ThemeVariant {
@@ -177,11 +171,6 @@
       .toLowerCase() === "light"
       ? "light"
       : "dark";
-  }
-
-  function defaultVariantTitle(variant: unknown): string {
-    const normalizedVariant = normalizeVariant(variant);
-    return VARIANT_LABELS[normalizedVariant] || normalizedVariant;
   }
 
   function defaultTokenValue(tokenKey: string, tokens: TokenMap = defaultTokens): unknown {
@@ -222,10 +211,7 @@
     variant: string | null = null
   ): unknown {
     if (!theme) return "";
-    if (theme.key === DEFAULT_THEME_KEY) {
-      return themesStore.resolveThemeTokens(theme, variant || defaultVariant)?.[tokenKey] ?? "";
-    }
-    return theme.tokens?.[tokenKey] ?? "";
+    return themesStore.resolveThemeTokens(theme, variant || theme.active_variant)?.[tokenKey] ?? "";
   }
 
   function isThemeTokenDirty(
@@ -251,8 +237,8 @@
     );
   }
 
-  function isDefaultTokenDirty(tokenKey: string): boolean {
-    return isThemeTokenDirty(defaultTheme, tokenKey, defaultVariant);
+  function isDefaultTokenDirty(tokenKey: string, variant: ThemeVariant = defaultEditorVariant): boolean {
+    return isThemeTokenDirty(defaultTheme, tokenKey, variant);
   }
 
   function isDefaultVariantDirty(): boolean {
@@ -299,37 +285,145 @@
     setDefaultFont(tokenKey, stack);
   }
 
-  function setDefaultVariantFromSwitch(checked: boolean): void {
-    themesStore.setDefaultThemeVariant(checked ? "light" : "dark");
+  function customThemeTokens(theme: ThemeEntry, variant: ThemeVariant = themeVariant(theme)): TokenMap {
+    return themesStore.resolveThemeTokens(theme, variant);
   }
 
-  function setDefaultToken(tokenKey: string, value: unknown): void {
-    themesStore.setThemeToken(DEFAULT_THEME_KEY, tokenKey, value, { variant: defaultVariant });
+  function customThemeTokenValue(theme: ThemeEntry, tokenKey: string, variant = themeVariant(theme)): unknown {
+    const value = appearanceThemeTokenValue(
+      theme,
+      customThemeTokens(theme, variant),
+      tokenKey,
+      themeCssVariables(theme, variant)
+    );
+    if (tokenKey === "accent" && (value == null || value === "") && theme.use_primary_accent !== false) {
+      return appearanceSettingValue("WEBAPP_PRIMARY_COLOR", "#00fe7a") || "#00fe7a";
+    }
+    return value;
   }
 
-  function resetDefaultToken(tokenKey: string): void {
-    themesStore.resetThemeToken(DEFAULT_THEME_KEY, tokenKey, { variant: defaultVariant });
+  function customThemeTokenText(theme: ThemeEntry, tokenKey: string, variant = themeVariant(theme)): string {
+    const value = customThemeTokenValue(theme, tokenKey, variant);
+    return value == null ? "" : String(value);
   }
 
-  function setDefaultColorToken(tokenKey: string, value: unknown): void {
-    setDefaultToken(tokenKey, value);
+  function setCustomThemeToken(theme: ThemeEntry, tokenKey: string, value: unknown, variant = themeVariant(theme)): void {
+    themesStore.setThemeToken(theme.key, tokenKey, value, { variant });
   }
 
-  function openDefaultColorPicker(tokenKey: string, fallback = "#00fe7a"): void {
-    setDefaultColorToken(tokenKey, pickerHex(defaultTokenValue(tokenKey) || fallback));
+  function resetCustomThemeToken(theme: ThemeEntry, tokenKey: string, variant = themeVariant(theme)): void {
+    themesStore.resetThemeToken(theme.key, tokenKey, { variant });
   }
 
-  function setDefaultRadius(value: unknown): void {
+  function setCustomThemeFont(theme: ThemeEntry, tokenKey: string, value: unknown): void {
+    for (const variant of DEFAULT_THEME_VARIANTS) {
+      themesStore.setThemeToken(theme.key, tokenKey, value, { variant });
+    }
+  }
+
+  function applyCustomThemeGoogleFont(
+    theme: ThemeEntry,
+    tokenKey: string,
+    kind: "sans" | "mono" = "sans"
+  ): void {
+    const stack = customGoogleFontStack(kind);
+    if (stack) setCustomThemeFont(theme, tokenKey, stack);
+  }
+
+  function setCustomThemeRadius(theme: ThemeEntry, value: unknown, variant = themeVariant(theme)): void {
     const numeric = Number(value);
     if (!Number.isFinite(numeric)) return;
-    setDefaultToken("radius", `${Math.min(28, Math.max(4, Math.round(numeric)))}px`);
+    setCustomThemeToken(theme, "radius", `${Math.min(28, Math.max(0, Math.round(numeric)))}px`, variant);
   }
 
-  const defaultRadiusRangeHandler = ((value: number) => setDefaultRadius(value)) as SelectCallback;
+  function customThemeRadiusNumber(theme: ThemeEntry, variant = themeVariant(theme)): number {
+    const match = String(customThemeTokenValue(theme, "radius", variant) || "").match(/(\d+)/);
+    return match ? Math.min(28, Math.max(0, Number(match[1]))) : 8;
+  }
+
+  function setCustomThemeTransparency(
+    theme: ThemeEntry,
+    value: unknown,
+    variant = themeVariant(theme)
+  ): void {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return;
+    setCustomThemeToken(theme, "transparency", Math.min(100, Math.max(0, Math.round(numeric))), variant);
+  }
+
+  function customThemeTransparencyNumber(theme: ThemeEntry, variant = themeVariant(theme)): number {
+    const numeric = Number(customThemeTokenValue(theme, "transparency", variant));
+    return Number.isFinite(numeric) ? Math.min(100, Math.max(0, Math.round(numeric))) : 100;
+  }
+
+  function applyCustomThemePreset(
+    theme: ThemeEntry,
+    preset: { tokens?: TokenMap } | null | undefined,
+    variant = themeVariant(theme)
+  ): void {
+    if (preset?.tokens) themesStore.applyThemePreset(theme.key, variant, preset.tokens);
+  }
+
+  function themeVariant(theme: ThemeEntry): ThemeVariant {
+    return normalizeVariant(theme.active_variant || theme.tokens?.color_scheme);
+  }
+
+  function setDefaultVariant(variant: ThemeVariant): void {
+    themesStore.setDefaultThemeVariant(variant);
+  }
+
+  function setCustomThemeVariant(theme: ThemeEntry, variant: ThemeVariant): void {
+    themesStore.setThemeVariant(theme.key, variant);
+  }
+
+  function setDefaultToken(tokenKey: string, value: unknown, variant: ThemeVariant = defaultEditorVariant): void {
+    themesStore.setThemeToken(DEFAULT_THEME_KEY, tokenKey, value, { variant });
+  }
+
+  function resetDefaultToken(tokenKey: string, variant: ThemeVariant = defaultEditorVariant): void {
+    themesStore.resetThemeToken(DEFAULT_THEME_KEY, tokenKey, { variant });
+  }
+
+  function setDefaultColorToken(tokenKey: string, value: unknown, variant: ThemeVariant = defaultEditorVariant): void {
+    setDefaultToken(tokenKey, value, variant);
+  }
+
+  function openDefaultColorPicker(_tokenKey: string, _fallback = "#00fe7a"): void {
+    // The shared picker opens itself; writing here would replace an unresolved CSS expression.
+  }
+
+  function setDefaultRadius(value: unknown, variant: ThemeVariant = defaultEditorVariant): void {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return;
+    setDefaultToken("radius", `${Math.min(28, Math.max(4, Math.round(numeric)))}px`, variant);
+  }
+
+  function setDefaultTransparency(
+    value: unknown,
+    variant: ThemeVariant = defaultEditorVariant
+  ): void {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return;
+    setDefaultToken(
+      "transparency",
+      Math.min(100, Math.max(0, Math.round(numeric))),
+      variant
+    );
+  }
+
+  const defaultRadiusRangeHandler = ((value: number, variant?: ThemeVariant) =>
+    setDefaultRadius(value, variant)) as SelectCallback;
+  const defaultTransparencyRangeHandler = ((value: number, variant?: ThemeVariant) =>
+    setDefaultTransparency(value, variant)) as SelectCallback;
 
   function radiusNumber(tokens: TokenMap = defaultTokens): number {
     const match = String(defaultTokenValue("radius", tokens) || "").match(/(\d+)/);
     return match ? Math.min(28, Math.max(4, Number(match[1]))) : 8;
+  }
+
+  function transparencyNumber(tokens: TokenMap = defaultTokens): number {
+    const numeric = Number(tokens.transparency);
+    return Number.isFinite(numeric) ? Math.min(100, Math.max(0, Math.round(numeric))) : 100;
   }
 
   function setDefaultFont(tokenKey: string, value: unknown): void {
@@ -338,9 +432,9 @@
     }
   }
 
-  function applyDefaultPreset(preset: { tokens?: TokenMap } | null | undefined): void {
+  function applyDefaultPreset(preset: { tokens?: TokenMap } | null | undefined, variant: ThemeVariant = defaultEditorVariant): void {
     if (!preset?.tokens) return;
-    themesStore.applyThemePreset(DEFAULT_THEME_KEY, defaultVariant, preset.tokens);
+    themesStore.applyThemePreset(DEFAULT_THEME_KEY, variant, preset.tokens);
   }
 
   function defaultHomeLogoScale(
@@ -351,52 +445,48 @@
     return themesStore.resolveThemeHomeLogoScale(theme, mode, variant);
   }
 
-  function setDefaultHomeLogoScale(mode: LogoMode, value: unknown): void {
-    themesStore.setThemeHomeLogoScale(DEFAULT_THEME_KEY, mode, value);
+  function setDefaultHomeLogoScale(mode: LogoMode, value: unknown, variant: ThemeVariant = defaultEditorVariant): void {
+    themesStore.setThemeHomeLogoScale(DEFAULT_THEME_KEY, mode, value, variant);
   }
 
   function homeLogoScale(theme: ThemeEntry, mode: LogoMode): number {
-    return Number(themesStore.resolveThemeHomeLogoScale(theme, mode)) || 0;
+    return Number(themesStore.resolveThemeHomeLogoScale(theme, mode, themeVariant(theme))) || 0;
   }
 
   function defaultFontSelectHandler(tokenKey: string): (value: string) => void {
     return (value: string) => setDefaultFont(tokenKey, value);
   }
 
-  function defaultLogoScaleSelectHandler(mode: LogoMode): SelectCallback {
-    return ((value: number) => setDefaultHomeLogoScale(mode, value)) as SelectCallback;
+  function defaultLogoScaleSelectHandler(mode: LogoMode, variant: ThemeVariant = defaultEditorVariant): SelectCallback {
+    return ((value: number) => setDefaultHomeLogoScale(mode, value, variant)) as SelectCallback;
   }
 
-  function themeLogoScaleSelectHandler(theme: ThemeEntry, mode: LogoMode): SelectCallback {
-    return ((value: number) => setThemeHomeLogoScale(theme, mode, value)) as SelectCallback;
+  function themeLogoScaleSelectHandler(theme: ThemeEntry, mode: LogoMode, variant = themeVariant(theme)): SelectCallback {
+    return ((value: number) => setThemeHomeLogoScale(theme, mode, value, variant)) as SelectCallback;
   }
 
-  function defaultRadiusInputHandler(event: Event): void {
-    setDefaultRadius(inputValue(event));
+  function defaultRadiusInputHandler(event: Event, variant?: ThemeVariant): void {
+    setDefaultRadius(inputValue(event), variant);
   }
 
-  function defaultLogoScaleInputHandler(mode: LogoMode): (event: Event) => void {
-    return (event) => setDefaultHomeLogoScale(mode, inputValue(event));
+  function defaultTransparencyInputHandler(event: Event, variant?: ThemeVariant): void {
+    setDefaultTransparency(inputValue(event), variant);
   }
 
-  function themeLogoScaleInputHandler(theme: ThemeEntry, mode: LogoMode): (event: Event) => void {
-    return (event) => setThemeHomeLogoScale(theme, mode, inputValue(event));
+  function defaultLogoScaleInputHandler(mode: LogoMode, variant: ThemeVariant = defaultEditorVariant): (event: Event) => void {
+    return (event) => setDefaultHomeLogoScale(mode, inputValue(event), variant);
   }
 
-  function defaultTokenInputHandler(tokenKey: string): (event: Event) => void {
-    return (event) => setDefaultToken(tokenKey, inputValue(event));
+  function themeLogoScaleInputHandler(theme: ThemeEntry, mode: LogoMode, variant = themeVariant(theme)): (event: Event) => void {
+    return (event) => setThemeHomeLogoScale(theme, mode, inputValue(event), variant);
   }
 
-  function defaultColorInputHandler(tokenKey: string): (event: Event) => void {
-    return (event) => setDefaultColorToken(tokenKey, inputValue(event));
+  function defaultTokenInputHandler(tokenKey: string, variant: ThemeVariant = defaultEditorVariant): (event: Event) => void {
+    return (event) => setDefaultToken(tokenKey, inputValue(event), variant);
   }
 
-  function themeAccentInputHandler(theme: ThemeEntry): (event: Event) => void {
-    return (event) => setThemeAccent(theme, inputValue(event));
-  }
-
-  function openThemeAccentPicker(theme: ThemeEntry): void {
-    themesStore.setThemeAccent(theme.key, pickerHex(theme.tokens?.accent || "#00fe7a"));
+  function defaultColorInputHandler(tokenKey: string, variant: ThemeVariant = defaultEditorVariant): (event: Event) => void {
+    return (event) => setDefaultColorToken(tokenKey, inputValue(event), variant);
   }
 
   async function saveAppearance(): Promise<void> {
@@ -427,12 +517,51 @@
     themesStore.toggleAdminUse(theme.key, checked);
   }
 
-  function setThemeAccent(theme: ThemeEntry, value: unknown): void {
-    themesStore.setThemeAccent(theme.key, value);
+  function themeCssVariables(
+    theme: ThemeEntry,
+    variant: ThemeVariant = themeVariant(theme)
+  ): Record<string, string> {
+    const variables = theme.css_variables_by_variant?.[variant] ?? theme.css_variables;
+    return variables && typeof variables === "object"
+      ? Object.fromEntries(
+          Object.entries(variables).filter(
+            ([key, value]) => key.startsWith("--") && typeof value === "string"
+          )
+        )
+      : {};
   }
 
-  function setThemeHomeLogoScale(theme: ThemeEntry, mode: LogoMode, value: unknown): void {
-    themesStore.setThemeHomeLogoScale(theme.key, mode, value);
+  function themeCssVariableValue(theme: ThemeEntry, key: string, variant = themeVariant(theme)): string {
+    const override = customThemeTokens(theme, variant)[key];
+    return override == null || override === "" ? themeCssVariables(theme, variant)[key] || "" : String(override);
+  }
+
+  function customThemePickerHex(theme: ThemeEntry, value: unknown, variant = themeVariant(theme)): string | null {
+    return resolveAppearanceColor(
+      value,
+      appearanceColorVariables(themeCssVariables(theme, variant), customThemeTokens(theme, variant))
+    );
+  }
+
+  function themeCssPickerHex(theme: ThemeEntry, key: string, variant = themeVariant(theme)): string | null {
+    return resolveAppearanceColor(
+      themeCssVariableValue(theme, key, variant),
+      appearanceColorVariables(themeCssVariables(theme, variant), customThemeTokens(theme, variant))
+    );
+  }
+
+  function themeCssVariableInputHandler(theme: ThemeEntry, key: string, variant = themeVariant(theme)): (event: Event) => void {
+    return (event) =>
+      themesStore.setThemeToken(theme.key, key, inputValue(event), { variant });
+  }
+
+  function setThemeHomeLogoScale(theme: ThemeEntry, mode: LogoMode, value: unknown, variant = themeVariant(theme)): void {
+    themesStore.setThemeHomeLogoScale(theme.key, mode, value, variant);
+  }
+
+  function activateThemeFromClick(theme: ThemeEntry, event: MouseEvent): void {
+    event.stopPropagation();
+    if (!themesSaving) themesStore.setCurrentTheme(theme.key);
   }
 
   function activateDefaultTheme(): void {
@@ -442,10 +571,6 @@
   function activateDefaultThemeFromClick(event: MouseEvent): void {
     event.stopPropagation();
     activateDefaultTheme();
-  }
-
-  function selectTheme(theme: ThemeEntry): void {
-    if (!themesSaving) themesStore.setCurrentTheme(theme.key);
   }
 
   function clonePreviewCatalog(catalog: ThemeCatalog = themesCatalog): ThemeCatalog {
@@ -492,6 +617,12 @@
     return (event) => previewTheme(event, theme);
   }
 
+  async function captureTheme(theme: ThemeEntry): Promise<void> {
+    writeThemePreviewDraft(clonePreviewCatalog(), theme.key);
+    const image = await captureThemePreview(themePreviewUrl(theme.key));
+    await themesStore.library.uploadPreview(theme.key, image);
+  }
+
   function previewDefaultVariant(event: MouseEvent, variant: ThemeVariant): void {
     event.stopPropagation();
     writeThemePreviewDraft(previewCatalogForDefaultVariant(variant), DEFAULT_THEME_KEY);
@@ -526,16 +657,16 @@
     {at}
     {defaultTheme}
     {defaultVariant}
+    selectedVariant={defaultEditorVariant}
+    onVariantChange={(variant) => (defaultEditorVariant = variant)}
     {defaultThemeIsCurrent}
     {themesSaving}
     {defaultTokens}
     bind:customGoogleFontName
     {isThemeDirty}
     {isDefaultVariantDirty}
-    {defaultVariantTitle}
     {themeDescription}
     {activateDefaultThemeFromClick}
-    {setDefaultVariantFromSwitch}
     {previewDefaultVariantFromClick}
     {applyDefaultPreset}
     {isDefaultTokenDirty}
@@ -544,14 +675,18 @@
     {defaultFontSelectHandler}
     {applyCustomGoogleFont}
     {radiusNumber}
+    {transparencyNumber}
     {defaultRadiusRangeHandler}
     {defaultRadiusInputHandler}
+    {defaultTransparencyRangeHandler}
+    {defaultTransparencyInputHandler}
     {isThemeHomeLogoScaleDirty}
     {defaultHomeLogoScale}
     {defaultLogoScaleSelectHandler}
     {defaultLogoScaleInputHandler}
     {defaultTokenValue}
     {pickerHex}
+    {customThemePickerHex}
     {openDefaultColorPicker}
     {defaultColorInputHandler}
     {defaultTokenInputHandler}
@@ -565,14 +700,31 @@
     customThemes={customThemes.filter((theme) => !themeKey || theme.key === themeKey)}
     {activeKey}
     {themesSaving}
+    bind:customGoogleFontName
     {isThemeDirty}
     {themeTitle}
     {themeDescription}
+    {themeVariant}
+    {customThemeTokens}
+    {activateThemeFromClick}
+    {applyCustomThemePreset}
     {isThemeTokenDirty}
-    {isThemeAccentSet}
-    {pickerHex}
-    {openThemeAccentPicker}
-    {themeAccentInputHandler}
+    {customThemeTokenText}
+    {fontItemsWithCurrent}
+    {setCustomThemeFont}
+    {applyCustomThemeGoogleFont}
+    {customThemeRadiusNumber}
+    {customThemeTransparencyNumber}
+    {setCustomThemeRadius}
+    {setCustomThemeTransparency}
+    {customThemePickerHex}
+    {themeCssPickerHex}
+    {customThemeTokenValue}
+    {setCustomThemeToken}
+    {resetCustomThemeToken}
+    {themeCssVariables}
+    {themeCssVariableValue}
+    {themeCssVariableInputHandler}
     {isThemePropertyDirty}
     {toggleAdminTheme}
     {isThemeHomeLogoScaleDirty}
@@ -580,7 +732,6 @@
     {themeLogoScaleSelectHandler}
     {themeLogoScaleInputHandler}
     {previewThemeClickHandler}
-    {selectTheme}
   />
 {/snippet}
 
@@ -658,7 +809,9 @@
     {customEditor}
     {behaviorEditor}
     dirty={appearanceDirtyCount > 0}
+    saving={settingsSaving || themesSaving}
     onsave={saveAppearance}
     onpreview={previewTheme}
+    oncapture={captureTheme}
   />
 {/if}

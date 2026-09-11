@@ -5,6 +5,7 @@ import {
   buildThemeLibraryItemPath,
   buildThemeRollbackPath,
   buildThemePreviewPath,
+  buildThemePreviewUploadPath,
 } from "../../webapp/themeApiPaths";
 import type { ApiClient } from "../../webapp/publicApi";
 import { adminErrorMessage } from "../errors";
@@ -59,7 +60,10 @@ export function createThemeLibraryStore(options: {
     try {
       await action();
     } catch (cause) {
-      if (!(cause instanceof DOMException && cause.name === "AbortError")) error = message(cause);
+      if (!(cause instanceof DOMException && cause.name === "AbortError")) {
+        error = message(cause);
+        flash(error);
+      }
     } finally {
       busy = false;
     }
@@ -191,6 +195,14 @@ export function createThemeLibraryStore(options: {
     const blob = await apiBlob(buildThemePreviewPath(key, variant, importId));
     return URL.createObjectURL(blob);
   }
+  async function uploadPreview(key: string, file: Blob): Promise<string> {
+    const body = new FormData();
+    body.append("file", file, "preview.webp");
+    const result = await api(buildThemePreviewUploadPath(key), { method: "POST", body });
+    if (!result?.ok) throw result;
+    await load();
+    return result.preview_url;
+  }
   return {
     get installations() {
       return installations;
@@ -221,7 +233,9 @@ export function createThemeLibraryStore(options: {
     mutate,
     exportThemes,
     preview,
+    uploadPreview,
     message,
+    notify: flash,
   };
 }
 export type ThemeLibraryStore = ReturnType<typeof createThemeLibraryStore>;

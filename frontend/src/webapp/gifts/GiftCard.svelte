@@ -69,7 +69,7 @@
     min-width: 0;
     overflow-wrap: anywhere;
     border: 1px solid var(--border);
-    border-radius: 20px;
+    border-radius: var(--radius-card);
     padding: 16px;
     background: var(--panel);
   }
@@ -84,7 +84,7 @@
   .gift-icon {
     color: var(--accent);
     background: color-mix(in srgb, var(--accent) 12%, transparent);
-    border-radius: 14px;
+    border-radius: var(--radius-inner);
     padding: 12px;
     display: flex;
   }
@@ -103,7 +103,7 @@
     align-items: center;
     font-size: 11px;
     font-weight: 600;
-    border-radius: 20px;
+    border-radius: var(--radius-card);
     padding: 6px 9px;
     background: color-mix(in srgb, var(--accent) 12%, transparent);
     color: var(--accent);
@@ -124,7 +124,7 @@
   .gift-details span {
     background: var(--surface-muted);
     padding: 6px 10px;
-    border-radius: 8px;
+    border-radius: var(--radius-inner);
   }
   .gift-card :global(.gift-copy) {
     min-width: 0;
