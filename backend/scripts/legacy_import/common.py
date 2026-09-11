@@ -20,6 +20,11 @@ async def _path_read_text(path: Path, *, encoding: str) -> str:
     return await asyncio.to_thread(path.read_text, encoding=encoding)
 
 
+async def _path_write_text(path: Path, value: str, *, encoding: str) -> None:
+    await asyncio.to_thread(path.parent.mkdir, parents=True, exist_ok=True)
+    await asyncio.to_thread(path.write_text, value, encoding=encoding)
+
+
 SOURCE = "remnashop"
 REMNASHOP_ENCRYPTED_PREFIX = "enc_"
 PLACEHOLDER_SETTING_VALUES = {"change_me", "changeme"}

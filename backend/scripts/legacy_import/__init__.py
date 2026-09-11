@@ -7,6 +7,13 @@ it re-exports this package's public surface.
 
 from __future__ import annotations
 
+from .bedolaga import BedolagaImporter
+from .bedolaga_data import (
+    bedolaga_build_tariff_catalog,
+    bedolaga_ledger_effect,
+    bedolaga_payment_status,
+    bedolaga_target_user_id,
+)
 from .cli import (
     build_arg_parser,
     main,
@@ -22,6 +29,7 @@ from .common import (
     UNSUPPORTED_REMNASHOP_PROVIDER_TYPES,
     normalize_async_postgres_dsn,
 )
+from .registry import SOURCE_TYPES, get_adapter
 from .remnashop import (
     RemnashopImporter,
 )
@@ -77,13 +85,17 @@ from .remnashop_env import (
     remnashop_post_migration_actions,
     remnashop_source_urls_from_env,
 )
+from .safety import DryRunSession, database_identity, ensure_distinct_databases
 
 __all__ = [
     "GIB",
     "PAYMENT_WEBHOOK_PATHS",
     "SOURCE",
+    "SOURCE_TYPES",
     "SUPPORTED_REMNASHOP_PROVIDER_TYPES",
     "UNSUPPORTED_REMNASHOP_PROVIDER_TYPES",
+    "BedolagaImporter",
+    "DryRunSession",
     "RemnashopImporter",
     "_add_override",
     "_add_tariff_map_entries",
@@ -110,7 +122,14 @@ __all__ = [
     "_support_link_from_username",
     "_target_webhook_url",
     "_unique_tariff_key",
+    "bedolaga_build_tariff_catalog",
+    "bedolaga_ledger_effect",
+    "bedolaga_payment_status",
+    "bedolaga_target_user_id",
     "build_arg_parser",
+    "database_identity",
+    "ensure_distinct_databases",
+    "get_adapter",
     "main",
     "normalize_async_postgres_dsn",
     "parse_only",

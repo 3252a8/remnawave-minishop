@@ -6,3 +6,4 @@
 | --- | --- | --- |
 | [remnawave-tg-shop](https://github.com/kavore/remnawave-tg-shop/) | Полный перенос всех данных | [Инструкция](remnawave-tg-shop.md) |
 | [Remnashop](https://github.com/snoups/remnashop/) | Автоматический импорт пользователей, подписок, платежей, рефералов, промокодов и поддерживаемых платежных настроек | [Инструкция](remnashop.md) |
+| [Bedolaga](https://docs.bedolagam.ru/) | Инвентаризация и идемпотентный импорт учетных записей, подписок, финансов, подарков и операционных данных | [Инструкция](bedolaga.md) |

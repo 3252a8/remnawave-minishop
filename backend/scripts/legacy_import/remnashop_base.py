@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from collections import defaultdict
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import Any
 
@@ -36,6 +37,8 @@ logger = logging.getLogger(__name__)
 
 
 class _RemnashopImporterBase:
+    source_type = SOURCE
+
     def __init__(
         self,
         *,
@@ -52,6 +55,10 @@ class _RemnashopImporterBase:
         source_crypt_key: str | None = None,
         target_webhook_base_url: str | None = None,
         tariffs_config_path: str | None = None,
+        batch_size: int = 500,
+        inventory_output: str | None = None,
+        config_plan_output: str | None = None,
+        reconciliation_output: str | None = None,
     ) -> None:
         self.source = source
         self.target = target
@@ -67,6 +74,10 @@ class _RemnashopImporterBase:
         self.source_crypt_key = source_crypt_key or self.source_env.get("APP_CRYPT_KEY")
         self.target_webhook_base_url = target_webhook_base_url
         self.tariffs_config_path = tariffs_config_path or "data/tariffs.json"
+        self.batch_size = max(1, int(batch_size))
+        self.inventory_output = inventory_output
+        self.config_plan_output = config_plan_output
+        self.reconciliation_output = reconciliation_output
         self.tables: set[str] = set()
         self.source_columns: dict[str, set[str]] = {}
         self.source_user_telegram_by_id: dict[int, int] | None = None
@@ -77,7 +88,7 @@ class _RemnashopImporterBase:
         self.generated_tariff_catalog: dict[str, Any] | None = None
         self.imported_payment_provider_ids: list[str] = []
         self.summary: dict[str, Any] = {
-            "source": SOURCE,
+            "source": self.source_type,
             "dry_run": dry_run,
             "on_conflict": on_conflict,
             "users": _counter(),
@@ -135,13 +146,30 @@ class _RemnashopImporterBase:
             self.summary["warnings"].append(f"The source is missing tables: {', '.join(missing)}")
 
     async def _fetch_rows(self, table: str, *, order_by: str = "id") -> list[dict[str, Any]]:
+        return [row async for row in self._iter_rows(table, order_by=order_by)]
+
+    async def _iter_rows(
+        self,
+        table: str,
+        *,
+        order_by: str = "id",
+    ) -> AsyncIterator[dict[str, Any]]:
         if table not in self.tables:
-            return []
+            return
         order_sql = f" ORDER BY {order_by}" if order_by else ""
-        result = await self.source.execute(
-            text(f"SELECT * FROM {_qtable(self.source_schema, table)}{order_sql}")
-        )
-        return [_as_mapping(row) for row in result.mappings().all()]
+        offset = 0
+        while True:
+            statement = text(
+                f"SELECT * FROM {_qtable(self.source_schema, table)}{order_sql} "
+                "LIMIT :batch_size OFFSET :offset"
+            ).bindparams(batch_size=self.batch_size, offset=offset)
+            result = await self.source.execute(statement)
+            rows = [_as_mapping(row) for row in result.mappings().all()]
+            for row in rows:
+                yield row
+            if len(rows) < self.batch_size:
+                return
+            offset += len(rows)
 
     async def _fetch_one(self, table: str) -> dict[str, Any] | None:
         rows = await self._fetch_rows(table, order_by="")
@@ -282,7 +310,7 @@ class _RemnashopImporterBase:
         stmt = (
             pg_insert(LegacyImportMapping)
             .values(
-                source=SOURCE,
+                source=self.source_type,
                 entity_type=entity_type,
                 source_id=source_id_value,
                 target_table=target_table,
@@ -308,7 +336,7 @@ class _RemnashopImporterBase:
 
     async def _get_mapping(self, entity_type: str, source_id: Any) -> LegacyImportMapping | None:
         stmt = select(LegacyImportMapping).where(
-            LegacyImportMapping.source == SOURCE,
+            LegacyImportMapping.source == self.source_type,
             LegacyImportMapping.entity_type == entity_type,
             LegacyImportMapping.source_id == str(source_id),
         )

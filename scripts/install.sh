@@ -10,6 +10,7 @@ DEFAULT_IMAGE_TAG="${MINISHOP_IMAGE_TAG:-latest}"
 DEFAULT_INSTALL_DIR="${MINISHOP_INSTALL_DIR:-/opt/remnawave-minishop}"
 DOCS_SETUP_URL="https://minishop.minidoc.cc/getting-started/setup/"
 DOCS_REMNASHOP_URL="https://minishop.minidoc.cc/migrations/remnashop/"
+DOCS_BEDOLAGA_URL="https://minishop.minidoc.cc/migrations/bedolaga/"
 INSTALL_STATE_DIR=".installer"
 IMPORTER_CACHE_PATH="$INSTALL_STATE_DIR/import_legacy.py"
 APP_UID=10001
@@ -17,6 +18,7 @@ APP_GID=10001
 OLD_TGSHOP_DB_VOLUME="remnawave-tg-shop-db-data"
 KNOWN_LEGACY_CONTAINERS="remnawave-tg-shop remnawave-tg-shop-db remnawave-tg-shop-caddy remnawave-minishop remnawave-minishop-db remnawave-minishop-caddy remnawave-minishop-backend remnawave-minishop-worker remnawave-minishop-frontend remnawave-minishop-migrate remnawave-minishop-postgres remnawave-minishop-redis"
 REMNASHOP_RUNTIME_CONTAINERS="remnashop remnashop-taskiq-worker remnashop-taskiq-scheduler remnashop-db remnashop-redis"
+BEDOLAGA_RUNTIME_CONTAINERS="remnawave_bot remnawave_bot_db remnawave_bot_redis bedolaga bedolaga-db bedolaga-redis"
 PANGOLIN_COMPOSE_FILE="docker-compose.pangolin.yml"
 MIN_DOCKER_ENGINE_VERSION="25.0.0"
 MIN_DOCKER_COMPOSE_VERSION="2.20.2"
@@ -58,6 +60,13 @@ PROMPT_VALUE=""
 CHOICE_VALUE=""
 LEGACY_SOURCE=""
 SOURCE_ENV_PATH=""
+BEDOLAGA_LOCAL_TARGET="0"
+BEDOLAGA_ENV_BACKUP_PATH=""
+BEDOLAGA_DISABLED_SYSTEMD_UNITS=""
+BEDOLAGA_STOPPED_SYSTEMD_UNITS=""
+BEDOLAGA_MATCHED_SYSTEMD_UNITS=""
+BEDOLAGA_STOPPED_CONTAINER_IDS=""
+BEDOLAGA_SOURCE_CUTOVER_STARTED="0"
 
 COMPOSE_PROJECT_NAME_VALUE=""
 IMAGE_TAG_VALUE=""
@@ -195,7 +204,7 @@ mask_secret() {
 
 is_secret_key() {
     case "$1" in
-        BOT_TOKEN|TELEGRAM_BOT_PROXY_URL|POSTGRES_PASSWORD|WEBAPP_SESSION_SECRET|WEBHOOK_SECRET_TOKEN|PANEL_API_KEY|PANEL_API_COOKIE|PANEL_WEBHOOK_SECRET|TELEGRAM_OAUTH_CLIENT_SECRET|NEWT_SECRET|MINISHOP_EDGE_TOKEN|RATHOLE_SERVICE_TOKEN)
+        BOT_TOKEN|TELEGRAM_BOT_PROXY_URL|POSTGRES_PASSWORD|WEBAPP_SESSION_SECRET|WEBHOOK_SECRET_TOKEN|PANEL_API_KEY|PANEL_API_COOKIE|PANEL_WEBHOOK_SECRET|TELEGRAM_OAUTH_CLIENT_SECRET|GOOGLE_OIDC_CLIENT_SECRET|NEWT_SECRET|MINISHOP_EDGE_TOKEN|RATHOLE_SERVICE_TOKEN)
             return 0
             ;;
         *)
@@ -777,6 +786,49 @@ detect_remnashop_stack() {
     [ -n "$env_file" ] || [ -n "$db_container" ]
 }
 
+detect_bedolaga_env_file() {
+    if [ -n "${BEDOLAGA_SOURCE_ENV_FILE:-}" ] && [ -f "$BEDOLAGA_SOURCE_ENV_FILE" ]; then
+        printf '%s' "$BEDOLAGA_SOURCE_ENV_FILE"
+        return 0
+    fi
+    first_existing_file \
+        /opt/remnawave-bedolaga-telegram-bot/.env \
+        /opt/bedolaga/.env \
+        2>/dev/null && return 0
+    find /opt -maxdepth 5 -type f -name .env -path '*bedolaga*' 2>/dev/null | head -n 1
+}
+
+detect_bedolaga_db_container() {
+    if [ -n "${BEDOLAGA_DB_CONTAINER:-}" ] && docker_container_exists "$BEDOLAGA_DB_CONTAINER"; then
+        printf '%s' "$BEDOLAGA_DB_CONTAINER"
+        return 0
+    fi
+    for container in remnawave_bot_db bedolaga-db bedolaga_db; do
+        if docker_container_exists "$container"; then
+            printf '%s' "$container"
+            return 0
+        fi
+    done
+    command -v docker >/dev/null 2>&1 || return 1
+    docker ps -a --format '{{.Names}}' 2>/dev/null | grep -Ei 'bedolaga.*(db|postgres)|postgres.*bedolaga|remnawave_bot_db' | head -n 1
+}
+
+detect_bedolaga_source_dsn() {
+    if [ -n "${BEDOLAGA_SOURCE_DSN:-}" ]; then
+        printf '%s' "$BEDOLAGA_SOURCE_DSN"
+        return 0
+    fi
+    container=$(detect_bedolaga_db_container || true)
+    [ -n "$container" ] || return 1
+    docker exec "$container" sh -lc 'printf "postgresql://%s:%s@'"$container"':5432/%s" "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$POSTGRES_DB"' 2>/dev/null
+}
+
+detect_bedolaga_stack() {
+    env_file=$(detect_bedolaga_env_file || true)
+    db_container=$(detect_bedolaga_db_container || true)
+    [ -n "$env_file" ] || [ -n "$db_container" ]
+}
+
 detect_remnashop_env_value() {
     key="$1"
     env_file=$(detect_remnashop_env_file || true)
@@ -784,19 +836,76 @@ detect_remnashop_env_value() {
     env_file_get "$key" "$env_file"
 }
 
+detect_bedolaga_env_value() {
+    key="$1"
+    env_file="${SOURCE_ENV_PATH:-}"
+    [ -n "$env_file" ] && [ -f "$env_file" ] || env_file=$(detect_bedolaga_env_file || true)
+    [ -n "$env_file" ] && [ -f "$env_file" ] || return 1
+    env_file_get "$key" "$env_file"
+}
+
+legacy_source_label() {
+    case "${LEGACY_SOURCE:-}" in
+        bedolaga) printf '%s' Bedolaga ;;
+        remnashop) printf '%s' Remnashop ;;
+        *) printf '%s' "старого бота" ;;
+    esac
+}
+
 detect_bot_token() {
-    detect_remnashop_env_value BOT_TOKEN
+    case "${LEGACY_SOURCE:-}" in
+        bedolaga) detect_bedolaga_env_value BOT_TOKEN ;;
+        *) detect_remnashop_env_value BOT_TOKEN ;;
+    esac
 }
 
 detect_admin_ids() {
-    value=$(detect_remnashop_env_value BOT_OWNER_ID || true)
-    [ -n "$value" ] || value=$(detect_remnashop_env_value ADMIN_IDS || true)
+    case "${LEGACY_SOURCE:-}" in
+        bedolaga)
+            value=$(detect_bedolaga_env_value ADMIN_IDS || true)
+            ;;
+        *)
+            value=$(detect_remnashop_env_value BOT_OWNER_ID || true)
+            [ -n "$value" ] || value=$(detect_remnashop_env_value ADMIN_IDS || true)
+            ;;
+    esac
     [ -n "$value" ] || return 1
     printf '%s' "$value" | tr ';' ','
 }
 
 detect_webhook_secret_token() {
-    detect_remnashop_env_value BOT_SECRET_TOKEN
+    case "${LEGACY_SOURCE:-}" in
+        bedolaga) detect_bedolaga_env_value WEBHOOK_SECRET_TOKEN ;;
+        *) detect_remnashop_env_value BOT_SECRET_TOKEN ;;
+    esac
+}
+
+detect_telegram_oauth_client_id() {
+    [ "${LEGACY_SOURCE:-}" = "bedolaga" ] || return 1
+    detect_bedolaga_env_value TELEGRAM_OIDC_CLIENT_ID
+}
+
+detect_telegram_oauth_client_secret() {
+    [ "${LEGACY_SOURCE:-}" = "bedolaga" ] || return 1
+    detect_bedolaga_env_value TELEGRAM_OIDC_CLIENT_SECRET
+}
+
+url_hostname() {
+    printf '%s' "$1" | sed -n 's#^https\{0,1\}://\([^/:]*\).*#\1#p'
+}
+
+detect_legacy_webhook_host() {
+    [ "${LEGACY_SOURCE:-}" = "bedolaga" ] || return 1
+    value=$(detect_bedolaga_env_value WEBHOOK_URL || true)
+    [ -n "$value" ] || return 1
+    url_hostname "$value"
+}
+
+detect_legacy_miniapp_host() {
+    [ "${LEGACY_SOURCE:-}" = "bedolaga" ] || return 1
+    value=$(detect_bedolaga_env_value CABINET_URL || true)
+    [ -n "$value" ] || return 1
+    url_hostname "$value"
 }
 
 normalize_panel_api_url() {
@@ -860,7 +969,10 @@ PY
 }
 
 detect_panel_api_url() {
-    value=$(detect_remnashop_env_value REMNAWAVE_HOST || true)
+    case "${LEGACY_SOURCE:-}" in
+        bedolaga) value=$(detect_bedolaga_env_value REMNAWAVE_API_URL || true) ;;
+        *) value=$(detect_remnashop_env_value REMNAWAVE_HOST || true) ;;
+    esac
     if [ -n "$value" ]; then
         normalize_panel_api_url "$value"
         return 0
@@ -879,7 +991,10 @@ detect_panel_api_url() {
 }
 
 detect_panel_api_key() {
-    value=$(detect_remnashop_env_value REMNAWAVE_TOKEN || true)
+    case "${LEGACY_SOURCE:-}" in
+        bedolaga) value=$(detect_bedolaga_env_value REMNAWAVE_API_KEY || true) ;;
+        *) value=$(detect_remnashop_env_value REMNAWAVE_TOKEN || true) ;;
+    esac
     if [ -n "$value" ]; then
         printf '%s' "$value"
         return 0
@@ -902,6 +1017,7 @@ detect_panel_api_key() {
 }
 
 detect_panel_api_cookie() {
+    [ "${LEGACY_SOURCE:-}" != "bedolaga" ] || return 1
     env_cookie=$(detect_remnashop_env_value REMNAWAVE_COOKIE || true)
     case "$env_cookie" in
         *=*)
@@ -1158,7 +1274,10 @@ probe_panel_api_configuration() {
 }
 
 detect_panel_webhook_secret() {
-    value=$(detect_remnashop_env_value REMNAWAVE_WEBHOOK_SECRET || true)
+    case "${LEGACY_SOURCE:-}" in
+        bedolaga) value=$(detect_bedolaga_env_value REMNAWAVE_WEBHOOK_SECRET || true) ;;
+        *) value=$(detect_remnashop_env_value REMNAWAVE_WEBHOOK_SECRET || true) ;;
+    esac
     if [ -n "$value" ]; then
         printf '%s' "$value"
         return 0
@@ -1577,7 +1696,7 @@ prompt_common_env() {
         detected_bot_token=$(detect_bot_token || true)
         if [ -n "$detected_bot_token" ]; then
             detected_bot_token_prefilled=1
-            info "Нашел BOT_TOKEN в .env Remnashop и подставил его по умолчанию."
+            info "Нашел BOT_TOKEN в .env $(legacy_source_label) и подставил его по умолчанию."
         fi
     fi
     prompt_value "Токен Telegram бота" "$detected_bot_token" 1 1 "" "$detected_bot_token_prefilled"
@@ -1597,7 +1716,7 @@ prompt_common_env() {
         detected_admin_ids=$(detect_admin_ids || true)
         if [ -n "$detected_admin_ids" ]; then
             detected_admin_ids_prefilled=1
-            info "Нашел BOT_OWNER_ID/ADMIN_IDS в .env Remnashop и подставил администраторов по умолчанию."
+            info "Нашел ADMIN_IDS в .env $(legacy_source_label) и подставил администраторов по умолчанию."
         fi
     fi
     prompt_value "Telegram ID администраторов через запятую" "$detected_admin_ids" 1 0 "" "$detected_admin_ids_prefilled"
@@ -1624,7 +1743,7 @@ prompt_common_env() {
     if [ -z "$WEBHOOK_SECRET_TOKEN_VALUE" ]; then
         WEBHOOK_SECRET_TOKEN_VALUE="$(detect_webhook_secret_token || true)"
         if [ -n "$WEBHOOK_SECRET_TOKEN_VALUE" ]; then
-            info "Нашел BOT_SECRET_TOKEN в .env Remnashop и использую его для WEBHOOK_SECRET_TOKEN."
+            info "Нашел Telegram webhook secret в .env $(legacy_source_label) и использую его для WEBHOOK_SECRET_TOKEN."
         fi
     fi
     if [ -z "$WEBHOOK_SECRET_TOKEN_VALUE" ]; then
@@ -1633,9 +1752,25 @@ prompt_common_env() {
 
     configure_panel_integration || return 1
 
-    prompt_value "Идентификатор клиента Telegram OAuth (пусто = ID бота)" "$(env_get TELEGRAM_OAUTH_CLIENT_ID '')" 0 0 ""
+    detected_telegram_oauth_client_id=$(env_get TELEGRAM_OAUTH_CLIENT_ID '')
+    detected_telegram_oauth_client_id_prefilled=0
+    if [ -n "$detected_telegram_oauth_client_id" ]; then
+        detected_telegram_oauth_client_id_prefilled=1
+    else
+        detected_telegram_oauth_client_id=$(detect_telegram_oauth_client_id || true)
+        [ -n "$detected_telegram_oauth_client_id" ] && detected_telegram_oauth_client_id_prefilled=1
+    fi
+    prompt_value "Идентификатор клиента Telegram OAuth (пусто = ID бота)" "$detected_telegram_oauth_client_id" 0 0 "" "$detected_telegram_oauth_client_id_prefilled"
     TELEGRAM_OAUTH_CLIENT_ID_VALUE="$PROMPT_VALUE"
-    prompt_value "Секрет клиента Telegram OAuth из BotFather Web Login (пусто = пропустить OAuth в браузере)" "$(env_get TELEGRAM_OAUTH_CLIENT_SECRET '')" 0 1 ""
+    detected_telegram_oauth_client_secret=$(env_get TELEGRAM_OAUTH_CLIENT_SECRET '')
+    detected_telegram_oauth_client_secret_prefilled=0
+    if [ -n "$detected_telegram_oauth_client_secret" ]; then
+        detected_telegram_oauth_client_secret_prefilled=1
+    else
+        detected_telegram_oauth_client_secret=$(detect_telegram_oauth_client_secret || true)
+        [ -n "$detected_telegram_oauth_client_secret" ] && detected_telegram_oauth_client_secret_prefilled=1
+    fi
+    prompt_value "Секрет клиента Telegram OAuth из BotFather Web Login (пусто = пропустить OAuth в браузере)" "$detected_telegram_oauth_client_secret" 0 1 "" "$detected_telegram_oauth_client_secret_prefilled"
     TELEGRAM_OAUTH_CLIENT_SECRET_VALUE="$PROMPT_VALUE"
     TELEGRAM_OAUTH_REQUEST_ACCESS_VALUE="$(env_get TELEGRAM_OAUTH_REQUEST_ACCESS write)"
     info "Параметр Telegram OAuth request_access: $TELEGRAM_OAUTH_REQUEST_ACCESS_VALUE. Значение write позволяет боту написать пользователю после входа через Web Login."
@@ -1655,9 +1790,15 @@ prompt_common_env() {
 
     case "$PROFILE_KEY" in
         caddy|angie|nginx|newt|egames)
-            prompt_value "Публичный hostname для API/webhook бота" "$(env_get WEBHOOK_HOST webhooks.example.com)" 1 0 "hostname"
+            detected_webhook_host=$(env_get WEBHOOK_HOST '')
+            [ -n "$detected_webhook_host" ] || detected_webhook_host=$(detect_legacy_webhook_host || true)
+            [ -n "$detected_webhook_host" ] || detected_webhook_host="webhooks.example.com"
+            prompt_value "Публичный hostname для API/webhook бота" "$detected_webhook_host" 1 0 "hostname"
             WEBHOOK_HOST_VALUE="$PROMPT_VALUE"
-            prompt_value "Публичный hostname для Mini App" "$(env_get MINIAPP_HOST app.example.com)" 1 0 "hostname"
+            detected_miniapp_host=$(env_get MINIAPP_HOST '')
+            [ -n "$detected_miniapp_host" ] || detected_miniapp_host=$(detect_legacy_miniapp_host || true)
+            [ -n "$detected_miniapp_host" ] || detected_miniapp_host="app.example.com"
+            prompt_value "Публичный hostname для Mini App" "$detected_miniapp_host" 1 0 "hostname"
             MINIAPP_HOST_VALUE="$PROMPT_VALUE"
             WEBHOOK_PUBLIC_URL_VALUE="$(env_get WEBHOOK_PUBLIC_URL "https://$WEBHOOK_HOST_VALUE")"
             MINIAPP_PUBLIC_URL_VALUE="$(env_get MINIAPP_PUBLIC_URL "https://$MINIAPP_HOST_VALUE/")"
@@ -3123,6 +3264,121 @@ set_env_file_value() {
     mv "$tmp" "$file"
 }
 
+bedolaga_env_mapping_value() {
+    target_key="$1"
+    case "$target_key" in
+        BOT_TOKEN) detect_bedolaga_env_value BOT_TOKEN ;;
+        ADMIN_IDS) detect_bedolaga_env_value ADMIN_IDS | tr ';' ',' ;;
+        WEBHOOK_SECRET_TOKEN) detect_bedolaga_env_value WEBHOOK_SECRET_TOKEN ;;
+        PANEL_API_URL)
+            source_value=$(detect_bedolaga_env_value REMNAWAVE_API_URL || true)
+            [ -n "$source_value" ] || return 1
+            normalize_panel_api_url "$source_value"
+            ;;
+        PANEL_API_KEY) detect_bedolaga_env_value REMNAWAVE_API_KEY ;;
+        TELEGRAM_OAUTH_CLIENT_ID) detect_bedolaga_env_value TELEGRAM_OIDC_CLIENT_ID ;;
+        TELEGRAM_OAUTH_CLIENT_SECRET) detect_bedolaga_env_value TELEGRAM_OIDC_CLIENT_SECRET ;;
+        GOOGLE_OIDC_ENABLED) detect_bedolaga_env_value OAUTH_GOOGLE_ENABLED ;;
+        GOOGLE_OIDC_CLIENT_ID) detect_bedolaga_env_value OAUTH_GOOGLE_CLIENT_ID ;;
+        GOOGLE_OIDC_CLIENT_SECRET) detect_bedolaga_env_value OAUTH_GOOGLE_CLIENT_SECRET ;;
+        DEFAULT_LANGUAGE) detect_bedolaga_env_value DEFAULT_LANGUAGE ;;
+        LOG_LEVEL) detect_bedolaga_env_value LOG_LEVEL ;;
+        TZ) detect_bedolaga_env_value TZ ;;
+        BACKUP_ENABLED) detect_bedolaga_env_value BACKUP_AUTO_ENABLED ;;
+        BACKUP_INTERVAL_SECONDS)
+            source_value=$(detect_bedolaga_env_value BACKUP_INTERVAL_HOURS || true)
+            case "$source_value" in
+                ''|*[!0-9]*) return 1 ;;
+            esac
+            awk -v hours="$source_value" 'BEGIN { printf "%d", hours * 3600 }'
+            ;;
+        BACKUP_LOCAL_RETENTION) detect_bedolaga_env_value BACKUP_MAX_KEEP ;;
+        WEBHOOK_HOST) detect_legacy_webhook_host ;;
+        WEBHOOK_PUBLIC_URL)
+            source_value=$(detect_legacy_webhook_host || true)
+            [ -n "$source_value" ] || return 1
+            printf 'https://%s' "$source_value"
+            ;;
+        MINIAPP_HOST) detect_legacy_miniapp_host ;;
+        MINIAPP_PUBLIC_URL)
+            source_value=$(detect_legacy_miniapp_host || true)
+            [ -n "$source_value" ] || return 1
+            printf 'https://%s/' "$source_value"
+            ;;
+        *) return 1 ;;
+    esac
+}
+
+sync_bedolaga_bootstrap_env() {
+    [ -n "$SOURCE_ENV_PATH" ] && [ -f "$SOURCE_ENV_PATH" ] || {
+        warn ".env Bedolaga не задан; bootstrap-настройки Minishop автоматически не меняются."
+        return 0
+    }
+    [ "$SOURCE_ENV_PATH" != "$ENV_PATH" ] || {
+        fail ".env Bedolaga и Minishop указывают на один файл; автоматический перенос остановлен."
+        return 1
+    }
+
+    section "Автоперенос настроек Bedolaga в .env Minishop"
+    plan_file="$TARGET_DIR/$INSTALL_STATE_DIR/.bedolaga-env-plan.$$"
+    mkdir -p "$TARGET_DIR/$INSTALL_STATE_DIR"
+    : > "$plan_file"
+    chmod 600 "$plan_file" 2>/dev/null || true
+    for target_key in \
+        BOT_TOKEN ADMIN_IDS WEBHOOK_SECRET_TOKEN \
+        PANEL_API_URL PANEL_API_KEY \
+        TELEGRAM_OAUTH_CLIENT_ID TELEGRAM_OAUTH_CLIENT_SECRET \
+        GOOGLE_OIDC_ENABLED GOOGLE_OIDC_CLIENT_ID GOOGLE_OIDC_CLIENT_SECRET \
+        DEFAULT_LANGUAGE LOG_LEVEL TZ BACKUP_ENABLED BACKUP_INTERVAL_SECONDS BACKUP_LOCAL_RETENTION \
+        WEBHOOK_HOST WEBHOOK_PUBLIC_URL MINIAPP_HOST MINIAPP_PUBLIC_URL; do
+        source_value=$(bedolaga_env_mapping_value "$target_key" || true)
+        [ -n "$source_value" ] || continue
+        current_value=$(env_file_get "$target_key" "$ENV_PATH")
+        [ "$source_value" != "$current_value" ] || continue
+        printf '%s\t%s\n' "$target_key" "$source_value" >> "$plan_file"
+    done
+
+    if [ ! -s "$plan_file" ]; then
+        rm -f "$plan_file"
+        ok "Все совместимые bootstrap-настройки Bedolaga уже совпадают с .env Minishop."
+        return 0
+    fi
+
+    info "Найдены совместимые значения (секреты замаскированы):"
+    while IFS="$(printf '\t')" read -r target_key source_value; do
+        show_env_value "$target_key" "$source_value"
+    done < "$plan_file"
+    if ! confirm "Записать найденные настройки Bedolaga в .env Minishop?" 1; then
+        rm -f "$plan_file"
+        warn "Автоперенос .env пропущен; импорт данных можно продолжить с текущими настройками Minishop."
+        return 0
+    fi
+
+    BEDOLAGA_ENV_BACKUP_PATH=$(backup_path "$ENV_PATH")
+    cp "$ENV_PATH" "$BEDOLAGA_ENV_BACKUP_PATH" || {
+        rm -f "$plan_file"
+        fail "Не удалось создать бэкап .env перед переносом настроек Bedolaga."
+        return 1
+    }
+    chmod 600 "$BEDOLAGA_ENV_BACKUP_PATH" 2>/dev/null || true
+    while IFS="$(printf '\t')" read -r target_key source_value; do
+        set_env_file_value "$ENV_PATH" "$target_key" "$source_value" || {
+            cp "$BEDOLAGA_ENV_BACKUP_PATH" "$ENV_PATH" || true
+            rm -f "$plan_file"
+            fail "Не удалось записать $target_key; исходный .env Minishop восстановлен."
+            return 1
+        }
+    done < "$plan_file"
+    rm -f "$plan_file"
+    ok "Совместимые настройки Bedolaga записаны в .env Minishop; бэкап: $(basename "$BEDOLAGA_ENV_BACKUP_PATH")"
+}
+
+restore_bedolaga_env_backup() {
+    [ -n "$BEDOLAGA_ENV_BACKUP_PATH" ] && [ -f "$BEDOLAGA_ENV_BACKUP_PATH" ] || return 0
+    cp "$BEDOLAGA_ENV_BACKUP_PATH" "$ENV_PATH" || return 1
+    ok "Предыдущий .env Minishop восстановлен из $(basename "$BEDOLAGA_ENV_BACKUP_PATH")."
+}
+
 unset_env_file_value() {
     file="$1"
     key="$2"
@@ -4293,6 +4549,246 @@ stop_remnashop_source_stack() {
     fi
 }
 
+bedolaga_source_compose_dir() {
+    source_env="$SOURCE_ENV_PATH"
+    [ -n "$source_env" ] || source_env=$(detect_bedolaga_env_file || true)
+    if [ -n "$source_env" ]; then
+        source_dir=$(dirname "$source_env")
+        if [ -f "$source_dir/docker-compose.yml" ] || [ -f "$source_dir/docker-compose.yaml" ] || [ -f "$source_dir/compose.yml" ] || [ -f "$source_dir/compose.yaml" ]; then
+            (cd "$source_dir" && pwd)
+            return 0
+        fi
+    fi
+    return 1
+}
+
+bedolaga_source_container_ids() {
+    source_dir=$(bedolaga_source_compose_dir || true)
+    if [ -n "$source_dir" ]; then
+        (cd "$source_dir" && run_compose ps -aq 2>/dev/null) && return 0
+    fi
+    for container in $BEDOLAGA_RUNTIME_CONTAINERS; do
+        docker inspect "$container" >/dev/null 2>&1 && printf '%s\n' "$container"
+    done
+}
+
+bedolaga_autostart_preflight() {
+    source_dir=$(bedolaga_source_compose_dir || true)
+    cron_match=""
+    for cron_path in /etc/crontab /etc/cron.d /etc/cron.hourly /etc/cron.daily /etc/cron.weekly /etc/cron.monthly; do
+        [ -e "$cron_path" ] || continue
+        if [ -n "$source_dir" ] && grep -RIlF "$source_dir" "$cron_path" 2>/dev/null | head -n 1 | grep -q .; then
+            cron_match="$cron_path"
+            break
+        fi
+        if grep -RIlE 'bedolaga|remnawave_bot' "$cron_path" 2>/dev/null | head -n 1 | grep -q .; then
+            cron_match="$cron_path"
+            break
+        fi
+    done
+    if command -v crontab >/dev/null 2>&1; then
+        user_crontab=$(crontab -l 2>/dev/null || true)
+        if printf '%s' "$user_crontab" | grep -Ei 'bedolaga|remnawave_bot' >/dev/null 2>&1; then
+            cron_match="crontab текущего пользователя"
+        elif [ -n "$source_dir" ] && printf '%s' "$user_crontab" | grep -F "$source_dir" >/dev/null 2>&1; then
+            cron_match="crontab текущего пользователя"
+        fi
+    fi
+    if [ -n "$cron_match" ]; then
+        fail "Найден cron-автозапуск Bedolaga ($cron_match). Автоматический cutover отменен: отключите эту запись и повторите миграцию."
+        return 1
+    fi
+}
+
+disable_bedolaga_systemd_autostart() {
+    command -v systemctl >/dev/null 2>&1 || return 0
+    source_dir=$(bedolaga_source_compose_dir || true)
+    named_units=$(systemctl list-unit-files --type=service --no-legend --no-pager 2>/dev/null | awk '{print $1}' | grep -Ei 'bedolaga|remnawave[-_]?bot' || true)
+    path_units=""
+    if [ -n "$source_dir" ]; then
+        unit_files=$(grep -RIlF "$source_dir" /etc/systemd/system /usr/lib/systemd/system /lib/systemd/system 2>/dev/null || true)
+        for unit_file in $unit_files; do
+            path_units="$path_units $(basename "$unit_file")"
+        done
+    fi
+    units=$(printf '%s\n%s\n' "$named_units" "$path_units" | awk 'NF' | sort -u)
+    for unit in $units; do
+        unit_config=$(systemctl cat "$unit" 2>/dev/null || true)
+        unit_config_lower=$(printf '%s' "$unit_config" | tr '[:upper:]' '[:lower:]')
+        case "$unit_config_lower" in
+            *bedolaga*|*remnawave_bot*) ;;
+            *)
+                [ -n "$source_dir" ] && printf '%s' "$unit_config" | grep -F "$source_dir" >/dev/null 2>&1 || continue
+                ;;
+        esac
+        BEDOLAGA_MATCHED_SYSTEMD_UNITS="$BEDOLAGA_MATCHED_SYSTEMD_UNITS $unit"
+        if systemctl is-enabled --quiet "$unit" 2>/dev/null; then
+            systemctl disable "$unit" >/dev/null 2>&1 || {
+                fail "Не удалось отключить systemd unit автозапуска Bedolaga: $unit"
+                return 1
+            }
+            BEDOLAGA_DISABLED_SYSTEMD_UNITS="$BEDOLAGA_DISABLED_SYSTEMD_UNITS $unit"
+            info "Отключен автозапуск systemd unit: $unit"
+        fi
+        if systemctl is-active --quiet "$unit" 2>/dev/null; then
+            systemctl stop "$unit" >/dev/null 2>&1 || {
+                fail "Не удалось остановить systemd unit Bedolaga: $unit"
+                return 1
+            }
+            BEDOLAGA_STOPPED_SYSTEMD_UNITS="$BEDOLAGA_STOPPED_SYSTEMD_UNITS $unit"
+        fi
+    done
+}
+
+verify_bedolaga_source_disabled() {
+    container_ids="$1"
+    for container in $container_ids; do
+        running=$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null || true)
+        restart_policy=$(docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' "$container" 2>/dev/null || true)
+        if [ "$running" != "false" ] || [ "$restart_policy" != "no" ]; then
+            fail "Bedolaga container $container не прошел проверку: running=${running:-unknown}, restart=${restart_policy:-unknown}."
+            return 1
+        fi
+    done
+    for unit in $BEDOLAGA_MATCHED_SYSTEMD_UNITS; do
+        if systemctl is-enabled --quiet "$unit" 2>/dev/null; then
+            fail "systemd unit Bedolaga снова включен: $unit"
+            return 1
+        fi
+        if systemctl is-active --quiet "$unit" 2>/dev/null; then
+            fail "systemd unit Bedolaga снова активен: $unit"
+            return 1
+        fi
+    done
+    bedolaga_autostart_preflight || return 1
+    ok "Bedolaga остановлена; Docker restart policy отключен, активный автозапуск не найден."
+}
+
+stop_bedolaga_source_stack() {
+    section "Остановка и отключение автозапуска Bedolaga"
+    container_ids=$(bedolaga_source_container_ids || true)
+    if [ -z "$container_ids" ]; then
+        fail "Контейнеры Bedolaga не найдены; невозможно подтвердить безопасное отключение старого стека."
+        return 1
+    fi
+    bedolaga_autostart_preflight || return 1
+    BEDOLAGA_SOURCE_CUTOVER_STARTED="1"
+    disable_bedolaga_systemd_autostart || return 1
+
+    source_dir=$(bedolaga_source_compose_dir || true)
+    if [ -n "$source_dir" ]; then
+        (cd "$source_dir" && run_compose stop) || warn "docker compose stop для Bedolaga не прошел; останавливаю найденные контейнеры по отдельности."
+    fi
+    for container in $container_ids; do
+        docker update --restart=no "$container" >/dev/null 2>&1 || {
+            fail "Не удалось отключить Docker restart policy для Bedolaga container $container."
+            return 1
+        }
+        if docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null | grep -q '^true$'; then
+            docker stop "$container" >/dev/null 2>&1 || {
+                fail "Не удалось остановить Bedolaga container $container."
+                return 1
+            }
+        fi
+    done
+    BEDOLAGA_STOPPED_CONTAINER_IDS="$container_ids"
+    verify_bedolaga_source_disabled "$container_ids"
+}
+
+rollback_bedolaga_cutover() {
+    section "Откат неуспешного cutover"
+    if [ "$BEDOLAGA_SOURCE_CUTOVER_STARTED" = "1" ]; then
+        for service in backend worker frontend; do
+            target_compose_has_service "$service" || continue
+            (cd "$TARGET_DIR" && run_compose stop "$service") >/dev/null 2>&1 || true
+        done
+    fi
+    restore_bedolaga_env_backup || warn "Не удалось автоматически восстановить предыдущий .env Minishop."
+    source_dir=$(bedolaga_source_compose_dir || true)
+    if [ -n "$source_dir" ]; then
+        (cd "$source_dir" && run_compose up -d) || warn "Не удалось автоматически вернуть стек Bedolaga; запустите его из $source_dir вручную."
+    else
+        for container in ${BEDOLAGA_STOPPED_CONTAINER_IDS:-}; do
+            docker update --restart=unless-stopped "$container" >/dev/null 2>&1 || true
+            docker start "$container" >/dev/null 2>&1 || true
+        done
+    fi
+    for unit in $BEDOLAGA_DISABLED_SYSTEMD_UNITS; do
+        systemctl enable "$unit" >/dev/null 2>&1 || warn "Не удалось вернуть автозапуск systemd unit $unit."
+    done
+    for unit in $BEDOLAGA_STOPPED_SYSTEMD_UNITS; do
+        systemctl start "$unit" >/dev/null 2>&1 || warn "Не удалось вернуть systemd unit $unit в активное состояние."
+    done
+    warn "Minishop не прошел проверку; старый стек Bedolaga возвращен, насколько это удалось сделать автоматически."
+}
+
+target_compose_has_service() {
+    service="$1"
+    (cd "$TARGET_DIR" && run_compose config --services 2>/dev/null) | grep -qx "$service"
+}
+
+wait_target_runtime_healthy() {
+    section "Ожидание готовности Minishop"
+    attempt=1
+    while [ "$attempt" -le 40 ]; do
+        all_ready=1
+        checked_services=0
+        for service in backend worker frontend; do
+            target_compose_has_service "$service" || continue
+            checked_services=$((checked_services + 1))
+            container=$(cd "$TARGET_DIR" && run_compose ps -q "$service" 2>/dev/null | head -n 1)
+            if [ -z "$container" ]; then
+                all_ready=0
+                continue
+            fi
+            state=$(docker inspect -f '{{if .State.Running}}{{if .State.Restarting}}restarting{{else}}{{if .State.Health}}{{.State.Health.Status}}{{else}}running{{end}}{{end}}{{else}}stopped{{end}}' "$container" 2>/dev/null || true)
+            case "$state" in
+                healthy|running) ;;
+                unhealthy|stopped)
+                    fail "Сервис Minishop $service имеет состояние $state."
+                    return 1
+                    ;;
+                *) all_ready=0 ;;
+            esac
+        done
+        if [ "$checked_services" = "0" ]; then
+            fail "В Docker Compose Minishop не найдены runtime-сервисы backend/worker/frontend."
+            return 1
+        fi
+        if [ "$all_ready" = "1" ]; then
+            ok "Backend, worker и frontend Minishop запущены; healthchecks пройдены."
+            return 0
+        fi
+        sleep 3
+        attempt=$((attempt + 1))
+    done
+    fail "Minishop не стал healthy за отведенное время."
+    return 1
+}
+
+perform_bedolaga_cutover() {
+    if [ "$BEDOLAGA_LOCAL_TARGET" != "1" ]; then
+        warn "Целевая база задана вручную; wizard не может безопасно управлять удаленным Minishop и оставляет Bedolaga запущенной."
+        return 0
+    fi
+    section "Cutover Bedolaga -> Minishop"
+    warn "После подтверждения wizard остановит весь compose-стек Bedolaga, отключит его Docker/systemd автозапуск, запустит Minishop и проверит healthchecks."
+    if ! confirm "Выполнить автоматический cutover сейчас?" 1; then
+        warn "Cutover пропущен; Bedolaga оставлена запущенной, Minishop runtime не запускается автоматически."
+        return 0
+    fi
+
+    if ! stop_bedolaga_source_stack; then
+        [ "$BEDOLAGA_SOURCE_CUTOVER_STARTED" = "1" ] && rollback_bedolaga_cutover
+        return 1
+    fi
+    if ! start_stack 0 1 || ! wait_target_runtime_healthy || ! validate_stack || ! verify_bedolaga_source_disabled "$BEDOLAGA_STOPPED_CONTAINER_IDS" || ! configure_egames_panel_webhook; then
+        rollback_bedolaga_cutover
+        return 1
+    fi
+    ok "Cutover завершен: Bedolaga остановлена без удаления данных, ее автозапуск отключен, Minishop запущен и проверен."
+}
+
 wait_target_postgres() {
     section "Ожидание целевого PostgreSQL"
     if wait_target_postgres_auth; then
@@ -4555,6 +5051,51 @@ remnashop_webhook_checklist() {
     printf '  Platega merchant/project settings -> webhook URL: %s/webhook/platega\n' "$base_url"
     printf '  RollyPay terminal settings -> webhook URL: %s/webhook/rollypay\n' "$base_url"
     printf '  Telegram webhook: %s/tg/webhook (backend ставит его автоматически при старте)\n' "$base_url"
+}
+
+bedolaga_external_integrations_checklist() {
+    section "Обязательные действия во внешних кабинетах"
+    warn "Minishop не может автоматически изменить redirect/callback и webhook URL в кабинетах OIDC и платежных провайдеров. Обновите адреса для всех включенных интеграций."
+
+    miniapp_url="${MINIAPP_PUBLIC_URL_VALUE:-$(env_get MINIAPP_PUBLIC_URL '')}"
+    if [ -z "$miniapp_url" ]; then
+        miniapp_host="${MINIAPP_HOST_VALUE:-$(env_get MINIAPP_HOST app.example.com)}"
+        miniapp_url="https://$miniapp_host"
+    fi
+    miniapp_base=$(printf '%s' "$miniapp_url" | sed 's:/*$::')
+
+    info "OIDC redirect/callback URL (frontend-домен):"
+    printf '  Telegram BotFather Web Login/OIDC: %s/auth/telegram/callback\n' "$miniapp_base"
+    printf '  Google Cloud -> Authorized redirect URIs: %s/auth/google/callback\n' "$miniapp_base"
+    printf '  Yandex OAuth -> Redirect URI: %s/auth/yandex/callback\n' "$miniapp_base"
+
+    base_url=$(target_webhook_base_url)
+    if [ -z "$base_url" ]; then
+        warn "Не удалось определить webhook base URL из .env. Укажите WEBHOOK_HOST или WEBHOOK_PUBLIC_URL и замените WEBHOOK_BASE_URL в адресах ниже."
+        base_url="WEBHOOK_BASE_URL"
+    fi
+
+    info "Платежные webhook URL (backend-домен; обновите только включенных провайдеров):"
+    printf '  YooKassa: %s/webhook/yookassa\n' "$base_url"
+    printf '  FreeKassa: %s/webhook/freekassa\n' "$base_url"
+    printf '  Platega: %s/webhook/platega\n' "$base_url"
+    printf '  RollyPay: %s/webhook/rollypay\n' "$base_url"
+    printf '  SeverPay: %s/webhook/severpay\n' "$base_url"
+    printf '  WATA: %s/webhook/wata\n' "$base_url"
+    printf '  Crypto Pay: %s/webhook/cryptopay\n' "$base_url"
+    printf '  Heleket: %s/webhook/heleket\n' "$base_url"
+    printf '  OxaPay: %s/webhook/oxapay (обычно передается автоматически при создании счета)\n' "$base_url"
+    printf '  PayKilla: %s/webhook/paykilla\n' "$base_url"
+    printf '  LAVA: %s/webhook/lava (передается автоматически; при наличии поля проверьте кабинет)\n' "$base_url"
+    printf '  Pally / PayPalych: %s/webhook/pally\n' "$base_url"
+    printf '  CloudPayments: %s/webhook/cloudpayments\n' "$base_url"
+    printf '  Overpay: %s/webhook/overpay\n' "$base_url"
+    printf '  Stripe: %s/webhook/stripe\n' "$base_url"
+    printf '  Tribute: %s/webhook/tribute\n' "$base_url"
+    printf '  Telegram Stars: отдельный платежный webhook не нужен; используется %s/tg/webhook\n' "$base_url"
+
+    info "Инструкции: https://minishop.minidoc.cc/features/login-methods/ и https://minishop.minidoc.cc/features/payments/"
+    warn "После обновления выполните тестовый вход через каждый включенный OIDC-провайдер и тестовый платеж через каждый включенный платежный провайдер."
 }
 
 remnashop_post_migration_next_steps() {
@@ -4982,22 +5523,32 @@ run_import_command() {
     dry="$1"
     summary_output_path="${2:-}"
     show_raw_output="${3:-1}"
+    source_type="${4:-${LEGACY_SOURCE:-remnashop}}"
+    source_env_mount="/tmp/$source_type.env"
     set -- run --rm -T \
         --user 0:0 \
         -v "$IMPORTER_PATH:/app/backend/scripts/import_legacy.py:ro"
+    if [ -n "$summary_output_path" ]; then
+        mkdir -p "$(dirname "$summary_output_path")"
+        set -- "$@" -v "$(dirname "$summary_output_path"):/migration-output"
+    fi
     if [ -n "$SOURCE_ENV_PATH" ]; then
-        set -- "$@" -v "$SOURCE_ENV_PATH:/tmp/remnashop.env:ro"
+        set -- "$@" -v "$SOURCE_ENV_PATH:$source_env_mount:ro"
     fi
     if [ -n "$TARIFF_MAP_PATH" ]; then
         set -- "$@" -v "$TARIFF_MAP_PATH:/tmp/tariff-map.json:ro"
     fi
     set -- "$@" backend python backend/scripts/import_legacy.py \
-        --source-type remnashop \
+        --source-type "$source_type" \
         --source-dsn "$SOURCE_DSN" \
         --source-schema "$SOURCE_SCHEMA" \
         --target-dsn "$TARGET_DSN"
     if [ -n "$SOURCE_ENV_PATH" ]; then
-        set -- "$@" --source-env-file /tmp/remnashop.env
+        if [ "$source_type" = "remnashop" ]; then
+            set -- "$@" --source-env-file /tmp/remnashop.env
+        else
+            set -- "$@" --source-env-file "$source_env_mount"
+        fi
     fi
     if [ -n "$TARIFF_MAP_PATH" ]; then
         set -- "$@" --tariff-map-json /tmp/tariff-map.json
@@ -5006,7 +5557,25 @@ run_import_command() {
         set -- "$@" --dry-run
     fi
     if [ -n "$summary_output_path" ]; then
-        mkdir -p "$(dirname "$summary_output_path")"
+        summary_name=$(basename "$summary_output_path")
+        if [ "$source_type" = "bedolaga" ]; then
+            inventory_name="bedolaga-inventory.json"
+            config_plan_name="bedolaga-config-plan.json"
+            if [ "$dry" = "1" ]; then
+                reconciliation_name="bedolaga-dry-run-reconciliation.json"
+            else
+                reconciliation_name="bedolaga-reconciliation.json"
+            fi
+        else
+            inventory_name="$source_type-$dry-inventory.json"
+            config_plan_name="$source_type-$dry-config-plan.json"
+            reconciliation_name="$source_type-$dry-reconciliation.json"
+        fi
+        set -- "$@" \
+            --summary-output "/migration-output/$summary_name" \
+            --inventory-output "/migration-output/$inventory_name" \
+            --config-plan-output "/migration-output/$config_plan_name" \
+            --reconciliation-output "/migration-output/$reconciliation_name"
         raw_output="$summary_output_path.raw"
         if (cd "$TARGET_DIR" && run_compose "$@" < /dev/null) > "$raw_output" 2>&1; then
             summary_extracted=0
@@ -5173,23 +5742,29 @@ EOF
 }
 
 choose_legacy_source() {
-    default_source="1"
-    if detect_remnashop_stack; then
+    default_source="2"
+    if detect_bedolaga_stack; then
         default_source="1"
+        info "Найден Bedolaga; по умолчанию предлагаю миграцию из него."
+    elif detect_remnashop_stack; then
+        default_source="2"
         info "Найден Remnashop; по умолчанию предлагаю миграцию из него."
     elif volume_exists "$OLD_TGSHOP_DB_VOLUME" 2>/dev/null; then
-        default_source="2"
+        default_source="3"
         info "Найден старый Docker volume remnawave-tg-shop; по умолчанию предлагаю миграцию из него."
     fi
+    info "Документация по миграции из Bedolaga: $DOCS_BEDOLAGA_URL"
     info "Документация по миграции из Remnashop: $DOCS_REMNASHOP_URL"
-    choose "Откуда мигрировать данные" "$default_source" "1|2|3" \
-        "1. Remnashop - пользователи, подписки, платежи, тарифы, промокоды и настройки провайдеров." \
-        "2. Старый remnawave-tg-shop - перенос совместимой базы или Docker volume." \
-        "3. Не мигрировать данные" || return 1
+    choose "Откуда мигрировать данные" "$default_source" "1|2|3|4" \
+        "1. Bedolaga - учетные записи, подписки, баланс, подарки, промокоды и операционные данные." \
+        "2. Remnashop - пользователи, подписки, платежи, тарифы, промокоды и настройки провайдеров." \
+        "3. Старый remnawave-tg-shop - перенос совместимой базы или Docker volume." \
+        "4. Не мигрировать данные" || return 1
     case "$CHOICE_VALUE" in
-        1) LEGACY_SOURCE="remnashop" ;;
-        2) LEGACY_SOURCE="remnawave-tg-shop" ;;
-        3) LEGACY_SOURCE="skip" ;;
+        1) LEGACY_SOURCE="bedolaga" ;;
+        2) LEGACY_SOURCE="remnashop" ;;
+        3) LEGACY_SOURCE="remnawave-tg-shop" ;;
+        4) LEGACY_SOURCE="skip" ;;
     esac
 }
 
@@ -5309,6 +5884,114 @@ run_remnashop_migration() {
     remnashop_post_migration_next_steps
 }
 
+run_bedolaga_migration() {
+    section "Миграция из Bedolaga"
+    info "Сначала будет инвентаризация и проверка без записи. Документация: $DOCS_BEDOLAGA_URL"
+    ENV_PATH="$TARGET_DIR/.env"
+    if [ ! -f "$ENV_PATH" ]; then
+        fail ".env не найден. Сначала установите стек или сгенерируйте конфигурацию."
+        return 1
+    fi
+    ensure_source_for_importer || return 1
+    require_docker || return 1
+    POSTGRES_USER_VALUE="$(env_get POSTGRES_USER '')"
+    POSTGRES_PASSWORD_VALUE="$(env_get POSTGRES_PASSWORD '')"
+    POSTGRES_DB_VALUE="$(env_get POSTGRES_DB '')"
+
+    detected_source_dsn=$(detect_bedolaga_source_dsn || true)
+    if [ -n "$detected_source_dsn" ]; then
+        info "Нашел Bedolaga PostgreSQL и подставил DSN по умолчанию."
+    fi
+    prompt_value "DSN PostgreSQL базы Bedolaga" "$detected_source_dsn" 1 0 ""
+    SOURCE_DSN="$PROMPT_VALUE"
+    SOURCE_SCHEMA="${BEDOLAGA_SOURCE_SCHEMA:-public}"
+    detected_source_env=$(detect_bedolaga_env_file || true)
+    if [ -n "$detected_source_env" ]; then
+        info "Нашел .env Bedolaga и подставил путь по умолчанию."
+    fi
+    prompt_value "Путь к .env Bedolaga для плана настроек (пусто = пропустить)" "$detected_source_env" 0 0 ""
+    SOURCE_ENV_PATH="$PROMPT_VALUE"
+    if [ -n "$SOURCE_ENV_PATH" ]; then
+        source_env_dir=$(dirname "$SOURCE_ENV_PATH")
+        if [ ! -d "$source_env_dir" ]; then
+            fail "Каталог .env источника не найден: $source_env_dir"
+            return 1
+        fi
+        SOURCE_ENV_PATH=$(cd "$source_env_dir" && pwd)/$(basename "$SOURCE_ENV_PATH")
+        if [ ! -f "$SOURCE_ENV_PATH" ]; then
+            fail ".env Bedolaga не найден: $SOURCE_ENV_PATH"
+            return 1
+        fi
+    fi
+    TARIFF_MAP_PATH=""
+
+    choose "Целевая база Minishop" "1" "1|2" \
+        "1. База текущего Docker Compose стека (рекомендуется)." \
+        "2. Ввести целевой DSN вручную." || return 1
+    if [ "$CHOICE_VALUE" = "1" ]; then
+        BEDOLAGA_LOCAL_TARGET="1"
+        TARGET_DSN="$(local_target_dsn)"
+        create_pre_migration_backup bedolaga || return 1
+        if confirm "Сбросить целевую базу Minishop перед импортом? Это удалит текущие данные Minishop." 0; then
+            reset_target_compose_database || return 1
+        fi
+    else
+        BEDOLAGA_LOCAL_TARGET="0"
+        warn "Для ручного целевого DSN автоматический бэкап целевой базы не выполняется."
+        prompt_value "Целевой PostgreSQL DSN" "" 1 0 ""
+        TARGET_DSN="$PROMPT_VALUE"
+    fi
+
+    IMPORTER_PATH="$(download_importer)" || return 1
+    connect_local_source_db_to_target_network
+    mkdir -p "$TARGET_DIR/$INSTALL_STATE_DIR"
+    DRY_RUN_SUMMARY_PATH="$TARGET_DIR/$INSTALL_STATE_DIR/bedolaga-dry-run-summary.json"
+    if ! run_import_command 1 "$DRY_RUN_SUMMARY_PATH" 0 bedolaga; then
+        disconnect_local_source_db_from_target_network
+        fail "Проверка Bedolaga без записи не прошла. Изучите inventory и reconciliation отчеты."
+        return 1
+    fi
+    print_remnashop_import_summary "$DRY_RUN_SUMMARY_PATH" "dry-run"
+    if ! confirm "Применить эту миграцию по-настоящему?" 1; then
+        disconnect_local_source_db_from_target_network
+        warn "Миграция не применена."
+        return 0
+    fi
+    if ! sync_bedolaga_bootstrap_env; then
+        disconnect_local_source_db_from_target_network
+        return 1
+    fi
+
+    APPLY_SUMMARY_PATH="$TARGET_DIR/$INSTALL_STATE_DIR/bedolaga-apply-summary.json"
+    import_status=0
+    run_import_command 0 "$APPLY_SUMMARY_PATH" 0 bedolaga || import_status=$?
+    restore_app_data_permissions || true
+    disconnect_local_source_db_from_target_network
+    if [ "$import_status" != "0" ]; then
+        restore_bedolaga_env_backup || true
+        return "$import_status"
+    fi
+    print_remnashop_import_summary "$APPLY_SUMMARY_PATH" "apply"
+    BEDOLAGA_POST_MIGRATION_PATH="$TARGET_DIR/$INSTALL_STATE_DIR/bedolaga-post-migration.md"
+    {
+        printf '%s\n' '# Проверка после миграции Bedolaga'
+        printf '%s\n' ''
+        printf '%s\n' '- [ ] `blockers` в reconciliation пуст.'
+        printf '%s\n' '- [ ] Итоговые балансы и количества сверены с source.'
+        printf '%s\n' '- [ ] Активные подписки открываются через Core и Panel.'
+        printf '%s\n' '- [ ] Проверены trial, gifts, hidden tariffs и вход тестовых пользователей.'
+        printf '%s\n' '- [ ] Совместимые bootstrap-настройки из `.env` проверены; неподдерживаемые секреты заданы вручную.'
+        printf '%s\n' '- [ ] Платежные методы, обязательные каналы, юридические страницы и кастомное меню проверены вручную.'
+        printf '%s\n' '- [ ] OIDC redirect/callback URL обновлены во внешних кабинетах Telegram, Google и Yandex для нового frontend-домена.'
+        printf '%s\n' '- [ ] Webhook URL включенных платежных провайдеров обновлены для нового backend-домена.'
+        printf '%s\n' '- [ ] Выполнены тестовый OIDC-вход и тестовый платеж через каждую включенную интеграцию.'
+        printf '%s\n' '- [ ] После cutover Minishop healthy, а Bedolaga остановлена с Docker restart policy `no`.'
+    } > "$BEDOLAGA_POST_MIGRATION_PATH"
+    ok "Импорт Bedolaga завершен. Отчеты сохранены в $TARGET_DIR/$INSTALL_STATE_DIR."
+    perform_bedolaga_cutover || return 1
+    bedolaga_external_integrations_checklist
+}
+
 run_target_schema_migrations() {
     section "Применение миграций схемы целевого стека"
     [ -n "$ENV_PATH" ] || ENV_PATH="$TARGET_DIR/.env"
@@ -5389,6 +6072,9 @@ run_remnawave_tg_shop_migration() {
 
 run_selected_legacy_migration() {
     case "$LEGACY_SOURCE" in
+        bedolaga)
+            run_bedolaga_migration
+            ;;
         remnashop)
             run_remnashop_migration
             ;;
@@ -5696,6 +6382,11 @@ install_flow() {
             start_stack || return 1
             run_selected_legacy_migration
             ;;
+        bedolaga)
+            info "Подготавливаю контейнеры Minishop без запуска runtime, чтобы Bedolaga оставалась единственным процессом с текущим BOT_TOKEN до cutover."
+            prepare_compose_without_starting_apps || return 1
+            run_selected_legacy_migration
+            ;;
         *)
             if confirm "Запустить Docker Compose стек сейчас?" 1; then
                 start_stack || return 1
@@ -5712,7 +6403,7 @@ migration_only_flow() {
     [ "$LEGACY_SOURCE" = "skip" ] && return 0
     prepare_data_mount || return 1
     case "$LEGACY_SOURCE" in
-        remnashop) install_source || return 1 ;;
+        remnashop|bedolaga) install_source || return 1 ;;
     esac
     run_selected_legacy_migration
 }
