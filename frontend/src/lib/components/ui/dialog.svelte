@@ -25,6 +25,7 @@
     onclose?: () => void;
     class?: string;
     scrollType?: ScrollType;
+    showCloseButton?: boolean;
     titleIcon?: Snippet;
     headerContent?: Snippet;
     children?: Snippet;
@@ -38,6 +39,7 @@
     onclose = () => {},
     class: className = "",
     scrollType = "auto",
+    showCloseButton = true,
     titleIcon,
     headerContent,
     children,
@@ -121,7 +123,11 @@
       in:fly={cardIn()}
       out:fly={cardOut()}
     >
-      <div class:dialog-head-custom={headerContent} class="dialog-head">
+      <div
+        class:dialog-head-custom={headerContent}
+        class:dialog-head-no-close={!showCloseButton}
+        class="dialog-head"
+      >
         <div class:dialog-title-with-icon={titleIcon} class="dialog-title-block">
           {#if headerContent}
             {@render headerContent()}
@@ -137,15 +143,17 @@
             </div>
           {/if}
         </div>
-        <Button
-          class="dialog-close-button"
-          variant="icon"
-          size="icon"
-          onclick={onclose}
-          aria-label={closeLabel}
-        >
-          <X size={18} />
-        </Button>
+        {#if showCloseButton}
+          <Button
+            class="dialog-close-button"
+            variant="icon"
+            size="icon"
+            onclick={onclose}
+            aria-label={closeLabel}
+          >
+            <X size={18} />
+          </Button>
+        {/if}
       </div>
       <ScrollArea class="dialog-body-scroll scroll-area--dialog" maxHeight="none" type={scrollType}>
         {@render children?.()}

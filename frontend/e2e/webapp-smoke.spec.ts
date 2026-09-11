@@ -896,7 +896,9 @@ async function exerciseWebappDialogs(
       const confirmDialog = page.locator(".dialog-card.webapp-tariff-change-confirm-dialog");
       await expect(confirmDialog).toBeVisible();
       await assertFormFieldsNamed(page, "webapp-tariff-change-confirm-modal");
-      await closeDialog(confirmDialog);
+      await expect(confirmDialog.locator(".dialog-close-button")).toHaveCount(0);
+      await confirmDialog.getByRole("button", { name: "Отмена", exact: true }).click();
+      await expect(confirmDialog).toBeHidden();
     }
     if (await changeDialog.isVisible()) {
       await closeDialog(changeDialog);
@@ -934,7 +936,9 @@ async function exerciseWebappDialogs(
     const deviceDisconnectDialog = page.locator(".dialog-card.webapp-device-disconnect-dialog");
     await expect(deviceDisconnectDialog).toBeVisible();
     await assertFormFieldsNamed(page, "webapp-device-disconnect-modal");
-    await closeDialog(deviceDisconnectDialog);
+    await expect(deviceDisconnectDialog.locator(".dialog-close-button")).toHaveCount(0);
+    await deviceDisconnectDialog.getByRole("button", { name: "Отмена", exact: true }).click();
+    await expect(deviceDisconnectDialog).toBeHidden();
   }
 
   setPhase("webapp-account-modals");

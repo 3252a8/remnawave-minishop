@@ -465,6 +465,30 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('data-webapp-action="open-subscription-reissue"', settings_source)
         self.assertNotIn('data-webapp-action="open-subscription-reissue"', devices_source)
 
+    def test_confirmation_dialogs_hide_redundant_close_button(self):
+        root = Path(__file__).resolve().parents[2]
+        shared_dialog_source = (root / "frontend/src/lib/components/ui/dialog.svelte").read_text(
+            encoding="utf-8"
+        )
+        dialogs_css = (root / "frontend/src/styles/dialogs.css").read_text(encoding="utf-8")
+        confirmation_sources = [
+            root / "frontend/src/webapp/payment-dialogs/SubscriptionReissueDialog.svelte",
+            root / "frontend/src/webapp/payment-dialogs/DeviceDisconnectDialog.svelte",
+            root / "frontend/src/webapp/payment-dialogs/PendingPaymentCard.svelte",
+            root / "frontend/src/webapp/TariffDialogs.svelte",
+        ]
+
+        self.assertIn("showCloseButton?: boolean;", shared_dialog_source)
+        self.assertIn("showCloseButton = true,", shared_dialog_source)
+        self.assertIn("{#if showCloseButton}", shared_dialog_source)
+        self.assertIn(".dialog-head-no-close", dialogs_css)
+        for source_path in confirmation_sources:
+            self.assertIn(
+                "showCloseButton={false}",
+                source_path.read_text(encoding="utf-8"),
+                source_path.name,
+            )
+
     def test_webapp_bootstrap_exposes_server_status_url(self):
         settings = Settings(
             _env_file=None,
