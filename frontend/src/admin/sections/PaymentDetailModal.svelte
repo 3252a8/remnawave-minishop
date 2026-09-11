@@ -147,15 +147,17 @@
   }
 
   function openPartner(): void {
-    if (!partnerAttribution) return;
+    const partnerId = partnerAttribution?.partnerId;
+    if (!partnerId) return;
     paymentsStore.closePayment({ skipPush: true });
-    onOpenPartnerCard(partnerAttribution.partnerId);
+    onOpenPartnerCard(partnerId);
   }
 
   function openUser(): void {
-    if (!payment?.user_id) return;
+    const userId = Number(payment?.user_id);
+    if (!Number.isFinite(userId) || userId === 0) return;
     paymentsStore.closePayment({ skipPush: true });
-    onOpenUserCard(payment.user_id);
+    onOpenUserCard(userId);
   }
 
   function openPromo(): void {

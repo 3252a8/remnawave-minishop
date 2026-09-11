@@ -2393,7 +2393,11 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   const paymentDialog = page.locator(".dialog-card.admin-payment-dialog");
   await expect(paymentDialog).toBeVisible();
   await assertFormFieldsNamed(page, "admin-payments:payment-dialog");
-  await closeDialog(paymentDialog);
+  await paymentDialog
+    .getByRole("button", { name: "Открыть карточку пользователя", exact: true })
+    .click();
+  await expect(paymentDialog).toBeHidden();
+  await openUserDetailFromCurrentSection(page, setPhase, "admin-payment-detail");
 
   setPhase("admin-payments:user-card");
   await page.locator(".admin-payments-user-btn").first().click();
