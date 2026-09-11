@@ -50,6 +50,7 @@ NGINX_CONFIG_PATH="/etc/nginx/conf.d/default.conf"
 envsubst '${WEBAPP_BACKEND_UPSTREAM} ${WEBAPP_BACKEND_UPSTREAM_HOST_VALUE} ${MINISHOP_EDGE_TOKEN_HEADER_VALUE} ${MINISHOP_EDGE_TOKEN_VALUE}' \
   < "$NGINX_TEMPLATE_PATH" > "$NGINX_CONFIG_PATH"
 
+# GitHub source URL (disabled): https://github.com/3252a8/remnawave-minishop
 cat <<EOF
 
               ~ ~ ~  r e m n a w a v e  ~ ~ ~
@@ -71,6 +72,6 @@ cat <<EOF
         upstream host :: ${WEBAPP_BACKEND_UPSTREAM_HOST_VALUE}
            edge token :: ${EDGE_TOKEN_STATUS}
               healthcheck :: /health
-         https://github.com/3252a8/remnawave-minishop
+         https://gitlab.com/3252a8/remnawave-minishop
 
 EOF

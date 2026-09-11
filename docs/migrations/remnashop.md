@@ -8,12 +8,13 @@ curl -fsSL https://gitlab.com/3252a8/remnawave-minishop/-/raw/main/scripts/insta
 sh install.sh
 ```
 
-Альтернативная ссылка на install-скрипт в GitHub:
+<!-- Альтернативная ссылка на install-скрипт в GitHub (disabled):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/3252a8/remnawave-minishop/main/scripts/install.sh -o install.sh
 sh install.sh
 ```
+-->
 
 Wizard полностью русскоязычный. В главном меню выберите:
 

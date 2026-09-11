@@ -5,7 +5,8 @@
 - JSON-каталог тарифов из `TARIFFS_CONFIG_PATH` (по умолчанию `data/tariffs.json`);
 - конфигурация через переменные `.env`, если JSON-файл отсутствует.
 
-JSON-каталог может содержать несколько тарифов разных моделей: подписки на срок, пакеты трафика без срока действия, разные наборы Internal Squads, лимиты устройств и пакеты докупки. Пример формата: [data/tariffs.example.json](https://github.com/3252a8/remnawave-minishop/blob/main/data/tariffs.example.json).
+<!-- GitHub source link (disabled): [data/tariffs.example.json](https://github.com/3252a8/remnawave-minishop/blob/main/data/tariffs.example.json) -->
+JSON-каталог может содержать несколько тарифов разных моделей: подписки на срок, пакеты трафика без срока действия, разные наборы Internal Squads, лимиты устройств и пакеты докупки. Пример формата: [data/tariffs.example.json](https://gitlab.com/3252a8/remnawave-minishop/-/blob/main/data/tariffs.example.json).
 
 Важно для Docker: `TARIFFS_CONFIG_PATH` обычно указывает на файл внутри `/app/data`, и этот каталог должен быть доступен `migrate`, `backend` и `worker`. Мигратор тоже читает каталог тарифов, когда привязывает существующие активные подписки без `tariff_key` к тарифу по умолчанию и заполняет тарифные лимиты. В штатных compose-файлах это уже настроено: корневой compose использует `shop-data:/app/data`, а production-примеры - `./data:/app/data` для всех трех сервисов.
 

@@ -10,7 +10,8 @@ drift-guard подтвердить, что всё связано правиль�
 - [docs/architecture/http-api.md](../architecture/http-api.md) — справочник HTTP-контракта
 - [docs/architecture/events.md](../architecture/events.md) — сгенерированный каталог событий
 - [docs/development/plugins.md](plugins.md), [plugin-contract.md](plugin-contract.md) — API плагинов
-- [CONTRIBUTING.md](https://github.com/3252a8/remnawave-minishop/blob/main/CONTRIBUTING.md) — соглашения и неприкосновенные правила
+- [CONTRIBUTING.md](https://gitlab.com/3252a8/remnawave-minishop/-/blob/main/CONTRIBUTING.md) — соглашения и неприкосновенные правила
+<!-- GitHub source link (disabled): [CONTRIBUTING.md](https://github.com/3252a8/remnawave-minishop/blob/main/CONTRIBUTING.md) -->
 
 ---
 

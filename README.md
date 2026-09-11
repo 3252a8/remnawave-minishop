@@ -83,8 +83,10 @@ Remnawave Minishop - Telegram-бот и Web App (Mini App) для продажи
 - токен Telegram-бота;
 - публичные домены для webhook и Mini App.
 
+<!-- GitHub clone URL (disabled): https://github.com/3252a8/remnawave-minishop -->
+
 ```bash
-git clone https://github.com/3252a8/remnawave-minishop
+git clone https://gitlab.com/3252a8/remnawave-minishop.git
 cd remnawave-minishop
 cp .env.example .env
 nano .env

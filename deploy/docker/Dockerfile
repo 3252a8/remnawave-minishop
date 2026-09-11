@@ -156,7 +156,8 @@ FROM python-base AS backend
 # the shell emits immutable, cache-busting URLs.
 COPY --from=frontend-builder /app/backend/bot/app/web/templates/ ./backend/bot/app/web/templates/
 
-LABEL org.opencontainers.image.source="https://github.com/3252a8/remnawave-minishop" \
+# GitHub source URL (disabled): https://github.com/3252a8/remnawave-minishop
+LABEL org.opencontainers.image.source="https://gitlab.com/3252a8/remnawave-minishop" \
       org.opencontainers.image.title="remnawave-minishop-backend" \
       org.opencontainers.image.description="Remnawave Minishop backend (Telegram bot API, web app, webhooks)." \
       org.opencontainers.image.licenses="MIT"
@@ -183,7 +184,8 @@ CMD ["python", "-m", "pytest"]
 
 FROM python-base AS worker
 
-LABEL org.opencontainers.image.source="https://github.com/3252a8/remnawave-minishop" \
+# GitHub source URL (disabled): https://github.com/3252a8/remnawave-minishop
+LABEL org.opencontainers.image.source="https://gitlab.com/3252a8/remnawave-minishop" \
       org.opencontainers.image.title="remnawave-minishop-worker" \
       org.opencontainers.image.description="Remnawave Minishop background worker (scheduled jobs, async tasks)." \
       org.opencontainers.image.licenses="MIT"
@@ -221,7 +223,8 @@ RUN set -eu; \
 
 FROM nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10 AS frontend
 
-LABEL org.opencontainers.image.source="https://github.com/3252a8/remnawave-minishop" \
+# GitHub source URL (disabled): https://github.com/3252a8/remnawave-minishop
+LABEL org.opencontainers.image.source="https://gitlab.com/3252a8/remnawave-minishop" \
       org.opencontainers.image.title="remnawave-minishop-frontend" \
       org.opencontainers.image.description="Remnawave Minishop frontend (nginx serving the subscription Mini App)." \
       org.opencontainers.image.licenses="MIT"

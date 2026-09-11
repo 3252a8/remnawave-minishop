@@ -37,7 +37,7 @@ export default defineConfig({
             { label: 'Документация', href: '/getting-started/overview/' },
             { label: 'minishop PRO', href: 'https://cloud.minidoc.cc' },
             { label: 'API', href: '/api/' },
-            { label: 'GitHub', href: 'https://github.com/3252a8/remnawave-minishop' },
+            // { label: 'GitHub', href: 'https://github.com/3252a8/remnawave-minishop' },
             { label: 'GitLab', href: 'https://gitlab.com/3252a8/remnawave-minishop' },
             { label: 'Telegram', href: 'https://t.me/remnawave_minishop' },
             otherDocsVersion,

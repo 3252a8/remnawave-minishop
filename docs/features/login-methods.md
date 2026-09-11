@@ -467,9 +467,11 @@ https://mail.example.com {
 ```bash
 mkdir -p /opt/mailserver
 cd /opt/mailserver
-curl -O https://raw.githubusercontent.com/3252a8/remnawave-minishop/refs/heads/main/deploy/examples/mail/docker-compose.yml
+curl -O https://gitlab.com/3252a8/remnawave-minishop/-/raw/main/deploy/examples/mail/docker-compose.yml
 nano docker-compose.yml
 ```
+
+<!-- GitHub source URL (disabled): https://raw.githubusercontent.com/3252a8/remnawave-minishop/refs/heads/main/deploy/examples/mail/docker-compose.yml -->
 
 2. Запустите:
 

@@ -22,12 +22,13 @@ curl -fsSL https://gitlab.com/3252a8/remnawave-minishop/-/raw/main/scripts/insta
 sh install.sh
 ```
 
-Альтернативная ссылка на install-скрипт в GitHub:
+<!-- Альтернативная ссылка на install-скрипт в GitHub (disabled):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/3252a8/remnawave-minishop/main/scripts/install.sh -o install.sh
 sh install.sh
 ```
+-->
 
 Wizard работает через меню с цифрами и подтверждениями `y/n`. Он умеет:
 
@@ -221,14 +222,24 @@ gateway: loopback принадлежит контейнеру. Проверяй�
 
 | Папка | Когда использовать |
 | --- | --- |
-| [`deploy/examples/caddy`](https://github.com/3252a8/remnawave-minishop/tree/main/deploy/examples/caddy) | Нужен простой публичный HTTPS с автоматическими сертификатами Let's Encrypt. |
-| [`deploy/examples/angie`](https://github.com/3252a8/remnawave-minishop/tree/main/deploy/examples/angie) | Нужен автоматический HTTPS как у Caddy, но с конфигурацией в Nginx-синтаксисе (Angie - форк Nginx с нативным ACME). |
-| [`deploy/examples/nginx`](https://github.com/3252a8/remnawave-minishop/tree/main/deploy/examples/nginx) | Уже используете Nginx и готовы положить TLS-сертификаты рядом с примером. |
-| [`deploy/examples/newt`](https://github.com/3252a8/remnawave-minishop/tree/main/deploy/examples/newt) | Публикуете сервисы через Pangolin/Newt без входящих портов на сервере приложения. |
-| [`deploy/examples/no-proxy`](https://github.com/3252a8/remnawave-minishop/tree/main/deploy/examples/no-proxy) | Нужно напрямую открыть HTTP-порты backend/frontend или проверить стек за внешним TLS-терминатором. |
-| [`deploy/examples/split-protected-upstream`](https://github.com/3252a8/remnawave-minishop/tree/main/deploy/examples/split-protected-upstream) | Frontend и backend на разных серверах; frontend nginx проксирует `/api` к protected/private backend upstream. |
-| [`deploy/examples/rathole`](https://github.com/3252a8/remnawave-minishop/tree/main/deploy/examples/rathole) | Frontend и backend на разных серверах, WebApp API plane идет через приватный Rathole tunnel. |
+| [`deploy/examples/caddy`](https://gitlab.com/3252a8/remnawave-minishop/-/tree/main/deploy/examples/caddy) | Нужен простой публичный HTTPS с автоматическими сертификатами Let's Encrypt. |
+| [`deploy/examples/angie`](https://gitlab.com/3252a8/remnawave-minishop/-/tree/main/deploy/examples/angie) | Нужен автоматический HTTPS как у Caddy, но с конфигурацией в Nginx-синтаксисе (Angie - форк Nginx с нативным ACME). |
+| [`deploy/examples/nginx`](https://gitlab.com/3252a8/remnawave-minishop/-/tree/main/deploy/examples/nginx) | Уже используете Nginx и готовы положить TLS-сертификаты рядом с примером. |
+| [`deploy/examples/newt`](https://gitlab.com/3252a8/remnawave-minishop/-/tree/main/deploy/examples/newt) | Публикуете сервисы через Pangolin/Newt без входящих портов на сервере приложения. |
+| [`deploy/examples/no-proxy`](https://gitlab.com/3252a8/remnawave-minishop/-/tree/main/deploy/examples/no-proxy) | Нужно напрямую открыть HTTP-порты backend/frontend или проверить стек за внешним TLS-терминатором. |
+| [`deploy/examples/split-protected-upstream`](https://gitlab.com/3252a8/remnawave-minishop/-/tree/main/deploy/examples/split-protected-upstream) | Frontend и backend на разных серверах; frontend nginx проксирует `/api` к protected/private backend upstream. |
+| [`deploy/examples/rathole`](https://gitlab.com/3252a8/remnawave-minishop/-/tree/main/deploy/examples/rathole) | Frontend и backend на разных серверах, WebApp API plane идет через приватный Rathole tunnel. |
 | `Уже установленная Remnawave через eGames - использовать ее Nginx/TLS` в wizard | Remnawave Panel уже стоит на этом же хосте через [`eGamesAPI/remnawave-reverse-proxy`](https://github.com/eGamesAPI/remnawave-reverse-proxy); wizard использует no-proxy compose, добавляет backend/Mini App маршруты в найденный `nginx.conf` eGames и после миграции перечитывает Nginx. |
+
+<!-- GitHub source URLs (disabled):
+https://github.com/3252a8/remnawave-minishop/tree/main/deploy/examples/caddy
+https://github.com/3252a8/remnawave-minishop/tree/main/deploy/examples/angie
+https://github.com/3252a8/remnawave-minishop/tree/main/deploy/examples/nginx
+https://github.com/3252a8/remnawave-minishop/tree/main/deploy/examples/newt
+https://github.com/3252a8/remnawave-minishop/tree/main/deploy/examples/no-proxy
+https://github.com/3252a8/remnawave-minishop/tree/main/deploy/examples/split-protected-upstream
+https://github.com/3252a8/remnawave-minishop/tree/main/deploy/examples/rathole
+-->
 
 ## Caddy (рекомендуемый вариант)
 
