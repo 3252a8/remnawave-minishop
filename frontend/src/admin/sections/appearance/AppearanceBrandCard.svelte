@@ -270,12 +270,12 @@
 </script>
 
 <div class="appearance-brand-settings">
-    <header class="appearance-brand-accordion-header">
-      <div class="appearance-brand-accordion-trigger">
-        <span class="appearance-brand-accordion-copy">
-          <strong>{at("appearance_brand_title", {}, "Logo")}</strong>
-          <small>{at("appearance_brand_sub", {}, "Upload a logo as a file or from a URL")}</small>
-        </span>
+  <header class="appearance-brand-accordion-header">
+    <div class="appearance-brand-accordion-trigger">
+      <span class="appearance-brand-accordion-copy">
+        <strong>{at("appearance_brand_title", {}, "Logo")}</strong>
+        <small>{at("appearance_brand_sub", {}, "Upload a logo as a file or from a URL")}</small>
+      </span>
       <div class="appearance-brand-accordion-actions">
         {#if appearanceDirtyCount}
           <AdminBadge variant="warning">
@@ -294,128 +294,128 @@
             : at("btn_save", {}, "Save")}
         </AdminButton>
       </div>
-      </div>
-    </header>
-    <div class="appearance-brand-accordion-content">
-      <div class="appearance-logo-grid">
-    <div class="appearance-logo-preview">
-      {#if previewLogoUrl && !logoPreviewFailed}
-        <img
-          class="appearance-logo-image"
-          src={previewLogoUrl}
-          alt=""
-          loading="eager"
-          decoding="async"
-          onerror={() => {
-            logoPreviewFailed = true;
-          }}
-        />
-      {:else}
-        <span class="appearance-logo-empty" aria-hidden="true"></span>
-      {/if}
     </div>
+  </header>
+  <div class="appearance-brand-accordion-content">
+    <div class="appearance-logo-grid">
+      <div class="appearance-logo-preview">
+        {#if previewLogoUrl && !logoPreviewFailed}
+          <img
+            class="appearance-logo-image"
+            src={previewLogoUrl}
+            alt=""
+            loading="eager"
+            decoding="async"
+            onerror={() => {
+              logoPreviewFailed = true;
+            }}
+          />
+        {:else}
+          <span class="appearance-logo-empty" aria-hidden="true"></span>
+        {/if}
+      </div>
 
-    <div class="appearance-controls">
-      <section class="appearance-control-card">
-        <FileInput
-          bind:element={logoFileInput}
-          class="appearance-file-input"
-          accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml,image/x-icon"
-          onchange={handleLogoFileChange}
-        />
-        <AdminButton
-          class="appearance-control"
-          size="sm"
-          onclick={() => logoFileInput?.click()}
-          disabled={themesSaving}
-        >
-          <FileText size={13} />
-          {at("appearance_logo_upload_file", {}, "Upload file")}
-        </AdminButton>
-        <div class="appearance-url-row">
-          <Input
-            class="input appearance-control"
-            type="url"
-            placeholder="https://example.com/logo.png"
-            bind:value={logoSourceUrl}
+      <div class="appearance-controls">
+        <section class="appearance-control-card">
+          <FileInput
+            bind:element={logoFileInput}
+            class="appearance-file-input"
+            accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml,image/x-icon"
+            onchange={handleLogoFileChange}
           />
           <AdminButton
             class="appearance-control"
             size="sm"
-            onclick={uploadLogoFromUrl}
-            disabled={themesSaving || !logoSourceUrl.trim()}
+            onclick={() => logoFileInput?.click()}
+            disabled={themesSaving}
           >
-            {at("appearance_logo_upload_url", {}, "From URL")}
+            <FileText size={13} />
+            {at("appearance_logo_upload_file", {}, "Upload file")}
           </AdminButton>
-        </div>
-      </section>
+          <div class="appearance-url-row">
+            <Input
+              class="input appearance-control"
+              type="url"
+              placeholder="https://example.com/logo.png"
+              bind:value={logoSourceUrl}
+            />
+            <AdminButton
+              class="appearance-control"
+              size="sm"
+              onclick={uploadLogoFromUrl}
+              disabled={themesSaving || !logoSourceUrl.trim()}
+            >
+              {at("appearance_logo_upload_url", {}, "From URL")}
+            </AdminButton>
+          </div>
+        </section>
+      </div>
     </div>
+
+    <div class="appearance-logo-grid appearance-favicon-grid">
+      <div class="appearance-logo-preview appearance-favicon-preview">
+        {#if previewFaviconUrl && !faviconPreviewFailed}
+          <img
+            class="appearance-logo-image"
+            src={previewFaviconUrl}
+            alt=""
+            loading="eager"
+            decoding="async"
+            onerror={() => {
+              faviconPreviewFailed = true;
+            }}
+          />
+        {:else}
+          <span class="appearance-logo-empty" aria-hidden="true"></span>
+        {/if}
       </div>
 
-      <div class="appearance-logo-grid appearance-favicon-grid">
-    <div class="appearance-logo-preview appearance-favicon-preview">
-      {#if previewFaviconUrl && !faviconPreviewFailed}
-        <img
-          class="appearance-logo-image"
-          src={previewFaviconUrl}
-          alt=""
-          loading="eager"
-          decoding="async"
-          onerror={() => {
-            faviconPreviewFailed = true;
-          }}
-        />
-      {:else}
-        <span class="appearance-logo-empty" aria-hidden="true"></span>
-      {/if}
-    </div>
-
-    <div class="appearance-controls">
-      <section class="appearance-control-card">
-        <label class="appearance-switch">
-          <Switch.Root
-            aria-label={at("appearance_use_custom_favicon", {}, "Use a separate favicon")}
-            bind:checked={faviconUseCustomDraft}
-            onCheckedChange={setCustomFavicon}
-            class="admin-switch-root"
-          >
-            <Switch.Thumb class="admin-switch-thumb" />
-          </Switch.Root>
-          <span>{at("appearance_use_custom_favicon", {}, "Use a separate favicon")}</span>
-        </label>
-        <FileInput
-          bind:element={faviconFileInput}
-          class="appearance-file-input"
-          accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml,image/x-icon,.ico"
-          onchange={handleFaviconFileChange}
-        />
-        <AdminButton
-          class="appearance-control"
-          size="sm"
-          onclick={() => faviconFileInput?.click()}
-          disabled={themesSaving}
-        >
-          <FileText size={13} />
-          {at("appearance_favicon_upload_file", {}, "Upload favicon")}
-        </AdminButton>
-        <div class="appearance-url-row">
-          <Input
-            class="input appearance-control"
-            type="url"
-            placeholder="https://example.com/icon.png"
-            bind:value={faviconSourceUrl}
+      <div class="appearance-controls">
+        <section class="appearance-control-card">
+          <label class="appearance-switch">
+            <Switch.Root
+              aria-label={at("appearance_use_custom_favicon", {}, "Use a separate favicon")}
+              bind:checked={faviconUseCustomDraft}
+              onCheckedChange={setCustomFavicon}
+              class="admin-switch-root"
+            >
+              <Switch.Thumb class="admin-switch-thumb" />
+            </Switch.Root>
+            <span>{at("appearance_use_custom_favicon", {}, "Use a separate favicon")}</span>
+          </label>
+          <FileInput
+            bind:element={faviconFileInput}
+            class="appearance-file-input"
+            accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml,image/x-icon,.ico"
+            onchange={handleFaviconFileChange}
           />
           <AdminButton
             class="appearance-control"
             size="sm"
-            onclick={uploadFaviconFromUrl}
-            disabled={themesSaving || !faviconSourceUrl.trim()}
+            onclick={() => faviconFileInput?.click()}
+            disabled={themesSaving}
           >
-            {at("appearance_favicon_upload_url", {}, "From URL")}
+            <FileText size={13} />
+            {at("appearance_favicon_upload_file", {}, "Upload favicon")}
           </AdminButton>
-        </div>
-      </section>
-    </div>
+          <div class="appearance-url-row">
+            <Input
+              class="input appearance-control"
+              type="url"
+              placeholder="https://example.com/icon.png"
+              bind:value={faviconSourceUrl}
+            />
+            <AdminButton
+              class="appearance-control"
+              size="sm"
+              onclick={uploadFaviconFromUrl}
+              disabled={themesSaving || !faviconSourceUrl.trim()}
+            >
+              {at("appearance_favicon_upload_url", {}, "From URL")}
+            </AdminButton>
+          </div>
+        </section>
       </div>
     </div>
+  </div>
 </div>

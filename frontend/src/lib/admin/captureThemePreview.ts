@@ -85,7 +85,10 @@ export async function captureThemePreview(url: string): Promise<Blob> {
   document.body.appendChild(iframe);
   try {
     await new Promise<void>((resolve, reject) => {
-      const timeout = window.setTimeout(() => reject(new Error("preview_load_failed")), PREVIEW_TIMEOUT);
+      const timeout = window.setTimeout(
+        () => reject(new Error("preview_load_failed")),
+        PREVIEW_TIMEOUT
+      );
       iframe.addEventListener(
         "load",
         () => {

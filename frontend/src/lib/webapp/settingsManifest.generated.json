@@ -829,6 +829,25 @@
         "updated_at": null
       },
       {
+        "key": "WEBAPP_DEFAULT_THEME",
+        "type": "string",
+        "section": "appearance",
+        "section_order": 2,
+        "subsection": null,
+        "label": "Active WebApp theme",
+        "description": "Theme key selected in the appearance library.",
+        "i18n_label_key": "admin_appearance_active_theme_setting",
+        "i18n_description_key": "admin_appearance_active_theme_setting_hint",
+        "i18n_subsection_key": null,
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": true,
+        "secret": false,
+        "value": "",
+        "overridden": false,
+        "updated_at": null
+      },
+      {
         "key": "WEBAPP_LOGO_URL",
         "type": "url",
         "section": "appearance",

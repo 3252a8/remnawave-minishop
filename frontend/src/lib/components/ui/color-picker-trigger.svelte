@@ -9,16 +9,23 @@
 
   let { labelElement = $bindable(), hex, label, name = undefined, dir }: Props = $props();
 
+  const inputId = `ui-color-input-${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`;
+
   function preventNativePicker(event: MouseEvent): void {
     // The color picker library handles this event at window level.
     event.preventDefault();
   }
-
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions, a11y_click_events_have_key_events -->
-<label bind:this={labelElement} onmousedown={preventNativePicker} onclick={preventNativePicker} {dir}>
+<label
+  bind:this={labelElement}
+  onmousedown={preventNativePicker}
+  onclick={preventNativePicker}
+  {dir}
+>
   <input
+    id={inputId}
     type="color"
     {name}
     value={hex || "#000000"}

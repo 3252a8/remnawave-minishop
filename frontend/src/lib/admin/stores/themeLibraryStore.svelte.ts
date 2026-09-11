@@ -200,8 +200,10 @@ export function createThemeLibraryStore(options: {
     body.append("file", file, "preview.webp");
     const result = await api(buildThemePreviewUploadPath(key), { method: "POST", body });
     if (!result?.ok) throw result;
+    const previewUrl = result.preview_url;
+    if (typeof previewUrl !== "string") throw { error: "theme_preview_invalid" };
     await load();
-    return result.preview_url;
+    return previewUrl;
   }
   return {
     get installations() {

@@ -143,7 +143,9 @@ def test_upload_preview_install_export_and_owner_isolation(
             image = io.BytesIO()
             Image.new("RGB", (24, 16), "#112233").save(image, format="PNG")
             form = FormData()
-            form.add_field("file", image.getvalue(), filename="preview.png", content_type="image/png")
+            form.add_field(
+                "file", image.getvalue(), filename="preview.png", content_type="image/png"
+            )
             response = await client.post(
                 "/api/admin/themes/library/ocean/preview", data=form, headers=headers
             )

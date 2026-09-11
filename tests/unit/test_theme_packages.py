@@ -31,9 +31,14 @@ from config.theme_packages.operations import (
     remove_theme,
     rollback_theme,
 )
-from config.theme_packages.providers import repository_parts, safe_url
-from config.theme_packages.registry import asset_path, effective_theme, read_registry, write_registry
 from config.theme_packages.preview_storage import save_preview
+from config.theme_packages.providers import repository_parts, safe_url
+from config.theme_packages.registry import (
+    asset_path,
+    effective_theme,
+    read_registry,
+    write_registry,
+)
 from config.webapp_themes_models import WebappThemesConfig
 from config.webapp_themes_store import load_webapp_theme_dir, write_webapp_theme_dir
 

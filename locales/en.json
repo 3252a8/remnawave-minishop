@@ -3315,8 +3315,6 @@
   "admin_btn_delete_account": "Delete account",
   "admin_btn_preview_tg": "Preview in Telegram",
   "admin_btn_save_tariff": "Save tariff",
-  "admin_btn_save": "Save",
-  "admin_btn_saving": "Saving...",
   "admin_btn_send_msg": "Send message",
   "admin_btn_unban": "Unblock user",
   "admin_days_short": "d",

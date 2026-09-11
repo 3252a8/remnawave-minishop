@@ -97,9 +97,13 @@ function parseColor(value: string): RgbColor | null {
   if (text === "transparent") return { red: 0, green: 0, blue: 0, alpha: 0 };
   const hexMatch = text.match(HEX_COLOR);
   if (hexMatch) {
-    const hex = hexMatch[1].length <= 4
-      ? hexMatch[1].split("").map((part) => part + part).join("")
-      : hexMatch[1];
+    const hex =
+      hexMatch[1].length <= 4
+        ? hexMatch[1]
+            .split("")
+            .map((part) => part + part)
+            .join("")
+        : hexMatch[1];
     return {
       red: Number.parseInt(hex.slice(0, 2), 16),
       green: Number.parseInt(hex.slice(2, 4), 16),
@@ -110,7 +114,11 @@ function parseColor(value: string): RgbColor | null {
   const rgbMatch = text.match(RGB_COLOR);
   if (rgbMatch) {
     const alpha = parseAlpha(rgbMatch[4]);
-    if (![rgbMatch[1], rgbMatch[2], rgbMatch[3], alpha].every((part) => Number.isFinite(Number.parseFloat(String(part))))) {
+    if (
+      ![rgbMatch[1], rgbMatch[2], rgbMatch[3], alpha].every((part) =>
+        Number.isFinite(Number.parseFloat(String(part)))
+      )
+    ) {
       return null;
     }
     return {
@@ -167,11 +175,14 @@ function resolveVariables(
       if (depth === 0) {
         const [name, ...fallbackParts] = splitTopLevel(value.slice(start + 4, index));
         const fallback = fallbackParts.length ? fallbackParts.join(",").trim() : undefined;
-        const variableValue = name?.startsWith("--") && !resolving.has(name) ? variables[name] : undefined;
-        const candidate = variableValue == null || variableValue === ""
-          ? fallback && resolveVariables(fallback, variables, resolving)
-          : resolveVariables(String(variableValue), variables, new Set([...resolving, name]));
-        const replacement = candidate ?? (fallback && resolveVariables(fallback, variables, resolving));
+        const variableValue =
+          name?.startsWith("--") && !resolving.has(name) ? variables[name] : undefined;
+        const candidate =
+          variableValue == null || variableValue === ""
+            ? fallback && resolveVariables(fallback, variables, resolving)
+            : resolveVariables(String(variableValue), variables, new Set([...resolving, name]));
+        const replacement =
+          candidate ?? (fallback && resolveVariables(fallback, variables, resolving));
         if (replacement == null) return null;
         return resolveVariables(
           `${value.slice(0, start)}${replacement}${value.slice(index + 1)}`,
@@ -238,8 +249,12 @@ function resolveColorMix(value: string): string | null {
   const weight = firstWeight + secondWeight;
   return toHex({
     red: clampColorPart((first.color.red * firstWeight + second.color.red * secondWeight) / weight),
-    green: clampColorPart((first.color.green * firstWeight + second.color.green * secondWeight) / weight),
-    blue: clampColorPart((first.color.blue * firstWeight + second.color.blue * secondWeight) / weight),
+    green: clampColorPart(
+      (first.color.green * firstWeight + second.color.green * secondWeight) / weight
+    ),
+    blue: clampColorPart(
+      (first.color.blue * firstWeight + second.color.blue * secondWeight) / weight
+    ),
     alpha: 1,
   });
 }

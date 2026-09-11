@@ -8,7 +8,7 @@
     AdminEmptyState,
     AdminListToolbar,
   } from "$components/patterns/admin/index.js";
-   import { Checkbox, Dialog, Input } from "$components/ui/index.js";
+  import { Checkbox, Dialog, FileInput, Input } from "$components/ui/index.js";
   import {
     Check,
     ExternalLink,
@@ -20,8 +20,8 @@
     Trash2,
     Download,
     Save,
-     RefreshCw,
-     ChevronDown,
+    RefreshCw,
+    ChevronDown,
   } from "$components/ui/icons.js";
   import type { ThemeEntry } from "$lib/admin/appearanceOptions";
   import type { ThemeInstallation } from "$lib/admin/stores/themeLibraryStore.svelte";
@@ -48,8 +48,8 @@
     dirty,
     saving = false,
     onsave,
-     onpreview,
-     oncapture,
+    onpreview,
+    oncapture,
   }: {
     at: (key: string, params?: Record<string, unknown>, fallback?: string) => string;
     themes: ThemeEntry[];
@@ -206,26 +206,26 @@
       )}
     </p>{/if}
   <section class="appearance-preferences-card">
-      <header class="appearance-preferences-header">
-        <button
-          type="button"
-          class="appearance-preferences-trigger"
-          aria-expanded={preferencesOpen}
-          onclick={() => (preferencesOpen = !preferencesOpen)}
-        >
-          <span>
-            <strong>{at("appearance_preferences_title", {}, "Appearance settings")}</strong>
-            <small>{at("appearance_preferences_sub", {}, "Behavior and branding")}</small>
-          </span>
-          <ChevronDown size={17} />
-        </button>
-      </header>
-      {#if preferencesOpen}
-        <div class="appearance-preferences-content" data-state="open">
-          {@render behaviorEditor()}
-          {@render brandEditor()}
-        </div>
-      {/if}
+    <header class="appearance-preferences-header">
+      <button
+        type="button"
+        class="appearance-preferences-trigger"
+        aria-expanded={preferencesOpen}
+        onclick={() => (preferencesOpen = !preferencesOpen)}
+      >
+        <span>
+          <strong>{at("appearance_preferences_title", {}, "Appearance settings")}</strong>
+          <small>{at("appearance_preferences_sub", {}, "Behavior and branding")}</small>
+        </span>
+        <ChevronDown size={17} />
+      </button>
+    </header>
+    {#if preferencesOpen}
+      <div class="appearance-preferences-content" data-state="open">
+        {@render behaviorEditor()}
+        {@render brandEditor()}
+      </div>
+    {/if}
   </section>
   <section class="library-section">
     <div class="library-title">
@@ -274,7 +274,7 @@
                     {},
                     "Unversioned"
                   )}</AdminBadge
-                >
+              >
             </div>
             <p class="theme-description">
               {theme.installation?.metadata?.description?.[currentLang] ||
@@ -371,11 +371,11 @@
               void inspectThemeFile(event.dataTransfer.files[0]);
             }
           }}
-          ><input
+        >
+          <FileInput
             class="theme-add-file-input"
-            type="file"
             accept=".zip,application/zip,application/x-zip-compressed"
-            tabindex="-1"
+            tabindex={-1}
             aria-hidden="true"
             onchange={(event) => {
               void inspectThemeFile(event.currentTarget.files?.[0]);
@@ -391,8 +391,8 @@
             )}</span
           ><span class="add-card-link"
             >{at("appearance_demo_add", {}, "Add themes")} <Plus size={14} /></span
-           ></div
-        >{/if}
+          >
+        </div>{/if}
     </div>
     {#if !filtered.length}<AdminEmptyState
         >{at(
@@ -455,14 +455,11 @@
               await oncapture(settings.entry);
               library.notify(at("appearance_preview_saved", {}, "Preview saved."));
             } catch {
-              library.notify(
-                at("appearance_preview_save_failed", {}, "Could not save preview.")
-              );
+              library.notify(at("appearance_preview_save_failed", {}, "Could not save preview."));
             } finally {
               captureBusy = false;
             }
-          }}
-          ><Eye size={14} />{at("appearance_capture_preview", {}, "Save preview")}</AdminButton
+          }}><Eye size={14} />{at("appearance_capture_preview", {}, "Save preview")}</AdminButton
         >
         <AdminButton
           disabled={blocked}
@@ -479,9 +476,7 @@
         onclick={onsave}
       >
         <Save size={14} />
-        {saving
-          ? at("btn_saving", {}, "Saving...")
-          : at("btn_save", {}, "Save")}
+        {saving ? at("btn_saving", {}, "Saving...") : at("btn_save", {}, "Save")}
       </AdminButton>
       {#if settings.installation?.source?.url}<AdminButton
           disabled={blocked}

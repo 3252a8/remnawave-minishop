@@ -2498,10 +2498,13 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   const defaultCard = appearanceStage.locator('.library-theme-card[data-theme-key="dark"]');
   await defaultCard.getByRole("button", { name: "Активировать", exact: true }).click();
   await expect(defaultCard).toHaveClass(/active/);
-  await appearanceStage.locator("#appearance-default-editor .appearance-editor-trigger").click();
-  await expect(appearanceStage.locator(".default-theme-editor")).toBeVisible();
+  await defaultCard.locator(".theme-card-actions button").last().click();
+  const appearanceSettingsDialog = page.locator(".appearance-settings-dialog");
+  await expect(appearanceSettingsDialog.locator(".default-theme-editor")).toBeVisible();
   await assertFormFieldsNamed(page, "admin-appearance:default-editor");
-  await appearanceStage.locator(".appearance-editor-trigger").last().click();
+  await appearanceSettingsDialog.locator(".dialog-head button").click();
+  await expect(appearanceSettingsDialog).toBeHidden();
+  await appearanceStage.locator(".appearance-preferences-trigger").click();
   await expect(appearanceStage.locator(".appearance-logo-grid").first()).toBeVisible();
   await assertFormFieldsNamed(page, "admin-appearance:brand-editor");
 

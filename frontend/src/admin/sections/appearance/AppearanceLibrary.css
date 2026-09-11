@@ -155,7 +155,9 @@
   overflow: hidden;
   background: var(--admin-surface);
   opacity: 0.5;
-  transition: opacity 160ms ease, border-color 160ms ease;
+  transition:
+    opacity 160ms ease,
+    border-color 160ms ease;
 }
 .appearance-library .library-theme-card:hover,
 .appearance-library .library-theme-card.active {
@@ -230,6 +232,7 @@
   margin-left: auto;
 }
 .appearance-library .theme-add-card {
+  grid-column: 1 / -1;
   min-height: 170px;
   border: 1px dashed var(--admin-border-strong);
   border-radius: 12px;
@@ -266,9 +269,6 @@
   border: 1px solid var(--admin-border);
   border-radius: 10px;
   color: var(--admin-muted);
-}
-.appearance-library .theme-add-card:nth-child(3n + 1) {
-  grid-column: auto;
 }
 .appearance-library .theme-add-card strong {
   font-size: 13px;
@@ -409,6 +409,9 @@
 @media (min-width: 1550px) {
   .appearance-library .theme-library-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .appearance-library .theme-add-card {
+    grid-column: auto;
   }
 }
 @media (max-width: 1100px) {

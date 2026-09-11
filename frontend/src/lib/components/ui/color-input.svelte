@@ -1,47 +1,31 @@
 <script lang="ts">
   import { cn } from "$lib/utils.js";
   import ColorPicker from "svelte-awesome-color-picker";
-  import type { HTMLInputAttributes } from "svelte/elements";
   import ColorPickerTrigger from "./color-picker-trigger.svelte";
   import { colorInputValueChanged } from "./colorInputValue";
 
-  type ColorInputProps = Omit<
-    HTMLInputAttributes,
-    "id" | "value" | "type" | "name" | "disabled" | "aria-label" | "class" | "oninput" | "onchange"
-  > & {
-    id?: string;
+  type ColorInputEventWithTarget = Event & { currentTarget: EventTarget & HTMLInputElement };
+
+  type ColorInputProps = {
     value?: string;
     name?: string;
     disabled?: boolean;
     ariaLabel?: string;
     class?: string;
-    oninput?: HTMLInputAttributes["oninput"];
-    onchange?: HTMLInputAttributes["onchange"];
+    oninput?: (event: ColorInputEventWithTarget) => void;
   };
 
-  type ColorInputEventWithTarget = Event & { currentTarget: EventTarget & HTMLInputElement };
-
   let {
-    id = "",
     value = $bindable("#000000"),
     name = undefined,
     disabled = false,
     ariaLabel = "",
     class: className = "",
     oninput,
-    onchange,
-    ...rest
   }: ColorInputProps = $props();
-
-  const fallbackId = `ui-color-input-${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`;
-  const inputId = $derived(id || fallbackId);
 
   function forwardInput(event: ColorInputEventWithTarget) {
     oninput?.(event);
-  }
-
-  function forwardChange(event: ColorInputEventWithTarget) {
-    onchange?.(event);
   }
 
   let pickerHex = $state(value || "#000000");
@@ -58,7 +42,6 @@
     const nextValue = value || "#000000";
     if (pickerHex !== nextValue) pickerHex = nextValue;
   });
-
 </script>
 
 <div class={cn("ui-color-input", className)}>
@@ -74,7 +57,7 @@
       bind:hex={pickerHex}
       components={{ input: ColorPickerTrigger }}
       label={ariaLabel}
-      name={name}
+      {name}
       isAlpha={false}
       position="responsive"
       --picker-height="150px"
@@ -86,7 +69,6 @@
       --cp-input-color="var(--admin-surface-2)"
       --cp-button-hover-color="var(--admin-surface-3)"
       onInput={(event) => emitInput(event.hex || "#000000")}
-      {...rest}
     />
   {/if}
 </div>
@@ -99,5 +81,4 @@
     border-radius: inherit;
     opacity: 0.42;
   }
-
 </style>

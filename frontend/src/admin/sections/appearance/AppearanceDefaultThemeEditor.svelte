@@ -27,7 +27,7 @@
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type LogoMode = "desktop" | "mobile";
-  type SelectCallback = (value: number, variant?: ThemeVariant) => void;
+  type SelectCallback = (value: number) => void;
 
   const TOKEN_GROUPS = [
     {
@@ -90,20 +90,19 @@
     applyCustomGoogleFont,
     radiusNumber,
     transparencyNumber,
-     defaultRadiusRangeHandler,
-     defaultRadiusInputHandler,
-     defaultTransparencyRangeHandler,
-     defaultTransparencyInputHandler,
+    defaultRadiusRangeHandler,
+    defaultRadiusInputHandler,
+    defaultTransparencyRangeHandler,
+    defaultTransparencyInputHandler,
     isThemeHomeLogoScaleDirty,
     defaultHomeLogoScale,
-     defaultLogoScaleSelectHandler,
+    defaultLogoScaleSelectHandler,
     defaultLogoScaleInputHandler,
     defaultTokenValue,
     pickerHex,
-    openDefaultColorPicker,
-     defaultColorInputHandler,
-     defaultTokenInputHandler,
-     resetDefaultToken,
+    defaultColorInputHandler,
+    defaultTokenInputHandler,
+    resetDefaultToken,
     editorTitle = "",
     editorSubtitle = "",
     activationLabel = "",
@@ -124,7 +123,10 @@
     activateDefaultThemeFromClick: (event: MouseEvent) => void;
     onVariantChange: (variant: ThemeVariant) => void;
     previewDefaultVariantFromClick: (event: MouseEvent) => void;
-     applyDefaultPreset: (preset: { tokens?: TokenMap } | null | undefined, variant?: ThemeVariant) => void;
+    applyDefaultPreset: (
+      preset: { tokens?: TokenMap } | null | undefined,
+      variant?: ThemeVariant
+    ) => void;
     isDefaultTokenDirty: (tokenKey: string) => boolean;
     tokenTextValue: (tokenKey: string, tokens?: TokenMap) => string;
     fontItemsWithCurrent: (items: FontOption[], value: unknown) => FontOption[];
@@ -132,28 +134,30 @@
     applyCustomGoogleFont: (tokenKey: string, kind?: "sans" | "mono") => void;
     radiusNumber: (tokens?: TokenMap) => number;
     transparencyNumber: (tokens?: TokenMap) => number;
-     defaultRadiusRangeHandler: SelectCallback;
-     defaultRadiusInputHandler: (event: Event, variant?: ThemeVariant) => void;
-     defaultTransparencyRangeHandler: SelectCallback;
-     defaultTransparencyInputHandler: (event: Event, variant?: ThemeVariant) => void;
+    defaultRadiusRangeHandler: (value: number, variant?: ThemeVariant) => void;
+    defaultRadiusInputHandler: (event: Event, variant?: ThemeVariant) => void;
+    defaultTransparencyRangeHandler: (value: number, variant?: ThemeVariant) => void;
+    defaultTransparencyInputHandler: (event: Event, variant?: ThemeVariant) => void;
     isThemeHomeLogoScaleDirty: (
       theme: ThemeEntry | null | undefined,
       mode: LogoMode,
-      variant?: string | null
+      variant?: ThemeVariant
     ) => boolean;
     defaultHomeLogoScale: (
       mode: LogoMode,
       theme?: ThemeEntry | null | undefined,
-      variant?: string | null
+      variant?: ThemeVariant
     ) => number;
-    defaultLogoScaleSelectHandler: (mode: LogoMode) => SelectCallback;
-     defaultLogoScaleInputHandler: (mode: LogoMode, variant?: ThemeVariant) => (event: Event) => void;
+    defaultLogoScaleSelectHandler: (mode: LogoMode, variant?: ThemeVariant) => SelectCallback;
+    defaultLogoScaleInputHandler: (
+      mode: LogoMode,
+      variant?: ThemeVariant
+    ) => (event: Event) => void;
     defaultTokenValue: (tokenKey: string, tokens?: TokenMap) => unknown;
     pickerHex: (value: unknown) => string | null;
-    openDefaultColorPicker: (tokenKey: string, fallback?: string) => void;
-     defaultColorInputHandler: (tokenKey: string, variant?: ThemeVariant) => (event: Event) => void;
-     defaultTokenInputHandler: (tokenKey: string, variant?: ThemeVariant) => (event: Event) => void;
-     resetDefaultToken: (tokenKey: string, variant?: ThemeVariant) => void;
+    defaultColorInputHandler: (tokenKey: string, variant?: ThemeVariant) => (event: Event) => void;
+    defaultTokenInputHandler: (tokenKey: string, variant?: ThemeVariant) => (event: Event) => void;
+    resetDefaultToken: (tokenKey: string, variant?: ThemeVariant) => void;
     editorTitle?: string;
     editorSubtitle?: string;
     activationLabel?: string;
@@ -199,7 +203,9 @@
         <div>
           <div class="default-theme-title">
             <Paintbrush size={17} />
-            <strong>{editorTitle || at("appearance_default_theme_title", {}, "Default theme")}</strong>
+            <strong
+              >{editorTitle || at("appearance_default_theme_title", {}, "Default theme")}</strong
+            >
             {#if defaultThemeIsCurrent}
               <AdminBadge variant="success">{at("status_current", {}, "Current")}</AdminBadge>
             {/if}
@@ -228,7 +234,7 @@
           {/if}
           <Tabs.Root
             class="appearance-variant-tabs"
-             value={editorVariant}
+            value={editorVariant}
             onValueChange={selectVariant}
           >
             <Tabs.List
@@ -263,11 +269,11 @@
           class="appearance-preset-row"
           aria-label={at("appearance_default_presets", {}, "Default theme presets")}
         >
-           {#each DEFAULT_THEME_PRESETS[editorVariant] || [] as preset (preset.id)}
+          {#each DEFAULT_THEME_PRESETS[editorVariant] || [] as preset (preset.id)}
             <button
               type="button"
               class="appearance-preset-btn"
-               onclick={() => applyDefaultPreset(preset, selectedVariant)}
+              onclick={() => applyDefaultPreset(preset, selectedVariant)}
             >
               <span style={`background:${preset.swatch}`}></span>
               {preset.label}
@@ -400,7 +406,7 @@
               step="1"
               ariaLabel={at("appearance_radius", {}, "Radius")}
               value={radiusNumber(defaultTokens)}
-               onValueChange={(value) => defaultRadiusRangeHandler(value, selectedVariant)}
+              onValueChange={(value) => defaultRadiusRangeHandler(value, selectedVariant)}
             />
             <span class="appearance-logo-scale-value">
               <Input
@@ -410,7 +416,7 @@
                 max="28"
                 step="1"
                 value={radiusNumber(defaultTokens)}
-                 oninput={(event) => defaultRadiusInputHandler(event, selectedVariant)}
+                oninput={(event) => defaultRadiusInputHandler(event, selectedVariant)}
               />
               px
             </span>
@@ -451,11 +457,11 @@
           </div>
           <div
             class="appearance-logo-scale-row appearance-default-scale-row"
-             class:is-dirty={isThemeHomeLogoScaleDirty(defaultTheme, "desktop", selectedVariant)}
+            class:is-dirty={isThemeHomeLogoScaleDirty(defaultTheme, "desktop", selectedVariant)}
           >
             <span class="appearance-logo-scale-label">
               {at("appearance_logo_desktop", {}, "Desktop logo")}
-               {#if isThemeHomeLogoScaleDirty(defaultTheme, "desktop", selectedVariant)}
+              {#if isThemeHomeLogoScaleDirty(defaultTheme, "desktop", selectedVariant)}
                 <AdminBadge variant="warning"
                   >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                 >
@@ -467,8 +473,8 @@
               max="300"
               step="5"
               ariaLabel={at("appearance_logo_desktop", {}, "Desktop logo")}
-               value={defaultHomeLogoScale("desktop", defaultTheme, selectedVariant)}
-               onValueChange={defaultLogoScaleSelectHandler("desktop", selectedVariant)}
+              value={defaultHomeLogoScale("desktop", defaultTheme, selectedVariant)}
+              onValueChange={defaultLogoScaleSelectHandler("desktop", selectedVariant)}
             />
             <span class="appearance-logo-scale-value">
               <Input
@@ -477,19 +483,19 @@
                 min="50"
                 max="300"
                 step="5"
-               value={defaultHomeLogoScale("desktop", defaultTheme, selectedVariant)}
-                 oninput={defaultLogoScaleInputHandler("desktop", selectedVariant)}
+                value={defaultHomeLogoScale("desktop", defaultTheme, selectedVariant)}
+                oninput={defaultLogoScaleInputHandler("desktop", selectedVariant)}
               />
               %
             </span>
           </div>
           <div
             class="appearance-logo-scale-row appearance-default-scale-row"
-             class:is-dirty={isThemeHomeLogoScaleDirty(defaultTheme, "mobile", selectedVariant)}
+            class:is-dirty={isThemeHomeLogoScaleDirty(defaultTheme, "mobile", selectedVariant)}
           >
             <span class="appearance-logo-scale-label">
               {at("appearance_logo_mobile", {}, "Mobile logo")}
-               {#if isThemeHomeLogoScaleDirty(defaultTheme, "mobile", selectedVariant)}
+              {#if isThemeHomeLogoScaleDirty(defaultTheme, "mobile", selectedVariant)}
                 <AdminBadge variant="warning"
                   >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                 >
@@ -501,8 +507,8 @@
               max="300"
               step="5"
               ariaLabel={at("appearance_logo_mobile", {}, "Mobile logo")}
-               value={defaultHomeLogoScale("mobile", defaultTheme, selectedVariant)}
-               onValueChange={defaultLogoScaleSelectHandler("mobile", selectedVariant)}
+              value={defaultHomeLogoScale("mobile", defaultTheme, selectedVariant)}
+              onValueChange={defaultLogoScaleSelectHandler("mobile", selectedVariant)}
             />
             <span class="appearance-logo-scale-value">
               <Input
@@ -511,8 +517,8 @@
                 min="50"
                 max="300"
                 step="5"
-               value={defaultHomeLogoScale("mobile", defaultTheme, selectedVariant)}
-                 oninput={defaultLogoScaleInputHandler("mobile", selectedVariant)}
+                value={defaultHomeLogoScale("mobile", defaultTheme, selectedVariant)}
+                oninput={defaultLogoScaleInputHandler("mobile", selectedVariant)}
               />
               %
             </span>
@@ -549,15 +555,14 @@
                     value={pickerHex(defaultTokenValue(tokenKey, defaultTokens)) || ""}
                     disabled={!pickerHex(defaultTokenValue(tokenKey, defaultTokens))}
                     ariaLabel={tokenLabel}
-                     onclick={() => openDefaultColorPicker(tokenKey)}
-                     oninput={defaultColorInputHandler(tokenKey, selectedVariant)}
+                    oninput={defaultColorInputHandler(tokenKey, selectedVariant)}
                   />
                   <Input
                     class="input appearance-color-text"
                     type="text"
                     placeholder={at("appearance_token_empty", {}, "not set")}
                     value={tokenTextValue(tokenKey, defaultTokens)}
-                     oninput={defaultTokenInputHandler(tokenKey, selectedVariant)}
+                    oninput={defaultTokenInputHandler(tokenKey, selectedVariant)}
                   />
                   <AdminButton
                     class="appearance-token-reset"
@@ -569,7 +574,7 @@
                       { label: tokenLabel },
                       "Reset {label}"
                     )}
-                     onclick={() => resetDefaultToken(tokenKey, selectedVariant)}
+                    onclick={() => resetDefaultToken(tokenKey, selectedVariant)}
                   >
                     <RefreshCw size={12} />
                   </AdminButton>

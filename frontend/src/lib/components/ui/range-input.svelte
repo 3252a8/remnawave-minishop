@@ -3,6 +3,7 @@
   import { cn } from "$lib/utils.js";
 
   type NumericInput = number | string | undefined;
+  type ValueCallback = (value: number) => void;
   type RangeInputProps = Omit<
     HTMLInputAttributes,
     | "id"
@@ -27,8 +28,8 @@
     step?: NumericInput;
     disabled?: boolean;
     ariaLabel?: string;
-    onValueChange?: unknown;
-    onValueCommit?: unknown;
+    onValueChange?: ValueCallback;
+    onValueCommit?: ValueCallback;
     class?: string;
   };
 
@@ -90,10 +91,8 @@
     callValueCallback(onValueCommit, normalized);
   }
 
-  function callValueCallback(callback: unknown, next: number): void {
-    if (typeof callback === "function") {
-      (callback as (value: number) => void)(next);
-    }
+  function callValueCallback(callback: ValueCallback | undefined, next: number): void {
+    callback?.(next);
   }
 </script>
 

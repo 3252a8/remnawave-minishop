@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -8,14 +9,16 @@ import {
   type ThemeEntry,
 } from "./appearanceOptions";
 
-const builtinThemeRoot = new URL("../../../../backend/bot/app/web/themes/", import.meta.url);
+function builtinThemeFile(key: string, filename: "style.css" | "theme.json"): URL {
+  return new URL(`../../../../backend/bot/app/web/themes/${key}/${filename}`, import.meta.url);
+}
 
 function builtinTheme(key: string): ThemeEntry {
-  return JSON.parse(readFileSync(new URL(`${key}/theme.json`, builtinThemeRoot), "utf8")) as ThemeEntry;
+  return JSON.parse(readFileSync(builtinThemeFile(key, "theme.json"), "utf8")) as ThemeEntry;
 }
 
 function builtinCssVariables(key: string): Record<string, string> {
-  const css = readFileSync(new URL(`${key}/style.css`, builtinThemeRoot), "utf8");
+  const css = readFileSync(builtinThemeFile(key, "style.css"), "utf8");
   const body = css.match(new RegExp(`\\.theme-key-${key}\\s*\\{([^}]*)\\}`, "s"))?.[1] ?? "";
   return Object.fromEntries(
     [...body.matchAll(/(--[a-z][a-z0-9-]*)\s*:\s*([^;{}]+);/gi)].map((match) => [
@@ -25,11 +28,15 @@ function builtinCssVariables(key: string): Record<string, string> {
   );
 }
 
-function builtinCssVariablesByVariant(key: string, variant: "dark" | "light"): Record<string, string> {
-  const css = readFileSync(new URL(`${key}/style.css`, builtinThemeRoot), "utf8");
+function builtinCssVariablesByVariant(
+  key: string,
+  variant: "dark" | "light"
+): Record<string, string> {
+  const css = readFileSync(builtinThemeFile(key, "style.css"), "utf8");
   const base = builtinCssVariables(key);
   const selector = `.theme-key-${key}.theme-variant-${variant}`;
-  const body = css.match(new RegExp(`${selector.replaceAll(".", "\\.")}\\s*\\{([^}]*)\\}`, "s"))?.[1] ?? "";
+  const body =
+    css.match(new RegExp(`${selector.replaceAll(".", "\\.")}\\s*\\{([^}]*)\\}`, "s"))?.[1] ?? "";
   return {
     ...base,
     ...Object.fromEntries(
@@ -102,9 +109,9 @@ describe("built-in appearance themes", () => {
     const darkTokens = { ...theme.tokens, ...theme.variants?.dark };
     const lightTokens = { ...theme.tokens, ...theme.variants?.light };
 
-    expect(resolveAppearanceColor(appearanceThemeTokenValue(theme, darkTokens, "bg"), darkTokens)).toBe(
-      "#03070b"
-    );
+    expect(
+      resolveAppearanceColor(appearanceThemeTokenValue(theme, darkTokens, "bg"), darkTokens)
+    ).toBe("#03070b");
     expect(
       resolveAppearanceColor(appearanceThemeTokenValue(theme, lightTokens, "panel"), lightTokens)
     ).toBe("#ffffff");
@@ -141,9 +148,9 @@ describe("built-in appearance themes", () => {
     const rawNav = appearanceThemeTokenValue(theme, lightTokens, "nav_bg", lightVariables);
 
     expect(rawNav).toBe("var(--ascii-bg)");
-    expect(resolveAppearanceColor(rawNav, appearanceColorVariables(lightVariables, lightTokens))).toBe(
-      "#ffffff"
-    );
+    expect(
+      resolveAppearanceColor(rawNav, appearanceColorVariables(lightVariables, lightTokens))
+    ).toBe("#ffffff");
   });
 
   it("uses editable tokens ahead of package CSS defaults", () => {

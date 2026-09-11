@@ -56,9 +56,11 @@ for (const viewport of [
       )
       .toBe(true);
     await expect(page.locator(".default-theme-editor")).toBeHidden();
-    await library.locator("#appearance-default-editor .appearance-editor-trigger").click();
-    await expect(page.locator(".default-theme-editor")).toBeVisible();
-    await library.locator("#appearance-default-editor .appearance-editor-trigger").click();
+    await library.locator('[data-theme-key="dark"] .theme-card-actions button').last().click();
+    const defaultSettings = page.locator(".appearance-settings-dialog");
+    await expect(defaultSettings.locator(".default-theme-editor")).toBeVisible();
+    await defaultSettings.locator(".dialog-head button").click();
+    await expect(defaultSettings).toBeHidden();
 
     await library.getByRole("button", { name: "Добавить темы", exact: true }).click();
     let dialog = page.locator(".appearance-import-dialog");
@@ -117,7 +119,7 @@ for (const viewport of [
     await expect(settings).toBeHidden();
 
     await ocean.locator(".theme-card-actions button").last().click();
-    await settings.getByRole("button", { name: "Экспорт / своя копия", exact: true }).click();
+    await settings.getByRole("button", { name: "Скачать", exact: true }).click();
     const exportDialog = page
       .locator(".dialog-card")
       .filter({ has: page.getByRole("button", { name: "Скачать ZIP", exact: true }) });
@@ -267,7 +269,10 @@ for (const width of [1280, 390]) {
     await theme.locator(".theme-card-actions button").last().click();
     const settings = page.locator(".appearance-settings-dialog");
     await expect(settings).toBeVisible();
-    const accent = settings.locator("input.appearance-color-text");
+    const accent = settings
+      .locator(".appearance-token-control")
+      .filter({ hasText: "Акцент" })
+      .locator("input.appearance-color-text");
     await accent.fill("#aabbcc");
     await settings.locator(".dialog-head button").click();
     await expect(settings).toBeHidden();

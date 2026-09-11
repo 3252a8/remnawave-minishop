@@ -45,9 +45,9 @@ from config.theme_packages.operations import (
     remove_theme,
     rollback_theme,
 )
+from config.theme_packages.preview_storage import MAX_PREVIEW_BYTES, save_preview
 from config.theme_packages.providers import fetch_repository, repository_parts
 from config.theme_packages.registry import library
-from config.theme_packages.preview_storage import MAX_PREVIEW_BYTES, preview_url, save_preview
 from config.webapp_themes_config import WebappThemesConfig, resolved_webapp_themes_catalog
 
 from .auth import _require_admin_user_id
@@ -395,7 +395,13 @@ register_contract(
 register_contract(
     "admin_theme_preview_upload_route",
     RouteContract(
-        request_content={"multipart/form-data": {"type": "object", "required": ["file"], "properties": {"file": BINARY_RESPONSE_SCHEMA}}},
+        request_content={
+            "multipart/form-data": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {"file": BINARY_RESPONSE_SCHEMA},
+            }
+        },
         response_schema=ok_envelope_for(PreviewUploadOut),
         models=(PreviewUploadOut,),
     ),
