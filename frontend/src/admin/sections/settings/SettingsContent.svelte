@@ -30,7 +30,11 @@
     settingsSectionAnchorKey,
     settingsSubsectionAnchorKey,
   } from "$lib/admin/settingsSections";
-  import { loginProviderCallbackUrl } from "$lib/admin/loginProviderSetup.js";
+  import {
+    loginProviderCallbackUrl,
+    loginProviderGuideUrl,
+    loginProviderOfficialUrl,
+  } from "$lib/admin/loginProviderSetup.js";
   import {
     settingsDirtyCountLabel,
     settingsFieldsCountLabel,
@@ -304,20 +308,6 @@
       "Use HTTPS; RP ID must be the application domain and origins must contain its full origin."
     );
   }
-
-  function loginProviderOfficialUrl(provider: string): string {
-    if (provider === "google")
-      return "https://developers.google.com/identity/protocols/oauth2/web-server";
-    if (provider === "yandex") return "https://yandex.com/dev/id/doc/en/register-auth";
-    if (provider === "discord") return "https://docs.discord.com/developers/topics/oauth2";
-    return "https://developer.mozilla.org/en-US/docs/Web/Security/Authentication/Passkeys";
-  }
-
-  function loginProviderGuideUrl(provider: string): string {
-    const section = provider === "yandex" ? "yandex-id" : provider;
-    const docsBaseUrl = appRepositoryUrl.replace(/\/+$/, "");
-    return `${docsBaseUrl}/features/login-methods/#${section}`;
-  }
 </script>
 
 {#snippet renderLoginMethodHints()}
@@ -449,7 +439,7 @@
       <div class="admin-login-provider-help-actions">
         <a
           class="admin-btn admin-btn-sm admin-btn-ghost"
-          href={loginProviderGuideUrl(provider)}
+          href={loginProviderGuideUrl(provider, appRepositoryUrl)}
           target="_blank"
           rel="noreferrer noopener"
         >

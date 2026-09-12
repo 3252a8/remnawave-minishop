@@ -2,7 +2,6 @@ import hmac
 import json
 import logging
 import math
-import re
 from decimal import Decimal
 from pathlib import Path
 from typing import Annotated, Any, Literal, NamedTuple
@@ -27,6 +26,23 @@ from config.tariff_checkout import (
     FlexibleTrafficLimitConfig,
     validate_checkout_addons,
 )
+from config.tariff_config_utils import (
+    DEFAULT_TARIFF_CURRENCY,
+    STARS_TARIFF_CURRENCY,
+    TARIFF_ACCESS_CODE_LENGTH,
+    normalize_currency_key,
+    normalize_tariff_access_code,
+    payment_currency_code,
+)
+from config.tariff_config_utils import (
+    default_currency_key_for_settings as default_currency_key_for_settings,
+)
+from config.tariff_config_utils import (
+    default_payment_currency_code_for_settings as default_payment_currency_code_for_settings,
+)
+from config.tariff_config_utils import (
+    referral_welcome_bonus_tariff_key_for_settings as _referral_tariff_key_for_settings,
+)
 from config.tariff_period_migration import normalize_tariff_catalog
 from config.tariff_tribute import (
     _normalize_tribute_map_keys,
@@ -36,8 +52,7 @@ from config.tariff_tribute import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_TARIFF_CURRENCY = "rub"
-STARS_TARIFF_CURRENCY = "stars"
+referral_welcome_bonus_tariff_key_for_settings = _referral_tariff_key_for_settings
 
 Currency = str
 BillingModel = Literal["period", "traffic"]
@@ -45,61 +60,6 @@ TrafficLimitStrategy = Literal["NO_RESET", "DAY", "WEEK", "MONTH", "MONTH_ROLLIN
 TributeProductKind = Literal["traffic", "premium_traffic"]
 TRIBUTE_PRODUCT_KINDS: tuple[TributeProductKind, ...] = ("traffic", "premium_traffic")
 PositiveStrictInt = Annotated[int, Field(strict=True, gt=0)]
-TARIFF_ACCESS_CODE_LENGTH = 32
-_TARIFF_ACCESS_CODE_RE = re.compile(rf"^[0-9a-f]{{{TARIFF_ACCESS_CODE_LENGTH}}}$")
-
-
-def normalize_tariff_access_code(value: Any) -> str | None:
-    text = str(value or "").strip().lower()
-    return text if _TARIFF_ACCESS_CODE_RE.fullmatch(text) else None
-
-
-def normalize_currency_key(value: Any, default: str = DEFAULT_TARIFF_CURRENCY) -> str:
-    text = str(value or "").strip().lower()
-    if not text:
-        return default
-    aliases = {
-        "rur": "rub",
-        "xtr": STARS_TARIFF_CURRENCY,
-        "star": STARS_TARIFF_CURRENCY,
-        "stars": STARS_TARIFF_CURRENCY,
-    }
-    normalized = aliases.get(text, text)
-    cleaned = "".join(ch for ch in normalized if ch.isalnum() or ch in {"_", "-"}).strip("_-")
-    return cleaned or default
-
-
-def payment_currency_code(currency: Any, default: str = "RUB") -> str:
-    key = normalize_currency_key(currency, default=normalize_currency_key(default))
-    if key == STARS_TARIFF_CURRENCY:
-        return "XTR"
-    return key.upper()
-
-
-def default_currency_key_for_settings(settings: Any) -> str:
-    try:
-        config = settings.tariffs_config
-    except Exception:
-        config = None
-    if config is not None and getattr(config, "default_currency", None):
-        return normalize_currency_key(config.default_currency)
-    return normalize_currency_key(settings.DEFAULT_CURRENCY_SYMBOL)
-
-
-def default_payment_currency_code_for_settings(settings: Any) -> str:
-    return payment_currency_code(default_currency_key_for_settings(settings))
-
-
-def referral_welcome_bonus_tariff_key_for_settings(settings: Any) -> str | None:
-    config = settings.tariffs_config
-    if config is None:
-        return None
-    resolved_key = str(getattr(config, "referral_welcome_bonus_tariff_key", "") or "").strip()
-    if resolved_key:
-        return resolved_key
-    configured_key = str(getattr(config, "referral_welcome_bonus_tariff", "") or "").strip()
-    default_key = str(getattr(config, "default_tariff", "") or "").strip()
-    return configured_key or default_key or None
 
 
 class TrafficPackage(BaseModel):

@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
-import asyncio
 import base64
 import hmac
 import logging
 import secrets
 import time
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Literal
-from urllib.parse import quote, urlencode
+from urllib.parse import urlencode
 
-from aiohttp import ClientSession, ClientTimeout, web
+from aiohttp import web
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.future import select
 from sqlalchemy.orm import sessionmaker
@@ -59,6 +57,33 @@ from .common import (
     _parse_model_payload,
     _telegram_id_for_user,
 )
+from .external_oauth_providers import (
+    ExternalProvider as ExternalProvider,
+)
+from .external_oauth_providers import (
+    ExternalProviderKey,
+)
+from .external_oauth_providers import (
+    authorization_url as _authorization_url,
+)
+from .external_oauth_providers import (
+    discord_profile as _discord_profile,
+)
+from .external_oauth_providers import (
+    exchange_token as _post_token,
+)
+from .external_oauth_providers import (
+    google_email_is_authoritative as _google_email_is_authoritative,
+)
+from .external_oauth_providers import (
+    google_profile as _google_profile,
+)
+from .external_oauth_providers import (
+    provider_for_settings as _provider,
+)
+from .external_oauth_providers import (
+    yandex_profile as _yandex_profile,
+)
 from .payloads import WebAppEmailChangeCurrentPayload
 from .response_helpers import json_response
 
@@ -68,10 +93,6 @@ _STATE_COOKIE = "rw_external_oauth_state"
 _PENDING_COOKIE = "rw_external_oauth_pending"
 _PENDING_COOKIE_PATH = "/api/auth/external"
 _PENDING_PURPOSE = "external_oauth_link"
-_HTTP_TIMEOUT = ClientTimeout(total=15)
-_YANDEX_RUSSIAN_AUTHORIZATION_URL = "https://oauth.yandex.ru/authorize"
-
-ExternalProviderKey = Literal["discord", "google", "yandex"]
 ExternalRegistrationSource = Literal["discord_oauth", "google_oauth", "yandex_oauth"]
 _REGISTRATION_SOURCE_BY_PROVIDER: dict[ExternalProviderKey, ExternalRegistrationSource] = {
     "discord": "discord_oauth",
@@ -80,66 +101,8 @@ _REGISTRATION_SOURCE_BY_PROVIDER: dict[ExternalProviderKey, ExternalRegistration
 }
 
 
-@dataclass(frozen=True)
-class ExternalProvider:
-    key: ExternalProviderKey
-    authorization_url: str
-    token_url: str
-    client_id: str
-    client_secret: str
-    scopes: tuple[str, ...]
-    uses_pkce: bool = True
-
-
-def _provider(settings: Settings, key: str) -> ExternalProvider | None:
-    if key == "discord" and settings.DISCORD_OIDC_ENABLED:
-        client_id = str(settings.DISCORD_OIDC_CLIENT_ID or "").strip()
-        secret = str(settings.DISCORD_OIDC_CLIENT_SECRET or "").strip()
-        if client_id and secret:
-            return ExternalProvider(
-                key="discord",
-                authorization_url="https://discord.com/oauth2/authorize",
-                token_url="https://discord.com/api/oauth2/token",
-                client_id=client_id,
-                client_secret=secret,
-                scopes=("identify", "email"),
-                uses_pkce=False,
-            )
-    if key == "google" and settings.GOOGLE_OIDC_ENABLED:
-        client_id = str(settings.GOOGLE_OIDC_CLIENT_ID or "").strip()
-        secret = str(settings.GOOGLE_OIDC_CLIENT_SECRET or "").strip()
-        if client_id and secret:
-            return ExternalProvider(
-                key="google",
-                authorization_url="https://accounts.google.com/o/oauth2/v2/auth",
-                token_url="https://oauth2.googleapis.com/token",
-                client_id=client_id,
-                client_secret=secret,
-                scopes=("openid", "email", "profile"),
-            )
-    if key == "yandex" and settings.YANDEX_OIDC_ENABLED:
-        client_id = str(settings.YANDEX_OIDC_CLIENT_ID or "").strip()
-        secret = str(settings.YANDEX_OIDC_CLIENT_SECRET or "").strip()
-        if client_id and secret:
-            return ExternalProvider(
-                key="yandex",
-                authorization_url="https://oauth.yandex.com/authorize",
-                token_url="https://oauth.yandex.com/token",
-                client_id=client_id,
-                client_secret=secret,
-                scopes=("login:email", "login:info", "login:avatar"),
-            )
-    return None
-
-
 def _callback_url(settings: Settings, request: web.Request, provider: str) -> str:
     return f"{_public_webapp_base_url(settings, request)}/auth/{provider}/callback"
-
-
-def _authorization_url(provider: ExternalProvider, language: str) -> str:
-    if provider.key == "yandex" and language.split("-", 1)[0] == "ru":
-        return _YANDEX_RUSSIAN_AUTHORIZATION_URL
-    return provider.authorization_url
 
 
 def _redirect(
@@ -363,159 +326,6 @@ async def external_oauth_start_route(request: web.Request) -> web.Response:
     response = web.HTTPFound(f"{_authorization_url(provider, language)}?{urlencode(query)}")
     _set_state_cookie(response, settings, payload)
     return response
-
-
-async def _post_token(
-    provider: ExternalProvider, *, code: str, redirect_uri: str, verifier: str
-) -> dict[str, Any] | None:
-    form: dict[str, str] = {
-        "grant_type": "authorization_code",
-        "code": code,
-        "client_id": provider.client_id,
-        "client_secret": provider.client_secret,
-        "redirect_uri": redirect_uri,
-    }
-    if provider.uses_pkce:
-        form["code_verifier"] = verifier
-    async with (
-        ClientSession(timeout=_HTTP_TIMEOUT) as session,
-        session.post(provider.token_url, data=form) as response,
-    ):
-        if response.status != 200:
-            logger.warning("%s token exchange failed with HTTP %s", provider.key, response.status)
-            return None
-        payload = await response.json(content_type=None)
-        return payload if isinstance(payload, dict) else None
-
-
-async def _google_profile(
-    token_payload: dict[str, Any], provider: ExternalProvider, nonce: str
-) -> dict[str, Any] | None:
-    id_token = str(token_payload.get("id_token") or "")
-    if not id_token:
-        return None
-    try:
-        import jwt
-
-        async with (
-            ClientSession(timeout=_HTTP_TIMEOUT) as session,
-            session.get("https://www.googleapis.com/oauth2/v3/certs") as response,
-        ):
-            if response.status != 200:
-                return None
-            jwks = await response.json(content_type=None)
-        header = jwt.get_unverified_header(id_token)
-        key = next(
-            (
-                item.key
-                for item in jwt.PyJWKSet.from_dict(jwks).keys
-                if item.key_id == header.get("kid")
-            ),
-            None,
-        )
-        if key is None:
-            return None
-        claims = await asyncio.to_thread(
-            jwt.decode,
-            id_token,
-            key,
-            algorithms=["RS256"],
-            audience=provider.client_id,
-            options={"require": ["exp", "iat", "iss", "aud", "sub"]},
-        )
-        if str(claims.get("iss") or "") not in {
-            "accounts.google.com",
-            "https://accounts.google.com",
-        }:
-            return None
-        if not hmac.compare_digest(str(claims.get("nonce") or ""), nonce):
-            return None
-        return {
-            "subject": str(claims["sub"]),
-            "email": str(claims.get("email") or "").strip().lower() or None,
-            "email_verified": bool(claims.get("email_verified")),
-            "hosted_domain": str(claims.get("hd") or "").strip().lower() or None,
-            "display_name": str(claims.get("name") or "").strip() or None,
-            "picture_url": str(claims.get("picture") or "").strip() or None,
-        }
-    except Exception:
-        logger.exception("Google ID token validation failed")
-        return None
-
-
-def _google_email_is_authoritative(profile: dict[str, Any]) -> bool:
-    email = str(profile.get("email") or "").strip().lower()
-    return bool(profile.get("email_verified")) and (
-        email.endswith("@gmail.com") or bool(str(profile.get("hosted_domain") or "").strip())
-    )
-
-
-async def _yandex_profile(token_payload: dict[str, Any]) -> dict[str, Any] | None:
-    access_token = str(token_payload.get("access_token") or "")
-    if not access_token:
-        return None
-    async with (
-        ClientSession(timeout=_HTTP_TIMEOUT) as session,
-        session.get(
-            "https://login.yandex.ru/info",
-            params={"format": "json"},
-            headers={"Authorization": f"OAuth {access_token}"},
-        ) as response,
-    ):
-        if response.status != 200:
-            return None
-        claims = await response.json(content_type=None)
-    subject = str(claims.get("id") or "")
-    if not subject:
-        return None
-    email = str(claims.get("default_email") or "").strip().lower() or None
-    avatar_id = str(claims.get("default_avatar_id") or "").strip()
-    return {
-        "subject": subject,
-        "email": email,
-        "email_verified": bool(email),
-        "display_name": str(claims.get("display_name") or claims.get("real_name") or "").strip()
-        or None,
-        "picture_url": f"https://avatars.yandex.net/get-yapic/{avatar_id}/islands-200"
-        if avatar_id
-        else None,
-    }
-
-
-async def _discord_profile(token_payload: dict[str, Any]) -> dict[str, Any] | None:
-    access_token = str(token_payload.get("access_token") or "")
-    if not access_token:
-        return None
-    async with (
-        ClientSession(timeout=_HTTP_TIMEOUT) as session,
-        session.get(
-            "https://discord.com/api/v10/users/@me",
-            headers={"Authorization": f"Bearer {access_token}"},
-        ) as response,
-    ):
-        if response.status != 200:
-            return None
-        claims = await response.json(content_type=None)
-    if not isinstance(claims, dict):
-        return None
-    subject = str(claims.get("id") or "").strip()
-    if not subject:
-        return None
-    email = str(claims.get("email") or "").strip().lower() or None
-    avatar_hash = str(claims.get("avatar") or "").strip()
-    return {
-        "subject": subject,
-        "email": email,
-        "email_verified": bool(email and claims.get("verified")),
-        "display_name": str(claims.get("global_name") or claims.get("username") or "").strip()
-        or None,
-        "picture_url": (
-            "https://cdn.discordapp.com/avatars/"
-            f"{quote(subject, safe='')}/{quote(avatar_hash, safe='')}.png?size=256"
-            if avatar_hash
-            else None
-        ),
-    }
 
 
 async def external_oauth_callback_route(request: web.Request) -> web.Response:

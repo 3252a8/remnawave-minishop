@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from aiohttp import web
 
-from bot.app.web.webapp import external_identity_unlink, external_oauth
+from bot.app.web.webapp import external_identity_unlink, external_oauth, external_oauth_providers
 
 
 class _ScalarResult:
@@ -228,7 +228,7 @@ async def _discord_profile_maps_verified_identity() -> None:
             captured["headers"] = headers
             return _Response()
 
-    with patch.object(external_oauth, "ClientSession", _ClientSession):
+    with patch.object(external_oauth_providers, "ClientSession", _ClientSession):
         profile = await external_oauth._discord_profile({"access_token": "discord-token"})
 
     assert captured["url"] == "https://discord.com/api/v10/users/@me"
