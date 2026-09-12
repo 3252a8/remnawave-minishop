@@ -47,6 +47,7 @@ def _settings(tmp_path: Path, compose_dir: Path, **overrides) -> Settings:
         "BACKUP_DIR": str(tmp_path / "backups"),
         "BACKUP_COMPOSE_SOURCE_DIR": str(compose_dir),
         "TARIFFS_CONFIG_PATH": str(tmp_path / "tariffs.json"),
+        "WEBAPP_THEMES_DIR": str(tmp_path / "themes"),
         "BACKUP_CHAT_ID": 123,
         "BACKUP_LOCAL_RETENTION": 1,
         "_env_file": None,
