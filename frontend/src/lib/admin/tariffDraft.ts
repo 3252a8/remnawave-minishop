@@ -17,6 +17,7 @@ export interface TariffCatalogDraft extends UnknownRecord {
 }
 
 export interface TariffDraft extends UnknownRecord {
+  accessCode: string;
   defaultCurrency: string;
   key: string;
   legacyKeys: unknown;
@@ -100,8 +101,27 @@ function scalarDraftValue(value: unknown): string | number {
   return typeof value === "string" || typeof value === "number" ? value : "";
 }
 
+export function generateTariffAccessCode(existingCodes: unknown[] = []): string {
+  const cryptoApi = globalThis.crypto;
+  if (!cryptoApi?.getRandomValues) throw new Error("secure_random_unavailable");
+  const used = new Set(
+    existingCodes.map((value) =>
+      String(value || "")
+        .trim()
+        .toLowerCase()
+    )
+  );
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const bytes = cryptoApi.getRandomValues(new Uint8Array(16));
+    const code = Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+    if (!used.has(code)) return code;
+  }
+  throw new Error("tariff_access_code_generation_failed");
+}
+
 export function emptyTariffDraft(): TariffDraft {
   return {
+    accessCode: "",
     defaultCurrency: "rub",
     key: "",
     legacyKeys: [],
@@ -380,6 +400,7 @@ export function draftFromTariff(tariff: UnknownRecord, defaultCurrency = "rub"):
     premiumSquadUuids: tariff.premium_squad_uuids || [],
     billing_model: String(tariff.billing_model || "period"),
     enabled: tariff.enabled !== false,
+    accessCode: String(tariff.access_code || ""),
     topup_always_available: tariff.topup_always_available === true,
     premium_topup_always_available: tariff.premium_topup_always_available === true,
     checkout_devices_enabled: checkoutDevices.enabled === true,
@@ -592,6 +613,10 @@ export function tariffFromDraft(draft: TariffDraft, fallbackCurrency = "rub"): U
       },
     },
   };
+  const accessCode = String(draft.accessCode || "")
+    .trim()
+    .toLowerCase();
+  if (!draft.enabled && accessCode) tariff.access_code = accessCode;
   const legacyKeys = normalizeUuidList(draft.legacyKeys).filter((item) => item !== key);
   if (legacyKeys.length) tariff.legacy_keys = [...new Set(legacyKeys)];
 

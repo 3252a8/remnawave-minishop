@@ -7836,6 +7836,11 @@ export interface components {
     };
     /** Tariff */
     Tariff: {
+      /**
+       * Access Code
+       * @default null
+       */
+      access_code: string | null;
       /** Addon Period Factors */
       addon_period_factors?: {
         [key: string]: number;
@@ -10284,6 +10289,7 @@ export interface operations {
             /** @constant */
             ok: true;
             plans: {
+              access_via_link?: boolean;
               available_payment_method_ids?: string[];
               billing_model?: string;
               checkout_addons?: {
@@ -13835,6 +13841,7 @@ export interface operations {
             /** @constant */
             ok: true;
             plans?: {
+              access_via_link?: boolean;
               available_payment_method_ids?: string[];
               billing_model?: string;
               checkout_addons?: {
@@ -14003,6 +14010,7 @@ export interface operations {
             /** @constant */
             ok: true;
             plans: {
+              access_via_link?: boolean;
               available_payment_method_ids?: string[];
               billing_model?: string;
               checkout_addons?: {
@@ -14218,6 +14226,7 @@ export interface operations {
               tariff_key: string | null;
             } | null;
             plans: {
+              access_via_link?: boolean;
               available_payment_method_ids?: string[];
               billing_model?: string;
               checkout_addons?: {
@@ -14349,6 +14358,7 @@ export interface operations {
               trial_enabled?: boolean;
               trial_payment_enabled?: boolean;
               trial_payment_plan?: {
+                access_via_link?: boolean;
                 available_payment_method_ids?: string[];
                 billing_model?: string;
                 checkout_addons?: {
@@ -15698,6 +15708,7 @@ export interface operations {
             /** @constant */
             ok: true;
             plans?: {
+              access_via_link?: boolean;
               available_payment_method_ids?: string[];
               billing_model?: string;
               checkout_addons?: {

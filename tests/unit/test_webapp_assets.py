@@ -66,6 +66,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                             },
                             {
                                 "key": "private",
+                                "access_code": "ab" * 16,
                                 "names": {"en": "Private"},
                                 "descriptions": {"en": "Assigned by an administrator"},
                                 "squad_uuids": ["uuid"],
@@ -97,12 +98,23 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 "en",
                 assigned_tariff_key="private",
             )
+            linked_plans = subscription_webapp._serialize_plans(
+                settings,
+                "en",
+                tariff_access_code="ab" * 16,
+            )
 
         self.assertEqual([plan["tariff_key"] for plan in plans], ["standard", "traffic"])
         self.assertEqual(
             [plan["tariff_key"] for plan in assigned_plans],
             ["standard", "traffic", "private"],
         )
+        self.assertEqual(
+            [plan["tariff_key"] for plan in linked_plans],
+            ["standard", "traffic", "private"],
+        )
+        self.assertNotIn("access_via_link", assigned_plans[-1])
+        self.assertTrue(linked_plans[-1]["access_via_link"])
         self.assertEqual(plans[0]["sale_mode"], "subscription")
         self.assertTrue(plans[0]["is_default_tariff"])
         self.assertEqual(plans[0]["months"], 1)

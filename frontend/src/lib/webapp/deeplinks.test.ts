@@ -54,6 +54,26 @@ describe("checkout route", () => {
     ).toBe("https://shop.example/minishop/checkout?plan=pro+plus");
   });
 
+  it("builds and parses a private hex-path checkout link", () => {
+    const accessCode = "ab".repeat(16);
+    expect(
+      buildCheckoutUrl({
+        accessCode: accessCode.toUpperCase(),
+        origin: "https://shop.example/",
+        plan: "private",
+        routePrefix: "/minishop",
+      })
+    ).toBe(`https://shop.example/minishop/checkout/${accessCode}`);
+    expect(
+      parseCheckoutDeeplink({ pathname: `/minishop/checkout/${accessCode.toUpperCase()}` })
+    ).toEqual({
+      accessCode,
+      plan: "",
+      months: null,
+      addons: { deviceTotal: null, regularLimitGb: null, premiumLimitGb: null },
+    });
+  });
+
   it("does not build a checkout link without an origin or tariff key", () => {
     expect(buildCheckoutUrl({ origin: "", plan: "standard" })).toBe("");
     expect(buildCheckoutUrl({ origin: "https://shop.example", plan: "" })).toBe("");
@@ -74,6 +94,7 @@ describe("checkout route", () => {
         search: "?plan=standard&months=3&devices=5&traffic=200&premium=50",
       })
     ).toEqual({
+      accessCode: "",
       plan: "standard",
       months: 3,
       addons: { deviceTotal: 5, regularLimitGb: 200, premiumLimitGb: 50 },
@@ -84,6 +105,7 @@ describe("checkout route", () => {
     expect(
       parseCheckoutDeeplink({ pathname: "/", search: "?plan", hash: "#/checkout?plan=8" })
     ).toEqual({
+      accessCode: "",
       plan: "8",
       months: null,
       addons: { deviceTotal: null, regularLimitGb: null, premiumLimitGb: null },
@@ -96,6 +118,7 @@ describe("checkout route", () => {
         telegramStartParam: "plan_standard__months_6__devices_4__traffic_300__premium_100",
       })
     ).toEqual({
+      accessCode: "",
       plan: "standard",
       months: 6,
       addons: { deviceTotal: 4, regularLimitGb: 300, premiumLimitGb: 100 },

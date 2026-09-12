@@ -91,7 +91,7 @@ from .billing_sale_modes import (
 from .billing_sale_modes import (
     _sale_mode_is_traffic as _sale_mode_is_traffic,
 )
-from .billing_tariff_access import require_user_available_tariff
+from .billing_tariff_access import request_tariff_access_code, require_user_available_tariff
 from .common import (
     _resolve_numeric_option_key,
 )
@@ -158,6 +158,7 @@ async def create_payment_route(request: web.Request) -> web.Response:
                     tariffs_config,
                     user_id=user_id,
                     tariff_key=tariff_key,
+                    access_code=request_tariff_access_code(request),
                 )
 
     if requested_sale_mode == "trial":

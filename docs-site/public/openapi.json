@@ -10614,6 +10614,18 @@
       },
       "Tariff": {
         "properties": {
+          "access_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Access Code"
+          },
           "addon_period_factors": {
             "additionalProperties": {
               "type": "number"
@@ -12413,6 +12425,7 @@
         "properties": {
           "provider": {
             "enum": [
+              "discord",
               "google",
               "yandex"
             ],
@@ -15839,6 +15852,9 @@
                       "items": {
                         "additionalProperties": false,
                         "properties": {
+                          "access_via_link": {
+                            "type": "boolean"
+                          },
                           "available_payment_method_ids": {
                             "items": {
                               "type": "string"
@@ -23683,6 +23699,9 @@
                       "items": {
                         "additionalProperties": false,
                         "properties": {
+                          "access_via_link": {
+                            "type": "boolean"
+                          },
                           "available_payment_method_ids": {
                             "items": {
                               "type": "string"
@@ -24170,6 +24189,9 @@
                       "items": {
                         "additionalProperties": false,
                         "properties": {
+                          "access_via_link": {
+                            "type": "boolean"
+                          },
                           "available_payment_method_ids": {
                             "items": {
                               "type": "string"
@@ -24862,6 +24884,9 @@
                       "items": {
                         "additionalProperties": false,
                         "properties": {
+                          "access_via_link": {
+                            "type": "boolean"
+                          },
                           "available_payment_method_ids": {
                             "items": {
                               "type": "string"
@@ -25354,6 +25379,9 @@
                             {
                               "additionalProperties": false,
                               "properties": {
+                                "access_via_link": {
+                                  "type": "boolean"
+                                },
                                 "available_payment_method_ids": {
                                   "items": {
                                     "type": "string"
@@ -28709,6 +28737,9 @@
                       "items": {
                         "additionalProperties": false,
                         "properties": {
+                          "access_via_link": {
+                            "type": "boolean"
+                          },
                           "available_payment_method_ids": {
                             "items": {
                               "type": "string"

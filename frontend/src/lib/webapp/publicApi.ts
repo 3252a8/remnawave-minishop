@@ -193,6 +193,7 @@ type ApiClientOptions = {
   csrfCookieName?: string;
   getAuthToken?: () => string;
   getCsrfToken?: () => string;
+  getTariffAccessCode?: () => string;
   onUnauthorized?: () => void;
   mockApi?: MockApi | null;
   getMockContext?: () => MockContext;
@@ -858,6 +859,7 @@ export function createApiClient({
   csrfCookieName = "rw_webapp_csrf",
   getAuthToken = () => "",
   getCsrfToken = () => "",
+  getTariffAccessCode = () => "",
   onUnauthorized = () => {},
   mockApi = null,
   getMockContext = () => ({}),
@@ -872,8 +874,14 @@ export function createApiClient({
     headers.set("X-Billing-Period-Unit", "day");
     const csrf = getCsrfToken() || readCookie(csrfCookieName) || "";
     const authToken = getAuthToken();
+    const tariffAccessCode = String(getTariffAccessCode() || "")
+      .trim()
+      .toLowerCase();
     if (authToken && !headers.has("Authorization")) {
       headers.set("Authorization", `Bearer ${authToken}`);
+    }
+    if (/^[a-f0-9]{32}$/.test(tariffAccessCode) && !headers.has("X-Tariff-Access-Code")) {
+      headers.set("X-Tariff-Access-Code", tariffAccessCode);
     }
     if (csrf && ["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
       headers.set("X-CSRF-Token", csrf);

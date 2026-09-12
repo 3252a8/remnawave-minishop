@@ -12,6 +12,7 @@ export type CheckoutAddonPreset = {
 };
 
 export type CheckoutDeeplink = {
+  accessCode?: string;
   addons: CheckoutAddonPreset;
   months: number | null;
   plan: string;
@@ -25,6 +26,7 @@ type CheckoutLocationInput = {
 };
 
 type CheckoutUrlInput = {
+  accessCode?: string;
   origin: string;
   plan: string;
   routePrefix?: string;
@@ -142,6 +144,7 @@ function parseCheckoutStartParam(value: string | null): CheckoutDeeplink | null 
     options.set(part.slice(0, separator).toLowerCase(), part.slice(separator + 1));
   }
   return {
+    accessCode: "",
     plan,
     months: finiteNonNegative(options.get("months") || options.get("period") || null),
     addons: {
@@ -181,11 +184,17 @@ export function parseCheckoutDeeplink({
   const path = String(pathname || "")
     .replace(/\/+$/, "")
     .toLowerCase();
-  const checkoutRoute = path === "/checkout" || path.endsWith("/checkout") || hashRoute.checkout;
+  const accessMatch = path.match(/\/checkout\/([a-f0-9]{32})$/);
+  const checkoutRoute =
+    Boolean(accessMatch) ||
+    path === "/checkout" ||
+    path.endsWith("/checkout") ||
+    hashRoute.checkout;
   const hasPlanParam = params.has("plan");
   if (!checkoutRoute && !hasPlanParam) return null;
 
   return {
+    accessCode: accessMatch?.[1] || "",
     plan: String(params.get("plan") || "").trim(),
     months: finiteNonNegative(firstParam(params, ["months", "period"])),
     addons: {
@@ -200,13 +209,27 @@ export function parseCheckoutDeeplink({
   };
 }
 
-export function buildCheckoutUrl({ origin, plan, routePrefix = "" }: CheckoutUrlInput): string {
+export function buildCheckoutUrl({
+  accessCode = "",
+  origin,
+  plan,
+  routePrefix = "",
+}: CheckoutUrlInput): string {
   const normalizedOrigin = String(origin || "")
     .trim()
     .replace(/\/+$/, "");
   const normalizedPlan = String(plan || "").trim();
-  if (!normalizedOrigin || !normalizedPlan) return "";
-  const url = new URL(withRoutePrefix(CHECKOUT_PATH, routePrefix), `${normalizedOrigin}/`);
+  const normalizedAccessCode = String(accessCode || "")
+    .trim()
+    .toLowerCase();
+  if (!normalizedOrigin || (!normalizedPlan && !/^[a-f0-9]{32}$/.test(normalizedAccessCode))) {
+    return "";
+  }
+  const checkoutPath = /^[a-f0-9]{32}$/.test(normalizedAccessCode)
+    ? `${CHECKOUT_PATH}/${normalizedAccessCode}`
+    : CHECKOUT_PATH;
+  const url = new URL(withRoutePrefix(checkoutPath, routePrefix), `${normalizedOrigin}/`);
+  if (normalizedAccessCode) return url.toString();
   url.searchParams.set("plan", normalizedPlan);
   return url.toString();
 }

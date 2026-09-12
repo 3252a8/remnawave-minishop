@@ -4,6 +4,7 @@ import {
   cloneCatalog,
   draftFromTariff,
   emptyTariffDraft,
+  generateTariffAccessCode,
   normalizeCurrencyKey,
   normalizeUuidList,
   packageRowsFromPackageSet,
@@ -13,6 +14,20 @@ import {
 } from "./tariffDraft";
 
 describe("tariffDraft", () => {
+  it("generates private tariff codes and preserves them only for hidden tariffs", () => {
+    const accessCode = generateTariffAccessCode();
+    expect(accessCode).toMatch(/^[a-f0-9]{32}$/);
+
+    const hidden = { ...emptyTariffDraft(), enabled: false, accessCode, key: "private" };
+    expect(tariffFromDraft(hidden)).toMatchObject({
+      key: "private",
+      enabled: false,
+      access_code: accessCode,
+    });
+    expect(tariffFromDraft({ ...hidden, enabled: true })).not.toHaveProperty("access_code");
+    expect(draftFromTariff({ access_code: accessCode }).accessCode).toBe(accessCode);
+  });
+
   it("normalizes currency aliases and clones catalog defaults", () => {
     expect(normalizeCurrencyKey(" RUR ")).toBe("rub");
     expect(normalizeCurrencyKey("XTR")).toBe("stars");

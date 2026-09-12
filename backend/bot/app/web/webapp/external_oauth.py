@@ -32,6 +32,7 @@ from bot.infra.event_payloads import (
 from bot.services.partner_program_service import PartnerProgramService
 from bot.services.registration_invite_gate import evaluate_registration_invite
 from config.settings import Settings
+from config.tariffs_config import normalize_tariff_access_code
 from db.dal import user_dal, user_email_dal
 from db.dal.user_dal import UserMergeConflictError
 from db.models import UserExternalIdentity
@@ -141,8 +142,20 @@ def _authorization_url(provider: ExternalProvider, language: str) -> str:
     return provider.authorization_url
 
 
-def _redirect(provider: str, purpose: str, status: str) -> str:
-    path = "/settings/security" if purpose == "link" else "/"
+def _redirect(
+    provider: str,
+    purpose: str,
+    status: str,
+    tariff_access_code: str | None = None,
+) -> str:
+    normalized_access_code = normalize_tariff_access_code(tariff_access_code)
+    path = (
+        "/settings/security"
+        if purpose == "link"
+        else f"/checkout/{normalized_access_code}"
+        if normalized_access_code
+        else "/"
+    )
     return f"{path}?external_auth={provider}:{status}"
 
 
@@ -302,9 +315,12 @@ def _b64url(raw: bytes) -> str:
 async def external_oauth_start_route(request: web.Request) -> web.Response:
     settings: Settings = get_settings(request)
     key = str(request.match_info.get("provider") or "").lower()
+    tariff_access_code = normalize_tariff_access_code(request.query.get("tariff_access"))
     provider = _provider(settings, key)
     if not provider:
-        raise web.HTTPFound(_redirect(key or "external", "login", "not_configured"))
+        raise web.HTTPFound(
+            _redirect(key or "external", "login", "not_configured", tariff_access_code)
+        )
 
     purpose = str(request.query.get("purpose") or "login").lower()
     if purpose not in {"login", "link"}:
@@ -326,6 +342,7 @@ async def external_oauth_start_route(request: web.Request) -> web.Response:
         "nonce": nonce,
         "language": language,
         "referral": str(request.query.get("ref") or request.query.get("start_param") or "")[:128],
+        "tariff_access_code": tariff_access_code,
     }
     query: dict[str, str] = {
         "response_type": "code",
@@ -509,7 +526,9 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
     purpose = str((state or {}).get("purpose") or "login")
 
     def finish(status: str) -> web.Response:
-        response = web.HTTPFound(_redirect(key, purpose, status))
+        response = web.HTTPFound(
+            _redirect(key, purpose, status, str((state or {}).get("tariff_access_code") or ""))
+        )
         _clear_state_cookie(response)
         return response
 
@@ -651,12 +670,20 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
                             "display_name": str(profile.get("display_name") or "")[:255],
                             "picture_url": str(profile.get("picture_url") or "")[:1024],
                             "referral": str(state.get("referral") or "")[:128],
+                            "tariff_access_code": normalize_tariff_access_code(
+                                state.get("tariff_access_code")
+                            ),
                             "resend_at": now + max(0, retry_after),
                         }
                         if request_result.code:
                             pending_payload["email_code"] = str(request_result.code)
                         response = web.HTTPFound(
-                            _redirect(key, purpose, "email_confirmation_required")
+                            _redirect(
+                                key,
+                                purpose,
+                                "email_confirmation_required",
+                                str(state.get("tariff_access_code") or ""),
+                            )
                         )
                         _clear_state_cookie(response)
                         _set_pending_cookie(response, settings, pending_payload)
@@ -819,7 +846,9 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
         )
     await _invalidate_webapp_user_caches(settings, int(user_id), include_devices=True)
     token = create_webapp_session_token(settings, int(user_id))
-    response = web.HTTPFound(_redirect(key, purpose, "success"))
+    response = web.HTTPFound(
+        _redirect(key, purpose, "success", str(state.get("tariff_access_code") or ""))
+    )
     _clear_state_cookie(response)
     _set_webapp_auth_cookies(response, settings, token, secrets.token_hex(32))
     return response

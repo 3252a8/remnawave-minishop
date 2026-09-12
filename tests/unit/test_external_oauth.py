@@ -149,7 +149,7 @@ def test_external_oauth_start_uses_application_language() -> None:
 async def _discord_oauth_uses_supported_authorization_parameters() -> None:
     request = SimpleNamespace(
         match_info={"provider": "discord"},
-        query={"lang": "en"},
+        query={"lang": "en", "tariff_access": "AB" * 16},
         cookies={},
     )
     set_state_cookie = Mock()
@@ -171,6 +171,20 @@ async def _discord_oauth_uses_supported_authorization_parameters() -> None:
     assert query["redirect_uri"] == ["https://app.example.com/auth/discord/callback"]
     assert "code_challenge" not in query
     assert set_state_cookie.call_args.args[2]["provider"] == "discord"
+    assert set_state_cookie.call_args.args[2]["tariff_access_code"] == "ab" * 16
+
+
+def test_external_oauth_redirect_preserves_private_tariff_path_only_for_login() -> None:
+    access_code = "ab" * 16
+    assert external_oauth._redirect("discord", "login", "success", access_code) == (
+        f"/checkout/{access_code}?external_auth=discord:success"
+    )
+    assert external_oauth._redirect("discord", "link", "success", access_code) == (
+        "/settings/security?external_auth=discord:success"
+    )
+    assert external_oauth._redirect("discord", "login", "success", "invalid") == (
+        "/?external_auth=discord:success"
+    )
 
 
 def test_discord_oauth_uses_supported_authorization_parameters() -> None:

@@ -39,6 +39,34 @@ def test_build_magic_link_includes_referral_param():
     assert query["ref"] == ["uABC123"]
 
 
+def test_build_magic_link_preserves_private_tariff_path():
+    service = EmailAuthService(_settings())
+
+    link = service._build_magic_link(
+        token="login-token",
+        purpose="login",
+        tariff_access_code="AB" * 16,
+    )
+
+    assert link is not None
+    parsed = urlsplit(link)
+    assert parsed.path == f"/checkout/{'ab' * 16}"
+    assert parse_qs(parsed.query)["login_token"] == ["login-token"]
+
+
+def test_build_magic_link_ignores_invalid_private_tariff_code():
+    service = EmailAuthService(_settings())
+
+    link = service._build_magic_link(
+        token="login-token",
+        purpose="login",
+        tariff_access_code="not-a-private-code",
+    )
+
+    assert link is not None
+    assert urlsplit(link).path == "/"
+
+
 def test_build_email_message_attaches_inline_images_to_html_part():
     service = EmailAuthService(_settings())
 

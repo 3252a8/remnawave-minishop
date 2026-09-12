@@ -82,6 +82,9 @@
 
   const catalog = $derived(buildTariffCatalog(plans));
   const linkedPlan = $derived.by(() => {
+    if (deeplink?.accessCode) {
+      return plans.find((plan) => plan.access_via_link === true) || null;
+    }
     const requested = String(deeplink?.plan || "").trim();
     if (!requested) return null;
     const requestedMonths = Number(deeplink?.months || 0);

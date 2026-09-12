@@ -112,6 +112,10 @@ export function buildTelegramOAuthStartUrl(purpose = "login", tg: unknown = null
   url.searchParams.set("purpose", purpose);
   const referralParam = readReferralParam(tg);
   if (referralParam) url.searchParams.set("referral_code", referralParam);
+  const tariffAccessCode = String(window.location.pathname || "")
+    .match(/\/checkout\/([a-f0-9]{32})\/?$/i)?.[1]
+    ?.toLowerCase();
+  if (tariffAccessCode) url.searchParams.set("tariff_access", tariffAccessCode);
   return url.toString();
 }
 
@@ -119,10 +123,21 @@ export function buildExternalOAuthStartUrl(
   provider: "discord" | "google" | "yandex",
   purpose: "login" | "link",
   language: string,
-  referral = ""
+  referral = "",
+  tariffAccessCode = ""
 ): string {
   const params = new URLSearchParams({ purpose, lang: language });
   if (referral) params.set("ref", referral);
+  const pathAccessCode =
+    typeof window === "undefined"
+      ? ""
+      : String(window.location.pathname || "").match(/\/checkout\/([a-f0-9]{32})\/?$/i)?.[1] || "";
+  const normalizedAccessCode = String(tariffAccessCode || pathAccessCode)
+    .trim()
+    .toLowerCase();
+  if (/^[a-f0-9]{32}$/.test(normalizedAccessCode)) {
+    params.set("tariff_access", normalizedAccessCode);
+  }
   return `/auth/${provider}/start?${params.toString()}`;
 }
 
