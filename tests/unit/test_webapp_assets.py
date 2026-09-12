@@ -905,6 +905,13 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn('rel="apple-touch-icon"', template)
         self.assertIn('href="/apple-touch-icon.png"', template)
+
+    def test_static_webapp_boot_spinner_uses_theme_accent(self):
+        template = Path("backend/bot/app/web/templates/subscription_webapp.html").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("border-top-color: var(--accent, #00fe7a)", template)
         self.assertIn('href="/favicon.ico"', template)
 
     def test_frontend_runtime_fallback_title_is_not_minishop_path(self):
@@ -1068,6 +1075,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("/webapp-theme-css/light/style.css", markup)
         self.assertIn('nonce="nonce-value"', markup)
         self.assertIn("--accent:#123456", markup)
+        self.assertIn(".app-shell,.app-boot-fallback{", markup)
         self.assertIn("--bg:#f7f8fb", markup)
         self.assertIn("--home-logo-scale:1.35", markup)
         self.assertIn("--home-logo-scale-desktop:1.5", markup)
