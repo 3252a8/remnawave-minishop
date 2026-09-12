@@ -8658,7 +8658,7 @@ export interface components {
        * Provider
        * @enum {string}
        */
-      provider: "google" | "yandex";
+      provider: "discord" | "google" | "yandex";
     };
     /** WebAppLanguagePayload */
     WebAppLanguagePayload: {

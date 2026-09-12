@@ -1,4 +1,4 @@
-export type LoginProvider = "google" | "yandex";
+export type LoginProvider = "discord" | "google" | "yandex";
 
 export function loginProviderOrigin(configuredUrl: string, fallbackOrigin: string): string {
   const fallback = String(fallbackOrigin || "").replace(/\/$/, "");

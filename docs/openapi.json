@@ -12413,6 +12413,7 @@
         "properties": {
           "provider": {
             "enum": [
+              "discord",
               "google",
               "yandex"
             ],

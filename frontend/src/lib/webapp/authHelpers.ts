@@ -116,7 +116,7 @@ export function buildTelegramOAuthStartUrl(purpose = "login", tg: unknown = null
 }
 
 export function buildExternalOAuthStartUrl(
-  provider: "google" | "yandex",
+  provider: "discord" | "google" | "yandex",
   purpose: "login" | "link",
   language: string,
   referral = ""

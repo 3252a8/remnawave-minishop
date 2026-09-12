@@ -351,7 +351,33 @@ YANDEX_OIDC_CLIENT_SECRET=<client-secret>
 Пошаговая регистрация:
 [официальная документация Yandex ID](https://yandex.com/dev/id/doc/en/register-auth).
 
-Настройки Google и Yandex ID, сохранённые в админке, применяются к следующим запросам
+## Discord
+
+1. Откройте [Discord Developer Portal](https://discord.com/developers/applications) и создайте
+   приложение.
+2. В разделе **OAuth2** добавьте Redirect URL:
+
+```text
+https://app.example.com/auth/discord/callback
+```
+
+3. Скопируйте Application ID и Client Secret и включите способ:
+
+```ini
+DISCORD_OIDC_ENABLED=True
+DISCORD_OIDC_CLIENT_ID=<application-id>
+DISCORD_OIDC_CLIENT_SECRET=<client-secret>
+```
+
+Minishop использует серверный Authorization Code Flow и запрашивает только `identify email`.
+Профиль загружается через Discord API `/users/@me`; email принимается как подтверждённый только
+при `verified=true`. Для уже существующего аккаунта совпадение email подтверждается кодом так же,
+как для Yandex ID.
+
+Официальный справочник:
+[Discord OAuth2](https://docs.discord.com/developers/topics/oauth2).
+
+Настройки Google, Yandex ID и Discord, сохранённые в админке, применяются к следующим запросам
 `/auth/{provider}/start` и `/auth/{provider}/callback` без перезапуска backend. Экран входа и
 кешированные данные кабинета также обновляются после сохранения. Если админка сообщает, что ключ
 «сохранён, но не применён», он не считается активным до перезапуска.
@@ -385,7 +411,7 @@ PASSKEY_CHALLENGE_TTL_SECONDS=300
 - привязать email к Telegram-аккаунту через код;
 - привязать Telegram через Mini Apps `initData` или Telegram OAuth;
 - задать или изменить пароль;
-- привязать Google, Yandex ID и passkey;
+- привязать Google, Yandex ID, Discord и passkey;
 - выбрать email для уведомлений из подтверждённых адресов.
 
 Если email уже принадлежит другой записи, backend выполняет безопасное объединение только после
@@ -424,7 +450,7 @@ EMAIL_ADDRESS_CHANGE_ENABLED=True
 1. Проверьте каждый включённый способ на экране входа.
 2. Войдите по email-коду, задайте пароль, выйдите и войдите по паролю.
 3. Проверьте Telegram внутри Mini App и отдельно в обычном браузере.
-4. Войдите новыми Google и Yandex ID аккаунтами; для совпавшего email подтвердите связывание
+4. Войдите новыми Google, Yandex ID и Discord аккаунтами; для совпавшего email подтвердите связывание
    кодом и убедитесь, что дубль пользователя не создан.
 5. Добавьте passkey, выйдите, войдите с ним и проверьте удаление ключа при наличии другого способа.
 6. В **Настройки → Безопасность** проверьте список identity, основной email и адрес уведомлений.

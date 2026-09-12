@@ -9,6 +9,13 @@ describe("login provider setup URLs", () => {
     expect(
       loginProviderCallbackUrl("google", "https://app.example.com/minishop/", "https://admin.local")
     ).toBe("https://app.example.com/auth/google/callback");
+    expect(
+      loginProviderCallbackUrl(
+        "discord",
+        "https://app.example.com/minishop/",
+        "https://admin.local"
+      )
+    ).toBe("https://app.example.com/auth/discord/callback");
   });
 
   it("falls back to the current origin when the configured URL is missing or invalid", () => {

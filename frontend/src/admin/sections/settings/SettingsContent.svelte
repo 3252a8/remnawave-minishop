@@ -254,7 +254,7 @@
     return String(settingsDirty[key]?.value ?? valueFor(field) ?? "").trim();
   }
 
-  function loginProviderCallback(provider: "google" | "yandex"): string {
+  function loginProviderCallback(provider: "discord" | "google" | "yandex"): string {
     const base = configuredText("SUBSCRIPTION_MINI_APP_URL");
     const fallbackOrigin = typeof window === "undefined" ? "" : window.location.origin;
     return loginProviderCallbackUrl(provider, base, fallbackOrigin);
@@ -274,6 +274,8 @@
       return at("settings_login_google_help_title", {}, "Google OAuth application");
     if (provider === "yandex")
       return at("settings_login_yandex_help_title", {}, "Yandex OAuth application");
+    if (provider === "discord")
+      return at("settings_login_discord_help_title", {}, "Discord OAuth2 application");
     return at("settings_login_passkey_help_title", {}, "Passkey domain settings");
   }
 
@@ -290,6 +292,12 @@
         {},
         "Create an app for user authorization and add the callback as a Web service Redirect URI."
       );
+    if (provider === "discord")
+      return at(
+        "settings_login_discord_help_hint",
+        {},
+        "Create a Discord application and add the exact OAuth2 redirect URL below."
+      );
     return at(
       "settings_login_passkey_help_hint",
       {},
@@ -301,6 +309,7 @@
     if (provider === "google")
       return "https://developers.google.com/identity/protocols/oauth2/web-server";
     if (provider === "yandex") return "https://yandex.com/dev/id/doc/en/register-auth";
+    if (provider === "discord") return "https://docs.discord.com/developers/topics/oauth2";
     return "https://developer.mozilla.org/en-US/docs/Web/Security/Authentication/Passkeys";
   }
 
@@ -371,7 +380,7 @@
 {/snippet}
 
 {#snippet renderLoginProviderHelp(provider: string)}
-  {#if provider === "google" || provider === "yandex" || provider === "passkey"}
+  {#if provider === "discord" || provider === "google" || provider === "yandex" || provider === "passkey"}
     <div class="admin-login-provider-help">
       <div class="admin-login-provider-help-copy">
         <strong>{loginProviderHelpTitle(provider)}</strong>
@@ -412,6 +421,20 @@
             <div class="admin-login-provider-setup-row">
               <span>{at("settings_login_yandex_permissions_label", {}, "Permissions")}</span>
               <code>login:email · login:info · login:avatar</code>
+            </div>
+          </div>
+        {:else if provider === "discord"}
+          <div class="admin-login-provider-setup-values">
+            <div class="admin-login-provider-setup-row">
+              <span>{at("settings_login_discord_redirect_uri_label", {}, "Redirect URL")}</span>
+              {@render renderLoginProviderValue(
+                "discord-redirect",
+                loginProviderCallback("discord")
+              )}
+            </div>
+            <div class="admin-login-provider-setup-row">
+              <span>{at("settings_login_discord_scopes_label", {}, "OAuth2 scopes")}</span>
+              <code>identify · email</code>
             </div>
           </div>
         {/if}

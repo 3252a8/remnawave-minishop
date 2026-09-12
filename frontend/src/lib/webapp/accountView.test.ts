@@ -91,4 +91,24 @@ describe("computeAccountView", () => {
       }).showTelegramLinkedStatus
     ).toBe(true);
   });
+
+  it("reports Discord as linked only when the matching identity exists", () => {
+    const input = {
+      appSettings: {},
+      authProviders: ["telegram", "discord"],
+      cfg: {},
+      emailAuthEnabled: false,
+      emailAvatarUrl: "",
+      t,
+      user: { telegram_linked: true },
+    };
+
+    expect(computeAccountView(input).hasUnlinkedIdentity).toBe(true);
+    expect(
+      computeAccountView({
+        ...input,
+        user: { ...input.user, external_identities: [{ provider: "discord" }] },
+      }).hasUnlinkedIdentity
+    ).toBe(false);
+  });
 });

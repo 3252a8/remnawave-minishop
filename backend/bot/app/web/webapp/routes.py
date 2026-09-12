@@ -189,8 +189,10 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/admin/support/{ticket_id:\\d+}", index_route)
     app.router.add_get("/auth/telegram/start", telegram_oauth_start_route)
     app.router.add_get("/auth/telegram/callback", telegram_oauth_callback_route)
-    app.router.add_get(r"/auth/{provider:google|yandex}/start", external_oauth_start_route)
-    app.router.add_get(r"/auth/{provider:google|yandex}/callback", external_oauth_callback_route)
+    app.router.add_get(r"/auth/{provider:discord|google|yandex}/start", external_oauth_start_route)
+    app.router.add_get(
+        r"/auth/{provider:discord|google|yandex}/callback", external_oauth_callback_route
+    )
     app.router.add_get("/health", health_route)
     app.router.add_get("/favicon.ico", webapp_current_favicon_route)
     app.router.add_get("/apple-touch-icon.png", webapp_current_favicon_route)

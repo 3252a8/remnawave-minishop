@@ -39,6 +39,9 @@ describe("auth referral helpers", () => {
     expect(buildExternalOAuthStartUrl("google", "link", "en")).toBe(
       "/auth/google/start?purpose=link&lang=en"
     );
+    expect(buildExternalOAuthStartUrl("discord", "login", "en")).toBe(
+      "/auth/discord/start?purpose=login&lang=en"
+    );
   });
 
   it("reads referral params from supported query names", () => {

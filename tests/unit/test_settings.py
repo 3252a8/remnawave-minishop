@@ -439,9 +439,19 @@ class SettingsTests(unittest.TestCase):
             APP_RUNTIME_MODE="test",
             QA_AUTH_ENABLED=True,
         )
+        discord_enabled = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            DISCORD_OIDC_ENABLED=True,
+            DISCORD_OIDC_CLIENT_ID="discord-client",
+            DISCORD_OIDC_CLIENT_SECRET="discord-secret",
+        )
 
         self.assertEqual(telegram_only.webapp_auth_providers, ["telegram"])
         self.assertEqual(email_enabled.webapp_auth_providers, ["telegram", "email"])
+        self.assertEqual(discord_enabled.webapp_auth_providers, ["telegram", "discord"])
 
     def test_registration_settings_view_reflects_invite_only_flag(self):
         default_settings = Settings(

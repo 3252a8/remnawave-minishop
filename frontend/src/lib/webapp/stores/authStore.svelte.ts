@@ -247,6 +247,7 @@ export function createAuthStore({
   }
 
   function externalProviderName(provider: string): string {
+    if (provider === "discord") return "Discord";
     if (provider === "google") return "Google";
     if (provider === "yandex") return "Yandex";
     return provider;

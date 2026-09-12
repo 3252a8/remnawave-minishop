@@ -1,4 +1,4 @@
-"""Google OIDC and Yandex OAuth login/link flows."""
+"""Google OIDC plus Yandex and Discord OAuth login/link flows."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Literal
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from aiohttp import ClientSession, ClientTimeout, web
 from sqlalchemy.exc import IntegrityError
@@ -70,9 +70,10 @@ _PENDING_PURPOSE = "external_oauth_link"
 _HTTP_TIMEOUT = ClientTimeout(total=15)
 _YANDEX_RUSSIAN_AUTHORIZATION_URL = "https://oauth.yandex.ru/authorize"
 
-ExternalProviderKey = Literal["google", "yandex"]
-ExternalRegistrationSource = Literal["google_oauth", "yandex_oauth"]
+ExternalProviderKey = Literal["discord", "google", "yandex"]
+ExternalRegistrationSource = Literal["discord_oauth", "google_oauth", "yandex_oauth"]
 _REGISTRATION_SOURCE_BY_PROVIDER: dict[ExternalProviderKey, ExternalRegistrationSource] = {
+    "discord": "discord_oauth",
     "google": "google_oauth",
     "yandex": "yandex_oauth",
 }
@@ -86,9 +87,23 @@ class ExternalProvider:
     client_id: str
     client_secret: str
     scopes: tuple[str, ...]
+    uses_pkce: bool = True
 
 
 def _provider(settings: Settings, key: str) -> ExternalProvider | None:
+    if key == "discord" and settings.DISCORD_OIDC_ENABLED:
+        client_id = str(settings.DISCORD_OIDC_CLIENT_ID or "").strip()
+        secret = str(settings.DISCORD_OIDC_CLIENT_SECRET or "").strip()
+        if client_id and secret:
+            return ExternalProvider(
+                key="discord",
+                authorization_url="https://discord.com/oauth2/authorize",
+                token_url="https://discord.com/api/oauth2/token",
+                client_id=client_id,
+                client_secret=secret,
+                scopes=("identify", "email"),
+                uses_pkce=False,
+            )
     if key == "google" and settings.GOOGLE_OIDC_ENABLED:
         client_id = str(settings.GOOGLE_OIDC_CLIENT_ID or "").strip()
         secret = str(settings.GOOGLE_OIDC_CLIENT_SECRET or "").strip()
@@ -191,7 +206,12 @@ def _read_pending(request: web.Request) -> dict[str, Any] | None:
         target_user_id = int(payload.get("target_user_id") or 0)
     except (TypeError, ValueError):
         return None
-    if provider not in {"google", "yandex"} or not subject or not email or not target_user_id:
+    if (
+        provider not in {"discord", "google", "yandex"}
+        or not subject
+        or not email
+        or not target_user_id
+    ):
         return None
     return {**payload, "provider": provider, "email": email, "target_user_id": target_user_id}
 
@@ -313,9 +333,14 @@ async def external_oauth_start_route(request: web.Request) -> web.Response:
         "redirect_uri": _callback_url(settings, request, key),
         "scope": " ".join(provider.scopes),
         "state": state,
-        "code_challenge": _urlsafe_sha256(verifier),
-        "code_challenge_method": "S256",
     }
+    if provider.uses_pkce:
+        query.update(
+            {
+                "code_challenge": _urlsafe_sha256(verifier),
+                "code_challenge_method": "S256",
+            }
+        )
     if key == "google":
         query.update({"nonce": nonce, "access_type": "online", "prompt": "select_account"})
     response = web.HTTPFound(f"{_authorization_url(provider, language)}?{urlencode(query)}")
@@ -326,14 +351,15 @@ async def external_oauth_start_route(request: web.Request) -> web.Response:
 async def _post_token(
     provider: ExternalProvider, *, code: str, redirect_uri: str, verifier: str
 ) -> dict[str, Any] | None:
-    form = {
+    form: dict[str, str] = {
         "grant_type": "authorization_code",
         "code": code,
         "client_id": provider.client_id,
         "client_secret": provider.client_secret,
         "redirect_uri": redirect_uri,
-        "code_verifier": verifier,
     }
+    if provider.uses_pkce:
+        form["code_verifier"] = verifier
     async with (
         ClientSession(timeout=_HTTP_TIMEOUT) as session,
         session.post(provider.token_url, data=form) as response,
@@ -439,6 +465,42 @@ async def _yandex_profile(token_payload: dict[str, Any]) -> dict[str, Any] | Non
     }
 
 
+async def _discord_profile(token_payload: dict[str, Any]) -> dict[str, Any] | None:
+    access_token = str(token_payload.get("access_token") or "")
+    if not access_token:
+        return None
+    async with (
+        ClientSession(timeout=_HTTP_TIMEOUT) as session,
+        session.get(
+            "https://discord.com/api/v10/users/@me",
+            headers={"Authorization": f"Bearer {access_token}"},
+        ) as response,
+    ):
+        if response.status != 200:
+            return None
+        claims = await response.json(content_type=None)
+    if not isinstance(claims, dict):
+        return None
+    subject = str(claims.get("id") or "").strip()
+    if not subject:
+        return None
+    email = str(claims.get("email") or "").strip().lower() or None
+    avatar_hash = str(claims.get("avatar") or "").strip()
+    return {
+        "subject": subject,
+        "email": email,
+        "email_verified": bool(email and claims.get("verified")),
+        "display_name": str(claims.get("global_name") or claims.get("username") or "").strip()
+        or None,
+        "picture_url": (
+            "https://cdn.discordapp.com/avatars/"
+            f"{quote(subject, safe='')}/{quote(avatar_hash, safe='')}.png?size=256"
+            if avatar_hash
+            else None
+        ),
+    }
+
+
 async def external_oauth_callback_route(request: web.Request) -> web.Response:
     settings: Settings = get_settings(request)
     key = str(request.match_info.get("provider") or "").lower()
@@ -464,11 +526,12 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
     )
     if not token_payload:
         return finish("token_failed")
-    profile = (
-        await _google_profile(token_payload, provider, str(state.get("nonce") or ""))
-        if key == "google"
-        else await _yandex_profile(token_payload)
-    )
+    if key == "google":
+        profile = await _google_profile(token_payload, provider, str(state.get("nonce") or ""))
+    elif key == "yandex":
+        profile = await _yandex_profile(token_payload)
+    else:
+        profile = await _discord_profile(token_payload)
     if not profile:
         return finish("profile_failed")
 
