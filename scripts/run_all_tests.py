@@ -174,10 +174,16 @@ class FullTestRun:
                 "QA_REMNAWAVE_HEALTH_URL": "http://remnawave:3001/health",
                 "QA_DB_DSN": "postgresql://remnawave_minishop:remnawave_minishop@postgres:5432/remnawave_minishop",
                 "QA_PAYMENT_SECRET": self.values["QA_PAYMENT_SECRET"],
+                "MINISHOP_RUN_DOCKER_INTEGRATION": "1",
             },
             "volumes": [
                 {"type": "bind", "source": str(ROOT), "target": "/workspace", "read_only": True},
                 {"type": "bind", "source": str(self.output), "target": "/reports"},
+                {
+                    "type": "bind",
+                    "source": "/var/run/docker.sock",
+                    "target": "/var/run/docker.sock",
+                },
                 *[
                     {
                         "type": "bind",

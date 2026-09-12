@@ -172,7 +172,12 @@ FROM python-base AS qa
 # It is never used as an application runtime image.
 USER root
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends bash git openssl \
+    && apt-get install -y --no-install-recommends \
+      bash \
+      docker-compose-v2 \
+      docker.io \
+      git \
+      openssl \
     && rm -rf /var/lib/apt/lists/*
 COPY requirements-dev.txt /tmp/requirements-dev.txt
 RUN --mount=type=cache,target=/root/.cache/pip \
