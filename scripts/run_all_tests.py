@@ -17,7 +17,7 @@ from xml.etree import ElementTree
 ROOT = Path(__file__).resolve().parents[1]
 COMPOSE_FILES = ("docker-compose-dev.yml", "docker-compose.remnawave-dev.yml")
 SOURCE_VERSION = "2.8.1"
-TARGET_VERSION = "3.4.3"
+TARGET_VERSION = "3.4.4"
 
 
 def read_env(path: Path) -> dict[str, str]:

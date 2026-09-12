@@ -274,10 +274,11 @@ export function demoApiResponse(
       ],
       checked_at: new Date().toISOString(),
       panel_compatibility: {
-        version: "3.4.3",
+        version: "3.4.4",
         generation: "rw3-numeric-user-id",
         support_status: "current",
         certified_versions: [
+          "3.4.4",
           "3.4.3",
           "3.4.2",
           "3.4.1",

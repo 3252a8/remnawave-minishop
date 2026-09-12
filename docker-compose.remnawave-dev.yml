@@ -22,7 +22,7 @@ services:
       - "127.0.0.1:${DEV_POSTGRES_PORT:-6768}:5432"
 
   remnawave:
-    image: remnawave/backend:${REMNAWAVE_DEV_VERSION:-3.4.3}
+    image: remnawave/backend:${REMNAWAVE_DEV_VERSION:-3.4.4}
     container_name: remnawave-dev-panel
     hostname: remnawave
     restart: unless-stopped
