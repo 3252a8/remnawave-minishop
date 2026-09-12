@@ -6,6 +6,13 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.services.panel_tariff_tags import (
+    PanelTariffTagPlan,
+    configured_tariff_tags,
+    normalize_panel_tag,
+    panel_tariff_tag_for_key,
+    plan_panel_tariff_tag,
+)
 from bot.utils.text_sanitizer import panel_description_from_profile
 from config.traffic_strategy import normalize_traffic_limit_strategy
 from db.dal import user_dal, user_panel_squad_override_dal
@@ -25,6 +32,7 @@ class PanelUserCreateOptions:
     hwid_device_limit: int | None = None
     specific_squad_uuids: tuple[str, ...] = ()
     external_squad_uuid: str | None = None
+    tag: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,6 +135,47 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
         if db_user.email:
             payload["email"] = db_user.email
         return payload
+
+    def _plan_panel_tariff_tag(
+        self,
+        db_user: User,
+        panel_user: dict[str, Any] | None,
+        desired_tag: str | None,
+        *,
+        source: str,
+    ) -> PanelTariffTagPlan:
+        tariffs_config = getattr(self.settings, "tariffs_config", None)
+        plan = plan_panel_tariff_tag(
+            current_tag=panel_user.get("tag") if isinstance(panel_user, dict) else None,
+            managed_tag=getattr(db_user, "managed_panel_tariff_tag", None),
+            desired_tag=panel_tariff_tag_for_key(desired_tag, tariffs_config),
+            known_tariff_tags=configured_tariff_tags(tariffs_config),
+        )
+        if not plan.allowed:
+            logger.warning(
+                "Preserving external Remnawave tag for user %s during %s: current_tag=%r "
+                "desired_tariff_tag=%r",
+                db_user.user_id,
+                source,
+                plan.current_tag,
+                plan.desired_tag,
+            )
+            db_user.managed_panel_tariff_tag = None
+        return plan
+
+    @staticmethod
+    def _remember_confirmed_panel_tariff_tag(
+        db_user: User,
+        plan: PanelTariffTagPlan,
+        confirmed_panel_user: dict[str, Any] | None,
+    ) -> None:
+        if not plan.allowed:
+            return
+        confirmed_tag = normalize_panel_tag(
+            confirmed_panel_user.get("tag") if isinstance(confirmed_panel_user, dict) else None
+        )
+        if confirmed_tag == plan.desired_tag:
+            db_user.managed_panel_tariff_tag = plan.managed_tag_after
 
     async def _get_or_create_panel_user_link(
         self,
@@ -321,6 +370,7 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                         default_traffic_limit_strategy=(
                             create_options.default_traffic_limit_strategy
                         ),
+                        tag=create_options.tag,
                     )
                     if (
                         creation_response
@@ -359,6 +409,7 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                     external_squad_uuid=create_options.external_squad_uuid,
                     default_traffic_limit_bytes=create_options.default_traffic_limit_bytes,
                     default_traffic_limit_strategy=create_options.default_traffic_limit_strategy,
+                    tag=create_options.tag,
                 )
                 if (
                     creation_response
@@ -541,7 +592,15 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
             db_user,
             create_options=create_options,
         )
+        if link.panel_user_uuid and isinstance(link.panel_user, dict):
+            self._panel_user_link_snapshots[link.panel_user_uuid] = link.panel_user
         return link.legacy_details()
+
+    def _take_panel_user_link_snapshot(
+        self,
+        panel_user_uuid: str,
+    ) -> dict[str, Any] | None:
+        return self._panel_user_link_snapshots.pop(panel_user_uuid, None)
 
     async def _compensate_failed_panel_user_creation(
         self,

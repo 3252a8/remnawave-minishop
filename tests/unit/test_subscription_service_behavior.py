@@ -735,6 +735,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 expire_at=datetime(2026, 1, 2, tzinfo=UTC),
                 hwid_device_limit=2,
                 specific_squad_uuids=("trial-squad",),
+                tag="standard",
             )
 
             with (
@@ -763,6 +764,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             self.assertEqual(create_kwargs["default_traffic_limit_bytes"], 10 * GIB)
             self.assertEqual(create_kwargs["default_traffic_limit_strategy"], "NO_RESET")
             self.assertEqual(create_kwargs["specific_squad_uuids"], ["trial-squad"])
+            self.assertEqual(create_kwargs["tag"], "standard")
 
     async def test_activate_trial_keeps_panel_strategy_out_of_local_subscription_payload(self):
         with tempfile.TemporaryDirectory() as tmpdir:

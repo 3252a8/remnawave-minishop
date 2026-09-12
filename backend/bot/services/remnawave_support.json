@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "reviewed_at": "2026-09-02",
+  "reviewed_at": "2026-09-12",
   "policy": {
     "supported_api_generations": 2,
     "deprecation_minimum_days": 90,
@@ -23,7 +23,8 @@
         "empty-success-body",
         "multi-node-usage",
         "multi-node-top-users",
-        "bulk-squad-update"
+        "bulk-squad-update",
+        "user-tag"
       ],
       "coverage": ["fixture", "live-read", "live-write", "upgrade"],
       "upstream_release": "https://github.com/remnawave/backend/releases/tag/3.4.3"
@@ -35,7 +36,8 @@
       "preset": "2.8.1",
       "capabilities": [
         "multi-node-top-users",
-        "bulk-squad-update"
+        "bulk-squad-update",
+        "user-tag"
       ],
       "coverage": ["fixture", "live-read", "live-write", "upgrade"],
       "upstream_release": "https://f.docs.rw/t/topic/178"

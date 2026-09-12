@@ -37,6 +37,7 @@ class PanelApiCapability(StrEnum):
     MULTI_NODE_USAGE = "multi-node-usage"
     MULTI_NODE_TOP_USERS = "multi-node-top-users"
     BULK_SQUAD_UPDATE = "bulk-squad-update"
+    USER_TAG = "user-tag"
 
 
 GENERATION_CAPABILITIES: dict[PanelApiGeneration, frozenset[PanelApiCapability]] = {
@@ -44,6 +45,7 @@ GENERATION_CAPABILITIES: dict[PanelApiGeneration, frozenset[PanelApiCapability]]
         {
             PanelApiCapability.MULTI_NODE_TOP_USERS,
             PanelApiCapability.BULK_SQUAD_UPDATE,
+            PanelApiCapability.USER_TAG,
         }
     ),
     PanelApiGeneration.RW3_NUMERIC: frozenset(PanelApiCapability),

@@ -444,6 +444,24 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
         )
         if not updated:
             return None
+        panel_user_for_tag = await self._get_panel_user_for_entitlement_verification(
+            db_user.panel_user_uuid
+        )
+        if panel_user_for_tag is None:
+            logger.warning(
+                "Cannot verify the current Remnawave tag before tariff switch for user %s.",
+                user_id,
+            )
+        tariff_tag_plan = (
+            self._plan_panel_tariff_tag(
+                db_user,
+                panel_user_for_tag,
+                target.key,
+                source="tariff_switch",
+            )
+            if panel_user_for_tag is not None
+            else None
+        )
         panel_payload = self._build_panel_update_payload(
             panel_user_uuid=db_user.panel_user_uuid,
             expire_at=updated.end_date,
@@ -487,6 +505,8 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             )
         )
         panel_payload.update(self._panel_identity_payload_for_user(db_user))
+        if tariff_tag_plan is not None:
+            panel_payload.update(tariff_tag_plan.verification_payload)
         panel_subscription_uuid = str(getattr(updated, "panel_subscription_uuid", "") or "").strip()
         if panel_subscription_uuid:
             await subscription_dal.deactivate_other_active_subscriptions(
@@ -515,6 +535,12 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 panel_update_result,
             )
             return None
+        if tariff_tag_plan is not None:
+            self._remember_confirmed_panel_tariff_tag(
+                db_user,
+                tariff_tag_plan,
+                confirmed_panel_user,
+            )
         if converted_bytes:
             await record_traffic_topup_best_effort(
                 session,

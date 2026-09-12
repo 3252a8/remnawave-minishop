@@ -677,6 +677,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 effective_hwid_limit,
                 managed_squads,
                 self.settings.parsed_user_external_squad_uuid,
+                tariff.key if tariff else None,
             ),
         )
         if not panel_user_uuid or not panel_sub_link_id:
@@ -898,6 +899,19 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         )
 
         panel_update_payload.update(self._panel_identity_payload_for_user(db_user))
+        panel_user_for_tag = self._take_panel_user_link_snapshot(panel_user_uuid)
+        tariff_tag_plan = (
+            self._plan_panel_tariff_tag(
+                db_user,
+                panel_user_for_tag,
+                tariff.key if tariff else None,
+                source="paid_activation",
+            )
+            if panel_user_for_tag is not None
+            else None
+        )
+        if tariff_tag_plan is not None:
+            panel_update_payload.update(tariff_tag_plan.verification_payload)
 
         if panel_user_created_now and previous_panel_user_uuid is None and not current_active_sub:
             # CREATE already requested the exact entitlement. Verify it with an
@@ -928,6 +942,12 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 source="paid entitlement verification",
             )
             return None
+        if tariff_tag_plan is not None:
+            self._remember_confirmed_panel_tariff_tag(
+                db_user,
+                tariff_tag_plan,
+                updated_panel_user,
+            )
 
         if promo_regular_traffic_bytes > 0:
             await entitlement_helpers.record_traffic_topup_best_effort(

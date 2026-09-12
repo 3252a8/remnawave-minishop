@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from bot.services.panel_api_service import PanelApiService
+from bot.services.panel_tariff_tags import panel_tariff_tag_for_key, plan_panel_tariff_tag
 from tests.support.settings_stub import settings_stub
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -49,6 +50,8 @@ async def _exercise_panel_contract() -> None:
     expected_version = os.environ["QA_REMNAWAVE_PRESET"]
     service = _panel_service()
     username = f"qa_{uuid.uuid4().hex[:16]}"
+    initial_tag = panel_tariff_tag_for_key("standard")
+    assert initial_tag is not None
     user_ref: str | None = None
     try:
         compatibility = await service.get_panel_api_compatibility(force_refresh=True)
@@ -86,32 +89,52 @@ async def _exercise_panel_contract() -> None:
             default_expire_days=2,
             default_traffic_limit_bytes=1024,
             default_traffic_limit_strategy="NO_RESET",
+            tag=initial_tag,
         )
         assert created and not created.get("error"), created
         panel_user = created.get("response")
         assert isinstance(panel_user, dict)
         user_ref = str(panel_user.get("uuid") or "")
         assert user_ref
+        assert panel_user.get("tag") == initial_tag
 
         found = await service.get_users_by_filter(username=username)
         assert found and found[0]["uuid"] == user_ref
 
         updated_telegram_id = 980000000 + int(uuid.uuid4().hex[:5], 16)
+        updated_tag = f"QA_{uuid.uuid4().hex[:12].upper()}"
         updated = await service.update_user_details_on_panel(
             user_ref,
             {
                 "description": "core compatibility live smoke",
                 "telegramId": updated_telegram_id,
+                "tag": updated_tag,
             },
         )
         assert updated and updated.get("description") == "core compatibility live smoke"
         assert int(updated.get("telegramId") or 0) == updated_telegram_id
+        assert updated.get("tag") == updated_tag
 
         # Panel 3.4.1 runtime already required a scalar here, while its OpenAPI
         # incorrectly advertised an array until 3.4.2. Keep the wire payload
         # scalar and verify the stream lookup observes the updated value.
         found_by_telegram = await service.get_users_by_filter(telegram_id=updated_telegram_id)
         assert found_by_telegram and found_by_telegram[0]["uuid"] == user_ref
+        persisted = await service.get_user_by_uuid(user_ref, use_cache=False)
+        assert persisted and persisted.get("tag") == updated_tag
+
+        # A manual operator tag must remain untouched even if Core previously
+        # owned the tariff tag and the assigned tariff later changes.
+        next_tariff_tag = panel_tariff_tag_for_key("premium")
+        assert next_tariff_tag is not None
+        tag_plan = plan_panel_tariff_tag(
+            current_tag=updated_tag,
+            managed_tag=initial_tag,
+            desired_tag=next_tariff_tag,
+            known_tariff_tags={initial_tag, next_tariff_tag},
+        )
+        assert not tag_plan.allowed
+        assert tag_plan.verification_payload == {}
 
         assert await service.add_users_to_internal_squad(squad_uuid, [user_ref])
         with_squad = await service.get_user_by_uuid(user_ref, use_cache=False)

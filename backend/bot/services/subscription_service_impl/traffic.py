@@ -198,6 +198,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
                 effective_hwid_limit,
                 managed_squads,
                 self.settings.parsed_user_external_squad_uuid,
+                tariff.key if tariff else None,
             ),
         )
         if not panel_user_uuid or not panel_sub_link_id:
@@ -320,6 +321,19 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         )
 
         panel_update_payload.update(self._panel_identity_payload_for_user(db_user))
+        panel_user_for_tag = self._take_panel_user_link_snapshot(panel_user_uuid)
+        tariff_tag_plan = (
+            self._plan_panel_tariff_tag(
+                db_user,
+                panel_user_for_tag,
+                tariff.key if tariff else None,
+                source="traffic_package",
+            )
+            if panel_user_for_tag is not None
+            else None
+        )
+        if tariff_tag_plan is not None:
+            panel_update_payload.update(tariff_tag_plan.verification_payload)
 
         if panel_user_created_now and previous_panel_user_uuid is None and not active_sub:
             # CREATE already requested the exact entitlement. Verify it with an
@@ -350,6 +364,12 @@ class TrafficMixin(SubscriptionServiceMixinContract):
                 source="traffic entitlement verification",
             )
             return None
+        if tariff_tag_plan is not None:
+            self._remember_confirmed_panel_tariff_tag(
+                db_user,
+                tariff_tag_plan,
+                updated_panel_user,
+            )
 
         final_subscription_url = updated_panel_user.get("subscriptionUrl")
         final_panel_short_uuid = updated_panel_user.get("shortUuid", panel_short_uuid)
@@ -487,6 +507,19 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         extra_hwid_devices = hwid_limits.extra
         sub.extra_hwid_devices = extra_hwid_devices
         effective_hwid_limit = hwid_limits.effective
+        panel_user_for_tag = await self._get_panel_user_for_entitlement_verification(
+            db_user.panel_user_uuid
+        )
+        tariff_tag_plan = (
+            self._plan_panel_tariff_tag(
+                db_user,
+                panel_user_for_tag,
+                tariff.key if tariff else None,
+                source="sync_main_traffic_limit",
+            )
+            if panel_user_for_tag is not None
+            else None
+        )
         panel_payload = self._build_panel_update_payload(
             panel_user_uuid=db_user.panel_user_uuid,
             expire_at=sub.end_date,
@@ -511,6 +544,8 @@ class TrafficMixin(SubscriptionServiceMixinContract):
                 )
             )
         panel_payload.update(self._panel_identity_payload_for_user(db_user))
+        if tariff_tag_plan is not None:
+            panel_payload.update(tariff_tag_plan.verification_payload)
         try:
             updated_panel = await self.panel_service.update_user_details_on_panel(
                 db_user.panel_user_uuid, panel_payload
@@ -531,4 +566,10 @@ class TrafficMixin(SubscriptionServiceMixinContract):
                 updated_panel,
             )
             return False
+        if tariff_tag_plan is not None:
+            self._remember_confirmed_panel_tariff_tag(
+                db_user,
+                tariff_tag_plan,
+                confirmed_panel_user,
+            )
         return True

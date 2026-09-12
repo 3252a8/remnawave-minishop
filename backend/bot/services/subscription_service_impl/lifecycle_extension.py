@@ -118,6 +118,7 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
             initial_tariff,
             include_premium=not initial_premium_is_limited,
         )
+        desired_tariff_tag = str(getattr(initial_tariff, "key", "") or "").strip() or None
         create_options = entitlement_helpers.panel_user_create_options(
             new_end_date_obj,
             initial_traffic_limit,
@@ -125,6 +126,7 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
             initial_hwid_limit,
             initial_squads,
             self.settings.parsed_user_external_squad_uuid,
+            desired_tariff_tag,
         )
         (
             panel_uuid,
@@ -400,6 +402,20 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
                     )
                 )
 
+            panel_user_for_tag = self._take_panel_user_link_snapshot(panel_uuid)
+            tariff_tag_plan = (
+                self._plan_panel_tariff_tag(
+                    user,
+                    panel_user_for_tag,
+                    desired_tariff_tag,
+                    source="subscription_bonus",
+                )
+                if panel_user_for_tag is not None
+                else None
+            )
+            if tariff_tag_plan is not None:
+                panel_update_payload.update(tariff_tag_plan.verification_payload)
+
             if (
                 created_new_subscription
                 and panel_user_created_now
@@ -425,6 +441,8 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
                 )
                 if create_options.external_squad_uuid:
                     expected_panel_payload["externalSquadUuid"] = create_options.external_squad_uuid
+                if tariff_tag_plan is not None:
+                    expected_panel_payload.update(tariff_tag_plan.verification_payload)
             else:
                 panel_update_result = await self.panel_service.update_user_details_on_panel(
                     panel_uuid,
@@ -478,6 +496,13 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
                             user_id,
                         )
                 return None
+
+            if tariff_tag_plan is not None:
+                self._remember_confirmed_panel_tariff_tag(
+                    user,
+                    tariff_tag_plan,
+                    confirmed_panel_user,
+                )
 
             if pending_tariff_change_payload:
                 await entitlement_helpers.record_tariff_change_best_effort(

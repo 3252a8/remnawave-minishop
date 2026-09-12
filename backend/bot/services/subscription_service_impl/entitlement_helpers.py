@@ -63,6 +63,7 @@ def panel_user_create_options(
     hwid_device_limit: int | None,
     squad_uuids: list[str] | None,
     external_squad_uuid: str | None,
+    tag: str | None = None,
 ) -> PanelUserCreateOptions:
     return PanelUserCreateOptions(
         default_expire_days=1,
@@ -72,6 +73,7 @@ def panel_user_create_options(
         hwid_device_limit=hwid_device_limit,
         specific_squad_uuids=tuple(squad_uuids or ()),
         external_squad_uuid=external_squad_uuid,
+        tag=tag,
     )
 
 

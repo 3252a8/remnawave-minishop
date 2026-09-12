@@ -29,8 +29,8 @@ live-проверки CI не завершатся успешно. Об удал
 
 | Статус | Поколение API | Точные версии | Пресет | Возможности | Покрытие | Источник |
 | --- | --- | --- | --- | --- | --- | --- |
-| текущая | rw3-numeric-user-id | 3.4.3, 3.4.2, 3.4.1, 3.3.2, 3.3.0, 3.2.3, 3.2.1, 3.2.0, 3.1.0, 3.0.0 | 3.4.3 | numeric-user-ids, user-stream, user-stream-filters, targeted-squad-bulk, connections-drop, hwid-user-id-selector, empty-success-body, multi-node-usage, multi-node-top-users, bulk-squad-update | fixture, live-read, live-write, upgrade | [примечания к выпуску](https://github.com/remnawave/backend/releases/tag/3.4.3) |
-| поддерживаемая | rw2-uuid-user-id | 2.8.1 | 2.8.1 | multi-node-top-users, bulk-squad-update | fixture, live-read, live-write, upgrade | [примечания к выпуску](https://f.docs.rw/t/topic/178) |
+| текущая | rw3-numeric-user-id | 3.4.3, 3.4.2, 3.4.1, 3.3.2, 3.3.0, 3.2.3, 3.2.1, 3.2.0, 3.1.0, 3.0.0 | 3.4.3 | numeric-user-ids, user-stream, user-stream-filters, targeted-squad-bulk, connections-drop, hwid-user-id-selector, empty-success-body, multi-node-usage, multi-node-top-users, bulk-squad-update, user-tag | fixture, live-read, live-write, upgrade | [примечания к выпуску](https://github.com/remnawave/backend/releases/tag/3.4.3) |
+| поддерживаемая | rw2-uuid-user-id | 2.8.1 | 2.8.1 | multi-node-top-users, bulk-squad-update, user-tag | fixture, live-read, live-write, upgrade | [примечания к выпуску](https://f.docs.rw/t/topic/178) |
 
 Исторические пресеты остаются полезными для ручной диагностики, но не
 поддерживаются и не запускаются в матрице сертификации:
@@ -151,4 +151,4 @@ live-проверки CI не завершатся успешно. Об удал
    политики, удалите поддержку только в несовместимом выпуске Core и переведите
    пресеты в исторический статус.
 
-Дата проверки манифеста: `2026-09-02`.
+Дата проверки манифеста: `2026-09-12`.

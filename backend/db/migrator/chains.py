@@ -11,6 +11,7 @@ from .chain_0077_subscription_gifts import CHAIN_0077_SUBSCRIPTION_GIFTS
 from .chain_0078_gift_entitlements import CHAIN_0078_GIFT_ENTITLEMENTS
 from .chain_0084_gift_refunds import CHAIN_0084_GIFT_REFUNDS
 from .chain_0085_user_notification_preferences import CHAIN_0085_USER_NOTIFICATION_PREFERENCES
+from .chain_0086_panel_tariff_tag import CHAIN_0086_PANEL_TARIFF_TAG
 from .engine import Migration
 
 MIGRATIONS: list[Migration] = [
@@ -25,4 +26,5 @@ MIGRATIONS: list[Migration] = [
     *CHAIN_0078_GIFT_ENTITLEMENTS,
     *CHAIN_0084_GIFT_REFUNDS,
     *CHAIN_0085_USER_NOTIFICATION_PREFERENCES,
+    *CHAIN_0086_PANEL_TARIFF_TAG,
 ]
