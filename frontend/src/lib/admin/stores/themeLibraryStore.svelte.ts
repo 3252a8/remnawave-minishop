@@ -9,6 +9,7 @@ import {
 } from "../../webapp/themeApiPaths";
 import type { ApiClient } from "../../webapp/publicApi";
 import { adminErrorMessage } from "../errors";
+import { normalizeThemeImportFailure, type ThemeImportFailure } from "../themeImportReport.js";
 
 export type ThemeInstallation = components["schemas"]["ThemeInstallation"];
 export type ThemeImport = components["schemas"]["ImportRecord"];
@@ -28,6 +29,7 @@ export function createThemeLibraryStore(options: {
   let writable = $state(true);
   let busy = $state(false);
   let error = $state("");
+  let failure = $state<ThemeImportFailure | null>(null);
   let operation = $state<ThemeImport | null>(null);
   let idempotencyKey = "";
   let pollController: AbortController | null = null;
@@ -57,10 +59,12 @@ export function createThemeLibraryStore(options: {
     if (busy) return;
     busy = true;
     error = "";
+    failure = null;
     try {
       await action();
     } catch (cause) {
       if (!(cause instanceof DOMException && cause.name === "AbortError")) {
+        failure = normalizeThemeImportFailure(cause);
         error = message(cause);
         flash(error);
       }
@@ -110,7 +114,9 @@ export function createThemeLibraryStore(options: {
         if (!result?.ok) throw result;
         operation = result.operation;
       }
-      if (operation?.state === "failed") throw { error: operation.error };
+      if (operation?.state === "failed") {
+        throw { error: operation.error, detail: operation.detail };
+      }
       await load();
     });
   }
@@ -125,6 +131,7 @@ export function createThemeLibraryStore(options: {
     }
     operation = null;
     error = "";
+    failure = null;
   }
   async function install(choices: components["schemas"]["InstallChoice"][]) {
     let success = false;
@@ -220,6 +227,9 @@ export function createThemeLibraryStore(options: {
     },
     get error() {
       return error;
+    },
+    get failure() {
+      return failure;
     },
     get operation() {
       return operation;
