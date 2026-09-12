@@ -85,4 +85,29 @@ describe("authStore", () => {
     expect(deps.loadData).toHaveBeenCalledOnce();
     expect(linkTelegramAfterExternalAuth).toHaveBeenCalledOnce();
   });
+
+  it("deduplicates simultaneous email code verification requests", async () => {
+    installBrowser();
+    let releaseResponse!: (value: { ok: boolean; token: string; csrf_token: string }) => void;
+    const publicApi = vi.fn(
+      () =>
+        new Promise<{ ok: boolean; token: string; csrf_token: string }>((resolve) => {
+          releaseResponse = resolve;
+        })
+    );
+    const { store } = makeAuthStore({ publicApi });
+    store.update((state) => ({
+      ...state,
+      pendingEmail: "user@example.test",
+      emailCode: "123456",
+    }));
+
+    const first = store.verifyEmailCode();
+    const duplicate = store.verifyEmailCode();
+
+    expect(publicApi).toHaveBeenCalledOnce();
+    releaseResponse({ ok: true, token: "session-token", csrf_token: "csrf-token" });
+    await Promise.all([first, duplicate]);
+    expect(publicApi).toHaveBeenCalledOnce();
+  });
 });
