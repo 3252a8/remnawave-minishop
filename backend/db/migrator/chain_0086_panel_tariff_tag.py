@@ -8,10 +8,7 @@ from .engine import Migration
 
 def _migration_0086_add_managed_panel_tariff_tag(connection: Connection) -> None:
     connection.execute(
-        text(
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
-            "managed_panel_tariff_tag VARCHAR(255)"
-        )
+        text("ALTER TABLE users ADD COLUMN IF NOT EXISTS managed_panel_tariff_tag VARCHAR(255)")
     )
 
 
