@@ -14,8 +14,14 @@
       ".js"
     ],
     "allowlist": [
+      "backend/bot/app/web/webapp/external_oauth.py",
       "backend/bot/app/web/templates/*.js",
+      "backend/bot/services/subscription_service_impl/lifecycle_activation.py",
+      "backend/bot/services/tariff_worker_regular.py",
+      "backend/config/tariffs_config.py",
+      "frontend/src/admin/sections/settings/SettingsContent.svelte",
       "frontend/src/lib/api/openapi.generated.ts",
+      "frontend/src/lib/webapp/publicApi.ts",
       "frontend/src/lib/webapp/demoDataset.js"
     ]
   },
