@@ -12510,6 +12510,7 @@ export interface operations {
             /** @constant */
             ok: true;
             panel_squad_overrides: components["schemas"]["AdminPanelSquadOverridesOut"] | null;
+            panel_user_url: string | null;
             recent_payments: components["schemas"]["PaymentOut"][];
             referral: {
               bot_link: string | null;

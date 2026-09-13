@@ -49,6 +49,7 @@ from .common import (
     _serialize_payment,
     _serialize_subscription,
 )
+from .panel_links import build_panel_user_admin_url
 from .schemas import AdminTelegramNotificationsOut, AdminUserTrialOut
 from .squad_override_schemas import AdminPanelSquadOverridesOut
 from .user_device_summary import build_admin_user_hwid_devices
@@ -744,6 +745,7 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
         "panel_user_uuid",
         None,
     )
+    panel_user_url = build_panel_user_admin_url(settings.PANEL_API_URL, panel_uuid)
     subscription_service = get_optional_subscription_service(request)
     panel_service = get_panel_service(request) or getattr(
         subscription_service, "panel_service", None
@@ -752,6 +754,10 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
         try:
             panel_data = await panel_service.get_user_by_uuid(panel_uuid)
             if panel_data:
+                panel_user_url = (
+                    build_panel_user_admin_url(settings.PANEL_API_URL, panel_data.get("id"))
+                    or panel_user_url
+                )
                 subscription_url = panel_data.get("subscriptionUrl") or None
                 vpn_activity = _panel_user_connection_activity(panel_data)
                 live_connected_at = vpn_activity.get("last_connected_at")
@@ -840,6 +846,7 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
             "log_count": int(log_count or 0),
             "balance": {"ok": True, **balance_payload},
             "subscription_url": subscription_url,
+            "panel_user_url": panel_user_url,
             "install_share_url": install_share_url,
             "last_vpn_connected_at": last_vpn_connected_at,
             "vpn_connection_status": vpn_connection_status,

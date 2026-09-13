@@ -739,6 +739,14 @@ async function openUserDetailFromCurrentSection(
   setPhase(`${phasePrefix}:user-card`);
   await expect(userDialog).toBeVisible();
   await assertFormFieldsNamed(page, `${phasePrefix}:user-card`);
+  const remnawaveUserLink = userDialog.locator('[data-admin-action="open-remnawave-user"]');
+  await expect(remnawaveUserLink).toBeVisible();
+  await expect(remnawaveUserLink).toHaveAttribute(
+    "href",
+    "https://panel.example.com/dashboard/open/user/77"
+  );
+  await expect(remnawaveUserLink).toHaveAttribute("target", "_blank");
+  await expect(remnawaveUserLink).toHaveAttribute("rel", /noopener/);
   // Subscription, Activity, Notifications, Logs, Actions, Message.
   await exerciseDialogTabs(userDialog, 6, setPhase, `${phasePrefix}:user-tabs`);
 

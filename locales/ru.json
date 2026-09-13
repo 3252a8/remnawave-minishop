@@ -2092,6 +2092,8 @@
   "admin_user_open_tg_profile": "Открыть Telegram",
   "admin_user_open_tg_profile_hint": "Открыть профиль Telegram",
   "admin_user_open_tg_profile_id_hint": "Бот отправит кнопку профиля в Telegram.",
+  "admin_user_open_remnawave_profile": "Открыть в Remnawave",
+  "admin_user_open_remnawave_profile_hint": "Открыть карточку пользователя в Remnawave Panel",
   "admin_user_tg_profile_unavailable": "Ссылка на профиль Telegram недоступна",
   "admin_user_tg_profile_link_sent": "Ссылка отправлена в Telegram",
   "admin_user_tg_profile_link_failed": "Не удалось отправить ссылку",

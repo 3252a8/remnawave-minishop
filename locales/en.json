@@ -2092,6 +2092,8 @@
   "admin_user_open_tg_profile": "Open Telegram",
   "admin_user_open_tg_profile_hint": "Open Telegram profile",
   "admin_user_open_tg_profile_id_hint": "The bot will send a profile button in Telegram.",
+  "admin_user_open_remnawave_profile": "Open in Remnawave",
+  "admin_user_open_remnawave_profile_hint": "Open user card in Remnawave Panel",
   "admin_user_tg_profile_unavailable": "Telegram profile link is unavailable",
   "admin_user_tg_profile_link_sent": "Link sent to Telegram",
   "admin_user_tg_profile_link_failed": "Failed to send link",

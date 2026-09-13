@@ -415,6 +415,7 @@ export function demoApiResponse(
     if (!detail) return { ok: false, error: "not_found" };
     const decoratedDetail = {
       ...withDemoReferralSummary(detail),
+      panel_user_url: detail.panel_user_url || "https://panel.example.com/dashboard/open/user/77",
       balance: clone(adminDemoBalance(id)),
       notification_preferences: detail.notification_preferences || {
         marketing_email: false,

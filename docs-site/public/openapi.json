@@ -20684,6 +20684,12 @@
                         }
                       ]
                     },
+                    "panel_user_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "recent_payments": {
                       "items": {
                         "$ref": "#/components/schemas/PaymentOut"
@@ -20773,6 +20779,7 @@
                     "log_count",
                     "balance",
                     "subscription_url",
+                    "panel_user_url",
                     "install_share_url",
                     "last_vpn_connected_at",
                     "vpn_connection_status",
