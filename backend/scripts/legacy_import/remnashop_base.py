@@ -59,6 +59,8 @@ class _RemnashopImporterBase:
         inventory_output: str | None = None,
         config_plan_output: str | None = None,
         reconciliation_output: str | None = None,
+        balance_currency: str | None = None,
+        target_balance_currency: str | None = None,
     ) -> None:
         self.source = source
         self.target = target
@@ -78,10 +80,13 @@ class _RemnashopImporterBase:
         self.inventory_output = inventory_output
         self.config_plan_output = config_plan_output
         self.reconciliation_output = reconciliation_output
+        self.balance_currency_override = str(balance_currency or "").strip().upper() or None
+        self.target_balance_currency = str(target_balance_currency or "").strip().upper() or None
         self.tables: set[str] = set()
         self.source_columns: dict[str, set[str]] = {}
         self.source_user_telegram_by_id: dict[int, int] | None = None
         self.user_map: dict[int, int] = {}
+        self.telegram_user_map: dict[int, int] = {}
         self.source_plans: list[dict[str, Any]] = []
         self.source_plan_durations: list[dict[str, Any]] = []
         self.source_plan_prices: list[dict[str, Any]] = []
@@ -99,6 +104,12 @@ class _RemnashopImporterBase:
             "tariffs": _counter(),
             "payment_provider_settings": _counter(),
             "settings": _counter(),
+            "identities": _counter(),
+            "balance_ledger": _counter(),
+            "advertising": _counter(),
+            "squad_overrides": _counter(),
+            "identity_conflicts": [],
+            "blockers": [],
             "warnings": [],
         }
 
@@ -251,15 +262,79 @@ class _RemnashopImporterBase:
                 panel_by_tg[telegram_id] = panel_uuid
         return panel_by_tg
 
+    async def _latest_panel_uuid_by_source_user_id(self) -> dict[int, str]:
+        if "subscriptions" not in self.tables:
+            return {}
+        columns = await self._source_columns("subscriptions")
+        if not {"user_id", "user_remna_id"}.issubset(columns):
+            return {}
+        result = await self.source.execute(
+            text(
+                f"""
+                SELECT DISTINCT ON (s.user_id)
+                    s.user_id,
+                    s.user_remna_id
+                FROM {_qtable(self.source_schema, "subscriptions")} s
+                WHERE s.user_id IS NOT NULL
+                  AND s.user_remna_id IS NOT NULL
+                ORDER BY s.user_id, s.updated_at DESC NULLS LAST, s.id DESC
+                """
+            )
+        )
+        return {
+            int(row[0]): str(row[1]).strip()
+            for row in result.all()
+            if _to_int(row[0]) is not None and str(row[1] or "").strip()
+        }
+
+    async def _mapped_user_id(self, source_user_id: Any) -> int | None:
+        source_id = _to_int(source_user_id)
+        if source_id is None:
+            return None
+        if source_id in self.user_map:
+            return self.user_map[source_id]
+        mapping = await self._get_mapping("user", source_id)
+        if mapping is None:
+            telegram_id = (await self._source_user_telegram_map()).get(source_id)
+            if telegram_id is not None:
+                # Compatibility with imports created before mappings used source users.id.
+                mapping = await self._get_mapping("user", telegram_id)
+        target_id = _to_int(mapping.target_id) if mapping else None
+        if target_id is not None:
+            self.user_map[source_id] = target_id
+        return target_id
+
+    async def _target_user_for_source_row(
+        self,
+        row: dict[str, Any],
+        *,
+        user_id_key: str = "user_id",
+        telegram_id_key: str = "user_telegram_id",
+    ) -> User | None:
+        source_id = _to_int(row.get(user_id_key))
+        target_id = await self._mapped_user_id(source_id)
+        if target_id is not None:
+            return await self.target.get(User, target_id)
+        return await self._target_user_for_telegram(
+            await self._source_row_telegram_id(
+                row,
+                user_id_key=user_id_key,
+                telegram_id_key=telegram_id_key,
+            )
+        )
+
     async def _target_user_for_telegram(self, telegram_id: Any) -> User | None:
         normalized = _to_int(telegram_id)
         if normalized is None:
             return None
+        cached = self.telegram_user_map.get(normalized)
+        if cached is not None:
+            return await self.target.get(User, cached)
         user = await user_dal.get_user_by_telegram_id(self.target, normalized)
         if not user:
             user = await user_dal.get_user_by_id(self.target, normalized)
         if user:
-            self.user_map[normalized] = int(user.user_id)
+            self.telegram_user_map[normalized] = int(user.user_id)
         return user
 
     def _can_overwrite(self) -> bool:

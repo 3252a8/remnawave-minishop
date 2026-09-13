@@ -52,7 +52,16 @@ ADAPTERS = {
     "remnashop": SourceAdapter(
         source_type="remnashop",
         description="Remnashop",
-        sections=("users", "referrals", "subscriptions", "payments", "promocodes", "settings"),
+        sections=(
+            "users",
+            "referrals",
+            "subscriptions",
+            "balances",
+            "payments",
+            "promocodes",
+            "advertising",
+            "settings",
+        ),
         env_reader=_remnashop_env_reader,
         importer_factory=_remnashop_factory,
     ),

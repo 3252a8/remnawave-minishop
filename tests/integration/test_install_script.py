@@ -1524,6 +1524,12 @@ def test_shell_installer_summarizes_remnashop_dry_run_and_hides_source_schema_pr
     assert "print_remnashop_import_summary" in script
     assert "Проверка без записи прошла успешно" in script
     assert "Полный сырой вывод скрипта импорта сохранен" in script
+    assert "REMNASHOP_BALANCE_CURRENCY" in script
+    assert '--balance-currency "$BALANCE_CURRENCY"' in script
+    assert "read_remnashop_balance_plan" in script
+    assert 'set_env_file_value "$ENV_PATH" USER_BALANCE_CURRENCY' in script
+    assert 'set_env_file_value "$ENV_PATH" USER_BALANCE_ENABLED true' in script
+    assert "партнерские профили не создаются" in script
 
 
 def test_shell_installer_supports_guarded_bedolaga_migration():

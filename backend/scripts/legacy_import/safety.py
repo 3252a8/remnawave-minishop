@@ -37,6 +37,7 @@ class DryRunSession:
     def __init__(self, session: Any) -> None:
         self._session = session
         self.suppressed_writes = 0
+        self._pending: list[Any] = []
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._session, name)
@@ -52,11 +53,30 @@ class DryRunSession:
         return await self._session.execute(statement, *args, **kwargs)
 
     def add(self, instance: Any, _warn: bool = True) -> None:
-        del instance, _warn
+        del _warn
+        self._pending.append(instance)
         self.suppressed_writes += 1
 
     def add_all(self, instances: Any) -> None:
-        self.suppressed_writes += len(list(instances))
+        pending = list(instances)
+        self._pending.extend(pending)
+        self.suppressed_writes += len(pending)
+
+    async def get(self, entity: Any, ident: Any, **kwargs: Any) -> Any:
+        for instance in reversed(self._pending):
+            if not isinstance(instance, entity):
+                continue
+            primary_keys = [column.key for column in instance.__mapper__.primary_key]
+            values = tuple(getattr(instance, key, None) for key in primary_keys)
+            expected = tuple(ident) if isinstance(ident, (tuple, list)) else (ident,)
+            if values == expected:
+                return instance
+        return await self._session.get(entity, ident, **kwargs)
+
+    async def refresh(self, instance: Any, *args: Any, **kwargs: Any) -> None:
+        if instance in self._pending:
+            return None
+        await self._session.refresh(instance, *args, **kwargs)
 
     async def delete(self, instance: Any) -> None:
         del instance

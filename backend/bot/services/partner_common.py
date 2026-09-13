@@ -8,7 +8,7 @@ from typing import Any
 
 from db.models import User
 
-_ZERO_SCALE_CURRENCIES = {"CLP", "ISK", "JPY", "KRW", "PYG", "VND"}
+_ZERO_SCALE_CURRENCIES = {"CLP", "ISK", "JPY", "KRW", "PYG", "VND", "XTR"}
 _THREE_SCALE_CURRENCIES = {"BHD", "JOD", "KWD", "OMR", "TND"}
 
 

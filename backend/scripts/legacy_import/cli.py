@@ -65,13 +65,19 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config-plan-output")
     parser.add_argument("--summary-output")
     parser.add_argument("--reconciliation-output")
+    parser.add_argument(
+        "--balance-currency",
+        help=(
+            "Currency code for Remnashop points. Defaults to the source settings default_currency."
+        ),
+    )
     parser.add_argument("--target-dsn")
     parser.add_argument(
         "--only",
         default="all",
         help=(
             "Comma-separated sections: "
-            "all,users,referrals,tariffs,subscriptions,payments,gifts,promocodes,"
+            "all,users,referrals,tariffs,subscriptions,balances,payments,gifts,promocodes,"
             "support,advertising,partners,settings"
         ),
     )
@@ -142,6 +148,8 @@ async def run_import(args: argparse.Namespace) -> dict[str, Any]:
             inventory_output=args.inventory_output,
             config_plan_output=args.config_plan_output,
             reconciliation_output=args.reconciliation_output,
+            balance_currency=getattr(args, "balance_currency", None),
+            target_balance_currency=settings.balance_settings.currency,
         )
         summary = cast(dict[str, Any], await importer.run())
         if args.summary_output:

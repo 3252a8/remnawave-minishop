@@ -95,21 +95,25 @@ def test_source_and_target_database_must_be_distinct() -> None:
 
 
 def test_dry_run_session_forwards_reads_and_suppresses_writes() -> None:
-    async def exercise() -> tuple[_Result, _Session, DryRunSession]:
+    async def exercise() -> tuple[_Result, _Session, DryRunSession, User | None]:
         session = _Session()
         dry_run = DryRunSession(session)
 
         result = await dry_run.execute(select(User.user_id))
         await dry_run.execute(insert(User).values(user_id=100))
-        dry_run.add(User(user_id=200))
-        return result, session, dry_run
+        pending = User(user_id=200)
+        dry_run.add(pending)
+        loaded = await dry_run.get(User, 200)
+        await dry_run.refresh(pending)
+        return result, session, dry_run, loaded
 
-    result, session, dry_run = asyncio.run(exercise())
+    result, session, dry_run, loaded = asyncio.run(exercise())
 
     assert result.scalar_one_or_none() == 42
     assert len(session.executed) == 1
     assert session.added == []
     assert dry_run.suppressed_writes == 2
+    assert loaded is not None and loaded.user_id == 200
 
 
 def test_bedolaga_reader_uses_configured_stable_batches() -> None:

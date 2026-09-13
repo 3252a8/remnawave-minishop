@@ -176,6 +176,7 @@ print_help() {
   REMNASHOP_SOURCE_DSN      DSN базы Remnashop для миграции
   REMNASHOP_SOURCE_ENV_FILE путь к .env Remnashop для переноса настроек
   REMNASHOP_SOURCE_SCHEMA   схема PostgreSQL базы Remnashop (public)
+  REMNASHOP_BALANCE_CURRENCY валюта баланса вместо default_currency источника
   LEGACY_TGSHOP_SOURCE_DSN  DSN старого remnawave-tg-shop для дампа/восстановления
   LEGACY_TGSHOP_DB_CONTAINER имя контейнера PostgreSQL старого remnawave-tg-shop
 
@@ -5165,7 +5166,7 @@ for line in output_path.read_text(encoding="utf-8", errors="replace").splitlines
         decoded = json.loads(candidate)
     except ValueError:
         continue
-    if isinstance(decoded, dict) and decoded.get("source") == "remnashop":
+    if isinstance(decoded, dict) and decoded.get("source") in {"remnashop", "bedolaga"}:
         summary = decoded
 if summary is None:
     raise SystemExit("JSON-итог Remnashop не найден в выводе скрипта импорта")
@@ -5182,7 +5183,8 @@ print_remnashop_import_summary() {
     mode="${2:-dry-run}"
     [ -f "$summary_path" ] || return 0
     command -v python3 >/dev/null 2>&1 || return 0
-    python3 - "$summary_path" "$mode" <<'PY'
+    summary_status=0
+    python3 - "$summary_path" "$mode" <<'PY' || summary_status=$?
 import json
 import sys
 from pathlib import Path
@@ -5221,6 +5223,20 @@ provider_data = section("payment_provider_settings")
 users = changed_count("users", ("created", "updated"), ("profile_preserved",))
 subscriptions = count_values("subscriptions", ("created", "updated"))
 payments = count_values("payments", ("created", "updated"))
+referrals = count_values("referrals", ("updated",))
+promocodes = count_values("promocodes", ("created", "updated"))
+identities = count_values("identities", ("verified_emails", "oauth"))
+advertising = count_values(
+    "advertising", ("campaigns_created", "attributions_created", "campaigns", "attributions")
+)
+squad_overrides = count_values(
+    "squad_overrides", ("internal", "external_set", "external_cleared")
+)
+balance_data = section("balance_ledger")
+balance_entries = count_values("balance_ledger", ("created", "existing", "adjustments"))
+balance_currency = balance_data.get("currency")
+balance_total_minor = balance_data.get("source_total_minor")
+balance_scale = balance_data.get("currency_scale")
 tariffs = int(tariff_data.get("generated") or 0)
 tariff_map = int(tariff_data.get("auto_map_entries") or 0)
 providers = int(provider_data.get("providers_mapped") or 0)
@@ -5235,6 +5251,8 @@ settings = count_values(
 )
 warnings = summary.get("warnings")
 warnings_count = len(warnings) if isinstance(warnings, list) else 0
+blockers = summary.get("blockers")
+blockers_count = len(blockers) if isinstance(blockers, list) else 0
 
 if mode == "dry-run":
     print("Проверка без записи прошла успешно: база Minishop еще не менялась.")
@@ -5245,8 +5263,18 @@ else:
 
 print(f"{title}:")
 print(f"- Пользователи: {users}")
+print(f"- Подтвержденные email и OAuth: {identities}")
+print(f"- Реферальные связи: {referrals} (партнерские профили не создаются)")
 print(f"- Подписки: {subscriptions}")
+print(f"- Индивидуальные параметры squad: {squad_overrides}")
 print(f"- Платежи: {payments}")
+print(f"- Коды активации: {promocodes}")
+print(f"- Рекламные кампании и атрибуции: {advertising}")
+if balance_currency:
+    print(
+        f"- Баланс: {balance_entries} записей, {balance_total_minor or 0} minor units, "
+        f"валюта {balance_currency}, scale {balance_scale}"
+    )
 print(f"- Тарифы: {tariffs}")
 print(f"- Автосопоставления тарифов: {tariff_map}")
 print(f"- Платежные провайдеры: {providers}")
@@ -5255,9 +5283,30 @@ if warnings_count:
     print(f"- Предупреждения: {warnings_count}; они не блокируют импорт, подробности сохранены в JSON-итоге.")
 else:
     print("- Предупреждения: нет.")
+if blockers_count:
+    print(f"- Блокирующие проблемы: {blockers_count}")
+    for blocker in blockers[:10]:
+        print(f"  - {blocker}")
+    raise SystemExit(2)
 PY
     info "JSON-итог сохранен: $summary_path"
     [ -f "$summary_path.raw" ] && info "Полный сырой вывод скрипта импорта сохранен: $summary_path.raw"
+    return "$summary_status"
+}
+
+read_remnashop_balance_plan() {
+    summary_path="$1"
+    python3 - "$summary_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+summary = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+balance = summary.get("balance_ledger") or {}
+currency = str(balance.get("currency") or "").strip().upper()
+users = int(balance.get("source_nonzero_users") or 0)
+print(f"{currency}|{users}")
+PY
 }
 
 notify_remnashop_migration_success() {
@@ -5553,6 +5602,9 @@ run_import_command() {
     if [ -n "$TARIFF_MAP_PATH" ]; then
         set -- "$@" --tariff-map-json /tmp/tariff-map.json
     fi
+    if [ "$source_type" = "remnashop" ] && [ -n "${BALANCE_CURRENCY:-}" ]; then
+        set -- "$@" --balance-currency "$BALANCE_CURRENCY"
+    fi
     if [ "$dry" = "1" ]; then
         set -- "$@" --dry-run
     fi
@@ -5847,6 +5899,11 @@ run_remnashop_migration() {
         fi
     fi
 
+    prompt_value \
+        "Валюта баланса Remnashop (пусто = default_currency из базы)" \
+        "${REMNASHOP_BALANCE_CURRENCY:-}" 0 0 ""
+    BALANCE_CURRENCY=$(printf '%s' "$PROMPT_VALUE" | tr '[:lower:]' '[:upper:]')
+
     IMPORTER_PATH="$(download_importer)" || return 1
     connect_local_source_db_to_target_network
 
@@ -5858,7 +5915,18 @@ run_remnashop_migration() {
         fail "Проверка без записи не прошла. Исправьте подключение или настройки перед импортом."
         return 1
     fi
-    print_remnashop_import_summary "$DRY_RUN_SUMMARY_PATH" "dry-run"
+    if ! print_remnashop_import_summary "$DRY_RUN_SUMMARY_PATH" "dry-run"; then
+        disconnect_local_source_db_from_target_network
+        fail "Проверка нашла блокирующие проблемы. Применение миграции остановлено."
+        return 1
+    fi
+    if ! balance_plan=$(read_remnashop_balance_plan "$DRY_RUN_SUMMARY_PATH"); then
+        disconnect_local_source_db_from_target_network
+        fail "Не удалось прочитать план переноса пользовательского баланса."
+        return 1
+    fi
+    resolved_balance_currency=${balance_plan%%|*}
+    nonzero_balance_users=${balance_plan#*|}
     if ! confirm "Применить эту миграцию по-настоящему?" 1; then
         disconnect_local_source_db_from_target_network
         warn "Миграция не применена."
@@ -5866,12 +5934,40 @@ run_remnashop_migration() {
     fi
 
     section "Применение импорта"
+    balance_env_backup=""
+    if [ "$nonzero_balance_users" -gt 0 ]; then
+        if [ -z "$resolved_balance_currency" ]; then
+            fail "Не удалось определить валюту переносимого баланса."
+            disconnect_local_source_db_from_target_network
+            return 1
+        fi
+        balance_env_backup="$ENV_PATH.pre-remnashop-balance.$(date +%Y%m%d%H%M%S)"
+        if ! cp "$ENV_PATH" "$balance_env_backup"; then
+            disconnect_local_source_db_from_target_network
+            fail "Не удалось создать резервную копию настроек перед включением баланса."
+            return 1
+        fi
+        if ! set_env_file_value "$ENV_PATH" USER_BALANCE_CURRENCY "$resolved_balance_currency" \
+            || ! set_env_file_value "$ENV_PATH" USER_BALANCE_ENABLED true; then
+            cp "$balance_env_backup" "$ENV_PATH" || true
+            disconnect_local_source_db_from_target_network
+            fail "Не удалось записать настройки пользовательского баланса."
+            return 1
+        fi
+        info "Баланс включен в валюте $resolved_balance_currency для $nonzero_balance_users пользователей."
+    fi
     APPLY_SUMMARY_PATH="$TARGET_DIR/$INSTALL_STATE_DIR/remnashop-apply-summary.json"
     import_status=0
     run_import_command 0 "$APPLY_SUMMARY_PATH" 0 || import_status=$?
     restore_app_data_permissions || true
     disconnect_local_source_db_from_target_network
-    [ "$import_status" = "0" ] || return "$import_status"
+    if [ "$import_status" != "0" ]; then
+        if [ -n "$balance_env_backup" ] && [ -f "$balance_env_backup" ]; then
+            cp "$balance_env_backup" "$ENV_PATH" || true
+            warn "Настройки баланса восстановлены после неудачного импорта."
+        fi
+        return "$import_status"
+    fi
     print_remnashop_import_summary "$APPLY_SUMMARY_PATH" "apply"
     configure_egames_panel_webhook || return 1
     if confirm "Перезапустить backend, worker и frontend, чтобы они перечитали настройки?" 1; then
