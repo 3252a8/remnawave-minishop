@@ -129,6 +129,16 @@ export function demoTariffs(): DemoRecord {
         traffic: { enabled: true },
         premium_traffic: { enabled: true },
       };
+      // Model a previously sold period whose metadata must remain available
+      // without returning it to the admin editor or storefront.
+      checkoutDemoTariff.prices_rub = {
+        ...((checkoutDemoTariff.prices_rub || {}) as DemoRecord),
+        24: 11990,
+      };
+      checkoutDemoTariff.prices_stars = {
+        ...((checkoutDemoTariff.prices_stars || {}) as DemoRecord),
+        24: 6000,
+      };
     }
   }
   return demoTariffsState;

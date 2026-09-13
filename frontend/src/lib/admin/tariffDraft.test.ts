@@ -288,6 +288,58 @@ describe("tariffDraft", () => {
     });
   });
 
+  it("keeps inactive period metadata out of reopened editor rows", () => {
+    const draft = draftFromTariff(
+      {
+        key: "pro",
+        billing_model: "period",
+        enabled_periods: [1],
+        prices_rub: { 1: 200, 3: 600 },
+        prices_stars: { 1: 90, 3: 250 },
+        referral_bonus_days_inviter: { 1: 3, 3: 7 },
+        referral_bonus_days_referee: { 1: 1, 3: 3 },
+        tribute: {
+          period_ids: { 1: 1001, 3: 1003 },
+          period_links: {
+            1: "https://t.me/tribute/app?startapp=ep_monthly",
+            3: "https://t.me/tribute/app?startapp=ep_quarterly",
+          },
+          period_subscription_ids: { 1: 101, 3: 303 },
+        },
+      },
+      "rub"
+    );
+
+    expect(draft.periodRows).toEqual([
+      {
+        duration_days: 30,
+        rub: 200,
+        stars: 90,
+        referral_inviter: 3,
+        referral_referee: 1,
+        tribute_period_id: 1001,
+        tribute_link: "https://t.me/tribute/app?startapp=ep_monthly",
+        tribute_subscription_id: 101,
+      },
+    ]);
+
+    expect(tariffFromDraft(draft)).toMatchObject({
+      enabled_periods: [30],
+      prices_rub: { 30: 200, 90: 600 },
+      prices_stars: { 30: 90, 90: 250 },
+      referral_bonus_days_inviter: { 30: 3, 90: 7 },
+      referral_bonus_days_referee: { 30: 1, 90: 3 },
+      tribute: {
+        period_ids: { 30: 1001, 90: 1003 },
+        period_links: {
+          30: "https://t.me/tribute/app?startapp=ep_monthly",
+          90: "https://t.me/tribute/app?startapp=ep_quarterly",
+        },
+        period_subscription_ids: { 30: 101, 90: 303 },
+      },
+    });
+  });
+
   it("round-trips Tribute digital products for traffic and premium packages", () => {
     const tariff = {
       key: "traffic",

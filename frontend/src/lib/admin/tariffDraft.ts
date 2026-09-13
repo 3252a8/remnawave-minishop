@@ -348,29 +348,25 @@ export function draftFromTariff(tariff: UnknownRecord, defaultCurrency = "rub"):
   const tributePeriodIds = asRecord(tribute.period_ids);
   const tributePeriodLinks = asRecord(tribute.period_links);
   const tributePeriodSubscriptionIds = asRecord(tribute.period_subscription_ids);
-  // enabled_periods comes first so its order (the configured purchase order)
-  // is preserved; any extra price-only months are appended afterwards.
-  const months = new Set([
-    ...(Array.isArray(tariff.enabled_periods) ? tariff.enabled_periods : []),
-    ...Object.keys(defaultPrices).map(Number),
-    ...(currency === "rub" ? Object.keys(asRecord(tariff.prices_rub)).map(Number) : []),
-    ...Object.keys(asRecord(tariff.prices_stars)).map(Number),
-    ...Object.keys(tributePeriodIds).map(Number),
-  ]);
-  const periodRows = [...months]
-    .filter((month) => Number.isFinite(month) && month > 0)
-    .map((month) => ({
-      duration_days: month,
+  // Historical prices and external bindings remain in the catalog, but only
+  // enabled_periods are editable purchase offers.
+  const enabledPeriods = new Set(
+    (Array.isArray(tariff.enabled_periods) ? tariff.enabled_periods : []).map(Number)
+  );
+  const periodRows = [...enabledPeriods]
+    .filter((period) => Number.isFinite(period) && period > 0)
+    .map((period) => ({
+      duration_days: period,
       rub:
-        (currency === "rub" ? rubPrices[String(month)] : undefined) ??
-        defaultPrices?.[String(month)] ??
+        (currency === "rub" ? rubPrices[String(period)] : undefined) ??
+        defaultPrices?.[String(period)] ??
         "",
-      stars: asRecord(tariff.prices_stars)[String(month)] ?? "",
-      referral_inviter: asRecord(tariff.referral_bonus_days_inviter)[String(month)] ?? "",
-      referral_referee: asRecord(tariff.referral_bonus_days_referee)[String(month)] ?? "",
-      tribute_period_id: tributePeriodIds[String(month)] ?? "",
-      tribute_link: String(tributePeriodLinks[String(month)] ?? ""),
-      tribute_subscription_id: scalarDraftValue(tributePeriodSubscriptionIds[String(month)]),
+      stars: asRecord(tariff.prices_stars)[String(period)] ?? "",
+      referral_inviter: asRecord(tariff.referral_bonus_days_inviter)[String(period)] ?? "",
+      referral_referee: asRecord(tariff.referral_bonus_days_referee)[String(period)] ?? "",
+      tribute_period_id: tributePeriodIds[String(period)] ?? "",
+      tribute_link: String(tributePeriodLinks[String(period)] ?? ""),
+      tribute_subscription_id: scalarDraftValue(tributePeriodSubscriptionIds[String(period)]),
     }));
   const names = asStringRecord(tariff.names);
   const descriptions = asStringRecord(tariff.descriptions);

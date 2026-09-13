@@ -2481,6 +2481,16 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   await page.locator('[data-admin-action="open-tariff-editor"]').first().click();
   await expect(tariffDialog).toBeVisible();
   await assertFormFieldsNamed(page, "admin-tariffs:edit-dialog");
+  await tariffDialog.getByRole("tab").nth(1).click();
+  const periodRows = tariffDialog.locator(
+    ".admin-row-editor-period:not(.admin-row-editor-header)"
+  );
+  await expect(periodRows).toHaveCount(4);
+  for (const [index, days] of ["30", "90", "180", "365"].entries()) {
+    await expect(
+      periodRows.nth(index).getByRole("spinbutton", { name: "Срок, дней", exact: true })
+    ).toHaveValue(days);
+  }
   await exerciseDialogTabs(tariffDialog, 5, setPhase, "admin-tariffs:edit-tabs");
 
   setPhase("admin-tariffs:edit-save");
