@@ -947,18 +947,26 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("proxy_pass ${WEBAPP_BACKEND_UPSTREAM};", nginx_conf)
         self.assertIn("proxy_set_header ${MINISHOP_EDGE_TOKEN_HEADER_VALUE}", nginx_conf)
 
-    def test_frontend_nginx_serves_shell_routes_from_static_index(self):
+    def test_frontend_nginx_proxies_shell_routes_for_dynamic_theme(self):
         nginx_conf = Path("deploy/docker/frontend/nginx.conf").read_text(encoding="utf-8")
-        marker = 'location ~ "^/(?:$|login/password$|home$|install$|trial$|s/[a-f0-9]{32}$'
+        marker = 'location ~ "^/(?:$|login/password$|home$|plans$|checkout'
 
         self.assertIn(marker, nginx_conf)
         start = nginx_conf.index(marker)
         shell_block = nginx_conf[start : nginx_conf.index("\n\n", start)]
 
-        self.assertIn("try_files /index.html =404;", shell_block)
-        self.assertNotIn("proxy_pass ${WEBAPP_BACKEND_UPSTREAM};", shell_block)
+        self.assertIn("proxy_pass ${WEBAPP_BACKEND_UPSTREAM};", shell_block)
+        self.assertIn("proxy_intercept_errors on;", shell_block)
+        self.assertIn("error_page 502 503 504 = @webapp_static_shell;", shell_block)
+        self.assertNotIn("try_files /index.html =404;", shell_block)
+        self.assertIn("checkout(?:/[a-fA-F0-9]{32})?$", shell_block)
+        self.assertIn("settings(?:/security)?$", shell_block)
         self.assertIn("devices$", shell_block)
         self.assertIn("admin(?:/.*)?$", shell_block)
+
+        fallback_start = nginx_conf.index("location @webapp_static_shell")
+        fallback_block = nginx_conf[fallback_start : nginx_conf.index("\n\n", fallback_start)]
+        self.assertIn("try_files /index.html =404;", fallback_block)
 
     def test_home_logo_scale_rules_beat_late_loaded_admin_brand_styles(self):
         css = Path("frontend/src/styles/webapp.css").read_text(encoding="utf-8")
