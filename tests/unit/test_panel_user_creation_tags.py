@@ -15,10 +15,13 @@ from bot.services.subscription_service_impl.panel_identity import (
 @pytest.mark.parametrize("user_id", [-42, 42], ids=["email", "telegram"])
 @pytest.mark.parametrize("previous_panel_id", [None, "deleted-panel-user"])
 @pytest.mark.parametrize("with_catalog", [False, True])
+@pytest.mark.parametrize("is_trial", [False, True])
 @pytest.mark.parametrize(
     "tariff_key",
     [
         "standard",
+        "trial",
+        "TRIAL",
         "  standard  ",
         "plan-a",
         "plan_a",
@@ -35,10 +38,12 @@ from bot.services.subscription_service_impl.panel_identity import (
     ],
 )
 def test_create_and_recreate_users_use_valid_reconcilable_tariff_tags(
-    monkeypatch, user_id, previous_panel_id, with_catalog, tariff_key
+    monkeypatch, user_id, previous_panel_id, with_catalog, is_trial, tariff_key
 ):
     catalog_keys = (
         "standard",
+        "trial",
+        "TRIAL",
         "plan-a",
         "plan_a",
         "premium-plan-for-friends",
@@ -78,7 +83,9 @@ def test_create_and_recreate_users_use_valid_reconcilable_tariff_tags(
         tag = kwargs["tag"]
         # Emulate the panel's acceptance rules, independently of the mapper.
         assert tag is None or (len(tag) <= 16 and re.fullmatch(r"[A-Z0-9_]+", tag))
-        if tariff_key and tariff_key.strip() == "standard":
+        if is_trial:
+            assert tag == "TRIAL"
+        elif tariff_key and tariff_key.strip() == "standard":
             assert tag == "STANDARD"
         return {
             "response": {
@@ -111,6 +118,7 @@ def test_create_and_recreate_users_use_valid_reconcilable_tariff_tags(
         default_traffic_limit_bytes=0,
         default_traffic_limit_strategy="NO_RESET",
         tag=tariff_key,
+        is_trial=is_trial,
     )
 
     link = asyncio.run(
@@ -122,9 +130,11 @@ def test_create_and_recreate_users_use_valid_reconcilable_tariff_tags(
     assert link.panel_subscription_uuid == "subscription-link"
     mixin.panel_service.create_panel_user.assert_awaited_once()
     assert options.tag == tariff_key
-    plan = mixin._plan_panel_tariff_tag(db_user, link.panel_user, tariff_key, source="test")
+    plan = mixin._plan_panel_tariff_tag(
+        db_user, link.panel_user, tariff_key, source="test", is_trial=is_trial
+    )
     assert not plan.needs_patch
-    # Without a catalog, nonempty existing tags remain unclaimed by reconciliation.
-    assert plan.allowed == (with_catalog or not (tariff_key or "").strip())
+    # A confirmed CREATE owns its tag even when the tariff is no longer in the catalog.
+    assert plan.allowed
     mixin._remember_confirmed_panel_tariff_tag(db_user, plan, link.panel_user)
     assert db_user.managed_panel_tariff_tag == (plan.desired_tag if plan.allowed else None)

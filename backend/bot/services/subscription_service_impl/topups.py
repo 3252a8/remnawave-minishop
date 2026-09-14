@@ -10,7 +10,7 @@ from bot.services.subscription_order_terms import gift_tariff
 from db.dal import payment_dal, subscription_dal, tariff_dal, user_dal
 
 from ._typing import SubscriptionServiceMixinContract
-from .entitlement_helpers import record_traffic_topup_best_effort
+from .entitlement_helpers import record_traffic_topup_best_effort, subscription_is_trial
 from .panel_squad_sync import PanelSquadSyncMixin
 
 logger = logging.getLogger(__name__)
@@ -183,6 +183,23 @@ class TopupMixin(PanelSquadSyncMixin, SubscriptionServiceMixinContract):
             )
         )
         panel_payload.update(self._panel_identity_payload_for_user(db_user))
+        tariff_tag_plan = None
+        try:
+            panel_user = await self.panel_service.get_user_by_uuid(
+                db_user.panel_user_uuid, log_response=False
+            )
+        except Exception:
+            logger.exception("Unable to read panel tag before entitlement grant for %s", user_id)
+        else:
+            if isinstance(panel_user, dict):
+                tariff_tag_plan = self._plan_panel_tariff_tag(
+                    db_user,
+                    panel_user,
+                    tariff.key if tariff else sub.tariff_key,
+                    source="promo_grant",
+                    is_trial=subscription_is_trial(sub),
+                )
+                panel_payload.update(tariff_tag_plan.verification_payload)
         try:
             panel_result = await self.panel_service.update_user_details_on_panel(
                 db_user.panel_user_uuid, panel_payload
@@ -233,6 +250,9 @@ class TopupMixin(PanelSquadSyncMixin, SubscriptionServiceMixinContract):
             except Exception:
                 logger.exception("Failed to compensate promo grant for user %s", user_id)
             return None
+
+        if tariff_tag_plan is not None:
+            self._remember_confirmed_panel_tariff_tag(db_user, tariff_tag_plan, confirmed)
 
         if days > 0:
             try:

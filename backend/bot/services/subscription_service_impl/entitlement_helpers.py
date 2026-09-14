@@ -64,6 +64,8 @@ def panel_user_create_options(
     squad_uuids: list[str] | None,
     external_squad_uuid: str | None,
     tag: str | None = None,
+    *,
+    is_trial: bool = False,
 ) -> PanelUserCreateOptions:
     return PanelUserCreateOptions(
         default_expire_days=1,
@@ -74,6 +76,7 @@ def panel_user_create_options(
         specific_squad_uuids=tuple(squad_uuids or ()),
         external_squad_uuid=external_squad_uuid,
         tag=tag,
+        is_trial=is_trial,
     )
 
 

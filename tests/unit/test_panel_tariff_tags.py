@@ -1,11 +1,25 @@
 import re
 from types import SimpleNamespace
 
+import pytest
+
 from bot.services.panel_tariff_tags import (
     configured_tariff_tags,
     panel_tariff_tag_for_key,
     plan_panel_tariff_tag,
 )
+
+
+@pytest.mark.parametrize("key", ["trial", "TRIAL", "_trial_", "Trial", None])
+@pytest.mark.parametrize("configured", [False, True])
+def test_trial_marker_cannot_collide_with_a_tariff(key, configured):
+    config = SimpleNamespace(tariffs=[SimpleNamespace(key=key)]) if configured else None
+    assert panel_tariff_tag_for_key(key, config, is_trial=True) == "TRIAL"
+    assert panel_tariff_tag_for_key(key, config) != "TRIAL"
+    plan = plan_panel_tariff_tag(
+        current_tag="TRIAL", managed_tag=None, desired_tag="STANDARD", known_tariff_tags=()
+    )
+    assert plan.verification_payload == {"tag": "STANDARD"}
 
 
 def test_tariff_key_is_mapped_to_remnawave_tag_constraints() -> None:

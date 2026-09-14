@@ -34,6 +34,7 @@ class PanelUserCreateOptions:
     external_squad_uuid: str | None = None
     # Canonical tariff key; map it with the catalog before sending it to Remnawave.
     tag: str | None = None
+    is_trial: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,12 +145,13 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
         desired_tag: str | None,
         *,
         source: str,
+        is_trial: bool = False,
     ) -> PanelTariffTagPlan:
         tariffs_config = getattr(self.settings, "tariffs_config", None)
         plan = plan_panel_tariff_tag(
             current_tag=panel_user.get("tag") if isinstance(panel_user, dict) else None,
             managed_tag=getattr(db_user, "managed_panel_tariff_tag", None),
-            desired_tag=panel_tariff_tag_for_key(desired_tag, tariffs_config),
+            desired_tag=panel_tariff_tag_for_key(desired_tag, tariffs_config, is_trial=is_trial),
             known_tariff_tags=configured_tariff_tags(tariffs_config),
         )
         if not plan.allowed:
@@ -208,7 +210,9 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
 
         # Creation and later reconciliation must use the same collision-aware mapping.
         creation_tag = panel_tariff_tag_for_key(
-            create_options.tag, getattr(self.settings, "tariffs_config", None)
+            create_options.tag,
+            getattr(self.settings, "tariffs_config", None),
+            is_trial=create_options.is_trial,
         )
         current_local_panel_uuid = db_user.panel_user_uuid
         panel_username_on_panel_standard = await self._panel_username_for_user(session, db_user)
@@ -573,6 +577,14 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                 current_local_panel_uuid,
                 user_id,
             )
+
+        if (
+            panel_user_created_now
+            and normalize_panel_tag(panel_user_obj_from_api.get("tag")) == creation_tag
+        ):
+            # Frozen/retired tariffs may no longer be in the catalog. A confirmed
+            # CREATE still establishes ownership of the exact tag we just sent.
+            db_user.managed_panel_tariff_tag = creation_tag
 
         return PanelUserLink(
             current_local_panel_uuid,

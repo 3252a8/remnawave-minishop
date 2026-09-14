@@ -52,6 +52,7 @@ class PromoTrafficGrantTests(unittest.IsolatedAsyncioTestCase):
     async def test_composite_grant_uses_persistent_topup_balances(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             panel_service = AsyncMock(spec=PanelApiService)
+            panel_service.get_user_by_uuid = AsyncMock(return_value={"tag": None})
             panel_service.update_user_details_on_panel = AsyncMock(
                 side_effect=lambda panel_uuid, payload, **kwargs: {
                     **payload,
@@ -146,6 +147,10 @@ class PromoTrafficGrantTests(unittest.IsolatedAsyncioTestCase):
                 )
 
             self.assertIsNotNone(result)
+            self.assertEqual(
+                panel_service.update_user_details_on_panel.await_args.args[1]["tag"], "STANDARD"
+            )
+            self.assertEqual(user.managed_panel_tariff_tag, "STANDARD")
             self.assertEqual(sub.topup_balance_bytes, 55 * GIB)
             self.assertEqual(sub.premium_topup_used_bytes, 5 * GIB)
             self.assertEqual(sub.premium_topup_balance_bytes, 15 * GIB)

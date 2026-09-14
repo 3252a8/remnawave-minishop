@@ -42,6 +42,7 @@ class TariffWorkerRegularTagMixin(TariffWorkerRegularWarningMixin):
         desired_tag: str | None,
         source: str,
         db_user: User | None = None,
+        is_trial: bool = False,
     ) -> dict[str, Any]:
         if db_user is None:
             db_user = await user_dal.get_user_by_id(session, user_id)
@@ -51,7 +52,7 @@ class TariffWorkerRegularTagMixin(TariffWorkerRegularWarningMixin):
         plan = plan_panel_tariff_tag(
             current_tag=panel_user.get("tag"),
             managed_tag=getattr(db_user, "managed_panel_tariff_tag", None),
-            desired_tag=panel_tariff_tag_for_key(desired_tag, tariffs_config),
+            desired_tag=panel_tariff_tag_for_key(desired_tag, tariffs_config, is_trial=is_trial),
             known_tariff_tags=configured_tariff_tags(tariffs_config),
         )
         if not plan.allowed:
@@ -116,6 +117,7 @@ class TariffWorkerRegularTagMixin(TariffWorkerRegularWarningMixin):
                 Subscription,
                 and_(
                     Subscription.user_id == User.user_id,
+                    Subscription.panel_user_uuid == User.panel_user_uuid,
                     Subscription.is_active == True,
                     Subscription.end_date > now,
                 ),
@@ -152,8 +154,11 @@ class TariffWorkerRegularTagMixin(TariffWorkerRegularWarningMixin):
             panel_user_uuid = str(db_user.panel_user_uuid or "").strip()
             if not panel_user_uuid:
                 continue
+            is_trial = subscription is not None and self._is_trial_subscription(subscription)
             desired_tag = None
-            if subscription is not None and not self._is_trial_subscription(subscription):
+            if subscription is not None and not is_trial:
+                # A stored binding remains authoritative when its catalog entry is removed.
+                desired_tag = normalize_panel_tag(subscription.tariff_key)
                 try:
                     tariff = gift_tariff(
                         subscription
@@ -181,15 +186,22 @@ class TariffWorkerRegularTagMixin(TariffWorkerRegularWarningMixin):
                     continue
             if not isinstance(panel_user, dict):
                 continue
-            await self._sync_panel_tariff_tag(
-                session,
-                user_id=int(db_user.user_id),
-                panel_user_uuid=panel_user_uuid,
-                panel_user=panel_user,
-                desired_tag=desired_tag,
-                source="tariff_tag_reconciliation",
-                db_user=db_user,
-            )
+            try:
+                await self._sync_panel_tariff_tag(
+                    session,
+                    user_id=int(db_user.user_id),
+                    panel_user_uuid=panel_user_uuid,
+                    panel_user=panel_user,
+                    desired_tag=desired_tag,
+                    source="tariff_tag_reconciliation",
+                    db_user=db_user,
+                    is_trial=is_trial,
+                )
+            except Exception:
+                logger.exception(
+                    "TariffTrafficWorker: failed to reconcile Remnawave tag for user %s",
+                    db_user.user_id,
+                )
 
     async def panel_tariff_tag_cleanup_tick(self, session: AsyncSession) -> None:
         await self._reconcile_panel_tariff_tags(session, now=datetime.now(UTC))

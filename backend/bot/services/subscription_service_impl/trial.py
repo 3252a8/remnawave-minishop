@@ -64,6 +64,7 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
                 hwid_device_limit=self.settings.TRIAL_HWID_DEVICE_LIMIT,
                 specific_squad_uuids=tuple(trial_squads),
                 external_squad_uuid=self.settings.parsed_user_external_squad_uuid,
+                is_trial=True,
             ),
         )
         panel_user_uuid = panel_link.panel_user_uuid
@@ -74,6 +75,7 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
             panel_link.panel_user,
             None,
             source="trial_activation",
+            is_trial=True,
         )
 
         if not panel_user_uuid or not panel_sub_link_id:

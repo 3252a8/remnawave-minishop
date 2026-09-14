@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Any
 
 PANEL_TAG_MAX_LENGTH = 16
+PANEL_TRIAL_TAG = "TRIAL"
 _PANEL_TAG_INVALID_RE = re.compile(r"[^A-Z0-9_]+")
 _PANEL_TAG_UNDERSCORES_RE = re.compile(r"_+")
 
@@ -41,10 +42,10 @@ def _configured_tariff_tag_map(tariffs_config: Any | None) -> dict[str, str]:
         base_counts[base] = base_counts.get(base, 0) + 1
 
     result: dict[str, str] = {}
-    used: set[str] = set()
+    used: set[str] = {PANEL_TRIAL_TAG}
     for key in raw_keys:
         base = bases[key]
-        if len(base) <= PANEL_TAG_MAX_LENGTH and base_counts[base] == 1:
+        if len(base) <= PANEL_TAG_MAX_LENGTH and base_counts[base] == 1 and base not in used:
             result[key] = base
             used.add(base)
 
@@ -66,9 +67,13 @@ def _configured_tariff_tag_map(tariffs_config: Any | None) -> dict[str, str]:
     return result
 
 
-def panel_tariff_tag_for_key(value: Any, tariffs_config: Any | None = None) -> str | None:
-    """Map a canonical tariff key to Remnawave's portable user-tag format."""
+def panel_tariff_tag_for_key(
+    value: Any, tariffs_config: Any | None = None, *, is_trial: bool = False
+) -> str | None:
+    """Map an entitlement to a portable tag, reserving TRIAL for trial access."""
 
+    if is_trial:
+        return PANEL_TRIAL_TAG
     key = normalize_panel_tag(value)
     if key is None:
         return None
@@ -77,7 +82,7 @@ def panel_tariff_tag_for_key(value: Any, tariffs_config: Any | None = None) -> s
         if configured is not None:
             return configured
     base = _panel_tag_base(key)
-    if len(base) <= PANEL_TAG_MAX_LENGTH:
+    if len(base) <= PANEL_TAG_MAX_LENGTH and base != PANEL_TRIAL_TAG:
         return base
     digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:8].upper()
     return f"{base[:7].rstrip('_') or 'TARIFF'}_{digest}"
@@ -116,7 +121,7 @@ def plan_panel_tariff_tag(
 ) -> PanelTariffTagPlan:
     """Plan a tag mutation without overwriting data owned outside Core.
 
-    Configured canonical and legacy tariff keys form a reserved namespace. An
+    TRIAL and configured canonical/legacy tariff keys form a reserved namespace. An
     arbitrary non-empty tag is preserved unless it matches the tag previously
     written by Core.
     """
@@ -125,7 +130,7 @@ def plan_panel_tariff_tag(
     managed = normalize_panel_tag(managed_tag)
     desired = normalize_panel_tag(desired_tag)
     known = {tag for value in known_tariff_tags if (tag := normalize_panel_tag(value))}
-    core_owned = current is None or current == managed or current in known
+    core_owned = current in (None, managed, PANEL_TRIAL_TAG) or current in known
     if not core_owned:
         return PanelTariffTagPlan(
             current_tag=current,
