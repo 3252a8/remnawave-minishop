@@ -5,9 +5,11 @@ import {
   buildThemeLibraryItemPath,
   buildThemeRollbackPath,
   buildThemePreviewPath,
+  buildThemePreviewUploadPath,
 } from "../../webapp/themeApiPaths";
 import type { ApiClient } from "../../webapp/publicApi";
 import { adminErrorMessage } from "../errors";
+import { normalizeThemeImportFailure, type ThemeImportFailure } from "../themeImportReport.js";
 
 export type ThemeInstallation = components["schemas"]["ThemeInstallation"];
 export type ThemeImport = components["schemas"]["ImportRecord"];
@@ -27,6 +29,7 @@ export function createThemeLibraryStore(options: {
   let writable = $state(true);
   let busy = $state(false);
   let error = $state("");
+  let failure = $state<ThemeImportFailure | null>(null);
   let operation = $state<ThemeImport | null>(null);
   let idempotencyKey = "";
   let pollController: AbortController | null = null;
@@ -56,10 +59,15 @@ export function createThemeLibraryStore(options: {
     if (busy) return;
     busy = true;
     error = "";
+    failure = null;
     try {
       await action();
     } catch (cause) {
-      if (!(cause instanceof DOMException && cause.name === "AbortError")) error = message(cause);
+      if (!(cause instanceof DOMException && cause.name === "AbortError")) {
+        failure = normalizeThemeImportFailure(cause);
+        error = message(cause);
+        flash(error);
+      }
     } finally {
       busy = false;
     }
@@ -106,7 +114,9 @@ export function createThemeLibraryStore(options: {
         if (!result?.ok) throw result;
         operation = result.operation;
       }
-      if (operation?.state === "failed") throw { error: operation.error };
+      if (operation?.state === "failed") {
+        throw { error: operation.error, detail: operation.detail };
+      }
       await load();
     });
   }
@@ -121,6 +131,7 @@ export function createThemeLibraryStore(options: {
     }
     operation = null;
     error = "";
+    failure = null;
   }
   async function install(choices: components["schemas"]["InstallChoice"][]) {
     let success = false;
@@ -191,6 +202,16 @@ export function createThemeLibraryStore(options: {
     const blob = await apiBlob(buildThemePreviewPath(key, variant, importId));
     return URL.createObjectURL(blob);
   }
+  async function uploadPreview(key: string, file: Blob): Promise<string> {
+    const body = new FormData();
+    body.append("file", file, "preview.webp");
+    const result = await api(buildThemePreviewUploadPath(key), { method: "POST", body });
+    if (!result?.ok) throw result;
+    const previewUrl = result.preview_url;
+    if (typeof previewUrl !== "string") throw { error: "theme_preview_invalid" };
+    await load();
+    return previewUrl;
+  }
   return {
     get installations() {
       return installations;
@@ -207,6 +228,9 @@ export function createThemeLibraryStore(options: {
     get error() {
       return error;
     },
+    get failure() {
+      return failure;
+    },
     get operation() {
       return operation;
     },
@@ -221,7 +245,9 @@ export function createThemeLibraryStore(options: {
     mutate,
     exportThemes,
     preview,
+    uploadPreview,
     message,
+    notify: flash,
   };
 }
 export type ThemeLibraryStore = ReturnType<typeof createThemeLibraryStore>;

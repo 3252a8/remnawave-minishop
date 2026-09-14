@@ -192,7 +192,7 @@
     width: 38px;
     height: 38px;
     object-fit: contain;
-    border-radius: 10px;
+    border-radius: var(--radius-control);
   }
 
   .unsubscribe-brand strong {
@@ -211,7 +211,7 @@
   .unsubscribe-state {
     padding: 14px 16px;
     border: 1px solid var(--border, #26303b);
-    border-radius: 14px;
+    border-radius: var(--radius-card);
     color: var(--muted-foreground, #9aa3b2);
     text-align: center;
   }

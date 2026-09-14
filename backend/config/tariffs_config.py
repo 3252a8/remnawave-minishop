@@ -1,3 +1,4 @@
+import hmac
 import json
 import logging
 import math
@@ -25,6 +26,23 @@ from config.tariff_checkout import (
     FlexibleTrafficLimitConfig,
     validate_checkout_addons,
 )
+from config.tariff_config_utils import (
+    DEFAULT_TARIFF_CURRENCY,
+    STARS_TARIFF_CURRENCY,
+    TARIFF_ACCESS_CODE_LENGTH,
+    normalize_currency_key,
+    normalize_tariff_access_code,
+    payment_currency_code,
+)
+from config.tariff_config_utils import (
+    default_currency_key_for_settings as default_currency_key_for_settings,
+)
+from config.tariff_config_utils import (
+    default_payment_currency_code_for_settings as default_payment_currency_code_for_settings,
+)
+from config.tariff_config_utils import (
+    referral_welcome_bonus_tariff_key_for_settings as _referral_tariff_key_for_settings,
+)
 from config.tariff_period_migration import normalize_tariff_catalog
 from config.tariff_tribute import (
     _normalize_tribute_map_keys,
@@ -34,8 +52,7 @@ from config.tariff_tribute import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_TARIFF_CURRENCY = "rub"
-STARS_TARIFF_CURRENCY = "stars"
+referral_welcome_bonus_tariff_key_for_settings = _referral_tariff_key_for_settings
 
 Currency = str
 BillingModel = Literal["period", "traffic"]
@@ -43,54 +60,6 @@ TrafficLimitStrategy = Literal["NO_RESET", "DAY", "WEEK", "MONTH", "MONTH_ROLLIN
 TributeProductKind = Literal["traffic", "premium_traffic"]
 TRIBUTE_PRODUCT_KINDS: tuple[TributeProductKind, ...] = ("traffic", "premium_traffic")
 PositiveStrictInt = Annotated[int, Field(strict=True, gt=0)]
-
-
-def normalize_currency_key(value: Any, default: str = DEFAULT_TARIFF_CURRENCY) -> str:
-    text = str(value or "").strip().lower()
-    if not text:
-        return default
-    aliases = {
-        "rur": "rub",
-        "xtr": STARS_TARIFF_CURRENCY,
-        "star": STARS_TARIFF_CURRENCY,
-        "stars": STARS_TARIFF_CURRENCY,
-    }
-    normalized = aliases.get(text, text)
-    cleaned = "".join(ch for ch in normalized if ch.isalnum() or ch in {"_", "-"}).strip("_-")
-    return cleaned or default
-
-
-def payment_currency_code(currency: Any, default: str = "RUB") -> str:
-    key = normalize_currency_key(currency, default=normalize_currency_key(default))
-    if key == STARS_TARIFF_CURRENCY:
-        return "XTR"
-    return key.upper()
-
-
-def default_currency_key_for_settings(settings: Any) -> str:
-    try:
-        config = settings.tariffs_config
-    except Exception:
-        config = None
-    if config is not None and getattr(config, "default_currency", None):
-        return normalize_currency_key(config.default_currency)
-    return normalize_currency_key(settings.DEFAULT_CURRENCY_SYMBOL)
-
-
-def default_payment_currency_code_for_settings(settings: Any) -> str:
-    return payment_currency_code(default_currency_key_for_settings(settings))
-
-
-def referral_welcome_bonus_tariff_key_for_settings(settings: Any) -> str | None:
-    config = settings.tariffs_config
-    if config is None:
-        return None
-    resolved_key = str(getattr(config, "referral_welcome_bonus_tariff_key", "") or "").strip()
-    if resolved_key:
-        return resolved_key
-    configured_key = str(getattr(config, "referral_welcome_bonus_tariff", "") or "").strip()
-    default_key = str(getattr(config, "default_tariff", "") or "").strip()
-    return configured_key or default_key or None
 
 
 class TrafficPackage(BaseModel):
@@ -451,6 +420,7 @@ class Tariff(BaseModel):
     squad_uuids: list[str] = Field(default_factory=list)
     billing_model: BillingModel
     enabled: bool = True
+    access_code: str | None = None
 
     monthly_gb: float | None = None
     # None keeps legacy tariffs compatible with USER_TRAFFIC_STRATEGY. The
@@ -507,11 +477,25 @@ class Tariff(BaseModel):
             raise ValueError("duplicate subscription periods")
         return periods
 
+    @field_validator("access_code", mode="before")
+    @classmethod
+    def validate_access_code(cls, value: Any) -> str | None:
+        if value is None or not str(value).strip():
+            return None
+        normalized = normalize_tariff_access_code(value)
+        if normalized is None:
+            raise ValueError(
+                f"access_code must contain exactly {TARIFF_ACCESS_CODE_LENGTH} hex characters"
+            )
+        return normalized
+
     @model_validator(mode="after")
     def validate_tariff(self) -> "Tariff":
         if not self.key.strip():
             raise ValueError("tariff key must not be empty")
         self.key = self.key.strip()
+        if self.enabled and self.access_code:
+            raise ValueError(f"tariff {self.key}: access_code is only valid for a hidden tariff")
         self.legacy_keys = list(
             dict.fromkeys(str(key).strip() for key in self.legacy_keys if str(key).strip())
         )
@@ -821,6 +805,7 @@ class TariffsConfig(BaseModel):
         tribute_subscription_owners: dict[int, str] = {}
         tribute_period_owners: dict[tuple[int, int], tuple[str, int]] = {}
         tribute_product_owners: dict[int, tuple[str, TributeProductKind, str]] = {}
+        access_code_owners: dict[str, str] = {}
         for tariff in self.tariffs:
             validate_checkout_addons(tariff, default_currency=self.default_currency)
             for key in (tariff.key, *tariff.legacy_keys):
@@ -831,6 +816,14 @@ class TariffsConfig(BaseModel):
                         f"is used by {previous_owner} and {tariff.key}"
                     )
                 key_owners[key] = tariff.key
+            if tariff.access_code:
+                previous_access_owner = access_code_owners.get(tariff.access_code)
+                if previous_access_owner is not None:
+                    raise ValueError(
+                        "tariff access_code values must be unique: "
+                        f"{tariff.key} conflicts with {previous_access_owner}"
+                    )
+                access_code_owners[tariff.access_code] = tariff.key
             tribute = tariff.tribute
             if tribute is None:
                 continue
@@ -908,19 +901,45 @@ class TariffsConfig(BaseModel):
             raise KeyError(f"Unknown tariff: {key}")
         return tariff
 
-    def require_for_user(self, key: str, assigned_tariff_key: str | None) -> Tariff:
+    def tariff_for_access_code(self, access_code: str | None) -> Tariff | None:
+        normalized = normalize_tariff_access_code(access_code)
+        if normalized is None:
+            return None
+        for tariff in self.tariffs:
+            if tariff.access_code and hmac.compare_digest(tariff.access_code, normalized):
+                return tariff
+        return None
+
+    def require_for_user(
+        self,
+        key: str,
+        assigned_tariff_key: str | None,
+        access_code: str | None = None,
+    ) -> Tariff:
         tariff = self.require_configured(key)
         assigned_tariff = self.get(str(assigned_tariff_key or ""))
-        if tariff.enabled or (assigned_tariff and assigned_tariff.key == tariff.key):
+        access_tariff = self.tariff_for_access_code(access_code)
+        if (
+            tariff.enabled
+            or (assigned_tariff and assigned_tariff.key == tariff.key)
+            or (access_tariff and access_tariff.key == tariff.key)
+        ):
             return tariff
         raise KeyError(f"Tariff is not available to this user: {key}")
 
-    def available_tariffs_for_user(self, assigned_tariff_key: str | None) -> list[Tariff]:
+    def available_tariffs_for_user(
+        self,
+        assigned_tariff_key: str | None,
+        access_code: str | None = None,
+    ) -> list[Tariff]:
         assigned_tariff = self.get(str(assigned_tariff_key or ""))
+        access_tariff = self.tariff_for_access_code(access_code)
         return [
             tariff
             for tariff in self.tariffs
-            if tariff.enabled or (assigned_tariff and assigned_tariff.key == tariff.key)
+            if tariff.enabled
+            or (assigned_tariff and assigned_tariff.key == tariff.key)
+            or (access_tariff and access_tariff.key == tariff.key)
         ]
 
     def require(self, key: str) -> Tariff:

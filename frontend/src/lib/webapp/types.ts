@@ -88,6 +88,7 @@ export const FALLBACK_WEBAPP_CONFIG: WebappConfig = {
   authProviders: ["telegram"],
   checkoutPlans: [],
   currency: "RUB",
+  devMode: false,
   emailAuthEnabled: false,
   faviconUrl: "",
   faviconUseCustom: false,

@@ -17,6 +17,9 @@ class RemnashopImporter(_RemnashopSettingsSection):
     async def run(self) -> dict[str, Any]:
         self.tables = await self._source_tables()
         await self._warn_missing_tables()
+        await self.build_inventory()
+        if self.summary["blockers"] and not self.dry_run:
+            raise RuntimeError("Remnashop source inventory is incompatible; apply is blocked")
         if (
             self._should_run("subscriptions")
             or self._should_run("payments")
@@ -30,12 +33,16 @@ class RemnashopImporter(_RemnashopSettingsSection):
             await self.import_referrals()
         if self._should_run("subscriptions"):
             await self.import_subscriptions()
+        if self._should_run("balances"):
+            await self.import_balances()
         if self._should_run("payments"):
             await self.import_payments()
         if self._should_run("promocodes"):
             await self.import_promocodes()
         if self._should_run("settings"):
             await self.import_settings()
+        if self._should_run("advertising"):
+            await self.import_advertising()
 
         self.summary["post_migration_actions"] = remnashop_post_migration_actions(
             target_webhook_base_url=self.target_webhook_base_url,
@@ -45,5 +52,10 @@ class RemnashopImporter(_RemnashopSettingsSection):
 
         if self.write_admin_compat_overrides:
             await self._write_admin_overrides()
+
+        await self.build_config_plan()
+        await self.build_reconciliation()
+        if self.summary["blockers"] and not self.dry_run:
+            raise RuntimeError("Remnashop reconciliation has blockers; apply was rolled back")
 
         return self._plain_summary()

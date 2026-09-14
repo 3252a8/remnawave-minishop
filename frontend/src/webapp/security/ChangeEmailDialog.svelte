@@ -465,7 +465,7 @@
   }
 
   :global(.change-email-dialog .otp-slots span) {
-    border-radius: 11px;
+    border-radius: var(--radius-inner);
     font-size: clamp(20px, 6vw, 25px);
   }
 </style>

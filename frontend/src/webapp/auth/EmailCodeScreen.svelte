@@ -35,6 +35,27 @@
     onConfirm = () => {},
     onResend = () => {},
   }: Props = $props();
+
+  let submitting = $state(false);
+
+  async function submitCode(): Promise<void> {
+    if (busy || submitting || code.length !== 6) return;
+    submitting = true;
+    try {
+      await onConfirm();
+    } finally {
+      submitting = false;
+    }
+  }
+
+  function handleCodeInput(): void {
+    if (code.length === 6) void submitCode();
+  }
+
+  function handleSubmit(event: SubmitEvent): void {
+    event.preventDefault();
+    void submitCode();
+  }
 </script>
 
 <div class="phone-screen auth-screen" class:embedded>
@@ -48,9 +69,14 @@
     </div>
     <span></span>
   </header>
-  <div class="otp-wrap">
-    <EmailOtpInput bind:code ariaLabel={t("wa_email_code_aria")} disabled={busy} />
-    <Button class="wide" onclick={onConfirm} disabled={busy}>
+  <form class="otp-wrap" onsubmit={handleSubmit}>
+    <EmailOtpInput
+      bind:code
+      ariaLabel={t("wa_email_code_aria")}
+      disabled={busy || submitting}
+      oninput={handleCodeInput}
+    />
+    <Button class="wide" type="submit" disabled={busy || submitting || code.length !== 6}>
       {t("wa_confirm")}
     </Button>
     {#if status}
@@ -60,14 +86,14 @@
       class="link-button"
       type="button"
       onclick={onResend}
-      disabled={busy || resendCooldown > 0}
+      disabled={busy || submitting || resendCooldown > 0}
     >
       <RefreshCw size={15} />
       {resendCooldown > 0
         ? t("wa_auth_resend_wait", { seconds: resendCooldown })
         : t("wa_resend_code")}
     </button>
-  </div>
+  </form>
 </div>
 
 <style>

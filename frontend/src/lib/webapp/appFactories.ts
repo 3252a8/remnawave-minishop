@@ -123,6 +123,7 @@ export type AppFactoriesDeps = {
   syncAppSectionPath: SyncAppSectionPath;
   t: (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   termUnitLabel: TermUnitLabel;
+  tariffAccessCode: string;
   telegramNotificationsResumeCooldownMs: number;
   telegramSdk: TelegramSdk;
   tick: Tick;
@@ -187,6 +188,7 @@ export function createAppFactories({
   syncAppSectionPath,
   t,
   termUnitLabel,
+  tariffAccessCode,
   telegramNotificationsResumeCooldownMs,
   telegramSdk,
   tick,
@@ -246,6 +248,7 @@ export function createAppFactories({
     csrfCookieName,
     getAuthToken: () => shellState.token,
     getCsrfToken: () => shellState.csrfToken,
+    getTariffAccessCode: () => tariffAccessCode,
     onUnauthorized: () => {
       clearToken();
       showLogin();
@@ -370,6 +373,10 @@ export function createAppFactories({
       shellState.screen = "home";
       syncAppSectionPath("home", true);
     },
+    showTariffAccessError: () =>
+      showToast(
+        t("wa_tariff_access_invalid", {}, "This private tariff link is invalid or expired")
+      ),
     stripCheckoutPromoQueryFromUrl,
     stripCheckoutDeeplinkFromUrl,
     stripRenewalLoginQueryFromUrl,

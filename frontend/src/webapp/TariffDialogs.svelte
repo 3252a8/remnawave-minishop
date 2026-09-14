@@ -555,6 +555,7 @@
   closeLabel={t("wa_close")}
   onclose={closeTariffChangeConfirm}
   class="payment-dialog-card webapp-tariff-change-confirm-dialog"
+  showCloseButton={false}
 >
   <div class="payment-dialog-body">
     <Card class="confirm-summary-card">

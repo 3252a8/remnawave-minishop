@@ -126,7 +126,7 @@
   height: 54px;
   display: grid;
   place-items: center;
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 14%, var(--panel-2));
 }
@@ -140,7 +140,7 @@
   display: grid;
   gap: 9px;
   padding: 14px;
-  border-radius: 14px;
+  border-radius: var(--radius-inner);
   background: var(--surface-muted);
 }
 .partner-benefits span {
@@ -206,7 +206,7 @@
   min-width: var(--bits-select-anchor-width);
   padding: 5px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background: var(--panel-2);
   color: var(--text);
   box-shadow: var(--shadow-soft);
@@ -226,7 +226,7 @@
   gap: 12px;
   min-height: 38px;
   padding: 8px 10px;
-  border-radius: 9px;
+  border-radius: var(--radius-inner);
   outline: 0;
   font: inherit;
 }
@@ -308,7 +308,7 @@
   display: grid;
   gap: 4px;
   padding: 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-inner);
   background: var(--surface-muted);
 }
 .partner-application-summary dt {
@@ -323,7 +323,7 @@
   width: 100%;
   padding: 14px;
   border: 1px solid var(--danger-border);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: var(--danger-soft);
   text-align: left;
 }
@@ -336,7 +336,7 @@
   gap: 10px;
   padding: 14px;
   border: 1px solid var(--warning-border);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   color: var(--warning-text);
   background: var(--warning-soft);
 }
@@ -381,12 +381,12 @@
   width: fit-content;
   padding: 4px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   background: var(--panel-2);
 }
 .partner-currency-switcher button {
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-inner);
   padding: 7px 12px;
   color: var(--muted);
   background: transparent;
@@ -429,7 +429,7 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   padding: 10px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-inner);
   background: var(--surface-muted);
 }
 .partner-balance-breakdown div {
@@ -466,7 +466,7 @@
   min-width: 0;
   padding: 10px 11px;
   border: 1px solid var(--border);
-  border-radius: 11px;
+  border-radius: var(--radius-inner);
   background: color-mix(in srgb, var(--surface-muted) 80%, transparent);
 }
 .partner-kpis span {
@@ -506,7 +506,7 @@
 .partner-activity-table .admin-table-wrap {
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--panel-2) 82%, transparent);
   box-shadow: none;
 }
@@ -598,7 +598,7 @@
   height: 30px;
   padding: 0 9px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--radius-control);
   background: var(--panel-2);
   color: var(--text);
   font: inherit;
@@ -612,7 +612,7 @@
   height: 30px;
   padding: 0 7px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--radius-control);
   background: var(--panel-2);
   color: var(--text);
   text-align: center;
@@ -646,7 +646,7 @@
   justify-content: space-between;
   gap: 12px;
   padding: 14px;
-  border-radius: 13px;
+  border-radius: var(--radius-inner);
   background: var(--surface-muted);
 }
 .partner-method-options {
@@ -660,7 +660,7 @@
   min-width: 0;
   padding: 10px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   color: var(--text);
   background: var(--panel-2);
   text-align: left;
@@ -690,7 +690,7 @@
 .partner-tour-spotlight {
   position: fixed;
   z-index: 118;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   box-shadow: 0 0 0 9999px color-mix(in srgb, var(--bg) 62%, transparent);
   pointer-events: none;
   animation: partner-tour-dim-in 0.2s ease;
@@ -729,7 +729,7 @@
      the thing it points at rather than floating over the page. */
   --ui-plate-border: color-mix(in srgb, var(--accent) 55%, transparent);
   --ui-plate-bg: var(--panel);
-  --ui-plate-radius: 16px;
+  --ui-plate-radius: var(--radius-card);
   --ui-plate-arrow: 12px;
   --ui-plate-transition: opacity 0.1s ease, visibility 0s linear 0.1s;
   --ui-plate-transition-in: opacity 0.22s ease, visibility 0s linear 0s;
@@ -759,7 +759,7 @@
   place-items: center;
   padding: 3px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-inner);
   color: var(--muted);
   background: transparent;
 }
@@ -829,7 +829,7 @@
   width: 122px !important;
 }
 .partner-skeleton-icon {
-  border-radius: 11px;
+  border-radius: var(--radius-inner);
 }
 .partner-skeleton-button,
 .partner-skeleton-field,
@@ -837,10 +837,10 @@
   min-height: 0;
 }
 .partner-skeleton-button {
-  border-radius: 9px;
+  border-radius: var(--radius-inner);
 }
 .partner-skeleton-field {
-  border-radius: 9px;
+  border-radius: var(--radius-inner);
 }
 .partner-skeleton-copy {
   display: grid;
@@ -858,12 +858,12 @@
 }
 .partner-skeleton-tab {
   flex: 0 0 auto;
-  border-radius: 9px;
+  border-radius: var(--radius-inner);
 }
 .partner-skeleton-table {
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--panel-2) 82%, transparent);
 }
 .partner-skeleton-table-head,
@@ -908,7 +908,7 @@
     margin-bottom: 8px;
     padding: 10px 12px;
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: var(--radius-card);
     background: var(--panel-2);
   }
   .partner-activity-table .admin-table tbody tr:last-child {
@@ -970,7 +970,7 @@
     gap: 12px 18px;
     padding: 12px;
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: var(--radius-card);
     background: var(--panel-2);
   }
   .partner-skeleton-table-row > :first-child {

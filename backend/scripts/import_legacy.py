@@ -1,7 +1,7 @@
 """Import data from legacy source bots into the current shop database.
 
-Currently supported source:
-    remnashop
+Supported sources:
+    remnashop, bedolaga
 
 Example:
     python backend/scripts/import_legacy.py \
@@ -27,8 +27,11 @@ from scripts.legacy_import import (  # noqa: E402
     GIB,
     PAYMENT_WEBHOOK_PATHS,
     SOURCE,
+    SOURCE_TYPES,
     SUPPORTED_REMNASHOP_PROVIDER_TYPES,
     UNSUPPORTED_REMNASHOP_PROVIDER_TYPES,
+    BedolagaImporter,
+    DryRunSession,
     RemnashopImporter,
     _add_override,
     _add_tariff_map_entries,
@@ -55,7 +58,14 @@ from scripts.legacy_import import (  # noqa: E402
     _support_link_from_username,
     _target_webhook_url,
     _unique_tariff_key,
+    bedolaga_build_tariff_catalog,
+    bedolaga_ledger_effect,
+    bedolaga_payment_status,
+    bedolaga_target_user_id,
     build_arg_parser,
+    database_identity,
+    ensure_distinct_databases,
+    get_adapter,
     main,
     normalize_async_postgres_dsn,
     parse_only,
@@ -80,6 +90,7 @@ from scripts.legacy_import import (  # noqa: E402
     remnashop_sale_mode,
     remnashop_source_urls_from_env,
     remnashop_subscription_provider,
+    remnashop_target_user_id,
     remnashop_tariff_key,
     remnashop_traffic_gb_to_bytes,
     remnashop_transaction_status,
@@ -90,8 +101,11 @@ __all__ = [
     "GIB",
     "PAYMENT_WEBHOOK_PATHS",
     "SOURCE",
+    "SOURCE_TYPES",
     "SUPPORTED_REMNASHOP_PROVIDER_TYPES",
     "UNSUPPORTED_REMNASHOP_PROVIDER_TYPES",
+    "BedolagaImporter",
+    "DryRunSession",
     "RemnashopImporter",
     "_add_override",
     "_add_tariff_map_entries",
@@ -118,7 +132,14 @@ __all__ = [
     "_support_link_from_username",
     "_target_webhook_url",
     "_unique_tariff_key",
+    "bedolaga_build_tariff_catalog",
+    "bedolaga_ledger_effect",
+    "bedolaga_payment_status",
+    "bedolaga_target_user_id",
     "build_arg_parser",
+    "database_identity",
+    "ensure_distinct_databases",
+    "get_adapter",
     "main",
     "normalize_async_postgres_dsn",
     "parse_only",
@@ -143,6 +164,7 @@ __all__ = [
     "remnashop_sale_mode",
     "remnashop_source_urls_from_env",
     "remnashop_subscription_provider",
+    "remnashop_target_user_id",
     "remnashop_tariff_key",
     "remnashop_traffic_gb_to_bytes",
     "remnashop_transaction_status",

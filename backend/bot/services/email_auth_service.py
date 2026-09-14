@@ -19,6 +19,7 @@ from bot.middlewares.i18n import JsonI18n
 from bot.services.email_templates import EmailContent, EmailInlineImage, render_login_code
 from bot.services.message_audit import log_user_message_delivery
 from config.settings import Settings
+from config.tariffs_config import normalize_tariff_access_code
 from db.dal import security_dal, user_dal
 from db.models import EmailVerificationCode
 
@@ -154,6 +155,7 @@ class EmailAuthService:
         token: str,
         purpose: str,
         referral_param: str | None = None,
+        tariff_access_code: str | None = None,
     ) -> str | None:
         base_url = (self.settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
         if not base_url:
@@ -163,6 +165,10 @@ class EmailAuthService:
         parsed = urlsplit(base_url)
         if parsed.scheme not in ("http", "https") or not parsed.netloc:
             return None
+        access_code = normalize_tariff_access_code(tariff_access_code)
+        path = parsed.path
+        if purpose == "login" and access_code:
+            path = f"{path.rstrip('/')}/checkout/{access_code}"
         params = {"login_token": token}
         if purpose and purpose != "login":
             params["login_purpose"] = purpose
@@ -173,9 +179,7 @@ class EmailAuthService:
         existing_query = parsed.query
         new_query = urlencode(params)
         merged_query = f"{existing_query}&{new_query}" if existing_query else new_query
-        return urlunsplit(
-            (parsed.scheme, parsed.netloc, parsed.path, merged_query, parsed.fragment)
-        )
+        return urlunsplit((parsed.scheme, parsed.netloc, path, merged_query, parsed.fragment))
 
     async def request_code(
         self,
@@ -186,6 +190,7 @@ class EmailAuthService:
         language_code: str,
         target_user_id: int | None = None,
         referral_param: str | None = None,
+        tariff_access_code: str | None = None,
     ) -> EmailCodeRequestResult:
         normalized_email = normalize_email(email)
         if not self.settings.email_auth_configured:
@@ -245,6 +250,7 @@ class EmailAuthService:
                 token=magic_token,
                 purpose=purpose,
                 referral_param=referral_param,
+                tariff_access_code=tariff_access_code,
             )
             if purpose == "login"
             else None

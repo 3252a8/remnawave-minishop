@@ -69,6 +69,7 @@ class WebappBootstrapConfigOut(HttpResponseModel):
     language: str
     languages: list[WebappBootstrapLanguageOut]
     email_auth_enabled: bool = Field(alias="emailAuthEnabled")
+    dev_mode: bool = Field(alias="devMode")
     auth_providers: list[str] = Field(alias="authProviders")
     registration_invite_only_enabled: bool = Field(alias="registrationInviteOnlyEnabled")
     checkout_plans: list[dict[str, Any]] = Field(default_factory=list, alias="checkoutPlans")
@@ -336,6 +337,7 @@ PLAN_SCHEMA: dict[str, Any] = {
     "properties": {
         "id": STRING_SCHEMA,
         "tariff_key": STRING_SCHEMA,
+        "access_via_link": BOOLEAN_SCHEMA,
         "is_default_tariff": BOOLEAN_SCHEMA,
         "tariff_name": STRING_SCHEMA,
         "billing_model": STRING_SCHEMA,

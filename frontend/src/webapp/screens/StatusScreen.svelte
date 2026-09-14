@@ -250,7 +250,7 @@
   }
   .status-skeleton span {
     height: 96px;
-    border-radius: 18px;
+    border-radius: var(--radius-card);
     background: linear-gradient(
       100deg,
       var(--card, #fff) 25%,
@@ -270,7 +270,7 @@
   .status-overview-icon {
     width: 38px;
     height: 38px;
-    border-radius: 12px;
+    border-radius: var(--radius-inner);
     display: grid;
     place-items: center;
     color: var(--accent, #00b86b);
@@ -308,7 +308,7 @@
     align-items: center;
     gap: 8px;
     padding: 10px 12px;
-    border-radius: 12px;
+    border-radius: var(--radius-inner);
     color: #9a6700;
     background: color-mix(in srgb, #f59e0b 13%, transparent);
     font-size: 0.84rem;

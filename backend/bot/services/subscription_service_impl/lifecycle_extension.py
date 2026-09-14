@@ -6,6 +6,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.services.subscription_order_terms import gift_tariff
 from config.tariffs_config import default_currency_key_for_settings
 from db.dal import subscription_dal, tariff_dal, user_dal
 
@@ -38,10 +39,13 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
 
         previous_panel_user_uuid = getattr(user, "panel_user_uuid", None)
         active_sub = await subscription_dal.get_active_subscription_by_user_id(session, user_id)
+        active_is_trial = entitlement_helpers.subscription_is_trial(active_sub)
         rollback_payload: dict[str, Any] | None = None
         hwid_extension_context: tuple[int, datetime, datetime] | None = None
         pending_tariff_change_payload: dict[str, Any] | None = None
         requested_tariff = None
+        if not active_sub and not tariff_key and self._tariffs_config():
+            tariff_key = self._tariffs_config().default_tariff
         if tariff_key and self._tariffs_config():
             try:
                 requested_tariff = self._resolve_tariff(tariff_key, "period")
@@ -56,9 +60,14 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
                 if "admin" in reason_lower:
                     return None
 
-        admin_tariff = requested_tariff if active_sub and "admin" in reason_lower else None
+        assigned_tariff = (
+            requested_tariff
+            if active_sub
+            and ("admin" in reason_lower or active_is_trial or not active_sub.tariff_key)
+            else None
+        )
         preserve_tariff_limits = bool(
-            active_sub and active_sub.tariff_key and self._tariffs_config() and not admin_tariff
+            active_sub and active_sub.tariff_key and self._tariffs_config() and not assigned_tariff
         )
         bonus_tariff = None
         if not active_sub and requested_tariff:
@@ -88,10 +97,12 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
                 getattr(active_sub, "hwid_device_limit", None),
                 int(getattr(active_sub, "extra_hwid_devices", 0) or 0),
             )
-            initial_tariff = admin_tariff
+            initial_tariff = assigned_tariff
             if initial_tariff is None and active_sub.tariff_key and self._tariffs_config():
                 try:
-                    initial_tariff = self._resolve_tariff(active_sub.tariff_key, "period")
+                    initial_tariff = gift_tariff(active_sub) or self._resolve_tariff(
+                        active_sub.tariff_key
+                    )
                 except Exception:
                     logger.warning(
                         "Unable to resolve active tariff %s while extending user %s.",
@@ -118,6 +129,13 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
             initial_tariff,
             include_premium=not initial_premium_is_limited,
         )
+        desired_tariff_tag = (
+            str(
+                getattr(initial_tariff, "key", "") or getattr(active_sub, "tariff_key", "") or ""
+            ).strip()
+            or None
+        )
+        keep_trial = active_is_trial and assigned_tariff is None
         create_options = entitlement_helpers.panel_user_create_options(
             new_end_date_obj,
             initial_traffic_limit,
@@ -125,6 +143,8 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
             initial_hwid_limit,
             initial_squads,
             self.settings.parsed_user_external_squad_uuid,
+            desired_tariff_tag,
+            is_trial=keep_trial,
         )
         (
             panel_uuid,
@@ -209,7 +229,10 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
                 "status_from_panel": getattr(active_sub, "status_from_panel", None),
             }
             for attr in (
+                "provider",
+                "auto_renew_enabled",
                 "tariff_key",
+                "effective_monthly_price_rub",
                 "tier_baseline_bytes",
                 "topup_balance_bytes",
                 "regular_bonus_bytes",
@@ -241,7 +264,7 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
                     current_end_date,
                 )
 
-            if admin_tariff and updated_sub_model:
+            if assigned_tariff and updated_sub_model:
                 try:
                     extra_hwid_devices = await tariff_dal.sum_active_hwid_devices(
                         session,
@@ -261,7 +284,7 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
                 )
                 premium_topup_used = int(getattr(active_sub, "premium_topup_used_bytes", 0) or 0)
                 premium_bonus_bytes = int(getattr(active_sub, "premium_bonus_bytes", 0) or 0)
-                premium_baseline = admin_tariff.premium_monthly_bytes
+                premium_baseline = assigned_tariff.premium_monthly_bytes
                 premium_limit = self._premium_effective_limit_bytes(
                     premium_baseline,
                     premium_topup_balance,
@@ -273,19 +296,19 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
                 runl = bool(getattr(active_sub, "regular_unlimited_override", False))
                 used_sub = int(getattr(active_sub, "traffic_used_bytes", 0) or 0)
                 target_monthly_price = self._tariff_effective_monthly_price(
-                    admin_tariff,
+                    assigned_tariff,
                     default_currency_key_for_settings(self.settings),
                 )
                 local_hwid_base_limit, _ = self._transition_hwid_base_limits(
                     getattr(active_sub, "hwid_device_limit", None),
-                    admin_tariff,
+                    assigned_tariff,
                     apply_tariff_hwid_limit=apply_tariff_hwid_limit,
                 )
                 admin_update_data: dict[str, Any] = {
-                    "tariff_key": admin_tariff.key,
-                    "tier_baseline_bytes": admin_tariff.monthly_bytes,
+                    "tariff_key": assigned_tariff.key,
+                    "tier_baseline_bytes": assigned_tariff.monthly_bytes,
                     "traffic_limit_bytes": self._compute_main_traffic_limit_bytes(
-                        tier_baseline_bytes=admin_tariff.monthly_bytes,
+                        tier_baseline_bytes=assigned_tariff.monthly_bytes,
                         topup_balance_bytes=int(getattr(active_sub, "topup_balance_bytes", 0) or 0),
                         regular_bonus_bytes=rb,
                         regular_unlimited_override=runl,
@@ -298,7 +321,7 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
                     "premium_topup_balance_bytes": premium_topup_balance,
                     "premium_topup_used_bytes": premium_topup_used,
                     "premium_is_limited": self._premium_access_should_be_limited(
-                        admin_tariff,
+                        assigned_tariff,
                         premium_limit_bytes=premium_limit,
                         premium_used_bytes=premium_used,
                         premium_unlimited_override=bool(
@@ -311,17 +334,23 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
                     "hwid_device_limit": local_hwid_base_limit,
                     "extra_hwid_devices": extra_hwid_devices,
                 }
+                if active_is_trial:
+                    admin_update_data.update(
+                        provider=entitlement_helpers.bonus_provider_for_reason(reason_lower),
+                        status_from_panel="ACTIVE_BONUS",
+                        auto_renew_enabled=False,
+                    )
                 updated_sub_model = await subscription_dal.update_subscription(
                     session,
                     updated_sub_model.subscription_id,
                     admin_update_data,
                 )
-                if updated_sub_model and active_sub.tariff_key != admin_tariff.key:
+                if updated_sub_model and rollback_payload.get("tariff_key") != assigned_tariff.key:
                     pending_tariff_change_payload = {
                         "subscription_id": updated_sub_model.subscription_id,
-                        "from_tariff_key": active_sub.tariff_key,
-                        "to_tariff_key": admin_tariff.key,
-                        "mode": "admin_assign",
+                        "from_tariff_key": rollback_payload.get("tariff_key"),
+                        "to_tariff_key": assigned_tariff.key,
+                        "mode": "admin_assign" if "admin" in reason_lower else "grant_assign",
                         "payment_id": None,
                         "days_before": max(0, (current_end_date - now_utc).days)
                         if current_end_date
@@ -332,14 +361,14 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
                         "converted_bytes": None,
                         "converted_hwid_value_rub": None,
                         "converted_hwid_days": None,
-                        "eff_price_before": active_sub.effective_monthly_price_rub,
+                        "eff_price_before": rollback_payload.get("effective_monthly_price_rub"),
                         "eff_price_after": target_monthly_price,
                     }
 
             if (
                 apply_main_traffic_limit
                 and not preserve_tariff_limits
-                and not admin_tariff
+                and not assigned_tariff
                 and updated_sub_model
                 and updated_sub_model.traffic_limit_bytes != self.settings.user_traffic_limit_bytes
             ):
@@ -350,7 +379,7 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
                 )
 
         if updated_sub_model:
-            panel_tariff = admin_tariff or bonus_tariff
+            panel_tariff = assigned_tariff or bonus_tariff
             panel_hwid_base_limit = None
             if panel_tariff:
                 _, panel_hwid_base_limit = self._transition_hwid_base_limits(
@@ -395,10 +424,34 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
                         user_id=user_id,
                         panel_user_uuid=panel_uuid,
                         managed_internal_squads=managed_squads,
+                        override_detection_managed_internal_squads=(
+                            list(
+                                dict.fromkeys(
+                                    [*self._trial_all_panel_squad_uuids(), *(managed_squads or [])]
+                                )
+                            )
+                            if active_is_trial
+                            else None
+                        ),
                         include_internal_squads=True,
                         source="admin_extend",
                     )
                 )
+
+            panel_user_for_tag = self._take_panel_user_link_snapshot(panel_uuid)
+            tariff_tag_plan = (
+                self._plan_panel_tariff_tag(
+                    user,
+                    panel_user_for_tag,
+                    desired_tariff_tag,
+                    source="subscription_bonus",
+                    is_trial=keep_trial,
+                )
+                if panel_user_for_tag is not None
+                else None
+            )
+            if tariff_tag_plan is not None:
+                panel_update_payload.update(tariff_tag_plan.verification_payload)
 
             if (
                 created_new_subscription
@@ -425,6 +478,8 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
                 )
                 if create_options.external_squad_uuid:
                     expected_panel_payload["externalSquadUuid"] = create_options.external_squad_uuid
+                if tariff_tag_plan is not None:
+                    expected_panel_payload.update(tariff_tag_plan.verification_payload)
             else:
                 panel_update_result = await self.panel_service.update_user_details_on_panel(
                     panel_uuid,
@@ -478,6 +533,13 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
                             user_id,
                         )
                 return None
+
+            if tariff_tag_plan is not None:
+                self._remember_confirmed_panel_tariff_tag(
+                    user,
+                    tariff_tag_plan,
+                    confirmed_panel_user,
+                )
 
             if pending_tariff_change_payload:
                 await entitlement_helpers.record_tariff_change_best_effort(

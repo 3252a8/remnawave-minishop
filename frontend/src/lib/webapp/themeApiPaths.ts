@@ -28,3 +28,9 @@ export function buildThemePreviewPath(key: string, variant: string, importId?: s
     ? `${prefix}/${encodeURIComponent(key)}?variant=${variant}`
     : `${prefix}/${encodeURIComponent(key)}/preview?variant=${variant}`;
 }
+
+export function buildThemePreviewUploadPath(key: string) {
+  return builtApiPath<"/api/admin/themes/library/{key}/preview">(
+    `/admin/themes/library/${encodeURIComponent(key)}/preview`
+  );
+}

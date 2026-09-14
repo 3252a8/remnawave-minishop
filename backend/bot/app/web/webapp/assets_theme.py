@@ -423,6 +423,9 @@ def _initial_theme_declarations(tokens: dict[str, Any]) -> list[str]:
         value = str(tokens.get(token_key) or "").strip()
         if value:
             declarations.append(f"{css_name}:{value}")
+    for token_key, value in tokens.items():
+        if token_key.startswith("--") and value not in {None, ""}:
+            declarations.append(f"{token_key}:{value}")
     return declarations
 
 
@@ -439,7 +442,7 @@ def _initial_theme_head_markup(request: web.Request, theme: Any, primary_color: 
     if bg:
         css_rules.append(f"body{{background-color:{bg};}}")
     if declarations:
-        css_rules.append(f".app-shell{{{';'.join(declarations)}}}")
+        css_rules.append(f".app-shell,.app-boot-fallback{{{';'.join(declarations)}}}")
 
     nonce = html.escape(str(request.get("csp_nonce", "")), quote=True)
     style_tag = (

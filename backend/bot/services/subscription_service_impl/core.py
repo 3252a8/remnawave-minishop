@@ -53,6 +53,7 @@ class SubscriptionService(
         self.bot = bot
         self.i18n = i18n
         self._premium_access_cache: dict[tuple[str, ...], dict[str, Any]] = {}
+        self._panel_user_link_snapshots: dict[str, dict[str, Any]] = {}
         self.yookassa_service: RecurringProviderService | None = None
         self.recurring_provider_services: dict[str, RecurringProviderService] = {}
         self.managed_recurring_provider_services: dict[str, ProviderManagedRecurringService] = {}

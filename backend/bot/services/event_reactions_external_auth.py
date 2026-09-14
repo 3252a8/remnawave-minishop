@@ -8,10 +8,13 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 EXTERNAL_REGISTRATION_PROVIDERS = {
+    "discord_oauth": "discord",
     "google_oauth": "google",
     "yandex_oauth": "yandex",
 }
 EXTERNAL_MERGE_PROVIDERS = {
+    "discord_verified_email_link": "discord",
+    "discord_oauth_link": "discord",
     "google_verified_email_link": "google",
     "google_oauth_link": "google",
     "yandex_verified_email_link": "yandex",
@@ -28,7 +31,7 @@ ACCOUNT_MERGE_NOTIFY_REASONS = {
 async def react_to_external_identity_link(reactions: Any, payload: dict[str, Any]) -> None:
     user_id = payload.get("user_id")
     provider = str(payload.get("provider") or "")
-    if user_id is None or provider not in {"google", "yandex"}:
+    if user_id is None or provider not in {"discord", "google", "yandex"}:
         return
     service = reactions._notification_service()
     if service is None:

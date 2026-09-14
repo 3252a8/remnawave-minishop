@@ -318,7 +318,7 @@
     margin: 0;
     padding: 10px 12px;
     border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
-    border-radius: 10px;
+    border-radius: var(--radius-inner);
     background: color-mix(in srgb, var(--accent, #00fe7a) 8%, transparent);
     font-size: 14px;
   }

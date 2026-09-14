@@ -86,9 +86,20 @@ export function computeThemeView({
   const activeThemeEntry: ThemeEntry =
     previewThemeEntry || userThemeEntry || findThemeEntry(themesCatalog, resolvedThemeKey);
   const darkThemeEntry: ThemeEntry = findThemeEntry(themesCatalog, "dark");
+  const adminFallbackTheme = darkThemeEntry
+    ? resolveThemePreference({
+        catalog: { ...themesCatalog, default_theme: darkThemeEntry.key },
+        preference: themePreference,
+        systemScheme: systemColorScheme,
+      })
+    : { key: "", variant: "" };
+  const adminFallbackEntry = materializeThemeEntry(
+    darkThemeEntry,
+    adminFallbackTheme.variant || null
+  );
   const effectiveThemeEntry: ThemeEntry =
     screen === "admin" && activeThemeEntry?.use_in_admin === false
-      ? darkThemeEntry || activeThemeEntry
+      ? adminFallbackEntry || activeThemeEntry
       : activeThemeEntry;
   const tokens = (effectiveThemeEntry?.tokens as ThemeTokens | undefined) || {};
   const colorScheme = tokens.color_scheme === "light" ? "light" : "dark";

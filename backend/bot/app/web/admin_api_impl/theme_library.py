@@ -30,6 +30,7 @@ from config.theme_packages.models import (
     MutationOut,
     MutationRequest,
     PackageError,
+    PreviewUploadOut,
     RepositoryRequest,
     ThemeSource,
 )
@@ -44,6 +45,7 @@ from config.theme_packages.operations import (
     remove_theme,
     rollback_theme,
 )
+from config.theme_packages.preview_storage import MAX_PREVIEW_BYTES, save_preview
 from config.theme_packages.providers import fetch_repository, repository_parts
 from config.theme_packages.registry import library
 from config.webapp_themes_config import WebappThemesConfig, resolved_webapp_themes_catalog
@@ -206,7 +208,7 @@ async def admin_theme_remove_route(request: web.Request) -> web.Response:
     catalog = catalog_for(request)
     key = request.match_info["key"]
     theme = next((theme for theme in catalog.themes if theme.key == key), None)
-    if theme and theme.use_in_admin:
+    if theme and theme.default and theme.use_in_admin:
         raise PackageError("admin_theme_active", status=409)
     result = await asyncio.to_thread(
         remove_theme,
@@ -245,26 +247,49 @@ async def admin_theme_export_route(request: web.Request) -> web.Response:
     )
 
 
+async def read_preview(request: web.Request) -> bytes:
+    if request.content_length and request.content_length > MAX_PREVIEW_BYTES + 65536:
+        raise PackageError("preview_too_large", status=413)
+    reader = await request.multipart()
+    part = await reader.next()
+    if not isinstance(part, BodyPartReader) or part.name != "file":
+        raise PackageError("preview_file_required")
+    content = bytearray()
+    while chunk := await part.read_chunk(64 * 1024):
+        content.extend(chunk)
+        if len(content) > MAX_PREVIEW_BYTES:
+            raise PackageError("preview_too_large", status=413)
+    if await reader.next() is not None:
+        raise PackageError("one_preview_required")
+    return bytes(content)
+
+
+@package_route
+async def admin_theme_preview_upload_route(request: web.Request) -> web.Response:
+    key = request.match_info["key"]
+    if not any(theme.key == key for theme in catalog_for(request).themes):
+        raise PackageError("theme_not_found", key, 404)
+    url, _generation = await asyncio.to_thread(
+        save_preview, root_for(request), key, await read_preview(request)
+    )
+    return _ok(PreviewUploadOut(preview_url=url).model_dump(mode="json"))
+
+
 @package_route
 async def admin_theme_preview_route(request: web.Request) -> web.Response:
-    from config.theme_packages.preview import preview_import
+    from config.theme_packages.preview import preview_import_image
 
-    document = await asyncio.to_thread(
-        preview_import,
+    content, content_type = await asyncio.to_thread(
+        preview_import_image,
         root_for(request),
         request.match_info["operation_id"],
         _require_admin_user_id(request),
         request.match_info["key"],
-        request.query.get("variant", "dark"),
     )
     return web.Response(
-        text=document,
-        content_type="text/html",
+        body=content,
+        content_type=content_type,
         headers={
-            "Content-Security-Policy": (
-                "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:; "
-                "font-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
-            ),
             "Cache-Control": "no-store",
             "Referrer-Policy": "no-referrer",
             "X-Content-Type-Options": "nosniff",
@@ -316,6 +341,7 @@ def setup_theme_library(router: web.UrlDispatcher) -> None:
     )
     router.add_get("/api/admin/themes/library/{key}/preview", admin_theme_installed_preview_route)
     router.add_post("/api/admin/themes/export", admin_theme_export_route)
+    router.add_post("/api/admin/themes/library/{key}/preview", admin_theme_preview_upload_route)
     router.add_delete("/api/admin/themes/library/{key}", admin_theme_remove_route)
     router.add_post("/api/admin/themes/library/{key}/rollback", admin_theme_rollback_route)
 
@@ -362,6 +388,20 @@ register_contract(
     ),
 )
 register_contract(
+    "admin_theme_preview_upload_route",
+    RouteContract(
+        request_content={
+            "multipart/form-data": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {"file": BINARY_RESPONSE_SCHEMA},
+            }
+        },
+        response_schema=ok_envelope_for(PreviewUploadOut),
+        models=(PreviewUploadOut,),
+    ),
+)
+register_contract(
     "admin_theme_export_route",
     RouteContract(
         request_model=ExportRequest,
@@ -373,8 +413,8 @@ register_contract(
 register_contract(
     "admin_theme_preview_route",
     RouteContract(
-        response_schema={"type": "string"},
-        response_content_type="text/html",
+        response_schema=BINARY_RESPONSE_SCHEMA,
+        response_content_type="application/octet-stream",
     ),
 )
 

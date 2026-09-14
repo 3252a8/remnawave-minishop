@@ -697,6 +697,9 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     YANDEX_OIDC_ENABLED: bool = Field(default=False)
     YANDEX_OIDC_CLIENT_ID: str | None = Field(default=None)
     YANDEX_OIDC_CLIENT_SECRET: str | None = Field(default=None)
+    DISCORD_OIDC_ENABLED: bool = Field(default=False)
+    DISCORD_OIDC_CLIENT_ID: str | None = Field(default=None)
+    DISCORD_OIDC_CLIENT_SECRET: str | None = Field(default=None)
     PASSKEY_LOGIN_ENABLED: bool = Field(default=False)
     PASSKEY_RP_ID: str | None = Field(
         default=None,

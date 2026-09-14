@@ -247,6 +247,7 @@ export function createAuthStore({
   }
 
   function externalProviderName(provider: string): string {
+    if (provider === "discord") return "Discord";
     if (provider === "google") return "Google";
     if (provider === "yandex") return "Yandex";
     return provider;
@@ -608,6 +609,7 @@ export function createAuthStore({
 
   async function verifyEmailCode() {
     const s = state;
+    if (s.authBusy) return;
     const externalOauthPending = s.externalOauthPending;
     const code = s.emailCode.replace(/\\D/g, "").slice(0, 6);
     if (code.length !== 6) {

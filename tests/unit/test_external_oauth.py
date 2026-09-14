@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from aiohttp import web
 
-from bot.app.web.webapp import external_identity_unlink, external_oauth
+from bot.app.web.webapp import external_identity_unlink, external_oauth, external_oauth_providers
 
 
 class _ScalarResult:
@@ -51,8 +51,18 @@ class _SessionFactory:
 
 
 def _provider(
-    key: Literal["google", "yandex"] = "google",
+    key: Literal["discord", "google", "yandex"] = "google",
 ) -> external_oauth.ExternalProvider:
+    if key == "discord":
+        return external_oauth.ExternalProvider(
+            key="discord",
+            authorization_url="https://discord.com/oauth2/authorize",
+            token_url="https://discord.com/api/oauth2/token",
+            client_id="client",
+            client_secret="secret",
+            scopes=("identify", "email"),
+            uses_pkce=False,
+        )
     return external_oauth.ExternalProvider(
         key=key,
         authorization_url=(
@@ -136,6 +146,106 @@ def test_external_oauth_start_uses_application_language() -> None:
     asyncio.run(_external_oauth_start_uses_application_language())
 
 
+async def _discord_oauth_uses_supported_authorization_parameters() -> None:
+    request = SimpleNamespace(
+        match_info={"provider": "discord"},
+        query={"lang": "en", "tariff_access": "AB" * 16},
+        cookies={},
+    )
+    set_state_cookie = Mock()
+    with patch.multiple(
+        external_oauth,
+        get_settings=Mock(return_value=SimpleNamespace(DEFAULT_LANGUAGE="en")),
+        _provider=Mock(return_value=_provider("discord")),
+        _extract_authenticated_user_id=Mock(return_value=None),
+        _callback_url=Mock(return_value="https://app.example.com/auth/discord/callback"),
+        _set_state_cookie=set_state_cookie,
+    ):
+        response = await external_oauth.external_oauth_start_route(request)
+
+    location = urlsplit(response.headers["Location"])
+    query = parse_qs(location.query)
+    assert location.netloc == "discord.com"
+    assert location.path == "/oauth2/authorize"
+    assert query["scope"] == ["identify email"]
+    assert query["redirect_uri"] == ["https://app.example.com/auth/discord/callback"]
+    assert "code_challenge" not in query
+    assert set_state_cookie.call_args.args[2]["provider"] == "discord"
+    assert set_state_cookie.call_args.args[2]["tariff_access_code"] == "ab" * 16
+
+
+def test_external_oauth_redirect_preserves_private_tariff_path_only_for_login() -> None:
+    access_code = "ab" * 16
+    assert external_oauth._redirect("discord", "login", "success", access_code) == (
+        f"/checkout/{access_code}?external_auth=discord:success"
+    )
+    assert external_oauth._redirect("discord", "link", "success", access_code) == (
+        "/settings/security?external_auth=discord:success"
+    )
+    assert external_oauth._redirect("discord", "login", "success", "invalid") == (
+        "/?external_auth=discord:success"
+    )
+
+
+def test_discord_oauth_uses_supported_authorization_parameters() -> None:
+    asyncio.run(_discord_oauth_uses_supported_authorization_parameters())
+
+
+async def _discord_profile_maps_verified_identity() -> None:
+    captured: dict[str, object] = {}
+
+    class _Response:
+        status = 200
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def json(self, *, content_type=None):
+            return {
+                "id": "123456789",
+                "email": " User@Example.Test ",
+                "verified": True,
+                "global_name": "Discord User",
+                "username": "discord-user",
+                "avatar": "avatar_hash",
+            }
+
+    class _ClientSession:
+        def __init__(self, *, timeout):
+            captured["timeout"] = timeout
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        def get(self, url, *, headers):
+            captured["url"] = url
+            captured["headers"] = headers
+            return _Response()
+
+    with patch.object(external_oauth_providers, "ClientSession", _ClientSession):
+        profile = await external_oauth._discord_profile({"access_token": "discord-token"})
+
+    assert captured["url"] == "https://discord.com/api/v10/users/@me"
+    assert captured["headers"] == {"Authorization": "Bearer discord-token"}
+    assert profile == {
+        "subject": "123456789",
+        "email": "user@example.test",
+        "email_verified": True,
+        "display_name": "Discord User",
+        "picture_url": ("https://cdn.discordapp.com/avatars/123456789/avatar_hash.png?size=256"),
+    }
+
+
+def test_discord_profile_maps_verified_identity() -> None:
+    asyncio.run(_discord_profile_maps_verified_identity())
+
+
 async def _google_login_with_authoritative_email_uses_existing_account_without_code() -> None:
     for email, hosted_domain in (
         ("member@gmail.com", None),
@@ -217,7 +327,7 @@ def test_google_login_with_authoritative_email_uses_existing_account_without_cod
 
 
 async def _login_with_non_authoritative_email_requires_confirmation_without_duplicate() -> None:
-    for provider_key in ("google", "yandex"):
+    for provider_key in ("google", "yandex", "discord"):
         factory = _SessionFactory()
         request, state = _request(purpose="login", provider=provider_key)
         existing = SimpleNamespace(
@@ -256,6 +366,7 @@ async def _login_with_non_authoritative_email_requires_confirmation_without_dupl
             patch.object(external_oauth, "_post_token", AsyncMock(return_value={"id_token": "x"})),
             patch.object(external_oauth, "_google_profile", AsyncMock(return_value=_profile())),
             patch.object(external_oauth, "_yandex_profile", AsyncMock(return_value=_profile())),
+            patch.object(external_oauth, "_discord_profile", AsyncMock(return_value=_profile())),
             patch.object(external_oauth, "_verified_email_owner", AsyncMock(return_value=existing)),
             patch.object(
                 external_oauth.user_email_dal, "ensure_primary_user_email_address", ensure_primary
@@ -286,7 +397,7 @@ def test_login_with_non_authoritative_email_requires_confirmation_without_duplic
 
 
 async def _new_oidc_registration_emits_provider_registration_after_commit() -> None:
-    for provider_key in ("google", "yandex"):
+    for provider_key in ("google", "yandex", "discord"):
         factory = _SessionFactory()
         request, state = _request(purpose="login", provider=provider_key)
         state["language"] = "ru"
@@ -317,6 +428,7 @@ async def _new_oidc_registration_emits_provider_registration_after_commit() -> N
                 _post_token=AsyncMock(return_value={"id_token": "x"}),
                 _google_profile=AsyncMock(return_value=_profile()),
                 _yandex_profile=AsyncMock(return_value=_profile()),
+                _discord_profile=AsyncMock(return_value=_profile()),
                 _verified_email_owner=AsyncMock(return_value=None),
                 evaluate_registration_invite=AsyncMock(
                     return_value=SimpleNamespace(
@@ -524,7 +636,7 @@ def test_provider_link_merges_distinct_identity_and_email_owners() -> None:
 
 
 async def _confirmed_email_attaches_provider_to_existing_account() -> None:
-    for provider_key in ("google", "yandex"):
+    for provider_key in ("google", "yandex", "discord"):
         factory = _SessionFactory()
         user = SimpleNamespace(
             user_id=41,
@@ -615,7 +727,7 @@ async def _confirmed_email_attaches_provider_to_existing_account() -> None:
         assert payload.user_id == 41
 
 
-def test_confirmed_email_attaches_google_and_yandex_to_existing_account() -> None:
+def test_confirmed_email_attaches_external_provider_to_existing_account() -> None:
     asyncio.run(_confirmed_email_attaches_provider_to_existing_account())
 
 

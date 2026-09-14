@@ -4,7 +4,7 @@ import type { ThemeEntry } from "../../admin/appearanceOptions";
 import type { components } from "../../api/openapi.generated";
 import { DEV_MOCK } from "../previewMock";
 import type { PreviewThemesCatalog } from "../previewMock/types";
-import { demoThemePreview } from "./themePreview";
+import { demoThemePreview, demoThemePreviewImage } from "./themePreview";
 
 type Theme = ThemeEntry;
 type Candidate = Omit<components["schemas"]["Candidate"], "theme"> & { theme: Theme };
@@ -20,6 +20,7 @@ export type DemoPackage = {
 };
 let generation = 0;
 const packages = new Map<string, DemoPackage>();
+const previewUrls = new Map<string, string>();
 const history = new Map<string, DemoPackage[]>();
 const operations = new Map<string, { record: Operation; packages: DemoPackage[] }>();
 const receipts = new Map<string, { fingerprint: string; keys: string[] }>();
@@ -164,9 +165,10 @@ function installation(theme: Theme): Installation {
       item?.source ||
       (item ? { kind: "archive", label: "ZIP", commit: "", ref: "", subdir: "", url: "" } : null),
     preview_url:
-      !item && protectedKeys.has(theme.key)
+      previewUrls.get(theme.key) ||
+      (!item && protectedKeys.has(theme.key)
         ? "/demo/runtime/themes/" + theme.key + "/preview.webp"
-        : "",
+        : ""),
   };
 }
 export function themePackageResponse(
@@ -280,7 +282,7 @@ async function handle(path: string, options: RequestInit): Promise<unknown> {
     if (parts[5] === "preview") {
       const item = operation.packages.find((item) => item.theme.key === parts[6]);
       if (!item || operation.record.state !== "ready") throw { error: "import_not_ready" };
-      return demoThemePreview(item, url.searchParams.get("variant") || "dark");
+      return demoThemePreviewImage(item);
     }
     if (method === "DELETE") {
       operation.record.state = "cancelled";
@@ -334,6 +336,11 @@ async function handle(path: string, options: RequestInit): Promise<unknown> {
   if (parts[3] === "library" && parts[4]) {
     const key = decodeURIComponent(parts[4]);
     if (parts[5] === "preview") {
+      if (method === "POST") {
+        previewUrls.set(key, "/demo/runtime/themes/" + key + "/preview.webp?custom=1");
+        generation++;
+        return { ok: true, preview_url: previewUrls.get(key) };
+      }
       const item = packages.get(key) || (await builtinPackage(key));
       const current = themes().find((theme) => theme.key === key);
       return demoThemePreview(

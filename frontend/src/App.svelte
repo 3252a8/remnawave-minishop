@@ -98,7 +98,7 @@
 
   const stableMockRuntime = initialMockRuntime();
 
-  const FALLBACK_BRAND_TITLE = "Subscription";
+  const FALLBACK_BRAND_TITLE = "/minishop";
   const EMPTY_MOCK: WebappMockSource = {
     config: {
       ...FALLBACK_WEBAPP_CONFIG,
@@ -146,6 +146,8 @@
     stableMockRuntime?.mockApi && !injectedConfig && (isLocalShell || isDocsDemo)
       ? MOCK_SOURCE
       : null;
+  const requestedThemePreviewKey = String(query.get("theme_preview") || "").trim();
+  const themePreviewDraft = readThemePreviewDraft(requestedThemePreviewKey);
   const CFG = {
     ...MOCK_SOURCE.config,
     ...(MOCK ? MOCK.config : {}),
@@ -163,8 +165,7 @@
   const initialAdminSectionFromLocation = docsDemoRouter.initialAdminSectionFromLocation;
   const routePathnameFromLocation = docsDemoRouter.routePathnameFromLocation;
   const syncAppSectionPath = docsDemoRouter.syncAppSectionPath;
-  const themePreviewKey = String(CFG.themePreviewKey || query.get("theme_preview") || "").trim();
-  const themePreviewDraft = readThemePreviewDraft(themePreviewKey);
+  const themePreviewKey = String(CFG.themePreviewKey || requestedThemePreviewKey).trim();
   const I18N: WebappRecord = injectedI18n || {};
 
   resetShellState({
@@ -291,7 +292,7 @@
     normalizeLangCode,
     openExternalLink,
     readCheckoutPromoDeeplink,
-    readCheckoutDeeplink,
+    readCheckoutDeeplink: () => initialCheckoutDeeplink || readCheckoutDeeplink(),
     readRenewalDeeplink,
     plansRouteRequested,
     readTelegramMiniAppInitDataFromLocation,
@@ -305,6 +306,7 @@
     syncAppSectionPath,
     t,
     termUnitLabel,
+    tariffAccessCode: initialCheckoutDeeplink?.accessCode || "",
     telegramNotificationsResumeCooldownMs: TELEGRAM_NOTIFICATIONS_RESUME_REFRESH_COOLDOWN_MS,
     telegramSdk,
     tick,

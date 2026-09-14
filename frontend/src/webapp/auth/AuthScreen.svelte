@@ -23,12 +23,19 @@
 
   type WebappConfig = Record<string, unknown> & {
     authProviders?: string[];
+    devMode?: boolean;
     emailAuthEnabled?: boolean;
     registrationInviteOnlyEnabled?: boolean;
   };
   type Brand = Record<string, unknown>;
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type Action = () => void | Promise<void>;
+
+  const DEV_LOGIN_ACCOUNTS = [
+    { email: "runes.admin@example.com", labelKey: "wa_dev_login_admin" },
+    { email: "runes.active@example.com", labelKey: "wa_dev_login_active" },
+    { email: "runes.expired@example.com", labelKey: "wa_dev_login_expired" },
+  ] as const;
 
   type Props = {
     authBusy?: boolean;
@@ -139,7 +146,7 @@
     if (languageClickGuardArmed) setLanguageMenuOpen(false);
   }
 
-  function openProvider(provider: "google" | "yandex"): void {
+  function openProvider(provider: "discord" | "google" | "yandex"): void {
     const referral = new URLSearchParams(window.location.search).get("ref") || "";
     window.location.assign(buildExternalOAuthStartUrl(provider, "login", currentLang, referral));
   }
@@ -154,6 +161,13 @@
     } finally {
       externalLoginBusy = false;
     }
+  }
+
+  async function loginAsDevAccount(accountEmail: string): Promise<void> {
+    email = accountEmail;
+    emailCode = "";
+    await requestEmailCode();
+    await verifyEmailCode();
   }
 </script>
 
@@ -349,6 +363,20 @@
                     )}
                   </Button>
                 {/if}
+                {#if authProviders.includes("discord")}
+                  <Button
+                    class="wide auth-provider-button"
+                    variant="secondary"
+                    onclick={() => openProvider("discord")}
+                    disabled={authBusy || externalLoginBusy}
+                  >
+                    <ProviderLogo provider="discord" />{t(
+                      "wa_login_discord",
+                      {},
+                      "Continue with Discord"
+                    )}
+                  </Button>
+                {/if}
                 {#if authProviders.includes("passkey")}
                   <Button
                     class="wide auth-provider-button"
@@ -394,6 +422,27 @@
           </div>
         {/key}
       </section>
+      {#if (import.meta.env.DEV || CFG.devMode === true) && emailAuthEnabled}
+        <section class="dev-login-panel" aria-label={t("wa_dev_login_title")}>
+          <div class="dev-login-heading">
+            <span>{t("wa_dev_login_title")}</span>
+            <small>{t("wa_dev_login_hint")}</small>
+          </div>
+          <div class="dev-login-actions">
+            {#each DEV_LOGIN_ACCOUNTS as account (account.email)}
+              <Button
+                variant="secondary"
+                class="dev-login-button"
+                onclick={() => loginAsDevAccount(account.email)}
+                disabled={authBusy}
+              >
+                <span>{t(account.labelKey)}</span>
+                <small>{account.email}</small>
+              </Button>
+            {/each}
+          </div>
+        </section>
+      {/if}
       {#if userAgreementUrl || privacyPolicyUrl || showLanguageSelect}
         <div class="auth-legal">
           {#if userAgreementUrl || privacyPolicyUrl}

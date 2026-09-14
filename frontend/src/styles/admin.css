@@ -3107,17 +3107,6 @@
   }
 }
 
-.admin-setting-control .admin-color {
-  width: 36px;
-  height: 36px;
-  flex: 0 0 36px;
-  border-radius: 8px;
-  border: 1px solid var(--admin-border);
-  background: var(--admin-surface-2);
-  padding: 0;
-  cursor: pointer;
-}
-
 .admin-setting-switch {
   display: inline-flex;
   min-height: 36px;

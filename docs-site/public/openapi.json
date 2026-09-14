@@ -8747,6 +8747,20 @@
         "title": "PaymentPurchaseOut",
         "type": "object"
       },
+      "PreviewUploadOut": {
+        "additionalProperties": false,
+        "properties": {
+          "preview_url": {
+            "title": "Preview Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "preview_url"
+        ],
+        "title": "PreviewUploadOut",
+        "type": "object"
+      },
       "PromoActivationOut": {
         "properties": {
           "activated_at": {
@@ -10600,6 +10614,18 @@
       },
       "Tariff": {
         "properties": {
+          "access_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Access Code"
+          },
           "addon_period_factors": {
             "additionalProperties": {
               "type": "number"
@@ -11051,6 +11077,7 @@
         "type": "object"
       },
       "ThemeTokens": {
+        "additionalProperties": true,
         "description": "CSS design tokens for the subscription Mini App shell.",
         "properties": {
           "accent": {
@@ -11734,6 +11761,20 @@
             "default": null,
             "title": "Text"
           },
+          "transparency": {
+            "anyOf": [
+              {
+                "maximum": 100,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Transparency"
+          },
           "warning": {
             "anyOf": [
               {
@@ -12384,6 +12425,7 @@
         "properties": {
           "provider": {
             "enum": [
+              "discord",
               "google",
               "yandex"
             ],
@@ -13176,6 +13218,10 @@
             "title": "Currency",
             "type": "string"
           },
+          "devMode": {
+            "title": "Devmode",
+            "type": "boolean"
+          },
           "emailAuthEnabled": {
             "title": "Emailauthenabled",
             "type": "boolean"
@@ -13307,6 +13353,7 @@
           "language",
           "languages",
           "emailAuthEnabled",
+          "devMode",
           "authProviders",
           "registrationInviteOnlyEnabled",
           "appVersion",
@@ -13421,6 +13468,29 @@
             ],
             "default": null,
             "title": "Css File"
+          },
+          "css_variables": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Css Variables",
+            "type": "object"
+          },
+          "css_variables_by_variant": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "propertyNames": {
+              "enum": [
+                "light",
+                "dark"
+              ]
+            },
+            "title": "Css Variables By Variant",
+            "type": "object"
           },
           "default": {
             "default": false,
@@ -15782,6 +15852,9 @@
                       "items": {
                         "additionalProperties": false,
                         "properties": {
+                          "access_via_link": {
+                            "type": "boolean"
+                          },
                           "available_payment_method_ids": {
                             "items": {
                               "type": "string"
@@ -19813,8 +19886,9 @@
         "responses": {
           "200": {
             "content": {
-              "text/html": {
+              "application/octet-stream": {
                 "schema": {
+                  "format": "binary",
                   "type": "string"
                 }
               }
@@ -19984,6 +20058,80 @@
           }
         ],
         "summary": "Admin Theme Installed Preview",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "post_admin_theme_preview_upload_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "pattern": "[^{}/]+",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PreviewUploadOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Theme Preview Upload",
         "tags": [
           "admin"
         ]
@@ -20537,6 +20685,12 @@
                         }
                       ]
                     },
+                    "panel_user_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "recent_payments": {
                       "items": {
                         "$ref": "#/components/schemas/PaymentOut"
@@ -20626,6 +20780,7 @@
                     "log_count",
                     "balance",
                     "subscription_url",
+                    "panel_user_url",
                     "install_share_url",
                     "last_vpn_connected_at",
                     "vpn_connection_status",
@@ -23552,6 +23707,9 @@
                       "items": {
                         "additionalProperties": false,
                         "properties": {
+                          "access_via_link": {
+                            "type": "boolean"
+                          },
                           "available_payment_method_ids": {
                             "items": {
                               "type": "string"
@@ -24039,6 +24197,9 @@
                       "items": {
                         "additionalProperties": false,
                         "properties": {
+                          "access_via_link": {
+                            "type": "boolean"
+                          },
                           "available_payment_method_ids": {
                             "items": {
                               "type": "string"
@@ -24731,6 +24892,9 @@
                       "items": {
                         "additionalProperties": false,
                         "properties": {
+                          "access_via_link": {
+                            "type": "boolean"
+                          },
                           "available_payment_method_ids": {
                             "items": {
                               "type": "string"
@@ -25223,6 +25387,9 @@
                             {
                               "additionalProperties": false,
                               "properties": {
+                                "access_via_link": {
+                                  "type": "boolean"
+                                },
                                 "available_payment_method_ids": {
                                   "items": {
                                     "type": "string"
@@ -28578,6 +28745,9 @@
                       "items": {
                         "additionalProperties": false,
                         "properties": {
+                          "access_via_link": {
+                            "type": "boolean"
+                          },
                           "available_payment_method_ids": {
                             "items": {
                               "type": "string"

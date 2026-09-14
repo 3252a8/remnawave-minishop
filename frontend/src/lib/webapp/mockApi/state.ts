@@ -12,6 +12,7 @@ export type DemoSettingsChange = { value?: unknown; deleted: boolean };
 
 const DEMO_SETTINGS_STORAGE_KEY = "minishop-demo-settings-changes";
 const DEMO_PERSISTED_SETTING_KEYS = new Set([
+  "WEBAPP_TITLE",
   "WEBAPP_USER_THEME_MODE_ENABLED",
   "WEBAPP_COMPACT_HOME_ENABLED",
   "SERVER_STATUS_SHOW_ON_HOME",
@@ -128,6 +129,16 @@ export function demoTariffs(): DemoRecord {
         },
         traffic: { enabled: true },
         premium_traffic: { enabled: true },
+      };
+      // Model a previously sold period whose metadata must remain available
+      // without returning it to the admin editor or storefront.
+      checkoutDemoTariff.prices_rub = {
+        ...((checkoutDemoTariff.prices_rub || {}) as DemoRecord),
+        24: 11990,
+      };
+      checkoutDemoTariff.prices_stars = {
+        ...((checkoutDemoTariff.prices_stars || {}) as DemoRecord),
+        24: 6000,
       };
     }
   }

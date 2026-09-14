@@ -197,6 +197,31 @@ def test_update_overrides_persists_empty_subscription_purchase_description(
     assert settings.subscription_purchase_description("ru") == ""
 
 
+def test_update_overrides_persists_selected_webapp_theme(_memory_overrides) -> None:
+    settings = Settings(
+        _env_file=None,
+        BOT_TOKEN="token",
+        POSTGRES_USER="app_user",
+        POSTGRES_PASSWORD="app_password",
+        WEBAPP_DEFAULT_THEME=None,
+    )
+
+    result = asyncio.run(
+        svc.update_overrides(
+            settings,
+            lambda: _FakeSession(),
+            updates={"WEBAPP_DEFAULT_THEME": "ocean"},
+            deletes=[],
+            actor_id=1,
+        )
+    )
+
+    assert result["ok"] is True
+    assert result["not_applied"] == []
+    assert _memory_overrides == {"WEBAPP_DEFAULT_THEME": "ocean"}
+    assert settings.WEBAPP_DEFAULT_THEME == "ocean"
+
+
 def test_legacy_kuma_slug_override_is_applied_but_not_admin_editable() -> None:
     settings = Settings(
         _env_file=None,
@@ -245,6 +270,41 @@ def test_google_oidc_admin_overrides_apply_without_a_restart(_memory_overrides) 
     assert provider is not None
     assert provider.client_id == "live-client-id"
     assert provider.client_secret == "live-client-secret"
+
+
+def test_discord_oidc_admin_overrides_apply_without_a_restart(_memory_overrides) -> None:
+    settings = Settings(
+        _env_file=None,
+        BOT_TOKEN="token",
+        POSTGRES_USER="app_user",
+        POSTGRES_PASSWORD="app_password",
+        DISCORD_OIDC_ENABLED=False,
+    )
+    assert external_oauth._provider(settings, "discord") is None
+
+    updates = {
+        "DISCORD_OIDC_ENABLED": True,
+        "DISCORD_OIDC_CLIENT_ID": "live-discord-client-id",
+        "DISCORD_OIDC_CLIENT_SECRET": "live-discord-client-secret",
+    }
+    result = asyncio.run(
+        svc.update_overrides(
+            settings,
+            lambda: _FakeSession(),
+            updates=updates,
+            deletes=[],
+            actor_id=1,
+        )
+    )
+
+    provider = external_oauth._provider(settings, "discord")
+    assert result["not_applied"] == []
+    assert _memory_overrides == updates
+    assert provider is not None
+    assert provider.client_id == "live-discord-client-id"
+    assert provider.client_secret == "live-discord-client-secret"
+    assert provider.scopes == ("identify", "email")
+    assert provider.uses_pkce is False
 
 
 def test_referral_link_visibility_rejects_disabling_the_last_link() -> None:

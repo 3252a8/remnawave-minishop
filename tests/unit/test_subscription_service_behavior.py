@@ -735,6 +735,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 expire_at=datetime(2026, 1, 2, tzinfo=UTC),
                 hwid_device_limit=2,
                 specific_squad_uuids=("trial-squad",),
+                tag="standard",
             )
 
             with (
@@ -763,6 +764,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             self.assertEqual(create_kwargs["default_traffic_limit_bytes"], 10 * GIB)
             self.assertEqual(create_kwargs["default_traffic_limit_strategy"], "NO_RESET")
             self.assertEqual(create_kwargs["specific_squad_uuids"], ["trial-squad"])
+            self.assertEqual(create_kwargs["tag"], "STANDARD")
 
     async def test_activate_trial_keeps_panel_strategy_out_of_local_subscription_payload(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -782,9 +784,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             service._get_or_create_panel_user_link = AsyncMock(
                 return_value=PanelUserLink("panel-user", "panel-sub", "short", False, False, None)
             )
-            service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value={"subscriptionUrl": "https://example.test/sub", "shortUuid": "short"}
-            )
+            _configure_persisted_panel_echo(service)
             session = AsyncMock()
             db_user = SimpleNamespace(
                 user_id=42,
@@ -845,6 +845,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 "shortUuid": "short",
                 "subscriptionUrl": "https://example.test/sub",
                 "trafficLimitBytes": 10 * GIB,
+                "tag": "TRIAL",
                 "activeInternalSquads": ["trial-squad"],
             }
             service._get_or_create_panel_user_link = AsyncMock(
@@ -858,6 +859,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 )
             )
             service.panel_service.update_user_details_on_panel = AsyncMock()
+            service.panel_service.get_user_by_uuid = AsyncMock(return_value=created_panel_user)
             session = AsyncMock()
             db_user = SimpleNamespace(
                 user_id=42,
@@ -896,6 +898,8 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             self.assertEqual(create_options.default_traffic_limit_strategy, "NO_RESET")
             self.assertEqual(create_options.hwid_device_limit, 1)
             self.assertEqual(create_options.specific_squad_uuids, ("trial-squad",))
+            self.assertTrue(create_options.is_trial)
+            self.assertEqual(db_user.managed_panel_tariff_tag, "TRIAL")
             sub_payload = upsert_subscription.await_args.args[1]
             self.assertEqual(sub_payload["provider"], "trial")
             self.assertEqual(sub_payload["traffic_limit_bytes"], 10 * GIB)
@@ -921,9 +925,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             service._get_or_create_panel_user_link = AsyncMock(
                 return_value=PanelUserLink("panel-user", "panel-sub", "short", False, False, None)
             )
-            service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value={"subscriptionUrl": "https://example.test/sub", "shortUuid": "short"}
-            )
+            _configure_persisted_panel_echo(service)
             session = AsyncMock()
             db_user = SimpleNamespace(
                 user_id=42,
@@ -1027,9 +1029,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             service._get_or_create_panel_user_link = AsyncMock(
                 return_value=PanelUserLink("panel-user", "panel-sub", "short", False, False, None)
             )
-            service.panel_service.update_user_details_on_panel = AsyncMock(
-                return_value={"subscriptionUrl": "https://example.test/sub", "shortUuid": "short"}
-            )
+            _configure_persisted_panel_echo(service)
             session = AsyncMock()
             db_user = SimpleNamespace(
                 user_id=42,

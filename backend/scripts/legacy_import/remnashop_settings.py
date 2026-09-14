@@ -21,12 +21,12 @@ from .remnashop_env import (
     remnashop_payment_gateway_overrides,
     remnashop_source_urls_from_env,
 )
-from .remnashop_sales import _RemnashopSalesSection
+from .remnashop_operations import _RemnashopOperationsSection
 
 logger = logging.getLogger(__name__)
 
 
-class _RemnashopSettingsSection(_RemnashopSalesSection):
+class _RemnashopSettingsSection(_RemnashopOperationsSection):
     async def _write_setting_overrides(
         self,
         overrides: dict[str, Any],

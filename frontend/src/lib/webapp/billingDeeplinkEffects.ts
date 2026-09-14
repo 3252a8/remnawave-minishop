@@ -46,6 +46,7 @@ export type BillingDeeplinkEffectsDeps = {
   readPlansDeeplink?: () => boolean;
   readRenewalDeeplink: () => { tariffKey: string } | null;
   setHomeRoute: () => void;
+  showTariffAccessError?: () => void;
   stripCheckoutPromoQueryFromUrl?: () => void;
   stripCheckoutDeeplinkFromUrl?: () => void;
   stripRenewalLoginQueryFromUrl: () => void;
@@ -67,6 +68,7 @@ export function createBillingDeeplinkEffects({
   readPlansDeeplink = () => false,
   readRenewalDeeplink,
   setHomeRoute,
+  showTariffAccessError = () => {},
   stripCheckoutPromoQueryFromUrl = () => {},
   stripCheckoutDeeplinkFromUrl = () => {},
   stripRenewalLoginQueryFromUrl,
@@ -97,7 +99,16 @@ export function createBillingDeeplinkEffects({
     }
 
     if (!openedBillingDeeplink && checkoutDeeplink) {
+      const accessPlan = checkoutDeeplink.accessCode
+        ? plans.find((plan) => plan.access_via_link === true)
+        : null;
       setHomeRoute();
+      if (checkoutDeeplink.accessCode && !accessPlan) {
+        stripCheckoutDeeplinkFromUrl();
+        showTariffAccessError();
+        return;
+      }
+      const requestedPlan = String(accessPlan?.tariff_key || checkoutDeeplink.plan || "");
       billingStore.openPaymentModal(
         plans.some((plan) => plan?.tariff_key),
         false,
@@ -107,11 +118,11 @@ export function createBillingDeeplinkEffects({
         defaultMethod,
         {
           preferCheckout: true,
-          preferredPlanId: checkoutDeeplink.plan,
-          preferredTariffKey: checkoutDeeplink.plan,
+          preferredPlanId: requestedPlan,
+          preferredTariffKey: requestedPlan,
           preferredMonths: checkoutDeeplink.months,
           checkoutAddonPreset: checkoutDeeplink.addons,
-          ...(checkoutDeeplink.plan ? {} : { selectDefaultTariff: true }),
+          ...(requestedPlan ? {} : { selectDefaultTariff: true }),
         }
       );
       stripCheckoutDeeplinkFromUrl();

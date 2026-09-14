@@ -121,6 +121,7 @@ from .assets_theme import (
     theme_asset_route,
     theme_css_asset_route,
 )
+from .billing_tariff_access import request_tariff_access_code
 from .common import (
     _json_error,
     _normalize_language,
@@ -551,9 +552,14 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
                 base_languages=base_locales_data.keys(),
             ),
             "emailAuthEnabled": cached["email_auth_enabled"],
+            "devMode": bool(settings.qa_auth_enabled),
             "authProviders": cached["auth_providers"],
             "registrationInviteOnlyEnabled": cached["registration_invite_only_enabled"],
-            "checkoutPlans": _serialize_plans(settings, str(cached["language"] or "ru")),
+            "checkoutPlans": _serialize_plans(
+                settings,
+                str(cached["language"] or "ru"),
+                tariff_access_code=request_tariff_access_code(request),
+            ),
             "appVersion": _resolve_app_version(),
             "appRepositoryUrl": APP_REPOSITORY_URL,
         },

@@ -542,11 +542,11 @@ async def admin_themes_get_route(request: web.Request) -> web.Response:
 
 
 async def admin_themes_save_route(request: web.Request) -> web.Response:
-    _require_admin_user_id(request)
+    actor_id = _require_admin_user_id(request)
     settings: Settings = get_settings(request)
     previous_config = resolved_webapp_themes_catalog(
         primary_accent=settings.WEBAPP_PRIMARY_COLOR or "#00fe7a",
-        env_default_theme=settings.WEBAPP_DEFAULT_THEME,
+        env_default_theme=None,
         theme_dir=settings.WEBAPP_THEMES_DIR,
     )
     body = await parse_body_or_400(request, ThemesSaveBody)
@@ -576,6 +576,19 @@ async def admin_themes_save_route(request: web.Request) -> web.Response:
         logger.exception("Failed to write webapp themes to %s", settings.WEBAPP_THEMES_DIR)
         return _error(500, "write_failed", str(exc))
 
+    # Keep the persistent setting in sync so a previous deployment override
+    # cannot silently replace the administrator's newly selected theme.
+    override_result = await update_overrides(
+        settings,
+        get_session_factory(request),
+        updates={"WEBAPP_DEFAULT_THEME": config.default_theme},
+        deletes=[],
+        actor_id=actor_id,
+    )
+    if not override_result.get("ok"):
+        logger.error("Failed to persist selected webapp theme override: %s", override_result)
+        return _error(500, "write_failed", "failed to persist selected theme")
+
     await refresh_webapp_runtime_after_settings_change(request, updates={}, deletes=[])
     _themes_dir_exists, themes_dir = await asyncio.to_thread(
         _webapp_themes_dir_status,
@@ -588,7 +601,8 @@ async def admin_themes_save_route(request: web.Request) -> web.Response:
             themes_dir=themes_dir,
             catalog=resolved_webapp_themes_catalog(
                 primary_accent=settings.WEBAPP_PRIMARY_COLOR or "#00fe7a",
-                env_default_theme=settings.WEBAPP_DEFAULT_THEME,
+                # Saving is an explicit administrator choice, not a read-only preview.
+                env_default_theme=None,
                 theme_dir=settings.WEBAPP_THEMES_DIR,
             ),
             generation=read_registry(Path(themes_dir)).generation,

@@ -36,6 +36,23 @@ async function makeSupportStore() {
 }
 
 describe("admin supportStore", () => {
+  it.each(["awaiting_admin", "awaiting_user"])(
+    "requests only %s tickets for the selected status view",
+    async (status) => {
+      const { api, store } = await makeSupportStore();
+      api.mockClear();
+
+      store.setStatusView(status);
+
+      await vi.waitFor(() =>
+        expect(api).toHaveBeenCalledWith(
+          `/admin/support/tickets?limit=50&offset=0&status=${status}&sort=importance_desc`
+        )
+      );
+      expect(store.filters.status).toBe(status);
+    }
+  );
+
   it("ignores concurrent replies while the first request is in flight", async () => {
     const { api, store } = await makeSupportStore();
 

@@ -29,8 +29,8 @@ live-проверки CI не завершатся успешно. Об удал
 
 | Статус | Поколение API | Точные версии | Пресет | Возможности | Покрытие | Источник |
 | --- | --- | --- | --- | --- | --- | --- |
-| текущая | rw3-numeric-user-id | 3.4.3, 3.4.2, 3.4.1, 3.3.2, 3.3.0, 3.2.3, 3.2.1, 3.2.0, 3.1.0, 3.0.0 | 3.4.3 | numeric-user-ids, user-stream, user-stream-filters, targeted-squad-bulk, connections-drop, hwid-user-id-selector, empty-success-body, multi-node-usage, multi-node-top-users, bulk-squad-update | fixture, live-read, live-write, upgrade | [примечания к выпуску](https://github.com/remnawave/backend/releases/tag/3.4.3) |
-| поддерживаемая | rw2-uuid-user-id | 2.8.1 | 2.8.1 | multi-node-top-users, bulk-squad-update | fixture, live-read, live-write, upgrade | [примечания к выпуску](https://f.docs.rw/t/topic/178) |
+| текущая | rw3-numeric-user-id | 3.4.4, 3.4.3, 3.4.2, 3.4.1, 3.3.2, 3.3.0, 3.2.3, 3.2.1, 3.2.0, 3.1.0, 3.0.0 | 3.4.4 | numeric-user-ids, user-stream, user-stream-filters, targeted-squad-bulk, connections-drop, hwid-user-id-selector, empty-success-body, multi-node-usage, multi-node-top-users, bulk-squad-update, user-tag | fixture, live-read, live-write, upgrade | [примечания к выпуску](https://f.docs.rw/t/topic/354/25) |
+| поддерживаемая | rw2-uuid-user-id | 2.8.1 | 2.8.1 | multi-node-top-users, bulk-squad-update, user-tag | fixture, live-read, live-write, upgrade | [примечания к выпуску](https://f.docs.rw/t/topic/178) |
 
 Исторические пресеты остаются полезными для ручной диагностики, но не
 поддерживаются и не запускаются в матрице сертификации:
@@ -51,7 +51,7 @@ live-проверки CI не завершатся успешно. Об удал
 | `users.list` | GET | `/users` | rw2-uuid-user-id | 200 | JSON-конверт с полем `response` | Устаревшая offset-пагинация используется, когда поток отсутствует или работает с UUID. | unit, live-read |
 | `users.get` | GET | `/users/{userRef}` | rw2-uuid-user-id, rw3-numeric-user-id | 200 | JSON-конверт с полем `response` | В 2.8.1 {userRef} — UUID, а в 3.x — числовой идентификатор. | unit, live-read, upgrade |
 | `users.lookup.telegram` | GET | `/users/by-telegram-id/{telegramId}` | rw2-uuid-user-id | 200 | JSON-конверт с полем `response` | В 3.x вместо этого используется `/users/stream?telegramId=...`. | unit, live-read |
-| `users.lookup.username` | GET | `/users/by-username/{username}` | rw2-uuid-user-id, rw3-numeric-user-id | 200 | JSON-конверт с полем `response` | Маршрут поиска по username остаётся стабильным до 3.4.3 включительно; начиная с 3.1 отсутствие пользователя возвращается как 404/A063. | unit, live-read |
+| `users.lookup.username` | GET | `/users/by-username/{username}` | rw2-uuid-user-id, rw3-numeric-user-id | 200 | JSON-конверт с полем `response` | Маршрут поиска по username остаётся стабильным до 3.4.4 включительно; начиная с 3.1 отсутствие пользователя возвращается как 404/A063. | unit, live-read |
 | `users.lookup.email` | GET | `/users/by-email/{email}` | rw2-uuid-user-id | 200 | JSON-конверт с полем `response` | В 3.x вместо этого используется `/users/stream?email=...`. | unit, live-read |
 | `users.create` | POST | `/users` | rw2-uuid-user-id, rw3-numeric-user-id | 200, 201 | JSON-конверт с полем `response` | Core не отправляет UUID пользователя, переданный вызывающей стороной; 3.x возвращает числовой идентификатор. | unit, live-write |
 | `users.update` | PATCH | `/users` | rw2-uuid-user-id, rw3-numeric-user-id | 200, 202, 204 | JSON-конверт с полем `response`; пустое тело ответа 2xx считается успешным результатом | Поле селектора — uuid в 2.8.1 и целочисленный id в 3.x. | unit, live-write |
@@ -102,7 +102,7 @@ live-проверки CI не завершатся успешно. Об удал
 
 | Откуда | Куда | Стратегия | Проверка |
 | --- | --- | --- | --- |
-| 2.8.1 | 3.4.3 | с сохранением базы панели | `tests/qa/test_remnawave_upgrade.py` |
+| 2.8.1 | 3.4.4 | с сохранением базы панели | `tests/qa/test_remnawave_upgrade.py` |
 
 ## Правила совместимости и особые случаи
 
@@ -151,4 +151,4 @@ live-проверки CI не завершатся успешно. Об удал
    политики, удалите поддержку только в несовместимом выпуске Core и переведите
    пресеты в исторический статус.
 
-Дата проверки манифеста: `2026-09-02`.
+Дата проверки манифеста: `2026-09-13`.

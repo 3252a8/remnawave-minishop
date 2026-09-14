@@ -11,6 +11,7 @@ from typing import Any
 from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
+from db.dal import user_panel_squad_override_dal
 from db.models import (
     Payment,
     PromoCode,
@@ -22,6 +23,7 @@ from .common import (
     SOURCE,
     _as_mapping,
     _as_utc,
+    _json_dumps,
     _jsonish,
     _listish,
     _qtable,
@@ -49,11 +51,61 @@ logger = logging.getLogger(__name__)
 
 
 class _RemnashopSalesSection(_RemnashopUsersSection):
+    async def _import_subscription_squad_overrides(
+        self,
+        *,
+        user_id: int,
+        panel_user_uuid: str,
+        row: dict[str, Any],
+        managed_internal: list[str],
+        plan_snapshot: dict[str, Any],
+    ) -> None:
+        actual_internal = [str(value).strip() for value in _listish(row.get("internal_squads"))]
+        actual_internal = [value for value in actual_internal if value]
+        last_seen_at = _as_utc(row.get("updated_at")) or _as_utc(row.get("created_at"))
+        for squad_uuid in sorted(set(actual_internal) - set(managed_internal)):
+            await user_panel_squad_override_dal.upsert_internal_override(
+                self.target,
+                user_id=user_id,
+                panel_user_uuid=panel_user_uuid,
+                squad_uuid=squad_uuid,
+                source=user_panel_squad_override_dal.OVERRIDE_SOURCE_PANEL,
+                last_seen_at=last_seen_at,
+                note="Imported from Remnashop subscription state",
+            )
+            self.summary["squad_overrides"]["internal"] += 1
+
+        actual_external = str(row.get("external_squad") or "").strip() or None
+        planned_external = str(plan_snapshot.get("external_squad") or "").strip() or None
+        if actual_external == planned_external:
+            return
+        if actual_external:
+            await user_panel_squad_override_dal.set_external_override(
+                self.target,
+                user_id=user_id,
+                panel_user_uuid=panel_user_uuid,
+                mode=user_panel_squad_override_dal.OVERRIDE_MODE_SET,
+                squad_uuid=actual_external,
+                source=user_panel_squad_override_dal.OVERRIDE_SOURCE_PANEL,
+                last_seen_at=last_seen_at,
+            )
+            self.summary["squad_overrides"]["external_set"] += 1
+        elif planned_external:
+            await user_panel_squad_override_dal.set_external_override(
+                self.target,
+                user_id=user_id,
+                panel_user_uuid=panel_user_uuid,
+                mode=user_panel_squad_override_dal.OVERRIDE_MODE_CLEARED,
+                source=user_panel_squad_override_dal.OVERRIDE_SOURCE_PANEL,
+                last_seen_at=last_seen_at,
+            )
+            self.summary["squad_overrides"]["external_cleared"] += 1
+
     async def import_subscriptions(self) -> None:
         rows = await self._fetch_rows("subscriptions", order_by="id")
         now = datetime.now(UTC)
         for row in rows:
-            user = await self._target_user_for_telegram(await self._source_row_telegram_id(row))
+            user = await self._target_user_for_source_row(row)
             if not user:
                 self.summary["subscriptions"]["skipped"] += 1
                 continue
@@ -87,6 +139,16 @@ class _RemnashopSalesSection(_RemnashopUsersSection):
             plan_snapshot = _jsonish(row.get("plan_snapshot"))
             plan_type = remnashop_plan_type(plan_snapshot)
             traffic_limit_bytes = remnashop_traffic_gb_to_bytes(row.get("traffic_limit"))
+            actual_internal = [str(value).strip() for value in _listish(row.get("internal_squads"))]
+            actual_internal = [value for value in actual_internal if value]
+            managed_internal = [
+                str(value).strip() for value in _listish(plan_snapshot.get("internal_squads"))
+            ]
+            managed_internal = [value for value in managed_internal if value]
+            if not managed_internal:
+                managed_internal = list(actual_internal)
+            actual_device_limit = _to_int(row.get("device_limit"))
+            planned_device_limit = _to_int(plan_snapshot.get("device_limit"))
             payload = {
                 "user_id": int(user.user_id),
                 "panel_user_uuid": panel_user_uuid,
@@ -114,7 +176,13 @@ class _RemnashopSalesSection(_RemnashopUsersSection):
                 "tier_baseline_bytes": 0 if plan_type == "TRAFFIC" else traffic_limit_bytes,
                 "topup_balance_bytes": traffic_limit_bytes if plan_type == "TRAFFIC" else 0,
                 "period_start_at": None if plan_type == "TRAFFIC" else created_at,
-                "hwid_device_limit": _to_int(row.get("device_limit")),
+                "hwid_device_limit": actual_device_limit,
+                "hwid_device_limit_is_override": bool(
+                    actual_device_limit is not None
+                    and planned_device_limit is not None
+                    and actual_device_limit != planned_device_limit
+                ),
+                "tariff_managed_squad_uuids": _json_dumps(managed_internal),
             }
             metadata = {
                 "source": SOURCE,
@@ -149,13 +217,20 @@ class _RemnashopSalesSection(_RemnashopUsersSection):
                 target_id=target_subscription_id,
                 metadata=metadata,
             )
+            await self._import_subscription_squad_overrides(
+                user_id=int(user.user_id),
+                panel_user_uuid=panel_user_uuid,
+                row=row,
+                managed_internal=managed_internal,
+                plan_snapshot=plan_snapshot,
+            )
 
         await self.target.flush()
 
     async def import_payments(self) -> None:
         rows = await self._fetch_rows("transactions", order_by="id")
         for row in rows:
-            user = await self._target_user_for_telegram(await self._source_row_telegram_id(row))
+            user = await self._target_user_for_source_row(row)
             if not user:
                 self.summary["payments"]["skipped"] += 1
                 continue
@@ -253,8 +328,8 @@ class _RemnashopSalesSection(_RemnashopUsersSection):
                 self.summary["promocodes"]["skipped"] += 1
                 continue
 
-            bonus_days = self._promo_bonus_days(row)
-            if bonus_days is None or bonus_days <= 0:
+            effects = self._promo_effects(row)
+            if effects is None:
                 self.summary["promocodes"]["unsupported_reward"] += 1
                 continue
 
@@ -271,7 +346,9 @@ class _RemnashopSalesSection(_RemnashopUsersSection):
 
             payload = {
                 "code": code,
-                "bonus_days": int(bonus_days),
+                **effects,
+                "applies_to": "subscription",
+                "origin": "legacy_remnashop",
                 "max_activations": _to_int(row.get("max_activations")) or 1_000_000,
                 "current_activations": len(activations),
                 "is_active": bool(row.get("is_active")),
@@ -334,18 +411,35 @@ class _RemnashopSalesSection(_RemnashopUsersSection):
                 by_code[code].append(mapping)
         return by_code
 
-    def _promo_bonus_days(self, row: dict[str, Any]) -> int | None:
+    def _promo_effects(self, row: dict[str, Any]) -> dict[str, Any] | None:
         reward_type = str(row.get("reward_type") or "").strip().upper()
         if reward_type == "DURATION":
-            return _to_int(row.get("reward"))
+            days = _to_int(row.get("reward"))
+            return {"bonus_days": days} if days and days > 0 else None
+        if reward_type == "TRAFFIC":
+            traffic_gb = row.get("reward")
+            try:
+                normalized_traffic = float(str(traffic_gb))
+            except (TypeError, ValueError):
+                return None
+            return (
+                {"bonus_days": 0, "regular_traffic_gb": normalized_traffic}
+                if normalized_traffic > 0
+                else None
+            )
         if reward_type == "SUBSCRIPTION":
             plan = _jsonish(row.get("plan") or row.get("plan_snapshot"))
-            return (
+            days = (
                 _to_int(plan.get("duration_days"))
                 or _to_int(plan.get("days"))
                 or _to_int(row.get("reward"))
             )
+            return {"bonus_days": days} if days and days > 0 else None
         return None
+
+    def _promo_bonus_days(self, row: dict[str, Any]) -> int | None:
+        effects = self._promo_effects(row)
+        return _to_int(effects.get("bonus_days")) if effects else None
 
     async def _import_promocode_activations(
         self,
@@ -353,9 +447,13 @@ class _RemnashopSalesSection(_RemnashopUsersSection):
         activations: Iterable[dict[str, Any]],
     ) -> None:
         for activation in activations:
-            user = await self._target_user_for_telegram(
-                await self._source_row_telegram_id(activation)
+            source_id = activation.get("id") or (
+                f"{activation.get('promocode_id')}:{activation.get('user_id')}"
             )
+            if await self._get_mapping("promocode_activation", source_id):
+                self.summary["promocodes"]["activation_existing"] += 1
+                continue
+            user = await self._target_user_for_source_row(activation)
             if not user:
                 self.summary["promocodes"]["activation_skipped"] += 1
                 continue
@@ -365,13 +463,28 @@ class _RemnashopSalesSection(_RemnashopUsersSection):
                     promo_code_id=promo.promo_code_id,
                     user_id=user.user_id,
                     activated_at=_as_utc(activation.get("activated_at")) or datetime.now(UTC),
+                    effect_summary="Imported from Remnashop",
+                    bonus_days=promo.bonus_days,
+                    regular_traffic_gb=promo.regular_traffic_gb,
+                    applies_to=promo.applies_to,
+                    granted_days=promo.bonus_days or None,
+                    granted_gb=float(promo.regular_traffic_gb or 0) or None,
+                    granted_regular_traffic_gb=promo.regular_traffic_gb,
+                    is_manual_override=False,
                 )
                 .on_conflict_do_nothing(
                     index_elements=[
                         PromoCodeActivation.promo_code_id,
                         PromoCodeActivation.user_id,
-                    ]
+                    ],
+                    index_where=PromoCodeActivation.is_manual_override.is_(False),
                 )
             )
             await self.target.execute(stmt)
+            await self._upsert_mapping(
+                entity_type="promocode_activation",
+                source_id=source_id,
+                target_table="promo_code_activations",
+                target_id=f"{promo.promo_code_id}:{user.user_id}",
+            )
             self.summary["promocodes"]["activation_imported"] += 1

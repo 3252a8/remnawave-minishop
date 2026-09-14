@@ -8,6 +8,7 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
@@ -136,6 +137,65 @@ def load_webapp_theme_file(path: str | Path) -> WebappTheme | None:
     return _theme_from_descriptor(theme_path, raw)
 
 
+_CSS_COLOR_VALUE = re.compile(
+    r"^(?:#[0-9a-f]{3,8}|(?:rgb|hsl|hwb|lab|lch|oklab|oklch|color)\(|var\(--|transparent$)",
+    re.IGNORECASE,
+)
+_CSS_VARIABLE = re.compile(r"(?P<key>--[a-z][a-z0-9-]*)\s*:\s*(?P<value>[^;{}]+);", re.IGNORECASE)
+
+
+def _theme_css_variables_by_variant(
+    theme_root: Path, theme: WebappTheme
+) -> dict[str, dict[str, str]]:
+    """Return CSS variable maps for every declared theme variant."""
+    if not theme.css_file:
+        return {}
+    css_relative = Path(theme.css_file)
+    if len(css_relative.parts) >= 3 and css_relative.parts[0] == "revisions":
+        css_path = theme_root / "_packages" / css_relative.parts[1] / Path(*css_relative.parts[2:])
+    else:
+        css_path = theme_root / theme.key / css_relative
+    try:
+        css = css_path.read_text(encoding="utf-8")
+    except OSError:
+        return {}
+
+    def variables_for(selector: str) -> dict[str, str]:
+        variables: dict[str, str] = {}
+        for block in re.finditer(selector, css, re.IGNORECASE | re.DOTALL):
+            for declaration in _CSS_VARIABLE.finditer(block.group("body")):
+                key = declaration.group("key")
+                value = declaration.group("value").strip()
+                if _CSS_COLOR_VALUE.match(value):
+                    variables[key] = value
+        return variables
+
+    base = variables_for(rf"\.theme-key-{re.escape(theme.key)}\s*\{{(?P<body>[^}}]*)\}}")
+    variants = set(theme.variants)
+    active_variant = theme.active_variant or theme.tokens.color_scheme
+    if active_variant in {"dark", "light"}:
+        variants.add(active_variant)
+    return {
+        variant: {
+            **base,
+            **variables_for(
+                rf"\.theme-key-{re.escape(theme.key)}\.theme-variant-{variant}\s*\{{(?P<body>[^}}]*)\}}"
+            ),
+        }
+        for variant in ("dark", "light")
+        if variant in variants
+    }
+
+
+def _theme_css_variables(theme_root: Path, theme: WebappTheme) -> dict[str, str]:
+    """Return color variables from the theme CSS for the currently active variant."""
+    variables_by_variant = _theme_css_variables_by_variant(theme_root, theme)
+    active_variant = theme.active_variant or theme.tokens.color_scheme
+    if active_variant in variables_by_variant:
+        return variables_by_variant[active_variant]
+    return next(iter(variables_by_variant.values()), {})
+
+
 def load_webapp_theme_dir(theme_dir: str | Path) -> list[WebappTheme]:
     root = Path(theme_dir).expanduser()
     if not root.exists():
@@ -150,7 +210,13 @@ def load_webapp_theme_dir(theme_dir: str | Path) -> list[WebappTheme]:
         if theme.key in themes_by_key:
             logger.warning("Ignoring duplicate webapp theme key %s from %s", theme.key, path)
             continue
-        themes_by_key[theme.key] = theme
+        variables_by_variant = _theme_css_variables_by_variant(root, theme)
+        themes_by_key[theme.key] = theme.model_copy(
+            update={
+                "css_variables": _theme_css_variables(root, theme),
+                "css_variables_by_variant": variables_by_variant,
+            }
+        )
     state = read_registry(root)
     for key, saved in state.preferences.items():
         if current := themes_by_key.get(key):
@@ -158,13 +224,24 @@ def load_webapp_theme_dir(theme_dir: str | Path) -> list[WebappTheme]:
     for key in state.removed:
         themes_by_key.pop(key, None)
     for key, entry in state.entries.items():
-        themes_by_key[key] = effective_theme(key, entry)
+        theme = effective_theme(key, entry)
+        variables_by_variant = _theme_css_variables_by_variant(root, theme)
+        themes_by_key[key] = theme.model_copy(
+            update={
+                "css_variables": _theme_css_variables(root, theme),
+                "css_variables_by_variant": variables_by_variant,
+            }
+        )
     return list(themes_by_key.values())
 
 
 def _write_webapp_theme_file(path: Path, theme: WebappTheme) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    data = theme.model_dump(mode="json", exclude_none=True)
+    data = theme.model_dump(
+        mode="json",
+        exclude_none=True,
+        exclude={"css_variables", "css_variables_by_variant"},
+    )
     payload = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
     tmp_path = path.with_suffix(f"{path.suffix}.tmp")
     try:

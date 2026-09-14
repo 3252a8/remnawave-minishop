@@ -82,6 +82,24 @@ LOGIN_METHOD_SETTINGS_FIELDS: tuple[SettingField, ...] = (
         subsection="yandex",
     ),
     SettingField(
+        "DISCORD_OIDC_ENABLED", "bool", "login_methods", "Discord login", subsection="discord"
+    ),
+    SettingField(
+        "DISCORD_OIDC_CLIENT_ID",
+        "string",
+        "login_methods",
+        "Discord client ID",
+        subsection="discord",
+    ),
+    SettingField(
+        "DISCORD_OIDC_CLIENT_SECRET",
+        "string",
+        "login_methods",
+        "Discord client secret",
+        secret=True,
+        subsection="discord",
+    ),
+    SettingField(
         "PASSKEY_LOGIN_ENABLED", "bool", "login_methods", "Passkey login", subsection="passkey"
     ),
     SettingField(

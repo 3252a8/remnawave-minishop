@@ -187,6 +187,12 @@ class SubscriptionLifecyclePanelMixin(SubscriptionServiceMixinContract):
             if actual_status != expected_status:
                 mismatches.append("status")
 
+        if "tag" in expected_payload:
+            actual_tag = str(panel_user.get("tag") or "").strip() or None
+            expected_tag = str(expected_payload.get("tag") or "").strip() or None
+            if actual_tag != expected_tag:
+                mismatches.append("tag")
+
         return mismatches
 
     async def _get_panel_user_for_entitlement_verification(

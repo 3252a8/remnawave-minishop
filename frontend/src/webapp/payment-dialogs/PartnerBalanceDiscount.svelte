@@ -210,7 +210,7 @@
     gap: 10px;
     padding: 12px;
     border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--border));
-    border-radius: 13px;
+    border-radius: var(--radius-control);
     background: color-mix(in srgb, var(--accent) 8%, var(--panel-2));
   }
   .balance-discount.selected {
@@ -222,7 +222,7 @@
     height: 38px;
     display: grid;
     place-items: center;
-    border-radius: 11px;
+    border-radius: var(--radius-control);
     color: var(--accent);
     background: color-mix(in srgb, var(--accent) 14%, var(--panel));
   }
@@ -261,7 +261,7 @@
     overflow: hidden;
     padding: 5px;
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: var(--radius-control);
     color: var(--text);
     background: var(--panel);
     box-shadow: 0 16px 42px rgb(0 0 0 / 18%);
@@ -276,7 +276,7 @@
     align-items: center;
     gap: 7px;
     padding: 8px 9px;
-    border-radius: 8px;
+    border-radius: var(--radius-inner);
     font-size: 12px;
     outline: none;
     cursor: pointer;

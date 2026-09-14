@@ -17,6 +17,7 @@ function makeEffects(overrides: TestOverrides = {}) {
     readPlansDeeplink: vi.fn(() => false),
     readRenewalDeeplink: vi.fn(() => null),
     setHomeRoute: vi.fn(),
+    showTariffAccessError: vi.fn(),
     stripCheckoutPromoQueryFromUrl: vi.fn(),
     stripCheckoutDeeplinkFromUrl: vi.fn(),
     stripRenewalLoginQueryFromUrl: vi.fn(),
@@ -165,6 +166,48 @@ describe("createBillingDeeplinkEffects", () => {
       checkoutAddonPreset: checkoutDeeplink.addons,
     });
     expect(deps.stripCheckoutDeeplinkFromUrl).toHaveBeenCalledOnce();
+  });
+
+  it("opens only the hidden tariff unlocked by a private link", () => {
+    const accessCode = "ab".repeat(16);
+    const { deps, effects } = makeEffects({
+      readCheckoutDeeplink: vi.fn(() => ({ accessCode, plan: "", months: null, addons: {} })),
+    });
+
+    effects.applyPostLoadBillingDeeplinks({
+      defaultMethod: "card",
+      plans: [{ tariff_key: "standard" }, { tariff_key: "private", access_via_link: true }],
+      search: "",
+      subscription: { active: false },
+    });
+
+    expect(deps.billingStore.openPaymentModal.mock.calls[0][6]).toMatchObject({
+      preferredPlanId: "private",
+      preferredTariffKey: "private",
+    });
+    expect(deps.showTariffAccessError).not.toHaveBeenCalled();
+  });
+
+  it("rejects a private link that unlocks no tariff", () => {
+    const { deps, effects } = makeEffects({
+      readCheckoutDeeplink: vi.fn(() => ({
+        accessCode: "cd".repeat(16),
+        plan: "",
+        months: null,
+        addons: {},
+      })),
+    });
+
+    effects.applyPostLoadBillingDeeplinks({
+      defaultMethod: "card",
+      plans: [{ tariff_key: "standard" }],
+      search: "",
+      subscription: { active: false },
+    });
+
+    expect(deps.billingStore.openPaymentModal).not.toHaveBeenCalled();
+    expect(deps.stripCheckoutDeeplinkFromUrl).toHaveBeenCalledOnce();
+    expect(deps.showTariffAccessError).toHaveBeenCalledOnce();
   });
 
   it("consumes checkout entry once when later data refreshes rerun post-load effects", () => {
