@@ -179,7 +179,7 @@
   align-items: center;
   gap: 4px;
   background: var(--accent);
-  color: var(--admin-text);
+  color: var(--accent-contrast);
   border: 1px solid color-mix(in srgb, var(--accent) 72%, var(--admin-bg, #17220d));
   border-radius: 6px;
   box-shadow: 0 3px 12px color-mix(in srgb, var(--accent) 28%, transparent);

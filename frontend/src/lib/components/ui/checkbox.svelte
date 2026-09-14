@@ -55,7 +55,7 @@
       var(--admin-bg, var(--panel)) 84%,
       var(--admin-surface-2, transparent)
     );
-    color: #fff;
+    color: var(--accent-contrast);
     cursor: pointer;
     outline: none;
     transition:
