@@ -32,6 +32,7 @@ class PanelUserCreateOptions:
     hwid_device_limit: int | None = None
     specific_squad_uuids: tuple[str, ...] = ()
     external_squad_uuid: str | None = None
+    # Canonical tariff key; map it with the catalog before sending it to Remnawave.
     tag: str | None = None
 
 
@@ -205,6 +206,10 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                 external_squad_uuid=self.settings.parsed_user_external_squad_uuid,
             )
 
+        # Creation and later reconciliation must use the same collision-aware mapping.
+        creation_tag = panel_tariff_tag_for_key(
+            create_options.tag, getattr(self.settings, "tariffs_config", None)
+        )
         current_local_panel_uuid = db_user.panel_user_uuid
         panel_username_on_panel_standard = await self._panel_username_for_user(session, db_user)
         telegram_id_for_panel = self._telegram_id_for_panel(db_user)
@@ -370,7 +375,7 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                         default_traffic_limit_strategy=(
                             create_options.default_traffic_limit_strategy
                         ),
-                        tag=create_options.tag,
+                        tag=creation_tag,
                     )
                     if (
                         creation_response
@@ -409,7 +414,7 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                     external_squad_uuid=create_options.external_squad_uuid,
                     default_traffic_limit_bytes=create_options.default_traffic_limit_bytes,
                     default_traffic_limit_strategy=create_options.default_traffic_limit_strategy,
-                    tag=create_options.tag,
+                    tag=creation_tag,
                 )
                 if (
                     creation_response

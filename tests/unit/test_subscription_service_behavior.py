@@ -764,7 +764,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             self.assertEqual(create_kwargs["default_traffic_limit_bytes"], 10 * GIB)
             self.assertEqual(create_kwargs["default_traffic_limit_strategy"], "NO_RESET")
             self.assertEqual(create_kwargs["specific_squad_uuids"], ["trial-squad"])
-            self.assertEqual(create_kwargs["tag"], "standard")
+            self.assertEqual(create_kwargs["tag"], "STANDARD")
 
     async def test_activate_trial_keeps_panel_strategy_out_of_local_subscription_payload(self):
         with tempfile.TemporaryDirectory() as tmpdir:
