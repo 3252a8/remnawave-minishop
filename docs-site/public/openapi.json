@@ -19886,8 +19886,9 @@
         "responses": {
           "200": {
             "content": {
-              "text/html": {
+              "application/octet-stream": {
                 "schema": {
+                  "format": "binary",
                   "type": "string"
                 }
               }

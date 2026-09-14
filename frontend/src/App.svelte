@@ -152,13 +152,6 @@
     ...MOCK_SOURCE.config,
     ...(MOCK ? MOCK.config : {}),
     ...(injectedConfig || {}),
-    ...(requestedThemePreviewKey
-      ? {
-          // Theme previews use the package's neutral brand, not installation branding.
-          title: FALLBACK_BRAND_TITLE,
-          logoUrl: "",
-        }
-      : {}),
   } as WebappConfig;
   const docsDemoRouter = createDocsDemoRouter({
     currentSearchParams,

@@ -4932,6 +4932,8 @@
   "admin_appearance_adopt_confirm": "Передать установленные на сервере темы под управление библиотеки. Сохранить текущие настройки и отслеживать дальнейшие обновления.",
   "admin_appearance_screenshot_alt": "{theme}: главная страница ЛК с демонстрационными данными",
   "admin_appearance_no_screenshot": "Автор не добавил скриншот. Откройте предпросмотр темы.",
+  "admin_appearance_import_no_preview": "В теме нет изображения для предпросмотра.",
+  "admin_appearance_preview_loading": "Загружаем изображение предпросмотра…",
   "admin_appearance_capture_preview": "Сохранить превью",
   "admin_appearance_preview_saved": "Превью сохранено.",
   "admin_appearance_preview_save_failed": "Не удалось сохранить превью.",

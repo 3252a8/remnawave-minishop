@@ -4932,6 +4932,8 @@
   "admin_appearance_adopt_confirm": "Manage existing server themes through the library. Keep my current settings and track future updates.",
   "admin_appearance_screenshot_alt": "{theme}: account home with demo data",
   "admin_appearance_no_screenshot": "The author has not added a screenshot. Open the live preview.",
+  "admin_appearance_import_no_preview": "This theme does not include a preview image.",
+  "admin_appearance_preview_loading": "Loading preview image…",
   "admin_appearance_capture_preview": "Save preview",
   "admin_appearance_preview_saved": "Preview saved.",
   "admin_appearance_preview_save_failed": "Could not save preview.",

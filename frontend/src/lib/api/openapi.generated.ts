@@ -12213,7 +12213,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "text/html": string;
+          "application/octet-stream": string;
         };
       };
     };

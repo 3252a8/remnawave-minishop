@@ -4,7 +4,7 @@ import type { ThemeEntry } from "../../admin/appearanceOptions";
 import type { components } from "../../api/openapi.generated";
 import { DEV_MOCK } from "../previewMock";
 import type { PreviewThemesCatalog } from "../previewMock/types";
-import { demoThemePreview } from "./themePreview";
+import { demoThemePreview, demoThemePreviewImage } from "./themePreview";
 
 type Theme = ThemeEntry;
 type Candidate = Omit<components["schemas"]["Candidate"], "theme"> & { theme: Theme };
@@ -282,7 +282,7 @@ async function handle(path: string, options: RequestInit): Promise<unknown> {
     if (parts[5] === "preview") {
       const item = operation.packages.find((item) => item.theme.key === parts[6]);
       if (!item || operation.record.state !== "ready") throw { error: "import_not_ready" };
-      return demoThemePreview(item, url.searchParams.get("variant") || "dark");
+      return demoThemePreviewImage(item);
     }
     if (method === "DELETE") {
       operation.record.state = "cancelled";

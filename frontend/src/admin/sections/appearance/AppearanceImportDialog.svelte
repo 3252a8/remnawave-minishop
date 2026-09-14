@@ -21,6 +21,7 @@
     TriangleAlert,
     Upload,
   } from "$components/ui/icons.js";
+  import AppearanceThemePreview from "./AppearanceThemePreview.svelte";
   let {
     at,
     open,
@@ -53,6 +54,10 @@
   let conflict = $state("skip");
   let adoption = $state(false);
   let previewUrl = $state("");
+  let previewKey = $state("");
+  let previewTitle = $state("");
+  let previewOpen = $state(false);
+  let previewLoading = $state(false);
   const operation = $derived(library.operation);
   const review = $derived(operation?.state === "ready");
   const failureReport = $derived(
@@ -135,19 +140,45 @@
     }
   }
   async function close() {
+    closePreview();
     await library.cancel();
     onclose();
   }
-  async function preview(key: string) {
+  function candidateTitle(theme: (typeof candidates)[number], index: number): string {
+    return (
+      theme.theme?.names?.[currentLang] ||
+      theme.theme?.names?.en ||
+      theme.theme?.names?.ru ||
+      theme.key ||
+      theme.path ||
+      String(index)
+    );
+  }
+  function clearPreviewUrl() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl = "";
+  }
+  async function preview(theme: (typeof candidates)[number], index: number) {
+    clearPreviewUrl();
+    previewKey = theme.key || "";
+    previewTitle = candidateTitle(theme, index);
+    previewOpen = true;
+    previewLoading = Boolean(theme.metadata?.preview);
+    if (!previewLoading) return;
     try {
-      if (operation) previewUrl = await library.preview(key, "dark", operation.id);
+      if (operation) previewUrl = await library.preview(previewKey, "dark", operation.id);
     } catch (cause) {
       error = library.message(cause);
+    } finally {
+      previewLoading = false;
     }
   }
   function closePreview() {
-    URL.revokeObjectURL(previewUrl);
-    previewUrl = "";
+    clearPreviewUrl();
+    previewOpen = false;
+    previewKey = "";
+    previewTitle = "";
+    previewLoading = false;
   }
 </script>
 
@@ -360,7 +391,7 @@
                 aria-label={at("appearance_demo_preview", {}, "Preview") +
                   " " +
                   (theme.key || index)}
-                onclick={() => preview(theme.key || "")}><Eye size={14} /></AdminButton
+                onclick={() => preview(theme, index)}><Eye size={14} /></AdminButton
               >{/if}
           </div>
         {/each}
@@ -455,18 +486,25 @@
   </div>
 </Dialog>
 <Dialog
-  open={Boolean(previewUrl)}
-  title={at("appearance_demo_preview", {}, "Preview")}
+  open={previewOpen}
+  title={at("appearance_demo_preview_named", { theme: previewTitle }, "Preview {theme}")}
   closeLabel={at("close", {}, "Close")}
   onclose={closePreview}
   class="admin-dialog appearance-preview-dialog"
 >
-  {#if previewUrl}<iframe
-      src={previewUrl}
-      title={at("appearance_demo_preview", {}, "Preview")}
-      sandbox=""
-      style="width:100%;height:70vh;border:0"
-    ></iframe>{/if}
+  {#if previewLoading}<p class="preview-loading" role="status">
+      {at("appearance_preview_loading", {}, "Loading preview image…")}
+    </p>{:else}<AppearanceThemePreview
+      url={previewUrl}
+      themeKey={previewKey}
+      title={previewTitle}
+      emptyText={at(
+        "appearance_import_no_preview",
+        {},
+        "This theme does not include a preview image."
+      )}
+      {at}
+    />{/if}
 </Dialog>
 
 <style>
@@ -599,6 +637,11 @@
   }
   .import-error {
     color: var(--danger);
+  }
+  .preview-loading {
+    min-height: min(70vh, 560px);
+    display: grid;
+    place-items: center;
   }
   .import-failure-report {
     display: grid;

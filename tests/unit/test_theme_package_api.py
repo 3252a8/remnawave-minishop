@@ -96,10 +96,18 @@ def test_upload_preview_install_export_and_owner_isolation(
             assert response.status == 200
             initial = await response.json()
 
+            preview_image = io.BytesIO()
+            Image.new("RGB", (24, 16), "#224466").save(preview_image, format="PNG")
+            package_files = package()
+            metadata_path = "ocean/theme-package.json"
+            metadata = json.loads(package_files[metadata_path])
+            metadata["preview"] = "preview.png"
+            package_files[metadata_path] = json.dumps(metadata).encode()
+            package_files["ocean/preview.png"] = preview_image.getvalue()
             form = FormData()
             form.add_field(
                 "file",
-                deterministic_zip(package()),
+                deterministic_zip(package_files),
                 filename="ocean.zip",
                 content_type="application/zip",
             )
@@ -113,12 +121,9 @@ def test_upload_preview_install_export_and_owner_isolation(
             assert other.status == 404
             preview = await client.get(base + "/preview/ocean", headers=headers)
             assert preview.status == 200
-            assert "sandbox;" in preview.headers["Content-Security-Policy"]
-            document = await preview.text()
-            assert "<script" not in document.lower()
-            assert "THEME_KEY_PLACEHOLDER" not in document
-            assert "connect-src" not in document or "connect-src 'none'" in document
-            assert "Content-Security-Policy" in document
+            assert preview.content_type == "image/png"
+            assert await preview.read() == preview_image.getvalue()
+            assert preview.headers["Cache-Control"] == "no-store"
 
             body = {
                 "choices": [{"key": "ocean"}],
