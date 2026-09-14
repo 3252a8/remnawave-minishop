@@ -641,6 +641,7 @@
       {:else if field.type === "color"}
         <ColorInput
           class="admin-color"
+          translate={at}
           value={fieldTextValue(field) || "#00fe7a"}
           ariaLabel={fieldLabelText(field)}
           oninput={fieldInputHandler(field)}

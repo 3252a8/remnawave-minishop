@@ -228,6 +228,8 @@
                   <code title={key}>{key}</code>
                   <ColorInput
                     class="admin-color appearance-color-picker"
+                    translate={at}
+                    allowAlpha
                     value={resolvedColor || ""}
                     disabled={!resolvedColor}
                     ariaLabel={key}

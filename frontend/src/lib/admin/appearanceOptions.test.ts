@@ -57,10 +57,12 @@ describe("resolveAppearanceColor", () => {
   });
 
   it("parses supported direct CSS color syntaxes", () => {
-    expect(resolveAppearanceColor("rgb(100% 0% 50% / 25%)", {})).toBe("#ff0080");
+    expect(resolveAppearanceColor("rgb(100% 0% 50% / 25%)", {})).toBe("#ff008040");
     expect(resolveAppearanceColor("hsl(120, 100%, 25%)", {})).toBe("#008000");
-    expect(resolveAppearanceColor("hsla(0.5turn 100% 50% / 0.5)", {})).toBe("#00ffff");
-    expect(resolveAppearanceColor("transparent", {})).toBe("#000000");
+    expect(resolveAppearanceColor("hsla(0.5turn 100% 50% / 0.5)", {})).toBe("#00ffff80");
+    expect(resolveAppearanceColor("transparent", {})).toBe("#00000000");
+    expect(resolveAppearanceColor("#abcd", {})).toBe("#aabbccdd");
+    expect(resolveAppearanceColor("rgba(255,255,255,0.08)", {})).toBe("#ffffff14");
   });
 
   it("uses a fallback for an unavailable or cyclic CSS variable", () => {
@@ -73,7 +75,7 @@ describe("resolveAppearanceColor", () => {
       resolveAppearanceColor("color-mix(in srgb, var(--accent) 25%, transparent)", {
         "--accent": "#204060",
       })
-    ).toBe("#081018");
+    ).toBe("#20406040");
   });
 
   it("does not invent a color for an unresolved expression", () => {

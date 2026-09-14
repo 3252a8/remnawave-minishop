@@ -645,18 +645,6 @@
   font-size: 12px;
 }
 
-.appearance-token-control:has(.appearance-color-picker [role="dialog"].is-open),
-.appearance-custom-css-row:has(.appearance-color-picker [role="dialog"].is-open) {
-  position: relative;
-  z-index: 1;
-}
-
-.default-theme-panel:has(.appearance-color-picker [role="dialog"].is-open),
-.appearance-custom-css-list:has(.appearance-color-picker [role="dialog"].is-open) {
-  position: relative;
-  z-index: 3;
-}
-
 .appearance-token-control > span {
   min-width: 0;
   line-height: 1.25;
@@ -772,29 +760,6 @@
 
 .appearance-color-text {
   min-width: 0;
-}
-
-.appearance-token-control .appearance-color-picker,
-.appearance-custom-css-row .appearance-color-picker {
-  box-sizing: border-box;
-  width: 44px;
-  height: 38px;
-  min-width: 44px;
-  padding: 3px;
-  overflow: visible;
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--admin-border));
-  border-radius: var(--radius-control, 8px);
-  background: var(--admin-surface);
-  cursor: pointer;
-  transition: border-color 140ms ease, box-shadow 140ms ease;
-}
-
-.appearance-token-control .appearance-color-picker:hover,
-.appearance-custom-css-row .appearance-color-picker:hover,
-.appearance-token-control .appearance-color-picker:focus-visible,
-.appearance-custom-css-row .appearance-color-picker:focus-visible {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .appearance-logo-scale-row {
