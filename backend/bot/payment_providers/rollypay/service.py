@@ -465,7 +465,9 @@ def _webapp_context_for_variant(variant: str) -> Any:
         return {
             "rollypay_variant": variant,
             "source": "webapp",
-            "traffic_gb": format_number_for_payload(ctx.traffic_gb),
+            "traffic_gb": (
+                format_number_for_payload(ctx.traffic_gb) if ctx.traffic_gb is not None else None
+            ),
             "hwid_device_count": ctx.hwid_device_count,
         }
 
