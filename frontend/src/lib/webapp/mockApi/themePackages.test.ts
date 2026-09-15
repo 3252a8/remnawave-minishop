@@ -22,6 +22,28 @@ describe("documentation theme ZIP import", () => {
       )
     ).toThrow();
   });
+  it("accepts safe SVG assets and rejects active SVG markup", () => {
+    const safe = readDemoZip(
+      zipSync({
+        "one/theme.json": strToU8('{"key":"one"}'),
+        "one/icons/mark.svg": strToU8(
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M2 2h20v20H2z"/></svg>'
+        ),
+      })
+    )[0];
+    expect(safe.files["icons/mark.svg"]).toBeDefined();
+
+    expect(() =>
+      readDemoZip(
+        zipSync({
+          "one/theme.json": strToU8('{"key":"one"}'),
+          "one/icons/mark.svg": strToU8(
+            '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
+          ),
+        })
+      )
+    ).toThrow();
+  });
   it("rejects broken archives and duplicate case-insensitive paths", () => {
     expect(() => readDemoZip(strToU8("not a zip"))).toThrow();
     expect(() =>

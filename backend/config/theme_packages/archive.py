@@ -29,6 +29,7 @@ from .models import (
     ThemeKey,
 )
 from .paths import confined, read_json, relative_path
+from .svg import validate_svg
 
 RESOURCE_SUFFIXES = {
     ".json",
@@ -39,6 +40,7 @@ RESOURCE_SUFFIXES = {
     ".webp",
     ".gif",
     ".ico",
+    ".svg",
     ".woff",
     ".woff2",
     ".ttf",
@@ -199,6 +201,8 @@ def inspect_theme(folder: Path, relative: str) -> Candidate:
                     Image.DecompressionBombWarning,
                 ) as exc:
                     raise PackageError("invalid_image", path.name) from exc
+            elif path.suffix.lower() == ".svg":
+                validate_svg(path, path.relative_to(folder).as_posix())
         if theme.css_file:
             css_path = confined(folder, theme.css_file)
             if css_path.suffix.lower() != ".css" or not css_path.is_file():

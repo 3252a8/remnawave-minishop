@@ -29,6 +29,7 @@ const SAFETY_CODES = new Set([
   "unsafe_css_function",
   "unsafe_css_property",
   "unsafe_path",
+  "unsafe_svg",
   "unsupported_theme_file",
   "unsupported_zip_entry",
   "url_in_theme_token",

@@ -36,6 +36,7 @@ const ADMIN_ERROR_KEYS: Record<string, string> = {
   unsafe_path: "error_theme_unsafe",
   unsupported_zip_entry: "error_theme_unsafe",
   unsupported_theme_file: "error_theme_unsafe",
+  unsafe_svg: "error_theme_unsafe",
   external_css_url: "error_theme_unsafe",
   css_import_not_allowed: "error_theme_unsafe",
   unsafe_css_property: "error_theme_unsafe",

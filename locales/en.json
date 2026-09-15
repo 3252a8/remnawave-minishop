@@ -4940,7 +4940,7 @@
   "admin_appearance_export_collection": "Download collection",
   "admin_error_theme_catalog_changed": "The catalog changed in another tab. Saved data is intact. Reload and try again.",
   "admin_error_theme_archive": "The package could not be read. Check the ZIP, theme.json and documented format limits.",
-  "admin_error_theme_unsafe": "The package contains unsafe paths, unsupported files or external CSS resources. Fix it before installing.",
+  "admin_error_theme_unsafe": "The package contains unsafe paths, SVG markup, unsupported files or external CSS resources. Fix it before installing.",
   "admin_error_theme_size": "Package limit exceeded: ZIP up to 20 MB, files up to 10 MB, extraction up to 100 MB and 2000 files.",
   "admin_error_theme_protected": "Included themes cannot be replaced or removed. Export with a new key to create your own copy.",
   "admin_error_theme_active": "First choose another theme for users and disable this theme in the admin panel.",

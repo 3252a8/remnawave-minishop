@@ -51,6 +51,24 @@ function json(bytes?: Uint8Array): Record<string, unknown> {
     throw { error: "invalid_theme_manifest" };
   return value as Record<string, unknown>;
 }
+function assertSafeSvg(bytes: Uint8Array) {
+  let svg: string;
+  try {
+    svg = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throw { error: "unsafe_svg", detail: "SVG must be valid UTF-8 XML" };
+  }
+  if (
+    !/^\s*(?:<\?xml[^?]*\?>\s*)?<svg(?:\s|>)/i.test(svg) ||
+    /<!\s*(?:doctype|entity)\b|<\?(?!xml(?:\s|\?>))/i.test(svg) ||
+    /<\s*(?:script|foreignObject|iframe|object|embed|image|style|a)\b/i.test(svg) ||
+    /\son[a-z]+\s*=|\sstyle\s*=/i.test(svg) ||
+    /(?:javascript|vbscript|data)\s*:/i.test(svg) ||
+    /\b(?:href|xlink:href)\s*=\s*["'](?!\s*#)/i.test(svg) ||
+    /url\(\s*["']?(?!\s*#)/i.test(svg)
+  )
+    throw { error: "unsafe_svg", detail: "SVG contains unsafe markup" };
+}
 export function readDemoZip(bytes: Uint8Array): DemoPackage[] {
   if (!bytes.length || bytes.length > 20 * 1024 * 1024) throw { error: "archive_too_large" };
   let total = 0;
@@ -101,8 +119,11 @@ export function readDemoZip(bytes: Uint8Array): DemoPackage[] {
         .filter(([file]) => file.startsWith(prefix))
         .map(([file, content]) => [file.slice(prefix.length), content])
     );
-    if (Object.keys(themeFiles).some((file) => /\.(?:js|html|svg|exe|sh)$/i.test(file)))
+    if (Object.keys(themeFiles).some((file) => /\.(?:js|html|exe|sh)$/i.test(file)))
       throw { error: "unsupported_theme_file" };
+    for (const [file, content] of Object.entries(themeFiles)) {
+      if (/\.svg$/i.test(file)) assertSafeSvg(content);
+    }
     const theme = data as Theme;
     const metadata = themeFiles["theme-package.json"]
       ? (json(themeFiles["theme-package.json"]) as components["schemas"]["PackageMetadata"])
