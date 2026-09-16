@@ -1085,6 +1085,26 @@ test("device traffic bonuses stay legible on mobile", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("a theme can collapse the referral bonus list", async ({ page }) => {
+  await page.setViewportSize(DESKTOP_VIEWPORT);
+
+  await page.goto("/demo/runtime/invite?theme_preview=dark");
+  await expect(page.locator(".referral-bonus-row").first()).toBeVisible();
+  await expect(page.locator(".referral-bonus-disclosure")).toHaveCount(0);
+
+  await page.goto("/demo/runtime/invite?theme_preview=ascii");
+  const disclosure = page.locator(".referral-bonus-disclosure");
+  const trigger = disclosure.locator(".referral-bonus-summary");
+  await expect(disclosure).toHaveCount(1);
+  await expect(trigger).toHaveText("Если друг оплатит подписку:");
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator(".referral-bonus-row-nested")).toHaveCount(0);
+
+  await trigger.click();
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator(".referral-bonus-row-nested").first()).toBeVisible();
+});
+
 test("Telegram fullscreen fallback protects webapp actions and admin chrome", async ({ page }) => {
   await page.setViewportSize(MOBILE_VIEWPORT);
   await page.addInitScript(() => {
@@ -2482,9 +2502,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   await expect(tariffDialog).toBeVisible();
   await assertFormFieldsNamed(page, "admin-tariffs:edit-dialog");
   await tariffDialog.getByRole("tab").nth(1).click();
-  const periodRows = tariffDialog.locator(
-    ".admin-row-editor-period:not(.admin-row-editor-header)"
-  );
+  const periodRows = tariffDialog.locator(".admin-row-editor-period:not(.admin-row-editor-header)");
   await expect(periodRows).toHaveCount(4);
   for (const [index, days] of ["30", "90", "180", "365"].entries()) {
     await expect(

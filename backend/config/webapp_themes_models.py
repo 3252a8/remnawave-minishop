@@ -11,6 +11,10 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 ColorScheme = Literal["light", "dark"]
+# Behaviour of the referral bonus list in the Mini App: plain rows, closed
+# collapsible list, or collapsible list opened by default.
+ReferralBonusListMode = Literal["plain", "collapsed", "expanded"]
+REFERRAL_BONUS_LIST_MODES = frozenset({"plain", "collapsed", "expanded"})
 DEFAULT_WEBAPP_THEME_KEY = "dark"
 LEGACY_LIGHT_THEME_KEY = "light"
 DEFAULT_THEME_ADMIN_TOKEN_KEYS = {
@@ -54,6 +58,7 @@ class ThemeTokens(BaseModel):
     muted: str | None = None
     dim: str | None = None
     separator: str | None = None
+    referral_bonus_list: ReferralBonusListMode | None = None
     danger: str | None = None
     danger_text: str | None = None
     danger_soft: str | None = None
@@ -142,6 +147,14 @@ class ThemeTokens(BaseModel):
         if re.search(r"[\x00-\x1f\x7f]", raw):
             raise ValueError("separator must not contain control characters")
         return raw
+
+    @field_validator("referral_bonus_list", mode="before")
+    @classmethod
+    def _normalize_referral_bonus_list(cls, value: Any) -> str | None:
+        raw = str(value or "").strip().lower()
+        # Unknown modes fall back to the default rendering instead of
+        # invalidating the whole theme descriptor.
+        return raw if raw in REFERRAL_BONUS_LIST_MODES else None
 
 
 class WebappTheme(BaseModel):

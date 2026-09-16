@@ -123,6 +123,24 @@ describe("computeThemeView", () => {
     expect(view.effectiveThemeEntry?.key).toBe("dark");
   });
 
+  it("exposes the referral bonus list mode of the effective theme", () => {
+    const view = computeThemeView({
+      ...BASE,
+      cfgThemesCatalog: {
+        default_theme: "ocean",
+        themes: [
+          {
+            key: "ocean",
+            tokens: { color_scheme: "dark", referral_bonus_list: "expanded" },
+          },
+        ],
+      },
+    });
+
+    expect(view.referralBonusListMode).toBe("expanded");
+    expect(computeThemeView(BASE).referralBonusListMode).toBe("plain");
+  });
+
   it("ignores a preview key for non-admin users with a server account", () => {
     const view = computeThemeView({
       ...BASE,

@@ -601,6 +601,44 @@ class WebappThemesConfigTests(unittest.TestCase):
                 ],
             )
 
+    def test_theme_referral_bonus_list_mode_is_public_and_lenient(self):
+        cfg = WebappThemesConfig(
+            default_theme="collapsed_theme",
+            themes=[
+                {
+                    "key": "collapsed_theme",
+                    "default": True,
+                    "tokens": {"color_scheme": "dark", "referral_bonus_list": "COLLAPSED"},
+                },
+                {
+                    "key": "expanded_theme",
+                    "default": False,
+                    "tokens": {"color_scheme": "dark", "referral_bonus_list": "expanded"},
+                },
+                {
+                    "key": "typo_theme",
+                    "default": False,
+                    "tokens": {"color_scheme": "dark", "referral_bonus_list": "collapsable"},
+                },
+            ],
+        )
+
+        payload = public_themes_catalog_payload(cfg, "#abc123")
+        payload_by_key = {theme["key"]: theme for theme in payload["themes"]}
+
+        self.assertEqual(
+            cfg.theme_by_key("collapsed_theme").tokens.referral_bonus_list, "collapsed"
+        )
+        self.assertEqual(
+            payload_by_key["collapsed_theme"]["tokens"]["referral_bonus_list"], "collapsed"
+        )
+        self.assertEqual(
+            payload_by_key["expanded_theme"]["tokens"]["referral_bonus_list"], "expanded"
+        )
+        # An unknown mode must not invalidate the descriptor or reach the client.
+        self.assertIsNone(cfg.theme_by_key("typo_theme").tokens.referral_bonus_list)
+        self.assertNotIn("referral_bonus_list", payload_by_key["typo_theme"]["tokens"])
+
     def test_public_payload_keeps_admin_usage_flag(self):
         cfg = WebappThemesConfig(
             default_theme="custom",

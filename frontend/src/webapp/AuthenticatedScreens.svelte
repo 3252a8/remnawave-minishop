@@ -9,6 +9,7 @@
 
   import { lazyScreen } from "../lib/webapp/lazyScreen.svelte.js";
   import { resolveProgramEntryPlacement } from "../lib/webapp/programEntryPolicy.js";
+  import type { ReferralBonusListMode } from "../lib/webapp/themeStyle.js";
 
   import WebAppShell from "./WebAppShell.svelte";
   import HomeScreen from "./screens/HomeScreen.svelte";
@@ -125,6 +126,7 @@
     promoStatus?: string;
     referral?: ReferralState;
     referralBonusDetails?: ReferralBonusDetail[];
+    referralBonusListMode?: ReferralBonusListMode;
     referralOneBonusPerReferee?: boolean;
     referralProgramEnabled?: boolean;
     referralWelcomeBonusDays?: number;
@@ -251,6 +253,7 @@
     promoStatus = "",
     referral = {},
     referralBonusDetails = [],
+    referralBonusListMode = "plain",
     referralOneBonusPerReferee = false,
     referralProgramEnabled = true,
     referralWelcomeBonusDays = 0,
@@ -490,6 +493,7 @@
         {referral}
         {referralProgramEnabled}
         {referralBonusDetails}
+        {referralBonusListMode}
         {referralOneBonusPerReferee}
         {referralWelcomeBonusDays}
         {promoCode}

@@ -1,6 +1,7 @@
 <script lang="ts">
   import GiftEntry from "../gifts/GiftEntry.svelte";
-  import { CircleQuestionMark, Gift } from "$components/ui/icons.js";
+  import { ChevronDown, CircleQuestionMark, Gift } from "$components/ui/icons.js";
+  import { slide } from "svelte/transition";
 
   import CopyLinkField from "$components/patterns/CopyLinkField.svelte";
   import Card from "$components/ui/card.svelte";
@@ -15,6 +16,7 @@
     Translate,
     VoidAction,
   } from "$lib/webapp/types.js";
+  import type { ReferralBonusListMode } from "$lib/webapp/themeStyle.js";
 
   type Props = {
     applyPromo?: VoidAction;
@@ -28,6 +30,7 @@
     referral?: ReferralState;
     referralProgramEnabled?: boolean;
     referralBonusDetails?: ReferralBonusDetail[];
+    referralBonusListMode?: ReferralBonusListMode;
     referralOneBonusPerReferee?: boolean;
     referralWelcomeBonusDays?: number;
     setPromoCode?: StringAction;
@@ -38,6 +41,7 @@
     referral = {},
     referralProgramEnabled = true,
     referralBonusDetails = [],
+    referralBonusListMode = "plain",
     referralOneBonusPerReferee = false,
     referralWelcomeBonusDays = 0,
     promoBusy = false,
@@ -60,6 +64,16 @@
   );
   const usesTariffBonusSummaries = $derived(tariffBonusSummaries.length > 0);
   const referralLinks = $derived(visibleReferralLinks(referral));
+  const periodBonusListCollapsible = $derived(referralBonusListMode !== "plain");
+  // Mirrors the traffic reset disclosure in HomeScreen.svelte: the theme picks
+  // the default state, the reader can still expand and collapse it by hand.
+  const PERIOD_BONUS_LIST_ID = "referral-bonus-period-list";
+  const PERIOD_BONUS_LIST_TRANSITION = { duration: 220 };
+  let periodBonusListOpen = $state(referralBonusListMode === "expanded");
+
+  $effect(() => {
+    periodBonusListOpen = referralBonusListMode === "expanded";
+  });
 
   function daysRange(minDays: unknown, maxDays: unknown): string {
     return t("wa_referral_bonus_range_days", {
@@ -82,6 +96,23 @@
     {clearPromoFieldError}
     {t}
   />
+  {#snippet periodBonusRows(nested = false)}
+    {#each periodBonusDetails as bonus, index (bonus.id || `${bonus.tariff_key || "legacy"}:${bonus.months || index}`)}
+      <div class={nested ? "referral-bonus-row referral-bonus-row-nested" : "referral-bonus-row"}>
+        <strong>{bonus.title || `${bonus.months || "?"}`}</strong>
+        <small
+          >{t("wa_referral_bonus_you_days", {
+            days: Number(bonus.inviter_days || 0),
+          })}</small
+        >
+        <small
+          >{t("wa_referral_bonus_friend_days", {
+            days: Number(bonus.friend_days || 0),
+          })}</small
+        >
+      </div>
+    {/each}
+  {/snippet}
   {#if referralProgramEnabled}<section class="referral-program-shell">
       <div class="referral-program-content">
         <Card class="bonus-card">
@@ -132,12 +163,12 @@
               {/if}
               {#if usesTariffBonusSummaries}
                 <p class="referral-bonus-intro">{t("wa_referral_bonus_depends_on_tariff")}</p>
-              {:else if periodBonusDetails.length}
+              {:else if periodBonusDetails.length && !periodBonusListCollapsible}
                 <p class="referral-bonus-intro">{t("wa_referral_bonus_paid_intro")}</p>
               {/if}
               {#if usesTariffBonusSummaries}
                 {#each tariffBonusSummaries as tariffBonus, index (tariffBonus.id || `tariff:${tariffBonus.tariff_key || index}`)}
-                  <details class="referral-tariff-dropdown">
+                  <details class="referral-tariff-dropdown" open={periodBonusListOpen}>
                     <summary class="referral-tariff-summary">
                       <span class="referral-tariff-copy">
                         <strong>{tariffBonus.title || tariffBonus.tariff_name}</strong>
@@ -181,22 +212,35 @@
                     </div>
                   </details>
                 {/each}
+              {:else if periodBonusListCollapsible}
+                <div
+                  class="referral-bonus-disclosure"
+                  data-open={periodBonusListOpen ? "true" : undefined}
+                >
+                  <button
+                    class="referral-bonus-summary"
+                    type="button"
+                    aria-expanded={periodBonusListOpen}
+                    aria-controls={PERIOD_BONUS_LIST_ID}
+                    onclick={() => (periodBonusListOpen = !periodBonusListOpen)}
+                  >
+                    <span>{t("wa_referral_bonus_paid_intro")}</span>
+                    <ChevronDown class="referral-bonus-chev" size={16} />
+                  </button>
+                  {#if periodBonusListOpen}
+                    <div
+                      id={PERIOD_BONUS_LIST_ID}
+                      class="referral-bonus-detail"
+                      transition:slide={PERIOD_BONUS_LIST_TRANSITION}
+                    >
+                      <div class="referral-bonus-detail-inner">
+                        {@render periodBonusRows(true)}
+                      </div>
+                    </div>
+                  {/if}
+                </div>
               {:else}
-                {#each periodBonusDetails as bonus, index (bonus.id || `${bonus.tariff_key || "legacy"}:${bonus.months || index}`)}
-                  <div class="referral-bonus-row">
-                    <strong>{bonus.title || `${bonus.months || "?"}`}</strong>
-                    <small
-                      >{t("wa_referral_bonus_you_days", {
-                        days: Number(bonus.inviter_days || 0),
-                      })}</small
-                    >
-                    <small
-                      >{t("wa_referral_bonus_friend_days", {
-                        days: Number(bonus.friend_days || 0),
-                      })}</small
-                    >
-                  </div>
-                {/each}
+                {@render periodBonusRows()}
               {/if}
             </div>
           {:else}

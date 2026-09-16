@@ -8277,6 +8277,11 @@ export interface components {
        */
       rail_bg: string | null;
       /**
+       * Referral Bonus List
+       * @default null
+       */
+      referral_bonus_list: ("plain" | "collapsed" | "expanded") | null;
+      /**
        * Separator
        * @default null
        */

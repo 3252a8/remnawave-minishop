@@ -571,6 +571,7 @@
       {themePreference}
       {themeSwitcherVisible}
       {setThemePreference}
+      referralBonusListMode={themeView.referralBonusListMode}
       {currentTariffName}
       {devicesBusy}
       {devicesData}

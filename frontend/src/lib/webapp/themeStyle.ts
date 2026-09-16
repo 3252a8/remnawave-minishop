@@ -123,6 +123,11 @@ const CSS_STRING_TOKEN_KEYS = new Set(["separator"]);
 const PERCENTAGE_TOKEN_KEYS = new Set(["transparency"]);
 const THEME_VARIANTS = new Set(["dark", "light"]);
 const GOOGLE_FONT_LINK_ID = "webapp-theme-google-fonts";
+
+/** How the Mini App renders the referral bonus list. */
+export type ReferralBonusListMode = "plain" | "collapsed" | "expanded";
+
+const REFERRAL_BONUS_LIST_MODES = new Set<string>(["plain", "collapsed", "expanded"]);
 const SYSTEM_FONT_FAMILIES = new Set([
   "-apple-system",
   "blinkmacsystemfont",
@@ -145,6 +150,20 @@ const GOOGLE_FONT_SINGLE_WEIGHT_FAMILIES = new Set(["press start 2p"]);
 
 export const THEME_PREVIEW_STORAGE_KEY = "rw_webapp_theme_preview_v1";
 export const THEME_PREVIEW_TTL_MS = 10 * 60 * 1000;
+
+/**
+ * Resolve the referral bonus list behaviour token. Component behaviour cannot
+ * come from theme CSS, so themes opt in through this token and the shell passes
+ * the resolved mode down to the screen.
+ */
+export function themeReferralBonusListMode(
+  tokens: ThemeTokens | null | undefined
+): ReferralBonusListMode {
+  const value = String(asRecord(tokens).referral_bonus_list || "")
+    .trim()
+    .toLowerCase();
+  return REFERRAL_BONUS_LIST_MODES.has(value) ? (value as ReferralBonusListMode) : "plain";
+}
 
 function hasControlCharacter(value: string): boolean {
   for (const char of value) {

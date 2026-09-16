@@ -11581,6 +11581,23 @@
             "default": null,
             "title": "Rail Bg"
           },
+          "referral_bonus_list": {
+            "anyOf": [
+              {
+                "enum": [
+                  "plain",
+                  "collapsed",
+                  "expanded"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Referral Bonus List"
+          },
           "separator": {
             "anyOf": [
               {

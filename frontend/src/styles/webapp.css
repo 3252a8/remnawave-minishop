@@ -2741,7 +2741,8 @@ a {
   font-size: 12px;
 }
 
-.referral-tariff-dropdown {
+.referral-tariff-dropdown,
+.referral-bonus-disclosure {
   display: grid;
   min-width: 0;
   border: 1px solid var(--border);
@@ -2763,6 +2764,41 @@ a {
 
 .referral-tariff-summary::-webkit-details-marker {
   display: none;
+}
+
+/* Same disclosure shape as the traffic reset block on the home screen. */
+.referral-bonus-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 0;
+  border-radius: var(--radius);
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.referral-bonus-summary span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.referral-bonus-summary:focus {
+  outline: none;
+}
+
+.referral-bonus-summary:focus-visible {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 .referral-tariff-copy {
@@ -2787,6 +2823,40 @@ a {
 .referral-tariff-dropdown[open] .premium-server-help-icon {
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.referral-bonus-chev {
+  padding: 1px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--muted) 10%, transparent);
+  transition:
+    color 0.16s ease,
+    background 0.16s ease,
+    transform 0.22s ease;
+}
+
+.referral-bonus-summary:hover .referral-bonus-chev,
+.referral-bonus-disclosure[data-open="true"] .referral-bonus-chev {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.referral-bonus-disclosure[data-open="true"] .referral-bonus-chev {
+  transform: rotate(180deg);
+}
+
+.referral-bonus-detail {
+  display: grid;
+  transform-origin: top;
+}
+
+.referral-bonus-detail > .referral-bonus-detail-inner {
+  display: grid;
+  gap: 8px;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 8px 8px;
 }
 
 .referral-tariff-details {
