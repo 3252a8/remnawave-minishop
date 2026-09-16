@@ -11581,6 +11581,18 @@
             "default": null,
             "title": "Rail Bg"
           },
+          "separator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Separator"
+          },
           "shadow_popover": {
             "anyOf": [
               {

@@ -552,6 +552,55 @@ class WebappThemesConfigTests(unittest.TestCase):
                 ],
             )
 
+    def test_theme_separator_token_accepts_short_text_and_empty_value(self):
+        cfg = WebappThemesConfig(
+            default_theme="custom",
+            themes=[
+                {
+                    "key": "custom",
+                    "default": True,
+                    "tokens": {"color_scheme": "dark", "separator": "|"},
+                },
+                {
+                    "key": "plain",
+                    "default": False,
+                    "tokens": {"color_scheme": "dark", "separator": ""},
+                },
+            ],
+        )
+
+        payload = public_themes_catalog_payload(cfg, "#abc123")
+        payload_by_key = {theme["key"]: theme for theme in payload["themes"]}
+
+        self.assertEqual(cfg.theme_by_key("custom").tokens.separator, "|")
+        self.assertEqual(payload_by_key["custom"]["tokens"]["separator"], "|")
+        # An empty separator is meaningful: the theme removes the separator.
+        self.assertEqual(payload_by_key["plain"]["tokens"]["separator"], "")
+
+        with self.assertRaises(ValueError):
+            WebappThemesConfig(
+                default_theme="custom",
+                themes=[
+                    {
+                        "key": "custom",
+                        "default": True,
+                        "tokens": {"separator": "too-long-separator"},
+                    }
+                ],
+            )
+
+        with self.assertRaises(ValueError):
+            WebappThemesConfig(
+                default_theme="custom",
+                themes=[
+                    {
+                        "key": "custom",
+                        "default": True,
+                        "tokens": {"separator": "·\n·"},
+                    }
+                ],
+            )
+
     def test_public_payload_keeps_admin_usage_flag(self):
         cfg = WebappThemesConfig(
             default_theme="custom",

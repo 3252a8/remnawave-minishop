@@ -1102,6 +1102,21 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("--home-logo-scale-mobile:0.85", markup)
         self.assertIn("color-scheme:light", markup)
 
+    def test_initial_theme_head_markup_quotes_separator_token(self):
+        cfg = builtin_webapp_themes_config("#123456")
+        theme = cfg.theme_by_key("dark")
+        theme.tokens.separator = "|"
+        request = SimpleNamespace(get=lambda key, default="": "nonce-value")
+
+        markup = subscription_webapp._initial_theme_head_markup(request, theme, "#123456")
+
+        self.assertIn('--separator:"|"', markup)
+
+        theme.tokens.separator = ""
+        markup = subscription_webapp._initial_theme_head_markup(request, theme, "#123456")
+
+        self.assertIn('--separator:""', markup)
+
     def test_theme_asset_version_bumps_for_saved_default_css_theme(self):
         previous = WebappThemesConfig(
             default_theme="dark",

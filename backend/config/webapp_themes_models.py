@@ -29,6 +29,10 @@ DEFAULT_THEME_ADMIN_TOKEN_KEYS = {
 
 THEME_DISPLAY_ORDER = ("dark", "light")
 
+# Upper bound for the ``separator`` token: themes only need a short glyph or
+# phrase between metadata fragments, and the value is inlined into theme CSS.
+MAX_THEME_SEPARATOR_LENGTH = 8
+
 
 class ThemeTokens(BaseModel):
     """CSS design tokens for the subscription Mini App shell."""
@@ -49,6 +53,7 @@ class ThemeTokens(BaseModel):
     text: str | None = None
     muted: str | None = None
     dim: str | None = None
+    separator: str | None = None
     danger: str | None = None
     danger_text: str | None = None
     danger_soft: str | None = None
@@ -125,6 +130,18 @@ class ThemeTokens(BaseModel):
         if scale < 50 or scale > 300:
             raise ValueError("home logo scale must be between 50 and 300 percent")
         return scale
+
+    @field_validator("separator")
+    @classmethod
+    def _normalize_separator(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        raw = str(value)
+        if len(raw) > MAX_THEME_SEPARATOR_LENGTH:
+            raise ValueError(f"separator must be at most {MAX_THEME_SEPARATOR_LENGTH} characters")
+        if re.search(r"[\x00-\x1f\x7f]", raw):
+            raise ValueError("separator must not contain control characters")
+        return raw
 
 
 class WebappTheme(BaseModel):

@@ -8277,6 +8277,11 @@ export interface components {
        */
       rail_bg: string | null;
       /**
+       * Separator
+       * @default null
+       */
+      separator: string | null;
+      /**
        * Shadow Popover
        * @default null
        */

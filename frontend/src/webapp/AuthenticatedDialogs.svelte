@@ -299,7 +299,9 @@
   <div class="promo-deeplink-dialog-body">
     {#if promoDeeplinkStatus === "activated" && promoDeeplinkEffectSummary}
       <p class="promo-deeplink-effect">
-        <strong>{promoDeeplinkCode}</strong> · {promoDeeplinkEffectSummary}
+        <strong>{promoDeeplinkCode}</strong>
+        <span class="meta-separator" aria-hidden="true"></span>
+        {promoDeeplinkEffectSummary}
       </p>
     {/if}
     <Button class="wide" onclick={actionsStore.closePromoDeeplink}>

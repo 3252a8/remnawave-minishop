@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import html
+import json
 import re
 from pathlib import Path
 from typing import Any
@@ -311,6 +312,7 @@ _INITIAL_THEME_TOKEN_CSS_MAP = {
     "text": "--text",
     "muted": "--muted",
     "dim": "--dim",
+    "separator": "--separator",
     "danger": "--danger",
     "danger_text": "--danger-text",
     "danger_soft": "--danger-soft",
@@ -368,6 +370,12 @@ _INITIAL_THEME_LOGO_SCALE_TOKENS = {
     "home_logo_scale_mobile",
 }
 
+# Tokens whose value is plain text that must reach CSS as a quoted string, so
+# ``content: var(--separator)`` keeps working. An empty string is meaningful:
+# it removes the rendered separator.
+_INITIAL_THEME_STRING_TOKENS = {"separator"}
+_CONTROL_CHARACTER_PATTERN = re.compile(r"[\x00-\x1f\x7f]")
+
 
 def _theme_css_href_for_html(theme: Any) -> str:
     css_file = str(getattr(theme, "css_file", "") or "").strip()
@@ -412,6 +420,11 @@ def _initial_theme_tokens(theme: Any, primary_color: str) -> dict[str, Any]:
 def _initial_theme_declarations(tokens: dict[str, Any]) -> list[str]:
     declarations = []
     for token_key, css_name in _INITIAL_THEME_TOKEN_CSS_MAP.items():
+        if token_key in _INITIAL_THEME_STRING_TOKENS:
+            value = tokens.get(token_key)
+            if isinstance(value, str) and not _CONTROL_CHARACTER_PATTERN.search(value):
+                declarations.append(f"{css_name}:{json.dumps(value, ensure_ascii=False)}")
+            continue
         if token_key in _INITIAL_THEME_LOGO_SCALE_TOKENS:
             try:
                 scale = float(tokens.get(token_key) or 0)

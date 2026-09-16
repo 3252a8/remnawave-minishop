@@ -46,6 +46,7 @@ const TOKEN_TO_CSS_VAR: Record<string, string> = {
   text: "--text",
   muted: "--muted",
   dim: "--dim",
+  separator: "--separator",
   danger: "--danger",
   danger_text: "--danger-text",
   danger_soft: "--danger-soft",
@@ -115,6 +116,10 @@ const LOGO_SCALE_TOKEN_KEYS = new Set([
   "home_logo_scale_desktop",
   "home_logo_scale_mobile",
 ]);
+// Tokens whose value is plain text that has to reach CSS as a quoted string,
+// so `content: var(--separator)` keeps working. Unlike the other tokens an
+// empty string is meaningful: it removes the rendered separator.
+const CSS_STRING_TOKEN_KEYS = new Set(["separator"]);
 const PERCENTAGE_TOKEN_KEYS = new Set(["transparency"]);
 const THEME_VARIANTS = new Set(["dark", "light"]);
 const GOOGLE_FONT_LINK_ID = "webapp-theme-google-fonts";
@@ -141,6 +146,14 @@ const GOOGLE_FONT_SINGLE_WEIGHT_FAMILIES = new Set(["press start 2p"]);
 export const THEME_PREVIEW_STORAGE_KEY = "rw_webapp_theme_preview_v1";
 export const THEME_PREVIEW_TTL_MS = 10 * 60 * 1000;
 
+function hasControlCharacter(value: string): boolean {
+  for (const char of value) {
+    const code = char.codePointAt(0) ?? 0;
+    if (code < 0x20 || code === 0x7f) return true;
+  }
+  return false;
+}
+
 export function themeTokensToInlineStyle(
   tokens: ThemeTokens | null | undefined,
   primaryFallback: string | undefined = "#00fe7a",
@@ -154,6 +167,12 @@ export function themeTokensToInlineStyle(
   for (const [key, cssVar] of Object.entries(TOKEN_TO_CSS_VAR)) {
     if (key === "accent") continue;
     let value = t[key];
+    if (CSS_STRING_TOKEN_KEYS.has(key)) {
+      if (typeof value === "string" && !hasControlCharacter(value)) {
+        parts.push(`${cssVar}:${JSON.stringify(value)}`);
+      }
+      continue;
+    }
     if ((value === undefined || value === null || value === "") && ADMIN_TOKEN_FALLBACKS[key]) {
       value = t[ADMIN_TOKEN_FALLBACKS[key]];
     }

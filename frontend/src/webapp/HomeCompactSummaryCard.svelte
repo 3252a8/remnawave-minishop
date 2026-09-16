@@ -173,7 +173,7 @@
           {:else}
             {trafficMode ? t("wa_home_access_active") : t("wa_home_subscription_active")}
             {#if subscriptionTermDisplayText}
-              <span aria-hidden="true">·</span>
+              <span class="meta-separator" aria-hidden="true"></span>
               {subscriptionTermDisplayText}
             {/if}
           {/if}
@@ -187,7 +187,7 @@
         <p>
           {#if showTariff}
             <span>{t("wa_current_tariff", { tariff: currentTariffName })}</span>
-            <span aria-hidden="true">·</span>
+            <span class="meta-separator" aria-hidden="true"></span>
           {/if}
           <span>
             {subscriptionEndDisplayText
@@ -257,11 +257,16 @@
             <span>
               {t("wa_home_traffic_used")}
               <small>
-                · {regularTrafficMeta}
-                {#if regularTrafficNextReset}· {regularTrafficNextReset}{/if}
+                <span class="meta-separator" aria-hidden="true"></span>
+                {regularTrafficMeta}
+                {#if regularTrafficNextReset}<span class="meta-separator" aria-hidden="true"></span>
+                  {regularTrafficNextReset}{/if}
               </small>
             </span>
-            <strong>{regularTrafficLabel} · {regularTrafficPercent}%</strong>
+            <strong
+              >{regularTrafficLabel} <span class="meta-separator" aria-hidden="true"></span>
+              {regularTrafficPercent}%</strong
+            >
           </div>
           <LinearProgress value={regularTrafficPercent} label={t("wa_home_traffic_used")} />
         </div>
