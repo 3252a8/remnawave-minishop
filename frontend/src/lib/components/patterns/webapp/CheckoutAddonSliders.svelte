@@ -188,16 +188,19 @@
     }
     const option = optionFor(kind);
     const extra = Number(option?.extra_units || 0);
-    const resetHint = kind === "devices" ? "" : trafficResetHint(kind);
     if (extra <= 0) {
-      const included = t("wa_checkout_addon_included", {}, "Included in the plan");
-      return resetHint ? `${included} · ${resetHint}` : included;
+      return t("wa_checkout_addon_included", {}, "Included in the plan");
     }
     const price = isStarsPaymentMethod(method)
       ? `${Number(option?.stars_price || 0)} ⭐`
       : formatMoney(option?.price || 0, currency);
-    const surcharge = t("wa_checkout_addon_extra_price", { price }, `Add-on: ${price}`);
-    return resetHint ? `${surcharge} · ${resetHint}` : surcharge;
+    return t("wa_checkout_addon_extra_price", { price }, `Add-on: ${price}`);
+  }
+
+  // Rendered next to the subtitle separator by the markup, never inside it,
+  // so themes keep control over the separator character.
+  function subtitleHint(kind: CheckoutAddonKind): string {
+    return kind === "devices" ? "" : trafficResetHint(kind);
   }
 
   function activateEditing(): void {
@@ -339,7 +342,11 @@
               {@render limitIcon(kind)}
               <span class="checkout-addon-label">{title(kind)}</span>
             </span>
-            <small>{subtitle(kind)}</small>
+            <small
+              >{subtitle(kind)}{#if subtitleHint(kind)}
+                <span class="meta-separator" aria-hidden="true"></span>
+                {subtitleHint(kind)}{/if}</small
+            >
           </div>
           <Slider
             value={selectedUnits(kind)}
