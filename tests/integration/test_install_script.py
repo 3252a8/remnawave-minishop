@@ -1041,7 +1041,96 @@ def test_shell_installer_attaches_to_existing_nginx_or_caddy_containers():
     assert "angie -s reload" in script
     assert "angie_container_httpd_host_dir" in script
     assert "strip_managed_block" in script
+    assert "caddy_remove_managed_and_conflicting_sites" in script
     assert "remnawave-minishop.conf" in script
+
+
+def test_caddy_routes_replace_conflicting_legacy_site_blocks(tmp_path: Path):
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    source = tmp_path / "Caddyfile"
+    rendered = tmp_path / "Caddyfile.rendered"
+    source.write_text(
+        """{
+    email admin@example.test
+}
+
+https://hooks.example.test {
+    handle /payments {
+        reverse_proxy legacy_bot:8080
+    }
+}
+
+app.example.test {
+    reverse_proxy legacy_bot:8080
+}
+
+untouched.example.test {
+    reverse_proxy untouched:9000
+}
+
+# BEGIN remnawave-minishop managed by install.sh
+hooks.example.test {
+    reverse_proxy backend:8080
+}
+app.example.test {
+    reverse_proxy frontend:80
+}
+# END remnawave-minishop managed by install.sh
+""",
+        encoding="utf-8",
+    )
+    shell_body = f"""
+caddy_remove_managed_and_conflicting_sites \
+    {shlex.quote(source.as_posix())} \
+    {shlex.quote(rendered.as_posix())} \
+    hooks.example.test app.example.test || exit 20
+render_generic_caddy_block \
+    {shlex.quote(rendered.as_posix())} \
+    hooks.example.test app.example.test backend:8080 frontend:80
+"""
+
+    result = _run_installer_function(tmp_path, shell_body)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    config = rendered.read_text(encoding="utf-8")
+    assert config.count("hooks.example.test {") == 1
+    assert config.count("app.example.test {") == 1
+    assert "legacy_bot:8080" not in config
+    assert "untouched.example.test" in config
+    assert "reverse_proxy untouched:9000" in config
+
+
+def test_external_proxy_is_reconnected_after_target_network_recreation(tmp_path: Path):
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    calls = tmp_path / "network-calls"
+    shell_body = f"""
+EXISTING_PROXY_CONTAINER_NAME=caddy
+docker_container_exists() {{ return 0; }}
+container_uses_host_network() {{ return 1; }}
+connect_proxy_to_target_network() {{ printf '%s\n' "$1" >> {shlex.quote(calls.as_posix())}; }}
+reconnect_existing_reverse_proxy_after_stack_start || exit 20
+"""
+
+    result = _run_installer_function(tmp_path, shell_body)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert calls.read_text(encoding="utf-8").strip() == "caddy"
+
+
+def test_migration_database_dsn_prompts_are_secret():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+    dsn_prompts = [
+        line.strip()
+        for line in script.splitlines()
+        if line.lstrip().startswith('prompt_value "') and "PostgreSQL" in line and "DSN" in line
+    ]
+
+    assert len(dsn_prompts) == 5
+    assert all(re.search(r' 1 1 ""$', line) for line in dsn_prompts)
 
 
 def test_shell_installer_can_toggle_pangolin_newt_publication():
@@ -1163,10 +1252,33 @@ def test_shell_installer_can_reset_target_database_before_remnashop_import():
     assert "reset_target_compose_database" in script
     assert "Сбросить целевую базу Minishop перед импортом" in script
     assert "create_pre_migration_backup" in script
-    assert "backups/pre-${label}-migration" in script
+    assert "backups/pre-${migration_label}-migration" in script
     assert "restore.sh" in script
     assert "run_compose stop backend worker migrate" in script
     assert 'dropdb -U "$POSTGRES_USER" --if-exists "$POSTGRES_DB"' in script
+
+
+def test_pre_migration_backup_keeps_source_label_after_confirmation(tmp_path: Path):
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    target_dir = tmp_path / "target"
+    target_dir.mkdir()
+    shell_body = f"""
+TARGET_DIR={shlex.quote(target_dir.as_posix())}
+require_docker() {{ return 0; }}
+check_target_postgres_auth() {{ return 1; }}
+section() {{ :; }}
+ok() {{ :; }}
+warn() {{ :; }}
+printf '\n' | create_pre_migration_backup bedolaga || exit 20
+set -- "$TARGET_DIR"/backups/pre-bedolaga-migration-*
+[ -d "$1" ] || exit 21
+"""
+
+    result = _run_installer_function(tmp_path, shell_body)
+
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_deployment_examples_scope_named_volumes_to_compose_project():
@@ -1746,6 +1858,13 @@ def test_shell_installer_copies_compatible_bedolaga_env_with_masked_confirmation
                 "OAUTH_GOOGLE_ENABLED=True",
                 "OAUTH_GOOGLE_CLIENT_ID=google-client",
                 "OAUTH_GOOGLE_CLIENT_SECRET=google-client-secret",
+                "SMTP_HOST=smtp.example.com",
+                "SMTP_PORT=465",
+                "SMTP_USER=mailer@example.com",
+                "SMTP_PASSWORD=smtp-secret",
+                "SMTP_FROM_NAME=Example Mailer",
+                "SMTP_USE_TLS=False",
+                "SMTP_USE_SSL=True",
                 "DEFAULT_LANGUAGE=ru",
                 "LOG_LEVEL=WARNING",
                 "TZ=Europe/Moscow",
@@ -1790,6 +1909,14 @@ sync_bedolaga_bootstrap_env || exit 20
 [ "$(env_file_get GOOGLE_OIDC_CLIENT_SECRET "$ENV_PATH")" = google-client-secret ] || exit 27
 [ "$(env_file_get GOOGLE_OIDC_ENABLED "$ENV_PATH")" = True ] || exit 27
 [ "$(env_file_get GOOGLE_OIDC_CLIENT_ID "$ENV_PATH")" = google-client ] || exit 27
+[ "$(env_file_get SMTP_HOST "$ENV_PATH")" = smtp.example.com ] || exit 27
+[ "$(env_file_get SMTP_PORT "$ENV_PATH")" = 465 ] || exit 27
+[ "$(env_file_get SMTP_USERNAME "$ENV_PATH")" = mailer@example.com ] || exit 27
+[ "$(env_file_get SMTP_PASSWORD "$ENV_PATH")" = smtp-secret ] || exit 27
+[ "$(env_file_get SMTP_FROM_EMAIL "$ENV_PATH")" = mailer@example.com ] || exit 27
+[ "$(env_file_get SMTP_FROM_NAME "$ENV_PATH")" = 'Example Mailer' ] || exit 27
+[ "$(env_file_get SMTP_STARTTLS "$ENV_PATH")" = False ] || exit 27
+[ "$(env_file_get SMTP_USE_SSL "$ENV_PATH")" = True ] || exit 27
 [ "$(env_file_get DEFAULT_LANGUAGE "$ENV_PATH")" = ru ] || exit 27
 [ "$(env_file_get LOG_LEVEL "$ENV_PATH")" = WARNING ] || exit 27
 [ "$(env_file_get TZ "$ENV_PATH")" = Europe/Moscow ] || exit 27
@@ -1809,7 +1936,33 @@ sync_bedolaga_bootstrap_env || exit 20
     assert "source-webhook-secret" not in result.stdout
     assert "source-panel-secret" not in result.stdout
     assert "google-client-secret" not in result.stdout
+    assert "smtp-secret" not in result.stdout
     assert "must-not-copy" not in target_env.read_text(encoding="utf-8")
+
+
+def test_bedolaga_migration_removes_imported_panel_url_override(tmp_path: Path):
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    target_dir = tmp_path / "target"
+    target_dir.mkdir()
+    calls = tmp_path / "compose-calls"
+    shell_body = f"""
+TARGET_DIR={shlex.quote(target_dir.as_posix())}
+BEDOLAGA_LOCAL_TARGET=1
+check_target_postgres_auth() {{ return 0; }}
+run_compose() {{ printf '%s\n' "$*" >> {shlex.quote(calls.as_posix())}; }}
+ok() {{ :; }}
+fail() {{ :; }}
+remove_imported_bedolaga_panel_url_override || exit 20
+"""
+
+    result = _run_installer_function(tmp_path, shell_body)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    command = calls.read_text(encoding="utf-8")
+    assert "DELETE FROM app_setting_overrides" in command
+    assert "PANEL_API_URL" in command
 
 
 def test_shell_installer_bedolaga_cutover_stops_old_stack_before_start_and_healthcheck(
