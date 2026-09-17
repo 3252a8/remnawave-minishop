@@ -113,6 +113,7 @@ PANEL_WEBHOOK_SECRET_VALUE=""
 TELEGRAM_OAUTH_CLIENT_ID_VALUE=""
 TELEGRAM_OAUTH_CLIENT_SECRET_VALUE=""
 TELEGRAM_OAUTH_REQUEST_ACCESS_VALUE=""
+EXISTING_PROXY_CONTAINER_NAME=""
 
 KNOWN_ENV_KEYS="DEPLOYMENT_PROFILE COMPOSE_PROJECT_NAME IMAGE_TAG WEBHOOK_HOST MINIAPP_HOST WEBHOOK_PUBLIC_URL MINIAPP_PUBLIC_URL FRONTEND_BACKEND_MODE INSTALL_NODE_ROLE WEBAPP_API_BASE_URL WEBAPP_BACKEND_UPSTREAM WEBAPP_BACKEND_UPSTREAM_HOST MINISHOP_EDGE_TOKEN MINISHOP_EDGE_TOKEN_HEADER HTTP_BIND HTTPS_BIND WEB_SERVER_BIND WEBAPP_SERVER_BIND FRONTEND_BIND RATHOLE_IMAGE RATHOLE_CONTROL_BIND RATHOLE_CONTROL_REMOTE RATHOLE_SERVICE_TOKEN RATHOLE_SERVICE_PORT PANGOLIN_ENDPOINT NEWT_ID NEWT_SECRET BOT_TOKEN TELEGRAM_BOT_PROXY_URL TELEGRAM_OAUTH_USE_BOT_PROXY ADMIN_IDS POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB WEBAPP_ENABLED WEBAPP_TITLE WEBAPP_SESSION_SECRET WEBHOOK_SECRET_TOKEN TRUSTED_PROXIES PANEL_API_URL PANEL_API_KEY PANEL_API_COOKIE PANEL_WEBHOOK_SECRET TELEGRAM_OAUTH_CLIENT_ID TELEGRAM_OAUTH_CLIENT_SECRET TELEGRAM_OAUTH_REQUEST_ACCESS"
 
@@ -205,7 +206,7 @@ mask_secret() {
 
 is_secret_key() {
     case "$1" in
-        BOT_TOKEN|TELEGRAM_BOT_PROXY_URL|POSTGRES_PASSWORD|WEBAPP_SESSION_SECRET|WEBHOOK_SECRET_TOKEN|PANEL_API_KEY|PANEL_API_COOKIE|PANEL_WEBHOOK_SECRET|TELEGRAM_OAUTH_CLIENT_SECRET|GOOGLE_OIDC_CLIENT_SECRET|NEWT_SECRET|MINISHOP_EDGE_TOKEN|RATHOLE_SERVICE_TOKEN)
+        BOT_TOKEN|TELEGRAM_BOT_PROXY_URL|POSTGRES_PASSWORD|WEBAPP_SESSION_SECRET|WEBHOOK_SECRET_TOKEN|PANEL_API_KEY|PANEL_API_COOKIE|PANEL_WEBHOOK_SECRET|TELEGRAM_OAUTH_CLIENT_SECRET|GOOGLE_OIDC_CLIENT_SECRET|SMTP_PASSWORD|NEWT_SECRET|MINISHOP_EDGE_TOKEN|RATHOLE_SERVICE_TOKEN)
             return 0
             ;;
         *)
@@ -3236,6 +3237,7 @@ start_stack() {
         preflight_existing_postgres_volume || return 1
     fi
     (cd "$TARGET_DIR" && run_compose_checked up -d) || return 1
+    reconnect_existing_reverse_proxy_after_stack_start || return 1
     (cd "$TARGET_DIR" && run_compose ps) || true
     validate_reverse_proxy_runtime || return 1
     ok "Команда запуска стека выполнена."
@@ -3314,6 +3316,19 @@ bedolaga_env_mapping_value() {
         GOOGLE_OIDC_ENABLED) detect_bedolaga_env_value OAUTH_GOOGLE_ENABLED ;;
         GOOGLE_OIDC_CLIENT_ID) detect_bedolaga_env_value OAUTH_GOOGLE_CLIENT_ID ;;
         GOOGLE_OIDC_CLIENT_SECRET) detect_bedolaga_env_value OAUTH_GOOGLE_CLIENT_SECRET ;;
+        SMTP_HOST) detect_bedolaga_env_value SMTP_HOST ;;
+        SMTP_PORT) detect_bedolaga_env_value SMTP_PORT ;;
+        SMTP_USERNAME) detect_bedolaga_env_value SMTP_USER ;;
+        SMTP_PASSWORD) detect_bedolaga_env_value SMTP_PASSWORD ;;
+        SMTP_FROM_EMAIL)
+            source_value=$(detect_bedolaga_env_value SMTP_FROM_EMAIL || true)
+            [ -n "$source_value" ] || source_value=$(detect_bedolaga_env_value SMTP_USER || true)
+            [ -n "$source_value" ] || return 1
+            printf '%s' "$source_value"
+            ;;
+        SMTP_FROM_NAME) detect_bedolaga_env_value SMTP_FROM_NAME ;;
+        SMTP_STARTTLS) detect_bedolaga_env_value SMTP_USE_TLS ;;
+        SMTP_USE_SSL) detect_bedolaga_env_value SMTP_USE_SSL ;;
         DEFAULT_LANGUAGE) detect_bedolaga_env_value DEFAULT_LANGUAGE ;;
         LOG_LEVEL) detect_bedolaga_env_value LOG_LEVEL ;;
         TZ) detect_bedolaga_env_value TZ ;;
@@ -3362,6 +3377,8 @@ sync_bedolaga_bootstrap_env() {
         PANEL_API_URL PANEL_API_KEY \
         TELEGRAM_OAUTH_CLIENT_ID TELEGRAM_OAUTH_CLIENT_SECRET \
         GOOGLE_OIDC_ENABLED GOOGLE_OIDC_CLIENT_ID GOOGLE_OIDC_CLIENT_SECRET \
+        SMTP_HOST SMTP_PORT SMTP_USERNAME SMTP_PASSWORD SMTP_FROM_EMAIL SMTP_FROM_NAME \
+        SMTP_STARTTLS SMTP_USE_SSL \
         DEFAULT_LANGUAGE LOG_LEVEL TZ BACKUP_ENABLED BACKUP_INTERVAL_SECONDS BACKUP_LOCAL_RETENTION \
         WEBHOOK_HOST WEBHOOK_PUBLIC_URL MINIAPP_HOST MINIAPP_PUBLIC_URL; do
         source_value=$(bedolaga_env_mapping_value "$target_key" || true)
@@ -3404,6 +3421,22 @@ sync_bedolaga_bootstrap_env() {
     done < "$plan_file"
     rm -f "$plan_file"
     ok "Совместимые настройки Bedolaga записаны в .env Minishop; бэкап: $(basename "$BEDOLAGA_ENV_BACKUP_PATH")"
+}
+
+remove_imported_bedolaga_panel_url_override() {
+    if [ "${BEDOLAGA_LOCAL_TARGET:-0}" != "1" ]; then
+        return 0
+    fi
+    if ! check_target_postgres_auth >/dev/null 2>&1; then
+        fail "Не удалось проверить целевую PostgreSQL перед восстановлением настроек Panel API."
+        return 1
+    fi
+    if ! (cd "$TARGET_DIR" && run_compose exec -T postgres sh -lc \
+        'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -qc "DELETE FROM app_setting_overrides WHERE key = '\''PANEL_API_URL'\''"'); then
+        fail "Не удалось удалить импортированный override PANEL_API_URL."
+        return 1
+    fi
+    ok "Panel API использует проверенный URL из .env после импорта Bedolaga."
 }
 
 restore_bedolaga_env_backup() {
@@ -3903,6 +3936,19 @@ connect_proxy_to_target_network() {
     ok "Контейнер $proxy_name подключен к Docker-сети $target_network."
 }
 
+reconnect_existing_reverse_proxy_after_stack_start() {
+    proxy_name="${EXISTING_PROXY_CONTAINER_NAME:-}"
+    [ -n "$proxy_name" ] || return 0
+    if ! docker_container_exists "$proxy_name"; then
+        fail "Контейнер reverse proxy больше не найден: $proxy_name"
+        return 1
+    fi
+    if container_uses_host_network "$proxy_name"; then
+        return 0
+    fi
+    connect_proxy_to_target_network "$proxy_name"
+}
+
 strip_managed_block() {
     awk '
         /^# BEGIN remnawave-minishop managed by install.sh$/ { managed = 1; next }
@@ -3910,6 +3956,68 @@ strip_managed_block() {
         managed { next }
         { print }
     ' "$1" > "$2"
+}
+
+caddy_remove_managed_and_conflicting_sites() {
+    input="$1"
+    output="$2"
+    webhook_host="$3"
+    miniapp_host="$4"
+    awk -v webhook_host="$webhook_host" -v miniapp_host="$miniapp_host" '
+        function address_host(value, normalized, parts, count) {
+            normalized = value
+            gsub(/^[[:space:],]+|[[:space:],]+$/, "", normalized)
+            sub(/^https?:\/\//, "", normalized)
+            count = split(normalized, parts, ":")
+            if (count == 2 && parts[2] ~ /^[0-9]+$/) {
+                normalized = parts[1]
+            }
+            return tolower(normalized)
+        }
+        function targets_managed_host(line, header, addresses, count, i, host) {
+            header = line
+            sub(/\{.*/, "", header)
+            gsub(/,/, " ", header)
+            count = split(header, addresses, /[[:space:]]+/)
+            for (i = 1; i <= count; i++) {
+                host = address_host(addresses[i])
+                if (host == tolower(webhook_host) || host == tolower(miniapp_host)) {
+                    return 1
+                }
+            }
+            return 0
+        }
+        /^# BEGIN remnawave-minishop managed by install.sh$/ {
+            managed = 1
+            next
+        }
+        /^# END remnawave-minishop managed by install.sh$/ {
+            managed = 0
+            next
+        }
+        managed { next }
+        {
+            open_line = $0
+            close_line = $0
+            opens = gsub(/\{/, "", open_line)
+            closes = gsub(/\}/, "", close_line)
+            if (depth == 0 && opens > 0 && targets_managed_host($0)) {
+                skip = 1
+            }
+            if (!skip) {
+                print
+            }
+            depth += opens - closes
+            if (depth == 0) {
+                skip = 0
+            }
+        }
+        END {
+            if (managed || depth != 0) {
+                exit 1
+            }
+        }
+    ' "$input" > "$output"
 }
 
 container_nginx_first_value() {
@@ -4308,7 +4416,7 @@ attach_generic_caddy_proxy() {
     cp "$caddyfile" "$caddy_backup" || return 1
     info "Бэкап $caddyfile сохранен как $(basename "$caddy_backup")"
     tmp="$caddyfile.tmp.$$"
-    strip_managed_block "$caddy_backup" "$tmp" || {
+    caddy_remove_managed_and_conflicting_sites "$caddy_backup" "$tmp" "$webhook_host" "$miniapp_host" || {
         rm -f "$tmp"
         return 1
     }
@@ -4372,15 +4480,16 @@ attach_existing_reverse_proxy_container() {
 
     case "$proxy_kind" in
         nginx)
-            attach_generic_nginx_proxy "$proxy_name" "$webhook_host" "$miniapp_host"
+            attach_generic_nginx_proxy "$proxy_name" "$webhook_host" "$miniapp_host" || return 1
             ;;
         angie)
-            attach_generic_angie_proxy "$proxy_name" "$webhook_host" "$miniapp_host"
+            attach_generic_angie_proxy "$proxy_name" "$webhook_host" "$miniapp_host" || return 1
             ;;
         caddy)
-            attach_generic_caddy_proxy "$proxy_name" "$webhook_host" "$miniapp_host"
+            attach_generic_caddy_proxy "$proxy_name" "$webhook_host" "$miniapp_host" || return 1
             ;;
     esac
+    EXISTING_PROXY_CONTAINER_NAME="$proxy_name"
 }
 
 configure_existing_reverse_proxy() {
@@ -5703,7 +5812,7 @@ reset_target_compose_database() {
 }
 
 create_pre_migration_backup() {
-    label="$1"
+    migration_label="$1"
     ask="${2:-1}"
     if [ "$ask" = "1" ]; then
         if ! confirm "Сделать бэкап текущего Minishop перед миграцией? Это позволит откатить целевую базу и конфиги." 1; then
@@ -5715,7 +5824,7 @@ create_pre_migration_backup() {
     section "Бэкап перед миграцией"
     require_docker || return 1
     stamp=$(date -u '+%Y%m%d-%H%M%S')
-    backup_dir="$TARGET_DIR/backups/pre-${label}-migration-$stamp"
+    backup_dir="$TARGET_DIR/backups/pre-${migration_label}-migration-$stamp"
     mkdir -p "$backup_dir/files" "$backup_dir/dumps"
     chmod 700 "$backup_dir" 2>/dev/null || true
 
@@ -5776,7 +5885,7 @@ EOF
 
 Создан: $(date -u '+%Y-%m-%dT%H:%M:%SZ')
 Целевой каталог: $TARGET_DIR
-Источник миграции: $label
+Источник миграции: $migration_label
 
 Для отката выполните:
 
@@ -5879,7 +5988,7 @@ run_remnashop_migration() {
     if [ -n "$detected_source_dsn" ]; then
         info "Нашел Remnashop PostgreSQL и подставил DSN по умолчанию."
     fi
-    prompt_value "DSN PostgreSQL базы Remnashop" "$detected_source_dsn" 1 0 ""
+    prompt_value "DSN PostgreSQL базы Remnashop" "$detected_source_dsn" 1 1 ""
     SOURCE_DSN="$PROMPT_VALUE"
     SOURCE_SCHEMA="${REMNASHOP_SOURCE_SCHEMA:-public}"
     info "Схема PostgreSQL источника Remnashop: $SOURCE_SCHEMA. Для другой схемы задайте REMNASHOP_SOURCE_SCHEMA перед запуском."
@@ -5915,7 +6024,7 @@ run_remnashop_migration() {
         fi
     else
         warn "Для ручного целевого DSN автоматический бэкап целевой базы не выполняется."
-        prompt_value "Целевой PostgreSQL DSN" "" 1 0 ""
+        prompt_value "Целевой PostgreSQL DSN" "" 1 1 ""
         TARGET_DSN="$PROMPT_VALUE"
     fi
 
@@ -6033,7 +6142,7 @@ run_bedolaga_migration() {
     if [ -n "$detected_source_dsn" ]; then
         info "Нашел Bedolaga PostgreSQL и подставил DSN по умолчанию."
     fi
-    prompt_value "DSN PostgreSQL базы Bedolaga" "$detected_source_dsn" 1 0 ""
+    prompt_value "DSN PostgreSQL базы Bedolaga" "$detected_source_dsn" 1 1 ""
     SOURCE_DSN="$PROMPT_VALUE"
     SOURCE_SCHEMA="${BEDOLAGA_SOURCE_SCHEMA:-public}"
     detected_source_env=$(detect_bedolaga_env_file || true)
@@ -6070,7 +6179,7 @@ run_bedolaga_migration() {
     else
         BEDOLAGA_LOCAL_TARGET="0"
         warn "Для ручного целевого DSN автоматический бэкап целевой базы не выполняется."
-        prompt_value "Целевой PostgreSQL DSN" "" 1 0 ""
+        prompt_value "Целевой PostgreSQL DSN" "" 1 1 ""
         TARGET_DSN="$PROMPT_VALUE"
     fi
 
@@ -6103,6 +6212,7 @@ run_bedolaga_migration() {
         restore_bedolaga_env_backup || true
         return "$import_status"
     fi
+    remove_imported_bedolaga_panel_url_override || return 1
     print_remnashop_import_summary "$APPLY_SUMMARY_PATH" "apply"
     BEDOLAGA_POST_MIGRATION_PATH="$TARGET_DIR/$INSTALL_STATE_DIR/bedolaga-post-migration.md"
     {
@@ -6158,7 +6268,7 @@ run_tgshop_dsn_migration() {
         info "Source DSN: $(mask_compose_log_args "$detected_source_dsn")"
         SOURCE_DSN="$detected_source_dsn"
     else
-        prompt_value "DSN PostgreSQL старого remnawave-tg-shop" "" 1 0 ""
+        prompt_value "DSN PostgreSQL старого remnawave-tg-shop" "" 1 1 ""
         SOURCE_DSN="$PROMPT_VALUE"
     fi
 
