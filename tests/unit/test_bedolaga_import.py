@@ -12,6 +12,7 @@ from scripts.import_legacy import (
     build_arg_parser,
     ensure_distinct_databases,
 )
+from scripts.legacy_import.bedolaga_operations import _normalize_panel_api_url
 from scripts.legacy_import.remnashop_base import _RemnashopImporterBase
 from sqlalchemy import insert, select
 
@@ -92,6 +93,20 @@ def test_source_and_target_database_must_be_distinct() -> None:
             "postgresql+asyncpg://source:one@localhost:5432/shop",
             "postgresql://target:two@127.0.0.1/shop",
         )
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("https://panel.example.com", "https://panel.example.com/api"),
+        ("https://panel.example.com/", "https://panel.example.com/api"),
+        ("https://panel.example.com/api", "https://panel.example.com/api"),
+        ("https://panel.example.com/api/", "https://panel.example.com/api"),
+        ("", None),
+    ],
+)
+def test_bedolaga_panel_api_url_is_normalized(source: str, expected: str | None) -> None:
+    assert _normalize_panel_api_url(source) == expected
 
 
 def test_dry_run_session_forwards_reads_and_suppresses_writes() -> None:

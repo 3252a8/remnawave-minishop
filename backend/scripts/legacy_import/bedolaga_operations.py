@@ -39,6 +39,16 @@ def _string(value: Any, limit: int | None = None) -> str | None:
     return result[:limit] if limit else result
 
 
+def _normalize_panel_api_url(value: Any) -> str | None:
+    base = _string(value)
+    if not base:
+        return None
+    base = base.rstrip("/")
+    if base.endswith("/api"):
+        return base
+    return f"{base}/api"
+
+
 async def _artifact(path: str | None, payload: dict[str, Any]) -> None:
     if not path:
         return
@@ -301,6 +311,10 @@ class _BedolagaOperationsSection(_RemnashopImporterBase):
             if raw in (None, ""):
                 continue
             value = self._setting_value(raw, scale)
+            if source_key == "REMNAWAVE_API_URL":
+                value = _normalize_panel_api_url(value)
+                if value is None:
+                    continue
             written = await self._upsert_setting_override(target_key, value)
             changes.append(
                 {
