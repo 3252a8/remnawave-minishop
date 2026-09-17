@@ -1,7 +1,10 @@
 import json
 import tempfile
+import threading
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from unittest.mock import patch
 
 from config.webapp_themes_config import (
     WebappThemesConfig,
@@ -16,9 +19,35 @@ from config.webapp_themes_config import (
     resolved_webapp_themes_catalog,
     write_webapp_theme_dir,
 )
+from config.webapp_themes_store import _write_webapp_theme_file
 
 
 class WebappThemesConfigTests(unittest.TestCase):
+    def test_theme_descriptor_writes_use_unique_atomic_temp_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "dark" / "theme.json"
+            theme = builtin_webapp_themes_config("#abcdef").theme_by_key("dark")
+            self.assertIsNotNone(theme)
+            barrier = threading.Barrier(2)
+            original_write_text = Path.write_text
+
+            def synchronized_write(target, *args, **kwargs):
+                result = original_write_text(target, *args, **kwargs)
+                if target.name.endswith(".tmp"):
+                    barrier.wait(timeout=5)
+                return result
+
+            with (
+                patch.object(Path, "write_text", synchronized_write),
+                ThreadPoolExecutor(max_workers=2) as executor,
+            ):
+                futures = [executor.submit(_write_webapp_theme_file, path, theme) for _ in range(2)]
+                for future in futures:
+                    future.result(timeout=5)
+
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["key"], "dark")
+            self.assertEqual(list(path.parent.glob("*.tmp")), [])
+
     def test_builtin_has_core_themes(self):
         cfg = builtin_webapp_themes_config("#abcdef")
         self.assertEqual(cfg.default_theme, "dark")
