@@ -1100,12 +1100,19 @@ test("a theme can collapse the referral bonus list", async ({ page }) => {
   const disclosure = page.locator(".referral-bonus-disclosure");
   const trigger = disclosure.locator(".referral-bonus-summary");
   await expect(disclosure).toHaveCount(1);
-  await expect(trigger).toHaveText("Если друг оплатит подписку:");
+  await expect(trigger).toContainText("Бонус зависит от тарифа и периода оплаты друга");
   await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator(".referral-tariff-dropdown")).toHaveCount(0);
   await expect(page.locator(".referral-bonus-row-nested")).toHaveCount(0);
 
   await trigger.click();
   await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator(".referral-tariff-dropdown")).toHaveCount(2);
+  await expect(page.locator(".referral-tariff-summary").first()).toBeVisible();
+  await expect(page.locator(".referral-bonus-row-nested")).toHaveCount(4);
+  await expect(page.locator(".referral-bonus-row-nested").first()).toBeHidden();
+
+  await page.locator(".referral-tariff-summary").first().click();
   await expect(page.locator(".referral-bonus-row-nested").first()).toBeVisible();
 });
 
