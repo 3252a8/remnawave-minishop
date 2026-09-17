@@ -594,7 +594,11 @@
 {/snippet}
 
 {#snippet renderField(field: AdminSettingField)}
-  {@const revealed = isSecretRevealed(field.key)}
+  {@const dirtySecret = settingsDirty[field.key]}
+  {@const canRevealSecret = Boolean(
+    field.secret && !dirtySecret?.deleted && String(dirtySecret?.value ?? "")
+  )}
+  {@const revealed = canRevealSecret && isSecretRevealed(field.key)}
   {@const valueSource = fieldValueSourceLabel(field)}
   <div
     class="admin-setting"
@@ -752,14 +756,16 @@
           value={fieldInputValue(field)}
           oninput={fieldInputHandler(field)}
         />
-        <AdminButton
-          size="sm"
-          variant="ghost"
-          aria-label={revealed ? at("hide", {}, "Hide") : at("show", {}, "Show")}
-          onclick={() => toggleSecretReveal(field.key)}
-        >
-          {#if revealed}<EyeOff size={13} />{:else}<Eye size={13} />{/if}
-        </AdminButton>
+        {#if canRevealSecret}
+          <AdminButton
+            size="sm"
+            variant="ghost"
+            aria-label={revealed ? at("hide", {}, "Hide") : at("show", {}, "Show")}
+            onclick={() => toggleSecretReveal(field.key)}
+          >
+            {#if revealed}<EyeOff size={13} />{:else}<Eye size={13} />{/if}
+          </AdminButton>
+        {/if}
       {:else}
         <Input
           class="input"
