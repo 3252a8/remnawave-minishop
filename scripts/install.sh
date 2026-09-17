@@ -3439,6 +3439,178 @@ remove_imported_bedolaga_panel_url_override() {
     ok "Panel API использует проверенный URL из .env после импорта Bedolaga."
 }
 
+backfill_bedolaga_panel_subscription_ids() {
+    section "Привязка подписок Bedolaga к Remnawave"
+    export SOURCE_DSN TARGET_DSN SOURCE_SCHEMA
+    if ! (cd "$TARGET_DIR" && run_compose run --rm --no-deps -T \
+        -e SOURCE_DSN -e TARGET_DSN -e SOURCE_SCHEMA \
+        backend python - <<'PY'
+import asyncio
+import os
+import re
+
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
+
+
+def async_dsn(value: str) -> str:
+    if value.startswith("postgresql+asyncpg://"):
+        return value
+    if value.startswith("postgresql://"):
+        return "postgresql+asyncpg://" + value.removeprefix("postgresql://")
+    if value.startswith("postgres://"):
+        return "postgresql+asyncpg://" + value.removeprefix("postgres://")
+    raise RuntimeError("Only PostgreSQL DSNs are supported")
+
+
+async def main() -> None:
+    schema = os.environ.get("SOURCE_SCHEMA", "public")
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", schema):
+        raise RuntimeError("Invalid Bedolaga source schema")
+    quoted_schema = '"' + schema.replace('"', '""') + '"'
+    source_engine = create_async_engine(async_dsn(os.environ["SOURCE_DSN"]))
+    target_engine = create_async_engine(async_dsn(os.environ["TARGET_DSN"]))
+    try:
+        async with source_engine.connect() as source:
+            rows = (
+                await source.execute(
+                    text(
+                        f"""
+                        SELECT id::text AS source_id,
+                               btrim(remnawave_short_uuid) AS panel_subscription_uuid
+                        FROM {quoted_schema}.subscriptions
+                        WHERE nullif(btrim(remnawave_short_uuid), '') IS NOT NULL
+                          AND lower(status::text) IN ('active', 'trial')
+                          AND end_date > now()
+                        ORDER BY id
+                        """
+                    )
+                )
+            ).mappings().all()
+        values = [dict(row) for row in rows]
+        short_ids = [str(row["panel_subscription_uuid"]) for row in values]
+        if len(short_ids) != len(set(short_ids)):
+            raise RuntimeError("Active Bedolaga subscriptions contain duplicate short UUIDs")
+
+        update_statement = text(
+            """
+            UPDATE subscriptions AS target
+            SET panel_subscription_uuid = :panel_subscription_uuid
+            FROM legacy_import_mappings AS mapping
+            WHERE mapping.source = 'bedolaga'
+              AND mapping.entity_type = 'subscription'
+              AND mapping.source_id = :source_id
+              AND target.subscription_id::text = mapping.target_id
+              AND target.is_active IS TRUE
+              AND target.end_date > now()
+              AND target.panel_subscription_uuid IS NULL
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM subscriptions AS conflicting
+                  WHERE conflicting.panel_subscription_uuid = :panel_subscription_uuid
+              )
+            """
+        )
+        async with target_engine.begin() as target:
+            for offset in range(0, len(values), 500):
+                await target.execute(update_statement, values[offset : offset + 500])
+            missing = int(
+                (
+                    await target.execute(
+                        text(
+                            """
+                            SELECT count(*)
+                            FROM legacy_import_mappings AS mapping
+                            JOIN subscriptions AS target
+                              ON target.subscription_id::text = mapping.target_id
+                            WHERE mapping.source = 'bedolaga'
+                              AND mapping.entity_type = 'subscription'
+                              AND target.is_active IS TRUE
+                              AND target.end_date > now()
+                              AND target.panel_subscription_uuid IS NULL
+                            """
+                        )
+                    )
+                ).scalar_one()
+            )
+            linked = int(
+                (
+                    await target.execute(
+                        text(
+                            """
+                            SELECT count(*)
+                            FROM legacy_import_mappings AS mapping
+                            JOIN subscriptions AS target
+                              ON target.subscription_id::text = mapping.target_id
+                            WHERE mapping.source = 'bedolaga'
+                              AND mapping.entity_type = 'subscription'
+                              AND target.is_active IS TRUE
+                              AND target.end_date > now()
+                              AND target.panel_subscription_uuid IS NOT NULL
+                            """
+                        )
+                    )
+                ).scalar_one()
+            )
+        if missing:
+            raise RuntimeError(
+                f"{missing} active imported subscriptions remain without a panel short UUID"
+            )
+        print(f"linked_active_subscriptions={linked}")
+    finally:
+        await source_engine.dispose()
+        await target_engine.dispose()
+
+
+asyncio.run(main())
+PY
+    ); then
+        fail "Не удалось связать активные подписки Bedolaga с их shortUuid в Remnawave. Cutover отменен."
+        return 1
+    fi
+    ok "Активные подписки Bedolaga связаны с Remnawave до запуска синхронизации."
+}
+
+verify_bedolaga_subscription_links() {
+    [ "${BEDOLAGA_LOCAL_TARGET:-0}" = "1" ] || return 0
+    result=$(cd "$TARGET_DIR" && run_compose exec -T postgres sh -lc \
+        'psql -X -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -F "|" -v ON_ERROR_STOP=1' <<'SQL'
+SELECT
+    count(*) FILTER (
+        WHERE imported.is_active IS TRUE
+          AND imported.end_date > now()
+          AND imported.panel_subscription_uuid IS NULL
+    ) AS missing_panel_link,
+    count(*) FILTER (
+        WHERE imported.is_active IS FALSE
+          AND lower(coalesce(imported.provider, '')) <> 'trial'
+          AND EXISTS (
+              SELECT 1
+              FROM subscriptions AS current
+              WHERE current.subscription_id <> imported.subscription_id
+                AND current.user_id = imported.user_id
+                AND current.panel_user_uuid = imported.panel_user_uuid
+                AND current.is_active IS TRUE
+                AND current.end_date > now()
+                AND abs(extract(epoch FROM current.end_date - imported.end_date)) <= 1
+          )
+    ) AS split_active_link
+FROM legacy_import_mappings AS mapping
+JOIN subscriptions AS imported
+  ON imported.subscription_id::text = mapping.target_id
+WHERE mapping.source = 'bedolaga'
+  AND mapping.entity_type = 'subscription';
+SQL
+    ) || return 1
+    missing_panel_link=${result%%|*}
+    split_active_link=${result#*|}
+    if [ "${missing_panel_link:-1}" != "0" ] || [ "${split_active_link:-1}" != "0" ]; then
+        fail "Проверка привязок подписок Bedolaga не прошла: без shortUuid=$missing_panel_link, разделенных активных записей=$split_active_link."
+        return 1
+    fi
+    ok "Привязки активных подписок Bedolaga сохранились после запуска Minishop."
+}
+
 restore_bedolaga_env_backup() {
     [ -n "$BEDOLAGA_ENV_BACKUP_PATH" ] && [ -f "$BEDOLAGA_ENV_BACKUP_PATH" ] || return 0
     cp "$BEDOLAGA_ENV_BACKUP_PATH" "$ENV_PATH" || return 1
@@ -4924,7 +5096,7 @@ perform_bedolaga_cutover() {
         [ "$BEDOLAGA_SOURCE_CUTOVER_STARTED" = "1" ] && rollback_bedolaga_cutover
         return 1
     fi
-    if ! start_stack 0 1 || ! wait_target_runtime_healthy || ! validate_stack || ! verify_bedolaga_source_disabled "$BEDOLAGA_STOPPED_CONTAINER_IDS" || ! configure_egames_panel_webhook; then
+    if ! start_stack 0 1 || ! wait_target_runtime_healthy || ! validate_stack || ! verify_bedolaga_source_disabled "$BEDOLAGA_STOPPED_CONTAINER_IDS" || ! verify_bedolaga_subscription_links || ! configure_egames_panel_webhook; then
         rollback_bedolaga_cutover
         return 1
     fi
@@ -6207,11 +6379,17 @@ run_bedolaga_migration() {
     import_status=0
     run_import_command 0 "$APPLY_SUMMARY_PATH" 0 bedolaga || import_status=$?
     restore_app_data_permissions || true
-    disconnect_local_source_db_from_target_network
     if [ "$import_status" != "0" ]; then
+        disconnect_local_source_db_from_target_network
         restore_bedolaga_env_backup || true
         return "$import_status"
     fi
+    if ! backfill_bedolaga_panel_subscription_ids; then
+        disconnect_local_source_db_from_target_network
+        restore_bedolaga_env_backup || true
+        return 1
+    fi
+    disconnect_local_source_db_from_target_network
     remove_imported_bedolaga_panel_url_override || return 1
     print_remnashop_import_summary "$APPLY_SUMMARY_PATH" "apply"
     BEDOLAGA_POST_MIGRATION_PATH="$TARGET_DIR/$INSTALL_STATE_DIR/bedolaga-post-migration.md"

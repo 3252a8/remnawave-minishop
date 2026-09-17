@@ -1781,10 +1781,13 @@ def test_shell_installer_supports_guarded_bedolaga_migration():
     assert "bedolaga-reconciliation.json" in script
     assert "bedolaga-post-migration.md" in script
     assert "sync_bedolaga_bootstrap_env" in script
+    assert "backfill_bedolaga_panel_subscription_ids" in script
     assert "perform_bedolaga_cutover" in script
     assert "stop_bedolaga_source_stack" in script
     assert "docker update --restart=no" in script
     assert "wait_target_runtime_healthy" in script
+    assert "verify_bedolaga_subscription_links" in script
+    assert "lower(coalesce(imported.provider, '')) <> 'trial'" in script
     assert "bedolaga_external_integrations_checklist" in script
     assert "Minishop не может автоматически изменить redirect/callback" in script
     assert "/auth/telegram/callback" in script
@@ -1965,6 +1968,47 @@ remove_imported_bedolaga_panel_url_override || exit 20
     assert "PANEL_API_URL" in command
 
 
+def test_bedolaga_panel_subscription_backfill_uses_inherited_dsns(tmp_path: Path):
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    target_dir = tmp_path / "target"
+    target_dir.mkdir()
+    calls = tmp_path / "compose-calls"
+    program = tmp_path / "backfill.py"
+    result = _run_installer_function(
+        tmp_path,
+        f"""
+TARGET_DIR={shlex.quote(target_dir.as_posix())}
+SOURCE_DSN=postgresql://source-user:source-secret@source/bedolaga
+TARGET_DSN=postgresql://target-user:target-secret@postgres/minishop
+SOURCE_SCHEMA=public
+CALLS={shlex.quote(calls.as_posix())}
+PROGRAM={shlex.quote(program.as_posix())}
+section() {{ :; }}
+ok() {{ :; }}
+fail() {{ printf '%s\n' "$*" >&2; }}
+run_compose() {{
+    printf '%s\n' "$*" > "$CALLS"
+    cat > "$PROGRAM"
+}}
+
+backfill_bedolaga_panel_subscription_ids || exit 20
+""",
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    command = calls.read_text(encoding="utf-8")
+    assert "-e SOURCE_DSN" in command
+    assert "-e TARGET_DSN" in command
+    assert "source-secret" not in command
+    assert "target-secret" not in command
+    source = program.read_text(encoding="utf-8")
+    assert "remnawave_short_uuid" in source
+    assert "panel_subscription_uuid" in source
+    assert "legacy_import_mappings" in source
+
+
 def test_shell_installer_bedolaga_cutover_stops_old_stack_before_start_and_healthcheck(
     tmp_path: Path,
 ) -> None:
@@ -1992,6 +2036,7 @@ start_stack() {{ printf '%s\n' start-minishop >> "$ORDER_FILE"; }}
 wait_target_runtime_healthy() {{ printf '%s\n' health-minishop >> "$ORDER_FILE"; }}
 validate_stack() {{ printf '%s\n' validate-minishop >> "$ORDER_FILE"; }}
 verify_bedolaga_source_disabled() {{ printf '%s\n' verify-bedolaga >> "$ORDER_FILE"; }}
+verify_bedolaga_subscription_links() {{ printf '%s\n' verify-subscriptions >> "$ORDER_FILE"; }}
 configure_egames_panel_webhook() {{ printf '%s\n' switch-panel-webhook >> "$ORDER_FILE"; }}
 
 perform_bedolaga_cutover || exit 20
@@ -2005,6 +2050,7 @@ perform_bedolaga_cutover || exit 20
         "health-minishop",
         "validate-minishop",
         "verify-bedolaga",
+        "verify-subscriptions",
         "switch-panel-webhook",
     ]
 
