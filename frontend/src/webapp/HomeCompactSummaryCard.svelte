@@ -85,8 +85,10 @@
     t?: Translate;
   } = $props();
 
+  const REGULAR_TRAFFIC_HELP_ID = "compact-regular-traffic-help";
   const PREMIUM_TRAFFIC_HELP_ID = "compact-premium-traffic-help";
   const HELP_TRANSITION = { duration: 120 };
+  let regularTrafficHelpOpen = $state(false);
   let premiumTrafficHelpOpen = $state(false);
 
   const regularTrafficVisible = $derived(
@@ -132,23 +134,33 @@
       .join(" ")
   );
 
+  function toggleRegularTrafficHelp(event: MouseEvent): void {
+    event.stopPropagation();
+    regularTrafficHelpOpen = !regularTrafficHelpOpen;
+    premiumTrafficHelpOpen = false;
+  }
+
   function togglePremiumTrafficHelp(event: MouseEvent): void {
     event.stopPropagation();
     premiumTrafficHelpOpen = !premiumTrafficHelpOpen;
+    regularTrafficHelpOpen = false;
   }
 
   function closeTrafficHelpOnOutsideClick(event: MouseEvent): void {
-    if (!premiumTrafficHelpOpen) return;
+    if (!regularTrafficHelpOpen && !premiumTrafficHelpOpen) return;
 
     const target = event.target;
     if (!(target instanceof Node)) {
+      regularTrafficHelpOpen = false;
       premiumTrafficHelpOpen = false;
       return;
     }
 
+    if (document.getElementById(REGULAR_TRAFFIC_HELP_ID)?.contains(target)) return;
     if (document.getElementById(PREMIUM_TRAFFIC_HELP_ID)?.contains(target)) return;
     if (target instanceof Element && target.closest(".compact-traffic-help-trigger")) return;
 
+    regularTrafficHelpOpen = false;
     premiumTrafficHelpOpen = false;
   }
 </script>
@@ -259,9 +271,22 @@
               <small>
                 <span class="meta-separator" aria-hidden="true"></span>
                 {regularTrafficMeta}
-                {#if regularTrafficNextReset}<span class="meta-separator" aria-hidden="true"></span>
-                  {regularTrafficNextReset}{/if}
               </small>
+              {#if regularTrafficNextReset}
+                <Button
+                  data-webapp-action="open-regular-traffic-help"
+                  class="compact-traffic-help-trigger"
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onclick={toggleRegularTrafficHelp}
+                  aria-expanded={regularTrafficHelpOpen}
+                  aria-controls={REGULAR_TRAFFIC_HELP_ID}
+                  aria-label={t("wa_traffic_next_reset_label", {}, "Next reset")}
+                >
+                  <CircleQuestionMark class="compact-traffic-help-icon" size={12} />
+                </Button>
+              {/if}
             </span>
             <strong
               >{regularTrafficLabel} <span class="meta-separator" aria-hidden="true"></span>
@@ -269,6 +294,28 @@
             >
           </div>
           <LinearProgress value={regularTrafficPercent} label={t("wa_home_traffic_used")} />
+          {#if regularTrafficHelpOpen}
+            <div
+              id={REGULAR_TRAFFIC_HELP_ID}
+              class="compact-traffic-help compact-traffic-help-popover"
+              role="dialog"
+              aria-label={t("wa_traffic_next_reset_label", {}, "Next reset")}
+              transition:fade={HELP_TRANSITION}
+            >
+              <button
+                class="compact-traffic-help-close"
+                type="button"
+                onclick={() => (regularTrafficHelpOpen = false)}
+                aria-label={t("wa_close")}
+              >
+                <CircleX size={14} />
+              </button>
+              <div class="compact-traffic-help-reset">
+                <small>{t("wa_traffic_next_reset_label", {}, "Next reset")}</small>
+                <strong>{regularTrafficNextReset}</strong>
+              </div>
+            </div>
+          {/if}
         </div>
       {/if}
 
@@ -314,7 +361,7 @@
           {#if premiumTrafficHelpOpen}
             <div
               id={PREMIUM_TRAFFIC_HELP_ID}
-              class="compact-traffic-help compact-traffic-help-premium"
+              class="compact-traffic-help compact-traffic-help-popover"
               role="dialog"
               aria-label={premiumTrafficTitle}
               transition:fade={HELP_TRANSITION}
@@ -561,7 +608,7 @@
     background: color-mix(in srgb, var(--panel) 96%, transparent);
     box-shadow: 0 12px 34px rgba(0, 0, 0, 0.42);
   }
-  .compact-traffic-help-premium {
+  .compact-traffic-help-popover {
     bottom: calc(100% + 5px);
   }
   .compact-traffic-help-close {
@@ -587,6 +634,19 @@
   .compact-traffic-help-scope > small {
     color: var(--muted);
     font-size: 10px;
+  }
+  .compact-traffic-help-reset {
+    display: grid;
+    gap: 3px;
+    padding-right: 28px;
+  }
+  .compact-traffic-help-reset small {
+    color: var(--muted);
+    font-size: 10px;
+  }
+  .compact-traffic-help-reset strong {
+    overflow-wrap: anywhere;
+    font-size: 12px;
   }
   .compact-traffic-help-scope {
     display: grid;

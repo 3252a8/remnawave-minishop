@@ -1053,6 +1053,10 @@ test("optional home widgets stay disabled by default and use dedicated presets",
   await expect(page.locator(".home-compact-summary")).toBeVisible();
   await expect(page.locator(".compact-balance")).toHaveCount(0);
   await expect(page.locator(".server-status-card")).toHaveCount(0);
+  const regularTrafficRow = page.locator(".compact-traffic-item").first();
+  await expect(regularTrafficRow.locator(".compact-traffic-label")).not.toContainText("13.10.2026");
+  await regularTrafficRow.locator('[data-webapp-action="open-regular-traffic-help"]').click();
+  await expect(page.locator("#compact-regular-traffic-help")).toContainText("13.10.2026");
 
   await page.goto(`${APP_URL}?path=/home&mock=server-status`);
   await expect(page.locator(".server-status-card")).toBeVisible();
