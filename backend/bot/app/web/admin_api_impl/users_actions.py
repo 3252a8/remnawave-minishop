@@ -22,6 +22,7 @@ from .common import (
     _admin_subscription_traffic_strategy_lock_reason,
     _decorate_admin_subscription_traffic_strategy,
     _error,
+    _is_trial_subscription,
     _ok,
     _serialize_subscription,
     _serialize_user,
@@ -272,17 +273,61 @@ async def admin_user_reset_trial_route(request: web.Request) -> web.Response:
         if not user:
             return _error(404, "not_found")
 
+        active = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
         reset_at = await user_dal.mark_trial_eligibility_reset(session, target_id)
         if reset_at is None:
             await session.rollback()
             return _error(404, "not_found")
+
+        if _is_trial_subscription(active):
+            panel_user_uuid = str(getattr(active, "panel_user_uuid", "") or "").strip()
+            if not panel_user_uuid:
+                await session.rollback()
+                return _error(409, "panel_user_missing")
+
+            subscription_service = get_optional_subscription_service(request)
+            panel_service = get_panel_service(request) or getattr(
+                subscription_service, "panel_service", None
+            )
+            if panel_service is None:
+                await session.rollback()
+                return _error(503, "panel_service_unavailable")
+
+            reset_at_utc = reset_at if reset_at.tzinfo else reset_at.replace(tzinfo=UTC)
+            expire_at = reset_at_utc.astimezone(UTC)
+            expire_at_iso = expire_at.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+            try:
+                updated_panel_user = await panel_service.update_user_details_on_panel(
+                    panel_user_uuid,
+                    {"uuid": panel_user_uuid, "expireAt": expire_at_iso},
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Admin webapp failed to expire active trial for user %s: %s",
+                    target_id,
+                    exc,
+                )
+                await session.rollback()
+                return _error(502, "panel_update_failed", str(exc))
+            if not updated_panel_user:
+                await session.rollback()
+                return _error(502, "panel_update_failed")
+
+            active.end_date = expire_at
+            active.is_active = False
+            active.status_from_panel = "EXPIRED_TRIAL_RESET"
+            active.skip_notifications = True
+            active.auto_renew_enabled = False
 
         await message_log_dal.create_message_log_no_commit(
             session,
             {
                 "user_id": actor_id,
                 "event_type": "admin_reset_trial_webapp",
-                "content": f"Reset trial eligibility for user_id={target_id}",
+                "content": (
+                    f"Reset trial eligibility for user_id={target_id}; "
+                    f"active_trial_expired={'yes' if _is_trial_subscription(active) else 'no'}"
+                ),
                 "is_admin_event": True,
                 "target_user_id": target_id,
             },
