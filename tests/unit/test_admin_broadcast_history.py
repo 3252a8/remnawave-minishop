@@ -227,14 +227,33 @@ class AdminBroadcastDeliveryTests(unittest.IsolatedAsyncioTestCase):
             patch.object(delivery_module.broadcast_dal, "refresh_broadcast_stats", AsyncMock()),
         ):
             result = await service._queue_deliveries(
-                _broadcast(),
+                _broadcast(
+                    buttons=[
+                        {
+                            "kind": "url",
+                            "label": "Profile",
+                            "url": "https://example.test/users/{user_id}",
+                        }
+                    ]
+                ),
                 deliveries,
                 [1, 2],
                 ["telegram", "email"],
             )
 
         self.assertEqual([item["text"] for item in queue.messages], ["Hello Ann", "Привет Борис"])
+        self.assertEqual(
+            [item["reply_markup"].inline_keyboard[0][0].url for item in queue.messages],
+            ["https://example.test/users/1", "https://example.test/users/2"],
+        )
         self.assertEqual([item.message_text for item in scheduled], ["Hello Ann", "Привет Борис"])
+        self.assertEqual(
+            [item.buttons for item in scheduled],
+            [
+                [("Profile", "https://example.test/users/1")],
+                [("Profile", "https://example.test/users/2")],
+            ],
+        )
         self.assertEqual(result.queued, 2)
         self.assertEqual(result.email_queued, 2)
 

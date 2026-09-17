@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from aiogram.types import BufferedInputFile
@@ -165,7 +165,12 @@ class AdminBroadcastDeliveryService:
             for item in list(broadcast.buttons or [])
             if isinstance(item, dict)
         ]
-        authored_variants = [*texts.values(), *subjects.values()]
+        button_shortcodes = set().union(*(known_shortcodes(button.url) for button in button_inputs))
+        authored_variants = [
+            *texts.values(),
+            *subjects.values(),
+            *(button.url for button in button_inputs),
+        ]
         needed = set().union(*(known_shortcodes(value) for value in authored_variants))
         contexts: dict[int, BroadcastUserContext] = {}
         stored_image: StoredMessageImage | None = None
@@ -191,7 +196,7 @@ class AdminBroadcastDeliveryService:
                     self.audience_service.panel_service,
                 )
 
-        button_cache: dict[str, list[MessageButton]] = {}
+        button_cache: dict[tuple[str, int | None], list[MessageButton]] = {}
 
         def language_for(delivery: AdminBroadcastDelivery) -> str:
             context = contexts.get(int(delivery.user_id))
@@ -201,17 +206,36 @@ class AdminBroadcastDeliveryService:
                 or self.settings.DEFAULT_LANGUAGE
             )
 
-        def buttons_for(language: str) -> list[MessageButton]:
-            if language not in button_cache:
-                button_cache[language] = resolve_message_buttons(
-                    button_inputs,
+        def buttons_for(language: str, user_id: int) -> list[MessageButton]:
+            cache_key = (language, user_id if button_shortcodes else None)
+            if cache_key not in button_cache:
+                context = contexts.get(user_id)
+                personalized_inputs = [
+                    replace(
+                        button,
+                        url=render_broadcast_text(
+                            button.url,
+                            context,
+                            lang=language,
+                            i18n=self.i18n,
+                            settings=self.settings,
+                            bot_username=self.bot_username,
+                            escape=False,
+                        ),
+                    )
+                    if known_shortcodes(button.url)
+                    else button
+                    for button in button_inputs
+                ]
+                button_cache[cache_key] = resolve_message_buttons(
+                    personalized_inputs,
                     mini_app_url=self.settings.SUBSCRIPTION_MINI_APP_URL,
                     bot_username=self.bot_username,
                     language=language,
                     translate=lambda lang, key: self.i18n.gettext(lang, key),
                     default_language=self.settings.DEFAULT_LANGUAGE,
                 )
-            return button_cache[language]
+            return button_cache[cache_key]
 
         queued = 0
         failed = 0
@@ -246,7 +270,7 @@ class AdminBroadcastDeliveryService:
                 await self._queue_telegram(
                     delivery,
                     rendered,
-                    buttons_for(language),
+                    buttons_for(language, int(delivery.user_id)),
                     image=telegram_photo,
                 )
                 queued += 1
@@ -277,7 +301,7 @@ class AdminBroadcastDeliveryService:
                     language_code=language,
                     message_text=rendered,
                     subject=rendered_subject or None,
-                    buttons=email_links_for_buttons(buttons_for(language)),
+                    buttons=email_links_for_buttons(buttons_for(language, int(delivery.user_id))),
                     delivery_id=int(delivery.delivery_id),
                 )
             )
