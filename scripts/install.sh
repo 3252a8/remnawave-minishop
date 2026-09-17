@@ -2937,7 +2937,7 @@ validate_bind_settings() {
 }
 
 compose() {
-    docker compose "$@"
+    docker compose "$@" < /dev/null
 }
 
 mask_compose_log_args() {
