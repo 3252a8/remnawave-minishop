@@ -25,6 +25,7 @@ from bot.handlers.admin.sync_admin import (
     _subscription_update_delta,
 )
 from bot.handlers.admin.sync_admin_common import _subscription_update_reason_labels
+from bot.handlers.admin.sync_admin_runner import _select_existing_subscription_for_panel_sync
 from bot.handlers.admin.sync_admin_summary import localized_sync_details
 from bot.middlewares.i18n import JsonI18n
 from db.models import Subscription
@@ -51,6 +52,38 @@ def test_description_match_rejects_different_identity_after_mojibake_repair():
 def test_panel_telegram_id_is_coerced_to_int():
     assert _coerce_panel_telegram_id("12345") == 12345
     assert _coerce_panel_telegram_id("") is None
+
+
+def test_panel_sync_adopts_active_subscription_without_panel_link() -> None:
+    imported = SimpleNamespace(panel_subscription_uuid=None)
+
+    selected = _select_existing_subscription_for_panel_sync(
+        user_id=42,
+        panel_uuid="panel-user",
+        panel_subscription_uuid="panel-short-uuid",
+        previous_panel_uuid=None,
+        subscriptions_by_panel_uuid={},
+        active_subscriptions_by_user_panel={(42, "panel-user"): imported},
+        subscriptions_by_user_panel={(42, "panel-user"): imported},
+    )
+
+    assert selected is imported
+
+
+def test_panel_sync_does_not_adopt_different_linked_subscription() -> None:
+    linked = SimpleNamespace(panel_subscription_uuid="another-short-uuid")
+
+    selected = _select_existing_subscription_for_panel_sync(
+        user_id=42,
+        panel_uuid="panel-user",
+        panel_subscription_uuid="panel-short-uuid",
+        previous_panel_uuid=None,
+        subscriptions_by_panel_uuid={},
+        active_subscriptions_by_user_panel={(42, "panel-user"): linked},
+        subscriptions_by_user_panel={(42, "panel-user"): linked},
+    )
+
+    assert selected is None
 
 
 def test_panel_description_for_user_excludes_email():

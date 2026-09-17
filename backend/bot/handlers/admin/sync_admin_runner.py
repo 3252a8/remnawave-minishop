@@ -58,6 +58,29 @@ from .sync_admin_summary import (
 logger = logging.getLogger(__name__)
 
 
+def _select_existing_subscription_for_panel_sync(
+    *,
+    user_id: int,
+    panel_uuid: str,
+    panel_subscription_uuid: str,
+    previous_panel_uuid: str | None,
+    subscriptions_by_panel_uuid: dict[str, Subscription],
+    active_subscriptions_by_user_panel: dict[tuple[int, str], Subscription],
+    subscriptions_by_user_panel: dict[tuple[int, str], Subscription],
+) -> Subscription | None:
+    existing = subscriptions_by_panel_uuid.get(panel_subscription_uuid)
+    if existing is not None:
+        return existing
+
+    active = active_subscriptions_by_user_panel.get((user_id, panel_uuid))
+    if active is not None and not active.panel_subscription_uuid:
+        return active
+
+    if previous_panel_uuid:
+        return subscriptions_by_user_panel.get((user_id, previous_panel_uuid))
+    return None
+
+
 async def perform_sync(
     panel_service: PanelApiService,
     session: AsyncSession,
@@ -604,37 +627,41 @@ async def _perform_sync_impl(
                         ) or panel_user_dict.get("shortUuid")
 
                         if subscription_uuid_from_panel:
+                            existing_sub_by_uuid = _select_existing_subscription_for_panel_sync(
+                                user_id=int(actual_user_id),
+                                panel_uuid=panel_uuid,
+                                panel_subscription_uuid=subscription_uuid_from_panel,
+                                previous_panel_uuid=previous_panel_uuid_for_reconciliation,
+                                subscriptions_by_panel_uuid=subscriptions_by_panel_uuid,
+                                active_subscriptions_by_user_panel=(
+                                    active_subscriptions_by_user_panel
+                                ),
+                                subscriptions_by_user_panel=subscriptions_by_user_panel,
+                            )
+
                             # If the panel reports the subscription as ACTIVE, deactivate all other active subscriptions first  # noqa: E501
                             if panel_status_means_active(panel_status):
-                                await session.execute(
-                                    update(Subscription)
-                                    .where(
-                                        Subscription.panel_user_uuid == panel_uuid,
-                                        Subscription.is_active.is_(True),
+                                deactivate_stmt = update(Subscription).where(
+                                    Subscription.panel_user_uuid == panel_uuid,
+                                    Subscription.is_active.is_(True),
+                                )
+                                if existing_sub_by_uuid is not None:
+                                    deactivate_stmt = deactivate_stmt.where(
+                                        Subscription.subscription_id
+                                        != existing_sub_by_uuid.subscription_id
+                                    )
+                                else:
+                                    deactivate_stmt = deactivate_stmt.where(
                                         or_(
                                             Subscription.panel_subscription_uuid
                                             != subscription_uuid_from_panel,
                                             Subscription.panel_subscription_uuid.is_(None),
-                                        ),
+                                        )
                                     )
-                                    .values(
+                                await session.execute(
+                                    deactivate_stmt.values(
                                         is_active=False,
                                         status_from_panel="INACTIVE",
-                                    )
-                                )
-
-                            # Try to find subscription by its panel_subscription_uuid first (idempotent)  # noqa: E501
-                            existing_sub_by_uuid = subscriptions_by_panel_uuid.get(
-                                subscription_uuid_from_panel
-                            )
-                            if (
-                                existing_sub_by_uuid is None
-                                and previous_panel_uuid_for_reconciliation
-                            ):
-                                existing_sub_by_uuid = subscriptions_by_user_panel.get(
-                                    (
-                                        int(actual_user_id),
-                                        previous_panel_uuid_for_reconciliation,
                                     )
                                 )
 

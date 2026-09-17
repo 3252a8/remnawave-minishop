@@ -8,6 +8,7 @@ from scripts.import_legacy import (
     DryRunSession,
     bedolaga_build_tariff_catalog,
     bedolaga_ledger_effect,
+    bedolaga_panel_subscription_uuid,
     bedolaga_target_user_id,
     build_arg_parser,
     ensure_distinct_databases,
@@ -163,6 +164,19 @@ def test_bedolaga_balance_effects_are_signed_minor_units() -> None:
         700,
     )
     assert bedolaga_ledger_effect("new", 0) is None
+
+
+def test_bedolaga_subscription_uses_panel_short_uuid() -> None:
+    assert (
+        bedolaga_panel_subscription_uuid(
+            {
+                "remnawave_short_uuid": " panel-short-uuid ",
+                "remnawave_short_id": "local-username-suffix",
+            }
+        )
+        == "panel-short-uuid"
+    )
+    assert bedolaga_panel_subscription_uuid({"remnawave_short_id": "local-only"}) is None
 
 
 def test_bedolaga_tariff_catalog_preserves_days_prices_limits_and_status() -> None:
