@@ -670,7 +670,9 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     WEBAPP_AUTH_MAX_AGE_SECONDS: int = Field(default=24 * 60 * 60)
     WEBAPP_LOGIN_TOKEN_TTL_SECONDS: int = Field(default=10 * 60)
     TELEGRAM_LOGIN_ENABLED: bool = Field(default=True)
+    TELEGRAM_LOGIN_RECOMMENDED: bool = Field(default=True)
     EMAIL_LOGIN_ENABLED: bool = Field(default=True)
+    EMAIL_LOGIN_RECOMMENDED: bool = Field(default=True)
     EMAIL_ADDRESS_CHANGE_ENABLED: bool = Field(default=True)
     TELEGRAM_OAUTH_CLIENT_ID: int | None = Field(
         default=None,
@@ -692,15 +694,19 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
         ),
     )
     GOOGLE_OIDC_ENABLED: bool = Field(default=False)
+    GOOGLE_LOGIN_RECOMMENDED: bool = Field(default=True)
     GOOGLE_OIDC_CLIENT_ID: str | None = Field(default=None)
     GOOGLE_OIDC_CLIENT_SECRET: str | None = Field(default=None)
     YANDEX_OIDC_ENABLED: bool = Field(default=False)
+    YANDEX_LOGIN_RECOMMENDED: bool = Field(default=True)
     YANDEX_OIDC_CLIENT_ID: str | None = Field(default=None)
     YANDEX_OIDC_CLIENT_SECRET: str | None = Field(default=None)
     DISCORD_OIDC_ENABLED: bool = Field(default=False)
+    DISCORD_LOGIN_RECOMMENDED: bool = Field(default=True)
     DISCORD_OIDC_CLIENT_ID: str | None = Field(default=None)
     DISCORD_OIDC_CLIENT_SECRET: str | None = Field(default=None)
     PASSKEY_LOGIN_ENABLED: bool = Field(default=False)
+    PASSKEY_LOGIN_RECOMMENDED: bool = Field(default=True)
     PASSKEY_RP_ID: str | None = Field(
         default=None,
         description="WebAuthn relying-party domain. Empty means the public Web App hostname.",
@@ -713,7 +719,6 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
         ),
     )
     PASSKEY_CHALLENGE_TTL_SECONDS: int = Field(default=5 * 60)
-
     SMTP_HOST: str = Field(default="smtp-relay.brevo.com")
     SMTP_PORT: int = Field(default=587)
     SMTP_FALLBACK_PORTS: str | None = Field(default="2525,465")

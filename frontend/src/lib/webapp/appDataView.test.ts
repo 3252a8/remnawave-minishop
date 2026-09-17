@@ -153,6 +153,40 @@ describe("computeAppDataView", () => {
     ).toEqual(["telegram"]);
   });
 
+  it("normalizes recommended auth providers without requiring every available method", () => {
+    expect(
+      computeAppDataView({
+        cfg: { emailAuthEnabled: true },
+        data: {
+          settings: {
+            auth_providers: ["telegram", "email", "google"],
+            recommended_auth_providers: [" Email ", "email", "unknown"],
+          },
+        },
+        fallbackBrandTitle: "Subscription",
+        mockData: {},
+      }).recommendedAuthProviders
+    ).toEqual(["email"]);
+
+    expect(
+      computeAppDataView({
+        cfg: { authProviders: ["telegram", "email"], recommendedAuthProviders: [] },
+        data: { settings: {} },
+        fallbackBrandTitle: "Subscription",
+        mockData: {},
+      }).recommendedAuthProviders
+    ).toEqual([]);
+
+    expect(
+      computeAppDataView({
+        cfg: { authProviders: ["telegram", "email"] },
+        data: { settings: {} },
+        fallbackBrandTitle: "Subscription",
+        mockData: {},
+      }).recommendedAuthProviders
+    ).toEqual(["telegram", "email"]);
+  });
+
   it("normalizes missing referral fields", () => {
     const view = computeAppDataView({
       cfg: {},

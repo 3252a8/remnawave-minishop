@@ -70,6 +70,7 @@ export type WebappConfig = BootstrapResponse["config"] &
     appRepositoryUrl?: unknown;
     appVersion?: unknown;
     authProviders?: string[];
+    recommendedAuthProviders?: string[];
     checkoutPlans?: BillingPlan[];
     emailAuthEnabled?: boolean;
     faviconUseCustom?: unknown;
@@ -86,6 +87,7 @@ export const FALLBACK_WEBAPP_CONFIG: WebappConfig = {
   appRepositoryUrl: "",
   appVersion: "",
   authProviders: ["telegram"],
+  recommendedAuthProviders: ["telegram"],
   checkoutPlans: [],
   currency: "RUB",
   devMode: false,

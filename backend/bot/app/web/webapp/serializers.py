@@ -492,6 +492,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             "email_auth_enabled": settings.email_auth_configured,
             "email_address_change_enabled": bool(settings.EMAIL_ADDRESS_CHANGE_ENABLED),
             "auth_providers": settings.webapp_auth_providers,
+            "recommended_auth_providers": settings.webapp_recommended_auth_providers,
             "menu_buttons": public_menu_buttons(
                 settings.MENU_BUTTONS_JSON,
                 lang,

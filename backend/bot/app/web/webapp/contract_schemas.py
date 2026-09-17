@@ -71,6 +71,7 @@ class WebappBootstrapConfigOut(HttpResponseModel):
     email_auth_enabled: bool = Field(alias="emailAuthEnabled")
     dev_mode: bool = Field(alias="devMode")
     auth_providers: list[str] = Field(alias="authProviders")
+    recommended_auth_providers: list[str] = Field(alias="recommendedAuthProviders")
     registration_invite_only_enabled: bool = Field(alias="registrationInviteOnlyEnabled")
     checkout_plans: list[dict[str, Any]] = Field(default_factory=list, alias="checkoutPlans")
     app_version: str = Field(alias="appVersion")
@@ -722,6 +723,7 @@ WEBAPP_SETTINGS_SCHEMA: dict[str, Any] = {
         "email_auth_enabled": BOOLEAN_SCHEMA,
         "email_address_change_enabled": BOOLEAN_SCHEMA,
         "auth_providers": STRING_ARRAY_SCHEMA,
+        "recommended_auth_providers": STRING_ARRAY_SCHEMA,
         "menu_buttons": {"type": "array", "items": MENU_BUTTON_SCHEMA},
     },
 }

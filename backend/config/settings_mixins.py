@@ -96,18 +96,24 @@ if TYPE_CHECKING:
         WEBAPP_AUTH_MAX_AGE_SECONDS: int
         WEBAPP_LOGIN_TOKEN_TTL_SECONDS: int
         TELEGRAM_LOGIN_ENABLED: bool
+        TELEGRAM_LOGIN_RECOMMENDED: bool
         EMAIL_LOGIN_ENABLED: bool
+        EMAIL_LOGIN_RECOMMENDED: bool
         EMAIL_ADDRESS_CHANGE_ENABLED: bool
         GOOGLE_OIDC_ENABLED: bool
+        GOOGLE_LOGIN_RECOMMENDED: bool
         GOOGLE_OIDC_CLIENT_ID: str | None
         GOOGLE_OIDC_CLIENT_SECRET: str | None
         YANDEX_OIDC_ENABLED: bool
+        YANDEX_LOGIN_RECOMMENDED: bool
         YANDEX_OIDC_CLIENT_ID: str | None
         YANDEX_OIDC_CLIENT_SECRET: str | None
         DISCORD_OIDC_ENABLED: bool
+        DISCORD_LOGIN_RECOMMENDED: bool
         DISCORD_OIDC_CLIENT_ID: str | None
         DISCORD_OIDC_CLIENT_SECRET: str | None
         PASSKEY_LOGIN_ENABLED: bool
+        PASSKEY_LOGIN_RECOMMENDED: bool
         PASSKEY_RP_ID: str | None
         PASSKEY_RP_NAME: str | None
         PASSKEY_ORIGINS: str | None
@@ -885,6 +891,23 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         if self.PASSKEY_LOGIN_ENABLED:
             providers.append("passkey")
         return providers
+
+    @computed_field
+    def webapp_recommended_auth_providers(self) -> list[str]:
+        available = set(self.webapp_auth_providers)
+        recommendations = (
+            ("telegram", self.TELEGRAM_LOGIN_RECOMMENDED),
+            ("email", self.EMAIL_LOGIN_RECOMMENDED),
+            ("google", self.GOOGLE_LOGIN_RECOMMENDED),
+            ("yandex", self.YANDEX_LOGIN_RECOMMENDED),
+            ("discord", self.DISCORD_LOGIN_RECOMMENDED),
+            ("passkey", self.PASSKEY_LOGIN_RECOMMENDED),
+        )
+        return [
+            provider
+            for provider, recommended in recommendations
+            if recommended and provider in available
+        ]
 
     @computed_field
     def smtp_delivery_configured(self) -> bool:

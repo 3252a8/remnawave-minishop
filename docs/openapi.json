@@ -13294,6 +13294,13 @@
             "title": "Privacypolicyurl",
             "type": "string"
           },
+          "recommendedAuthProviders": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Recommendedauthproviders",
+            "type": "array"
+          },
           "registrationInviteOnlyEnabled": {
             "title": "Registrationinviteonlyenabled",
             "type": "boolean"
@@ -13384,6 +13391,7 @@
           "emailAuthEnabled",
           "devMode",
           "authProviders",
+          "recommendedAuthProviders",
           "registrationInviteOnlyEnabled",
           "appVersion",
           "appRepositoryUrl"
@@ -25356,6 +25364,12 @@
                         },
                         "payment_methods_display_mode": {
                           "type": "string"
+                        },
+                        "recommended_auth_providers": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "referral_program_enabled": {
                           "type": "boolean"

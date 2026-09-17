@@ -9069,6 +9069,8 @@ export interface components {
       primaryColor: string | null;
       /** Privacypolicyurl */
       privacyPolicyUrl: string;
+      /** Recommendedauthproviders */
+      recommendedAuthProviders: string[];
       /** Registrationinviteonlyenabled */
       registrationInviteOnlyEnabled: boolean;
       /** Serverstatusinternal */
@@ -14353,6 +14355,7 @@ export interface operations {
               my_devices_enabled?: boolean;
               partner_program_enabled?: boolean;
               payment_methods_display_mode?: string;
+              recommended_auth_providers?: string[];
               referral_program_enabled?: boolean;
               server_status_url?: string | null;
               subscription_guides_enabled?: boolean;

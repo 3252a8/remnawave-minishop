@@ -453,6 +453,38 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(email_enabled.webapp_auth_providers, ["telegram", "email"])
         self.assertEqual(discord_enabled.webapp_auth_providers, ["telegram", "discord"])
 
+    def test_webapp_recommended_auth_providers_filter_available_methods(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            APP_RUNTIME_MODE="test",
+            QA_AUTH_ENABLED=True,
+            GOOGLE_OIDC_ENABLED=True,
+            GOOGLE_OIDC_CLIENT_ID="google-client",
+            GOOGLE_OIDC_CLIENT_SECRET="google-secret",
+            YANDEX_OIDC_ENABLED=True,
+            YANDEX_OIDC_CLIENT_ID="yandex-client",
+            YANDEX_OIDC_CLIENT_SECRET="yandex-secret",
+            DISCORD_OIDC_ENABLED=True,
+            DISCORD_OIDC_CLIENT_ID="discord-client",
+            DISCORD_OIDC_CLIENT_SECRET="discord-secret",
+            PASSKEY_LOGIN_ENABLED=True,
+            TELEGRAM_LOGIN_RECOMMENDED=False,
+            GOOGLE_LOGIN_RECOMMENDED=False,
+            DISCORD_LOGIN_RECOMMENDED=False,
+        )
+
+        self.assertEqual(
+            settings.webapp_auth_providers,
+            ["telegram", "email", "google", "yandex", "discord", "passkey"],
+        )
+        self.assertEqual(
+            settings.webapp_recommended_auth_providers,
+            ["email", "yandex", "passkey"],
+        )
+
     def test_registration_settings_view_reflects_invite_only_flag(self):
         default_settings = Settings(
             _env_file=None,

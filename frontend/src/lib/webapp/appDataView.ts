@@ -20,6 +20,7 @@ export type AppDataView = {
   appSettings: WebappRecord;
   balance: WebappRecord;
   authProviders: string[];
+  recommendedAuthProviders: string[];
   brand: WebappRecord;
   brandTitle: string;
   devicesEnabled: boolean;
@@ -54,6 +55,22 @@ export function normalizeAuthProviders(value: unknown, emailAuthEnabled: boolean
   const normalized = [...new Set(providers)];
   if (normalized.length) return normalized;
   return emailAuthEnabled ? ["telegram", "email"] : ["telegram"];
+}
+
+export function normalizeRecommendedAuthProviders(
+  value: unknown,
+  authProviders: readonly string[]
+): string[] {
+  if (!Array.isArray(value)) return [...authProviders];
+  const available = new Set(authProviders);
+  const providers = value
+    .map((provider) =>
+      String(provider || "")
+        .trim()
+        .toLowerCase()
+    )
+    .filter((provider) => provider && available.has(provider));
+  return [...new Set(providers)];
 }
 
 export function computeAppDataView({
@@ -95,6 +112,12 @@ export function computeAppDataView({
       cfg.authProviders,
     emailAuthEnabled
   );
+  const recommendedAuthProviders = normalizeRecommendedAuthProviders(
+    recordField(dataRecord.settings).recommended_auth_providers ??
+      appSettings.recommended_auth_providers ??
+      cfg.recommendedAuthProviders,
+    authProviders
+  );
   const subscription = recordField(dataRecord.subscription || mock.subscription);
   const referral = recordField(dataRecord.referral || mock.referral);
 
@@ -102,6 +125,7 @@ export function computeAppDataView({
     appSettings,
     balance: recordField(dataRecord.balance || mock.balance),
     authProviders,
+    recommendedAuthProviders,
     brand,
     brandTitle,
     devicesEnabled: Boolean(appSettings.my_devices_enabled),

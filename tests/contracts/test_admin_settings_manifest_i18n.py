@@ -328,6 +328,28 @@ def test_compact_home_toggle_is_an_appearance_setting():
         assert field["i18n_description_key"] in messages
 
 
+def test_recommended_login_method_toggles_are_localized():
+    manifest = _manifest_by_key()
+    expected_subsections = {
+        "TELEGRAM_LOGIN_RECOMMENDED": "telegram",
+        "EMAIL_LOGIN_RECOMMENDED": "email",
+        "GOOGLE_LOGIN_RECOMMENDED": "google",
+        "YANDEX_LOGIN_RECOMMENDED": "yandex",
+        "DISCORD_LOGIN_RECOMMENDED": "discord",
+        "PASSKEY_LOGIN_RECOMMENDED": "passkey",
+    }
+
+    for setting_key, subsection in expected_subsections.items():
+        field = manifest[setting_key]
+        assert field["type"] == "bool"
+        assert field["section"] == "login_methods"
+        assert field["subsection"] == subsection
+        for language in ("ru", "en"):
+            messages = _locale(language)
+            assert field["i18n_label_key"] in messages
+            assert field["i18n_description_key"] in messages
+
+
 def test_support_settings_manifest_uses_admin_i18n_keys():
     manifest = _manifest_by_key()
 

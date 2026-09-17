@@ -312,6 +312,7 @@ def _get_cached_webapp_settings(request: web.Request) -> dict[str, Any]:
             "currency": payment_settings.default_currency_symbol or "RUB",
             "email_auth_enabled": settings.email_auth_configured,
             "auth_providers": settings.webapp_auth_providers,
+            "recommended_auth_providers": settings.webapp_recommended_auth_providers,
             "registration_invite_only_enabled": bool(
                 settings.registration_settings.invite_only_enabled
             ),
@@ -554,6 +555,7 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
             "emailAuthEnabled": cached["email_auth_enabled"],
             "devMode": bool(settings.qa_auth_enabled),
             "authProviders": cached["auth_providers"],
+            "recommendedAuthProviders": cached["recommended_auth_providers"],
             "registrationInviteOnlyEnabled": cached["registration_invite_only_enabled"],
             "checkoutPlans": _serialize_plans(
                 settings,

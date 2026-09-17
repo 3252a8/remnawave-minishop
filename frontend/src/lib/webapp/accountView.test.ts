@@ -111,4 +111,31 @@ describe("computeAccountView", () => {
       }).hasUnlinkedIdentity
     ).toBe(false);
   });
+
+  it("only requires login methods selected by the administrator", () => {
+    const input = {
+      appSettings: {},
+      authProviders: ["telegram", "email", "google"],
+      recommendedAuthProviders: ["email"],
+      cfg: {},
+      emailAuthEnabled: true,
+      emailAvatarUrl: "",
+      t,
+      user: { telegram_linked: false },
+    };
+
+    expect(computeAccountView(input).hasUnlinkedIdentity).toBe(true);
+    expect(
+      computeAccountView({
+        ...input,
+        user: { ...input.user, email: "user@example.test" },
+      }).hasUnlinkedIdentity
+    ).toBe(false);
+    expect(
+      computeAccountView({
+        ...input,
+        recommendedAuthProviders: [],
+      }).hasUnlinkedIdentity
+    ).toBe(false);
+  });
 });

@@ -375,18 +375,24 @@ Xray-Core 26.3.27+, `NET_ADMIN`, nftables, корректный sniffing и вк
 | `TELEGRAM_OAUTH_REQUEST_ACCESS` | `.env` | Дополнительные разрешения, например `write`. |
 | `TELEGRAM_OAUTH_USE_BOT_PROXY` | `.env` | Разрешить server-side OAuth token/JWKS запросам автоматически использовать настроенный `TELEGRAM_BOT_PROXY_URL`. По умолчанию `True`; браузерный redirect не проксируется. |
 | `TELEGRAM_LOGIN_ENABLED` | Админка | Показывать вход через Telegram. |
+| `TELEGRAM_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не привяжет Telegram. По умолчанию `True`. |
 | `EMAIL_LOGIN_ENABLED` | Админка | Показывать вход по email при настроенном SMTP. |
+| `EMAIL_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не привяжет email. По умолчанию `True`. |
 | `EMAIL_ADDRESS_CHANGE_ENABLED` | Админка | Разрешить пользователям менять основной email после подтверждения текущего и нового адресов. По умолчанию включено. |
 | `GOOGLE_OIDC_ENABLED` | Админка | Включить Google OIDC. Требует client ID и client secret. |
+| `GOOGLE_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не привяжет Google. По умолчанию `True`. |
 | `GOOGLE_OIDC_CLIENT_ID` | Админка | Client ID OAuth 2.0 Web application из Google Cloud. |
 | `GOOGLE_OIDC_CLIENT_SECRET` | Админка | Секрет Google OAuth-клиента. |
 | `YANDEX_OIDC_ENABLED` | Админка | Включить вход через Yandex ID. Требует client ID и client secret. |
+| `YANDEX_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не привяжет Yandex ID. По умолчанию `True`. |
 | `YANDEX_OIDC_CLIENT_ID` | Админка | ID приложения для авторизации пользователей в Yandex OAuth. |
 | `YANDEX_OIDC_CLIENT_SECRET` | Админка | Секрет приложения Yandex OAuth. |
 | `DISCORD_OIDC_ENABLED` | Админка | Включить вход через Discord. Требует client ID и client secret. |
+| `DISCORD_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не привяжет Discord. По умолчанию `True`. |
 | `DISCORD_OIDC_CLIENT_ID` | Админка | Application ID из Discord Developer Portal. |
 | `DISCORD_OIDC_CLIENT_SECRET` | Админка | Client secret приложения Discord. |
 | `PASSKEY_LOGIN_ENABLED` | Админка | Включить регистрацию и вход с passkey/WebAuthn. |
+| `PASSKEY_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не добавит passkey. По умолчанию `True`. |
 | `PASSKEY_RP_ID` | Админка | Домен Relying Party без схемы, порта и пути. По умолчанию берётся из публичного Web App URL. |
 | `PASSKEY_RP_NAME` | Админка | Имя сервиса, показываемое при создании ключа доступа. |
 | `PASSKEY_ORIGINS` | Админка | Разрешённые HTTPS origins через запятую. |
