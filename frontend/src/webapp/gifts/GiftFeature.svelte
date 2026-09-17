@@ -27,6 +27,7 @@
     userId,
     userLabel = userId,
     loggedIn,
+    guestPromptBlocked = false,
     enabled,
     methods,
     paymentMethodsDisplayMode = "dropdown",
@@ -40,6 +41,7 @@
     userId: string;
     userLabel?: string;
     loggedIn: boolean;
+    guestPromptBlocked?: boolean;
     enabled?: boolean;
     methods: PaymentMethodView[];
     paymentMethodsDisplayMode?: "dropdown" | "buttons" | string;
@@ -254,7 +256,7 @@
   });
 </script>
 
-{#if !loggedIn && giftState.token}
+{#if !loggedIn && giftState.token && giftState.entryIntent && !guestPromptBlocked}
   <aside class="gift-guest">
     <Gift size={26} />
     <div>

@@ -3,6 +3,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GIFT_FEATURE = REPO_ROOT / "frontend" / "src" / "webapp" / "gifts" / "GiftFeature.svelte"
 APP_MODE_CONTENT = REPO_ROOT / "frontend" / "src" / "webapp" / "AppModeContent.svelte"
+GIFT_STATE = REPO_ROOT / "frontend" / "src" / "lib" / "webapp" / "gifts.svelte.ts"
 
 
 def test_gift_list_refresh_does_not_wait_for_user_id() -> None:
@@ -60,3 +61,20 @@ def test_gift_checkout_uses_configured_payment_method_display_mode() -> None:
     checkout_start = feature_source.index("<PaymentCheckoutDialog")
     checkout_end = feature_source.index("/>", checkout_start)
     assert "{paymentMethodsDisplayMode}" in feature_source[checkout_start:checkout_end]
+
+
+def test_guest_gift_banner_requires_current_gift_intent_and_is_hidden_during_checkout() -> None:
+    state_source = GIFT_STATE.read_text(encoding="utf-8")
+    feature_source = GIFT_FEATURE.read_text(encoding="utf-8")
+    app_source = APP_MODE_CONTENT.read_text(encoding="utf-8")
+
+    assert "entryIntent: Boolean(queryToken)" in state_source
+    assert "entryIntent: initialGift.entryIntent" in state_source
+    assert "!loggedIn && giftState.token && giftState.entryIntent && !guestPromptBlocked" in (
+        feature_source
+    )
+    gift_mount_start = app_source.index("  <GiftFeature")
+    gift_mount_end = app_source.index("  />", gift_mount_start)
+    assert (
+        "guestPromptBlocked={checkoutEntryRequested}" in app_source[gift_mount_start:gift_mount_end]
+    )
