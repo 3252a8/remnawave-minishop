@@ -3123,9 +3123,40 @@ target_postgres_volume() {
     printf '%s-db-data' "$(target_compose_project)"
 }
 
+preflight_compose_project_ownership() {
+    project=$(target_compose_project)
+    target_dir_resolved=$(cd "$TARGET_DIR" && pwd -P) || return 1
+    foreign_containers=""
+    container_ids=$(docker ps -a \
+        --filter "label=com.docker.compose.project=$project" \
+        --format '{{.ID}}' 2>/dev/null || true)
+
+    for container in $container_ids; do
+        container_working_dir=$(docker inspect -f \
+            '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' \
+            "$container" 2>/dev/null || true)
+        container_name=$(docker inspect -f '{{.Name}}' "$container" 2>/dev/null | sed 's#^/##')
+        container_working_dir_resolved="$container_working_dir"
+        if [ -n "$container_working_dir" ] && [ -d "$container_working_dir" ]; then
+            container_working_dir_resolved=$(cd "$container_working_dir" && pwd -P)
+        fi
+        if [ "$container_working_dir_resolved" != "$target_dir_resolved" ]; then
+            foreign_containers="$foreign_containers\n  ${container_name:-$container}: ${container_working_dir:-unknown}"
+        fi
+    done
+
+    if [ -n "$foreign_containers" ]; then
+        fail "Docker Compose project $project уже используется контейнерами из другого каталога."
+        info "Текущий каталог: $target_dir_resolved"
+        printf '%b\n' "$foreign_containers"
+        info "Выберите уникальный COMPOSE_PROJECT_NAME или сначала разберите старый стек вручную. Wizard не будет менять найденные контейнеры."
+        return 1
+    fi
+}
+
 check_target_postgres_auth() {
     (cd "$TARGET_DIR" && compose exec -T postgres sh -lc \
-        'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atqc "SELECT 1" | grep -qx 1')
+        'set -- $(hostname -i); [ "$#" -gt 0 ] || exit 1; target_ip=$1; PGPASSWORD="$POSTGRES_PASSWORD" PGCONNECT_TIMEOUT=5 psql -h "$target_ip" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atqc "SELECT 1" | grep -qx 1')
 }
 
 wait_target_postgres_auth() {
@@ -3142,6 +3173,7 @@ wait_target_postgres_auth() {
 }
 
 preflight_existing_postgres_volume() {
+    preflight_compose_project_ownership || return 1
     volume=$(target_postgres_volume)
     if ! volume_exists "$volume"; then
         return 0
@@ -4566,7 +4598,7 @@ bedolaga_source_compose_dir() {
 bedolaga_source_container_ids() {
     source_dir=$(bedolaga_source_compose_dir || true)
     if [ -n "$source_dir" ]; then
-        (cd "$source_dir" && run_compose ps -aq 2>/dev/null) && return 0
+        (cd "$source_dir" && compose ps -aq 2>/dev/null) && return 0
     fi
     for container in $BEDOLAGA_RUNTIME_CONTAINERS; do
         docker inspect "$container" >/dev/null 2>&1 && printf '%s\n' "$container"
@@ -4725,7 +4757,7 @@ rollback_bedolaga_cutover() {
 
 target_compose_has_service() {
     service="$1"
-    (cd "$TARGET_DIR" && run_compose config --services 2>/dev/null) | grep -qx "$service"
+    (cd "$TARGET_DIR" && compose config --services 2>/dev/null) | grep -qx "$service"
 }
 
 wait_target_runtime_healthy() {
@@ -4737,7 +4769,7 @@ wait_target_runtime_healthy() {
         for service in backend worker frontend; do
             target_compose_has_service "$service" || continue
             checked_services=$((checked_services + 1))
-            container=$(cd "$TARGET_DIR" && run_compose ps -q "$service" 2>/dev/null | head -n 1)
+            container=$(cd "$TARGET_DIR" && compose ps -q "$service" 2>/dev/null | head -n 1)
             if [ -z "$container" ]; then
                 all_ready=0
                 continue
@@ -5629,19 +5661,21 @@ run_import_command() {
             --config-plan-output "/migration-output/$config_plan_name" \
             --reconciliation-output "/migration-output/$reconciliation_name"
         raw_output="$summary_output_path.raw"
-        if (cd "$TARGET_DIR" && run_compose "$@" < /dev/null) > "$raw_output" 2>&1; then
-            summary_extracted=0
-            if extract_import_summary "$raw_output" "$summary_output_path"; then
-                summary_extracted=1
-            fi
-            if [ "$show_raw_output" = "1" ] || [ "$summary_extracted" != "1" ]; then
-                cat "$raw_output"
-            fi
-            return 0
-        fi
+        (cd "$TARGET_DIR" && run_compose "$@" < /dev/null) > "$raw_output" 2>&1
         status=$?
-        cat "$raw_output"
-        return "$status"
+        if [ "$status" -ne 0 ]; then
+            cat "$raw_output"
+            return "$status"
+        fi
+        if ! extract_import_summary "$raw_output" "$summary_output_path"; then
+            cat "$raw_output"
+            fail "Импортер завершился без корректного JSON-итога. Миграция и последующий cutover остановлены."
+            return 1
+        fi
+        if [ "$show_raw_output" = "1" ]; then
+            cat "$raw_output"
+        fi
+        return 0
     fi
     (cd "$TARGET_DIR" && run_compose "$@" < /dev/null)
 }
@@ -5874,6 +5908,7 @@ run_remnashop_migration() {
     if [ "$CHOICE_VALUE" = "1" ]; then
         TARGET_DSN="$(local_target_dsn)"
         info "Целевой DSN указывает на сервис postgres текущего Docker Compose стека."
+        preflight_existing_postgres_volume || return 1
         create_pre_migration_backup remnashop || return 1
         if confirm "Сбросить целевую базу Minishop перед импортом? Это удалит текущие данные Minishop." 0; then
             reset_target_compose_database || return 1
@@ -6027,6 +6062,7 @@ run_bedolaga_migration() {
     if [ "$CHOICE_VALUE" = "1" ]; then
         BEDOLAGA_LOCAL_TARGET="1"
         TARGET_DSN="$(local_target_dsn)"
+        preflight_existing_postgres_volume || return 1
         create_pre_migration_backup bedolaga || return 1
         if confirm "Сбросить целевую базу Minishop перед импортом? Это удалит текущие данные Minishop." 0; then
             reset_target_compose_database || return 1
@@ -6098,10 +6134,16 @@ run_target_schema_migrations() {
 }
 
 prepare_compose_without_starting_apps() {
+    check_existing_volume="${1:-1}"
     section "Подготовка целевого Docker Compose стека"
     [ -n "$ENV_PATH" ] || ENV_PATH="$TARGET_DIR/.env"
     validate_bind_settings || return 1
     validate_compose_configuration || return 1
+    if [ "$check_existing_volume" = "1" ]; then
+        preflight_existing_postgres_volume || return 1
+    else
+        preflight_compose_project_ownership || return 1
+    fi
     (cd "$TARGET_DIR" && run_compose_checked up --no-start) || return 1
 }
 
@@ -6132,7 +6174,7 @@ run_tgshop_dsn_migration() {
     TARGET_DSN="$(local_target_dsn)"
     validate_bind_settings || return 1
 
-    prepare_compose_without_starting_apps || return 1
+    prepare_compose_without_starting_apps 0 || return 1
     connect_local_source_db_to_target_network
     create_tgshop_source_backup || return 1
     create_pre_migration_backup remnawave-tg-shop 0 || return 1
