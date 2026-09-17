@@ -410,6 +410,26 @@ grep -q 'compose failed' "$TARGET_DIR/$INSTALL_STATE_DIR/compose-last-error.log"
     assert result.returncode == 0, result.stderr
 
 
+def test_run_compose_does_not_consume_wizard_input(tmp_path: Path) -> None:
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    answers_path = tmp_path / "answers.txt"
+    answers_path.write_text("y\n", encoding="utf-8", newline="\n")
+    result = _run_installer_function(
+        tmp_path,
+        f"""
+compose() {{ IFS= read -r stolen || true; }}
+exec 3< {shlex.quote(answers_path.as_posix())}
+run_compose up <&3
+IFS= read -r preserved <&3 || exit 20
+[ "$preserved" = y ] || exit 21
+""",
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 def test_shell_installer_explains_start_interval_compatibility_error(tmp_path: Path):
     if not shutil.which("sh"):
         pytest.skip("sh is not available on this platform")

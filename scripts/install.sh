@@ -2948,7 +2948,7 @@ run_compose() {
     log_args=$(mask_compose_log_args "$@")
     color "+ docker compose $log_args" "$DIM"
     printf '\n'
-    compose "$@"
+    compose "$@" < /dev/null
 }
 
 host_user_spec() {
