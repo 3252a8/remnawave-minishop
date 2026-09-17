@@ -1194,9 +1194,50 @@ def test_shell_installer_guards_existing_postgres_volume_password_drift():
     assert "PostgreSQL принимает логин/пароль из .env" in script
     assert "InvalidPasswordError|password authentication failed" in script
     assert "Удалить volume $volume и начать с пустой БД" in script
-    assert 'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1' in script
+    assert "target_ip=$1" in script
+    assert 'PGPASSWORD="$POSTGRES_PASSWORD" PGCONNECT_TIMEOUT=5 psql -h "$target_ip"' in script
+    assert "psql -h 127.0.0.1" not in script
+    assert "preflight_compose_project_ownership" in script
     assert '-v "$1:/data:ro"' in script
     assert 'pg_isready -U "$POSTGRES_USER"' not in script
+
+
+def test_shell_installer_rejects_foreign_compose_project(tmp_path: Path) -> None:
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    target_dir = tmp_path / "target"
+    target_dir.mkdir()
+    (target_dir / ".env").write_text("COMPOSE_PROJECT_NAME=shared-project\n", encoding="utf-8")
+    result = _run_installer_function(
+        tmp_path,
+        f"""
+TARGET_DIR={shlex.quote(target_dir.as_posix())}
+ENV_PATH="$TARGET_DIR/.env"
+fail() {{ printf '%s\n' "$*"; }}
+info() {{ printf '%s\n' "$*"; }}
+docker() {{
+    case "$1" in
+        ps) printf '%s\n' foreign-container-id ;;
+        inspect)
+            case "$3" in
+                *working_dir*) printf '%s\n' /opt/old-minishop ;;
+                *) printf '%s\n' /foreign-container ;;
+            esac
+            ;;
+        *) return 1 ;;
+    esac
+}}
+
+if preflight_compose_project_ownership; then
+    exit 20
+fi
+""",
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "shared-project" in result.stdout
+    assert "/opt/old-minishop" in result.stdout
 
 
 def test_shell_installer_refreshes_importer_without_prompting_inside_command_substitution():
@@ -1519,7 +1560,7 @@ def test_shell_installer_summarizes_remnashop_dry_run_and_hides_source_schema_pr
     assert 'prompt_value "Schema источника"' not in script
     assert "remnashop-dry-run-summary.json" in script
     assert 'run_import_command 1 "$DRY_RUN_SUMMARY_PATH" 0' in script
-    assert "summary_extracted=1" in script
+    assert "Импортер завершился без корректного JSON-итога" in script
     assert 'confirm "Применить эту миграцию по-настоящему?" 1' in script
     assert "print_remnashop_import_summary" in script
     assert "Проверка без записи прошла успешно" in script
@@ -1530,6 +1571,54 @@ def test_shell_installer_summarizes_remnashop_dry_run_and_hides_source_schema_pr
     assert 'set_env_file_value "$ENV_PATH" USER_BALANCE_CURRENCY' in script
     assert 'set_env_file_value "$ENV_PATH" USER_BALANCE_ENABLED true' in script
     assert "партнерские профили не создаются" in script
+
+
+def test_shell_installer_preserves_importer_failures_and_requires_json_summary(
+    tmp_path: Path,
+) -> None:
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    target_dir = tmp_path / "target"
+    target_dir.mkdir()
+    importer_path = tmp_path / "import_legacy.py"
+    importer_path.write_text("# test importer\n", encoding="utf-8")
+    result = _run_installer_function(
+        tmp_path,
+        f"""
+TARGET_DIR={shlex.quote(target_dir.as_posix())}
+IMPORTER_PATH={shlex.quote(importer_path.as_posix())}
+SOURCE_ENV_PATH=""
+TARIFF_MAP_PATH=""
+SOURCE_DSN=postgresql://source/db
+SOURCE_SCHEMA=public
+TARGET_DSN=postgresql://target/db
+BALANCE_CURRENCY=""
+fail() {{ printf '%s\n' "$*" >&2; }}
+MODE=failed
+run_compose() {{
+    if [ "$MODE" = failed ]; then
+        printf '%s\n' importer-failed
+        return 23
+    fi
+    printf '%s\n' importer-finished-without-summary
+}}
+
+status=0
+run_import_command 1 "$TARGET_DIR/failed-summary.json" 0 remnashop || status=$?
+[ "$status" -eq 23 ] || exit 20
+grep -q importer-failed "$TARGET_DIR/failed-summary.json.raw" || exit 21
+
+MODE=invalid
+status=0
+run_import_command 1 "$TARGET_DIR/invalid-summary.json" 0 remnashop || status=$?
+[ "$status" -ne 0 ] || exit 22
+""",
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "importer-finished-without-summary" in result.stdout
+    assert "корректного JSON-итога" in result.stderr
 
 
 def test_shell_installer_supports_guarded_bedolaga_migration():
@@ -1768,9 +1857,14 @@ systemctl() {{
         *) return 1 ;;
     esac
 }}
-run_compose() {{
+compose() {{
     case "$1 ${{2:-}}" in
         'ps -aq') printf '%s\n' bedolaga-app bedolaga-db ;;
+        *) return 1 ;;
+    esac
+}}
+run_compose() {{
+    case "$1 ${{2:-}}" in
         'stop ') printf '%s\n' compose-stop >> "$CALLS_FILE" ;;
         *) return 1 ;;
     esac
