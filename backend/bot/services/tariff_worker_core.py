@@ -92,6 +92,9 @@ class _TrialPremiumTariff:
     def premium_monthly_bytes(self) -> int:
         return self._premium_monthly_bytes
 
+    def has_premium_squad_limit(self) -> bool:
+        return bool(self.premium_squad_uuids and self.premium_monthly_bytes > 0)
+
     def name(self, _lang: str, _fallback: str = "ru") -> str:
         return "Trial"
 

@@ -17,6 +17,7 @@ from bot.services.panel_api_compat import PanelApiCompatibility
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.tariff_worker import TariffTrafficWorker
+from bot.services.tariff_worker_prefetch import prefetch_premium_periods
 from bot.services.tariff_worker_premium_batches import PremiumSquadMutationPlan
 from bot.services.tariff_worker_shared import canonical_subscriptions_per_panel_user
 from config.settings import Settings
@@ -1177,18 +1178,22 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             trial_tariff = worker._trial_premium_tariff()
 
             self.assertIsNotNone(trial_tariff)
+            now = datetime.now(UTC)
+            panel_payload = {
+                "username": "tg_123",
+                "activeInternalSquads": [
+                    {"uuid": "squad-1"},
+                    {"uuid": "premium-squad"},
+                ],
+            }
+            await prefetch_premium_periods(worker, [sub], [panel_payload], now)
             await worker._sync_premium_squad_limit(
                 AsyncMock(),
                 sub,
                 trial_tariff,
-                datetime.now(UTC),
+                now,
                 panel_username="tg_123",
-                panel_user_dict={
-                    "activeInternalSquads": [
-                        {"uuid": "squad-1"},
-                        {"uuid": "premium-squad"},
-                    ]
-                },
+                panel_user_dict=panel_payload,
             )
 
             self.assertEqual(sub.premium_baseline_bytes, 3 * (1024**3))
