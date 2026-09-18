@@ -16,7 +16,7 @@
     "astro": "^7.3.3",
     "starlight-theme-nova": "^0.12.3",
     "swagger-ui-dist": "^5.33.0",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   },
   "overrides": {
     "devalue": "5.9.2",
