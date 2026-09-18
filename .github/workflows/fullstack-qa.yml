@@ -27,7 +27,7 @@ jobs:
         remnawave: ["3.4.4", "3.4.3", "3.4.2", "3.4.1", "3.3.2", "3.3.0", "3.2.3", "3.2.1", "3.2.0", "3.1.0", "3.0.0", "2.8.1"]
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -96,7 +96,7 @@ jobs:
     timeout-minutes: 55
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v6
