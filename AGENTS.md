@@ -39,8 +39,10 @@ Non-negotiables (details in CONTRIBUTING.md §2):
   entitlement. Keep the `TODO(balance-gift-refund)` marker until the refund path and regression
   tests are implemented.
 
-Before pushing, run the gates in CONTRIBUTING.md §1 (`pytest`, `ruff`, `mypy`,
-`npm run check`). Commits: Conventional Commits, no `Co-Authored-By` trailer.
+Before pushing, use the changed-zone validation matrix in CONTRIBUTING.md §1. Product or shared
+code changes still run their relevant gates (and the full suite when isolation is unclear), while
+prose-only documentation and docs-site-only changes use the scoped documentation checks defined
+there. Commits: Conventional Commits, no `Co-Authored-By` trailer.
 
 No `CHANGELOG.md` — the project deliberately has none; do not create or maintain one.
 Change history lives in Conventional Commits and PR descriptions (`pr-changelog` skill).
