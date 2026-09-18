@@ -11,7 +11,7 @@ case "$base_delay_seconds" in
   ''|*[!0-9]*) echo "DEV_STAND_START_DELAY_SECONDS must be a non-negative integer" >&2; exit 2 ;;
 esac
 
-transient_pattern='rpc error:.*(Unavailable|EOF)|failed to receive status|unexpected EOF|connection reset by peer|TLS handshake timeout|i/o timeout|context deadline exceeded|(^|[^0-9])(502|503|504)([^0-9]|$)'
+transient_pattern='rpc error:.*(Unavailable|EOF)|failed to receive status|unexpected EOF|connection reset by peer|TLS handshake timeout|i/o timeout|context deadline exceeded|wget .*did not complete successfully: exit code: 4|(^|[^0-9])(502|503|504)([^0-9]|$)'
 log_file="$(mktemp)"
 trap 'rm -f "$log_file"' EXIT
 
