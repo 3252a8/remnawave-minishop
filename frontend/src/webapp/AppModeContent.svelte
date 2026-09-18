@@ -1,5 +1,6 @@
 <script lang="ts">
   import BrandMark from "$lib/webapp/BrandMark.svelte";
+  import { Button } from "$components/ui/index.js";
   import type { AppActionRuntime } from "../lib/webapp/appActionRuntime.js";
   import type { AppShellView } from "../lib/webapp/appShellView.js";
   import type { AccountStore } from "../lib/webapp/stores/accountStore.js";
@@ -365,7 +366,13 @@
       goHome();
     }}
   />
-  {#if mode === "loading"}
+  {#if mode === "bootError"}
+    <div class="loader" role="alert">
+      <BrandMark {brand} size="md" />
+      <div>{t("wa_boot_failed")}</div>
+      <Button onclick={() => window.location.reload()}>{t("wa_retry")}</Button>
+    </div>
+  {:else if mode === "loading"}
     <div class="loader">
       <BrandMark {brand} size="md" />
       <div>{t("wa_loading")}</div>

@@ -28170,6 +28170,9 @@
                 "schema": {
                   "additionalProperties": false,
                   "properties": {
+                    "incremental": {
+                      "type": "boolean"
+                    },
                     "messages": {
                       "items": {
                         "$ref": "#/components/schemas/SupportMessageOut"
@@ -28185,6 +28188,9 @@
                     },
                     "ticket": {
                       "$ref": "#/components/schemas/SupportTicketOut"
+                    },
+                    "unread": {
+                      "type": "integer"
                     }
                   },
                   "required": [

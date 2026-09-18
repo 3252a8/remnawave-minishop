@@ -18,6 +18,7 @@ from .entitlement_helpers import (
     record_tariff_change_best_effort,
     record_traffic_topup_best_effort,
 )
+from .hwid_limits import resolve_hwid_base_limit
 from .sale_mode import parse_sale_mode_context
 from .tariff_change_quote import (
     TariffChangeQuoteSnapshot,
@@ -46,6 +47,8 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
         self,
         db_user: User,
         local_active_sub: Subscription,
+        *,
+        refresh_metadata: bool = True,
     ) -> dict[str, Any]:
         panel_sub_id = str(local_active_sub.panel_subscription_uuid or "").strip()
         config_link_raw = (
@@ -64,11 +67,15 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             except Exception:
                 tariff = None
         language = db_user.language_code or self.settings.DEFAULT_LANGUAGE
-        premium_access = (
-            await self.premium_access_for_tariff(tariff)
-            if tariff
-            else {"squad_uuids": [], "squad_labels": [], "node_labels": []}
-        )
+        premium_access: dict[str, Any] = {"squad_uuids": [], "squad_labels": [], "node_labels": []}
+        if tariff:
+            if refresh_metadata:
+                premium_access = await self.premium_access_for_tariff(tariff)
+            else:
+                cache_key = tuple(sorted(str(uuid) for uuid in tariff.premium_squad_uuids))
+                cached_access = self._premium_access_cache.get(cache_key)
+                if cached_access:
+                    premium_access = cached_access
         premium_baseline = int(local_active_sub.premium_baseline_bytes or 0)
         premium_topup_balance = int(local_active_sub.premium_topup_balance_bytes or 0)
         premium_topup_used = int(getattr(local_active_sub, "premium_topup_used_bytes", 0) or 0)
@@ -119,6 +126,11 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 premium_traffic_limit_strategy,
                 now=now,
             )
+        base_hwid_limit = resolve_hwid_base_limit(
+            local_active_sub.hwid_device_limit,
+            self._base_hwid_limit_for_tariff(tariff),
+            is_override=bool(getattr(local_active_sub, "hwid_device_limit_is_override", False)),
+        )
         return {
             "user_id": db_user.panel_user_uuid,
             "panel_subscription_uuid": local_active_sub.panel_subscription_uuid,
@@ -158,7 +170,7 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             "period_start_at": traffic_period_start_at,
             "traffic_next_reset_at": traffic_next_reset_at,
             "is_throttled": bool(local_active_sub.is_throttled),
-            "base_hwid_device_limit": local_active_sub.hwid_device_limit,
+            "base_hwid_device_limit": base_hwid_limit,
             "extra_hwid_devices": int(local_active_sub.extra_hwid_devices or 0),
             "extra_hwid_devices_valid_until": None,
             "extra_hwid_devices_valid_until_text": None,
@@ -167,7 +179,7 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             "user_bot_username": db_user.username,
             "is_panel_data": False,
             "max_devices": self._effective_hwid_limit(
-                local_active_sub.hwid_device_limit,
+                base_hwid_limit,
                 int(local_active_sub.extra_hwid_devices or 0),
             ),
         }

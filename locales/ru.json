@@ -1,4 +1,5 @@
 {
+  "wa_boot_failed": "Не удалось загрузить приложение. Проверьте подключение и попробуйте ещё раз.",
   "admin_color_picker_title": "Цвет",
   "admin_color_picker_close": "Закрыть палитру",
   "admin_color_picker_hue": "Оттенок",

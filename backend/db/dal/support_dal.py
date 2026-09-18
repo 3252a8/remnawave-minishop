@@ -145,18 +145,24 @@ async def get_ticket(
     ticket_id: int,
     *,
     include_internal: bool = False,
+    after_message_id: int | None = None,
+    user_id: int | None = None,
 ) -> tuple[SupportTicket | None, list[SupportTicketMessage]]:
     stmt = (
         select(SupportTicket)
         .where(SupportTicket.ticket_id == ticket_id)
         .options(selectinload(SupportTicket.user))
     )
+    if user_id is not None:
+        stmt = stmt.where(SupportTicket.user_id == user_id)
     result = await session.execute(stmt)
     ticket = result.scalar_one_or_none()
     if not ticket:
         return None, []
 
     msg_stmt = select(SupportTicketMessage).where(SupportTicketMessage.ticket_id == ticket_id)
+    if after_message_id is not None:
+        msg_stmt = msg_stmt.where(SupportTicketMessage.message_id > after_message_id)
     if not include_internal:
         msg_stmt = msg_stmt.where(SupportTicketMessage.is_internal_note.is_(False))
     msg_stmt = msg_stmt.order_by(

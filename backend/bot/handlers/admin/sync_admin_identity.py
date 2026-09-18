@@ -63,7 +63,9 @@ async def _prefetch_sync_indexes(
     if emails:
         user_filters.append(func.lower(User.email).in_(emails))
     if user_filters:
-        result = await session.execute(select(User).where(or_(*user_filters)))
+        result = await session.execute(
+            select(User).where(or_(*user_filters)).execution_options(populate_existing=True)
+        )
         for user in result.scalars().unique().all():
             if user.telegram_id is not None:
                 users_by_telegram_id[int(user.telegram_id)] = user
@@ -76,9 +78,9 @@ async def _prefetch_sync_indexes(
     subscriptions_by_panel_uuid: dict[str, Subscription] = {}
     if panel_subscription_uuids:
         result = await session.execute(
-            select(Subscription).where(
-                Subscription.panel_subscription_uuid.in_(panel_subscription_uuids)
-            )
+            select(Subscription)
+            .where(Subscription.panel_subscription_uuid.in_(panel_subscription_uuids))
+            .execution_options(populate_existing=True)
         )
         subscriptions_by_panel_uuid = {
             str(sub.panel_subscription_uuid): sub
@@ -104,9 +106,18 @@ async def _prefetch_sync_indexes(
             .where(
                 or_(*identity_filters),
             )
-            .order_by(Subscription.end_date.desc())
+            .distinct(Subscription.user_id, Subscription.panel_user_uuid, Subscription.is_active)
+            .order_by(
+                Subscription.user_id,
+                Subscription.panel_user_uuid,
+                Subscription.is_active,
+                Subscription.end_date.desc(),
+            )
+            .execution_options(populate_existing=True)
         )
-        for sub in result.scalars().unique().all():
+        for sub in sorted(
+            result.scalars().unique().all(), key=lambda row: row.end_date, reverse=True
+        ):
             subscriptions_by_user_panel.setdefault((int(sub.user_id), sub.panel_user_uuid), sub)
             if not sub.is_active or sub.end_date <= datetime.now(UTC):
                 continue

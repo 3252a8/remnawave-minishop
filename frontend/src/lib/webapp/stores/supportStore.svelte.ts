@@ -222,6 +222,8 @@ export function createSupportStore({
   let listPromise: Promise<SupportTicketsResponse> | null = null;
   let listPromiseKey = "";
   let unreadPromise: Promise<unknown> | null = null;
+  let lastFullDetailAt = 0;
+  let unchangedTicketPolls = 0;
 
   function loadImage(url: string): Promise<Blob> {
     return apiBlob(url);
@@ -231,8 +233,11 @@ export function createSupportStore({
     return api(path) as Promise<SupportTicketsResponse>;
   }
 
-  function fetchTicketDetail(id: number): Promise<SupportTicketDetailResponse> {
-    return api(buildSupportTicketPath(id));
+  function fetchTicketDetail(
+    id: number,
+    afterMessageId?: number
+  ): Promise<SupportTicketDetailResponse> {
+    return api(buildSupportTicketPath(id, afterMessageId));
   }
 
   function postCreateTicket(
@@ -293,7 +298,9 @@ export function createSupportStore({
   }
 
   function activePollDelay() {
-    return currentOpenedTicketId() ? OPEN_TICKET_POLL_MS : ACTIVE_POLL_MS;
+    return currentOpenedTicketId() && unchangedTicketPolls < 3
+      ? OPEN_TICKET_POLL_MS
+      : ACTIVE_POLL_MS;
   }
 
   function clearPollTimer() {
@@ -364,23 +371,41 @@ export function createSupportStore({
   async function refreshCurrentTicket(ticketId: number | string | null) {
     const id = Number(ticketId);
     if (!id) return;
-    try {
-      const res = await fetchTicketDetail(id);
+    const incremental = Date.now() - lastFullDetailAt < 30000;
+    const cursor = incremental
+      ? Math.max(0, ...state.messages.map((message) => Number(message.message_id || 0)))
+      : undefined;
+    {
+      const res = await fetchTicketDetail(id, cursor);
       if (res?.ok) {
         const payload = unwrap(res);
         const ticket = asRecord(payload.ticket) as TicketRecord;
         if (state.openedTicketId === id) {
           state.openedTicket = ticket;
-          state.messages = arrayRecords(payload.messages) as MessageRecord[];
+          const messages = arrayRecords(payload.messages) as MessageRecord[];
+          const delta = incremental && payload.incremental === true;
+          const changed =
+            messages.length > 0 ||
+            Boolean(payload.peer_typing) ||
+            Number(ticket.unread_user_count || 0) > 0;
+          unchangedTicketPolls = delta && !changed ? unchangedTicketPolls + 1 : 0;
+          if (delta) {
+            const merged = new Map(state.messages.map((message) => [message.message_id, message]));
+            for (const message of messages) merged.set(message.message_id, message);
+            state.messages = [...merged.values()];
+          } else {
+            state.messages = messages;
+            lastFullDetailAt = Date.now();
+          }
           state.peerTyping = Boolean(payload.peer_typing);
+          if (typeof payload.unread === "number") hydrateUnread(payload.unread);
+          else await refreshUnread({ silent: true });
         }
         if (currentOpenedTicketId() === id && Number(ticket.unread_user_count || 0) > 0) {
           await markRead(id, { silent: true });
         }
       }
       return res;
-    } catch {
-      return null;
     }
   }
 
@@ -409,6 +434,8 @@ export function createSupportStore({
   async function openTicket(ticketId: number | string, opts: TicketViewOptions = {}) {
     const id = Number(ticketId);
     if (!id) return;
+    lastFullDetailAt = Date.now();
+    unchangedTicketPolls = 0;
     if (state.openedTicketId && state.openedTicketId !== id) typingHeartbeat.stop();
     const keepOpenedTicket = state.openedTicket?.ticket_id === id;
     state.openedTicketId = id;
@@ -563,11 +590,11 @@ export function createSupportStore({
     pollInFlight = true;
     let failed = false;
     try {
-      await refreshUnread({ silent: true, countEmpty: true });
-      if (supportActive) {
-        const opened = currentOpenedTicketId();
-        if (opened) await refreshCurrentTicket(opened);
-        else await loadList({ silent: true });
+      const opened = supportActive ? currentOpenedTicketId() : null;
+      if (opened) await refreshCurrentTicket(opened);
+      else {
+        await refreshUnread({ silent: true, countEmpty: true });
+        if (supportActive) await loadList({ silent: true });
       }
     } catch (_error) {
       failed = true;

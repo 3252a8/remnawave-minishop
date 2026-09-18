@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.models import UserPanelSquadOverride
 
 from ._sqlalchemy import rowcount
+from .tariff_read_batch import clear_tariff_read_batch, current_tariff_read_batch
 
 INTERNAL_KIND = "internal"
 EXTERNAL_KIND = "external"
@@ -34,6 +35,7 @@ async def _get_override(
     kind: str,
     override_key: str,
 ) -> UserPanelSquadOverride | None:
+    clear_tariff_read_batch(session)
     stmt = select(UserPanelSquadOverride).where(
         UserPanelSquadOverride.user_id == user_id,
         UserPanelSquadOverride.panel_user_uuid == panel_user_uuid,
@@ -51,6 +53,16 @@ async def get_active_overrides(
     panel_user_uuid: str | None = None,
     kind: str | None = None,
 ) -> list[UserPanelSquadOverride]:
+    batch = current_tariff_read_batch(session)
+    if batch is not None and user_id in batch.user_ids:
+        return [
+            row
+            for row in batch.overrides
+            if row.is_active
+            and (user_id is None or row.user_id == user_id)
+            and (not panel_user_uuid or row.panel_user_uuid == panel_user_uuid)
+            and (not kind or row.kind == kind)
+        ]
     conditions = [UserPanelSquadOverride.is_active == True]
     if user_id is not None:
         conditions.append(UserPanelSquadOverride.user_id == user_id)
@@ -97,6 +109,20 @@ async def get_active_external_override(
     user_id: int,
     panel_user_uuid: str,
 ) -> UserPanelSquadOverride | None:
+    batch = current_tariff_read_batch(session)
+    if batch is not None and user_id in batch.user_ids:
+        return next(
+            (
+                row
+                for row in batch.overrides
+                if row.is_active
+                and row.user_id == user_id
+                and row.panel_user_uuid == panel_user_uuid
+                and row.kind == EXTERNAL_KIND
+                and row.override_key == EXTERNAL_OVERRIDE_KEY
+            ),
+            None,
+        )
     stmt = select(UserPanelSquadOverride).where(
         UserPanelSquadOverride.user_id == user_id,
         UserPanelSquadOverride.panel_user_uuid == panel_user_uuid,
@@ -170,6 +196,7 @@ async def deactivate_internal_override(
     panel_user_uuid: str,
     squad_uuid: str,
 ) -> int:
+    clear_tariff_read_batch(session)
     cleaned_squad_uuid = _clean_text(squad_uuid)
     if not cleaned_squad_uuid:
         return 0
@@ -200,6 +227,22 @@ async def deactivate_panel_internal_overrides_for_squads(
     )
     if not cleaned_squad_uuids:
         return 0
+    batch = current_tariff_read_batch(session)
+    if (
+        batch is not None
+        and user_id in batch.user_ids
+        and not any(
+            row.user_id == user_id
+            and row.panel_user_uuid == panel_user_uuid
+            and row.kind == INTERNAL_KIND
+            and row.is_active
+            and row.source == OVERRIDE_SOURCE_PANEL
+            and row.override_key in cleaned_squad_uuids
+            for row in batch.overrides
+        )
+    ):
+        return 0
+    clear_tariff_read_batch(session)
     now = _now()
     result = await session.execute(
         update(UserPanelSquadOverride)
@@ -286,6 +329,7 @@ async def deactivate_external_override(
     user_id: int,
     panel_user_uuid: str,
 ) -> int:
+    clear_tariff_read_batch(session)
     result = await session.execute(
         update(UserPanelSquadOverride)
         .where(

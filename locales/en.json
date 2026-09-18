@@ -1,4 +1,5 @@
 {
+  "wa_boot_failed": "Unable to load the app. Check your connection and try again.",
   "admin_color_picker_title": "Color",
   "admin_color_picker_close": "Close color picker",
   "admin_color_picker_hue": "Hue",

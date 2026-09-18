@@ -4,10 +4,11 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import and_, delete, func, or_, update
+from sqlalchemy import String, and_, cast, delete, func, literal_column, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.attributes import set_committed_value
 
 from db.models import Subscription, SubscriptionNotification, User
 
@@ -269,7 +270,12 @@ async def get_active_subscriptions_for_user(
 
 
 async def update_subscription(
-    session: AsyncSession, subscription_id: int, update_data: dict[str, Any]
+    session: AsyncSession,
+    subscription_id: int,
+    update_data: dict[str, Any],
+    *,
+    refresh: bool = True,
+    expected_version: str | None = None,
 ) -> Subscription | None:
     sub = await session.get(Subscription, subscription_id)
     if sub:
@@ -278,10 +284,27 @@ async def update_subscription(
             previous_tariff_key=sub.tariff_key,
             existing_source=sub.tariff_binding_source,
         )
+        if expected_version is not None:
+            result = await session.execute(
+                update(Subscription)
+                .where(
+                    Subscription.subscription_id == subscription_id,
+                    cast(literal_column("xmin"), String) == expected_version,
+                )
+                .values(**normalized_update)
+                .execution_options(synchronize_session=False)
+            )
+            if not rowcount(result):
+                logger.info("Subscription snapshot update skipped after concurrent change")
+                return None
+            for key, value in normalized_update.items():
+                set_committed_value(sub, key, value)
+            return sub
         for key, value in normalized_update.items():
             setattr(sub, key, value)
         await session.flush()
-        await session.refresh(sub)
+        if refresh:
+            await session.refresh(sub)
     return sub
 
 

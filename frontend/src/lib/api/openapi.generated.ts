@@ -15453,11 +15453,13 @@ export interface operations {
         };
         content: {
           "application/json": {
+            incremental?: boolean;
             messages: components["schemas"]["SupportMessageOut"][];
             /** @constant */
             ok: true;
             peer_typing: boolean;
             ticket: components["schemas"]["SupportTicketOut"];
+            unread?: number;
           };
         };
       };

@@ -15,6 +15,7 @@ from aiogram.utils.text_decorations import html_decoration as hd
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
+from bot.infra.performance import performance_operation
 from bot.infra.redis import redis_lock
 from bot.middlewares.i18n import JsonI18n
 from bot.services.message_audit import log_user_message_delivery
@@ -511,7 +512,7 @@ class TariffWorkerCoreMixin:
         tick: Callable[[AsyncSession], Awaitable[None]],
     ) -> None:
         for attempt in range(1, TARIFF_WORKER_DB_RETRY_ATTEMPTS + 1):
-            async with self.session_factory() as session:
+            async with performance_operation(tick_name), self.session_factory() as session:
                 try:
                     await acquire_subscription_background_sync_lock(session)
                     await tick(session)

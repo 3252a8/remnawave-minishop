@@ -21,6 +21,7 @@ from bot.app.web.webapp.auth import (
     _trial_telegram_required_reason,
     _user_has_linked_telegram,
 )
+from bot.infra.performance import performance_phase
 from bot.infra.promo_policies import (
     PromoCheckoutSuggestionContext,
     resolve_promo_checkout_suggestion,
@@ -160,6 +161,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
     cached = _get_cached_webapp_settings(request)
     referral_settings = settings.referral_settings
     support_settings = settings.support_settings
+    refresh_external = str(request.query.get("fresh", "")).lower() in {"1", "true", "yes", "on"}
 
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
@@ -169,22 +171,32 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
                 content_type="application/json",
             )
 
-        pending_promo_payment = await _refresh_pending_promo_payment(
-            request,
-            session,
-            user_id=user_id,
-        )
+        with performance_phase("pending_payment"):
+            if refresh_external:
+                pending_promo_payment = await _refresh_pending_promo_payment(
+                    request,
+                    session,
+                    user_id=user_id,
+                )
+            else:
+                pending_promo_payment = _serialize_pending_promo_payment(
+                    await payment_dal.get_latest_resumable_promo_payment(session, user_id=user_id)
+                )
         # Provider reconciliation may roll back or commit this session while
         # making an external request. Reload the authenticated user before
         # continuing with referral or subscription writes.
-        db_user = await user_dal.get_user_by_id(session, user_id)
+        if refresh_external:
+            db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or db_user.is_banned:
             raise web.HTTPForbidden(
                 text=json.dumps({"ok": False, "error": "access_denied"}),
                 content_type="application/json",
             )
 
-        active = await subscription_service.get_active_subscription_details(session, user_id)
+        with performance_phase("subscription"):
+            active = await subscription_service.get_active_subscription_details(
+                session, user_id, prefer_local=not refresh_external
+            )
         partner_program = PartnerProgramService(settings)
         await partner_program.auto_enroll_user(session, user=db_user)
         referral_program_enabled = await partner_program.referral_program_enabled_for_user(
@@ -285,7 +297,10 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             local_sub=local_sub,
             plans=plans_payload,
         )
-        avatar = await _ensure_cached_telegram_avatar(request, session, db_user)
+        with performance_phase("avatar"):
+            avatar = await _ensure_cached_telegram_avatar(
+                request, session, db_user, allow_fetch=refresh_external
+            )
         external_identities = (
             (
                 await session.execute(
@@ -369,7 +384,10 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             ),
             "telegram_notifications_need_prompt": telegram_notifications_need_prompt(db_user),
             "telegram_notifications_start_link": telegram_notifications_link,
-            "telegram_photo_url": _telegram_avatar_url(avatar),
+            "telegram_photo_url": (
+                _telegram_avatar_url(avatar)
+                or ("/api/account/avatar" if db_user.telegram_id else "")
+            ),
             "first_name": db_user.first_name,
             "language_code": lang,
             "is_admin": is_admin,

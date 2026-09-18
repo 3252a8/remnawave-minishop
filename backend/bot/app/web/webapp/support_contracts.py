@@ -47,7 +47,10 @@ SUPPORT_ROUTE_CONTRACTS: dict[str, RouteContract] = {
                     "items": schema_ref(SupportMessageOut),
                 },
                 "peer_typing": BOOLEAN_SCHEMA,
-            }
+                "incremental": BOOLEAN_SCHEMA,
+                "unread": INTEGER_SCHEMA,
+            },
+            required=["ticket", "messages", "peer_typing"],
         ),
         models=(SupportMessageButtonOut, SupportMessageOut, SupportTicketOut),
     ),
