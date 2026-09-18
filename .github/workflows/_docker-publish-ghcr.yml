@@ -1,0 +1,140 @@
+name: Publish GHCR images (reusable)
+
+# Publishes the three public Core images to GHCR only. GitLab remains the
+# source of the wider release pipeline and all non-GHCR publication work.
+
+on:
+  workflow_call:
+    inputs:
+      source_ref:
+        description: "Commit or tag to check out"
+        type: string
+        required: true
+      source_commit:
+        description: "Immutable source commit recorded in image metadata"
+        type: string
+        required: true
+      channel:
+        description: "Publishing channel: dev or release"
+        type: string
+        required: true
+      version:
+        description: "Release version without the leading v"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  lockfiles:
+    name: Validate npm lockfiles
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.source_ref }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            docs-site/package-lock.json
+
+      - name: Check npm lockfiles
+        run: npm run check:lockfiles
+
+  publish:
+    name: Publish ${{ matrix.image }}
+    needs: lockfiles
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: backend
+            image: remnawave-minishop-backend
+          - target: worker
+            image: remnawave-minishop-worker
+          - target: frontend
+            image: remnawave-minishop-frontend
+    steps:
+      - name: Validate publishing inputs
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ "$CHANNEL" != "dev" ] && [ "$CHANNEL" != "release" ]; then
+            echo "Unsupported GHCR channel: $CHANNEL" >&2
+            exit 1
+          fi
+          if ! [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "source_commit must be a full Git commit SHA" >&2
+            exit 1
+          fi
+          if [ "$CHANNEL" = "release" ] && ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release version must use MAJOR.MINOR.PATCH form" >&2
+            exit 1
+          fi
+
+      - name: Checkout immutable source
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.source_ref }}
+          fetch-depth: 0
+
+      - name: Verify checked-out source
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate GHCR metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+          flavor: latest=false
+          tags: |
+            type=raw,value=dev,enable=${{ inputs.channel == 'dev' }}
+            type=raw,value=${{ inputs.version }},enable=${{ inputs.channel == 'release' }}
+            type=raw,value=latest,enable=${{ inputs.channel == 'release' }}
+          labels: |
+            org.opencontainers.image.revision=${{ inputs.source_commit }}
+
+      - name: Build and push ${{ matrix.image }}
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          target: ${{ matrix.target }}
+          platforms: linux/amd64
+          push: true
+          pull: true
+          no-cache: ${{ inputs.channel == 'release' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            GITHUB_REF_NAME=${{ inputs.channel == 'release' && 'main' || 'dev' }}
+            REMNAWAVE_MINISHOP_BUILD_PROVENANCE=official
+            REMNAWAVE_MINISHOP_BUILD_COMMIT=${{ inputs.source_commit }}
+          cache-from: type=gha,scope=${{ matrix.target }}-ghcr
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}-ghcr
+          provenance: mode=max
+          sbom: true
