@@ -590,6 +590,64 @@ def test_sync_failure_status_is_committed_after_rollback():
     session.commit.assert_awaited_once()
 
 
+def test_panel_sync_commits_between_bounded_user_batches():
+    panel_service = SimpleNamespace(
+        get_all_panel_users=AsyncMock(
+            return_value=[
+                {"uuid": ""},
+                {"uuid": ""},
+            ]
+        )
+    )
+    session = SimpleNamespace(commit=AsyncMock(), rollback=AsyncMock())
+    sync_indexes = {
+        "users_by_telegram_id": {},
+        "users_by_user_id": {},
+        "users_by_panel_uuid": {},
+        "users_by_email": {},
+        "subscriptions_by_panel_uuid": {},
+        "active_subscriptions_by_user_panel": {},
+        "subscriptions_by_user_panel": {},
+        "panel_uuids_by_telegram_id": {},
+    }
+    checkpoint = AsyncMock()
+
+    with (
+        patch(
+            "bot.handlers.admin.sync_admin_runner.PANEL_SYNC_TRANSACTION_BATCH_SIZE",
+            1,
+        ),
+        patch(
+            "bot.handlers.admin.sync_admin_runner.acquire_subscription_background_sync_lock",
+            AsyncMock(),
+        ),
+        patch(
+            "bot.handlers.admin.sync_admin_runner._prefetch_sync_indexes",
+            AsyncMock(return_value=sync_indexes),
+        ),
+        patch(
+            "bot.handlers.admin.sync_admin_runner.commit_subscription_background_sync_batch",
+            checkpoint,
+        ),
+        patch(
+            "bot.handlers.admin.sync_admin_runner.panel_sync_dal.update_panel_sync_status",
+            AsyncMock(),
+        ),
+    ):
+        result = asyncio.run(
+            _perform_sync_impl(
+                panel_service=panel_service,
+                session=session,
+                settings=SimpleNamespace(DEFAULT_LANGUAGE="en"),
+                i18n_instance=JsonI18n("locales", default="en"),
+            )
+        )
+
+    assert result["users_processed"] == 2
+    checkpoint.assert_awaited_once_with(session)
+    session.commit.assert_awaited_once_with()
+
+
 def test_sync_summary_translates_error_count():
     i18n = JsonI18n("locales", default="ru")
 

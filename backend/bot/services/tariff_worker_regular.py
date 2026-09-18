@@ -29,6 +29,7 @@ from bot.utils.traffic_reset import (
     traffic_period_starts_match,
 )
 from config.settings import Settings
+from db.advisory_locks import commit_subscription_background_sync_batch
 from db.dal import tariff_dal, user_dal
 from db.models import Subscription
 
@@ -297,6 +298,8 @@ class TariffWorkerRegularMixin(TariffWorkerRegularTagMixin):
                     panel_user_dict=panel_data,
                     panel_view=panel_view,
                 )
+            if chunk_start + len(chunk) < len(subs):
+                await commit_subscription_background_sync_batch(session)
         await self._finish_premium_panel_batch(session)
 
     async def _prefetch_panel_users_by_uuid(

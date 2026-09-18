@@ -92,6 +92,62 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         # IsolatedAsyncioTestCase tears down the event loop that owns its pool.
         await close_redis()
 
+    async def test_regular_tick_commits_between_subscription_batches(self):
+        tariff = SimpleNamespace(billing_model="lifetime")
+        settings = SimpleNamespace(
+            tariffs_config=SimpleNamespace(require_configured=lambda _key: tariff),
+        )
+        panel_service = SimpleNamespace()
+        subscription_service = SimpleNamespace(
+            _extract_panel_traffic_details=lambda _payload: (0, 0, None),
+        )
+        worker = TariffTrafficWorker(
+            settings=settings,
+            session_factory=SimpleNamespace(),
+            panel_service=panel_service,
+            subscription_service=subscription_service,
+        )
+        worker._trial_premium_tariff = lambda: None
+        worker._prefetch_panel_users_by_uuid = AsyncMock(
+            return_value={
+                "panel-1": {"uuid": "panel-1", "status": "ACTIVE"},
+                "panel-2": {"uuid": "panel-2", "status": "ACTIVE"},
+            }
+        )
+        worker._panel_next_traffic_reset_at = MagicMock(return_value=None)
+        worker._sync_hwid_device_limit = AsyncMock()
+        worker._maybe_warn_or_throttle = AsyncMock()
+        worker._sync_premium_squad_limit = AsyncMock()
+        worker._finish_premium_panel_batch = AsyncMock()
+        subscriptions = [
+            SimpleNamespace(
+                subscription_id=index,
+                panel_user_uuid=f"panel-{index}",
+                tariff_key="standard",
+                traffic_used_bytes=0,
+                traffic_limit_bytes=0,
+                status_from_panel="ACTIVE",
+                end_date=datetime(2026, 7, index, tzinfo=UTC),
+            )
+            for index in (1, 2)
+        ]
+        result = MagicMock()
+        result.scalars.return_value.all.return_value = subscriptions
+        session = AsyncMock()
+        session.execute.return_value = result
+        checkpoint = AsyncMock()
+
+        with (
+            patch("bot.services.tariff_worker_regular.TARIFF_WORKER_BATCH_SIZE", 1),
+            patch(
+                "bot.services.tariff_worker_regular.commit_subscription_background_sync_batch",
+                checkpoint,
+            ),
+        ):
+            await worker.traffic_period_tick(session)
+
+        checkpoint.assert_awaited_once_with(session)
+
     def test_topup_webapp_button_labels_do_not_mention_mini_app(self):
         class I18n:
             def gettext(self, _lang, key, **_kwargs):

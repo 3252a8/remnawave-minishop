@@ -13,7 +13,10 @@ from bot.services.panel_activity import (
 )
 from bot.services.panel_api_service import PanelApiService
 from config.settings import Settings
-from db.advisory_locks import acquire_subscription_background_sync_lock
+from db.advisory_locks import (
+    acquire_subscription_background_sync_lock,
+    commit_subscription_background_sync_batch,
+)
 from db.dal import (
     panel_sync_dal,
     subscription_dal,
@@ -56,6 +59,8 @@ from .sync_admin_summary import (
 )
 
 logger = logging.getLogger(__name__)
+
+PANEL_SYNC_TRANSACTION_BATCH_SIZE = 100
 
 
 def _select_existing_subscription_for_panel_sync(
@@ -851,6 +856,12 @@ async def _perform_sync_impl(
                 panel_user_uuid = panel_user_dict.get("uuid", "unknown")
                 sync_errors.append(f"Error processing panel user {panel_user_uuid}: {e_user!s}")
                 logger.error("Error syncing user: %s", e_user)
+            finally:
+                if (
+                    panel_records_checked % PANEL_SYNC_TRANSACTION_BATCH_SIZE == 0
+                    and panel_records_checked < total_panel_users
+                ):
+                    await commit_subscription_background_sync_batch(session)
 
         # Update sync status
         status = "completed_with_errors" if sync_errors else "completed"
