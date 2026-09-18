@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from sqlalchemy.dialects import postgresql
 
-from bot.services.email_auth_service import EmailAuthService
+from bot.services.email_auth_service import EmailAuthService, is_valid_email
 from bot.services.email_templates import EmailInlineImage
 from db.dal import security_dal
 
@@ -119,6 +119,15 @@ def test_code_hash_is_bound_to_recipient_email():
     gmail_hash = service._hash_code("user@gmail.com", "login", "123456")
 
     assert yandex_hash != gmail_hash
+
+
+def test_email_validation_rejects_unsafe_or_malformed_values_without_regex_backtracking():
+    assert is_valid_email("User@Example.COM")
+    assert not is_valid_email("missing-domain@example")
+    assert not is_valid_email("missing-local@.example.com")
+    assert not is_valid_email("two@@example.com")
+    assert not is_valid_email(f"{'a' * 65}@example.com")
+    assert not is_valid_email(f"{'a' * 240}@example.com")
 
 
 def test_smtp_send_uses_explicit_envelope_recipient():

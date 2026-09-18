@@ -25,8 +25,6 @@ from db.models import EmailVerificationCode
 
 logger = logging.getLogger(__name__)
 
-EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-
 
 @dataclass(frozen=True)
 class SmtpAttempt:
@@ -73,7 +71,19 @@ def email_domain(value: str | None) -> str:
 
 def is_valid_email(value: str) -> bool:
     email = normalize_email(value)
-    return bool(email and len(email) <= 254 and EMAIL_RE.match(email))
+    if not email or len(email) > 254 or any(char.isspace() for char in email):
+        return False
+    local_part, separator, domain = email.partition("@")
+    return bool(
+        separator
+        and local_part
+        and len(local_part) <= 64
+        and domain
+        and "@" not in domain
+        and "." in domain
+        and not domain.startswith(".")
+        and not domain.endswith(".")
+    )
 
 
 def _split_disposable_domain_values(value: str) -> list[str]:
@@ -277,10 +287,7 @@ class EmailAuthService:
                 purpose=purpose,
             )
         else:
-            logger.info(
-                "QA email auth code generated without SMTP delivery for %s.",
-                normalized_email,
-            )
+            logger.info("QA email auth code generated without SMTP delivery.")
         resolved_target_user_id = target_user_id
         if resolved_target_user_id is None:
             try:
@@ -289,10 +296,7 @@ class EmailAuthService:
                     int(existing_user.user_id) if existing_user is not None else None
                 )
             except Exception:
-                logger.exception(
-                    "Failed to resolve email auth target user for audit log: %s",
-                    normalized_email,
-                )
+                logger.exception("Failed to resolve email auth target user for audit log.")
         await log_user_message_delivery(
             session,
             target_user_id=resolved_target_user_id,

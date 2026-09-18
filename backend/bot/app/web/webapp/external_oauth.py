@@ -828,12 +828,12 @@ async def external_oauth_pending_verify_route(request: web.Request) -> web.Respo
             await session.rollback()
             logger.info(
                 "External OAuth email confirmation raced with another identity for %s",
-                pending["provider"],
+                provider.key,
             )
             return _pending_error("identity_conflict", status=409, clear=True)
         except Exception:
             await session.rollback()
-            logger.exception("External OAuth email confirmation failed for %s", pending["provider"])
+            logger.exception("External OAuth email confirmation failed for %s", provider.key)
             return _pending_error("email_confirmation_failed", status=500)
 
     if identity_link_event is not None:
