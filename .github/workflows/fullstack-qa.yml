@@ -53,7 +53,7 @@ jobs:
       - name: Start dev stand
         env:
           PANEL_WRITE_MODE: live
-        run: npm run dev:stand:up
+        run: bash scripts/ci-start-dev-stand.sh
 
       - name: Run full-stack QA
         env:
@@ -117,7 +117,7 @@ jobs:
         run: |
           npm run dev:stand:use -- 2.8.1
           npm run dev:stand:config
-          npm run dev:stand:up
+          bash scripts/ci-start-dev-stand.sh
 
       - name: Verify source API contract
         env:
