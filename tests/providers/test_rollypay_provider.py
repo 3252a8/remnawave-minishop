@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from aiogram import types
 
 from bot.payment_providers.base import WebAppPaymentContext
 from bot.payment_providers.rollypay import SPECS, RollyPayConfig, RollyPayService
@@ -17,6 +18,59 @@ from bot.payment_providers.rollypay.subscriptions import (
     subscription_context_supported,
 )
 from bot.payment_providers.shared import CreatePaymentRequest
+from config.subscription_periods import with_period_days
+
+
+@pytest.mark.parametrize("spec", SPECS, ids=lambda spec: spec.id)
+@pytest.mark.parametrize("promo", ["", "|p12"])
+def test_imported_tariff_checkout_callbacks_fit_telegram_limit(spec, promo: str) -> None:
+    sale_mode = with_period_days("subscription@imported_tariff_12345", 90) + "|bot" + promo
+    data = spec.callback_data(value="3", rub_price=1500.0, stars_price=None, sale_mode=sale_mode)
+
+    assert data is not None
+    assert data.startswith("pay_")  # Preserve the shared payment cooldown classification.
+    assert len(data.encode("utf-8")) <= 64
+    assert data.split(":", 3)[1:] == ["3", "1500.0", sale_mode]
+
+
+@pytest.mark.parametrize(
+    ("index", "legacy_prefix"),
+    list(
+        enumerate(
+            (
+                "pay_rollypay_all",
+                "pay_rollypay_sbp",
+                "pay_rollypay_card",
+                "pay_rollypay_intl",
+                "pay_rollypay_crypto",
+                "pay_rollypay_sub",
+            )
+        )
+    ),
+)
+def test_compact_and_existing_buttons_route_to_same_method(index, legacy_prefix) -> None:
+    async def scenario() -> None:
+        spec = SPECS[index]
+        for prefix in (legacy_prefix, spec.callback_prefix):
+            callback = types.CallbackQuery(
+                id="test",
+                from_user=types.User(id=42, is_bot=False, first_name="Test"),
+                chat_instance="test",
+                data=f"{prefix}:3:1500.0:subscription@basic|d90|bot",
+            )
+            handled, _ = await rollypay_service.router.callback_query.handlers[0].check(callback)
+            assert handled
+            run = AsyncMock()
+            with patch.object(rollypay_service, "run_callback_payment", run):
+                await rollypay_service.pay_rollypay_callback_handler(
+                    callback, AsyncMock(), {}, _service(), AsyncMock()
+                )
+            run.assert_awaited_once()
+            assert run.await_args is not None
+            assert run.await_args.args[0].spec is spec
+            assert run.await_args.args[1] is callback
+
+    asyncio.run(scenario())
 
 
 def _service(**config_overrides: object) -> RollyPayService:
