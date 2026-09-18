@@ -207,5 +207,6 @@ def test_fullstack_qa_retries_only_transient_stand_start_failures() -> None:
     assert "DEV_STAND_START_ATTEMPTS:-3" in retry_script
     assert "failed to receive status" in retry_script
     assert "connection reset by peer" in retry_script
+    assert "wget .*did not complete successfully: exit code: 4" in retry_script
     assert "Dev stand startup failed with a non-transient error; not retrying." in retry_script
     assert "npm run dev:stand:down || true" in retry_script

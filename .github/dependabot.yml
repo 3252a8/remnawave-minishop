@@ -1,0 +1,41 @@
+version: 2
+
+updates:
+  # Security updates always target GitHub's default branch. Keep related npm
+  # packages together so peer dependency families cannot be updated partially.
+  - package-ecosystem: "npm"
+    directories:
+      - "/frontend"
+      - "/docs-site"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+    groups:
+      tiptap-security:
+        applies-to: "security-updates"
+        patterns:
+          - "@tiptap/*"
+      npm-security:
+        applies-to: "security-updates"
+        patterns:
+          - "*"
+
+  # Version updates are validated on dev before they reach a release branch.
+  - package-ecosystem: "npm"
+    directories:
+      - "/frontend"
+      - "/docs-site"
+    target-branch: "dev"
+    schedule:
+      interval: "weekly"
+    groups:
+      tiptap-version:
+        applies-to: "version-updates"
+        patterns:
+          - "@tiptap/*"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "dev"
+    schedule:
+      interval: "weekly"
