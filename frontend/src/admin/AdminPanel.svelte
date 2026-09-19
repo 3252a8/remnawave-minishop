@@ -312,7 +312,9 @@
         ? openLogsUserCard
         : openUserCard
   );
-  const gravatarCache = createGravatarCache(() => usersStore.updateState({}));
+  const gravatarCache = createGravatarCache(() =>
+    usersStore.updateState({ users: [...usersStore.users] })
+  );
 
   $effect(() => {
     const section = activeSection;
