@@ -27,7 +27,6 @@
     OpenLinkAction,
     StringAction,
     Translate,
-    UserProfile,
     VoidAction,
   } from "$lib/webapp/types.js";
 
@@ -65,7 +64,6 @@
     telegramNotificationsStartLink?: string;
     telegramNotificationsStatus?: string;
     telegramProfileName?: string;
-    user?: UserProfile;
     userAgreementUrl?: string;
     userLanguage?: string;
     showLogout?: boolean;
@@ -123,7 +121,6 @@
     telegramNotificationsStartLink = "",
     telegramNotificationsStatus = "unknown",
     telegramProfileName = "",
-    user = {},
     userAgreementUrl = "",
     userLanguage = "",
     showLogout = true,
@@ -147,7 +144,7 @@
     updateAccountLanguage = () => {},
   }: Props = $props();
 
-  const showEmailAccount = $derived(emailAuthEnabled || Boolean(user?.email));
+  const showEmailAccount = $derived(emailAuthEnabled);
   let themeMenuOpen = $state(false);
 </script>
 

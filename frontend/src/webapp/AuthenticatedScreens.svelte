@@ -601,7 +601,6 @@
       {telegramNotificationsStartLink}
       {telegramNotificationsStatus}
       {telegramProfileName}
-      {user}
       {userAgreementUrl}
       {userLanguage}
       {hasUnlinkedIdentity}
@@ -624,13 +623,14 @@
       updateAccountLanguage={accountStore.updateAccountLanguage}
     />
   {:else if screen === "notifications" && notificationPreferencesEnabled}
-    <NotificationSettingsScreen {api} {goSettings} {t} {user} />
+    <NotificationSettingsScreen {api} {emailAuthEnabled} {goSettings} {t} {user} />
   {:else if screen === "security"}
     <SecurityScreen
       {api}
       authProviders={(appSettings.auth_providers || appSettings.authProviders || []) as string[]}
       {brandTitle}
       {currentLang}
+      {emailAuthEnabled}
       emailChangeEnabled={Boolean(appSettings.email_address_change_enabled ?? true)}
       {goSettings}
       linkTelegramAccount={accountStore.linkTelegramFromSettings}

@@ -4977,6 +4977,7 @@
   "email_unsubscribe_hint": "Choose which marketing and system emails you want to receive.",
   "wa_notification_preferences_title": "Notifications",
   "wa_notification_preferences_hint": "Choose separately what may be sent to your email and Telegram.",
+  "wa_notification_preferences_telegram_hint": "Choose what may be sent to your Telegram account.",
   "wa_notification_preferences_delivery_title": "Delivery settings",
   "wa_notification_preferences_marketing": "News and offers",
   "wa_notification_preferences_marketing_hint": "Promotions, announcements and broadcast campaigns",
