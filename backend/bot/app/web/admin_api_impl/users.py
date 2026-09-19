@@ -3,6 +3,7 @@ from bot.app.web.route_contracts import (
     BOOLEAN_SCHEMA,
     INTEGER_SCHEMA,
     JSON_OBJECT_SCHEMA,
+    NULLABLE_INTEGER_SCHEMA,
     NULLABLE_STRING_SCHEMA,
     NUMBER_SCHEMA,
     STRING_SCHEMA,
@@ -180,6 +181,31 @@ register_contract(
                 "notification_preferences": schema_ref(NotificationPreferencesOut),
                 "panel_squad_overrides": {
                     "anyOf": [schema_ref(AdminPanelSquadOverridesOut), {"type": "null"}]
+                },
+                "partner_attribution": {
+                    "anyOf": [
+                        {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": [
+                                "partner_id",
+                                "partner_user_id",
+                                "display_label",
+                                "public_client_id",
+                                "source",
+                                "attributed_at",
+                            ],
+                            "properties": {
+                                "partner_id": INTEGER_SCHEMA,
+                                "partner_user_id": NULLABLE_INTEGER_SCHEMA,
+                                "display_label": STRING_SCHEMA,
+                                "public_client_id": STRING_SCHEMA,
+                                "source": STRING_SCHEMA,
+                                "attributed_at": STRING_SCHEMA,
+                            },
+                        },
+                        {"type": "null"},
+                    ]
                 },
                 "referral": {
                     "type": "object",

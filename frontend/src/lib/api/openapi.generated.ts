@@ -12525,6 +12525,14 @@ export interface operations {
             ok: true;
             panel_squad_overrides: components["schemas"]["AdminPanelSquadOverridesOut"] | null;
             panel_user_url: string | null;
+            partner_attribution: {
+              attributed_at: string;
+              display_label: string;
+              partner_id: number;
+              partner_user_id: number | null;
+              public_client_id: string;
+              source: string;
+            } | null;
             recent_payments: components["schemas"]["PaymentOut"][];
             referral: {
               bot_link: string | null;

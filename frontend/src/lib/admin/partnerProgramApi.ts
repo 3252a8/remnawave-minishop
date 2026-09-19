@@ -268,7 +268,7 @@ export async function loadPartnerDetail(
     links,
     clients: records(payload.clients).map((item) => ({
       id: String(item.public_client_id || ""),
-      userId: 0,
+      userId: number(item.client_user_id),
       label: String(item.label || item.public_client_id || ""),
       handle: String(item.public_client_id || "—"),
       attributed: String(item.attributed_at || ""),

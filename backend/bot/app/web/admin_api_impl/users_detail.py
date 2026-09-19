@@ -30,7 +30,14 @@ from bot.services.user_balance_service import UserBalanceService
 from bot.utils.install_links import ensure_user_install_guide_share_url
 from bot.utils.traffic_reset import panel_traffic_limit_strategy
 from config.settings import Settings
-from db.dal import message_log_dal, payment_dal, subscription_dal, user_dal
+from db.dal import (
+    message_log_dal,
+    partner_dal,
+    payment_dal,
+    subscription_dal,
+    user_dal,
+    user_reads_dal,
+)
 from db.dal.user_subscription_segments import (
     active_subscription_exists_for_user,
     active_subscription_segment_flags_sq,
@@ -677,6 +684,28 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
         )
         inviter = await user_dal.get_referrer_for_user(session, user)
         invitees_total = await user_dal.count_users_referred_by(session, target_id)
+        partner_client = await partner_dal.get_client_with_profile_for_user(session, target_id)
+        partner_attribution: dict[str, Any] | None = None
+        if partner_client is not None:
+            client, partner_profile = partner_client
+            partner_user_id = (
+                int(partner_profile.user_id) if partner_profile.user_id is not None else None
+            )
+            partner_display_label = str(partner_profile.display_label_snapshot)
+            if partner_user_id is not None:
+                partner_labels = await user_reads_dal.get_user_labels(session, [partner_user_id])
+                _partner_username, live_partner_name = partner_labels.get(
+                    partner_user_id, (None, None)
+                )
+                partner_display_label = live_partner_name or partner_display_label
+            partner_attribution = {
+                "partner_id": int(partner_profile.partner_id),
+                "partner_user_id": partner_user_id,
+                "display_label": partner_display_label,
+                "public_client_id": str(client.public_client_id),
+                "source": str(client.source),
+                "attributed_at": client.attributed_at.isoformat(),
+            }
         avatar_user_ids = [target_id]
         if inviter is not None:
             avatar_user_ids.append(int(inviter.user_id))
@@ -858,6 +887,7 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
                 mode="json"
             ),
             "panel_squad_overrides": panel_squad_overrides,
+            "partner_attribution": partner_attribution,
             "referral": {
                 "code": referral_code,
                 "bot_link": referral_bot_link,

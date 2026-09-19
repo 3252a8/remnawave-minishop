@@ -13278,6 +13278,10 @@
             "title": "Logourl",
             "type": "string"
           },
+          "notificationPreferencesEnabled": {
+            "title": "Notificationpreferencesenabled",
+            "type": "boolean"
+          },
           "primaryColor": {
             "anyOf": [
               {
@@ -13389,6 +13393,7 @@
           "language",
           "languages",
           "emailAuthEnabled",
+          "notificationPreferencesEnabled",
           "devMode",
           "authProviders",
           "recommendedAuthProviders",
@@ -20728,6 +20733,48 @@
                         "null"
                       ]
                     },
+                    "partner_attribution": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "attributed_at": {
+                              "type": "string"
+                            },
+                            "display_label": {
+                              "type": "string"
+                            },
+                            "partner_id": {
+                              "type": "integer"
+                            },
+                            "partner_user_id": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "public_client_id": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "partner_id",
+                            "partner_user_id",
+                            "display_label",
+                            "public_client_id",
+                            "source",
+                            "attributed_at"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "recent_payments": {
                       "items": {
                         "$ref": "#/components/schemas/PaymentOut"
@@ -20825,6 +20872,7 @@
                     "telegram_notifications",
                     "notification_preferences",
                     "panel_squad_overrides",
+                    "partner_attribution",
                     "referral"
                   ],
                   "type": "object"
@@ -25357,6 +25405,9 @@
                           "type": "array"
                         },
                         "my_devices_enabled": {
+                          "type": "boolean"
+                        },
+                        "notification_preferences_enabled": {
                           "type": "boolean"
                         },
                         "partner_program_enabled": {
