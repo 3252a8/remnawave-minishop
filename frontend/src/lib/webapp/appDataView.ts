@@ -26,6 +26,7 @@ export type AppDataView = {
   devicesEnabled: boolean;
   subscriptionReissueEnabled: boolean;
   emailAuthEnabled: boolean;
+  notificationPreferencesEnabled: boolean;
   faviconBrand: WebappRecord;
   installGuidesEnabled: boolean;
   methods: PaymentMethod[];
@@ -106,6 +107,12 @@ export function computeAppDataView({
     appSettings.email_auth_enabled ??
     cfg.emailAuthEnabled;
   const emailAuthEnabled = rawEmailAuthEnabled !== false && rawEmailAuthEnabled !== "false";
+  const rawNotificationPreferencesEnabled =
+    recordField(dataRecord.settings).notification_preferences_enabled ??
+    appSettings.notification_preferences_enabled ??
+    cfg.notificationPreferencesEnabled;
+  const notificationPreferencesEnabled =
+    rawNotificationPreferencesEnabled !== false && rawNotificationPreferencesEnabled !== "false";
   const authProviders = normalizeAuthProviders(
     recordField(dataRecord.settings).auth_providers ??
       appSettings.auth_providers ??
@@ -131,6 +138,7 @@ export function computeAppDataView({
     devicesEnabled: Boolean(appSettings.my_devices_enabled),
     subscriptionReissueEnabled: Boolean(appSettings.subscription_reissue_enabled),
     emailAuthEnabled,
+    notificationPreferencesEnabled,
     faviconBrand,
     installGuidesEnabled: Boolean(appSettings.subscription_guides_enabled),
     methods,

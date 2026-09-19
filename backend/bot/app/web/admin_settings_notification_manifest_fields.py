@@ -4,6 +4,13 @@ from bot.app.web.admin_settings_manifest_types import SettingField
 
 NOTIFICATION_SETTINGS_FIELDS: list[SettingField] = [
     SettingField(
+        "USER_NOTIFICATION_PREFERENCES_ENABLED",
+        "bool",
+        "notifications",
+        "User notification preferences",
+        "Allow users to manage notification channels in their account and from email links.",
+    ),
+    SettingField(
         "SUBSCRIPTION_NOTIFICATIONS_ENABLED",
         "bool",
         "notifications",

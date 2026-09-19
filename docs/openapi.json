@@ -13278,6 +13278,10 @@
             "title": "Logourl",
             "type": "string"
           },
+          "notificationPreferencesEnabled": {
+            "title": "Notificationpreferencesenabled",
+            "type": "boolean"
+          },
           "primaryColor": {
             "anyOf": [
               {
@@ -13389,6 +13393,7 @@
           "language",
           "languages",
           "emailAuthEnabled",
+          "notificationPreferencesEnabled",
           "devMode",
           "authProviders",
           "recommendedAuthProviders",
@@ -25357,6 +25362,9 @@
                           "type": "array"
                         },
                         "my_devices_enabled": {
+                          "type": "boolean"
+                        },
+                        "notification_preferences_enabled": {
                           "type": "boolean"
                         },
                         "partner_program_enabled": {

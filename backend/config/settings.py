@@ -303,6 +303,7 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, TelegramTransport
     SUBSCRIPTION_NOTIFY_DAYS_BEFORE: int = Field(default=3)
     SUBSCRIPTION_NOTIFY_HOURS_BEFORE: int = Field(default=3)
     SUBSCRIPTION_NOTIFICATION_WORKER_TICK_SECONDS: int = Field(default=300)
+    USER_NOTIFICATION_PREFERENCES_ENABLED: bool = Field(default=True)
     USER_NOTIFICATION_SINGLE_CHANNEL_FALLBACK_ENABLED: bool = Field(default=True)
     USER_NOTIFICATION_PAYMENTS_TELEGRAM_ENABLED: bool = Field(default=True)
     USER_NOTIFICATION_PAYMENTS_EMAIL_ENABLED: bool = Field(default=True)

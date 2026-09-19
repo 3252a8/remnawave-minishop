@@ -378,6 +378,18 @@ def test_support_settings_i18n_keys_exist_in_admin_locales():
             assert field["i18n_description_key"] in messages
 
 
+def test_user_notification_preferences_setting_is_localized():
+    field = _manifest_by_key()["USER_NOTIFICATION_PREFERENCES_ENABLED"]
+
+    assert field["type"] == "bool"
+    assert field["section"] == "notifications"
+    assert field["subsection"] is None
+    for language in ("ru", "en"):
+        messages = _locale(language)
+        assert field["i18n_label_key"] in messages
+        assert field["i18n_description_key"] in messages
+
+
 def test_settings_choice_i18n_keys_exist_in_admin_locales():
     fields_with_choices = [
         item for item in _manifest_items() if isinstance(item.get("choices"), list)

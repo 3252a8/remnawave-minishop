@@ -2954,6 +2954,8 @@
   "admin_settings_field_referral_bonus_days_referee_6_months_label": "Referral Bonus Days Referee 6 Months",
   "admin_settings_field_referral_bonus_days_referee_12_months_label": "Referral Bonus Days Referee 12 Months",
   "admin_settings_field_subscription_notifications_enabled_label": "Subscription Notifications Enabled",
+  "admin_settings_field_user_notification_preferences_enabled_label": "User notification preferences",
+  "admin_settings_field_user_notification_preferences_enabled_description": "Allow users to manage notification channels in their account and from email links.",
   "admin_settings_field_subscription_email_notifications_enabled_label": "Subscription email notifications",
   "admin_settings_field_subscription_email_notifications_enabled_description": "When enabled, subscription lifecycle notifications are mirrored to linked user email addresses.",
   "admin_settings_field_subscription_notify_on_expire_label": "Subscription Notify On Expire",

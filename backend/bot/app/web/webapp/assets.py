@@ -311,6 +311,9 @@ def _get_cached_webapp_settings(request: web.Request) -> dict[str, Any]:
             "user_agreement_url": settings.USER_AGREEMENT_URL or "",
             "currency": payment_settings.default_currency_symbol or "RUB",
             "email_auth_enabled": settings.email_auth_configured,
+            "notification_preferences_enabled": bool(
+                settings.USER_NOTIFICATION_PREFERENCES_ENABLED
+            ),
             "auth_providers": settings.webapp_auth_providers,
             "recommended_auth_providers": settings.webapp_recommended_auth_providers,
             "registration_invite_only_enabled": bool(
@@ -553,6 +556,7 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
                 base_languages=base_locales_data.keys(),
             ),
             "emailAuthEnabled": cached["email_auth_enabled"],
+            "notificationPreferencesEnabled": cached["notification_preferences_enabled"],
             "devMode": bool(settings.qa_auth_enabled),
             "authProviders": cached["auth_providers"],
             "recommendedAuthProviders": cached["recommended_auth_providers"],

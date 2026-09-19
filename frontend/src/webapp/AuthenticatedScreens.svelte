@@ -71,6 +71,7 @@
     subscriptionReissueBusy?: boolean;
     openSubscriptionReissueDialog?: VoidAction;
     emailAuthEnabled?: boolean;
+    notificationPreferencesEnabled?: boolean;
     goDevices: VoidAction;
     goHome: VoidAction;
     goInvite: VoidAction;
@@ -198,6 +199,7 @@
     subscriptionReissueBusy = false,
     openSubscriptionReissueDialog = () => {},
     emailAuthEnabled = true,
+    notificationPreferencesEnabled = true,
     goDevices,
     goHome,
     goInvite,
@@ -568,6 +570,7 @@
       {currentLang}
       {currentLanguageOption}
       {emailAuthEnabled}
+      {notificationPreferencesEnabled}
       {isAdmin}
       {languageBusy}
       {languageClickGuard}
@@ -620,7 +623,7 @@
       {t}
       updateAccountLanguage={accountStore.updateAccountLanguage}
     />
-  {:else if screen === "notifications"}
+  {:else if screen === "notifications" && notificationPreferencesEnabled}
     <NotificationSettingsScreen {api} {goSettings} {t} {user} />
   {:else if screen === "security"}
     <SecurityScreen

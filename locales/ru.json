@@ -2954,6 +2954,8 @@
   "admin_settings_field_referral_bonus_days_referee_6_months_label": "Бонус приглашённому: 6 мес.",
   "admin_settings_field_referral_bonus_days_referee_12_months_label": "Бонус приглашённому: 12 мес.",
   "admin_settings_field_subscription_notifications_enabled_label": "Включены уведомления о подписке",
+  "admin_settings_field_user_notification_preferences_enabled_label": "Настройки уведомлений для пользователей",
+  "admin_settings_field_user_notification_preferences_enabled_description": "Разрешает пользователям управлять каналами уведомлений в ЛК и по ссылке из писем.",
   "admin_settings_field_subscription_email_notifications_enabled_label": "Email-уведомления о подписке",
   "admin_settings_field_subscription_email_notifications_enabled_description": "Если включено, уведомления жизненного цикла подписки дублируются на email пользователям с привязанной почтой.",
   "admin_settings_field_subscription_notify_on_expire_label": "Уведомлять об истечении",

@@ -220,6 +220,7 @@
   const devicesEnabled = $derived(appDataView.devicesEnabled);
   const subscriptionReissueEnabled = $derived(appDataView.subscriptionReissueEnabled);
   const emailAuthEnabled = $derived(appDataView.emailAuthEnabled);
+  const notificationPreferencesEnabled = $derived(appDataView.notificationPreferencesEnabled);
   const methods = $derived(appDataView.methods);
   const paymentMethodsDisplayMode = $derived(
     String(appSettings.payment_methods_display_mode || "dropdown")
@@ -311,6 +312,12 @@
   const goTrial = $derived(appActions.goTrial);
   const goStatus = $derived(appActions.goStatus);
   const goSupport = $derived(appActions.goSupport);
+
+  $effect(() => {
+    if (screen === "notifications" && !notificationPreferencesEnabled) {
+      goSettings();
+    }
+  });
   const linkTelegramAndActivateTrial = $derived(appActions.linkTelegramAndActivateTrial);
   const linkTelegramAndClaimReferralWelcome = $derived(
     appActions.linkTelegramAndClaimReferralWelcome
@@ -593,6 +600,7 @@
       {devicesStatus}
       {devicesStore}
       {emailAuthEnabled}
+      {notificationPreferencesEnabled}
       {goDevices}
       {goHome}
       {goInstall}

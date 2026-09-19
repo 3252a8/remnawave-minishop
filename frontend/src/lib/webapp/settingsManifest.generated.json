@@ -11670,6 +11670,25 @@
     "order": 7,
     "fields": [
       {
+        "key": "USER_NOTIFICATION_PREFERENCES_ENABLED",
+        "type": "bool",
+        "section": "notifications",
+        "section_order": 7,
+        "subsection": null,
+        "label": "User notification preferences",
+        "description": "Allow users to manage notification channels in their account and from email links.",
+        "i18n_label_key": "admin_settings_field_user_notification_preferences_enabled_label",
+        "i18n_description_key": "admin_settings_field_user_notification_preferences_enabled_description",
+        "i18n_subsection_key": null,
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": true,
+        "secret": false,
+        "value": "",
+        "overridden": false,
+        "updated_at": null
+      },
+      {
         "key": "SUBSCRIPTION_NOTIFICATIONS_ENABLED",
         "type": "bool",
         "section": "notifications",

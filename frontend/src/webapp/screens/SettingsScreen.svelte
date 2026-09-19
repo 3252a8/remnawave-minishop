@@ -36,6 +36,7 @@
     balance?: BalanceView;
     currentLanguageOption?: LanguageOption | null;
     emailAuthEnabled?: boolean;
+    notificationPreferencesEnabled?: boolean;
     isAdmin?: boolean;
     languageBusy?: boolean;
     languageClickGuard?: boolean;
@@ -93,6 +94,7 @@
     balance = {} as BalanceView,
     currentLanguageOption = null,
     emailAuthEnabled = true,
+    notificationPreferencesEnabled = true,
     isAdmin = false,
     languageBusy = false,
     languageClickGuard = false,
@@ -220,26 +222,28 @@
   {/if}
   <div class="settings-links-block">
     <div class="settings-divider" aria-hidden="true"></div>
-    <button
-      data-webapp-action="open-notifications"
-      class="settings-row settings-row-notifications"
-      type="button"
-      onclick={openNotifications}
-    >
-      <Megaphone size={21} />
-      <span>
-        <strong>{t("wa_notification_preferences_title", {}, "Notifications")}</strong>
-        <small
-          >{t(
-            "wa_notification_preferences_hint",
-            {},
-            "Choose separately what may be sent to your email and Telegram."
-          )}</small
-        >
-      </span>
-      <ArrowRight size={17} />
-    </button>
-    <div class="settings-divider" aria-hidden="true"></div>
+    {#if notificationPreferencesEnabled}
+      <button
+        data-webapp-action="open-notifications"
+        class="settings-row settings-row-notifications"
+        type="button"
+        onclick={openNotifications}
+      >
+        <Megaphone size={21} />
+        <span>
+          <strong>{t("wa_notification_preferences_title", {}, "Notifications")}</strong>
+          <small
+            >{t(
+              "wa_notification_preferences_hint",
+              {},
+              "Choose separately what may be sent to your email and Telegram."
+            )}</small
+          >
+        </span>
+        <ArrowRight size={17} />
+      </button>
+      <div class="settings-divider" aria-hidden="true"></div>
+    {/if}
     <button
       data-webapp-action="open-security"
       class="settings-row settings-row-security attention-wrap"

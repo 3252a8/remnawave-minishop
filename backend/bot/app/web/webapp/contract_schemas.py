@@ -69,6 +69,7 @@ class WebappBootstrapConfigOut(HttpResponseModel):
     language: str
     languages: list[WebappBootstrapLanguageOut]
     email_auth_enabled: bool = Field(alias="emailAuthEnabled")
+    notification_preferences_enabled: bool = Field(alias="notificationPreferencesEnabled")
     dev_mode: bool = Field(alias="devMode")
     auth_providers: list[str] = Field(alias="authProviders")
     recommended_auth_providers: list[str] = Field(alias="recommendedAuthProviders")
@@ -721,6 +722,7 @@ WEBAPP_SETTINGS_SCHEMA: dict[str, Any] = {
         "payment_methods_display_mode": STRING_SCHEMA,
         "subscription_guides_enabled": BOOLEAN_SCHEMA,
         "email_auth_enabled": BOOLEAN_SCHEMA,
+        "notification_preferences_enabled": BOOLEAN_SCHEMA,
         "email_address_change_enabled": BOOLEAN_SCHEMA,
         "auth_providers": STRING_ARRAY_SCHEMA,
         "recommended_auth_providers": STRING_ARRAY_SCHEMA,

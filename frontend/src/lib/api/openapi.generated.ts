@@ -9062,6 +9062,8 @@ export interface components {
       languages: components["schemas"]["WebappBootstrapLanguageOut"][];
       /** Logourl */
       logoUrl: string;
+      /** Notificationpreferencesenabled */
+      notificationPreferencesEnabled: boolean;
       /**
        * Primarycolor
        * @default null
@@ -14353,6 +14355,7 @@ export interface operations {
                 target: string;
               }[];
               my_devices_enabled?: boolean;
+              notification_preferences_enabled?: boolean;
               partner_program_enabled?: boolean;
               payment_methods_display_mode?: string;
               recommended_auth_providers?: string[];

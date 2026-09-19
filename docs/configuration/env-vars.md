@@ -332,6 +332,7 @@ Trust-all вариант записывается как
 
 | Переменная | Назначение |
 | --- | --- |
+| `USER_NOTIFICATION_PREFERENCES_ENABLED` | Разрешает пользователям управлять каналами уведомлений в ЛК и по ссылке из писем. По умолчанию `True`. |
 | `USER_NOTIFICATION_SINGLE_CHANNEL_FALLBACK_ENABLED` | Использовать единственный другой привязанный канал, когда выбранный канал пользователю недоступен. По умолчанию `True`. |
 | `USER_NOTIFICATION_PAYMENTS_TELEGRAM_ENABLED`, `USER_NOTIFICATION_PAYMENTS_EMAIL_ENABLED` | Каналы уведомлений об успешных и неуспешных платежах. |
 | `SUBSCRIPTION_NOTIFICATIONS_ENABLED`, `SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED` | Telegram и email для уведомлений жизненного цикла подписки. |

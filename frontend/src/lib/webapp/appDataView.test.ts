@@ -133,6 +133,26 @@ describe("computeAppDataView", () => {
     ).toBe(false);
   });
 
+  it("defaults notification preferences to enabled and honors explicit false", () => {
+    expect(
+      computeAppDataView({
+        cfg: {},
+        data: { settings: {} },
+        fallbackBrandTitle: "Subscription",
+        mockData: {},
+      }).notificationPreferencesEnabled
+    ).toBe(true);
+
+    expect(
+      computeAppDataView({
+        cfg: { notificationPreferencesEnabled: true },
+        data: { settings: { notification_preferences_enabled: "false" } },
+        fallbackBrandTitle: "Subscription",
+        mockData: {},
+      }).notificationPreferencesEnabled
+    ).toBe(false);
+  });
+
   it("normalizes configured auth providers and falls back to current capabilities", () => {
     expect(
       computeAppDataView({

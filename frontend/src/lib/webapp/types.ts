@@ -73,6 +73,7 @@ export type WebappConfig = BootstrapResponse["config"] &
     recommendedAuthProviders?: string[];
     checkoutPlans?: BillingPlan[];
     emailAuthEnabled?: boolean;
+    notificationPreferencesEnabled?: boolean;
     faviconUseCustom?: unknown;
     language?: string;
     languages?: LanguageOption[] | unknown[];
@@ -92,6 +93,7 @@ export const FALLBACK_WEBAPP_CONFIG: WebappConfig = {
   currency: "RUB",
   devMode: false,
   emailAuthEnabled: false,
+  notificationPreferencesEnabled: true,
   faviconUrl: "",
   faviconUseCustom: false,
   language: "ru",

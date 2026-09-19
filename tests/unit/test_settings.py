@@ -821,6 +821,16 @@ class SettingsTests(unittest.TestCase):
 
         self.assertFalse(settings.SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED)
 
+    def test_user_notification_preferences_default_to_enabled(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+        )
+
+        self.assertTrue(settings.USER_NOTIFICATION_PREFERENCES_ENABLED)
+
     def test_support_admin_telegram_notifications_default_to_enabled(self):
         settings = Settings(
             _env_file=None,

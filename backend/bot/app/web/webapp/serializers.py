@@ -508,6 +508,9 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             ),
             "subscription_guides_enabled": subscription_guides_available(settings),
             "email_auth_enabled": settings.email_auth_configured,
+            "notification_preferences_enabled": bool(
+                settings.USER_NOTIFICATION_PREFERENCES_ENABLED
+            ),
             "email_address_change_enabled": bool(settings.EMAIL_ADDRESS_CHANGE_ENABLED),
             "auth_providers": settings.webapp_auth_providers,
             "recommended_auth_providers": settings.webapp_recommended_auth_providers,
