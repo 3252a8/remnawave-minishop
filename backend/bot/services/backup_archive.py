@@ -10,6 +10,7 @@ BACKUP_FILENAME_PREFIX = "minishop-"
 BACKUP_FORMAT_VERSION = 1
 BACKUP_MANIFEST_NAME = "manifest.json"
 BACKUP_TARIFFS_CONFIG_MEMBER = "database/tariffs.json"
+BACKUP_ZIP_COMPRESSION_LEVEL = 9
 
 
 def backup_filename_timestamp() -> str:
@@ -67,7 +68,7 @@ def write_zip_from_directory(source_dir: Path, archive_path: Path) -> None:
         archive_path,
         mode="w",
         compression=zipfile.ZIP_DEFLATED,
-        compresslevel=6,
+        compresslevel=BACKUP_ZIP_COMPRESSION_LEVEL,
     ) as archive:
         for path in sorted(source_dir.rglob("*")):
             if path.is_file():

@@ -68,6 +68,28 @@ class SettingsTests(unittest.TestCase):
                     proxy_url,
                 )
 
+    def test_telegram_bot_api_base_url_defaults_and_normalizes(self):
+        self.assertIsNone(self._settings().TELEGRAM_BOT_API_BASE_URL)
+        self.assertIsNone(self._settings(TELEGRAM_BOT_API_BASE_URL="  ").TELEGRAM_BOT_API_BASE_URL)
+        self.assertEqual(
+            self._settings(
+                TELEGRAM_BOT_API_BASE_URL=" http://telegram-bot-api:8081/ "
+            ).TELEGRAM_BOT_API_BASE_URL,
+            "http://telegram-bot-api:8081",
+        )
+
+    def test_telegram_bot_api_base_url_rejects_unsafe_or_ambiguous_urls(self):
+        for api_url in (
+            "telegram-bot-api:8081",
+            "ftp://telegram-bot-api:8081",
+            "http://user:password@telegram-bot-api:8081",
+            "http://telegram-bot-api:invalid",
+            "http://telegram-bot-api:8081?mode=local",
+            "http://telegram-bot-api:8081#local",
+        ):
+            with self.subTest(api_url=api_url), self.assertRaises(ValidationError):
+                self._settings(TELEGRAM_BOT_API_BASE_URL=api_url)
+
     def test_telegram_bot_proxy_rejects_unsupported_or_ambiguous_urls(self):
         invalid_urls = (
             "http://proxy.example.com:1080",

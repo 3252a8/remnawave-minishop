@@ -7,6 +7,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.session.base import TelegramType
 from aiogram.client.session.middlewares.base import BaseRequestMiddleware, NextRequestMiddlewareType
+from aiogram.client.telegram import TelegramAPIServer
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramNetworkError
 from aiogram.methods import Response, TelegramMethod
@@ -45,14 +46,28 @@ def create_telegram_bot(settings: Settings, *, token: str | None = None) -> Bot:
     default = DefaultBotProperties(parse_mode=ParseMode.HTML)
     bot_token = settings.BOT_TOKEN if token is None else token
     proxy_url = settings.TELEGRAM_BOT_PROXY_URL
-    if proxy_url is None:
+    api_base_url = settings.TELEGRAM_BOT_API_BASE_URL
+    if proxy_url is None and api_base_url is None:
         return Bot(token=bot_token, default=default)
+
+    api_server: TelegramAPIServer | None = None
+    if api_base_url is not None:
+        logger.info("Local Telegram Bot API server enabled: %s", api_base_url)
+        api_server = TelegramAPIServer.from_base(api_base_url, is_local=True)
+    if proxy_url is None:
+        assert api_server is not None
+        session = AiohttpSession(api=api_server)
+        return Bot(token=bot_token, default=default, session=session)
 
     raw_proxy_url = proxy_url.get_secret_value()
     logger.info(
         "Telegram Bot API SOCKS5 proxy enabled: %s",
         safe_telegram_proxy_endpoint(proxy_url),
     )
-    session = AiohttpSession(proxy=raw_proxy_url)
+    session = (
+        AiohttpSession(proxy=raw_proxy_url, api=api_server)
+        if api_server is not None
+        else AiohttpSession(proxy=raw_proxy_url)
+    )
     session.middleware.register(TelegramProxyErrorMiddleware())
     return Bot(token=bot_token, default=default, session=session)

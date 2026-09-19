@@ -4,7 +4,7 @@ import secrets
 from typing import Literal
 
 from pydantic import Field, SecretStr, ValidationError
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import SettingsConfigDict
 
 from config.settings_defaults import (
     DEFAULT_DISPOSABLE_EMAIL_DOMAINS,
@@ -25,16 +25,12 @@ from config.settings_models import (
     SupportSettings,
     WebAppSettings,
 )
+from config.settings_telegram import TelegramTransportSettings
 
 logger = logging.getLogger(__name__)
 
 
-class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
-    BOT_TOKEN: str
-    TELEGRAM_BOT_PROXY_URL: SecretStr | None = Field(
-        default=None,
-        description="Optional SOCKS5 proxy used only for outgoing Telegram Bot API requests",
-    )
+class Settings(SettingsComputedMixin, SettingsValidationMixin, TelegramTransportSettings):
     ADMIN_IDS_STR: str = Field(
         default="", alias="ADMIN_IDS", description="Comma-separated list of admin Telegram User IDs"
     )

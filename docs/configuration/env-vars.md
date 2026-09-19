@@ -26,6 +26,7 @@
 | --- | --- | --- |
 | `BOT_TOKEN` | Только `.env` | Токен Telegram-бота. |
 | `TELEGRAM_BOT_PROXY_URL` | Только `.env` | Необязательный SOCKS5 proxy для исходящих запросов Telegram Bot API из `backend` и `worker`; может также использоваться server-side частью OAuth. |
+| `TELEGRAM_BOT_API_BASE_URL` | Только `.env` | Необязательный HTTP(S) endpoint собственного Local Bot API для `backend` и `worker`. |
 | `TELEGRAM_OAUTH_USE_BOT_PROXY` | Только `.env` | Разрешает server-side запросам Telegram OAuth использовать `TELEGRAM_BOT_PROXY_URL`. По умолчанию `True`; без URL сохраняется прямой маршрут. |
 | `ADMIN_IDS` | Только `.env` | Telegram ID администраторов через запятую. Нужен для первого входа в админку. |
 | `WEBHOOK_BASE_URL` | `.env` | Публичный URL backend/webhook-домена. Используется для URL вебхуков Telegram, платежных провайдеров и Remnawave. |
@@ -103,6 +104,25 @@ Startup-лог показывает только замаскированный 
 rollback OAuth установите `TELEGRAM_OAUTH_USE_BOT_PROXY=False` и пересоздайте `backend`. Для
 полного возврата всех Telegram-запросов на прямой маршрут удалите или очистите
 `TELEGRAM_BOT_PROXY_URL` и пересоздайте `backend` и `worker`.
+
+### Local Telegram Bot API
+
+Для отправки больших файлов через собственный сервер Telegram Bot API задайте его базовый URL:
+
+```dotenv
+TELEGRAM_BOT_API_BASE_URL=http://telegram-bot-api:8081
+```
+
+Minishop включает локальный режим aiogram для всех Bot API вызовов из `backend` и `worker`.
+Сервер должен быть запущен и авторизован отдельно, а URL — быть доступен из обоих контейнеров.
+Query-параметры, fragment и credentials в URL не поддерживаются; для Compose-сервиса используйте
+его DNS-имя вместо `127.0.0.1`. Удаление переменной возвращает официальный Telegram Bot API.
+
+После изменения пересоздайте оба процесса:
+
+```bash
+docker compose up -d --force-recreate backend worker
+```
 
 ## Инфраструктура и Compose
 
