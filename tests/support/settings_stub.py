@@ -116,6 +116,7 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS": 1800,
     "SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED": False,
     "SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS": 300,
+    "SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED": True,
     "TELEGRAM_ACTION_COOLDOWN_ENABLED": True,
     "TELEGRAM_ANTIFLOOD_CALLBACK_MAX_PER_WINDOW": 240,
     "TELEGRAM_ANTIFLOOD_ENABLED": True,
@@ -296,6 +297,9 @@ class SettingsStub(SimpleNamespace):
                 getattr(self, "SUPPORT_MESSAGE_RATE_LIMIT_PER_MINUTE", 10)
             ),
             image_rate_limit_per_day=int(getattr(self, "SUPPORT_IMAGE_RATE_LIMIT_PER_DAY", 20)),
+            admin_telegram_notifications_enabled=bool(
+                getattr(self, "SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED", True)
+            ),
             admin_email_notifications_enabled=bool(
                 getattr(self, "SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED", False)
             ),

@@ -44,6 +44,7 @@ if TYPE_CHECKING:
     from config.settings import Settings
 
 SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_KEY = "SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED"
+SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_KEY = "SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED"
 
 
 class NotificationSupportMixin:
@@ -205,6 +206,23 @@ class NotificationSupportMixin:
             return enabled
         return self._coerce_bool_setting(raw_value, enabled)
 
+    async def support_admin_telegram_notifications_enabled(self) -> bool:
+        enabled = bool(getattr(self.settings, SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_KEY, True))
+        if not self.session_factory:
+            return enabled
+        try:
+            async with self.session_factory() as session:
+                found, raw_value = await app_settings_dal.get_override_value(
+                    session,
+                    SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_KEY,
+                )
+        except Exception:
+            logger.exception("Failed to read support admin Telegram notification override.")
+            return enabled
+        if not found:
+            return enabled
+        return self._coerce_bool_setting(raw_value, enabled)
+
     def _support_keyboard(
         self,
         ticket: SupportTicket,
@@ -281,6 +299,8 @@ class NotificationSupportMixin:
         log_markup: InlineKeyboardMarkup,
         image: StoredMessageImage | None = None,
     ) -> None:
+        if not await self.support_admin_telegram_notifications_enabled():
+            return
         thread_id = self._support_log_thread_id()
         if not self._support_thread_is_configured():
             if image is not None:

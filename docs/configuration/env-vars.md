@@ -1041,6 +1041,7 @@ openssl rand -base64 32 | tr '+/' '-_'
 | Переменная | Назначение |
 | --- | --- |
 | `SUPPORT_TICKETS_ENABLED` | Включает тикеты в Mini App. |
+| `SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED` | Telegram/log уведомления администраторам о новых тикетах и ответах пользователей. |
 | `SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED` | Email-уведомления администраторам. |
 | `SUPPORT_TICKET_MAX_BODY_LENGTH` | Максимальная длина сообщения. |
 | `SUPPORT_TICKET_MAX_SUBJECT_LENGTH` | Максимальная длина темы. |

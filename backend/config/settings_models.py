@@ -123,6 +123,7 @@ class SupportSettings(BaseModel):
     ticket_rate_limit_per_hour: int
     message_rate_limit_per_minute: int
     image_rate_limit_per_day: int
+    admin_telegram_notifications_enabled: bool
     admin_email_notifications_enabled: bool
     admin_notification_cooldown_seconds: int
     admin_email_cooldown_seconds: int

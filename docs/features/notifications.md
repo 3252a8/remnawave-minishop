@@ -54,8 +54,8 @@ email. Два выключенных флажка полностью запре�
 | Изменение статуса партнёрской выплаты | Пользователь-партнёр | ✓ | - | Отправляется для `processing`, `paid`, `rejected`, `failed` и `canceled`; сообщение поясняет, возвращены ли зарезервированные средства. |
 | Рассылка администратора пользователям | Пользователи выбранной аудитории | ✓ | ✓ | Отправляется через очередь из Telegram-админки или Web Admin выбранной аудитории: `all`, `active`, `inactive`; каждый канал учитывает глобальные настройки и предпочтения получателя. |
 | Прямое сообщение администратора пользователю | Пользователь с Telegram | ✓ | - | Отправляется из карточки пользователя в Telegram-админке или Web Admin; email-канала нет. |
-| Новый тикет поддержки | Администраторы | ✓ | ✓ | Telegram/log уведомления зависят от `LOG_SUPPORT`; email включается через `SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED`. |
-| Ответ пользователя в тикете поддержки | Администраторы | ✓ | ✓ | Telegram/log уведомления зависят от `LOG_SUPPORT`; email включается через `SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED`. |
+| Новый тикет поддержки | Администраторы | ✓ | ✓ | Telegram/log уведомления зависят от `LOG_SUPPORT` и `SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED`; email включается через `SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED`. |
+| Ответ пользователя в тикете поддержки | Администраторы | ✓ | ✓ | Telegram/log уведомления зависят от `LOG_SUPPORT` и `SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED`; email включается через `SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED`. |
 | Новая регистрация через Telegram | Администраторы / лог-чат | ✓ | - | Управляется `LOG_NEW_USERS`. |
 | Новая регистрация по email | Администраторы / лог-чат | ✓ | - | Управляется `LOG_NEW_USERS`. |
 | Email привязан к Telegram-аккаунту | Администраторы / лог-чат | ✓ | - | Управляется `LOG_NEW_USERS`. |

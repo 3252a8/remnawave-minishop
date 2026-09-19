@@ -57,7 +57,7 @@
 - `SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS` - пауза для Telegram/log уведомлений;
 - `SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS` - пауза для email-уведомлений.
 
-Email-уведомления администраторам включаются через `SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED=True`. Письма отправляются только администраторам из `ADMIN_IDS`, у которых в базе есть email. Для отправки нужен рабочий SMTP-конфиг из раздела [«Способы входа»](login-methods.md#общая-настройка-email).
+Telegram-уведомления администраторам и в лог-чат по умолчанию включены и управляются через `SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED`. Email-уведомления по умолчанию выключены и включаются через `SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED=True`. Письма отправляются только администраторам из `ADMIN_IDS`, у которых в базе есть email. Для отправки нужен рабочий SMTP-конфиг из раздела [«Способы входа»](login-methods.md#общая-настройка-email).
 
 Ответ администратора и закрытие тикета дополнительно отправляются пользователю в Telegram, если у него есть Telegram-аккаунт, и на email, если он привязан.
 
@@ -76,6 +76,7 @@ Email-уведомления администраторам включаются
 | `SUPPORT_IMAGE_RATE_LIMIT_PER_DAY` | Сколько изображений в тикетах пользователь может отправить за сутки; `0` отключает лимит. По умолчанию `20`. |
 | `LOG_SUPPORT` | Включает Telegram/log уведомления по тикетам поддержки. |
 | `LOG_SUPPORT_THREAD_ID` | Необязательный ID топика в лог-чате для сообщений поддержки. |
+| `SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED` | Включает Telegram/log уведомления администраторам о новых тикетах и ответах пользователей. По умолчанию `true`. |
 | `SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED` | Включает email-уведомления администраторам о новых тикетах и ответах пользователей. |
 | `SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS` | Минимальная пауза между повторными Telegram/log уведомлениями по одному непрочитанному тикету. |
 | `SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS` | Минимальная пауза между повторными email-уведомлениями по одному непрочитанному тикету. |

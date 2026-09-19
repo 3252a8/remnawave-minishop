@@ -535,6 +535,7 @@ class SettingsTests(unittest.TestCase):
             SUPPORT_TICKETS_ENABLED=False,
             SUPPORT_TICKET_MAX_BODY_LENGTH=1000,
             SUPPORT_TICKET_RATE_LIMIT_PER_HOUR=2,
+            SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED=False,
             SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED=True,
         )
 
@@ -544,6 +545,7 @@ class SettingsTests(unittest.TestCase):
         self.assertFalse(support_settings.tickets_enabled)
         self.assertEqual(support_settings.ticket_max_body_length, 1000)
         self.assertEqual(support_settings.ticket_max_subject_length, 160)
+        self.assertFalse(support_settings.admin_telegram_notifications_enabled)
         self.assertEqual(support_settings.ticket_rate_limit_per_hour, 2)
         self.assertEqual(support_settings.message_rate_limit_per_minute, 10)
         self.assertEqual(support_settings.image_rate_limit_per_day, 20)
@@ -818,6 +820,16 @@ class SettingsTests(unittest.TestCase):
         )
 
         self.assertFalse(settings.SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED)
+
+    def test_support_admin_telegram_notifications_default_to_enabled(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+        )
+
+        self.assertTrue(settings.SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED)
 
     def test_partner_audit_retention_defaults_to_forever(self):
         settings = Settings(
