@@ -142,6 +142,18 @@ class BuildVersionFileTests(unittest.TestCase):
 
 
 class BuildPipelineVersionMetadataTests(unittest.TestCase):
+    def test_gitlab_image_publications_retry_transient_registry_failures(self):
+        pipeline = (REPOSITORY_ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
+
+        self.assertIn(
+            "retry:\n"
+            "    max: 1\n"
+            "    when:\n"
+            "      - runner_external_dependency_failure\n"
+            "      - script_failure",
+            pipeline,
+        )
+
     def test_gitlab_dev_build_forwards_branch_to_dockerfile(self):
         pipeline = (REPOSITORY_ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
         publish_script = (REPOSITORY_ROOT / "scripts" / "gitlab-publish-images.sh").read_text(
