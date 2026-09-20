@@ -213,6 +213,21 @@ class RemnashopMigrationDocumentationFactsTests(unittest.TestCase):
         self.assertIn("payment_gateways", self.doc)
         self.assertIn("enc_", self.doc)
 
+    def test_doc_describes_balance_identity_and_referral_boundaries(self):
+        for phrase in (
+            "users.points",
+            "USER_BALANCE_CURRENCY",
+            "--balance-currency",
+            "XTR",
+            "email-only",
+            "OAuth identities",
+            "не создает из них\nпартнерские профили",
+            "ad_links",
+            "squad overrides",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, self.doc)
+
     def test_doc_lists_new_webhook_paths_after_migration(self):
         for path in (
             "/webhook/panel",

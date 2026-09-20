@@ -1,0 +1,30 @@
+{
+  "metadata": {
+    "response": {
+      "version": "3.4.4"
+    }
+  },
+  "user": {
+    "id": 42,
+    "username": "fixture_344",
+    "telegramId": 910000001
+  },
+  "expected": {
+    "generation": "rw3-numeric-user-id",
+    "support_status": "current",
+    "identity_alias": "42",
+    "capabilities": [
+      "bulk-squad-update",
+      "connections-drop",
+      "empty-success-body",
+      "hwid-user-id-selector",
+      "multi-node-top-users",
+      "multi-node-usage",
+      "numeric-user-ids",
+      "targeted-squad-bulk",
+      "user-stream",
+      "user-stream-filters",
+      "user-tag"
+    ]
+  }
+}

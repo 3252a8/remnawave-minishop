@@ -95,6 +95,8 @@ class SettingsValidationMixin:
         "GOOGLE_OIDC_CLIENT_SECRET",
         "YANDEX_OIDC_CLIENT_ID",
         "YANDEX_OIDC_CLIENT_SECRET",
+        "DISCORD_OIDC_CLIENT_ID",
+        "DISCORD_OIDC_CLIENT_SECRET",
         "PASSKEY_RP_ID",
         "PASSKEY_RP_NAME",
         "PASSKEY_ORIGINS",

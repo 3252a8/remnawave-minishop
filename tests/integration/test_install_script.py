@@ -1,3 +1,4 @@
+import os
 import re
 import shlex
 import shutil
@@ -407,6 +408,34 @@ grep -q 'compose failed' "$TARGET_DIR/$INSTALL_STATE_DIR/compose-last-error.log"
     result = _run_installer_function(tmp_path, shell_body)
 
     assert result.returncode == 0, result.stderr
+
+
+def test_run_compose_does_not_consume_wizard_input(tmp_path: Path) -> None:
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    compose_answers_path = tmp_path / "compose-answers.txt"
+    compose_answers_path.write_text("compose\n", encoding="utf-8", newline="\n")
+    logged_answers_path = tmp_path / "logged-answers.txt"
+    logged_answers_path.write_text("logged\n", encoding="utf-8", newline="\n")
+    result = _run_installer_function(
+        tmp_path,
+        f"""
+docker() {{ IFS= read -r stolen || true; }}
+exec 3< {shlex.quote(compose_answers_path.as_posix())}
+compose up <&3
+IFS= read -r preserved <&3 || exit 20
+[ "$preserved" = compose ] || exit 21
+
+exec 3<&-
+exec 3< {shlex.quote(logged_answers_path.as_posix())}
+run_compose up <&3
+IFS= read -r preserved <&3 || exit 22
+[ "$preserved" = logged ] || exit 23
+""",
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_shell_installer_explains_start_interval_compatibility_error(tmp_path: Path):
@@ -1012,7 +1041,96 @@ def test_shell_installer_attaches_to_existing_nginx_or_caddy_containers():
     assert "angie -s reload" in script
     assert "angie_container_httpd_host_dir" in script
     assert "strip_managed_block" in script
+    assert "caddy_remove_managed_and_conflicting_sites" in script
     assert "remnawave-minishop.conf" in script
+
+
+def test_caddy_routes_replace_conflicting_legacy_site_blocks(tmp_path: Path):
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    source = tmp_path / "Caddyfile"
+    rendered = tmp_path / "Caddyfile.rendered"
+    source.write_text(
+        """{
+    email admin@example.test
+}
+
+https://hooks.example.test {
+    handle /payments {
+        reverse_proxy legacy_bot:8080
+    }
+}
+
+app.example.test {
+    reverse_proxy legacy_bot:8080
+}
+
+untouched.example.test {
+    reverse_proxy untouched:9000
+}
+
+# BEGIN remnawave-minishop managed by install.sh
+hooks.example.test {
+    reverse_proxy backend:8080
+}
+app.example.test {
+    reverse_proxy frontend:80
+}
+# END remnawave-minishop managed by install.sh
+""",
+        encoding="utf-8",
+    )
+    shell_body = f"""
+caddy_remove_managed_and_conflicting_sites \
+    {shlex.quote(source.as_posix())} \
+    {shlex.quote(rendered.as_posix())} \
+    hooks.example.test app.example.test || exit 20
+render_generic_caddy_block \
+    {shlex.quote(rendered.as_posix())} \
+    hooks.example.test app.example.test backend:8080 frontend:80
+"""
+
+    result = _run_installer_function(tmp_path, shell_body)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    config = rendered.read_text(encoding="utf-8")
+    assert config.count("hooks.example.test {") == 1
+    assert config.count("app.example.test {") == 1
+    assert "legacy_bot:8080" not in config
+    assert "untouched.example.test" in config
+    assert "reverse_proxy untouched:9000" in config
+
+
+def test_external_proxy_is_reconnected_after_target_network_recreation(tmp_path: Path):
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    calls = tmp_path / "network-calls"
+    shell_body = f"""
+EXISTING_PROXY_CONTAINER_NAME=caddy
+docker_container_exists() {{ return 0; }}
+container_uses_host_network() {{ return 1; }}
+connect_proxy_to_target_network() {{ printf '%s\n' "$1" >> {shlex.quote(calls.as_posix())}; }}
+reconnect_existing_reverse_proxy_after_stack_start || exit 20
+"""
+
+    result = _run_installer_function(tmp_path, shell_body)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert calls.read_text(encoding="utf-8").strip() == "caddy"
+
+
+def test_migration_database_dsn_prompts_are_secret():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+    dsn_prompts = [
+        line.strip()
+        for line in script.splitlines()
+        if line.lstrip().startswith('prompt_value "') and "PostgreSQL" in line and "DSN" in line
+    ]
+
+    assert len(dsn_prompts) == 5
+    assert all(re.search(r' 1 1 ""$', line) for line in dsn_prompts)
 
 
 def test_shell_installer_can_toggle_pangolin_newt_publication():
@@ -1134,10 +1252,33 @@ def test_shell_installer_can_reset_target_database_before_remnashop_import():
     assert "reset_target_compose_database" in script
     assert "Сбросить целевую базу Minishop перед импортом" in script
     assert "create_pre_migration_backup" in script
-    assert "backups/pre-${label}-migration" in script
+    assert "backups/pre-${migration_label}-migration" in script
     assert "restore.sh" in script
     assert "run_compose stop backend worker migrate" in script
     assert 'dropdb -U "$POSTGRES_USER" --if-exists "$POSTGRES_DB"' in script
+
+
+def test_pre_migration_backup_keeps_source_label_after_confirmation(tmp_path: Path):
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    target_dir = tmp_path / "target"
+    target_dir.mkdir()
+    shell_body = f"""
+TARGET_DIR={shlex.quote(target_dir.as_posix())}
+require_docker() {{ return 0; }}
+check_target_postgres_auth() {{ return 1; }}
+section() {{ :; }}
+ok() {{ :; }}
+warn() {{ :; }}
+printf '\n' | create_pre_migration_backup bedolaga || exit 20
+set -- "$TARGET_DIR"/backups/pre-bedolaga-migration-*
+[ -d "$1" ] || exit 21
+"""
+
+    result = _run_installer_function(tmp_path, shell_body)
+
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_deployment_examples_scope_named_volumes_to_compose_project():
@@ -1193,9 +1334,50 @@ def test_shell_installer_guards_existing_postgres_volume_password_drift():
     assert "PostgreSQL принимает логин/пароль из .env" in script
     assert "InvalidPasswordError|password authentication failed" in script
     assert "Удалить volume $volume и начать с пустой БД" in script
-    assert 'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1' in script
+    assert "target_ip=$1" in script
+    assert 'PGPASSWORD="$POSTGRES_PASSWORD" PGCONNECT_TIMEOUT=5 psql -h "$target_ip"' in script
+    assert "psql -h 127.0.0.1" not in script
+    assert "preflight_compose_project_ownership" in script
     assert '-v "$1:/data:ro"' in script
     assert 'pg_isready -U "$POSTGRES_USER"' not in script
+
+
+def test_shell_installer_rejects_foreign_compose_project(tmp_path: Path) -> None:
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    target_dir = tmp_path / "target"
+    target_dir.mkdir()
+    (target_dir / ".env").write_text("COMPOSE_PROJECT_NAME=shared-project\n", encoding="utf-8")
+    result = _run_installer_function(
+        tmp_path,
+        f"""
+TARGET_DIR={shlex.quote(target_dir.as_posix())}
+ENV_PATH="$TARGET_DIR/.env"
+fail() {{ printf '%s\n' "$*"; }}
+info() {{ printf '%s\n' "$*"; }}
+docker() {{
+    case "$1" in
+        ps) printf '%s\n' foreign-container-id ;;
+        inspect)
+            case "$3" in
+                *working_dir*) printf '%s\n' /opt/old-minishop ;;
+                *) printf '%s\n' /foreign-container ;;
+            esac
+            ;;
+        *) return 1 ;;
+    esac
+}}
+
+if preflight_compose_project_ownership; then
+    exit 20
+fi
+""",
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "shared-project" in result.stdout
+    assert "/opt/old-minishop" in result.stdout
 
 
 def test_shell_installer_refreshes_importer_without_prompting_inside_command_substitution():
@@ -1477,9 +1659,9 @@ def test_shell_installer_prefills_remnashop_telegram_settings():
     assert "BOT_TOKEN" in script
     assert "BOT_OWNER_ID" in script
     assert "BOT_SECRET_TOKEN" in script
-    assert "Нашел BOT_TOKEN в .env Remnashop" in script
-    assert "Нашел BOT_OWNER_ID/ADMIN_IDS в .env Remnashop" in script
-    assert "Нашел BOT_SECRET_TOKEN в .env Remnashop" in script
+    assert "Нашел BOT_TOKEN в .env $(legacy_source_label)" in script
+    assert "Нашел ADMIN_IDS в .env $(legacy_source_label)" in script
+    assert "Нашел Telegram webhook secret в .env $(legacy_source_label)" in script
     assert "Новое значение (Enter = оставить)" in script
 
 
@@ -1518,8 +1700,523 @@ def test_shell_installer_summarizes_remnashop_dry_run_and_hides_source_schema_pr
     assert 'prompt_value "Schema источника"' not in script
     assert "remnashop-dry-run-summary.json" in script
     assert 'run_import_command 1 "$DRY_RUN_SUMMARY_PATH" 0' in script
-    assert "summary_extracted=1" in script
+    assert "Импортер завершился без корректного JSON-итога" in script
     assert 'confirm "Применить эту миграцию по-настоящему?" 1' in script
     assert "print_remnashop_import_summary" in script
     assert "Проверка без записи прошла успешно" in script
     assert "Полный сырой вывод скрипта импорта сохранен" in script
+    assert "REMNASHOP_BALANCE_CURRENCY" in script
+    assert '--balance-currency "$BALANCE_CURRENCY"' in script
+    assert "read_remnashop_balance_plan" in script
+    assert 'set_env_file_value "$ENV_PATH" USER_BALANCE_CURRENCY' in script
+    assert 'set_env_file_value "$ENV_PATH" USER_BALANCE_ENABLED true' in script
+    assert "партнерские профили не создаются" in script
+
+
+def test_shell_installer_preserves_importer_failures_and_requires_json_summary(
+    tmp_path: Path,
+) -> None:
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    target_dir = tmp_path / "target"
+    target_dir.mkdir()
+    importer_path = tmp_path / "import_legacy.py"
+    importer_path.write_text("# test importer\n", encoding="utf-8")
+    result = _run_installer_function(
+        tmp_path,
+        f"""
+TARGET_DIR={shlex.quote(target_dir.as_posix())}
+IMPORTER_PATH={shlex.quote(importer_path.as_posix())}
+SOURCE_ENV_PATH=""
+TARIFF_MAP_PATH=""
+SOURCE_DSN=postgresql://source/db
+SOURCE_SCHEMA=public
+TARGET_DSN=postgresql://target/db
+BALANCE_CURRENCY=""
+fail() {{ printf '%s\n' "$*" >&2; }}
+MODE=failed
+run_compose() {{
+    if [ "$MODE" = failed ]; then
+        printf '%s\n' importer-failed
+        return 23
+    fi
+    printf '%s\n' importer-finished-without-summary
+}}
+
+status=0
+run_import_command 1 "$TARGET_DIR/failed-summary.json" 0 remnashop || status=$?
+[ "$status" -eq 23 ] || exit 20
+grep -q importer-failed "$TARGET_DIR/failed-summary.json.raw" || exit 21
+
+MODE=invalid
+status=0
+run_import_command 1 "$TARGET_DIR/invalid-summary.json" 0 remnashop || status=$?
+[ "$status" -ne 0 ] || exit 22
+""",
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "importer-finished-without-summary" in result.stdout
+    assert "корректного JSON-итога" in result.stderr
+
+
+def test_shell_installer_supports_guarded_bedolaga_migration():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert "DOCS_BEDOLAGA_URL" in script
+    assert "detect_bedolaga_env_file" in script
+    assert "detect_bedolaga_db_container" in script
+    assert "detect_bedolaga_source_dsn" in script
+    assert 'LEGACY_SOURCE="bedolaga"' in script
+    assert "run_bedolaga_migration" in script
+    assert '--source-type "$source_type"' in script
+    assert "--inventory-output" in script
+    assert "--config-plan-output" in script
+    assert "--reconciliation-output" in script
+    assert "bedolaga-dry-run-summary.json" in script
+    assert "bedolaga-apply-summary.json" in script
+    assert "bedolaga-inventory.json" in script
+    assert "bedolaga-config-plan.json" in script
+    assert "bedolaga-reconciliation.json" in script
+    assert "bedolaga-post-migration.md" in script
+    assert "sync_bedolaga_bootstrap_env" in script
+    assert "backfill_bedolaga_panel_subscription_ids" in script
+    assert "perform_bedolaga_cutover" in script
+    assert "stop_bedolaga_source_stack" in script
+    assert "docker update --restart=no" in script
+    assert "wait_target_runtime_healthy" in script
+    assert "verify_bedolaga_subscription_links" in script
+    assert "lower(coalesce(imported.provider, '')) <> 'trial'" in script
+    assert "bedolaga_external_integrations_checklist" in script
+    assert "Minishop не может автоматически изменить redirect/callback" in script
+    assert "/auth/telegram/callback" in script
+    assert "/auth/google/callback" in script
+    assert "/auth/yandex/callback" in script
+    assert "/webhook/cloudpayments" in script
+    assert "/webhook/stripe" in script
+    assert "/webhook/tribute" in script
+    assert (
+        "    perform_bedolaga_cutover || return 1\n    bedolaga_external_integrations_checklist"
+    ) in script
+
+
+def test_shell_installer_prints_bedolaga_external_callback_urls(tmp_path: Path) -> None:
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    target_dir = tmp_path / "minishop"
+    target_dir.mkdir()
+    env_path = target_dir / ".env"
+    env_path.write_text(
+        "WEBHOOK_PUBLIC_URL=https://hooks.new.example/\n"
+        "MINIAPP_PUBLIC_URL=https://app.new.example/\n",
+        encoding="utf-8",
+    )
+
+    result = _run_installer_function(
+        tmp_path,
+        f"""
+TARGET_DIR={shlex.quote(str(target_dir))}
+ENV_PATH={shlex.quote(str(env_path))}
+MINIAPP_PUBLIC_URL_VALUE=
+MINIAPP_HOST_VALUE=
+bedolaga_external_integrations_checklist
+""",
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "https://app.new.example/auth/telegram/callback" in result.stdout
+    assert "https://app.new.example/auth/google/callback" in result.stdout
+    assert "https://app.new.example/auth/yandex/callback" in result.stdout
+    assert "https://hooks.new.example/webhook/yookassa" in result.stdout
+    assert "https://hooks.new.example/webhook/cloudpayments" in result.stdout
+    assert "https://hooks.new.example/webhook/stripe" in result.stdout
+    assert "https://hooks.new.example/webhook/tribute" in result.stdout
+    assert "https://hooks.new.example/tg/webhook" in result.stdout
+
+
+def test_shell_installer_copies_compatible_bedolaga_env_with_masked_confirmation(
+    tmp_path: Path,
+) -> None:
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    source_dir = tmp_path / "bedolaga"
+    target_dir = tmp_path / "minishop"
+    source_dir.mkdir()
+    target_dir.mkdir()
+    source_env = source_dir / ".env"
+    target_env = target_dir / ".env"
+    source_env.write_text(
+        "\n".join(
+            (
+                "BOT_TOKEN=source-bot-secret",
+                "ADMIN_IDS=101;202",
+                "WEBHOOK_SECRET_TOKEN=source-webhook-secret",
+                "REMNAWAVE_API_URL=https://panel.example.com",
+                "REMNAWAVE_API_KEY=source-panel-secret",
+                "TELEGRAM_OIDC_CLIENT_ID=telegram-client",
+                "TELEGRAM_OIDC_CLIENT_SECRET=telegram-client-secret",
+                "OAUTH_GOOGLE_ENABLED=True",
+                "OAUTH_GOOGLE_CLIENT_ID=google-client",
+                "OAUTH_GOOGLE_CLIENT_SECRET=google-client-secret",
+                "SMTP_HOST=smtp.example.com",
+                "SMTP_PORT=465",
+                "SMTP_USER=mailer@example.com",
+                "SMTP_PASSWORD=smtp-secret",
+                "SMTP_FROM_NAME=Example Mailer",
+                "SMTP_USE_TLS=False",
+                "SMTP_USE_SSL=True",
+                "DEFAULT_LANGUAGE=ru",
+                "LOG_LEVEL=WARNING",
+                "TZ=Europe/Moscow",
+                "BACKUP_AUTO_ENABLED=True",
+                "BACKUP_INTERVAL_HOURS=6",
+                "BACKUP_MAX_KEEP=14",
+                "WEBHOOK_URL=https://bot.example.com/webhook/source",
+                "CABINET_URL=https://cabinet.example.com/",
+                "POSTGRES_PASSWORD=must-not-copy",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    target_env.write_text(
+        "BOT_TOKEN=old-token\nADMIN_IDS=1\nPOSTGRES_PASSWORD=target-db-secret\n",
+        encoding="utf-8",
+    )
+
+    result = _run_installer_function(
+        tmp_path,
+        f"""
+TARGET_DIR={shlex.quote(target_dir.as_posix())}
+ENV_PATH={shlex.quote(target_env.as_posix())}
+SOURCE_ENV_PATH={shlex.quote(source_env.as_posix())}
+LEGACY_SOURCE=bedolaga
+confirm() {{ return 0; }}
+section() {{ :; }}
+info() {{ printf '%s\n' "$*"; }}
+warn() {{ printf '%s\n' "$*"; }}
+ok() {{ :; }}
+fail() {{ printf '%s\n' "$*" >&2; }}
+
+sync_bedolaga_bootstrap_env || exit 20
+[ "$(env_file_get BOT_TOKEN "$ENV_PATH")" = source-bot-secret ] || exit 21
+[ "$(env_file_get ADMIN_IDS "$ENV_PATH")" = 101,202 ] || exit 22
+[ "$(env_file_get WEBHOOK_SECRET_TOKEN "$ENV_PATH")" = source-webhook-secret ] || exit 23
+[ "$(env_file_get PANEL_API_URL "$ENV_PATH")" = https://panel.example.com/api ] || exit 24
+[ "$(env_file_get PANEL_API_KEY "$ENV_PATH")" = source-panel-secret ] || exit 25
+[ "$(env_file_get TELEGRAM_OAUTH_CLIENT_ID "$ENV_PATH")" = telegram-client ] || exit 26
+[ "$(env_file_get TELEGRAM_OAUTH_CLIENT_SECRET "$ENV_PATH")" = telegram-client-secret ] || exit 26
+[ "$(env_file_get GOOGLE_OIDC_CLIENT_SECRET "$ENV_PATH")" = google-client-secret ] || exit 27
+[ "$(env_file_get GOOGLE_OIDC_ENABLED "$ENV_PATH")" = True ] || exit 27
+[ "$(env_file_get GOOGLE_OIDC_CLIENT_ID "$ENV_PATH")" = google-client ] || exit 27
+[ "$(env_file_get SMTP_HOST "$ENV_PATH")" = smtp.example.com ] || exit 27
+[ "$(env_file_get SMTP_PORT "$ENV_PATH")" = 465 ] || exit 27
+[ "$(env_file_get SMTP_USERNAME "$ENV_PATH")" = mailer@example.com ] || exit 27
+[ "$(env_file_get SMTP_PASSWORD "$ENV_PATH")" = smtp-secret ] || exit 27
+[ "$(env_file_get SMTP_FROM_EMAIL "$ENV_PATH")" = mailer@example.com ] || exit 27
+[ "$(env_file_get SMTP_FROM_NAME "$ENV_PATH")" = 'Example Mailer' ] || exit 27
+[ "$(env_file_get SMTP_STARTTLS "$ENV_PATH")" = False ] || exit 27
+[ "$(env_file_get SMTP_USE_SSL "$ENV_PATH")" = True ] || exit 27
+[ "$(env_file_get DEFAULT_LANGUAGE "$ENV_PATH")" = ru ] || exit 27
+[ "$(env_file_get LOG_LEVEL "$ENV_PATH")" = WARNING ] || exit 27
+[ "$(env_file_get TZ "$ENV_PATH")" = Europe/Moscow ] || exit 27
+[ "$(env_file_get BACKUP_ENABLED "$ENV_PATH")" = True ] || exit 27
+[ "$(env_file_get BACKUP_INTERVAL_SECONDS "$ENV_PATH")" = 21600 ] || exit 28
+[ "$(env_file_get BACKUP_LOCAL_RETENTION "$ENV_PATH")" = 14 ] || exit 28
+[ "$(env_file_get WEBHOOK_HOST "$ENV_PATH")" = bot.example.com ] || exit 29
+[ "$(env_file_get WEBHOOK_PUBLIC_URL "$ENV_PATH")" = https://bot.example.com ] || exit 29
+[ "$(env_file_get MINIAPP_HOST "$ENV_PATH")" = cabinet.example.com ] || exit 30
+[ "$(env_file_get MINIAPP_PUBLIC_URL "$ENV_PATH")" = https://cabinet.example.com/ ] || exit 30
+[ "$(env_file_get POSTGRES_PASSWORD "$ENV_PATH")" = target-db-secret ] || exit 31
+""",
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "source-bot-secret" not in result.stdout
+    assert "source-webhook-secret" not in result.stdout
+    assert "source-panel-secret" not in result.stdout
+    assert "google-client-secret" not in result.stdout
+    assert "smtp-secret" not in result.stdout
+    assert "must-not-copy" not in target_env.read_text(encoding="utf-8")
+
+
+def test_bedolaga_migration_removes_imported_panel_url_override(tmp_path: Path):
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    target_dir = tmp_path / "target"
+    target_dir.mkdir()
+    calls = tmp_path / "compose-calls"
+    shell_body = f"""
+TARGET_DIR={shlex.quote(target_dir.as_posix())}
+BEDOLAGA_LOCAL_TARGET=1
+check_target_postgres_auth() {{ return 0; }}
+run_compose() {{ printf '%s\n' "$*" >> {shlex.quote(calls.as_posix())}; }}
+ok() {{ :; }}
+fail() {{ :; }}
+remove_imported_bedolaga_panel_url_override || exit 20
+"""
+
+    result = _run_installer_function(tmp_path, shell_body)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    command = calls.read_text(encoding="utf-8")
+    assert "DELETE FROM app_setting_overrides" in command
+    assert "PANEL_API_URL" in command
+
+
+def test_bedolaga_panel_subscription_backfill_uses_inherited_dsns(tmp_path: Path):
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    target_dir = tmp_path / "target"
+    target_dir.mkdir()
+    calls = tmp_path / "compose-calls"
+    program = tmp_path / "backfill.py"
+    result = _run_installer_function(
+        tmp_path,
+        f"""
+TARGET_DIR={shlex.quote(target_dir.as_posix())}
+SOURCE_DSN=postgresql://source-user:source-secret@source/bedolaga
+TARGET_DSN=postgresql://target-user:target-secret@postgres/minishop
+SOURCE_SCHEMA=public
+CALLS={shlex.quote(calls.as_posix())}
+PROGRAM={shlex.quote(program.as_posix())}
+section() {{ :; }}
+ok() {{ :; }}
+fail() {{ printf '%s\n' "$*" >&2; }}
+run_compose() {{
+    printf '%s\n' "$*" > "$CALLS"
+    cat > "$PROGRAM"
+}}
+
+backfill_bedolaga_panel_subscription_ids || exit 20
+""",
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    command = calls.read_text(encoding="utf-8")
+    assert "-e SOURCE_DSN" in command
+    assert "-e TARGET_DSN" in command
+    assert "source-secret" not in command
+    assert "target-secret" not in command
+    source = program.read_text(encoding="utf-8")
+    assert "remnawave_short_uuid" in source
+    assert "panel_subscription_uuid" in source
+    assert "legacy_import_mappings" in source
+
+
+def test_shell_installer_bedolaga_cutover_stops_old_stack_before_start_and_healthcheck(
+    tmp_path: Path,
+) -> None:
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    order_file = tmp_path / "cutover-order.txt"
+    result = _run_installer_function(
+        tmp_path,
+        f"""
+TARGET_DIR={shlex.quote(tmp_path.as_posix())}
+ENV_PATH="$TARGET_DIR/.env"
+BEDOLAGA_LOCAL_TARGET=1
+ORDER_FILE={shlex.quote(order_file.as_posix())}
+confirm() {{ return 0; }}
+section() {{ :; }}
+warn() {{ :; }}
+ok() {{ :; }}
+stop_bedolaga_source_stack() {{
+    printf '%s\n' stop-bedolaga >> "$ORDER_FILE"
+    BEDOLAGA_SOURCE_CUTOVER_STARTED=1
+    BEDOLAGA_STOPPED_CONTAINER_IDS=bedolaga-app
+}}
+start_stack() {{ printf '%s\n' start-minishop >> "$ORDER_FILE"; }}
+wait_target_runtime_healthy() {{ printf '%s\n' health-minishop >> "$ORDER_FILE"; }}
+validate_stack() {{ printf '%s\n' validate-minishop >> "$ORDER_FILE"; }}
+verify_bedolaga_source_disabled() {{ printf '%s\n' verify-bedolaga >> "$ORDER_FILE"; }}
+verify_bedolaga_subscription_links() {{ printf '%s\n' verify-subscriptions >> "$ORDER_FILE"; }}
+configure_egames_panel_webhook() {{ printf '%s\n' switch-panel-webhook >> "$ORDER_FILE"; }}
+
+perform_bedolaga_cutover || exit 20
+""",
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert order_file.read_text(encoding="utf-8").splitlines() == [
+        "stop-bedolaga",
+        "start-minishop",
+        "health-minishop",
+        "validate-minishop",
+        "verify-bedolaga",
+        "verify-subscriptions",
+        "switch-panel-webhook",
+    ]
+
+
+def test_shell_installer_disables_bedolaga_container_restart_policy(
+    tmp_path: Path,
+) -> None:
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    source_dir = tmp_path / "bedolaga"
+    source_dir.mkdir()
+    (source_dir / ".env").write_text("BOT_TOKEN=secret\n", encoding="utf-8")
+    (source_dir / "docker-compose.yml").write_text("services: {{}}\n", encoding="utf-8")
+    calls_file = tmp_path / "docker-calls.txt"
+
+    result = _run_installer_function(
+        tmp_path,
+        f"""
+SOURCE_ENV_PATH={shlex.quote((source_dir / ".env").as_posix())}
+CALLS_FILE={shlex.quote(calls_file.as_posix())}
+section() {{ :; }}
+info() {{ :; }}
+warn() {{ :; }}
+ok() {{ :; }}
+fail() {{ printf '%s\n' "$*" >&2; }}
+bedolaga_autostart_preflight() {{ return 0; }}
+systemctl() {{
+    case "$1" in
+        list-unit-files) return 0 ;;
+        *) return 1 ;;
+    esac
+}}
+compose() {{
+    case "$1 ${{2:-}}" in
+        'ps -aq') printf '%s\n' bedolaga-app bedolaga-db ;;
+        *) return 1 ;;
+    esac
+}}
+run_compose() {{
+    case "$1 ${{2:-}}" in
+        'stop ') printf '%s\n' compose-stop >> "$CALLS_FILE" ;;
+        *) return 1 ;;
+    esac
+}}
+docker() {{
+    case "$1" in
+        update)
+            printf 'update:%s:%s\n' "$2" "$3" >> "$CALLS_FILE"
+            ;;
+        inspect)
+            case "$3" in
+                *State.Running*) printf '%s\n' false ;;
+                *RestartPolicy*) printf '%s\n' no ;;
+                *) return 0 ;;
+            esac
+            ;;
+        stop)
+            printf 'stop:%s\n' "$2" >> "$CALLS_FILE"
+            ;;
+        *) return 0 ;;
+    esac
+}}
+
+stop_bedolaga_source_stack || exit 20
+""",
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    calls = calls_file.read_text(encoding="utf-8").splitlines()
+    assert calls == [
+        "compose-stop",
+        "update:--restart=no:bedolaga-app",
+        "update:--restart=no:bedolaga-db",
+    ]
+
+
+def test_shell_installer_bedolaga_cutover_with_real_docker(tmp_path: Path) -> None:
+    if os.environ.get("MINISHOP_RUN_DOCKER_INTEGRATION") != "1":
+        pytest.skip("set MINISHOP_RUN_DOCKER_INTEGRATION=1 to run Docker cutover test")
+    if not shutil.which("sh") or not shutil.which("docker"):
+        pytest.skip("sh and docker are required")
+    if subprocess.run(["docker", "info"], capture_output=True).returncode != 0:
+        pytest.skip("Docker daemon is unavailable")
+
+    source_dir = tmp_path / "bedolaga-source"
+    target_dir = tmp_path / "minishop-target"
+    source_dir.mkdir()
+    target_dir.mkdir()
+    (source_dir / ".env").write_text("BOT_TOKEN=local-only\n", encoding="utf-8")
+    service = """    image: alpine:3.20
+    command: [\"sh\", \"-c\", \"while true; do sleep 60; done\"]
+"""
+    (source_dir / "docker-compose.yml").write_text(
+        "services:\n"
+        f"  app:\n{service}    restart: unless-stopped\n"
+        f"  db:\n{service}    restart: unless-stopped\n",
+        encoding="utf-8",
+    )
+    (target_dir / "docker-compose.yml").write_text(
+        f"""services:
+  backend:
+{service}    healthcheck:
+      test: [\"CMD\", \"true\"]
+      interval: 1s
+      timeout: 1s
+      retries: 10
+  worker:
+{service}  frontend:
+{service}    healthcheck:
+      test: [\"CMD\", \"true\"]
+      interval: 1s
+      timeout: 1s
+      retries: 10
+""",
+        encoding="utf-8",
+    )
+    (target_dir / ".env").write_text("BOT_TOKEN=local-only\n", encoding="utf-8")
+
+    subprocess.run(
+        ["docker", "compose", "up", "-d"],
+        cwd=source_dir,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    try:
+        result = _run_installer_function(
+            tmp_path,
+            f"""
+SOURCE_ENV_PATH={shlex.quote((source_dir / ".env").as_posix())}
+TARGET_DIR={shlex.quote(target_dir.as_posix())}
+ENV_PATH="$TARGET_DIR/.env"
+BEDOLAGA_LOCAL_TARGET=1
+confirm() {{ return 0; }}
+section() {{ :; }}
+info() {{ :; }}
+warn() {{ :; }}
+ok() {{ :; }}
+fail() {{ printf '%s\n' "$*" >&2; }}
+bedolaga_autostart_preflight() {{ return 0; }}
+disable_bedolaga_systemd_autostart() {{ return 0; }}
+configure_egames_panel_webhook() {{ return 0; }}
+validate_stack() {{ return 0; }}
+start_stack() {{ (cd "$TARGET_DIR" && docker compose up -d); }}
+run_compose() {{ docker compose "$@"; }}
+
+perform_bedolaga_cutover || exit 20
+for container in $(cd {shlex.quote(source_dir.as_posix())} && docker compose ps -aq); do
+    [ "$(docker inspect -f '{{{{.State.Running}}}}' "$container")" = false ] || exit 21
+    [ "$(docker inspect -f '{{{{.HostConfig.RestartPolicy.Name}}}}' "$container")" = no ] || exit 22
+done
+for service_name in backend worker frontend; do
+    container=$(cd "$TARGET_DIR" && docker compose ps -q "$service_name")
+    [ -n "$container" ] || exit 23
+    [ "$(docker inspect -f '{{{{.State.Running}}}}' "$container")" = true ] || exit 24
+done
+""",
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+    finally:
+        for directory in (target_dir, source_dir):
+            subprocess.run(
+                ["docker", "compose", "down", "--volumes", "--remove-orphans"],
+                cwd=directory,
+                check=False,
+                capture_output=True,
+                text=True,
+            )

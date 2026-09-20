@@ -37,6 +37,7 @@ from .models import (
     ThemeSource,
 )
 from .paths import atomic_model, confined, registry_lock
+from .preview_storage import preview_file
 from .registry import (
     check_generation,
     collect_garbage,
@@ -46,7 +47,6 @@ from .registry import (
     require_capacity,
     write_registry,
 )
-from .preview_storage import preview_file
 
 
 def operation_dir(root: Path, operation_id: str) -> Path:

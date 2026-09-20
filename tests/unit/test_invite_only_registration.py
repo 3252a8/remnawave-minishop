@@ -351,6 +351,7 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
             {"email": "new@example.com", "language": "en", "referral_code": "ABC123"},
             email_auth_service=email_service,
         )
+        request.headers = {"X-Tariff-Access-Code": "AB" * 16}
 
         response = await auth_email.email_auth_request_route(request)
 
@@ -360,6 +361,10 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             email_service.request_code.await_args.kwargs["referral_param"],
             "ABC123",
+        )
+        self.assertEqual(
+            email_service.request_code.await_args.kwargs["tariff_access_code"],
+            "ab" * 16,
         )
 
     async def test_email_verify_existing_user_without_ref_is_allowed(self):

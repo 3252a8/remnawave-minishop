@@ -67,6 +67,7 @@ export function computeAccountView({
     (resolvedAuthProviders.includes("email") && !user?.email) ||
     (resolvedAuthProviders.includes("google") && !linkedExternalProviders.has("google")) ||
     (resolvedAuthProviders.includes("yandex") && !linkedExternalProviders.has("yandex")) ||
+    (resolvedAuthProviders.includes("discord") && !linkedExternalProviders.has("discord")) ||
     (resolvedAuthProviders.includes("passkey") && !(user.passkeys || []).length) ||
     telegramNotificationsNeedPrompt
   );

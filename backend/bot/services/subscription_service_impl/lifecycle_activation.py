@@ -34,6 +34,7 @@ from db.dal import (
 
 from . import entitlement_helpers
 from ._typing import SubscriptionServiceMixinContract
+from .activation_topups import record_activation_topups
 from .entitlement_helpers import active_subscription_tariff_key as active_tariff_key
 from .sale_mode import parse_sale_mode_context
 from .traffic import resolve_main_traffic_baseline
@@ -677,6 +678,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 effective_hwid_limit,
                 managed_squads,
                 self.settings.parsed_user_external_squad_uuid,
+                tariff.key if tariff else None,
             ),
         )
         if not panel_user_uuid or not panel_sub_link_id:
@@ -898,6 +900,19 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         )
 
         panel_update_payload.update(self._panel_identity_payload_for_user(db_user))
+        panel_user_for_tag = self._take_panel_user_link_snapshot(panel_user_uuid)
+        tariff_tag_plan = (
+            self._plan_panel_tariff_tag(
+                db_user,
+                panel_user_for_tag,
+                tariff.key if tariff else None,
+                source="paid_activation",
+            )
+            if panel_user_for_tag is not None
+            else None
+        )
+        if tariff_tag_plan is not None:
+            panel_update_payload.update(tariff_tag_plan.verification_payload)
 
         if panel_user_created_now and previous_panel_user_uuid is None and not current_active_sub:
             # CREATE already requested the exact entitlement. Verify it with an
@@ -928,39 +943,22 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 source="paid entitlement verification",
             )
             return None
+        if tariff_tag_plan is not None:
+            self._remember_confirmed_panel_tariff_tag(
+                db_user,
+                tariff_tag_plan,
+                updated_panel_user,
+            )
 
-        if promo_regular_traffic_bytes > 0:
-            await entitlement_helpers.record_traffic_topup_best_effort(
-                session,
-                subscription_id=new_or_updated_sub.subscription_id,
-                payment_id=payment_db_id,
-                purchased_bytes=promo_regular_traffic_bytes,
-                kind="promo_topup",
-            )
-        if promo_premium_traffic_bytes > 0:
-            await entitlement_helpers.record_traffic_topup_best_effort(
-                session,
-                subscription_id=new_or_updated_sub.subscription_id,
-                payment_id=payment_db_id,
-                purchased_bytes=promo_premium_traffic_bytes,
-                kind="promo_premium_topup",
-            )
-        if legacy_checkout_regular_bytes > 0:
-            await entitlement_helpers.record_traffic_topup_best_effort(
-                session,
-                subscription_id=new_or_updated_sub.subscription_id,
-                payment_id=payment_db_id,
-                purchased_bytes=legacy_checkout_regular_bytes,
-                kind="checkout_topup",
-            )
-        if legacy_checkout_premium_bytes > 0:
-            await entitlement_helpers.record_traffic_topup_best_effort(
-                session,
-                subscription_id=new_or_updated_sub.subscription_id,
-                payment_id=payment_db_id,
-                purchased_bytes=legacy_checkout_premium_bytes,
-                kind="checkout_premium_topup",
-            )
+        await record_activation_topups(
+            session,
+            subscription_id=new_or_updated_sub.subscription_id,
+            payment_id=payment_db_id,
+            promo_regular_bytes=promo_regular_traffic_bytes,
+            promo_premium_bytes=promo_premium_traffic_bytes,
+            checkout_regular_bytes=legacy_checkout_regular_bytes,
+            checkout_premium_bytes=legacy_checkout_premium_bytes,
+        )
 
         final_subscription_url = updated_panel_user.get("subscriptionUrl")
         final_panel_short_uuid = updated_panel_user.get("shortUuid", panel_short_uuid)

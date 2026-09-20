@@ -97,6 +97,7 @@ export default defineConfig({
                 { label: 'Обзор', slug: 'migrations' },
                 { label: 'remnawave-tg-shop', slug: 'migrations/remnawave-tg-shop' },
                 { label: 'Remnashop', slug: 'migrations/remnashop' },
+                { label: 'Bedolaga', slug: 'migrations/bedolaga' },
               ],
             },
           ],

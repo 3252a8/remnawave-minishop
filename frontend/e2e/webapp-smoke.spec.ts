@@ -739,6 +739,14 @@ async function openUserDetailFromCurrentSection(
   setPhase(`${phasePrefix}:user-card`);
   await expect(userDialog).toBeVisible();
   await assertFormFieldsNamed(page, `${phasePrefix}:user-card`);
+  const remnawaveUserLink = userDialog.locator('[data-admin-action="open-remnawave-user"]');
+  await expect(remnawaveUserLink).toBeVisible();
+  await expect(remnawaveUserLink).toHaveAttribute(
+    "href",
+    "https://panel.example.com/dashboard/open/user/77"
+  );
+  await expect(remnawaveUserLink).toHaveAttribute("target", "_blank");
+  await expect(remnawaveUserLink).toHaveAttribute("rel", /noopener/);
   // Subscription, Activity, Notifications, Logs, Actions, Message.
   await exerciseDialogTabs(userDialog, 6, setPhase, `${phasePrefix}:user-tabs`);
 
@@ -896,7 +904,9 @@ async function exerciseWebappDialogs(
       const confirmDialog = page.locator(".dialog-card.webapp-tariff-change-confirm-dialog");
       await expect(confirmDialog).toBeVisible();
       await assertFormFieldsNamed(page, "webapp-tariff-change-confirm-modal");
-      await closeDialog(confirmDialog);
+      await expect(confirmDialog.locator(".dialog-close-button")).toHaveCount(0);
+      await confirmDialog.getByRole("button", { name: "Отмена", exact: true }).click();
+      await expect(confirmDialog).toBeHidden();
     }
     if (await changeDialog.isVisible()) {
       await closeDialog(changeDialog);
@@ -934,7 +944,9 @@ async function exerciseWebappDialogs(
     const deviceDisconnectDialog = page.locator(".dialog-card.webapp-device-disconnect-dialog");
     await expect(deviceDisconnectDialog).toBeVisible();
     await assertFormFieldsNamed(page, "webapp-device-disconnect-modal");
-    await closeDialog(deviceDisconnectDialog);
+    await expect(deviceDisconnectDialog.locator(".dialog-close-button")).toHaveCount(0);
+    await deviceDisconnectDialog.getByRole("button", { name: "Отмена", exact: true }).click();
+    await expect(deviceDisconnectDialog).toBeHidden();
   }
 
   setPhase("webapp-account-modals");
@@ -1675,10 +1687,11 @@ test("admin charts reveal on entry, morph between ranges, and respect reduced mo
   page,
 }) => {
   await page.setViewportSize(DESKTOP_VIEWPORT);
-  await page.goto("/demo/runtime/admin/stats?theme_preview=dark");
-
   const revenueChart = page.locator(".admin-revenue-chart-body");
-  await expect(revenueChart).toHaveAttribute("data-chart-motion", "reveal");
+  await Promise.all([
+    page.goto("/demo/runtime/admin/stats?theme_preview=dark"),
+    expect(revenueChart).toHaveAttribute("data-chart-motion", "reveal"),
+  ]);
   await revenueChart.locator(".u-over").hover();
   await expect(revenueChart).toHaveAttribute("data-chart-motion", "idle", { timeout: 2_000 });
   await expect(revenueChart.locator(".admin-chart-tooltip.is-visible")).toBeVisible();
@@ -2171,7 +2184,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
     ".admin-panel-version-trigger"
   );
   await expect(panelVersionTrigger).toBeVisible();
-  await expect(panelVersionTrigger).toContainText("v3.4.3");
+  await expect(panelVersionTrigger).toContainText("v3.4.4");
   await panelVersionTrigger.click();
   const panelVersionPopover = page.locator(".admin-panel-version-popover");
   await expect(panelVersionPopover).toBeVisible();
@@ -2393,7 +2406,11 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   const paymentDialog = page.locator(".dialog-card.admin-payment-dialog");
   await expect(paymentDialog).toBeVisible();
   await assertFormFieldsNamed(page, "admin-payments:payment-dialog");
-  await closeDialog(paymentDialog);
+  await paymentDialog
+    .getByRole("button", { name: "Открыть карточку пользователя", exact: true })
+    .click();
+  await expect(paymentDialog).toBeHidden();
+  await openUserDetailFromCurrentSection(page, setPhase, "admin-payment-detail");
 
   setPhase("admin-payments:user-card");
   await page.locator(".admin-payments-user-btn").first().click();
@@ -2464,6 +2481,16 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   await page.locator('[data-admin-action="open-tariff-editor"]').first().click();
   await expect(tariffDialog).toBeVisible();
   await assertFormFieldsNamed(page, "admin-tariffs:edit-dialog");
+  await tariffDialog.getByRole("tab").nth(1).click();
+  const periodRows = tariffDialog.locator(
+    ".admin-row-editor-period:not(.admin-row-editor-header)"
+  );
+  await expect(periodRows).toHaveCount(4);
+  for (const [index, days] of ["30", "90", "180", "365"].entries()) {
+    await expect(
+      periodRows.nth(index).getByRole("spinbutton", { name: "Срок, дней", exact: true })
+    ).toHaveValue(days);
+  }
   await exerciseDialogTabs(tariffDialog, 5, setPhase, "admin-tariffs:edit-tabs");
 
   setPhase("admin-tariffs:edit-save");
@@ -2498,10 +2525,13 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   const defaultCard = appearanceStage.locator('.library-theme-card[data-theme-key="dark"]');
   await defaultCard.getByRole("button", { name: "Активировать", exact: true }).click();
   await expect(defaultCard).toHaveClass(/active/);
-  await appearanceStage.locator("#appearance-default-editor .appearance-editor-trigger").click();
-  await expect(appearanceStage.locator(".default-theme-editor")).toBeVisible();
+  await defaultCard.locator(".theme-card-actions button").last().click();
+  const appearanceSettingsDialog = page.locator(".appearance-settings-dialog");
+  await expect(appearanceSettingsDialog.locator(".default-theme-editor")).toBeVisible();
   await assertFormFieldsNamed(page, "admin-appearance:default-editor");
-  await appearanceStage.locator(".appearance-editor-trigger").last().click();
+  await appearanceSettingsDialog.locator(".dialog-head button").click();
+  await expect(appearanceSettingsDialog).toBeHidden();
+  await appearanceStage.locator(".appearance-preferences-trigger").click();
   await expect(appearanceStage.locator(".appearance-logo-grid").first()).toBeVisible();
   await assertFormFieldsNamed(page, "admin-appearance:brand-editor");
 

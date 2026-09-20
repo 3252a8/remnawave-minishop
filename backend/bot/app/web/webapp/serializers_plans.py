@@ -25,13 +25,18 @@ def _serialize_plans(
     traffic_packages: dict[float, float] | None = None,
     stars_traffic_packages: dict[float, int] | None = None,
     assigned_tariff_key: str | None = None,
+    tariff_access_code: str | None = None,
 ) -> list[dict[str, Any]]:
     tariffs_config = settings.tariffs_config
     if tariffs_config:
         default_currency = default_currency_key_for_settings(settings)
         default_currency_code = payment_currency_code(default_currency)
+        access_tariff = tariffs_config.tariff_for_access_code(tariff_access_code)
         plans = []
-        for tariff in tariffs_config.available_tariffs_for_user(assigned_tariff_key):
+        for tariff in tariffs_config.available_tariffs_for_user(
+            assigned_tariff_key,
+            tariff_access_code,
+        ):
             effective_hwid_device_limit = (
                 tariff.hwid_device_limit
                 if tariff.hwid_device_limit is not None
@@ -78,6 +83,8 @@ def _serialize_plans(
                 if tariff.billing_model == "period"
                 else [],
             }
+            if access_tariff and access_tariff.key == tariff.key:
+                common["access_via_link"] = True
             if tariff.billing_model == "period":
                 # Render periods in the configured order (enabled_periods is the
                 # source of truth for purchase-period ordering, matching the bot

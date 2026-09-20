@@ -2,13 +2,26 @@
   import { focusFirstDialogControl } from "$lib/components/dialogFocusTrap";
   import { getThemesStore } from "$lib/admin/context";
   import {
+    normalizeThemeImportFailure,
+    themeImportRecommendations,
+  } from "$lib/admin/themeImportReport";
+  import {
     AdminBadge,
     AdminButton,
     AdminField,
     AdminSelect,
   } from "$components/patterns/admin/index.js";
   import { Checkbox, Dialog, FileInput, Input } from "$components/ui/index.js";
-  import { ArrowLeft, Check, FileText, Globe2, Upload, Eye } from "$components/ui/icons.js";
+  import {
+    ArrowLeft,
+    Check,
+    Eye,
+    FileText,
+    Globe2,
+    TriangleAlert,
+    Upload,
+  } from "$components/ui/icons.js";
+  import AppearanceThemePreview from "./AppearanceThemePreview.svelte";
   let {
     at,
     open,
@@ -41,8 +54,21 @@
   let conflict = $state("skip");
   let adoption = $state(false);
   let previewUrl = $state("");
+  let previewKey = $state("");
+  let previewTitle = $state("");
+  let previewOpen = $state(false);
+  let previewLoading = $state(false);
   const operation = $derived(library.operation);
   const review = $derived(operation?.state === "ready");
+  const failureReport = $derived(
+    library.failure
+      ? {
+          ...library.failure,
+          title: library.message({ error: library.failure.code }),
+          recommendations: themeImportRecommendations(library.failure.code, at),
+        }
+      : null
+  );
   const candidates = $derived(operation?.candidates || []);
   const installedKeys = $derived(library.installations.map((item) => item.key));
   const choices = $derived(
@@ -114,19 +140,45 @@
     }
   }
   async function close() {
+    closePreview();
     await library.cancel();
     onclose();
   }
-  async function preview(key: string) {
+  function candidateTitle(theme: (typeof candidates)[number], index: number): string {
+    return (
+      theme.theme?.names?.[currentLang] ||
+      theme.theme?.names?.en ||
+      theme.theme?.names?.ru ||
+      theme.key ||
+      theme.path ||
+      String(index)
+    );
+  }
+  function clearPreviewUrl() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl = "";
+  }
+  async function preview(theme: (typeof candidates)[number], index: number) {
+    clearPreviewUrl();
+    previewKey = theme.key || "";
+    previewTitle = candidateTitle(theme, index);
+    previewOpen = true;
+    previewLoading = Boolean(theme.metadata?.preview);
+    if (!previewLoading) return;
     try {
-      if (operation) previewUrl = await library.preview(key, "dark", operation.id);
+      if (operation) previewUrl = await library.preview(previewKey, "dark", operation.id);
     } catch (cause) {
       error = library.message(cause);
+    } finally {
+      previewLoading = false;
     }
   }
   function closePreview() {
-    URL.revokeObjectURL(previewUrl);
-    previewUrl = "";
+    clearPreviewUrl();
+    previewOpen = false;
+    previewKey = "";
+    previewTitle = "";
+    previewLoading = false;
   }
 </script>
 
@@ -274,6 +326,10 @@
       </div>
       <div class="import-candidates">
         {#each candidates as theme, index (theme.path)}
+          {@const candidateFailure = normalizeThemeImportFailure({
+            error: theme.error,
+            detail: theme.detail,
+          })}
           <div class="import-candidate">
             <Checkbox
               disabled={Boolean(theme.error) || library.busy}
@@ -302,7 +358,12 @@
                   0}
                 {at("appearance_files", {}, "files")}</small
               >
-              {#if theme.error}<small role="status">{library.message({ error: theme.error })}</small
+              {#if candidateFailure}<small role="status">{library.message(candidateFailure)}</small>
+                {#if candidateFailure.detail}<small class="candidate-error-detail"
+                    >{candidateFailure.detail}</small
+                  >{/if}
+                <small class="candidate-error-help"
+                  >{themeImportRecommendations(candidateFailure.code, at)[0]}</small
                 >{/if}
               {#if theme.warnings?.length}<small
                   >{at(
@@ -330,7 +391,7 @@
                 aria-label={at("appearance_demo_preview", {}, "Preview") +
                   " " +
                   (theme.key || index)}
-                onclick={() => preview(theme.key || "")}><Eye size={14} /></AdminButton
+                onclick={() => preview(theme, index)}><Eye size={14} /></AdminButton
               >{/if}
           </div>
         {/each}
@@ -377,7 +438,25 @@
         )}
       </p>
     {/if}
-    {#if error || library.error}<p class="import-error" role="alert">
+    {#if failureReport}<section class="import-failure-report" role="alert">
+        <header><TriangleAlert size={19} /><strong>{failureReport.title}</strong></header>
+        <dl>
+          <div>
+            <dt>{at("appearance_import_error_code", {}, "Error code")}</dt>
+            <dd><code>{failureReport.code}</code></dd>
+          </div>
+          {#if failureReport.detail}<div>
+              <dt>{at("appearance_import_error_detail", {}, "What failed")}</dt>
+              <dd>{failureReport.detail}</dd>
+            </div>{/if}
+        </dl>
+        <strong>{at("appearance_import_recommendations", {}, "How to fix it")}</strong>
+        <ul>
+          {#each failureReport.recommendations as recommendation}
+            <li>{recommendation}</li>
+          {/each}
+        </ul>
+      </section>{:else if error || library.error}<p class="import-error" role="alert">
         {error || library.error}
       </p>{/if}
     {#if demo}<p class="demo-disclaimer">
@@ -407,18 +486,25 @@
   </div>
 </Dialog>
 <Dialog
-  open={Boolean(previewUrl)}
-  title={at("appearance_demo_preview", {}, "Preview")}
+  open={previewOpen}
+  title={at("appearance_demo_preview_named", { theme: previewTitle }, "Preview {theme}")}
   closeLabel={at("close", {}, "Close")}
   onclose={closePreview}
   class="admin-dialog appearance-preview-dialog"
 >
-  {#if previewUrl}<iframe
-      src={previewUrl}
-      title={at("appearance_demo_preview", {}, "Preview")}
-      sandbox=""
-      style="width:100%;height:70vh;border:0"
-    ></iframe>{/if}
+  {#if previewLoading}<p class="preview-loading" role="status">
+      {at("appearance_preview_loading", {}, "Loading preview image…")}
+    </p>{:else}<AppearanceThemePreview
+      url={previewUrl}
+      themeKey={previewKey}
+      title={previewTitle}
+      emptyText={at(
+        "appearance_import_no_preview",
+        {},
+        "This theme does not include a preview image."
+      )}
+      {at}
+    />{/if}
 </Dialog>
 
 <style>
@@ -550,6 +636,63 @@
     border-top: 1px solid var(--admin-border);
   }
   .import-error {
+    color: var(--danger);
+  }
+  .preview-loading {
+    min-height: min(70vh, 560px);
+    display: grid;
+    place-items: center;
+  }
+  .import-failure-report {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid color-mix(in srgb, var(--danger) 48%, var(--admin-border));
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--danger) 8%, var(--admin-surface-2));
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .import-failure-report header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--danger);
+  }
+  .import-failure-report dl,
+  .import-failure-report ul {
+    margin: 0;
+  }
+  .import-failure-report dl {
+    display: grid;
+    gap: 8px;
+  }
+  .import-failure-report dl div {
+    display: grid;
+    grid-template-columns: minmax(90px, 0.28fr) 1fr;
+    gap: 10px;
+  }
+  .import-failure-report dt {
+    color: var(--admin-muted);
+  }
+  .import-failure-report dd {
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  .import-failure-report code {
+    color: var(--admin-text);
+  }
+  .import-failure-report ul {
+    display: grid;
+    gap: 5px;
+    padding-left: 18px;
+  }
+  .candidate-error-detail,
+  .candidate-error-help {
+    overflow-wrap: anywhere;
+  }
+  .candidate-error-detail {
     color: var(--danger);
   }
   @media (max-width: 480px) {

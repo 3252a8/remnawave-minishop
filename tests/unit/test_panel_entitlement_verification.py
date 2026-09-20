@@ -16,6 +16,7 @@ def _panel_user(*, squads: list[str] | None = None, traffic_limit: int = 200) ->
         "activeInternalSquads": squads if squads is not None else ["pro"],
         "externalSquadUuid": "external",
         "status": "ACTIVE",
+        "tag": "standard",
     }
 
 
@@ -29,6 +30,7 @@ def _expected_entitlement() -> dict:
         "activeInternalSquads": ["pro"],
         "externalSquadUuid": "external",
         "status": "ACTIVE",
+        "tag": "standard",
     }
 
 
@@ -166,6 +168,22 @@ class PanelEntitlementVerificationTests(unittest.IsolatedAsyncioTestCase):
             {"response": wrong_created_user},
             _expected_entitlement(),
             source="paid_activation_create",
+            retry_delay_seconds=0,
+        )
+
+        self.assertIsNone(confirmed)
+
+    async def test_persisted_tariff_tag_is_part_of_entitlement_verification(self):
+        service, panel_service = self._service()
+        stale_user = _panel_user()
+        stale_user["tag"] = "basic"
+        panel_service.get_user_by_uuid = AsyncMock(return_value=stale_user)
+
+        confirmed = await service._confirmed_panel_entitlement(
+            "panel-user",
+            stale_user,
+            _expected_entitlement(),
+            source="tariff_switch",
             retry_delay_seconds=0,
         )
 

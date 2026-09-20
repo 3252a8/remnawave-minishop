@@ -4,6 +4,7 @@ export type WebappRecord = Record<string, unknown>;
 export type WebappData = MeResponse & WebappRecord;
 
 export type WebappBillingPlan = WebappRecord & {
+  access_via_link?: boolean;
   device_count?: number | string | null;
   hwid_renewal?: WebappRecord;
   months?: number | string | null;

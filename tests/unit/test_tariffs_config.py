@@ -530,6 +530,45 @@ class TariffsConfigTests(unittest.TestCase):
             ["standard", "traffic"],
         )
 
+    def test_hidden_tariff_can_be_unlocked_by_a_unique_hex_code(self):
+        data = _valid_config()
+        data["tariffs"][1]["enabled"] = False
+        data["tariffs"][1]["access_code"] = "AB" * 16
+
+        config = TariffsConfig.model_validate(data)
+
+        self.assertEqual(config.require_configured("traffic").access_code, "ab" * 16)
+        self.assertEqual(config.tariff_for_access_code("AB" * 16).key, "traffic")
+        self.assertEqual(config.require_for_user("traffic", None, "ab" * 16).key, "traffic")
+        self.assertEqual(
+            [tariff.key for tariff in config.available_tariffs_for_user(None, "ab" * 16)],
+            ["standard", "traffic"],
+        )
+        self.assertIsNone(config.tariff_for_access_code("cd" * 16))
+        with self.assertRaises(KeyError):
+            config.require_for_user("traffic", None, "cd" * 16)
+
+    def test_tariff_access_code_must_be_private_valid_and_unique(self):
+        enabled = _valid_config()
+        enabled["tariffs"][0]["access_code"] = "ab" * 16
+        with self.assertRaisesRegex(ValueError, "only valid for a hidden tariff"):
+            TariffsConfig.model_validate(enabled)
+
+        invalid = _valid_config()
+        invalid["tariffs"][1]["enabled"] = False
+        invalid["tariffs"][1]["access_code"] = "not-a-hex-code"
+        with self.assertRaisesRegex(ValueError, "exactly 32 hex characters"):
+            TariffsConfig.model_validate(invalid)
+
+        duplicate = _valid_config()
+        duplicate["tariffs"][1]["enabled"] = False
+        duplicate["tariffs"][1]["access_code"] = "ab" * 16
+        duplicate_tariff = deepcopy(duplicate["tariffs"][1])
+        duplicate_tariff["key"] = "another-private"
+        duplicate["tariffs"].append(duplicate_tariff)
+        with self.assertRaisesRegex(ValueError, "access_code values must be unique"):
+            TariffsConfig.model_validate(duplicate)
+
     def test_legacy_key_cannot_shadow_another_tariff(self):
         data = _valid_config()
         data["tariffs"][0]["legacy_keys"] = ["traffic"]

@@ -2,6 +2,7 @@ import base64
 import hashlib
 import hmac
 import ipaddress
+import re
 import secrets
 from typing import Any
 from urllib.parse import urlsplit
@@ -75,7 +76,9 @@ def _telegram_oauth_callback_url(settings: Settings, request: web.Request) -> st
 
 def _telegram_oauth_redirect_url(path: str = "/", *, status: str | None = None) -> str:
     target_path = path if path.startswith("/") else "/"
-    if target_path not in {"/", "/settings"}:
+    if target_path not in {"/", "/settings"} and not re.fullmatch(
+        r"/checkout/[a-f0-9]{32}", target_path
+    ):
         target_path = "/"
     if not status:
         return target_path

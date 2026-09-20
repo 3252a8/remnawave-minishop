@@ -24,6 +24,7 @@ from scripts.import_legacy import (
     parse_only,
     parse_tariff_map,
 )
+from scripts.legacy_import.registry import get_adapter
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql.dml import Insert
 
@@ -49,6 +50,12 @@ def test_documented_entrypoint_help_exits_zero_and_lists_every_flag():
         "--source-schema",
         "--source-env-file",
         "--source-crypt-key",
+        "--batch-size",
+        "--inventory-output",
+        "--config-plan-output",
+        "--summary-output",
+        "--reconciliation-output",
+        "--balance-currency",
         "--target-dsn",
         "--only",
         "--on-conflict",
@@ -68,12 +75,20 @@ def test_arg_parser_defaults_match_documented_behavior():
     assert args.source_env_file is None
     assert args.source_crypt_key is None
     assert args.target_dsn is None
+    assert args.balance_currency is None
     assert args.only == "all"
     assert args.on_conflict == "merge"
     assert args.dry_run is False
     assert args.created_by_admin_id == 0
     assert args.tariff_map_json is None
     assert args.no_admin_compat_overrides is False
+
+
+def test_remnashop_sections_include_supported_features_without_partners():
+    sections = set(get_adapter("remnashop").sections)
+
+    assert {"balances", "advertising"} <= sections
+    assert "partners" not in sections
 
 
 def test_arg_parser_requires_source_dsn_and_validates_choices(capsys):
@@ -167,6 +182,9 @@ class _FakeTargetSession:
         self.executed.append(statement)
         return _FakeSelectResult()
 
+    async def get(self, model, identity):
+        return None
+
     def add(self, obj):
         self.added.append(obj)
 
@@ -249,7 +267,7 @@ class ImportLegacyMappingLayerTests(unittest.IsolatedAsyncioTestCase):
         with mock.patch.object(user_dal, "create_user", fake_create_user):
             await importer.import_users()
 
-        self.assertEqual({111: 111, 222: 222}, importer.user_map)
+        self.assertEqual({1: 111, 2: 222}, importer.user_map)
         self.assertEqual(2, importer.summary["users"]["created"])
 
         referral_inserts = target.inserts("legacy_referral_codes")
@@ -272,9 +290,9 @@ class ImportLegacyMappingLayerTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual({"user", "user_state"}, set(by_entity))
         user_mappings = {params["source_id"]: params for params in by_entity["user"]}
-        self.assertEqual({"111", "222"}, set(user_mappings))
-        self.assertEqual("users", user_mappings["111"]["target_table"])
-        self.assertEqual("111", user_mappings["111"]["target_id"])
+        self.assertEqual({"1", "2"}, set(user_mappings))
+        self.assertEqual("users", user_mappings["1"]["target_table"])
+        self.assertEqual("111", user_mappings["1"]["target_id"])
         self.assertIn(
             "ON CONFLICT (source, entity_type, source_id) DO UPDATE",
             str(mapping_inserts[0].compile(dialect=postgresql.dialect())),

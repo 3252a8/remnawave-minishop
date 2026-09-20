@@ -33,7 +33,7 @@
 | Поле | Тип | Значение по умолчанию |
 | --- | --- | --- |
 | `user_id` | `int` | обязательно |
-| `provider` | `'google' | 'yandex'` | обязательно |
+| `provider` | `'discord' | 'google' | 'yandex'` | обязательно |
 | `link_source` | `'settings' | 'email_confirmation' | 'provider_verified_email'` | обязательно |
 | `email` | `str | None` | `None` |
 | `telegram_id` | `int | None` | `None` |
@@ -580,4 +580,4 @@
 | `email` | `str | None` | `None` |
 | `language` | `str | None` | `None` |
 | `referred_by_id` | `int | None` | `None` |
-| `registered_via` | `'telegram' | 'email' | 'google_oauth' | 'yandex_oauth' | 'panel_sync' | 'unknown'` | обязательно |
+| `registered_via` | `'telegram' | 'email' | 'discord_oauth' | 'google_oauth' | 'yandex_oauth' | 'panel_sync' | 'unknown'` | обязательно |

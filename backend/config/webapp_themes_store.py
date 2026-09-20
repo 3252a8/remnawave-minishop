@@ -170,9 +170,7 @@ def _theme_css_variables_by_variant(
                     variables[key] = value
         return variables
 
-    base = variables_for(
-        rf"\.theme-key-{re.escape(theme.key)}\s*\{{(?P<body>[^}}]*)\}}"
-    )
+    base = variables_for(rf"\.theme-key-{re.escape(theme.key)}\s*\{{(?P<body>[^}}]*)\}}")
     variants = set(theme.variants)
     active_variant = theme.active_variant or theme.tokens.color_scheme
     if active_variant in {"dark", "light"}:

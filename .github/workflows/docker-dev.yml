@@ -1,0 +1,23 @@
+name: Dev images
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+concurrency:
+  group: core-ghcr-dev
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    uses: ./.github/workflows/_docker-publish-ghcr.yml
+    with:
+      source_ref: ${{ github.sha }}
+      source_commit: ${{ github.sha }}
+      channel: dev
+    secrets: inherit

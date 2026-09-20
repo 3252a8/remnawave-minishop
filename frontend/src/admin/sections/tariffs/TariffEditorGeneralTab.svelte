@@ -9,7 +9,7 @@
     AdminSettingsGroup,
   } from "$components/patterns/admin/index.js";
   import { Copy, X } from "$components/ui/icons.js";
-  import { normalizeUuidList } from "$lib/admin/tariffDraft";
+  import { generateTariffAccessCode, normalizeUuidList } from "$lib/admin/tariffDraft";
   import { buildCheckoutUrl } from "$lib/webapp/deeplinks.js";
   import type { PanelSquad, TariffDraft, TariffsCatalog } from "$lib/admin/stores/tariffsStore";
   import {
@@ -37,15 +37,20 @@
   const panelSquadOptions: SelectOption[] = $derived(toPanelSquadOptions(panelSquads));
   const defaultCurrencyCode = $derived(getDefaultCurrencyCode(tariffsCatalog));
   const conversionCurrencyLabel = $derived(formatConversionCurrencyLabel(at, defaultCurrencyCode));
-  const checkoutLink = $derived(
-    typeof window === "undefined"
-      ? ""
-      : buildCheckoutUrl({
-          origin: window.location.origin,
-          plan: String(tariffDraft.key || ""),
-          routePrefix,
-        })
+  const tariffAccessCode = $derived(
+    String(tariffDraft.accessCode || "")
+      .trim()
+      .toLowerCase()
   );
+  const checkoutLink = $derived.by(() => {
+    if (typeof window === "undefined" || (!tariffDraft.enabled && !tariffAccessCode)) return "";
+    return buildCheckoutUrl({
+      accessCode: tariffDraft.enabled ? "" : tariffAccessCode,
+      origin: window.location.origin,
+      plan: String(tariffDraft.key || ""),
+      routePrefix,
+    });
+  });
   const legacyKeysText = $derived(
     Array.isArray(tariffDraft.legacyKeys)
       ? tariffDraft.legacyKeys.join(", ")
@@ -65,6 +70,22 @@
 
   function setDraftField(field: string, value: unknown): void {
     tariffsStore.updateDraftField(field, value);
+  }
+
+  function newTariffAccessCode(): string {
+    const configuredCodes = (tariffsCatalog.tariffs || []).map((tariff) =>
+      String((tariff as Record<string, unknown>).access_code || "")
+    );
+    return generateTariffAccessCode(configuredCodes);
+  }
+
+  function setTariffEnabled(value: boolean): void {
+    setDraftField("enabled", value);
+    if (value) setDraftField("accessCode", "");
+  }
+
+  function setLinkAccessEnabled(value: boolean): void {
+    setDraftField("accessCode", value ? newTariffAccessCode() : "");
   }
 
   function setBillingModel(value: string): void {
@@ -124,9 +145,11 @@
     <AdminSettingCard
       title={at("tariff_checkout_link_title", {}, "Tariff checkout link")}
       description={at(
-        "tariff_checkout_link_hint",
+        tariffDraft.enabled ? "tariff_checkout_link_hint" : "tariff_private_checkout_link_hint",
         {},
-        "Opens this tariff in the public checkout flow before sign-in or registration."
+        tariffDraft.enabled
+          ? "Opens this tariff in the public checkout flow before sign-in or registration."
+          : "Hidden tariffs use a private hex link that can be revoked or regenerated."
       )}
     >
       <div class="tariff-checkout-link-control">
@@ -136,9 +159,13 @@
           readonly
           value={checkoutLink}
           placeholder={at(
-            "tariff_checkout_link_placeholder",
+            tariffDraft.enabled
+              ? "tariff_checkout_link_placeholder"
+              : "tariff_private_checkout_link_placeholder",
             {},
-            "Enter a tariff key to create the link"
+            tariffDraft.enabled
+              ? "Enter a tariff key to create the link"
+              : "Enable private link access below"
           )}
           aria-label={at("tariff_checkout_link_title", {}, "Tariff checkout link")}
         />
@@ -190,7 +217,7 @@
         <Switch.Root
           aria-label={at("tariff_enabled", {}, "Tariff enabled")}
           checked={tariffDraft.enabled}
-          onCheckedChange={(value) => setDraftField("enabled", value)}
+          onCheckedChange={setTariffEnabled}
           class="admin-switch-root"
         >
           <Switch.Thumb class="admin-switch-thumb" />
@@ -200,6 +227,38 @@
         </span>
       </div>
     </AdminSettingCard>
+
+    {#if !tariffDraft.enabled}
+      <AdminSettingCard
+        title={at("tariff_link_access_title", {}, "Private link access")}
+        description={at(
+          "tariff_link_access_hint",
+          {},
+          "People with the unique link can buy this tariff. It remains hidden from the storefront and tariff change lists."
+        )}
+      >
+        <div class="admin-setting-switch">
+          <Switch.Root
+            aria-label={at("tariff_link_access_title", {}, "Private link access")}
+            checked={Boolean(tariffAccessCode)}
+            onCheckedChange={setLinkAccessEnabled}
+            class="admin-switch-root"
+          >
+            <Switch.Thumb class="admin-switch-thumb" />
+          </Switch.Root>
+          <span>
+            {tariffAccessCode
+              ? at("tariff_link_access_enabled", {}, "Anyone with the link")
+              : at("tariff_link_access_disabled", {}, "Administrator assignment only")}
+          </span>
+          {#if tariffAccessCode}
+            <AdminButton size="sm" variant="ghost" onclick={() => setLinkAccessEnabled(true)}>
+              {at("tariff_link_access_regenerate", {}, "Regenerate link")}
+            </AdminButton>
+          {/if}
+        </div>
+      </AdminSettingCard>
+    {/if}
 
     {#if tariffDraft.billing_model === "traffic"}
       <AdminSettingCard

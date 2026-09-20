@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 from urllib.parse import urlsplit
 
+# GitHub source URL (disabled): https://github.com/3252a8/remnawave-minishop
 _BANNER_TEMPLATE = """
               ~ ~ ~  r e m n a w a v e  ~ ~ ~
 
@@ -15,7 +16,7 @@ _BANNER_TEMPLATE = """
 
               container :: {service}
 {details}
-         https://github.com/3252a8/remnawave-minishop
+         https://gitlab.com/3252a8/remnawave-minishop
 """
 _APP_ROOT = Path(__file__).resolve().parents[1]
 

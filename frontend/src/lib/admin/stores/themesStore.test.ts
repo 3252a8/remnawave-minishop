@@ -135,7 +135,10 @@ describe("themesStore", () => {
   it("uploads a captured preview as multipart data and refreshes the library", async () => {
     const api = vi
       .fn()
-      .mockResolvedValueOnce({ ok: true, preview_url: "/webapp-theme-assets/ocean/previews/desktop.webp?v=2" })
+      .mockResolvedValueOnce({
+        ok: true,
+        preview_url: "/webapp-theme-assets/ocean/previews/desktop.webp?v=2",
+      })
       .mockResolvedValueOnce({ ok: true, generation: 2, writable: true, installations: [] });
     const { store } = makeStore(api);
 

@@ -22,6 +22,25 @@ from .registry import effective_theme, read_registry
 SNAPSHOT = Path(__file__).parents[2] / "bot/app/web/themes/preview"
 
 
+def preview_import_image(root: Path, operation_id: str, actor: int, key: str) -> tuple[bytes, str]:
+    record = get_import(root, operation_id, actor)
+    if record.state != "ready":
+        raise PackageError("import_not_ready", status=409)
+    candidate = next((item for item in record.candidates if item.key == key), None)
+    if not candidate or candidate.error or not candidate.theme:
+        raise PackageError("invalid_theme_selection")
+    if not candidate.metadata.preview:
+        raise PackageError("theme_preview_unavailable", status=404)
+    folder = candidate_folder(root, operation_id, candidate.path)
+    preview = confined(folder, candidate.metadata.preview)
+    try:
+        content = preview.read_bytes()
+    except OSError as exc:
+        raise PackageError("theme_preview_unavailable", status=404) from exc
+    content_type = mimetypes.guess_type(preview.name)[0] or "application/octet-stream"
+    return content, content_type
+
+
 def preview_import(root: Path, operation_id: str, actor: int, key: str, variant: str) -> str:
     record = get_import(root, operation_id, actor)
     if record.state != "ready":

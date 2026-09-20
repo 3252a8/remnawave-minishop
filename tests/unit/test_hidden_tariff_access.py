@@ -16,7 +16,9 @@ class _TariffsConfig:
             return SimpleNamespace(key=key)
         raise KeyError(key)
 
-    def require_for_user(self, key, assigned_key):
+    def require_for_user(self, key, assigned_key, access_code=None):
+        if key == "hidden" and access_code == "ab" * 16:
+            return SimpleNamespace(key=key)
         if key == "hidden" and assigned_key == "hidden":
             return SimpleNamespace(key=key)
         raise KeyError(key)
@@ -28,6 +30,33 @@ class _RenewalService(RenewalMixin, TariffMixin):
 
 
 class HiddenTariffAccessTests(unittest.IsolatedAsyncioTestCase):
+    async def test_hidden_tariff_access_code_does_not_need_an_assignment(self):
+        active_lookup = AsyncMock()
+        latest_lookup = AsyncMock()
+        with (
+            patch.object(
+                billing_tariff_access.subscription_dal,
+                "get_active_subscription_by_user_id",
+                active_lookup,
+            ),
+            patch.object(
+                billing_tariff_access.subscription_dal,
+                "get_latest_subscription_by_user_id",
+                latest_lookup,
+            ),
+        ):
+            tariff = await billing_tariff_access.require_user_available_tariff(
+                AsyncMock(),
+                _TariffsConfig(),
+                user_id=42,
+                tariff_key="hidden",
+                access_code="ab" * 16,
+            )
+
+        self.assertEqual(tariff.key, "hidden")
+        active_lookup.assert_not_awaited()
+        latest_lookup.assert_not_awaited()
+
     async def test_expired_assigned_hidden_tariff_remains_available(self):
         with (
             patch.object(

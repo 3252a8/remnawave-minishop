@@ -2,13 +2,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   buildExternalOAuthStartUrl,
+  buildTelegramOAuthStartUrl,
   emailError,
   readReferralParam,
   shouldShowInviteOnlyHint,
 } from "./authHelpers.js";
 import { REFERRAL_STORAGE_KEY } from "./session.js";
 
-function installBrowser(search = "") {
+function installBrowser(search = "", pathname = "/") {
   const storage = new Map();
   const localStorage = {
     getItem: vi.fn((key: string) => storage.get(key) || null),
@@ -20,6 +21,7 @@ function installBrowser(search = "") {
     location: {
       href: `https://app.example.com/${search}`,
       origin: "https://app.example.com",
+      pathname,
       search,
     },
     history: { replaceState: vi.fn() },
@@ -32,12 +34,27 @@ afterEach(() => {
 });
 
 describe("auth referral helpers", () => {
+  it("keeps private tariff access through Telegram OAuth", () => {
+    const accessCode = "ab".repeat(16);
+    installBrowser("", `/checkout/${accessCode}`);
+
+    expect(buildTelegramOAuthStartUrl()).toBe(
+      `https://app.example.com/auth/telegram/start?purpose=login&tariff_access=${accessCode}`
+    );
+  });
+
   it("builds external OAuth URLs with the application language", () => {
     expect(buildExternalOAuthStartUrl("yandex", "login", "ru", "ABC 123")).toBe(
       "/auth/yandex/start?purpose=login&lang=ru&ref=ABC+123"
     );
     expect(buildExternalOAuthStartUrl("google", "link", "en")).toBe(
       "/auth/google/start?purpose=link&lang=en"
+    );
+    expect(buildExternalOAuthStartUrl("discord", "login", "en")).toBe(
+      "/auth/discord/start?purpose=login&lang=en"
+    );
+    expect(buildExternalOAuthStartUrl("google", "login", "en", "", "AB".repeat(16))).toBe(
+      `/auth/google/start?purpose=login&lang=en&tariff_access=${"ab".repeat(16)}`
     );
   });
 

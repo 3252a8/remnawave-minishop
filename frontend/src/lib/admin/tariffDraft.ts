@@ -17,6 +17,7 @@ export interface TariffCatalogDraft extends UnknownRecord {
 }
 
 export interface TariffDraft extends UnknownRecord {
+  accessCode: string;
   defaultCurrency: string;
   key: string;
   legacyKeys: unknown;
@@ -100,8 +101,27 @@ function scalarDraftValue(value: unknown): string | number {
   return typeof value === "string" || typeof value === "number" ? value : "";
 }
 
+export function generateTariffAccessCode(existingCodes: unknown[] = []): string {
+  const cryptoApi = globalThis.crypto;
+  if (!cryptoApi?.getRandomValues) throw new Error("secure_random_unavailable");
+  const used = new Set(
+    existingCodes.map((value) =>
+      String(value || "")
+        .trim()
+        .toLowerCase()
+    )
+  );
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const bytes = cryptoApi.getRandomValues(new Uint8Array(16));
+    const code = Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+    if (!used.has(code)) return code;
+  }
+  throw new Error("tariff_access_code_generation_failed");
+}
+
 export function emptyTariffDraft(): TariffDraft {
   return {
+    accessCode: "",
     defaultCurrency: "rub",
     key: "",
     legacyKeys: [],
@@ -328,29 +348,25 @@ export function draftFromTariff(tariff: UnknownRecord, defaultCurrency = "rub"):
   const tributePeriodIds = asRecord(tribute.period_ids);
   const tributePeriodLinks = asRecord(tribute.period_links);
   const tributePeriodSubscriptionIds = asRecord(tribute.period_subscription_ids);
-  // enabled_periods comes first so its order (the configured purchase order)
-  // is preserved; any extra price-only months are appended afterwards.
-  const months = new Set([
-    ...(Array.isArray(tariff.enabled_periods) ? tariff.enabled_periods : []),
-    ...Object.keys(defaultPrices).map(Number),
-    ...(currency === "rub" ? Object.keys(asRecord(tariff.prices_rub)).map(Number) : []),
-    ...Object.keys(asRecord(tariff.prices_stars)).map(Number),
-    ...Object.keys(tributePeriodIds).map(Number),
-  ]);
-  const periodRows = [...months]
-    .filter((month) => Number.isFinite(month) && month > 0)
-    .map((month) => ({
-      duration_days: month,
+  // Historical prices and external bindings remain in the catalog, but only
+  // enabled_periods are editable purchase offers.
+  const enabledPeriods = new Set(
+    (Array.isArray(tariff.enabled_periods) ? tariff.enabled_periods : []).map(Number)
+  );
+  const periodRows = [...enabledPeriods]
+    .filter((period) => Number.isFinite(period) && period > 0)
+    .map((period) => ({
+      duration_days: period,
       rub:
-        (currency === "rub" ? rubPrices[String(month)] : undefined) ??
-        defaultPrices?.[String(month)] ??
+        (currency === "rub" ? rubPrices[String(period)] : undefined) ??
+        defaultPrices?.[String(period)] ??
         "",
-      stars: asRecord(tariff.prices_stars)[String(month)] ?? "",
-      referral_inviter: asRecord(tariff.referral_bonus_days_inviter)[String(month)] ?? "",
-      referral_referee: asRecord(tariff.referral_bonus_days_referee)[String(month)] ?? "",
-      tribute_period_id: tributePeriodIds[String(month)] ?? "",
-      tribute_link: String(tributePeriodLinks[String(month)] ?? ""),
-      tribute_subscription_id: scalarDraftValue(tributePeriodSubscriptionIds[String(month)]),
+      stars: asRecord(tariff.prices_stars)[String(period)] ?? "",
+      referral_inviter: asRecord(tariff.referral_bonus_days_inviter)[String(period)] ?? "",
+      referral_referee: asRecord(tariff.referral_bonus_days_referee)[String(period)] ?? "",
+      tribute_period_id: tributePeriodIds[String(period)] ?? "",
+      tribute_link: String(tributePeriodLinks[String(period)] ?? ""),
+      tribute_subscription_id: scalarDraftValue(tributePeriodSubscriptionIds[String(period)]),
     }));
   const names = asStringRecord(tariff.names);
   const descriptions = asStringRecord(tariff.descriptions);
@@ -380,6 +396,7 @@ export function draftFromTariff(tariff: UnknownRecord, defaultCurrency = "rub"):
     premiumSquadUuids: tariff.premium_squad_uuids || [],
     billing_model: String(tariff.billing_model || "period"),
     enabled: tariff.enabled !== false,
+    accessCode: String(tariff.access_code || ""),
     topup_always_available: tariff.topup_always_available === true,
     premium_topup_always_available: tariff.premium_topup_always_available === true,
     checkout_devices_enabled: checkoutDevices.enabled === true,
@@ -592,6 +609,10 @@ export function tariffFromDraft(draft: TariffDraft, fallbackCurrency = "rub"): U
       },
     },
   };
+  const accessCode = String(draft.accessCode || "")
+    .trim()
+    .toLowerCase();
+  if (!draft.enabled && accessCode) tariff.access_code = accessCode;
   const legacyKeys = normalizeUuidList(draft.legacyKeys).filter((item) => item !== key);
   if (legacyKeys.length) tariff.legacy_keys = [...new Set(legacyKeys)];
 

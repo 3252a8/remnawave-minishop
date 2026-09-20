@@ -7836,6 +7836,11 @@ export interface components {
     };
     /** Tariff */
     Tariff: {
+      /**
+       * Access Code
+       * @default null
+       */
+      access_code: string | null;
       /** Addon Period Factors */
       addon_period_factors?: {
         [key: string]: number;
@@ -8658,7 +8663,7 @@ export interface components {
        * Provider
        * @enum {string}
        */
-      provider: "google" | "yandex";
+      provider: "discord" | "google" | "yandex";
     };
     /** WebAppLanguagePayload */
     WebAppLanguagePayload: {
@@ -10284,6 +10289,7 @@ export interface operations {
             /** @constant */
             ok: true;
             plans: {
+              access_via_link?: boolean;
               available_payment_method_ids?: string[];
               billing_model?: string;
               checkout_addons?: {
@@ -12207,7 +12213,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "text/html": string;
+          "application/octet-stream": string;
         };
       };
     };
@@ -12504,6 +12510,7 @@ export interface operations {
             /** @constant */
             ok: true;
             panel_squad_overrides: components["schemas"]["AdminPanelSquadOverridesOut"] | null;
+            panel_user_url: string | null;
             recent_payments: components["schemas"]["PaymentOut"][];
             referral: {
               bot_link: string | null;
@@ -13835,6 +13842,7 @@ export interface operations {
             /** @constant */
             ok: true;
             plans?: {
+              access_via_link?: boolean;
               available_payment_method_ids?: string[];
               billing_model?: string;
               checkout_addons?: {
@@ -14003,6 +14011,7 @@ export interface operations {
             /** @constant */
             ok: true;
             plans: {
+              access_via_link?: boolean;
               available_payment_method_ids?: string[];
               billing_model?: string;
               checkout_addons?: {
@@ -14218,6 +14227,7 @@ export interface operations {
               tariff_key: string | null;
             } | null;
             plans: {
+              access_via_link?: boolean;
               available_payment_method_ids?: string[];
               billing_model?: string;
               checkout_addons?: {
@@ -14349,6 +14359,7 @@ export interface operations {
               trial_enabled?: boolean;
               trial_payment_enabled?: boolean;
               trial_payment_plan?: {
+                access_via_link?: boolean;
                 available_payment_method_ids?: string[];
                 billing_model?: string;
                 checkout_addons?: {
@@ -15698,6 +15709,7 @@ export interface operations {
             /** @constant */
             ok: true;
             plans?: {
+              access_via_link?: boolean;
               available_payment_method_ids?: string[];
               billing_model?: string;
               checkout_addons?: {

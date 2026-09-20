@@ -103,7 +103,7 @@ class WebAppPasskeyDeletePayload(BaseModel):
 class WebAppExternalIdentityPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    provider: Literal["google", "yandex"]
+    provider: Literal["discord", "google", "yandex"]
 
 
 class WebAppEmailChangeCurrentPayload(BaseModel):

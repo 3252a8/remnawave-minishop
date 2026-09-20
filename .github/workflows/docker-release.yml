@@ -1,0 +1,87 @@
+name: Release images
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing vMAJOR.MINOR.PATCH tag to publish or retry"
+        required: true
+        type: string
+
+concurrency:
+  group: core-ghcr-release-${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  validate:
+    name: Validate release source
+    runs-on: ubuntu-latest
+    outputs:
+      commit: ${{ steps.release.outputs.commit }}
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Checkout workflow revision
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag and main ancestry
+        id: release
+        env:
+          DISPATCH_TAG: ${{ inputs.release_tag }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_REF_NAME: ${{ github.ref_name }}
+          EVENT_REF_TYPE: ${{ github.ref_type }}
+          EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            release_tag="$DISPATCH_TAG"
+          else
+            release_tag="$EVENT_REF_NAME"
+          fi
+          if ! [[ "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release tag must use vMAJOR.MINOR.PATCH form" >&2
+            exit 1
+          fi
+
+          verification_ref="refs/tags/release-verification/$release_tag"
+          git fetch --force --no-tags origin "+refs/tags/$release_tag:$verification_ref"
+          git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main"
+          tag_commit="$(git rev-parse "$verification_ref^{commit}")"
+
+          if [ "$EVENT_NAME" = "push" ]; then
+            event_commit="$(git rev-parse "$EVENT_SHA^{commit}")"
+            if [ "$EVENT_REF_TYPE" != "tag" ] || [ "$event_commit" != "$tag_commit" ]; then
+              echo "The pushed tag does not resolve to the event commit" >&2
+              exit 1
+            fi
+          fi
+          if ! git merge-base --is-ancestor "$tag_commit" origin/main; then
+            echo "Release tag must be reachable from main" >&2
+            exit 1
+          fi
+
+          {
+            echo "commit=$tag_commit"
+            echo "tag=$release_tag"
+            echo "version=${release_tag#v}"
+          } >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: validate
+    uses: ./.github/workflows/_docker-publish-ghcr.yml
+    with:
+      source_ref: refs/tags/${{ needs.validate.outputs.tag }}
+      source_commit: ${{ needs.validate.outputs.commit }}
+      channel: release
+      version: ${{ needs.validate.outputs.version }}
+    secrets: inherit

@@ -37,7 +37,7 @@ from .billing_sale_modes import (
     _sale_mode_is_traffic,
     _sale_mode_tariff_key,
 )
-from .billing_tariff_access import require_user_available_tariff
+from .billing_tariff_access import request_tariff_access_code, require_user_available_tariff
 from .common import _resolve_numeric_option_key
 
 
@@ -295,6 +295,7 @@ async def _resolve_base_payment_quote(
                 user_id=user_id,
                 tariff_key=tariff_key,
                 panel_user_uuid=getattr(db_user, "panel_user_uuid", None),
+                access_code=request_tariff_access_code(request),
             )
         except Exception:
             return None, _json_error(400, "invalid_plan", "Tariff is not available")
@@ -320,6 +321,7 @@ async def _resolve_base_payment_quote(
                 user_id=user_id,
                 tariff_key=tariff_key,
                 panel_user_uuid=getattr(db_user, "panel_user_uuid", None),
+                access_code=request_tariff_access_code(request),
             )
         except Exception:
             return None, _json_error(400, "invalid_plan", "Tariff is not available")
@@ -368,6 +370,7 @@ async def _resolve_base_payment_quote(
                 user_id=user_id,
                 tariff_key=tariff_key,
                 panel_user_uuid=getattr(db_user, "panel_user_uuid", None),
+                access_code=request_tariff_access_code(request),
             )
         except Exception:
             return None, _json_error(400, "invalid_plan", "Tariff is not available")

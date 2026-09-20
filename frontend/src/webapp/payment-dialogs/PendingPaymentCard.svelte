@@ -131,6 +131,7 @@
   closeLabel={t("wa_close")}
   onclose={() => (cancelConfirmOpen = false)}
   class="payment-dialog-card pending-payment-cancel-dialog"
+  showCloseButton={false}
   titleIcon={cancelTitleIcon}
 >
   <div class="payment-dialog-body">

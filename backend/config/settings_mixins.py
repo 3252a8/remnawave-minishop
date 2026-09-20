@@ -104,6 +104,9 @@ if TYPE_CHECKING:
         YANDEX_OIDC_ENABLED: bool
         YANDEX_OIDC_CLIENT_ID: str | None
         YANDEX_OIDC_CLIENT_SECRET: str | None
+        DISCORD_OIDC_ENABLED: bool
+        DISCORD_OIDC_CLIENT_ID: str | None
+        DISCORD_OIDC_CLIENT_SECRET: str | None
         PASSKEY_LOGIN_ENABLED: bool
         PASSKEY_RP_ID: str | None
         PASSKEY_RP_NAME: str | None
@@ -873,6 +876,12 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             and self.YANDEX_OIDC_CLIENT_SECRET
         ):
             providers.append("yandex")
+        if (
+            self.DISCORD_OIDC_ENABLED
+            and self.DISCORD_OIDC_CLIENT_ID
+            and self.DISCORD_OIDC_CLIENT_SECRET
+        ):
+            providers.append("discord")
         if self.PASSKEY_LOGIN_ENABLED:
             providers.append("passkey")
         return providers

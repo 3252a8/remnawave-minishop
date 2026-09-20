@@ -33,6 +33,32 @@ describe("documentation theme ZIP import", () => {
       )
     ).toThrow();
   });
+  it("returns the declared preview image and rejects packages without one", async () => {
+    const preview = new Uint8Array([82, 73, 70, 70]);
+    const withPreview = readDemoZip(
+      zipSync({
+        "one/theme.json": strToU8('{"key":"one"}'),
+        "one/theme-package.json": strToU8(
+          '{"schema_version":1,"preview":"preview.webp","compatibility":{"theme_api":1}}'
+        ),
+        "one/preview.webp": preview,
+      })
+    )[0];
+    const { demoThemePreviewImage } = await import("./themePreview");
+    const blob = demoThemePreviewImage(withPreview);
+    expect(blob.type).toBe("image/webp");
+    expect(new Uint8Array(await blob.arrayBuffer())).toEqual(preview);
+
+    expect(() =>
+      demoThemePreviewImage(
+        readDemoZip(
+          zipSync({
+            "one/theme.json": strToU8('{"key":"one"}'),
+          })
+        )[0]
+      )
+    ).toThrow();
+  });
 });
 
 describe("documentation package lifecycle", () => {

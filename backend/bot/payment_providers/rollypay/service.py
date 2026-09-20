@@ -499,16 +499,22 @@ def _extract_id(data: dict[str, Any]) -> str | None:
 
 def _enabled(attr: str) -> Any:
     return lambda config: bool(
-        config.ENABLED and not config.TEST_MODE and getattr(config, attr, False)
+        getattr(config, "ENABLED", False)
+        and not getattr(config, "TEST_MODE", False)
+        and getattr(config, attr, False)
     )
 
 
 def _admin_enabled(enabled_attr: str, admin_attr: str, *, allow_test: bool = True) -> Any:
     return lambda config: bool(
-        config.ENABLED
+        getattr(config, "ENABLED", False)
         and (
             getattr(config, admin_attr, False)
-            or (allow_test and config.TEST_MODE and getattr(config, enabled_attr, False))
+            or (
+                allow_test
+                and getattr(config, "TEST_MODE", False)
+                and getattr(config, enabled_attr, False)
+            )
         )
     )
 
@@ -559,10 +565,10 @@ def _spec(
     admin_predicate = _admin_enabled(enabled_attr, admin_attr, allow_test=not recurring)
     if recurring:
         enabled_predicate = lambda config: bool(
-            config.TERMINAL_ID and _enabled(enabled_attr)(config)
+            getattr(config, "TERMINAL_ID", "") and _enabled(enabled_attr)(config)
         )
         admin_predicate = lambda config: bool(
-            config.TERMINAL_ID
+            getattr(config, "TERMINAL_ID", "")
             and _admin_enabled(enabled_attr, admin_attr, allow_test=False)(config)
         )
     return PaymentProviderSpec(

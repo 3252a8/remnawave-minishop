@@ -64,11 +64,19 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
                 hwid_device_limit=self.settings.TRIAL_HWID_DEVICE_LIMIT,
                 specific_squad_uuids=tuple(trial_squads),
                 external_squad_uuid=self.settings.parsed_user_external_squad_uuid,
+                is_trial=True,
             ),
         )
         panel_user_uuid = panel_link.panel_user_uuid
         panel_sub_link_id = panel_link.panel_subscription_uuid
         panel_short_uuid = panel_link.panel_short_uuid
+        tariff_tag_plan = self._plan_panel_tariff_tag(
+            db_user,
+            panel_link.panel_user,
+            None,
+            source="trial_activation",
+            is_trial=True,
+        )
 
         if not panel_user_uuid or not panel_sub_link_id:
             logger.error("Failed to get panel link details for trial user %s.", user_id)
@@ -147,6 +155,7 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
                 )
             )
             panel_update_payload.update(self._panel_identity_payload_for_user(db_user))
+            panel_update_payload.update(tariff_tag_plan.verification_payload)
 
             try:
                 updated_panel_user = await self.panel_service.update_user_details_on_panel(
@@ -176,6 +185,27 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
                 "activated": False,
                 "message_key": "trial_activation_failed_panel_update",
             }
+        if tariff_tag_plan.verification_payload:
+            confirmed_panel_user = await self._confirmed_panel_entitlement(
+                panel_user_uuid,
+                updated_panel_user,
+                tariff_tag_plan.verification_payload,
+                source="trial_activation",
+            )
+            if confirmed_panel_user is None:
+                await session.rollback()
+                return {
+                    "eligible": True,
+                    "activated": False,
+                    "message_key": "trial_activation_failed_panel_update",
+                }
+        else:
+            confirmed_panel_user = updated_panel_user
+        self._remember_confirmed_panel_tariff_tag(
+            db_user,
+            tariff_tag_plan,
+            confirmed_panel_user,
+        )
 
         if commit:
             await session.commit()

@@ -30,7 +30,11 @@
     settingsSectionAnchorKey,
     settingsSubsectionAnchorKey,
   } from "$lib/admin/settingsSections";
-  import { loginProviderCallbackUrl } from "$lib/admin/loginProviderSetup.js";
+  import {
+    loginProviderCallbackUrl,
+    loginProviderGuideUrl,
+    loginProviderOfficialUrl,
+  } from "$lib/admin/loginProviderSetup.js";
   import {
     settingsDirtyCountLabel,
     settingsFieldsCountLabel,
@@ -254,7 +258,7 @@
     return String(settingsDirty[key]?.value ?? valueFor(field) ?? "").trim();
   }
 
-  function loginProviderCallback(provider: "google" | "yandex"): string {
+  function loginProviderCallback(provider: "discord" | "google" | "yandex"): string {
     const base = configuredText("SUBSCRIPTION_MINI_APP_URL");
     const fallbackOrigin = typeof window === "undefined" ? "" : window.location.origin;
     return loginProviderCallbackUrl(provider, base, fallbackOrigin);
@@ -274,6 +278,8 @@
       return at("settings_login_google_help_title", {}, "Google OAuth application");
     if (provider === "yandex")
       return at("settings_login_yandex_help_title", {}, "Yandex OAuth application");
+    if (provider === "discord")
+      return at("settings_login_discord_help_title", {}, "Discord OAuth2 application");
     return at("settings_login_passkey_help_title", {}, "Passkey domain settings");
   }
 
@@ -290,24 +296,17 @@
         {},
         "Create an app for user authorization and add the callback as a Web service Redirect URI."
       );
+    if (provider === "discord")
+      return at(
+        "settings_login_discord_help_hint",
+        {},
+        "Create a Discord application and add the exact OAuth2 redirect URL below."
+      );
     return at(
       "settings_login_passkey_help_hint",
       {},
       "Use HTTPS; RP ID must be the application domain and origins must contain its full origin."
     );
-  }
-
-  function loginProviderOfficialUrl(provider: string): string {
-    if (provider === "google")
-      return "https://developers.google.com/identity/protocols/oauth2/web-server";
-    if (provider === "yandex") return "https://yandex.com/dev/id/doc/en/register-auth";
-    return "https://developer.mozilla.org/en-US/docs/Web/Security/Authentication/Passkeys";
-  }
-
-  function loginProviderGuideUrl(provider: string): string {
-    const section = provider === "yandex" ? "yandex-id" : provider;
-    const docsBaseUrl = appRepositoryUrl.replace(/\/+$/, "");
-    return `${docsBaseUrl}/features/login-methods/#${section}`;
   }
 </script>
 
@@ -371,7 +370,7 @@
 {/snippet}
 
 {#snippet renderLoginProviderHelp(provider: string)}
-  {#if provider === "google" || provider === "yandex" || provider === "passkey"}
+  {#if provider === "discord" || provider === "google" || provider === "yandex" || provider === "passkey"}
     <div class="admin-login-provider-help">
       <div class="admin-login-provider-help-copy">
         <strong>{loginProviderHelpTitle(provider)}</strong>
@@ -414,6 +413,20 @@
               <code>login:email · login:info · login:avatar</code>
             </div>
           </div>
+        {:else if provider === "discord"}
+          <div class="admin-login-provider-setup-values">
+            <div class="admin-login-provider-setup-row">
+              <span>{at("settings_login_discord_redirect_uri_label", {}, "Redirect URL")}</span>
+              {@render renderLoginProviderValue(
+                "discord-redirect",
+                loginProviderCallback("discord")
+              )}
+            </div>
+            <div class="admin-login-provider-setup-row">
+              <span>{at("settings_login_discord_scopes_label", {}, "OAuth2 scopes")}</span>
+              <code>identify · email</code>
+            </div>
+          </div>
         {/if}
         <p class="admin-login-provider-runtime-hint">
           {at(
@@ -426,7 +439,7 @@
       <div class="admin-login-provider-help-actions">
         <a
           class="admin-btn admin-btn-sm admin-btn-ghost"
-          href={loginProviderGuideUrl(provider)}
+          href={loginProviderGuideUrl(provider, appRepositoryUrl)}
           target="_blank"
           rel="noreferrer noopener"
         >
@@ -628,6 +641,7 @@
       {:else if field.type === "color"}
         <ColorInput
           class="admin-color"
+          translate={at}
           value={fieldTextValue(field) || "#00fe7a"}
           ariaLabel={fieldLabelText(field)}
           oninput={fieldInputHandler(field)}

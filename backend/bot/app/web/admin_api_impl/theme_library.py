@@ -45,9 +45,9 @@ from config.theme_packages.operations import (
     remove_theme,
     rollback_theme,
 )
+from config.theme_packages.preview_storage import MAX_PREVIEW_BYTES, save_preview
 from config.theme_packages.providers import fetch_repository, repository_parts
 from config.theme_packages.registry import library
-from config.theme_packages.preview_storage import MAX_PREVIEW_BYTES, preview_url, save_preview
 from config.webapp_themes_config import WebappThemesConfig, resolved_webapp_themes_catalog
 
 from .auth import _require_admin_user_id
@@ -277,24 +277,19 @@ async def admin_theme_preview_upload_route(request: web.Request) -> web.Response
 
 @package_route
 async def admin_theme_preview_route(request: web.Request) -> web.Response:
-    from config.theme_packages.preview import preview_import
+    from config.theme_packages.preview import preview_import_image
 
-    document = await asyncio.to_thread(
-        preview_import,
+    content, content_type = await asyncio.to_thread(
+        preview_import_image,
         root_for(request),
         request.match_info["operation_id"],
         _require_admin_user_id(request),
         request.match_info["key"],
-        request.query.get("variant", "dark"),
     )
     return web.Response(
-        text=document,
-        content_type="text/html",
+        body=content,
+        content_type=content_type,
         headers={
-            "Content-Security-Policy": (
-                "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:; "
-                "font-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
-            ),
             "Cache-Control": "no-store",
             "Referrer-Policy": "no-referrer",
             "X-Content-Type-Options": "nosniff",
@@ -395,7 +390,13 @@ register_contract(
 register_contract(
     "admin_theme_preview_upload_route",
     RouteContract(
-        request_content={"multipart/form-data": {"type": "object", "required": ["file"], "properties": {"file": BINARY_RESPONSE_SCHEMA}}},
+        request_content={
+            "multipart/form-data": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {"file": BINARY_RESPONSE_SCHEMA},
+            }
+        },
         response_schema=ok_envelope_for(PreviewUploadOut),
         models=(PreviewUploadOut,),
     ),
@@ -412,8 +413,8 @@ register_contract(
 register_contract(
     "admin_theme_preview_route",
     RouteContract(
-        response_schema={"type": "string"},
-        response_content_type="text/html",
+        response_schema=BINARY_RESPONSE_SCHEMA,
+        response_content_type="application/octet-stream",
     ),
 )
 

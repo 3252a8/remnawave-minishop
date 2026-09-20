@@ -12,6 +12,12 @@ for (const viewport of [
 ]) {
   test("theme library lifecycle " + viewport.width, async ({ page }) => {
     await page.setViewportSize(viewport);
+    await page.context().addInitScript(() => {
+      sessionStorage.setItem(
+        "minishop-demo-settings-changes",
+        JSON.stringify([["WEBAPP_TITLE", { value: "Production Preview", deleted: false }]])
+      );
+    });
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(url);
@@ -56,15 +62,22 @@ for (const viewport of [
       )
       .toBe(true);
     await expect(page.locator(".default-theme-editor")).toBeHidden();
-    await library.locator("#appearance-default-editor .appearance-editor-trigger").click();
-    await expect(page.locator(".default-theme-editor")).toBeVisible();
-    await library.locator("#appearance-default-editor .appearance-editor-trigger").click();
+    await library.locator('[data-theme-key="dark"] .theme-card-actions button').last().click();
+    const defaultSettings = page.locator(".appearance-settings-dialog");
+    await expect(defaultSettings.locator(".default-theme-editor")).toBeVisible();
+    await defaultSettings.locator(".dialog-head button").click();
+    await expect(defaultSettings).toBeHidden();
 
     await library.getByRole("button", { name: "Добавить темы", exact: true }).click();
     let dialog = page.locator(".appearance-import-dialog");
     await expect(dialog).toBeVisible();
     await dialog.locator('input[type="file"]').setInputFiles(sample);
     await expect(dialog.locator(".import-candidate")).toHaveCount(2);
+    await dialog.getByRole("button", { name: "Посмотреть ocean", exact: true }).click();
+    let importPreview = page.locator(".appearance-preview-dialog");
+    await expect(importPreview).toContainText("В теме нет изображения для предпросмотра");
+    await expect(importPreview.locator("iframe")).toHaveCount(0);
+    await importPreview.locator(".dialog-head button").click();
     await dialog.getByRole("button", { name: /Установить/ }).click();
     await expect(dialog).toBeHidden();
     await expect(library.locator(".library-theme-card")).toHaveCount(5);
@@ -75,8 +88,12 @@ for (const viewport of [
     await ocean.locator(".theme-card-actions button").first().click();
     const preview = await popupPromise;
     await preview.waitForLoadState();
-    await expect(preview).toHaveURL(/\/demo\/runtime\/app\/\?theme_preview=ocean$/);
+    await expect(preview).toHaveURL(/\/demo\/runtime\/home\?theme_preview=ocean$/);
     await expect(preview.locator(".app-shell")).toHaveClass(/theme-key-ocean/);
+    await expect(preview.locator(".home-brand h1")).toHaveText("Production Preview");
+    await expect(
+      preview.locator('.home-brand img[src*="/demo/runtime/default-brand/default-logo.webp"]')
+    ).toBeVisible();
     await expect(page.locator(".appearance-preview-dialog")).toHaveCount(0);
     await preview.close();
 
@@ -98,8 +115,16 @@ for (const viewport of [
     await dialog.locator('input[type="file"]').setInputFiles(sample);
     await expect(dialog.getByRole("button", { name: /Установить/ })).toBeDisabled();
     const update = unzipSync(readFileSync(sample));
+    update["ocean/preview.webp"] = new Uint8Array(
+      readFileSync(path.resolve("../backend/bot/app/web/themes/ascii/preview.webp"))
+    );
     update["ocean/theme-package.json"] = strToU8(
-      JSON.stringify({ schema_version: 1, version: "2.0.0", compatibility: { theme_api: 1 } })
+      JSON.stringify({
+        schema_version: 1,
+        version: "2.0.0",
+        preview: "preview.webp",
+        compatibility: { theme_api: 1 },
+      })
     );
     await dialog.getByRole("button", { name: "Назад", exact: true }).click();
     await dialog.locator('input[type="file"]').setInputFiles({
@@ -107,6 +132,14 @@ for (const viewport of [
       mimeType: "application/zip",
       buffer: Buffer.from(zipSync(update)),
     });
+    await dialog.getByRole("button", { name: "Посмотреть ocean", exact: true }).click();
+    importPreview = page.locator(".appearance-preview-dialog");
+    const importedImage = importPreview.locator(".theme-screenshot img");
+    await expect(importedImage).toBeVisible();
+    await expect
+      .poll(() => importedImage.evaluate((image) => (image as HTMLImageElement).naturalWidth))
+      .toBeGreaterThan(0);
+    await importPreview.locator(".dialog-head button").click();
     await dialog.getByRole("button", { name: "Если тема уже установлена", exact: true }).click();
     await page.getByRole("option", { name: /Обновить/ }).click();
     await dialog.getByRole("button", { name: /Установить/ }).click();
@@ -117,7 +150,7 @@ for (const viewport of [
     await expect(settings).toBeHidden();
 
     await ocean.locator(".theme-card-actions button").last().click();
-    await settings.getByRole("button", { name: "Экспорт / своя копия", exact: true }).click();
+    await settings.getByRole("button", { name: "Скачать", exact: true }).click();
     const exportDialog = page
       .locator(".dialog-card")
       .filter({ has: page.getByRole("button", { name: "Скачать ZIP", exact: true }) });
@@ -267,7 +300,10 @@ for (const width of [1280, 390]) {
     await theme.locator(".theme-card-actions button").last().click();
     const settings = page.locator(".appearance-settings-dialog");
     await expect(settings).toBeVisible();
-    const accent = settings.locator("input.appearance-color-text");
+    const accent = settings
+      .locator(".appearance-token-control")
+      .filter({ hasText: "Акцент" })
+      .locator("input.appearance-color-text");
     await accent.fill("#aabbcc");
     await settings.locator(".dialog-head button").click();
     await expect(settings).toBeHidden();

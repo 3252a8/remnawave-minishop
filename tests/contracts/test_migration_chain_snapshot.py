@@ -101,6 +101,7 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0078_gift_entitlements",
     "0084_add_gift_refund_ledger_kind",
     "0085_add_user_notification_preferences",
+    "0086_add_managed_panel_tariff_tag",
 ]
 
 

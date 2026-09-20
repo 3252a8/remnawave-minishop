@@ -2805,7 +2805,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
 
         async def _record_tick(tick_name, _tick):
             ticks.append(tick_name)
-            if len(ticks) >= 3:
+            if len(ticks) >= 4:
                 worker.stop()
 
         @asynccontextmanager
@@ -2816,7 +2816,15 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         with patch("bot.services.tariff_worker_core.redis_lock", new=_lock):
             await worker.run()
 
-        self.assertEqual(ticks, ["traffic_period", "legacy_throttle_recovery", "premium_fast"])
+        self.assertEqual(
+            ticks,
+            [
+                "traffic_period",
+                "panel_tariff_tag_cleanup",
+                "legacy_throttle_recovery",
+                "premium_fast",
+            ],
+        )
 
     def _premium_enforcement_worker(self, *, drop_enabled=True, cooldown=0):
         settings = SimpleNamespace(

@@ -23,7 +23,8 @@
       "numeric-user-ids",
       "targeted-squad-bulk",
       "user-stream",
-      "user-stream-filters"
+      "user-stream-filters",
+      "user-tag"
     ]
   }
 }

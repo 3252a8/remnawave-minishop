@@ -51,6 +51,7 @@ from .assets import (
     _get_cached_webapp_settings,
 )
 from .billing_status import refresh_payment_status_for_request
+from .billing_tariff_access import request_tariff_access_code
 from .common import (
     _coerce_int_or_none,
     _ensure_cached_telegram_avatar,
@@ -267,6 +268,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             traffic_packages=cached["traffic_packages"],
             stars_traffic_packages=cached["stars_traffic_packages"],
             assigned_tariff_key=local_sub.tariff_key if local_sub else None,
+            tariff_access_code=request_tariff_access_code(request),
         )
         await _attach_hwid_renewal_quotes_to_plans(
             session,

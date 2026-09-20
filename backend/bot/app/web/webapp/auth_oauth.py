@@ -22,6 +22,7 @@ from bot.app.web.webapp_auth import (
 )
 from bot.services.registration_invite_gate import RegistrationInviteRequiredError
 from config.settings import Settings
+from config.tariffs_config import normalize_tariff_access_code
 from config.telegram_proxy import safe_telegram_network_error_detail
 from db.dal import user_dal
 from db.dal.user_dal import UserMergeConflictError
@@ -165,12 +166,14 @@ async def telegram_oauth_nonce_route(request: web.Request) -> web.Response:
 
 async def telegram_oauth_start_route(request: web.Request) -> web.Response:
     settings: Settings = get_settings(request)
+    tariff_access_code = normalize_tariff_access_code(request.query.get("tariff_access"))
+    redirect_path = f"/checkout/{tariff_access_code}" if tariff_access_code else "/"
     if not settings.TELEGRAM_LOGIN_ENABLED:
-        raise web.HTTPFound(_telegram_oauth_redirect_url("/", status="disabled"))
+        raise web.HTTPFound(_telegram_oauth_redirect_url(redirect_path, status="disabled"))
     client_id = _resolve_telegram_oauth_client_id(settings)
     client_secret = str(settings.TELEGRAM_OAUTH_CLIENT_SECRET or "").strip()
     if not client_id or not client_secret:
-        raise web.HTTPFound(_telegram_oauth_redirect_url("/", status="not_configured"))
+        raise web.HTTPFound(_telegram_oauth_redirect_url(redirect_path, status="not_configured"))
 
     purpose = str(request.query.get("purpose") or "login").strip().lower()
     if purpose not in {"login", "link"}:
@@ -191,6 +194,7 @@ async def telegram_oauth_start_route(request: web.Request) -> web.Response:
         "referral_code": str(request.query.get("referral_code") or "")[:128],
         "code_verifier": code_verifier,
         "nonce": nonce,
+        "tariff_access_code": tariff_access_code,
     }
 
     scopes = ["openid", "profile"]
@@ -219,24 +223,32 @@ async def telegram_oauth_start_route(request: web.Request) -> web.Response:
 
 async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
     settings: Settings = get_settings(request)
-    if not settings.TELEGRAM_LOGIN_ENABLED:
-        response = web.HTTPFound(_telegram_oauth_redirect_url("/", status="disabled"))
-        _clear_telegram_oauth_state_cookie(response)
-        raise response
+    state = _read_telegram_oauth_state_payload(request, str(request.query.get("state") or ""))
+    purpose = str((state or {}).get("purpose") or "login")
+    tariff_access_code = normalize_tariff_access_code((state or {}).get("tariff_access_code"))
+    redirect_path = (
+        "/settings"
+        if purpose == "link"
+        else f"/checkout/{tariff_access_code}"
+        if tariff_access_code
+        else "/"
+    )
 
-    def redirect(path: str = "/", status: str | None = None) -> web.HTTPFound:
-        response = web.HTTPFound(_telegram_oauth_redirect_url(path, status=status))
+    def redirect(path: str | None = None, status: str | None = None) -> web.HTTPFound:
+        response = web.HTTPFound(_telegram_oauth_redirect_url(path or redirect_path, status=status))
         _clear_telegram_oauth_state_cookie(response)
         return response
 
+    if not settings.TELEGRAM_LOGIN_ENABLED:
+        raise redirect(status="disabled")
+
     error = str(request.query.get("error") or "")
     if error:
-        raise redirect("/", "cancelled")
+        raise redirect(status="cancelled")
 
     code = str(request.query.get("code") or "")
-    state = _read_telegram_oauth_state_payload(request, str(request.query.get("state") or ""))
     if not code or not state:
-        raise redirect("/", "invalid_state")
+        raise redirect(status="invalid_state")
 
     token_payload = await _exchange_telegram_oauth_code(
         request,
@@ -253,10 +265,8 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
         max_age_seconds=_webapp_auth_max_age_seconds(settings),
     )
     if not telegram_user:
-        raise redirect("/", "invalid_token")
+        raise redirect(status="invalid_token")
 
-    purpose = str(state.get("purpose") or "login")
-    redirect_path = "/settings" if purpose == "link" else "/"
     async_session_factory: sessionmaker = get_session_factory(request)
     final_user_id: int | None = None
     source_user_id_for_cache: int | None = None
@@ -314,7 +324,7 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
 
             if db_user.is_banned:
                 await session.rollback()
-                raise redirect("/", "banned")
+                raise redirect(status="banned")
 
             final_user_id = int(db_user.user_id)
             await session.commit()
@@ -322,7 +332,7 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
             raise
         except RegistrationInviteRequiredError:
             await session.rollback()
-            raise redirect("/", "invite_required") from None
+            raise redirect(status="invite_required") from None
         except UserMergeConflictError as exc:
             await session.rollback()
             raise redirect(redirect_path, exc.code) from None

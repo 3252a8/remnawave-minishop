@@ -194,6 +194,7 @@ class UserRegisteredPayload(EventPayload):
     registered_via: Literal[
         "telegram",
         "email",
+        "discord_oauth",
         "google_oauth",
         "yandex_oauth",
         "panel_sync",
@@ -227,7 +228,7 @@ class AccountExternalIdentityLinkedPayload(EventPayload):
     EVENT_NAME: ClassVar[str] = "account.external_identity_linked"
 
     user_id: int
-    provider: Literal["google", "yandex"]
+    provider: Literal["discord", "google", "yandex"]
     link_source: Literal["settings", "email_confirmation", "provider_verified_email"]
     email: str | None = None
     telegram_id: int | None = None

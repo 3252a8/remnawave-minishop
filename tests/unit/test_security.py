@@ -1114,7 +1114,11 @@ class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
         )
         request = SimpleNamespace(
             app={"settings": settings},
-            query={"purpose": "login", "referral_code": "x" * 128},
+            query={
+                "purpose": "login",
+                "referral_code": "x" * 128,
+                "tariff_access": "AB" * 16,
+            },
             headers={},
             cookies={},
         )
@@ -1137,6 +1141,7 @@ class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNotNone(payload)
         self.assertEqual(payload["referral_code"], "x" * 128)
+        self.assertEqual(payload["tariff_access_code"], "ab" * 16)
         self.assertEqual(len(payload["code_verifier"]), 43)
         self.assertIsNone(
             subscription_webapp._read_telegram_oauth_state_payload(callback_request, state + "x")

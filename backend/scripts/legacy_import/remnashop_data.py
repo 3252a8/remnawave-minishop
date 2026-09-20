@@ -34,6 +34,17 @@ from .remnashop_env import (
 logger = logging.getLogger(__name__)
 
 
+def remnashop_target_user_id(source_id: Any, telegram_id: Any = None) -> int:
+    """Return a stable target id, including for Remnashop email-only accounts."""
+    normalized_telegram_id = _to_int(telegram_id)
+    if normalized_telegram_id is not None:
+        return normalized_telegram_id
+    normalized_source_id = _to_int(source_id)
+    if normalized_source_id is None or normalized_source_id < 0:
+        raise ValueError("Remnashop source user id must be a non-negative integer")
+    return -(8_000_000_000_000_000 + normalized_source_id)
+
+
 def remnashop_traffic_gb_to_bytes(value: Any) -> int | None:
     number = _to_decimal(value)
     if number is None:

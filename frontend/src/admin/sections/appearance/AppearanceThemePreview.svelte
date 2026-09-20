@@ -4,11 +4,13 @@
     title,
     at,
     url,
+    emptyText,
   }: {
     themeKey: string;
     title: string;
     at: (key: string, params?: Record<string, unknown>, fallback?: string) => string;
     url?: string;
+    emptyText?: string;
   } = $props();
   let failed = $state(false);
   const imageUrl = $derived(
@@ -39,11 +41,12 @@
       }}
     />
   {:else}<span
-      >{at(
-        "appearance_no_screenshot",
-        {},
-        "The author has not added a screenshot. Open the live preview."
-      )}</span
+      >{emptyText ||
+        at(
+          "appearance_no_screenshot",
+          {},
+          "The author has not added a screenshot. Open the live preview."
+        )}</span
     >{/if}
 </div>
 

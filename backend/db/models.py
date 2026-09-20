@@ -44,6 +44,7 @@ class User(UserNotificationPreferenceColumns, Base):
     registration_date = Column(DateTime(timezone=True), server_default=func.now())
     is_banned = Column(Boolean, default=False)
     panel_user_uuid = Column(String, nullable=True, unique=True, index=True)
+    managed_panel_tariff_tag = Column(String(255), nullable=True)
     referral_code = Column(String(64), nullable=True, unique=True, index=True)
     referred_by_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=True)
     lifetime_used_traffic_bytes = Column(BigInteger, nullable=True)

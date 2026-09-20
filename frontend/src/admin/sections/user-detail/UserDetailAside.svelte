@@ -172,6 +172,20 @@
         >
       </div>
       <div class="admin-user-summary-actions">
+        {#if openedUserDetail.panel_user_url}
+          <a
+            class="admin-btn admin-btn-sm admin-btn-ghost"
+            data-admin-action="open-remnawave-user"
+            href={openedUserDetail.panel_user_url}
+            target="_blank"
+            rel="noreferrer noopener"
+            title={at("user_open_remnawave_profile_hint", {}, "Open user card in Remnawave Panel")}
+            aria-label={at("user_open_remnawave_profile", {}, "Open in Remnawave")}
+          >
+            <ExternalLink size={14} />
+            {at("user_open_remnawave_profile", {}, "Open in Remnawave")}
+          </a>
+        {/if}
         <AdminButton
           size="sm"
           variant="ghost"

@@ -146,7 +146,7 @@
     if (languageClickGuardArmed) setLanguageMenuOpen(false);
   }
 
-  function openProvider(provider: "google" | "yandex"): void {
+  function openProvider(provider: "discord" | "google" | "yandex"): void {
     const referral = new URLSearchParams(window.location.search).get("ref") || "";
     window.location.assign(buildExternalOAuthStartUrl(provider, "login", currentLang, referral));
   }
@@ -360,6 +360,20 @@
                       "wa_login_yandex",
                       {},
                       "Continue with Yandex"
+                    )}
+                  </Button>
+                {/if}
+                {#if authProviders.includes("discord")}
+                  <Button
+                    class="wide auth-provider-button"
+                    variant="secondary"
+                    onclick={() => openProvider("discord")}
+                    disabled={authBusy || externalLoginBusy}
+                  >
+                    <ProviderLogo provider="discord" />{t(
+                      "wa_login_discord",
+                      {},
+                      "Continue with Discord"
                     )}
                   </Button>
                 {/if}

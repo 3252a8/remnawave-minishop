@@ -37,6 +37,21 @@ describe("createApiClient", () => {
     expect((requestOptions.headers as Headers).get("Authorization")).toBe("Bearer session-token");
   });
 
+  it("forwards only a valid private tariff access code", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    let accessCode = "AB".repeat(16);
+    const client = createApiClient({ getTariffAccessCode: () => accessCode });
+
+    await client.api("/me");
+    accessCode = "invalid";
+    await client.api("/me");
+
+    const fetchCalls = fetchMock.mock.calls as unknown as [string, RequestInit][];
+    expect((fetchCalls[0][1].headers as Headers).get("X-Tariff-Access-Code")).toBe("ab".repeat(16));
+    expect((fetchCalls[1][1].headers as Headers).has("X-Tariff-Access-Code")).toBe(false);
+  });
+
   it("loads protected payment exports with the in-memory session token", async () => {
     const body = new Blob(["payment_id"], { type: "text/csv" });
     const fetchMock = vi.fn(async () => ({

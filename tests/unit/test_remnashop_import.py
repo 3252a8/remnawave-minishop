@@ -18,9 +18,12 @@ from scripts.import_legacy import (
     remnashop_row_telegram_id,
     remnashop_sale_mode,
     remnashop_subscription_provider,
+    remnashop_target_user_id,
     remnashop_traffic_gb_to_bytes,
     remnashop_transaction_status,
 )
+
+from bot.services.partner_common import currency_scale
 
 
 def test_remnashop_existing_user_profile_is_preserved_on_merge():
@@ -87,6 +90,26 @@ def test_remnashop_promocode_subscription_reward_reads_plan_snapshot():
         )
         == 45
     )
+
+
+def test_remnashop_traffic_promocode_maps_to_regular_traffic():
+    importer = RemnashopImporter.__new__(RemnashopImporter)
+
+    assert importer._promo_effects({"reward_type": "TRAFFIC", "reward": "12.5"}) == {
+        "bonus_days": 0,
+        "regular_traffic_gb": 12.5,
+    }
+    assert importer._promo_effects({"reward_type": "DEVICES", "reward": 2}) is None
+
+
+def test_remnashop_email_only_ids_are_stable_and_do_not_overlap_bedolaga():
+    assert remnashop_target_user_id(42) == -8_000_000_000_000_042
+    assert remnashop_target_user_id(42, 123456) == 123456
+
+
+def test_telegram_stars_balance_uses_integer_minor_units():
+    assert currency_scale("XTR") == 0
+    assert currency_scale("RUB") == 2
 
 
 def test_remnashop_pricing_helpers_read_final_amount_and_currency():
@@ -258,6 +281,45 @@ def test_remnashop_tariff_catalog_is_generated_from_plans_durations_and_prices()
     assert traffic["traffic_packages"]["rub"] == [{"gb": 50.0, "price": 249.0}]
     assert traffic["traffic_packages"]["usd"] == [{"gb": 50.0, "price": 2.5}]
     assert traffic["traffic_packages"]["stars"] == [{"gb": 50.0, "price": 125.0}]
+
+
+def test_remnashop_tariff_merge_normalizes_legacy_month_periods():
+    importer = RemnashopImporter.__new__(RemnashopImporter)
+    importer.on_conflict = "merge"
+    importer.generated_tariff_catalog = {
+        "schema_version": 2,
+        "period_unit": "day",
+        "default_tariff": "migration",
+        "default_currency": "rub",
+        "tariffs": [
+            {
+                "key": "migration",
+                "billing_model": "period",
+                "period_unit": "day",
+                "enabled_periods": [30],
+            }
+        ],
+    }
+
+    merged = importer._merged_tariff_catalog(
+        {
+            "default_tariff": "standard",
+            "default_currency": "rub",
+            "tariffs": [
+                {
+                    "key": "standard",
+                    "billing_model": "period",
+                    "enabled_periods": [1, 3],
+                    "prices_rub": {"1": 100, "3": 250},
+                }
+            ],
+        }
+    )
+
+    assert merged["schema_version"] == 2
+    assert merged["period_unit"] == "day"
+    assert merged["tariffs"][0]["enabled_periods"] == [30, 90]
+    assert merged["tariffs"][0]["prices_rub"] == {"30": 100, "90": 250}
 
 
 def test_remnashop_row_telegram_id_supports_fk_only_schema():

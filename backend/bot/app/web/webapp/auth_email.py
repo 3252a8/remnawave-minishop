@@ -26,6 +26,7 @@ from .auth_referral import (
     _apply_referral_to_existing_user,
     _apply_referral_welcome_bonus_if_needed,
 )
+from .billing_tariff_access import request_tariff_access_code
 from .common import (
     _invalidate_webapp_user_caches,
     _json_error,
@@ -169,6 +170,7 @@ async def email_auth_request_route(request: web.Request) -> web.Response:
         language_code=lang,
         target_user_id=None,
         referral_param=referral_param,
+        tariff_access_code=request_tariff_access_code(request),
     )
 
 
@@ -386,6 +388,7 @@ async def _request_email_code(
     language_code: str,
     target_user_id: int | None,
     referral_param: str | None = None,
+    tariff_access_code: str | None = None,
 ) -> web.Response:
     email_service: EmailAuthService = get_email_auth_service(request)
     async_session_factory: sessionmaker = get_session_factory(request)
@@ -398,6 +401,7 @@ async def _request_email_code(
                 language_code=language_code,
                 target_user_id=target_user_id,
                 referral_param=referral_param,
+                tariff_access_code=tariff_access_code,
             )
             if not result.ok:
                 await session.rollback()

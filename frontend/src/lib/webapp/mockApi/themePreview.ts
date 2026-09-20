@@ -24,6 +24,16 @@ function dataUrl(bytes: Uint8Array, name: string) {
     btoa(binary)
   );
 }
+
+export function demoThemePreviewImage(item: DemoPackage): Blob {
+  const name = String(item.metadata.preview || "").trim();
+  const bytes = name ? item.files[name] : undefined;
+  if (!bytes) throw { error: "theme_preview_unavailable" };
+  const type = mime[name.split(".").pop()?.toLowerCase() || ""];
+  if (!type?.startsWith("image/")) throw { error: "theme_preview_unavailable" };
+  return new Blob([new Uint8Array(bytes).buffer], { type });
+}
+
 export async function demoThemePreview(item: DemoPackage, variant: string): Promise<Blob> {
   const root = "/demo/runtime/themes/preview/";
   const [body, rawBase] = await Promise.all(

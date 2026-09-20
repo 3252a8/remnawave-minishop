@@ -83,10 +83,12 @@
   const emailAddresses = $derived((user.email_addresses || []) as AccountEmailAddress[]);
   const googleIdentity = $derived(externalIdentities.find((item) => item.provider === "google"));
   const yandexIdentity = $derived(externalIdentities.find((item) => item.provider === "yandex"));
+  const discordIdentity = $derived(externalIdentities.find((item) => item.provider === "discord"));
   const passkeyEnabled = $derived(authProviders.includes("passkey"));
   const showPasskeys = $derived(passkeyEnabled || passkeys.length > 0);
   const googleVisible = $derived(authProviders.includes("google") || Boolean(googleIdentity));
   const yandexVisible = $derived(authProviders.includes("yandex") || Boolean(yandexIdentity));
+  const discordVisible = $derived(authProviders.includes("discord") || Boolean(discordIdentity));
   const emailEnabled = $derived(authProviders.includes("email") || Boolean(user.email));
   const telegramEnabled = $derived(
     authProviders.includes("telegram") || Boolean(user.telegram_linked)
@@ -132,7 +134,7 @@
     return [...new Set(labels.filter(Boolean))].join(" · ");
   }
 
-  function linkExternal(provider: "google" | "yandex"): void {
+  function linkExternal(provider: "discord" | "google" | "yandex"): void {
     window.location.assign(buildExternalOAuthStartUrl(provider, "link", currentLang));
   }
 
@@ -140,6 +142,7 @@
     const labels = (address.sources || []).map((source) => {
       if (source === "google") return "Google";
       if (source === "yandex") return "Yandex";
+      if (source === "discord") return "Discord";
       return t("wa_security_email_source", {}, "Email");
     });
     if (address.is_primary) labels.push(t("wa_security_primary_email", {}, "Primary"));
@@ -169,7 +172,7 @@
     }
   }
 
-  async function unlinkExternal(provider: "google" | "yandex"): Promise<void> {
+  async function unlinkExternal(provider: "discord" | "google" | "yandex"): Promise<void> {
     busy = true;
     status = "";
     try {
@@ -419,6 +422,38 @@
           </button>
         {/if}
       {/if}
+      {#if discordVisible}
+        {#if discordIdentity}
+          <div class="settings-row security-deletable-row">
+            <ProviderLogo provider="discord" size={21} />
+            <span><strong>Discord</strong><small>{externalLabel(discordIdentity)}</small></span>
+            {#if discordIdentity.can_unlink}
+              <button
+                class="security-delete"
+                type="button"
+                aria-label={t("wa_security_unlink_provider", {}, "Unlink provider")}
+                onclick={() => unlinkExternal("discord")}
+                disabled={busy}><Trash2 size={17} /></button
+              >
+            {/if}
+          </div>
+        {:else}
+          <button
+            class="settings-row"
+            type="button"
+            onclick={() => linkExternal("discord")}
+            disabled={busy}
+          >
+            <ProviderLogo provider="discord" size={21} />
+            <span
+              ><strong>Discord</strong><small
+                >{t("wa_security_link_provider", {}, "Link account")}</small
+              ></span
+            >
+            <ArrowRight size={17} />
+          </button>
+        {/if}
+      {/if}
     </div>
   </Card>
 
@@ -454,7 +489,10 @@
               {#if address.sources?.includes("yandex")}
                 <ProviderLogo provider="yandex" size={19} />
               {/if}
-              {#if !address.sources?.some((source) => source === "google" || source === "yandex")}
+              {#if address.sources?.includes("discord")}
+                <ProviderLogo provider="discord" size={19} />
+              {/if}
+              {#if !address.sources?.some( (source) => ["discord", "google", "yandex"].includes(source) )}
                 <Mail size={19} />
               {/if}
             </span>

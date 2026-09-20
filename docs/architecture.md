@@ -2,7 +2,8 @@
 
 Документ описывает, **как устроена система** (раздел «Архитектура ПО»), и **как разложен
 репозиторий и деплой** (последующие разделы). Соглашения для контрибьюторов и проверяемые
-гейты — в [CONTRIBUTING.md](https://github.com/3252a8/remnawave-minishop/blob/main/CONTRIBUTING.md).
+гейты — в [CONTRIBUTING.md](https://gitlab.com/3252a8/remnawave-minishop/-/blob/main/CONTRIBUTING.md).
+<!-- GitHub source link (disabled): [CONTRIBUTING.md](https://github.com/3252a8/remnawave-minishop/blob/main/CONTRIBUTING.md) -->
 
 ## Архитектура ПО
 

@@ -186,6 +186,7 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
         panel_service = SimpleNamespace(
             get_user_by_uuid=AsyncMock(
                 return_value={
+                    "id": 77,
                     "subscriptionUrl": "https://panel.example/sub/short",
                     "userTraffic": {"onlineAt": "2026-06-05T12:00:00Z"},
                 }
@@ -260,6 +261,10 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
         payload = json.loads(response.text)
         self.assertEqual(response.status, 200)
         self.assertEqual(payload["subscription_url"], "https://panel.example/sub/short")
+        self.assertEqual(
+            payload["panel_user_url"],
+            "https://panel.example.test/dashboard/open/user/77",
+        )
         self.assertEqual(payload["install_share_url"], "https://app.example/s/share")
         self.assertEqual(payload["vpn_connection_status"], "connected")
         self.assertEqual(payload["last_vpn_connected_at"], "2026-06-05T12:00:00+00:00")

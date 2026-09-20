@@ -37,6 +37,7 @@ class PanelApiCapability(StrEnum):
     MULTI_NODE_USAGE = "multi-node-usage"
     MULTI_NODE_TOP_USERS = "multi-node-top-users"
     BULK_SQUAD_UPDATE = "bulk-squad-update"
+    USER_TAG = "user-tag"
 
 
 GENERATION_CAPABILITIES: dict[PanelApiGeneration, frozenset[PanelApiCapability]] = {
@@ -44,6 +45,7 @@ GENERATION_CAPABILITIES: dict[PanelApiGeneration, frozenset[PanelApiCapability]]
         {
             PanelApiCapability.MULTI_NODE_TOP_USERS,
             PanelApiCapability.BULK_SQUAD_UPDATE,
+            PanelApiCapability.USER_TAG,
         }
     ),
     PanelApiGeneration.RW3_NUMERIC: frozenset(PanelApiCapability),
@@ -218,7 +220,7 @@ PANEL_API_OPERATION_CONTRACTS: tuple[PanelApiOperationContract, ...] = (
         "/users/by-username/{username}",
         "/users/by-username",
         compatibility_note=(
-            "The username lookup route remains stable through 3.4.3; 3.1+ reports an "
+            "The username lookup route remains stable through 3.4.4; 3.1+ reports an "
             "absent user as 404/A063."
         ),
     ),

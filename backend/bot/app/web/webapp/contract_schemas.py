@@ -337,6 +337,7 @@ PLAN_SCHEMA: dict[str, Any] = {
     "properties": {
         "id": STRING_SCHEMA,
         "tariff_key": STRING_SCHEMA,
+        "access_via_link": BOOLEAN_SCHEMA,
         "is_default_tariff": BOOLEAN_SCHEMA,
         "tariff_name": STRING_SCHEMA,
         "billing_model": STRING_SCHEMA,

@@ -66,6 +66,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                             },
                             {
                                 "key": "private",
+                                "access_code": "ab" * 16,
                                 "names": {"en": "Private"},
                                 "descriptions": {"en": "Assigned by an administrator"},
                                 "squad_uuids": ["uuid"],
@@ -97,12 +98,23 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 "en",
                 assigned_tariff_key="private",
             )
+            linked_plans = subscription_webapp._serialize_plans(
+                settings,
+                "en",
+                tariff_access_code="ab" * 16,
+            )
 
         self.assertEqual([plan["tariff_key"] for plan in plans], ["standard", "traffic"])
         self.assertEqual(
             [plan["tariff_key"] for plan in assigned_plans],
             ["standard", "traffic", "private"],
         )
+        self.assertEqual(
+            [plan["tariff_key"] for plan in linked_plans],
+            ["standard", "traffic", "private"],
+        )
+        self.assertNotIn("access_via_link", assigned_plans[-1])
+        self.assertTrue(linked_plans[-1]["access_via_link"])
         self.assertEqual(plans[0]["sale_mode"], "subscription")
         self.assertTrue(plans[0]["is_default_tariff"])
         self.assertEqual(plans[0]["months"], 1)
@@ -464,6 +476,30 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('data-webapp-action="open-subscription-reissue"', security_source)
         self.assertNotIn('data-webapp-action="open-subscription-reissue"', settings_source)
         self.assertNotIn('data-webapp-action="open-subscription-reissue"', devices_source)
+
+    def test_confirmation_dialogs_hide_redundant_close_button(self):
+        root = Path(__file__).resolve().parents[2]
+        shared_dialog_source = (root / "frontend/src/lib/components/ui/dialog.svelte").read_text(
+            encoding="utf-8"
+        )
+        dialogs_css = (root / "frontend/src/styles/dialogs.css").read_text(encoding="utf-8")
+        confirmation_sources = [
+            root / "frontend/src/webapp/payment-dialogs/SubscriptionReissueDialog.svelte",
+            root / "frontend/src/webapp/payment-dialogs/DeviceDisconnectDialog.svelte",
+            root / "frontend/src/webapp/payment-dialogs/PendingPaymentCard.svelte",
+            root / "frontend/src/webapp/TariffDialogs.svelte",
+        ]
+
+        self.assertIn("showCloseButton?: boolean;", shared_dialog_source)
+        self.assertIn("showCloseButton = true,", shared_dialog_source)
+        self.assertIn("{#if showCloseButton}", shared_dialog_source)
+        self.assertIn(".dialog-head-no-close", dialogs_css)
+        for source_path in confirmation_sources:
+            self.assertIn(
+                "showCloseButton={false}",
+                source_path.read_text(encoding="utf-8"),
+                source_path.name,
+            )
 
     def test_webapp_bootstrap_exposes_server_status_url(self):
         settings = Settings(
@@ -881,6 +917,13 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn('rel="apple-touch-icon"', template)
         self.assertIn('href="/apple-touch-icon.png"', template)
+
+    def test_static_webapp_boot_spinner_uses_theme_accent(self):
+        template = Path("backend/bot/app/web/templates/subscription_webapp.html").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("border-top-color: var(--accent, #00fe7a)", template)
         self.assertIn('href="/favicon.ico"', template)
 
     def test_frontend_runtime_fallback_title_is_not_minishop_path(self):
@@ -904,18 +947,26 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("proxy_pass ${WEBAPP_BACKEND_UPSTREAM};", nginx_conf)
         self.assertIn("proxy_set_header ${MINISHOP_EDGE_TOKEN_HEADER_VALUE}", nginx_conf)
 
-    def test_frontend_nginx_serves_shell_routes_from_static_index(self):
+    def test_frontend_nginx_proxies_shell_routes_for_dynamic_theme(self):
         nginx_conf = Path("deploy/docker/frontend/nginx.conf").read_text(encoding="utf-8")
-        marker = 'location ~ "^/(?:$|login/password$|home$|install$|trial$|s/[a-f0-9]{32}$'
+        marker = 'location ~ "^/(?:$|login/password$|home$|plans$|checkout'
 
         self.assertIn(marker, nginx_conf)
         start = nginx_conf.index(marker)
         shell_block = nginx_conf[start : nginx_conf.index("\n\n", start)]
 
-        self.assertIn("try_files /index.html =404;", shell_block)
-        self.assertNotIn("proxy_pass ${WEBAPP_BACKEND_UPSTREAM};", shell_block)
+        self.assertIn("proxy_pass ${WEBAPP_BACKEND_UPSTREAM};", shell_block)
+        self.assertIn("proxy_intercept_errors on;", shell_block)
+        self.assertIn("error_page 502 503 504 = @webapp_static_shell;", shell_block)
+        self.assertNotIn("try_files /index.html =404;", shell_block)
+        self.assertIn("checkout(?:/[a-fA-F0-9]{32})?$", shell_block)
+        self.assertIn("settings(?:/security)?$", shell_block)
         self.assertIn("devices$", shell_block)
         self.assertIn("admin(?:/.*)?$", shell_block)
+
+        fallback_start = nginx_conf.index("location @webapp_static_shell")
+        fallback_block = nginx_conf[fallback_start : nginx_conf.index("\n\n", fallback_start)]
+        self.assertIn("try_files /index.html =404;", fallback_block)
 
     def test_home_logo_scale_rules_beat_late_loaded_admin_brand_styles(self):
         css = Path("frontend/src/styles/webapp.css").read_text(encoding="utf-8")
@@ -1044,6 +1095,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("/webapp-theme-css/light/style.css", markup)
         self.assertIn('nonce="nonce-value"', markup)
         self.assertIn("--accent:#123456", markup)
+        self.assertIn(".app-shell,.app-boot-fallback{", markup)
         self.assertIn("--bg:#f7f8fb", markup)
         self.assertIn("--home-logo-scale:1.35", markup)
         self.assertIn("--home-logo-scale-desktop:1.5", markup)

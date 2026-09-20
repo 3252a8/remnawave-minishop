@@ -37,6 +37,7 @@ from .auth import (
     _validate_telegram_auth_payload,
 )
 from .auth_referral import _grant_deferred_referral_welcome_bonus_after_telegram_link
+from .billing_tariff_access import request_tariff_access_code
 from .common import (
     _ensure_cached_telegram_avatar,
     _invalidate_webapp_user_caches,
@@ -469,8 +470,10 @@ async def me_route(request: web.Request) -> web.Response:
         "yes",
         "on",
     }
+    tariff_access_code = request_tariff_access_code(request)
     if fresh:
         await _invalidate_webapp_user_caches(settings, user_id)
+    if fresh or tariff_access_code:
         data = await _build_user_payload(request, user_id)
         return json_response({"ok": True, **data})
 

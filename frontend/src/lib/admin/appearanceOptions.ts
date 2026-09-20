@@ -97,9 +97,13 @@ function parseColor(value: string): RgbColor | null {
   if (text === "transparent") return { red: 0, green: 0, blue: 0, alpha: 0 };
   const hexMatch = text.match(HEX_COLOR);
   if (hexMatch) {
-    const hex = hexMatch[1].length <= 4
-      ? hexMatch[1].split("").map((part) => part + part).join("")
-      : hexMatch[1];
+    const hex =
+      hexMatch[1].length <= 4
+        ? hexMatch[1]
+            .split("")
+            .map((part) => part + part)
+            .join("")
+        : hexMatch[1];
     return {
       red: Number.parseInt(hex.slice(0, 2), 16),
       green: Number.parseInt(hex.slice(2, 4), 16),
@@ -110,7 +114,11 @@ function parseColor(value: string): RgbColor | null {
   const rgbMatch = text.match(RGB_COLOR);
   if (rgbMatch) {
     const alpha = parseAlpha(rgbMatch[4]);
-    if (![rgbMatch[1], rgbMatch[2], rgbMatch[3], alpha].every((part) => Number.isFinite(Number.parseFloat(String(part))))) {
+    if (
+      ![rgbMatch[1], rgbMatch[2], rgbMatch[3], alpha].every((part) =>
+        Number.isFinite(Number.parseFloat(String(part)))
+      )
+    ) {
       return null;
     }
     return {
@@ -134,7 +142,8 @@ function parseColor(value: string): RgbColor | null {
 
 function toHex(color: RgbColor): string {
   const component = (value: number): string => value.toString(16).padStart(2, "0");
-  return `#${component(color.red)}${component(color.green)}${component(color.blue)}`;
+  const alpha = Math.round(color.alpha * 255);
+  return `#${component(color.red)}${component(color.green)}${component(color.blue)}${alpha < 255 ? component(alpha) : ""}`;
 }
 
 function splitTopLevel(value: string): string[] {
@@ -167,11 +176,14 @@ function resolveVariables(
       if (depth === 0) {
         const [name, ...fallbackParts] = splitTopLevel(value.slice(start + 4, index));
         const fallback = fallbackParts.length ? fallbackParts.join(",").trim() : undefined;
-        const variableValue = name?.startsWith("--") && !resolving.has(name) ? variables[name] : undefined;
-        const candidate = variableValue == null || variableValue === ""
-          ? fallback && resolveVariables(fallback, variables, resolving)
-          : resolveVariables(String(variableValue), variables, new Set([...resolving, name]));
-        const replacement = candidate ?? (fallback && resolveVariables(fallback, variables, resolving));
+        const variableValue =
+          name?.startsWith("--") && !resolving.has(name) ? variables[name] : undefined;
+        const candidate =
+          variableValue == null || variableValue === ""
+            ? fallback && resolveVariables(fallback, variables, resolving)
+            : resolveVariables(String(variableValue), variables, new Set([...resolving, name]));
+        const replacement =
+          candidate ?? (fallback && resolveVariables(fallback, variables, resolving));
         if (replacement == null) return null;
         return resolveVariables(
           `${value.slice(0, start)}${replacement}${value.slice(index + 1)}`,
@@ -236,15 +248,26 @@ function resolveColorMix(value: string): string | null {
   const secondWeight = second.weight ?? 1 - firstWeight;
   if (firstWeight < 0 || secondWeight < 0 || firstWeight + secondWeight <= 0) return null;
   const weight = firstWeight + secondWeight;
+  // CSS mixes premultiplied channels: mixing with transparent preserves the hue.
+  const firstAlpha = first.color.alpha * firstWeight;
+  const secondAlpha = second.color.alpha * secondWeight;
+  const alphaWeight = firstAlpha + secondAlpha;
+  if (!alphaWeight) return "#00000000";
   return toHex({
-    red: clampColorPart((first.color.red * firstWeight + second.color.red * secondWeight) / weight),
-    green: clampColorPart((first.color.green * firstWeight + second.color.green * secondWeight) / weight),
-    blue: clampColorPart((first.color.blue * firstWeight + second.color.blue * secondWeight) / weight),
-    alpha: 1,
+    red: clampColorPart(
+      (first.color.red * firstAlpha + second.color.red * secondAlpha) / alphaWeight
+    ),
+    green: clampColorPart(
+      (first.color.green * firstAlpha + second.color.green * secondAlpha) / alphaWeight
+    ),
+    blue: clampColorPart(
+      (first.color.blue * firstAlpha + second.color.blue * secondAlpha) / alphaWeight
+    ),
+    alpha: (alphaWeight / weight) * Math.min(weight, 1),
   });
 }
 
-/** Resolves CSS variable references to a picker-safe opaque color without modifying the source value. */
+/** Resolves CSS references to picker-safe HEX, preserving alpha without modifying the source. */
 export function resolveAppearanceColor(
   value: unknown,
   variables: Record<string, unknown>,

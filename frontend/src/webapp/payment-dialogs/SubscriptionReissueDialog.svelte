@@ -31,6 +31,7 @@
   closeLabel={t("wa_close")}
   onclose={closeSubscriptionReissueDialog}
   class="payment-dialog-card webapp-subscription-reissue-dialog"
+  showCloseButton={false}
   {titleIcon}
 >
   <div class="payment-dialog-body">

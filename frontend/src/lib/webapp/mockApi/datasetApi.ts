@@ -274,10 +274,11 @@ export function demoApiResponse(
       ],
       checked_at: new Date().toISOString(),
       panel_compatibility: {
-        version: "3.4.3",
+        version: "3.4.4",
         generation: "rw3-numeric-user-id",
         support_status: "current",
         certified_versions: [
+          "3.4.4",
           "3.4.3",
           "3.4.2",
           "3.4.1",
@@ -414,6 +415,7 @@ export function demoApiResponse(
     if (!detail) return { ok: false, error: "not_found" };
     const decoratedDetail = {
       ...withDemoReferralSummary(detail),
+      panel_user_url: detail.panel_user_url || "https://panel.example.com/dashboard/open/user/77",
       balance: clone(adminDemoBalance(id)),
       notification_preferences: detail.notification_preferences || {
         marketing_email: false,

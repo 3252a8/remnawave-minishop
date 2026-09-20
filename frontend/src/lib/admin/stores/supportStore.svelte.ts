@@ -485,11 +485,15 @@ export function createAdminSupportStore({
   }
 
   function setStatusView(status: string) {
+    const filterStatus =
+      status === "closed" || status === "awaiting_admin" || status === "awaiting_user"
+        ? status
+        : "active";
     updateState((s) => ({
       ...s,
       filters: {
         ...s.filters,
-        status: status === "closed" ? "closed" : "active",
+        status: filterStatus,
       },
     }));
     loadList();

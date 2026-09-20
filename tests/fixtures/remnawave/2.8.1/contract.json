@@ -15,7 +15,8 @@
     "identity_alias": "10000000-0000-4000-8000-000000000001",
     "capabilities": [
       "bulk-squad-update",
-      "multi-node-top-users"
+      "multi-node-top-users",
+      "user-tag"
     ]
   }
 }

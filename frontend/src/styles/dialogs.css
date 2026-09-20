@@ -62,6 +62,10 @@
   align-items: start;
 }
 
+.dialog-head-no-close {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .dialog-title-block {
   min-width: 0;
 }
@@ -114,8 +118,7 @@
   max-height: min(
     760px,
     calc(
-      100dvh - max(14px, var(--content-safe-area-top)) -
-        max(14px, var(--content-safe-area-bottom))
+      100dvh - max(14px, var(--content-safe-area-top)) - max(14px, var(--content-safe-area-bottom))
     )
   );
 }

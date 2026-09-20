@@ -38,6 +38,7 @@
   closeLabel={t("wa_close")}
   onclose={closeDeviceDisconnectDialog}
   class="payment-dialog-card webapp-device-disconnect-dialog"
+  showCloseButton={false}
 >
   <div class="payment-dialog-body">
     <Button

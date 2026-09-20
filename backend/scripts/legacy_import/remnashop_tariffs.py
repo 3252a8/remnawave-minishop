@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from config.tariff_period_migration import normalize_tariff_catalog
 from config.tariffs_config import TariffsConfig
 
 from .common import (
@@ -68,6 +69,11 @@ class _RemnashopTariffsSection(_RemnashopImporterBase):
             return generated
         if self.on_conflict == "skip":
             return existing_catalog
+
+        normalized_existing = normalize_tariff_catalog(existing_catalog)
+        if not isinstance(normalized_existing, dict):
+            raise ValueError("existing tariff catalog must be an object")
+        existing_catalog = normalized_existing
 
         existing_tariffs = [
             item for item in existing_catalog.get("tariffs", []) if isinstance(item, dict)

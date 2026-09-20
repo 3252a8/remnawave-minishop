@@ -178,6 +178,15 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
                     "referred_by_id": None,
                 },
             )
+            await events.emit(
+                events.USER_REGISTERED,
+                {
+                    "user_id": -47,
+                    "registered_via": "discord_oauth",
+                    "email": "discord@example.test",
+                    "referred_by_id": 7,
+                },
+            )
 
         notification_service.notify_new_user_registration.assert_awaited_once_with(
             user_id=42,
@@ -203,6 +212,12 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
                 provider="yandex",
                 email="yandex@example.test",
                 referred_by_id=None,
+            ),
+            call(
+                user_id=-47,
+                provider="discord",
+                email="discord@example.test",
+                referred_by_id=7,
             ),
         ]
 

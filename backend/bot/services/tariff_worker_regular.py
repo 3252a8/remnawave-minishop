@@ -32,10 +32,8 @@ from config.settings import Settings
 from db.dal import tariff_dal, user_dal
 from db.models import Subscription
 
-from .tariff_worker_regular_warnings import (
-    TariffWorkerRegularWarningMixin,
-    _RegularTariff,
-)
+from .tariff_worker_regular_tags import TariffWorkerRegularTagMixin
+from .tariff_worker_regular_warnings import _RegularTariff
 from .tariff_worker_shared import (
     TARIFF_WORKER_BATCH_SIZE,
     TARIFF_WORKER_BULK_PANEL_FETCH_THRESHOLD,
@@ -53,7 +51,7 @@ PANEL_LIMIT_PATCH_MAX_ATTEMPTS = 3
 PANEL_LIMIT_PATCH_BACKOFF_SECONDS = 1800
 
 
-class TariffWorkerRegularMixin(TariffWorkerRegularWarningMixin):
+class TariffWorkerRegularMixin(TariffWorkerRegularTagMixin):
     settings: Settings
     panel_service: PanelApiService
     subscription_service: SubscriptionService

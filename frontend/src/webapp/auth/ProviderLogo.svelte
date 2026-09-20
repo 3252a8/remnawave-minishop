@@ -1,10 +1,24 @@
 <script lang="ts">
-  type Provider = "google" | "telegram" | "yandex";
+  type Provider = "discord" | "google" | "telegram" | "yandex";
 
   let { provider, size = 18 }: { provider: Provider; size?: number } = $props();
 </script>
 
-{#if provider === "google"}
+{#if provider === "discord"}
+  <svg
+    class="auth-provider-logo"
+    data-provider-logo="discord"
+    width={size}
+    height={size}
+    viewBox="0 0 65 48"
+    aria-hidden="true"
+  >
+    <path
+      fill="#5865F2"
+      d="M41.235 0c-.619 1.099-1.174 2.235-1.68 3.397a49 49 0 0 0-14.497 0A32 32 0 0 0 23.379 0a53 53 0 0 0-13.07 4.028C2.05 16.265-.186 28.186.926 39.943A53 53 0 0 0 16.95 47.987a37 37 0 0 0 3.435-5.531 34 34 0 0 1-5.405-2.576l1.326-.998c10.14 4.774 21.885 4.774 32.038 0 .429.354.871.695 1.326.998a34 34 0 0 1-5.418 2.589 37 37 0 0 0 3.435 5.531 53 53 0 0 0 16.025-8.032c1.314-13.638-2.247-25.458-9.407-35.927A53 53 0 0 0 41.248.025zM21.8 32.707c-3.119 0-5.708-2.828-5.708-6.327s2.488-6.339 5.696-6.339 5.758 2.854 5.708 6.339-2.513 6.327-5.696 6.327m21.039 0c-3.132 0-5.695-2.828-5.695-6.327s2.487-6.339 5.695-6.339 5.746 2.854 5.695 6.339-2.513 6.327-5.695 6.327"
+    />
+  </svg>
+{:else if provider === "google"}
   <svg
     class="auth-provider-logo"
     data-provider-logo="google"
