@@ -595,6 +595,47 @@
   font-size: 12px;
 }
 
+.appearance-home-elements-panel {
+  grid-column: 1 / -1;
+}
+
+.appearance-home-elements-hint {
+  margin: -2px 0 10px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.appearance-home-elements-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.appearance-home-elements-grid label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: calc(var(--radius) - 2px);
+  background: var(--admin-surface-2);
+}
+
+.appearance-home-elements-grid label > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  color: var(--admin-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.appearance-home-elements-grid label.is-dirty {
+  border-color: color-mix(in srgb, var(--warning) 58%, var(--admin-border));
+}
+
 .appearance-select-grid label > span,
 .appearance-token-control > span,
 .appearance-logo-scale-label,
@@ -874,6 +915,10 @@
 
   .appearance-theme-mode-setting {
     display: grid;
+  }
+
+  .appearance-home-elements-grid {
+    grid-template-columns: 1fr;
   }
 
   .appearance-custom-font-row {

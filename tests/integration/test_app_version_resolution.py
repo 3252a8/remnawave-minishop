@@ -168,8 +168,8 @@ class BuildPipelineVersionMetadataTests(unittest.TestCase):
         self.assertIn("dispatch-dev-image-consumer:", pipeline)
         self.assertIn("needs:\n    - publish-dev-images", pipeline)
         self.assertIn("project: $IMAGE_CHANNEL_DOWNSTREAM_PROJECT", pipeline)
-        self.assertIn("branch: $IMAGE_CHANNEL_DOWNSTREAM_REF", pipeline)
-        self.assertIn("strategy: depend", pipeline)
+        self.assertNotIn("IMAGE_CHANNEL_DOWNSTREAM_REF", pipeline)
+        self.assertIn("strategy: mirror", pipeline)
         self.assertIn("CORE_DEV_COMMIT: $CI_COMMIT_SHA", pipeline)
         self.assertIn(
             "CORE_DEV_IMAGE_PREFIX: docker.io/3252a8/remnawave-minishop",

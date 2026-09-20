@@ -64,3 +64,18 @@ def test_footer_contains_public_preferences_link() -> None:
     assert "Manage email notifications" in content.text
     assert "https://app.example.test/unsubscribe?token=" in content.text
     assert "/unsubscribe?token=" in content.html
+
+
+def test_footer_is_unchanged_when_user_preferences_are_disabled() -> None:
+    original = EmailContent(subject="Subject", text="Body", html="<html><body>Body</body></html>")
+    settings = _settings()
+    settings.USER_NOTIFICATION_PREFERENCES_ENABLED = False
+
+    content = add_user_email_preferences_footer(
+        original,
+        settings=settings,
+        i18n=None,
+        user=_user(),
+    )
+
+    assert content is original

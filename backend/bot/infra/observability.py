@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
+import uuid
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Protocol, cast, runtime_checkable
 
 from aiohttp import web
+
+from bot.infra.performance import PerformanceScope, current_scope
 
 logger = logging.getLogger(__name__)
 
@@ -125,9 +130,24 @@ async def observability_error_middleware(
     request: web.Request,
     handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
 ) -> web.StreamResponse:
+    started = time.monotonic()
+    scope = PerformanceScope()
+    token = current_scope.set(scope)
+    request_id = uuid.uuid4().hex
+    route = getattr(request.match_info.route.resource, "canonical", None) or "<unmatched>"
+    status = 500
     try:
-        return await handler(request)
-    except web.HTTPException:
+        response = await handler(request)
+        status = response.status
+        if not response.prepared:
+            response.headers["X-Request-ID"] = request_id
+            response.headers["Server-Timing"] = f"app;dur={(time.monotonic() - started) * 1000:.1f}"
+        return response
+    except web.HTTPException as exc:
+        status = exc.status
+        raise
+    except asyncio.CancelledError:
+        status = 499
         raise
     except Exception as exc:
         await report_error_from_services(
@@ -140,3 +160,22 @@ async def observability_error_middleware(
             },
         )
         raise
+    finally:
+        elapsed = time.monotonic() - started
+        current_scope.reset(token)
+        if route != "/healthz":
+            logger.info(
+                "metric http_request_seconds=%.4f method=%s route=%s status=%s "
+                "request_id=%s sql_count=%s sql_seconds=%.4f lock_wait_seconds=%.4f "
+                "cache=%s phases=%s",
+                elapsed,
+                request.method,
+                route,
+                status,
+                request_id,
+                scope.sql_count,
+                scope.sql_seconds,
+                scope.lock_wait_seconds,
+                scope.cache,
+                ",".join(f"{name}:{seconds:.4f}" for name, seconds in scope.phases.items()),
+            )

@@ -1,7 +1,10 @@
 import json
 import tempfile
+import threading
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from unittest.mock import patch
 
 from config.webapp_themes_config import (
     WebappThemesConfig,
@@ -16,9 +19,35 @@ from config.webapp_themes_config import (
     resolved_webapp_themes_catalog,
     write_webapp_theme_dir,
 )
+from config.webapp_themes_store import _write_webapp_theme_file
 
 
 class WebappThemesConfigTests(unittest.TestCase):
+    def test_theme_descriptor_writes_use_unique_atomic_temp_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "dark" / "theme.json"
+            theme = builtin_webapp_themes_config("#abcdef").theme_by_key("dark")
+            self.assertIsNotNone(theme)
+            barrier = threading.Barrier(2)
+            original_write_text = Path.write_text
+
+            def synchronized_write(target, *args, **kwargs):
+                result = original_write_text(target, *args, **kwargs)
+                if target.name.endswith(".tmp"):
+                    barrier.wait(timeout=5)
+                return result
+
+            with (
+                patch.object(Path, "write_text", synchronized_write),
+                ThreadPoolExecutor(max_workers=2) as executor,
+            ):
+                futures = [executor.submit(_write_webapp_theme_file, path, theme) for _ in range(2)]
+                for future in futures:
+                    future.result(timeout=5)
+
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["key"], "dark")
+            self.assertEqual(list(path.parent.glob("*.tmp")), [])
+
     def test_builtin_has_core_themes(self):
         cfg = builtin_webapp_themes_config("#abcdef")
         self.assertEqual(cfg.default_theme, "dark")
@@ -551,6 +580,120 @@ class WebappThemesConfigTests(unittest.TestCase):
                     }
                 ],
             )
+
+    def test_theme_separator_token_accepts_short_text_and_empty_value(self):
+        cfg = WebappThemesConfig(
+            default_theme="custom",
+            themes=[
+                {
+                    "key": "custom",
+                    "default": True,
+                    "tokens": {"color_scheme": "dark", "separator": "|"},
+                },
+                {
+                    "key": "plain",
+                    "default": False,
+                    "tokens": {"color_scheme": "dark", "separator": ""},
+                },
+            ],
+        )
+
+        payload = public_themes_catalog_payload(cfg, "#abc123")
+        payload_by_key = {theme["key"]: theme for theme in payload["themes"]}
+
+        self.assertEqual(cfg.theme_by_key("custom").tokens.separator, "|")
+        self.assertEqual(payload_by_key["custom"]["tokens"]["separator"], "|")
+        # An empty separator is meaningful: the theme removes the separator.
+        self.assertEqual(payload_by_key["plain"]["tokens"]["separator"], "")
+
+        with self.assertRaises(ValueError):
+            WebappThemesConfig(
+                default_theme="custom",
+                themes=[
+                    {
+                        "key": "custom",
+                        "default": True,
+                        "tokens": {"separator": "too-long-separator"},
+                    }
+                ],
+            )
+
+        with self.assertRaises(ValueError):
+            WebappThemesConfig(
+                default_theme="custom",
+                themes=[
+                    {
+                        "key": "custom",
+                        "default": True,
+                        "tokens": {"separator": "·\n·"},
+                    }
+                ],
+            )
+
+    def test_theme_referral_bonus_list_mode_is_public_and_lenient(self):
+        cfg = WebappThemesConfig(
+            default_theme="collapsed_theme",
+            themes=[
+                {
+                    "key": "collapsed_theme",
+                    "default": True,
+                    "tokens": {"color_scheme": "dark", "referral_bonus_list": "COLLAPSED"},
+                },
+                {
+                    "key": "expanded_theme",
+                    "default": False,
+                    "tokens": {"color_scheme": "dark", "referral_bonus_list": "expanded"},
+                },
+                {
+                    "key": "typo_theme",
+                    "default": False,
+                    "tokens": {"color_scheme": "dark", "referral_bonus_list": "collapsable"},
+                },
+            ],
+        )
+
+        payload = public_themes_catalog_payload(cfg, "#abc123")
+        payload_by_key = {theme["key"]: theme for theme in payload["themes"]}
+
+        self.assertEqual(
+            cfg.theme_by_key("collapsed_theme").tokens.referral_bonus_list, "collapsed"
+        )
+        self.assertEqual(
+            payload_by_key["collapsed_theme"]["tokens"]["referral_bonus_list"], "collapsed"
+        )
+        self.assertEqual(
+            payload_by_key["expanded_theme"]["tokens"]["referral_bonus_list"], "expanded"
+        )
+        # An unknown mode must not invalidate the descriptor or reach the client.
+        self.assertIsNone(cfg.theme_by_key("typo_theme").tokens.referral_bonus_list)
+        self.assertNotIn("referral_bonus_list", payload_by_key["typo_theme"]["tokens"])
+
+    def test_home_element_visibility_tokens_are_public_and_lenient(self):
+        cfg = WebappThemesConfig(
+            default_theme="custom",
+            themes=[
+                {
+                    "key": "custom",
+                    "default": True,
+                    "tokens": {
+                        "home_subscription_period_visibility": "HIDDEN",
+                        "home_tariff_name_visibility": "visible",
+                        "home_balance_visibility": "auto",
+                        "home_auto_renew_visibility": "collapsable",
+                    },
+                }
+            ],
+        )
+
+        theme = cfg.theme_by_key("custom")
+        payload = public_themes_catalog_payload(cfg, "#abc123")["themes"][0]["tokens"]
+
+        self.assertEqual(theme.tokens.home_subscription_period_visibility, "hidden")
+        self.assertEqual(theme.tokens.home_tariff_name_visibility, "visible")
+        self.assertEqual(theme.tokens.home_balance_visibility, "auto")
+        self.assertIsNone(theme.tokens.home_auto_renew_visibility)
+        self.assertEqual(payload["home_subscription_period_visibility"], "hidden")
+        self.assertNotIn("home_auto_renew_visibility", payload)
 
     def test_public_payload_keeps_admin_usage_flag(self):
         cfg = WebappThemesConfig(

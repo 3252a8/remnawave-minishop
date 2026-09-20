@@ -12,9 +12,14 @@
 
 ---
 
-## 1. Гейты качества — прогоняй локально перед пушем
+## 1. Гейты качества — выбирай по зоне изменений перед пушем
 
 CI (`.github/workflows/ci.yml`) прогоняет всё перечисленное; ничего не мёржится красным.
+
+Локально сначала классифицируй **весь** diff (включая staged и unstaged файлы) и запускай
+минимальный набор, который способен поймать регрессию в затронутой зоне. Полный прогон обязателен
+для product/shared-кода, корневых зависимостей и конфигурации, CI/deploy, нескольких затронутых зон
+или когда изоляцию нельзя уверенно доказать. Явно запрошенную команду всегда запускай дословно.
 
 Удобная агрегирующая команда из корня репозитория:
 ```bash
@@ -31,6 +36,20 @@ npm run check
 ```bash
 npm run check:quick
 ```
+
+Для документации используется отдельная матрица; полный backend/frontend набор для этих изменений
+не запускается только ради ритуала:
+
+| Граница изменений | Обязательная локальная проверка |
+| --- | --- |
+| Только обычный Markdown/policy (`README*`, `AGENTS.md`, `CONTRIBUTING.md`, `docs/**/*.md`) и статические docs-ассеты, кроме generated-файлов | `git diff --check`, проверка изменённых ссылок/путей и визуальная проверка затронутого материала; если он публикуется docs-site — также `npm run check:docs` и `npm run build:docs` |
+| Только `docs-site/**` | `npm run check:docs` и `npm run build:docs`; добавь `npm run check:e2e` только при изменении demo runtime, клиентского поведения или навигации |
+| `docs-site/package-lock.json` или docs-site зависимости | `npm run check:lockfiles`, затем `npm run build:docs` |
+| Generated docs/contracts | соответствующий генератор и drift/contract test из таблицы ниже, затем `npm run check:docs`; изменение кода генератора уже считается code change |
+
+После scoped-прогона перечисли выполненные проверки и явно укажи, что полный `pytest`/`ruff`/
+`mypy`/frontend matrix пропущен из-за доказанного docs-only или docs-site-only diff. CI всё равно
+остаётся окончательным полным гейтом перед merge.
 
 There is no mypy frontier: the whole repository is in scope — all backend packages, both
 script roots (`backend/scripts`, `scripts`), and the whole `tests/` tree. The `type_ignore`

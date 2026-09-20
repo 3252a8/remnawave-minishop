@@ -93,6 +93,7 @@ export function createServerStatusStore(
   }
 
   function recordHistory(data: ServerStatusData): void {
+    if (state.data && data.updatedAt === state.data.updatedAt) return;
     const nextHistory: Record<string, ServerStatusHistoryEntry[]> = {};
     for (const group of data.groups || []) {
       for (const item of group.items) {

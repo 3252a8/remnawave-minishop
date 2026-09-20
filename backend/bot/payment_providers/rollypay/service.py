@@ -407,14 +407,25 @@ async def rollypay_webhook_route(request: web.Request) -> web.Response:
 
 router = Router(name="user_subscription_payments_rollypay_router")
 
+# Leave room for imported tariff keys and checkout context within Telegram's 64 bytes.
+# Existing messages must continue to route through their original provider prefix.
+_COMPACT_CALLBACK_PREFIXES = {
+    "pay_rollypay_all": "pay_ra",
+    "pay_rollypay_sbp": "pay_rs",
+    "pay_rollypay_card": "pay_rc",
+    "pay_rollypay_intl": "pay_ri",
+    "pay_rollypay_crypto": "pay_rx",
+    "pay_rollypay_sub": "pay_rr",
+}
+
 
 @router.callback_query(
-    F.data.startswith("pay_rollypay_all:")
-    | F.data.startswith("pay_rollypay_sbp:")
-    | F.data.startswith("pay_rollypay_card:")
-    | F.data.startswith("pay_rollypay_intl:")
-    | F.data.startswith("pay_rollypay_crypto:")
-    | F.data.startswith("pay_rollypay_sub:")
+    F.data.startswith(
+        tuple(
+            f"{prefix}:"
+            for prefix in (*_COMPACT_CALLBACK_PREFIXES, *_COMPACT_CALLBACK_PREFIXES.values())
+        )
+    )
 )
 async def pay_rollypay_callback_handler(
     callback: types.CallbackQuery,
@@ -465,7 +476,9 @@ def _webapp_context_for_variant(variant: str) -> Any:
         return {
             "rollypay_variant": variant,
             "source": "webapp",
-            "traffic_gb": format_number_for_payload(ctx.traffic_gb),
+            "traffic_gb": (
+                format_number_for_payload(ctx.traffic_gb) if ctx.traffic_gb is not None else None
+            ),
             "hwid_device_count": ctx.hwid_device_count,
         }
 
@@ -588,7 +601,7 @@ def _spec(
         admin_only_manifest_key=f"ROLLYPAY_{admin_attr}",
         admin_only_config_attr=admin_attr,
         service_key="rollypay_service",
-        callback_prefix=callback_prefix,
+        callback_prefix=_COMPACT_CALLBACK_PREFIXES[callback_prefix],
         aliases=("rollypay",) if id == "rollypay" else (),
         router=router if first else None,
         create_service=create_service if first else None,
@@ -774,6 +787,12 @@ _DESCRIPTORS_BY_METHOD = {
 _DESCRIPTORS_BY_PREFIX = {
     spec.callback_prefix: _DESCRIPTORS_BY_METHOD[spec.id] for spec in SPECS if spec.callback_prefix
 }
+_DESCRIPTORS_BY_PREFIX.update(
+    {
+        legacy: _DESCRIPTORS_BY_PREFIX[compact]
+        for legacy, compact in _COMPACT_CALLBACK_PREFIXES.items()
+    }
+)
 _DESCRIPTOR = _ALL_METHODS_DESCRIPTOR
 
 

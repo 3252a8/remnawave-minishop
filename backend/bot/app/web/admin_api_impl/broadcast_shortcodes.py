@@ -127,8 +127,17 @@ async def admin_broadcast_preview_route(request: web.Request) -> web.Response:
     i18n = get_i18n(request)
     bot_username = get_bot_username(request)
     sample_user_id = int(body.user_id) if body.user_id is not None else actor_id
-    unknown = sorted(unknown_shortcodes(text) | unknown_shortcodes(email_subject))
-    needed = known_shortcodes(text) | known_shortcodes(email_subject)
+    button_urls = [str(button.url or "") for button in body.buttons]
+    unknown = sorted(
+        unknown_shortcodes(text)
+        | unknown_shortcodes(email_subject)
+        | set().union(*(unknown_shortcodes(url) for url in button_urls))
+    )
+    needed = (
+        known_shortcodes(text)
+        | known_shortcodes(email_subject)
+        | set().union(*(known_shortcodes(url) for url in button_urls))
+    )
 
     async_session_factory: sessionmaker = get_session_factory(request)
     contexts: dict[int, BroadcastUserContext] = {}
@@ -162,8 +171,12 @@ async def admin_broadcast_preview_route(request: web.Request) -> web.Response:
 
     if body.mode == "send_telegram":
         try:
+            personalized_buttons = [
+                button.model_copy(update={"url": render(str(button.url or ""), escape=False)})
+                for button in body.buttons
+            ]
             buttons = resolve_broadcast_buttons(
-                body.buttons,
+                personalized_buttons,
                 settings=settings,
                 bot_username=bot_username,
             )

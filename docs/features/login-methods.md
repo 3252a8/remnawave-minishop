@@ -1,13 +1,14 @@
 # Способы входа
 
-Minishop поддерживает шесть способов входа:
+Minishop поддерживает семь способов входа:
 
 1. **Email-код** — одноразовый код или magic link из письма.
 2. **Email и пароль** — пароль, заданный после подтверждения email.
 3. **Telegram** — Mini Apps `initData` внутри Telegram и OAuth / OpenID Connect в браузере.
 4. **Google** — серверный OAuth 2.0 / OpenID Connect flow.
 5. **Yandex ID** — OAuth-приложение Яндекса.
-6. **Passkey** — ключ доступа WebAuthn.
+6. **Discord** — OAuth2-приложение Discord.
+7. **Passkey** — ключ доступа WebAuthn.
 
 В админке способы собраны в **Система → Настройки → Способы входа**. Пользователь управляет
 паролем, passkey, привязанными провайдерами и адресом для уведомлений в
@@ -20,7 +21,14 @@ Minishop поддерживает шесть способов входа:
 | [Telegram](#telegram) | Включён `TELEGRAM_LOGIN_ENABLED` | BotFather и `BOT_TOKEN`; для браузера также Telegram OAuth |
 | [Google](#google) | Включён `GOOGLE_OIDC_ENABLED` | OAuth client ID, secret и callback |
 | [Yandex ID](#yandex-id) | Включён `YANDEX_OIDC_ENABLED` | OAuth client ID, secret и callback |
+| [Discord](#discord) | Включён `DISCORD_OIDC_ENABLED` | OAuth2 application ID, secret и callback |
 | [Passkey](#passkey) | Включён `PASSKEY_LOGIN_ENABLED` | HTTPS, RP ID и разрешённые origins |
+
+У каждого доступного провайдера есть отдельный переключатель **Рекомендуемый способ входа**.
+Если он включён, Minishop показывает красный индикатор внимания в настройках, пока пользователь
+не привяжет этот способ. Если выключен, способ остаётся доступным для входа и привязки, но его
+отсутствие само по себе не включает индикатор. По умолчанию рекомендации включены, чтобы обновление
+сохраняло прежнее поведение; администратор может оставить только нужные способы.
 
 Аккаунты без привязанного Telegram ID не получают права администратора: админка проверяет
 Telegram ID из `ADMIN_IDS` независимо от способа входа пользователя в Mini App.

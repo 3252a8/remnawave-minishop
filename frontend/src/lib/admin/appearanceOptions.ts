@@ -27,6 +27,49 @@ export type AppearanceThemesState = {
   themesDirty: boolean;
 };
 
+export const HOME_ELEMENT_VISIBILITY_FIELDS = [
+  {
+    token: "home_subscription_period_visibility",
+    labelKey: "appearance_home_element_subscription_period",
+    label: "Subscription period",
+  },
+  {
+    token: "home_tariff_name_visibility",
+    labelKey: "appearance_home_element_tariff_name",
+    label: "Current tariff name",
+  },
+  {
+    token: "home_subscription_end_visibility",
+    labelKey: "appearance_home_element_subscription_end",
+    label: "Subscription end date",
+  },
+  {
+    token: "home_regular_traffic_visibility",
+    labelKey: "appearance_home_element_regular_traffic",
+    label: "Regular traffic",
+  },
+  {
+    token: "home_premium_traffic_visibility",
+    labelKey: "appearance_home_element_premium_traffic",
+    label: "Premium traffic",
+  },
+  {
+    token: "home_change_tariff_visibility",
+    labelKey: "appearance_home_element_change_tariff",
+    label: "Change tariff action",
+  },
+  {
+    token: "home_balance_visibility",
+    labelKey: "appearance_home_element_balance",
+    label: "Balance",
+  },
+  {
+    token: "home_auto_renew_visibility",
+    labelKey: "appearance_home_element_auto_renew",
+    label: "Auto-renew controls",
+  },
+] as const;
+
 type RgbColor = { red: number; green: number; blue: number; alpha: number };
 
 const HEX_COLOR = /^#([\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i;

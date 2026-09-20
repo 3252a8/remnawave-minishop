@@ -53,9 +53,13 @@ export async function openTelegramInvoice({
     onUnavailable();
     return false;
   }
-  invoiceTg.openInvoice(url, async (status) => {
-    if (status === "paid") await onPaid();
-    else if (status === "failed") onFailed();
+  return new Promise<boolean>((resolve, reject) => {
+    invoiceTg.openInvoice?.(url, (status) => {
+      void (async () => {
+        if (status === "paid") await onPaid();
+        else if (status === "failed") onFailed();
+        resolve(true);
+      })().catch(reject);
+    });
   });
-  return true;
 }

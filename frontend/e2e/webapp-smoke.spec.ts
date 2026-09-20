@@ -1053,6 +1053,10 @@ test("optional home widgets stay disabled by default and use dedicated presets",
   await expect(page.locator(".home-compact-summary")).toBeVisible();
   await expect(page.locator(".compact-balance")).toHaveCount(0);
   await expect(page.locator(".server-status-card")).toHaveCount(0);
+  const regularTrafficRow = page.locator(".compact-traffic-item").first();
+  await expect(regularTrafficRow.locator(".compact-traffic-label")).not.toContainText("13.10.2026");
+  await regularTrafficRow.locator('[data-webapp-action="open-regular-traffic-help"]').click();
+  await expect(page.locator("#compact-regular-traffic-help")).toContainText("13.10.2026");
 
   await page.goto(`${APP_URL}?path=/home&mock=server-status`);
   await expect(page.locator(".server-status-card")).toBeVisible();
@@ -1083,6 +1087,33 @@ test("device traffic bonuses stay legible on mobile", async ({ page }) => {
       hasText: "Плюс 45 ГБ к месячному трафику",
     })
   ).toBeVisible();
+});
+
+test("a theme can collapse the referral bonus list", async ({ page }) => {
+  await page.setViewportSize(DESKTOP_VIEWPORT);
+
+  await page.goto("/demo/runtime/invite?theme_preview=dark");
+  await expect(page.locator(".referral-bonus-row").first()).toBeVisible();
+  await expect(page.locator(".referral-bonus-disclosure")).toHaveCount(0);
+
+  await page.goto("/demo/runtime/invite?theme_preview=ascii");
+  const disclosure = page.locator(".referral-bonus-disclosure");
+  const trigger = disclosure.locator(".referral-bonus-summary");
+  await expect(disclosure).toHaveCount(1);
+  await expect(trigger).toContainText("Бонус зависит от тарифа и периода оплаты друга");
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator(".referral-tariff-dropdown")).toHaveCount(0);
+  await expect(page.locator(".referral-bonus-row-nested")).toHaveCount(0);
+
+  await trigger.click();
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator(".referral-tariff-dropdown")).toHaveCount(2);
+  await expect(page.locator(".referral-tariff-summary").first()).toBeVisible();
+  await expect(page.locator(".referral-bonus-row-nested")).toHaveCount(4);
+  await expect(page.locator(".referral-bonus-row-nested").first()).toBeHidden();
+
+  await page.locator(".referral-tariff-summary").first().click();
+  await expect(page.locator(".referral-bonus-row-nested").first()).toBeVisible();
 });
 
 test("Telegram fullscreen fallback protects webapp actions and admin chrome", async ({ page }) => {
@@ -2482,9 +2513,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   await expect(tariffDialog).toBeVisible();
   await assertFormFieldsNamed(page, "admin-tariffs:edit-dialog");
   await tariffDialog.getByRole("tab").nth(1).click();
-  const periodRows = tariffDialog.locator(
-    ".admin-row-editor-period:not(.admin-row-editor-header)"
-  );
+  const periodRows = tariffDialog.locator(".admin-row-editor-period:not(.admin-row-editor-header)");
   await expect(periodRows).toHaveCount(4);
   for (const [index, days] of ["30", "90", "180", "365"].entries()) {
     await expect(

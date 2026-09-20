@@ -14,12 +14,33 @@
 
   type Props = {
     api?: ApiClient["api"];
+    emailAuthEnabled?: boolean;
     goSettings?: VoidAction;
     t?: Translate;
     user?: UserProfile;
   };
 
-  let { api = undefined, goSettings = () => {}, t = (key) => key, user = {} }: Props = $props();
+  let {
+    api = undefined,
+    emailAuthEnabled = true,
+    goSettings = () => {},
+    t = (key) => key,
+    user = {},
+  }: Props = $props();
+
+  const preferencesDescription = $derived(
+    emailAuthEnabled
+      ? t(
+          "wa_notification_preferences_hint",
+          {},
+          "Choose separately what may be sent to your email and Telegram."
+        )
+      : t(
+          "wa_notification_preferences_telegram_hint",
+          {},
+          "Choose what may be sent to your Telegram account."
+        )
+  );
 
   let notificationPreferences = $state<NotificationPreferences>(
     normalizeNotificationPreferences(null)
@@ -80,11 +101,7 @@
       <div>
         <h1>{t("wa_notification_preferences_title", {}, "Notifications")}</h1>
         <p>
-          {t(
-            "wa_notification_preferences_hint",
-            {},
-            "Choose separately what may be sent to your email and Telegram."
-          )}
+          {preferencesDescription}
         </p>
       </div>
     </div>
@@ -92,13 +109,10 @@
 
   <NotificationPreferencesPanel
     preferences={notificationPreferences}
+    telegramOnly={!emailAuthEnabled}
     disabled={notificationPreferencesBusy}
     title={t("wa_notification_preferences_delivery_title", {}, "Delivery settings")}
-    description={t(
-      "wa_notification_preferences_hint",
-      {},
-      "Choose separately what may be sent to your email and Telegram."
-    )}
+    description={preferencesDescription}
     marketingLabel={t("wa_notification_preferences_marketing", {}, "News and offers")}
     marketingHint={t(
       "wa_notification_preferences_marketing_hint",

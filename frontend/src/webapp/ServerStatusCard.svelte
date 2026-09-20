@@ -50,7 +50,8 @@
             {t(`wa_server_status_state_${status.status}`, {}, status.status)}
           {/if}
           {#if itemCount && !isExternalLink}
-            · {t(
+            <span class="meta-separator" aria-hidden="true"></span>
+            {t(
               "wa_server_status_services_count",
               { count: itemCount },
               `${itemCount} services`

@@ -1,4 +1,5 @@
 import logging
+import time
 from collections import Counter
 from datetime import UTC, datetime
 from typing import cast
@@ -6,6 +7,7 @@ from typing import cast
 from sqlalchemy import or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.infra.performance import performance_operation
 from bot.middlewares.i18n import JsonI18n
 from bot.services.panel_activity import (
     panel_status_means_active,
@@ -13,7 +15,10 @@ from bot.services.panel_activity import (
 )
 from bot.services.panel_api_service import PanelApiService
 from config.settings import Settings
-from db.advisory_locks import acquire_subscription_background_sync_lock
+from db.advisory_locks import (
+    acquire_subscription_background_sync_lock,
+    commit_subscription_background_sync_batch,
+)
 from db.dal import (
     panel_sync_dal,
     subscription_dal,
@@ -48,6 +53,7 @@ from .sync_admin_identity import (
     _merge_local_duplicate_panel_user_if_needed,
     _prefetch_sync_indexes,
 )
+from .sync_admin_snapshot import capture_subscription_snapshot
 from .sync_admin_summary import (
     include_last_connected_snapshot as _include_last_connected_snapshot,
 )
@@ -56,6 +62,31 @@ from .sync_admin_summary import (
 )
 
 logger = logging.getLogger(__name__)
+
+PANEL_SYNC_TRANSACTION_BATCH_SIZE = 100
+
+
+def _select_existing_subscription_for_panel_sync(
+    *,
+    user_id: int,
+    panel_uuid: str,
+    panel_subscription_uuid: str,
+    previous_panel_uuid: str | None,
+    subscriptions_by_panel_uuid: dict[str, Subscription],
+    active_subscriptions_by_user_panel: dict[tuple[int, str], Subscription],
+    subscriptions_by_user_panel: dict[tuple[int, str], Subscription],
+) -> Subscription | None:
+    existing = subscriptions_by_panel_uuid.get(panel_subscription_uuid)
+    if existing is not None:
+        return existing
+
+    active = active_subscriptions_by_user_panel.get((user_id, panel_uuid))
+    if active is not None and not active.panel_subscription_uuid:
+        return active
+
+    if previous_panel_uuid:
+        return subscriptions_by_user_panel.get((user_id, previous_panel_uuid))
+    return None
 
 
 async def perform_sync(
@@ -74,7 +105,7 @@ async def perform_sync(
             "users_processed": 0,
             "subs_synced": 0,
         }
-    async with _sync_lock:
+    async with _sync_lock, performance_operation("panel_sync"):
         return await _perform_sync_impl(
             panel_service=panel_service,
             session=session,
@@ -112,6 +143,7 @@ async def _perform_sync_impl(
     panel_patch_count = 0
 
     try:
+        subscription_snapshot = await capture_subscription_snapshot(session)
         panel_users_data = await panel_service.get_all_panel_users()
 
         if panel_users_data is None:
@@ -135,34 +167,47 @@ async def _perform_sync_impl(
         total_panel_users = len(panel_users_data)
         logger.info("Starting sync for %s panel users.", total_panel_users)
         await acquire_subscription_background_sync_lock(session)
-        sync_indexes = await _prefetch_sync_indexes(session, panel_users_data)
-        users_by_telegram_id = cast(dict[int, User], sync_indexes["users_by_telegram_id"])
-        users_by_user_id = cast(dict[int, User], sync_indexes["users_by_user_id"])
-        users_by_panel_uuid = cast(dict[str, User], sync_indexes["users_by_panel_uuid"])
-        users_by_email = cast(dict[str, User], sync_indexes["users_by_email"])
-        subscriptions_by_panel_uuid = cast(
-            dict[str, Subscription],
-            sync_indexes["subscriptions_by_panel_uuid"],
-        )
-        active_subscriptions_by_user_panel = cast(
-            dict[tuple[int, str], Subscription],
-            sync_indexes["active_subscriptions_by_user_panel"],
-        )
-        subscriptions_by_user_panel = cast(
-            dict[tuple[int, str], Subscription],
-            sync_indexes["subscriptions_by_user_panel"],
-        )
-        panel_uuids_by_telegram_id = cast(
-            dict[int, set[str]],
-            sync_indexes["panel_uuids_by_telegram_id"],
-        )
+        panel_uuids_by_telegram_id: dict[int, set[str]] = {}
+        for panel_user in panel_users_data:
+            telegram_id = _coerce_panel_telegram_id(panel_user.get("telegramId"))
+            if telegram_id and panel_user.get("uuid"):
+                panel_uuids_by_telegram_id.setdefault(telegram_id, set()).add(
+                    str(panel_user["uuid"])
+                )
+        reload_batch = True
+        batch_started = time.monotonic()
         panel_users_by_uuid = {
             str(panel_user["uuid"]): panel_user
             for panel_user in panel_users_data
             if panel_user.get("uuid")
         }
 
-        for panel_user_dict in panel_users_data:
+        for panel_offset, panel_user_dict in enumerate(panel_users_data):
+            if reload_batch:
+                sync_indexes = await _prefetch_sync_indexes(
+                    session,
+                    panel_users_data[
+                        panel_offset : panel_offset + PANEL_SYNC_TRANSACTION_BATCH_SIZE
+                    ],
+                )
+                users_by_telegram_id = cast(dict[int, User], sync_indexes["users_by_telegram_id"])
+                users_by_user_id = cast(dict[int, User], sync_indexes["users_by_user_id"])
+                users_by_panel_uuid = cast(dict[str, User], sync_indexes["users_by_panel_uuid"])
+                users_by_email = cast(dict[str, User], sync_indexes["users_by_email"])
+                subscriptions_by_panel_uuid = cast(
+                    dict[str, Subscription],
+                    sync_indexes["subscriptions_by_panel_uuid"],
+                )
+                active_subscriptions_by_user_panel = cast(
+                    dict[tuple[int, str], Subscription],
+                    sync_indexes["active_subscriptions_by_user_panel"],
+                )
+                subscriptions_by_user_panel = cast(
+                    dict[tuple[int, str], Subscription],
+                    sync_indexes["subscriptions_by_user_panel"],
+                )
+                reload_batch = False
+                batch_started = time.monotonic()
             try:
                 panel_records_checked += 1
                 panel_uuid = panel_user_dict.get("uuid")
@@ -604,39 +649,56 @@ async def _perform_sync_impl(
                         ) or panel_user_dict.get("shortUuid")
 
                         if subscription_uuid_from_panel:
+                            existing_sub_by_uuid = _select_existing_subscription_for_panel_sync(
+                                user_id=int(actual_user_id),
+                                panel_uuid=panel_uuid,
+                                panel_subscription_uuid=subscription_uuid_from_panel,
+                                previous_panel_uuid=previous_panel_uuid_for_reconciliation,
+                                subscriptions_by_panel_uuid=subscriptions_by_panel_uuid,
+                                active_subscriptions_by_user_panel=(
+                                    active_subscriptions_by_user_panel
+                                ),
+                                subscriptions_by_user_panel=subscriptions_by_user_panel,
+                            )
+
                             # If the panel reports the subscription as ACTIVE, deactivate all other active subscriptions first  # noqa: E501
                             if panel_status_means_active(panel_status):
-                                await session.execute(
-                                    update(Subscription)
-                                    .where(
-                                        Subscription.panel_user_uuid == panel_uuid,
-                                        Subscription.is_active.is_(True),
+                                deactivate_stmt = update(Subscription).where(
+                                    Subscription.panel_user_uuid == panel_uuid,
+                                    Subscription.is_active.is_(True),
+                                )
+                                if existing_sub_by_uuid is not None:
+                                    deactivate_stmt = deactivate_stmt.where(
+                                        Subscription.subscription_id
+                                        != existing_sub_by_uuid.subscription_id
+                                    )
+                                else:
+                                    deactivate_stmt = deactivate_stmt.where(
                                         or_(
                                             Subscription.panel_subscription_uuid
                                             != subscription_uuid_from_panel,
                                             Subscription.panel_subscription_uuid.is_(None),
-                                        ),
+                                        )
                                     )
-                                    .values(
-                                        is_active=False,
-                                        status_from_panel="INACTIVE",
-                                    )
+                                candidates = (
+                                    subscription_snapshot.active_by_panel.get(panel_uuid, [])
+                                    if subscription_snapshot is not None
+                                    else None
                                 )
-
-                            # Try to find subscription by its panel_subscription_uuid first (idempotent)  # noqa: E501
-                            existing_sub_by_uuid = subscriptions_by_panel_uuid.get(
-                                subscription_uuid_from_panel
-                            )
-                            if (
-                                existing_sub_by_uuid is None
-                                and previous_panel_uuid_for_reconciliation
-                            ):
-                                existing_sub_by_uuid = subscriptions_by_user_panel.get(
-                                    (
-                                        int(actual_user_id),
-                                        previous_panel_uuid_for_reconciliation,
+                                if candidates is None or any(
+                                    sub_id != getattr(existing_sub_by_uuid, "subscription_id", None)
+                                    for sub_id in candidates
+                                ):
+                                    if subscription_snapshot is not None:
+                                        deactivate_stmt = deactivate_stmt.where(
+                                            subscription_snapshot.siblings_filter(panel_uuid)
+                                        )
+                                    await session.execute(
+                                        deactivate_stmt.values(
+                                            is_active=False,
+                                            status_from_panel="INACTIVE",
+                                        )
                                     )
-                                )
 
                             if existing_sub_by_uuid:
                                 previous_subscription_uuid = str(
@@ -663,11 +725,21 @@ async def _perform_sync_impl(
                                 )
                                 if update_delta:
                                     # Atomic update of changed relevant fields
-                                    await subscription_dal.update_subscription(
+                                    updated_sub = await subscription_dal.update_subscription(
                                         session,
                                         existing_sub_by_uuid.subscription_id,
                                         update_delta,
+                                        refresh=False,
+                                        expected_version=(
+                                            subscription_snapshot.versions.get(
+                                                existing_sub_by_uuid.subscription_id, "missing"
+                                            )
+                                            if subscription_snapshot is not None
+                                            else None
+                                        ),
                                     )
+                                    if subscription_snapshot is not None and updated_sub is None:
+                                        continue
                                     subscriptions_updated += 1
                                     user_was_updated = True
                                     for reason in _subscription_update_reason_labels(update_delta):
@@ -772,11 +844,21 @@ async def _perform_sync_impl(
                                     active_sub, update_payload
                                 )
                                 if update_delta:
-                                    await subscription_dal.update_subscription(
+                                    updated_sub = await subscription_dal.update_subscription(
                                         session,
                                         active_sub.subscription_id,
                                         update_delta,
+                                        refresh=False,
+                                        expected_version=(
+                                            subscription_snapshot.versions.get(
+                                                active_sub.subscription_id, "missing"
+                                            )
+                                            if subscription_snapshot is not None
+                                            else None
+                                        ),
                                     )
+                                    if subscription_snapshot is not None and updated_sub is None:
+                                        continue
                                     subscriptions_updated += 1
                                     user_was_updated = True
                                     for reason in _subscription_update_reason_labels(update_delta):
@@ -824,6 +906,13 @@ async def _perform_sync_impl(
                 panel_user_uuid = panel_user_dict.get("uuid", "unknown")
                 sync_errors.append(f"Error processing panel user {panel_user_uuid}: {e_user!s}")
                 logger.error("Error syncing user: %s", e_user)
+            finally:
+                if (
+                    panel_records_checked % PANEL_SYNC_TRANSACTION_BATCH_SIZE == 0
+                    or time.monotonic() - batch_started >= 0.75
+                ) and panel_records_checked < total_panel_users:
+                    await commit_subscription_background_sync_batch(session)
+                    reload_batch = True
 
         # Update sync status
         status = "completed_with_errors" if sync_errors else "completed"

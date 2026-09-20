@@ -30,6 +30,7 @@
     referralInviter,
     referralInviteesTotal,
     openRelatedUser,
+    onOpenPartnerCard,
   }: {
     at: TranslateFn;
     usersStore: UsersStoreBridge;
@@ -49,6 +50,7 @@
     referralInviter: AdminUser | null;
     referralInviteesTotal: number;
     openRelatedUser: RelatedUserOpener;
+    onOpenPartnerCard: (partnerId: string) => void;
   } = $props();
 
   const telegramNotifications = $derived(
@@ -95,6 +97,7 @@
   const referralCode = $derived(
     openedUserDetail.referral?.code || openedUserDetail.user?.referral_code || ""
   );
+  const partnerAttribution = $derived(openedUserDetail.partner_attribution);
   const userBalance = $derived(openedUserDetail.balance);
   const userBalanceAmount = $derived.by(() => {
     const amount = Number(userBalance?.amount || 0);
@@ -335,6 +338,27 @@
         </AdminButton>
       {/if}
     </li>
+    {#if partnerAttribution}
+      <li class="admin-user-ref-row">
+        <span>{at("user_label_partner_attribution", {}, "Partner attribution")}</span>
+        <strong class="admin-user-ref-value">
+          <span>{partnerAttribution.display_label}</span>
+          <small>
+            ID {partnerAttribution.partner_id} · {at("user_partner_client_id", {}, "Client")}
+            {partnerAttribution.public_client_id}
+          </small>
+        </strong>
+        <AdminButton
+          size="icon"
+          variant="icon"
+          title={at("user_open_partner", {}, "Open partner card")}
+          aria-label={at("user_open_partner", {}, "Open partner card")}
+          onclick={() => onOpenPartnerCard(String(partnerAttribution.partner_id))}
+        >
+          <ExternalLink size={14} />
+        </AdminButton>
+      </li>
+    {/if}
     <li class="admin-user-ref-row">
       <span>{at("user_label_invited_users", {}, "Invited users")}</span>
       <strong>{referralInviteesTotal}</strong>

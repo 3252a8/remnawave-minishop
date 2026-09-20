@@ -5,6 +5,10 @@ APPEARANCE_SECTION = REPO_ROOT / "frontend/src/admin/sections/AppearanceSection.
 APPEARANCE_BRAND_CARD = (
     REPO_ROOT / "frontend/src/admin/sections/appearance/AppearanceBrandCard.svelte"
 )
+APPEARANCE_DEFAULT_THEME_EDITOR = (
+    REPO_ROOT / "frontend/src/admin/sections/appearance/AppearanceDefaultThemeEditor.svelte"
+)
+APPEARANCE_OPTIONS = REPO_ROOT / "frontend/src/lib/admin/appearanceOptions.ts"
 MOCK_ADMIN_FALLBACK = REPO_ROOT / "frontend/src/lib/webapp/mockApi/adminFallback.ts"
 
 
@@ -43,3 +47,28 @@ def test_appearance_exposes_user_theme_mode_toggle():
     assert '"WEBAPP_COMPACT_HOME_ENABLED"' in source
     assert '"settings_field_webapp_compact_home_enabled_label"' in source
     assert "onCheckedChange={setCompactHomeEnabled}" in source
+    assert '"WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED"' in source
+    assert "onCheckedChange={setCheckoutAddonValueAnimationEnabled}" in source
+    assert '"WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT"' in source
+    assert "onCheckedChange={setCheckoutAddonEditorExpandedByDefault}" in source
+
+
+def test_theme_editor_exposes_universal_home_element_visibility_controls():
+    editor = APPEARANCE_DEFAULT_THEME_EDITOR.read_text(encoding="utf-8")
+    options = APPEARANCE_OPTIONS.read_text(encoding="utf-8")
+
+    assert "HOME_ELEMENT_VISIBILITY_FIELDS" in editor
+    assert 'value: "auto"' in editor
+    assert 'value: "visible"' in editor
+    assert 'value: "hidden"' in editor
+    for token in (
+        "home_subscription_period_visibility",
+        "home_tariff_name_visibility",
+        "home_subscription_end_visibility",
+        "home_regular_traffic_visibility",
+        "home_premium_traffic_visibility",
+        "home_change_tariff_visibility",
+        "home_balance_visibility",
+        "home_auto_renew_visibility",
+    ):
+        assert token in options

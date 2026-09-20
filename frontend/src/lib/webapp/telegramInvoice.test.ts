@@ -44,4 +44,33 @@ describe("openTelegramInvoice", () => {
     expect(openInvoice).toHaveBeenCalledWith("https://t.me/$invoice", expect.any(Function));
     expect(onPaid).toHaveBeenCalledOnce();
   });
+
+  it("waits for the native invoice callback before resolving", async () => {
+    let callback = (_status: string): void => {
+      throw new Error("invoice callback was not initialized");
+    };
+    const openInvoice = vi.fn((_url: string, next: (status: string) => void) => {
+      callback = next;
+    });
+
+    const opened = openTelegramInvoice({
+      onFailed: vi.fn(),
+      onPaid: vi.fn(),
+      onUnavailable: vi.fn(),
+      tg: { openInvoice },
+      url: "https://t.me/$invoice",
+    });
+    let settled = false;
+    void opened.then(() => {
+      settled = true;
+    });
+
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    callback("cancelled");
+
+    await expect(opened).resolves.toBe(true);
+    expect(settled).toBe(true);
+  });
 });

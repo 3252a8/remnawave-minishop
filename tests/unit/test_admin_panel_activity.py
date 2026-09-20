@@ -230,6 +230,29 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
                 "count_users_referred_by",
                 AsyncMock(return_value=0),
             ),
+            patch.object(
+                users_detail.partner_dal,
+                "get_client_with_profile_for_user",
+                AsyncMock(
+                    return_value=(
+                        SimpleNamespace(
+                            public_client_id="CL-42",
+                            source="partner_web_link",
+                            attributed_at=datetime(2026, 6, 1, 10, tzinfo=UTC),
+                        ),
+                        SimpleNamespace(
+                            partner_id=17,
+                            user_id=900,
+                            display_label_snapshot="Partner snapshot",
+                        ),
+                    )
+                ),
+            ),
+            patch.object(
+                users_detail.user_reads_dal,
+                "get_user_labels",
+                AsyncMock(return_value={900: ("partner", "Current Partner")}),
+            ),
             patch.object(users_detail, "_bulk_user_avatar_keys", AsyncMock(return_value={})),
             patch.object(
                 users_module.user_dal,
@@ -268,6 +291,17 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["install_share_url"], "https://app.example/s/share")
         self.assertEqual(payload["vpn_connection_status"], "connected")
         self.assertEqual(payload["last_vpn_connected_at"], "2026-06-05T12:00:00+00:00")
+        self.assertEqual(
+            payload["partner_attribution"],
+            {
+                "partner_id": 17,
+                "partner_user_id": 900,
+                "display_label": "Current Partner",
+                "public_client_id": "CL-42",
+                "source": "partner_web_link",
+                "attributed_at": "2026-06-01T10:00:00+00:00",
+            },
+        )
         self.assertEqual(active_sub.last_connected_at, datetime(2026, 6, 5, 12, tzinfo=UTC))
         panel_service.get_user_by_uuid.assert_awaited_once_with("panel-from-sub")
         install_links.assert_awaited_once()

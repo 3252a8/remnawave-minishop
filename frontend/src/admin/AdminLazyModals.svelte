@@ -116,6 +116,7 @@
     {openTelegramProfileLink}
     {paymentStatusVariant}
     {onOpenPaymentCard}
+    {onOpenPartnerCard}
     {trafficPercentValue}
     {trafficLeftLabel}
     {trafficOfLabel}

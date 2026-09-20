@@ -15,6 +15,7 @@ from db.models import (
 )
 
 from ._sqlalchemy import rowcount
+from .tariff_read_batch import current_tariff_read_batch, utc
 
 
 async def create_traffic_topup(
@@ -87,6 +88,9 @@ async def get_active_flexible_traffic_limits(
     at: datetime | None = None,
 ) -> dict[str, int]:
     at = at or datetime.now(UTC)
+    batch = current_tariff_read_batch(session)
+    if batch is not None and subscription_id in batch.subscription_ids:
+        return batch.active_limits(subscription_id, at)
     result = await session.execute(
         select(
             FlexibleTrafficLimit.kind,
@@ -166,6 +170,12 @@ async def get_flexible_traffic_limit_history_start(
     subscription_id: int,
     kind: str,
 ) -> datetime | None:
+    batch = current_tariff_read_batch(session)
+    if batch is not None and subscription_id in batch.subscription_ids:
+        starts = [
+            row.valid_from for row in batch.flexible.get(subscription_id, []) if row.kind == kind
+        ]
+        return min(starts, key=utc) if starts else None
     load_scalar = getattr(session, "scalar", None)
     if not callable(load_scalar):
         return None
@@ -185,6 +195,14 @@ async def sum_traffic_topups(
     kinds: list[str] | None = None,
     created_at_gte: datetime | None = None,
 ) -> int:
+    batch = current_tariff_read_batch(session)
+    if batch is not None and subscription_id in batch.subscription_ids:
+        return sum(
+            row.purchased_bytes
+            for row in batch.topups.get(subscription_id, [])
+            if (not kinds or row.kind in kinds)
+            and (created_at_gte is None or utc(row.created_at) >= utc(created_at_gte))
+        )
     conditions = [TrafficTopup.subscription_id == subscription_id]
     if kinds:
         conditions.append(TrafficTopup.kind.in_(list(kinds)))
@@ -260,6 +278,9 @@ async def get_hwid_device_entitlement_summary(
     include_future: bool = True,
 ) -> dict[str, Any]:
     at = at or datetime.now(UTC)
+    batch = current_tariff_read_batch(session)
+    if batch is not None and subscription_id in batch.subscription_ids:
+        return batch.hwid_summary(subscription_id, at, include_future)
     active_result = await session.execute(
         select(
             func.coalesce(func.sum(HwidDevicePurchase.purchased_devices), 0),

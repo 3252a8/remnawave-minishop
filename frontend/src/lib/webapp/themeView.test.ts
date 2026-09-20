@@ -123,6 +123,47 @@ describe("computeThemeView", () => {
     expect(view.effectiveThemeEntry?.key).toBe("dark");
   });
 
+  it("exposes the referral bonus list mode of the effective theme", () => {
+    const view = computeThemeView({
+      ...BASE,
+      cfgThemesCatalog: {
+        default_theme: "ocean",
+        themes: [
+          {
+            key: "ocean",
+            tokens: { color_scheme: "dark", referral_bonus_list: "expanded" },
+          },
+        ],
+      },
+    });
+
+    expect(view.referralBonusListMode).toBe("expanded");
+    expect(computeThemeView(BASE).referralBonusListMode).toBe("plain");
+  });
+
+  it("exposes the effective theme Home element visibility map", () => {
+    const view = computeThemeView({
+      ...BASE,
+      cfgThemesCatalog: {
+        default_theme: "ocean",
+        themes: [
+          {
+            key: "ocean",
+            tokens: {
+              color_scheme: "dark",
+              home_balance_visibility: "hidden",
+              home_tariff_name_visibility: "visible",
+            },
+          },
+        ],
+      },
+    });
+
+    expect(view.homeElementVisibility.balance).toBe("hidden");
+    expect(view.homeElementVisibility.tariffName).toBe("visible");
+    expect(view.homeElementVisibility.autoRenew).toBe("auto");
+  });
+
   it("ignores a preview key for non-admin users with a server account", () => {
     const view = computeThemeView({
       ...BASE,

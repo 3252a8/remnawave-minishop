@@ -39,6 +39,7 @@
     userTelegramProfileLinkKind = () => "",
     openTelegramProfileLink = () => false,
     onOpenPaymentCard,
+    onOpenPartnerCard,
     onClose = () => usersStore.closeUser(),
     routePrefix = "",
   }: {
@@ -58,6 +59,7 @@
     userTelegramProfileLinkKind?: (user: AdminUser) => string;
     openTelegramProfileLink?: (url: string) => boolean;
     onOpenPaymentCard: (paymentId: number) => void;
+    onOpenPartnerCard: (partnerId: string) => void;
     onClose?: () => void;
     routePrefix?: string;
   } = $props();
@@ -574,6 +576,7 @@
   {fmtDateShort}
   {paymentStatusVariant}
   {onOpenPaymentCard}
+  {onOpenPartnerCard}
   userLogsRows={userLogsTable.rows}
   {userLogsTotal}
   {userLogsPage}

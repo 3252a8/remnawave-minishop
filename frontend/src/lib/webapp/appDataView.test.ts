@@ -133,6 +133,26 @@ describe("computeAppDataView", () => {
     ).toBe(false);
   });
 
+  it("defaults notification preferences to enabled and honors explicit false", () => {
+    expect(
+      computeAppDataView({
+        cfg: {},
+        data: { settings: {} },
+        fallbackBrandTitle: "Subscription",
+        mockData: {},
+      }).notificationPreferencesEnabled
+    ).toBe(true);
+
+    expect(
+      computeAppDataView({
+        cfg: { notificationPreferencesEnabled: true },
+        data: { settings: { notification_preferences_enabled: "false" } },
+        fallbackBrandTitle: "Subscription",
+        mockData: {},
+      }).notificationPreferencesEnabled
+    ).toBe(false);
+  });
+
   it("normalizes configured auth providers and falls back to current capabilities", () => {
     expect(
       computeAppDataView({
@@ -151,6 +171,40 @@ describe("computeAppDataView", () => {
         mockData: {},
       }).authProviders
     ).toEqual(["telegram"]);
+  });
+
+  it("normalizes recommended auth providers without requiring every available method", () => {
+    expect(
+      computeAppDataView({
+        cfg: { emailAuthEnabled: true },
+        data: {
+          settings: {
+            auth_providers: ["telegram", "email", "google"],
+            recommended_auth_providers: [" Email ", "email", "unknown"],
+          },
+        },
+        fallbackBrandTitle: "Subscription",
+        mockData: {},
+      }).recommendedAuthProviders
+    ).toEqual(["email"]);
+
+    expect(
+      computeAppDataView({
+        cfg: { authProviders: ["telegram", "email"], recommendedAuthProviders: [] },
+        data: { settings: {} },
+        fallbackBrandTitle: "Subscription",
+        mockData: {},
+      }).recommendedAuthProviders
+    ).toEqual([]);
+
+    expect(
+      computeAppDataView({
+        cfg: { authProviders: ["telegram", "email"] },
+        data: { settings: {} },
+        fallbackBrandTitle: "Subscription",
+        mockData: {},
+      }).recommendedAuthProviders
+    ).toEqual(["telegram", "email"]);
   });
 
   it("normalizes missing referral fields", () => {

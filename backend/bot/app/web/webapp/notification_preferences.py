@@ -11,6 +11,7 @@ from bot.services.user_notification_preferences import (
     apply_user_notification_preferences,
     notification_email_for_user,
     token_matches_user_email,
+    user_notification_preferences_enabled,
     verify_email_preferences_token,
 )
 from db.dal import user_dal
@@ -51,8 +52,10 @@ async def _valid_unsubscribe_user(
 
 async def account_notification_preferences_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    body = await parse_body_or_400(request, NotificationPreferencesPatchBody)
     settings = get_settings(request)
+    if not user_notification_preferences_enabled(settings):
+        return _json_error(404, "notification_preferences_disabled", "Not found")
+    body = await parse_body_or_400(request, NotificationPreferencesPatchBody)
     async with get_session_factory(request)() as session, session.begin():
         user = await user_dal.lock_user_by_id(session, user_id)
         if user is None or user.is_banned:
@@ -66,6 +69,8 @@ async def account_notification_preferences_route(request: web.Request) -> web.Re
 async def email_notification_preferences_route(request: web.Request) -> web.Response:
     token = str(request.query.get("token") or "")
     settings = get_settings(request)
+    if not user_notification_preferences_enabled(settings):
+        return _json_error(404, "notification_preferences_disabled", "Not found")
     async with get_session_factory(request)() as session:
         user = await _valid_unsubscribe_user(session, settings, token, lock=False)
         if user is None:
@@ -81,8 +86,10 @@ async def email_notification_preferences_route(request: web.Request) -> web.Resp
 
 
 async def email_notification_preferences_update_route(request: web.Request) -> web.Response:
-    body = await parse_body_or_400(request, EmailNotificationPreferencesPatchBody)
     settings = get_settings(request)
+    if not user_notification_preferences_enabled(settings):
+        return _json_error(404, "notification_preferences_disabled", "Not found")
+    body = await parse_body_or_400(request, EmailNotificationPreferencesPatchBody)
     async with get_session_factory(request)() as session, session.begin():
         user = await _valid_unsubscribe_user(session, settings, body.token, lock=True)
         if user is None:

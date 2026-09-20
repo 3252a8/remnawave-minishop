@@ -272,6 +272,49 @@ def test_symlink_zip_and_case_collisions(tmp_path: Path) -> None:
             extract_archive(stream.getvalue(), tmp_path / str(index))
 
 
+def test_safe_svg_asset_is_accepted_and_can_be_referenced_from_css(tmp_path: Path) -> None:
+    files = package()
+    files["ocean/theme.css"] = b'html.theme-key-ocean{background-image:url("icons/mark.svg")}'
+    files["ocean/icons/mark.svg"] = b"""\
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <defs><linearGradient id="paint"><stop offset="0" stop-color="#fff"/></linearGradient></defs>
+  <path fill="url(#paint)" d="M2 2h20v20H2z"/>
+</svg>
+"""
+
+    candidate = ready(tmp_path, files).candidates[0]
+
+    assert not candidate.error
+    assert candidate.files == 4
+
+
+@pytest.mark.parametrize(
+    ("svg", "reason"),
+    [
+        ('<svg xmlns="http://www.w3.org/2000/svg"><script/></svg>', "element script"),
+        ('<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"/>', "attribute onload"),
+        (
+            '<svg xmlns="http://www.w3.org/2000/svg"><use href="https://example.org/x.svg#x"/></svg>',
+            "local fragment",
+        ),
+        (
+            '<svg xmlns="http://www.w3.org/2000/svg" xml:base="https://example.org/"/>',
+            "attribute xml:base",
+        ),
+        ('<!DOCTYPE svg [<!ENTITY x "x">]><svg>&x;</svg>', "DTD and entity"),
+    ],
+)
+def test_unsafe_svg_asset_is_rejected(tmp_path: Path, svg: str, reason: str) -> None:
+    files = package()
+    files["ocean/icons/mark.svg"] = svg.encode()
+
+    candidate = ready(tmp_path, files).candidates[0]
+
+    assert candidate.error == "unsafe_svg"
+    assert candidate.detail.startswith("icons/mark.svg: ")
+    assert reason in candidate.detail
+
+
 @pytest.mark.parametrize(
     "css",
     [

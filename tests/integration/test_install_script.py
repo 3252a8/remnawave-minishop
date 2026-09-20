@@ -188,12 +188,14 @@ def test_telegram_proxy_deploy_contract_is_backend_only():
     for env_path in backend_env_examples:
         env_example = env_path.read_text(encoding="utf-8")
         assert "TELEGRAM_BOT_PROXY_URL" in env_example, env_path
+        assert "TELEGRAM_BOT_API_BASE_URL" in env_example, env_path
         assert "TELEGRAM_OAUTH_USE_BOT_PROXY=True" in env_example, env_path
 
     frontend_env = (
         REPO_ROOT / "deploy" / "examples" / "split-protected-upstream" / ".env.frontend.example"
     ).read_text(encoding="utf-8")
     assert "TELEGRAM_BOT_PROXY_URL" not in frontend_env
+    assert "TELEGRAM_BOT_API_BASE_URL" not in frontend_env
     assert "TELEGRAM_OAUTH_USE_BOT_PROXY" not in frontend_env
 
     split_compose = (
@@ -204,6 +206,7 @@ def test_telegram_proxy_deploy_contract_is_backend_only():
         / "backend.docker-compose.yml"
     ).read_text(encoding="utf-8")
     assert "TELEGRAM_BOT_PROXY_URL: ${TELEGRAM_BOT_PROXY_URL:-}" in split_compose
+    assert "TELEGRAM_BOT_API_BASE_URL: ${TELEGRAM_BOT_API_BASE_URL:-}" in split_compose
     assert "TELEGRAM_OAUTH_USE_BOT_PROXY: ${TELEGRAM_OAUTH_USE_BOT_PROXY:-True}" in split_compose
 
 

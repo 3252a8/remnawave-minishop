@@ -49,6 +49,8 @@ export type PaymentCheckoutDialogProps = {
   tariffCatalog?: TariffView[];
   tariffMode?: boolean;
   trafficMode?: boolean;
+  checkoutAddonValueAnimationEnabled?: boolean;
+  checkoutAddonEditorExpandedByDefault?: boolean;
   closePaymentModal?: VoidAction;
   checkoutPromoAppliedCode?: string;
   checkoutPromoInput?: string;

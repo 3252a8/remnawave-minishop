@@ -67,6 +67,8 @@
     "WEBAPP_PRIMARY_COLOR",
     "WEBAPP_USER_THEME_MODE_ENABLED",
     "WEBAPP_COMPACT_HOME_ENABLED",
+    "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED",
+    "WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT",
     "WEBAPP_LOGO_URL",
     "WEBAPP_FAVICON_URL",
     "WEBAPP_FAVICON_USE_CUSTOM",
@@ -122,6 +124,12 @@
   const compactHomeEnabled = $derived(
     boolAppearanceSettingValue("WEBAPP_COMPACT_HOME_ENABLED", false)
   );
+  const checkoutAddonValueAnimationEnabled = $derived(
+    boolAppearanceSettingValue("WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED", true)
+  );
+  const checkoutAddonEditorExpandedByDefault = $derived(
+    boolAppearanceSettingValue("WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT", false)
+  );
 
   function isAppearanceSettingKey(key: string): boolean {
     return APPEARANCE_SETTING_KEYS.has(key) || appearanceFields.some((field) => field.key === key);
@@ -150,6 +158,14 @@
 
   function setCompactHomeEnabled(enabled: boolean): void {
     settingsStore.markDirty("WEBAPP_COMPACT_HOME_ENABLED", Boolean(enabled));
+  }
+
+  function setCheckoutAddonValueAnimationEnabled(enabled: boolean): void {
+    settingsStore.markDirty("WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED", Boolean(enabled));
+  }
+
+  function setCheckoutAddonEditorExpandedByDefault(enabled: boolean): void {
+    settingsStore.markDirty("WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT", Boolean(enabled));
   }
 
   function themeTitle(theme: ThemeEntry): string {
@@ -560,6 +576,8 @@
         "WEBAPP_LOGO_URL",
         "WEBAPP_USER_THEME_MODE_ENABLED",
         "WEBAPP_COMPACT_HOME_ENABLED",
+        "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED",
+        "WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT",
         "WEBAPP_FAVICON_URL",
         "WEBAPP_FAVICON_USE_CUSTOM",
         "WEBAPP_LOGO_FAVICON_URL",
@@ -774,6 +792,9 @@
     {pickerHex}
     {defaultColorInputHandler}
     {defaultTokenInputHandler}
+    defaultTokenSelectHandler={(tokenKey, variant = defaultEditorVariant) =>
+      (value) =>
+        setDefaultToken(tokenKey, value, variant)}
     {resetDefaultToken}
   />
 {/snippet}
@@ -875,6 +896,82 @@
       </Switch.Root>
       <span>
         {compactHomeEnabled ? at("enabled", {}, "Enabled") : at("disabled", {}, "Disabled")}
+      </span>
+    </div>
+  </section>
+  <section class="appearance-theme-mode-setting">
+    <div class="appearance-theme-mode-copy">
+      <strong>
+        {at(
+          "settings_field_webapp_checkout_addon_value_animation_enabled_label",
+          {},
+          "Animate tariff parameter values"
+        )}
+      </strong>
+      <small>
+        {at(
+          "settings_field_webapp_checkout_addon_value_animation_enabled_description",
+          {},
+          "Animate numeric values while tariff parameters change in checkout."
+        )}
+      </small>
+    </div>
+    <div class="admin-setting-switch">
+      <Switch.Root
+        aria-label={at(
+          "settings_field_webapp_checkout_addon_value_animation_enabled_label",
+          {},
+          "Animate tariff parameter values"
+        )}
+        checked={checkoutAddonValueAnimationEnabled}
+        onCheckedChange={setCheckoutAddonValueAnimationEnabled}
+        disabled={settingsSaving || themesSaving}
+        class="admin-switch-root"
+      >
+        <Switch.Thumb class="admin-switch-thumb" />
+      </Switch.Root>
+      <span>
+        {checkoutAddonValueAnimationEnabled
+          ? at("enabled", {}, "Enabled")
+          : at("disabled", {}, "Disabled")}
+      </span>
+    </div>
+  </section>
+  <section class="appearance-theme-mode-setting">
+    <div class="appearance-theme-mode-copy">
+      <strong>
+        {at(
+          "settings_field_webapp_checkout_addon_editor_expanded_by_default_label",
+          {},
+          "Expand tariff parameters by default"
+        )}
+      </strong>
+      <small>
+        {at(
+          "settings_field_webapp_checkout_addon_editor_expanded_by_default_description",
+          {},
+          "Open the tariff parameter editor when checkout is shown."
+        )}
+      </small>
+    </div>
+    <div class="admin-setting-switch">
+      <Switch.Root
+        aria-label={at(
+          "settings_field_webapp_checkout_addon_editor_expanded_by_default_label",
+          {},
+          "Expand tariff parameters by default"
+        )}
+        checked={checkoutAddonEditorExpandedByDefault}
+        onCheckedChange={setCheckoutAddonEditorExpandedByDefault}
+        disabled={settingsSaving || themesSaving}
+        class="admin-switch-root"
+      >
+        <Switch.Thumb class="admin-switch-thumb" />
+      </Switch.Root>
+      <span>
+        {checkoutAddonEditorExpandedByDefault
+          ? at("enabled", {}, "Enabled")
+          : at("disabled", {}, "Disabled")}
       </span>
     </div>
   </section>

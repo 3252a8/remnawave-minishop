@@ -43,6 +43,13 @@ class UserNotificationPreferences:
         }
 
 
+def user_notification_preferences_enabled(settings: Any) -> bool:
+    try:
+        return bool(settings.USER_NOTIFICATION_PREFERENCES_ENABLED)
+    except AttributeError:
+        return True
+
+
 def apply_user_notification_preferences(
     user: Any,
     preferences: UserNotificationPreferences,
@@ -129,6 +136,8 @@ def build_email_preferences_url(
     *,
     email: str | None = None,
 ) -> str:
+    if not user_notification_preferences_enabled(settings):
+        return ""
     try:
         base_url = str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
     except AttributeError:

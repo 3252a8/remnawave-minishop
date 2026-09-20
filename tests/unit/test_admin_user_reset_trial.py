@@ -37,18 +37,37 @@ class AdminUserResetTrialRouteTests(unittest.IsolatedAsyncioTestCase):
             match_info={"user_id": "42"},
         )
 
-    async def test_marks_trial_reset_without_deleting_subscription_history(self):
+    async def test_expires_active_trial_without_deleting_subscription_history(self):
         session = FakeSession()
         request = self._request(session)
         user = SimpleNamespace(user_id=42)
+        reset_at = datetime(2026, 9, 17, 10, 11, 12, tzinfo=UTC)
+        active = SimpleNamespace(
+            panel_user_uuid="panel-user",
+            provider="trial",
+            end_date=datetime(2026, 9, 24, tzinfo=UTC),
+            is_active=True,
+            status_from_panel="TRIAL",
+            skip_notifications=False,
+            auto_renew_enabled=True,
+        )
+        panel_service = SimpleNamespace(
+            update_user_details_on_panel=AsyncMock(return_value={"uuid": "panel-user"})
+        )
+        request.app["panel_service"] = panel_service
 
         with (
             patch.object(users_actions, "_require_admin_user_id", return_value=100),
             patch.object(admin_users.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
             patch.object(
+                admin_users.subscription_dal,
+                "get_active_subscription_by_user_id",
+                AsyncMock(return_value=active),
+            ),
+            patch.object(
                 admin_users.user_dal,
                 "mark_trial_eligibility_reset",
-                AsyncMock(return_value=object()),
+                AsyncMock(return_value=reset_at),
             ) as mark_reset,
             patch.object(
                 admin_users.subscription_dal,
@@ -68,12 +87,57 @@ class AdminUserResetTrialRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(json.loads(response.text)["ok"], True)
         mark_reset.assert_awaited_once_with(session, 42)
         delete_all.assert_not_awaited()
+        panel_service.update_user_details_on_panel.assert_awaited_once_with(
+            "panel-user",
+            {"uuid": "panel-user", "expireAt": "2026-09-17T10:11:12.000Z"},
+        )
+        self.assertEqual(active.end_date, reset_at)
+        self.assertFalse(active.is_active)
+        self.assertEqual(active.status_from_panel, "EXPIRED_TRIAL_RESET")
+        self.assertTrue(active.skip_notifications)
+        self.assertFalse(active.auto_renew_enabled)
         log_payload = log.await_args.args[1]
         self.assertEqual(log_payload["event_type"], "admin_reset_trial_webapp")
         self.assertEqual(log_payload["target_user_id"], 42)
         invalidate.assert_awaited_once()
         self.assertTrue(session.committed)
         self.assertFalse(session.rolled_back)
+
+    async def test_keeps_active_paid_subscription_unchanged(self):
+        session = FakeSession()
+        request = self._request(session)
+        user = SimpleNamespace(user_id=42)
+        paid_end = datetime(2026, 10, 17, tzinfo=UTC)
+        active = SimpleNamespace(
+            panel_user_uuid="panel-user",
+            provider="yookassa",
+            end_date=paid_end,
+            is_active=True,
+            status_from_panel="ACTIVE",
+        )
+
+        with (
+            patch.object(users_actions, "_require_admin_user_id", return_value=100),
+            patch.object(admin_users.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
+            patch.object(
+                admin_users.subscription_dal,
+                "get_active_subscription_by_user_id",
+                AsyncMock(return_value=active),
+            ),
+            patch.object(
+                admin_users.user_dal,
+                "mark_trial_eligibility_reset",
+                AsyncMock(return_value=datetime(2026, 9, 17, tzinfo=UTC)),
+            ),
+            patch.object(admin_users.message_log_dal, "create_message_log_no_commit", AsyncMock()),
+            patch.object(users_actions, "_invalidate_after_admin_user_mutation", AsyncMock()),
+        ):
+            response = await admin_users.admin_user_reset_trial_route(request)
+
+        self.assertEqual(response.status, 200)
+        self.assertEqual(active.end_date, paid_end)
+        self.assertTrue(active.is_active)
+        self.assertEqual(active.status_from_panel, "ACTIVE")
 
 
 class AdminUserTrialPresentationTests(unittest.TestCase):

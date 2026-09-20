@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount } from "svelte";
+  import { onDestroy, onMount, untrack } from "svelte";
   import { ArrowDownUp, Pencil, SatelliteDish, Smartphone, X } from "$components/ui/icons.js";
   import Slider from "$components/ui/slider.svelte";
   import { formatMoney } from "$lib/webapp/formatters.js";
@@ -25,6 +25,8 @@
     method = "",
     currency = "RUB",
     disabled = false,
+    animateValues = true,
+    expandedByDefault = false,
     t = (key) => key,
     onChange = () => {},
     onInteractionChange = () => {},
@@ -37,6 +39,8 @@
     method?: string;
     currency?: string;
     disabled?: boolean;
+    animateValues?: boolean;
+    expandedByDefault?: boolean;
     t?: Translate;
     onChange?: (kind: CheckoutAddonKind, extraUnits: number) => void;
     onInteractionChange?: (active: boolean) => void;
@@ -48,7 +52,7 @@
     kinds.some((kind) => Number(addons[kind]?.options?.length || 0) > 1)
   );
   type CardPhase = "compact" | "opening" | "open" | "closing";
-  let phase = $state<CardPhase>("compact");
+  let phase = $state<CardPhase>(untrack(() => expandedByDefault) ? "open" : "compact");
   let phaseTimer: number | undefined;
   let sliderInteracting = $state(false);
   let titleDescriptionWrapped = $state(false);
@@ -188,16 +192,19 @@
     }
     const option = optionFor(kind);
     const extra = Number(option?.extra_units || 0);
-    const resetHint = kind === "devices" ? "" : trafficResetHint(kind);
     if (extra <= 0) {
-      const included = t("wa_checkout_addon_included", {}, "Included in the plan");
-      return resetHint ? `${included} · ${resetHint}` : included;
+      return t("wa_checkout_addon_included", {}, "Included in the plan");
     }
     const price = isStarsPaymentMethod(method)
       ? `${Number(option?.stars_price || 0)} ⭐`
       : formatMoney(option?.price || 0, currency);
-    const surcharge = t("wa_checkout_addon_extra_price", { price }, `Add-on: ${price}`);
-    return resetHint ? `${surcharge} · ${resetHint}` : surcharge;
+    return t("wa_checkout_addon_extra_price", { price }, `Add-on: ${price}`);
+  }
+
+  // Rendered next to the subtitle separator by the markup, never inside it,
+  // so themes keep control over the separator character.
+  function subtitleHint(kind: CheckoutAddonKind): string {
+    return kind === "devices" ? "" : trafficResetHint(kind);
   }
 
   function activateEditing(): void {
@@ -291,6 +298,7 @@
         suffix={valueSuffix(kind)}
         ariaLabel={`${totalValue(kind)}${valueSuffix(kind)}`}
         format={{ maximumFractionDigits: 2 }}
+        animated={animateValues}
         replaceAnimations={sliderInteracting}
       />
     {:else}
@@ -339,7 +347,11 @@
               {@render limitIcon(kind)}
               <span class="checkout-addon-label">{title(kind)}</span>
             </span>
-            <small>{subtitle(kind)}</small>
+            <small
+              >{subtitle(kind)}{#if subtitleHint(kind)}
+                <span class="meta-separator" aria-hidden="true"></span>
+                {subtitleHint(kind)}{/if}</small
+            >
           </div>
           <Slider
             value={selectedUnits(kind)}

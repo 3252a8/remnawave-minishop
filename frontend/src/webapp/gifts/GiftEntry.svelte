@@ -55,7 +55,8 @@
           giftState.open = true;
         }}
         >{t("wa_gift_my_gifts")}{#if giftState.gifts.length}
-          · {giftState.gifts.length}{/if}</button
+          <span class="meta-separator" aria-hidden="true"></span>
+          {giftState.gifts.length}{/if}</button
       >
     {/if}
     {#if giftState.token}<button

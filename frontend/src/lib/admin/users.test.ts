@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
+  createGravatarCache,
   userAvatarUrl,
   userDisplayName,
   userInitials,
@@ -38,5 +39,26 @@ describe("admin user helpers", () => {
     expect(userTelegramProfileLink({ telegram_id: "123.9" })).toBe("tg://user?id=123");
     expect(userTelegramProfileLinkKind({ telegram_id: 123 })).toBe("id");
     expect(userTelegramProfileLink({})).toBe("");
+  });
+
+  it("caches generated avatars and batches list refreshes", async () => {
+    const scheduled: Array<() => void> = [];
+    const onResolved = vi.fn();
+    const cache = createGravatarCache(onResolved, (callback) => scheduled.push(callback));
+
+    expect(cache.gravatarUrl(" First@Example.test ")).toBe("");
+    expect(cache.gravatarUrl("second@example.test")).toBe("");
+
+    await vi.waitFor(() => expect(scheduled).toHaveLength(1));
+    expect(onResolved).not.toHaveBeenCalled();
+    scheduled[0]();
+
+    expect(onResolved).toHaveBeenCalledTimes(1);
+    expect(cache.gravatarUrl("first@example.test")).toMatch(
+      /^https:\/\/gravatar\.com\/avatar\/[a-f0-9]{64}\?d=identicon&s=80$/
+    );
+    expect(cache.gravatarUrl("SECOND@example.test")).toMatch(
+      /^https:\/\/gravatar\.com\/avatar\/[a-f0-9]{64}\?d=identicon&s=80$/
+    );
   });
 });

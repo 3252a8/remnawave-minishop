@@ -9,6 +9,7 @@ import contextlib
 import json
 import logging
 import re
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -243,7 +244,7 @@ def _write_webapp_theme_file(path: Path, theme: WebappTheme) -> None:
         exclude={"css_variables", "css_variables_by_variant"},
     )
     payload = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
-    tmp_path = path.with_suffix(f"{path.suffix}.tmp")
+    tmp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
     try:
         tmp_path.write_text(payload, encoding="utf-8")
         tmp_path.replace(path)
@@ -252,6 +253,10 @@ def _write_webapp_theme_file(path: Path, theme: WebappTheme) -> None:
             with contextlib.suppress(OSError):
                 tmp_path.unlink()
         path.write_text(payload, encoding="utf-8")
+    finally:
+        if tmp_path.exists():
+            with contextlib.suppress(OSError):
+                tmp_path.unlink()
 
 
 def _copy_default_theme_assets(key: str, target_dir: Path, *, overwrite: bool = False) -> None:

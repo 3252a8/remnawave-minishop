@@ -47,6 +47,7 @@
     authProviders?: string[];
     brandTitle?: string;
     currentLang?: string;
+    emailAuthEnabled?: boolean;
     emailChangeEnabled?: boolean;
     goSettings: VoidAction;
     linkTelegramAccount: VoidAction;
@@ -65,6 +66,7 @@
     authProviders = [],
     brandTitle = "",
     currentLang = "ru",
+    emailAuthEnabled = true,
     emailChangeEnabled = true,
     goSettings,
     linkTelegramAccount,
@@ -89,7 +91,9 @@
   const googleVisible = $derived(authProviders.includes("google") || Boolean(googleIdentity));
   const yandexVisible = $derived(authProviders.includes("yandex") || Boolean(yandexIdentity));
   const discordVisible = $derived(authProviders.includes("discord") || Boolean(discordIdentity));
-  const emailEnabled = $derived(authProviders.includes("email") || Boolean(user.email));
+  const emailEnabled = $derived(
+    emailAuthEnabled && (authProviders.includes("email") || Boolean(user.email))
+  );
   const telegramEnabled = $derived(
     authProviders.includes("telegram") || Boolean(user.telegram_linked)
   );
@@ -457,7 +461,7 @@
     </div>
   </Card>
 
-  {#if emailAddresses.length}
+  {#if emailAuthEnabled && emailAddresses.length}
     <Card class="security-card">
       <div class="security-card-head">
         <div>
@@ -570,7 +574,7 @@
   {#if status}<p class="security-status" role="status">{status}</p>{/if}
 </main>
 
-{#if user.email}
+{#if emailAuthEnabled && user.email}
   <ChangeEmailDialog
     {api}
     currentEmail={String(user.email)}

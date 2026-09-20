@@ -266,8 +266,8 @@
                 label={client.label}
                 secondary={client.handle}
                 idText={client.id}
-                title={openUserLabel}
-                onclick={() => onOpenUserCard(client.userId)}
+                title={client.userId ? openUserLabel : ""}
+                onclick={client.userId ? () => onOpenUserCard(client.userId) : undefined}
               />
             </td>
             <td class="admin-cell-mono" data-label={at("partners_col_attributed", {}, "Attributed")}

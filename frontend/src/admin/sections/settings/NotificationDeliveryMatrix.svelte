@@ -210,6 +210,7 @@
     gap: 14px;
     width: 100%;
     min-width: 0;
+    padding: 16px 18px 18px;
   }
 
   .notification-delivery-intro,
@@ -323,6 +324,10 @@
   }
 
   @media (max-width: 560px) {
+    .notification-delivery {
+      padding: 14px;
+    }
+
     .notification-delivery-table th,
     .notification-delivery-table td {
       padding: 9px;

@@ -127,9 +127,44 @@ async def redis_lock(
     key = redis_key(settings, "lock", name)
     token = secrets.token_urlsafe(16)
     acquired = bool(await redis.set(key, token, nx=True, ex=ttl_seconds))
+    owner = asyncio.current_task()
+    lease_lost = False
+
+    async def renew() -> None:
+        nonlocal lease_lost
+        interval = max(0.05, ttl_seconds / 3)
+        while True:
+            await asyncio.sleep(interval)
+            try:
+                async with asyncio.timeout(interval):
+                    renewed = await redis.eval(
+                        "if redis.call('get', KEYS[1]) == ARGV[1] then "
+                        "return redis.call('expire', KEYS[1], ARGV[2]) end; return 0",
+                        1,
+                        key,
+                        token,
+                        ttl_seconds,
+                    )
+                if renewed:
+                    continue
+            except Exception:
+                logger.warning("Redis lock renewal failed for %s", name)
+            lease_lost = True
+            if owner is not None:
+                owner.cancel()
+            return
+
+    renewal = asyncio.create_task(renew()) if acquired else None
     try:
         yield acquired
+    except asyncio.CancelledError:
+        if lease_lost:
+            raise RuntimeError(f"Redis lease lost for {name}") from None
+        raise
     finally:
+        if renewal is not None:
+            renewal.cancel()
+            await asyncio.gather(renewal, return_exceptions=True)
         if acquired:
             script = """
             if redis.call("get", KEYS[1]) == ARGV[1] then
@@ -138,7 +173,8 @@ async def redis_lock(
             return 0
             """
             try:
-                await redis.eval(script, 1, key, token)
+                async with asyncio.timeout(min(5.0, max(0.1, ttl_seconds / 3))):
+                    await redis.eval(script, 1, key, token)
             except Exception:
                 logger.exception("Failed to release Redis lock %s", key)
 

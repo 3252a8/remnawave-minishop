@@ -74,6 +74,8 @@
     tariffCatalog = [],
     tariffMode = false,
     trafficMode = false,
+    checkoutAddonValueAnimationEnabled = true,
+    checkoutAddonEditorExpandedByDefault = false,
     closePaymentModal = () => {},
     checkoutPromoAppliedCode = "",
     checkoutPromoInput = "",
@@ -98,11 +100,10 @@
     termUnitLabel = () => "",
   }: PaymentCheckoutDialogProps = $props();
 
-  function methodUsesStars() {
-    return String(selectedMethod || "")
+  const methodUsesStars = () =>
+    String(selectedMethod || "")
       .toLowerCase()
       .includes("stars");
-  }
   function providerManagesPrice() {
     const normalizedMethod = String(selectedMethod || "").toLowerCase();
     if (
@@ -558,9 +559,7 @@
       subscription?.extra_hwid_devices_valid_until_text
     );
   }
-  function planKey(plan: PlanView | null) {
-    return planKeyFn(plan);
-  }
+  const planKey = (plan: PlanView | null) => planKeyFn(plan);
   function planDisplayTitle(plan: PlanView | null) {
     return planDisplayTitleFn(plan, { trafficMode, t });
   }
@@ -703,6 +702,8 @@
       method={selectedMethod}
       currency={String(selectedPlan.currency || "RUB")}
       disabled={checkoutAddonsUnavailableForMethod(selectedPlan)}
+      animateValues={checkoutAddonValueAnimationEnabled}
+      expandedByDefault={checkoutAddonEditorExpandedByDefault}
       {t}
       onChange={updateCheckoutAddon}
       onInteractionChange={handleCheckoutSliderInteraction}

@@ -86,6 +86,8 @@ if TYPE_CHECKING:
         WEBAPP_PRIMARY_COLOR: str
         WEBAPP_USER_THEME_MODE_ENABLED: bool
         WEBAPP_COMPACT_HOME_ENABLED: bool
+        WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED: bool
+        WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT: bool
         WEBAPP_LOGO_URL: str | None
         WEBAPP_FAVICON_USE_CUSTOM: bool
         WEBAPP_FAVICON_URL: str | None
@@ -96,18 +98,24 @@ if TYPE_CHECKING:
         WEBAPP_AUTH_MAX_AGE_SECONDS: int
         WEBAPP_LOGIN_TOKEN_TTL_SECONDS: int
         TELEGRAM_LOGIN_ENABLED: bool
+        TELEGRAM_LOGIN_RECOMMENDED: bool
         EMAIL_LOGIN_ENABLED: bool
+        EMAIL_LOGIN_RECOMMENDED: bool
         EMAIL_ADDRESS_CHANGE_ENABLED: bool
         GOOGLE_OIDC_ENABLED: bool
+        GOOGLE_LOGIN_RECOMMENDED: bool
         GOOGLE_OIDC_CLIENT_ID: str | None
         GOOGLE_OIDC_CLIENT_SECRET: str | None
         YANDEX_OIDC_ENABLED: bool
+        YANDEX_LOGIN_RECOMMENDED: bool
         YANDEX_OIDC_CLIENT_ID: str | None
         YANDEX_OIDC_CLIENT_SECRET: str | None
         DISCORD_OIDC_ENABLED: bool
+        DISCORD_LOGIN_RECOMMENDED: bool
         DISCORD_OIDC_CLIENT_ID: str | None
         DISCORD_OIDC_CLIENT_SECRET: str | None
         PASSKEY_LOGIN_ENABLED: bool
+        PASSKEY_LOGIN_RECOMMENDED: bool
         PASSKEY_RP_ID: str | None
         PASSKEY_RP_NAME: str | None
         PASSKEY_ORIGINS: str | None
@@ -222,6 +230,7 @@ if TYPE_CHECKING:
         SUPPORT_TICKET_RATE_LIMIT_PER_HOUR: int
         SUPPORT_MESSAGE_RATE_LIMIT_PER_MINUTE: int
         SUPPORT_IMAGE_RATE_LIMIT_PER_DAY: int
+        SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED: bool
         SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED: bool
         SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS: int
         SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS: int
@@ -296,6 +305,12 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             primary_color=self.WEBAPP_PRIMARY_COLOR,
             user_theme_mode_enabled=self.WEBAPP_USER_THEME_MODE_ENABLED,
             compact_home_enabled=self.WEBAPP_COMPACT_HOME_ENABLED,
+            checkout_addon_value_animation_enabled=(
+                self.WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED
+            ),
+            checkout_addon_editor_expanded_by_default=(
+                self.WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT
+            ),
             logo_url=self.WEBAPP_LOGO_URL,
             favicon_use_custom=self.WEBAPP_FAVICON_USE_CUSTOM,
             favicon_url=self.WEBAPP_FAVICON_URL,
@@ -429,6 +444,9 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             ticket_rate_limit_per_hour=self.SUPPORT_TICKET_RATE_LIMIT_PER_HOUR,
             message_rate_limit_per_minute=self.SUPPORT_MESSAGE_RATE_LIMIT_PER_MINUTE,
             image_rate_limit_per_day=self.SUPPORT_IMAGE_RATE_LIMIT_PER_DAY,
+            admin_telegram_notifications_enabled=(
+                self.SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED
+            ),
             admin_email_notifications_enabled=self.SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED,
             admin_notification_cooldown_seconds=self.SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS,
             admin_email_cooldown_seconds=self.SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS,
@@ -885,6 +903,23 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         if self.PASSKEY_LOGIN_ENABLED:
             providers.append("passkey")
         return providers
+
+    @computed_field
+    def webapp_recommended_auth_providers(self) -> list[str]:
+        available = set(self.webapp_auth_providers)
+        recommendations = (
+            ("telegram", self.TELEGRAM_LOGIN_RECOMMENDED),
+            ("email", self.EMAIL_LOGIN_RECOMMENDED),
+            ("google", self.GOOGLE_LOGIN_RECOMMENDED),
+            ("yandex", self.YANDEX_LOGIN_RECOMMENDED),
+            ("discord", self.DISCORD_LOGIN_RECOMMENDED),
+            ("passkey", self.PASSKEY_LOGIN_RECOMMENDED),
+        )
+        return [
+            provider
+            for provider, recommended in recommendations
+            if recommended and provider in available
+        ]
 
     @computed_field
     def smtp_delivery_configured(self) -> bool:

@@ -1,3 +1,5 @@
+import { currentBootSignal } from "./bootBudget";
+import { fetchApiJson } from "./apiJsonRequest";
 import { readCookie } from "./session.js";
 import { requestSignal } from "./requestSignal.js";
 import type { paths } from "../api/openapi.generated";
@@ -365,9 +367,16 @@ export function buildQaPaymentCompletePath(paymentId: string | number): QaPaymen
 }
 
 export type SupportTicketPath = BuiltApiPath<"/api/support/tickets/{id}">;
-export function buildSupportTicketPath(ticketId: string | number): SupportTicketPath {
+export function buildSupportTicketPath(
+  ticketId: string | number,
+  afterMessageId?: number
+): SupportTicketPath {
+  const query =
+    afterMessageId === undefined
+      ? ""
+      : `?after_message_id=${Math.max(0, Math.trunc(afterMessageId))}`;
   return builtApiPath<"/api/support/tickets/{id}">(
-    `/support/tickets/${encodeURIComponent(String(ticketId))}`
+    `/support/tickets/${encodeURIComponent(String(ticketId))}${query}`
   );
 }
 
@@ -863,25 +872,13 @@ export function createApiClient({
       headers.set("Content-Type", "application/json");
     }
 
-    const { signal, cleanup } = requestSignal(options.signal, requestTimeoutMs);
-    try {
-      const response = await fetch(buildApiUrl(path), {
-        // The Telegram Mini App WebView keeps its HTTP cache across openings,
-        // so a GET answered from it can show settings the server no longer
-        // serves. The server says no-store too; this covers the leg where a
-        // proxy drops the header.
-        cache: "no-store",
-        ...options,
-        headers,
-        credentials: "same-origin",
-        signal,
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (response.status === 401) onUnauthorized();
-      return payload as Record<string, unknown>;
-    } finally {
-      cleanup();
-    }
+    return fetchApiJson(
+      buildApiUrl(path),
+      path,
+      { ...options, headers },
+      requestTimeoutMs,
+      onUnauthorized
+    );
   }
 
   async function api<
@@ -906,7 +903,10 @@ export function createApiClient({
     }
 
     const headers = authenticatedHeaders(options);
-    const { signal, cleanup } = requestSignal(options.signal, requestTimeoutMs);
+    const { signal, cleanup } = requestSignal(
+      options.signal || currentBootSignal(),
+      requestTimeoutMs
+    );
     try {
       const response = await fetch(buildApiUrl(path), {
         cache: "no-store",
@@ -942,7 +942,10 @@ export function createApiClient({
         getMockContext()
       )) as Record<string, unknown>;
     }
-    const { signal, cleanup } = requestSignal(options.signal, requestTimeoutMs);
+    const { signal, cleanup } = requestSignal(
+      options.signal || currentBootSignal(),
+      requestTimeoutMs
+    );
     try {
       const response = await fetch(buildApiUrl(path), {
         method: "POST",

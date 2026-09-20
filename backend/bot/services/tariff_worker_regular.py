@@ -3,7 +3,7 @@ import logging
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup
@@ -29,9 +29,15 @@ from bot.utils.traffic_reset import (
     traffic_period_starts_match,
 )
 from config.settings import Settings
+from db.advisory_locks import (
+    acquire_subscription_background_sync_lock,
+    commit_subscription_background_sync_batch,
+)
 from db.dal import tariff_dal, user_dal
+from db.dal.tariff_read_batch import clear_tariff_read_batch, prefetch_tariff_read_batch
 from db.models import Subscription
 
+from .tariff_worker_prefetch import PremiumPrefetchWorker, prefetch_premium_periods
 from .tariff_worker_regular_tags import TariffWorkerRegularTagMixin
 from .tariff_worker_regular_warnings import _RegularTariff
 from .tariff_worker_shared import (
@@ -152,17 +158,22 @@ class TariffWorkerRegularMixin(TariffWorkerRegularTagMixin):
                     ),
                 ),
             )
+        selection = (
+            select(
+                Subscription.subscription_id, Subscription.panel_user_uuid, Subscription.end_date
+            )
+            if isinstance(session, AsyncSession)
+            else select(Subscription)
+        )
         result = await session.execute(
-            select(Subscription)
-            .where(
+            selection.where(
                 Subscription.is_active == True,
                 Subscription.end_date > now,
                 tracked_subscriptions_filter,
-            )
-            .order_by(Subscription.subscription_id.asc())
+            ).order_by(Subscription.subscription_id.asc())
         )
         subs = canonical_subscriptions_per_panel_user(
-            list(result.scalars().all()),
+            list(result.all() if isinstance(session, AsyncSession) else result.scalars().all()),
             logger=logger,
         )
         if not subs:
@@ -170,6 +181,8 @@ class TariffWorkerRegularMixin(TariffWorkerRegularTagMixin):
 
         self._premium_usage_user_limit_hint = len(subs)
 
+        if isinstance(session, AsyncSession):
+            await session.commit()
         panel_users_by_uuid = await self._prefetch_panel_users_by_uuid(subs)
         panel_view = "list" if panel_users_by_uuid is not None else "full_fetch"
         semaphore = asyncio.Semaphore(TARIFF_WORKER_PANEL_CONCURRENCY)
@@ -179,13 +192,7 @@ class TariffWorkerRegularMixin(TariffWorkerRegularTagMixin):
                 cached_panel_user = panel_users_by_uuid.get(str(sub.panel_user_uuid))
                 if cached_panel_user is not None:
                     return cached_panel_user
-                return await self._repair_missing_panel_user_for_subscription(
-                    session,
-                    sub,
-                    panel_users_by_uuid=panel_users_by_uuid,
-                    semaphore=semaphore,
-                    confirmed_missing=True,
-                )
+                return {}
 
             async with semaphore:
                 try:
@@ -200,19 +207,64 @@ class TariffWorkerRegularMixin(TariffWorkerRegularTagMixin):
                     return {}
             if data:
                 return data if isinstance(data, dict) else {}
-            return await self._repair_missing_panel_user_for_subscription(
-                session,
-                sub,
-                panel_users_by_uuid=None,
-                semaphore=semaphore,
-                confirmed_missing=False,
-            )
+            return {}
 
-        self._begin_premium_panel_batch()
         for chunk_start in range(0, len(subs), TARIFF_WORKER_BATCH_SIZE):
             chunk = subs[chunk_start : chunk_start + TARIFF_WORKER_BATCH_SIZE]
+            if isinstance(session, AsyncSession):
+                # Keep only compact identities for the full scan. ORM state and
+                # entitlement history are bounded by one processing batch.
+                chunk = list(
+                    await session.scalars(
+                        select(Subscription)
+                        .where(
+                            Subscription.subscription_id.in_([sub.subscription_id for sub in chunk])
+                        )
+                        .order_by(Subscription.subscription_id)
+                        .execution_options(populate_existing=True)
+                    )
+                )
+                await session.commit()
+            fetched_refs = {sub.subscription_id: sub.panel_user_uuid for sub in chunk}
             panel_payloads = await asyncio.gather(*(_fetch_panel(s) for s in chunk))
+            if isinstance(session, AsyncSession):
+                await prefetch_premium_periods(
+                    cast(PremiumPrefetchWorker, self), chunk, panel_payloads, now
+                )
+                await acquire_subscription_background_sync_lock(session)
+                # Reload after network I/O and each committed batch. Entitlements
+                # purchased meanwhile must not be overwritten by old ORM values.
+                refreshed = await session.scalars(
+                    select(Subscription)
+                    .where(Subscription.subscription_id.in_([sub.subscription_id for sub in chunk]))
+                    .order_by(Subscription.subscription_id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+                current_ids = {
+                    sub.subscription_id
+                    for sub in refreshed
+                    if sub.is_active
+                    and sub.end_date > now
+                    and sub.panel_user_uuid == fetched_refs[sub.subscription_id]
+                }
+            else:
+                current_ids = {sub.subscription_id for sub in chunk}
+            self._begin_premium_panel_batch()
+            for index, sub in enumerate(chunk):
+                if sub.subscription_id in current_ids and not panel_payloads[index]:
+                    # Repairs touch the shared session and must be sequential.
+                    panel_payloads[index] = await self._repair_missing_panel_user_for_subscription(
+                        session,
+                        sub,
+                        panel_users_by_uuid=panel_users_by_uuid,
+                        semaphore=semaphore,
+                        confirmed_missing=panel_users_by_uuid is not None,
+                    )
+            await prefetch_tariff_read_batch(session, chunk)
             for sub, panel_data in zip(chunk, panel_payloads, strict=True):
+                if sub.subscription_id not in current_ids:
+                    continue
                 if not panel_data:
                     continue
                 trial_premium_subscription = bool(
@@ -297,7 +349,12 @@ class TariffWorkerRegularMixin(TariffWorkerRegularTagMixin):
                     panel_user_dict=panel_data,
                     panel_view=panel_view,
                 )
-        await self._finish_premium_panel_batch(session)
+            clear_tariff_read_batch(session)
+            await self._finish_premium_panel_batch(session)
+            if isinstance(session, AsyncSession):
+                await session.commit()
+            elif chunk_start + len(chunk) < len(subs):
+                await commit_subscription_background_sync_batch(session)
 
     async def _prefetch_panel_users_by_uuid(
         self,

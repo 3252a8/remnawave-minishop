@@ -47,7 +47,11 @@ export function reconcileBillingSelection(
   if (
     input.tariffMode &&
     draft.selectedTariffKey &&
-    !input.tariffCatalog.some((tariff) => tariff.key === draft.selectedTariffKey)
+    !input.tariffCatalog.some((tariff) => tariff.key === draft.selectedTariffKey) &&
+    !(
+      draft.selectedPlan?.access_via_link === true &&
+      draft.selectedPlan.tariff_key === draft.selectedTariffKey
+    )
   ) {
     set("selectedTariffKey", "");
     set("selectedPlan", null);

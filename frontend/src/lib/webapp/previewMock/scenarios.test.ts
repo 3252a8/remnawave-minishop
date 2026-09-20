@@ -30,6 +30,16 @@ describe("preview mock scenarios", () => {
     expect(DEV_MOCK.config.serverStatusShowOnHome).toBe(false);
   });
 
+  it("models grouped referral bonuses for multiple period tariffs", () => {
+    expect(DEV_MOCK.data.referral.bonus_details).toHaveLength(2);
+    expect(DEV_MOCK.data.referral.bonus_details).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "tariff_summary", tariff_key: "standard" }),
+        expect.objectContaining({ type: "tariff_summary", tariff_key: "premium" }),
+      ])
+    );
+  });
+
   it("enables user balance only in the dedicated preset", () => {
     applyPreviewMock("user-balance");
 

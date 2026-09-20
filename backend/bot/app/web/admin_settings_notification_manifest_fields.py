@@ -4,6 +4,13 @@ from bot.app.web.admin_settings_manifest_types import SettingField
 
 NOTIFICATION_SETTINGS_FIELDS: list[SettingField] = [
     SettingField(
+        "USER_NOTIFICATION_PREFERENCES_ENABLED",
+        "bool",
+        "notifications",
+        "User notification preferences",
+        "Allow users to manage notification channels in their account and from email links.",
+    ),
+    SettingField(
         "SUBSCRIPTION_NOTIFICATIONS_ENABLED",
         "bool",
         "notifications",
@@ -295,11 +302,18 @@ NOTIFICATION_SETTINGS_FIELDS: list[SettingField] = [
         "Enable the support tickets section in the user account and allow users to create tickets.",
     ),
     SettingField(
+        "SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED",
+        "bool",
+        "support",
+        "Admin Telegram notifications",
+        "Send new tickets and user replies to administrators and the configured log chat.",
+    ),
+    SettingField(
         "SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED",
         "bool",
         "support",
         "Admin email notifications",
-        "When disabled, new tickets and user replies are sent only to Telegram and the log chat.",
+        "Send new tickets and user replies to administrator email addresses.",
     ),
     SettingField(
         "SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS",

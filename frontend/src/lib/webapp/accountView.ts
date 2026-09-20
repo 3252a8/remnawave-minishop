@@ -35,6 +35,7 @@ export interface AccountView {
 export interface AccountViewInput {
   appSettings: WebappRecord | null | undefined;
   authProviders?: readonly string[];
+  recommendedAuthProviders?: readonly string[];
   cfg: WebappRecord;
   emailAuthEnabled: boolean;
   emailAvatarUrl: string;
@@ -45,6 +46,7 @@ export interface AccountViewInput {
 export function computeAccountView({
   appSettings,
   authProviders,
+  recommendedAuthProviders,
   cfg,
   emailAuthEnabled,
   emailAvatarUrl,
@@ -59,16 +61,17 @@ export function computeAccountView({
   const resolvedAuthProviders = authProviders?.length
     ? authProviders
     : ["telegram", ...(emailAuthEnabled ? ["email"] : [])];
+  const providersRequiringAttention = recommendedAuthProviders ?? resolvedAuthProviders;
   const linkedExternalProviders = new Set(
     (user.external_identities || []).map((identity) => String(identity.provider || ""))
   );
   const hasUnlinkedIdentity = Boolean(
-    (resolvedAuthProviders.includes("telegram") && !user?.telegram_linked) ||
-    (resolvedAuthProviders.includes("email") && !user?.email) ||
-    (resolvedAuthProviders.includes("google") && !linkedExternalProviders.has("google")) ||
-    (resolvedAuthProviders.includes("yandex") && !linkedExternalProviders.has("yandex")) ||
-    (resolvedAuthProviders.includes("discord") && !linkedExternalProviders.has("discord")) ||
-    (resolvedAuthProviders.includes("passkey") && !(user.passkeys || []).length) ||
+    (providersRequiringAttention.includes("telegram") && !user?.telegram_linked) ||
+    (providersRequiringAttention.includes("email") && !user?.email) ||
+    (providersRequiringAttention.includes("google") && !linkedExternalProviders.has("google")) ||
+    (providersRequiringAttention.includes("yandex") && !linkedExternalProviders.has("yandex")) ||
+    (providersRequiringAttention.includes("discord") && !linkedExternalProviders.has("discord")) ||
+    (providersRequiringAttention.includes("passkey") && !(user.passkeys || []).length) ||
     telegramNotificationsNeedPrompt
   );
   const telegramProfileName = telegramName(user);

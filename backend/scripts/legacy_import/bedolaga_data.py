@@ -13,6 +13,12 @@ from .common import _jsonish, _to_float, _to_int, _truthy
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 
+def bedolaga_panel_subscription_uuid(row: dict[str, Any]) -> str | None:
+    """Return the Remnawave short UUID stored by Bedolaga for a subscription."""
+    value = str(row.get("remnawave_short_uuid") or "").strip()
+    return value or None
+
+
 def bedolaga_tariff_key(row: dict[str, Any], used: set[str]) -> str:
     name = str(row.get("name") or "tariff").strip().lower()
     base = _SLUG_RE.sub("-", name).strip("-") or f"tariff-{row.get('id')}"

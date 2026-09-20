@@ -11,6 +11,7 @@ from .bedolaga import BedolagaImporter
 from .bedolaga_data import (
     bedolaga_build_tariff_catalog,
     bedolaga_ledger_effect,
+    bedolaga_panel_subscription_uuid,
     bedolaga_payment_status,
     bedolaga_target_user_id,
 )
@@ -125,6 +126,7 @@ __all__ = [
     "_unique_tariff_key",
     "bedolaga_build_tariff_catalog",
     "bedolaga_ledger_effect",
+    "bedolaga_panel_subscription_uuid",
     "bedolaga_payment_status",
     "bedolaga_target_user_id",
     "build_arg_parser",

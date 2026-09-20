@@ -167,6 +167,21 @@ class RequestSecurityTests(unittest.IsolatedAsyncioTestCase):
             "172.19.0.6",
         )
 
+    async def test_access_logger_handles_request_before_route_resolution(self):
+        class UnresolvedRequest:
+            def __init__(self):
+                self.remote = "203.0.113.10"
+                self.headers: dict[str, str] = {}
+
+            @property
+            def app(self):
+                raise AssertionError("match_info is unavailable")
+
+        self.assertEqual(
+            TrustedProxyAccessLogger._format_a(UnresolvedRequest(), object(), 0),
+            "203.0.113.10",
+        )
+
     async def test_yookassa_webhook_rejects_untrusted_ip_before_reading_body(self):
         request = SimpleNamespace(
             app={

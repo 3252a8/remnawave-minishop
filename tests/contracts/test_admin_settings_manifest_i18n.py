@@ -14,6 +14,7 @@ PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 SUPPORT_RELATED_SETTINGS = (
     "LOG_SUPPORT_THREAD_ID",
     "SUPPORT_TICKETS_ENABLED",
+    "SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED",
     "SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED",
     "SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS",
     "SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS",
@@ -328,6 +329,44 @@ def test_compact_home_toggle_is_an_appearance_setting():
         assert field["i18n_description_key"] in messages
 
 
+def test_checkout_addon_ux_toggles_are_appearance_settings():
+    manifest = _manifest_by_key()
+    for key in (
+        "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED",
+        "WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT",
+    ):
+        field = manifest[key]
+        assert field["type"] == "bool"
+        assert field["section"] == "appearance"
+        assert field["section_order"] == 2
+        for language in ("ru", "en"):
+            messages = _locale(language)
+            assert field["i18n_label_key"] in messages
+            assert field["i18n_description_key"] in messages
+
+
+def test_recommended_login_method_toggles_are_localized():
+    manifest = _manifest_by_key()
+    expected_subsections = {
+        "TELEGRAM_LOGIN_RECOMMENDED": "telegram",
+        "EMAIL_LOGIN_RECOMMENDED": "email",
+        "GOOGLE_LOGIN_RECOMMENDED": "google",
+        "YANDEX_LOGIN_RECOMMENDED": "yandex",
+        "DISCORD_LOGIN_RECOMMENDED": "discord",
+        "PASSKEY_LOGIN_RECOMMENDED": "passkey",
+    }
+
+    for setting_key, subsection in expected_subsections.items():
+        field = manifest[setting_key]
+        assert field["type"] == "bool"
+        assert field["section"] == "login_methods"
+        assert field["subsection"] == subsection
+        for language in ("ru", "en"):
+            messages = _locale(language)
+            assert field["i18n_label_key"] in messages
+            assert field["i18n_description_key"] in messages
+
+
 def test_support_settings_manifest_uses_admin_i18n_keys():
     manifest = _manifest_by_key()
 
@@ -353,6 +392,18 @@ def test_support_settings_i18n_keys_exist_in_admin_locales():
             field = manifest[setting_key]
             assert field["i18n_label_key"] in messages
             assert field["i18n_description_key"] in messages
+
+
+def test_user_notification_preferences_setting_is_localized():
+    field = _manifest_by_key()["USER_NOTIFICATION_PREFERENCES_ENABLED"]
+
+    assert field["type"] == "bool"
+    assert field["section"] == "notifications"
+    assert field["subsection"] is None
+    for language in ("ru", "en"):
+        messages = _locale(language)
+        assert field["i18n_label_key"] in messages
+        assert field["i18n_description_key"] in messages
 
 
 def test_settings_choice_i18n_keys_exist_in_admin_locales():

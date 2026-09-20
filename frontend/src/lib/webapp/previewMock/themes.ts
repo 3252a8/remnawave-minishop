@@ -136,6 +136,7 @@ export const ASCII_THEME: PreviewTheme = {
   tokens: {
     color_scheme: "dark",
     style_preset: "ascii",
+    referral_bonus_list: "collapsed",
   },
   variants: {
     light: { color_scheme: "light" },

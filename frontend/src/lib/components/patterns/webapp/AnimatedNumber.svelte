@@ -7,6 +7,7 @@
     ariaLabel = "",
     format = {},
     className = "",
+    animated = true,
     replaceAnimations = false,
     willChange = true,
   }: {
@@ -15,6 +16,7 @@
     ariaLabel?: string;
     format?: Format;
     className?: string;
+    animated?: boolean;
     replaceAnimations?: boolean;
     willChange?: boolean;
   } = $props();
@@ -40,5 +42,6 @@
   {suffix}
   aria-label={ariaLabel}
   format={resolvedFormat}
+  {animated}
   {willChange}
 />

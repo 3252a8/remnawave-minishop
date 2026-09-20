@@ -11,6 +11,14 @@ LOGIN_METHOD_SETTINGS_FIELDS: tuple[SettingField, ...] = (
         subsection="telegram",
     ),
     SettingField(
+        "TELEGRAM_LOGIN_RECOMMENDED",
+        "bool",
+        "login_methods",
+        "Recommended login method",
+        description="Prompt users to link this login method until it is configured",
+        subsection="telegram",
+    ),
+    SettingField(
         "TELEGRAM_OAUTH_CLIENT_ID",
         "int",
         "login_methods",
@@ -35,6 +43,14 @@ LOGIN_METHOD_SETTINGS_FIELDS: tuple[SettingField, ...] = (
     ),
     SettingField("EMAIL_LOGIN_ENABLED", "bool", "login_methods", "Email login", subsection="email"),
     SettingField(
+        "EMAIL_LOGIN_RECOMMENDED",
+        "bool",
+        "login_methods",
+        "Recommended login method",
+        description="Prompt users to link this login method until it is configured",
+        subsection="email",
+    ),
+    SettingField(
         "EMAIL_ADDRESS_CHANGE_ENABLED",
         "bool",
         "login_methods",
@@ -47,6 +63,14 @@ LOGIN_METHOD_SETTINGS_FIELDS: tuple[SettingField, ...] = (
     ),
     SettingField(
         "GOOGLE_OIDC_ENABLED", "bool", "login_methods", "Google login", subsection="google"
+    ),
+    SettingField(
+        "GOOGLE_LOGIN_RECOMMENDED",
+        "bool",
+        "login_methods",
+        "Recommended login method",
+        description="Prompt users to link this login method until it is configured",
+        subsection="google",
     ),
     SettingField(
         "GOOGLE_OIDC_CLIENT_ID",
@@ -67,6 +91,14 @@ LOGIN_METHOD_SETTINGS_FIELDS: tuple[SettingField, ...] = (
         "YANDEX_OIDC_ENABLED", "bool", "login_methods", "Yandex login", subsection="yandex"
     ),
     SettingField(
+        "YANDEX_LOGIN_RECOMMENDED",
+        "bool",
+        "login_methods",
+        "Recommended login method",
+        description="Prompt users to link this login method until it is configured",
+        subsection="yandex",
+    ),
+    SettingField(
         "YANDEX_OIDC_CLIENT_ID",
         "string",
         "login_methods",
@@ -85,6 +117,14 @@ LOGIN_METHOD_SETTINGS_FIELDS: tuple[SettingField, ...] = (
         "DISCORD_OIDC_ENABLED", "bool", "login_methods", "Discord login", subsection="discord"
     ),
     SettingField(
+        "DISCORD_LOGIN_RECOMMENDED",
+        "bool",
+        "login_methods",
+        "Recommended login method",
+        description="Prompt users to link this login method until it is configured",
+        subsection="discord",
+    ),
+    SettingField(
         "DISCORD_OIDC_CLIENT_ID",
         "string",
         "login_methods",
@@ -101,6 +141,14 @@ LOGIN_METHOD_SETTINGS_FIELDS: tuple[SettingField, ...] = (
     ),
     SettingField(
         "PASSKEY_LOGIN_ENABLED", "bool", "login_methods", "Passkey login", subsection="passkey"
+    ),
+    SettingField(
+        "PASSKEY_LOGIN_RECOMMENDED",
+        "bool",
+        "login_methods",
+        "Recommended login method",
+        description="Prompt users to link this login method until it is configured",
+        subsection="passkey",
     ),
     SettingField(
         "PASSKEY_RP_ID",

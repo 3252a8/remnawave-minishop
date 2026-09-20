@@ -183,9 +183,7 @@
               <strong
                 >{device.display_name ||
                   t("wa_device_fallback_name", { index: device.index })}{#if clientLabel}<span
-                    class="device-client-label"
-                  >
-                    · {clientLabel}</span
+                    class="device-client-label">{clientLabel}</span
                   >{/if}</strong
               >
               <small>{device.platform_label || t("wa_devices_platform_unknown")}</small>

@@ -258,6 +258,33 @@ def test_admin_support_email_notifications_default_to_disabled():
     assert sent == []
 
 
+def test_admin_support_telegram_notifications_can_be_disabled():
+    channels = []
+    service = NotificationService(
+        bot=SimpleNamespace(),
+        settings=_settings(SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED=False),
+    )
+
+    async def send_to_admins(message, reply_markup=None):
+        channels.append(("admins", message, reply_markup))
+
+    async def send_to_log_channel(message, thread_id=None, reply_markup=None):
+        channels.append(("log", message, thread_id, reply_markup))
+
+    service._send_to_admins = send_to_admins
+    service._send_to_log_channel = send_to_log_channel
+
+    asyncio.run(
+        service._send_admin_support_telegram(
+            "New ticket",
+            admin_markup=SimpleNamespace(),
+            log_markup=SimpleNamespace(),
+        )
+    )
+
+    assert channels == []
+
+
 def test_persisted_support_email_override_disables_env_enabled(monkeypatch):
     sent = []
 

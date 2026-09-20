@@ -98,10 +98,12 @@ promote_tag() {
 verify_signature() {
   local reference="$1"
   local expected_tag="$2"
-  local attempt
-  local sleep_seconds
+  local attempt=1
+  local deadline=$((SECONDS + 300))
+  local remaining_seconds
+  local sleep_seconds=2
 
-  for attempt in 1 2 3 4 5 6; do
+  while true; do
     if cosign verify \
       --experimental-oci11 \
       --annotations "tag=$expected_tag" \
@@ -111,14 +113,24 @@ verify_signature() {
       "$reference" | jq -e 'length > 0' > /dev/null; then
       return 0
     fi
-    if [ "$attempt" -lt 6 ]; then
-      sleep_seconds=$((attempt * 2))
-      echo "Signature for $reference is not visible yet; retrying in ${sleep_seconds}s."
-      sleep "$sleep_seconds"
+
+    remaining_seconds=$((deadline - SECONDS))
+    if [ "$remaining_seconds" -le 0 ]; then
+      break
+    fi
+    if [ "$sleep_seconds" -gt "$remaining_seconds" ]; then
+      sleep_seconds="$remaining_seconds"
+    fi
+
+    echo "Signature for $reference is not visible yet after attempt $attempt; retrying in ${sleep_seconds}s."
+    sleep "$sleep_seconds"
+    attempt=$((attempt + 1))
+    if [ "$sleep_seconds" -lt 30 ]; then
+      sleep_seconds=$((sleep_seconds + 2))
     fi
   done
 
-  echo "Unable to verify the signature for $reference" >&2
+  echo "Unable to verify the signature for $reference within 300s" >&2
   return 1
 }
 

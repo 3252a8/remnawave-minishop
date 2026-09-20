@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
@@ -27,6 +28,17 @@ def _payment(**overrides):
     }
     data.update(overrides)
     return SimpleNamespace(**data)
+
+
+class _ScalarResult:
+    def __init__(self, values):
+        self._values = values
+
+    def scalars(self):
+        return self
+
+    def all(self):
+        return self._values
 
 
 class PaymentFulfillmentTests(IsolatedAsyncioTestCase):
@@ -245,3 +257,103 @@ class PaymentFulfillmentTests(IsolatedAsyncioTestCase):
 
         self.assertEqual(raised.exception.code, "payment_reversal_conflict")
         self.assertEqual(raised.exception.details, ["later_payment:88"])
+
+    async def test_reversal_removes_linked_traffic_topup_despite_snapshot_drift(self):
+        fulfilled_at = datetime.now(UTC)
+        before = {
+            "version": 1,
+            "users": [
+                {
+                    "user_id": 42,
+                    "panel_user_uuid": "panel-user",
+                    "subscriptions": [
+                        {"subscription_id": 9, "topup_balance_bytes": 0},
+                    ],
+                }
+            ],
+        }
+        after = {
+            "version": 1,
+            "users": [
+                {
+                    "user_id": 42,
+                    "panel_user_uuid": "panel-user",
+                    "subscriptions": [
+                        {
+                            "subscription_id": 9,
+                            "topup_balance_bytes": 100,
+                            "end_date": "2026-09-20T00:00:00+00:00",
+                        },
+                    ],
+                }
+            ],
+        }
+        payment = _payment(
+            status="succeeded",
+            sale_mode="topup@standard",
+            fulfilled_at=fulfilled_at,
+            fulfillment_before_snapshot=json.dumps(before),
+            fulfillment_after_snapshot=json.dumps(after),
+        )
+        user = SimpleNamespace(user_id=42, panel_user_uuid="panel-user")
+        subscription = SimpleNamespace(
+            subscription_id=9,
+            user_id=42,
+            topup_balance_bytes=100,
+            premium_topup_balance_bytes=0,
+            premium_topup_used_bytes=0,
+            end_date=datetime(2026, 9, 21, tzinfo=UTC),
+        )
+        topup = SimpleNamespace(
+            topup_id=3,
+            subscription_id=9,
+            purchased_bytes=100,
+            kind="topup",
+        )
+        updated = SimpleNamespace(payment_id=77, status="reversed")
+        session = AsyncMock()
+        session.scalar.return_value = None
+        session.execute.side_effect = [
+            _ScalarResult([user]),
+            _ScalarResult([subscription]),
+        ]
+        subscription_service = SimpleNamespace(
+            sync_premium_squad_access_to_panel=AsyncMock(return_value=True)
+        )
+
+        with (
+            patch(
+                "bot.services.payment_fulfillment.payment_dal.get_payment_by_db_id_for_update",
+                AsyncMock(return_value=payment),
+            ),
+            patch(
+                "bot.services.payment_fulfillment._traffic_topups_for_payment",
+                AsyncMock(return_value=[topup]),
+            ),
+            patch(
+                "bot.services.payment_fulfillment._delete_payment_effect_rows",
+                AsyncMock(),
+            ) as delete_effects,
+            patch(
+                "bot.services.payment_fulfillment._sync_reversed_user",
+                AsyncMock(),
+            ) as sync_user,
+            patch(
+                "bot.services.payment_fulfillment.payment_dal.update_payment_status_by_db_id",
+                AsyncMock(return_value=updated),
+            ),
+        ):
+            result = await reverse_payment_fulfillment(
+                session,
+                payment_id=77,
+                actor_admin_id=1,
+                reason="Provider refund",
+                restore_promo_usage=False,
+                subscription_service=subscription_service,
+            )
+
+        self.assertIs(result, updated)
+        self.assertEqual(subscription.topup_balance_bytes, 0)
+        delete_effects.assert_awaited_once_with(session, 77)
+        sync_user.assert_awaited_once()
+        subscription_service.sync_premium_squad_access_to_panel.assert_not_awaited()

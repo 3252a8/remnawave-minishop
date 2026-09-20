@@ -70,10 +70,14 @@ class TrustedProxyAccessLogger(AccessLogger):
     def _format_a(request: web.BaseRequest, response: web.StreamResponse, time: float) -> str:
         if request is None:
             return "-"
-        app = getattr(request, "app", None)
+        resolved_request = cast(web.Request, request)
+        try:
+            app = resolved_request.app
+        except (AssertionError, RuntimeError):
+            app = None
         settings = get_app_settings(app) if app is not None else None
         trusted_proxies = settings.trusted_proxies if settings is not None else None
-        client_ip = request_client_ip(cast(web.Request, request), trusted_proxies=trusted_proxies)
+        client_ip = request_client_ip(resolved_request, trusted_proxies=trusted_proxies)
         return client_ip or "-"
 
 

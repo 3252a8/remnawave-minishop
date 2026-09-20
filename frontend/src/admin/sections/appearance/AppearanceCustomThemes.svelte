@@ -179,6 +179,8 @@
           setCustomThemeToken(theme, key, inputValue(event), selectedVariant)}
         defaultTokenInputHandler={(key) => (event) =>
           setCustomThemeToken(theme, key, inputValue(event), selectedVariant)}
+        defaultTokenSelectHandler={(key) => (value) =>
+          setCustomThemeToken(theme, key, value, selectedVariant)}
         resetDefaultToken={(key) => resetCustomThemeToken(theme, key, selectedVariant)}
         editorTitle={themeTitle(theme)}
         editorSubtitle={at(

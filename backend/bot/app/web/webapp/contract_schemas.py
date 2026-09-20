@@ -46,6 +46,10 @@ class WebappBootstrapConfigOut(HttpResponseModel):
     primary_color: str | None = Field(default=None, alias="primaryColor")
     user_theme_mode_enabled: bool = Field(alias="userThemeModeEnabled")
     compact_home_enabled: bool = Field(alias="compactHomeEnabled")
+    checkout_addon_value_animation_enabled: bool = Field(alias="checkoutAddonValueAnimationEnabled")
+    checkout_addon_editor_expanded_by_default: bool = Field(
+        alias="checkoutAddonEditorExpandedByDefault"
+    )
     themes_catalog: dict[str, Any] = Field(default_factory=dict, alias="themesCatalog")
     themes_dir: str = Field(alias="themesDir")
     theme_preview_key: str = Field(alias="themePreviewKey")
@@ -69,8 +73,10 @@ class WebappBootstrapConfigOut(HttpResponseModel):
     language: str
     languages: list[WebappBootstrapLanguageOut]
     email_auth_enabled: bool = Field(alias="emailAuthEnabled")
+    notification_preferences_enabled: bool = Field(alias="notificationPreferencesEnabled")
     dev_mode: bool = Field(alias="devMode")
     auth_providers: list[str] = Field(alias="authProviders")
+    recommended_auth_providers: list[str] = Field(alias="recommendedAuthProviders")
     registration_invite_only_enabled: bool = Field(alias="registrationInviteOnlyEnabled")
     checkout_plans: list[dict[str, Any]] = Field(default_factory=list, alias="checkoutPlans")
     app_version: str = Field(alias="appVersion")
@@ -720,8 +726,10 @@ WEBAPP_SETTINGS_SCHEMA: dict[str, Any] = {
         "payment_methods_display_mode": STRING_SCHEMA,
         "subscription_guides_enabled": BOOLEAN_SCHEMA,
         "email_auth_enabled": BOOLEAN_SCHEMA,
+        "notification_preferences_enabled": BOOLEAN_SCHEMA,
         "email_address_change_enabled": BOOLEAN_SCHEMA,
         "auth_providers": STRING_ARRAY_SCHEMA,
+        "recommended_auth_providers": STRING_ARRAY_SCHEMA,
         "menu_buttons": {"type": "array", "items": MENU_BUTTON_SCHEMA},
     },
 }

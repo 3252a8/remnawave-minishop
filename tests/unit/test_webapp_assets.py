@@ -512,6 +512,8 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             SERVER_STATUS_URL="https://status.example.com",
             SERVER_STATUS_SHOW_ON_HOME=True,
             WEBAPP_COMPACT_HOME_ENABLED=True,
+            WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED=False,
+            WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT=True,
             SUPPORT_LINK="https://t.me/support",
             PRIVACY_POLICY_URL="https://example.com/privacy",
             USER_AGREEMENT_URL="https://example.com/agreement",
@@ -552,6 +554,8 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["config"]["apiBase"], "/api")
         self.assertTrue(payload["config"]["userThemeModeEnabled"])
         self.assertTrue(payload["config"]["compactHomeEnabled"])
+        self.assertFalse(payload["config"]["checkoutAddonValueAnimationEnabled"])
+        self.assertTrue(payload["config"]["checkoutAddonEditorExpandedByDefault"])
         self.assertEqual(
             request.app["webapp_settings_cache"]["data"]["server_status_url"],
             "https://status.example.com",
@@ -674,12 +678,15 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("export function premiumTrafficLimitVisible", traffic_source)
         self.assertIn("!sub?.premium_unlimited_override", traffic_source)
         self.assertIn("sub?.premium_traffic_limited === true", traffic_source)
-        self.assertIn("{#if regularTrafficLimitVisible(subscription)}", home_source)
+        self.assertIn("const showRegularTraffic", home_source)
         self.assertIn(
-            "{#if premiumTrafficAvailable(subscription) "
-            "&& premiumTrafficLimitVisible(subscription)}",
-            home_source,
+            "subscription.active && regularTrafficLimitVisible(subscription)", home_source
         )
+        self.assertIn("{#if showRegularTraffic}", home_source)
+        self.assertIn("const showPremiumTraffic", home_source)
+        self.assertIn("premiumTrafficAvailable(subscription)", home_source)
+        self.assertIn("premiumTrafficLimitVisible(subscription)", home_source)
+        self.assertIn("{#if showPremiumTraffic}", home_source)
         self.assertNotIn("wa_premium_unlimited", home_source)
         self.assertIn("regularTrafficLimitVisible(subscription)", billing_view_source)
         self.assertIn("premiumTrafficLimitVisible(subscription)", billing_view_source)
@@ -1101,6 +1108,21 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("--home-logo-scale-desktop:1.5", markup)
         self.assertIn("--home-logo-scale-mobile:0.85", markup)
         self.assertIn("color-scheme:light", markup)
+
+    def test_initial_theme_head_markup_quotes_separator_token(self):
+        cfg = builtin_webapp_themes_config("#123456")
+        theme = cfg.theme_by_key("dark")
+        theme.tokens.separator = "|"
+        request = SimpleNamespace(get=lambda key, default="": "nonce-value")
+
+        markup = subscription_webapp._initial_theme_head_markup(request, theme, "#123456")
+
+        self.assertIn('--separator:"|"', markup)
+
+        theme.tokens.separator = ""
+        markup = subscription_webapp._initial_theme_head_markup(request, theme, "#123456")
+
+        self.assertIn('--separator:""', markup)
 
     def test_theme_asset_version_bumps_for_saved_default_css_theme(self):
         previous = WebappThemesConfig(

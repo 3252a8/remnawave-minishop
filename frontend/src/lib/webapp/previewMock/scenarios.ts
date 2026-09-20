@@ -298,6 +298,11 @@ export function applyPreviewMock(kind: unknown): void {
 
   if (mode === "compact" || mode === "compact-home" || mode === "compact_home") {
     DEV_MOCK.config.compactHomeEnabled = true;
+    DEV_MOCK.data.subscription = {
+      ...DEV_MOCK.data.subscription,
+      traffic_limit_strategy: "MONTH",
+      traffic_next_reset_text: "13.10.2026",
+    };
     return;
   }
 

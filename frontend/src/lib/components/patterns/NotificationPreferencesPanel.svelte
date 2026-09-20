@@ -6,6 +6,7 @@
     preferences: NotificationPreferences;
     disabled?: boolean;
     emailOnly?: boolean;
+    telegramOnly?: boolean;
     title: string;
     description: string;
     marketingLabel: string;
@@ -22,6 +23,7 @@
     preferences,
     disabled = false,
     emailOnly = false,
+    telegramOnly = false,
     title,
     description,
     marketingLabel,
@@ -61,9 +63,11 @@
     <small>{description}</small>
   </div>
 
-  <div class="notification-preferences__grid" class:email-only={emailOnly}>
+  <div class="notification-preferences__grid" class:single-channel={emailOnly || telegramOnly}>
     <div class="notification-preferences__header" aria-hidden="true"></div>
-    <div class="notification-preferences__channel">{emailLabel}</div>
+    {#if !telegramOnly}
+      <div class="notification-preferences__channel">{emailLabel}</div>
+    {/if}
     {#if !emailOnly}
       <div class="notification-preferences__channel">{telegramLabel}</div>
     {/if}
@@ -73,17 +77,19 @@
         <strong>{row.label}</strong>
         <small>{row.hint}</small>
       </div>
-      <div class="notification-preferences__control" data-channel-label={emailLabel}>
-        <Switch.Root
-          checked={preferences[preferenceKey(row.id, "email")]}
-          {disabled}
-          aria-label={`${row.label} · ${emailLabel}`}
-          onCheckedChange={(checked) => toggle(row.id, "email", checked)}
-          class="notification-preferences__switch"
-        >
-          <Switch.Thumb class="notification-preferences__thumb" />
-        </Switch.Root>
-      </div>
+      {#if !telegramOnly}
+        <div class="notification-preferences__control" data-channel-label={emailLabel}>
+          <Switch.Root
+            checked={preferences[preferenceKey(row.id, "email")]}
+            {disabled}
+            aria-label={`${row.label} · ${emailLabel}`}
+            onCheckedChange={(checked) => toggle(row.id, "email", checked)}
+            class="notification-preferences__switch"
+          >
+            <Switch.Thumb class="notification-preferences__thumb" />
+          </Switch.Root>
+        </div>
+      {/if}
       {#if !emailOnly}
         <div class="notification-preferences__control" data-channel-label={telegramLabel}>
           <Switch.Root
@@ -140,7 +146,7 @@
     border-radius: var(--radius-inner, var(--radius));
   }
 
-  .notification-preferences__grid.email-only {
+  .notification-preferences__grid.single-channel {
     grid-template-columns: minmax(0, 1fr) 92px;
   }
 
@@ -236,7 +242,7 @@
     }
 
     .notification-preferences__grid,
-    .notification-preferences__grid.email-only {
+    .notification-preferences__grid.single-channel {
       grid-template-columns: minmax(0, 1fr);
     }
 
