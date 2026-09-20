@@ -18,6 +18,7 @@ from bot.infra.event_payloads import UserRegisteredPayload
 
 from ..models import (
     User,
+    UserExternalIdentity,
     UserTelegramAvatar,
 )
 from ._sqlalchemy import rowcount
@@ -221,6 +222,15 @@ async def create_user(
         logger.info("User %s already exists in DAL. Proceeding without creation.", user.user_id)
 
     return user, created
+
+
+async def has_external_oauth_identity(session: AsyncSession, user_id: int) -> bool:
+    result = await session.execute(
+        select(UserExternalIdentity.identity_id)
+        .where(UserExternalIdentity.user_id == user_id)
+        .limit(1)
+    )
+    return result.scalar_one_or_none() is not None
 
 
 async def create_email_user(

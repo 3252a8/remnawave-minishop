@@ -398,12 +398,13 @@ export function adminFallbackResponse(
       if (Object.prototype.hasOwnProperty.call(updates, "TRIAL_TRAFFIC_STRATEGY")) {
         DEV_MOCK.config.trialTrafficStrategy = updates.TRIAL_TRAFFIC_STRATEGY || "NO_RESET";
       }
-      if (Object.prototype.hasOwnProperty.call(updates, "TRIAL_WITHOUT_TELEGRAM_ENABLED")) {
-        DEV_MOCK.config.trialWithoutTelegramEnabled = Boolean(
-          updates.TRIAL_WITHOUT_TELEGRAM_ENABLED
+      if (Object.prototype.hasOwnProperty.call(updates, "TRIAL_WITHOUT_OAUTH_ENABLED")) {
+        DEV_MOCK.config.trialWithoutOauthEnabled = Boolean(updates.TRIAL_WITHOUT_OAUTH_ENABLED);
+        DEV_MOCK.data.settings.trial_without_oauth_enabled = Boolean(
+          updates.TRIAL_WITHOUT_OAUTH_ENABLED
         );
         DEV_MOCK.data.settings.trial_without_telegram_enabled = Boolean(
-          updates.TRIAL_WITHOUT_TELEGRAM_ENABLED
+          updates.TRIAL_WITHOUT_OAUTH_ENABLED
         );
       }
       if (Object.prototype.hasOwnProperty.call(updates, "TRIAL_SQUAD_UUIDS")) {
@@ -679,12 +680,12 @@ export function adminFallbackResponse(
               value: DEV_MOCK.config.trialTrafficStrategy || "NO_RESET",
             },
             {
-              key: "TRIAL_WITHOUT_TELEGRAM_ENABLED",
+              key: "TRIAL_WITHOUT_OAUTH_ENABLED",
               type: "bool",
-              section: "pricing",
-              subsection: "trial",
-              label: "Триал без Telegram",
-              value: DEV_MOCK.config.trialWithoutTelegramEnabled ?? true,
+              section: "system",
+              subsection: "email_anti_abuse",
+              label: "Триал без OAuth",
+              value: DEV_MOCK.config.trialWithoutOauthEnabled ?? true,
             },
             {
               key: "TRIAL_SQUAD_UUIDS",

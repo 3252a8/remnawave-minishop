@@ -14528,9 +14528,11 @@ export interface operations {
                 valid_until?: string | null;
                 valid_until_text?: string | null;
               } | null;
+              trial_requires_oauth?: boolean;
               trial_requires_telegram?: boolean;
               trial_traffic_limit_gb?: number;
               trial_traffic_strategy?: string;
+              trial_without_oauth_enabled?: boolean;
               trial_without_telegram_enabled?: boolean;
               user_balance_enabled?: boolean;
               user_hwid_device_limit?: number | null;

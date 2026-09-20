@@ -8,6 +8,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from aiohttp import web
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.app.web.context import (
     get_settings,
@@ -25,6 +26,7 @@ from bot.services.registration_invite_gate import (
 from bot.utils.request_security import parse_ip_entries
 from bot.utils.text_sanitizer import panel_description_from_profile
 from config.settings import Settings
+from db.dal import user_dal
 from db.models import User
 
 from .constants import (
@@ -280,12 +282,27 @@ def _email_only_telegram_required_reason(
     return None
 
 
-def _trial_telegram_required_reason(settings: Settings, user: User) -> str | None:
-    return _email_only_telegram_required_reason(
-        settings,
-        user,
-        without_telegram_enabled_attr="TRIAL_WITHOUT_TELEGRAM_ENABLED",
-    )
+def _trial_oauth_required_reason(settings: Settings, user: User) -> str | None:
+    if _user_has_linked_telegram(user):
+        return None
+    if is_disposable_email(getattr(user, "email", None), settings):
+        return "disposable_email"
+    if not bool(getattr(settings, "TRIAL_WITHOUT_OAUTH_ENABLED", True)):
+        return "oauth_required"
+    return None
+
+
+async def _trial_oauth_required_reason_for_user(
+    session: AsyncSession,
+    settings: Settings,
+    user: User,
+) -> str | None:
+    reason = _trial_oauth_required_reason(settings, user)
+    if reason != "oauth_required":
+        return reason
+    if await user_dal.has_external_oauth_identity(session, int(user.user_id)):
+        return None
+    return reason
 
 
 def _referral_welcome_telegram_required_reason(

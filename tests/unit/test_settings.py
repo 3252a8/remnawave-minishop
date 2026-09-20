@@ -784,6 +784,15 @@ class SettingsTests(unittest.TestCase):
 
         self.assertEqual(settings.TRIAL_TRAFFIC_STRATEGY, "WEEK")
 
+    def test_trial_without_oauth_defaults_on_and_accepts_legacy_alias(self):
+        self.assertTrue(self._settings().TRIAL_WITHOUT_OAUTH_ENABLED)
+        self.assertFalse(
+            self._settings(TRIAL_WITHOUT_OAUTH_ENABLED=False).TRIAL_WITHOUT_OAUTH_ENABLED
+        )
+        self.assertFalse(
+            self._settings(TRIAL_WITHOUT_TELEGRAM_ENABLED=False).TRIAL_WITHOUT_OAUTH_ENABLED
+        )
+
     def test_trial_days_strategy_is_admin_configured(self):
         settings = self._settings(TRIAL_DAYS_STRATEGY="start_from_payment")
 

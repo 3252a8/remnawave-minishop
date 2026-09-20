@@ -978,7 +978,7 @@ Stripe создает hosted Checkout Sessions и подтверждает ав�
 | `TRIAL_HWID_DEVICE_LIMIT` | Лимит HWID-устройств пробного периода. Пустое значение сохраняет лимит панели/по умолчанию, `0` означает безлимит. |
 | `TRIAL_DAYS_STRATEGY` | Правило покупки тарифа во время активного trial: `add_remaining` добавляет оставшиеся дни триала к оплаченному сроку, `start_from_payment` начинает оплаченный срок с даты платежа. Выбор задаёт администратор; пользователь не может изменить его при оплате. |
 | `TRIAL_TRAFFIC_STRATEGY` | Стратегия лимита пробного периода. |
-| `TRIAL_WITHOUT_TELEGRAM_ENABLED` | Разрешает активацию trial пользователям без привязанного Telegram. Disposable email домены всё равно требуют Telegram. |
+| `TRIAL_WITHOUT_OAUTH_ENABLED` | Разрешает активацию trial без привязанного OAuth-провайдера. По умолчанию включён. Если выключен, нужен Telegram либо любая внешняя OAuth-идентичность; disposable email домены всё равно требуют Telegram. Старое имя `TRIAL_WITHOUT_TELEGRAM_ENABLED` поддерживается как deprecated env-алиас. |
 | `TRIAL_SQUAD_UUIDS` | Internal Squads для trial через запятую. Если пусто, используется `USER_SQUAD_UUIDS`. |
 | `TRIAL_PREMIUM_SQUAD_UUIDS` | Premium Internal Squads для trial через запятую. Если пусто, premium-доступ в trial не выдаётся. |
 | `GIFTS_ENABLED` | Включает новые покупки [подарочных подписок](../features/gifts.md) в «Бонусах». По умолчанию `True`. Админка: «Настройки → Общие». История, доставка и активация оплаченных подарков доступны после выключения. |

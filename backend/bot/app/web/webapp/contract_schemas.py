@@ -716,6 +716,8 @@ WEBAPP_SETTINGS_SCHEMA: dict[str, Any] = {
         "trial_available": BOOLEAN_SCHEMA,
         "trial_payment_enabled": BOOLEAN_SCHEMA,
         "trial_payment_plan": {"anyOf": [PLAN_SCHEMA, {"type": "null"}]},
+        "trial_without_oauth_enabled": BOOLEAN_SCHEMA,
+        "trial_requires_oauth": BOOLEAN_SCHEMA,
         "trial_without_telegram_enabled": BOOLEAN_SCHEMA,
         "trial_requires_telegram": BOOLEAN_SCHEMA,
         "trial_block_reason": NULLABLE_STRING_SCHEMA,

@@ -101,6 +101,7 @@
     openRegularTopupModal = () => {},
     openPremiumTopupModal = () => {},
     openTariffChangeModal = () => {},
+    goSecurity = () => {},
     goStatus = () => {},
     openExternalLink = () => {},
     serverStatusShowOnHome = false,
@@ -143,6 +144,7 @@
     openRegularTopupModal?: VoidAction;
     openPremiumTopupModal?: VoidAction;
     openTariffChangeModal?: VoidAction;
+    goSecurity?: VoidAction;
     goStatus?: VoidAction;
     openExternalLink?: OpenLinkAction;
     serverStatusShowOnHome?: boolean;
@@ -267,10 +269,13 @@
     Boolean(!subscription?.active && appSettings?.trial_enabled && appSettings?.trial_available)
   );
   const trialPaymentEnabled = $derived(Boolean(appSettings?.trial_payment_enabled));
-  const trialRequiresTelegram = $derived(
+  const trialRequiresOauth = $derived(
     Boolean(
-      !subscription?.active && appSettings?.trial_enabled && appSettings?.trial_requires_telegram
+      !subscription?.active && appSettings?.trial_enabled && appSettings?.trial_requires_oauth
     )
+  );
+  const trialRequiresTelegram = $derived(
+    Boolean(trialRequiresOauth && appSettings?.trial_block_reason === "disposable_email")
   );
   const referralWelcomeRequiresTelegram = $derived(
     Boolean(
@@ -812,23 +817,31 @@
               : t("wa_trial_try_free", {}, "Try for free")}
           </Button>
         </Card>
-      {:else if trialRequiresTelegram}
+      {:else if trialRequiresOauth}
         <Card class="trial-card trial-offer-card">
           <div class="trial-card-head">
             <Gift size={22} />
             <span>
               <strong>
-                {t("wa_trial_telegram_required_title", {}, "Link Telegram to start trial")}
+                {trialRequiresTelegram
+                  ? t("wa_trial_telegram_required_title", {}, "Link Telegram to start trial")
+                  : t("wa_trial_oauth_required_title", {}, "Link an account to start trial")}
               </strong>
               <small>{t("wa_trial_title")}</small>
             </span>
           </div>
           <p class="trial-card-description">
-            {t(
-              "wa_trial_telegram_required_description",
-              { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
-              "To activate a {duration} trial with {traffic}, link Telegram first."
-            )}
+            {trialRequiresTelegram
+              ? t(
+                  "wa_trial_telegram_required_description",
+                  { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
+                  "To activate a {duration} trial with {traffic}, link Telegram first."
+                )
+              : t(
+                  "wa_trial_oauth_required_description",
+                  { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
+                  "To activate a {duration} trial with {traffic}, link Telegram or another available login provider first."
+                )}
           </p>
           <div class="trial-card-facts">
             <span>
@@ -840,16 +853,23 @@
               <strong>{trialTrafficLabel()}</strong>
             </span>
           </div>
-          <Button
-            class="wide trial-card-action settings-telegram-link-btn attention-wrap"
-            variant="telegram"
-            onclick={linkTelegramAndActivateTrial}
-            disabled={linkTelegramBusy || trialBusy}
-          >
-            <AttentionDot />
-            <Send size={18} />
-            {t("wa_trial_link_telegram_and_activate", {}, "Link and activate")}
-          </Button>
+          {#if trialRequiresTelegram}
+            <Button
+              class="wide trial-card-action settings-telegram-link-btn attention-wrap"
+              variant="telegram"
+              onclick={linkTelegramAndActivateTrial}
+              disabled={linkTelegramBusy || trialBusy}
+            >
+              <AttentionDot />
+              <Send size={18} />
+              {t("wa_trial_link_telegram_and_activate", {}, "Link and activate")}
+            </Button>
+          {:else}
+            <Button class="wide trial-card-action attention-wrap" onclick={goSecurity}>
+              <AttentionDot />
+              {t("wa_trial_choose_oauth_provider", {}, "Choose login provider")}
+            </Button>
+          {/if}
         </Card>
       {/if}
     {/if}

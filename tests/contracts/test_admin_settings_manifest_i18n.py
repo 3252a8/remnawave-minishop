@@ -107,7 +107,7 @@ ADMIN_TARIFF_SETTINGS_PAGE_KEYS = {
     "admin_tariffs_trial_title",
     "admin_tariffs_trial_subtitle",
     "admin_tariffs_trial_enabled",
-    "admin_tariffs_trial_without_telegram_enabled",
+    "admin_tariffs_trial_without_oauth_enabled",
     "admin_tariffs_trial_days",
     "admin_tariffs_trial_traffic",
     "admin_tariffs_trial_premium_traffic",
@@ -648,7 +648,7 @@ def test_trial_required_settings_reject_empty_values():
         "TRIAL_DAYS_STRATEGY",
         "TRIAL_TRAFFIC_LIMIT_GB",
         "TRIAL_TRAFFIC_STRATEGY",
-        "TRIAL_WITHOUT_TELEGRAM_ENABLED",
+        "TRIAL_WITHOUT_OAUTH_ENABLED",
     ):
         with pytest.raises(ValueError):
             coerce_value(get_field_by_key(key), "")
@@ -817,8 +817,8 @@ def test_legacy_tariff_settings_are_separated_from_payment_settings():
     assert manifest["TRIAL_PAYMENT_ENABLED"]["subsection"] == "trial"
     assert manifest["TRIAL_PAYMENT_PRICE"]["min"] == 0
     assert manifest["TRIAL_PAYMENT_STARS_PRICE"]["min"] == 0
-    assert manifest["TRIAL_WITHOUT_TELEGRAM_ENABLED"]["section"] == "system"
-    assert manifest["TRIAL_WITHOUT_TELEGRAM_ENABLED"]["subsection"] == "email_anti_abuse"
+    assert manifest["TRIAL_WITHOUT_OAUTH_ENABLED"]["section"] == "system"
+    assert manifest["TRIAL_WITHOUT_OAUTH_ENABLED"]["subsection"] == "email_anti_abuse"
     assert manifest["TRIAL_SQUAD_UUIDS"]["section"] == "pricing"
     assert manifest["TRIAL_SQUAD_UUIDS"]["subsection"] == "trial"
     assert manifest["TRIAL_PREMIUM_TRAFFIC_LIMIT_GB"]["section"] == "pricing"
@@ -863,7 +863,7 @@ def test_legacy_tariff_settings_are_separated_from_payment_settings():
     assert manifest["DISPOSABLE_EMAIL_DOMAINS"]["section"] == "system"
     assert manifest["DISPOSABLE_EMAIL_DOMAINS"]["subsection"] == "email_anti_abuse"
     for key in (
-        "TRIAL_WITHOUT_TELEGRAM_ENABLED",
+        "TRIAL_WITHOUT_OAUTH_ENABLED",
         "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
         "DISPOSABLE_EMAIL_DOMAINS",
     ):

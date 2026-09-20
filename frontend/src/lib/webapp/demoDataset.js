@@ -107,6 +107,8 @@ export const DEMO_DATASET = {
     user_hwid_device_limit: 5,
     trial_enabled: true,
     trial_available: false,
+    trial_without_oauth_enabled: true,
+    trial_requires_oauth: false,
     trial_without_telegram_enabled: true,
     trial_requires_telegram: false,
     trial_block_reason: "",

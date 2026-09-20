@@ -14,7 +14,8 @@ from bot.app.web.context import (
     get_subscription_service,
 )
 from bot.app.web.webapp.assets import _enforce_webapp_rate_limit, _get_cached_webapp_settings
-from bot.app.web.webapp.auth import _require_user_id, _trial_telegram_required_reason
+from bot.app.web.webapp.auth import _require_user_id
+from bot.app.web.webapp.auth_common import _trial_oauth_required_reason_for_user
 from bot.app.web.webapp.common import (
     _json_error,
     _parse_model_payload,
@@ -376,12 +377,20 @@ async def create_payment_route(request: web.Request) -> web.Response:
             return _json_error(403, "access_denied", "Access denied")
         lang = db_user.language_code or settings.DEFAULT_LANGUAGE
         if _sale_mode_base(sale_mode) == "trial":
-            telegram_required_reason = _trial_telegram_required_reason(settings, db_user)
-            if telegram_required_reason:
+            oauth_required_reason = await _trial_oauth_required_reason_for_user(
+                session,
+                settings,
+                db_user,
+            )
+            if oauth_required_reason:
                 return _json_error(
                     400,
-                    "trial_telegram_required",
-                    telegram_required_reason,
+                    (
+                        "trial_telegram_required"
+                        if oauth_required_reason == "disposable_email"
+                        else "trial_oauth_required"
+                    ),
+                    oauth_required_reason,
                 )
             if await subscription_service.has_trial_blocking_subscription(session, user_id):
                 return _json_error(

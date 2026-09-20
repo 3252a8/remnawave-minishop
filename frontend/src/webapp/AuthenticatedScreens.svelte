@@ -447,6 +447,7 @@
       {openRegularTopupModal}
       {openPremiumTopupModal}
       {openTariffChangeModal}
+      {goSecurity}
       goStatus={() => goStatus("home")}
       {openExternalLink}
       {serverStatusShowOnHome}
@@ -488,6 +489,7 @@
         trialError={trialActivationError}
         {activateTrial}
         {linkTelegramAndActivateTrial}
+        openSecurity={goSecurity}
         openInstallOrConnect={openTrialInstallOrConnect}
         {goHome}
         {t}

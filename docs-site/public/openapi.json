@@ -25981,6 +25981,9 @@
                             }
                           ]
                         },
+                        "trial_requires_oauth": {
+                          "type": "boolean"
+                        },
                         "trial_requires_telegram": {
                           "type": "boolean"
                         },
@@ -25989,6 +25992,9 @@
                         },
                         "trial_traffic_strategy": {
                           "type": "string"
+                        },
+                        "trial_without_oauth_enabled": {
+                          "type": "boolean"
                         },
                         "trial_without_telegram_enabled": {
                           "type": "boolean"
