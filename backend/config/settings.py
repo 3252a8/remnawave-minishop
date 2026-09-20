@@ -615,6 +615,8 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, TelegramTransport
             "Combine subscription status, traffic usage, and balance into one compact Home card."
         ),
     )
+    WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED: bool = Field(default=True)
+    WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT: bool = Field(default=False)
     WEBAPP_THEMES_DIR: str = Field(
         default="data/themes",
         description=(

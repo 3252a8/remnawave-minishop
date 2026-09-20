@@ -38,6 +38,18 @@ class SettingsTests(unittest.TestCase):
             self._settings(WEBAPP_COMPACT_HOME_ENABLED=True).webapp_settings.compact_home_enabled
         )
 
+    def test_checkout_addon_ux_defaults_and_overrides(self):
+        defaults = self._settings().webapp_settings
+        self.assertTrue(defaults.checkout_addon_value_animation_enabled)
+        self.assertFalse(defaults.checkout_addon_editor_expanded_by_default)
+
+        configured = self._settings(
+            WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED=False,
+            WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT=True,
+        ).webapp_settings
+        self.assertFalse(configured.checkout_addon_value_animation_enabled)
+        self.assertTrue(configured.checkout_addon_editor_expanded_by_default)
+
     def test_server_status_home_card_defaults_off_and_can_be_enabled(self):
         self.assertFalse(self._settings().SERVER_STATUS_SHOW_ON_HOME)
         self.assertTrue(self._settings(SERVER_STATUS_SHOW_ON_HOME=True).SERVER_STATUS_SHOW_ON_HOME)

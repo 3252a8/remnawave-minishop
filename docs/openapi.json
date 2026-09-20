@@ -13231,6 +13231,14 @@
             "title": "Authproviders",
             "type": "array"
           },
+          "checkoutAddonEditorExpandedByDefault": {
+            "title": "Checkoutaddoneditorexpandedbydefault",
+            "type": "boolean"
+          },
+          "checkoutAddonValueAnimationEnabled": {
+            "title": "Checkoutaddonvalueanimationenabled",
+            "type": "boolean"
+          },
           "checkoutPlans": {
             "items": {
               "additionalProperties": true,
@@ -13371,6 +13379,8 @@
           "title",
           "userThemeModeEnabled",
           "compactHomeEnabled",
+          "checkoutAddonValueAnimationEnabled",
+          "checkoutAddonEditorExpandedByDefault",
           "themesDir",
           "themePreviewKey",
           "logoUrl",

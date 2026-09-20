@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount } from "svelte";
+  import { onDestroy, onMount, untrack } from "svelte";
   import { ArrowDownUp, Pencil, SatelliteDish, Smartphone, X } from "$components/ui/icons.js";
   import Slider from "$components/ui/slider.svelte";
   import { formatMoney } from "$lib/webapp/formatters.js";
@@ -25,6 +25,8 @@
     method = "",
     currency = "RUB",
     disabled = false,
+    animateValues = true,
+    expandedByDefault = false,
     t = (key) => key,
     onChange = () => {},
     onInteractionChange = () => {},
@@ -37,6 +39,8 @@
     method?: string;
     currency?: string;
     disabled?: boolean;
+    animateValues?: boolean;
+    expandedByDefault?: boolean;
     t?: Translate;
     onChange?: (kind: CheckoutAddonKind, extraUnits: number) => void;
     onInteractionChange?: (active: boolean) => void;
@@ -48,7 +52,7 @@
     kinds.some((kind) => Number(addons[kind]?.options?.length || 0) > 1)
   );
   type CardPhase = "compact" | "opening" | "open" | "closing";
-  let phase = $state<CardPhase>("compact");
+  let phase = $state<CardPhase>(untrack(() => expandedByDefault) ? "open" : "compact");
   let phaseTimer: number | undefined;
   let sliderInteracting = $state(false);
   let titleDescriptionWrapped = $state(false);
@@ -294,6 +298,7 @@
         suffix={valueSuffix(kind)}
         ariaLabel={`${totalValue(kind)}${valueSuffix(kind)}`}
         format={{ maximumFractionDigits: 2 }}
+        animated={animateValues}
         replaceAnimations={sliderInteracting}
       />
     {:else}

@@ -239,6 +239,22 @@ SETTINGS_MANIFEST: list[SettingField] = [
         optional=False,
     ),
     SettingField(
+        "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED",
+        "bool",
+        "appearance",
+        "Animate tariff parameter values",
+        "Animate numeric values while tariff parameters change in checkout.",
+        optional=False,
+    ),
+    SettingField(
+        "WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT",
+        "bool",
+        "appearance",
+        "Expand tariff parameters by default",
+        "Open the tariff parameter editor when checkout is shown.",
+        optional=False,
+    ),
+    SettingField(
         "WEBAPP_DEFAULT_THEME",
         "string",
         "appearance",

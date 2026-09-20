@@ -43,3 +43,7 @@ def test_appearance_exposes_user_theme_mode_toggle():
     assert '"WEBAPP_COMPACT_HOME_ENABLED"' in source
     assert '"settings_field_webapp_compact_home_enabled_label"' in source
     assert "onCheckedChange={setCompactHomeEnabled}" in source
+    assert '"WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED"' in source
+    assert "onCheckedChange={setCheckoutAddonValueAnimationEnabled}" in source
+    assert '"WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT"' in source
+    assert "onCheckedChange={setCheckoutAddonEditorExpandedByDefault}" in source

@@ -344,6 +344,26 @@ export function adminFallbackResponse(
       if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_COMPACT_HOME_ENABLED")) {
         DEV_MOCK.config.compactHomeEnabled = Boolean(updates.WEBAPP_COMPACT_HOME_ENABLED);
       }
+      if (
+        Object.prototype.hasOwnProperty.call(
+          updates,
+          "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED"
+        )
+      ) {
+        DEV_MOCK.config.checkoutAddonValueAnimationEnabled = Boolean(
+          updates.WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED
+        );
+      }
+      if (
+        Object.prototype.hasOwnProperty.call(
+          updates,
+          "WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT"
+        )
+      ) {
+        DEV_MOCK.config.checkoutAddonEditorExpandedByDefault = Boolean(
+          updates.WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT
+        );
+      }
       if (Object.prototype.hasOwnProperty.call(updates, "SERVER_STATUS_SHOW_ON_HOME")) {
         DEV_MOCK.config.serverStatusShowOnHome = Boolean(updates.SERVER_STATUS_SHOW_ON_HOME);
       }
@@ -561,6 +581,20 @@ export function adminFallbackResponse(
               section: "appearance",
               label: "Compact Home screen",
               value: Boolean(DEV_MOCK.config.compactHomeEnabled),
+            },
+            {
+              key: "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED",
+              type: "bool",
+              section: "appearance",
+              label: "Animate tariff parameter values",
+              value: Boolean(DEV_MOCK.config.checkoutAddonValueAnimationEnabled),
+            },
+            {
+              key: "WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT",
+              type: "bool",
+              section: "appearance",
+              label: "Expand tariff parameters by default",
+              value: Boolean(DEV_MOCK.config.checkoutAddonEditorExpandedByDefault),
             },
             {
               key: "WEBAPP_LOGO_URL",

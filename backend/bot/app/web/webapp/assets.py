@@ -528,6 +528,12 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
             "primaryColor": webapp_settings.primary_color,
             "userThemeModeEnabled": bool(webapp_settings.user_theme_mode_enabled),
             "compactHomeEnabled": bool(webapp_settings.compact_home_enabled),
+            "checkoutAddonValueAnimationEnabled": bool(
+                webapp_settings.checkout_addon_value_animation_enabled
+            ),
+            "checkoutAddonEditorExpandedByDefault": bool(
+                webapp_settings.checkout_addon_editor_expanded_by_default
+            ),
             "themesCatalog": themes_payload,
             "themesDir": settings.WEBAPP_THEMES_DIR,
             "themePreviewKey": preview_key,

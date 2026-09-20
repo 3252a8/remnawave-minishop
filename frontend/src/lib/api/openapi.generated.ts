@@ -9040,6 +9040,10 @@ export interface components {
       appVersion: string;
       /** Authproviders */
       authProviders: string[];
+      /** Checkoutaddoneditorexpandedbydefault */
+      checkoutAddonEditorExpandedByDefault: boolean;
+      /** Checkoutaddonvalueanimationenabled */
+      checkoutAddonValueAnimationEnabled: boolean;
       /** Checkoutplans */
       checkoutPlans?: {
         [key: string]: unknown;

@@ -205,6 +205,12 @@
   const serverStatusInternal = $derived(cfg.serverStatusInternal === true);
   const serverStatusShowOnHome = $derived(cfg.serverStatusShowOnHome === true);
   const compactHomeEnabled = $derived(cfg.compactHomeEnabled === true);
+  const checkoutAddonValueAnimationEnabled = $derived(
+    cfg.checkoutAddonValueAnimationEnabled !== false
+  );
+  const checkoutAddonEditorExpandedByDefault = $derived(
+    cfg.checkoutAddonEditorExpandedByDefault === true
+  );
   const serverStatusUrl = $derived(accountView.serverStatusUrl);
   const supportUrl = $derived(accountView.supportUrl);
   const telegramNotificationsNeedPrompt = $derived(accountView.telegramNotificationsNeedPrompt);
@@ -366,6 +372,8 @@
     {methods}
     {paymentMethodsDisplayMode}
     {pendingPayment}
+    {checkoutAddonValueAnimationEnabled}
+    {checkoutAddonEditorExpandedByDefault}
     {t}
     {termUnitLabel}
     onactivated={async () => {
@@ -534,6 +542,8 @@
         {tariffCatalog}
         {tariffMode}
         {trafficMode}
+        {checkoutAddonValueAnimationEnabled}
+        {checkoutAddonEditorExpandedByDefault}
         closePaymentModal={billingStore.closePaymentModal}
         checkoutPromoInput={billingStore.checkoutPromoInput}
         checkoutPromoAppliedCode={billingStore.checkoutPromoAppliedCode}
@@ -729,6 +739,8 @@
       {tariffMode}
       {termUnitLabel}
       {trafficMode}
+      {checkoutAddonValueAnimationEnabled}
+      {checkoutAddonEditorExpandedByDefault}
       {user}
     />
   {/if}

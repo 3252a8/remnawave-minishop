@@ -106,6 +106,8 @@ export const FALLBACK_WEBAPP_CONFIG: WebappConfig = {
   serverStatusShowOnHome: false,
   serverStatusUrl: "",
   compactHomeEnabled: false,
+  checkoutAddonValueAnimationEnabled: true,
+  checkoutAddonEditorExpandedByDefault: false,
   supportUrl: "",
   telegramLoginBotId: 0,
   telegramLoginBotUsername: "",

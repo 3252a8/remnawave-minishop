@@ -46,6 +46,10 @@ class WebappBootstrapConfigOut(HttpResponseModel):
     primary_color: str | None = Field(default=None, alias="primaryColor")
     user_theme_mode_enabled: bool = Field(alias="userThemeModeEnabled")
     compact_home_enabled: bool = Field(alias="compactHomeEnabled")
+    checkout_addon_value_animation_enabled: bool = Field(alias="checkoutAddonValueAnimationEnabled")
+    checkout_addon_editor_expanded_by_default: bool = Field(
+        alias="checkoutAddonEditorExpandedByDefault"
+    )
     themes_catalog: dict[str, Any] = Field(default_factory=dict, alias="themesCatalog")
     themes_dir: str = Field(alias="themesDir")
     theme_preview_key: str = Field(alias="themePreviewKey")

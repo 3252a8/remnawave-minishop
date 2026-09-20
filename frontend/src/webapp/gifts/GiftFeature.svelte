@@ -32,6 +32,8 @@
     methods,
     paymentMethodsDisplayMode = "dropdown",
     pendingPayment = null,
+    checkoutAddonValueAnimationEnabled = true,
+    checkoutAddonEditorExpandedByDefault = false,
     t,
     termUnitLabel,
     onactivated = () => {},
@@ -49,6 +51,8 @@
     termUnitLabel: TermUnitLabel;
     onactivated?: () => unknown;
     pendingPayment?: PendingPaymentView | null;
+    checkoutAddonValueAnimationEnabled?: boolean;
+    checkoutAddonEditorExpandedByDefault?: boolean;
   } = $props();
   let plans = $state<PlanView[]>([]);
   let preview = $state<GiftView | null>(null);
@@ -374,6 +378,8 @@
   selectedTariffPlans={selectedPlans}
   methods={paymentMethods}
   {paymentMethodsDisplayMode}
+  {checkoutAddonValueAnimationEnabled}
+  {checkoutAddonEditorExpandedByDefault}
   singleTariffMode={catalog.length === 1}
   hasMultipleTariffs={catalog.length > 1}
   bind:paymentModalOpen={billing.paymentModalOpen}

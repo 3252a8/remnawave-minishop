@@ -329,6 +329,22 @@ def test_compact_home_toggle_is_an_appearance_setting():
         assert field["i18n_description_key"] in messages
 
 
+def test_checkout_addon_ux_toggles_are_appearance_settings():
+    manifest = _manifest_by_key()
+    for key in (
+        "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED",
+        "WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT",
+    ):
+        field = manifest[key]
+        assert field["type"] == "bool"
+        assert field["section"] == "appearance"
+        assert field["section_order"] == 2
+        for language in ("ru", "en"):
+            messages = _locale(language)
+            assert field["i18n_label_key"] in messages
+            assert field["i18n_description_key"] in messages
+
+
 def test_recommended_login_method_toggles_are_localized():
     manifest = _manifest_by_key()
     expected_subsections = {

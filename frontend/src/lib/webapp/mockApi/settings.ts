@@ -23,6 +23,10 @@ function demoRuntimeSettingValue(key: string): unknown {
     GIFTS_ENABLED: DEV_MOCK.config.giftsEnabled ?? true,
     WEBAPP_USER_THEME_MODE_ENABLED: DEV_MOCK.config.userThemeModeEnabled ?? true,
     WEBAPP_COMPACT_HOME_ENABLED: DEV_MOCK.config.compactHomeEnabled ?? false,
+    WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED:
+      DEV_MOCK.config.checkoutAddonValueAnimationEnabled ?? true,
+    WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT:
+      DEV_MOCK.config.checkoutAddonEditorExpandedByDefault ?? false,
     SERVER_STATUS_SHOW_ON_HOME: DEV_MOCK.config.serverStatusShowOnHome ?? false,
     TRIAL_WITHOUT_TELEGRAM_ENABLED: DEV_MOCK.config.trialWithoutTelegramEnabled ?? true,
     REFERRAL_PROGRAM_ENABLED:
@@ -101,6 +105,12 @@ function applyDemoSettingToMock(key: string, value: unknown): void {
   }
   if (key === "WEBAPP_COMPACT_HOME_ENABLED") {
     DEV_MOCK.config.compactHomeEnabled = Boolean(value);
+  }
+  if (key === "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED") {
+    DEV_MOCK.config.checkoutAddonValueAnimationEnabled = Boolean(value);
+  }
+  if (key === "WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT") {
+    DEV_MOCK.config.checkoutAddonEditorExpandedByDefault = Boolean(value);
   }
   if (key === "SERVER_STATUS_SHOW_ON_HOME") {
     DEV_MOCK.config.serverStatusShowOnHome = Boolean(value);

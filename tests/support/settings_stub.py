@@ -164,6 +164,8 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "MENU_BUTTONS_JSON": "[]",
     "WEBAPP_PRIMARY_COLOR": "#00fe7a",
     "WEBAPP_COMPACT_HOME_ENABLED": False,
+    "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED": True,
+    "WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT": False,
     "WEBAPP_SERVER_HOST": "0.0.0.0",
     "WEBAPP_SERVER_PORT": 8080,
     "WEBAPP_SESSION_SECRET": "test-session-secret",
@@ -231,6 +233,12 @@ class SettingsStub(SimpleNamespace):
             primary_color=getattr(self, "WEBAPP_PRIMARY_COLOR", "#00fe7a"),
             user_theme_mode_enabled=bool(getattr(self, "WEBAPP_USER_THEME_MODE_ENABLED", True)),
             compact_home_enabled=bool(getattr(self, "WEBAPP_COMPACT_HOME_ENABLED", False)),
+            checkout_addon_value_animation_enabled=bool(
+                getattr(self, "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED", True)
+            ),
+            checkout_addon_editor_expanded_by_default=bool(
+                getattr(self, "WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT", False)
+            ),
             logo_url=getattr(self, "WEBAPP_LOGO_URL", None),
             favicon_use_custom=bool(getattr(self, "WEBAPP_FAVICON_USE_CUSTOM", False)),
             favicon_url=getattr(self, "WEBAPP_FAVICON_URL", None),
