@@ -6,6 +6,7 @@ import {
   type ApiResponseFor,
 } from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
+import { fetchAdminQuery, type AdminQueryClient } from "./adminQueryCache";
 import { snapshotForPayload } from "./snapshotForPayload.svelte";
 import { effectiveServerStatusProvider, isKumaStatusPageUrlValid } from "../serverStatusSettings";
 
@@ -115,9 +116,11 @@ type SettingsStoreOptions = {
   api: AdminApi;
   onToast: ToastFn;
   at: TranslateFn;
+  queryClient?: AdminQueryClient | null;
 };
+type LoadSettingsOptions = { refresh?: boolean };
 export type SettingsStore = SettingsState & {
-  loadSettings: () => Promise<void>;
+  loadSettings: (options?: LoadSettingsOptions) => Promise<void>;
   /**
    * Lets a settings section that writes another contract (for example the
    * referral bonus matrix, which patches the tariff catalog) hang off the one
@@ -148,7 +151,14 @@ function notAppliedKeys(response: unknown): string[] {
   return Array.isArray(value) ? value.map((key) => String(key)) : [];
 }
 
-export function createSettingsStore({ api, onToast, at }: SettingsStoreOptions): SettingsStore {
+const SETTINGS_QUERY_KEY = ["admin", "settings"] as const;
+
+export function createSettingsStore({
+  api,
+  onToast,
+  at,
+  queryClient,
+}: SettingsStoreOptions): SettingsStore {
   const state = $state<SettingsStore>({
     settingsSections: [],
     features: [],
@@ -193,10 +203,15 @@ export function createSettingsStore({ api, onToast, at }: SettingsStoreOptions):
     Object.assign(state, next);
   }
 
-  async function loadSettings(): Promise<void> {
+  async function loadSettings({ refresh = false }: LoadSettingsOptions = {}): Promise<void> {
     updateState((s) => ({ ...s, settingsLoading: true, settingsDirty: {} }));
     try {
-      const data = await api(buildAdminSettingsPath());
+      const data = await fetchAdminQuery({
+        queryClient,
+        queryKey: SETTINGS_QUERY_KEY,
+        queryFn: () => api(buildAdminSettingsPath()),
+        refresh,
+      });
       if (isOkResponse(data)) {
         const result = unwrap(data);
         updateState((s) => ({
@@ -332,7 +347,7 @@ export function createSettingsStore({ api, onToast, at }: SettingsStoreOptions):
         );
         applySavedSettings(updates, deletes);
         if (onSettingsSaved) await onSettingsSaved({ updates, deletes });
-        await loadSettings();
+        await loadSettings({ refresh: true });
         return true;
       } else if (res?.errors) {
         const summary = Object.entries(res.errors)

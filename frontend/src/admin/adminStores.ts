@@ -67,7 +67,12 @@ export function createAdminStores({
   // Keep each store's narrower endpoint contract at this composition boundary.
   // Expanding every route into one contextual union exceeds TypeScript's
   // representable-union limit as the generated OpenAPI surface grows.
-  const settingsStore = createSettingsStore({ api: api as never, onToast, at });
+  const settingsStore = createSettingsStore({
+    api: api as never,
+    onToast,
+    at,
+    queryClient: adminQueryClient,
+  });
   const adsStore = createAdsStore({ api: api as never, onToast, at });
   const backupsStore = createBackupsStore({ api: api as never, onToast, at });
   const broadcastStore = createBroadcastStore({ api: api as never, onToast, at });
@@ -121,7 +126,12 @@ export function createAdminStores({
     flash: onToast,
     at,
   });
-  const translationsStore = createTranslationsStore({ api: api as never, onToast, at });
+  const translationsStore = createTranslationsStore({
+    api: api as never,
+    onToast,
+    at,
+    queryClient: adminQueryClient,
+  });
   const usersStore = createUsersStore({
     api: api as never,
     onToast,

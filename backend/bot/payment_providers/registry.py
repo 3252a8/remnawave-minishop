@@ -507,14 +507,6 @@ def iter_provider_manifest_fields() -> Iterable[tuple[PaymentProviderSpec, Provi
             yield spec, admin_only_field
 
 
-def find_manifest_owner(key: str) -> tuple[PaymentProviderSpec, ProviderManifestField] | None:
-    """Find which provider owns a manifest key (if any)."""
-    for spec, field in iter_provider_manifest_fields():
-        if field.key == key:
-            return spec, field
-    return None
-
-
 def provider_admin_only_manifest_field(
     spec: PaymentProviderSpec,
 ) -> ProviderManifestField | None:
@@ -540,6 +532,26 @@ def provider_admin_only_manifest_field(
         i18n_label_key="admin_settings_provider_admin_only_label",
         i18n_description_key="admin_settings_provider_admin_only_description",
     )
+
+
+def _build_manifest_owner_index() -> dict[str, tuple[PaymentProviderSpec, ProviderManifestField]]:
+    owners: dict[str, tuple[PaymentProviderSpec, ProviderManifestField]] = {}
+    for spec, field in iter_provider_manifest_fields():
+        # Preserve the old linear search semantics for shared provider fields:
+        # the first registered SPEC owns the key.
+        owners.setdefault(field.key, (spec, field))
+    return owners
+
+
+# Provider SPECs are process-static. Settings serialization resolves every
+# manifest key twice, so indexing once avoids hundreds of thousands of repeated
+# comparisons on every admin settings request.
+_MANIFEST_OWNER_BY_KEY = _build_manifest_owner_index()
+
+
+def find_manifest_owner(key: str) -> tuple[PaymentProviderSpec, ProviderManifestField] | None:
+    """Find which provider owns a manifest key (if any)."""
+    return _MANIFEST_OWNER_BY_KEY.get(key)
 
 
 def provider_admin_only_pairs() -> list[tuple[str, str]]:

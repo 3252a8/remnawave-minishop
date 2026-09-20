@@ -6,6 +6,7 @@ import {
   type ApiResponseFor,
 } from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
+import { fetchAdminQuery, type AdminQueryClient } from "./adminQueryCache";
 import { defineRawStateProperty } from "./rawStateProperty";
 import { snapshotForPayload } from "./snapshotForPayload.svelte";
 
@@ -81,9 +82,11 @@ type TranslationsStoreOptions = {
   api: AdminApi;
   onToast: ToastFn;
   at: TranslateFn;
+  queryClient?: AdminQueryClient | null;
 };
+type LoadTranslationsOptions = { refresh?: boolean };
 export type TranslationsStore = TranslationsState & {
-  loadTranslations: () => Promise<void>;
+  loadTranslations: (options?: LoadTranslationsOptions) => Promise<void>;
   markDirty: (lang: string, key: string, value: string, deleted?: boolean) => void;
   clearDirty: (lang: string, key: string) => void;
   resetField: (lang: string, key: string, overridden: boolean) => void;
@@ -133,10 +136,14 @@ function normalizeLanguages(languages: unknown): TranslationLanguage[] {
   return Array.isArray(languages) ? (languages as TranslationLanguage[]) : [];
 }
 
+const TRANSLATIONS_QUERY_KEY = ["admin", "translations"] as const;
+const TRANSLATIONS_STALE_MS = 60 * 1000;
+
 export function createTranslationsStore({
   api,
   onToast,
   at,
+  queryClient,
 }: TranslationsStoreOptions): TranslationsStore {
   let translationGroups = $state.raw<TranslationGroup[]>([]);
   let translationLanguages = $state.raw<TranslationLanguage[]>([]);
@@ -181,10 +188,18 @@ export function createTranslationsStore({
     Object.assign(state, nextState);
   }
 
-  async function loadTranslations(): Promise<void> {
+  async function loadTranslations({
+    refresh = false,
+  }: LoadTranslationsOptions = {}): Promise<void> {
     updateState((s) => ({ ...s, translationsLoading: true, translationsDirty: {} }));
     try {
-      const data = await api(buildAdminTranslationsPath());
+      const data = await fetchAdminQuery({
+        queryClient,
+        queryKey: TRANSLATIONS_QUERY_KEY,
+        queryFn: () => api(buildAdminTranslationsPath()),
+        refresh,
+        staleTime: TRANSLATIONS_STALE_MS,
+      });
       if (isOkResponse(data)) {
         const result = unwrap(data);
         updateState((s) => ({
@@ -287,7 +302,7 @@ export function createTranslationsStore({
         );
         updateState((s) => ({ ...s, translationsDirty: {} }));
         if (onTranslationsSaved) await onTranslationsSaved({ updates, deletes });
-        await loadTranslations();
+        await loadTranslations({ refresh: true });
         return true;
       }
       if (res?.errors) {
