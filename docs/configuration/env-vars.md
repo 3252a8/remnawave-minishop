@@ -725,6 +725,8 @@ docker compose exec backend sh -lc 'curl -4fsS https://api.ipify.org; echo'
 
 | Переменная | Назначение |
 | --- | --- |
+| `WATA_ENABLED` | Включить обычные разовые платежи Wata. |
+| `WATA_ADMIN_ONLY_ENABLED` | Показывать обычные платежи Wata только администраторам. |
 | `WATA_BASE_URL` | Базовый URL API. |
 | `WATA_API_TOKEN` | Bearer-токен. |
 | `WATA_RETURN_URL` | URL успешного возврата. |
@@ -733,6 +735,12 @@ docker compose exec backend sh -lc 'curl -4fsS https://api.ipify.org; echo'
 | `WATA_WEBHOOK_VERIFY_SIGNATURE` | Проверять `X-Signature`. |
 | `WATA_PUBLIC_KEY` | Закешированный публичный ключ; если пусто, загружается из API. |
 | `WATA_TRUSTED_IPS` | Список доверенных IP webhook-источников. |
+| `WATA_SUBSCRIPTION_ENABLED` | Включить отдельный способ оплаты с расписанием на стороне Wata. На терминале должны быть подключены подписки. |
+| `WATA_SUBSCRIPTION_ADMIN_ONLY_ENABLED` | Показывать рекуррентный способ Wata только администраторам. |
+| `WATA_SUBSCRIPTION_MAX_PERIODS` | Максимальное число периодов новой подписки Wata (по умолчанию `120`). |
+| `PAYMENT_WATA_SUBSCRIPTION_WEBAPP_LABEL_RU` | Текст кнопки рекуррентного способа Wata на русском. |
+| `PAYMENT_WATA_SUBSCRIPTION_WEBAPP_LABEL_EN` | Текст кнопки рекуррентного способа Wata на английском. |
+| `PAYMENT_WATA_SUBSCRIPTION_WEBAPP_ICON` | Lucide-иконка рекуррентного способа Wata. |
 
 ### CryptoPay
 

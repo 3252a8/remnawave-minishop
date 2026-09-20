@@ -1,3 +1,21 @@
+.gift-checkout-dialog > .dialog-head {
+  position: relative;
+  display: block;
+}
+
+.gift-checkout-dialog .dialog-close-button {
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.gift-checkout-dialog .payment-checkout-header h2 {
+  padding-right: 44px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+}
+
 .gift-checkout-dialog .payment-dialog-body {
   gap: 8px;
 }

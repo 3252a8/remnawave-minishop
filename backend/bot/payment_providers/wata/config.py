@@ -16,6 +16,7 @@ from ..shared import first_value
 
 WATA_PROVIDER = "wata"
 WATA_CRYPTO_PROVIDER = "wata_crypto"
+WATA_SUBSCRIPTION_PROVIDER = "wata_subscription"
 WATA_SUPPORTED_CURRENCIES = ("RUB", "USD", "EUR")
 _WATA_SUPPORTED_CURRENCIES_DEFAULT = ",".join(WATA_SUPPORTED_CURRENCIES)
 _WATA_IN_PROGRESS_STATUSES = {"created", "pending"}
@@ -118,6 +119,7 @@ class WataConfig(ProviderEnvConfig):
     )
 
     ENABLED: bool = Field(default=False)
+    ADMIN_ONLY_ENABLED: bool = Field(default=False)
     API_TOKEN: str | None = None
     TERMINAL_ID: str | None = None
     TERMINAL_PUBLIC_ID: str | None = None
@@ -126,6 +128,9 @@ class WataConfig(ProviderEnvConfig):
     FAILED_URL: str | None = None
     LINK_TTL_MINUTES: int = Field(default=_WATA_LINK_DEFAULT_TTL_MINUTES)
     SUPPORTED_CURRENCIES: str = Field(default=_WATA_SUPPORTED_CURRENCIES_DEFAULT)
+    SUBSCRIPTION_ENABLED: bool = Field(default=False)
+    SUBSCRIPTION_ADMIN_ONLY_ENABLED: bool = Field(default=False)
+    SUBSCRIPTION_MAX_PERIODS: int = Field(default=120, ge=1, le=2147483647)
     CRYPTO_ENABLED: bool = Field(default=False)
     CRYPTO_ADMIN_ONLY_ENABLED: bool = Field(default=False)
     CRYPTO_API_TOKEN: str | None = None
@@ -228,7 +233,14 @@ class WataConfig(ProviderEnvConfig):
 
     @property
     def fiat_runtime_enabled(self) -> bool:
-        return bool(provider_runtime_enabled(self) and self.fiat_profile.configured)
+        return bool(
+            (
+                provider_runtime_enabled(self)
+                or self.SUBSCRIPTION_ENABLED
+                or self.SUBSCRIPTION_ADMIN_ONLY_ENABLED
+            )
+            and self.fiat_profile.configured
+        )
 
     @property
     def crypto_runtime_enabled(self) -> bool:
@@ -268,3 +280,16 @@ class WataCryptoPresentation(ProviderEnvConfig):
     TELEGRAM_LABEL_RU: str | None = None
     TELEGRAM_LABEL_EN: str | None = None
     TELEGRAM_EMOJI: str | None = None
+
+
+class WataSubscriptionPresentation(ProviderEnvConfig):
+    model_config = SettingsConfigDict(
+        env_file=provider_env_file(),
+        env_file_encoding="utf-8",
+        env_prefix="PAYMENT_WATA_SUBSCRIPTION_",
+        extra="ignore",
+    )
+
+    WEBAPP_LABEL_RU: str | None = None
+    WEBAPP_LABEL_EN: str | None = None
+    WEBAPP_ICON: str | None = None

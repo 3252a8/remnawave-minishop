@@ -115,6 +115,8 @@ class WebAppPaymentContext:
     stars_price: int | None
     description: str
     sale_mode: str
+    payer_email: str | None = None
+    payer_phone: str | None = None
     currency: str = "RUB"
     duration_days: int | None = None
     subscription_terms_snapshot: str | None = None

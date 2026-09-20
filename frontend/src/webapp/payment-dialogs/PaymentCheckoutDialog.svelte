@@ -29,6 +29,7 @@
   } from "$lib/webapp/checkoutBalancePreload.svelte.js";
   import { formatCompactNumber, formatMoney } from "$lib/webapp/formatters.js";
   import { buildSubscriptionQuotePath, type PostPayload } from "$lib/webapp/publicApi.js";
+  import * as wataCheckout from "$lib/webapp/wataSubscriptionCheckout.js";
   import {
     planKey as planKeyFn,
     planDisplayTitle as planDisplayTitleFn,
@@ -265,7 +266,11 @@
   }
 
   function checkoutPaymentOptions(): CheckoutPaymentOptions {
-    return { balanceSource, checkoutAddons: checkoutAddonSelection };
+    return {
+      balanceSource,
+      checkoutAddons: checkoutAddonSelection,
+      ...wataCheckout.wataSubscriptionContacts(selectedMethod, payerEmail, payerPhone),
+    };
   }
 
   function checkoutQuotePlan(plan: PlanView | null): PlanView | null {
@@ -637,6 +642,19 @@
 
   let balanceSource = $state<"user" | "partner" | null>(null);
   let partnerBalanceDiscount = $state(0);
+  let payerEmail = $state("");
+  let payerPhone = $state("");
+
+  $effect(() => {
+    if (wataCheckout.isWataSubscriptionMethod(selectedMethod)) {
+      balanceSource = null;
+      partnerBalanceDiscount = 0;
+    }
+    if (!paymentModalOpen) {
+      payerEmail = "";
+      payerPhone = "";
+    }
+  });
 
   function checkoutAmount(plan: PlanView | null) {
     const quotedAmount = Number(checkoutQuote?.effective_amount);
@@ -663,6 +681,7 @@
       selectedMethod &&
       checkoutAmount(selectedPlan) > 0 &&
       !methodUsesStars() &&
+      !wataCheckout.isWataSubscriptionMethod(selectedMethod) &&
       !providerManagesPrice()
     );
   }
@@ -726,6 +745,8 @@
     hasMethods={Boolean(methods.length)}
     {paymentMethods}
     {selectedMethod}
+    bind:payerEmail
+    bind:payerPhone
     {paymentMethodsDisplayMode}
     {selectPaymentMethod}
     {checkoutQuoteError}
@@ -742,6 +763,7 @@
       payBusy ||
       checkoutQuoteBusy ||
       Boolean(checkoutQuoteError) ||
+      !wataCheckout.wataSubscriptionContactsValid(selectedMethod, payerEmail, payerPhone) ||
       (checkoutAddonsSelected() && checkoutAddonsUnavailableForMethod(selectedPlan))}
     createPayment={() => createPayment(checkoutPaymentOptions())}
     partnerPrice={partnerCheckoutPriceParts(selectedPlan)}
@@ -974,26 +996,3 @@
     {@render paymentBody()}
   </Dialog>
 {/if}
-
-<style>
-  :global(.gift-checkout-dialog > .dialog-head) {
-    position: relative;
-    display: block;
-  }
-  :global(.gift-checkout-dialog .dialog-close-button) {
-    position: absolute;
-    right: 0;
-    top: 0;
-  }
-  :global(.gift-checkout-dialog .payment-checkout-header h2) {
-    padding-right: 44px;
-    min-height: 36px;
-    display: flex;
-    align-items: center;
-  }
-  .inline-payment-checkout {
-    display: grid;
-    gap: 18px;
-    min-width: 0;
-  }
-</style>

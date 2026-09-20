@@ -12,6 +12,7 @@ TariffKeyString = Annotated[str, StringConstraints(min_length=1, max_length=128)
 OptionalTariffKeyString = Annotated[str, StringConstraints(max_length=128)]
 SaleModeString = Annotated[str, StringConstraints(max_length=64)]
 LongTextString = Annotated[str, StringConstraints(max_length=4096)]
+PayerPhoneString = Annotated[str, StringConstraints(max_length=32)]
 ChangeModeString = Annotated[str, StringConstraints(min_length=1, max_length=64)]
 LanguageString = Annotated[str, StringConstraints(min_length=2, max_length=16)]
 DeviceTokenString = Annotated[str, StringConstraints(min_length=8, max_length=128)]
@@ -142,6 +143,8 @@ class WebAppPaymentCreatePayload(BaseModel):
     method: str = ""
     gift: bool = False
     gift_recipient_email: EmailStr | None = None
+    payer_email: EmailStr | None = None
+    payer_phone: PayerPhoneString | None = None
     months: Any = None
     duration_days: int | None = Field(default=None, strict=True, gt=0, le=2147483647)
     traffic_gb: Any = None

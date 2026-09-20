@@ -52,6 +52,7 @@ PAYMENT_PROVIDER_SPECS: tuple[PaymentProviderSpec, ...] = (
     severpay.SPEC,
     wata.SPEC,
     wata.CRYPTO_SPEC,
+    wata.SUBSCRIPTION_SPEC,
     yookassa.SPEC,
     stars.SPEC,
     cryptopay.SPEC,

@@ -217,6 +217,29 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 user_id,
             )
             return None
+        if str(getattr(sub, "provider", "") or "").strip().lower() == "wata" and bool(
+            getattr(sub, "auto_renew_enabled", False)
+        ):
+            from bot.infra.auto_renew import stop_provider_managed_recurrence
+
+            stopped = await stop_provider_managed_recurrence(
+                self,
+                session,
+                user_id=user_id,
+                provider="wata",
+            )
+            if not stopped:
+                logger.warning(
+                    "Rejecting tariff switch for user %s because Wata recurrence could not stop",
+                    user_id,
+                )
+                return None
+            logger.info(
+                "Stopped Wata recurrence for user %s before tariff switch %s -> %s",
+                user_id,
+                sub.tariff_key,
+                target.key,
+            )
         before_tariff_key = sub.tariff_key
         now = datetime.now(UTC)
         trial_provider = str(getattr(sub, "provider", "") or "").strip().lower() == "trial"

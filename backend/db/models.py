@@ -975,6 +975,7 @@ from db import broadcast_models as broadcast_models  # noqa: E402
 from db import gift_models as gift_models  # noqa: E402
 from db import message_image_models as message_image_models  # noqa: E402
 from db import partner_models as partner_models  # noqa: E402
+from db import wata_models as wata_models  # noqa: E402
 
 AdAttribution = activity_models.AdAttribution
 AdCampaign = activity_models.AdCampaign
@@ -992,3 +993,4 @@ AdminBroadcast = broadcast_models.AdminBroadcast
 AdminBroadcastDelivery = broadcast_models.AdminBroadcastDelivery
 MessageImage = message_image_models.MessageImage
 UserBalanceLedgerEntry = balance_models.UserBalanceLedgerEntry
+WataSubscription = wata_models.WataSubscription

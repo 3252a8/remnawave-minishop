@@ -27,6 +27,7 @@ from db.models import (
     UserBilling,
     UserPanelSquadOverride,
     UserPaymentMethod,
+    WataSubscription,
 )
 
 _LIVE_PLATEGA_STATUSES = ("active", "past_due")
@@ -37,6 +38,7 @@ _LIVE_ROLLYPAY_STATUSES = (
     "review",
     "stop_pending",
 )
+_LIVE_WATA_STATUSES = ("active",)
 
 
 @dataclass(frozen=True, slots=True)
@@ -370,6 +372,7 @@ async def transfer_entitlement_ownership(
         TributeEntitlement,
         TributeProductPurchase,
         UserBalanceLedgerEntry,
+        WataSubscription,
     ):
         await session.execute(
             update(model).where(model.user_id == source_user_id).values(user_id=target_user_id)
@@ -416,6 +419,15 @@ async def inspect_recurring_merge(
                 .where(
                     RollyPaySubscription.user_id == user_id,
                     RollyPaySubscription.billing_status.in_(_LIVE_ROLLYPAY_STATUSES),
+                )
+                .limit(1),
+            ),
+            (
+                "wata",
+                select(WataSubscription.id)
+                .where(
+                    WataSubscription.user_id == user_id,
+                    WataSubscription.status.in_(_LIVE_WATA_STATUSES),
                 )
                 .limit(1),
             ),

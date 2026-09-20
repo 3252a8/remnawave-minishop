@@ -12781,6 +12781,32 @@
             "default": null,
             "title": "Note"
           },
+          "payer_email": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payer Email"
+          },
+          "payer_phone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payer Phone"
+          },
           "promo_code": {
             "anyOf": [
               {
@@ -12993,6 +13019,32 @@
             "default": null,
             "title": "Note"
           },
+          "payer_email": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payer Email"
+          },
+          "payer_phone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payer Phone"
+          },
           "promo_code": {
             "maxLength": 32,
             "minLength": 1,
@@ -13194,6 +13246,32 @@
             ],
             "default": null,
             "title": "Note"
+          },
+          "payer_email": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payer Email"
+          },
+          "payer_phone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payer Phone"
           },
           "promo_code": {
             "anyOf": [

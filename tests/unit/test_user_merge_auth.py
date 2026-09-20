@@ -147,6 +147,7 @@ async def _merge_keeps_established_email_and_notification_and_moves_auth_methods
         "user_external_identities",
         "user_panel_squad_overrides",
         "user_passkey_credentials",
+        "wata_subscriptions",
     } <= updated_tables
 
 

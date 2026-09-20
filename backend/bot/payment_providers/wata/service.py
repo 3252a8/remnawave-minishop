@@ -49,6 +49,7 @@ from .link_expiration import (
 )
 from .payment_links import WataPaymentLinkMixin
 from .rate_limit import WataGetRateLimiter, retry_after_seconds
+from .subscriptions import WataSubscriptionMixin
 
 if TYPE_CHECKING:
     from bot.services.referral_service import ReferralService
@@ -60,7 +61,7 @@ else:
 logger = logging.getLogger(__name__)
 
 
-class WataService(WataPaymentLinkMixin, HttpClientMixin):
+class WataService(WataPaymentLinkMixin, WataSubscriptionMixin, HttpClientMixin):
     def __init__(
         self,
         *,
@@ -90,7 +91,7 @@ class WataService(WataPaymentLinkMixin, HttpClientMixin):
 
     @property
     def configured(self) -> bool:
-        return bool(self.config.fiat_runtime_enabled or self.config.crypto_runtime_enabled)
+        return bool(self.config.fiat_profile.configured or self.config.crypto_profile.configured)
 
     async def _rate_limited_get_json(
         self,
@@ -739,6 +740,20 @@ class WataService(WataPaymentLinkMixin, HttpClientMixin):
         except Exception:
             logger.exception("Wata webhook: failed to parse JSON.")
             return web.Response(status=400, text="bad_request")
+
+        event_type = str(payload.get("eventType") or "").strip().lower()
+        subscription_id = str(payload.get("subscriptionId") or "").strip()
+        if event_type == "subscription_status_changed" or subscription_id:
+            profile = self.profile_for_method(WATA_PROVIDER)
+            if profile_hint and profile_hint.provider != WATA_PROVIDER:
+                return web.Response(status=403, text="terminal_mismatch")
+            if self.verify_webhook_signature and profile_hint is None:
+                signature = request.headers.get("X-Signature", "")
+                if not await self._verify_signature(raw_body, signature, profile=profile):
+                    return web.Response(status=403, text="invalid_signature")
+            if event_type == "subscription_status_changed":
+                return await self.handle_subscription_status(payload, profile=profile)
+            return await self.handle_subscription_transaction(payload, profile=profile)
 
         transaction_id = str(payload.get("transactionId") or "").strip()
         payment_link_id = str(payload.get("paymentLinkId") or payload.get("id") or "").strip()

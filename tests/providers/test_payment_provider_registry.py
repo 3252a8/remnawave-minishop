@@ -13,10 +13,12 @@ from bot.payment_providers import (
     get_provider_spec,
     iter_provider_specs,
     iter_service_keys,
+    managed_recurring_provider_services,
     pending_statuses,
     provider_admin_only_pairs,
     provider_emoji_map,
     provider_label_map,
+    provider_manages_recurring,
     provider_supports_recurring,
     provider_telegram_button_text,
     recurring_provider_services,
@@ -94,14 +96,17 @@ def test_every_provider_module_owns_its_service_and_spec():
         assert hasattr(module, "SPEC") or hasattr(module, "SPECS")
 
 
-def test_wata_registers_card_and_crypto_specs_on_one_service():
+def test_wata_registers_one_off_crypto_and_subscription_specs_on_one_service():
     spec = get_provider_spec("wata")
     crypto_spec = get_provider_spec("wata_crypto")
+    subscription_spec = get_provider_spec("wata_subscription")
 
     assert spec is not None
     assert crypto_spec is not None
+    assert subscription_spec is not None
     assert spec.service_key == "wata_service"
     assert crypto_spec.service_key == "wata_service"
+    assert subscription_spec.service_key == "wata_service"
     assert spec.pending_status == "pending_wata"
     assert crypto_spec.pending_status == "pending_wata"
     assert spec.callback_prefix == "pay_wata"
@@ -111,6 +116,11 @@ def test_wata_registers_card_and_crypto_specs_on_one_service():
     assert spec.webhook_route is not None
     assert spec.create_webapp_payment is not None
     assert crypto_spec.create_webapp_payment is not None
+    assert subscription_spec.create_webapp_payment is not None
+    assert subscription_spec.manages_recurring
+    assert not subscription_spec.supports_recurring
+    assert provider_manages_recurring("wata")
+    assert provider_manages_recurring("wata_subscription")
 
 
 def test_yookassa_provider_keeps_autorenew_entrypoints_local():
@@ -148,6 +158,15 @@ def test_recurring_provider_registry_includes_saved_method_providers():
     assert "wata" not in recurring
     assert provider_supports_recurring("cloudpayments")
     assert provider_supports_recurring("stripe")
+
+
+def test_managed_recurring_registry_includes_wata_without_local_charging():
+    wata_service = SimpleNamespace()
+
+    managed = managed_recurring_provider_services({"wata_service": wata_service})
+
+    assert managed["wata"] is wata_service
+    assert not provider_supports_recurring("wata")
 
 
 def test_every_payment_method_has_registry_driven_webapp_creator():

@@ -8794,6 +8794,16 @@ export interface components {
        */
       note: string | null;
       /**
+       * Payer Email
+       * @default null
+       */
+      payer_email: string | null;
+      /**
+       * Payer Phone
+       * @default null
+       */
+      payer_phone: string | null;
+      /**
        * Promo Code
        * @default null
        */
@@ -8899,6 +8909,16 @@ export interface components {
        * @default null
        */
       note: string | null;
+      /**
+       * Payer Email
+       * @default null
+       */
+      payer_email: string | null;
+      /**
+       * Payer Phone
+       * @default null
+       */
+      payer_phone: string | null;
       /** Promo Code */
       promo_code: string;
       /**
@@ -8990,6 +9010,16 @@ export interface components {
        * @default null
        */
       note: string | null;
+      /**
+       * Payer Email
+       * @default null
+       */
+      payer_email: string | null;
+      /**
+       * Payer Phone
+       * @default null
+       */
+      payer_phone: string | null;
       /**
        * Promo Code
        * @default null

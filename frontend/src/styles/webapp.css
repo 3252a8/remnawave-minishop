@@ -4730,3 +4730,8 @@ a {
     min-width: 0;
   }
 }
+.inline-payment-checkout {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}

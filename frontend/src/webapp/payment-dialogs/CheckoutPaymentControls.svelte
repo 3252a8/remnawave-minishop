@@ -1,5 +1,6 @@
 <script lang="ts">
   import Button from "$components/ui/button.svelte";
+  import Input from "$components/ui/input.svelte";
   import { LockKeyhole } from "$components/ui/icons.js";
   import {
     AnimatedPrice,
@@ -28,6 +29,8 @@
     hasMethods = false,
     paymentMethods = [],
     selectedMethod = "",
+    payerEmail = $bindable(""),
+    payerPhone = $bindable(""),
     paymentMethodsDisplayMode = "dropdown",
     selectPaymentMethod = () => {},
     checkoutQuoteError = "",
@@ -63,6 +66,8 @@
     hasMethods?: boolean;
     paymentMethods?: PaymentMethodView[];
     selectedMethod?: string;
+    payerEmail?: string;
+    payerPhone?: string;
     paymentMethodsDisplayMode?: "dropdown" | "buttons" | string;
     selectPaymentMethod?: (methodId: string) => void;
     checkoutQuoteError?: string;
@@ -98,6 +103,32 @@
   />
 {:else}
   <EmptyCard>{t("wa_payment_methods_not_configured")}</EmptyCard>
+{/if}
+{#if String(selectedMethod || "").toLowerCase() === "wata_subscription"}
+  <div class="wata-subscription-contacts">
+    <p>{t("wa_wata_subscription_contacts_hint")}</p>
+    <label>
+      <span>{t("wa_wata_subscription_email")}</span>
+      <Input
+        bind:value={payerEmail}
+        type="email"
+        autocomplete="email"
+        placeholder={t("wa_email_placeholder")}
+        required
+      />
+    </label>
+    <label>
+      <span>{t("wa_wata_subscription_phone")}</span>
+      <Input
+        bind:value={payerPhone}
+        type="tel"
+        autocomplete="tel"
+        inputmode="tel"
+        placeholder="+79991234567"
+        required
+      />
+    </label>
+  </div>
 {/if}
 {#if checkoutQuoteError}
   <small class="checkout-quote-error">
@@ -170,3 +201,27 @@
   {/if}
   <LockKeyhole size={17} />
 </Button>
+
+<style>
+  .wata-subscription-contacts {
+    display: grid;
+    gap: 10px;
+  }
+
+  .wata-subscription-contacts p {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .wata-subscription-contacts label {
+    display: grid;
+    gap: 6px;
+  }
+
+  .wata-subscription-contacts label > span {
+    font-size: 13px;
+    font-weight: 700;
+  }
+</style>

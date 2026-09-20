@@ -255,6 +255,46 @@ class HwidTariffSwitchConversionTests(unittest.IsolatedAsyncioTestCase):
 
             calculate.assert_not_awaited()
 
+    async def test_active_wata_recurrence_must_stop_before_tariff_switch(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            service = _service(_settings(tmpdir))
+            user = SimpleNamespace(user_id=42, panel_user_uuid="panel-user")
+            sub = SimpleNamespace(
+                subscription_id=11,
+                user_id=42,
+                panel_user_uuid="panel-user",
+                tariff_key="basic",
+                provider="wata",
+                auto_renew_enabled=True,
+            )
+            calculate = AsyncMock()
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_switch.user_dal.get_user_by_id",
+                    AsyncMock(return_value=user),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_switch.subscription_dal.get_active_subscription_by_user_id",
+                    AsyncMock(return_value=sub),
+                ),
+                patch(
+                    "bot.infra.auto_renew.stop_provider_managed_recurrence",
+                    AsyncMock(return_value=False),
+                ) as stop_recurrence,
+                patch.object(service, "calculate_tariff_switch_options_with_hwid", calculate),
+            ):
+                result = await service.switch_tariff_without_payment(
+                    AsyncMock(),
+                    user_id=42,
+                    target_tariff_key="pro",
+                    mode="recalc_days",
+                )
+
+            self.assertIsNone(result)
+            stop_recurrence.assert_awaited_once()
+            calculate.assert_not_awaited()
+
     async def test_admin_assign_converts_trial_subscription_to_admin_tariff(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _settings(tmpdir)
