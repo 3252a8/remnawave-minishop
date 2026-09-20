@@ -8,10 +8,11 @@ import {
   resolveEffectiveThemeKey,
   themeCssHref,
   themeEntryToInlineStyle,
+  themeHomeElementVisibility,
   themeReferralBonusListMode,
   themeRootClass,
 } from "./themeStyle";
-import type { ReferralBonusListMode } from "./themeStyle";
+import type { HomeElementVisibility, ReferralBonusListMode } from "./themeStyle";
 import { resolveThemePreference, THEME_PREFERENCE_AUTO } from "./themePreference.js";
 
 type ThemeData = Record<string, unknown>;
@@ -38,6 +39,7 @@ export interface ThemeView {
   shellThemeCssHref: string | null;
   toastTheme: "dark" | "light";
   referralBonusListMode: ReferralBonusListMode;
+  homeElementVisibility: HomeElementVisibility;
 }
 
 export interface ThemeViewInput {
@@ -117,5 +119,6 @@ export function computeThemeView({
     shellThemeCssHref: themeCssHref(effectiveThemeEntry),
     toastTheme: colorScheme,
     referralBonusListMode: themeReferralBonusListMode(tokens),
+    homeElementVisibility: themeHomeElementVisibility(tokens),
   };
 }

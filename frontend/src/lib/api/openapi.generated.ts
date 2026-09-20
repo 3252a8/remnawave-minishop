@@ -8197,6 +8197,21 @@ export interface components {
        */
       font_sans: string | null;
       /**
+       * Home Auto Renew Visibility
+       * @default null
+       */
+      home_auto_renew_visibility: ("auto" | "hidden" | "visible") | null;
+      /**
+       * Home Balance Visibility
+       * @default null
+       */
+      home_balance_visibility: ("auto" | "hidden" | "visible") | null;
+      /**
+       * Home Change Tariff Visibility
+       * @default null
+       */
+      home_change_tariff_visibility: ("auto" | "hidden" | "visible") | null;
+      /**
        * Home Logo Scale
        * @default null
        */
@@ -8211,6 +8226,31 @@ export interface components {
        * @default null
        */
       home_logo_scale_mobile: number | null;
+      /**
+       * Home Premium Traffic Visibility
+       * @default null
+       */
+      home_premium_traffic_visibility: ("auto" | "hidden" | "visible") | null;
+      /**
+       * Home Regular Traffic Visibility
+       * @default null
+       */
+      home_regular_traffic_visibility: ("auto" | "hidden" | "visible") | null;
+      /**
+       * Home Subscription End Visibility
+       * @default null
+       */
+      home_subscription_end_visibility: ("auto" | "hidden" | "visible") | null;
+      /**
+       * Home Subscription Period Visibility
+       * @default null
+       */
+      home_subscription_period_visibility: ("auto" | "hidden" | "visible") | null;
+      /**
+       * Home Tariff Name Visibility
+       * @default null
+       */
+      home_tariff_name_visibility: ("auto" | "hidden" | "visible") | null;
       /**
        * Info
        * @default null

@@ -14,7 +14,6 @@
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import { formatMoney } from "$lib/webapp/formatters.js";
-  import { shouldShowUserBalance } from "$lib/webapp/balanceUiPolicy.js";
   import {
     premiumTitle as premiumTitleFn,
     premiumNextResetDate as premiumNextResetDateFn,
@@ -43,8 +42,6 @@
     trafficMode = false,
     currentTariffName = "",
     hasActiveTariffSubscription = false,
-    hasMultipleTariffs = false,
-    canChangeTariff = false,
     subscriptionTermDisplayText = "",
     subscriptionEndDisplayText = "",
     subscriptionExpiryWarning = false,
@@ -52,6 +49,14 @@
     autoRenewVisible = false,
     autoRenewEnabled = false,
     autoRenewBusy = false,
+    showSubscriptionPeriod = true,
+    showTariffName = true,
+    showSubscriptionEnd = true,
+    showChangeTariff = true,
+    showHomeBalance = true,
+    showRegularTraffic = true,
+    showPremiumTraffic = true,
+    showAutoRenew = true,
     regularTrafficTopupBarClickable = false,
     premiumTrafficTopupBarClickable = false,
     openBalanceTopup = () => {},
@@ -66,8 +71,6 @@
     trafficMode?: boolean;
     currentTariffName?: string;
     hasActiveTariffSubscription?: boolean;
-    hasMultipleTariffs?: boolean;
-    canChangeTariff?: boolean;
     subscriptionTermDisplayText?: string;
     subscriptionEndDisplayText?: string;
     subscriptionExpiryWarning?: boolean;
@@ -75,6 +78,14 @@
     autoRenewVisible?: boolean;
     autoRenewEnabled?: boolean;
     autoRenewBusy?: boolean;
+    showSubscriptionPeriod?: boolean;
+    showTariffName?: boolean;
+    showSubscriptionEnd?: boolean;
+    showChangeTariff?: boolean;
+    showHomeBalance?: boolean;
+    showRegularTraffic?: boolean;
+    showPremiumTraffic?: boolean;
+    showAutoRenew?: boolean;
     regularTrafficTopupBarClickable?: boolean;
     premiumTrafficTopupBarClickable?: boolean;
     openBalanceTopup?: VoidAction;
@@ -92,7 +103,7 @@
   let premiumTrafficHelpOpen = $state(false);
 
   const regularTrafficVisible = $derived(
-    Boolean(subscription.active && regularTrafficLimitVisibleFn(subscription))
+    Boolean(showRegularTraffic && subscription.active && regularTrafficLimitVisibleFn(subscription))
   );
   const regularTrafficPercent = $derived(trafficPercentFn(subscription));
   const regularTrafficLabel = $derived(trafficLabelFn(subscription, t));
@@ -105,7 +116,10 @@
   );
   const premiumTrafficVisible = $derived(
     Boolean(
-      subscription.active && !regularTrafficDepleted && premiumTrafficLimitVisibleFn(subscription)
+      showPremiumTraffic &&
+      subscription.active &&
+      !regularTrafficDepleted &&
+      premiumTrafficLimitVisibleFn(subscription)
     )
   );
   const premiumTrafficPercent = $derived(premiumTrafficPercentFn(subscription));
@@ -121,8 +135,8 @@
       ? t("wa_premium_access_limited", {}, "Premium access is temporarily limited")
       : premiumTrafficResetLabelFn(subscription, t)
   );
-  const showTariff = $derived(
-    Boolean(hasActiveTariffSubscription && hasMultipleTariffs && currentTariffName)
+  const tariffNameVisible = $derived(
+    Boolean(showTariffName && hasActiveTariffSubscription && currentTariffName)
   );
   const summaryClass = $derived(
     [
@@ -184,7 +198,7 @@
             {subscriptionTermDisplayText}
           {:else}
             {trafficMode ? t("wa_home_access_active") : t("wa_home_subscription_active")}
-            {#if subscriptionTermDisplayText}
+            {#if showSubscriptionPeriod && subscriptionTermDisplayText}
               <span class="meta-separator" aria-hidden="true"></span>
               {subscriptionTermDisplayText}
             {/if}
@@ -195,26 +209,30 @@
             : t("wa_home_subscription_inactive")}
         {/if}
       </h2>
-      {#if subscription.active}
+      {#if subscription.active && (tariffNameVisible || showSubscriptionEnd)}
         <p>
-          {#if showTariff}
+          {#if tariffNameVisible}
             <span>{t("wa_current_tariff", { tariff: currentTariffName })}</span>
-            <span class="meta-separator" aria-hidden="true"></span>
+            {#if showSubscriptionEnd}
+              <span class="meta-separator" aria-hidden="true"></span>
+            {/if}
           {/if}
-          <span>
-            {subscriptionEndDisplayText
-              ? t("wa_until_date", { date: subscriptionEndDisplayText })
-              : subscription.remaining_text}
-          </span>
+          {#if showSubscriptionEnd}
+            <span>
+              {subscriptionEndDisplayText
+                ? t("wa_until_date", { date: subscriptionEndDisplayText })
+                : subscription.remaining_text}
+            </span>
+          {/if}
         </p>
-      {:else if subscriptionExpired && subscriptionEndDisplayText}
+      {:else if showSubscriptionEnd && subscriptionExpired && subscriptionEndDisplayText}
         <p>{t("wa_subscription_expired_on", { date: subscriptionEndDisplayText })}</p>
       {/if}
     </div>
 
-    {#if canChangeTariff || shouldShowUserBalance(balance)}
+    {#if showChangeTariff || showHomeBalance}
       <div class="compact-summary-head-actions">
-        {#if canChangeTariff}
+        {#if showChangeTariff}
           <Button
             data-webapp-action="open-tariff-change"
             class="compact-tariff-action"
@@ -226,7 +244,7 @@
             {t("wa_change_tariff")}
           </Button>
         {/if}
-        {#if balance.enabled}
+        {#if showHomeBalance && balance.enabled}
           <button
             data-webapp-action="open-balance-topup"
             type="button"
@@ -239,7 +257,7 @@
             <strong>{formatMoney(balance.amount, balance.currency)}</strong>
             <Plus size={14} />
           </button>
-        {:else if shouldShowUserBalance(balance)}
+        {:else if showHomeBalance}
           <span
             class="compact-balance compact-balance-readonly"
             aria-label={t("wa_balance_title", {}, "Balance")}
@@ -389,7 +407,7 @@
     </div>
   {/if}
 
-  {#if autoRenewVisible}
+  {#if showAutoRenew && autoRenewVisible}
     <div class="compact-summary-actions">
       <Button
         size="sm"

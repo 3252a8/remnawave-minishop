@@ -26,6 +26,11 @@
   import { formatMoney, formatTrafficGb } from "../../lib/webapp/formatters.js";
   import { shouldShowUserBalance } from "$lib/webapp/balanceUiPolicy.js";
   import {
+    DEFAULT_HOME_ELEMENT_VISIBILITY,
+    themeHomeElementIsVisible,
+    type HomeElementVisibility,
+  } from "$lib/webapp/themeStyle.js";
+  import {
     trafficPercent as trafficPercentFn,
     trafficLabel as trafficLabelFn,
     trafficResetLabel as trafficResetLabelFn,
@@ -100,6 +105,7 @@
     openExternalLink = () => {},
     serverStatusShowOnHome = false,
     compactHomeEnabled = false,
+    homeElementVisibility = DEFAULT_HOME_ELEMENT_VISIBILITY,
     statusStore,
     primaryPayActionLabel = () => "",
     t = (key) => key,
@@ -141,6 +147,7 @@
     openExternalLink?: OpenLinkAction;
     serverStatusShowOnHome?: boolean;
     compactHomeEnabled?: boolean;
+    homeElementVisibility?: HomeElementVisibility;
     statusStore: ServerStatusStore;
     primaryPayActionLabel?: () => string;
     t?: Translate;
@@ -330,6 +337,76 @@
     Boolean(subscription?.active && subscription?.auto_renew_available)
   );
   const autoRenewEnabled = $derived(Boolean(subscription?.auto_renew_enabled));
+  const balanceAvailable = $derived(
+    Boolean(
+      balance.enabled ||
+      Object.prototype.hasOwnProperty.call(balance, "amount") ||
+      Object.prototype.hasOwnProperty.call(balance, "amount_minor")
+    )
+  );
+  const showSubscriptionPeriod = $derived(
+    subscriptionExpiryWarning ||
+      themeHomeElementIsVisible(
+        homeElementVisibility.subscriptionPeriod,
+        Boolean(subscription.active && subscriptionTermDisplayText),
+        Boolean(subscription.active && subscriptionTermDisplayText)
+      )
+  );
+  const showTariffName = $derived(
+    themeHomeElementIsVisible(
+      homeElementVisibility.tariffName,
+      Boolean(hasActiveTariffSubscription && hasMultipleTariffs && currentTariffName),
+      Boolean(hasActiveTariffSubscription && currentTariffName)
+    )
+  );
+  const showSubscriptionEnd = $derived(
+    subscriptionExpiryWarning ||
+      subscriptionExpired ||
+      themeHomeElementIsVisible(
+        homeElementVisibility.subscriptionEnd,
+        Boolean(subscription.active && (subscriptionEndDisplayText || subscription.remaining_text)),
+        Boolean(subscription.active && (subscriptionEndDisplayText || subscription.remaining_text))
+      )
+  );
+  const showChangeTariff = $derived(
+    themeHomeElementIsVisible(
+      homeElementVisibility.changeTariff,
+      Boolean(canChangeTariff),
+      Boolean(canChangeTariff)
+    )
+  );
+  const showHomeBalance = $derived(
+    themeHomeElementIsVisible(
+      homeElementVisibility.balance,
+      shouldShowUserBalance(balance),
+      balanceAvailable
+    )
+  );
+  const showRegularTraffic = $derived(
+    themeHomeElementIsVisible(
+      homeElementVisibility.regularTraffic,
+      Boolean(subscription.active && regularTrafficLimitVisible(subscription)),
+      Boolean(subscription.active && regularTrafficLimitVisible(subscription))
+    )
+  );
+  const showPremiumTraffic = $derived(
+    themeHomeElementIsVisible(
+      homeElementVisibility.premiumTraffic,
+      Boolean(
+        subscription.active &&
+        premiumTrafficAvailable(subscription) &&
+        premiumTrafficLimitVisible(subscription)
+      ),
+      Boolean(
+        subscription.active &&
+        premiumTrafficAvailable(subscription) &&
+        premiumTrafficLimitVisible(subscription)
+      )
+    )
+  );
+  const showAutoRenew = $derived(
+    themeHomeElementIsVisible(homeElementVisibility.autoRenew, autoRenewVisible, autoRenewVisible)
+  );
 
   $effect(() => {
     if (!pageVisible || !subscription?.active || !subscriptionEndMs) return;
@@ -381,8 +458,6 @@
         {trafficMode}
         {currentTariffName}
         {hasActiveTariffSubscription}
-        {hasMultipleTariffs}
-        {canChangeTariff}
         {subscriptionTermDisplayText}
         {subscriptionEndDisplayText}
         {subscriptionExpiryWarning}
@@ -390,6 +465,14 @@
         {autoRenewVisible}
         {autoRenewEnabled}
         {autoRenewBusy}
+        {showSubscriptionPeriod}
+        {showTariffName}
+        {showSubscriptionEnd}
+        {showChangeTariff}
+        {showHomeBalance}
+        {showRegularTraffic}
+        {showPremiumTraffic}
+        {showAutoRenew}
         {regularTrafficTopupBarClickable}
         {premiumTrafficTopupBarClickable}
         {openBalanceTopup}
@@ -400,7 +483,7 @@
         {t}
       />
     {:else}
-      {#if shouldShowUserBalance(balance)}
+      {#if showHomeBalance}
         <Card class="home-balance-card">
           <div class="home-balance-summary">
             <WalletCards size={22} />
@@ -432,27 +515,33 @@
             <CheckCircle2 class="sub-status-icon" size={23} />
             <div class="sub-status-main">
               <h2>
-                {trafficMode ? t("wa_home_access_active") : t("wa_home_subscription_active")} | {subscriptionTermDisplayText}
-              </h2>
-              <div
-                class:sub-status-details-with-tariff={hasActiveTariffSubscription &&
-                  hasMultipleTariffs &&
-                  currentTariffName}
-                class="sub-status-details"
-              >
-                {#if hasActiveTariffSubscription && hasMultipleTariffs && currentTariffName}
-                  <p class="current-tariff-line">
-                    {t("wa_current_tariff", { tariff: currentTariffName })}
-                  </p>
+                {trafficMode ? t("wa_home_access_active") : t("wa_home_subscription_active")}
+                {#if showSubscriptionPeriod}
+                  <span class="meta-separator" aria-hidden="true"></span>
+                  {subscriptionTermDisplayText}
                 {/if}
-                <p class="subscription-end-line">
-                  {subscriptionEndDisplayText
-                    ? t("wa_until_date", { date: subscriptionEndDisplayText })
-                    : subscription.remaining_text}
-                </p>
-              </div>
+              </h2>
+              {#if showTariffName || showSubscriptionEnd}
+                <div
+                  class:sub-status-details-with-tariff={showTariffName && showSubscriptionEnd}
+                  class="sub-status-details"
+                >
+                  {#if showTariffName}
+                    <p class="current-tariff-line">
+                      {t("wa_current_tariff", { tariff: currentTariffName })}
+                    </p>
+                  {/if}
+                  {#if showSubscriptionEnd}
+                    <p class="subscription-end-line">
+                      {subscriptionEndDisplayText
+                        ? t("wa_until_date", { date: subscriptionEndDisplayText })
+                        : subscription.remaining_text}
+                    </p>
+                  {/if}
+                </div>
+              {/if}
             </div>
-            {#if canChangeTariff}
+            {#if showChangeTariff}
               <Button
                 data-webapp-action="open-tariff-change"
                 class="status-tariff-action"
@@ -464,7 +553,7 @@
               </Button>
             {/if}
           </div>
-          {#if autoRenewVisible}
+          {#if showAutoRenew}
             <div class="auto-renew-row">
               <div class="auto-renew-state">
                 <Repeat2 size={17} />
@@ -502,7 +591,7 @@
 
     {#if subscription.active}
       {#if !compactHomeEnabled}
-        {#if regularTrafficLimitVisible(subscription)}
+        {#if showRegularTraffic}
           <Card compact class={regularTrafficCardClass(subscription)}>
             {#if regularTrafficTopupBarClickable}
               <button
@@ -577,7 +666,7 @@
             />
           </Card>
         {/if}
-        {#if premiumTrafficAvailable(subscription) && premiumTrafficLimitVisible(subscription)}
+        {#if showPremiumTraffic}
           <Card
             compact
             class={`traffic-card-compact ${premiumTrafficTopupBarClickable ? "traffic-card-clickable " : ""}premium-traffic-card${subscription?.premium_is_limited ? " premium-traffic-card-limited" : ""}`}

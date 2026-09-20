@@ -11389,6 +11389,57 @@
             "default": null,
             "title": "Font Sans"
           },
+          "home_auto_renew_visibility": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "hidden",
+                  "visible"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Home Auto Renew Visibility"
+          },
+          "home_balance_visibility": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "hidden",
+                  "visible"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Home Balance Visibility"
+          },
+          "home_change_tariff_visibility": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "hidden",
+                  "visible"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Home Change Tariff Visibility"
+          },
           "home_logo_scale": {
             "anyOf": [
               {
@@ -11424,6 +11475,91 @@
             ],
             "default": null,
             "title": "Home Logo Scale Mobile"
+          },
+          "home_premium_traffic_visibility": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "hidden",
+                  "visible"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Home Premium Traffic Visibility"
+          },
+          "home_regular_traffic_visibility": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "hidden",
+                  "visible"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Home Regular Traffic Visibility"
+          },
+          "home_subscription_end_visibility": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "hidden",
+                  "visible"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Home Subscription End Visibility"
+          },
+          "home_subscription_period_visibility": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "hidden",
+                  "visible"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Home Subscription Period Visibility"
+          },
+          "home_tariff_name_visibility": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "hidden",
+                  "visible"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Home Tariff Name Visibility"
           },
           "info": {
             "anyOf": [

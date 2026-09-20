@@ -668,6 +668,33 @@ class WebappThemesConfigTests(unittest.TestCase):
         self.assertIsNone(cfg.theme_by_key("typo_theme").tokens.referral_bonus_list)
         self.assertNotIn("referral_bonus_list", payload_by_key["typo_theme"]["tokens"])
 
+    def test_home_element_visibility_tokens_are_public_and_lenient(self):
+        cfg = WebappThemesConfig(
+            default_theme="custom",
+            themes=[
+                {
+                    "key": "custom",
+                    "default": True,
+                    "tokens": {
+                        "home_subscription_period_visibility": "HIDDEN",
+                        "home_tariff_name_visibility": "visible",
+                        "home_balance_visibility": "auto",
+                        "home_auto_renew_visibility": "collapsable",
+                    },
+                }
+            ],
+        )
+
+        theme = cfg.theme_by_key("custom")
+        payload = public_themes_catalog_payload(cfg, "#abc123")["themes"][0]["tokens"]
+
+        self.assertEqual(theme.tokens.home_subscription_period_visibility, "hidden")
+        self.assertEqual(theme.tokens.home_tariff_name_visibility, "visible")
+        self.assertEqual(theme.tokens.home_balance_visibility, "auto")
+        self.assertIsNone(theme.tokens.home_auto_renew_visibility)
+        self.assertEqual(payload["home_subscription_period_visibility"], "hidden")
+        self.assertNotIn("home_auto_renew_visibility", payload)
+
     def test_public_payload_keeps_admin_usage_flag(self):
         cfg = WebappThemesConfig(
             default_theme="custom",

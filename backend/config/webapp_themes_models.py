@@ -15,6 +15,18 @@ ColorScheme = Literal["light", "dark"]
 # collapsible list, or collapsible list opened by default.
 ReferralBonusListMode = Literal["plain", "collapsed", "expanded"]
 REFERRAL_BONUS_LIST_MODES = frozenset({"plain", "collapsed", "expanded"})
+ThemeElementVisibility = Literal["auto", "hidden", "visible"]
+THEME_ELEMENT_VISIBILITY_MODES = frozenset({"auto", "hidden", "visible"})
+HOME_ELEMENT_VISIBILITY_TOKEN_KEYS = (
+    "home_subscription_period_visibility",
+    "home_tariff_name_visibility",
+    "home_subscription_end_visibility",
+    "home_regular_traffic_visibility",
+    "home_premium_traffic_visibility",
+    "home_change_tariff_visibility",
+    "home_balance_visibility",
+    "home_auto_renew_visibility",
+)
 DEFAULT_WEBAPP_THEME_KEY = "dark"
 LEGACY_LIGHT_THEME_KEY = "light"
 DEFAULT_THEME_ADMIN_TOKEN_KEYS = {
@@ -59,6 +71,14 @@ class ThemeTokens(BaseModel):
     dim: str | None = None
     separator: str | None = None
     referral_bonus_list: ReferralBonusListMode | None = None
+    home_subscription_period_visibility: ThemeElementVisibility | None = None
+    home_tariff_name_visibility: ThemeElementVisibility | None = None
+    home_subscription_end_visibility: ThemeElementVisibility | None = None
+    home_regular_traffic_visibility: ThemeElementVisibility | None = None
+    home_premium_traffic_visibility: ThemeElementVisibility | None = None
+    home_change_tariff_visibility: ThemeElementVisibility | None = None
+    home_balance_visibility: ThemeElementVisibility | None = None
+    home_auto_renew_visibility: ThemeElementVisibility | None = None
     danger: str | None = None
     danger_text: str | None = None
     danger_soft: str | None = None
@@ -155,6 +175,14 @@ class ThemeTokens(BaseModel):
         # Unknown modes fall back to the default rendering instead of
         # invalidating the whole theme descriptor.
         return raw if raw in REFERRAL_BONUS_LIST_MODES else None
+
+    @field_validator(*HOME_ELEMENT_VISIBILITY_TOKEN_KEYS, mode="before")
+    @classmethod
+    def _normalize_home_element_visibility(cls, value: Any) -> str | None:
+        raw = str(value or "").strip().lower()
+        # Invalid presentation tokens must not make an otherwise valid theme
+        # unloadable. Missing and unknown values both preserve the app default.
+        return raw if raw in THEME_ELEMENT_VISIBILITY_MODES else None
 
 
 class WebappTheme(BaseModel):

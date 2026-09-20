@@ -792,6 +792,9 @@
     {pickerHex}
     {defaultColorInputHandler}
     {defaultTokenInputHandler}
+    defaultTokenSelectHandler={(tokenKey, variant = defaultEditorVariant) =>
+      (value) =>
+        setDefaultToken(tokenKey, value, variant)}
     {resetDefaultToken}
   />
 {/snippet}

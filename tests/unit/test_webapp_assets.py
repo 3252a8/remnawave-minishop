@@ -678,12 +678,15 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("export function premiumTrafficLimitVisible", traffic_source)
         self.assertIn("!sub?.premium_unlimited_override", traffic_source)
         self.assertIn("sub?.premium_traffic_limited === true", traffic_source)
-        self.assertIn("{#if regularTrafficLimitVisible(subscription)}", home_source)
+        self.assertIn("const showRegularTraffic", home_source)
         self.assertIn(
-            "{#if premiumTrafficAvailable(subscription) "
-            "&& premiumTrafficLimitVisible(subscription)}",
-            home_source,
+            "subscription.active && regularTrafficLimitVisible(subscription)", home_source
         )
+        self.assertIn("{#if showRegularTraffic}", home_source)
+        self.assertIn("const showPremiumTraffic", home_source)
+        self.assertIn("premiumTrafficAvailable(subscription)", home_source)
+        self.assertIn("premiumTrafficLimitVisible(subscription)", home_source)
+        self.assertIn("{#if showPremiumTraffic}", home_source)
         self.assertNotIn("wa_premium_unlimited", home_source)
         self.assertIn("regularTrafficLimitVisible(subscription)", billing_view_source)
         self.assertIn("premiumTrafficLimitVisible(subscription)", billing_view_source)

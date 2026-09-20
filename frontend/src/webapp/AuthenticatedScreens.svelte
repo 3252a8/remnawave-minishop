@@ -9,7 +9,11 @@
 
   import { lazyScreen } from "../lib/webapp/lazyScreen.svelte.js";
   import { resolveProgramEntryPlacement } from "../lib/webapp/programEntryPolicy.js";
-  import type { ReferralBonusListMode } from "../lib/webapp/themeStyle.js";
+  import {
+    DEFAULT_HOME_ELEMENT_VISIBILITY,
+    type HomeElementVisibility,
+    type ReferralBonusListMode,
+  } from "../lib/webapp/themeStyle.js";
 
   import WebAppShell from "./WebAppShell.svelte";
   import HomeScreen from "./screens/HomeScreen.svelte";
@@ -128,6 +132,7 @@
     referral?: ReferralState;
     referralBonusDetails?: ReferralBonusDetail[];
     referralBonusListMode?: ReferralBonusListMode;
+    homeElementVisibility?: HomeElementVisibility;
     referralOneBonusPerReferee?: boolean;
     referralProgramEnabled?: boolean;
     referralWelcomeBonusDays?: number;
@@ -256,6 +261,7 @@
     referral = {},
     referralBonusDetails = [],
     referralBonusListMode = "plain",
+    homeElementVisibility = DEFAULT_HOME_ELEMENT_VISIBILITY,
     referralOneBonusPerReferee = false,
     referralProgramEnabled = true,
     referralWelcomeBonusDays = 0,
@@ -445,6 +451,7 @@
       {openExternalLink}
       {serverStatusShowOnHome}
       {compactHomeEnabled}
+      {homeElementVisibility}
       {statusStore}
       {primaryPayActionLabel}
       {t}

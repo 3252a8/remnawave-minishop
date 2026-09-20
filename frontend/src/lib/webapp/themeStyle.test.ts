@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { themeReferralBonusListMode, themeTokensToInlineStyle } from "./themeStyle.js";
+import {
+  themeHomeElementIsVisible,
+  themeHomeElementVisibility,
+  themeReferralBonusListMode,
+  themeTokensToInlineStyle,
+} from "./themeStyle.js";
 
 describe("themeTokensToInlineStyle", () => {
   it("quotes the separator token as a CSS string", () => {
@@ -36,6 +41,36 @@ describe("themeReferralBonusListMode", () => {
   it("keeps the behaviour token out of CSS variables", () => {
     expect(themeTokensToInlineStyle({ referral_bonus_list: "collapsed" })).not.toContain(
       "referral_bonus_list"
+    );
+  });
+});
+
+describe("themeHomeElementVisibility", () => {
+  it("normalizes every Home element through the shared visibility policy", () => {
+    const visibility = themeHomeElementVisibility({
+      home_subscription_period_visibility: "HIDDEN",
+      home_tariff_name_visibility: "visible",
+      home_balance_visibility: "auto",
+      home_auto_renew_visibility: "collapsable",
+    });
+
+    expect(visibility.subscriptionPeriod).toBe("hidden");
+    expect(visibility.tariffName).toBe("visible");
+    expect(visibility.balance).toBe("auto");
+    expect(visibility.autoRenew).toBe("auto");
+    expect(visibility.regularTraffic).toBe("auto");
+  });
+
+  it("lets visible override presentation heuristics without overriding availability", () => {
+    expect(themeHomeElementIsVisible("auto", false, true)).toBe(false);
+    expect(themeHomeElementIsVisible("visible", false, true)).toBe(true);
+    expect(themeHomeElementIsVisible("visible", false, false)).toBe(false);
+    expect(themeHomeElementIsVisible("hidden", true, true)).toBe(false);
+  });
+
+  it("keeps Home behaviour tokens out of CSS variables", () => {
+    expect(themeTokensToInlineStyle({ home_balance_visibility: "hidden" })).not.toContain(
+      "home_balance_visibility"
     );
   });
 });
