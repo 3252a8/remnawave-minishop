@@ -45,7 +45,8 @@ export type MenuButtonDraft = {
   telegram_emoji: string;
   labels: Record<string, string>;
   show_in_bot: boolean;
-  show_in_webapp: boolean;
+  show_in_telegram_webapp: boolean;
+  show_in_browser: boolean;
 };
 
 export type MenuButtonsParseResult = {
@@ -77,6 +78,8 @@ function normalizeButton(value: unknown): MenuButtonDraft | null {
   if (!id) return null;
   const legacyIcon = String(value.icon || "").trim();
   const legacyIsIconName = /^[A-Za-z][A-Za-z0-9]*$/.test(legacyIcon);
+  const legacyWebappVisibility =
+    typeof value.show_in_webapp === "boolean" ? value.show_in_webapp : true;
   return {
     id,
     kind,
@@ -91,7 +94,12 @@ function normalizeButton(value: unknown): MenuButtonDraft | null {
         : LEGACY_ICON_EMOJI[legacyIcon] || (legacyIcon && !legacyIsIconName ? legacyIcon : ""),
     labels: normalizeLabels(value.labels),
     show_in_bot: typeof value.show_in_bot === "boolean" ? value.show_in_bot : true,
-    show_in_webapp: typeof value.show_in_webapp === "boolean" ? value.show_in_webapp : true,
+    show_in_telegram_webapp:
+      typeof value.show_in_telegram_webapp === "boolean"
+        ? value.show_in_telegram_webapp
+        : legacyWebappVisibility,
+    show_in_browser:
+      typeof value.show_in_browser === "boolean" ? value.show_in_browser : legacyWebappVisibility,
   };
 }
 
@@ -124,7 +132,8 @@ export function createMenuButtonDraft(languages: string[]): MenuButtonDraft {
     telegram_emoji: DEFAULT_MENU_TELEGRAM_EMOJI,
     labels: Object.fromEntries(languages.map((language) => [language, ""])),
     show_in_bot: true,
-    show_in_webapp: true,
+    show_in_telegram_webapp: true,
+    show_in_browser: true,
   };
 }
 

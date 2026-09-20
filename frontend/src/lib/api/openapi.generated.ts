@@ -14434,6 +14434,8 @@ export interface operations {
                 /** @enum {string} */
                 kind: "external" | "telegram" | "webapp";
                 label: string;
+                show_in_browser: boolean;
+                show_in_telegram_webapp: boolean;
                 target: string;
               }[];
               my_devices_enabled?: boolean;

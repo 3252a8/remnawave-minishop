@@ -741,8 +741,8 @@ class Settings(
     MENU_BUTTONS_JSON: str = Field(
         default="[]",
         description=(
-            "Validated JSON array of localized custom buttons shown at the bottom of the "
-            "Telegram main menu and Web App settings."
+            "Validated JSON array of localized custom buttons with separate visibility for "
+            "the bot menu, Telegram Mini App, and web browser."
         ),
     )
 

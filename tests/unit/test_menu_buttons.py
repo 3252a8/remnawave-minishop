@@ -43,9 +43,12 @@ def test_menu_buttons_are_normalized_and_keep_order() -> None:
     assert buttons[0].webapp_icon == "LifeBuoy"
     assert buttons[0].telegram_emoji == "🆘"
     assert buttons[0].show_in_bot is True
-    assert buttons[0].show_in_webapp is True
+    assert buttons[0].show_in_telegram_webapp is True
+    assert buttons[0].show_in_browser is True
     assert json.loads(normalized)[0]["show_in_bot"] is True
-    assert json.loads(normalized)[0]["show_in_webapp"] is True
+    assert json.loads(normalized)[0]["show_in_telegram_webapp"] is True
+    assert json.loads(normalized)[0]["show_in_browser"] is True
+    assert "show_in_webapp" not in json.loads(normalized)[0]
     assert "icon" not in json.loads(normalized)[0]
 
 
@@ -97,6 +100,8 @@ def test_menu_button_labels_and_public_payload_use_locale_fallbacks() -> None:
         "kind": "telegram",
         "target": "https://t.me/help_center",
         "icon": "LifeBuoy",
+        "show_in_telegram_webapp": True,
+        "show_in_browser": True,
         "label": "Support",
     }
 
@@ -115,15 +120,36 @@ def test_legacy_icon_is_migrated_to_surface_specific_values() -> None:
     assert "icon" not in json.loads(normalized)[0]
 
 
-def test_menu_button_visibility_filters_webapp_payload() -> None:
+def test_menu_button_visibility_is_split_between_telegram_and_browser() -> None:
     payload = _payload()
-    payload[0]["show_in_webapp"] = False
+    payload[0]["show_in_telegram_webapp"] = False
+    payload[0]["show_in_browser"] = True
     payload[1]["show_in_bot"] = False
+    payload[1]["show_in_telegram_webapp"] = True
+    payload[1]["show_in_browser"] = False
 
     buttons = parse_menu_buttons(payload)
 
     assert buttons[0].show_in_bot is True
-    assert buttons[0].show_in_webapp is False
+    assert buttons[0].show_in_telegram_webapp is False
+    assert buttons[0].show_in_browser is True
     assert buttons[1].show_in_bot is False
-    assert buttons[1].show_in_webapp is True
-    assert [button["id"] for button in public_menu_buttons(payload, "en")] == ["devices"]
+    assert buttons[1].show_in_telegram_webapp is True
+    assert buttons[1].show_in_browser is False
+    assert [button["id"] for button in public_menu_buttons(payload, "en")] == [
+        "support",
+        "devices",
+    ]
+
+
+def test_legacy_webapp_visibility_populates_both_new_surfaces() -> None:
+    payload = _payload()
+    payload[0]["show_in_webapp"] = False
+
+    normalized = normalize_menu_buttons_json(payload)
+    button = parse_menu_buttons(normalized)[0]
+
+    assert button.show_in_telegram_webapp is False
+    assert button.show_in_browser is False
+    assert "show_in_webapp" not in json.loads(normalized)[0]
+    assert [item["id"] for item in public_menu_buttons(payload, "en")] == ["devices"]

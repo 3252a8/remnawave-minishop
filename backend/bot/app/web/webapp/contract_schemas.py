@@ -686,13 +686,23 @@ THEMES_CATALOG_SCHEMA: dict[str, Any] = {
 MENU_BUTTON_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["id", "kind", "target", "icon", "label"],
+    "required": [
+        "id",
+        "kind",
+        "target",
+        "icon",
+        "label",
+        "show_in_telegram_webapp",
+        "show_in_browser",
+    ],
     "properties": {
         "id": STRING_SCHEMA,
         "kind": {"type": "string", "enum": ["external", "telegram", "webapp"]},
         "target": STRING_SCHEMA,
         "icon": STRING_SCHEMA,
         "label": STRING_SCHEMA,
+        "show_in_telegram_webapp": BOOLEAN_SCHEMA,
+        "show_in_browser": BOOLEAN_SCHEMA,
     },
 }
 WEBAPP_SETTINGS_SCHEMA: dict[str, Any] = {

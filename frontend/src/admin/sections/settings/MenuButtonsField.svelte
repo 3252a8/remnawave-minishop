@@ -306,11 +306,20 @@
           </label>
           <label class="menu-buttons-visibility-option">
             <Checkbox
-              checked={button.show_in_webapp}
-              ariaLabel={at("menu_buttons_visible_in_webapp", {}, "Web App menu")}
-              onCheckedChange={(checked) => updateButton(index, { show_in_webapp: checked })}
+              checked={button.show_in_telegram_webapp}
+              ariaLabel={at("menu_buttons_visible_in_telegram_webapp", {}, "Telegram Mini App")}
+              onCheckedChange={(checked) =>
+                updateButton(index, { show_in_telegram_webapp: checked })}
             />
-            <span>{at("menu_buttons_visible_in_webapp", {}, "Web App menu")}</span>
+            <span>{at("menu_buttons_visible_in_telegram_webapp", {}, "Telegram Mini App")}</span>
+          </label>
+          <label class="menu-buttons-visibility-option">
+            <Checkbox
+              checked={button.show_in_browser}
+              ariaLabel={at("menu_buttons_visible_in_browser", {}, "Web browser")}
+              onCheckedChange={(checked) => updateButton(index, { show_in_browser: checked })}
+            />
+            <span>{at("menu_buttons_visible_in_browser", {}, "Web browser")}</span>
           </label>
         </fieldset>
         <AdminButton

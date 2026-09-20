@@ -25613,6 +25613,12 @@
                               "label": {
                                 "type": "string"
                               },
+                              "show_in_browser": {
+                                "type": "boolean"
+                              },
+                              "show_in_telegram_webapp": {
+                                "type": "boolean"
+                              },
                               "target": {
                                 "type": "string"
                               }
@@ -25622,7 +25628,9 @@
                               "kind",
                               "target",
                               "icon",
-                              "label"
+                              "label",
+                              "show_in_telegram_webapp",
+                              "show_in_browser"
                             ],
                             "type": "object"
                           },

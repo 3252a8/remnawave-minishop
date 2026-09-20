@@ -8,6 +8,7 @@
   import type { ApiClient } from "../lib/webapp/publicApi.js";
 
   import { lazyScreen } from "../lib/webapp/lazyScreen.svelte.js";
+  import { visibleMenuButtons } from "../lib/webapp/menuButtons.js";
   import { resolveProgramEntryPlacement } from "../lib/webapp/programEntryPolicy.js";
   import {
     DEFAULT_HOME_ELEMENT_VISIBILITY,
@@ -340,7 +341,12 @@
     })
   );
   const menuButtons = $derived(
-    Array.isArray(appSettings?.menu_buttons) ? (appSettings.menu_buttons as MenuButtonView[]) : []
+    visibleMenuButtons(
+      Array.isArray(appSettings?.menu_buttons)
+        ? (appSettings.menu_buttons as MenuButtonView[])
+        : [],
+      telegramMiniAppContext
+    )
   );
   let balanceTopupOpen = $state(false);
 

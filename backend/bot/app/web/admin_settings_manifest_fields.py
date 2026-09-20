@@ -102,7 +102,10 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "menu_buttons",
         "menu_buttons",
         "Custom menu buttons",
-        ("Localized links shown at the bottom of the Telegram main menu and Web App settings."),
+        (
+            "Localized links with separate visibility for the bot menu, Telegram Mini App, "
+            "and web browser."
+        ),
         optional=False,
     ),
     SettingField(

@@ -1165,7 +1165,7 @@
         "section_order": 3,
         "subsection": null,
         "label": "Custom menu buttons",
-        "description": "Localized links shown at the bottom of the Telegram main menu and Web App settings.",
+        "description": "Localized links with separate visibility for the bot menu, Telegram Mini App, and web browser.",
         "i18n_label_key": "admin_settings_field_menu_buttons_json_label",
         "i18n_description_key": "admin_settings_field_menu_buttons_json_description",
         "i18n_subsection_key": null,
