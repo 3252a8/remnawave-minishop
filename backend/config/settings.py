@@ -711,6 +711,9 @@ class Settings(
     SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS: int = Field(default=5 * 60)
     SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS: int = Field(default=30 * 60)
     SUBSCRIPTION_MINI_APP_URL: str | None = Field(default=None)
+    SUBSCRIPTION_GATEWAY_ENABLED: bool = Field(default=False)
+    SUBSCRIPTION_LINK_MODE: Literal["panel", "minishop"] = Field(default="panel")
+    SUBSCRIPTION_GATEWAY_REWRITE_PROFILE_PAGE_URL: bool = Field(default=False)
     WEBAPP_API_BASE_URL: str = Field(
         default="/api",
         description=(

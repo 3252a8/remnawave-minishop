@@ -132,6 +132,7 @@ from .payloads import (
     WebAppPaymentCreatePayload as WebAppPaymentCreatePayload,
 )
 from .server_status import server_status_route
+from .subscription_gateway import subscription_gateway_route
 from .subscription_reissue import (
     subscription_reissue_route,
 )
@@ -165,7 +166,14 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/install", index_route)
     app.router.add_get("/trial", index_route)
     app.router.add_get("/open-app", app_deeplink_route)
-    app.router.add_get(r"/s/{share_token:[a-f0-9]{32}}", index_route)
+    app.router.add_get(
+        r"/s/{share_token:[a-f0-9]{32}}", subscription_gateway_route, allow_head=False
+    )
+    app.router.add_get(
+        r"/s/{share_token:[a-f0-9]{32}}/{client_type:stash|singbox|mihomo|json|v2ray-json|clash}",
+        subscription_gateway_route,
+        allow_head=False,
+    )
     app.router.add_get("/invite", index_route)
     app.router.add_get("/partner", index_route)
     app.router.add_get("/devices", index_route)

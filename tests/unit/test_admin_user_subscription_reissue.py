@@ -10,7 +10,9 @@ from bot.app.web.admin_api_impl import users_actions
 class FakeSession:
     def __init__(self):
         self.committed = False
+        self.commit_count = 0
         self.rolled_back = False
+        self.executed = []
 
     async def __aenter__(self):
         return self
@@ -20,6 +22,13 @@ class FakeSession:
 
     async def commit(self):
         self.committed = True
+        self.commit_count += 1
+
+    async def execute(self, statement):
+        self.executed.append(statement)
+
+    async def flush(self):
+        return None
 
     async def rollback(self):
         self.rolled_back = True
@@ -109,6 +118,8 @@ class AdminUserSubscriptionReissueRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(body["ok"])
         self.assertTrue(body["email_sent"])
         panel_service.revoke_user_subscription.assert_awaited_once_with("panel-uuid")
+        self.assertEqual(session.commit_count, 2)
+        self.assertEqual(len(session.executed), 1)
         mocks["send_email"].assert_awaited_once()
         log_payload = mocks["log"].await_args.args[1]
         self.assertEqual(log_payload["event_type"], "admin_subscription_reissue_webapp")
@@ -189,7 +200,8 @@ class AdminUserSubscriptionReissueRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status, 502)
         self.assertEqual(json.loads(response.text)["error"], "subscription_reissue_failed")
         mocks["send_email"].assert_not_awaited()
-        self.assertFalse(session.committed)
+        self.assertTrue(session.committed)
+        self.assertEqual(session.commit_count, 1)
 
 
 if __name__ == "__main__":

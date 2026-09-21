@@ -103,6 +103,7 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0085_add_user_notification_preferences",
     "0086_add_managed_panel_tariff_tag",
     "0087_add_wata_subscriptions",
+    "0088_bind_install_share_to_panel_link",
 ]
 
 

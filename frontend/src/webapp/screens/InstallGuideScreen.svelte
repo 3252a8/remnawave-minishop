@@ -156,7 +156,8 @@
     asWebappRecord(installGuidesStore?.subscription || subscription)
   );
   const finalSubscriptionLink = $derived(
-    asString(guideSubscription.config_link) ||
+    (guideSubscription.link_mode === "minishop" ? asString(guideSubscription.http_url) : "") ||
+      asString(guideSubscription.config_link) ||
       asString(guideSubscription.connect_url) ||
       asString(subscription?.config_link)
   );
@@ -221,7 +222,7 @@
   }
 
   async function handleButton(button: InstallGuideButton) {
-    const action = resolveInstallButtonAction(button, { subscription, user });
+    const action = resolveInstallButtonAction(button, { subscription: guideSubscription, user });
     if (action.kind === "copy") {
       await copyText(
         action.value,

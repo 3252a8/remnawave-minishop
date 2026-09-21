@@ -45,7 +45,10 @@ async def _encrypt_raw_link_cached(settings: Settings, raw_link: str) -> str | N
 
 
 async def prepare_config_links(
-    settings: Settings, raw_link: str | None
+    settings: Settings,
+    raw_link: str | None,
+    *,
+    public_share_url: str | None = None,
 ) -> tuple[str | None, str | None]:
     """
     Build the user-facing connection key and the URL for the connect button.
@@ -54,6 +57,12 @@ async def prepare_config_links(
     is encrypted and prefixed with happ://crypt4/, and the button link is wrapped
     with CRYPT4_REDIRECT_URL if provided.
     """
+    if (
+        settings.SUBSCRIPTION_GATEWAY_ENABLED
+        and settings.SUBSCRIPTION_LINK_MODE == "minishop"
+        and public_share_url
+    ):
+        raw_link = public_share_url
     if not raw_link:
         return None, None
 

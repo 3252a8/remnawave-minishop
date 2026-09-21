@@ -818,6 +818,17 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
                 exc_panel,
             )
 
+    if (
+        settings.SUBSCRIPTION_GATEWAY_ENABLED
+        and settings.SUBSCRIPTION_LINK_MODE == "minishop"
+        and install_share_url
+        and panel_data
+        and active_sub is not None
+        and str(getattr(active_sub, "install_share_panel_short_uuid", "") or "")
+        == str(panel_data.get("shortUuid") or "")
+    ):
+        subscription_url = install_share_url
+
     serialized_user = _serialize_admin_user_with_avatar(user, avatar_keys)
     serialized_inviter = (
         _serialize_admin_user_with_avatar(inviter, avatar_keys) if inviter is not None else None

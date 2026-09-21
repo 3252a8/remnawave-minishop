@@ -11,6 +11,7 @@ from bot.services.panel_activity import (
 from bot.services.subscription_order_terms import gift_tariff
 from bot.utils.config_link import prepare_config_links
 from bot.utils.locale_defaults import tariff_premium_title
+from bot.utils.mini_app_url import subscription_public_install_url
 from bot.utils.traffic_reset import (
     next_traffic_reset_after,
     panel_next_traffic_reset_at,
@@ -165,6 +166,19 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             self._extract_panel_traffic_details(panel_user_data)
         )
         config_link_raw = panel_user_data.get("subscriptionUrl")
+        panel_short_uuid = str(panel_user_data.get("shortUuid") or "").strip()
+        if (
+            self.settings.SUBSCRIPTION_GATEWAY_ENABLED
+            and self.settings.SUBSCRIPTION_LINK_MODE == "minishop"
+            and local_active_sub
+            and panel_short_uuid
+        ):
+            share_token = await subscription_dal.ensure_install_share_token(
+                session, local_active_sub, panel_short_uuid=panel_short_uuid
+            )
+            config_link_raw = (
+                subscription_public_install_url(self.settings, share_token) or config_link_raw
+            )
         display_link, connect_button_url = await prepare_config_links(
             self.settings, config_link_raw
         )
@@ -341,6 +355,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             "status_from_panel": panel_user_data.get("status", "UNKNOWN").upper(),
             "config_link": display_link,
             "connect_button_url": connect_button_url,
+            "http_url": config_link_raw,
             "traffic_limit_bytes": panel_traffic_limit,
             "traffic_used_bytes": panel_traffic_used,
             "traffic_limit_strategy": traffic_limit_strategy,

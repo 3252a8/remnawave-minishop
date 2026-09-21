@@ -8,6 +8,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.services.panel_api_service import PanelApiService
 from bot.utils.mini_app_url import (
     subscription_mini_app_install_url,
     subscription_public_install_url,
@@ -42,7 +43,14 @@ def bot_install_guide_url(settings: Settings) -> str | None:
 
 def install_guide_share_links_enabled(settings: Settings) -> bool:
     return bool(
-        subscription_guides_available(settings) and subscription_mini_app_install_url(settings)
+        (
+            subscription_guides_available(settings)
+            or (
+                settings.SUBSCRIPTION_GATEWAY_ENABLED
+                and settings.SUBSCRIPTION_LINK_MODE == "minishop"
+            )
+        )
+        and settings.SUBSCRIPTION_MINI_APP_URL
     )
 
 
@@ -68,7 +76,22 @@ async def ensure_user_install_guide_share_url(
         )
         if local_sub is None:
             return None
-        share_token = await subscription_dal.ensure_install_share_token(session, local_sub)
+        resolved_panel_user_uuid = str(getattr(local_sub, "panel_user_uuid", "") or "").strip()
+        if not resolved_panel_user_uuid:
+            return None
+        async with PanelApiService(settings) as panel:
+            lookup = await panel.get_user_by_uuid_lookup(resolved_panel_user_uuid)
+        panel_user = lookup.get("user") if lookup.get("ok") else None
+        if not isinstance(panel_user, dict) or not panel_user.get("subscriptionUrl"):
+            return None
+        panel_short_uuid = str(panel_user.get("shortUuid") or "").strip()
+        if not panel_short_uuid:
+            return None
+        share_token = await subscription_dal.ensure_install_share_token(
+            session,
+            local_sub,
+            panel_short_uuid=panel_short_uuid,
+        )
         return subscription_public_install_url(settings, share_token)
     except Exception:
         logger.exception("Failed to resolve install guide share link for user %s.", user_id)
@@ -83,9 +106,6 @@ async def ensure_user_install_guide_links(
     local_subscription: Any | None = None,
 ) -> InstallGuideLinks:
     personal_url = bot_install_guide_url(settings)
-    if not personal_url:
-        return InstallGuideLinks()
-
     public_share_url = await ensure_user_install_guide_share_url(
         session,
         settings,

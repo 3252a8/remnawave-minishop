@@ -91,8 +91,12 @@ async def request_trial_confirmation_handler(
             await callback.answer(_("trial_activated_alert"), show_alert=True)
 
         end_date_obj = activation_result.get("end_date")
+        install_links = await ensure_user_install_guide_links(session, settings, user_id)
+        install_share_url = install_links.public_share_url
         config_link_display_for_trial, connect_button_url_for_trial = await prepare_config_links(
-            settings, activation_result.get("subscription_url")
+            settings,
+            activation_result.get("subscription_url"),
+            public_share_url=install_share_url,
         )
         config_link_for_trial = config_link_display_for_trial or _("config_link_not_available")
 
@@ -113,8 +117,6 @@ async def request_trial_confirmation_handler(
             traffic_gb=traffic_display,
         )
 
-        install_links = await ensure_user_install_guide_links(session, settings, user_id)
-        install_share_url = install_links.public_share_url
         final_message_text_in_chat = append_install_share_link_text(
             final_message_text_in_chat,
             _,
@@ -236,8 +238,12 @@ async def confirm_activate_trial_handler(
             await callback.answer(_("trial_activated_alert"), show_alert=True)
 
         end_date_obj = activation_result.get("end_date")
+        install_links = await ensure_user_install_guide_links(session, settings, user_id)
+        install_share_url = install_links.public_share_url
         config_link_display_for_trial, connect_button_url_for_trial = await prepare_config_links(
-            settings, activation_result.get("subscription_url")
+            settings,
+            activation_result.get("subscription_url"),
+            public_share_url=install_share_url,
         )
         config_link_for_trial = config_link_display_for_trial or _("config_link_not_available")
 
@@ -257,8 +263,6 @@ async def confirm_activate_trial_handler(
             config_link=config_link_for_trial,
             traffic_gb=traffic_display,
         )
-        install_links = await ensure_user_install_guide_links(session, settings, user_id)
-        install_share_url = install_links.public_share_url
         final_message_text_in_chat = append_install_share_link_text(
             final_message_text_in_chat,
             _,

@@ -207,6 +207,7 @@ _EDGE_TOKEN_EXACT_PATHS = {
 }
 _EDGE_TOKEN_PREFIXES = (
     "/api/",
+    "/s/",
     "/auth/",
     "/webapp-uploaded-logo/",
     "/webapp-favicon/",

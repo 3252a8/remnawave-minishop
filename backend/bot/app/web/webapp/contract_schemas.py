@@ -96,6 +96,7 @@ class WebappI18nOut(HttpResponseModel):
 class SubscriptionGuidesOut(HttpResponseModel):
     enabled: bool
     config: dict[str, Any] | None = None
+    guide_document: dict[str, Any] | None = None
     source: str | None = None
     error: str | None = None
 
@@ -104,6 +105,8 @@ class PublicSubscriptionContextOut(HttpResponseModel):
     active: bool
     config_link: str
     connect_url: str
+    http_url: str | None = None
+    link_mode: str = "panel"
     panel_short_uuid: str | None = None
     install_share_token: str
     username: str
@@ -570,6 +573,8 @@ WEBAPP_SUBSCRIPTION_SCHEMA: dict[str, Any] = {
         "remaining_text": STRING_SCHEMA,
         "config_link": NULLABLE_STRING_SCHEMA,
         "connect_url": NULLABLE_STRING_SCHEMA,
+        "http_url": NULLABLE_STRING_SCHEMA,
+        "link_mode": STRING_SCHEMA,
         "panel_short_uuid": NULLABLE_STRING_SCHEMA,
         "install_share_token": NULLABLE_STRING_SCHEMA,
         "install_share_url": NULLABLE_STRING_SCHEMA,

@@ -9918,8 +9918,25 @@
             "title": "Connect Url",
             "type": "string"
           },
+          "http_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Http Url"
+          },
           "install_share_token": {
             "title": "Install Share Token",
+            "type": "string"
+          },
+          "link_mode": {
+            "default": "panel",
+            "title": "Link Mode",
             "type": "string"
           },
           "panel_short_uuid": {
@@ -9984,6 +10001,19 @@
             ],
             "default": null,
             "title": "Error"
+          },
+          "guide_document": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Guide Document"
           },
           "source": {
             "anyOf": [
@@ -10311,6 +10341,19 @@
             ],
             "default": null,
             "title": "Error"
+          },
+          "guide_document": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Guide Document"
           },
           "source": {
             "anyOf": [
@@ -26180,6 +26223,12 @@
                             "null"
                           ]
                         },
+                        "http_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "install_share_token": {
                           "type": [
                             "string",
@@ -26194,6 +26243,9 @@
                         },
                         "is_throttled": {
                           "type": "boolean"
+                        },
+                        "link_mode": {
+                          "type": "string"
                         },
                         "max_devices": {
                           "type": [

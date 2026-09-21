@@ -258,7 +258,11 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             pending_payment=pending_promo_payment,
         )
         install_share_token = (
-            await subscription_dal.ensure_install_share_token(session, local_sub)
+            await subscription_dal.ensure_install_share_token(
+                session,
+                local_sub,
+                panel_short_uuid=str(active.get("panel_short_uuid") or ""),
+            )
             if active and local_sub
             else None
         )
@@ -643,6 +647,15 @@ def _serialize_subscription(
         "remaining_text": _format_remaining(seconds_left, lang),
         "config_link": active.get("config_link"),
         "connect_url": active.get("connect_button_url") or active.get("config_link"),
+        "http_url": active.get("http_url"),
+        "link_mode": (
+            "minishop"
+            if (
+                settings.SUBSCRIPTION_GATEWAY_ENABLED
+                and settings.SUBSCRIPTION_LINK_MODE == "minishop"
+            )
+            else "panel"
+        ),
         "panel_short_uuid": panel_short_uuid or None,
         "install_share_token": subscription_dal.normalize_install_share_token(share_token) or None,
         "install_share_url": _build_install_share_link(request, settings, share_token),

@@ -32,6 +32,7 @@ from bot.infra.redis import redis_lock
 from bot.services.promo_code_service import PromoCheckoutRequired, PromoCodeService
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.utils.config_link import prepare_config_links
+from bot.utils.install_links import ensure_user_install_guide_share_url
 from config.settings import Settings
 from db.dal import message_log_dal, subscription_dal, user_dal
 
@@ -351,9 +352,16 @@ async def activate_trial_route(request: web.Request) -> web.Response:
             return _json_error(status, message_key, message)
 
         end_date = activation_result.get("end_date")
+        public_share_url = (
+            await ensure_user_install_guide_share_url(session, settings, user_id)
+            if settings.SUBSCRIPTION_GATEWAY_ENABLED
+            and settings.SUBSCRIPTION_LINK_MODE == "minishop"
+            else None
+        )
         config_link, connect_url = await prepare_config_links(
             settings,
             activation_result.get("subscription_url"),
+            public_share_url=public_share_url,
         )
 
         try:

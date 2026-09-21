@@ -13,6 +13,7 @@ from bot.app.web.context import (
 )
 from bot.app.web.request_parsing import parse_body_or_400
 from bot.app.web.webapp.subscription_reissue import send_subscription_reissue_email
+from bot.services.subscription_reissue_access import reissue_subscription_access
 from config.settings import Settings
 from config.traffic_strategy import canonical_traffic_limit_strategy
 from db.dal import message_log_dal, subscription_dal, user_dal
@@ -218,7 +219,13 @@ async def admin_user_subscription_reissue_route(request: web.Request) -> web.Res
             )
 
         try:
-            updated_panel_user = await panel_service.revoke_user_subscription(panel_user_uuid)
+            updated_panel_user, gateway_url = await reissue_subscription_access(
+                session,
+                panel_service,
+                user_id=target_id,
+                panel_user_uuid=panel_user_uuid,
+                settings=settings,
+            )
         except Exception as exc:
             logger.warning(
                 "Admin webapp failed to reissue subscription for user %s: %s",
@@ -241,6 +248,7 @@ async def admin_user_subscription_reissue_route(request: web.Request) -> web.Res
                 session=session,
                 db_user=user,
                 updated_panel_user=updated_panel_user,
+                gateway_url=gateway_url,
             )
 
         await message_log_dal.create_message_log_no_commit(

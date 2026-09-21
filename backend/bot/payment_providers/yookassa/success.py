@@ -820,6 +820,12 @@ async def process_successful_payment(
         if include_keyboard:
             install_links = await ensure_user_install_guide_links(session, settings, user_id)
             install_share_url = install_links.public_share_url
+        if install_share_url:
+            config_link_display, connect_button_url = await prepare_config_links(
+                settings,
+                activation_details.get("subscription_url") if activation_details else None,
+                public_share_url=install_share_url,
+            )
         payment_succeeded_payload[DEFERRED_SUCCESS_MESSAGE_KEY] = {
             "bot": bot,
             "user_id": user_id,

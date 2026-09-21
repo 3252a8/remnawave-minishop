@@ -9,6 +9,7 @@ import {
   resolveInstallButtonAction,
   resolveInstallTemplate,
 } from "./installGuideRuntime";
+import { guideDocumentToConfig } from "./guideDocument";
 
 describe("install guide runtime helpers", () => {
   it("localizes values by the active language with fallbacks", () => {
@@ -62,5 +63,34 @@ describe("install guide runtime helpers", () => {
         throw new Error("qr failed");
       })
     ).resolves.toBe("");
+  });
+
+  it("renders a versioned document with a new platform and resolves resource actions", () => {
+    const config = guideDocumentToConfig({
+      schemaVersion: 1,
+      platforms: [{ id: "routers", displayName: { en: "Routers" }, apps: [{ name: "Router" }] }],
+    });
+    expect(config?.platforms).toHaveProperty("routers");
+    expect(
+      resolveInstallButtonAction(
+        {
+          action: {
+            kind: "open",
+            target: {
+              kind: "resource",
+              resourceId: "primary-subscription",
+              representation: "http",
+            },
+          },
+        },
+        {
+          subscription: {
+            link_mode: "minishop",
+            http_url: "https://shop.test/s/token",
+            config_link: "happ://encrypted",
+          },
+        }
+      )
+    ).toEqual({ kind: "open", value: "https://shop.test/s/token" });
   });
 });

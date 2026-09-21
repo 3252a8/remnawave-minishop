@@ -80,7 +80,7 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(body["enabled"])
         self.assertEqual(body["source"], "panel")
         self.assertEqual(body["config"]["version"], "1")
-        self.assertEqual(response.headers["Cache-Control"], "private, max-age=60")
+        self.assertEqual(response.headers["Cache-Control"], "private, no-store")
         panel_service.get_subscription_page_config_list.assert_awaited_once()
         panel_service.get_subscription_page_config_by_uuid.assert_awaited_once_with(default_uuid)
 
@@ -574,6 +574,7 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
         local_sub = SimpleNamespace(
             panel_user_uuid="panel-user",
             install_share_token=share_token,
+            install_share_panel_short_uuid="share-short",
             is_active=True,
             end_date=datetime.now(UTC) + timedelta(days=3),
         )
@@ -587,14 +588,14 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
 
         body = json.loads(response.text)
         self.assertTrue(body["enabled"])
-        self.assertEqual(response.headers["Cache-Control"], "private, max-age=60")
+        self.assertEqual(response.headers["Cache-Control"], "private, no-store")
         self.assertEqual(body["subscription"]["config_link"], "https://sb.example.test/share-short")
         self.assertEqual(
             body["subscription"]["share_url"],
             f"https://app.example.test/s/{share_token}",
         )
         self.assertEqual(body["subscription"]["install_share_token"], share_token)
-        panel_service.get_user_by_uuid.assert_awaited_once_with("panel-user")
+        panel_service.get_user_by_uuid.assert_awaited_once_with("panel-user", use_cache=False)
         panel_service.get_subscription_page_config_by_short_uuid.assert_awaited_once()
         call = panel_service.get_subscription_page_config_by_short_uuid.await_args
         self.assertEqual(call.args, ("share-short",))
@@ -608,7 +609,7 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
             resolved_config["brandingSettings"]["logoUrl"],
         )
 
-    async def test_public_route_caches_active_subscription_payload(self):
+    async def test_public_route_rechecks_active_subscription_payload(self):
         default_uuid = "00000000-0000-0000-0000-000000000000"
         custom_uuid = "11111111-1111-1111-1111-111111111111"
         share_token = "8f559061460e8fede78ef18dce887236"
@@ -639,6 +640,7 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
         local_sub = SimpleNamespace(
             panel_user_uuid="panel-user",
             install_share_token=share_token,
+            install_share_panel_short_uuid="share-short",
             is_active=True,
             end_date=datetime.now(UTC) + timedelta(days=3),
         )
@@ -657,8 +659,8 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(body["enabled"])
         self.assertTrue(second_body["enabled"])
         self.assertEqual(body["subscription"], second_body["subscription"])
-        get_sub.assert_awaited_once_with(unittest.mock.ANY, share_token)
-        panel_service.get_user_by_uuid.assert_awaited_once_with("panel-user")
+        self.assertEqual(get_sub.await_count, 2)
+        self.assertEqual(panel_service.get_user_by_uuid.await_count, 2)
         panel_service.get_subscription_page_config_by_short_uuid.assert_awaited_once()
         panel_service.get_subscription_page_config_by_uuid.assert_awaited_once_with(custom_uuid)
         panel_service.get_subscription_page_config_list.assert_not_called()
@@ -689,7 +691,6 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(body["error"], "subscription_unavailable")
         self.assertFalse(body["enabled"])
         self.assertIsNone(body["config"])
-        self.assertEqual(body["subscription"]["install_share_token"], share_token)
         self.assertFalse(body["subscription"]["active"])
         panel_service.get_subscription_page_config_list.assert_not_called()
         panel_service.get_subscription_page_config_by_uuid.assert_not_called()

@@ -158,6 +158,7 @@ class Subscription(Base):
     panel_user_uuid = Column(String, nullable=False, index=True)
     panel_subscription_uuid = Column(String, unique=True, index=True, nullable=True)
     install_share_token = Column(String(32), unique=True, index=True, nullable=True)
+    install_share_panel_short_uuid = Column(String(64), nullable=True)
     start_date = Column(DateTime(timezone=True), nullable=True)
     end_date = Column(DateTime(timezone=True), nullable=False, index=True)
     duration_months = Column(Integer, nullable=True)

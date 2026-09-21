@@ -891,10 +891,6 @@ async def finalize_successful_payment(
     translator = make_translator(req.i18n, language)
 
     raw_config_link = activation.get("subscription_url") if activation else None
-    config_link_display, connect_button_url = await prepare_config_links(
-        req.settings, raw_config_link
-    )
-
     base_end_date = activation.get("end_date") if activation else None
     final_end_date = base_end_date
     applied_referee_bonus_days = 0
@@ -971,6 +967,10 @@ async def finalize_successful_payment(
                     req.user_id,
                 )
                 install_share_url = None
+
+    config_link_display, connect_button_url = await prepare_config_links(
+        req.settings, raw_config_link, public_share_url=install_share_url
+    )
 
     if not req.skip_user_notification:
         await send_success_message_to_user(

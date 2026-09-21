@@ -11,6 +11,7 @@ type TemplateContext = {
 type InstallGuideButton = InstallGuideRecord & {
   link?: unknown;
   type?: unknown;
+  action?: unknown;
 };
 export type InstallGuideButtonAction =
   { kind: "copy"; value: string } | { kind: "open"; value: string };
@@ -102,12 +103,16 @@ export function resolveInstallTemplate(
 ): string {
   const subscriptionLink =
     stringValue(subscription.config_link) || stringValue(subscription.connect_url);
+  const httpLink =
+    subscription.link_mode === "minishop"
+      ? stringValue(subscription.http_url) || subscriptionLink
+      : subscriptionLink;
   const username =
     stringValue(user.username) || stringValue(user.first_name) || stringValue(user.id);
   const replacements: Record<string, string> = {
     HAPP_CRYPT3_LINK: subscriptionLink,
     HAPP_CRYPT4_LINK: subscriptionLink,
-    SUBSCRIPTION_LINK: subscriptionLink,
+    SUBSCRIPTION_LINK: httpLink,
     USERNAME: username,
   };
   return String(value || "").replace(/\{\{\s*([A-Z0-9_]+)\s*\}\}/g, (_match, key) =>
@@ -119,6 +124,26 @@ export function resolveInstallButtonAction(
   button: InstallGuideButton,
   context: TemplateContext
 ): InstallGuideButtonAction {
+  const action =
+    button?.action && typeof button.action === "object"
+      ? (button.action as InstallGuideRecord)
+      : null;
+  const target =
+    action?.target && typeof action.target === "object"
+      ? (action.target as InstallGuideRecord)
+      : null;
+  if (target) {
+    let value = "";
+    if (target.kind === "resource" && target.resourceId === "primary-subscription") {
+      value =
+        target.representation === "http"
+          ? resolveInstallTemplate("{{SUBSCRIPTION_LINK}}", context)
+          : resolveInstallTemplate("{{HAPP_CRYPT4_LINK}}", context);
+    } else if (target.kind === "literal") {
+      value = resolveInstallTemplate(target.value, context);
+    }
+    return action?.kind === "copy" ? { kind: "copy", value } : { kind: "open", value };
+  }
   const value = resolveInstallTemplate(button?.link, context);
   return button?.type === "copyButton" ? { kind: "copy", value } : { kind: "open", value };
 }

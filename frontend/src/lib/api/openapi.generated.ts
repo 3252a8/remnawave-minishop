@@ -7529,8 +7529,18 @@ export interface components {
       config_link: string;
       /** Connect Url */
       connect_url: string;
+      /**
+       * Http Url
+       * @default null
+       */
+      http_url: string | null;
       /** Install Share Token */
       install_share_token: string;
+      /**
+       * Link Mode
+       * @default panel
+       */
+      link_mode: string;
       /**
        * Panel Short Uuid
        * @default null
@@ -7557,6 +7567,13 @@ export interface components {
        * @default null
        */
       error: string | null;
+      /**
+       * Guide Document
+       * @default null
+       */
+      guide_document: {
+        [key: string]: unknown;
+      } | null;
       /**
        * Source
        * @default null
@@ -7688,6 +7705,13 @@ export interface components {
        * @default null
        */
       error: string | null;
+      /**
+       * Guide Document
+       * @default null
+       */
+      guide_document: {
+        [key: string]: unknown;
+      } | null;
       /**
        * Source
        * @default null
@@ -14582,9 +14606,11 @@ export interface operations {
               extra_hwid_devices_next_valid_from?: string | null;
               extra_hwid_devices_valid_until?: string | null;
               extra_hwid_devices_valid_until_text?: string | null;
+              http_url?: string | null;
               install_share_token?: string | null;
               install_share_url?: string | null;
               is_throttled?: boolean;
+              link_mode?: string;
               max_devices?: number | null;
               panel_short_uuid?: string | null;
               period_start_at?: string | null;
