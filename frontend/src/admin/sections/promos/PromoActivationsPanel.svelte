@@ -17,6 +17,7 @@
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type PromoActivation = components["schemas"]["PromoActivationOut"];
+  type PromoRevenueSummary = components["schemas"]["PromoRevenueSummaryOut"];
 
   let {
     rows,
@@ -24,6 +25,7 @@
     page,
     pageCount,
     total,
+    revenueSummary,
     at,
     fmtDate,
     fmtMoney,
@@ -38,6 +40,7 @@
     page: number;
     pageCount: number;
     total: number;
+    revenueSummary: PromoRevenueSummary;
     at: TranslateFn;
     fmtDate: (value: string | null | undefined) => string;
     fmtMoney: (value: number, currency?: string | null) => string;
@@ -130,6 +133,48 @@
 </script>
 
 <div class="admin-promo-activations-body">
+  <section
+    class="admin-promo-revenue"
+    aria-label={at("promo_revenue_title", {}, "Revenue from code payments")}
+    aria-busy={loading}
+  >
+    <header class="admin-promo-revenue-head">
+      <strong>{at("promo_revenue_title", {}, "Revenue from code payments")}</strong>
+      <small>
+        {at(
+          "promo_revenue_hint",
+          {},
+          "Successful external payments are summed separately for each currency."
+        )}
+      </small>
+    </header>
+    <div class="admin-promo-revenue-grid">
+      <div class="admin-promo-revenue-card">
+        <span>{at("promo_revenue_all_payments", {}, "All linked payments")}</span>
+        <strong>{loading ? "—" : revenueSummary.payments_total}</strong>
+      </div>
+      <div class="admin-promo-revenue-card">
+        <span>{at("promo_revenue_counted_payments", {}, "Successful revenue payments")}</span>
+        <strong>{loading ? "—" : revenueSummary.revenue_payments}</strong>
+      </div>
+      {#each revenueSummary.currencies as item (item.currency)}
+        <div class="admin-promo-revenue-card admin-promo-revenue-currency">
+          <span>{item.currency}</span>
+          <strong>{fmtMoney(Number(item.amount), item.currency)}</strong>
+          <small>
+            {at("promo_revenue_payment_count", { count: item.payments }, "{count} payments")}
+          </small>
+        </div>
+      {:else}
+        {#if !loading}
+          <div class="admin-promo-revenue-card admin-promo-revenue-empty">
+            <span>{at("promo_revenue_empty", {}, "No successful external payments")}</span>
+          </div>
+        {/if}
+      {/each}
+    </div>
+  </section>
+
   {#if loading}
     <AdminTableSkeleton
       headers={activationHeaders}
@@ -299,11 +344,57 @@
 <style>
   .admin-promo-activations-body {
     display: grid;
-    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
     gap: 12px;
     height: 100%;
     min-height: 0;
     min-width: 0;
+  }
+
+  .admin-promo-revenue {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--admin-border);
+    border-radius: 12px;
+    background: var(--admin-surface-2);
+  }
+
+  .admin-promo-revenue-head {
+    display: grid;
+    gap: 3px;
+  }
+
+  .admin-promo-revenue-head small,
+  .admin-promo-revenue-card span,
+  .admin-promo-revenue-card small {
+    color: var(--admin-muted);
+  }
+
+  .admin-promo-revenue-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+  }
+
+  .admin-promo-revenue-card {
+    display: grid;
+    align-content: center;
+    gap: 3px;
+    min-height: 64px;
+    padding: 10px;
+    border: 1px solid var(--admin-border);
+    border-radius: 9px;
+    background: var(--admin-card-bg);
+  }
+
+  .admin-promo-revenue-card strong {
+    font-size: 17px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .admin-promo-revenue-empty {
+    grid-column: span 2;
   }
 
   :global(.admin-promo-activations-scroll) {
@@ -355,7 +446,7 @@
 
   @media (max-width: 720px) {
     .admin-promo-activations-body {
-      grid-template-rows: auto auto;
+      grid-template-rows: auto auto auto;
       height: auto;
     }
 

@@ -98,6 +98,7 @@ export function createAdminStores({
     api: api as never,
     onToast,
     at,
+    routePrefix,
     queryClient: adminQueryClient,
   });
   const statsStore = createStatsStore({

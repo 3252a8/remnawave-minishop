@@ -547,7 +547,39 @@ export function demoApiResponse(
       });
       return { ok: true, promo: clone(demoPromos()[0]) };
     }
-    const promos = demoPromos();
+    const now = Date.now();
+    const search = String(params.get("search") || "")
+      .trim()
+      .toLowerCase();
+    const status = String(params.get("status") || "")
+      .trim()
+      .toLowerCase();
+    const scope = String(params.get("scope") || "")
+      .trim()
+      .toLowerCase();
+    const kind = String(params.get("kind") || "")
+      .trim()
+      .toLowerCase();
+    const allPromos = demoPromos();
+    const promos = allPromos.filter((promo) => {
+      if (
+        search &&
+        !String(promo.code || "")
+          .toLowerCase()
+          .includes(search)
+      )
+        return false;
+      if (scope && String(promo.applies_to || "all").toLowerCase() !== scope) return false;
+      if (kind === "personal" && !promo.user_id) return false;
+      if (kind === "shared" && promo.user_id) return false;
+      const expired = Boolean(promo.valid_until) && Date.parse(String(promo.valid_until)) <= now;
+      const usedUp = Number(promo.current_activations || 0) >= Number(promo.max_activations || 0);
+      if (status === "disabled") return promo.is_active === false;
+      if (status === "expired") return promo.is_active !== false && expired;
+      if (status === "used_up") return promo.is_active !== false && !expired && usedUp;
+      if (status === "active") return promo.is_active !== false && !expired && !usedUp;
+      return true;
+    });
     const sort = params.get("sort") || "created_desc";
     const page = paged(
       sortAdminRows(promos, sort, [
@@ -625,8 +657,26 @@ export function demoApiResponse(
       ok: true,
       promos: clone(page.items),
       total: page.total,
+      owned_total: allPromos.filter((promo) => Boolean(promo.user_id)).length,
       page: page.page,
       page_size: page.pageSize,
+    };
+  }
+  const promoActivationsMatch = cleanPath.match(/^\/admin\/promos\/(\d+)\/activations$/);
+  if (promoActivationsMatch) {
+    const promo = demoPromos().find((item) => item.id === Number(promoActivationsMatch[1]));
+    if (!promo) return { ok: false, error: "not_found" };
+    return {
+      ok: true,
+      activations: [],
+      total: 0,
+      page: Number(params.get("page") || 0),
+      page_size: Number(params.get("page_size") || 25),
+      revenue_summary: {
+        payments_total: 0,
+        revenue_payments: 0,
+        currencies: [],
+      },
     };
   }
   if (cleanPath.startsWith("/admin/promos/")) {

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { CreditCard, FileText, WalletCards } from "$components/ui/icons.js";
 
-  type EntityKind = "user" | "partner" | "payment" | "withdrawal" | "application";
+  type EntityKind = "user" | "partner" | "payment" | "withdrawal" | "application" | "code";
 
   type Props = {
     /** Primary line — the person's name or the record's title. */

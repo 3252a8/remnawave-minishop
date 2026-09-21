@@ -676,6 +676,18 @@ class AdminPanelSyncOut(HttpResponseModel):
         )
 
 
+class PromoRevenueCurrencyOut(HttpResponseModel):
+    currency: str
+    amount: float
+    payments: int
+
+
+class PromoRevenueSummaryOut(HttpResponseModel):
+    payments_total: int
+    revenue_payments: int
+    currencies: list[PromoRevenueCurrencyOut]
+
+
 class PromoActivationOut(HttpResponseModel):
     activation_id: int
     promo_id: int

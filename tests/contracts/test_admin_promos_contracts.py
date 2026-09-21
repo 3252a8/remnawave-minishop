@@ -125,6 +125,9 @@ def test_promo_list_pages_each_kind_separately_and_names_the_owner():
                 "page": "0",
                 "page_size": "25",
                 "sort": "code_desc",
+                "search": "own",
+                "status": "active",
+                "scope": "subscription",
             },
         )
         with (
@@ -157,7 +160,15 @@ def test_promo_list_pages_each_kind_separately_and_names_the_owner():
     # The tab is a server-side filter, so its paging and total never mix kinds.
     assert list_promos.await_args.kwargs["personal"] is True
     assert list_promos.await_args.kwargs["sort"] == "code_desc"
-    assert count_promos.await_args.kwargs["personal"] is True
+    assert list_promos.await_args.kwargs["search"] == "own"
+    assert list_promos.await_args.kwargs["status"] == "active"
+    assert list_promos.await_args.kwargs["scope"] == "subscription"
+    assert count_promos.await_args_list[0].kwargs == {
+        "personal": True,
+        "search": "own",
+        "status": "active",
+        "scope": "subscription",
+    }
     assert labels.await_args.args[1] == [77]
     row = _json_body(response)["promos"][0]
     assert (row["user_id"], row["user_username"], row["user_name"]) == (
@@ -664,6 +675,23 @@ def test_promo_activations_route_returns_user_and_payment_context():
                 "count_promo_activations_by_code_id",
                 AsyncMock(return_value=1),
             ),
+            patch.object(
+                promos_module.promo_code_dal,
+                "get_promo_revenue_summary",
+                AsyncMock(
+                    return_value=promos_module.promo_code_dal.PromoRevenueSummary(
+                        payments_total=3,
+                        revenue_payments=2,
+                        currencies=[
+                            promos_module.promo_code_dal.PromoRevenueCurrency(
+                                currency="RUB",
+                                amount=160.0,
+                                payments=2,
+                            )
+                        ],
+                    )
+                ),
+            ),
         ):
             response = await promos_module.admin_promo_activations_route(request)
         return response, session, activation, get_activations
@@ -680,3 +708,8 @@ def test_promo_activations_route_returns_user_and_payment_context():
     assert serialized["charged_months"] == 3
     assert serialized["granted_days"] == 14
     assert body["activations"] == [serialized]
+    assert body["revenue_summary"] == {
+        "payments_total": 3,
+        "revenue_payments": 2,
+        "currencies": [{"currency": "RUB", "amount": 160.0, "payments": 2}],
+    }

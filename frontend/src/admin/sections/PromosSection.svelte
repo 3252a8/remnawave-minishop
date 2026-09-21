@@ -1,23 +1,31 @@
 ﻿<script lang="ts">
   import { getPromosStore } from "$lib/admin/context";
-  import { FileText, Sliders, Trash2, User } from "$components/ui/icons.js";
+  import { FileText, RefreshCw, Sliders, Trash2, User } from "$components/ui/icons.js";
   import { onMount } from "svelte";
   import {
     AdminBadge,
     AdminButton,
     AdminEmptyState,
+    AdminEntityLink,
+    AdminListToolbar,
     AdminPagination,
+    AdminSelect,
     AdminSortableHeader,
     AdminTable,
     AdminTableSkeleton,
     VirtualTableRows,
   } from "$components/patterns/admin/index.js";
+  import Input from "$components/ui/input.svelte";
   import { Tabs } from "$components/ui/primitives.js";
   import { TableHandler } from "@vincjo/datatables";
   import PromoCreateDialog from "./promos/PromoCreateDialog.svelte";
   import PromoEditDialog from "./promos/PromoEditDialog.svelte";
   import type { components } from "../../lib/api/openapi.generated";
-  import type { PromoKind } from "$lib/admin/stores/promosStore.svelte";
+  import type {
+    PromoKind,
+    PromoScopeFilter,
+    PromoStatusFilter,
+  } from "$lib/admin/stores/promosStore.svelte";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
   import type { AdminSortColumn } from "$lib/admin/tableSort.js";
   import {
@@ -109,6 +117,8 @@
   const promosTotal = $derived(Number(promosStore.promosTotal || 0));
   const promosPage = $derived(Number(promosStore.promosPage || 0));
   const promosSort = $derived(String(promosStore.promosSort || ""));
+  const promosStatus = $derived(promosStore.promosStatus as PromoStatusFilter);
+  const promosScope = $derived(promosStore.promosScope as PromoScopeFilter);
   const promosLoading = $derived(Boolean(promosStore.promosLoading));
   const promoKind = $derived(String(promosStore.promoKind || "shared"));
   // The split only means something once some code carries an owner, so an
@@ -123,6 +133,7 @@
   const activationsLoading = $derived(Boolean(promosStore.promoActivationsLoading));
   const activationsTotal = $derived(Number(promosStore.promoActivationsTotal || 0));
   const activationsPage = $derived(Number(promosStore.promoActivationsPage || 0));
+  const promoRevenueSummary = $derived(promosStore.promoRevenueSummary);
   const promoDraft = $derived(
     (promosStore.promoDraft || {
       code: "",
@@ -161,6 +172,7 @@
   } satisfies Partial<Record<PromoEffectKind, boolean>>);
   let promoEditTab = $state<PromoEditTab>("settings");
   let previousEditPromoId = $state<number | null>(null);
+  let promoSearchQuery = $state(promosStore.promosSearch);
   const promoCreateUsesCheckout = $derived(effectUsesCheckout(promoDraft));
   const promoEditUsesCheckout = $derived(effectUsesCheckout(promoEditDraft));
 
@@ -213,6 +225,17 @@
     { value: "traffic", label: at("promo_scope_traffic", {}, "Traffic package") },
     { value: "traffic_topup", label: at("promo_scope_traffic_topup", {}, "Traffic top-up") },
     { value: "hwid", label: at("promo_scope_hwid", {}, "HWID") },
+  ]);
+  const promoStatusItems = $derived([
+    { value: "", label: at("filter_all", {}, "All") },
+    { value: "active", label: at("badge_active", {}, "Active") },
+    { value: "disabled", label: at("status_disabled", {}, "Disabled") },
+    { value: "expired", label: at("status_expired", {}, "Expired") },
+    { value: "used_up", label: at("promo_status_used_up", {}, "Used up") },
+  ]);
+  const promoScopeItems = $derived([
+    { value: "", label: at("filter_all", {}, "All") },
+    ...scopeItems,
   ]);
   onMount(() => {
     promosStore.loadPromos();
@@ -510,6 +533,60 @@
   </Tabs.Root>
 {/if}
 
+<AdminListToolbar
+  total={promosTotal}
+  totalLabel={at("total", {}, "Total")}
+  columns={2}
+  onsubmit={() => promosStore.setSearch(promoSearchQuery)}
+  class="admin-promos-toolbar"
+>
+  {#snippet search()}
+    <Input
+      type="search"
+      class="input"
+      bind:value={promoSearchQuery}
+      aria-label={at("promos_search_placeholder", {}, "Search by code")}
+      placeholder={at("promos_search_placeholder", {}, "Search by code")}
+    />
+  {/snippet}
+  {#snippet searchActions()}
+    <AdminButton type="submit" variant="primary" disabled={promosLoading}>
+      {at("find", {}, "Find")}
+    </AdminButton>
+  {/snippet}
+  {#snippet filters()}
+    <div class="admin-toolbar-field">
+      <span class="admin-toolbar-field-label">{at("status", {}, "Status")}</span>
+      <AdminSelect
+        value={promosStatus}
+        items={promoStatusItems}
+        class="admin-toolbar-select"
+        ariaLabel={at("status", {}, "Status")}
+        onValueChange={(value) => promosStore.setStatus(value as PromoStatusFilter)}
+      />
+    </div>
+    <div class="admin-toolbar-field">
+      <span class="admin-toolbar-field-label">{at("promo_label_scope", {}, "Scope")}</span>
+      <AdminSelect
+        value={promosScope}
+        items={promoScopeItems}
+        class="admin-toolbar-select"
+        ariaLabel={at("promo_label_scope", {}, "Scope")}
+        onValueChange={(value) => promosStore.setScope(value as PromoScopeFilter)}
+      />
+    </div>
+  {/snippet}
+  {#snippet actions()}
+    <AdminButton
+      variant="ghost"
+      disabled={promosLoading}
+      onclick={() => promosStore.loadPromos({ refresh: true })}
+    >
+      <RefreshCw size={15} />{at("refresh", {}, "Refresh")}
+    </AdminButton>
+  {/snippet}
+</AdminListToolbar>
+
 <div class="admin-table-wrap admin-promos-table-wrap">
   {#if promosLoading}
     <AdminTableSkeleton
@@ -591,11 +668,14 @@
         {#snippet children(p)}
           {@const status = promoStatus(p)}
           <tr data-admin-code-id={p.id}>
-            <td
-              class="admin-cell-mono admin-cell-primary"
-              data-label={at("promo_csv_code", {}, "Code")}
-            >
-              {p.code}
+            <td class="admin-cell-primary" data-label={at("promo_csv_code", {}, "Code")}>
+              <AdminEntityLink
+                kind="code"
+                label={p.code}
+                idText={`#${p.id}`}
+                title={at("promo_info_open", {}, "Open code details")}
+                onclick={() => openPromoSettings(p)}
+              />
               {#if p.user_id}
                 <button
                   type="button"
@@ -735,6 +815,7 @@
   {activationsPage}
   {activationsPageCount}
   {activationsTotal}
+  {promoRevenueSummary}
   {closePromoEditor}
   {editActivationRows}
   {editFieldDirty}

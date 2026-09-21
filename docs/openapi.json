@@ -9533,6 +9533,55 @@
         "title": "PromoOut",
         "type": "object"
       },
+      "PromoRevenueCurrencyOut": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "number"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "payments": {
+            "title": "Payments",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "currency",
+          "amount",
+          "payments"
+        ],
+        "title": "PromoRevenueCurrencyOut",
+        "type": "object"
+      },
+      "PromoRevenueSummaryOut": {
+        "properties": {
+          "currencies": {
+            "items": {
+              "$ref": "#/components/schemas/PromoRevenueCurrencyOut"
+            },
+            "title": "Currencies",
+            "type": "array"
+          },
+          "payments_total": {
+            "title": "Payments Total",
+            "type": "integer"
+          },
+          "revenue_payments": {
+            "title": "Revenue Payments",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "payments_total",
+          "revenue_payments",
+          "currencies"
+        ],
+        "title": "PromoRevenueSummaryOut",
+        "type": "object"
+      },
       "PromoUpdateBody": {
         "properties": {
           "applies_to": {
@@ -18832,6 +18881,9 @@
                       "minimum": 1,
                       "type": "integer"
                     },
+                    "revenue_summary": {
+                      "$ref": "#/components/schemas/PromoRevenueSummaryOut"
+                    },
                     "total": {
                       "minimum": 0,
                       "type": "integer"
@@ -18842,7 +18894,8 @@
                     "activations",
                     "page",
                     "page_size",
-                    "total"
+                    "total",
+                    "revenue_summary"
                   ],
                   "type": "object"
                 }

@@ -281,6 +281,7 @@
   $effect(() => {
     usersStore.setActive(active);
     paymentsStore.setActive(active);
+    promosStore.setActive(active);
     supportStore.setActive(active);
   });
 
@@ -348,6 +349,7 @@
     settingsPath = [];
     usersStore.closeUser();
     paymentsStore.closePayment();
+    promosStore.closeEditPromo({ skipPush: true });
     supportStore.closeTicketView();
     onSectionChange(next);
     // Direct extension deep links can be rendered before the outer application
@@ -506,6 +508,12 @@
     return match ? Number(match[1]) : null;
   }
 
+  function readPromoIdFromPath(): number | null {
+    if (typeof window === "undefined") return null;
+    const match = currentRoutePathname().match(/^\/admin\/promos\/(\d+)$/);
+    return match ? Number(match[1]) : null;
+  }
+
   function onPopState(): void {
     const previousActive = active;
     active = readSectionFromPath();
@@ -541,6 +549,15 @@
       }
     } else if (paymentsStore.openedPaymentId) {
       paymentsStore.closePayment({ skipPush: true });
+    }
+    const promoId = readPromoIdFromPath();
+    if (active === "promos" && promoId) {
+      if (!promosStore.promoEditing || promosStore.promoEditing.id !== promoId) {
+        void promosStore.openPromoById(promoId, { skipPush: true });
+      }
+    } else if (promosStore.promoEditing) {
+      promosStore.closeActivations();
+      promosStore.closeEditPromo({ skipPush: true });
     }
     const ticketId = readSupportTicketIdFromPath();
     if (active === "support" && ticketId) {
@@ -639,6 +656,7 @@
       onSectionChange(next);
     }
     usersStore.setActive(next);
+    promosStore.setActive(next);
     void promosStore.openPromoById(id);
   }
 
@@ -719,6 +737,10 @@
     if (typeof window !== "undefined") {
       window.addEventListener("popstate", onPopState);
       if (active === "users") replaceCurrentUsersRouteFilters(currentUsersRouteFilters());
+      const promoId = readPromoIdFromPath();
+      if (active === "promos" && promoId) {
+        void promosStore.openPromoById(promoId, { skipPush: true });
+      }
     }
     void healthStore.loadHealth();
     // Feature flags arrive with the settings manifest; without this eager

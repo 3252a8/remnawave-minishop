@@ -7372,6 +7372,24 @@ export interface components {
        */
       webapp_link: string | null;
     };
+    /** PromoRevenueCurrencyOut */
+    PromoRevenueCurrencyOut: {
+      /** Amount */
+      amount: number;
+      /** Currency */
+      currency: string;
+      /** Payments */
+      payments: number;
+    };
+    /** PromoRevenueSummaryOut */
+    PromoRevenueSummaryOut: {
+      /** Currencies */
+      currencies: components["schemas"]["PromoRevenueCurrencyOut"][];
+      /** Payments Total */
+      payments_total: number;
+      /** Revenue Payments */
+      revenue_payments: number;
+    };
     /** PromoUpdateBody */
     PromoUpdateBody: {
       /**
@@ -11671,6 +11689,7 @@ export interface operations {
             ok: true;
             page: number;
             page_size: number;
+            revenue_summary: components["schemas"]["PromoRevenueSummaryOut"];
             total: number;
           };
         };

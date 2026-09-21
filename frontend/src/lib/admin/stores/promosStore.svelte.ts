@@ -1,6 +1,7 @@
 import { legacyMonthsToDays } from "../../webapp/subscriptionPeriods";
 import { adminErrorMessage } from "../errors.js";
 import { copyTextToClipboard } from "../../webapp/clipboard.js";
+import { withRoutePrefix } from "../../webapp/routes.js";
 import {
   unwrap,
   type ApiClient,
@@ -27,7 +28,10 @@ type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: st
 type Promo = components["schemas"]["PromoOut"];
 /** Which promo tab is listed; the backend pages each kind separately. */
 export type PromoKind = "shared" | "personal" | "all";
+export type PromoStatusFilter = "" | "active" | "disabled" | "expired" | "used_up";
+export type PromoScopeFilter = "" | "all" | "subscription" | "traffic" | "traffic_topup" | "hwid";
 type PromoActivation = components["schemas"]["PromoActivationOut"];
+type PromoRevenueSummary = components["schemas"]["PromoRevenueSummaryOut"];
 type PromoDraft = Omit<components["schemas"]["PromoCreateBody"], "valid_days"> & {
   valid_days: number;
 };
@@ -49,6 +53,9 @@ type PromosState = {
   promosTotal: number;
   promosPage: number;
   promosSort: string;
+  promosSearch: string;
+  promosStatus: PromoStatusFilter;
+  promosScope: PromoScopeFilter;
   promoKind: PromoKind;
   promoOwnedTotal: number;
   promosLoading: boolean;
@@ -64,22 +71,26 @@ type PromosState = {
   promoActivationsPage: number;
   promoActivationsSort: string;
   promoActivationsLoading: boolean;
+  promoRevenueSummary: PromoRevenueSummary;
 };
 type PromosStoreOptions = {
   api: AdminApi;
   onToast: ToastFn;
   at?: TranslateFn;
+  routePrefix?: string;
   queryClient?: AdminQueryClient | null;
 };
+type PromoOpenOptions = { skipPush?: boolean };
 export type PromosStore = PromosState & {
+  setActive: (section: string) => void;
   loadPromos: (options?: { refresh?: boolean }) => Promise<void>;
   createPromo: () => Promise<void>;
   savePromo: () => Promise<void>;
   togglePromo: (promo: Promo) => Promise<void>;
   deletePromo: (promo: Promo) => Promise<void>;
-  openEditPromo: (promo: Promo) => void;
-  openPromoById: (promoId: number) => Promise<void>;
-  closeEditPromo: () => void;
+  openEditPromo: (promo: Promo, options?: PromoOpenOptions) => void;
+  openPromoById: (promoId: number, options?: PromoOpenOptions) => Promise<void>;
+  closeEditPromo: (options?: PromoOpenOptions) => void;
   updateEditDraft: (fields: Partial<PromoPatch>) => void;
   copyToClipboard: (text: string | null | undefined, successMessage?: string) => Promise<void>;
   openActivations: (promo: Promo) => Promise<void>;
@@ -88,6 +99,9 @@ export type PromosStore = PromosState & {
   setActivationsPage: (page: number) => void;
   setPage: (page: number) => void;
   setSort: (sort: string) => void;
+  setSearch: (search: string) => void;
+  setStatus: (status: PromoStatusFilter) => void;
+  setScope: (scope: PromoScopeFilter) => void;
   setActivationsSort: (sort: string) => void;
   setPromoKind: (kind: PromoKind) => void;
   setCreateOpen: (open: boolean) => void;
@@ -102,6 +116,12 @@ function isOkResponse<T extends { ok: true }>(response: T | AdminErrorResponse):
 
 const PROMOS_QUERY_KEY = ["admin", "promos"] as const;
 const PROMO_ACTIVATIONS_QUERY_KEY = ["admin", "promos", "activations"] as const;
+
+const defaultPromoRevenueSummary = (): PromoRevenueSummary => ({
+  payments_total: 0,
+  revenue_payments: 0,
+  currencies: [],
+});
 
 class AdminPromosError extends Error {
   payload: unknown;
@@ -202,6 +222,7 @@ export function createPromosStore({
   api,
   onToast,
   at = (key, _params, fallback) => fallback || key,
+  routePrefix = "",
   queryClient = null,
 }: PromosStoreOptions): PromosStore {
   let promos = $state.raw<Promo[]>([]);
@@ -210,6 +231,9 @@ export function createPromosStore({
     promosTotal: 0,
     promosPage: 0,
     promosSort: "",
+    promosSearch: "",
+    promosStatus: "",
+    promosScope: "",
     promoKind: "shared",
     promoOwnedTotal: 0,
     promosLoading: false,
@@ -224,6 +248,7 @@ export function createPromosStore({
     promoActivationsPage: 0,
     promoActivationsSort: "date_desc",
     promoActivationsLoading: false,
+    promoRevenueSummary: defaultPromoRevenueSummary(),
   });
   const store = Object.create(state) as PromosStore;
   defineRawStateProperty(store, "promos", {
@@ -243,8 +268,31 @@ export function createPromosStore({
   const ACTIVATIONS_PAGE_SIZE = 25;
   let promosRequestSeq = 0;
   let activationsRequestSeq = 0;
+  let active = "stats";
 
-  function promosQueryKey(page: number, kind: PromoKind, sort: string): AdminQueryKey {
+  function setActive(section: string): void {
+    active = section;
+  }
+
+  function pushPromoPath(promoId: number | null): void {
+    if (typeof window === "undefined" || window.location.protocol === "file:") return;
+    if (active !== "promos") return;
+    const target = withRoutePrefix(
+      promoId ? buildAdminPromoPath(promoId) : buildAdminPromosPath(),
+      routePrefix
+    );
+    if (window.location.pathname === target) return;
+    window.history.pushState(null, "", `${target}${window.location.search}${window.location.hash}`);
+  }
+
+  function promosQueryKey(
+    page: number,
+    kind: PromoKind,
+    sort: string,
+    search: string,
+    status: PromoStatusFilter,
+    scope: PromoScopeFilter
+  ): AdminQueryKey {
     return [
       PROMOS_QUERY_KEY[0],
       PROMOS_QUERY_KEY[1],
@@ -252,6 +300,9 @@ export function createPromosStore({
         page,
         kind,
         sort,
+        search,
+        status,
+        scope,
       },
     ];
   }
@@ -259,7 +310,10 @@ export function createPromosStore({
   async function requestPromos(
     page: number,
     kind: PromoKind,
-    sort: string
+    sort: string,
+    search: string,
+    status: PromoStatusFilter,
+    scope: PromoScopeFilter
   ): Promise<PromosListResponse> {
     const params = new URLSearchParams({
       page: String(page),
@@ -268,6 +322,9 @@ export function createPromosStore({
     });
     // The backend pages each kind on its own, so a tab never mixes the two.
     if (kind !== "all") params.set("kind", kind);
+    if (search) params.set("search", search);
+    if (status) params.set("status", status);
+    if (scope) params.set("scope", scope);
     const data = await api(buildAdminPromosPath(params));
     if (!isOkResponse(data)) {
       throw new AdminPromosError(adminErrorMessage(data, at, "Error"), data);
@@ -314,11 +371,29 @@ export function createPromosStore({
     const currentPage = state.promosPage;
     const currentKind = state.promoKind;
     const currentSort = state.promosSort;
+    const currentSearch = state.promosSearch;
+    const currentStatus = state.promosStatus;
+    const currentScope = state.promosScope;
     try {
       const data = await fetchAdminQuery({
         queryClient,
-        queryKey: promosQueryKey(currentPage, currentKind, currentSort),
-        queryFn: () => requestPromos(currentPage, currentKind, currentSort),
+        queryKey: promosQueryKey(
+          currentPage,
+          currentKind,
+          currentSort,
+          currentSearch,
+          currentStatus,
+          currentScope
+        ),
+        queryFn: () =>
+          requestPromos(
+            currentPage,
+            currentKind,
+            currentSort,
+            currentSearch,
+            currentStatus,
+            currentScope
+          ),
         refresh,
       });
       const payload = unwrap(data);
@@ -379,7 +454,7 @@ export function createPromosStore({
       promos = promos.map((p) => (p.id === promo.id ? payload.promo : p));
       state.promoEditing = payload.promo;
       state.promoEditDraft = promoToPatchDraft(payload.promo);
-      state.promoEditOpen = false;
+      closeEditPromo();
       onToast(at("promo_saved_toast", {}, "Code saved"));
     } else {
       onToast(adminErrorMessage(res, at, "Error"));
@@ -417,36 +492,42 @@ export function createPromosStore({
     }
   }
 
-  function openEditPromo(promo: Promo): void {
+  function openEditPromo(promo: Promo, options: PromoOpenOptions = {}): void {
     state.promoCreateOpen = false;
     state.promoEditing = promo;
     state.promoEditDraft = promoToPatchDraft(promo);
     state.promoEditOpen = true;
+    if (!options.skipPush) pushPromoPath(promo.id);
   }
 
-  async function openPromoById(promoId: number): Promise<void> {
+  async function openPromoById(promoId: number, options: PromoOpenOptions = {}): Promise<void> {
+    if (!options.skipPush) pushPromoPath(promoId);
     const cached = promos.find((promo) => promo.id === promoId);
     if (cached) {
-      openEditPromo(cached);
+      openEditPromo(cached, { skipPush: true });
       return;
     }
     try {
       const response: PromoDetailResponse = await api(buildAdminPromoPath(promoId));
       if (!isOkResponse(response)) {
         onToast(adminErrorMessage(response, at, "promo_load_failed"));
+        if (!options.skipPush) pushPromoPath(null);
         return;
       }
       const promo = unwrap(response).promo;
-      openEditPromo(promo);
+      openEditPromo(promo, { skipPush: true });
     } catch (error) {
       onToast(error instanceof Error ? error.message : String(error || "promo_load_failed"));
+      if (!options.skipPush) pushPromoPath(null);
     }
   }
 
-  function closeEditPromo(): void {
+  function closeEditPromo(options: PromoOpenOptions = {}): void {
+    const wasOpen = state.promoEditOpen || Boolean(state.promoEditing);
     state.promoEditOpen = false;
     state.promoEditing = null;
     state.promoEditDraft = defaultPromoPatchDraft();
+    if (wasOpen && !options.skipPush) pushPromoPath(null);
   }
 
   function updateEditDraft(fields: Partial<PromoPatch>): void {
@@ -476,6 +557,7 @@ export function createPromosStore({
     promoActivations = [];
     state.promoActivationsTotal = 0;
     state.promoActivationsPage = 0;
+    state.promoRevenueSummary = defaultPromoRevenueSummary();
   }
 
   async function loadActivations(page = state.promoActivationsPage): Promise<void> {
@@ -495,6 +577,7 @@ export function createPromosStore({
         return;
       promoActivations = payload.activations || [];
       state.promoActivationsTotal = payload.total || 0;
+      state.promoRevenueSummary = payload.revenue_summary || defaultPromoRevenueSummary();
     } catch (error) {
       if (requestSeq !== activationsRequestSeq) return;
       if (error instanceof AdminPromosError) {
@@ -518,6 +601,26 @@ export function createPromosStore({
 
   function setSort(sort: string): void {
     state.promosSort = sort;
+    state.promosPage = 0;
+    void loadPromos();
+  }
+
+  function setSearch(search: string): void {
+    state.promosSearch = search.trim();
+    state.promosPage = 0;
+    void loadPromos();
+  }
+
+  function setStatus(status: PromoStatusFilter): void {
+    if (state.promosStatus === status) return;
+    state.promosStatus = status;
+    state.promosPage = 0;
+    void loadPromos();
+  }
+
+  function setScope(scope: PromoScopeFilter): void {
+    if (state.promosScope === scope) return;
+    state.promosScope = scope;
     state.promosPage = 0;
     void loadPromos();
   }
@@ -548,6 +651,7 @@ export function createPromosStore({
   }
 
   return Object.assign(store, {
+    setActive,
     loadPromos,
     createPromo,
     savePromo,
@@ -564,6 +668,9 @@ export function createPromosStore({
     setActivationsPage,
     setPage,
     setSort,
+    setSearch,
+    setStatus,
+    setScope,
     setActivationsSort,
     setPromoKind,
     setCreateOpen,

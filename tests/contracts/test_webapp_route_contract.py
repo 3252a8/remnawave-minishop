@@ -204,6 +204,7 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("GET", "/api/admin/payments/export.csv"): "admin_payments_export_route",
             ("GET", "/api/admin/promos"): "admin_promos_list_route",
             ("POST", "/api/admin/promos"): "admin_promo_create_route",
+            ("GET", "/api/admin/promos/{promo_id}"): "admin_promo_detail_route",
             (
                 "GET",
                 "/api/admin/promos/{promo_id}/activations",
