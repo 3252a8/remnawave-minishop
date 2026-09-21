@@ -26,6 +26,7 @@
 | --- | --- | --- |
 | `BOT_TOKEN` | Только `.env` | Токен Telegram-бота. |
 | `TELEGRAM_BOT_PROXY_URL` | Только `.env` | Необязательный SOCKS5 proxy для исходящих запросов Telegram Bot API из `backend` и `worker`; может также использоваться server-side частью OAuth. |
+| `TELEGRAM_BOT_API_BASE_URL` | Только `.env` | Необязательный HTTP(S) endpoint собственного Local Bot API для `backend` и `worker`. |
 | `TELEGRAM_OAUTH_USE_BOT_PROXY` | Только `.env` | Разрешает server-side запросам Telegram OAuth использовать `TELEGRAM_BOT_PROXY_URL`. По умолчанию `True`; без URL сохраняется прямой маршрут. |
 | `ADMIN_IDS` | Только `.env` | Telegram ID администраторов через запятую. Нужен для первого входа в админку. |
 | `WEBHOOK_BASE_URL` | `.env` | Публичный URL backend/webhook-домена. Используется для URL вебхуков Telegram, платежных провайдеров и Remnawave. |
@@ -103,6 +104,25 @@ Startup-лог показывает только замаскированный 
 rollback OAuth установите `TELEGRAM_OAUTH_USE_BOT_PROXY=False` и пересоздайте `backend`. Для
 полного возврата всех Telegram-запросов на прямой маршрут удалите или очистите
 `TELEGRAM_BOT_PROXY_URL` и пересоздайте `backend` и `worker`.
+
+### Local Telegram Bot API
+
+Для отправки больших файлов через собственный сервер Telegram Bot API задайте его базовый URL:
+
+```dotenv
+TELEGRAM_BOT_API_BASE_URL=http://telegram-bot-api:8081
+```
+
+Minishop включает локальный режим aiogram для всех Bot API вызовов из `backend` и `worker`.
+Сервер должен быть запущен и авторизован отдельно, а URL — быть доступен из обоих контейнеров.
+Query-параметры, fragment и credentials в URL не поддерживаются; для Compose-сервиса используйте
+его DNS-имя вместо `127.0.0.1`. Удаление переменной возвращает официальный Telegram Bot API.
+
+После изменения пересоздайте оба процесса:
+
+```bash
+docker compose up -d --force-recreate backend worker
+```
 
 ## Инфраструктура и Compose
 
@@ -312,6 +332,7 @@ Trust-all вариант записывается как
 
 | Переменная | Назначение |
 | --- | --- |
+| `USER_NOTIFICATION_PREFERENCES_ENABLED` | Разрешает пользователям управлять каналами уведомлений в ЛК и по ссылке из писем. По умолчанию `True`. |
 | `USER_NOTIFICATION_SINGLE_CHANNEL_FALLBACK_ENABLED` | Использовать единственный другой привязанный канал, когда выбранный канал пользователю недоступен. По умолчанию `True`. |
 | `USER_NOTIFICATION_PAYMENTS_TELEGRAM_ENABLED`, `USER_NOTIFICATION_PAYMENTS_EMAIL_ENABLED` | Каналы уведомлений об успешных и неуспешных платежах. |
 | `SUBSCRIPTION_NOTIFICATIONS_ENABLED`, `SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED` | Telegram и email для уведомлений жизненного цикла подписки. |
@@ -375,18 +396,24 @@ Xray-Core 26.3.27+, `NET_ADMIN`, nftables, корректный sniffing и вк
 | `TELEGRAM_OAUTH_REQUEST_ACCESS` | `.env` | Дополнительные разрешения, например `write`. |
 | `TELEGRAM_OAUTH_USE_BOT_PROXY` | `.env` | Разрешить server-side OAuth token/JWKS запросам автоматически использовать настроенный `TELEGRAM_BOT_PROXY_URL`. По умолчанию `True`; браузерный redirect не проксируется. |
 | `TELEGRAM_LOGIN_ENABLED` | Админка | Показывать вход через Telegram. |
+| `TELEGRAM_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не привяжет Telegram. По умолчанию `True`. |
 | `EMAIL_LOGIN_ENABLED` | Админка | Показывать вход по email при настроенном SMTP. |
+| `EMAIL_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не привяжет email. По умолчанию `True`. |
 | `EMAIL_ADDRESS_CHANGE_ENABLED` | Админка | Разрешить пользователям менять основной email после подтверждения текущего и нового адресов. По умолчанию включено. |
 | `GOOGLE_OIDC_ENABLED` | Админка | Включить Google OIDC. Требует client ID и client secret. |
+| `GOOGLE_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не привяжет Google. По умолчанию `True`. |
 | `GOOGLE_OIDC_CLIENT_ID` | Админка | Client ID OAuth 2.0 Web application из Google Cloud. |
 | `GOOGLE_OIDC_CLIENT_SECRET` | Админка | Секрет Google OAuth-клиента. |
 | `YANDEX_OIDC_ENABLED` | Админка | Включить вход через Yandex ID. Требует client ID и client secret. |
+| `YANDEX_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не привяжет Yandex ID. По умолчанию `True`. |
 | `YANDEX_OIDC_CLIENT_ID` | Админка | ID приложения для авторизации пользователей в Yandex OAuth. |
 | `YANDEX_OIDC_CLIENT_SECRET` | Админка | Секрет приложения Yandex OAuth. |
 | `DISCORD_OIDC_ENABLED` | Админка | Включить вход через Discord. Требует client ID и client secret. |
+| `DISCORD_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не привяжет Discord. По умолчанию `True`. |
 | `DISCORD_OIDC_CLIENT_ID` | Админка | Application ID из Discord Developer Portal. |
 | `DISCORD_OIDC_CLIENT_SECRET` | Админка | Client secret приложения Discord. |
 | `PASSKEY_LOGIN_ENABLED` | Админка | Включить регистрацию и вход с passkey/WebAuthn. |
+| `PASSKEY_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не добавит passkey. По умолчанию `True`. |
 | `PASSKEY_RP_ID` | Админка | Домен Relying Party без схемы, порта и пути. По умолчанию берётся из публичного Web App URL. |
 | `PASSKEY_RP_NAME` | Админка | Имя сервиса, показываемое при создании ключа доступа. |
 | `PASSKEY_ORIGINS` | Админка | Разрешённые HTTPS origins через запятую. |
@@ -698,6 +725,8 @@ docker compose exec backend sh -lc 'curl -4fsS https://api.ipify.org; echo'
 
 | Переменная | Назначение |
 | --- | --- |
+| `WATA_ENABLED` | Включить обычные разовые платежи Wata. |
+| `WATA_ADMIN_ONLY_ENABLED` | Показывать обычные платежи Wata только администраторам. |
 | `WATA_BASE_URL` | Базовый URL API. |
 | `WATA_API_TOKEN` | Bearer-токен. |
 | `WATA_RETURN_URL` | URL успешного возврата. |
@@ -706,6 +735,12 @@ docker compose exec backend sh -lc 'curl -4fsS https://api.ipify.org; echo'
 | `WATA_WEBHOOK_VERIFY_SIGNATURE` | Проверять `X-Signature`. |
 | `WATA_PUBLIC_KEY` | Закешированный публичный ключ; если пусто, загружается из API. |
 | `WATA_TRUSTED_IPS` | Список доверенных IP webhook-источников. |
+| `WATA_SUBSCRIPTION_ENABLED` | Включить отдельный способ оплаты с расписанием на стороне Wata. На терминале должны быть подключены подписки. |
+| `WATA_SUBSCRIPTION_ADMIN_ONLY_ENABLED` | Показывать рекуррентный способ Wata только администраторам. |
+| `WATA_SUBSCRIPTION_MAX_PERIODS` | Максимальное число периодов новой подписки Wata (по умолчанию `120`). |
+| `PAYMENT_WATA_SUBSCRIPTION_WEBAPP_LABEL_RU` | Текст кнопки рекуррентного способа Wata на русском. |
+| `PAYMENT_WATA_SUBSCRIPTION_WEBAPP_LABEL_EN` | Текст кнопки рекуррентного способа Wata на английском. |
+| `PAYMENT_WATA_SUBSCRIPTION_WEBAPP_ICON` | Lucide-иконка рекуррентного способа Wata. |
 
 ### CryptoPay
 
@@ -943,7 +978,7 @@ Stripe создает hosted Checkout Sessions и подтверждает ав�
 | `TRIAL_HWID_DEVICE_LIMIT` | Лимит HWID-устройств пробного периода. Пустое значение сохраняет лимит панели/по умолчанию, `0` означает безлимит. |
 | `TRIAL_DAYS_STRATEGY` | Правило покупки тарифа во время активного trial: `add_remaining` добавляет оставшиеся дни триала к оплаченному сроку, `start_from_payment` начинает оплаченный срок с даты платежа. Выбор задаёт администратор; пользователь не может изменить его при оплате. |
 | `TRIAL_TRAFFIC_STRATEGY` | Стратегия лимита пробного периода. |
-| `TRIAL_WITHOUT_TELEGRAM_ENABLED` | Разрешает активацию trial пользователям без привязанного Telegram. Disposable email домены всё равно требуют Telegram. |
+| `TRIAL_WITHOUT_OAUTH_ENABLED` | Разрешает активацию trial без привязанного OAuth-провайдера. По умолчанию включён. Если выключен, нужен Telegram либо любая внешняя OAuth-идентичность; disposable email домены всё равно требуют Telegram. Старое имя `TRIAL_WITHOUT_TELEGRAM_ENABLED` поддерживается как deprecated env-алиас. |
 | `TRIAL_SQUAD_UUIDS` | Internal Squads для trial через запятую. Если пусто, используется `USER_SQUAD_UUIDS`. |
 | `TRIAL_PREMIUM_SQUAD_UUIDS` | Premium Internal Squads для trial через запятую. Если пусто, premium-доступ в trial не выдаётся. |
 | `GIFTS_ENABLED` | Включает новые покупки [подарочных подписок](../features/gifts.md) в «Бонусах». По умолчанию `True`. Админка: «Настройки → Общие». История, доставка и активация оплаченных подарков доступны после выключения. |
@@ -1015,6 +1050,7 @@ openssl rand -base64 32 | tr '+/' '-_'
 | Переменная | Назначение |
 | --- | --- |
 | `SUPPORT_TICKETS_ENABLED` | Включает тикеты в Mini App. |
+| `SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED` | Telegram/log уведомления администраторам о новых тикетах и ответах пользователей. |
 | `SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED` | Email-уведомления администраторам. |
 | `SUPPORT_TICKET_MAX_BODY_LENGTH` | Максимальная длина сообщения. |
 | `SUPPORT_TICKET_MAX_SUBJECT_LENGTH` | Максимальная длина темы. |

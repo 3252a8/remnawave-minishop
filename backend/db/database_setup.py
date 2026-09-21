@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+from bot.infra.performance import TimedAsyncPool, instrument_engine
 from config.settings import Settings
 from db.models import Base
 
@@ -46,12 +47,14 @@ def init_db_connection(settings: Settings) -> async_sessionmaker[AsyncSession]:
         async_engine = create_async_engine(
             settings.DATABASE_URL,
             echo=False,
+            poolclass=TimedAsyncPool,
             pool_pre_ping=True,
             pool_size=settings.DB_POOL_SIZE,
             max_overflow=settings.DB_MAX_OVERFLOW,
             pool_timeout=settings.DB_POOL_TIMEOUT_SECONDS,
             pool_recycle=settings.DB_POOL_RECYCLE_SECONDS,
         )
+        instrument_engine(async_engine)
 
     local_async_session_factory: async_sessionmaker[AsyncSession] = async_sessionmaker(
         bind=async_engine,

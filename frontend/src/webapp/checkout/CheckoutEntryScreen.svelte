@@ -189,7 +189,10 @@
           <div>
             <strong>{t("wa_checkout_step_plan")}</strong>
             {#if trackTariff && !(inPaymentFlow ? editingPaymentPlan : choosingPlan)}
-              <small>{trackTariff.title} · {priceLabel(trackPlan)}</small>
+              <small
+                >{trackTariff.title} <span class="meta-separator" aria-hidden="true"></span>
+                {priceLabel(trackPlan)}</small
+              >
               {#if !inPaymentFlow || canChangePaymentPlan}
                 <button class="side-change" type="button" onclick={changePlan}>
                   {t("wa_checkout_change_plan")}
@@ -278,7 +281,7 @@
                 >
               {/if}
               {#if privacyPolicyUrl && userAgreementUrl}
-                ·
+                <span class="meta-separator" aria-hidden="true"></span>
               {/if}
               {#if userAgreementUrl}
                 <button type="button" onclick={() => openExternalLink(userAgreementUrl)}

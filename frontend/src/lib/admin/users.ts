@@ -92,9 +92,32 @@ export function openTelegramProfileLink(link: string): boolean {
   return true;
 }
 
-export function createGravatarCache(onResolved: () => void = () => {}) {
+type ScheduleResolved = (callback: () => void) => void;
+
+function scheduleResolvedFrame(callback: () => void): void {
+  if (typeof globalThis.requestAnimationFrame === "function") {
+    globalThis.requestAnimationFrame(callback);
+    return;
+  }
+  globalThis.setTimeout(callback, 0);
+}
+
+export function createGravatarCache(
+  onResolved: () => void = () => {},
+  scheduleResolved: ScheduleResolved = scheduleResolvedFrame
+) {
   const cache = new Map<string, string>();
   const pending = new Map<string, Promise<void>>();
+  let refreshScheduled = false;
+
+  function notifyResolved(): void {
+    if (refreshScheduled) return;
+    refreshScheduled = true;
+    scheduleResolved(() => {
+      refreshScheduled = false;
+      onResolved();
+    });
+  }
 
   async function sha256Hex(value: string): Promise<string> {
     const buf = new TextEncoder().encode(value);
@@ -116,7 +139,8 @@ export function createGravatarCache(onResolved: () => void = () => {}) {
       sha256Hex(key)
         .then((h) => {
           cache.set(key, `https://gravatar.com/avatar/${h}?d=identicon&s=80`);
-          onResolved();
+          pending.delete(key);
+          notifyResolved();
         })
         .catch(() => {
           pending.delete(key);

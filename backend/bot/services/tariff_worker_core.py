@@ -15,6 +15,7 @@ from aiogram.utils.text_decorations import html_decoration as hd
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
+from bot.infra.performance import performance_operation
 from bot.infra.redis import redis_lock
 from bot.middlewares.i18n import JsonI18n
 from bot.services.message_audit import log_user_message_delivery
@@ -90,6 +91,9 @@ class _TrialPremiumTariff:
     @property
     def premium_monthly_bytes(self) -> int:
         return self._premium_monthly_bytes
+
+    def has_premium_squad_limit(self) -> bool:
+        return bool(self.premium_squad_uuids and self.premium_monthly_bytes > 0)
 
     def name(self, _lang: str, _fallback: str = "ru") -> str:
         return "Trial"
@@ -511,7 +515,7 @@ class TariffWorkerCoreMixin:
         tick: Callable[[AsyncSession], Awaitable[None]],
     ) -> None:
         for attempt in range(1, TARIFF_WORKER_DB_RETRY_ATTEMPTS + 1):
-            async with self.session_factory() as session:
+            async with performance_operation(tick_name), self.session_factory() as session:
                 try:
                     await acquire_subscription_background_sync_lock(session)
                     await tick(session)

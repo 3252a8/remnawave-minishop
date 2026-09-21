@@ -17,7 +17,8 @@ describe("menu button drafts", () => {
     expect(button.webapp_icon).toBe("ExternalLink");
     expect(button.telegram_emoji).toBe("🔗");
     expect(button.show_in_bot).toBe(true);
-    expect(button.show_in_webapp).toBe(true);
+    expect(button.show_in_telegram_webapp).toBe(true);
+    expect(button.show_in_browser).toBe(true);
 
     expect(parseMenuButtonDrafts(serializeMenuButtonDrafts([button]))).toEqual({
       buttons: [button],
@@ -47,7 +48,8 @@ describe("menu button drafts", () => {
       webapp_icon: "Send",
       telegram_emoji: "✈️",
       show_in_bot: true,
-      show_in_webapp: false,
+      show_in_telegram_webapp: false,
+      show_in_browser: false,
     });
   });
 

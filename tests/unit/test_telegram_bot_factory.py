@@ -46,6 +46,40 @@ def test_factory_keeps_aiogram_default_session_without_proxy(monkeypatch) -> Non
     assert created_bots[0]["default"].parse_mode == ParseMode.HTML
 
 
+def test_factory_uses_local_bot_api_server(monkeypatch, caplog) -> None:
+    created_sessions = []
+    created_bots = []
+
+    class FakeSession:
+        def __init__(self, **kwargs):
+            self.api = kwargs["api"]
+            self.middleware = self
+            self.middlewares = []
+            created_sessions.append(self)
+
+        def register(self, middleware):
+            self.middlewares.append(middleware)
+
+    class FakeBot:
+        def __init__(self, **kwargs):
+            created_bots.append(kwargs)
+
+    monkeypatch.setattr(telegram_bot_factory, "AiohttpSession", FakeSession)
+    monkeypatch.setattr(telegram_bot_factory, "Bot", FakeBot)
+
+    with caplog.at_level("INFO"):
+        telegram_bot_factory.create_telegram_bot(
+            make_settings(TELEGRAM_BOT_API_BASE_URL="http://telegram-bot-api:8081/")
+        )
+
+    assert len(created_sessions) == 1
+    assert created_sessions[0].api.base == "http://telegram-bot-api:8081/bot{token}/{method}"
+    assert created_sessions[0].api.is_local is True
+    assert created_sessions[0].middlewares == []
+    assert created_bots[0]["session"] is created_sessions[0]
+    assert "http://telegram-bot-api:8081" in caplog.text
+
+
 def test_factory_creates_one_proxy_session_and_redacts_startup_log(monkeypatch, caplog) -> None:
     raw_url = "socks5://proxy-user:proxy-password@proxy.example.com:1080"
     created_sessions = []

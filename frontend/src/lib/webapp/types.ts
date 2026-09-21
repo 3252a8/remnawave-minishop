@@ -70,8 +70,10 @@ export type WebappConfig = BootstrapResponse["config"] &
     appRepositoryUrl?: unknown;
     appVersion?: unknown;
     authProviders?: string[];
+    recommendedAuthProviders?: string[];
     checkoutPlans?: BillingPlan[];
     emailAuthEnabled?: boolean;
+    notificationPreferencesEnabled?: boolean;
     faviconUseCustom?: unknown;
     language?: string;
     languages?: LanguageOption[] | unknown[];
@@ -86,10 +88,12 @@ export const FALLBACK_WEBAPP_CONFIG: WebappConfig = {
   appRepositoryUrl: "",
   appVersion: "",
   authProviders: ["telegram"],
+  recommendedAuthProviders: ["telegram"],
   checkoutPlans: [],
   currency: "RUB",
   devMode: false,
   emailAuthEnabled: false,
+  notificationPreferencesEnabled: true,
   faviconUrl: "",
   faviconUseCustom: false,
   language: "ru",
@@ -102,6 +106,8 @@ export const FALLBACK_WEBAPP_CONFIG: WebappConfig = {
   serverStatusShowOnHome: false,
   serverStatusUrl: "",
   compactHomeEnabled: false,
+  checkoutAddonValueAnimationEnabled: true,
+  checkoutAddonEditorExpandedByDefault: false,
   supportUrl: "",
   telegramLoginBotId: 0,
   telegramLoginBotUsername: "",

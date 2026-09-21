@@ -57,6 +57,7 @@
     fmtDateShort,
     paymentStatusVariant,
     onOpenPaymentCard,
+    onOpenPartnerCard,
     userLogsRows,
     userLogsTotal,
     userLogsPage,
@@ -135,6 +136,7 @@
     fmtDateShort: DateFormatter;
     paymentStatusVariant: (status: unknown) => BadgeVariant;
     onOpenPaymentCard: (paymentId: number) => void;
+    onOpenPartnerCard: (partnerId: string) => void;
     userLogsRows: readonly UserLogRow[];
     userLogsTotal: number;
     userLogsPage: number;
@@ -233,6 +235,7 @@
           {referralInviter}
           {referralInviteesTotal}
           {openRelatedUser}
+          {onOpenPartnerCard}
         />
 
         <main class="admin-user-main">

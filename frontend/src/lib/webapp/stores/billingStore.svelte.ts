@@ -774,6 +774,8 @@ export function createBillingStore({
           balanceSource: options.balanceSource,
           usePartnerBalance: options.usePartnerBalance,
           checkoutAddons: options.checkoutAddons,
+          payerEmail: options.payerEmail,
+          payerPhone: options.payerPhone,
         })
       );
       const successContext = paymentSuccessContext(s, response);

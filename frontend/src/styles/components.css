@@ -1003,9 +1003,15 @@
 }
 
 .ticket-card-meta > span + span::before {
-  content: "·";
+  content: var(--separator, "·");
   margin-right: 8px;
   color: color-mix(in srgb, var(--muted) 60%, transparent);
+}
+
+/* Standalone metadata separator in the Mini App: the glyph comes from the
+   theme `separator` token, so a theme can replace or drop it. */
+.meta-separator::before {
+  content: var(--separator, "·");
 }
 
 .ticket-card-badges,

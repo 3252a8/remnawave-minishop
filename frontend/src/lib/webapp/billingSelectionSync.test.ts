@@ -63,6 +63,31 @@ describe("reconcileBillingSelection", () => {
     });
   });
 
+  it("keeps a private-link tariff selected outside the public catalog", () => {
+    const selectedPlan = {
+      id: "private-year",
+      access_via_link: true,
+      tariff_key: "private",
+    };
+
+    expect(
+      reconcileBillingSelection(
+        {
+          paymentStep: "checkout",
+          selectedMethod: "card",
+          selectedPlan,
+          selectedTariffKey: "private",
+        },
+        {
+          ...BASE_INPUT,
+          methods: [{ id: "card" }],
+          tariffCatalog: [catalogEntry("standard")],
+          tariffMode: true,
+        }
+      )
+    ).toBeNull();
+  });
+
   it("selects the first plan for the active tariff", () => {
     const selectedTariffPlans = [{ id: "pro-month", tariff_key: "pro" }];
 

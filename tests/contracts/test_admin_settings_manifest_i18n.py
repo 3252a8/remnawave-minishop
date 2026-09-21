@@ -14,6 +14,7 @@ PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 SUPPORT_RELATED_SETTINGS = (
     "LOG_SUPPORT_THREAD_ID",
     "SUPPORT_TICKETS_ENABLED",
+    "SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED",
     "SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED",
     "SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS",
     "SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS",
@@ -106,7 +107,7 @@ ADMIN_TARIFF_SETTINGS_PAGE_KEYS = {
     "admin_tariffs_trial_title",
     "admin_tariffs_trial_subtitle",
     "admin_tariffs_trial_enabled",
-    "admin_tariffs_trial_without_telegram_enabled",
+    "admin_tariffs_trial_without_oauth_enabled",
     "admin_tariffs_trial_days",
     "admin_tariffs_trial_traffic",
     "admin_tariffs_trial_premium_traffic",
@@ -328,6 +329,44 @@ def test_compact_home_toggle_is_an_appearance_setting():
         assert field["i18n_description_key"] in messages
 
 
+def test_checkout_addon_ux_toggles_are_appearance_settings():
+    manifest = _manifest_by_key()
+    for key in (
+        "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED",
+        "WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT",
+    ):
+        field = manifest[key]
+        assert field["type"] == "bool"
+        assert field["section"] == "appearance"
+        assert field["section_order"] == 2
+        for language in ("ru", "en"):
+            messages = _locale(language)
+            assert field["i18n_label_key"] in messages
+            assert field["i18n_description_key"] in messages
+
+
+def test_recommended_login_method_toggles_are_localized():
+    manifest = _manifest_by_key()
+    expected_subsections = {
+        "TELEGRAM_LOGIN_RECOMMENDED": "telegram",
+        "EMAIL_LOGIN_RECOMMENDED": "email",
+        "GOOGLE_LOGIN_RECOMMENDED": "google",
+        "YANDEX_LOGIN_RECOMMENDED": "yandex",
+        "DISCORD_LOGIN_RECOMMENDED": "discord",
+        "PASSKEY_LOGIN_RECOMMENDED": "passkey",
+    }
+
+    for setting_key, subsection in expected_subsections.items():
+        field = manifest[setting_key]
+        assert field["type"] == "bool"
+        assert field["section"] == "login_methods"
+        assert field["subsection"] == subsection
+        for language in ("ru", "en"):
+            messages = _locale(language)
+            assert field["i18n_label_key"] in messages
+            assert field["i18n_description_key"] in messages
+
+
 def test_support_settings_manifest_uses_admin_i18n_keys():
     manifest = _manifest_by_key()
 
@@ -353,6 +392,18 @@ def test_support_settings_i18n_keys_exist_in_admin_locales():
             field = manifest[setting_key]
             assert field["i18n_label_key"] in messages
             assert field["i18n_description_key"] in messages
+
+
+def test_user_notification_preferences_setting_is_localized():
+    field = _manifest_by_key()["USER_NOTIFICATION_PREFERENCES_ENABLED"]
+
+    assert field["type"] == "bool"
+    assert field["section"] == "notifications"
+    assert field["subsection"] is None
+    for language in ("ru", "en"):
+        messages = _locale(language)
+        assert field["i18n_label_key"] in messages
+        assert field["i18n_description_key"] in messages
 
 
 def test_settings_choice_i18n_keys_exist_in_admin_locales():
@@ -597,7 +648,7 @@ def test_trial_required_settings_reject_empty_values():
         "TRIAL_DAYS_STRATEGY",
         "TRIAL_TRAFFIC_LIMIT_GB",
         "TRIAL_TRAFFIC_STRATEGY",
-        "TRIAL_WITHOUT_TELEGRAM_ENABLED",
+        "TRIAL_WITHOUT_OAUTH_ENABLED",
     ):
         with pytest.raises(ValueError):
             coerce_value(get_field_by_key(key), "")
@@ -766,8 +817,8 @@ def test_legacy_tariff_settings_are_separated_from_payment_settings():
     assert manifest["TRIAL_PAYMENT_ENABLED"]["subsection"] == "trial"
     assert manifest["TRIAL_PAYMENT_PRICE"]["min"] == 0
     assert manifest["TRIAL_PAYMENT_STARS_PRICE"]["min"] == 0
-    assert manifest["TRIAL_WITHOUT_TELEGRAM_ENABLED"]["section"] == "system"
-    assert manifest["TRIAL_WITHOUT_TELEGRAM_ENABLED"]["subsection"] == "email_anti_abuse"
+    assert manifest["TRIAL_WITHOUT_OAUTH_ENABLED"]["section"] == "system"
+    assert manifest["TRIAL_WITHOUT_OAUTH_ENABLED"]["subsection"] == "email_anti_abuse"
     assert manifest["TRIAL_SQUAD_UUIDS"]["section"] == "pricing"
     assert manifest["TRIAL_SQUAD_UUIDS"]["subsection"] == "trial"
     assert manifest["TRIAL_PREMIUM_TRAFFIC_LIMIT_GB"]["section"] == "pricing"
@@ -812,7 +863,7 @@ def test_legacy_tariff_settings_are_separated_from_payment_settings():
     assert manifest["DISPOSABLE_EMAIL_DOMAINS"]["section"] == "system"
     assert manifest["DISPOSABLE_EMAIL_DOMAINS"]["subsection"] == "email_anti_abuse"
     for key in (
-        "TRIAL_WITHOUT_TELEGRAM_ENABLED",
+        "TRIAL_WITHOUT_OAUTH_ENABLED",
         "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
         "DISPOSABLE_EMAIL_DOMAINS",
     ):

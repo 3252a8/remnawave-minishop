@@ -6,6 +6,14 @@ import {
   clearAuthQuery,
 } from "./authHelpers.js";
 import { TELEGRAM_SDK_BOOT_TIMEOUT_MS } from "./constants";
+import {
+  beginBootBudget,
+  finishBootBudget,
+  WEBAPP_BOOT_BUDGET_MS,
+  currentBootSignal,
+  isInvalidSession,
+  recordClientTiming,
+} from "./bootBudget";
 
 type SessionRefreshResult = {
   authenticated?: boolean;
@@ -57,7 +65,63 @@ export type WebappBootDeps = {
  * Initial auth / session bootstrap for the subscription webapp (non-preview).
  * Keeps side effects in App (mode, tg, token) via injected callbacks.
  */
-export async function runWebappBoot({
+export async function runWebappBoot(deps: WebappBootDeps): Promise<void> {
+  const controller = beginBootBudget();
+  const started = performance.now();
+  let outcome = "ok";
+  const step = async <T>(call: () => T | Promise<T>): Promise<T> => {
+    if (controller.signal.aborted) throw new DOMException("boot_cancelled", "AbortError");
+    const result = await call();
+    if (controller.signal.aborted) throw new DOMException("boot_cancelled", "AbortError");
+    return result;
+  };
+  let abortListener = () => {};
+  const aborted = new Promise<never>((_resolve, reject) => {
+    abortListener = () => reject(new DOMException("boot_timeout", "AbortError"));
+    controller.signal.addEventListener("abort", abortListener, { once: true });
+  });
+  const timer = setTimeout(() => controller.abort(), WEBAPP_BOOT_BUDGET_MS);
+  try {
+    await Promise.race([
+      runWebappBootSequence({
+        ...deps,
+        setMode: (mode) => {
+          if (!controller.signal.aborted) deps.setMode(mode);
+        },
+        clearToken: () => {
+          if (!controller.signal.aborted) deps.clearToken();
+        },
+        showLogin: () => {
+          if (!controller.signal.aborted) deps.showLogin();
+        },
+        setAuthStatus: (message, error) => {
+          if (!controller.signal.aborted) deps.setAuthStatus(message, error);
+        },
+        loadData: () => step(deps.loadData),
+        loadTelegramSdk: (timeout) => step(() => deps.loadTelegramSdk(timeout)),
+        refreshSession: deps.refreshSession ? () => step(() => deps.refreshSession?.()) : null,
+        finalizeMagicLogin: (token) => step(() => deps.finalizeMagicLogin(token)),
+        finalizeTelegramAuth: (data, source) => step(() => deps.finalizeTelegramAuth(data, source)),
+        restorePendingExternalOauth: () => step(deps.restorePendingExternalOauth),
+      }),
+      aborted,
+    ]);
+  } catch {
+    outcome = controller.signal.aborted ? "timeout_or_cancel" : "unavailable";
+    if (currentBootSignal() === controller.signal) {
+      deps.setMode("bootError");
+      deps.setAuthStatus(deps.t("wa_boot_failed"), true);
+    }
+  } finally {
+    clearTimeout(timer);
+    controller.signal.removeEventListener("abort", abortListener);
+    finishBootBudget(controller);
+    recordClientTiming("boot", started, outcome);
+    if (outcome === "ok") recordClientTiming("interactive", 0, outcome);
+  }
+}
+
+async function runWebappBootSequence({
   MOCK,
   setMode,
   hasTelegramLaunchParams,
@@ -113,7 +177,8 @@ export async function runWebappBoot({
         showAccountLinkStatus?.(t("wa_auth_telegram_not_confirmed"));
       }
       return;
-    } catch {
+    } catch (error) {
+      if (!isInvalidSession(error)) throw error;
       clearToken();
     }
   } else if (externalAuth?.status === "email_confirmation_required") {
@@ -129,7 +194,8 @@ export async function runWebappBoot({
       await loadData();
       showAccountLinkStatus?.(accountMergeConflictMessage(externalAuth.status, t));
       return;
-    } catch {
+    } catch (error) {
+      if (!isInvalidSession(error)) throw error;
       clearToken();
     }
   } else if (externalAuth) {
@@ -153,7 +219,8 @@ export async function runWebappBoot({
     try {
       await loadData();
       return;
-    } catch {
+    } catch (error) {
+      if (!isInvalidSession(error)) throw error;
       clearToken();
     }
   } else if (telegramAuthStatus && isAccountMergeConflict(telegramAuthStatus)) {
@@ -162,7 +229,8 @@ export async function runWebappBoot({
       await loadData();
       showAccountLinkStatus?.(accountMergeConflictMessage(telegramAuthStatus, t));
       return;
-    } catch {
+    } catch (error) {
+      if (!isInvalidSession(error)) throw error;
       clearToken();
     }
   } else if (telegramAuthStatus) {
@@ -203,7 +271,8 @@ export async function runWebappBoot({
         await loadData();
         return;
       }
-    } catch {
+    } catch (error) {
+      if (!isInvalidSession(error)) throw error;
       clearToken();
     }
   }
@@ -212,7 +281,8 @@ export async function runWebappBoot({
     try {
       await loadData();
       return;
-    } catch {
+    } catch (error) {
+      if (!isInvalidSession(error)) throw error;
       clearToken();
     }
   }

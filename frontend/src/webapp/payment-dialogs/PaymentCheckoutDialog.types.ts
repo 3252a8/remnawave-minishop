@@ -18,6 +18,8 @@ export type CheckoutPaymentOptions = {
   balanceSource?: "user" | "partner" | null;
   usePartnerBalance?: boolean;
   checkoutAddons?: CheckoutAddonSelection;
+  payerEmail?: string;
+  payerPhone?: string;
 };
 
 type BalancePaymentAction = (options?: CheckoutPaymentOptions) => unknown;
@@ -49,6 +51,8 @@ export type PaymentCheckoutDialogProps = {
   tariffCatalog?: TariffView[];
   tariffMode?: boolean;
   trafficMode?: boolean;
+  checkoutAddonValueAnimationEnabled?: boolean;
+  checkoutAddonEditorExpandedByDefault?: boolean;
   closePaymentModal?: VoidAction;
   checkoutPromoAppliedCode?: string;
   checkoutPromoInput?: string;

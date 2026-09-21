@@ -19,6 +19,7 @@ from . import (
     user_dal,
     user_panel_squad_override_dal,
     wata_reconciliation_dal,
+    wata_subscription_dal,
 )
 
 __all__ = (
@@ -42,4 +43,5 @@ __all__ = (
     "user_dal",
     "user_panel_squad_override_dal",
     "wata_reconciliation_dal",
+    "wata_subscription_dal",
 )

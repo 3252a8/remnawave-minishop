@@ -29,7 +29,7 @@ jobs:
       version: ${{ steps.release.outputs.version }}
     steps:
       - name: Checkout workflow revision
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 

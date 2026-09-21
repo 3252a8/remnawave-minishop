@@ -3,6 +3,8 @@ import hashlib
 import io
 import json
 import logging
+import time
+from collections import OrderedDict
 from datetime import UTC, datetime
 from typing import Any, TypeVar, cast
 
@@ -36,6 +38,14 @@ from .response_helpers import json_response
 
 BodyModelT = TypeVar("BodyModelT", bound=BaseModel)
 logger = logging.getLogger(__name__)
+_AVATAR_RETRY_AFTER: OrderedDict[int, float] = OrderedDict()
+
+
+def _defer_avatar_fetch(telegram_id: int, seconds: float) -> None:
+    _AVATAR_RETRY_AFTER[telegram_id] = time.monotonic() + seconds
+    _AVATAR_RETRY_AFTER.move_to_end(telegram_id)
+    while len(_AVATAR_RETRY_AFTER) > 2048:
+        _AVATAR_RETRY_AFTER.popitem(last=False)
 
 
 def _json_error(status: int, code: str, message: str) -> web.Response:
@@ -280,13 +290,17 @@ async def _ensure_cached_telegram_avatar(
     user: User,
     *,
     force_refresh: bool = False,
+    allow_fetch: bool = True,
 ) -> UserTelegramAvatar | None:
     avatar = await user_dal.get_user_telegram_avatar(session, int(user.user_id))
     telegram_id = _telegram_id_for_user(user)
-    if not telegram_id:
+    if not telegram_id or not allow_fetch:
         return avatar
     if avatar and not force_refresh and not _telegram_avatar_is_stale(avatar):
         return avatar
+    if not force_refresh and _AVATAR_RETRY_AFTER.get(int(telegram_id), 0) > time.monotonic():
+        return avatar
+    _AVATAR_RETRY_AFTER.pop(int(telegram_id), None)
 
     bot: Bot = get_bot(request)
     try:
@@ -295,10 +309,12 @@ async def _ensure_cached_telegram_avatar(
             timeout=WEBAPP_TELEGRAM_AVATAR_FETCH_TIMEOUT_SECONDS,
         )
     except Exception as exc:
+        _defer_avatar_fetch(int(telegram_id), 15)
         logger.info("Failed to refresh Telegram avatar for user %s: %s", user.user_id, exc)
         return avatar
 
     if not fetched:
+        _defer_avatar_fetch(int(telegram_id), 600)
         return avatar
 
     body, content_type, file_unique_id = fetched

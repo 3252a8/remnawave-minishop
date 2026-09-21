@@ -344,6 +344,26 @@ export function adminFallbackResponse(
       if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_COMPACT_HOME_ENABLED")) {
         DEV_MOCK.config.compactHomeEnabled = Boolean(updates.WEBAPP_COMPACT_HOME_ENABLED);
       }
+      if (
+        Object.prototype.hasOwnProperty.call(
+          updates,
+          "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED"
+        )
+      ) {
+        DEV_MOCK.config.checkoutAddonValueAnimationEnabled = Boolean(
+          updates.WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED
+        );
+      }
+      if (
+        Object.prototype.hasOwnProperty.call(
+          updates,
+          "WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT"
+        )
+      ) {
+        DEV_MOCK.config.checkoutAddonEditorExpandedByDefault = Boolean(
+          updates.WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT
+        );
+      }
       if (Object.prototype.hasOwnProperty.call(updates, "SERVER_STATUS_SHOW_ON_HOME")) {
         DEV_MOCK.config.serverStatusShowOnHome = Boolean(updates.SERVER_STATUS_SHOW_ON_HOME);
       }
@@ -378,12 +398,13 @@ export function adminFallbackResponse(
       if (Object.prototype.hasOwnProperty.call(updates, "TRIAL_TRAFFIC_STRATEGY")) {
         DEV_MOCK.config.trialTrafficStrategy = updates.TRIAL_TRAFFIC_STRATEGY || "NO_RESET";
       }
-      if (Object.prototype.hasOwnProperty.call(updates, "TRIAL_WITHOUT_TELEGRAM_ENABLED")) {
-        DEV_MOCK.config.trialWithoutTelegramEnabled = Boolean(
-          updates.TRIAL_WITHOUT_TELEGRAM_ENABLED
+      if (Object.prototype.hasOwnProperty.call(updates, "TRIAL_WITHOUT_OAUTH_ENABLED")) {
+        DEV_MOCK.config.trialWithoutOauthEnabled = Boolean(updates.TRIAL_WITHOUT_OAUTH_ENABLED);
+        DEV_MOCK.data.settings.trial_without_oauth_enabled = Boolean(
+          updates.TRIAL_WITHOUT_OAUTH_ENABLED
         );
         DEV_MOCK.data.settings.trial_without_telegram_enabled = Boolean(
-          updates.TRIAL_WITHOUT_TELEGRAM_ENABLED
+          updates.TRIAL_WITHOUT_OAUTH_ENABLED
         );
       }
       if (Object.prototype.hasOwnProperty.call(updates, "TRIAL_SQUAD_UUIDS")) {
@@ -563,6 +584,20 @@ export function adminFallbackResponse(
               value: Boolean(DEV_MOCK.config.compactHomeEnabled),
             },
             {
+              key: "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED",
+              type: "bool",
+              section: "appearance",
+              label: "Animate tariff parameter values",
+              value: Boolean(DEV_MOCK.config.checkoutAddonValueAnimationEnabled),
+            },
+            {
+              key: "WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT",
+              type: "bool",
+              section: "appearance",
+              label: "Expand tariff parameters by default",
+              value: Boolean(DEV_MOCK.config.checkoutAddonEditorExpandedByDefault),
+            },
+            {
               key: "WEBAPP_LOGO_URL",
               type: "url",
               section: "appearance",
@@ -645,12 +680,12 @@ export function adminFallbackResponse(
               value: DEV_MOCK.config.trialTrafficStrategy || "NO_RESET",
             },
             {
-              key: "TRIAL_WITHOUT_TELEGRAM_ENABLED",
+              key: "TRIAL_WITHOUT_OAUTH_ENABLED",
               type: "bool",
-              section: "pricing",
-              subsection: "trial",
-              label: "Триал без Telegram",
-              value: DEV_MOCK.config.trialWithoutTelegramEnabled ?? true,
+              section: "system",
+              subsection: "email_anti_abuse",
+              label: "Триал без OAuth",
+              value: DEV_MOCK.config.trialWithoutOauthEnabled ?? true,
             },
             {
               key: "TRIAL_SQUAD_UUIDS",

@@ -16,6 +16,7 @@ from bot.app.web.context import (
     set_webapp_logo_cache,
 )
 from bot.infra.redis import cache_delete, cache_delete_pattern, redis_key
+from bot.infra.versioned_cache import invalidate_versioned_cache
 from bot.utils.ttl_cache import AsyncTTLCache
 from config.settings import Settings
 
@@ -102,6 +103,7 @@ def _webapp_user_payload_cache(
             ttl_seconds=ttl,
             settings=settings,
             namespace=f"webapp:{namespace}",
+            shared_versioned=True,
         )
         _WEBAPP_USER_PAYLOAD_CACHES[cache_key] = cache
     return cache
@@ -171,9 +173,11 @@ async def invalidate_webapp_user_caches(
             continue
         seen.add(user_id)
         if include_me:
+            await invalidate_versioned_cache(settings, "webapp:me", str(user_id))
             keys.append(redis_key(settings, "cache", "webapp", "me", user_id))
             invalidate_local_webapp_user_payload(settings, "me", user_id)
         if include_devices:
+            await invalidate_versioned_cache(settings, "webapp:devices", str(user_id))
             keys.append(redis_key(settings, "cache", "webapp", "devices", user_id))
             invalidate_local_webapp_user_payload(settings, "devices", user_id)
     if keys:
@@ -186,6 +190,7 @@ async def invalidate_all_webapp_user_payloads(
     include_devices: bool = False,
 ) -> None:
     for namespace in _payload_namespaces(include_devices):
+        await invalidate_versioned_cache(settings, f"webapp:{namespace}")
         invalidate_all_local_webapp_user_payloads(settings, namespace=namespace)
         try:
             pattern = redis_key(settings, "cache", "webapp", namespace, "*")

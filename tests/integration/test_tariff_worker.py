@@ -17,6 +17,7 @@ from bot.services.panel_api_compat import PanelApiCompatibility
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.tariff_worker import TariffTrafficWorker
+from bot.services.tariff_worker_prefetch import prefetch_premium_periods
 from bot.services.tariff_worker_premium_batches import PremiumSquadMutationPlan
 from bot.services.tariff_worker_shared import canonical_subscriptions_per_panel_user
 from config.settings import Settings
@@ -91,6 +92,62 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         # Settings inherit the CI Redis URL. Close the shared client before
         # IsolatedAsyncioTestCase tears down the event loop that owns its pool.
         await close_redis()
+
+    async def test_regular_tick_commits_between_subscription_batches(self):
+        tariff = SimpleNamespace(billing_model="lifetime")
+        settings = SimpleNamespace(
+            tariffs_config=SimpleNamespace(require_configured=lambda _key: tariff),
+        )
+        panel_service = SimpleNamespace()
+        subscription_service = SimpleNamespace(
+            _extract_panel_traffic_details=lambda _payload: (0, 0, None),
+        )
+        worker = TariffTrafficWorker(
+            settings=settings,
+            session_factory=SimpleNamespace(),
+            panel_service=panel_service,
+            subscription_service=subscription_service,
+        )
+        worker._trial_premium_tariff = lambda: None
+        worker._prefetch_panel_users_by_uuid = AsyncMock(
+            return_value={
+                "panel-1": {"uuid": "panel-1", "status": "ACTIVE"},
+                "panel-2": {"uuid": "panel-2", "status": "ACTIVE"},
+            }
+        )
+        worker._panel_next_traffic_reset_at = MagicMock(return_value=None)
+        worker._sync_hwid_device_limit = AsyncMock()
+        worker._maybe_warn_or_throttle = AsyncMock()
+        worker._sync_premium_squad_limit = AsyncMock()
+        worker._finish_premium_panel_batch = AsyncMock()
+        subscriptions = [
+            SimpleNamespace(
+                subscription_id=index,
+                panel_user_uuid=f"panel-{index}",
+                tariff_key="standard",
+                traffic_used_bytes=0,
+                traffic_limit_bytes=0,
+                status_from_panel="ACTIVE",
+                end_date=datetime(2026, 7, index, tzinfo=UTC),
+            )
+            for index in (1, 2)
+        ]
+        result = MagicMock()
+        result.scalars.return_value.all.return_value = subscriptions
+        session = AsyncMock()
+        session.execute.return_value = result
+        checkpoint = AsyncMock()
+
+        with (
+            patch("bot.services.tariff_worker_regular.TARIFF_WORKER_BATCH_SIZE", 1),
+            patch(
+                "bot.services.tariff_worker_regular.commit_subscription_background_sync_batch",
+                checkpoint,
+            ),
+        ):
+            await worker.traffic_period_tick(session)
+
+        checkpoint.assert_awaited_once_with(session)
 
     def test_topup_webapp_button_labels_do_not_mention_mini_app(self):
         class I18n:
@@ -1121,18 +1178,22 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             trial_tariff = worker._trial_premium_tariff()
 
             self.assertIsNotNone(trial_tariff)
+            now = datetime.now(UTC)
+            panel_payload = {
+                "username": "tg_123",
+                "activeInternalSquads": [
+                    {"uuid": "squad-1"},
+                    {"uuid": "premium-squad"},
+                ],
+            }
+            await prefetch_premium_periods(worker, [sub], [panel_payload], now)
             await worker._sync_premium_squad_limit(
                 AsyncMock(),
                 sub,
                 trial_tariff,
-                datetime.now(UTC),
+                now,
                 panel_username="tg_123",
-                panel_user_dict={
-                    "activeInternalSquads": [
-                        {"uuid": "squad-1"},
-                        {"uuid": "premium-squad"},
-                    ]
-                },
+                panel_user_dict=panel_payload,
             )
 
             self.assertEqual(sub.premium_baseline_bytes, 3 * (1024**3))

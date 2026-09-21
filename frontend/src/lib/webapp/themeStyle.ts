@@ -46,6 +46,7 @@ const TOKEN_TO_CSS_VAR: Record<string, string> = {
   text: "--text",
   muted: "--muted",
   dim: "--dim",
+  separator: "--separator",
   danger: "--danger",
   danger_text: "--danger-text",
   danger_soft: "--danger-soft",
@@ -115,9 +116,45 @@ const LOGO_SCALE_TOKEN_KEYS = new Set([
   "home_logo_scale_desktop",
   "home_logo_scale_mobile",
 ]);
+// Tokens whose value is plain text that has to reach CSS as a quoted string,
+// so `content: var(--separator)` keeps working. Unlike the other tokens an
+// empty string is meaningful: it removes the rendered separator.
+const CSS_STRING_TOKEN_KEYS = new Set(["separator"]);
 const PERCENTAGE_TOKEN_KEYS = new Set(["transparency"]);
 const THEME_VARIANTS = new Set(["dark", "light"]);
 const GOOGLE_FONT_LINK_ID = "webapp-theme-google-fonts";
+
+/** How the Mini App renders the referral bonus list. */
+export type ReferralBonusListMode = "plain" | "collapsed" | "expanded";
+
+/** Generic visibility policy shared by configurable Home screen elements. */
+export type ThemeElementVisibilityMode = "auto" | "hidden" | "visible";
+export const HOME_ELEMENT_VISIBILITY_TOKEN_BY_KEY = {
+  subscriptionPeriod: "home_subscription_period_visibility",
+  tariffName: "home_tariff_name_visibility",
+  subscriptionEnd: "home_subscription_end_visibility",
+  regularTraffic: "home_regular_traffic_visibility",
+  premiumTraffic: "home_premium_traffic_visibility",
+  changeTariff: "home_change_tariff_visibility",
+  balance: "home_balance_visibility",
+  autoRenew: "home_auto_renew_visibility",
+} as const;
+export type HomeElementKey = keyof typeof HOME_ELEMENT_VISIBILITY_TOKEN_BY_KEY;
+export type HomeElementVisibility = Record<HomeElementKey, ThemeElementVisibilityMode>;
+
+const THEME_ELEMENT_VISIBILITY_MODES = new Set<string>(["auto", "hidden", "visible"]);
+export const DEFAULT_HOME_ELEMENT_VISIBILITY: HomeElementVisibility = Object.freeze({
+  subscriptionPeriod: "auto",
+  tariffName: "auto",
+  subscriptionEnd: "auto",
+  regularTraffic: "auto",
+  premiumTraffic: "auto",
+  changeTariff: "auto",
+  balance: "auto",
+  autoRenew: "auto",
+});
+
+const REFERRAL_BONUS_LIST_MODES = new Set<string>(["plain", "collapsed", "expanded"]);
 const SYSTEM_FONT_FAMILIES = new Set([
   "-apple-system",
   "blinkmacsystemfont",
@@ -141,6 +178,65 @@ const GOOGLE_FONT_SINGLE_WEIGHT_FAMILIES = new Set(["press start 2p"]);
 export const THEME_PREVIEW_STORAGE_KEY = "rw_webapp_theme_preview_v1";
 export const THEME_PREVIEW_TTL_MS = 10 * 60 * 1000;
 
+/**
+ * Resolve the referral bonus list behaviour token. Component behaviour cannot
+ * come from theme CSS, so themes opt in through this token and the shell passes
+ * the resolved mode down to the screen.
+ */
+export function themeReferralBonusListMode(
+  tokens: ThemeTokens | null | undefined
+): ReferralBonusListMode {
+  const value = String(asRecord(tokens).referral_bonus_list || "")
+    .trim()
+    .toLowerCase();
+  return REFERRAL_BONUS_LIST_MODES.has(value) ? (value as ReferralBonusListMode) : "plain";
+}
+
+function themeElementVisibilityMode(value: unknown): ThemeElementVisibilityMode {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  return THEME_ELEMENT_VISIBILITY_MODES.has(normalized)
+    ? (normalized as ThemeElementVisibilityMode)
+    : "auto";
+}
+
+/** Resolve every configurable Home element from one uniform theme-token policy. */
+export function themeHomeElementVisibility(
+  tokens: ThemeTokens | null | undefined
+): HomeElementVisibility {
+  const source = asRecord(tokens);
+  return Object.fromEntries(
+    Object.entries(HOME_ELEMENT_VISIBILITY_TOKEN_BY_KEY).map(([key, token]) => [
+      key,
+      themeElementVisibilityMode(source[token]),
+    ])
+  ) as HomeElementVisibility;
+}
+
+/**
+ * Apply a theme visibility mode without bypassing backend capabilities.
+ * `visible` can override a presentation heuristic, while `available` still
+ * prevents an action or data block from appearing when it cannot work.
+ */
+export function themeHomeElementIsVisible(
+  mode: ThemeElementVisibilityMode,
+  autoVisible: boolean,
+  available: boolean = autoVisible
+): boolean {
+  if (mode === "hidden") return false;
+  if (mode === "visible") return available;
+  return autoVisible;
+}
+
+function hasControlCharacter(value: string): boolean {
+  for (const char of value) {
+    const code = char.codePointAt(0) ?? 0;
+    if (code < 0x20 || code === 0x7f) return true;
+  }
+  return false;
+}
+
 export function themeTokensToInlineStyle(
   tokens: ThemeTokens | null | undefined,
   primaryFallback: string | undefined = "#00fe7a",
@@ -154,6 +250,12 @@ export function themeTokensToInlineStyle(
   for (const [key, cssVar] of Object.entries(TOKEN_TO_CSS_VAR)) {
     if (key === "accent") continue;
     let value = t[key];
+    if (CSS_STRING_TOKEN_KEYS.has(key)) {
+      if (typeof value === "string" && !hasControlCharacter(value)) {
+        parts.push(`${cssVar}:${JSON.stringify(value)}`);
+      }
+      continue;
+    }
     if ((value === undefined || value === null || value === "") && ADMIN_TOKEN_FALLBACKS[key]) {
       value = t[ADMIN_TOKEN_FALLBACKS[key]];
     }

@@ -63,9 +63,11 @@ describe("server status store", () => {
     expect(shouldPollServerStatus(response("url") as ServerStatusData)).toBe(false);
   });
 
-  it("keeps the five most recent checks for each server", async () => {
-    const api = vi.fn().mockResolvedValue({
+  it("keeps the five most recent distinct checks for each server", async () => {
+    let check = 0;
+    const api = vi.fn().mockImplementation(async () => ({
       ...response("xray-checker"),
+      updatedAt: `2026-08-24T12:00:0${check++}Z`,
       groups: [
         {
           id: "servers",
@@ -83,11 +85,41 @@ describe("server status store", () => {
           ],
         },
       ],
-    });
+    }));
     const store = createServerStatusStore(api as never);
 
     for (let index = 0; index < 6; index += 1) await store.refresh(true);
 
     expect(store.history["server-1"]).toHaveLength(5);
+  });
+
+  it("does not add cached responses to ping history", async () => {
+    const cached = {
+      ...response("xray-checker"),
+      groups: [
+        {
+          id: "servers",
+          name: "Servers",
+          items: [
+            {
+              id: "server-1",
+              name: "DE",
+              provider: "xray-checker" as const,
+              status: "online" as const,
+              latencyMs: 42,
+              lastCheck: null,
+              uptime24h: null,
+            },
+          ],
+        },
+      ],
+    };
+    const api = vi.fn().mockResolvedValue(cached);
+    const store = createServerStatusStore(api as never);
+
+    for (let index = 0; index < 6; index += 1) await store.refresh(true);
+
+    expect(api).toHaveBeenCalledTimes(6);
+    expect(store.history["server-1"]).toHaveLength(1);
   });
 });

@@ -14,7 +14,8 @@ from bot.app.web.context import (
     get_subscription_service,
 )
 from bot.app.web.webapp.assets import _enforce_webapp_rate_limit, _get_cached_webapp_settings
-from bot.app.web.webapp.auth import _require_user_id, _trial_telegram_required_reason
+from bot.app.web.webapp.auth import _require_user_id
+from bot.app.web.webapp.auth_common import _trial_oauth_required_reason_for_user
 from bot.app.web.webapp.common import (
     _json_error,
     _parse_model_payload,
@@ -376,12 +377,20 @@ async def create_payment_route(request: web.Request) -> web.Response:
             return _json_error(403, "access_denied", "Access denied")
         lang = db_user.language_code or settings.DEFAULT_LANGUAGE
         if _sale_mode_base(sale_mode) == "trial":
-            telegram_required_reason = _trial_telegram_required_reason(settings, db_user)
-            if telegram_required_reason:
+            oauth_required_reason = await _trial_oauth_required_reason_for_user(
+                session,
+                settings,
+                db_user,
+            )
+            if oauth_required_reason:
                 return _json_error(
                     400,
-                    "trial_telegram_required",
-                    telegram_required_reason,
+                    (
+                        "trial_telegram_required"
+                        if oauth_required_reason == "disposable_email"
+                        else "trial_oauth_required"
+                    ),
+                    oauth_required_reason,
                 )
             if await subscription_service.has_trial_blocking_subscription(session, user_id):
                 return _json_error(
@@ -403,6 +412,10 @@ async def create_payment_route(request: web.Request) -> web.Response:
                 lang=lang,
                 sale_mode=sale_mode,
                 is_admin=is_admin,
+                payer_email=(
+                    str(payment_payload.payer_email) if payment_payload.payer_email else None
+                ),
+                payer_phone=payment_payload.payer_phone,
             )
         checkout_pricing_context, pricing_context_error = await _resolve_checkout_pricing_context(
             session=session,
@@ -557,6 +570,8 @@ async def create_payment_route(request: web.Request) -> web.Response:
             use_partner_balance=payment_payload.use_partner_balance,
             checkout_bundle_snapshot=checkout_bundle.snapshot,
             checkout_bundle_hash=checkout_bundle.digest,
+            payer_email=(str(payment_payload.payer_email) if payment_payload.payer_email else None),
+            payer_phone=payment_payload.payer_phone,
         )
 
 
@@ -584,6 +599,8 @@ async def _create_subscription_payment(
     use_partner_balance: bool = False,
     checkout_bundle_snapshot: str | None = None,
     checkout_bundle_hash: str | None = None,
+    payer_email: str | None = None,
+    payer_phone: str | None = None,
 ) -> web.Response:
     settings: Settings = get_settings(request)
     checkout_grants = checkout_addon_grants(checkout_bundle_snapshot)
@@ -633,6 +650,18 @@ async def _create_subscription_payment(
                 "tribute_recurring_conflict",
                 "Cancel the active Tribute subscription before changing or replacing the tariff",
             )
+        active_provider = str(getattr(active_subscription, "provider", "") or "").lower()
+        if active_provider == "wata" and bool(
+            getattr(active_subscription, "auto_renew_enabled", False)
+        ):
+            replacing_wata_mandate = method == "wata_subscription"
+            changes_subscription = _sale_mode_base(sale_mode) == "subscription"
+            if changes_subscription and not replacing_wata_mandate:
+                return _json_error(
+                    409,
+                    "wata_recurring_conflict",
+                    "Replace or cancel the active Wata recurring payment before changing its terms",
+                )
         if fixed_days is not None:
             try:
                 period_start = datetime.now(UTC)
@@ -702,6 +731,15 @@ async def _create_subscription_payment(
                 "payment_unavailable",
                 "Payment method unavailable for this plan",
             )
+        if (
+            getattr(provider_spec, "manages_recurring", False)
+            and selected_balance_source is not None
+        ):
+            return _json_error(
+                409,
+                "balance_payment_not_supported",
+                "Balance cannot be combined with a provider-managed recurring payment",
+            )
         if checkout_grants.has_addons and not provider_spec.is_checkout_addon_supported(
             settings,
             months,
@@ -725,6 +763,8 @@ async def _create_subscription_payment(
             currency=payment_currency,
             description=description,
             sale_mode=sale_mode,
+            payer_email=payer_email,
+            payer_phone=payer_phone,
             traffic_gb=traffic_gb,
             hwid_device_count=hwid_quote.get("device_count") if hwid_quote else None,
             hwid_valid_from=hwid_quote.get("valid_from") if hwid_quote else None,

@@ -8197,6 +8197,21 @@ export interface components {
        */
       font_sans: string | null;
       /**
+       * Home Auto Renew Visibility
+       * @default null
+       */
+      home_auto_renew_visibility: ("auto" | "hidden" | "visible") | null;
+      /**
+       * Home Balance Visibility
+       * @default null
+       */
+      home_balance_visibility: ("auto" | "hidden" | "visible") | null;
+      /**
+       * Home Change Tariff Visibility
+       * @default null
+       */
+      home_change_tariff_visibility: ("auto" | "hidden" | "visible") | null;
+      /**
        * Home Logo Scale
        * @default null
        */
@@ -8211,6 +8226,31 @@ export interface components {
        * @default null
        */
       home_logo_scale_mobile: number | null;
+      /**
+       * Home Premium Traffic Visibility
+       * @default null
+       */
+      home_premium_traffic_visibility: ("auto" | "hidden" | "visible") | null;
+      /**
+       * Home Regular Traffic Visibility
+       * @default null
+       */
+      home_regular_traffic_visibility: ("auto" | "hidden" | "visible") | null;
+      /**
+       * Home Subscription End Visibility
+       * @default null
+       */
+      home_subscription_end_visibility: ("auto" | "hidden" | "visible") | null;
+      /**
+       * Home Subscription Period Visibility
+       * @default null
+       */
+      home_subscription_period_visibility: ("auto" | "hidden" | "visible") | null;
+      /**
+       * Home Tariff Name Visibility
+       * @default null
+       */
+      home_tariff_name_visibility: ("auto" | "hidden" | "visible") | null;
       /**
        * Info
        * @default null
@@ -8276,6 +8316,16 @@ export interface components {
        * @default null
        */
       rail_bg: string | null;
+      /**
+       * Referral Bonus List
+       * @default null
+       */
+      referral_bonus_list: ("plain" | "collapsed" | "expanded") | null;
+      /**
+       * Separator
+       * @default null
+       */
+      separator: string | null;
       /**
        * Shadow Popover
        * @default null
@@ -8744,6 +8794,16 @@ export interface components {
        */
       note: string | null;
       /**
+       * Payer Email
+       * @default null
+       */
+      payer_email: string | null;
+      /**
+       * Payer Phone
+       * @default null
+       */
+      payer_phone: string | null;
+      /**
        * Promo Code
        * @default null
        */
@@ -8849,6 +8909,16 @@ export interface components {
        * @default null
        */
       note: string | null;
+      /**
+       * Payer Email
+       * @default null
+       */
+      payer_email: string | null;
+      /**
+       * Payer Phone
+       * @default null
+       */
+      payer_phone: string | null;
       /** Promo Code */
       promo_code: string;
       /**
@@ -8941,6 +9011,16 @@ export interface components {
        */
       note: string | null;
       /**
+       * Payer Email
+       * @default null
+       */
+      payer_email: string | null;
+      /**
+       * Payer Phone
+       * @default null
+       */
+      payer_phone: string | null;
+      /**
        * Promo Code
        * @default null
        */
@@ -9030,6 +9110,10 @@ export interface components {
       appVersion: string;
       /** Authproviders */
       authProviders: string[];
+      /** Checkoutaddoneditorexpandedbydefault */
+      checkoutAddonEditorExpandedByDefault: boolean;
+      /** Checkoutaddonvalueanimationenabled */
+      checkoutAddonValueAnimationEnabled: boolean;
       /** Checkoutplans */
       checkoutPlans?: {
         [key: string]: unknown;
@@ -9052,6 +9136,8 @@ export interface components {
       languages: components["schemas"]["WebappBootstrapLanguageOut"][];
       /** Logourl */
       logoUrl: string;
+      /** Notificationpreferencesenabled */
+      notificationPreferencesEnabled: boolean;
       /**
        * Primarycolor
        * @default null
@@ -9059,6 +9145,8 @@ export interface components {
       primaryColor: string | null;
       /** Privacypolicyurl */
       privacyPolicyUrl: string;
+      /** Recommendedauthproviders */
+      recommendedAuthProviders: string[];
       /** Registrationinviteonlyenabled */
       registrationInviteOnlyEnabled: boolean;
       /** Serverstatusinternal */
@@ -12511,6 +12599,14 @@ export interface operations {
             ok: true;
             panel_squad_overrides: components["schemas"]["AdminPanelSquadOverridesOut"] | null;
             panel_user_url: string | null;
+            partner_attribution: {
+              attributed_at: string;
+              display_label: string;
+              partner_id: number;
+              partner_user_id: number | null;
+              public_client_id: string;
+              source: string;
+            } | null;
             recent_payments: components["schemas"]["PaymentOut"][];
             referral: {
               bot_link: string | null;
@@ -14338,11 +14434,15 @@ export interface operations {
                 /** @enum {string} */
                 kind: "external" | "telegram" | "webapp";
                 label: string;
+                show_in_browser: boolean;
+                show_in_telegram_webapp: boolean;
                 target: string;
               }[];
               my_devices_enabled?: boolean;
+              notification_preferences_enabled?: boolean;
               partner_program_enabled?: boolean;
               payment_methods_display_mode?: string;
+              recommended_auth_providers?: string[];
               referral_program_enabled?: boolean;
               server_status_url?: string | null;
               subscription_guides_enabled?: boolean;
@@ -14430,9 +14530,11 @@ export interface operations {
                 valid_until?: string | null;
                 valid_until_text?: string | null;
               } | null;
+              trial_requires_oauth?: boolean;
               trial_requires_telegram?: boolean;
               trial_traffic_limit_gb?: number;
               trial_traffic_strategy?: string;
+              trial_without_oauth_enabled?: boolean;
               trial_without_telegram_enabled?: boolean;
               user_balance_enabled?: boolean;
               user_hwid_device_limit?: number | null;
@@ -15440,11 +15542,13 @@ export interface operations {
         };
         content: {
           "application/json": {
+            incremental?: boolean;
             messages: components["schemas"]["SupportMessageOut"][];
             /** @constant */
             ok: true;
             peer_typing: boolean;
             ticket: components["schemas"]["SupportTicketOut"];
+            unread?: number;
           };
         };
       };

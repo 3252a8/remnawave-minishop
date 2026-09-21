@@ -97,11 +97,12 @@ class MenuButton(BaseModel):
     telegram_emoji: str = Field(default="", max_length=16)
     labels: dict[str, str]
     show_in_bot: bool = True
-    show_in_webapp: bool = True
+    show_in_telegram_webapp: bool = True
+    show_in_browser: bool = True
 
     @model_validator(mode="before")
     @classmethod
-    def migrate_legacy_icon(cls, value: Any) -> Any:
+    def migrate_legacy_fields(cls, value: Any) -> Any:
         if not isinstance(value, dict):
             return value
         payload = dict(value)
@@ -116,6 +117,11 @@ class MenuButton(BaseModel):
                 legacy_icon,
                 legacy_icon if legacy_icon and not _WEBAPP_ICON_RE.fullmatch(legacy_icon) else "",
             )
+        legacy_webapp_visibility = payload.pop("show_in_webapp", True)
+        if "show_in_telegram_webapp" not in payload:
+            payload["show_in_telegram_webapp"] = legacy_webapp_visibility
+        if "show_in_browser" not in payload:
+            payload["show_in_browser"] = legacy_webapp_visibility
         return payload
 
     @field_validator("id")
@@ -262,13 +268,15 @@ def telegram_menu_button_text(
 
 def public_menu_buttons(
     raw: Any, language: str, *, default_language: str = "ru"
-) -> list[dict[str, str]]:
+) -> list[dict[str, str | bool]]:
     return [
         {
             "id": button.id,
             "kind": button.kind,
             "target": button.target,
             "icon": button.webapp_icon,
+            "show_in_telegram_webapp": button.show_in_telegram_webapp,
+            "show_in_browser": button.show_in_browser,
             "label": localized_menu_button_label(
                 button,
                 language,
@@ -276,5 +284,5 @@ def public_menu_buttons(
             ),
         }
         for button in configured_menu_buttons(raw)
-        if button.show_in_webapp
+        if button.show_in_telegram_webapp or button.show_in_browser
     ]

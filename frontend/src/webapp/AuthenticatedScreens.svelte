@@ -8,7 +8,13 @@
   import type { ApiClient } from "../lib/webapp/publicApi.js";
 
   import { lazyScreen } from "../lib/webapp/lazyScreen.svelte.js";
+  import { visibleMenuButtons } from "../lib/webapp/menuButtons.js";
   import { resolveProgramEntryPlacement } from "../lib/webapp/programEntryPolicy.js";
+  import {
+    DEFAULT_HOME_ELEMENT_VISIBILITY,
+    type HomeElementVisibility,
+    type ReferralBonusListMode,
+  } from "../lib/webapp/themeStyle.js";
 
   import WebAppShell from "./WebAppShell.svelte";
   import HomeScreen from "./screens/HomeScreen.svelte";
@@ -70,6 +76,7 @@
     subscriptionReissueBusy?: boolean;
     openSubscriptionReissueDialog?: VoidAction;
     emailAuthEnabled?: boolean;
+    notificationPreferencesEnabled?: boolean;
     goDevices: VoidAction;
     goHome: VoidAction;
     goInvite: VoidAction;
@@ -125,6 +132,8 @@
     promoStatus?: string;
     referral?: ReferralState;
     referralBonusDetails?: ReferralBonusDetail[];
+    referralBonusListMode?: ReferralBonusListMode;
+    homeElementVisibility?: HomeElementVisibility;
     referralOneBonusPerReferee?: boolean;
     referralProgramEnabled?: boolean;
     referralWelcomeBonusDays?: number;
@@ -196,6 +205,7 @@
     subscriptionReissueBusy = false,
     openSubscriptionReissueDialog = () => {},
     emailAuthEnabled = true,
+    notificationPreferencesEnabled = true,
     goDevices,
     goHome,
     goInvite,
@@ -251,6 +261,8 @@
     promoStatus = "",
     referral = {},
     referralBonusDetails = [],
+    referralBonusListMode = "plain",
+    homeElementVisibility = DEFAULT_HOME_ELEMENT_VISIBILITY,
     referralOneBonusPerReferee = false,
     referralProgramEnabled = true,
     referralWelcomeBonusDays = 0,
@@ -329,7 +341,12 @@
     })
   );
   const menuButtons = $derived(
-    Array.isArray(appSettings?.menu_buttons) ? (appSettings.menu_buttons as MenuButtonView[]) : []
+    visibleMenuButtons(
+      Array.isArray(appSettings?.menu_buttons)
+        ? (appSettings.menu_buttons as MenuButtonView[])
+        : [],
+      telegramMiniAppContext
+    )
   );
   let balanceTopupOpen = $state(false);
 
@@ -436,10 +453,12 @@
       {openRegularTopupModal}
       {openPremiumTopupModal}
       {openTariffChangeModal}
+      {goSecurity}
       goStatus={() => goStatus("home")}
       {openExternalLink}
       {serverStatusShowOnHome}
       {compactHomeEnabled}
+      {homeElementVisibility}
       {statusStore}
       {primaryPayActionLabel}
       {t}
@@ -476,6 +495,7 @@
         trialError={trialActivationError}
         {activateTrial}
         {linkTelegramAndActivateTrial}
+        openSecurity={goSecurity}
         openInstallOrConnect={openTrialInstallOrConnect}
         {goHome}
         {t}
@@ -490,6 +510,7 @@
         {referral}
         {referralProgramEnabled}
         {referralBonusDetails}
+        {referralBonusListMode}
         {referralOneBonusPerReferee}
         {referralWelcomeBonusDays}
         {promoCode}
@@ -564,6 +585,7 @@
       {currentLang}
       {currentLanguageOption}
       {emailAuthEnabled}
+      {notificationPreferencesEnabled}
       {isAdmin}
       {languageBusy}
       {languageClickGuard}
@@ -594,7 +616,6 @@
       {telegramNotificationsStartLink}
       {telegramNotificationsStatus}
       {telegramProfileName}
-      {user}
       {userAgreementUrl}
       {userLanguage}
       {hasUnlinkedIdentity}
@@ -616,14 +637,15 @@
       {t}
       updateAccountLanguage={accountStore.updateAccountLanguage}
     />
-  {:else if screen === "notifications"}
-    <NotificationSettingsScreen {api} {goSettings} {t} {user} />
+  {:else if screen === "notifications" && notificationPreferencesEnabled}
+    <NotificationSettingsScreen {api} {emailAuthEnabled} {goSettings} {t} {user} />
   {:else if screen === "security"}
     <SecurityScreen
       {api}
       authProviders={(appSettings.auth_providers || appSettings.authProviders || []) as string[]}
       {brandTitle}
       {currentLang}
+      {emailAuthEnabled}
       emailChangeEnabled={Boolean(appSettings.email_address_change_enabled ?? true)}
       {goSettings}
       linkTelegramAccount={accountStore.linkTelegramFromSettings}

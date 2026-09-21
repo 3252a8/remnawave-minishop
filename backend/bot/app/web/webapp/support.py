@@ -127,11 +127,26 @@ async def support_create_ticket_route(request: web.Request) -> web.Response:
 async def support_ticket_detail_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     ticket_id = int(request.match_info["id"])
+    after_message_id = None
+    if "after_message_id" in request.query:
+        try:
+            after_message_id = int(request.query["after_message_id"])
+            if not 0 <= after_message_id <= 9223372036854775807:
+                raise ValueError
+        except ValueError:
+            return _json_error(400, "invalid_cursor", "Invalid message cursor")
     async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
-        ticket, messages = await support_dal.get_ticket(session, ticket_id, include_internal=False)
+        ticket, messages = await support_dal.get_ticket(
+            session,
+            ticket_id,
+            include_internal=False,
+            after_message_id=after_message_id,
+            user_id=user_id,
+        )
         if not ticket or ticket.user_id != user_id:
             return _json_error(404, "not_found", "Ticket not found")
+        unread = await support_dal.count_user_unread(session, user_id)
     peer_typing = await is_support_typing(get_settings(request), ticket_id, "admin")
     return json_response(
         {
@@ -139,6 +154,8 @@ async def support_ticket_detail_route(request: web.Request) -> web.Response:
             "ticket": _support_ticket_payload(ticket),
             "messages": [_support_message_payload(m) for m in messages],
             "peer_typing": peer_typing,
+            "incremental": after_message_id is not None,
+            "unread": unread,
         }
     )
 

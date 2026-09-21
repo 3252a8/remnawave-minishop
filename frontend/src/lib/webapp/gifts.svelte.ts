@@ -13,14 +13,17 @@ function savedTokens(): string[] {
     : [];
 }
 
-function readGiftToken(): string {
-  if (typeof window === "undefined") return "";
+function readGiftToken(): { token: string; entryIntent: boolean } {
+  if (typeof window === "undefined") return { token: "", entryIntent: false };
   try {
     const query = new URLSearchParams(window.location.search);
+    const queryToken = query.get("gift") || "";
     const saved = savedTokens();
     const previous = localStorage.getItem(STORAGE_KEY) || "";
-    const token = query.get("gift") || previous || saved[0] || "";
-    if (!/^[A-Za-z0-9_-]{43}$/.test(token)) return query.get("gift") ? "X".repeat(43) : "";
+    const token = queryToken || previous || saved[0] || "";
+    if (!/^[A-Za-z0-9_-]{43}$/.test(token)) {
+      return { token: queryToken ? "X".repeat(43) : "", entryIntent: Boolean(queryToken) };
+    }
     localStorage.setItem(STORAGE_KEY, token);
     localStorage.setItem(
       QUEUE_KEY,
@@ -30,14 +33,17 @@ function readGiftToken(): string {
         ),
       ])
     );
-    return token;
+    return { token, entryIntent: Boolean(queryToken) };
   } catch {
-    return new URLSearchParams(window.location.search).get("gift") || "";
+    const queryToken = new URLSearchParams(window.location.search).get("gift") || "";
+    return { token: queryToken, entryIntent: Boolean(queryToken) };
   }
 }
 
+const initialGift = readGiftToken();
 export const giftState = $state({
-  token: readGiftToken(),
+  token: initialGift.token,
+  entryIntent: initialGift.entryIntent,
   incoming: true,
   open: false,
   purchaseRequested: false,
@@ -54,6 +60,7 @@ export const giftState = $state({
 export function forgetGift(): void {
   const consumed = giftState.token;
   giftState.token = "";
+  giftState.entryIntent = false;
   try {
     const remaining = savedTokens().filter((token) => token !== consumed);
     localStorage.setItem(QUEUE_KEY, JSON.stringify(remaining));

@@ -26,6 +26,11 @@
   import { formatMoney, formatTrafficGb } from "../../lib/webapp/formatters.js";
   import { shouldShowUserBalance } from "$lib/webapp/balanceUiPolicy.js";
   import {
+    DEFAULT_HOME_ELEMENT_VISIBILITY,
+    themeHomeElementIsVisible,
+    type HomeElementVisibility,
+  } from "$lib/webapp/themeStyle.js";
+  import {
     trafficPercent as trafficPercentFn,
     trafficLabel as trafficLabelFn,
     trafficResetLabel as trafficResetLabelFn,
@@ -96,10 +101,12 @@
     openRegularTopupModal = () => {},
     openPremiumTopupModal = () => {},
     openTariffChangeModal = () => {},
+    goSecurity = () => {},
     goStatus = () => {},
     openExternalLink = () => {},
     serverStatusShowOnHome = false,
     compactHomeEnabled = false,
+    homeElementVisibility = DEFAULT_HOME_ELEMENT_VISIBILITY,
     statusStore,
     primaryPayActionLabel = () => "",
     t = (key) => key,
@@ -137,10 +144,12 @@
     openRegularTopupModal?: VoidAction;
     openPremiumTopupModal?: VoidAction;
     openTariffChangeModal?: VoidAction;
+    goSecurity?: VoidAction;
     goStatus?: VoidAction;
     openExternalLink?: OpenLinkAction;
     serverStatusShowOnHome?: boolean;
     compactHomeEnabled?: boolean;
+    homeElementVisibility?: HomeElementVisibility;
     statusStore: ServerStatusStore;
     primaryPayActionLabel?: () => string;
     t?: Translate;
@@ -260,10 +269,13 @@
     Boolean(!subscription?.active && appSettings?.trial_enabled && appSettings?.trial_available)
   );
   const trialPaymentEnabled = $derived(Boolean(appSettings?.trial_payment_enabled));
-  const trialRequiresTelegram = $derived(
+  const trialRequiresOauth = $derived(
     Boolean(
-      !subscription?.active && appSettings?.trial_enabled && appSettings?.trial_requires_telegram
+      !subscription?.active && appSettings?.trial_enabled && appSettings?.trial_requires_oauth
     )
+  );
+  const trialRequiresTelegram = $derived(
+    Boolean(trialRequiresOauth && appSettings?.trial_block_reason === "disposable_email")
   );
   const referralWelcomeRequiresTelegram = $derived(
     Boolean(
@@ -330,6 +342,76 @@
     Boolean(subscription?.active && subscription?.auto_renew_available)
   );
   const autoRenewEnabled = $derived(Boolean(subscription?.auto_renew_enabled));
+  const balanceAvailable = $derived(
+    Boolean(
+      balance.enabled ||
+      Object.prototype.hasOwnProperty.call(balance, "amount") ||
+      Object.prototype.hasOwnProperty.call(balance, "amount_minor")
+    )
+  );
+  const showSubscriptionPeriod = $derived(
+    subscriptionExpiryWarning ||
+      themeHomeElementIsVisible(
+        homeElementVisibility.subscriptionPeriod,
+        Boolean(subscription.active && subscriptionTermDisplayText),
+        Boolean(subscription.active && subscriptionTermDisplayText)
+      )
+  );
+  const showTariffName = $derived(
+    themeHomeElementIsVisible(
+      homeElementVisibility.tariffName,
+      Boolean(hasActiveTariffSubscription && hasMultipleTariffs && currentTariffName),
+      Boolean(hasActiveTariffSubscription && currentTariffName)
+    )
+  );
+  const showSubscriptionEnd = $derived(
+    subscriptionExpiryWarning ||
+      subscriptionExpired ||
+      themeHomeElementIsVisible(
+        homeElementVisibility.subscriptionEnd,
+        Boolean(subscription.active && (subscriptionEndDisplayText || subscription.remaining_text)),
+        Boolean(subscription.active && (subscriptionEndDisplayText || subscription.remaining_text))
+      )
+  );
+  const showChangeTariff = $derived(
+    themeHomeElementIsVisible(
+      homeElementVisibility.changeTariff,
+      Boolean(canChangeTariff),
+      Boolean(canChangeTariff)
+    )
+  );
+  const showHomeBalance = $derived(
+    themeHomeElementIsVisible(
+      homeElementVisibility.balance,
+      shouldShowUserBalance(balance),
+      balanceAvailable
+    )
+  );
+  const showRegularTraffic = $derived(
+    themeHomeElementIsVisible(
+      homeElementVisibility.regularTraffic,
+      Boolean(subscription.active && regularTrafficLimitVisible(subscription)),
+      Boolean(subscription.active && regularTrafficLimitVisible(subscription))
+    )
+  );
+  const showPremiumTraffic = $derived(
+    themeHomeElementIsVisible(
+      homeElementVisibility.premiumTraffic,
+      Boolean(
+        subscription.active &&
+        premiumTrafficAvailable(subscription) &&
+        premiumTrafficLimitVisible(subscription)
+      ),
+      Boolean(
+        subscription.active &&
+        premiumTrafficAvailable(subscription) &&
+        premiumTrafficLimitVisible(subscription)
+      )
+    )
+  );
+  const showAutoRenew = $derived(
+    themeHomeElementIsVisible(homeElementVisibility.autoRenew, autoRenewVisible, autoRenewVisible)
+  );
 
   $effect(() => {
     if (!pageVisible || !subscription?.active || !subscriptionEndMs) return;
@@ -381,8 +463,6 @@
         {trafficMode}
         {currentTariffName}
         {hasActiveTariffSubscription}
-        {hasMultipleTariffs}
-        {canChangeTariff}
         {subscriptionTermDisplayText}
         {subscriptionEndDisplayText}
         {subscriptionExpiryWarning}
@@ -390,6 +470,14 @@
         {autoRenewVisible}
         {autoRenewEnabled}
         {autoRenewBusy}
+        {showSubscriptionPeriod}
+        {showTariffName}
+        {showSubscriptionEnd}
+        {showChangeTariff}
+        {showHomeBalance}
+        {showRegularTraffic}
+        {showPremiumTraffic}
+        {showAutoRenew}
         {regularTrafficTopupBarClickable}
         {premiumTrafficTopupBarClickable}
         {openBalanceTopup}
@@ -400,7 +488,7 @@
         {t}
       />
     {:else}
-      {#if shouldShowUserBalance(balance)}
+      {#if showHomeBalance}
         <Card class="home-balance-card">
           <div class="home-balance-summary">
             <WalletCards size={22} />
@@ -432,27 +520,33 @@
             <CheckCircle2 class="sub-status-icon" size={23} />
             <div class="sub-status-main">
               <h2>
-                {trafficMode ? t("wa_home_access_active") : t("wa_home_subscription_active")} | {subscriptionTermDisplayText}
-              </h2>
-              <div
-                class:sub-status-details-with-tariff={hasActiveTariffSubscription &&
-                  hasMultipleTariffs &&
-                  currentTariffName}
-                class="sub-status-details"
-              >
-                {#if hasActiveTariffSubscription && hasMultipleTariffs && currentTariffName}
-                  <p class="current-tariff-line">
-                    {t("wa_current_tariff", { tariff: currentTariffName })}
-                  </p>
+                {trafficMode ? t("wa_home_access_active") : t("wa_home_subscription_active")}
+                {#if showSubscriptionPeriod}
+                  <span class="meta-separator" aria-hidden="true"></span>
+                  {subscriptionTermDisplayText}
                 {/if}
-                <p class="subscription-end-line">
-                  {subscriptionEndDisplayText
-                    ? t("wa_until_date", { date: subscriptionEndDisplayText })
-                    : subscription.remaining_text}
-                </p>
-              </div>
+              </h2>
+              {#if showTariffName || showSubscriptionEnd}
+                <div
+                  class:sub-status-details-with-tariff={showTariffName && showSubscriptionEnd}
+                  class="sub-status-details"
+                >
+                  {#if showTariffName}
+                    <p class="current-tariff-line">
+                      {t("wa_current_tariff", { tariff: currentTariffName })}
+                    </p>
+                  {/if}
+                  {#if showSubscriptionEnd}
+                    <p class="subscription-end-line">
+                      {subscriptionEndDisplayText
+                        ? t("wa_until_date", { date: subscriptionEndDisplayText })
+                        : subscription.remaining_text}
+                    </p>
+                  {/if}
+                </div>
+              {/if}
             </div>
-            {#if canChangeTariff}
+            {#if showChangeTariff}
               <Button
                 data-webapp-action="open-tariff-change"
                 class="status-tariff-action"
@@ -464,7 +558,7 @@
               </Button>
             {/if}
           </div>
-          {#if autoRenewVisible}
+          {#if showAutoRenew}
             <div class="auto-renew-row">
               <div class="auto-renew-state">
                 <Repeat2 size={17} />
@@ -502,7 +596,7 @@
 
     {#if subscription.active}
       {#if !compactHomeEnabled}
-        {#if regularTrafficLimitVisible(subscription)}
+        {#if showRegularTraffic}
           <Card compact class={regularTrafficCardClass(subscription)}>
             {#if regularTrafficTopupBarClickable}
               <button
@@ -577,7 +671,7 @@
             />
           </Card>
         {/if}
-        {#if premiumTrafficAvailable(subscription) && premiumTrafficLimitVisible(subscription)}
+        {#if showPremiumTraffic}
           <Card
             compact
             class={`traffic-card-compact ${premiumTrafficTopupBarClickable ? "traffic-card-clickable " : ""}premium-traffic-card${subscription?.premium_is_limited ? " premium-traffic-card-limited" : ""}`}
@@ -723,23 +817,31 @@
               : t("wa_trial_try_free", {}, "Try for free")}
           </Button>
         </Card>
-      {:else if trialRequiresTelegram}
+      {:else if trialRequiresOauth}
         <Card class="trial-card trial-offer-card">
           <div class="trial-card-head">
             <Gift size={22} />
             <span>
               <strong>
-                {t("wa_trial_telegram_required_title", {}, "Link Telegram to start trial")}
+                {trialRequiresTelegram
+                  ? t("wa_trial_telegram_required_title", {}, "Link Telegram to start trial")
+                  : t("wa_trial_oauth_required_title", {}, "Link an account to start trial")}
               </strong>
               <small>{t("wa_trial_title")}</small>
             </span>
           </div>
           <p class="trial-card-description">
-            {t(
-              "wa_trial_telegram_required_description",
-              { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
-              "To activate a {duration} trial with {traffic}, link Telegram first."
-            )}
+            {trialRequiresTelegram
+              ? t(
+                  "wa_trial_telegram_required_description",
+                  { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
+                  "To activate a {duration} trial with {traffic}, link Telegram first."
+                )
+              : t(
+                  "wa_trial_oauth_required_description",
+                  { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
+                  "To activate a {duration} trial with {traffic}, link Telegram or another available login provider first."
+                )}
           </p>
           <div class="trial-card-facts">
             <span>
@@ -751,16 +853,23 @@
               <strong>{trialTrafficLabel()}</strong>
             </span>
           </div>
-          <Button
-            class="wide trial-card-action settings-telegram-link-btn attention-wrap"
-            variant="telegram"
-            onclick={linkTelegramAndActivateTrial}
-            disabled={linkTelegramBusy || trialBusy}
-          >
-            <AttentionDot />
-            <Send size={18} />
-            {t("wa_trial_link_telegram_and_activate", {}, "Link and activate")}
-          </Button>
+          {#if trialRequiresTelegram}
+            <Button
+              class="wide trial-card-action settings-telegram-link-btn attention-wrap"
+              variant="telegram"
+              onclick={linkTelegramAndActivateTrial}
+              disabled={linkTelegramBusy || trialBusy}
+            >
+              <AttentionDot />
+              <Send size={18} />
+              {t("wa_trial_link_telegram_and_activate", {}, "Link and activate")}
+            </Button>
+          {:else}
+            <Button class="wide trial-card-action attention-wrap" onclick={goSecurity}>
+              <AttentionDot />
+              {t("wa_trial_choose_oauth_provider", {}, "Choose login provider")}
+            </Button>
+          {/if}
         </Card>
       {/if}
     {/if}

@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
     async def get_active_subscription_details(
-        self, session: AsyncSession, user_id: int
+        self, session: AsyncSession, user_id: int, *, prefer_local: bool = False
     ) -> dict[str, Any] | None:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or not db_user.panel_user_uuid:
@@ -39,6 +39,30 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
         local_active_sub = await subscription_dal.get_active_subscription_by_user_id(
             session, user_id, panel_user_uuid
         )
+        if prefer_local:
+            if local_active_sub is None:
+                return None
+            details = await self._local_active_subscription_details_fallback(
+                db_user, local_active_sub, refresh_metadata=False
+            )
+            # Purchases and scheduled device renewals are local, authoritative
+            # entitlements; a fast profile must still expose them immediately.
+            entitlement = await tariff_dal.get_hwid_device_entitlement_summary(
+                session, subscription_id=local_active_sub.subscription_id, at=datetime.now(UTC)
+            )
+            extra = int(entitlement.get("active_devices") or 0)
+            until = entitlement.get("active_until")
+            details.update(
+                extra_hwid_devices=extra,
+                extra_hwid_devices_valid_until=until,
+                extra_hwid_devices_valid_until_text=self._display_datetime_text(until),
+                extra_hwid_devices_next_valid_from=entitlement.get("next_valid_from"),
+                device_topup_renewal_available=self._device_topup_renewal_available(
+                    extra, until, local_active_sub.end_date
+                ),
+                max_devices=self._effective_hwid_limit(details["base_hwid_device_limit"], extra),
+            )
+            return details
         (
             panel_user_data,
             panel_user_confirmed_absent,

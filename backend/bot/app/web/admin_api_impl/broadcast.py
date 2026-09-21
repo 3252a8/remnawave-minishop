@@ -315,7 +315,11 @@ async def _legacy_admin_broadcast_route(request: web.Request) -> web.Response:
     # Every language variant is checked, not just the default one: a broken
     # shortcode or tag in one of them would only surface for the customers who
     # read that language.
-    checked = [*texts.values(), *(email_subjects.values() if email_enabled else [])]
+    checked = [
+        *texts.values(),
+        *(email_subjects.values() if email_enabled else []),
+        *(str(button.url or "") for button in body.buttons),
+    ]
     unknown: set[str] = set()
     needed: set[str] = set()
     for variant in checked:
@@ -369,22 +373,6 @@ async def _legacy_admin_broadcast_route(request: web.Request) -> web.Response:
                 variants, language=lang, default_language=settings.DEFAULT_LANGUAGE
             )
 
-        # Buttons are resolved once per language rather than per recipient:
-        # captions only depend on the language, and a broadcast can address
-        # many thousands of people.
-        button_cache: dict[str, list[BroadcastButton]] = {}
-
-        def _buttons(lang: str) -> list[BroadcastButton]:
-            if lang not in button_cache:
-                button_cache[lang] = resolve_broadcast_buttons(
-                    body.buttons,
-                    settings=settings,
-                    bot_username=bot_username,
-                    language=lang,
-                    i18n=i18n,
-                )
-            return button_cache[lang]
-
         def _render(template: str, uid: int, lang: str, *, escape: bool) -> str:
             return render_broadcast_text(
                 template,
@@ -395,6 +383,31 @@ async def _legacy_admin_broadcast_route(request: web.Request) -> web.Response:
                 bot_username=bot_username,
                 escape=escape,
             )
+
+        button_shortcodes = set().union(
+            *(known_shortcodes(str(button.url or "")) for button in body.buttons)
+        )
+        button_cache: dict[tuple[str, int | None], list[BroadcastButton]] = {}
+
+        def _buttons(lang: str, uid: int) -> list[BroadcastButton]:
+            cache_key = (lang, uid if button_shortcodes else None)
+            if cache_key not in button_cache:
+                personalized_buttons = [
+                    button.model_copy(
+                        update={"url": _render(str(button.url or ""), uid, lang, escape=False)}
+                    )
+                    if known_shortcodes(str(button.url or ""))
+                    else button
+                    for button in body.buttons
+                ]
+                button_cache[cache_key] = resolve_broadcast_buttons(
+                    personalized_buttons,
+                    settings=settings,
+                    bot_username=bot_username,
+                    language=lang,
+                    i18n=i18n,
+                )
+            return button_cache[cache_key]
 
         if telegram_enabled and queue_manager is not None:
             telegram_recipients = await user_dal.get_telegram_recipients_for_broadcast(
@@ -419,7 +432,7 @@ async def _legacy_admin_broadcast_route(request: web.Request) -> web.Response:
                         MessageContent(content_type="text", text=message_text),
                         parse_mode="HTML",
                         disable_web_page_preview=True,
-                        reply_markup=telegram_markup_for_buttons(_buttons(lang)),
+                        reply_markup=telegram_markup_for_buttons(_buttons(lang, uid)),
                     )
                     sent += 1
                 except Exception as exc:
@@ -452,7 +465,7 @@ async def _legacy_admin_broadcast_route(request: web.Request) -> web.Response:
                             if personalize and subject_variant
                             else (subject_variant or None)
                         ),
-                        buttons=email_links_for_buttons(_buttons(lang)),
+                        buttons=email_links_for_buttons(_buttons(lang, uid)),
                     )
                 )
             email_queued = schedule_broadcast_emails(
@@ -594,7 +607,14 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
         return _error(503, "email_not_configured")
 
     unknown = set().union(
-        *(unknown_shortcodes(value) for value in [*texts.values(), *email_subjects.values()])
+        *(
+            unknown_shortcodes(value)
+            for value in [
+                *texts.values(),
+                *email_subjects.values(),
+                *(str(button.url or "") for button in body.buttons),
+            ]
+        )
     )
     if unknown:
         return _error(400, "unknown_shortcode", ", ".join(sorted(unknown)))

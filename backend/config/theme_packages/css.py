@@ -81,6 +81,7 @@ def validate_css(text: str, theme_root: Path, css_path: str) -> None:
             ".webp",
             ".gif",
             ".ico",
+            ".svg",
             ".woff",
             ".woff2",
             ".ttf",

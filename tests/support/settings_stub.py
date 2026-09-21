@@ -116,6 +116,7 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS": 1800,
     "SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED": False,
     "SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS": 300,
+    "SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED": True,
     "TELEGRAM_ACTION_COOLDOWN_ENABLED": True,
     "TELEGRAM_ANTIFLOOD_CALLBACK_MAX_PER_WINDOW": 240,
     "TELEGRAM_ANTIFLOOD_ENABLED": True,
@@ -147,7 +148,7 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "TRIAL_PAYMENT_STARS_PRICE": 100,
     "TRIAL_TRAFFIC_LIMIT_GB": 5.0,
     "TRIAL_TRAFFIC_STRATEGY": "NO_RESET",
-    "TRIAL_WITHOUT_TELEGRAM_ENABLED": True,
+    "TRIAL_WITHOUT_OAUTH_ENABLED": True,
     "USER_HWID_DEVICE_LIMIT": None,
     "USER_TRAFFIC_STRATEGY": "NO_RESET",
     "WEBAPP_DEVICES_CACHE_TTL_SECONDS": 5,
@@ -163,6 +164,8 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "MENU_BUTTONS_JSON": "[]",
     "WEBAPP_PRIMARY_COLOR": "#00fe7a",
     "WEBAPP_COMPACT_HOME_ENABLED": False,
+    "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED": True,
+    "WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT": False,
     "WEBAPP_SERVER_HOST": "0.0.0.0",
     "WEBAPP_SERVER_PORT": 8080,
     "WEBAPP_SESSION_SECRET": "test-session-secret",
@@ -230,6 +233,12 @@ class SettingsStub(SimpleNamespace):
             primary_color=getattr(self, "WEBAPP_PRIMARY_COLOR", "#00fe7a"),
             user_theme_mode_enabled=bool(getattr(self, "WEBAPP_USER_THEME_MODE_ENABLED", True)),
             compact_home_enabled=bool(getattr(self, "WEBAPP_COMPACT_HOME_ENABLED", False)),
+            checkout_addon_value_animation_enabled=bool(
+                getattr(self, "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED", True)
+            ),
+            checkout_addon_editor_expanded_by_default=bool(
+                getattr(self, "WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT", False)
+            ),
             logo_url=getattr(self, "WEBAPP_LOGO_URL", None),
             favicon_use_custom=bool(getattr(self, "WEBAPP_FAVICON_USE_CUSTOM", False)),
             favicon_url=getattr(self, "WEBAPP_FAVICON_URL", None),
@@ -296,6 +305,9 @@ class SettingsStub(SimpleNamespace):
                 getattr(self, "SUPPORT_MESSAGE_RATE_LIMIT_PER_MINUTE", 10)
             ),
             image_rate_limit_per_day=int(getattr(self, "SUPPORT_IMAGE_RATE_LIMIT_PER_DAY", 20)),
+            admin_telegram_notifications_enabled=bool(
+                getattr(self, "SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED", True)
+            ),
             admin_email_notifications_enabled=bool(
                 getattr(self, "SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED", False)
             ),

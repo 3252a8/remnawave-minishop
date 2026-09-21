@@ -348,6 +348,9 @@ async def admin_partner_detail_route(request: web.Request) -> web.Response:
             "clients": [
                 {
                     "partner_client_id": int(client.partner_client_id),
+                    "client_user_id": (
+                        int(client.client_user_id) if client.client_user_id is not None else None
+                    ),
                     "public_client_id": str(client.public_client_id),
                     "label": str(client.public_label_snapshot),
                     "source": str(client.source),

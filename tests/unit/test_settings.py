@@ -38,6 +38,18 @@ class SettingsTests(unittest.TestCase):
             self._settings(WEBAPP_COMPACT_HOME_ENABLED=True).webapp_settings.compact_home_enabled
         )
 
+    def test_checkout_addon_ux_defaults_and_overrides(self):
+        defaults = self._settings().webapp_settings
+        self.assertTrue(defaults.checkout_addon_value_animation_enabled)
+        self.assertFalse(defaults.checkout_addon_editor_expanded_by_default)
+
+        configured = self._settings(
+            WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED=False,
+            WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT=True,
+        ).webapp_settings
+        self.assertFalse(configured.checkout_addon_value_animation_enabled)
+        self.assertTrue(configured.checkout_addon_editor_expanded_by_default)
+
     def test_server_status_home_card_defaults_off_and_can_be_enabled(self):
         self.assertFalse(self._settings().SERVER_STATUS_SHOW_ON_HOME)
         self.assertTrue(self._settings(SERVER_STATUS_SHOW_ON_HOME=True).SERVER_STATUS_SHOW_ON_HOME)
@@ -67,6 +79,28 @@ class SettingsTests(unittest.TestCase):
                     configured.TELEGRAM_BOT_PROXY_URL.get_secret_value(),
                     proxy_url,
                 )
+
+    def test_telegram_bot_api_base_url_defaults_and_normalizes(self):
+        self.assertIsNone(self._settings().TELEGRAM_BOT_API_BASE_URL)
+        self.assertIsNone(self._settings(TELEGRAM_BOT_API_BASE_URL="  ").TELEGRAM_BOT_API_BASE_URL)
+        self.assertEqual(
+            self._settings(
+                TELEGRAM_BOT_API_BASE_URL=" http://telegram-bot-api:8081/ "
+            ).TELEGRAM_BOT_API_BASE_URL,
+            "http://telegram-bot-api:8081",
+        )
+
+    def test_telegram_bot_api_base_url_rejects_unsafe_or_ambiguous_urls(self):
+        for api_url in (
+            "telegram-bot-api:8081",
+            "ftp://telegram-bot-api:8081",
+            "http://user:password@telegram-bot-api:8081",
+            "http://telegram-bot-api:invalid",
+            "http://telegram-bot-api:8081?mode=local",
+            "http://telegram-bot-api:8081#local",
+        ):
+            with self.subTest(api_url=api_url), self.assertRaises(ValidationError):
+                self._settings(TELEGRAM_BOT_API_BASE_URL=api_url)
 
     def test_telegram_bot_proxy_rejects_unsupported_or_ambiguous_urls(self):
         invalid_urls = (
@@ -453,6 +487,38 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(email_enabled.webapp_auth_providers, ["telegram", "email"])
         self.assertEqual(discord_enabled.webapp_auth_providers, ["telegram", "discord"])
 
+    def test_webapp_recommended_auth_providers_filter_available_methods(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            APP_RUNTIME_MODE="test",
+            QA_AUTH_ENABLED=True,
+            GOOGLE_OIDC_ENABLED=True,
+            GOOGLE_OIDC_CLIENT_ID="google-client",
+            GOOGLE_OIDC_CLIENT_SECRET="google-secret",
+            YANDEX_OIDC_ENABLED=True,
+            YANDEX_OIDC_CLIENT_ID="yandex-client",
+            YANDEX_OIDC_CLIENT_SECRET="yandex-secret",
+            DISCORD_OIDC_ENABLED=True,
+            DISCORD_OIDC_CLIENT_ID="discord-client",
+            DISCORD_OIDC_CLIENT_SECRET="discord-secret",
+            PASSKEY_LOGIN_ENABLED=True,
+            TELEGRAM_LOGIN_RECOMMENDED=False,
+            GOOGLE_LOGIN_RECOMMENDED=False,
+            DISCORD_LOGIN_RECOMMENDED=False,
+        )
+
+        self.assertEqual(
+            settings.webapp_auth_providers,
+            ["telegram", "email", "google", "yandex", "discord", "passkey"],
+        )
+        self.assertEqual(
+            settings.webapp_recommended_auth_providers,
+            ["email", "yandex", "passkey"],
+        )
+
     def test_registration_settings_view_reflects_invite_only_flag(self):
         default_settings = Settings(
             _env_file=None,
@@ -481,6 +547,7 @@ class SettingsTests(unittest.TestCase):
             SUPPORT_TICKETS_ENABLED=False,
             SUPPORT_TICKET_MAX_BODY_LENGTH=1000,
             SUPPORT_TICKET_RATE_LIMIT_PER_HOUR=2,
+            SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED=False,
             SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED=True,
         )
 
@@ -490,6 +557,7 @@ class SettingsTests(unittest.TestCase):
         self.assertFalse(support_settings.tickets_enabled)
         self.assertEqual(support_settings.ticket_max_body_length, 1000)
         self.assertEqual(support_settings.ticket_max_subject_length, 160)
+        self.assertFalse(support_settings.admin_telegram_notifications_enabled)
         self.assertEqual(support_settings.ticket_rate_limit_per_hour, 2)
         self.assertEqual(support_settings.message_rate_limit_per_minute, 10)
         self.assertEqual(support_settings.image_rate_limit_per_day, 20)
@@ -716,6 +784,15 @@ class SettingsTests(unittest.TestCase):
 
         self.assertEqual(settings.TRIAL_TRAFFIC_STRATEGY, "WEEK")
 
+    def test_trial_without_oauth_defaults_on_and_accepts_legacy_alias(self):
+        self.assertTrue(self._settings().TRIAL_WITHOUT_OAUTH_ENABLED)
+        self.assertFalse(
+            self._settings(TRIAL_WITHOUT_OAUTH_ENABLED=False).TRIAL_WITHOUT_OAUTH_ENABLED
+        )
+        self.assertFalse(
+            self._settings(TRIAL_WITHOUT_TELEGRAM_ENABLED=False).TRIAL_WITHOUT_OAUTH_ENABLED
+        )
+
     def test_trial_days_strategy_is_admin_configured(self):
         settings = self._settings(TRIAL_DAYS_STRATEGY="start_from_payment")
 
@@ -764,6 +841,26 @@ class SettingsTests(unittest.TestCase):
         )
 
         self.assertFalse(settings.SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED)
+
+    def test_user_notification_preferences_default_to_enabled(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+        )
+
+        self.assertTrue(settings.USER_NOTIFICATION_PREFERENCES_ENABLED)
+
+    def test_support_admin_telegram_notifications_default_to_enabled(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+        )
+
+        self.assertTrue(settings.SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED)
 
     def test_partner_audit_retention_defaults_to_forever(self):
         settings = Settings(

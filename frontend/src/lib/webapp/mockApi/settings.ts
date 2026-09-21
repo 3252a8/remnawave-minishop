@@ -23,8 +23,12 @@ function demoRuntimeSettingValue(key: string): unknown {
     GIFTS_ENABLED: DEV_MOCK.config.giftsEnabled ?? true,
     WEBAPP_USER_THEME_MODE_ENABLED: DEV_MOCK.config.userThemeModeEnabled ?? true,
     WEBAPP_COMPACT_HOME_ENABLED: DEV_MOCK.config.compactHomeEnabled ?? false,
+    WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED:
+      DEV_MOCK.config.checkoutAddonValueAnimationEnabled ?? true,
+    WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT:
+      DEV_MOCK.config.checkoutAddonEditorExpandedByDefault ?? false,
     SERVER_STATUS_SHOW_ON_HOME: DEV_MOCK.config.serverStatusShowOnHome ?? false,
-    TRIAL_WITHOUT_TELEGRAM_ENABLED: DEV_MOCK.config.trialWithoutTelegramEnabled ?? true,
+    TRIAL_WITHOUT_OAUTH_ENABLED: DEV_MOCK.config.trialWithoutOauthEnabled ?? true,
     REFERRAL_PROGRAM_ENABLED:
       DEV_MOCK.config.referralProgramEnabled ??
       DEV_MOCK.data.settings?.referral_program_enabled ??
@@ -102,6 +106,12 @@ function applyDemoSettingToMock(key: string, value: unknown): void {
   if (key === "WEBAPP_COMPACT_HOME_ENABLED") {
     DEV_MOCK.config.compactHomeEnabled = Boolean(value);
   }
+  if (key === "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED") {
+    DEV_MOCK.config.checkoutAddonValueAnimationEnabled = Boolean(value);
+  }
+  if (key === "WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT") {
+    DEV_MOCK.config.checkoutAddonEditorExpandedByDefault = Boolean(value);
+  }
   if (key === "SERVER_STATUS_SHOW_ON_HOME") {
     DEV_MOCK.config.serverStatusShowOnHome = Boolean(value);
   }
@@ -132,8 +142,9 @@ function applyDemoSettingToMock(key: string, value: unknown): void {
     DEV_MOCK.config.trialTrafficStrategy = value || "NO_RESET";
     DEV_MOCK.data.settings.trial_traffic_strategy = value || "NO_RESET";
   }
-  if (key === "TRIAL_WITHOUT_TELEGRAM_ENABLED") {
-    DEV_MOCK.config.trialWithoutTelegramEnabled = Boolean(value);
+  if (key === "TRIAL_WITHOUT_OAUTH_ENABLED") {
+    DEV_MOCK.config.trialWithoutOauthEnabled = Boolean(value);
+    DEV_MOCK.data.settings.trial_without_oauth_enabled = Boolean(value);
     DEV_MOCK.data.settings.trial_without_telegram_enabled = Boolean(value);
   }
   if (key === "TRIAL_SQUAD_UUIDS") DEV_MOCK.config.trialSquadUuids = value || "";

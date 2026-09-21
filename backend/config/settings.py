@@ -4,7 +4,7 @@ import secrets
 from typing import Literal
 
 from pydantic import Field, SecretStr, ValidationError
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import SettingsConfigDict
 
 from config.settings_defaults import (
     DEFAULT_DISPOSABLE_EMAIL_DOMAINS,
@@ -25,16 +25,18 @@ from config.settings_models import (
     SupportSettings,
     WebAppSettings,
 )
+from config.settings_telegram import TelegramTransportSettings
+from config.settings_trial import TrialSettings
 
 logger = logging.getLogger(__name__)
 
 
-class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
-    BOT_TOKEN: str
-    TELEGRAM_BOT_PROXY_URL: SecretStr | None = Field(
-        default=None,
-        description="Optional SOCKS5 proxy used only for outgoing Telegram Bot API requests",
-    )
+class Settings(
+    SettingsComputedMixin,
+    SettingsValidationMixin,
+    TrialSettings,
+    TelegramTransportSettings,
+):
     ADMIN_IDS_STR: str = Field(
         default="", alias="ADMIN_IDS", description="Comma-separated list of admin Telegram User IDs"
     )
@@ -307,6 +309,7 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     SUBSCRIPTION_NOTIFY_DAYS_BEFORE: int = Field(default=3)
     SUBSCRIPTION_NOTIFY_HOURS_BEFORE: int = Field(default=3)
     SUBSCRIPTION_NOTIFICATION_WORKER_TICK_SECONDS: int = Field(default=300)
+    USER_NOTIFICATION_PREFERENCES_ENABLED: bool = Field(default=True)
     USER_NOTIFICATION_SINGLE_CHANNEL_FALLBACK_ENABLED: bool = Field(default=True)
     USER_NOTIFICATION_PAYMENTS_TELEGRAM_ENABLED: bool = Field(default=True)
     USER_NOTIFICATION_PAYMENTS_EMAIL_ENABLED: bool = Field(default=True)
@@ -514,69 +517,6 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
         description="UUID of the external squad to assign to new panel users (optional)",
     )
 
-    TRIAL_ENABLED: bool = Field(default=True)
-    TRIAL_PAYMENT_ENABLED: bool = Field(
-        default=False,
-        description="Require a successful payment before trial activation.",
-    )
-    TRIAL_PAYMENT_PRICE: float = Field(
-        default=100.0,
-        ge=0,
-        allow_inf_nan=False,
-        description="Trial activation price in the default payment currency.",
-    )
-    TRIAL_PAYMENT_STARS_PRICE: int = Field(
-        default=100,
-        ge=0,
-        description="Trial activation price in Telegram Stars; 0 disables Stars for trial.",
-    )
-    TRIAL_DURATION_DAYS: int = Field(default=3)
-    TRIAL_TRAFFIC_LIMIT_GB: float | None = Field(default=5.0)
-    TRIAL_PREMIUM_TRAFFIC_LIMIT_GB: float | None = Field(
-        default=0.0,
-        description=(
-            "Separate premium traffic limit for trial subscriptions. "
-            "0 disables premium traffic enforcement for trials."
-        ),
-    )
-    TRIAL_HWID_DEVICE_LIMIT: int | None = Field(
-        default=None,
-        ge=0,
-        description=(
-            "Hardware device limit for trial subscriptions. "
-            "Empty keeps the panel/default limit; 0 means unlimited."
-        ),
-    )
-    TRIAL_DAYS_STRATEGY: Literal["add_remaining", "start_from_payment"] = Field(
-        default="add_remaining",
-        description=(
-            "How a paid tariff starts while a trial is active: keep the remaining trial "
-            "days or start the paid period on the payment date."
-        ),
-    )
-    TRIAL_TRAFFIC_STRATEGY: str = Field(default="NO_RESET")
-    TRIAL_WITHOUT_TELEGRAM_ENABLED: bool = Field(
-        default=True,
-        description=(
-            "Allow trial activation for users who have not linked Telegram. "
-            "Disposable email domains are still blocked until Telegram is linked."
-        ),
-    )
-    TRIAL_SQUAD_UUIDS: str | None = Field(
-        default=None,
-        description=(
-            "Comma-separated UUIDs of internal squads to assign during trial activation. "
-            "Falls back to USER_SQUAD_UUIDS when empty."
-        ),
-    )
-    TRIAL_PREMIUM_SQUAD_UUIDS: str | None = Field(
-        default=None,
-        description=(
-            "Comma-separated premium internal squad UUIDs to assign during trial activation. "
-            "Empty value disables premium squads for trials."
-        ),
-    )
-
     CRYPT4_ENABLED: bool = Field(
         default=False, description="Enable happ crypt4 encryption for subscription URLs"
     )
@@ -618,6 +558,8 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
             "Combine subscription status, traffic usage, and balance into one compact Home card."
         ),
     )
+    WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED: bool = Field(default=True)
+    WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT: bool = Field(default=False)
     WEBAPP_THEMES_DIR: str = Field(
         default="data/themes",
         description=(
@@ -670,7 +612,9 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     WEBAPP_AUTH_MAX_AGE_SECONDS: int = Field(default=24 * 60 * 60)
     WEBAPP_LOGIN_TOKEN_TTL_SECONDS: int = Field(default=10 * 60)
     TELEGRAM_LOGIN_ENABLED: bool = Field(default=True)
+    TELEGRAM_LOGIN_RECOMMENDED: bool = Field(default=True)
     EMAIL_LOGIN_ENABLED: bool = Field(default=True)
+    EMAIL_LOGIN_RECOMMENDED: bool = Field(default=True)
     EMAIL_ADDRESS_CHANGE_ENABLED: bool = Field(default=True)
     TELEGRAM_OAUTH_CLIENT_ID: int | None = Field(
         default=None,
@@ -692,15 +636,19 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
         ),
     )
     GOOGLE_OIDC_ENABLED: bool = Field(default=False)
+    GOOGLE_LOGIN_RECOMMENDED: bool = Field(default=True)
     GOOGLE_OIDC_CLIENT_ID: str | None = Field(default=None)
     GOOGLE_OIDC_CLIENT_SECRET: str | None = Field(default=None)
     YANDEX_OIDC_ENABLED: bool = Field(default=False)
+    YANDEX_LOGIN_RECOMMENDED: bool = Field(default=True)
     YANDEX_OIDC_CLIENT_ID: str | None = Field(default=None)
     YANDEX_OIDC_CLIENT_SECRET: str | None = Field(default=None)
     DISCORD_OIDC_ENABLED: bool = Field(default=False)
+    DISCORD_LOGIN_RECOMMENDED: bool = Field(default=True)
     DISCORD_OIDC_CLIENT_ID: str | None = Field(default=None)
     DISCORD_OIDC_CLIENT_SECRET: str | None = Field(default=None)
     PASSKEY_LOGIN_ENABLED: bool = Field(default=False)
+    PASSKEY_LOGIN_RECOMMENDED: bool = Field(default=True)
     PASSKEY_RP_ID: str | None = Field(
         default=None,
         description="WebAuthn relying-party domain. Empty means the public Web App hostname.",
@@ -713,7 +661,6 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
         ),
     )
     PASSKEY_CHALLENGE_TTL_SECONDS: int = Field(default=5 * 60)
-
     SMTP_HOST: str = Field(default="smtp-relay.brevo.com")
     SMTP_PORT: int = Field(default=587)
     SMTP_FALLBACK_PORTS: str | None = Field(default="2525,465")
@@ -759,6 +706,7 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     SUPPORT_TICKET_RATE_LIMIT_PER_HOUR: int = Field(default=5)
     SUPPORT_MESSAGE_RATE_LIMIT_PER_MINUTE: int = Field(default=10)
     SUPPORT_IMAGE_RATE_LIMIT_PER_DAY: int = Field(default=20)
+    SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED: bool = Field(default=True)
     SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED: bool = Field(default=False)
     SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS: int = Field(default=5 * 60)
     SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS: int = Field(default=30 * 60)
@@ -793,8 +741,8 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     MENU_BUTTONS_JSON: str = Field(
         default="[]",
         description=(
-            "Validated JSON array of localized custom buttons shown at the bottom of the "
-            "Telegram main menu and Web App settings."
+            "Validated JSON array of localized custom buttons with separate visibility for "
+            "the bot menu, Telegram Mini App, and web browser."
         ),
     )
 

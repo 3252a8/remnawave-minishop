@@ -11389,6 +11389,57 @@
             "default": null,
             "title": "Font Sans"
           },
+          "home_auto_renew_visibility": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "hidden",
+                  "visible"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Home Auto Renew Visibility"
+          },
+          "home_balance_visibility": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "hidden",
+                  "visible"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Home Balance Visibility"
+          },
+          "home_change_tariff_visibility": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "hidden",
+                  "visible"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Home Change Tariff Visibility"
+          },
           "home_logo_scale": {
             "anyOf": [
               {
@@ -11424,6 +11475,91 @@
             ],
             "default": null,
             "title": "Home Logo Scale Mobile"
+          },
+          "home_premium_traffic_visibility": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "hidden",
+                  "visible"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Home Premium Traffic Visibility"
+          },
+          "home_regular_traffic_visibility": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "hidden",
+                  "visible"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Home Regular Traffic Visibility"
+          },
+          "home_subscription_end_visibility": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "hidden",
+                  "visible"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Home Subscription End Visibility"
+          },
+          "home_subscription_period_visibility": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "hidden",
+                  "visible"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Home Subscription Period Visibility"
+          },
+          "home_tariff_name_visibility": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "hidden",
+                  "visible"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Home Tariff Name Visibility"
           },
           "info": {
             "anyOf": [
@@ -11580,6 +11716,35 @@
             ],
             "default": null,
             "title": "Rail Bg"
+          },
+          "referral_bonus_list": {
+            "anyOf": [
+              {
+                "enum": [
+                  "plain",
+                  "collapsed",
+                  "expanded"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Referral Bonus List"
+          },
+          "separator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Separator"
           },
           "shadow_popover": {
             "anyOf": [
@@ -12616,6 +12781,32 @@
             "default": null,
             "title": "Note"
           },
+          "payer_email": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payer Email"
+          },
+          "payer_phone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payer Phone"
+          },
           "promo_code": {
             "anyOf": [
               {
@@ -12828,6 +13019,32 @@
             "default": null,
             "title": "Note"
           },
+          "payer_email": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payer Email"
+          },
+          "payer_phone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payer Phone"
+          },
           "promo_code": {
             "maxLength": 32,
             "minLength": 1,
@@ -13030,6 +13247,32 @@
             "default": null,
             "title": "Note"
           },
+          "payer_email": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payer Email"
+          },
+          "payer_phone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payer Phone"
+          },
           "promo_code": {
             "anyOf": [
               {
@@ -13202,6 +13445,14 @@
             "title": "Authproviders",
             "type": "array"
           },
+          "checkoutAddonEditorExpandedByDefault": {
+            "title": "Checkoutaddoneditorexpandedbydefault",
+            "type": "boolean"
+          },
+          "checkoutAddonValueAnimationEnabled": {
+            "title": "Checkoutaddonvalueanimationenabled",
+            "type": "boolean"
+          },
           "checkoutPlans": {
             "items": {
               "additionalProperties": true,
@@ -13249,6 +13500,10 @@
             "title": "Logourl",
             "type": "string"
           },
+          "notificationPreferencesEnabled": {
+            "title": "Notificationpreferencesenabled",
+            "type": "boolean"
+          },
           "primaryColor": {
             "anyOf": [
               {
@@ -13264,6 +13519,13 @@
           "privacyPolicyUrl": {
             "title": "Privacypolicyurl",
             "type": "string"
+          },
+          "recommendedAuthProviders": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Recommendedauthproviders",
+            "type": "array"
           },
           "registrationInviteOnlyEnabled": {
             "title": "Registrationinviteonlyenabled",
@@ -13331,6 +13593,8 @@
           "title",
           "userThemeModeEnabled",
           "compactHomeEnabled",
+          "checkoutAddonValueAnimationEnabled",
+          "checkoutAddonEditorExpandedByDefault",
           "themesDir",
           "themePreviewKey",
           "logoUrl",
@@ -13353,8 +13617,10 @@
           "language",
           "languages",
           "emailAuthEnabled",
+          "notificationPreferencesEnabled",
           "devMode",
           "authProviders",
+          "recommendedAuthProviders",
           "registrationInviteOnlyEnabled",
           "appVersion",
           "appRepositoryUrl"
@@ -20691,6 +20957,48 @@
                         "null"
                       ]
                     },
+                    "partner_attribution": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "attributed_at": {
+                              "type": "string"
+                            },
+                            "display_label": {
+                              "type": "string"
+                            },
+                            "partner_id": {
+                              "type": "integer"
+                            },
+                            "partner_user_id": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "public_client_id": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "partner_id",
+                            "partner_user_id",
+                            "display_label",
+                            "public_client_id",
+                            "source",
+                            "attributed_at"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "recent_payments": {
                       "items": {
                         "$ref": "#/components/schemas/PaymentOut"
@@ -20788,6 +21096,7 @@
                     "telegram_notifications",
                     "notification_preferences",
                     "panel_squad_overrides",
+                    "partner_attribution",
                     "referral"
                   ],
                   "type": "object"
@@ -25304,6 +25613,12 @@
                               "label": {
                                 "type": "string"
                               },
+                              "show_in_browser": {
+                                "type": "boolean"
+                              },
+                              "show_in_telegram_webapp": {
+                                "type": "boolean"
+                              },
                               "target": {
                                 "type": "string"
                               }
@@ -25313,7 +25628,9 @@
                               "kind",
                               "target",
                               "icon",
-                              "label"
+                              "label",
+                              "show_in_telegram_webapp",
+                              "show_in_browser"
                             ],
                             "type": "object"
                           },
@@ -25322,11 +25639,20 @@
                         "my_devices_enabled": {
                           "type": "boolean"
                         },
+                        "notification_preferences_enabled": {
+                          "type": "boolean"
+                        },
                         "partner_program_enabled": {
                           "type": "boolean"
                         },
                         "payment_methods_display_mode": {
                           "type": "string"
+                        },
+                        "recommended_auth_providers": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "referral_program_enabled": {
                           "type": "boolean"
@@ -25663,6 +25989,9 @@
                             }
                           ]
                         },
+                        "trial_requires_oauth": {
+                          "type": "boolean"
+                        },
                         "trial_requires_telegram": {
                           "type": "boolean"
                         },
@@ -25671,6 +26000,9 @@
                         },
                         "trial_traffic_strategy": {
                           "type": "string"
+                        },
+                        "trial_without_oauth_enabled": {
+                          "type": "boolean"
                         },
                         "trial_without_telegram_enabled": {
                           "type": "boolean"
@@ -28127,6 +28459,9 @@
                 "schema": {
                   "additionalProperties": false,
                   "properties": {
+                    "incremental": {
+                      "type": "boolean"
+                    },
                     "messages": {
                       "items": {
                         "$ref": "#/components/schemas/SupportMessageOut"
@@ -28142,6 +28477,9 @@
                     },
                     "ticket": {
                       "$ref": "#/components/schemas/SupportTicketOut"
+                    },
+                    "unread": {
+                      "type": "integer"
                     }
                   },
                   "required": [

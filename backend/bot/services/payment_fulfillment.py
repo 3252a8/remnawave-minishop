@@ -305,6 +305,54 @@ async def _delete_payment_effect_rows(session: AsyncSession, payment_id: int) ->
         await session.execute(delete(model).where(model.payment_id == payment_id))
 
 
+async def _traffic_topups_for_payment(
+    session: AsyncSession,
+    payment_id: int,
+) -> list[TrafficTopup]:
+    result = await session.execute(
+        select(TrafficTopup)
+        .where(TrafficTopup.payment_id == payment_id)
+        .order_by(TrafficTopup.topup_id)
+        .with_for_update()
+    )
+    return list(await _scalars_all(result))
+
+
+def _reverse_linked_traffic_topups(
+    current_subscriptions: dict[int, Subscription],
+    topups_by_subscription: dict[int, list[TrafficTopup]],
+) -> set[int]:
+    premium_user_ids: set[int] = set()
+    for subscription_id, topups in topups_by_subscription.items():
+        current = current_subscriptions[subscription_id]
+        regular_bytes = sum(
+            max(0, int(topup.purchased_bytes or 0))
+            for topup in topups
+            if "premium" not in str(topup.kind or "").lower()
+        )
+        premium_bytes = sum(
+            max(0, int(topup.purchased_bytes or 0))
+            for topup in topups
+            if "premium" in str(topup.kind or "").lower()
+        )
+        if regular_bytes:
+            current.topup_balance_bytes = max(
+                0,
+                int(current.topup_balance_bytes or 0) - regular_bytes,
+            )
+        if premium_bytes:
+            premium_balance = max(0, int(current.premium_topup_balance_bytes or 0))
+            removed_from_balance = min(premium_balance, premium_bytes)
+            current.premium_topup_balance_bytes = premium_balance - removed_from_balance
+            remaining = premium_bytes - removed_from_balance
+            current.premium_topup_used_bytes = max(
+                0,
+                int(current.premium_topup_used_bytes or 0) - remaining,
+            )
+            premium_user_ids.add(int(current.user_id))
+    return premium_user_ids
+
+
 async def _sync_reversed_user(
     session: AsyncSession,
     *,
@@ -445,6 +493,14 @@ async def reverse_payment_fulfillment(
     before_users = _snapshot_users(before)
     after_users = _snapshot_users(after)
     affected_user_ids = sorted(set(before_users) | set(after_users))
+    linked_topups = (
+        await _traffic_topups_for_payment(session, int(payment.payment_id))
+        if sale_mode_base(payment.sale_mode) in {"topup", "premium_topup"}
+        else []
+    )
+    topups_by_subscription: dict[int, list[TrafficTopup]] = {}
+    for topup in linked_topups:
+        topups_by_subscription.setdefault(int(topup.subscription_id), []).append(topup)
 
     if payment.fulfilled_at is not None:
         later_payment = await session.scalar(
@@ -474,6 +530,7 @@ async def reverse_payment_fulfillment(
         for user_snapshot in after_users.values()
         for subscription_id in _snapshot_subscriptions(user_snapshot)
     }
+    subscription_ids.update(topups_by_subscription)
     subscriptions_result = await session.execute(
         select(Subscription)
         .where(Subscription.subscription_id.in_(subscription_ids))
@@ -485,6 +542,11 @@ async def reverse_payment_fulfillment(
     }
 
     conflicts: list[str] = []
+    conflicts.extend(
+        f"subscription:{subscription_id}:missing"
+        for subscription_id in topups_by_subscription
+        if subscription_id not in current_subscriptions
+    )
     deltas: dict[int, tuple[dict[str, Any] | None, dict[str, Any], list[str]]] = {}
     for user_id, after_user in after_users.items():
         before_user = before_users.get(user_id, {"subscriptions": [], "panel_user_uuid": None})
@@ -499,6 +561,8 @@ async def reverse_payment_fulfillment(
         before_subscriptions = _snapshot_subscriptions(before_user)
         for subscription_id, after_subscription in _snapshot_subscriptions(after_user).items():
             before_subscription = before_subscriptions.get(subscription_id)
+            if subscription_id in topups_by_subscription:
+                continue
             changed_fields = [
                 field
                 for field in _SUBSCRIPTION_SNAPSHOT_FIELDS
@@ -526,6 +590,10 @@ async def reverse_payment_fulfillment(
         )
 
     now = datetime.now(UTC)
+    premium_topup_user_ids = _reverse_linked_traffic_topups(
+        current_subscriptions,
+        topups_by_subscription,
+    )
     for subscription_id, (before_subscription, _after_subscription, fields) in deltas.items():
         current = current_subscriptions[subscription_id]
         if before_subscription is None:
@@ -558,6 +626,15 @@ async def reverse_payment_fulfillment(
             before_user=before_users.get(user_id, {"subscriptions": []}),
             after_user=after_users.get(user_id, {"subscriptions": []}),
         )
+        if (
+            user_id in premium_topup_user_ids
+            and not await subscription_service.sync_premium_squad_access_to_panel(session, user_id)
+        ):
+            raise PaymentFulfillmentError(
+                "payment_reversal_panel_failed",
+                "The restored premium traffic entitlement could not be verified on the panel.",
+                status=502,
+            )
 
     payment.reversed_at = now
     payment.reversed_by_admin_id = actor_admin_id

@@ -375,11 +375,11 @@ export function webappFallbackResponse(
     return { ok: true };
   }
   if (path === "/trial/activate" && String(options.method || "").toUpperCase() === "POST") {
-    if (DEV_MOCK.data.settings?.trial_requires_telegram && !DEV_MOCK.data.user?.telegram_linked) {
+    if (DEV_MOCK.data.settings?.trial_requires_oauth && !DEV_MOCK.data.user?.telegram_linked) {
       return {
         ok: false,
-        error: "trial_telegram_required",
-        message: "telegram_required",
+        error: "trial_oauth_required",
+        message: "oauth_required",
       };
     }
     DEV_MOCK.data.subscription = {

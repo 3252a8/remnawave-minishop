@@ -28,12 +28,21 @@ from .config import (
     _WATA_SUPPORTED_CURRENCIES_DEFAULT,
     WATA_CRYPTO_PROVIDER,
     WATA_PROVIDER,
+    WATA_SUBSCRIPTION_PROVIDER,
     WATA_SUPPORTED_CURRENCIES,
     WataConfig,
     WataCryptoPresentation,
     WataPresentation,
+    WataSubscriptionPresentation,
 )
 from .service import WataService
+from .subscriptions import (
+    normalize_subscription_phone,
+    subscription_bundle_supported,
+    subscription_context_supported,
+    subscription_promo_supported,
+    subscription_terms_for_checkout,
+)
 from .webhook import wata_webhook_route
 
 router = Router(name="user_subscription_payments_wata_router")
@@ -50,6 +59,8 @@ def _wata_descriptor_for_callback_prefix(
 
 def _wata_descriptor_for_method(method: Any) -> LinkPaymentDescriptor[WataService]:
     normalized = str(method or "").strip().lower()
+    if normalized == WATA_SUBSCRIPTION_PROVIDER:
+        return _SUBSCRIPTION_DESCRIPTOR
     if normalized in {WATA_CRYPTO_PROVIDER, "crypto"}:
         return _CRYPTO_DESCRIPTOR
     return _DESCRIPTOR
@@ -76,10 +87,27 @@ async def pay_wata_callback_handler(
 
 
 async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
+    if str(ctx.method or "").strip().lower() == WATA_SUBSCRIPTION_PROVIDER and (
+        ctx.hwid_device_count is not None
+        or not subscription_bundle_supported(ctx.checkout_bundle_snapshot)
+    ):
+        return web.json_response(
+            {
+                "ok": False,
+                "error": "wata_subscription_terms_unavailable",
+                "message": (
+                    "Wata recurring payments cannot include a one-time device renewal "
+                    "or a prorated limit change"
+                ),
+            },
+            status=409,
+        )
     return await run_webapp_payment(_wata_descriptor_for_method(ctx.method), ctx)
 
 
 async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> str | None:
+    if str(ctx.method or "").strip().lower() == WATA_SUBSCRIPTION_PROVIDER:
+        return None
     return await run_reuse_webapp_payment(_wata_descriptor_for_method(ctx.method), ctx, payment)
 
 
@@ -163,6 +191,47 @@ def _wata_presentation_manifest(default_icon: str, prefix: str) -> tuple:
     )
 
 
+def _wata_subscription_presentation_manifest() -> tuple:
+    return tuple(
+        ProviderManifestField(
+            key=f"PAYMENT_WATA_SUBSCRIPTION_{suffix_key}",
+            type=type_,
+            label=label,
+            description=description,
+            placeholder=placeholder,
+            subsection="Wata",
+            target="presentation",
+            attr=attr,
+        )
+        for suffix_key, type_, label, description, placeholder, attr in (
+            (
+                "WEBAPP_LABEL_RU",
+                "string",
+                "Subscription button text (RU)",
+                "Custom Russian text shown for the Wata recurring-payment button.",
+                "",
+                "WEBAPP_LABEL_RU",
+            ),
+            (
+                "WEBAPP_LABEL_EN",
+                "string",
+                "Subscription button text (EN)",
+                "Custom English text shown for the Wata recurring-payment button.",
+                "",
+                "WEBAPP_LABEL_EN",
+            ),
+            (
+                "WEBAPP_ICON",
+                "icon",
+                "Subscription button icon",
+                "Lucide icon name rendered inside the recurring-payment button.",
+                "RefreshCw",
+                "WEBAPP_ICON",
+            ),
+        )
+    )
+
+
 _COMMON_CONFIG_MANIFEST_V2 = (
     ProviderManifestField(
         "WATA_BASE_URL",
@@ -191,6 +260,13 @@ _COMMON_CONFIG_MANIFEST_V2 = (
 
 _FIAT_CONFIG_MANIFEST = (
     ProviderManifestField("WATA_ENABLED", "bool", "Enabled", subsection="Wata", attr="ENABLED"),
+    ProviderManifestField(
+        "WATA_ADMIN_ONLY_ENABLED",
+        "bool",
+        "Admin-only enabled",
+        subsection="Wata",
+        attr="ADMIN_ONLY_ENABLED",
+    ),
     ProviderManifestField(
         "WATA_API_TOKEN",
         "string",
@@ -251,6 +327,37 @@ _FIAT_CONFIG_MANIFEST = (
         subsection="Wata",
         secret=True,
         attr="PUBLIC_KEY",
+    ),
+)
+
+_SUBSCRIPTION_CONFIG_MANIFEST = (
+    ProviderManifestField(
+        "WATA_SUBSCRIPTION_ENABLED",
+        "bool",
+        "Recurring payments enabled",
+        description=(
+            "Shows a separate recurring-payment method. The Wata terminal must have "
+            "subscriptions enabled."
+        ),
+        subsection="Wata",
+        attr="SUBSCRIPTION_ENABLED",
+    ),
+    ProviderManifestField(
+        "WATA_SUBSCRIPTION_ADMIN_ONLY_ENABLED",
+        "bool",
+        "Recurring payments for admins only",
+        subsection="Wata",
+        attr="SUBSCRIPTION_ADMIN_ONLY_ENABLED",
+    ),
+    ProviderManifestField(
+        "WATA_SUBSCRIPTION_MAX_PERIODS",
+        "int",
+        "Maximum recurring periods",
+        description="Maximum number of periods sent to Wata for a new subscription.",
+        subsection="Wata",
+        min=1,
+        max=2147483647,
+        attr="SUBSCRIPTION_MAX_PERIODS",
     ),
 )
 
@@ -382,6 +489,20 @@ def _wata_crypto_admin_only_enabled(source: Any) -> bool:
     ) and _wata_profile_configured(source, WATA_CRYPTO_PROVIDER)
 
 
+def _wata_subscription_enabled(source: Any) -> bool:
+    return _source_bool(source, "SUBSCRIPTION_ENABLED", "WATA_SUBSCRIPTION_ENABLED") and (
+        _wata_profile_configured(source, WATA_PROVIDER)
+    )
+
+
+def _wata_subscription_admin_only_enabled(source: Any) -> bool:
+    return _source_bool(
+        source,
+        "SUBSCRIPTION_ADMIN_ONLY_ENABLED",
+        "WATA_SUBSCRIPTION_ADMIN_ONLY_ENABLED",
+    ) and _wata_profile_configured(source, WATA_PROVIDER)
+
+
 def _wata_supported_currencies(source: Any, provider: str) -> tuple[str, ...]:
     if isinstance(source, WataConfig):
         return source.profile_for_method(provider).supported_currencies
@@ -459,7 +580,41 @@ CRYPTO_SPEC = PaymentProviderSpec(
     currency_support_url="https://wata.pro/api",
 )
 
-SPECS = (SPEC, CRYPTO_SPEC)
+SUBSCRIPTION_SPEC = PaymentProviderSpec(
+    id=WATA_SUBSCRIPTION_PROVIDER,
+    provider_key=WATA_PROVIDER,
+    label="Wata",
+    webapp_label="Wata · Subscription",
+    webapp_labels={"ru": "Wata · Auto-renew", "en": "Wata · Auto-renew"},
+    webapp_icon="RefreshCw",
+    logo_url="/provider-logos/wata.png",
+    pending_status="pending_wata",
+    enabled=_wata_subscription_enabled,
+    admin_only_enabled=_wata_subscription_admin_only_enabled,
+    admin_only_config_attr="SUBSCRIPTION_ADMIN_ONLY_ENABLED",
+    service_key="wata_service",
+    create_webapp_payment=create_webapp_payment,
+    config_class=WataConfig,
+    presentation_class=WataSubscriptionPresentation,
+    manifest_fields=_SUBSCRIPTION_CONFIG_MANIFEST + _wata_subscription_presentation_manifest(),
+    supported_currencies_resolver=lambda config: _wata_supported_currencies(
+        config,
+        WATA_PROVIDER,
+    ),
+    manages_recurring=True,
+    payment_context_resolver=subscription_context_supported,
+    checkout_promo_resolver=subscription_promo_supported,
+    supports_checkout_addons=True,
+    supports_checkout_addon_first_period=True,
+    currency_support_note=(
+        "Wata subscriptions use the fiat terminal and repeat a fixed amount on a weekly "
+        "or monthly schedule."
+    ),
+    info_url="https://api.wata.pro/en/subscriptions",
+    currency_support_url="https://api.wata.pro/en/subscriptions",
+)
+
+SPECS = (SPEC, CRYPTO_SPEC, SUBSCRIPTION_SPEC)
 
 
 def _payment_provider(payment: Any) -> str:
@@ -477,6 +632,42 @@ async def _create_payment(
         currency=request.currency,
         description=request.description,
         method=provider,
+    )
+
+
+def _subscription_webapp_context(ctx: WebAppPaymentContext) -> dict[str, Any]:
+    return {
+        "payer_email": str(ctx.payer_email or "").strip(),
+        "payer_phone": str(ctx.payer_phone or "").strip(),
+    }
+
+
+async def _create_subscription_payment(
+    service: WataService,
+    request: CreatePaymentRequest,
+) -> tuple[bool, dict[str, Any]]:
+    context = request.provider_context or {}
+    payer_email = str(context.get("payer_email") or "").strip()
+    payer_phone = normalize_subscription_phone(context.get("payer_phone"))
+    terms = subscription_terms_for_checkout(request.months, request.sale_mode)
+    if not payer_email or payer_phone is None:
+        return False, {"message": "subscription_contact_required"}
+    if terms is None:
+        return False, {"message": "unsupported_subscription_interval"}
+    period, interval = terms
+    return await service.create_payment_link(
+        payment_db_id=request.payment.payment_id,
+        amount=request.amount,
+        currency=request.currency,
+        description=request.description,
+        method=WATA_PROVIDER,
+        payer_email=payer_email,
+        payer_phone=payer_phone,
+        subscription={
+            "period": period,
+            "interval": interval,
+            "maxPeriods": int(service.config.SUBSCRIPTION_MAX_PERIODS),
+        },
     )
 
 
@@ -579,4 +770,21 @@ _CRYPTO_DESCRIPTOR: LinkPaymentDescriptor[WataService] = LinkPaymentDescriptor(
     reuse_payment_allowed=_reuse_allowed(WATA_CRYPTO_PROVIDER),
     webapp_available=_profile_enabled(WATA_CRYPTO_PROVIDER),
     checkout_ttl_seconds=_checkout_ttl_seconds(WATA_CRYPTO_PROVIDER),
+)
+
+_SUBSCRIPTION_DESCRIPTOR: LinkPaymentDescriptor[WataService] = LinkPaymentDescriptor(
+    spec=SUBSCRIPTION_SPEC,
+    provider_key=WATA_PROVIDER,
+    pending_status="pending_wata",
+    display_name="Wata subscription",
+    log_prefix=_LOG,
+    service_app_key="wata_service",
+    service_type=WataService,
+    create=_create_subscription_payment,
+    reuse=_reuse_payment,
+    extract_url=_extract_payment_url,
+    extract_provider_id=_extract_provider_id,
+    webapp_context=_subscription_webapp_context,
+    webapp_available=lambda service: service.subscriptions_enabled,
+    checkout_ttl_seconds=_checkout_ttl_seconds(WATA_PROVIDER),
 )

@@ -44,10 +44,48 @@ function makeDeps(overrides: TestOverrides = {}) {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
 describe("runWebappBoot", () => {
+  it("preserves the session on a temporary profile failure", async () => {
+    installBrowser();
+    const deps = makeDeps({
+      getToken: () => "saved-session",
+      loadData: vi.fn(async () => {
+        throw new TypeError("Failed to fetch");
+      }),
+    });
+    await runWebappBoot(deps);
+    expect(deps.clearToken).not.toHaveBeenCalled();
+    expect(deps.showLogin).not.toHaveBeenCalled();
+    expect(deps.setMode).toHaveBeenLastCalledWith("bootError");
+  });
+
+  it("ends a stalled boot without deleting the session", async () => {
+    vi.useFakeTimers();
+    installBrowser();
+    const deps = makeDeps({ refreshSession: () => new Promise(() => {}) });
+    const boot = runWebappBoot(deps);
+    await vi.advanceTimersByTimeAsync(20001);
+    await boot;
+    expect(deps.setMode).toHaveBeenLastCalledWith("bootError");
+    expect(deps.clearToken).not.toHaveBeenCalled();
+  });
+
+  it("returns to login for an invalid saved session", async () => {
+    installBrowser();
+    const deps = makeDeps({
+      getToken: () => "expired-session",
+      loadData: vi.fn(async () => {
+        throw Object.assign(new Error("unauthorized"), { status: 401 });
+      }),
+    });
+    await runWebappBoot(deps);
+    expect(deps.clearToken).toHaveBeenCalledOnce();
+    expect(deps.showLogin).toHaveBeenCalledOnce();
+  });
   it("continues matching OIDC email login with email confirmation", async () => {
     installBrowser("?external_auth=google:email_confirmation_required");
     const deps = makeDeps();

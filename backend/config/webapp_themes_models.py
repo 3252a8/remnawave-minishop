@@ -11,6 +11,22 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 ColorScheme = Literal["light", "dark"]
+# Behaviour of the referral bonus list in the Mini App: plain rows, closed
+# collapsible list, or collapsible list opened by default.
+ReferralBonusListMode = Literal["plain", "collapsed", "expanded"]
+REFERRAL_BONUS_LIST_MODES = frozenset({"plain", "collapsed", "expanded"})
+ThemeElementVisibility = Literal["auto", "hidden", "visible"]
+THEME_ELEMENT_VISIBILITY_MODES = frozenset({"auto", "hidden", "visible"})
+HOME_ELEMENT_VISIBILITY_TOKEN_KEYS = (
+    "home_subscription_period_visibility",
+    "home_tariff_name_visibility",
+    "home_subscription_end_visibility",
+    "home_regular_traffic_visibility",
+    "home_premium_traffic_visibility",
+    "home_change_tariff_visibility",
+    "home_balance_visibility",
+    "home_auto_renew_visibility",
+)
 DEFAULT_WEBAPP_THEME_KEY = "dark"
 LEGACY_LIGHT_THEME_KEY = "light"
 DEFAULT_THEME_ADMIN_TOKEN_KEYS = {
@@ -28,6 +44,10 @@ DEFAULT_THEME_ADMIN_TOKEN_KEYS = {
 }
 
 THEME_DISPLAY_ORDER = ("dark", "light")
+
+# Upper bound for the ``separator`` token: themes only need a short glyph or
+# phrase between metadata fragments, and the value is inlined into theme CSS.
+MAX_THEME_SEPARATOR_LENGTH = 8
 
 
 class ThemeTokens(BaseModel):
@@ -49,6 +69,16 @@ class ThemeTokens(BaseModel):
     text: str | None = None
     muted: str | None = None
     dim: str | None = None
+    separator: str | None = None
+    referral_bonus_list: ReferralBonusListMode | None = None
+    home_subscription_period_visibility: ThemeElementVisibility | None = None
+    home_tariff_name_visibility: ThemeElementVisibility | None = None
+    home_subscription_end_visibility: ThemeElementVisibility | None = None
+    home_regular_traffic_visibility: ThemeElementVisibility | None = None
+    home_premium_traffic_visibility: ThemeElementVisibility | None = None
+    home_change_tariff_visibility: ThemeElementVisibility | None = None
+    home_balance_visibility: ThemeElementVisibility | None = None
+    home_auto_renew_visibility: ThemeElementVisibility | None = None
     danger: str | None = None
     danger_text: str | None = None
     danger_soft: str | None = None
@@ -125,6 +155,34 @@ class ThemeTokens(BaseModel):
         if scale < 50 or scale > 300:
             raise ValueError("home logo scale must be between 50 and 300 percent")
         return scale
+
+    @field_validator("separator")
+    @classmethod
+    def _normalize_separator(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        raw = str(value)
+        if len(raw) > MAX_THEME_SEPARATOR_LENGTH:
+            raise ValueError(f"separator must be at most {MAX_THEME_SEPARATOR_LENGTH} characters")
+        if re.search(r"[\x00-\x1f\x7f]", raw):
+            raise ValueError("separator must not contain control characters")
+        return raw
+
+    @field_validator("referral_bonus_list", mode="before")
+    @classmethod
+    def _normalize_referral_bonus_list(cls, value: Any) -> str | None:
+        raw = str(value or "").strip().lower()
+        # Unknown modes fall back to the default rendering instead of
+        # invalidating the whole theme descriptor.
+        return raw if raw in REFERRAL_BONUS_LIST_MODES else None
+
+    @field_validator(*HOME_ELEMENT_VISIBILITY_TOKEN_KEYS, mode="before")
+    @classmethod
+    def _normalize_home_element_visibility(cls, value: Any) -> str | None:
+        raw = str(value or "").strip().lower()
+        # Invalid presentation tokens must not make an otherwise valid theme
+        # unloadable. Missing and unknown values both preserve the app default.
+        return raw if raw in THEME_ELEMENT_VISIBILITY_MODES else None
 
 
 class WebappTheme(BaseModel):

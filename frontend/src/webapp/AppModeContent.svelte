@@ -1,5 +1,6 @@
 <script lang="ts">
   import BrandMark from "$lib/webapp/BrandMark.svelte";
+  import { Button } from "$components/ui/index.js";
   import type { AppActionRuntime } from "../lib/webapp/appActionRuntime.js";
   import type { AppShellView } from "../lib/webapp/appShellView.js";
   import type { AccountStore } from "../lib/webapp/stores/accountStore.js";
@@ -204,6 +205,12 @@
   const serverStatusInternal = $derived(cfg.serverStatusInternal === true);
   const serverStatusShowOnHome = $derived(cfg.serverStatusShowOnHome === true);
   const compactHomeEnabled = $derived(cfg.compactHomeEnabled === true);
+  const checkoutAddonValueAnimationEnabled = $derived(
+    cfg.checkoutAddonValueAnimationEnabled !== false
+  );
+  const checkoutAddonEditorExpandedByDefault = $derived(
+    cfg.checkoutAddonEditorExpandedByDefault === true
+  );
   const serverStatusUrl = $derived(accountView.serverStatusUrl);
   const supportUrl = $derived(accountView.supportUrl);
   const telegramNotificationsNeedPrompt = $derived(accountView.telegramNotificationsNeedPrompt);
@@ -219,6 +226,7 @@
   const devicesEnabled = $derived(appDataView.devicesEnabled);
   const subscriptionReissueEnabled = $derived(appDataView.subscriptionReissueEnabled);
   const emailAuthEnabled = $derived(appDataView.emailAuthEnabled);
+  const notificationPreferencesEnabled = $derived(appDataView.notificationPreferencesEnabled);
   const methods = $derived(appDataView.methods);
   const paymentMethodsDisplayMode = $derived(
     String(appSettings.payment_methods_display_mode || "dropdown")
@@ -310,6 +318,12 @@
   const goTrial = $derived(appActions.goTrial);
   const goStatus = $derived(appActions.goStatus);
   const goSupport = $derived(appActions.goSupport);
+
+  $effect(() => {
+    if (screen === "notifications" && !notificationPreferencesEnabled) {
+      goSettings();
+    }
+  });
   const linkTelegramAndActivateTrial = $derived(appActions.linkTelegramAndActivateTrial);
   const linkTelegramAndClaimReferralWelcome = $derived(
     appActions.linkTelegramAndClaimReferralWelcome
@@ -353,10 +367,13 @@
     userId={String(user?.id ?? "")}
     userLabel={String(user?.email || user?.username || user?.id || "")}
     loggedIn={mode === "app"}
+    guestPromptBlocked={checkoutEntryRequested}
     enabled={typeof appSettings.gifts_enabled === "boolean" ? appSettings.gifts_enabled : undefined}
     {methods}
     {paymentMethodsDisplayMode}
     {pendingPayment}
+    {checkoutAddonValueAnimationEnabled}
+    {checkoutAddonEditorExpandedByDefault}
     {t}
     {termUnitLabel}
     onactivated={async () => {
@@ -364,7 +381,13 @@
       goHome();
     }}
   />
-  {#if mode === "loading"}
+  {#if mode === "bootError"}
+    <div class="loader" role="alert">
+      <BrandMark {brand} size="md" />
+      <div>{t("wa_boot_failed")}</div>
+      <Button onclick={() => window.location.reload()}>{t("wa_retry")}</Button>
+    </div>
+  {:else if mode === "loading"}
     <div class="loader">
       <BrandMark {brand} size="md" />
       <div>{t("wa_loading")}</div>
@@ -519,6 +542,8 @@
         {tariffCatalog}
         {tariffMode}
         {trafficMode}
+        {checkoutAddonValueAnimationEnabled}
+        {checkoutAddonEditorExpandedByDefault}
         closePaymentModal={billingStore.closePaymentModal}
         checkoutPromoInput={billingStore.checkoutPromoInput}
         checkoutPromoAppliedCode={billingStore.checkoutPromoAppliedCode}
@@ -571,6 +596,8 @@
       {themePreference}
       {themeSwitcherVisible}
       {setThemePreference}
+      referralBonusListMode={themeView.referralBonusListMode}
+      homeElementVisibility={themeView.homeElementVisibility}
       {currentTariffName}
       {devicesBusy}
       {devicesData}
@@ -584,6 +611,7 @@
       {devicesStatus}
       {devicesStore}
       {emailAuthEnabled}
+      {notificationPreferencesEnabled}
       {goDevices}
       {goHome}
       {goInstall}
@@ -712,6 +740,8 @@
       {tariffMode}
       {termUnitLabel}
       {trafficMode}
+      {checkoutAddonValueAnimationEnabled}
+      {checkoutAddonEditorExpandedByDefault}
       {user}
     />
   {/if}

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import secrets
 from typing import Self
+from urllib.parse import urlsplit
 
 from pydantic import SecretStr, field_validator, model_validator
 
@@ -15,6 +16,25 @@ class SettingsValidationMixin:
     @classmethod
     def validate_telegram_bot_proxy_setting(cls, value: SecretStr | None) -> SecretStr | None:
         return validate_telegram_bot_proxy_url(value)
+
+    @field_validator("TELEGRAM_BOT_API_BASE_URL", mode="before")
+    @classmethod
+    def normalize_telegram_bot_api_base_url(cls, value):
+        normalized = str(value or "").strip().rstrip("/")
+        if not normalized:
+            return None
+        parsed = urlsplit(normalized)
+        try:
+            _ = parsed.port
+        except ValueError as exc:
+            raise ValueError("TELEGRAM_BOT_API_BASE_URL must contain a valid port") from exc
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            raise ValueError("TELEGRAM_BOT_API_BASE_URL must be an absolute HTTP(S) URL")
+        if parsed.username or parsed.password or parsed.query or parsed.fragment:
+            raise ValueError(
+                "TELEGRAM_BOT_API_BASE_URL must not contain credentials, query, or fragment"
+            )
+        return normalized
 
     @model_validator(mode="after")
     def validate_referral_link_visibility(self) -> Self:

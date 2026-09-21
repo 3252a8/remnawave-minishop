@@ -27,10 +27,13 @@
     userId,
     userLabel = userId,
     loggedIn,
+    guestPromptBlocked = false,
     enabled,
     methods,
     paymentMethodsDisplayMode = "dropdown",
     pendingPayment = null,
+    checkoutAddonValueAnimationEnabled = true,
+    checkoutAddonEditorExpandedByDefault = false,
     t,
     termUnitLabel,
     onactivated = () => {},
@@ -40,6 +43,7 @@
     userId: string;
     userLabel?: string;
     loggedIn: boolean;
+    guestPromptBlocked?: boolean;
     enabled?: boolean;
     methods: PaymentMethodView[];
     paymentMethodsDisplayMode?: "dropdown" | "buttons" | string;
@@ -47,6 +51,8 @@
     termUnitLabel: TermUnitLabel;
     onactivated?: () => unknown;
     pendingPayment?: PendingPaymentView | null;
+    checkoutAddonValueAnimationEnabled?: boolean;
+    checkoutAddonEditorExpandedByDefault?: boolean;
   } = $props();
   let plans = $state<PlanView[]>([]);
   let preview = $state<GiftView | null>(null);
@@ -254,7 +260,7 @@
   });
 </script>
 
-{#if !loggedIn && giftState.token}
+{#if !loggedIn && giftState.token && giftState.entryIntent && !guestPromptBlocked}
   <aside class="gift-guest">
     <Gift size={26} />
     <div>
@@ -372,6 +378,8 @@
   selectedTariffPlans={selectedPlans}
   methods={paymentMethods}
   {paymentMethodsDisplayMode}
+  {checkoutAddonValueAnimationEnabled}
+  {checkoutAddonEditorExpandedByDefault}
   singleTariffMode={catalog.length === 1}
   hasMultipleTariffs={catalog.length > 1}
   bind:paymentModalOpen={billing.paymentModalOpen}

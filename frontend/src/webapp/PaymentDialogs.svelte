@@ -28,6 +28,8 @@
     balanceSource?: "user" | "partner" | null;
     usePartnerBalance?: boolean;
     checkoutAddons?: CheckoutAddonSelection;
+    payerEmail?: string;
+    payerPhone?: string;
   };
   type BalancePaymentAction = (options?: CheckoutPaymentOptions) => unknown;
   type CheckoutPromoAction = (options?: Pick<CheckoutPaymentOptions, "checkoutAddons">) => unknown;
@@ -51,6 +53,8 @@
     hasMultipleTariffs = false,
     methods = [],
     paymentMethodsDisplayMode = "dropdown",
+    checkoutAddonValueAnimationEnabled = true,
+    checkoutAddonEditorExpandedByDefault = false,
     pendingPayment = null,
     payBusy = false,
     paymentModalOpen = $bindable(false),
@@ -126,6 +130,8 @@
     hasMultipleTariffs?: boolean;
     methods?: PaymentMethodView[];
     paymentMethodsDisplayMode?: "dropdown" | "buttons" | string;
+    checkoutAddonValueAnimationEnabled?: boolean;
+    checkoutAddonEditorExpandedByDefault?: boolean;
     pendingPayment?: PendingPaymentView | null;
     payBusy?: boolean;
     paymentModalOpen?: boolean;
@@ -197,6 +203,8 @@
   {hasMultipleTariffs}
   {methods}
   {paymentMethodsDisplayMode}
+  {checkoutAddonValueAnimationEnabled}
+  {checkoutAddonEditorExpandedByDefault}
   {pendingPayment}
   {payBusy}
   bind:paymentModalOpen

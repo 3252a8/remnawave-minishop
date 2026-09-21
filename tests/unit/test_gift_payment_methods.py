@@ -33,6 +33,7 @@ GIFT_PAYMENT_METHODS = (
     ("severpay", True),
     ("wata", True),
     ("wata_crypto", True),
+    ("wata_subscription", False),
     ("yookassa", True),
     ("stars", True),
     ("cryptopay", True),

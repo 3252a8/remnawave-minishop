@@ -39,6 +39,7 @@ export type CheckoutTariffSummary = {
 };
 
 export type BillingPlan = WebappRecord & {
+  access_via_link?: boolean;
   available_payment_method_ids?: string[] | null;
   externally_managed_price_method_ids?: string[] | null;
   billing_model?: string | null;

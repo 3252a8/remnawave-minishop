@@ -102,6 +102,7 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0084_add_gift_refund_ledger_kind",
     "0085_add_user_notification_preferences",
     "0086_add_managed_panel_tariff_tag",
+    "0087_add_wata_subscriptions",
 ]
 
 

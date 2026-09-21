@@ -480,6 +480,28 @@ class AdminBroadcastPersonalizationRouteTest(unittest.IsolatedAsyncioTestCase):
             response = await broadcast_route_module.admin_broadcast_route(cast(Any, request))
         self.assertEqual(response.status, 400)
 
+    async def test_unknown_button_url_shortcode_rejected(self):
+        request = _request(
+            {
+                "target": "all",
+                "text": "Hi",
+                "channels": ["telegram"],
+                "buttons": [
+                    {
+                        "kind": "url",
+                        "label": "Open",
+                        "url": "https://example.com/users/{frist_name}",
+                    }
+                ],
+            }
+        )
+        with (
+            patch.object(broadcast_route_module, "_require_admin_user_id", return_value=1),
+            patch.object(broadcast_route_module, "get_queue_manager", return_value=_FakeQueue()),
+        ):
+            response = await broadcast_route_module.admin_broadcast_route(cast(Any, request))
+        self.assertEqual(response.status, 400)
+
     async def test_invalid_html_rejected(self):
         request = _request({"target": "all", "text": "<p>bad</p>", "channels": ["telegram"]})
         with (
@@ -609,12 +631,13 @@ class BroadcastEndpointsTest(unittest.IsolatedAsyncioTestCase):
                     {
                         "kind": "url",
                         "label": "Open",
-                        "url": "https://example.com",
+                        "url": "https://example.com/users/{user_id}",
                         "promo_code": "",
                     }
                 ],
             },
             admin_telegram_id=123456789,
+            i18n=_i18n(),
         )
         queue = _FakeQueue()
         image_bytes = io.BytesIO()
@@ -623,6 +646,11 @@ class BroadcastEndpointsTest(unittest.IsolatedAsyncioTestCase):
         with (
             patch.object(broadcast_shortcodes_module, "_require_admin_user_id", return_value=999),
             patch.object(broadcast_shortcodes_module, "get_queue_manager", return_value=queue),
+            patch.object(
+                broadcast_shortcodes_module,
+                "load_broadcast_contexts",
+                AsyncMock(return_value={999: _full_ctx(user_id=999, language_code="en")}),
+            ),
             patch.object(
                 broadcast_shortcodes_module,
                 "prepare_message_image",
@@ -659,7 +687,7 @@ class BroadcastEndpointsTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(photo["parse_mode"], "HTML")
         markup = photo["reply_markup"]
         self.assertEqual(markup.inline_keyboard[0][0].text, "Open")
-        self.assertEqual(markup.inline_keyboard[0][0].url, "https://example.com")
+        self.assertEqual(markup.inline_keyboard[0][0].url, "https://example.com/users/999")
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@
   import {
     DEFAULT_THEME_PRESETS,
     FONT_OPTIONS,
+    HOME_ELEMENT_VISIBILITY_FIELDS,
     MONO_FONT_OPTIONS,
   } from "$lib/admin/appearanceOptions";
   import type {
@@ -102,6 +103,7 @@
     pickerHex,
     defaultColorInputHandler,
     defaultTokenInputHandler,
+    defaultTokenSelectHandler,
     resetDefaultToken,
     editorTitle = "",
     editorSubtitle = "",
@@ -157,6 +159,10 @@
     pickerHex: (value: unknown) => string | null;
     defaultColorInputHandler: (tokenKey: string, variant?: ThemeVariant) => (event: Event) => void;
     defaultTokenInputHandler: (tokenKey: string, variant?: ThemeVariant) => (event: Event) => void;
+    defaultTokenSelectHandler: (
+      tokenKey: string,
+      variant?: ThemeVariant
+    ) => (value: string) => void;
     resetDefaultToken: (tokenKey: string, variant?: ThemeVariant) => void;
     editorTitle?: string;
     editorSubtitle?: string;
@@ -166,6 +172,18 @@
   } = $props();
 
   const editorVariant = $derived(selectedThemeVariant(selectedVariant, defaultVariant));
+  const homeVisibilityItems = $derived([
+    { value: "auto", label: at("appearance_visibility_auto", {}, "Automatic") },
+    { value: "visible", label: at("appearance_visibility_visible", {}, "Always show") },
+    { value: "hidden", label: at("appearance_visibility_hidden", {}, "Hide") },
+  ]);
+
+  function homeVisibilityValue(tokenKey: string): string {
+    const value = String(defaultTokenValue(tokenKey, defaultTokens) || "")
+      .trim()
+      .toLowerCase();
+    return ["auto", "visible", "hidden"].includes(value) ? value : "auto";
+  }
 
   function selectVariant(value: string): void {
     onVariantChange(value === "light" ? "light" : "dark");
@@ -525,6 +543,41 @@
           </div>
         </section>
       </div>
+
+      <section class="default-theme-panel appearance-home-elements-panel">
+        <h4>
+          <Sliders size={15} />
+          {at("appearance_home_elements_title", {}, "Home screen elements")}
+        </h4>
+        <p class="appearance-home-elements-hint">
+          {at(
+            "appearance_home_elements_hint",
+            {},
+            "Use one visibility policy for every supported Home screen element. Automatic preserves product rules; Always show still respects feature availability."
+          )}
+        </p>
+        <div class="appearance-home-elements-grid">
+          {#each HOME_ELEMENT_VISIBILITY_FIELDS as field (field.token)}
+            <label class:is-dirty={isDefaultTokenDirty(field.token)}>
+              <span>
+                {at(field.labelKey, {}, field.label)}
+                {#if isDefaultTokenDirty(field.token)}
+                  <AdminBadge variant="warning"
+                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
+                  >
+                {/if}
+              </span>
+              <AdminSelect
+                class="appearance-select"
+                value={homeVisibilityValue(field.token)}
+                items={homeVisibilityItems}
+                ariaLabel={at(field.labelKey, {}, field.label)}
+                onValueChange={defaultTokenSelectHandler(field.token, editorVariant)}
+              />
+            </label>
+          {/each}
+        </div>
+      </section>
 
       <div class="default-theme-token-grid">
         {#each TOKEN_GROUPS as group (group.title)}

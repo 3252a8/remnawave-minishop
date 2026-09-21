@@ -4,6 +4,7 @@ import type { AdminApi } from "../../admin/adminStores.js";
 import {
   DEFAULT_PARTNER_LIST_QUERY,
   loadPartnerDashboard,
+  loadPartnerDetail,
   loadPartnerLists,
   loadPartnerPage,
   mapApplication,
@@ -174,6 +175,25 @@ describe("partner program admin API", () => {
     await loadPartnerDashboard(request as unknown as AdminApi, "RUB");
 
     expect(String(request.mock.calls[0][0])).toContain("days=all");
+  });
+
+  it("maps linked client user ids in partner details", async () => {
+    const request = vi.fn().mockResolvedValue({
+      partner: { partner_id: 12, user_id: 34, display_label: "Partner", balances: [] },
+      clients: [
+        { public_client_id: "CL-1", client_user_id: 77, label: "Linked user" },
+        { public_client_id: "CL-2", client_user_id: null, label: "Deleted user" },
+      ],
+    });
+
+    const detail = await loadPartnerDetail(
+      request as unknown as AdminApi,
+      "12",
+      "RUB",
+      "/admin/partners/12"
+    );
+
+    expect(detail.clients.map((client) => client.userId)).toEqual([77, 0]);
   });
 
   it("rejects failed partner admin actions instead of reporting them as saved", () => {

@@ -60,7 +60,8 @@
       {t("wa_gift_activated_on", { date: new Date(gift.activated_at).toLocaleDateString() })}
     </p>{/if}
   {#if gift.recipient_email}<p class="gift-hint">
-      {gift.recipient_email} · {t(`wa_gift_delivery_${gift.delivery_status || "pending"}`)}
+      {gift.recipient_email} <span class="meta-separator" aria-hidden="true"></span>
+      {t(`wa_gift_delivery_${gift.delivery_status || "pending"}`)}
     </p>{/if}
 </article>
 

@@ -20,6 +20,7 @@ from db.models import Payment, PromoCode, PromoCodeActivation, Subscription, Use
 from .bedolaga_data import (
     bedolaga_build_tariff_catalog,
     bedolaga_ledger_effect,
+    bedolaga_panel_subscription_uuid,
     bedolaga_payment_status,
     bedolaga_target_user_id,
 )
@@ -465,6 +466,7 @@ class BedolagaImporter(_BedolagaOperationsSection):
             model = Subscription(
                 user_id=user_id,
                 panel_user_uuid=str(panel_id),
+                panel_subscription_uuid=bedolaga_panel_subscription_uuid(row),
                 start_date=start_at,
                 end_date=end_at,
                 duration_days=days,

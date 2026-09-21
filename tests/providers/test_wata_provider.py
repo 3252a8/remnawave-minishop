@@ -11,6 +11,8 @@ from bot.payment_providers.wata import provider as wata_provider
 class _FakeWataService:
     def __init__(self):
         self.calls: list[dict[str, Any]] = []
+        self.config = SimpleNamespace(SUBSCRIPTION_MAX_PERIODS=24)
+        self.subscriptions_enabled = True
 
     async def create_payment_link(self, **kwargs):
         self.calls.append(kwargs)
@@ -63,3 +65,37 @@ def test_wata_descriptors_keep_profile_specific_guards():
     fiat_payment = SimpleNamespace(provider="wata")
     assert wata_provider._CRYPTO_DESCRIPTOR.reuse_payment_allowed(crypto_payment, None) is True
     assert wata_provider._CRYPTO_DESCRIPTOR.reuse_payment_allowed(fiat_payment, None) is False
+
+
+def test_subscription_descriptor_creates_provider_managed_schedule():
+    service = _FakeWataService()
+    request = CreatePaymentRequest(
+        payment=SimpleNamespace(payment_id=43, provider="wata"),
+        user_id=123,
+        amount=175.0,
+        currency="RUB",
+        description="Subscription #43",
+        months=1,
+        sale_mode="subscription@base|d30",
+        provider_context={
+            "payer_email": "person@example.com",
+            "payer_phone": "+7 (999) 123-45-67",
+        },
+    )
+
+    success, response = asyncio.run(wata_provider._SUBSCRIPTION_DESCRIPTOR.create(service, request))
+
+    assert success is True
+    assert response["url"] == "https://wata.pro/p/link-1"
+    assert service.calls == [
+        {
+            "payment_db_id": 43,
+            "amount": 175.0,
+            "currency": "RUB",
+            "description": "Subscription #43",
+            "method": "wata",
+            "payer_email": "person@example.com",
+            "payer_phone": "+79991234567",
+            "subscription": {"period": 1, "interval": "Month", "maxPeriods": 24},
+        }
+    ]
