@@ -11735,8 +11735,13 @@ export interface operations {
             bundled: {
               [key: string]: unknown;
             }[];
+            failed_generation: number | null;
+            failure: string;
             generation: number;
             installations: {
+              [key: string]: unknown;
+            };
+            observations: {
               [key: string]: unknown;
             };
             /** @constant */

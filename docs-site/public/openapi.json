@@ -18577,10 +18577,23 @@
                       },
                       "type": "array"
                     },
+                    "failed_generation": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "failure": {
+                      "type": "string"
+                    },
                     "generation": {
                       "type": "integer"
                     },
                     "installations": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "observations": {
                       "additionalProperties": true,
                       "type": "object"
                     },
@@ -18601,7 +18614,10 @@
                     "generation",
                     "installations",
                     "operations",
-                    "bundled"
+                    "bundled",
+                    "observations",
+                    "failed_generation",
+                    "failure"
                   ],
                   "type": "object"
                 }

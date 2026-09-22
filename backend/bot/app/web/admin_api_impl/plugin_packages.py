@@ -104,6 +104,9 @@ async def admin_plugin_packages_route(request: web.Request) -> web.Response:
             "installations": state["installations"],
             "operations": state.get("operations", []),
             "bundled": bundled,
+            "observations": state.get("observations", {}),
+            "failed_generation": state.get("failed_generation"),
+            "failure": state.get("failure", ""),
         }
     )
 
@@ -316,6 +319,9 @@ register_contract(
                 "installations": JSON_OBJECT_SCHEMA,
                 "operations": JSON_ARRAY_SCHEMA,
                 "bundled": JSON_ARRAY_SCHEMA,
+                "observations": JSON_OBJECT_SCHEMA,
+                "failed_generation": {"type": ["integer", "null"]},
+                "failure": {"type": "string"},
             }
         )
     ),

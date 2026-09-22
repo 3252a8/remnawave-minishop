@@ -11,16 +11,9 @@
     AdminField,
     AdminSelect,
   } from "$components/patterns/admin/index.js";
-  import { Checkbox, Dialog, FileInput, Input } from "$components/ui/index.js";
-  import {
-    ArrowLeft,
-    Check,
-    Eye,
-    FileText,
-    Globe2,
-    TriangleAlert,
-    Upload,
-  } from "$components/ui/icons.js";
+  import AdminImportSource from "$components/patterns/admin/AdminImportSource.svelte";
+  import { Checkbox, Dialog } from "$components/ui/index.js";
+  import { ArrowLeft, Check, Eye, FileText, TriangleAlert, Upload } from "$components/ui/icons.js";
   import AppearanceThemePreview from "./AppearanceThemePreview.svelte";
   let {
     at,
@@ -47,9 +40,7 @@
   let repository = $state("");
   let revision = $state("");
   let subdir = $state("");
-  let fileInput = $state<HTMLInputElement | null>(null);
   let error = $state("");
-  let dragging = $state(false);
   let selected = $state<string[]>([]);
   let conflict = $state("skip");
   let adoption = $state(false);
@@ -91,6 +82,27 @@
           : ("install" as const),
       }))
   );
+  const sourceLabels = $derived({
+    archive: at("appearance_demo_archive", {}, "ZIP archive"),
+    repository: at("appearance_demo_repository", {}, "Git repository"),
+    drop: at("appearance_demo_drop", {}, "Drop an archive here"),
+    dropHint: at(
+      "appearance_demo_drop_hint",
+      {},
+      "One theme or a whole collection. ZIP, up to 20 MB."
+    ),
+    chooseFile: at("appearance_demo_choose_file", {}, "Choose file"),
+    oneFile: at("appearance_demo_one_file", {}, "Choose one archive."),
+    repositoryUrl: at("appearance_demo_repo_url", {}, "Repository link"),
+    repositoryHint: at(
+      "appearance_demo_repo_hint",
+      {},
+      "Public GitHub or GitLab repository with one or more themes."
+    ),
+    revision: at("appearance_demo_revision", {}, "Branch, tag or commit (optional)"),
+    subdir: at("appearance_subdir", {}, "Theme directory (optional)"),
+    find: at("appearance_demo_find", {}, "Find themes"),
+  });
   $effect(() => {
     if (open) {
       repository = initialRepository;
@@ -197,115 +209,26 @@
       >
     </div>
     {#if !review}
-      <div class="method-buttons">
+      <AdminImportSource
+        bind:method
+        bind:repository
+        bind:revision
+        bind:subdir
+        labels={sourceLabels}
+        busy={library.busy}
+        showSubdir
+        onarchive={inspectFile}
+        onrepository={inspectRepository}
+        onerror={(message) => (error = message)}
+      />
+      {#if demo && method === "archive"}
         <AdminButton
           disabled={library.busy}
-          variant={method === "archive" ? "primary" : "default"}
-          aria-pressed={method === "archive"}
-          onclick={() => {
-            method = "archive";
-          }}><Upload size={15} />{at("appearance_demo_archive", {}, "ZIP archive")}</AdminButton
-        >
-        <AdminButton
-          disabled={library.busy}
-          variant={method === "repository" ? "primary" : "default"}
-          aria-pressed={method === "repository"}
-          onclick={() => {
-            method = "repository";
-          }}
-          ><Globe2 size={15} />{at("appearance_demo_repository", {}, "Git repository")}</AdminButton
-        >
-      </div>
-      {#if method === "archive"}
-        <section
-          class="import-drop"
-          class:dragging
-          aria-label={at("appearance_demo_drop", {}, "Drop an archive here")}
-          ondragover={(event) => {
-            event.preventDefault();
-            dragging = true;
-          }}
-          ondragleave={() => {
-            dragging = false;
-          }}
-          ondrop={(event) => {
-            event.preventDefault();
-            dragging = false;
-            if (event.dataTransfer?.files.length !== 1) {
-              error = at("appearance_demo_one_file", {}, "Choose one archive.");
-              return;
-            }
-            void inspectFile(event.dataTransfer.files[0]);
-          }}
-        >
-          <span class="upload-symbol"><Upload size={26} /></span>
-          <strong>{at("appearance_demo_drop", {}, "Drop an archive here")}</strong>
-          <p>
-            {at(
-              "appearance_demo_drop_hint",
-              {},
-              "One theme or a whole collection. ZIP, up to 20 MB."
-            )}
-          </p>
-          <FileInput
-            bind:element={fileInput}
-            class="appearance-import-file"
-            accept=".zip,application/zip"
-            disabled={library.busy}
-            onchange={(event) => {
-              void inspectFile(event.currentTarget.files?.[0]);
-              event.currentTarget.value = "";
-            }}
-          />
-          <AdminButton disabled={library.busy} onclick={() => fileInput?.click()}
-            >{at("appearance_demo_choose_file", {}, "Choose file")}</AdminButton
-          >
-        </section>
-        {#if demo}<AdminButton
-            disabled={library.busy}
-            onclick={async () => {
-              const response = await fetch("/demo/theme-examples.zip");
-              if (response.ok)
-                await inspectFile(new File([await response.blob()], "theme-examples.zip"));
-            }}>{at("appearance_demo_sample", {}, "Try a sample collection")}</AdminButton
-          >{/if}
-      {:else}
-        <AdminField
-          label={at("appearance_demo_repo_url", {}, "Repository link")}
-          hint={at(
-            "appearance_demo_repo_hint",
-            {},
-            "Public GitHub or GitLab repository with one or more themes."
-          )}
-          ><Input
-            type="url"
-            class="input"
-            bind:value={repository}
-            placeholder="https://github.com/author/themes"
-            disabled={library.busy}
-          /></AdminField
-        >
-        <AdminField label={at("appearance_demo_revision", {}, "Branch, tag or commit (optional)")}
-          ><Input
-            class="input"
-            bind:value={revision}
-            placeholder="v1.0.0"
-            disabled={library.busy}
-          /></AdminField
-        >
-        <AdminField label={at("appearance_subdir", {}, "Theme directory (optional)")}
-          ><Input
-            class="input"
-            bind:value={subdir}
-            placeholder="themes"
-            disabled={library.busy}
-          /></AdminField
-        >
-        <AdminButton
-          variant="primary"
-          disabled={library.busy || !repository.trim()}
-          onclick={inspectRepository}
-          ><Globe2 size={15} />{at("appearance_demo_find", {}, "Find themes")}</AdminButton
+          onclick={async () => {
+            const response = await fetch("/demo/theme-examples.zip");
+            if (response.ok)
+              await inspectFile(new File([await response.blob()], "theme-examples.zip"));
+          }}>{at("appearance_demo_sample", {}, "Try a sample collection")}</AdminButton
         >
       {/if}
       {#if library.busy}<p role="status">
@@ -511,9 +434,6 @@
   :global(.appearance-import-dialog) {
     width: min(620px, calc(100vw - 24px));
   }
-  :global(.appearance-import-file) {
-    display: none;
-  }
   .import-layout {
     display: grid;
     gap: 20px;
@@ -535,36 +455,6 @@
     flex: 1;
     height: 1px;
     background: var(--admin-border);
-  }
-  .method-buttons {
-    display: flex;
-    gap: 8px;
-  }
-  .method-buttons :global(button) {
-    flex: 1;
-  }
-  .import-drop {
-    display: grid;
-    justify-items: center;
-    gap: 13px;
-    padding: 32px 16px;
-    border: 1px dashed var(--admin-border-strong);
-    border-radius: 12px;
-    background: var(--admin-surface-2);
-    text-align: center;
-  }
-  .dragging {
-    border-color: var(--accent);
-  }
-  .upload-symbol {
-    display: grid;
-    place-items: center;
-    width: 54px;
-    height: 54px;
-    border-radius: 15px;
-    background: var(--admin-surface);
-    color: var(--accent);
-    border: 1px solid var(--admin-border);
   }
   p {
     margin: 0;
@@ -699,15 +589,9 @@
     .import-layout {
       gap: 16px;
     }
-    .import-drop {
-      padding: 22px 12px;
-    }
     .import-candidate {
       gap: 9px;
       padding: 12px;
-    }
-    .method-buttons :global(button) {
-      padding-inline: 10px;
     }
     .import-steps {
       gap: 7px;

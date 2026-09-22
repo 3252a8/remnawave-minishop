@@ -295,6 +295,15 @@ class WebAppRouteContractTests(unittest.TestCase):
 
         self.assertEqual(match_info.handler.__name__, "index_route")
 
+    def test_admin_plugins_page_route_is_registered(self):
+        app = web.Application()
+        subscription_webapp.setup_subscription_webapp_routes(app)
+
+        request = make_mocked_request("GET", "/admin/plugins", app=app)
+        match_info = asyncio.run(app.router.resolve(request))
+
+        self.assertEqual(match_info.handler.__name__, "index_route")
+
     def test_admin_translations_page_route_is_registered(self):
         app = web.Application()
         subscription_webapp.setup_subscription_webapp_routes(app)
