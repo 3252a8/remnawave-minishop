@@ -13342,6 +13342,25 @@
         "updated_at": null
       },
       {
+        "key": "SUBSCRIPTION_GATEWAY_ENABLED",
+        "type": "bool",
+        "section": "subscription_guides",
+        "section_order": 10,
+        "subsection": null,
+        "label": "Public subscription gateway",
+        "description": "Allow subscription apps to import and update profiles through public /s/ links. Turning this off leaves the install page available but stops client delivery.",
+        "i18n_label_key": "admin_settings_field_subscription_gateway_enabled_label",
+        "i18n_description_key": "admin_settings_field_subscription_gateway_enabled_description",
+        "i18n_subsection_key": null,
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": true,
+        "secret": false,
+        "value": "",
+        "overridden": false,
+        "updated_at": null
+      },
+      {
         "key": "SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED",
         "type": "bool",
         "section": "subscription_guides",

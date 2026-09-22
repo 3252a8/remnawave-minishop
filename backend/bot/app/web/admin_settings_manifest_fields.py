@@ -285,6 +285,16 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "Open install instructions inside the Web App instead of an external connect page.",
     ),
     SettingField(
+        "SUBSCRIPTION_GATEWAY_ENABLED",
+        "bool",
+        "subscription_guides",
+        "Public subscription gateway",
+        (
+            "Allow subscription apps to import and update profiles through public /s/ links. "
+            "Turning this off leaves the install page available but stops client delivery."
+        ),
+    ),
+    SettingField(
         "SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED",
         "bool",
         "subscription_guides",

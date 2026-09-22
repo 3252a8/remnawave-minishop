@@ -3206,6 +3206,8 @@
   "admin_settings_section_subscription_guides": "Инструкции подключения",
   "admin_settings_field_subscription_guides_enabled_label": "Встроенные инструкции подключения",
   "admin_settings_field_subscription_guides_enabled_description": "Открывать инструкции прямо внутри Web App вместо внешней страницы подключения.",
+  "admin_settings_field_subscription_gateway_enabled_label": "Выдавать подписку по публичной ссылке",
+  "admin_settings_field_subscription_gateway_enabled_description": "Разрешить VPN-приложениям получать и обновлять профиль через публичную ссылку /s/. При отключении импорт и обновление по таким ссылкам прекращаются; страница инструкций остается доступной.",
   "admin_settings_field_subscription_guides_bot_menu_enabled_label": "Открывать инструкции из бота",
   "admin_settings_field_subscription_guides_bot_menu_enabled_description": "Открывать экран установки в Telegram Mini App для кнопок подключения в боте и показывать публичные ссылки на инструкцию.",
   "admin_settings_field_subscription_reissue_enabled_label": "Перевыпуск ссылки подписки",

@@ -3206,6 +3206,8 @@
   "admin_settings_section_subscription_guides": "Install guides",
   "admin_settings_field_subscription_guides_enabled_label": "Embedded install guides",
   "admin_settings_field_subscription_guides_enabled_description": "Open install instructions inside the Web App instead of an external connect page.",
+  "admin_settings_field_subscription_gateway_enabled_label": "Serve subscriptions from public links",
+  "admin_settings_field_subscription_gateway_enabled_description": "Allow VPN apps to import and update profiles through public /s/ links. Turning this off stops imports and updates through those links; the install page remains available.",
   "admin_settings_field_subscription_guides_bot_menu_enabled_label": "Open install guides from bot",
   "admin_settings_field_subscription_guides_bot_menu_enabled_description": "Use the Telegram Mini App install screen for bot connect buttons and show public install guide links.",
   "admin_settings_field_subscription_reissue_enabled_label": "Subscription link reissue",

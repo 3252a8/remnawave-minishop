@@ -35,6 +35,7 @@ SUBSCRIPTION_PURCHASE_DESCRIPTION_SETTINGS = (
 
 SUBSCRIPTION_GUIDE_SETTINGS = (
     "SUBSCRIPTION_GUIDES_ENABLED",
+    "SUBSCRIPTION_GATEWAY_ENABLED",
     "SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED",
     "SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED",
     "SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED",
@@ -447,6 +448,8 @@ def test_subscription_guide_settings_i18n_keys_exist():
 
     assert manifest["SUBSCRIPTION_GUIDES_ENABLED"]["section"] == "subscription_guides"
     assert manifest["SUBSCRIPTION_GUIDES_ENABLED"]["section_order"] == 10
+    assert manifest["SUBSCRIPTION_GATEWAY_ENABLED"]["section"] == "subscription_guides"
+    assert manifest["SUBSCRIPTION_GATEWAY_ENABLED"]["type"] == "bool"
     assert manifest["SUBSCRIPTION_PAGE_CONFIG_JSON"]["type"] == "json"
 
     for language in ("ru", "en"):

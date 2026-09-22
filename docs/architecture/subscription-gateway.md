@@ -30,8 +30,10 @@ applies HWID and Response Rules.
    that an upstream failure remains a 5xx through the actual public ingress. For a split
    deployment, the frontend injects `MINISHOP_EDGE_TOKEN`; direct access to the protected
    backend `/s/` route must be denied.
-4. Set `SUBSCRIPTION_GATEWAY_ENABLED=True`, keeping `SUBSCRIPTION_LINK_MODE=panel`. Verify a
-   browser, Telegram preview, initial client import, repeated update, HWID device behavior,
+4. The gateway is enabled by default. In **System → Settings → Install guides**, confirm that
+   **Public subscription gateway** is enabled; an explicit older environment or saved admin
+   override may keep it off. Keep `SUBSCRIPTION_LINK_MODE=panel` while verifying a browser,
+   Telegram preview, initial client import, repeated update, HWID device behavior,
    format suffixes, panel Response Rules, link reissue, and failure handling through the
    public address. Compare controlled direct-panel and gateway responses for the same headers.
 5. After the client matrix is green, set `SUBSCRIPTION_LINK_MODE=minishop` to issue the canonical

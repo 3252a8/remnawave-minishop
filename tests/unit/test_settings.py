@@ -657,6 +657,8 @@ class SettingsTests(unittest.TestCase):
         )
 
         self.assertTrue(settings.SUBSCRIPTION_GUIDES_ENABLED)
+        self.assertTrue(settings.SUBSCRIPTION_GATEWAY_ENABLED)
+        self.assertEqual(settings.SUBSCRIPTION_LINK_MODE, "panel")
         self.assertTrue(settings.SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED)
         self.assertTrue(settings.SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED)
         self.assertFalse(settings.SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED)

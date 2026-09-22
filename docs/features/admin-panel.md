@@ -60,7 +60,7 @@
 
 - общие параметры: язык, валюта, ссылки поддержки, документы, обязательный канал, режим регистрации только по приглашению, Remnawave-доступы и поведение `/start`;
 - внешний вид и доступность Web App: название, цвет, логотип и `WEBAPP_ENABLED`;
-- инструкции подключения: `SUBSCRIPTION_GUIDES_ENABLED`, `SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED`, чтение конфига из Remnawave Panel, JSON-переопределение и резервный путь к файлу;
+- инструкции подключения: `SUBSCRIPTION_GUIDES_ENABLED`, `SUBSCRIPTION_GATEWAY_ENABLED`, `SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED`, чтение конфига из Remnawave Panel, JSON-переопределение и резервный путь к файлу;
 - legacy-тарифы без JSON-каталога: периоды подписки, RUB/Stars цены, реферальные бонусы и пакеты трафика;
 - платежные провайдеры: включение и порядок методов, режим выпадающего списка/отдельных кнопок, публичные параметры и секреты YooKassa, FreeKassa, Platega, SeverPay, Wata, CryptoPay, Heleket, OxaPay, PayKilla, LAVA, Pally, CloudPayments, Stripe, Tribute и Stars, а также текст и иконки способов оплаты;
 - пробный период, приветственный реферальный бонус, уведомления, логирование, Telegram антифлуд, поддержка, раздел устройств, лимит устройств и legacy-лимиты трафика.
@@ -138,6 +138,8 @@
 ## Инструкции подключения
 
 Секция **Система -> Настройки -> Инструкции подключения** управляет встроенным экраном установки. `SUBSCRIPTION_GUIDES_ENABLED` включает `/install` в личном кабинете, а `SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED` заставляет кнопки подключения в Telegram-боте открывать Mini App вместо финальной Remnawave Subscription Page. Оба переключателя включены по умолчанию.
+
+`SUBSCRIPTION_GATEWAY_ENABLED` разрешает приложениям импортировать и обновлять подписку по публичной ссылке `/s/<token>`. Он также включен по умолчанию. Если выключить его, страница инструкции останется доступной, но приложение не получит профиль. Выбор ссылки для новых подписок задает отдельно `SUBSCRIPTION_LINK_MODE`; по умолчанию он остается `panel`.
 
 По умолчанию Minishop читает конфиг Remnawave Subscription Page из панели (`SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED=True`). Это основной режим, потому что один и тот же конфиг используется и в панели, и во встроенной инструкции. JSON-поле `SUBSCRIPTION_PAGE_CONFIG_JSON` применяется только когда явно включен `SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED`; иначе оно может храниться в админке, но не влияет на пользователей. `SUBSCRIPTION_PAGE_CONFIG_PATH` остается резервным путем к локальному v1 JSON-файлу, если конфиг панели отключен или недоступен.
 
