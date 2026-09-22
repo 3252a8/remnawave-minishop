@@ -1,6 +1,6 @@
 /** Runtime descriptors from verified packages. The host owns their metadata. */
 
-import { Sparkles } from "$components/ui/icons.js";
+import { Key, Sparkles, TrendingUp, Zap } from "$components/ui/icons.js";
 import { ADMIN_SECTION_TABS, ADMIN_USER_DETAIL_PANELS } from "./extensionRegistry";
 import { ADMIN_SECTION_GROUPS, addRuntimeAdminSections } from "./registry";
 import type {
@@ -25,6 +25,7 @@ type RuntimeView = {
   visibleWhenLocked?: boolean;
   routeAliases?: string[];
   routeDefaults?: AdminSectionDescriptor["routeDefaults"];
+  icon?: string;
 };
 
 type RuntimePlugin = {
@@ -36,6 +37,12 @@ type RuntimePlugin = {
   section_groups?: Array<{ id: string; order: number; label: string }>;
   section_tabs?: RuntimeView[];
   user_panels?: RuntimeView[];
+};
+
+const RUNTIME_ICONS: Record<string, unknown> = {
+  key: Key,
+  zap: Zap,
+  "trending-up": TrendingUp,
 };
 
 function validView(plugin: RuntimePlugin, view: RuntimeView): boolean {
@@ -84,7 +91,7 @@ export function registerRuntimeExtensions(plugins: readonly RuntimePlugin[]): vo
         fallbackTitle: view.title || view.label || view.id,
         subtitleI18nKey: view.i18nKey ? `${view.i18nKey}_subtitle` : `${view.id}_subtitle`,
         fallbackSubtitle: view.subtitle || "",
-        icon: Sparkles,
+        icon: RUNTIME_ICONS[view.icon || ""] || Sparkles,
         component: PluginHost,
         routeAliases: view.routeAliases,
         routeDefaults: view.routeDefaults,

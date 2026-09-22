@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import io
@@ -21,6 +22,7 @@ from bot.plugins.packages import (
     bootstrap_image_package,
     inspect_archive,
     managed_entry_points,
+    mark_generation,
     read_state,
     remove_plugin,
     set_enabled,
@@ -164,3 +166,62 @@ def test_image_package_bootstrap_is_idempotent_across_roles(
     bootstrap_image_package(tmp_path, "backend")
     bootstrap_image_package(tmp_path, "worker")
     assert read_state(tmp_path)["installations"]["sample-plugin"]["enabled"] is False
+
+
+def test_one_shot_migrate_selects_image_package_before_plugin_discovery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import main_migrate
+
+    private = Ed25519PrivateKey.generate()
+    archive = tmp_path / "image-plugin.zip"
+    archive.write_bytes(_archive(private))
+    public = private.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    public_path = tmp_path / "publisher.pub"
+    public_path.write_text(base64.b64encode(public).decode(), encoding="ascii")
+    monkeypatch.setenv("MINISHOP_PLUGIN_STORE", str(tmp_path))
+    monkeypatch.setenv("MINISHOP_BUNDLED_PLUGIN_ARCHIVE", str(archive))
+    monkeypatch.setenv("MINISHOP_BUNDLED_PLUGIN_PUBLIC_KEY", str(public_path))
+    bootstrap_image_package(tmp_path, "backend")
+    previous = read_state(tmp_path)["installations"]["sample-plugin"]["digest"]
+    archive.write_bytes(
+        _archive(private, files={"backend/sample_plugin_module.py": b"loaded = 43\n"})
+    )
+
+    settings = object()
+    session_factory = object()
+    monkeypatch.setattr(main_migrate, "get_settings", lambda: settings)
+    monkeypatch.setattr(main_migrate, "init_db_connection", lambda _: session_factory)
+
+    async def inspect_before_database_migration(
+        actual_settings: object, actual_factory: object
+    ) -> None:
+        assert actual_settings is settings
+        assert actual_factory is session_factory
+        assert managed_entry_points(tmp_path)[0].load() == 43
+
+    monkeypatch.setattr(main_migrate, "init_db", inspect_before_database_migration)
+    try:
+        current = read_state(tmp_path)["generation"]
+        mark_generation(tmp_path, current, prepared=False, error="incompatible_core_revision")
+        asyncio.run(main_migrate.main())
+        state = read_state(tmp_path)
+        assert state["installations"]["sample-plugin"]["digest"] != previous
+        assert state["prepared_generation"] == state["generation"]
+        assert "failed_generation" not in state
+        assert "failure" not in state
+        mark_generation(tmp_path, state["generation"], prepared=False, error="previous_attempt")
+        asyncio.run(main_migrate.main())
+        recovered = read_state(tmp_path)
+        assert recovered["prepared_generation"] == recovered["generation"]
+        assert "failed_generation" not in recovered
+        assert "failure" not in recovered
+    finally:
+        sys.modules.pop("sample_plugin_module", None)
+        for entry in read_state(tmp_path)["installations"].values():
+            backend = str(tmp_path / "releases" / "sample-plugin" / entry["digest"] / "backend")
+            if backend in sys.path:
+                sys.path.remove(backend)

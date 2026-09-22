@@ -620,7 +620,12 @@ def mark_generation(root: Path, generation: int, *, prepared: bool, error: str =
         state = read_state(root)
         if state["generation"] != generation:
             raise PluginPackageError("generation_conflict", status=409)
-        state["prepared_generation" if prepared else "failed_generation"] = generation
-        if error:
+        if prepared:
+            state["prepared_generation"] = generation
+            state.pop("failed_generation", None)
+            state.pop("failure", None)
+        else:
+            state["failed_generation"] = generation
+            state.pop("prepared_generation", None)
             state["failure"] = error[:240]
         _write_state(root, state)

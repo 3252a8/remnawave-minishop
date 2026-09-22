@@ -44,6 +44,26 @@ describe("createAdminRuntime", () => {
     expect(deps.mergeMessages).toHaveBeenCalledWith({ admin: { ok: true } });
   });
 
+  it("loads admin translations on direct entry and refreshes them after a plugin update", async () => {
+    const bundle = {
+      mount: vi.fn(() => ({ destroy: vi.fn() })),
+      registerRuntimeExtensions: vi.fn(),
+    };
+    (globalThis as Record<string, unknown>).window = { SubscriptionWebAppAdmin: bundle };
+    const loadRuntimeExtensions = vi.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(2);
+    const { deps, runtime } = makeRuntime({ deps: { loadRuntimeExtensions } });
+    try {
+      await runtime.ensureAdminBundle();
+      await runtime.ensureAdminBundle();
+      expect(deps.fetchI18nScope).toHaveBeenCalledTimes(2);
+      expect(deps.fetchI18nScope).toHaveBeenNthCalledWith(1, "admin");
+      expect(deps.fetchI18nScope).toHaveBeenNthCalledWith(2, "admin");
+      expect(loadRuntimeExtensions).toHaveBeenCalledTimes(2);
+    } finally {
+      delete (globalThis as Record<string, unknown>).window;
+    }
+  });
+
   it("refreshes translations before running the persisted-save flow", async () => {
     const { deps, runtime } = makeRuntime();
 

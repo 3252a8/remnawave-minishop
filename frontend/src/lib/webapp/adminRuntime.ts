@@ -18,7 +18,7 @@ type AdminRuntimeDeps = {
   loadData: (options?: WebappRecord) => Promise<unknown>;
   loadRuntimeExtensions?: (bundle: {
     registerRuntimeExtensions?: (plugins: unknown[]) => void;
-  }) => Promise<void>;
+  }) => Promise<number | null>;
   mergeMessages: (messages: unknown) => void;
   resetInstallGuides: () => void;
   setBundleState: (api: AdminBundleApi, error: string) => void;
@@ -38,13 +38,16 @@ export function createAdminRuntime({
 }: AdminRuntimeDeps) {
   let adminI18nLoaded = false;
   let adminI18nPromise: Promise<unknown> | null = null;
+  let runtimeGeneration: number | null = null;
 
   async function refreshI18nScope(scope: string) {
     if (getIsMock()) return;
     try {
       const payload = await fetchI18nScope(scope);
-      if (payload?.ok && payload.i18n) mergeMessages(payload.i18n);
-      if (scope === "admin") adminI18nLoaded = true;
+      if (payload?.ok && payload.i18n) {
+        mergeMessages(payload.i18n);
+        if (scope === "admin") adminI18nLoaded = true;
+      }
     } catch (_error) {
       void _error;
     }
@@ -78,11 +81,18 @@ export function createAdminRuntime({
   }
 
   async function ensureAdminBundle() {
+    await ensureI18nScope("admin");
     try {
       const loaded = await adminBundle.ensure();
       const bundle = adminBundle.getApi();
-      if (loaded && bundle && loadRuntimeExtensions)
-        await loadRuntimeExtensions(bundle).catch(() => {});
+      if (loaded && bundle && loadRuntimeExtensions) {
+        const generation = await loadRuntimeExtensions(bundle).catch(() => null);
+        if (generation !== null) {
+          if (runtimeGeneration !== null && generation !== runtimeGeneration)
+            await refreshI18nScope("admin");
+          runtimeGeneration = generation;
+        }
+      }
       return loaded;
     } finally {
       syncBundleState();

@@ -67,6 +67,15 @@ class DockerWebappAssetTests(unittest.TestCase):
             nginx_conf,
         )
 
+    def test_frontend_nginx_proxies_signed_plugin_assets(self) -> None:
+        nginx_conf = NGINX_CONF_PATH.read_text(encoding="utf-8")
+        self.assertIn("location ^~ /api/ {", nginx_conf)
+        self.assertIn(r"location ~* \.(css|js|png|jpg|jpeg|gif|ico|svg|webp)$", nginx_conf)
+        match = re.search(r"client_max_body_size\s+(\d+)m;", nginx_conf)
+        self.assertIsNotNone(match)
+        assert match is not None
+        self.assertGreaterEqual(int(match[1]), 97)
+
     def test_theme_upload_limit_fits_frontend_and_example_ingress(self) -> None:
         from config.theme_packages.models import MAX_ARCHIVE
 

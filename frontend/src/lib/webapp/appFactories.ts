@@ -204,13 +204,16 @@ export function createAppFactories({
 
   const adminRuntime = createAdminRuntime({
     loadRuntimeExtensions: async (bundle) => {
-      if (!getIsAdmin() || MOCK) return;
+      if (!getIsAdmin() || MOCK) return null;
       const payload = await dataClient.apiClient.apiUnchecked("/admin/plugins/runtime");
       if (payload.ok && Array.isArray(payload.plugins)) {
         (window as unknown as Record<string, unknown>)["__MINISHOP_PLUGIN_GENERATION__"] =
           payload.generation;
         bundle.registerRuntimeExtensions?.(payload.plugins);
+        const generation = Number(payload.generation);
+        return Number.isSafeInteger(generation) ? generation : null;
       }
+      return null;
     },
     fetchI18nScope: async (scope) => {
       const response = await fetch(buildApiUrl(`/i18n?scope=${encodeURIComponent(scope)}`), {
