@@ -34,6 +34,18 @@ services:
       start_period: 30s
       start_interval: 1s
 
+  plugin-store-init:
+    image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+      target: backend
+    user: '0:0'
+    entrypoint: ['sh', '-c']
+    command: ['mkdir -p /app/data/plugin-store && chown -R 10001:10001 /app/data/plugin-store']
+    volumes:
+      - ./data:/app/data:rw
+
   migrate:
     container_name: remnawave-minishop-migrate
     image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
@@ -46,6 +58,7 @@ services:
       - ${APP_ENV_FILE:-.env}
     environment:
       IMAGE_TAG: ${IMAGE_TAG:-latest}
+      MINISHOP_PLUGIN_SAFE_MODE: '1'
       POSTGRES_HOST: postgres
       REDIS_URL: redis://redis:6379/0
     volumes:
@@ -53,6 +66,8 @@ services:
     networks:
       - remnawave-minishop
     depends_on:
+      plugin-store-init:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
