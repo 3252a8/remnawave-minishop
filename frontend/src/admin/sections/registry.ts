@@ -293,6 +293,19 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
     loadComponent: () => import("./BackupsSection.svelte").then((module) => module.default),
   },
   {
+    id: "plugins",
+    group: "system",
+    order: 45,
+    i18nKey: "nav_plugins",
+    fallbackLabel: "Plugins",
+    titleI18nKey: "section_plugins_title",
+    fallbackTitle: "Plugins",
+    subtitleI18nKey: "section_plugins_subtitle",
+    fallbackSubtitle: "Install and manage verified extensions",
+    icon: Sparkles,
+    loadComponent: () => import("./PluginsSection.svelte").then((module) => module.default),
+  },
+  {
     id: "settings",
     group: "system",
     order: 50,
@@ -333,6 +346,22 @@ export const ADMIN_SECTION_ROUTE_ALIASES: ReadonlyMap<string, string> =
   buildAdminSectionRouteAliases(ADMIN_SECTIONS);
 
 const ADMIN_SECTION_IDS: ReadonlySet<string> = new Set(ADMIN_SECTIONS.map((section) => section.id));
+
+/** Install signed runtime descriptors before the admin component mounts. */
+export function addRuntimeAdminSections(sections: readonly AdminSectionDescriptor[]): void {
+  const ids = ADMIN_SECTION_IDS as Set<string>;
+  const aliases = ADMIN_SECTION_ROUTE_ALIASES as Map<string, string>;
+  for (const section of sections) {
+    if (ids.has(section.id)) continue;
+    ids.add(section.id);
+    ADMIN_SECTIONS.push(section);
+  }
+  ADMIN_SECTIONS.sort(
+    (a, b) => a.group.localeCompare(b.group) || a.order - b.order || a.id.localeCompare(b.id)
+  );
+  aliases.clear();
+  for (const [alias, id] of buildAdminSectionRouteAliases(ADMIN_SECTIONS)) aliases.set(alias, id);
+}
 
 /**
  * Resolve a requested admin route slug against the full section registry,

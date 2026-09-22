@@ -68,6 +68,7 @@ PromoCheckoutSuggestionProvider = Callable[
 ]
 
 _extra_promo_redemption_policies: list[PromoRedemptionPolicy] = []
+_owner_policy_plugins: set[str] = set()
 _promo_checkout_suggestion_providers: list[PromoCheckoutSuggestionProvider] = []
 
 
@@ -145,11 +146,15 @@ _CORE_PROMO_REDEMPTION_POLICIES: tuple[PromoRedemptionPolicy, ...] = (
 )
 
 
-def register_promo_redemption_policy(policy: PromoRedemptionPolicy) -> None:
+def register_promo_redemption_policy(
+    policy: PromoRedemptionPolicy, *, owner_plugin_id: str | None = None
+) -> None:
     if not callable(policy):
         raise TypeError("policy must be callable")
     if policy not in _extra_promo_redemption_policies:
         _extra_promo_redemption_policies.append(policy)
+    if owner_plugin_id:
+        _owner_policy_plugins.add(owner_plugin_id)
 
 
 def register_promo_checkout_suggestion_provider(
@@ -165,6 +170,7 @@ def register_promo_checkout_suggestion_provider(
 
 def reset_promo_redemption_policies() -> None:
     _extra_promo_redemption_policies.clear()
+    _owner_policy_plugins.clear()
     _promo_checkout_suggestion_providers.clear()
 
 
@@ -175,6 +181,15 @@ def iter_promo_redemption_policies() -> tuple[PromoRedemptionPolicy, ...]:
 async def evaluate_promo_redemption(
     ctx: PromoRedemptionContext,
 ) -> PromoRedemptionDecision:
+    owner = getattr(ctx.promo_model, "owner_plugin_id", None)
+    if owner:
+        # This policy is part of Core's persisted resource boundary. It works
+        # even when the owner failed to import or the process is in safe mode.
+        if owner not in _owner_policy_plugins:
+            return PromoRedemptionDecision.deny("promo_code_not_applicable")
+        recipient = getattr(ctx.promo_model, "user_id", None)
+        if recipient is None or int(recipient) != int(ctx.user_id):
+            return PromoRedemptionDecision.deny("promo_code_not_applicable")
     for policy in iter_promo_redemption_policies():
         result = policy(ctx)
         if inspect_module.isawaitable(result):

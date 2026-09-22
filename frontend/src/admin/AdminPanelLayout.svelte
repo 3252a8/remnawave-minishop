@@ -13,6 +13,7 @@
   import ConfigAlertsBanner from "./ConfigAlertsBanner.svelte";
   import { dynamicComponent, type DynamicComponent } from "./adminLazyComponents";
   import type { AdminSectionDescriptor } from "./sections/registry";
+  import { ADMIN_SECTIONS } from "./sections/registry";
   import type { SettingsSavedPayload } from "$lib/admin/stores/settingsStore";
   import type { TranslationsSavedPayload } from "$lib/admin/stores/translationsStore";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
@@ -503,6 +504,10 @@
                 {@const ActiveSectionComponent = activeSectionComponent}
                 <ActiveSectionComponent
                   {api}
+                  runtimeViewId={ADMIN_SECTIONS.find((section) => section.id === active)
+                    ?.runtimeViewId}
+                  runtimeEntry={ADMIN_SECTIONS.find((section) => section.id === active)
+                    ?.runtimeEntry}
                   {at}
                   {availableFeatures}
                   {brand}

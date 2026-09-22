@@ -1217,6 +1217,193 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/plugins": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Plugin Packages */
+    get: operations["get_admin_plugin_packages_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/plugins/assets/{plugin_id}/{digest}/{path}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Plugin Asset */
+    get: operations["get_admin_plugin_asset_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/plugins/install": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Plugin Install */
+    post: operations["post_admin_plugin_install_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/plugins/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Plugin Preview */
+    post: operations["post_admin_plugin_preview_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/plugins/repository/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Plugin Repository Preview */
+    post: operations["post_admin_plugin_repository_preview_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/plugins/repository/stage": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Plugin Repository Stage */
+    post: operations["post_admin_plugin_repository_stage_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/plugins/runtime": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Plugin Runtime */
+    get: operations["get_admin_plugin_runtime_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/plugins/stage": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Plugin Stage */
+    post: operations["post_admin_plugin_stage_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/plugins/trust": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Plugin Trust */
+    post: operations["post_admin_plugin_trust_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/plugins/{plugin_id}/enabled": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Plugin Enabled */
+    post: operations["post_admin_plugin_enabled_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/plugins/{plugin_id}/remove": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Plugin Remove */
+    post: operations["post_admin_plugin_remove_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/promos": {
     parameters: {
       query?: never;
@@ -11524,6 +11711,368 @@ export interface operations {
             /** @constant */
             ok: true;
             payment: components["schemas"]["PaymentDetailOut"];
+          };
+        };
+      };
+    };
+  };
+  get_admin_plugin_packages_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            bundled: {
+              [key: string]: unknown;
+            }[];
+            generation: number;
+            installations: {
+              [key: string]: unknown;
+            };
+            /** @constant */
+            ok: true;
+            operations: {
+              [key: string]: unknown;
+            }[];
+          };
+        };
+      };
+    };
+  };
+  get_admin_plugin_asset_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        plugin_id: string;
+        digest: string;
+        path: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/octet-stream": string;
+        };
+      };
+    };
+  };
+  post_admin_plugin_install_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            generation?: number;
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_plugin_preview_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": {
+          /** Format: binary */
+          file: string;
+        };
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            digest: string;
+            manifest: {
+              [key: string]: unknown;
+            };
+            /** @constant */
+            ok: true;
+            operation_id?: string;
+            trust_reason: string;
+            trusted: boolean;
+          };
+        };
+      };
+    };
+  };
+  post_admin_plugin_repository_preview_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          ref?: string;
+          url: string;
+        };
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            digest: string;
+            manifest: {
+              [key: string]: unknown;
+            };
+            /** @constant */
+            ok: true;
+            operation_id?: string;
+            source: {
+              [key: string]: unknown;
+            };
+            trust_reason: string;
+            trusted: boolean;
+          };
+        };
+      };
+    };
+  };
+  post_admin_plugin_repository_stage_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          ref?: string;
+          url: string;
+        };
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            digest: string;
+            manifest: {
+              [key: string]: unknown;
+            };
+            /** @constant */
+            ok: true;
+            operation_id?: string;
+            source: {
+              [key: string]: unknown;
+            };
+            trust_reason: string;
+            trusted: boolean;
+          };
+        };
+      };
+    };
+  };
+  get_admin_plugin_runtime_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            generation: number;
+            /** @constant */
+            ok: true;
+            plugins: {
+              [key: string]: unknown;
+            }[];
+          };
+        };
+      };
+    };
+  };
+  post_admin_plugin_stage_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": {
+          /** Format: binary */
+          file: string;
+        };
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            digest: string;
+            manifest: {
+              [key: string]: unknown;
+            };
+            /** @constant */
+            ok: true;
+            operation_id?: string;
+            trust_reason: string;
+            trusted: boolean;
+          };
+        };
+      };
+    };
+  };
+  post_admin_plugin_trust_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            generation?: number;
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_plugin_enabled_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        plugin_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            generation?: number;
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_plugin_remove_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        plugin_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            generation?: number;
+            /** @constant */
+            ok: true;
           };
         };
       };

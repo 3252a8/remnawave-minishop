@@ -343,6 +343,7 @@ def test_promo_create_uses_typed_body_and_response_model():
         "valid_until": None,
         "created_by_admin_id": 100,
         # No owner was named, so the code stays shared.
+        "owner_plugin_id": None,
         "user_id": None,
         "is_active": True,
     }

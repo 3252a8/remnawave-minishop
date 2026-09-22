@@ -877,6 +877,7 @@ class PromoCode(Base):
     min_subscription_days = Column(Integer, nullable=True)
     min_traffic_gb = Column(Numeric(10, 2), nullable=True)
     origin = Column(String(32), nullable=False, default="admin")
+    owner_plugin_id = Column(String(64), nullable=True)
     # Set only for a code minted for one customer; NULL means a shared code.
     user_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=True, index=True)
     max_activations = Column(Integer, nullable=False)

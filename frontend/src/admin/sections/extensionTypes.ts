@@ -19,6 +19,8 @@ export interface AdminSectionGroupDescriptor {
 }
 
 export interface AdminSectionComponentProps {
+  runtimeViewId?: string;
+  runtimeEntry?: string;
   at: TranslateFn;
   featureAvailable: boolean;
   /**
@@ -61,6 +63,8 @@ export interface AdminSectionDescriptor extends FeatureBoundDescriptor {
   icon: unknown;
   component?: unknown;
   loadComponent?: () => Promise<unknown>;
+  runtimeViewId?: string;
+  runtimeEntry?: string;
   /**
    * Legacy route slugs that canonicalize to this section id. Aliases keep old
    * bookmarks working when an extension renames or merges its sections; they
@@ -89,9 +93,13 @@ export interface AdminSectionTabDescriptor extends FeatureBoundDescriptor {
   i18nKey: string;
   fallbackLabel: string;
   component: Component<AdminSectionComponentProps>;
+  runtimeViewId?: string;
+  runtimeEntry?: string;
 }
 
 export interface AdminUserDetailPanelProps {
+  runtimeViewId?: string;
+  runtimeEntry?: string;
   at: TranslateFn;
   user: AdminUser;
   userDetail: AdminUserDetail;
@@ -106,6 +114,8 @@ export interface AdminUserDetailPanelDescriptor extends FeatureBoundDescriptor {
   i18nKey: string;
   fallbackLabel: string;
   component: Component<AdminUserDetailPanelProps>;
+  runtimeViewId?: string;
+  runtimeEntry?: string;
 }
 
 export function requiredFeatureForDescriptor(descriptor: FeatureBoundDescriptor): string {

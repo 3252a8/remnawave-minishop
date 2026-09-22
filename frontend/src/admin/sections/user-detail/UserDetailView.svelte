@@ -373,6 +373,8 @@
               {@const requiredFeature = requiredFeatureForDescriptor(panel)}
               <Tabs.Content value={`extension:${panel.id}`} class="admin-tabs-content">
                 <PanelComponent
+                  runtimeViewId={panel.runtimeViewId}
+                  runtimeEntry={panel.runtimeEntry}
                   {at}
                   user={openedUser}
                   userDetail={openedUserDetail}

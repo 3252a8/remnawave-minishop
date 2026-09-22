@@ -8,6 +8,7 @@ from bot.app.web.context import (
     get_session_factory,
     get_settings,
 )
+from bot.plugins.packages import package_root, read_state
 from config.settings import Settings
 from db.dal import user_dal
 
@@ -72,5 +73,19 @@ async def admin_auth_middleware(
         elif db_user:
             # No telegram_id yet (email-only user) — can't be an admin
             request["admin_telegram_id"] = None
+
+    client_generation = request.headers.get("X-Minishop-Plugin-Generation")
+    if client_generation is not None and request.get("admin_telegram_id") in {
+        int(value) for value in get_settings(request).ADMIN_IDS or []
+    }:
+        try:
+            generation = read_state(package_root())["generation"]
+        except (OSError, ValueError):
+            generation = -1
+        if client_generation != str(generation):
+            raise web.HTTPConflict(
+                text=json.dumps({"ok": False, "error": "plugin_generation_changed"}),
+                content_type="application/json",
+            )
 
     return await handler(request)

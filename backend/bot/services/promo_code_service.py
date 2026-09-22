@@ -1,4 +1,5 @@
 import logging
+import re
 import secrets
 import string
 from collections.abc import Callable
@@ -107,6 +108,7 @@ class PromoCodeService:
         origin: str,
         created_by_admin_id: int | None,
         user_id: int | None = None,
+        owner_plugin_id: str | None = None,
         max_duration_multiplier: float = 12.0,
         max_traffic_multiplier: float = 12.0,
     ) -> PromoCode:
@@ -116,6 +118,10 @@ class PromoCodeService:
             max_traffic_multiplier=max_traffic_multiplier,
         )
         normalized_origin = str(origin or "admin").strip()[:32] or "admin"
+        if owner_plugin_id is not None and (
+            not re.fullmatch(r"[a-z][a-z0-9-]{1,63}", owner_plugin_id) or user_id is None
+        ):
+            raise ValueError("invalid_plugin_code_owner")
         normalized_code = PromoCodeService._normalize_code(code or "")
         if normalized_code:
             existing = await promo_code_dal.get_promo_code_by_code(session, normalized_code)
@@ -159,6 +165,7 @@ class PromoCodeService:
                 "min_subscription_days": effects.min_subscription_days,
                 "min_traffic_gb": effects.min_traffic_gb,
                 "origin": normalized_origin,
+                "owner_plugin_id": owner_plugin_id,
                 "max_activations": int(max_activations),
                 "valid_until": valid_until,
                 "created_by_admin_id": created_by_admin_id,

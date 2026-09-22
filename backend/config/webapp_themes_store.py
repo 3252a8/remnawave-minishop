@@ -9,6 +9,7 @@ import contextlib
 import json
 import logging
 import re
+import time
 import uuid
 from pathlib import Path
 from typing import Any
@@ -247,12 +248,14 @@ def _write_webapp_theme_file(path: Path, theme: WebappTheme) -> None:
     tmp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
     try:
         tmp_path.write_text(payload, encoding="utf-8")
-        tmp_path.replace(path)
-    except PermissionError:
-        if tmp_path.exists():
-            with contextlib.suppress(OSError):
-                tmp_path.unlink()
-        path.write_text(payload, encoding="utf-8")
+        for attempt in range(5):
+            try:
+                tmp_path.replace(path)
+                break
+            except PermissionError:
+                if attempt == 4:
+                    raise
+                time.sleep(0.02 * (attempt + 1))
     finally:
         if tmp_path.exists():
             with contextlib.suppress(OSError):

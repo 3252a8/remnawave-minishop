@@ -163,7 +163,7 @@ LABEL org.opencontainers.image.source="https://gitlab.com/3252a8/remnawave-minis
       org.opencontainers.image.licenses="MIT"
 
 EXPOSE 8080 8081
-CMD ["python", "backend/main_backend.py"]
+CMD ["python", "backend/plugin_launcher.py", "backend"]
 
 
 FROM python-base AS qa
@@ -195,7 +195,7 @@ LABEL org.opencontainers.image.source="https://gitlab.com/3252a8/remnawave-minis
       org.opencontainers.image.description="Remnawave Minishop background worker (scheduled jobs, async tasks)." \
       org.opencontainers.image.licenses="MIT"
 
-CMD ["python", "backend/main_worker.py"]
+CMD ["python", "backend/plugin_launcher.py", "worker"]
 
 
 FROM nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10 AS nginx-brotli-builder

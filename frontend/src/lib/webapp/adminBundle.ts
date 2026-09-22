@@ -7,6 +7,7 @@ import {
 
 type AdminBundleApi = {
   mount(target: HTMLElement, props: Record<string, unknown>): AdminMountHandle;
+  registerRuntimeExtensions?: (plugins: unknown[]) => void;
 };
 type AdminMountHandle = {
   destroy?: () => void;

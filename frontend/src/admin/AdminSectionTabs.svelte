@@ -86,6 +86,8 @@
     aria-label={at(activeDescriptor.i18nKey, {}, activeDescriptor.fallbackLabel)}
   >
     <TabComponent
+      runtimeViewId={activeDescriptor.runtimeViewId}
+      runtimeEntry={activeDescriptor.runtimeEntry}
       {at}
       {availableFeatures}
       {featuresResolved}

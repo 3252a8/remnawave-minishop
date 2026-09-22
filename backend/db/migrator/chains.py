@@ -14,6 +14,7 @@ from .chain_0085_user_notification_preferences import CHAIN_0085_USER_NOTIFICATI
 from .chain_0086_panel_tariff_tag import CHAIN_0086_PANEL_TARIFF_TAG
 from .chain_0087_wata_subscriptions import CHAIN_0087_WATA_SUBSCRIPTIONS
 from .chain_0088_install_share_binding import CHAIN_0088_INSTALL_SHARE_BINDING
+from .chain_0089_plugin_owned_codes import CHAIN_0089_PLUGIN_OWNED_CODES
 from .engine import Migration
 
 MIGRATIONS: list[Migration] = [
@@ -31,4 +32,5 @@ MIGRATIONS: list[Migration] = [
     *CHAIN_0086_PANEL_TARIFF_TAG,
     *CHAIN_0087_WATA_SUBSCRIPTIONS,
     *CHAIN_0088_INSTALL_SHARE_BINDING,
+    *CHAIN_0089_PLUGIN_OWNED_CODES,
 ]

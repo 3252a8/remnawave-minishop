@@ -16,6 +16,9 @@ type AdminRuntimeDeps = {
   getShouldPrefetch: () => boolean;
   invalidateTariffOptionCaches: () => void;
   loadData: (options?: WebappRecord) => Promise<unknown>;
+  loadRuntimeExtensions?: (bundle: {
+    registerRuntimeExtensions?: (plugins: unknown[]) => void;
+  }) => Promise<void>;
   mergeMessages: (messages: unknown) => void;
   resetInstallGuides: () => void;
   setBundleState: (api: AdminBundleApi, error: string) => void;
@@ -28,6 +31,7 @@ export function createAdminRuntime({
   getShouldPrefetch,
   invalidateTariffOptionCaches,
   loadData,
+  loadRuntimeExtensions,
   mergeMessages,
   resetInstallGuides,
   setBundleState,
@@ -75,7 +79,11 @@ export function createAdminRuntime({
 
   async function ensureAdminBundle() {
     try {
-      return await adminBundle.ensure();
+      const loaded = await adminBundle.ensure();
+      const bundle = adminBundle.getApi();
+      if (loaded && bundle && loadRuntimeExtensions)
+        await loadRuntimeExtensions(bundle).catch(() => {});
+      return loaded;
     } finally {
       syncBundleState();
     }
