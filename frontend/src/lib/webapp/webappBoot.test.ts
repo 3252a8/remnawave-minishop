@@ -49,18 +49,37 @@ afterEach(() => {
 });
 
 describe("runWebappBoot", () => {
-  it("preserves the session on a temporary profile failure", async () => {
+  it("preserves the session on a non-transient profile failure", async () => {
     installBrowser();
     const deps = makeDeps({
       getToken: () => "saved-session",
       loadData: vi.fn(async () => {
-        throw new TypeError("Failed to fetch");
+        throw Object.assign(new Error("bad_response"), { status: 400 });
       }),
     });
     await runWebappBoot(deps);
     expect(deps.clearToken).not.toHaveBeenCalled();
     expect(deps.showLogin).not.toHaveBeenCalled();
     expect(deps.setMode).toHaveBeenLastCalledWith("bootError");
+  });
+
+  it("recovers automatically when the API becomes available after the frontend", async () => {
+    vi.useFakeTimers();
+    installBrowser();
+    const loadData = vi
+      .fn()
+      .mockRejectedValueOnce(Object.assign(new Error("service_unavailable"), { status: 502 }))
+      .mockResolvedValue(undefined);
+    const deps = makeDeps({
+      refreshSession: vi.fn(async () => ({ authenticated: true })),
+      loadData,
+    });
+    const boot = runWebappBoot(deps);
+    await vi.advanceTimersByTimeAsync(1_000);
+    await boot;
+    expect(loadData).toHaveBeenCalledTimes(2);
+    expect(deps.setMode).not.toHaveBeenCalledWith("bootError");
+    expect(deps.clearToken).not.toHaveBeenCalled();
   });
 
   it("ends a stalled boot without deleting the session", async () => {
