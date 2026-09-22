@@ -19,7 +19,9 @@ type RuntimeView = {
   sectionId?: string;
   i18nKey?: string;
   label?: string;
+  titleI18nKey?: string;
   title?: string;
+  subtitleI18nKey?: string;
   subtitle?: string;
   requiredFeature?: string;
   visibleWhenLocked?: boolean;
@@ -87,9 +89,12 @@ export function registerRuntimeExtensions(plugins: readonly RuntimePlugin[]): vo
       sections.push({
         ...common(plugin, view),
         group: view.group || "system",
-        titleI18nKey: view.i18nKey ? `${view.i18nKey}_title` : `${view.id}_title`,
+        titleI18nKey:
+          view.titleI18nKey || (view.i18nKey ? `${view.i18nKey}_title` : `${view.id}_title`),
         fallbackTitle: view.title || view.label || view.id,
-        subtitleI18nKey: view.i18nKey ? `${view.i18nKey}_subtitle` : `${view.id}_subtitle`,
+        subtitleI18nKey:
+          view.subtitleI18nKey ||
+          (view.i18nKey ? `${view.i18nKey}_subtitle` : `${view.id}_subtitle`),
         fallbackSubtitle: view.subtitle || "",
         icon: RUNTIME_ICONS[view.icon || ""] || Sparkles,
         component: PluginHost,

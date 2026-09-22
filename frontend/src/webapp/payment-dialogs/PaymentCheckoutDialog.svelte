@@ -772,7 +772,6 @@
     quotedPlan={selectedQuotedPlanForPayment}
     providerManagesPrice={providerManagesPrice()}
     fallbackPrice={selectedPlan ? checkoutPaymentPriceLabel(selectedPlan) : ""}
-    replacePriceAnimations={checkoutSliderInteracting}
     {t}
   />
 {/snippet}
@@ -891,7 +890,6 @@
                 unitPricePlan={checkoutUnitPricePlan(plan)}
                 unitPriceSuffix={checkoutUnitPriceSuffix(plan)}
                 method={selectedMethod}
-                replaceAnimations={checkoutSliderInteracting}
               />
               {#if planKey(selectedPlan) === planKey(plan)}
                 <CheckCircle2 size={18} />
@@ -961,7 +959,6 @@
               unitPricePlan={checkoutUnitPricePlan(plan)}
               unitPriceSuffix={checkoutUnitPriceSuffix(plan)}
               method={selectedMethod}
-              replaceAnimations={checkoutSliderInteracting}
             />
             {#if planKey(selectedPlan) === planKey(plan)}
               <CheckCircle2 size={18} />

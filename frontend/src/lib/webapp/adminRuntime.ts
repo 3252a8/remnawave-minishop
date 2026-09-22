@@ -81,9 +81,8 @@ export function createAdminRuntime({
   }
 
   async function ensureAdminBundle() {
-    await ensureI18nScope("admin");
     try {
-      const loaded = await adminBundle.ensure();
+      const [loaded] = await Promise.all([adminBundle.ensure(), ensureI18nScope("admin")]);
       const bundle = adminBundle.getApi();
       if (loaded && bundle && loadRuntimeExtensions) {
         const generation = await loadRuntimeExtensions(bundle).catch(() => null);

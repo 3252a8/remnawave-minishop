@@ -1898,7 +1898,7 @@ test("message button editor offers the partner program screen", async ({ page })
   await expect(sectionSelect).toContainText("Партнёрская программа");
 });
 
-test("checkout sliders keep price animations bounded and defer quotes while dragging", async ({
+test("checkout sliders track dragging without transition lag, animate prices, and defer quotes", async ({
   page,
 }) => {
   await page.setViewportSize(DESKTOP_VIEWPORT);
@@ -1975,6 +1975,8 @@ test("checkout sliders keep price animations bounded and defer quotes while drag
   const sliderY = sliderBox.y + sliderBox.height / 2;
   await page.mouse.move(sliderBox.x + sliderBox.width * 0.15, sliderY);
   await page.mouse.down();
+  await expect(slider).toHaveClass(/is-interacting/);
+  await expect(slider.locator(".checkout-slider-range")).toHaveCSS("transition-duration", "0s");
   const readAnimationState = () =>
     priceFlows.evaluateAll((nodes) =>
       nodes.map((node) => {
@@ -2015,6 +2017,7 @@ test("checkout sliders keep price animations bounded and defer quotes while drag
   expect(quoteRequests).toBe(quoteRequestsBeforeDrag);
 
   await page.mouse.up();
+  await expect(slider).not.toHaveClass(/is-interacting/);
   await page.waitForTimeout(250);
   expect(quoteRequests).toBeLessThanOrEqual(quoteRequestsBeforeDrag + 1);
   await expect(promoInput).toHaveValue("SAVE20");

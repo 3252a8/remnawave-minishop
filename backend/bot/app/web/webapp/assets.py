@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import hmac
 import html
 import json
@@ -478,6 +479,34 @@ def _filter_webapp_i18n_payload(locales_data: object, scope: str = "webapp") -> 
     return payload
 
 
+def _cached_json_response(
+    request: web.Request,
+    payload: dict[str, Any],
+    *,
+    cache_control: str,
+    cache_namespace: str,
+) -> web.Response:
+    """Serialize once and serve a cached gzip variant for large bootstrap payloads."""
+
+    response = json_response(payload)
+    body = bytes(response.body or b"")
+    digest = hashlib.sha256(body).hexdigest()
+    etag = f'W/"{digest}"'
+    if _request_etag_matches(request, etag):
+        return _not_modified_response(
+            cache_control=cache_control,
+            etag=etag,
+            vary="Accept-Encoding",
+        )
+    if _request_accepts_encoding(request, "gzip"):
+        response.body = _gzip_body_cached(f"{cache_namespace}:{digest}", body)
+        response.headers["Content-Encoding"] = "gzip"
+        response.headers["Vary"] = "Accept-Encoding"
+    response.headers["Cache-Control"] = cache_control
+    response.headers["ETag"] = etag
+    return response
+
+
 def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
     settings: Settings = get_settings(request)
     cached = _get_cached_webapp_settings(request)
@@ -581,9 +610,12 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
 
 
 async def bootstrap_route(request: web.Request) -> web.Response:
-    response = json_response({"ok": True, **_build_webapp_bootstrap_payload(request)})
-    response.headers["Cache-Control"] = "no-cache"
-    return response
+    return _cached_json_response(
+        request,
+        {"ok": True, **_build_webapp_bootstrap_payload(request)},
+        cache_control="no-cache",
+        cache_namespace="webapp-bootstrap",
+    )
 
 
 async def i18n_route(request: web.Request) -> web.Response:
@@ -592,15 +624,16 @@ async def i18n_route(request: web.Request) -> web.Response:
         i18n_instance.reload_overrides_from_file()
     scope = _normalize_i18n_scope(request.query.get("scope") or "webapp")
     locales_data = getattr(i18n_instance, "locales_data", {}) if i18n_instance else {}
-    response = json_response(
+    return _cached_json_response(
+        request,
         {
             "ok": True,
             "scope": scope,
             "i18n": _filter_webapp_i18n_payload(locales_data, scope),
-        }
+        },
+        cache_control="no-cache",
+        cache_namespace=f"webapp-i18n:{scope}",
     )
-    response.headers["Cache-Control"] = "no-cache"
-    return response
 
 
 def _webapp_page_title(settings: Settings, suffix: str = "") -> str:

@@ -22,6 +22,34 @@ from config.webapp_themes_config import WebappThemesConfig, builtin_webapp_theme
 
 
 class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
+    def test_cached_json_response_reuses_gzip_body_and_honors_etag(self):
+        payload = {"ok": True, "i18n": {"ru": {"message": "Привет" * 200}}}
+        request = SimpleNamespace(headers={"Accept-Encoding": "gzip"})
+
+        response = webapp_assets._cached_json_response(
+            request,
+            payload,
+            cache_control="no-cache",
+            cache_namespace="test-i18n",
+        )
+
+        self.assertEqual(response.headers["Content-Encoding"], "gzip")
+        self.assertEqual(response.headers["Vary"], "Accept-Encoding")
+        self.assertEqual(response.headers["Cache-Control"], "no-cache")
+        self.assertEqual(json.loads(gzip.decompress(response.body)), payload)
+        etag = response.headers["ETag"]
+
+        cached_response = webapp_assets._cached_json_response(
+            SimpleNamespace(headers={"Accept-Encoding": "gzip", "If-None-Match": etag}),
+            payload,
+            cache_control="no-cache",
+            cache_namespace="test-i18n",
+        )
+
+        self.assertEqual(cached_response.status, 304)
+        self.assertEqual(cached_response.headers["ETag"], etag)
+        self.assertEqual(cached_response.headers["Vary"], "Accept-Encoding")
+
     def test_serialize_plans_prefers_tariffs_config_over_legacy_packages(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "tariffs.json"

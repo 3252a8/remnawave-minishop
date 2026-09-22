@@ -30,8 +30,10 @@
   });
   const effectivelyDisabled = $derived(disabled || sortedValues.length <= 1);
   let sliderIndex = $state(0);
-  let interactionActive = false;
+  let interactionActive = $state(false);
   let lastEmittedValue = 0;
+  let pendingValue: number | undefined;
+  let valueChangeFrame: number | undefined;
 
   $effect.pre(() => {
     values;
@@ -45,12 +47,29 @@
     onInteractionChange(active);
   }
 
-  function handleIndexChange(nextIndex: number): void {
-    const index = Math.max(0, Math.min(maximumIndex, Math.round(nextIndex)));
-    const nextValue = sortedValues[index];
+  function emitPendingValue(): void {
+    valueChangeFrame = undefined;
+    const nextValue = pendingValue;
+    pendingValue = undefined;
     if (nextValue == null || Math.abs(nextValue - lastEmittedValue) < 1e-9) return;
     lastEmittedValue = nextValue;
     onValueChange(nextValue);
+  }
+
+  function flushPendingValue(): void {
+    if (valueChangeFrame !== undefined) window.cancelAnimationFrame(valueChangeFrame);
+    emitPendingValue();
+  }
+
+  function handleIndexChange(nextIndex: number): void {
+    const index = Math.max(0, Math.min(maximumIndex, Math.round(nextIndex)));
+    const nextValue = sortedValues[index];
+    const latestValue = pendingValue ?? lastEmittedValue;
+    if (nextValue == null || Math.abs(nextValue - latestValue) < 1e-9) return;
+    pendingValue = nextValue;
+    if (valueChangeFrame === undefined) {
+      valueChangeFrame = window.requestAnimationFrame(emitPendingValue);
+    }
   }
 
   function handlePointerDown(): void {
@@ -58,16 +77,21 @@
   }
 
   function handlePointerEnd(): void {
+    flushPendingValue();
     setInteractionActive(false);
   }
 
-  onDestroy(() => setInteractionActive(false));
+  onDestroy(() => {
+    if (valueChangeFrame !== undefined) window.cancelAnimationFrame(valueChangeFrame);
+    pendingValue = undefined;
+    setInteractionActive(false);
+  });
 </script>
 
 <svelte:window onpointerup={handlePointerEnd} onpointercancel={handlePointerEnd} />
 
 <Slider.Root
-  class="checkout-slider"
+  class={`checkout-slider${interactionActive ? " is-interacting" : ""}`}
   type="single"
   bind:value={sliderIndex}
   min={0}
@@ -129,6 +153,10 @@
     background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 76%, white));
     box-shadow: 0 0 0.8rem color-mix(in srgb, var(--accent) 34%, transparent);
     transition: width 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  :global(.checkout-slider.is-interacting .checkout-slider-range) {
+    transition: none;
   }
 
   .checkout-slider-ticks {

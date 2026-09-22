@@ -299,7 +299,6 @@
         ariaLabel={`${totalValue(kind)}${valueSuffix(kind)}`}
         format={{ maximumFractionDigits: 2 }}
         animated={animateValues}
-        replaceAnimations={sliderInteracting}
       />
     {:else}
       <span aria-label={t("wa_checkout_tariff_not_specified", {}, "Not specified")}>—</span>

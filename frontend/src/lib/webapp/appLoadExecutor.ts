@@ -148,8 +148,10 @@ export function createAppLoadExecutor({
       shellState.mode = "app";
       shellState.screen = "admin";
       try {
-        await adminRuntime.ensureI18nScope("admin");
-        await adminRuntime.ensureAdminBundle();
+        await Promise.all([
+          adminRuntime.ensureI18nScope("admin"),
+          adminRuntime.ensureAdminBundle(),
+        ]);
       } catch (_error) {
         void _error;
         section = "settings";

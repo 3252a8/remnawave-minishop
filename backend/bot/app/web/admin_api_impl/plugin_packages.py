@@ -20,6 +20,11 @@ from bot.app.web.route_contracts import (
     ok_envelope_with,
     register_contract,
 )
+from bot.app.web.webapp.assets_static import _gzip_body_cached, _request_accepts_encoding
+from bot.app.web.webapp.assets_theme import (
+    _not_modified_response,
+    _request_etag_matches,
+)
 from bot.plugins.packages import (
     MAX_ARCHIVE_BYTES,
     PluginPackageError,
@@ -281,17 +286,38 @@ async def admin_plugin_asset_route(request: web.Request) -> web.Response:
     if f"frontend/{relative}" not in manifest["files"] or not target.is_file():
         raise PluginPackageError("plugin_asset_unavailable", status=404)
     data = await asyncio.to_thread(target.read_bytes)
-    if hashlib.sha256(data).hexdigest() != manifest["files"][f"frontend/{relative}"]:
+    expected_digest = manifest["files"][f"frontend/{relative}"]
+    if hashlib.sha256(data).hexdigest() != expected_digest:
         raise PluginPackageError("plugin_asset_corrupt", status=503)
     content_type = mimetypes.guess_type(relative)[0] or "application/octet-stream"
-    return web.Response(
-        body=data,
-        content_type=content_type,
-        headers={
-            "Cache-Control": "private, immutable, max-age=31536000",
-            "X-Content-Type-Options": "nosniff",
-        },
-    )
+    cache_control = "private, immutable, max-age=31536000"
+    etag = f'"{expected_digest}"'
+    if _request_etag_matches(request, etag):
+        return _not_modified_response(
+            cache_control=cache_control,
+            etag=etag,
+            vary="Accept-Encoding",
+        )
+    compressible = content_type.startswith("text/") or content_type in {
+        "application/javascript",
+        "application/json",
+        "application/xml",
+    }
+    response_body = data
+    if compressible and _request_accepts_encoding(request, "gzip"):
+        response_body = await asyncio.to_thread(
+            _gzip_body_cached,
+            f"plugin:{plugin_id}:{digest}:{relative}:{expected_digest}",
+            data,
+        )
+    response = web.Response(body=response_body, content_type=content_type)
+    if response_body is not data:
+        response.headers["Content-Encoding"] = "gzip"
+        response.headers["Vary"] = "Accept-Encoding"
+    response.headers["Cache-Control"] = cache_control
+    response.headers["ETag"] = etag
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 def setup_plugin_packages(router: web.UrlDispatcher) -> None:
