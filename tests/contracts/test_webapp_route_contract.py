@@ -11,6 +11,7 @@ from aiohttp.test_utils import make_mocked_request
 
 from bot.app.web import admin_api, subscription_webapp
 from bot.app.web.admin_api_impl import auth as admin_auth_routes
+from bot.app.web.webapp import routes as webapp_routes
 from bot.app.web.webapp_auth import create_webapp_session_token
 from config.webapp_themes_config import WebappThemesConfig
 from tests.support.settings_stub import settings_stub
@@ -90,7 +91,7 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("GET", "/settings"): "index_route",
             ("GET", "/status"): "index_route",
             ("GET", "/admin"): "index_route",
-            ("GET", "/admin/{section}"): "index_route",
+            ("GET", "/admin/{section}"): "plugin_admin_index_route",
             ("GET", "/admin/settings/{settings_path}"): "index_route",
             ("GET", "/admin/users/{user_id}"): "index_route",
             ("GET", "/auth/telegram/start"): "telegram_oauth_start_route",
@@ -284,7 +285,16 @@ class WebAppRouteContractTests(unittest.TestCase):
         request = make_mocked_request("GET", "/admin/themes", app=app)
         match_info = asyncio.run(app.router.resolve(request))
 
-        self.assertEqual(match_info.http_exception.status, 404)
+        self.assertEqual(match_info.handler.__name__, "plugin_admin_index_route")
+        with (
+            patch.object(webapp_routes, "_active_frontends", return_value=(0, [])),
+            self.assertRaises(web.HTTPNotFound),
+        ):
+            asyncio.run(
+                webapp_routes.plugin_admin_index_route(
+                    SimpleNamespace(match_info={"section": "themes"})
+                )
+            )
 
     def test_admin_appearance_page_route_is_registered(self):
         app = web.Application()
@@ -303,6 +313,42 @@ class WebAppRouteContractTests(unittest.TestCase):
         match_info = asyncio.run(app.router.resolve(request))
 
         self.assertEqual(match_info.handler.__name__, "index_route")
+
+    def test_runtime_plugin_admin_page_routes_are_registered(self):
+        app = web.Application()
+        subscription_webapp.setup_subscription_webapp_routes(app)
+
+        for path in ("/admin/pro-license", "/admin/pro-analytics", "/admin/pro-leads"):
+            request = make_mocked_request("GET", path, app=app)
+            match_info = asyncio.run(app.router.resolve(request))
+            self.assertEqual(match_info.handler.__name__, "plugin_admin_index_route")
+
+    def test_runtime_plugin_admin_page_requires_an_active_declared_section(self):
+        plugins = [
+            {
+                "sections": [
+                    {"id": "pro-analytics", "routeAliases": ["pro-leads"]},
+                    {"id": "pro-license"},
+                ]
+            }
+        ]
+        response = web.Response(text="spa")
+        with (
+            patch.object(webapp_routes, "_active_frontends", return_value=(6, plugins)),
+            patch.object(webapp_routes, "index_route", new_callable=AsyncMock) as index,
+        ):
+            index.return_value = response
+            for section in ("pro-license", "pro-analytics", "pro-leads"):
+                request = SimpleNamespace(match_info={"section": section})
+                self.assertIs(
+                    asyncio.run(webapp_routes.plugin_admin_index_route(request)), response
+                )
+            with self.assertRaises(web.HTTPNotFound):
+                asyncio.run(
+                    webapp_routes.plugin_admin_index_route(
+                        SimpleNamespace(match_info={"section": "missing-plugin"})
+                    )
+                )
 
     def test_admin_translations_page_route_is_registered(self):
         app = web.Application()

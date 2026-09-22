@@ -1,8 +1,12 @@
+import asyncio
+
 from aiohttp import web
 
+from bot.app.web.admin_api_impl.plugin_packages import _active_frontends
 from bot.app.web.admin_api_impl.routes import (
     setup_admin_routes,
 )
+from bot.plugins.packages import package_root
 
 from .account import (
     account_avatar_route,
@@ -153,6 +157,20 @@ from .telegram_notifications import (
 register_webapp_route_contracts()
 
 
+async def plugin_admin_index_route(request: web.Request) -> web.Response:
+    """Serve the SPA shell only for an active package's declared admin route."""
+    section = request.match_info["section"]
+    _, plugins = await asyncio.to_thread(_active_frontends, package_root())
+    for plugin in plugins:
+        for view in plugin.get("sections", []):
+            if not isinstance(view, dict):
+                continue
+            aliases = view.get("routeAliases")
+            if section == view.get("id") or (isinstance(aliases, list) and section in aliases):
+                return await index_route(request)
+    raise web.HTTPNotFound()
+
+
 def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/robots.txt", robots_txt_route)
     app.router.add_get("/", index_route)
@@ -196,6 +214,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/admin/payments/users/{user_id:-?[0-9]+}", index_route)
     app.router.add_get("/admin/payments/{payment_id:\\d+}", index_route)
     app.router.add_get("/admin/support/{ticket_id:\\d+}", index_route)
+    app.router.add_get(r"/admin/{section:[a-z][a-z0-9-]+}", plugin_admin_index_route)
     app.router.add_get("/auth/telegram/start", telegram_oauth_start_route)
     app.router.add_get("/auth/telegram/callback", telegram_oauth_callback_route)
     app.router.add_get(r"/auth/{provider:discord|google|yandex}/start", external_oauth_start_route)
