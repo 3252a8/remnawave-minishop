@@ -96,6 +96,16 @@ register_contract(
 async def admin_settings_get_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     settings: Settings = get_settings(request)
+    if getattr(request, "query", {}).get("features_only") == "1":
+        return _ok(
+            {
+                "sections": [],
+                "features": sorted(entitlement_features()),
+                "partner_encryption_available": PartnerWithdrawalService(
+                    settings
+                ).encryption_available(),
+            }
+        )
     async_session_factory: sessionmaker = get_session_factory(request)
 
     async with async_session_factory() as session:

@@ -120,6 +120,7 @@ type SettingsStoreOptions = {
 };
 type LoadSettingsOptions = { refresh?: boolean };
 export type SettingsStore = SettingsState & {
+  loadFeatures: () => Promise<void>;
   loadSettings: (options?: LoadSettingsOptions) => Promise<void>;
   /**
    * Lets a settings section that writes another contract (for example the
@@ -168,6 +169,7 @@ export function createSettingsStore({
     settingsDirty: {},
     settingsSaving: false,
     extraDirtyCount: 0,
+    loadFeatures,
     loadSettings,
     registerExtraSaver,
     reportExtraDirty,
@@ -201,6 +203,26 @@ export function createSettingsStore({
     const next = updater(state);
     if (next === state) return;
     Object.assign(state, next);
+  }
+
+  async function loadFeatures(): Promise<void> {
+    const data = await fetchAdminQuery({
+      queryClient,
+      queryKey: ["admin", "features"],
+      queryFn: () =>
+        api(
+          `${buildAdminSettingsPath()}?features_only=1` as ReturnType<typeof buildAdminSettingsPath>
+        ),
+    });
+    if (isOkResponse(data)) {
+      const result = unwrap(data);
+      updateState((s) => ({
+        ...s,
+        features: Array.isArray(result.features) ? result.features : [],
+        featuresResolved: true,
+        partnerEncryptionAvailable: Boolean(result.partner_encryption_available),
+      }));
+    }
   }
 
   async function loadSettings({ refresh = false }: LoadSettingsOptions = {}): Promise<void> {

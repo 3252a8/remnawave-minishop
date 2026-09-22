@@ -743,10 +743,7 @@
       }
     }
     void healthStore.loadHealth();
-    // Feature flags arrive with the settings manifest; without this eager
-    // load, feature-gated sections stay hidden until the admin happens to
-    // open a section that fetches settings on its own.
-    void settingsStore.loadSettings();
+    void settingsStore.loadFeatures();
     // The sidebar shows how many support messages are waiting, so the panel —
     // not the support screen — owns this poll. Started from the section, the
     // count only ever arrived once the admin was already reading the tickets,

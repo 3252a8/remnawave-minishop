@@ -20,10 +20,6 @@
   import type { UsersFilter, UsersRouteFilters } from "$lib/admin/usersRouteFilters";
   import type { AdminApi } from "./adminStores.js";
   import { lockPageScroll } from "$lib/webapp/scrollLock.js";
-  import {
-    openWithdrawalCount,
-    pendingApplicationCount,
-  } from "$lib/admin/previewMock/partnerProgram.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type SettingsPath = string[];
@@ -281,9 +277,7 @@
   const partnerAttentionPreviewMode =
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).has("partner_admin_scenario");
-  let partnerAttentionCount = $state(
-    partnerAttentionPreviewMode ? pendingApplicationCount + openWithdrawalCount : 0
-  );
+  let partnerAttentionCount = $state(0);
   let partnerAttentionTimer: number | null = null;
 
   async function refreshPartnerAttention(): Promise<void> {
@@ -298,6 +292,15 @@
   }
 
   onMount(() => {
+    if (partnerAttentionPreviewMode) {
+      // Keep the large preview dataset out of the live admin's first download.
+      void import("$lib/admin/previewMock/partnerProgram.js").then(
+        ({ pendingApplicationCount, openWithdrawalCount }) => {
+          partnerAttentionCount = pendingApplicationCount + openWithdrawalCount;
+        }
+      );
+      return;
+    }
     void refreshPartnerAttention();
     partnerAttentionTimer = window.setInterval(() => void refreshPartnerAttention(), 30_000);
   });

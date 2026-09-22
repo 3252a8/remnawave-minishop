@@ -132,11 +132,24 @@ def test_admin_settings_response_uses_plugin_features():
     assert payload["features"] == ["admin.extra", "reports"]
 
 
-async def _admin_settings_response(settings: Settings):
+def test_admin_settings_feature_probe_avoids_the_full_manifest():
+    register(FeaturePlugin({"reports"}))
+    settings = make_settings()
+    run_setup(PluginContext(settings=settings))
+    response = asyncio.run(_admin_settings_response(settings, features_only=True))
+    payload = json.loads(response.text)
+
+    assert payload["ok"] is True
+    assert payload["sections"] == []
+    assert payload["features"] == ["reports"]
+
+
+async def _admin_settings_response(settings: Settings, *, features_only: bool = False):
     request = SimpleNamespace(
         app={"settings": settings, "async_session_factory": _AsyncSessionFactory()},
         headers={},
         cookies={},
+        query={"features_only": "1"} if features_only else {},
         admin_telegram_id=1,
     )
     request.get = lambda key, default=None: getattr(request, key, default)

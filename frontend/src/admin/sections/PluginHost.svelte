@@ -5,20 +5,54 @@
   type PluginModule = {
     mountView: (view: string, target: HTMLElement, props: Record<string, unknown>) => unknown;
     unmountView: (instance: unknown) => void;
+    updateView?: (instance: unknown, props: Record<string, unknown>) => void;
   };
 
   type HostProps = Partial<AdminSectionComponentProps & AdminUserDetailPanelProps> & {
     runtimeViewId?: string;
     runtimeEntry?: string;
+    currentLang?: string;
   };
   let props: HostProps = $props();
   let target: HTMLElement;
   let failed = $state(false);
+  let instance: unknown;
+  let module: PluginModule | null = null;
+  let mounted = $state(false);
+  let lastPropsSignature = "";
+
+  function propsSignature(): string {
+    return JSON.stringify([
+      props.featureAvailable,
+      props.featuresResolved,
+      props.availableFeatures,
+      props.routePrefix,
+      props.currentLang,
+      props.active,
+      props.user,
+      props.userDetail,
+    ]);
+  }
+
+  $effect(() => {
+    const signature = propsSignature();
+    if (!mounted || !module || !instance || signature === lastPropsSignature) return;
+    lastPropsSignature = signature;
+    if (module.updateView) {
+      module.updateView(instance, props as Record<string, unknown>);
+    } else {
+      // Older plugins have no update hook. Remount only when their inputs change.
+      module.unmountView(instance);
+      instance = module.mountView(
+        props.runtimeViewId as string,
+        target,
+        props as Record<string, unknown>
+      );
+    }
+  });
 
   onMount(() => {
     let disposed = false;
-    let instance: unknown;
-    let module: PluginModule | null = null;
     if (!props.runtimeEntry || !props.runtimeViewId) {
       failed = true;
       return;
@@ -27,11 +61,13 @@
       .then((loaded: PluginModule) => {
         if (disposed) return;
         module = loaded;
+        lastPropsSignature = propsSignature();
         instance = loaded.mountView(
           props.runtimeViewId as string,
           target,
           props as Record<string, unknown>
         );
+        mounted = true;
       })
       .catch(() => {
         failed = true;
@@ -39,6 +75,7 @@
     return () => {
       disposed = true;
       if (module && instance) module.unmountView(instance);
+      mounted = false;
     };
   });
 </script>

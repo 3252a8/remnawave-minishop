@@ -33,10 +33,13 @@
   let interactionActive = $state(false);
   let lastEmittedValue = 0;
   let pendingValue: number | undefined;
-  let valueChangeFrame: number | undefined;
+  let valueChangeTimer: ReturnType<typeof setTimeout> | undefined;
+  let lastEmitTime = 0;
+  const valueChangeIntervalMs = 140;
 
   $effect.pre(() => {
     values;
+    if (interactionActive) return;
     sliderIndex = selectedIndex;
     lastEmittedValue = Number(value);
   });
@@ -48,16 +51,17 @@
   }
 
   function emitPendingValue(): void {
-    valueChangeFrame = undefined;
+    valueChangeTimer = undefined;
     const nextValue = pendingValue;
     pendingValue = undefined;
     if (nextValue == null || Math.abs(nextValue - lastEmittedValue) < 1e-9) return;
     lastEmittedValue = nextValue;
+    lastEmitTime = performance.now();
     onValueChange(nextValue);
   }
 
   function flushPendingValue(): void {
-    if (valueChangeFrame !== undefined) window.cancelAnimationFrame(valueChangeFrame);
+    if (valueChangeTimer !== undefined) window.clearTimeout(valueChangeTimer);
     emitPendingValue();
   }
 
@@ -67,8 +71,12 @@
     const latestValue = pendingValue ?? lastEmittedValue;
     if (nextValue == null || Math.abs(nextValue - latestValue) < 1e-9) return;
     pendingValue = nextValue;
-    if (valueChangeFrame === undefined) {
-      valueChangeFrame = window.requestAnimationFrame(emitPendingValue);
+    if (valueChangeTimer === undefined) {
+      const elapsed = performance.now() - lastEmitTime;
+      valueChangeTimer = window.setTimeout(
+        emitPendingValue,
+        Math.max(0, valueChangeIntervalMs - elapsed)
+      );
     }
   }
 
@@ -82,7 +90,7 @@
   }
 
   onDestroy(() => {
-    if (valueChangeFrame !== undefined) window.cancelAnimationFrame(valueChangeFrame);
+    if (valueChangeTimer !== undefined) window.clearTimeout(valueChangeTimer);
     pendingValue = undefined;
     setInteractionActive(false);
   });
@@ -109,7 +117,7 @@
     <span class="checkout-slider-ticks" aria-hidden="true">
       {#each sortedValues as tickValue, index (tickValue)}
         <span
-          class={`checkout-slider-tick${index <= selectedIndex ? " active" : ""}`}
+          class={`checkout-slider-tick${index <= sliderIndex ? " active" : ""}`}
           style={`left: ${maximumIndex > 0 ? (index / maximumIndex) * 100 : 0}%`}
         >
           <span></span>
