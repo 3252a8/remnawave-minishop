@@ -295,6 +295,18 @@ SETTINGS_MANIFEST: list[SettingField] = [
         ),
     ),
     SettingField(
+        "SUBSCRIPTION_LINK_MODE",
+        "string",
+        "subscription_guides",
+        "Use Minishop subscription links",
+        (
+            "Issue public /s/ links instead of Remnawave Panel subscription links in "
+            "the bot and install guides. Requires the public subscription gateway."
+        ),
+        optional=False,
+        choices=(("panel", "Remnawave Panel"), ("minishop", "Minishop")),
+    ),
+    SettingField(
         "SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED",
         "bool",
         "subscription_guides",

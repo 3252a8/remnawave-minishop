@@ -13361,6 +13361,37 @@
         "updated_at": null
       },
       {
+        "key": "SUBSCRIPTION_LINK_MODE",
+        "type": "string",
+        "section": "subscription_guides",
+        "section_order": 10,
+        "subsection": null,
+        "label": "Use Minishop subscription links",
+        "description": "Issue public /s/ links instead of Remnawave Panel subscription links in the bot and install guides. Requires the public subscription gateway.",
+        "i18n_label_key": "admin_settings_field_subscription_link_mode_label",
+        "i18n_description_key": "admin_settings_field_subscription_link_mode_description",
+        "i18n_subsection_key": null,
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": false,
+        "secret": false,
+        "choices": [
+          {
+            "value": "panel",
+            "label": "Remnawave Panel",
+            "i18n_label_key": "admin_settings_field_subscription_link_mode_choice_panel"
+          },
+          {
+            "value": "minishop",
+            "label": "Minishop",
+            "i18n_label_key": "admin_settings_field_subscription_link_mode_choice_minishop"
+          }
+        ],
+        "value": "",
+        "overridden": false,
+        "updated_at": null
+      },
+      {
         "key": "SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED",
         "type": "bool",
         "section": "subscription_guides",

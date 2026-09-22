@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from bot.app.web import subscription_webapp as guides
+from bot.app.web.webapp import guides_public
 from config.subscription_guides_config import default_subscription_guides_config_text
 from tests.support.settings_stub import settings_stub
 
@@ -57,6 +58,30 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
             guides.subscription_guides_route.__globals__,
             {"_require_user_id": lambda _: 42},
         )
+
+    async def test_public_payload_uses_minishop_link_for_display_copy_and_connect(self):
+        token = "a" * 32
+        request = self._request(
+            self._settings(SUBSCRIPTION_GATEWAY_ENABLED=True, SUBSCRIPTION_LINK_MODE="minishop"),
+            None,
+        )
+        access = SimpleNamespace(
+            panel_url="https://panel.example.test/sub/short",
+            panel_short_uuid="short",
+            panel_user_uuid="panel-user",
+            username="alice",
+        )
+        with patch(
+            "bot.app.web.webapp.subscription_access.resolve_subscription_access",
+            AsyncMock(return_value=access),
+        ):
+            payload = await guides_public._public_subscription_payload_uncached(request, token)
+
+        expected = f"https://app.example.test/s/{token}"
+        self.assertEqual(payload["http_url"], expected)
+        self.assertEqual(payload["config_link"], expected)
+        self.assertEqual(payload["connect_url"], expected)
+        self.assertEqual(payload["link_mode"], "minishop")
 
     async def test_uses_panel_config_when_admin_json_is_empty(self):
         default_uuid = "00000000-0000-0000-0000-000000000000"

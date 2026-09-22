@@ -1,14 +1,16 @@
 """The public raw path must preserve bytes while enforcing the access boundary."""
 
+import asyncio
 import unittest
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from aiohttp import web
+from aiohttp import ClientSession, web
 from aiohttp.test_utils import TestServer, make_mocked_request
 
-from bot.app.web.webapp import subscription_access
+from bot.app.web.context import SETTINGS
+from bot.app.web.webapp import subscription_access, subscription_gateway
 from bot.app.web.webapp.subscription_gateway import _representation
 from bot.services.remnawave_subscription_source import (
     RemnawaveSubscriptionSource,
@@ -122,6 +124,48 @@ class SubscriptionGatewayTests(unittest.IsolatedAsyncioTestCase):
             panel_subscription_url("https://panel.test/prefix/api", "short-id", "json"),
             "https://panel.test/prefix/api/sub/short-id/json",
         )
+
+    async def test_happ_receives_raw_subscription_even_when_html_is_accepted(self) -> None:
+        subscription_body = b"trojan://example.test#node\n" * 400
+        upstream_user_agents: list[str] = []
+
+        async def panel_subscription(request: web.Request) -> web.Response:
+            upstream_user_agents.append(request.headers["User-Agent"])
+            return web.Response(body=subscription_body, content_type="text/plain")
+
+        panel_app = web.Application()
+        panel_app.router.add_get("/api/sub/{short_uuid}", panel_subscription)
+        async with TestServer(panel_app) as panel_server:
+            settings = settings_stub(
+                PANEL_API_URL=str(panel_server.make_url("/api")),
+                SUBSCRIPTION_GATEWAY_ENABLED=True,
+            )
+            shop_app = web.Application()
+            shop_app[SETTINGS] = settings
+            shop_app[subscription_gateway._DELIVERY_SEMAPHORE_KEY] = asyncio.Semaphore(64)
+            shop_app.router.add_get(
+                "/s/{share_token}", subscription_gateway.subscription_gateway_route
+            )
+            with (
+                patch.object(
+                    subscription_gateway,
+                    "resolve_subscription_access",
+                    AsyncMock(return_value=SimpleNamespace(panel_short_uuid="short-id")),
+                ),
+                patch.object(subscription_gateway, "_rate_limited", AsyncMock(return_value=False)),
+            ):
+                async with TestServer(shop_app) as shop_server, ClientSession() as client:
+                    async with client.get(
+                        shop_server.make_url("/s/" + "a" * 32),
+                        headers={
+                            "User-Agent": "Happ/4.2.1/Windows/2609041405606",
+                            "Accept": "text/html, */*",
+                        },
+                    ) as response:
+                        self.assertEqual(response.status, 200)
+                        self.assertEqual(response.content_type, "text/plain")
+                        self.assertEqual(await response.read(), subscription_body)
+        self.assertEqual(upstream_user_agents, ["Happ/4.2.1/Windows/2609041405606"])
 
     def test_header_filter_removes_secrets_and_connection_fields(self) -> None:
         filtered = filter_client_headers(

@@ -36,6 +36,7 @@ SUBSCRIPTION_PURCHASE_DESCRIPTION_SETTINGS = (
 SUBSCRIPTION_GUIDE_SETTINGS = (
     "SUBSCRIPTION_GUIDES_ENABLED",
     "SUBSCRIPTION_GATEWAY_ENABLED",
+    "SUBSCRIPTION_LINK_MODE",
     "SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED",
     "SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED",
     "SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED",
@@ -450,6 +451,17 @@ def test_subscription_guide_settings_i18n_keys_exist():
     assert manifest["SUBSCRIPTION_GUIDES_ENABLED"]["section_order"] == 10
     assert manifest["SUBSCRIPTION_GATEWAY_ENABLED"]["section"] == "subscription_guides"
     assert manifest["SUBSCRIPTION_GATEWAY_ENABLED"]["type"] == "bool"
+    link_mode = manifest["SUBSCRIPTION_LINK_MODE"]
+    assert link_mode["section"] == "subscription_guides"
+    assert link_mode["type"] == "string"
+    assert link_mode["optional"] is False
+    assert [choice["value"] for choice in link_mode["choices"]] == ["panel", "minishop"]
+    field = get_field_by_key("SUBSCRIPTION_LINK_MODE")
+    assert field is not None
+    assert coerce_value(field, "minishop") == "minishop"
+    assert coerce_value(field, "panel") == "panel"
+    with pytest.raises(ValueError, match="unsupported choice"):
+        coerce_value(field, "other")
     assert manifest["SUBSCRIPTION_PAGE_CONFIG_JSON"]["type"] == "json"
 
     for language in ("ru", "en"):

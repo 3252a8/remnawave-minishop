@@ -628,7 +628,7 @@
       {/if}
     </div>
     <div class="admin-setting-control">
-      {#if field.type === "bool"}
+      {#if field.type === "bool" || field.key === "SUBSCRIPTION_LINK_MODE"}
         <div class="admin-setting-switch">
           <Switch.Root
             aria-label={fieldLabelText(field)}

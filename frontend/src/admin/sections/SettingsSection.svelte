@@ -515,11 +515,15 @@
   }
 
   function valueFor(field: AdminSettingField): unknown {
-    if (settingsDirty[field.key]?.deleted) return "";
+    if (settingsDirty[field.key]?.deleted)
+      return field.key === "SUBSCRIPTION_LINK_MODE" ? false : "";
     if (Object.prototype.hasOwnProperty.call(settingsDirty, field.key)) {
-      return settingsDirty[field.key].value;
+      const value = settingsDirty[field.key].value;
+      return field.key === "SUBSCRIPTION_LINK_MODE" ? value === "minishop" : value;
     }
-    return field.value ?? "";
+    return field.key === "SUBSCRIPTION_LINK_MODE"
+      ? field.value === "minishop"
+      : (field.value ?? "");
   }
 
   function fieldTextValue(field: AdminSettingField): string {
@@ -729,7 +733,10 @@
   }
 
   function setBoolField(field: AdminSettingField, checked: boolean): void {
-    settingsStore.markDirty(field.key, checked);
+    settingsStore.markDirty(
+      field.key,
+      field.key === "SUBSCRIPTION_LINK_MODE" ? (checked ? "minishop" : "panel") : checked
+    );
     if (checked && field.mutually_exclusive_key) {
       settingsStore.markDirty(field.mutually_exclusive_key, false);
     }
