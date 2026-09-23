@@ -24,7 +24,6 @@ type AdminApi = ApiClient["api"];
 type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type BroadcastCounts = Record<string, number>;
-type BroadcastResult = { queued: number; failed: number; emailQueued: number; channels: string[] };
 export type BroadcastTargetOption = {
   value: string;
   label: string;
@@ -92,7 +91,6 @@ export type BroadcastState = {
   broadcastImage: File | null;
   broadcastLanguage: string;
   broadcastBusy: boolean;
-  broadcastResult: BroadcastResult | null;
   broadcastCounts: BroadcastCounts | null;
   broadcastCountsLoading: boolean;
   broadcastCountsLoadedAt: number;
@@ -367,7 +365,6 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
     broadcastImage: null,
     broadcastLanguage: "",
     broadcastBusy: false,
-    broadcastResult: null,
     broadcastCounts: cachedCounts?.counts || null,
     broadcastCountsLoading: false,
     broadcastCountsLoadedAt: cachedCounts?.loadedAt || 0,
@@ -610,7 +607,7 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
         buttons: state.broadcastButtons,
         channels: channelsForPayload(state),
       });
-    updateState((s) => ({ ...s, broadcastBusy: true, broadcastResult: null }));
+    updateState((s) => ({ ...s, broadcastBusy: true }));
     const image = state.broadcastImage;
 
     try {
@@ -644,12 +641,6 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
           broadcastEmailSubjects: {},
           broadcastScheduleEnabled: false,
           broadcastScheduledAt: "",
-          broadcastResult: {
-            queued: payload.queued || 0,
-            failed: payload.failed || 0,
-            emailQueued: payload.email_queued || 0,
-            channels: Array.isArray(payload.channels) ? payload.channels : channels,
-          },
           broadcastHistory: payload.broadcast
             ? [
                 historyItemFromWire(payload.broadcast),
@@ -662,7 +653,7 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
         onToast(
           payload.broadcast?.status === "scheduled"
             ? at("broadcast_scheduled", {}, "Broadcast scheduled")
-            : at("broadcast_started", {}, "Broadcast started")
+            : at("broadcast_queued", {}, "Broadcast queued")
         );
       } else {
         onToast(adminErrorMessage(res, at, at("broadcast_failed", {}, "Broadcast failed")));

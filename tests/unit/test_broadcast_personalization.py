@@ -1,4 +1,5 @@
 import io
+import json
 import unittest
 from collections import deque
 from datetime import UTC, datetime, timedelta
@@ -12,7 +13,6 @@ from PIL import Image
 from bot.app.web.admin_api_impl import broadcast as broadcast_route_module
 from bot.app.web.admin_api_impl import broadcast_shortcodes as broadcast_shortcodes_module
 from bot.middlewares.i18n import JsonI18n
-from bot.services.admin_broadcast_delivery import BroadcastDispatchResult
 from bot.services.broadcast_personalization import (
     SHORTCODES,
     TELEGRAM_BROADCAST_ALLOWED_TAGS,
@@ -511,7 +511,7 @@ class AdminBroadcastPersonalizationRouteTest(unittest.IsolatedAsyncioTestCase):
             response = await broadcast_route_module.admin_broadcast_route(cast(Any, request))
         self.assertEqual(response.status, 400)
 
-    async def test_personalized_broadcast_passes_resolved_audience_to_dispatcher(self):
+    async def test_personalized_broadcast_is_queued_for_worker(self):
         request = _request(
             {"target": "all", "text": "Hi {first_name}", "channels": ["telegram", "email"]},
             settings=_settings(smtp_delivery_configured=True),
@@ -519,7 +519,7 @@ class AdminBroadcastPersonalizationRouteTest(unittest.IsolatedAsyncioTestCase):
         now = datetime.now(UTC)
         stored = SimpleNamespace(
             broadcast_id=23,
-            status="running",
+            status="queued",
             target="all",
             channels=["telegram", "email"],
             texts={"ru": "Hi {first_name}"},
@@ -527,7 +527,7 @@ class AdminBroadcastPersonalizationRouteTest(unittest.IsolatedAsyncioTestCase):
             buttons=[],
             scheduled_at=now,
             created_at=now,
-            started_at=now,
+            started_at=None,
             finished_at=None,
             updated_at=now,
             recipient_count=2,
@@ -540,43 +540,26 @@ class AdminBroadcastPersonalizationRouteTest(unittest.IsolatedAsyncioTestCase):
             email_failed=0,
             last_error=None,
         )
-        dispatch = AsyncMock(
-            return_value=BroadcastDispatchResult(
-                queued=2,
-                failed=0,
-                email_queued=2,
-                channels=["telegram", "email"],
-            )
-        )
+        resolve_user_ids = AsyncMock(return_value=[1, 2])
+        create = AsyncMock(return_value=stored)
 
         with (
             patch.object(broadcast_route_module, "_require_admin_user_id", return_value=999),
             patch.object(
                 broadcast_route_module,
                 "_resolve_audience_service",
-                return_value=SimpleNamespace(resolve_user_ids=AsyncMock(return_value=[1, 2])),
+                return_value=SimpleNamespace(resolve_user_ids=resolve_user_ids),
             ),
             patch.object(broadcast_route_module, "get_queue_manager", return_value=_FakeQueue()),
-            patch.object(
-                broadcast_route_module.broadcast_dal,
-                "create_broadcast",
-                AsyncMock(return_value=stored),
-            ),
-            patch.object(
-                broadcast_route_module.broadcast_dal,
-                "get_broadcast",
-                AsyncMock(return_value=stored),
-            ),
-            patch.object(
-                broadcast_route_module.AdminBroadcastDeliveryService,
-                "dispatch",
-                dispatch,
-            ),
+            patch.object(broadcast_route_module.broadcast_dal, "create_broadcast", create),
         ):
             response = await broadcast_route_module.admin_broadcast_route(cast(Any, request))
 
         self.assertEqual(response.status, 200)
-        dispatch.assert_awaited_once_with(23, user_ids=[1, 2])
+        resolve_user_ids.assert_awaited_once_with("all")
+        self.assertEqual(create.await_args.kwargs["target"], "all")
+        self.assertEqual(create.await_args.kwargs["texts"], {"ru": "Hi {first_name}"})
+        self.assertEqual(json.loads(response.text)["broadcast"]["status"], "queued")
 
 
 class BroadcastEndpointsTest(unittest.IsolatedAsyncioTestCase):

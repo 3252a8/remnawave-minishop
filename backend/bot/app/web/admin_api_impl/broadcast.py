@@ -20,10 +20,6 @@ from bot.app.web.route_contracts import (
     ok_envelope_for,
     register_contract,
 )
-from bot.services.admin_broadcast_delivery import (
-    AdminBroadcastDeliveryService,
-    BroadcastDispatchResult,
-)
 from bot.services.audience_segmentation import (
     AUDIENCE_ACTIVE_NEVER_CONNECTED,
     AUDIENCE_ADMINS,
@@ -630,7 +626,7 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
 
     audience_service = _resolve_audience_service(request)
     try:
-        user_ids = [int(user_id) for user_id in await audience_service.resolve_user_ids(target)]
+        await audience_service.resolve_user_ids(target)
     except AudienceNotFoundError:
         return _error(400, "invalid_audience", target)
     except AudienceUnavailableError:
@@ -683,39 +679,10 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
             image_id=str(stored_image.image_id) if stored_image is not None else None,
         )
 
-    dispatch_result = BroadcastDispatchResult(0, 0, 0, channels)
-    if immediate:
-        delivery_service = AdminBroadcastDeliveryService(
-            settings=settings,
-            session_factory=async_session_factory,
-            i18n=get_i18n(request),
-            audience_service=audience_service,
-            queue_manager=queue_manager,
-            bot_username=get_bot_username(request),
-        )
-        try:
-            dispatch_result = await delivery_service.dispatch(
-                int(item.broadcast_id), user_ids=user_ids
-            )
-        except RuntimeError as exc:
-            if str(exc) == "queue_unavailable":
-                return _error(503, "queue_unavailable")
-            logger.exception("Broadcast %s could not start", item.broadcast_id)
-            return _error(500, "broadcast_dispatch_failed", str(exc))
-        except Exception as exc:
-            logger.exception("Broadcast %s could not start", item.broadcast_id)
-            return _error(500, "broadcast_dispatch_failed", str(exc))
-
-    async with async_session_factory() as session:
-        refreshed = await broadcast_dal.get_broadcast(
-            session, int(item.broadcast_id), include_deleted=True
-        )
-    payload_item = refreshed or item
+    # The worker claims due broadcasts from the durable queue. Waiting for
+    # delivery preparation here can outlive the client's request timeout.
     payload = AdminBroadcastCreateOut(
-        broadcast=_broadcast_out(payload_item),
-        queued=dispatch_result.queued,
-        failed=dispatch_result.failed,
-        email_queued=dispatch_result.email_queued,
+        broadcast=_broadcast_out(item),
         target=target,
         channels=channels,
     )

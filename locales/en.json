@@ -2701,6 +2701,7 @@
   "admin_broadcast_stat_failed": "Failed",
   "admin_broadcast_stat_email_queued": "Email queued",
   "admin_broadcast_started": "Broadcast started",
+  "admin_broadcast_queued": "Broadcast queued",
   "admin_broadcast_scheduled": "Broadcast scheduled",
   "admin_broadcast_schedule_label": "Send time",
   "admin_broadcast_schedule_later": "Schedule for later",

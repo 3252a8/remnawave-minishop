@@ -82,7 +82,6 @@
   const broadcastTarget = $derived(broadcastStore.broadcastTarget);
   const broadcastTargetError = $derived(broadcastStore.broadcastTargetError);
   const broadcastBusy = $derived(broadcastStore.broadcastBusy);
-  const broadcastResult = $derived(broadcastStore.broadcastResult);
   const broadcastCounts = $derived(broadcastStore.broadcastCounts as Record<string, number> | null);
   const broadcastCountsLoading = $derived(Boolean(broadcastStore.broadcastCountsLoading));
   const telegramEnabled = $derived(broadcastStore.broadcastTelegramEnabled);
@@ -440,16 +439,6 @@
               ? at("broadcast_schedule_action", {}, "Schedule broadcast")
               : at("btn_queue", {}, "Queue Message")}
         </AdminButton>
-        {#if broadcastResult}
-          <span class="admin-muted"
-            >{at("broadcast_stat_queued", {}, "Queued")}: {broadcastResult.queued} · {at(
-              "broadcast_stat_failed",
-              {},
-              "Failed"
-            )}: {broadcastResult.failed}{#if broadcastResult.channels.includes("email")}
-              · {at("broadcast_stat_email_queued", {}, "Email queued")}: {broadcastResult.emailQueued}{/if}</span
-          >
-        {/if}
       </div>
     </div>
   </div>
