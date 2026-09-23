@@ -887,6 +887,20 @@ export function adminFallbackResponse(
       peer_typing: false,
     };
   }
+  if (cleanPath === "/admin/plugins") {
+    return {
+      ok: true,
+      generation: 0,
+      installations: {},
+      operations: [],
+      bundled: [],
+      observations: {},
+      failed_generation: null,
+      failure: "",
+    };
+  }
+  if (cleanPath === "/admin/plugins/runtime") return { ok: true, generation: 0, plugins: [] };
+  if (cleanPath === "/admin/plugins/updates") return { ok: true, updates: {} };
   if (cleanPath.startsWith("/admin/"))
     return { ok: true, payments: [], promos: [], logs: [], campaigns: [], total: 0 };
   return undefined;
