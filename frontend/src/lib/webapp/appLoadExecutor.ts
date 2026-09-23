@@ -164,20 +164,21 @@ export function createAppLoadExecutor({
     const initialAdminSection = loadedRoute.initialAdminSection;
     if (section === "admin" && recordField(payload.user).is_admin) {
       adminRuntime.cancelAdminAssetsPrefetch();
-      shellState.activeTab = "settings";
-      shellState.adminActiveSection = initialAdminSection || "stats";
-      shellState.mode = "app";
-      shellState.screen = "admin";
       try {
         await Promise.all([
           pendingAdminPreload,
           adminRuntime.ensureI18nScope("admin"),
           adminRuntime.ensureAdminBundle(),
         ]);
+        shellState.activeTab = "settings";
+        shellState.adminActiveSection = initialAdminSection || "stats";
+        shellState.mode = "app";
+        shellState.screen = "admin";
       } catch (_error) {
         void _error;
         section = "settings";
         shellState.activeTab = "settings";
+        shellState.mode = "app";
         shellState.screen = "settings";
         showAdminUnavailable();
       }

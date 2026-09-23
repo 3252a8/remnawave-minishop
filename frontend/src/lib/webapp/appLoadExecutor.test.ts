@@ -220,6 +220,30 @@ describe("createAppLoadExecutor", () => {
     );
   });
 
+  it("keeps the admin screen hidden until its translations are ready", async () => {
+    let resolveTranslations!: () => void;
+    const translations = new Promise<{}>((resolve) => {
+      resolveTranslations = () => resolve({});
+    });
+    const { adminRuntime, executor } = createDeps({
+      deps: {
+        dataClientLoadData: vi.fn(() =>
+          Promise.resolve(createPayload({ user: { is_admin: true, language_code: "ru" } }))
+        ),
+      },
+      state: { pathname: "/admin/plugins" },
+    });
+    adminRuntime.ensureI18nScope.mockImplementation(() => translations);
+
+    const loading = executor.loadData();
+    await vi.waitFor(() => expect(adminRuntime.ensureI18nScope).toHaveBeenCalledWith("admin"));
+    expect(shellState.screen).not.toBe("admin");
+
+    resolveTranslations();
+    await loading;
+    expect(shellState.screen).toBe("admin");
+  });
+
   it("starts admin resources before the initial data response", async () => {
     let resolvePayload!: (payload: ReturnType<typeof createPayload>) => void;
     const pendingPayload = new Promise<ReturnType<typeof createPayload>>((resolve) => {
