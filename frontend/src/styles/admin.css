@@ -5176,7 +5176,10 @@
   z-index: 260;
   min-width: var(--bits-select-anchor-width);
   max-width: calc(100vw - 24px);
-  max-height: var(--bits-select-content-available-height, 320px);
+  max-height: min(
+    var(--bits-select-content-available-height, 320px),
+    calc(100dvh - var(--content-safe-area-top) - var(--content-safe-area-bottom) - 24px)
+  );
   overflow: hidden;
   border: 1px solid var(--admin-border);
   border-radius: 10px;
@@ -5193,8 +5196,10 @@
 .admin-select-viewport {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   gap: 1px;
   max-height: inherit;
+  min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--admin-muted) 34%, var(--admin-border)) transparent;

@@ -209,11 +209,26 @@ for (const [device, viewport] of [
     await alignedSearch(page);
     if (device === "mobile") {
       await expect(page.locator(".admin-list-toolbar-filters")).toBeHidden();
+      await page.evaluate(() => {
+        document.documentElement.style.setProperty("--telegram-fullscreen-fallback-top", "96px");
+      });
       await page.locator(".admin-users-filter-toggle").click();
       const dialog = page.locator(".admin-users-filter-dialog");
       await expect(dialog).toBeVisible();
       await dialog.locator(".admin-select-trigger").first().click();
+      const menu = page.locator(".admin-select-content[data-state='open']");
+      const menuViewport = menu.locator(".admin-select-viewport");
       await expect(page.getByRole("option").first()).toBeVisible();
+      const menuBounds = await menu.boundingBox();
+      expect(menuBounds).not.toBeNull();
+      expect(menuBounds!.y).toBeGreaterThanOrEqual(96);
+      expect(menuBounds!.y + menuBounds!.height).toBeLessThanOrEqual(viewport.height - 12);
+      const overflow = await menuViewport.evaluate((node) => node.scrollHeight - node.clientHeight);
+      expect(overflow).toBeGreaterThan(0);
+      await menuViewport.evaluate((node) => {
+        node.scrollTop = node.scrollHeight;
+      });
+      await expect(menu.getByRole("option").last()).toBeInViewport();
       await page.keyboard.press("Escape");
       await expect(dialog).toBeVisible();
       await dialog.locator(".dialog-head button").click();
