@@ -25,6 +25,7 @@ import { createBillingDeeplinkEffects } from "./billingDeeplinkEffects.js";
 import { createWebappSectionContext } from "./webappSectionContext";
 import { createWebappSessionActions } from "./webappSessionActions.js";
 import { createAdminRuntime } from "./adminRuntime.js";
+import { createLanguageScopeLoader, rememberWebappLanguage } from "./languageScopeLoader.js";
 import { createBillingActions } from "./billingActions";
 import { giftState } from "./gifts.svelte.js";
 import { invalidateWebappTariffOptionCaches } from "./billingOptionCache.js";
@@ -101,6 +102,7 @@ export type AppFactoriesDeps = {
   hasEmailCodeLoginDeeplink: () => boolean;
   hasTelegramLaunchParams: () => boolean;
   initialTg: TelegramWebApp | null;
+  initialI18nLanguages: string[];
   isDocsDemo: boolean;
   loadData: LoadData;
   loadTelegramSdk: LoadTelegramSdk;
@@ -167,6 +169,7 @@ export function createAppFactories({
   hasEmailCodeLoginDeeplink,
   hasTelegramLaunchParams,
   initialTg,
+  initialI18nLanguages,
   isDocsDemo,
   loadData,
   loadTelegramSdk,
@@ -202,6 +205,28 @@ export function createAppFactories({
   let bootRuntime!: ReturnType<typeof createAppBootRuntime>;
   let showLogin!: ReturnType<typeof createAuthRuntime>["showLogin"];
 
+  const languageScopeLoader = createLanguageScopeLoader({
+    initialLanguages: initialI18nLanguages,
+    normalizeLanguage: normalizeLangCode,
+    fetchScope: async (scope, language) => {
+      const response = await fetch(
+        buildApiUrl(
+          `/i18n?scope=${encodeURIComponent(scope)}&lang=${encodeURIComponent(language)}`
+        ),
+        { credentials: "same-origin", headers: { Accept: "application/json" } }
+      );
+      return response.ok ? response.json() : null;
+    },
+    mergeMessages: (messages) => updateI18nMessages(messages),
+  });
+  const ensureWebappLanguage = (language: string) =>
+    MOCK ? Promise.resolve() : languageScopeLoader.load("webapp", language);
+  const ensureScreenLanguage = async (language: string) => {
+    await ensureWebappLanguage(language);
+    if (!MOCK && getScreen() === "admin") {
+      await languageScopeLoader.load("admin", language);
+    }
+  };
   const adminRuntime = createAdminRuntime({
     prepareRuntimeExtensions: async () => {
       if (!getIsAdmin() || MOCK) return null;
@@ -218,13 +243,8 @@ export function createAppFactories({
       }
       return null;
     },
-    fetchI18nScope: async (scope) => {
-      const response = await fetch(buildApiUrl(`/i18n?scope=${encodeURIComponent(scope)}`), {
-        credentials: "same-origin",
-        headers: { Accept: "application/json" },
-      });
-      return response.ok ? response.json() : null;
-    },
+    getCurrentLang,
+    loadI18nScope: (scope, language, fresh) => languageScopeLoader.load(scope, language, fresh),
     getAdminAssets: () => ({
       adminCssAsset: CFG.adminCssAsset,
       adminJsAsset: CFG.adminJsAsset,
@@ -235,9 +255,6 @@ export function createAppFactories({
       invalidateWebappTariffOptionCaches(billingStore);
     },
     loadData: (options) => loadData(options as AppLoadDataOptions),
-    mergeMessages: (messages) => {
-      updateI18nMessages(asWebappRecord(messages));
-    },
     resetInstallGuides: () => {
       installGuidesStore.reset();
     },
@@ -252,6 +269,9 @@ export function createAppFactories({
     createUiChrome({
       normalizeLangCode,
       getCurrentLang,
+      ensureGuestLanguage: ensureWebappLanguage,
+      onLanguageLoadError: () => showToast(t("wa_settings_language_update_failed")),
+      rememberLanguage: rememberWebappLanguage,
     });
   const { clearManualLogoutFlag, clearToken, isManuallyLoggedOut, markManualLogout, setToken } =
     createWebappSessionActions({
@@ -519,6 +539,8 @@ export function createAppFactories({
     telegramOAuthClientId: getTelegramOAuthClientId,
     currentLang: getCurrentLang,
     normalizeLangCode,
+    ensureLanguage: ensureScreenLanguage,
+    rememberLanguage: rememberWebappLanguage,
     updateLocalData: (updatedLanguage) => {
       const data = getData();
       if (!data?.user) return;
@@ -540,6 +562,8 @@ export function createAppFactories({
     accountStore,
     actionsStore,
     adminRuntime,
+    ensureWebappLanguage,
+    rememberLanguage: rememberWebappLanguage,
     api,
     applyPostLoadBillingDeeplinks,
     authStore,

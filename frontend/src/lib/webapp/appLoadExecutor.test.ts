@@ -48,6 +48,7 @@ function createDeps(overrides: TestOverrides = {}) {
     cancelAdminAssetsPrefetch: vi.fn(),
     ensureAdminBundle: vi.fn(() => Promise.resolve({})),
     ensureI18nScope: vi.fn(() => Promise.resolve({})),
+    preloadAdminBundle: vi.fn(() => Promise.resolve({})),
     scheduleAdminAssetsPrefetch: vi.fn(),
   };
   type FakeBillingState = {
@@ -77,6 +78,7 @@ function createDeps(overrides: TestOverrides = {}) {
     applyPostLoadBillingDeeplinks: vi.fn(),
     currentSearchParams: () => new URLSearchParams(state.search),
     dataClientLoadData: vi.fn(() => Promise.resolve(createPayload())),
+    ensureWebappLanguage: vi.fn(() => Promise.resolve()),
     getModalState: () => state.modal,
     getWindowSearch: () => state.windowSearch,
     hydrateSupportUnread: vi.fn(),
@@ -88,6 +90,7 @@ function createDeps(overrides: TestOverrides = {}) {
     loadSectionData: vi.fn(() => Promise.resolve()),
     loadTariffChangeOptions: billingStore.loadTariffChangeOptions,
     loadTopupOptions: billingStore.loadTopupOptions,
+    rememberLanguage: vi.fn(),
     resetBillingSelection: vi.fn((defaultMethod) => {
       billingStore.update((billing) => ({
         ...billing,
@@ -200,6 +203,7 @@ describe("createAppLoadExecutor", () => {
     await executor.loadData();
 
     expect(adminRuntime.cancelAdminAssetsPrefetch).toHaveBeenCalledOnce();
+    expect(adminRuntime.preloadAdminBundle).toHaveBeenCalledOnce();
     expect(adminRuntime.ensureI18nScope).toHaveBeenCalledWith("admin");
     expect(adminRuntime.ensureAdminBundle).toHaveBeenCalledOnce();
     expect(shellState).toMatchObject({
@@ -214,6 +218,29 @@ describe("createAppLoadExecutor", () => {
         section: "admin",
       })
     );
+  });
+
+  it("starts admin resources before the initial data response", async () => {
+    let resolvePayload!: (payload: ReturnType<typeof createPayload>) => void;
+    const pendingPayload = new Promise<ReturnType<typeof createPayload>>((resolve) => {
+      resolvePayload = resolve;
+    });
+    const { adminRuntime, deps, executor } = createDeps({
+      deps: { dataClientLoadData: vi.fn(() => pendingPayload) },
+      state: { pathname: "/admin/plugins" },
+    });
+
+    const loading = executor.loadData();
+    expect(deps.dataClientLoadData).toHaveBeenCalledOnce();
+    expect(adminRuntime.preloadAdminBundle).toHaveBeenCalledOnce();
+    expect(adminRuntime.ensureI18nScope).not.toHaveBeenCalled();
+    expect(adminRuntime.ensureAdminBundle).not.toHaveBeenCalled();
+
+    resolvePayload(createPayload({ user: { is_admin: true } }));
+    await loading;
+    expect(adminRuntime.ensureI18nScope).toHaveBeenCalledWith("admin");
+    expect(adminRuntime.ensureAdminBundle).toHaveBeenCalledOnce();
+    expect(shellState.screen).toBe("admin");
   });
 
   it("falls back to settings when admin bundle loading fails", async () => {

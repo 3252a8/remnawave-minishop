@@ -51,6 +51,7 @@
     providerManagesPrice = false,
     fallbackPrice = "",
     replacePriceAnimations = false,
+    priceUpdateIntervalMs = 0,
     t = (key) => key,
   }: {
     api: ApiClient["api"];
@@ -88,6 +89,7 @@
     providerManagesPrice?: boolean;
     fallbackPrice?: string;
     replacePriceAnimations?: boolean;
+    priceUpdateIntervalMs?: number;
     t?: Translate;
   } = $props();
 </script>
@@ -179,6 +181,7 @@
             plan={promoPrice.base}
             method={selectedMethod}
             replaceAnimations={replacePriceAnimations}
+            updateIntervalMs={priceUpdateIntervalMs}
           /></s
         >
         <b
@@ -186,6 +189,7 @@
             plan={promoPrice.discounted}
             method={selectedMethod}
             replaceAnimations={replacePriceAnimations}
+            updateIntervalMs={priceUpdateIntervalMs}
           /></b
         >
       </span>
@@ -194,6 +198,7 @@
         plan={quotedPlan}
         method={selectedMethod}
         replaceAnimations={replacePriceAnimations}
+        updateIntervalMs={priceUpdateIntervalMs}
       />
     {/if}
   {:else}

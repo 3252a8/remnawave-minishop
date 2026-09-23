@@ -22,6 +22,9 @@ function makeChrome(overrides: TestOverrides = {}) {
       String(value || "")
         .trim()
         .toLowerCase(),
+    ensureGuestLanguage: vi.fn(async () => undefined),
+    onLanguageLoadError: vi.fn(),
+    rememberLanguage: vi.fn(),
     ...overrides.deps,
   };
   return { actions: createUiChrome(deps), deps, state };
@@ -92,18 +95,32 @@ describe("createUiChrome", () => {
     expect(shellState.languageClickGuard).toBe(false);
   });
 
-  it("normalizes and applies a changed guest language", () => {
+  it("loads and applies a changed guest language", async () => {
     vi.useFakeTimers();
     installWindowTimers();
     const { actions, state } = makeChrome();
 
-    actions.updateGuestLanguage(" EN ");
+    await actions.updateGuestLanguage(" EN ");
 
     expect(shellState.guestLanguage).toBe("en");
 
     state.currentLang = "en";
-    actions.updateGuestLanguage("en");
+    await actions.updateGuestLanguage("en");
 
     expect(shellState.guestLanguage).toBe("en");
+  });
+
+  it("keeps the previous language if its messages cannot load", async () => {
+    vi.useFakeTimers();
+    installWindowTimers();
+    const { actions, deps } = makeChrome({
+      deps: { ensureGuestLanguage: vi.fn(async () => Promise.reject(new Error("offline"))) },
+    });
+
+    await actions.updateGuestLanguage("en");
+
+    expect(shellState.guestLanguage).toBe("");
+    expect(deps.onLanguageLoadError).toHaveBeenCalledOnce();
+    expect(deps.rememberLanguage).not.toHaveBeenCalled();
   });
 });

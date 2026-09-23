@@ -239,6 +239,9 @@
   const i18n = createI18n({
     messages: I18N,
     defaultLang: "ru",
+    supportedLanguages: Array.isArray(CFG.languages)
+      ? CFG.languages.map((entry) => String(asWebappRecord(entry).code || ""))
+      : [],
     getLang: () => user?.language_code || guestLanguage || CFG.language || "ru",
   });
   const normalizeLangCode = i18n.normalizeLangCode;
@@ -285,6 +288,7 @@
     hasEmailCodeLoginDeeplink,
     hasTelegramLaunchParams,
     initialTg,
+    initialI18nLanguages: Object.keys(I18N),
     isDocsDemo,
     loadData,
     loadTelegramSdk,
@@ -326,12 +330,14 @@
     bootRuntime,
     clearLanguageClickGuard,
     dataClient,
+    ensureWebappLanguage,
     demoAuth,
     devicesStore,
     emailAvatarSync,
     hydrateSupportUnread,
     installGuidesStore,
     loadSectionData,
+    rememberLanguage,
     resumeLifecycle,
     setPasswordLoginMode,
     serverStatusStore,
@@ -593,6 +599,7 @@
     applyPostLoadBillingDeeplinks,
     currentSearchParams,
     dataClientLoadData: (options) => dataClient.loadData(options),
+    ensureWebappLanguage,
     getModalState: () => ({
       changeModalOpen,
       deviceTopupModalOpen,
@@ -606,6 +613,7 @@
     isMock: () => Boolean(MOCK),
     loadDeviceTopupOptions: () => billingStore.loadDeviceTopupOptions(),
     loadInstallGuides: () => installGuidesStore.load(),
+    rememberLanguage,
     loadSectionData,
     loadTariffChangeOptions: () => billingStore.loadTariffChangeOptions(),
     loadTopupOptions: (kind) => billingStore.loadTopupOptions(kind),

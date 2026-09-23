@@ -12,16 +12,13 @@ function makeRuntime(overrides: TestOverrides = {}) {
     ...overrides.state,
   };
   const deps = {
-    fetchI18nScope: vi.fn(async (scope) => ({
-      i18n: { [scope]: { ok: true } },
-      ok: true,
-    })),
+    getCurrentLang: vi.fn(() => "ru"),
+    loadI18nScope: vi.fn(async () => undefined),
     getAdminAssets: vi.fn(() => ({})),
     getIsMock: () => state.isMock,
     getShouldPrefetch: () => state.shouldPrefetch,
     invalidateTariffOptionCaches: vi.fn(),
     loadData: vi.fn(async () => null),
-    mergeMessages: vi.fn(),
     resetInstallGuides: vi.fn(),
     setBundleState: vi.fn((api, error) => {
       state.bundleApi = api;
@@ -33,15 +30,22 @@ function makeRuntime(overrides: TestOverrides = {}) {
 }
 
 describe("createAdminRuntime", () => {
-  it("loads admin i18n once and caches the scope", async () => {
+  it("requests the current language for the admin scope", async () => {
     const { deps, runtime } = makeRuntime();
 
     await runtime.ensureI18nScope("admin");
     await runtime.ensureI18nScope("admin");
 
-    expect(deps.fetchI18nScope).toHaveBeenCalledTimes(1);
-    expect(deps.fetchI18nScope).toHaveBeenCalledWith("admin");
-    expect(deps.mergeMessages).toHaveBeenCalledWith({ admin: { ok: true } });
+    expect(deps.loadI18nScope).toHaveBeenCalledTimes(2);
+    expect(deps.loadI18nScope).toHaveBeenCalledWith("admin", "ru");
+  });
+
+  it("uses the newly selected language in the admin scope", async () => {
+    const { deps, runtime } = makeRuntime({ deps: { getCurrentLang: vi.fn(() => "en") } });
+
+    await runtime.ensureI18nScope("admin");
+
+    expect(deps.loadI18nScope).toHaveBeenCalledWith("admin", "en");
   });
 
   it("loads admin translations on direct entry and refreshes them after a plugin update", async () => {
@@ -61,9 +65,7 @@ describe("createAdminRuntime", () => {
     try {
       await runtime.ensureAdminBundle();
       await runtime.ensureAdminBundle();
-      expect(deps.fetchI18nScope).toHaveBeenCalledTimes(2);
-      expect(deps.fetchI18nScope).toHaveBeenNthCalledWith(1, "admin");
-      expect(deps.fetchI18nScope).toHaveBeenNthCalledWith(2, "admin");
+      expect(deps.loadI18nScope).toHaveBeenCalledWith("admin", "ru", true);
       expect(prepareRuntimeExtensions).toHaveBeenCalledTimes(2);
       expect(bundle.registerRuntimeExtensions).toHaveBeenCalledOnce();
     } finally {
@@ -74,18 +76,18 @@ describe("createAdminRuntime", () => {
   it("starts package discovery while admin translations are still loading", async () => {
     const bundle = { mount: vi.fn(() => ({ destroy: vi.fn() })) };
     (globalThis as Record<string, unknown>).window = { SubscriptionWebAppAdmin: bundle };
-    let releaseTranslations!: (value: { ok: boolean; i18n: Record<string, unknown> }) => void;
-    const translations = new Promise<{ ok: boolean; i18n: Record<string, unknown> }>((resolve) => {
+    let releaseTranslations!: () => void;
+    const translations = new Promise<void>((resolve) => {
       releaseTranslations = resolve;
     });
     const prepareRuntimeExtensions = vi.fn(async () => () => 1);
     const { runtime } = makeRuntime({
-      deps: { fetchI18nScope: vi.fn(() => translations), prepareRuntimeExtensions },
+      deps: { loadI18nScope: vi.fn(() => translations), prepareRuntimeExtensions },
     });
     try {
       const loading = runtime.ensureAdminBundle();
       expect(prepareRuntimeExtensions).toHaveBeenCalledOnce();
-      releaseTranslations({ ok: true, i18n: {} });
+      releaseTranslations();
       await loading;
     } finally {
       delete (globalThis as Record<string, unknown>).window;
@@ -97,8 +99,8 @@ describe("createAdminRuntime", () => {
 
     await runtime.handleAdminTranslationsSaved();
 
-    expect(deps.fetchI18nScope).toHaveBeenCalledWith("webapp");
-    expect(deps.fetchI18nScope).toHaveBeenCalledWith("admin");
+    expect(deps.loadI18nScope).toHaveBeenCalledWith("webapp", "ru", true);
+    expect(deps.loadI18nScope).toHaveBeenCalledWith("admin", "ru", true);
     expect(deps.invalidateTariffOptionCaches).toHaveBeenCalledOnce();
     expect(deps.resetInstallGuides).toHaveBeenCalledOnce();
     expect(deps.loadData).toHaveBeenCalledWith({ fresh: true, preserveView: true });

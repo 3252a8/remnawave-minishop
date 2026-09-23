@@ -43,6 +43,8 @@ type AccountStoreDeps = {
   telegramOAuthClientId: number | string | (() => number | string);
   currentLang: () => string;
   normalizeLangCode: (value: string) => string;
+  ensureLanguage: (language: string) => Promise<void>;
+  rememberLanguage: (language: string) => void;
   updateLocalData: (updatedLanguage: string) => void;
   activateTrial: () => Promise<unknown>;
   claimReferralWelcomeBonus: () => Promise<unknown>;
@@ -129,6 +131,8 @@ export function createAccountStore({
   telegramOAuthClientId,
   currentLang,
   normalizeLangCode,
+  ensureLanguage,
+  rememberLanguage,
   updateLocalData,
   activateTrial,
   claimReferralWelcomeBonus,
@@ -711,6 +715,7 @@ export function createAccountStore({
     if (!language || s.languageBusy || language === currentLang()) return;
     updateState((s) => ({ ...s, languageBusy: true }));
     try {
+      await ensureLanguage(language);
       const payload: PostPayload<"/api/account/language"> = { language };
       const response = await api(buildAccountLanguagePath(), {
         method: "POST",
@@ -718,6 +723,7 @@ export function createAccountStore({
       });
       if (!response?.ok) throw response;
       const responsePayload = unwrap(response);
+      rememberLanguage(language);
       updateLocalData(normalize(stringField(responsePayload.language) || language));
       await loadData({ fresh: true, preserveView: true, ...options });
     } catch {

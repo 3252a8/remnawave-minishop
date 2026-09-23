@@ -35,7 +35,7 @@
   let pendingValue: number | undefined;
   let valueChangeTimer: ReturnType<typeof setTimeout> | undefined;
   let lastEmitTime = 0;
-  const valueChangeIntervalMs = 140;
+  const valueChangeIntervalMs = 220;
 
   $effect.pre(() => {
     values;

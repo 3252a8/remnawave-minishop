@@ -588,16 +588,22 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             request.app["webapp_settings_cache"]["data"]["server_status_url"],
             "https://status.example.com",
         )
-        self.assertNotIn("menu_server_status_button", payload["i18n"]["en"])
-        self.assertEqual(payload["i18n"]["en"]["wa_server_status_title"], "Custom app status")
+        self.assertEqual(set(payload["i18n"]), {"ru"})
         self.assertEqual(payload["i18n"]["ru"]["wa_server_status_title"], "Статус в приложении")
-        self.assertEqual(payload["i18n"]["en"]["menu_support_button"], "Support")
         self.assertEqual(payload["i18n"]["ru"]["wa_nav_admin"], "Админ-панель")
         self.assertEqual(
             payload["i18n"]["ru"]["wa_promo_requires_checkout"],
             "Примените этот промокод при оплате.",
         )
-        self.assertNotIn("admin_settings_title", payload["i18n"]["en"])
+        request.cookies = {webapp_assets.WEBAPP_LANGUAGE_COOKIE: "en"}
+        english_payload = subscription_webapp._build_webapp_bootstrap_payload(request)
+        self.assertEqual(english_payload["config"]["language"], "en")
+        self.assertEqual(set(english_payload["i18n"]), {"en"})
+        self.assertEqual(
+            english_payload["i18n"]["en"]["wa_server_status_title"], "Custom app status"
+        )
+        self.assertEqual(english_payload["i18n"]["en"]["menu_support_button"], "Support")
+        self.assertNotIn("admin_settings_title", english_payload["i18n"]["en"])
 
     def test_webapp_bootstrap_hides_server_status_url_outside_enabled_url_mode(self):
         for enabled, provider in ((False, "url"), (True, "uptime-kuma")):
@@ -628,6 +634,17 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                     enabled and provider != "url",
                 )
                 self.assertFalse(payload["config"]["serverStatusShowOnHome"])
+
+    def test_i18n_language_selection_rejects_unknown_and_accepts_regional_codes(self):
+        locales = {"en": {"wa_title": "Title"}, "ru": {"wa_title": "Название"}}
+
+        self.assertEqual(webapp_assets._match_webapp_language("en-US", locales), "en")
+        self.assertEqual(webapp_assets._match_webapp_language("xx", locales), "")
+        self.assertEqual(webapp_assets._match_webapp_language("*", locales), "")
+        self.assertEqual(
+            webapp_assets._filter_webapp_i18n_payload(locales, "webapp", "en"),
+            {"en": {"wa_title": "Title"}},
+        )
 
     def test_server_status_polling_starts_only_after_authenticated_data_loads(self):
         root = Path(__file__).resolve().parents[2]
@@ -669,7 +686,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertIn('href="/subscription_webapp.min.abcdef12.js"', markup)
-        self.assertIn('as="script"', markup)
+        self.assertIn('rel="modulepreload"', markup)
         self.assertIn(f'href="/api/subscription-guides/public/{token}"', markup)
         self.assertIn('as="fetch"', markup)
         self.assertIn('crossorigin="use-credentials"', markup)

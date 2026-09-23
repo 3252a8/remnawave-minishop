@@ -7,10 +7,12 @@
     plan = null,
     method = "",
     replaceAnimations = false,
+    updateIntervalMs = 0,
   }: {
     plan?: BillingPlan | null;
     method?: string;
     replaceAnimations?: boolean;
+    updateIntervalMs?: number;
   } = $props();
 
   const stars = $derived(isStarsPaymentMethod(method) && Number(plan?.stars_price || 0) > 0);
@@ -26,4 +28,5 @@
   ariaLabel={`${amount}${suffix}`}
   format={{ maximumFractionDigits: Number.isInteger(amount) ? 0 : 2 }}
   {replaceAnimations}
+  {updateIntervalMs}
 />
