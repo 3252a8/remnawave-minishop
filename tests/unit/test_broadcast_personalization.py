@@ -514,7 +514,7 @@ class AdminBroadcastPersonalizationRouteTest(unittest.IsolatedAsyncioTestCase):
     async def test_personalized_broadcast_passes_resolved_audience_to_dispatcher(self):
         request = _request(
             {"target": "all", "text": "Hi {first_name}", "channels": ["telegram", "email"]},
-            settings=_settings(email_auth_configured=True),
+            settings=_settings(smtp_delivery_configured=True),
         )
         now = datetime.now(UTC)
         stored = SimpleNamespace(

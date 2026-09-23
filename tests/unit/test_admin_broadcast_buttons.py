@@ -283,6 +283,52 @@ class AdminsAudienceTest(unittest.IsolatedAsyncioTestCase):
 
 
 class AdminBroadcastRouteTest(unittest.IsolatedAsyncioTestCase):
+    async def test_email_channel_reports_smtp_availability_independent_of_login(self):
+        settings = settings_stub(
+            EMAIL_LOGIN_ENABLED=False,
+            email_auth_configured=False,
+            SMTP_HOST="smtp.example.test",
+            SMTP_PORT=587,
+            SMTP_USERNAME="mailer",
+            SMTP_PASSWORD="secret",
+            SMTP_FROM_EMAIL="shop@example.test",
+        )
+        request = _FakeBroadcastRequest(
+            {},
+            {"settings": settings, "async_session_factory": _FakeSessionFactory()},
+        )
+        with (
+            patch.object(broadcast_route_module, "_require_admin_user_id", return_value=999),
+            patch.object(
+                broadcast_route_module,
+                "_load_broadcast_audience_counts",
+                AsyncMock(return_value={}),
+            ),
+        ):
+            response = await broadcast_route_module.admin_broadcast_audience_counts_route(
+                cast(Any, request)
+            )
+
+        self.assertEqual(response.status, 200)
+        self.assertTrue(json.loads(response.text)["email_enabled"])
+
+    async def test_email_channel_rejects_missing_smtp_even_with_login_enabled(self):
+        settings = settings_stub(EMAIL_LOGIN_ENABLED=True, email_auth_configured=True)
+        request = _FakeBroadcastRequest(
+            {"target": "all", "text": "Hello", "channels": ["email"]},
+            {
+                "settings": settings,
+                "async_session_factory": _FakeSessionFactory(),
+                "i18n": None,
+                "bot_username": "demo_bot",
+            },
+        )
+        with patch.object(broadcast_route_module, "_require_admin_user_id", return_value=999):
+            response = await broadcast_route_module.admin_broadcast_route(cast(Any, request))
+
+        self.assertEqual(response.status, 503)
+        self.assertEqual(json.loads(response.text)["error"], "email_not_configured")
+
     async def test_direct_user_message_is_visible_and_added_to_user_log(self):
         request = _FakeBroadcastRequest(
             {
@@ -448,9 +494,16 @@ class AdminBroadcastRouteTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_immediate_broadcast_is_persisted_before_dispatch(self):
         settings = settings_stub(
-            email_auth_configured=True,
+            EMAIL_LOGIN_ENABLED=False,
+            email_auth_configured=False,
+            SMTP_HOST="smtp.example.test",
+            SMTP_PORT=587,
+            SMTP_USERNAME="mailer",
+            SMTP_PASSWORD="secret",
+            SMTP_FROM_EMAIL="shop@example.test",
             ADMIN_BROADCAST_EXCLUDE_BLOCKED_TELEGRAM=True,
         )
+        self.assertTrue(settings.smtp_delivery_configured)
         request = _FakeBroadcastRequest(
             {
                 "target": "all",

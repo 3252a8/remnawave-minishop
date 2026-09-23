@@ -293,7 +293,7 @@ async def _legacy_admin_broadcast_route(request: web.Request) -> web.Response:
 
     telegram_enabled = "telegram" in channels
     email_enabled = "email" in channels
-    if email_enabled and not settings.email_auth_configured:
+    if email_enabled and not settings.smtp_delivery_configured:
         return _error(503, "email_not_configured")
 
     queue_manager = get_queue_manager() if telegram_enabled else None
@@ -603,7 +603,7 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
     except BroadcastValidationError as exc:
         return _error(400, exc.code, exc.detail)
 
-    if "email" in channels and not settings.email_auth_configured:
+    if "email" in channels and not settings.smtp_delivery_configured:
         return _error(503, "email_not_configured")
 
     unknown = set().union(
@@ -794,6 +794,6 @@ async def admin_broadcast_audience_counts_route(request: web.Request) -> web.Res
                 )
                 for audience in audiences
             ],
-            email_enabled=bool(settings.email_auth_configured),
+            email_enabled=bool(settings.smtp_delivery_configured),
         ).model_dump(mode="json")
     )

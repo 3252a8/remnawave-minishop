@@ -187,9 +187,9 @@ class SettingsStub(SimpleNamespace):
         return domains
 
     @property
-    def email_auth_configured(self) -> bool:
-        if hasattr(self, "_email_auth_configured"):
-            return bool(self._email_auth_configured)
+    def smtp_delivery_configured(self) -> bool:
+        if hasattr(self, "_smtp_delivery_configured"):
+            return bool(self._smtp_delivery_configured)
         return bool(
             getattr(self, "SMTP_HOST", None)
             and getattr(self, "SMTP_PORT", None)
@@ -197,6 +197,12 @@ class SettingsStub(SimpleNamespace):
             and getattr(self, "SMTP_PASSWORD", None)
             and getattr(self, "SMTP_FROM_EMAIL", None)
         )
+
+    @property
+    def email_auth_configured(self) -> bool:
+        if hasattr(self, "_email_auth_configured"):
+            return bool(self._email_auth_configured)
+        return self.smtp_delivery_configured
 
     @email_auth_configured.setter
     def email_auth_configured(self, value: bool) -> None:
@@ -428,6 +434,7 @@ def settings_stub(**overrides: Any) -> SettingsStub:
     values = dict(DEFAULT_SETTINGS_VALUES)
     for key in (
         "email_auth_configured",
+        "smtp_delivery_configured",
         "stars_traffic_packages",
         "tariffs_config",
         "traffic_packages",
