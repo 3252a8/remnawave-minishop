@@ -19,6 +19,8 @@ export const demoAdminRoutes = [
   "users",
   "payments",
   "promos",
+  "gifts",
+  "partners",
   "ads",
   "broadcast",
   "logs",
@@ -27,6 +29,7 @@ export const demoAdminRoutes = [
   "appearance",
   "translations",
   "backups",
+  "plugins",
   "settings",
 ];
 
