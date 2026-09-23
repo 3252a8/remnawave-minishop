@@ -3,6 +3,9 @@ import { createAdminBundle } from "./adminBundle.js";
 type WebappRecord = Record<string, unknown>;
 
 type AdminBundleApi = WebappRecord | null;
+type RuntimeExtensionInstaller = (bundle: {
+  registerRuntimeExtensions?: (plugins: unknown[]) => void;
+}) => number | null;
 type AdminPersistOptions = {
   updates?: Record<string, unknown>;
   deletes?: string[];
@@ -16,9 +19,7 @@ type AdminRuntimeDeps = {
   getShouldPrefetch: () => boolean;
   invalidateTariffOptionCaches: () => void;
   loadData: (options?: WebappRecord) => Promise<unknown>;
-  loadRuntimeExtensions?: (bundle: {
-    registerRuntimeExtensions?: (plugins: unknown[]) => void;
-  }) => Promise<number | null>;
+  prepareRuntimeExtensions?: () => Promise<RuntimeExtensionInstaller | null>;
   mergeMessages: (messages: unknown) => void;
   resetInstallGuides: () => void;
   setBundleState: (api: AdminBundleApi, error: string) => void;
@@ -31,7 +32,7 @@ export function createAdminRuntime({
   getShouldPrefetch,
   invalidateTariffOptionCaches,
   loadData,
-  loadRuntimeExtensions,
+  prepareRuntimeExtensions,
   mergeMessages,
   resetInstallGuides,
   setBundleState,
@@ -82,10 +83,17 @@ export function createAdminRuntime({
 
   async function ensureAdminBundle() {
     try {
-      const [loaded] = await Promise.all([adminBundle.ensure(), ensureI18nScope("admin")]);
+      // Fetch package descriptors while the admin bundle and translations load.
+      // Install them only after the bundle is ready, before the admin mounts.
+      const runtimeExtensions = prepareRuntimeExtensions?.().catch(() => null);
+      const [loaded, , installRuntimeExtensions] = await Promise.all([
+        adminBundle.ensure(),
+        ensureI18nScope("admin"),
+        runtimeExtensions,
+      ]);
       const bundle = adminBundle.getApi();
-      if (loaded && bundle && loadRuntimeExtensions) {
-        const generation = await loadRuntimeExtensions(bundle).catch(() => null);
+      if (loaded && bundle && installRuntimeExtensions) {
+        const generation = installRuntimeExtensions(bundle);
         if (generation !== null) {
           if (runtimeGeneration !== null && generation !== runtimeGeneration)
             await refreshI18nScope("admin");

@@ -50,15 +50,43 @@ describe("createAdminRuntime", () => {
       registerRuntimeExtensions: vi.fn(),
     };
     (globalThis as Record<string, unknown>).window = { SubscriptionWebAppAdmin: bundle };
-    const loadRuntimeExtensions = vi.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(2);
-    const { deps, runtime } = makeRuntime({ deps: { loadRuntimeExtensions } });
+    const prepareRuntimeExtensions = vi
+      .fn()
+      .mockResolvedValueOnce((readyBundle: typeof bundle) => {
+        readyBundle.registerRuntimeExtensions([]);
+        return 1;
+      })
+      .mockResolvedValueOnce(() => 2);
+    const { deps, runtime } = makeRuntime({ deps: { prepareRuntimeExtensions } });
     try {
       await runtime.ensureAdminBundle();
       await runtime.ensureAdminBundle();
       expect(deps.fetchI18nScope).toHaveBeenCalledTimes(2);
       expect(deps.fetchI18nScope).toHaveBeenNthCalledWith(1, "admin");
       expect(deps.fetchI18nScope).toHaveBeenNthCalledWith(2, "admin");
-      expect(loadRuntimeExtensions).toHaveBeenCalledTimes(2);
+      expect(prepareRuntimeExtensions).toHaveBeenCalledTimes(2);
+      expect(bundle.registerRuntimeExtensions).toHaveBeenCalledOnce();
+    } finally {
+      delete (globalThis as Record<string, unknown>).window;
+    }
+  });
+
+  it("starts package discovery while admin translations are still loading", async () => {
+    const bundle = { mount: vi.fn(() => ({ destroy: vi.fn() })) };
+    (globalThis as Record<string, unknown>).window = { SubscriptionWebAppAdmin: bundle };
+    let releaseTranslations!: (value: { ok: boolean; i18n: Record<string, unknown> }) => void;
+    const translations = new Promise<{ ok: boolean; i18n: Record<string, unknown> }>((resolve) => {
+      releaseTranslations = resolve;
+    });
+    const prepareRuntimeExtensions = vi.fn(async () => () => 1);
+    const { runtime } = makeRuntime({
+      deps: { fetchI18nScope: vi.fn(() => translations), prepareRuntimeExtensions },
+    });
+    try {
+      const loading = runtime.ensureAdminBundle();
+      expect(prepareRuntimeExtensions).toHaveBeenCalledOnce();
+      releaseTranslations({ ok: true, i18n: {} });
+      await loading;
     } finally {
       delete (globalThis as Record<string, unknown>).window;
     }

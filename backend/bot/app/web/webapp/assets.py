@@ -254,9 +254,21 @@ def _webapp_api_url(path: str) -> str:
 def _webapp_shell_preload_markup(
     js_asset_name: str,
     share_token: str = "",
+    *,
+    admin_js_asset_name: str = "",
+    admin_css_asset_name: str = "",
 ) -> str:
     js_href = "/" + quote(str(js_asset_name or "").lstrip("/"), safe="/.-_")
     lines = [f'<link rel="preload" href="{js_href}" as="script">']
+    if admin_js_asset_name and admin_css_asset_name:
+        admin_js_href = "/" + quote(admin_js_asset_name.lstrip("/"), safe="/.-_?=")
+        admin_css_href = "/" + quote(admin_css_asset_name.lstrip("/"), safe="/.-_?=")
+        lines.extend(
+            (
+                f'<link rel="preload" href="{admin_css_href}" as="style">',
+                f'<link rel="modulepreload" href="{admin_js_href}">',
+            )
+        )
     normalized_share_token = subscription_dal.normalize_install_share_token(share_token)
     if normalized_share_token:
         fetch_href = _webapp_api_url(
@@ -722,9 +734,12 @@ async def index_route(request: web.Request) -> web.Response:
         f'href="/{css_asset_name}"',
         1,
     )
+    is_admin_route = request.path == "/admin" or request.path.startswith("/admin/")
     preload_markup = _webapp_shell_preload_markup(
         js_asset_name,
         str(getattr(request, "match_info", {}).get("share_token") or ""),
+        admin_js_asset_name=str(config["adminJsAsset"]) if is_admin_route else "",
+        admin_css_asset_name=str(config["adminCssAsset"]) if is_admin_route else "",
     )
     if preload_markup:
         html = html.replace("</head>", f"{preload_markup}\n</head>", 1)

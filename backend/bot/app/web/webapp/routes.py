@@ -197,6 +197,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/devices", index_route)
     app.router.add_get("/settings", index_route)
     app.router.add_get("/unsubscribe", index_route)
+    app.router.add_get("/settings/notifications", index_route)
     app.router.add_get("/settings/security", index_route)
     app.router.add_get("/status", index_route)
     app.router.add_get("/support", index_route)

@@ -203,15 +203,18 @@ export function createAppFactories({
   let showLogin!: ReturnType<typeof createAuthRuntime>["showLogin"];
 
   const adminRuntime = createAdminRuntime({
-    loadRuntimeExtensions: async (bundle) => {
+    prepareRuntimeExtensions: async () => {
       if (!getIsAdmin() || MOCK) return null;
       const payload = await dataClient.apiClient.apiUnchecked("/admin/plugins/runtime");
       if (payload.ok && Array.isArray(payload.plugins)) {
-        (window as unknown as Record<string, unknown>)["__MINISHOP_PLUGIN_GENERATION__"] =
-          payload.generation;
-        bundle.registerRuntimeExtensions?.(payload.plugins);
-        const generation = Number(payload.generation);
-        return Number.isSafeInteger(generation) ? generation : null;
+        const plugins = payload.plugins;
+        return (bundle: { registerRuntimeExtensions?: (plugins: unknown[]) => void }) => {
+          (window as unknown as Record<string, unknown>)["__MINISHOP_PLUGIN_GENERATION__"] =
+            payload.generation;
+          bundle.registerRuntimeExtensions?.(plugins);
+          const generation = Number(payload.generation);
+          return Number.isSafeInteger(generation) ? generation : null;
+        };
       }
       return null;
     },

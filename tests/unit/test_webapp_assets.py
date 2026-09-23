@@ -675,6 +675,26 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('crossorigin="use-credentials"', markup)
         self.assertNotIn("/api/subscription-guides/public/", install_markup)
 
+    def test_webapp_shell_preloads_admin_assets_only_when_requested(self):
+        default_markup = webapp_assets._webapp_shell_preload_markup(
+            "subscription_webapp.min.abcdef12.js"
+        )
+        admin_markup = webapp_assets._webapp_shell_preload_markup(
+            "subscription_webapp.min.abcdef12.js",
+            admin_js_asset_name="/subscription_webapp_admin.min.12345678.js",
+            admin_css_asset_name="/subscription_webapp_admin.87654321.css",
+        )
+
+        self.assertNotIn("subscription_webapp_admin", default_markup)
+        self.assertIn(
+            '<link rel="preload" href="/subscription_webapp_admin.87654321.css" as="style">',
+            admin_markup,
+        )
+        self.assertIn(
+            '<link rel="modulepreload" href="/subscription_webapp_admin.min.12345678.js">',
+            admin_markup,
+        )
+
     def test_frontend_starts_public_install_preload_before_mount(self):
         main_source = Path("frontend/src/main.ts").read_text(encoding="utf-8")
         public_install_actions_source = Path(
@@ -995,7 +1015,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("error_page 502 503 504 = @webapp_static_shell;", shell_block)
         self.assertNotIn("try_files /index.html =404;", shell_block)
         self.assertIn("checkout(?:/[a-fA-F0-9]{32})?$", shell_block)
-        self.assertIn("settings(?:/security)?$", shell_block)
+        self.assertIn("settings(?:/(?:security|notifications))?$", shell_block)
         self.assertIn("devices$", shell_block)
         self.assertIn("admin(?:/.*)?$", shell_block)
 
