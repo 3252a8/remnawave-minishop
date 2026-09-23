@@ -200,10 +200,19 @@ def _validate_manifest(manifest: dict[str, Any]) -> None:
         ):
             raise PluginPackageError("invalid_frontend_manifest")
         paths = [frontend["entry"], *frontend.get("styles", [])]
+        preview = frontend.get("preview")
+        if preview is not None:
+            paths.append(preview)
         for path in paths:
             if not isinstance(path, str) or f"frontend/{path}" not in files:
                 raise PluginPackageError("invalid_frontend_asset")
-        for collection in ("sections", "section_groups", "section_tabs", "user_panels"):
+        for collection in (
+            "sections",
+            "section_groups",
+            "section_tabs",
+            "user_panels",
+            "settings_tabs",
+        ):
             views = frontend.get(collection, [])
             if not isinstance(views, list) or len(views) > 64:
                 raise PluginPackageError("invalid_frontend_manifest")

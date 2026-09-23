@@ -27,13 +27,15 @@ test("plugin library and import dialog work at desktop and mobile sizes", async 
                     pro: {
                       digest: "a".repeat(64),
                       version: "0.1.24",
+                      name: "Example plugin",
+                      description: "Example plugin description",
                       publisher: "Example publisher",
                       enabled,
                       status: "active",
                       source: { kind: "image" },
                     },
                   },
-                  bundled: [],
+                  bundled: [{ id: "pro", source: "image", status: "active" }],
                   operations: [
                     { id: "op-1", action: "install", plugin: "pro", status: "completed" },
                   ],
@@ -43,6 +45,8 @@ test("plugin library and import dialog work at desktop and mobile sizes", async 
                 enabled = Boolean(JSON.parse(String(options?.body || "{}"))?.enabled);
                 return { ok: true };
               }
+              if (path === "/admin/plugins/updates") return { ok: true, updates: {} };
+              if (path === "/admin/plugins/runtime") return { ok: true, plugins: [] };
               return props.api(path, options);
             },
           });
@@ -55,6 +59,13 @@ test("plugin library and import dialog work at desktop and mobile sizes", async 
   await page.goto("/demo/runtime/admin/plugins");
   const card = page.locator('[data-plugin-id="pro"]');
   await expect(card).toBeVisible();
+  await expect(card).toHaveCount(1);
+  await expect(page.locator(".admin-list-toolbar-summary strong")).toHaveText("1");
+  await card.getByRole("button", { name: /0\.1\.24/ }).click();
+  await expect(page.locator(".plugin-package-dialog")).toBeVisible();
+  await expect(page.locator(".plugin-package-dialog").getByText("Образ приложения")).toBeVisible();
+  await page.locator(".plugin-package-dialog").getByRole("button", { name: "Закрыть" }).click();
+  await expect(page.locator(".plugin-package-dialog")).not.toBeVisible();
   await expect(card.getByRole("switch")).toBeChecked();
   await page.screenshot({
     path: testInfo.outputPath("plugin-manager-desktop.png"),
@@ -63,6 +74,9 @@ test("plugin library and import dialog work at desktop and mobile sizes", async 
 
   await card.getByRole("switch").click();
   await expect(card.getByRole("switch")).not.toBeChecked();
+  await card.getByRole("button", { name: "Настройки" }).click();
+  await expect(page.getByText("У этого плагина пока нет настроек.")).toBeVisible();
+  await page.getByRole("button", { name: "Все плагины" }).click();
   await page.getByRole("button", { name: "Добавить плагин" }).first().click();
   const dialog = page.locator(".plugin-import-dialog");
   await expect(dialog).toBeVisible();

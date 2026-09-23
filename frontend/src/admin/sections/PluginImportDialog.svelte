@@ -27,6 +27,8 @@
     at,
     open,
     generation,
+    initialRepository = "",
+    initialRef = "",
     onclose,
     oninstalled,
   }: {
@@ -34,6 +36,8 @@
     at: TranslateFn;
     open: boolean;
     generation: number;
+    initialRepository?: string;
+    initialRef?: string;
     onclose: () => void;
     oninstalled: () => void | Promise<void>;
   } = $props();
@@ -68,9 +72,9 @@
 
   $effect(() => {
     if (open) {
-      method = "archive";
-      repository = "";
-      revision = "";
+      method = initialRepository ? "repository" : "archive";
+      repository = initialRepository;
+      revision = initialRef;
       candidate = null;
       selectedFile = null;
       publisherKey = "";

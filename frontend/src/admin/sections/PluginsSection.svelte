@@ -1,18 +1,17 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import {
-    AdminBadge,
     AdminButton,
     AdminEmptyState,
     AdminListToolbar,
   } from "$components/patterns/admin/index.js";
-  import { Input, Switch } from "$components/ui/index.js";
+  import { Dialog, Input, Switch, Tabs } from "$components/ui/index.js";
   import {
-    History,
+    ArrowLeft,
     Plus,
     RefreshCw,
     Search,
-    Server,
+    Settings,
     Sparkles,
     Trash2,
     TriangleAlert,
@@ -20,6 +19,7 @@
   import { builtApiPath } from "$lib/webapp/publicApi";
   import type { AdminApi } from "../adminStores";
   import PluginImportDialog from "./PluginImportDialog.svelte";
+  import PluginHost from "./PluginHost.svelte";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type Installation = {
@@ -28,14 +28,29 @@
     publisher: string;
     enabled: boolean;
     status: string;
-    source?: { kind: string } | null;
+    name?: string;
+    description?: string;
+    preview_url?: string;
+    source?: { kind: string; url?: string; ref?: string; sha256?: string } | null;
   };
-  type Operation = { id: string; action: string; plugin: string; status?: string };
+  type PluginCard = { id: string; installation?: Installation; bundled: boolean };
+  type SettingsView = {
+    id: string;
+    view: string;
+    label?: string;
+    i18nKey?: string;
+    order?: number;
+  };
+  type RuntimePlugin = {
+    id: string;
+    digest: string;
+    entry: string;
+    settings_tabs?: SettingsView[];
+  };
   type Inventory = {
     generation: number;
     installations: Record<string, Installation>;
     bundled: Array<{ id: string; source: string; status: string }>;
-    operations: Operation[];
     failed_generation?: number | null;
     failure?: string;
     observations?: Record<string, { generation: number; status: string }>;
@@ -46,19 +61,35 @@
     generation: 0,
     installations: {},
     bundled: [],
-    operations: [],
   });
   let busy = $state(false);
   let error = $state("");
   let query = $state("");
   let importOpen = $state(false);
-  const installed = $derived(
-    Object.entries(inventory.installations).filter(([id]) =>
-      `${id} ${inventory.installations[id].publisher}`.toLowerCase().includes(query.toLowerCase())
-    )
-  );
-  const bundled = $derived(
-    inventory.bundled.filter((plugin) => plugin.id.toLowerCase().includes(query.toLowerCase()))
+  let selectedId = $state("");
+  let activeTab = $state("overview");
+  let packageOpen = $state(false);
+  let packageId = $state("");
+  let runtime = $state<RuntimePlugin | null>(null);
+  let runtimeLoading = $state(false);
+  let activeSettingsView = $state("");
+  let availableUpdates = $state<Record<string, boolean>>({});
+  const cards = $derived.by(() => {
+    const byId = new Map<string, PluginCard>();
+    for (const plugin of inventory.bundled) byId.set(plugin.id, { id: plugin.id, bundled: true });
+    for (const [id, installation] of Object.entries(inventory.installations)) {
+      byId.set(id, { id, bundled: byId.has(id), installation });
+    }
+    return [...byId.values()].filter(({ id, installation }) =>
+      `${id} ${installation?.name || ""} ${installation?.publisher || ""}`
+        .toLowerCase()
+        .includes(query.trim().toLowerCase())
+    );
+  });
+  const selected = $derived(cards.find((card) => card.id === selectedId));
+  const packageCard = $derived(cards.find((card) => card.id === packageId));
+  const settingsTabs = $derived(
+    [...(runtime?.settings_tabs || [])].sort((a, b) => (a.order || 0) - (b.order || 0))
   );
   const failed = $derived(inventory.failed_generation === inventory.generation);
 
@@ -77,14 +108,37 @@
       : at("plugins_disabled", {}, "Disabled");
   }
 
-  function actionLabel(action: string): string {
-    const labels: Record<string, string> = {
-      install: at("plugins_activity_install", {}, "Installed"),
-      enable: at("plugins_activity_enable", {}, "Enabled"),
-      disable: at("plugins_activity_disable", {}, "Disabled"),
-      remove: at("plugins_activity_remove", {}, "Removed"),
-    };
-    return labels[action] || action.replaceAll("_", " ");
+  function routeToPlugin(id: string, tab = "overview"): void {
+    selectedId = id;
+    activeTab = tab;
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (id) url.searchParams.set("plugin", id);
+      else url.searchParams.delete("plugin");
+      if (id && tab !== "overview") url.searchParams.set("tab", tab);
+      else url.searchParams.delete("tab");
+      window.history.pushState(null, "", url);
+    }
+    if (!id) runtime = null;
+    else if (runtime?.id !== id) void loadRuntime(id);
+  }
+
+  async function loadRuntime(id: string): Promise<void> {
+    runtime = null;
+    runtimeLoading = true;
+    try {
+      const result = await api("/admin/plugins/runtime");
+      if (selectedId === id && result?.ok) {
+        runtime = (result.plugins as RuntimePlugin[]).find((plugin) => plugin.id === id) || null;
+        activeSettingsView =
+          [...(runtime?.settings_tabs || [])].sort((a, b) => (a.order || 0) - (b.order || 0))[0]
+            ?.id || "";
+      }
+    } catch {
+      // The package overview remains usable when an optional frontend is unavailable.
+    } finally {
+      if (selectedId === id) runtimeLoading = false;
+    }
   }
 
   async function run(action: () => Promise<void>): Promise<void> {
@@ -104,6 +158,16 @@
     const result = await api("/admin/plugins");
     if (!result?.ok) throw new Error(responseError(result, "plugins_unavailable"));
     inventory = result as unknown as Inventory;
+    void loadUpdates();
+  }
+
+  async function loadUpdates(): Promise<void> {
+    try {
+      const result = await api("/admin/plugins/updates");
+      if (result?.ok) availableUpdates = (result.updates || {}) as Record<string, boolean>;
+    } catch {
+      // Update discovery is optional and never blocks inventory or settings.
+    }
   }
 
   async function toggle(id: string, enabled: boolean): Promise<void> {
@@ -136,158 +200,295 @@
 
   onMount(() => {
     void run(load);
+    const sync = () => {
+      const url = new URL(window.location.href);
+      selectedId = url.searchParams.get("plugin") || "";
+      activeTab = url.searchParams.get("tab") || "overview";
+      if (selectedId && runtime?.id !== selectedId) void loadRuntime(selectedId);
+    };
+    sync();
+    window.addEventListener("popstate", sync);
+    return () => window.removeEventListener("popstate", sync);
   });
 </script>
 
 <div class="plugins-section">
-  <AdminListToolbar
-    total={Object.keys(inventory.installations).length + inventory.bundled.length}
-    totalLabel={at("plugins_installed", {}, "Installed")}
-  >
-    {#snippet search()}
-      <div class="plugin-search">
-        <Search size={16} />
-        <Input
-          bind:value={query}
-          placeholder={at("plugins_search", {}, "Search plugins")}
-          aria-label={at("plugins_search", {}, "Search plugins")}
-        />
-      </div>
-    {/snippet}
-    {#snippet actions()}
-      <AdminButton size="sm" variant="primary" onclick={() => (importOpen = true)}
-        ><Plus size={15} />{at("plugins_add", {}, "Add plugin")}</AdminButton
-      >
-      <AdminButton size="sm" onclick={() => void run(load)} disabled={busy}
-        ><RefreshCw size={14} />{at("btn_refresh", {}, "Refresh")}</AdminButton
-      >
-    {/snippet}
-  </AdminListToolbar>
-
-  {#if error}<p class="admin-error" role="alert">{error}</p>{/if}
-  {#if failed}
-    <div class="runtime-alert" role="alert">
-      <TriangleAlert size={19} />
-      <div>
-        <strong>{at("plugins_runtime_failed_title", {}, "Plugin startup failed")}</strong>
-        <p>
-          {at(
-            "plugins_runtime_failed_help",
-            {},
-            "The application is running in recovery mode. Check the migration and startup logs before retrying."
-          )}
-        </p>
-        {#if inventory.failure}<code>{inventory.failure}</code>{/if}
-      </div>
-    </div>
-  {/if}
-
-  <div class="plugin-library-grid">
-    {#each bundled as plugin (plugin.id)}
-      <article class="plugin-card">
-        <div class="plugin-card-head">
-          <span class="plugin-icon"><Server size={22} /></span>
-          <AdminBadge variant="muted"
-            >{at("plugins_managed_by_image", {}, "Managed by image")}</AdminBadge
-          >
-        </div>
-        <div class="plugin-card-body">
-          <h3>{plugin.id}</h3>
-          <p>{at("plugins_bundled_description", {}, "Included with the application image")}</p>
-          <span class="plugin-state"
-            ><span class="state-dot"></span>{at("plugins_enabled", {}, "Enabled")}</span
-          >
-        </div>
-      </article>
-    {/each}
-    {#each installed as [id, plugin] (id)}
-      <article class="plugin-card" class:active={plugin.enabled} data-plugin-id={id}>
-        <div class="plugin-card-head">
-          <span class="plugin-icon"><Sparkles size={22} /></span>
-          <AdminBadge>{plugin.version}</AdminBadge>
-        </div>
-        <div class="plugin-card-body">
-          <h3>{id}</h3>
-          <p>{at("plugins_publisher", {}, "Publisher")}: {plugin.publisher}</p>
-          <div class="plugin-card-controls">
-            <span
-              class="plugin-state"
-              class:pending={plugin.status === "pending_restart" || failed}
-            >
-              <span class="state-dot"></span>{statusLabel(plugin)}
-            </span>
-            <Switch.Root
-              aria-label={at("plugins_toggle_named", { name: id }, "Enable {name}")}
-              checked={plugin.enabled}
-              onCheckedChange={(checked) => void toggle(id, checked)}
-              disabled={busy}
-              class="admin-switch-root"><Switch.Thumb class="admin-switch-thumb" /></Switch.Root
-            >
-          </div>
-          <details class="plugin-details">
-            <summary>{at("plugins_details", {}, "Package details")}</summary>
-            <dl>
-              <div>
-                <dt>SHA-256</dt>
-                <dd class="digest">{plugin.digest}</dd>
-              </div>
-              <div>
-                <dt>{at("plugins_source", {}, "Source")}</dt>
-                <dd>
-                  {plugin.source?.kind === "image"
-                    ? at("plugins_managed_by_image", {}, "Managed by image")
-                    : plugin.source?.kind || at("plugins_uploaded", {}, "Uploaded ZIP")}
-                </dd>
-              </div>
-            </dl>
-            {#if !plugin.enabled && plugin.source?.kind !== "image"}
-              <AdminButton size="sm" disabled={busy} onclick={() => void remove(id)}
-                ><Trash2 size={14} />{at("plugins_remove", {}, "Remove package")}</AdminButton
-              >
-            {/if}
-          </details>
-        </div>
-      </article>
-    {/each}
-    {#if !query.trim()}
-      <button type="button" class="plugin-add-card" onclick={() => (importOpen = true)}>
-        <span class="add-symbol"><Plus size={25} /></span>
-        <strong>{at("plugins_add", {}, "Add plugin")}</strong>
-        <span
-          >{at(
-            "plugins_add_hint",
-            {},
-            "Upload a signed ZIP or choose a public Git repository."
-          )}</span
-        >
-      </button>
-    {/if}
-  </div>
-
-  {#if !installed.length && !bundled.length && query.trim()}
-    <AdminEmptyState
-      >{at("plugins_no_results", {}, "No plugins match your search.")}</AdminEmptyState
+  {#if !selectedId}
+    <AdminListToolbar
+      total={new Set([
+        ...Object.keys(inventory.installations),
+        ...inventory.bundled.map((item) => item.id),
+      ]).size}
+      totalLabel={at("plugins_installed", {}, "Installed")}
     >
-  {/if}
+      {#snippet search()}
+        <div class="plugin-search">
+          <Search size={16} />
+          <Input
+            bind:value={query}
+            placeholder={at("plugins_search", {}, "Search plugins")}
+            aria-label={at("plugins_search", {}, "Search plugins")}
+          />
+        </div>
+      {/snippet}
+      {#snippet actions()}
+        <AdminButton size="sm" variant="primary" onclick={() => (importOpen = true)}
+          ><Plus size={15} />{at("plugins_add", {}, "Add plugin")}</AdminButton
+        >
+        <AdminButton size="sm" onclick={() => void run(load)} disabled={busy}
+          ><RefreshCw size={14} />{at("btn_refresh", {}, "Refresh")}</AdminButton
+        >
+      {/snippet}
+    </AdminListToolbar>
 
-  {#if inventory.operations.length}
-    <details class="plugin-activity">
-      <summary
-        ><History size={16} />{at("plugins_activity", {}, "Recent changes")}
-        <span>{inventory.operations.length}</span></summary
+    {#if error}<p class="admin-error" role="alert">{error}</p>{/if}
+    {#if failed}
+      <div class="runtime-alert" role="alert">
+        <TriangleAlert size={19} />
+        <div>
+          <strong>{at("plugins_runtime_failed_title", {}, "Plugin startup failed")}</strong>
+          <p>
+            {at(
+              "plugins_runtime_failed_help",
+              {},
+              "The application is running in recovery mode. Check the migration and startup logs before retrying."
+            )}
+          </p>
+          {#if inventory.failure}<code>{inventory.failure}</code>{/if}
+        </div>
+      </div>
+    {/if}
+
+    <div class="plugin-library-grid">
+      {#each cards as card (card.id)}
+        <article
+          class="plugin-card"
+          class:active={card.installation?.enabled || card.bundled}
+          data-plugin-id={card.id}
+        >
+          <div class="plugin-preview">
+            <div class="plugin-preview-fallback"><Sparkles size={36} /></div>
+            {#if card.installation?.preview_url}
+              <img
+                src={card.installation.preview_url}
+                alt={at(
+                  "plugins_preview_named",
+                  { name: card.installation.name || card.id },
+                  "Preview of {name}"
+                )}
+                loading="lazy"
+                onload={(event) => {
+                  (event.currentTarget as HTMLImageElement).style.display = "";
+                }}
+                onerror={(event) => {
+                  (event.currentTarget as HTMLImageElement).style.display = "none";
+                }}
+              />
+            {/if}
+          </div>
+          <div class="plugin-card-body">
+            <div class="plugin-card-title">
+              <h3>{card.installation?.name || card.id}</h3>
+              {#if availableUpdates[card.id]}<span
+                  class="plugin-update-dot"
+                  title={at("plugins_update_available", {}, "Update available")}
+                  aria-label={at("plugins_update_available", {}, "Update available")}
+                ></span>{/if}
+              {#if card.installation}
+                <button
+                  type="button"
+                  class="plugin-version"
+                  onclick={() => {
+                    packageId = card.id;
+                    packageOpen = true;
+                  }}
+                  aria-label={at(
+                    "plugins_version_details",
+                    { version: card.installation?.version },
+                    "Package version {version}: details"
+                  )}>{card.installation.version}</button
+                >
+              {/if}
+            </div>
+            <p>
+              {card.installation?.description ||
+                at("plugins_bundled_description", {}, "Included with the application image")}
+            </p>
+            <div class="plugin-card-controls">
+              <span
+                class="plugin-state"
+                class:pending={card.installation?.status === "pending_restart" || failed}
+                ><span class="state-dot"></span>{card.installation
+                  ? statusLabel(card.installation)
+                  : at("plugins_enabled", {}, "Enabled")}</span
+              >
+              {#if card.installation}
+                <Switch.Root
+                  aria-label={at("plugins_toggle_named", { name: card.id }, "Enable {name}")}
+                  checked={card.installation.enabled}
+                  onCheckedChange={(checked) => void toggle(card.id, checked)}
+                  disabled={busy}
+                  class="admin-switch-root"><Switch.Thumb class="admin-switch-thumb" /></Switch.Root
+                >
+              {/if}
+            </div>
+            <div class="plugin-card-actions">
+              <AdminButton size="sm" onclick={() => routeToPlugin(card.id, "settings")}
+                ><Settings size={14} />{at("plugins_settings", {}, "Settings")}</AdminButton
+              >
+            </div>
+          </div>
+        </article>
+      {/each}
+      {#if !query.trim()}
+        <button type="button" class="plugin-add-card" onclick={() => (importOpen = true)}>
+          <span class="add-symbol"><Plus size={25} /></span>
+          <strong>{at("plugins_add", {}, "Add plugin")}</strong>
+          <span
+            >{at(
+              "plugins_add_hint",
+              {},
+              "Upload a signed ZIP or choose a public Git repository."
+            )}</span
+          >
+        </button>
+      {/if}
+    </div>
+
+    {#if !cards.length && query.trim()}
+      <AdminEmptyState
+        >{at("plugins_no_results", {}, "No plugins match your search.")}</AdminEmptyState
       >
-      <ul>
-        {#each inventory.operations.slice(-8).reverse() as operation (operation.id)}
-          <li>
-            <strong>{actionLabel(operation.action)}</strong><span>{operation.plugin}</span
-            >{#if operation.status}<AdminBadge
-                variant={operation.status === "completed" ? "success" : "muted"}
-                >{operation.status}</AdminBadge
-              >{/if}
-          </li>
-        {/each}
-      </ul>
-    </details>
+    {/if}
+  {:else if selected}
+    <div class="plugin-detail">
+      <AdminButton size="sm" variant="ghost" onclick={() => routeToPlugin("")}
+        ><ArrowLeft size={15} />{at("plugins_back", {}, "All plugins")}</AdminButton
+      >
+      <div class="plugin-detail-heading">
+        <h3>{selected.installation?.name || selected.id}</h3>
+        {#if availableUpdates[selected.id]}<span
+            class="plugin-update-dot"
+            title={at("plugins_update_available", {}, "Update available")}
+          ></span>{/if}
+        {#if selected.installation}<button
+            type="button"
+            class="plugin-version"
+            onclick={() => {
+              packageId = selected.id;
+              packageOpen = true;
+            }}>{selected.installation.version}</button
+          >{/if}
+      </div>
+      <Tabs.Root
+        class="admin-tabs-root"
+        value={activeTab}
+        onValueChange={(value) => routeToPlugin(selected.id, value)}
+      >
+        <Tabs.List
+          class="admin-tabs-list"
+          aria-label={at("plugins_detail_tabs", {}, "Plugin details")}
+        >
+          <Tabs.Trigger value="overview" class="admin-tabs-trigger"
+            >{at("plugins_overview", {}, "Overview")}</Tabs.Trigger
+          >
+          <Tabs.Trigger value="settings" class="admin-tabs-trigger"
+            >{at("plugins_settings", {}, "Settings")}</Tabs.Trigger
+          >
+          <Tabs.Trigger value="updates" class="admin-tabs-trigger"
+            >{at("plugins_updates", {}, "Updates")}</Tabs.Trigger
+          >
+        </Tabs.List>
+      </Tabs.Root>
+      {#if activeTab === "overview"}
+        <div class="plugin-detail-content">
+          <p>
+            {selected.installation?.description ||
+              at("plugins_bundled_description", {}, "Included with the application image")}
+          </p>
+          <p>
+            {at("plugins_publisher", {}, "Publisher")}: {selected.installation?.publisher || "—"}
+          </p>
+        </div>
+      {:else if activeTab === "settings"}
+        <div
+          class="plugin-detail-content"
+          class:plugin-settings-content={runtime && settingsTabs.length > 0}
+        >
+          {#if runtimeLoading}
+            <p role="status">{at("loading", {}, "Loading…")}</p>
+          {:else if runtime && settingsTabs.length}
+            {#if settingsTabs.length > 1}
+              <Tabs.Root
+                class="admin-tabs-root"
+                value={activeSettingsView}
+                onValueChange={(value) => (activeSettingsView = value)}
+              >
+                <Tabs.List
+                  class="admin-tabs-list"
+                  aria-label={at("plugins_settings", {}, "Settings")}
+                >
+                  {#each settingsTabs as view (view.id)}
+                    <Tabs.Trigger value={view.id} class="admin-tabs-trigger"
+                      >{at(view.i18nKey || view.id, {}, view.label || view.id)}</Tabs.Trigger
+                    >
+                  {/each}
+                </Tabs.List>
+              </Tabs.Root>
+            {/if}
+            {#each settingsTabs.filter((view) => view.id === activeSettingsView) as view (view.id)}
+              <section aria-label={at(view.i18nKey || view.id, {}, view.label || view.id)}>
+                <PluginHost runtimeViewId={view.view} runtimeEntry={runtime.entry} {at} />
+              </section>
+            {/each}
+          {:else}
+            <p>{at("plugins_no_settings", {}, "This plugin does not provide settings yet.")}</p>
+          {/if}
+        </div>
+      {:else if activeTab === "updates"}
+        <div class="plugin-detail-content">
+          {#if availableUpdates[selected.id]}<p class="plugin-update-message">
+              {at("plugins_update_available", {}, "Update available")}
+            </p>{/if}
+          {#if selected.installation?.source?.kind === "image" || selected.bundled}
+            <p>
+              {at(
+                "plugins_image_update_help",
+                {},
+                "This plugin is updated with the application image. Install a new image to update it."
+              )}
+            </p>
+          {:else if selected.installation?.source?.url}
+            <p>
+              {at(
+                "plugins_repository_update_help",
+                {},
+                "Updates are installed from a verified package in the plugin repository."
+              )}
+            </p>
+            <AdminButton size="sm" onclick={() => (importOpen = true)}
+              >{at("plugins_check_update", {}, "Check and install update")}</AdminButton
+            >
+          {:else}
+            <p>
+              {at(
+                "plugins_archive_update_help",
+                {},
+                "Upload a newer signed package from the same publisher to update this plugin."
+              )}
+            </p>
+            <AdminButton size="sm" onclick={() => (importOpen = true)}
+              >{at("plugins_add", {}, "Add plugin")}</AdminButton
+            >
+          {/if}
+          {#if selected.installation && !selected.installation.enabled && selected.installation.source?.kind !== "image"}
+            <AdminButton size="sm" disabled={busy} onclick={() => void remove(selected.id)}
+              ><Trash2 size={14} />{at("plugins_remove", {}, "Remove package")}</AdminButton
+            >
+          {/if}
+        </div>
+      {/if}
+    </div>
   {/if}
 </div>
 
@@ -296,9 +497,48 @@
   {at}
   open={importOpen}
   generation={inventory.generation}
+  initialRepository={selected?.installation?.source?.url || ""}
+  initialRef={selected?.installation?.source?.ref || ""}
   onclose={() => (importOpen = false)}
   oninstalled={() => run(load)}
 />
+
+<Dialog
+  open={packageOpen}
+  title={at("plugins_details", {}, "Package details")}
+  closeLabel={at("close", {}, "Close")}
+  onclose={() => (packageOpen = false)}
+  class="admin-dialog plugin-package-dialog"
+>
+  {#if packageCard?.installation}
+    <dl class="plugin-package-meta">
+      <div>
+        <dt>{at("plugins_name", {}, "Name")}</dt>
+        <dd>{packageCard.installation.name || packageCard.id}</dd>
+      </div>
+      <div>
+        <dt>{at("plugins_version", {}, "Version")}</dt>
+        <dd>{packageCard.installation.version}</dd>
+      </div>
+      <div>
+        <dt>{at("plugins_publisher", {}, "Publisher")}</dt>
+        <dd>{packageCard.installation.publisher}</dd>
+      </div>
+      <div>
+        <dt>{at("plugins_source", {}, "Source")}</dt>
+        <dd>
+          {packageCard.installation.source?.kind === "image"
+            ? at("plugins_image_source", {}, "Application image")
+            : packageCard.installation.source?.kind || at("plugins_uploaded", {}, "Uploaded ZIP")}
+        </dd>
+      </div>
+      <div>
+        <dt>SHA-256</dt>
+        <dd class="digest">{packageCard.installation.digest}</dd>
+      </div>
+    </dl>
+  {/if}
+</Dialog>
 
 <style>
   .plugins-section {
@@ -321,7 +561,7 @@
   }
   .plugin-library-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: 16px;
   }
   .plugin-card {
@@ -336,16 +576,35 @@
   .plugin-card.active {
     border-color: color-mix(in srgb, var(--accent) 65%, var(--admin-border));
   }
-  .plugin-card-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: start;
-    gap: 12px;
-    padding: 16px;
+  .plugin-preview {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
     border-bottom: 1px solid var(--admin-border);
     background: var(--admin-surface-2);
   }
-  .plugin-icon,
+  .plugin-preview img {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .plugin-preview-fallback {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    color: var(--accent);
+    background:
+      radial-gradient(
+        circle at 50% 50%,
+        color-mix(in srgb, var(--accent) 18%, transparent),
+        transparent 65%
+      ),
+      var(--admin-surface-2);
+  }
   .add-symbol {
     display: grid;
     place-items: center;
@@ -370,6 +629,40 @@
   }
   h3 {
     font-size: 15px;
+  }
+  .plugin-card-title,
+  .plugin-detail-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .plugin-version {
+    flex: none;
+    padding: 3px 8px;
+    border: 1px solid var(--admin-border);
+    border-radius: 999px;
+    color: var(--admin-muted);
+    background: var(--admin-surface-2);
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .plugin-version:hover {
+    border-color: var(--accent);
+    color: var(--admin-text);
+  }
+  .plugin-update-dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--danger, #ec4d62);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger, #ec4d62) 18%, transparent);
+  }
+  .plugin-update-message {
+    color: var(--danger, #ec4d62) !important;
+    font-weight: 650;
   }
   .plugin-card-body > p {
     min-height: 38px;
@@ -402,30 +695,50 @@
   .plugin-state.pending .state-dot {
     background: var(--warning, #d7a33b);
   }
-  .plugin-details {
-    padding-top: 10px;
+  .plugin-card-actions {
+    padding-top: 12px;
     border-top: 1px solid var(--admin-border);
-    font-size: 11px;
   }
-  .plugin-details summary {
-    cursor: pointer;
-    color: var(--admin-muted);
-  }
-  .plugin-details dl {
+  .plugin-detail {
     display: grid;
-    gap: 8px;
-    margin: 10px 0;
+    gap: 16px;
   }
-  .plugin-details dl > div {
-    display: grid;
-    gap: 3px;
+  .plugin-detail > :global(button:first-child) {
+    justify-self: start;
   }
-  .plugin-details dt {
+  .plugin-detail-content {
+    padding: 18px;
+    border: 1px solid var(--admin-border);
+    border-radius: 12px;
+    background: var(--admin-surface);
+  }
+  .plugin-settings-content {
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+  .plugin-detail-content p {
     color: var(--admin-muted);
+    font-size: 13px;
+    line-height: 1.6;
   }
-  .plugin-details dd {
+  .plugin-package-meta {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+  }
+  .plugin-package-meta > div {
+    display: grid;
+    gap: 4px;
+  }
+  .plugin-package-meta dt {
+    color: var(--admin-muted);
+    font-size: 12px;
+  }
+  .plugin-package-meta dd {
     margin: 0;
     overflow-wrap: anywhere;
+    font-size: 13px;
   }
   .digest {
     font-family: ui-monospace, monospace;
@@ -477,40 +790,6 @@
     margin-top: 7px;
     font-size: 11px;
     overflow-wrap: anywhere;
-  }
-  .plugin-activity {
-    padding: 14px;
-    border: 1px solid var(--admin-border);
-    border-radius: 12px;
-    background: var(--admin-surface);
-  }
-  .plugin-activity summary {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 650;
-  }
-  .plugin-activity summary span {
-    color: var(--admin-muted);
-    font-weight: 400;
-  }
-  .plugin-activity ul {
-    list-style: none;
-    margin: 12px 0 0;
-    padding: 0;
-  }
-  .plugin-activity li {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 9px 0;
-    border-top: 1px solid var(--admin-border);
-    font-size: 12px;
-  }
-  .plugin-activity li span {
-    color: var(--admin-muted);
   }
   @media (max-width: 1050px) {
     .plugin-library-grid {

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from bot.plugins.packages import PluginPackageError
-from bot.plugins.sources import _repository, _safe_url
+from bot.plugins.sources import _repository, _safe_url, release_version
 
 
 @pytest.mark.parametrize(
@@ -42,3 +42,19 @@ def test_download_hosts_are_separate_from_repository_inputs() -> None:
     _safe_url("https://raw.githubusercontent.com/example/plugin/" + "a" * 40 + "/plugin.zip")
     with pytest.raises(PluginPackageError, match="invalid_repository_url"):
         _repository("https://raw.githubusercontent.com/example/plugin")
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("1.2.3", (1, 2, 3)),
+        ("1.2.3-dev", None),
+        ("01.2.3", None),
+        ("v1.2.3", None),
+        (None, None),
+    ],
+)
+def test_update_badge_requires_a_stable_release_version(
+    value: object, expected: tuple[int, int, int] | None
+) -> None:
+    assert release_version(value) == expected

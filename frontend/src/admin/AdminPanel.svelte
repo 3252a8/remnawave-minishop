@@ -178,7 +178,9 @@
 
   const featureSet = $derived(new Set<string>((settingsStore.features || []) as string[]));
   const visibleSections: AdminSectionDescriptor[] = $derived(
-    ADMIN_SECTIONS.filter((section) => isAdminSectionVisible(section, featureSet))
+    ADMIN_SECTIONS.filter(
+      (section) => !section.hideInNavigation && isAdminSectionVisible(section, featureSet)
+    )
   );
   const NAV_GROUPS: NavGroup[] = $derived(
     ADMIN_SECTION_GROUPS.map((group) => ({

@@ -37,7 +37,7 @@ from bot.plugins.packages import (
     stage_archive,
     trust_publisher,
 )
-from bot.plugins.sources import fetch_ready_package
+from bot.plugins.sources import check_ready_package_release, fetch_ready_package, release_version
 
 from .auth import _require_admin_user_id
 from .common import _error, _ok
@@ -96,7 +96,27 @@ def guarded(handler: Any) -> Any:
 
 @guarded
 async def admin_plugin_packages_route(request: web.Request) -> web.Response:
-    state = await asyncio.to_thread(read_state, package_root())
+    root = package_root()
+    state = await asyncio.to_thread(read_state, root)
+    installations = {}
+    for plugin_id, installation in state["installations"].items():
+        summary = dict(installation)
+        try:
+            release = root / "releases" / plugin_id / installation["digest"]
+            manifest = json.loads((release / "plugin.json").read_text(encoding="utf-8"))
+            name = manifest.get("name")
+            description = manifest.get("description")
+            summary["name"] = name[:80] if isinstance(name, str) else plugin_id
+            summary["description"] = description[:240] if isinstance(description, str) else ""
+            frontend = manifest.get("frontend")
+            preview = frontend.get("preview") if isinstance(frontend, dict) else None
+            if isinstance(preview, str) and f"frontend/{preview}" in manifest.get("files", {}):
+                summary["preview_url"] = (
+                    f"/api/admin/plugins/assets/{plugin_id}/{installation['digest']}/{preview}"
+                )
+        except (OSError, ValueError, TypeError, KeyError):
+            logger.warning("Plugin package metadata unavailable for %s", plugin_id)
+        installations[plugin_id] = summary
     from importlib import metadata
 
     bundled = [
@@ -106,7 +126,7 @@ async def admin_plugin_packages_route(request: web.Request) -> web.Response:
     return _ok(
         {
             "generation": state["generation"],
-            "installations": state["installations"],
+            "installations": installations,
             "operations": state.get("operations", []),
             "bundled": bundled,
             "observations": state.get("observations", {}),
@@ -114,6 +134,65 @@ async def admin_plugin_packages_route(request: web.Request) -> web.Response:
             "failure": state.get("failure", ""),
         }
     )
+
+
+_update_cache: dict[tuple[str, str, str], tuple[float, bool]] = {}
+
+
+@guarded
+async def admin_plugin_updates_route(request: web.Request) -> web.Response:
+    """Bounded, optional checks for public repository packages only."""
+    state = await asyncio.to_thread(read_state, package_root())
+    now = asyncio.get_running_loop().time()
+    semaphore = asyncio.Semaphore(3)
+
+    async def check(plugin_id: str, installation: dict[str, Any]) -> tuple[str, bool]:
+        source = installation.get("source")
+        if not isinstance(source, dict):
+            return plugin_id, False
+        if source.get("kind") not in {"github", "gitlab"}:
+            return plugin_id, False
+        url, ref, installed_digest = (
+            source.get("url"),
+            source.get("ref"),
+            source.get("sha256"),
+        )
+        if not (
+            isinstance(url, str)
+            and url
+            and isinstance(ref, str)
+            and ref
+            and isinstance(installed_digest, str)
+            and installed_digest
+        ):
+            return plugin_id, False
+        key = (url, ref, installed_digest + ":" + str(installation.get("version", "")))
+        cached = _update_cache.get(key)
+        if cached and cached[0] > now:
+            return plugin_id, cached[1]
+        async with semaphore:
+            try:
+                remote_digest, remote_version = await check_ready_package_release(url, ref)
+            except PluginPackageError:
+                return plugin_id, False
+            installed_version = release_version(installation.get("version"))
+            available = bool(
+                remote_digest != installed_digest
+                and remote_version is not None
+                and installed_version is not None
+                and remote_version > installed_version
+            )
+            if len(_update_cache) >= 256:
+                _update_cache.clear()
+            _update_cache[key] = (now + 600, available)
+            return plugin_id, available
+
+    updates = dict(
+        await asyncio.gather(
+            *(check(id, item) for id, item in list(state["installations"].items())[:12])
+        )
+    )
+    return _ok({"updates": updates})
 
 
 @guarded
@@ -246,6 +325,7 @@ def _active_frontends(root: Path) -> tuple[int, list[dict[str, Any]]]:
                 "section_groups": frontend.get("section_groups", []),
                 "section_tabs": frontend.get("section_tabs", []),
                 "user_panels": frontend.get("user_panels", []),
+                "settings_tabs": frontend.get("settings_tabs", []),
                 "styles": [
                     f"/api/admin/plugins/assets/{plugin_id}/{installation['digest']}/{style}"
                     for style in frontend.get("styles", [])
@@ -322,6 +402,7 @@ async def admin_plugin_asset_route(request: web.Request) -> web.Response:
 
 def setup_plugin_packages(router: web.UrlDispatcher) -> None:
     router.add_get("/api/admin/plugins", admin_plugin_packages_route)
+    router.add_get("/api/admin/plugins/updates", admin_plugin_updates_route)
     router.add_post("/api/admin/plugins/preview", admin_plugin_preview_route)
     router.add_post("/api/admin/plugins/stage", admin_plugin_stage_route)
     router.add_post("/api/admin/plugins/repository/preview", admin_plugin_repository_preview_route)
@@ -351,6 +432,10 @@ register_contract(
             }
         )
     ),
+)
+register_contract(
+    "admin_plugin_updates_route",
+    RouteContract(response_schema=ok_envelope_with({"updates": JSON_OBJECT_SCHEMA})),
 )
 for _name in ("admin_plugin_preview_route", "admin_plugin_stage_route"):
     register_contract(

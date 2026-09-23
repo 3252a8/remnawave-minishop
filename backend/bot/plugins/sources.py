@@ -23,6 +23,7 @@ from .packages import MAX_ARCHIVE_BYTES, PluginPackageError
 _HOSTS = frozenset({"api.github.com", "raw.githubusercontent.com", "github.com", "gitlab.com"})
 _SHA = re.compile(r"^[0-9a-f]{40}$")
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
+_RELEASE_VERSION = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 _PART = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
@@ -183,5 +184,50 @@ async def fetch_ready_package(url: str, ref: str = "") -> tuple[bytes, dict[str,
                 "artifact": artifact,
                 "sha256": digest,
             }
+    except (ClientError, TimeoutError, OSError) as exc:
+        raise PluginPackageError("repository_unavailable", status=502) from exc
+
+
+def release_version(value: object) -> tuple[int, int, int] | None:
+    match = _RELEASE_VERSION.fullmatch(value) if isinstance(value, str) else None
+    if not match:
+        return None
+    return int(match.group(1)), int(match.group(2)), int(match.group(3))
+
+
+async def check_ready_package_release(
+    url: str, ref: str
+) -> tuple[str, tuple[int, int, int] | None]:
+    """Read only the ready-package index; never fetch an archive during an update check."""
+    host, project = _repository(url)
+    if not ref or len(ref) > 160 or any(char in ref for char in "\\\r\n?&#"):
+        raise PluginPackageError("invalid_repository_ref")
+    connector = TCPConnector(resolver=_PublicResolver(), ttl_dns_cache=0, limit=2)
+    try:
+        async with ClientSession(
+            connector=connector,
+            timeout=ClientTimeout(total=5),
+            headers={"User-Agent": "Minishop-Plugin-Update-Check", "Accept-Encoding": "identity"},
+            cookie_jar=DummyCookieJar(),
+            trust_env=False,
+            auto_decompress=False,
+        ) as session:
+            if host == "github.com":
+                raw = f"https://raw.githubusercontent.com/{project}/{quote(ref, safe='')}"
+                index = await _json(session, f"{raw}/minishop-plugin.json")
+            else:
+                base = f"https://gitlab.com/api/v4/projects/{quote(project, safe='')}"
+                index = await _json(
+                    session,
+                    f"{base}/repository/files/minishop-plugin.json/raw?ref={quote(ref, safe='')}",
+                )
+            digest = index.get("sha256")
+            if (
+                index.get("schema_version") != 1
+                or not isinstance(digest, str)
+                or not _DIGEST.fullmatch(digest)
+            ):
+                raise PluginPackageError("invalid_repository_index")
+            return digest, release_version(index.get("version"))
     except (ClientError, TimeoutError, OSError) as exc:
         raise PluginPackageError("repository_unavailable", status=502) from exc

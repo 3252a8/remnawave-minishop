@@ -19184,6 +19184,50 @@
         ]
       }
     },
+    "/api/admin/plugins/updates": {
+      "get": {
+        "operationId": "get_admin_plugin_updates_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "updates": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "updates"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Plugin Updates",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/plugins/{plugin_id}/enabled": {
       "post": {
         "operationId": "post_admin_plugin_enabled_route",

@@ -1370,6 +1370,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/plugins/updates": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Plugin Updates */
+    get: operations["get_admin_plugin_updates_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/plugins/{plugin_id}/enabled": {
     parameters: {
       query?: never;
@@ -12014,6 +12031,32 @@ export interface operations {
             generation?: number;
             /** @constant */
             ok: true;
+          };
+        };
+      };
+    };
+  };
+  get_admin_plugin_updates_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            updates: {
+              [key: string]: unknown;
+            };
           };
         };
       };

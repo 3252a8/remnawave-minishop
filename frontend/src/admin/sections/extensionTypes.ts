@@ -52,6 +52,8 @@ export interface AdminSectionRouteDefault {
 
 export interface AdminSectionDescriptor extends FeatureBoundDescriptor {
   id: string;
+  /** Keep a legacy deep link without a second sidebar destination. */
+  hideInNavigation?: boolean;
   group: string;
   order: number;
   i18nKey: string;
