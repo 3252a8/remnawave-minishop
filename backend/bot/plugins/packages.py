@@ -30,6 +30,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from config.theme_packages.paths import atomic_bytes, registry_lock
 
+from .capabilities import CORE_PLUGIN_CAPABILITIES
+
 MAX_ARCHIVE_BYTES = 96 * 1024 * 1024
 MAX_UNPACKED_BYTES = 384 * 1024 * 1024
 MAX_FILES = 4096
@@ -94,6 +96,11 @@ def _canonical_manifest(manifest: dict[str, Any]) -> bytes:
     )
 
 
+def _running_core_revision() -> str | None:
+    marker = Path(__file__).resolve().parents[3] / ".build-commit"
+    return marker.read_text(encoding="utf-8").strip() if marker.exists() else None
+
+
 def _trust_keys(root: Path) -> dict[str, str]:
     path = root / "trusted-publishers.json"
     if not path.exists():
@@ -143,13 +150,29 @@ def _validate_manifest(manifest: dict[str, Any]) -> None:
     core_revision = manifest.get("core_revision")
     if not isinstance(core_revision, str) or not re.fullmatch(r"[0-9a-f]{7,40}", core_revision):
         raise PluginPackageError("core_revision_required")
-    build_marker = Path(__file__).resolve().parents[3] / ".build-commit"
-    if build_marker.exists():
-        running_revision = build_marker.read_text(encoding="utf-8").strip()
-        if not core_revision.startswith(running_revision) and not running_revision.startswith(
-            core_revision
+    compatibility = manifest.get("core_compatibility")
+    if compatibility is None:
+        running_revision = _running_core_revision()
+        if running_revision is not None and not (
+            core_revision.startswith(running_revision) or running_revision.startswith(core_revision)
         ):
             raise PluginPackageError("incompatible_core_revision")
+    else:
+        if (
+            not isinstance(compatibility, dict)
+            or set(compatibility) != {"mode", "requires"}
+            or compatibility.get("mode") != "capabilities"
+            or not isinstance(compatibility.get("requires"), dict)
+            or not compatibility["requires"]
+        ):
+            raise PluginPackageError("invalid_core_compatibility")
+        for name, version in compatibility["requires"].items():
+            if (
+                not isinstance(name, str)
+                or type(version) is not int
+                or CORE_PLUGIN_CAPABILITIES.get(name) != version
+            ):
+                raise PluginPackageError("incompatible_core_capability")
     runtime = manifest.get("runtime")
     if not isinstance(runtime, dict):
         raise PluginPackageError("runtime_required")
@@ -181,6 +204,10 @@ def _validate_manifest(manifest: dict[str, Any]) -> None:
             raise PluginPackageError("nested_wheel_not_supported")
     if not any(name.startswith("backend/") for name in files):
         raise PluginPackageError("backend_payload_required")
+    if compatibility is not None and any(
+        not name.endswith(".py") for name in files if name.startswith("backend/")
+    ):
+        raise PluginPackageError("portable_backend_requires_python_source")
     module = backend["entry_point"].split(":", 1)[0].split(".", 1)[0]
     if module in {"bot", "config", "db", "sitecustomize", "usercustomize"}:
         raise PluginPackageError("reserved_python_namespace")

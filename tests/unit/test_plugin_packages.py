@@ -36,6 +36,7 @@ def _archive(
     *,
     files: dict[str, bytes] | None = None,
     frontend: dict[str, object] | None = None,
+    core_compatibility: dict[str, object] | None = None,
 ) -> bytes:
     files = files or {"backend/sample_plugin_module.py": b"loaded = 42\n"}
     manifest = {
@@ -62,6 +63,8 @@ def _archive(
     }
     if frontend is not None:
         manifest["frontend"] = frontend
+    if core_compatibility is not None:
+        manifest["core_compatibility"] = core_compatibility
     canonical = json.dumps(
         manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False
     ).encode()
@@ -123,6 +126,41 @@ def test_signed_package_requires_trust_then_activates_exact_generation(tmp_path:
     state = set_enabled(tmp_path, "sample-plugin", False, 7, 2)
     state = remove_plugin(tmp_path, "sample-plugin", 7, state["generation"])
     assert "sample-plugin" not in state["installations"]
+
+
+def test_portable_source_package_accepts_newer_core_revision(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("bot.plugins.packages._running_core_revision", lambda: "b" * 40)
+    private = Ed25519PrivateKey.generate()
+    with pytest.raises(PluginPackageError, match="incompatible_core_revision"):
+        inspect_archive(tmp_path, _archive(private))
+
+    compatibility: dict[str, object] = {
+        "mode": "capabilities",
+        "requires": {"support_connector": 1},
+    }
+    candidate = inspect_archive(tmp_path, _archive(private, core_compatibility=compatibility))
+    assert candidate.manifest["core_revision"] == "a" * 40
+    assert candidate.reason == "publisher_not_trusted"
+
+    with pytest.raises(PluginPackageError, match="incompatible_core_capability"):
+        inspect_archive(
+            tmp_path,
+            _archive(
+                private,
+                core_compatibility={"mode": "capabilities", "requires": {"support_connector": 2}},
+            ),
+        )
+    with pytest.raises(PluginPackageError, match="portable_backend_requires_python_source"):
+        inspect_archive(
+            tmp_path,
+            _archive(
+                private,
+                files={"backend/sample_plugin_module.so": b"native"},
+                core_compatibility=compatibility,
+            ),
+        )
 
 
 def test_archive_rejects_case_collisions_and_bad_signature(tmp_path: Path) -> None:

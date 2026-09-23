@@ -365,7 +365,17 @@ ZIP содержит `plugin.json`, `signatures/ed25519.sig`, файлы `backen
 `publisher_fingerprint` — SHA-256 от 32 байт открытого Ed25519-ключа. В manifest указываются
 `schema_version: 1`, `id`, `version`, `publisher`, `plugin_api: 1`, `frontend_host_api: 1`,
 `core_revision`, `runtime` (`python`, `system`, `machine`), `backend.entry_point` и `files`.
-Версия Core и профиль Python/ОС/CPU должны совпадать с запущенным экземпляром.
+По умолчанию `core_revision` должен совпадать с запущенным экземпляром Core.
+Для пакета только с исходным Python-кодом можно указать
+`"core_compatibility":{"mode":"capabilities","requires":{"capability_name":1}}`.
+Тогда `core_revision` сохраняет сведения о проверенной сборке, а установщик
+проверяет версии требуемых публичных возможностей вместо точного commit.
+`capability_name` здесь — пример: укажите опубликованное имя из
+`bot.plugins.capabilities` и требуемую версию его контракта. Пакеты с бинарным
+backend не могут использовать этот режим. Профиль Python/ОС/CPU всё равно
+должен совпадать с запущенным экземпляром. При несовместимом изменении
+публичной возможности Core увеличивает её версию; пакет с прежней версией
+будет отклонён.
 
 Публичный GitHub/GitLab-репозиторий может содержать в корне `minishop-plugin.json`:
 
