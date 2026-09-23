@@ -28,6 +28,7 @@ from typing import Any
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
+from bot.utils.app_version import resolve_app_version_tag
 from config.theme_packages.paths import atomic_bytes, registry_lock
 
 from .capabilities import CORE_PLUGIN_CAPABILITIES
@@ -37,6 +38,7 @@ MAX_UNPACKED_BYTES = 384 * 1024 * 1024
 MAX_FILES = 4096
 IDENTIFIER = re.compile(r"^[a-z][a-z0-9-]{1,63}$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
+CORE_VERSION = re.compile(r"^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 PACKAGE_SCHEMA = 1
 FRONTEND_HOST_API = 1
 
@@ -101,6 +103,11 @@ def _running_core_revision() -> str | None:
     return marker.read_text(encoding="utf-8").strip() if marker.exists() else None
 
 
+def _core_version(value: str) -> tuple[int, int, int] | None:
+    match = CORE_VERSION.fullmatch(value)
+    return (int(match[1]), int(match[2]), int(match[3])) if match else None
+
+
 def _trust_keys(root: Path) -> dict[str, str]:
     path = root / "trusted-publishers.json"
     if not path.exists():
@@ -157,6 +164,17 @@ def _validate_manifest(manifest: dict[str, Any]) -> None:
             core_revision.startswith(running_revision) or running_revision.startswith(core_revision)
         ):
             raise PluginPackageError("incompatible_core_revision")
+    elif isinstance(compatibility, dict) and compatibility.get("mode") == "minimum_version":
+        if set(compatibility) != {"mode", "version"} or not isinstance(
+            compatibility.get("version"), str
+        ):
+            raise PluginPackageError("invalid_core_compatibility")
+        minimum = _core_version(compatibility["version"])
+        if minimum is None:
+            raise PluginPackageError("invalid_core_compatibility")
+        running = _core_version(resolve_app_version_tag())
+        if running is None or running < minimum:
+            raise PluginPackageError("incompatible_core_version")
     else:
         if (
             not isinstance(compatibility, dict)
@@ -303,7 +321,22 @@ def inspect_archive(root: Path, body: bytes) -> Candidate:
         for name, expected in expected_files.items():
             if hashlib.sha256(archive.read(name)).hexdigest() != expected:
                 raise PluginPackageError("package_file_hash_mismatch")
-        key_base64 = _trust_keys(root).get(manifest["publisher"])
+        embedded_key = manifest.get("publisher_public_key")
+        if embedded_key is not None and not isinstance(embedded_key, str):
+            raise PluginPackageError("invalid_publisher_key")
+        pinned_key = _trust_keys(root).get(manifest["publisher"])
+        key_base64 = pinned_key
+        if embedded_key is not None:
+            try:
+                raw_key = base64.b64decode(embedded_key, validate=True)
+                Ed25519PublicKey.from_public_bytes(raw_key)
+            except (ValueError, TypeError) as exc:
+                raise PluginPackageError("invalid_publisher_key") from exc
+            if hashlib.sha256(raw_key).hexdigest() != manifest.get("publisher_fingerprint"):
+                raise PluginPackageError("publisher_fingerprint_mismatch")
+            if pinned_key and pinned_key != embedded_key:
+                raise PluginPackageError("publisher_key_rotation_requires_recovery", status=409)
+            key_base64 = embedded_key
         if not key_base64:
             return Candidate(digest, manifest, False, "publisher_not_trusted")
         try:
@@ -311,7 +344,10 @@ def inspect_archive(root: Path, body: bytes) -> Candidate:
             key.verify(archive.read("signatures/ed25519.sig"), _canonical_manifest(manifest))
         except (ValueError, TypeError, KeyError, InvalidSignature) as exc:
             raise PluginPackageError("invalid_package_signature") from exc
-        return Candidate(digest, manifest, True, "verified")
+        trusted = bool(pinned_key)
+        return Candidate(
+            digest, manifest, trusted, "verified" if trusted else "publisher_not_trusted"
+        )
 
 
 def _state_path(root: Path) -> Path:

@@ -1,8 +1,8 @@
 <script lang="ts">
   import { focusFirstDialogControl } from "$lib/components/dialogFocusTrap";
   import AdminImportSource from "$components/patterns/admin/AdminImportSource.svelte";
-  import { AdminBadge, AdminButton, AdminField } from "$components/patterns/admin/index.js";
-  import { Dialog, Input } from "$components/ui/index.js";
+  import { AdminBadge, AdminButton } from "$components/patterns/admin/index.js";
+  import { Dialog } from "$components/ui/index.js";
   import { ArrowLeft, Check, Upload } from "$components/ui/icons.js";
   import type { AdminApi } from "../adminStores";
 
@@ -14,6 +14,8 @@
       id: string;
       version: string;
       publisher: string;
+      publisher_fingerprint: string;
+      publisher_public_key?: string;
       name?: string;
       description?: string;
     };
@@ -48,8 +50,6 @@
   let revision = $state("");
   let candidate = $state<Candidate | null>(null);
   let selectedFile = $state<File | null>(null);
-  let publisherKey = $state("");
-  let publisherFingerprint = $state("");
   let busy = $state(false);
   let error = $state("");
 
@@ -77,8 +77,6 @@
       revision = initialRef;
       candidate = null;
       selectedFile = null;
-      publisherKey = "";
-      publisherFingerprint = "";
       error = "";
       focusFirstDialogControl(() => layout);
     }
@@ -111,6 +109,11 @@
         "plugins_candidate_changed",
         {},
         "The package changed. Review it again."
+      ),
+      incompatible_core_version: at(
+        "plugins_incompatible_core_version",
+        {},
+        "This plugin requires a newer Minishop version."
       ),
     };
     return messages[code] || code.replaceAll("_", " ");
@@ -154,38 +157,24 @@
     });
   }
 
-  async function trust(): Promise<void> {
-    if (!candidate) return;
-    await run(async () => {
-      const result = await api("/admin/plugins/trust", {
-        method: "POST",
-        body: JSON.stringify({
-          publisher: candidate?.manifest.publisher,
-          public_key: publisherKey,
-          fingerprint: publisherFingerprint,
-        }),
-      });
-      if (!result?.ok) throw new Error(responseError(result, "trust_failed"));
-      if (selectedFile) {
-        const form = new FormData();
-        form.append("file", selectedFile);
-        const verified = await api("/admin/plugins/preview", { method: "POST", body: form });
-        if (!verified?.ok) throw new Error(responseError(verified, "preview_failed"));
-        candidate = verified as unknown as Candidate;
-      } else if (candidate?.source) {
-        const verified = await api("/admin/plugins/repository/preview", {
-          method: "POST",
-          body: JSON.stringify({ url: candidate.source.url, ref: candidate.source.commit }),
-        });
-        if (!verified?.ok) throw new Error(responseError(verified, "preview_failed"));
-        candidate = verified as unknown as Candidate;
-      }
-    });
-  }
-
   async function install(): Promise<void> {
-    if ((!selectedFile && !candidate?.source) || !candidate?.trusted) return;
+    if (
+      (!selectedFile && !candidate?.source) ||
+      (!candidate?.trusted && !candidate?.manifest.publisher_public_key)
+    )
+      return;
     await run(async () => {
+      if (!candidate?.trusted) {
+        const trusted = await api("/admin/plugins/trust", {
+          method: "POST",
+          body: JSON.stringify({
+            publisher: candidate?.manifest.publisher,
+            public_key: candidate?.manifest.publisher_public_key,
+            fingerprint: candidate?.manifest.publisher_fingerprint,
+          }),
+        });
+        if (!trusted?.ok) throw new Error(responseError(trusted, "trust_failed"));
+      }
       let staged: unknown;
       if (selectedFile) {
         const form = new FormData();
@@ -260,7 +249,9 @@
           <AdminBadge variant={candidate.trusted ? "success" : "warning"}>
             {candidate.trusted
               ? at("plugins_signature_verified", {}, "Signature verified")
-              : at("plugins_trust_required", {}, "Publisher key required")}
+              : candidate.manifest.publisher_public_key
+                ? at("plugins_new_publisher", {}, "New publisher")
+                : at("plugins_trust_required", {}, "Publisher key required")}
           </AdminBadge>
         </div>
         {#if candidate.manifest.description}<p>{candidate.manifest.description}</p>{/if}
@@ -270,7 +261,7 @@
             <dd>{candidate.manifest.publisher}</dd>
           </div>
           <div>
-            <dt>SHA-256</dt>
+            <dt>{at("plugins_zip_sha256", {}, "ZIP SHA-256")}</dt>
             <dd class="digest">{candidate.digest}</dd>
           </div>
           {#if candidate.source}
@@ -282,17 +273,24 @@
         </dl>
       </div>
       {#if !candidate.trusted}
-        <p class="import-note" role="status">{explain(candidate.trust_reason)}</p>
-        <AdminField label={at("plugins_public_key", {}, "Publisher public key")}>
-          <Input bind:value={publisherKey} disabled={busy} />
-        </AdminField>
-        <AdminField label={at("plugins_fingerprint", {}, "Expected SHA-256 fingerprint")}>
-          <Input bind:value={publisherFingerprint} disabled={busy} />
-        </AdminField>
-        <AdminButton
-          disabled={busy || !publisherKey.trim() || !publisherFingerprint.trim()}
-          onclick={trust}>{at("plugins_trust", {}, "Trust publisher")}</AdminButton
-        >
+        {#if candidate.manifest.publisher_public_key}
+          <p class="import-note" role="status">{explain(candidate.trust_reason)}</p>
+          <p class="import-note">
+            {at(
+              "plugins_digest_hint",
+              {},
+              "Compare the ZIP SHA-256 above with the value published by the plugin author. Installing will trust this publisher for future updates."
+            )}
+          </p>
+        {:else}
+          <p class="import-note" role="alert">
+            {at(
+              "plugins_legacy_key_missing",
+              {},
+              "This ZIP does not include a publisher key. Ask its author for a current package."
+            )}
+          </p>
+        {/if}
       {:else}
         <p class="import-note">
           <Check size={16} />{at(
@@ -313,9 +311,15 @@
       {:else}
         <AdminButton onclick={onclose}>{at("cancel", {}, "Cancel")}</AdminButton>
       {/if}
-      {#if candidate?.trusted}
+      {#if candidate?.trusted || candidate?.manifest.publisher_public_key}
         <AdminButton variant="primary" disabled={busy} onclick={install}
-          ><Upload size={14} />{at("plugins_install", {}, "Install disabled")}</AdminButton
+          ><Upload size={14} />{candidate?.trusted
+            ? at("plugins_install", {}, "Install disabled")
+            : at(
+                "plugins_trust_and_install",
+                {},
+                "Trust publisher and install disabled"
+              )}</AdminButton
         >
       {/if}
     </footer>
