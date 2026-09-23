@@ -94,6 +94,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                 fallback = await self._local_active_subscription_details_fallback(
                     db_user,
                     local_active_sub,
+                    panel_lookup_failed=True,
                 )
                 return fallback if isinstance(fallback, dict) else None
             return None

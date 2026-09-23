@@ -50,22 +50,29 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
         local_active_sub: Subscription,
         *,
         refresh_metadata: bool = True,
+        panel_lookup_failed: bool = False,
     ) -> dict[str, Any]:
         panel_sub_id = str(local_active_sub.panel_subscription_uuid or "").strip()
-        config_link_raw = (
-            await self.panel_service.get_subscription_link(panel_sub_id) if panel_sub_id else None
-        )
+        config_link_raw = None
         if (
             self.settings.SUBSCRIPTION_GATEWAY_ENABLED
             and self.settings.SUBSCRIPTION_LINK_MODE == "minishop"
             and str(local_active_sub.install_share_panel_short_uuid or "") == panel_sub_id
         ):
-            config_link_raw = (
-                subscription_public_install_url(
-                    self.settings, str(local_active_sub.install_share_token or "")
-                )
-                or config_link_raw
+            config_link_raw = subscription_public_install_url(
+                self.settings, str(local_active_sub.install_share_token or "")
             )
+        if not config_link_raw and not panel_lookup_failed:
+            # The panel API address can be private; only the panel knows its public link.
+            try:
+                panel_user = await self.panel_service.get_user_by_uuid(db_user.panel_user_uuid)
+            except Exception:
+                logger.exception(
+                    "Failed to fetch public subscription link for user %s", db_user.user_id
+                )
+                panel_user = None
+            if isinstance(panel_user, dict):
+                config_link_raw = str(panel_user.get("subscriptionUrl") or "").strip() or None
         display_link, connect_button_url = await prepare_config_links(
             self.settings,
             config_link_raw,

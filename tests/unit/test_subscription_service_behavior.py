@@ -3214,6 +3214,49 @@ class SubscriptionServiceActiveDetailsTests(unittest.IsolatedAsyncioTestCase):
             extra_hwid_devices=0,
         )
 
+    async def test_fast_details_use_panel_public_subscription_url(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                _tariffs_config_payload(),
+                tmpdir,
+                PANEL_API_URL="http://remnawave:3000/api",
+            )
+            service = _make_service(settings)
+            service.panel_service.get_user_by_uuid = AsyncMock(
+                return_value={"subscriptionUrl": "https://subscribe.example.test/sub/short-uuid"}
+            )
+            session = AsyncMock()
+            db_user = SimpleNamespace(
+                user_id=42,
+                panel_user_uuid="panel-user",
+                username="alice",
+                language_code="en",
+            )
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.user_dal.get_user_by_id",
+                    AsyncMock(return_value=db_user),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.get_active_subscription_by_user_id",
+                    AsyncMock(return_value=self._local_active_sub()),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.tariff_dal.get_hwid_device_entitlement_summary",
+                    AsyncMock(return_value={"active_devices": 0}),
+                ),
+            ):
+                result = await service.get_active_subscription_details(
+                    session, user_id=42, prefer_local=True
+                )
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result["config_link"], "https://subscribe.example.test/sub/short-uuid")
+        self.assertEqual(result["connect_button_url"], result["config_link"])
+        self.assertEqual(result["http_url"], result["config_link"])
+        service.panel_service.get_user_by_uuid.assert_awaited_once_with("panel-user")
+
     async def test_trial_details_keeps_panel_usage_while_exposing_premium_usage(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(
@@ -3301,9 +3344,7 @@ class SubscriptionServiceActiveDetailsTests(unittest.IsolatedAsyncioTestCase):
                     "response": {"error": True, "status_code": -1},
                 }
             )
-            service.panel_service.get_subscription_link = AsyncMock(
-                return_value="https://panel.example.test/sub/short-uuid"
-            )
+            service.panel_service.get_user_by_uuid = AsyncMock()
             session = AsyncMock()
             db_user = SimpleNamespace(
                 user_id=42,
@@ -3339,7 +3380,9 @@ class SubscriptionServiceActiveDetailsTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(result)
         self.assertFalse(result["is_panel_data"])
         self.assertEqual(result["end_date"], local_sub.end_date)
-        self.assertEqual(result["config_link"], "https://panel.example.test/sub/short-uuid")
+        self.assertIsNone(result["config_link"])
+        self.assertIsNone(result["http_url"])
+        service.panel_service.get_user_by_uuid.assert_not_awaited()
         deactivate_all.assert_not_awaited()
         update_user.assert_not_awaited()
         warning_text = " ".join(str(call) for call in warning_log.call_args_list)
