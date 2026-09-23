@@ -25,6 +25,7 @@ type RuntimeView = {
   subtitle?: string;
   requiredFeature?: string;
   visibleWhenLocked?: boolean;
+  hideInNavigation?: boolean;
   routeAliases?: string[];
   routeDefaults?: AdminSectionDescriptor["routeDefaults"];
   icon?: string;
@@ -98,6 +99,7 @@ export function registerRuntimeExtensions(plugins: readonly RuntimePlugin[]): vo
         fallbackSubtitle: view.subtitle || "",
         icon: RUNTIME_ICONS[view.icon || ""] || Sparkles,
         component: PluginHost,
+        hideInNavigation: view.hideInNavigation === true,
         routeAliases: view.routeAliases,
         routeDefaults: view.routeDefaults,
       });

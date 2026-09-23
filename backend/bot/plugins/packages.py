@@ -223,6 +223,12 @@ def _validate_manifest(manifest: dict[str, Any]) -> None:
                     raise PluginPackageError("invalid_frontend_manifest")
                 if collection != "section_groups" and not isinstance(view.get("view"), str):
                     raise PluginPackageError("invalid_frontend_manifest")
+                if (
+                    collection == "sections"
+                    and "hideInNavigation" in view
+                    and not isinstance(view["hideInNavigation"], bool)
+                ):
+                    raise PluginPackageError("invalid_frontend_manifest")
 
 
 def inspect_archive(root: Path, body: bytes) -> Candidate:

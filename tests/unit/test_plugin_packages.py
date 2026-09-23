@@ -31,7 +31,12 @@ from bot.plugins.packages import (
 )
 
 
-def _archive(private: Ed25519PrivateKey, *, files: dict[str, bytes] | None = None) -> bytes:
+def _archive(
+    private: Ed25519PrivateKey,
+    *,
+    files: dict[str, bytes] | None = None,
+    frontend: dict[str, object] | None = None,
+) -> bytes:
     files = files or {"backend/sample_plugin_module.py": b"loaded = 42\n"}
     manifest = {
         "schema_version": 1,
@@ -55,6 +60,8 @@ def _archive(private: Ed25519PrivateKey, *, files: dict[str, bytes] | None = Non
         "backend": {"entry_point": "sample_plugin_module:loaded"},
         "files": {name: hashlib.sha256(body).hexdigest() for name, body in files.items()},
     }
+    if frontend is not None:
+        manifest["frontend"] = frontend
     canonical = json.dumps(
         manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False
     ).encode()
@@ -133,6 +140,25 @@ def test_archive_rejects_case_collisions_and_bad_signature(tmp_path: Path) -> No
     other = Ed25519PrivateKey.generate()
     with pytest.raises(PluginPackageError, match="invalid_package_signature"):
         inspect_archive(tmp_path, _archive(other))
+
+
+def test_hidden_runtime_section_requires_boolean_flag(tmp_path: Path) -> None:
+    private = Ed25519PrivateKey.generate()
+    files = {
+        "backend/sample_plugin_module.py": b"loaded = 42\n",
+        "frontend/entry.js": b"export function mountView() {}",
+    }
+    frontend: dict[str, object] = {
+        "entry": "entry.js",
+        "styles": [],
+        "sections": [{"id": "legacy", "view": "legacy", "hideInNavigation": True}],
+    }
+    assert inspect_archive(tmp_path, _archive(private, files=files, frontend=frontend)).reason == (
+        "publisher_not_trusted"
+    )
+    frontend["sections"] = [{"id": "legacy", "view": "legacy", "hideInNavigation": "true"}]
+    with pytest.raises(PluginPackageError, match="invalid_frontend_manifest"):
+        inspect_archive(tmp_path, _archive(private, files=files, frontend=frontend))
 
 
 def test_image_package_bootstrap_is_idempotent_across_roles(
