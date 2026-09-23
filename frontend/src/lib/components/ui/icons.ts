@@ -6,6 +6,7 @@ export {
   ArrowRight,
   ArrowUp,
   Bitcoin,
+  Blocks,
   CalendarDays,
   Check,
   CheckCheck,

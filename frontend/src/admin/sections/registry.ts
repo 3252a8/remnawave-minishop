@@ -1,4 +1,5 @@
 import {
+  Blocks,
   Coins,
   CreditCard,
   Gift,
@@ -302,7 +303,7 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
     fallbackTitle: "Plugins",
     subtitleI18nKey: "section_plugins_subtitle",
     fallbackSubtitle: "Install and manage verified extensions",
-    icon: Sparkles,
+    icon: Blocks,
     loadComponent: () => import("./PluginsSection.svelte").then((module) => module.default),
   },
   {
