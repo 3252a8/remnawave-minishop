@@ -101,7 +101,7 @@ def test_admin_support_keyboard_uses_consistent_admin_links():
         settings=_settings(SUBSCRIPTION_MINI_APP_URL="https://app.example.com/app"),
     )
     ticket = SimpleNamespace(ticket_id=42)
-    user = SimpleNamespace(user_id=100200300)
+    user = SimpleNamespace(user_id=100200300, telegram_id=100200300)
 
     keyboard = service._support_keyboard(ticket, user, admin=True)
     ticket_button = keyboard.inline_keyboard[0][0]
@@ -122,7 +122,7 @@ def test_admin_support_keyboard_can_use_group_safe_urls():
         bot_username="demo_bot",
     )
     ticket = SimpleNamespace(ticket_id=42)
-    user = SimpleNamespace(user_id=100200300)
+    user = SimpleNamespace(user_id=100200300, telegram_id=100200300)
 
     keyboard = service._support_keyboard(ticket, user, admin=True, web_app_buttons=False)
     ticket_button = keyboard.inline_keyboard[0][0]
@@ -141,7 +141,7 @@ def test_admin_support_keyboard_group_urls_fall_back_without_bot_username():
         settings=_settings(SUBSCRIPTION_MINI_APP_URL="https://app.example.com/app"),
     )
     ticket = SimpleNamespace(ticket_id=42)
-    user = SimpleNamespace(user_id=100200300)
+    user = SimpleNamespace(user_id=100200300, telegram_id=100200300)
 
     keyboard = service._support_keyboard(ticket, user, admin=True, web_app_buttons=False)
 
@@ -158,7 +158,7 @@ def test_admin_support_keyboard_falls_back_to_startapp_url():
         bot_username="demo_bot",
     )
     ticket = SimpleNamespace(ticket_id=42)
-    user = SimpleNamespace(user_id=100200300)
+    user = SimpleNamespace(user_id=100200300, telegram_id=100200300)
 
     keyboard = service._support_keyboard(ticket, user, admin=True)
     button = keyboard.inline_keyboard[0][0]
@@ -417,6 +417,7 @@ def test_disabled_admin_support_email_keeps_telegram_and_log_notifications():
     )
     user = SimpleNamespace(
         user_id=100200300,
+        telegram_id=100200300,
         username="user",
         first_name="User",
         last_name=None,
@@ -466,6 +467,7 @@ def test_support_topic_suppresses_admin_dm_and_uses_url_buttons():
     )
     user = SimpleNamespace(
         user_id=100200300,
+        telegram_id=100200300,
         username="user",
         first_name="User",
         last_name=None,

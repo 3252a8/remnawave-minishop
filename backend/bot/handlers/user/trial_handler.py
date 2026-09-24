@@ -12,6 +12,7 @@ from bot.keyboards.inline.user_keyboards import (
 from bot.middlewares.i18n import JsonI18n
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.telegram_account import require_telegram_account_id
 from bot.utils.callback_answer import callback_message
 from bot.utils.config_link import prepare_config_links
 from bot.utils.install_links import (
@@ -34,7 +35,8 @@ async def request_trial_confirmation_handler(
     subscription_service: SubscriptionService,
     session: AsyncSession,
 ) -> None:
-    user_id = callback.from_user.id
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
+    user_id = account_user_id
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -190,7 +192,8 @@ async def confirm_activate_trial_handler(
     panel_service: PanelApiService,
     session: AsyncSession,
 ) -> None:
-    user_id = callback.from_user.id
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
+    user_id = account_user_id
 
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")

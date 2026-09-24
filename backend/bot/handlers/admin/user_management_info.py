@@ -8,6 +8,7 @@ from aiogram.utils.markdown import hcode
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.middlewares.i18n import JsonI18n
+from bot.services.account_roles import is_admin as account_is_admin
 from bot.services.panel_api_service import PanelApiService
 from bot.services.referral_service import ReferralService
 from bot.services.subscription_service_impl.core import SubscriptionService
@@ -239,7 +240,11 @@ async def handle_refresh_user_card(
             bot_username=bot_username,
         )
         keyboard = get_user_card_keyboard(
-            fresh_user.user_id, i18n_instance, lang, fresh_user.referred_by_id
+            fresh_user.user_id,
+            i18n_instance,
+            lang,
+            fresh_user.referred_by_id,
+            telegram_id=fresh_user.telegram_id,
         )
         markup = keyboard.as_markup()
 
@@ -282,7 +287,8 @@ async def handle_delete_user_prompt(
 
     admin = callback.from_user
     admin_id = admin.id if admin else None
-    if not admin_id or admin_id not in settings.ADMIN_IDS:
+    admin_account = await user_dal.get_user_by_telegram_id(session, admin_id) if admin_id else None
+    if not admin_account or not await account_is_admin(session, int(admin_account.user_id)):
         logger.warning(
             "Unauthorized delete attempt by user %s targeting %s.", admin_id, user.user_id
         )
@@ -296,7 +302,7 @@ async def handle_delete_user_prompt(
 
     await state.update_data(
         target_user_id=user.user_id,
-        delete_initiator_id=admin_id,
+        delete_initiator_id=int(admin_account.user_id),
     )
     await state.set_state(AdminStates.waiting_for_user_delete_confirmation)
 
@@ -365,7 +371,8 @@ async def process_delete_user_confirmation_handler(
 
     admin = message.from_user
     admin_id = admin.id if admin else None
-    if not admin_id or admin_id not in settings.ADMIN_IDS:
+    admin_account = await user_dal.get_user_by_telegram_id(session, admin_id) if admin_id else None
+    if not admin_account or not await account_is_admin(session, int(admin_account.user_id)):
         logger.warning("Unauthorized delete confirmation attempt by user %s.", admin_id)
         await message.answer(
             _(
@@ -443,7 +450,7 @@ async def process_delete_user_confirmation_handler(
             await state.clear()
             return
 
-        await _log_admin_user_deletion(session, admin_id, admin, target_user_id)
+        await _log_admin_user_deletion(session, int(admin_account.user_id), admin, target_user_id)
         await session.commit()
 
         await message.answer(

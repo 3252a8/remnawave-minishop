@@ -45,7 +45,7 @@ class YooKassaReconciliationWorker:
         settings: Settings,
         session_factory: sessionmaker,
         yookassa_service: YooKassaService,
-        bot: Bot,
+        bot: Bot | None,
         i18n: JsonI18n,
         panel_service: PanelService,
         subscription_service: SubscriptionService,

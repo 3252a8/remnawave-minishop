@@ -17,6 +17,7 @@ from bot.services.panel_api_service import PanelApiService
 from bot.services.promo_code_service import PromoCodeService
 from bot.services.referral_service import ReferralService
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.telegram_account import require_telegram_account_id
 from bot.utils.callback_answer import (
     callback_data,
     callback_message,
@@ -48,13 +49,15 @@ async def tg_interface_command_handler(
 
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")
-    db_user = await user_dal.get_user_by_id(session, message_from_user(message).id)
+    db_user = await user_dal.get_user_by_telegram_id(session, message_from_user(message).id)
     if not await ensure_required_channel_subscription(
         message, settings, i18n, current_lang, session, db_user
     ):
         return
 
-    if not telegram_bot_menu_enabled_for_user(settings, user_id=message_from_user(message).id):
+    if not telegram_bot_menu_enabled_for_user(
+        settings, user_id=await require_telegram_account_id(session, message_from_user(message).id)
+    ):
         await send_main_menu(
             message, settings, i18n_data, subscription_service, session, is_edit=False
         )
@@ -76,7 +79,7 @@ async def verify_channel_subscription_callback(
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")
 
-    db_user = await user_dal.get_user_by_id(session, callback.from_user.id)
+    db_user = await user_dal.get_user_by_telegram_id(session, callback.from_user.id)
 
     verified = await ensure_required_channel_subscription(
         callback, settings, i18n, current_lang, session, db_user
@@ -194,7 +197,7 @@ async def select_language_callback_handler(
         )
         return
 
-    user_id = callback.from_user.id
+    user_id = await require_telegram_account_id(session, callback.from_user.id)
     try:
         updated = await user_dal.update_user_language(session, user_id, lang_code)
         if updated:
@@ -214,7 +217,7 @@ async def select_language_callback_handler(
         await safe_answer_callback(callback, "Error setting language.", show_alert=True)
         return
     if return_target == "bot" and telegram_bot_menu_enabled_for_user(
-        settings, user_id=callback.from_user.id
+        settings, user_id=await require_telegram_account_id(session, callback.from_user.id)
     ):
         await send_bot_interface_menu(
             callback, settings, i18n_data, subscription_service, session, is_edit=True
@@ -266,7 +269,7 @@ async def main_action_callback_handler(
         "bot_info",
     }
     if action in bot_interface_actions and not telegram_bot_menu_enabled_for_user(
-        settings, user_id=callback.from_user.id
+        settings, user_id=await require_telegram_account_id(session, callback.from_user.id)
     ):
         await send_main_menu(
             callback, settings, i18n_data, subscription_service, session, is_edit=True

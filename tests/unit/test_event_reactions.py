@@ -128,7 +128,9 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
             notify_new_external_user_registration=AsyncMock(),
         )
         ctx = _context(notification_service=notification_service)
-        user = SimpleNamespace(email="db@example.test", username="dbuser", first_name="Db")
+        user = SimpleNamespace(
+            email="db@example.test", username="dbuser", first_name="Db", telegram_id=42
+        )
 
         with patch.object(
             event_reactions.user_dal,
@@ -190,6 +192,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
 
         notification_service.notify_new_user_registration.assert_awaited_once_with(
             user_id=42,
+            telegram_id=42,
             username="alice",
             first_name="Alice",
             email="alice@example.test",
@@ -753,7 +756,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
         email = AsyncMock()
         invalidate = AsyncMock()
         ctx = _context(bot=bot)
-        user = SimpleNamespace(language_code="ru", email="alice@example.test")
+        user = SimpleNamespace(language_code="ru", email="alice@example.test", telegram_id=42)
 
         with (
             patch.object(event_reactions.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
@@ -781,7 +784,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
         bot = SimpleNamespace(send_message=AsyncMock())
         email = AsyncMock()
         ctx = _context(bot=bot)
-        user = SimpleNamespace(language_code="en", email="alice@example.test")
+        user = SimpleNamespace(language_code="en", email="alice@example.test", telegram_id=42)
         payment = SimpleNamespace(payment_id=12, user_id=42, status="failed")
         payload = {
             "user_id": 42,
@@ -809,7 +812,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
         bot = SimpleNamespace(send_message=AsyncMock())
         email = AsyncMock()
         ctx = _context(bot=bot)
-        user = SimpleNamespace(language_code="en", email="alice@example.test")
+        user = SimpleNamespace(language_code="en", email="alice@example.test", telegram_id=42)
         payment = SimpleNamespace(payment_id=12, user_id=42, status="failed")
         payload = {
             "user_id": 42,
@@ -846,7 +849,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
         )
         email = AsyncMock()
         ctx = _context(bot=bot)
-        user = SimpleNamespace(language_code="en", email="alice@example.test")
+        user = SimpleNamespace(language_code="en", email="alice@example.test", telegram_id=42)
         payment = SimpleNamespace(payment_id=13, user_id=42, status="failed")
         payload = {
             "user_id": 42,
@@ -889,7 +892,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
         )
         bot = SimpleNamespace(send_message=AsyncMock(side_effect=error))
         ctx = _context(bot=bot)
-        user = SimpleNamespace(language_code="en", email="alice@example.test")
+        user = SimpleNamespace(language_code="en", email="alice@example.test", telegram_id=42)
         payment = SimpleNamespace(payment_id=13, user_id=42, status="failed")
         payload = {"user_id": 42, "payment_db_id": 13, "message_key": "payment_failed"}
 
@@ -941,7 +944,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
         ctx.settings.tariffs_config = SimpleNamespace(
             require=lambda _key: SimpleNamespace(name=lambda _language: "Standard")
         )
-        user = SimpleNamespace(language_code="en", email="alice@example.test")
+        user = SimpleNamespace(language_code="en", email="alice@example.test", telegram_id=42)
         payment = SimpleNamespace(
             payment_id=42,
             user_id=42,
@@ -1014,7 +1017,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
         bot = SimpleNamespace(send_message=AsyncMock())
         email = AsyncMock()
         ctx = _context_with_i18n(_TemplateI18n(templates), bot=bot)
-        user = SimpleNamespace(language_code="en", email="alice@example.test")
+        user = SimpleNamespace(language_code="en", email="alice@example.test", telegram_id=42)
         payment = SimpleNamespace(
             payment_id=43,
             user_id=42,
@@ -1122,7 +1125,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
         bot = SimpleNamespace(send_message=AsyncMock())
         email = AsyncMock()
         ctx = _context(bot=bot)
-        user = SimpleNamespace(language_code="ru", email="alice@example.test")
+        user = SimpleNamespace(language_code="ru", email="alice@example.test", telegram_id=42)
         created_at = datetime(2026, 1, 9, 12, 0, tzinfo=UTC)
         canceled_payment = SimpleNamespace(
             payment_id=20,
@@ -1208,7 +1211,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
         bot = SimpleNamespace(send_message=AsyncMock())
         email = AsyncMock()
         ctx = _context(bot=bot)
-        inviter = SimpleNamespace(language_code="en", email="inviter@example.test")
+        inviter = SimpleNamespace(language_code="en", email="inviter@example.test", telegram_id=42)
         end_date = datetime(2026, 1, 9, tzinfo=UTC)
 
         with (

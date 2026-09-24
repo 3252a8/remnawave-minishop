@@ -273,12 +273,25 @@ class BroadcastButtonsTest(unittest.TestCase):
 
 
 class AdminsAudienceTest(unittest.IsolatedAsyncioTestCase):
-    async def test_admins_target_resolves_without_db(self):
+    async def test_admins_target_resolves_current_roles(self):
+        class SessionFactory:
+            def __call__(self):
+                return self
+
+            async def __aenter__(self):
+                return object()
+
+            async def __aexit__(self, *_args):
+                return None
+
         service = AudienceSegmentationService(
-            cast(sessionmaker, None),
-            admin_ids=[10, 20, 10],
+            cast(sessionmaker, SessionFactory()),
         )
-        self.assertEqual(await service.resolve_user_ids("admins"), [10, 20])
+        with patch(
+            "bot.services.audience_segmentation.active_admin_user_ids",
+            AsyncMock(return_value=[10, 20]),
+        ):
+            self.assertEqual(await service.resolve_user_ids("admins"), [10, 20])
 
 
 class AdminBroadcastRouteTest(unittest.IsolatedAsyncioTestCase):

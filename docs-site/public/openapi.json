@@ -2805,6 +2805,70 @@
         "title": "AdminPaymentsListOut",
         "type": "object"
       },
+      "AdminRoleGrantBody": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "role"
+        ],
+        "title": "AdminRoleGrantBody",
+        "type": "object"
+      },
+      "AdminRoleOut": {
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id",
+          "email",
+          "role"
+        ],
+        "title": "AdminRoleOut",
+        "type": "object"
+      },
+      "AdminRolesListOut": {
+        "properties": {
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/AdminRoleOut"
+            },
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "roles"
+        ],
+        "title": "AdminRolesListOut",
+        "type": "object"
+      },
       "AdminSettingChoiceOut": {
         "properties": {
           "i18n_label_key": {
@@ -5357,6 +5421,18 @@
       },
       "AdminUserOut": {
         "properties": {
+          "account_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Account Id"
+          },
           "email": {
             "anyOf": [
               {
@@ -5409,6 +5485,18 @@
             "default": null,
             "title": "Last Name"
           },
+          "minishop_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Minishop Id"
+          },
           "panel_user_uuid": {
             "anyOf": [
               {
@@ -5420,6 +5508,30 @@
             ],
             "default": null,
             "title": "Panel User Uuid"
+          },
+          "panel_username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Panel Username"
+          },
+          "panel_username_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Panel Username State"
           },
           "referral_code": {
             "anyOf": [
@@ -5705,6 +5817,18 @@
       },
       "AdminUserWithAvatarOut": {
         "properties": {
+          "account_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Account Id"
+          },
           "avatar_url": {
             "anyOf": [
               {
@@ -5769,6 +5893,18 @@
             "default": null,
             "title": "Last Name"
           },
+          "minishop_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Minishop Id"
+          },
           "panel_user_uuid": {
             "anyOf": [
               {
@@ -5780,6 +5916,30 @@
             ],
             "default": null,
             "title": "Panel User Uuid"
+          },
+          "panel_username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Panel Username"
+          },
+          "panel_username_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Panel Username State"
           },
           "referral_code": {
             "anyOf": [
@@ -14111,6 +14271,64 @@
         "title": "WebAppTelegramAuthPayload",
         "type": "object"
       },
+      "WebAppTelegramMergePayload": {
+        "properties": {
+          "auth_data": {
+            "default": null,
+            "title": "Auth Data"
+          },
+          "email_code": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Email Code",
+            "type": "string"
+          },
+          "id_token": {
+            "default": "",
+            "title": "Id Token",
+            "type": "string"
+          },
+          "init_data": {
+            "default": "",
+            "title": "Init Data",
+            "type": "string"
+          },
+          "nonce": {
+            "default": "",
+            "title": "Nonce",
+            "type": "string"
+          },
+          "referral_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Referral Code"
+          },
+          "start_param": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Start Param"
+          }
+        },
+        "required": [
+          "email_code"
+        ],
+        "title": "WebAppTelegramMergePayload",
+        "type": "object"
+      },
       "WebappBootstrapConfigOut": {
         "additionalProperties": true,
         "properties": {
@@ -15651,6 +15869,178 @@
           }
         ],
         "summary": "Account Telegram Link",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/telegram/merge/confirm": {
+      "post": {
+        "operationId": "post_account_telegram_merge_confirm_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppTelegramMergePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "account_merge": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "final_end_date": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "final_end_date_text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "language": {
+                          "type": "string"
+                        },
+                        "merged": {
+                          "type": "boolean"
+                        },
+                        "primary_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "primary_user_id": {
+                          "type": "integer"
+                        },
+                        "removed_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "removed_user_id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "merged",
+                        "language",
+                        "primary_user_id",
+                        "removed_user_id",
+                        "primary_panel_user_uuid",
+                        "removed_panel_user_uuid",
+                        "final_end_date",
+                        "final_end_date_text"
+                      ],
+                      "type": "object"
+                    },
+                    "csrf_token": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "telegram_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "token": {
+                      "type": "string"
+                    },
+                    "user_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "token",
+                    "csrf_token"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Telegram Merge Confirm",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/telegram/merge/request": {
+      "post": {
+        "operationId": "post_account_telegram_merge_request_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "email_code": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "retry_after": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Telegram Merge Request",
         "tags": [
           "account"
         ]
@@ -20527,6 +20917,157 @@
           }
         ],
         "summary": "Admin Promo Activations",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/roles": {
+      "get": {
+        "operationId": "get_admin_roles_list_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminRolesListOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Roles List",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "post_admin_role_grant_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminRoleGrantBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Role Grant",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/roles/{user_id}/{role}": {
+      "delete": {
+        "operationId": "delete_admin_role_revoke_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "role",
+            "required": true,
+            "schema": {
+              "pattern": "[^{}/]+",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Role Revoke",
         "tags": [
           "admin"
         ]

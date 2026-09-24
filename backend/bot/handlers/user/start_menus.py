@@ -12,6 +12,7 @@ from bot.keyboards.inline.user_keyboards import (
 from bot.middlewares.i18n import JsonI18n
 from bot.services.partner_program_service import PartnerProgramService
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.telegram_account import require_telegram_account_id
 from bot.utils.callback_answer import (
     callback_message,
     message_from_user,
@@ -56,7 +57,7 @@ async def send_main_menu(
         if isinstance(target_event, types.CallbackQuery)
         else message_from_user(target_event)
     )
-    user_id = event_user.id
+    user_id = await require_telegram_account_id(session, event_user.id)
     user_full_name = hd.quote(event_user.full_name)
 
     if not i18n:
@@ -150,7 +151,7 @@ async def send_bot_interface_menu(
         if isinstance(target_event, types.CallbackQuery)
         else message_from_user(target_event)
     )
-    user_id = event_user.id
+    user_id = await require_telegram_account_id(session, event_user.id)
     show_trial_button_in_menu = await should_show_trial_button(
         settings, subscription_service, session, user_id
     )

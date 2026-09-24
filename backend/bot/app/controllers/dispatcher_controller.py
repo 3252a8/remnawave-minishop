@@ -29,7 +29,7 @@ def build_dispatcher(
     settings: Settings,
     async_session_factory: sessionmaker,
     *,
-    bot: Bot,
+    bot: Bot | None,
     i18n_instance: JsonI18n,
 ) -> Dispatcher:
     storage = (

@@ -32,7 +32,7 @@ class ActionLoggerMiddlewareTests(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch(
-                "bot.middlewares.action_logger_middleware.user_dal.get_user_by_id",
+                "bot.middlewares.action_logger_middleware.user_dal.get_user_by_telegram_id",
                 AsyncMock(),
             ) as get_user,
             patch(
@@ -66,8 +66,11 @@ class ActionLoggerMiddlewareTests(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch(
-                "bot.middlewares.action_logger_middleware.user_dal.get_user_by_id",
-                AsyncMock(return_value=object()),
+                "bot.middlewares.action_logger_middleware.user_dal.get_user_by_telegram_id",
+                AsyncMock(return_value=SimpleNamespace(user_id=42)),
+            ),
+            patch(
+                "bot.middlewares.action_logger_middleware.is_admin", AsyncMock(return_value=False)
             ),
             patch(
                 "bot.middlewares.action_logger_middleware.message_log_dal.create_message_log_no_commit",
@@ -105,8 +108,11 @@ class ActionLoggerMiddlewareTests(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch(
-                "bot.middlewares.action_logger_middleware.user_dal.get_user_by_id",
-                AsyncMock(return_value=object()),
+                "bot.middlewares.action_logger_middleware.user_dal.get_user_by_telegram_id",
+                AsyncMock(return_value=SimpleNamespace(user_id=42)),
+            ),
+            patch(
+                "bot.middlewares.action_logger_middleware.is_admin", AsyncMock(return_value=False)
             ),
             patch(
                 "bot.middlewares.action_logger_middleware.message_log_dal.create_message_log_no_commit",

@@ -21,7 +21,7 @@ from .telegram_bot import create_telegram_bot
 class RuntimeBootstrap:
     settings: Settings
     session_factory: sessionmaker
-    bot: Bot
+    bot: Bot | None
     i18n: JsonI18n
 
 
@@ -41,7 +41,7 @@ async def build_runtime_bootstrap(settings: Settings) -> RuntimeBootstrap:
     session_factory = cast(sessionmaker, init_db_connection(settings))
     await init_db(settings, session_factory)
 
-    bot = create_telegram_bot(settings)
+    bot = create_telegram_bot(settings) if settings.TELEGRAM_ENABLED else None
     i18n = get_i18n_instance(path="locales", default=settings.DEFAULT_LANGUAGE)
     apply_plugin_locales(settings, i18n)
     await load_locale_overrides(i18n, session_factory)

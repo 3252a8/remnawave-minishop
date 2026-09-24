@@ -62,6 +62,7 @@ def _message_event(bot, user_id=42):
 
 def _db_user(*, verified=False, verified_for=None):
     return SimpleNamespace(
+        user_id=42,
         channel_subscription_verified=verified,
         channel_subscription_verified_for=verified_for,
     )
@@ -117,7 +118,10 @@ class RequiredChannelSubscriptionCheckTests(unittest.IsolatedAsyncioTestCase):
         event = _message_event(bot)
         user = _db_user()
 
-        with patch("bot.handlers.user.start.user_dal.update_user", AsyncMock()) as update_user:
+        with (
+            patch("bot.handlers.user.start_channel.is_admin", AsyncMock(return_value=False)),
+            patch("bot.handlers.user.start.user_dal.update_user", AsyncMock()) as update_user,
+        ):
             result = await ensure_required_channel_subscription(
                 event,
                 _settings(1234567890),
@@ -138,7 +142,10 @@ class RequiredChannelSubscriptionCheckTests(unittest.IsolatedAsyncioTestCase):
         event = _message_event(bot)
         user = _db_user()
 
-        with patch("bot.handlers.user.start.user_dal.update_user", AsyncMock()) as update_user:
+        with (
+            patch("bot.handlers.user.start_channel.is_admin", AsyncMock(return_value=False)),
+            patch("bot.handlers.user.start.user_dal.update_user", AsyncMock()) as update_user,
+        ):
             result = await ensure_required_channel_subscription(
                 event,
                 _settings(1234567890),
@@ -160,7 +167,10 @@ class RequiredChannelSubscriptionCheckTests(unittest.IsolatedAsyncioTestCase):
         event = _message_event(bot)
         user = _db_user()
 
-        with patch("bot.handlers.user.start.user_dal.update_user", AsyncMock()):
+        with (
+            patch("bot.handlers.user.start_channel.is_admin", AsyncMock(return_value=False)),
+            patch("bot.handlers.user.start.user_dal.update_user", AsyncMock()),
+        ):
             result = await ensure_required_channel_subscription(
                 event,
                 _settings(1234567890, required_channel_link="https://t.me/main_sales_bot"),
@@ -192,9 +202,12 @@ class ChannelSubscriptionMiddlewareTests(unittest.IsolatedAsyncioTestCase):
         }
         user = _db_user(verified=True, verified_for=-1001234567890)
 
-        with patch(
-            "bot.middlewares.channel_subscription.user_dal.get_user_by_id",
-            AsyncMock(return_value=user),
+        with (
+            patch(
+                "bot.middlewares.channel_subscription.user_dal.get_user_by_telegram_id",
+                AsyncMock(return_value=user),
+            ),
+            patch("bot.middlewares.channel_subscription.is_admin", AsyncMock(return_value=False)),
         ):
             result = await middleware(handler, event, data)
 
@@ -220,9 +233,12 @@ class ChannelSubscriptionMiddlewareTests(unittest.IsolatedAsyncioTestCase):
         }
         user = _db_user(verified=False, verified_for=None)
 
-        with patch(
-            "bot.middlewares.channel_subscription.user_dal.get_user_by_id",
-            AsyncMock(return_value=user),
+        with (
+            patch(
+                "bot.middlewares.channel_subscription.user_dal.get_user_by_telegram_id",
+                AsyncMock(return_value=user),
+            ),
+            patch("bot.middlewares.channel_subscription.is_admin", AsyncMock(return_value=False)),
         ):
             result = await middleware(handler, event, data)
 

@@ -17,6 +17,10 @@ from bot.app.web.admin_api_impl.users_detail import _serialize_trial_summary
 def _user(**overrides):
     values = {
         "user_id": 42,
+        "account_id": "550e8400-e29b-41d4-a716-446655440000",
+        "minishop_id": "ms_550e8400e29b41d4a716446655440000",
+        "panel_username": "tg_123",
+        "panel_username_state": "legacy_pending",
         "telegram_id": 123,
         "telegram_photo_url": "http://example.test/p.jpg",
         "username": "bob",
@@ -37,6 +41,10 @@ def _user(**overrides):
 
 _EXPECTED_BASE = {
     "user_id": 42,
+    "account_id": "550e8400-e29b-41d4-a716-446655440000",
+    "minishop_id": "ms_550e8400e29b41d4a716446655440000",
+    "panel_username": "tg_123",
+    "panel_username_state": "legacy_pending",
     "telegram_id": 123,
     "telegram_photo_url": "http://example.test/p.jpg",
     "username": "bob",

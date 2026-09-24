@@ -48,8 +48,8 @@ class NotificationPartnerMixin:
         @staticmethod
         def _build_profile_keyboard(
             translate: Any,
-            user_id: int,
-            referrer_id: int | None = None,
+            telegram_id: int | None,
+            referrer_telegram_id: int | None = None,
         ) -> InlineKeyboardMarkup | None: ...
 
         async def _send_to_log_channel(
@@ -81,8 +81,7 @@ class NotificationPartnerMixin:
         telegram_id = getattr(user, "telegram_id", None)
         if telegram_id and int(telegram_id) > 0:
             return int(telegram_id)
-        user_id = int(user.user_id)
-        return user_id if user_id > 0 else None
+        return None
 
     @staticmethod
     def _partner_amount(amount_minor: int, currency_scale: int) -> str:

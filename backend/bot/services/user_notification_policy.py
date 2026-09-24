@@ -112,11 +112,7 @@ def telegram_recipient(user: Any, fallback_user_id: Any = None) -> int | None:
     """Return a reachable linked Telegram chat id, if one is known."""
 
     chat_id = 0
-    for candidate in (
-        getattr(user, "telegram_id", None),
-        getattr(user, "user_id", None),
-        fallback_user_id,
-    ):
+    for candidate in (getattr(user, "telegram_id", None),):
         if not isinstance(candidate, (int, float, str)):
             continue
         try:
@@ -135,10 +131,15 @@ def telegram_recipient(user: Any, fallback_user_id: Any = None) -> int | None:
     return chat_id
 
 
+def smtp_delivery_available(settings: Any) -> bool:
+    """Use the SMTP capability independently of email login settings."""
+    return bool(settings.smtp_delivery_configured)
+
+
 def email_recipient(settings: Any, user: Any) -> str:
     """Return a linked email only when the application can deliver email."""
 
-    if not bool(settings.email_auth_configured):
+    if not smtp_delivery_available(settings):
         return ""
     return (
         str(getattr(user, "notification_email", None) or getattr(user, "email", "") or "")
@@ -173,6 +174,7 @@ def user_notification_delivery_plan(
 
     if telegram_available is None:
         telegram_available = telegram_recipient(user) is not None
+    telegram_available = bool(telegram_available and getattr(settings, "TELEGRAM_ENABLED", True))
     if email_available is None:
         email_available = bool(email_recipient(settings, user))
 

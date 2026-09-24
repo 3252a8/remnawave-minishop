@@ -608,6 +608,7 @@ class Settings(
         description="Admin-provided Remnawave Subscription Page v1 JSON config override.",
     )
     WEBAPP_SESSION_SECRET: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
+    EMAIL_AUTH_SECRET: str | None = Field(default=None)
     WEBHOOK_SECRET_TOKEN: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     WEBAPP_SESSION_TTL_SECONDS: int = Field(default=30 * 24 * 60 * 60)
     WEBAPP_AUTH_MAX_AGE_SECONDS: int = Field(default=24 * 60 * 60)
@@ -718,6 +719,7 @@ class Settings(
     SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS: int = Field(default=5 * 60)
     SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS: int = Field(default=30 * 60)
     SUBSCRIPTION_MINI_APP_URL: str | None = Field(default=None)
+    PUBLIC_APP_URL: str | None = Field(default=None)
     SUBSCRIPTION_GATEWAY_ENABLED: bool = Field(default=True)
     SUBSCRIPTION_LINK_MODE: Literal["panel", "minishop"] = Field(default="panel")
     SUBSCRIPTION_GATEWAY_REWRITE_PROFILE_PAGE_URL: bool = Field(default=False)
@@ -894,16 +896,10 @@ def get_settings() -> Settings:
     if _settings_instance is None:
         try:
             # Third-party boundary: pydantic-settings fills required fields
-            # (BOT_TOKEN, POSTGRES_*) from the environment inside __init__, but
+            # POSTGRES_* from the environment inside __init__, but
             # dataclass_transform makes mypy demand them as named arguments.
             # model_validate({}) would satisfy mypy yet skip the env sources.
             _settings_instance = Settings()  # type: ignore[call-arg]
-            if not _settings_instance.ADMIN_IDS:
-                logger.warning(
-                    "CRITICAL: ADMIN_IDS not set or contains no valid integer IDs in .env. "
-                    "Admin functionality will be restricted."
-                )
-
             if not _settings_instance.PANEL_API_URL:
                 logger.warning(
                     "CRITICAL: PANEL_API_URL is not set. Panel integration will not work."

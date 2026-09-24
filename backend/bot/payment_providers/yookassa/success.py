@@ -99,7 +99,7 @@ async def emit_yookassa_success_events(event_payload: dict) -> None:
 
 async def process_successful_payment(
     session: AsyncSession,
-    bot: Bot,
+    bot: Bot | None,
     payment_info_from_webhook: dict[str, Any],
     i18n: JsonI18n,
     settings: Settings,
@@ -856,7 +856,7 @@ async def process_successful_payment(
 
 async def process_cancelled_payment(
     session: AsyncSession,
-    bot: Bot,
+    bot: Bot | None,
     payment_info_from_webhook: dict[str, Any],
     i18n: JsonI18n,
     settings: Settings,

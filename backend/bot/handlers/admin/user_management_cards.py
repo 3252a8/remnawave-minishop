@@ -38,7 +38,12 @@ logger = logging.getLogger(__name__)
 
 
 def get_user_card_keyboard(
-    user_id: int, i18n_instance: JsonI18n, lang: str, referrer_id: int | None = None
+    user_id: int,
+    i18n_instance: JsonI18n,
+    lang: str,
+    referrer_id: int | None = None,
+    *,
+    telegram_id: int | None = None,
 ) -> InlineKeyboardBuilder:
     """Generate keyboard for user management actions"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
@@ -96,15 +101,11 @@ def get_user_card_keyboard(
         callback_data=f"user_action:hwid_limit:{user_id}",
     )
 
-    # Row 4: Quick links — only for users with a real Telegram profile
-    # (synthetic email-only users have a negative user_id with no tg profile).
-    has_self_link = user_id > 0
-    has_referrer_link = referrer_id is not None and referrer_id > 0
-    if has_self_link:
-        builder.button(text=_(key="user_card_open_profile_button"), url=f"tg://user?id={user_id}")
-    if has_referrer_link:
+    # Internal account IDs are never Telegram profile addresses.
+    del referrer_id
+    if telegram_id is not None:
         builder.button(
-            text=_(key="user_card_open_referrer_profile_button"), url=f"tg://user?id={referrer_id}"
+            text=_(key="user_card_open_profile_button"), url=f"tg://user?id={telegram_id}"
         )
 
     # Row 5: Destructive action
@@ -118,7 +119,7 @@ def get_user_card_keyboard(
     )
     builder.button(text=_(key="back_to_admin_panel_button"), callback_data="admin_action:main")
 
-    quick_links_count = (1 if has_self_link else 0) + (1 if has_referrer_link else 0)
+    quick_links_count = 1 if telegram_id is not None else 0
     if quick_links_count == 0:
         builder.adjust(2, 1, 2, 2, 1, 3, 1, 2)
     else:

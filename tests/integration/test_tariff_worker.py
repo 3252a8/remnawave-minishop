@@ -225,7 +225,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             settings=SimpleNamespace(
                 DEFAULT_LANGUAGE="en",
                 SUBSCRIPTION_MINI_APP_URL="https://app.example.com",
-                email_auth_configured=False,
+                smtp_delivery_configured=False,
                 tariff_traffic_warning_levels=[85],
             ),
             session_factory=SimpleNamespace(),
@@ -241,6 +241,17 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         sub = SimpleNamespace(subscription_id=10, user_id=123, traffic_used_bytes=1)
 
         with (
+            patch(
+                "bot.services.tariff_worker_core.user_dal.get_user_by_id",
+                new=AsyncMock(
+                    return_value=SimpleNamespace(
+                        user_id=123,
+                        telegram_id=123,
+                        email=None,
+                        telegram_notifications_status="enabled",
+                    )
+                ),
+            ),
             patch(
                 "bot.services.tariff_worker_regular.tariff_dal.has_warning_level_between",
                 new=AsyncMock(side_effect=[True, False]),
@@ -285,7 +296,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         worker = TariffTrafficWorker(
             settings=SimpleNamespace(
                 DEFAULT_LANGUAGE="en",
-                email_auth_configured=False,
+                smtp_delivery_configured=False,
                 tariff_traffic_warning_levels=[85],
             ),
             session_factory=SimpleNamespace(),
@@ -319,7 +330,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         worker = TariffTrafficWorker(
             settings=SimpleNamespace(
                 DEFAULT_LANGUAGE="en",
-                email_auth_configured=False,
+                smtp_delivery_configured=False,
                 tariff_traffic_warning_levels=[85],
             ),
             session_factory=SimpleNamespace(),
@@ -354,7 +365,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             settings=SimpleNamespace(
                 DEFAULT_LANGUAGE="ru",
                 SUBSCRIPTION_MINI_APP_URL="https://app.example.com",
-                email_auth_configured=False,
+                smtp_delivery_configured=False,
                 tariff_traffic_warning_levels=[85],
             ),
             session_factory=SimpleNamespace(),
@@ -374,6 +385,17 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with (
+            patch(
+                "bot.services.tariff_worker_shared.user_dal.get_user_by_id",
+                new=AsyncMock(
+                    return_value=SimpleNamespace(
+                        user_id=123,
+                        telegram_id=123,
+                        email=None,
+                        telegram_notifications_status="enabled",
+                    )
+                ),
+            ),
             patch(
                 "bot.services.tariff_worker_regular.tariff_dal.get_warning",
                 new=AsyncMock(return_value=None),
@@ -406,7 +428,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         settings = SimpleNamespace(
             DEFAULT_LANGUAGE="en",
             SUBSCRIPTION_MINI_APP_URL="https://app.example.com",
-            email_auth_configured=False,
+            smtp_delivery_configured=False,
             tariff_traffic_warning_levels=[85],
         )
         panel_service = AsyncMock(spec=PanelApiService)
@@ -446,6 +468,17 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with (
+            patch(
+                "bot.services.tariff_worker_core.user_dal.get_user_by_id",
+                new=AsyncMock(
+                    return_value=SimpleNamespace(
+                        user_id=123,
+                        telegram_id=123,
+                        email=None,
+                        telegram_notifications_status="enabled",
+                    )
+                ),
+            ),
             patch(
                 "bot.services.tariff_worker_premium.tariff_dal.has_warning_level_between",
                 new=AsyncMock(side_effect=[True, False]),
@@ -494,7 +527,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             settings=SimpleNamespace(
                 DEFAULT_LANGUAGE="en",
                 SUBSCRIPTION_MINI_APP_URL="https://app.example.com",
-                email_auth_configured=False,
+                smtp_delivery_configured=False,
                 tariff_traffic_warning_levels=[85],
             ),
             session_factory=SimpleNamespace(),
@@ -514,6 +547,17 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with (
+            patch(
+                "bot.services.tariff_worker_shared.user_dal.get_user_by_id",
+                new=AsyncMock(
+                    return_value=SimpleNamespace(
+                        user_id=123,
+                        telegram_id=123,
+                        email=None,
+                        telegram_notifications_status="enabled",
+                    )
+                ),
+            ),
             patch(
                 "bot.services.tariff_worker_premium.tariff_dal.get_warning",
                 new=AsyncMock(return_value=None),
@@ -2891,7 +2935,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         settings = SimpleNamespace(
             DEFAULT_LANGUAGE="en",
             SUBSCRIPTION_MINI_APP_URL="",
-            email_auth_configured=False,
+            smtp_delivery_configured=False,
             tariff_traffic_warning_levels=[85],
             USER_TRAFFIC_STRATEGY="MONTH",
             TARIFF_PREMIUM_DROP_CONNECTIONS=drop_enabled,

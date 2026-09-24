@@ -36,8 +36,6 @@ class ProfileSyncMiddleware(BaseMiddleware):
 
             try:
                 db_user = await user_dal.get_user_by_telegram_id(session, tg_user.id)
-                if not db_user:
-                    db_user = await user_dal.get_user_by_id(session, tg_user.id)
                 if db_user:
                     update_payload: dict[str, Any] = {}
                     sanitized_username = sanitize_username(tg_user.username)

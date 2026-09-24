@@ -398,8 +398,9 @@ async def create_payment_route(request: web.Request) -> web.Response:
                     "trial_already_had_subscription_or_trial",
                     "Trial is not available for this account",
                 )
-            admin_ids = {int(item) for item in (settings.ADMIN_IDS or [])}
-            is_admin = bool(db_user.telegram_id and int(db_user.telegram_id) in admin_ids)
+            from bot.services.account_roles import is_admin as account_is_admin
+
+            is_admin = await account_is_admin(session, user_id)
             return await _create_subscription_payment(
                 request=request,
                 session=session,
@@ -548,8 +549,9 @@ async def create_payment_route(request: web.Request) -> web.Response:
             checkout_bundle = attach_gift_delivery(
                 checkout_bundle, payment_payload, settings.TRIAL_DAYS_STRATEGY
             )
-        admin_ids = {int(item) for item in (settings.ADMIN_IDS or [])}
-        is_admin = bool(db_user.telegram_id and int(db_user.telegram_id) in admin_ids)
+        from bot.services.account_roles import is_admin as account_is_admin
+
+        is_admin = await account_is_admin(session, user_id)
         return await _create_subscription_payment(
             request=request,
             session=session,

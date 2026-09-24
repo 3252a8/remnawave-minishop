@@ -79,6 +79,7 @@ def _settings(**overrides):
         WEBAPP_TITLE="Minishop",
         WEBAPP_LOGO_URL="",
         email_auth_configured=True,
+        smtp_delivery_configured=True,
         **overrides,
     )
 

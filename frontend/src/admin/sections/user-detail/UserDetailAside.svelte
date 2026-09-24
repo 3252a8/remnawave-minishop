@@ -228,6 +228,34 @@
   <div class="admin-subsection-title">{at("user_section_profile", {}, "Profile")}</div>
   <ul class="admin-meta-list">
     <li>
+      <span>{at("user_minishop_id", {}, "Minishop ID")}</span>
+      <strong>
+        {#if openedUser.minishop_id}
+          <AdminCopyableValue
+            value={openedUser.minishop_id}
+            copyLabel={copyLabel(openedUser.minishop_id)}
+            kind="user-id"
+            oncopy={copyValue}
+          />
+        {:else}
+          —
+        {/if}
+      </strong>
+    </li>
+    {#if openedUser.panel_username && openedUser.panel_username !== openedUser.minishop_id}
+      <li>
+        <span>{at("user_panel_username", {}, "Panel username")}</span>
+        <strong>
+          <AdminCopyableValue
+            value={openedUser.panel_username}
+            copyLabel={copyLabel(openedUser.panel_username)}
+            kind="username"
+            oncopy={copyValue}
+          />
+        </strong>
+      </li>
+    {/if}
+    <li>
       <span>ID</span>
       <strong>
         <AdminCopyableValue

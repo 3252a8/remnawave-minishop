@@ -103,7 +103,9 @@ async def external_identity_unlink_route(request: web.Request) -> web.Response:
             user=user,
             has_other_external_identity=other_external_enabled,
             has_passkey_login=bool(settings.PASSKEY_LOGIN_ENABLED and passkey_count),
-            has_telegram_login=bool(settings.TELEGRAM_LOGIN_ENABLED and user.telegram_id),
+            has_telegram_login=bool(
+                settings.TELEGRAM_ENABLED and settings.TELEGRAM_LOGIN_ENABLED and user.telegram_id
+            ),
             email_login_enabled=bool(settings.email_auth_configured),
         ):
             return json_response({"ok": False, "error": "last_login_method"}, status=409)

@@ -419,6 +419,7 @@ class CoreEventReactions(PartnerEventReactionsMixin):
             else:
                 await service.notify_new_user_registration(
                     user_id=int(user_id),
+                    telegram_id=payload.get("telegram_id") or getattr(user, "telegram_id", None),
                     username=payload.get("username") or getattr(user, "username", None),
                     first_name=payload.get("first_name") or getattr(user, "first_name", None),
                     email=email,

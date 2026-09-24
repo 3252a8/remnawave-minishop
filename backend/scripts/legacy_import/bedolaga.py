@@ -188,9 +188,7 @@ class BedolagaImporter(_BedolagaOperationsSection):
         telegram_id = _to_int(row.get("telegram_id"))
         if telegram_id is not None:
             result = await self.target.execute(
-                select(User.user_id).where(
-                    (User.telegram_id == telegram_id) | (User.user_id == telegram_id)
-                )
+                select(User.user_id).where(User.telegram_id == telegram_id)
             )
             candidates.update(int(value) for value in result.scalars().all())
         email = _string(row.get("email"), 254)

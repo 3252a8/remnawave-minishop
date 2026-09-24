@@ -344,13 +344,14 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             .scalars()
             .all()
         )
+        from bot.services.account_roles import is_admin as account_is_admin
+
+        is_admin = await account_is_admin(session, user_id)
         try:
             await session.commit()
         except Exception:
             await session.rollback()
 
-    admin_ids = {int(x) for x in (settings.ADMIN_IDS or [])}
-    is_admin = bool(db_user.telegram_id and int(db_user.telegram_id) in admin_ids)
     telegram_linked = _user_has_linked_telegram(db_user)
     referral_welcome_days, referral_welcome_telegram_required_reason = (
         resolve_referral_welcome_state(
@@ -373,6 +374,8 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
     return {
         "user": {
             "id": user_id,
+            "account_id": str(db_user.account_id),
+            "minishop_id": str(db_user.minishop_id),
             "username": db_user.username,
             "email": db_user.email,
             "email_verified": bool(db_user.email_verified_at),

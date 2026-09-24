@@ -46,6 +46,42 @@ class UserExternalIdentity(Base):
     user = relationship("User")
 
 
+class AccountRole(Base):
+    """Current role assignment; the event table keeps its full history."""
+
+    __tablename__ = "account_roles"
+
+    user_id = Column(BigInteger, ForeignKey("users.user_id"), primary_key=True)
+    role = Column(String(16), primary_key=True)
+    granted_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    granted_by = Column(BigInteger, ForeignKey("users.user_id"), nullable=True)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    revoked_by = Column(BigInteger, ForeignKey("users.user_id"), nullable=True)
+
+
+class AccountRoleEvent(Base):
+    __tablename__ = "account_role_events"
+
+    event_id = Column(BigInteger, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=False)
+    role = Column(String(16), nullable=False)
+    action = Column(String(16), nullable=False)
+    actor_user_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=True)
+    source = Column(String(32), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class AccountAlias(Base):
+    """Resolve historical numeric references without reviving old sessions."""
+
+    __tablename__ = "account_aliases"
+
+    old_user_id = Column(BigInteger, primary_key=True)
+    new_user_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=False)
+    reason = Column(String(64), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
 class UserEmailAddress(Base):
     """A verified address attached to an account independently of its login provider."""
 

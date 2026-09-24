@@ -143,11 +143,9 @@ def _resolve_audience_service(request: web.Request) -> AudienceSegmentationServi
     service = request.app.get("audience_segmentation_service")
     if isinstance(service, AudienceSegmentationService):
         return service
-    settings: Settings = get_settings(request)
     return AudienceSegmentationService(
         get_session_factory(request),
         panel_service=_resolve_panel_service(request),
-        admin_ids=settings.ADMIN_IDS,
     )
 
 
@@ -199,7 +197,6 @@ async def _load_broadcast_audience_counts(
         return await _load_broadcast_audience_counts_uncached(
             async_session_factory,
             panel_service,
-            admin_ids=settings.ADMIN_IDS,
         )
     cache_key = "with-panel" if panel_service is not None else "without-panel"
     return cast(
@@ -209,7 +206,6 @@ async def _load_broadcast_audience_counts(
             lambda: _load_broadcast_audience_counts_uncached(
                 async_session_factory,
                 panel_service,
-                admin_ids=settings.ADMIN_IDS,
             ),
         ),
     )
@@ -218,10 +214,10 @@ async def _load_broadcast_audience_counts(
 async def _load_broadcast_audience_counts_uncached(
     async_session_factory: sessionmaker,
     panel_service: Any,
-    *,
-    admin_ids: list[int] | None = None,
 ) -> dict[str, int | None]:
     async with async_session_factory() as session:
+        from bot.services.account_roles import active_admin_user_ids
+
         counts: dict[str, int | None] = {
             "all": await user_dal.count_all_active_users_for_broadcast(session),
             "active": await user_dal.count_users_with_active_subscription_for_broadcast(session),
@@ -231,7 +227,7 @@ async def _load_broadcast_audience_counts_uncached(
             "expired": await user_dal.count_users_with_expired_subscription_for_broadcast(session),
             "never": await user_dal.count_users_without_any_subscription_for_broadcast(session),
             BROADCAST_TARGET_ACTIVE_NEVER_CONNECTED: None,
-            AUDIENCE_ADMINS: len(dict.fromkeys(admin_ids or [])),
+            AUDIENCE_ADMINS: len(await active_admin_user_ids(session)),
         }
         if panel_service is not None:
             counts[BROADCAST_TARGET_ACTIVE_NEVER_CONNECTED] = len(

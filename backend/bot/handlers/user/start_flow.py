@@ -121,7 +121,8 @@ async def start_command_handler(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     user = message_from_user(message)
-    user_id = user.id
+    telegram_user_id = user.id
+    user_id: int | None = None
     start_param = _start_argument(message)
     start_source = _bot_started_source(
         ref_match=ref_match,
@@ -133,8 +134,13 @@ async def start_command_handler(
         notifications_match=notifications_match,
     )
 
-    if admin_user_match and user_id in settings.ADMIN_IDS:
-        started_user = await user_dal.get_user_by_id(session, user_id)
+    from bot.services.account_roles import is_admin
+
+    started_user = await user_dal.get_user_by_telegram_id(session, telegram_user_id)
+    if started_user:
+        user_id = int(started_user.user_id)
+    if admin_user_match and started_user and await is_admin(session, int(started_user.user_id)):
+        user_id = int(started_user.user_id)
         await emit_bot_started(
             user_id=user_id,
             returning=started_user is not None,
@@ -219,17 +225,17 @@ async def start_command_handler(
     sanitized_last_name = sanitize_display_name(user.last_name)
     notification_status_now = datetime.now(UTC)
 
-    db_user = await user_dal.get_user_by_telegram_id(session, user_id)
-    if not db_user:
-        db_user = await user_dal.get_user_by_id(session, user_id)
+    db_user = started_user
     is_existing_user = db_user is not None
+    if db_user:
+        user_id = int(db_user.user_id)
     if db_user:
         if raw_ref_value:
             referred_by_user_id = await _resolve_referrer_from_start_ref(
                 session,
                 raw_ref_value,
                 settings=settings,
-                current_user_id=user_id,
+                current_user_id=int(db_user.user_id),
             )
     else:
         invite_check = await evaluate_registration_invite(
@@ -240,12 +246,6 @@ async def start_command_handler(
             source="telegram_start",
         )
         if invite_check.requires_invite:
-            await emit_bot_started(
-                user_id=user_id,
-                returning=False,
-                source=start_source,
-                start_param=start_param,
-            )
             await message.answer(_("registration_invite_required"))
             return
         referred_by_user_id = invite_check.referrer_user_id
@@ -255,12 +255,13 @@ async def start_command_handler(
         ticket_id = int(ticket_match.group(1))
         base_url = (settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
         if base_url:
-            await emit_bot_started(
-                user_id=user_id,
-                returning=is_existing_user,
-                source=start_source,
-                start_param=start_param,
-            )
+            if user_id is not None:
+                await emit_bot_started(
+                    user_id=user_id,
+                    returning=is_existing_user,
+                    source=start_source,
+                    start_param=start_param,
+                )
             ticket_url = f"{base_url.rstrip('/')}/support/{ticket_id}"
             keyboard = types.InlineKeyboardMarkup(
                 inline_keyboard=[
@@ -284,8 +285,7 @@ async def start_command_handler(
 
     if not db_user:
         user_data_to_create = {
-            "user_id": user_id,
-            "telegram_id": user_id,
+            "telegram_id": telegram_user_id,
             "username": sanitized_username,
             "first_name": sanitized_first_name,
             "last_name": sanitized_last_name,
@@ -299,6 +299,7 @@ async def start_command_handler(
         }
         try:
             db_user, created = await user_dal.create_user(session, user_data_to_create)
+            user_id = int(db_user.user_id)
 
             if created:
                 if partner_code:
@@ -424,8 +425,8 @@ async def start_command_handler(
         update_payload = {}
         if db_user.language_code != current_lang:
             update_payload["language_code"] = current_lang
-        if db_user.telegram_id != user_id:
-            update_payload["telegram_id"] = user_id
+        if db_user.telegram_id != telegram_user_id:
+            update_payload["telegram_id"] = telegram_user_id
         if db_user.telegram_notifications_status != TELEGRAM_NOTIFICATIONS_ENABLED:
             update_payload["telegram_notifications_status"] = TELEGRAM_NOTIFICATIONS_ENABLED
             update_payload["telegram_notifications_checked_at"] = notification_status_now

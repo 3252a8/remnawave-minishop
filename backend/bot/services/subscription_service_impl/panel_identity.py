@@ -4,8 +4,14 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.services.account_roles import ADMIN_ROLES
+from bot.services.panel_identity_match import (
+    panel_candidate_matches_account,
+    panel_origin_fingerprint,
+)
 from bot.services.panel_tariff_tags import (
     PanelTariffTagPlan,
     configured_tariff_tags,
@@ -13,8 +19,10 @@ from bot.services.panel_tariff_tags import (
     panel_tariff_tag_for_key,
     plan_panel_tariff_tag,
 )
+from bot.services.user_email_notifications import send_user_notification_email
 from bot.utils.text_sanitizer import panel_description_from_profile
 from config.traffic_strategy import normalize_traffic_limit_strategy
+from db.auth_models import AccountRole
 from db.dal import user_dal, user_panel_squad_override_dal
 from db.models import User
 
@@ -92,42 +100,61 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
             lifetime = panel_user_data.get("lifetimeUsedTrafficBytes")
         return self._coerce_panel_int(lifetime)
 
-    async def _notify_admin_panel_user_creation_failed(self, user_id: int) -> None:
-        if not self.bot or not self.i18n or not self.settings.ADMIN_IDS:
-            return
+    async def _notify_admin_panel_user_creation_failed(
+        self, session: AsyncSession, user_id: int
+    ) -> None:
         admin_lang = self.settings.DEFAULT_LANGUAGE
-        _adm = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw)
+        _adm = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
         msg = _adm("admin_panel_user_creation_failed", user_id=user_id)
-        for admin_id in self.settings.ADMIN_IDS:
-            try:
-                await self.bot.send_message(admin_id, msg)
-            except Exception as e:
-                logger.error(
-                    "Failed to notify admin %s about panel user creation failure: %s", admin_id, e
+        admins = (
+            (
+                await session.execute(
+                    select(User)
+                    .join(AccountRole, AccountRole.user_id == User.user_id)
+                    .where(AccountRole.role.in_(ADMIN_ROLES), AccountRole.revoked_at.is_(None))
+                    .distinct()
                 )
+            )
+            .scalars()
+            .all()
+        )
+        for admin in admins:
+            if self.bot and admin.telegram_id:
+                try:
+                    await self.bot.send_message(int(admin.telegram_id), msg)
+                except Exception:
+                    logger.exception("Failed to notify admin %s in Telegram", admin.user_id)
+            await send_user_notification_email(
+                settings=self.settings,
+                i18n=self.i18n,
+                user=admin,
+                subject_key="admin_panel_user_creation_failed",
+                subject_kwargs={"user_id": user_id},
+                message_text=msg,
+            )
 
     def _telegram_id_for_panel(self, db_user: User) -> int | None:
         if db_user.telegram_id:
             return int(db_user.telegram_id)
-        if db_user.user_id and int(db_user.user_id) > 0:
-            return int(db_user.user_id)
         return None
 
     async def _panel_username_for_user(self, session: AsyncSession, db_user: User) -> str:
-        telegram_id = self._telegram_id_for_panel(db_user)
-        if telegram_id and int(db_user.user_id) == telegram_id:
-            return f"tg_{telegram_id}"
-        referral_code = await user_dal.ensure_referral_code(session, db_user)
-        return f"em_{referral_code}"
+        if not db_user.minishop_id:
+            await session.flush()
+            await session.refresh(db_user, attribute_names=["minishop_id"])
+        return str(db_user.minishop_id)
 
     def _panel_description_for_user(self, db_user: User) -> str:
-        return str(
+        description = str(
             panel_description_from_profile(
                 db_user.username,
                 db_user.first_name,
                 db_user.last_name,
             )
         )
+        if db_user.panel_username and db_user.panel_username != db_user.minishop_id:
+            return f"{description[:200]} | {db_user.minishop_id}"
+        return description
 
     def _panel_identity_payload_for_user(self, db_user: User) -> dict[str, Any]:
         payload: dict[str, Any] = {}
@@ -215,6 +242,15 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
             is_trial=create_options.is_trial,
         )
         current_local_panel_uuid = db_user.panel_user_uuid
+        current_panel_origin = panel_origin_fingerprint(
+            getattr(self.settings, "PANEL_API_URL", None)
+        )
+        if getattr(db_user, "panel_origin", None) and db_user.panel_origin != current_panel_origin:
+            logger.error(
+                "Panel origin changed for account %s; manual reconciliation required",
+                user_id,
+            )
+            return PanelUserLink(None, None, None, False, False, None)
         panel_username_on_panel_standard = await self._panel_username_for_user(session, db_user)
         telegram_id_for_panel = self._telegram_id_for_panel(db_user)
 
@@ -224,7 +260,36 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
         identity_lookup_failed = False
 
         panel_users_by_tg_id_list = None
-        if telegram_id_for_panel:
+        if current_local_panel_uuid:
+            lookup_method = getattr(self.panel_service, "get_user_by_uuid_lookup", None)
+            if callable(lookup_method):
+                lookup = await lookup_method(current_local_panel_uuid)
+                if isinstance(lookup, dict) and lookup.get("ok"):
+                    candidate = lookup.get("user")
+                    if isinstance(candidate, dict):
+                        panel_user_obj_from_api = candidate
+            else:
+                panel_user_obj_from_api = await self.panel_service.get_user_by_uuid(
+                    current_local_panel_uuid
+                )
+
+        if not panel_user_obj_from_api and current_local_panel_uuid:
+            legacy_names: list[str] = []
+            if db_user.panel_username:
+                legacy_names.append(str(db_user.panel_username))
+            for legacy_name in dict.fromkeys(legacy_names):
+                matches = await self.panel_service.get_users_by_filter(username=legacy_name)
+                if matches is None:
+                    identity_lookup_failed = True
+                    continue
+                if len(matches) == 1:
+                    panel_user_obj_from_api = matches[0]
+                    break
+                if len(matches) > 1:
+                    logger.error("Ambiguous legacy panel username for account %s", user_id)
+                    return PanelUserLink(None, None, None, False, False, None)
+
+        if not panel_user_obj_from_api and current_local_panel_uuid and telegram_id_for_panel:
             panel_users_by_tg_id_list = await self.panel_service.get_users_by_filter(
                 telegram_id=telegram_id_for_panel
             )
@@ -260,7 +325,7 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                 )
                 return PanelUserLink(None, None, None, False, False, None)
 
-        if not panel_user_obj_from_api and db_user.email:
+        if not panel_user_obj_from_api and current_local_panel_uuid and db_user.email:
             panel_users_by_email_list = await self.panel_service.get_users_by_filter(
                 email=db_user.email
             )
@@ -290,7 +355,34 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
             )
             identity_lookup_failed = identity_lookup_failed or panel_users_by_username is None
             if panel_users_by_username and len(panel_users_by_username) == 1:
-                panel_user_obj_from_api = panel_users_by_username[0]
+                candidate = panel_users_by_username[0]
+                if not current_local_panel_uuid:
+                    candidate_telegram_id = self._coerce_panel_int(candidate.get("telegramId"))
+                    matching_telegram = bool(
+                        telegram_id_for_panel and candidate_telegram_id == telegram_id_for_panel
+                    )
+                    matching_verified_email = bool(
+                        getattr(db_user, "email_verified_at", None)
+                        and db_user.email
+                        and str(candidate.get("email") or "").strip().lower()
+                        == str(db_user.email).strip().lower()
+                    )
+                    candidate_uuid = str(candidate.get("uuid") or "")
+                    linked_account = (
+                        await user_dal.get_user_by_panel_uuid(session, candidate_uuid)
+                        if candidate_uuid
+                        else None
+                    )
+                    if (
+                        not candidate_uuid
+                        or not (matching_telegram or matching_verified_email)
+                        or (linked_account and linked_account.user_id != user_id)
+                    ):
+                        logger.error(
+                            "Panel username collision requires reconciliation for %s", user_id
+                        )
+                        return PanelUserLink(None, None, None, False, False, None)
+                panel_user_obj_from_api = candidate
                 logger.info(
                     "Found panel user by deterministic username '%s': identifier %s.",
                     panel_username_on_panel_standard,
@@ -311,8 +403,6 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                     user_id,
                     current_local_panel_uuid,
                 )
-                direct_lookup_not_found = False
-                direct_lookup_incompatible = False
                 lookup_method = getattr(self.panel_service, "get_user_by_uuid_lookup", None)
                 if callable(lookup_method):
                     lookup = await lookup_method(current_local_panel_uuid)
@@ -320,77 +410,29 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                         lookup_user = lookup.get("user")
                         if lookup.get("ok") and isinstance(lookup_user, dict):
                             panel_user_obj_from_api = lookup_user
-                        direct_lookup_not_found = bool(lookup.get("not_found"))
-                        direct_lookup_incompatible = (
-                            "classification=incompatible_user_reference"
-                            in str(lookup.get("failure_reason") or "")
-                        )
                     else:
                         panel_user_obj_from_api = await self.panel_service.get_user_by_uuid(
                             current_local_panel_uuid
                         )
-                        direct_lookup_not_found = panel_user_obj_from_api is None
                 else:
                     panel_user_obj_from_api = await self.panel_service.get_user_by_uuid(
                         current_local_panel_uuid
                     )
-                    direct_lookup_not_found = panel_user_obj_from_api is None
                 if not panel_user_obj_from_api:
-                    safe_to_create = direct_lookup_not_found or (
-                        direct_lookup_incompatible and not identity_lookup_failed
-                    )
-                    if not safe_to_create:
-                        logger.error(
-                            "Refusing to create a replacement panel user for local user %s: "
-                            "the existing panel reference was not confirmed missing and one or "
-                            "more identity lookups may have failed.",
-                            user_id,
-                        )
-                        return PanelUserLink(
-                            current_local_panel_uuid,
-                            None,
-                            None,
-                            False,
-                            False,
-                            None,
-                        )
-                    logger.warning(
-                        "Local panel_uuid %s for TG user %s also not found on panel. User might be "
-                        "deleted from panel or UUID desynced.",
+                    logger.error(
+                        "Existing panel link %s for account %s could not be verified; "
+                        "manual reconciliation is required before creating another panel user.",
                         current_local_panel_uuid,
                         user_id,
                     )
-                    logger.info(
-                        "Creating new panel user '%s' for TG user %s.",
-                        panel_username_on_panel_standard,
-                        user_id,
+                    return PanelUserLink(
+                        current_local_panel_uuid,
+                        None,
+                        None,
+                        False,
+                        False,
+                        None,
                     )
-                    creation_response = await self.panel_service.create_panel_user(
-                        username_on_panel=panel_username_on_panel_standard,
-                        telegram_id=telegram_id_for_panel,
-                        email=db_user.email,
-                        description=self._panel_description_for_user(db_user),
-                        default_expire_days=create_options.default_expire_days,
-                        expire_at=create_options.expire_at,
-                        hwid_device_limit=create_options.hwid_device_limit,
-                        specific_squad_uuids=list(create_options.specific_squad_uuids),
-                        external_squad_uuid=create_options.external_squad_uuid,
-                        default_traffic_limit_bytes=create_options.default_traffic_limit_bytes,
-                        default_traffic_limit_strategy=(
-                            create_options.default_traffic_limit_strategy
-                        ),
-                        tag=creation_tag,
-                    )
-                    if (
-                        creation_response
-                        and not creation_response.get("error")
-                        and creation_response.get("response")
-                    ):
-                        panel_user_obj_from_api = creation_response.get("response")
-                        panel_user_created_now = True
-                    else:
-                        await self._notify_admin_panel_user_creation_failed(user_id)
-                        return PanelUserLink(None, None, None, False, False, None)
 
             else:
                 if identity_lookup_failed:
@@ -429,15 +471,12 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                     panel_user_created_now = True
 
                 elif creation_response and creation_response.get("errorCode") == "A019":
-                    logger.warning(
-                        "Panel user '%s' already exists (errorCode A019). Fetching by username.",
+                    logger.error(
+                        "Panel username '%s' is occupied; reconciliation is required "
+                        "before linking.",
                         panel_username_on_panel_standard,
                     )
-                    fetched_by_username_list = await self.panel_service.get_users_by_filter(
-                        username=panel_username_on_panel_standard
-                    )
-                    if fetched_by_username_list and len(fetched_by_username_list) == 1:
-                        panel_user_obj_from_api = fetched_by_username_list[0]
+                    return PanelUserLink(None, None, None, False, False, None)
 
                 if not panel_user_obj_from_api:
                     logger.error(
@@ -447,7 +486,7 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                         panel_username_on_panel_standard,
                         creation_response if "creation_response" in locals() else "N/A",
                     )
-                    await self._notify_admin_panel_user_creation_failed(user_id)
+                    await self._notify_admin_panel_user_creation_failed(session, user_id)
                     return PanelUserLink(None, None, None, False, False, None)
 
         if not panel_user_obj_from_api:
@@ -464,7 +503,31 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                 None,
             )
 
+        if not panel_user_created_now and not panel_candidate_matches_account(
+            db_user, panel_user_obj_from_api
+        ):
+            logger.error(
+                "Panel native reference or search result lacks matching account identity for %s",
+                user_id,
+            )
+            return PanelUserLink(None, None, None, False, False, None)
+
         actual_panel_uuid_from_api = panel_user_obj_from_api.get("uuid")
+        if actual_panel_uuid_from_api:
+            linked_account = await user_dal.get_user_by_panel_uuid(
+                session, str(actual_panel_uuid_from_api)
+            )
+            if linked_account and linked_account.user_id != user_id:
+                logger.error("Panel reference belongs to another local account for %s", user_id)
+                return PanelUserLink(None, None, None, False, False, None)
+        db_user.panel_origin = current_panel_origin
+        actual_panel_username = str(panel_user_obj_from_api.get("username") or "").strip()
+        if actual_panel_username:
+            db_user.panel_username = actual_panel_username
+            db_user.panel_username_state = (
+                "current" if actual_panel_username == db_user.minishop_id else "legacy_pending"
+            )
+            await session.flush()
         panel_telegram_id_from_api = panel_user_obj_from_api.get("telegramId")
 
         if not actual_panel_uuid_from_api:

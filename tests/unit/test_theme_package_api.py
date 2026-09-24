@@ -16,7 +16,7 @@ from aiohttp.web_exceptions import NotAppKeyWarning
 from PIL import Image
 
 from bot.app.web import session as web_session
-from bot.app.web.admin_api_impl import auth, theme_library
+from bot.app.web.admin_api_impl import theme_library
 from config.theme_packages.archive import deterministic_zip
 from tests.support.settings_stub import settings_stub
 from tests.unit.test_theme_packages import package
@@ -32,7 +32,6 @@ async def client_context(
         WEBAPP_PRIMARY_COLOR="#00fe7a",
         WEBAPP_DEFAULT_THEME=None,
     )
-    monkeypatch.setattr(auth, "get_settings", lambda _request: settings)
     monkeypatch.setattr(web_session, "get_settings", lambda _request: settings)
     monkeypatch.setattr(theme_library, "get_settings", lambda _request: settings)
     monkeypatch.setattr(
@@ -53,7 +52,7 @@ async def client_context(
         if request.headers.get("X-Test-Admin") == "yes":
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", NotAppKeyWarning)
-                request["admin_telegram_id"] = 99
+                request["admin_authorized"] = True
         return await handler(request)
 
     app = web.Application(middlewares=[identity])

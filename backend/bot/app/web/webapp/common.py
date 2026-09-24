@@ -187,9 +187,6 @@ def _telegram_id_for_user(user: User) -> int | None:
     telegram_id = getattr(user, "telegram_id", None)
     if telegram_id:
         return int(telegram_id)
-    user_id = getattr(user, "user_id", None)
-    if user_id and int(user_id) > 0:
-        return int(user_id)
     return None
 
 

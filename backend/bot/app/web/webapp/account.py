@@ -30,7 +30,6 @@ from .auth import (
     _build_webapp_auth_response,
     _hash_email_password,
     _link_telegram_to_user,
-    _merge_users_for_web,
     _request_email_code,
     _sync_merged_panel_identity_for_user,
     _sync_panel_identity_for_user,
@@ -183,21 +182,11 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
                 await user_email_dal.get_user_by_verified_email_address(session, email)
             )
             if existing_email_user and existing_email_user.user_id != current_user.user_id:
-                source_panel_uuid = existing_email_user.panel_user_uuid
-                current_user = await _merge_users_for_web(
-                    request,
-                    session,
-                    source_user_id=existing_email_user.user_id,
-                    target_user_id=current_user.user_id,
-                    reason="email_link",
-                    send_user_email=True,
-                )
-                merge_notice = await _build_account_merge_notice(
-                    session,
-                    merged_user=current_user,
-                    source_user_id=existing_email_user.user_id,
-                    source_panel_uuid=source_panel_uuid,
-                    settings=settings,
+                await session.rollback()
+                return _json_error(
+                    409,
+                    "account_merge_required",
+                    "Email belongs to another account; an explicit merge is required.",
                 )
             current_user.email = email
             current_user.email_verified_at = datetime.now(UTC)

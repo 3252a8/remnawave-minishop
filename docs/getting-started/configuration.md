@@ -22,12 +22,14 @@ nano .env
 
 | Переменная | Зачем нужна |
 | --- | --- |
-| `BOT_TOKEN` | Токен Telegram-бота. |
-| `ADMIN_IDS` | Telegram ID администраторов через запятую; без этого не попасть в Web App админку. |
+| `TELEGRAM_ENABLED`, `BOT_TOKEN` | Включение Telegram и токен бота. Для браузерного режима задайте `TELEGRAM_ENABLED=False` и оставьте токен пустым. |
+| `ADMIN_IDS` | Необязательный одноразовый источник импорта старых администраторов с подтверждённым `telegram_id`; повседневный доступ задаётся ролями аккаунтов. |
 | `WEBHOOK_BASE_URL` | Публичный URL webhook-домена backend. Для Remnawave Panel `WEBHOOK_URL` будет `WEBHOOK_BASE_URL` + `/webhook/panel`, например `https://app.example.com/webhook/panel`. |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Доступы PostgreSQL для Compose и backend. |
 | `WEBAPP_ENABLED` | Включает Web App и админку. Для первого запуска держите `True`. |
 | `WEBAPP_SESSION_SECRET` | Стабильный секрет сессий Web App. |
+| `EMAIL_AUTH_SECRET` | Независимый стабильный секрет email-кодов и magic links. |
+| `PUBLIC_APP_URL` | Публичный HTTPS URL браузерного кабинета для писем и возврата после оплаты. |
 | `WEBHOOK_SECRET_TOKEN` | Стабильный секретный токен вебхука Telegram. |
 | `SUBSCRIPTION_MINI_APP_URL` | Публичный HTTPS URL Mini App/frontend, например `https://app.domain.com/`. Это URL, который открывают кнопки Telegram и который указывается в BotFather; не добавляйте сюда `/api` или webhook-пути. |
 | `SUBSCRIPTION_GUIDES_ENABLED`, `SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED` | Встроенные инструкции установки в Web App и кнопках бота. По умолчанию включены; обычно их достаточно менять в админке. |
@@ -58,11 +60,11 @@ rollback описаны в разделе
 
 1. В `.env` выставьте `WEBAPP_ENABLED=True`.
 2. Перезапустите backend/frontend контейнеры, например `docker compose up -d --force-recreate backend frontend`.
-3. Откройте `SUBSCRIPTION_MINI_APP_URL` под Telegram-аккаунтом из `ADMIN_IDS` и при необходимости проверьте настройку в админке.
+3. Откройте кабинет под аккаунтом с ролью `owner` или `admin` и проверьте настройку в админке.
 
 ## Настройка через админку
 
-После запуска откройте Mini App под аккаунтом, чей Telegram ID указан в `ADMIN_IDS`, и перейдите в админ-панель.
+После запуска подтвердите email первого владельца, выполните `docker compose exec backend python backend/scripts/bootstrap_owner.py --email owner@example.com`, войдите в кабинет и откройте админ-панель. Подробности есть в [инструкции автономного режима](../features/telegram-optional.md).
 
 Рекомендуемый порядок первичной настройки:
 
@@ -80,11 +82,11 @@ rollback описаны в разделе
 
 Не все настройки стоит переносить в базу. В `.env` остаются:
 
-- токен бота и `ADMIN_IDS`;
+- `TELEGRAM_ENABLED`, токен бота при включённом Telegram и необязательный список `ADMIN_IDS` для разового импорта;
 - `TELEGRAM_BOT_PROXY_URL` и необязательный OAuth opt-out `TELEGRAM_OAUTH_USE_BOT_PROXY`;
 - параметры PostgreSQL, Redis, портов и Compose;
 - `WEBHOOK_BASE_URL`, потому что вебхук Telegram устанавливается при старте;
-- стабильные секреты `WEBAPP_SESSION_SECRET` и `WEBHOOK_SECRET_TOKEN`;
+- стабильные секреты `WEBAPP_SESSION_SECRET`, `EMAIL_AUTH_SECRET` и `WEBHOOK_SECRET_TOKEN`;
 - `WEBAPP_THEMES_DIR`, `TARIFFS_CONFIG_PATH` и низкоуровневые TTL/pool/worker-параметры;
 - Remnawave-доступы как базовый источник правды, даже если для удобства они доступны в админке.
 

@@ -62,8 +62,8 @@ services:
     command: ["python", "backend/main_migrate.py"]
     environment:
       <<: *app_environment
-      BOT_TOKEN: ${BOT_TOKEN:-change_me}
-      ADMIN_IDS: ${ADMIN_IDS:-123456789}
+      BOT_TOKEN: ${BOT_TOKEN:-}
+      ADMIN_IDS: ${ADMIN_IDS:-}
       POSTGRES_USER: ${POSTGRES_USER:-remnawave_minishop}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
       POSTGRES_DB: ${POSTGRES_DB:-remnawave_minishop}
@@ -83,8 +83,8 @@ services:
     init: true
     environment:
       <<: *app_environment
-      BOT_TOKEN: ${BOT_TOKEN:-change_me}
-      ADMIN_IDS: ${ADMIN_IDS:-123456789}
+      BOT_TOKEN: ${BOT_TOKEN:-}
+      ADMIN_IDS: ${ADMIN_IDS:-}
       POSTGRES_USER: ${POSTGRES_USER:-remnawave_minishop}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
       POSTGRES_DB: ${POSTGRES_DB:-remnawave_minishop}
@@ -116,8 +116,8 @@ services:
     init: true
     environment:
       <<: *app_environment
-      BOT_TOKEN: ${BOT_TOKEN:-change_me}
-      ADMIN_IDS: ${ADMIN_IDS:-123456789}
+      BOT_TOKEN: ${BOT_TOKEN:-}
+      ADMIN_IDS: ${ADMIN_IDS:-}
       POSTGRES_USER: ${POSTGRES_USER:-remnawave_minishop}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
       POSTGRES_DB: ${POSTGRES_DB:-remnawave_minishop}

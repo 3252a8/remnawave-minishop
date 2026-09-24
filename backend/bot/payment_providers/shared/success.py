@@ -261,7 +261,7 @@ def append_hwid_renewed_note(
 
 async def send_success_message_to_user(
     *,
-    bot: Bot,
+    bot: Bot | None,
     user_id: int,
     text: str,
     language: str,
@@ -277,15 +277,13 @@ async def send_success_message_to_user(
 ) -> None:
     """Send the rendered success text with the standard connect keyboard."""
     chat_id = telegram_recipient(user, user_id)
-    if user is None:
-        chat_id = user_id if user_id > 0 else None
     plan = user_notification_delivery_plan(
         settings,
         _success_notification_category(sale_mode),
         user,
         telegram_available=chat_id is not None,
     )
-    if not plan.telegram or chat_id is None:
+    if not plan.telegram or chat_id is None or bot is None:
         return
     markup = None
     if include_keyboard:
@@ -314,7 +312,7 @@ async def send_success_message_to_user(
 class PaymentSuccessRequest:
     """All the inputs ``finalize_successful_payment`` needs."""
 
-    bot: Bot
+    bot: Bot | None
     settings: Any
     i18n: Any
     session: AsyncSession

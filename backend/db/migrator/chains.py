@@ -16,6 +16,9 @@ from .chain_0087_wata_subscriptions import CHAIN_0087_WATA_SUBSCRIPTIONS
 from .chain_0088_install_share_binding import CHAIN_0088_INSTALL_SHARE_BINDING
 from .chain_0089_plugin_owned_codes import CHAIN_0089_PLUGIN_OWNED_CODES
 from .chain_0090_extensions import CHAIN_0090_EXTENSIONS
+from .chain_0091_account_identity import CHAIN_0091_ACCOUNT_IDENTITY
+from .chain_0092_user_id_sequence import CHAIN_0092_USER_ID_SEQUENCE
+from .chain_0093_panel_origin import CHAIN_0093_PANEL_ORIGIN
 from .engine import Migration
 
 MIGRATIONS: list[Migration] = [
@@ -35,4 +38,7 @@ MIGRATIONS: list[Migration] = [
     *CHAIN_0088_INSTALL_SHARE_BINDING,
     *CHAIN_0089_PLUGIN_OWNED_CODES,
     *CHAIN_0090_EXTENSIONS,
+    *CHAIN_0091_ACCOUNT_IDENTITY,
+    *CHAIN_0092_USER_ID_SEQUENCE,
+    *CHAIN_0093_PANEL_ORIGIN,
 ]

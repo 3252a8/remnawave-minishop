@@ -794,6 +794,7 @@ def test_admin_only_provider_is_visible_only_to_admins(monkeypatch):
         i18n_instance=i18n,
         settings=settings,
         user_id=7,
+        is_admin=False,
     )
     admin_markup = get_payment_method_keyboard(
         months=1,
@@ -804,6 +805,7 @@ def test_admin_only_provider_is_visible_only_to_admins(monkeypatch):
         i18n_instance=i18n,
         settings=settings,
         user_id=42,
+        is_admin=True,
     )
 
     assert spec is not None

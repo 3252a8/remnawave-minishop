@@ -79,6 +79,11 @@ if TYPE_CHECKING:
         EMAIL_CODE_TTL_SECONDS: int
         EMAIL_CODE_RESEND_SECONDS: int
         EMAIL_CODE_MAX_ATTEMPTS: int
+        EMAIL_AUTH_SECRET: str | None
+        WEBAPP_SESSION_SECRET: str
+        PUBLIC_APP_URL: str | None
+        SUBSCRIPTION_MINI_APP_URL: str | None
+        TELEGRAM_ENABLED: bool
         BRUTE_FORCE_MAX_FAILURES: int
         BRUTE_FORCE_WINDOW_SECONDS: int
         BRUTE_FORCE_LOCK_SECONDS: int
@@ -94,7 +99,6 @@ if TYPE_CHECKING:
         WEBAPP_FAVICON_URL: str | None
         WEBAPP_LOGO_FAVICON_URL: str | None
         WEBAPP_SESSION_TTL_SECONDS: int
-        WEBAPP_SESSION_SECRET: str
         WEBHOOK_SECRET_TOKEN: str
         WEBAPP_AUTH_MAX_AGE_SECONDS: int
         WEBAPP_LOGIN_TOKEN_TTL_SECONDS: int
@@ -883,10 +887,18 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             self.EMAIL_LOGIN_ENABLED and (self.qa_auth_enabled or self.smtp_delivery_configured)
         )
 
+    @property
+    def email_auth_secret(self) -> str:
+        return self.EMAIL_AUTH_SECRET or self.WEBAPP_SESSION_SECRET
+
+    @computed_field
+    def public_app_url(self) -> str | None:
+        return self.PUBLIC_APP_URL or self.SUBSCRIPTION_MINI_APP_URL
+
     @computed_field
     def webapp_auth_providers(self) -> list[str]:
         providers: list[str] = []
-        if self.TELEGRAM_LOGIN_ENABLED:
+        if self.TELEGRAM_ENABLED and self.TELEGRAM_LOGIN_ENABLED:
             providers.append("telegram")
         if self.email_auth_configured:
             providers.append("email")

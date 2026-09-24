@@ -45,6 +45,8 @@ def create_telegram_bot(settings: Settings, *, token: str | None = None) -> Bot:
     """Create the shared Telegram Bot API client for backend and worker runtimes."""
     default = DefaultBotProperties(parse_mode=ParseMode.HTML)
     bot_token = settings.BOT_TOKEN if token is None else token
+    if not bot_token:
+        raise ValueError("BOT_TOKEN is required for the Telegram adapter")
     proxy_url = settings.TELEGRAM_BOT_PROXY_URL
     api_base_url = settings.TELEGRAM_BOT_API_BASE_URL
     if proxy_url is None and api_base_url is None:

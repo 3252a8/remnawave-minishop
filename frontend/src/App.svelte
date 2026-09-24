@@ -225,7 +225,7 @@
   const hasTelegramLaunchParams = telegramRuntime.hasLaunchParams;
   const loadTelegramSdk = telegramRuntime.load;
   function initialTelegram(): TelegramWebApp | null {
-    return tg;
+    return CFG.authProviders?.includes("telegram") ? tg : null;
   }
 
   const initialTg = initialTelegram();

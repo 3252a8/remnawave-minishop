@@ -13,6 +13,7 @@ from bot.services.device_topup_availability import (
     resolve_device_topup_availability,
 )
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.telegram_account import require_telegram_account_id
 from bot.services.traffic_topup_availability import (
     TRAFFIC_TOPUP_UNLOCK_PERCENT,
     resolve_traffic_topup_availability,
@@ -45,6 +46,7 @@ async def tariff_topup_list_callback(
     subscription_service: SubscriptionService,
     session: AsyncSession,
 ) -> None:
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     get_text = (
@@ -53,9 +55,7 @@ async def tariff_topup_list_callback(
         else (lambda key, **kw: "Error")
     )
     config = settings.tariffs_config
-    active = await subscription_service.get_active_subscription_details(
-        session, callback.from_user.id
-    )
+    active = await subscription_service.get_active_subscription_details(session, account_user_id)
     if not config or not active or not active.get("tariff_key") or not callback.message:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
@@ -171,6 +171,7 @@ async def tariff_topup_list_callback(
 async def select_tariff_premium_package_callback(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
 ) -> None:
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     get_text = lambda key, **kw: i18n.gettext(current_lang, key, **kw)
@@ -180,7 +181,7 @@ async def select_tariff_premium_package_callback(
         return
     _, _, tariff_key, gb_raw = callback_data(callback).split(":", 3)
     try:
-        assigned_tariff_key = await _assigned_tariff_key(session, callback.from_user.id)
+        assigned_tariff_key = await _assigned_tariff_key(session, account_user_id)
         tariff = config.require_for_user(tariff_key, assigned_tariff_key)
         gb = float(gb_raw)
     except (KeyError, ValueError):
@@ -207,7 +208,7 @@ async def select_tariff_premium_package_callback(
         settings,
         sale_mode=f"premium_topup@{tariff.key}",
         back_callback="tariff_topup:list",
-        user_id=callback.from_user.id,
+        user_id=account_user_id,
     )
     await callback_message(callback).edit_text(
         get_text("choose_payment_method_traffic"), reply_markup=markup
@@ -223,12 +224,11 @@ async def hwid_devices_list_callback(
     subscription_service: SubscriptionService,
     session: AsyncSession,
 ) -> None:
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     get_text = lambda key, **kw: i18n.gettext(current_lang, key, **kw)
-    active = await subscription_service.get_active_subscription_details(
-        session, callback.from_user.id
-    )
+    active = await subscription_service.get_active_subscription_details(session, account_user_id)
     if not callback.message:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
@@ -282,6 +282,7 @@ async def hwid_devices_package_callback(
     session: AsyncSession,
     subscription_service: SubscriptionService,
 ) -> None:
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     get_text = lambda key, **kw: i18n.gettext(current_lang, key, **kw)
@@ -299,7 +300,7 @@ async def hwid_devices_package_callback(
         return
     active = await subscription_service.get_active_subscription_details(
         session,
-        callback.from_user.id,
+        account_user_id,
     )
     availability = resolve_device_topup_availability(
         settings,
@@ -322,7 +323,7 @@ async def hwid_devices_package_callback(
     currency_quote = (
         await subscription_service.quote_hwid_device_topup(
             session,
-            user_id=callback.from_user.id,
+            user_id=account_user_id,
             device_count=count,
             tariff_key=tariff.key,
             renewal=renewal,
@@ -334,7 +335,7 @@ async def hwid_devices_package_callback(
     stars_quote = (
         await subscription_service.quote_hwid_device_topup(
             session,
-            user_id=callback.from_user.id,
+            user_id=account_user_id,
             device_count=count,
             tariff_key=tariff.key,
             renewal=renewal,
@@ -358,7 +359,7 @@ async def hwid_devices_package_callback(
         settings,
         sale_mode=f"{sale_mode_base}@{tariff.key}",
         back_callback="hwid_devices:list",
-        user_id=callback.from_user.id,
+        user_id=account_user_id,
     )
     await callback_message(callback).edit_text(
         get_text("choose_payment_method_hwid_devices"), reply_markup=markup
@@ -374,13 +375,12 @@ async def tariff_change_list_callback(
     subscription_service: SubscriptionService,
     session: AsyncSession,
 ) -> None:
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     get_text = lambda key, **kw: i18n.gettext(current_lang, key, **kw)
     config = settings.tariffs_config
-    active = await subscription_service.get_active_subscription_details(
-        session, callback.from_user.id
-    )
+    active = await subscription_service.get_active_subscription_details(session, account_user_id)
     if not config or not active or not callback.message:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
@@ -424,6 +424,7 @@ async def tariff_change_select_callback(
     subscription_service: SubscriptionService,
     session: AsyncSession,
 ) -> None:
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     get_text = lambda key, **kw: i18n.gettext(current_lang, key, **kw)
@@ -433,9 +434,7 @@ async def tariff_change_select_callback(
         return
     tariff_key = callback_data(callback).split(":", 2)[2]
     target = config.require(tariff_key)
-    db_sub = await subscription_dal.get_active_subscription_by_user_id(
-        session, callback.from_user.id
-    )
+    db_sub = await subscription_dal.get_active_subscription_by_user_id(session, account_user_id)
     if not db_sub:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
@@ -528,6 +527,7 @@ async def tariff_change_confirm_apply_callback(
     subscription_service: SubscriptionService,
     session: AsyncSession,
 ) -> None:
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     get_text = lambda key, **kw: i18n.gettext(current_lang, key, **kw)
@@ -537,9 +537,7 @@ async def tariff_change_confirm_apply_callback(
         return
     _, _, tariff_key, mode = callback_data(callback).split(":", 3)
     target = config.require(tariff_key)
-    db_sub = await subscription_dal.get_active_subscription_by_user_id(
-        session, callback.from_user.id
-    )
+    db_sub = await subscription_dal.get_active_subscription_by_user_id(session, account_user_id)
     if not db_sub:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
@@ -639,6 +637,7 @@ async def tariff_change_apply_callback(
     subscription_service: SubscriptionService,
     session: AsyncSession,
 ) -> None:
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     get_text = (
@@ -648,7 +647,7 @@ async def tariff_change_apply_callback(
     )
     _, _, tariff_key, mode = callback_data(callback).split(":", 3)
     result = await subscription_service.switch_tariff_without_payment(
-        session, callback.from_user.id, tariff_key, mode
+        session, account_user_id, tariff_key, mode
     )
     if result:
         await session.commit()
@@ -671,6 +670,7 @@ async def tariff_change_apply_callback(
 async def tariff_change_pay_callback(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
 ) -> None:
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     get_text = lambda key, **kw: i18n.gettext(current_lang, key, **kw)
@@ -687,7 +687,7 @@ async def tariff_change_pay_callback(
         settings,
         sale_mode=f"tariff_upgrade@{tariff_key}",
         back_callback=f"tariff_change:confirm_pay:{tariff_key}:{amount_raw}",
-        user_id=callback.from_user.id,
+        user_id=account_user_id,
     )
     await callback_message(callback).edit_text(
         get_text("choose_payment_method"), reply_markup=markup

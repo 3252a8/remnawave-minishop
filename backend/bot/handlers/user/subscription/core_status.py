@@ -102,7 +102,7 @@ async def my_subscription_command_handler(
         return
 
     active = await subscription_service.get_active_subscription_details(
-        session, _event_user_id(event)
+        session, await _event_user_id(session, event)
     )
 
     if not active:
@@ -277,12 +277,12 @@ async def my_subscription_command_handler(
     kb = base_markup.inline_keyboard
     try:
         local_sub = await subscription_dal.get_active_subscription_by_user_id(
-            session, _event_user_id(event)
+            session, await _event_user_id(session, event)
         )
         install_links = await ensure_user_install_guide_links(
             session,
             settings,
-            _event_user_id(event),
+            await _event_user_id(session, event),
             local_subscription=local_sub,
         )
         install_url = install_links.personal_url
@@ -295,7 +295,7 @@ async def my_subscription_command_handler(
                 await session.rollback()
                 logger.exception(
                     "Failed to persist install guide share token for user %s.",
-                    _event_user_id(event),
+                    await _event_user_id(session, event),
                 )
                 install_share_url = None
 
@@ -512,7 +512,7 @@ async def my_devices_command_handler(
         return
 
     active = await subscription_service.get_active_subscription_details(
-        session, _event_user_id(event)
+        session, await _event_user_id(session, event)
     )
     if not active or not active.get("user_id"):
         message = get_text("subscription_not_active")

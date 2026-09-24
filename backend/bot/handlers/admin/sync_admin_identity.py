@@ -57,7 +57,6 @@ async def _prefetch_sync_indexes(
     user_filters = []
     if telegram_ids:
         user_filters.append(User.telegram_id.in_(telegram_ids))
-        user_filters.append(User.user_id.in_(telegram_ids))
     if panel_uuids:
         user_filters.append(User.panel_user_uuid.in_(panel_uuids))
     if emails:
@@ -160,77 +159,14 @@ async def _bind_panel_email_to_user(
     email_from_panel: str | None,
     panel_uuid: str,
 ) -> tuple[User, bool]:
-    """Bind panel email to a local user without violating the unique email index.
-
-    Panel email is treated as verified because it comes from the operator-managed
-    panel. If the same email already belongs to an email-only local account for
-    this panel user, merge that account into the Telegram/local user.
-    """
-    if not email_from_panel:
-        return existing_user, False
-
-    if existing_user.email == email_from_panel:
-        if not existing_user.email_verified_at:
-            existing_user.email_verified_at = datetime.now(UTC)
-            return existing_user, True
-        return existing_user, False
-
-    user_with_email = await user_dal.get_user_by_email(session, email_from_panel)
-    if user_with_email and user_with_email.user_id != existing_user.user_id:
-        can_merge_email_identity = (
-            not user_with_email.telegram_id
-            and user_with_email.panel_user_uuid in (None, panel_uuid)
-            and (not existing_user.email or existing_user.email == email_from_panel)
-        )
-        if can_merge_email_identity:
-            try:
-                merged_user = await user_dal.merge_users(
-                    session,
-                    source_user_id=user_with_email.user_id,
-                    target_user_id=existing_user.user_id,
-                    reason="panel_sync",
-                )
-                if not merged_user.email:
-                    merged_user.email = email_from_panel
-                if not merged_user.email_verified_at:
-                    merged_user.email_verified_at = datetime.now(UTC)
-                logger.info(
-                    "Merged email-only user %s into user %s while binding panel email %s for panel UUID %s.",  # noqa: E501
-                    user_with_email.user_id,
-                    merged_user.user_id,
-                    email_from_panel,
-                    panel_uuid,
-                )
-                return merged_user, True
-            except Exception as merge_error:
-                logger.warning(
-                    "Could not merge email-only user %s into user %s for panel email %s: %s",
-                    user_with_email.user_id,
-                    existing_user.user_id,
-                    email_from_panel,
-                    merge_error,
-                )
-                return existing_user, False
-
+    """Panel metadata is not proof of control over an email address."""
+    del session
+    if email_from_panel and existing_user.email != email_from_panel:
         logger.warning(
-            "Panel email %s for panel UUID %s is already linked to local user %s; "
-            "skipping email binding for user %s.",
-            email_from_panel,
+            "Panel email for UUID %s differs from confirmed local email; manual review required.",
             panel_uuid,
-            user_with_email.user_id,
-            existing_user.user_id,
         )
-        return existing_user, False
-
-    existing_user.email = email_from_panel
-    existing_user.email_verified_at = datetime.now(UTC)
-    logger.info(
-        "Bound panel email %s to local user %s for panel UUID %s.",
-        email_from_panel,
-        existing_user.user_id,
-        panel_uuid,
-    )
-    return existing_user, True
+    return existing_user, False
 
 
 async def _merge_local_duplicate_panel_user_if_needed(
@@ -243,30 +179,13 @@ async def _merge_local_duplicate_panel_user_if_needed(
     if not duplicate_local_user or duplicate_local_user.user_id == existing_user.user_id:
         return existing_user, True
 
-    try:
-        async with session.begin_nested():
-            merged_user = await user_dal.merge_users(
-                session,
-                source_user_id=duplicate_local_user.user_id,
-                target_user_id=existing_user.user_id,
-                reason="panel_sync",
-            )
-        logger.info(
-            "Sync: merged local duplicate user %s into %s for duplicate panel UUID %s.",
-            duplicate_local_user.user_id,
-            merged_user.user_id,
-            duplicate_panel_uuid,
-        )
-        return merged_user, True
-    except Exception as exc:
-        logger.warning(
-            "Sync: could not merge local duplicate user %s into %s for panel UUID %s: %s",
-            duplicate_local_user.user_id,
-            existing_user.user_id,
-            duplicate_panel_uuid,
-            exc,
-        )
-        return existing_user, False
+    logger.warning(
+        "Sync: panel UUID %s belongs to another local account %s; "
+        "explicit two-account merge required.",
+        duplicate_panel_uuid,
+        duplicate_local_user.user_id,
+    )
+    return existing_user, False
 
 
 def _panel_identity_payload_with_expiry(

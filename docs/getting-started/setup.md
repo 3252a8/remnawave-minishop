@@ -29,9 +29,10 @@ docker compose logs -f backend worker frontend
 
 ## Что заполнить в первую очередь
 
-- `BOT_TOKEN` и `ADMIN_IDS` для доступа к боту и админке.
-- `WEBHOOK_BASE_URL` для Telegram, платежных вебхуков и вебхуков панели.
-- `SUBSCRIPTION_MINI_APP_URL` для Mini App и кнопок в Telegram.
+- `TELEGRAM_ENABLED=False` для автономного режима; `BOT_TOKEN` нужен только при включённом Telegram. Первый владелец назначается по подтверждённому email [серверной командой](../features/telegram-optional.md).
+- `WEBHOOK_BASE_URL` для платежных вебхуков и вебхуков панели (а также Telegram при его включении).
+- `PUBLIC_APP_URL` для кабинета и писем; `SUBSCRIPTION_MINI_APP_URL` остаётся совместимым алиасом.
+- `EMAIL_AUTH_SECRET`, `SMTP_HOST` и `SMTP_FROM_EMAIL` для входа по email.
 - `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`.
 - `WEBAPP_SESSION_SECRET`, `WEBHOOK_SECRET_TOKEN`, `PANEL_API_URL`, `PANEL_API_KEY`, `PANEL_WEBHOOK_SECRET`.
 

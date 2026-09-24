@@ -475,7 +475,8 @@ export function createAppFactories({
     isDemoAuthMock: () => Boolean(MOCK) && demoAuth.isDemoAuthMock(),
     prepareDemoAuthState: () => demoAuth.prepareAuthState(),
     mock: MOCK,
-    hasTelegramLaunchParams,
+    hasTelegramLaunchParams: () =>
+      Boolean(CFG.authProviders?.includes("telegram")) && hasTelegramLaunchParams(),
     loadTelegramSdk,
     loadData,
     showLogin,
@@ -485,8 +486,12 @@ export function createAppFactories({
     isManuallyLoggedOut,
     hasEmailCodeLoginDeeplink,
     finalizeMagicLogin: (loginToken) => authStore.finalizeMagicLogin(loginToken),
-    finalizeTelegramAuth: (authData, source) => authStore.finalizeTelegramAuth(authData, source),
-    linkTelegramAfterExternalAuth,
+    finalizeTelegramAuth: (authData, source) =>
+      CFG.authProviders?.includes("telegram")
+        ? authStore.finalizeTelegramAuth(authData, source)
+        : false,
+    linkTelegramAfterExternalAuth: () =>
+      CFG.authProviders?.includes("telegram") ? linkTelegramAfterExternalAuth() : false,
     restorePendingExternalOauth: () =>
       authStore.restorePendingExternalOauth((nextScreen) => {
         shellState.screen = nextScreen;

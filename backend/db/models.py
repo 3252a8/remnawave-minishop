@@ -19,10 +19,11 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from db.base import Base
+from db.user_account_identity_columns import UserAccountIdentityColumns
 from db.user_notification_preference_columns import UserNotificationPreferenceColumns
 
 
-class User(UserNotificationPreferenceColumns, Base):
+class User(UserAccountIdentityColumns, UserNotificationPreferenceColumns, Base):
     __tablename__ = "users"
 
     user_id = Column(BigInteger, primary_key=True, index=True)
@@ -967,9 +968,6 @@ class LegacyImportMapping(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
 
 
-# Register decomposed domain tables in the same metadata used by create_all,
-# backup/restore and migration tests.  Domain code imports the classes from
-# ``db.partner_models`` directly; this import exists only for registration.
 from db import activity_models as activity_models  # noqa: E402
 from db import auth_models as auth_models  # noqa: E402
 from db import balance_models as balance_models  # noqa: E402
@@ -989,6 +987,9 @@ PanelSyncStatus = activity_models.PanelSyncStatus
 SupportTicket = activity_models.SupportTicket
 SupportTicketMessage = activity_models.SupportTicketMessage
 UserExternalIdentity = auth_models.UserExternalIdentity
+AccountRole = auth_models.AccountRole
+AccountRoleEvent = auth_models.AccountRoleEvent
+AccountAlias = auth_models.AccountAlias
 UserEmailAddress = auth_models.UserEmailAddress
 UserPasskeyCredential = auth_models.UserPasskeyCredential
 WebAuthnChallenge = auth_models.WebAuthnChallenge

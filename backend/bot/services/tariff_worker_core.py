@@ -344,7 +344,7 @@ class TariffWorkerCoreMixin:
         if not user:
             user = SimpleNamespace(
                 user_id=user_id,
-                telegram_id=user_id if user_id > 0 else None,
+                telegram_id=None,
                 email=None,
                 telegram_notifications_status="unknown",
             )

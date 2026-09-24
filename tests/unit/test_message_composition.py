@@ -232,7 +232,7 @@ class OutboundButtonSeamTests(unittest.IsolatedAsyncioTestCase):
             patch.object(outbound_messaging, "get_queue_manager", lambda: _FakeQueue(captured)),
             patch.object(outbound_messaging, "log_user_message_delivery", _no_audit),
         ):
-            sent = await outbound_messaging.OutboundMessagingService().send_text(
+            sent = await outbound_messaging.OutboundMessagingService(cast(Any, object())).send_text(
                 None,
                 user_id=42,
                 text="hello",

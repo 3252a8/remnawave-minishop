@@ -4,7 +4,7 @@ import asyncio
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import cast
-from unittest.mock import ANY, AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from sqlalchemy import Table
@@ -12,6 +12,7 @@ from sqlalchemy.sql.dml import Update
 
 from bot.app.web.webapp.auth_panel import _link_telegram_to_user
 from db.dal import user_merge_dal
+from db.dal.user_dal import UserMergeConflictError
 from db.dal.user_merge_entitlements import RecurringMergeState
 
 
@@ -71,6 +72,7 @@ async def _merge(
 ) -> tuple[object, SimpleNamespace]:
     session = SimpleNamespace(
         execute=AsyncMock(return_value=_Result()),
+        add=Mock(),
         delete=AsyncMock(),
         flush=AsyncMock(),
         refresh=AsyncMock(),
@@ -218,7 +220,9 @@ async def _merge_reports_the_conflicting_external_provider() -> None:
     source = _user(-10)
     target = _user(42, telegram_id=42)
     session = SimpleNamespace(
-        execute=AsyncMock(side_effect=[_Result(["google"]), _Result(["google"])]),
+        execute=AsyncMock(
+            side_effect=[_Result(), _Result(), _Result(["google"]), _Result(["google"])]
+        ),
     )
     with (
         patch.object(
@@ -271,6 +275,7 @@ async def _merge_cancels_source_recurrence_and_keeps_target_recurrence() -> None
     )
     session = SimpleNamespace(
         execute=AsyncMock(return_value=_Result()),
+        add=Mock(),
         delete=AsyncMock(),
         flush=AsyncMock(),
         refresh=AsyncMock(),
@@ -380,15 +385,9 @@ def test_merge_stops_when_secondary_recurrence_cannot_be_cancelled() -> None:
     asyncio.run(_merge_stops_when_secondary_recurrence_cannot_be_cancelled())
 
 
-async def _telegram_link_allows_distinct_verified_emails_to_merge() -> None:
+async def _telegram_link_rejects_existing_identity_without_merging() -> None:
     current = _user(-10, email="new-yandex@example.test")
     existing = _user(42, email="original@example.test", telegram_id=42)
-    merged = _user(
-        42,
-        email="original@example.test",
-        notification_email="original@example.test",
-        telegram_id=42,
-    )
     session = SimpleNamespace(flush=AsyncMock())
     telegram_profile = {
         "id": 42,
@@ -397,18 +396,20 @@ async def _telegram_link_allows_distinct_verified_emails_to_merge() -> None:
         "last_name": "",
         "language_code": "ru",
     }
-    merge_users = AsyncMock(return_value=merged)
+    merge_users = AsyncMock()
     with (
         patch(
-            "bot.app.web.webapp.auth_panel.user_dal.get_user_by_id", AsyncMock(return_value=current)
+            "bot.app.web.webapp.auth_panel.user_dal.lock_user_by_id",
+            AsyncMock(return_value=current),
         ),
         patch(
             "bot.app.web.webapp.auth_panel.user_dal.get_user_by_telegram_id",
             AsyncMock(return_value=existing),
         ),
         patch("bot.app.web.webapp.auth_panel.user_dal.merge_users", merge_users),
+        pytest.raises(UserMergeConflictError),
     ):
-        result = await _link_telegram_to_user(
+        await _link_telegram_to_user(
             SimpleNamespace(app={}),
             session,
             current_user_id=-10,
@@ -416,16 +417,8 @@ async def _telegram_link_allows_distinct_verified_emails_to_merge() -> None:
             settings=SimpleNamespace(DEFAULT_LANGUAGE="ru"),
         )
 
-    assert result is merged
-    merge_users.assert_awaited_once_with(
-        session,
-        source_user_id=-10,
-        target_user_id=42,
-        reason="telegram_link",
-        send_user_email=False,
-        cancel_source_recurring=ANY,
-    )
+    merge_users.assert_not_awaited()
 
 
-def test_telegram_link_allows_distinct_verified_emails_to_merge() -> None:
-    asyncio.run(_telegram_link_allows_distinct_verified_emails_to_merge())
+def test_telegram_link_rejects_existing_identity_without_merging() -> None:
+    asyncio.run(_telegram_link_rejects_existing_identity_without_merging())

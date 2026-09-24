@@ -7,6 +7,7 @@ from aiogram import BaseMiddleware, Bot
 from aiogram.types import CallbackQuery, Message, TelegramObject, Update, User
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.services.account_roles import is_admin
 from bot.services.message_log_notifier import notify_message_log
 from config.settings import Settings
 from db.dal import message_log_dal, user_dal
@@ -57,8 +58,9 @@ class ActionLoggerMiddleware(BaseMiddleware):
             user_id = event_user.id
             telegram_username = event_user.username
             telegram_first_name = event_user.first_name
-            if user_id in self.settings.ADMIN_IDS:
-                is_admin_event_flag = True
+            linked_account = await user_dal.get_user_by_telegram_id(session, user_id)
+            if linked_account:
+                is_admin_event_flag = await is_admin(session, int(linked_account.user_id))
 
         if is_admin_event_flag and not self.settings.LOG_ADMIN_ACTIONS:
             return result
@@ -92,7 +94,7 @@ class ActionLoggerMiddleware(BaseMiddleware):
         if user_id or current_event_type not in ["update"]:
             log_user_id_for_db = user_id
             if user_id:
-                user_exists = await user_dal.get_user_by_id(session, user_id)
+                user_exists = await user_dal.get_user_by_telegram_id(session, user_id)
                 if not user_exists:
                     logger.warning(
                         "ActionLoggerMiddleware: User %s not found in DB. Logging action with "
@@ -100,6 +102,8 @@ class ActionLoggerMiddleware(BaseMiddleware):
                         user_id,
                     )
                     log_user_id_for_db = None
+                else:
+                    log_user_id_for_db = int(user_exists.user_id)
 
             log_payload = {
                 "user_id": log_user_id_for_db,

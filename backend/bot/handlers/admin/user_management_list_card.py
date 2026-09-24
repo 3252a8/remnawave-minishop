@@ -55,7 +55,9 @@ async def user_card_from_list_handler(
         return
 
     # Create keyboard with back to list button
-    keyboard = get_user_card_keyboard(user_id, i18n, current_lang, user.referred_by_id)
+    keyboard = get_user_card_keyboard(
+        user_id, i18n, current_lang, user.referred_by_id, telegram_id=user.telegram_id
+    )
     keyboard.button(
         text=_("admin_user_back_to_list_button"), callback_data=f"admin_action:users_list:{page}"
     )

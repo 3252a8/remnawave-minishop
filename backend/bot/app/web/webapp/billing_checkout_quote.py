@@ -84,8 +84,9 @@ async def subscription_quote_route(request: web.Request) -> web.Response:
         provider_spec = get_provider_spec(method)
         if provider_spec is None or not provider_spec.create_webapp_payment:
             return _json_error(400, "payment_unavailable", "Payment method unavailable")
-        admin_ids = {int(item) for item in (settings.ADMIN_IDS or [])}
-        is_admin = bool(db_user.telegram_id and int(db_user.telegram_id) in admin_ids)
+        from bot.services.account_roles import is_admin as account_is_admin
+
+        is_admin = await account_is_admin(session, user_id)
         payment_currency = "XTR" if method == "stars" else quote.default_currency_code
         if not provider_spec.is_visible_for_user(settings, request.app, is_admin=is_admin):
             return _json_error(400, "payment_unavailable", "Payment method unavailable")

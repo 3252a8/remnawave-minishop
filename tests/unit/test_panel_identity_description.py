@@ -13,6 +13,8 @@ def test_subscription_panel_identity_payload_excludes_description_updates():
         last_name="Smith",
         telegram_id=42,
         user_id=42,
+        minishop_id="ms_1234567890abcdef1234567890abcdef",
+        panel_username=None,
     )
 
     payload = PanelIdentityMixin()._panel_identity_payload_for_user(user)
@@ -24,6 +26,8 @@ def test_subscription_panel_identity_payload_excludes_description_updates():
 
 def test_subscription_panel_description_filters_broken_lines_for_creation():
     user = SimpleNamespace(
+        minishop_id="ms_1234567890abcdef1234567890abcdef",
+        panel_username=None,
         email="linked@example.com",
         username="alice??",
         first_name="????",
@@ -44,7 +48,7 @@ def test_panel_identity_does_not_duplicate_user_after_inconclusive_upgrade_looku
         parsed_user_external_squad_uuid=None,
     )
     mixin.panel_service = SimpleNamespace(
-        get_users_by_filter=AsyncMock(side_effect=[None, []]),
+        get_users_by_filter=AsyncMock(return_value=None),
         get_user_by_uuid_lookup=AsyncMock(
             return_value={
                 "ok": False,
@@ -60,6 +64,9 @@ def test_panel_identity_does_not_duplicate_user_after_inconclusive_upgrade_looku
         telegram_id=42,
         email=None,
         panel_user_uuid="legacy-user-uuid",
+        minishop_id="ms_1234567890abcdef1234567890abcdef",
+        panel_username=None,
+        referral_code=None,
     )
 
     link = asyncio.run(mixin._get_or_create_panel_user_link(AsyncMock(), 42, db_user))
