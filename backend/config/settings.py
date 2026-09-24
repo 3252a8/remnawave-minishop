@@ -608,7 +608,7 @@ class Settings(
     )
     WEBAPP_SESSION_SECRET: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     WEBHOOK_SECRET_TOKEN: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
-    WEBAPP_SESSION_TTL_SECONDS: int = Field(default=24 * 60 * 60)
+    WEBAPP_SESSION_TTL_SECONDS: int = Field(default=30 * 24 * 60 * 60)
     WEBAPP_AUTH_MAX_AGE_SECONDS: int = Field(default=24 * 60 * 60)
     WEBAPP_LOGIN_TOKEN_TTL_SECONDS: int = Field(default=10 * 60)
     TELEGRAM_LOGIN_ENABLED: bool = Field(default=True)

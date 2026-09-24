@@ -2817,6 +2817,8 @@
   "admin_settings_field_start_command_description_label": "Start Command Description",
   "admin_settings_field_registration_invite_only_enabled_label": "Invitation-only registration",
   "admin_settings_field_registration_invite_only_enabled_description": "When enabled, new users are created only through a valid referral invitation link. Existing users continue to sign in normally.",
+  "admin_settings_field_webapp_session_ttl_seconds_label": "Web App session lifetime",
+  "admin_settings_field_webapp_session_ttl_seconds_description": "How long users stay signed in, in seconds. Default: 2592000 (30 days).",
   "admin_settings_field_qa_auth_enabled_label": "QA email auth",
   "admin_settings_field_qa_auth_enabled_description": "Exposes email verification codes through the public auth API in development and test runtimes. Production email login still requires SMTP.",
   "admin_settings_field_webapp_auth_max_age_seconds_label": "Auth session max age",

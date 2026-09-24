@@ -23,6 +23,26 @@
         "updated_at": null
       },
       {
+        "key": "WEBAPP_SESSION_TTL_SECONDS",
+        "type": "int",
+        "section": "general",
+        "section_order": 1,
+        "subsection": null,
+        "label": "Web App session lifetime",
+        "description": "How long users stay signed in, in seconds. Default: 2592000 (30 days).",
+        "i18n_label_key": "admin_settings_field_webapp_session_ttl_seconds_label",
+        "i18n_description_key": "admin_settings_field_webapp_session_ttl_seconds_description",
+        "i18n_subsection_key": null,
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": false,
+        "secret": false,
+        "min": 60,
+        "value": "",
+        "overridden": false,
+        "updated_at": null
+      },
+      {
         "key": "GIFTS_ENABLED",
         "type": "bool",
         "section": "general",

@@ -213,6 +213,23 @@ def test_webapp_title_is_first_general_admin_setting():
     assert next(item["key"] for item in items if item["section"] == "general") == "WEBAPP_TITLE"
 
 
+def test_webapp_session_lifetime_is_editable_in_general_settings():
+    field = _manifest_by_key()["WEBAPP_SESSION_TTL_SECONDS"]
+
+    assert field["section"] == "general"
+    assert field["type"] == "int"
+    assert field["optional"] is False
+    assert field["min"] == 60
+    assert coerce_value(get_field_by_key("WEBAPP_SESSION_TTL_SECONDS"), "2592000") == 2592000
+    with pytest.raises(ValueError):
+        coerce_value(get_field_by_key("WEBAPP_SESSION_TTL_SECONDS"), "59")
+
+    for language in ("ru", "en"):
+        messages = _locale(language)
+        assert field["i18n_label_key"] in messages
+        assert field["i18n_description_key"] in messages
+
+
 def test_broadcast_blocked_filter_is_a_general_admin_setting():
     field = _manifest_by_key()["ADMIN_BROADCAST_EXCLUDE_BLOCKED_TELEGRAM"]
 

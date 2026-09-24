@@ -390,7 +390,7 @@ Xray-Core 26.3.27+, `NET_ADMIN`, nftables, корректный sniffing и вк
 | `WEBAPP_TITLE` | Админка | Заголовок Web App. |
 | `WEBAPP_THEMES_DIR` | `.env` | Каталог кастомных тем. |
 | `WEBAPP_DEFAULT_THEME` | `.env` / админка | Ключ темы по умолчанию. |
-| `WEBAPP_SESSION_TTL_SECONDS` | `.env` | Время жизни Web App-сессии. |
+| `WEBAPP_SESSION_TTL_SECONDS` | `.env` / админка → Общие | Время жизни Web App-сессии в секундах. По умолчанию 2592000 (30 дней). |
 | `WEBAPP_AUTH_MAX_AGE_SECONDS` | `.env` | Максимальный возраст Telegram Mini Apps `initData`. |
 | `WEBAPP_LOGIN_TOKEN_TTL_SECONDS` | `.env` | TTL ссылки внешнего логина. |
 | `TELEGRAM_OAUTH_CLIENT_ID` | `.env` | Идентификатор клиента Telegram OAuth / OpenID Connect. Если пусто, берется bot ID из `BOT_TOKEN`. |

@@ -192,7 +192,7 @@ class SettingsTests(unittest.TestCase):
 
         self.assertTrue(settings.WEBAPP_SESSION_SECRET)
         self.assertTrue(settings.WEBHOOK_SECRET_TOKEN)
-        self.assertEqual(settings.WEBAPP_SESSION_TTL_SECONDS, 86400)
+        self.assertEqual(settings.WEBAPP_SESSION_TTL_SECONDS, 30 * 24 * 60 * 60)
 
     def test_webapp_title_defaults_to_minishop(self):
         settings = Settings(

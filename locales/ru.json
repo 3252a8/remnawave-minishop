@@ -2817,6 +2817,8 @@
   "admin_settings_field_start_command_description_label": "Описание /start",
   "admin_settings_field_registration_invite_only_enabled_label": "Регистрация только по приглашению",
   "admin_settings_field_registration_invite_only_enabled_description": "Если включено, новые пользователи создаются только по валидной реферальной ссылке. Существующие пользователи продолжают входить как обычно.",
+  "admin_settings_field_webapp_session_ttl_seconds_label": "Срок сессии Web App",
+  "admin_settings_field_webapp_session_ttl_seconds_description": "Сколько пользователь остаётся в системе, в секундах. По умолчанию 2592000 (30 дней).",
   "admin_settings_field_qa_auth_enabled_label": "QA email auth",
   "admin_settings_field_qa_auth_enabled_description": "Показывает коды подтверждения email через публичный auth API в development/test режимах. В production вход по email всё равно требует SMTP.",
   "admin_settings_field_webapp_auth_max_age_seconds_label": "Срок auth-сессии",

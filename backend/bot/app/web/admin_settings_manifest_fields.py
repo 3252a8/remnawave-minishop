@@ -21,6 +21,15 @@ SETTINGS_MANIFEST: list[SettingField] = [
         placeholder="My subscription",
     ),
     SettingField(
+        "WEBAPP_SESSION_TTL_SECONDS",
+        "int",
+        "general",
+        "Web App session lifetime",
+        "How long users stay signed in, in seconds. Default: 2592000 (30 days).",
+        optional=False,
+        min=60,
+    ),
+    SettingField(
         "GIFTS_ENABLED",
         "bool",
         "general",
