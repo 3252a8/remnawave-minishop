@@ -26,6 +26,7 @@ from bot.services.telegram_notifications import (
 from bot.services.user_notification_policy import (
     UserNotificationCategory,
     email_recipient,
+    smtp_delivery_available,
     user_notification_delivery_plan,
 )
 from bot.services.user_notification_preferences import add_user_email_preferences_footer
@@ -60,7 +61,7 @@ class SubscriptionLifecycleNotificationService:
     def __init__(
         self,
         settings: Settings,
-        bot: Bot,
+        bot: Bot | None,
         i18n: JsonI18n,
         *,
         email_service: EmailAuthService | None = None,
@@ -128,8 +129,7 @@ class SubscriptionLifecycleNotificationService:
                 resolved_user,
                 getattr(sub, "user_id", None),
             ),
-            email_available=bool(recipient_email)
-            and bool(getattr(self.settings, "email_auth_configured", False)),
+            email_available=bool(recipient_email) and smtp_delivery_available(self.settings),
         )
 
         telegram_sent = await self._send_telegram(
@@ -180,7 +180,7 @@ class SubscriptionLifecycleNotificationService:
         sent_at: datetime,
         enabled: bool,
     ) -> bool:
-        if not enabled:
+        if not enabled or self.bot is None:
             return False
         chat_id = self._telegram_chat_id(user, getattr(sub, "user_id", None))
         if chat_id is None:
@@ -273,7 +273,7 @@ class SubscriptionLifecycleNotificationService:
     ) -> bool:
         if not enabled:
             return False
-        if not getattr(self.settings, "email_auth_configured", False):
+        if not smtp_delivery_available(self.settings):
             return False
         if not recipient:
             return False
@@ -434,14 +434,12 @@ class SubscriptionLifecycleNotificationService:
 
     @staticmethod
     def _telegram_chat_id(user: User | None, fallback_user_id: int | None) -> int | None:
-        for candidate in (getattr(user, "telegram_id", None), fallback_user_id):
-            try:
-                chat_id = int(candidate or 0)
-            except (TypeError, ValueError):
-                continue
-            if chat_id > 0:
-                return chat_id
-        return None
+        del fallback_user_id
+        try:
+            chat_id = int(getattr(user, "telegram_id", None) or 0)
+        except (TypeError, ValueError):
+            return None
+        return chat_id if chat_id > 0 else None
 
     @classmethod
     def _telegram_recipient_available(
@@ -452,7 +450,7 @@ class SubscriptionLifecycleNotificationService:
         if cls._telegram_chat_id(user, fallback_user_id) is None:
             return False
         if user is None:
-            return True
+            return False
         status = normalize_telegram_notification_status(
             getattr(user, "telegram_notifications_status", None)
         )

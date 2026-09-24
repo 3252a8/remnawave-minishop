@@ -54,7 +54,9 @@ class NotificationSupportMixin:
         session_factory: Any
         email_auth_service: EmailAuthService | None
         bot_username: str
-        bot: Bot
+        bot: Bot | None
+
+        async def _admin_telegram_ids(self) -> list[int]: ...
 
         async def _send_to_admins(
             self,
@@ -190,7 +192,10 @@ class NotificationSupportMixin:
         return bool(value)
 
     async def support_admin_email_notifications_enabled(self) -> bool:
-        enabled = bool(getattr(self.settings, SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_KEY, False))
+        enabled = bool(
+            getattr(self.settings, SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_KEY, False)
+            or (not self.settings.TELEGRAM_ENABLED and self.settings.smtp_delivery_configured)
+        )
         if not self.session_factory:
             return enabled
         try:
@@ -207,6 +212,8 @@ class NotificationSupportMixin:
         return self._coerce_bool_setting(raw_value, enabled)
 
     async def support_admin_telegram_notifications_enabled(self) -> bool:
+        if not self.settings.TELEGRAM_ENABLED or self.bot is None:
+            return False
         enabled = bool(getattr(self.settings, SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_KEY, True))
         if not self.session_factory:
             return enabled
@@ -255,7 +262,7 @@ class NotificationSupportMixin:
         ]
         if admin:
             profile_row = []
-            if getattr(user, "user_id", 0) and int(user.user_id) > 0:
+            if getattr(user, "telegram_id", None) and int(user.telegram_id) > 0:
                 profile_row.append(
                     InlineKeyboardButton(
                         text=self._support_text(
@@ -263,7 +270,7 @@ class NotificationSupportMixin:
                             "support_profile_button",
                             "Profile",
                         ),
-                        url=f"tg://user?id={user.user_id}",
+                        url=f"tg://user?id={user.telegram_id}",
                     )
                 )
             user_card_path = f"/admin/users/{user.user_id}"
@@ -304,7 +311,7 @@ class NotificationSupportMixin:
         thread_id = self._support_log_thread_id()
         if not self._support_thread_is_configured():
             if image is not None:
-                for admin_id in self.settings.ADMIN_IDS:
+                for admin_id in await self._admin_telegram_ids():
                     await self._send_support_photo(int(admin_id), image)
             await self._send_to_admins(message, reply_markup=admin_markup)
         if image is not None and self.settings.LOG_CHAT_ID:
@@ -326,6 +333,8 @@ class NotificationSupportMixin:
         *,
         thread_id: int | None = None,
     ) -> None:
+        if self.bot is None:
+            return
         queue_manager = get_queue_manager()
         try:
             photo = await prepare_telegram_photo(image)
@@ -382,8 +391,10 @@ class NotificationSupportMixin:
         if not self.session_factory:
             return []
         async with self.session_factory() as session:
+            from bot.services.account_roles import active_admin_user_ids
+
             users = []
-            for admin_id in self.settings.ADMIN_IDS:
+            for admin_id in await active_admin_user_ids(session):
                 user = await user_dal.get_user_by_id(session, int(admin_id))
                 if user and user.email:
                     users.append(user)
@@ -554,10 +565,10 @@ class NotificationSupportMixin:
             self.settings,
             UserNotificationCategory.SUPPORT,
             user,
-            telegram_available=chat_id is not None,
+            telegram_available=chat_id is not None and self.bot is not None,
             email_available=bool(self.email_auth_service and recipient_email),
         )
-        if plan.telegram and chat_id is not None:
+        if plan.telegram and chat_id is not None and self.bot is not None:
             queue_manager = get_queue_manager()
             if queue_manager:
                 if image is not None:
@@ -614,10 +625,10 @@ class NotificationSupportMixin:
             self.settings,
             UserNotificationCategory.SUPPORT,
             user,
-            telegram_available=chat_id is not None,
+            telegram_available=chat_id is not None and self.bot is not None,
             email_available=bool(self.email_auth_service and recipient_email),
         )
-        if plan.telegram and chat_id is not None:
+        if plan.telegram and chat_id is not None and self.bot is not None:
             queue_manager = get_queue_manager()
             if queue_manager:
                 await send_message_via_queue(

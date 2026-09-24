@@ -82,19 +82,20 @@ TORRENT_BLOCKER_RUNTIME_SETTING_KEYS = {
 
 async def _build_worker_context(settings: Settings) -> PluginContext:
     runtime = await build_runtime_bootstrap(settings)
-    configure_message_log_notifier(settings, runtime.bot)
     bot_username = "your_bot_username"
-    try:
-        bot_info = await runtime.bot.get_me()
-        bot_username = bot_info.username or bot_username
-    except TelegramNetworkError as exc:
-        logger.warning(
-            "Worker failed to resolve bot username due to a Telegram network error: %s",
-            safe_telegram_network_error_detail(exc),
-        )
-    except Exception:
-        logger.exception("Worker failed to resolve bot username")
-    init_queue_manager(runtime.bot)
+    if runtime.bot is not None:
+        configure_message_log_notifier(settings, runtime.bot)
+        try:
+            bot_info = await runtime.bot.get_me()
+            bot_username = bot_info.username or bot_username
+        except TelegramNetworkError as exc:
+            logger.warning(
+                "Worker failed to resolve bot username due to a Telegram network error: %s",
+                safe_telegram_network_error_detail(exc),
+            )
+        except Exception:
+            logger.exception("Worker failed to resolve bot username")
+        init_queue_manager(runtime.bot)
     ctx = build_core_runtime(runtime, bot_username=bot_username).plugin_context
     run_setup(ctx)
     register_core_reactions(ctx)
@@ -104,7 +105,7 @@ async def _build_worker_context(settings: Settings) -> PluginContext:
 async def _handle_yookassa_event(ctx: PluginContext, payload: dict[str, Any]) -> None:
     payment_payload = payload.get("payment") or {}
     session_factory = ctx.require_session_factory()
-    bot = ctx.require_bot()
+    bot = ctx.bot
     i18n = ctx.require_i18n()
     async with payment_processing_lock, session_factory() as session:
         if payload.get("event") == YOOKASSA_EVENT_PAYMENT_SUCCEEDED:
@@ -173,7 +174,7 @@ async def _handle_panel_event(ctx: PluginContext, payload: dict[str, Any]) -> No
 async def _handle_panel_sync_event(ctx: PluginContext, payload: dict[str, Any]) -> None:
     settings = ctx.settings
     session_factory = ctx.require_session_factory()
-    bot = ctx.require_bot()
+    bot = ctx.bot
     i18n = ctx.require_i18n()
     sync_result = None
     async with redis_lock(
@@ -303,7 +304,7 @@ async def _webhook_consumer(ctx: PluginContext, handlers: dict[str, QueueHandler
 
 
 async def _notify_queued_panel_sync_result(
-    bot: Bot,
+    bot: Bot | None,
     settings: Settings,
     i18n: JsonI18n,
     payload: dict[str, Any],
@@ -315,7 +316,7 @@ async def _notify_queued_panel_sync_result(
     _ = lambda key, **kwargs: i18n.gettext(lang, key, **kwargs)
 
     target_chat_id = payload.get("target_chat_id")
-    if target_chat_id:
+    if target_chat_id and bot is not None:
         try:
             if status == "failed":
                 await bot.send_message(target_chat_id, _("sync_failed_simple"))
@@ -371,7 +372,7 @@ def _tariff_worker_task(ctx: PluginContext) -> Coroutine[Any, Any, None]:
         ctx.require_session_factory(),
         ctx.require_panel_service(),
         ctx.require_subscription_service(),
-        ctx.require_bot(),
+        ctx.bot,
         ctx.require_i18n(),
     ).run()
 
@@ -380,7 +381,7 @@ def _subscription_notification_task(ctx: PluginContext) -> Coroutine[Any, Any, N
     return SubscriptionNotificationWorker(
         ctx.settings,
         ctx.require_session_factory(),
-        ctx.require_bot(),
+        ctx.bot,
         ctx.require_i18n(),
         ctx.require_panel_service(),
         ctx.require_subscription_service(),
@@ -396,7 +397,7 @@ async def _yookassa_reconciliation_task(ctx: PluginContext) -> None:
         ctx.settings,
         ctx.require_session_factory(),
         yookassa_service,
-        ctx.require_bot(),
+        ctx.bot,
         ctx.require_i18n(),
         ctx.require_panel_service(),
         ctx.require_subscription_service(),
@@ -430,7 +431,7 @@ async def _payment_reconciliation_task(ctx: PluginContext) -> None:
         ctx.settings,
         ctx.require_session_factory(),
         ctx.services,
-        ctx.require_bot(),
+        ctx.bot,
         ctx.require_i18n(),
     ).run()
 
@@ -452,11 +453,12 @@ async def _partner_program_task(ctx: PluginContext) -> None:
 
 async def _admin_broadcast_task(ctx: PluginContext) -> None:
     bot_username: str | None = None
-    try:
-        bot_info = await ctx.require_bot().get_me()
-        bot_username = bot_info.username
-    except Exception:
-        logger.exception("Broadcast worker failed to resolve bot username")
+    if ctx.bot is not None:
+        try:
+            bot_info = await ctx.bot.get_me()
+            bot_username = bot_info.username
+        except Exception:
+            logger.exception("Broadcast worker failed to resolve bot username")
     delivery_service = AdminBroadcastDeliveryService(
         settings=ctx.settings,
         session_factory=ctx.require_session_factory(),
@@ -471,7 +473,7 @@ async def _admin_broadcast_task(ctx: PluginContext) -> None:
 def _backup_worker_task(ctx: PluginContext) -> Coroutine[Any, Any, None]:
     return BackupWorker(
         ctx.settings,
-        ctx.require_bot(),
+        ctx.bot,
         session_factory=ctx.require_session_factory(),
     ).run()
 
@@ -571,7 +573,8 @@ async def main() -> None:
             close = getattr(service, "close", None) or getattr(service, "close_session", None)
             if callable(close):
                 await close()
-        await ctx.require_bot().session.close()
+        if ctx.bot is not None:
+            await ctx.bot.session.close()
         await close_redis()
         if database_setup.async_engine:
             await database_setup.async_engine.dispose()

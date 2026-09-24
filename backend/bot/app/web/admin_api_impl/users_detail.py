@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from aiohttp import web
-from sqlalchemy import and_, case, or_, select
+from sqlalchemy import String, and_, case, or_, select
 from sqlalchemy import func as sa_func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, sessionmaker
@@ -628,6 +628,9 @@ def _user_search_condition(query: str) -> ColumnElement[bool] | None:
         User.first_name.ilike(like),
         User.last_name.ilike(like),
         User.email.ilike(like),
+        User.minishop_id.ilike(like),
+        User.panel_username.ilike(like),
+        User.account_id.cast(String).ilike(like),
     ]
     if raw.isdigit():
         numeric = int(raw)

@@ -136,7 +136,7 @@ class RegistrationInviteMiddlewareTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result, "ok")
         handler.assert_awaited_once_with(event, data)
 
-    async def test_legacy_user_id_fallback_passes(self):
+    async def test_matching_internal_id_does_not_bypass_invite(self):
         middleware = RegistrationInviteMiddleware(self._settings(), I18nStub())
         handler = AsyncMock(return_value="ok")
         event = SimpleNamespace(
@@ -160,10 +160,10 @@ class RegistrationInviteMiddlewareTests(unittest.IsolatedAsyncioTestCase):
         ):
             result = await middleware(handler, event, data)
 
-        self.assertEqual(result, "ok")
-        handler.assert_awaited_once_with(event, data)
+        self.assertIsNone(result)
+        handler.assert_not_awaited()
 
-    async def test_admin_passes_without_user_lookup(self):
+    async def test_legacy_admin_id_does_not_bypass_invite(self):
         middleware = RegistrationInviteMiddleware(
             self._settings(admin_ids=[42]),
             I18nStub(),
@@ -178,12 +178,13 @@ class RegistrationInviteMiddlewareTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(
             registration_invite_module.user_dal,
             "get_user_by_telegram_id",
-            AsyncMock(),
+            AsyncMock(return_value=None),
         ) as lookup:
             result = await middleware(handler, event, self._data())
 
-        self.assertEqual(result, "ok")
-        lookup.assert_not_awaited()
+        self.assertIsNone(result)
+        lookup.assert_awaited_once()
+        handler.assert_not_awaited()
 
     async def test_unregistered_tg_command_is_blocked(self):
         middleware = RegistrationInviteMiddleware(self._settings(), I18nStub())

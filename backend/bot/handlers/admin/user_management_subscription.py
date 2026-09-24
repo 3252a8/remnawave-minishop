@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.middlewares.i18n import JsonI18n
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.telegram_account import require_telegram_account_id
 from bot.states.admin_states import AdminStates
 from bot.utils.callback_answer import (
     callback_message,
@@ -309,7 +310,9 @@ async def handle_change_tariff_apply(
         await message_log_dal.create_message_log_no_commit(
             session,
             {
-                "user_id": callback.from_user.id if callback.from_user else user.user_id,
+                "user_id": await require_telegram_account_id(session, callback.from_user.id)
+                if callback.from_user
+                else user.user_id,
                 "event_type": "admin:change_tariff",
                 "content": f"tariff={resolved_tariff_key}",
                 "is_admin_event": True,

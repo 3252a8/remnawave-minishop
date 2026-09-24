@@ -55,7 +55,7 @@ class SubscriptionNotificationWorker:
         self,
         settings: Settings,
         session_factory: sessionmaker,
-        bot: Bot,
+        bot: Bot | None,
         i18n: JsonI18n,
         panel_service: PanelApiService,
         subscription_service: SubscriptionService,
@@ -464,7 +464,7 @@ class SubscriptionNotificationWorker:
         )
         telegram_sent = False
         email_sent = False
-        telegram_chat_id = int(getattr(user, "telegram_id", 0) or user_id or 0)
+        telegram_chat_id = int(getattr(user, "telegram_id", 0) or 0)
         telegram_status = normalize_telegram_notification_status(
             getattr(user, "telegram_notifications_status", None)
         )
@@ -478,7 +478,7 @@ class SubscriptionNotificationWorker:
             user,
             telegram_available=telegram_chat_id > 0 and can_try_telegram,
         )
-        if send_telegram and plan.telegram:
+        if send_telegram and plan.telegram and self.bot is not None:
             try:
                 await self.bot.send_message(
                     telegram_chat_id,

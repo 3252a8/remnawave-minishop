@@ -32,6 +32,7 @@ from bot.services.checkout_promos import (
     resolve_checkout_promo,
 )
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.telegram_account import require_telegram_account_id
 from bot.utils.callback_answer import (
     callback_data,
     callback_message,
@@ -251,7 +252,7 @@ async def display_subscription_options(
     from_user = event.from_user
     if from_user is None:
         return
-    user_id = int(from_user.id)
+    user_id = await require_telegram_account_id(session, from_user.id)
     if tariffs_config:
         assigned_tariff_key = await _assigned_tariff_key(session, user_id)
         available_tariffs = tariffs_config.available_tariffs_for_user(assigned_tariff_key)
@@ -460,6 +461,7 @@ async def reshow_subscription_options_callback(
 async def select_tariff_callback(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
 ) -> None:
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     get_text = lambda key, **kw: i18n.gettext(current_lang, key, **kw)
@@ -473,18 +475,18 @@ async def select_tariff_callback(
     callback_context = BOT_MENU_CONTEXT if BOT_MENU_CONTEXT in callback_tokens else None
     promo_enabled = PROMO_DISABLED_TOKEN not in callback_tokens
     try:
-        assigned_tariff_key = await _assigned_tariff_key(session, callback.from_user.id)
+        assigned_tariff_key = await _assigned_tariff_key(session, account_user_id)
         available_tariffs = config.available_tariffs_for_user(assigned_tariff_key)
         tariff = config.require_for_user(tariff_key, assigned_tariff_key)
     except Exception:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
     default_currency = default_currency_key_for_settings(settings)
-    candidates = await _promo_candidates(session, user_id=callback.from_user.id)
+    candidates = await _promo_candidates(session, user_id=account_user_id)
     promo_quotes = await _period_promo_quotes(
         session,
         settings,
-        user_id=callback.from_user.id,
+        user_id=account_user_id,
         candidates=candidates,
         plans=[
             (
@@ -547,6 +549,7 @@ async def select_tariff_period_callback(
     session: AsyncSession,
     subscription_service: SubscriptionService,
 ) -> None:
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     get_text = lambda key, **kw: i18n.gettext(current_lang, key, **kw)
@@ -573,7 +576,7 @@ async def select_tariff_period_callback(
         None,
     )
     try:
-        assigned_tariff_key = await _assigned_tariff_key(session, callback.from_user.id)
+        assigned_tariff_key = await _assigned_tariff_key(session, account_user_id)
         tariff = config.require_for_user(tariff_key, assigned_tariff_key)
         months = (
             tariff_period_key(tariff, duration_days=int(months_raw[1:]))
@@ -600,7 +603,7 @@ async def select_tariff_period_callback(
         promo_quote, stars_promo_quote = await _resolve_period_promo(
             session,
             settings,
-            user_id=callback.from_user.id,
+            user_id=account_user_id,
             sale_mode=sale_mode,
             months=months,
             price=float(price_rub),
@@ -613,7 +616,7 @@ async def select_tariff_period_callback(
         sale_mode = sale_mode_with_token(sale_mode, PROMO_DISABLED_TOKEN)
     hwid_renewal_quote = await subscription_service.quote_hwid_device_renewal_for_subscription(
         session,
-        user_id=callback.from_user.id,
+        user_id=account_user_id,
         target_tariff_key=tariff.key,
         months=months,
         currency=default_currency,
@@ -621,7 +624,7 @@ async def select_tariff_period_callback(
     hwid_renewal_stars_quote = (
         await subscription_service.quote_hwid_device_renewal_for_subscription(
             session,
-            user_id=callback.from_user.id,
+            user_id=account_user_id,
             target_tariff_key=tariff.key,
             months=months,
             currency="stars",
@@ -640,7 +643,7 @@ async def select_tariff_period_callback(
             f"tariff:select:{tariff.key}"
             f"{callback_suffix_for_checkout(callback_context, promo_enabled=promo_enabled)}"
         ),
-        user_id=callback.from_user.id,
+        user_id=account_user_id,
         hwid_renewal_quote=hwid_renewal_quote,
         hwid_renewal_stars_quote=hwid_renewal_stars_quote,
         hwid_renewal_selected=bool(renew_hwid_devices),
@@ -661,6 +664,7 @@ async def select_tariff_period_callback(
 async def select_tariff_package_callback(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
 ) -> None:
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     get_text = lambda key, **kw: i18n.gettext(current_lang, key, **kw)
@@ -675,7 +679,7 @@ async def select_tariff_package_callback(
     tariff_key, gb_raw = parts[2], parts[3]
     callback_context = parts[4] if len(parts) > 4 else None
     try:
-        assigned_tariff_key = await _assigned_tariff_key(session, callback.from_user.id)
+        assigned_tariff_key = await _assigned_tariff_key(session, account_user_id)
         tariff = config.require_for_user(tariff_key, assigned_tariff_key)
         gb = float(gb_raw)
     except (KeyError, ValueError):
@@ -715,7 +719,7 @@ async def select_tariff_package_callback(
         settings,
         sale_mode=sale_mode,
         back_callback=back_callback,
-        user_id=callback.from_user.id,
+        user_id=account_user_id,
     )
     await callback_message(callback).edit_text(
         get_text("choose_payment_method_traffic"), reply_markup=markup

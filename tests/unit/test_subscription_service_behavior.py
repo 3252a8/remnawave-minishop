@@ -599,13 +599,20 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 user_id=42,
                 telegram_id=42,
                 panel_user_uuid="linked-panel-user",
+                minishop_id="ms_1234567890abcdef1234567890abcdef",
+                panel_username=None,
+                referral_code=None,
                 email=None,
                 username="trial-user",
                 first_name="Trial",
                 last_name="User",
             )
 
-            link = await service._get_or_create_panel_user_link(AsyncMock(), 42, db_user)
+            with patch(
+                "bot.services.subscription_service_impl.panel_identity.user_dal.get_user_by_panel_uuid",
+                AsyncMock(return_value=db_user),
+            ):
+                link = await service._get_or_create_panel_user_link(AsyncMock(), 42, db_user)
 
             self.assertEqual(link.panel_user_uuid, "linked-panel-user")
             self.assertEqual(link.panel_subscription_uuid, "linked-subscription")
@@ -631,6 +638,9 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 user_id=42,
                 telegram_id=42,
                 panel_user_uuid="missing-panel-user",
+                minishop_id="ms_1234567890abcdef1234567890abcdef",
+                panel_username=None,
+                referral_code=None,
                 email=None,
                 username="trial-user",
                 first_name="Trial",
@@ -663,6 +673,9 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 user_id=42,
                 telegram_id=42,
                 panel_user_uuid="old-v2-uuid",
+                minishop_id="ms_1234567890abcdef1234567890abcdef",
+                panel_username="tg_42",
+                referral_code=None,
                 email=None,
                 username="trial-user",
                 first_name="Trial",
@@ -723,6 +736,9 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 user_id=42,
                 telegram_id=42,
                 panel_user_uuid=None,
+                minishop_id="ms_1234567890abcdef1234567890abcdef",
+                panel_username=None,
+                referral_code=None,
                 email=None,
                 username="trial-user",
                 first_name="Trial",

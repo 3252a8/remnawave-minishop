@@ -121,6 +121,7 @@ export default defineConfig({
             { label: 'Веб-приложение', slug: 'features/web-app' },
             { label: 'Веб админ-панель', slug: 'features/admin-panel' },
             { label: 'Способы входа', slug: 'features/login-methods' },
+            { label: 'Работа без Telegram', slug: 'features/telegram-optional' },
             { label: 'Темы и внешний вид', slug: 'features/webapp-themes' },
             { label: 'Создание и публикация тем', slug: 'features/theme-packages' },
             { label: 'Уведомления', slug: 'features/notifications' },

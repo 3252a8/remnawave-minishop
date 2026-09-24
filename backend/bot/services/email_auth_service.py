@@ -144,7 +144,7 @@ class EmailAuthService:
 
     def _hash_code(self, email: str, purpose: str, code: str) -> str:
         secret = hmac.new(
-            self.settings.BOT_TOKEN.encode("utf-8"),
+            self.settings.email_auth_secret.encode("utf-8"),
             b"remnawave-tg-shop-email-code",
             hashlib.sha256,
         ).digest()
@@ -153,7 +153,7 @@ class EmailAuthService:
 
     def _hash_magic_token(self, token: str) -> str:
         secret = hmac.new(
-            self.settings.BOT_TOKEN.encode("utf-8"),
+            self.settings.email_auth_secret.encode("utf-8"),
             b"remnawave-tg-shop-email-magic",
             hashlib.sha256,
         ).digest()
@@ -167,7 +167,7 @@ class EmailAuthService:
         referral_param: str | None = None,
         tariff_access_code: str | None = None,
     ) -> str | None:
-        base_url = (self.settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
+        base_url = (self.settings.public_app_url or "").strip()
         if not base_url:
             return None
         from urllib.parse import urlencode, urlsplit, urlunsplit

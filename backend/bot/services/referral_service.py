@@ -37,7 +37,7 @@ class ReferralService:
         self,
         settings: Settings,
         subscription_service: _SubscriptionServiceLike,
-        bot: Bot,
+        bot: Bot | None,
         i18n: JsonI18n,
     ):
         self.settings = settings

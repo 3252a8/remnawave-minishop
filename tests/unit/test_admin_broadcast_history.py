@@ -184,7 +184,7 @@ class AdminBroadcastDeliveryTests(unittest.IsolatedAsyncioTestCase):
             exclude_blocked=True,
         )
 
-        self.assertEqual(recipients, [(2, 202), (303, 303)])
+        self.assertEqual(recipients, [(2, 202)])
 
     async def test_personalization_is_rendered_for_telegram_and_email(self) -> None:
         queue = _Queue()

@@ -18,6 +18,10 @@ from .account import (
     account_telegram_link_route,
     me_route,
 )
+from .account_merge import (
+    account_telegram_merge_confirm_route,
+    account_telegram_merge_request_route,
+)
 from .asset_paths import (
     WEBAPP_DEFAULT_LOGO_PATH,
     WEBAPP_FAVICON_PATH,
@@ -331,6 +335,8 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/account/passkeys/delete", account_passkey_delete_route)
     app.router.add_post("/api/account/identities/unlink", external_identity_unlink_route)
     app.router.add_post("/api/account/telegram/link", account_telegram_link_route)
+    app.router.add_post("/api/account/telegram/merge/request", account_telegram_merge_request_route)
+    app.router.add_post("/api/account/telegram/merge/confirm", account_telegram_merge_confirm_route)
     app.router.add_post(
         "/api/account/telegram/notifications/probe",
         account_telegram_notifications_probe_route,

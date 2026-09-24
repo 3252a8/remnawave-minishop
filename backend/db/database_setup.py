@@ -100,6 +100,19 @@ async def init_db(
         await conn.run_sync(lambda sync_conn: run_all_migration_chains(sync_conn, settings))
     logger.info("PostgreSQL database initialized/checked successfully using SQLAlchemy.")
 
+    if settings.ADMIN_IDS:
+        from bot.services.account_roles import migrate_legacy_admin_ids
+
+        async with session_factory() as session:
+            imported, unresolved = await migrate_legacy_admin_ids(session, settings.ADMIN_IDS)
+            await session.commit()
+        if imported or unresolved:
+            logger.info(
+                "Legacy admin import: %s linked accounts, %s unresolved identities",
+                imported,
+                unresolved,
+            )
+
     try:
         from bot.services.settings_override_service import load_overrides_from_db
 

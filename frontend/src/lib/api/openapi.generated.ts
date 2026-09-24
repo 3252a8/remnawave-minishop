@@ -293,6 +293,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/account/telegram/merge/confirm": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Telegram Merge Confirm */
+    post: operations["post_account_telegram_merge_confirm_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/telegram/merge/request": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Telegram Merge Request */
+    post: operations["post_account_telegram_merge_request_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/account/telegram/notifications/probe": {
     parameters: {
       query?: never;
@@ -1487,6 +1521,41 @@ export interface paths {
     put?: never;
     post?: never;
     delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/roles": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Roles List */
+    get: operations["get_admin_roles_list_route"];
+    put?: never;
+    /** Admin Role Grant */
+    post: operations["post_admin_role_grant_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/roles/{user_id}/{role}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Admin Role Revoke */
+    delete: operations["delete_admin_role_revoke_route"];
     options?: never;
     head?: never;
     patch?: never;
@@ -4605,6 +4674,27 @@ export interface components {
       /** Total */
       total: number;
     };
+    /** AdminRoleGrantBody */
+    AdminRoleGrantBody: {
+      /** Email */
+      email: string;
+      /** Role */
+      role: string;
+    };
+    /** AdminRoleOut */
+    AdminRoleOut: {
+      /** Email */
+      email: string | null;
+      /** Role */
+      role: string;
+      /** User Id */
+      user_id: number;
+    };
+    /** AdminRolesListOut */
+    AdminRolesListOut: {
+      /** Roles */
+      roles: components["schemas"]["AdminRoleOut"][];
+    };
     /** AdminSettingChoiceOut */
     AdminSettingChoiceOut: {
       /**
@@ -5710,6 +5800,11 @@ export interface components {
     /** AdminUserOut */
     AdminUserOut: {
       /**
+       * Account Id
+       * @default null
+       */
+      account_id: string | null;
+      /**
        * Email
        * @default null
        */
@@ -5732,10 +5827,25 @@ export interface components {
        */
       last_name: string | null;
       /**
+       * Minishop Id
+       * @default null
+       */
+      minishop_id: string | null;
+      /**
        * Panel User Uuid
        * @default null
        */
       panel_user_uuid: string | null;
+      /**
+       * Panel Username
+       * @default null
+       */
+      panel_username: string | null;
+      /**
+       * Panel Username State
+       * @default null
+       */
+      panel_username_state: string | null;
       /**
        * Referral Code
        * @default null
@@ -5898,6 +6008,11 @@ export interface components {
     /** AdminUserWithAvatarOut */
     AdminUserWithAvatarOut: {
       /**
+       * Account Id
+       * @default null
+       */
+      account_id: string | null;
+      /**
        * Avatar Url
        * @default null
        */
@@ -5925,10 +6040,25 @@ export interface components {
        */
       last_name: string | null;
       /**
+       * Minishop Id
+       * @default null
+       */
+      minishop_id: string | null;
+      /**
        * Panel User Uuid
        * @default null
        */
       panel_user_uuid: string | null;
+      /**
+       * Panel Username
+       * @default null
+       */
+      panel_username: string | null;
+      /**
+       * Panel Username State
+       * @default null
+       */
+      panel_username_state: string | null;
       /**
        * Referral Code
        * @default null
@@ -9342,6 +9472,41 @@ export interface components {
        */
       start_param: string | null;
     };
+    /** WebAppTelegramMergePayload */
+    WebAppTelegramMergePayload: {
+      /**
+       * Auth Data
+       * @default null
+       */
+      auth_data: unknown;
+      /** Email Code */
+      email_code: string;
+      /**
+       * Id Token
+       * @default
+       */
+      id_token: string;
+      /**
+       * Init Data
+       * @default
+       */
+      init_data: string;
+      /**
+       * Nonce
+       * @default
+       */
+      nonce: string;
+      /**
+       * Referral Code
+       * @default null
+       */
+      referral_code: string | null;
+      /**
+       * Start Param
+       * @default null
+       */
+      start_param: string | null;
+    };
     /** WebappBootstrapConfigOut */
     WebappBootstrapConfigOut: {
       /** Admincssasset */
@@ -10054,6 +10219,73 @@ export interface operations {
             telegram_id?: number | null;
             token: string;
             user_id?: number | null;
+          };
+        };
+      };
+    };
+  };
+  post_account_telegram_merge_confirm_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppTelegramMergePayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            account_merge?: {
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
+            };
+            csrf_token: string;
+            /** @constant */
+            ok: true;
+            telegram_id?: number | null;
+            token: string;
+            user_id?: number | null;
+          };
+        };
+      };
+    };
+  };
+  post_account_telegram_merge_request_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            code?: string;
+            email_code?: string;
+            /** @constant */
+            ok: true;
+            retry_after?: number | null;
           };
         };
       };
@@ -12316,6 +12548,82 @@ export interface operations {
             page_size: number;
             revenue_summary: components["schemas"]["PromoRevenueSummaryOut"];
             total: number;
+          };
+        };
+      };
+    };
+  };
+  get_admin_roles_list_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminRolesListOut"];
+        };
+      };
+    };
+  };
+  post_admin_role_grant_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminRoleGrantBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  delete_admin_role_revoke_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+        role: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
           };
         };
       };

@@ -1,12 +1,7 @@
-# SQLAlchemy legacy Column declarations expose instance attributes as Column[T]
-# to mypy; this DAL intentionally mutates loaded ORM instances.
+# Legacy SQLAlchemy Columns confuse mypy when this DAL mutates loaded ORM instances.
 # mypy: disable-error-code="assignment,arg-type,operator"
 
-"""Account merge and full-account deletion.
-
-Split out of ``user_dal`` (which re-exports everything here for
-compatibility).
-"""
+"""Account merge and deletion, re-exported by ``user_dal`` for compatibility."""
 
 import logging
 from collections.abc import Awaitable, Callable
@@ -21,6 +16,9 @@ from bot.infra import events
 from bot.infra.event_payloads import AccountMergedPayload
 
 from ..models import (
+    AccountAlias,
+    AccountRole,
+    AccountRoleEvent,
     AdAttribution,
     EmailVerificationCode,
     FlexibleTrafficLimit,
@@ -204,6 +202,32 @@ async def merge_users(
         raise UserMergeConflictError(
             "Access denied",
             message_key="wa_auth_access_denied",
+        )
+
+    # A merge must not silently move privileges or erase the audit trail of a
+    # privileged account. Such accounts require a separate reviewed procedure.
+    source_role = (
+        await session.execute(
+            select(AccountRole.user_id).where(AccountRole.user_id == source_user_id).limit(1)
+        )
+    ).scalar_one_or_none()
+    source_role_event = (
+        await session.execute(
+            select(AccountRoleEvent.event_id)
+            .where(
+                or_(
+                    AccountRoleEvent.user_id == source_user_id,
+                    AccountRoleEvent.actor_user_id == source_user_id,
+                )
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if source_role is not None or source_role_event is not None:
+        raise UserMergeConflictError(
+            "A privileged account cannot be merged automatically.",
+            message_key="account_merge_privileged_source",
+            code="account_merge_privileged_source",
         )
 
     if (
@@ -688,7 +712,7 @@ async def merge_users(
     await session.execute(
         update(EmailVerificationCode)
         .where(EmailVerificationCode.target_user_id == source_user_id)
-        .values(target_user_id=target_user_id)
+        .values(target_user_id=target_user_id, status="superseded", consumed_at=datetime.now(UTC))
     )
     target_address_emails = select(UserEmailAddress.email).where(
         UserEmailAddress.user_id == target_user_id
@@ -745,14 +769,24 @@ async def merge_users(
         .values(user_id=target_user_id)
     )
     await session.execute(
-        update(WebAuthnChallenge)
-        .where(WebAuthnChallenge.user_id == source_user_id)
-        .values(user_id=target_user_id)
+        delete(WebAuthnChallenge).where(WebAuthnChallenge.user_id == source_user_id)
     )
 
     from .gift_dal import merge_owner
 
     await merge_owner(session, source_user_id, target_user_id)
+    await session.execute(
+        update(AccountAlias)
+        .where(AccountAlias.new_user_id == source_user_id)
+        .values(new_user_id=target_user_id)
+    )
+    session.add(
+        AccountAlias(
+            old_user_id=source_user_id,
+            new_user_id=target_user_id,
+            reason=reason[:64],
+        )
+    )
     await session.delete(source)
     await session.flush()
     await session.refresh(target)

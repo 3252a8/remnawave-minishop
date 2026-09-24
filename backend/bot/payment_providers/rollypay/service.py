@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
+from bot.services.account_roles import is_admin as account_is_admin
 from config.settings import Settings
 from db.dal import payment_dal
 
@@ -327,8 +328,8 @@ class RollyPayService(HttpClientMixin, RollyPaySubscriptionMixin):
                 return web.Response(status=404, text="payment_not_found")
             if payment.provider_payment_id and str(payment.provider_payment_id) != remote_id:
                 return web.Response(status=400, text="payment_id_mismatch")
-            if bool(remote.get("test")) and int(payment.user_id) not in set(
-                self.settings.ADMIN_IDS or []
+            if bool(remote.get("test")) and not await account_is_admin(
+                session, int(payment.user_id)
             ):
                 return web.Response(status=403, text="test_payment_forbidden")
             if not payment_amount_and_currency_match(

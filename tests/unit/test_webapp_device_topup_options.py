@@ -30,6 +30,11 @@ class _JsonRequest(SimpleNamespace):
 
 
 class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
+    def setUp(self):
+        admin_check = patch("bot.services.account_roles.is_admin", AsyncMock(return_value=False))
+        admin_check.start()
+        self.addCleanup(admin_check.stop)
+
     async def test_serializes_active_hwid_validity_window(self):
         active_until = datetime(2099, 1, 2, 3, 4, tzinfo=UTC)
         valid_from = datetime(2099, 1, 1, 3, 4, tzinfo=UTC)

@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
+from contextlib import suppress
 
 from aiogram import Dispatcher
 from aiogram.exceptions import TelegramNetworkError
@@ -35,6 +36,7 @@ from config.telegram_proxy import safe_telegram_network_error_detail
 logger = logging.getLogger(__name__)
 
 TELEGRAM_STARTUP_RETRY_DELAY_SECONDS = 2.0
+TELEGRAM_STARTUP_MAX_ATTEMPTS = 3
 
 
 def redact_token(value: str, token: str | None) -> str:
@@ -52,11 +54,11 @@ async def _run_telegram_startup_step(
     step: Callable[[], Awaitable[object]],
     unexpected_log_message: str,
     *,
-    attempts: int | None = None,
+    attempts: int = TELEGRAM_STARTUP_MAX_ATTEMPTS,
     retry_delay_seconds: float = TELEGRAM_STARTUP_RETRY_DELAY_SECONDS,
 ) -> bool:
     attempt = 1
-    max_attempts = max(1, attempts) if attempts is not None else None
+    max_attempts = max(1, attempts)
     while True:
         try:
             await step()
@@ -70,10 +72,8 @@ async def _run_telegram_startup_step(
             return True
         except TelegramNetworkError as exc:
             detail = _telegram_network_error_detail(exc)
-            attempt_label = (
-                f"{attempt}/{max_attempts}" if max_attempts is not None else str(attempt)
-            )
-            if max_attempts is not None and attempt >= max_attempts:
+            attempt_label = f"{attempt}/{max_attempts}"
+            if attempt >= max_attempts:
                 logger.warning(
                     "STARTUP: Telegram network error while %s after %s attempts: %s.",
                     action,
@@ -83,11 +83,12 @@ async def _run_telegram_startup_step(
                 return False
             logger.warning(
                 "STARTUP: Telegram network error while %s on attempt %s: %s. "
-                "Retrying in %.1fs and will keep trying until Telegram is reachable.",
+                "Retrying in %.1fs (maximum %s attempts).",
                 action,
                 attempt_label,
                 detail,
                 retry_delay_seconds,
+                max_attempts,
             )
             attempt += 1
             await asyncio.sleep(retry_delay_seconds)
@@ -161,10 +162,7 @@ async def configure_telegram_webhook(dispatcher: Dispatcher) -> None:
             "STARTUP: EXCEPTION during set/get Telegram webhook.",
         )
     else:
-        logger.error(
-            "STARTUP: WEBHOOK_BASE_URL not set in environment. Webhook mode is required. Exiting."
-        )
-        raise SystemExit("WEBHOOK_BASE_URL is required. Polling mode is disabled.")
+        logger.warning("STARTUP: Telegram webhook unavailable without WEBHOOK_BASE_URL.")
 
 
 async def on_startup_configured(dispatcher: Dispatcher):
@@ -275,9 +273,43 @@ async def on_shutdown_configured(dispatcher: Dispatcher):
     logger.info("SHUTDOWN: Bot on_shutdown_configured completed.")
 
 
+async def run_web_only(settings_param: Settings) -> None:
+    """Run HTTP and domain services without creating a Telegram client."""
+    runtime = await build_runtime_bootstrap(settings_param)
+    dp = build_dispatcher(
+        settings_param,
+        runtime.session_factory,
+        bot=None,
+        i18n_instance=runtime.i18n,
+    )
+    core_runtime = build_core_runtime(runtime, bot_username="", dispatcher=dp)
+    plugin_context = core_runtime.plugin_context
+    run_setup(plugin_context)
+    register_core_reactions(plugin_context)
+    set_dispatcher_services(dp, core_runtime.services)
+    try:
+        await build_and_start_web_app(
+            dp,
+            None,
+            settings_param,
+            runtime.session_factory,
+            plugin_context=plugin_context,
+        )
+    finally:
+        await close_redis()
+        from db.database_setup import async_engine
+
+        if async_engine is not None:
+            await async_engine.dispose()
+
+
 async def run_bot(settings_param: Settings):
+    if not settings_param.TELEGRAM_ENABLED:
+        await run_web_only(settings_param)
+        return
     runtime = await build_runtime_bootstrap(settings_param)
     bot = runtime.bot
+    assert bot is not None
     configure_message_log_notifier(settings_param, bot)
     i18n_instance = runtime.i18n
     local_async_session_factory = runtime.session_factory
@@ -301,14 +333,6 @@ async def run_bot(settings_param: Settings):
         else:
             logger.warning("Bot username is empty; Telegram Login Widget will be unavailable.")
 
-    bot_username_resolved = await _run_telegram_startup_step(
-        "getting bot info from Telegram",
-        _resolve_bot_username,
-        f"Failed to get bot info (e.g., for YooKassa default URL). Using fallback: {actual_bot_username}",  # noqa: E501
-    )
-    if not bot_username_resolved:
-        logger.warning("Using fallback bot username: %s", actual_bot_username)
-
     core_runtime = build_core_runtime(runtime, bot_username=actual_bot_username, dispatcher=dp)
     plugin_context = core_runtime.plugin_context
     services = core_runtime.services
@@ -318,9 +342,23 @@ async def run_bot(settings_param: Settings):
 
     set_dispatcher_services(dp, services)
 
+    # Aiogram invokes dispatcher startup while aiohttp runner.setup() is still
+    # opening the listener. Configure the optional adapter in the background.
+    telegram_setup_tasks: list[asyncio.Task[None]] = []
+
+    async def _configure_telegram_after_startup() -> None:
+        try:
+            await on_startup_configured(dp)
+        except Exception:
+            logger.exception("Telegram adapter startup failed; HTTP remains available")
+
     # Wrap startup/shutdown handlers to satisfy aiogram event signature (no args passed)
     async def _on_startup_wrapper():
-        await on_startup_configured(dp)
+        telegram_setup_tasks.append(
+            asyncio.create_task(
+                _configure_telegram_after_startup(), name="TelegramAdapterStartupTask"
+            )
+        )
 
     async def _on_shutdown_wrapper():
         await on_shutdown_configured(dp)
@@ -329,11 +367,6 @@ async def run_bot(settings_param: Settings):
     dp.shutdown.register(_on_shutdown_wrapper)
 
     await register_all_routers(dp, settings_param, plugin_context)
-
-    if not settings_param.WEBHOOK_BASE_URL:
-        logger.error("WEBHOOK_BASE_URL is required. Polling mode is disabled. Exiting.")
-        await dp.emit_shutdown()
-        raise SystemExit("WEBHOOK_BASE_URL is required. Polling mode is disabled.")
 
     from bot.payment_providers import get_provider_spec
 
@@ -358,7 +391,17 @@ async def run_bot(settings_param: Settings):
             plugin_context=plugin_context,
         )
 
-    main_tasks = [asyncio.create_task(web_server_task(), name="AIOHTTPServerTask")]
+    main_tasks = [
+        asyncio.create_task(web_server_task(), name="AIOHTTPServerTask"),
+        asyncio.create_task(
+            _run_telegram_startup_step(
+                "getting bot info from Telegram",
+                _resolve_bot_username,
+                f"Failed to get bot info; using fallback: {actual_bot_username}",
+            ),
+            name="TelegramBotInfoTask",
+        ),
+    ]
 
     try:
         await asyncio.gather(*main_tasks)
@@ -366,6 +409,11 @@ async def run_bot(settings_param: Settings):
         logger.info("Main bot loop interrupted/cancelled: %s - %s", type(e).__name__, e)
     finally:
         logger.info("Initiating final bot shutdown sequence...")
+        for setup_task in telegram_setup_tasks:
+            if not setup_task.done():
+                setup_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await setup_task
         for task in main_tasks:
             if task and not task.done():
                 task.cancel()

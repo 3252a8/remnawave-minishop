@@ -222,12 +222,8 @@ class AdminGiftCreationTests(IsolatedAsyncioTestCase):
 class AdminGiftAuthorizationTests(IsolatedAsyncioTestCase):
     async def test_non_admin_cannot_access_options_or_creation_or_detail(self):
         request = MagicMock(spec=web.Request)
-        request.get.return_value = 11
+        request.get.side_effect = lambda key, default=None: False
         with (
-            patch(
-                "bot.app.web.admin_api_impl.auth.get_settings",
-                return_value=SimpleNamespace(ADMIN_IDS=[99]),
-            ),
             patch("bot.app.web.session.extract_authenticated_user_id", return_value=10),
         ):
             for handler in (

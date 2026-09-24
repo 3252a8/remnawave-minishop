@@ -141,8 +141,6 @@ async def mark_telegram_notifications_enabled_for_telegram_user(
 ) -> User | None:
     db_user = await user_dal.get_user_by_telegram_id(session, telegram_id)
     if not db_user:
-        db_user = await user_dal.get_user_by_id(session, telegram_id)
-    if not db_user:
         return None
     return await mark_telegram_notifications_status(
         session,

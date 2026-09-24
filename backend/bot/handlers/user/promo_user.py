@@ -13,6 +13,7 @@ from bot.keyboards.inline.user_keyboards import (
 from bot.middlewares.i18n import JsonI18n
 from bot.services.promo_code_service import PromoCheckoutRequired, PromoCodeService
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.telegram_account import require_telegram_account_id
 from bot.states.user_states import UserPromoStates
 from bot.utils.callback_answer import callback_message, message_from_user, safe_answer_callback
 from bot.utils.install_links import (
@@ -121,11 +122,12 @@ async def process_promo_code_input(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
     code_input = (message.text or "").strip() if message.text else ""
     user = message_from_user(message)
+    account_user_id = await require_telegram_account_id(session, user.id)
 
     is_suspicious = False
     if not code_input:
         is_suspicious = True
-        logger.warning("Empty promo code input by user %s.", user.id)
+        logger.warning("Empty promo code input by user %s.", account_user_id)
     elif (
         len(code_input) > MAX_PROMO_CODE_INPUT_LENGTH
         or SUSPICIOUS_SQL_KEYWORDS_REGEX.search(code_input)
@@ -134,7 +136,7 @@ async def process_promo_code_input(
         is_suspicious = True
         logger.warning(
             "Suspicious input for promo code by user %s (len: %s): '%s'",
-            user.id,
+            account_user_id,
             len(code_input),
             code_input,
         )
@@ -146,9 +148,9 @@ async def process_promo_code_input(
             from bot.services.notification_service import NotificationService
 
             notification_service = NotificationService(bot, settings, i18n)
-            db_user = await user_dal.get_user_by_id(session, user.id)
+            db_user = await user_dal.get_user_by_id(session, account_user_id)
             await notification_service.notify_suspicious_promo_attempt(
-                user_id=user.id,
+                user_id=account_user_id,
                 username=user.username,
                 first_name=user.first_name,
                 email=getattr(db_user, "email", None) if db_user else None,
@@ -158,14 +160,14 @@ async def process_promo_code_input(
             logger.error("Failed to send suspicious promo notification: %s", e)
 
     success, result = await promo_code_service.apply_promo_code(
-        session, user.id, code_input, current_lang
+        session, account_user_id, code_input, current_lang
     )
     if success and isinstance(result, PromoCheckoutRequired):
         await session.commit()
         logger.info(
             "Code '%s' requires checkout for user %s; sending Mini App handoff.",
             code_input,
-            user.id,
+            account_user_id,
         )
         checkout_url = subscription_mini_app_checkout_code_url(settings, result.code or code_input)
         reply_markup = None
@@ -190,16 +192,20 @@ async def process_promo_code_input(
         logger.info(
             "Promo code input '%s' processing finished for user %s. State cleared.",
             code_input,
-            user.id,
+            account_user_id,
         )
         return
 
     if success:
         await session.commit()
-        logger.info("Promo code '%s' successfully applied for user %s.", code_input, user.id)
+        logger.info(
+            "Promo code '%s' successfully applied for user %s.", code_input, account_user_id
+        )
 
         new_end_date = result if isinstance(result, datetime) else None
-        active = await subscription_service.get_active_subscription_details(session, user.id)
+        active = await subscription_service.get_active_subscription_details(
+            session, account_user_id
+        )
         config_link_display = active.get("config_link") if active else None
         connect_button_url = active.get("connect_button_url") if active else None
         config_link_text = config_link_display or _("config_link_not_available")
@@ -209,7 +215,7 @@ async def process_promo_code_input(
             end_date=(new_end_date.strftime("%d.%m.%Y %H:%M:%S") if new_end_date else "N/A"),
             config_link=config_link_text,
         )
-        install_links = await ensure_user_install_guide_links(session, settings, user.id)
+        install_links = await ensure_user_install_guide_links(session, settings, account_user_id)
         install_share_url = install_links.public_share_url
         if install_share_url:
             try:
@@ -223,7 +229,7 @@ async def process_promo_code_input(
                 await session.rollback()
                 logger.exception(
                     "Failed to persist install guide share token for promo user %s.",
-                    user.id,
+                    account_user_id,
                 )
                 install_share_url = None
         reply_markup = get_connect_and_main_keyboard(
@@ -239,7 +245,7 @@ async def process_promo_code_input(
         logger.info(
             "Promo code '%s' application failed for user %s. Reason: %s",
             code_input,
-            user.id,
+            account_user_id,
             result,
         )
         response_to_user_text = result

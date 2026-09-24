@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.user_keyboards import get_channel_subscription_keyboard
 from bot.middlewares.i18n import JsonI18n
+from bot.services.account_roles import is_admin
 from bot.utils.channel_subscription import (
     normalize_required_channel_id,
     resolve_required_channel_link,
@@ -51,7 +52,7 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
             return await handler(event, data)
 
         event_user = data.get("event_from_user")
-        if not event_user or event_user.id in self.settings.ADMIN_IDS:
+        if not event_user:
             return await handler(event, data)
 
         callback_query = update.callback_query
@@ -69,7 +70,7 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
 
         session: AsyncSession = data["session"]
         try:
-            db_user = await user_dal.get_user_by_id(session, event_user.id)
+            db_user = await user_dal.get_user_by_telegram_id(session, event_user.id)
         except Exception as db_error:
             logger.exception(
                 "ChannelSubscriptionMiddleware: failed to fetch user %s: %s",
@@ -79,6 +80,9 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
             return await handler(event, data)
 
         if not db_user:
+            return await handler(event, data)
+
+        if await is_admin(session, int(db_user.user_id)):
             return await handler(event, data)
 
         if (

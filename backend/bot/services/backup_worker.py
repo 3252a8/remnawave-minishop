@@ -97,7 +97,7 @@ class BackupWorker:
     SETTINGS_REFRESH_SECONDS = 60
 
     def __init__(
-        self, settings: Settings, bot: Bot, session_factory: sessionmaker | None = None
+        self, settings: Settings, bot: Bot | None, session_factory: sessionmaker | None = None
     ) -> None:
         self.settings = settings
         self.bot = bot
@@ -403,6 +403,9 @@ class BackupWorker:
         return [item.strip() for item in value.split(",") if item.strip()]
 
     async def send_backup(self, result: BackupResult) -> None:
+        if self.bot is None:
+            logger.info("Backup archive retained locally at %s", result.archive_path)
+            return
         chat_id = self._target_chat_id()
         if chat_id is None:
             logger.warning(
@@ -544,6 +547,8 @@ class BackupWorker:
                 return False
 
     async def _notify_failure(self, exc: Exception) -> None:
+        if self.bot is None:
+            return
         chat_id = self._target_chat_id()
         if chat_id is None:
             return

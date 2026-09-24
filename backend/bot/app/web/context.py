@@ -401,13 +401,14 @@ def get_lknpd_service(request: web.Request) -> object | None:
 def set_core_context(
     app: web.Application,
     *,
-    bot: Bot,
+    bot: Bot | None,
     dp: Dispatcher,
     settings: Settings,
     async_session_factory: sessionmaker,
 ) -> None:
     i18n = dp.get("i18n_instance")
-    _set_both_values(app, BOT, "bot", bot)
+    if bot is not None:
+        _set_both_values(app, BOT, "bot", bot)
     _set_both_values(app, DISPATCHER, "dp", dp)
     _set_both_values(app, SETTINGS, "settings", settings)
     _set_both_values(app, SESSION_FACTORY, "async_session_factory", async_session_factory)

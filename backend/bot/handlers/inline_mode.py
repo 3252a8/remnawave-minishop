@@ -10,9 +10,12 @@ from aiogram.types import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.middlewares.i18n import JsonI18n
+from bot.services.account_roles import is_admin as account_is_admin
 from bot.services.partner_program_service import PartnerProgramService
 from bot.services.referral_service import ReferralService
+from bot.services.telegram_account import require_telegram_account_id
 from config.settings import Settings
+from db.dal.user_dal import get_user_by_telegram_id
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +44,8 @@ async def inline_query_handler(
     results: list[InlineQueryResultUnion] = []
 
     # Check if user is admin
-    is_admin = user_id in settings.ADMIN_IDS if settings.ADMIN_IDS else False
+    linked_account = await get_user_by_telegram_id(session, user_id)
+    is_admin = bool(linked_account and await account_is_admin(session, int(linked_account.user_id)))
 
     try:
         # For all users: referral functionality
@@ -93,9 +97,10 @@ async def create_referral_result(
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
 
     try:
+        account_user_id = await require_telegram_account_id(session, inline_query.from_user.id)
         if not await PartnerProgramService(settings).referral_program_enabled_for_user(
             session,
-            user_id=inline_query.from_user.id,
+            user_id=account_user_id,
         ):
             return None
         bot_info = await bot.get_me()
@@ -103,7 +108,7 @@ async def create_referral_result(
         if not bot_username:
             return None
 
-        user_id = inline_query.from_user.id
+        user_id = account_user_id
         referral_link = await referral_service.generate_referral_link(
             session, bot_username, user_id
         )

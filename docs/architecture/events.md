@@ -67,7 +67,7 @@
 
 Модель данных события: `AccountTelegramLinkedPayload`
 
-Источники события: `backend/bot/app/web/webapp/account.py`
+Источники события: `backend/bot/app/web/webapp/account.py`, `backend/bot/app/web/webapp/account_merge.py`
 
 Реакции Core: `CoreEventReactions.on_account_telegram_linked`
 
@@ -574,6 +574,8 @@
 | Поле | Тип | Значение по умолчанию |
 | --- | --- | --- |
 | `user_id` | `int` | обязательно |
+| `account_id` | `str | None` | `None` |
+| `minishop_id` | `str | None` | `None` |
 | `telegram_id` | `int | None` | `None` |
 | `username` | `str | None` | `None` |
 | `first_name` | `str | None` | `None` |

@@ -17,6 +17,7 @@ from bot.services.broadcast_personalization import (
 from bot.services.panel_api_service import PanelApiService
 from bot.services.referral_service import ReferralService
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.telegram_account import require_telegram_account_id
 from bot.states.admin_states import AdminStates
 from bot.utils import MessageContent, get_message_content, send_direct_message
 from bot.utils.callback_answer import (
@@ -126,7 +127,11 @@ async def process_subscription_days_handler(
                     bot_username=bot_username,
                 )
                 keyboard = get_user_card_keyboard(
-                    user.user_id, i18n, current_lang, user.referred_by_id
+                    user.user_id,
+                    i18n,
+                    current_lang,
+                    user.referred_by_id,
+                    telegram_id=user.telegram_id,
                 )
 
                 await _send_with_profile_link_fallback(
@@ -282,7 +287,11 @@ async def process_direct_message_handler(
                 bot_username=card_bot_username,
             )
             keyboard = get_user_card_keyboard(
-                target_user.user_id, i18n, current_lang, target_user.referred_by_id
+                target_user.user_id,
+                i18n,
+                current_lang,
+                target_user.referred_by_id,
+                telegram_id=target_user.telegram_id,
             )
 
             await _send_with_profile_link_fallback(
@@ -567,7 +576,9 @@ async def process_premium_override_bonus_handler(
         await message_log_dal.create_message_log_no_commit(
             session,
             {
-                "user_id": message_from_user(message).id if message.from_user else target_user_id,
+                "user_id": await require_telegram_account_id(session, message_from_user(message).id)
+                if message.from_user
+                else target_user_id,
                 "event_type": "admin:premium_override",
                 "content": f"unlimited=False bonus_bytes={int(bonus_bytes)}",
                 "is_admin_event": True,
@@ -595,7 +606,11 @@ async def process_premium_override_bonus_handler(
             bot_username=bot_username,
         )
         keyboard = get_user_card_keyboard(
-            target_user.user_id, i18n, current_lang, target_user.referred_by_id
+            target_user.user_id,
+            i18n,
+            current_lang,
+            target_user.referred_by_id,
+            telegram_id=target_user.telegram_id,
         )
         await _send_with_profile_link_fallback(
             message.answer,
@@ -674,7 +689,9 @@ async def process_hwid_device_limit_handler(
         await message_log_dal.create_message_log_no_commit(
             session,
             {
-                "user_id": message_from_user(message).id if message.from_user else target_user_id,
+                "user_id": await require_telegram_account_id(session, message_from_user(message).id)
+                if message.from_user
+                else target_user_id,
                 "event_type": "admin:hwid_device_limit",
                 "content": (
                     f"hwid_device_limit={hwid_device_limit!r} "
@@ -707,7 +724,11 @@ async def process_hwid_device_limit_handler(
             bot_username=bot_username,
         )
         keyboard = get_user_card_keyboard(
-            target_user.user_id, i18n, current_lang, target_user.referred_by_id
+            target_user.user_id,
+            i18n,
+            current_lang,
+            target_user.referred_by_id,
+            telegram_id=target_user.telegram_id,
         )
         await _send_with_profile_link_fallback(
             message.answer,
@@ -779,7 +800,9 @@ async def process_traffic_grant_gb_handler(
         await message_log_dal.create_message_log_no_commit(
             session,
             {
-                "user_id": message_from_user(message).id if message.from_user else target_user_id,
+                "user_id": await require_telegram_account_id(session, message_from_user(message).id)
+                if message.from_user
+                else target_user_id,
                 "event_type": "admin:traffic_grant",
                 "content": f"kind={kind} gb={gb_value:g}",
                 "is_admin_event": True,
@@ -812,7 +835,11 @@ async def process_traffic_grant_gb_handler(
             bot_username=bot_username,
         )
         keyboard = get_user_card_keyboard(
-            target_user.user_id, i18n, current_lang, target_user.referred_by_id
+            target_user.user_id,
+            i18n,
+            current_lang,
+            target_user.referred_by_id,
+            telegram_id=target_user.telegram_id,
         )
         await _send_with_profile_link_fallback(
             message.answer,

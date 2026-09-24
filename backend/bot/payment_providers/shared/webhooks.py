@@ -66,7 +66,7 @@ async def lookup_payment_by_order_or_provider_id(
 
 async def notify_user_payment_failed(
     *,
-    bot: Bot,
+    bot: Bot | None,
     settings: Any,
     i18n: Any,
     session: AsyncSession,

@@ -1,11 +1,11 @@
 # Переменные окружения
 
-`.env` нужен прежде всего для bootstrap: токен бота, доступ к базе, публичный URL вебхуков и стабильные секреты. После первого входа большая часть продуктовых настроек меняется в Web App админке и сохраняется в БД как переопределения поверх `.env`.
+`.env` нужен прежде всего для bootstrap: доступ к базе, публичные URL и стабильные секреты; токен бота нужен только при включённом Telegram. После первого входа большая часть продуктовых настроек меняется в Web App админке и сохраняется в БД как переопределения поверх `.env`.
 
 Рекомендуемый порядок:
 
 1. Заполнить минимальный `.env` по `.env.example`.
-2. Запустить стек и войти в Web App под Telegram ID из `ADMIN_IDS`.
+2. Запустить стек, подтвердить email и назначить первого владельца серверной командой из [инструкции автономного режима](../features/telegram-optional.md).
 3. Настроить Remnawave, платежи, внешний вид, поддержку, уведомления и тарифы через админку.
 
 ## Навигация по справочнику
@@ -24,17 +24,20 @@
 
 | Переменная | Где менять | Назначение |
 | --- | --- | --- |
-| `BOT_TOKEN` | Только `.env` | Токен Telegram-бота. |
+| `TELEGRAM_ENABLED` | Только `.env` | Включает Telegram-адаптер. Для браузерного режима задайте `False`; по умолчанию `True` для совместимости старых установок. |
+| `BOT_TOKEN` | Только `.env` | Токен Telegram-бота, обязателен только при `TELEGRAM_ENABLED=True`. |
 | `TELEGRAM_BOT_PROXY_URL` | Только `.env` | Необязательный SOCKS5 proxy для исходящих запросов Telegram Bot API из `backend` и `worker`; может также использоваться server-side частью OAuth. |
 | `TELEGRAM_BOT_API_BASE_URL` | Только `.env` | Необязательный HTTP(S) endpoint собственного Local Bot API для `backend` и `worker`. |
 | `TELEGRAM_OAUTH_USE_BOT_PROXY` | Только `.env` | Разрешает server-side запросам Telegram OAuth использовать `TELEGRAM_BOT_PROXY_URL`. По умолчанию `True`; без URL сохраняется прямой маршрут. |
-| `ADMIN_IDS` | Только `.env` | Telegram ID администраторов через запятую. Нужен для первого входа в админку. |
+| `ADMIN_IDS` | Только `.env` | Необязательный разовый импорт старых администраторов по сохранённой Telegram identity. Права затем хранятся как роли аккаунтов. |
 | `WEBHOOK_BASE_URL` | `.env` | Публичный URL backend/webhook-домена. Используется для URL вебхуков Telegram, платежных провайдеров и Remnawave. |
 | `POSTGRES_USER` | `.env` / Compose | Пользователь PostgreSQL. |
 | `POSTGRES_PASSWORD` | `.env` / Compose | Пароль PostgreSQL. |
 | `POSTGRES_DB` | `.env` / Compose | Имя базы PostgreSQL. |
 | `WEBAPP_ENABLED` | `.env` / админка | Включает Web App и админку. Держите `True` для первого запуска; если выключить, вернуть доступ можно только через `.env` и рестарт. |
 | `WEBAPP_SESSION_SECRET` | `.env` | Стабильный HMAC-секрет сессий Web App. Если пустой, генерируется на процесс, но сессии сбросятся после рестарта. |
+| `EMAIL_AUTH_SECRET` | `.env` | Независимый стабильный ключ email-кодов и magic links. При отсутствии используется `WEBAPP_SESSION_SECRET`. |
+| `PUBLIC_APP_URL` | `.env` | Публичный адрес браузерного кабинета для почтовых ссылок и возврата после оплаты. |
 | `WEBHOOK_SECRET_TOKEN` | `.env` | Секрет вебхука Telegram. Если пустой, генерируется на процесс. |
 
 ### SOCKS5 proxy для Telegram Bot API
@@ -711,7 +714,7 @@ docker compose exec backend sh -lc 'curl -4fsS https://api.ipify.org; echo'
 | `ROLLYPAY_INTERNATIONAL_ENABLED` | Метод `intl_card`; единственная RollyPay-кнопка с поддержкой `EUR`. |
 | `ROLLYPAY_CRYPTO_ENABLED` | Метод `crypto`. |
 | `ROLLYPAY_SUBSCRIPTION_ENABLED` | Провайдерская регулярная СБП-подписка; требует `ROLLYPAY_TERMINAL_ID`. |
-| `ROLLYPAY_<METHOD>_ADMIN_ONLY_ENABLED` | Показывает конкретную кнопку только пользователям из `ADMIN_IDS`. Вместо `<METHOD>`: `ALL_METHODS`, `SBP`, `CARD`, `INTERNATIONAL`, `CRYPTO`, `SUBSCRIPTION`. |
+| `ROLLYPAY_<METHOD>_ADMIN_ONLY_ENABLED` | Показывает конкретную кнопку только аккаунтам с ролью администратора. Вместо `<METHOD>`: `ALL_METHODS`, `SBP`, `CARD`, `INTERNATIONAL`, `CRYPTO`, `SUBSCRIPTION`. |
 | `ROLLYPAY_TEST_MODE` | Передаёт `test: true`; разовые методы становятся admin-only, recurring отключается. |
 | `ROLLYPAY_SUCCESS_URL` / `ROLLYPAY_FAIL_URL` | Явные URL возврата; без них используется стандартная ссылка бота. |
 | `ROLLYPAY_WEBHOOK_TOLERANCE_SECONDS` | Допустимый возраст `X-Timestamp`, по умолчанию `300`. |

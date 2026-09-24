@@ -185,6 +185,8 @@ class UserRegisteredPayload(EventPayload):
     EVENT_NAME: ClassVar[str] = "user.registered"
 
     user_id: int
+    account_id: str | None = None
+    minishop_id: str | None = None
     telegram_id: int | None = None
     username: str | None = None
     first_name: str | None = None
@@ -200,6 +202,18 @@ class UserRegisteredPayload(EventPayload):
         "panel_sync",
         "unknown",
     ]
+
+    def to_payload(
+        self,
+        *,
+        exclude_unset: bool = False,
+        exclude_none: bool = False,
+    ) -> dict[str, Any]:
+        payload = super().to_payload(exclude_unset=exclude_unset, exclude_none=exclude_none)
+        for field in ("account_id", "minishop_id"):
+            if payload.get(field) is None:
+                payload.pop(field, None)
+        return payload
 
 
 class AccountEmailLinkedPayload(EventPayload):

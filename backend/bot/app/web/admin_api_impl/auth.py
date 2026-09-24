@@ -6,10 +6,9 @@ from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
     get_session_factory,
-    get_settings,
 )
 from bot.plugins.packages import package_root, read_state
-from config.settings import Settings
+from bot.services.account_roles import is_admin
 from db.dal import user_dal
 
 
@@ -18,7 +17,6 @@ def _require_admin_user_id(request: web.Request) -> int:
 
     from bot.app.web.session import extract_authenticated_user_id
 
-    settings: Settings = get_settings(request)
     user_id = extract_authenticated_user_id(request)
     if not user_id:
         raise web.HTTPUnauthorized(
@@ -26,15 +24,7 @@ def _require_admin_user_id(request: web.Request) -> int:
             content_type="application/json",
         )
 
-    admin_ids = settings.ADMIN_IDS or []
-    db_user_telegram_id = request.get("admin_telegram_id")
-    if db_user_telegram_id is None:
-        raise web.HTTPForbidden(
-            text=json.dumps({"ok": False, "error": "forbidden"}),
-            content_type="application/json",
-        )
-
-    if int(db_user_telegram_id) not in {int(x) for x in admin_ids}:
+    if not request.get("admin_authorized", False):
         raise web.HTTPForbidden(
             text=json.dumps({"ok": False, "error": "forbidden"}),
             content_type="application/json",
@@ -47,7 +37,7 @@ async def admin_auth_middleware(
     request: web.Request,
     handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
 ) -> web.StreamResponse:
-    """Resolve the Telegram id of the current user and stash it on the request.
+    """Resolve the current account's role on every admin request.
 
     Doing this once per request lets every admin route call
     ``_require_admin_user_id`` without re-querying the DB.
@@ -68,16 +58,12 @@ async def admin_auth_middleware(
                 text=json.dumps({"ok": False, "error": "forbidden"}),
                 content_type="application/json",
             )
-        if db_user and db_user.telegram_id:
-            request["admin_telegram_id"] = int(db_user.telegram_id)
-        elif db_user:
-            # No telegram_id yet (email-only user) — can't be an admin
-            request["admin_telegram_id"] = None
+        if db_user:
+            async with async_session_factory() as session:
+                request["admin_authorized"] = await is_admin(session, int(db_user.user_id))
 
     client_generation = request.headers.get("X-Minishop-Plugin-Generation")
-    if client_generation is not None and request.get("admin_telegram_id") in {
-        int(value) for value in get_settings(request).ADMIN_IDS or []
-    }:
+    if client_generation is not None and request.get("admin_authorized", False):
         try:
             generation = read_state(package_root())["generation"]
         except (OSError, ValueError):

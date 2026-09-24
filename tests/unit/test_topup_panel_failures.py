@@ -626,17 +626,21 @@ class TariffChangeCallbackTransactionTests(unittest.IsolatedAsyncioTestCase):
             switch_tariff_without_payment=AsyncMock(return_value=None)
         )
 
-        await core_topup.tariff_change_apply_callback(
-            callback,
-            {},
-            SimpleNamespace(DEFAULT_LANGUAGE="en"),
-            subscription_service,
-            session,
-        )
+        with patch(
+            "bot.services.telegram_account.user_dal.get_user_by_telegram_id",
+            AsyncMock(return_value=SimpleNamespace(user_id=7777)),
+        ):
+            await core_topup.tariff_change_apply_callback(
+                callback,
+                {},
+                SimpleNamespace(DEFAULT_LANGUAGE="en"),
+                subscription_service,
+                session,
+            )
 
         subscription_service.switch_tariff_without_payment.assert_awaited_once_with(
             session,
-            42,
+            7777,
             "premium",
             "recalc_days",
         )

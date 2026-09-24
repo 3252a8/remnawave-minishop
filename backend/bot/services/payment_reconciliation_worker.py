@@ -36,7 +36,7 @@ class PaymentReconciliationWorker:
         settings: Settings,
         session_factory: sessionmaker,
         services: Mapping[str, object],
-        bot: Bot,
+        bot: Bot | None,
         i18n: JsonI18n,
     ) -> None:
         self.settings = settings

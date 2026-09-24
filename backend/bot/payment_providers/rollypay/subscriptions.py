@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession, async_object_session
 
+from bot.services.account_roles import is_admin as account_is_admin
 from db.dal import payment_dal, rollypay_dal, subscription_dal, user_dal
 from db.models import Payment, RollyPaySubscription
 
@@ -330,8 +331,8 @@ class RollyPaySubscriptionMixin(RollyPaySubscriptionRuntime):
                 await session.rollback()
                 await self.stop_remote_subscription(subscription_id)
                 return web.Response(status=404, text="subscription_not_found")
-            if bool(remote_payment.get("test")) and int(record.user_id) not in set(
-                self.settings.ADMIN_IDS or []
+            if bool(remote_payment.get("test")) and not await account_is_admin(
+                session, int(record.user_id)
             ):
                 await session.rollback()
                 await self.stop_remote_subscription(subscription_id)

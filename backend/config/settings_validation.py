@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import secrets
-from typing import Self
+from typing import TYPE_CHECKING, Self
 from urllib.parse import urlsplit
 
 from pydantic import SecretStr, field_validator, model_validator
@@ -12,6 +12,12 @@ from config.traffic_strategy import normalize_traffic_limit_strategy
 
 
 class SettingsValidationMixin:
+    if TYPE_CHECKING:
+        TELEGRAM_ENABLED: bool
+        BOT_TOKEN: str | None
+        PUBLIC_APP_URL: str | None
+        SUBSCRIPTION_MINI_APP_URL: str | None
+
     @field_validator("TELEGRAM_BOT_PROXY_URL")
     @classmethod
     def validate_telegram_bot_proxy_setting(cls, value: SecretStr | None) -> SecretStr | None:
@@ -43,6 +49,15 @@ class SettingsValidationMixin:
             or bool(getattr(self, "REFERRAL_TELEGRAM_LINK_ENABLED", False))
         ):
             raise ValueError("at least one referral link must remain enabled")
+        return self
+
+    @model_validator(mode="after")
+    def validate_telegram_adapter(self) -> Self:
+        if self.TELEGRAM_ENABLED and not self.BOT_TOKEN:
+            raise ValueError("BOT_TOKEN is required when TELEGRAM_ENABLED is true")
+        public_url = getattr(self, "PUBLIC_APP_URL", None)
+        if public_url:
+            self.SUBSCRIPTION_MINI_APP_URL = public_url
         return self
 
     @field_validator("SUPPORT_LINK", mode="before")
@@ -108,6 +123,8 @@ class SettingsValidationMixin:
         "PRIVACY_POLICY_URL",
         "USER_AGREEMENT_URL",
         "SUBSCRIPTION_MINI_APP_URL",
+        "PUBLIC_APP_URL",
+        "EMAIL_AUTH_SECRET",
         "WEBAPP_LOGO_URL",
         "TELEGRAM_OAUTH_CLIENT_SECRET",
         "TELEGRAM_OAUTH_REQUEST_ACCESS",

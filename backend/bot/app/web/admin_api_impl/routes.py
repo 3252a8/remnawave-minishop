@@ -83,6 +83,7 @@ from .promos import (
     admin_promo_update_route,
     admin_promos_list_route,
 )
+from .roles import admin_role_grant_route, admin_role_revoke_route, admin_roles_list_route
 from .settings import (
     admin_settings_get_route,
     admin_settings_patch_route,
@@ -159,6 +160,9 @@ def setup_admin_routes(app: web.Application) -> None:
     setup_plugin_packages(app.router)
     router = app.router
     router.add_get("/api/admin/me", admin_me_route)
+    router.add_get("/api/admin/roles", admin_roles_list_route)
+    router.add_post("/api/admin/roles", admin_role_grant_route)
+    router.add_delete("/api/admin/roles/{user_id:\\d+}/{role}", admin_role_revoke_route)
     router.add_get("/api/admin/stats", admin_stats_route)
     router.add_get("/api/admin/health", admin_health_route)
 

@@ -177,7 +177,11 @@ async def process_user_search_handler(
             bot_username=bot_username,
         )
         keyboard = get_user_card_keyboard(
-            user_model.user_id, i18n, current_lang, user_model.referred_by_id
+            user_model.user_id,
+            i18n,
+            current_lang,
+            user_model.referred_by_id,
+            telegram_id=user_model.telegram_id,
         )
 
         await _send_with_profile_link_fallback(

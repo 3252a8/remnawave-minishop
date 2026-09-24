@@ -89,6 +89,7 @@ class SendPaymentSuccessEmailTests(unittest.IsolatedAsyncioTestCase):
         mixin = PaymentContextMixin()
         mixin.settings = SimpleNamespace(
             email_auth_configured=True,
+            smtp_delivery_configured=True,
             DEFAULT_LANGUAGE="ru",
             DEFAULT_CURRENCY_SYMBOL="RUB",
             SUBSCRIPTION_MINI_APP_URL="https://app.example.com/",
@@ -128,7 +129,7 @@ class SendPaymentSuccessEmailTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_skips_email_when_smtp_unconfigured(self):
         mixin = PaymentContextMixin()
-        mixin.settings = SimpleNamespace(email_auth_configured=False)
+        mixin.settings = SimpleNamespace(smtp_delivery_configured=False)
         user = _FakeUser(user_id=1, email="x@y.z", language_code="en")
 
         with patch.object(payments_module, "EmailAuthService", _FakeEmailService):
@@ -148,6 +149,7 @@ class SendPaymentSuccessEmailTests(unittest.IsolatedAsyncioTestCase):
         mixin = PaymentContextMixin()
         mixin.settings = SimpleNamespace(
             email_auth_configured=True,
+            smtp_delivery_configured=True,
             DEFAULT_LANGUAGE="ru",
             DEFAULT_CURRENCY_SYMBOL="RUB",
             SUBSCRIPTION_MINI_APP_URL="",
@@ -176,6 +178,7 @@ class SendPaymentSuccessEmailTests(unittest.IsolatedAsyncioTestCase):
         mixin = PaymentContextMixin()
         mixin.settings = SimpleNamespace(
             email_auth_configured=True,
+            smtp_delivery_configured=True,
             DEFAULT_LANGUAGE="ru",
             DEFAULT_CURRENCY_SYMBOL="RUB",
             SUBSCRIPTION_MINI_APP_URL="",

@@ -7,6 +7,7 @@ from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.text_decorations import html_decoration as hd
+from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
 from bot.infra.payment_events import (
@@ -29,6 +30,8 @@ from bot.utils.text_sanitizer import (
     username_for_display,
 )
 from config.settings import Settings
+from db.auth_models import AccountRole
+from db.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +41,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
     def __init__(
         self,
-        bot: Bot,
+        bot: Bot | None,
         settings: Settings,
         i18n: JsonI18n | None = None,
         *,
@@ -80,31 +83,27 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
     @staticmethod
     def _build_profile_keyboard(
         translate: Callable[..., str],
-        user_id: int,
-        referrer_id: int | None = None,
+        telegram_id: int | None,
+        referrer_telegram_id: int | None = None,
     ) -> InlineKeyboardMarkup | None:
-        """Create inline keyboard with links to user (and referrer) profiles.
-
-        Email-only users have a synthetic negative ``user_id`` with no
-        Telegram profile, so we skip the tg:// button for them.
-        """
+        """Create Telegram profile links only from verified Telegram identities."""
         buttons = []
-        if user_id and user_id > 0:
+        if telegram_id and telegram_id > 0:
             buttons.append(
                 [
                     InlineKeyboardButton(
                         text=translate("log_open_profile_link"),
-                        url=f"tg://user?id={user_id}",
+                        url=f"tg://user?id={telegram_id}",
                     )
                 ]
             )
 
-        if referrer_id and referrer_id > 0:
+        if referrer_telegram_id and referrer_telegram_id > 0:
             buttons.append(
                 [
                     InlineKeyboardButton(
                         text=translate("log_open_referrer_profile_button"),
-                        url=f"tg://user?id={referrer_id}",
+                        url=f"tg://user?id={referrer_telegram_id}",
                     )
                 ]
             )
@@ -118,7 +117,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         reply_markup: InlineKeyboardMarkup | None = None,
     ) -> None:
         """Send message to configured log channel/group using message queue"""
-        if not self.settings.LOG_CHAT_ID:
+        if not self.settings.LOG_CHAT_ID or self.bot is None:
             return
 
         queue_manager = get_queue_manager()
@@ -191,19 +190,40 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
                 "Failed to queue notification to log channel %s.", self.settings.LOG_CHAT_ID
             )
 
+    async def _admin_telegram_ids(self) -> list[int]:
+        if self.session_factory is None:
+            return []
+        async with self.session_factory() as session:
+            result = await session.execute(
+                select(User.telegram_id)
+                .join(AccountRole, AccountRole.user_id == User.user_id)
+                .where(
+                    AccountRole.role.in_(("owner", "admin")),
+                    AccountRole.revoked_at.is_(None),
+                    User.telegram_id.is_not(None),
+                    User.is_banned.is_(False),
+                )
+                .distinct()
+            )
+            return [int(chat_id) for chat_id in result.scalars().all()]
+
     async def _send_to_admins(
         self,
         message: str,
         reply_markup: InlineKeyboardMarkup | None = None,
     ) -> None:
         """Send message to all admin users using message queue"""
-        if not self.settings.ADMIN_IDS:
+        if self.bot is None:
+            return
+
+        admin_telegram_ids = await self._admin_telegram_ids()
+        if not admin_telegram_ids:
             return
 
         queue_manager = get_queue_manager()
         if not queue_manager:
             logger.warning("Message queue manager not available, falling back to direct send")
-            for admin_id in self.settings.ADMIN_IDS:
+            for admin_id in admin_telegram_ids:
                 try:
                     await self.bot.send_message(
                         chat_id=admin_id,
@@ -216,7 +236,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
                     logger.exception("Failed to send notification to admin %s.", admin_id)
             return
 
-        for admin_id in self.settings.ADMIN_IDS:
+        for admin_id in admin_telegram_ids:
             try:
                 await queue_manager.send_message(
                     chat_id=admin_id,
@@ -235,6 +255,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         first_name: str | None = None,
         email: str | None = None,
         referred_by_id: int | None = None,
+        telegram_id: int | None = None,
     ) -> None:
         """Send notification about new user registration"""
         if not self.settings.LOG_NEW_USERS:
@@ -252,7 +273,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
         referral_text = ""
         if referred_by_id:
-            referrer_link = hd.link(str(referred_by_id), f"tg://user?id={referred_by_id}")
+            referrer_link = hd.quote(str(referred_by_id))
             referral_text = _(
                 "log_referral_suffix",
                 referrer_link=referrer_link,
@@ -267,7 +288,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         )
 
         # Send to log channel
-        profile_keyboard = self._build_profile_keyboard(_, user_id, referred_by_id)
+        profile_keyboard = self._build_profile_keyboard(_, telegram_id)
         await self._send_to_log_channel(message, reply_markup=profile_keyboard)
 
     async def notify_new_email_user_registration(
@@ -285,7 +306,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
         referral_text = ""
         if referred_by_id:
-            referrer_link = hd.link(str(referred_by_id), f"tg://user?id={referred_by_id}")
+            referrer_link = hd.quote(str(referred_by_id))
             referral_text = _(
                 "log_referral_suffix",
                 referrer_link=referrer_link,
@@ -299,22 +320,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
 
-        # Email users have a synthetic (negative) user_id with no Telegram profile,
-        # so we only attach the referrer button when a real referrer is present.
-        reply_markup: InlineKeyboardMarkup | None = None
-        if referred_by_id and referred_by_id > 0:
-            reply_markup = InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text=_("log_open_referrer_profile_button"),
-                            url=f"tg://user?id={referred_by_id}",
-                        )
-                    ]
-                ]
-            )
-
-        await self._send_to_log_channel(message, reply_markup=reply_markup)
+        await self._send_to_log_channel(message)
 
     async def notify_new_external_user_registration(
         self,
@@ -333,7 +339,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
         referral_text = ""
         if referred_by_id:
-            referrer_link = hd.link(str(referred_by_id), f"tg://user?id={referred_by_id}")
+            referrer_link = hd.quote(str(referred_by_id))
             referral_text = _("log_referral_suffix", referrer_link=referrer_link)
 
         message = _(
@@ -344,8 +350,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
             referral_text=referral_text,
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
-        reply_markup = self._build_profile_keyboard(_, user_id, referred_by_id)
-        await self._send_to_log_channel(message, reply_markup=reply_markup)
+        await self._send_to_log_channel(message)
 
     async def notify_account_email_linked(
         self,
@@ -372,7 +377,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         message = _(
             "log_account_email_linked",
             user_id=user_id,
-            telegram_id=telegram_id or user_id,
+            telegram_id=telegram_id or "—",
             user_display=user_display,
             email=hd.quote(email),
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
@@ -456,7 +461,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
             email=hd.quote(email or ""),
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
-        profile_keyboard = self._build_profile_keyboard(_, display_user_id)
+        profile_keyboard = self._build_profile_keyboard(_, telegram_id)
         await self._send_to_log_channel(message, reply_markup=profile_keyboard)
 
     async def notify_account_merged(
@@ -726,7 +731,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
                 + "\n\n"
                 + message
             )
-        profile_keyboard = self._build_profile_keyboard(_, user_id)
+        profile_keyboard = self._build_profile_keyboard(_, None)
         await self._send_to_log_channel(message, reply_markup=profile_keyboard)
 
     def _format_payment_purchase_line(
@@ -811,7 +816,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         )
 
         # Send to log channel
-        profile_keyboard = self._build_profile_keyboard(_, user_id)
+        profile_keyboard = self._build_profile_keyboard(_, None)
         await self._send_to_log_channel(message, reply_markup=profile_keyboard)
 
     async def notify_trial_activation(
@@ -842,7 +847,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         )
 
         # Send to log channel
-        profile_keyboard = self._build_profile_keyboard(_, user_id)
+        profile_keyboard = self._build_profile_keyboard(_, None)
         await self._send_to_log_channel(message, reply_markup=profile_keyboard)
 
     async def notify_panel_sync(
@@ -909,7 +914,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         )
 
         # Send to log channel
-        profile_keyboard = self._build_profile_keyboard(_, user_id)
+        profile_keyboard = self._build_profile_keyboard(_, None)
         await self._send_to_log_channel(message, reply_markup=profile_keyboard)
 
     async def send_custom_notification(

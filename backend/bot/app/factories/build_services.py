@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 def build_core_services(
     settings: Settings,
-    bot: Bot,
+    bot: Bot | None,
     async_session_factory: sessionmaker,
     i18n: JsonI18n,
     bot_username_for_default_return: str,
@@ -71,7 +71,6 @@ def build_core_services(
     audience_segmentation_service = AudienceSegmentationService(
         async_session_factory,
         panel_service=panel_service,
-        admin_ids=settings.ADMIN_IDS,
         tariffs=_broadcast_tariff_audiences(settings),
     )
     outbound_messaging_service = OutboundMessagingService(bot)

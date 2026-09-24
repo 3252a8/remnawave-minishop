@@ -87,6 +87,10 @@ class WebAppTelegramAuthPayload(BaseModel):
     start_param: str | None = None
 
 
+class WebAppTelegramMergePayload(WebAppTelegramAuthPayload):
+    email_code: ShortCodeString
+
+
 class WebAppPasskeyCredentialPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 

@@ -157,7 +157,7 @@ class TorrentBlockerNotificationService:
     def __init__(
         self,
         settings: Settings,
-        bot: Bot,
+        bot: Bot | None,
         i18n: JsonI18n,
         async_session_factory: sessionmaker,
     ) -> None:
@@ -333,13 +333,6 @@ class TorrentBlockerNotificationService:
             user = await user_dal.get_user_by_telegram_id(session, telegram_id)
             if user is not None:
                 return user
-            user = await user_dal.get_user_by_id(session, telegram_id)
-            if user is not None:
-                return user
-
-        email = str(user_payload.get("email") or "").strip()
-        if email:
-            return await user_dal.get_user_by_email(session, email)
         return None
 
     def _message_text(self, language: str, report: TorrentBlockerReport) -> str:
@@ -374,6 +367,8 @@ class TorrentBlockerNotificationService:
         message_text: str,
         sent_at: datetime,
     ) -> bool:
+        if self.bot is None:
+            return False
         chat_id = self._telegram_chat_id(user, user_payload)
         if chat_id is None:
             self._log_outcome(

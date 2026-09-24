@@ -98,7 +98,7 @@ class PanelWebhookService(PanelWebhookPayloadMixin):
 
     def __init__(
         self,
-        bot: Bot,
+        bot: Bot | None,
         settings: Settings,
         i18n: JsonI18n,
         async_session_factory: sessionmaker,
@@ -140,6 +140,8 @@ class PanelWebhookService(PanelWebhookPayloadMixin):
         reply_markup: InlineKeyboardMarkup | None = None,
         **kwargs: object,
     ) -> None:
+        if self.bot is None:
+            return
         _ = lambda k, **kw: self.i18n.gettext(lang, k, **kw)
         extra_text = str(kwargs.pop("extra_text", "") or "").strip()
         try:
@@ -258,9 +260,7 @@ class PanelWebhookService(PanelWebhookPayloadMixin):
             sub = await self._subscription_for_payload(session, user_payload, db_user)
             telegram_id = self._payload_telegram_id(user_payload)
             internal_user_id = (
-                int(db_user.user_id)
-                if db_user
-                else int(getattr(sub, "user_id", 0) or telegram_id or 0)
+                int(db_user.user_id) if db_user else int(getattr(sub, "user_id", 0) or 0)
             )
             lang = (
                 db_user.language_code
@@ -268,7 +268,8 @@ class PanelWebhookService(PanelWebhookPayloadMixin):
                 else self.settings.DEFAULT_LANGUAGE
             )
             if not sub:
-                if not telegram_id:
+                linked_telegram_id = getattr(db_user, "telegram_id", None) if db_user else None
+                if not linked_telegram_id or linked_telegram_id != telegram_id:
                     local_user_id = getattr(db_user, "user_id", None) if db_user else None
                     logger.warning(
                         "Panel webhook event %s cannot be matched to a local subscription; "
@@ -284,7 +285,7 @@ class PanelWebhookService(PanelWebhookPayloadMixin):
                 await self._send_legacy_without_dedupe(
                     event_name,
                     user_payload,
-                    int(telegram_id),
+                    int(linked_telegram_id),
                     lang,
                     db_user,
                     meta=meta,
@@ -685,9 +686,6 @@ class PanelWebhookService(PanelWebhookPayloadMixin):
             user = await user_dal.get_user_by_telegram_id(session, telegram_id)
             if user:
                 return user
-            user = await user_dal.get_user_by_id(session, telegram_id)
-            if user:
-                return user
 
         panel_uuid = self._payload_panel_uuid(user_payload)
         if panel_uuid:
@@ -695,9 +693,6 @@ class PanelWebhookService(PanelWebhookPayloadMixin):
             if user:
                 return user
 
-        email = str(user_payload.get("email") or "").strip()
-        if email:
-            return await user_dal.get_user_by_email(session, email)
         return None
 
     async def _superseded_by_newer_subscription(

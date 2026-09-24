@@ -59,8 +59,9 @@ async def balance_topup_route(request: web.Request) -> web.Response:
         user = await user_dal.get_user_by_id(session, user_id)
         if user is None or bool(user.is_banned):
             return _json_error(403, "access_denied", "Access denied")
-        admin_ids = {int(item) for item in (settings.ADMIN_IDS or [])}
-        is_admin = bool(user.telegram_id and int(user.telegram_id) in admin_ids)
+        from bot.services.account_roles import is_admin as account_is_admin
+
+        is_admin = await account_is_admin(session, user_id)
         logger.info(
             "Balance top-up requested: user_id=%s amount=%s currency=%s provider=%s",
             user_id,
