@@ -403,8 +403,6 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                     user_id,
                     current_local_panel_uuid,
                 )
-                direct_lookup_not_found = False
-                direct_lookup_incompatible = False
                 lookup_method = getattr(self.panel_service, "get_user_by_uuid_lookup", None)
                 if callable(lookup_method):
                     lookup = await lookup_method(current_local_panel_uuid)
@@ -412,77 +410,29 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                         lookup_user = lookup.get("user")
                         if lookup.get("ok") and isinstance(lookup_user, dict):
                             panel_user_obj_from_api = lookup_user
-                        direct_lookup_not_found = bool(lookup.get("not_found"))
-                        direct_lookup_incompatible = (
-                            "classification=incompatible_user_reference"
-                            in str(lookup.get("failure_reason") or "")
-                        )
                     else:
                         panel_user_obj_from_api = await self.panel_service.get_user_by_uuid(
                             current_local_panel_uuid
                         )
-                        direct_lookup_not_found = panel_user_obj_from_api is None
                 else:
                     panel_user_obj_from_api = await self.panel_service.get_user_by_uuid(
                         current_local_panel_uuid
                     )
-                    direct_lookup_not_found = panel_user_obj_from_api is None
                 if not panel_user_obj_from_api:
-                    safe_to_create = direct_lookup_not_found or (
-                        direct_lookup_incompatible and not identity_lookup_failed
-                    )
-                    if not safe_to_create:
-                        logger.error(
-                            "Refusing to create a replacement panel user for local user %s: "
-                            "the existing panel reference was not confirmed missing and one or "
-                            "more identity lookups may have failed.",
-                            user_id,
-                        )
-                        return PanelUserLink(
-                            current_local_panel_uuid,
-                            None,
-                            None,
-                            False,
-                            False,
-                            None,
-                        )
-                    logger.warning(
-                        "Local panel_uuid %s for TG user %s also not found on panel. User might be "
-                        "deleted from panel or UUID desynced.",
+                    logger.error(
+                        "Existing panel link %s for account %s could not be verified; "
+                        "manual reconciliation is required before creating another panel user.",
                         current_local_panel_uuid,
                         user_id,
                     )
-                    logger.info(
-                        "Creating new panel user '%s' for TG user %s.",
-                        panel_username_on_panel_standard,
-                        user_id,
+                    return PanelUserLink(
+                        current_local_panel_uuid,
+                        None,
+                        None,
+                        False,
+                        False,
+                        None,
                     )
-                    creation_response = await self.panel_service.create_panel_user(
-                        username_on_panel=panel_username_on_panel_standard,
-                        telegram_id=telegram_id_for_panel,
-                        email=db_user.email,
-                        description=self._panel_description_for_user(db_user),
-                        default_expire_days=create_options.default_expire_days,
-                        expire_at=create_options.expire_at,
-                        hwid_device_limit=create_options.hwid_device_limit,
-                        specific_squad_uuids=list(create_options.specific_squad_uuids),
-                        external_squad_uuid=create_options.external_squad_uuid,
-                        default_traffic_limit_bytes=create_options.default_traffic_limit_bytes,
-                        default_traffic_limit_strategy=(
-                            create_options.default_traffic_limit_strategy
-                        ),
-                        tag=creation_tag,
-                    )
-                    if (
-                        creation_response
-                        and not creation_response.get("error")
-                        and creation_response.get("response")
-                    ):
-                        panel_user_obj_from_api = creation_response.get("response")
-                        panel_user_created_now = True
-                    else:
-                        await self._notify_admin_panel_user_creation_failed(session, user_id)
-                        return PanelUserLink(None, None, None, False, False, None)
 
             else:
                 if identity_lookup_failed:
