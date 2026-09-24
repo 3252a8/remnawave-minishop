@@ -567,6 +567,57 @@ export interface paths {
     patch: operations["patch_admin_broadcast_reschedule_route"];
     trace?: never;
   };
+  "/api/admin/extensions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Extensions */
+    get: operations["get_admin_extensions_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/extensions/action": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Extension Action */
+    post: operations["post_admin_extension_action_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/extensions/presentation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Extension Presentation */
+    post: operations["post_admin_extension_presentation_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/gifts": {
     parameters: {
       query?: never;
@@ -2598,6 +2649,126 @@ export interface paths {
     };
     /** Device Topup Options */
     get: operations["get_device_topup_options_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/extensions/assets/{owner}/{digest}/{path}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Extension Asset */
+    get: operations["get_extension_asset_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/extensions/checkout": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Extension Checkout */
+    post: operations["post_extension_checkout_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/extensions/order": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Extension Order */
+    get: operations["get_extension_order_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/extensions/orders": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Extension Orders */
+    get: operations["get_extension_orders_route"];
+    put?: never;
+    /** Extension Order Create */
+    post: operations["post_extension_order_create_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/extensions/payment-methods": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Extension Payment Methods */
+    get: operations["get_extension_payment_methods_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/extensions/resource": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Extension Resource */
+    get: operations["get_extension_resource_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/extensions/runtime": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Extension Runtime */
+    get: operations["get_extension_runtime_route"];
     put?: never;
     post?: never;
     delete?: never;
@@ -6103,6 +6274,225 @@ export interface components {
        */
       new_key: string | null;
     };
+    /** ExtensionActionOut */
+    ExtensionActionOut: {
+      /**
+       * Accepted
+       * @default true
+       */
+      accepted: boolean;
+    };
+    /** ExtensionAdminAction */
+    ExtensionAdminAction: {
+      /**
+       * Action
+       * @enum {string}
+       */
+      action: "retry" | "refund";
+      /** Id */
+      id: string;
+      /** Owner */
+      owner: string;
+      /** Reason */
+      reason: string;
+    };
+    /** ExtensionAdminOrderOut */
+    ExtensionAdminOrderOut: {
+      /** Amount Minor */
+      amount_minor: number;
+      /** Can Refund */
+      can_refund: boolean;
+      /** Currency */
+      currency: string;
+      /** Currency Scale */
+      currency_scale: number;
+      /** Fulfillment State */
+      fulfillment_state: string;
+      /** Id */
+      id: string;
+      /** Payment State */
+      payment_state: string;
+      /** Title */
+      title: string;
+      /** User Id */
+      user_id: number;
+    };
+    /** ExtensionAdminOut */
+    ExtensionAdminOut: {
+      /** Operations */
+      operations: components["schemas"]["ExtensionOperationOut"][];
+      /** Orders */
+      orders: components["schemas"]["ExtensionAdminOrderOut"][];
+      /** Presentation */
+      presentation: components["schemas"]["ExtensionPresentationOut"][];
+    };
+    /** ExtensionCheckout */
+    ExtensionCheckout: {
+      /** Method */
+      method: string;
+      /** Order Id */
+      order_id: string;
+      /**
+       * Payer Email
+       * @default null
+       */
+      payer_email: string | null;
+      /**
+       * Payer Phone
+       * @default null
+       */
+      payer_phone: string | null;
+    };
+    /** ExtensionCheckoutOut */
+    ExtensionCheckoutOut: {
+      order: components["schemas"]["ExtensionOrderOut"];
+      /** Payment */
+      payment?: {
+        [key: string]: components["schemas"]["JsonValue"];
+      };
+    };
+    /** ExtensionOperationOut */
+    ExtensionOperationOut: {
+      /** Attempts */
+      attempts: number;
+      /** Error */
+      error: string | null;
+      /** Id */
+      id: string;
+      /** Kind */
+      kind: string;
+      /** State */
+      state: string;
+      /** User Id */
+      user_id: number | null;
+    };
+    /** ExtensionOrderCreate */
+    ExtensionOrderCreate: {
+      /** Idempotency Key */
+      idempotency_key: string;
+      /** Options */
+      options?: {
+        [key: string]: components["schemas"]["JsonValue"];
+      };
+      /** Product */
+      product: string;
+    };
+    /** ExtensionOrderOut */
+    ExtensionOrderOut: {
+      /** Data */
+      data: {
+        [key: string]: components["schemas"]["JsonValue"];
+      };
+      /** Fulfillment State */
+      fulfillment_state: string;
+      /** Id */
+      id: string;
+      /** Payment Id */
+      payment_id: number | null;
+      /** Payment State */
+      payment_state: string;
+      /** Product */
+      product: string;
+      quote: components["schemas"]["ProductQuote"];
+    };
+    /** ExtensionOrdersOut */
+    ExtensionOrdersOut: {
+      /** Orders */
+      orders: components["schemas"]["ExtensionOrderOut"][];
+    };
+    /** ExtensionPaymentMethodOut */
+    ExtensionPaymentMethodOut: {
+      /** Id */
+      id: string;
+      /** Label */
+      label: string;
+      /**
+       * Label Key
+       * @default
+       */
+      label_key: string;
+    };
+    /** ExtensionPaymentMethodsOut */
+    ExtensionPaymentMethodsOut: {
+      /** Methods */
+      methods: components["schemas"]["ExtensionPaymentMethodOut"][];
+    };
+    /** ExtensionPluginOut */
+    ExtensionPluginOut: {
+      /** Digest */
+      digest: string;
+      /** Entry */
+      entry: string;
+      /** Id */
+      id: string;
+      /** Styles */
+      styles?: string[];
+      /** Views */
+      views?: components["schemas"]["ExtensionViewOut"][];
+    };
+    /** ExtensionPresentationOut */
+    ExtensionPresentationOut: {
+      /** Enabled */
+      enabled: boolean;
+      /** Label */
+      label: string;
+      /** Position */
+      position: number;
+      /** Target */
+      target: string;
+    };
+    /** ExtensionPresentationUpdate */
+    ExtensionPresentationUpdate: {
+      /** Enabled */
+      enabled: boolean;
+      /** Owner */
+      owner: string;
+      /** Position */
+      position: number;
+      /** Target */
+      target: string;
+    };
+    /** ExtensionRuntimeOut */
+    ExtensionRuntimeOut: {
+      /** Generation */
+      generation: number;
+      /** Plugins */
+      plugins: components["schemas"]["ExtensionPluginOut"][];
+    };
+    /** ExtensionViewOut */
+    ExtensionViewOut: {
+      /**
+       * I18Nkey
+       * @default
+       */
+      i18nKey: string;
+      /**
+       * Icon
+       * @default star
+       */
+      icon: string;
+      /** Id */
+      id: string;
+      /** Label */
+      label: string;
+      /**
+       * Navigation
+       * @default primary
+       */
+      navigation: string;
+      /**
+       * Order
+       * @default 100
+       */
+      order: number;
+      /**
+       * Target
+       * @default page
+       */
+      target: string;
+      /** View */
+      view: string;
+    };
     /** FlexibleTrafficLimitConfig */
     FlexibleTrafficLimitConfig: {
       /** Max Total Gb */
@@ -6317,6 +6707,7 @@ export interface components {
     };
     /** @enum {string} */
     ItemStatus: "online" | "offline" | "degraded" | "maintenance" | "pending" | "unknown";
+    JsonValue: unknown;
     /** LibraryOut */
     LibraryOut: {
       /** Generation */
@@ -7234,6 +7625,29 @@ export interface components {
     PreviewUploadOut: {
       /** Preview Url */
       preview_url: string;
+    };
+    /** ProductQuote */
+    ProductQuote: {
+      /** Amount Minor */
+      amount_minor: number;
+      /** Currency */
+      currency: string;
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string;
+      /** Terms */
+      terms?: {
+        [key: string]: components["schemas"]["JsonValue"];
+      };
+      /** Title */
+      title: string;
+      /**
+       * Version
+       * @default 1
+       */
+      version: number;
     };
     /** PromoActivationOut */
     PromoActivationOut: {
@@ -10552,6 +10966,83 @@ export interface operations {
             /** @constant */
             ok: true;
           } & components["schemas"]["AdminBroadcastOut"];
+        };
+      };
+    };
+  };
+  get_admin_extensions_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["ExtensionAdminOut"];
+        };
+      };
+    };
+  };
+  post_admin_extension_action_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ExtensionAdminAction"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["ExtensionActionOut"];
+        };
+      };
+    };
+  };
+  post_admin_extension_presentation_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ExtensionPresentationUpdate"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["ExtensionActionOut"];
         };
       };
     };
@@ -14674,6 +15165,198 @@ export interface operations {
             traffic_percent?: number;
             warning_levels?: number[];
           };
+        };
+      };
+    };
+  };
+  get_extension_asset_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        owner: string;
+        digest: string;
+        path: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/octet-stream": string;
+        };
+      };
+    };
+  };
+  post_extension_checkout_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ExtensionCheckout"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["ExtensionCheckoutOut"];
+        };
+      };
+    };
+  };
+  get_extension_order_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            order: components["schemas"]["ExtensionOrderOut"];
+          };
+        };
+      };
+    };
+  };
+  get_extension_orders_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["ExtensionOrdersOut"];
+        };
+      };
+    };
+  };
+  post_extension_order_create_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ExtensionOrderCreate"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            order: components["schemas"]["ExtensionOrderOut"];
+          };
+        };
+      };
+    };
+  };
+  get_extension_payment_methods_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["ExtensionPaymentMethodsOut"];
+        };
+      };
+    };
+  };
+  get_extension_resource_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/octet-stream": string;
+        };
+      };
+    };
+  };
+  get_extension_runtime_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["ExtensionRuntimeOut"];
         };
       };
     };

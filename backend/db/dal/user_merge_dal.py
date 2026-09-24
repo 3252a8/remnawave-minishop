@@ -587,6 +587,9 @@ async def merge_users(
         .where(Subscription.user_id == source_user_id)
         .values(**subscription_update_values)
     )
+    from .extension_accounts_dal import merge as merge_extension_accounts
+
+    await merge_extension_accounts(session, source_user_id, target_user_id)
     for model in (Payment, PromoCodeActivation):
         await session.execute(
             update(model).where(model.user_id == source_user_id).values(user_id=target_user_id)
@@ -957,6 +960,9 @@ async def delete_user_and_relations(session: AsyncSession, user_id: int) -> bool
             )
         )
     )
+    from .extension_accounts_dal import delete_for_user as delete_extension_account
+
+    await delete_extension_account(session, user_id)
     await session.execute(delete(Payment).where(Payment.user_id == user_id))
     await session.execute(delete(Subscription).where(Subscription.user_id == user_id))
 

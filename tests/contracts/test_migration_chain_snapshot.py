@@ -105,6 +105,7 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0087_add_wata_subscriptions",
     "0088_bind_install_share_to_panel_link",
     "0089_persist_plugin_owned_codes",
+    "0090_extension_operations_and_orders",
 ]
 
 

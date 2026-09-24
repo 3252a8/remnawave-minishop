@@ -3351,6 +3351,14 @@ a {
   grid-template-columns: repeat(var(--bottom-nav-visible-items, 4), minmax(0, 1fr));
 }
 
+@media (max-width: 767px) {
+  .bottom-nav.bottom-nav-scroll {
+    grid-template-columns: repeat(var(--bottom-nav-visible-items), minmax(52px, 1fr));
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+}
+
 .bottom-nav.static {
   position: fixed;
 }

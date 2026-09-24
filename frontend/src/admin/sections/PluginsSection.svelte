@@ -20,6 +20,8 @@
   import type { AdminApi } from "../adminStores";
   import PluginImportDialog from "./PluginImportDialog.svelte";
   import PluginHost from "./PluginHost.svelte";
+  import { responseError } from "./pluginPackageErrors";
+  import PluginOperations from "./PluginOperations.svelte";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type Installation = {
@@ -99,12 +101,6 @@
     [...(runtime?.settings_tabs || [])].sort((a, b) => (a.order || 0) - (b.order || 0))
   );
   const failed = $derived(inventory.failed_generation === inventory.generation);
-
-  function responseError(value: unknown, fallback: string): string {
-    if (value && typeof value === "object" && "error" in value && typeof value.error === "string")
-      return value.error;
-    return fallback;
-  }
 
   function statusLabel(plugin: Installation): string {
     if (failed) return at("plugins_runtime_failed", {}, "Could not start; see diagnostics");
@@ -494,6 +490,9 @@
           <Tabs.Trigger value="updates" class="admin-tabs-trigger"
             >{at("plugins_updates", {}, "Updates")}</Tabs.Trigger
           >
+          <Tabs.Trigger value="operations" class="admin-tabs-trigger"
+            >{at("plugins_operations")}</Tabs.Trigger
+          >
         </Tabs.List>
       </Tabs.Root>
       {#if activeTab === "overview"}
@@ -506,6 +505,8 @@
             {at("plugins_publisher", {}, "Publisher")}: {selected.installation?.publisher || "—"}
           </p>
         </div>
+      {:else if activeTab === "operations"}
+        <PluginOperations {api} {at} owner={selectedId} />
       {:else if activeTab === "settings"}
         <div
           class="plugin-detail-content"

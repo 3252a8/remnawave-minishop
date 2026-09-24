@@ -552,6 +552,9 @@ async def main() -> None:
     handlers.update(collect_queue_handlers(ctx, reserved=set(handlers)))
 
     task_specs = [*_core_worker_tasks(), *collect_worker_tasks(ctx)]
+    from bot.plugins.extensions.jobs import run_worker as run_extension_worker
+
+    task_specs.append(WorkerTaskSpec(name="ExtensionWorker", factory=run_extension_worker))
     tasks = []
     for spec in task_specs:
         if spec.enabled is not None and not spec.enabled(settings):

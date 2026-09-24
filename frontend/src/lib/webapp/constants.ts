@@ -137,6 +137,7 @@ export function uniqueLanguageCodes(...sources: Array<unknown[] | null | undefin
 }
 
 export const APP_SECTION_PATHS = {
+  extensions: "/extensions",
   home: "/home",
   install: "/install",
   trial: "/trial",

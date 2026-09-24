@@ -317,6 +317,8 @@ def _active_frontends(root: Path) -> tuple[int, list[dict[str, Any]]]:
         frontend = manifest.get("frontend")
         if not isinstance(frontend, dict):
             continue
+        if not frontend.get("entry"):
+            continue
         entries.append(
             {
                 "id": plugin_id,
@@ -401,6 +403,9 @@ async def admin_plugin_asset_route(request: web.Request) -> web.Response:
 
 
 def setup_plugin_packages(router: web.UrlDispatcher) -> None:
+    from .extension_admin import setup_extension_admin
+
+    setup_extension_admin(router)
     router.add_get("/api/admin/plugins", admin_plugin_packages_route)
     router.add_get("/api/admin/plugins/updates", admin_plugin_updates_route)
     router.add_post("/api/admin/plugins/preview", admin_plugin_preview_route)

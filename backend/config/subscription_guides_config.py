@@ -432,7 +432,7 @@ def _validate_platforms(
     result: dict[str, dict[str, Any]] = {}
     for platform_key, raw_platform in data.items():
         key = str(platform_key or "").strip()
-        if key not in ALLOWED_PLATFORMS:
+        if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{0,63}", key):
             raise SubscriptionGuidesConfigError(f"Unsupported platform: {key}")
         platform = _require_object(raw_platform, f"platforms.{key}")
         icon_key = _validate_svg_icon_key(

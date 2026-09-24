@@ -54,6 +54,9 @@ def reset_plugins() -> None:
     _builtin_plugins = None
     _discovered_plugins = None
     _registered_plugins.clear()
+    from .extensions.registry import ExtensionRegistry, set_registry
+
+    set_registry(ExtensionRegistry())
     from bot.infra.grants import reset_grant_modifiers
     from bot.infra.payment_events import reset_payment_purchase_resolvers
     from bot.infra.pricing import reset_price_modifiers
@@ -156,8 +159,23 @@ def _run_hook(
 
 def run_setup(ctx: PluginContext) -> None:
     """Invoke the general ``setup`` hook of every plugin."""
+    from .extensions.registry import ExtensionRegistry, set_registry
+
+    registry = ExtensionRegistry()
+    set_registry(registry)
     for plugin in get_plugins(ctx.settings):
-        _run_hook(ctx.settings, plugin, "setup", ctx)
+        hook = "setup"
+        try:
+            plugin.setup(ctx)
+            hook = "extensions"
+            contributions = plugin.extensions(ctx)
+        except Exception:
+            logger.exception("Plugin %r failed in %s", plugin.name, hook)
+            if ctx.settings.PLUGINS_STRICT:
+                raise
+            continue
+        # Conflicts are configuration errors even in non-strict mode.
+        registry.register(plugin.name, plugin.version, contributions)
     configure_entitlements(ctx)
 
 

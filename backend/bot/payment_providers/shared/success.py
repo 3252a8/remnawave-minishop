@@ -54,7 +54,7 @@ from .entitlement_context import (
     payment_uses_entitlement_context,
     preflight_payment_entitlement,
 )
-from .gift_success import resolve_gift_payment
+from .independent_success import resolve_independent_payment
 
 logger = logging.getLogger(__name__)
 
@@ -500,9 +500,9 @@ async def finalize_successful_payment(
     )
     base = sale_mode_base(req.sale_mode)
 
-    handled_gift, gift_outcome = await resolve_gift_payment(req)
-    if handled_gift:
-        return gift_outcome
+    handled_independent, independent_outcome = await resolve_independent_payment(req)
+    if handled_independent:
+        return independent_outcome
 
     if base == "balance_topup":
         try:

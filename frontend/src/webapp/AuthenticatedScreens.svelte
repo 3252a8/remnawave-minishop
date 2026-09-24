@@ -16,6 +16,8 @@
     type ReferralBonusListMode,
   } from "../lib/webapp/themeStyle.js";
 
+  import UserExtensions from "./extensions/UserExtensions.svelte";
+  import type { UserNavigationItem } from "$lib/webapp/extensionHost";
   import WebAppShell from "./WebAppShell.svelte";
   import HomeScreen from "./screens/HomeScreen.svelte";
   import ScreenLoading from "./screens/ScreenLoading.svelte";
@@ -48,6 +50,8 @@
   type LoadDevicesAction = (force?: boolean) => void;
 
   type Props = {
+    apiClient?: ApiClient;
+    routePrefix?: string;
     api: ApiClient["api"];
     accountStore: AccountStore;
     activateTrial: VoidAction;
@@ -177,6 +181,8 @@
   };
 
   let {
+    apiClient,
+    routePrefix = "",
     api,
     accountStore,
     activateTrial,
@@ -390,9 +396,11 @@
         goHome();
     }
   }
+  let extensionNavigation = $state<UserNavigationItem[]>([]);
 </script>
 
 <WebAppShell
+  {extensionNavigation}
   {screen}
   {activeTab}
   {brandTitle}
@@ -681,6 +689,17 @@
       {paymentMethodsDisplayMode}
       {openExternalLink}
       {t}
+    />
+  {/if}
+  {#if apiClient}
+    <UserExtensions
+      client={apiClient}
+      {screen}
+      language={currentLang}
+      {t}
+      {routePrefix}
+      context={{ screen, subscription }}
+      bind:navigation={extensionNavigation}
     />
   {/if}
 </WebAppShell>

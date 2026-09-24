@@ -47,6 +47,36 @@ test("plugin library and import dialog work at desktop and mobile sizes", async 
               }
               if (path === "/admin/plugins/updates") return { ok: true, updates: {} };
               if (path === "/admin/plugins/runtime") return { ok: true, plugins: [] };
+              if (/^(?:\/api)?\/admin\/extensions\?/.test(path))
+                return {
+                  ok: true,
+                  presentation: [
+                    { target: "guide:router", label: "Routers", enabled: true, position: 10 },
+                  ],
+                  orders: [
+                    {
+                      id: "a".repeat(32),
+                      user_id: 42,
+                      title: "Router setup",
+                      amount_minor: 12345,
+                      currency: "RUB",
+                      currency_scale: 2,
+                      can_refund: true,
+                      payment_state: "paid",
+                      fulfillment_state: "fulfilled",
+                    },
+                  ],
+                  operations: [
+                    {
+                      id: "b".repeat(32),
+                      kind: "_fulfill",
+                      user_id: 42,
+                      state: "blocked",
+                      attempts: 2,
+                      error: "extension_unavailable",
+                    },
+                  ],
+                };
               return props.api(path, options);
             },
           });
@@ -76,6 +106,37 @@ test("plugin library and import dialog work at desktop and mobile sizes", async 
   await expect(card.getByRole("switch")).not.toBeChecked();
   await card.getByRole("button", { name: "Настройки" }).click();
   await expect(page.getByText("У этого плагина пока нет настроек.")).toBeVisible();
+  await page.getByRole("tab", { name: "Операции", exact: true }).click();
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(page.getByText("Router setup", { exact: true })).toBeVisible();
+    await expect(page.getByText("123.45 RUB", { exact: true })).toBeVisible();
+    await expect(page.getByRole("switch", { name: "Routers" })).toBeChecked();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
+      true
+    );
+    await page.screenshot({
+      path: testInfo.outputPath(`plugin-operations-${width}.png`),
+      fullPage: true,
+      animations: "disabled",
+    });
+    await page
+      .getByRole("button", { name: "Отозвать услугу и вернуть на баланс", exact: true })
+      .click();
+    const recovery = page.getByRole("dialog");
+    await expect(recovery.getByText(/Возврат на внутренний баланс/)).toBeVisible();
+    await expect(recovery.getByRole("button", { name: "Подтвердить", exact: true })).toBeDisabled();
+    await recovery.getByLabel("Причина", { exact: true }).fill("Customer request");
+    await expect(recovery.getByRole("button", { name: "Подтвердить", exact: true })).toBeEnabled();
+    await page.screenshot({
+      path: testInfo.outputPath(`plugin-refund-${width}.png`),
+      fullPage: true,
+      animations: "disabled",
+    });
+    await recovery.locator(".dialog-close-button").click();
+    await expect(recovery).not.toBeVisible();
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.getByRole("button", { name: "Все плагины" }).click();
   await page.getByRole("button", { name: "Добавить плагин" }).first().click();
   const dialog = page.locator(".plugin-import-dialog");

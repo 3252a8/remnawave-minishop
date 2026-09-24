@@ -199,7 +199,11 @@ class BackupWorker:
                 staging_dir / "config/themes",
             )
             completed_at = datetime.now(UTC)
+            from bot.plugins.extensions.backups import snapshot_extensions
+
+            extension_snapshot = await asyncio.to_thread(snapshot_extensions, staging_dir)
             manifest = {
+                "extensions": extension_snapshot,
                 "app": BACKUP_APP_ID,
                 "format_version": BACKUP_FORMAT_VERSION,
                 "type": str(backup_type or "scheduled"),
@@ -238,6 +242,14 @@ class BackupWorker:
             write_zip_from_directory(staging_dir, tmp_archive)
             tmp_archive.replace(archive_path)
 
+        if self.session_factory is not None:
+            from bot.plugins.extensions.backups import queue_uploads
+            from bot.plugins.spec import PluginContext
+
+            await queue_uploads(
+                PluginContext(settings=self.settings, session_factory=self.session_factory),
+                archive_path,
+            )
         return BackupResult(
             archive_path=archive_path,
             started_at=started_at,

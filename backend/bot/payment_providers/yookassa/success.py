@@ -353,7 +353,7 @@ async def process_successful_payment(
                 yk_payment_id_from_hook,
             )
             return None
-        if sale_mode_base in {"balance_topup", "trial"} or is_gift_sale(sale_mode):
+        if sale_mode_base in {"balance_topup", "trial", "extension"} or is_gift_sale(sale_mode):
             await finalize_successful_payment(
                 PaymentSuccessRequest(
                     bot=bot,

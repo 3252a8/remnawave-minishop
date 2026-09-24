@@ -61,6 +61,9 @@ async def _add_payment_success_log(session: AsyncSession, payment: Payment) -> N
     """Add the user-visible audit row for a newly successful payment."""
 
     from . import message_log_dal
+    from .extension_dal import record_payment_succeeded
+
+    await record_payment_succeeded(session, payment)
 
     user_id = int(payment.user_id)
     payment_id = int(payment.payment_id)
@@ -177,6 +180,9 @@ async def create_payment_record(session: AsyncSession, payment_data: dict[str, A
     session.add(new_payment)
     await session.flush()
     await session.refresh(new_payment)
+    from .extension_dal import bind_payment
+
+    await bind_payment(session, new_payment)
     logger.info(
         "Payment record %s created for user %s", new_payment.payment_id, new_payment.user_id
     )

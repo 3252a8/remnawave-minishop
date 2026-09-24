@@ -79,6 +79,26 @@ async def load_guide_content(
         panel_user_uuid=panel_user_uuid,
     )
     config = status.get("config")
+    if user_id is not None:
+        from bot.app.web.context import get_session_factory, get_settings
+        from bot.plugins.extensions import UserContext
+        from bot.plugins.extensions.guides import merge_guides
+        from bot.plugins.extensions.registry import get_registry
+        from db.dal import user_dal
+
+        if get_settings(request).SUBSCRIPTION_GUIDES_ENABLED and any(
+            entry.contributions.guides for entry in get_registry().owners().values()
+        ):
+            async with get_session_factory(request)() as session:
+                user = await user_dal.get_user_by_id(session, user_id)
+                if user is not None and not user.is_banned:
+                    merged = await merge_guides(
+                        UserContext(session, user_id, str(user.language_code or "en")),
+                        config if isinstance(config, dict) and status.get("enabled") else None,
+                    )
+                    if merged is not None:
+                        config = merged
+                        status = {**status, "enabled": True, "config": merged}
     if not status.get("enabled") or not isinstance(config, dict):
         return status, None
     return status, remnawave_v1_to_guide_document(config, source=str(status.get("source") or ""))

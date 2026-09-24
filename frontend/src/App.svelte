@@ -782,6 +782,7 @@
       <PreviewBoardComponent config={CFG} mockData={MOCK_DATA} />
     {:else}
       <AppModeContent
+        {routePrefix}
         stores={appFactories}
         {shellView}
         {appActions}

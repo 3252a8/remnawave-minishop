@@ -26,6 +26,8 @@ from typing import (
     cast,
 )
 
+from .extensions.contracts import ExtensionContributions
+
 if TYPE_CHECKING:
     from aiogram import Bot, Dispatcher, Router
     from aiohttp import web
@@ -242,6 +244,10 @@ class Plugin:
         that add payment-backed units can also register purchase resolvers in
         :mod:`bot.infra.payment_events` from this hook.
         """
+
+    def extensions(self, ctx: PluginContext) -> ExtensionContributions:
+        """Return declarative SDK v1 contributions after setup, once per process."""
+        return ExtensionContributions()
 
     def setup_bot(
         self,

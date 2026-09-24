@@ -223,12 +223,14 @@ class BackupRestoreService:
         *,
         restore_database: bool,
         restore_compose: bool,
+        restore_extension_files: bool = True,
     ) -> BackupRestoreResult:
         return await asyncio.to_thread(
             self.restore_archive_sync,
             archive_name,
             restore_database=restore_database,
             restore_compose=restore_compose,
+            restore_extension_files=restore_extension_files,
         )
 
     def restore_archive_sync(
@@ -237,6 +239,7 @@ class BackupRestoreService:
         *,
         restore_database: bool,
         restore_compose: bool,
+        restore_extension_files: bool = True,
     ) -> BackupRestoreResult:
         if not restore_database and not restore_compose:
             raise BackupArchiveError("Select at least one restore target")
@@ -288,6 +291,11 @@ class BackupRestoreService:
                 from config.theme_packages.backup import prepare_restore, restore_themes
 
                 prepared_themes = prepare_restore(archive, temp_dir) if restore_database else None
+                from bot.plugins.extensions.backups import prepare_extensions, restore_extensions
+
+                prepared_extensions = (
+                    prepare_extensions(archive, temp_dir) if restore_database else []
+                )
                 database_restored = False
                 database_migrations_applied: list[str] = []
                 database_sequences_normalized: list[str] = []
@@ -302,6 +310,8 @@ class BackupRestoreService:
                         )
                     database_migrations_applied = self._run_post_restore_migrations()
                     database_sequences_normalized = self._run_post_restore_sequence_normalization()
+                    if restore_extension_files:
+                        restore_extensions(prepared_extensions)
                     if prepared_themes is not None:
                         restore_themes(
                             prepared_themes, Path(self.settings.WEBAPP_THEMES_DIR).expanduser()

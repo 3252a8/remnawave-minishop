@@ -6151,6 +6151,561 @@
         "title": "ExportRequest",
         "type": "object"
       },
+      "ExtensionActionOut": {
+        "properties": {
+          "accepted": {
+            "default": true,
+            "title": "Accepted",
+            "type": "boolean"
+          }
+        },
+        "title": "ExtensionActionOut",
+        "type": "object"
+      },
+      "ExtensionAdminAction": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "retry",
+              "refund"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[a-f0-9]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "owner": {
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "id",
+          "action",
+          "reason"
+        ],
+        "title": "ExtensionAdminAction",
+        "type": "object"
+      },
+      "ExtensionAdminOrderOut": {
+        "properties": {
+          "amount_minor": {
+            "title": "Amount Minor",
+            "type": "integer"
+          },
+          "can_refund": {
+            "title": "Can Refund",
+            "type": "boolean"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "currency_scale": {
+            "title": "Currency Scale",
+            "type": "integer"
+          },
+          "fulfillment_state": {
+            "title": "Fulfillment State",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "payment_state": {
+            "title": "Payment State",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "title",
+          "amount_minor",
+          "currency",
+          "currency_scale",
+          "can_refund",
+          "payment_state",
+          "fulfillment_state"
+        ],
+        "title": "ExtensionAdminOrderOut",
+        "type": "object"
+      },
+      "ExtensionAdminOut": {
+        "properties": {
+          "operations": {
+            "items": {
+              "$ref": "#/components/schemas/ExtensionOperationOut"
+            },
+            "title": "Operations",
+            "type": "array"
+          },
+          "orders": {
+            "items": {
+              "$ref": "#/components/schemas/ExtensionAdminOrderOut"
+            },
+            "title": "Orders",
+            "type": "array"
+          },
+          "presentation": {
+            "items": {
+              "$ref": "#/components/schemas/ExtensionPresentationOut"
+            },
+            "title": "Presentation",
+            "type": "array"
+          }
+        },
+        "required": [
+          "operations",
+          "orders",
+          "presentation"
+        ],
+        "title": "ExtensionAdminOut",
+        "type": "object"
+      },
+      "ExtensionCheckout": {
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Method",
+            "type": "string"
+          },
+          "order_id": {
+            "pattern": "^[a-f0-9]{32}$",
+            "title": "Order Id",
+            "type": "string"
+          },
+          "payer_email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payer Email"
+          },
+          "payer_phone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payer Phone"
+          }
+        },
+        "required": [
+          "order_id",
+          "method"
+        ],
+        "title": "ExtensionCheckout",
+        "type": "object"
+      },
+      "ExtensionCheckoutOut": {
+        "properties": {
+          "order": {
+            "$ref": "#/components/schemas/ExtensionOrderOut"
+          },
+          "payment": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Payment",
+            "type": "object"
+          }
+        },
+        "required": [
+          "order"
+        ],
+        "title": "ExtensionCheckoutOut",
+        "type": "object"
+      },
+      "ExtensionOperationOut": {
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "user_id",
+          "state",
+          "attempts",
+          "error"
+        ],
+        "title": "ExtensionOperationOut",
+        "type": "object"
+      },
+      "ExtensionOrderCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Options",
+            "type": "object"
+          },
+          "product": {
+            "pattern": "^[a-z][a-z0-9_-]{0,63}:[a-z][a-z0-9_-]{0,63}$",
+            "title": "Product",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product",
+          "idempotency_key"
+        ],
+        "title": "ExtensionOrderCreate",
+        "type": "object"
+      },
+      "ExtensionOrderOut": {
+        "properties": {
+          "data": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Data",
+            "type": "object"
+          },
+          "fulfillment_state": {
+            "title": "Fulfillment State",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "payment_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Id"
+          },
+          "payment_state": {
+            "title": "Payment State",
+            "type": "string"
+          },
+          "product": {
+            "title": "Product",
+            "type": "string"
+          },
+          "quote": {
+            "$ref": "#/components/schemas/ProductQuote"
+          }
+        },
+        "required": [
+          "id",
+          "product",
+          "quote",
+          "payment_id",
+          "payment_state",
+          "fulfillment_state",
+          "data"
+        ],
+        "title": "ExtensionOrderOut",
+        "type": "object"
+      },
+      "ExtensionOrdersOut": {
+        "properties": {
+          "orders": {
+            "items": {
+              "$ref": "#/components/schemas/ExtensionOrderOut"
+            },
+            "title": "Orders",
+            "type": "array"
+          }
+        },
+        "required": [
+          "orders"
+        ],
+        "title": "ExtensionOrdersOut",
+        "type": "object"
+      },
+      "ExtensionPaymentMethodOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "label_key": {
+            "default": "",
+            "title": "Label Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "ExtensionPaymentMethodOut",
+        "type": "object"
+      },
+      "ExtensionPaymentMethodsOut": {
+        "properties": {
+          "methods": {
+            "items": {
+              "$ref": "#/components/schemas/ExtensionPaymentMethodOut"
+            },
+            "title": "Methods",
+            "type": "array"
+          }
+        },
+        "required": [
+          "methods"
+        ],
+        "title": "ExtensionPaymentMethodsOut",
+        "type": "object"
+      },
+      "ExtensionPluginOut": {
+        "properties": {
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "entry": {
+            "title": "Entry",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "styles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Styles",
+            "type": "array"
+          },
+          "views": {
+            "items": {
+              "$ref": "#/components/schemas/ExtensionViewOut"
+            },
+            "title": "Views",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "digest",
+          "entry"
+        ],
+        "title": "ExtensionPluginOut",
+        "type": "object"
+      },
+      "ExtensionPresentationOut": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "label",
+          "enabled",
+          "position"
+        ],
+        "title": "ExtensionPresentationOut",
+        "type": "object"
+      },
+      "ExtensionPresentationUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "owner": {
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "position": {
+            "maximum": 10000,
+            "minimum": -10000,
+            "title": "Position",
+            "type": "integer"
+          },
+          "target": {
+            "pattern": "^(view|guide):[a-z][a-z0-9_-]{0,63}$",
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "target",
+          "enabled",
+          "position"
+        ],
+        "title": "ExtensionPresentationUpdate",
+        "type": "object"
+      },
+      "ExtensionRuntimeOut": {
+        "properties": {
+          "generation": {
+            "title": "Generation",
+            "type": "integer"
+          },
+          "plugins": {
+            "items": {
+              "$ref": "#/components/schemas/ExtensionPluginOut"
+            },
+            "title": "Plugins",
+            "type": "array"
+          }
+        },
+        "required": [
+          "generation",
+          "plugins"
+        ],
+        "title": "ExtensionRuntimeOut",
+        "type": "object"
+      },
+      "ExtensionViewOut": {
+        "properties": {
+          "i18nKey": {
+            "default": "",
+            "title": "I18Nkey",
+            "type": "string"
+          },
+          "icon": {
+            "default": "star",
+            "title": "Icon",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "navigation": {
+            "default": "primary",
+            "title": "Navigation",
+            "type": "string"
+          },
+          "order": {
+            "default": 100,
+            "title": "Order",
+            "type": "integer"
+          },
+          "target": {
+            "default": "page",
+            "title": "Target",
+            "type": "string"
+          },
+          "view": {
+            "title": "View",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "view",
+          "label"
+        ],
+        "title": "ExtensionViewOut",
+        "type": "object"
+      },
       "FlexibleTrafficLimitConfig": {
         "properties": {
           "max_total_gb": {
@@ -6611,6 +7166,7 @@
         ],
         "type": "string"
       },
+      "JsonValue": {},
       "LibraryOut": {
         "additionalProperties": false,
         "properties": {
@@ -8759,6 +9315,54 @@
           "preview_url"
         ],
         "title": "PreviewUploadOut",
+        "type": "object"
+      },
+      "ProductQuote": {
+        "additionalProperties": false,
+        "properties": {
+          "amount_minor": {
+            "maximum": 1000000000000,
+            "minimum": 0,
+            "title": "Amount Minor",
+            "type": "integer"
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3,8}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "terms": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Terms",
+            "type": "object"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "version": {
+            "default": 1,
+            "minimum": 1,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "title",
+          "amount_minor",
+          "currency",
+          "expires_at"
+        ],
+        "title": "ProductQuote",
         "type": "object"
       },
       "PromoActivationOut": {
@@ -16100,6 +16704,164 @@
           }
         ],
         "summary": "Admin Broadcast Reschedule",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/extensions": {
+      "get": {
+        "operationId": "get_admin_extensions_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ExtensionAdminOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Extensions",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/extensions/action": {
+      "post": {
+        "operationId": "post_admin_extension_action_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtensionAdminAction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ExtensionActionOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Extension Action",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/extensions/presentation": {
+      "post": {
+        "operationId": "post_admin_extension_presentation_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtensionPresentationUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ExtensionActionOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Extension Presentation",
         "tags": [
           "admin"
         ]
@@ -25285,6 +26047,383 @@
         "summary": "Device Topup Options",
         "tags": [
           "devices"
+        ]
+      }
+    },
+    "/api/extensions/assets/{owner}/{digest}/{path}": {
+      "get": {
+        "operationId": "get_extension_asset_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner",
+            "required": true,
+            "schema": {
+              "pattern": "[a-z][a-z0-9-]+",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "digest",
+            "required": true,
+            "schema": {
+              "pattern": "[a-f0-9]{64}",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "pattern": ".+",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Extension Asset",
+        "tags": [
+          "extensions"
+        ]
+      }
+    },
+    "/api/extensions/checkout": {
+      "post": {
+        "operationId": "post_extension_checkout_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtensionCheckout"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ExtensionCheckoutOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Extension Checkout",
+        "tags": [
+          "extensions"
+        ]
+      }
+    },
+    "/api/extensions/order": {
+      "get": {
+        "operationId": "get_extension_order_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "order": {
+                      "$ref": "#/components/schemas/ExtensionOrderOut"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "order"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Extension Order",
+        "tags": [
+          "extensions"
+        ]
+      }
+    },
+    "/api/extensions/orders": {
+      "get": {
+        "operationId": "get_extension_orders_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ExtensionOrdersOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Extension Orders",
+        "tags": [
+          "extensions"
+        ]
+      },
+      "post": {
+        "operationId": "post_extension_order_create_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtensionOrderCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "order": {
+                      "$ref": "#/components/schemas/ExtensionOrderOut"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "order"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Extension Order Create",
+        "tags": [
+          "extensions"
+        ]
+      }
+    },
+    "/api/extensions/payment-methods": {
+      "get": {
+        "operationId": "get_extension_payment_methods_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ExtensionPaymentMethodsOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Extension Payment Methods",
+        "tags": [
+          "extensions"
+        ]
+      }
+    },
+    "/api/extensions/resource": {
+      "get": {
+        "operationId": "get_extension_resource_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Extension Resource",
+        "tags": [
+          "extensions"
+        ]
+      }
+    },
+    "/api/extensions/runtime": {
+      "get": {
+        "operationId": "get_extension_runtime_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ExtensionRuntimeOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Extension Runtime",
+        "tags": [
+          "extensions"
         ]
       }
     },

@@ -94,6 +94,7 @@
   };
 
   type Props = {
+    routePrefix?: string;
     stores: AppModeStores;
     shellView: AppShellView;
     appActions: AppActionRuntime;
@@ -105,6 +106,7 @@
   };
 
   let {
+    routePrefix = "",
     stores,
     shellView,
     appActions,
@@ -577,6 +579,8 @@
     {/if}
   {:else}
     <AuthenticatedScreens
+      apiClient={stores.dataClient.apiClient}
+      {routePrefix}
       api={stores.api}
       {accountStore}
       {activateTrial}

@@ -203,10 +203,15 @@ def test_missing_locale_string_is_rejected():
         validate_subscription_guides_config(config)
 
 
-def test_bad_platform_is_rejected():
+def test_additional_platform_is_supported():
     config = _config()
     config["platforms"]["bsd"] = config["platforms"].pop("ios")
+    assert "bsd" in validate_subscription_guides_config(config)["platforms"]
 
+
+def test_bad_platform_is_rejected():
+    config = _config()
+    config["platforms"]["../bsd"] = config["platforms"].pop("ios")
     with pytest.raises(SubscriptionGuidesConfigError, match="Unsupported platform"):
         validate_subscription_guides_config(config)
 

@@ -240,6 +240,32 @@ def _validate_manifest(manifest: dict[str, Any]) -> None:
     if frontend is not None:
         if not isinstance(frontend, dict):
             raise PluginPackageError("invalid_frontend_manifest")
+        if "user" in frontend:
+            from .package_user_ui import validate_user_frontend
+
+            try:
+                validate_user_frontend(frontend["user"], files)
+            except ValueError as exc:
+                raise PluginPackageError(str(exc)) from exc
+        if "entry" not in frontend and "user" in frontend:
+            if any(
+                frontend.get(key)
+                for key in (
+                    "sections",
+                    "section_groups",
+                    "section_tabs",
+                    "user_panels",
+                    "settings_tabs",
+                    "styles",
+                )
+            ):
+                raise PluginPackageError("invalid_frontend_manifest")
+            preview = frontend.get("preview")
+            if preview is not None and (
+                not isinstance(preview, str) or f"frontend/{preview}" not in files
+            ):
+                raise PluginPackageError("invalid_frontend_asset")
+            return
         if not isinstance(frontend.get("entry"), str) or not isinstance(
             frontend.get("styles", []), list
         ):

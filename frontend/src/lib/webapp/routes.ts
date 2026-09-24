@@ -1,6 +1,7 @@
 import { ADMIN_SECTIONS, APP_SECTION_PATHS } from "./constants";
 
 export type WebappSection =
+  | "extensions"
   | "home"
   | "invite"
   | "partner"
@@ -21,6 +22,7 @@ export function normalizeSection(value: unknown): WebappSection {
     .trim()
     .toLowerCase();
   if (
+    section === "extensions" ||
     section === "invite" ||
     section === "partner" ||
     section === "install" ||
@@ -84,6 +86,7 @@ export function sectionFromPath(pathname: unknown, routePrefix: unknown = ""): W
     .replace(/\/+$/, "");
   const routePath = stripRoutePrefix(normalizedPath, routePrefix).toLowerCase().replace(/\/+$/, "");
   if (!routePath || routePath === "/") return "home";
+  if (routePath === "/extensions" || routePath.startsWith("/extensions/")) return "extensions";
   if (routePath === "/admin" || routePath.startsWith("/admin/")) return "admin";
   if (routePath === "/support" || routePath.startsWith("/support/")) return "support";
   if (routePath === "/settings/notifications") return "notifications";
@@ -232,6 +235,10 @@ export function syncSectionPath(
       targetPath = `/admin/settings/${settingsPath.map(encodeURIComponent).join("/")}`;
     else if (partnersDeepLink) targetPath = partnersDeepLink;
     else targetPath = `/admin/${adm}`;
+  }
+  if (normalized === "extensions") {
+    const current = stripRoutePrefix(window.location.pathname, routePrefix);
+    if (/^\/extensions\/[a-z][a-z0-9-]+\/[a-z][a-z0-9-]+$/.test(current)) targetPath = current;
   }
   targetPath = withRoutePrefix(targetPath, routePrefix);
   if (window.location.pathname === targetPath) return;
