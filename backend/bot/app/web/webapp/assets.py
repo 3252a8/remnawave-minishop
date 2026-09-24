@@ -336,6 +336,7 @@ def _get_cached_webapp_settings(request: web.Request) -> dict[str, Any]:
             ),
             "auth_providers": settings.webapp_auth_providers,
             "recommended_auth_providers": settings.webapp_recommended_auth_providers,
+            "wide_auth_providers": settings.webapp_wide_auth_providers,
             "registration_invite_only_enabled": bool(
                 settings.registration_settings.invite_only_enabled
             ),
@@ -624,6 +625,7 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
             "primaryColor": webapp_settings.primary_color,
             "userThemeModeEnabled": bool(webapp_settings.user_theme_mode_enabled),
             "compactHomeEnabled": bool(webapp_settings.compact_home_enabled),
+            "compactLoginEnabled": bool(webapp_settings.compact_login_enabled),
             "checkoutAddonValueAnimationEnabled": bool(
                 webapp_settings.checkout_addon_value_animation_enabled
             ),
@@ -662,6 +664,7 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
             "devMode": bool(settings.qa_auth_enabled),
             "authProviders": cached["auth_providers"],
             "recommendedAuthProviders": cached["recommended_auth_providers"],
+            "wideAuthProviders": cached["wide_auth_providers"],
             "registrationInviteOnlyEnabled": cached["registration_invite_only_enabled"],
             "checkoutPlans": _serialize_plans(
                 settings,

@@ -252,6 +252,14 @@ SETTINGS_MANIFEST: list[SettingField] = [
         optional=False,
     ),
     SettingField(
+        "WEBAPP_COMPACT_LOGIN_ENABLED",
+        "bool",
+        "appearance",
+        "Compact login methods",
+        "Show icons when multiple login methods are available, unless a method uses a wide button.",
+        optional=False,
+    ),
+    SettingField(
         "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED",
         "bool",
         "appearance",

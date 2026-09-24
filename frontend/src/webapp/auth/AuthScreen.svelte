@@ -23,9 +23,11 @@
 
   type WebappConfig = Record<string, unknown> & {
     authProviders?: string[];
+    compactLoginEnabled?: boolean;
     devMode?: boolean;
     emailAuthEnabled?: boolean;
     registrationInviteOnlyEnabled?: boolean;
+    wideAuthProviders?: string[];
   };
   type Brand = Record<string, unknown>;
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -128,17 +130,30 @@
   let authPanelHeight = $state(0);
   let externalLoginBusy = $state(false);
   let externalLoginStatus = $state("");
+  let emailFormOpen = $state(false);
 
   const emailAuthEnabled = $derived(CFG.emailAuthEnabled !== false);
   const authProviders = $derived(
     Array.isArray(CFG.authProviders) ? CFG.authProviders : ["telegram"]
   );
   const telegramAuthEnabled = $derived(authProviders.includes("telegram"));
+  const compactLoginEnabled = $derived(
+    CFG.compactLoginEnabled === true && authProviders.length > 1
+  );
+  const wideAuthProviders = $derived(
+    Array.isArray(CFG.wideAuthProviders) ? CFG.wideAuthProviders : []
+  );
+  const compactEmail = $derived(isCompact("email"));
+  const showEmailForm = $derived(emailAuthEnabled && (!compactEmail || emailFormOpen));
   const passwordModeActive = $derived(Boolean(passwordLoginMode && emailAuthEnabled));
   const authCardHeight = $derived(authPanelHeight ? `${authPanelHeight}px` : undefined);
   const showLanguageSelect = $derived(languageOptions.length > 1);
   const showInviteOnlyHint = $derived(shouldShowInviteOnlyHint(CFG));
   const languageSelectContentProps = { trapFocus: false } as Record<string, unknown>;
+
+  function isCompact(provider: string): boolean {
+    return compactLoginEnabled && !wideAuthProviders.includes(provider);
+  }
 
   function closeLanguageFromGuard(event: Event) {
     event.preventDefault();
@@ -261,7 +276,7 @@
                       onclick={() => setPasswordLoginMode(false)}
                       disabled={authBusy}
                     >
-                      {t("wa_login_use_email_code")}
+                      {t("wa_login_other_method")}
                     </button>
                   {/if}
                 </div>
@@ -277,7 +292,7 @@
                 </StatusMessage>
               {/if}
             {:else}
-              {#if emailAuthEnabled}
+              {#if showEmailForm}
                 <div class="auth-pane">
                   <div class="auth-email-stack">
                     <div class="field-error-wrap">
@@ -316,79 +331,118 @@
                     </Button>
                   </div>
                 </div>
-                <div class="or-line"><span></span>{t("wa_or")}<span></span></div>
+                {#if !compactEmail}
+                  <div class="or-line"><span></span>{t("wa_or")}<span></span></div>
+                {/if}
               {/if}
               <div class="auth-pane auth-provider-stack">
                 {#if telegramAuthEnabled}
                   <Button
                     variant="secondary"
-                    class={`wide auth-provider-button telegram-login-button${telegramLoginUnavailable ? " unavailable" : ""}${telegramLoginChecking ? " checking" : ""}`}
+                    class={`${isCompact("telegram") ? "auth-provider-compact" : "wide"} auth-provider-button telegram-login-button${telegramLoginUnavailable ? " unavailable" : ""}${telegramLoginChecking ? " checking" : ""}`}
                     onclick={openTelegramLogin}
                     disabled={authBusy || telegramLoginBusy || telegramLoginUnavailable}
                     aria-label={telegramLoginLabel}
+                    data-auth-provider="telegram"
                   >
                     {#if telegramLoginChecking}
                       <Spinner size="sm" />
                     {:else}
-                      <ProviderLogo provider="telegram" />
+                      <ProviderLogo
+                        provider="telegram"
+                        size={isCompact("telegram") ? 26 : 18}
+                        bare={isCompact("telegram")}
+                      />
                     {/if}
-                    {telegramLoginLabel}
+                    {#if !isCompact("telegram")}{telegramLoginLabel}{/if}
+                  </Button>
+                {/if}
+                {#if emailAuthEnabled && compactEmail}
+                  <Button
+                    variant="secondary"
+                    class="auth-provider-button auth-provider-compact"
+                    onclick={() => (emailFormOpen = !emailFormOpen)}
+                    disabled={authBusy}
+                    aria-label={t("wa_send_code_email")}
+                    aria-expanded={emailFormOpen}
+                    data-auth-provider="email"
+                  >
+                    <Mail size={26} aria-hidden="true" />
                   </Button>
                 {/if}
                 {#if authProviders.includes("google")}
                   <Button
-                    class="wide auth-provider-button"
+                    class={`${isCompact("google") ? "auth-provider-compact" : "wide"} auth-provider-button`}
                     variant="secondary"
                     onclick={() => openProvider("google")}
                     disabled={authBusy || externalLoginBusy}
+                    aria-label={t("wa_login_google", {}, "Continue with Google")}
+                    data-auth-provider="google"
                   >
-                    <ProviderLogo provider="google" />{t(
-                      "wa_login_google",
-                      {},
-                      "Continue with Google"
-                    )}
+                    <ProviderLogo provider="google" size={isCompact("google") ? 26 : 18} />
+                    {#if !isCompact("google")}{t(
+                        "wa_login_google",
+                        {},
+                        "Continue with Google"
+                      )}{/if}
                   </Button>
                 {/if}
                 {#if authProviders.includes("yandex")}
                   <Button
-                    class="wide auth-provider-button"
+                    class={`${isCompact("yandex") ? "auth-provider-compact" : "wide"} auth-provider-button`}
                     variant="secondary"
                     onclick={() => openProvider("yandex")}
                     disabled={authBusy || externalLoginBusy}
+                    aria-label={t("wa_login_yandex", {}, "Continue with Yandex")}
+                    data-auth-provider="yandex"
                   >
-                    <ProviderLogo provider="yandex" />{t(
-                      "wa_login_yandex",
-                      {},
-                      "Continue with Yandex"
-                    )}
+                    <ProviderLogo
+                      provider="yandex"
+                      size={isCompact("yandex") ? 38 : 18}
+                      bare={isCompact("yandex")}
+                    />
+                    {#if !isCompact("yandex")}{t(
+                        "wa_login_yandex",
+                        {},
+                        "Continue with Yandex"
+                      )}{/if}
                   </Button>
                 {/if}
                 {#if authProviders.includes("discord")}
                   <Button
-                    class="wide auth-provider-button"
+                    class={`${isCompact("discord") ? "auth-provider-compact" : "wide"} auth-provider-button`}
                     variant="secondary"
                     onclick={() => openProvider("discord")}
                     disabled={authBusy || externalLoginBusy}
+                    aria-label={t("wa_login_discord", {}, "Continue with Discord")}
+                    data-auth-provider="discord"
                   >
-                    <ProviderLogo provider="discord" />{t(
-                      "wa_login_discord",
-                      {},
-                      "Continue with Discord"
-                    )}
+                    <ProviderLogo provider="discord" size={isCompact("discord") ? 26 : 18} />
+                    {#if !isCompact("discord")}{t(
+                        "wa_login_discord",
+                        {},
+                        "Continue with Discord"
+                      )}{/if}
                   </Button>
                 {/if}
                 {#if authProviders.includes("passkey")}
                   <Button
-                    class="wide auth-provider-button"
+                    class={`${isCompact("passkey") ? "auth-provider-compact" : "wide"} auth-provider-button`}
                     variant="secondary"
                     onclick={openPasskeyLogin}
                     disabled={authBusy || externalLoginBusy || !passkeysSupported()}
+                    aria-label={t("wa_login_passkey", {}, "Sign in with passkey")}
+                    data-auth-provider="passkey"
                   >
-                    <Fingerprint size={18} data-provider-logo="passkey" />{t(
-                      "wa_login_passkey",
-                      {},
-                      "Sign in with passkey"
-                    )}
+                    <Fingerprint
+                      size={isCompact("passkey") ? 26 : 18}
+                      data-provider-logo="passkey"
+                    />
+                    {#if !isCompact("passkey")}{t(
+                        "wa_login_passkey",
+                        {},
+                        "Sign in with passkey"
+                      )}{/if}
                   </Button>
                 {/if}
               </div>

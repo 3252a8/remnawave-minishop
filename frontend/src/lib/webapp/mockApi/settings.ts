@@ -23,6 +23,7 @@ function demoRuntimeSettingValue(key: string): unknown {
     GIFTS_ENABLED: DEV_MOCK.config.giftsEnabled ?? true,
     WEBAPP_USER_THEME_MODE_ENABLED: DEV_MOCK.config.userThemeModeEnabled ?? true,
     WEBAPP_COMPACT_HOME_ENABLED: DEV_MOCK.config.compactHomeEnabled ?? false,
+    WEBAPP_COMPACT_LOGIN_ENABLED: DEV_MOCK.config.compactLoginEnabled ?? true,
     WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED:
       DEV_MOCK.config.checkoutAddonValueAnimationEnabled ?? true,
     WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT:
@@ -105,6 +106,18 @@ function applyDemoSettingToMock(key: string, value: unknown): void {
   }
   if (key === "WEBAPP_COMPACT_HOME_ENABLED") {
     DEV_MOCK.config.compactHomeEnabled = Boolean(value);
+  }
+  if (key === "WEBAPP_COMPACT_LOGIN_ENABLED") {
+    DEV_MOCK.config.compactLoginEnabled = Boolean(value);
+  }
+  const wideLoginProvider = /^([A-Z]+)_LOGIN_WIDE_BUTTON$/.exec(key)?.[1]?.toLowerCase();
+  if (wideLoginProvider) {
+    const selected = new Set<string>(
+      Array.isArray(DEV_MOCK.config.wideAuthProviders) ? DEV_MOCK.config.wideAuthProviders : []
+    );
+    if (value) selected.add(wideLoginProvider);
+    else selected.delete(wideLoginProvider);
+    DEV_MOCK.config.wideAuthProviders = [...selected];
   }
   if (key === "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED") {
     DEV_MOCK.config.checkoutAddonValueAnimationEnabled = Boolean(value);

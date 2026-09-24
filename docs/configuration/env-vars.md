@@ -393,29 +393,36 @@ Xray-Core 26.3.27+, `NET_ADMIN`, nftables, корректный sniffing и вк
 | `WEBAPP_SESSION_TTL_SECONDS` | `.env` / админка → Общие | Время жизни Web App-сессии в секундах. По умолчанию 2592000 (30 дней). |
 | `WEBAPP_AUTH_MAX_AGE_SECONDS` | `.env` | Максимальный возраст Telegram Mini Apps `initData`. |
 | `WEBAPP_LOGIN_TOKEN_TTL_SECONDS` | `.env` | TTL ссылки внешнего логина. |
+| `WEBAPP_COMPACT_LOGIN_ENABLED` | `.env` / админка → Внешний вид | Показывать способы входа компактными значками, если доступно более одного способа. По умолчанию `True`. |
 | `TELEGRAM_OAUTH_CLIENT_ID` | `.env` | Идентификатор клиента Telegram OAuth / OpenID Connect. Если пусто, берется bot ID из `BOT_TOKEN`. |
 | `TELEGRAM_OAUTH_CLIENT_SECRET` | `.env` | Секрет клиента Telegram OAuth / OpenID Connect. |
 | `TELEGRAM_OAUTH_REQUEST_ACCESS` | `.env` | Дополнительные разрешения, например `write`. |
 | `TELEGRAM_OAUTH_USE_BOT_PROXY` | `.env` | Разрешить server-side OAuth token/JWKS запросам автоматически использовать настроенный `TELEGRAM_BOT_PROXY_URL`. По умолчанию `True`; браузерный redirect не проксируется. |
 | `TELEGRAM_LOGIN_ENABLED` | Админка | Показывать вход через Telegram. |
 | `TELEGRAM_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не привяжет Telegram. По умолчанию `True`. |
+| `TELEGRAM_LOGIN_WIDE_BUTTON` | `.env` / админка | Оставлять широкую кнопку Telegram при компактном входе. По умолчанию `False`. |
 | `EMAIL_LOGIN_ENABLED` | Админка | Показывать вход по email при настроенном SMTP. |
 | `EMAIL_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не привяжет email. По умолчанию `True`. |
+| `EMAIL_LOGIN_WIDE_BUTTON` | `.env` / админка | Сразу показывать форму email при компактном входе. По умолчанию `True`. |
 | `EMAIL_ADDRESS_CHANGE_ENABLED` | Админка | Разрешить пользователям менять основной email после подтверждения текущего и нового адресов. По умолчанию включено. |
 | `GOOGLE_OIDC_ENABLED` | Админка | Включить Google OIDC. Требует client ID и client secret. |
 | `GOOGLE_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не привяжет Google. По умолчанию `True`. |
+| `GOOGLE_LOGIN_WIDE_BUTTON` | `.env` / админка | Оставлять широкую кнопку Google при компактном входе. По умолчанию `False`. |
 | `GOOGLE_OIDC_CLIENT_ID` | Админка | Client ID OAuth 2.0 Web application из Google Cloud. |
 | `GOOGLE_OIDC_CLIENT_SECRET` | Админка | Секрет Google OAuth-клиента. |
 | `YANDEX_OIDC_ENABLED` | Админка | Включить вход через Yandex ID. Требует client ID и client secret. |
 | `YANDEX_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не привяжет Yandex ID. По умолчанию `True`. |
+| `YANDEX_LOGIN_WIDE_BUTTON` | `.env` / админка | Оставлять широкую кнопку Яндекса при компактном входе. По умолчанию `False`. |
 | `YANDEX_OIDC_CLIENT_ID` | Админка | ID приложения для авторизации пользователей в Yandex OAuth. |
 | `YANDEX_OIDC_CLIENT_SECRET` | Админка | Секрет приложения Yandex OAuth. |
 | `DISCORD_OIDC_ENABLED` | Админка | Включить вход через Discord. Требует client ID и client secret. |
 | `DISCORD_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не привяжет Discord. По умолчанию `True`. |
+| `DISCORD_LOGIN_WIDE_BUTTON` | `.env` / админка | Оставлять широкую кнопку Discord при компактном входе. По умолчанию `False`. |
 | `DISCORD_OIDC_CLIENT_ID` | Админка | Application ID из Discord Developer Portal. |
 | `DISCORD_OIDC_CLIENT_SECRET` | Админка | Client secret приложения Discord. |
 | `PASSKEY_LOGIN_ENABLED` | Админка | Включить регистрацию и вход с passkey/WebAuthn. |
 | `PASSKEY_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не добавит passkey. По умолчанию `True`. |
+| `PASSKEY_LOGIN_WIDE_BUTTON` | `.env` / админка | Оставлять широкую кнопку passkey при компактном входе. По умолчанию `False`. |
 | `PASSKEY_RP_ID` | Админка | Домен Relying Party без схемы, порта и пути. По умолчанию берётся из публичного Web App URL. |
 | `PASSKEY_RP_NAME` | Админка | Имя сервиса, показываемое при создании ключа доступа. |
 | `PASSKEY_ORIGINS` | Админка | Разрешённые HTTPS origins через запятую. |

@@ -86,6 +86,7 @@ if TYPE_CHECKING:
         WEBAPP_PRIMARY_COLOR: str
         WEBAPP_USER_THEME_MODE_ENABLED: bool
         WEBAPP_COMPACT_HOME_ENABLED: bool
+        WEBAPP_COMPACT_LOGIN_ENABLED: bool
         WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED: bool
         WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT: bool
         WEBAPP_LOGO_URL: str | None
@@ -99,23 +100,29 @@ if TYPE_CHECKING:
         WEBAPP_LOGIN_TOKEN_TTL_SECONDS: int
         TELEGRAM_LOGIN_ENABLED: bool
         TELEGRAM_LOGIN_RECOMMENDED: bool
+        TELEGRAM_LOGIN_WIDE_BUTTON: bool
         EMAIL_LOGIN_ENABLED: bool
         EMAIL_LOGIN_RECOMMENDED: bool
+        EMAIL_LOGIN_WIDE_BUTTON: bool
         EMAIL_ADDRESS_CHANGE_ENABLED: bool
         GOOGLE_OIDC_ENABLED: bool
         GOOGLE_LOGIN_RECOMMENDED: bool
+        GOOGLE_LOGIN_WIDE_BUTTON: bool
         GOOGLE_OIDC_CLIENT_ID: str | None
         GOOGLE_OIDC_CLIENT_SECRET: str | None
         YANDEX_OIDC_ENABLED: bool
         YANDEX_LOGIN_RECOMMENDED: bool
+        YANDEX_LOGIN_WIDE_BUTTON: bool
         YANDEX_OIDC_CLIENT_ID: str | None
         YANDEX_OIDC_CLIENT_SECRET: str | None
         DISCORD_OIDC_ENABLED: bool
         DISCORD_LOGIN_RECOMMENDED: bool
+        DISCORD_LOGIN_WIDE_BUTTON: bool
         DISCORD_OIDC_CLIENT_ID: str | None
         DISCORD_OIDC_CLIENT_SECRET: str | None
         PASSKEY_LOGIN_ENABLED: bool
         PASSKEY_LOGIN_RECOMMENDED: bool
+        PASSKEY_LOGIN_WIDE_BUTTON: bool
         PASSKEY_RP_ID: str | None
         PASSKEY_RP_NAME: str | None
         PASSKEY_ORIGINS: str | None
@@ -305,6 +312,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             primary_color=self.WEBAPP_PRIMARY_COLOR,
             user_theme_mode_enabled=self.WEBAPP_USER_THEME_MODE_ENABLED,
             compact_home_enabled=self.WEBAPP_COMPACT_HOME_ENABLED,
+            compact_login_enabled=self.WEBAPP_COMPACT_LOGIN_ENABLED,
             checkout_addon_value_animation_enabled=(
                 self.WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED
             ),
@@ -920,6 +928,19 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             for provider, recommended in recommendations
             if recommended and provider in available
         ]
+
+    @computed_field
+    def webapp_wide_auth_providers(self) -> list[str]:
+        available = set(self.webapp_auth_providers)
+        preferences = (
+            ("telegram", self.TELEGRAM_LOGIN_WIDE_BUTTON),
+            ("email", self.EMAIL_LOGIN_WIDE_BUTTON),
+            ("google", self.GOOGLE_LOGIN_WIDE_BUTTON),
+            ("yandex", self.YANDEX_LOGIN_WIDE_BUTTON),
+            ("discord", self.DISCORD_LOGIN_WIDE_BUTTON),
+            ("passkey", self.PASSKEY_LOGIN_WIDE_BUTTON),
+        )
+        return [provider for provider, wide in preferences if wide and provider in available]
 
     @computed_field
     def smtp_delivery_configured(self) -> bool:

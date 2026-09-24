@@ -242,6 +242,7 @@ class SettingsStub(SimpleNamespace):
             primary_color=getattr(self, "WEBAPP_PRIMARY_COLOR", "#00fe7a"),
             user_theme_mode_enabled=bool(getattr(self, "WEBAPP_USER_THEME_MODE_ENABLED", True)),
             compact_home_enabled=bool(getattr(self, "WEBAPP_COMPACT_HOME_ENABLED", False)),
+            compact_login_enabled=bool(getattr(self, "WEBAPP_COMPACT_LOGIN_ENABLED", False)),
             checkout_addon_value_animation_enabled=bool(
                 getattr(self, "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED", True)
             ),

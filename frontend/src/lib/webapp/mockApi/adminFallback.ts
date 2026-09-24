@@ -344,6 +344,19 @@ export function adminFallbackResponse(
       if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_COMPACT_HOME_ENABLED")) {
         DEV_MOCK.config.compactHomeEnabled = Boolean(updates.WEBAPP_COMPACT_HOME_ENABLED);
       }
+      if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_COMPACT_LOGIN_ENABLED")) {
+        DEV_MOCK.config.compactLoginEnabled = Boolean(updates.WEBAPP_COMPACT_LOGIN_ENABLED);
+      }
+      for (const provider of ["TELEGRAM", "EMAIL", "GOOGLE", "YANDEX", "DISCORD", "PASSKEY"]) {
+        const key = `${provider}_LOGIN_WIDE_BUTTON`;
+        if (!Object.prototype.hasOwnProperty.call(updates, key)) continue;
+        const selected = new Set<string>(
+          Array.isArray(DEV_MOCK.config.wideAuthProviders) ? DEV_MOCK.config.wideAuthProviders : []
+        );
+        if (updates[key]) selected.add(provider.toLowerCase());
+        else selected.delete(provider.toLowerCase());
+        DEV_MOCK.config.wideAuthProviders = [...selected];
+      }
       if (
         Object.prototype.hasOwnProperty.call(
           updates,
@@ -582,6 +595,13 @@ export function adminFallbackResponse(
               section: "appearance",
               label: "Compact Home screen",
               value: Boolean(DEV_MOCK.config.compactHomeEnabled),
+            },
+            {
+              key: "WEBAPP_COMPACT_LOGIN_ENABLED",
+              type: "bool",
+              section: "appearance",
+              label: "Compact login methods",
+              value: Boolean(DEV_MOCK.config.compactLoginEnabled),
             },
             {
               key: "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED",

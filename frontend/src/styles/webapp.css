@@ -3614,8 +3614,38 @@ a {
 }
 
 .auth-provider-stack {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 8px;
+}
+
+.auth-provider-stack .btn.wide {
+  flex: 1 0 100%;
+}
+
+.auth-provider-stack .btn.auth-provider-compact {
+  flex: 0 0 48px;
+  width: 48px;
+  min-width: 48px;
+  height: 48px;
+  min-height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.auth-provider-stack .btn.auth-provider-compact:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  box-shadow: none;
+}
+
+.auth-provider-stack .btn.auth-provider-compact:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: none;
 }
 
 .auth-provider-logo {

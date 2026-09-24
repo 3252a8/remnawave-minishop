@@ -46,6 +46,7 @@ class WebappBootstrapConfigOut(HttpResponseModel):
     primary_color: str | None = Field(default=None, alias="primaryColor")
     user_theme_mode_enabled: bool = Field(alias="userThemeModeEnabled")
     compact_home_enabled: bool = Field(alias="compactHomeEnabled")
+    compact_login_enabled: bool = Field(alias="compactLoginEnabled")
     checkout_addon_value_animation_enabled: bool = Field(alias="checkoutAddonValueAnimationEnabled")
     checkout_addon_editor_expanded_by_default: bool = Field(
         alias="checkoutAddonEditorExpandedByDefault"
@@ -77,6 +78,7 @@ class WebappBootstrapConfigOut(HttpResponseModel):
     dev_mode: bool = Field(alias="devMode")
     auth_providers: list[str] = Field(alias="authProviders")
     recommended_auth_providers: list[str] = Field(alias="recommendedAuthProviders")
+    wide_auth_providers: list[str] = Field(alias="wideAuthProviders")
     registration_invite_only_enabled: bool = Field(alias="registrationInviteOnlyEnabled")
     checkout_plans: list[dict[str, Any]] = Field(default_factory=list, alias="checkoutPlans")
     app_version: str = Field(alias="appVersion")

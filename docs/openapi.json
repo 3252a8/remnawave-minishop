@@ -13557,6 +13557,10 @@
             "title": "Compacthomeenabled",
             "type": "boolean"
           },
+          "compactLoginEnabled": {
+            "title": "Compactloginenabled",
+            "type": "boolean"
+          },
           "currency": {
             "title": "Currency",
             "type": "string"
@@ -13679,12 +13683,20 @@
           "userThemeModeEnabled": {
             "title": "Userthememodeenabled",
             "type": "boolean"
+          },
+          "wideAuthProviders": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Wideauthproviders",
+            "type": "array"
           }
         },
         "required": [
           "title",
           "userThemeModeEnabled",
           "compactHomeEnabled",
+          "compactLoginEnabled",
           "checkoutAddonValueAnimationEnabled",
           "checkoutAddonEditorExpandedByDefault",
           "themesDir",
@@ -13713,6 +13725,7 @@
           "devMode",
           "authProviders",
           "recommendedAuthProviders",
+          "wideAuthProviders",
           "registrationInviteOnlyEnabled",
           "appVersion",
           "appRepositoryUrl"

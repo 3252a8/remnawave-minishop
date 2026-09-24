@@ -348,6 +348,26 @@ def test_compact_home_toggle_is_an_appearance_setting():
         assert field["i18n_description_key"] in messages
 
 
+def test_compact_login_toggles_are_localized():
+    manifest = _manifest_by_key()
+    global_field = manifest["WEBAPP_COMPACT_LOGIN_ENABLED"]
+    assert global_field["type"] == "bool"
+    assert global_field["section"] == "appearance"
+    for provider in ("telegram", "email", "google", "yandex", "discord", "passkey"):
+        field = manifest[f"{provider.upper()}_LOGIN_WIDE_BUTTON"]
+        assert field["type"] == "bool"
+        assert field["section"] == "login_methods"
+        assert field["subsection"] == provider
+        for language in ("ru", "en"):
+            messages = _locale(language)
+            assert field["i18n_label_key"] in messages
+            assert field["i18n_description_key"] in messages
+    for language in ("ru", "en"):
+        messages = _locale(language)
+        assert global_field["i18n_label_key"] in messages
+        assert global_field["i18n_description_key"] in messages
+
+
 def test_checkout_addon_ux_toggles_are_appearance_settings():
     manifest = _manifest_by_key()
     for key in (

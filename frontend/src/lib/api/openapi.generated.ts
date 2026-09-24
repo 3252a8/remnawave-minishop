@@ -9366,6 +9366,8 @@ export interface components {
       }[];
       /** Compacthomeenabled */
       compactHomeEnabled: boolean;
+      /** Compactloginenabled */
+      compactLoginEnabled: boolean;
       /** Currency */
       currency: string;
       /** Devmode */
@@ -9425,6 +9427,8 @@ export interface components {
       userAgreementUrl: string;
       /** Userthememodeenabled */
       userThemeModeEnabled: boolean;
+      /** Wideauthproviders */
+      wideAuthProviders: string[];
     } & {
       [key: string]: unknown;
     };

@@ -558,6 +558,7 @@ class Settings(
             "Combine subscription status, traffic usage, and balance into one compact Home card."
         ),
     )
+    WEBAPP_COMPACT_LOGIN_ENABLED: bool = Field(default=True)
     WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED: bool = Field(default=True)
     WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT: bool = Field(default=False)
     WEBAPP_THEMES_DIR: str = Field(
@@ -613,8 +614,10 @@ class Settings(
     WEBAPP_LOGIN_TOKEN_TTL_SECONDS: int = Field(default=10 * 60)
     TELEGRAM_LOGIN_ENABLED: bool = Field(default=True)
     TELEGRAM_LOGIN_RECOMMENDED: bool = Field(default=True)
+    TELEGRAM_LOGIN_WIDE_BUTTON: bool = Field(default=False)
     EMAIL_LOGIN_ENABLED: bool = Field(default=True)
     EMAIL_LOGIN_RECOMMENDED: bool = Field(default=True)
+    EMAIL_LOGIN_WIDE_BUTTON: bool = Field(default=True)
     EMAIL_ADDRESS_CHANGE_ENABLED: bool = Field(default=True)
     TELEGRAM_OAUTH_CLIENT_ID: int | None = Field(
         default=None,
@@ -637,18 +640,22 @@ class Settings(
     )
     GOOGLE_OIDC_ENABLED: bool = Field(default=False)
     GOOGLE_LOGIN_RECOMMENDED: bool = Field(default=True)
+    GOOGLE_LOGIN_WIDE_BUTTON: bool = Field(default=False)
     GOOGLE_OIDC_CLIENT_ID: str | None = Field(default=None)
     GOOGLE_OIDC_CLIENT_SECRET: str | None = Field(default=None)
     YANDEX_OIDC_ENABLED: bool = Field(default=False)
     YANDEX_LOGIN_RECOMMENDED: bool = Field(default=True)
+    YANDEX_LOGIN_WIDE_BUTTON: bool = Field(default=False)
     YANDEX_OIDC_CLIENT_ID: str | None = Field(default=None)
     YANDEX_OIDC_CLIENT_SECRET: str | None = Field(default=None)
     DISCORD_OIDC_ENABLED: bool = Field(default=False)
     DISCORD_LOGIN_RECOMMENDED: bool = Field(default=True)
+    DISCORD_LOGIN_WIDE_BUTTON: bool = Field(default=False)
     DISCORD_OIDC_CLIENT_ID: str | None = Field(default=None)
     DISCORD_OIDC_CLIENT_SECRET: str | None = Field(default=None)
     PASSKEY_LOGIN_ENABLED: bool = Field(default=False)
     PASSKEY_LOGIN_RECOMMENDED: bool = Field(default=True)
+    PASSKEY_LOGIN_WIDE_BUTTON: bool = Field(default=False)
     PASSKEY_RP_ID: str | None = Field(
         default=None,
         description="WebAuthn relying-party domain. Empty means the public Web App hostname.",

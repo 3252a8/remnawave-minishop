@@ -38,6 +38,25 @@ class SettingsTests(unittest.TestCase):
             self._settings(WEBAPP_COMPACT_HOME_ENABLED=True).webapp_settings.compact_home_enabled
         )
 
+    def test_compact_login_defaults_on_and_wide_buttons_only_include_available_providers(self):
+        self.assertTrue(self._settings().webapp_settings.compact_login_enabled)
+        self.assertFalse(
+            self._settings(WEBAPP_COMPACT_LOGIN_ENABLED=False).webapp_settings.compact_login_enabled
+        )
+        self.assertEqual(self._settings().webapp_wide_auth_providers, [])
+        email_available = self._settings(APP_RUNTIME_MODE="test", QA_AUTH_ENABLED=True)
+        self.assertEqual(email_available.webapp_wide_auth_providers, ["email"])
+
+        configured = self._settings(
+            WEBAPP_COMPACT_LOGIN_ENABLED=True,
+            TELEGRAM_LOGIN_WIDE_BUTTON=True,
+            GOOGLE_LOGIN_WIDE_BUTTON=True,
+            PASSKEY_LOGIN_ENABLED=True,
+            PASSKEY_LOGIN_WIDE_BUTTON=True,
+        )
+        self.assertTrue(configured.webapp_settings.compact_login_enabled)
+        self.assertEqual(configured.webapp_wide_auth_providers, ["telegram", "passkey"])
+
     def test_checkout_addon_ux_defaults_and_overrides(self):
         defaults = self._settings().webapp_settings
         self.assertTrue(defaults.checkout_addon_value_animation_enabled)
