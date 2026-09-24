@@ -74,6 +74,13 @@
   let runtimeLoading = $state(false);
   let activeSettingsView = $state("");
   let availableUpdates = $state<Record<string, boolean>>({});
+  let removeDialogId = $state("");
+  let removeName = $state("");
+  let removeStage = $state<"confirm" | "removing" | "restarting" | "complete" | "failed">(
+    "confirm"
+  );
+  let removeError = $state("");
+  let removeConfirmed = $state(false);
   const cards = $derived.by(() => {
     const byId = new Map<string, PluginCard>();
     for (const plugin of inventory.bundled) byId.set(plugin.id, { id: plugin.id, bundled: true });
@@ -154,10 +161,15 @@
     }
   }
 
-  async function load(): Promise<void> {
+  async function refreshInventory(): Promise<Inventory> {
     const result = await api("/admin/plugins");
     if (!result?.ok) throw new Error(responseError(result, "plugins_unavailable"));
     inventory = result as unknown as Inventory;
+    return inventory;
+  }
+
+  async function load(): Promise<void> {
+    await refreshInventory();
     void loadUpdates();
   }
 
@@ -184,18 +196,102 @@
     });
   }
 
+  function openRemove(id: string, name: string): void {
+    removeDialogId = id;
+    removeName = name;
+    removeStage = "confirm";
+    removeError = "";
+    removeConfirmed = false;
+  }
+
+  function closeRemove(): void {
+    if (removeStage === "removing" || removeStage === "restarting") return;
+    removeDialogId = "";
+  }
+
+  function removeErrorLabel(code: string): string {
+    if (code === "generation_conflict")
+      return at("plugins_generation_conflict", {}, "The installation changed. Refresh and retry.");
+    if (code === "image_plugin_cannot_remove")
+      return at("plugins_image_remove_error", {}, "Image plugins are removed with the image.");
+    return at("plugins_remove_failed", {}, "The package could not be removed. Try again.");
+  }
+
   async function remove(id: string): Promise<void> {
-    await run(async () => {
-      const path = builtApiPath<"/api/admin/plugins/{plugin_id}/remove">(
-        `/admin/plugins/${encodeURIComponent(id)}/remove`
+    if (busy) return;
+    busy = true;
+    removeStage = "removing";
+    removeError = "";
+    const path = builtApiPath<"/api/admin/plugins/{plugin_id}/remove">(
+      `/admin/plugins/${encodeURIComponent(id)}/remove`
+    );
+    let acknowledged = false;
+    try {
+      try {
+        const result = await api(path, {
+          method: "POST",
+          body: JSON.stringify({ generation: inventory.generation }),
+        });
+        if (!result?.ok) {
+          removeError = removeErrorLabel(responseError(result, "plugin_remove_failed"));
+          removeStage = "failed";
+          return;
+        }
+        acknowledged = true;
+      } catch {
+        // The supervisor may stop the web process after persisting the removal.
+        // Confirm the resulting generation before treating a lost response as failure.
+      }
+
+      for (let attempt = 0; attempt < 90; attempt += 1) {
+        try {
+          const current = await refreshInventory();
+          if (!(id in current.installations)) {
+            removeConfirmed = true;
+            removeStage = "restarting";
+            if (selectedId === id) routeToPlugin("");
+            const ready = ["backend", "worker"].every(
+              (role) =>
+                current.observations?.[role]?.generation === current.generation &&
+                current.observations?.[role]?.status === "active"
+            );
+            if (ready) {
+              removeStage = "complete";
+              void loadUpdates();
+              return;
+            }
+            if (current.failed_generation === current.generation) {
+              removeError = at(
+                "plugins_remove_restart_failed",
+                {},
+                "The package was removed, but the application did not restart normally. Check diagnostics."
+              );
+              removeStage = "failed";
+              return;
+            }
+          } else if (!acknowledged && attempt >= 5) {
+            removeError = at(
+              "plugins_remove_not_confirmed",
+              {},
+              "Removal was not confirmed. Refresh the plugin list before retrying."
+            );
+            removeStage = "failed";
+            return;
+          }
+        } catch {
+          // Backend and worker may be unavailable briefly during the generation switch.
+        }
+        await new Promise((resolve) => setTimeout(resolve, attempt < 5 ? 1000 : 4000));
+      }
+      removeError = at(
+        "plugins_remove_waiting",
+        {},
+        "The restart is taking longer than expected. Refresh the list to check its status."
       );
-      const result = await api(path, {
-        method: "POST",
-        body: JSON.stringify({ generation: inventory.generation }),
-      });
-      if (!result?.ok) throw new Error(responseError(result, "plugin_remove_failed"));
-      await load();
-    });
+      removeStage = "failed";
+    } finally {
+      busy = false;
+    }
   }
 
   onMount(() => {
@@ -466,9 +562,6 @@
                 "Updates are installed from a verified package in the plugin repository."
               )}
             </p>
-            <AdminButton size="sm" onclick={() => (importOpen = true)}
-              >{at("plugins_check_update", {}, "Check and install update")}</AdminButton
-            >
           {:else}
             <p>
               {at(
@@ -477,14 +570,22 @@
                 "Upload a newer signed package from the same publisher to update this plugin."
               )}
             </p>
-            <AdminButton size="sm" onclick={() => (importOpen = true)}
-              >{at("plugins_add", {}, "Add plugin")}</AdminButton
-            >
           {/if}
-          {#if selected.installation && !selected.installation.enabled && selected.installation.source?.kind !== "image"}
-            <AdminButton size="sm" disabled={busy} onclick={() => void remove(selected.id)}
-              ><Trash2 size={14} />{at("plugins_remove", {}, "Remove package")}</AdminButton
-            >
+          {#if selected.installation && selected.installation.source?.kind !== "image"}
+            <div class="plugin-update-actions">
+              <AdminButton size="sm" onclick={() => (importOpen = true)} disabled={busy}
+                >{selected.installation.source?.url
+                  ? at("plugins_check_update", {}, "Check and install update")
+                  : at("plugins_add", {}, "Add plugin")}</AdminButton
+              >
+              <AdminButton
+                size="sm"
+                variant="danger"
+                disabled={busy}
+                onclick={() => openRemove(selected.id, selected.installation?.name || selected.id)}
+                ><Trash2 size={14} />{at("plugins_remove", {}, "Remove package")}</AdminButton
+              >
+            </div>
           {/if}
         </div>
       {/if}
@@ -538,6 +639,62 @@
       </div>
     </dl>
   {/if}
+</Dialog>
+
+<Dialog
+  open={Boolean(removeDialogId)}
+  title={at("plugins_remove_title", { name: removeName }, "Remove {name}?")}
+  closeLabel={at("close", {}, "Close")}
+  onclose={closeRemove}
+  showCloseButton={removeStage !== "removing" && removeStage !== "restarting"}
+  class="admin-dialog admin-dialog-compact plugin-remove-dialog"
+>
+  <div class="plugin-remove-content">
+    <p>
+      {at(
+        "plugins_remove_explanation",
+        {},
+        "The plugin will be removed from this installation. Its saved data and verified package remain available. The application may be briefly unavailable while its backend and worker restart."
+      )}
+    </p>
+    <ol
+      class="plugin-remove-steps"
+      aria-label={at("plugins_remove_progress", {}, "Removal progress")}
+    >
+      <li class:current={removeStage === "removing"} class:done={removeConfirmed}>
+        {at("plugins_remove_step_package", {}, "Remove plugin from the installation")}
+      </li>
+      <li class:current={removeStage === "restarting"} class:done={removeStage === "complete"}>
+        {at("plugins_remove_step_restart", {}, "Restart backend and worker")}
+      </li>
+      <li class:done={removeStage === "complete"}>
+        {at("plugins_remove_step_ready", {}, "Confirm the application is ready")}
+      </li>
+    </ol>
+    {#if removeStage === "removing" || removeStage === "restarting"}
+      <p role="status">
+        {removeStage === "removing"
+          ? at("plugins_removing", {}, "Removing the package…")
+          : at("plugins_remove_restarting", {}, "Waiting for the application to restart…")}
+      </p>
+    {:else if removeStage === "complete"}
+      <p role="status">
+        {at("plugins_remove_complete", {}, "Plugin removed. The application is ready.")}
+      </p>
+    {:else if removeStage === "failed"}
+      <p class="admin-error" role="alert">{removeError}</p>
+    {/if}
+    <div class="admin-dialog-actions">
+      {#if removeStage === "confirm"}
+        <AdminButton onclick={closeRemove}>{at("cancel", {}, "Cancel")}</AdminButton>
+        <AdminButton variant="danger" onclick={() => void remove(removeDialogId)}>
+          <Trash2 size={14} />{at("plugins_remove", {}, "Remove package")}
+        </AdminButton>
+      {:else if removeStage === "complete" || removeStage === "failed"}
+        <AdminButton onclick={closeRemove}>{at("close", {}, "Close")}</AdminButton>
+      {/if}
+    </div>
+  </div>
 </Dialog>
 
 <style>
@@ -721,6 +878,38 @@
     color: var(--admin-muted);
     font-size: 13px;
     line-height: 1.6;
+  }
+  .plugin-update-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .plugin-remove-content {
+    display: grid;
+    gap: 16px;
+  }
+  .plugin-remove-content p {
+    margin: 0;
+    color: var(--admin-muted);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .plugin-remove-steps {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding-left: 22px;
+    color: var(--admin-muted);
+    font-size: 13px;
+  }
+  .plugin-remove-steps .current {
+    color: var(--admin-text);
+    font-weight: 650;
+  }
+  .plugin-remove-steps .done {
+    color: var(--accent);
   }
   .plugin-package-meta {
     display: grid;

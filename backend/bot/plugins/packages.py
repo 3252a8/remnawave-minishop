@@ -518,7 +518,7 @@ def set_enabled(
 
 
 def remove_plugin(root: Path, plugin_id: str, actor: int, generation: int) -> dict[str, Any]:
-    """Forget a disabled installation while retaining its data and verified release."""
+    """Remove an installation in one generation while retaining its data and release."""
     if not IDENTIFIER.fullmatch(plugin_id):
         raise PluginPackageError("invalid_plugin_id")
     with registry_lock(root):
@@ -530,8 +530,6 @@ def remove_plugin(root: Path, plugin_id: str, actor: int, generation: int) -> di
             return state
         if (entry.get("source") or {}).get("kind") == "image":
             raise PluginPackageError("image_plugin_cannot_remove", status=409)
-        if entry["enabled"]:
-            raise PluginPackageError("disable_before_remove", status=409)
         del state["installations"][plugin_id]
         state["generation"] += 1
         state.setdefault("operations", []).append(

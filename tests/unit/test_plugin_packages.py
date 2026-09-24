@@ -121,11 +121,11 @@ def test_signed_package_requires_trust_then_activates_exact_generation(tmp_path:
     with pytest.raises(PluginPackageError, match="generation_conflict"):
         set_enabled(tmp_path, "sample-plugin", False, 7, 1)
     assert read_state(tmp_path)["installations"]["sample-plugin"]["enabled"]
-    with pytest.raises(PluginPackageError, match="disable_before_remove"):
-        remove_plugin(tmp_path, "sample-plugin", 7, 2)
-    state = set_enabled(tmp_path, "sample-plugin", False, 7, 2)
-    state = remove_plugin(tmp_path, "sample-plugin", 7, state["generation"])
+    state = remove_plugin(tmp_path, "sample-plugin", 7, 2)
+    assert state["generation"] == 3
     assert "sample-plugin" not in state["installations"]
+    assert (tmp_path / "releases" / "sample-plugin" / operation["digest"]).is_dir()
+    assert remove_plugin(tmp_path, "sample-plugin", 7, 3)["generation"] == 3
 
 
 def test_portable_source_package_accepts_newer_core_revision(
