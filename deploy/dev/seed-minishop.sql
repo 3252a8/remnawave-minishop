@@ -72,6 +72,20 @@ ON CONFLICT (user_id) DO UPDATE SET
     telegram_notifications_status = EXCLUDED.telegram_notifications_status,
     channel_subscription_verified = EXCLUDED.channel_subscription_verified;
 
+WITH granted AS (
+    INSERT INTO account_roles (user_id, role)
+    VALUES (910000001, 'owner')
+    ON CONFLICT (user_id, role) DO UPDATE SET
+        granted_at = now(),
+        granted_by = NULL,
+        revoked_at = NULL,
+        revoked_by = NULL
+    WHERE account_roles.revoked_at IS NOT NULL
+    RETURNING user_id, role
+)
+INSERT INTO account_role_events (user_id, role, action, source)
+SELECT user_id, role, 'grant', 'dev_seed' FROM granted;
+
 INSERT INTO subscriptions (
     user_id,
     panel_user_uuid,
