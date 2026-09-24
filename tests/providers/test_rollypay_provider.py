@@ -14,6 +14,8 @@ from bot.payment_providers.base import WebAppPaymentContext
 from bot.payment_providers.rollypay import SPECS, RollyPayConfig, RollyPayService
 from bot.payment_providers.rollypay import service as rollypay_service
 from bot.payment_providers.rollypay.subscriptions import (
+    _subscription_create_payload,
+    interval_for_checkout,
     interval_for_months,
     subscription_context_supported,
 )
@@ -133,6 +135,34 @@ def test_subscription_periods_match_rollypay_plans_and_exclude_sandbox() -> None
         subscription_context_supported(RollyPayConfig(TEST_MODE=True), 1, "subscription") is False
     )
     assert subscription_context_supported(RollyPayConfig(), 1, "traffic") is False
+
+
+@pytest.mark.parametrize(
+    ("days", "interval"),
+    [(30, "month"), (90, "quarter"), (365, "year"), (60, None), (31, None)],
+)
+def test_fixed_day_subscription_requires_an_exact_rollypay_interval(
+    days: int, interval: str | None
+) -> None:
+    sale_mode = with_period_days("subscription@base", days)
+    assert interval_for_checkout(days, sale_mode) == interval
+    assert subscription_context_supported(RollyPayConfig(), days, sale_mode) is (
+        interval is not None
+    )
+    assert interval_for_checkout(days, with_period_days("balance_topup", days)) is None
+
+
+def test_fixed_plan_creation_uses_stable_payer_without_variable_amount() -> None:
+    plan = {"id": "fixed-30", "payer_amount_rub": "500.00", "interval": "month"}
+    payload = _subscription_create_payload(
+        plan, terminal_id="terminal", payment_id=7, user_id=42, amount=500.0
+    )
+    assert payload == {
+        "terminal_id": "terminal",
+        "plan_id": "fixed-30",
+        "merchant_subscription_ref": "minishop-7",
+        "payer_id": "ms_42",
+    }
 
 
 @pytest.mark.parametrize(
@@ -333,6 +363,47 @@ def test_plan_selection_enforces_interval_cap_and_latest_version() -> None:
 
         assert selected and selected["id"] == "current"
         assert cached and cached["id"] == "current"
+        api_request.assert_awaited_once()
+
+    asyncio.run(scenario())
+
+
+def test_fixed_day_plan_selection_rejects_calendar_and_wrong_amount_plans() -> None:
+    async def scenario() -> None:
+        service = _service(SUBSCRIPTION_ENABLED=True)
+        api_request = AsyncMock(
+            return_value=(
+                True,
+                {
+                    "items": [
+                        {"id": "calendar", "interval": "month", "cap_amount_rub": "1000"},
+                        {"id": "wrong", "interval": "month", "payer_amount_rub": "600"},
+                        {
+                            "id": "fixed-old",
+                            "interval": "month",
+                            "payer_amount_rub": "500.00",
+                            "version": 1,
+                        },
+                        {
+                            "id": "fixed-new",
+                            "interval": "month",
+                            "payer_amount_rub": "500",
+                            "version": 2,
+                        },
+                    ]
+                },
+            )
+        )
+        with patch.object(service, "api_request", api_request):
+            selected = await service.choose_subscription_plan(
+                months=30, amount=500, sale_mode="subscription@base|d30"
+            )
+            unsupported = await service.choose_subscription_plan(
+                months=60, amount=500, sale_mode="subscription@base|d60"
+            )
+
+        assert selected and selected["id"] == "fixed-new"
+        assert unsupported is None
         api_request.assert_awaited_once()
 
     asyncio.run(scenario())

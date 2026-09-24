@@ -5,11 +5,13 @@ from __future__ import annotations
 import logging
 import time
 from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession, async_object_session
 
+from config.subscription_periods import sale_mode_duration_days
 from db.dal import payment_dal, rollypay_dal, subscription_dal, user_dal
 from db.models import Payment, RollyPaySubscription
 
@@ -33,6 +35,7 @@ logger = logging.getLogger(__name__)
 ROLLYPAY_SUBSCRIPTION_PROVIDER = "rollypay_subscription"
 ROLLYPAY_PENDING_STATUS = "pending_rollypay"
 INTERVAL_BY_MONTHS = {1: "month", 3: "quarter", 12: "year"}
+INTERVAL_BY_FIXED_DAYS = {30: "month", 90: "quarter", 365: "year"}
 STOPPED_STATES = {"stop", "stopped"}
 
 
@@ -57,17 +60,34 @@ def interval_for_months(months: Any) -> str | None:
     return INTERVAL_BY_MONTHS.get(normalized)
 
 
+def interval_for_checkout(months: Any, sale_mode: str) -> str | None:
+    if sale_mode_base(str(sale_mode or "")) != "subscription":
+        return None
+    duration_days = sale_mode_duration_days(str(sale_mode or ""))
+    if duration_days is not None:
+        return INTERVAL_BY_FIXED_DAYS.get(duration_days)
+    return interval_for_months(months)
+
+
 def subscription_context_supported(config: Any, months: Any, sale_mode: str) -> bool:
-    from config.subscription_periods import sale_mode_duration_days
-
-    if sale_mode_duration_days(sale_mode) is not None:
-        return False
-
     if getattr(config, "TEST_MODE", False):
         return False
-    return sale_mode_base(str(sale_mode or "")) == "subscription" and bool(
-        interval_for_months(months)
-    )
+    return interval_for_checkout(months, sale_mode) is not None
+
+
+def _subscription_create_payload(
+    plan: dict[str, Any], *, terminal_id: str, payment_id: int, user_id: int, amount: float
+) -> dict[str, str]:
+    payload = {
+        "terminal_id": terminal_id,
+        "plan_id": str(plan["id"]),
+        "merchant_subscription_ref": f"minishop-{payment_id}",
+    }
+    if plan.get("cap_amount_rub") is None:
+        payload["payer_id"] = f"ms_{user_id}"
+    else:
+        payload["amount"] = f"{amount:.2f}"
+    return payload
 
 
 def subscription_promo_supported(config: Any, months: Any, sale_mode: str, promo: Any) -> bool:
@@ -154,10 +174,12 @@ class RollyPaySubscriptionMixin(RollyPaySubscriptionRuntime):
         *,
         months: Any,
         amount: float,
+        sale_mode: str = "subscription",
     ) -> dict[str, Any] | None:
-        interval = interval_for_months(months)
+        interval = interval_for_checkout(months, sale_mode)
         if interval is None:
             return None
+        fixed_days = sale_mode_duration_days(sale_mode) is not None
         success, plans = await self.get_subscription_plans()
         if not success:
             return None
@@ -166,13 +188,26 @@ class RollyPaySubscriptionMixin(RollyPaySubscriptionRuntime):
             if str(plan.get("interval") or "").lower() != interval:
                 continue
             cap_raw = plan.get("cap_amount_rub")
-            if cap_raw is None:
-                continue
-            try:
-                cap = float(cap_raw)
-            except (TypeError, ValueError):
-                continue
-            if float(amount) <= cap + 1e-9 and plan.get("id"):
+            if fixed_days:
+                if cap_raw is not None:
+                    continue
+                try:
+                    payer_amount = Decimal(str(plan.get("payer_amount_rub")))
+                    requested_amount = Decimal(str(amount))
+                except InvalidOperation:
+                    continue
+                if payer_amount != requested_amount:
+                    continue
+            else:
+                if cap_raw is None:
+                    continue
+                try:
+                    cap = float(cap_raw)
+                except (TypeError, ValueError):
+                    continue
+                if float(amount) > cap + 1e-9:
+                    continue
+            if plan.get("id"):
                 candidates.append(plan)
         if not candidates:
             return None
@@ -187,18 +222,21 @@ class RollyPaySubscriptionMixin(RollyPaySubscriptionRuntime):
         if str(request.currency or "").upper() != "RUB":
             return False, {"message": "subscriptions_require_rub"}
         plan = await self.choose_subscription_plan(
-            months=request.months, amount=float(request.amount)
+            months=request.months,
+            amount=float(request.amount),
+            sale_mode=str(request.sale_mode or "subscription"),
         )
         if plan is None:
             return False, {"message": "subscription_plan_unavailable"}
 
         local_payment_id = int(request.payment.payment_id)
-        payload = {
-            "terminal_id": str(self.config.TERMINAL_ID),
-            "plan_id": str(plan["id"]),
-            "amount": f"{float(request.amount):.2f}",
-            "merchant_subscription_ref": f"minishop-{local_payment_id}",
-        }
+        payload = _subscription_create_payload(
+            plan,
+            terminal_id=str(self.config.TERMINAL_ID),
+            payment_id=local_payment_id,
+            user_id=int(request.user_id),
+            amount=float(request.amount),
+        )
         success, data = await self.api_request(
             "POST",
             "/subscriptions",
@@ -208,7 +246,7 @@ class RollyPaySubscriptionMixin(RollyPaySubscriptionRuntime):
         if not success:
             return False, data
         subscription_id = str(data.get("id") or data.get("subscription_id") or "").strip()
-        payment_url = str(data.get("pay_url") or "").strip()
+        payment_url = str(data.get("pay_url") or data.get("redirect_url") or "").strip()
         if not subscription_id or not payment_url:
             return False, {"message": "invalid_subscription_response", "response": data}
 
@@ -556,9 +594,11 @@ class RollyPaySubscriptionMixin(RollyPaySubscriptionRuntime):
 
 
 __all__ = [
+    "INTERVAL_BY_FIXED_DAYS",
     "INTERVAL_BY_MONTHS",
     "ROLLYPAY_SUBSCRIPTION_PROVIDER",
     "RollyPaySubscriptionMixin",
+    "interval_for_checkout",
     "interval_for_months",
     "subscription_context_supported",
     "subscription_promo_supported",
