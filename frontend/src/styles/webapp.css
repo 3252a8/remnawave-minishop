@@ -3633,9 +3633,10 @@ a {
 }
 
 .auth-provider-stack .btn.auth-provider-compact {
-  flex: 0 0 48px;
+  flex: 1 1 0;
   width: 48px;
-  min-width: 48px;
+  max-width: 48px;
+  min-width: 0;
   height: 48px;
   min-height: 48px;
   padding: 0;
@@ -3643,6 +3644,10 @@ a {
   border-radius: 12px;
   background: transparent;
   box-shadow: none;
+}
+
+.auth-provider-stack .btn.auth-provider-compact svg {
+  max-width: 100%;
 }
 
 .auth-provider-stack .btn.auth-provider-compact:hover:not(:disabled) {
