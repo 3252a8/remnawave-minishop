@@ -9,6 +9,7 @@ import {
   applyDemoBalanceConversion,
 } from "./balance";
 import { demoProviderCurrencySupport } from "./providers";
+import { demoBroadcastFailures } from "./broadcastFailures";
 import { demoSettingsSections, persistDemoSettings } from "./settings";
 import {
   demoAds,
@@ -208,6 +209,10 @@ export function demoApiResponse(
     });
     setDemoBroadcasts(next);
     return { ok: true, broadcasts: clone(next) };
+  }
+  const broadcastFailuresMatch = cleanPath.match(/^\/admin\/broadcasts\/(\d+)\/failures$/);
+  if (broadcastFailuresMatch && method === "GET") {
+    return demoBroadcastFailures(Number(broadcastFailuresMatch[1]), params);
   }
   const broadcastItemMatch = cleanPath.match(/^\/admin\/broadcasts\/(\d+)$/);
   if (broadcastItemMatch && method === "DELETE") {

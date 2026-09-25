@@ -15,6 +15,7 @@ from .backups import (
 from .broadcast import (
     admin_broadcast_audience_counts_route,
     admin_broadcast_delete_route,
+    admin_broadcast_failures_route,
     admin_broadcast_reschedule_route,
     admin_broadcast_route,
     admin_broadcasts_list_route,
@@ -358,6 +359,7 @@ def setup_admin_routes(app: web.Application) -> None:
     router.add_post("/api/admin/broadcast/preview", admin_broadcast_preview_route)
     router.add_post("/api/admin/broadcast", admin_broadcast_route)
     router.add_get("/api/admin/broadcasts", admin_broadcasts_list_route)
+    router.add_get("/api/admin/broadcasts/{id:\\d+}/failures", admin_broadcast_failures_route)
     router.add_patch("/api/admin/broadcasts/{id:\\d+}", admin_broadcast_reschedule_route)
     router.add_delete("/api/admin/broadcasts/{id:\\d+}", admin_broadcast_delete_route)
     router.add_post("/api/admin/sync", admin_sync_route)

@@ -80,6 +80,41 @@ async def list_broadcasts(session: AsyncSession, *, limit: int = 60) -> list[Adm
     return list((await session.execute(stmt)).scalars().all())
 
 
+async def list_failed_deliveries(
+    session: AsyncSession,
+    broadcast_id: int,
+    *,
+    limit: int,
+    offset: int,
+) -> tuple[int, list[AdminBroadcastDelivery]]:
+    condition = (
+        AdminBroadcastDelivery.broadcast_id == broadcast_id,
+        AdminBroadcastDelivery.status == "failed",
+    )
+    total = int(
+        (
+            await session.execute(
+                select(func.count(AdminBroadcastDelivery.delivery_id)).where(*condition)
+            )
+        ).scalar_one()
+        or 0
+    )
+    rows = (
+        (
+            await session.execute(
+                select(AdminBroadcastDelivery)
+                .where(*condition)
+                .order_by(AdminBroadcastDelivery.delivery_id.asc())
+                .limit(limit)
+                .offset(offset)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return total, list(rows)
+
+
 async def due_broadcast_ids(session: AsyncSession, *, limit: int = 3) -> list[int]:
     stmt = (
         select(AdminBroadcast.broadcast_id)

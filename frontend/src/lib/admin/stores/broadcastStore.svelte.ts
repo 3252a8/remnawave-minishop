@@ -3,6 +3,7 @@ import type { MessageShortcodeInfo } from "$lib/richtext/editorSchema";
 import {
   buildAdminBroadcastAudienceCountsPath,
   buildAdminBroadcastItemPath,
+  buildAdminBroadcastFailuresPath,
   buildAdminBroadcastPath,
   buildAdminBroadcastPreviewPath,
   buildAdminBroadcastShortcodesPath,
@@ -16,6 +17,7 @@ import {
 } from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
 import { historyItemFromWire, type BroadcastHistoryItem } from "./broadcastHistory";
+import { broadcastFailuresFromWire, type BroadcastFailuresPage } from "./broadcastFailures";
 import { snapshotForPayload } from "./snapshotForPayload.svelte";
 import { messageRequestBody } from "$lib/messageImage";
 import { normalizeMessageButtonLink } from "$lib/admin/messageButtonTargets.js";
@@ -135,6 +137,7 @@ export type BroadcastStore = BroadcastState & {
   sendPreview: (mode: "render" | "send_telegram", userId?: number | null) => Promise<void>;
   sendToUser: (input: SingleUserMessage) => Promise<string | null>;
   loadHistory: () => Promise<void>;
+  loadFailures: (broadcastId: number, offset: number) => Promise<BroadcastFailuresPage>;
   deleteBroadcast: (broadcastId: number) => Promise<void>;
   rescheduleBroadcast: (broadcastId: number, localDateTime: string) => Promise<boolean>;
   canSubmit: () => boolean;
@@ -403,6 +406,7 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
     sendPreview,
     sendToUser,
     loadHistory,
+    loadFailures,
     deleteBroadcast,
     rescheduleBroadcast,
     canSubmit,
@@ -694,6 +698,17 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
       }
     })();
     return historyPromise;
+  }
+
+  async function loadFailures(broadcastId: number, offset: number): Promise<BroadcastFailuresPage> {
+    const response = await api(
+      buildAdminBroadcastFailuresPath(
+        broadcastId,
+        new URLSearchParams({ limit: "50", offset: String(offset) })
+      )
+    );
+    if (!response?.ok) throw new Error("broadcast_failures_failed");
+    return broadcastFailuresFromWire(unwrap(response));
   }
 
   async function deleteBroadcast(broadcastId: number): Promise<void> {

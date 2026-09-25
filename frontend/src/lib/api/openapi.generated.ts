@@ -601,6 +601,23 @@ export interface paths {
     patch: operations["patch_admin_broadcast_reschedule_route"];
     trace?: never;
   };
+  "/api/admin/broadcasts/{id}/failures": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Broadcast Failures */
+    get: operations["get_admin_broadcast_failures_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/extensions": {
     parameters: {
       query?: never;
@@ -3972,6 +3989,29 @@ export interface components {
        * @default true
        */
       deleted: boolean;
+    };
+    /** AdminBroadcastFailureOut */
+    AdminBroadcastFailureOut: {
+      /** Channel */
+      channel: string;
+      /** Delivery Id */
+      delivery_id: number;
+      /** Error */
+      error: string;
+      /**
+       * Finished At
+       * @default null
+       */
+      finished_at: string | null;
+      /** User Id */
+      user_id: number;
+    };
+    /** AdminBroadcastFailuresOut */
+    AdminBroadcastFailuresOut: {
+      /** Failures */
+      failures: components["schemas"]["AdminBroadcastFailureOut"][];
+      /** Total */
+      total: number;
     };
     /** AdminBroadcastListOut */
     AdminBroadcastListOut: {
@@ -11281,6 +11321,31 @@ export interface operations {
             /** @constant */
             ok: true;
           } & components["schemas"]["AdminBroadcastOut"];
+        };
+      };
+    };
+  };
+  get_admin_broadcast_failures_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminBroadcastFailuresOut"];
         };
       };
     };

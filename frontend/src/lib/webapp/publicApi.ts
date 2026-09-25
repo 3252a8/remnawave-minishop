@@ -653,6 +653,16 @@ export function buildAdminBroadcastItemPath(broadcastId: string | number): Admin
   );
 }
 
+export type AdminBroadcastFailuresPath = BuiltApiPath<"/api/admin/broadcasts/{id}/failures">;
+export function buildAdminBroadcastFailuresPath(
+  broadcastId: string | number,
+  params?: URLSearchParams
+): AdminBroadcastFailuresPath {
+  const base = `/admin/broadcasts/${encodeURIComponent(String(broadcastId))}/failures`;
+  const query = params?.toString();
+  return builtApiPath<"/api/admin/broadcasts/{id}/failures">(query ? `${base}?${query}` : base);
+}
+
 export type AdminBroadcastAudienceCountsPath = "/admin/broadcast/audience-counts";
 export function buildAdminBroadcastAudienceCountsPath(): AdminBroadcastAudienceCountsPath {
   return "/admin/broadcast/audience-counts";

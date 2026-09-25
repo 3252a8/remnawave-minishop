@@ -772,6 +772,68 @@
         "title": "AdminBroadcastDeleteOut",
         "type": "object"
       },
+      "AdminBroadcastFailureOut": {
+        "properties": {
+          "channel": {
+            "title": "Channel",
+            "type": "string"
+          },
+          "delivery_id": {
+            "title": "Delivery Id",
+            "type": "integer"
+          },
+          "error": {
+            "title": "Error",
+            "type": "string"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Finished At"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "delivery_id",
+          "user_id",
+          "channel",
+          "error"
+        ],
+        "title": "AdminBroadcastFailureOut",
+        "type": "object"
+      },
+      "AdminBroadcastFailuresOut": {
+        "properties": {
+          "failures": {
+            "items": {
+              "$ref": "#/components/schemas/AdminBroadcastFailureOut"
+            },
+            "title": "Failures",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "failures"
+        ],
+        "title": "AdminBroadcastFailuresOut",
+        "type": "object"
+      },
       "AdminBroadcastListOut": {
         "properties": {
           "broadcasts": {
@@ -17286,6 +17348,62 @@
           }
         ],
         "summary": "Admin Broadcast Reschedule",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/broadcasts/{id}/failures": {
+      "get": {
+        "operationId": "get_admin_broadcast_failures_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminBroadcastFailuresOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Broadcast Failures",
         "tags": [
           "admin"
         ]

@@ -91,9 +91,26 @@ test("broadcast editor is compact and history uses a sortable detail table", asy
   await expect(detail).toBeVisible();
   await expect(detail.getByRole("heading", { name: /Рассылка №/ })).toBeVisible();
   await expect(detail).toContainText("Пропустить заблокировавших бота");
+  await detail.getByRole("button", { name: "Закрыть" }).last().click();
+  await rows.filter({ hasText: "Завершена с ошибками" }).click();
+  await page
+    .getByRole("dialog", { name: "Рассылка №101" })
+    .getByRole("button", { name: "Показать ошибки рассылки №101" })
+    .click();
+  const failures = page.getByRole("dialog", { name: "Ошибки рассылки №101" });
+  await expect(failures).toBeVisible();
+  await expect(failures.getByText("Пользователь заблокировал бота").first()).toBeVisible();
+  await expect(failures.locator(".broadcast-failures-item")).toHaveCount(5);
+  await expect(failures).toContainText(
+    "О новой блокировке Telegram может сообщить только при попытке доставки"
+  );
+  await failures.getByRole("button", { name: "Закрыть" }).last().click();
+  await expect(failures).toBeHidden();
 });
 
-test("broadcast history opens details on mobile and scheduled items can be edited and removed", async ({ page }) => {
+test("broadcast history opens details on mobile and scheduled items can be edited and removed", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 320, height: 900 });
   await page.goto("/demo/runtime/admin/broadcast?theme_preview=dark");
 
@@ -145,4 +162,17 @@ test("broadcast history opens details on mobile and scheduled items can be edite
   await detail.getByRole("button", { name: "Отменить и удалить" }).click();
   await expect(detail).toBeHidden();
   await expect(rows).toHaveCount(2);
+});
+
+test("broadcast delivery errors remain readable on a narrow screen", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  await page.goto("/demo/runtime/admin/broadcast?theme_preview=dark");
+  await page.locator(".broadcast-history-row").filter({ hasText: "Завершена с ошибками" }).click();
+  await page.getByRole("button", { name: "Показать ошибки рассылки №101" }).click();
+  const failures = page.getByRole("dialog", { name: "Ошибки рассылки №101" });
+  await expect(failures).toBeVisible();
+  await expect(failures.getByText("Пользователь №100241")).toBeVisible();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+  ).toBeLessThanOrEqual(1);
 });

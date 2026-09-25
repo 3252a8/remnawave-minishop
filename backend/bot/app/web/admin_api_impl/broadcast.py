@@ -75,6 +75,8 @@ from .response_schemas import (
     AdminBroadcastButtonOut,
     AdminBroadcastCreateOut,
     AdminBroadcastDeleteOut,
+    AdminBroadcastFailureOut,
+    AdminBroadcastFailuresOut,
     AdminBroadcastListOut,
     AdminBroadcastOut,
 )
@@ -108,6 +110,13 @@ register_contract(
     RouteContract(
         response_schema=ok_envelope_for(AdminBroadcastListOut),
         models=(AdminBroadcastListOut, AdminBroadcastOut, AdminBroadcastButtonOut),
+    ),
+)
+register_contract(
+    "admin_broadcast_failures_route",
+    RouteContract(
+        response_schema=ok_envelope_for(AdminBroadcastFailuresOut),
+        models=(AdminBroadcastFailuresOut, AdminBroadcastFailureOut),
     ),
 )
 register_contract(
@@ -690,6 +699,37 @@ async def admin_broadcasts_list_route(request: web.Request) -> web.Response:
     async with get_session_factory(request)() as session:
         broadcasts = await broadcast_dal.list_broadcasts(session)
     payload = AdminBroadcastListOut(broadcasts=[_broadcast_out(item) for item in broadcasts])
+    return _ok(payload.model_dump(mode="json"))
+
+
+async def admin_broadcast_failures_route(request: web.Request) -> web.Response:
+    _require_admin_user_id(request)
+    broadcast_id = int(request.match_info["id"])
+    try:
+        offset = max(0, int(request.query.get("offset", "0")))
+        limit = min(100, max(1, int(request.query.get("limit", "50"))))
+    except ValueError:
+        return _error(400, "invalid_pagination")
+    async with get_session_factory(request)() as session:
+        item = await broadcast_dal.get_broadcast(session, broadcast_id)
+        if item is None or not item.is_visible:
+            return _error(404, "broadcast_not_found")
+        total, failures = await broadcast_dal.list_failed_deliveries(
+            session, broadcast_id, limit=limit, offset=offset
+        )
+    payload = AdminBroadcastFailuresOut(
+        total=total,
+        failures=[
+            AdminBroadcastFailureOut(
+                delivery_id=int(delivery.delivery_id),
+                user_id=int(delivery.user_id),
+                channel=str(delivery.channel),
+                error=str(delivery.error or "delivery_failed"),
+                finished_at=cast(datetime | None, delivery.finished_at),
+            )
+            for delivery in failures
+        ],
+    )
     return _ok(payload.model_dump(mode="json"))
 
 
