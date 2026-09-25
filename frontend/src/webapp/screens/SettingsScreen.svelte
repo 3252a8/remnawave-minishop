@@ -19,7 +19,7 @@
   import MenuButtonIcon from "../MenuButtonIcon.svelte";
   import { formatMoney } from "$lib/webapp/formatters.js";
   import { shouldShowUserBalance } from "$lib/webapp/balanceUiPolicy.js";
-  import type { ThemeOption } from "$lib/webapp/themePreference.js";
+  import { THEME_PREFERENCE_DEFAULT, type ThemeOption } from "$lib/webapp/themePreference.js";
   import type {
     LanguageOption,
     BalanceView,
@@ -115,7 +115,7 @@
     serverStatusInternal = false,
     supportUrl = "",
     themeOptions = [],
-    themePreference = "auto",
+    themePreference = THEME_PREFERENCE_DEFAULT,
     themeSwitcherVisible = false,
     telegramNotificationsNeedPrompt = false,
     telegramNotificationsStartLink = "",

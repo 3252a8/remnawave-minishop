@@ -60,7 +60,10 @@ async def admin_auth_middleware(
             )
         if db_user:
             async with async_session_factory() as session:
-                request["admin_authorized"] = await is_admin(session, int(db_user.user_id))
+                authorized = await is_admin(session, int(db_user.user_id))
+            request["admin_authorized"] = authorized
+            if authorized and db_user.telegram_id is not None:
+                request["admin_telegram_id"] = int(db_user.telegram_id)
 
     client_generation = request.headers.get("X-Minishop-Plugin-Generation")
     if client_generation is not None and request.get("admin_authorized", False):

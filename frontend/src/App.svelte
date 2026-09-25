@@ -55,7 +55,10 @@
     syncShellBillingSelection,
     syncShellEmailAvatar,
   } from "./lib/webapp/shellEffects.js";
-  import { normalizeThemePreference, THEME_PREFERENCE_AUTO } from "./lib/webapp/themePreference.js";
+  import {
+    normalizeThemePreference,
+    THEME_PREFERENCE_DEFAULT,
+  } from "./lib/webapp/themePreference.js";
   import {
     loadThemePreference,
     readLocalThemePreference,
@@ -173,7 +176,7 @@
     csrfToken: MOCK ? "" : readCookie(CSRF_COOKIE_NAME) || "",
     data: isPreviewBoard ? structuredCloneSafe(MOCK_DATA) : null,
     mode: isAppLaunchRoute ? "appLaunch" : isPreviewBoard ? "preview" : "loading",
-    themePreference: readLocalThemePreference() || THEME_PREFERENCE_AUTO,
+    themePreference: readLocalThemePreference() || THEME_PREFERENCE_DEFAULT,
     systemColorScheme: systemColorSchemeFromMedia(),
     token: MOCK ? "local-preview" : "",
   });

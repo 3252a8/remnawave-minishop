@@ -2,10 +2,14 @@ import asyncio
 import unittest
 import warnings
 
+from aiogram import Dispatcher
 from aiohttp import web
+from aiohttp.test_utils import make_mocked_request
 from aiohttp.web_exceptions import NotAppKeyWarning
 
+from bot.app.controllers.dispatcher_context import set_dispatcher_bot_username
 from bot.app.web.context import (
+    DISPATCHER,
     EMAIL_AUTH_SERVICE,
     SUBSCRIPTION_GUIDES_CONFIG_CACHE,
     SUBSCRIPTION_GUIDES_CONFIG_LOCK,
@@ -14,6 +18,7 @@ from bot.app.web.context import (
     WEBAPP_SETTINGS_CACHE,
     get_app_required_subscription_service,
     get_app_webapp_settings_cache,
+    get_bot_username,
     get_or_create_subscription_guides_config_cache,
     get_or_create_subscription_guides_config_lock,
     get_webapp_logo_cache,
@@ -30,6 +35,16 @@ def _set_legacy_app_value(app: web.Application, key: str, value: object) -> None
 
 
 class WebContextTests(unittest.TestCase):
+    def test_bot_username_uses_dispatcher_identity_resolved_after_webapp_creation(self):
+        app = web.Application()
+        dispatcher = Dispatcher()
+        app[DISPATCHER] = dispatcher
+        request = make_mocked_request("GET", "/", app=app)
+
+        self.assertEqual(get_bot_username(request), "")
+        set_dispatcher_bot_username(dispatcher, "livebot")
+        self.assertEqual(get_bot_username(request), "livebot")
+
     def test_webapp_runtime_context_sets_appkeys_and_compat_string_keys(self):
         app = web.Application()
 

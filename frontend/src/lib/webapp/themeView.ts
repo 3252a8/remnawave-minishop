@@ -13,7 +13,7 @@ import {
   themeRootClass,
 } from "./themeStyle";
 import type { HomeElementVisibility, ReferralBonusListMode } from "./themeStyle";
-import { resolveThemePreference, THEME_PREFERENCE_AUTO } from "./themePreference.js";
+import { resolveThemePreference, THEME_PREFERENCE_DEFAULT } from "./themePreference.js";
 
 type ThemeData = Record<string, unknown>;
 type ThemeTokens = ThemeData & {
@@ -63,7 +63,7 @@ export function computeThemeView({
   screen,
   cfgThemesCatalog,
   primaryColor,
-  themePreference = THEME_PREFERENCE_AUTO,
+  themePreference = THEME_PREFERENCE_DEFAULT,
   systemColorScheme = "",
   userThemeModeEnabled = true,
 }: ThemeViewInput): ThemeView {

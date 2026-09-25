@@ -12,6 +12,7 @@ import {
 export const THEME_PREFERENCE_AUTO = "auto";
 export const THEME_PREFERENCE_LIGHT = "light";
 export const THEME_PREFERENCE_DARK = "dark";
+export const THEME_PREFERENCE_DEFAULT = THEME_PREFERENCE_DARK;
 // A new key deliberately ignores values from the abandoned theme-family picker.
 export const THEME_PREFERENCE_STORAGE_KEY = "rw_webapp_theme_mode_v1";
 

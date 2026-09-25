@@ -37,6 +37,16 @@ describe("computeThemeView", () => {
     expect(view.toastTheme).toBe("light");
   });
 
+  it("starts in dark mode when the current theme has both variants", () => {
+    const view = computeThemeView({
+      ...BASE,
+      cfgThemesCatalog: { default_theme: "dark", themes: [CATALOG.themes[1]] },
+      systemColorScheme: "light",
+    });
+    expect(view.effectiveThemeEntry?.active_variant).toBe("dark");
+    expect(view.shellToneClass).toBe("theme-dark");
+  });
+
   it("uses the dark system variant of the default theme in admin when the active theme opts out", () => {
     const view = computeThemeView({
       ...BASE,

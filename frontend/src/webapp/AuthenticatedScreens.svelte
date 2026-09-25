@@ -1,6 +1,6 @@
 <script lang="ts">
   import { giftState } from "$lib/webapp/gifts.svelte.js";
-  import type { ThemeOption } from "$lib/webapp/themePreference.js";
+  import { THEME_PREFERENCE_DEFAULT, type ThemeOption } from "$lib/webapp/themePreference.js";
   import type { AccountStore } from "../lib/webapp/stores/accountStore.js";
   import type { DevicesStore } from "../lib/webapp/stores/devicesStore.js";
   import type { SupportStore } from "../lib/webapp/stores/supportStore.js";
@@ -290,7 +290,7 @@
     supportUnreadLoading = false,
     supportUrl = "",
     themeOptions = [],
-    themePreference = "auto",
+    themePreference = THEME_PREFERENCE_DEFAULT,
     themeSwitcherVisible = false,
     setThemePreference = () => {},
     t,

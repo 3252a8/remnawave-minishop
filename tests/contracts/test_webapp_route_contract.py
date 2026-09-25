@@ -554,7 +554,34 @@ class AdminApiAuthContractTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.status, 200)
         self.assertTrue(request["admin_authorized"])
+        self.assertEqual(request["admin_telegram_id"], 999)
         handler.assert_awaited_once_with(request)
+
+    async def test_admin_auth_middleware_leaves_email_only_admin_without_telegram_chat(self):
+        settings = self._settings()
+        request = _Request(
+            path="/api/admin/me",
+            app={
+                "settings": settings,
+                "async_session_factory": _AsyncSessionFactory(),
+            },
+            headers={},
+            cookies={"rw_webapp_session": create_webapp_session_token(settings, 42)},
+        )
+        handler = AsyncMock(return_value=web.json_response({"ok": True}))
+        db_user = SimpleNamespace(user_id=42, telegram_id=None, is_banned=False)
+
+        with (
+            patch.object(
+                admin_auth_routes.user_dal, "get_user_by_id", AsyncMock(return_value=db_user)
+            ),
+            patch.object(admin_auth_routes, "is_admin", AsyncMock(return_value=True)),
+        ):
+            response = await admin_api.admin_auth_middleware(request, handler)
+
+        self.assertEqual(response.status, 200)
+        self.assertTrue(request["admin_authorized"])
+        self.assertNotIn("admin_telegram_id", request)
 
     async def test_admin_auth_middleware_rejects_banned_admin_session(self):
         settings = self._settings()

@@ -5,6 +5,7 @@ import { computeLanguageView } from "./languageView.js";
 import type { MeResponse } from "./publicApi.js";
 import { computeTelegramLoginView } from "./telegramLoginView.js";
 import { computeThemeView } from "./themeView.js";
+import { THEME_PREFERENCE_DEFAULT } from "./themePreference.js";
 
 type Translate = (key: string) => string;
 type AppShellViewData = Record<string, unknown>;
@@ -70,7 +71,7 @@ export function computeAppShellView({
   themePreviewDraft,
   themePreviewKey,
   topupUnlockPercent,
-  themePreference = "auto",
+  themePreference = THEME_PREFERENCE_DEFAULT,
   systemColorScheme = "",
   t,
 }: AppShellViewInput) {

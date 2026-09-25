@@ -11,6 +11,7 @@ from aiohttp import web
 from aiohttp.web_exceptions import NotAppKeyWarning
 from sqlalchemy.orm import sessionmaker
 
+from bot.app.controllers.dispatcher_context import get_dispatcher_bot_username
 from bot.middlewares.i18n import JsonI18n
 from bot.payment_providers import iter_service_keys
 from bot.services.email_auth_service import EmailAuthService
@@ -199,6 +200,13 @@ def get_i18n(request: web.Request) -> JsonI18n | None:
 
 
 def get_bot_username(request: web.Request) -> str:
+    # Telegram resolves the bot identity in parallel with opening the Web App.
+    # The dispatcher is updated later, while the copied app value stays empty.
+    dispatcher = _optional_value(request.app, DISPATCHER, "dp")
+    if dispatcher is not None:
+        username = get_dispatcher_bot_username(dispatcher)
+        if username:
+            return username
     return _optional_value(request.app, BOT_USERNAME, "bot_username") or ""
 
 
