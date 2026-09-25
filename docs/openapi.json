@@ -4667,6 +4667,18 @@
           "user_id": {
             "title": "User Id",
             "type": "integer"
+          },
+          "user_minishop_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "User Minishop Id"
           }
         },
         "required": [
@@ -6516,6 +6528,18 @@
           "user_id": {
             "title": "User Id",
             "type": "integer"
+          },
+          "user_minishop_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "User Minishop Id"
           }
         },
         "required": [
@@ -6670,6 +6694,18 @@
               }
             ],
             "title": "User Id"
+          },
+          "user_minishop_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "User Minishop Id"
           }
         },
         "required": [

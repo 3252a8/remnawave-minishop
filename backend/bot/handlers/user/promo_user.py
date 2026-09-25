@@ -151,6 +151,7 @@ async def process_promo_code_input(
             db_user = await user_dal.get_user_by_id(session, account_user_id)
             await notification_service.notify_suspicious_promo_attempt(
                 user_id=account_user_id,
+                minishop_id=getattr(db_user, "minishop_id", None),
                 username=user.username,
                 first_name=user.first_name,
                 email=getattr(db_user, "email", None) if db_user else None,

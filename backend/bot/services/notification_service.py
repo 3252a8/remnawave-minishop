@@ -58,7 +58,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
     @staticmethod
     def _format_user_display(
-        user_id: int,
+        user_id: str,
         username: str | None = None,
         first_name: str | None = None,
         email: str | None = None,
@@ -71,6 +71,23 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         if clean_email:
             safe_display = f"{safe_display} · <code>{hd.quote(clean_email)}</code>"
         return safe_display
+
+    async def _public_user_id(self, user_id: int, known_id: str | None = None) -> str:
+        """Resolve the display ID without exposing the internal database key."""
+        if known_id:
+            return known_id
+        if self.session_factory is not None:
+            try:
+                async with self.session_factory() as session:
+                    result = await session.execute(
+                        select(User.minishop_id).where(User.user_id == user_id)
+                    )
+                    public_id = result.scalar_one_or_none()
+                    if public_id:
+                        return str(public_id)
+            except Exception:
+                logger.exception("Failed to resolve public ID for user %s.", user_id)
+        return "—"
 
     @staticmethod
     def _external_auth_provider_label(translate: Callable[..., str], provider: str | None) -> str:
@@ -256,6 +273,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         email: str | None = None,
         referred_by_id: int | None = None,
         telegram_id: int | None = None,
+        minishop_id: str | None = None,
     ) -> None:
         """Send notification about new user registration"""
         if not self.settings.LOG_NEW_USERS:
@@ -264,8 +282,9 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         admin_lang = self.settings.DEFAULT_LANGUAGE
         _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
 
+        public_id = await self._public_user_id(user_id, minishop_id)
         user_display = self._format_user_display(
-            user_id=user_id,
+            user_id=public_id,
             username=username,
             first_name=first_name,
             email=email,
@@ -273,7 +292,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
         referral_text = ""
         if referred_by_id:
-            referrer_link = hd.quote(str(referred_by_id))
+            referrer_link = hd.quote(await self._public_user_id(referred_by_id))
             referral_text = _(
                 "log_referral_suffix",
                 referrer_link=referrer_link,
@@ -281,7 +300,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
         message = _(
             "log_new_user_registration",
-            user_id=user_id,
+            user_id=hd.quote(public_id),
             user_display=user_display,
             referral_text=referral_text,
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
@@ -296,6 +315,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         user_id: int,
         email: str,
         referred_by_id: int | None = None,
+        minishop_id: str | None = None,
     ) -> None:
         """Send notification about new user registration via email (Web App)."""
         if not self.settings.LOG_NEW_USERS:
@@ -303,10 +323,11 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
         admin_lang = self.settings.DEFAULT_LANGUAGE
         _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
+        public_id = await self._public_user_id(user_id, minishop_id)
 
         referral_text = ""
         if referred_by_id:
-            referrer_link = hd.quote(str(referred_by_id))
+            referrer_link = hd.quote(await self._public_user_id(referred_by_id))
             referral_text = _(
                 "log_referral_suffix",
                 referrer_link=referrer_link,
@@ -314,7 +335,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
         message = _(
             "log_new_email_user_registration",
-            user_id=user_id,
+            user_id=hd.quote(public_id),
             email=hd.quote(email),
             referral_text=referral_text,
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
@@ -329,6 +350,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         provider: str,
         email: str,
         referred_by_id: int | None = None,
+        minishop_id: str | None = None,
     ) -> None:
         """Send a provider-aware notification for an external OAuth registration."""
         if not self.settings.LOG_NEW_USERS:
@@ -336,15 +358,16 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
         admin_lang = self.settings.DEFAULT_LANGUAGE
         _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
+        public_id = await self._public_user_id(user_id, minishop_id)
 
         referral_text = ""
         if referred_by_id:
-            referrer_link = hd.quote(str(referred_by_id))
+            referrer_link = hd.quote(await self._public_user_id(referred_by_id))
             referral_text = _("log_referral_suffix", referrer_link=referrer_link)
 
         message = _(
             "log_new_external_user_registration",
-            user_id=user_id,
+            user_id=hd.quote(public_id),
             provider=self._external_auth_provider_label(_, provider),
             email=hd.quote(email),
             referral_text=referral_text,
@@ -366,9 +389,10 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
         admin_lang = self.settings.DEFAULT_LANGUAGE
         _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
+        public_id = await self._public_user_id(user_id)
 
         user_display = self._format_user_display(
-            user_id=telegram_id or user_id,
+            user_id=public_id,
             username=username,
             first_name=first_name,
             email=email,
@@ -376,7 +400,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
         message = _(
             "log_account_email_linked",
-            user_id=user_id,
+            user_id=hd.quote(public_id),
             telegram_id=telegram_id or "—",
             user_display=user_display,
             email=hd.quote(email),
@@ -403,9 +427,10 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
         admin_lang = self.settings.DEFAULT_LANGUAGE
         _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
+        public_id = await self._public_user_id(user_id)
 
         user_display = self._format_user_display(
-            user_id=telegram_id,
+            user_id=public_id,
             username=username,
             first_name=first_name,
             email=email,
@@ -413,7 +438,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
         message = _(
             "log_account_telegram_linked",
-            user_id=user_id,
+            user_id=hd.quote(public_id),
             telegram_id=telegram_id,
             user_display=user_display,
             email=hd.quote(email or ""),
@@ -445,7 +470,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
             "email_confirmation": "log_external_link_source_email_confirmation",
             "provider_verified_email": "log_external_link_source_provider_verified_email",
         }.get(link_source, "log_external_link_source_settings")
-        display_user_id = int(telegram_id or user_id)
+        display_user_id = await self._public_user_id(user_id)
         user_display = self._format_user_display(
             user_id=display_user_id,
             username=username,
@@ -454,7 +479,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         )
         message = _(
             "log_account_external_identity_linked",
-            user_id=user_id,
+            user_id=hd.quote(display_user_id),
             provider=self._external_auth_provider_label(_, provider),
             link_source=hd.quote(_(source_key)),
             user_display=user_display,
@@ -478,6 +503,8 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         source_panel_user_uuid: str | None = None,
         reason: str | None = None,
         provider: str | None = None,
+        primary_minishop_id: str | None = None,
+        removed_minishop_id: str | None = None,
     ) -> None:
         """Send notification when duplicate email/Telegram accounts are merged."""
         if not self.settings.LOG_NEW_USERS:
@@ -486,7 +513,8 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         admin_lang = self.settings.DEFAULT_LANGUAGE
         _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
 
-        display_user_id = int(telegram_id or primary_user_id)
+        display_user_id = await self._public_user_id(primary_user_id, primary_minishop_id)
+        removed_display_id = await self._public_user_id(removed_user_id, removed_minishop_id)
         user_display = self._format_user_display(
             user_id=display_user_id,
             username=username,
@@ -528,8 +556,8 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
         message = _(
             "log_account_merged",
-            primary_user_id=primary_user_id,
-            removed_user_id=removed_user_id,
+            primary_user_id=hd.quote(display_user_id),
+            removed_user_id=hd.quote(removed_display_id),
             telegram_id=telegram_id or "",
             user_display=user_display,
             email=hd.quote(email or ""),
@@ -582,6 +610,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         duration_days: int | None = None,
         promo_code: str | None = None,
         discount_amount: float | None = None,
+        minishop_id: str | None = None,
     ) -> None:
         """Send notification about successful payment"""
         if not self.settings.LOG_PAYMENTS:
@@ -591,7 +620,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
 
         user_display = self._format_user_display(
-            user_id=user_id,
+            user_id=await self._public_user_id(user_id, minishop_id),
             username=username,
             email=email,
         )
@@ -785,7 +814,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
 
         user_display = self._format_user_display(
-            user_id=user_id,
+            user_id=await self._public_user_id(user_id),
             username=username,
             email=email,
         )
@@ -834,7 +863,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
 
         user_display = self._format_user_display(
-            user_id=user_id,
+            user_id=await self._public_user_id(user_id),
             username=username,
             email=email,
         )
@@ -890,6 +919,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         username: str | None = None,
         first_name: str | None = None,
         email: str | None = None,
+        minishop_id: str | None = None,
     ) -> None:
         """Send notification about a suspicious promo code attempt."""
         if not self.settings.LOG_SUSPICIOUS_ACTIVITY:
@@ -898,8 +928,9 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         admin_lang = self.settings.DEFAULT_LANGUAGE
         _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
 
+        public_id = await self._public_user_id(user_id, minishop_id)
         user_display = self._format_user_display(
-            user_id=user_id,
+            user_id=public_id,
             username=username,
             first_name=first_name,
             email=email,
@@ -908,7 +939,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         message = _(
             "log_suspicious_promo",
             user_display=user_display,
-            user_id=user_id,
+            user_id=hd.quote(public_id),
             suspicious_input=hd.quote(suspicious_input),
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S %Z"),
         )

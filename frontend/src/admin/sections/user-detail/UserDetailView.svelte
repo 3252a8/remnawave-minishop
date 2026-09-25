@@ -206,7 +206,7 @@
 <Dialog
   open={Boolean(openedUser)}
   title={openedUser
-    ? at("user_detail_title", { id: openedUser.minishop_id || openedUser.user_id }, "User {id}")
+    ? at("user_detail_title", { id: openedUser.minishop_id || "—" }, "User {id}")
     : ""}
   description={openedUser?.username ? "@" + openedUser.username : ""}
   closeLabel={at("close", {}, "Close")}

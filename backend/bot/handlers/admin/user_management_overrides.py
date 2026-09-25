@@ -163,7 +163,10 @@ async def handle_premium_override_bonus_prompt(
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     await state.update_data(target_user_id=user.user_id)
     await state.set_state(AdminStates.waiting_for_premium_override_bonus_gb)
-    prompt = _("admin_premium_override_bonus_prompt", user_id=user.user_id)
+    prompt = _(
+        "admin_premium_override_bonus_prompt",
+        user_id=getattr(user, "minishop_id", None) or "—",
+    )
     try:
         await callback_message(callback).edit_text(prompt)
     except Exception:
@@ -325,7 +328,7 @@ async def handle_hwid_limit_prompt(
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     await state.update_data(target_user_id=user.user_id)
     await state.set_state(AdminStates.waiting_for_hwid_device_limit)
-    prompt = _("admin_hwid_limit_prompt", user_id=user.user_id)
+    prompt = _("admin_hwid_limit_prompt", user_id=getattr(user, "minishop_id", None) or "—")
     try:
         await callback_message(callback).edit_text(prompt)
     except Exception:

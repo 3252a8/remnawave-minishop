@@ -171,7 +171,13 @@ describe("usersStore", () => {
     const store = createUsersStore({ api, onToast, at });
 
     store.updateState({
-      openedUser: { user_id: 77, first_name: "Ann", last_name: "Lee", username: "ann" },
+      openedUser: {
+        user_id: 77,
+        minishop_id: "ms_" + "a".repeat(32),
+        first_name: "Ann",
+        last_name: "Lee",
+        username: "ann",
+      },
       grantTrafficGbDraft: "25",
       grantTrafficKindDraft: "premium",
     });
@@ -184,10 +190,12 @@ describe("usersStore", () => {
     });
     expect(at).toHaveBeenCalledWith(
       "traffic_grant_premium_done",
-      { gb: 25, user_id: "77", user: "Ann Lee" },
+      { gb: 25, user_id: "ms_" + "a".repeat(32), user: "Ann Lee" },
       "✅ +{gb} GB of premium traffic granted to {user} (ID: {user_id})"
     );
-    expect(onToast).toHaveBeenCalledWith("+25 GB premium granted to Ann Lee (ID: 77)");
+    expect(onToast).toHaveBeenCalledWith(
+      "+25 GB premium granted to Ann Lee (ID: ms_" + "a".repeat(32) + ")"
+    );
     expect(onToast.mock.calls[0][0]).not.toContain("{user_id}");
   });
 

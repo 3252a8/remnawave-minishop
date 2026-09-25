@@ -22,6 +22,7 @@ from bot.plugins.extensions.registry import get_registry, identifier
 from bot.plugins.packages import generation_is_current, package_root, read_state
 from bot.services.partner_common import currency_scale
 from db.extension_models import ExtensionOperation, ExtensionOrder, ExtensionPresentation
+from db.models import User
 
 from .auth import _require_admin_user_id
 from .common import _error, _ok
@@ -33,6 +34,7 @@ class ExtensionOperationOut(HttpResponseModel):
     id: str
     kind: str
     user_id: int | None
+    user_minishop_id: str | None = None
     state: str
     attempts: int
     error: str | None
@@ -41,6 +43,7 @@ class ExtensionOperationOut(HttpResponseModel):
 class ExtensionAdminOrderOut(HttpResponseModel):
     id: str
     user_id: int
+    user_minishop_id: str | None = None
     title: str
     amount_minor: int
     currency: str
@@ -124,6 +127,15 @@ async def admin_extensions_route(request: web.Request) -> web.Response:
                 )
             ).all()
             choices = await preferences(session, owner)
+            user_ids = {
+                int(item.user_id) for item in (*operations, *orders) if item.user_id is not None
+            }
+            public_ids: dict[int, str] = {}
+            if user_ids:
+                rows = await session.execute(
+                    select(User.user_id, User.minishop_id).where(User.user_id.in_(user_ids))
+                )
+                public_ids = {int(user_id): str(public_id) for user_id, public_id in rows}
         targets: dict[str, tuple[str, int]] = {}
         entry = get_registry().owners().get(owner)
         if entry:
@@ -144,6 +156,7 @@ async def admin_extensions_route(request: web.Request) -> web.Response:
                     id=str(item.id),
                     kind=str(item.kind),
                     user_id=item.user_id,
+                    user_minishop_id=public_ids.get(int(item.user_id)) if item.user_id else None,
                     state=str(item.state),
                     attempts=int(item.attempts),
                     error=item.error_code,
@@ -154,6 +167,7 @@ async def admin_extensions_route(request: web.Request) -> web.Response:
                 ExtensionAdminOrderOut(
                     id=str(item.id),
                     user_id=int(item.user_id),
+                    user_minishop_id=public_ids.get(int(item.user_id)),
                     title=order_snapshot(item).quote.title,
                     amount_minor=order_snapshot(item).quote.amount_minor,
                     currency=order_snapshot(item).quote.currency,

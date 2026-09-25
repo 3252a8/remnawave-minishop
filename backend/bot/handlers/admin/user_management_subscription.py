@@ -88,7 +88,7 @@ async def handle_traffic_grant_prompt(
         if kind_normalized == "premium"
         else "admin_traffic_grant_prompt_regular"
     )
-    prompt = _(prompt_key, user_id=user.user_id)
+    prompt = _(prompt_key, user_id=getattr(user, "minishop_id", None) or "—")
     try:
         await callback_message(callback).edit_text(prompt)
     except Exception:
@@ -155,7 +155,10 @@ async def handle_add_subscription_prompt(
             callback_data=f"user_action:refresh:{user.user_id}",
         )
         builder.adjust(1)
-        prompt_text = _("admin_user_add_subscription_tariff_prompt", user_id=user.user_id)
+        prompt_text = _(
+            "admin_user_add_subscription_tariff_prompt",
+            user_id=getattr(user, "minishop_id", None) or "—",
+        )
         try:
             await callback_message(callback).edit_text(
                 prompt_text, reply_markup=builder.as_markup()
@@ -207,7 +210,7 @@ async def handle_add_subscription_days_prompt(
     )
     prompt_text = _(
         prompt_key,
-        user_id=user.user_id,
+        user_id=getattr(user, "minishop_id", None) or "—",
         tariff=tariff_key or "",
     )
 
@@ -399,7 +402,9 @@ async def handle_send_message_prompt(
     await state.update_data(target_user_id=user.user_id)
     await state.set_state(AdminStates.waiting_for_direct_message_to_user)
 
-    prompt_text = _("admin_user_send_message_prompt", user_id=user.user_id)
+    prompt_text = _(
+        "admin_user_send_message_prompt", user_id=getattr(user, "minishop_id", None) or "—"
+    )
 
     try:
         await callback_message(callback).edit_text(prompt_text)

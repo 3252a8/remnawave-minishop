@@ -256,9 +256,7 @@
   function messageAuthorName(message: SupportMessage): string {
     if (message?.author_name) return message.author_name;
     if (message?.author_role === "user") return ticketUserDisplayName();
-    if (message?.author_role === "admin" && message?.author_user_id) {
-      return `${at("support_role_admin", {}, "Admin")} #${message.author_user_id}`;
-    }
+    if (message?.author_role === "admin") return at("support_role_admin", {}, "Admin");
     return "";
   }
 

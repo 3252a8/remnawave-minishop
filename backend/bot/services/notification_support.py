@@ -153,7 +153,7 @@ class NotificationSupportMixin:
         if user.username:
             display = f"{name or user.username} (@{user.username})"
         else:
-            display = name or f"ID {user.user_id}"
+            display = name or f"ID {getattr(user, 'minishop_id', None) or '—'}"
         email = str(getattr(user, "email", None) or "").strip()
         if email:
             return f"{display} · {email}" if display and display != email else email
@@ -273,7 +273,8 @@ class NotificationSupportMixin:
                         url=f"tg://user?id={user.telegram_id}",
                     )
                 )
-            user_card_path = f"/admin/users/{user.user_id}"
+            user_card_id = getattr(user, "minishop_id", None) or user.user_id
+            user_card_path = f"/admin/users/{user_card_id}"
             if self._support_webapp_url(user_card_path):
                 profile_row.append(
                     self._support_mini_app_button(
@@ -283,7 +284,7 @@ class NotificationSupportMixin:
                             "User card",
                         ),
                         path=user_card_path,
-                        start_param=f"admin_user_{user.user_id}",
+                        start_param=f"admin_user_{user_card_id}",
                         fallback_url=self._support_ticket_url(ticket.ticket_id, admin=True),
                         web_app_button=web_app_buttons,
                     )
@@ -458,7 +459,7 @@ class NotificationSupportMixin:
             priority=hd.quote(ticket.priority),
             category=hd.quote(ticket.category),
             user=hd.quote(user_display),
-            user_id=user.user_id,
+            user_id=hd.quote(str(getattr(user, "minishop_id", None) or "—")),
             tariff=hd.quote(str(snapshot.get("tariff") or "—")),
             end_date=hd.quote(str(snapshot.get("end_date") or "—")),
             remaining=hd.quote(str(snapshot.get("remaining") or "—")),

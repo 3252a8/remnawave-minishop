@@ -101,7 +101,7 @@ def test_admin_support_keyboard_uses_consistent_admin_links():
         settings=_settings(SUBSCRIPTION_MINI_APP_URL="https://app.example.com/app"),
     )
     ticket = SimpleNamespace(ticket_id=42)
-    user = SimpleNamespace(user_id=100200300, telegram_id=100200300)
+    user = SimpleNamespace(user_id=100200300, telegram_id=100200300, minishop_id="ms_" + "a" * 32)
 
     keyboard = service._support_keyboard(ticket, user, admin=True)
     ticket_button = keyboard.inline_keyboard[0][0]
@@ -112,7 +112,9 @@ def test_admin_support_keyboard_uses_consistent_admin_links():
     assert ticket_button.web_app.url == "https://app.example.com/app/admin/support/42"
     assert keyboard.inline_keyboard[1][0].url == "tg://user?id=100200300"
     assert user_card_button.url is None
-    assert user_card_button.web_app.url == "https://app.example.com/app/admin/users/100200300"
+    assert user_card_button.web_app.url == (
+        "https://app.example.com/app/admin/users/ms_" + "a" * 32
+    )
 
 
 def test_admin_support_keyboard_can_use_group_safe_urls():
@@ -122,7 +124,7 @@ def test_admin_support_keyboard_can_use_group_safe_urls():
         bot_username="demo_bot",
     )
     ticket = SimpleNamespace(ticket_id=42)
-    user = SimpleNamespace(user_id=100200300, telegram_id=100200300)
+    user = SimpleNamespace(user_id=100200300, telegram_id=100200300, minishop_id="ms_" + "a" * 32)
 
     keyboard = service._support_keyboard(ticket, user, admin=True, web_app_buttons=False)
     ticket_button = keyboard.inline_keyboard[0][0]
@@ -132,7 +134,7 @@ def test_admin_support_keyboard_can_use_group_safe_urls():
     assert ticket_button.url == "https://t.me/demo_bot?startapp=admin_ticket_42"
     assert keyboard.inline_keyboard[1][0].url == "tg://user?id=100200300"
     assert user_card_button.web_app is None
-    assert user_card_button.url == "https://t.me/demo_bot?startapp=admin_user_100200300"
+    assert user_card_button.url == ("https://t.me/demo_bot?startapp=admin_user_ms_" + "a" * 32)
 
 
 def test_admin_support_keyboard_group_urls_fall_back_without_bot_username():
@@ -637,6 +639,8 @@ def test_account_merge_notification_goes_to_log_channel():
         service.notify_account_merged(
             primary_user_id=42,
             removed_user_id=-100,
+            primary_minishop_id="ms_" + "a" * 32,
+            removed_minishop_id="ms_" + "b" * 32,
             email="paid@example.com",
             telegram_id=100200300,
             username="alice",
@@ -649,8 +653,9 @@ def test_account_merge_notification_goes_to_log_channel():
 
     assert len(messages) == 1
     message, thread_id, reply_markup = messages[0]
-    assert "primary=42" in message
-    assert "removed=-100" in message
+    assert "primary=ms_" + "a" * 32 in message
+    assert "removed=ms_" + "b" * 32 in message
+    assert "removed=-100" not in message
     assert "paid@example.com" in message
     assert thread_id is None
     assert reply_markup.inline_keyboard[0][0].url == "tg://user?id=100200300"
@@ -757,6 +762,33 @@ def test_external_auth_notifications_name_provider_and_merge_source():
     ]
     assert messages[0][2] is None
     assert messages[1][2].inline_keyboard[0][0].url == "tg://user?id=100200300"
+
+
+def test_google_registration_log_uses_public_account_id():
+    messages = []
+    service = NotificationService(
+        bot=SimpleNamespace(),
+        settings=_settings(LOG_CHAT_ID=-100123, LOG_NEW_USERS=True, DEFAULT_LANGUAGE="ru"),
+        i18n=_i18n(),
+    )
+
+    async def send_to_log_channel(message, thread_id=None, reply_markup=None):
+        messages.append(message)
+
+    service._send_to_log_channel = send_to_log_channel
+    public_id = "ms_" + "a" * 32
+    asyncio.run(
+        service.notify_new_external_user_registration(
+            user_id=1000000000000,
+            minishop_id=public_id,
+            provider="google",
+            email="user@example.test",
+        )
+    )
+
+    assert len(messages) == 1
+    assert f"ID: <code>{public_id}</code>" in messages[0]
+    assert "1000000000000" not in messages[0]
 
 
 def test_user_support_keyboard_puts_attached_buttons_above_the_ticket_link():

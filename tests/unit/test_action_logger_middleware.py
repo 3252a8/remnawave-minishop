@@ -86,7 +86,9 @@ class ActionLoggerMiddlewareTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result, "ok")
         payload = create_log.await_args.args[1]
         self.assertEqual(payload["event_type"], "command:/start")
-        notify_log.assert_awaited_once_with(payload, settings=settings, bot=None)
+        notify_log.assert_awaited_once_with(
+            payload, settings=settings, bot=None, session=data["session"]
+        )
 
     async def test_debug_log_chat_source_is_not_echoed_back_to_log_chat(self):
         settings = SimpleNamespace(

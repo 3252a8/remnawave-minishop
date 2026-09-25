@@ -101,16 +101,16 @@ async def process_subscription_days_handler(
 
         if result:
             await session.commit()
+            user = await user_dal.get_user_by_id(session, target_user_id)
             await message.answer(
                 _(
                     "admin_user_subscription_added_success",
                     days=days_to_add,
-                    user_id=target_user_id,
+                    user_id=getattr(user, "minishop_id", None) or "—",
                 )
             )
 
             # Show updated user card
-            user = await user_dal.get_user_by_id(session, target_user_id)
             if user:
                 referral_service = ReferralService(
                     settings, subscription_service, message_bot(message), i18n
@@ -267,7 +267,12 @@ async def process_direct_message_handler(
             return
 
         # Confirm to admin
-        await message.answer(_("admin_user_message_sent_success", user_id=target_user_id))
+        await message.answer(
+            _(
+                "admin_user_message_sent_success",
+                user_id=getattr(target_user, "minishop_id", None) or "—",
+            )
+        )
 
         # Show user card again
         from bot.services.panel_api_service import PanelApiService
@@ -398,7 +403,9 @@ async def view_banned_users_handler(
                 display_name = user.first_name or "Unknown"
                 if user.username:
                     display_name = f"@{user.username}"
-                user_list.append(f"• {display_name} (ID: {user.user_id})")
+                user_list.append(
+                    f"• {display_name} (ID: {getattr(user, 'minishop_id', None) or '—'})"
+                )
 
             message_text = _(
                 "admin_banned_users_list", count=len(banned_users), users="\n".join(user_list)
@@ -588,7 +595,11 @@ async def process_premium_override_bonus_handler(
         )
         await session.commit()
         await message.answer(
-            _("admin_premium_override_bonus_set", gb=f"{gb:.2f}", user_id=target_user_id)
+            _(
+                "admin_premium_override_bonus_set",
+                gb=f"{gb:.2f}",
+                user_id=getattr(target_user, "minishop_id", None) or "—",
+            )
         )
 
         referral_service = ReferralService(
@@ -706,7 +717,11 @@ async def process_hwid_device_limit_handler(
 
         current_text = _admin_hwid_limit_state_text(_, hwid_device_limit)
         await message.answer(
-            _("admin_hwid_limit_set", current=current_text, user_id=target_user_id)
+            _(
+                "admin_hwid_limit_set",
+                current=current_text,
+                user_id=getattr(target_user, "minishop_id", None) or "—",
+            )
         )
 
         referral_service = ReferralService(
@@ -818,7 +833,13 @@ async def process_traffic_grant_gb_handler(
             if kind == "premium"
             else "admin_traffic_grant_regular_done"
         )
-        await message.answer(_(success_key, gb=gb_text, user_id=target_user_id))
+        await message.answer(
+            _(
+                success_key,
+                gb=gb_text,
+                user_id=getattr(target_user, "minishop_id", None) or "—",
+            )
+        )
 
         referral_service = ReferralService(
             settings, subscription_service, message_bot(message), i18n

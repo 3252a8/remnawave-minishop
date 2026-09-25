@@ -3,6 +3,7 @@ from collections.abc import Callable
 from typing import Any
 
 from aiogram import Bot, Router
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.utils.text_sanitizer import (
@@ -57,6 +58,8 @@ async def _find_user_by_admin_input(
     session: AsyncSession,
     input_text: str,
 ) -> User | None:
+    if input_text.lower().startswith("ms_"):
+        return await session.scalar(select(User).where(User.minishop_id == input_text.lower()))
     if input_text.isdigit() or (input_text.startswith("-") and input_text[1:].isdigit()):
         try:
             return await user_dal.get_user_by_id(session, int(input_text))
@@ -73,7 +76,7 @@ async def _find_user_by_admin_input(
 
 def _admin_user_reference_label(user: User | None, fallback_user_id: int | None = None) -> str:
     if user is None:
-        return f"ID {fallback_user_id}" if fallback_user_id is not None else "N/A"
+        return "ID —" if fallback_user_id is not None else "N/A"
 
     first_name = sanitize_display_name(user.first_name) if user.first_name else ""
     last_name = sanitize_display_name(user.last_name) if user.last_name else ""
@@ -85,8 +88,8 @@ def _admin_user_reference_label(user: User | None, fallback_user_id: int | None 
     elif user.email:
         label = user.email
     else:
-        label = f"ID {user.user_id}"
-    return f"{label} · ID {user.user_id}"
+        return f"ID {getattr(user, 'minishop_id', None) or '—'}"
+    return f"{label} · ID {getattr(user, 'minishop_id', None) or '—'}"
 
 
 def _admin_user_button_label(user: User) -> str:

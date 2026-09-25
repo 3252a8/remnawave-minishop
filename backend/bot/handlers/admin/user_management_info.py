@@ -56,7 +56,8 @@ async def handle_view_user_logs(
             await callback.answer(_("admin_user_no_logs"), show_alert=True)
             return
 
-        logs_text_parts = [f"{_('admin_user_recent_actions_title', user_id=user.user_id)}\n"]
+        public_id = getattr(user, "minishop_id", None) or "—"
+        logs_text_parts = [f"{_('admin_user_recent_actions_title', user_id=public_id)}\n"]
 
         for log in logs:
             timestamp = log.timestamp.strftime("%Y-%m-%d %H:%M") if log.timestamp else "N/A"
@@ -302,13 +303,14 @@ async def handle_delete_user_prompt(
 
     await state.update_data(
         target_user_id=user.user_id,
+        target_minishop_id=getattr(user, "minishop_id", None),
         delete_initiator_id=int(admin_account.user_id),
     )
     await state.set_state(AdminStates.waiting_for_user_delete_confirmation)
 
     prompt_text = _(
         "admin_user_delete_confirmation_prompt",
-        user_id=hcode(str(user.user_id)),
+        user_id=hcode(str(getattr(user, "minishop_id", None) or "—")),
     )
 
     try:
@@ -325,6 +327,7 @@ async def _log_admin_user_deletion(
     admin_id: int,
     admin_user: types.User | None,
     target_user_id: int,
+    target_minishop_id: str | None = None,
 ) -> None:
     """Store audit log for successful deletion."""
     try:
@@ -335,7 +338,7 @@ async def _log_admin_user_deletion(
                 "telegram_username": admin_user.username if admin_user else None,
                 "telegram_first_name": admin_user.first_name if admin_user else None,
                 "event_type": "admin:user_deleted",
-                "content": f"Admin {admin_id} deleted user {target_user_id}",
+                "content": f"Admin deleted user {target_minishop_id or '—'}",
                 "raw_update_preview": None,
                 "is_admin_event": True,
                 "target_user_id": target_user_id,
@@ -403,7 +406,11 @@ async def process_delete_user_confirmation_handler(
         await state.clear()
         return
 
-    if confirmation_input != str(target_user_id):
+    target_minishop_id = str(data.get("target_minishop_id") or "").strip()
+    accepted_confirmations = {str(target_user_id)}
+    if target_minishop_id:
+        accepted_confirmations.add(target_minishop_id)
+    if confirmation_input.lower() not in accepted_confirmations:
         await message.answer(
             _(
                 "admin_user_delete_mismatch",
@@ -450,13 +457,21 @@ async def process_delete_user_confirmation_handler(
             await state.clear()
             return
 
-        await _log_admin_user_deletion(session, int(admin_account.user_id), admin, target_user_id)
+        await _log_admin_user_deletion(
+            session,
+            int(admin_account.user_id),
+            admin,
+            target_user_id,
+            target_minishop_id or getattr(user_model, "minishop_id", None),
+        )
         await session.commit()
 
         await message.answer(
             _(
                 "admin_user_delete_success",
-                user_id=hcode(str(target_user_id)),
+                user_id=hcode(
+                    str(target_minishop_id or getattr(user_model, "minishop_id", None) or "—")
+                ),
             ),
             parse_mode="HTML",
         )

@@ -197,6 +197,7 @@ async def merge_users(
     source, target = await _lock_users_for_merge(session, source_user_id, target_user_id)
     if not source or not target:
         raise ValueError("Both source and target users are required for merge.")
+    source_minishop_id = getattr(source, "minishop_id", None)
     if bool(getattr(source, "is_banned", False)) or bool(getattr(target, "is_banned", False)):
         raise UserMergeConflictError(
             "Access denied",
@@ -798,6 +799,8 @@ async def merge_users(
         AccountMergedPayload(
             source_user_id=int(source_user_id),
             target_user_id=int(target_user_id),
+            source_minishop_id=source_minishop_id,
+            target_minishop_id=getattr(target, "minishop_id", None),
             reason=reason,
             send_user_email=send_user_email,
             source_panel_user_uuid=source_panel_uuid,

@@ -57,9 +57,10 @@ class MessageAuditTests(unittest.IsolatedAsyncioTestCase):
             original,
         )
 
+        session = object()
         with patch("bot.services.message_audit.notify_message_log", AsyncMock()) as notify_log:
             await message_audit.log_user_message_delivery(
-                object(),
+                session,
                 target_user_id=42,
                 event_type="telegram_traffic_warning_sent",
                 channel="telegram",
@@ -76,7 +77,8 @@ class MessageAuditTests(unittest.IsolatedAsyncioTestCase):
                 "is_admin_event": False,
                 "target_user_id": 42,
                 "timestamp": sent_at,
-            }
+            },
+            session=session,
         )
 
     def _restore_create_message_log(self, original):

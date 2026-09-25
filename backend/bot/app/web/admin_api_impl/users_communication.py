@@ -169,13 +169,13 @@ async def admin_user_telegram_profile_link_route(request: web.Request) -> web.Re
     message_text = translate(
         "admin_user_profile_link_message",
         name=html_escape(target_name),
-        user_id=target_user.user_id,
+        user_id=html_escape(str(target_user.minishop_id)),
         telegram_id=telegram_id,
     )
     if message_text == "admin_user_profile_link_message":
         message_text = (
             f"User profile: <b>{html_escape(target_name)}</b>\n"
-            f"User ID: <code>{target_user.user_id}</code>\n"
+            f"User ID: <code>{html_escape(str(target_user.minishop_id))}</code>\n"
             f"Telegram ID: <code>{telegram_id}</code>\n\n"
             "Use the button below to open the profile in Telegram."
         )

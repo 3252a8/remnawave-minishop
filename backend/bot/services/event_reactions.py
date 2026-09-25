@@ -396,6 +396,8 @@ class CoreEventReactions(PartnerEventReactionsMixin):
 
         referred_by_id = payload.get("referred_by_id")
         email = payload.get("email") or getattr(user, "email", None)
+        minishop_id = payload.get("minishop_id") or getattr(user, "minishop_id", None)
+        public_identity = {"minishop_id": str(minishop_id)} if minishop_id else {}
         try:
             registered_via = str(payload.get("registered_via") or "unknown")
             external_provider = EXTERNAL_REGISTRATION_PROVIDERS.get(registered_via)
@@ -404,6 +406,7 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                     return
                 await service.notify_new_external_user_registration(
                     user_id=int(user_id),
+                    **public_identity,
                     provider=external_provider,
                     email=str(email),
                     referred_by_id=referred_by_id,
@@ -413,12 +416,14 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                     return
                 await service.notify_new_email_user_registration(
                     user_id=int(user_id),
+                    **public_identity,
                     email=str(email),
                     referred_by_id=referred_by_id,
                 )
             else:
                 await service.notify_new_user_registration(
                     user_id=int(user_id),
+                    **public_identity,
                     telegram_id=payload.get("telegram_id") or getattr(user, "telegram_id", None),
                     username=payload.get("username") or getattr(user, "username", None),
                     first_name=payload.get("first_name") or getattr(user, "first_name", None),
@@ -546,6 +551,9 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                         "purchased_hwid_devices": snapshot.purchased_hwid_devices,
                         "purchases": snapshot.purchases,
                     }
+                    public_id = getattr(user, "minishop_id", None)
+                    if public_id:
+                        notification_kwargs["minishop_id"] = str(public_id)
                     if snapshot.duration_days is not None:
                         notification_kwargs["duration_days"] = snapshot.duration_days
                     if snapshot.promo_code:
@@ -809,6 +817,16 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                 await service.notify_account_merged(
                     primary_user_id=int(target_user_id),
                     removed_user_id=int(source_user_id),
+                    **(
+                        {"primary_minishop_id": payload["target_minishop_id"]}
+                        if payload.get("target_minishop_id")
+                        else {}
+                    ),
+                    **(
+                        {"removed_minishop_id": payload["source_minishop_id"]}
+                        if payload.get("source_minishop_id")
+                        else {}
+                    ),
                     email=payload.get("email"),
                     telegram_id=payload.get("telegram_id"),
                     username=payload.get("username"),

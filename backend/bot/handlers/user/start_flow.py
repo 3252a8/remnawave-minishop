@@ -7,6 +7,7 @@ from aiogram import F, types
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.text_decorations import html_decoration as hd
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra import events
@@ -34,6 +35,7 @@ from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
 from config.settings import Settings
 from config.tariffs_config import referral_welcome_bonus_tariff_key_for_settings
 from db.dal import subscription_dal, user_dal
+from db.models import User
 
 from .start_channel import ensure_required_channel_subscription
 from .start_common import (
@@ -87,7 +89,9 @@ def _bot_started_source(
 @router.message(
     CommandStart(magic=F.args.regexp(r"^promo_([A-Za-z0-9_-]{1,100})$").as_("promo_match"))
 )
-@router.message(CommandStart(magic=F.args.regexp(r"^admin_user_(\d+)$").as_("admin_user_match")))
+@router.message(
+    CommandStart(magic=F.args.regexp(r"^admin_user_(ms_[0-9a-f]{32}|\d+)$").as_("admin_user_match"))
+)
 @router.message(CommandStart(magic=F.args.regexp(r"^ticket_(\d+)$").as_("ticket_match")))
 @router.message(CommandStart(magic=F.args.regexp(r"^notifications$").as_("notifications_match")))
 @router.message(CommandStart(magic=F.args.regexp(r"^page_ref$").as_("page_ref_match")))
@@ -147,10 +151,14 @@ async def start_command_handler(
             source=start_source,
             start_param=start_param,
         )
-        target_user_id = int(admin_user_match.group(1))
-        target_user = await user_dal.get_user_by_id(session, target_user_id)
+        target_identifier = admin_user_match.group(1)
+        target_user = (
+            await session.scalar(select(User).where(User.minishop_id == target_identifier))
+            if target_identifier.startswith("ms_")
+            else await user_dal.get_user_by_id(session, int(target_identifier))
+        )
         if not target_user:
-            await message.answer(_("admin_user_not_found", input=hd.quote(str(target_user_id))))
+            await message.answer(_("admin_user_not_found", input=hd.quote(target_identifier)))
             return
 
         try:
@@ -189,7 +197,7 @@ async def start_command_handler(
         except Exception as e_admin_card:
             logger.exception(
                 "Failed to open admin user card via deep-link for %s: %s",
-                target_user_id,
+                target_identifier,
                 e_admin_card,
             )
             await message.answer(_("admin_user_card_error"))

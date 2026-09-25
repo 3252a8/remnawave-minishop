@@ -4,6 +4,7 @@ from pathlib import Path
 
 from aiohttp import web
 from pydantic import ValidationError
+from sqlalchemy import select
 
 from bot.app.web.context import (
     get_session_factory,
@@ -23,6 +24,7 @@ from config.settings import Settings
 from config.tariff_period_migration import normalize_tariff_catalog
 from config.tariffs_config import TariffsConfig, default_payment_currency_code_for_settings
 from db.dal import message_log_dal
+from db.models import User
 from db.tariff_reconciliation import (
     TariffReconciliationReport,
     reconcile_subscription_tariffs,
@@ -170,7 +172,7 @@ async def admin_tariff_reconciliation_get_route(request: web.Request) -> web.Res
     if config is None:
         return _error(404, "tariffs_not_configured")
     report = await _run_tariff_reconciliation(request, config, apply=False)
-    return _ok(AdminTariffReconciliationOut.from_report(report).model_dump(mode="json"))
+    return _ok(await _reconciliation_display_payload(request, report))
 
 
 async def admin_tariff_reconciliation_apply_route(
@@ -188,7 +190,23 @@ async def admin_tariff_reconciliation_apply_route(
         apply=bool(body.apply),
         actor_id=actor_id if body.apply else None,
     )
-    return _ok(AdminTariffReconciliationOut.from_report(report).model_dump(mode="json"))
+    return _ok(await _reconciliation_display_payload(request, report))
+
+
+async def _reconciliation_display_payload(
+    request: web.Request, report: TariffReconciliationReport
+) -> dict:
+    response = AdminTariffReconciliationOut.from_report(report)
+    user_ids = {item.user_id for item in response.items}
+    if user_ids:
+        async with get_session_factory(request)() as session:
+            rows = await session.execute(
+                select(User.user_id, User.minishop_id).where(User.user_id.in_(user_ids))
+            )
+            public_ids = {int(user_id): str(public_id) for user_id, public_id in rows}
+        for item in response.items:
+            item.user_minishop_id = public_ids.get(item.user_id)
+    return response.model_dump(mode="json")
 
 
 async def _run_tariff_reconciliation(

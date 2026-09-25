@@ -5,9 +5,12 @@ from typing import Any
 
 from aiogram import Bot
 from aiogram.utils.text_decorations import html_decoration as hd
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.utils.message_queue import get_queue_manager
 from config.settings import Settings
+from db.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -39,15 +42,15 @@ def _code(value: object, max_length: int = 240) -> str:
 
 def _user_line(log_payload: Mapping[str, object]) -> str:
     parts: list[str] = []
-    user_id = log_payload.get("user_id")
-    target_user_id = log_payload.get("target_user_id")
+    user_id = log_payload.get("minishop_id")
+    target_user_id = log_payload.get("target_minishop_id")
     username = _compact(log_payload.get("telegram_username"), 64)
     first_name = _compact(log_payload.get("telegram_first_name"), 64)
 
     if user_id:
-        parts.append(f"id={_code(user_id, 32)}")
+        parts.append(f"id={_code(user_id, 35)}")
     if target_user_id and target_user_id != user_id:
-        parts.append(f"target={_code(target_user_id, 32)}")
+        parts.append(f"target={_code(target_user_id, 35)}")
     if username:
         display_username = username if username.startswith("@") else f"@{username}"
         parts.append(_code(display_username, 80))
@@ -88,6 +91,7 @@ async def notify_message_log(
     *,
     settings: Settings | None = None,
     bot: Bot | None = None,
+    session: AsyncSession | None = None,
 ) -> None:
     resolved_settings = settings or _configured_settings
     if resolved_settings is None or not message_log_chat_enabled(resolved_settings):
@@ -97,7 +101,30 @@ async def notify_message_log(
     if chat_id is None:
         return
 
-    message = format_message_log_notification(log_payload)
+    display_payload = dict(log_payload)
+    if session is not None:
+        ids = {
+            value
+            for key in ("user_id", "target_user_id")
+            if isinstance((value := log_payload.get(key)), int)
+        }
+        if ids:
+            try:
+                result = await session.execute(
+                    select(User.user_id, User.minishop_id).where(User.user_id.in_(ids))
+                )
+                public_ids = {int(user_id): str(public_id) for user_id, public_id in result}
+                for key, display_key in (
+                    ("user_id", "minishop_id"),
+                    ("target_user_id", "target_minishop_id"),
+                ):
+                    value = log_payload.get(key)
+                    if isinstance(value, int):
+                        display_payload[display_key] = public_ids.get(value)
+            except Exception:
+                logger.exception("Failed to resolve public IDs for message log notification")
+
+    message = format_message_log_notification(display_payload)
     kwargs: dict[str, Any] = {
         "text": message,
         "parse_mode": "HTML",

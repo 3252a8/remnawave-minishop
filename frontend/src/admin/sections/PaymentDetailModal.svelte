@@ -80,7 +80,7 @@
       ? [
           providerLabel,
           payment.created_at ? fmtDate(payment.created_at) : "",
-          payment.user_label || payment.user_id,
+          payment.user_label || payment.user_minishop_id || "—",
         ]
           .filter(Boolean)
           .join(" · ")

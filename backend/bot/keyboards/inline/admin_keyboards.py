@@ -299,12 +299,14 @@ def get_banned_users_keyboard(
         elif user_row.email:
             user_display_parts.append(f"({user_row.email})")
         if not user_display_parts:
-            user_display_parts.append(f"ID: {user_row.user_id}")
+            user_display_parts.append(f"ID: {getattr(user_row, 'minishop_id', None) or '—'}")
 
         user_display = " ".join(user_display_parts).strip()
 
         button_text = _(
-            "admin_banned_user_button_text", user_display=user_display, user_id=user_row.user_id
+            "admin_banned_user_button_text",
+            user_display=user_display,
+            user_id=getattr(user_row, "minishop_id", None) or "—",
         )
         builder.row(
             InlineKeyboardButton(
@@ -364,7 +366,7 @@ def get_users_list_keyboard(
             user_display_parts.append(f"@{user.username}")
         elif user.email:
             user_display_parts.append(user.email)
-        user_display_parts.append(f"ID: {user.user_id}")
+        user_display_parts.append(f"ID: {getattr(user, 'minishop_id', None) or '—'}")
         if user.first_name:
             user_display_parts.append(f"- {user.first_name}")
 

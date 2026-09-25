@@ -39,7 +39,7 @@ class NotificationPartnerMixin:
 
         @staticmethod
         def _format_user_display(
-            user_id: int,
+            user_id: str,
             username: str | None = None,
             first_name: str | None = None,
             email: str | None = None,
@@ -96,7 +96,7 @@ class NotificationPartnerMixin:
             **kwargs,
         )
         user_display = self._format_user_display(
-            user_id=int(user.user_id),
+            user_id=str(getattr(user, "minishop_id", None) or "—"),
             username=getattr(user, "username", None),
             first_name=getattr(user, "first_name", None),
             email=getattr(user, "email", None),

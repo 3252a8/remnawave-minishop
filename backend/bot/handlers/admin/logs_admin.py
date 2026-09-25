@@ -11,6 +11,7 @@ from typing import Any, cast
 from aiogram import F, Router, types
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.text_decorations import html_decoration as hd
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.admin_keyboards import (
@@ -58,13 +59,16 @@ def _format_user_with_email(
 
 
 def _format_log_entry_user(log_entry: MessageLog, translate: Callable[..., str]) -> str:
+    author = getattr(log_entry, "author_user", None)
     fallback = (
-        translate("system_or_unknown_user") if not log_entry.user_id else f"ID: {log_entry.user_id}"
+        translate("system_or_unknown_user")
+        if not log_entry.user_id
+        else f"ID: {getattr(author, 'minishop_id', None) or '—'}"
     )
     return _format_user_with_email(
         first_name=log_entry.telegram_first_name,
         username=log_entry.telegram_username,
-        email=_user_email(getattr(log_entry, "author_user", None)),
+        email=_user_email(author),
         fallback=fallback,
     )
 
@@ -140,8 +144,11 @@ async def _display_formatted_logs(
         for log_entry_model in logs:
             user_display = _format_log_entry_user(log_entry_model, _)
 
+            author = getattr(log_entry_model, "author_user", None)
             user_id_display = (
-                str(log_entry_model.user_id) if log_entry_model.user_id is not None else "N/A"
+                str(getattr(author, "minishop_id", None) or "—")
+                if log_entry_model.user_id is not None
+                else "N/A"
             )
             content_raw = log_entry_model.content or ""
             content_preview = (
@@ -287,7 +294,11 @@ async def process_user_id_for_logs_handler(
     input_text = (message.text or "").strip() if message.text else ""
     user_model_for_logs: User | None = None
 
-    if input_text.isdigit() or (input_text.startswith("-") and input_text[1:].isdigit()):
+    if input_text.lower().startswith("ms_"):
+        user_model_for_logs = await session.scalar(
+            select(User).where(User.minishop_id == input_text.lower())
+        )
+    elif input_text.isdigit() or (input_text.startswith("-") and input_text[1:].isdigit()):
         with contextlib.suppress(ValueError):
             user_model_for_logs = await user_dal.get_user_by_id(session, int(input_text))
     elif EMAIL_REGEX.match(input_text):
@@ -306,7 +317,7 @@ async def process_user_id_for_logs_handler(
         first_name=user_model_for_logs.first_name,
         username=user_model_for_logs.username,
         email=user_model_for_logs.email,
-        fallback=f"ID {target_user_id}",
+        fallback=f"ID {user_model_for_logs.minishop_id}",
     )
 
     logs_models = await message_log_dal.get_user_message_logs(
@@ -356,7 +367,7 @@ async def view_user_logs_paginated_handler(
         first_name=user_model_for_logs.first_name,
         username=user_model_for_logs.username,
         email=user_model_for_logs.email,
-        fallback=f"ID {target_user_id}",
+        fallback=f"ID {user_model_for_logs.minishop_id}",
     )
 
     logs_models = await message_log_dal.get_user_message_logs(

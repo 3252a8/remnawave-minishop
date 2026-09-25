@@ -5621,6 +5621,11 @@ export interface components {
       subscription_id: number;
       /** User Id */
       user_id: number;
+      /**
+       * User Minishop Id
+       * @default null
+       */
+      user_minishop_id: string | null;
     };
     /** AdminTariffReconciliationOut */
     AdminTariffReconciliationOut: {
@@ -6499,6 +6504,11 @@ export interface components {
       title: string;
       /** User Id */
       user_id: number;
+      /**
+       * User Minishop Id
+       * @default null
+       */
+      user_minishop_id: string | null;
     };
     /** ExtensionAdminOut */
     ExtensionAdminOut: {
@@ -6548,6 +6558,11 @@ export interface components {
       state: string;
       /** User Id */
       user_id: number | null;
+      /**
+       * User Minishop Id
+       * @default null
+       */
+      user_minishop_id: string | null;
     };
     /** ExtensionOrderCreate */
     ExtensionOrderCreate: {

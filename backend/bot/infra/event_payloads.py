@@ -255,6 +255,8 @@ class AccountMergedPayload(EventPayload):
 
     source_user_id: int
     target_user_id: int
+    source_minishop_id: str | None = None
+    target_minishop_id: str | None = None
     reason: str
     send_user_email: bool
     source_panel_user_uuid: str | None = None
@@ -265,6 +267,18 @@ class AccountMergedPayload(EventPayload):
     first_name: str | None = None
     language: str | None = None
     final_end_date: datetime | None = None
+
+    def to_payload(
+        self,
+        *,
+        exclude_unset: bool = False,
+        exclude_none: bool = False,
+    ) -> dict[str, Any]:
+        payload = super().to_payload(exclude_unset=exclude_unset, exclude_none=exclude_none)
+        for key in ("source_minishop_id", "target_minishop_id"):
+            if payload.get(key) is None:
+                payload.pop(key, None)
+        return payload
 
 
 class PromoCodeAppliedPayload(EventPayload):

@@ -127,7 +127,7 @@
     <div class="operation-row">
       <div>
         <strong>{order.title}</strong>
-        <p>{order.id} · {order.user_id}</p>
+        <p>{order.id} · {order.user_minishop_id || "—"}</p>
         <p>
           {(order.amount_minor / 10 ** order.currency_scale).toFixed(order.currency_scale)}
           {order.currency}
@@ -158,7 +158,7 @@
     <div class="operation-row">
       <div>
         <strong>{operation.kind}</strong>
-        <p>{operation.id} · {operation.user_id ?? "—"}</p>
+        <p>{operation.id} · {operation.user_minishop_id || "—"}</p>
         <p>
           {at(`plugins_state_${operation.state}`)} · {operation.attempts}
           {operation.error || ""}

@@ -121,7 +121,9 @@ class ActionLoggerMiddleware(BaseMiddleware):
                 if _source_chat_id(update) != self.settings.LOG_CHAT_ID:
                     bot_candidate = data.get("bot")
                     bot = bot_candidate if isinstance(bot_candidate, Bot) else None
-                    await notify_message_log(log_payload, settings=self.settings, bot=bot)
+                    await notify_message_log(
+                        log_payload, settings=self.settings, bot=bot, session=session
+                    )
             except Exception as e_log:
                 logger.exception(
                     "ActionLoggerMiddleware: Failed to add log to session for user %s, type %s: %s",

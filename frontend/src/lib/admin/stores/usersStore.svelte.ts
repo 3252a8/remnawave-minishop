@@ -796,7 +796,7 @@ export function createUsersStore({
       return;
     }
     const kind = s.grantTrafficKindDraft === "premium" ? "premium" : "regular";
-    const userId = String(s.openedUser.user_id ?? "");
+    const userId = String(s.openedUser.minishop_id || "—");
     const user = userDisplayName(s.openedUser);
     const toastParams = { gb, user_id: userId, user };
     applyState((st) => ({ ...st, userActionBusy: true }));

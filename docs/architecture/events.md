@@ -52,6 +52,8 @@
 | --- | --- | --- |
 | `source_user_id` | `int` | обязательно |
 | `target_user_id` | `int` | обязательно |
+| `source_minishop_id` | `str | None` | `None` |
+| `target_minishop_id` | `str | None` | `None` |
 | `reason` | `str` | обязательно |
 | `send_user_email` | `bool` | обязательно |
 | `source_panel_user_uuid` | `str | None` | `None` |

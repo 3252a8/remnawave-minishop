@@ -190,12 +190,14 @@ async def format_user_card(
         user.registration_date.strftime("%Y-%m-%d %H:%M") if user.registration_date else na_value
     )
 
-    card_parts.append(f"{_('admin_user_id_label')} {hcode(str(user.user_id))}")
+    card_parts.append(
+        f"{_('admin_user_id_label')} {hcode(str(getattr(user, 'minishop_id', None) or '—'))}"
+    )
     card_parts.append(f"{_('admin_user_name_label')} {hcode(user_name)}")
     card_parts.append(f"{_('admin_user_username_label')} {hcode(username_display)}")
     if user.email:
         card_parts.append(f"{_('admin_user_email_label')} {hcode(user.email)}")
-    if user.telegram_id and int(user.telegram_id) != int(user.user_id):
+    if user.telegram_id:
         card_parts.append(f"{_('admin_user_telegram_id_label')} {hcode(str(user.telegram_id))}")
     card_parts.append(f"{_('admin_user_language_label')} {hcode(user.language_code or na_value)}")
     card_parts.append(f"{_('admin_user_registration_label')} {hcode(registration_date)}")

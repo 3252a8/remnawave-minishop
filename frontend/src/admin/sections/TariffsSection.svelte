@@ -440,8 +440,8 @@
                     <strong>
                       {at(
                         "tariff_reconciliation_user",
-                        { user_id: item.user_id },
-                        "User #{user_id}"
+                        { user_id: item.user_minishop_id || "—" },
+                        "User {user_id}"
                       )}
                     </strong>
                     <small>

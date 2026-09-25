@@ -124,7 +124,7 @@
                     >
                   {/if}
                   {#if entry.target_user_id && entry.target_user_id !== openedUser?.user_id}
-                    <small class="admin-muted">→ {entry.target_user_id}</small>
+                    <small class="admin-muted">→ {entry.target_user_label || "—"}</small>
                   {/if}
                 </span>
               </td>

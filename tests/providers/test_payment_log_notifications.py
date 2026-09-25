@@ -76,6 +76,25 @@ def _service() -> NotificationService:
 
 
 class PaymentLogNotificationTests(IsolatedAsyncioTestCase):
+    async def test_wata_payment_log_uses_public_account_id(self):
+        service = _service()
+        public_id = "ms_" + "a" * 32
+
+        await service.notify_payment_received(
+            user_id=1000000000000,
+            minishop_id=public_id,
+            amount=190,
+            currency="RUB",
+            months=1,
+            payment_provider="wata",
+            email="user@example.test",
+        )
+
+        message = service._send_to_log_channel.await_args.args[0]
+        self.assertIn(f"ID {public_id}", message)
+        self.assertNotIn("1000000000000", message)
+        self.assertIn("190 RUB", message)
+
     async def test_payment_log_includes_promo_code_and_actual_discount(self):
         service = _service()
 
