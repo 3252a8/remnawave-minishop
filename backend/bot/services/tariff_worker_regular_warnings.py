@@ -49,6 +49,7 @@ class TariffWorkerRegularWarningMixin:
         *,
         warning_period_start: datetime | None = None,
         next_reset_at: datetime | None = None,
+        traffic_strategy: str | None = None,
     ) -> None:
         if bool(getattr(sub, "regular_unlimited_override", False)):
             return
@@ -96,7 +97,9 @@ class TariffWorkerRegularWarningMixin:
                 reset_available_bytes=limit_val,
                 user_lang=user_lang,
                 next_reset_at=next_reset_at,
-                traffic_strategy=self._period_tariff_traffic_strategy(tariff),
+                # The panel performs the reset, so its effective strategy decides
+                # whether a reset date can be promised at all (NO_RESET: none).
+                traffic_strategy=traffic_strategy or self._period_tariff_traffic_strategy(tariff),
             )
             if level < 100:
                 text = _(
