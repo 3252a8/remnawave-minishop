@@ -7102,11 +7102,10 @@
 }
 
 .support-ticket-dialog .dialog-head h2 {
-  overflow: hidden;
   font-size: 18px;
   line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .support-ticket-dialog .dialog-head p {

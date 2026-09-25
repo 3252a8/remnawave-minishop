@@ -397,14 +397,15 @@ def test_disabled_admin_support_email_keeps_telegram_and_log_notifications():
             SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED=False,
             SUBSCRIPTION_MINI_APP_URL="https://app.example.com",
         ),
+        i18n=_i18n(),
         email_auth_service=EmailService(),
     )
 
     async def send_to_admins(message, reply_markup=None):
-        channels.append(("admins", bool(message), bool(reply_markup)))
+        channels.append(("admins", message, bool(reply_markup)))
 
     async def send_to_log_channel(message, thread_id=None, reply_markup=None):
-        channels.append(("log", bool(message), bool(reply_markup)))
+        channels.append(("log", message, bool(reply_markup)))
 
     service._send_to_admins = send_to_admins
     service._send_to_log_channel = send_to_log_channel
@@ -413,7 +414,7 @@ def test_disabled_admin_support_email_keeps_telegram_and_log_notifications():
         ticket_id=7,
         priority="normal",
         category="technical",
-        subject="Connection issue",
+        subject="Connection <issue> & retry",
     )
     user = SimpleNamespace(
         user_id=100200300,
@@ -434,6 +435,7 @@ def test_disabled_admin_support_email_keeps_telegram_and_log_notifications():
     )
 
     assert [item[0] for item in channels] == ["admins", "log"]
+    assert all("<b>Тема:</b> Connection &lt;issue&gt; &amp; retry" in item[1] for item in channels)
     assert emails == []
 
 
@@ -498,10 +500,12 @@ def test_support_user_reply_topic_suppresses_admin_dm_and_uses_url_buttons():
     service = NotificationService(
         bot=SimpleNamespace(),
         settings=_settings(
+            DEFAULT_LANGUAGE="en",
             LOG_CHAT_ID=-1003918000002,
             LOG_SUPPORT_THREAD_ID=77,
             SUBSCRIPTION_MINI_APP_URL="https://app.example.com",
         ),
+        i18n=_i18n(),
         bot_username="demo_bot",
     )
 
@@ -509,7 +513,7 @@ def test_support_user_reply_topic_suppresses_admin_dm_and_uses_url_buttons():
         channels.append(("admins", None, bool(message), reply_markup))
 
     async def send_to_log_channel(message, thread_id=None, reply_markup=None):
-        channels.append(("log", thread_id, bool(message), reply_markup))
+        channels.append(("log", thread_id, message, reply_markup))
 
     service._send_to_admins = send_to_admins
     service._send_to_log_channel = send_to_log_channel
@@ -518,7 +522,7 @@ def test_support_user_reply_topic_suppresses_admin_dm_and_uses_url_buttons():
         ticket_id=7,
         priority="normal",
         category="technical",
-        subject="Connection issue",
+        subject="Connection <issue> & retry",
     )
     message = SimpleNamespace(body="Still cannot connect")
     user = SimpleNamespace(
@@ -543,6 +547,7 @@ def test_support_user_reply_topic_suppresses_admin_dm_and_uses_url_buttons():
 
     assert [item[0] for item in channels] == ["log"]
     assert channels[0][1] == 77
+    assert "<b>Subject:</b> Connection &lt;issue&gt; &amp; retry" in channels[0][2]
     buttons = _keyboard_buttons(channels[0][3])
     assert all(button.web_app is None for button in buttons)
     assert buttons[0].url == "https://t.me/demo_bot?startapp=admin_ticket_7"

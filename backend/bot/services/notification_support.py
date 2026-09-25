@@ -446,12 +446,14 @@ class NotificationSupportMixin:
             "support_admin_new_ticket_message",
             (
                 "🆘 <b>New ticket #{ticket_id}</b>\n"
-                "{priority_emoji} <b>{priority}</b> · {category}\n\n"
+                "{priority_emoji} <b>{priority}</b> · {category}\n"
+                "<b>Subject:</b> {subject}\n\n"
                 "<b>User</b>\n{user}\nID: <code>{user_id}</code>\n\n"
                 "<b>Subscription</b>\n{tariff}, until {end_date}, remaining {remaining}\n"
                 "status: {status}\n\n<b>Message</b>\n{message}"
             ),
             ticket_id=ticket.ticket_id,
+            subject=hd.quote(ticket.subject),
             priority_emoji=priority_emoji,
             priority=hd.quote(ticket.priority),
             category=hd.quote(ticket.category),
@@ -516,8 +518,10 @@ class NotificationSupportMixin:
         text = self._support_text(
             self.settings.DEFAULT_LANGUAGE,
             "support_admin_user_reply_message",
-            "💬 <b>User reply in ticket #{ticket_id}</b>\n{user}{unread}\n\n{message}",
+            "💬 <b>User reply in ticket #{ticket_id}</b>\n"
+            "<b>Subject:</b> {subject}\n{user}{unread}\n\n{message}",
             ticket_id=ticket.ticket_id,
+            subject=hd.quote(ticket.subject),
             user=hd.quote(user_display),
             unread=unread_line,
             message=preview_html,

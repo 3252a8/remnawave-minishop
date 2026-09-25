@@ -596,6 +596,24 @@ async function assertAdminTicketScrolling(page: Page, supportDialog: Locator): P
   await expect.poll(() => bodyViewport.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
 
   await page.setViewportSize(MOBILE_VIEWPORT);
+  const title = supportDialog.locator(".dialog-head h2");
+  const longSubject =
+    "По какой причине на ноутбуке не подключается профиль после смены сервера и как восстановить доступ?";
+  await title.evaluate((element, subject) => {
+    element.textContent = subject;
+  }, longSubject);
+  await expect(title).toHaveText(longSubject);
+  await expect
+    .poll(() =>
+      title.evaluate((element) => {
+        const lineHeight = Number.parseFloat(getComputedStyle(element).lineHeight);
+        return (
+          element.clientHeight >= lineHeight * 2 - 1 &&
+          element.scrollWidth <= element.clientWidth + 1
+        );
+      })
+    )
+    .toBe(true);
   await expect
     .poll(() => messageViewport.evaluate((element) => getComputedStyle(element).overflowY))
     .toBe("visible");
@@ -2094,16 +2112,14 @@ test("admin deep links do not pin the first opened record", async ({ page }) => 
 
   const userDialog = page.locator(".dialog-card.admin-user-dialog");
   await expect(userDialog).toBeVisible();
-  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`#${firstPaymentUserId}`);
+  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`${firstPaymentUserId}`);
   await closeDialog(userDialog);
 
   await paymentUserButtons.nth(1).click();
   const secondPaymentUserId = new URL(page.url()).pathname.split("/").pop();
   expect(secondPaymentUserId).toBeTruthy();
   expect(secondPaymentUserId).not.toBe(firstPaymentUserId);
-  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(
-    `#${secondPaymentUserId}`
-  );
+  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`${secondPaymentUserId}`);
   await closeDialog(userDialog);
 
   const paymentButtons = page.locator(".admin-payments-table .admin-payment-id-btn");
@@ -2134,14 +2150,14 @@ test("admin deep links do not pin the first opened record", async ({ page }) => 
   await page.reload();
 
   await expect(userDialog).toBeVisible();
-  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`#${firstUserId}`);
+  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`${firstUserId}`);
   await closeDialog(userDialog);
 
   await userRows.nth(1).click();
   const secondUserId = new URL(page.url()).pathname.split("/").pop();
   expect(secondUserId).toBeTruthy();
   expect(secondUserId).not.toBe(firstUserId);
-  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`#${secondUserId}`);
+  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`${secondUserId}`);
 });
 
 test("webapp and admin sections, dialogs, tabs stay interactive without console errors", async ({
