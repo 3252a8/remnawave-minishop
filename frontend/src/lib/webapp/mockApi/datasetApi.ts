@@ -430,6 +430,21 @@ export function demoApiResponse(
       },
     };
     if (parts[4]) {
+      if (parts[4] === "tariff" && method === "POST") {
+        const tariffKey = String(jsonBody(options).tariff_key || "");
+        const tariff = ((demoTariffs().tariffs || []) as DemoRecord[]).find(
+          (item) => item.key === tariffKey && item.billing_model === "period"
+        );
+        if (!tariff || !detail.active_subscription) {
+          return { ok: false, error: "invalid_tariff" };
+        }
+        const subscription = detail.active_subscription;
+        subscription.tariff_key = tariffKey;
+        if (jsonBody(options).apply_tariff_hwid_limit) {
+          subscription.hwid_device_limit = tariff.hwid_device_limit ?? null;
+        }
+        return { ok: true, subscription: clone(subscription) };
+      }
       if (parts[4] === "notification-preferences" && method === "PATCH") {
         const notificationPreferences = jsonBody(options);
         detail.notification_preferences = notificationPreferences;

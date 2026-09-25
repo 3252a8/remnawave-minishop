@@ -660,7 +660,9 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
 
         target_id = int(user.user_id)
 
-        active_sub = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
+        active_sub = await subscription_dal.get_active_subscription_by_user_id(
+            session, target_id, user.panel_user_uuid
+        )
         latest_subs_stmt = (
             select(Subscription)
             .where(Subscription.user_id == target_id)

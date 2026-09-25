@@ -31,7 +31,10 @@ export async function fetchApiJson(
     if (signal?.aborted) throw new DOMException("request_cancelled", "AbortError");
     outcome = String(response.status);
     if (response.status >= 500 || response.status === 429) {
-      throw Object.assign(new Error("service_unavailable"), { status: response.status });
+      throw Object.assign(new Error("service_unavailable"), {
+        status: response.status,
+        payload,
+      });
     }
     if (response.status === 401) onUnauthorized();
     return payload as Record<string, unknown>;

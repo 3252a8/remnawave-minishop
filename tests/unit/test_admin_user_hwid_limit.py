@@ -398,6 +398,9 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_change_tariff_route_switches_active_subscription(self):
         session = FakeSession()
+        active = SimpleNamespace(subscription_id=1, tariff_key="standard")
+        changed = SimpleNamespace(subscription_id=1, tariff_key="plus")
+        get_active = AsyncMock(side_effect=[active, changed])
         subscription_service = SimpleNamespace(
             switch_tariff_without_payment=AsyncMock(return_value={"subscription_id": 1})
         )
@@ -415,9 +418,14 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
             patch.object(users_actions, "_require_admin_user_id", return_value=100),
             patch.object(admin_users.message_log_dal, "create_message_log", AsyncMock()),
             patch.object(
+                admin_users.user_dal,
+                "get_user_by_id",
+                AsyncMock(return_value=SimpleNamespace(panel_user_uuid="panel-42")),
+            ),
+            patch.object(
                 admin_users.subscription_dal,
                 "get_active_subscription_by_user_id",
-                AsyncMock(return_value=SimpleNamespace(subscription_id=1)),
+                get_active,
             ),
             patch.object(users_actions, "_invalidate_after_admin_user_mutation", AsyncMock()),
             patch.object(
@@ -437,9 +445,13 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
             apply_tariff_hwid_limit=False,
         )
         self.assertTrue(session.committed)
+        self.assertEqual(get_active.await_args_list[0].args, (session, 42, "panel-42"))
+        self.assertEqual(get_active.await_args_list[1].args, (session, 42, "panel-42"))
 
     async def test_change_tariff_route_can_apply_tariff_hwid_limit(self):
         session = FakeSession()
+        active = SimpleNamespace(subscription_id=1, tariff_key="standard")
+        changed = SimpleNamespace(subscription_id=1, tariff_key="plus")
         subscription_service = SimpleNamespace(
             switch_tariff_without_payment=AsyncMock(return_value={"subscription_id": 1})
         )
@@ -462,9 +474,14 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
             patch.object(users_actions, "_require_admin_user_id", return_value=100),
             patch.object(admin_users.message_log_dal, "create_message_log", AsyncMock()),
             patch.object(
+                admin_users.user_dal,
+                "get_user_by_id",
+                AsyncMock(return_value=SimpleNamespace(panel_user_uuid="panel-42")),
+            ),
+            patch.object(
                 admin_users.subscription_dal,
                 "get_active_subscription_by_user_id",
-                AsyncMock(return_value=SimpleNamespace(subscription_id=1)),
+                AsyncMock(side_effect=[active, changed]),
             ),
             patch.object(users_actions, "_invalidate_after_admin_user_mutation", AsyncMock()),
             patch.object(
@@ -484,6 +501,82 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
             apply_tariff_hwid_limit=True,
         )
         self.assertTrue(session.committed)
+
+    async def test_change_tariff_route_rejects_switch_to_a_different_subscription(self):
+        session = FakeSession()
+        active = SimpleNamespace(subscription_id=1, tariff_key="standard")
+        subscription_service = SimpleNamespace(
+            switch_tariff_without_payment=AsyncMock(return_value={"subscription_id": 2})
+        )
+        settings = SimpleNamespace(
+            tariffs_config=FakeTariffsConfig(
+                [
+                    SimpleNamespace(key="standard", billing_model="period"),
+                    SimpleNamespace(key="plus", billing_model="period"),
+                ]
+            )
+        )
+        request = FakeRequest({"tariff_key": "plus"}, session, subscription_service, settings)
+
+        with (
+            patch.object(users_actions, "_require_admin_user_id", return_value=100),
+            patch.object(
+                admin_users.user_dal,
+                "get_user_by_id",
+                AsyncMock(return_value=SimpleNamespace(panel_user_uuid="panel-42")),
+            ),
+            patch.object(
+                admin_users.subscription_dal,
+                "get_active_subscription_by_user_id",
+                AsyncMock(return_value=active),
+            ),
+            patch.object(admin_users.message_log_dal, "create_message_log", AsyncMock()) as log,
+        ):
+            response = await admin_users.admin_user_tariff_route(request)
+
+        self.assertEqual(response.status, 500)
+        self.assertEqual(json.loads(response.text)["error"], "tariff_change_failed")
+        self.assertTrue(session.rolled_back)
+        self.assertFalse(session.committed)
+        log.assert_not_awaited()
+
+    async def test_change_tariff_route_rejects_unchanged_tariff_after_service_success(self):
+        session = FakeSession()
+        active = SimpleNamespace(subscription_id=1, tariff_key="standard")
+        subscription_service = SimpleNamespace(
+            switch_tariff_without_payment=AsyncMock(return_value={"subscription_id": 1})
+        )
+        settings = SimpleNamespace(
+            tariffs_config=FakeTariffsConfig(
+                [
+                    SimpleNamespace(key="standard", billing_model="period"),
+                    SimpleNamespace(key="plus", billing_model="period"),
+                ]
+            )
+        )
+        request = FakeRequest({"tariff_key": "plus"}, session, subscription_service, settings)
+
+        with (
+            patch.object(users_actions, "_require_admin_user_id", return_value=100),
+            patch.object(
+                admin_users.user_dal,
+                "get_user_by_id",
+                AsyncMock(return_value=SimpleNamespace(panel_user_uuid="panel-42")),
+            ),
+            patch.object(
+                admin_users.subscription_dal,
+                "get_active_subscription_by_user_id",
+                AsyncMock(return_value=active),
+            ),
+            patch.object(admin_users.message_log_dal, "create_message_log", AsyncMock()) as log,
+        ):
+            response = await admin_users.admin_user_tariff_route(request)
+
+        self.assertEqual(response.status, 500)
+        self.assertEqual(json.loads(response.text)["error"], "tariff_change_failed")
+        self.assertTrue(session.rolled_back)
+        self.assertFalse(session.committed)
+        log.assert_not_awaited()
 
     async def test_over_max_limit_is_rejected(self):
         session = FakeSession()

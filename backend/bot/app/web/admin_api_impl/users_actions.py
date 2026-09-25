@@ -860,7 +860,12 @@ async def admin_user_tariff_route(request: web.Request) -> web.Response:
 
     async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
-        active = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
+        user = await user_dal.get_user_by_id(session, target_id)
+        if not user or not user.panel_user_uuid:
+            return _error(404, "no_panel_user")
+        active = await subscription_dal.get_active_subscription_by_user_id(
+            session, target_id, user.panel_user_uuid
+        )
         if not active:
             return _error(404, "no_active_subscription")
 
@@ -871,7 +876,18 @@ async def admin_user_tariff_route(request: web.Request) -> web.Response:
             "admin_assign",
             apply_tariff_hwid_limit=bool(body.apply_tariff_hwid_limit),
         )
-        if not result:
+        if not result or result.get("subscription_id") != active.subscription_id:
+            await session.rollback()
+            return _error(500, "tariff_change_failed")
+
+        refreshed = await subscription_dal.get_active_subscription_by_user_id(
+            session, target_id, user.panel_user_uuid
+        )
+        if (
+            not refreshed
+            or refreshed.subscription_id != active.subscription_id
+            or refreshed.tariff_key != tariff_key
+        ):
             await session.rollback()
             return _error(500, "tariff_change_failed")
 
@@ -885,13 +901,8 @@ async def admin_user_tariff_route(request: web.Request) -> web.Response:
                 "target_user_id": target_id,
             },
         )
+        subscription_payload = _serialize_subscription(refreshed)
         await session.commit()
 
-        refreshed = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
-
     await _invalidate_after_admin_user_mutation(settings, target_id)
-    return _ok(
-        {
-            "subscription": _serialize_subscription(refreshed) if refreshed else None,
-        }
-    )
+    return _ok({"subscription": subscription_payload})

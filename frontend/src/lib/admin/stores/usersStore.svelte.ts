@@ -16,6 +16,7 @@ import { AdminUsersError, createUsersStoreQueries } from "./usersStoreQueries";
 import { createUsersStoreSquadOverrideActions } from "./usersStoreSquadOverrides";
 import { createUsersStoreSubscriptionReissueAction } from "./usersStoreSubscriptionReissue";
 import { createUsersStoreNotificationPreferenceActions } from "./usersStoreNotificationPreferences";
+import { createUsersStoreBalanceActions } from "./usersStoreBalanceActions";
 import { buildAdminUserActionPath, buildAdminUserPath } from "../../webapp/publicApi";
 import {
   USERS_PAGE_SIZE,
@@ -122,6 +123,16 @@ export function createUsersStore({
 
   function readStateSnapshot(): AdminStoreState {
     return snapshotForPayload(readCurrentState());
+  }
+
+  function reportUserActionError(error: unknown): void {
+    onToast(
+      adminErrorMessage(
+        error,
+        at,
+        at("error_service_unavailable", {}, "The service is unavailable. Try again later.")
+      )
+    );
   }
 
   function _isCurrentUserRequest(s: AdminStoreState, requestId: number, userId: number | string) {
@@ -484,6 +495,8 @@ export function createUsersStore({
           banned ? at("user_banned", {}, "User banned") : at("user_unbanned", {}, "User unbanned")
         );
       } else onToast(adminErrorMessage(res, at));
+    } catch (error) {
+      reportUserActionError(error);
     } finally {
       applyState((st) => ({ ...st, userActionBusy: false }));
     }
@@ -508,6 +521,8 @@ export function createUsersStore({
           adminErrorMessage(res, at, at("user_tg_profile_link_failed", {}, "Failed to send link"))
         );
       }
+    } catch (error) {
+      reportUserActionError(error);
     } finally {
       applyState((st) => ({ ...st, userActionBusy: false }));
     }
@@ -555,6 +570,8 @@ export function createUsersStore({
           resetGrant: false,
         });
       } else onToast(adminErrorMessage(res, at));
+    } catch (error) {
+      reportUserActionError(error);
     } finally {
       applyState((st) => ({
         ...st,
@@ -576,19 +593,47 @@ export function createUsersStore({
           apply_tariff_hwid_limit: Boolean(s.userApplyTariffHwidLimit),
         }),
       });
-      if (res?.ok) {
+      if (
+        res?.ok &&
+        "subscription" in res &&
+        res.subscription?.tariff_key === s.userTariffActionKey
+      ) {
         invalidateUsersQueries(s.openedUser.user_id);
-        onToast(at("user_tariff_saved", {}, "Tariff saved"));
-        await refreshOpenedUserDetail({
+        const refreshed = await refreshOpenedUserDetail({
           resetPremium: false,
           resetRegular: false,
           resetHwid: false,
           resetGrant: false,
         });
+        if (
+          !refreshed?.ok ||
+          readStateSnapshot().openedUserDetail?.active_subscription?.tariff_key !==
+            s.userTariffActionKey
+        ) {
+          onToast(
+            at(
+              "user_tariff_verify_failed",
+              {},
+              "Could not verify the saved tariff. Refresh the user card and try again."
+            )
+          );
+          return;
+        }
+        onToast(at("user_tariff_saved", {}, "Tariff saved"));
         if (_activeRef === "users") await loadUsers({ refresh: true });
       } else {
-        onToast(adminErrorMessage(res, at));
+        onToast(
+          res?.ok
+            ? at(
+                "user_tariff_verify_failed",
+                {},
+                "Could not verify the saved tariff. Refresh the user card and try again."
+              )
+            : adminErrorMessage(res, at)
+        );
       }
+    } catch (error) {
+      reportUserActionError(error);
     } finally {
       applyState((st) => ({
         ...st,
@@ -621,6 +666,8 @@ export function createUsersStore({
         });
         if (_activeRef === "users") await loadUsers({ refresh: true });
       } else onToast(adminErrorMessage(res, at));
+    } catch (error) {
+      reportUserActionError(error);
     } finally {
       applyState((st) => ({ ...st, userActionBusy: false }));
     }
@@ -661,6 +708,8 @@ export function createUsersStore({
       } else {
         onToast(adminErrorMessage(res, at));
       }
+    } catch (error) {
+      reportUserActionError(error);
     } finally {
       applyState((st) => ({ ...st, userActionBusy: false }));
     }
@@ -702,6 +751,8 @@ export function createUsersStore({
       } else {
         onToast(adminErrorMessage(res, at));
       }
+    } catch (error) {
+      reportUserActionError(error);
     } finally {
       applyState((st) => ({ ...st, userActionBusy: false }));
     }
@@ -734,6 +785,8 @@ export function createUsersStore({
       } else {
         onToast(adminErrorMessage(res, at));
       }
+    } catch (error) {
+      reportUserActionError(error);
     } finally {
       applyState((st) => ({ ...st, userActionBusy: false }));
     }
@@ -779,6 +832,8 @@ export function createUsersStore({
       } else {
         onToast(adminErrorMessage(res, at));
       }
+    } catch (error) {
+      reportUserActionError(error);
     } finally {
       applyState((st) => ({ ...st, userActionBusy: false }));
     }
@@ -831,79 +886,8 @@ export function createUsersStore({
       } else {
         onToast(adminErrorMessage(res, at));
       }
-    } finally {
-      applyState((st) => ({ ...st, userActionBusy: false }));
-    }
-  }
-
-  async function adjustUserBalance(payload: {
-    target: "user" | "partner";
-    mode: "add" | "subtract" | "set";
-    amount: number;
-    reason: string;
-    idempotency_key: string;
-  }) {
-    const s = readStateSnapshot();
-    if (!s.openedUser) return false;
-    applyState((st) => ({ ...st, userActionBusy: true }));
-    try {
-      const res = await api(buildAdminUserActionPath(s.openedUser.user_id, "balance-adjustment"), {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      if (!res?.ok) {
-        onToast(adminErrorMessage(res, at));
-        return false;
-      }
-      invalidateUsersQueries(s.openedUser.user_id);
-      onToast(at("user_balance_adjustment_saved", {}, "Balance updated"));
-      await refreshOpenedUserDetail({
-        resetExtendTariff: false,
-        resetTariffAction: false,
-        resetTrafficStrategy: false,
-        resetPremium: false,
-        resetRegular: false,
-        resetHwid: false,
-        resetGrant: false,
-        resetSquadOverrides: false,
-      });
-      return true;
-    } finally {
-      applyState((st) => ({ ...st, userActionBusy: false }));
-    }
-  }
-
-  async function convertUserBalance(payload: {
-    direction: "partner_to_user" | "user_to_partner";
-    amount: number;
-    reason: string;
-    idempotency_key: string;
-  }) {
-    const s = readStateSnapshot();
-    if (!s.openedUser) return false;
-    applyState((st) => ({ ...st, userActionBusy: true }));
-    try {
-      const res = await api(buildAdminUserActionPath(s.openedUser.user_id, "balance-conversion"), {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      if (!res?.ok) {
-        onToast(adminErrorMessage(res, at));
-        return false;
-      }
-      invalidateUsersQueries(s.openedUser.user_id);
-      onToast(at("user_balance_conversion_saved", {}, "Balance converted"));
-      await refreshOpenedUserDetail({
-        resetExtendTariff: false,
-        resetTariffAction: false,
-        resetTrafficStrategy: false,
-        resetPremium: false,
-        resetRegular: false,
-        resetHwid: false,
-        resetGrant: false,
-        resetSquadOverrides: false,
-      });
-      return true;
+    } catch (error) {
+      reportUserActionError(error);
     } finally {
       applyState((st) => ({ ...st, userActionBusy: false }));
     }
@@ -925,6 +909,8 @@ export function createUsersStore({
         }));
         closeUser();
       } else onToast(adminErrorMessage(res, at));
+    } catch (error) {
+      reportUserActionError(error);
     } finally {
       applyState((st) => ({ ...st, userActionBusy: false }));
     }
@@ -963,6 +949,17 @@ export function createUsersStore({
     invalidateUsersQueries,
   });
 
+  const balanceActions = createUsersStoreBalanceActions({
+    api,
+    onToast,
+    at,
+    readStateSnapshot,
+    applyState,
+    invalidateUsersQueries,
+    refreshOpenedUserDetail,
+    reportUserActionError,
+  });
+
   return Object.assign(store, {
     updateState,
     setActive,
@@ -982,8 +979,7 @@ export function createUsersStore({
     saveTrafficStrategy,
     saveHwidDeviceLimit,
     grantTraffic,
-    adjustUserBalance,
-    convertUserBalance,
+    ...balanceActions,
     ...squadOverrideActions,
     ...subscriptionReissueActions,
     ...notificationPreferenceActions,

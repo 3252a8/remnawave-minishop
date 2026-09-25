@@ -7,6 +7,7 @@ const messages: Record<string, string> = {
   error_image_type: "Image type is not supported",
   error_invalid_audience:
     "The recipient was not found. Refresh or reopen the user card and try again.",
+  error_tariff_change_failed: "Tariff sync failed",
 };
 
 function at(key: string, vars: Record<string, unknown> = {}, fallback = ""): string {
@@ -61,5 +62,14 @@ describe("adminErrorMessage", () => {
 
     expect(message).toBe("Broadcast failed");
     expect(message).not.toBe("[object Object]");
+  });
+
+  it("reads the API error payload attached to a failed HTTP response", () => {
+    const error = Object.assign(new Error("service_unavailable"), {
+      status: 500,
+      payload: { ok: false, error: "tariff_change_failed" },
+    });
+
+    expect(adminErrorMessage(error, at)).toBe("Tariff sync failed");
   });
 });

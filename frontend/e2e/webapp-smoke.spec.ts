@@ -755,7 +755,11 @@ async function openUserDetailFromCurrentSection(
   page: Page,
   setPhase: (value: string) => void,
   phasePrefix: string,
-  options: { checkBalanceTileSelection?: boolean; checkMobileTariffTapThrough?: boolean } = {}
+  options: {
+    checkBalanceTileSelection?: boolean;
+    checkMobileTariffTapThrough?: boolean;
+    checkTariffSave?: boolean;
+  } = {}
 ): Promise<void> {
   const userDialog = page.locator(".dialog-card.admin-user-dialog");
   setPhase(`${phasePrefix}:user-card`);
@@ -828,6 +832,37 @@ async function openUserDetailFromCurrentSection(
       userDialog,
       `${phasePrefix}:mobile-extend-tariff-select`
     );
+  }
+
+  if (options.checkTariffSave) {
+    setPhase(`${phasePrefix}:save-tariff`);
+    const tariffCard = actionsPanel.locator(".admin-user-action-sheet--tariff");
+    const tariffSelect = tariffCard.locator(".admin-select-trigger");
+    const currentTariff = (await tariffCard.locator(".admin-meta-truncate").innerText())
+      .replace(/^Сейчас:\s*/, "")
+      .trim();
+    await expect(tariffSelect).toContainText(currentTariff);
+    const currentLabel = (await tariffSelect.innerText()).trim();
+    await tariffSelect.click();
+    const items = page
+      .locator(".admin-select-content:visible")
+      .last()
+      .locator(".admin-select-item");
+    const labels = await items.locator("span").allInnerTexts();
+    const targetIndex = labels.findIndex((label) => label.trim() !== currentLabel);
+    expect(targetIndex).toBeGreaterThanOrEqual(0);
+    const targetLabel = labels[targetIndex].trim();
+    await items.nth(targetIndex).click();
+    await expect(tariffSelect).toContainText(targetLabel);
+    const saveTariffButton = tariffCard.getByRole("button", { name: "Сохранить тариф" });
+    await expect(saveTariffButton).toBeEnabled();
+    await saveTariffButton.click();
+    const hwidConfirm = page.locator(".dialog-card.admin-user-tariff-hwid-confirm-dialog");
+    if (await hwidConfirm.isVisible()) {
+      await hwidConfirm.getByRole("button", { name: "Сохранить текущий лимит" }).click();
+    }
+    await expect(tariffCard.locator(".admin-meta-truncate")).toContainText(targetLabel);
+    await expect(tariffCard.locator(".admin-unsaved-hint")).toHaveCount(0);
   }
 
   setPhase(`${phasePrefix}:message-composer`);
@@ -2413,6 +2448,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   await openUserDetailFromCurrentSection(page, setPhase, "admin-users", {
     checkBalanceTileSelection: true,
     checkMobileTariffTapThrough: true,
+    checkTariffSave: true,
   });
   await page.setViewportSize(DESKTOP_VIEWPORT);
 

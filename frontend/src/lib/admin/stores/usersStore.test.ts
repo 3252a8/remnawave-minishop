@@ -102,8 +102,12 @@ describe("usersStore", () => {
   it("sends tariff HWID reset choice when changing a user tariff", async () => {
     const api = vi
       .fn()
-      .mockResolvedValueOnce({ ok: true })
-      .mockResolvedValueOnce({ ok: true, user: { user_id: 42 }, active_subscription: null });
+      .mockResolvedValueOnce({ ok: true, subscription: { tariff_key: "pro" } })
+      .mockResolvedValueOnce({
+        ok: true,
+        user: { user_id: 42 },
+        active_subscription: { tariff_key: "pro" },
+      });
     const store = makeStore(api);
     store.updateState({
       openedUser: { user_id: 42 },
@@ -118,6 +122,52 @@ describe("usersStore", () => {
       body: JSON.stringify({ tariff_key: "pro", apply_tariff_hwid_limit: true }),
     });
     expect(store.userApplyTariffHwidLimit).toBe(false);
+  });
+
+  it("shows a tariff failure instead of claiming success when the API request fails", async () => {
+    const api = vi.fn().mockRejectedValue(
+      Object.assign(new Error("service_unavailable"), {
+        status: 500,
+        payload: { ok: false, error: "tariff_change_failed" },
+      })
+    );
+    const onToast = vi.fn();
+    const store = createUsersStore({
+      api,
+      onToast,
+      at: (key, _params = {}, fallback = key) =>
+        key === "error_tariff_change_failed" ? "Tariff sync failed" : fallback,
+    });
+    store.updateState({ openedUser: { user_id: 42 }, userTariffActionKey: "pro" });
+
+    await store.changeUserTariff();
+
+    expect(onToast).toHaveBeenCalledWith("Tariff sync failed");
+    expect(store.userActionBusy).toBe(false);
+    expect(store.userTariffActionKey).toBe("pro");
+  });
+
+  it("keeps a changed tariff draft when the server reports success without changing it", async () => {
+    const api = vi.fn().mockResolvedValue({ ok: true, subscription: { tariff_key: "basic" } });
+    const onToast = vi.fn();
+    const store = createUsersStore({
+      api,
+      onToast,
+      at: (key, _params = {}, fallback = key) => fallback,
+    });
+    store.updateState({
+      openedUser: { user_id: 42 },
+      userTariffActionKey: "pro",
+      userTariffActionBaselineKey: "basic",
+    });
+
+    await store.changeUserTariff();
+
+    expect(api).toHaveBeenCalledTimes(1);
+    expect(onToast).toHaveBeenCalledWith(
+      "Could not verify the saved tariff. Refresh the user card and try again."
+    );
+    expect(store.userTariffActionBaselineKey).toBe("basic");
   });
 
   it("sends signed day and exact-date subscription term changes", async () => {

@@ -3793,6 +3793,8 @@
   "admin_user_tariff_select_placeholder": "Select tariff",
   "admin_user_tariff_save": "Save tariff",
   "admin_user_tariff_saved": "Tariff saved",
+  "admin_user_tariff_verify_failed": "Could not verify the saved tariff. Refresh the user card and try again.",
+  "admin_error_service_unavailable": "The service is unavailable. Try again later.",
   "admin_user_traffic_strategy_card_title": "Traffic reset",
   "admin_user_traffic_strategy_card_hint": "Per-user Remnawave strategy for the user's period subscription.",
   "admin_user_traffic_strategy_select_label": "Strategy",
