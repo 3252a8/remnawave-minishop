@@ -13,6 +13,8 @@
 export type LazyScreen<Component> = {
   /** The loaded component, or `null` while it is still on its way. */
   readonly component: Component | null;
+  /** Whether the most recent chunk request failed. */
+  readonly failed: boolean;
   load(): void;
 };
 
@@ -20,23 +22,26 @@ export function lazyScreen<Component>(
   load: () => Promise<{ default: Component }>
 ): LazyScreen<Component> {
   let component = $state<Component | null>(null);
+  let failed = $state(false);
   let pending = false;
 
   return {
     get component() {
       return component;
     },
+    get failed() {
+      return failed;
+    },
     load() {
       if (component || pending) return;
+      failed = false;
       pending = true;
       void load()
         .then((module) => {
           component = module.default;
         })
         .catch(() => {
-          // Deliberately silent: the screen stays unloaded and opening it again
-          // retries. A toast here would fire over the tab the customer is still
-          // looking at, for a failure they can resolve by tapping once more.
+          failed = true;
         })
         .finally(() => {
           pending = false;

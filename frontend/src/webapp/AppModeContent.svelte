@@ -420,7 +420,7 @@
           publicMode
         />
       {:else}
-        <ScreenLoading label={t("wa_loading")} />
+        <ScreenLoading screen={installGuideScreen} {t} />
       {/if}
     </div>
   {:else if mode === "login" && checkoutEntryRequested && emailAuthEnabled}

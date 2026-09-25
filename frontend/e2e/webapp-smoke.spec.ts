@@ -2031,10 +2031,11 @@ test("public install share links survive browser focus and visibility changes", 
   page,
 }) => {
   const sharePath = "/s/0123456789abcdef0123456789abcdef";
-  await page.clock.install();
   await page.goto(sharePath);
   const publicShell = page.locator(".public-install-shell");
   await expect(publicShell).toBeVisible();
+  await expect(publicShell.locator(".install-layout")).toBeVisible({ timeout: 10_000 });
+  await page.clock.install();
   const shareUrl = page.url();
 
   for (const event of ["blur", "hidden", "visible", "focus", "pageshow"]) {

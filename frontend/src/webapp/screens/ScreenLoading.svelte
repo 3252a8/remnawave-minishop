@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { Spinner } from "$components/ui/index.js";
+  import { Button, Spinner } from "$components/ui/index.js";
+  import type { LazyScreen } from "$lib/webapp/lazyScreen.svelte.js";
 
   /**
    * Placeholder for a screen whose code is still downloading.
@@ -8,12 +9,21 @@
    * the fraction of a second between tapping a tab and its chunk arriving —
    * and for longer on a bad connection, which is why it says what it is doing.
    */
-  let { label = "" }: { label?: string } = $props();
+  let { screen, t }: { screen: LazyScreen<unknown>; t: (key: string) => string } = $props();
 </script>
 
-<main class="content with-nav screen-loading" role="status" aria-live="polite">
-  <Spinner size="lg" />
-  {#if label}<span>{label}</span>{/if}
+<main
+  class="content with-nav screen-loading"
+  role={screen.failed ? "alert" : "status"}
+  aria-live="polite"
+>
+  {#if screen.failed}
+    <span>{t("wa_screen_load_failed")}</span>
+    <Button onclick={screen.load}>{t("wa_retry")}</Button>
+  {:else}
+    <Spinner size="lg" />
+    <span>{t("wa_loading")}</span>
+  {/if}
 </main>
 
 <style>

@@ -956,6 +956,7 @@
   "support_user_ticket_closed_message": "✅ <b>Ticket #{ticket_id} closed</b>\n\n{subject}",
   "open_mini_app": "Open Mini App",
   "wa_loading": "Loading...",
+  "wa_screen_load_failed": "Could not load this screen. Check your connection and try again.",
   "wa_back": "Back",
   "wa_next": "Next",
   "wa_close": "Close",

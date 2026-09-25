@@ -78,6 +78,7 @@
     "@number-flow/svelte": "0.4.2",
     "fflate": "0.8.3",
     "html-to-image": "^1.11.13",
+    "jsencrypt": "3.5.4",
     "qrcode": "^1.5.4",
     "svelte-awesome-color-picker": "^4.1.3"
   }

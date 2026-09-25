@@ -956,6 +956,7 @@
   "support_user_ticket_closed_message": "✅ <b>Тикет #{ticket_id} закрыт</b>\n\n{subject}",
   "open_mini_app": "Открыть Mini App",
   "wa_loading": "Загрузка...",
+  "wa_screen_load_failed": "Не удалось загрузить экран. Проверьте подключение и попробуйте ещё раз.",
   "wa_back": "Назад",
   "wa_next": "Далее",
   "wa_close": "Закрыть",

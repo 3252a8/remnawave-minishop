@@ -487,7 +487,7 @@
         {t}
       />
     {:else}
-      <ScreenLoading label={t("wa_loading")} />
+      <ScreenLoading screen={installGuideScreen} {t} />
     {/if}
   {:else if screen === "trial"}
     {#if trialActivationScreen.component}
@@ -509,7 +509,7 @@
         {t}
       />
     {:else}
-      <ScreenLoading label={t("wa_loading")} />
+      <ScreenLoading screen={trialActivationScreen} {t} />
     {/if}
   {:else if screen === "invite"}
     {#if inviteScreen.component}
@@ -533,14 +533,14 @@
         {t}
       />
     {:else}
-      <ScreenLoading label={t("wa_loading")} />
+      <ScreenLoading screen={inviteScreen} {t} />
     {/if}
   {:else if screen === "partner"}
     {#if partnerScreen.component}
       {@const Screen = partnerScreen.component}
       <Screen {api} {copyText} goBack={activeTab === "settings" ? goSettings : undefined} {t} />
     {:else}
-      <ScreenLoading label={t("wa_loading")} />
+      <ScreenLoading screen={partnerScreen} {t} />
     {/if}
   {:else if screen === "devices"}
     {#if devicesScreen.component}
@@ -560,7 +560,7 @@
         {t}
       />
     {:else}
-      <ScreenLoading label={t("wa_loading")} />
+      <ScreenLoading screen={devicesScreen} {t} />
     {/if}
   {:else if screen === "support"}
     {#if supportStore.openedTicketId}
@@ -575,7 +575,7 @@
           {t}
         />
       {:else}
-        <ScreenLoading label={t("wa_loading")} />
+        <ScreenLoading screen={supportTicketScreen} {t} />
       {/if}
     {:else if supportScreen.component}
       {@const Screen = supportScreen.component}
@@ -586,7 +586,7 @@
         {t}
       />
     {:else}
-      <ScreenLoading label={t("wa_loading")} />
+      <ScreenLoading screen={supportScreen} {t} />
     {/if}
   {:else if screen === "settings"}
     <SettingsScreen
@@ -677,7 +677,7 @@
         {t}
       />
     {:else}
-      <ScreenLoading label={t("wa_loading")} />
+      <ScreenLoading screen={statusScreen} {t} />
     {/if}
   {/if}
   {#if balance.enabled}
