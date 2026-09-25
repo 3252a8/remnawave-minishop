@@ -532,6 +532,10 @@ async function assertUserTicketScrolling(page: Page, nav: Locator): Promise<void
   await expect.poll(() => messageViewport.evaluate((element) => element.scrollTop)).toBe(0);
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   await expect(composer).toBeInViewport();
+  await composerInput.focus();
+  await expect(nav).toBeHidden();
+  await composerInput.evaluate((element) => (element as HTMLElement).blur());
+  await expect(nav).toBeVisible();
 
   await page.setViewportSize(DESKTOP_VIEWPORT);
   await page.locator(".support-back-button").click();
@@ -2477,6 +2481,24 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   await expect(createCodeDialog).toBeVisible();
   await expect(createCodeDialog.locator(".admin-promo-effect-row")).toHaveCount(6);
   await assertFormFieldsNamed(page, "admin-codes:create-dialog");
+  await page.setViewportSize(MOBILE_VIEWPORT);
+  const createCodeViewport = createCodeDialog.locator(
+    ":scope > .dialog-body-scroll > .scroll-area__viewport"
+  );
+  const createCodeSummary = createCodeDialog.locator(".admin-promo-edit-summary");
+  await expect
+    .poll(() =>
+      createCodeViewport.evaluate((element) => element.scrollHeight - element.clientHeight)
+    )
+    .toBeGreaterThan(100);
+  const summaryTop = await createCodeSummary.evaluate(
+    (element) => element.getBoundingClientRect().top
+  );
+  await createCodeViewport.evaluate((element) => (element.scrollTop = 120));
+  await expect
+    .poll(() => createCodeSummary.evaluate((element) => element.getBoundingClientRect().top))
+    .toBeLessThan(summaryTop - 60);
+  await page.setViewportSize(DESKTOP_VIEWPORT);
   await closeDialog(createCodeDialog);
 
   setPhase("admin-codes:editor-dialog");

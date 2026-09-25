@@ -17,6 +17,7 @@
   import { TicketMessageBubble, TypingIndicator } from "$components/patterns/webapp/index.js";
   import Dialog from "$components/ui/dialog.svelte";
   import { Input, ScrollArea, Skeleton } from "$components/ui/index.js";
+  import { Sliders } from "$components/ui/icons.js";
   import type {
     SupportFilters,
     SupportMessage,
@@ -50,6 +51,7 @@
   let replyImage = $state<File | null>(null);
   let replyButtons = $state<BroadcastButtonDraft[]>([]);
   let messagesScrollEl = $state<HTMLElement | null>(null);
+  let filtersOpen = $state(false);
   let lastMessageScrollKey = $state("");
   const tickets: SupportTicket[] = $derived(supportStore.tickets || []);
   const stats = $derived(
@@ -282,6 +284,33 @@
   });
 </script>
 
+{#snippet supportFilterControls()}
+  <AdminField label={at("support_priority", {}, "Priority")}>
+    <AdminSelect
+      value={ticketFilters.priority || "all"}
+      items={priorityFilterOptions}
+      ariaLabel={at("support_priority", {}, "Priority")}
+      onValueChange={priorityFilterChange}
+    />
+  </AdminField>
+  <AdminField label={at("support_category", {}, "Category")}>
+    <AdminSelect
+      value={ticketFilters.category || "all"}
+      items={categoryFilterOptions}
+      ariaLabel={at("support_category", {}, "Category")}
+      onValueChange={categoryFilterChange}
+    />
+  </AdminField>
+  <AdminField label={at("sort", {}, "Sort")}>
+    <AdminSelect
+      value={ticketFilters.sort || "importance_desc"}
+      items={sortOptions}
+      ariaLabel={at("sort", {}, "Sort")}
+      onValueChange={sortFilterChange}
+    />
+  </AdminField>
+{/snippet}
+
 <div class="support-admin-layout">
   <div class="support-admin-summary" aria-label={at("support_summary", {}, "Support summary")}>
     <span>
@@ -312,7 +341,11 @@
       {/each}
     </div>
 
-    <AdminListToolbar class="support-list-toolbar" onsubmit={() => supportStore.loadList()}>
+    <AdminListToolbar
+      class="support-list-toolbar"
+      mobileFilterMode="dialog"
+      onsubmit={() => supportStore.loadList()}
+    >
       {#snippet search()}
         <Input
           class="input"
@@ -327,31 +360,18 @@
       {#snippet searchActions()}
         <AdminButton variant="primary" type="submit">{at("apply", {}, "Apply")}</AdminButton>
       {/snippet}
+      {#snippet mobileFilters()}
+        <AdminButton
+          aria-label={at("filters", {}, "Filters")}
+          aria-haspopup="dialog"
+          aria-expanded={filtersOpen}
+          onclick={() => (filtersOpen = true)}
+        >
+          <Sliders size={15} />
+        </AdminButton>
+      {/snippet}
       {#snippet filters()}
-        <AdminField label={at("support_priority", {}, "Priority")}>
-          <AdminSelect
-            value={ticketFilters.priority || "all"}
-            items={priorityFilterOptions}
-            ariaLabel={at("support_priority", {}, "Priority")}
-            onValueChange={priorityFilterChange}
-          />
-        </AdminField>
-        <AdminField label={at("support_category", {}, "Category")}>
-          <AdminSelect
-            value={ticketFilters.category || "all"}
-            items={categoryFilterOptions}
-            ariaLabel={at("support_category", {}, "Category")}
-            onValueChange={categoryFilterChange}
-          />
-        </AdminField>
-        <AdminField label={at("sort", {}, "Sort")}>
-          <AdminSelect
-            value={ticketFilters.sort || "importance_desc"}
-            items={sortOptions}
-            ariaLabel={at("sort", {}, "Sort")}
-            onValueChange={sortFilterChange}
-          />
-        </AdminField>
+        {@render supportFilterControls()}
       {/snippet}
     </AdminListToolbar>
 
@@ -389,6 +409,21 @@
     {/if}
   </section>
 </div>
+
+<Dialog
+  open={filtersOpen}
+  title={at("filters", {}, "Filters")}
+  closeLabel={at("close", {}, "Close")}
+  onclose={() => (filtersOpen = false)}
+  class="admin-dialog support-filter-dialog"
+>
+  <div class="support-filter-sheet">
+    {@render supportFilterControls()}
+    <AdminButton variant="primary" onclick={() => (filtersOpen = false)}>
+      {at("done", {}, "Done")}
+    </AdminButton>
+  </div>
+</Dialog>
 
 <Dialog
   open={Boolean(openedTicketId)}

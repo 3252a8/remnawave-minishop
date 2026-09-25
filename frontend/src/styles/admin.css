@@ -7777,12 +7777,19 @@
   }
 
   .admin-promo-edit-summary {
-    align-items: stretch;
-    flex-direction: column;
+    align-items: center;
+    flex-direction: row;
+    padding: 9px 10px;
+  }
+
+  .admin-promo-edit-summary-main {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
   }
 
   .admin-promo-edit-summary-meta {
-    justify-content: flex-start;
+    justify-content: flex-end;
   }
 
   .admin-promo-dialog-actions .admin-unsaved-hint {
@@ -7792,18 +7799,32 @@
 
   .admin-promo-edit-body,
   .admin-promo-tabs-root {
-    height: 100%;
-    max-height: 100%;
-    min-height: 0;
+    height: auto;
+    max-height: none;
+    min-height: auto;
+  }
+
+  .admin-promo-edit-body,
+  .admin-promo-create-body {
+    grid-template-rows: auto;
+  }
+
+  .dialog-card.admin-dialog.admin-promo-dialog .dialog-body-scroll > .scroll-area__viewport > div {
+    height: auto;
+    min-height: 0 !important;
   }
 
   .admin-promo-settings-tab {
-    overflow: hidden;
+    grid-template-rows: auto auto;
+    overflow: visible;
+  }
+
+  .admin-promo-activations-tab {
+    overflow: visible;
   }
 
   .admin-promo-settings-grid {
-    overflow-x: clip;
-    overflow-y: auto;
+    overflow: visible;
     padding-right: 0;
   }
 
@@ -7866,5 +7887,46 @@
 
   .admin-promo-check-row {
     min-height: 34px;
+  }
+}
+
+@media (max-width: 720px) {
+  /* Let the support heading leave the viewport with the ticket list. */
+  .admin-content:has(.support-admin-layout) {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-content:has(.support-admin-layout) .admin-main {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  .support-admin-layout {
+    height: auto;
+    grid-template-rows: auto auto;
+  }
+
+  .support-admin-list-panel {
+    grid-template-rows: auto auto auto;
+  }
+
+  .support-admin-list-panel .support-inbox-list,
+  .support-admin-list-panel .support-inbox-list > .scroll-area__viewport {
+    height: auto;
+    overflow: visible;
+  }
+
+  .support-filter-dialog {
+    width: min(100%, 420px);
+  }
+
+  .support-filter-sheet {
+    display: grid;
+    gap: 12px;
+  }
+
+  .support-filter-sheet > .admin-btn {
+    justify-self: stretch;
   }
 }

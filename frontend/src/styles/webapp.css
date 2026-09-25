@@ -3347,6 +3347,15 @@ a {
   backdrop-filter: blur(16px);
 }
 
+/* A focused editor opens the on-screen keyboard in mobile webviews. Keeping
+   the fixed nav visible lets the browser lift it over the form. This applies
+   to every WebApp form, including support and code activation. */
+@media (max-width: 767px) {
+  body:has(input:focus, textarea:focus, [contenteditable]:focus) .bottom-nav:not(.static) {
+    display: none;
+  }
+}
+
 .bottom-nav-devices {
   grid-template-columns: repeat(var(--bottom-nav-visible-items, 4), minmax(0, 1fr));
 }

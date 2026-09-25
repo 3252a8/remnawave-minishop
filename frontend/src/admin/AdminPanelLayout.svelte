@@ -441,7 +441,7 @@
     </div>
   </aside>
 
-  <section class="admin-content">
+  <section class="admin-content" data-scroll-container>
     <header class="admin-header">
       <div style="display:flex; align-items:center; gap:12px; min-width:0;">
         <button
