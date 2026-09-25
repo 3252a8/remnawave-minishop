@@ -392,9 +392,38 @@
     </li>
   </ul>
 
-  {#if openedUserDetail.subscription_url || openedUserDetail.install_share_url || openedUserDetail.referral?.bot_link || openedUserDetail.referral?.webapp_link}
+  {#if openedUserDetail.panel_user_url || openedUserDetail.subscription_url || openedUserDetail.install_share_url || openedUserDetail.referral?.bot_link || openedUserDetail.referral?.webapp_link}
     <div class="admin-subsection-title">{at("user_section_links", {}, "Links")}</div>
     <div class="admin-link-list">
+      {#if openedUserDetail.panel_user_url}
+        <div class="admin-link-row">
+          <div class="admin-link-row-meta">
+            <span class="admin-link-row-label"
+              >{at("user_label_remnawave_card", {}, "Remnawave user card")}</span
+            >
+            <a
+              class="admin-link-row-url"
+              href={openedUserDetail.panel_user_url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {openedUserDetail.panel_user_url}
+            </a>
+          </div>
+          <AdminButton
+            size="icon"
+            variant="icon"
+            title={at("user_copy_tooltip", {}, "Copy")}
+            onclick={() =>
+              usersStore.copyToClipboard(
+                openedUserDetail.panel_user_url!,
+                at("user_panel_link_copied", {}, "Remnawave user card link copied")
+              )}
+          >
+            <Copy size={14} />
+          </AdminButton>
+        </div>
+      {/if}
       {#if openedUserDetail.subscription_url}
         <div class="admin-link-row">
           <div class="admin-link-row-meta">

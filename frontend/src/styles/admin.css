@@ -3577,6 +3577,20 @@
   max-height: min(100%, 760px);
 }
 
+@media (max-width: 859px) {
+  .admin-user-dialog .dialog-head {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-user-dialog .dialog-title-block {
+    display: none;
+  }
+
+  .admin-user-dialog .dialog-close-button {
+    justify-self: end;
+  }
+}
+
 .admin-user-dialog-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
