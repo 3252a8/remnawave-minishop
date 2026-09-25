@@ -18,7 +18,9 @@
   } from "$components/ui/icons.js";
   import { builtApiPath } from "$lib/webapp/publicApi";
   import type { AdminApi } from "../adminStores";
+  import PluginApplyDialog from "./PluginApplyDialog.svelte";
   import PluginImportDialog from "./PluginImportDialog.svelte";
+  import PluginRemoveDialog from "./PluginRemoveDialog.svelte";
   import PluginHost from "./PluginHost.svelte";
   import { responseError } from "./pluginPackageErrors";
   import PluginOperations from "./PluginOperations.svelte";
@@ -56,8 +58,14 @@
     failed_generation?: number | null;
     failure?: string;
     observations?: Record<string, { generation: number; status: string }>;
+    operations?: Array<{
+      id: string;
+      action: string;
+      plugin: string;
+      digest?: string;
+      status?: string;
+    }>;
   };
-
   let { api, at }: { api: AdminApi; at: TranslateFn } = $props();
   let inventory = $state<Inventory>({
     generation: 0,
@@ -83,6 +91,8 @@
   );
   let removeError = $state("");
   let removeConfirmed = $state(false);
+  let applyBusy = $state(false);
+  let applyDialog = $state<ReturnType<typeof PluginApplyDialog> | null>(null);
   const cards = $derived.by(() => {
     const byId = new Map<string, PluginCard>();
     for (const plugin of inventory.bundled) byId.set(plugin.id, { id: plugin.id, bundled: true });
@@ -145,7 +155,7 @@
   }
 
   async function run(action: () => Promise<void>): Promise<void> {
-    if (busy) return;
+    if (busy || applyBusy) return;
     busy = true;
     error = "";
     try {
@@ -178,18 +188,23 @@
     }
   }
 
-  async function toggle(id: string, enabled: boolean): Promise<void> {
-    await run(async () => {
-      const path = builtApiPath<"/api/admin/plugins/{plugin_id}/enabled">(
-        `/admin/plugins/${encodeURIComponent(id)}/enabled`
-      );
-      const result = await api(path, {
-        method: "POST",
-        body: JSON.stringify({ enabled, generation: inventory.generation }),
-      });
-      if (!result?.ok) throw new Error(responseError(result, "plugin_update_failed"));
-      await load();
-    });
+  function toggle(id: string, enabled: boolean): void {
+    void applyDialog?.toggle(
+      id,
+      inventory.installations[id]?.name || id,
+      enabled,
+      inventory.generation
+    );
+  }
+
+  function install(operation: {
+    id: string;
+    name: string;
+    digest: string;
+    operationId: string;
+    generation: number;
+  }): void {
+    applyDialog?.install(operation, Boolean(inventory.installations[operation.id]));
   }
 
   function openRemove(id: string, name: string): void {
@@ -214,7 +229,7 @@
   }
 
   async function remove(id: string): Promise<void> {
-    if (busy) return;
+    if (busy || applyBusy) return;
     busy = true;
     removeStage = "removing";
     removeError = "";
@@ -324,10 +339,14 @@
         </div>
       {/snippet}
       {#snippet actions()}
-        <AdminButton size="sm" variant="primary" onclick={() => (importOpen = true)}
+        <AdminButton
+          size="sm"
+          variant="primary"
+          disabled={busy || applyBusy}
+          onclick={() => (importOpen = true)}
           ><Plus size={15} />{at("plugins_add", {}, "Add plugin")}</AdminButton
         >
-        <AdminButton size="sm" onclick={() => void run(load)} disabled={busy}
+        <AdminButton size="sm" onclick={() => void run(load)} disabled={busy || applyBusy}
           ><RefreshCw size={14} />{at("btn_refresh", {}, "Refresh")}</AdminButton
         >
       {/snippet}
@@ -419,7 +438,7 @@
                   aria-label={at("plugins_toggle_named", { name: card.id }, "Enable {name}")}
                   checked={card.installation.enabled}
                   onCheckedChange={(checked) => void toggle(card.id, checked)}
-                  disabled={busy}
+                  disabled={busy || applyBusy}
                   class="admin-switch-root"><Switch.Thumb class="admin-switch-thumb" /></Switch.Root
                 >
               {/if}
@@ -433,7 +452,12 @@
         </article>
       {/each}
       {#if !query.trim()}
-        <button type="button" class="plugin-add-card" onclick={() => (importOpen = true)}>
+        <button
+          type="button"
+          class="plugin-add-card"
+          disabled={busy || applyBusy}
+          onclick={() => (importOpen = true)}
+        >
           <span class="add-symbol"><Plus size={25} /></span>
           <strong>{at("plugins_add", {}, "Add plugin")}</strong>
           <span
@@ -574,7 +598,10 @@
           {/if}
           {#if selected.installation && selected.installation.source?.kind !== "image"}
             <div class="plugin-update-actions">
-              <AdminButton size="sm" onclick={() => (importOpen = true)} disabled={busy}
+              <AdminButton
+                size="sm"
+                onclick={() => (importOpen = true)}
+                disabled={busy || applyBusy}
                 >{selected.installation.source?.url
                   ? at("plugins_check_update", {}, "Check and install update")
                   : at("plugins_add", {}, "Add plugin")}</AdminButton
@@ -582,7 +609,7 @@
               <AdminButton
                 size="sm"
                 variant="danger"
-                disabled={busy}
+                disabled={busy || applyBusy}
                 onclick={() => openRemove(selected.id, selected.installation?.name || selected.id)}
                 ><Trash2 size={14} />{at("plugins_remove", {}, "Remove package")}</AdminButton
               >
@@ -602,7 +629,20 @@
   initialRepository={selected?.installation?.source?.url || ""}
   initialRef={selected?.installation?.source?.ref || ""}
   onclose={() => (importOpen = false)}
-  oninstalled={() => run(load)}
+  oninstall={install}
+/>
+
+<PluginApplyDialog
+  bind:this={applyDialog}
+  {api}
+  {at}
+  blocked={busy}
+  oninventory={refreshInventory}
+  onready={(id) => {
+    void loadUpdates();
+    if (selectedId === id) void loadRuntime(id);
+  }}
+  onbusy={(value) => (applyBusy = value)}
 />
 
 <Dialog
@@ -642,61 +682,16 @@
   {/if}
 </Dialog>
 
-<Dialog
+<PluginRemoveDialog
+  {at}
   open={Boolean(removeDialogId)}
-  title={at("plugins_remove_title", { name: removeName }, "Remove {name}?")}
-  closeLabel={at("close", {}, "Close")}
+  name={removeName}
+  stage={removeStage}
+  error={removeError}
+  confirmed={removeConfirmed}
   onclose={closeRemove}
-  showCloseButton={removeStage !== "removing" && removeStage !== "restarting"}
-  class="admin-dialog admin-dialog-compact plugin-remove-dialog"
->
-  <div class="plugin-remove-content">
-    <p>
-      {at(
-        "plugins_remove_explanation",
-        {},
-        "The plugin will be removed from this installation. Its saved data and verified package remain available. The application may be briefly unavailable while its backend and worker restart."
-      )}
-    </p>
-    <ol
-      class="plugin-remove-steps"
-      aria-label={at("plugins_remove_progress", {}, "Removal progress")}
-    >
-      <li class:current={removeStage === "removing"} class:done={removeConfirmed}>
-        {at("plugins_remove_step_package", {}, "Remove plugin from the installation")}
-      </li>
-      <li class:current={removeStage === "restarting"} class:done={removeStage === "complete"}>
-        {at("plugins_remove_step_restart", {}, "Restart backend and worker")}
-      </li>
-      <li class:done={removeStage === "complete"}>
-        {at("plugins_remove_step_ready", {}, "Confirm the application is ready")}
-      </li>
-    </ol>
-    {#if removeStage === "removing" || removeStage === "restarting"}
-      <p role="status">
-        {removeStage === "removing"
-          ? at("plugins_removing", {}, "Removing the package…")
-          : at("plugins_remove_restarting", {}, "Waiting for the application to restart…")}
-      </p>
-    {:else if removeStage === "complete"}
-      <p role="status">
-        {at("plugins_remove_complete", {}, "Plugin removed. The application is ready.")}
-      </p>
-    {:else if removeStage === "failed"}
-      <p class="admin-error" role="alert">{removeError}</p>
-    {/if}
-    <div class="admin-dialog-actions">
-      {#if removeStage === "confirm"}
-        <AdminButton onclick={closeRemove}>{at("cancel", {}, "Cancel")}</AdminButton>
-        <AdminButton variant="danger" onclick={() => void remove(removeDialogId)}>
-          <Trash2 size={14} />{at("plugins_remove", {}, "Remove package")}
-        </AdminButton>
-      {:else if removeStage === "complete" || removeStage === "failed"}
-        <AdminButton onclick={closeRemove}>{at("close", {}, "Close")}</AdminButton>
-      {/if}
-    </div>
-  </div>
-</Dialog>
+  onremove={() => void remove(removeDialogId)}
+/>
 
 <style>
   .plugins-section {
@@ -886,31 +881,6 @@
     align-items: center;
     gap: 8px;
     margin-top: 8px;
-  }
-  .plugin-remove-content {
-    display: grid;
-    gap: 16px;
-  }
-  .plugin-remove-content p {
-    margin: 0;
-    color: var(--admin-muted);
-    font-size: 13px;
-    line-height: 1.6;
-  }
-  .plugin-remove-steps {
-    display: grid;
-    gap: 10px;
-    margin: 0;
-    padding-left: 22px;
-    color: var(--admin-muted);
-    font-size: 13px;
-  }
-  .plugin-remove-steps .current {
-    color: var(--admin-text);
-    font-weight: 650;
-  }
-  .plugin-remove-steps .done {
-    color: var(--accent);
   }
   .plugin-package-meta {
     display: grid;

@@ -39,11 +39,14 @@ test("plugin library and import dialog work at desktop and mobile sizes", async 
                   operations: [
                     { id: "op-1", action: "install", plugin: "pro", status: "completed" },
                   ],
-                  observations: { backend: { generation: 2, status: "active" } },
+                  observations: {
+                    backend: { generation: enabled ? 2 : 3, status: "active" },
+                    worker: { generation: enabled ? 2 : 3, status: "active" },
+                  },
                 };
               if (path === "/admin/plugins/pro/enabled") {
                 enabled = Boolean(JSON.parse(String(options?.body || "{}"))?.enabled);
-                return { ok: true };
+                throw new Error("connection closed during restart");
               }
               if (path === "/admin/plugins/updates") return { ok: true, updates: {} };
               if (path === "/admin/plugins/runtime") return { ok: true, plugins: [] };
@@ -103,6 +106,9 @@ test("plugin library and import dialog work at desktop and mobile sizes", async 
   });
 
   await card.getByRole("switch").click();
+  const applyDialog = page.locator(".plugin-apply-dialog");
+  await expect(applyDialog.getByText("Плагин выключен. Приложение готово к работе.")).toBeVisible();
+  await applyDialog.getByRole("button", { name: "Закрыть" }).last().click();
   await expect(card.getByRole("switch")).not.toBeChecked();
   await card.getByRole("button", { name: "Настройки" }).click();
   await expect(page.getByText("У этого плагина пока нет настроек.")).toBeVisible();
@@ -254,4 +260,203 @@ test("an enabled package is removed with one request and visible restart progres
   ).toBe(1);
   await dialog.getByRole("button", { name: "Закрыть" }).last().click();
   await expect(page.locator('[data-plugin-id="sample-plugin"]')).toHaveCount(0);
+});
+
+test("install and update confirm both processes after a lost response", async ({ page }) => {
+  await page.addInitScript(() => {
+    type Api = (path: string, options?: RequestInit) => Promise<Record<string, unknown>>;
+    type AdminBundle = {
+      mount: (target: HTMLElement, props: { api: Api } & Record<string, unknown>) => unknown;
+    };
+    let bundle: AdminBundle | undefined;
+    let generation = 2;
+    let digest = "";
+    let version = "";
+    let readsSinceChange = 0;
+    let previewIndex = 0;
+    let candidate: Record<string, unknown> = {};
+    const operations: Array<Record<string, unknown>> = [];
+    Object.defineProperty(window, "SubscriptionWebAppAdmin", {
+      configurable: true,
+      get: () => bundle,
+      set(value: AdminBundle) {
+        const mount = value.mount;
+        value.mount = (target, props) =>
+          mount(target, {
+            ...props,
+            api: async (path, options) => {
+              if (path === "/admin/plugins") {
+                readsSinceChange += 1;
+                return {
+                  ok: true,
+                  generation,
+                  installations: digest
+                    ? {
+                        sample: {
+                          digest,
+                          version,
+                          name: "Sample plugin",
+                          publisher: "Example publisher",
+                          enabled: false,
+                          status: "installed",
+                          source: {
+                            kind: "repository",
+                            url: "https://github.com/example/sample",
+                            ref: "main",
+                          },
+                        },
+                      }
+                    : {},
+                  bundled: [],
+                  operations,
+                  observations: {
+                    backend: { generation, status: readsSinceChange > 1 ? "active" : "starting" },
+                    worker: { generation, status: readsSinceChange > 2 ? "active" : "starting" },
+                  },
+                };
+              }
+              if (path === "/admin/plugins/repository/preview") {
+                previewIndex += 1;
+                candidate = {
+                  ok: true,
+                  digest: (previewIndex === 1 ? "a" : "b").repeat(64),
+                  manifest: {
+                    id: "sample",
+                    name: "Sample plugin",
+                    version: `${previewIndex}.0.0`,
+                    publisher: "Example publisher",
+                    publisher_fingerprint: "fingerprint",
+                  },
+                  trusted: true,
+                  trust_reason: "",
+                  source: {
+                    url: "https://github.com/example/sample",
+                    ref: "main",
+                    commit: "abc",
+                    artifact: "package.zip",
+                  },
+                };
+                return candidate;
+              }
+              if (path === "/admin/plugins/repository/stage")
+                return { ...candidate, operation_id: `op-${previewIndex}` };
+              if (path === "/admin/plugins/install") {
+                const body = JSON.parse(String(options?.body || "{}"));
+                digest = body.digest;
+                version = `${previewIndex}.0.0`;
+                generation += 1;
+                readsSinceChange = 0;
+                operations.push({
+                  id: body.operation_id,
+                  plugin: "sample",
+                  digest,
+                  action: "install",
+                  status: "completed",
+                });
+                throw new Error("connection closed during restart");
+              }
+              if (path === "/admin/plugins/updates") return { ok: true, updates: {} };
+              if (path === "/admin/plugins/runtime") return { ok: true, plugins: [] };
+              return props.api(path, options);
+            },
+          });
+        bundle = value;
+      },
+    });
+  });
+
+  await page.goto("/demo/runtime/admin/plugins");
+  for (const expected of ["Плагин установлен.", "Плагин обновлён."]) {
+    if (expected === "Плагин установлен.") {
+      await page.getByRole("button", { name: "Добавить плагин" }).first().click();
+    } else {
+      await page
+        .locator('[data-plugin-id="sample"]')
+        .getByRole("button", { name: "Настройки" })
+        .click();
+      await page.getByRole("tab", { name: "Обновления" }).click();
+      await page.getByRole("button", { name: "Проверить и установить обновление" }).click();
+    }
+    const importDialog = page.locator(".plugin-import-dialog");
+    if (expected === "Плагин установлен.")
+      await importDialog.getByRole("button", { name: "Git-репозиторий" }).click();
+    await importDialog
+      .getByPlaceholder("https://github.com/author/repository")
+      .fill("https://github.com/example/sample");
+    await importDialog.getByRole("button", { name: "Проверить репозиторий" }).click();
+    await importDialog.getByRole("button", { name: "Установить выключенным" }).click();
+    const applyDialog = page.locator(".plugin-apply-dialog");
+    await expect(applyDialog.getByText("Ожидаем перезапуска приложения…")).toBeVisible();
+    expect(await page.evaluate(() => sessionStorage.getItem("minishop-plugin-apply"))).toContain(
+      "sample"
+    );
+    await expect(applyDialog.getByText(`${expected} Приложение готово к работе.`)).toBeVisible();
+    await applyDialog.getByRole("button", { name: "Закрыть" }).last().click();
+    expect(await page.evaluate(() => sessionStorage.getItem("minishop-plugin-apply"))).toBeNull();
+    if (expected === "Плагин установлен.")
+      await expect(page.locator('[data-plugin-id="sample"]')).toBeVisible();
+  }
+});
+
+test("a lost toggle response reports startup failure after the generation changes", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    type Api = (path: string, options?: RequestInit) => Promise<Record<string, unknown>>;
+    type AdminBundle = {
+      mount: (target: HTMLElement, props: { api: Api } & Record<string, unknown>) => unknown;
+    };
+    let bundle: AdminBundle | undefined;
+    let generation = 2;
+    let enabled = true;
+    Object.defineProperty(window, "SubscriptionWebAppAdmin", {
+      configurable: true,
+      get: () => bundle,
+      set(value: AdminBundle) {
+        const mount = value.mount;
+        value.mount = (target, props) =>
+          mount(target, {
+            ...props,
+            api: async (path, options) => {
+              if (path === "/admin/plugins")
+                return {
+                  ok: true,
+                  generation,
+                  installations: {
+                    sample: {
+                      digest: "a".repeat(64),
+                      version: "1.0.0",
+                      name: "Sample plugin",
+                      publisher: "Example publisher",
+                      enabled,
+                      status: "pending_restart",
+                    },
+                  },
+                  bundled: [],
+                  failed_generation: generation === 3 ? generation : null,
+                  observations: {
+                    backend: { generation, status: "starting" },
+                    worker: { generation, status: "starting" },
+                  },
+                };
+              if (path === "/admin/plugins/sample/enabled") {
+                enabled = Boolean(JSON.parse(String(options?.body || "{}"))?.enabled);
+                generation = 3;
+                throw new Error("connection closed during restart");
+              }
+              if (path === "/admin/plugins/updates") return { ok: true, updates: {} };
+              return props.api(path, options);
+            },
+          });
+        bundle = value;
+      },
+    });
+  });
+  await page.goto("/demo/runtime/admin/plugins");
+  await page.locator('[data-plugin-id="sample"]').getByRole("switch").click();
+  await expect(
+    page
+      .locator(".plugin-apply-dialog")
+      .getByText("Изменение сохранено, но приложение не запустилось штатно. Проверьте диагностику.")
+  ).toBeVisible();
 });

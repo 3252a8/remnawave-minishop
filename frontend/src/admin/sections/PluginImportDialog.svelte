@@ -32,7 +32,7 @@
     initialRepository = "",
     initialRef = "",
     onclose,
-    oninstalled,
+    oninstall,
   }: {
     api: AdminApi;
     at: TranslateFn;
@@ -41,7 +41,13 @@
     initialRepository?: string;
     initialRef?: string;
     onclose: () => void;
-    oninstalled: () => void | Promise<void>;
+    oninstall: (operation: {
+      id: string;
+      name: string;
+      digest: string;
+      operationId: string;
+      generation: number;
+    }) => void;
   } = $props();
 
   let layout = $state<HTMLElement | null>(null);
@@ -191,17 +197,15 @@
       const selected = staged as unknown as Candidate;
       if (selected.digest !== candidate?.digest || !selected.operation_id)
         throw new Error("candidate_changed");
-      const result = await api("/admin/plugins/install", {
-        method: "POST",
-        body: JSON.stringify({
-          operation_id: selected.operation_id,
-          digest: selected.digest,
-          generation,
-        }),
-      });
-      if (!result?.ok) throw new Error(responseError(result, "install_failed"));
+      const operation = {
+        id: selected.manifest.id,
+        name: selected.manifest.name || selected.manifest.id,
+        digest: selected.digest,
+        operationId: selected.operation_id,
+        generation,
+      };
       onclose();
-      await oninstalled();
+      oninstall(operation);
     });
   }
 </script>
