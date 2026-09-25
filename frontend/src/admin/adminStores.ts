@@ -13,6 +13,7 @@ import { createTariffsStore } from "../lib/admin/stores/tariffsStore.js";
 import { createThemesStore } from "../lib/admin/stores/themesStore.js";
 import { createTranslationsStore } from "../lib/admin/stores/translationsStore.js";
 import { createUsersStore } from "../lib/admin/stores/usersStore.js";
+import { createRoleApi } from "../lib/admin/roleApi.js";
 import {
   setAdsStore,
   setAdminSupportStore,
@@ -28,6 +29,7 @@ import {
   setThemesStore,
   setTranslationsStore,
   setUsersStore,
+  setRoleApi,
 } from "../lib/admin/context";
 import type { TariffsCatalog } from "../lib/admin/stores/tariffsStore";
 import type { ApiClient } from "../lib/webapp/publicApi";
@@ -152,6 +154,7 @@ export function createAdminStores({
   setAdminSupportStore(supportStore);
   setSettingsStore(settingsStore);
   setUsersStore(usersStore);
+  setRoleApi(createRoleApi(api as never));
   setTariffsStore(tariffsStore);
   setThemesStore(themesStore);
   setTranslationsStore(translationsStore);

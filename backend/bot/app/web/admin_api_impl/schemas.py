@@ -692,6 +692,7 @@ class PromoActivationOut(HttpResponseModel):
     activation_id: int
     promo_id: int
     user_id: int
+    user_minishop_id: str | None = None
     user_label: str
     telegram_id: int | None = None
     activated_at: datetime | None = None
@@ -736,6 +737,11 @@ class PromoActivationOut(HttpResponseModel):
             activation_id=int(activation.activation_id),
             promo_id=int(activation.promo_code_id),
             user_id=int(activation.user_id),
+            user_minishop_id=(
+                str(loaded_user.minishop_id)
+                if loaded_user is not None and getattr(loaded_user, "minishop_id", None)
+                else None
+            ),
             user_label=user_label,
             telegram_id=telegram_id,
             activated_at=activation.activated_at,

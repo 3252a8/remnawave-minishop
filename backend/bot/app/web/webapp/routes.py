@@ -240,8 +240,8 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
         index_route,
     )
     app.router.add_get(r"/admin/settings/{settings_path:.+}", index_route)
-    app.router.add_get("/admin/users/{user_id:-?[0-9]+}", index_route)
-    app.router.add_get("/admin/payments/users/{user_id:-?[0-9]+}", index_route)
+    app.router.add_get("/admin/users/{user_id:-?[0-9]+|ms_[a-fA-F0-9]+}", index_route)
+    app.router.add_get("/admin/payments/users/{user_id:-?[0-9]+|ms_[a-fA-F0-9]+}", index_route)
     app.router.add_get("/admin/payments/{payment_id:\\d+}", index_route)
     app.router.add_get("/admin/support/{ticket_id:\\d+}", index_route)
     app.router.add_get(r"/admin/{section:[a-z][a-z0-9-]+}", plugin_admin_index_route)

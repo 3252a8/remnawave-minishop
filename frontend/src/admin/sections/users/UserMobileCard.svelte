@@ -71,7 +71,7 @@
       <AdminUserCell
         name={userDisplayName(user)}
         secondary={userSecondaryName(user)}
-        idText={`#${user.user_id}`}
+        idText={user.minishop_id || ""}
         initials={userInitials(user)}
         avatarUrl={avatar}
       />

@@ -1595,6 +1595,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/roles/candidates": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Role Candidates */
+    get: operations["get_admin_role_candidates_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/roles/{user_id}/{role}": {
     parameters: {
       query?: never;
@@ -4287,6 +4304,11 @@ export interface components {
       /** Purchaser Label */
       purchaser_label: string;
       /**
+       * Purchaser Minishop Id
+       * @default null
+       */
+      purchaser_minishop_id: string | null;
+      /**
        * Recipient Email
        * @default null
        */
@@ -4295,6 +4317,11 @@ export interface components {
       recipient_id: number | null;
       /** Recipient Label */
       recipient_label: string;
+      /**
+       * Recipient Minishop Id
+       * @default null
+       */
+      recipient_minishop_id: string | null;
       /**
        * Regular Bonus Gb
        * @default 0
@@ -4845,10 +4872,34 @@ export interface components {
       /** Total */
       total: number;
     };
+    /** AdminRoleCandidateOut */
+    AdminRoleCandidateOut: {
+      /** Email */
+      email: string | null;
+      /** First Name */
+      first_name: string | null;
+      /** Minishop Id */
+      minishop_id: string;
+      /** Username */
+      username: string | null;
+    };
+    /** AdminRoleCandidatesOut */
+    AdminRoleCandidatesOut: {
+      /** Users */
+      users: components["schemas"]["AdminRoleCandidateOut"][];
+    };
     /** AdminRoleGrantBody */
     AdminRoleGrantBody: {
-      /** Email */
-      email: string;
+      /**
+       * Email
+       * @default null
+       */
+      email: string | null;
+      /**
+       * Minishop Id
+       * @default null
+       */
+      minishop_id: string | null;
       /** Role */
       role: string;
     };
@@ -4856,6 +4907,8 @@ export interface components {
     AdminRoleOut: {
       /** Email */
       email: string | null;
+      /** Minishop Id */
+      minishop_id: string | null;
       /** Role */
       role: string;
       /** User Id */
@@ -7604,6 +7657,11 @@ export interface components {
       /** User Label */
       user_label: string;
       /**
+       * User Minishop Id
+       * @default null
+       */
+      user_minishop_id: string | null;
+      /**
        * Yookassa Payment Id
        * @default null
        */
@@ -7731,6 +7789,11 @@ export interface components {
       user_id: number;
       /** User Label */
       user_label: string;
+      /**
+       * User Minishop Id
+       * @default null
+       */
+      user_minishop_id: string | null;
     };
     /** PaymentPurchaseOut */
     PaymentPurchaseOut: {
@@ -7924,6 +7987,11 @@ export interface components {
       user_id: number;
       /** User Label */
       user_label: string;
+      /**
+       * User Minishop Id
+       * @default null
+       */
+      user_minishop_id: string | null;
     };
     /** PromoCreateBody */
     PromoCreateBody: {
@@ -13094,6 +13162,29 @@ export interface operations {
       };
     };
   };
+  get_admin_role_candidates_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminRoleCandidatesOut"];
+        };
+      };
+    };
+  };
   delete_admin_role_revoke_route: {
     parameters: {
       query?: never;
@@ -13986,7 +14077,7 @@ export interface operations {
       query?: never;
       header?: never;
       path: {
-        user_id: number;
+        user_id: string;
       };
       cookie?: never;
     };

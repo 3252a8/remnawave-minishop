@@ -4,8 +4,6 @@
   import { trafficOfLabel } from "../../lib/admin/format.js";
   import { TableHandler } from "@vincjo/datatables";
   import UsersView from "./users/UsersView.svelte";
-  import RoleManagement from "./users/RoleManagement.svelte";
-  import type { AdminApi } from "../adminStores";
   import type { AdminUser } from "../../lib/admin/stores/usersStore";
   import { USERS_PAGE_SIZE } from "../../lib/admin/stores/usersStoreState";
   import {
@@ -31,7 +29,6 @@
   type FilterPatch = Partial<Record<FilterKey, string>> & { usersPage?: number };
   type FilterChip = { key: FilterKey; label: string; value: string };
   type UsersSectionProps = {
-    api: AdminApi;
     at?: TranslateFn;
     fmtDateShort?: (value: string | null | undefined) => string;
     fmtMoney?: (value: number, currency?: string | null) => string;
@@ -52,7 +49,6 @@
     | undefined;
 
   let {
-    api,
     at = (key) => key,
     fmtDateShort = (value) => String(value || ""),
     fmtMoney = (value) => String(value),
@@ -375,8 +371,6 @@
     usersStore.loadUsers();
   });
 </script>
-
-<RoleManagement {api} {at} />
 
 <UsersView
   {at}

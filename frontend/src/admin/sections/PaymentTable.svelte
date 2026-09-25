@@ -180,7 +180,7 @@
         getKey={(p) => p.payment_id}
       >
         {#snippet children(p)}
-          {@const userLabel = String(p.user_label || p.user_id)}
+          {@const userLabel = String(p.user_label || p.user_minishop_id || "")}
           <tr>
             <td class="admin-cell-id" data-label="ID">
               <span class="admin-payment-id-actions">
@@ -239,12 +239,12 @@
                       </Popover.Content>
                     </Popover.Portal>
                   </Popover.Root>
-                  {#if p.user_id != null}
+                  {#if p.user_minishop_id}
                     <AdminCopyableValue
                       class="admin-payments-user-id"
-                      value={p.user_id}
-                      text={`#${p.user_id}`}
-                      copyLabel={copyLabel(p.user_id)}
+                      value={p.user_minishop_id}
+                      text={p.user_minishop_id}
+                      copyLabel={copyLabel(p.user_minishop_id)}
                       kind="user-id"
                       oncopy={copyValue}
                     />
@@ -279,7 +279,7 @@
 
     <ul class="admin-payments-mobile-list">
       {#each paymentsTable.rows as p (p.payment_id)}
-        {@const userLabel = String(p.user_label || p.user_id)}
+        {@const userLabel = String(p.user_label || p.user_minishop_id || "")}
         <li class="admin-payment-mobile-card" data-mobile-payment-id={p.payment_id}>
           <div class="admin-payment-mobile-head">
             <span class="admin-payment-id-actions">
@@ -317,15 +317,15 @@
             </AdminButton>
             <span class="admin-payment-mobile-user-copy">
               <strong>{userLabel}</strong>
-              <small>
-                <AdminCopyableValue
-                  value={p.user_id}
-                  text={`ID ${p.user_id}`}
-                  copyLabel={copyLabel(p.user_id)}
-                  kind="user-id"
-                  oncopy={copyValue}
-                />
-              </small>
+              {#if p.user_minishop_id}<small>
+                  <AdminCopyableValue
+                    value={p.user_minishop_id}
+                    text={`ID ${p.user_minishop_id}`}
+                    copyLabel={copyLabel(p.user_minishop_id)}
+                    kind="user-id"
+                    oncopy={copyValue}
+                  />
+                </small>{/if}
             </span>
             <time datetime={p.created_at || undefined}>{fmtDate(p.created_at)}</time>
           </div>

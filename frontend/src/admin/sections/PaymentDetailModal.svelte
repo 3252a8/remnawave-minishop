@@ -362,7 +362,11 @@
 
   const userRows = $derived([
     { label: at("user", {}, "User"), value: payment?.user_label },
-    { label: "User ID", value: payment?.user_id, copy: payment?.user_id },
+    {
+      label: "ID",
+      value: payment?.user_minishop_id,
+      copy: payment?.user_minishop_id,
+    },
     { label: "Telegram ID", value: payment?.telegram_id, copy: payment?.telegram_id },
   ] satisfies MetaRow[]);
 

@@ -15,6 +15,7 @@
     settingsPathKey,
     settingsSectionAnchorKey,
     settingsSectionRoute,
+    settingsSubsectionAnchorKey,
     settingsSubsectionRoute,
   } from "$lib/admin/settingsSections";
   import {
@@ -128,6 +129,20 @@
       fieldDescriptionText,
     }),
     ...programSearchEntries(),
+    {
+      key: "ADMINISTRATORS",
+      sectionId: "general",
+      subsectionId: "administrators",
+      label: at("roles_title", {}, "Administrators"),
+      description: at("roles_hint", {}, "Choose an existing account to grant access."),
+      pathLabel: at("roles_title", {}, "Administrators"),
+      anchorKey: settingsSubsectionAnchorKey("general", "administrators"),
+      searchText: normalizeSettingsSearchText(
+        [at("roles_title", {}, "Administrators"), at("roles_hint", {}, ""), "ADMINISTRATORS"].join(
+          " "
+        )
+      ),
+    },
   ]);
   const settingsSearchResults = $derived(
     searchSettingsEntries(settingsSearchEntries, settingsSearchQuery, 8)
@@ -462,6 +477,19 @@
 
   async function applySettingsPath(path: unknown): Promise<void> {
     const resolvedPath = effectiveSettingsPath(path);
+    if (
+      resolvedPath[0]?.toLowerCase() === "general" &&
+      resolvedPath[1]?.toLowerCase() === "administrators"
+    ) {
+      settingsOpenSections = [...new Set([...settingsOpenSections, "general"])];
+      settingsOpenSubsections = {
+        ...settingsOpenSubsections,
+        general: [...new Set([...(settingsOpenSubsections.general || []), "administrators"])],
+      };
+      await tick();
+      scrollToSettingsAnchor(settingsSubsectionAnchorKey("general", "administrators"));
+      return;
+    }
     const firstSegment = resolvedPath[0]?.toLowerCase();
     const legacyProgram =
       firstSegment === "marketing" ? resolvedPath[1]?.toLowerCase() : firstSegment;

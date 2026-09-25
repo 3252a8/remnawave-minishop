@@ -228,7 +228,7 @@
   <div class="admin-subsection-title">{at("user_section_profile", {}, "Profile")}</div>
   <ul class="admin-meta-list">
     <li>
-      <span>{at("user_minishop_id", {}, "Minishop ID")}</span>
+      <span>{at("user_minishop_id", {}, "ID")}</span>
       <strong>
         {#if openedUser.minishop_id}
           <AdminCopyableValue
@@ -255,17 +255,6 @@
         </strong>
       </li>
     {/if}
-    <li>
-      <span>ID</span>
-      <strong>
-        <AdminCopyableValue
-          value={openedUser.user_id}
-          copyLabel={copyLabel(openedUser.user_id)}
-          kind="user-id"
-          oncopy={copyValue}
-        />
-      </strong>
-    </li>
     <li>
       <span>Telegram ID</span>
       <strong>
@@ -349,7 +338,7 @@
       <strong class="admin-user-ref-value">
         {#if referralInviter}
           <span>{userDisplayName(referralInviter)}</span>
-          <small>ID {referralInviter.user_id}</small>
+          <small>ID {referralInviter.minishop_id || "—"}</small>
         {:else}
           <span>{at("user_invited_by_none", {}, "—")}</span>
         {/if}

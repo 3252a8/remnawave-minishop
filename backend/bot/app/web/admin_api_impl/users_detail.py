@@ -514,8 +514,8 @@ async def _filter_and_sort_users(
             sa_func.coalesce(User.first_name, User.username, User.email).desc(),
             User.user_id.desc(),
         ),
-        "id_asc": User.user_id.asc(),
-        "id_desc": User.user_id.desc(),
+        "id_asc": User.minishop_id.asc(),
+        "id_desc": User.minishop_id.desc(),
     }
 
     # Keep the historical wire values for bookmarked admin URLs, but the
@@ -645,14 +645,20 @@ def _serialize_trial_summary(user: User, trial_subs: list[Subscription]) -> dict
 
 async def admin_user_detail_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    target_id = int(request.match_info["user_id"])
+    identifier = request.match_info["user_id"]
     async_session_factory: sessionmaker = get_session_factory(request)
     settings: Settings = get_settings(request)
 
     async with async_session_factory() as session:
-        user = await user_dal.get_user_by_id(session, target_id)
+        user = (
+            await session.scalar(select(User).where(User.minishop_id == identifier.lower()))
+            if identifier.startswith("ms_")
+            else await user_dal.get_user_by_id(session, int(identifier))
+        )
         if not user:
             return _error(404, "not_found", "User not found")
+
+        target_id = int(user.user_id)
 
         active_sub = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
         latest_subs_stmt = (

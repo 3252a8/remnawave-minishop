@@ -14,6 +14,7 @@ import type { TariffsStore } from "./stores/tariffsStore";
 import type { ThemesStore } from "./stores/themesStore";
 import type { TranslationsStore } from "./stores/translationsStore";
 import type { UsersStore } from "./stores/usersStore";
+import type { RoleApi } from "./roleApi";
 
 export const [getPromosStore, setPromosStore] = createContext<PromosStore>();
 export const [getAdsStore, setAdsStore] = createContext<AdsStore>();
@@ -26,6 +27,7 @@ export const [getStatsStore, setStatsStore] = createContext<StatsStore>();
 export const [getAdminSupportStore, setAdminSupportStore] = createContext<AdminSupportStore>();
 export const [getSettingsStore, setSettingsStore] = createContext<SettingsStore>();
 export const [getUsersStore, setUsersStore] = createContext<UsersStore>();
+export const [getRoleApi, setRoleApi] = createContext<RoleApi>();
 export const [getTariffsStore, setTariffsStore] = createContext<TariffsStore>();
 export const [getThemesStore, setThemesStore] = createContext<ThemesStore>();
 export const [getTranslationsStore, setTranslationsStore] = createContext<TranslationsStore>();

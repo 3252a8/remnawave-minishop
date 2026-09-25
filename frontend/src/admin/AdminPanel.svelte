@@ -34,7 +34,9 @@
   } from "../lib/admin/users.js";
   import { adminErrorMessage } from "../lib/admin/errors.js";
   import {
+    adminPaymentsUserIdFromPath,
     adminSettingsPathFromPath,
+    adminUserIdFromPath,
     stripRoutePrefix,
     withRoutePrefix,
   } from "../lib/webapp/routes.js";
@@ -104,8 +106,8 @@
     initialSection?: string;
     initialSettingsPath?: SettingsPath;
     initialPaymentId?: number | null;
-    initialPaymentUserId?: number | null;
-    initialUserId?: number | null;
+    initialPaymentUserId?: number | string | null;
+    initialUserId?: number | string | null;
     onSectionChange?: (section: string, userId?: number) => void;
     onSettingsSaved?: (payload: SettingsSavedPayload) => void | Promise<void>;
     onTariffsSaved?: (catalog: TariffsCatalog) => void | Promise<void>;
@@ -486,10 +488,9 @@
     return adminSettingsPathFromPath(currentRoutePathname());
   }
 
-  function readUserIdFromPath(): number | null {
+  function readUserIdFromPath(): number | string | null {
     if (typeof window === "undefined") return null;
-    const match = currentRoutePathname().match(/^\/admin\/users\/(-?\d+)$/);
-    return match ? Number(match[1]) : null;
+    return adminUserIdFromPath(window.location.pathname, routePrefix);
   }
 
   function readSupportTicketIdFromPath(): number | null {
@@ -504,10 +505,9 @@
     return match ? Number(match[1]) : null;
   }
 
-  function readPaymentUserIdFromPath(): number | null {
+  function readPaymentUserIdFromPath(): number | string | null {
     if (typeof window === "undefined") return null;
-    const match = currentRoutePathname().match(/^\/admin\/payments\/users\/(-?\d+)$/);
-    return match ? Number(match[1]) : null;
+    return adminPaymentsUserIdFromPath(window.location.pathname, routePrefix);
   }
 
   function readPromoIdFromPath(): number | null {
@@ -535,7 +535,11 @@
     const paymentUserId = active === "payments" ? readPaymentUserIdFromPath() : null;
     const contextualUserId = paymentUserId || userId;
     if (contextualUserId) {
-      if (!usersStore.openedUser || usersStore.openedUser.user_id !== contextualUserId) {
+      if (
+        !usersStore.openedUser ||
+        (usersStore.openedUser.user_id !== contextualUserId &&
+          usersStore.openedUser.minishop_id !== contextualUserId)
+      ) {
         void usersStore.openUser(contextualUserId, {
           skipPush: true,
           pathContext: paymentUserId ? "payments" : "users",

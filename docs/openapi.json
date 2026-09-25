@@ -1392,6 +1392,18 @@
             "title": "Purchaser Label",
             "type": "string"
           },
+          "purchaser_minishop_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Purchaser Minishop Id"
+          },
           "recipient_email": {
             "anyOf": [
               {
@@ -1418,6 +1430,18 @@
           "recipient_label": {
             "title": "Recipient Label",
             "type": "string"
+          },
+          "recipient_minishop_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Recipient Minishop Id"
           },
           "regular_bonus_gb": {
             "default": 0,
@@ -2805,11 +2829,96 @@
         "title": "AdminPaymentsListOut",
         "type": "object"
       },
+      "AdminRoleCandidateOut": {
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "minishop_id": {
+            "title": "Minishop Id",
+            "type": "string"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "required": [
+          "minishop_id",
+          "email",
+          "username",
+          "first_name"
+        ],
+        "title": "AdminRoleCandidateOut",
+        "type": "object"
+      },
+      "AdminRoleCandidatesOut": {
+        "properties": {
+          "users": {
+            "items": {
+              "$ref": "#/components/schemas/AdminRoleCandidateOut"
+            },
+            "title": "Users",
+            "type": "array"
+          }
+        },
+        "required": [
+          "users"
+        ],
+        "title": "AdminRoleCandidatesOut",
+        "type": "object"
+      },
       "AdminRoleGrantBody": {
         "properties": {
           "email": {
-            "title": "Email",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Email"
+          },
+          "minishop_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Minishop Id"
           },
           "role": {
             "title": "Role",
@@ -2817,7 +2926,6 @@
           }
         },
         "required": [
-          "email",
           "role"
         ],
         "title": "AdminRoleGrantBody",
@@ -2836,6 +2944,17 @@
             ],
             "title": "Email"
           },
+          "minishop_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minishop Id"
+          },
           "role": {
             "title": "Role",
             "type": "string"
@@ -2848,6 +2967,7 @@
         "required": [
           "user_id",
           "email",
+          "minishop_id",
           "role"
         ],
         "title": "AdminRoleOut",
@@ -9116,6 +9236,18 @@
             "title": "User Label",
             "type": "string"
           },
+          "user_minishop_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "User Minishop Id"
+          },
           "yookassa_payment_id": {
             "anyOf": [
               {
@@ -9412,6 +9544,18 @@
           "user_label": {
             "title": "User Label",
             "type": "string"
+          },
+          "user_minishop_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "User Minishop Id"
           }
         },
         "required": [
@@ -9868,6 +10012,18 @@
           "user_label": {
             "title": "User Label",
             "type": "string"
+          },
+          "user_minishop_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "User Minishop Id"
           }
         },
         "required": [
@@ -21015,6 +21171,52 @@
         ]
       }
     },
+    "/api/admin/roles/candidates": {
+      "get": {
+        "operationId": "get_admin_role_candidates_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminRoleCandidatesOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Role Candidates",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/roles/{user_id}/{role}": {
       "delete": {
         "operationId": "delete_admin_role_revoke_route",
@@ -22976,7 +23178,8 @@
             "name": "user_id",
             "required": true,
             "schema": {
-              "type": "integer"
+              "pattern": "-?\\d+|ms_[a-fA-F0-9]+",
+              "type": "string"
             }
           }
         ],

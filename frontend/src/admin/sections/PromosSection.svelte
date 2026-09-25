@@ -416,7 +416,7 @@
   function promoOwnerLabel(promo: Promo): string {
     if (promo.user_username) return `@${promo.user_username}`;
     if (promo.user_name) return promo.user_name;
-    return at("promo_owner_id", { id: promo.user_id }, "ID {id}");
+    return at("user", {}, "User");
   }
 
   function promoType(promo: Promo | PromoPatch): string {

@@ -20,7 +20,9 @@ describe("admin user helpers", () => {
     );
     expect(userInitials({ first_name: "Ann", last_name: "Lee" })).toBe("AL");
     expect(userInitials({ username: "ann" })).toBe("AN");
-    expect(userDisplayName({ user_id: 42 })).toBe("User #42");
+    expect(userDisplayName({ user_id: 42, minishop_id: "ms_abc" })).toBe("User ms_abc");
+    expect(userDisplayName({ user_id: 42 })).toBe("User —");
+    expect(userSecondaryName({ user_id: 42, minishop_id: "ms_abc" })).toBe("");
   });
 
   it("resolves avatar URLs without using local avatar proxy placeholders", () => {

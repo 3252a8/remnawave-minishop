@@ -207,5 +207,5 @@
     {updateUserExternalSquadUuid}
   />
 
-  <UserDangerActionsCard {at} {openedUserIsBanned} {userActionBusy} />
+  <UserDangerActionsCard {at} {openedUser} {openedUserIsBanned} {userActionBusy} />
 </Tabs.Content>

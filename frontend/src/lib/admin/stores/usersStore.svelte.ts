@@ -9,6 +9,7 @@ import {
   openingUserModalState,
   pushUserPath,
   resolvePathContext,
+  userFromRoute,
 } from "./usersStoreHelpers";
 import { defineRawStateProperty } from "./rawStateProperty";
 import { AdminUsersError, createUsersStoreQueries } from "./usersStoreQueries";
@@ -123,7 +124,7 @@ export function createUsersStore({
     return snapshotForPayload(readCurrentState());
   }
 
-  function _isCurrentUserRequest(s: AdminStoreState, requestId: number, userId: number) {
+  function _isCurrentUserRequest(s: AdminStoreState, requestId: number, userId: number | string) {
     return isCurrentUserRequest(s, requestId, userId, _openUserRequestId);
   }
 
@@ -148,6 +149,7 @@ export function createUsersStore({
       ...s,
       openedUserDetail: res,
       openedUser: res.user ? { ...res.user, ...s.openedUser, ...res.user } : s.openedUser,
+      userLogsUserId: res.user?.user_id ?? s.userLogsUserId,
     };
 
     if (resetExtendTariff) {
@@ -208,10 +210,9 @@ export function createUsersStore({
     _pathContext = resolvePathContext(_activeRef, context);
   }
 
-  function _pushUserPath(userId: number | string | null) {
-    pushUserPath(_activeRef, _pathContext, userId, routePrefix);
+  function _pushUserPath(userId: number | string | null, replace = false) {
+    pushUserPath(_activeRef, _pathContext, userId, routePrefix, replace);
   }
-
   async function loadUsers({ refresh = false }: { refresh?: boolean } = {}) {
     const requestId = ++_loadUsersRequestId;
     const perf = createAdminPerfSpan("users");
@@ -245,15 +246,12 @@ export function createUsersStore({
   }
 
   async function openUser(userOrId: AdminUser | number | string, opts: OpenUserOptions = {}) {
-    const userId: number =
-      typeof userOrId === "object" && userOrId !== null
-        ? Number(userOrId.user_id)
-        : Number(userOrId);
+    const userId: number | string =
+      typeof userOrId === "object" && userOrId !== null ? userOrId.user_id : userOrId;
     if (!userId) return;
     const requestId = ++_openUserRequestId;
     _setPathContext(opts.pathContext);
-    const openedUser =
-      typeof userOrId === "object" && userOrId !== null ? userOrId : { user_id: userId };
+    const openedUser = userFromRoute(userOrId);
 
     applyState((s) => ({
       ...s,
@@ -261,13 +259,16 @@ export function createUsersStore({
       userActionBusy: s.userActionBusy,
     }));
 
-    if (!opts.skipPush) _pushUserPath(userId);
+    if (!opts.skipPush) _pushUserPath(openedUser.minishop_id || userId);
     try {
       const res = await queryUserDetail(userId);
       applyState((s) => {
         if (!_isCurrentUserRequest(s, requestId, userId)) return s;
         return _applyUserDetailSnapshot(s, res);
       });
+      if (res.user?.minishop_id && _isCurrentUserRequest(readCurrentState(), requestId, userId)) {
+        _pushUserPath(res.user.minishop_id, true);
+      }
     } catch (error) {
       if (error instanceof AdminUsersError) {
         let shouldClearPath = false;

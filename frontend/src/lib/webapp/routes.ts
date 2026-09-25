@@ -149,10 +149,13 @@ export function adminPartnersDeepLinkFromPath(
   return match ? match[0] : "";
 }
 
-export function adminUserIdFromPath(pathname: unknown, routePrefix: unknown = ""): number | null {
+export function adminUserIdFromPath(
+  pathname: unknown,
+  routePrefix: unknown = ""
+): number | string | null {
   const normalized = stripRoutePrefix(pathname, routePrefix).toLowerCase().replace(/\/+$/, "");
-  const m = normalized.match(/^\/admin\/users\/(-?\d+)$/);
-  return m ? Number(m[1]) : null;
+  const m = normalized.match(/^\/admin\/users\/(-?\d+|ms_[a-f0-9]{32})$/);
+  return m ? (m[1].startsWith("ms_") ? m[1] : Number(m[1])) : null;
 }
 
 export function adminPaymentIdFromPath(
@@ -167,10 +170,10 @@ export function adminPaymentIdFromPath(
 export function adminPaymentsUserIdFromPath(
   pathname: unknown,
   routePrefix: unknown = ""
-): number | null {
+): number | string | null {
   const normalized = stripRoutePrefix(pathname, routePrefix).toLowerCase().replace(/\/+$/, "");
-  const m = normalized.match(/^\/admin\/payments\/users\/(-?\d+)$/);
-  return m ? Number(m[1]) : null;
+  const m = normalized.match(/^\/admin\/payments\/users\/(-?\d+|ms_[a-f0-9]{32})$/);
+  return m ? (m[1].startsWith("ms_") ? m[1] : Number(m[1])) : null;
 }
 
 export function supportTicketIdFromPath(

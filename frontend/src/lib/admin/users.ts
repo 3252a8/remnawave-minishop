@@ -3,6 +3,7 @@ type AdminUserLike = Record<string, unknown> & {
   email?: string | null;
   first_name?: string | null;
   last_name?: string | null;
+  minishop_id?: string | null;
   telegram_id?: number | string | null;
   telegram_photo_url?: string | null;
   user_id?: number | string;
@@ -24,14 +25,16 @@ export function userDisplayName(user: AdminUserLike | null | undefined): string 
   const full = [user?.first_name, user?.last_name].filter(Boolean).join(" ").trim();
   return (
     full ||
-    (user?.username ? `@${user.username}` : user?.email || `User #${String(user?.user_id || "—")}`)
+    (user?.username
+      ? `@${user.username}`
+      : user?.email || `User ${String(user?.minishop_id || "—")}`)
   );
 }
 
 export function userSecondaryName(user: AdminUserLike | null | undefined): string {
   if (user?.username && userDisplayName(user) !== `@${user.username}`) return `@${user.username}`;
   if (user?.email && userDisplayName(user) !== user.email) return user.email;
-  return `ID ${String(user?.user_id || "—")}`;
+  return "";
 }
 
 export function userInitials(user: AdminUserLike | null | undefined): string {

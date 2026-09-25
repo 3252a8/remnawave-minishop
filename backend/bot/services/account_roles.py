@@ -49,11 +49,14 @@ async def active_admin_user_ids(session: AsyncSession) -> list[int]:
     return list(result.scalars().all())
 
 
-async def bootstrap_owner(session: AsyncSession, email: str) -> int:
-    """Grant the first owner only to an existing verified email account.
+async def bootstrap_owner(
+    session: AsyncSession, email: str | None = None, minishop_id: str | None = None
+) -> int:
+    """Grant the first owner to an existing account from a trusted shell.
 
-    This command runs from a trusted local shell after email verification. It
-    never grants the role to the first account merely because it registered.
+    Email accounts require verification. A Minishop ID identifies an existing
+    account through the trusted shell, including Telegram-only installations.
+    Registration alone never grants the role.
     """
     await session.execute(text("SELECT pg_advisory_xact_lock(:lock)"), {"lock": _ROLE_LOCK_ID})
     owner_count = await session.scalar(
@@ -63,12 +66,19 @@ async def bootstrap_owner(session: AsyncSession, email: str) -> int:
     )
     if owner_count:
         raise ValueError("Owner already exists")
-    normalized = email.strip().lower()
-    user = await session.scalar(
-        select(User).where(User.email == normalized, User.email_verified_at.is_not(None))
-    )
+    if bool(email) == bool(minishop_id):
+        raise ValueError("Provide exactly one account identifier")
+    if minishop_id:
+        user = await session.scalar(
+            select(User).where(User.minishop_id == minishop_id.strip().lower())
+        )
+    else:
+        normalized = (email or "").strip().lower()
+        user = await session.scalar(
+            select(User).where(User.email == normalized, User.email_verified_at.is_not(None))
+        )
     if user is None:
-        raise ValueError("A verified email account is required")
+        raise ValueError("An existing account with the supplied identifier is required")
     await grant_role(session, int(user.user_id), ROLE_OWNER, source="bootstrap")
     return int(user.user_id)
 

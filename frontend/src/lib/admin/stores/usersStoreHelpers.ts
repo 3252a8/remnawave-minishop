@@ -11,7 +11,7 @@ import type { AdminStoreState, AdminSubscription, AdminUser, PathContext } from 
 
 export function openingUserModalState(
   user: AdminUser | null,
-  userId: number
+  userId: number | string
 ): Partial<AdminStoreState> {
   return {
     ...closedUserModalState(),
@@ -22,14 +22,27 @@ export function openingUserModalState(
   };
 }
 
+export function userFromRoute(userOrId: AdminUser | number | string): AdminUser {
+  if (typeof userOrId === "object") return userOrId;
+  const isMinishopId = typeof userOrId === "string" && userOrId.startsWith("ms_");
+  return {
+    user_id: isMinishopId ? 0 : Number(userOrId),
+    minishop_id: isMinishopId ? String(userOrId) : null,
+  };
+}
+
 export function isCurrentUserRequest(
   state: AdminStoreState,
   requestId: number,
-  userId: number,
+  userId: number | string,
   currentRequestId: number
 ): boolean {
   const openedUser = state.openedUser;
-  return requestId === currentRequestId && Boolean(openedUser) && openedUser?.user_id === userId;
+  return (
+    requestId === currentRequestId &&
+    Boolean(openedUser) &&
+    (openedUser?.user_id === userId || openedUser?.minishop_id === userId)
+  );
 }
 
 function gbDraftFromBytes(bytes: unknown) {
@@ -66,7 +79,8 @@ export function pushUserPath(
   active: string,
   pathContext: PathContext,
   userId: number | string | null,
-  routePrefix: string
+  routePrefix: string,
+  replace = false
 ): void {
   if (typeof window === "undefined" || window.location.protocol === "file:") return;
   let target = "";
@@ -77,7 +91,11 @@ export function pushUserPath(
   if (!target) return;
   target = withRoutePrefix(target, routePrefix);
   if (window.location.pathname !== target) {
-    window.history.pushState(null, "", `${target}${window.location.search}${window.location.hash}`);
+    window.history[replace ? "replaceState" : "pushState"](
+      null,
+      "",
+      `${target}${window.location.search}${window.location.hash}`
+    );
   }
 }
 

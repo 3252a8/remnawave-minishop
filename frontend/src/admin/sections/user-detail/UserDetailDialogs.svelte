@@ -150,7 +150,7 @@
                     <small>{userSecondaryName(invitee)}</small>
                   </span>
                 </td>
-                <td class="admin-cell-mono" data-label="ID">{invitee.user_id}</td>
+                <td class="admin-cell-mono" data-label="ID">{invitee.minishop_id || "—"}</td>
                 <td data-label={at("user_label_registration", {}, "Registration")}>
                   {fmtDateShort(invitee.registration_date)}
                 </td>

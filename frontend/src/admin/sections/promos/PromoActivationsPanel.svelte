@@ -280,8 +280,8 @@
                     <User size={14} />
                   </AdminButton>
                   <span class="admin-promos-user-name">
-                    {row.user_label || row.user_id}
-                    <small>ID {row.user_id}</small>
+                    {row.user_label || row.user_minishop_id || "—"}
+                    {#if row.user_minishop_id}<small>ID {row.user_minishop_id}</small>{/if}
                   </span>
                 </span>
               </td>

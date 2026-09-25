@@ -18,6 +18,7 @@
     AdminSelect,
   } from "$components/patterns/admin/index.js";
   import SettingsDisclosureTrigger from "./SettingsDisclosureTrigger.svelte";
+  import AdministratorsSubsection from "./AdministratorsSubsection.svelte";
   import PaymentMethodsOrderField from "./PaymentMethodsOrderField.svelte";
   import NotificationDeliveryMatrix from "./NotificationDeliveryMatrix.svelte";
   import MenuButtonsField from "./MenuButtonsField.svelte";
@@ -33,6 +34,8 @@
   import {
     loginProviderCallbackUrl,
     loginProviderGuideUrl,
+    loginProviderHelpHint,
+    loginProviderHelpTitle,
     loginProviderOfficialUrl,
   } from "$lib/admin/loginProviderSetup.js";
   import {
@@ -272,42 +275,6 @@
       copiedLoginProviderKey = "";
     }
   }
-
-  function loginProviderHelpTitle(provider: string): string {
-    if (provider === "google")
-      return at("settings_login_google_help_title", {}, "Google OAuth application");
-    if (provider === "yandex")
-      return at("settings_login_yandex_help_title", {}, "Yandex OAuth application");
-    if (provider === "discord")
-      return at("settings_login_discord_help_title", {}, "Discord OAuth2 application");
-    return at("settings_login_passkey_help_title", {}, "Passkey domain settings");
-  }
-
-  function loginProviderHelpHint(provider: string): string {
-    if (provider === "google")
-      return at(
-        "settings_login_google_help_hint",
-        {},
-        "Create a Web OAuth client and add the exact callback URL below."
-      );
-    if (provider === "yandex")
-      return at(
-        "settings_login_yandex_help_hint",
-        {},
-        "Create an app for user authorization and add the callback as a Web service Redirect URI."
-      );
-    if (provider === "discord")
-      return at(
-        "settings_login_discord_help_hint",
-        {},
-        "Create a Discord application and add the exact OAuth2 redirect URL below."
-      );
-    return at(
-      "settings_login_passkey_help_hint",
-      {},
-      "Use HTTPS; RP ID must be the application domain and origins must contain its full origin."
-    );
-  }
 </script>
 
 {#snippet renderLoginMethodHints()}
@@ -373,8 +340,8 @@
   {#if provider === "discord" || provider === "google" || provider === "yandex" || provider === "passkey"}
     <div class="admin-login-provider-help">
       <div class="admin-login-provider-help-copy">
-        <strong>{loginProviderHelpTitle(provider)}</strong>
-        <p>{loginProviderHelpHint(provider)}</p>
+        <strong>{loginProviderHelpTitle(provider, at)}</strong>
+        <p>{loginProviderHelpHint(provider, at)}</p>
         {#if provider === "google"}
           <div class="admin-login-provider-setup-values">
             <div class="admin-login-provider-setup-row">
@@ -924,6 +891,14 @@
                   {@render renderWebhookHint(rootGroup.webhook)}
                 {/if}
                 {@render renderGroupedFields(section, rootGroup)}
+              {/if}
+              {#if section.id === "general"}
+                <AdministratorsSubsection
+                  {at}
+                  contentId={settingsDisclosureId("subsection", "general", "administrators")}
+                  onToggle={() => toggleSettingsSubsection("general", "administrators")}
+                  open={(settingsOpenSubsections.general || []).includes("administrators")}
+                />
               {/if}
               {#if labelGroups.length}
                 <div class="admin-subsection-accordion">
