@@ -73,6 +73,8 @@
     "vitest": "^4.1.11"
   },
   "dependencies": {
+    "@incy/link-encoder": "1.3.0",
+    "@kastov/cryptohapp": "1.1.2",
     "@number-flow/svelte": "0.4.2",
     "fflate": "0.8.3",
     "html-to-image": "^1.11.13",

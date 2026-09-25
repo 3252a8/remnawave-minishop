@@ -26,6 +26,8 @@
     localizedInstallValue,
     renderInstallQrDataUrl,
     resolveInstallButtonAction,
+    resolveInstallQrLink,
+    type InstallGuideButtonAction,
   } from "$lib/webapp/installGuideRuntime.js";
   import {
     asInstallGuidesConfig,
@@ -33,7 +35,6 @@
     asWebappRecord,
     installPlatformsFromConfig,
     type CopyTextAction,
-    type InstallGuideButton,
     type OpenLinkAction,
     type SubscriptionView,
     type Translate,
@@ -155,19 +156,21 @@
   const guideSubscription = $derived(
     asWebappRecord(installGuidesStore?.subscription || subscription)
   );
-  const finalSubscriptionLink = $derived(
-    (guideSubscription.link_mode === "minishop" ? asString(guideSubscription.http_url) : "") ||
-      asString(guideSubscription.config_link) ||
-      asString(guideSubscription.connect_url) ||
-      asString(subscription?.config_link)
+  const buttonActions = $derived(
+    selectedBlocks.map((block) =>
+      (block.buttons || []).map((button) =>
+        resolveInstallButtonAction(button, { subscription: guideSubscription, user })
+      )
+    )
   );
+  const selectedConnectionLink = $derived(resolveInstallQrLink(selectedBlocks, buttonActions));
   const shareUrl = $derived(
     asString(guideSubscription.share_url) || asString(subscription?.install_share_url)
   );
   $effect(() => {
-    if (finalSubscriptionLink === lastQrValue) return;
-    lastQrValue = finalSubscriptionLink;
-    updateQr(finalSubscriptionLink);
+    if (selectedConnectionLink === lastQrValue) return;
+    lastQrValue = selectedConnectionLink;
+    updateQr(selectedConnectionLink);
   });
 
   function localized(value: unknown, fallback = ""): string {
@@ -221,8 +224,8 @@
     (openAppLink || openExternalLink)(url);
   }
 
-  async function handleButton(button: InstallGuideButton) {
-    const action = resolveInstallButtonAction(button, { subscription: guideSubscription, user });
+  async function handleButton(action?: InstallGuideButtonAction) {
+    if (!action) return;
     if (action.kind === "copy") {
       await copyText(
         action.value,
@@ -250,7 +253,7 @@
   }
 
   async function copySubscriptionLink() {
-    await copyText(finalSubscriptionLink, t("wa_install_link_copied", {}, "Link copied"));
+    await copyText(selectedConnectionLink, t("wa_install_link_copied", {}, "Link copied"));
   }
 
   async function shareInstallGuide() {
@@ -454,10 +457,10 @@
                     <p>{localized(block.description)}</p>
                     {#if block.buttons?.length}
                       <div class="install-actions">
-                        {#each block.buttons as button}
+                        {#each block.buttons as button, buttonIndex}
                           <Button
                             variant={button.type === "copyButton" ? "secondary" : "default"}
-                            onclick={() => handleButton(button)}
+                            onclick={() => handleButton(buttonActions[blockIndex]?.[buttonIndex])}
                           >
                             {#if button.type === "copyButton"}
                               <Copy size={16} />
@@ -475,7 +478,7 @@
             {/each}
           </section>
         {/key}
-        {#if finalSubscriptionLink && !publicMode}
+        {#if selectedConnectionLink && !publicMode}
           <div
             class="install-qr-divider motion-enter-card"
             style={installMotionStyle(qrDelayIndex, QR_DELAY_EXTRA_MS)}

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { decryptLink } from "@incy/link-encoder/sync";
 
 import {
   detectInstallPlatformKey,
@@ -7,6 +8,7 @@ import {
   localizedInstallValue,
   renderInstallQrDataUrl,
   resolveInstallButtonAction,
+  resolveInstallQrLink,
   resolveInstallTemplate,
 } from "./installGuideRuntime";
 import { guideDocumentToConfig } from "./guideDocument";
@@ -37,6 +39,33 @@ describe("install guide runtime helpers", () => {
     expect(installIconColorStyle("emerald")).toBe("--install-icon-color:#10b981;");
     expect(isUnsafeInstallUrl("javascript:alert(1)")).toBe(true);
     expect(isUnsafeInstallUrl("https://example.com")).toBe(false);
+  });
+
+  it("encrypts client-specific templates from the raw subscription URL", () => {
+    const url = "https://shop.example.test/s/token";
+    const context = {
+      subscription: {
+        link_mode: "minishop",
+        http_url: url,
+        config_link: "happ://crypt4/prepared",
+      },
+    };
+
+    expect(resolveInstallTemplate("{{HAPP_CRYPT3_LINK}}", context)).toMatch(/^happ:\/\/crypt3\//);
+    expect(resolveInstallTemplate("{{HAPP_CRYPT4_LINK}}", context)).toMatch(/^happ:\/\/crypt4\//);
+    expect(decryptLink(resolveInstallTemplate("{{INCY_CRYPT1_LINK}}", context))).toEqual({
+      url,
+    });
+    expect(
+      resolveInstallTemplate("{{HAPP_CRYPT4_LINK}}", {
+        subscription: { config_link: "happ://crypt4/prepared" },
+      })
+    ).toBe("happ://crypt4/prepared");
+    expect(
+      resolveInstallTemplate("{{INCY_CRYPT1_LINK}}", {
+        subscription: { config_link: "happ://crypt4/prepared" },
+      })
+    ).toBe("");
   });
 
   it("resolves button actions and shields QR rendering errors", async () => {
@@ -92,5 +121,36 @@ describe("install guide runtime helpers", () => {
         }
       )
     ).toEqual({ kind: "open", value: "https://shop.test/s/token" });
+  });
+
+  it("uses the selected subscription button action for the QR link", () => {
+    const context = { subscription: { http_url: "https://shop.test/s/token" } };
+    const blocks = [
+      {
+        buttons: [
+          { type: "external", link: "https://apps.example.test/download" },
+          {
+            type: "subscriptionLink",
+            link: "{{INCY_CRYPT1_LINK}}",
+            action: {
+              kind: "open",
+              target: {
+                kind: "resource",
+                resourceId: "primary-subscription",
+                representation: "incy-crypt1",
+              },
+            },
+          },
+        ],
+      },
+    ];
+    const actions = blocks.map((block) =>
+      block.buttons.map((button) => resolveInstallButtonAction(button, context))
+    );
+    const qrLink = resolveInstallQrLink(blocks, actions);
+
+    expect(qrLink).toBe(actions[0][1].value);
+    expect(decryptLink(qrLink)).toEqual({ url: context.subscription.http_url });
+    expect(resolveInstallQrLink([{ buttons: [blocks[0].buttons[0]] }], [actions[0]])).toBe("");
   });
 });

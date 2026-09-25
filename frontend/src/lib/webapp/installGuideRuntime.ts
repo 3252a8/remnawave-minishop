@@ -1,3 +1,6 @@
+import { encryptLink } from "@incy/link-encoder/sync";
+import { createHappCryptoLink } from "@kastov/cryptohapp";
+
 export type InstallGuideRecord = Record<string, unknown>;
 
 type NavigatorLike = {
@@ -13,6 +16,7 @@ type InstallGuideButton = InstallGuideRecord & {
   type?: unknown;
   action?: unknown;
 };
+type InstallGuideBlock = InstallGuideRecord & { buttons?: InstallGuideButton[] };
 export type InstallGuideButtonAction =
   { kind: "copy"; value: string } | { kind: "open"; value: string };
 
@@ -103,21 +107,47 @@ export function resolveInstallTemplate(
 ): string {
   const subscriptionLink =
     stringValue(subscription.config_link) || stringValue(subscription.connect_url);
+  const rawLink =
+    [subscription.http_url, subscription.config_link]
+      .map(stringValue)
+      .find((link) => /^https?:\/\//i.test(link)) || "";
   const httpLink =
     subscription.link_mode === "minishop"
       ? stringValue(subscription.http_url) || subscriptionLink
       : subscriptionLink;
   const username =
     stringValue(user.username) || stringValue(user.first_name) || stringValue(user.id);
-  const replacements: Record<string, string> = {
-    HAPP_CRYPT3_LINK: subscriptionLink,
-    HAPP_CRYPT4_LINK: subscriptionLink,
+  const replacements: Record<string, string | (() => string)> = {
+    HAPP_CRYPT3_LINK: () => createCryptoLink(rawLink, subscriptionLink, "happ3"),
+    HAPP_CRYPT4_LINK: () => createCryptoLink(rawLink, subscriptionLink, "happ4"),
+    INCY_CRYPT1_LINK: () => createCryptoLink(rawLink, subscriptionLink, "incy"),
     SUBSCRIPTION_LINK: httpLink,
     USERNAME: username,
   };
-  return String(value || "").replace(/\{\{\s*([A-Z0-9_]+)\s*\}\}/g, (_match, key) =>
-    Object.prototype.hasOwnProperty.call(replacements, key) ? replacements[key] : ""
-  );
+  return String(value || "").replace(/\{\{\s*([A-Z0-9_]+)\s*\}\}/g, (_match, key) => {
+    if (!Object.prototype.hasOwnProperty.call(replacements, key)) return "";
+    const replacement = replacements[key];
+    return typeof replacement === "function" ? replacement() : replacement;
+  });
+}
+
+function createCryptoLink(
+  rawLink: string,
+  preparedLink: string,
+  kind: "happ3" | "happ4" | "incy"
+): string {
+  if (!rawLink) {
+    const prefix = { happ3: "happ://crypt3/", happ4: "happ://crypt4/", incy: "incy://crypt1/" }[
+      kind
+    ];
+    return preparedLink.startsWith(prefix) ? preparedLink : "";
+  }
+  try {
+    if (kind === "incy") return encryptLink(rawLink);
+    return createHappCryptoLink(rawLink, kind === "happ3" ? "v3" : "v4", true) || "";
+  } catch (_error) {
+    return "";
+  }
 }
 
 export function resolveInstallButtonAction(
@@ -135,10 +165,15 @@ export function resolveInstallButtonAction(
   if (target) {
     let value = "";
     if (target.kind === "resource" && target.resourceId === "primary-subscription") {
-      value =
-        target.representation === "http"
-          ? resolveInstallTemplate("{{SUBSCRIPTION_LINK}}", context)
-          : resolveInstallTemplate("{{HAPP_CRYPT4_LINK}}", context);
+      const templateByRepresentation: Record<string, string> = {
+        http: "{{SUBSCRIPTION_LINK}}",
+        happ: "{{HAPP_CRYPT4_LINK}}",
+        "happ-crypt3": "{{HAPP_CRYPT3_LINK}}",
+        "happ-crypt4": "{{HAPP_CRYPT4_LINK}}",
+        "incy-crypt1": "{{INCY_CRYPT1_LINK}}",
+      };
+      const template = templateByRepresentation[stringValue(target.representation)];
+      value = template ? resolveInstallTemplate(template, context) : "";
     } else if (target.kind === "literal") {
       value = resolveInstallTemplate(target.value, context);
     }
@@ -146,6 +181,20 @@ export function resolveInstallButtonAction(
   }
   const value = resolveInstallTemplate(button?.link, context);
   return button?.type === "copyButton" ? { kind: "copy", value } : { kind: "open", value };
+}
+
+export function resolveInstallQrLink(
+  blocks: InstallGuideBlock[],
+  actions: InstallGuideButtonAction[][]
+): string {
+  for (const [blockIndex, block] of blocks.entries()) {
+    for (const [buttonIndex, button] of (block.buttons || []).entries()) {
+      if (button.type !== "subscriptionLink") continue;
+      const link = actions[blockIndex]?.[buttonIndex]?.value || "";
+      if (!isUnsafeInstallUrl(link)) return link;
+    }
+  }
+  return "";
 }
 
 export async function renderInstallQrDataUrl(

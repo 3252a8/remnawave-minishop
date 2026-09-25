@@ -12,8 +12,14 @@ from .guides_panel_config import _subscription_guides_status_for_request
 
 _PLATFORM_ID = re.compile(r"[A-Za-z][A-Za-z0-9_-]{0,63}\Z")
 _EXACT_RESOURCE = re.compile(
-    r"\{\{\s*(SUBSCRIPTION_LINK|HAPP_CRYPT3_LINK|HAPP_CRYPT4_LINK)\s*\}\}\Z"
+    r"\{\{\s*(SUBSCRIPTION_LINK|HAPP_CRYPT3_LINK|HAPP_CRYPT4_LINK|INCY_CRYPT1_LINK)\s*\}\}\Z"
 )
+_RESOURCE_REPRESENTATIONS = {
+    "SUBSCRIPTION_LINK": "http",
+    "HAPP_CRYPT3_LINK": "happ-crypt3",
+    "HAPP_CRYPT4_LINK": "happ",
+    "INCY_CRYPT1_LINK": "incy-crypt1",
+}
 
 
 def remnawave_v1_to_guide_document(
@@ -43,9 +49,7 @@ def remnawave_v1_to_guide_document(
                         target = {
                             "kind": "resource",
                             "resourceId": "primary-subscription",
-                            "representation": (
-                                "http" if resource.group(1) == "SUBSCRIPTION_LINK" else "happ"
-                            ),
+                            "representation": _RESOURCE_REPRESENTATIONS[resource.group(1)],
                         }
                     else:
                         target = {"kind": "literal", "value": link}

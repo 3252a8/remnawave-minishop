@@ -38,3 +38,49 @@ def test_remnawave_adapter_preserves_existing_instruction_content() -> None:
 def test_guide_document_rejects_unknown_ingress_version() -> None:
     with pytest.raises(ValueError, match="Unsupported"):
         remnawave_v1_to_guide_document({"version": "2", "platforms": {}})
+
+
+def test_guide_document_preserves_each_crypto_resource_representation() -> None:
+    links = [
+        "{{SUBSCRIPTION_LINK}}",
+        "{{HAPP_CRYPT3_LINK}}",
+        "{{HAPP_CRYPT4_LINK}}",
+        "{{INCY_CRYPT1_LINK}}",
+        "incy://import/{{SUBSCRIPTION_LINK}}",
+    ]
+    config = {
+        "version": "1",
+        "platforms": {
+            "windows": {
+                "apps": [
+                    {
+                        "blocks": [
+                            {
+                                "buttons": [
+                                    {"type": "subscriptionLink", "link": link} for link in links
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+    }
+
+    document = remnawave_v1_to_guide_document(config)
+    buttons = document["platforms"][0]["apps"][0]["blocks"][0]["buttons"]
+    assert [button["action"]["target"] for button in buttons] == [
+        {"kind": "resource", "resourceId": "primary-subscription", "representation": "http"},
+        {
+            "kind": "resource",
+            "resourceId": "primary-subscription",
+            "representation": "happ-crypt3",
+        },
+        {"kind": "resource", "resourceId": "primary-subscription", "representation": "happ"},
+        {
+            "kind": "resource",
+            "resourceId": "primary-subscription",
+            "representation": "incy-crypt1",
+        },
+        {"kind": "literal", "value": "incy://import/{{SUBSCRIPTION_LINK}}"},
+    ]
