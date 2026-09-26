@@ -10,6 +10,32 @@ for (const viewport of [
   { width: 1280, height: 900 },
   { width: 390, height: 844 },
 ]) {
+  test("default theme shape and logo survive save " + viewport.width, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto(url);
+    const library = page.locator(".appearance-library");
+    const openEditor = library.locator('[data-theme-key="dark"] .theme-card-actions button').last();
+    await openEditor.click();
+    const editor = page.locator(".appearance-settings-dialog");
+    await editor.locator(".appearance-variant-tab").last().click();
+    const inputs = editor.locator(".appearance-default-scale-row input[type=number]");
+    await expect(inputs).toHaveCount(4);
+    const values = ["20", "35", "150", "175"];
+    for (const [index, value] of values.entries()) {
+      await inputs.nth(index).fill(value);
+      await expect(inputs.nth(index)).toHaveValue(value);
+    }
+    await editor.locator(".dialog-head button").click();
+    const save = library.getByRole("button", { name: "Сохранить", exact: true });
+    await save.click();
+    await expect(save).toBeDisabled();
+    await openEditor.click();
+    await editor.locator(".appearance-variant-tab").last().click();
+    for (const [index, value] of values.entries()) {
+      await expect(inputs.nth(index)).toHaveValue(value);
+    }
+  });
+
   test("theme library lifecycle " + viewport.width, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.context().addInitScript(() => {

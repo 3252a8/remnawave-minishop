@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { saveAppearanceChanges } from "$lib/admin/saveAppearance";
   import { getSettingsStore, getThemesStore } from "$lib/admin/context";
   import { AdminEmptyState } from "$components/patterns/admin/index.js";
   import { onMount } from "svelte";
@@ -627,30 +628,12 @@
   }
 
   async function saveAppearance(): Promise<void> {
-    const keysToSave = new Set(appearanceDirtyKeys);
-    const shouldReloadFrontend = Array.from(keysToSave).some((key) =>
-      [
-        "WEBAPP_LOGO_URL",
-        "WEBAPP_USER_THEME_MODE_ENABLED",
-        "WEBAPP_COMPACT_HOME_ENABLED",
-        "WEBAPP_COMPACT_LOGIN_ENABLED",
-        "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED",
-        "WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT",
-        "WEBAPP_FAVICON_URL",
-        "WEBAPP_FAVICON_USE_CUSTOM",
-        "WEBAPP_LOGO_FAVICON_URL",
-      ].includes(key)
-    );
-    let settingsSaved = true;
-    if (keysToSave.size) {
-      settingsSaved = await settingsStore.saveSettings((payload) =>
-        onSettingsSaved({ ...payload, deferFrontendReload: true })
-      );
-    }
-    await themesStore.saveThemes();
-    if (settingsSaved && shouldReloadFrontend && typeof onSettingsSaved === "function") {
-      await onSettingsSaved({ updates: {}, deletes: [], reloadFrontend: true });
-    }
+    await saveAppearanceChanges({
+      settingsStore,
+      themesStore,
+      dirtyKeys: appearanceDirtyKeys,
+      onSettingsSaved,
+    });
   }
 
   function toggleAdminTheme(theme: ThemeEntry, checked: boolean): void {
