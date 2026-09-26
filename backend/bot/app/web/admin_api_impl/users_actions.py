@@ -26,10 +26,8 @@ from .common import (
     _is_trial_subscription,
     _ok,
     _serialize_subscription,
-    _serialize_user,
 )
 from .schemas import (
-    AdminUserBanBody,
     AdminUserExtendBody,
     AdminUserHwidDeviceLimitBody,
     AdminUserPremiumOverrideBody,
@@ -38,6 +36,7 @@ from .schemas import (
     AdminUserTrafficGrantBody,
     AdminUserTrafficStrategyBody,
 )
+from .users_ban import admin_user_ban_route as admin_user_ban_route
 from .users_communication import (
     admin_user_message_preview_route as admin_user_message_preview_route,
 )
@@ -71,25 +70,6 @@ async def _is_panel_user_confirmed_absent(panel_service: object, panel_uuid: str
         return False
 
     return isinstance(result, dict) and result.get("not_found") is True
-
-
-async def admin_user_ban_route(request: web.Request) -> web.Response:
-    _require_admin_user_id(request)
-    target_id = int(request.match_info["user_id"])
-    body = await parse_body_or_400(request, AdminUserBanBody)
-    desired = bool(body.banned)
-
-    settings: Settings = get_settings(request)
-    async_session_factory: sessionmaker = get_session_factory(request)
-    async with async_session_factory() as session:
-        user = await user_dal.get_user_by_id(session, target_id)
-        if not user:
-            return _error(404, "not_found")
-        user.is_banned = bool(desired)
-        await session.commit()
-        await session.refresh(user)
-    await _invalidate_after_admin_user_mutation(settings, target_id)
-    return _ok({"user": _serialize_user(user)})
 
 
 async def admin_user_delete_route(request: web.Request) -> web.Response:
