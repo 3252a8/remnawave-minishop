@@ -9,6 +9,7 @@ from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.text_decorations import html_decoration as hd
 
+from bot.services.notification_user_context import NotificationUserContextMixin
 from bot.services.partner_common import minor_to_decimal_string
 from bot.services.telegram_notifications import (
     TELEGRAM_NOTIFICATIONS_BLOCKED,
@@ -30,27 +31,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class NotificationPartnerMixin:
+class NotificationPartnerMixin(NotificationUserContextMixin):
     if TYPE_CHECKING:
         bot: Bot
         settings: Settings
         i18n: JsonI18n | None
         session_factory: Any
-
-        @staticmethod
-        def _format_user_display(
-            user_id: str,
-            username: str | None = None,
-            first_name: str | None = None,
-            email: str | None = None,
-        ) -> str: ...
-
-        @staticmethod
-        def _build_profile_keyboard(
-            translate: Any,
-            telegram_id: int | None,
-            referrer_telegram_id: int | None = None,
-        ) -> InlineKeyboardMarkup | None: ...
 
         async def _send_to_log_channel(
             self,
@@ -100,9 +86,12 @@ class NotificationPartnerMixin:
             username=getattr(user, "username", None),
             first_name=getattr(user, "first_name", None),
             email=getattr(user, "email", None),
+            telegram_id=getattr(user, "telegram_id", None),
         )
         chat_id = self._partner_user_chat_id(user)
-        keyboard = self._build_profile_keyboard(translate, chat_id) if chat_id else None
+        keyboard = self._build_profile_keyboard(
+            translate, chat_id, user_id=user.user_id, minishop_id=getattr(user, "minishop_id", None)
+        )
         return user_display, keyboard
 
     async def _mark_partner_delivery_status(self, user: User, status: str) -> None:

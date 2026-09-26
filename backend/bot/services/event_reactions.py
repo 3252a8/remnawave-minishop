@@ -551,6 +551,9 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                         "purchased_hwid_devices": snapshot.purchased_hwid_devices,
                         "purchases": snapshot.purchases,
                     }
+                    telegram_id = getattr(user, "telegram_id", None)
+                    if telegram_id:
+                        notification_kwargs["telegram_id"] = int(telegram_id)
                     public_id = getattr(user, "minishop_id", None)
                     if public_id:
                         notification_kwargs["minishop_id"] = str(public_id)

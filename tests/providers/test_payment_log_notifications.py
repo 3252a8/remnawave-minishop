@@ -10,6 +10,12 @@ from bot.services.notification_service import NotificationService
 class _I18n:
     messages: ClassVar[dict[str, str]] = {
         "log_open_profile_link": "Profile",
+        "log_open_user_card_button": "User card",
+        "log_user_id_line": "ID {value}",
+        "log_user_username_line": "Username: {value}",
+        "log_user_telegram_id_line": "Telegram ID: {value}",
+        "log_user_email_line": "Email: {value}",
+        "log_user_name_line": "Name: {value}",
         "log_payment_tariff_upgrade_received": (
             "Plan upgrade applied\n{user_display}\nAmount: {amount} {currency}\n"
             "{tariff_line}{purchase_summary_line}Provider: {payment_provider}\n"

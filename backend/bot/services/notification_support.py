@@ -18,6 +18,7 @@ from bot.services.email_templates_common import EmailContent
 from bot.services.message_composition import telegram_markup_for_buttons
 from bot.services.message_image_service import StoredMessageImage, load_message_image
 from bot.services.message_image_telegram import prepare_telegram_photo
+from bot.services.notification_user_context import NotificationUserContextMixin
 from bot.services.support_message_body import (
     BODY_FORMAT_TEXT,
     support_body_plain_text,
@@ -47,7 +48,7 @@ SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_KEY = "SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABL
 SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_KEY = "SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED"
 
 
-class NotificationSupportMixin:
+class NotificationSupportMixin(NotificationUserContextMixin):
     if TYPE_CHECKING:
         settings: Settings
         i18n: JsonI18n | None
@@ -260,7 +261,7 @@ class NotificationSupportMixin:
                 )
             ]
         ]
-        if admin:
+        if admin and web_app_buttons:
             profile_row = []
             if getattr(user, "telegram_id", None) and int(user.telegram_id) > 0:
                 profile_row.append(
@@ -291,6 +292,18 @@ class NotificationSupportMixin:
                 )
             if profile_row:
                 rows.append(profile_row)
+        elif admin:
+            translate = lambda key, **kwargs: self._support_text(
+                self.settings.DEFAULT_LANGUAGE, key, key, **kwargs
+            )
+            navigation = self._build_profile_keyboard(
+                translate,
+                getattr(user, "telegram_id", None),
+                user_id=user.user_id,
+                minishop_id=getattr(user, "minishop_id", None),
+            )
+            if navigation is not None:
+                rows.extend(navigation.inline_keyboard)
         return InlineKeyboardMarkup(inline_keyboard=rows)
 
     def _support_log_thread_id(self) -> int | None:
@@ -458,7 +471,12 @@ class NotificationSupportMixin:
             priority_emoji=priority_emoji,
             priority=hd.quote(ticket.priority),
             category=hd.quote(ticket.category),
-            user=hd.quote(user_display),
+            user=self._format_user_display(
+                str(getattr(user, "minishop_id", None) or "—"),
+                username=getattr(user, "username", None),
+                email=getattr(user, "email", None),
+                telegram_id=getattr(user, "telegram_id", None),
+            ),
             user_id=hd.quote(str(getattr(user, "minishop_id", None) or "—")),
             tariff=hd.quote(str(snapshot.get("tariff") or "—")),
             end_date=hd.quote(str(snapshot.get("end_date") or "—")),
@@ -523,7 +541,12 @@ class NotificationSupportMixin:
             "<b>Subject:</b> {subject}\n{user}{unread}\n\n{message}",
             ticket_id=ticket.ticket_id,
             subject=hd.quote(ticket.subject),
-            user=hd.quote(user_display),
+            user=self._format_user_display(
+                str(getattr(user, "minishop_id", None) or "—"),
+                username=getattr(user, "username", None),
+                email=getattr(user, "email", None),
+                telegram_id=getattr(user, "telegram_id", None),
+            ),
             unread=unread_line,
             message=preview_html,
         )

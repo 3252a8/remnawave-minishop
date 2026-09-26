@@ -373,7 +373,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
     async def test_payment_succeeded_event_notifies_and_invalidates(self):
         notification_service = SimpleNamespace(notify_payment_received=AsyncMock())
         ctx = _context(notification_service=notification_service)
-        user = SimpleNamespace(username="alice", email="alice@example.test")
+        user = SimpleNamespace(username="alice", email="alice@example.test", telegram_id=123456)
         payment = SimpleNamespace(
             amount=120,
             currency="RUB",
@@ -422,6 +422,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
             payment_provider="wata",
             username="alice",
             email="alice@example.test",
+            telegram_id=123456,
             traffic_is_premium=True,
             tariff_key="standard",
             purchased_hwid_devices=None,
