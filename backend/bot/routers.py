@@ -24,7 +24,7 @@ def build_root_router(
 
     # Admin routers behind filter
     admin_main_router = Router(name="admin_main_filtered_router")
-    admin_filter_instance = AdminFilter(admin_ids=settings.ADMIN_IDS)
+    admin_filter_instance = AdminFilter()
     admin_main_router.message.filter(admin_filter_instance)
     admin_main_router.callback_query.filter(admin_filter_instance)
     admin_main_router.include_router(admin_router_aggregate)

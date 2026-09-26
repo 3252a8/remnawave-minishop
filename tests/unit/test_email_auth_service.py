@@ -21,6 +21,8 @@ def _settings():
         WEBAPP_TITLE="Mini Shop",
         SUBSCRIPTION_MINI_APP_URL="https://app.example.com/",
         BOT_TOKEN="bot-token",
+        public_app_url="https://app.example.com/",
+        email_auth_secret="email-auth-secret",
     )
 
 

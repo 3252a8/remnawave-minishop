@@ -34,6 +34,20 @@ def test_openapi_includes_typed_promos_contracts():
         ]["$ref"]
         == "#/components/schemas/PromoOut"
     )
+    detail_operation = document["paths"]["/api/admin/promos/{promo_id}"]["get"]
+    assert (
+        detail_operation["responses"]["200"]["content"]["application/json"]["schema"]["properties"][
+            "promo"
+        ]["$ref"]
+        == "#/components/schemas/PromoOut"
+    )
+    activations_operation = document["paths"]["/api/admin/promos/{promo_id}/activations"]["get"]
+    assert (
+        activations_operation["responses"]["200"]["content"]["application/json"]["schema"][
+            "properties"
+        ]["revenue_summary"]["$ref"]
+        == "#/components/schemas/PromoRevenueSummaryOut"
+    )
 
     export_operation = document["paths"]["/api/admin/payments/export.csv"]["get"]
     assert "text/csv" in export_operation["responses"]["200"]["content"]

@@ -100,6 +100,50 @@ async def init_db(
         await conn.run_sync(lambda sync_conn: run_all_migration_chains(sync_conn, settings))
     logger.info("PostgreSQL database initialized/checked successfully using SQLAlchemy.")
 
+    if settings.ADMIN_IDS:
+        from bot.services.account_roles import migrate_legacy_admin_ids
+
+        async with session_factory() as session:
+            imported, unresolved = await migrate_legacy_admin_ids(session, settings.ADMIN_IDS)
+            await session.commit()
+        if imported or unresolved:
+            logger.info(
+                "Legacy admin import: %s linked accounts, %s unresolved identities",
+                imported,
+                unresolved,
+            )
+
+    from sqlalchemy import select
+
+    from bot.services.account_roles import ROLE_OWNER, active_admin_user_ids
+    from db.auth_models import AccountRole
+
+    async with session_factory() as session:
+        admin_ids = await active_admin_user_ids(session)
+        owner_exists = await session.scalar(
+            select(AccountRole.user_id)
+            .where(AccountRole.role == ROLE_OWNER, AccountRole.revoked_at.is_(None))
+            .limit(1)
+        )
+    if not admin_ids:
+        registration_url = str(
+            settings.PUBLIC_APP_URL or settings.SUBSCRIPTION_MINI_APP_URL or "the public Web App"
+        ).rstrip("/")
+        logger.warning(
+            "No administrator is assigned. Open %s, register an account, "
+            "copy its Minishop ID from the "
+            "profile, then run: docker compose exec backend python "
+            "backend/scripts/bootstrap_owner.py --minishop-id <ms_id>. "
+            "Verified email accounts may use --email <verified-email> instead.",
+            registration_url,
+        )
+    elif owner_exists is None:
+        logger.warning(
+            "No owner is assigned; role management is unavailable. Run: docker compose exec "
+            "backend python backend/scripts/bootstrap_owner.py --minishop-id <ms_id> "
+            "for an existing account."
+        )
+
     try:
         from bot.services.settings_override_service import load_overrides_from_db
 

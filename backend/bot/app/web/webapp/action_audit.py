@@ -25,6 +25,8 @@ _AUDITED_MUTATIONS = {
     "/api/account/passkeys/delete": "account_passkey_delete",
     "/api/account/identities/unlink": "account_identity_unlink",
     "/api/account/telegram/link": "account_telegram_link",
+    "/api/account/telegram/merge/request": "account_telegram_merge_request",
+    "/api/account/telegram/merge/confirm": "account_telegram_merge_confirm",
     "/api/referral/welcome-bonus/claim": "referral_bonus_claim",
     "/api/promo/apply": "promo_apply",
     "/api/subscription/auto-renew": "subscription_auto_renew",

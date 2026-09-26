@@ -1,6 +1,7 @@
 import { mount, unmount, type ComponentProps } from "svelte";
 
 import AdminPanel from "./admin/AdminPanel.svelte";
+import { registerRuntimeExtensions } from "./admin/sections/runtimeExtensions.js";
 import { createAdminMountProps, type AdminMountProps } from "./adminMountProps.svelte.js";
 import "./styles-admin.css";
 
@@ -32,6 +33,7 @@ const adminGlobal = window as unknown as Record<string, unknown>;
 adminGlobal.SubscriptionWebAppAdmin = {
   AdminPanel,
   mount: mountAdminPanel,
+  registerRuntimeExtensions,
 };
 adminGlobal.SubscriptionWebAppAdminPanel = AdminPanel;
 window.dispatchEvent(

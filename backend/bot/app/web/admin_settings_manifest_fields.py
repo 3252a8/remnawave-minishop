@@ -9,6 +9,7 @@ from bot.app.web.admin_settings_notification_manifest_fields import (
     NOTIFICATION_SETTINGS_FIELDS,
 )
 from bot.app.web.admin_settings_partner_manifest_fields import PARTNER_SETTINGS_FIELDS
+from bot.app.web.admin_settings_trial_manifest_fields import TRIAL_SETTINGS_FIELDS
 
 SETTINGS_MANIFEST: list[SettingField] = [
     # ─── General ────────────────────────────────────────────────────
@@ -18,6 +19,15 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "general",
         "Web App title",
         placeholder="My subscription",
+    ),
+    SettingField(
+        "WEBAPP_SESSION_TTL_SECONDS",
+        "int",
+        "general",
+        "Web App session lifetime",
+        "How long users stay signed in, in seconds. Default: 2592000 (30 days).",
+        optional=False,
+        min=60,
     ),
     SettingField(
         "GIFTS_ENABLED",
@@ -99,7 +109,10 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "menu_buttons",
         "menu_buttons",
         "Custom menu buttons",
-        ("Localized links shown at the bottom of the Telegram main menu and Web App settings."),
+        (
+            "Localized links with separate visibility for the bot menu, Telegram Mini App, "
+            "and web browser."
+        ),
         optional=False,
     ),
     SettingField(
@@ -237,6 +250,14 @@ SETTINGS_MANIFEST: list[SettingField] = [
         optional=False,
     ),
     SettingField(
+        "WEBAPP_COMPACT_LOGIN_ENABLED",
+        "bool",
+        "appearance",
+        "Compact login methods",
+        "Show icons when multiple login methods are available, unless a method uses a wide button.",
+        optional=False,
+    ),
+    SettingField(
         "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED",
         "bool",
         "appearance",
@@ -277,6 +298,28 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "subscription_guides",
         "Embedded install guides",
         "Open install instructions inside the Web App instead of an external connect page.",
+    ),
+    SettingField(
+        "SUBSCRIPTION_GATEWAY_ENABLED",
+        "bool",
+        "subscription_guides",
+        "Public subscription gateway",
+        (
+            "Allow subscription apps to import and update profiles through public /s/ links. "
+            "Turning this off leaves the install page available but stops client delivery."
+        ),
+    ),
+    SettingField(
+        "SUBSCRIPTION_LINK_MODE",
+        "string",
+        "subscription_guides",
+        "Use Minishop subscription links",
+        (
+            "Issue public /s/ links instead of Remnawave Panel subscription links in "
+            "the bot and install guides. Requires the public subscription gateway."
+        ),
+        optional=False,
+        choices=(("panel", "Remnawave Panel"), ("minishop", "Minishop")),
     ),
     SettingField(
         "SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED",
@@ -513,146 +556,8 @@ SETTINGS_MANIFEST: list[SettingField] = [
         i18n_label_key="admin_settings_field_payment_methods_display_mode_label",
         i18n_description_key="admin_settings_field_payment_methods_display_mode_description",
     ),
-    # ─── Trial ─────────────────────────────────────────────────────
-    SettingField(
-        "TRIAL_ENABLED",
-        "bool",
-        "pricing",
-        "Trial Enabled",
-        optional=False,
-        subsection="trial",
-    ),
-    SettingField(
-        "TRIAL_PAYMENT_ENABLED",
-        "bool",
-        "pricing",
-        "Paid trial activation",
-        "Require a successful payment before trial activation.",
-        optional=False,
-        subsection="trial",
-    ),
-    SettingField(
-        "TRIAL_PAYMENT_PRICE",
-        "float",
-        "pricing",
-        "Trial activation price",
-        (
-            "Price in the default payment currency. "
-            "Set a positive value when paid activation is enabled."
-        ),
-        optional=False,
-        min=0,
-        subsection="trial",
-    ),
-    SettingField(
-        "TRIAL_PAYMENT_STARS_PRICE",
-        "int",
-        "pricing",
-        "Trial activation price in Stars",
-        "Telegram Stars price. Set to 0 to hide Stars from the trial checkout.",
-        optional=False,
-        min=0,
-        subsection="trial",
-    ),
-    SettingField(
-        "TRIAL_DURATION_DAYS",
-        "int",
-        "pricing",
-        "Trial Duration Days",
-        optional=False,
-        min=0,
-        subsection="trial",
-    ),
-    SettingField(
-        "TRIAL_TRAFFIC_LIMIT_GB",
-        "float",
-        "pricing",
-        "Trial Traffic Limit Gb",
-        optional=False,
-        min=0,
-        subsection="trial",
-    ),
-    SettingField(
-        "TRIAL_PREMIUM_TRAFFIC_LIMIT_GB",
-        "float",
-        "pricing",
-        "Trial premium traffic limit (GB)",
-        (
-            "Separate premium traffic limit for trial subscriptions. "
-            "0 disables premium traffic enforcement."
-        ),
-        min=0,
-        subsection="trial",
-    ),
-    SettingField(
-        "TRIAL_HWID_DEVICE_LIMIT",
-        "int",
-        "pricing",
-        "Trial HWID device limit",
-        (
-            "Hardware device limit for trial subscriptions. "
-            "Empty keeps the panel/default limit; 0 means unlimited."
-        ),
-        min=0,
-        subsection="trial",
-    ),
-    SettingField(
-        "TRIAL_DAYS_STRATEGY",
-        "string",
-        "pricing",
-        "Trial days purchase strategy",
-        (
-            "Choose whether remaining trial days are added to a purchased tariff or the paid "
-            "period starts on the payment date."
-        ),
-        optional=False,
-        choices=(
-            ("add_remaining", "Add remaining trial days"),
-            ("start_from_payment", "Start from payment date"),
-        ),
-        subsection="trial",
-    ),
-    SettingField(
-        "TRIAL_TRAFFIC_STRATEGY",
-        "string",
-        "pricing",
-        "Trial Traffic Strategy",
-        optional=False,
-        choices=TRAFFIC_STRATEGY_CHOICES,
-        subsection="trial",
-    ),
-    SettingField(
-        "TRIAL_WITHOUT_TELEGRAM_ENABLED",
-        "bool",
-        "system",
-        "Trial Without Telegram",
-        (
-            "If disabled, email-only users must link Telegram before activating a trial. "
-            "Disposable email domains always require Telegram."
-        ),
-        optional=False,
-        subsection="email_anti_abuse",
-    ),
-    SettingField(
-        "TRIAL_SQUAD_UUIDS",
-        "string",
-        "pricing",
-        "Trial Internal Squads",
-        "Comma-separated UUIDs. Uses USER_SQUAD_UUIDS when empty.",
-        subsection="trial",
-    ),
+    *TRIAL_SETTINGS_FIELDS,
     # ─── Referral program ──────────────────────────────────────────
-    SettingField(
-        "TRIAL_PREMIUM_SQUAD_UUIDS",
-        "string",
-        "pricing",
-        "Premium Internal Squads for trial",
-        (
-            "Comma-separated premium internal squad UUIDs. "
-            "Empty value disables premium squads for trials."
-        ),
-        subsection="trial",
-    ),
     SettingField(
         "REFERRAL_PROGRAM_ENABLED",
         "bool",

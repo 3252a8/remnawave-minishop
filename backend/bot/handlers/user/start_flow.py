@@ -7,6 +7,7 @@ from aiogram import F, types
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.text_decorations import html_decoration as hd
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra import events
@@ -34,6 +35,7 @@ from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
 from config.settings import Settings
 from config.tariffs_config import referral_welcome_bonus_tariff_key_for_settings
 from db.dal import subscription_dal, user_dal
+from db.models import User
 
 from .start_channel import ensure_required_channel_subscription
 from .start_common import (
@@ -87,7 +89,9 @@ def _bot_started_source(
 @router.message(
     CommandStart(magic=F.args.regexp(r"^promo_([A-Za-z0-9_-]{1,100})$").as_("promo_match"))
 )
-@router.message(CommandStart(magic=F.args.regexp(r"^admin_user_(\d+)$").as_("admin_user_match")))
+@router.message(
+    CommandStart(magic=F.args.regexp(r"^admin_user_(ms_[0-9a-f]{32}|\d+)$").as_("admin_user_match"))
+)
 @router.message(CommandStart(magic=F.args.regexp(r"^ticket_(\d+)$").as_("ticket_match")))
 @router.message(CommandStart(magic=F.args.regexp(r"^notifications$").as_("notifications_match")))
 @router.message(CommandStart(magic=F.args.regexp(r"^page_ref$").as_("page_ref_match")))
@@ -121,7 +125,8 @@ async def start_command_handler(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     user = message_from_user(message)
-    user_id = user.id
+    telegram_user_id = user.id
+    user_id: int | None = None
     start_param = _start_argument(message)
     start_source = _bot_started_source(
         ref_match=ref_match,
@@ -133,18 +138,27 @@ async def start_command_handler(
         notifications_match=notifications_match,
     )
 
-    if admin_user_match and user_id in settings.ADMIN_IDS:
-        started_user = await user_dal.get_user_by_id(session, user_id)
+    from bot.services.account_roles import is_admin
+
+    started_user = await user_dal.get_user_by_telegram_id(session, telegram_user_id)
+    if started_user:
+        user_id = int(started_user.user_id)
+    if admin_user_match and started_user and await is_admin(session, int(started_user.user_id)):
+        user_id = int(started_user.user_id)
         await emit_bot_started(
             user_id=user_id,
             returning=started_user is not None,
             source=start_source,
             start_param=start_param,
         )
-        target_user_id = int(admin_user_match.group(1))
-        target_user = await user_dal.get_user_by_id(session, target_user_id)
+        target_identifier = admin_user_match.group(1)
+        target_user = (
+            await session.scalar(select(User).where(User.minishop_id == target_identifier))
+            if target_identifier.startswith("ms_")
+            else await user_dal.get_user_by_id(session, int(target_identifier))
+        )
         if not target_user:
-            await message.answer(_("admin_user_not_found", input=hd.quote(str(target_user_id))))
+            await message.answer(_("admin_user_not_found", input=hd.quote(target_identifier)))
             return
 
         try:
@@ -183,7 +197,7 @@ async def start_command_handler(
         except Exception as e_admin_card:
             logger.exception(
                 "Failed to open admin user card via deep-link for %s: %s",
-                target_user_id,
+                target_identifier,
                 e_admin_card,
             )
             await message.answer(_("admin_user_card_error"))
@@ -219,17 +233,17 @@ async def start_command_handler(
     sanitized_last_name = sanitize_display_name(user.last_name)
     notification_status_now = datetime.now(UTC)
 
-    db_user = await user_dal.get_user_by_telegram_id(session, user_id)
-    if not db_user:
-        db_user = await user_dal.get_user_by_id(session, user_id)
+    db_user = started_user
     is_existing_user = db_user is not None
+    if db_user:
+        user_id = int(db_user.user_id)
     if db_user:
         if raw_ref_value:
             referred_by_user_id = await _resolve_referrer_from_start_ref(
                 session,
                 raw_ref_value,
                 settings=settings,
-                current_user_id=user_id,
+                current_user_id=int(db_user.user_id),
             )
     else:
         invite_check = await evaluate_registration_invite(
@@ -240,12 +254,6 @@ async def start_command_handler(
             source="telegram_start",
         )
         if invite_check.requires_invite:
-            await emit_bot_started(
-                user_id=user_id,
-                returning=False,
-                source=start_source,
-                start_param=start_param,
-            )
             await message.answer(_("registration_invite_required"))
             return
         referred_by_user_id = invite_check.referrer_user_id
@@ -255,12 +263,13 @@ async def start_command_handler(
         ticket_id = int(ticket_match.group(1))
         base_url = (settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
         if base_url:
-            await emit_bot_started(
-                user_id=user_id,
-                returning=is_existing_user,
-                source=start_source,
-                start_param=start_param,
-            )
+            if user_id is not None:
+                await emit_bot_started(
+                    user_id=user_id,
+                    returning=is_existing_user,
+                    source=start_source,
+                    start_param=start_param,
+                )
             ticket_url = f"{base_url.rstrip('/')}/support/{ticket_id}"
             keyboard = types.InlineKeyboardMarkup(
                 inline_keyboard=[
@@ -284,8 +293,7 @@ async def start_command_handler(
 
     if not db_user:
         user_data_to_create = {
-            "user_id": user_id,
-            "telegram_id": user_id,
+            "telegram_id": telegram_user_id,
             "username": sanitized_username,
             "first_name": sanitized_first_name,
             "last_name": sanitized_last_name,
@@ -299,6 +307,7 @@ async def start_command_handler(
         }
         try:
             db_user, created = await user_dal.create_user(session, user_data_to_create)
+            user_id = int(db_user.user_id)
 
             if created:
                 if partner_code:
@@ -424,8 +433,8 @@ async def start_command_handler(
         update_payload = {}
         if db_user.language_code != current_lang:
             update_payload["language_code"] = current_lang
-        if db_user.telegram_id != user_id:
-            update_payload["telegram_id"] = user_id
+        if db_user.telegram_id != telegram_user_id:
+            update_payload["telegram_id"] = telegram_user_id
         if db_user.telegram_notifications_status != TELEGRAM_NOTIFICATIONS_ENABLED:
             update_payload["telegram_notifications_status"] = TELEGRAM_NOTIFICATIONS_ENABLED
             update_payload["telegram_notifications_checked_at"] = notification_status_now

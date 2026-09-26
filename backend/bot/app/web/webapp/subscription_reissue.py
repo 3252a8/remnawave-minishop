@@ -25,6 +25,7 @@ from bot.app.web.context import (
 from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
 from bot.middlewares.i18n import JsonI18n
 from bot.services.outbound_messaging import OutboundMessagingService
+from bot.services.subscription_reissue_access import reissue_subscription_access
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.user_email_notifications import send_user_notification_email
 from bot.services.user_notification_policy import email_recipient, telegram_recipient
@@ -91,7 +92,13 @@ async def subscription_reissue_route(request: web.Request) -> web.Response:
             return _json_error(503, "panel_unavailable", "Panel service unavailable")
 
         try:
-            updated_panel_user = await panel_service.revoke_user_subscription(panel_user_uuid)
+            updated_panel_user, gateway_url = await reissue_subscription_access(
+                session,
+                panel_service,
+                user_id=user_id,
+                panel_user_uuid=panel_user_uuid,
+                settings=settings,
+            )
         except Exception:
             logger.exception("Failed to reissue subscription for user %s", user_id)
             updated_panel_user = None
@@ -106,6 +113,7 @@ async def subscription_reissue_route(request: web.Request) -> web.Response:
                 session=session,
                 db_user=db_user,
                 updated_panel_user=updated_panel_user,
+                gateway_url=gateway_url,
             )
 
         telegram_sent = False
@@ -118,6 +126,7 @@ async def subscription_reissue_route(request: web.Request) -> web.Response:
                     session=session,
                     db_user=db_user,
                     updated_panel_user=updated_panel_user,
+                    gateway_url=gateway_url,
                     bot=get_bot(request),
                     telegram_id=telegram_id,
                 )
@@ -171,8 +180,9 @@ async def send_subscription_reissue_email(
     session: AsyncSession,
     db_user: Any,
     updated_panel_user: dict[str, Any],
+    gateway_url: str | None = None,
 ) -> bool:
-    raw_link = str(updated_panel_user.get("subscriptionUrl") or "").strip() or None
+    raw_link = gateway_url or str(updated_panel_user.get("subscriptionUrl") or "").strip() or None
     display_link, _connect_url = await prepare_config_links(settings, raw_link)
 
     language = (
@@ -235,8 +245,9 @@ async def send_subscription_reissue_telegram(
     updated_panel_user: dict[str, Any],
     bot: Bot,
     telegram_id: int,
+    gateway_url: str | None = None,
 ) -> bool:
-    raw_link = str(updated_panel_user.get("subscriptionUrl") or "").strip() or None
+    raw_link = gateway_url or str(updated_panel_user.get("subscriptionUrl") or "").strip() or None
     display_link, _connect_url = await prepare_config_links(settings, raw_link)
     language = (
         str(getattr(db_user, "language_code", "") or "").strip()

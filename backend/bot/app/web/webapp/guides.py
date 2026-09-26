@@ -16,6 +16,7 @@ from db.dal import subscription_dal, user_dal  # noqa: F401  (patched via this n
 from .common import (
     _require_user_id,
 )
+from .guide_document import load_guide_content
 from .guides_panel_config import (  # noqa: F401
     PANEL_DEFAULT_SUBPAGE_CONFIG_UUID,
     SUBSCRIPTION_GUIDES_CACHE_ERROR_TTL_SECONDS,
@@ -32,10 +33,11 @@ from .guides_public import (  # noqa: F401
     _public_subscription_payload_cached,
 )
 from .response_helpers import json_response
+from .subscription_access import PanelLookupUnavailable
 
 logger = logging.getLogger(__name__)
 
-SUBSCRIPTION_GUIDES_BROWSER_CACHE_CONTROL = "private, max-age=60"
+SUBSCRIPTION_GUIDES_BROWSER_CACHE_CONTROL = "private, no-store"
 
 
 def _subscription_guides_json_dumps(data: Any) -> str:
@@ -51,6 +53,8 @@ def _subscription_guides_json_response(
     response = json_response(payload, status=status, dumps=_subscription_guides_json_dumps)
     if cache_control:
         response.headers["Cache-Control"] = cache_control
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
     return response
 
 
@@ -67,13 +71,14 @@ async def warm_subscription_guides_config(app: web.Application) -> None:
 
 async def subscription_guides_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    status = await _subscription_guides_status_for_request(request, user_id=user_id)
+    status, guide_document = await load_guide_content(request, user_id=user_id)
     payload = {
         "enabled": bool(status.get("enabled")),
         "config": _subscription_guides_response_config(status.get("config"))
         if status.get("enabled")
         else None,
         "source": status.get("source"),
+        "guide_document": guide_document,
     }
     if status.get("error"):
         payload["error"] = status["error"]
@@ -90,7 +95,14 @@ async def public_subscription_guides_route(request: web.Request) -> web.Response
     if not share_token:
         return json_response({"ok": False, "error": "invalid_share_token"}, status=404)
 
-    subscription = await _public_subscription_payload_cached(request, share_token)
+    try:
+        subscription = await _public_subscription_payload_cached(request, share_token)
+    except PanelLookupUnavailable:
+        return _subscription_guides_json_response(
+            {"ok": False, "error": "subscription_unavailable"},
+            status=503,
+            cache_control=SUBSCRIPTION_GUIDES_BROWSER_CACHE_CONTROL,
+        )
     if not subscription.get("active"):
         return _subscription_guides_json_response(
             {
@@ -105,7 +117,7 @@ async def public_subscription_guides_route(request: web.Request) -> web.Response
         )
 
     panel_user_uuid = str(subscription.pop("_panel_user_uuid", "") or "").strip()
-    status = await _subscription_guides_status_for_request(
+    status, guide_document = await load_guide_content(
         request,
         panel_short_uuid=subscription.get("panel_short_uuid"),
         panel_user_uuid=panel_user_uuid,
@@ -116,6 +128,7 @@ async def public_subscription_guides_route(request: web.Request) -> web.Response
         if status.get("enabled")
         else None,
         "source": status.get("source"),
+        "guide_document": guide_document,
         "subscription": subscription,
     }
     if status.get("error"):

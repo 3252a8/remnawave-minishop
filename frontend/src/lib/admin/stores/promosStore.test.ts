@@ -35,12 +35,13 @@ function promo(overrides: TestOverrides = {}) {
   };
 }
 
-function makeStore(api = vi.fn()) {
+function makeStore(api = vi.fn(), routePrefix = "") {
   const toasts: string[] = [];
   const store = createPromosStore({
     api,
     onToast: (message) => toasts.push(message),
     at: (_key: string, _params?: Record<string, unknown>, fallback?: string) => fallback || _key,
+    routePrefix,
   });
   return { api, store, toasts };
 }
@@ -120,7 +121,16 @@ describe("promosStore", () => {
       traffic_multiplier: null,
       applies_to: "subscription",
     };
-    const api = vi.fn().mockResolvedValue({ ok: true, activations: [row], total: 1 });
+    const api = vi.fn().mockResolvedValue({
+      ok: true,
+      activations: [row],
+      total: 1,
+      revenue_summary: {
+        payments_total: 3,
+        revenue_payments: 2,
+        currencies: [{ currency: "RUB", amount: 160, payments: 2 }],
+      },
+    });
     const { store } = makeStore(api);
 
     await store.openActivations(promo());
@@ -131,6 +141,11 @@ describe("promosStore", () => {
     expect(store.promoActivationsOpen).toBe(true);
     expect(store.promoActivations).toEqual([row]);
     expect(store.promoActivationsTotal).toBe(1);
+    expect(store.promoRevenueSummary).toEqual({
+      payments_total: 3,
+      revenue_payments: 2,
+      currencies: [{ currency: "RUB", amount: 160, payments: 2 }],
+    });
   });
 
   it("reloads activation history from page one with the selected sort", async () => {
@@ -170,5 +185,59 @@ describe("promosStore", () => {
     store.setCreateOpen(true);
     expect(store.promoActivationsOpen).toBe(false);
     expect(store.promoActivations).toEqual([]);
+  });
+
+  it("loads the filtered first page through the typed list path", async () => {
+    const api = vi.fn().mockResolvedValue({
+      ok: true,
+      promos: [],
+      total: 0,
+      owned_total: 0,
+    });
+    const { store } = makeStore(api);
+
+    store.setStatus("active");
+    await vi.waitFor(() => expect(api).toHaveBeenCalledTimes(1));
+    store.setScope("subscription");
+    await vi.waitFor(() => expect(api).toHaveBeenCalledTimes(2));
+    api.mockClear();
+
+    store.setSearch(" SAVE ");
+
+    await vi.waitFor(() =>
+      expect(api).toHaveBeenCalledWith(
+        "/admin/promos?page=0&page_size=25&sort=&kind=shared&search=SAVE&status=active&scope=subscription"
+      )
+    );
+    expect(store.promosPage).toBe(0);
+  });
+
+  it("keeps the selected code in the browser path", () => {
+    const location = {
+      protocol: "https:",
+      pathname: "/demo/runtime/admin/promos",
+      search: "",
+      hash: "",
+    };
+    vi.stubGlobal("window", {
+      location,
+      history: {
+        pushState: (_state: unknown, _unused: string, value: string) => {
+          location.pathname = new URL(value, "https://example.test").pathname;
+        },
+      },
+    });
+    try {
+      const { store } = makeStore(vi.fn(), "/demo/runtime");
+      store.setActive("promos");
+
+      store.openEditPromo(promo());
+      expect(window.location.pathname).toBe("/demo/runtime/admin/promos/5");
+
+      store.closeEditPromo();
+      expect(window.location.pathname).toBe("/demo/runtime/admin/promos");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

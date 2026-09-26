@@ -20,6 +20,7 @@ import importlib.util
 
 import pytest
 
+from bot.payment_providers import registry as provider_registry
 from bot.payment_providers.base import BaseProviderService
 from bot.payment_providers.registry import PAYMENT_PROVIDER_SPECS
 from bot.payment_providers.shared.http_client import HttpClientMixin
@@ -306,6 +307,18 @@ def test_provider_facade_exports_resolve(name):
     package = importlib.import_module(f"bot.payment_providers.{name}")
     missing = [n for n in package.__all__ if not hasattr(package, n)]
     assert not missing, f"{name}: __all__ names not importable from the facade: {missing}"
+
+
+def test_manifest_owner_lookup_does_not_rescan_provider_fields(monkeypatch):
+    spec, field = next(iter(provider_registry.iter_provider_manifest_fields()))
+
+    def fail_if_scanned():
+        raise AssertionError("manifest ownership should use the startup index")
+
+    monkeypatch.setattr(provider_registry, "iter_provider_manifest_fields", fail_if_scanned)
+
+    assert provider_registry.find_manifest_owner(field.key) == (spec, field)
+    assert provider_registry.find_manifest_owner("MISSING_PROVIDER_FIELD") is None
 
 
 if __name__ == "__main__":

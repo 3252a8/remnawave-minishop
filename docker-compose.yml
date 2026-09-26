@@ -118,6 +118,7 @@ services:
       - ${APP_ENV_FILE:-.env}
     environment:
       IMAGE_TAG: ${IMAGE_TAG:-latest}
+      MINISHOP_PLUGIN_SAFE_MODE: "1"
       POSTGRES_HOST: postgres
       REDIS_URL: redis://redis:6379/0
     depends_on:

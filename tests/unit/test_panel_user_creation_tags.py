@@ -1,5 +1,6 @@
 import asyncio
 import re
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -13,7 +14,6 @@ from bot.services.subscription_service_impl.panel_identity import (
 
 
 @pytest.mark.parametrize("user_id", [-42, 42], ids=["email", "telegram"])
-@pytest.mark.parametrize("previous_panel_id", [None, "deleted-panel-user"])
 @pytest.mark.parametrize("with_catalog", [False, True])
 @pytest.mark.parametrize("is_trial", [False, True])
 @pytest.mark.parametrize(
@@ -37,8 +37,8 @@ from bot.services.subscription_service_impl.panel_identity import (
         None,
     ],
 )
-def test_create_and_recreate_users_use_valid_reconcilable_tariff_tags(
-    monkeypatch, user_id, previous_panel_id, with_catalog, is_trial, tariff_key
+def test_new_users_use_valid_reconcilable_tariff_tags(
+    monkeypatch, user_id, with_catalog, is_trial, tariff_key
 ):
     catalog_keys = (
         "standard",
@@ -70,9 +70,12 @@ def test_create_and_recreate_users_use_valid_reconcilable_tariff_tags(
     )
     db_user = SimpleNamespace(
         user_id=user_id,
+        minishop_id="ms_1234567890abcdef1234567890abcdef",
+        panel_username=None,
+        referral_code="ABC",
         telegram_id=user_id if user_id > 0 else None,
         email="account@example.test" if user_id < 0 else None,
-        panel_user_uuid=previous_panel_id,
+        panel_user_uuid=None,
         username=None,
         first_name=None,
         last_name=None,
@@ -138,3 +141,86 @@ def test_create_and_recreate_users_use_valid_reconcilable_tariff_tags(
     assert plan.allowed
     mixin._remember_confirmed_panel_tariff_tag(db_user, plan, link.panel_user)
     assert db_user.managed_panel_tariff_tag == (plan.desired_tag if plan.allowed else None)
+
+
+def test_missing_legacy_panel_link_does_not_create_a_replacement() -> None:
+    mixin = PanelIdentityMixin()
+    mixin.settings = SimpleNamespace(tariffs_config=None)
+    db_user = SimpleNamespace(
+        user_id=42,
+        minishop_id="ms_1234567890abcdef1234567890abcdef",
+        panel_username=None,
+        panel_user_uuid="old-v2-uuid",
+        telegram_id=None,
+        email=None,
+    )
+    mixin.panel_service = SimpleNamespace(
+        get_user_by_uuid_lookup=AsyncMock(return_value={"ok": False, "not_found": True}),
+        get_users_by_filter=AsyncMock(return_value=[]),
+        create_panel_user=AsyncMock(),
+    )
+
+    link = asyncio.run(
+        mixin._get_or_create_panel_user_link(
+            AsyncMock(),
+            db_user.user_id,
+            db_user,
+            create_options=PanelUserCreateOptions(1, 0, "NO_RESET"),
+        )
+    )
+
+    assert link.panel_user_uuid == "old-v2-uuid"
+    assert link.panel_subscription_uuid is None
+    assert not link.panel_user_created_now
+    mixin.panel_service.create_panel_user.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "panel_email,expected_link",
+    [
+        ("account@example.test", "recovered-panel-user"),
+        ("other@example.test", None),
+    ],
+)
+def test_retries_recover_only_a_matching_email_account(monkeypatch, panel_email, expected_link):
+    mixin = PanelIdentityMixin()
+    mixin.settings = SimpleNamespace(tariffs_config=None)
+    db_user = SimpleNamespace(
+        user_id=1_000_000_000_050,
+        minishop_id="ms_1234567890abcdef1234567890abcdef",
+        panel_username=None,
+        panel_user_uuid=None,
+        telegram_id=None,
+        email="account@example.test",
+        email_verified_at=datetime.now(UTC),
+        referral_code="ABC",
+        username=None,
+        first_name=None,
+        last_name=None,
+        managed_panel_tariff_tag=None,
+    )
+    candidate = {
+        "uuid": "recovered-panel-user",
+        "username": db_user.minishop_id,
+        "email": panel_email,
+        "shortUuid": "subscription-link",
+    }
+    mixin.panel_service = SimpleNamespace(
+        get_users_by_filter=AsyncMock(return_value=[candidate]),
+        create_panel_user=AsyncMock(),
+    )
+    monkeypatch.setattr(
+        panel_identity.user_dal, "get_user_by_panel_uuid", AsyncMock(return_value=None)
+    )
+    monkeypatch.setattr(panel_identity.user_dal, "update_user", AsyncMock())
+    session = AsyncMock()
+    link = asyncio.run(
+        mixin._get_or_create_panel_user_link(
+            session,
+            db_user.user_id,
+            db_user,
+            create_options=PanelUserCreateOptions(1, 0, "NO_RESET"),
+        )
+    )
+    assert link.panel_user_uuid == expected_link
+    mixin.panel_service.create_panel_user.assert_not_awaited()

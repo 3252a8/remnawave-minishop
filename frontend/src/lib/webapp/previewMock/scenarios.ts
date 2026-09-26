@@ -165,6 +165,7 @@ function applyInactiveSubscriptionScenario({ trialAvailable = false } = {}): voi
   DEV_MOCK.data.settings.traffic_mode = false;
   DEV_MOCK.data.settings.trial_enabled = true;
   DEV_MOCK.data.settings.trial_available = Boolean(trialAvailable);
+  DEV_MOCK.data.settings.trial_requires_oauth = false;
   DEV_MOCK.data.settings.trial_requires_telegram = false;
   DEV_MOCK.data.settings.trial_block_reason = "";
   DEV_MOCK.data.settings.trial_duration_days = 5;
@@ -346,13 +347,19 @@ export function applyPreviewMock(kind: unknown): void {
     return;
   }
 
-  if (mode === "trial-telegram" || mode === "trial_requires_telegram") {
+  if (
+    mode === "trial-oauth" ||
+    mode === "trial_requires_oauth" ||
+    mode === "trial-telegram" ||
+    mode === "trial_requires_telegram"
+  ) {
     applyInactiveSubscriptionScenario();
     applyEmailOnlyAccountPatch({ email: "trial-user@mailinator.com" });
     DEV_MOCK.data.settings.trial_enabled = true;
     DEV_MOCK.data.settings.trial_available = false;
+    DEV_MOCK.data.settings.trial_requires_oauth = true;
     DEV_MOCK.data.settings.trial_requires_telegram = true;
-    DEV_MOCK.data.settings.trial_block_reason = "telegram_required";
+    DEV_MOCK.data.settings.trial_block_reason = "oauth_required";
     DEV_MOCK.data.referral = {
       ...(DEV_MOCK.data.referral || {}),
       welcome_bonus_days: 3,
@@ -374,6 +381,7 @@ export function applyPreviewMock(kind: unknown): void {
     });
     DEV_MOCK.data.settings.trial_enabled = true;
     DEV_MOCK.data.settings.trial_available = false;
+    DEV_MOCK.data.settings.trial_requires_oauth = false;
     DEV_MOCK.data.settings.trial_requires_telegram = false;
     DEV_MOCK.data.settings.trial_block_reason = "";
     DEV_MOCK.data.referral = {

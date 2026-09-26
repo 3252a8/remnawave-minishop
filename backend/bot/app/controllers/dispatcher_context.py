@@ -64,12 +64,13 @@ def iter_dispatcher_services(
 def set_dispatcher_core_context(
     dp: Dispatcher,
     *,
-    bot: Bot,
+    bot: Bot | None,
     settings: Settings,
     i18n: JsonI18n,
     session_factory: sessionmaker,
 ) -> None:
-    _set_value(dp, BOT_KEY, bot)
+    if bot is not None:
+        _set_value(dp, BOT_KEY, bot)
     _set_value(dp, SETTINGS_KEY, settings)
     _set_value(dp, I18N_KEY, i18n)
     _set_value(dp, SESSION_FACTORY_KEY, session_factory)

@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 
 def create_subscription_webapp_application(
     dp: Dispatcher,
-    bot: Bot,
+    bot: Bot | None,
     settings: Settings,
     async_session_factory: sessionmaker,
 ) -> web.Application:

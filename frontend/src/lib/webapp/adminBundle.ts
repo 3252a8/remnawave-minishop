@@ -7,6 +7,7 @@ import {
 
 type AdminBundleApi = {
   mount(target: HTMLElement, props: Record<string, unknown>): AdminMountHandle;
+  registerRuntimeExtensions?: (plugins: unknown[]) => void;
 };
 type AdminMountHandle = {
   destroy?: () => void;
@@ -115,17 +116,19 @@ export function createAdminBundle({
     bundleError = "";
     bundlePromise = (async () => {
       const { cssHref, jsSrc } = assetUrls();
-      await appendStylesheetWithFallback(
-        "subscription-webapp-admin-css",
-        cssHref,
-        "subscription_webapp_admin.css"
-      );
-      await appendScriptWithFallback(
-        "subscription-webapp-admin-js",
-        jsSrc,
-        "subscription_webapp_admin.js",
-        { type: "module" }
-      );
+      await Promise.all([
+        appendStylesheetWithFallback(
+          "subscription-webapp-admin-css",
+          cssHref,
+          "subscription_webapp_admin.css"
+        ),
+        appendScriptWithFallback(
+          "subscription-webapp-admin-js",
+          jsSrc,
+          "subscription_webapp_admin.js",
+          { type: "module" }
+        ),
+      ]);
       const loaded = readBundleApi();
       if (!loaded) throw new Error("admin_bundle_missing_mount");
       bundleApi = loaded;

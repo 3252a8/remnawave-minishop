@@ -19,10 +19,11 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from db.base import Base
+from db.user_account_identity_columns import UserAccountIdentityColumns
 from db.user_notification_preference_columns import UserNotificationPreferenceColumns
 
 
-class User(UserNotificationPreferenceColumns, Base):
+class User(UserAccountIdentityColumns, UserNotificationPreferenceColumns, Base):
     __tablename__ = "users"
 
     user_id = Column(BigInteger, primary_key=True, index=True)
@@ -158,6 +159,7 @@ class Subscription(Base):
     panel_user_uuid = Column(String, nullable=False, index=True)
     panel_subscription_uuid = Column(String, unique=True, index=True, nullable=True)
     install_share_token = Column(String(32), unique=True, index=True, nullable=True)
+    install_share_panel_short_uuid = Column(String(64), nullable=True)
     start_date = Column(DateTime(timezone=True), nullable=True)
     end_date = Column(DateTime(timezone=True), nullable=False, index=True)
     duration_months = Column(Integer, nullable=True)
@@ -876,6 +878,7 @@ class PromoCode(Base):
     min_subscription_days = Column(Integer, nullable=True)
     min_traffic_gb = Column(Numeric(10, 2), nullable=True)
     origin = Column(String(32), nullable=False, default="admin")
+    owner_plugin_id = Column(String(64), nullable=True)
     # Set only for a code minted for one customer; NULL means a shared code.
     user_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=True, index=True)
     max_activations = Column(Integer, nullable=False)
@@ -965,16 +968,15 @@ class LegacyImportMapping(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
 
 
-# Register decomposed domain tables in the same metadata used by create_all,
-# backup/restore and migration tests.  Domain code imports the classes from
-# ``db.partner_models`` directly; this import exists only for registration.
 from db import activity_models as activity_models  # noqa: E402
 from db import auth_models as auth_models  # noqa: E402
 from db import balance_models as balance_models  # noqa: E402
 from db import broadcast_models as broadcast_models  # noqa: E402
+from db import extension_models as extension_models  # noqa: E402
 from db import gift_models as gift_models  # noqa: E402
 from db import message_image_models as message_image_models  # noqa: E402
 from db import partner_models as partner_models  # noqa: E402
+from db import wata_models as wata_models  # noqa: E402
 
 AdAttribution = activity_models.AdAttribution
 AdCampaign = activity_models.AdCampaign
@@ -985,6 +987,9 @@ PanelSyncStatus = activity_models.PanelSyncStatus
 SupportTicket = activity_models.SupportTicket
 SupportTicketMessage = activity_models.SupportTicketMessage
 UserExternalIdentity = auth_models.UserExternalIdentity
+AccountRole = auth_models.AccountRole
+AccountRoleEvent = auth_models.AccountRoleEvent
+AccountAlias = auth_models.AccountAlias
 UserEmailAddress = auth_models.UserEmailAddress
 UserPasskeyCredential = auth_models.UserPasskeyCredential
 WebAuthnChallenge = auth_models.WebAuthnChallenge
@@ -992,3 +997,4 @@ AdminBroadcast = broadcast_models.AdminBroadcast
 AdminBroadcastDelivery = broadcast_models.AdminBroadcastDelivery
 MessageImage = message_image_models.MessageImage
 UserBalanceLedgerEntry = balance_models.UserBalanceLedgerEntry
+WataSubscription = wata_models.WataSubscription

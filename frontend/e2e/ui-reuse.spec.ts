@@ -183,12 +183,39 @@ for (const [device, viewport] of [
         await toolbar.getByRole("button", { name: "Применить", exact: true }).click();
         if (route === "support") {
           await expect(toolbar.locator(".admin-list-toolbar-summary")).toHaveCount(0);
-          const filters = toolbar.locator(".admin-select-trigger");
+          if (device === "mobile") {
+            await expect(toolbar.locator(".admin-list-toolbar-filters")).toBeHidden();
+            await toolbar.getByRole("button", { name: "Фильтры" }).click();
+          }
+          const filters = page.locator(
+            device === "mobile"
+              ? ".support-filter-dialog .admin-select-trigger"
+              : ".support-list-toolbar .admin-select-trigger"
+          );
           await expect(filters).toHaveCount(3);
           for (let index = 0; index < 3; index++) {
             await filters.nth(index).click();
             await expect(page.getByRole("option").first()).toBeVisible();
             await page.keyboard.press("Escape");
+          }
+          if (device === "mobile") {
+            await page.locator(".support-filter-dialog .dialog-close-button").click();
+            await page.setViewportSize({ width: 390, height: 460 });
+            const content = page.locator(".admin-content");
+            const heading = page.locator(".admin-header");
+            await expect
+              .poll(() =>
+                content.evaluate((element) => element.scrollHeight - element.clientHeight)
+              )
+              .toBeGreaterThan(120);
+            const headingTop = await heading.evaluate(
+              (element) => element.getBoundingClientRect().top
+            );
+            await content.evaluate((element) => (element.scrollTop = 120));
+            await expect
+              .poll(() => heading.evaluate((element) => element.getBoundingClientRect().top))
+              .toBeLessThan(headingTop - 60);
+            await page.setViewportSize(viewport);
           }
         }
       }
@@ -209,11 +236,26 @@ for (const [device, viewport] of [
     await alignedSearch(page);
     if (device === "mobile") {
       await expect(page.locator(".admin-list-toolbar-filters")).toBeHidden();
+      await page.evaluate(() => {
+        document.documentElement.style.setProperty("--telegram-fullscreen-fallback-top", "96px");
+      });
       await page.locator(".admin-users-filter-toggle").click();
       const dialog = page.locator(".admin-users-filter-dialog");
       await expect(dialog).toBeVisible();
       await dialog.locator(".admin-select-trigger").first().click();
+      const menu = page.locator(".admin-select-content[data-state='open']");
+      const menuViewport = menu.locator(".admin-select-viewport");
       await expect(page.getByRole("option").first()).toBeVisible();
+      const menuBounds = await menu.boundingBox();
+      expect(menuBounds).not.toBeNull();
+      expect(menuBounds!.y).toBeGreaterThanOrEqual(96);
+      expect(menuBounds!.y + menuBounds!.height).toBeLessThanOrEqual(viewport.height - 12);
+      const overflow = await menuViewport.evaluate((node) => node.scrollHeight - node.clientHeight);
+      expect(overflow).toBeGreaterThan(0);
+      await menuViewport.evaluate((node) => {
+        node.scrollTop = node.scrollHeight;
+      });
+      await expect(menu.getByRole("option").last()).toBeInViewport();
       await page.keyboard.press("Escape");
       await expect(dialog).toBeVisible();
       await dialog.locator(".dialog-head button").click();

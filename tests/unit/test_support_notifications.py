@@ -101,7 +101,7 @@ def test_admin_support_keyboard_uses_consistent_admin_links():
         settings=_settings(SUBSCRIPTION_MINI_APP_URL="https://app.example.com/app"),
     )
     ticket = SimpleNamespace(ticket_id=42)
-    user = SimpleNamespace(user_id=100200300)
+    user = SimpleNamespace(user_id=100200300, telegram_id=100200300, minishop_id="ms_" + "a" * 32)
 
     keyboard = service._support_keyboard(ticket, user, admin=True)
     ticket_button = keyboard.inline_keyboard[0][0]
@@ -112,7 +112,9 @@ def test_admin_support_keyboard_uses_consistent_admin_links():
     assert ticket_button.web_app.url == "https://app.example.com/app/admin/support/42"
     assert keyboard.inline_keyboard[1][0].url == "tg://user?id=100200300"
     assert user_card_button.url is None
-    assert user_card_button.web_app.url == "https://app.example.com/app/admin/users/100200300"
+    assert user_card_button.web_app.url == (
+        "https://app.example.com/app/admin/users/ms_" + "a" * 32
+    )
 
 
 def test_admin_support_keyboard_can_use_group_safe_urls():
@@ -122,17 +124,17 @@ def test_admin_support_keyboard_can_use_group_safe_urls():
         bot_username="demo_bot",
     )
     ticket = SimpleNamespace(ticket_id=42)
-    user = SimpleNamespace(user_id=100200300)
+    user = SimpleNamespace(user_id=100200300, telegram_id=100200300, minishop_id="ms_" + "a" * 32)
 
     keyboard = service._support_keyboard(ticket, user, admin=True, web_app_buttons=False)
     ticket_button = keyboard.inline_keyboard[0][0]
-    user_card_button = keyboard.inline_keyboard[1][1]
+    user_card_button = keyboard.inline_keyboard[2][0]
 
     assert ticket_button.web_app is None
     assert ticket_button.url == "https://t.me/demo_bot?startapp=admin_ticket_42"
     assert keyboard.inline_keyboard[1][0].url == "tg://user?id=100200300"
     assert user_card_button.web_app is None
-    assert user_card_button.url == "https://t.me/demo_bot?startapp=admin_user_100200300"
+    assert user_card_button.url == ("https://t.me/demo_bot?start=admin_user_ms_" + "a" * 32)
 
 
 def test_admin_support_keyboard_group_urls_fall_back_without_bot_username():
@@ -141,14 +143,12 @@ def test_admin_support_keyboard_group_urls_fall_back_without_bot_username():
         settings=_settings(SUBSCRIPTION_MINI_APP_URL="https://app.example.com/app"),
     )
     ticket = SimpleNamespace(ticket_id=42)
-    user = SimpleNamespace(user_id=100200300)
+    user = SimpleNamespace(user_id=100200300, telegram_id=100200300)
 
     keyboard = service._support_keyboard(ticket, user, admin=True, web_app_buttons=False)
 
     assert keyboard.inline_keyboard[0][0].url == ("https://app.example.com/app/admin/support/42")
-    assert keyboard.inline_keyboard[1][1].url == (
-        "https://app.example.com/app/admin/users/100200300"
-    )
+    assert keyboard.inline_keyboard[2][0].callback_data == "admin_user_card_from_list:100200300:0"
 
 
 def test_admin_support_keyboard_falls_back_to_startapp_url():
@@ -158,7 +158,7 @@ def test_admin_support_keyboard_falls_back_to_startapp_url():
         bot_username="demo_bot",
     )
     ticket = SimpleNamespace(ticket_id=42)
-    user = SimpleNamespace(user_id=100200300)
+    user = SimpleNamespace(user_id=100200300, telegram_id=100200300)
 
     keyboard = service._support_keyboard(ticket, user, admin=True)
     button = keyboard.inline_keyboard[0][0]
@@ -397,14 +397,15 @@ def test_disabled_admin_support_email_keeps_telegram_and_log_notifications():
             SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED=False,
             SUBSCRIPTION_MINI_APP_URL="https://app.example.com",
         ),
+        i18n=_i18n(),
         email_auth_service=EmailService(),
     )
 
     async def send_to_admins(message, reply_markup=None):
-        channels.append(("admins", bool(message), bool(reply_markup)))
+        channels.append(("admins", message, bool(reply_markup)))
 
     async def send_to_log_channel(message, thread_id=None, reply_markup=None):
-        channels.append(("log", bool(message), bool(reply_markup)))
+        channels.append(("log", message, bool(reply_markup)))
 
     service._send_to_admins = send_to_admins
     service._send_to_log_channel = send_to_log_channel
@@ -413,10 +414,11 @@ def test_disabled_admin_support_email_keeps_telegram_and_log_notifications():
         ticket_id=7,
         priority="normal",
         category="technical",
-        subject="Connection issue",
+        subject="Connection <issue> & retry",
     )
     user = SimpleNamespace(
         user_id=100200300,
+        telegram_id=100200300,
         username="user",
         first_name="User",
         last_name=None,
@@ -433,6 +435,7 @@ def test_disabled_admin_support_email_keeps_telegram_and_log_notifications():
     )
 
     assert [item[0] for item in channels] == ["admins", "log"]
+    assert all("<b>Тема:</b> Connection &lt;issue&gt; &amp; retry" in item[1] for item in channels)
     assert emails == []
 
 
@@ -466,6 +469,7 @@ def test_support_topic_suppresses_admin_dm_and_uses_url_buttons():
     )
     user = SimpleNamespace(
         user_id=100200300,
+        telegram_id=100200300,
         username="user",
         first_name="User",
         last_name=None,
@@ -487,7 +491,7 @@ def test_support_topic_suppresses_admin_dm_and_uses_url_buttons():
     buttons = _keyboard_buttons(markup)
     assert all(button.web_app is None for button in buttons)
     assert buttons[0].url == "https://t.me/demo_bot?startapp=admin_ticket_7"
-    assert buttons[2].url == "https://t.me/demo_bot?startapp=admin_user_100200300"
+    assert buttons[2].url == "https://t.me/demo_bot?start=admin_user_100200300"
 
 
 def test_support_user_reply_topic_suppresses_admin_dm_and_uses_url_buttons():
@@ -496,10 +500,12 @@ def test_support_user_reply_topic_suppresses_admin_dm_and_uses_url_buttons():
     service = NotificationService(
         bot=SimpleNamespace(),
         settings=_settings(
+            DEFAULT_LANGUAGE="en",
             LOG_CHAT_ID=-1003918000002,
             LOG_SUPPORT_THREAD_ID=77,
             SUBSCRIPTION_MINI_APP_URL="https://app.example.com",
         ),
+        i18n=_i18n(),
         bot_username="demo_bot",
     )
 
@@ -507,7 +513,7 @@ def test_support_user_reply_topic_suppresses_admin_dm_and_uses_url_buttons():
         channels.append(("admins", None, bool(message), reply_markup))
 
     async def send_to_log_channel(message, thread_id=None, reply_markup=None):
-        channels.append(("log", thread_id, bool(message), reply_markup))
+        channels.append(("log", thread_id, message, reply_markup))
 
     service._send_to_admins = send_to_admins
     service._send_to_log_channel = send_to_log_channel
@@ -516,7 +522,7 @@ def test_support_user_reply_topic_suppresses_admin_dm_and_uses_url_buttons():
         ticket_id=7,
         priority="normal",
         category="technical",
-        subject="Connection issue",
+        subject="Connection <issue> & retry",
     )
     message = SimpleNamespace(body="Still cannot connect")
     user = SimpleNamespace(
@@ -541,6 +547,7 @@ def test_support_user_reply_topic_suppresses_admin_dm_and_uses_url_buttons():
 
     assert [item[0] for item in channels] == ["log"]
     assert channels[0][1] == 77
+    assert "<b>Subject:</b> Connection &lt;issue&gt; &amp; retry" in channels[0][2]
     buttons = _keyboard_buttons(channels[0][3])
     assert all(button.web_app is None for button in buttons)
     assert buttons[0].url == "https://t.me/demo_bot?startapp=admin_ticket_7"
@@ -604,6 +611,10 @@ def test_account_merge_notification_goes_to_log_channel():
 
     class I18n:
         def gettext(self, _language, key, **kwargs):
+            if key.startswith("log_user_"):
+                return kwargs["value"]
+            if key == "log_open_user_card_button":
+                return "User card"
             if key == "log_open_profile_link":
                 return "Open profile"
             if key == "log_account_merge_panel_distinct":
@@ -630,6 +641,8 @@ def test_account_merge_notification_goes_to_log_channel():
         service.notify_account_merged(
             primary_user_id=42,
             removed_user_id=-100,
+            primary_minishop_id="ms_" + "a" * 32,
+            removed_minishop_id="ms_" + "b" * 32,
             email="paid@example.com",
             telegram_id=100200300,
             username="alice",
@@ -642,8 +655,9 @@ def test_account_merge_notification_goes_to_log_channel():
 
     assert len(messages) == 1
     message, thread_id, reply_markup = messages[0]
-    assert "primary=42" in message
-    assert "removed=-100" in message
+    assert "primary=ms_" + "a" * 32 in message
+    assert "removed=ms_" + "b" * 32 in message
+    assert "removed=-100" not in message
     assert "paid@example.com" in message
     assert thread_id is None
     assert reply_markup.inline_keyboard[0][0].url == "tg://user?id=100200300"
@@ -684,6 +698,10 @@ def test_external_auth_notifications_name_provider_and_merge_source():
 
     class I18n:
         def gettext(self, _language, key, **kwargs):
+            if key.startswith("log_user_"):
+                return kwargs["value"]
+            if key == "log_open_user_card_button":
+                return "User card"
             labels = {
                 "log_auth_provider_google": "Google",
                 "log_external_link_source_email_confirmation": "existing email confirmation",
@@ -748,8 +766,35 @@ def test_external_auth_notifications_name_provider_and_merge_source():
         "linked provider=Google source=provider-verified email",
         "merged source=Google",
     ]
-    assert messages[0][2] is None
+    assert messages[0][2].inline_keyboard[0][0].callback_data == "admin_user_card_from_list:-42:0"
     assert messages[1][2].inline_keyboard[0][0].url == "tg://user?id=100200300"
+
+
+def test_google_registration_log_uses_public_account_id():
+    messages = []
+    service = NotificationService(
+        bot=SimpleNamespace(),
+        settings=_settings(LOG_CHAT_ID=-100123, LOG_NEW_USERS=True, DEFAULT_LANGUAGE="ru"),
+        i18n=_i18n(),
+    )
+
+    async def send_to_log_channel(message, thread_id=None, reply_markup=None):
+        messages.append(message)
+
+    service._send_to_log_channel = send_to_log_channel
+    public_id = "ms_" + "a" * 32
+    asyncio.run(
+        service.notify_new_external_user_registration(
+            user_id=1000000000000,
+            minishop_id=public_id,
+            provider="google",
+            email="user@example.test",
+        )
+    )
+
+    assert len(messages) == 1
+    assert f"ID: <code>{public_id}</code>" in messages[0]
+    assert "1000000000000" not in messages[0]
 
 
 def test_user_support_keyboard_puts_attached_buttons_above_the_ticket_link():

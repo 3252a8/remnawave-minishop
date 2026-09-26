@@ -46,6 +46,8 @@ export type PartnerBalancePaymentOptions = {
   balanceSource?: "user" | "partner" | null;
   usePartnerBalance?: boolean;
   checkoutAddons?: CheckoutAddonSelection;
+  payerEmail?: string;
+  payerPhone?: string;
 };
 
 export type BillingActions = {
@@ -75,6 +77,8 @@ export type BillingActions = {
       balanceSource?: "user" | "partner" | null;
       usePartnerBalance?: boolean;
       checkoutAddons?: CheckoutAddonSelection;
+      payerEmail?: string;
+      payerPhone?: string;
     }
   ): PostPayload<"/api/payments">;
   topupPaymentBody(
@@ -186,6 +190,8 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
       balanceSource?: "user" | "partner" | null;
       usePartnerBalance?: boolean;
       checkoutAddons?: CheckoutAddonSelection;
+      payerEmail?: string;
+      payerPhone?: string;
     } = {}
   ): PostPayload<"/api/payments"> {
     const hasDeviceCheckoutAddon = Number(options.checkoutAddons?.device_count || 0) > 0;
@@ -205,6 +211,8 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
     if (options.checkoutAddons) {
       body.checkout_addons = options.checkoutAddons;
     }
+    setOptionalString(body, "payer_email", options.payerEmail);
+    setOptionalString(body, "payer_phone", options.payerPhone);
     return body as PostPayload<"/api/payments">;
   }
 

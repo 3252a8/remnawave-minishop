@@ -549,26 +549,16 @@ async def _authenticated_provider_link_merges_claimed_email_before_linking() -> 
     ):
         response = await external_oauth.external_oauth_callback_route(request)
 
-    assert response.headers["Location"] == "/settings/security?external_auth=google:success"
-    merge_users.assert_awaited_once_with(
-        factory.session,
-        source_user_id=-41,
-        target_user_id=42,
-        reason="google_verified_email_link",
-        send_user_email=True,
-        cancel_source_recurring=ANY,
+    assert response.headers["Location"] == (
+        "/settings/security?external_auth=google:account_merge_required"
     )
-    upsert_address.assert_awaited_once()
-    factory.session.commit.assert_awaited_once()
-    assert emit_model.await_args is not None
-    payload = emit_model.await_args.args[0]
-    assert payload.provider == "google"
-    assert payload.link_source == "settings"
-    assert payload.user_id == 42
-    assert payload.email == "same@example.com"
+    merge_users.assert_not_awaited()
+    upsert_address.assert_not_awaited()
+    factory.session.commit.assert_not_awaited()
+    emit_model.assert_not_awaited()
 
 
-def test_authenticated_provider_link_merges_claimed_email_before_linking() -> None:
+def test_authenticated_provider_link_rejects_claimed_email_without_merge() -> None:
     asyncio.run(_authenticated_provider_link_merges_claimed_email_before_linking())
 
 
@@ -625,13 +615,15 @@ async def _provider_link_merges_distinct_identity_and_email_owners() -> None:
     ):
         response = await external_oauth.external_oauth_callback_route(request)
 
-    assert response.headers["Location"] == "/settings/security?external_auth=google:success"
-    assert [call.kwargs["source_user_id"] for call in merge_users.await_args_list] == [-71, -70]
-    assert identity.user_id == 42
-    factory.session.commit.assert_awaited_once()
+    assert response.headers["Location"] == (
+        "/settings/security?external_auth=google:account_merge_required"
+    )
+    merge_users.assert_not_awaited()
+    assert identity.user_id == identity_owner.user_id
+    factory.session.commit.assert_not_awaited()
 
 
-def test_provider_link_merges_distinct_identity_and_email_owners() -> None:
+def test_provider_link_rejects_distinct_identity_and_email_owners() -> None:
     asyncio.run(_provider_link_merges_distinct_identity_and_email_owners())
 
 
@@ -775,6 +767,7 @@ async def _unlink_provider_replaces_provider_owned_primary_email() -> None:
                 webapp_auth_providers=["email", "google"],
                 PASSKEY_LOGIN_ENABLED=False,
                 TELEGRAM_LOGIN_ENABLED=False,
+                TELEGRAM_ENABLED=False,
                 email_auth_configured=True,
             ),
         ),
@@ -867,6 +860,7 @@ async def _unlink_provider_requires_an_independent_email() -> None:
                 webapp_auth_providers=["telegram", "google"],
                 PASSKEY_LOGIN_ENABLED=False,
                 TELEGRAM_LOGIN_ENABLED=True,
+                TELEGRAM_ENABLED=True,
                 email_auth_configured=False,
             ),
         ),

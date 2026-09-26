@@ -103,10 +103,12 @@ Wizard старается предлагать безопасные значен
 | `Подключение к существующему reverse proxy` | Для профиля существующего прокси: автоопределяемая схема eGames (`TCP/443` или Unix socket), универсальное подключение к любому запущенному Nginx/Angie/Caddy контейнеру или пропуск. | Схему eGames — для установки Remnawave скриптом eGames; универсальное подключение — для остальных случаев. Wizard повторит фактический TLS-listener, проверит SAN найденных сертификатов для обоих новых hostname и откатит конфиг, если `nginx -t`/`angie -t`/`caddy validate` не пройдет. |
 | `Имя Docker Compose проекта` | Префикс Docker-сети, volumes и контейнеров. | Оставьте `remnawave-minishop`. Меняйте только если на одном сервере нужно несколько независимых стеков. |
 | `Тег Docker-образа` | Версия backend/worker/frontend образов. | Для обычной установки оставьте `latest` или укажите конкретный опубликованный релизный тег. |
-| `Токен Telegram бота` | `BOT_TOKEN` из BotFather. | Вставьте токен бота, через которого пользователи будут открывать Mini App. |
+| `Включить Telegram-бота?` | Переключатель `TELEGRAM_ENABLED`. | Выберите «нет» для браузерного режима по email. |
+| `Токен Telegram бота` | `BOT_TOKEN` из BotFather. | Требуется только при включённом Telegram. |
 | `SOCKS5 proxy для исходящих запросов Telegram Bot API` | Необязательный `TELEGRAM_BOT_PROXY_URL` для `backend` и `worker`. | Оставьте пустым для прямого подключения либо укажите `socks5://host:port`; значение с credentials wizard показывает только в маскированном виде. |
 | `Использовать SOCKS5 proxy для server-side Telegram OAuth token/JWKS` | Необязательный `TELEGRAM_OAUTH_USE_BOT_PROXY` для `backend`. | По умолчанию «да», если proxy заполнен. Выберите «нет» только для прямого OAuth-маршрута; браузер пользователя этот выбор не затрагивает. |
-| `Telegram ID администраторов` | Список Telegram ID, которым доступна админка и сервисные уведомления. | Укажите свой ID; несколько ID разделяйте запятыми. |
+| `Старые Telegram ID администраторов` | Необязательный одноразовый импорт ролей по явной Telegram-привязке. | Для новой установки оставьте пустым; первого владельца назначьте по подтверждённому email. |
+| `SMTP host` и `Email отправителя` | Почта для кодов входа. | Обязательны в автономном режиме; отдельно задайте SMTP-авторизацию, если она нужна серверу. |
 | `Пользователь/пароль/база PostgreSQL` | Учетные данные внутренней базы Minishop. | Пользователя и имя базы можно оставить по умолчанию; пароль wizard генерирует сам, его можно принять Enter. |
 | `Название Web App` | Название приложения в интерфейсе. | Можно оставить `remnawave-minishop` и позже поменять в настройках. |
 | `URL API Remnawave Panel` | Адрес API панели, обычно `https://panel.example.com/api`. | Укажите публичный URL панели с `/api` в конце. |
@@ -256,7 +258,8 @@ docker compose logs -f caddy backend worker frontend
 Минимально поменяйте в `.env`:
 
 - `WEBHOOK_HOST` и `MINIAPP_HOST`;
-- `BOT_TOKEN`, `ADMIN_IDS`;
+- `TELEGRAM_ENABLED=False` для автономного режима или `BOT_TOKEN` при включённом Telegram;
+- `EMAIL_AUTH_SECRET`, `PUBLIC_APP_URL`, SMTP и подтверждённый email первого владельца;
 - `POSTGRES_PASSWORD`;
 - `WEBAPP_SESSION_SECRET`, `WEBHOOK_SECRET_TOKEN`;
 - `PANEL_API_URL`, `PANEL_API_KEY`, `PANEL_WEBHOOK_SECRET`.
@@ -289,7 +292,8 @@ docker compose logs -f angie backend worker frontend
 Минимально поменяйте в `.env`:
 
 - `WEBHOOK_HOST` и `MINIAPP_HOST`;
-- `BOT_TOKEN`, `ADMIN_IDS`;
+- `TELEGRAM_ENABLED=False` для автономного режима или `BOT_TOKEN` при включённом Telegram;
+- `EMAIL_AUTH_SECRET`, `PUBLIC_APP_URL` и SMTP для входа по email;
 - `POSTGRES_PASSWORD`;
 - `WEBAPP_SESSION_SECRET`, `WEBHOOK_SECRET_TOKEN`;
 - `PANEL_API_URL`, `PANEL_API_KEY`, `PANEL_WEBHOOK_SECRET`.
@@ -362,7 +366,7 @@ docker compose up -d
 
 - `WEBHOOK_HOST` и `MINIAPP_HOST` - публичные домены ресурсов в Pangolin;
 - `PANGOLIN_ENDPOINT`, `NEWT_ID`, `NEWT_SECRET` - значения из настроек site/client в Pangolin;
-- обычные переменные приложения: `BOT_TOKEN`, `ADMIN_IDS`, `POSTGRES_PASSWORD`, секреты и доступ к Remnawave.
+- обычные переменные приложения: `TELEGRAM_ENABLED`, `POSTGRES_PASSWORD`, секреты, SMTP и доступ к Remnawave; `BOT_TOKEN` нужен только при включённом Telegram.
 
 В Pangolin создайте два HTTP-ресурса для этого Newt site:
 

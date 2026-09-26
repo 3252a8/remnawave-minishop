@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from bot.handlers.user.promo_user import process_promo_code_input
 from bot.services.promo_code_service import PromoCheckoutRequired
@@ -42,20 +42,26 @@ class PromoUserHandlerTests(IsolatedAsyncioTestCase):
         )
         session = SimpleNamespace(commit=AsyncMock())
 
-        await process_promo_code_input(
-            message=message,
-            state=state,
-            settings=settings,
-            i18n_data={"current_language": "en", "i18n_instance": i18n},
-            promo_code_service=service,
-            subscription_service=SimpleNamespace(),
-            bot=SimpleNamespace(),
-            session=session,
-        )
+        with patch(
+            "bot.services.telegram_account.user_dal.get_user_by_telegram_id",
+            new_callable=AsyncMock,
+            return_value=SimpleNamespace(user_id=77),
+        ) as lookup:
+            await process_promo_code_input(
+                message=message,
+                state=state,
+                settings=settings,
+                i18n_data={"current_language": "en", "i18n_instance": i18n},
+                promo_code_service=service,
+                subscription_service=SimpleNamespace(),
+                bot=SimpleNamespace(),
+                session=session,
+            )
 
         session.commit.assert_awaited_once()
         state.clear.assert_awaited_once()
-        service.apply_promo_code.assert_awaited_once_with(session, 42, "save20", "en")
+        lookup.assert_awaited_once_with(session, 42)
+        service.apply_promo_code.assert_awaited_once_with(session, 77, "save20", "en")
         message.answer.assert_awaited_once()
         _, kwargs = message.answer.await_args
         assert kwargs["parse_mode"] == "HTML"

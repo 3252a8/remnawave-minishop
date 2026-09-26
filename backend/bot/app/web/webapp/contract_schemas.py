@@ -46,6 +46,7 @@ class WebappBootstrapConfigOut(HttpResponseModel):
     primary_color: str | None = Field(default=None, alias="primaryColor")
     user_theme_mode_enabled: bool = Field(alias="userThemeModeEnabled")
     compact_home_enabled: bool = Field(alias="compactHomeEnabled")
+    compact_login_enabled: bool = Field(alias="compactLoginEnabled")
     checkout_addon_value_animation_enabled: bool = Field(alias="checkoutAddonValueAnimationEnabled")
     checkout_addon_editor_expanded_by_default: bool = Field(
         alias="checkoutAddonEditorExpandedByDefault"
@@ -77,6 +78,7 @@ class WebappBootstrapConfigOut(HttpResponseModel):
     dev_mode: bool = Field(alias="devMode")
     auth_providers: list[str] = Field(alias="authProviders")
     recommended_auth_providers: list[str] = Field(alias="recommendedAuthProviders")
+    wide_auth_providers: list[str] = Field(alias="wideAuthProviders")
     registration_invite_only_enabled: bool = Field(alias="registrationInviteOnlyEnabled")
     checkout_plans: list[dict[str, Any]] = Field(default_factory=list, alias="checkoutPlans")
     app_version: str = Field(alias="appVersion")
@@ -96,6 +98,7 @@ class WebappI18nOut(HttpResponseModel):
 class SubscriptionGuidesOut(HttpResponseModel):
     enabled: bool
     config: dict[str, Any] | None = None
+    guide_document: dict[str, Any] | None = None
     source: str | None = None
     error: str | None = None
 
@@ -104,6 +107,8 @@ class PublicSubscriptionContextOut(HttpResponseModel):
     active: bool
     config_link: str
     connect_url: str
+    http_url: str | None = None
+    link_mode: str = "panel"
     panel_short_uuid: str | None = None
     install_share_token: str
     username: str
@@ -575,6 +580,8 @@ WEBAPP_SUBSCRIPTION_SCHEMA: dict[str, Any] = {
         "remaining_text": STRING_SCHEMA,
         "config_link": NULLABLE_STRING_SCHEMA,
         "connect_url": NULLABLE_STRING_SCHEMA,
+        "http_url": NULLABLE_STRING_SCHEMA,
+        "link_mode": STRING_SCHEMA,
         "panel_short_uuid": NULLABLE_STRING_SCHEMA,
         "install_share_token": NULLABLE_STRING_SCHEMA,
         "install_share_url": NULLABLE_STRING_SCHEMA,
@@ -691,13 +698,23 @@ THEMES_CATALOG_SCHEMA: dict[str, Any] = {
 MENU_BUTTON_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["id", "kind", "target", "icon", "label"],
+    "required": [
+        "id",
+        "kind",
+        "target",
+        "icon",
+        "label",
+        "show_in_telegram_webapp",
+        "show_in_browser",
+    ],
     "properties": {
         "id": STRING_SCHEMA,
         "kind": {"type": "string", "enum": ["external", "telegram", "webapp", "page"]},
         "target": STRING_SCHEMA,
         "icon": STRING_SCHEMA,
         "label": STRING_SCHEMA,
+        "show_in_telegram_webapp": BOOLEAN_SCHEMA,
+        "show_in_browser": BOOLEAN_SCHEMA,
     },
 }
 WEBAPP_SETTINGS_SCHEMA: dict[str, Any] = {
@@ -721,6 +738,8 @@ WEBAPP_SETTINGS_SCHEMA: dict[str, Any] = {
         "trial_available": BOOLEAN_SCHEMA,
         "trial_payment_enabled": BOOLEAN_SCHEMA,
         "trial_payment_plan": {"anyOf": [PLAN_SCHEMA, {"type": "null"}]},
+        "trial_without_oauth_enabled": BOOLEAN_SCHEMA,
+        "trial_requires_oauth": BOOLEAN_SCHEMA,
         "trial_without_telegram_enabled": BOOLEAN_SCHEMA,
         "trial_requires_telegram": BOOLEAN_SCHEMA,
         "trial_block_reason": NULLABLE_STRING_SCHEMA,

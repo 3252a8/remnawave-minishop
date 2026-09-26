@@ -1,6 +1,6 @@
 <script lang="ts">
   import { giftState } from "$lib/webapp/gifts.svelte.js";
-  import type { ThemeOption } from "$lib/webapp/themePreference.js";
+  import { THEME_PREFERENCE_DEFAULT, type ThemeOption } from "$lib/webapp/themePreference.js";
   import type { AccountStore } from "../lib/webapp/stores/accountStore.js";
   import type { DevicesStore } from "../lib/webapp/stores/devicesStore.js";
   import type { SupportStore } from "../lib/webapp/stores/supportStore.js";
@@ -8,6 +8,7 @@
   import type { ApiClient } from "../lib/webapp/publicApi.js";
 
   import { lazyScreen } from "../lib/webapp/lazyScreen.svelte.js";
+  import { visibleMenuButtons } from "../lib/webapp/menuButtons.js";
   import { resolveProgramEntryPlacement } from "../lib/webapp/programEntryPolicy.js";
   import {
     DEFAULT_HOME_ELEMENT_VISIBILITY,
@@ -15,6 +16,8 @@
     type ReferralBonusListMode,
   } from "../lib/webapp/themeStyle.js";
 
+  import UserExtensions from "./extensions/UserExtensions.svelte";
+  import type { UserNavigationItem } from "$lib/webapp/extensionHost";
   import WebAppShell from "./WebAppShell.svelte";
   import HomeScreen from "./screens/HomeScreen.svelte";
   import ScreenLoading from "./screens/ScreenLoading.svelte";
@@ -47,6 +50,8 @@
   type LoadDevicesAction = (force?: boolean) => void;
 
   type Props = {
+    apiClient?: ApiClient;
+    routePrefix?: string;
     api: ApiClient["api"];
     accountStore: AccountStore;
     activateTrial: VoidAction;
@@ -176,6 +181,8 @@
   };
 
   let {
+    apiClient,
+    routePrefix = "",
     api,
     accountStore,
     activateTrial,
@@ -283,7 +290,7 @@
     supportUnreadLoading = false,
     supportUrl = "",
     themeOptions = [],
-    themePreference = "auto",
+    themePreference = THEME_PREFERENCE_DEFAULT,
     themeSwitcherVisible = false,
     setThemePreference = () => {},
     t,
@@ -340,15 +347,16 @@
     })
   );
   const menuButtons = $derived(
-    Array.isArray(appSettings?.menu_buttons) ? (appSettings.menu_buttons as MenuButtonView[]) : []
+    visibleMenuButtons(
+      Array.isArray(appSettings?.menu_buttons)
+        ? (appSettings.menu_buttons as MenuButtonView[])
+        : [],
+      telegramMiniAppContext
+    )
   );
   let balanceTopupOpen = $state(false);
 
   function openMenuButton(button: MenuButtonView): void {
-    if (button.kind === "page") {
-      window.location.assign(String(button.target || ""));
-      return;
-    }
     if (button.kind !== "webapp") {
       openExternalLink(String(button.target || ""));
       return;
@@ -388,15 +396,19 @@
         goHome();
     }
   }
+  let extensionNavigation = $state<UserNavigationItem[]>([]);
+  let extensionParent = $state("");
+  let extensionSections = $state<string[]>([]);
 </script>
 
 <WebAppShell
+  {extensionNavigation}
   {screen}
-  {activeTab}
+  activeTab={extensionParent || activeTab}
   {brandTitle}
   {brand}
   {devicesEnabled}
-  {supportEnabled}
+  supportEnabled={supportEnabled || extensionSections.includes("support")}
   {supportUnreadCount}
   {supportUnreadLoading}
   {supportUnreadLoaded}
@@ -407,7 +419,8 @@
   {goHome}
   {goInvite}
   {goPartner}
-  bonusesNavigationVisible={programEntryPlacement.bonusesNavigationVisible}
+  bonusesNavigationVisible={programEntryPlacement.bonusesNavigationVisible ||
+    extensionSections.includes("invite")}
   partnerNavigationVisible={programEntryPlacement.partnerNavigationVisible}
   partnerSettingsVisible={programEntryPlacement.partnerSettingsVisible}
   {goSupport}
@@ -416,259 +429,273 @@
   {goSecurity}
   {t}
 >
-  {#if screen === "home"}
-    <HomeScreen
-      {appSettings}
-      {balance}
-      {brand}
-      {brandTitle}
-      {canChangeTariff}
-      {currentTariffName}
-      {hasActiveTariffSubscription}
-      {hasMultipleTariffs}
-      {premiumTrafficTopupBarClickable}
-      {premiumTrafficTopupUnlocked}
-      {regularTrafficTopupBarClickable}
-      {regularTrafficTopupUnlocked}
-      {referral}
-      {subscription}
-      {autoRenewBusy}
-      {linkTelegramBusy}
-      {telegramNotificationsNeedPrompt}
-      {telegramNotificationsStartLink}
-      {telegramNotificationsStatus}
-      {termUnitLabel}
-      {trafficMode}
-      {trialBusy}
-      {activateTrial}
-      {toggleAutoRenew}
-      {linkTelegramAndActivateTrial}
-      {linkTelegramAndClaimReferralWelcome}
-      {openTelegramNotificationsBot}
-      openConnectLink={openInstallOrConnect}
-      {openPaymentModal}
-      openBalanceTopup={() => (balanceTopupOpen = true)}
-      {openRegularTopupModal}
-      {openPremiumTopupModal}
-      {openTariffChangeModal}
-      goStatus={() => goStatus("home")}
-      {openExternalLink}
-      {serverStatusShowOnHome}
-      {compactHomeEnabled}
-      {homeElementVisibility}
-      {statusStore}
-      {primaryPayActionLabel}
-      {t}
-    />
-  {:else if screen === "install"}
-    {#if installGuideScreen.component}
-      {@const Screen = installGuideScreen.component}
-      <Screen
-        {currentLang}
-        {telegramPlatform}
-        {user}
-        {subscription}
-        {goHome}
-        {openConnectLink}
-        {openExternalLink}
-        {openAppLink}
-        {copyText}
-        {t}
-      />
-    {:else}
-      <ScreenLoading label={t("wa_loading")} />
-    {/if}
-  {:else if screen === "trial"}
-    {#if trialActivationScreen.component}
-      {@const Screen = trialActivationScreen.component}
-      <Screen
+  <UserExtensions
+    client={apiClient}
+    {screen}
+    language={currentLang}
+    {t}
+    {routePrefix}
+    context={{ screen, subscription, ticketId: supportStore.openedTicketId || null }}
+    bind:navigation={extensionNavigation}
+    bind:parentSection={extensionParent}
+    bind:sections={extensionSections}
+  >
+    {#if screen === "home"}
+      <HomeScreen
         {appSettings}
+        {balance}
         {brand}
         {brandTitle}
-        {subscription}
-        {trialBusy}
-        {linkTelegramBusy}
-        trialResult={trialActivationResult}
-        trialError={trialActivationError}
-        {activateTrial}
-        {linkTelegramAndActivateTrial}
-        openInstallOrConnect={openTrialInstallOrConnect}
-        {goHome}
-        {t}
-      />
-    {:else}
-      <ScreenLoading label={t("wa_loading")} />
-    {/if}
-  {:else if screen === "invite"}
-    {#if inviteScreen.component}
-      {@const Screen = inviteScreen.component}
-      <Screen
+        {canChangeTariff}
+        {currentTariffName}
+        {hasActiveTariffSubscription}
+        {hasMultipleTariffs}
+        {premiumTrafficTopupBarClickable}
+        {premiumTrafficTopupUnlocked}
+        {regularTrafficTopupBarClickable}
+        {regularTrafficTopupUnlocked}
         {referral}
-        {referralProgramEnabled}
-        {referralBonusDetails}
-        {referralBonusListMode}
-        {referralOneBonusPerReferee}
-        {referralWelcomeBonusDays}
-        {promoCode}
-        {promoFieldError}
-        {promoBusy}
-        {promoIsError}
-        {promoStatus}
-        {applyPromo}
-        {setPromoCode}
-        {clearPromoFieldError}
-        {copyText}
-        {t}
-      />
-    {:else}
-      <ScreenLoading label={t("wa_loading")} />
-    {/if}
-  {:else if screen === "partner"}
-    {#if partnerScreen.component}
-      {@const Screen = partnerScreen.component}
-      <Screen {api} {copyText} goBack={activeTab === "settings" ? goSettings : undefined} {t} />
-    {:else}
-      <ScreenLoading label={t("wa_loading")} />
-    {/if}
-  {:else if screen === "devices"}
-    {#if devicesScreen.component}
-      {@const Screen = devicesScreen.component}
-      <Screen
-        {devicesBusy}
-        devicesData={devicesData || undefined}
-        {devicesIsError}
-        {devicesLoaded}
-        {devicesErrorCode}
-        {devicesStatus}
         {subscription}
-        {loadDevices}
-        openDeviceDisconnectDialog={devicesStore.openDeviceDisconnectDialog}
-        {openDeviceTopupModal}
+        {autoRenewBusy}
+        {linkTelegramBusy}
+        {telegramNotificationsNeedPrompt}
+        {telegramNotificationsStartLink}
+        {telegramNotificationsStatus}
+        {termUnitLabel}
+        {trafficMode}
+        {trialBusy}
+        {activateTrial}
+        {toggleAutoRenew}
+        {linkTelegramAndActivateTrial}
+        {linkTelegramAndClaimReferralWelcome}
+        {openTelegramNotificationsBot}
+        openConnectLink={openInstallOrConnect}
         {openPaymentModal}
+        openBalanceTopup={() => (balanceTopupOpen = true)}
+        {openRegularTopupModal}
+        {openPremiumTopupModal}
+        {openTariffChangeModal}
+        {goSecurity}
+        goStatus={() => goStatus("home")}
+        {openExternalLink}
+        {serverStatusShowOnHome}
+        {compactHomeEnabled}
+        {homeElementVisibility}
+        {statusStore}
+        {primaryPayActionLabel}
         {t}
       />
-    {:else}
-      <ScreenLoading label={t("wa_loading")} />
-    {/if}
-  {:else if screen === "support"}
-    {#if supportStore.openedTicketId}
-      {#if supportTicketScreen.component}
-        {@const Screen = supportTicketScreen.component}
+    {:else if screen === "install"}
+      {#if installGuideScreen.component}
+        {@const Screen = installGuideScreen.component}
         <Screen
-          maxBodyLength={appSettings?.support_ticket_max_body_length || 4000}
-          {brand}
+          {currentLang}
+          {telegramPlatform}
           {user}
-          userAvatarUrl={profileAvatarUrl}
-          userInitials={telegramProfileName ? telegramProfileName.slice(0, 2).toUpperCase() : "U"}
+          {subscription}
+          {goHome}
+          {openConnectLink}
+          {openExternalLink}
+          {openAppLink}
+          {copyText}
           {t}
         />
       {:else}
-        <ScreenLoading label={t("wa_loading")} />
+        <ScreenLoading screen={installGuideScreen} {t} />
       {/if}
-    {:else if supportScreen.component}
-      {@const Screen = supportScreen.component}
-      <Screen
-        maxSubjectLength={appSettings?.support_ticket_max_subject_length || 160}
-        maxBodyLength={appSettings?.support_ticket_max_body_length || 4000}
-        {user}
-        {t}
-      />
-    {:else}
-      <ScreenLoading label={t("wa_loading")} />
-    {/if}
-  {:else if screen === "settings"}
-    <SettingsScreen
-      {api}
-      {currentLang}
-      {currentLanguageOption}
-      {emailAuthEnabled}
-      {notificationPreferencesEnabled}
-      {isAdmin}
-      {languageBusy}
-      {languageClickGuard}
-      {languageClickGuardArmed}
-      bind:languageMenuOpen
-      {languageOptions}
-      {menuButtons}
-      {privacyPolicyUrl}
-      {profileAvatarUrl}
-      {profileEmail}
-      {profileTelegramId}
-      {balance}
-      partnerSettingsVisible={programEntryPlacement.partnerSettingsVisible}
-      promoActivationVisible={programEntryPlacement.promoSettingsVisible}
-      {promoBusy}
-      {promoCode}
-      {promoFieldError}
-      {promoIsError}
-      {promoStatus}
-      {serverStatusUrl}
-      {serverStatusInternal}
-      {supportUrl}
-      {themeOptions}
-      {themePreference}
-      {themeSwitcherVisible}
-      {setThemePreference}
-      {telegramNotificationsNeedPrompt}
-      {telegramNotificationsStartLink}
-      {telegramNotificationsStatus}
-      {telegramProfileName}
-      {userAgreementUrl}
-      {userLanguage}
-      {hasUnlinkedIdentity}
-      showLogout={!telegramMiniAppContext}
-      {openTelegramNotificationsBot}
-      logout={accountStore.logout}
-      {openAdminPanel}
-      openPartner={goPartner}
-      {openExternalLink}
-      openBalanceTopup={() => (balanceTopupOpen = true)}
-      {openMenuButton}
-      openNotifications={goNotifications}
-      openSecurity={goSecurity}
-      openServerStatus={() => goStatus("settings")}
-      {applyPromo}
-      {clearPromoFieldError}
-      {setLanguageMenuOpen}
-      {setPromoCode}
-      {t}
-      updateAccountLanguage={accountStore.updateAccountLanguage}
-    />
-  {:else if screen === "notifications" && notificationPreferencesEnabled}
-    <NotificationSettingsScreen {api} {emailAuthEnabled} {goSettings} {t} {user} />
-  {:else if screen === "security"}
-    <SecurityScreen
-      {api}
-      authProviders={(appSettings.auth_providers || appSettings.authProviders || []) as string[]}
-      {brandTitle}
-      {currentLang}
-      {emailAuthEnabled}
-      emailChangeEnabled={Boolean(appSettings.email_address_change_enabled ?? true)}
-      {goSettings}
-      linkTelegramAccount={accountStore.linkTelegramFromSettings}
-      {openLinkEmailDialog}
-      {openSetPasswordDialog}
-      {subscriptionReissueBusy}
-      subscriptionReissueVisible={subscriptionReissueEnabled && Boolean(subscription?.active)}
-      {openSubscriptionReissueDialog}
-      {t}
-      {telegramMiniAppContext}
-      {user}
-    />
-  {:else if screen === "status"}
-    {#if statusScreen.component}
-      {@const Screen = statusScreen.component}
-      <Screen
+    {:else if screen === "trial"}
+      {#if trialActivationScreen.component}
+        {@const Screen = trialActivationScreen.component}
+        <Screen
+          {appSettings}
+          {brand}
+          {brandTitle}
+          {subscription}
+          {trialBusy}
+          {linkTelegramBusy}
+          trialResult={trialActivationResult}
+          trialError={trialActivationError}
+          {activateTrial}
+          {linkTelegramAndActivateTrial}
+          openSecurity={goSecurity}
+          openInstallOrConnect={openTrialInstallOrConnect}
+          {goHome}
+          {t}
+        />
+      {:else}
+        <ScreenLoading screen={trialActivationScreen} {t} />
+      {/if}
+    {:else if screen === "invite"}
+      {#if inviteScreen.component}
+        {@const Screen = inviteScreen.component}
+        <Screen
+          {referral}
+          {referralProgramEnabled}
+          {referralBonusDetails}
+          {referralBonusListMode}
+          {referralOneBonusPerReferee}
+          {referralWelcomeBonusDays}
+          {promoCode}
+          {promoFieldError}
+          {promoBusy}
+          {promoIsError}
+          {promoStatus}
+          {applyPromo}
+          {setPromoCode}
+          {clearPromoFieldError}
+          {copyText}
+          {t}
+        />
+      {:else}
+        <ScreenLoading screen={inviteScreen} {t} />
+      {/if}
+    {:else if screen === "partner"}
+      {#if partnerScreen.component}
+        {@const Screen = partnerScreen.component}
+        <Screen {api} {copyText} goBack={activeTab === "settings" ? goSettings : undefined} {t} />
+      {:else}
+        <ScreenLoading screen={partnerScreen} {t} />
+      {/if}
+    {:else if screen === "devices"}
+      {#if devicesScreen.component}
+        {@const Screen = devicesScreen.component}
+        <Screen
+          {devicesBusy}
+          devicesData={devicesData || undefined}
+          {devicesIsError}
+          {devicesLoaded}
+          {devicesErrorCode}
+          {devicesStatus}
+          {subscription}
+          {loadDevices}
+          openDeviceDisconnectDialog={devicesStore.openDeviceDisconnectDialog}
+          {openDeviceTopupModal}
+          {openPaymentModal}
+          {t}
+        />
+      {:else}
+        <ScreenLoading screen={devicesScreen} {t} />
+      {/if}
+    {:else if screen === "support"}
+      {#if supportStore.openedTicketId}
+        {#if supportTicketScreen.component}
+          {@const Screen = supportTicketScreen.component}
+          <Screen
+            maxBodyLength={appSettings?.support_ticket_max_body_length || 4000}
+            {brand}
+            {user}
+            userAvatarUrl={profileAvatarUrl}
+            userInitials={telegramProfileName ? telegramProfileName.slice(0, 2).toUpperCase() : "U"}
+            {t}
+          />
+        {:else}
+          <ScreenLoading screen={supportTicketScreen} {t} />
+        {/if}
+      {:else if supportScreen.component}
+        {@const Screen = supportScreen.component}
+        <Screen
+          maxSubjectLength={appSettings?.support_ticket_max_subject_length || 160}
+          maxBodyLength={appSettings?.support_ticket_max_body_length || 4000}
+          {user}
+          {t}
+        />
+      {:else}
+        <ScreenLoading screen={supportScreen} {t} />
+      {/if}
+    {:else if screen === "settings"}
+      <SettingsScreen
+        {api}
         {currentLang}
-        {statusStore}
-        goHome={activeTab === "settings" ? goSettings : goHome}
+        {currentLanguageOption}
+        {emailAuthEnabled}
+        {notificationPreferencesEnabled}
+        {isAdmin}
+        {languageBusy}
+        {languageClickGuard}
+        {languageClickGuardArmed}
+        bind:languageMenuOpen
+        {languageOptions}
+        {menuButtons}
+        {privacyPolicyUrl}
+        {profileAvatarUrl}
+        {profileEmail}
+        {profileTelegramId}
+        {balance}
+        partnerSettingsVisible={programEntryPlacement.partnerSettingsVisible}
+        promoActivationVisible={programEntryPlacement.promoSettingsVisible}
+        {promoBusy}
+        {promoCode}
+        {promoFieldError}
+        {promoIsError}
+        {promoStatus}
+        {serverStatusUrl}
+        {serverStatusInternal}
+        {supportUrl}
+        {themeOptions}
+        {themePreference}
+        {themeSwitcherVisible}
+        {setThemePreference}
+        {telegramNotificationsNeedPrompt}
+        {telegramNotificationsStartLink}
+        {telegramNotificationsStatus}
+        {telegramProfileName}
+        {userAgreementUrl}
+        {userLanguage}
+        {hasUnlinkedIdentity}
+        showLogout={!telegramMiniAppContext}
+        {openTelegramNotificationsBot}
+        logout={accountStore.logout}
+        {openAdminPanel}
+        openPartner={goPartner}
         {openExternalLink}
+        openBalanceTopup={() => (balanceTopupOpen = true)}
+        {openMenuButton}
+        openNotifications={goNotifications}
+        openSecurity={goSecurity}
+        openServerStatus={() => goStatus("settings")}
+        {applyPromo}
+        {clearPromoFieldError}
+        {setLanguageMenuOpen}
+        {setPromoCode}
         {t}
+        updateAccountLanguage={accountStore.updateAccountLanguage}
       />
-    {:else}
-      <ScreenLoading label={t("wa_loading")} />
+    {:else if screen === "notifications" && notificationPreferencesEnabled}
+      <NotificationSettingsScreen {api} {emailAuthEnabled} {goSettings} {t} {user} />
+    {:else if screen === "security"}
+      <SecurityScreen
+        {api}
+        authProviders={(appSettings.auth_providers || appSettings.authProviders || []) as string[]}
+        {brandTitle}
+        {currentLang}
+        {emailAuthEnabled}
+        emailChangeEnabled={Boolean(appSettings.email_address_change_enabled ?? true)}
+        {goSettings}
+        linkTelegramAccount={accountStore.linkTelegramFromSettings}
+        {openLinkEmailDialog}
+        {openSetPasswordDialog}
+        {subscriptionReissueBusy}
+        subscriptionReissueVisible={subscriptionReissueEnabled && Boolean(subscription?.active)}
+        {openSubscriptionReissueDialog}
+        {t}
+        {telegramMiniAppContext}
+        {user}
+      />
+    {:else if screen === "status"}
+      {#if statusScreen.component}
+        {@const Screen = statusScreen.component}
+        <Screen
+          {currentLang}
+          {statusStore}
+          goHome={activeTab === "settings" ? goSettings : goHome}
+          {openExternalLink}
+          {t}
+        />
+      {:else}
+        <ScreenLoading screen={statusScreen} {t} />
+      {/if}
     {/if}
-  {/if}
+  </UserExtensions>
   {#if balance.enabled}
     <BalanceTopupDialog
       {api}

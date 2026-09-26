@@ -19,14 +19,18 @@ export const demoAdminRoutes = [
   "users",
   "payments",
   "promos",
+  "gifts",
+  "partners",
   "ads",
   "broadcast",
   "logs",
   "support",
   "tariffs",
   "appearance",
+  "documents",
   "translations",
   "backups",
+  "plugins",
   "settings",
 ];
 

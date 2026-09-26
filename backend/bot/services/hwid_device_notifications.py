@@ -70,7 +70,7 @@ class HwidDeviceNotificationService:
     def __init__(
         self,
         settings: Settings,
-        bot: Bot,
+        bot: Bot | None,
         i18n: JsonI18n,
         panel_service: PanelApiService,
     ) -> None:
@@ -366,6 +366,8 @@ class HwidDeviceNotificationService:
         topup_available: bool,
         lang: str,
     ) -> tuple[bool, bool]:
+        if self.bot is None:
+            return False, False
         chat_id = telegram_recipient(user, subscription.user_id)
         if chat_id is None:
             return False, False

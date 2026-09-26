@@ -27,6 +27,7 @@ from .payloads import (
     WebAppPasskeyDeletePayload,
     WebAppSetPasswordPayload,
     WebAppTelegramAuthPayload,
+    WebAppTelegramMergePayload,
 )
 
 ACCOUNT_ROUTE_CONTRACTS: dict[str, RouteContract] = {
@@ -100,6 +101,13 @@ ACCOUNT_ROUTE_CONTRACTS: dict[str, RouteContract] = {
     ),
     "account_telegram_link_route": user_contract(
         request_model=WebAppTelegramAuthPayload,
+        response_schema=AUTH_RESPONSE_SCHEMA,
+    ),
+    "account_telegram_merge_request_route": user_contract(
+        response_schema=EMAIL_REQUEST_RESPONSE_SCHEMA,
+    ),
+    "account_telegram_merge_confirm_route": user_contract(
+        request_model=WebAppTelegramMergePayload,
         response_schema=AUTH_RESPONSE_SCHEMA,
     ),
 }

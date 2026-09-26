@@ -8,6 +8,7 @@ from bot.services.panel_activity import record_subscription_panel_activity
 from bot.services.subscription_order_terms import gift_tariff
 from bot.utils.config_link import prepare_config_links
 from bot.utils.locale_defaults import tariff_premium_title
+from bot.utils.mini_app_url import subscription_public_install_url
 from bot.utils.traffic_reset import next_traffic_reset_after, traffic_accounting_period_start
 from config.tariffs_config import default_currency_key_for_settings
 from db.dal import payment_dal, subscription_dal, tariff_dal, user_dal
@@ -49,11 +50,29 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
         local_active_sub: Subscription,
         *,
         refresh_metadata: bool = True,
+        panel_lookup_failed: bool = False,
     ) -> dict[str, Any]:
         panel_sub_id = str(local_active_sub.panel_subscription_uuid or "").strip()
-        config_link_raw = (
-            await self.panel_service.get_subscription_link(panel_sub_id) if panel_sub_id else None
-        )
+        config_link_raw = None
+        if (
+            self.settings.SUBSCRIPTION_GATEWAY_ENABLED
+            and self.settings.SUBSCRIPTION_LINK_MODE == "minishop"
+            and str(local_active_sub.install_share_panel_short_uuid or "") == panel_sub_id
+        ):
+            config_link_raw = subscription_public_install_url(
+                self.settings, str(local_active_sub.install_share_token or "")
+            )
+        if not config_link_raw and not panel_lookup_failed:
+            # The panel API address can be private; only the panel knows its public link.
+            try:
+                panel_user = await self.panel_service.get_user_by_uuid(db_user.panel_user_uuid)
+            except Exception:
+                logger.exception(
+                    "Failed to fetch public subscription link for user %s", db_user.user_id
+                )
+                panel_user = None
+            if isinstance(panel_user, dict):
+                config_link_raw = str(panel_user.get("subscriptionUrl") or "").strip() or None
         display_link, connect_button_url = await prepare_config_links(
             self.settings,
             config_link_raw,
@@ -139,6 +158,7 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             "status_from_panel": local_active_sub.status_from_panel or "LOCAL_CACHE",
             "config_link": display_link,
             "connect_button_url": connect_button_url,
+            "http_url": config_link_raw,
             "traffic_limit_bytes": local_active_sub.traffic_limit_bytes,
             "traffic_used_bytes": local_active_sub.traffic_used_bytes,
             "traffic_limit_strategy": traffic_limit_strategy,
@@ -217,6 +237,29 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 user_id,
             )
             return None
+        if str(getattr(sub, "provider", "") or "").strip().lower() == "wata" and bool(
+            getattr(sub, "auto_renew_enabled", False)
+        ):
+            from bot.infra.auto_renew import stop_provider_managed_recurrence
+
+            stopped = await stop_provider_managed_recurrence(
+                self,
+                session,
+                user_id=user_id,
+                provider="wata",
+            )
+            if not stopped:
+                logger.warning(
+                    "Rejecting tariff switch for user %s because Wata recurrence could not stop",
+                    user_id,
+                )
+                return None
+            logger.info(
+                "Stopped Wata recurrence for user %s before tariff switch %s -> %s",
+                user_id,
+                sub.tariff_key,
+                target.key,
+            )
         before_tariff_key = sub.tariff_key
         now = datetime.now(UTC)
         trial_provider = str(getattr(sub, "provider", "") or "").strip().lower() == "trial"

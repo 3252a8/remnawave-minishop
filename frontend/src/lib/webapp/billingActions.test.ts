@@ -99,4 +99,25 @@ describe("billingActions partner balance funding", () => {
       })
     ).toMatchObject({ renew_hwid_devices: true });
   });
+
+  it("sends Wata subscription contacts only when checkout provides them", () => {
+    const actions = createBillingActions({ api: vi.fn() });
+    const plan = {
+      months: 1,
+      tariff_key: "pro",
+      sale_mode: "subscription@pro",
+    };
+
+    expect(
+      actions.planPaymentBody(plan, "wata_subscription", {
+        payerEmail: "person@example.com",
+        payerPhone: "+79991234567",
+      })
+    ).toMatchObject({
+      payer_email: "person@example.com",
+      payer_phone: "+79991234567",
+    });
+    expect(actions.planPaymentBody(plan, "card")).not.toHaveProperty("payer_email");
+    expect(actions.planPaymentBody(plan, "card")).not.toHaveProperty("payer_phone");
+  });
 });

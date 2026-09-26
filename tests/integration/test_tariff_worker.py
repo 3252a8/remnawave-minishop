@@ -225,7 +225,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             settings=SimpleNamespace(
                 DEFAULT_LANGUAGE="en",
                 SUBSCRIPTION_MINI_APP_URL="https://app.example.com",
-                email_auth_configured=False,
+                smtp_delivery_configured=False,
                 tariff_traffic_warning_levels=[85],
             ),
             session_factory=SimpleNamespace(),
@@ -241,6 +241,17 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         sub = SimpleNamespace(subscription_id=10, user_id=123, traffic_used_bytes=1)
 
         with (
+            patch(
+                "bot.services.tariff_worker_core.user_dal.get_user_by_id",
+                new=AsyncMock(
+                    return_value=SimpleNamespace(
+                        user_id=123,
+                        telegram_id=123,
+                        email=None,
+                        telegram_notifications_status="enabled",
+                    )
+                ),
+            ),
             patch(
                 "bot.services.tariff_worker_regular.tariff_dal.has_warning_level_between",
                 new=AsyncMock(side_effect=[True, False]),
@@ -285,7 +296,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         worker = TariffTrafficWorker(
             settings=SimpleNamespace(
                 DEFAULT_LANGUAGE="en",
-                email_auth_configured=False,
+                smtp_delivery_configured=False,
                 tariff_traffic_warning_levels=[85],
             ),
             session_factory=SimpleNamespace(),
@@ -319,7 +330,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         worker = TariffTrafficWorker(
             settings=SimpleNamespace(
                 DEFAULT_LANGUAGE="en",
-                email_auth_configured=False,
+                smtp_delivery_configured=False,
                 tariff_traffic_warning_levels=[85],
             ),
             session_factory=SimpleNamespace(),
@@ -354,7 +365,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             settings=SimpleNamespace(
                 DEFAULT_LANGUAGE="ru",
                 SUBSCRIPTION_MINI_APP_URL="https://app.example.com",
-                email_auth_configured=False,
+                smtp_delivery_configured=False,
                 tariff_traffic_warning_levels=[85],
             ),
             session_factory=SimpleNamespace(),
@@ -374,6 +385,17 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with (
+            patch(
+                "bot.services.tariff_worker_shared.user_dal.get_user_by_id",
+                new=AsyncMock(
+                    return_value=SimpleNamespace(
+                        user_id=123,
+                        telegram_id=123,
+                        email=None,
+                        telegram_notifications_status="enabled",
+                    )
+                ),
+            ),
             patch(
                 "bot.services.tariff_worker_regular.tariff_dal.get_warning",
                 new=AsyncMock(return_value=None),
@@ -402,11 +424,180 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         email_text = worker._send_traffic_warning_email.await_args.kwargs["message_text"]
         self.assertIn("regular next 01.07.2026 200 B", email_text)
 
+    async def test_regular_warning_omits_reset_note_when_panel_never_resets(self):
+        # The tariff resolves to a monthly reset, but the panel user is NO_RESET.
+        # Remnawave performs the reset, so no reset date may be promised.
+        bot = AsyncMock()
+        worker = TariffTrafficWorker(
+            settings=SimpleNamespace(
+                DEFAULT_LANGUAGE="ru",
+                SUBSCRIPTION_MINI_APP_URL="https://app.example.com",
+                smtp_delivery_configured=False,
+                tariff_traffic_warning_levels=[85],
+            ),
+            session_factory=SimpleNamespace(),
+            panel_service=SimpleNamespace(),
+            subscription_service=SimpleNamespace(),
+            bot=bot,
+            i18n=_FormatI18n(),
+        )
+        worker._user_lang = AsyncMock(return_value="ru")
+        worker._send_traffic_warning_email = AsyncMock()
+        sub = SimpleNamespace(
+            subscription_id=12,
+            user_id=123,
+            traffic_used_bytes=90,
+            traffic_limit_bytes=200,
+            is_throttled=False,
+        )
+
+        with (
+            patch(
+                "bot.services.tariff_worker_shared.user_dal.get_user_by_id",
+                new=AsyncMock(
+                    return_value=SimpleNamespace(
+                        user_id=123,
+                        telegram_id=123,
+                        email=None,
+                        telegram_notifications_status="enabled",
+                    )
+                ),
+            ),
+            patch(
+                "bot.services.tariff_worker_regular.tariff_dal.get_warning",
+                new=AsyncMock(return_value=None),
+            ),
+            patch(
+                "bot.services.tariff_worker_regular.tariff_dal.create_warning",
+                new=AsyncMock(),
+            ),
+            patch(
+                "bot.services.tariff_worker_regular.log_user_message_delivery",
+                new=AsyncMock(),
+            ),
+        ):
+            await worker._maybe_warn_or_throttle(
+                AsyncMock(),
+                sub,
+                _PeriodTariff(),
+                used=180,
+                limit=200,
+                warning_period_start=datetime(2026, 6, 1, tzinfo=UTC),
+                traffic_strategy="NO_RESET",
+            )
+
+        bot.send_message.assert_awaited_once()
+        sent_text = bot.send_message.await_args.args[1]
+        self.assertIn("regular almost 15", sent_text)
+        self.assertNotIn("regular next", sent_text)
+        email_text = worker._send_traffic_warning_email.await_args.kwargs["message_text"]
+        self.assertNotIn("regular next", email_text)
+
+    async def test_regular_tick_does_not_promise_reset_for_no_reset_panel_user(self):
+        # A subscription whose tariff resets monthly while the Remnawave user is
+        # still NO_RESET (e.g. written by an older build). The panel never resets
+        # it, so the warning must not promise "start + 1 month" as a reset date.
+        class _MonthlyTariff(_PeriodTariff):
+            traffic_limit_strategy = "MONTH"
+
+        bot = AsyncMock()
+        tariff = _MonthlyTariff()
+        worker = TariffTrafficWorker(
+            settings=SimpleNamespace(
+                DEFAULT_LANGUAGE="ru",
+                SUBSCRIPTION_MINI_APP_URL="https://app.example.com",
+                smtp_delivery_configured=False,
+                tariff_traffic_warning_levels=[85],
+                tariffs_config=SimpleNamespace(require_configured=lambda _key: tariff),
+            ),
+            session_factory=SimpleNamespace(),
+            panel_service=SimpleNamespace(),
+            subscription_service=SimpleNamespace(
+                _extract_panel_traffic_details=lambda payload: (
+                    45,
+                    50,
+                    payload.get("trafficLimitStrategy"),
+                ),
+            ),
+            bot=bot,
+            i18n=_FormatI18n(),
+        )
+        worker._trial_premium_tariff = lambda: None
+        worker._prefetch_panel_users_by_uuid = AsyncMock(
+            return_value={
+                "panel-1": {
+                    "uuid": "panel-1",
+                    "status": "ACTIVE",
+                    "trafficLimitStrategy": "NO_RESET",
+                },
+            }
+        )
+        worker._maybe_send_regular_reset_notice = AsyncMock()
+        worker._sync_hwid_device_limit = AsyncMock()
+        worker._sync_premium_squad_limit = AsyncMock()
+        worker._finish_premium_panel_batch = AsyncMock()
+        worker._user_lang = AsyncMock(return_value="ru")
+        worker._send_traffic_warning_email = AsyncMock()
+        now = datetime.now(UTC)
+        sub = SimpleNamespace(
+            subscription_id=1,
+            user_id=123,
+            panel_user_uuid="panel-1",
+            tariff_key="standard",
+            traffic_used_bytes=0,
+            traffic_limit_bytes=50,
+            status_from_panel="ACTIVE",
+            start_date=now - timedelta(days=33),
+            end_date=now + timedelta(days=60),
+            period_start_at=None,
+            is_throttled=False,
+        )
+        result = MagicMock()
+        result.scalars.return_value.all.return_value = [sub]
+        session = AsyncMock()
+        session.execute.return_value = result
+
+        with (
+            patch(
+                "bot.services.tariff_worker_regular.commit_subscription_background_sync_batch",
+                AsyncMock(),
+            ),
+            patch(
+                "bot.services.tariff_worker_shared.user_dal.get_user_by_id",
+                new=AsyncMock(
+                    return_value=SimpleNamespace(
+                        user_id=123,
+                        telegram_id=123,
+                        email=None,
+                        telegram_notifications_status="enabled",
+                    )
+                ),
+            ),
+            patch(
+                "bot.services.tariff_worker_regular.tariff_dal.get_warning",
+                new=AsyncMock(return_value=None),
+            ),
+            patch(
+                "bot.services.tariff_worker_regular.tariff_dal.create_warning",
+                new=AsyncMock(),
+            ),
+            patch(
+                "bot.services.tariff_worker_regular.log_user_message_delivery",
+                new=AsyncMock(),
+            ),
+        ):
+            await worker.traffic_period_tick(session)
+
+        bot.send_message.assert_awaited_once()
+        sent_text = bot.send_message.await_args.args[1]
+        self.assertIn("regular almost 15", sent_text)
+        self.assertNotIn("regular next", sent_text)
+
     async def test_premium_reset_notice_waits_for_restored_panel_access(self):
         settings = SimpleNamespace(
             DEFAULT_LANGUAGE="en",
             SUBSCRIPTION_MINI_APP_URL="https://app.example.com",
-            email_auth_configured=False,
+            smtp_delivery_configured=False,
             tariff_traffic_warning_levels=[85],
         )
         panel_service = AsyncMock(spec=PanelApiService)
@@ -446,6 +637,17 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with (
+            patch(
+                "bot.services.tariff_worker_core.user_dal.get_user_by_id",
+                new=AsyncMock(
+                    return_value=SimpleNamespace(
+                        user_id=123,
+                        telegram_id=123,
+                        email=None,
+                        telegram_notifications_status="enabled",
+                    )
+                ),
+            ),
             patch(
                 "bot.services.tariff_worker_premium.tariff_dal.has_warning_level_between",
                 new=AsyncMock(side_effect=[True, False]),
@@ -494,7 +696,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             settings=SimpleNamespace(
                 DEFAULT_LANGUAGE="en",
                 SUBSCRIPTION_MINI_APP_URL="https://app.example.com",
-                email_auth_configured=False,
+                smtp_delivery_configured=False,
                 tariff_traffic_warning_levels=[85],
             ),
             session_factory=SimpleNamespace(),
@@ -514,6 +716,17 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with (
+            patch(
+                "bot.services.tariff_worker_shared.user_dal.get_user_by_id",
+                new=AsyncMock(
+                    return_value=SimpleNamespace(
+                        user_id=123,
+                        telegram_id=123,
+                        email=None,
+                        telegram_notifications_status="enabled",
+                    )
+                ),
+            ),
             patch(
                 "bot.services.tariff_worker_premium.tariff_dal.get_warning",
                 new=AsyncMock(return_value=None),
@@ -2891,7 +3104,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         settings = SimpleNamespace(
             DEFAULT_LANGUAGE="en",
             SUBSCRIPTION_MINI_APP_URL="",
-            email_auth_configured=False,
+            smtp_delivery_configured=False,
             tariff_traffic_warning_levels=[85],
             USER_TRAFFIC_STRATEGY="MONTH",
             TARIFF_PREMIUM_DROP_CONNECTIONS=drop_enabled,

@@ -685,6 +685,7 @@
 
   onMount(() => {
     if (!previewMode) void refreshAll();
+    void settingsStore.loadSettings();
   });
 
   async function copyLink(url: string): Promise<void> {

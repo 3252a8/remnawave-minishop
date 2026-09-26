@@ -2099,10 +2099,10 @@ def test_creator_subscription_binds_to_the_local_account_not_the_telegram_id(
     assert mocks.active_creator_subscription.await_args.kwargs["user_id"] == 7777
 
 
-def test_creator_subscription_falls_back_to_the_primary_key_for_imported_rows(
+def test_creator_subscription_rejects_unlinked_imported_rows(
     monkeypatch,
 ) -> None:
-    """Rows imported from another bot carry the Telegram ID as their user_id."""
+    """An unlinked numeric key is not proof of Telegram account ownership."""
 
     session = _FakeSession()
     service = _service(session=session)
@@ -2122,10 +2122,9 @@ def test_creator_subscription_falls_back_to_the_primary_key_for_imported_rows(
 
     response = asyncio.run(service._process_subscription_event(envelope, payload, fingerprint))
 
-    assert response.status == 200
-    by_primary_key.assert_awaited_once_with(session, 42)
-    mocks.user.assert_awaited_once_with(session, 42)
-    assert mocks.ensure_payment.await_args.kwargs["user_id"] == 42
+    assert response.status == 404
+    by_primary_key.assert_not_awaited()
+    mocks.ensure_payment.assert_not_awaited()
 
 
 def test_creator_recurrence_sees_a_shop_recurrence_of_the_same_local_account(

@@ -523,21 +523,8 @@ def test_lifetime_traffic_update_allows_large_delta_and_skips_duplicate_panel_id
     )
 
 
-def test_duplicate_panel_user_merge_uses_savepoint():
-    class NestedTransaction:
-        entered = False
-        exited = False
-
-        async def __aenter__(self):
-            self.entered = True
-            return self
-
-        async def __aexit__(self, exc_type, exc, traceback):
-            self.exited = True
-            return False
-
-    nested_transaction = NestedTransaction()
-    session = SimpleNamespace(begin_nested=lambda: nested_transaction)
+def test_duplicate_panel_user_requires_explicit_merge():
+    session = SimpleNamespace()
     existing_user = SimpleNamespace(user_id=42)
     duplicate_user = SimpleNamespace(user_id=77)
 
@@ -546,10 +533,7 @@ def test_duplicate_panel_user_merge_uses_savepoint():
             "bot.handlers.admin.sync_admin_identity.user_dal.get_user_by_panel_uuid",
             AsyncMock(return_value=duplicate_user),
         ),
-        patch(
-            "bot.handlers.admin.sync_admin_identity.user_dal.merge_users",
-            AsyncMock(side_effect=RuntimeError("merge failed")),
-        ),
+        patch("bot.handlers.admin.sync_admin_identity.user_dal.merge_users", AsyncMock()) as merge,
     ):
         result = asyncio.run(
             _merge_local_duplicate_panel_user_if_needed(
@@ -560,8 +544,7 @@ def test_duplicate_panel_user_merge_uses_savepoint():
         )
 
     assert result == (existing_user, False)
-    assert nested_transaction.entered
-    assert nested_transaction.exited
+    merge.assert_not_awaited()
 
 
 def test_sync_failure_status_is_committed_after_rollback():

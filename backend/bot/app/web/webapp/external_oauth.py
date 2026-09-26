@@ -412,6 +412,8 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
                     identity_owner_id = int(identity.user_id)
                     if all(source_id != identity_owner_id for source_id, _ in merge_sources):
                         merge_sources.append((identity_owner_id, f"{key}_oauth_link"))
+                if merge_sources:
+                    return finish("account_merge_required")
                 for source_user_id, reason in merge_sources:
                     source_user = await user_dal.get_user_by_id(session, source_user_id)
                     source_panel_uuid = (

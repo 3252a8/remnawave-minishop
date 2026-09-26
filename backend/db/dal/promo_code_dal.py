@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -12,6 +13,20 @@ from db.models import Payment, PromoCode, PromoCodeActivation, User
 logger = logging.getLogger(__name__)
 
 _ARCHIVED_CODE_PREFIX = "__ARCHIVED_PROMO__"
+
+
+@dataclass(frozen=True)
+class PromoRevenueCurrency:
+    currency: str
+    amount: float
+    payments: int
+
+
+@dataclass(frozen=True)
+class PromoRevenueSummary:
+    payments_total: int
+    revenue_payments: int
+    currencies: list[PromoRevenueCurrency]
 
 
 def _archived_storage_code(promo: PromoCode, attempt: int = 0) -> str:
@@ -178,6 +193,53 @@ def _promo_owner_filter(personal: bool | None) -> list[Any]:
     return [PromoCode.user_id != None] if personal else [PromoCode.user_id == None]
 
 
+def _promo_management_filters(
+    *,
+    personal: bool | None,
+    search: str | None,
+    status: str | None,
+    scope: str | None,
+) -> list[Any]:
+    now = datetime.now(UTC)
+    filters: list[Any] = [PromoCode.archived_at == None, *_promo_owner_filter(personal)]
+    normalized_search = str(search or "").strip().lower()
+    if normalized_search:
+        escaped_search = _escaped_like_fragment(normalized_search)
+        filters.append(func.lower(PromoCode.code).like(f"%{escaped_search}%", escape="\\"))
+
+    normalized_scope = str(scope or "").strip().lower()
+    if normalized_scope in {"all", "subscription", "traffic", "traffic_topup", "hwid"}:
+        filters.append(func.lower(PromoCode.applies_to) == normalized_scope)
+
+    normalized_status = str(status or "").strip().lower()
+    not_expired = or_(PromoCode.valid_until == None, PromoCode.valid_until > now)
+    has_capacity = func.coalesce(PromoCode.current_activations, 0) < func.coalesce(
+        PromoCode.max_activations, 0
+    )
+    if normalized_status == "active":
+        filters.extend((PromoCode.is_active.is_(True), not_expired, has_capacity))
+    elif normalized_status == "disabled":
+        filters.append(PromoCode.is_active.is_(False))
+    elif normalized_status == "expired":
+        filters.extend(
+            (
+                PromoCode.is_active.is_(True),
+                PromoCode.valid_until.is_not(None),
+                PromoCode.valid_until <= now,
+            )
+        )
+    elif normalized_status == "used_up":
+        filters.extend(
+            (
+                PromoCode.is_active.is_(True),
+                not_expired,
+                func.coalesce(PromoCode.current_activations, 0)
+                >= func.coalesce(PromoCode.max_activations, 0),
+            )
+        )
+    return filters
+
+
 async def get_all_promo_codes_with_details(
     session: AsyncSession,
     limit: int = 50,
@@ -185,6 +247,9 @@ async def get_all_promo_codes_with_details(
     *,
     personal: bool | None = None,
     sort: str = "created_desc",
+    search: str | None = None,
+    status: str | None = None,
+    scope: str | None = None,
 ) -> list[PromoCode]:
     """Get all promo codes (active and inactive) with pagination for management"""
     has_bonus = func.coalesce(PromoCode.bonus_days, 0) > 0
@@ -247,7 +312,14 @@ async def get_all_promo_codes_with_details(
     order.append(PromoCode.promo_code_id.desc() if descending else PromoCode.promo_code_id.asc())
     stmt = (
         select(PromoCode)
-        .where(PromoCode.archived_at == None, *_promo_owner_filter(personal))
+        .where(
+            *_promo_management_filters(
+                personal=personal,
+                search=search,
+                status=status,
+                scope=scope,
+            )
+        )
         .order_by(*order)
         .limit(limit)
         .offset(offset)
@@ -256,12 +328,22 @@ async def get_all_promo_codes_with_details(
     return list(result.scalars().all())
 
 
-async def get_promo_codes_count(session: AsyncSession, *, personal: bool | None = None) -> int:
+async def get_promo_codes_count(
+    session: AsyncSession,
+    *,
+    personal: bool | None = None,
+    search: str | None = None,
+    status: str | None = None,
+    scope: str | None = None,
+) -> int:
     """Get total count of all promo codes"""
-    from sqlalchemy import func
-
     stmt = select(func.count(PromoCode.promo_code_id)).where(
-        PromoCode.archived_at == None, *_promo_owner_filter(personal)
+        *_promo_management_filters(
+            personal=personal,
+            search=search,
+            status=status,
+            scope=scope,
+        )
     )
     result = await session.execute(stmt)
     return result.scalar_one()
@@ -337,6 +419,47 @@ async def count_payments_by_promo_code_id(session: AsyncSession, promo_code_id: 
     stmt = select(func.count()).select_from(Payment).where(Payment.promo_code_id == promo_code_id)
     result = await session.execute(stmt)
     return int(result.scalar_one() or 0)
+
+
+async def get_promo_revenue_summary(
+    session: AsyncSession, promo_code_id: int
+) -> PromoRevenueSummary:
+    """Summarize recognized external revenue without mixing currencies."""
+
+    total_result = await session.execute(
+        select(func.count(Payment.payment_id)).where(Payment.promo_code_id == promo_code_id)
+    )
+    payments_total = int(total_result.scalar_one() or 0)
+    currency = func.upper(
+        func.coalesce(func.nullif(func.trim(Payment.currency), ""), "UNKNOWN")
+    ).label("currency")
+    revenue_result = await session.execute(
+        select(
+            currency,
+            func.coalesce(func.sum(Payment.amount), 0.0).label("amount"),
+            func.count(Payment.payment_id).label("payments"),
+        )
+        .where(
+            Payment.promo_code_id == promo_code_id,
+            Payment.status == "succeeded",
+            Payment.funding_source == "external",
+        )
+        .group_by(currency)
+        .order_by(currency.asc())
+    )
+    currencies = [
+        PromoRevenueCurrency(
+            currency=str(row.currency),
+            amount=float(row.amount or 0),
+            payments=int(row.payments or 0),
+        )
+        for row in revenue_result.all()
+    ]
+    return PromoRevenueSummary(
+        payments_total=payments_total,
+        revenue_payments=sum(row.payments for row in currencies),
+        currencies=currencies,
+    )
 
 
 async def update_promo_code(

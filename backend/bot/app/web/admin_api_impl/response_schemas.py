@@ -153,6 +153,19 @@ class AdminBroadcastListOut(HttpResponseModel):
     broadcasts: list[AdminBroadcastOut]
 
 
+class AdminBroadcastFailureOut(HttpResponseModel):
+    delivery_id: int
+    user_id: int
+    channel: str
+    error: str
+    finished_at: datetime | None = None
+
+
+class AdminBroadcastFailuresOut(HttpResponseModel):
+    total: int
+    failures: list[AdminBroadcastFailureOut]
+
+
 class AdminBroadcastDeleteOut(HttpResponseModel):
     deleted: bool = True
     broadcast_id: int

@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import hmac
 import html
 import json
@@ -24,7 +25,11 @@ from bot.app.web.context import (
 )
 from bot.app.web.webapp_auth import verify_webapp_session_token
 from bot.infra.redis import get_redis, redis_key
-from bot.middlewares.i18n import locale_language_options
+from bot.middlewares.i18n import (
+    is_valid_locale_language_code,
+    locale_language_options,
+    normalize_locale_language_code,
+)
 from bot.services.legal_document_links import legal_document_links
 from bot.utils.request_security import request_client_ip
 from config.settings import Settings
@@ -148,7 +153,9 @@ from .constants import (
 from .response_helpers import json_response
 
 _TEXT_FILE_CACHE: dict[tuple[str, bool], tuple[int, int, str]] = {}
-_I18N_PAYLOAD_CACHE: dict[tuple[int, str, tuple[tuple[str, int, int], ...]], dict[str, Any]] = {}
+_I18N_PAYLOAD_CACHE: dict[
+    tuple[int, str, str, tuple[tuple[str, int, int], ...]], dict[str, Any]
+] = {}
 _ASSET_NAME_CACHE_TTL_SECONDS = 30.0
 WEBAPP_HTML_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
 WEBAPP_LEGACY_ASSET_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
@@ -208,6 +215,7 @@ _EDGE_TOKEN_EXACT_PATHS = {
 }
 _EDGE_TOKEN_PREFIXES = (
     "/api/",
+    "/s/",
     "/auth/",
     "/webapp-uploaded-logo/",
     "/webapp-favicon/",
@@ -253,9 +261,21 @@ def _webapp_api_url(path: str) -> str:
 def _webapp_shell_preload_markup(
     js_asset_name: str,
     share_token: str = "",
+    *,
+    admin_js_asset_name: str = "",
+    admin_css_asset_name: str = "",
 ) -> str:
     js_href = "/" + quote(str(js_asset_name or "").lstrip("/"), safe="/.-_")
-    lines = [f'<link rel="preload" href="{js_href}" as="script">']
+    lines = [f'<link rel="modulepreload" href="{js_href}">']
+    if admin_js_asset_name and admin_css_asset_name:
+        admin_js_href = "/" + quote(admin_js_asset_name.lstrip("/"), safe="/.-_?=")
+        admin_css_href = "/" + quote(admin_css_asset_name.lstrip("/"), safe="/.-_?=")
+        lines.extend(
+            (
+                f'<link rel="preload" href="{admin_css_href}" as="style">',
+                f'<link rel="modulepreload" href="{admin_js_href}">',
+            )
+        )
     normalized_share_token = subscription_dal.normalize_install_share_token(share_token)
     if normalized_share_token:
         fetch_href = _webapp_api_url(
@@ -318,6 +338,7 @@ def _get_cached_webapp_settings(request: web.Request) -> dict[str, Any]:
             ),
             "auth_providers": settings.webapp_auth_providers,
             "recommended_auth_providers": settings.webapp_recommended_auth_providers,
+            "wide_auth_providers": settings.webapp_wide_auth_providers,
             "registration_invite_only_enabled": bool(
                 settings.registration_settings.invite_only_enabled
             ),
@@ -450,18 +471,63 @@ def _i18n_cache_fingerprint(
     )
 
 
-def _filter_webapp_i18n_payload(locales_data: object, scope: str = "webapp") -> dict[str, Any]:
+WEBAPP_LANGUAGE_COOKIE = "minishop_lang"
+
+
+def _match_webapp_language(raw_language: object, locales_data: object) -> str:
+    if not raw_language or not isinstance(locales_data, dict):
+        return ""
+    language = normalize_locale_language_code(str(raw_language), prefer_known_base=False)
+    if not is_valid_locale_language_code(language):
+        return ""
+    if language in locales_data:
+        return language
+    base_language = language.split("-", 1)[0]
+    return base_language if base_language in locales_data else ""
+
+
+def _initial_webapp_language(
+    request: web.Request, locales_data: object, default_language: str
+) -> str:
+    query = getattr(request, "query", {}) or {}
+    cookies = getattr(request, "cookies", {}) or {}
+    headers = getattr(request, "headers", {}) or {}
+    accepted = str(headers.get("Accept-Language") or "").split(",")
+    for candidate in (
+        query.get("lang"),
+        cookies.get(WEBAPP_LANGUAGE_COOKIE),
+        *(entry.split(";", 1)[0].strip() for entry in accepted),
+        default_language,
+    ):
+        language = _match_webapp_language(candidate, locales_data)
+        if language:
+            return language
+    if isinstance(locales_data, dict) and locales_data:
+        return sorted(str(key) for key in locales_data)[0]
+    return _normalize_language(default_language)
+
+
+def _filter_webapp_i18n_payload(
+    locales_data: object, scope: str = "webapp", language: str = ""
+) -> dict[str, Any]:
     if not isinstance(locales_data, dict):
         return {}
 
     normalized_scope = _normalize_i18n_scope(scope)
-    cache_key = (id(locales_data), normalized_scope, _i18n_cache_fingerprint(locales_data))
+    cache_key = (
+        id(locales_data),
+        normalized_scope,
+        language,
+        _i18n_cache_fingerprint(locales_data),
+    )
     cached = _I18N_PAYLOAD_CACHE.get(cache_key)
     if cached is not None:
         return cached
 
     payload: dict[str, Any] = {}
     for lang, messages in locales_data.items():
+        if language and str(lang) != language:
+            continue
         if not isinstance(messages, dict):
             continue
         filtered: dict[str, Any] = {}
@@ -477,6 +543,34 @@ def _filter_webapp_i18n_payload(locales_data: object, scope: str = "webapp") -> 
         _I18N_PAYLOAD_CACHE.clear()
     _I18N_PAYLOAD_CACHE[cache_key] = payload
     return payload
+
+
+def _cached_json_response(
+    request: web.Request,
+    payload: dict[str, Any],
+    *,
+    cache_control: str,
+    cache_namespace: str,
+) -> web.Response:
+    """Serialize once and serve a cached gzip variant for large bootstrap payloads."""
+
+    response = json_response(payload)
+    body = bytes(response.body or b"")
+    digest = hashlib.sha256(body).hexdigest()
+    etag = f'W/"{digest}"'
+    if _request_etag_matches(request, etag):
+        return _not_modified_response(
+            cache_control=cache_control,
+            etag=etag,
+            vary="Accept-Encoding",
+        )
+    if _request_accepts_encoding(request, "gzip"):
+        response.body = _gzip_body_cached(f"{cache_namespace}:{digest}", body)
+        response.headers["Content-Encoding"] = "gzip"
+        response.headers["Vary"] = "Accept-Encoding"
+    response.headers["Cache-Control"] = cache_control
+    response.headers["ETag"] = etag
+    return response
 
 
 def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
@@ -519,6 +613,9 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
         i18n_instance.reload_overrides_from_file()
     locales_data = getattr(i18n_instance, "locales_data", {}) if i18n_instance else {}
     base_locales_data = getattr(i18n_instance, "base_locales_data", {}) if i18n_instance else {}
+    initial_language = _initial_webapp_language(
+        request, locales_data, str(cached["language"] or settings.DEFAULT_LANGUAGE)
+    )
     # Import lazily to keep the asset module usable during the serializers'
     # compatibility import cycle. These plans contain public catalog data only;
     # user-specific quotes are still attached after authentication.
@@ -530,6 +627,7 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
             "primaryColor": webapp_settings.primary_color,
             "userThemeModeEnabled": bool(webapp_settings.user_theme_mode_enabled),
             "compactHomeEnabled": bool(webapp_settings.compact_home_enabled),
+            "compactLoginEnabled": bool(webapp_settings.compact_login_enabled),
             "checkoutAddonValueAnimationEnabled": bool(
                 webapp_settings.checkout_addon_value_animation_enabled
             ),
@@ -558,7 +656,7 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
             "privacyPolicyUrl": cached["privacy_policy_url"],
             "userAgreementUrl": cached["user_agreement_url"],
             "currency": cached["currency"],
-            "language": cached["language"],
+            "language": initial_language,
             "languages": locale_language_options(
                 locales_data.keys(),
                 base_languages=base_locales_data.keys(),
@@ -568,23 +666,27 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
             "devMode": bool(settings.qa_auth_enabled),
             "authProviders": cached["auth_providers"],
             "recommendedAuthProviders": cached["recommended_auth_providers"],
+            "wideAuthProviders": cached["wide_auth_providers"],
             "registrationInviteOnlyEnabled": cached["registration_invite_only_enabled"],
             "checkoutPlans": _serialize_plans(
                 settings,
-                str(cached["language"] or "ru"),
+                initial_language,
                 tariff_access_code=request_tariff_access_code(request),
             ),
             "appVersion": _resolve_app_version(),
             "appRepositoryUrl": APP_REPOSITORY_URL,
         },
-        "i18n": _filter_webapp_i18n_payload(locales_data, i18n_scope),
+        "i18n": _filter_webapp_i18n_payload(locales_data, i18n_scope, initial_language),
     }
 
 
 async def bootstrap_route(request: web.Request) -> web.Response:
-    response = json_response({"ok": True, **_build_webapp_bootstrap_payload(request)})
-    response.headers["Cache-Control"] = "no-cache"
-    return response
+    return _cached_json_response(
+        request,
+        {"ok": True, **_build_webapp_bootstrap_payload(request)},
+        cache_control="private, no-cache",
+        cache_namespace="webapp-bootstrap",
+    )
 
 
 async def i18n_route(request: web.Request) -> web.Response:
@@ -593,15 +695,20 @@ async def i18n_route(request: web.Request) -> web.Response:
         i18n_instance.reload_overrides_from_file()
     scope = _normalize_i18n_scope(request.query.get("scope") or "webapp")
     locales_data = getattr(i18n_instance, "locales_data", {}) if i18n_instance else {}
-    response = json_response(
+    requested_language = str(request.query.get("lang") or "")
+    language = _match_webapp_language(requested_language, locales_data)
+    if requested_language and not language:
+        return _json_error(400, "unsupported_language", "Unsupported language")
+    return _cached_json_response(
+        request,
         {
             "ok": True,
             "scope": scope,
-            "i18n": _filter_webapp_i18n_payload(locales_data, scope),
-        }
+            "i18n": _filter_webapp_i18n_payload(locales_data, scope, language),
+        },
+        cache_control="no-cache",
+        cache_namespace=f"webapp-i18n:{scope}:{language}",
     )
-    response.headers["Cache-Control"] = "no-cache"
-    return response
 
 
 def _webapp_page_title(settings: Settings, suffix: str = "") -> str:
@@ -690,9 +797,12 @@ async def index_route(request: web.Request) -> web.Response:
         f'href="/{css_asset_name}"',
         1,
     )
+    is_admin_route = request.path == "/admin" or request.path.startswith("/admin/")
     preload_markup = _webapp_shell_preload_markup(
         js_asset_name,
         str(getattr(request, "match_info", {}).get("share_token") or ""),
+        admin_js_asset_name=str(config["adminJsAsset"]) if is_admin_route else "",
+        admin_css_asset_name=str(config["adminCssAsset"]) if is_admin_route else "",
     )
     if preload_markup:
         html = html.replace("</head>", f"{preload_markup}\n</head>", 1)

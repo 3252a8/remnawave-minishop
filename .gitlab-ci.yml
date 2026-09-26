@@ -12,11 +12,14 @@ variables:
   DOCKER_DRIVER: overlay2
   COSIGN_YES: "true"
   COSIGN_EXPERIMENTAL: "1"
-  # Forks do not have the optional downstream consumer project configured.
-  IMAGE_CHANNEL_DOWNSTREAM_PROJECT: ""
 
 .publish-dockerhub-images:
   stage: publish
+  retry:
+    max: 1
+    when:
+      - runner_external_dependency_failure
+      - script_failure
   image: docker:27.4.1-cli
   services:
     - name: docker:27.4.1-dind

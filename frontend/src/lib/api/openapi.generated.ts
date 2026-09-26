@@ -293,6 +293,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/account/telegram/merge/confirm": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Telegram Merge Confirm */
+    post: operations["post_account_telegram_merge_confirm_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/telegram/merge/request": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Telegram Merge Request */
+    post: operations["post_account_telegram_merge_request_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/account/telegram/notifications/probe": {
     parameters: {
       query?: never;
@@ -567,6 +601,23 @@ export interface paths {
     patch: operations["patch_admin_broadcast_reschedule_route"];
     trace?: never;
   };
+  "/api/admin/broadcasts/{id}/failures": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Broadcast Failures */
+    get: operations["get_admin_broadcast_failures_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/documents": {
     parameters: {
       query?: never;
@@ -599,6 +650,57 @@ export interface paths {
     post?: never;
     /** Admin Document Delete */
     delete: operations["delete_admin_document_delete_route"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/extensions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Extensions */
+    get: operations["get_admin_extensions_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/extensions/action": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Extension Action */
+    post: operations["post_admin_extension_action_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/extensions/presentation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Extension Presentation */
+    post: operations["post_admin_extension_presentation_route"];
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -1272,6 +1374,210 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/plugins": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Plugin Packages */
+    get: operations["get_admin_plugin_packages_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/plugins/assets/{plugin_id}/{digest}/{path}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Plugin Asset */
+    get: operations["get_admin_plugin_asset_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/plugins/install": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Plugin Install */
+    post: operations["post_admin_plugin_install_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/plugins/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Plugin Preview */
+    post: operations["post_admin_plugin_preview_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/plugins/repository/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Plugin Repository Preview */
+    post: operations["post_admin_plugin_repository_preview_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/plugins/repository/stage": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Plugin Repository Stage */
+    post: operations["post_admin_plugin_repository_stage_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/plugins/runtime": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Plugin Runtime */
+    get: operations["get_admin_plugin_runtime_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/plugins/stage": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Plugin Stage */
+    post: operations["post_admin_plugin_stage_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/plugins/trust": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Plugin Trust */
+    post: operations["post_admin_plugin_trust_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/plugins/updates": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Plugin Updates */
+    get: operations["get_admin_plugin_updates_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/plugins/{plugin_id}/enabled": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Plugin Enabled */
+    post: operations["post_admin_plugin_enabled_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/plugins/{plugin_id}/remove": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Plugin Remove */
+    post: operations["post_admin_plugin_remove_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/promos": {
     parameters: {
       query?: never;
@@ -1338,6 +1644,58 @@ export interface paths {
     put?: never;
     post?: never;
     delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/roles": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Roles List */
+    get: operations["get_admin_roles_list_route"];
+    put?: never;
+    /** Admin Role Grant */
+    post: operations["post_admin_role_grant_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/roles/candidates": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Role Candidates */
+    get: operations["get_admin_role_candidates_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/roles/{user_id}/{role}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Admin Role Revoke */
+    delete: operations["delete_admin_role_revoke_route"];
     options?: never;
     head?: never;
     patch?: never;
@@ -2491,6 +2849,126 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/extensions/assets/{owner}/{digest}/{path}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Extension Asset */
+    get: operations["get_extension_asset_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/extensions/checkout": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Extension Checkout */
+    post: operations["post_extension_checkout_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/extensions/order": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Extension Order */
+    get: operations["get_extension_order_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/extensions/orders": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Extension Orders */
+    get: operations["get_extension_orders_route"];
+    put?: never;
+    /** Extension Order Create */
+    post: operations["post_extension_order_create_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/extensions/payment-methods": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Extension Payment Methods */
+    get: operations["get_extension_payment_methods_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/extensions/resource": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Extension Resource */
+    get: operations["get_extension_resource_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/extensions/runtime": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Extension Runtime */
+    get: operations["get_extension_runtime_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/gifts": {
     parameters: {
       query?: never;
@@ -3618,6 +4096,29 @@ export interface components {
        */
       deleted: boolean;
     };
+    /** AdminBroadcastFailureOut */
+    AdminBroadcastFailureOut: {
+      /** Channel */
+      channel: string;
+      /** Delivery Id */
+      delivery_id: number;
+      /** Error */
+      error: string;
+      /**
+       * Finished At
+       * @default null
+       */
+      finished_at: string | null;
+      /** User Id */
+      user_id: number;
+    };
+    /** AdminBroadcastFailuresOut */
+    AdminBroadcastFailuresOut: {
+      /** Failures */
+      failures: components["schemas"]["AdminBroadcastFailureOut"][];
+      /** Total */
+      total: number;
+    };
     /** AdminBroadcastListOut */
     AdminBroadcastListOut: {
       /** Broadcasts */
@@ -4052,6 +4553,11 @@ export interface components {
       /** Purchaser Label */
       purchaser_label: string;
       /**
+       * Purchaser Minishop Id
+       * @default null
+       */
+      purchaser_minishop_id: string | null;
+      /**
        * Recipient Email
        * @default null
        */
@@ -4060,6 +4566,11 @@ export interface components {
       recipient_id: number | null;
       /** Recipient Label */
       recipient_label: string;
+      /**
+       * Recipient Minishop Id
+       * @default null
+       */
+      recipient_minishop_id: string | null;
       /**
        * Regular Bonus Gb
        * @default 0
@@ -4633,6 +5144,53 @@ export interface components {
       payments: components["schemas"]["PaymentOut"][];
       /** Total */
       total: number;
+    };
+    /** AdminRoleCandidateOut */
+    AdminRoleCandidateOut: {
+      /** Email */
+      email: string | null;
+      /** First Name */
+      first_name: string | null;
+      /** Minishop Id */
+      minishop_id: string;
+      /** Username */
+      username: string | null;
+    };
+    /** AdminRoleCandidatesOut */
+    AdminRoleCandidatesOut: {
+      /** Users */
+      users: components["schemas"]["AdminRoleCandidateOut"][];
+    };
+    /** AdminRoleGrantBody */
+    AdminRoleGrantBody: {
+      /**
+       * Email
+       * @default null
+       */
+      email: string | null;
+      /**
+       * Minishop Id
+       * @default null
+       */
+      minishop_id: string | null;
+      /** Role */
+      role: string;
+    };
+    /** AdminRoleOut */
+    AdminRoleOut: {
+      /** Email */
+      email: string | null;
+      /** Minishop Id */
+      minishop_id: string | null;
+      /** Role */
+      role: string;
+      /** User Id */
+      user_id: number;
+    };
+    /** AdminRolesListOut */
+    AdminRolesListOut: {
+      /** Roles */
+      roles: components["schemas"]["AdminRoleOut"][];
     };
     /** AdminSettingChoiceOut */
     AdminSettingChoiceOut: {
@@ -5336,6 +5894,11 @@ export interface components {
       subscription_id: number;
       /** User Id */
       user_id: number;
+      /**
+       * User Minishop Id
+       * @default null
+       */
+      user_minishop_id: string | null;
     };
     /** AdminTariffReconciliationOut */
     AdminTariffReconciliationOut: {
@@ -5739,6 +6302,11 @@ export interface components {
     /** AdminUserOut */
     AdminUserOut: {
       /**
+       * Account Id
+       * @default null
+       */
+      account_id: string | null;
+      /**
        * Email
        * @default null
        */
@@ -5761,10 +6329,25 @@ export interface components {
        */
       last_name: string | null;
       /**
+       * Minishop Id
+       * @default null
+       */
+      minishop_id: string | null;
+      /**
        * Panel User Uuid
        * @default null
        */
       panel_user_uuid: string | null;
+      /**
+       * Panel Username
+       * @default null
+       */
+      panel_username: string | null;
+      /**
+       * Panel Username State
+       * @default null
+       */
+      panel_username_state: string | null;
       /**
        * Referral Code
        * @default null
@@ -5927,6 +6510,11 @@ export interface components {
     /** AdminUserWithAvatarOut */
     AdminUserWithAvatarOut: {
       /**
+       * Account Id
+       * @default null
+       */
+      account_id: string | null;
+      /**
        * Avatar Url
        * @default null
        */
@@ -5954,10 +6542,25 @@ export interface components {
        */
       last_name: string | null;
       /**
+       * Minishop Id
+       * @default null
+       */
+      minishop_id: string | null;
+      /**
        * Panel User Uuid
        * @default null
        */
       panel_user_uuid: string | null;
+      /**
+       * Panel Username
+       * @default null
+       */
+      panel_username: string | null;
+      /**
+       * Panel Username State
+       * @default null
+       */
+      panel_username_state: string | null;
       /**
        * Referral Code
        * @default null
@@ -6131,6 +6734,245 @@ export interface components {
        * @default null
        */
       new_key: string | null;
+    };
+    /** ExtensionActionOut */
+    ExtensionActionOut: {
+      /**
+       * Accepted
+       * @default true
+       */
+      accepted: boolean;
+    };
+    /** ExtensionAdminAction */
+    ExtensionAdminAction: {
+      /**
+       * Action
+       * @enum {string}
+       */
+      action: "retry" | "refund";
+      /** Id */
+      id: string;
+      /** Owner */
+      owner: string;
+      /** Reason */
+      reason: string;
+    };
+    /** ExtensionAdminOrderOut */
+    ExtensionAdminOrderOut: {
+      /** Amount Minor */
+      amount_minor: number;
+      /** Can Refund */
+      can_refund: boolean;
+      /** Currency */
+      currency: string;
+      /** Currency Scale */
+      currency_scale: number;
+      /** Fulfillment State */
+      fulfillment_state: string;
+      /** Id */
+      id: string;
+      /** Payment State */
+      payment_state: string;
+      /** Title */
+      title: string;
+      /** User Id */
+      user_id: number;
+      /**
+       * User Minishop Id
+       * @default null
+       */
+      user_minishop_id: string | null;
+    };
+    /** ExtensionAdminOut */
+    ExtensionAdminOut: {
+      /** Operations */
+      operations: components["schemas"]["ExtensionOperationOut"][];
+      /** Orders */
+      orders: components["schemas"]["ExtensionAdminOrderOut"][];
+      /** Presentation */
+      presentation: components["schemas"]["ExtensionPresentationOut"][];
+    };
+    /** ExtensionCheckout */
+    ExtensionCheckout: {
+      /** Method */
+      method: string;
+      /** Order Id */
+      order_id: string;
+      /**
+       * Payer Email
+       * @default null
+       */
+      payer_email: string | null;
+      /**
+       * Payer Phone
+       * @default null
+       */
+      payer_phone: string | null;
+    };
+    /** ExtensionCheckoutOut */
+    ExtensionCheckoutOut: {
+      order: components["schemas"]["ExtensionOrderOut"];
+      /** Payment */
+      payment?: {
+        [key: string]: components["schemas"]["JsonValue"];
+      };
+    };
+    /** ExtensionOperationOut */
+    ExtensionOperationOut: {
+      /** Attempts */
+      attempts: number;
+      /** Error */
+      error: string | null;
+      /** Id */
+      id: string;
+      /** Kind */
+      kind: string;
+      /** State */
+      state: string;
+      /** User Id */
+      user_id: number | null;
+      /**
+       * User Minishop Id
+       * @default null
+       */
+      user_minishop_id: string | null;
+    };
+    /** ExtensionOrderCreate */
+    ExtensionOrderCreate: {
+      /** Idempotency Key */
+      idempotency_key: string;
+      /** Options */
+      options?: {
+        [key: string]: components["schemas"]["JsonValue"];
+      };
+      /** Product */
+      product: string;
+    };
+    /** ExtensionOrderOut */
+    ExtensionOrderOut: {
+      /** Data */
+      data: {
+        [key: string]: components["schemas"]["JsonValue"];
+      };
+      /** Fulfillment State */
+      fulfillment_state: string;
+      /** Id */
+      id: string;
+      /** Payment Id */
+      payment_id: number | null;
+      /** Payment State */
+      payment_state: string;
+      /** Product */
+      product: string;
+      quote: components["schemas"]["ProductQuote"];
+    };
+    /** ExtensionOrdersOut */
+    ExtensionOrdersOut: {
+      /** Orders */
+      orders: components["schemas"]["ExtensionOrderOut"][];
+    };
+    /** ExtensionPaymentMethodOut */
+    ExtensionPaymentMethodOut: {
+      /** Id */
+      id: string;
+      /** Label */
+      label: string;
+      /**
+       * Label Key
+       * @default
+       */
+      label_key: string;
+    };
+    /** ExtensionPaymentMethodsOut */
+    ExtensionPaymentMethodsOut: {
+      /** Methods */
+      methods: components["schemas"]["ExtensionPaymentMethodOut"][];
+    };
+    /** ExtensionPluginOut */
+    ExtensionPluginOut: {
+      /** Digest */
+      digest: string;
+      /** Entry */
+      entry: string;
+      /** Id */
+      id: string;
+      /** Styles */
+      styles?: string[];
+      /** Views */
+      views?: components["schemas"]["ExtensionViewOut"][];
+    };
+    /** ExtensionPresentationOut */
+    ExtensionPresentationOut: {
+      /** Enabled */
+      enabled: boolean;
+      /** Label */
+      label: string;
+      /** Position */
+      position: number;
+      /** Target */
+      target: string;
+    };
+    /** ExtensionPresentationUpdate */
+    ExtensionPresentationUpdate: {
+      /** Enabled */
+      enabled: boolean;
+      /** Owner */
+      owner: string;
+      /** Position */
+      position: number;
+      /** Target */
+      target: string;
+    };
+    /** ExtensionRuntimeOut */
+    ExtensionRuntimeOut: {
+      /** Generation */
+      generation: number;
+      /** Plugins */
+      plugins: components["schemas"]["ExtensionPluginOut"][];
+    };
+    /** ExtensionViewOut */
+    ExtensionViewOut: {
+      /**
+       * I18Nkey
+       * @default
+       */
+      i18nKey: string;
+      /**
+       * Icon
+       * @default star
+       */
+      icon: string;
+      /** Id */
+      id: string;
+      /** Label */
+      label: string;
+      /**
+       * Navigation
+       * @default primary
+       */
+      navigation: string;
+      /**
+       * Order
+       * @default 100
+       */
+      order: number;
+      /**
+       * Parent
+       * @default
+       */
+      parent: string;
+      /**
+       * Placement
+       * @default after
+       */
+      placement: string;
+      /**
+       * Target
+       * @default page
+       */
+      target: string;
+      /** View */
+      view: string;
     };
     /** FlexibleTrafficLimitConfig */
     FlexibleTrafficLimitConfig: {
@@ -6353,6 +7195,7 @@ export interface components {
     };
     /** @enum {string} */
     ItemStatus: "online" | "offline" | "degraded" | "maintenance" | "pending" | "unknown";
+    JsonValue: unknown;
     /** LibraryOut */
     LibraryOut: {
       /** Generation */
@@ -7119,6 +7962,11 @@ export interface components {
       /** User Label */
       user_label: string;
       /**
+       * User Minishop Id
+       * @default null
+       */
+      user_minishop_id: string | null;
+      /**
        * Yookassa Payment Id
        * @default null
        */
@@ -7246,6 +8094,11 @@ export interface components {
       user_id: number;
       /** User Label */
       user_label: string;
+      /**
+       * User Minishop Id
+       * @default null
+       */
+      user_minishop_id: string | null;
     };
     /** PaymentPurchaseOut */
     PaymentPurchaseOut: {
@@ -7270,6 +8123,29 @@ export interface components {
     PreviewUploadOut: {
       /** Preview Url */
       preview_url: string;
+    };
+    /** ProductQuote */
+    ProductQuote: {
+      /** Amount Minor */
+      amount_minor: number;
+      /** Currency */
+      currency: string;
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string;
+      /** Terms */
+      terms?: {
+        [key: string]: components["schemas"]["JsonValue"];
+      };
+      /** Title */
+      title: string;
+      /**
+       * Version
+       * @default 1
+       */
+      version: number;
     };
     /** PromoActivationOut */
     PromoActivationOut: {
@@ -7416,6 +8292,11 @@ export interface components {
       user_id: number;
       /** User Label */
       user_label: string;
+      /**
+       * User Minishop Id
+       * @default null
+       */
+      user_minishop_id: string | null;
     };
     /** PromoCreateBody */
     PromoCreateBody: {
@@ -7612,6 +8493,24 @@ export interface components {
        */
       webapp_link: string | null;
     };
+    /** PromoRevenueCurrencyOut */
+    PromoRevenueCurrencyOut: {
+      /** Amount */
+      amount: number;
+      /** Currency */
+      currency: string;
+      /** Payments */
+      payments: number;
+    };
+    /** PromoRevenueSummaryOut */
+    PromoRevenueSummaryOut: {
+      /** Currencies */
+      currencies: components["schemas"]["PromoRevenueCurrencyOut"][];
+      /** Payments Total */
+      payments_total: number;
+      /** Revenue Payments */
+      revenue_payments: number;
+    };
     /** PromoUpdateBody */
     PromoUpdateBody: {
       /**
@@ -7798,8 +8697,18 @@ export interface components {
       config_link: string;
       /** Connect Url */
       connect_url: string;
+      /**
+       * Http Url
+       * @default null
+       */
+      http_url: string | null;
       /** Install Share Token */
       install_share_token: string;
+      /**
+       * Link Mode
+       * @default panel
+       */
+      link_mode: string;
       /**
        * Panel Short Uuid
        * @default null
@@ -7826,6 +8735,13 @@ export interface components {
        * @default null
        */
       error: string | null;
+      /**
+       * Guide Document
+       * @default null
+       */
+      guide_document: {
+        [key: string]: unknown;
+      } | null;
       /**
        * Source
        * @default null
@@ -7957,6 +8873,13 @@ export interface components {
        * @default null
        */
       error: string | null;
+      /**
+       * Guide Document
+       * @default null
+       */
+      guide_document: {
+        [key: string]: unknown;
+      } | null;
       /**
        * Source
        * @default null
@@ -9081,6 +10004,16 @@ export interface components {
        */
       note: string | null;
       /**
+       * Payer Email
+       * @default null
+       */
+      payer_email: string | null;
+      /**
+       * Payer Phone
+       * @default null
+       */
+      payer_phone: string | null;
+      /**
        * Promo Code
        * @default null
        */
@@ -9186,6 +10119,16 @@ export interface components {
        * @default null
        */
       note: string | null;
+      /**
+       * Payer Email
+       * @default null
+       */
+      payer_email: string | null;
+      /**
+       * Payer Phone
+       * @default null
+       */
+      payer_phone: string | null;
       /** Promo Code */
       promo_code: string;
       /**
@@ -9278,6 +10221,16 @@ export interface components {
        */
       note: string | null;
       /**
+       * Payer Email
+       * @default null
+       */
+      payer_email: string | null;
+      /**
+       * Payer Phone
+       * @default null
+       */
+      payer_phone: string | null;
+      /**
        * Promo Code
        * @default null
        */
@@ -9353,6 +10306,41 @@ export interface components {
        */
       start_param: string | null;
     };
+    /** WebAppTelegramMergePayload */
+    WebAppTelegramMergePayload: {
+      /**
+       * Auth Data
+       * @default null
+       */
+      auth_data: unknown;
+      /** Email Code */
+      email_code: string;
+      /**
+       * Id Token
+       * @default
+       */
+      id_token: string;
+      /**
+       * Init Data
+       * @default
+       */
+      init_data: string;
+      /**
+       * Nonce
+       * @default
+       */
+      nonce: string;
+      /**
+       * Referral Code
+       * @default null
+       */
+      referral_code: string | null;
+      /**
+       * Start Param
+       * @default null
+       */
+      start_param: string | null;
+    };
     /** WebappBootstrapConfigOut */
     WebappBootstrapConfigOut: {
       /** Admincssasset */
@@ -9377,6 +10365,8 @@ export interface components {
       }[];
       /** Compacthomeenabled */
       compactHomeEnabled: boolean;
+      /** Compactloginenabled */
+      compactLoginEnabled: boolean;
       /** Currency */
       currency: string;
       /** Devmode */
@@ -9436,6 +10426,8 @@ export interface components {
       userAgreementUrl: string;
       /** Userthememodeenabled */
       userThemeModeEnabled: boolean;
+      /** Wideauthproviders */
+      wideAuthProviders: string[];
     } & {
       [key: string]: unknown;
     };
@@ -10066,6 +11058,73 @@ export interface operations {
       };
     };
   };
+  post_account_telegram_merge_confirm_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppTelegramMergePayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            account_merge?: {
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
+            };
+            csrf_token: string;
+            /** @constant */
+            ok: true;
+            telegram_id?: number | null;
+            token: string;
+            user_id?: number | null;
+          };
+        };
+      };
+    };
+  };
+  post_account_telegram_merge_request_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            code?: string;
+            email_code?: string;
+            /** @constant */
+            ok: true;
+            retry_after?: number | null;
+          };
+        };
+      };
+    };
+  };
   post_account_telegram_notifications_probe_route: {
     parameters: {
       query?: never;
@@ -10563,6 +11622,31 @@ export interface operations {
       };
     };
   };
+  get_admin_broadcast_failures_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminBroadcastFailuresOut"];
+        };
+      };
+    };
+  };
   get_admin_documents_list_route: {
     parameters: {
       query?: never;
@@ -10688,6 +11772,83 @@ export interface operations {
             /** @constant */
             ok: true;
           };
+        };
+      };
+    };
+  };
+  get_admin_extensions_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["ExtensionAdminOut"];
+        };
+      };
+    };
+  };
+  post_admin_extension_action_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ExtensionAdminAction"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["ExtensionActionOut"];
+        };
+      };
+    };
+  };
+  post_admin_extension_presentation_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ExtensionPresentationUpdate"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["ExtensionActionOut"];
         };
       };
     };
@@ -11923,6 +13084,399 @@ export interface operations {
       };
     };
   };
+  get_admin_plugin_packages_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            bundled: {
+              [key: string]: unknown;
+            }[];
+            failed_generation: number | null;
+            failure: string;
+            generation: number;
+            installations: {
+              [key: string]: unknown;
+            };
+            observations: {
+              [key: string]: unknown;
+            };
+            /** @constant */
+            ok: true;
+            operations: {
+              [key: string]: unknown;
+            }[];
+          };
+        };
+      };
+    };
+  };
+  get_admin_plugin_asset_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        plugin_id: string;
+        digest: string;
+        path: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/octet-stream": string;
+        };
+      };
+    };
+  };
+  post_admin_plugin_install_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            generation?: number;
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_plugin_preview_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": {
+          /** Format: binary */
+          file: string;
+        };
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            digest: string;
+            manifest: {
+              [key: string]: unknown;
+            };
+            /** @constant */
+            ok: true;
+            operation_id?: string;
+            trust_reason: string;
+            trusted: boolean;
+          };
+        };
+      };
+    };
+  };
+  post_admin_plugin_repository_preview_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          ref?: string;
+          url: string;
+        };
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            digest: string;
+            manifest: {
+              [key: string]: unknown;
+            };
+            /** @constant */
+            ok: true;
+            operation_id?: string;
+            source: {
+              [key: string]: unknown;
+            };
+            trust_reason: string;
+            trusted: boolean;
+          };
+        };
+      };
+    };
+  };
+  post_admin_plugin_repository_stage_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          ref?: string;
+          url: string;
+        };
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            digest: string;
+            manifest: {
+              [key: string]: unknown;
+            };
+            /** @constant */
+            ok: true;
+            operation_id?: string;
+            source: {
+              [key: string]: unknown;
+            };
+            trust_reason: string;
+            trusted: boolean;
+          };
+        };
+      };
+    };
+  };
+  get_admin_plugin_runtime_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            generation: number;
+            /** @constant */
+            ok: true;
+            plugins: {
+              [key: string]: unknown;
+            }[];
+          };
+        };
+      };
+    };
+  };
+  post_admin_plugin_stage_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": {
+          /** Format: binary */
+          file: string;
+        };
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            digest: string;
+            manifest: {
+              [key: string]: unknown;
+            };
+            /** @constant */
+            ok: true;
+            operation_id?: string;
+            trust_reason: string;
+            trusted: boolean;
+          };
+        };
+      };
+    };
+  };
+  post_admin_plugin_trust_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            generation?: number;
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  get_admin_plugin_updates_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            updates: {
+              [key: string]: unknown;
+            };
+          };
+        };
+      };
+    };
+  };
+  post_admin_plugin_enabled_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        plugin_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            generation?: number;
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_plugin_remove_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        plugin_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            generation?: number;
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
   get_admin_promos_list_route: {
     parameters: {
       query?: never;
@@ -12107,7 +13661,107 @@ export interface operations {
             ok: true;
             page: number;
             page_size: number;
+            revenue_summary: components["schemas"]["PromoRevenueSummaryOut"];
             total: number;
+          };
+        };
+      };
+    };
+  };
+  get_admin_roles_list_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminRolesListOut"];
+        };
+      };
+    };
+  };
+  post_admin_role_grant_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminRoleGrantBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  get_admin_role_candidates_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminRoleCandidatesOut"];
+        };
+      };
+    };
+  };
+  delete_admin_role_revoke_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+        role: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
           };
         };
       };
@@ -12979,7 +14633,7 @@ export interface operations {
       query?: never;
       header?: never;
       path: {
-        user_id: number;
+        user_id: string;
       };
       cookie?: never;
     };
@@ -14518,6 +16172,198 @@ export interface operations {
       };
     };
   };
+  get_extension_asset_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        owner: string;
+        digest: string;
+        path: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/octet-stream": string;
+        };
+      };
+    };
+  };
+  post_extension_checkout_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ExtensionCheckout"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["ExtensionCheckoutOut"];
+        };
+      };
+    };
+  };
+  get_extension_order_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            order: components["schemas"]["ExtensionOrderOut"];
+          };
+        };
+      };
+    };
+  };
+  get_extension_orders_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["ExtensionOrdersOut"];
+        };
+      };
+    };
+  };
+  post_extension_order_create_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ExtensionOrderCreate"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            order: components["schemas"]["ExtensionOrderOut"];
+          };
+        };
+      };
+    };
+  };
+  get_extension_payment_methods_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["ExtensionPaymentMethodsOut"];
+        };
+      };
+    };
+  };
+  get_extension_resource_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/octet-stream": string;
+        };
+      };
+    };
+  };
+  get_extension_runtime_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["ExtensionRuntimeOut"];
+        };
+      };
+    };
+  };
   get_gifts_route: {
     parameters: {
       query?: never;
@@ -14918,6 +16764,8 @@ export interface operations {
                 /** @enum {string} */
                 kind: "external" | "telegram" | "webapp" | "page";
                 label: string;
+                show_in_browser: boolean;
+                show_in_telegram_webapp: boolean;
                 target: string;
               }[];
               my_devices_enabled?: boolean;
@@ -15012,9 +16860,11 @@ export interface operations {
                 valid_until?: string | null;
                 valid_until_text?: string | null;
               } | null;
+              trial_requires_oauth?: boolean;
               trial_requires_telegram?: boolean;
               trial_traffic_limit_gb?: number;
               trial_traffic_strategy?: string;
+              trial_without_oauth_enabled?: boolean;
               trial_without_telegram_enabled?: boolean;
               user_balance_enabled?: boolean;
               user_hwid_device_limit?: number | null;
@@ -15043,9 +16893,11 @@ export interface operations {
               extra_hwid_devices_next_valid_from?: string | null;
               extra_hwid_devices_valid_until?: string | null;
               extra_hwid_devices_valid_until_text?: string | null;
+              http_url?: string | null;
               install_share_token?: string | null;
               install_share_url?: string | null;
               is_throttled?: boolean;
+              link_mode?: string;
               max_devices?: number | null;
               panel_short_uuid?: string | null;
               period_start_at?: string | null;

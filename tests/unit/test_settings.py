@@ -38,6 +38,25 @@ class SettingsTests(unittest.TestCase):
             self._settings(WEBAPP_COMPACT_HOME_ENABLED=True).webapp_settings.compact_home_enabled
         )
 
+    def test_compact_login_defaults_on_and_wide_buttons_only_include_available_providers(self):
+        self.assertTrue(self._settings().webapp_settings.compact_login_enabled)
+        self.assertFalse(
+            self._settings(WEBAPP_COMPACT_LOGIN_ENABLED=False).webapp_settings.compact_login_enabled
+        )
+        self.assertEqual(self._settings().webapp_wide_auth_providers, [])
+        email_available = self._settings(APP_RUNTIME_MODE="test", QA_AUTH_ENABLED=True)
+        self.assertEqual(email_available.webapp_wide_auth_providers, ["email"])
+
+        configured = self._settings(
+            WEBAPP_COMPACT_LOGIN_ENABLED=True,
+            TELEGRAM_LOGIN_WIDE_BUTTON=True,
+            GOOGLE_LOGIN_WIDE_BUTTON=True,
+            PASSKEY_LOGIN_ENABLED=True,
+            PASSKEY_LOGIN_WIDE_BUTTON=True,
+        )
+        self.assertTrue(configured.webapp_settings.compact_login_enabled)
+        self.assertEqual(configured.webapp_wide_auth_providers, ["telegram", "passkey"])
+
     def test_checkout_addon_ux_defaults_and_overrides(self):
         defaults = self._settings().webapp_settings
         self.assertTrue(defaults.checkout_addon_value_animation_enabled)
@@ -192,7 +211,7 @@ class SettingsTests(unittest.TestCase):
 
         self.assertTrue(settings.WEBAPP_SESSION_SECRET)
         self.assertTrue(settings.WEBHOOK_SECRET_TOKEN)
-        self.assertEqual(settings.WEBAPP_SESSION_TTL_SECONDS, 86400)
+        self.assertEqual(settings.WEBAPP_SESSION_TTL_SECONDS, 30 * 24 * 60 * 60)
 
     def test_webapp_title_defaults_to_minishop(self):
         settings = Settings(
@@ -657,6 +676,8 @@ class SettingsTests(unittest.TestCase):
         )
 
         self.assertTrue(settings.SUBSCRIPTION_GUIDES_ENABLED)
+        self.assertTrue(settings.SUBSCRIPTION_GATEWAY_ENABLED)
+        self.assertEqual(settings.SUBSCRIPTION_LINK_MODE, "panel")
         self.assertTrue(settings.SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED)
         self.assertTrue(settings.SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED)
         self.assertFalse(settings.SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED)
@@ -783,6 +804,15 @@ class SettingsTests(unittest.TestCase):
         )
 
         self.assertEqual(settings.TRIAL_TRAFFIC_STRATEGY, "WEEK")
+
+    def test_trial_without_oauth_defaults_on_and_accepts_legacy_alias(self):
+        self.assertTrue(self._settings().TRIAL_WITHOUT_OAUTH_ENABLED)
+        self.assertFalse(
+            self._settings(TRIAL_WITHOUT_OAUTH_ENABLED=False).TRIAL_WITHOUT_OAUTH_ENABLED
+        )
+        self.assertFalse(
+            self._settings(TRIAL_WITHOUT_TELEGRAM_ENABLED=False).TRIAL_WITHOUT_OAUTH_ENABLED
+        )
 
     def test_trial_days_strategy_is_admin_configured(self):
         settings = self._settings(TRIAL_DAYS_STRATEGY="start_from_payment")

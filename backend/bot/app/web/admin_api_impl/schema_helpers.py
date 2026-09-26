@@ -65,12 +65,12 @@ def display_label(
         return email_value
     if fallback_user_id is None:
         return None
-    return str(fallback_user_id)
+    return str(getattr(loaded_user, "minishop_id", None) or "—")
 
 
 def payment_user_display_label(loaded_user: Any, payment_user_id: int) -> str:
     label = display_label(loaded_user, payment_user_id)
-    return label or str(payment_user_id)
+    return label or "—"
 
 
 def float_or_none(value: Any) -> float | None:

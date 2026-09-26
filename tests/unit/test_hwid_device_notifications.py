@@ -71,6 +71,7 @@ def _settings(**overrides: Any) -> Settings:
         "USER_NOTIFICATION_DEVICE_LIMIT_EMAIL_ENABLED": True,
         "USER_NOTIFICATION_SINGLE_CHANNEL_FALLBACK_ENABLED": True,
         "email_auth_configured": True,
+        "smtp_delivery_configured": True,
         "tariffs_config": _catalog(),
     }
     values.update(overrides)

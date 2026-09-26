@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.middlewares.i18n import JsonI18n
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.telegram_account import require_telegram_account_id
 from bot.states.admin_states import AdminStates
 from bot.utils.callback_answer import (
     callback_message,
@@ -130,7 +131,9 @@ async def handle_premium_override_apply(
         await message_log_dal.create_message_log_no_commit(
             session,
             {
-                "user_id": callback.from_user.id if callback.from_user else user.user_id,
+                "user_id": await require_telegram_account_id(session, callback.from_user.id)
+                if callback.from_user
+                else user.user_id,
                 "event_type": "admin:premium_override",
                 "content": (f"unlimited={bool(unlimited)} bonus_bytes={int(bonus_bytes or 0)}"),
                 "is_admin_event": True,
@@ -160,7 +163,10 @@ async def handle_premium_override_bonus_prompt(
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     await state.update_data(target_user_id=user.user_id)
     await state.set_state(AdminStates.waiting_for_premium_override_bonus_gb)
-    prompt = _("admin_premium_override_bonus_prompt", user_id=user.user_id)
+    prompt = _(
+        "admin_premium_override_bonus_prompt",
+        user_id=getattr(user, "minishop_id", None) or "—",
+    )
     try:
         await callback_message(callback).edit_text(prompt)
     except Exception:
@@ -286,7 +292,9 @@ async def handle_hwid_limit_apply(
         await message_log_dal.create_message_log_no_commit(
             session,
             {
-                "user_id": callback.from_user.id if callback.from_user else user.user_id,
+                "user_id": await require_telegram_account_id(session, callback.from_user.id)
+                if callback.from_user
+                else user.user_id,
                 "event_type": "admin:hwid_device_limit",
                 "content": (
                     f"hwid_device_limit={hwid_device_limit!r} "
@@ -320,7 +328,7 @@ async def handle_hwid_limit_prompt(
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     await state.update_data(target_user_id=user.user_id)
     await state.set_state(AdminStates.waiting_for_hwid_device_limit)
-    prompt = _("admin_hwid_limit_prompt", user_id=user.user_id)
+    prompt = _("admin_hwid_limit_prompt", user_id=getattr(user, "minishop_id", None) or "—")
     try:
         await callback_message(callback).edit_text(prompt)
     except Exception:

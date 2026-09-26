@@ -84,7 +84,7 @@ class TrustedProxyAccessLogger(AccessLogger):
 def _inject_shared_instances(
     app: web.Application,
     dp: Dispatcher,
-    bot: Bot,
+    bot: Bot | None,
     settings: Settings,
     async_session_factory: sessionmaker,
 ) -> None:
@@ -143,7 +143,7 @@ def _register_provider_webhook_routes(app: web.Application, settings: Settings) 
 
 async def build_and_start_web_app(
     dp: Dispatcher,
-    bot: Bot,
+    bot: Bot | None,
     settings: Settings,
     async_session_factory: sessionmaker,
     *,
@@ -175,11 +175,12 @@ async def build_and_start_web_app(
     app.router.add_get("/healthz", _healthcheck)
     app.router.add_get("/health", _healthcheck)
 
-    setup_application(app, dp, bot=bot)
+    if bot is not None:
+        setup_application(app, dp, bot=bot)
 
-    telegram_uses_webhook_mode = bool(settings.WEBHOOK_BASE_URL)
+    telegram_uses_webhook_mode = bool(bot is not None and settings.WEBHOOK_BASE_URL)
 
-    if telegram_uses_webhook_mode:
+    if telegram_uses_webhook_mode and bot is not None:
         telegram_webhook_path = settings.telegram_webhook_path
         SecureSimpleRequestHandler(
             dispatcher=dp,
@@ -222,7 +223,7 @@ async def build_and_start_web_app(
     )
 
     # The webapp listener must open before after_webhooks_started: webhook
-    # configuration talks to the Telegram API with unbounded retries, and while
+    # configuration talks to the Telegram API, and while
     # it runs the container already reports healthy (the /healthz port is up),
     # so a late webapp port shows up as "bot works, webapp is down".
     webapp_settings = settings.webapp_settings

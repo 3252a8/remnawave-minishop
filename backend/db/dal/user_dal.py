@@ -8,7 +8,7 @@ import string
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import update
+from sqlalchemy import text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -18,6 +18,7 @@ from bot.infra.event_payloads import UserRegisteredPayload
 
 from ..models import (
     User,
+    UserExternalIdentity,
     UserTelegramAvatar,
 )
 from ._sqlalchemy import rowcount
@@ -73,7 +74,6 @@ logger = logging.getLogger(__name__)
 REFERRAL_CODE_ALPHABET = string.ascii_uppercase + string.digits
 REFERRAL_CODE_LENGTH = 9
 MAX_REFERRAL_CODE_ATTEMPTS = 25
-MAX_EMAIL_USER_ID_ATTEMPTS = 25
 
 
 def _generate_referral_code_candidate() -> str:
@@ -99,11 +99,16 @@ async def generate_unique_referral_code(session: AsyncSession) -> str:
 
 
 async def generate_unique_email_user_id(session: AsyncSession) -> int:
-    for _ in range(MAX_EMAIL_USER_ID_ATTEMPTS):
-        candidate = -(secrets.randbelow(9_000_000_000_000_000) + 1)
-        if not await get_user_by_id(session, candidate):
-            return candidate
-    raise RuntimeError("Failed to generate a unique email user id after several attempts.")
+    """Compatibility alias for the shared database-issued account key."""
+    return await generate_account_user_id(session)
+
+
+async def generate_account_user_id(session: AsyncSession) -> int:
+    result = await session.execute(text("SELECT nextval('minishop_user_id_seq')"))
+    user_id = int(result.scalar_one())
+    if user_id > 9_007_199_254_740_991:
+        raise RuntimeError("Internal user ID exceeds the safe JavaScript integer range")
+    return user_id
 
 
 async def ensure_referral_code(session: AsyncSession, user: User) -> str:
@@ -168,6 +173,9 @@ async def create_user(
     if "registration_date" not in user_data:
         user_data["registration_date"] = datetime.now(UTC)
 
+    if user_data.get("user_id") is None:
+        user_data["user_id"] = await generate_account_user_id(session)
+
     if not user_data.get("referral_code"):
         user_data["referral_code"] = await generate_unique_referral_code(session)
     else:
@@ -205,22 +213,34 @@ async def create_user(
             else:
                 registered_via = "unknown"
         if registered_via:
-            await events.emit_model(
-                UserRegisteredPayload(
-                    user_id=int(user.user_id),
-                    language=user_data.get("language_code"),
-                    referred_by_id=user_data.get("referred_by_id"),
-                    registered_via=registered_via,
-                    telegram_id=user_data.get("telegram_id"),
-                    username=user_data.get("username"),
-                    first_name=user_data.get("first_name"),
-                    email=user_data.get("email"),
-                )
+            event_payload = UserRegisteredPayload(
+                user_id=int(user.user_id),
+                language=user_data.get("language_code"),
+                referred_by_id=user_data.get("referred_by_id"),
+                registered_via=registered_via,
+                telegram_id=user_data.get("telegram_id"),
+                username=user_data.get("username"),
+                first_name=user_data.get("first_name"),
+                email=user_data.get("email"),
             )
+            if getattr(user, "account_id", None):
+                event_payload.account_id = str(user.account_id)
+            if getattr(user, "minishop_id", None):
+                event_payload.minishop_id = str(user.minishop_id)
+            await events.emit_model(event_payload, exclude_unset=True)
     else:
         logger.info("User %s already exists in DAL. Proceeding without creation.", user.user_id)
 
     return user, created
+
+
+async def has_external_oauth_identity(session: AsyncSession, user_id: int) -> bool:
+    result = await session.execute(
+        select(UserExternalIdentity.identity_id)
+        .where(UserExternalIdentity.user_id == user_id)
+        .limit(1)
+    )
+    return result.scalar_one_or_none() is not None
 
 
 async def create_email_user(
@@ -234,12 +254,10 @@ async def create_email_user(
     email_source: str = "email",
 ) -> tuple[User, bool]:
     normalized_email = (email or "").strip().lower()
-    user_id = await generate_unique_email_user_id(session)
     verified_at = email_verified_at or datetime.now(UTC)
     user, created = await create_user(
         session,
         {
-            "user_id": user_id,
             "email": normalized_email,
             "email_verified_at": verified_at,
             "notification_email": normalized_email,

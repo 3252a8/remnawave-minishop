@@ -20,6 +20,17 @@ type SessionRefreshResult = {
   csrf_token?: string;
 };
 
+const BOOT_RETRY_WINDOW_MS = 90_000;
+const BOOT_RETRY_MAX_DELAY_MS = 4_000;
+let activeBootRun = 0;
+
+function isTemporaryServiceFailure(error: unknown): boolean {
+  if (error instanceof TypeError) return true; // Fetch rejects with TypeError while the API is offline.
+  if (!error || typeof error !== "object" || !("status" in error)) return false;
+  const status = Number(error.status);
+  return status === 429 || (status >= 500 && status < 600);
+}
+
 function accountMergeConflictMessage(status: string, t: WebappBootDeps["t"]): string {
   const keyByStatus: Record<string, string> = {
     account_merge_google_conflict: "account_merge_google_conflict",
@@ -66,58 +77,74 @@ export type WebappBootDeps = {
  * Keeps side effects in App (mode, tg, token) via injected callbacks.
  */
 export async function runWebappBoot(deps: WebappBootDeps): Promise<void> {
-  const controller = beginBootBudget();
-  const started = performance.now();
-  let outcome = "ok";
-  const step = async <T>(call: () => T | Promise<T>): Promise<T> => {
-    if (controller.signal.aborted) throw new DOMException("boot_cancelled", "AbortError");
-    const result = await call();
-    if (controller.signal.aborted) throw new DOMException("boot_cancelled", "AbortError");
-    return result;
-  };
-  let abortListener = () => {};
-  const aborted = new Promise<never>((_resolve, reject) => {
-    abortListener = () => reject(new DOMException("boot_timeout", "AbortError"));
-    controller.signal.addEventListener("abort", abortListener, { once: true });
-  });
-  const timer = setTimeout(() => controller.abort(), WEBAPP_BOOT_BUDGET_MS);
-  try {
-    await Promise.race([
-      runWebappBootSequence({
-        ...deps,
-        setMode: (mode) => {
-          if (!controller.signal.aborted) deps.setMode(mode);
-        },
-        clearToken: () => {
-          if (!controller.signal.aborted) deps.clearToken();
-        },
-        showLogin: () => {
-          if (!controller.signal.aborted) deps.showLogin();
-        },
-        setAuthStatus: (message, error) => {
-          if (!controller.signal.aborted) deps.setAuthStatus(message, error);
-        },
-        loadData: () => step(deps.loadData),
-        loadTelegramSdk: (timeout) => step(() => deps.loadTelegramSdk(timeout)),
-        refreshSession: deps.refreshSession ? () => step(() => deps.refreshSession?.()) : null,
-        finalizeMagicLogin: (token) => step(() => deps.finalizeMagicLogin(token)),
-        finalizeTelegramAuth: (data, source) => step(() => deps.finalizeTelegramAuth(data, source)),
-        restorePendingExternalOauth: () => step(deps.restorePendingExternalOauth),
-      }),
-      aborted,
-    ]);
-  } catch {
-    outcome = controller.signal.aborted ? "timeout_or_cancel" : "unavailable";
-    if (currentBootSignal() === controller.signal) {
-      deps.setMode("bootError");
-      deps.setAuthStatus(deps.t("wa_boot_failed"), true);
+  const bootRun = ++activeBootRun;
+  const retryUntil = Date.now() + BOOT_RETRY_WINDOW_MS;
+  let retryDelay = 1_000;
+  while (bootRun === activeBootRun) {
+    const controller = beginBootBudget();
+    const started = performance.now();
+    let outcome = "ok";
+    const step = async <T>(call: () => T | Promise<T>): Promise<T> => {
+      if (controller.signal.aborted) throw new DOMException("boot_cancelled", "AbortError");
+      const result = await call();
+      if (controller.signal.aborted) throw new DOMException("boot_cancelled", "AbortError");
+      return result;
+    };
+    let abortListener = () => {};
+    const aborted = new Promise<never>((_resolve, reject) => {
+      abortListener = () => reject(new DOMException("boot_timeout", "AbortError"));
+      controller.signal.addEventListener("abort", abortListener, { once: true });
+    });
+    const timer = setTimeout(() => controller.abort(), WEBAPP_BOOT_BUDGET_MS);
+    let retry = false;
+    try {
+      await Promise.race([
+        runWebappBootSequence({
+          ...deps,
+          setMode: (mode) => {
+            if (!controller.signal.aborted) deps.setMode(mode);
+          },
+          clearToken: () => {
+            if (!controller.signal.aborted) deps.clearToken();
+          },
+          showLogin: () => {
+            if (!controller.signal.aborted) deps.showLogin();
+          },
+          setAuthStatus: (message, error) => {
+            if (!controller.signal.aborted) deps.setAuthStatus(message, error);
+          },
+          loadData: () => step(deps.loadData),
+          loadTelegramSdk: (timeout) => step(() => deps.loadTelegramSdk(timeout)),
+          refreshSession: deps.refreshSession ? () => step(() => deps.refreshSession?.()) : null,
+          finalizeMagicLogin: (token) => step(() => deps.finalizeMagicLogin(token)),
+          finalizeTelegramAuth: (data, source) =>
+            step(() => deps.finalizeTelegramAuth(data, source)),
+          restorePendingExternalOauth: () => step(deps.restorePendingExternalOauth),
+        }),
+        aborted,
+      ]);
+    } catch (error) {
+      outcome = controller.signal.aborted ? "timeout_or_cancel" : "unavailable";
+      retry =
+        !controller.signal.aborted &&
+        isTemporaryServiceFailure(error) &&
+        Date.now() + retryDelay < retryUntil;
+      if (!retry && currentBootSignal() === controller.signal) {
+        deps.setMode("bootError");
+        deps.setAuthStatus(deps.t("wa_boot_failed"), true);
+      }
+    } finally {
+      clearTimeout(timer);
+      controller.signal.removeEventListener("abort", abortListener);
+      finishBootBudget(controller);
+      recordClientTiming("boot", started, outcome);
+      if (outcome === "ok") recordClientTiming("interactive", 0, outcome);
     }
-  } finally {
-    clearTimeout(timer);
-    controller.signal.removeEventListener("abort", abortListener);
-    finishBootBudget(controller);
-    recordClientTiming("boot", started, outcome);
-    if (outcome === "ok") recordClientTiming("interactive", 0, outcome);
+    if (!retry || bootRun !== activeBootRun) return;
+    // The frontend may become reachable before the API during a container restart.
+    // Keep the initial loader visible and retry without discarding the saved session.
+    await new Promise<void>((resolve) => setTimeout(resolve, retryDelay));
+    retryDelay = Math.min(retryDelay * 2, BOOT_RETRY_MAX_DELAY_MS);
   }
 }
 

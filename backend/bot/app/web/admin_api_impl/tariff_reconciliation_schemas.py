@@ -18,6 +18,7 @@ class AdminTariffReconciliationApplyBody(HttpBodyModel):
 class AdminTariffReconciliationItemOut(HttpResponseModel):
     subscription_id: int
     user_id: int
+    user_minishop_id: str | None = None
     current_tariff_key: str | None = None
     proposed_tariff_key: str | None = None
     source: str | None = None

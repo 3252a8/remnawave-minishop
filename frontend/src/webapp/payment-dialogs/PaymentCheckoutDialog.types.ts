@@ -18,6 +18,8 @@ export type CheckoutPaymentOptions = {
   balanceSource?: "user" | "partner" | null;
   usePartnerBalance?: boolean;
   checkoutAddons?: CheckoutAddonSelection;
+  payerEmail?: string;
+  payerPhone?: string;
 };
 
 type BalancePaymentAction = (options?: CheckoutPaymentOptions) => unknown;

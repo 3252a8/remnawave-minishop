@@ -11,6 +11,7 @@ from bot.services.user_notification_policy import (
 def _settings(**overrides):
     values = {
         "email_auth_configured": True,
+        "smtp_delivery_configured": True,
         "USER_NOTIFICATION_PAYMENTS_TELEGRAM_ENABLED": True,
         "USER_NOTIFICATION_PAYMENTS_EMAIL_ENABLED": True,
         "USER_NOTIFICATION_SINGLE_CHANNEL_FALLBACK_ENABLED": True,
@@ -91,7 +92,7 @@ def test_unreachable_telegram_is_unavailable_for_fallback(status):
 
 def test_email_requires_configured_delivery():
     plan = user_notification_delivery_plan(
-        _settings(email_auth_configured=False),
+        _settings(smtp_delivery_configured=False),
         UserNotificationCategory.PAYMENTS,
         _user(telegram_id=None),
     )

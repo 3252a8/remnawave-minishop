@@ -13,10 +13,12 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from importlib import metadata
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from .packages import managed_entry_points, package_root
 from .spec import (
     ENTRY_POINT_GROUP,
     Plugin,
@@ -52,6 +54,9 @@ def reset_plugins() -> None:
     _builtin_plugins = None
     _discovered_plugins = None
     _registered_plugins.clear()
+    from .extensions.registry import ExtensionRegistry, set_registry
+
+    set_registry(ExtensionRegistry())
     from bot.infra.grants import reset_grant_modifiers
     from bot.infra.payment_events import reset_payment_purchase_resolvers
     from bot.infra.pricing import reset_price_modifiers
@@ -90,12 +95,17 @@ def _discover(settings: Settings) -> list[Plugin]:
         if settings.PLUGINS_STRICT:
             raise
         return plugins
-    for entry_point in entry_points:
+    managed = managed_entry_points(package_root())
+    bundled_names = {point.name for point in entry_points}
+    duplicates = bundled_names.intersection(point.name for point in managed)
+    if duplicates:
+        raise RuntimeError(f"Plugin is supplied by both image and package: {sorted(duplicates)}")
+    for entry_point in [*entry_points, *managed]:
         try:
             plugins.append(_coerce_plugin(entry_point.load(), entry_point.name))
         except Exception:
             logger.exception("Failed to load plugin from entry point %r", entry_point.name)
-            if settings.PLUGINS_STRICT:
+            if settings.PLUGINS_STRICT or entry_point in managed:
                 raise
     return plugins
 
@@ -115,7 +125,7 @@ def get_plugins(settings: Settings) -> list[Plugin]:
     """Return active plugins: built-ins, then entry-point and registered ones."""
     global _discovered_plugins
     builtin = _get_builtin_plugins()
-    if not settings.PLUGINS_ENABLED:
+    if not settings.PLUGINS_ENABLED or os.environ.get("MINISHOP_PLUGIN_SAFE_MODE") == "1":
         plugins = list(builtin)
         for plugin in plugins:
             validate_plugin_api_compatibility(plugin)
@@ -149,8 +159,23 @@ def _run_hook(
 
 def run_setup(ctx: PluginContext) -> None:
     """Invoke the general ``setup`` hook of every plugin."""
+    from .extensions.registry import ExtensionRegistry, set_registry
+
+    registry = ExtensionRegistry()
+    set_registry(registry)
     for plugin in get_plugins(ctx.settings):
-        _run_hook(ctx.settings, plugin, "setup", ctx)
+        hook = "setup"
+        try:
+            plugin.setup(ctx)
+            hook = "extensions"
+            contributions = plugin.extensions(ctx)
+        except Exception:
+            logger.exception("Plugin %r failed in %s", plugin.name, hook)
+            if ctx.settings.PLUGINS_STRICT:
+                raise
+            continue
+        # Conflicts are configuration errors even in non-strict mode.
+        registry.register(plugin.name, plugin.version, contributions)
     configure_entitlements(ctx)
 
 

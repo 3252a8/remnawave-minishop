@@ -18,6 +18,7 @@ describe("shellState", () => {
       mode: "loading",
       screen: "home",
       telegramSdkStatus: "idle",
+      themePreference: "dark",
       token: "",
     });
   });

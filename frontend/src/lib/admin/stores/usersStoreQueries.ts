@@ -96,11 +96,11 @@ export function createUsersStoreQueries({
     });
   }
 
-  function userDetailQueryKey(userId: number): AdminQueryKey {
+  function userDetailQueryKey(userId: number | string): AdminQueryKey {
     return [USER_DETAIL_QUERY_KEY[0], USER_DETAIL_QUERY_KEY[1], USER_DETAIL_QUERY_KEY[2], userId];
   }
 
-  async function requestUserDetail(userId: number): Promise<AdminUserDetailResponse> {
+  async function requestUserDetail(userId: number | string): Promise<AdminUserDetailResponse> {
     const res = (await api(buildAdminUserPath(userId))) as
       AdminUserDetailResponse | AdminErrorResponse;
     if (!res?.ok) {
@@ -109,7 +109,10 @@ export function createUsersStoreQueries({
     return res;
   }
 
-  function queryUserDetail(userId: number, refresh = false): Promise<AdminUserDetailResponse> {
+  function queryUserDetail(
+    userId: number | string,
+    refresh = false
+  ): Promise<AdminUserDetailResponse> {
     return fetchAdminQuery({
       queryClient,
       queryKey: userDetailQueryKey(userId),

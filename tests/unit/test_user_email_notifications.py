@@ -39,6 +39,7 @@ class _FailingEmailService(_FakeEmailService):
 def _settings(**overrides):
     values = {
         "email_auth_configured": True,
+        "smtp_delivery_configured": True,
         "DEFAULT_LANGUAGE": "en",
         "WEBAPP_PRIMARY_COLOR": "#00fe7a",
         "WEBAPP_TITLE": "Mini Shop",
@@ -81,7 +82,7 @@ class SendUserNotificationEmailTests(unittest.IsolatedAsyncioTestCase):
 
         with patch.object(module, "EmailAuthService", _FakeEmailService):
             sent = await module.send_user_notification_email(
-                settings=_settings(email_auth_configured=False),
+                settings=_settings(smtp_delivery_configured=False),
                 i18n=_FakeI18n(),
                 user=user,
                 subject_key="email_payment_failed_subject",

@@ -17,8 +17,8 @@ from bot.app.web.context import (
     get_settings,
     get_subscription_service,
 )
-from bot.app.web.webapp.auth import (
-    _trial_telegram_required_reason,
+from bot.app.web.webapp.auth_common import (
+    _trial_oauth_required_reason_for_user,
     _user_has_linked_telegram,
 )
 from bot.infra.performance import performance_phase
@@ -258,7 +258,11 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             pending_payment=pending_promo_payment,
         )
         install_share_token = (
-            await subscription_dal.ensure_install_share_token(session, local_sub)
+            await subscription_dal.ensure_install_share_token(
+                session,
+                local_sub,
+                panel_short_uuid=str(active.get("panel_short_uuid") or ""),
+            )
             if active and local_sub
             else None
         )
@@ -267,10 +271,12 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             and settings.TRIAL_DURATION_DAYS > 0
             and not await subscription_service.has_trial_blocking_subscription(session, user_id)
         )
-        trial_telegram_required_reason = (
-            _trial_telegram_required_reason(settings, db_user) if trial_base_available else None
+        trial_oauth_required_reason = (
+            await _trial_oauth_required_reason_for_user(session, settings, db_user)
+            if trial_base_available
+            else None
         )
-        trial_available = bool(trial_base_available and not trial_telegram_required_reason)
+        trial_available = bool(trial_base_available and not trial_oauth_required_reason)
         lang = _normalize_language(db_user.language_code or settings.DEFAULT_LANGUAGE)
         plans_payload = _serialize_plans(
             settings,
@@ -338,13 +344,14 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             .scalars()
             .all()
         )
+        from bot.services.account_roles import is_admin as account_is_admin
+
+        is_admin = await account_is_admin(session, user_id)
         try:
             await session.commit()
         except Exception:
             await session.rollback()
 
-    admin_ids = {int(x) for x in (settings.ADMIN_IDS or [])}
-    is_admin = bool(db_user.telegram_id and int(db_user.telegram_id) in admin_ids)
     telegram_linked = _user_has_linked_telegram(db_user)
     referral_welcome_days, referral_welcome_telegram_required_reason = (
         resolve_referral_welcome_state(
@@ -367,6 +374,8 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
     return {
         "user": {
             "id": user_id,
+            "account_id": str(db_user.account_id),
+            "minishop_id": str(db_user.minishop_id),
             "username": db_user.username,
             "email": db_user.email,
             "email_verified": bool(db_user.email_verified_at),
@@ -497,9 +506,12 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             "trial_available": trial_available,
             "trial_payment_enabled": bool(settings.TRIAL_PAYMENT_ENABLED),
             "trial_payment_plan": _serialize_trial_payment_plan(settings),
-            "trial_without_telegram_enabled": bool(settings.TRIAL_WITHOUT_TELEGRAM_ENABLED),
-            "trial_requires_telegram": bool(trial_telegram_required_reason and not telegram_linked),
-            "trial_block_reason": trial_telegram_required_reason,
+            "trial_without_oauth_enabled": bool(settings.TRIAL_WITHOUT_OAUTH_ENABLED),
+            "trial_requires_oauth": bool(trial_oauth_required_reason and not telegram_linked),
+            # Compatibility aliases for older Web App clients.
+            "trial_without_telegram_enabled": bool(settings.TRIAL_WITHOUT_OAUTH_ENABLED),
+            "trial_requires_telegram": bool(trial_oauth_required_reason and not telegram_linked),
+            "trial_block_reason": trial_oauth_required_reason,
             "trial_duration_days": int(settings.TRIAL_DURATION_DAYS or 0),
             "trial_traffic_limit_gb": float(settings.TRIAL_TRAFFIC_LIMIT_GB or 0),
             "trial_traffic_strategy": settings.TRIAL_TRAFFIC_STRATEGY,
@@ -638,6 +650,15 @@ def _serialize_subscription(
         "remaining_text": _format_remaining(seconds_left, lang),
         "config_link": active.get("config_link"),
         "connect_url": active.get("connect_button_url") or active.get("config_link"),
+        "http_url": active.get("http_url"),
+        "link_mode": (
+            "minishop"
+            if (
+                settings.SUBSCRIPTION_GATEWAY_ENABLED
+                and settings.SUBSCRIPTION_LINK_MODE == "minishop"
+            )
+            else "panel"
+        ),
         "panel_short_uuid": panel_short_uuid or None,
         "install_share_token": subscription_dal.normalize_install_share_token(share_token) or None,
         "install_share_url": _build_install_share_link(request, settings, share_token),

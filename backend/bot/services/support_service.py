@@ -137,7 +137,7 @@ class SupportService:
         self,
         session_factory: sessionmaker,
         settings: Settings,
-        bot: Bot,
+        bot: Bot | None,
         i18n: JsonI18n | None,
         notification_service: NotificationService | None = None,
         email_auth_service: EmailAuthService | None = None,

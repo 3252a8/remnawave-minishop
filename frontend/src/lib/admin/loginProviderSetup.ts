@@ -1,4 +1,41 @@
 export type LoginProvider = "discord" | "google" | "yandex";
+type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+
+export function loginProviderHelpTitle(provider: string, at: TranslateFn): string {
+  if (provider === "google")
+    return at("settings_login_google_help_title", {}, "Google OAuth application");
+  if (provider === "yandex")
+    return at("settings_login_yandex_help_title", {}, "Yandex OAuth application");
+  if (provider === "discord")
+    return at("settings_login_discord_help_title", {}, "Discord OAuth2 application");
+  return at("settings_login_passkey_help_title", {}, "Passkey domain settings");
+}
+
+export function loginProviderHelpHint(provider: string, at: TranslateFn): string {
+  if (provider === "google")
+    return at(
+      "settings_login_google_help_hint",
+      {},
+      "Create a Web OAuth client and add the exact callback URL below."
+    );
+  if (provider === "yandex")
+    return at(
+      "settings_login_yandex_help_hint",
+      {},
+      "Create an app for user authorization and add the callback as a Web service Redirect URI."
+    );
+  if (provider === "discord")
+    return at(
+      "settings_login_discord_help_hint",
+      {},
+      "Create a Discord application and add the exact OAuth2 redirect URL below."
+    );
+  return at(
+    "settings_login_passkey_help_hint",
+    {},
+    "Use HTTPS; RP ID must be the application domain and origins must contain its full origin."
+  );
+}
 
 export function loginProviderOrigin(configuredUrl: string, fallbackOrigin: string): string {
   const fallback = String(fallbackOrigin || "").replace(/\/$/, "");

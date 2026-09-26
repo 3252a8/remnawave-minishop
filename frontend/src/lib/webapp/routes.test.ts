@@ -1,11 +1,29 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  adminPaymentsUserIdFromPath,
   adminPartnersDeepLinkFromPath,
   adminSectionFromPath,
+  adminUserIdFromPath,
   normalizeAdminSection,
   sectionFromPath,
 } from "./routes";
+
+describe("admin user links", () => {
+  const minishopId = `ms_${"a".repeat(32)}`;
+
+  it("opens stable Minishop IDs in user and payment contexts", () => {
+    expect(adminUserIdFromPath(`/admin/users/${minishopId}`)).toBe(minishopId);
+    expect(adminPaymentsUserIdFromPath(`/admin/payments/users/${minishopId}`)).toBe(minishopId);
+    expect(adminUserIdFromPath(`/demo/admin/users/${minishopId}`, "/demo")).toBe(minishopId);
+  });
+
+  it("keeps old numeric links and rejects malformed IDs", () => {
+    expect(adminUserIdFromPath("/admin/users/-42")).toBe(-42);
+    expect(adminPaymentsUserIdFromPath("/admin/payments/users/42")).toBe(42);
+    expect(adminUserIdFromPath("/admin/users/ms_bad")).toBeNull();
+  });
+});
 
 describe("sectionFromPath", () => {
   it("recognizes notification preferences as a Settings subsection", () => {

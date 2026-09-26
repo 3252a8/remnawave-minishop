@@ -509,6 +509,12 @@ async def _load_config_links(
     for ctx in contexts.values():
         if ctx.panel_user_uuid:
             ctx.config_link = resolved.get(ctx.panel_user_uuid)
+        if (
+            settings.SUBSCRIPTION_GATEWAY_ENABLED
+            and settings.SUBSCRIPTION_LINK_MODE == "minishop"
+            and ctx.install_link
+        ):
+            ctx.config_link, _ = await prepare_config_links(settings, ctx.install_link)
 
 
 # --------------------------------------------------------------------------- #

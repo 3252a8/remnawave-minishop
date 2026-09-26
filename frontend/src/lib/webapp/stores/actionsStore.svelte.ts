@@ -117,6 +117,13 @@ export function createActionsStore({
 
   function trialActivationFailureMessage(error: unknown) {
     const errorRecord = asRecord(error);
+    if (errorRecord.error === "trial_oauth_required" || errorRecord.message === "oauth_required") {
+      return t(
+        "wa_trial_oauth_required_error",
+        {},
+        "Link Telegram or another login provider to activate the trial."
+      );
+    }
     if (
       errorRecord.error === "trial_telegram_required" ||
       errorRecord.message === "telegram_required" ||

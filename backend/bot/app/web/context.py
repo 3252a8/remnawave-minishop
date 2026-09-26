@@ -11,6 +11,7 @@ from aiohttp import web
 from aiohttp.web_exceptions import NotAppKeyWarning
 from sqlalchemy.orm import sessionmaker
 
+from bot.app.controllers.dispatcher_context import get_dispatcher_bot_username
 from bot.middlewares.i18n import JsonI18n
 from bot.payment_providers import iter_service_keys
 from bot.services.email_auth_service import EmailAuthService
@@ -199,6 +200,13 @@ def get_i18n(request: web.Request) -> JsonI18n | None:
 
 
 def get_bot_username(request: web.Request) -> str:
+    # Telegram resolves the bot identity in parallel with opening the Web App.
+    # The dispatcher is updated later, while the copied app value stays empty.
+    dispatcher = _optional_value(request.app, DISPATCHER, "dp")
+    if dispatcher is not None:
+        username = get_dispatcher_bot_username(dispatcher)
+        if username:
+            return username
     return _optional_value(request.app, BOT_USERNAME, "bot_username") or ""
 
 
@@ -401,13 +409,14 @@ def get_lknpd_service(request: web.Request) -> object | None:
 def set_core_context(
     app: web.Application,
     *,
-    bot: Bot,
+    bot: Bot | None,
     dp: Dispatcher,
     settings: Settings,
     async_session_factory: sessionmaker,
 ) -> None:
     i18n = dp.get("i18n_instance")
-    _set_both_values(app, BOT, "bot", bot)
+    if bot is not None:
+        _set_both_values(app, BOT, "bot", bot)
     _set_both_values(app, DISPATCHER, "dp", dp)
     _set_both_values(app, SETTINGS, "settings", settings)
     _set_both_values(app, SESSION_FACTORY, "async_session_factory", async_session_factory)

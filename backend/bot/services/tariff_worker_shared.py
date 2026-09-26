@@ -230,7 +230,7 @@ async def deliver_traffic_warning(
     if user is None:
         user = SimpleNamespace(
             user_id=user_id,
-            telegram_id=user_id if user_id > 0 else None,
+            telegram_id=None,
             email=None,
             telegram_notifications_status="unknown",
         )

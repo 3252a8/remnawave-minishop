@@ -2,6 +2,7 @@ import html
 import logging
 
 from aiogram import Router, types
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.admin_keyboards import (
@@ -15,7 +16,7 @@ from bot.utils.callback_answer import callback_bot, callback_message
 from config.settings import Settings
 from config.tariffs_config import default_payment_currency_code_for_settings
 from db.dal import panel_sync_dal, payment_dal, user_dal
-from db.models import PanelSyncStatus, Payment
+from db.models import PanelSyncStatus, Payment, User
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +25,11 @@ router = Router(name="admin_statistics_router")
 
 def _format_rating_user_label(user_row: dict[str, object], bot_username: str | None = None) -> str:
     user_id = int(str(user_row.get("user_id", 0) or 0))
+    public_id = str(user_row.get("minishop_id") or "—")
     username = user_row.get("username")
     first_name = user_row.get("first_name")
     user_id_text = str(user_id)
-    user_id_html = html.escape(user_id_text)
+    user_id_html = html.escape(public_id)
 
     if bot_username:
         safe_bot_username = html.escape(bot_username)
@@ -229,7 +231,7 @@ async def show_statistics_handler(
                 else "❌"
             )
 
-            user_info = f"User {payment.user_id}"
+            user_info = f"User {getattr(payment.user, 'minishop_id', None) or '—'}"
             if payment.user and payment.user.username:
                 user_info += f" (@{payment.user.username})"
             elif payment.user and payment.user.first_name:
@@ -337,6 +339,15 @@ async def show_user_ratings_handler(
     )
     invited_top = await user_dal.get_top_users_by_referrals_count(session, limit=top_limit)
     revenue_top = await user_dal.get_top_users_by_referral_revenue(session, limit=top_limit)
+    all_rows = [*traffic_top, *lifetime_traffic_top, *invited_top, *revenue_top]
+    user_ids = {int(row["user_id"]) for row in all_rows}
+    if user_ids:
+        result = await session.execute(
+            select(User.user_id, User.minishop_id).where(User.user_id.in_(user_ids))
+        )
+        public_ids = {int(user_id): str(public_id) for user_id, public_id in result}
+        for row in all_rows:
+            row["minishop_id"] = public_ids.get(int(row["user_id"]))
 
     text_parts: list[str] = [
         _("admin_user_ratings_header", top_limit=top_limit),

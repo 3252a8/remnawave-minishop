@@ -48,7 +48,7 @@ async def log_user_message_delivery(
             "timestamp": timestamp or datetime.now(UTC),
         }
         await message_log_dal.create_message_log_no_commit(session, payload)
-        await notify_message_log(payload)
+        await notify_message_log(payload, session=session)
     except Exception:
         logger.exception(
             "Failed to add outbound message audit log for user %s event %s",

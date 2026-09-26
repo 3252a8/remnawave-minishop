@@ -144,7 +144,7 @@ async def _exchange_telegram_oauth_code(
 
 async def telegram_oauth_nonce_route(request: web.Request) -> web.Response:
     settings: Settings = get_settings(request)
-    if not settings.TELEGRAM_LOGIN_ENABLED:
+    if not settings.TELEGRAM_ENABLED or not settings.TELEGRAM_LOGIN_ENABLED:
         return _json_error(404, "telegram_login_disabled", "Telegram login is disabled")
     client_id = _resolve_telegram_oauth_client_id(settings)
     if not client_id:
@@ -168,7 +168,7 @@ async def telegram_oauth_start_route(request: web.Request) -> web.Response:
     settings: Settings = get_settings(request)
     tariff_access_code = normalize_tariff_access_code(request.query.get("tariff_access"))
     redirect_path = f"/checkout/{tariff_access_code}" if tariff_access_code else "/"
-    if not settings.TELEGRAM_LOGIN_ENABLED:
+    if not settings.TELEGRAM_ENABLED or not settings.TELEGRAM_LOGIN_ENABLED:
         raise web.HTTPFound(_telegram_oauth_redirect_url(redirect_path, status="disabled"))
     client_id = _resolve_telegram_oauth_client_id(settings)
     client_secret = str(settings.TELEGRAM_OAUTH_CLIENT_SECRET or "").strip()
@@ -239,7 +239,7 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
         _clear_telegram_oauth_state_cookie(response)
         return response
 
-    if not settings.TELEGRAM_LOGIN_ENABLED:
+    if not settings.TELEGRAM_ENABLED or not settings.TELEGRAM_LOGIN_ENABLED:
         raise redirect(status="disabled")
 
     error = str(request.query.get("error") or "")
@@ -378,7 +378,11 @@ async def _validate_telegram_auth_payload(
     payload: dict[str, Any],
 ) -> dict[str, Any] | None:
     settings: Settings = get_settings(request)
-    if not settings.TELEGRAM_LOGIN_ENABLED:
+    if (
+        not settings.TELEGRAM_ENABLED
+        or not settings.TELEGRAM_LOGIN_ENABLED
+        or not settings.BOT_TOKEN
+    ):
         return None
     init_data = str(payload.get("init_data") or "")
     if init_data:

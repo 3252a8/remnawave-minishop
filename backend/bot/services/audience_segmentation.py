@@ -11,6 +11,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
+from bot.services.account_roles import active_admin_user_ids
 from bot.services.panel_activity import _panel_user_connection_activity
 from bot.services.panel_user_snapshot import load_panel_users_by_reference
 from db.dal import user_dal
@@ -106,12 +107,10 @@ class AudienceSegmentationService:
         session_factory: sessionmaker,
         *,
         panel_service: Any = None,
-        admin_ids: Sequence[int] | None = None,
         tariffs: Sequence[tuple[str, str]] | None = None,
     ) -> None:
         self.session_factory = session_factory
         self.panel_service = panel_service
-        self.admin_ids = [int(admin_id) for admin_id in dict.fromkeys(admin_ids or [])]
         # ``(key, display name)`` of the tariffs offered as audiences.
         self.tariffs = [
             (str(key).strip().lower(), str(name).strip())
@@ -254,7 +253,8 @@ class AudienceSegmentationService:
         if normalized not in AUDIENCE_TARGETS:
             raise AudienceNotFoundError(normalized)
         if normalized == AUDIENCE_ADMINS:
-            return list(self.admin_ids)
+            async with self.session_factory() as session:
+                return await active_admin_user_ids(session)
         async with self.session_factory() as session:
             if normalized == AUDIENCE_ACTIVE_NEVER_CONNECTED:
                 if self.panel_service is None:
@@ -296,7 +296,7 @@ class AudienceSegmentationService:
                 ),
                 "never": await user_dal.count_users_without_any_subscription_for_broadcast(session),
                 AUDIENCE_ACTIVE_NEVER_CONNECTED: None,
-                AUDIENCE_ADMINS: len(self.admin_ids),
+                AUDIENCE_ADMINS: len(await active_admin_user_ids(session)),
             }
             if self.tariffs:
                 per_tariff = await user_dal.count_active_subscriptions_per_tariff(session)

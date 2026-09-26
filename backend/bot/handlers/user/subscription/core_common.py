@@ -13,6 +13,7 @@ from bot.middlewares.i18n import JsonI18n
 from bot.payment_providers import provider_manages_recurring, provider_supports_recurring
 from bot.payment_providers.shared import service_supports_recurring
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.telegram_account import require_telegram_account_id
 from bot.utils.callback_answer import (
     message_from_user,
 )
@@ -195,10 +196,10 @@ def _format_premium_bytes(value: object) -> str:
     return f"{bytes_value / 2**30:.2f} GB"
 
 
-def _event_user_id(event: types.Message | types.CallbackQuery) -> int:
+async def _event_user_id(session: AsyncSession, event: types.Message | types.CallbackQuery) -> int:
     if isinstance(event, types.CallbackQuery):
-        return int(event.from_user.id)
-    return int(message_from_user(event).id)
+        return await require_telegram_account_id(session, event.from_user.id)
+    return await require_telegram_account_id(session, message_from_user(event).id)
 
 
 def _format_premium_usage_limit(active: dict[str, object], get_text: _GetText | None = None) -> str:

@@ -4,13 +4,20 @@ import { shellState } from "./shellState.svelte";
 export function createUiChrome({
   getCurrentLang,
   normalizeLangCode,
+  ensureGuestLanguage,
+  onLanguageLoadError,
+  rememberLanguage,
 }: {
   getCurrentLang: () => string;
   normalizeLangCode: (value: string) => string;
+  ensureGuestLanguage: (language: string) => Promise<void>;
+  onLanguageLoadError: () => void;
+  rememberLanguage: (language: string) => void;
 }) {
   let releaseScrollLock: (() => void) | null = null;
   let languageClickGuardTimer: number | null = null;
   let languageClickGuardArmTimer: number | null = null;
+  let guestLanguageRequestId = 0;
 
   // Shares the ref-counted lock with dialogs and the admin drawer, so an
   // overlay closing here cannot unfreeze a page another overlay still holds.
@@ -59,10 +66,20 @@ export function createUiChrome({
     }, 260);
   }
 
-  function updateGuestLanguage(nextValue: string) {
+  async function updateGuestLanguage(nextValue: string) {
     const language = normalizeLangCode(nextValue);
     setLanguageMenuOpen(false);
     if (!language || language === getCurrentLang()) return;
+    const requestId = ++guestLanguageRequestId;
+    try {
+      await ensureGuestLanguage(language);
+    } catch (_error) {
+      void _error;
+      if (requestId === guestLanguageRequestId) onLanguageLoadError();
+      return;
+    }
+    if (requestId !== guestLanguageRequestId) return;
+    rememberLanguage(language);
     shellState.guestLanguage = language;
   }
 

@@ -107,6 +107,11 @@ const WATA_CRYPTO_KEYS = new Set([
   "WATA_CRYPTO_LINK_TTL_MINUTES",
   "WATA_CRYPTO_SUPPORTED_CURRENCIES",
 ]);
+const WATA_SUBSCRIPTION_KEYS = new Set([
+  "WATA_SUBSCRIPTION_ENABLED",
+  "WATA_SUBSCRIPTION_ADMIN_ONLY_ENABLED",
+  "WATA_SUBSCRIPTION_MAX_PERIODS",
+]);
 const WATA_WEBHOOK_KEYS = new Set([
   "WATA_WEBHOOK_VERIFY_SIGNATURE",
   "WATA_PUBLIC_KEY",
@@ -124,8 +129,9 @@ const SEMANTIC_FIELD_GROUP_ORDER: Record<string, number> = {
   platega_legacy: 8,
   wata_common: 1,
   wata_fiat: 2,
-  wata_crypto: 3,
-  wata_webhook: 4,
+  wata_subscription: 3,
+  wata_crypto: 4,
+  wata_webhook: 5,
 };
 
 export function normalizeSettingsPath(path: unknown): SettingsPath {
@@ -311,6 +317,9 @@ export function settingsPathAnchorKey(path: unknown, target: ResolvedSettingsPat
     }
   }
   if (sectionToken === "payments" && subsectionToken === "wata") {
+    if (fieldGroupToken === "subscription" || fieldGroupToken === "recurring") {
+      return settingsFieldGroupAnchorKey("payments", "Wata", "wata_subscription");
+    }
     if (fieldGroupToken === "crypto" || fieldGroupToken === "watacrypto") {
       return settingsFieldGroupAnchorKey("payments", "Wata", "wata_crypto");
     }
@@ -538,6 +547,15 @@ function wataSemanticGroup(field: AdminSettingField): Omit<SemanticFieldGroup, "
       "Crypto terminal",
       "settings_group_wata_crypto_hint",
       "Visibility, credentials, redirects, currencies, and labels for the crypto button."
+    );
+  }
+  if (WATA_SUBSCRIPTION_KEYS.has(key) || key.startsWith("PAYMENT_WATA_SUBSCRIPTION_")) {
+    return fieldGroupMeta(
+      "wata_subscription",
+      "settings_group_wata_subscription",
+      "Recurring payments",
+      "settings_group_wata_subscription_hint",
+      "Provider-managed schedules, period limits, and recurring checkout labels."
     );
   }
   if (WATA_FIAT_KEYS.has(key) || key.startsWith("PAYMENT_WATA_")) {

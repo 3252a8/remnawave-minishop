@@ -11,7 +11,8 @@ from bot.app.web.context import (
     get_subscription_service,
 )
 from bot.app.web.webapp.assets import _enforce_webapp_rate_limit
-from bot.app.web.webapp.auth import _require_user_id, _trial_telegram_required_reason
+from bot.app.web.webapp.auth import _require_user_id
+from bot.app.web.webapp.auth_common import _trial_oauth_required_reason_for_user
 from bot.app.web.webapp.common import (
     _invalidate_webapp_user_caches,
     _json_error,
@@ -31,6 +32,7 @@ from bot.infra.redis import redis_lock
 from bot.services.promo_code_service import PromoCheckoutRequired, PromoCodeService
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.utils.config_link import prepare_config_links
+from bot.utils.install_links import ensure_user_install_guide_share_url
 from config.settings import Settings
 from db.dal import message_log_dal, subscription_dal, user_dal
 
@@ -321,12 +323,20 @@ async def activate_trial_route(request: web.Request) -> web.Response:
         lang = _normalize_language(
             getattr(db_user, "language_code", None) or settings.DEFAULT_LANGUAGE
         )
-        telegram_required_reason = _trial_telegram_required_reason(settings, db_user)
-        if telegram_required_reason:
+        oauth_required_reason = await _trial_oauth_required_reason_for_user(
+            session,
+            settings,
+            db_user,
+        )
+        if oauth_required_reason:
             return _json_error(
                 400,
-                "trial_telegram_required",
-                telegram_required_reason,
+                (
+                    "trial_telegram_required"
+                    if oauth_required_reason == "disposable_email"
+                    else "trial_oauth_required"
+                ),
+                oauth_required_reason,
             )
 
         activation_result = await subscription_service.activate_trial_subscription(session, user_id)
@@ -342,9 +352,16 @@ async def activate_trial_route(request: web.Request) -> web.Response:
             return _json_error(status, message_key, message)
 
         end_date = activation_result.get("end_date")
+        public_share_url = (
+            await ensure_user_install_guide_share_url(session, settings, user_id)
+            if settings.SUBSCRIPTION_GATEWAY_ENABLED
+            and settings.SUBSCRIPTION_LINK_MODE == "minishop"
+            else None
+        )
         config_link, connect_url = await prepare_config_links(
             settings,
             activation_result.get("subscription_url"),
+            public_share_url=public_share_url,
         )
 
         try:

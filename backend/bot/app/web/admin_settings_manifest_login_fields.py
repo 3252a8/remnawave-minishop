@@ -19,6 +19,14 @@ LOGIN_METHOD_SETTINGS_FIELDS: tuple[SettingField, ...] = (
         subsection="telegram",
     ),
     SettingField(
+        "TELEGRAM_LOGIN_WIDE_BUTTON",
+        "bool",
+        "login_methods",
+        "Wide login button",
+        description="Keep a full-width button when compact login methods are enabled.",
+        subsection="telegram",
+    ),
+    SettingField(
         "TELEGRAM_OAUTH_CLIENT_ID",
         "int",
         "login_methods",
@@ -51,6 +59,14 @@ LOGIN_METHOD_SETTINGS_FIELDS: tuple[SettingField, ...] = (
         subsection="email",
     ),
     SettingField(
+        "EMAIL_LOGIN_WIDE_BUTTON",
+        "bool",
+        "login_methods",
+        "Wide login button",
+        description="Keep the email form visible when compact login methods are enabled.",
+        subsection="email",
+    ),
+    SettingField(
         "EMAIL_ADDRESS_CHANGE_ENABLED",
         "bool",
         "login_methods",
@@ -70,6 +86,14 @@ LOGIN_METHOD_SETTINGS_FIELDS: tuple[SettingField, ...] = (
         "login_methods",
         "Recommended login method",
         description="Prompt users to link this login method until it is configured",
+        subsection="google",
+    ),
+    SettingField(
+        "GOOGLE_LOGIN_WIDE_BUTTON",
+        "bool",
+        "login_methods",
+        "Wide login button",
+        description="Keep a full-width button when compact login methods are enabled.",
         subsection="google",
     ),
     SettingField(
@@ -99,6 +123,14 @@ LOGIN_METHOD_SETTINGS_FIELDS: tuple[SettingField, ...] = (
         subsection="yandex",
     ),
     SettingField(
+        "YANDEX_LOGIN_WIDE_BUTTON",
+        "bool",
+        "login_methods",
+        "Wide login button",
+        description="Keep a full-width button when compact login methods are enabled.",
+        subsection="yandex",
+    ),
+    SettingField(
         "YANDEX_OIDC_CLIENT_ID",
         "string",
         "login_methods",
@@ -125,6 +157,14 @@ LOGIN_METHOD_SETTINGS_FIELDS: tuple[SettingField, ...] = (
         subsection="discord",
     ),
     SettingField(
+        "DISCORD_LOGIN_WIDE_BUTTON",
+        "bool",
+        "login_methods",
+        "Wide login button",
+        description="Keep a full-width button when compact login methods are enabled.",
+        subsection="discord",
+    ),
+    SettingField(
         "DISCORD_OIDC_CLIENT_ID",
         "string",
         "login_methods",
@@ -148,6 +188,14 @@ LOGIN_METHOD_SETTINGS_FIELDS: tuple[SettingField, ...] = (
         "login_methods",
         "Recommended login method",
         description="Prompt users to link this login method until it is configured",
+        subsection="passkey",
+    ),
+    SettingField(
+        "PASSKEY_LOGIN_WIDE_BUTTON",
+        "bool",
+        "login_methods",
+        "Wide login button",
+        description="Keep a full-width button when compact login methods are enabled.",
         subsection="passkey",
     ),
     SettingField(

@@ -70,14 +70,11 @@ class TributeWebhookRuntime:
         therefore happen on the row the lookup found, never on the raw
         Telegram ID.
 
-        The ``user_id`` fallback is the same one the web auth flows use: rows
-        imported from another bot carry the Telegram ID as their primary key
-        without ever filling ``telegram_id``.
+        Imported rows without an explicit Telegram link require separate
+        identity reconciliation before a webhook can grant access.
         """
 
         db_user = await user_dal.get_user_by_telegram_id(session, int(telegram_user_id))
-        if db_user is None:
-            db_user = await user_dal.get_user_by_id(session, int(telegram_user_id))
         if db_user is None:
             return None
         return await user_dal.lock_user_by_id(session, int(db_user.user_id))

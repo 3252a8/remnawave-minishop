@@ -33,6 +33,7 @@ DOCUMENT_RESERVED_ROOTS = frozenset(
         "auth",
         "checkout",
         "devices",
+        "extensions",
         "docs",
         "fonts",
         "health",

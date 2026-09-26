@@ -59,8 +59,7 @@ export function createAdminPanelActions({
     setAdminActiveSection(nextAdminSection);
     syncAppSectionPath("admin", false, nextAdminSection);
     try {
-      await ensureI18nScope("admin");
-      await ensureAdminBundle();
+      await Promise.all([ensureI18nScope("admin"), ensureAdminBundle()]);
     } catch (_error) {
       void _error;
       if (getScreen() === "admin") {

@@ -1,6 +1,7 @@
 ﻿<script lang="ts">
   import { ArrowLeft, Check, ChevronsUpDown, Globe2, Menu } from "$components/ui/icons.js";
-  import { onDestroy, onMount } from "svelte";
+  import { onDestroy, onMount, setContext } from "svelte";
+  import { ADMIN_COMPOSITION, type AdminCompositionContext } from "./sections/compositionContext";
   import { MediaQuery } from "svelte/reactivity";
   import { prefersReducedMotion } from "svelte/motion";
   import { fade } from "svelte/transition";
@@ -13,16 +14,14 @@
   import ConfigAlertsBanner from "./ConfigAlertsBanner.svelte";
   import { dynamicComponent, type DynamicComponent } from "./adminLazyComponents";
   import type { AdminSectionDescriptor } from "./sections/registry";
+  import { ADMIN_SECTIONS } from "./sections/registry";
+  import { adminExtensionRevision } from "./sections/extensionRegistry";
   import type { SettingsSavedPayload } from "$lib/admin/stores/settingsStore";
   import type { TranslationsSavedPayload } from "$lib/admin/stores/translationsStore";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
   import type { UsersFilter, UsersRouteFilters } from "$lib/admin/usersRouteFilters";
   import type { AdminApi } from "./adminStores.js";
   import { lockPageScroll } from "$lib/webapp/scrollLock.js";
-  import {
-    openWithdrawalCount,
-    pendingApplicationCount,
-  } from "$lib/admin/previewMock/partnerProgram.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type SettingsPath = string[];
@@ -283,9 +282,7 @@
   const partnerAttentionPreviewMode =
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).has("partner_admin_scenario");
-  let partnerAttentionCount = $state(
-    partnerAttentionPreviewMode ? pendingApplicationCount + openWithdrawalCount : 0
-  );
+  let partnerAttentionCount = $state(0);
   let partnerAttentionTimer: number | null = null;
 
   async function refreshPartnerAttention(): Promise<void> {
@@ -300,8 +297,51 @@
   }
 
   onMount(() => {
+    if (partnerAttentionPreviewMode) {
+      // Keep the large preview dataset out of the live admin's first download.
+      void import("$lib/admin/previewMock/partnerProgram.js").then(
+        ({ pendingApplicationCount, openWithdrawalCount }) => {
+          partnerAttentionCount = pendingApplicationCount + openWithdrawalCount;
+        }
+      );
+      return;
+    }
     void refreshPartnerAttention();
     partnerAttentionTimer = window.setInterval(() => void refreshPartnerAttention(), 30_000);
+  });
+  const composition: AdminCompositionContext = {
+    get at() {
+      return at;
+    },
+    get currentLang() {
+      return currentLang;
+    },
+    get routePrefix() {
+      return routePrefix;
+    },
+    get availableFeatures() {
+      return availableFeatures;
+    },
+    get featuresResolved() {
+      return featuresResolved;
+    },
+    get featureAvailable() {
+      return featureAvailable;
+    },
+    get onNavigateSection() {
+      return onSetActive;
+    },
+    get onOpenUserCard() {
+      return onOpenUserCard;
+    },
+    get context() {
+      return { sectionId: active };
+    },
+  };
+  setContext(ADMIN_COMPOSITION, composition);
+  const runtimeSectionEntry = $derived.by(() => {
+    void $adminExtensionRevision;
+    return ADMIN_SECTIONS.find((section) => section.id === active)?.runtimeEntry || "";
   });
 </script>
 
@@ -440,7 +480,7 @@
     </div>
   </aside>
 
-  <section class="admin-content">
+  <section class="admin-content" data-scroll-container>
     <header class="admin-header">
       <div style="display:flex; align-items:center; gap:12px; min-width:0;">
         <button
@@ -486,7 +526,7 @@
          this marker (see lib/webapp/scrollLock.ts). -->
     <main class="admin-main" data-scroll-container>
       <ConfigAlertsBanner {at} section={active} onNavigate={onSetActive} />
-      {#key active}
+      {#key `${active}:${runtimeSectionEntry}`}
         <div
           class="admin-section-stage"
           data-admin-active-section={active}
@@ -495,6 +535,7 @@
         >
           <AdminSectionTabs
             sectionId={active}
+            {currentLang}
             {at}
             {availableFeatures}
             {featuresResolved}
@@ -507,6 +548,10 @@
                 {@const ActiveSectionComponent = activeSectionComponent}
                 <ActiveSectionComponent
                   {api}
+                  runtimeViewId={ADMIN_SECTIONS.find((section) => section.id === active)
+                    ?.runtimeViewId}
+                  runtimeEntry={ADMIN_SECTIONS.find((section) => section.id === active)
+                    ?.runtimeEntry}
                   {at}
                   {availableFeatures}
                   {brand}

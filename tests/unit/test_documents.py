@@ -182,6 +182,9 @@ def test_document_slugs_allow_nested_paths_and_reject_unsafe_paths() -> None:
 def test_document_public_path_uses_the_legacy_prefix_for_reserved_roots() -> None:
     assert document_public_path("guides/install") == "/guides/install"
     assert document_public_path("support") == "/docs/support"
+    assert document_public_path("extensions/sample/resources") == (
+        "/docs/extensions/sample/resources"
+    )
 
 
 @pytest.mark.parametrize("unsafe_target", ["index", "bodies", "body"])

@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from aiohttp import web
-from sqlalchemy import and_, case, or_, select
+from sqlalchemy import String, and_, case, or_, select
 from sqlalchemy import func as sa_func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, sessionmaker
@@ -514,8 +514,8 @@ async def _filter_and_sort_users(
             sa_func.coalesce(User.first_name, User.username, User.email).desc(),
             User.user_id.desc(),
         ),
-        "id_asc": User.user_id.asc(),
-        "id_desc": User.user_id.desc(),
+        "id_asc": User.minishop_id.asc(),
+        "id_desc": User.minishop_id.desc(),
     }
 
     # Keep the historical wire values for bookmarked admin URLs, but the
@@ -628,6 +628,9 @@ def _user_search_condition(query: str) -> ColumnElement[bool] | None:
         User.first_name.ilike(like),
         User.last_name.ilike(like),
         User.email.ilike(like),
+        User.minishop_id.ilike(like),
+        User.panel_username.ilike(like),
+        User.account_id.cast(String).ilike(like),
     ]
     if raw.isdigit():
         numeric = int(raw)
@@ -642,16 +645,24 @@ def _serialize_trial_summary(user: User, trial_subs: list[Subscription]) -> dict
 
 async def admin_user_detail_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    target_id = int(request.match_info["user_id"])
+    identifier = request.match_info["user_id"]
     async_session_factory: sessionmaker = get_session_factory(request)
     settings: Settings = get_settings(request)
 
     async with async_session_factory() as session:
-        user = await user_dal.get_user_by_id(session, target_id)
+        user = (
+            await session.scalar(select(User).where(User.minishop_id == identifier.lower()))
+            if identifier.startswith("ms_")
+            else await user_dal.get_user_by_id(session, int(identifier))
+        )
         if not user:
             return _error(404, "not_found", "User not found")
 
-        active_sub = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
+        target_id = int(user.user_id)
+
+        active_sub = await subscription_dal.get_active_subscription_by_user_id(
+            session, target_id, user.panel_user_uuid
+        )
         latest_subs_stmt = (
             select(Subscription)
             .where(Subscription.user_id == target_id)
@@ -817,6 +828,17 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
                 panel_uuid,
                 exc_panel,
             )
+
+    if (
+        settings.SUBSCRIPTION_GATEWAY_ENABLED
+        and settings.SUBSCRIPTION_LINK_MODE == "minishop"
+        and install_share_url
+        and panel_data
+        and active_sub is not None
+        and str(getattr(active_sub, "install_share_panel_short_uuid", "") or "")
+        == str(panel_data.get("shortUuid") or "")
+    ):
+        subscription_url = install_share_url
 
     serialized_user = _serialize_admin_user_with_avatar(user, avatar_keys)
     serialized_inviter = (

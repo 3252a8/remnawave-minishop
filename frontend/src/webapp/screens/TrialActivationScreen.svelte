@@ -35,6 +35,7 @@
     trialError?: string;
     activateTrial?: VoidAction;
     linkTelegramAndActivateTrial?: VoidAction;
+    openSecurity?: VoidAction;
     openInstallOrConnect?: VoidAction;
     goHome?: VoidAction;
     t?: Translate;
@@ -51,6 +52,7 @@
     trialError = "",
     activateTrial = () => {},
     linkTelegramAndActivateTrial = () => {},
+    openSecurity = () => {},
     openInstallOrConnect = () => {},
     goHome = () => {},
     t = (key, _params = {}, fallback = "") => fallback || key,
@@ -61,8 +63,11 @@
   const trialEnabled = $derived(Boolean(appSettings?.trial_enabled));
   const trialAvailable = $derived(Boolean(appSettings?.trial_available));
   const trialPaymentEnabled = $derived(Boolean(appSettings?.trial_payment_enabled));
+  const trialRequiresOauth = $derived(
+    Boolean(trialEnabled && appSettings?.trial_requires_oauth && !subscription?.active)
+  );
   const trialRequiresTelegram = $derived(
-    Boolean(trialEnabled && appSettings?.trial_requires_telegram && !subscription?.active)
+    Boolean(trialRequiresOauth && appSettings?.trial_block_reason === "disposable_email")
   );
   const canRequestTrial = $derived(
     Boolean(trialEnabled && trialAvailable && !subscription?.active)
@@ -117,7 +122,7 @@
         <RefreshCw size={27} />
       {:else if hasActiveAccess}
         <CheckCircle2 size={30} />
-      {:else if trialRequiresTelegram}
+      {:else if trialRequiresOauth}
         <Gift size={30} />
       {:else if trialError || !canRequestTrial}
         <CircleX size={30} />
@@ -174,18 +179,32 @@
             <dd>{trafficLabel}</dd>
           </div>
         </dl>
-      {:else if trialRequiresTelegram}
-        <h2>{t("wa_trial_telegram_required_title", {}, "Link Telegram to start trial")}</h2>
+      {:else if trialRequiresOauth}
+        <h2>
+          {trialRequiresTelegram
+            ? t("wa_trial_telegram_required_title", {}, "Link Telegram to start trial")
+            : t("wa_trial_oauth_required_title", {}, "Link an account to start trial")}
+        </h2>
         <p>
-          {t(
-            "wa_trial_telegram_required_description",
-            {
-              duration:
-                daysLeft > 0 ? t("wa_trial_days_left", { days: daysLeft }, "{days} days") : "",
-              traffic: trafficLabel,
-            },
-            "Link Telegram first to activate the trial."
-          )}
+          {trialRequiresTelegram
+            ? t(
+                "wa_trial_telegram_required_description",
+                {
+                  duration:
+                    daysLeft > 0 ? t("wa_trial_days_left", { days: daysLeft }, "{days} days") : "",
+                  traffic: trafficLabel,
+                },
+                "Link Telegram first to activate the trial."
+              )
+            : t(
+                "wa_trial_oauth_required_description",
+                {
+                  duration:
+                    daysLeft > 0 ? t("wa_trial_days_left", { days: daysLeft }, "{days} days") : "",
+                  traffic: trafficLabel,
+                },
+                "Link Telegram or another available login provider first."
+              )}
         </p>
         <dl class="trial-activation-facts">
           {#if daysLeft > 0}
@@ -221,17 +240,24 @@
         <Download size={18} />
         {t("wa_install_and_configure")}
       </Button>
-    {:else if trialRequiresTelegram}
-      <Button
-        class="wide settings-telegram-link-btn attention-wrap"
-        variant="telegram"
-        onclick={linkTelegramAndActivateTrial}
-        disabled={linkTelegramBusy || trialBusy}
-      >
-        <AttentionDot />
-        <Send size={18} />
-        {t("wa_trial_link_telegram_and_activate", {}, "Link and activate")}
-      </Button>
+    {:else if trialRequiresOauth}
+      {#if trialRequiresTelegram}
+        <Button
+          class="wide settings-telegram-link-btn attention-wrap"
+          variant="telegram"
+          onclick={linkTelegramAndActivateTrial}
+          disabled={linkTelegramBusy || trialBusy}
+        >
+          <AttentionDot />
+          <Send size={18} />
+          {t("wa_trial_link_telegram_and_activate", {}, "Link and activate")}
+        </Button>
+      {:else}
+        <Button class="wide attention-wrap" onclick={openSecurity}>
+          <AttentionDot />
+          {t("wa_trial_choose_oauth_provider", {}, "Choose login provider")}
+        </Button>
+      {/if}
     {:else if trialError && canRequestTrial}
       <Button class="wide" onclick={activateTrial} disabled={trialBusy}>
         <RefreshCw size={18} />

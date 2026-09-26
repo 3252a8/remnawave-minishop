@@ -43,6 +43,7 @@ export function withDemoAdminUserMetrics(user: DemoAdminUser): DemoAdminUser {
 
   return {
     ...user,
+    minishop_id: user.minishop_id || (user.user_id ? String(user.user_id) : null),
     payments_total_amount: paymentsTotal,
     payments_count: paymentsCount,
     payments_currency: user.payments_currency || "RUB",
@@ -73,6 +74,7 @@ export function withDemoReferralSummary(detail: DemoUserDetail): DemoUserDetail 
   const invitees = demoInviteesForUser(user.user_id);
   return {
     ...decorated,
+    user: withDemoAdminUserMetrics(user),
     referral: {
       ...(decorated.referral || {}),
       inviter: inviter ? (withDemoAvatar(inviter) as DemoAdminUser) : null,

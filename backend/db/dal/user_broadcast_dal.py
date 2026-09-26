@@ -69,16 +69,13 @@ async def get_telegram_recipients_for_broadcast(
 ) -> list[tuple[int, int]]:
     """Return ``(user_id, telegram_chat_id)`` for Telegram broadcast delivery.
 
-    Linked email-first accounts can have a local ``user_id`` that differs from
-    the Telegram chat id. Positive ids without a local row are kept as a
-    fallback for admin test broadcasts that target raw Telegram ids.
+    A delivery target must have an explicit, linked Telegram identity.
     """
     if not user_ids:
         return []
 
     normalized_user_ids = [int(user_id) for user_id in dict.fromkeys(user_ids)]
     chat_ids_by_user_id: dict[int, int] = {}
-    found_user_ids: set[int] = set()
     for start in range(0, len(normalized_user_ids), chunk_size):
         chunk = normalized_user_ids[start : start + chunk_size]
         stmt = select(
@@ -97,12 +94,11 @@ async def get_telegram_recipients_for_broadcast(
             marketing_enabled,
         ) in result.all():
             local_user_id = int(user_id)
-            found_user_ids.add(local_user_id)
             if bool(is_banned) or not bool(marketing_enabled):
                 continue
             if exclude_blocked and str(notification_status or "").lower() == "blocked":
                 continue
-            chat_id = int(telegram_id or local_user_id)
+            chat_id = int(telegram_id or 0)
             if chat_id > 0:
                 chat_ids_by_user_id[local_user_id] = chat_id
 
@@ -110,8 +106,6 @@ async def get_telegram_recipients_for_broadcast(
     seen_chat_ids: set[int] = set()
     for user_id in normalized_user_ids:
         chat_id = chat_ids_by_user_id.get(user_id)
-        if chat_id is None and user_id not in found_user_ids and user_id > 0:
-            chat_id = user_id
         if chat_id is None or chat_id in seen_chat_ids:
             continue
         recipients.append((user_id, chat_id))

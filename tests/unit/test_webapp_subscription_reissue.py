@@ -38,6 +38,7 @@ def _settings(**overrides):
     values = {
         "SUBSCRIPTION_REISSUE_ENABLED": True,
         "email_auth_configured": True,
+        "smtp_delivery_configured": True,
         "DEFAULT_LANGUAGE": "en",
     }
     values.update(overrides)
@@ -318,7 +319,7 @@ class WebAppSubscriptionReissueRouteTests(IsolatedAsyncioTestCase):
             panel_service=panel_service,
         )
         self._patch_context(
-            settings=_settings(email_auth_configured=False),
+            settings=_settings(smtp_delivery_configured=False),
             subscription_service=subscription_service,
             db_user=_db_user(),
         )
@@ -345,7 +346,7 @@ class WebAppSubscriptionReissueRouteTests(IsolatedAsyncioTestCase):
             panel_service=panel_service,
         )
         self._patch_context(
-            settings=_settings(email_auth_configured=False),
+            settings=_settings(smtp_delivery_configured=False),
             subscription_service=subscription_service,
             db_user=_db_user(email="", telegram_id=None),
         )

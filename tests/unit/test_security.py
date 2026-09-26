@@ -1117,6 +1117,7 @@ class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
     async def test_telegram_oauth_start_uses_short_public_state(self):
         settings = SimpleNamespace(
             WEBAPP_ENABLED=True,
+            TELEGRAM_ENABLED=True,
             TELEGRAM_LOGIN_ENABLED=True,
             BOT_TOKEN="123456789:secret",
             TELEGRAM_OAUTH_CLIENT_ID=None,

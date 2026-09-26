@@ -17,6 +17,7 @@ from bot.services.broadcast_personalization import (
 from bot.services.panel_api_service import PanelApiService
 from bot.services.referral_service import ReferralService
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.telegram_account import require_telegram_account_id
 from bot.states.admin_states import AdminStates
 from bot.utils import MessageContent, get_message_content, send_direct_message
 from bot.utils.callback_answer import (
@@ -100,16 +101,16 @@ async def process_subscription_days_handler(
 
         if result:
             await session.commit()
+            user = await user_dal.get_user_by_id(session, target_user_id)
             await message.answer(
                 _(
                     "admin_user_subscription_added_success",
                     days=days_to_add,
-                    user_id=target_user_id,
+                    user_id=getattr(user, "minishop_id", None) or "—",
                 )
             )
 
             # Show updated user card
-            user = await user_dal.get_user_by_id(session, target_user_id)
             if user:
                 referral_service = ReferralService(
                     settings, subscription_service, message_bot(message), i18n
@@ -126,7 +127,11 @@ async def process_subscription_days_handler(
                     bot_username=bot_username,
                 )
                 keyboard = get_user_card_keyboard(
-                    user.user_id, i18n, current_lang, user.referred_by_id
+                    user.user_id,
+                    i18n,
+                    current_lang,
+                    user.referred_by_id,
+                    telegram_id=user.telegram_id,
                 )
 
                 await _send_with_profile_link_fallback(
@@ -262,7 +267,12 @@ async def process_direct_message_handler(
             return
 
         # Confirm to admin
-        await message.answer(_("admin_user_message_sent_success", user_id=target_user_id))
+        await message.answer(
+            _(
+                "admin_user_message_sent_success",
+                user_id=getattr(target_user, "minishop_id", None) or "—",
+            )
+        )
 
         # Show user card again
         from bot.services.panel_api_service import PanelApiService
@@ -282,7 +292,11 @@ async def process_direct_message_handler(
                 bot_username=card_bot_username,
             )
             keyboard = get_user_card_keyboard(
-                target_user.user_id, i18n, current_lang, target_user.referred_by_id
+                target_user.user_id,
+                i18n,
+                current_lang,
+                target_user.referred_by_id,
+                telegram_id=target_user.telegram_id,
             )
 
             await _send_with_profile_link_fallback(
@@ -389,7 +403,9 @@ async def view_banned_users_handler(
                 display_name = user.first_name or "Unknown"
                 if user.username:
                     display_name = f"@{user.username}"
-                user_list.append(f"• {display_name} (ID: {user.user_id})")
+                user_list.append(
+                    f"• {display_name} (ID: {getattr(user, 'minishop_id', None) or '—'})"
+                )
 
             message_text = _(
                 "admin_banned_users_list", count=len(banned_users), users="\n".join(user_list)
@@ -567,7 +583,9 @@ async def process_premium_override_bonus_handler(
         await message_log_dal.create_message_log_no_commit(
             session,
             {
-                "user_id": message_from_user(message).id if message.from_user else target_user_id,
+                "user_id": await require_telegram_account_id(session, message_from_user(message).id)
+                if message.from_user
+                else target_user_id,
                 "event_type": "admin:premium_override",
                 "content": f"unlimited=False bonus_bytes={int(bonus_bytes)}",
                 "is_admin_event": True,
@@ -577,7 +595,11 @@ async def process_premium_override_bonus_handler(
         )
         await session.commit()
         await message.answer(
-            _("admin_premium_override_bonus_set", gb=f"{gb:.2f}", user_id=target_user_id)
+            _(
+                "admin_premium_override_bonus_set",
+                gb=f"{gb:.2f}",
+                user_id=getattr(target_user, "minishop_id", None) or "—",
+            )
         )
 
         referral_service = ReferralService(
@@ -595,7 +617,11 @@ async def process_premium_override_bonus_handler(
             bot_username=bot_username,
         )
         keyboard = get_user_card_keyboard(
-            target_user.user_id, i18n, current_lang, target_user.referred_by_id
+            target_user.user_id,
+            i18n,
+            current_lang,
+            target_user.referred_by_id,
+            telegram_id=target_user.telegram_id,
         )
         await _send_with_profile_link_fallback(
             message.answer,
@@ -674,7 +700,9 @@ async def process_hwid_device_limit_handler(
         await message_log_dal.create_message_log_no_commit(
             session,
             {
-                "user_id": message_from_user(message).id if message.from_user else target_user_id,
+                "user_id": await require_telegram_account_id(session, message_from_user(message).id)
+                if message.from_user
+                else target_user_id,
                 "event_type": "admin:hwid_device_limit",
                 "content": (
                     f"hwid_device_limit={hwid_device_limit!r} "
@@ -689,7 +717,11 @@ async def process_hwid_device_limit_handler(
 
         current_text = _admin_hwid_limit_state_text(_, hwid_device_limit)
         await message.answer(
-            _("admin_hwid_limit_set", current=current_text, user_id=target_user_id)
+            _(
+                "admin_hwid_limit_set",
+                current=current_text,
+                user_id=getattr(target_user, "minishop_id", None) or "—",
+            )
         )
 
         referral_service = ReferralService(
@@ -707,7 +739,11 @@ async def process_hwid_device_limit_handler(
             bot_username=bot_username,
         )
         keyboard = get_user_card_keyboard(
-            target_user.user_id, i18n, current_lang, target_user.referred_by_id
+            target_user.user_id,
+            i18n,
+            current_lang,
+            target_user.referred_by_id,
+            telegram_id=target_user.telegram_id,
         )
         await _send_with_profile_link_fallback(
             message.answer,
@@ -779,7 +815,9 @@ async def process_traffic_grant_gb_handler(
         await message_log_dal.create_message_log_no_commit(
             session,
             {
-                "user_id": message_from_user(message).id if message.from_user else target_user_id,
+                "user_id": await require_telegram_account_id(session, message_from_user(message).id)
+                if message.from_user
+                else target_user_id,
                 "event_type": "admin:traffic_grant",
                 "content": f"kind={kind} gb={gb_value:g}",
                 "is_admin_event": True,
@@ -795,7 +833,13 @@ async def process_traffic_grant_gb_handler(
             if kind == "premium"
             else "admin_traffic_grant_regular_done"
         )
-        await message.answer(_(success_key, gb=gb_text, user_id=target_user_id))
+        await message.answer(
+            _(
+                success_key,
+                gb=gb_text,
+                user_id=getattr(target_user, "minishop_id", None) or "—",
+            )
+        )
 
         referral_service = ReferralService(
             settings, subscription_service, message_bot(message), i18n
@@ -812,7 +856,11 @@ async def process_traffic_grant_gb_handler(
             bot_username=bot_username,
         )
         keyboard = get_user_card_keyboard(
-            target_user.user_id, i18n, current_lang, target_user.referred_by_id
+            target_user.user_id,
+            i18n,
+            current_lang,
+            target_user.referred_by_id,
+            telegram_id=target_user.telegram_id,
         )
         await _send_with_profile_link_fallback(
             message.answer,

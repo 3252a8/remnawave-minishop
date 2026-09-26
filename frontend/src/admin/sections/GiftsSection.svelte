@@ -235,13 +235,15 @@
             <td
               >{@render userLink(
                 gift.purchaser_id,
-                gift.purchaser_label
+                gift.purchaser_label,
+                gift.purchaser_minishop_id
               )}{#if gift.provider === "admin_gift"}<small>{at("gifts_created_by")}</small>{/if}</td
             >
             <td
               >{#if gift.recipient_id}{@render userLink(
                   gift.recipient_id,
-                  gift.recipient_label
+                  gift.recipient_label,
+                  gift.recipient_minishop_id
                 )}{:else}<span class="gift-secondary">{at("gifts_not_claimed")}</span>{/if}</td
             >
             <td
@@ -286,12 +288,13 @@
         <div class="gift-mobile-users">
           <div>
             <small>{at(gift.provider === "admin_gift" ? "gifts_created_by" : "gifts_buyer")}</small
-            >{@render userLink(gift.purchaser_id, gift.purchaser_label)}
+            >{@render userLink(gift.purchaser_id, gift.purchaser_label, gift.purchaser_minishop_id)}
           </div>
           <div>
             <small>{at("gifts_recipient")}</small>{#if gift.recipient_id}{@render userLink(
                 gift.recipient_id,
-                gift.recipient_label
+                gift.recipient_label,
+                gift.recipient_minishop_id
               )}{:else}<span class="gift-secondary">{at("gifts_not_claimed")}</span>{/if}
           </div>
         </div>
@@ -323,20 +326,19 @@
   />
 </div>
 
-{#snippet userLink(id: number | null, label: string)}
+{#snippet userLink(id: number | null, label: string, minishopId: string | null)}
   {#if id}<span class="gift-user-cell">
       <AdminButton
         class="gift-user-link"
         variant="ghost"
         size="icon"
         title={at("payments_open_user", {}, "Open user card")}
-        aria-label={`${at("payments_open_user", {}, "Open user card")}: ${label || id} (#${id})`}
+        aria-label={`${at("payments_open_user", {}, "Open user card")}: ${label || minishopId || ""}`}
         onclick={() => openUser(id)}><User size={14} /></AdminButton
       >
       <span class="gift-user-identity"
-        ><strong title={label || `#${id}`}>{label || `#${id}`}</strong>{#if label}<small
-            >#{id}</small
-          >{/if}</span
+        ><strong title={label || minishopId || ""}>{label || minishopId || "—"}</strong
+        >{#if minishopId}<small>{minishopId}</small>{/if}</span
       >
     </span>{:else}<span>—</span>{/if}
 {/snippet}
@@ -412,7 +414,7 @@
     {/if}
     <div class="gift-modal-buyer">
       <span>{at(gift.provider === "admin_gift" ? "gifts_created_by" : "gifts_buyer")}</span
-      >{@render userLink(gift.purchaser_id, gift.purchaser_label)}
+      >{@render userLink(gift.purchaser_id, gift.purchaser_label, gift.purchaser_minishop_id)}
       <div class="gift-payment-meta">
         {@render provider(gift)}<span class="gift-secondary">{fmtDate(gift.created_at)}</span>
       </div>
@@ -422,7 +424,8 @@
         <small>{at("gifts_recipient", {}, "Recipient")}</small
         >{#if gift.recipient_id}{@render userLink(
             gift.recipient_id,
-            gift.recipient_label
+            gift.recipient_label,
+            gift.recipient_minishop_id
           )}{:else}<span>{at("gifts_not_claimed", {}, "Not claimed yet")}</span>{/if}<span
           >{fmtDate(gift.activated_at)}</span
         >

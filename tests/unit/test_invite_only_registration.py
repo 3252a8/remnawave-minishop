@@ -42,6 +42,7 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
     ):
         return SimpleNamespace(
             DEFAULT_LANGUAGE="en",
+            TELEGRAM_ENABLED=True,
             TELEGRAM_LOGIN_ENABLED=True,
             REFERRAL_PROGRAM_ENABLED=referral_program_enabled,
             REGISTRATION_INVITE_ONLY_ENABLED=invite_only,

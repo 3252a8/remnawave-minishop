@@ -122,6 +122,8 @@ export function applyDemoEmailAuthUser(): void {
     ...(DEV_MOCK.data.settings || {}),
     trial_enabled: true,
     trial_available: true,
+    trial_without_oauth_enabled: true,
+    trial_requires_oauth: false,
     trial_without_telegram_enabled: true,
     trial_requires_telegram: false,
     trial_block_reason: "",
@@ -207,6 +209,8 @@ export function applyDemoTelegramAuthUser(authData: TelegramAuthData = {}): void
     ...(DEV_MOCK.data.settings || {}),
     trial_enabled: true,
     trial_available: true,
+    trial_without_oauth_enabled: true,
+    trial_requires_oauth: false,
     trial_without_telegram_enabled: true,
     trial_requires_telegram: false,
     trial_block_reason: "",
@@ -236,6 +240,7 @@ export function applyDemoEmailLink(email: unknown): void {
   ) as DemoRecord;
   DEV_MOCK.data.settings = {
     ...(DEV_MOCK.data.settings || {}),
+    trial_requires_oauth: false,
     trial_requires_telegram: false,
     trial_block_reason: "",
   };

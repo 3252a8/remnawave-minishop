@@ -1425,7 +1425,8 @@
   border-radius: var(--radius-card) var(--radius-card) var(--radius-card) var(--radius-inner);
   background: var(--ticket-bubble-bg, color-mix(in srgb, var(--panel-2) 92%, transparent));
   padding: 7px 11px;
-  white-space: pre-wrap;
+  /* Message line breaks are already rendered as paragraphs and <br> nodes. */
+  white-space: normal;
 }
 
 .ticket-message-bubble p {
@@ -2010,7 +2011,7 @@
   .ticket-message-bubble {
     width: fit-content;
     border-radius: var(--radius-card) var(--radius-card) var(--radius-card) var(--radius-inner);
-    padding: 9px 11px;
+    padding: 7px 11px;
   }
 
   .ticket-message-row--outgoing .ticket-message-bubble {

@@ -3,6 +3,7 @@ import type { MessageShortcodeInfo } from "$lib/richtext/editorSchema";
 import {
   buildAdminBroadcastAudienceCountsPath,
   buildAdminBroadcastItemPath,
+  buildAdminBroadcastFailuresPath,
   buildAdminBroadcastPath,
   buildAdminBroadcastPreviewPath,
   buildAdminBroadcastShortcodesPath,
@@ -16,6 +17,7 @@ import {
 } from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
 import { historyItemFromWire, type BroadcastHistoryItem } from "./broadcastHistory";
+import { broadcastFailuresFromWire, type BroadcastFailuresPage } from "./broadcastFailures";
 import { snapshotForPayload } from "./snapshotForPayload.svelte";
 import { messageRequestBody } from "$lib/messageImage";
 import { normalizeMessageButtonLink } from "$lib/admin/messageButtonTargets.js";
@@ -24,7 +26,6 @@ type AdminApi = ApiClient["api"];
 type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type BroadcastCounts = Record<string, number>;
-type BroadcastResult = { queued: number; failed: number; emailQueued: number; channels: string[] };
 export type BroadcastTargetOption = {
   value: string;
   label: string;
@@ -92,7 +93,6 @@ export type BroadcastState = {
   broadcastImage: File | null;
   broadcastLanguage: string;
   broadcastBusy: boolean;
-  broadcastResult: BroadcastResult | null;
   broadcastCounts: BroadcastCounts | null;
   broadcastCountsLoading: boolean;
   broadcastCountsLoadedAt: number;
@@ -137,6 +137,7 @@ export type BroadcastStore = BroadcastState & {
   sendPreview: (mode: "render" | "send_telegram", userId?: number | null) => Promise<void>;
   sendToUser: (input: SingleUserMessage) => Promise<string | null>;
   loadHistory: () => Promise<void>;
+  loadFailures: (broadcastId: number, offset: number) => Promise<BroadcastFailuresPage>;
   deleteBroadcast: (broadcastId: number) => Promise<void>;
   rescheduleBroadcast: (broadcastId: number, localDateTime: string) => Promise<boolean>;
   canSubmit: () => boolean;
@@ -367,7 +368,6 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
     broadcastImage: null,
     broadcastLanguage: "",
     broadcastBusy: false,
-    broadcastResult: null,
     broadcastCounts: cachedCounts?.counts || null,
     broadcastCountsLoading: false,
     broadcastCountsLoadedAt: cachedCounts?.loadedAt || 0,
@@ -406,6 +406,7 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
     sendPreview,
     sendToUser,
     loadHistory,
+    loadFailures,
     deleteBroadcast,
     rescheduleBroadcast,
     canSubmit,
@@ -610,7 +611,7 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
         buttons: state.broadcastButtons,
         channels: channelsForPayload(state),
       });
-    updateState((s) => ({ ...s, broadcastBusy: true, broadcastResult: null }));
+    updateState((s) => ({ ...s, broadcastBusy: true }));
     const image = state.broadcastImage;
 
     try {
@@ -644,12 +645,6 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
           broadcastEmailSubjects: {},
           broadcastScheduleEnabled: false,
           broadcastScheduledAt: "",
-          broadcastResult: {
-            queued: payload.queued || 0,
-            failed: payload.failed || 0,
-            emailQueued: payload.email_queued || 0,
-            channels: Array.isArray(payload.channels) ? payload.channels : channels,
-          },
           broadcastHistory: payload.broadcast
             ? [
                 historyItemFromWire(payload.broadcast),
@@ -662,7 +657,7 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
         onToast(
           payload.broadcast?.status === "scheduled"
             ? at("broadcast_scheduled", {}, "Broadcast scheduled")
-            : at("broadcast_started", {}, "Broadcast started")
+            : at("broadcast_queued", {}, "Broadcast queued")
         );
       } else {
         onToast(adminErrorMessage(res, at, at("broadcast_failed", {}, "Broadcast failed")));
@@ -703,6 +698,17 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
       }
     })();
     return historyPromise;
+  }
+
+  async function loadFailures(broadcastId: number, offset: number): Promise<BroadcastFailuresPage> {
+    const response = await api(
+      buildAdminBroadcastFailuresPath(
+        broadcastId,
+        new URLSearchParams({ limit: "50", offset: String(offset) })
+      )
+    );
+    if (!response?.ok) throw new Error("broadcast_failures_failed");
+    return broadcastFailuresFromWire(unwrap(response));
   }
 
   async function deleteBroadcast(broadcastId: number): Promise<void> {

@@ -1,5 +1,6 @@
 import type { AppActionRuntime } from "./appActionRuntime.js";
 import type { TelegramWebApp } from "./telegramRuntime.js";
+import { THEME_PREFERENCE_DEFAULT } from "./themePreference.js";
 
 export type ShellRecord = Record<string, unknown>;
 
@@ -68,7 +69,7 @@ export function createInitialShellState(overrides: ShellStateInit = {}): ShellSt
     telegramNotificationsResumeLastCheckAt: 0,
     languageMenuOpen: false,
     languageClickGuard: false,
-    themePreference: "auto",
+    themePreference: THEME_PREFERENCE_DEFAULT,
     systemColorScheme: "",
     languageClickGuardArmed: false,
     guestLanguage: "",

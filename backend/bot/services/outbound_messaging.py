@@ -41,6 +41,8 @@ class OutboundMessagingService:
         Callers that only have text keep working unchanged.
         """
 
+        if self.bot is None:
+            return False
         markup = telegram_markup_for_buttons(list(buttons or []))
         queue_manager = get_queue_manager()
         if queue_manager is not None:
@@ -63,8 +65,6 @@ class OutboundMessagingService:
             )
             return True
 
-        if self.bot is None:
-            return False
         try:
             await self.bot.send_message(
                 int(user_id),

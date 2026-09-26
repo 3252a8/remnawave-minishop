@@ -2,7 +2,7 @@ import json
 import unittest
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from unittest.mock import ANY, AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from bot.app.web import subscription_webapp  # noqa: F401
 from bot.app.web.webapp import account as account_routes
@@ -391,7 +391,7 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
             stop_reason="account_merged",
         )
 
-    async def test_telegram_merge_defers_panel_sync_until_source_cleanup(self):
+    async def test_telegram_link_rejects_identity_owned_by_another_account(self):
         current_user = SimpleNamespace(
             user_id=-100,
             email="linked@example.com",
@@ -443,7 +443,7 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch(
-                "bot.app.web.webapp.auth.user_dal.get_user_by_id",
+                "bot.app.web.webapp.auth.user_dal.lock_user_by_id",
                 AsyncMock(return_value=current_user),
             ),
             patch(
@@ -454,8 +454,9 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
                 "bot.app.web.webapp.auth.user_dal.merge_users",
                 AsyncMock(return_value=merged_user),
             ),
+            self.assertRaisesRegex(Exception, "explicit merge is required"),
         ):
-            result = await _link_telegram_to_user(
+            await _link_telegram_to_user(
                 request,
                 session,
                 current_user_id=-100,
@@ -463,11 +464,10 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
                 settings=SimpleNamespace(DEFAULT_LANGUAGE="ru"),
             )
 
-        self.assertIs(result, merged_user)
         panel_service.update_user_details_on_panel.assert_not_awaited()
-        self.assertEqual(merged_user.username, "alice")
+        self.assertEqual(merged_user.username, "old")
 
-    async def test_email_only_session_can_link_existing_telegram_only_account(self):
+    async def test_email_only_session_cannot_take_existing_telegram_account(self):
         email_user = SimpleNamespace(
             user_id=-100,
             email="linked@example.com",
@@ -560,6 +560,11 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
             ),
             patch.object(
                 account_routes.user_dal,
+                "lock_user_by_id",
+                AsyncMock(return_value=email_user),
+            ),
+            patch.object(
+                account_routes.user_dal,
                 "get_user_by_telegram_id",
                 AsyncMock(return_value=telegram_user_record),
             ),
@@ -586,30 +591,12 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
         ):
             response = await account_routes.account_telegram_link_route(request)
 
-        self.assertEqual(response.status, 200)
+        self.assertEqual(response.status, 409)
         payload = json.loads(response.text)
-        self.assertTrue(payload["ok"])
-        self.assertEqual(payload["user_id"], 42)
-        self.assertEqual(payload["telegram_id"], 42)
-        self.assertEqual(payload["account_merge"]["removed_user_id"], -100)
-        self.assertEqual(payload["account_merge"]["primary_user_id"], 42)
-        merge_users.assert_awaited_once_with(
-            request.app["async_session_factory"].session,
-            source_user_id=-100,
-            target_user_id=42,
-            reason="telegram_link",
-            send_user_email=True,
-            cancel_source_recurring=ANY,
-        )
-        probe_telegram_notifications.assert_awaited_once_with(request, 42)
-        grant_deferred_welcome_bonus.assert_awaited_once_with(request, 42)
-        self.assertEqual(panel_calls, ["delete", "update"])
-        panel_service.delete_user_from_panel.assert_awaited_once_with(
-            "panel-email",
-            log_response=False,
-        )
-        update_uuid, update_payload = panel_service.update_user_details_on_panel.await_args.args[:2]
-        self.assertEqual(update_uuid, "panel-telegram")
-        self.assertEqual(update_payload["email"], "linked@example.com")
-        self.assertEqual(update_payload["telegramId"], 42)
-        self.assertIn("rw_webapp_session", response.cookies)
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["error"], "account_merge_conflict")
+        merge_users.assert_not_awaited()
+        probe_telegram_notifications.assert_not_awaited()
+        grant_deferred_welcome_bonus.assert_not_awaited()
+        self.assertEqual(panel_calls, [])
+        self.assertNotIn("rw_webapp_session", response.cookies)

@@ -6,6 +6,7 @@ import {
 } from "./appLoadFlow.js";
 import type { ApplyPostLoadBillingDeeplinksInput } from "./billingDeeplinkEffects.js";
 import type { LoadSectionDataInput } from "./sectionDataLoader.js";
+import { createLoadPerfProbe } from "./loadPerfProbe.js";
 import { shellState } from "./shellState.svelte";
 import type { PlanView, SubscriptionView, WebappData, WebappRecord } from "./types";
 
@@ -20,6 +21,7 @@ type AdminRuntime = {
   cancelAdminAssetsPrefetch: () => void;
   ensureAdminBundle: () => Promise<unknown>;
   ensureI18nScope: (scope: string) => Promise<unknown>;
+  preloadAdminBundle: () => Promise<unknown>;
   scheduleAdminAssetsPrefetch: (adminAllowed?: boolean) => void;
 };
 
@@ -35,6 +37,7 @@ type AppLoadExecutorDeps = {
   applyPostLoadBillingDeeplinks: (input: ApplyPostLoadBillingDeeplinksInput) => void;
   currentSearchParams: () => URLSearchParams;
   dataClientLoadData: (options: { fresh: boolean }) => Promise<WebappData>;
+  ensureWebappLanguage: (language: string) => Promise<void>;
   getModalState: () => ModalState;
   getWindowSearch: () => string;
   hydrateSupportUnread: (input: { supportEnabled: boolean; unreadCount: unknown }) => void;
@@ -46,6 +49,7 @@ type AppLoadExecutorDeps = {
   loadSectionData: (input: LoadSectionDataInput) => Promise<void>;
   loadTariffChangeOptions: () => Promise<unknown>;
   loadTopupOptions: (kind: string) => Promise<unknown>;
+  rememberLanguage: (language: string) => void;
   resetBillingSelection: (defaultMethod: string) => void;
   routePathnameFromLocation: () => string;
   routePrefix: string;
@@ -76,6 +80,7 @@ export function createAppLoadExecutor({
   applyPostLoadBillingDeeplinks,
   currentSearchParams,
   dataClientLoadData,
+  ensureWebappLanguage,
   getModalState,
   getWindowSearch,
   hydrateSupportUnread,
@@ -87,6 +92,7 @@ export function createAppLoadExecutor({
   loadSectionData,
   loadTariffChangeOptions,
   loadTopupOptions,
+  rememberLanguage,
   resetBillingSelection,
   routePathnameFromLocation,
   routePrefix,
@@ -108,11 +114,26 @@ export function createAppLoadExecutor({
       screenQuery: currentQuery.get("screen"),
       section: options.section,
     });
+    const perfProbe = createLoadPerfProbe(currentQuery.has("perfprobe"), initialRoute.routeSection);
     const installGuidesPromise = initialRoute.shouldPreloadInstallGuides
       ? loadInstallGuides()
       : null;
+    const pendingAdminPreload =
+      initialRoute.routeSection === "admin"
+        ? adminRuntime.preloadAdminBundle().catch(() => false)
+        : null;
     const payload = await dataClientLoadData({ fresh: options.fresh === true });
+    perfProbe.mark("data");
     if (!payload.ok) throw new Error(String(payload.error || "load_failed"));
+    const userLanguage = String(recordField(payload.user).language_code || "");
+    if (userLanguage) {
+      try {
+        await ensureWebappLanguage(userLanguage);
+      } catch (_error) {
+        void _error;
+      }
+      rememberLanguage(userLanguage);
+    }
     shellState.data = payload;
     resetBillingSelection(defaultPaymentMethodId(payload));
 
@@ -143,21 +164,26 @@ export function createAppLoadExecutor({
     const initialAdminSection = loadedRoute.initialAdminSection;
     if (section === "admin" && recordField(payload.user).is_admin) {
       adminRuntime.cancelAdminAssetsPrefetch();
-      shellState.activeTab = "settings";
-      shellState.adminActiveSection = initialAdminSection || "stats";
-      shellState.mode = "app";
-      shellState.screen = "admin";
       try {
-        await adminRuntime.ensureI18nScope("admin");
-        await adminRuntime.ensureAdminBundle();
+        await Promise.all([
+          pendingAdminPreload,
+          adminRuntime.ensureI18nScope("admin"),
+          adminRuntime.ensureAdminBundle(),
+        ]);
+        shellState.activeTab = "settings";
+        shellState.adminActiveSection = initialAdminSection || "stats";
+        shellState.mode = "app";
+        shellState.screen = "admin";
       } catch (_error) {
         void _error;
         section = "settings";
         shellState.activeTab = "settings";
+        shellState.mode = "app";
         shellState.screen = "settings";
         showAdminUnavailable();
       }
     }
+    perfProbe.mark("admin");
 
     const supportRoute = resolveSupportLoadRoute({
       pathname: routePathnameFromLocation(),
@@ -189,6 +215,7 @@ export function createAppLoadExecutor({
       payload,
       section,
     });
+    perfProbe.mark("section");
 
     const modalState = getModalState();
     if (modalState.topupModalOpen) await loadTopupOptions(modalState.topupKind);
@@ -201,6 +228,7 @@ export function createAppLoadExecutor({
       search: getWindowSearch(),
       subscription: recordField(payload.subscription) as SubscriptionView,
     });
+    perfProbe.finish(section);
     return payload;
   }
 

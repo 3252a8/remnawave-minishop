@@ -204,10 +204,14 @@ async def get_subscription_by_install_share_token(
 async def ensure_install_share_token(
     session: AsyncSession,
     subscription: Subscription,
+    *,
+    panel_short_uuid: str | None = None,
 ) -> str:
+    verified_short_uuid = str(panel_short_uuid or "").strip()
     raw_existing = str(getattr(subscription, "install_share_token", "") or "").strip()
     existing = normalize_install_share_token(raw_existing)
-    if existing:
+    binding = str(getattr(subscription, "install_share_panel_short_uuid", "") or "").strip()
+    if existing and (not verified_short_uuid or binding == verified_short_uuid):
         if existing != getattr(subscription, "install_share_token", None):
             subscription.install_share_token = existing
             await session.flush()
@@ -219,6 +223,7 @@ async def ensure_install_share_token(
         if await get_subscription_by_install_share_token(session, token):
             continue
         if subscription_id:
+            old_binding = getattr(subscription, "install_share_panel_short_uuid", None)
             result = await session.execute(
                 update(Subscription)
                 .where(
@@ -228,8 +233,12 @@ async def ensure_install_share_token(
                         Subscription.install_share_token == "",
                         Subscription.install_share_token == raw_existing,
                     ),
+                    Subscription.install_share_panel_short_uuid.is_not_distinct_from(old_binding),
                 )
-                .values(install_share_token=token)
+                .values(
+                    install_share_token=token,
+                    install_share_panel_short_uuid=verified_short_uuid or None,
+                )
             )
             await session.flush()
             if rowcount(result):
@@ -244,16 +253,30 @@ async def ensure_install_share_token(
             await session.refresh(subscription)
             raw_existing = str(getattr(subscription, "install_share_token", "") or "").strip()
             existing = normalize_install_share_token(raw_existing)
-            if existing:
+            binding = str(getattr(subscription, "install_share_panel_short_uuid", "") or "").strip()
+            if existing and (not verified_short_uuid or binding == verified_short_uuid):
                 return existing
             continue
 
         subscription.install_share_token = token
+        subscription.install_share_panel_short_uuid = verified_short_uuid or None
         await session.flush()
         await session.refresh(subscription)
         return token
 
     raise RuntimeError("Failed to generate a unique install share token")
+
+
+async def revoke_install_share_tokens_for_panel_user(
+    session: AsyncSession, panel_user_uuid: str
+) -> None:
+    """Remove every public grant before a non-transactional panel reissue."""
+    await session.execute(
+        update(Subscription)
+        .where(Subscription.panel_user_uuid == panel_user_uuid)
+        .values(install_share_token=None, install_share_panel_short_uuid=None)
+    )
+    await session.flush()
 
 
 async def get_active_subscriptions_for_user(

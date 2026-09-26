@@ -79,6 +79,11 @@ if TYPE_CHECKING:
         EMAIL_CODE_TTL_SECONDS: int
         EMAIL_CODE_RESEND_SECONDS: int
         EMAIL_CODE_MAX_ATTEMPTS: int
+        EMAIL_AUTH_SECRET: str | None
+        WEBAPP_SESSION_SECRET: str
+        PUBLIC_APP_URL: str | None
+        SUBSCRIPTION_MINI_APP_URL: str | None
+        TELEGRAM_ENABLED: bool
         BRUTE_FORCE_MAX_FAILURES: int
         BRUTE_FORCE_WINDOW_SECONDS: int
         BRUTE_FORCE_LOCK_SECONDS: int
@@ -86,6 +91,7 @@ if TYPE_CHECKING:
         WEBAPP_PRIMARY_COLOR: str
         WEBAPP_USER_THEME_MODE_ENABLED: bool
         WEBAPP_COMPACT_HOME_ENABLED: bool
+        WEBAPP_COMPACT_LOGIN_ENABLED: bool
         WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED: bool
         WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT: bool
         WEBAPP_LOGO_URL: str | None
@@ -93,29 +99,34 @@ if TYPE_CHECKING:
         WEBAPP_FAVICON_URL: str | None
         WEBAPP_LOGO_FAVICON_URL: str | None
         WEBAPP_SESSION_TTL_SECONDS: int
-        WEBAPP_SESSION_SECRET: str
         WEBHOOK_SECRET_TOKEN: str
         WEBAPP_AUTH_MAX_AGE_SECONDS: int
         WEBAPP_LOGIN_TOKEN_TTL_SECONDS: int
         TELEGRAM_LOGIN_ENABLED: bool
         TELEGRAM_LOGIN_RECOMMENDED: bool
+        TELEGRAM_LOGIN_WIDE_BUTTON: bool
         EMAIL_LOGIN_ENABLED: bool
         EMAIL_LOGIN_RECOMMENDED: bool
+        EMAIL_LOGIN_WIDE_BUTTON: bool
         EMAIL_ADDRESS_CHANGE_ENABLED: bool
         GOOGLE_OIDC_ENABLED: bool
         GOOGLE_LOGIN_RECOMMENDED: bool
+        GOOGLE_LOGIN_WIDE_BUTTON: bool
         GOOGLE_OIDC_CLIENT_ID: str | None
         GOOGLE_OIDC_CLIENT_SECRET: str | None
         YANDEX_OIDC_ENABLED: bool
         YANDEX_LOGIN_RECOMMENDED: bool
+        YANDEX_LOGIN_WIDE_BUTTON: bool
         YANDEX_OIDC_CLIENT_ID: str | None
         YANDEX_OIDC_CLIENT_SECRET: str | None
         DISCORD_OIDC_ENABLED: bool
         DISCORD_LOGIN_RECOMMENDED: bool
+        DISCORD_LOGIN_WIDE_BUTTON: bool
         DISCORD_OIDC_CLIENT_ID: str | None
         DISCORD_OIDC_CLIENT_SECRET: str | None
         PASSKEY_LOGIN_ENABLED: bool
         PASSKEY_LOGIN_RECOMMENDED: bool
+        PASSKEY_LOGIN_WIDE_BUTTON: bool
         PASSKEY_RP_ID: str | None
         PASSKEY_RP_NAME: str | None
         PASSKEY_ORIGINS: str | None
@@ -305,6 +316,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             primary_color=self.WEBAPP_PRIMARY_COLOR,
             user_theme_mode_enabled=self.WEBAPP_USER_THEME_MODE_ENABLED,
             compact_home_enabled=self.WEBAPP_COMPACT_HOME_ENABLED,
+            compact_login_enabled=self.WEBAPP_COMPACT_LOGIN_ENABLED,
             checkout_addon_value_animation_enabled=(
                 self.WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED
             ),
@@ -875,10 +887,18 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             self.EMAIL_LOGIN_ENABLED and (self.qa_auth_enabled or self.smtp_delivery_configured)
         )
 
+    @property
+    def email_auth_secret(self) -> str:
+        return self.EMAIL_AUTH_SECRET or self.WEBAPP_SESSION_SECRET
+
+    @computed_field
+    def public_app_url(self) -> str | None:
+        return self.PUBLIC_APP_URL or self.SUBSCRIPTION_MINI_APP_URL
+
     @computed_field
     def webapp_auth_providers(self) -> list[str]:
         providers: list[str] = []
-        if self.TELEGRAM_LOGIN_ENABLED:
+        if self.TELEGRAM_ENABLED and self.TELEGRAM_LOGIN_ENABLED:
             providers.append("telegram")
         if self.email_auth_configured:
             providers.append("email")
@@ -920,6 +940,19 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             for provider, recommended in recommendations
             if recommended and provider in available
         ]
+
+    @computed_field
+    def webapp_wide_auth_providers(self) -> list[str]:
+        available = set(self.webapp_auth_providers)
+        preferences = (
+            ("telegram", self.TELEGRAM_LOGIN_WIDE_BUTTON),
+            ("email", self.EMAIL_LOGIN_WIDE_BUTTON),
+            ("google", self.GOOGLE_LOGIN_WIDE_BUTTON),
+            ("yandex", self.YANDEX_LOGIN_WIDE_BUTTON),
+            ("discord", self.DISCORD_LOGIN_WIDE_BUTTON),
+            ("passkey", self.PASSKEY_LOGIN_WIDE_BUTTON),
+        )
+        return [provider for provider, wide in preferences if wide and provider in available]
 
     @computed_field
     def smtp_delivery_configured(self) -> bool:

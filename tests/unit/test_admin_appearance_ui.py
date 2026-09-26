@@ -2,6 +2,9 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 APPEARANCE_SECTION = REPO_ROOT / "frontend/src/admin/sections/AppearanceSection.svelte"
+APPEARANCE_BEHAVIOR_SETTINGS = (
+    REPO_ROOT / "frontend/src/admin/sections/appearance/AppearanceBehaviorSettings.svelte"
+)
 APPEARANCE_BRAND_CARD = (
     REPO_ROOT / "frontend/src/admin/sections/appearance/AppearanceBrandCard.svelte"
 )
@@ -40,17 +43,23 @@ def test_mock_favicon_upload_persists_custom_favicon_state():
 
 def test_appearance_exposes_user_theme_mode_toggle():
     source = APPEARANCE_SECTION.read_text(encoding="utf-8")
+    behavior = APPEARANCE_BEHAVIOR_SETTINGS.read_text(encoding="utf-8")
 
     assert '"WEBAPP_USER_THEME_MODE_ENABLED"' in source
-    assert 'at("appearance_user_theme_mode_title"' in source
-    assert "onCheckedChange={setUserThemeModeEnabled}" in source
+    assert 'labelKey: "appearance_user_theme_mode_title"' in source
+    assert "onChange: setUserThemeModeEnabled" in source
     assert '"WEBAPP_COMPACT_HOME_ENABLED"' in source
     assert '"settings_field_webapp_compact_home_enabled_label"' in source
-    assert "onCheckedChange={setCompactHomeEnabled}" in source
+    assert "onChange: setCompactHomeEnabled" in source
+    assert '"WEBAPP_COMPACT_LOGIN_ENABLED"' in source
+    assert '"settings_field_webapp_compact_login_enabled_label"' in source
+    assert "onChange: setCompactLoginEnabled" in source
     assert '"WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED"' in source
-    assert "onCheckedChange={setCheckoutAddonValueAnimationEnabled}" in source
+    assert "onChange: setCheckoutAddonValueAnimationEnabled" in source
     assert '"WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT"' in source
-    assert "onCheckedChange={setCheckoutAddonEditorExpandedByDefault}" in source
+    assert "onChange: setCheckoutAddonEditorExpandedByDefault" in source
+    assert "<AppearanceBehaviorSettings" in source
+    assert "onCheckedChange={setting.onChange}" in behavior
 
 
 def test_theme_editor_exposes_universal_home_element_visibility_controls():

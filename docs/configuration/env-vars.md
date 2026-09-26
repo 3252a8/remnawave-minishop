@@ -1,11 +1,11 @@
 # Переменные окружения
 
-`.env` нужен прежде всего для bootstrap: токен бота, доступ к базе, публичный URL вебхуков и стабильные секреты. После первого входа большая часть продуктовых настроек меняется в Web App админке и сохраняется в БД как переопределения поверх `.env`.
+`.env` нужен прежде всего для bootstrap: доступ к базе, публичные URL и стабильные секреты; токен бота нужен только при включённом Telegram. После первого входа большая часть продуктовых настроек меняется в Web App админке и сохраняется в БД как переопределения поверх `.env`.
 
 Рекомендуемый порядок:
 
 1. Заполнить минимальный `.env` по `.env.example`.
-2. Запустить стек и войти в Web App под Telegram ID из `ADMIN_IDS`.
+2. Запустить стек, подтвердить email и назначить первого владельца серверной командой из [инструкции автономного режима](../features/telegram-optional.md).
 3. Настроить Remnawave, платежи, внешний вид, поддержку, уведомления и тарифы через админку.
 
 ## Навигация по справочнику
@@ -24,17 +24,20 @@
 
 | Переменная | Где менять | Назначение |
 | --- | --- | --- |
-| `BOT_TOKEN` | Только `.env` | Токен Telegram-бота. |
+| `TELEGRAM_ENABLED` | Только `.env` | Включает Telegram-адаптер. Для браузерного режима задайте `False`; по умолчанию `True` для совместимости старых установок. |
+| `BOT_TOKEN` | Только `.env` | Токен Telegram-бота, обязателен только при `TELEGRAM_ENABLED=True`. |
 | `TELEGRAM_BOT_PROXY_URL` | Только `.env` | Необязательный SOCKS5 proxy для исходящих запросов Telegram Bot API из `backend` и `worker`; может также использоваться server-side частью OAuth. |
 | `TELEGRAM_BOT_API_BASE_URL` | Только `.env` | Необязательный HTTP(S) endpoint собственного Local Bot API для `backend` и `worker`. |
 | `TELEGRAM_OAUTH_USE_BOT_PROXY` | Только `.env` | Разрешает server-side запросам Telegram OAuth использовать `TELEGRAM_BOT_PROXY_URL`. По умолчанию `True`; без URL сохраняется прямой маршрут. |
-| `ADMIN_IDS` | Только `.env` | Telegram ID администраторов через запятую. Нужен для первого входа в админку. |
+| `ADMIN_IDS` | Только `.env` | Необязательный разовый импорт старых администраторов по сохранённой Telegram identity. Права затем хранятся как роли аккаунтов. |
 | `WEBHOOK_BASE_URL` | `.env` | Публичный URL backend/webhook-домена. Используется для URL вебхуков Telegram, платежных провайдеров и Remnawave. |
 | `POSTGRES_USER` | `.env` / Compose | Пользователь PostgreSQL. |
 | `POSTGRES_PASSWORD` | `.env` / Compose | Пароль PostgreSQL. |
 | `POSTGRES_DB` | `.env` / Compose | Имя базы PostgreSQL. |
 | `WEBAPP_ENABLED` | `.env` / админка | Включает Web App и админку. Держите `True` для первого запуска; если выключить, вернуть доступ можно только через `.env` и рестарт. |
 | `WEBAPP_SESSION_SECRET` | `.env` | Стабильный HMAC-секрет сессий Web App. Если пустой, генерируется на процесс, но сессии сбросятся после рестарта. |
+| `EMAIL_AUTH_SECRET` | `.env` | Независимый стабильный ключ email-кодов и magic links. При отсутствии используется `WEBAPP_SESSION_SECRET`. |
+| `PUBLIC_APP_URL` | `.env` | Публичный адрес браузерного кабинета для почтовых ссылок и возврата после оплаты. |
 | `WEBHOOK_SECRET_TOKEN` | `.env` | Секрет вебхука Telegram. Если пустой, генерируется на процесс. |
 
 ### SOCKS5 proxy для Telegram Bot API
@@ -381,6 +384,8 @@ Xray-Core 26.3.27+, `NET_ADMIN`, nftables, корректный sniffing и вк
 | `MINISHOP_EDGE_TOKEN` | `.env` / frontend env | Server-side shared secret для protected upstream. Backend требует header только на WebApp API plane `8081`; frontend nginx добавляет header к upstream-запросам. |
 | `MINISHOP_EDGE_TOKEN_HEADER` | `.env` / frontend env | Header edge-token, по умолчанию `X-Minishop-Edge-Token`. |
 | `SUBSCRIPTION_GUIDES_ENABLED` | `.env` / админка | Включает встроенные инструкции установки в Web App. По умолчанию `True`; если конфиг недоступен или невалиден, кнопка подключения открывает обычную финальную ссылку подписки. |
+| `SUBSCRIPTION_GATEWAY_ENABLED` | `.env` / админка | Разрешает приложениям получать и обновлять подписку через публичную ссылку `/s/<token>`. По умолчанию `True`; переключатель находится в разделе «Инструкции подключения». Если выключить, страница инструкции продолжит работать, но приложение не получит профиль. |
+| `SUBSCRIPTION_LINK_MODE` | `.env` / админка | Выбирает выдаваемую ссылку: `panel` (по умолчанию) или `minishop` для `/s/<token>`. В разделе «Инструкции подключения» переключатель «Использовать встроенную в Minishop ссылку подписки» включает режим `minishop` для бота и инструкций по установке. Для работы ссылки шлюз `SUBSCRIPTION_GATEWAY_ENABLED` должен быть включён. |
 | `SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED` | `.env` / админка | Включает открытие Mini App `/install` из кнопок бота и показ публичной ссылки инструкции `/s/<token>`. По умолчанию `True`; если выключить, бот ведет на финальную Remnawave Subscription Page. |
 | `SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED` | `.env` / админка | Читать Remnawave Subscription Page config из панели для встроенных инструкций. По умолчанию `True`; для активной подписки сначала используется resolved config по `shortUuid`, включая настройки External Squad, затем default config панели. |
 | `SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED` | `.env` / админка | Включает использование JSON из поля `SUBSCRIPTION_PAGE_CONFIG_JSON` вместо конфига панели. По умолчанию `False`. |
@@ -389,32 +394,39 @@ Xray-Core 26.3.27+, `NET_ADMIN`, nftables, корректный sniffing и вк
 | `WEBAPP_TITLE` | Админка | Заголовок Web App. |
 | `WEBAPP_THEMES_DIR` | `.env` | Каталог кастомных тем. |
 | `WEBAPP_DEFAULT_THEME` | `.env` / админка | Ключ темы по умолчанию. |
-| `WEBAPP_SESSION_TTL_SECONDS` | `.env` | Время жизни Web App-сессии. |
+| `WEBAPP_SESSION_TTL_SECONDS` | `.env` / админка → Общие | Время жизни Web App-сессии в секундах. По умолчанию 2592000 (30 дней). |
 | `WEBAPP_AUTH_MAX_AGE_SECONDS` | `.env` | Максимальный возраст Telegram Mini Apps `initData`. |
 | `WEBAPP_LOGIN_TOKEN_TTL_SECONDS` | `.env` | TTL ссылки внешнего логина. |
+| `WEBAPP_COMPACT_LOGIN_ENABLED` | `.env` / админка → Внешний вид | Показывать способы входа компактными значками, если доступно более одного способа. По умолчанию `True`. |
 | `TELEGRAM_OAUTH_CLIENT_ID` | `.env` | Идентификатор клиента Telegram OAuth / OpenID Connect. Если пусто, берется bot ID из `BOT_TOKEN`. |
 | `TELEGRAM_OAUTH_CLIENT_SECRET` | `.env` | Секрет клиента Telegram OAuth / OpenID Connect. |
 | `TELEGRAM_OAUTH_REQUEST_ACCESS` | `.env` | Дополнительные разрешения, например `write`. |
 | `TELEGRAM_OAUTH_USE_BOT_PROXY` | `.env` | Разрешить server-side OAuth token/JWKS запросам автоматически использовать настроенный `TELEGRAM_BOT_PROXY_URL`. По умолчанию `True`; браузерный redirect не проксируется. |
 | `TELEGRAM_LOGIN_ENABLED` | Админка | Показывать вход через Telegram. |
 | `TELEGRAM_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не привяжет Telegram. По умолчанию `True`. |
+| `TELEGRAM_LOGIN_WIDE_BUTTON` | `.env` / админка | Оставлять широкую кнопку Telegram при компактном входе. По умолчанию `False`. |
 | `EMAIL_LOGIN_ENABLED` | Админка | Показывать вход по email при настроенном SMTP. |
 | `EMAIL_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не привяжет email. По умолчанию `True`. |
+| `EMAIL_LOGIN_WIDE_BUTTON` | `.env` / админка | Сразу показывать форму email при компактном входе. По умолчанию `True`. |
 | `EMAIL_ADDRESS_CHANGE_ENABLED` | Админка | Разрешить пользователям менять основной email после подтверждения текущего и нового адресов. По умолчанию включено. |
 | `GOOGLE_OIDC_ENABLED` | Админка | Включить Google OIDC. Требует client ID и client secret. |
 | `GOOGLE_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не привяжет Google. По умолчанию `True`. |
+| `GOOGLE_LOGIN_WIDE_BUTTON` | `.env` / админка | Оставлять широкую кнопку Google при компактном входе. По умолчанию `False`. |
 | `GOOGLE_OIDC_CLIENT_ID` | Админка | Client ID OAuth 2.0 Web application из Google Cloud. |
 | `GOOGLE_OIDC_CLIENT_SECRET` | Админка | Секрет Google OAuth-клиента. |
 | `YANDEX_OIDC_ENABLED` | Админка | Включить вход через Yandex ID. Требует client ID и client secret. |
 | `YANDEX_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не привяжет Yandex ID. По умолчанию `True`. |
+| `YANDEX_LOGIN_WIDE_BUTTON` | `.env` / админка | Оставлять широкую кнопку Яндекса при компактном входе. По умолчанию `False`. |
 | `YANDEX_OIDC_CLIENT_ID` | Админка | ID приложения для авторизации пользователей в Yandex OAuth. |
 | `YANDEX_OIDC_CLIENT_SECRET` | Админка | Секрет приложения Yandex OAuth. |
 | `DISCORD_OIDC_ENABLED` | Админка | Включить вход через Discord. Требует client ID и client secret. |
 | `DISCORD_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не привяжет Discord. По умолчанию `True`. |
+| `DISCORD_LOGIN_WIDE_BUTTON` | `.env` / админка | Оставлять широкую кнопку Discord при компактном входе. По умолчанию `False`. |
 | `DISCORD_OIDC_CLIENT_ID` | Админка | Application ID из Discord Developer Portal. |
 | `DISCORD_OIDC_CLIENT_SECRET` | Админка | Client secret приложения Discord. |
 | `PASSKEY_LOGIN_ENABLED` | Админка | Включить регистрацию и вход с passkey/WebAuthn. |
 | `PASSKEY_LOGIN_RECOMMENDED` | `.env` / админка | Показывать индикатор внимания, пока пользователь не добавит passkey. По умолчанию `True`. |
+| `PASSKEY_LOGIN_WIDE_BUTTON` | `.env` / админка | Оставлять широкую кнопку passkey при компактном входе. По умолчанию `False`. |
 | `PASSKEY_RP_ID` | Админка | Домен Relying Party без схемы, порта и пути. По умолчанию берётся из публичного Web App URL. |
 | `PASSKEY_RP_NAME` | Админка | Имя сервиса, показываемое при создании ключа доступа. |
 | `PASSKEY_ORIGINS` | Админка | Разрешённые HTTPS origins через запятую. |
@@ -703,7 +715,7 @@ docker compose exec backend sh -lc 'curl -4fsS https://api.ipify.org; echo'
 | `ROLLYPAY_INTERNATIONAL_ENABLED` | Метод `intl_card`; единственная RollyPay-кнопка с поддержкой `EUR`. |
 | `ROLLYPAY_CRYPTO_ENABLED` | Метод `crypto`. |
 | `ROLLYPAY_SUBSCRIPTION_ENABLED` | Провайдерская регулярная СБП-подписка; требует `ROLLYPAY_TERMINAL_ID`. |
-| `ROLLYPAY_<METHOD>_ADMIN_ONLY_ENABLED` | Показывает конкретную кнопку только пользователям из `ADMIN_IDS`. Вместо `<METHOD>`: `ALL_METHODS`, `SBP`, `CARD`, `INTERNATIONAL`, `CRYPTO`, `SUBSCRIPTION`. |
+| `ROLLYPAY_<METHOD>_ADMIN_ONLY_ENABLED` | Показывает конкретную кнопку только аккаунтам с ролью администратора. Вместо `<METHOD>`: `ALL_METHODS`, `SBP`, `CARD`, `INTERNATIONAL`, `CRYPTO`, `SUBSCRIPTION`. |
 | `ROLLYPAY_TEST_MODE` | Передаёт `test: true`; разовые методы становятся admin-only, recurring отключается. |
 | `ROLLYPAY_SUCCESS_URL` / `ROLLYPAY_FAIL_URL` | Явные URL возврата; без них используется стандартная ссылка бота. |
 | `ROLLYPAY_WEBHOOK_TOLERANCE_SECONDS` | Допустимый возраст `X-Timestamp`, по умолчанию `300`. |
@@ -726,6 +738,8 @@ docker compose exec backend sh -lc 'curl -4fsS https://api.ipify.org; echo'
 
 | Переменная | Назначение |
 | --- | --- |
+| `WATA_ENABLED` | Включить обычные разовые платежи Wata. |
+| `WATA_ADMIN_ONLY_ENABLED` | Показывать обычные платежи Wata только администраторам. |
 | `WATA_BASE_URL` | Базовый URL API. |
 | `WATA_API_TOKEN` | Bearer-токен. |
 | `WATA_RETURN_URL` | URL успешного возврата. |
@@ -734,6 +748,12 @@ docker compose exec backend sh -lc 'curl -4fsS https://api.ipify.org; echo'
 | `WATA_WEBHOOK_VERIFY_SIGNATURE` | Проверять `X-Signature`. |
 | `WATA_PUBLIC_KEY` | Закешированный публичный ключ; если пусто, загружается из API. |
 | `WATA_TRUSTED_IPS` | Список доверенных IP webhook-источников. |
+| `WATA_SUBSCRIPTION_ENABLED` | Включить отдельный способ оплаты с расписанием на стороне Wata. На терминале должны быть подключены подписки. |
+| `WATA_SUBSCRIPTION_ADMIN_ONLY_ENABLED` | Показывать рекуррентный способ Wata только администраторам. |
+| `WATA_SUBSCRIPTION_MAX_PERIODS` | Максимальное число периодов новой подписки Wata (по умолчанию `120`). |
+| `PAYMENT_WATA_SUBSCRIPTION_WEBAPP_LABEL_RU` | Текст кнопки рекуррентного способа Wata на русском. |
+| `PAYMENT_WATA_SUBSCRIPTION_WEBAPP_LABEL_EN` | Текст кнопки рекуррентного способа Wata на английском. |
+| `PAYMENT_WATA_SUBSCRIPTION_WEBAPP_ICON` | Lucide-иконка рекуррентного способа Wata. |
 
 ### CryptoPay
 
@@ -971,7 +991,7 @@ Stripe создает hosted Checkout Sessions и подтверждает ав�
 | `TRIAL_HWID_DEVICE_LIMIT` | Лимит HWID-устройств пробного периода. Пустое значение сохраняет лимит панели/по умолчанию, `0` означает безлимит. |
 | `TRIAL_DAYS_STRATEGY` | Правило покупки тарифа во время активного trial: `add_remaining` добавляет оставшиеся дни триала к оплаченному сроку, `start_from_payment` начинает оплаченный срок с даты платежа. Выбор задаёт администратор; пользователь не может изменить его при оплате. |
 | `TRIAL_TRAFFIC_STRATEGY` | Стратегия лимита пробного периода. |
-| `TRIAL_WITHOUT_TELEGRAM_ENABLED` | Разрешает активацию trial пользователям без привязанного Telegram. Disposable email домены всё равно требуют Telegram. |
+| `TRIAL_WITHOUT_OAUTH_ENABLED` | Разрешает активацию trial без привязанного OAuth-провайдера. По умолчанию включён. Если выключен, нужен Telegram либо любая внешняя OAuth-идентичность; disposable email домены всё равно требуют Telegram. Старое имя `TRIAL_WITHOUT_TELEGRAM_ENABLED` поддерживается как deprecated env-алиас. |
 | `TRIAL_SQUAD_UUIDS` | Internal Squads для trial через запятую. Если пусто, используется `USER_SQUAD_UUIDS`. |
 | `TRIAL_PREMIUM_SQUAD_UUIDS` | Premium Internal Squads для trial через запятую. Если пусто, premium-доступ в trial не выдаётся. |
 | `GIFTS_ENABLED` | Включает новые покупки [подарочных подписок](../features/gifts.md) в «Бонусах». По умолчанию `True`. Админка: «Настройки → Общие». История, доставка и активация оплаченных подарков доступны после выключения. |

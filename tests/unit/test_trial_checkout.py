@@ -74,6 +74,7 @@ class TrialCheckoutTests(IsolatedAsyncioTestCase):
 
         create_payment = AsyncMock(return_value=web.json_response({"ok": True}))
         with (
+            patch("bot.services.account_roles.is_admin", AsyncMock(return_value=False)),
             patch("db.dal.gift_dal.activating_for_user", AsyncMock(return_value=None)),
             patch.object(billing_payments, "_require_user_id", return_value=42),
             patch.object(

@@ -10,7 +10,12 @@ from bot.app.web.context import (
     get_settings,
 )
 from bot.app.web.request_parsing import parse_body_or_400
-from bot.app.web.route_contracts import RouteContract, ok_envelope_for, register_contract
+from bot.app.web.route_contracts import (
+    RouteContract,
+    ok_envelope_for,
+    register_contract,
+    schema_ref,
+)
 from bot.services.promo_code_service import PromoCodeService
 from bot.services.promo_effects import PromoEffects, validate_effects
 from db.dal import promo_code_dal, user_reads_dal
@@ -24,7 +29,15 @@ from .common import (
     _error,
     _ok,
 )
-from .schemas import PromoActivationOut, PromoCreateBody, PromoOptionOut, PromoOut, PromoUpdateBody
+from .schemas import (
+    PromoActivationOut,
+    PromoCreateBody,
+    PromoOptionOut,
+    PromoOut,
+    PromoRevenueCurrencyOut,
+    PromoRevenueSummaryOut,
+    PromoUpdateBody,
+)
 
 _PROMO_PICKER_GROUP_LIMIT = 50
 _PROMO_PICKER_SEARCH_LIMIT = 100
@@ -87,9 +100,10 @@ register_contract(
                 "page": {"type": "integer", "minimum": 0},
                 "page_size": {"type": "integer", "minimum": 1, "maximum": 100},
                 "total": {"type": "integer", "minimum": 0},
+                "revenue_summary": schema_ref(PromoRevenueSummaryOut),
             },
         ),
-        models=(PromoActivationOut,),
+        models=(PromoActivationOut, PromoRevenueCurrencyOut, PromoRevenueSummaryOut),
     ),
 )
 register_contract(
@@ -144,6 +158,9 @@ async def admin_promos_list_route(request: web.Request) -> web.Response:
     page_size = min(100, max(1, int(request.query.get("page_size", 25) or 25)))
     personal = _requested_owner_filter(request)
     sort = str(request.query.get("sort") or "created_desc").lower()
+    search = str(request.query.get("search") or "").strip()[:100]
+    status = str(request.query.get("status") or "").strip().lower()
+    scope = str(request.query.get("scope") or "").strip().lower()
     async with async_session_factory() as session:
         promos = await promo_code_dal.get_all_promo_codes_with_details(
             session,
@@ -151,8 +168,17 @@ async def admin_promos_list_route(request: web.Request) -> web.Response:
             offset=page * page_size,
             personal=personal,
             sort=sort,
+            search=search,
+            status=status,
+            scope=scope,
         )
-        total = await promo_code_dal.get_promo_codes_count(session, personal=personal)
+        total = await promo_code_dal.get_promo_codes_count(
+            session,
+            personal=personal,
+            search=search,
+            status=status,
+            scope=scope,
+        )
         # An install where nothing issues codes for a named customer reports
         # zero here, so the UI can leave the whole distinction out of sight.
         owned_total = await promo_code_dal.get_promo_codes_count(session, personal=True)
@@ -372,6 +398,7 @@ async def admin_promo_activations_route(request: web.Request) -> web.Response:
             sort=sort,
         )
         total = await promo_code_dal.count_promo_activations_by_code_id(session, promo_id)
+        revenue = await promo_code_dal.get_promo_revenue_summary(session, promo_id)
         rows = [
             PromoActivationOut.from_orm_activation(activation).model_dump(mode="json")
             for activation in activations
@@ -382,6 +409,18 @@ async def admin_promo_activations_route(request: web.Request) -> web.Response:
             "page": page,
             "page_size": page_size,
             "total": int(total or 0),
+            "revenue_summary": PromoRevenueSummaryOut(
+                payments_total=revenue.payments_total,
+                revenue_payments=revenue.revenue_payments,
+                currencies=[
+                    PromoRevenueCurrencyOut(
+                        currency=row.currency,
+                        amount=row.amount,
+                        payments=row.payments,
+                    )
+                    for row in revenue.currencies
+                ],
+            ).model_dump(mode="json"),
         }
     )
 

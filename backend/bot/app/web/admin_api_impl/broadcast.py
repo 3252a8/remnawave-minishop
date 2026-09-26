@@ -20,10 +20,6 @@ from bot.app.web.route_contracts import (
     ok_envelope_for,
     register_contract,
 )
-from bot.services.admin_broadcast_delivery import (
-    AdminBroadcastDeliveryService,
-    BroadcastDispatchResult,
-)
 from bot.services.audience_segmentation import (
     AUDIENCE_ACTIVE_NEVER_CONNECTED,
     AUDIENCE_ADMINS,
@@ -79,6 +75,8 @@ from .response_schemas import (
     AdminBroadcastButtonOut,
     AdminBroadcastCreateOut,
     AdminBroadcastDeleteOut,
+    AdminBroadcastFailureOut,
+    AdminBroadcastFailuresOut,
     AdminBroadcastListOut,
     AdminBroadcastOut,
 )
@@ -115,6 +113,13 @@ register_contract(
     ),
 )
 register_contract(
+    "admin_broadcast_failures_route",
+    RouteContract(
+        response_schema=ok_envelope_for(AdminBroadcastFailuresOut),
+        models=(AdminBroadcastFailuresOut, AdminBroadcastFailureOut),
+    ),
+)
+register_contract(
     "admin_broadcast_reschedule_route",
     RouteContract(
         request_model=AdminBroadcastScheduleBody,
@@ -147,11 +152,9 @@ def _resolve_audience_service(request: web.Request) -> AudienceSegmentationServi
     service = request.app.get("audience_segmentation_service")
     if isinstance(service, AudienceSegmentationService):
         return service
-    settings: Settings = get_settings(request)
     return AudienceSegmentationService(
         get_session_factory(request),
         panel_service=_resolve_panel_service(request),
-        admin_ids=settings.ADMIN_IDS,
     )
 
 
@@ -203,7 +206,6 @@ async def _load_broadcast_audience_counts(
         return await _load_broadcast_audience_counts_uncached(
             async_session_factory,
             panel_service,
-            admin_ids=settings.ADMIN_IDS,
         )
     cache_key = "with-panel" if panel_service is not None else "without-panel"
     return cast(
@@ -213,7 +215,6 @@ async def _load_broadcast_audience_counts(
             lambda: _load_broadcast_audience_counts_uncached(
                 async_session_factory,
                 panel_service,
-                admin_ids=settings.ADMIN_IDS,
             ),
         ),
     )
@@ -222,10 +223,10 @@ async def _load_broadcast_audience_counts(
 async def _load_broadcast_audience_counts_uncached(
     async_session_factory: sessionmaker,
     panel_service: Any,
-    *,
-    admin_ids: list[int] | None = None,
 ) -> dict[str, int | None]:
     async with async_session_factory() as session:
+        from bot.services.account_roles import active_admin_user_ids
+
         counts: dict[str, int | None] = {
             "all": await user_dal.count_all_active_users_for_broadcast(session),
             "active": await user_dal.count_users_with_active_subscription_for_broadcast(session),
@@ -235,7 +236,7 @@ async def _load_broadcast_audience_counts_uncached(
             "expired": await user_dal.count_users_with_expired_subscription_for_broadcast(session),
             "never": await user_dal.count_users_without_any_subscription_for_broadcast(session),
             BROADCAST_TARGET_ACTIVE_NEVER_CONNECTED: None,
-            AUDIENCE_ADMINS: len(dict.fromkeys(admin_ids or [])),
+            AUDIENCE_ADMINS: len(await active_admin_user_ids(session)),
         }
         if panel_service is not None:
             counts[BROADCAST_TARGET_ACTIVE_NEVER_CONNECTED] = len(
@@ -293,7 +294,7 @@ async def _legacy_admin_broadcast_route(request: web.Request) -> web.Response:
 
     telegram_enabled = "telegram" in channels
     email_enabled = "email" in channels
-    if email_enabled and not settings.email_auth_configured:
+    if email_enabled and not settings.smtp_delivery_configured:
         return _error(503, "email_not_configured")
 
     queue_manager = get_queue_manager() if telegram_enabled else None
@@ -603,7 +604,7 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
     except BroadcastValidationError as exc:
         return _error(400, exc.code, exc.detail)
 
-    if "email" in channels and not settings.email_auth_configured:
+    if "email" in channels and not settings.smtp_delivery_configured:
         return _error(503, "email_not_configured")
 
     unknown = set().union(
@@ -630,7 +631,7 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
 
     audience_service = _resolve_audience_service(request)
     try:
-        user_ids = [int(user_id) for user_id in await audience_service.resolve_user_ids(target)]
+        await audience_service.resolve_user_ids(target)
     except AudienceNotFoundError:
         return _error(400, "invalid_audience", target)
     except AudienceUnavailableError:
@@ -683,39 +684,10 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
             image_id=str(stored_image.image_id) if stored_image is not None else None,
         )
 
-    dispatch_result = BroadcastDispatchResult(0, 0, 0, channels)
-    if immediate:
-        delivery_service = AdminBroadcastDeliveryService(
-            settings=settings,
-            session_factory=async_session_factory,
-            i18n=get_i18n(request),
-            audience_service=audience_service,
-            queue_manager=queue_manager,
-            bot_username=get_bot_username(request),
-        )
-        try:
-            dispatch_result = await delivery_service.dispatch(
-                int(item.broadcast_id), user_ids=user_ids
-            )
-        except RuntimeError as exc:
-            if str(exc) == "queue_unavailable":
-                return _error(503, "queue_unavailable")
-            logger.exception("Broadcast %s could not start", item.broadcast_id)
-            return _error(500, "broadcast_dispatch_failed", str(exc))
-        except Exception as exc:
-            logger.exception("Broadcast %s could not start", item.broadcast_id)
-            return _error(500, "broadcast_dispatch_failed", str(exc))
-
-    async with async_session_factory() as session:
-        refreshed = await broadcast_dal.get_broadcast(
-            session, int(item.broadcast_id), include_deleted=True
-        )
-    payload_item = refreshed or item
+    # The worker claims due broadcasts from the durable queue. Waiting for
+    # delivery preparation here can outlive the client's request timeout.
     payload = AdminBroadcastCreateOut(
-        broadcast=_broadcast_out(payload_item),
-        queued=dispatch_result.queued,
-        failed=dispatch_result.failed,
-        email_queued=dispatch_result.email_queued,
+        broadcast=_broadcast_out(item),
         target=target,
         channels=channels,
     )
@@ -727,6 +699,37 @@ async def admin_broadcasts_list_route(request: web.Request) -> web.Response:
     async with get_session_factory(request)() as session:
         broadcasts = await broadcast_dal.list_broadcasts(session)
     payload = AdminBroadcastListOut(broadcasts=[_broadcast_out(item) for item in broadcasts])
+    return _ok(payload.model_dump(mode="json"))
+
+
+async def admin_broadcast_failures_route(request: web.Request) -> web.Response:
+    _require_admin_user_id(request)
+    broadcast_id = int(request.match_info["id"])
+    try:
+        offset = max(0, int(request.query.get("offset", "0")))
+        limit = min(100, max(1, int(request.query.get("limit", "50"))))
+    except ValueError:
+        return _error(400, "invalid_pagination")
+    async with get_session_factory(request)() as session:
+        item = await broadcast_dal.get_broadcast(session, broadcast_id)
+        if item is None or not item.is_visible:
+            return _error(404, "broadcast_not_found")
+        total, failures = await broadcast_dal.list_failed_deliveries(
+            session, broadcast_id, limit=limit, offset=offset
+        )
+    payload = AdminBroadcastFailuresOut(
+        total=total,
+        failures=[
+            AdminBroadcastFailureOut(
+                delivery_id=int(delivery.delivery_id),
+                user_id=int(delivery.user_id),
+                channel=str(delivery.channel),
+                error=str(delivery.error or "delivery_failed"),
+                finished_at=cast(datetime | None, delivery.finished_at),
+            )
+            for delivery in failures
+        ],
+    )
     return _ok(payload.model_dump(mode="json"))
 
 
@@ -794,6 +797,6 @@ async def admin_broadcast_audience_counts_route(request: web.Request) -> web.Res
                 )
                 for audience in audiences
             ],
-            email_enabled=bool(settings.email_auth_configured),
+            email_enabled=bool(settings.smtp_delivery_configured),
         ).model_dump(mode="json")
     )

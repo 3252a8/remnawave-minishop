@@ -3,6 +3,7 @@
   import { Tooltip } from "$components/ui/primitives.js";
 
   import AdminPanelLayout from "./AdminPanelLayout.svelte";
+  import { adminExtensionRevision } from "./sections/extensionRegistry";
   import {
     ADMIN_SECTION_GROUPS,
     ADMIN_SECTIONS,
@@ -34,7 +35,9 @@
   } from "../lib/admin/users.js";
   import { adminErrorMessage } from "../lib/admin/errors.js";
   import {
+    adminPaymentsUserIdFromPath,
     adminSettingsPathFromPath,
+    adminUserIdFromPath,
     stripRoutePrefix,
     withRoutePrefix,
   } from "../lib/webapp/routes.js";
@@ -104,8 +107,8 @@
     initialSection?: string;
     initialSettingsPath?: SettingsPath;
     initialPaymentId?: number | null;
-    initialPaymentUserId?: number | null;
-    initialUserId?: number | null;
+    initialPaymentUserId?: number | string | null;
+    initialUserId?: number | string | null;
     onSectionChange?: (section: string, userId?: number) => void;
     onSettingsSaved?: (payload: SettingsSavedPayload) => void | Promise<void>;
     onTariffsSaved?: (catalog: TariffsCatalog) => void | Promise<void>;
@@ -178,11 +181,15 @@
   });
 
   const featureSet = $derived(new Set<string>((settingsStore.features || []) as string[]));
-  const visibleSections: AdminSectionDescriptor[] = $derived(
-    ADMIN_SECTIONS.filter((section) => isAdminSectionVisible(section, featureSet))
-  );
-  const NAV_GROUPS: NavGroup[] = $derived(
-    ADMIN_SECTION_GROUPS.map((group) => ({
+  const visibleSections: AdminSectionDescriptor[] = $derived.by(() => {
+    void $adminExtensionRevision;
+    return ADMIN_SECTIONS.filter(
+      (section) => !section.hideInNavigation && isAdminSectionVisible(section, featureSet)
+    );
+  });
+  const NAV_GROUPS: NavGroup[] = $derived.by(() => {
+    void $adminExtensionRevision;
+    return ADMIN_SECTION_GROUPS.map((group) => ({
       id: group.id,
       order: group.order,
       label: at(group.i18nKey, {}, group.fallbackLabel),
@@ -193,10 +200,11 @@
           ...section,
           label: at(section.i18nKey, {}, section.fallbackLabel),
         })),
-    })).filter((group) => group.items.length)
-  );
-  const SECTION_META: Record<string, SectionMeta> = $derived(
-    Object.fromEntries(
+    })).filter((group) => group.items.length);
+  });
+  const SECTION_META: Record<string, SectionMeta> = $derived.by(() => {
+    void $adminExtensionRevision;
+    return Object.fromEntries(
       ADMIN_SECTIONS.map((section) => [
         section.id,
         {
@@ -204,9 +212,12 @@
           subtitle: at(section.subtitleI18nKey, {}, section.fallbackSubtitle),
         },
       ])
-    )
-  );
-  const SECTION_BY_ID = new Map(ADMIN_SECTIONS.map((section) => [section.id, section]));
+    );
+  });
+  const SECTION_BY_ID = $derived.by(() => {
+    void $adminExtensionRevision;
+    return new Map(ADMIN_SECTIONS.map((section) => [section.id, section]));
+  });
 
   // Route slugs validate against the full build-time registry (including
   // extension sections and their aliases), never against the feature-filtered
@@ -282,6 +293,7 @@
   $effect(() => {
     usersStore.setActive(active);
     paymentsStore.setActive(active);
+    promosStore.setActive(active);
     supportStore.setActive(active);
   });
 
@@ -349,6 +361,7 @@
     settingsPath = [];
     usersStore.closeUser();
     paymentsStore.closePayment();
+    promosStore.closeEditPromo({ skipPush: true });
     supportStore.closeTicketView();
     onSectionChange(next);
     // Direct extension deep links can be rendered before the outer application
@@ -364,9 +377,17 @@
   function syncActiveSectionPath(sectionId: string): void {
     if (typeof window === "undefined" || window.location.protocol === "file:") return;
     const targetPath = withRoutePrefix(`/admin/${sectionId}`, routePrefix);
-    const nextUrl = `${targetPath}${window.location.search}${window.location.hash}`;
+    const targetUrl = new URL(window.location.href);
+    targetUrl.pathname = targetPath;
+    targetUrl.searchParams.delete("extensionTab");
+    const nextUrl = `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`;
     const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    if (nextUrl !== currentUrl) window.history.pushState(null, "", nextUrl);
+    if (nextUrl !== currentUrl)
+      window.history[window.location.pathname === targetPath ? "replaceState" : "pushState"](
+        null,
+        "",
+        nextUrl
+      );
   }
 
   function applySectionRouteDefaults(sectionId: string): void {
@@ -483,10 +504,9 @@
     return adminSettingsPathFromPath(currentRoutePathname());
   }
 
-  function readUserIdFromPath(): number | null {
+  function readUserIdFromPath(): number | string | null {
     if (typeof window === "undefined") return null;
-    const match = currentRoutePathname().match(/^\/admin\/users\/(-?\d+)$/);
-    return match ? Number(match[1]) : null;
+    return adminUserIdFromPath(window.location.pathname, routePrefix);
   }
 
   function readSupportTicketIdFromPath(): number | null {
@@ -501,9 +521,14 @@
     return match ? Number(match[1]) : null;
   }
 
-  function readPaymentUserIdFromPath(): number | null {
+  function readPaymentUserIdFromPath(): number | string | null {
     if (typeof window === "undefined") return null;
-    const match = currentRoutePathname().match(/^\/admin\/payments\/users\/(-?\d+)$/);
+    return adminPaymentsUserIdFromPath(window.location.pathname, routePrefix);
+  }
+
+  function readPromoIdFromPath(): number | null {
+    if (typeof window === "undefined") return null;
+    const match = currentRoutePathname().match(/^\/admin\/promos\/(\d+)$/);
     return match ? Number(match[1]) : null;
   }
 
@@ -526,7 +551,11 @@
     const paymentUserId = active === "payments" ? readPaymentUserIdFromPath() : null;
     const contextualUserId = paymentUserId || userId;
     if (contextualUserId) {
-      if (!usersStore.openedUser || usersStore.openedUser.user_id !== contextualUserId) {
+      if (
+        !usersStore.openedUser ||
+        (usersStore.openedUser.user_id !== contextualUserId &&
+          usersStore.openedUser.minishop_id !== contextualUserId)
+      ) {
         void usersStore.openUser(contextualUserId, {
           skipPush: true,
           pathContext: paymentUserId ? "payments" : "users",
@@ -542,6 +571,15 @@
       }
     } else if (paymentsStore.openedPaymentId) {
       paymentsStore.closePayment({ skipPush: true });
+    }
+    const promoId = readPromoIdFromPath();
+    if (active === "promos" && promoId) {
+      if (!promosStore.promoEditing || promosStore.promoEditing.id !== promoId) {
+        void promosStore.openPromoById(promoId, { skipPush: true });
+      }
+    } else if (promosStore.promoEditing) {
+      promosStore.closeActivations();
+      promosStore.closeEditPromo({ skipPush: true });
     }
     const ticketId = readSupportTicketIdFromPath();
     if (active === "support" && ticketId) {
@@ -640,6 +678,7 @@
       onSectionChange(next);
     }
     usersStore.setActive(next);
+    promosStore.setActive(next);
     void promosStore.openPromoById(id);
   }
 
@@ -720,12 +759,13 @@
     if (typeof window !== "undefined") {
       window.addEventListener("popstate", onPopState);
       if (active === "users") replaceCurrentUsersRouteFilters(currentUsersRouteFilters());
+      const promoId = readPromoIdFromPath();
+      if (active === "promos" && promoId) {
+        void promosStore.openPromoById(promoId, { skipPush: true });
+      }
     }
     void healthStore.loadHealth();
-    // Feature flags arrive with the settings manifest; without this eager
-    // load, feature-gated sections stay hidden until the admin happens to
-    // open a section that fetches settings on its own.
-    void settingsStore.loadSettings();
+    void settingsStore.loadFeatures();
     // The sidebar shows how many support messages are waiting, so the panel —
     // not the support screen — owns this poll. Started from the section, the
     // count only ever arrived once the admin was already reading the tickets,

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.middlewares.i18n import JsonI18n
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.telegram_account import require_telegram_account_id
 from bot.states.admin_states import AdminStates
 from bot.utils.callback_answer import (
     callback_message,
@@ -87,7 +88,7 @@ async def handle_traffic_grant_prompt(
         if kind_normalized == "premium"
         else "admin_traffic_grant_prompt_regular"
     )
-    prompt = _(prompt_key, user_id=user.user_id)
+    prompt = _(prompt_key, user_id=getattr(user, "minishop_id", None) or "—")
     try:
         await callback_message(callback).edit_text(prompt)
     except Exception:
@@ -154,7 +155,10 @@ async def handle_add_subscription_prompt(
             callback_data=f"user_action:refresh:{user.user_id}",
         )
         builder.adjust(1)
-        prompt_text = _("admin_user_add_subscription_tariff_prompt", user_id=user.user_id)
+        prompt_text = _(
+            "admin_user_add_subscription_tariff_prompt",
+            user_id=getattr(user, "minishop_id", None) or "—",
+        )
         try:
             await callback_message(callback).edit_text(
                 prompt_text, reply_markup=builder.as_markup()
@@ -206,7 +210,7 @@ async def handle_add_subscription_days_prompt(
     )
     prompt_text = _(
         prompt_key,
-        user_id=user.user_id,
+        user_id=getattr(user, "minishop_id", None) or "—",
         tariff=tariff_key or "",
     )
 
@@ -309,7 +313,9 @@ async def handle_change_tariff_apply(
         await message_log_dal.create_message_log_no_commit(
             session,
             {
-                "user_id": callback.from_user.id if callback.from_user else user.user_id,
+                "user_id": await require_telegram_account_id(session, callback.from_user.id)
+                if callback.from_user
+                else user.user_id,
                 "event_type": "admin:change_tariff",
                 "content": f"tariff={resolved_tariff_key}",
                 "is_admin_event": True,
@@ -396,7 +402,9 @@ async def handle_send_message_prompt(
     await state.update_data(target_user_id=user.user_id)
     await state.set_state(AdminStates.waiting_for_direct_message_to_user)
 
-    prompt_text = _("admin_user_send_message_prompt", user_id=user.user_id)
+    prompt_text = _(
+        "admin_user_send_message_prompt", user_id=getattr(user, "minishop_id", None) or "—"
+    )
 
     try:
         await callback_message(callback).edit_text(prompt_text)

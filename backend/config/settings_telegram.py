@@ -3,7 +3,8 @@ from pydantic_settings import BaseSettings
 
 
 class TelegramTransportSettings(BaseSettings):
-    BOT_TOKEN: str
+    TELEGRAM_ENABLED: bool = True
+    BOT_TOKEN: str | None = None
     TELEGRAM_BOT_PROXY_URL: SecretStr | None = Field(
         default=None,
         description="Optional SOCKS5 proxy used only for outgoing Telegram Bot API requests",

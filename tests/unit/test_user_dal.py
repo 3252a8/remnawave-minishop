@@ -1,7 +1,7 @@
 import unittest
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql.dml import Delete, Update
@@ -348,6 +348,7 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
 
         session = SimpleNamespace(
             execute=AsyncMock(side_effect=lambda stmt: FakeResult()),
+            add=Mock(),
             delete=AsyncMock(),
             flush=AsyncMock(side_effect=_flush),
             refresh=AsyncMock(),
@@ -461,6 +462,7 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
 
         session = SimpleNamespace(
             execute=AsyncMock(side_effect=_execute),
+            add=Mock(),
             delete=AsyncMock(side_effect=_delete),
             flush=AsyncMock(),
             refresh=AsyncMock(),
@@ -537,7 +539,7 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             ),
         ):
             await user_dal.merge_users(
-                SimpleNamespace(),
+                SimpleNamespace(execute=AsyncMock(return_value=FakeResult())),
                 source_user_id=source.user_id,
                 target_user_id=target.user_id,
             )
@@ -604,6 +606,7 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
         )
         session = SimpleNamespace(
             execute=AsyncMock(side_effect=lambda stmt: FakeResult()),
+            add=Mock(),
             delete=AsyncMock(),
             flush=AsyncMock(),
             refresh=AsyncMock(),

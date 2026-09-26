@@ -41,11 +41,8 @@ class BanCheckMiddleware(BaseMiddleware):
         if not event_user:
             return await handler(event, data)
 
-        if event_user.id in self.settings.ADMIN_IDS:
-            return await handler(event, data)
-
         try:
-            db_user_model = await user_dal.get_user_by_id(session, event_user.id)
+            db_user_model = await user_dal.get_user_by_telegram_id(session, event_user.id)
         except Exception as e_db:
             logger.exception(
                 "BanCheckMiddleware: DB error fetching user %s: %s", event_user.id, e_db

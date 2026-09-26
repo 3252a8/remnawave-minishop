@@ -278,61 +278,17 @@ async def _link_telegram_to_user(
     merge_send_user_email: bool = False,
 ) -> User:
     telegram_id = int(telegram_user["id"])
-    current_user = await user_dal.get_user_by_id(session, current_user_id)
+    current_user = await user_dal.lock_user_by_id(session, current_user_id)
     if not current_user:
         raise ValueError("Current user not found.")
 
     existing_telegram_user = await user_dal.get_user_by_telegram_id(session, telegram_id)
-    if not existing_telegram_user:
-        existing_telegram_user = await user_dal.get_user_by_id(session, telegram_id)
-
     if existing_telegram_user and existing_telegram_user.user_id != current_user.user_id:
-        merged_user = await _merge_users_for_web(
-            request,
-            session,
-            source_user_id=current_user.user_id,
-            target_user_id=existing_telegram_user.user_id,
-            reason=merge_reason,
-            send_user_email=merge_send_user_email,
+        raise UserMergeConflictError(
+            "Telegram identity belongs to another account; explicit merge is required.",
+            message_key="account_merge_telegram_conflict",
+            code="account_merge_telegram_conflict",
         )
-        _apply_telegram_profile_to_user(merged_user, telegram_user, settings)
-        await session.flush()
-        return merged_user
-
-    if not existing_telegram_user and int(current_user.user_id) < 0:
-        language_code = _normalize_language(
-            current_user.language_code
-            or telegram_user.get("language_code")
-            or settings.DEFAULT_LANGUAGE
-        )
-        # Technical intermediate row for the link+merge below — the person is
-        # an existing user, so this must not look like a new registration.
-        target_user, _ = await user_dal.create_user(
-            session,
-            {
-                "user_id": telegram_id,
-                "telegram_id": telegram_id,
-                "username": sanitize_username(telegram_user.get("username")),
-                "first_name": sanitize_display_name(telegram_user.get("first_name")),
-                "last_name": sanitize_display_name(telegram_user.get("last_name")),
-                "language_code": language_code,
-                "registration_date": current_user.registration_date or datetime.now(UTC),
-            },
-            registered_via=None,
-        )
-        target_user.referral_code = None
-        await session.flush()
-        merged_user = await _merge_users_for_web(
-            request,
-            session,
-            source_user_id=current_user.user_id,
-            target_user_id=target_user.user_id,
-            reason=merge_reason,
-            send_user_email=merge_send_user_email,
-        )
-        _apply_telegram_profile_to_user(merged_user, telegram_user, settings)
-        await session.flush()
-        return merged_user
 
     if current_user.telegram_id and int(current_user.telegram_id) != telegram_id:
         raise UserMergeConflictError(

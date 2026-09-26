@@ -94,9 +94,7 @@
   const emailEnabled = $derived(
     emailAuthEnabled && (authProviders.includes("email") || Boolean(user.email))
   );
-  const telegramEnabled = $derived(
-    authProviders.includes("telegram") || Boolean(user.telegram_linked)
-  );
+  const telegramEnabled = $derived(authProviders.includes("telegram"));
   let busy = $state(false);
   let status = $state("");
   let emailChangeOpen = $state(false);

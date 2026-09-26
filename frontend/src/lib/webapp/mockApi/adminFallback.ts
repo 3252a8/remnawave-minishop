@@ -344,6 +344,19 @@ export function adminFallbackResponse(
       if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_COMPACT_HOME_ENABLED")) {
         DEV_MOCK.config.compactHomeEnabled = Boolean(updates.WEBAPP_COMPACT_HOME_ENABLED);
       }
+      if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_COMPACT_LOGIN_ENABLED")) {
+        DEV_MOCK.config.compactLoginEnabled = Boolean(updates.WEBAPP_COMPACT_LOGIN_ENABLED);
+      }
+      for (const provider of ["TELEGRAM", "EMAIL", "GOOGLE", "YANDEX", "DISCORD", "PASSKEY"]) {
+        const key = `${provider}_LOGIN_WIDE_BUTTON`;
+        if (!Object.prototype.hasOwnProperty.call(updates, key)) continue;
+        const selected = new Set<string>(
+          Array.isArray(DEV_MOCK.config.wideAuthProviders) ? DEV_MOCK.config.wideAuthProviders : []
+        );
+        if (updates[key]) selected.add(provider.toLowerCase());
+        else selected.delete(provider.toLowerCase());
+        DEV_MOCK.config.wideAuthProviders = [...selected];
+      }
       if (
         Object.prototype.hasOwnProperty.call(
           updates,
@@ -398,12 +411,13 @@ export function adminFallbackResponse(
       if (Object.prototype.hasOwnProperty.call(updates, "TRIAL_TRAFFIC_STRATEGY")) {
         DEV_MOCK.config.trialTrafficStrategy = updates.TRIAL_TRAFFIC_STRATEGY || "NO_RESET";
       }
-      if (Object.prototype.hasOwnProperty.call(updates, "TRIAL_WITHOUT_TELEGRAM_ENABLED")) {
-        DEV_MOCK.config.trialWithoutTelegramEnabled = Boolean(
-          updates.TRIAL_WITHOUT_TELEGRAM_ENABLED
+      if (Object.prototype.hasOwnProperty.call(updates, "TRIAL_WITHOUT_OAUTH_ENABLED")) {
+        DEV_MOCK.config.trialWithoutOauthEnabled = Boolean(updates.TRIAL_WITHOUT_OAUTH_ENABLED);
+        DEV_MOCK.data.settings.trial_without_oauth_enabled = Boolean(
+          updates.TRIAL_WITHOUT_OAUTH_ENABLED
         );
         DEV_MOCK.data.settings.trial_without_telegram_enabled = Boolean(
-          updates.TRIAL_WITHOUT_TELEGRAM_ENABLED
+          updates.TRIAL_WITHOUT_OAUTH_ENABLED
         );
       }
       if (Object.prototype.hasOwnProperty.call(updates, "TRIAL_SQUAD_UUIDS")) {
@@ -583,6 +597,13 @@ export function adminFallbackResponse(
               value: Boolean(DEV_MOCK.config.compactHomeEnabled),
             },
             {
+              key: "WEBAPP_COMPACT_LOGIN_ENABLED",
+              type: "bool",
+              section: "appearance",
+              label: "Compact login methods",
+              value: Boolean(DEV_MOCK.config.compactLoginEnabled),
+            },
+            {
               key: "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED",
               type: "bool",
               section: "appearance",
@@ -679,12 +700,12 @@ export function adminFallbackResponse(
               value: DEV_MOCK.config.trialTrafficStrategy || "NO_RESET",
             },
             {
-              key: "TRIAL_WITHOUT_TELEGRAM_ENABLED",
+              key: "TRIAL_WITHOUT_OAUTH_ENABLED",
               type: "bool",
-              section: "pricing",
-              subsection: "trial",
-              label: "Триал без Telegram",
-              value: DEV_MOCK.config.trialWithoutTelegramEnabled ?? true,
+              section: "system",
+              subsection: "email_anti_abuse",
+              label: "Триал без OAuth",
+              value: DEV_MOCK.config.trialWithoutOauthEnabled ?? true,
             },
             {
               key: "TRIAL_SQUAD_UUIDS",
@@ -886,6 +907,20 @@ export function adminFallbackResponse(
       peer_typing: false,
     };
   }
+  if (cleanPath === "/admin/plugins") {
+    return {
+      ok: true,
+      generation: 0,
+      installations: {},
+      operations: [],
+      bundled: [],
+      observations: {},
+      failed_generation: null,
+      failure: "",
+    };
+  }
+  if (cleanPath === "/admin/plugins/runtime") return { ok: true, generation: 0, plugins: [] };
+  if (cleanPath === "/admin/plugins/updates") return { ok: true, updates: {} };
   if (cleanPath.startsWith("/admin/"))
     return { ok: true, payments: [], promos: [], logs: [], campaigns: [], total: 0 };
   return undefined;

@@ -19,8 +19,10 @@ from .common import _error, _ok
 
 class AdminGiftView(GiftView):
     purchaser_id: int | None
+    purchaser_minishop_id: str | None = None
     purchaser_label: str
     recipient_id: int | None
+    recipient_minishop_id: str | None = None
     recipient_label: str
     amount: float
     total_amount: float
@@ -53,10 +55,18 @@ class AdminGiftView(GiftView):
         return cls(
             **public,
             purchaser_id=gift.purchaser_id,
+            purchaser_minishop_id=(
+                str(buyer.minishop_id) if buyer and getattr(buyer, "minishop_id", None) else None
+            ),
             purchaser_label=str(
                 (buyer.username or buyer.email or buyer.first_name) if buyer else ""
             ),
             recipient_id=gift.recipient_id,
+            recipient_minishop_id=(
+                str(recipient.minishop_id)
+                if recipient and getattr(recipient, "minishop_id", None)
+                else None
+            ),
             recipient_label=str(
                 (recipient.username or recipient.email or recipient.first_name) if recipient else ""
             ),

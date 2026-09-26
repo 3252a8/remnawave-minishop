@@ -15,6 +15,7 @@ from .backups import (
 from .broadcast import (
     admin_broadcast_audience_counts_route,
     admin_broadcast_delete_route,
+    admin_broadcast_failures_route,
     admin_broadcast_reschedule_route,
     admin_broadcast_route,
     admin_broadcasts_list_route,
@@ -94,6 +95,12 @@ from .promos import (
     admin_promo_update_route,
     admin_promos_list_route,
 )
+from .roles import (
+    admin_role_candidates_route,
+    admin_role_grant_route,
+    admin_role_revoke_route,
+    admin_roles_list_route,
+)
 from .settings import (
     admin_settings_get_route,
     admin_settings_patch_route,
@@ -162,12 +169,18 @@ from .users import (
 
 
 def setup_admin_routes(app: web.Application) -> None:
+    from .plugin_packages import setup_plugin_packages
     from .theme_library import setup_theme_jobs, setup_theme_library
 
     setup_theme_jobs(app)
     setup_theme_library(app.router)
+    setup_plugin_packages(app.router)
     router = app.router
     router.add_get("/api/admin/me", admin_me_route)
+    router.add_get("/api/admin/roles", admin_roles_list_route)
+    router.add_get("/api/admin/roles/candidates", admin_role_candidates_route)
+    router.add_post("/api/admin/roles", admin_role_grant_route)
+    router.add_delete("/api/admin/roles/{user_id:\\d+}/{role}", admin_role_revoke_route)
     router.add_get("/api/admin/stats", admin_stats_route)
     router.add_get("/api/admin/health", admin_health_route)
 
@@ -251,7 +264,7 @@ def setup_admin_routes(app: web.Application) -> None:
     )
 
     router.add_get("/api/admin/users", admin_users_list_route)
-    router.add_get("/api/admin/users/{user_id:-?\\d+}", admin_user_detail_route)
+    router.add_get("/api/admin/users/{user_id:-?\\d+|ms_[a-fA-F0-9]+}", admin_user_detail_route)
     router.add_get("/api/admin/users/{user_id:-?\\d+}/referrals", admin_user_referrals_route)
     router.add_get("/api/admin/users/{user_id:-?\\d+}/avatar", admin_user_avatar_route)
     router.add_post("/api/admin/users/{user_id:-?\\d+}/ban", admin_user_ban_route)
@@ -357,6 +370,7 @@ def setup_admin_routes(app: web.Application) -> None:
     router.add_post("/api/admin/broadcast/preview", admin_broadcast_preview_route)
     router.add_post("/api/admin/broadcast", admin_broadcast_route)
     router.add_get("/api/admin/broadcasts", admin_broadcasts_list_route)
+    router.add_get("/api/admin/broadcasts/{id:\\d+}/failures", admin_broadcast_failures_route)
     router.add_patch("/api/admin/broadcasts/{id:\\d+}", admin_broadcast_reschedule_route)
     router.add_delete("/api/admin/broadcasts/{id:\\d+}", admin_broadcast_delete_route)
     router.add_post("/api/admin/sync", admin_sync_route)

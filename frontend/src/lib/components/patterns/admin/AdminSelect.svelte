@@ -48,6 +48,35 @@
   }
 
   const selectedIcon = $derived(iconFor(selected?.icon));
+  let safeAreaPadding = $state<{
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+  } | null>(null);
+  const effectiveCollisionPadding = $derived(
+    safeAreaPadding
+      ? {
+          top: collisionPadding + safeAreaPadding.top,
+          right: collisionPadding + safeAreaPadding.right,
+          bottom: collisionPadding + safeAreaPadding.bottom,
+          left: collisionPadding + safeAreaPadding.left,
+        }
+      : collisionPadding
+  );
+
+  function updateCollisionPadding(open: boolean) {
+    if (!open) return;
+    const screen = document.querySelector<HTMLElement>(".admin-screen-wrap");
+    if (!screen) return;
+    const style = getComputedStyle(screen);
+    safeAreaPadding = {
+      top: Number.parseFloat(style.paddingTop || "0"),
+      right: Number.parseFloat(style.paddingRight || "0"),
+      bottom: Number.parseFloat(style.paddingBottom || "0"),
+      left: Number.parseFloat(style.paddingLeft || "0"),
+    };
+  }
 
   function handleValueChange(next: string) {
     value = next;
@@ -55,7 +84,14 @@
   }
 </script>
 
-<Select.Root type="single" {value} {items} {disabled} onValueChange={handleValueChange}>
+<Select.Root
+  type="single"
+  {value}
+  {items}
+  {disabled}
+  onOpenChange={updateCollisionPadding}
+  onValueChange={handleValueChange}
+>
   <Select.Trigger
     class={`admin-select-trigger ${className}`.trim()}
     aria-label={ariaLabel || placeholder}
@@ -68,7 +104,13 @@
     <ChevronDown size={14} class="admin-select-icon" />
   </Select.Trigger>
   <Select.Portal>
-    <Select.Content class="admin-select-content" {side} {align} {sideOffset} {collisionPadding}>
+    <Select.Content
+      class="admin-select-content"
+      {side}
+      {align}
+      {sideOffset}
+      collisionPadding={effectiveCollisionPadding}
+    >
       <Select.Viewport class="admin-select-viewport">
         {#each items as item, index (item.value)}
           {#if item.group && item.group !== items[index - 1]?.group}

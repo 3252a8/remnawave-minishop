@@ -532,6 +532,10 @@ async function assertUserTicketScrolling(page: Page, nav: Locator): Promise<void
   await expect.poll(() => messageViewport.evaluate((element) => element.scrollTop)).toBe(0);
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   await expect(composer).toBeInViewport();
+  await composerInput.focus();
+  await expect(nav).toBeHidden();
+  await composerInput.evaluate((element) => (element as HTMLElement).blur());
+  await expect(nav).toBeVisible();
 
   await page.setViewportSize(DESKTOP_VIEWPORT);
   await page.locator(".support-back-button").click();
@@ -596,6 +600,24 @@ async function assertAdminTicketScrolling(page: Page, supportDialog: Locator): P
   await expect.poll(() => bodyViewport.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
 
   await page.setViewportSize(MOBILE_VIEWPORT);
+  const title = supportDialog.locator(".dialog-head h2");
+  const longSubject =
+    "По какой причине на ноутбуке не подключается профиль после смены сервера и как восстановить доступ?";
+  await title.evaluate((element, subject) => {
+    element.textContent = subject;
+  }, longSubject);
+  await expect(title).toHaveText(longSubject);
+  await expect
+    .poll(() =>
+      title.evaluate((element) => {
+        const lineHeight = Number.parseFloat(getComputedStyle(element).lineHeight);
+        return (
+          element.clientHeight >= lineHeight * 2 - 1 &&
+          element.scrollWidth <= element.clientWidth + 1
+        );
+      })
+    )
+    .toBe(true);
   await expect
     .poll(() => messageViewport.evaluate((element) => getComputedStyle(element).overflowY))
     .toBe("visible");
@@ -733,7 +755,11 @@ async function openUserDetailFromCurrentSection(
   page: Page,
   setPhase: (value: string) => void,
   phasePrefix: string,
-  options: { checkBalanceTileSelection?: boolean; checkMobileTariffTapThrough?: boolean } = {}
+  options: {
+    checkBalanceTileSelection?: boolean;
+    checkMobileTariffTapThrough?: boolean;
+    checkTariffSave?: boolean;
+  } = {}
 ): Promise<void> {
   const userDialog = page.locator(".dialog-card.admin-user-dialog");
   setPhase(`${phasePrefix}:user-card`);
@@ -806,6 +832,37 @@ async function openUserDetailFromCurrentSection(
       userDialog,
       `${phasePrefix}:mobile-extend-tariff-select`
     );
+  }
+
+  if (options.checkTariffSave) {
+    setPhase(`${phasePrefix}:save-tariff`);
+    const tariffCard = actionsPanel.locator(".admin-user-action-sheet--tariff");
+    const tariffSelect = tariffCard.locator(".admin-select-trigger");
+    const currentTariff = (await tariffCard.locator(".admin-meta-truncate").innerText())
+      .replace(/^Сейчас:\s*/, "")
+      .trim();
+    await expect(tariffSelect).toContainText(currentTariff);
+    const currentLabel = (await tariffSelect.innerText()).trim();
+    await tariffSelect.click();
+    const items = page
+      .locator(".admin-select-content:visible")
+      .last()
+      .locator(".admin-select-item");
+    const labels = await items.locator("span").allInnerTexts();
+    const targetIndex = labels.findIndex((label) => label.trim() !== currentLabel);
+    expect(targetIndex).toBeGreaterThanOrEqual(0);
+    const targetLabel = labels[targetIndex].trim();
+    await items.nth(targetIndex).click();
+    await expect(tariffSelect).toContainText(targetLabel);
+    const saveTariffButton = tariffCard.getByRole("button", { name: "Сохранить тариф" });
+    await expect(saveTariffButton).toBeEnabled();
+    await saveTariffButton.click();
+    const hwidConfirm = page.locator(".dialog-card.admin-user-tariff-hwid-confirm-dialog");
+    if (await hwidConfirm.isVisible()) {
+      await hwidConfirm.getByRole("button", { name: "Сохранить текущий лимит" }).click();
+    }
+    await expect(tariffCard.locator(".admin-meta-truncate")).toContainText(targetLabel);
+    await expect(tariffCard.locator(".admin-unsaved-hint")).toHaveCount(0);
   }
 
   setPhase(`${phasePrefix}:message-composer`);
@@ -1721,7 +1778,8 @@ test("admin charts reveal on entry, morph between ranges, and respect reduced mo
   const revenueChart = page.locator(".admin-revenue-chart-body");
   await Promise.all([
     page.goto("/demo/runtime/admin/stats?theme_preview=dark"),
-    expect(revenueChart).toHaveAttribute("data-chart-motion", "reveal"),
+    // A cold admin bundle can take longer than Playwright's default assertion timeout.
+    expect(revenueChart).toHaveAttribute("data-chart-motion", "reveal", { timeout: 20_000 }),
   ]);
   await revenueChart.locator(".u-over").hover();
   await expect(revenueChart).toHaveAttribute("data-chart-motion", "idle", { timeout: 2_000 });
@@ -1898,7 +1956,7 @@ test("message button editor offers the partner program screen", async ({ page })
   await expect(sectionSelect).toContainText("Партнёрская программа");
 });
 
-test("checkout sliders keep price animations bounded and defer quotes while dragging", async ({
+test("checkout sliders track dragging without transition lag, animate prices, and defer quotes", async ({
   page,
 }) => {
   await page.setViewportSize(DESKTOP_VIEWPORT);
@@ -1975,6 +2033,8 @@ test("checkout sliders keep price animations bounded and defer quotes while drag
   const sliderY = sliderBox.y + sliderBox.height / 2;
   await page.mouse.move(sliderBox.x + sliderBox.width * 0.15, sliderY);
   await page.mouse.down();
+  await expect(slider).toHaveClass(/is-interacting/);
+  await expect(slider.locator(".checkout-slider-range")).toHaveCSS("transition-duration", "0s");
   const readAnimationState = () =>
     priceFlows.evaluateAll((nodes) =>
       nodes.map((node) => {
@@ -2015,6 +2075,7 @@ test("checkout sliders keep price animations bounded and defer quotes while drag
   expect(quoteRequests).toBe(quoteRequestsBeforeDrag);
 
   await page.mouse.up();
+  await expect(slider).not.toHaveClass(/is-interacting/);
   await page.waitForTimeout(250);
   expect(quoteRequests).toBeLessThanOrEqual(quoteRequestsBeforeDrag + 1);
   await expect(promoInput).toHaveValue("SAVE20");
@@ -2027,10 +2088,11 @@ test("public install share links survive browser focus and visibility changes", 
   page,
 }) => {
   const sharePath = "/s/0123456789abcdef0123456789abcdef";
-  await page.clock.install();
   await page.goto(sharePath);
   const publicShell = page.locator(".public-install-shell");
   await expect(publicShell).toBeVisible();
+  await expect(publicShell.locator(".install-layout")).toBeVisible({ timeout: 10_000 });
+  await page.clock.install();
   const shareUrl = page.url();
 
   for (const event of ["blur", "hidden", "visible", "focus", "pageshow"]) {
@@ -2089,16 +2151,14 @@ test("admin deep links do not pin the first opened record", async ({ page }) => 
 
   const userDialog = page.locator(".dialog-card.admin-user-dialog");
   await expect(userDialog).toBeVisible();
-  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`#${firstPaymentUserId}`);
+  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`${firstPaymentUserId}`);
   await closeDialog(userDialog);
 
   await paymentUserButtons.nth(1).click();
   const secondPaymentUserId = new URL(page.url()).pathname.split("/").pop();
   expect(secondPaymentUserId).toBeTruthy();
   expect(secondPaymentUserId).not.toBe(firstPaymentUserId);
-  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(
-    `#${secondPaymentUserId}`
-  );
+  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`${secondPaymentUserId}`);
   await closeDialog(userDialog);
 
   const paymentButtons = page.locator(".admin-payments-table .admin-payment-id-btn");
@@ -2129,14 +2189,14 @@ test("admin deep links do not pin the first opened record", async ({ page }) => 
   await page.reload();
 
   await expect(userDialog).toBeVisible();
-  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`#${firstUserId}`);
+  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`${firstUserId}`);
   await closeDialog(userDialog);
 
   await userRows.nth(1).click();
   const secondUserId = new URL(page.url()).pathname.split("/").pop();
   expect(secondUserId).toBeTruthy();
   expect(secondUserId).not.toBe(firstUserId);
-  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`#${secondUserId}`);
+  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`${secondUserId}`);
 });
 
 test("webapp and admin sections, dialogs, tabs stay interactive without console errors", async ({
@@ -2388,6 +2448,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   await openUserDetailFromCurrentSection(page, setPhase, "admin-users", {
     checkBalanceTileSelection: true,
     checkMobileTariffTapThrough: true,
+    checkTariffSave: true,
   });
   await page.setViewportSize(DESKTOP_VIEWPORT);
 
@@ -2456,6 +2517,24 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   await expect(createCodeDialog).toBeVisible();
   await expect(createCodeDialog.locator(".admin-promo-effect-row")).toHaveCount(6);
   await assertFormFieldsNamed(page, "admin-codes:create-dialog");
+  await page.setViewportSize(MOBILE_VIEWPORT);
+  const createCodeViewport = createCodeDialog.locator(
+    ":scope > .dialog-body-scroll > .scroll-area__viewport"
+  );
+  const createCodeSummary = createCodeDialog.locator(".admin-promo-edit-summary");
+  await expect
+    .poll(() =>
+      createCodeViewport.evaluate((element) => element.scrollHeight - element.clientHeight)
+    )
+    .toBeGreaterThan(100);
+  const summaryTop = await createCodeSummary.evaluate(
+    (element) => element.getBoundingClientRect().top
+  );
+  await createCodeViewport.evaluate((element) => (element.scrollTop = 120));
+  await expect
+    .poll(() => createCodeSummary.evaluate((element) => element.getBoundingClientRect().top))
+    .toBeLessThan(summaryTop - 60);
+  await page.setViewportSize(DESKTOP_VIEWPORT);
   await closeDialog(createCodeDialog);
 
   setPhase("admin-codes:editor-dialog");

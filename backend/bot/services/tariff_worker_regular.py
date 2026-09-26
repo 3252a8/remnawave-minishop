@@ -338,6 +338,7 @@ class TariffWorkerRegularMixin(TariffWorkerRegularTagMixin):
                         limit,
                         warning_period_start=warning_period_start,
                         next_reset_at=panel_next_reset_at,
+                        traffic_strategy=effective_strategy,
                     )
 
                 await self._sync_premium_squad_limit(

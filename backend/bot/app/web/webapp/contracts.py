@@ -9,6 +9,8 @@ from .balance_contracts import BALANCE_ROUTE_CONTRACTS
 from .billing_contracts import BILLING_ROUTE_CONTRACTS
 from .devices_contracts import DEVICES_ROUTE_CONTRACTS
 from .documents_contracts import DOCUMENTS_ROUTE_CONTRACTS
+from .extension_orders import EXTENSION_ORDER_ROUTE_CONTRACTS
+from .extension_runtime import EXTENSION_RUNTIME_ROUTE_CONTRACTS
 from .gift_contracts import GIFT_ROUTE_CONTRACTS
 from .guides_contracts import GUIDES_ROUTE_CONTRACTS
 from .notification_preferences_contracts import NOTIFICATION_PREFERENCES_ROUTE_CONTRACTS
@@ -27,6 +29,8 @@ WEBAPP_ROUTE_CONTRACTS: dict[str, RouteContract] = {
     **BILLING_ROUTE_CONTRACTS,
     **DEVICES_ROUTE_CONTRACTS,
     **DOCUMENTS_ROUTE_CONTRACTS,
+    **EXTENSION_ORDER_ROUTE_CONTRACTS,
+    **EXTENSION_RUNTIME_ROUTE_CONTRACTS,
     **GUIDES_ROUTE_CONTRACTS,
     **NOTIFICATION_PREFERENCES_ROUTE_CONTRACTS,
     **PAGES_ROUTE_CONTRACTS,

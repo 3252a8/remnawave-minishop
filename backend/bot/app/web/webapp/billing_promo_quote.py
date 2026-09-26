@@ -73,8 +73,9 @@ async def quote_promo_route(request: web.Request) -> web.Response:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or db_user.is_banned:
             return _json_error(403, "access_denied", "Access denied")
-        admin_ids = {int(item) for item in (settings.ADMIN_IDS or [])}
-        is_admin = bool(db_user.telegram_id and int(db_user.telegram_id) in admin_ids)
+        from bot.services.account_roles import is_admin as account_is_admin
+
+        is_admin = await account_is_admin(session, user_id)
 
         base_quote, quote_error = await _resolve_base_payment_quote(
             request=request,

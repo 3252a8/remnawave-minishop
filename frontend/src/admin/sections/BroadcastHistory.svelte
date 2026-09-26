@@ -5,7 +5,7 @@
   import type { BroadcastHistoryItem } from "$lib/admin/stores/broadcastHistory";
   import { sortAdminRows, type AdminSortColumn } from "$lib/admin/tableSort.js";
   import { Input } from "$components/ui/index.js";
-  import { CalendarDays, Trash2 } from "$components/ui/icons.js";
+  import { CalendarDays, CircleQuestionMark, Trash2 } from "$components/ui/icons.js";
   import {
     AdminButton,
     AdminEmptyState,
@@ -16,6 +16,7 @@
   } from "$components/patterns/admin/index.js";
   import Dialog from "$components/ui/dialog.svelte";
   import { supportMessageImageUrl } from "$lib/messageImage";
+  import BroadcastFailuresDialog from "./BroadcastFailuresDialog.svelte";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
@@ -30,11 +31,15 @@
   let scheduleDrafts = $state<Record<number, string>>({});
   let scheduleNow = $state(Date.now());
   let selectedBroadcastId = $state<number | null>(null);
+  let failuresBroadcastId = $state<number | null>(null);
   let historySort = $state("created_desc");
   const history = $derived(broadcastStore.broadcastHistory);
   const loading = $derived(Boolean(broadcastStore.broadcastHistoryLoading));
   const selectedBroadcast = $derived(
     history.find((item) => item.broadcastId === selectedBroadcastId) || null
+  );
+  const failuresBroadcast = $derived(
+    history.find((item) => item.broadcastId === failuresBroadcastId) || null
   );
   const minimumScheduledAt = $derived(datetimeLocalFromTimestamp(nextMinute(scheduleNow)));
   const historySortColumns = [
@@ -255,6 +260,7 @@
 
   function closeDetails(): void {
     if (selectedBroadcastId !== null) stopEditing(selectedBroadcastId);
+    failuresBroadcastId = null;
     selectedBroadcastId = null;
   }
 
@@ -451,9 +457,24 @@
   {#if selectedBroadcast}
     <div class="broadcast-detail-card">
       <div class="broadcast-detail-status-row">
-        <span class={`broadcast-status broadcast-status-${statusTone(selectedBroadcast.status)}`}
-          >{statusLabel(selectedBroadcast.status)}</span
-        >
+        {#if selectedBroadcast.status === "completed_with_errors" || selectedBroadcast.status === "failed"}
+          <button
+            type="button"
+            class={`broadcast-status broadcast-status-${statusTone(selectedBroadcast.status)} broadcast-status-button`}
+            aria-haspopup="dialog"
+            aria-label={at(
+              "broadcast_failures_open",
+              { id: selectedBroadcast.broadcastId },
+              `Show errors for broadcast #${selectedBroadcast.broadcastId}`
+            )}
+            onclick={() => (failuresBroadcastId = selectedBroadcast.broadcastId)}
+            >{statusLabel(selectedBroadcast.status)} <CircleQuestionMark size={14} /></button
+          >
+        {:else}
+          <span class={`broadcast-status broadcast-status-${statusTone(selectedBroadcast.status)}`}
+            >{statusLabel(selectedBroadcast.status)}</span
+          >
+        {/if}
         <span class="broadcast-history-id">#{selectedBroadcast.broadcastId}</span>
       </div>
 
@@ -561,10 +582,6 @@
         </div>
       {/if}
 
-      {#if selectedBroadcast.lastError}
-        <div class="broadcast-history-error">{selectedBroadcast.lastError}</div>
-      {/if}
-
       {#if reschedulable(selectedBroadcast) && scheduleDrafts[selectedBroadcast.broadcastId] !== undefined}
         <div class="broadcast-reschedule-row">
           <Input
@@ -618,6 +635,15 @@
   {/if}
 </Dialog>
 
+<BroadcastFailuresDialog
+  open={Boolean(failuresBroadcast)}
+  broadcast={failuresBroadcast}
+  {currentLang}
+  {at}
+  loadFailures={broadcastStore.loadFailures}
+  onclose={() => (failuresBroadcastId = null)}
+/>
+
 <style>
   .broadcast-history {
     margin-top: 16px;
@@ -669,6 +695,18 @@
   .broadcast-status {
     padding: 4px 8px;
     white-space: nowrap;
+  }
+  .broadcast-status-button {
+    align-items: center;
+    gap: 5px;
+    border: 0;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .broadcast-status-button:hover,
+  .broadcast-status-button:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
   }
   .broadcast-status-active {
     background: color-mix(in srgb, var(--accent) 18%, transparent);
@@ -809,14 +847,6 @@
   }
   .broadcast-progress-stats {
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  }
-  .broadcast-history-error {
-    padding: 8px 10px;
-    border-radius: 8px;
-    background: color-mix(in srgb, #ff6577 10%, transparent);
-    color: #ff8794;
-    font-size: 12px;
-    overflow-wrap: anywhere;
   }
   .broadcast-reschedule-row,
   .broadcast-history-actions {

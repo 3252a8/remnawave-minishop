@@ -9,6 +9,7 @@ const RESERVED_PAGE_ROOTS = new Set([
   "auth",
   "checkout",
   "devices",
+  "extensions",
   "docs",
   "favicon.ico",
   "fonts",

@@ -472,7 +472,7 @@ class RefereeBonusTests(unittest.IsolatedAsyncioTestCase):
     async def test_disposable_email_without_telegram_still_gets_payment_bonus(self):
         settings = _make_settings(
             REFERRAL_ONE_BONUS_PER_REFEREE=False,
-            TRIAL_WITHOUT_TELEGRAM_ENABLED=False,
+            TRIAL_WITHOUT_OAUTH_ENABLED=False,
             REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED=False,
             DISPOSABLE_EMAIL_DOMAINS="ogzmail.com",
             referral_bonus_inviter={},

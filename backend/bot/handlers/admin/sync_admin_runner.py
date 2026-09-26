@@ -14,6 +14,10 @@ from bot.services.panel_activity import (
     panel_user_last_connected_datetime,
 )
 from bot.services.panel_api_service import PanelApiService
+from bot.services.panel_identity_match import (
+    panel_candidate_matches_account,
+    panel_origin_fingerprint,
+)
 from config.settings import Settings
 from db.advisory_locks import (
     acquire_subscription_background_sync_lock,
@@ -22,7 +26,6 @@ from db.advisory_locks import (
 from db.dal import (
     panel_sync_dal,
     subscription_dal,
-    user_dal,
     user_panel_squad_override_dal,
 )
 from db.models import Subscription, User
@@ -226,128 +229,54 @@ async def _perform_sync_impl(
                 if not telegram_id_from_panel:
                     users_without_telegram_id += 1
 
-                # Try to find existing user in local DB
-                existing_user = None
-
-                # First, try to find by telegram ID if available
-                if telegram_id_from_panel:
-                    existing_user = users_by_telegram_id.get(
-                        telegram_id_from_panel
-                    ) or users_by_user_id.get(telegram_id_from_panel)
-                    if existing_user:
-                        logger.debug("Found user by telegramId %s", telegram_id_from_panel)
-
-                # If not found by telegram ID, try to find by panel UUID.
-                # The panel UUID is the strongest local link for subscription sync.
-                if not existing_user:
-                    existing_user = users_by_panel_uuid.get(panel_uuid)
-                    if existing_user:
-                        logger.debug(
-                            "Found user by panel UUID %s, telegramId: %s",
-                            panel_uuid,
-                            existing_user.user_id,
+                # A persisted native panel link is authoritative. Telegram metadata
+                # can locate an unlinked account only through its explicit identity.
+                # Panel email and a coincidentally equal internal ID prove nothing.
+                existing_user = users_by_panel_uuid.get(panel_uuid)
+                if existing_user is None and telegram_id_from_panel:
+                    existing_user = users_by_telegram_id.get(telegram_id_from_panel)
+                    if existing_user and existing_user.panel_user_uuid:
+                        sync_errors.append(
+                            f"Panel user {panel_uuid} claims Telegram identity already "
+                            "linked to another panel user; manual review required"
                         )
-                        # Update telegram ID if it was missing in panel data but we have local user
-                        if (
-                            telegram_id_from_panel
-                            and existing_user.user_id != telegram_id_from_panel
-                        ):
-                            logger.warning(
-                                "TelegramId mismatch: panel=%s, local=%s",
-                                telegram_id_from_panel,
-                                existing_user.user_id,
-                            )
-
-                # Finally, fall back to email. This mainly catches panel users that
-                # were first imported as email-only identities.
-                if not existing_user and email_from_panel:
-                    existing_user = users_by_email.get(email_from_panel)
-                    if existing_user:
-                        logger.debug("Found user by email %s", email_from_panel)
+                        continue
+                if existing_user and telegram_id_from_panel:
+                    telegram_owner = users_by_telegram_id.get(telegram_id_from_panel)
+                    if telegram_owner and telegram_owner.user_id != existing_user.user_id:
+                        sync_errors.append(
+                            f"Panel user {panel_uuid} has conflicting Telegram identity; "
+                            "manual review required"
+                        )
+                        continue
 
                 if not existing_user:
                     users_not_found_in_db += 1
-                    if telegram_id_from_panel:
-                        # Create new user if they have telegram_id
-                        try:
-                            user_data = {
-                                "user_id": telegram_id_from_panel,
-                                "telegram_id": telegram_id_from_panel,
-                                "email": email_from_panel,
-                                "email_verified_at": (
-                                    datetime.now(UTC) if email_from_panel else None
-                                ),
-                                "username": None,  # Username will be updated when user interacts with bot  # noqa: E501
-                                "first_name": None,  # Panel doesn't provide this info
-                                "last_name": None,  # Panel doesn't provide this info
-                                "language_code": "ru",  # Default language
-                                "panel_user_uuid": panel_uuid,
-                                "is_banned": False,
-                                "referred_by_id": None,
-                            }
+                    sync_errors.append(
+                        f"Panel user {panel_uuid} has no confirmed local identity; "
+                        "manual import required"
+                    )
+                    continue
 
-                            new_user, was_created = await user_dal.create_user(
-                                session, user_data, registered_via="panel_sync"
-                            )
-                            if was_created:
-                                users_created += 1
-                                logger.info(
-                                    "Created new user %s from panel sync with UUID %s",
-                                    telegram_id_from_panel,
-                                    panel_uuid,
-                                )
-
-                            existing_user = new_user
-                            users_by_user_id[int(new_user.user_id)] = new_user
-                            if new_user.telegram_id is not None:
-                                users_by_telegram_id[int(new_user.telegram_id)] = new_user
-                            users_by_panel_uuid[panel_uuid] = new_user
-                            if email_from_panel:
-                                users_by_email[email_from_panel] = new_user
-
-                        except Exception as e_create:
-                            sync_errors.append(
-                                f"Error creating user {telegram_id_from_panel}: {e_create!s}"
-                            )
-                            logger.error(
-                                "Error creating user %s: %s", telegram_id_from_panel, e_create
-                            )
-                            continue
-                    elif email_from_panel:
-                        try:
-                            new_user, was_created = await user_dal.create_email_user(
-                                session,
-                                email=email_from_panel,
-                                language_code="ru",
-                                registered_via="panel_sync",
-                            )
-                            new_user.panel_user_uuid = panel_uuid
-                            if was_created:
-                                users_created += 1
-                                logger.info(
-                                    "Created new email user %s from panel sync with UUID %s",
-                                    new_user.user_id,
-                                    panel_uuid,
-                                )
-                            existing_user = new_user
-                            users_by_user_id[int(new_user.user_id)] = new_user
-                            users_by_panel_uuid[panel_uuid] = new_user
-                            users_by_email[email_from_panel] = new_user
-                        except Exception as e_create_email:
-                            sync_errors.append(
-                                f"Error creating email user {email_from_panel}: {e_create_email!s}"
-                            )
-                            logger.error(
-                                "Error creating email user %s: %s", email_from_panel, e_create_email
-                            )
-                            continue
-                    else:
-                        logger.debug(
-                            "Panel user with UUID %s (no telegramId) not found in local DB - "
-                            "skipping",
-                            panel_uuid,
-                        )
-                        continue
+                current_panel_origin = panel_origin_fingerprint(settings.PANEL_API_URL)
+                if (
+                    getattr(existing_user, "panel_origin", None)
+                    and existing_user.panel_origin != current_panel_origin
+                ) or not panel_candidate_matches_account(existing_user, panel_user_dict):
+                    sync_errors.append(
+                        f"Panel user {panel_uuid} does not prove ownership of local account; "
+                        "manual review required"
+                    )
+                    continue
+                existing_user.panel_origin = current_panel_origin
+                actual_panel_username = str(panel_user_dict.get("username") or "").strip()
+                if actual_panel_username:
+                    existing_user.panel_username = actual_panel_username
+                    existing_user.panel_username_state = (
+                        "current"
+                        if actual_panel_username == existing_user.minishop_id
+                        else "legacy_pending"
+                    )
 
                 # User found in local DB
                 users_found_in_db += 1
@@ -542,14 +471,7 @@ async def _perform_sync_impl(
                         _append_unique(user_update_reasons, "email_bound_from_panel")
                         if email_from_panel:
                             users_by_email[email_from_panel] = existing_user
-                    if (
-                        telegram_id_from_panel
-                        and existing_user.telegram_id != telegram_id_from_panel
-                    ):
-                        existing_user.telegram_id = telegram_id_from_panel
-                        user_was_updated = True
-                        _append_unique(user_update_reasons, "telegram_id_bound_from_panel")
-                        users_by_telegram_id[telegram_id_from_panel] = existing_user
+                    # Panel metadata must never create or replace a login identity.
 
                 lifetime_used = _extract_lifetime_used_traffic_bytes(panel_user_dict)
                 if lifetime_used is not None and _should_update_lifetime_used_traffic(

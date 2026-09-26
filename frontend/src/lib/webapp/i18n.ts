@@ -9,6 +9,7 @@ export type I18nOptions = {
   messages?: I18nMessages;
   defaultLang?: string;
   getLang?: (() => string) | null;
+  supportedLanguages?: string[];
 };
 
 const LANGUAGE_LABEL_MAP: Record<string, string> = LANGUAGE_LABELS;
@@ -17,8 +18,10 @@ export function createI18n({
   messages: initialMessages = {},
   defaultLang = "ru",
   getLang = null,
+  supportedLanguages = [],
 }: I18nOptions = {}) {
   const messages: Record<string, MessageBucket> = {};
+  const supported = new Set(supportedLanguages.map(normalizeLanguageCode));
 
   function mergeMessages(nextMessages: I18nMessages = {}): Record<string, MessageBucket> {
     if (!nextMessages || typeof nextMessages !== "object") return messages;
@@ -37,6 +40,8 @@ export function createI18n({
     const base = key.split("-")[0];
     if (messages[key]) return key;
     if (messages[base]) return base;
+    if (supported.has(key)) return key;
+    if (supported.has(base)) return base;
     if (LANGUAGE_LABEL_MAP[key]) return key;
     if (LANGUAGE_LABEL_MAP[base]) return base;
     return defaultLang;

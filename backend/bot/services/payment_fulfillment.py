@@ -239,6 +239,8 @@ async def payment_action_state(session: AsyncSession, payment: Payment) -> dict[
         reversal_block_reason = (
             None if gift is not None and gift.status == "ready" else "gift_already_claimed"
         )
+    if sale_mode_base(payment.sale_mode) == "extension":
+        reversal_block_reason = "extension_refund_required"
     return {
         "can_manual_finalize": can_finalize,
         "manual_finalize_requires_promo_confirmation": promo_conflict,
@@ -441,6 +443,10 @@ async def reverse_payment_fulfillment(
         raise PaymentFulfillmentError(
             "payment_not_succeeded",
             "Only a successfully fulfilled payment can be reversed.",
+        )
+    if sale_mode_base(payment.sale_mode) == "extension":
+        raise PaymentFulfillmentError(
+            "extension_refund_required", "Use the extension order refund workflow."
         )
     if sale_mode_base(payment.sale_mode) == "balance_topup":
         from bot.services.user_balance_service import UserBalanceService

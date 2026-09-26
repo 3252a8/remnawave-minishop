@@ -355,6 +355,36 @@ describe("broadcastStore", () => {
     expect(store.broadcastScheduleEnabled).toBe(false);
   });
 
+  it("shows a queued broadcast in history as soon as creation succeeds", async () => {
+    const api = vi.fn().mockResolvedValue({
+      ok: true,
+      queued: 0,
+      failed: 0,
+      email_queued: 0,
+      channels: ["telegram"],
+      broadcast: {
+        broadcast_id: 8,
+        status: "queued",
+        target: "all",
+        channels: ["telegram"],
+        texts: { en: "Hello" },
+      },
+    });
+    const onToast = vi.fn();
+    const store = createBroadcastStore({
+      api,
+      onToast,
+      at: (_key: string, _params?: Record<string, unknown>, fallback?: string) => fallback || _key,
+    });
+    store.updateField({ broadcastText: "Hello" });
+
+    await store.runBroadcast();
+
+    expect(store.broadcastHistory).toMatchObject([{ broadcastId: 8, status: "queued" }]);
+    expect(store.broadcastText).toBe("");
+    expect(onToast).toHaveBeenCalledWith("Broadcast queued");
+  });
+
   it("loads, reschedules, and removes history entries", async () => {
     const item = {
       broadcast_id: 12,

@@ -26,6 +26,7 @@ describe("informationPagePathFromLocation", () => {
       "/webapp-logo",
       "/api/pages/about",
       "/docs/about",
+      "/extensions/sample/resources",
       "/about%2fsecret",
     ]) {
       expect(informationPagePathFromLocation(path)).toBeNull();
@@ -41,10 +42,12 @@ describe("documentSlugFromLocation", () => {
     expect(documentHref("guides/install/ios")).toBe("/guides/install/ios");
     expect(documentHref("/guides/install/ios")).toBe("/guides/install/ios");
     expect(documentHref("api/reference")).toBe("/docs/api/reference");
+    expect(documentHref("extensions/sample/resources")).toBe("/docs/extensions/sample/resources");
   });
 
   it("rejects reserved roots and traversal-shaped paths", () => {
     expect(documentSlugFromLocation("/api/documents/about")).toBeNull();
+    expect(documentSlugFromLocation("/extensions/sample/resources")).toBeNull();
     expect(documentSlugFromLocation("/about%2fsecret")).toBeNull();
     expect(documentSlugFromLocation("/docs/About")).toBeNull();
     expect(documentSlugFromLocation("/guides//install")).toBeNull();

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { decryptLink } from "@incy/link-encoder/sync";
 
 import {
   detectInstallPlatformKey,
@@ -7,8 +8,10 @@ import {
   localizedInstallValue,
   renderInstallQrDataUrl,
   resolveInstallButtonAction,
+  resolveInstallQrLink,
   resolveInstallTemplate,
 } from "./installGuideRuntime";
+import { guideDocumentToConfig } from "./guideDocument";
 
 describe("install guide runtime helpers", () => {
   it("localizes values by the active language with fallbacks", () => {
@@ -38,6 +41,33 @@ describe("install guide runtime helpers", () => {
     expect(isUnsafeInstallUrl("https://example.com")).toBe(false);
   });
 
+  it("encrypts client-specific templates from the raw subscription URL", () => {
+    const url = "https://shop.example.test/s/token";
+    const context = {
+      subscription: {
+        link_mode: "minishop",
+        http_url: url,
+        config_link: "happ://crypt4/prepared",
+      },
+    };
+
+    expect(resolveInstallTemplate("{{HAPP_CRYPT3_LINK}}", context)).toMatch(/^happ:\/\/crypt3\//);
+    expect(resolveInstallTemplate("{{HAPP_CRYPT4_LINK}}", context)).toMatch(/^happ:\/\/crypt4\//);
+    expect(decryptLink(resolveInstallTemplate("{{INCY_CRYPT1_LINK}}", context))).toEqual({
+      url,
+    });
+    expect(
+      resolveInstallTemplate("{{HAPP_CRYPT4_LINK}}", {
+        subscription: { config_link: "happ://crypt4/prepared" },
+      })
+    ).toBe("happ://crypt4/prepared");
+    expect(
+      resolveInstallTemplate("{{INCY_CRYPT1_LINK}}", {
+        subscription: { config_link: "happ://crypt4/prepared" },
+      })
+    ).toBe("");
+  });
+
   it("resolves button actions and shields QR rendering errors", async () => {
     const context = {
       subscription: { config_link: "https://sub.example/link" },
@@ -62,5 +92,65 @@ describe("install guide runtime helpers", () => {
         throw new Error("qr failed");
       })
     ).resolves.toBe("");
+  });
+
+  it("renders a versioned document with a new platform and resolves resource actions", () => {
+    const config = guideDocumentToConfig({
+      schemaVersion: 1,
+      platforms: [{ id: "routers", displayName: { en: "Routers" }, apps: [{ name: "Router" }] }],
+    });
+    expect(config?.platforms).toHaveProperty("routers");
+    expect(
+      resolveInstallButtonAction(
+        {
+          action: {
+            kind: "open",
+            target: {
+              kind: "resource",
+              resourceId: "primary-subscription",
+              representation: "http",
+            },
+          },
+        },
+        {
+          subscription: {
+            link_mode: "minishop",
+            http_url: "https://shop.test/s/token",
+            config_link: "happ://encrypted",
+          },
+        }
+      )
+    ).toEqual({ kind: "open", value: "https://shop.test/s/token" });
+  });
+
+  it("uses the selected subscription button action for the QR link", () => {
+    const context = { subscription: { http_url: "https://shop.test/s/token" } };
+    const blocks = [
+      {
+        buttons: [
+          { type: "external", link: "https://apps.example.test/download" },
+          {
+            type: "subscriptionLink",
+            link: "{{INCY_CRYPT1_LINK}}",
+            action: {
+              kind: "open",
+              target: {
+                kind: "resource",
+                resourceId: "primary-subscription",
+                representation: "incy-crypt1",
+              },
+            },
+          },
+        ],
+      },
+    ];
+    const actions = blocks.map((block) =>
+      block.buttons.map((button) => resolveInstallButtonAction(button, context))
+    );
+    const qrLink = resolveInstallQrLink(blocks, actions);
+
+    expect(qrLink).toBe(actions[0][1].value);
+    expect(decryptLink(qrLink)).toEqual({ url: context.subscription.http_url });
+    expect(resolveInstallQrLink([{ buttons: [blocks[0].buttons[0]] }], [actions[0]])).toBe("");
   });
 });

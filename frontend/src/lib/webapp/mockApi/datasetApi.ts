@@ -1,3 +1,4 @@
+import { adminBroadcastDemoResponse } from "./adminBroadcasts";
 import { loadDemoDocuments, storeDemoDocuments } from "./documentsState";
 import { DEV_MOCK } from "../previewMock.js";
 import { adminGiftDemoStats } from "./giftsDemo";
@@ -13,14 +14,12 @@ import { demoProviderCurrencySupport } from "./providers";
 import { demoSettingsSections, persistDemoSettings } from "./settings";
 import {
   demoAds,
-  demoBroadcasts,
   demoPromos,
   demoSettingsChanges,
   demoSupportMessages,
   demoSupportTickets,
   demoTariffs,
   setDemoAds,
-  setDemoBroadcasts,
   setDemoPromos,
   setDemoTariffs,
 } from "./state";
@@ -38,50 +37,6 @@ import {
   withDemoReferralSummary,
 } from "./users";
 
-const DEMO_SHORTCODE_META: [string, string, string][] = [
-  ["first_name", "db", "First name"],
-  ["last_name", "db", "Last name"],
-  ["username", "db", "@username"],
-  ["user_id", "db", "User ID"],
-  ["email", "db", "User email"],
-  ["end_date", "db", "Subscription end date"],
-  ["days_left", "db", "Days until expiry"],
-  ["subscription_status", "db", "Subscription status"],
-  ["tariff_name", "db", "Tariff name"],
-  ["tariff_price", "db", "Tariff price"],
-  ["traffic_used", "db", "Traffic used, GB"],
-  ["traffic_limit", "db", "Traffic limit, GB"],
-  ["traffic_left", "db", "Traffic left, GB"],
-  ["install_link", "db", "Connection guide link"],
-  ["miniapp_link", "db", "Mini App link"],
-  ["config_link", "panel", "Subscription key link"],
-  ["referral_code", "db", "Referral code"],
-  ["referral_bot_link", "db", "Referral link (bot)"],
-  ["referral_webapp_link", "db", "Referral link (Mini App)"],
-];
-
-const DEMO_SHORTCODE_VALUES: Record<string, string> = {
-  first_name: "Alex",
-  last_name: "Petrov",
-  username: "@alex",
-  user_id: "100245",
-  email: "alex@example.com",
-  end_date: "2030-05-01",
-  days_left: "42",
-  subscription_status: "active",
-  tariff_name: "Premium",
-  tariff_price: "299 RUB",
-  traffic_used: "30",
-  traffic_limit: "100",
-  traffic_left: "70",
-  install_link: "https://app.example/s/demo",
-  miniapp_link: "https://app.example/",
-  config_link: "happ://crypt4/demo",
-  referral_code: "AB12CD",
-  referral_bot_link: "https://t.me/demo_bot?start=ref_uAB12CD",
-  referral_webapp_link: "https://app.example/?ref=uAB12CD",
-};
-
 const demoInformationPages = new Map<string, string>();
 const demoDocuments = loadDemoDocuments();
 
@@ -89,27 +44,6 @@ function demoSortValue(value: unknown): AdminSortValue {
   if (value == null || typeof value === "string" || typeof value === "number") return value;
   if (typeof value === "boolean" || value instanceof Date) return value;
   return String(value);
-}
-
-function demoBroadcastShortcodes(): { shortcodes: DemoRecord[]; allowed_tags: string[] } {
-  return {
-    shortcodes: DEMO_SHORTCODE_META.map(([name, cost, description]) => ({
-      name,
-      cost,
-      description,
-    })),
-    allowed_tags: ["b", "i", "u", "s", "code", "a", "pre", "blockquote"],
-  };
-}
-
-function renderDemoShortcodes(text: string): { text: string; unknown: string[] } {
-  const unknown = new Set<string>();
-  const rendered = text.replace(/\{([a-z_][a-z0-9_]*)\}/g, (whole, name: string) => {
-    if (name in DEMO_SHORTCODE_VALUES) return DEMO_SHORTCODE_VALUES[name];
-    unknown.add(name);
-    return whole;
-  });
-  return { text: rendered, unknown: [...unknown] };
 }
 
 export function demoApiResponse(
@@ -130,131 +64,14 @@ export function demoApiResponse(
     const stats = clone(DATASET.stats) as DemoRecord;
     return { ...stats, financial: { ...(stats.financial as DemoRecord), ...adminGiftDemoStats() } };
   }
-  if (cleanPath === "/admin/broadcast/audience-counts") {
-    return {
-      ok: true,
-      counts: { all: 1280, active: 742, inactive: 538, expired: 311, never: 227, admins: 2 },
-      email_enabled: true,
-    };
-  }
-  if (cleanPath === "/admin/broadcast" && method === "POST") {
-    const body = jsonBody(options);
-    const channels = Array.isArray(body.channels) ? body.channels : ["telegram"];
-    const target = String(body.target || "all");
-    const queued = channels.includes("telegram") ? (target === "admins" ? 2 : 1280) : 0;
-    const emailQueued = channels.includes("email") ? (target === "admins" ? 1 : 486) : 0;
-    const scheduledAt = body.scheduled_at ? new Date(String(body.scheduled_at)) : new Date();
-    const scheduled = scheduledAt.getTime() > Date.now();
-    const existing = demoBroadcasts();
-    const broadcastId =
-      Math.max(100, ...existing.map((item) => Number(item.broadcast_id) || 0)) + 1;
-    const now = new Date().toISOString();
-    const broadcast: DemoRecord = {
-      broadcast_id: broadcastId,
-      status: scheduled ? "scheduled" : "running",
-      target,
-      channels,
-      texts:
-        body.texts && typeof body.texts === "object" ? body.texts : { ru: String(body.text || "") },
-      email_subjects:
-        body.email_subjects && typeof body.email_subjects === "object"
-          ? body.email_subjects
-          : body.email_subject
-            ? { ru: String(body.email_subject) }
-            : {},
-      buttons: Array.isArray(body.buttons) ? body.buttons : [],
-      scheduled_at: scheduledAt.toISOString(),
-      created_at: now,
-      started_at: scheduled ? null : now,
-      finished_at: null,
-      updated_at: now,
-      recipient_count: scheduled ? 0 : target === "admins" ? 2 : 1280,
-      total_deliveries: scheduled ? 0 : queued + emailQueued,
-      successful_deliveries: 0,
-      failed_deliveries: 0,
-      telegram_sent: 0,
-      telegram_failed: 0,
-      email_sent: 0,
-      email_failed: 0,
-      last_error: null,
-    };
-    if (!target.startsWith("user:")) setDemoBroadcasts([broadcast, ...existing]);
-    return {
-      ok: true,
-      queued,
-      failed: 0,
-      email_queued: emailQueued,
-      target,
-      channels,
-      broadcast,
-    };
-  }
-  if (cleanPath === "/admin/broadcasts" && method === "GET") {
-    const next = demoBroadcasts().map((item) => {
-      if (item.status !== "running") return item;
-      const total = Number(item.total_deliveries || 0);
-      const sent = Math.min(total, Number(item.successful_deliveries || 0) + 117);
-      const telegramSent =
-        Array.isArray(item.channels) && item.channels.includes("telegram")
-          ? Math.min(total, Number(item.telegram_sent || 0) + 91)
-          : 0;
-      const emailSent = Math.max(0, sent - telegramSent - Number(item.failed_deliveries || 0));
-      const completed = total > 0 && sent + Number(item.failed_deliveries || 0) >= total;
-      return {
-        ...item,
-        status: completed ? "completed_with_errors" : "running",
-        successful_deliveries: sent,
-        telegram_sent: telegramSent,
-        email_sent: emailSent,
-        updated_at: new Date().toISOString(),
-        finished_at: completed ? new Date().toISOString() : null,
-      };
-    });
-    setDemoBroadcasts(next);
-    return { ok: true, broadcasts: clone(next) };
-  }
-  const broadcastItemMatch = cleanPath.match(/^\/admin\/broadcasts\/(\d+)$/);
-  if (broadcastItemMatch && method === "DELETE") {
-    const broadcastId = Number(broadcastItemMatch[1]);
-    setDemoBroadcasts(demoBroadcasts().filter((item) => Number(item.broadcast_id) !== broadcastId));
-    return { ok: true, deleted: true, broadcast_id: broadcastId };
-  }
-  if (broadcastItemMatch && method === "PATCH") {
-    const broadcastId = Number(broadcastItemMatch[1]);
-    const body = jsonBody(options);
-    const scheduledAt = new Date(String(body.scheduled_at || ""));
-    const next = demoBroadcasts().map((item) =>
-      Number(item.broadcast_id) === broadcastId
-        ? {
-            ...item,
-            status: "scheduled",
-            scheduled_at: scheduledAt.toISOString(),
-            updated_at: new Date().toISOString(),
-          }
-        : item
-    );
-    setDemoBroadcasts(next);
-    return {
-      ok: true,
-      ...clone(next.find((item) => Number(item.broadcast_id) === broadcastId) || {}),
-    };
-  }
-  if (cleanPath === "/admin/broadcast/shortcodes") {
-    return { ok: true, ...demoBroadcastShortcodes() };
-  }
-  if (cleanPath === "/admin/broadcast/preview" && method === "POST") {
-    const body = jsonBody(options);
-    const rendered = renderDemoShortcodes(String(body.text || ""));
-    const subjectRaw = String(body.email_subject || "");
-    return {
-      ok: true,
-      rendered_text: rendered.text,
-      rendered_subject: subjectRaw ? renderDemoShortcodes(subjectRaw).text : null,
-      unknown_shortcodes: rendered.unknown,
-      length: rendered.text.length,
-      sent: String(body.mode || "render") === "send_telegram",
-    };
-  }
+  const broadcastResponse = adminBroadcastDemoResponse({
+    cleanPath,
+    method,
+    options,
+    params,
+    clone,
+  });
+  if (broadcastResponse !== undefined) return broadcastResponse;
   if (cleanPath === "/admin/sync") return { ok: true, status: "queued" };
 
   if (cleanPath === "/admin/health") {
@@ -429,6 +246,21 @@ export function demoApiResponse(
       },
     };
     if (parts[4]) {
+      if (parts[4] === "tariff" && method === "POST") {
+        const tariffKey = String(jsonBody(options).tariff_key || "");
+        const tariff = ((demoTariffs().tariffs || []) as DemoRecord[]).find(
+          (item) => item.key === tariffKey && item.billing_model === "period"
+        );
+        if (!tariff || !detail.active_subscription) {
+          return { ok: false, error: "invalid_tariff" };
+        }
+        const subscription = detail.active_subscription;
+        subscription.tariff_key = tariffKey;
+        if (jsonBody(options).apply_tariff_hwid_limit) {
+          subscription.hwid_device_limit = tariff.hwid_device_limit ?? null;
+        }
+        return { ok: true, subscription: clone(subscription) };
+      }
       if (parts[4] === "notification-preferences" && method === "PATCH") {
         const notificationPreferences = jsonBody(options);
         detail.notification_preferences = notificationPreferences;
@@ -551,7 +383,39 @@ export function demoApiResponse(
       });
       return { ok: true, promo: clone(demoPromos()[0]) };
     }
-    const promos = demoPromos();
+    const now = Date.now();
+    const search = String(params.get("search") || "")
+      .trim()
+      .toLowerCase();
+    const status = String(params.get("status") || "")
+      .trim()
+      .toLowerCase();
+    const scope = String(params.get("scope") || "")
+      .trim()
+      .toLowerCase();
+    const kind = String(params.get("kind") || "")
+      .trim()
+      .toLowerCase();
+    const allPromos = demoPromos();
+    const promos = allPromos.filter((promo) => {
+      if (
+        search &&
+        !String(promo.code || "")
+          .toLowerCase()
+          .includes(search)
+      )
+        return false;
+      if (scope && String(promo.applies_to || "all").toLowerCase() !== scope) return false;
+      if (kind === "personal" && !promo.user_id) return false;
+      if (kind === "shared" && promo.user_id) return false;
+      const expired = Boolean(promo.valid_until) && Date.parse(String(promo.valid_until)) <= now;
+      const usedUp = Number(promo.current_activations || 0) >= Number(promo.max_activations || 0);
+      if (status === "disabled") return promo.is_active === false;
+      if (status === "expired") return promo.is_active !== false && expired;
+      if (status === "used_up") return promo.is_active !== false && !expired && usedUp;
+      if (status === "active") return promo.is_active !== false && !expired && !usedUp;
+      return true;
+    });
     const sort = params.get("sort") || "created_desc";
     const page = paged(
       sortAdminRows(promos, sort, [
@@ -629,8 +493,26 @@ export function demoApiResponse(
       ok: true,
       promos: clone(page.items),
       total: page.total,
+      owned_total: allPromos.filter((promo) => Boolean(promo.user_id)).length,
       page: page.page,
       page_size: page.pageSize,
+    };
+  }
+  const promoActivationsMatch = cleanPath.match(/^\/admin\/promos\/(\d+)\/activations$/);
+  if (promoActivationsMatch) {
+    const promo = demoPromos().find((item) => item.id === Number(promoActivationsMatch[1]));
+    if (!promo) return { ok: false, error: "not_found" };
+    return {
+      ok: true,
+      activations: [],
+      total: 0,
+      page: Number(params.get("page") || 0),
+      page_size: Number(params.get("page_size") || 25),
+      revenue_summary: {
+        payments_total: 0,
+        revenue_payments: 0,
+        currencies: [],
+      },
     };
   }
   if (cleanPath.startsWith("/admin/promos/")) {

@@ -18,6 +18,7 @@ from bot.services.email_templates_common import EmailContent
 from bot.services.message_composition import telegram_markup_for_buttons
 from bot.services.message_image_service import StoredMessageImage, load_message_image
 from bot.services.message_image_telegram import prepare_telegram_photo
+from bot.services.notification_user_context import NotificationUserContextMixin
 from bot.services.support_message_body import (
     BODY_FORMAT_TEXT,
     support_body_plain_text,
@@ -47,14 +48,16 @@ SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_KEY = "SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABL
 SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_KEY = "SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_ENABLED"
 
 
-class NotificationSupportMixin:
+class NotificationSupportMixin(NotificationUserContextMixin):
     if TYPE_CHECKING:
         settings: Settings
         i18n: JsonI18n | None
         session_factory: Any
         email_auth_service: EmailAuthService | None
         bot_username: str
-        bot: Bot
+        bot: Bot | None
+
+        async def _admin_telegram_ids(self) -> list[int]: ...
 
         async def _send_to_admins(
             self,
@@ -151,7 +154,7 @@ class NotificationSupportMixin:
         if user.username:
             display = f"{name or user.username} (@{user.username})"
         else:
-            display = name or f"ID {user.user_id}"
+            display = name or f"ID {getattr(user, 'minishop_id', None) or '—'}"
         email = str(getattr(user, "email", None) or "").strip()
         if email:
             return f"{display} · {email}" if display and display != email else email
@@ -190,7 +193,10 @@ class NotificationSupportMixin:
         return bool(value)
 
     async def support_admin_email_notifications_enabled(self) -> bool:
-        enabled = bool(getattr(self.settings, SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_KEY, False))
+        enabled = bool(
+            getattr(self.settings, SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_KEY, False)
+            or (not self.settings.TELEGRAM_ENABLED and self.settings.smtp_delivery_configured)
+        )
         if not self.session_factory:
             return enabled
         try:
@@ -207,6 +213,8 @@ class NotificationSupportMixin:
         return self._coerce_bool_setting(raw_value, enabled)
 
     async def support_admin_telegram_notifications_enabled(self) -> bool:
+        if not self.settings.TELEGRAM_ENABLED or self.bot is None:
+            return False
         enabled = bool(getattr(self.settings, SUPPORT_ADMIN_TELEGRAM_NOTIFICATIONS_KEY, True))
         if not self.session_factory:
             return enabled
@@ -253,9 +261,9 @@ class NotificationSupportMixin:
                 )
             ]
         ]
-        if admin:
+        if admin and web_app_buttons:
             profile_row = []
-            if getattr(user, "user_id", 0) and int(user.user_id) > 0:
+            if getattr(user, "telegram_id", None) and int(user.telegram_id) > 0:
                 profile_row.append(
                     InlineKeyboardButton(
                         text=self._support_text(
@@ -263,10 +271,11 @@ class NotificationSupportMixin:
                             "support_profile_button",
                             "Profile",
                         ),
-                        url=f"tg://user?id={user.user_id}",
+                        url=f"tg://user?id={user.telegram_id}",
                     )
                 )
-            user_card_path = f"/admin/users/{user.user_id}"
+            user_card_id = getattr(user, "minishop_id", None) or user.user_id
+            user_card_path = f"/admin/users/{user_card_id}"
             if self._support_webapp_url(user_card_path):
                 profile_row.append(
                     self._support_mini_app_button(
@@ -276,13 +285,25 @@ class NotificationSupportMixin:
                             "User card",
                         ),
                         path=user_card_path,
-                        start_param=f"admin_user_{user.user_id}",
+                        start_param=f"admin_user_{user_card_id}",
                         fallback_url=self._support_ticket_url(ticket.ticket_id, admin=True),
                         web_app_button=web_app_buttons,
                     )
                 )
             if profile_row:
                 rows.append(profile_row)
+        elif admin:
+            translate = lambda key, **kwargs: self._support_text(
+                self.settings.DEFAULT_LANGUAGE, key, key, **kwargs
+            )
+            navigation = self._build_profile_keyboard(
+                translate,
+                getattr(user, "telegram_id", None),
+                user_id=user.user_id,
+                minishop_id=getattr(user, "minishop_id", None),
+            )
+            if navigation is not None:
+                rows.extend(navigation.inline_keyboard)
         return InlineKeyboardMarkup(inline_keyboard=rows)
 
     def _support_log_thread_id(self) -> int | None:
@@ -304,7 +325,7 @@ class NotificationSupportMixin:
         thread_id = self._support_log_thread_id()
         if not self._support_thread_is_configured():
             if image is not None:
-                for admin_id in self.settings.ADMIN_IDS:
+                for admin_id in await self._admin_telegram_ids():
                     await self._send_support_photo(int(admin_id), image)
             await self._send_to_admins(message, reply_markup=admin_markup)
         if image is not None and self.settings.LOG_CHAT_ID:
@@ -326,6 +347,8 @@ class NotificationSupportMixin:
         *,
         thread_id: int | None = None,
     ) -> None:
+        if self.bot is None:
+            return
         queue_manager = get_queue_manager()
         try:
             photo = await prepare_telegram_photo(image)
@@ -382,8 +405,10 @@ class NotificationSupportMixin:
         if not self.session_factory:
             return []
         async with self.session_factory() as session:
+            from bot.services.account_roles import active_admin_user_ids
+
             users = []
-            for admin_id in self.settings.ADMIN_IDS:
+            for admin_id in await active_admin_user_ids(session):
                 user = await user_dal.get_user_by_id(session, int(admin_id))
                 if user and user.email:
                     users.append(user)
@@ -435,17 +460,24 @@ class NotificationSupportMixin:
             "support_admin_new_ticket_message",
             (
                 "🆘 <b>New ticket #{ticket_id}</b>\n"
-                "{priority_emoji} <b>{priority}</b> · {category}\n\n"
+                "{priority_emoji} <b>{priority}</b> · {category}\n"
+                "<b>Subject:</b> {subject}\n\n"
                 "<b>User</b>\n{user}\nID: <code>{user_id}</code>\n\n"
                 "<b>Subscription</b>\n{tariff}, until {end_date}, remaining {remaining}\n"
                 "status: {status}\n\n<b>Message</b>\n{message}"
             ),
             ticket_id=ticket.ticket_id,
+            subject=hd.quote(ticket.subject),
             priority_emoji=priority_emoji,
             priority=hd.quote(ticket.priority),
             category=hd.quote(ticket.category),
-            user=hd.quote(user_display),
-            user_id=user.user_id,
+            user=self._format_user_display(
+                str(getattr(user, "minishop_id", None) or "—"),
+                username=getattr(user, "username", None),
+                email=getattr(user, "email", None),
+                telegram_id=getattr(user, "telegram_id", None),
+            ),
+            user_id=hd.quote(str(getattr(user, "minishop_id", None) or "—")),
             tariff=hd.quote(str(snapshot.get("tariff") or "—")),
             end_date=hd.quote(str(snapshot.get("end_date") or "—")),
             remaining=hd.quote(str(snapshot.get("remaining") or "—")),
@@ -505,9 +537,16 @@ class NotificationSupportMixin:
         text = self._support_text(
             self.settings.DEFAULT_LANGUAGE,
             "support_admin_user_reply_message",
-            "💬 <b>User reply in ticket #{ticket_id}</b>\n{user}{unread}\n\n{message}",
+            "💬 <b>User reply in ticket #{ticket_id}</b>\n"
+            "<b>Subject:</b> {subject}\n{user}{unread}\n\n{message}",
             ticket_id=ticket.ticket_id,
-            user=hd.quote(user_display),
+            subject=hd.quote(ticket.subject),
+            user=self._format_user_display(
+                str(getattr(user, "minishop_id", None) or "—"),
+                username=getattr(user, "username", None),
+                email=getattr(user, "email", None),
+                telegram_id=getattr(user, "telegram_id", None),
+            ),
             unread=unread_line,
             message=preview_html,
         )
@@ -554,10 +593,10 @@ class NotificationSupportMixin:
             self.settings,
             UserNotificationCategory.SUPPORT,
             user,
-            telegram_available=chat_id is not None,
+            telegram_available=chat_id is not None and self.bot is not None,
             email_available=bool(self.email_auth_service and recipient_email),
         )
-        if plan.telegram and chat_id is not None:
+        if plan.telegram and chat_id is not None and self.bot is not None:
             queue_manager = get_queue_manager()
             if queue_manager:
                 if image is not None:
@@ -614,10 +653,10 @@ class NotificationSupportMixin:
             self.settings,
             UserNotificationCategory.SUPPORT,
             user,
-            telegram_available=chat_id is not None,
+            telegram_available=chat_id is not None and self.bot is not None,
             email_available=bool(self.email_auth_service and recipient_email),
         )
-        if plan.telegram and chat_id is not None:
+        if plan.telegram and chat_id is not None and self.bot is not None:
             queue_manager = get_queue_manager()
             if queue_manager:
                 await send_message_via_queue(

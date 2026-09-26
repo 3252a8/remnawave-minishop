@@ -35,6 +35,8 @@ SUBSCRIPTION_PURCHASE_DESCRIPTION_SETTINGS = (
 
 SUBSCRIPTION_GUIDE_SETTINGS = (
     "SUBSCRIPTION_GUIDES_ENABLED",
+    "SUBSCRIPTION_GATEWAY_ENABLED",
+    "SUBSCRIPTION_LINK_MODE",
     "SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED",
     "SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED",
     "SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED",
@@ -107,7 +109,7 @@ ADMIN_TARIFF_SETTINGS_PAGE_KEYS = {
     "admin_tariffs_trial_title",
     "admin_tariffs_trial_subtitle",
     "admin_tariffs_trial_enabled",
-    "admin_tariffs_trial_without_telegram_enabled",
+    "admin_tariffs_trial_without_oauth_enabled",
     "admin_tariffs_trial_days",
     "admin_tariffs_trial_traffic",
     "admin_tariffs_trial_premium_traffic",
@@ -209,6 +211,23 @@ def test_webapp_title_is_first_general_admin_setting():
     assert field["section"] == "general"
     assert field["section_order"] == 1
     assert next(item["key"] for item in items if item["section"] == "general") == "WEBAPP_TITLE"
+
+
+def test_webapp_session_lifetime_is_editable_in_general_settings():
+    field = _manifest_by_key()["WEBAPP_SESSION_TTL_SECONDS"]
+
+    assert field["section"] == "general"
+    assert field["type"] == "int"
+    assert field["optional"] is False
+    assert field["min"] == 60
+    assert coerce_value(get_field_by_key("WEBAPP_SESSION_TTL_SECONDS"), "2592000") == 2592000
+    with pytest.raises(ValueError):
+        coerce_value(get_field_by_key("WEBAPP_SESSION_TTL_SECONDS"), "59")
+
+    for language in ("ru", "en"):
+        messages = _locale(language)
+        assert field["i18n_label_key"] in messages
+        assert field["i18n_description_key"] in messages
 
 
 def test_broadcast_blocked_filter_is_a_general_admin_setting():
@@ -329,6 +348,26 @@ def test_compact_home_toggle_is_an_appearance_setting():
         assert field["i18n_description_key"] in messages
 
 
+def test_compact_login_toggles_are_localized():
+    manifest = _manifest_by_key()
+    global_field = manifest["WEBAPP_COMPACT_LOGIN_ENABLED"]
+    assert global_field["type"] == "bool"
+    assert global_field["section"] == "appearance"
+    for provider in ("telegram", "email", "google", "yandex", "discord", "passkey"):
+        field = manifest[f"{provider.upper()}_LOGIN_WIDE_BUTTON"]
+        assert field["type"] == "bool"
+        assert field["section"] == "login_methods"
+        assert field["subsection"] == provider
+        for language in ("ru", "en"):
+            messages = _locale(language)
+            assert field["i18n_label_key"] in messages
+            assert field["i18n_description_key"] in messages
+    for language in ("ru", "en"):
+        messages = _locale(language)
+        assert global_field["i18n_label_key"] in messages
+        assert global_field["i18n_description_key"] in messages
+
+
 def test_checkout_addon_ux_toggles_are_appearance_settings():
     manifest = _manifest_by_key()
     for key in (
@@ -447,6 +486,19 @@ def test_subscription_guide_settings_i18n_keys_exist():
 
     assert manifest["SUBSCRIPTION_GUIDES_ENABLED"]["section"] == "subscription_guides"
     assert manifest["SUBSCRIPTION_GUIDES_ENABLED"]["section_order"] == 10
+    assert manifest["SUBSCRIPTION_GATEWAY_ENABLED"]["section"] == "subscription_guides"
+    assert manifest["SUBSCRIPTION_GATEWAY_ENABLED"]["type"] == "bool"
+    link_mode = manifest["SUBSCRIPTION_LINK_MODE"]
+    assert link_mode["section"] == "subscription_guides"
+    assert link_mode["type"] == "string"
+    assert link_mode["optional"] is False
+    assert [choice["value"] for choice in link_mode["choices"]] == ["panel", "minishop"]
+    field = get_field_by_key("SUBSCRIPTION_LINK_MODE")
+    assert field is not None
+    assert coerce_value(field, "minishop") == "minishop"
+    assert coerce_value(field, "panel") == "panel"
+    with pytest.raises(ValueError, match="unsupported choice"):
+        coerce_value(field, "other")
     assert manifest["SUBSCRIPTION_PAGE_CONFIG_JSON"]["type"] == "json"
 
     for language in ("ru", "en"):
@@ -648,7 +700,7 @@ def test_trial_required_settings_reject_empty_values():
         "TRIAL_DAYS_STRATEGY",
         "TRIAL_TRAFFIC_LIMIT_GB",
         "TRIAL_TRAFFIC_STRATEGY",
-        "TRIAL_WITHOUT_TELEGRAM_ENABLED",
+        "TRIAL_WITHOUT_OAUTH_ENABLED",
     ):
         with pytest.raises(ValueError):
             coerce_value(get_field_by_key(key), "")
@@ -817,8 +869,8 @@ def test_legacy_tariff_settings_are_separated_from_payment_settings():
     assert manifest["TRIAL_PAYMENT_ENABLED"]["subsection"] == "trial"
     assert manifest["TRIAL_PAYMENT_PRICE"]["min"] == 0
     assert manifest["TRIAL_PAYMENT_STARS_PRICE"]["min"] == 0
-    assert manifest["TRIAL_WITHOUT_TELEGRAM_ENABLED"]["section"] == "system"
-    assert manifest["TRIAL_WITHOUT_TELEGRAM_ENABLED"]["subsection"] == "email_anti_abuse"
+    assert manifest["TRIAL_WITHOUT_OAUTH_ENABLED"]["section"] == "system"
+    assert manifest["TRIAL_WITHOUT_OAUTH_ENABLED"]["subsection"] == "email_anti_abuse"
     assert manifest["TRIAL_SQUAD_UUIDS"]["section"] == "pricing"
     assert manifest["TRIAL_SQUAD_UUIDS"]["subsection"] == "trial"
     assert manifest["TRIAL_PREMIUM_TRAFFIC_LIMIT_GB"]["section"] == "pricing"
@@ -863,7 +915,7 @@ def test_legacy_tariff_settings_are_separated_from_payment_settings():
     assert manifest["DISPOSABLE_EMAIL_DOMAINS"]["section"] == "system"
     assert manifest["DISPOSABLE_EMAIL_DOMAINS"]["subsection"] == "email_anti_abuse"
     for key in (
-        "TRIAL_WITHOUT_TELEGRAM_ENABLED",
+        "TRIAL_WITHOUT_OAUTH_ENABLED",
         "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
         "DISPOSABLE_EMAIL_DOMAINS",
     ):

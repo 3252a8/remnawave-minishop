@@ -57,7 +57,7 @@ class RegistrationInviteMiddleware(BaseMiddleware):
 
         update = cast(Update, event)
         event_user: User | None = data.get("event_from_user")
-        if not event_user or event_user.id in self.settings.ADMIN_IDS:
+        if not event_user:
             return await handler(event, data)
 
         if not (update.message or update.callback_query or update.inline_query):
@@ -76,8 +76,6 @@ class RegistrationInviteMiddleware(BaseMiddleware):
         else:
             try:
                 db_user = await user_dal.get_user_by_telegram_id(session, event_user.id)
-                if not db_user:
-                    db_user = await user_dal.get_user_by_id(session, event_user.id)
                 registered = db_user is not None
             except Exception as db_error:
                 logger.exception(

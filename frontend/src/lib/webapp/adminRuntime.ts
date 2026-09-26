@@ -3,6 +3,9 @@ import { createAdminBundle } from "./adminBundle.js";
 type WebappRecord = Record<string, unknown>;
 
 type AdminBundleApi = WebappRecord | null;
+type RuntimeExtensionInstaller = (bundle: {
+  registerRuntimeExtensions?: (plugins: unknown[]) => void;
+}) => number | null;
 type AdminPersistOptions = {
   updates?: Record<string, unknown>;
   deletes?: string[];
@@ -10,49 +13,44 @@ type AdminPersistOptions = {
 };
 
 type AdminRuntimeDeps = {
-  fetchI18nScope: (scope: string) => Promise<WebappRecord | null>;
+  loadI18nScope: (scope: "webapp" | "admin", language: string, fresh?: boolean) => Promise<void>;
+  getCurrentLang: () => string;
   getAdminAssets: () => { adminCssAsset?: unknown; adminJsAsset?: unknown };
   getIsMock: () => boolean;
   getShouldPrefetch: () => boolean;
   invalidateTariffOptionCaches: () => void;
   loadData: (options?: WebappRecord) => Promise<unknown>;
-  mergeMessages: (messages: unknown) => void;
+  prepareRuntimeExtensions?: () => Promise<RuntimeExtensionInstaller | null>;
   resetInstallGuides: () => void;
   setBundleState: (api: AdminBundleApi, error: string) => void;
 };
 
 export function createAdminRuntime({
-  fetchI18nScope,
+  loadI18nScope,
+  getCurrentLang,
   getAdminAssets,
   getIsMock,
   getShouldPrefetch,
   invalidateTariffOptionCaches,
   loadData,
-  mergeMessages,
+  prepareRuntimeExtensions,
   resetInstallGuides,
   setBundleState,
 }: AdminRuntimeDeps) {
-  let adminI18nLoaded = false;
-  let adminI18nPromise: Promise<unknown> | null = null;
+  let runtimeGeneration: number | null = null;
 
   async function refreshI18nScope(scope: string) {
     if (getIsMock()) return;
     try {
-      const payload = await fetchI18nScope(scope);
-      if (payload?.ok && payload.i18n) mergeMessages(payload.i18n);
-      if (scope === "admin") adminI18nLoaded = true;
+      await loadI18nScope(scope === "admin" ? "admin" : "webapp", getCurrentLang(), true);
     } catch (_error) {
       void _error;
     }
   }
 
   function ensureI18nScope(scope: string) {
-    if (getIsMock() || scope !== "admin" || adminI18nLoaded) return Promise.resolve();
-    if (adminI18nPromise) return adminI18nPromise;
-    adminI18nPromise = refreshI18nScope("admin").finally(() => {
-      adminI18nPromise = null;
-    });
-    return adminI18nPromise;
+    if (getIsMock() || scope !== "admin") return Promise.resolve();
+    return loadI18nScope("admin", getCurrentLang());
   }
 
   const adminBundle = createAdminBundle({
@@ -73,9 +71,34 @@ export function createAdminRuntime({
     adminBundle.cancelPrefetch();
   }
 
-  async function ensureAdminBundle() {
+  async function preloadAdminBundle() {
     try {
       return await adminBundle.ensure();
+    } finally {
+      syncBundleState();
+    }
+  }
+
+  async function ensureAdminBundle() {
+    try {
+      // Fetch package descriptors while the admin bundle and translations load.
+      // Install them only after the bundle is ready, before the admin mounts.
+      const runtimeExtensions = prepareRuntimeExtensions?.().catch(() => null);
+      const [loaded, , installRuntimeExtensions] = await Promise.all([
+        adminBundle.ensure(),
+        ensureI18nScope("admin"),
+        runtimeExtensions,
+      ]);
+      const bundle = adminBundle.getApi();
+      if (loaded && bundle && installRuntimeExtensions) {
+        const generation = installRuntimeExtensions(bundle);
+        if (generation !== null) {
+          if (runtimeGeneration !== null && generation !== runtimeGeneration)
+            await refreshI18nScope("admin");
+          runtimeGeneration = generation;
+        }
+      }
+      return loaded;
     } finally {
       syncBundleState();
     }
@@ -113,7 +136,6 @@ export function createAdminRuntime({
   }
 
   async function handleAdminTranslationsSaved(options: AdminPersistOptions = {}) {
-    adminI18nLoaded = false;
     await Promise.all([refreshI18nScope("webapp"), refreshI18nScope("admin")]);
     await handleAdminPersistedSaved({ ...options, deferFrontendReload: true });
   }
@@ -125,6 +147,7 @@ export function createAdminRuntime({
     ensureI18nScope,
     handleAdminPersistedSaved,
     handleAdminTranslationsSaved,
+    preloadAdminBundle,
     refreshI18nScope,
     scheduleAdminAssetsPrefetch,
     syncAdminMount,

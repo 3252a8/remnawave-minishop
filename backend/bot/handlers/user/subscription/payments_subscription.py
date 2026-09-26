@@ -15,6 +15,7 @@ from bot.keyboards.inline.user_keyboards import (
 )
 from bot.middlewares.i18n import JsonI18n
 from bot.services.checkout_promos import CheckoutPromoResult
+from bot.services.telegram_account import require_telegram_account_id
 from bot.utils.callback_answer import callback_data, callback_message
 from config.settings import Settings
 
@@ -32,6 +33,7 @@ async def select_subscription_period_callback_handler(
     i18n_data: dict,
     session: AsyncSession,
 ) -> None:
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -73,7 +75,7 @@ async def select_subscription_period_callback_handler(
                 spec.price_source != "stars"
                 and spec.is_available_to_user(
                     settings,
-                    user_id=callback.from_user.id,
+                    user_id=account_user_id,
                     require_configured=False,
                 )
                 for spec in iter_provider_specs()
@@ -112,7 +114,7 @@ async def select_subscription_period_callback_handler(
         promo_quote, stars_promo_quote = await _resolve_period_promo(
             session,
             settings,
-            user_id=callback.from_user.id,
+            user_id=account_user_id,
             sale_mode=sale_mode,
             months=int(months),
             price=float(price_rub),
@@ -144,7 +146,7 @@ async def select_subscription_period_callback_handler(
             callback_context,
             promo_enabled=promo_enabled,
         ),
-        user_id=callback.from_user.id,
+        user_id=account_user_id,
         checkout_promo=promo_quote,
         checkout_stars_promo=stars_promo_quote,
     )

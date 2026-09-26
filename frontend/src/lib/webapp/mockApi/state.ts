@@ -220,6 +220,7 @@ function initialDemoBroadcasts(): DemoRecord[] {
       status: "completed_with_errors",
       target: "expired",
       channels: ["telegram"],
+      exclude_blocked_telegram: true,
       texts: {
         ru: "Ваша подписка закончилась. Продлите её в мини-приложении, чтобы снова подключиться.",
       },

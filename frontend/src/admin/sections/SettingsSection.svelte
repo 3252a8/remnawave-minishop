@@ -15,6 +15,7 @@
     settingsPathKey,
     settingsSectionAnchorKey,
     settingsSectionRoute,
+    settingsSubsectionAnchorKey,
     settingsSubsectionRoute,
   } from "$lib/admin/settingsSections";
   import {
@@ -134,6 +135,20 @@
       fieldDescriptionText,
     }),
     ...programSearchEntries(),
+    {
+      key: "ADMINISTRATORS",
+      sectionId: "general",
+      subsectionId: "administrators",
+      label: at("roles_title", {}, "Administrators"),
+      description: at("roles_hint", {}, "Choose an existing account to grant access."),
+      pathLabel: at("roles_title", {}, "Administrators"),
+      anchorKey: settingsSubsectionAnchorKey("general", "administrators"),
+      searchText: normalizeSettingsSearchText(
+        [at("roles_title", {}, "Administrators"), at("roles_hint", {}, ""), "ADMINISTRATORS"].join(
+          " "
+        )
+      ),
+    },
   ]);
   const settingsSearchResults = $derived(
     searchSettingsEntries(settingsSearchEntries, settingsSearchQuery, 8)
@@ -468,6 +483,19 @@
 
   async function applySettingsPath(path: unknown): Promise<void> {
     const resolvedPath = effectiveSettingsPath(path);
+    if (
+      resolvedPath[0]?.toLowerCase() === "general" &&
+      resolvedPath[1]?.toLowerCase() === "administrators"
+    ) {
+      settingsOpenSections = [...new Set([...settingsOpenSections, "general"])];
+      settingsOpenSubsections = {
+        ...settingsOpenSubsections,
+        general: [...new Set([...(settingsOpenSubsections.general || []), "administrators"])],
+      };
+      await tick();
+      scrollToSettingsAnchor(settingsSubsectionAnchorKey("general", "administrators"));
+      return;
+    }
     const firstSegment = resolvedPath[0]?.toLowerCase();
     const legacyProgram =
       firstSegment === "marketing" ? resolvedPath[1]?.toLowerCase() : firstSegment;
@@ -521,11 +549,15 @@
   }
 
   function valueFor(field: AdminSettingField): unknown {
-    if (settingsDirty[field.key]?.deleted) return "";
+    if (settingsDirty[field.key]?.deleted)
+      return field.key === "SUBSCRIPTION_LINK_MODE" ? false : "";
     if (Object.prototype.hasOwnProperty.call(settingsDirty, field.key)) {
-      return settingsDirty[field.key].value;
+      const value = settingsDirty[field.key].value;
+      return field.key === "SUBSCRIPTION_LINK_MODE" ? value === "minishop" : value;
     }
-    return field.value ?? "";
+    return field.key === "SUBSCRIPTION_LINK_MODE"
+      ? field.value === "minishop"
+      : (field.value ?? "");
   }
 
   function fieldTextValue(field: AdminSettingField): string {
@@ -735,7 +767,10 @@
   }
 
   function setBoolField(field: AdminSettingField, checked: boolean): void {
-    settingsStore.markDirty(field.key, checked);
+    settingsStore.markDirty(
+      field.key,
+      field.key === "SUBSCRIPTION_LINK_MODE" ? (checked ? "minishop" : "panel") : checked
+    );
     if (checked && field.mutually_exclusive_key) {
       settingsStore.markDirty(field.mutually_exclusive_key, false);
     }

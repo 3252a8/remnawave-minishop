@@ -80,7 +80,7 @@
       ? [
           providerLabel,
           payment.created_at ? fmtDate(payment.created_at) : "",
-          payment.user_label || payment.user_id,
+          payment.user_label || payment.user_minishop_id || "—",
         ]
           .filter(Boolean)
           .join(" · ")
@@ -362,7 +362,11 @@
 
   const userRows = $derived([
     { label: at("user", {}, "User"), value: payment?.user_label },
-    { label: "User ID", value: payment?.user_id, copy: payment?.user_id },
+    {
+      label: "ID",
+      value: payment?.user_minishop_id,
+      copy: payment?.user_minishop_id,
+    },
     { label: "Telegram ID", value: payment?.telegram_id, copy: payment?.telegram_id },
   ] satisfies MetaRow[]);
 

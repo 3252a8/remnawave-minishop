@@ -8,6 +8,7 @@ import type {
 import { recordField, recordOrNull, stringField, type WebappRecord } from "../domainTypes";
 import { buildPublicSubscriptionGuidesPath, buildSubscriptionGuidesPath } from "../publicApi";
 import { unwrap } from "../publicApi";
+import { guideDocumentToConfig } from "../guideDocument";
 
 type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type GuidesResponse =
@@ -62,7 +63,7 @@ export function createInstallGuidesStore({
     const payloadRecord = recordField(payload);
     return {
       enabled: Boolean(payload?.enabled),
-      config: recordOrNull(payload?.config),
+      config: guideDocumentToConfig(payloadRecord.guide_document) || recordOrNull(payload?.config),
       source: stringField(payload?.source) || null,
       subscription: payloadRecord.subscription ? recordField(payloadRecord.subscription) : null,
       error: stringField(payloadRecord.error),

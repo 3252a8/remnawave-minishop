@@ -30,6 +30,47 @@ class _SessionFactory:
 
 
 class WebAppPaymentStatusTests(IsolatedAsyncioTestCase):
+    async def test_active_wata_recurrence_requires_replacement_for_subscription_checkout(self):
+        session = AsyncMock()
+        settings = SimpleNamespace(DEFAULT_CURRENCY_SYMBOL="RUB")
+        active_subscription = SimpleNamespace(
+            provider="wata",
+            auto_renew_enabled=True,
+            tariff_key="standard",
+            end_date=None,
+        )
+        request = SimpleNamespace(app={})
+
+        with (
+            patch.object(billing_payments, "get_settings", return_value=settings),
+            patch.object(
+                billing_payments,
+                "snapshot_current_entitlement_context",
+                AsyncMock(return_value="entitlement-snapshot"),
+            ),
+            patch.object(
+                billing_payments.subscription_dal,
+                "get_active_subscription_by_user_id",
+                AsyncMock(return_value=active_subscription),
+            ),
+            patch.object(billing_payments, "_active_tribute_recurrence", return_value=False),
+        ):
+            response = await billing_payments._create_subscription_payment(
+                request=request,
+                session=session,
+                user_id=1001,
+                method="wata",
+                months=1,
+                price=700,
+                stars_price=None,
+                lang="en",
+                currency="RUB",
+                sale_mode="subscription@standard",
+            )
+
+        self.assertEqual(response.status, 409)
+        self.assertEqual(json.loads(response.text)["error"], "wata_recurring_conflict")
+
     async def test_heleket_reuses_unexpired_check_payment(self):
         payment = SimpleNamespace(
             payment_id=77,

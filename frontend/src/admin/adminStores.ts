@@ -14,6 +14,7 @@ import { createTariffsStore } from "../lib/admin/stores/tariffsStore.js";
 import { createThemesStore } from "../lib/admin/stores/themesStore.js";
 import { createTranslationsStore } from "../lib/admin/stores/translationsStore.js";
 import { createUsersStore } from "../lib/admin/stores/usersStore.js";
+import { createRoleApi } from "../lib/admin/roleApi.js";
 import {
   setAdsStore,
   setAdminApi,
@@ -31,6 +32,7 @@ import {
   setThemesStore,
   setTranslationsStore,
   setUsersStore,
+  setRoleApi,
 } from "../lib/admin/context";
 import type { TariffsCatalog } from "../lib/admin/stores/tariffsStore";
 import type { ApiClient } from "../lib/webapp/publicApi";
@@ -70,7 +72,12 @@ export function createAdminStores({
   // Keep each store's narrower endpoint contract at this composition boundary.
   // Expanding every route into one contextual union exceeds TypeScript's
   // representable-union limit as the generated OpenAPI surface grows.
-  const settingsStore = createSettingsStore({ api: api as never, onToast, at });
+  const settingsStore = createSettingsStore({
+    api: api as never,
+    onToast,
+    at,
+    queryClient: adminQueryClient,
+  });
   const adsStore = createAdsStore({ api: api as never, onToast, at });
   const backupsStore = createBackupsStore({ api: api as never, onToast, at });
   const broadcastStore = createBroadcastStore({ api: api as never, onToast, at });
@@ -97,6 +104,7 @@ export function createAdminStores({
     api: api as never,
     onToast,
     at,
+    routePrefix,
     queryClient: adminQueryClient,
   });
   const statsStore = createStatsStore({
@@ -125,7 +133,12 @@ export function createAdminStores({
     flash: onToast,
     at,
   });
-  const translationsStore = createTranslationsStore({ api: api as never, onToast, at });
+  const translationsStore = createTranslationsStore({
+    api: api as never,
+    onToast,
+    at,
+    queryClient: adminQueryClient,
+  });
   const usersStore = createUsersStore({
     api: api as never,
     onToast,
@@ -147,6 +160,7 @@ export function createAdminStores({
   setAdminSupportStore(supportStore);
   setSettingsStore(settingsStore);
   setUsersStore(usersStore);
+  setRoleApi(createRoleApi(api as never));
   setTariffsStore(tariffsStore);
   setThemesStore(themesStore);
   setTranslationsStore(translationsStore);

@@ -29,6 +29,12 @@ async def assert_disconnected(connection: AsyncConnection, database: str) -> Non
 
 
 async def restore(settings: Settings, archive_name: str) -> dict[str, object]:
+    from bot.plugins.extensions.backups import (
+        initialize_backup_extensions,
+        restore_archive_extensions,
+    )
+
+    initialize_backup_extensions(settings)
     service = BackupRestoreService(settings)
     archive = service.archive_path_for_name(archive_name)
     service._validate_archive_for_restore(archive)
@@ -107,7 +113,10 @@ async def restore(settings: Settings, archive_name: str) -> dict[str, object]:
                         }
                     )
                     result = await BackupRestoreService(target).restore_archive(
-                        archive_name, restore_database=True, restore_compose=False
+                        archive_name,
+                        restore_database=True,
+                        restore_compose=False,
+                        restore_extension_files=False,
                     )
                     journal["migrations_applied"] = result.database_migrations_applied
                     save_state("validated")
@@ -137,6 +146,8 @@ async def restore(settings: Settings, archive_name: str) -> dict[str, object]:
                             f"ALTER DATABASE {quote(original)} ALLOW_CONNECTIONS true"
                         )
                     switched = True
+                    save_state("restoring_extension_files")
+                    await asyncio.to_thread(restore_archive_extensions, archive)
                     save_state("completed")
             except BaseException:
                 if not switched:
@@ -161,6 +172,8 @@ async def restore(settings: Settings, archive_name: str) -> dict[str, object]:
                             f"ALTER DATABASE {quote(original)} ALLOW_CONNECTIONS true"
                         )
                     save_state("failed")
+                else:
+                    save_state("recovery_required")
                 raise
             finally:
                 await connection.execute(

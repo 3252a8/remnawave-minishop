@@ -12,6 +12,13 @@ from .chain_0078_gift_entitlements import CHAIN_0078_GIFT_ENTITLEMENTS
 from .chain_0084_gift_refunds import CHAIN_0084_GIFT_REFUNDS
 from .chain_0085_user_notification_preferences import CHAIN_0085_USER_NOTIFICATION_PREFERENCES
 from .chain_0086_panel_tariff_tag import CHAIN_0086_PANEL_TARIFF_TAG
+from .chain_0087_wata_subscriptions import CHAIN_0087_WATA_SUBSCRIPTIONS
+from .chain_0088_install_share_binding import CHAIN_0088_INSTALL_SHARE_BINDING
+from .chain_0089_plugin_owned_codes import CHAIN_0089_PLUGIN_OWNED_CODES
+from .chain_0090_extensions import CHAIN_0090_EXTENSIONS
+from .chain_0091_account_identity import CHAIN_0091_ACCOUNT_IDENTITY
+from .chain_0092_user_id_sequence import CHAIN_0092_USER_ID_SEQUENCE
+from .chain_0093_panel_origin import CHAIN_0093_PANEL_ORIGIN
 from .engine import Migration
 
 MIGRATIONS: list[Migration] = [
@@ -27,4 +34,11 @@ MIGRATIONS: list[Migration] = [
     *CHAIN_0084_GIFT_REFUNDS,
     *CHAIN_0085_USER_NOTIFICATION_PREFERENCES,
     *CHAIN_0086_PANEL_TARIFF_TAG,
+    *CHAIN_0087_WATA_SUBSCRIPTIONS,
+    *CHAIN_0088_INSTALL_SHARE_BINDING,
+    *CHAIN_0089_PLUGIN_OWNED_CODES,
+    *CHAIN_0090_EXTENSIONS,
+    *CHAIN_0091_ACCOUNT_IDENTITY,
+    *CHAIN_0092_USER_ID_SEQUENCE,
+    *CHAIN_0093_PANEL_ORIGIN,
 ]

@@ -278,7 +278,7 @@ def test_email_channel_uses_dedicated_localized_copy(monkeypatch):
     service, bot, _factory = _service(
         TORRENT_BLOCKER_TELEGRAM_NOTIFICATIONS_ENABLED=False,
         TORRENT_BLOCKER_EMAIL_NOTIFICATIONS_ENABLED=True,
-        email_auth_configured=True,
+        smtp_delivery_configured=True,
     )
     user = _user()
     send_email = AsyncMock(return_value=True)
@@ -318,7 +318,7 @@ def test_email_channel_uses_dedicated_localized_copy(monkeypatch):
 def test_telegram_transient_failure_still_delivers_email_and_requests_retry(monkeypatch):
     service, bot, factory = _service(
         TORRENT_BLOCKER_EMAIL_NOTIFICATIONS_ENABLED=True,
-        email_auth_configured=True,
+        smtp_delivery_configured=True,
     )
     user = _user()
     bot.send_message.side_effect = RuntimeError("telegram timeout")
@@ -355,7 +355,7 @@ def test_telegram_transient_failure_still_delivers_email_and_requests_retry(monk
 def test_email_transient_failure_commits_telegram_before_requesting_retry(monkeypatch):
     service, _bot, factory = _service(
         TORRENT_BLOCKER_EMAIL_NOTIFICATIONS_ENABLED=True,
-        email_auth_configured=True,
+        smtp_delivery_configured=True,
     )
     user = _user()
     send_email = AsyncMock(side_effect=RuntimeError("smtp timeout"))
@@ -391,7 +391,7 @@ def test_email_transient_failure_commits_telegram_before_requesting_retry(monkey
 def test_retry_suppresses_committed_channel_and_delivers_only_failed_channel(monkeypatch):
     service, bot, _factory = _service(
         TORRENT_BLOCKER_EMAIL_NOTIFICATIONS_ENABLED=True,
-        email_auth_configured=True,
+        smtp_delivery_configured=True,
     )
     user = _user()
     delivered_events: set[str] = set()

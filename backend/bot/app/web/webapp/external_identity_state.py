@@ -109,6 +109,8 @@ def external_identity_can_unlink_for_account(
             for other in external_identities
         ),
         has_passkey_login=bool(settings.PASSKEY_LOGIN_ENABLED and passkey_credentials),
-        has_telegram_login=bool(settings.TELEGRAM_LOGIN_ENABLED and user.telegram_id),
+        has_telegram_login=bool(
+            settings.TELEGRAM_ENABLED and settings.TELEGRAM_LOGIN_ENABLED and user.telegram_id
+        ),
         email_login_enabled=bool(settings.email_auth_configured),
     )

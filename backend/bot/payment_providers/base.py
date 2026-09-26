@@ -115,6 +115,8 @@ class WebAppPaymentContext:
     stars_price: int | None
     description: str
     sale_mode: str
+    payer_email: str | None = None
+    payer_phone: str | None = None
     currency: str = "RUB"
     duration_days: int | None = None
     subscription_terms_snapshot: str | None = None
@@ -354,17 +356,9 @@ class PaymentProviderSpec:
     ) -> bool:
         if is_admin is not None:
             return bool(is_admin)
-        if user_id is None:
-            return False
-        try:
-            normalized_user_id = int(user_id)
-        except (TypeError, ValueError):
-            return False
-        try:
-            admin_ids = {int(item) for item in (getattr(source, "ADMIN_IDS", None) or [])}
-        except (TypeError, ValueError):
-            return False
-        return normalized_user_id in admin_ids
+        # Callers must resolve the account role in their own authenticated
+        # context. A numeric account key is never proof of a Telegram admin.
+        return False
 
     def is_service_configured(self, app: Any) -> bool:
         if not self.requires_configured_service:

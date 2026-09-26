@@ -55,7 +55,10 @@
     syncShellBillingSelection,
     syncShellEmailAvatar,
   } from "./lib/webapp/shellEffects.js";
-  import { normalizeThemePreference, THEME_PREFERENCE_AUTO } from "./lib/webapp/themePreference.js";
+  import {
+    normalizeThemePreference,
+    THEME_PREFERENCE_DEFAULT,
+  } from "./lib/webapp/themePreference.js";
   import {
     loadThemePreference,
     readLocalThemePreference,
@@ -173,7 +176,7 @@
     csrfToken: MOCK ? "" : readCookie(CSRF_COOKIE_NAME) || "",
     data: isPreviewBoard ? structuredCloneSafe(MOCK_DATA) : null,
     mode: isAppLaunchRoute ? "appLaunch" : isPreviewBoard ? "preview" : "loading",
-    themePreference: readLocalThemePreference() || THEME_PREFERENCE_AUTO,
+    themePreference: readLocalThemePreference() || THEME_PREFERENCE_DEFAULT,
     systemColorScheme: systemColorSchemeFromMedia(),
     token: MOCK ? "local-preview" : "",
   });
@@ -225,7 +228,7 @@
   const hasTelegramLaunchParams = telegramRuntime.hasLaunchParams;
   const loadTelegramSdk = telegramRuntime.load;
   function initialTelegram(): TelegramWebApp | null {
-    return tg;
+    return CFG.authProviders?.includes("telegram") ? tg : null;
   }
 
   const initialTg = initialTelegram();
@@ -239,6 +242,9 @@
   const i18n = createI18n({
     messages: I18N,
     defaultLang: "ru",
+    supportedLanguages: Array.isArray(CFG.languages)
+      ? CFG.languages.map((entry) => String(asWebappRecord(entry).code || ""))
+      : [],
     getLang: () => user?.language_code || guestLanguage || CFG.language || "ru",
   });
   const normalizeLangCode = i18n.normalizeLangCode;
@@ -285,6 +291,7 @@
     hasEmailCodeLoginDeeplink,
     hasTelegramLaunchParams,
     initialTg,
+    initialI18nLanguages: Object.keys(I18N),
     isDocsDemo,
     loadData,
     loadTelegramSdk,
@@ -326,12 +333,14 @@
     bootRuntime,
     clearLanguageClickGuard,
     dataClient,
+    ensureWebappLanguage,
     demoAuth,
     devicesStore,
     emailAvatarSync,
     hydrateSupportUnread,
     installGuidesStore,
     loadSectionData,
+    rememberLanguage,
     resumeLifecycle,
     setPasswordLoginMode,
     serverStatusStore,
@@ -593,6 +602,7 @@
     applyPostLoadBillingDeeplinks,
     currentSearchParams,
     dataClientLoadData: (options) => dataClient.loadData(options),
+    ensureWebappLanguage,
     getModalState: () => ({
       changeModalOpen,
       deviceTopupModalOpen,
@@ -606,6 +616,7 @@
     isMock: () => Boolean(MOCK),
     loadDeviceTopupOptions: () => billingStore.loadDeviceTopupOptions(),
     loadInstallGuides: () => installGuidesStore.load(),
+    rememberLanguage,
     loadSectionData,
     loadTariffChangeOptions: () => billingStore.loadTariffChangeOptions(),
     loadTopupOptions: (kind) => billingStore.loadTopupOptions(kind),
@@ -774,6 +785,7 @@
       <PreviewBoardComponent config={CFG} mockData={MOCK_DATA} />
     {:else}
       <AppModeContent
+        {routePrefix}
         stores={appFactories}
         {shellView}
         {appActions}

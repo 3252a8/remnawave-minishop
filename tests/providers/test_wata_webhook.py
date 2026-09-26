@@ -646,6 +646,46 @@ def test_create_payment_link_uses_clean_iso_expiration_without_microseconds(monk
     assert timedelta(minutes=14, seconds=30) <= ttl_delta <= timedelta(minutes=15, seconds=30)
 
 
+def test_create_subscription_link_sends_wata_schedule_and_transient_contacts(monkeypatch):
+    captured = {}
+
+    async def fake_post_json_request(session, url, *, body, headers, log_prefix, is_success):
+        captured["body"] = body
+        return True, {"id": "subscription-link", "url": "https://wata.pro/p/subscription-link"}
+
+    monkeypatch.setattr(wata_service, "post_json_request", fake_post_json_request)
+    service = _service(
+        _FakeSession(),
+        ENABLED=False,
+        SUBSCRIPTION_ENABLED=True,
+    )
+
+    success, _ = asyncio.run(
+        _run_and_close(
+            service,
+            service.create_payment_link(
+                payment_db_id=466,
+                amount=250,
+                currency="RUB",
+                description="Recurring subscription",
+                payer_email="person@example.com",
+                payer_phone="+79991234567",
+                subscription={"period": 1, "interval": "Month", "maxPeriods": 120},
+            ),
+        )
+    )
+
+    assert success is True
+    assert captured["body"]["type"] == "OneTime"
+    assert captured["body"]["email"] == "person@example.com"
+    assert captured["body"]["phone"] == "+79991234567"
+    assert captured["body"]["subscription"] == {
+        "period": 1,
+        "interval": "Month",
+        "maxPeriods": 120,
+    }
+
+
 def test_create_crypto_payment_link_uses_crypto_terminal_credentials(monkeypatch):
     captured = {}
 

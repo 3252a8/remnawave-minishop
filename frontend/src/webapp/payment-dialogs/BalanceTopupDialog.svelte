@@ -14,6 +14,7 @@
   } from "$lib/webapp/types.js";
   import type { ApiClient } from "$lib/webapp/publicApi.js";
   import { formatMoney } from "$lib/webapp/formatters.js";
+  import { availableBalanceTopupMethods } from "$lib/webapp/balanceUiPolicy.js";
 
   let {
     api,
@@ -44,12 +45,7 @@
   let inputAnimationVisible = $state(false);
   let manualAmountTimer: number | undefined;
 
-  const availableMethods = $derived(
-    methods.filter(
-      (method) =>
-        String(method.id || "").toLowerCase() !== "stars" && !method.price_managed_externally
-    )
-  );
+  const availableMethods = $derived(availableBalanceTopupMethods(methods));
   const minimum = $derived(Number(balance.topup_min_amount || 0));
   const maximum = $derived(Number(balance.topup_max_amount || 0));
   const presets = $derived(

@@ -149,6 +149,10 @@ class AudienceSegmentationExtensionsTest(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch(
+                "bot.services.audience_segmentation.active_admin_user_ids",
+                AsyncMock(return_value=[]),
+            ),
+            patch(
                 "bot.services.audience_segmentation.user_dal.count_all_active_users_for_broadcast",
                 AsyncMock(return_value=10),
             ),

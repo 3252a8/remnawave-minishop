@@ -627,7 +627,7 @@ class I18nMiddleware(BaseMiddleware):
 
         if event_user:
             try:
-                user_db_model = await user_dal.get_user_by_id(session, event_user.id)
+                user_db_model = await user_dal.get_user_by_telegram_id(session, event_user.id)
                 if (
                     user_db_model
                     and user_db_model.language_code

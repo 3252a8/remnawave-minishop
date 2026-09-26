@@ -181,7 +181,7 @@ def test_log_response_model_avoids_lazy_relationship_loads():
         "content": "hello",
         "is_admin_event": True,
         "target_user_id": 43,
-        "target_user_label": "43",
+        "target_user_label": "—",
         "timestamp": "2026-01-03T05:06:00+00:00",
     }
 

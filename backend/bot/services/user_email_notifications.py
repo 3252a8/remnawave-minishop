@@ -7,7 +7,7 @@ from bot.middlewares.i18n import JsonI18n
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.email_templates import render_user_notification
 from bot.services.message_audit import log_user_message_delivery
-from bot.services.user_notification_policy import email_recipient
+from bot.services.user_notification_policy import email_recipient, smtp_delivery_available
 from bot.services.user_notification_preferences import add_user_email_preferences_footer
 from config.settings import Settings
 
@@ -46,7 +46,7 @@ async def send_user_notification_email(
     audit_content: str | None = None,
     raise_on_error: bool = False,
 ) -> bool:
-    if not settings.email_auth_configured:
+    if not smtp_delivery_available(settings):
         return False
     recipient = email_recipient(settings, user)
     if not recipient:

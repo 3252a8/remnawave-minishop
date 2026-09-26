@@ -12,6 +12,7 @@ from bot.keyboards.inline.user_keyboards import (
 from bot.middlewares.i18n import JsonI18n
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.telegram_account import require_telegram_account_id
 from bot.utils.callback_answer import callback_message
 from bot.utils.config_link import prepare_config_links
 from bot.utils.install_links import (
@@ -34,7 +35,8 @@ async def request_trial_confirmation_handler(
     subscription_service: SubscriptionService,
     session: AsyncSession,
 ) -> None:
-    user_id = callback.from_user.id
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
+    user_id = account_user_id
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -91,8 +93,12 @@ async def request_trial_confirmation_handler(
             await callback.answer(_("trial_activated_alert"), show_alert=True)
 
         end_date_obj = activation_result.get("end_date")
+        install_links = await ensure_user_install_guide_links(session, settings, user_id)
+        install_share_url = install_links.public_share_url
         config_link_display_for_trial, connect_button_url_for_trial = await prepare_config_links(
-            settings, activation_result.get("subscription_url")
+            settings,
+            activation_result.get("subscription_url"),
+            public_share_url=install_share_url,
         )
         config_link_for_trial = config_link_display_for_trial or _("config_link_not_available")
 
@@ -113,8 +119,6 @@ async def request_trial_confirmation_handler(
             traffic_gb=traffic_display,
         )
 
-        install_links = await ensure_user_install_guide_links(session, settings, user_id)
-        install_share_url = install_links.public_share_url
         final_message_text_in_chat = append_install_share_link_text(
             final_message_text_in_chat,
             _,
@@ -188,7 +192,8 @@ async def confirm_activate_trial_handler(
     panel_service: PanelApiService,
     session: AsyncSession,
 ) -> None:
-    user_id = callback.from_user.id
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
+    user_id = account_user_id
 
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")
@@ -236,8 +241,12 @@ async def confirm_activate_trial_handler(
             await callback.answer(_("trial_activated_alert"), show_alert=True)
 
         end_date_obj = activation_result.get("end_date")
+        install_links = await ensure_user_install_guide_links(session, settings, user_id)
+        install_share_url = install_links.public_share_url
         config_link_display_for_trial, connect_button_url_for_trial = await prepare_config_links(
-            settings, activation_result.get("subscription_url")
+            settings,
+            activation_result.get("subscription_url"),
+            public_share_url=install_share_url,
         )
         config_link_for_trial = config_link_display_for_trial or _("config_link_not_available")
 
@@ -257,8 +266,6 @@ async def confirm_activate_trial_handler(
             config_link=config_link_for_trial,
             traffic_gb=traffic_display,
         )
-        install_links = await ensure_user_install_guide_links(session, settings, user_id)
-        install_share_url = install_links.public_share_url
         final_message_text_in_chat = append_install_share_link_text(
             final_message_text_in_chat,
             _,

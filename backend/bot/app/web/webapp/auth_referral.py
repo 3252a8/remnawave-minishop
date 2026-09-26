@@ -286,13 +286,13 @@ async def _ensure_user_from_telegram(
     *,
     referral_param: str | None = None,
 ) -> User:
-    user_id = int(telegram_user["id"])
+    telegram_user_id = int(telegram_user["id"])
     telegram_language_code = _normalize_language(
         telegram_user.get("language_code") or settings.DEFAULT_LANGUAGE
     )
 
     profile_data = {
-        "telegram_id": user_id,
+        "telegram_id": telegram_user_id,
         "username": sanitize_username(telegram_user.get("username")),
         "first_name": sanitize_display_name(telegram_user.get("first_name")),
         "last_name": sanitize_display_name(telegram_user.get("last_name")),
@@ -301,14 +301,12 @@ async def _ensure_user_from_telegram(
     if telegram_photo_url:
         profile_data["telegram_photo_url"] = telegram_photo_url
 
-    db_user = await user_dal.get_user_by_telegram_id(session, user_id)
-    if not db_user:
-        db_user = await user_dal.get_user_by_id(session, user_id)
+    db_user = await user_dal.get_user_by_telegram_id(session, telegram_user_id)
     if not db_user:
         invite_check = await evaluate_registration_invite(
             session,
             referral_param or telegram_user.get("start_param"),
-            current_user_id=user_id,
+            current_user_id=None,
             settings=settings,
             source="webapp",
         )
@@ -318,7 +316,6 @@ async def _ensure_user_from_telegram(
         db_user, created = await user_dal.create_user(
             session,
             {
-                "user_id": user_id,
                 **profile_data,
                 "language_code": telegram_language_code,
                 "referred_by_id": invite_check.referrer_user_id,

@@ -12,6 +12,10 @@ class AdminUserOut(HttpResponseModel):
     # Field order mirrors the legacy ``_serialize_user`` dict so
     # ``model_dump(mode="json")`` is byte-identical; the parity test guards it.
     user_id: int
+    account_id: str | None = None
+    minishop_id: str | None = None
+    panel_username: str | None = None
+    panel_username_state: str | None = None
     telegram_id: int | None = None
     telegram_photo_url: str | None = None
     username: str | None = None
@@ -29,6 +33,10 @@ class AdminUserOut(HttpResponseModel):
     def from_orm_user(cls, user: Any) -> AdminUserOut:
         return cls(
             user_id=int(user.user_id),
+            account_id=(str(user.account_id) if getattr(user, "account_id", None) else None),
+            minishop_id=getattr(user, "minishop_id", None),
+            panel_username=getattr(user, "panel_username", None),
+            panel_username_state=getattr(user, "panel_username_state", None),
             telegram_id=int(user.telegram_id) if user.telegram_id else None,
             telegram_photo_url=user.telegram_photo_url,
             username=user.username,

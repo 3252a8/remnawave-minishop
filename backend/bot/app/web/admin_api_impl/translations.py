@@ -1,4 +1,5 @@
 from typing import Any, cast
+from weakref import WeakKeyDictionary
 
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
@@ -37,6 +38,13 @@ from .common import (
 )
 from .response_schemas import AdminTranslationsOut
 from .schemas import AdminTranslationsPatchBody
+
+TranslationCacheSignature = tuple[tuple[str, str, str, str, str], ...]
+TranslationCacheEntry = tuple[TranslationCacheSignature, dict[str, Any]]
+
+_TRANSLATIONS_PAYLOAD_CACHE: WeakKeyDictionary[JsonI18n, TranslationCacheEntry] = (
+    WeakKeyDictionary()
+)
 
 register_contract(
     "admin_translations_get_route",
@@ -147,6 +155,40 @@ def _admin_translations_payload(
     }
 
 
+def _translations_cache_signature(overrides: list[dict[str, Any]]) -> TranslationCacheSignature:
+    return tuple(
+        (
+            str(entry.get("lang") or ""),
+            str(entry.get("key") or ""),
+            repr(entry.get("value")),
+            repr(entry.get("updated_at")),
+            repr(entry.get("updated_by")),
+        )
+        for entry in overrides
+    )
+
+
+def _cached_admin_translations_payload(
+    i18n: JsonI18n,
+    overrides: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Reuse the validated multi-megabyte editor payload until overrides change."""
+
+    signature = _translations_cache_signature(overrides)
+    cached = _TRANSLATIONS_PAYLOAD_CACHE.get(i18n)
+    if cached is not None and cached[0] == signature:
+        return cached[1]
+
+    payload = cast(
+        dict[str, Any],
+        AdminTranslationsOut.model_validate(
+            _admin_translations_payload(i18n, overrides)
+        ).model_dump(mode="json"),
+    )
+    _TRANSLATIONS_PAYLOAD_CACHE[i18n] = (signature, payload)
+    return payload
+
+
 async def admin_translations_get_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     i18n: JsonI18n | None = get_i18n(request)
@@ -158,14 +200,7 @@ async def admin_translations_get_route(request: web.Request) -> web.Response:
     async with async_session_factory() as session:
         overrides = await locale_overrides_dal.get_overrides_with_meta(session)
 
-    return _ok(
-        cast(
-            dict[str, Any],
-            AdminTranslationsOut.model_validate(
-                _admin_translations_payload(i18n, overrides)
-            ).model_dump(mode="json"),
-        )
-    )
+    return _ok(_cached_admin_translations_payload(i18n, overrides))
 
 
 async def admin_translations_patch_route(request: web.Request) -> web.Response:

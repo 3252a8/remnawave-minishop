@@ -13,6 +13,7 @@ from bot.app.web.context import (
 )
 from bot.app.web.request_parsing import parse_body_or_400
 from bot.app.web.webapp.subscription_reissue import send_subscription_reissue_email
+from bot.services.subscription_reissue_access import reissue_subscription_access
 from config.settings import Settings
 from config.traffic_strategy import canonical_traffic_limit_strategy
 from db.dal import message_log_dal, subscription_dal, user_dal
@@ -25,10 +26,8 @@ from .common import (
     _is_trial_subscription,
     _ok,
     _serialize_subscription,
-    _serialize_user,
 )
 from .schemas import (
-    AdminUserBanBody,
     AdminUserExtendBody,
     AdminUserHwidDeviceLimitBody,
     AdminUserPremiumOverrideBody,
@@ -37,6 +36,7 @@ from .schemas import (
     AdminUserTrafficGrantBody,
     AdminUserTrafficStrategyBody,
 )
+from .users_ban import admin_user_ban_route as admin_user_ban_route
 from .users_communication import (
     admin_user_message_preview_route as admin_user_message_preview_route,
 )
@@ -70,25 +70,6 @@ async def _is_panel_user_confirmed_absent(panel_service: object, panel_uuid: str
         return False
 
     return isinstance(result, dict) and result.get("not_found") is True
-
-
-async def admin_user_ban_route(request: web.Request) -> web.Response:
-    _require_admin_user_id(request)
-    target_id = int(request.match_info["user_id"])
-    body = await parse_body_or_400(request, AdminUserBanBody)
-    desired = bool(body.banned)
-
-    settings: Settings = get_settings(request)
-    async_session_factory: sessionmaker = get_session_factory(request)
-    async with async_session_factory() as session:
-        user = await user_dal.get_user_by_id(session, target_id)
-        if not user:
-            return _error(404, "not_found")
-        user.is_banned = bool(desired)
-        await session.commit()
-        await session.refresh(user)
-    await _invalidate_after_admin_user_mutation(settings, target_id)
-    return _ok({"user": _serialize_user(user)})
 
 
 async def admin_user_delete_route(request: web.Request) -> web.Response:
@@ -218,7 +199,13 @@ async def admin_user_subscription_reissue_route(request: web.Request) -> web.Res
             )
 
         try:
-            updated_panel_user = await panel_service.revoke_user_subscription(panel_user_uuid)
+            updated_panel_user, gateway_url = await reissue_subscription_access(
+                session,
+                panel_service,
+                user_id=target_id,
+                panel_user_uuid=panel_user_uuid,
+                settings=settings,
+            )
         except Exception as exc:
             logger.warning(
                 "Admin webapp failed to reissue subscription for user %s: %s",
@@ -241,6 +228,7 @@ async def admin_user_subscription_reissue_route(request: web.Request) -> web.Res
                 session=session,
                 db_user=user,
                 updated_panel_user=updated_panel_user,
+                gateway_url=gateway_url,
             )
 
         await message_log_dal.create_message_log_no_commit(
@@ -852,7 +840,12 @@ async def admin_user_tariff_route(request: web.Request) -> web.Response:
 
     async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
-        active = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
+        user = await user_dal.get_user_by_id(session, target_id)
+        if not user or not user.panel_user_uuid:
+            return _error(404, "no_panel_user")
+        active = await subscription_dal.get_active_subscription_by_user_id(
+            session, target_id, user.panel_user_uuid
+        )
         if not active:
             return _error(404, "no_active_subscription")
 
@@ -863,7 +856,18 @@ async def admin_user_tariff_route(request: web.Request) -> web.Response:
             "admin_assign",
             apply_tariff_hwid_limit=bool(body.apply_tariff_hwid_limit),
         )
-        if not result:
+        if not result or result.get("subscription_id") != active.subscription_id:
+            await session.rollback()
+            return _error(500, "tariff_change_failed")
+
+        refreshed = await subscription_dal.get_active_subscription_by_user_id(
+            session, target_id, user.panel_user_uuid
+        )
+        if (
+            not refreshed
+            or refreshed.subscription_id != active.subscription_id
+            or refreshed.tariff_key != tariff_key
+        ):
             await session.rollback()
             return _error(500, "tariff_change_failed")
 
@@ -877,13 +881,8 @@ async def admin_user_tariff_route(request: web.Request) -> web.Response:
                 "target_user_id": target_id,
             },
         )
+        subscription_payload = _serialize_subscription(refreshed)
         await session.commit()
 
-        refreshed = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
-
     await _invalidate_after_admin_user_mutation(settings, target_id)
-    return _ok(
-        {
-            "subscription": _serialize_subscription(refreshed) if refreshed else None,
-        }
-    )
+    return _ok({"subscription": subscription_payload})

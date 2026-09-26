@@ -17,6 +17,7 @@
   type Promo = components["schemas"]["PromoOut"];
   type PromoPatch = components["schemas"]["PromoUpdateBody"];
   type PromoActivation = components["schemas"]["PromoActivationOut"];
+  type PromoRevenueSummary = components["schemas"]["PromoRevenueSummaryOut"];
   type PromoEffectKind =
     | "bonus_days"
     | "regular_traffic_gb"
@@ -74,6 +75,7 @@
     promoEffectDirtyFields,
     promoEligibilityDirtyCount,
     promoSettingsDirtyCount,
+    promoRevenueSummary,
     promoStatus,
     promosStore,
     scopeItems,
@@ -108,6 +110,7 @@
     promoEffectDirtyFields: Partial<Record<PromoEffectKind, boolean>>;
     promoEligibilityDirtyCount: number;
     promoSettingsDirtyCount: number;
+    promoRevenueSummary: PromoRevenueSummary;
     promoStatus: (promo: Promo) => PromoStatus;
     promosStore: PromosStoreBridge;
     scopeItems: Array<{ value: string; label: string }>;
@@ -550,6 +553,7 @@
             page={activationsPage}
             pageCount={activationsPageCount}
             total={activationsTotal}
+            revenueSummary={promoRevenueSummary}
             {at}
             {fmtDate}
             {fmtMoney}

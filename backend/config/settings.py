@@ -26,11 +26,17 @@ from config.settings_models import (
     WebAppSettings,
 )
 from config.settings_telegram import TelegramTransportSettings
+from config.settings_trial import TrialSettings
 
 logger = logging.getLogger(__name__)
 
 
-class Settings(SettingsComputedMixin, SettingsValidationMixin, TelegramTransportSettings):
+class Settings(
+    SettingsComputedMixin,
+    SettingsValidationMixin,
+    TrialSettings,
+    TelegramTransportSettings,
+):
     ADMIN_IDS_STR: str = Field(
         default="", alias="ADMIN_IDS", description="Comma-separated list of admin Telegram User IDs"
     )
@@ -511,69 +517,6 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, TelegramTransport
         description="UUID of the external squad to assign to new panel users (optional)",
     )
 
-    TRIAL_ENABLED: bool = Field(default=True)
-    TRIAL_PAYMENT_ENABLED: bool = Field(
-        default=False,
-        description="Require a successful payment before trial activation.",
-    )
-    TRIAL_PAYMENT_PRICE: float = Field(
-        default=100.0,
-        ge=0,
-        allow_inf_nan=False,
-        description="Trial activation price in the default payment currency.",
-    )
-    TRIAL_PAYMENT_STARS_PRICE: int = Field(
-        default=100,
-        ge=0,
-        description="Trial activation price in Telegram Stars; 0 disables Stars for trial.",
-    )
-    TRIAL_DURATION_DAYS: int = Field(default=3)
-    TRIAL_TRAFFIC_LIMIT_GB: float | None = Field(default=5.0)
-    TRIAL_PREMIUM_TRAFFIC_LIMIT_GB: float | None = Field(
-        default=0.0,
-        description=(
-            "Separate premium traffic limit for trial subscriptions. "
-            "0 disables premium traffic enforcement for trials."
-        ),
-    )
-    TRIAL_HWID_DEVICE_LIMIT: int | None = Field(
-        default=None,
-        ge=0,
-        description=(
-            "Hardware device limit for trial subscriptions. "
-            "Empty keeps the panel/default limit; 0 means unlimited."
-        ),
-    )
-    TRIAL_DAYS_STRATEGY: Literal["add_remaining", "start_from_payment"] = Field(
-        default="add_remaining",
-        description=(
-            "How a paid tariff starts while a trial is active: keep the remaining trial "
-            "days or start the paid period on the payment date."
-        ),
-    )
-    TRIAL_TRAFFIC_STRATEGY: str = Field(default="NO_RESET")
-    TRIAL_WITHOUT_TELEGRAM_ENABLED: bool = Field(
-        default=True,
-        description=(
-            "Allow trial activation for users who have not linked Telegram. "
-            "Disposable email domains are still blocked until Telegram is linked."
-        ),
-    )
-    TRIAL_SQUAD_UUIDS: str | None = Field(
-        default=None,
-        description=(
-            "Comma-separated UUIDs of internal squads to assign during trial activation. "
-            "Falls back to USER_SQUAD_UUIDS when empty."
-        ),
-    )
-    TRIAL_PREMIUM_SQUAD_UUIDS: str | None = Field(
-        default=None,
-        description=(
-            "Comma-separated premium internal squad UUIDs to assign during trial activation. "
-            "Empty value disables premium squads for trials."
-        ),
-    )
-
     CRYPT4_ENABLED: bool = Field(
         default=False, description="Enable happ crypt4 encryption for subscription URLs"
     )
@@ -615,6 +558,7 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, TelegramTransport
             "Combine subscription status, traffic usage, and balance into one compact Home card."
         ),
     )
+    WEBAPP_COMPACT_LOGIN_ENABLED: bool = Field(default=True)
     WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED: bool = Field(default=True)
     WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT: bool = Field(default=False)
     WEBAPP_THEMES_DIR: str = Field(
@@ -664,14 +608,17 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, TelegramTransport
         description="Admin-provided Remnawave Subscription Page v1 JSON config override.",
     )
     WEBAPP_SESSION_SECRET: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
+    EMAIL_AUTH_SECRET: str | None = Field(default=None)
     WEBHOOK_SECRET_TOKEN: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
-    WEBAPP_SESSION_TTL_SECONDS: int = Field(default=24 * 60 * 60)
+    WEBAPP_SESSION_TTL_SECONDS: int = Field(default=30 * 24 * 60 * 60)
     WEBAPP_AUTH_MAX_AGE_SECONDS: int = Field(default=24 * 60 * 60)
     WEBAPP_LOGIN_TOKEN_TTL_SECONDS: int = Field(default=10 * 60)
     TELEGRAM_LOGIN_ENABLED: bool = Field(default=True)
     TELEGRAM_LOGIN_RECOMMENDED: bool = Field(default=True)
+    TELEGRAM_LOGIN_WIDE_BUTTON: bool = Field(default=False)
     EMAIL_LOGIN_ENABLED: bool = Field(default=True)
     EMAIL_LOGIN_RECOMMENDED: bool = Field(default=True)
+    EMAIL_LOGIN_WIDE_BUTTON: bool = Field(default=True)
     EMAIL_ADDRESS_CHANGE_ENABLED: bool = Field(default=True)
     TELEGRAM_OAUTH_CLIENT_ID: int | None = Field(
         default=None,
@@ -694,18 +641,22 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, TelegramTransport
     )
     GOOGLE_OIDC_ENABLED: bool = Field(default=False)
     GOOGLE_LOGIN_RECOMMENDED: bool = Field(default=True)
+    GOOGLE_LOGIN_WIDE_BUTTON: bool = Field(default=False)
     GOOGLE_OIDC_CLIENT_ID: str | None = Field(default=None)
     GOOGLE_OIDC_CLIENT_SECRET: str | None = Field(default=None)
     YANDEX_OIDC_ENABLED: bool = Field(default=False)
     YANDEX_LOGIN_RECOMMENDED: bool = Field(default=True)
+    YANDEX_LOGIN_WIDE_BUTTON: bool = Field(default=False)
     YANDEX_OIDC_CLIENT_ID: str | None = Field(default=None)
     YANDEX_OIDC_CLIENT_SECRET: str | None = Field(default=None)
     DISCORD_OIDC_ENABLED: bool = Field(default=False)
     DISCORD_LOGIN_RECOMMENDED: bool = Field(default=True)
+    DISCORD_LOGIN_WIDE_BUTTON: bool = Field(default=False)
     DISCORD_OIDC_CLIENT_ID: str | None = Field(default=None)
     DISCORD_OIDC_CLIENT_SECRET: str | None = Field(default=None)
     PASSKEY_LOGIN_ENABLED: bool = Field(default=False)
     PASSKEY_LOGIN_RECOMMENDED: bool = Field(default=True)
+    PASSKEY_LOGIN_WIDE_BUTTON: bool = Field(default=False)
     PASSKEY_RP_ID: str | None = Field(
         default=None,
         description="WebAuthn relying-party domain. Empty means the public Web App hostname.",
@@ -768,6 +719,10 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, TelegramTransport
     SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS: int = Field(default=5 * 60)
     SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS: int = Field(default=30 * 60)
     SUBSCRIPTION_MINI_APP_URL: str | None = Field(default=None)
+    PUBLIC_APP_URL: str | None = Field(default=None)
+    SUBSCRIPTION_GATEWAY_ENABLED: bool = Field(default=True)
+    SUBSCRIPTION_LINK_MODE: Literal["panel", "minishop"] = Field(default="panel")
+    SUBSCRIPTION_GATEWAY_REWRITE_PROFILE_PAGE_URL: bool = Field(default=False)
     WEBAPP_API_BASE_URL: str = Field(
         default="/api",
         description=(
@@ -798,8 +753,8 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, TelegramTransport
     MENU_BUTTONS_JSON: str = Field(
         default="[]",
         description=(
-            "Validated JSON array of localized custom buttons shown at the bottom of the "
-            "Telegram main menu and Web App settings."
+            "Validated JSON array of localized custom buttons with separate visibility for "
+            "the bot menu, Telegram Mini App, and web browser."
         ),
     )
 
@@ -941,16 +896,10 @@ def get_settings() -> Settings:
     if _settings_instance is None:
         try:
             # Third-party boundary: pydantic-settings fills required fields
-            # (BOT_TOKEN, POSTGRES_*) from the environment inside __init__, but
+            # POSTGRES_* from the environment inside __init__, but
             # dataclass_transform makes mypy demand them as named arguments.
             # model_validate({}) would satisfy mypy yet skip the env sources.
             _settings_instance = Settings()  # type: ignore[call-arg]
-            if not _settings_instance.ADMIN_IDS:
-                logger.warning(
-                    "CRITICAL: ADMIN_IDS not set or contains no valid integer IDs in .env. "
-                    "Admin functionality will be restricted."
-                )
-
             if not _settings_instance.PANEL_API_URL:
                 logger.warning(
                     "CRITICAL: PANEL_API_URL is not set. Panel integration will not work."

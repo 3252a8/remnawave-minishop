@@ -136,6 +136,7 @@ def _payment_purchases(payment: Any) -> list[PaymentPurchaseOut]:
 class PaymentOut(HttpResponseModel):
     payment_id: int
     user_id: int
+    user_minishop_id: str | None = None
     user_label: str
     telegram_id: int | None = None
     traffic_regular_gb: float | None = None
@@ -178,6 +179,11 @@ class PaymentOut(HttpResponseModel):
         return cls(
             payment_id=int(payment.payment_id),
             user_id=int(payment.user_id),
+            user_minishop_id=(
+                str(loaded_user.minishop_id)
+                if loaded_user is not None and getattr(loaded_user, "minishop_id", None)
+                else None
+            ),
             user_label=user_label,
             telegram_id=telegram_id,
             traffic_regular_gb=regular_gb,

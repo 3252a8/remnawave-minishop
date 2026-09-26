@@ -36,6 +36,29 @@ def test_format_message_log_notification_omits_raw_update_preview():
     assert "@alice" in message
     assert "buy:monthly" in message
     assert "SECRET RAW PAYLOAD" not in message
+    assert "id=<code>42</code>" not in message
+
+
+def test_notify_message_log_resolves_public_ids_from_current_session():
+    queue_manager = SimpleNamespace(send_message=AsyncMock())
+    session = SimpleNamespace(
+        execute=AsyncMock(return_value=[(42, "ms_" + "a" * 32), (43, "ms_" + "b" * 32)])
+    )
+
+    with patch("bot.services.message_log_notifier.get_queue_manager", return_value=queue_manager):
+        asyncio.run(
+            notify_message_log(
+                {"user_id": 42, "target_user_id": 43, "event_type": "admin:test"},
+                settings=_settings(),
+                session=session,
+            )
+        )
+
+    message = queue_manager.send_message.await_args.kwargs["text"]
+    assert "ms_" + "a" * 32 in message
+    assert "ms_" + "b" * 32 in message
+    assert "<code>42</code>" not in message
+    assert "<code>43</code>" not in message
 
 
 def test_notify_message_log_sends_debug_logs_to_queue():

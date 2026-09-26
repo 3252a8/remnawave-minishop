@@ -218,7 +218,7 @@
     <Input
       type="search"
       class="input"
-      placeholder={at("users_search_placeholder", {}, "ID, @username, or email")}
+      placeholder={at("users_search_placeholder", {}, "Minishop ID, @username, or email")}
       value={usersQuery}
       oninput={handleUsersSearchInput}
       onkeydown={handleUsersSearchKeydown}
@@ -397,7 +397,7 @@
               <AdminUserCell
                 name={userDisplayName(user)}
                 secondary={userSecondaryName(user)}
-                idText={`#${user.user_id}`}
+                idText={user.minishop_id || ""}
                 initials={userInitials(user)}
                 avatarUrl={avatar}
               />

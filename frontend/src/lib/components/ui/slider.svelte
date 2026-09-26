@@ -30,11 +30,16 @@
   });
   const effectivelyDisabled = $derived(disabled || sortedValues.length <= 1);
   let sliderIndex = $state(0);
-  let interactionActive = false;
+  let interactionActive = $state(false);
   let lastEmittedValue = 0;
+  let pendingValue: number | undefined;
+  let valueChangeTimer: ReturnType<typeof setTimeout> | undefined;
+  let lastEmitTime = 0;
+  const valueChangeIntervalMs = 220;
 
   $effect.pre(() => {
     values;
+    if (interactionActive) return;
     sliderIndex = selectedIndex;
     lastEmittedValue = Number(value);
   });
@@ -45,12 +50,34 @@
     onInteractionChange(active);
   }
 
+  function emitPendingValue(): void {
+    valueChangeTimer = undefined;
+    const nextValue = pendingValue;
+    pendingValue = undefined;
+    if (nextValue == null || Math.abs(nextValue - lastEmittedValue) < 1e-9) return;
+    lastEmittedValue = nextValue;
+    lastEmitTime = performance.now();
+    onValueChange(nextValue);
+  }
+
+  function flushPendingValue(): void {
+    if (valueChangeTimer !== undefined) window.clearTimeout(valueChangeTimer);
+    emitPendingValue();
+  }
+
   function handleIndexChange(nextIndex: number): void {
     const index = Math.max(0, Math.min(maximumIndex, Math.round(nextIndex)));
     const nextValue = sortedValues[index];
-    if (nextValue == null || Math.abs(nextValue - lastEmittedValue) < 1e-9) return;
-    lastEmittedValue = nextValue;
-    onValueChange(nextValue);
+    const latestValue = pendingValue ?? lastEmittedValue;
+    if (nextValue == null || Math.abs(nextValue - latestValue) < 1e-9) return;
+    pendingValue = nextValue;
+    if (valueChangeTimer === undefined) {
+      const elapsed = performance.now() - lastEmitTime;
+      valueChangeTimer = window.setTimeout(
+        emitPendingValue,
+        Math.max(0, valueChangeIntervalMs - elapsed)
+      );
+    }
   }
 
   function handlePointerDown(): void {
@@ -58,16 +85,21 @@
   }
 
   function handlePointerEnd(): void {
+    flushPendingValue();
     setInteractionActive(false);
   }
 
-  onDestroy(() => setInteractionActive(false));
+  onDestroy(() => {
+    if (valueChangeTimer !== undefined) window.clearTimeout(valueChangeTimer);
+    pendingValue = undefined;
+    setInteractionActive(false);
+  });
 </script>
 
 <svelte:window onpointerup={handlePointerEnd} onpointercancel={handlePointerEnd} />
 
 <Slider.Root
-  class="checkout-slider"
+  class={`checkout-slider${interactionActive ? " is-interacting" : ""}`}
   type="single"
   bind:value={sliderIndex}
   min={0}
@@ -85,7 +117,7 @@
     <span class="checkout-slider-ticks" aria-hidden="true">
       {#each sortedValues as tickValue, index (tickValue)}
         <span
-          class={`checkout-slider-tick${index <= selectedIndex ? " active" : ""}`}
+          class={`checkout-slider-tick${index <= sliderIndex ? " active" : ""}`}
           style={`left: ${maximumIndex > 0 ? (index / maximumIndex) * 100 : 0}%`}
         >
           <span></span>
@@ -129,6 +161,10 @@
     background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 76%, white));
     box-shadow: 0 0 0.8rem color-mix(in srgb, var(--accent) 34%, transparent);
     transition: width 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  :global(.checkout-slider.is-interacting .checkout-slider-range) {
+    transition: none;
   }
 
   .checkout-slider-ticks {

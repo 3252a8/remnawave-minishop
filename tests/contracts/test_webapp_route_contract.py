@@ -11,6 +11,7 @@ from aiohttp.test_utils import make_mocked_request
 
 from bot.app.web import admin_api, subscription_webapp
 from bot.app.web.admin_api_impl import auth as admin_auth_routes
+from bot.app.web.webapp import routes as webapp_routes
 from bot.app.web.webapp_auth import create_webapp_session_token
 from config.webapp_themes_config import WebappThemesConfig
 from tests.support.settings_stub import settings_stub
@@ -83,14 +84,16 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("GET", "/install"): "index_route",
             ("GET", "/trial"): "index_route",
             ("GET", "/open-app"): "app_deeplink_route",
-            ("GET", "/s/{share_token}"): "index_route",
+            ("GET", "/s/{share_token}"): "subscription_gateway_route",
+            ("GET", "/s/{share_token}/{client_type}"): "subscription_gateway_route",
             ("GET", "/invite"): "index_route",
             ("GET", "/devices"): "index_route",
             ("GET", "/settings"): "index_route",
+            ("GET", "/settings/notifications"): "index_route",
             ("GET", "/status"): "index_route",
             ("GET", "/admin"): "index_route",
             ("GET", "/admin/"): "index_route",
-            ("GET", "/admin/{section}"): "index_route",
+            ("GET", "/admin/{section}"): "plugin_admin_index_route",
             ("GET", "/admin/settings/{settings_path}"): "index_route",
             ("GET", "/admin/users/{user_id}"): "index_route",
             ("GET", "/auth/telegram/start"): "telegram_oauth_start_route",
@@ -207,6 +210,7 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("GET", "/api/admin/payments/export.csv"): "admin_payments_export_route",
             ("GET", "/api/admin/promos"): "admin_promos_list_route",
             ("POST", "/api/admin/promos"): "admin_promo_create_route",
+            ("GET", "/api/admin/promos/{promo_id}"): "admin_promo_detail_route",
             (
                 "GET",
                 "/api/admin/promos/{promo_id}/activations",
@@ -287,7 +291,16 @@ class WebAppRouteContractTests(unittest.TestCase):
         request = make_mocked_request("GET", "/admin/themes", app=app)
         match_info = asyncio.run(app.router.resolve(request))
 
-        self.assertEqual(match_info.http_exception.status, 404)
+        self.assertEqual(match_info.handler.__name__, "plugin_admin_index_route")
+        with (
+            patch.object(webapp_routes, "_active_frontends", return_value=(0, [])),
+            self.assertRaises(web.HTTPNotFound),
+        ):
+            asyncio.run(
+                webapp_routes.plugin_admin_index_route(
+                    SimpleNamespace(match_info={"section": "themes"})
+                )
+            )
 
     def test_admin_appearance_page_route_is_registered(self):
         app = web.Application()
@@ -297,6 +310,51 @@ class WebAppRouteContractTests(unittest.TestCase):
         match_info = asyncio.run(app.router.resolve(request))
 
         self.assertEqual(match_info.handler.__name__, "index_route")
+
+    def test_admin_plugins_page_route_is_registered(self):
+        app = web.Application()
+        subscription_webapp.setup_subscription_webapp_routes(app)
+
+        request = make_mocked_request("GET", "/admin/plugins", app=app)
+        match_info = asyncio.run(app.router.resolve(request))
+
+        self.assertEqual(match_info.handler.__name__, "index_route")
+
+    def test_runtime_plugin_admin_page_routes_are_registered(self):
+        app = web.Application()
+        subscription_webapp.setup_subscription_webapp_routes(app)
+
+        for path in ("/admin/pro-license", "/admin/pro-analytics", "/admin/pro-leads"):
+            request = make_mocked_request("GET", path, app=app)
+            match_info = asyncio.run(app.router.resolve(request))
+            self.assertEqual(match_info.handler.__name__, "plugin_admin_index_route")
+
+    def test_runtime_plugin_admin_page_requires_an_active_declared_section(self):
+        plugins = [
+            {
+                "sections": [
+                    {"id": "pro-analytics", "routeAliases": ["pro-leads"]},
+                    {"id": "pro-license"},
+                ]
+            }
+        ]
+        response = web.Response(text="spa")
+        with (
+            patch.object(webapp_routes, "_active_frontends", return_value=(6, plugins)),
+            patch.object(webapp_routes, "index_route", new_callable=AsyncMock) as index,
+        ):
+            index.return_value = response
+            for section in ("pro-license", "pro-analytics", "pro-leads"):
+                request = SimpleNamespace(match_info={"section": section})
+                self.assertIs(
+                    asyncio.run(webapp_routes.plugin_admin_index_route(request)), response
+                )
+            with self.assertRaises(web.HTTPNotFound):
+                asyncio.run(
+                    webapp_routes.plugin_admin_index_route(
+                        SimpleNamespace(match_info={"section": "missing-plugin"})
+                    )
+                )
 
     def test_admin_translations_page_route_is_registered(self):
         app = web.Application()
@@ -492,7 +550,7 @@ class AdminApiAuthContractTests(unittest.IsolatedAsyncioTestCase):
             WEBAPP_SESSION_TTL_SECONDS=3600,
         )
 
-    async def test_admin_auth_middleware_resolves_telegram_id_from_webapp_session(self):
+    async def test_admin_auth_middleware_resolves_role_from_webapp_session(self):
         settings = self._settings()
         token = create_webapp_session_token(settings, 42)
         request = _Request(
@@ -507,16 +565,46 @@ class AdminApiAuthContractTests(unittest.IsolatedAsyncioTestCase):
         handler = AsyncMock(return_value=web.json_response({"ok": True}))
         db_user = SimpleNamespace(user_id=42, telegram_id=999, is_banned=False)
 
-        with patch.object(
-            admin_auth_routes.user_dal,
-            "get_user_by_id",
-            AsyncMock(return_value=db_user),
+        with (
+            patch.object(
+                admin_auth_routes.user_dal,
+                "get_user_by_id",
+                AsyncMock(return_value=db_user),
+            ),
+            patch.object(admin_auth_routes, "is_admin", AsyncMock(return_value=True)),
         ):
             response = await admin_api.admin_auth_middleware(request, handler)
 
         self.assertEqual(response.status, 200)
+        self.assertTrue(request["admin_authorized"])
         self.assertEqual(request["admin_telegram_id"], 999)
         handler.assert_awaited_once_with(request)
+
+    async def test_admin_auth_middleware_leaves_email_only_admin_without_telegram_chat(self):
+        settings = self._settings()
+        request = _Request(
+            path="/api/admin/me",
+            app={
+                "settings": settings,
+                "async_session_factory": _AsyncSessionFactory(),
+            },
+            headers={},
+            cookies={"rw_webapp_session": create_webapp_session_token(settings, 42)},
+        )
+        handler = AsyncMock(return_value=web.json_response({"ok": True}))
+        db_user = SimpleNamespace(user_id=42, telegram_id=None, is_banned=False)
+
+        with (
+            patch.object(
+                admin_auth_routes.user_dal, "get_user_by_id", AsyncMock(return_value=db_user)
+            ),
+            patch.object(admin_auth_routes, "is_admin", AsyncMock(return_value=True)),
+        ):
+            response = await admin_api.admin_auth_middleware(request, handler)
+
+        self.assertEqual(response.status, 200)
+        self.assertTrue(request["admin_authorized"])
+        self.assertNotIn("admin_telegram_id", request)
 
     async def test_admin_auth_middleware_rejects_banned_admin_session(self):
         settings = self._settings()

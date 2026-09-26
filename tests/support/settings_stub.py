@@ -32,6 +32,7 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "DEFAULT_CURRENCY_SYMBOL": "RUB",
     "DEFAULT_LANGUAGE": "ru",
     "USER_BALANCE_ENABLED": False,
+    "USER_NOTIFICATION_SINGLE_CHANNEL_FALLBACK_ENABLED": True,
     "USER_BALANCE_CURRENCY": "",
     "USER_BALANCE_TOPUP_MIN_AMOUNT": 100,
     "USER_BALANCE_TOPUP_MAX_AMOUNT": 100000,
@@ -50,6 +51,9 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "PANEL_API_SOCK_READ_TIMEOUT_SECONDS": 15,
     "PANEL_API_TOTAL_TIMEOUT_SECONDS": 25,
     "PANEL_API_URL": "https://panel.example.test/api",
+    "SUBSCRIPTION_GATEWAY_ENABLED": False,
+    "SUBSCRIPTION_LINK_MODE": "panel",
+    "SUBSCRIPTION_GATEWAY_REWRITE_PROFILE_PAGE_URL": False,
     "PANEL_DEVICES_CACHE_TTL_SECONDS": 5,
     "PANEL_DRY_RUN_SYNTHETIC_CREATE": True,
     "PANEL_DRY_RUN_VALIDATE_REMOTE": False,
@@ -148,7 +152,7 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "TRIAL_PAYMENT_STARS_PRICE": 100,
     "TRIAL_TRAFFIC_LIMIT_GB": 5.0,
     "TRIAL_TRAFFIC_STRATEGY": "NO_RESET",
-    "TRIAL_WITHOUT_TELEGRAM_ENABLED": True,
+    "TRIAL_WITHOUT_OAUTH_ENABLED": True,
     "USER_HWID_DEVICE_LIMIT": None,
     "USER_TRAFFIC_STRATEGY": "NO_RESET",
     "WEBAPP_DEVICES_CACHE_TTL_SECONDS": 5,
@@ -169,7 +173,7 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "WEBAPP_SERVER_HOST": "0.0.0.0",
     "WEBAPP_SERVER_PORT": 8080,
     "WEBAPP_SESSION_SECRET": "test-session-secret",
-    "WEBAPP_SESSION_TTL_SECONDS": 86400,
+    "WEBAPP_SESSION_TTL_SECONDS": 30 * 24 * 60 * 60,
     "WEBAPP_TITLE": "/minishop",
     "WEBAPP_AUTH_MAX_AGE_SECONDS": 86400,
     "WEBAPP_LOGIN_TOKEN_TTL_SECONDS": 600,
@@ -184,9 +188,9 @@ class SettingsStub(SimpleNamespace):
         return domains
 
     @property
-    def email_auth_configured(self) -> bool:
-        if hasattr(self, "_email_auth_configured"):
-            return bool(self._email_auth_configured)
+    def smtp_delivery_configured(self) -> bool:
+        if hasattr(self, "_smtp_delivery_configured"):
+            return bool(self._smtp_delivery_configured)
         return bool(
             getattr(self, "SMTP_HOST", None)
             and getattr(self, "SMTP_PORT", None)
@@ -194,6 +198,12 @@ class SettingsStub(SimpleNamespace):
             and getattr(self, "SMTP_PASSWORD", None)
             and getattr(self, "SMTP_FROM_EMAIL", None)
         )
+
+    @property
+    def email_auth_configured(self) -> bool:
+        if hasattr(self, "_email_auth_configured"):
+            return bool(self._email_auth_configured)
+        return self.smtp_delivery_configured
 
     @email_auth_configured.setter
     def email_auth_configured(self, value: bool) -> None:
@@ -233,6 +243,7 @@ class SettingsStub(SimpleNamespace):
             primary_color=getattr(self, "WEBAPP_PRIMARY_COLOR", "#00fe7a"),
             user_theme_mode_enabled=bool(getattr(self, "WEBAPP_USER_THEME_MODE_ENABLED", True)),
             compact_home_enabled=bool(getattr(self, "WEBAPP_COMPACT_HOME_ENABLED", False)),
+            compact_login_enabled=bool(getattr(self, "WEBAPP_COMPACT_LOGIN_ENABLED", False)),
             checkout_addon_value_animation_enabled=bool(
                 getattr(self, "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED", True)
             ),
@@ -243,7 +254,7 @@ class SettingsStub(SimpleNamespace):
             favicon_use_custom=bool(getattr(self, "WEBAPP_FAVICON_USE_CUSTOM", False)),
             favicon_url=getattr(self, "WEBAPP_FAVICON_URL", None),
             logo_favicon_url=getattr(self, "WEBAPP_LOGO_FAVICON_URL", None),
-            session_ttl_seconds=int(getattr(self, "WEBAPP_SESSION_TTL_SECONDS", 86400)),
+            session_ttl_seconds=int(getattr(self, "WEBAPP_SESSION_TTL_SECONDS", 30 * 24 * 60 * 60)),
             session_secret=getattr(self, "WEBAPP_SESSION_SECRET", "test-session-secret"),
             webhook_secret_token=getattr(self, "WEBHOOK_SECRET_TOKEN", "test-webhook-secret"),
             auth_max_age_seconds=int(getattr(self, "WEBAPP_AUTH_MAX_AGE_SECONDS", 86400)),
@@ -425,6 +436,7 @@ def settings_stub(**overrides: Any) -> SettingsStub:
     values = dict(DEFAULT_SETTINGS_VALUES)
     for key in (
         "email_auth_configured",
+        "smtp_delivery_configured",
         "stars_traffic_packages",
         "tariffs_config",
         "traffic_packages",

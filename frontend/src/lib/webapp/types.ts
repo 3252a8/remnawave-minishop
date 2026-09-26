@@ -70,7 +70,9 @@ export type WebappConfig = BootstrapResponse["config"] &
     appRepositoryUrl?: unknown;
     appVersion?: unknown;
     authProviders?: string[];
+    compactLoginEnabled?: boolean;
     recommendedAuthProviders?: string[];
+    wideAuthProviders?: string[];
     checkoutPlans?: BillingPlan[];
     emailAuthEnabled?: boolean;
     notificationPreferencesEnabled?: boolean;
@@ -88,7 +90,9 @@ export const FALLBACK_WEBAPP_CONFIG: WebappConfig = {
   appRepositoryUrl: "",
   appVersion: "",
   authProviders: ["telegram"],
+  compactLoginEnabled: true,
   recommendedAuthProviders: ["telegram"],
+  wideAuthProviders: ["email"],
   checkoutPlans: [],
   currency: "RUB",
   devMode: false,

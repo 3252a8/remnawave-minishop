@@ -5,8 +5,9 @@ from typing import Any
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.text_decorations import html_decoration as hd
+from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
 from bot.infra.payment_events import (
@@ -24,11 +25,9 @@ from bot.utils.telegram_markup import (
     is_profile_link_error,
     remove_profile_link_buttons,
 )
-from bot.utils.text_sanitizer import (
-    display_name_or_fallback,
-    username_for_display,
-)
 from config.settings import Settings
+from db.auth_models import AccountRole
+from db.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +37,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
     def __init__(
         self,
-        bot: Bot,
+        bot: Bot | None,
         settings: Settings,
         i18n: JsonI18n | None = None,
         *,
@@ -54,62 +53,12 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         self.bot_username = bot_username or ""
 
     @staticmethod
-    def _format_user_display(
-        user_id: int,
-        username: str | None = None,
-        first_name: str | None = None,
-        email: str | None = None,
-    ) -> str:
-        base_display = display_name_or_fallback(first_name, f"ID {user_id}")
-        if username:
-            base_display = f"{base_display} ({username_for_display(username)})"
-        safe_display = hd.quote(base_display)
-        clean_email = str(email or "").strip()
-        if clean_email:
-            safe_display = f"{safe_display} · <code>{hd.quote(clean_email)}</code>"
-        return safe_display
-
-    @staticmethod
     def _external_auth_provider_label(translate: Callable[..., str], provider: str | None) -> str:
         key = {
             "google": "log_auth_provider_google",
             "yandex": "log_auth_provider_yandex",
         }.get(str(provider or "").lower())
         return hd.quote(translate(key) if key else str(provider or ""))
-
-    @staticmethod
-    def _build_profile_keyboard(
-        translate: Callable[..., str],
-        user_id: int,
-        referrer_id: int | None = None,
-    ) -> InlineKeyboardMarkup | None:
-        """Create inline keyboard with links to user (and referrer) profiles.
-
-        Email-only users have a synthetic negative ``user_id`` with no
-        Telegram profile, so we skip the tg:// button for them.
-        """
-        buttons = []
-        if user_id and user_id > 0:
-            buttons.append(
-                [
-                    InlineKeyboardButton(
-                        text=translate("log_open_profile_link"),
-                        url=f"tg://user?id={user_id}",
-                    )
-                ]
-            )
-
-        if referrer_id and referrer_id > 0:
-            buttons.append(
-                [
-                    InlineKeyboardButton(
-                        text=translate("log_open_referrer_profile_button"),
-                        url=f"tg://user?id={referrer_id}",
-                    )
-                ]
-            )
-
-        return InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
 
     async def _send_to_log_channel(
         self,
@@ -118,7 +67,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         reply_markup: InlineKeyboardMarkup | None = None,
     ) -> None:
         """Send message to configured log channel/group using message queue"""
-        if not self.settings.LOG_CHAT_ID:
+        if not self.settings.LOG_CHAT_ID or self.bot is None:
             return
 
         queue_manager = get_queue_manager()
@@ -191,19 +140,40 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
                 "Failed to queue notification to log channel %s.", self.settings.LOG_CHAT_ID
             )
 
+    async def _admin_telegram_ids(self) -> list[int]:
+        if self.session_factory is None:
+            return []
+        async with self.session_factory() as session:
+            result = await session.execute(
+                select(User.telegram_id)
+                .join(AccountRole, AccountRole.user_id == User.user_id)
+                .where(
+                    AccountRole.role.in_(("owner", "admin")),
+                    AccountRole.revoked_at.is_(None),
+                    User.telegram_id.is_not(None),
+                    User.is_banned.is_(False),
+                )
+                .distinct()
+            )
+            return [int(chat_id) for chat_id in result.scalars().all()]
+
     async def _send_to_admins(
         self,
         message: str,
         reply_markup: InlineKeyboardMarkup | None = None,
     ) -> None:
         """Send message to all admin users using message queue"""
-        if not self.settings.ADMIN_IDS:
+        if self.bot is None:
+            return
+
+        admin_telegram_ids = await self._admin_telegram_ids()
+        if not admin_telegram_ids:
             return
 
         queue_manager = get_queue_manager()
         if not queue_manager:
             logger.warning("Message queue manager not available, falling back to direct send")
-            for admin_id in self.settings.ADMIN_IDS:
+            for admin_id in admin_telegram_ids:
                 try:
                     await self.bot.send_message(
                         chat_id=admin_id,
@@ -216,7 +186,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
                     logger.exception("Failed to send notification to admin %s.", admin_id)
             return
 
-        for admin_id in self.settings.ADMIN_IDS:
+        for admin_id in admin_telegram_ids:
             try:
                 await queue_manager.send_message(
                     chat_id=admin_id,
@@ -235,6 +205,8 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         first_name: str | None = None,
         email: str | None = None,
         referred_by_id: int | None = None,
+        telegram_id: int | None = None,
+        minishop_id: str | None = None,
     ) -> None:
         """Send notification about new user registration"""
         if not self.settings.LOG_NEW_USERS:
@@ -243,16 +215,20 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         admin_lang = self.settings.DEFAULT_LANGUAGE
         _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
 
-        user_display = self._format_user_display(
-            user_id=user_id,
+        public_id = await self._public_user_id(user_id, minishop_id)
+        user_display, profile_keyboard = await self._user_log_context(
+            _,
+            user_id,
+            minishop_id=public_id,
             username=username,
             first_name=first_name,
             email=email,
+            telegram_id=telegram_id,
         )
 
         referral_text = ""
         if referred_by_id:
-            referrer_link = hd.link(str(referred_by_id), f"tg://user?id={referred_by_id}")
+            referrer_link = hd.quote(await self._public_user_id(referred_by_id))
             referral_text = _(
                 "log_referral_suffix",
                 referrer_link=referrer_link,
@@ -260,14 +236,13 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
         message = _(
             "log_new_user_registration",
-            user_id=user_id,
+            user_id=hd.quote(public_id),
             user_display=user_display,
             referral_text=referral_text,
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
 
         # Send to log channel
-        profile_keyboard = self._build_profile_keyboard(_, user_id, referred_by_id)
         await self._send_to_log_channel(message, reply_markup=profile_keyboard)
 
     async def notify_new_email_user_registration(
@@ -275,6 +250,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         user_id: int,
         email: str,
         referred_by_id: int | None = None,
+        minishop_id: str | None = None,
     ) -> None:
         """Send notification about new user registration via email (Web App)."""
         if not self.settings.LOG_NEW_USERS:
@@ -282,39 +258,30 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
         admin_lang = self.settings.DEFAULT_LANGUAGE
         _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
+        public_id = await self._public_user_id(user_id, minishop_id)
 
         referral_text = ""
         if referred_by_id:
-            referrer_link = hd.link(str(referred_by_id), f"tg://user?id={referred_by_id}")
+            referrer_link = hd.quote(await self._public_user_id(referred_by_id))
             referral_text = _(
                 "log_referral_suffix",
                 referrer_link=referrer_link,
             )
 
+        user_display, profile_keyboard = await self._user_log_context(
+            _, user_id, minishop_id=public_id, email=email
+        )
+
         message = _(
             "log_new_email_user_registration",
-            user_id=user_id,
+            user_id=hd.quote(public_id),
+            user_display=user_display,
             email=hd.quote(email),
             referral_text=referral_text,
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
 
-        # Email users have a synthetic (negative) user_id with no Telegram profile,
-        # so we only attach the referrer button when a real referrer is present.
-        reply_markup: InlineKeyboardMarkup | None = None
-        if referred_by_id and referred_by_id > 0:
-            reply_markup = InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text=_("log_open_referrer_profile_button"),
-                            url=f"tg://user?id={referred_by_id}",
-                        )
-                    ]
-                ]
-            )
-
-        await self._send_to_log_channel(message, reply_markup=reply_markup)
+        await self._send_to_log_channel(message, reply_markup=profile_keyboard)
 
     async def notify_new_external_user_registration(
         self,
@@ -323,6 +290,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         provider: str,
         email: str,
         referred_by_id: int | None = None,
+        minishop_id: str | None = None,
     ) -> None:
         """Send a provider-aware notification for an external OAuth registration."""
         if not self.settings.LOG_NEW_USERS:
@@ -330,22 +298,27 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
         admin_lang = self.settings.DEFAULT_LANGUAGE
         _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
+        public_id = await self._public_user_id(user_id, minishop_id)
 
         referral_text = ""
         if referred_by_id:
-            referrer_link = hd.link(str(referred_by_id), f"tg://user?id={referred_by_id}")
+            referrer_link = hd.quote(await self._public_user_id(referred_by_id))
             referral_text = _("log_referral_suffix", referrer_link=referrer_link)
+
+        user_display, profile_keyboard = await self._user_log_context(
+            _, user_id, minishop_id=public_id, email=email
+        )
 
         message = _(
             "log_new_external_user_registration",
-            user_id=user_id,
+            user_id=hd.quote(public_id),
+            user_display=user_display,
             provider=self._external_auth_provider_label(_, provider),
             email=hd.quote(email),
             referral_text=referral_text,
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
-        reply_markup = self._build_profile_keyboard(_, user_id, referred_by_id)
-        await self._send_to_log_channel(message, reply_markup=reply_markup)
+        await self._send_to_log_channel(message, reply_markup=profile_keyboard)
 
     async def notify_account_email_linked(
         self,
@@ -361,28 +334,28 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
         admin_lang = self.settings.DEFAULT_LANGUAGE
         _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
+        public_id = await self._public_user_id(user_id)
 
-        user_display = self._format_user_display(
-            user_id=telegram_id or user_id,
+        user_display, profile_keyboard = await self._user_log_context(
+            _,
+            user_id,
+            minishop_id=public_id,
             username=username,
             first_name=first_name,
             email=email,
+            telegram_id=telegram_id,
         )
 
         message = _(
             "log_account_email_linked",
-            user_id=user_id,
-            telegram_id=telegram_id or user_id,
+            user_id=hd.quote(public_id),
+            telegram_id=telegram_id or "—",
             user_display=user_display,
             email=hd.quote(email),
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
 
-        reply_markup: InlineKeyboardMarkup | None = None
-        if telegram_id and telegram_id > 0:
-            reply_markup = self._build_profile_keyboard(_, telegram_id)
-
-        await self._send_to_log_channel(message, reply_markup=reply_markup)
+        await self._send_to_log_channel(message, reply_markup=profile_keyboard)
 
     async def notify_account_telegram_linked(
         self,
@@ -398,24 +371,27 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
         admin_lang = self.settings.DEFAULT_LANGUAGE
         _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
+        public_id = await self._public_user_id(user_id)
 
-        user_display = self._format_user_display(
-            user_id=telegram_id,
+        user_display, profile_keyboard = await self._user_log_context(
+            _,
+            user_id,
+            minishop_id=public_id,
             username=username,
             first_name=first_name,
             email=email,
+            telegram_id=telegram_id,
         )
 
         message = _(
             "log_account_telegram_linked",
-            user_id=user_id,
+            user_id=hd.quote(public_id),
             telegram_id=telegram_id,
             user_display=user_display,
             email=hd.quote(email or ""),
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
 
-        profile_keyboard = self._build_profile_keyboard(_, telegram_id)
         await self._send_to_log_channel(message, reply_markup=profile_keyboard)
 
     async def notify_account_external_identity_linked(
@@ -440,23 +416,25 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
             "email_confirmation": "log_external_link_source_email_confirmation",
             "provider_verified_email": "log_external_link_source_provider_verified_email",
         }.get(link_source, "log_external_link_source_settings")
-        display_user_id = int(telegram_id or user_id)
-        user_display = self._format_user_display(
-            user_id=display_user_id,
+        display_user_id = await self._public_user_id(user_id)
+        user_display, profile_keyboard = await self._user_log_context(
+            _,
+            user_id,
+            minishop_id=display_user_id,
             username=username,
             first_name=first_name,
             email=email,
+            telegram_id=telegram_id,
         )
         message = _(
             "log_account_external_identity_linked",
-            user_id=user_id,
+            user_id=hd.quote(display_user_id),
             provider=self._external_auth_provider_label(_, provider),
             link_source=hd.quote(_(source_key)),
             user_display=user_display,
             email=hd.quote(email or ""),
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
-        profile_keyboard = self._build_profile_keyboard(_, display_user_id)
         await self._send_to_log_channel(message, reply_markup=profile_keyboard)
 
     async def notify_account_merged(
@@ -473,6 +451,8 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         source_panel_user_uuid: str | None = None,
         reason: str | None = None,
         provider: str | None = None,
+        primary_minishop_id: str | None = None,
+        removed_minishop_id: str | None = None,
     ) -> None:
         """Send notification when duplicate email/Telegram accounts are merged."""
         if not self.settings.LOG_NEW_USERS:
@@ -481,12 +461,16 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         admin_lang = self.settings.DEFAULT_LANGUAGE
         _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
 
-        display_user_id = int(telegram_id or primary_user_id)
-        user_display = self._format_user_display(
-            user_id=display_user_id,
+        display_user_id = await self._public_user_id(primary_user_id, primary_minishop_id)
+        removed_display_id = await self._public_user_id(removed_user_id, removed_minishop_id)
+        user_display, profile_keyboard = await self._user_log_context(
+            _,
+            primary_user_id,
+            minishop_id=display_user_id,
             username=username,
             first_name=first_name,
             email=email,
+            telegram_id=telegram_id,
         )
         merge_source = ""
         if provider:
@@ -523,8 +507,8 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
 
         message = _(
             "log_account_merged",
-            primary_user_id=primary_user_id,
-            removed_user_id=removed_user_id,
+            primary_user_id=hd.quote(display_user_id),
+            removed_user_id=hd.quote(removed_display_id),
             telegram_id=telegram_id or "",
             user_display=user_display,
             email=hd.quote(email or ""),
@@ -534,9 +518,6 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
 
-        profile_keyboard = (
-            self._build_profile_keyboard(_, int(telegram_id)) if telegram_id else None
-        )
         await self._send_to_log_channel(message, reply_markup=profile_keyboard)
 
     def _format_traffic_gb_admin(self, traffic_gb: float) -> str:
@@ -577,6 +558,8 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         duration_days: int | None = None,
         promo_code: str | None = None,
         discount_amount: float | None = None,
+        minishop_id: str | None = None,
+        telegram_id: int | None = None,
     ) -> None:
         """Send notification about successful payment"""
         if not self.settings.LOG_PAYMENTS:
@@ -585,10 +568,13 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         admin_lang = self.settings.DEFAULT_LANGUAGE
         _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
 
-        user_display = self._format_user_display(
-            user_id=user_id,
+        user_display, profile_keyboard = await self._user_log_context(
+            _,
+            user_id,
+            minishop_id=await self._public_user_id(user_id, minishop_id),
             username=username,
             email=email,
+            telegram_id=telegram_id,
         )
 
         try:
@@ -620,6 +606,26 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
                 user_display=user_display,
                 amount=amount,
                 currency=currency,
+                payment_provider=payment_provider,
+                payment_id=payment_id if payment_id is not None else "—",
+                timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
+            )
+        elif sale_mode_base(sale_mode) == "tariff_upgrade":
+            tariff_name = self._tariff_display_for_log(tariff_key)
+            message = _(
+                "log_payment_tariff_upgrade_received",
+                provider_emoji=provider_emoji,
+                user_display=user_display,
+                amount=amount,
+                currency=currency,
+                tariff_line=_("log_payment_tariff_line", name=hd.quote(tariff_name))
+                if tariff_name
+                else "",
+                purchase_summary_line=_(
+                    "log_payment_purchase_summary_line", summary=purchase_summary
+                )
+                if purchase_summary
+                else "",
                 payment_provider=payment_provider,
                 payment_id=payment_id if payment_id is not None else "—",
                 timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
@@ -726,7 +732,6 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
                 + "\n\n"
                 + message
             )
-        profile_keyboard = self._build_profile_keyboard(_, user_id)
         await self._send_to_log_channel(message, reply_markup=profile_keyboard)
 
     def _format_payment_purchase_line(
@@ -779,8 +784,10 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         admin_lang = self.settings.DEFAULT_LANGUAGE
         _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
 
-        user_display = self._format_user_display(
-            user_id=user_id,
+        user_display, profile_keyboard = await self._user_log_context(
+            _,
+            user_id,
+            minishop_id=await self._public_user_id(user_id),
             username=username,
             email=email,
         )
@@ -811,7 +818,6 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         )
 
         # Send to log channel
-        profile_keyboard = self._build_profile_keyboard(_, user_id)
         await self._send_to_log_channel(message, reply_markup=profile_keyboard)
 
     async def notify_trial_activation(
@@ -828,8 +834,10 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         admin_lang = self.settings.DEFAULT_LANGUAGE
         _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
 
-        user_display = self._format_user_display(
-            user_id=user_id,
+        user_display, profile_keyboard = await self._user_log_context(
+            _,
+            user_id,
+            minishop_id=await self._public_user_id(user_id),
             username=username,
             email=email,
         )
@@ -842,7 +850,6 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         )
 
         # Send to log channel
-        profile_keyboard = self._build_profile_keyboard(_, user_id)
         await self._send_to_log_channel(message, reply_markup=profile_keyboard)
 
     async def notify_panel_sync(
@@ -885,6 +892,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         username: str | None = None,
         first_name: str | None = None,
         email: str | None = None,
+        minishop_id: str | None = None,
     ) -> None:
         """Send notification about a suspicious promo code attempt."""
         if not self.settings.LOG_SUSPICIOUS_ACTIVITY:
@@ -893,23 +901,20 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         admin_lang = self.settings.DEFAULT_LANGUAGE
         _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
 
-        user_display = self._format_user_display(
-            user_id=user_id,
-            username=username,
-            first_name=first_name,
-            email=email,
+        public_id = await self._public_user_id(user_id, minishop_id)
+        user_display, profile_keyboard = await self._user_log_context(
+            _, user_id, minishop_id=public_id, username=username, first_name=first_name, email=email
         )
 
         message = _(
             "log_suspicious_promo",
             user_display=user_display,
-            user_id=user_id,
+            user_id=hd.quote(public_id),
             suspicious_input=hd.quote(suspicious_input),
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S %Z"),
         )
 
         # Send to log channel
-        profile_keyboard = self._build_profile_keyboard(_, user_id)
         await self._send_to_log_channel(message, reply_markup=profile_keyboard)
 
     async def send_custom_notification(

@@ -19,6 +19,7 @@ from bot.payment_providers import provider_supports_recurring
 from bot.payment_providers.shared import service_supports_recurring
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.telegram_account import require_telegram_account_id
 from bot.utils.callback_answer import (
     callback_data,
     callback_message,
@@ -52,6 +53,7 @@ async def disconnect_device_handler(
     panel_service: PanelApiService,
     bot: Bot,
 ) -> None:
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -68,9 +70,7 @@ async def disconnect_device_handler(
             await callback.answer(get_text("error_try_again"), show_alert=True)
         return
 
-    active = await subscription_service.get_active_subscription_details(
-        session, callback.from_user.id
-    )
+    active = await subscription_service.get_active_subscription_details(session, account_user_id)
     if not active or not active.get("user_id"):
         await callback.answer(get_text("subscription_not_active"), show_alert=True)
         return
@@ -115,6 +115,7 @@ async def toggle_autorenew_handler(
     panel_service: PanelApiService,
     bot: Bot,
 ) -> None:
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -130,7 +131,7 @@ async def toggle_autorenew_handler(
         return
 
     sub = await session.get(Subscription, sub_id)
-    if not sub or sub.user_id != callback.from_user.id:
+    if not sub or sub.user_id != account_user_id:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
     provider = str(getattr(sub, "provider", "") or "").strip().lower()
@@ -143,7 +144,9 @@ async def toggle_autorenew_handler(
             await callback.answer(get_text("autorenew_unavailable"), show_alert=True)
             return
         has_saved_card = await user_billing_dal.user_has_saved_payment_method(
-            session, callback.from_user.id, provider=provider
+            session,
+            account_user_id,
+            provider=provider,
         )
         if not has_saved_card:
             with contextlib.suppress(Exception):
@@ -175,6 +178,7 @@ async def confirm_autorenew_handler(
     panel_service: PanelApiService,
     bot: Bot,
 ) -> None:
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -189,7 +193,7 @@ async def confirm_autorenew_handler(
         return
 
     sub = await session.get(Subscription, sub_id)
-    if not sub or sub.user_id != callback.from_user.id:
+    if not sub or sub.user_id != account_user_id:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
     provider = str(getattr(sub, "provider", "") or "").strip().lower()
@@ -206,7 +210,9 @@ async def confirm_autorenew_handler(
                 )
             return
         has_saved_card = await user_billing_dal.user_has_saved_payment_method(
-            session, callback.from_user.id, provider=provider
+            session,
+            account_user_id,
+            provider=provider,
         )
         if not has_saved_card:
             with contextlib.suppress(Exception):
@@ -219,7 +225,7 @@ async def confirm_autorenew_handler(
 
     async with redis_lock(
         settings,
-        auto_renew_user_lock_name(callback.from_user.id),
+        auto_renew_user_lock_name(account_user_id),
         ttl_seconds=60,
     ) as acquired:
         if not acquired:
@@ -228,7 +234,7 @@ async def confirm_autorenew_handler(
         if not enable and not await stop_provider_managed_recurrence(
             subscription_service,
             session,
-            user_id=callback.from_user.id,
+            user_id=account_user_id,
             provider=provider,
         ):
             await session.rollback()
@@ -257,6 +263,7 @@ async def autorenew_cancel_from_webhook_button(
     panel_service: PanelApiService,
     bot: Bot,
 ) -> None:
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -264,7 +271,7 @@ async def autorenew_cancel_from_webhook_button(
     # Disable auto-renew on the active subscription
     from db.dal import subscription_dal
 
-    sub = await subscription_dal.get_active_subscription_by_user_id(session, callback.from_user.id)
+    sub = await subscription_dal.get_active_subscription_by_user_id(session, account_user_id)
     if not sub:
         with contextlib.suppress(Exception):
             await callback.answer(get_text("subscription_not_active"), show_alert=True)
@@ -276,7 +283,7 @@ async def autorenew_cancel_from_webhook_button(
         return
     async with redis_lock(
         settings,
-        auto_renew_user_lock_name(callback.from_user.id),
+        auto_renew_user_lock_name(account_user_id),
         ttl_seconds=60,
     ) as acquired:
         if not acquired:
@@ -285,7 +292,7 @@ async def autorenew_cancel_from_webhook_button(
         if not await stop_provider_managed_recurrence(
             subscription_service,
             session,
-            user_id=callback.from_user.id,
+            user_id=account_user_id,
             provider=provider,
         ):
             await session.rollback()

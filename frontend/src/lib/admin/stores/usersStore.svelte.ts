@@ -9,12 +9,14 @@ import {
   openingUserModalState,
   pushUserPath,
   resolvePathContext,
+  userFromRoute,
 } from "./usersStoreHelpers";
 import { defineRawStateProperty } from "./rawStateProperty";
 import { AdminUsersError, createUsersStoreQueries } from "./usersStoreQueries";
 import { createUsersStoreSquadOverrideActions } from "./usersStoreSquadOverrides";
 import { createUsersStoreSubscriptionReissueAction } from "./usersStoreSubscriptionReissue";
 import { createUsersStoreNotificationPreferenceActions } from "./usersStoreNotificationPreferences";
+import { createUsersStoreBalanceActions } from "./usersStoreBalanceActions";
 import { buildAdminUserActionPath, buildAdminUserPath } from "../../webapp/publicApi";
 import {
   USERS_PAGE_SIZE,
@@ -123,7 +125,17 @@ export function createUsersStore({
     return snapshotForPayload(readCurrentState());
   }
 
-  function _isCurrentUserRequest(s: AdminStoreState, requestId: number, userId: number) {
+  function reportUserActionError(error: unknown): void {
+    onToast(
+      adminErrorMessage(
+        error,
+        at,
+        at("error_service_unavailable", {}, "The service is unavailable. Try again later.")
+      )
+    );
+  }
+
+  function _isCurrentUserRequest(s: AdminStoreState, requestId: number, userId: number | string) {
     return isCurrentUserRequest(s, requestId, userId, _openUserRequestId);
   }
 
@@ -148,6 +160,7 @@ export function createUsersStore({
       ...s,
       openedUserDetail: res,
       openedUser: res.user ? { ...res.user, ...s.openedUser, ...res.user } : s.openedUser,
+      userLogsUserId: res.user?.user_id ?? s.userLogsUserId,
     };
 
     if (resetExtendTariff) {
@@ -208,10 +221,9 @@ export function createUsersStore({
     _pathContext = resolvePathContext(_activeRef, context);
   }
 
-  function _pushUserPath(userId: number | string | null) {
-    pushUserPath(_activeRef, _pathContext, userId, routePrefix);
+  function _pushUserPath(userId: number | string | null, replace = false) {
+    pushUserPath(_activeRef, _pathContext, userId, routePrefix, replace);
   }
-
   async function loadUsers({ refresh = false }: { refresh?: boolean } = {}) {
     const requestId = ++_loadUsersRequestId;
     const perf = createAdminPerfSpan("users");
@@ -245,15 +257,12 @@ export function createUsersStore({
   }
 
   async function openUser(userOrId: AdminUser | number | string, opts: OpenUserOptions = {}) {
-    const userId: number =
-      typeof userOrId === "object" && userOrId !== null
-        ? Number(userOrId.user_id)
-        : Number(userOrId);
+    const userId: number | string =
+      typeof userOrId === "object" && userOrId !== null ? userOrId.user_id : userOrId;
     if (!userId) return;
     const requestId = ++_openUserRequestId;
     _setPathContext(opts.pathContext);
-    const openedUser =
-      typeof userOrId === "object" && userOrId !== null ? userOrId : { user_id: userId };
+    const openedUser = userFromRoute(userOrId);
 
     applyState((s) => ({
       ...s,
@@ -261,13 +270,16 @@ export function createUsersStore({
       userActionBusy: s.userActionBusy,
     }));
 
-    if (!opts.skipPush) _pushUserPath(userId);
+    if (!opts.skipPush) _pushUserPath(openedUser.minishop_id || userId);
     try {
       const res = await queryUserDetail(userId);
       applyState((s) => {
         if (!_isCurrentUserRequest(s, requestId, userId)) return s;
         return _applyUserDetailSnapshot(s, res);
       });
+      if (res.user?.minishop_id && _isCurrentUserRequest(readCurrentState(), requestId, userId)) {
+        _pushUserPath(res.user.minishop_id, true);
+      }
     } catch (error) {
       if (error instanceof AdminUsersError) {
         let shouldClearPath = false;
@@ -483,6 +495,8 @@ export function createUsersStore({
           banned ? at("user_banned", {}, "User banned") : at("user_unbanned", {}, "User unbanned")
         );
       } else onToast(adminErrorMessage(res, at));
+    } catch (error) {
+      reportUserActionError(error);
     } finally {
       applyState((st) => ({ ...st, userActionBusy: false }));
     }
@@ -507,6 +521,8 @@ export function createUsersStore({
           adminErrorMessage(res, at, at("user_tg_profile_link_failed", {}, "Failed to send link"))
         );
       }
+    } catch (error) {
+      reportUserActionError(error);
     } finally {
       applyState((st) => ({ ...st, userActionBusy: false }));
     }
@@ -554,6 +570,8 @@ export function createUsersStore({
           resetGrant: false,
         });
       } else onToast(adminErrorMessage(res, at));
+    } catch (error) {
+      reportUserActionError(error);
     } finally {
       applyState((st) => ({
         ...st,
@@ -575,19 +593,47 @@ export function createUsersStore({
           apply_tariff_hwid_limit: Boolean(s.userApplyTariffHwidLimit),
         }),
       });
-      if (res?.ok) {
+      if (
+        res?.ok &&
+        "subscription" in res &&
+        res.subscription?.tariff_key === s.userTariffActionKey
+      ) {
         invalidateUsersQueries(s.openedUser.user_id);
-        onToast(at("user_tariff_saved", {}, "Tariff saved"));
-        await refreshOpenedUserDetail({
+        const refreshed = await refreshOpenedUserDetail({
           resetPremium: false,
           resetRegular: false,
           resetHwid: false,
           resetGrant: false,
         });
+        if (
+          !refreshed?.ok ||
+          readStateSnapshot().openedUserDetail?.active_subscription?.tariff_key !==
+            s.userTariffActionKey
+        ) {
+          onToast(
+            at(
+              "user_tariff_verify_failed",
+              {},
+              "Could not verify the saved tariff. Refresh the user card and try again."
+            )
+          );
+          return;
+        }
+        onToast(at("user_tariff_saved", {}, "Tariff saved"));
         if (_activeRef === "users") await loadUsers({ refresh: true });
       } else {
-        onToast(adminErrorMessage(res, at));
+        onToast(
+          res?.ok
+            ? at(
+                "user_tariff_verify_failed",
+                {},
+                "Could not verify the saved tariff. Refresh the user card and try again."
+              )
+            : adminErrorMessage(res, at)
+        );
       }
+    } catch (error) {
+      reportUserActionError(error);
     } finally {
       applyState((st) => ({
         ...st,
@@ -620,6 +666,8 @@ export function createUsersStore({
         });
         if (_activeRef === "users") await loadUsers({ refresh: true });
       } else onToast(adminErrorMessage(res, at));
+    } catch (error) {
+      reportUserActionError(error);
     } finally {
       applyState((st) => ({ ...st, userActionBusy: false }));
     }
@@ -660,6 +708,8 @@ export function createUsersStore({
       } else {
         onToast(adminErrorMessage(res, at));
       }
+    } catch (error) {
+      reportUserActionError(error);
     } finally {
       applyState((st) => ({ ...st, userActionBusy: false }));
     }
@@ -701,6 +751,8 @@ export function createUsersStore({
       } else {
         onToast(adminErrorMessage(res, at));
       }
+    } catch (error) {
+      reportUserActionError(error);
     } finally {
       applyState((st) => ({ ...st, userActionBusy: false }));
     }
@@ -733,6 +785,8 @@ export function createUsersStore({
       } else {
         onToast(adminErrorMessage(res, at));
       }
+    } catch (error) {
+      reportUserActionError(error);
     } finally {
       applyState((st) => ({ ...st, userActionBusy: false }));
     }
@@ -778,6 +832,8 @@ export function createUsersStore({
       } else {
         onToast(adminErrorMessage(res, at));
       }
+    } catch (error) {
+      reportUserActionError(error);
     } finally {
       applyState((st) => ({ ...st, userActionBusy: false }));
     }
@@ -795,7 +851,7 @@ export function createUsersStore({
       return;
     }
     const kind = s.grantTrafficKindDraft === "premium" ? "premium" : "regular";
-    const userId = String(s.openedUser.user_id ?? "");
+    const userId = String(s.openedUser.minishop_id || "—");
     const user = userDisplayName(s.openedUser);
     const toastParams = { gb, user_id: userId, user };
     applyState((st) => ({ ...st, userActionBusy: true }));
@@ -830,79 +886,8 @@ export function createUsersStore({
       } else {
         onToast(adminErrorMessage(res, at));
       }
-    } finally {
-      applyState((st) => ({ ...st, userActionBusy: false }));
-    }
-  }
-
-  async function adjustUserBalance(payload: {
-    target: "user" | "partner";
-    mode: "add" | "subtract" | "set";
-    amount: number;
-    reason: string;
-    idempotency_key: string;
-  }) {
-    const s = readStateSnapshot();
-    if (!s.openedUser) return false;
-    applyState((st) => ({ ...st, userActionBusy: true }));
-    try {
-      const res = await api(buildAdminUserActionPath(s.openedUser.user_id, "balance-adjustment"), {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      if (!res?.ok) {
-        onToast(adminErrorMessage(res, at));
-        return false;
-      }
-      invalidateUsersQueries(s.openedUser.user_id);
-      onToast(at("user_balance_adjustment_saved", {}, "Balance updated"));
-      await refreshOpenedUserDetail({
-        resetExtendTariff: false,
-        resetTariffAction: false,
-        resetTrafficStrategy: false,
-        resetPremium: false,
-        resetRegular: false,
-        resetHwid: false,
-        resetGrant: false,
-        resetSquadOverrides: false,
-      });
-      return true;
-    } finally {
-      applyState((st) => ({ ...st, userActionBusy: false }));
-    }
-  }
-
-  async function convertUserBalance(payload: {
-    direction: "partner_to_user" | "user_to_partner";
-    amount: number;
-    reason: string;
-    idempotency_key: string;
-  }) {
-    const s = readStateSnapshot();
-    if (!s.openedUser) return false;
-    applyState((st) => ({ ...st, userActionBusy: true }));
-    try {
-      const res = await api(buildAdminUserActionPath(s.openedUser.user_id, "balance-conversion"), {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      if (!res?.ok) {
-        onToast(adminErrorMessage(res, at));
-        return false;
-      }
-      invalidateUsersQueries(s.openedUser.user_id);
-      onToast(at("user_balance_conversion_saved", {}, "Balance converted"));
-      await refreshOpenedUserDetail({
-        resetExtendTariff: false,
-        resetTariffAction: false,
-        resetTrafficStrategy: false,
-        resetPremium: false,
-        resetRegular: false,
-        resetHwid: false,
-        resetGrant: false,
-        resetSquadOverrides: false,
-      });
-      return true;
+    } catch (error) {
+      reportUserActionError(error);
     } finally {
       applyState((st) => ({ ...st, userActionBusy: false }));
     }
@@ -924,6 +909,8 @@ export function createUsersStore({
         }));
         closeUser();
       } else onToast(adminErrorMessage(res, at));
+    } catch (error) {
+      reportUserActionError(error);
     } finally {
       applyState((st) => ({ ...st, userActionBusy: false }));
     }
@@ -962,6 +949,17 @@ export function createUsersStore({
     invalidateUsersQueries,
   });
 
+  const balanceActions = createUsersStoreBalanceActions({
+    api,
+    onToast,
+    at,
+    readStateSnapshot,
+    applyState,
+    invalidateUsersQueries,
+    refreshOpenedUserDetail,
+    reportUserActionError,
+  });
+
   return Object.assign(store, {
     updateState,
     setActive,
@@ -981,8 +979,7 @@ export function createUsersStore({
     saveTrafficStrategy,
     saveHwidDeviceLimit,
     grantTraffic,
-    adjustUserBalance,
-    convertUserBalance,
+    ...balanceActions,
     ...squadOverrideActions,
     ...subscriptionReissueActions,
     ...notificationPreferenceActions,

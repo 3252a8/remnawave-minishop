@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -116,6 +117,9 @@ class WataPaymentLinkMixin:
         currency: str | None,
         description: str,
         method: Any = WATA_PROVIDER,
+        payer_email: str | None = None,
+        payer_phone: str | None = None,
+        subscription: Mapping[str, Any] | None = None,
     ) -> tuple[bool, dict[str, Any]]:
         profile = self.profile_for_method(method)
         if not self.profile_enabled(profile.provider):
@@ -148,6 +152,15 @@ class WataPaymentLinkMixin:
             "failRedirectUrl": self._failed_url_for_profile(profile),
             "expirationDateTime": expires_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
+        if subscription is not None:
+            body.update(
+                {
+                    "type": "OneTime",
+                    "email": str(payer_email or "").strip(),
+                    "phone": str(payer_phone or "").strip(),
+                    "subscription": dict(subscription),
+                }
+            )
         # Resolve through the public service module so existing integrations can
         # continue to replace the transport at that stable seam.
         from . import service as service_module

@@ -1,12 +1,14 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import BrandMark from "$lib/webapp/BrandMark.svelte";
+  import type { UserNavigationItem } from "$lib/webapp/extensionHost";
   import BottomNav from "./BottomNav.svelte";
 
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type Action = () => void;
 
   type Props = {
+    extensionNavigation?: UserNavigationItem[];
     activeTab?: string;
     brand?: Record<string, unknown>;
     brandTitle?: string;
@@ -35,6 +37,7 @@
   };
 
   let {
+    extensionNavigation = [],
     screen = "home",
     activeTab = "home",
     brand = {},
@@ -76,6 +79,7 @@
   {@render children?.()}
 
   <BottomNav
+    {extensionNavigation}
     {activeTab}
     {screen}
     {brand}

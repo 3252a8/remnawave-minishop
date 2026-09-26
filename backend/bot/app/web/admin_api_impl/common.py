@@ -278,14 +278,14 @@ def _user_display_label(
         return email_value
     if fallback_user_id is None:
         return None
-    return str(fallback_user_id)
+    return str(getattr(loaded_user, "minishop_id", None) or "—")
 
 
 def _payment_user_display_label(loaded_user: Any, payment_user_id: int) -> str:
     label = _user_display_label(loaded_user, payment_user_id)
     if label:
         return label
-    return str(payment_user_id)
+    return "—"
 
 
 def _serialize_payment(payment: Payment) -> dict[str, Any]:

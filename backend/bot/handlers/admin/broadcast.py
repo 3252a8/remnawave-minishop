@@ -136,7 +136,12 @@ async def process_broadcast_message_handler(
             )
             return
 
-        admin_user_id = int(message.from_user.id) if message.from_user else 0
+        admin_account = (
+            await user_dal.get_user_by_telegram_id(session, int(message.from_user.id))
+            if message.from_user
+            else None
+        )
+        admin_user_id = int(admin_account.user_id) if admin_account else 0
         contexts = await load_admin_broadcast_contexts(
             session,
             settings,
@@ -346,10 +351,13 @@ async def confirm_broadcast_callback_handler(
             user_ids = await user_dal.get_user_ids_with_expired_subscription(session)
         else:
             user_ids = await user_dal.get_all_active_user_ids_for_broadcast(session)
+        recipients = await user_dal.get_telegram_recipients_for_broadcast(session, user_ids)
 
         sent_count = 0
         failed_count = 0
         admin_user = callback.from_user
+        admin_account = await user_dal.get_user_by_telegram_id(session, int(admin_user.id))
+        admin_account_id = int(admin_account.user_id) if admin_account else 0
         logger.info(
             "Admin %s broadcasting '%s...' to %s users.",
             admin_user.id,
@@ -383,7 +391,7 @@ async def confirm_broadcast_callback_handler(
             bot_username = await bot_username_for_shortcodes(bot, needed_shortcodes)
 
         # Queue all messages for sending
-        for uid in user_ids:
+        for uid, chat_id in recipients:
             try:
                 message_content = content
                 if uses_shortcodes:
@@ -405,7 +413,7 @@ async def confirm_broadcast_callback_handler(
                     if uses_shortcodes:
                         await send_message_via_queue(
                             queue_manager,
-                            uid,
+                            chat_id,
                             message_content,
                             parse_mode="HTML",
                             disable_web_page_preview=True,
@@ -413,7 +421,7 @@ async def confirm_broadcast_callback_handler(
                     else:
                         await send_message_via_queue(
                             queue_manager,
-                            uid,
+                            chat_id,
                             message_content,
                             parse_mode="HTML",
                             entities=entities,
@@ -422,7 +430,7 @@ async def confirm_broadcast_callback_handler(
                 elif uses_shortcodes:
                     await send_message_via_queue(
                         queue_manager,
-                        uid,
+                        chat_id,
                         message_content,
                         parse_mode="HTML",
                         disable_web_page_preview=True,
@@ -430,7 +438,7 @@ async def confirm_broadcast_callback_handler(
                 else:
                     await send_message_via_queue(
                         queue_manager,
-                        uid,
+                        chat_id,
                         message_content,
                         parse_mode="HTML",
                         caption_entities=entities,
@@ -442,7 +450,7 @@ async def confirm_broadcast_callback_handler(
                 await message_log_dal.create_message_log(
                     session,
                     {
-                        "user_id": admin_user.id,
+                        "user_id": admin_account_id,
                         "telegram_username": admin_user.username,
                         "telegram_first_name": admin_user.first_name,
                         "event_type": "admin_broadcast_queued",
@@ -457,7 +465,7 @@ async def confirm_broadcast_callback_handler(
                 await message_log_dal.create_message_log(
                     session,
                     {
-                        "user_id": admin_user.id,
+                        "user_id": admin_account_id,
                         "telegram_username": admin_user.username,
                         "telegram_first_name": admin_user.first_name,
                         "event_type": "admin_broadcast_failed",

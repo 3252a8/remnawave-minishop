@@ -4,6 +4,7 @@ type AdminErrorPayload = {
   error?: unknown;
   message?: unknown;
   msg?: unknown;
+  payload?: unknown;
 };
 
 type AdminTranslate = (key: string, vars?: Record<string, unknown>, fallback?: string) => string;
@@ -169,6 +170,7 @@ const ADMIN_ERROR_KEYS: Record<string, string> = {
   queue_unavailable: "error_queue_unavailable",
   send_failed: "error_telegram_send_failed",
   subscription_service_unavailable: "error_subscription_service_unavailable",
+  service_unavailable: "error_service_unavailable",
   tariff_change_failed: "error_tariff_change_failed",
   tariff_required: "error_tariff_required",
   traffic_strategy_locked: "error_traffic_strategy_locked",
@@ -214,7 +216,8 @@ function structuredErrorText(value: unknown): string {
 export function adminErrorMessage(result: unknown, at: AdminTranslate, fallback = ""): string {
   if (!result) return fallback || at("error", {}, "Error");
 
-  const payload = errorPayload(result);
+  const response = errorPayload(result);
+  const payload = errorPayload(response?.payload) || response;
   const nestedError = errorPayload(payload?.error);
   const code =
     scalarErrorText(result) ||

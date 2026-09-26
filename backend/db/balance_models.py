@@ -25,7 +25,8 @@ class UserBalanceLedgerEntry(Base):
         CheckConstraint(
             "kind IN ('payment_topup', 'payment_topup_reversal', 'admin_adjustment', "
             "'checkout_spend', 'checkout_spend_release', 'gift_refund', 'partner_conversion_in', "
-            "'partner_conversion_out')",
+            "'partner_conversion_out', 'extension_grant', "
+            "'extension_purchase', 'extension_refund')",
             name="ck_user_balance_ledger_kind",
         ),
         Index("ix_user_balance_ledger_user_currency", "user_id", "currency", "created_at"),

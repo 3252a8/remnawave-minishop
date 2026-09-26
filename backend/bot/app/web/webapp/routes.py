@@ -1,8 +1,12 @@
+import asyncio
+
 from aiohttp import web
 
+from bot.app.web.admin_api_impl.plugin_packages import _active_frontends
 from bot.app.web.admin_api_impl.routes import (
     setup_admin_routes,
 )
+from bot.plugins.packages import package_root
 
 from .account import (
     account_avatar_route,
@@ -13,6 +17,10 @@ from .account import (
     account_password_request_route,
     account_telegram_link_route,
     me_route,
+)
+from .account_merge import (
+    account_telegram_merge_confirm_route,
+    account_telegram_merge_request_route,
 )
 from .asset_paths import (
     WEBAPP_DEFAULT_LOGO_PATH,
@@ -90,6 +98,18 @@ from .email_change import (
     account_email_change_current_verify_route,
     account_email_change_new_request_route,
 )
+from .extension_orders import (
+    extension_checkout_route,
+    extension_order_create_route,
+    extension_order_route,
+    extension_orders_route,
+    extension_payment_methods_route,
+)
+from .extension_runtime import (
+    extension_asset_route,
+    extension_resource_route,
+    extension_runtime_route,
+)
 from .external_identity_unlink import external_identity_unlink_route
 from .external_oauth import (
     external_oauth_callback_route,
@@ -138,6 +158,7 @@ from .payloads import (
     WebAppPaymentCreatePayload as WebAppPaymentCreatePayload,
 )
 from .server_status import server_status_route
+from .subscription_gateway import subscription_gateway_route
 from .subscription_reissue import (
     subscription_reissue_route,
 )
@@ -158,11 +179,38 @@ from .telegram_notifications import (
 register_webapp_route_contracts()
 
 
+async def plugin_admin_index_route(request: web.Request) -> web.Response:
+    """Serve the SPA shell only for an active package's declared admin route."""
+    section = request.match_info["section"]
+    _, plugins = await asyncio.to_thread(_active_frontends, package_root())
+    for plugin in plugins:
+        for view in plugin.get("sections", []):
+            if not isinstance(view, dict):
+                continue
+            aliases = view.get("routeAliases")
+            if section == view.get("id") or (isinstance(aliases, list) and section in aliases):
+                return await index_route(request)
+    raise web.HTTPNotFound()
+
+
 def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/robots.txt", robots_txt_route)
     app.router.add_get("/", index_route)
     app.router.add_get("/login/password", index_route)
     app.router.add_get("/home", index_route)
+    app.router.add_get("/extensions", index_route)
+    app.router.add_get(r"/extensions/{owner:[a-z][a-z0-9-]+}/{view:[a-z][a-z0-9-]+}", index_route)
+    app.router.add_get("/api/extensions/runtime", extension_runtime_route)
+    app.router.add_get(
+        r"/api/extensions/assets/{owner:[a-z][a-z0-9-]+}/{digest:[a-f0-9]{64}}/{path:.+}",
+        extension_asset_route,
+    )
+    app.router.add_get("/api/extensions/resource", extension_resource_route)
+    app.router.add_get("/api/extensions/orders", extension_orders_route)
+    app.router.add_get("/api/extensions/order", extension_order_route)
+    app.router.add_get("/api/extensions/payment-methods", extension_payment_methods_route)
+    app.router.add_post("/api/extensions/orders", extension_order_create_route)
+    app.router.add_post("/api/extensions/checkout", extension_checkout_route)
     # Checkout has no screen of its own; the app renders home and opens plan
     # selection, so the path only has to reach the SPA.
     app.router.add_get("/plans", index_route)
@@ -171,12 +219,20 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/install", index_route)
     app.router.add_get("/trial", index_route)
     app.router.add_get("/open-app", app_deeplink_route)
-    app.router.add_get(r"/s/{share_token:[a-f0-9]{32}}", index_route)
+    app.router.add_get(
+        r"/s/{share_token:[a-f0-9]{32}}", subscription_gateway_route, allow_head=False
+    )
+    app.router.add_get(
+        r"/s/{share_token:[a-f0-9]{32}}/{client_type:stash|singbox|mihomo|json|v2ray-json|clash}",
+        subscription_gateway_route,
+        allow_head=False,
+    )
     app.router.add_get("/invite", index_route)
     app.router.add_get("/partner", index_route)
     app.router.add_get("/devices", index_route)
     app.router.add_get("/settings", index_route)
     app.router.add_get("/unsubscribe", index_route)
+    app.router.add_get("/settings/notifications", index_route)
     app.router.add_get("/settings/security", index_route)
     app.router.add_get("/status", index_route)
     app.router.add_get("/support", index_route)
@@ -186,15 +242,16 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get(
         (
             "/admin/{section:stats|users|payments|gifts|promos|ads|broadcast|logs|tariffs|"
-            "appearance|settings|translations|support|backups|partners|documents}"
+            "appearance|settings|translations|support|backups|partners|documents|plugins}"
         ),
         index_route,
     )
     app.router.add_get(r"/admin/settings/{settings_path:.+}", index_route)
-    app.router.add_get("/admin/users/{user_id:-?[0-9]+}", index_route)
-    app.router.add_get("/admin/payments/users/{user_id:-?[0-9]+}", index_route)
+    app.router.add_get("/admin/users/{user_id:-?[0-9]+|ms_[a-fA-F0-9]+}", index_route)
+    app.router.add_get("/admin/payments/users/{user_id:-?[0-9]+|ms_[a-fA-F0-9]+}", index_route)
     app.router.add_get("/admin/payments/{payment_id:\\d+}", index_route)
     app.router.add_get("/admin/support/{ticket_id:\\d+}", index_route)
+    app.router.add_get(r"/admin/{section:[a-z][a-z0-9-]+}", plugin_admin_index_route)
     app.router.add_get("/auth/telegram/start", telegram_oauth_start_route)
     app.router.add_get("/auth/telegram/callback", telegram_oauth_callback_route)
     app.router.add_get(r"/auth/{provider:discord|google|yandex}/start", external_oauth_start_route)
@@ -316,6 +373,8 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/account/passkeys/delete", account_passkey_delete_route)
     app.router.add_post("/api/account/identities/unlink", external_identity_unlink_route)
     app.router.add_post("/api/account/telegram/link", account_telegram_link_route)
+    app.router.add_post("/api/account/telegram/merge/request", account_telegram_merge_request_route)
+    app.router.add_post("/api/account/telegram/merge/confirm", account_telegram_merge_confirm_route)
     app.router.add_post(
         "/api/account/telegram/notifications/probe",
         account_telegram_notifications_probe_route,

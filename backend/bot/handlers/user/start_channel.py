@@ -11,6 +11,7 @@ from bot.keyboards.inline.user_keyboards import (
     get_channel_subscription_keyboard,
 )
 from bot.middlewares.i18n import JsonI18n
+from bot.services.account_roles import is_admin
 from bot.utils.callback_answer import (
     callback_message,
     message_bot,
@@ -59,12 +60,9 @@ async def ensure_required_channel_subscription(
         logger.error("Channel subscription check: bot instance missing for user %s.", user_id)
         return False
 
-    if user_id in settings.ADMIN_IDS:
-        return True
-
     if db_user is None:
         try:
-            db_user = await user_dal.get_user_by_id(session, user_id)
+            db_user = await user_dal.get_user_by_telegram_id(session, user_id)
         except Exception as fetch_error:
             logger.exception(
                 "Channel subscription check: failed to fetch user %s: %s", user_id, fetch_error
@@ -76,6 +74,9 @@ async def ensure_required_channel_subscription(
             "Required channel check skipped because user %s is not persisted yet.",
             user_id,
         )
+        return True
+
+    if await is_admin(session, int(db_user.user_id)):
         return True
 
     if (

@@ -28,6 +28,7 @@ const descriptions = {
   'features/web-app.md': 'Telegram Mini App, публичные инструкции, проксирование и реферальные ссылки.',
   'features/server-status.md': 'Статус серверов в Mini App через внешнюю страницу, Uptime Kuma или xray-checker.',
   'features/login-methods.md': 'Email-код, email/пароль, Telegram, Google, Яндекс и passkey: настройка, связывание аккаунтов и безопасность.',
+  'features/telegram-optional.md': 'Автономный браузерный режим с email, ролями администратора и отдельной идентичностью аккаунта.',
   'features/webapp-themes.md': 'Кастомные темы, CSS-токены, ассеты и пайплайн создания темы.',
   'features/admin-panel.md': 'Возможности админ-панели, управление пользователями, настройками, тарифами и поддержкой.',
   'features/backups.md': 'Автоматические бэкапы, отправка архивов в Telegram, локальное хранение и восстановление БД/compose-папки из админки.',

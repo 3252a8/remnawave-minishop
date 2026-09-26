@@ -406,7 +406,12 @@ async def account_passkey_delete_route(request: web.Request) -> web.Response:
         has_other_login = bool(
             passkey_count > 1
             or external_count
-            or (settings.TELEGRAM_LOGIN_ENABLED and user and user.telegram_id)
+            or (
+                settings.TELEGRAM_ENABLED
+                and settings.TELEGRAM_LOGIN_ENABLED
+                and user
+                and user.telegram_id
+            )
             or (user and user.email_verified_at and settings.email_auth_configured)
         )
         if not has_other_login:
