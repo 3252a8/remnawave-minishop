@@ -326,6 +326,7 @@ def _active_frontends(root: Path) -> tuple[int, list[dict[str, Any]]]:
                 "sections": frontend.get("sections", []),
                 "section_groups": frontend.get("section_groups", []),
                 "section_tabs": frontend.get("section_tabs", []),
+                "slots": frontend.get("slots", []),
                 "user_panels": frontend.get("user_panels", []),
                 "settings_tabs": frontend.get("settings_tabs", []),
                 "styles": [

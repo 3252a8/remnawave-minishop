@@ -3,10 +3,9 @@
 import re
 from typing import Any
 
+from .package_ui_composition import USER_SECTIONS, validate_placement
+
 _ID = re.compile(r"[a-z][a-z0-9-]{1,63}\Z")
-USER_TARGETS = frozenset(
-    {"user.home.cards", "user.profile.actions", "user.subscription.actions", "user.install.blocks"}
-)
 
 
 def validate_user_frontend(value: Any, files: dict[str, Any]) -> None:
@@ -34,6 +33,8 @@ def validate_user_frontend(value: Any, files: dict[str, Any]) -> None:
                 "target",
                 "icon",
                 "navigation",
+                "parent",
+                "placement",
             }:
                 raise ValueError("invalid_user_view")
             for key in ("id", "view"):
@@ -51,11 +52,23 @@ def validate_user_frontend(value: Any, files: dict[str, Any]) -> None:
                 or not -10000 <= view.get("order", 100) <= 10000
             ):
                 raise ValueError("invalid_user_view_order")
-            if collection == "slots" and view.get("target") not in USER_TARGETS:
-                raise ValueError("invalid_user_view_target")
+            if collection == "slots":
+                validate_placement(view, user=True)
+                if "parent" in view:
+                    raise ValueError("invalid_user_view_navigation")
             if collection == "pages" and view.get("target", "page") != "page":
                 raise ValueError("invalid_user_view_target")
-            if view.get("icon", "star") not in {
+            if collection == "pages":
+                parent = view.get("parent", "")
+                if (
+                    "placement" in view
+                    or not isinstance(parent, str)
+                    or parent not in USER_SECTIONS | {""}
+                ):
+                    raise ValueError("invalid_user_view_parent")
+                if view.get("navigation") == "section" and not view.get("parent"):
+                    raise ValueError("invalid_user_view_parent")
+            if not isinstance(view.get("icon", "star"), str) or view.get("icon", "star") not in {
                 "star",
                 "gift",
                 "device",
@@ -65,5 +78,7 @@ def validate_user_frontend(value: Any, files: dict[str, Any]) -> None:
                 "shield",
             }:
                 raise ValueError("invalid_user_view_icon")
-            if view.get("navigation", "primary") not in {"primary", "hidden"}:
+            if not isinstance(view.get("navigation", "primary"), str) or view.get(
+                "navigation", "primary"
+            ) not in {"primary", "hidden", "section"}:
                 raise ValueError("invalid_user_view_navigation")

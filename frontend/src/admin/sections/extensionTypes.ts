@@ -21,6 +21,8 @@ export interface AdminSectionGroupDescriptor {
 export interface AdminSectionComponentProps {
   runtimeViewId?: string;
   runtimeEntry?: string;
+  currentLang?: string;
+  context?: Record<string, unknown>;
   at: TranslateFn;
   featureAvailable: boolean;
   /**
@@ -97,6 +99,12 @@ export interface AdminSectionTabDescriptor extends FeatureBoundDescriptor {
   component: Component<AdminSectionComponentProps>;
   runtimeViewId?: string;
   runtimeEntry?: string;
+  runtimeDigest?: string;
+}
+
+export interface AdminUiSlotDescriptor extends AdminSectionTabDescriptor {
+  target: string;
+  placement?: "before" | "after" | "replace";
 }
 
 export interface AdminUserDetailPanelProps {
@@ -118,6 +126,7 @@ export interface AdminUserDetailPanelDescriptor extends FeatureBoundDescriptor {
   component: Component<AdminUserDetailPanelProps>;
   runtimeViewId?: string;
   runtimeEntry?: string;
+  runtimeDigest?: string;
 }
 
 export function requiredFeatureForDescriptor(descriptor: FeatureBoundDescriptor): string {

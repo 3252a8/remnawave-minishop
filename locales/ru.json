@@ -1,4 +1,8 @@
 {
+  "wa_extension_conflict": "Несколько расширений заменяют один блок. Показан стандартный интерфейс.",
+  "wa_extension_back_to_section": "Назад в раздел",
+  "wa_extension_subsections": "Дополнительные подразделы",
+  "admin_plugin_view_conflict": "Несколько плагинов заменяют один блок. Показан стандартный интерфейс.",
   "wa_boot_failed": "Не удалось загрузить приложение. Проверьте подключение и попробуйте ещё раз.",
   "admin_color_picker_title": "Цвет",
   "admin_color_picker_close": "Закрыть палитру",

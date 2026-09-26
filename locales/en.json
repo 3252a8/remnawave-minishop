@@ -1,4 +1,8 @@
 {
+  "wa_extension_conflict": "Several extensions replace the same block. The standard interface is shown.",
+  "wa_extension_back_to_section": "Back to section",
+  "wa_extension_subsections": "Additional subsections",
+  "admin_plugin_view_conflict": "Several plugins replace the same block. The standard interface is shown.",
   "wa_boot_failed": "Unable to load the app. Check your connection and try again.",
   "admin_color_picker_title": "Color",
   "admin_color_picker_close": "Close color picker",

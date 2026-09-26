@@ -15,6 +15,8 @@ class ExtensionViewOut(HttpResponseModel):
     target: str = "page"
     icon: str = "star"
     navigation: str = "primary"
+    parent: str = ""
+    placement: str = "after"
 
 
 class ExtensionPluginOut(HttpResponseModel):

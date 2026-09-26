@@ -157,6 +157,7 @@ export default defineConfig({
             { label: 'Доменные события', slug: 'architecture/events' },
             { label: 'API плагинов', slug: 'development/plugins' },
             { label: 'SDK расширений', slug: 'development/plugin-extensions' },
+            { label: 'Разделы и карточки плагинов', slug: 'development/plugin-ui-composition' },
             { label: 'Контракт плагинов', slug: 'development/plugin-contract' },
             { label: 'Архитектура', slug: 'reference/architecture' },
             { label: 'Единый dev stand', slug: 'development/dev-stand' },

@@ -1,6 +1,7 @@
 import type { components } from "$lib/api/openapi.generated";
 import { builtApiPath, unwrap, type ApiClient } from "./publicApi";
 import { withRoutePrefix } from "./routes";
+import { APP_SECTION_PATHS } from "./constants";
 
 export type UserExtensionPlugin = components["schemas"]["ExtensionPluginOut"];
 export type UserExtensionView = components["schemas"]["ExtensionViewOut"];
@@ -56,6 +57,18 @@ export function createExtensionHost(
     },
     navigate(view: string) {
       window.history.pushState(null, "", extensionPath(owner, view, prefix));
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    },
+    navigateSection(section: string) {
+      if (
+        !Object.hasOwn(APP_SECTION_PATHS, section) ||
+        section === "admin" ||
+        section === "extensions"
+      ) {
+        throw new Error("invalid_extension_section");
+      }
+      const path = APP_SECTION_PATHS[section as keyof typeof APP_SECTION_PATHS];
+      window.history.pushState(null, "", withRoutePrefix(path, prefix));
       window.dispatchEvent(new PopStateEvent("popstate"));
     },
     async createOrder(product: string, options: Record<string, unknown>, idempotencyKey: string) {

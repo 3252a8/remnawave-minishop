@@ -7066,6 +7066,16 @@
             "title": "Order",
             "type": "integer"
           },
+          "parent": {
+            "default": "",
+            "title": "Parent",
+            "type": "string"
+          },
+          "placement": {
+            "default": "after",
+            "title": "Placement",
+            "type": "string"
+          },
           "target": {
             "default": "page",
             "title": "Target",

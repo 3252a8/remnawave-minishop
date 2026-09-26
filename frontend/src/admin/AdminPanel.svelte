@@ -3,6 +3,7 @@
   import { Tooltip } from "$components/ui/primitives.js";
 
   import AdminPanelLayout from "./AdminPanelLayout.svelte";
+  import { adminExtensionRevision } from "./sections/extensionRegistry";
   import {
     ADMIN_SECTION_GROUPS,
     ADMIN_SECTIONS,
@@ -179,13 +180,15 @@
   });
 
   const featureSet = $derived(new Set<string>((settingsStore.features || []) as string[]));
-  const visibleSections: AdminSectionDescriptor[] = $derived(
-    ADMIN_SECTIONS.filter(
+  const visibleSections: AdminSectionDescriptor[] = $derived.by(() => {
+    void $adminExtensionRevision;
+    return ADMIN_SECTIONS.filter(
       (section) => !section.hideInNavigation && isAdminSectionVisible(section, featureSet)
-    )
-  );
-  const NAV_GROUPS: NavGroup[] = $derived(
-    ADMIN_SECTION_GROUPS.map((group) => ({
+    );
+  });
+  const NAV_GROUPS: NavGroup[] = $derived.by(() => {
+    void $adminExtensionRevision;
+    return ADMIN_SECTION_GROUPS.map((group) => ({
       id: group.id,
       order: group.order,
       label: at(group.i18nKey, {}, group.fallbackLabel),
@@ -196,10 +199,11 @@
           ...section,
           label: at(section.i18nKey, {}, section.fallbackLabel),
         })),
-    })).filter((group) => group.items.length)
-  );
-  const SECTION_META: Record<string, SectionMeta> = $derived(
-    Object.fromEntries(
+    })).filter((group) => group.items.length);
+  });
+  const SECTION_META: Record<string, SectionMeta> = $derived.by(() => {
+    void $adminExtensionRevision;
+    return Object.fromEntries(
       ADMIN_SECTIONS.map((section) => [
         section.id,
         {
@@ -207,9 +211,12 @@
           subtitle: at(section.subtitleI18nKey, {}, section.fallbackSubtitle),
         },
       ])
-    )
-  );
-  const SECTION_BY_ID = new Map(ADMIN_SECTIONS.map((section) => [section.id, section]));
+    );
+  });
+  const SECTION_BY_ID = $derived.by(() => {
+    void $adminExtensionRevision;
+    return new Map(ADMIN_SECTIONS.map((section) => [section.id, section]));
+  });
 
   // Route slugs validate against the full build-time registry (including
   // extension sections and their aliases), never against the feature-filtered
@@ -369,9 +376,17 @@
   function syncActiveSectionPath(sectionId: string): void {
     if (typeof window === "undefined" || window.location.protocol === "file:") return;
     const targetPath = withRoutePrefix(`/admin/${sectionId}`, routePrefix);
-    const nextUrl = `${targetPath}${window.location.search}${window.location.hash}`;
+    const targetUrl = new URL(window.location.href);
+    targetUrl.pathname = targetPath;
+    targetUrl.searchParams.delete("extensionTab");
+    const nextUrl = `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`;
     const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    if (nextUrl !== currentUrl) window.history.pushState(null, "", nextUrl);
+    if (nextUrl !== currentUrl)
+      window.history[window.location.pathname === targetPath ? "replaceState" : "pushState"](
+        null,
+        "",
+        nextUrl
+      );
   }
 
   function applySectionRouteDefaults(sectionId: string): void {

@@ -24,6 +24,7 @@
     language,
     routePrefix = "",
     context = {},
+    status = $bindable<"loading" | "ready" | "failed">("loading"),
   }: {
     plugin: UserExtensionPlugin;
     view: UserExtensionView;
@@ -32,11 +33,13 @@
     language: string;
     routePrefix?: string;
     context?: Record<string, unknown>;
+    status?: "loading" | "ready" | "failed";
   } = $props();
   let target: HTMLElement;
-  let failed = $state(false);
   let module = $state<Module | null>(null);
   let instance: unknown;
+  let instanceMounted = false;
+  let removeStyles = () => {};
   let previousProps: PluginProps | null = null;
   let notice = $state("");
   let confirmation = $state("");
@@ -46,6 +49,22 @@
     resolveConfirmation?.(value);
     resolveConfirmation = null;
     confirmOpen = false;
+  }
+  function unmountInstance() {
+    if (!module || !instanceMounted) return;
+    instanceMounted = false;
+    module.unmountView(instance);
+  }
+  function failView() {
+    status = "failed";
+    try {
+      unmountInstance();
+    } catch {
+      /* Continue restoring Core. */
+    }
+    target?.replaceChildren();
+    removeStyles();
+    resolveDialog(false);
   }
   const host = $derived(
     createExtensionHost(client, plugin.id, t, routePrefix, {
@@ -64,28 +83,30 @@
   const viewProps = $derived({ host, language, context });
 
   $effect(() => {
-    if (!module || previousProps === viewProps) return;
+    if (!module || status === "failed" || previousProps === viewProps) return;
     try {
       if (module.updateView) module.updateView(instance, viewProps);
       else {
-        module.unmountView(instance);
+        unmountInstance();
         instance = module.mountView(view.view, target, viewProps);
+        instanceMounted = true;
       }
       previousProps = viewProps;
     } catch {
-      failed = true;
+      failView();
     }
   });
 
   onMount(() => {
     let disposed = false;
     const styles: HTMLLinkElement[] = [];
+    removeStyles = () => styles.forEach((link) => link.remove());
     const prefix = `/api/extensions/assets/${plugin.id}/${plugin.digest}/`;
     if (
       !plugin.entry.startsWith(prefix) ||
       plugin.styles?.some((path) => !path.startsWith(prefix))
     ) {
-      failed = true;
+      status = "failed";
       return;
     }
     for (const path of plugin.styles || []) {
@@ -100,34 +121,37 @@
         if (disposed) return;
         if (typeof loaded.mountView !== "function" || typeof loaded.unmountView !== "function")
           throw new Error("invalid_extension_module");
-        instance = loaded.mountView(view.view, target, viewProps);
-        previousProps = viewProps;
         module = loaded;
+        instance = loaded.mountView(view.view, target, viewProps);
+        instanceMounted = true;
+        previousProps = viewProps;
+        status = "ready";
       })
       .catch(() => {
-        if (!disposed) failed = true;
+        if (!disposed) failView();
       });
     return () => {
       disposed = true;
       try {
-        module?.unmountView(instance);
+        unmountInstance();
       } catch {
         /* Keep host navigation usable. */
       }
-      styles.forEach((link) => link.remove());
+      removeStyles();
       resolveDialog(false);
       module = null;
     };
   });
 </script>
 
-{#if failed}<p role="alert">{t("wa_extension_unavailable")}</p>{/if}
+{#if status === "failed"}<p role="alert">{t("wa_extension_unavailable")}</p>{/if}
 {#if notice}<p role="status">{notice}</p>{/if}
 <div
   bind:this={target}
   class="plugin-host"
   data-user-plugin={plugin.id}
   data-plugin-view={view.id}
+  hidden={status === "failed"}
 ></div>
 <Dialog
   open={confirmOpen}

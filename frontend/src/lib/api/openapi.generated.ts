@@ -6724,6 +6724,16 @@ export interface components {
        */
       order: number;
       /**
+       * Parent
+       * @default
+       */
+      parent: string;
+      /**
+       * Placement
+       * @default after
+       */
+      placement: string;
+      /**
        * Target
        * @default page
        */

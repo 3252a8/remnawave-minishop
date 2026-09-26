@@ -2,7 +2,7 @@
   import { Tabs } from "$components/ui/primitives.js";
   import Dialog from "$components/ui/dialog.svelte";
   import { getSettingsStore } from "$lib/admin/context";
-  import { ADMIN_USER_DETAIL_PANELS } from "../extensionRegistry";
+  import { ADMIN_USER_DETAIL_PANELS, adminExtensionRevision } from "../extensionRegistry";
   import { isFeatureBoundDescriptorVisible, requiredFeatureForDescriptor } from "../extensionTypes";
   import UserActivityTab from "./UserActivityTab.svelte";
   import UserActionsTab from "./UserActionsTab.svelte";
@@ -186,11 +186,12 @@
   } = $props();
 
   const availableFeatures = $derived(new Set<string>((settingsStore.features || []) as string[]));
-  const visibleExtensionPanels = $derived(
-    ADMIN_USER_DETAIL_PANELS.filter((panel) =>
+  const visibleExtensionPanels = $derived.by(() => {
+    void $adminExtensionRevision;
+    return ADMIN_USER_DETAIL_PANELS.filter((panel) =>
       isFeatureBoundDescriptorVisible(panel, availableFeatures)
-    )
-  );
+    );
+  });
   const visibleExtensionPanelTabs = $derived(
     new Set(visibleExtensionPanels.map((panel) => `extension:${panel.id}`))
   );
@@ -374,16 +375,18 @@
               {@const PanelComponent = panel.component}
               {@const requiredFeature = requiredFeatureForDescriptor(panel)}
               <Tabs.Content value={`extension:${panel.id}`} class="admin-tabs-content">
-                <PanelComponent
-                  runtimeViewId={panel.runtimeViewId}
-                  runtimeEntry={panel.runtimeEntry}
-                  {at}
-                  user={openedUser}
-                  userDetail={openedUserDetail}
-                  featureAvailable={!requiredFeature || availableFeatures.has(requiredFeature)}
-                  active={usersStore.userDetailTab === `extension:${panel.id}`}
-                  {routePrefix}
-                />
+                {#key `${panel.id}:${panel.runtimeDigest || ""}`}
+                  <PanelComponent
+                    runtimeViewId={panel.runtimeViewId}
+                    runtimeEntry={panel.runtimeEntry}
+                    {at}
+                    user={openedUser}
+                    userDetail={openedUserDetail}
+                    featureAvailable={!requiredFeature || availableFeatures.has(requiredFeature)}
+                    active={usersStore.userDetailTab === `extension:${panel.id}`}
+                    {routePrefix}
+                  />
+                {/key}
               </Tabs.Content>
             {/each}
           </Tabs.Root>

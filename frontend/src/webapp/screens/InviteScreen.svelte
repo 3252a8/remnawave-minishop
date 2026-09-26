@@ -1,4 +1,5 @@
 <script lang="ts">
+  import UserExtensionPoint from "../extensions/UserExtensionPoint.svelte";
   import GiftEntry from "../gifts/GiftEntry.svelte";
   import { ChevronDown, CircleQuestionMark, Gift } from "$components/ui/icons.js";
   import { slide } from "svelte/transition";
@@ -84,18 +85,20 @@
 </script>
 
 <main class="content with-nav">
-  <GiftEntry {t} full />
-  <PromoActivationCard
-    {promoCode}
-    {promoFieldError}
-    {promoBusy}
-    {promoIsError}
-    {promoStatus}
-    {applyPromo}
-    {setPromoCode}
-    {clearPromoFieldError}
-    {t}
-  />
+  <UserExtensionPoint target="user.invite.gifts"><GiftEntry {t} full /></UserExtensionPoint>
+  <UserExtensionPoint target="user.invite.codes">
+    <PromoActivationCard
+      {promoCode}
+      {promoFieldError}
+      {promoBusy}
+      {promoIsError}
+      {promoStatus}
+      {applyPromo}
+      {setPromoCode}
+      {clearPromoFieldError}
+      {t}
+    />
+  </UserExtensionPoint>
   {#snippet periodBonusRows(nested = false)}
     {#each periodBonusDetails as bonus, index (bonus.id || `${bonus.tariff_key || "legacy"}:${bonus.months || index}`)}
       <div class={nested ? "referral-bonus-row referral-bonus-row-nested" : "referral-bonus-row"}>
@@ -154,103 +157,105 @@
       </details>
     {/each}
   {/snippet}
-  {#if referralProgramEnabled}<section class="referral-program-shell">
-      <div class="referral-program-content">
-        <Card class="bonus-card">
-          <div class="bonus-card-head">
-            <Gift size={42} />
+  <UserExtensionPoint target="user.invite.referrals">
+    {#if referralProgramEnabled}<section class="referral-program-shell">
+        <div class="referral-program-content">
+          <Card class="bonus-card">
+            <div class="bonus-card-head">
+              <Gift size={42} />
+              <div>
+                <strong>{t("wa_referral_bonus_overview_title")}</strong>
+                {#if referralOneBonusPerReferee}
+                  <p>{t("wa_referral_bonus_once_note")}</p>
+                {/if}
+              </div>
+            </div>
             <div>
-              <strong>{t("wa_referral_bonus_overview_title")}</strong>
-              {#if referralOneBonusPerReferee}
-                <p>{t("wa_referral_bonus_once_note")}</p>
+              <h3 class="card-heading">{t("wa_referral_link_title")}</h3>
+              {#if referralLinks.length}
+                <div class="referral-link-list">
+                  {#each referralLinks as link (link.id)}
+                    <div class="referral-link-item">
+                      <small class="referral-link-label">{t(link.labelKey)}</small>
+                      <CopyLinkField
+                        value={link.url}
+                        inputLabel={t(link.labelKey)}
+                        copyLabel={t("wa_copy")}
+                        oncopy={(value) => copyText(value, t("wa_link_copied"))}
+                      />
+                    </div>
+                  {/each}
+                </div>
+              {:else}
+                <CopyLinkField
+                  inputLabel={t("wa_copy_link_label")}
+                  copyLabel={t("wa_copy")}
+                  unavailableLabel={t("wa_link_unavailable")}
+                />
               {/if}
             </div>
-          </div>
-          <div>
-            <h3 class="card-heading">{t("wa_referral_link_title")}</h3>
-            {#if referralLinks.length}
-              <div class="referral-link-list">
-                {#each referralLinks as link (link.id)}
-                  <div class="referral-link-item">
-                    <small class="referral-link-label">{t(link.labelKey)}</small>
-                    <CopyLinkField
-                      value={link.url}
-                      inputLabel={t(link.labelKey)}
-                      copyLabel={t("wa_copy")}
-                      oncopy={(value) => copyText(value, t("wa_link_copied"))}
-                    />
+            {#if referralBonusDetails.length || referralWelcomeBonusDays > 0}
+              <div class="referral-bonus-list">
+                {#if referralWelcomeBonusDays > 0}
+                  <div class="referral-bonus-row">
+                    <strong>{t("wa_referral_bonus_registration_title")}</strong>
+                    <small
+                      >{t("wa_referral_bonus_friend_days", {
+                        days: referralWelcomeBonusDays,
+                      })}</small
+                    >
                   </div>
-                {/each}
+                {/if}
+                {#if referralBonusDetails.length && periodBonusListCollapsible}
+                  <div
+                    class="referral-bonus-disclosure"
+                    data-open={periodBonusListOpen ? "true" : undefined}
+                  >
+                    <button
+                      class="referral-bonus-summary"
+                      type="button"
+                      aria-expanded={periodBonusListOpen}
+                      aria-controls={PERIOD_BONUS_LIST_ID}
+                      onclick={() => (periodBonusListOpen = !periodBonusListOpen)}
+                    >
+                      <span
+                        >{t(
+                          usesTariffBonusSummaries
+                            ? "wa_referral_bonus_depends_on_tariff"
+                            : "wa_referral_bonus_paid_intro"
+                        )}</span
+                      >
+                      <ChevronDown class="referral-bonus-chev" size={16} />
+                    </button>
+                    {#if periodBonusListOpen}
+                      <div
+                        id={PERIOD_BONUS_LIST_ID}
+                        class="referral-bonus-detail"
+                        transition:slide={PERIOD_BONUS_LIST_TRANSITION}
+                      >
+                        <div class="referral-bonus-detail-inner">
+                          {#if usesTariffBonusSummaries}
+                            {@render tariffBonusRows()}
+                          {:else}
+                            {@render periodBonusRows(true)}
+                          {/if}
+                        </div>
+                      </div>
+                    {/if}
+                  </div>
+                {:else if usesTariffBonusSummaries}
+                  <p class="referral-bonus-intro">{t("wa_referral_bonus_depends_on_tariff")}</p>
+                  {@render tariffBonusRows()}
+                {:else if periodBonusDetails.length}
+                  <p class="referral-bonus-intro">{t("wa_referral_bonus_paid_intro")}</p>
+                  {@render periodBonusRows()}
+                {/if}
               </div>
             {:else}
-              <CopyLinkField
-                inputLabel={t("wa_copy_link_label")}
-                copyLabel={t("wa_copy")}
-                unavailableLabel={t("wa_link_unavailable")}
-              />
+              <StatusMessage>{t("wa_referral_bonus_not_configured")}</StatusMessage>
             {/if}
-          </div>
-          {#if referralBonusDetails.length || referralWelcomeBonusDays > 0}
-            <div class="referral-bonus-list">
-              {#if referralWelcomeBonusDays > 0}
-                <div class="referral-bonus-row">
-                  <strong>{t("wa_referral_bonus_registration_title")}</strong>
-                  <small
-                    >{t("wa_referral_bonus_friend_days", {
-                      days: referralWelcomeBonusDays,
-                    })}</small
-                  >
-                </div>
-              {/if}
-              {#if referralBonusDetails.length && periodBonusListCollapsible}
-                <div
-                  class="referral-bonus-disclosure"
-                  data-open={periodBonusListOpen ? "true" : undefined}
-                >
-                  <button
-                    class="referral-bonus-summary"
-                    type="button"
-                    aria-expanded={periodBonusListOpen}
-                    aria-controls={PERIOD_BONUS_LIST_ID}
-                    onclick={() => (periodBonusListOpen = !periodBonusListOpen)}
-                  >
-                    <span
-                      >{t(
-                        usesTariffBonusSummaries
-                          ? "wa_referral_bonus_depends_on_tariff"
-                          : "wa_referral_bonus_paid_intro"
-                      )}</span
-                    >
-                    <ChevronDown class="referral-bonus-chev" size={16} />
-                  </button>
-                  {#if periodBonusListOpen}
-                    <div
-                      id={PERIOD_BONUS_LIST_ID}
-                      class="referral-bonus-detail"
-                      transition:slide={PERIOD_BONUS_LIST_TRANSITION}
-                    >
-                      <div class="referral-bonus-detail-inner">
-                        {#if usesTariffBonusSummaries}
-                          {@render tariffBonusRows()}
-                        {:else}
-                          {@render periodBonusRows(true)}
-                        {/if}
-                      </div>
-                    </div>
-                  {/if}
-                </div>
-              {:else if usesTariffBonusSummaries}
-                <p class="referral-bonus-intro">{t("wa_referral_bonus_depends_on_tariff")}</p>
-                {@render tariffBonusRows()}
-              {:else if periodBonusDetails.length}
-                <p class="referral-bonus-intro">{t("wa_referral_bonus_paid_intro")}</p>
-                {@render periodBonusRows()}
-              {/if}
-            </div>
-          {:else}
-            <StatusMessage>{t("wa_referral_bonus_not_configured")}</StatusMessage>
-          {/if}
-        </Card>
-      </div>
-    </section>{/if}
+          </Card>
+        </div>
+      </section>{/if}
+  </UserExtensionPoint>
 </main>

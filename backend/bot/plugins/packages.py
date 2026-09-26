@@ -240,6 +240,12 @@ def _validate_manifest(manifest: dict[str, Any]) -> None:
     if frontend is not None:
         if not isinstance(frontend, dict):
             raise PluginPackageError("invalid_frontend_manifest")
+        from .package_ui_composition import validate_admin_slots
+
+        try:
+            validate_admin_slots(frontend)
+        except ValueError as exc:
+            raise PluginPackageError(str(exc)) from exc
         if "user" in frontend:
             from .package_user_ui import validate_user_frontend
 
@@ -257,6 +263,7 @@ def _validate_manifest(manifest: dict[str, Any]) -> None:
                     "user_panels",
                     "settings_tabs",
                     "styles",
+                    "slots",
                 )
             ):
                 raise PluginPackageError("invalid_frontend_manifest")

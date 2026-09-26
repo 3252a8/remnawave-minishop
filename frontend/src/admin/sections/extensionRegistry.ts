@@ -3,13 +3,16 @@ import type {
   AdminSectionGroupDescriptor,
   AdminSectionTabDescriptor,
   AdminUserDetailPanelDescriptor,
+  AdminUiSlotDescriptor,
 } from "./extensionTypes";
+import { writable } from "svelte/store";
 
 type AdminExtensionModule = {
   default?: AdminSectionDescriptor | AdminSectionDescriptor[];
   sectionGroups?: AdminSectionGroupDescriptor | AdminSectionGroupDescriptor[];
   sectionTabs?: AdminSectionTabDescriptor | AdminSectionTabDescriptor[];
   userDetailPanels?: AdminUserDetailPanelDescriptor | AdminUserDetailPanelDescriptor[];
+  uiSlots?: AdminUiSlotDescriptor | AdminUiSlotDescriptor[];
 };
 
 const extensionModules = import.meta.glob("./extensions/*.ts", {
@@ -45,3 +48,6 @@ export const ADMIN_USER_DETAIL_PANELS = extensionModuleValues()
   .flatMap((module) => arrayOf(module.userDetailPanels))
   .filter((panel) => panel?.id && panel?.component)
   .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
+
+export const ADMIN_UI_SLOTS = extensionModuleValues().flatMap((module) => arrayOf(module.uiSlots));
+export const adminExtensionRevision = writable(0);

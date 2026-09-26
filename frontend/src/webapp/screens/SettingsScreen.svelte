@@ -1,4 +1,5 @@
 <script lang="ts">
+  import UserExtensionPoint from "../extensions/UserExtensionPoint.svelte";
   import {
     ArrowRight,
     FileText,
@@ -149,48 +150,50 @@
 </script>
 
 <main class="content with-nav">
-  <Card class="settings-profile">
-    <div class="settings-avatar">
-      {#if profileAvatarUrl}
-        <img
-          src={profileAvatarUrl}
-          alt={t("wa_settings_avatar_alt")}
-          loading="lazy"
-          referrerpolicy="no-referrer"
-        />
-      {:else}
-        <UserRound size={30} />
+  <UserExtensionPoint target="user.settings.profile">
+    <Card class="settings-profile">
+      <div class="settings-avatar">
+        {#if profileAvatarUrl}
+          <img
+            src={profileAvatarUrl}
+            alt={t("wa_settings_avatar_alt")}
+            loading="lazy"
+            referrerpolicy="no-referrer"
+          />
+        {:else}
+          <UserRound size={30} />
+        {/if}
+      </div>
+      <div class="settings-profile-meta">
+        <strong>{telegramProfileName}</strong>
+        {#if showEmailAccount}
+          <small>{profileEmail}</small>
+        {/if}
+        <small>{profileTelegramId}</small>
+      </div>
+      {#if shouldShowUserBalance(balance)}
+        {#if balance.enabled}
+          <button
+            class="settings-profile-balance"
+            type="button"
+            onclick={openBalanceTopup}
+            aria-label={t("wa_balance_topup_short", {}, "Top up")}
+          >
+            <WalletCards size={17} />
+            <strong>{formatMoney(balance.amount, balance.currency)}</strong>
+          </button>
+        {:else}
+          <div
+            class="settings-profile-balance settings-profile-balance-readonly"
+            aria-label={t("wa_balance_title", {}, "Balance")}
+          >
+            <WalletCards size={17} />
+            <strong>{formatMoney(balance.amount, balance.currency)}</strong>
+          </div>
+        {/if}
       {/if}
-    </div>
-    <div class="settings-profile-meta">
-      <strong>{telegramProfileName}</strong>
-      {#if showEmailAccount}
-        <small>{profileEmail}</small>
-      {/if}
-      <small>{profileTelegramId}</small>
-    </div>
-    {#if shouldShowUserBalance(balance)}
-      {#if balance.enabled}
-        <button
-          class="settings-profile-balance"
-          type="button"
-          onclick={openBalanceTopup}
-          aria-label={t("wa_balance_topup_short", {}, "Top up")}
-        >
-          <WalletCards size={17} />
-          <strong>{formatMoney(balance.amount, balance.currency)}</strong>
-        </button>
-      {:else}
-        <div
-          class="settings-profile-balance settings-profile-balance-readonly"
-          aria-label={t("wa_balance_title", {}, "Balance")}
-        >
-          <WalletCards size={17} />
-          <strong>{formatMoney(balance.amount, balance.currency)}</strong>
-        </div>
-      {/if}
-    {/if}
-  </Card>
+    </Card>
+  </UserExtensionPoint>
   {#if telegramNotificationsNeedPrompt}
     <TelegramNotificationsBanner
       startLink={telegramNotificationsStartLink}
@@ -257,19 +260,21 @@
     </button>
     <div class="settings-divider" aria-hidden="true"></div>
   </div>
-  {#if promoActivationVisible}
-    <PromoActivationCard
-      {promoCode}
-      {promoFieldError}
-      {promoBusy}
-      {promoIsError}
-      {promoStatus}
-      {applyPromo}
-      {setPromoCode}
-      {clearPromoFieldError}
-      {t}
-    />
-  {/if}
+  <UserExtensionPoint target="user.settings.codes">
+    {#if promoActivationVisible}
+      <PromoActivationCard
+        {promoCode}
+        {promoFieldError}
+        {promoBusy}
+        {promoIsError}
+        {promoStatus}
+        {applyPromo}
+        {setPromoCode}
+        {clearPromoFieldError}
+        {t}
+      />
+    {/if}
+  </UserExtensionPoint>
   <div class="settings-list" class:settings-list--language-open={languageMenuOpen}>
     {#if partnerSettingsVisible}
       <button

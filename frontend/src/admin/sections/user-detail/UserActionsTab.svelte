@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AdminExtensionPoint from "../AdminExtensionPoint.svelte";
   import { Tabs } from "$components/ui/primitives.js";
   import UserDangerActionsCard from "./UserDangerActionsCard.svelte";
   import UserBalanceActionCard from "./UserBalanceActionCard.svelte";
@@ -126,86 +127,130 @@
   />
 
   {#if openedUserDetail?.balance}
-    <UserBalanceActionCard {at} {openedUserDetail} {userActionBusy} />
+    <AdminExtensionPoint
+      target="admin.users.detail.balance"
+      context={{ user: openedUser, userDetail: openedUserDetail }}
+    >
+      <UserBalanceActionCard {at} {openedUserDetail} {userActionBusy} />
+    </AdminExtensionPoint>
   {/if}
 
   {#if activeSubscription}
     {#if periodTariffItems.length}
-      <UserTariffActionCard
-        {at}
-        {userActionBusy}
-        {periodTariffItems}
-        {tariffActionDirty}
-        {tariffHwidLimitChangeAvailable}
-        {currentSubscriptionTariffLabel}
-        {userTariffActionKey}
-        {selectTariffAction}
-      />
+      <AdminExtensionPoint
+        target="admin.users.detail.tariff"
+        context={{ user: openedUser, userDetail: openedUserDetail }}
+      >
+        <UserTariffActionCard
+          {at}
+          {userActionBusy}
+          {periodTariffItems}
+          {tariffActionDirty}
+          {tariffHwidLimitChangeAvailable}
+          {currentSubscriptionTariffLabel}
+          {userTariffActionKey}
+          {selectTariffAction}
+        />
+      </AdminExtensionPoint>
     {/if}
 
-    <UserTrafficStrategyActionCard
-      {at}
-      {userActionBusy}
-      {trafficStrategyItems}
-      {trafficStrategyDirty}
-      {trafficStrategyDraftValid}
-      {trafficStrategyEditable}
-      {trafficStrategyCurrentLabel}
-      {trafficStrategyLockMessage}
-      {selectTrafficStrategy}
-    />
+    <AdminExtensionPoint
+      target="admin.users.detail.traffic-strategy"
+      context={{ user: openedUser, userDetail: openedUserDetail }}
+    >
+      <UserTrafficStrategyActionCard
+        {at}
+        {userActionBusy}
+        {trafficStrategyItems}
+        {trafficStrategyDirty}
+        {trafficStrategyDraftValid}
+        {trafficStrategyEditable}
+        {trafficStrategyCurrentLabel}
+        {trafficStrategyLockMessage}
+        {selectTrafficStrategy}
+      />
+    </AdminExtensionPoint>
 
-    <UserTrafficOverrideActionCard
-      {at}
-      kind="premium"
-      {activeSubscription}
-      {userActionBusy}
-      dirty={premiumOverrideDirty}
-      draftValid={premiumOverrideDraftValid}
-      unlimitedDraft={premiumUnlimitedDraft}
-    />
+    <AdminExtensionPoint
+      target="admin.users.detail.premium-traffic"
+      context={{ user: openedUser, userDetail: openedUserDetail }}
+    >
+      <UserTrafficOverrideActionCard
+        {at}
+        kind="premium"
+        {activeSubscription}
+        {userActionBusy}
+        dirty={premiumOverrideDirty}
+        draftValid={premiumOverrideDraftValid}
+        unlimitedDraft={premiumUnlimitedDraft}
+      />
+    </AdminExtensionPoint>
 
-    <UserTrafficOverrideActionCard
-      {at}
-      kind="regular"
-      {activeSubscription}
-      {userActionBusy}
-      dirty={regularOverrideDirty}
-      draftValid={regularOverrideDraftValid}
-      unlimitedDraft={regularUnlimitedDraft}
-    />
+    <AdminExtensionPoint
+      target="admin.users.detail.regular-traffic"
+      context={{ user: openedUser, userDetail: openedUserDetail }}
+    >
+      <UserTrafficOverrideActionCard
+        {at}
+        kind="regular"
+        {activeSubscription}
+        {userActionBusy}
+        dirty={regularOverrideDirty}
+        draftValid={regularOverrideDraftValid}
+        unlimitedDraft={regularUnlimitedDraft}
+      />
+    </AdminExtensionPoint>
 
-    <UserHwidLimitActionCard
-      {at}
-      {activeSubscription}
-      {userActionBusy}
-      {hwidLimitDirty}
-      {hwidLimitDraftValid}
-      {hwidUnlimitedDraft}
-      {hwidLimitLabel}
-    />
+    <AdminExtensionPoint
+      target="admin.users.detail.hwid"
+      context={{ user: openedUser, userDetail: openedUserDetail }}
+    >
+      <UserHwidLimitActionCard
+        {at}
+        {activeSubscription}
+        {userActionBusy}
+        {hwidLimitDirty}
+        {hwidLimitDraftValid}
+        {hwidUnlimitedDraft}
+        {hwidLimitLabel}
+      />
+    </AdminExtensionPoint>
 
-    <UserTrafficGrantActionCard
-      {at}
-      {userActionBusy}
-      {grantTrafficGbValid}
-      {selectGrantTrafficKind}
-    />
+    <AdminExtensionPoint
+      target="admin.users.detail.traffic-grant"
+      context={{ user: openedUser, userDetail: openedUserDetail }}
+    >
+      <UserTrafficGrantActionCard
+        {at}
+        {userActionBusy}
+        {grantTrafficGbValid}
+        {selectGrantTrafficKind}
+      />
+    </AdminExtensionPoint>
   {/if}
 
-  <UserSquadOverridesActionCard
-    {at}
-    panelSquadOverrides={openedUserDetail?.panel_squad_overrides || null}
-    {userActionBusy}
-    {panelSquadItems}
-    {squadLabel}
-    {userSquadOverrideDraft}
-    {selectUserSquadOverride}
-    {userExternalSquadModeDraft}
-    {selectUserExternalSquadMode}
-    {userExternalSquadUuidDraft}
-    {updateUserExternalSquadUuid}
-  />
+  <AdminExtensionPoint
+    target="admin.users.detail.squads"
+    context={{ user: openedUser, userDetail: openedUserDetail }}
+  >
+    <UserSquadOverridesActionCard
+      {at}
+      panelSquadOverrides={openedUserDetail?.panel_squad_overrides || null}
+      {userActionBusy}
+      {panelSquadItems}
+      {squadLabel}
+      {userSquadOverrideDraft}
+      {selectUserSquadOverride}
+      {userExternalSquadModeDraft}
+      {selectUserExternalSquadMode}
+      {userExternalSquadUuidDraft}
+      {updateUserExternalSquadUuid}
+    />
+  </AdminExtensionPoint>
 
   <UserDangerActionsCard {at} {openedUser} {openedUserIsBanned} {userActionBusy} />
+  <AdminExtensionPoint
+    target="admin.users.detail.actions"
+    context={{ user: openedUser, userDetail: openedUserDetail }}
+  />
 </Tabs.Content>

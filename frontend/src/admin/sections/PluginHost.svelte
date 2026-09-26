@@ -12,14 +12,29 @@
     runtimeViewId?: string;
     runtimeEntry?: string;
     currentLang?: string;
+    status?: "loading" | "ready" | "failed";
   };
-  let props: HostProps = $props();
+  let { status = $bindable<"loading" | "ready" | "failed">("loading"), ...props }: HostProps =
+    $props();
   let target: HTMLElement;
-  let failed = $state(false);
   let instance: unknown;
   let module: PluginModule | null = null;
   let mounted = $state(false);
   let lastPropsSignature = "";
+  function unmountInstance() {
+    if (!module || !mounted) return;
+    mounted = false;
+    module.unmountView(instance);
+  }
+  function failView() {
+    status = "failed";
+    try {
+      unmountInstance();
+    } catch {
+      /* Continue restoring Core. */
+    }
+    target?.replaceChildren();
+  }
 
   function propsSignature(): string {
     return JSON.stringify([
@@ -31,35 +46,43 @@
       props.active,
       props.user,
       props.userDetail,
+      props.context,
     ]);
   }
 
   $effect(() => {
     const signature = propsSignature();
-    if (!mounted || !module || !instance || signature === lastPropsSignature) return;
+    if (!mounted || !module || status === "failed" || signature === lastPropsSignature) return;
     lastPropsSignature = signature;
-    if (module.updateView) {
-      module.updateView(instance, props as Record<string, unknown>);
-    } else {
-      // Older plugins have no update hook. Remount only when their inputs change.
-      module.unmountView(instance);
-      instance = module.mountView(
-        props.runtimeViewId as string,
-        target,
-        props as Record<string, unknown>
-      );
+    try {
+      if (module.updateView) {
+        module.updateView(instance, props as Record<string, unknown>);
+      } else {
+        // Older plugins have no update hook. Remount only when their inputs change.
+        unmountInstance();
+        instance = module.mountView(
+          props.runtimeViewId as string,
+          target,
+          props as Record<string, unknown>
+        );
+        mounted = true;
+      }
+    } catch {
+      failView();
     }
   });
 
   onMount(() => {
     let disposed = false;
     if (!props.runtimeEntry || !props.runtimeViewId) {
-      failed = true;
+      status = "failed";
       return;
     }
     void import(/* @vite-ignore */ props.runtimeEntry)
       .then((loaded: PluginModule) => {
         if (disposed) return;
+        if (typeof loaded.mountView !== "function" || typeof loaded.unmountView !== "function")
+          throw new Error("invalid_extension_module");
         module = loaded;
         lastPropsSignature = propsSignature();
         instance = loaded.mountView(
@@ -68,27 +91,31 @@
           props as Record<string, unknown>
         );
         mounted = true;
+        status = "ready";
       })
       .catch(() => {
-        failed = true;
+        if (!disposed) failView();
       });
     return () => {
       disposed = true;
-      if (module && instance) module.unmountView(instance);
+      try {
+        unmountInstance();
+      } catch {
+        /* Preserve the Core shell. */
+      }
       mounted = false;
     };
   });
 </script>
 
-{#if failed}
+{#if status === "failed"}
   <p role="alert">
-    {typeof props.at === "function"
-      ? (props.at as (key: string, params: object, fallback: string) => string)(
-          "plugin_view_failed",
-          {},
-          "This plugin view could not be loaded. Open Plugins to disable or repair it."
-        )
-      : "This plugin view could not be loaded."}
+    {props.at?.("plugin_view_failed")}
   </p>
 {/if}
-<div bind:this={target} class="plugin-host" data-plugin-view={props.runtimeViewId}></div>
+<div
+  bind:this={target}
+  class="plugin-host"
+  data-plugin-view={props.runtimeViewId}
+  hidden={status === "failed"}
+></div>

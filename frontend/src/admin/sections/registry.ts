@@ -364,6 +364,19 @@ export function addRuntimeAdminSections(sections: readonly AdminSectionDescripto
   for (const [alias, id] of buildAdminSectionRouteAliases(ADMIN_SECTIONS)) aliases.set(alias, id);
 }
 
+/** Remove only descriptors owned by the previous runtime generation. */
+export function removeRuntimeAdminSections(sections: readonly AdminSectionDescriptor[]): void {
+  const previous = new Set(sections);
+  for (let i = ADMIN_SECTIONS.length - 1; i >= 0; i--)
+    if (previous.has(ADMIN_SECTIONS[i])) ADMIN_SECTIONS.splice(i, 1);
+  const ids = ADMIN_SECTION_IDS as Set<string>;
+  ids.clear();
+  ADMIN_SECTIONS.forEach((section) => ids.add(section.id));
+  const aliases = ADMIN_SECTION_ROUTE_ALIASES as Map<string, string>;
+  aliases.clear();
+  for (const [alias, id] of buildAdminSectionRouteAliases(ADMIN_SECTIONS)) aliases.set(alias, id);
+}
+
 /**
  * Resolve a requested admin route slug against the full section registry,
  * including extension sections and their registered route aliases. Returns
