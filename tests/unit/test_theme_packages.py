@@ -39,7 +39,7 @@ from config.theme_packages.registry import (
     read_registry,
     write_registry,
 )
-from config.webapp_themes_models import WebappThemesConfig
+from config.webapp_themes_models import ThemeTokens, WebappTheme, WebappThemesConfig
 from config.webapp_themes_store import load_webapp_theme_dir, write_webapp_theme_dir
 
 
@@ -155,6 +155,121 @@ def test_install_preserves_package_admin_usage_preference(tmp_path: Path) -> Non
 
     installed = load_webapp_theme_dir(tmp_path)[0]
     assert not installed.use_in_admin
+
+
+def test_export_allows_a_builtin_theme_to_keep_its_original_key(tmp_path: Path) -> None:
+    files = package("dark")
+    for relative, content in files.items():
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+
+    exported = export_themes(tmp_path, ExportRequest(keys=["dark"], new_key="dark"))
+    extracted = tmp_path / "exported-dark"
+    extract_archive(exported, extracted)
+
+    theme = WebappTheme.model_validate_json((extracted / "dark/theme.json").read_bytes())
+    assert theme.key == "dark"
+
+
+def test_export_import_roundtrip_preserves_admin_usage_and_overrides(tmp_path: Path) -> None:
+    files = package()
+    descriptor = json.loads(files["ocean/theme.json"])
+    descriptor["tokens"] = {
+        "bg": "#112233",
+        "radius": "7px",
+        "transparency": 80,
+        "home_logo_scale_desktop": 125,
+        "home_logo_scale_mobile": 135,
+    }
+    descriptor["variants"] = {
+        "dark": {"radius": "10px", "transparency": 40, "home_logo_scale_mobile": 135},
+        "light": {"radius": "12px", "transparency": 60},
+    }
+    files["ocean/theme.json"] = json.dumps(descriptor).encode()
+    install(tmp_path, ready(tmp_path, files))
+    installed = load_webapp_theme_dir(tmp_path)[0]
+    installed.use_in_admin = True
+    installed.tokens.home_logo_scale_desktop = 100
+    installed.tokens.radius = "11px"
+    installed.tokens.transparency = 73
+    installed.variants["dark"] = ThemeTokens(
+        home_logo_scale_desktop=100,
+        home_logo_scale_mobile=125,
+        radius="14px",
+        transparency=33,
+    )
+    write_webapp_theme_dir(
+        tmp_path,
+        WebappThemesConfig(default_theme="ocean", themes=[installed]),
+        expected_generation=1,
+    )
+
+    exported = export_themes(
+        tmp_path, ExportRequest(keys=["ocean"], include_overrides=True, new_key="copied")
+    )
+    extracted = tmp_path / "extracted"
+    extract_archive(exported, extracted)
+    candidate = inspect_collection(extracted)[0]
+
+    assert candidate.theme is not None
+    assert candidate.theme.use_in_admin is True
+    assert candidate.theme.tokens.home_logo_scale_desktop == 100
+    assert candidate.theme.tokens.home_logo_scale_mobile == 135
+    assert candidate.theme.tokens.radius == "11px"
+    assert candidate.theme.tokens.transparency == 73
+    assert candidate.theme.variants["dark"].home_logo_scale_mobile == 125
+    assert candidate.theme.variants["dark"].home_logo_scale_desktop == 100
+    assert candidate.theme.variants["dark"].radius == "14px"
+    assert candidate.theme.variants["dark"].transparency == 33
+
+    record = inspect_import(
+        target := tmp_path / "imported",
+        create_import(target, 7, ThemeSource(label="roundtrip.zip")),
+        exported,
+    )
+    install(target, record, keys=("copied",))
+    copied = next(theme for theme in load_webapp_theme_dir(target) if theme.key == "copied")
+    assert copied.use_in_admin is True
+    assert copied.tokens.home_logo_scale_desktop == 100
+    assert copied.tokens.home_logo_scale_mobile == 135
+    assert copied.tokens.radius == "11px"
+    assert copied.tokens.transparency == 73
+    assert copied.variants["dark"].home_logo_scale_mobile == 125
+    assert copied.variants["dark"].home_logo_scale_desktop == 100
+    assert copied.variants["dark"].radius == "14px"
+    assert copied.variants["dark"].transparency == 33
+
+
+def test_export_uses_nonmanaged_preferences_only_when_requested(tmp_path: Path) -> None:
+    install(tmp_path, ready(tmp_path))
+    source = WebappTheme.model_validate(
+        {"key": "local", "tokens": {"bg": "#112233", "radius": "7px"}}
+    )
+    source_dir = tmp_path / "local"
+    source_dir.mkdir()
+    (source_dir / "theme.json").write_text(source.model_dump_json())
+    saved = source.model_copy(deep=True)
+    saved.tokens.bg = "#abcdef"
+    saved.tokens.radius = "14px"
+    managed = next(theme for theme in load_webapp_theme_dir(tmp_path) if theme.key == "ocean")
+    write_webapp_theme_dir(
+        tmp_path,
+        WebappThemesConfig(default_theme="ocean", themes=[managed, saved]),
+        expected_generation=1,
+    )
+
+    for include_overrides, expected_radius in ((False, "7px"), (True, "14px")):
+        extracted = tmp_path / f"export-{include_overrides}"
+        extract_archive(
+            export_themes(
+                tmp_path,
+                ExportRequest(keys=["local"], include_overrides=include_overrides),
+            ),
+            extracted,
+        )
+        theme = WebappTheme.model_validate_json((extracted / "local/theme.json").read_bytes())
+        assert theme.tokens.radius == expected_radius
 
 
 def test_missing_variant_override_does_not_break_managed_theme_loading(tmp_path: Path) -> None:

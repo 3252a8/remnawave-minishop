@@ -345,6 +345,10 @@
   let balanceTopupOpen = $state(false);
 
   function openMenuButton(button: MenuButtonView): void {
+    if (button.kind === "page") {
+      window.location.assign(String(button.target || ""));
+      return;
+    }
     if (button.kind !== "webapp") {
       openExternalLink(String(button.target || ""));
       return;
@@ -574,6 +578,7 @@
     {/if}
   {:else if screen === "settings"}
     <SettingsScreen
+      {api}
       {currentLang}
       {currentLanguageOption}
       {emailAuthEnabled}

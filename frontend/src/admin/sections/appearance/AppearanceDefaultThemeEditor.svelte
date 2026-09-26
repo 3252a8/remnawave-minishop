@@ -606,7 +606,7 @@
                   <ColorInput
                     class="admin-color appearance-color-picker"
                     translate={at}
-                    allowAlpha={tokenKey !== "accent"}
+                    allowAlpha
                     value={pickerHex(defaultTokenValue(tokenKey, defaultTokens)) || ""}
                     disabled={!pickerHex(defaultTokenValue(tokenKey, defaultTokens))}
                     ariaLabel={tokenLabel}

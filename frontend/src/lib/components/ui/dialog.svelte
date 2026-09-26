@@ -26,6 +26,8 @@
     class?: string;
     scrollType?: ScrollType;
     showCloseButton?: boolean;
+    /** Hosts with an async first control can defer focus until that control mounts. */
+    focusOnOpen?: boolean;
     titleIcon?: Snippet;
     headerContent?: Snippet;
     children?: Snippet;
@@ -40,6 +42,7 @@
     class: className = "",
     scrollType = "auto",
     showCloseButton = true,
+    focusOnOpen = true,
     titleIcon,
     headerContent,
     children,
@@ -72,7 +75,7 @@
   }
 
   $effect(() => {
-    if (!open) return;
+    if (!open || !focusOnOpen) return;
     focusFirstDialogControl(() => card);
   });
 

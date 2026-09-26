@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { buildApiUrl, createApiClient } from "./publicApi";
+import { buildAdminInformationPagesPath, buildApiUrl, createApiClient } from "./publicApi";
 
 function jsonResponse(payload = {}, status = 200) {
   return {
@@ -19,6 +19,12 @@ describe("createApiClient", () => {
     expect(buildApiUrl("/me")).toBe("/api/me");
     expect(buildApiUrl("/api/me")).toBe("/api/me");
     expect(buildApiUrl("/bootstrap?i18n_scope=webapp")).toBe("/api/bootstrap?i18n_scope=webapp");
+  });
+
+  it("keeps the information-page route in the typed admin API query", () => {
+    expect(buildAdminInformationPagesPath("/company/about")).toBe(
+      "/admin/information-pages?path=%2Fcompany%2Fabout"
+    );
   });
 
   it("adds the in-memory session token to authenticated API requests", async () => {

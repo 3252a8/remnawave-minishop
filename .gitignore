@@ -112,6 +112,15 @@ db/models_old.py
 data/*
 !data/tariffs.example.json
 !data/locales-overrides.example.json
+!data/legal/
+data/legal/*
+!data/legal/*.example.md
+!data/pages/
+data/pages/*
+!data/pages/.gitkeep
+!data/docs/
+data/docs/*
+!data/docs/.gitkeep
 
 # Local maintenance lifecycle lock
 .minishop-restore.lock

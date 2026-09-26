@@ -82,6 +82,7 @@ from .devices import (
     devices_route,
     disconnect_device_route,
 )
+from .documents import document_content_route, documents_list_route
 from .email_addresses import account_notification_email_route
 from .email_change import (
     account_email_change_confirm_route,
@@ -107,6 +108,11 @@ from .notification_preferences import (
     account_notification_preferences_route,
     email_notification_preferences_route,
     email_notification_preferences_update_route,
+)
+from .pages import (
+    INFORMATION_PAGE_ROUTE_PATTERN,
+    information_page_content_route,
+    information_page_route,
 )
 from .partner import (
     partner_application_create_route,
@@ -176,10 +182,11 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/support", index_route)
     app.router.add_get("/support/{ticket_id:\\d+}", index_route)
     app.router.add_get("/admin", index_route)
+    app.router.add_get("/admin/", index_route)
     app.router.add_get(
         (
             "/admin/{section:stats|users|payments|gifts|promos|ads|broadcast|logs|tariffs|"
-            "appearance|settings|translations|support|backups|partners}"
+            "appearance|settings|translations|support|backups|partners|documents}"
         ),
         index_route,
     )
@@ -269,6 +276,12 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/api/balance", balance_route)
     app.router.add_post("/api/balance/topup", balance_topup_route)
     app.router.add_get("/api/status", server_status_route)
+    app.router.add_get("/api/documents", documents_list_route)
+    app.router.add_get(
+        r"/api/documents/{slug:.+}",
+        document_content_route,
+    )
+    app.router.add_get(r"/api/pages/{page_path:.+}", information_page_content_route)
     app.router.add_get("/api/subscription-guides", subscription_guides_route)
     app.router.add_get(
         r"/api/subscription-guides/public/{share_token:[a-f0-9]{32}}",
@@ -354,3 +367,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/payments/{payment_id}/cancel", cancel_payment_route)
     app.router.add_post("/api/payments/{payment_id}/qa/complete", complete_qa_payment_route)
     setup_admin_routes(app)
+    # This must remain last: only existing data-backed information pages should
+    # receive the Mini App shell. It resolves managed documents first, including
+    # legacy /docs/<slug> URLs, then file-backed information pages.
+    app.router.add_get(f"/{{page_path:{INFORMATION_PAGE_ROUTE_PATTERN}}}", information_page_route)

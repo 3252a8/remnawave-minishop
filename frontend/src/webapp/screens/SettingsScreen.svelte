@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import {
     ArrowRight,
     FileText,
@@ -19,6 +20,14 @@
   import MenuButtonIcon from "../MenuButtonIcon.svelte";
   import { formatMoney } from "$lib/webapp/formatters.js";
   import { shouldShowUserBalance } from "$lib/webapp/balanceUiPolicy.js";
+  import {
+    documentHref,
+    hasInformationDocumentRole,
+    publicInformationDocuments,
+    settingsInformationDocuments,
+    type PublicInformationDocument,
+  } from "$lib/webapp/informationPages.js";
+  import { unwrap, type ApiClient } from "$lib/webapp/publicApi.js";
   import type { ThemeOption } from "$lib/webapp/themePreference.js";
   import type {
     LanguageOption,
@@ -79,6 +88,7 @@
     openSecurity?: VoidAction;
     openServerStatus?: VoidAction;
     applyPromo?: VoidAction;
+    api?: ApiClient["api"];
     clearPromoFieldError?: VoidAction;
     setLanguageMenuOpen?: (open: boolean) => void;
     setPromoCode?: StringAction;
@@ -136,6 +146,7 @@
     openSecurity = () => {},
     openServerStatus = () => {},
     applyPromo = () => {},
+    api = undefined,
     clearPromoFieldError = () => {},
     setLanguageMenuOpen = () => {},
     setPromoCode = () => {},
@@ -146,6 +157,30 @@
 
   const showEmailAccount = $derived(emailAuthEnabled);
   let themeMenuOpen = $state(false);
+  let publicDocuments = $state<PublicInformationDocument[]>([]);
+  let settingsDocuments = $state<PublicInformationDocument[]>([]);
+  const hasNativePrivacyPolicy = $derived(
+    hasInformationDocumentRole(publicDocuments, "privacy_policy")
+  );
+  const hasNativeUserAgreement = $derived(
+    hasInformationDocumentRole(publicDocuments, "user_agreement")
+  );
+
+  onMount(() => {
+    let mounted = true;
+    if (!api) return () => {};
+    void api("/documents")
+      .then((response) => {
+        if (mounted) publicDocuments = publicInformationDocuments(unwrap(response));
+        if (mounted) settingsDocuments = settingsInformationDocuments(publicDocuments);
+      })
+      .catch(() => {
+        // Documents are optional public content; leave the settings list unchanged on an older API.
+      });
+    return () => {
+      mounted = false;
+    };
+  });
 </script>
 
 <main class="content with-nav">
@@ -309,7 +344,14 @@
         onValueChange={setThemePreference}
       />
     {/if}
-    {#if userAgreementUrl}
+    {#each settingsDocuments as document (document.slug)}
+      <a class="settings-row settings-row-policy" href={documentHref(document.slug)}>
+        <FileText size={21} />
+        <span><strong>{document.title}</strong></span>
+        <ArrowRight size={17} />
+      </a>
+    {/each}
+    {#if userAgreementUrl && !hasNativeUserAgreement}
       <button
         class="settings-row settings-row-policy"
         type="button"
@@ -320,7 +362,7 @@
         <ArrowRight size={17} />
       </button>
     {/if}
-    {#if privacyPolicyUrl}
+    {#if privacyPolicyUrl && !hasNativePrivacyPolicy}
       <button
         class="settings-row settings-row-policy"
         type="button"

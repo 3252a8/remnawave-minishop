@@ -148,17 +148,17 @@ function normalizeTokenValue(value: unknown): string | null {
 function normalizeLogoScaleTokens(tokens: unknown): TokenMap {
   if (!tokens || typeof tokens !== "object") return {};
   const nextTokens = { ...(tokens as TokenMap) };
-  const desktopScale = normalizeHomeLogoScale(
-    nextTokens.home_logo_scale_desktop ?? nextTokens.home_logo_scale ?? 100
-  );
-  const mobileScale = normalizeHomeLogoScale(
-    nextTokens.home_logo_scale_mobile ?? nextTokens.home_logo_scale ?? 100
-  );
+  const legacyScale = nextTokens.home_logo_scale;
+  const desktopScale = nextTokens.home_logo_scale_desktop ?? legacyScale;
+  const mobileScale = nextTokens.home_logo_scale_mobile ?? legacyScale;
   delete nextTokens.home_logo_scale;
   delete nextTokens.home_logo_scale_desktop;
   delete nextTokens.home_logo_scale_mobile;
-  if (desktopScale !== 100) nextTokens.home_logo_scale_desktop = desktopScale;
-  if (mobileScale !== 100) nextTokens.home_logo_scale_mobile = mobileScale;
+  // Keep an explicit 100%. It is an override when a package defaults to another
+  // value, and dropping it makes a save silently restore the package value.
+  if (desktopScale != null)
+    nextTokens.home_logo_scale_desktop = normalizeHomeLogoScale(desktopScale);
+  if (mobileScale != null) nextTokens.home_logo_scale_mobile = normalizeHomeLogoScale(mobileScale);
   return nextTokens;
 }
 
@@ -276,7 +276,13 @@ export function createThemesStore({
 }: ThemesStoreOptions): ThemesStore {
   const state = $state<ThemesStore>({
     generation: 0,
-    library: createThemeLibraryStore({ api, apiBlob, at, flash, onChanged: loadThemes }),
+    library: createThemeLibraryStore({
+      api,
+      apiBlob,
+      at,
+      flash,
+      onChanged: refreshAfterLibraryChange,
+    }),
     themesCatalog: { default_theme: "dark", themes: [] },
     savedThemesCatalog: { default_theme: "dark", themes: [] },
     themesDirty: false,
@@ -329,6 +335,11 @@ export function createThemesStore({
     } finally {
       updateState((s) => ({ ...s, themesLoading: false }));
     }
+  }
+
+  async function refreshAfterLibraryChange(): Promise<void> {
+    await loadThemes();
+    if (typeof onThemesSaved === "function") await onThemesSaved();
   }
 
   async function saveThemes(options: SaveThemesOptions = {}): Promise<boolean> {
@@ -616,20 +627,12 @@ export function createThemesStore({
               : resolveThemeHomeLogoScale(theme, "mobile", tokenVariant);
           return {
             ...setTokenOnTheme(
-              setTokenOnTheme(
-                setTokenOnTheme(theme, "home_logo_scale", null, {
-                  raw: true,
-                  variant: tokenVariant,
-                }),
-                "home_logo_scale_desktop",
-                desktopScale === 100 ? null : desktopScale,
-                {
-                  raw: true,
-                  variant: tokenVariant,
-                }
-              ),
+              setTokenOnTheme(theme, "home_logo_scale_desktop", desktopScale, {
+                raw: true,
+                variant: tokenVariant,
+              }),
               "home_logo_scale_mobile",
-              mobileScale === 100 ? null : mobileScale,
+              mobileScale,
               { raw: true, variant: tokenVariant }
             ),
           };

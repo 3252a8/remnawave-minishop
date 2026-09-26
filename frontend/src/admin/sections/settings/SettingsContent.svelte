@@ -57,7 +57,6 @@
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type SettingsDirtyState = Record<string, SettingsDirtyEntry>;
   type DynamicComponent = ComponentType<SvelteComponent<Record<string, unknown>>>;
-
   let {
     at,
     appRepositoryUrl = "https://minishop.minidoc.cc/",
@@ -168,10 +167,8 @@
 
   let settingsSearchOpen = $state(false);
   let copiedLoginProviderKey = $state("");
-
   const settingsSearchHasQuery = $derived(settingsSearchQuery.trim().length > 0);
   const settingsSearchVisible = $derived(settingsSearchOpen && settingsSearchHasQuery);
-
   function openSettingsSearch(): void {
     if (settingsSearchHasQuery) settingsSearchOpen = true;
   }

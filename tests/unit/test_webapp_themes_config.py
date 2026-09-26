@@ -514,6 +514,21 @@ class WebappThemesConfigTests(unittest.TestCase):
 
         self.assertEqual(cfg.theme_by_key("custom").tokens.accent, "#00ff88")
 
+    def test_theme_accent_keeps_alpha_hex(self):
+        cfg = WebappThemesConfig(
+            default_theme="custom",
+            themes=[
+                {
+                    "key": "custom",
+                    "enabled": True,
+                    "default": True,
+                    "tokens": {"color_scheme": "dark", "accent": "0F8C"},
+                }
+            ],
+        )
+
+        self.assertEqual(cfg.theme_by_key("custom").tokens.accent, "#00ff88cc")
+
     def test_theme_home_logo_scales_are_public_tokens(self):
         cfg = WebappThemesConfig(
             default_theme="custom",
@@ -541,6 +556,27 @@ class WebappThemesConfigTests(unittest.TestCase):
         self.assertEqual(custom["tokens"]["home_logo_scale"], 135)
         self.assertEqual(custom["tokens"]["home_logo_scale_desktop"], 150)
         self.assertEqual(custom["tokens"]["home_logo_scale_mobile"], 85)
+
+    def test_theme_home_logo_scales_normalize_to_slider_steps(self):
+        cfg = WebappThemesConfig(
+            default_theme="custom",
+            themes=[
+                {
+                    "key": "custom",
+                    "default": True,
+                    "tokens": {
+                        "home_logo_scale": 49,
+                        "home_logo_scale_desktop": 123,
+                        "home_logo_scale_mobile": 123.9,
+                    },
+                }
+            ],
+        )
+
+        tokens = cfg.theme_by_key("custom").tokens
+        self.assertEqual(tokens.home_logo_scale, 50)
+        self.assertEqual(tokens.home_logo_scale_desktop, 125)
+        self.assertEqual(tokens.home_logo_scale_mobile, 125)
 
     def test_theme_accent_rejects_non_hex_values(self):
         with self.assertRaises(ValueError):

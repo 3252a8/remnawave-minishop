@@ -56,6 +56,25 @@ def test_notification_settings_is_a_supported_webapp_target() -> None:
     assert parse_menu_buttons(payload)[1].target == "notifications"
 
 
+def test_information_page_button_keeps_an_arbitrary_safe_internal_path() -> None:
+    payload = _payload()
+    payload[1].update({"kind": "page", "target": "/company/about"})
+
+    button = parse_menu_buttons(payload)[1]
+
+    assert button.kind == "page"
+    assert button.target == "/company/about"
+
+
+@pytest.mark.parametrize("target", ["/home", "/api/pages/about", "/../secret", "about"])
+def test_information_page_button_rejects_reserved_and_unsafe_paths(target: str) -> None:
+    payload = _payload()
+    payload[1].update({"kind": "page", "target": target})
+
+    with pytest.raises(ValueError):
+        parse_menu_buttons(payload)
+
+
 def test_generic_link_automatically_becomes_a_telegram_target() -> None:
     payload = _payload()
     payload[0]["kind"] = "external"

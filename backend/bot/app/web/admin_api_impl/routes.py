@@ -23,6 +23,13 @@ from .broadcast_shortcodes import (
     admin_broadcast_preview_route,
     admin_broadcast_shortcodes_route,
 )
+from .documents import (
+    admin_document_create_route,
+    admin_document_delete_route,
+    admin_document_get_route,
+    admin_document_update_route,
+    admin_documents_list_route,
+)
 from .gift_creation import (
     admin_gift_create_route,
     admin_gift_detail_route,
@@ -31,6 +38,10 @@ from .gift_creation import (
 from .gifts import admin_gift_revoke_route, admin_gifts_route
 from .health import (
     admin_health_route,
+)
+from .information_pages import (
+    admin_information_page_get_route,
+    admin_information_page_save_route,
 )
 from .logs import (
     admin_logs_route,
@@ -357,6 +368,22 @@ def setup_admin_routes(app: web.Application) -> None:
 
     router.add_get("/api/admin/settings", admin_settings_get_route)
     router.add_patch("/api/admin/settings", admin_settings_patch_route)
+    router.add_get("/api/admin/information-pages", admin_information_page_get_route)
+    router.add_put("/api/admin/information-pages", admin_information_page_save_route)
+    router.add_get("/api/admin/documents", admin_documents_list_route)
+    router.add_post("/api/admin/documents", admin_document_create_route)
+    router.add_get(
+        r"/api/admin/documents/{slug:.+}",
+        admin_document_get_route,
+    )
+    router.add_put(
+        r"/api/admin/documents/{slug:.+}",
+        admin_document_update_route,
+    )
+    router.add_delete(
+        r"/api/admin/documents/{slug:.+}",
+        admin_document_delete_route,
+    )
     router.add_get("/api/admin/translations", admin_translations_get_route)
     router.add_patch("/api/admin/translations", admin_translations_patch_route)
 

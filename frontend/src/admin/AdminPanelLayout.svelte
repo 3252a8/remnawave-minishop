@@ -41,6 +41,7 @@
   type SupportStoreBridge = { stats?: { total_unread_admin?: number | null } | null };
   type LogsStoreBridge = { logsTotal?: number | null };
   type AdsStoreBridge = { setCreateOpen: (open: boolean) => void };
+  type DocumentsStoreBridge = { openCreateDocument: () => void };
   type PromosStoreBridge = { setCreateOpen: (open: boolean) => void };
   type TariffsStoreBridge = { openCreateTariff: () => void };
   type SettingsStoreBridge = {
@@ -68,6 +69,7 @@
     brand,
     brandTitle,
     currentLang,
+    documentsStore,
     dirtyCount,
     fmtDate,
     fmtDateShort,
@@ -138,6 +140,7 @@
     brand: Record<string, unknown>;
     brandTitle: string;
     currentLang: string;
+    documentsStore: DocumentsStoreBridge;
     dirtyCount: number;
     fmtDate: DateFormatter;
     fmtDateShort: DateFormatter;
@@ -470,6 +473,7 @@
         {translationsSaving}
         onCreateAd={() => adsStore.setCreateOpen(true)}
         onCreateCode={() => promosStore.setCreateOpen(true)}
+        onCreateDocument={documentsStore.openCreateDocument}
         onCreateTariff={tariffsStore.openCreateTariff}
         {onExportPayments}
         onSaveSettings={() => settingsStore.saveSettings(onSaveSettings)}

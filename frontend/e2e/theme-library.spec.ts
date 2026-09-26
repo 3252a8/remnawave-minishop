@@ -154,6 +154,11 @@ for (const viewport of [
     const exportDialog = page
       .locator(".dialog-card")
       .filter({ has: page.getByRole("button", { name: "Скачать ZIP", exact: true }) });
+    await expect(exportDialog.getByRole("textbox")).toHaveValue("ocean");
+    await expect(exportDialog.getByRole("checkbox")).toBeChecked();
+    await expect(
+      exportDialog.getByRole("button", { name: "Скачать ZIP", exact: true })
+    ).toBeEnabled();
     await exportDialog.getByRole("textbox").fill("my-ocean");
     const downloadPromise = page.waitForEvent("download");
     await exportDialog.getByRole("button", { name: "Скачать ZIP", exact: true }).click();
@@ -195,6 +200,227 @@ test("theme import rejects unsafe archives and protected keys", async ({ page })
   });
   await expect(dialog.locator(".import-candidate")).toHaveCount(1);
   await expect(dialog.getByRole("button", { name: /Установить/ })).toBeDisabled();
+});
+
+test("saves a captured theme preview", async ({ page }) => {
+  await page.route("**/demo/runtime/**", async (route) => {
+    if (route.request().resourceType() !== "document") {
+      await route.continue();
+      return;
+    }
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      headers: {
+        ...response.headers(),
+        "content-security-policy":
+          "default-src 'self'; script-src 'self' 'unsafe-inline' https://telegram.org; " +
+          "frame-src 'self' https://oauth.telegram.org; " +
+          "frame-ancestors 'self' https://web.telegram.org https://t.me; " +
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; " +
+          "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; " +
+          "img-src 'self' data: blob: https:; connect-src 'self' https://oauth.telegram.org; " +
+          "object-src 'none'; base-uri 'self'; form-action 'self'",
+      },
+    });
+  });
+  await page.goto(url);
+  const library = page.locator(".appearance-library");
+  const theme = library.locator('[data-theme-key="dark"]');
+  const previewImage = theme.locator(".theme-screenshot img");
+  const originalSource = await previewImage.getAttribute("src");
+
+  await theme.locator(".theme-card-actions button").last().click();
+  const settings = page.locator(".appearance-settings-dialog");
+  await settings.getByRole("button", { name: "Сохранить превью", exact: true }).click();
+
+  await expect(previewImage).not.toHaveAttribute("src", originalSource || "");
+  await expect(previewImage).toHaveAttribute("src", /custom=1/);
+  await expect(
+    settings.getByRole("button", { name: "Сохранить превью", exact: true })
+  ).toBeEnabled();
+});
+
+for (const viewport of [
+  { name: "desktop", width: 1280, height: 900 },
+  { name: "mobile", width: 390, height: 844 },
+]) {
+  test(`exports a built-in theme with its original key on ${viewport.name}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto(url);
+    const library = page.locator(".appearance-library");
+    await library.locator('[data-theme-key="dark"] .theme-card-actions button').last().click();
+    const settings = page.locator(".appearance-settings-dialog");
+    await settings.getByRole("button", { name: "Скачать", exact: true }).click();
+    const dialog = page
+      .locator(".dialog-card")
+      .filter({ has: page.getByRole("button", { name: "Скачать ZIP", exact: true }) });
+
+    await expect(dialog.getByRole("textbox")).toHaveValue("dark");
+    await expect(dialog.getByRole("checkbox")).toBeChecked();
+    const downloadPromise = page.waitForEvent("download");
+    await dialog.getByRole("button", { name: "Скачать ZIP", exact: true }).click();
+    expect((await downloadPromise).suggestedFilename()).toBe("dark.zip");
+  });
+}
+
+for (const viewport of [
+  { name: "desktop", width: 1280, height: 900 },
+  { name: "mobile", width: 390, height: 844 },
+]) {
+  test(`theme color opacity slider persists HEX alpha on ${viewport.name}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto(url);
+    const library = page.locator(".appearance-library");
+    await library.locator('[data-theme-key="dark"] .theme-card-actions button').last().click();
+    const settings = page.locator(".appearance-settings-dialog");
+    const accent = settings.locator(".appearance-token-control").filter({ hasText: "Акцент" });
+    await accent.locator(".appearance-color-text").fill("#112233");
+    await accent.locator(".ui-color-trigger").click();
+    const picker = page.locator(".ui-color-picker");
+    const opacity = picker.getByRole("slider", { name: "Непрозрачность" });
+    await expect(opacity).toBeVisible();
+    await opacity.press("Home");
+    for (let step = 0; step < 50; step += 1) await opacity.press("ArrowRight");
+    await expect(accent.locator(".appearance-color-text")).toHaveValue("#11223380");
+    await picker.getByRole("button", { name: "Закрыть палитру" }).click();
+    await settings.locator(".dialog-head button").click();
+    await library.getByRole("button", { name: "Сохранить", exact: true }).click();
+
+    await library.locator('[data-theme-key="dark"] .theme-card-actions button').last().click();
+    await expect(
+      settings
+        .locator(".appearance-token-control")
+        .filter({ hasText: "Акцент" })
+        .locator(".appearance-color-text")
+    ).toHaveValue("#11223380");
+  });
+}
+
+for (const viewport of [
+  { name: "desktop", width: 1280, height: 900 },
+  { name: "mobile", width: 390, height: 844 },
+]) {
+  test(`appearance shape sliders persist on ${viewport.name}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto(url);
+    const library = page.locator(".appearance-library");
+    await library.locator('[data-theme-key="dark"] .theme-card-actions button').last().click();
+    const settings = page.locator(".appearance-settings-dialog");
+    await expect(settings).toBeVisible();
+    await settings.getByRole("tab", { name: "Темная", exact: true }).click();
+
+    const setRangeValue = async (label: string, steps: number, expected: string) => {
+      const input = settings.locator(`input[aria-label="${label}"]`);
+      await input.press("Home");
+      for (let index = 0; index < steps; index++) await input.press("ArrowRight");
+      await expect(input).toHaveValue(expected);
+    };
+    await setRangeValue("Логотип на десктопе", 10, "100");
+    await setRangeValue("Логотип на мобильных", 15, "125");
+    await setRangeValue("Скругление", 9, "13");
+    await setRangeValue("Прозрачность", 37, "37");
+    await settings.getByRole("tab", { name: "Светлая", exact: true }).click();
+    await settings.getByRole("tab", { name: "Темная", exact: true }).click();
+    await expect(settings.locator('input[aria-label="Логотип на мобильных"]')).toHaveValue("125");
+    await settings.locator(".dialog-head button").click();
+    await library.getByRole("button", { name: "Сохранить", exact: true }).click();
+
+    await library.locator('[data-theme-key="dark"] .theme-card-actions button').last().click();
+    await settings.getByRole("tab", { name: "Темная", exact: true }).click();
+    await expect(settings.locator('input[aria-label="Логотип на десктопе"]')).toHaveValue("100");
+    await expect(settings.locator('input[aria-label="Логотип на мобильных"]')).toHaveValue("125");
+    await expect(settings.locator('input[aria-label="Скругление"]')).toHaveValue("13");
+    await expect(settings.locator('input[aria-label="Прозрачность"]')).toHaveValue("37");
+  });
+}
+
+test("imported admin theme applies without toggling its checkbox", async ({ page }) => {
+  await page.goto(url);
+  const library = page.locator(".appearance-library");
+  await library.getByRole("button", { name: "Добавить темы", exact: true }).click();
+  const dialog = page.locator(".appearance-import-dialog");
+  await dialog.locator('input[type="file"]').setInputFiles({
+    name: "admin-theme.zip",
+    mimeType: "application/zip",
+    buffer: Buffer.from(
+      zipSync({
+        "admin-theme/theme.json": strToU8(
+          JSON.stringify({
+            key: "admin-theme",
+            names: { ru: "Admin theme", en: "Admin theme" },
+            enabled: true,
+            use_in_admin: true,
+            tokens: {
+              color_scheme: "dark",
+              bg: "#123456",
+              admin_bg: "#123456",
+              home_logo_scale_mobile: 125,
+              radius: "0px",
+            },
+          })
+        ),
+      })
+    ),
+  });
+  await dialog.getByRole("button", { name: /Установить/ }).click();
+  await expect(dialog).toBeHidden();
+  const theme = library.locator('[data-theme-key="admin-theme"]');
+  await theme.getByRole("button", { name: "Активировать", exact: true }).click();
+  await expect(page.locator(".app-shell")).toHaveClass(/theme-key-admin-theme/);
+  await theme.locator(".theme-card-actions button").last().click();
+  const settings = page.locator(".appearance-settings-dialog");
+  await settings.locator(".appearance-custom-extras summary").click();
+  await expect(settings.getByRole("checkbox", { name: "Использовать в админке" })).toBeChecked();
+  await expect(settings.locator('input[aria-label="Логотип на мобильных"]')).toHaveValue("125");
+  await expect(settings.locator('input[aria-label="Скругление"]')).toHaveValue("0");
+});
+
+test("theme editor keeps known font names when a package uses a different fallback stack", async ({
+  page,
+}) => {
+  await page.goto(url);
+  const library = page.locator(".appearance-library");
+  await library.getByRole("button", { name: "Добавить темы", exact: true }).click();
+  const dialog = page.locator(".appearance-import-dialog");
+  await dialog.locator('input[type="file"]').setInputFiles({
+    name: "raw-font.zip",
+    mimeType: "application/zip",
+    buffer: Buffer.from(
+      zipSync({
+        "raw-font/theme.json": strToU8(
+          JSON.stringify({
+            key: "raw-font",
+            names: { ru: "Raw font", en: "Raw font" },
+            enabled: true,
+            tokens: {
+              color_scheme: "dark",
+              font_sans: "Roboto, Arial, sans-serif",
+              font_mono: '"JetBrains Mono", monospace',
+            },
+            variants: {
+              dark: { color_scheme: "dark" },
+              light: { color_scheme: "light" },
+            },
+          })
+        ),
+      })
+    ),
+  });
+  await dialog.getByRole("button", { name: /Установить/ }).click();
+
+  const theme = library.locator('[data-theme-key="raw-font"]');
+  await theme.locator(".theme-card-actions button").last().click();
+  const settings = page.locator(".appearance-settings-dialog");
+  const selectors = settings.locator(".appearance-select-grid button");
+  await expect(selectors.nth(0)).toHaveText("Roboto");
+  await expect(selectors.nth(2)).toHaveText("JetBrains Mono");
+
+  await settings.locator('input[aria-label="Скругление"]').press("ArrowRight");
+  await settings.locator(".dialog-head button").click();
+  await library.getByRole("button", { name: "Сохранить", exact: true }).click();
+  await theme.locator(".theme-card-actions button").last().click();
+  await expect(settings.locator(".appearance-select-grid button").nth(0)).toHaveText("Roboto");
 });
 
 for (const layout of [

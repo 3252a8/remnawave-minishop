@@ -4,6 +4,12 @@
   import { Switch } from "$components/ui/primitives.js";
   import { onMount } from "svelte";
   import { captureThemePreview } from "$lib/admin/captureThemePreview";
+  import {
+    normalizeAppearanceRadius,
+    normalizeAppearanceTransparency,
+    radiusToken,
+    transparencyToken,
+  } from "$lib/admin/appearanceSliders";
 
   import {
     firstFontFamily,
@@ -281,6 +287,13 @@
   function fontItemsWithCurrent(items: FontOption[], value: unknown): FontOption[] {
     const currentValue = String(value ?? "");
     if (!currentValue || items.some((item) => item.value === currentValue)) return items;
+    const currentFamily = firstFontFamily(currentValue).toLowerCase();
+    const matchingItem = items.find(
+      (item) => firstFontFamily(item.value).toLowerCase() === currentFamily
+    );
+    if (matchingItem) {
+      return items.map((item) => (item === matchingItem ? { ...item, value: currentValue } : item));
+    }
     return [
       {
         value: currentValue,
@@ -378,19 +391,12 @@
     value: unknown,
     variant = themeVariant(theme)
   ): void {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) return;
-    setCustomThemeToken(
-      theme,
-      "radius",
-      `${Math.min(28, Math.max(0, Math.round(numeric)))}px`,
-      variant
-    );
+    const token = radiusToken(value, 0);
+    if (token != null) setCustomThemeToken(theme, "radius", token, variant);
   }
 
   function customThemeRadiusNumber(theme: ThemeEntry, variant = themeVariant(theme)): number {
-    const match = String(customThemeTokenValue(theme, "radius", variant) || "").match(/(\d+)/);
-    return match ? Math.min(28, Math.max(0, Number(match[1]))) : 8;
+    return normalizeAppearanceRadius(customThemeTokenValue(theme, "radius", variant), 8, 0);
   }
 
   function setCustomThemeTransparency(
@@ -398,19 +404,12 @@
     value: unknown,
     variant = themeVariant(theme)
   ): void {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) return;
-    setCustomThemeToken(
-      theme,
-      "transparency",
-      Math.min(100, Math.max(0, Math.round(numeric))),
-      variant
-    );
+    const token = transparencyToken(value);
+    if (token != null) setCustomThemeToken(theme, "transparency", token, variant);
   }
 
   function customThemeTransparencyNumber(theme: ThemeEntry, variant = themeVariant(theme)): number {
-    const numeric = Number(customThemeTokenValue(theme, "transparency", variant));
-    return Number.isFinite(numeric) ? Math.min(100, Math.max(0, Math.round(numeric))) : 100;
+    return normalizeAppearanceTransparency(customThemeTokenValue(theme, "transparency", variant));
   }
 
   function applyCustomThemePreset(
@@ -446,18 +445,16 @@
   }
 
   function setDefaultRadius(value: unknown, variant: ThemeVariant = defaultEditorVariant): void {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) return;
-    setDefaultToken("radius", `${Math.min(28, Math.max(4, Math.round(numeric)))}px`, variant);
+    const token = radiusToken(value);
+    if (token != null) setDefaultToken("radius", token, variant);
   }
 
   function setDefaultTransparency(
     value: unknown,
     variant: ThemeVariant = defaultEditorVariant
   ): void {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) return;
-    setDefaultToken("transparency", Math.min(100, Math.max(0, Math.round(numeric))), variant);
+    const token = transparencyToken(value);
+    if (token != null) setDefaultToken("transparency", token, variant);
   }
 
   const defaultRadiusRangeHandler = (value: number, variant?: ThemeVariant) =>
@@ -466,13 +463,11 @@
     setDefaultTransparency(value, variant);
 
   function radiusNumber(tokens: TokenMap = defaultTokens): number {
-    const match = String(defaultTokenValue("radius", tokens) || "").match(/(\d+)/);
-    return match ? Math.min(28, Math.max(4, Number(match[1]))) : 8;
+    return normalizeAppearanceRadius(defaultTokenValue("radius", tokens));
   }
 
   function transparencyNumber(tokens: TokenMap = defaultTokens): number {
-    const numeric = Number(tokens.transparency);
-    return Number.isFinite(numeric) ? Math.min(100, Math.max(0, Math.round(numeric))) : 100;
+    return normalizeAppearanceTransparency(tokens.transparency);
   }
 
   function setDefaultFont(tokenKey: string, value: unknown): void {
@@ -589,7 +584,8 @@
         onSettingsSaved({ ...payload, deferFrontendReload: true })
       );
     }
-    await themesStore.saveThemes();
+    if (!settingsSaved) return;
+    if (themesDirty && !(await themesStore.saveThemes())) return;
     if (settingsSaved && shouldReloadFrontend && typeof onSettingsSaved === "function") {
       await onSettingsSaved({ updates: {}, deletes: [], reloadFrontend: true });
     }

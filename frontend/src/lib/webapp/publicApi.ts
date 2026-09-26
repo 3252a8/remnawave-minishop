@@ -340,6 +340,21 @@ export function buildAdminHealthPath(refresh: boolean = false): AdminHealthPath 
   return refresh ? "/admin/health?refresh=1" : "/admin/health";
 }
 
+export type AdminDocumentsPath = "/admin/documents";
+export function buildAdminDocumentsPath(): AdminDocumentsPath {
+  return "/admin/documents";
+}
+
+export type AdminDocumentPath = BuiltApiPath<"/api/admin/documents/{slug}">;
+export function buildAdminDocumentPath(slug: string): AdminDocumentPath {
+  return builtApiPath<"/api/admin/documents/{slug}">(
+    `/admin/documents/${String(slug)
+      .split("/")
+      .map((segment) => encodeURIComponent(segment))
+      .join("/")}`
+  );
+}
+
 export type TariffTopupOptionsPath = `/tariffs/topup-options?kind=${string}`;
 export function buildTariffTopupOptionsPath(kind: string): TariffTopupOptionsPath {
   return `/tariffs/topup-options?kind=${encodeURIComponent(String(kind))}`;
@@ -490,6 +505,15 @@ export function buildAdminGiftRevokePath(id: string | number): AdminGiftRevokePa
 
 export function buildAdminSettingsPath(): AdminSettingsPath {
   return "/admin/settings";
+}
+
+export type AdminInformationPagesPath =
+  "/admin/information-pages" | `/admin/information-pages?${string}`;
+export function buildAdminInformationPagesPath(path?: string): AdminInformationPagesPath {
+  const query = path ? new URLSearchParams({ path }).toString() : "";
+  return (
+    query ? `/admin/information-pages?${query}` : "/admin/information-pages"
+  ) as AdminInformationPagesPath;
 }
 
 export type AdminTariffsPath = "/admin/tariffs";

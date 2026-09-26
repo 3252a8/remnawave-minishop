@@ -1,3 +1,4 @@
+import { loadDemoDocuments, storeDemoDocuments } from "./documentsState";
 import { DEV_MOCK } from "../previewMock.js";
 import { adminGiftDemoStats } from "./giftsDemo";
 import { withDemoAvatarTicket } from "../demoAvatars.js";
@@ -80,6 +81,9 @@ const DEMO_SHORTCODE_VALUES: Record<string, string> = {
   referral_bot_link: "https://t.me/demo_bot?start=ref_uAB12CD",
   referral_webapp_link: "https://app.example/?ref=uAB12CD",
 };
+
+const demoInformationPages = new Map<string, string>();
+const demoDocuments = loadDemoDocuments();
 
 function demoSortValue(value: unknown): AdminSortValue {
   if (value == null || typeof value === "string" || typeof value === "number") return value;
@@ -711,6 +715,73 @@ export function demoApiResponse(
   }
   if (cleanPath === "/admin/settings")
     return { ok: true, sections: demoSettingsSections(clone), features: [] };
+
+  if (cleanPath === "/documents" && method === "GET") {
+    return {
+      ok: true,
+      documents: [...demoDocuments.values()]
+        .filter((document) => String(document.markdown || "").trim())
+        .map(({ markdown: _markdown, ...document }) => clone(document)),
+    };
+  }
+
+  if (cleanPath === "/admin/documents") {
+    if (method === "POST") {
+      const document = clone(jsonBody(options)) as DemoRecord;
+      demoDocuments.set(String(document.slug || ""), document);
+      storeDemoDocuments(demoDocuments);
+      return { ok: true, ...clone(document) };
+    }
+    return { ok: true, documents: [...demoDocuments.values()].map(clone) };
+  }
+
+  const adminDocumentMatch = cleanPath.match(/^\/admin\/documents\/(.+)$/);
+  if (adminDocumentMatch) {
+    const slug = decodeURIComponent(adminDocumentMatch[1]);
+    const current = demoDocuments.get(slug);
+    if (method === "DELETE") {
+      demoDocuments.delete(slug);
+      storeDemoDocuments(demoDocuments);
+      return { ok: true };
+    }
+    if (method === "PUT") {
+      const document = clone(jsonBody(options)) as DemoRecord;
+      demoDocuments.delete(slug);
+      demoDocuments.set(String(document.slug || slug), document);
+      storeDemoDocuments(demoDocuments);
+      return { ok: true, ...clone(document) };
+    }
+    return current ? { ok: true, ...clone(current) } : { ok: false, error: "document_not_found" };
+  }
+
+  const publicDocumentMatch = cleanPath.match(/^\/documents\/(.+)$/);
+  if (publicDocumentMatch && method === "GET") {
+    const document = demoDocuments.get(decodeURIComponent(publicDocumentMatch[1]));
+    return document && String(document.markdown || "").trim()
+      ? { ok: true, ...clone(document) }
+      : { ok: false, error: "document_not_found" };
+  }
+
+  if (cleanPath === "/admin/information-pages") {
+    const path = String(params.get("path") || "").trim();
+    if (method === "GET") {
+      return {
+        ok: true,
+        path,
+        markdown: demoInformationPages.get(path) || "",
+        exists: demoInformationPages.has(path),
+      };
+    }
+    if (method === "PUT") {
+      const body = jsonBody(options);
+      const nextPath = String(body.path || "").trim();
+      const previousPath = String(body.previous_path || "").trim();
+      if (previousPath && previousPath !== nextPath) demoInformationPages.delete(previousPath);
+      const markdown = String(body.markdown || "");
+      demoInformationPages.set(nextPath, markdown);
+      return { ok: true, path: nextPath, markdown, exists: true };
+    }
+  }
 
   if (cleanPath === "/admin/tariffs") {
     if (method === "PUT") {

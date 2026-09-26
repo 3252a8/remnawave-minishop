@@ -145,6 +145,8 @@ RUN node ./scripts/prepare_nginx_assets.mjs --out ../frontend-nginx-dist
 
 FROM python-base AS backend
 
+USER root
+
 # The Mini App shell is rendered by the backend, which rewrites the stylesheet
 # and script tags to the content-hashed asset names (subscription_webapp.<hash>.css).
 # Those hashed files are build artifacts and gitignored, so a clean checkout has
@@ -155,6 +157,9 @@ FROM python-base AS backend
 # freshly built assets (the same hashes the nginx image serves) into the image so
 # the shell emits immutable, cache-busting URLs.
 COPY --from=frontend-builder /app/backend/bot/app/web/templates/ ./backend/bot/app/web/templates/
+COPY deploy/docker/backend-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/backend-entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/backend-entrypoint.sh"]
 
 # GitHub source URL (disabled): https://github.com/3252a8/remnawave-minishop
 LABEL org.opencontainers.image.source="https://gitlab.com/3252a8/remnawave-minishop" \

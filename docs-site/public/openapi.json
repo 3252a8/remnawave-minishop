@@ -1109,6 +1109,216 @@
         "title": "AdminBroadcastShortcodesOut",
         "type": "object"
       },
+      "AdminDocumentCreateBody": {
+        "properties": {
+          "group_title": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Group Title"
+          },
+          "markdown": {
+            "default": "",
+            "title": "Markdown",
+            "type": "string"
+          },
+          "role": {
+            "default": "none",
+            "enum": [
+              "none",
+              "privacy_policy",
+              "user_agreement"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "show_in_settings": {
+            "default": false,
+            "title": "Show In Settings",
+            "type": "boolean"
+          },
+          "show_in_sidebar": {
+            "default": false,
+            "title": "Show In Sidebar",
+            "type": "boolean"
+          },
+          "slug": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Slug",
+            "type": "string"
+          },
+          "sort_order": {
+            "default": 0,
+            "maximum": 100000,
+            "minimum": -100000,
+            "title": "Sort Order",
+            "type": "integer"
+          },
+          "title": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "slug"
+        ],
+        "title": "AdminDocumentCreateBody",
+        "type": "object"
+      },
+      "AdminDocumentOut": {
+        "properties": {
+          "group_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Title"
+          },
+          "markdown": {
+            "title": "Markdown",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "none",
+              "privacy_policy",
+              "user_agreement"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "show_in_settings": {
+            "title": "Show In Settings",
+            "type": "boolean"
+          },
+          "show_in_sidebar": {
+            "title": "Show In Sidebar",
+            "type": "boolean"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "sort_order": {
+            "title": "Sort Order",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "slug",
+          "markdown",
+          "role",
+          "show_in_settings",
+          "show_in_sidebar",
+          "group_title",
+          "sort_order"
+        ],
+        "title": "AdminDocumentOut",
+        "type": "object"
+      },
+      "AdminDocumentUpdateBody": {
+        "properties": {
+          "group_title": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Group Title"
+          },
+          "markdown": {
+            "default": "",
+            "title": "Markdown",
+            "type": "string"
+          },
+          "role": {
+            "default": "none",
+            "enum": [
+              "none",
+              "privacy_policy",
+              "user_agreement"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "show_in_settings": {
+            "default": false,
+            "title": "Show In Settings",
+            "type": "boolean"
+          },
+          "show_in_sidebar": {
+            "default": false,
+            "title": "Show In Sidebar",
+            "type": "boolean"
+          },
+          "slug": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Slug",
+            "type": "string"
+          },
+          "sort_order": {
+            "default": 0,
+            "maximum": 100000,
+            "minimum": -100000,
+            "title": "Sort Order",
+            "type": "integer"
+          },
+          "title": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "slug"
+        ],
+        "title": "AdminDocumentUpdateBody",
+        "type": "object"
+      },
+      "AdminDocumentsOut": {
+        "properties": {
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/AdminDocumentOut"
+            },
+            "title": "Documents",
+            "type": "array"
+          }
+        },
+        "required": [
+          "documents"
+        ],
+        "title": "AdminDocumentsOut",
+        "type": "object"
+      },
       "AdminGiftCreateBody": {
         "additionalProperties": false,
         "properties": {
@@ -1531,6 +1741,62 @@
           "checked_at"
         ],
         "title": "AdminHealthOut",
+        "type": "object"
+      },
+      "AdminInformationPageOut": {
+        "properties": {
+          "exists": {
+            "title": "Exists",
+            "type": "boolean"
+          },
+          "markdown": {
+            "title": "Markdown",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "markdown",
+          "exists"
+        ],
+        "title": "AdminInformationPageOut",
+        "type": "object"
+      },
+      "AdminInformationPageSaveBody": {
+        "properties": {
+          "markdown": {
+            "default": "",
+            "title": "Markdown",
+            "type": "string"
+          },
+          "path": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "previous_path": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Previous Path"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "AdminInformationPageSaveBody",
         "type": "object"
       },
       "AdminLogsListOut": {
@@ -6544,6 +6810,24 @@
         "title": "ImportRecord",
         "type": "object"
       },
+      "InformationPageOut": {
+        "properties": {
+          "markdown": {
+            "title": "Markdown",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "markdown"
+        ],
+        "title": "InformationPageOut",
+        "type": "object"
+      },
       "InstallChoice": {
         "additionalProperties": false,
         "properties": {
@@ -9853,6 +10137,137 @@
           "note"
         ],
         "title": "ProviderCurrencySupportOut",
+        "type": "object"
+      },
+      "PublicDocumentContentOut": {
+        "properties": {
+          "group_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Title"
+          },
+          "markdown": {
+            "title": "Markdown",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "none",
+              "privacy_policy",
+              "user_agreement"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "show_in_settings": {
+            "title": "Show In Settings",
+            "type": "boolean"
+          },
+          "show_in_sidebar": {
+            "title": "Show In Sidebar",
+            "type": "boolean"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "sort_order": {
+            "title": "Sort Order",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "slug",
+          "role",
+          "show_in_settings",
+          "show_in_sidebar",
+          "group_title",
+          "sort_order",
+          "markdown"
+        ],
+        "title": "PublicDocumentContentOut",
+        "type": "object"
+      },
+      "PublicDocumentOut": {
+        "properties": {
+          "group_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Title"
+          },
+          "role": {
+            "enum": [
+              "none",
+              "privacy_policy",
+              "user_agreement"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "show_in_settings": {
+            "title": "Show In Settings",
+            "type": "boolean"
+          },
+          "show_in_sidebar": {
+            "title": "Show In Sidebar",
+            "type": "boolean"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "sort_order": {
+            "title": "Sort Order",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "slug",
+          "role",
+          "show_in_settings",
+          "show_in_sidebar",
+          "group_title",
+          "sort_order"
+        ],
+        "title": "PublicDocumentOut",
+        "type": "object"
+      },
+      "PublicDocumentsOut": {
+        "properties": {
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/PublicDocumentOut"
+            },
+            "title": "Documents",
+            "type": "array"
+          }
+        },
+        "required": [
+          "documents"
+        ],
+        "title": "PublicDocumentsOut",
         "type": "object"
       },
       "PublicSubscriptionContextOut": {
@@ -15922,6 +16337,276 @@
         ]
       }
     },
+    "/api/admin/documents": {
+      "get": {
+        "operationId": "get_admin_documents_list_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminDocumentsOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Documents List",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "post_admin_document_create_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminDocumentCreateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminDocumentOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Document Create",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/documents/{slug}": {
+      "delete": {
+        "operationId": "delete_admin_document_delete_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "pattern": ".+",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Document Delete",
+        "tags": [
+          "admin"
+        ]
+      },
+      "get": {
+        "operationId": "get_admin_document_get_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "pattern": ".+",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminDocumentOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Document Get",
+        "tags": [
+          "admin"
+        ]
+      },
+      "put": {
+        "operationId": "put_admin_document_update_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "pattern": ".+",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminDocumentUpdateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminDocumentOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Document Update",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/gifts": {
       "get": {
         "operationId": "get_admin_gifts_route",
@@ -16498,6 +17183,106 @@
           }
         ],
         "summary": "Admin Health",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/information-pages": {
+      "get": {
+        "operationId": "get_admin_information_page_get_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminInformationPageOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Information Page Get",
+        "tags": [
+          "admin"
+        ]
+      },
+      "put": {
+        "operationId": "put_admin_information_page_save_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminInformationPageSaveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminInformationPageOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Information Page Save",
         "tags": [
           "admin"
         ]
@@ -24305,6 +25090,93 @@
         ]
       }
     },
+    "/api/documents": {
+      "get": {
+        "operationId": "get_documents_list_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PublicDocumentsOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "summary": "Documents List",
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/api/documents/{slug}": {
+      "get": {
+        "operationId": "get_document_content_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "pattern": ".+",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PublicDocumentContentOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "summary": "Document Content",
+        "tags": [
+          "documents"
+        ]
+      }
+    },
     "/api/gifts": {
       "get": {
         "operationId": "get_gifts_route",
@@ -25528,7 +26400,8 @@
                                 "enum": [
                                   "external",
                                   "telegram",
-                                  "webapp"
+                                  "webapp",
+                                  "page"
                                 ],
                                 "type": "string"
                               },
@@ -26588,6 +27461,55 @@
         "summary": "Email Notification Preferences Update",
         "tags": [
           "notification-preferences"
+        ]
+      }
+    },
+    "/api/pages/{page_path}": {
+      "get": {
+        "operationId": "get_information_page_content_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "page_path",
+            "required": true,
+            "schema": {
+              "pattern": ".+",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InformationPageOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "summary": "Information Page Content",
+        "tags": [
+          "pages"
         ]
       }
     },

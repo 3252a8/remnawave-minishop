@@ -25,6 +25,7 @@ from bot.app.web.context import (
 from bot.app.web.webapp_auth import verify_webapp_session_token
 from bot.infra.redis import get_redis, redis_key
 from bot.middlewares.i18n import locale_language_options
+from bot.services.legal_document_links import legal_document_links
 from bot.utils.request_security import request_client_ip
 from config.settings import Settings
 from config.webapp_themes_config import (
@@ -170,8 +171,8 @@ async def _security_headers_middleware(
         (
             "default-src 'self'; "
             f"script-src 'self' 'nonce-{nonce}' https://telegram.org; "
-            "frame-src https://oauth.telegram.org; "
-            "frame-ancestors https://web.telegram.org https://t.me; "
+            "frame-src 'self' https://oauth.telegram.org; "
+            "frame-ancestors 'self' https://web.telegram.org https://t.me; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; "  # noqa: E501
             "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; "
             "img-src 'self' data: blob: https:; "
@@ -298,6 +299,7 @@ def _get_cached_webapp_settings(request: web.Request) -> dict[str, Any]:
         logo_url = _resolve_webapp_logo_url(settings)
         payment_settings = settings.payment_settings
         support_settings = settings.support_settings
+        privacy_policy_url, user_agreement_url = legal_document_links(settings)
         cache["data"] = {
             "logo_url": logo_url,
             "favicon_url": _resolve_webapp_favicon_url(settings, logo_url),
@@ -307,8 +309,8 @@ def _get_cached_webapp_settings(request: web.Request) -> dict[str, Any]:
             "stars_traffic_packages": payment_settings.stars_traffic_packages,
             "support_url": support_settings.link or "",
             "server_status_url": settings.server_status_external_url or "",
-            "privacy_policy_url": settings.PRIVACY_POLICY_URL or "",
-            "user_agreement_url": settings.USER_AGREEMENT_URL or "",
+            "privacy_policy_url": privacy_policy_url,
+            "user_agreement_url": user_agreement_url,
             "currency": payment_settings.default_currency_symbol or "RUB",
             "email_auth_enabled": settings.email_auth_configured,
             "notification_preferences_enabled": bool(

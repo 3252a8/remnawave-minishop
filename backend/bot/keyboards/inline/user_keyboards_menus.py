@@ -2,6 +2,7 @@ from aiogram.types import InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 
 from bot.middlewares.i18n import JsonI18n, locale_language_options
+from bot.services.legal_document_links import legal_document_links
 from bot.utils.mini_app_url import subscription_mini_app_path_url, subscription_mini_app_trial_url
 from config.menu_buttons import configured_menu_buttons, telegram_menu_button_text
 from config.settings import Settings
@@ -74,7 +75,8 @@ def get_main_menu_inline_keyboard(
     if support_link:
         builder.row(InlineKeyboardButton(text=_(key="menu_support_button"), url=support_link))
 
-    if settings.PRIVACY_POLICY_URL or settings.USER_AGREEMENT_URL:
+    privacy_url, user_agreement_url = legal_document_links(settings)
+    if privacy_url or user_agreement_url:
         builder.row(
             InlineKeyboardButton(text=_(key="menu_info_button"), callback_data="main_action:info")
         )
@@ -87,7 +89,7 @@ def get_main_menu_inline_keyboard(
             lang,
             default_language=settings.DEFAULT_LANGUAGE,
         )
-        if button.kind == "webapp":
+        if button.kind in {"webapp", "page"}:
             target_url = subscription_mini_app_path_url(settings, button.target)
             if target_url:
                 builder.row(InlineKeyboardButton(text=text, web_app=WebAppInfo(url=target_url)))
@@ -158,7 +160,8 @@ def get_bot_interface_inline_keyboard(
     if support_link:
         builder.row(InlineKeyboardButton(text=_(key="menu_support_button"), url=support_link))
 
-    if settings.PRIVACY_POLICY_URL or settings.USER_AGREEMENT_URL:
+    privacy_url, user_agreement_url = legal_document_links(settings)
+    if privacy_url or user_agreement_url:
         builder.row(
             InlineKeyboardButton(
                 text=_(key="menu_info_button"), callback_data="main_action:bot_info"

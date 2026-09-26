@@ -2,6 +2,7 @@ import { QueryClient } from "@tanstack/svelte-query";
 import { createAdsStore } from "../lib/admin/stores/adsStore.js";
 import { createBackupsStore } from "../lib/admin/stores/backupsStore.js";
 import { createBroadcastStore } from "../lib/admin/stores/broadcastStore.js";
+import { createDocumentsStore } from "../lib/admin/stores/documentsStore.svelte.js";
 import { createHealthStore } from "../lib/admin/stores/healthStore.js";
 import { createLogsStore } from "../lib/admin/stores/logsStore.js";
 import { createPaymentsStore } from "../lib/admin/stores/paymentsStore.js";
@@ -15,9 +16,11 @@ import { createTranslationsStore } from "../lib/admin/stores/translationsStore.j
 import { createUsersStore } from "../lib/admin/stores/usersStore.js";
 import {
   setAdsStore,
+  setAdminApi,
   setAdminSupportStore,
   setBackupsStore,
   setBroadcastStore,
+  setDocumentsStore,
   setHealthStore,
   setLogsStore,
   setPaymentsStore,
@@ -71,6 +74,7 @@ export function createAdminStores({
   const adsStore = createAdsStore({ api: api as never, onToast, at });
   const backupsStore = createBackupsStore({ api: api as never, onToast, at });
   const broadcastStore = createBroadcastStore({ api: api as never, onToast, at });
+  const documentsStore = createDocumentsStore({ api: api as never, onToast, at });
   const healthStore = createHealthStore({
     api: api as never,
     at,
@@ -131,10 +135,12 @@ export function createAdminStores({
   });
 
   setPromosStore(promosStore);
+  setAdminApi(api);
   setAdsStore(adsStore);
   setHealthStore(healthStore);
   setBackupsStore(backupsStore);
   setBroadcastStore(broadcastStore);
+  setDocumentsStore(documentsStore);
   setLogsStore(logsStore);
   setPaymentsStore(paymentsStore);
   setStatsStore(statsStore);
@@ -150,6 +156,7 @@ export function createAdminStores({
     adsStore,
     backupsStore,
     broadcastStore,
+    documentsStore,
     healthStore,
     logsStore,
     paymentsStore,

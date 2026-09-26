@@ -5,6 +5,7 @@ Split out of ``webapp_themes_config`` (which re-exports this surface).
 
 from __future__ import annotations
 
+import math
 import re
 from typing import Any, Literal
 
@@ -138,23 +139,29 @@ class ThemeTokens(BaseModel):
         raw = str(value).strip()
         if not raw:
             return None
-        match = re.fullmatch(r"#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})", raw)
+        match = re.fullmatch(r"#?([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})", raw)
         if not match:
-            raise ValueError("accent must be a hex color (#RGB or #RRGGBB)")
+            raise ValueError("accent must be a hex color (#RGB, #RGBA, #RRGGBB, or #RRGGBBAA)")
         hex_value = match.group(1).lower()
-        if len(hex_value) == 3:
+        if len(hex_value) in (3, 4):
             hex_value = "".join(char * 2 for char in hex_value)
         return f"#{hex_value}"
 
-    @field_validator("home_logo_scale", "home_logo_scale_desktop", "home_logo_scale_mobile")
+    @field_validator(
+        "home_logo_scale", "home_logo_scale_desktop", "home_logo_scale_mobile", mode="before"
+    )
     @classmethod
-    def _normalize_home_logo_scale(cls, value: int | None) -> int | None:
+    def _normalize_home_logo_scale(cls, value: Any) -> int | None:
         if value is None:
             return None
-        scale = int(value)
-        if scale < 50 or scale > 300:
-            raise ValueError("home logo scale must be between 50 and 300 percent")
-        return scale
+        try:
+            scale = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("home logo scale must be a number") from exc
+        if not math.isfinite(scale):
+            raise ValueError("home logo scale must be a finite number")
+        rounded = math.floor(scale / 5 + 0.5) * 5
+        return min(300, max(50, rounded))
 
     @field_validator("separator")
     @classmethod

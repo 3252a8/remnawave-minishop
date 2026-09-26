@@ -78,4 +78,16 @@ describe("menu button drafts", () => {
     expect(reorderMenuButtonDrafts(source, 0, 1)).toEqual([second, first]);
     expect(source).toEqual([first, second]);
   });
+
+  it("preserves an information page target for backend validation", () => {
+    const button = createMenuButtonDraft(["en"]);
+    button.kind = "page";
+    button.target = "/company/about";
+    button.labels = { en: "About" };
+
+    expect(parseMenuButtonDrafts(serializeMenuButtonDrafts([button]))).toEqual({
+      buttons: [button],
+      invalid: false,
+    });
+  });
 });

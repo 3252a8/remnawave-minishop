@@ -17,6 +17,7 @@ from bot.app.web import subscription_webapp
 from bot.app.web.admin_api_impl import themes as admin_themes
 from bot.app.web.webapp import assets as webapp_assets
 from bot.app.web.webapp import assets_branding, assets_static, cache_helpers
+from bot.services import legal_document_links
 from config.settings import Settings
 from config.webapp_themes_config import WebappThemesConfig, builtin_webapp_themes_config
 
@@ -600,6 +601,43 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                     enabled and provider != "url",
                 )
                 self.assertFalse(payload["config"]["serverStatusShowOnHome"])
+
+    def test_webapp_bootstrap_prefers_native_legal_documents(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            legal_dir = root / "data" / "legal"
+            legal_dir.mkdir(parents=True)
+            (legal_dir / "policy.md").write_text("# Policy", encoding="utf-8")
+            (legal_dir / "terms.md").write_text("# Terms", encoding="utf-8")
+            settings = Settings(
+                _env_file=None,
+                BOT_TOKEN="123456:token",
+                POSTGRES_USER="app_user",
+                POSTGRES_PASSWORD="app_password",
+                SUBSCRIPTION_MINI_APP_URL="https://app.example.com/webapp?lang=ru",
+                PRIVACY_POLICY_URL="https://legacy.example/privacy",
+                USER_AGREEMENT_URL="https://legacy.example/terms",
+            )
+            request = SimpleNamespace(
+                app={
+                    "settings": settings,
+                    "webapp_settings_cache": {"ts": 0.0, "data": {}},
+                    "i18n": None,
+                },
+                query={},
+            )
+
+            with patch.object(legal_document_links, "APP_ROOT", root):
+                payload = subscription_webapp._build_webapp_bootstrap_payload(request)
+
+        self.assertEqual(
+            payload["config"]["privacyPolicyUrl"],
+            "https://app.example.com/webapp/privacy-policy?lang=ru",
+        )
+        self.assertEqual(
+            payload["config"]["userAgreementUrl"],
+            "https://app.example.com/webapp/user-agreement?lang=ru",
+        )
 
     def test_server_status_polling_starts_only_after_authenticated_data_loads(self):
         root = Path(__file__).resolve().parents[2]

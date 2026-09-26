@@ -181,12 +181,13 @@ export function createThemeLibraryStore(options: {
   async function exportThemes(keys: string[], includeOverrides = false, newKey?: string) {
     await run(async () => {
       if (!apiBlob) throw { error: "theme_export_unavailable" };
+      const exportKey = keys.length === 1 && newKey === keys[0] ? undefined : newKey;
       const blob = await apiBlob("/admin/themes/export", {
         method: "POST",
         body: JSON.stringify({
           keys,
           include_overrides: includeOverrides,
-          new_key: newKey || null,
+          new_key: exportKey || null,
         }),
       });
       const url = URL.createObjectURL(blob);

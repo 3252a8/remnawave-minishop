@@ -1230,6 +1230,8 @@ class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
         csp = response.headers["Content-Security-Policy"]
 
         self.assertNotIn("'unsafe-eval'", csp)
+        self.assertIn("frame-src 'self' https://oauth.telegram.org;", csp)
+        self.assertIn("frame-ancestors 'self' https://web.telegram.org https://t.me;", csp)
         self.assertIn("img-src 'self' data: blob: https:;", csp)
         self.assertNotIn("img-src 'self' data: https: http:;", csp)
         self.assertEqual(response.headers["X-Robots-Tag"], "noindex, nofollow, noarchive")

@@ -80,6 +80,7 @@
   const kindOptions = $derived([
     { value: "external", label: at("menu_buttons_kind_external", {}, "Link") },
     { value: "webapp", label: at("menu_buttons_kind_webapp", {}, "Web App section") },
+    { value: "page", label: at("menu_buttons_kind_page", {}, "Information page") },
   ]);
   const sectionFallbacks: Record<string, string> = {
     plans: "Plans and checkout",
@@ -155,12 +156,12 @@
   function updateKind(index: number, kind: MenuButtonKind): void {
     updateButton(index, {
       kind,
-      target: kind === "webapp" ? "home" : "",
+      target: kind === "webapp" ? "home" : kind === "page" ? "/about" : "",
     });
   }
 
-  function displayedKind(button: MenuButtonDraft): "external" | "webapp" {
-    return button.kind === "webapp" ? "webapp" : "external";
+  function displayedKind(button: MenuButtonDraft): "external" | "webapp" | "page" {
+    return button.kind === "webapp" || button.kind === "page" ? button.kind : "external";
   }
 
   function updateLinkTarget(index: number, target: string): void {
@@ -169,7 +170,7 @@
 
   function normalizeLinkTarget(index: number): void {
     const button = buttons[index];
-    if (!button || button.kind === "webapp") return;
+    if (!button || button.kind === "webapp" || button.kind === "page") return;
     const target = normalizeMessageButtonLink(button.target);
     if (!target) return;
     updateButton(index, {
@@ -278,6 +279,15 @@
             items={sectionOptions}
             ariaLabel={at("menu_buttons_webapp_section", {}, "Web App section")}
             onValueChange={(target) => updateButton(index, { target })}
+          />
+        {:else if button.kind === "page"}
+          <Input
+            class="input"
+            value={button.target}
+            maxlength={256}
+            placeholder={at("menu_buttons_page_placeholder", {}, "/about")}
+            oninput={(event) =>
+              updateButton(index, { target: (event.currentTarget as HTMLInputElement).value })}
           />
         {:else}
           <Input

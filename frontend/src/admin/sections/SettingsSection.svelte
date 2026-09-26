@@ -83,9 +83,15 @@
   const settingsSaving = $derived(Boolean(settingsStore.settingsSaving));
   const menuButtonLanguages = $derived(translationsStore.translationLanguages || []);
   const visibleSettingsSections = $derived(
-    filterServerStatusSettings(settingsSections, settingsDirty).filter(
-      (section) => !SETTINGS_SECTION_IDS_HIDDEN_IN_GENERAL_SETTINGS.has(section.id)
-    )
+    filterServerStatusSettings(settingsSections, settingsDirty)
+      .filter((section) => !SETTINGS_SECTION_IDS_HIDDEN_IN_GENERAL_SETTINGS.has(section.id))
+      .map((section) => ({
+        ...section,
+        fields: section.fields.filter(
+          (field) => field.key !== "PRIVACY_POLICY_URL" && field.key !== "USER_AGREEMENT_URL"
+        ),
+      }))
+      .filter((section) => section.fields.length > 0)
   );
 
   let settingsOpenSections = $state<string[]>([]);

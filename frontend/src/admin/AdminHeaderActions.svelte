@@ -10,6 +10,7 @@
     dirtyCount: number;
     onCreateAd: ActionCallback;
     onCreateCode: ActionCallback;
+    onCreateDocument: ActionCallback;
     onCreateTariff: ActionCallback;
     onExportPayments: ActionCallback;
     onSaveSettings: ActionCallback;
@@ -27,6 +28,7 @@
     dirtyCount,
     onCreateAd,
     onCreateCode,
+    onCreateDocument,
     onCreateTariff,
     onExportPayments,
     onSaveSettings,
@@ -67,6 +69,12 @@
     <AdminButton data-admin-action="create-tariff" variant="primary" onclick={onCreateTariff}>
       <Plus size={14} />
       {at("btn_tariff", {}, "Tariff")}
+    </AdminButton>
+  {/if}
+  {#if active === "documents"}
+    <AdminButton data-admin-action="create-document" variant="primary" onclick={onCreateDocument}>
+      <Plus size={14} />
+      {at("documents_create", {}, "New document")}
     </AdminButton>
   {/if}
   {#if active === "settings"}

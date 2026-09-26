@@ -156,6 +156,7 @@
   const {
     adminQueryClient,
     adsStore,
+    documentsStore,
     healthStore,
     logsStore,
     paymentsStore,
@@ -789,6 +790,7 @@
     {featuresResolved}
     {availableFeatures}
     {adsStore}
+    {documentsStore}
     {appFaviconUrl}
     {appFaviconUseCustom}
     {appRepositoryUrl}

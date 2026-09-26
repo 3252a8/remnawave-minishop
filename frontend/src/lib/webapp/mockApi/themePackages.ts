@@ -343,7 +343,7 @@ async function handle(path: string, options: RequestInit): Promise<unknown> {
             ...current[existing],
             tokens: { ...item.theme.tokens, ...current[existing].tokens },
           };
-        else current.push({ ...item.theme, default: false, use_in_admin: false });
+        else current.push({ ...item.theme, default: false });
       }
       save(current);
       generation++;
@@ -393,7 +393,11 @@ async function handle(path: string, options: RequestInit): Promise<unknown> {
     for (const key of body.keys as string[]) {
       const item = packages.get(key) || (await builtinPackage(key));
       const newKey = String(body.new_key || key);
-      if (body.new_key && (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(newKey) || protectedKeys.has(newKey)))
+      if (
+        body.new_key &&
+        (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(newKey) ||
+          (protectedKeys.has(newKey) && newKey !== key))
+      )
         throw { error: "protected_theme" };
       for (const [name, bytes] of Object.entries(item.files)) {
         let content = bytes;
@@ -402,7 +406,7 @@ async function handle(path: string, options: RequestInit): Promise<unknown> {
             ? themes().find((theme) => theme.key === key) || item.theme
             : item.theme;
           content = strToU8(
-            JSON.stringify({ ...theme, key: newKey, default: false, use_in_admin: false }, null, 2)
+            JSON.stringify({ ...theme, key: newKey, default: false, hidden: false }, null, 2)
           );
         } else if (name.endsWith(".css") && newKey !== key) {
           content = strToU8(strFromU8(bytes).replaceAll("theme-key-" + key, "theme-key-" + newKey));

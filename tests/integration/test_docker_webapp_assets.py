@@ -67,6 +67,27 @@ class DockerWebappAssetTests(unittest.TestCase):
             nginx_conf,
         )
 
+    def test_frontend_nginx_proxies_extensionless_information_pages_to_backend(self) -> None:
+        nginx_conf = NGINX_CONF_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("Information pages are data-backed", nginx_conf)
+        proxy_start = nginx_conf.index("Information pages are data-backed")
+        proxy_block = nginx_conf[proxy_start : nginx_conf.index("\n\n", proxy_start)]
+        self.assertIn("proxy_pass ${WEBAPP_BACKEND_UPSTREAM};", proxy_block)
+        self.assertLess(proxy_start, nginx_conf.index("location / {"))
+
+    def test_frontend_nginx_proxies_managed_documents_explicitly(self) -> None:
+        nginx_conf = NGINX_CONF_PATH.read_text(encoding="utf-8")
+
+        documents_start = nginx_conf.index('location ~ "^/docs/')
+        documents_block = nginx_conf[documents_start : nginx_conf.index("\n\n", documents_start)]
+        self.assertIn(
+            r'location ~ "^/docs/[a-z0-9][a-z0-9-]{0,63}(?:/[a-z0-9][a-z0-9-]{0,63})*$"',
+            documents_block,
+        )
+        self.assertIn("proxy_pass ${WEBAPP_BACKEND_UPSTREAM};", documents_block)
+        self.assertLess(documents_start, nginx_conf.index("Information pages are data-backed"))
+
     def test_theme_upload_limit_fits_frontend_and_example_ingress(self) -> None:
         from config.theme_packages.models import MAX_ARCHIVE
 

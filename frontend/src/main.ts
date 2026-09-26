@@ -1,8 +1,15 @@
 import { mount } from "svelte";
 
 import App from "./App.svelte";
+import InformationPageApp from "./webapp/InformationPageApp.svelte";
 import NotificationUnsubscribeApp from "./webapp/NotificationUnsubscribeApp.svelte";
 import { buildApiUrl } from "./lib/webapp/publicApi";
+import { createI18n } from "./lib/webapp/i18n";
+import {
+  documentSlugFromLocation,
+  informationPagePathFromLocation,
+} from "./lib/webapp/informationPages";
+import { computeThemeView } from "./lib/webapp/themeView";
 import "./styles.css";
 
 const PUBLIC_INSTALL_PRELOAD_KEY = "__RW_PUBLIC_INSTALL_PRELOAD__";
@@ -31,6 +38,18 @@ function startPublicInstallPreload(): PublicInstallPreload | null {
   const preload: PublicInstallPreload = { path, promise };
   (window as unknown as Record<string, unknown>)[PUBLIC_INSTALL_PRELOAD_KEY] = preload;
   return preload;
+}
+
+function jsonScriptRecord(id: string): Record<string, unknown> {
+  const raw = document.getElementById(id)?.textContent || "";
+  try {
+    const value: unknown = JSON.parse(raw);
+    return value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
 }
 
 async function loadBootstrap(): Promise<void> {
@@ -80,7 +99,39 @@ if (target) {
   startPublicInstallPreload();
   loadBootstrap().finally(() => {
     target.replaceChildren();
-    if (window.location.pathname.replace(/\/$/, "").endsWith("/unsubscribe")) {
+    const documentSlug = documentSlugFromLocation(window.location.pathname);
+    const pagePath = informationPagePathFromLocation(window.location.pathname);
+    if (documentSlug || pagePath) {
+      const config = jsonScriptRecord("webapp-config");
+      const messages = jsonScriptRecord("i18n");
+      const i18n = createI18n({
+        messages,
+        defaultLang: String(config.language || "ru"),
+        getLang: () => String(config.language || navigator.language || "ru"),
+      });
+      const theme = computeThemeView({
+        themePreviewDraft: null,
+        themePreviewKey: null,
+        data: null,
+        user: {},
+        screen: "home",
+        cfgThemesCatalog: (config.themesCatalog as Record<string, unknown>) || null,
+        primaryColor: String(config.primaryColor || "#00fe7a"),
+        userThemeModeEnabled: false,
+      });
+      mount(InformationPageApp, {
+        target,
+        props: {
+          documentSlug: documentSlug || "",
+          pagePath: pagePath || (documentSlug ? `/${documentSlug}` : ""),
+          shellStyle: theme.shellStyle,
+          shellThemeClass: theme.shellThemeClass,
+          shellToneClass: theme.shellToneClass,
+          themeCssHref: theme.shellThemeCssHref || "",
+          t: i18n.t,
+        },
+      });
+    } else if (window.location.pathname.replace(/\/$/, "").endsWith("/unsubscribe")) {
       mount(NotificationUnsubscribeApp, { target });
     } else {
       mount(App, { target });

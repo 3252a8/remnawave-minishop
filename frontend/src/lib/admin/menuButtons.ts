@@ -35,7 +35,7 @@ const LEGACY_EMOJI_WEBAPP_ICON: Record<string, string> = {
   "⚡": "Zap",
 };
 
-export type MenuButtonKind = "external" | "telegram" | "webapp";
+export type MenuButtonKind = "external" | "telegram" | "webapp" | "page";
 
 export type MenuButtonDraft = {
   id: string;
@@ -72,7 +72,7 @@ function normalizeLabels(value: unknown): Record<string, string> {
 function normalizeButton(value: unknown): MenuButtonDraft | null {
   if (!isRecord(value)) return null;
   const kind = String(value.kind || "external") as MenuButtonKind;
-  if (!(["external", "telegram", "webapp"] as string[]).includes(kind)) return null;
+  if (!(["external", "telegram", "webapp", "page"] as string[]).includes(kind)) return null;
   const id = String(value.id || "").trim();
   if (!id) return null;
   const legacyIcon = String(value.icon || "").trim();

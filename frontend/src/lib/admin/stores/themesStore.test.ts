@@ -90,6 +90,54 @@ describe("themesStore", () => {
     expect(store.savedThemesCatalog.default_theme).toBe("ocean");
   });
 
+  it("keeps an explicit 100% logo override when a package uses another default", async () => {
+    const initialCatalog = {
+      default_theme: "ocean",
+      themes: [
+        {
+          key: "ocean",
+          tokens: { home_logo_scale_desktop: 125 },
+          variants: { dark: { home_logo_scale_desktop: 125 } },
+        },
+      ],
+    };
+    const api = vi.fn().mockImplementation((_path, options) => {
+      const catalog = options?.method === "PUT" ? JSON.parse(options.body).catalog : initialCatalog;
+      return Promise.resolve({ ok: true, generation: 2, catalog });
+    });
+    const { store } = makeStore(api);
+    await store.loadThemes();
+
+    store.setThemeHomeLogoScale("ocean", "desktop", 100, "dark");
+    await store.saveThemes();
+
+    const payload = JSON.parse(api.mock.calls[1][1].body);
+    expect(payload.catalog.themes[0].variants.dark.home_logo_scale_desktop).toBe(100);
+    expect(store.resolveThemeHomeLogoScale(store.themesCatalog.themes[0], "desktop", "dark")).toBe(
+      100
+    );
+  });
+
+  it("refreshes the runtime after a theme-library mutation", async () => {
+    const onThemesSaved = vi.fn();
+    const api = vi.fn().mockResolvedValue({
+      ok: true,
+      generation: 3,
+      catalog: { default_theme: "dark", themes: [] },
+    });
+    const store = createThemesStore({
+      api,
+      flash: vi.fn(),
+      at: (key: string) => key,
+      onThemesSaved,
+    });
+
+    await store.library.refresh();
+
+    expect(onThemesSaved).toHaveBeenCalledOnce();
+    expect(api).toHaveBeenCalledWith("/admin/themes");
+  });
+
   it("surfaces whether uploaded appearance assets were persisted", async () => {
     const api = vi.fn().mockResolvedValue({
       ok: true,

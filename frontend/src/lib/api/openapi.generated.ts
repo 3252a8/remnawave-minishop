@@ -567,6 +567,43 @@ export interface paths {
     patch: operations["patch_admin_broadcast_reschedule_route"];
     trace?: never;
   };
+  "/api/admin/documents": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Documents List */
+    get: operations["get_admin_documents_list_route"];
+    put?: never;
+    /** Admin Document Create */
+    post: operations["post_admin_document_create_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/documents/{slug}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Document Get */
+    get: operations["get_admin_document_get_route"];
+    /** Admin Document Update */
+    put: operations["put_admin_document_update_route"];
+    post?: never;
+    /** Admin Document Delete */
+    delete: operations["delete_admin_document_delete_route"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/gifts": {
     parameters: {
       query?: never;
@@ -646,6 +683,24 @@ export interface paths {
     /** Admin Health */
     get: operations["get_admin_health_route"];
     put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/information-pages": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Information Page Get */
+    get: operations["get_admin_information_page_get_route"];
+    /** Admin Information Page Save */
+    put: operations["put_admin_information_page_save_route"];
     post?: never;
     delete?: never;
     options?: never;
@@ -2402,6 +2457,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/documents": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Documents List */
+    get: operations["get_documents_list_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/documents/{slug}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Document Content */
+    get: operations["get_document_content_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/gifts": {
     parameters: {
       query?: never;
@@ -2516,6 +2605,23 @@ export interface paths {
     put?: never;
     /** Email Notification Preferences Update */
     post: operations["post_email_notification_preferences_update_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/pages/{page_path}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Information Page Content */
+    get: operations["get_information_page_content_route"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -3700,6 +3806,109 @@ export interface components {
       /** Shortcodes */
       shortcodes: components["schemas"]["AdminBroadcastShortcodeOut"][];
     };
+    /** AdminDocumentCreateBody */
+    AdminDocumentCreateBody: {
+      /**
+       * Group Title
+       * @default null
+       */
+      group_title: string | null;
+      /**
+       * Markdown
+       * @default
+       */
+      markdown: string;
+      /**
+       * Role
+       * @default none
+       * @enum {string}
+       */
+      role: "none" | "privacy_policy" | "user_agreement";
+      /**
+       * Show In Settings
+       * @default false
+       */
+      show_in_settings: boolean;
+      /**
+       * Show In Sidebar
+       * @default false
+       */
+      show_in_sidebar: boolean;
+      /** Slug */
+      slug: string;
+      /**
+       * Sort Order
+       * @default 0
+       */
+      sort_order: number;
+      /** Title */
+      title: string;
+    };
+    /** AdminDocumentOut */
+    AdminDocumentOut: {
+      /** Group Title */
+      group_title: string | null;
+      /** Markdown */
+      markdown: string;
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: "none" | "privacy_policy" | "user_agreement";
+      /** Show In Settings */
+      show_in_settings: boolean;
+      /** Show In Sidebar */
+      show_in_sidebar: boolean;
+      /** Slug */
+      slug: string;
+      /** Sort Order */
+      sort_order: number;
+      /** Title */
+      title: string;
+    };
+    /** AdminDocumentUpdateBody */
+    AdminDocumentUpdateBody: {
+      /**
+       * Group Title
+       * @default null
+       */
+      group_title: string | null;
+      /**
+       * Markdown
+       * @default
+       */
+      markdown: string;
+      /**
+       * Role
+       * @default none
+       * @enum {string}
+       */
+      role: "none" | "privacy_policy" | "user_agreement";
+      /**
+       * Show In Settings
+       * @default false
+       */
+      show_in_settings: boolean;
+      /**
+       * Show In Sidebar
+       * @default false
+       */
+      show_in_sidebar: boolean;
+      /** Slug */
+      slug: string;
+      /**
+       * Sort Order
+       * @default 0
+       */
+      sort_order: number;
+      /** Title */
+      title: string;
+    };
+    /** AdminDocumentsOut */
+    AdminDocumentsOut: {
+      /** Documents */
+      documents: components["schemas"]["AdminDocumentOut"][];
+    };
     /** AdminGiftCreateBody */
     AdminGiftCreateBody: {
       /** @default null */
@@ -3890,6 +4099,30 @@ export interface components {
       checked_at: string;
       /** @default null */
       panel_compatibility: components["schemas"]["AdminPanelCompatibilityOut"] | null;
+    };
+    /** AdminInformationPageOut */
+    AdminInformationPageOut: {
+      /** Exists */
+      exists: boolean;
+      /** Markdown */
+      markdown: string;
+      /** Path */
+      path: string;
+    };
+    /** AdminInformationPageSaveBody */
+    AdminInformationPageSaveBody: {
+      /**
+       * Markdown
+       * @default
+       */
+      markdown: string;
+      /** Path */
+      path: string;
+      /**
+       * Previous Path
+       * @default null
+       */
+      previous_path: string | null;
     };
     /** AdminLogsListOut */
     AdminLogsListOut: {
@@ -6091,6 +6324,13 @@ export interface components {
        */
       state: "downloading" | "validating" | "ready" | "installed" | "cancelled" | "failed";
     };
+    /** InformationPageOut */
+    InformationPageOut: {
+      /** Markdown */
+      markdown: string;
+      /** Path */
+      path: string;
+    };
     /** InstallChoice */
     InstallChoice: {
       /**
@@ -7502,6 +7742,53 @@ export interface components {
       supports_default_currency: boolean;
       /** Telegram Label */
       telegram_label: string;
+    };
+    /** PublicDocumentContentOut */
+    PublicDocumentContentOut: {
+      /** Group Title */
+      group_title: string | null;
+      /** Markdown */
+      markdown: string;
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: "none" | "privacy_policy" | "user_agreement";
+      /** Show In Settings */
+      show_in_settings: boolean;
+      /** Show In Sidebar */
+      show_in_sidebar: boolean;
+      /** Slug */
+      slug: string;
+      /** Sort Order */
+      sort_order: number;
+      /** Title */
+      title: string;
+    };
+    /** PublicDocumentOut */
+    PublicDocumentOut: {
+      /** Group Title */
+      group_title: string | null;
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: "none" | "privacy_policy" | "user_agreement";
+      /** Show In Settings */
+      show_in_settings: boolean;
+      /** Show In Sidebar */
+      show_in_sidebar: boolean;
+      /** Slug */
+      slug: string;
+      /** Sort Order */
+      sort_order: number;
+      /** Title */
+      title: string;
+    };
+    /** PublicDocumentsOut */
+    PublicDocumentsOut: {
+      /** Documents */
+      documents: components["schemas"]["PublicDocumentOut"][];
     };
     /** PublicSubscriptionContextOut */
     PublicSubscriptionContextOut: {
@@ -10276,6 +10563,135 @@ export interface operations {
       };
     };
   };
+  get_admin_documents_list_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminDocumentsOut"];
+        };
+      };
+    };
+  };
+  post_admin_document_create_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminDocumentCreateBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminDocumentOut"];
+        };
+      };
+    };
+  };
+  get_admin_document_get_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slug: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminDocumentOut"];
+        };
+      };
+    };
+  };
+  put_admin_document_update_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slug: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminDocumentUpdateBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminDocumentOut"];
+        };
+      };
+    };
+  };
+  delete_admin_document_delete_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slug: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
   get_admin_gifts_route: {
     parameters: {
       query?: never;
@@ -10498,6 +10914,56 @@ export interface operations {
             /** @constant */
             ok: true;
           } & components["schemas"]["AdminHealthOut"];
+        };
+      };
+    };
+  };
+  get_admin_information_page_get_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminInformationPageOut"];
+        };
+      };
+    };
+  };
+  put_admin_information_page_save_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminInformationPageSaveBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminInformationPageOut"];
         };
       };
     };
@@ -14004,6 +14470,54 @@ export interface operations {
       };
     };
   };
+  get_documents_list_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["PublicDocumentsOut"];
+        };
+      };
+    };
+  };
+  get_document_content_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slug: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["PublicDocumentContentOut"];
+        };
+      };
+    };
+  };
   get_gifts_route: {
     parameters: {
       query?: never;
@@ -14402,7 +14916,7 @@ export interface operations {
                 icon: string;
                 id: string;
                 /** @enum {string} */
-                kind: "external" | "telegram" | "webapp";
+                kind: "external" | "telegram" | "webapp" | "page";
                 label: string;
                 target: string;
               }[];
@@ -14689,6 +15203,31 @@ export interface operations {
             /** @constant */
             ok: true;
           };
+        };
+      };
+    };
+  };
+  get_information_page_content_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        page_path: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["InformationPageOut"];
         };
       };
     };

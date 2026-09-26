@@ -64,3 +64,9 @@ def test_stylesheets_are_not_captured_by_the_chunk_patterns():
 
 def test_flag_font_has_a_dedicated_static_route():
     assert _resolve("/fonts/TwemojiCountryFlags.woff2") == "flag_font_asset_route"
+
+
+def test_information_pages_are_reached_only_after_fixed_webapp_routes():
+    assert _resolve("/legal/terms") == "information_page_route"
+    assert _resolve("/company/about") == "information_page_route"
+    assert _resolve("/api/pages/company/about") == "information_page_content_route"

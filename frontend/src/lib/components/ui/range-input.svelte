@@ -101,10 +101,10 @@
   class={cn("ui-range-input", className)}
   type="range"
   {name}
-  value={sliderValue}
   min={sliderMin}
   max={sliderMax}
   step={sliderStep}
+  value={sliderValue}
   {disabled}
   aria-label={ariaLabel}
   style={`--range-progress:${sliderProgress}%`}

@@ -42,6 +42,7 @@ from .registry import (
     check_generation,
     collect_garbage,
     effective_theme,
+    legacy_preferences,
     owner_overrides,
     read_registry,
     require_capacity,
@@ -342,7 +343,7 @@ def rollback_theme(root: Path, key: str, generation: int) -> MutationOut:
 def export_themes(root: Path, request: ExportRequest) -> bytes:
     if len(set(request.keys)) != len(request.keys) or (request.new_key and len(request.keys) != 1):
         raise PackageError("invalid_export_selection")
-    if request.new_key in BUILTINS:
+    if request.new_key in BUILTINS and request.new_key not in request.keys:
         raise PackageError("protected_theme", str(request.new_key))
     with registry_lock(root):
         state = read_registry(root)
@@ -361,15 +362,28 @@ def export_themes(root: Path, request: ExportRequest) -> bytes:
                 name = path.relative_to(folder).as_posix()
                 content = path.read_bytes()
                 if name == "theme.json":
-                    theme = (
-                        effective_theme(key, entry)
-                        if entry and request.include_overrides
-                        else entry.original
-                        if entry
-                        else WebappTheme.model_validate_json(content)
-                    )
+                    source_theme = WebappTheme.model_validate_json(content)
+                    if entry:
+                        theme = (
+                            effective_theme(key, entry)
+                            if request.include_overrides
+                            else entry.original
+                        )
+                    elif request.include_overrides:
+                        # When managed packages exist, regular descriptors are stored as
+                        # registry preferences rather than rewritten in place.
+                        saved = state.preferences.get(key)
+                        theme = (
+                            legacy_preferences(source_theme, saved, state.preference_bases.get(key))
+                            if saved
+                            else source_theme
+                        )
+                    else:
+                        theme = source_theme
                     data = theme.model_dump(mode="json", exclude_none=True)
-                    data.update(key=new_key, default=False, use_in_admin=False, hidden=False)
+                    # A fork must not become the active storefront automatically, but
+                    # the author/admin choice to style the admin panel is portable.
+                    data.update(key=new_key, default=False, hidden=False)
                     data.pop("variant_alias_for", None)
                     if entry:
                         data["css_file"] = entry.original.css_file

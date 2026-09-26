@@ -114,6 +114,11 @@ class PublicSubscriptionGuidesOut(SubscriptionGuidesOut):
     subscription: PublicSubscriptionContextOut | None = None
 
 
+class InformationPageOut(HttpResponseModel):
+    path: str
+    markdown: str
+
+
 ACCOUNT_MERGE_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
@@ -689,7 +694,7 @@ MENU_BUTTON_SCHEMA: dict[str, Any] = {
     "required": ["id", "kind", "target", "icon", "label"],
     "properties": {
         "id": STRING_SCHEMA,
-        "kind": {"type": "string", "enum": ["external", "telegram", "webapp"]},
+        "kind": {"type": "string", "enum": ["external", "telegram", "webapp", "page"]},
         "target": STRING_SCHEMA,
         "icon": STRING_SCHEMA,
         "label": STRING_SCHEMA,

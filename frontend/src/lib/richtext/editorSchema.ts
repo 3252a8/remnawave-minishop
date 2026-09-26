@@ -45,14 +45,20 @@ export const ShortcodeNode = Node.create({
  * where a template is authored around shortcodes, and on in a conversation,
  * where both sides expect to tap what the other one pasted.
  */
-export function composerExtensions(placeholder: string, { autolink = false } = {}) {
+export function composerExtensions(
+  placeholder: string,
+  {
+    autolink = false,
+    documentBlocks = false,
+  }: { autolink?: boolean; documentBlocks?: boolean } = {}
+) {
   return [
     StarterKit.configure({
-      heading: false,
-      bulletList: false,
-      orderedList: false,
-      listItem: false,
-      listKeymap: false,
+      heading: documentBlocks ? undefined : false,
+      bulletList: documentBlocks ? undefined : false,
+      orderedList: documentBlocks ? undefined : false,
+      listItem: documentBlocks ? undefined : false,
+      listKeymap: documentBlocks ? undefined : false,
       horizontalRule: false,
       trailingNode: false,
       link: {

@@ -79,7 +79,7 @@
   let removal = $state<LibraryTheme | null>(null);
   let exportTheme = $state<LibraryTheme | null>(null);
   let newKey = $state("");
-  let includeOverrides = $state(false);
+  let includeOverrides = $state(true);
   let guideOpen = $state(false);
   let preferencesOpen = $state(false);
   let captureBusy = $state(false);
@@ -444,7 +444,7 @@
           "License: {license}"
         )}
       </p>{/if}
-    <div class="appearance-settings-footer">
+    <div class="appearance-settings-footer appearance-settings-footer--theme-actions">
       <div class="appearance-settings-footer-group">
         <AdminButton
           disabled={blocked || captureBusy}
@@ -464,42 +464,47 @@
         <AdminButton
           disabled={blocked}
           onclick={() => {
-            exportTheme = settings;
+            const theme = settings;
+            if (!theme) return;
+            newKey = theme.key;
+            includeOverrides = true;
+            exportTheme = theme;
             settingsKey = "";
-            newKey = "";
           }}><Download size={14} />{at("appearance_export", {}, "Download")}</AdminButton
         >
       </div>
-      <AdminButton
-        variant="primary"
-        disabled={!dirty || library.busy || store.themesSaving}
-        onclick={onsave}
-      >
-        <Save size={14} />
-        {saving ? at("btn_saving", {}, "Saving...") : at("btn_save", {}, "Save")}
-      </AdminButton>
-      {#if settings.installation?.source?.url}<AdminButton
-          disabled={blocked}
-          onclick={() => {
-            openImport(
-              settings?.installation?.source?.url,
-              settings?.installation?.source?.ref,
-              settings?.installation?.source?.subdir
-            );
-            settingsKey = "";
-          }}>{at("appearance_check_update", {}, "Check for updates")}</AdminButton
-        >{/if}
-      {#if settings.installation?.can_rollback}<AdminButton
-          disabled={blocked}
-          onclick={async () => {
-            if (settings && (await library.mutate(settings.key, "rollback"))) settingsKey = "";
-          }}
-          ><RotateCcw size={14} />{at(
-            "appearance_rollback",
-            {},
-            "Restore previous version"
-          )}</AdminButton
-        >{/if}
+      <div class="appearance-settings-footer-actions">
+        {#if settings.installation?.source?.url}<AdminButton
+            disabled={blocked}
+            onclick={() => {
+              openImport(
+                settings?.installation?.source?.url,
+                settings?.installation?.source?.ref,
+                settings?.installation?.source?.subdir
+              );
+              settingsKey = "";
+            }}>{at("appearance_check_update", {}, "Check for updates")}</AdminButton
+          >{/if}
+        {#if settings.installation?.can_rollback}<AdminButton
+            disabled={blocked}
+            onclick={async () => {
+              if (settings && (await library.mutate(settings.key, "rollback"))) settingsKey = "";
+            }}
+            ><RotateCcw size={14} />{at(
+              "appearance_rollback",
+              {},
+              "Restore previous version"
+            )}</AdminButton
+          >{/if}
+        <AdminButton
+          variant="primary"
+          disabled={!dirty || library.busy || store.themesSaving}
+          onclick={onsave}
+        >
+          <Save size={14} />
+          {saving ? at("btn_saving", {}, "Saving...") : at("btn_save", {}, "Save")}
+        </AdminButton>
+      </div>
     </div>
     <div class="appearance-settings-footer">
       <small>{settings.source}</small>{#if settings.imported}<AdminButton
@@ -580,8 +585,9 @@
     <div class="appearance-settings-footer">
       {#each catalog.filter( (theme) => ["dark", "ascii", "windows95"].includes(theme.key) ) as theme}<AdminButton
           onclick={() => {
+            newKey = theme.key;
+            includeOverrides = true;
             exportTheme = theme;
-            newKey = "my-" + theme.key;
             guideOpen = false;
           }}>{theme.title}</AdminButton
         >{/each}
@@ -640,7 +646,7 @@
       {at(
         "appearance_export_hint",
         {},
-        "Leave the key empty to export the original. Enter a unique key to create your own theme."
+        "Keep the key to download this theme, or enter an unused key to make a copy."
       )}
     </p>
     <Input
@@ -660,9 +666,10 @@
     <AdminButton
       variant="primary"
       disabled={library.busy ||
-        (Boolean(newKey) &&
+        (newKey !== exportTheme?.key &&
+          Boolean(newKey) &&
           (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(newKey) ||
-            catalog.some((theme) => theme.key === newKey)))}
+            catalog.some((theme) => theme.key === newKey && theme.key !== exportTheme?.key)))}
       onclick={async () => {
         if (exportTheme) await library.exportThemes([exportTheme.key], includeOverrides, newKey);
         if (!library.error) exportTheme = null;

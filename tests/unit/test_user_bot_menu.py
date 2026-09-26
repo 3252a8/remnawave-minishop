@@ -252,11 +252,19 @@ class UserBotMenuTests(unittest.TestCase):
                     "telegram_emoji": "📱",
                     "labels": {"ru": "Устройства", "en": "Devices"},
                 },
+                {
+                    "id": "about",
+                    "kind": "page",
+                    "target": "/company/about",
+                    "webapp_icon": "Info",
+                    "telegram_emoji": "ℹ️",
+                    "labels": {"ru": "О сервисе", "en": "About"},
+                },
             ]
         )
 
         markup = get_main_menu_inline_keyboard("en", self.i18n, self.settings)
-        custom_rows = markup.inline_keyboard[-3:]
+        custom_rows = markup.inline_keyboard[-4:]
 
         self.assertEqual(custom_rows[0][0].text, "📰 News")
         self.assertEqual(custom_rows[0][0].url, "https://example.com/news")
@@ -264,6 +272,8 @@ class UserBotMenuTests(unittest.TestCase):
         self.assertEqual(custom_rows[1][0].url, "https://t.me/example_group")
         self.assertEqual(custom_rows[2][0].text, "📱 Devices")
         self.assertEqual(custom_rows[2][0].web_app.url, "https://app.example.com/devices")
+        self.assertEqual(custom_rows[3][0].text, "ℹ️ About")
+        self.assertEqual(custom_rows[3][0].web_app.url, "https://app.example.com/company/about")
 
     def test_webapp_custom_button_is_skipped_without_mini_app(self):
         self.settings.SUBSCRIPTION_MINI_APP_URL = ""

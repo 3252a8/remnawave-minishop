@@ -13,6 +13,7 @@ from bot.keyboards.inline.user_keyboards import (
     telegram_bot_menu_enabled_for_user,
 )
 from bot.middlewares.i18n import JsonI18n, normalize_locale_language_code
+from bot.services.legal_document_links import legal_document_links
 from bot.services.panel_api_service import PanelApiService
 from bot.services.promo_code_service import PromoCodeService
 from bot.services.referral_service import ReferralService
@@ -360,8 +361,7 @@ async def main_action_callback_handler(
             return
         _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
-        privacy_url = settings.PRIVACY_POLICY_URL
-        user_agreement_url = settings.USER_AGREEMENT_URL
+        privacy_url, user_agreement_url = legal_document_links(settings)
 
         if not privacy_url and not user_agreement_url:
             await safe_answer_callback(

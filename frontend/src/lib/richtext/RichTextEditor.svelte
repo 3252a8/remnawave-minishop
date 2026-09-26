@@ -17,11 +17,12 @@
     type ToolbarMark,
   } from "./editorSchema.js";
   import { type Doc, docToTelegramHtml, telegramHtmlToDoc } from "./telegramHtml.js";
-  import type { RichTextLabels, RichTextQuickInsert } from "./types.js";
+  import type { RichTextFormat, RichTextLabels, RichTextQuickInsert } from "./types.js";
 
-  // Tiptap's JSON is structurally the subset we serialize; narrow it once here.
-  const serialize = (editorInstance: Editor): string =>
-    docToTelegramHtml(editorInstance.getJSON() as unknown as Doc);
+  const telegramHtmlFormat: RichTextFormat = {
+    fromSource: telegramHtmlToDoc,
+    toSource: docToTelegramHtml,
+  };
 
   let {
     value,
@@ -38,6 +39,9 @@
     minHeight = "140px",
     onSubmit,
     onTyping,
+    format = telegramHtmlFormat,
+    documentBlocks = false,
+    autofocus = false,
   }: {
     value: string;
     onInput: (value: string) => void;
@@ -57,7 +61,18 @@
     /** Ctrl/Cmd+Enter, when the host has something to submit to. */
     onSubmit?: () => void;
     onTyping?: (typing: boolean) => void;
+    /** The value format stored by the host. Defaults to the Telegram HTML wire format. */
+    format?: RichTextFormat;
+    /** Enable heading/list nodes for document formats without changing message composers. */
+    documentBlocks?: boolean;
+    /** Focus the editable surface after Tiptap has mounted it. */
+    autofocus?: boolean;
   } = $props();
+
+  // Tiptap's JSON is structurally the subset each storage adapter serializes;
+  // narrow it once at the component boundary.
+  const serialize = (editorInstance: Editor): string =>
+    format.toSource(editorInstance.getJSON() as unknown as Doc);
 
   let host = $state<HTMLDivElement | null>(null);
   let editor = $state<Editor | null>(null);
@@ -106,8 +121,8 @@
     editorMounted = true;
     const instance = new Editor({
       element: host,
-      extensions: composerExtensions(placeholder, { autolink }),
-      content: telegramHtmlToDoc(value),
+      extensions: composerExtensions(placeholder, { autolink, documentBlocks }),
+      content: format.fromSource(value),
       editable: !disabled,
       onUpdate: ({ editor: current }) => {
         const next = serialize(current);
@@ -123,6 +138,12 @@
       },
     });
     editor = instance;
+    if (autofocus) {
+      window.requestAnimationFrame(() => {
+        if (!editorMounted || editor !== instance || instance.isDestroyed) return;
+        instance.commands.focus("start");
+      });
+    }
     // Bound on the editable element rather than on its wrapper: the wrapper is
     // presentational, and a keydown handler there would need an interactive
     // role it must not have.
@@ -147,7 +168,7 @@
     }
     if (lastEditorSyncValue === value) return;
     lastEditorSyncValue = value;
-    current.commands.setContent(telegramHtmlToDoc(value), { emitUpdate: false });
+    current.commands.setContent(format.fromSource(value), { emitUpdate: false });
   });
 
   // Tiptap emits an `update` from `setEditable` unless told not to, and that
@@ -185,6 +206,17 @@
     if (editor && !editor.isDestroyed) action(editor);
   }
 
+  // The editable node does not cover the surface padding. Without this small
+  // handoff, a first click near the border looks inert even though the editor
+  // is ready. Content clicks stay entirely under ProseMirror's own selection
+  // handling.
+  function focusSurfacePadding(event: MouseEvent): void {
+    if (disabled || sourceMode || event.target !== host) return;
+    // `commands.focus("end")` rewrites the editor selection. A padding click
+    // should only activate the already visible caret, never move it.
+    withEditor((instance) => instance.view.dom.focus());
+  }
+
   async function enterSourceMode(): Promise<void> {
     sourceText = editor ? serialize(editor) : value;
     sourceMode = true;
@@ -198,7 +230,7 @@
     linkOpen = false;
     const current = editor;
     if (current && !current.isDestroyed) {
-      current.commands.setContent(telegramHtmlToDoc(sourceText), { emitUpdate: false });
+      current.commands.setContent(format.fromSource(sourceText), { emitUpdate: false });
       sourceText = serialize(current);
     }
     lastEditorSyncValue = sourceText;
@@ -316,6 +348,7 @@
   }
 
   function handleMarkButton(mark: ToolbarMark): void {
+    if (format.enabledMarks && !format.enabledMarks.includes(mark)) return;
     if (sourceMode) {
       const tag = sourceTagForMark(mark);
       void wrapSourceSelection(`<${tag}>`, `</${tag}>`);
@@ -369,61 +402,65 @@
     { mark: "strike", label: labels.strike, icon: "S" },
     { mark: "code", label: labels.code, icon: "</>" },
   ]);
+  const sourceControlsVisible = $derived(!sourceMode || format.sourceModeControls !== false);
 </script>
 
 <div class="rt-editor">
   <div class="rt-toolbar" role="toolbar" aria-label={labels.toolbar}>
-    {#each markButtons as button (button.mark)}
+    {#if sourceControlsVisible}
+      {#each markButtons as button (button.mark)}
+        <button
+          type="button"
+          class="rt-tool"
+          class:is-active={!sourceMode && active[button.mark]}
+          title={button.label}
+          aria-label={button.label}
+          aria-pressed={!sourceMode && active[button.mark]}
+          data-rt-format={button.mark}
+          disabled={disabled ||
+            Boolean(format.enabledMarks && !format.enabledMarks.includes(button.mark))}
+          onclick={() => handleMarkButton(button.mark)}
+        >
+          {button.icon}
+        </button>
+      {/each}
       <button
         type="button"
         class="rt-tool"
-        class:is-active={!sourceMode && active[button.mark]}
-        title={button.label}
-        aria-label={button.label}
-        aria-pressed={!sourceMode && active[button.mark]}
-        data-rt-format={button.mark}
+        class:is-active={!sourceMode && active.codeBlock}
+        title={labels.pre}
+        aria-label={labels.pre}
+        data-rt-format="pre"
         {disabled}
-        onclick={() => handleMarkButton(button.mark)}
+        onclick={handlePreButton}
       >
-        {button.icon}
+        ⌗
       </button>
-    {/each}
-    <button
-      type="button"
-      class="rt-tool"
-      class:is-active={!sourceMode && active.codeBlock}
-      title={labels.pre}
-      aria-label={labels.pre}
-      data-rt-format="pre"
-      {disabled}
-      onclick={handlePreButton}
-    >
-      ⌗
-    </button>
-    <button
-      type="button"
-      class="rt-tool"
-      class:is-active={!sourceMode && active.blockquote}
-      title={labels.quote}
-      aria-label={labels.quote}
-      data-rt-format="blockquote"
-      {disabled}
-      onclick={handleQuoteButton}
-    >
-      ❝
-    </button>
-    <button
-      type="button"
-      class="rt-tool"
-      class:is-active={!sourceMode && active.link}
-      title={labels.link}
-      aria-label={labels.link}
-      data-rt-format="link"
-      {disabled}
-      onclick={handleLinkButton}
-    >
-      🔗
-    </button>
+      <button
+        type="button"
+        class="rt-tool"
+        class:is-active={!sourceMode && active.blockquote}
+        title={labels.quote}
+        aria-label={labels.quote}
+        data-rt-format="blockquote"
+        {disabled}
+        onclick={handleQuoteButton}
+      >
+        ❝
+      </button>
+      <button
+        type="button"
+        class="rt-tool"
+        class:is-active={!sourceMode && active.link}
+        title={labels.link}
+        aria-label={labels.link}
+        data-rt-format="link"
+        {disabled}
+        onclick={handleLinkButton}
+      >
+        🔗
+      </button>
+    {/if}
 
     {#if hasQuickInserts}
       <div class="rt-menu">
@@ -521,6 +558,7 @@
         class="rt-tool rt-tool-wide"
         class:is-active={sourceMode}
         data-rt-source-toggle
+        aria-label={sourceMode ? labels.sourceOff : labels.sourceOn}
         {disabled}
         onclick={() => void (sourceMode ? exitSourceMode() : enterSourceMode())}
       >
@@ -554,6 +592,7 @@
       bind:this={sourceArea}
       class="admin-textarea rt-source"
       rows="6"
+      aria-label={labels.sourceOn}
       {disabled}
       value={sourceText}
       oninput={onSourceInput}
@@ -566,6 +605,7 @@
     class:is-disabled={disabled}
     style={`--rt-min-height: ${minHeight}`}
     aria-hidden={sourceMode}
+    onclick={focusSurfacePadding}
   ></div>
 </div>
 

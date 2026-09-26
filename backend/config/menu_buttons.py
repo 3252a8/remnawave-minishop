@@ -9,6 +9,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from config.information_pages import normalize_information_page_path
 from config.link_targets import is_telegram_button_link, normalize_button_link
 
 logger = logging.getLogger(__name__)
@@ -91,7 +92,7 @@ class MenuButton(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str = Field(min_length=1, max_length=64)
-    kind: Literal["external", "telegram", "webapp"]
+    kind: Literal["external", "telegram", "webapp", "page"]
     target: str = Field(min_length=1, max_length=2048)
     webapp_icon: str = Field(default="", max_length=64)
     telegram_emoji: str = Field(default="", max_length=16)
@@ -167,6 +168,8 @@ class MenuButton(BaseModel):
             if target not in WEBAPP_MENU_SECTIONS:
                 raise ValueError(f"unsupported Web App section: {target}")
             self.target = target
+        elif self.kind == "page":
+            self.target = normalize_information_page_path(self.target)
         elif self.kind == "telegram":
             self.target = _normalize_http_url(self.target, telegram_only=True)
         else:

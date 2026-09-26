@@ -58,8 +58,6 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "Support Link",
         "Controls the 'Support Link' setting in admin overrides.",
     ),
-    SettingField("PRIVACY_POLICY_URL", "url", "general", "Privacy Policy URL"),
-    SettingField("USER_AGREEMENT_URL", "url", "general", "User Agreement URL"),
     SettingField("DISABLE_WELCOME_MESSAGE", "bool", "general", "Disable Welcome Message"),
     SettingField(
         "ADMIN_BROADCAST_EXCLUDE_BLOCKED_TELEGRAM",

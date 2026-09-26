@@ -1,5 +1,25 @@
 /** Vocabulary shared by every host of {@link RichTextEditor}. */
 
+import type { Doc } from "./telegramHtml.js";
+import type { ToolbarMark } from "./editorSchema.js";
+
+/**
+ * Storage adapter for a shared rich-text surface.
+ *
+ * Broadcasts use Telegram HTML, while information pages are persisted as
+ * Markdown. Keeping this conversion at the editor boundary lets both hosts
+ * share the accessible toolbar and source-mode UX without changing either
+ * wire format.
+ */
+export type RichTextFormat = {
+  fromSource: (value: string) => Doc;
+  toSource: (document: Doc) => string;
+  /** Raw source has its own syntax, so hosts can hide HTML-only toolbar actions. */
+  sourceModeControls?: boolean;
+  /** Omit marks with no safe source-format equivalent (for example underline in Markdown). */
+  enabledMarks?: ToolbarMark[];
+};
+
 /**
  * Every string the editor puts on screen.
  *

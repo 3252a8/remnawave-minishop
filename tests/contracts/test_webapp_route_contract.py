@@ -89,6 +89,7 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("GET", "/settings"): "index_route",
             ("GET", "/status"): "index_route",
             ("GET", "/admin"): "index_route",
+            ("GET", "/admin/"): "index_route",
             ("GET", "/admin/{section}"): "index_route",
             ("GET", "/admin/settings/{settings_path}"): "index_route",
             ("GET", "/admin/users/{user_id}"): "index_route",
@@ -114,6 +115,7 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("POST", "/api/auth/logout"): "logout_route",
             ("GET", "/api/me"): "me_route",
             ("GET", "/api/status"): "server_status_route",
+            ("GET", "/api/pages/{page_path}"): "information_page_content_route",
             ("GET", "/api/subscription-guides"): "subscription_guides_route",
             (
                 "GET",
@@ -140,6 +142,7 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("GET", "/api/payments/{payment_id}"): "payment_status_route",
             ("POST", "/api/payments/{payment_id}/cancel"): "cancel_payment_route",
             ("POST", "/api/payments/{payment_id}/qa/complete"): "complete_qa_payment_route",
+            ("GET", "/{page_path}"): "information_page_route",
         }
 
         for key, handler_name in expected.items():
@@ -223,6 +226,8 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("DELETE", "/api/admin/ads/{campaign_id}"): "admin_ad_delete_route",
             ("GET", "/api/admin/settings"): "admin_settings_get_route",
             ("PATCH", "/api/admin/settings"): "admin_settings_patch_route",
+            ("GET", "/api/admin/information-pages"): "admin_information_page_get_route",
+            ("PUT", "/api/admin/information-pages"): "admin_information_page_save_route",
             ("GET", "/api/admin/translations"): "admin_translations_get_route",
             ("PATCH", "/api/admin/translations"): "admin_translations_patch_route",
             ("GET", "/api/admin/tariffs"): "admin_tariffs_get_route",
@@ -307,6 +312,24 @@ class WebAppRouteContractTests(unittest.TestCase):
         subscription_webapp.setup_subscription_webapp_routes(app)
 
         request = make_mocked_request("GET", "/admin/backups", app=app)
+        match_info = asyncio.run(app.router.resolve(request))
+
+        self.assertEqual(match_info.handler.__name__, "index_route")
+
+    def test_admin_documents_page_route_is_registered(self):
+        app = web.Application()
+        subscription_webapp.setup_subscription_webapp_routes(app)
+
+        request = make_mocked_request("GET", "/admin/documents", app=app)
+        match_info = asyncio.run(app.router.resolve(request))
+
+        self.assertEqual(match_info.handler.__name__, "index_route")
+
+    def test_admin_root_route_with_trailing_slash_is_registered(self):
+        app = web.Application()
+        subscription_webapp.setup_subscription_webapp_routes(app)
+
+        request = make_mocked_request("GET", "/admin/", app=app)
         match_info = asyncio.run(app.router.resolve(request))
 
         self.assertEqual(match_info.handler.__name__, "index_route")

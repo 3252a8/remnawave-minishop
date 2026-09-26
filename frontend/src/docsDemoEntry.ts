@@ -1,11 +1,21 @@
 import { mount } from "svelte";
+import { readJsonScript } from "./lib/webapp/browser.js";
+import { createI18n } from "./lib/webapp/i18n.js";
+import { createApiClient } from "./lib/webapp/publicApi.js";
+import { computeThemeView } from "./lib/webapp/themeView.js";
 
 import App from "./App.svelte";
+import InformationPageApp from "./webapp/InformationPageApp.svelte";
 import PreviewBoard from "./PreviewBoard.svelte";
 import NotificationUnsubscribeApp from "./webapp/NotificationUnsubscribeApp.svelte";
 import { mockApi } from "./lib/webapp/mockApi.js";
 import { persistDemoSettings, restoreDemoSettings } from "./lib/webapp/mockApi/settings.js";
 import { DEV_MOCK, applyPreviewMock } from "./lib/webapp/previewMock.js";
+import {
+  documentSlugFromLocation,
+  informationPagePathFromLocation,
+} from "./lib/webapp/informationPages.js";
+import { stripRoutePrefix } from "./lib/webapp/routes.js";
 import type { WebappMockSource } from "./lib/webapp/types";
 import "./styles.css";
 
@@ -122,6 +132,44 @@ async function bootstrap(): Promise<void> {
   const target = document.getElementById("app");
   if (target) {
     target.replaceChildren();
+    const publicPath = stripRoutePrefix(window.location.pathname, RUNTIME_BASE);
+    const isDemoAppEntry = /^\/app\/?$/.test(publicPath);
+    const documentSlug = isDemoAppEntry ? null : documentSlugFromLocation(publicPath);
+    const pagePath = isDemoAppEntry ? null : informationPagePathFromLocation(publicPath);
+    if (documentSlug || pagePath) {
+      const { api } = createApiClient({ mockApi });
+      const i18n = createI18n({
+        messages: (readJsonScript("i18n") as Record<string, unknown> | null) || {},
+        defaultLang: "ru",
+        getLang: () =>
+          String(DEV_MOCK.data.user?.language_code || DEV_MOCK.config.language || "ru"),
+      });
+      const theme = computeThemeView({
+        themePreviewDraft: null,
+        themePreviewKey: params.get("theme_preview"),
+        data: DEV_MOCK.data,
+        user: DEV_MOCK.data.user || {},
+        screen: "home",
+        cfgThemesCatalog: DEV_MOCK.config.themesCatalog,
+        primaryColor: String(DEV_MOCK.config.primaryColor || "#00fe7a"),
+        userThemeModeEnabled: false,
+      });
+      mount(InformationPageApp, {
+        target,
+        props: {
+          documentSlug: documentSlug || "",
+          pagePath: pagePath || (documentSlug ? `/${documentSlug}` : ""),
+          request: api,
+          routePrefix: RUNTIME_BASE,
+          shellStyle: theme.shellStyle,
+          shellThemeClass: theme.shellThemeClass,
+          shellToneClass: theme.shellToneClass,
+          themeCssHref: theme.shellThemeCssHref || "",
+          t: i18n.t,
+        },
+      });
+      return;
+    }
     if (window.location.pathname.replace(/\/$/, "").endsWith("/unsubscribe")) {
       mount(NotificationUnsubscribeApp, {
         target,
