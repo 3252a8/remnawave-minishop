@@ -5266,5 +5266,7 @@
   "admin_plugins_state_failed": "Failed",
   "admin_plugins_state_blocked": "Blocked",
   "admin_plugins_state_cancelled": "Cancelled",
-  "admin_plugins_state_fulfilling": "Fulfilling"
+  "admin_plugins_state_fulfilling": "Fulfilling",
+  "log_payment_tariff_upgrade_received": "{provider_emoji} <b>Paid plan upgrade</b>\n\n👤 User: {user_display}\n💰 Amount: <b>{amount} {currency}</b>\n✅ Plan upgrade applied\n{tariff_line}{purchase_summary_line}🏦 Provider: {payment_provider}\n🧾 Payment ID: <code>{payment_id}</code>\n🕐 Time: {timestamp}",
+  "payment_successful_tariff_upgrade_full": "✅ <b>Your paid plan upgrade has been applied.</b>\n⏰ Subscription active until: <b>{end_date}</b>"
 }

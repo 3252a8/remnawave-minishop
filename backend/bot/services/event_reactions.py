@@ -560,9 +560,10 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                         notification_kwargs["promo_code"] = snapshot.promo_code
                     if snapshot.discount_amount is not None and snapshot.discount_amount > 0:
                         notification_kwargs["discount_amount"] = snapshot.discount_amount
-                    if snapshot.sale_mode_base == "balance_topup" or "gift" in str(
-                        snapshot.sale_mode
-                    ).split("|"):
+                    if snapshot.sale_mode_base in {
+                        "balance_topup",
+                        "tariff_upgrade",
+                    } or "gift" in str(snapshot.sale_mode).split("|"):
                         notification_kwargs.update(
                             sale_mode=snapshot.sale_mode,
                             payment_id=snapshot.payment_db_id,

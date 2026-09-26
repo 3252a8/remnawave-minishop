@@ -658,6 +658,26 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
                 payment_id=payment_id if payment_id is not None else "—",
                 timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
             )
+        elif sale_mode_base(sale_mode) == "tariff_upgrade":
+            tariff_name = self._tariff_display_for_log(tariff_key)
+            message = _(
+                "log_payment_tariff_upgrade_received",
+                provider_emoji=provider_emoji,
+                user_display=user_display,
+                amount=amount,
+                currency=currency,
+                tariff_line=_("log_payment_tariff_line", name=hd.quote(tariff_name))
+                if tariff_name
+                else "",
+                purchase_summary_line=_(
+                    "log_payment_purchase_summary_line", summary=purchase_summary
+                )
+                if purchase_summary
+                else "",
+                payment_provider=payment_provider,
+                payment_id=payment_id if payment_id is not None else "—",
+                timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
+            )
         elif has_traffic_purchase:
             traffic_purchase = next(
                 purchase for purchase in effective_purchases if purchase.kind == "traffic"

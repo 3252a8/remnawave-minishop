@@ -5266,5 +5266,7 @@
   "admin_plugins_state_failed": "Ошибка",
   "admin_plugins_state_blocked": "Заблокировано",
   "admin_plugins_state_cancelled": "Отменено",
-  "admin_plugins_state_fulfilling": "Выдаётся"
+  "admin_plugins_state_fulfilling": "Выдаётся",
+  "log_payment_tariff_upgrade_received": "{provider_emoji} <b>Оплачено повышение тарифа</b>\n\n👤 Пользователь: {user_display}\n💰 Сумма: <b>{amount} {currency}</b>\n✅ Повышение тарифа применено\n{tariff_line}{purchase_summary_line}🏦 Провайдер: {payment_provider}\n🧾 ID платежа: <code>{payment_id}</code>\n🕐 Время: {timestamp}",
+  "payment_successful_tariff_upgrade_full": "✅ <b>Повышение тарифа оплачено и применено.</b>\n⏰ Подписка действует до: <b>{end_date}</b>"
 }

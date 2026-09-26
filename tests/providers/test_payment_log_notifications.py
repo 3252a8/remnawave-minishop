@@ -10,6 +10,11 @@ from bot.services.notification_service import NotificationService
 class _I18n:
     messages: ClassVar[dict[str, str]] = {
         "log_open_profile_link": "Profile",
+        "log_payment_tariff_upgrade_received": (
+            "Plan upgrade applied\n{user_display}\nAmount: {amount} {currency}\n"
+            "{tariff_line}{purchase_summary_line}Provider: {payment_provider}\n"
+            "Payment ID: {payment_id}\nTime: {timestamp}"
+        ),
         "log_payment_received": (
             "{provider_emoji} Payment Received\n"
             "User: {user_display}\n"
@@ -76,6 +81,26 @@ def _service() -> NotificationService:
 
 
 class PaymentLogNotificationTests(IsolatedAsyncioTestCase):
+    async def test_tariff_upgrade_log_reports_operation_and_addons_without_period(self):
+        service = _service()
+        await service.notify_payment_received(
+            user_id=42,
+            amount=45,
+            currency="RUB",
+            months=0,
+            payment_provider="wata",
+            sale_mode="tariff_upgrade@standard",
+            tariff_key="standard",
+            payment_id=92,
+            purchased_hwid_devices=2,
+        )
+        message = service._send_to_log_channel.await_args.args[0]
+        self.assertIn("Plan upgrade applied", message)
+        self.assertIn("Plan: standard", message)
+        self.assertIn("+2 HWID devices", message)
+        self.assertIn("Payment ID: 92", message)
+        self.assertNotIn("Period:", message)
+
     async def test_wata_payment_log_uses_public_account_id(self):
         service = _service()
         public_id = "ms_" + "a" * 32

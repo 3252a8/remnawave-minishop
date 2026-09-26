@@ -85,6 +85,37 @@ def _context_with_i18n(i18n, *, notification_service=None, email_auth_service=No
 
 
 class CoreEventReactionsTests(IsolatedAsyncioTestCase):
+    async def test_tariff_upgrade_event_passes_operation_and_payment_id_to_log(self):
+        service = SimpleNamespace(notify_payment_received=AsyncMock())
+        ctx = _context(notification_service=service)
+        user = SimpleNamespace(username="alice", email="alice@example.test")
+        with (
+            patch.object(event_reactions.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
+            patch.object(
+                event_reactions.payment_dal, "get_payment_by_db_id", AsyncMock(return_value=None)
+            ),
+            patch.object(event_reactions, "invalidate_webapp_user_caches", AsyncMock()),
+        ):
+            register_core_reactions(ctx)
+            await events.emit(
+                events.PAYMENT_SUCCEEDED,
+                {
+                    "user_id": 42,
+                    "payment_db_id": 92,
+                    "amount": 45,
+                    "currency": "RUB",
+                    "sale_mode": "tariff_upgrade@standard",
+                    "tariff_key": "standard",
+                    "notification_provider": "wata",
+                },
+            )
+        service.notify_payment_received.assert_awaited_once()
+        self.assertEqual(
+            service.notify_payment_received.await_args.kwargs["sale_mode"],
+            "tariff_upgrade@standard",
+        )
+        self.assertEqual(service.notify_payment_received.await_args.kwargs["payment_id"], 92)
+
     def setUp(self):
         events.reset_subscribers()
         event_reactions._payment_notification_cache.clear()

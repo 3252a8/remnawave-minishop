@@ -7,6 +7,21 @@ def _translation_key(key: str, **_params: object) -> str:
     return key
 
 
+def test_tariff_upgrade_uses_operation_copy_before_subscription_period_or_accruals() -> None:
+    message = build_success_message(
+        SuccessMessage(
+            translator=_translation_key,
+            sale_mode="tariff_upgrade@standard",
+            months=0,
+            duration_days=0,
+            base_end_date=None,
+            final_end_date=datetime(2026, 1, 10, tzinfo=UTC),
+            applied_referee_bonus_days=3,
+        )
+    )
+    assert message == "payment_successful_tariff_upgrade_full"
+
+
 def test_partner_client_payment_bonus_uses_dedicated_success_copy() -> None:
     end_date = datetime(2026, 1, 10, tzinfo=UTC)
 
