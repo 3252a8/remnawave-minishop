@@ -32,6 +32,72 @@ class _Request:
 
 
 class WebAppAutoRenewRouteTests(IsolatedAsyncioTestCase):
+    async def test_tribute_creator_requires_external_cancellation(self):
+        sub = SimpleNamespace(
+            subscription_id=7, user_id=42, provider="tribute", auto_renew_enabled=True
+        )
+        request, session, user = self._request({"enabled": False}, sub=sub)
+        with (
+            patch.object(billing_subscription, "_require_user_id", return_value=42),
+            patch.object(billing_module.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
+            patch.object(
+                billing_module.subscription_dal,
+                "get_active_subscription_by_user_id",
+                AsyncMock(return_value=sub),
+            ),
+            patch.object(
+                billing_subscription.tribute_dal,
+                "get_other_active_creator_subscription_id",
+                AsyncMock(return_value=123),
+            ),
+            patch.object(billing_module.subscription_dal, "set_auto_renew", AsyncMock()) as update,
+            patch.object(
+                billing_subscription, "stop_provider_managed_recurrence", AsyncMock()
+            ) as cancel,
+        ):
+            response = await billing_module.subscription_auto_renew_route(request)
+        self.assertEqual(response.status, 409)
+        self.assertEqual(json.loads(response.text)["error"], "auto_renew_tribute_cancel_required")
+        update.assert_not_awaited()
+        cancel.assert_not_awaited()
+        session.commit.assert_not_awaited()
+        session.rollback.assert_awaited_once()
+
+    async def test_tribute_shop_can_still_cancel_in_app(self):
+        sub = SimpleNamespace(
+            subscription_id=7, user_id=42, provider="tribute", auto_renew_enabled=True
+        )
+        request, session, user = self._request({"enabled": False}, sub=sub)
+        with (
+            patch.object(billing_subscription, "_require_user_id", return_value=42),
+            patch.object(billing_module.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
+            patch.object(
+                billing_module.subscription_dal,
+                "get_active_subscription_by_user_id",
+                AsyncMock(return_value=sub),
+            ),
+            patch.object(
+                billing_subscription.tribute_dal,
+                "get_other_active_creator_subscription_id",
+                AsyncMock(return_value=None),
+            ),
+            patch.object(billing_module.subscription_dal, "set_auto_renew", AsyncMock()) as update,
+            patch.object(
+                billing_subscription,
+                "stop_provider_managed_recurrence",
+                AsyncMock(return_value=True),
+            ) as cancel,
+            patch.object(billing_subscription, "_invalidate_webapp_user_caches", AsyncMock()),
+        ):
+            response = await billing_module.subscription_auto_renew_route(request)
+        self.assertEqual(response.status, 200)
+        self.assertFalse(json.loads(response.text)["auto_renew_enabled"])
+        cancel.assert_awaited_once_with(
+            request.app["subscription_service"], session, user_id=42, provider="tribute"
+        )
+        update.assert_awaited_once()
+        session.commit.assert_awaited_once()
+
     def _request(self, payload, *, sub, recurring_active=True):
         session = SimpleNamespace(commit=AsyncMock(), rollback=AsyncMock())
         user = SimpleNamespace(

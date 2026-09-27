@@ -1128,6 +1128,7 @@
   "wa_auto_renew_disable": "Отключить",
   "wa_auto_renew_requires_saved_method": "Сначала оплатите сохранённой картой, чтобы включить автопродление.",
   "wa_auto_renew_provider_cancel_failed": "Платёжный провайдер не подтвердил отмену подписки. Попробуйте ещё раз через пару минут.",
+  "wa_auto_renew_tribute_cancel_required": "Отмените подписку в @tribute. Автопродление отключится после подтверждения отмены от Tribute.",
   "wa_auto_renew_update_failed": "Не удалось обновить автопродление",
   "wa_pay": "Оплатить",
   "wa_price_managed_by_provider": "цена задаётся в Tribute",

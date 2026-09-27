@@ -1128,6 +1128,7 @@
   "wa_auto_renew_disable": "Disable",
   "wa_auto_renew_requires_saved_method": "Pay once with a saved card before enabling auto-renew.",
   "wa_auto_renew_provider_cancel_failed": "The payment provider did not confirm the cancellation. Please try again in a couple of minutes.",
+  "wa_auto_renew_tribute_cancel_required": "Cancel the subscription in @tribute. Auto-renew will turn off after Tribute confirms the cancellation.",
   "wa_auto_renew_update_failed": "Failed to update auto-renew",
   "wa_pay": "Pay",
   "wa_price_managed_by_provider": "price is set by Tribute",

@@ -295,6 +295,7 @@ export function createAppActionRuntime({
     }),
     ...createAutoRenewAction({
       billing,
+      openExternalLink: externalLinkActions.openExternalLink,
       getBusy: () => shellState.autoRenewBusy,
       loadData,
       setBusy: (busy) => {

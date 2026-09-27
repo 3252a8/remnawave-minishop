@@ -34,7 +34,7 @@ from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.utils.config_link import prepare_config_links
 from bot.utils.install_links import ensure_user_install_guide_share_url
 from config.settings import Settings
-from db.dal import message_log_dal, subscription_dal, user_dal
+from db.dal import message_log_dal, subscription_dal, tribute_dal, user_dal
 
 from .billing_common import (
     _TRIAL_ACTIVATION_FAILURE_STATUSES,
@@ -242,6 +242,21 @@ async def subscription_auto_renew_route(request: web.Request) -> web.Response:
                         "auto_renew_requires_saved_method",
                         "A saved payment method is required",
                     )
+
+            if (
+                not enabled
+                and provider == "tribute"
+                and await tribute_dal.get_other_active_creator_subscription_id(
+                    session, user_id=user_id
+                )
+                is not None
+            ):
+                await session.rollback()
+                return _json_error(
+                    409,
+                    "auto_renew_tribute_cancel_required",
+                    "Cancel the subscription in @tribute and wait for confirmation",
+                )
 
             async with redis_lock(
                 settings,

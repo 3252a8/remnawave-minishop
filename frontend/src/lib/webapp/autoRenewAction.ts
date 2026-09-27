@@ -7,6 +7,7 @@ type AutoRenewActionDeps = {
   billing: Pick<BillingActions, "postAutoRenew">;
   getBusy: () => boolean;
   loadData: LoadData;
+  openExternalLink: (url: string) => void;
   setBusy: (busy: boolean) => void;
   showToast: (message: unknown) => void;
   t: Translate;
@@ -20,6 +21,7 @@ export function createAutoRenewAction({
   billing,
   getBusy,
   loadData,
+  openExternalLink,
   setBusy,
   showToast,
   t,
@@ -38,6 +40,9 @@ export function createAutoRenewAction({
       const errorRecord = asRecord(error);
       if (errorRecord.error === "auto_renew_requires_saved_method") {
         showToast(t("wa_auto_renew_requires_saved_method"));
+      } else if (!enabled && errorRecord.error === "auto_renew_tribute_cancel_required") {
+        openExternalLink("https://t.me/tribute");
+        showToast(t("wa_auto_renew_tribute_cancel_required"));
       } else if (errorRecord.error === "auto_renew_provider_cancel_failed") {
         // The mandate is still live upstream, so say so instead of echoing the
         // English backend message.

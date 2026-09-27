@@ -13,6 +13,7 @@ function makeAction(overrides: TestOverrides = {}) {
     },
     getBusy: () => busy,
     loadData: vi.fn(async () => null),
+    openExternalLink: vi.fn(),
     setBusy: vi.fn((nextBusy: boolean) => {
       busy = nextBusy;
       busyUpdates.push(nextBusy);
@@ -29,6 +30,41 @@ function makeAction(overrides: TestOverrides = {}) {
 }
 
 describe("createAutoRenewAction", () => {
+  it("opens Tribute for Creator cancellation without reporting disabled renewal", async () => {
+    const { action, deps, busyUpdates } = makeAction({
+      deps: {
+        billing: {
+          postAutoRenew: vi.fn(async () => ({
+            ok: false,
+            error: "auto_renew_tribute_cancel_required",
+          })),
+        },
+      },
+    });
+    await action.toggleAutoRenew(false);
+    expect(deps.openExternalLink).toHaveBeenCalledWith("https://t.me/tribute");
+    expect(deps.showToast).toHaveBeenCalledWith("wa_auto_renew_tribute_cancel_required");
+    expect(deps.showToast).not.toHaveBeenCalledWith("wa_auto_renew_disabled");
+    expect(deps.loadData).not.toHaveBeenCalled();
+    expect(busyUpdates).toEqual([true, false]);
+  });
+
+  it("keeps a Shop cancellation failure in the app", async () => {
+    const { action, deps } = makeAction({
+      deps: {
+        billing: {
+          postAutoRenew: vi.fn(async () => ({
+            ok: false,
+            error: "auto_renew_provider_cancel_failed",
+          })),
+        },
+      },
+    });
+    await action.toggleAutoRenew(false);
+    expect(deps.openExternalLink).not.toHaveBeenCalled();
+    expect(deps.showToast).toHaveBeenCalledWith("wa_auto_renew_provider_cancel_failed");
+  });
+
   it("enables auto-renew and refreshes app data", async () => {
     const { action, busyUpdates, deps } = makeAction();
 
