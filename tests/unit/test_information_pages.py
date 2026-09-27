@@ -122,3 +122,30 @@ def test_information_page_api_returns_the_wire_envelope_for_missing_page(
 
     assert response.status == 404
     assert json.loads(response.text) == {"ok": False, "error": "page_not_found"}
+
+
+def test_deleted_import_is_not_published_at_the_old_legal_path(tmp_path: Path, monkeypatch) -> None:
+    from config.documents import delete_document, get_document_by_role
+
+    save_information_page(tmp_path, "/legal/policy", "# Old policy")
+    imported = get_document_by_role(tmp_path, "privacy_policy")
+    assert imported is not None
+    delete_document(tmp_path, imported.slug)
+    monkeypatch.setattr(pages, "APP_ROOT", tmp_path)
+
+    response = asyncio.run(
+        pages.information_page_content_route(
+            SimpleNamespace(match_info={"page_path": "legal/policy"})
+        )
+    )
+    assert response.status == 404
+
+
+def test_empty_file_page_is_not_published(tmp_path: Path, monkeypatch) -> None:
+    save_information_page(tmp_path, "/about", " \n\t")
+    monkeypatch.setattr(pages, "APP_ROOT", tmp_path)
+
+    response = asyncio.run(
+        pages.information_page_content_route(SimpleNamespace(match_info={"page_path": "about"}))
+    )
+    assert response.status == 404

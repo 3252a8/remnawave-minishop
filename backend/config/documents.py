@@ -50,6 +50,11 @@ DOCUMENT_RESERVED_ROOTS = frozenset(
         "support",
         "trial",
         "unsubscribe",
+        "webapp-favicon",
+        "webapp-logo",
+        "webapp-theme-assets",
+        "webapp-theme-css",
+        "webapp-uploaded-logo",
     }
 )
 _DOCUMENTS_LOCK = threading.RLock()
@@ -304,6 +309,32 @@ def _read_records(app_root: Path) -> list[tuple[DocumentMetadata, str]]:
     return records
 
 
+def _legacy_imported_roles(app_root: Path) -> set[str]:
+    """Remember claimed roles even after their document is removed or reassigned."""
+
+    records = _read_records(app_root)
+    roles: set[str] = {metadata.role for metadata, _ in records if metadata.role != "none"}
+    if not _index_path(app_root).exists():
+        return roles
+    try:
+        raw = json.loads(_index_path(app_root).read_text(encoding="utf-8"))
+        imported = raw.get("legacy_imported_roles", [])
+        if not isinstance(imported, list) or any(
+            role not in {"privacy_policy", "user_agreement"} for role in imported
+        ):
+            raise DocumentStorageError("document import history is malformed")
+        return roles | set(imported)
+    except (OSError, UnicodeError, json.JSONDecodeError, TypeError) as exc:
+        raise DocumentStorageError("document import history is unreadable") from exc
+
+
+def legacy_document_imported(app_root: Path, role: DocumentRole) -> bool:
+    """Whether a legal role has already been handed over to managed documents."""
+
+    with _locked_storage(app_root):
+        return role in _legacy_imported_roles(app_root)
+
+
 def _write_records(app_root: Path, records: list[tuple[DocumentMetadata, str]]) -> None:
     _assert_storage_directories(app_root)
     if _index_path(app_root).is_symlink():
@@ -311,6 +342,10 @@ def _write_records(app_root: Path, records: list[tuple[DocumentMetadata, str]]) 
     payload = {
         "version": DOCUMENTS_INDEX_VERSION,
         "documents": [_record(metadata, body_name) for metadata, body_name in records],
+        "legacy_imported_roles": sorted(
+            _legacy_imported_roles(app_root)
+            | {metadata.role for metadata, _ in records if metadata.role != "none"}
+        ),
     }
     body = (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode(
         "utf-8"
@@ -377,10 +412,10 @@ def _read_legacy_markdown(legacy_path: Path) -> str | None:
 
 
 def _bootstrap_legacy_documents(app_root: Path) -> None:
-    """Import old legal files only while their role is missing from the index."""
+    """Import each old legal role once, preserving subsequent administrator edits."""
 
     records = _read_records(app_root)
-    occupied_roles = {metadata.role for metadata, _ in records}
+    occupied_roles = _legacy_imported_roles(app_root)
     occupied_slugs = {metadata.slug for metadata, _ in records}
     imports: tuple[tuple[DocumentRole, str, str, int, Path], ...] = (
         (
@@ -424,7 +459,7 @@ def _bootstrap_legacy_documents(app_root: Path) -> None:
 
 
 def bootstrap_legacy_documents(app_root: Path) -> None:
-    """Import old legal files only while their role is missing from the index."""
+    """Import each old legal role once, preserving subsequent administrator edits."""
 
     with _locked_storage(app_root):
         _bootstrap_legacy_documents(app_root)

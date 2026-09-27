@@ -5,7 +5,14 @@ from __future__ import annotations
 from pathlib import Path
 
 from bot.utils.mini_app_url import subscription_mini_app_path_url
-from config.documents import Document, DocumentError, document_public_path, get_document_by_role
+from config.documents import (
+    Document,
+    DocumentError,
+    DocumentRole,
+    document_public_path,
+    get_document_by_role,
+    legacy_document_imported,
+)
 from config.information_pages import load_information_page
 from config.settings import Settings
 
@@ -32,11 +39,16 @@ def _legacy_document_url(settings: Settings, page_path: str, fallback_url: str |
     return str(fallback_url or "").strip()
 
 
-def _document_url(settings: Settings, role: str, path: str, fallback_url: str | None) -> str:
+def _document_url(
+    settings: Settings, role: DocumentRole, path: str, fallback_url: str | None
+) -> str:
     try:
-        return _managed_document_url(settings, role) or _legacy_document_url(
-            settings, path, fallback_url
-        )
+        managed_url = _managed_document_url(settings, role)
+        if managed_url:
+            return managed_url
+        if legacy_document_imported(APP_ROOT, role):
+            return str(fallback_url or "").strip()
+        return _legacy_document_url(settings, path, fallback_url)
     except DocumentError:
         return _legacy_document_url(settings, path, fallback_url)
 

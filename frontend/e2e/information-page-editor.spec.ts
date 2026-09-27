@@ -31,6 +31,12 @@ for (const [device, viewport] of [
   test(`documents have their own System editor on ${device}`, async ({ page }) => {
     await page.setViewportSize(viewport);
     const errors = trackErrors(page);
+    await page.route("https://example.test/logo.png", (route) =>
+      route.fulfill({
+        contentType: "image/svg+xml",
+        body: '<svg xmlns="http://www.w3.org/2000/svg" />',
+      })
+    );
     await page.goto(ADMIN_URL);
     const documents = await openDocuments(page, device);
 
@@ -64,7 +70,7 @@ for (const [device, viewport] of [
 
     await dialog.getByLabel("Название", { exact: true }).fill(`Документ ${device}`);
     const slug = dialog.getByPlaceholder("privacy-policy", { exact: true });
-    const publicSlug = `documents/guides/document-${device}`;
+    const publicSlug = `support/guides/document-${device}`;
     await slug.click();
     await slug.press("ControlOrMeta+A");
     await slug.pressSequentially(`/${publicSlug}`);
@@ -99,11 +105,14 @@ for (const [device, viewport] of [
     expect(layout).toEqual({ editorBeforeFooter: true });
 
     await dialog.getByRole("button", { name: "Markdown", exact: true }).click();
-    const text = `# Документ ${device}\n\n- Первый пункт\n- Второй пункт`;
+    const text = `# Документ ${device}\n\n- Первый пункт\n- Второй пункт\n\n![Logo](https://example.test/logo.png)\n\n| Item | Value |\n| --- | --- |\n| One | Two |`;
     await markdown.fill(text);
     await dialog.getByRole("button", { name: "Редактор", exact: true }).click();
     await editorSurface.click({ position: { x: 2, y: 2 } });
     await expect(visualEditor).toBeFocused();
+    await visualEditor.press("End");
+    await visualEditor.press("Enter");
+    await visualEditor.pressSequentially("Extra text");
     await dialog.getByRole("button", { name: "Сохранить", exact: true }).click();
     await expect(dialog).toBeHidden();
 
@@ -113,10 +122,10 @@ for (const [device, viewport] of [
     await expect(card.getByText("В настройках", { exact: true })).toBeVisible();
     await expect(card.getByText("В сайдбаре", { exact: true })).toBeVisible();
     const publicLink = card.getByRole("link", { name: "Открыть", exact: true });
-    await expect(publicLink).toHaveAttribute("href", `/demo/runtime/${publicSlug}`);
+    await expect(publicLink).toHaveAttribute("href", `/demo/runtime/docs/${publicSlug}`);
     await expect(publicLink).toHaveAttribute("target", "_blank");
 
-    await page.goto(`/demo/runtime/${publicSlug}`);
+    await page.goto(`/demo/runtime/docs/${publicSlug}`);
     await expect(page.locator(".information-markdown")).toContainText("Первый пункт");
     const publicPageGeometry = await page.locator(".information-page").evaluate((element) => {
       const topbar = element.querySelector<HTMLElement>(".information-page-topbar");
@@ -138,7 +147,9 @@ for (const [device, viewport] of [
     await reopenedCard.getByRole("button", { name: "Редактировать документ", exact: true }).click();
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Markdown", exact: true }).click();
-    await expect(markdown).toHaveValue(text);
+    await expect(markdown).toHaveValue(/!\[Logo\]\(https:\/\/example.test\/logo.png\)/);
+    await expect(markdown).toHaveValue(/\| Item \| Value \|/);
+    await expect(markdown).toHaveValue(/Extra text/);
     await dialog.locator(".dialog-head button").click();
     await expect(dialog).toBeHidden();
 

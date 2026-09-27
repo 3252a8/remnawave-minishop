@@ -218,7 +218,7 @@
   }
 
   async function enterSourceMode(): Promise<void> {
-    sourceText = editor ? serialize(editor) : value;
+    sourceText = format === telegramHtmlFormat && editor ? serialize(editor) : value;
     sourceMode = true;
     await tick();
     sourceArea?.focus();
@@ -231,7 +231,7 @@
     const current = editor;
     if (current && !current.isDestroyed) {
       current.commands.setContent(format.fromSource(sourceText), { emitUpdate: false });
-      sourceText = serialize(current);
+      if (format === telegramHtmlFormat) sourceText = serialize(current);
     }
     lastEditorSyncValue = sourceText;
     onInput(sourceText);

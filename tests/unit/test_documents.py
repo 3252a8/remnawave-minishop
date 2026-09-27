@@ -182,6 +182,7 @@ def test_document_slugs_allow_nested_paths_and_reject_unsafe_paths() -> None:
 def test_document_public_path_uses_the_legacy_prefix_for_reserved_roots() -> None:
     assert document_public_path("guides/install") == "/guides/install"
     assert document_public_path("support") == "/docs/support"
+    assert document_public_path("webapp-theme-css/guide") == "/docs/webapp-theme-css/guide"
     assert document_public_path("extensions/sample/resources") == (
         "/docs/extensions/sample/resources"
     )
@@ -224,3 +225,30 @@ def test_legacy_bootstrap_does_not_follow_a_symlinked_legal_document(tmp_path: P
     (legal / "policy.md").symlink_to(outside)
 
     assert get_document_by_role(tmp_path, "privacy_policy") is None
+
+
+@pytest.mark.parametrize("action", ["delete", "clear_role", "empty"])
+def test_legacy_import_does_not_undo_administrator_changes(tmp_path: Path, action: str) -> None:
+    legal = tmp_path / "data" / "legal"
+    legal.mkdir(parents=True)
+    (legal / "policy.md").write_text("# Old policy", encoding="utf-8")
+    imported = get_document_by_role(tmp_path, "privacy_policy")
+    assert imported is not None
+
+    if action == "delete":
+        documents.delete_document(tmp_path, imported.slug)
+    else:
+        update_document(
+            tmp_path,
+            imported.slug,
+            _metadata(imported.slug, role="none" if action == "clear_role" else "privacy_policy"),
+            "" if action == "empty" else "# New content",
+        )
+
+    current = get_document_by_role(tmp_path, "privacy_policy")
+    if action == "empty":
+        assert current is not None and current.markdown == ""
+    else:
+        assert current is None
+    assert all(document.markdown != "# Old policy" for document in list_documents(tmp_path))
+    assert (legal / "policy.md").read_text(encoding="utf-8") == "# Old policy"

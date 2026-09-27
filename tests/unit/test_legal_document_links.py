@@ -74,3 +74,20 @@ def test_legal_documents_fall_back_to_configured_urls_when_native_pages_are_empt
         "https://legacy.example/privacy",
         "https://legacy.example/terms",
     )
+
+
+def test_deleted_import_does_not_restore_the_legacy_legal_link(tmp_path: Path, monkeypatch) -> None:
+    from config.documents import delete_document, get_document_by_role
+
+    legal_dir = tmp_path / "data" / "legal"
+    legal_dir.mkdir(parents=True)
+    (legal_dir / "policy.md").write_text("# Old policy", encoding="utf-8")
+    imported = get_document_by_role(tmp_path, "privacy_policy")
+    assert imported is not None
+    delete_document(tmp_path, imported.slug)
+    monkeypatch.setattr(legal_document_links, "APP_ROOT", tmp_path)
+
+    assert (
+        legal_document_links.legal_document_links(_settings())[0]
+        == "https://legacy.example/privacy"
+    )

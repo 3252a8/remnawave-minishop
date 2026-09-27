@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from aiohttp import web
 
-from config.documents import DocumentError, get_document, get_document_by_role
+from config.documents import (
+    DocumentError,
+    DocumentRole,
+    get_document,
+    get_document_by_role,
+    legacy_document_imported,
+)
 from config.information_pages import InformationPage, load_information_page
 
 from .asset_paths import APP_ROOT
@@ -31,7 +37,7 @@ def _page_from_request(request: web.Request) -> InformationPage | None:
         document = None
     if document is not None and document.markdown.strip():
         return InformationPage(path=f"/{page_path}", markdown=document.markdown)
-    legacy_roles = {
+    legacy_roles: dict[str, DocumentRole] = {
         "legal/policy": "privacy_policy",
         "legal/terms": "user_agreement",
     }
@@ -43,7 +49,13 @@ def _page_from_request(request: web.Request) -> InformationPage | None:
             document = None
         if document is not None and document.markdown.strip():
             return InformationPage(path=f"/{page_path}", markdown=document.markdown)
-    return load_information_page(APP_ROOT, f"/{page_path}")
+        try:
+            if legacy_document_imported(APP_ROOT, role):
+                return None
+        except DocumentError:
+            return None
+    page = load_information_page(APP_ROOT, f"/{page_path}")
+    return page if page is not None and page.markdown.strip() else None
 
 
 async def information_page_content_route(request: web.Request) -> web.Response:

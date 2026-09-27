@@ -129,7 +129,7 @@
           <Card class="information-page-navigation">
             <h2>{t("wa_information_page_navigation", {}, "Documents")}</h2>
             <nav aria-label={t("wa_information_page_navigation", {}, "Documents")}>
-              {#each navigationGroups as group (group.title || "documents")}
+              {#each navigationGroups as group (group.title)}
                 {#if group.title}<h3>{group.title}</h3>{/if}
                 <div class="information-page-navigation-group">
                   {#each group.documents as document (document.slug)}

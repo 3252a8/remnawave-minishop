@@ -22,6 +22,14 @@ function textNode(text: string, marks: Mark[]): EditorNode[] {
   return [{ type: "text", text, marks: cloneMarks(marks) }];
 }
 
+function sourceNode(token: Token, inline = false, marks: Mark[] = []): EditorNode {
+  return {
+    type: inline ? "markdownInline" : "markdownBlock",
+    attrs: { source: inline ? token.raw : token.raw.trimEnd() },
+    marks: cloneMarks(marks),
+  };
+}
+
 function inlineNodes(tokens: Token[], marks: Mark[] = []): EditorNode[] {
   const nodes: EditorNode[] = [];
   for (const token of tokens) {
@@ -39,6 +47,10 @@ function inlineNodes(tokens: Token[], marks: Mark[] = []): EditorNode[] {
         nodes.push(...textNode(token.text, [...marks, { type: "code" }]));
         break;
       case "link":
+        if (token.title) {
+          nodes.push(sourceNode(token, true, marks));
+          break;
+        }
         nodes.push(
           ...inlineNodes(token.tokens ?? [], [
             ...marks,
@@ -50,7 +62,7 @@ function inlineNodes(tokens: Token[], marks: Mark[] = []): EditorNode[] {
         nodes.push({ type: "hardBreak" });
         break;
       case "image":
-        nodes.push(...textNode(token.text, marks));
+        nodes.push(sourceNode(token, true, marks));
         break;
       case "checkbox":
         nodes.push(...textNode(token.checked ? "[x] " : "[ ] ", marks));
@@ -63,8 +75,10 @@ function inlineNodes(tokens: Token[], marks: Mark[] = []): EditorNode[] {
         }
         break;
       case "escape":
-      case "html":
         nodes.push(...textNode(token.text, marks));
+        break;
+      case "html":
+        nodes.push(sourceNode(token, true, marks));
         break;
       default:
         if ("text" in token && typeof token.text === "string") {
@@ -77,12 +91,6 @@ function inlineNodes(tokens: Token[], marks: Mark[] = []): EditorNode[] {
 
 function paragraph(content: EditorNode[]): EditorNode {
   return { type: "paragraph", content };
-}
-
-function tableText(cell: Tokens.TableCell): string {
-  return inlineNodes(cell.tokens)
-    .map((node) => node.text || "")
-    .join("");
 }
 
 function blockNodes(tokens: Token[]): EditorNode[] {
@@ -100,13 +108,19 @@ function blockNodes(tokens: Token[]): EditorNode[] {
         nodes.push(paragraph(inlineNodes(token.tokens ?? [])));
         break;
       case "code":
-        nodes.push({ type: "codeBlock", content: textNode(token.text, []) });
+        nodes.push(
+          token.lang ? sourceNode(token) : { type: "codeBlock", content: textNode(token.text, []) }
+        );
         break;
       case "blockquote":
         nodes.push({ type: "blockquote", content: blockNodes(token.tokens ?? []) });
         break;
       case "list": {
         const list = token as Tokens.List;
+        if (list.items.some((item) => item.task)) {
+          nodes.push(sourceNode(token));
+          break;
+        }
         nodes.push({
           type: list.ordered ? "orderedList" : "bulletList",
           attrs: list.ordered && typeof list.start === "number" ? { start: list.start } : undefined,
@@ -117,26 +131,11 @@ function blockNodes(tokens: Token[]): EditorNode[] {
         });
         break;
       }
-      case "table": {
-        const table = token as Tokens.Table;
-        nodes.push(
-          paragraph(
-            textNode(
-              [
-                table.header.map(tableText).join(" | "),
-                ...table.rows.map((row: Tokens.TableCell[]) => row.map(tableText).join(" | ")),
-              ].join("\n"),
-              []
-            )
-          )
-        );
-        break;
-      }
+      case "table":
+      case "def":
       case "hr":
-        nodes.push(paragraph(textNode("—", [])));
-        break;
       case "html":
-        nodes.push(paragraph(textNode(token.text, [])));
+        nodes.push(sourceNode(token));
         break;
       case "text":
         nodes.push(paragraph(inlineNodes(token.tokens?.length ? token.tokens : [token])));
@@ -147,21 +146,25 @@ function blockNodes(tokens: Token[]): EditorNode[] {
 }
 
 function escapeMarkdown(value: string): string {
-  // Underscores embedded in a word are plain text in CommonMark. Escaping
-  // them would produce noisy source such as PRIVACY\_POLICY\_URL after an
-  // otherwise lossless visual-editor round trip.
-  return value.replace(/([\\`*{}[\]<>()#+.!|~-])/g, "\\$1");
+  return value
+    .replace(/([\\`*{}[\]<>()#+.!|~-])/g, "\\$1")
+    .replace(/(?<![\p{L}\p{N}])_|_(?![\p{L}\p{N}])/gu, "\\_");
 }
 
-function markdownForMarks(text: string, marks: Mark[] | undefined): string {
-  let result = escapeMarkdown(text);
+function markdownForMarks(text: string, marks: Mark[] | undefined, raw = false): string {
+  let result = raw ? text : escapeMarkdown(text);
   if (!marks) return result;
+  if (marks.some((mark) => mark.type === "code")) {
+    const runs = text.match(/`+/g) || [];
+    const fence = "`".repeat(Math.max(0, ...runs.map((run) => run.length)) + 1);
+    const pad = /^`|`$|^ .* $/.test(text) && /[^ ]/.test(text) ? " " : "";
+    result = `${fence}${pad}${text}${pad}${fence}`;
+  }
   const link = marks.find((mark) => mark.type === "link");
   for (const mark of marks) {
     if (mark.type === "bold") result = `**${result}**`;
     if (mark.type === "italic") result = `*${result}*`;
     if (mark.type === "strike") result = `~~${result}~~`;
-    if (mark.type === "code") result = `\`${result.replace(/`/g, "\\`")}\``;
   }
   if (link) {
     const href = String(link.attrs?.href || "").trim();
@@ -175,6 +178,8 @@ function inlineMarkdown(nodes: EditorNode[] | undefined): string {
   return nodes
     .map((node) => {
       if (node.type === "hardBreak") return "  \n";
+      if (node.type === "markdownInline")
+        return markdownForMarks(String(node.attrs?.source || ""), node.marks, true);
       if (node.type === "shortcode") return `{${String(node.attrs?.name || "")}}`;
       return markdownForMarks(String(node.text || ""), node.marks);
     })
@@ -182,13 +187,16 @@ function inlineMarkdown(nodes: EditorNode[] | undefined): string {
 }
 
 function blockMarkdown(block: EditorNode): string {
+  if (block.type === "markdownBlock") return String(block.attrs?.source || "");
   if (block.type === "heading") {
     const level = Math.max(1, Math.min(6, Number(block.attrs?.level) || 1));
     return `${"#".repeat(level)} ${inlineMarkdown(block.content)}`;
   }
   if (block.type === "codeBlock") {
     const code = (block.content || []).map((node) => node.text || "").join("");
-    return `\`\`\`\n${code}\n\`\`\``;
+    const runs = code.match(/`+/g) || [];
+    const fence = "`".repeat(Math.max(2, ...runs.map((run) => run.length)) + 1);
+    return `${fence}\n${code}\n${fence}`;
   }
   if (block.type === "blockquote") {
     return (block.content || [])
@@ -210,17 +218,19 @@ function listMarkdown(list: EditorNode, indent = ""): string {
       const blocks = item.content || [];
       const first = blocks[0] ? blockMarkdown(blocks[0]) : "";
       const prefix = ordered ? `${start + index}. ` : "- ";
+      const childIndent = `${indent}${" ".repeat(prefix.length)}`;
       const continuation = blocks.slice(1).map((block) => {
         const value = blockMarkdown(block);
         if (block.type === "bulletList" || block.type === "orderedList") {
-          return listMarkdown(block, `${indent}  `);
+          return listMarkdown(block, childIndent);
         }
         return value
           .split("\n")
-          .map((line) => `${indent}  ${line}`)
+          .map((line) => `${childIndent}${line}`)
           .join("\n");
       });
-      return `${indent}${prefix}${first}${continuation.length ? `\n${continuation.join("\n")}` : ""}`;
+      const firstIndented = first.replace(/\n/g, `\n${childIndent}`);
+      return `${indent}${prefix}${firstIndented}${continuation.length ? `\n${continuation.join("\n")}` : ""}`;
     })
     .join("\n");
 }

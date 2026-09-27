@@ -13,6 +13,7 @@
     type AdminDocumentDraft,
   } from "$lib/admin/stores/documentsStore.svelte.js";
   import { withRoutePrefix } from "$lib/webapp/routes.js";
+  import { documentHref } from "$lib/webapp/informationPages.js";
   import { onMount } from "svelte";
   import DocumentEditorDialog from "./documents/DocumentEditorDialog.svelte";
 
@@ -51,13 +52,7 @@
   }
 
   function documentUrl(document: AdminDocument): string {
-    return withRoutePrefix(
-      `/${document.slug
-        .split("/")
-        .map((segment) => encodeURIComponent(segment))
-        .join("/")}`,
-      routePrefix
-    );
+    return withRoutePrefix(documentHref(document.slug), routePrefix);
   }
 
   function roleLabel(document: AdminDocument): string {

@@ -40,6 +40,26 @@ export const ShortcodeNode = Node.create({
   },
 });
 
+// Keep Markdown constructs outside the visual schema intact. They render as
+// literal source and remain editable in source mode, never as executable HTML.
+function markdownSourceNode(inline: boolean) {
+  return Node.create({
+    name: inline ? "markdownInline" : "markdownBlock",
+    group: inline ? "inline" : "block",
+    inline,
+    atom: true,
+    addAttributes() {
+      return { source: { default: "", rendered: false } };
+    },
+    renderHTML({ node }) {
+      return [inline ? "span" : "pre", { class: "rt-markdown-source" }, node.attrs.source];
+    },
+    renderText({ node }) {
+      return String(node.attrs.source || "");
+    },
+  });
+}
+
 /**
  * `autolink` turns a URL into a link as it is typed. It is off for a broadcast,
  * where a template is authored around shortcodes, and on in a conversation,
@@ -70,6 +90,7 @@ export function composerExtensions(
     }),
     Placeholder.configure({ placeholder }),
     ShortcodeNode,
+    ...(documentBlocks ? [markdownSourceNode(true), markdownSourceNode(false)] : []),
   ];
 }
 

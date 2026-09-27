@@ -41,4 +41,19 @@ describe("markdownFormat", () => {
     expect(document).toEqual({ type: "doc", content: [{ type: "paragraph", content: [] }] });
     expect(markdownFormat.toSource(document)).toBe("");
   });
+
+  it.each([
+    "![Logo](https://example.test/logo.png)",
+    "![Logo][logo]\n\n[logo]: https://example.test/logo.png",
+    "| Item | Value |\n| --- | --- |\n| **One** | Two |",
+    "- [x] Done\n- [ ] Pending",
+    "```js\nconst allowed = true;\n```",
+    "---",
+    '<div class="note">Raw HTML</div>',
+    '[Service](https://example.test "Title")',
+    "`a*b` and `` `value` ``",
+    "\\_literal\\_",
+  ])("preserves document content through visual editing: %s", (source) => {
+    expect(markdownFormat.toSource(markdownFormat.fromSource(source))).toBe(source);
+  });
 });
