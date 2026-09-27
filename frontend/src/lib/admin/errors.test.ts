@@ -8,6 +8,7 @@ const messages: Record<string, string> = {
   error_invalid_audience:
     "The recipient was not found. Refresh or reopen the user card and try again.",
   error_tariff_change_failed: "Tariff sync failed",
+  error_tribute_recurring_conflict: "Cancel in Tribute and wait for the cancellation webhook",
 };
 
 function at(key: string, vars: Record<string, unknown> = {}, fallback = ""): string {
@@ -16,6 +17,14 @@ function at(key: string, vars: Record<string, unknown> = {}, fallback = ""): str
 }
 
 describe("adminErrorMessage", () => {
+  it("explains how to resolve a Tribute tariff conflict", () => {
+    const error = Object.assign(new Error("conflict"), {
+      status: 409,
+      payload: { ok: false, error: "tribute_recurring_conflict" },
+    });
+    expect(adminErrorMessage(error, at)).toBe(messages.error_tribute_recurring_conflict);
+  });
+
   it("keeps known flat API errors readable", () => {
     expect(
       adminErrorMessage(

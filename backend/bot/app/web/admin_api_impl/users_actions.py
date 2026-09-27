@@ -849,6 +849,12 @@ async def admin_user_tariff_route(request: web.Request) -> web.Response:
         if not active:
             return _error(404, "no_active_subscription")
 
+        if str(getattr(active, "provider", "") or "").strip().lower() == "tribute" and bool(
+            getattr(active, "auto_renew_enabled", False)
+        ):
+            await session.rollback()
+            return _error(409, "tribute_recurring_conflict")
+
         result = await subscription_service.switch_tariff_without_payment(
             session,
             target_id,

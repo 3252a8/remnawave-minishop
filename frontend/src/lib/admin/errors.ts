@@ -172,6 +172,7 @@ const ADMIN_ERROR_KEYS: Record<string, string> = {
   subscription_service_unavailable: "error_subscription_service_unavailable",
   service_unavailable: "error_service_unavailable",
   tariff_change_failed: "error_tariff_change_failed",
+  tribute_recurring_conflict: "error_tribute_recurring_conflict",
   tariff_required: "error_tariff_required",
   traffic_strategy_locked: "error_traffic_strategy_locked",
   too_many_buttons: "error_too_many_buttons",

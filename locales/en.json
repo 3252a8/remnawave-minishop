@@ -1516,6 +1516,7 @@
   "admin_error_no_active_subscription": "This user has no active subscription for the action. Grant or extend access first, then retry.",
   "admin_error_tariff_required": "This action requires a tariff. Select a tariff in the user card or configure the tariff catalog.",
   "admin_error_tariff_change_failed": "Failed to apply the tariff. Check tariff settings, Remnawave squads, and panel availability.",
+  "admin_error_tribute_recurring_conflict": "Cancel the recurring subscription in Tribute and wait for the cancellation notification before changing the tariff.",
   "admin_error_traffic_strategy_locked": "Traffic reset strategy is not editable for this subscription.",
   "admin_error_no_panel_user": "The user is not linked to a Remnawave Panel user, so there is no subscription link to reset.",
   "admin_error_subscription_reissue_failed": "Failed to reissue the subscription link on the Remnawave Panel. Check panel availability and retry.",
