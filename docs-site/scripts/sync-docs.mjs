@@ -8,6 +8,7 @@ const sourceDir = path.join(repoRoot, 'docs');
 const outputDir = path.join(siteRoot, 'src', 'content', 'docs');
 
 const descriptions = {
+  '../CHANGELOG.md': 'История выпусков Remnawave Minishop: версии, даты релизов и изменения, уже доступные в ветке dev.',
   'api/index.md': 'HTTP API, OpenAPI-спецификация, доменные события и точки расширения Remnawave Minishop.',
   'index.md': 'Документация по запуску, настройке и сопровождению Telegram Mini App для Remnawave.',
   'getting-started/overview.md': 'Компоненты и основные пользовательские и административные сценарии Remnawave Minishop.',
@@ -59,6 +60,9 @@ function toPosix(relativePath) {
 }
 
 function outputRelativePath(sourceRelativePath) {
+  if (sourceRelativePath === '../CHANGELOG.md') {
+    return 'changelog.md';
+  }
   if (sourceRelativePath === 'index.md') {
     return 'index.md';
   }
@@ -92,7 +96,10 @@ function rewriteMarkdownLinks(markdown, sourceRelativePath) {
   const sourceDirectory = path.posix.dirname(sourceRelativePath);
   return markdown.replace(/\]\((?!https?:\/\/|mailto:|tel:|\/|#)([^)\s]+\.md)(#[^)]+)?\)/g, (match, target, hash = '') => {
     const resolvedTarget = path.posix.normalize(path.posix.join(sourceDirectory, target));
-    return `](${pagePathForSource(resolvedTarget, hash)})`;
+    const docsRelativeTarget = resolvedTarget.startsWith('../docs/')
+      ? resolvedTarget.slice('../docs/'.length)
+      : resolvedTarget;
+    return `](${pagePathForSource(docsRelativeTarget, hash)})`;
   });
 }
 
@@ -143,6 +150,7 @@ function addInlineContents(markdown) {
 function relatedLinksFor(sourceRelativePath) {
   const relatedByOverview = {
     'index.md': [
+      ['История изменений', '/changelog/'],
       ['Обзор', '/getting-started/overview/'],
       ['Быстрый запуск', '/getting-started/setup/'],
       ['Демо-режим', '/getting-started/overview/#демо-режим'],
@@ -260,6 +268,9 @@ function appendRelatedLinks(markdown, sourceRelativePath) {
 }
 
 function extraFrontmatter(sourceRelativePath) {
+  if (sourceRelativePath === '../CHANGELOG.md') {
+    return ['tableOfContents:', '  minHeadingLevel: 2', '  maxHeadingLevel: 2'];
+  }
   if (sourceRelativePath !== 'index.md') {
     return [];
   }
@@ -285,12 +296,17 @@ function extraFrontmatter(sourceRelativePath) {
 }
 
 function frontmatter({ title, description, sourceRelativePath }) {
-  const editPath = sourceRelativePath
+  const repositoryPath = sourceRelativePath === '../CHANGELOG.md'
+    ? 'CHANGELOG.md'
+    : `docs/${sourceRelativePath}`;
+  const editPath = repositoryPath
     .split('/')
     .map((segment) => encodeURIComponent(segment))
     .join('/');
-  // const editUrl = `https://github.com/3252a8/remnawave-minishop/edit/main/docs/${editPath}`;
-  const editUrl = `https://gitlab.com/3252a8/remnawave-minishop/-/edit/main/docs/${editPath}`;
+  const branch = process.env.DOCS_BRANCH ?? process.env.CF_PAGES_BRANCH ??
+    process.env.CI_COMMIT_BRANCH ?? process.env.GITHUB_REF_NAME ??
+    process.env.VERCEL_GIT_COMMIT_REF ?? process.env.BRANCH ?? 'main';
+  const editUrl = `https://gitlab.com/3252a8/remnawave-minishop/-/edit/${encodeURIComponent(branch)}/${editPath}`;
   return [
     '---',
     `title: ${yamlString(title)}`,
@@ -325,12 +341,11 @@ async function syncMarkdown(files) {
     const outputPath = path.join(outputDir, ...outputRelative.split('/'));
     const content = await readFile(sourcePath, 'utf8');
     const title = extractTitle(sourceRelativePath, content);
+    const markdown = normalizeCodeFences(
+      rewriteMarkdownLinks(stripFirstHeading(content).trimStart(), sourceRelativePath),
+    );
     const body = appendRelatedLinks(
-      addInlineContents(
-        normalizeCodeFences(
-          rewriteMarkdownLinks(stripFirstHeading(content).trimStart(), sourceRelativePath),
-        ),
-      ),
+      sourceRelativePath === '../CHANGELOG.md' ? markdown : addInlineContents(markdown),
       sourceRelativePath,
     );
     const output = frontmatter({
@@ -377,7 +392,7 @@ await rm(outputDir, { recursive: true, force: true });
 await mkdir(outputDir, { recursive: true });
 
 const files = await walk(sourceDir);
-await syncMarkdown(files);
+await syncMarkdown([...files, path.join(repoRoot, 'CHANGELOG.md')]);
 await syncAssets(files);
 await syncPublicArtifacts();
 

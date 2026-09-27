@@ -80,6 +80,7 @@ export default defineConfig({
         },
       ],
       sidebar: [
+        { label: 'История изменений', slug: 'changelog' },
         {
           label: 'Начало работы',
           items: [

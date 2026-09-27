@@ -44,5 +44,9 @@ code changes still run their relevant gates (and the full suite when isolation i
 prose-only documentation and docs-site-only changes use the scoped documentation checks defined
 there. Commits: Conventional Commits, no `Co-Authored-By` trailer.
 
-No `CHANGELOG.md` — the project deliberately has none; do not create or maintain one.
-Change history lives in Conventional Commits and PR descriptions (`pr-changelog` skill).
+Maintain root `CHANGELOG.md` as the single source of release history, published at `/changelog/`
+by the docs generator. Before committing a noteworthy Core change, update `В разработке · dev`:
+describe the resulting behavior, merge related work into existing entries, and remove superseded
+or duplicate entries. Do not append one bullet per commit or repeat already released behavior.
+Use neutral wording such as «коды активации» / "activation codes" in changelogs and commit messages.
+See CONTRIBUTING.md §8 for release rollover and history provenance.

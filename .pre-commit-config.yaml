@@ -18,7 +18,7 @@ repos:
         name: docs artifacts and sidebar
         entry: npm run check:docs
         language: system
-        files: ^(docs/|docs-site/(astro\.config\.mjs|package\.json|src/|public/|scripts/))
+        files: ^(CHANGELOG\.md$|docs/|docs-site/(astro\.config\.mjs|package\.json|src/|public/|scripts/))
         pass_filenames: false
 
       - id: frontend-prettier

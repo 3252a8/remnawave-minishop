@@ -17,6 +17,7 @@ function normalizeRoute(route) {
 
 function documentationRoute(relativePath) {
   const source = toPosix(relativePath).replace(/\.md$/iu, '');
+  if (source === '../CHANGELOG') return 'changelog';
   if (source === 'index') return '';
   if (source === 'architecture') return 'reference/architecture';
   if (source.endsWith('/index')) return source.slice(0, -'/index'.length);
@@ -42,6 +43,7 @@ function matches(source, pattern) {
 }
 
 const markdownFiles = await walkMarkdown(docsRoot);
+markdownFiles.push(path.join(repoRoot, 'CHANGELOG.md'));
 const documentationRoutes = new Set(
   markdownFiles.map((file) => documentationRoute(path.relative(docsRoot, file))),
 );
