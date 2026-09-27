@@ -1266,9 +1266,9 @@ test("Telegram fullscreen fallback protects webapp actions and admin chrome", as
   expect(adminGeometry.paddingTop).toBeGreaterThanOrEqual(96);
   expect(adminGeometry.headerTop).toBeGreaterThanOrEqual(96);
 
-  await page.goto("/demo/runtime/admin/users?theme_preview=dark");
+  // This seeded user has invitees, so the nested list is available to exercise.
+  await page.goto("/demo/runtime/admin/users/910001?theme_preview=dark");
   await page.evaluate(applyTelegramFullscreenInsets);
-  await page.locator(".admin-user-mobile-card").first().click();
   const userDialog = page.locator(".dialog:has(.admin-user-dialog)");
   const userDialogCard = userDialog.locator(".admin-user-dialog");
   await expect(userDialogCard).toBeVisible();
@@ -1292,7 +1292,27 @@ test("Telegram fullscreen fallback protects webapp actions and admin chrome", as
   expect(imageViewerGeometry.top).toBeGreaterThanOrEqual(96);
   expect(imageViewerGeometry.bottom).toBeLessThanOrEqual(imageViewerGeometry.viewportHeight - 34);
   await imageViewer.locator('[data-image-viewer-action="close"]').click();
+  await userDialogCard.locator('[data-admin-action="open-user-referrals"]').click();
+  const referralsDialog = page.locator(".dialog-card.admin-user-referrals-dialog");
+  await expect(referralsDialog).toBeVisible();
+  await expect(referralsDialog).toHaveCSS("transform", "none");
+  const referralsBox = (await referralsDialog.boundingBox())!;
+  expect(referralsBox.y).toBeGreaterThanOrEqual(96);
+  expect(referralsBox.y + referralsBox.height).toBeLessThanOrEqual(MOBILE_VIEWPORT.height - 34);
+  await closeDialog(referralsDialog);
   await closeDialog(userDialogCard);
+
+  await page.setViewportSize(DESKTOP_VIEWPORT);
+  await page.goto("/demo/runtime/admin/support?theme_preview=dark");
+  await page.evaluate(applyTelegramFullscreenInsets);
+  await page.locator(".support-inbox-row[data-ticket-id]").first().click();
+  const supportDialog = page.locator(".dialog-card.support-ticket-dialog");
+  await expect(supportDialog).toBeVisible();
+  await expect(supportDialog).toHaveCSS("transform", "none");
+  const supportBox = (await supportDialog.boundingBox())!;
+  expect(supportBox.y).toBeGreaterThanOrEqual(96);
+  expect(supportBox.y + supportBox.height).toBeLessThanOrEqual(DESKTOP_VIEWPORT.height - 34);
+  await closeDialog(supportDialog);
 });
 
 test("partner operations open their linked payment card", async ({ page }) => {

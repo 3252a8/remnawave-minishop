@@ -293,10 +293,20 @@ for (const viewport of [
 for (const viewport of [
   { name: "desktop", width: 1280, height: 900 },
   { name: "mobile", width: 390, height: 844 },
+  { name: "Telegram portrait", width: 390, height: 500 },
+  { name: "Telegram landscape", width: 740, height: 500 },
 ]) {
   test(`theme color opacity slider persists HEX alpha on ${viewport.name}`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto(url);
+    if (viewport.name.startsWith("Telegram")) {
+      await page.evaluate(() => {
+        document.documentElement.setAttribute("data-telegram-fullscreen", "true");
+        const style = document.documentElement.style;
+        style.setProperty("--tg-content-safe-area-inset-top", "110px");
+        style.setProperty("--tg-content-safe-area-inset-bottom", "34px");
+      });
+    }
     const library = page.locator(".appearance-library");
     await library.locator('[data-theme-key="dark"] .theme-card-actions button').last().click();
     const settings = page.locator(".appearance-settings-dialog");
@@ -304,6 +314,16 @@ for (const viewport of [
     await accent.locator(".appearance-color-text").fill("#112233");
     await accent.locator(".ui-color-trigger").click();
     const picker = page.locator(".ui-color-picker");
+    if (viewport.name.startsWith("Telegram")) {
+      await expect(picker).toBeVisible();
+      await expect.poll(async () => (await picker.boundingBox())!.y).toBeGreaterThanOrEqual(110);
+      await expect
+        .poll(async () => {
+          const box = (await picker.boundingBox())!;
+          return box.y + box.height;
+        })
+        .toBeLessThanOrEqual(viewport.height - 34);
+    }
     const opacity = picker.getByRole("slider", { name: "Непрозрачность" });
     await expect(opacity).toBeVisible();
     await opacity.press("Home");

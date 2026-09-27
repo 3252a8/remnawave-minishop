@@ -4,6 +4,12 @@
 }
 
 .dialog {
+  --dialog-gutter: 14px;
+  --dialog-padding-top: max(var(--dialog-gutter), var(--content-safe-area-top));
+  --dialog-padding-bottom: max(var(--dialog-gutter), var(--content-safe-area-bottom));
+  --dialog-available-height: calc(
+    100dvh - var(--dialog-padding-top) - var(--dialog-padding-bottom)
+  );
   box-sizing: border-box;
   position: fixed;
   inset: 0;
@@ -11,8 +17,8 @@
   display: grid;
   align-items: center;
   justify-items: center;
-  padding: max(14px, var(--content-safe-area-top)) max(14px, var(--content-safe-area-right))
-    max(14px, var(--content-safe-area-bottom)) max(14px, var(--content-safe-area-left));
+  padding: var(--dialog-padding-top) max(var(--dialog-gutter), var(--content-safe-area-right))
+    var(--dialog-padding-bottom) max(var(--dialog-gutter), var(--content-safe-area-left));
   overflow: hidden;
   isolation: isolate;
 }
@@ -34,7 +40,7 @@
   grid-template-rows: auto minmax(0, 1fr);
   gap: 16px;
   width: min(100%, 520px);
-  max-height: min(86dvh, 760px);
+  max-height: min(86dvh, 760px, var(--dialog-available-height));
   overflow: hidden;
   overscroll-behavior: contain;
   padding: 18px;
@@ -115,12 +121,7 @@
 }
 
 .balance-topup-dialog {
-  max-height: min(
-    760px,
-    calc(
-      100dvh - max(14px, var(--content-safe-area-top)) - max(14px, var(--content-safe-area-bottom))
-    )
-  );
+  max-height: min(760px, var(--dialog-available-height));
 }
 
 .balance-topup-dialog .payment-submit-button {

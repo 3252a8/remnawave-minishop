@@ -54,6 +54,7 @@
   let previous = $state("#000000");
   let hexText = $state("");
   let invalidHex = $state(false);
+  let collisionPadding = $state({ top: 12, right: 12, bottom: 12, left: 12 });
   const color = $derived(normalizeColorInput(value, allowAlpha) ?? "#000000");
   const opacity = $derived(colorInputOpacity(color));
   const text = (key: string, fallback: string, params: Record<string, unknown> = {}) =>
@@ -75,6 +76,16 @@
 
   function changeOpen(next: boolean): void {
     if (next) {
+      const screen = document.querySelector<HTMLElement>(".admin-screen-wrap");
+      if (screen) {
+        const style = getComputedStyle(screen);
+        collisionPadding = {
+          top: Math.max(12, Number.parseFloat(style.paddingTop)),
+          right: Math.max(12, Number.parseFloat(style.paddingRight)),
+          bottom: Math.max(12, Number.parseFloat(style.paddingBottom)),
+          left: Math.max(12, Number.parseFloat(style.paddingLeft)),
+        };
+      }
       previous = color;
       hexText = color.toUpperCase();
       invalidHex = false;
@@ -219,7 +230,7 @@
           side="right"
           align="start"
           sideOffset={8}
-          collisionPadding={12}
+          {collisionPadding}
           sticky="always"
           trapFocus={true}
           aria-label={ariaLabel || text("title", "Color")}
@@ -276,7 +287,7 @@
     box-sizing: border-box;
     z-index: 1200;
     width: min(288px, calc(100vw - 24px));
-    max-height: calc(100dvh - 24px);
+    max-height: min(calc(100dvh - 24px), var(--bits-popover-content-available-height, 100dvh));
     overflow-y: auto;
     padding: 16px;
     border: 1px solid var(--admin-border, var(--border));
@@ -290,9 +301,15 @@
     font-size: 12px;
   }
   :global(.ui-color-picker-mobile) {
+    --picker-safe-top: max(12px, var(--content-safe-area-top));
+    --picker-safe-bottom: max(12px, var(--content-safe-area-bottom));
+    --picker-safe-left: max(12px, var(--content-safe-area-left));
+    --picker-safe-right: max(12px, var(--content-safe-area-right));
     position: fixed;
-    top: 50%;
-    left: 50%;
+    top: calc((100% + var(--picker-safe-top) - var(--picker-safe-bottom)) / 2);
+    left: calc((100% + var(--picker-safe-left) - var(--picker-safe-right)) / 2);
+    max-height: calc(100dvh - var(--picker-safe-top) - var(--picker-safe-bottom));
+    max-width: calc(100vw - var(--picker-safe-left) - var(--picker-safe-right));
     transform: translate(-50%, -50%);
   }
   .ui-color-picker-head,

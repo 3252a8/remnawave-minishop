@@ -273,8 +273,8 @@
   }
 
   :global(.admin-document-editor) {
-    width: min(860px, calc(100vw - 24px));
-    max-height: calc(100dvh - 24px);
+    width: min(860px, 100%);
+    max-height: var(--dialog-available-height);
   }
 
   :global(.admin-document-editor .dialog-body-scroll) {

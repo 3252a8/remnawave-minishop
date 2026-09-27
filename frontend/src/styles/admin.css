@@ -7295,9 +7295,9 @@
 
   .support-ticket-dialog {
     grid-template-rows: auto minmax(0, 1fr);
-    height: calc(100dvh - 28px);
-    min-height: calc(100dvh - 28px);
-    max-height: calc(100dvh - 28px);
+    height: min(calc(100dvh - 28px), var(--dialog-available-height));
+    min-height: min(calc(100dvh - 28px), var(--dialog-available-height));
+    max-height: min(calc(100dvh - 28px), var(--dialog-available-height));
     overflow: hidden;
   }
 
@@ -7339,9 +7339,8 @@
 
 @media (max-width: 720px) {
   .dialog:has(.support-ticket-dialog) {
+    --dialog-gutter: 8px;
     align-items: start;
-    padding: max(8px, var(--content-safe-area-top)) max(8px, var(--content-safe-area-right))
-      max(8px, var(--content-safe-area-bottom)) max(8px, var(--content-safe-area-left));
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;

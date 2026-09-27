@@ -331,8 +331,8 @@
   .message-image-drag-overlay {
     position: fixed;
     z-index: 2147483000;
-    inset: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
-      max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+    inset: max(8px, var(--content-safe-area-top)) max(8px, var(--content-safe-area-right))
+      max(8px, var(--content-safe-area-bottom)) max(8px, var(--content-safe-area-left));
     border: 3px dashed var(--accent, var(--admin-accent, #6d7cff));
     border-radius: 18px;
     background: color-mix(in srgb, var(--accent, var(--admin-accent, #6d7cff)) 10%, transparent);

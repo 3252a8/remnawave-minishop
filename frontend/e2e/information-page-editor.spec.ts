@@ -24,12 +24,39 @@ async function openDocuments(page: Page, device: "desktop" | "mobile"): Promise<
   return documents;
 }
 
-for (const [device, viewport] of [
-  ["desktop", { width: 1440, height: 900 }],
-  ["mobile", { width: 390, height: 844 }],
+for (const [scenario, device, viewport, telegram] of [
+  ["desktop browser", "desktop", { width: 1440, height: 900 }, false],
+  ["mobile browser", "mobile", { width: 390, height: 844 }, false],
+  ["Telegram portrait", "mobile", { width: 390, height: 844 }, true],
+  ["Telegram landscape", "mobile", { width: 740, height: 390 }, true],
 ] as const) {
-  test(`documents have their own System editor on ${device}`, async ({ page }) => {
+  test(`documents have their own System editor on ${scenario}`, async ({ page }, testInfo) => {
     await page.setViewportSize(viewport);
+    if (telegram) {
+      await page.addInitScript(() => {
+        Object.assign(window, {
+          Telegram: {
+            WebApp: {
+              expand() {},
+              initData: "",
+              isFullscreen: true,
+              isVersionAtLeast: () => true,
+              offEvent() {},
+              onEvent() {},
+              platform: "ios",
+              ready() {},
+            },
+          },
+        });
+        document.addEventListener("DOMContentLoaded", () => {
+          const style = document.documentElement.style;
+          style.setProperty("--tg-content-safe-area-inset-top", "110px");
+          style.setProperty("--tg-content-safe-area-inset-bottom", "34px");
+          style.setProperty("--tg-content-safe-area-inset-left", "20px");
+          style.setProperty("--tg-content-safe-area-inset-right", "20px");
+        });
+      });
+    }
     const errors = trackErrors(page);
     await page.route("https://example.test/logo.png", (route) =>
       route.fulfill({
@@ -53,9 +80,18 @@ for (const [device, viewport] of [
 
     const dialog = page.locator(".dialog-card.admin-document-editor");
     await expect(dialog).toBeVisible();
+    await expect(dialog).toHaveCSS("transform", "none");
     const dialogBox = await dialog.boundingBox();
     expect(dialogBox?.width).toBeGreaterThan(device === "desktop" ? 700 : 340);
     expect(dialogBox?.height).toBeLessThanOrEqual(viewport.height - 12);
+    if (telegram) {
+      expect(dialogBox!.y).toBeGreaterThanOrEqual(110);
+      expect(dialogBox!.y + dialogBox!.height).toBeLessThanOrEqual(viewport.height - 34);
+      expect(dialogBox!.x).toBeGreaterThanOrEqual(20);
+      expect(dialogBox!.x + dialogBox!.width).toBeLessThanOrEqual(viewport.width - 20);
+      await dialog.locator(".dialog-close-button").click({ trial: true });
+      await page.screenshot({ path: testInfo.outputPath("document-safe-area.png") });
+    }
 
     const visualEditor = dialog.locator(".ProseMirror");
     const editorSurface = dialog.locator(".rt-surface");

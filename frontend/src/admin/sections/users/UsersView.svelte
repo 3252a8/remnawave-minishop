@@ -746,7 +746,7 @@
 
     :global(.admin-users-filter-dialog) {
       width: 100%;
-      max-height: min(82dvh, 620px);
+      max-height: min(82dvh, 620px, var(--dialog-available-height));
       padding: 16px;
       border-right: 0;
       border-bottom: 0;

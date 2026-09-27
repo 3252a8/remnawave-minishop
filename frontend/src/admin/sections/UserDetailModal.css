@@ -320,8 +320,8 @@
   font-weight: 500;
 }
 .admin-user-referrals-dialog {
-  width: min(760px, calc(100vw - 28px));
-  max-height: min(760px, calc(100dvh - 28px));
+  width: min(760px, calc(100vw - 28px), 100%);
+  max-height: min(760px, calc(100dvh - 28px), var(--dialog-available-height));
 }
 .admin-user-referrals-body {
   display: grid;
