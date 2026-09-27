@@ -29,6 +29,7 @@
     type PublicInformationDocument,
   } from "$lib/webapp/informationPages.js";
   import { unwrap, type ApiClient } from "$lib/webapp/publicApi.js";
+  import { withRoutePrefix } from "$lib/webapp/routes.js";
   import { THEME_PREFERENCE_DEFAULT, type ThemeOption } from "$lib/webapp/themePreference.js";
   import type {
     LanguageOption,
@@ -41,6 +42,7 @@
   } from "$lib/webapp/types.js";
 
   type Props = {
+    routePrefix?: string;
     currentLang?: string;
     balance?: BalanceView;
     currentLanguageOption?: LanguageOption | null;
@@ -99,6 +101,7 @@
   };
 
   let {
+    routePrefix = "",
     currentLang = "ru",
     balance = {} as BalanceView,
     currentLanguageOption = null,
@@ -350,7 +353,10 @@
       />
     {/if}
     {#each settingsDocuments as document (document.slug)}
-      <a class="settings-row settings-row-policy" href={documentHref(document.slug)}>
+      <a
+        class="settings-row settings-row-policy"
+        href={withRoutePrefix(documentHref(document.slug), routePrefix)}
+      >
         <FileText size={21} />
         <span><strong>{document.title}</strong></span>
         <ArrowRight size={17} />

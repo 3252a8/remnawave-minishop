@@ -9,6 +9,7 @@
 
   import { lazyScreen } from "../lib/webapp/lazyScreen.svelte.js";
   import { visibleMenuButtons } from "../lib/webapp/menuButtons.js";
+  import { withRoutePrefix } from "../lib/webapp/routes.js";
   import { resolveProgramEntryPlacement } from "../lib/webapp/programEntryPolicy.js";
   import {
     DEFAULT_HOME_ELEMENT_VISIBILITY,
@@ -357,6 +358,10 @@
   let balanceTopupOpen = $state(false);
 
   function openMenuButton(button: MenuButtonView): void {
+    if (button.kind === "page") {
+      openExternalLink(withRoutePrefix(String(button.target || ""), routePrefix));
+      return;
+    }
     if (button.kind !== "webapp") {
       openExternalLink(String(button.target || ""));
       return;
@@ -605,6 +610,7 @@
     {:else if screen === "settings"}
       <SettingsScreen
         {api}
+        {routePrefix}
         {currentLang}
         {currentLanguageOption}
         {emailAuthEnabled}

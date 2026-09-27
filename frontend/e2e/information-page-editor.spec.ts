@@ -125,7 +125,10 @@ for (const [device, viewport] of [
     await expect(publicLink).toHaveAttribute("href", `/demo/runtime/docs/${publicSlug}`);
     await expect(publicLink).toHaveAttribute("target", "_blank");
 
-    await page.goto(`/demo/runtime/docs/${publicSlug}`);
+    await page.goto("/demo/runtime/settings?mock=checkout-addons");
+    const settingsLink = page.getByRole("link", { name: `Документ ${device}`, exact: true });
+    await expect(settingsLink).toHaveAttribute("href", `/demo/runtime/docs/${publicSlug}`);
+    await settingsLink.click();
     await expect(page.locator(".information-markdown")).toContainText("Первый пункт");
     const publicPageGeometry = await page.locator(".information-page").evaluate((element) => {
       const topbar = element.querySelector<HTMLElement>(".information-page-topbar");

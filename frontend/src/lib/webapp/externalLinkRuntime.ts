@@ -28,6 +28,12 @@ export function createExternalLinkRuntime({
 }: ExternalLinkRuntimeDeps) {
   function openExternalLink(url: string) {
     if (!url) return;
+    // Public documents belong to the current Mini App. Telegram.openLink only
+    // accepts absolute external URLs and throws for these application paths.
+    if (/^\/(?![/\\])/.test(url)) {
+      assignLocation(url);
+      return;
+    }
     const telegram = shellState.tg;
     if (/^https:\/\/(?:t|telegram)\.me\//i.test(url) && telegram?.openTelegramLink) {
       try {

@@ -24,6 +24,20 @@ function makeRuntime(overrides: TestOverrides = {}) {
 }
 
 describe("createExternalLinkRuntime", () => {
+  it("keeps document navigation inside the Mini App when Telegram is present", () => {
+    const telegram = {
+      openLink: vi.fn(() => {
+        throw new Error("URL must be absolute");
+      }),
+    };
+    const { deps, runtime } = makeRuntime({ telegram });
+
+    runtime.openExternalLink("/shop/docs/support/guide");
+
+    expect(deps.assignLocation).toHaveBeenCalledWith("/shop/docs/support/guide");
+    expect(telegram.openLink).not.toHaveBeenCalled();
+  });
+
   it("opens Telegram links inside Telegram when available", () => {
     const telegram = { openLink: vi.fn(), openTelegramLink: vi.fn() };
     const { deps, runtime } = makeRuntime({ telegram });
