@@ -14,6 +14,7 @@ import options from 'virtual:starlight-theme-nova/user-config'
 const { hasSidebar } = Astro.locals.starlightRoute
 const nav = options.nav ?? []
 const route = Astro.locals.starlightRoute
+const changelogItem = nav.find((item) => getI18nText(item.href, route) === '/changelog/')
 
 function getI18nText(
   value: string | Record<string, string>,
@@ -115,6 +116,16 @@ function isDocsVersionLink(href: string) {
       })
     }
   </nav>
+  {
+    changelogItem && (
+      <a
+        class="ml-auto text-xs font-medium text-(--sl-color-gray-3) no-underline hover:text-(--sl-color-white) md:hidden"
+        href={getI18nText(changelogItem.href, route)}
+      >
+        {getI18nText(changelogItem.label, route)}
+      </a>
+    )
+  }
   <div class="minishop-header-search flex md:max-w-60 md:flex-1 print:hidden">
     <Search />
   </div>

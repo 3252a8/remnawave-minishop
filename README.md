@@ -6,7 +6,7 @@
 verification map. Русские `README.md` и [CONTRIBUTING.md](CONTRIBUTING.md) остаются
 каноническими.
 
-[История изменений](CHANGELOG.md) — выпущенные версии с датами и возможности, уже доступные в `dev`.
+[Список изменений](CHANGELOG.md) — выпущенные версии с датами и возможности, уже доступные в `dev`.
 
 Remnawave Minishop - Telegram-бот и Web App (Mini App) для продажи и управления подписками панели [Remnawave](https://docs.rw/). Бот обрабатывает регистрацию, оплату, продление, пробный период, промокоды, рефералов и поддержку в чате. Web App показывает ссылку подключения, срок действия, трафик, оплату, устройства и вход по Telegram Mini Apps `initData`, Telegram OAuth / OpenID Connect и одноразовому email-коду.
 

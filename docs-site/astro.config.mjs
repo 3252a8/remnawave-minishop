@@ -35,6 +35,7 @@ export default defineConfig({
           nav: [
             { label: 'Демо', href: '/demo/home' },
             { label: 'Документация', href: '/getting-started/overview/' },
+            { label: 'Список изменений', href: '/changelog/' },
             { label: 'minishop PRO', href: 'https://cloud.minidoc.cc' },
             { label: 'API', href: '/api/' },
             { label: 'GitHub', href: 'https://github.com/3252a8/remnawave-minishop' },
@@ -80,7 +81,6 @@ export default defineConfig({
         },
       ],
       sidebar: [
-        { label: 'История изменений', slug: 'changelog' },
         {
           label: 'Начало работы',
           items: [
@@ -168,6 +168,7 @@ export default defineConfig({
             { label: 'Runes QA', slug: 'development/runes-migration-qa' },
           ],
         },
+        { label: 'Список изменений', slug: 'changelog' },
       ],
     }),
   ],

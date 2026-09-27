@@ -150,7 +150,7 @@ function addInlineContents(markdown) {
 function relatedLinksFor(sourceRelativePath) {
   const relatedByOverview = {
     'index.md': [
-      ['История изменений', '/changelog/'],
+      ['Список изменений', '/changelog/'],
       ['Обзор', '/getting-started/overview/'],
       ['Быстрый запуск', '/getting-started/setup/'],
       ['Демо-режим', '/getting-started/overview/#демо-режим'],
