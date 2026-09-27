@@ -27,6 +27,7 @@
     balanceSource = $bindable<"user" | "partner" | null>(null),
     partnerBalanceDiscount = $bindable(0),
     hasMethods = false,
+    balanceFullyCovers = false,
     paymentMethods = [],
     selectedMethod = "",
     payerEmail = $bindable(""),
@@ -65,6 +66,7 @@
     balanceSource?: "user" | "partner" | null;
     partnerBalanceDiscount?: number;
     hasMethods?: boolean;
+    balanceFullyCovers?: boolean;
     paymentMethods?: PaymentMethodView[];
     selectedMethod?: string;
     payerEmail?: string;
@@ -95,7 +97,9 @@
 </script>
 
 <div class="payment-divider" aria-hidden="true"></div>
-{#if hasMethods}
+{#if balanceFullyCovers}
+  <p>{t("wa_balance_fully_funded")}</p>
+{:else if hasMethods}
   <PaymentMethodPicker
     methods={paymentMethods}
     {selectedMethod}

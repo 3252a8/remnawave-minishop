@@ -4411,6 +4411,8 @@
   "wa_balance_checkout_prefix": "Pay from",
   "wa_balance_checkout_aria": "Use balance for this payment",
   "wa_balance_checkout_available": "Available: {balance}",
+  "wa_balance_fully_funded": "The balance covers the full amount. No external payment is needed.",
+  "wa_balance_quote_changed": "The balance no longer covers the purchase. Reopen checkout to refresh the amount and choose a payment method for the remainder.",
   "wa_balance_source_label": "Funds source",
   "wa_balance_source_user": "Main balance",
   "wa_balance_source_partner": "Partner balance",

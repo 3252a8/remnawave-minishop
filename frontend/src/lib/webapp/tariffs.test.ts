@@ -20,6 +20,25 @@ import {
 } from "./tariffs.js";
 
 describe("webapp tariff helpers", () => {
+  it.each(["user", "partner"] as const)(
+    "excludes incompatible methods for %s balance",
+    (source) => {
+      const methods = [
+        { id: "tribute", balance_supported: false },
+        { id: "wata_subscription", balance_supported: false },
+        { id: "platega_sbp_subscription", balance_supported: false },
+        { id: "stars" },
+        { id: "card", balance_supported: true },
+      ];
+      const plan = { price: 100, currency: "RUB" };
+      const compatible = methodsForPlan(methods, plan, source);
+      expect(compatible.map((method) => method.id)).toEqual(["card"]);
+      expect(firstAvailableMethod(compatible)).toBe("card");
+      expect(methodSelectable(compatible, "tribute")).toBe(false);
+      expect(methodsForPlan(methods, plan).map((method) => method.id)).toHaveLength(5);
+    }
+  );
+
   const t = (key: string, params: Record<string, unknown> = {}) =>
     `${key}:${JSON.stringify(params)}`;
   const termUnitLabel = (value: unknown, unit: unknown) => `${value} ${unit}`;

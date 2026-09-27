@@ -764,11 +764,12 @@ export function createBillingStore({
 
   async function createPayment(options: PartnerBalancePaymentOptions = {}) {
     const s = state;
-    if (!s.selectedPlan || !s.selectedMethod || s.payBusy) return;
+    const method = options.balanceOnly && options.balanceSource ? "balance" : s.selectedMethod;
+    if (!s.selectedPlan || !method || s.payBusy) return;
     updateState((s) => ({ ...s, payBusy: true }));
     try {
       const response = await billing.postPayment(
-        billing.planPaymentBody(s.selectedPlan, s.selectedMethod, {
+        billing.planPaymentBody(s.selectedPlan, method, {
           renewHwidDevices: s.renewHwidDevices && Boolean(s.selectedPlan?.hwid_renewal?.available),
           promoCode: checkoutPromoCode(),
           balanceSource: options.balanceSource,
@@ -784,7 +785,17 @@ export function createBillingStore({
         updateState((s) => ({ ...s, paymentModalOpen: false }));
       });
     } catch (error: unknown) {
-      showToast(stringField(asRecord(error).message) || t("wa_payment_create_failed"));
+      const failure = asRecord(error);
+      const balanceChanged = [
+        "balance_insufficient",
+        "insufficient_user_balance",
+        "insufficient_partner_balance",
+      ].includes(stringField(failure.error));
+      showToast(
+        balanceChanged
+          ? t("wa_balance_quote_changed")
+          : stringField(failure.message) || t("wa_payment_create_failed")
+      );
     } finally {
       updateState((s) => ({ ...s, payBusy: false }));
     }

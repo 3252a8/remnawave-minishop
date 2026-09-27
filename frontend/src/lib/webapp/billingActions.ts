@@ -43,6 +43,7 @@ type BillingPlan = WebappBillingPlan;
 type BillingAction = WebappBillingAction;
 type BillingTarget = WebappBillingTarget;
 export type PartnerBalancePaymentOptions = {
+  balanceOnly?: boolean;
   balanceSource?: "user" | "partner" | null;
   usePartnerBalance?: boolean;
   checkoutAddons?: CheckoutAddonSelection;

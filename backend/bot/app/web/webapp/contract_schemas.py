@@ -200,6 +200,7 @@ PAYMENT_METHOD_SCHEMA: dict[str, Any] = {
         "shop_limit_currency": STRING_SCHEMA,
         "currency": STRING_SCHEMA,
         "price_managed_externally": BOOLEAN_SCHEMA,
+        "balance_supported": BOOLEAN_SCHEMA,
     },
 }
 PENDING_PAYMENT_SCHEMA: dict[str, Any] = {

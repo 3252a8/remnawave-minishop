@@ -1,6 +1,7 @@
 import { DEMO_DATASET } from "../demoDataset.js";
 import { withDemoAvatar } from "../demoAvatars.js";
 import { readStoredDemoLanguage } from "../demoMockRuntime.js";
+import { currentDemoBalance } from "../mockApi/balance.js";
 import { DEV_MOCK, previewPeriodPlan } from "./devMock";
 import { INSTALL_GUIDES_CONFIG } from "./installGuidesConfig";
 import type { PreviewThemesCatalog } from "./types";
@@ -466,6 +467,35 @@ export function applyPreviewMock(kind: unknown): void {
       { id: "stars", name: "Telegram Stars", icon: "Star" },
       { id: "cryptopay", name: "Криптовалюта", icon: "Bitcoin" },
     ];
+    return;
+  }
+
+  if (mode === "checkout-balance-partial" || mode === "checkout-balance-full") {
+    applyPreviewMock("checkout-no-addons");
+    const full = mode === "checkout-balance-full";
+    DEV_MOCK.data.settings.user_balance_enabled = true;
+    DEV_MOCK.data.balance = {
+      ...DEV_MOCK.data.balance,
+      enabled: true,
+      currency: "RUB",
+      currency_scale: 2,
+      sources: ["user", "partner"].map((id) => ({
+        id,
+        available: true,
+        amount_minor: full ? 1_000_000 : 10_000,
+      })),
+    };
+    DEV_MOCK.data.payment_methods = [
+      { id: "tribute", name: "Tribute", icon: "CreditCard", balance_supported: false },
+      ...(!full
+        ? [{ id: "platega_sbp", name: "СБП", icon: "Smartphone", balance_supported: true }]
+        : []),
+    ];
+    DEV_MOCK.data.plans = DEV_MOCK.data.plans.map((plan) => ({
+      ...plan,
+      available_payment_method_ids: ["tribute", "platega_sbp"],
+    }));
+    Object.assign(currentDemoBalance(), DEV_MOCK.data.balance);
     return;
   }
 

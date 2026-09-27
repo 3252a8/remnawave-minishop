@@ -15,6 +15,7 @@ import type {
 } from "$lib/webapp/types.js";
 
 export type CheckoutPaymentOptions = {
+  balanceOnly?: boolean;
   balanceSource?: "user" | "partner" | null;
   usePartnerBalance?: boolean;
   checkoutAddons?: CheckoutAddonSelection;

@@ -97,6 +97,7 @@ export type TariffCatalogEntry = {
   traffic_packages: number[];
 };
 export type PaymentMethod = WebappRecord & {
+  balance_supported?: boolean;
   disabled?: boolean;
   disabled_reason?: string;
   id?: string | number;
@@ -305,14 +306,48 @@ export function methodAvailableForPlan(
   return methodAmountForPlan(method, plan) >= minimum;
 }
 
+export function methodManagesPrice(
+  methods: PaymentMethod[],
+  plan: BillingPlan | null,
+  methodId: string
+): boolean {
+  const id = methodId.toLowerCase();
+  return Boolean(
+    plan?.externally_managed_price_method_ids?.some((method) => method.toLowerCase() === id) ||
+    methods.find((method) => String(method.id || "").toLowerCase() === id)?.price_managed_externally
+  );
+}
+
+export function methodMinimumAmount(methods: PaymentMethod[], methodId: string): number {
+  const method = methods.find(
+    (item) => String(item.id || "").toLowerCase() === methodId.toLowerCase()
+  );
+  return Math.max(
+    0,
+    Number(method?.minimum_amount || method?.min_amount || method?.shop_min_amount || 0)
+  );
+}
+
 export function methodsForPlan(
   methods: PaymentMethod[] | null | undefined,
-  plan: BillingPlan | null | undefined
+  plan: BillingPlan | null | undefined,
+  balanceSource: "user" | "partner" | null = null
 ): PaymentMethod[] {
-  return (methods || []).map((method) => ({
-    ...method,
-    disabled: !methodAvailableForPlan(method, plan),
-  }));
+  return (methods || [])
+    .filter(
+      (method) =>
+        !balanceSource ||
+        (method.balance_supported !== false &&
+          !isStarsPaymentMethod(method.id) &&
+          !method.price_managed_externally &&
+          !plan?.externally_managed_price_method_ids?.includes(
+            String(method.id || "").toLowerCase()
+          ))
+    )
+    .map((method) => ({
+      ...method,
+      disabled: !methodAvailableForPlan(method, plan),
+    }));
 }
 
 export function firstAvailableMethod(methods: PaymentMethod[] | null | undefined): string {

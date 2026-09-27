@@ -43,6 +43,51 @@ function makeBillingStore(overrides: TestOverrides = {}) {
 }
 
 describe("billingStore", () => {
+  it("localizes a changed balance without opening an external payment", async () => {
+    const { store, deps } = makeBillingStore({
+      billing: {
+        postPayment: vi.fn().mockResolvedValue({
+          ok: false,
+          error: "balance_insufficient",
+          message: "Balance does not cover the current quote",
+        }),
+      },
+    });
+    store.update((state) => ({
+      ...state,
+      selectedPlan: { id: "plan", price: 100 },
+      paymentModalOpen: true,
+    }));
+    await store.createPayment({ balanceSource: "user", balanceOnly: true });
+    expect(deps.showToast).toHaveBeenCalledWith("wa_balance_quote_changed");
+    expect(deps.openExternalLink).not.toHaveBeenCalled();
+    expect(store.paymentModalOpen).toBe(true);
+  });
+
+  it.each(["user", "partner"] as const)(
+    "submits a fully funded %s purchase without an external method",
+    async (balanceSource) => {
+      const { store, billing } = makeBillingStore();
+      store.openPaymentModal(
+        false,
+        false,
+        [],
+        { active: false },
+        [{ id: "plan", price: 100 }],
+        "",
+        { preferCheckout: true }
+      );
+      store.update((state) => ({ ...state, selectedPlan: { id: "plan", price: 100 } }));
+      await store.createPayment({ balanceSource, balanceOnly: true });
+      expect(billing.planPaymentBody).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "plan" }),
+        "balance",
+        expect.objectContaining({ balanceSource })
+      );
+      expect(billing.postPayment).toHaveBeenCalledOnce();
+    }
+  );
+
   it("opens payment modal on preferred default tariff checkout", () => {
     const { store, billing } = makeBillingStore();
 

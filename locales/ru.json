@@ -4411,6 +4411,8 @@
   "wa_balance_checkout_prefix": "Оплатить с",
   "wa_balance_checkout_aria": "Использовать баланс для оплаты",
   "wa_balance_checkout_available": "Доступно: {balance}",
+  "wa_balance_fully_funded": "Баланс покрывает всю сумму. Внешняя оплата не требуется.",
+  "wa_balance_quote_changed": "Баланса больше не хватает для покупки. Откройте оплату заново, чтобы обновить сумму и выбрать способ доплаты.",
   "wa_balance_source_label": "Источник средств",
   "wa_balance_source_user": "Основной баланс",
   "wa_balance_source_partner": "Партнёрский баланс",

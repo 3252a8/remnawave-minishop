@@ -25,9 +25,9 @@ def _payment_promo_error(
 ) -> CheckoutPromoError | None:
     if promo_result is None:
         return None
-    from bot.payment_providers import get_provider_spec
+    from .billing_balance_method import checkout_provider_spec
 
-    provider_spec = get_provider_spec(method)
+    provider_spec = checkout_provider_spec(method)
     if provider_spec is None or not provider_spec.create_webapp_payment:
         return CheckoutPromoError(400, "payment_unavailable", "Payment method unavailable")
     if provider_spec.is_checkout_promo_supported(

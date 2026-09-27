@@ -29248,6 +29248,9 @@
                       "items": {
                         "additionalProperties": false,
                         "properties": {
+                          "balance_supported": {
+                            "type": "boolean"
+                          },
                           "currency": {
                             "type": "string"
                           },

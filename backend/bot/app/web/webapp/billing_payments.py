@@ -607,6 +607,8 @@ async def _create_subscription_payment(
     settings: Settings = get_settings(request)
     checkout_grants = checkout_addon_grants(checkout_bundle_snapshot)
     selected_balance_source = balance_source or ("partner" if use_partner_balance else None)
+    if method == "balance" and selected_balance_source is None:
+        return _json_error(400, "balance_source_required", "Select a balance source")
     payment_currency = (currency or default_payment_currency_code_for_settings(settings)).upper()
     sale_mode = str(sale_mode or "subscription")
     try:
@@ -697,9 +699,9 @@ async def _create_subscription_payment(
         )
     )
 
-    from bot.payment_providers import get_provider_spec
+    from .billing_balance_method import checkout_provider_spec
 
-    provider_spec = get_provider_spec(method)
+    provider_spec = checkout_provider_spec(method)
     if provider_spec and provider_spec.create_webapp_payment:
         if not provider_spec.is_visible_for_user(settings, request.app, is_admin=is_admin):
             logger.warning(

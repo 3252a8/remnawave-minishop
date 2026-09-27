@@ -337,6 +337,9 @@ def _serialize_payment_methods(
                 "id": method,
                 "name": presentation.webapp_label,
                 "icon": presentation.webapp_icon,
+                "balance_supported": not spec.manages_recurring
+                and spec.price_source != "stars"
+                and not spec.price_managed_externally,
             }
             if spec.price_managed_externally:
                 payload["price_managed_externally"] = True

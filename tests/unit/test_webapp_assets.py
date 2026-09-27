@@ -1393,7 +1393,14 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         # order list now.
         self.assertEqual(
             methods,
-            [{"id": "yookassa", "name": "Bank card", "icon": "WalletCards"}],
+            [
+                {
+                    "id": "yookassa",
+                    "name": "Bank card",
+                    "icon": "WalletCards",
+                    "balance_supported": True,
+                }
+            ],
         )
 
     def test_serialize_payment_methods_includes_wata_from_provider_config(self):
@@ -1418,7 +1425,10 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
 
         methods = subscription_webapp._serialize_payment_methods(settings, app, "en")
 
-        self.assertEqual(methods, [{"id": "wata", "name": "Wata", "icon": "WalletCards"}])
+        self.assertEqual(
+            methods,
+            [{"id": "wata", "name": "Wata", "icon": "WalletCards", "balance_supported": True}],
+        )
 
     async def test_invalidate_all_webapp_user_caches_clears_cached_me_payload(self):
         settings = Settings(

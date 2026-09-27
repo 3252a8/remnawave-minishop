@@ -40,6 +40,8 @@
     firstAvailableMethod,
     isTrialPaymentPlan,
     methodSelectable,
+    methodManagesPrice,
+    methodMinimumAmount,
     methodsForPlan,
   } from "$lib/webapp/tariffs.js";
   import type {
@@ -106,18 +108,7 @@
       .toLowerCase()
       .includes("stars");
   function providerManagesPrice() {
-    const normalizedMethod = String(selectedMethod || "").toLowerCase();
-    if (
-      selectedPlan?.externally_managed_price_method_ids?.some(
-        (methodId) => String(methodId).toLowerCase() === normalizedMethod
-      )
-    ) {
-      return true;
-    }
-    return Boolean(
-      methods.find((method) => String(method.id || "").toLowerCase() === normalizedMethod)
-        ?.price_managed_externally
-    );
+    return methodManagesPrice(methods, selectedPlan, selectedMethod);
   }
   function tributeShopSubscriptionSelected(methodId = selectedMethod) {
     return (
@@ -135,6 +126,8 @@
     );
   }
   let checkoutDeviceCount = $state(0);
+  let balanceSource = $state<"user" | "partner" | null>(null);
+  let partnerBalanceDiscount = $state(0);
   let checkoutRegularLimitGb = $state<number | null>(null);
   let checkoutPremiumLimitGb = $state<number | null>(null);
   let checkoutPlanIdentity = $state("");
@@ -268,6 +261,7 @@
   function checkoutPaymentOptions(): CheckoutPaymentOptions {
     return {
       balanceSource,
+      balanceOnly: balanceFullyCovers,
       checkoutAddons: checkoutAddonSelection,
       ...wataCheckout.wataSubscriptionContacts(selectedMethod, payerEmail, payerPhone),
     };
@@ -403,8 +397,18 @@
       ? discountedCheckoutPlan(selectedPlanForPayment)
       : selectedPlanForPayment
   );
-  const paymentMethods = $derived(methodsForPlan(methods, paymentMethodAvailabilityPlan));
-  const paymentMethodSelected = $derived(methodSelectable(paymentMethods, selectedMethod));
+  const paymentMethods = $derived(
+    methodsForPlan(methods, paymentMethodAvailabilityPlan, balanceSource)
+  );
+  const balanceFullyCovers = $derived(
+    !gift &&
+      Boolean(balanceSource) &&
+      partnerBalanceDiscount > 0 &&
+      partnerBalanceDiscount >= checkoutAmount(selectedPlan)
+  );
+  const paymentMethodSelected = $derived(
+    balanceFullyCovers || methodSelectable(paymentMethods, selectedMethod)
+  );
 
   $effect(() => {
     const definitions = checkoutAddonDefinitions(selectedPlan);
@@ -438,13 +442,19 @@
 
   $effect(() => {
     if (!paymentModalOpen || paymentStep !== "checkout" || !selectedPlan) return;
+    if (balanceFullyCovers) return;
     const firstMethod = firstAvailableMethod(paymentMethods);
     if (firstMethod && !methodSelectable(paymentMethods, selectedMethod)) {
       selectedMethod = firstMethod;
     }
   });
   $effect(() => {
-    if (!paymentModalOpen || paymentStep !== "checkout" || !selectedPlan || !selectedMethod) {
+    if (
+      !paymentModalOpen ||
+      paymentStep !== "checkout" ||
+      !selectedPlan ||
+      (!selectedMethod && !balanceSource)
+    ) {
       checkoutQuote = null;
       checkoutQuoteError = "";
       checkoutQuoteBusy = false;
@@ -468,7 +478,7 @@
       device_count: selectedPlan.device_count,
       tariff_key: selectedPlan.tariff_key,
       sale_mode: selectedPlan.sale_mode,
-      method: selectedMethod,
+      method: balanceSource && !gift ? "balance" : selectedMethod,
       renew_hwid_devices:
         renewHwidDevices &&
         Boolean(selectedPlan?.hwid_renewal?.available) &&
@@ -640,16 +650,10 @@
     return String(selectedTariff?.billing_model || "period").toLowerCase() !== "traffic";
   }
 
-  let balanceSource = $state<"user" | "partner" | null>(null);
-  let partnerBalanceDiscount = $state(0);
   let payerEmail = $state("");
   let payerPhone = $state("");
 
   $effect(() => {
-    if (wataCheckout.isWataSubscriptionMethod(selectedMethod)) {
-      balanceSource = null;
-      partnerBalanceDiscount = 0;
-    }
     if (!paymentModalOpen) {
       payerEmail = "";
       payerPhone = "";
@@ -665,24 +669,15 @@
   }
 
   function selectedMethodMinimum() {
-    const method = methods.find(
-      (item) => String(item.id || "").toLowerCase() === String(selectedMethod || "").toLowerCase()
-    );
-    return Math.max(
-      0,
-      Number(method?.minimum_amount || method?.min_amount || method?.shop_min_amount || 0)
-    );
+    return methodMinimumAmount(methods, selectedMethod);
   }
 
   function partnerBalanceEligible() {
     return Boolean(
       selectedPlan &&
       !isTrialPaymentPlan(selectedPlan) &&
-      selectedMethod &&
       checkoutAmount(selectedPlan) > 0 &&
-      !methodUsesStars() &&
-      !wataCheckout.isWataSubscriptionMethod(selectedMethod) &&
-      !providerManagesPrice()
+      (!gift || (!methodUsesStars() && !providerManagesPrice()))
     );
   }
 
@@ -742,9 +737,10 @@
     balancePreloadComplete={balancePreload.complete}
     bind:balanceSource
     bind:partnerBalanceDiscount
-    hasMethods={Boolean(methods.length)}
+    hasMethods={Boolean(paymentMethods.length)}
+    {balanceFullyCovers}
     {paymentMethods}
-    {selectedMethod}
+    selectedMethod={balanceFullyCovers ? "balance" : selectedMethod}
     bind:payerEmail
     bind:payerPhone
     {paymentMethodsDisplayMode}
@@ -763,8 +759,11 @@
       payBusy ||
       checkoutQuoteBusy ||
       Boolean(checkoutQuoteError) ||
-      !wataCheckout.wataSubscriptionContactsValid(selectedMethod, payerEmail, payerPhone) ||
-      (checkoutAddonsSelected() && checkoutAddonsUnavailableForMethod(selectedPlan))}
+      (!balanceFullyCovers &&
+        !wataCheckout.wataSubscriptionContactsValid(selectedMethod, payerEmail, payerPhone)) ||
+      (!balanceFullyCovers &&
+        checkoutAddonsSelected() &&
+        checkoutAddonsUnavailableForMethod(selectedPlan))}
     createPayment={() => createPayment(checkoutPaymentOptions())}
     partnerPrice={partnerCheckoutPriceParts(selectedPlan)}
     promoPrice={checkoutPromoPlanParts(selectedPlan)}

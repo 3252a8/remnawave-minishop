@@ -79,9 +79,9 @@ async def subscription_quote_route(request: web.Request) -> web.Response:
         if quote is None:
             return _json_error(400, "invalid_plan", "Plan is not available")
 
-        from bot.payment_providers import get_provider_spec
+        from .billing_balance_method import checkout_provider_spec
 
-        provider_spec = get_provider_spec(method)
+        provider_spec = checkout_provider_spec(method)
         if provider_spec is None or not provider_spec.create_webapp_payment:
             return _json_error(400, "payment_unavailable", "Payment method unavailable")
         from bot.services.account_roles import is_admin as account_is_admin

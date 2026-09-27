@@ -16885,6 +16885,7 @@ export interface operations {
             /** @constant */
             ok: true;
             payment_methods: {
+              balance_supported?: boolean;
               currency?: string;
               icon?: string;
               id?: string;

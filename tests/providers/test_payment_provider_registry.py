@@ -885,6 +885,7 @@ def test_webapp_payment_methods_include_paykilla_minimum_metadata(monkeypatch):
             "id": "paykilla",
             "name": "PayKilla",
             "icon": "Bitcoin",
+            "balance_supported": True,
             "min_amount": "736.06",
             "min_currency": "RUB",
             "configured_min_amount": "10.00",
