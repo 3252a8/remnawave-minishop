@@ -455,6 +455,48 @@ class HandleWebhookQueueingTests(unittest.IsolatedAsyncioTestCase):
             + torrent_blocker_event_fingerprint(context, secret=SECRET),
         )
 
+    async def test_torrent_blocker_preserves_v3_identity_without_panel_telegram_id(self):
+        service = _make_service()
+        captured: list[dict[str, Any]] = []
+
+        async def fake_enqueue(settings, provider, payload, *, event_id=None):
+            captured.append(payload)
+            return True
+
+        body = json.dumps(
+            {
+                "scope": "torrent_blocker",
+                "event": "torrent_blocker.report",
+                "timestamp": "2026-07-17T10:00:01Z",
+                "data": {
+                    "node": {},
+                    "user": {
+                        "id": 42,
+                        "shortUuid": "short",
+                        "telegramId": None,
+                        "vlessUuid": "private-credential",
+                    },
+                    "report": {
+                        "actionReport": {
+                            "blocked": True,
+                            "ip": "203.0.113.8",
+                            "blockDuration": 3600,
+                            "willUnblockAt": "2026-07-17T11:00:00Z",
+                            "processedAt": "2026-07-17T10:00:00Z",
+                            "userId": "42",
+                        },
+                        "xrayReport": {},
+                    },
+                },
+            }
+        ).encode()
+        with patch.object(pws, "enqueue_webhook_event", fake_enqueue):
+            response = await service.handle_webhook(body, _sign(body))
+        self.assertEqual(response.status, 200)
+        self.assertEqual(captured[0]["user"]["id"], 42)
+        self.assertEqual(captured[0]["user"]["uuid"], "42")
+        self.assertNotIn("vlessUuid", captured[0]["user"])
+
     async def test_torrent_blocker_event_rejects_wrong_scope(self):
         service = _make_service()
         enqueue = AsyncMock(return_value=True)

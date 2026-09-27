@@ -65,6 +65,7 @@ class TorrentBlockerWebhookPayload(BaseModel):
 
     def sanitized_user_payload(self) -> dict[str, Any]:
         allowed_keys = (
+            "id",
             "uuid",
             "userUuid",
             "shortUuid",
