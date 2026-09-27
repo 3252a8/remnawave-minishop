@@ -15,6 +15,7 @@ from pydantic import ValidationError
 from config.webapp_themes_models import WebappTheme
 
 from .css import validate_css, validate_token
+from .effects import validate_effects
 from .models import (
     MAX_ARCHIVE,
     MAX_DEPTH,
@@ -171,6 +172,7 @@ def inspect_theme(folder: Path, relative: str) -> Candidate:
             else PackageMetadata()
         )
         candidate.metadata = metadata
+        candidate.effects_digest = validate_effects(folder, metadata)
         if metadata.compatibility.theme_api != 1:
             raise PackageError("incompatible_theme_api", key)
         if not metadata_file.exists():
@@ -180,7 +182,10 @@ def inspect_theme(folder: Path, relative: str) -> Candidate:
             raise PackageError("too_many_files")
         for path in files:
             relative_path(path.relative_to(folder).as_posix())
-            if path.is_symlink() or not allowed_file(path):
+            declared_script = bool(
+                metadata.effects and path.relative_to(folder).as_posix() == metadata.effects.entry
+            )
+            if path.is_symlink() or not (allowed_file(path) or declared_script):
                 raise PackageError("unsupported_theme_file", path.relative_to(folder).as_posix())
             if path.stat().st_size > MAX_FILE:
                 raise PackageError("theme_file_too_large", path.name)

@@ -3,6 +3,7 @@
   import BrandMark from "$lib/webapp/BrandMark.svelte";
   import type { UserNavigationItem } from "$lib/webapp/extensionHost";
   import BottomNav from "./BottomNav.svelte";
+  import ThemeEffectSurface from "./ThemeEffectSurface.svelte";
 
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type Action = () => void;
@@ -66,7 +67,12 @@
   }: Props = $props();
 </script>
 
-<div class="phone-screen" class:home-screen={screen === "home"}>
+<div
+  class="phone-screen"
+  class:home-screen={screen === "home"}
+  style="position:relative;isolation:isolate"
+>
+  <ThemeEffectSurface name="shell.background" />
   {#if screen === "install" || screen === "invite" || screen === "partner" || screen === "devices" || screen === "support" || screen === "settings" || screen === "notifications" || screen === "security" || screen === "status"}
     <header class="app-header accent-title">
       <div class="brand-row">

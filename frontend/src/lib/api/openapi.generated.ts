@@ -1979,6 +1979,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/themes/imports/{operation_id}/effects-preview/{key}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Theme Import Effects Preview */
+    get: operations["get_admin_theme_import_effects_preview_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/themes/imports/{operation_id}/install": {
     parameters: {
       query?: never;
@@ -2042,6 +2059,40 @@ export interface paths {
     post?: never;
     /** Admin Theme Remove */
     delete: operations["delete_admin_theme_remove_route"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/themes/library/{key}/effects": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Admin Theme Effects */
+    put: operations["put_admin_theme_effects_route"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/themes/library/{key}/effects-preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Theme Effects Preview */
+    get: operations["get_admin_theme_effects_preview_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -3661,6 +3712,40 @@ export interface paths {
     };
     /** Tariff Topup Options */
     get: operations["get_tariff_topup_options_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/theme-effects": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Theme Effects */
+    get: operations["get_theme_effects_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/theme-effects/assets/{key}/{digest}/{path}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Theme Effect Asset */
+    get: operations["get_theme_effect_asset_route"];
     put?: never;
     post?: never;
     delete?: never;
@@ -6612,6 +6697,11 @@ export interface components {
        */
       digest: string;
       /**
+       * Effects Digest
+       * @default
+       */
+      effects_digest: string;
+      /**
        * Error
        * @default
        */
@@ -6708,6 +6798,23 @@ export interface components {
       priority: "normal" | "high";
       /** Subject */
       subject: string;
+    };
+    /** EffectsRequest */
+    EffectsRequest: {
+      /**
+       * Effects Digest
+       * @default
+       */
+      effects_digest: string;
+      /**
+       * Effects Policy
+       * @default 0
+       */
+      effects_policy: number;
+      /** Enabled */
+      enabled: boolean;
+      /** Expected Generation */
+      expected_generation: number;
     };
     /** EmailNotificationPreferencesPatchBody */
     EmailNotificationPreferencesPatchBody: {
@@ -7181,6 +7288,22 @@ export interface components {
        * @enum {string}
        */
       action: "install" | "update" | "adopt";
+      /**
+       * Effects
+       * @default disabled
+       * @enum {string}
+       */
+      effects: "disabled" | "allow";
+      /**
+       * Effects Digest
+       * @default
+       */
+      effects_digest: string;
+      /**
+       * Effects Policy
+       * @default 0
+       */
+      effects_policy: number;
       /** Key */
       key: string;
     };
@@ -7320,6 +7443,8 @@ export interface components {
       description?: {
         [key: string]: string;
       };
+      /** @default null */
+      effects: components["schemas"]["ThemeEffectsManifest"] | null;
       /**
        * Homepage
        * @default
@@ -7338,9 +7463,9 @@ export interface components {
       /**
        * Schema Version
        * @default 1
-       * @constant
+       * @enum {integer}
        */
-      schema_version: 1;
+      schema_version: 1 | 2;
       /**
        * Version
        * @default
@@ -9192,6 +9317,61 @@ export interface components {
     } & {
       [key: string]: unknown;
     };
+    /** ThemeEffectsDescriptor */
+    ThemeEffectsDescriptor: {
+      /** Assets */
+      assets: {
+        [key: string]: string;
+      };
+      /** Digest */
+      digest: string;
+      /** Effects Digest */
+      effects_digest: string;
+      /** Entry */
+      entry: string;
+      /** Key */
+      key: string;
+      /**
+       * Lease Seconds
+       * @default 60
+       */
+      lease_seconds: number;
+      manifest: components["schemas"]["ThemeEffectsManifest"];
+      /** Styles */
+      styles: string[];
+    };
+    /** ThemeEffectsManifest */
+    ThemeEffectsManifest: {
+      /**
+       * Api Version
+       * @default 1
+       * @constant
+       */
+      api_version: 1;
+      /** Assets */
+      assets?: string[];
+      /** Description */
+      description?: {
+        [key: string]: string;
+      };
+      /** Entry */
+      entry: string;
+      /**
+       * Runtime
+       * @default trusted-dom
+       * @constant
+       */
+      runtime: "trusted-dom";
+      /** Styles */
+      styles?: string[];
+      /** Targets */
+      targets: ("shell.background" | "home.header.surface" | "home.card.surface")[];
+    };
+    /** ThemeEffectsOut */
+    ThemeEffectsOut: {
+      /** @default null */
+      effect: components["schemas"]["ThemeEffectsDescriptor"] | null;
+    };
     /** ThemeInstallation */
     ThemeInstallation: {
       /**
@@ -9204,6 +9384,21 @@ export interface components {
        * @default
        */
       digest: string;
+      /**
+       * Effects Digest
+       * @default
+       */
+      effects_digest: string;
+      /**
+       * Effects Enabled
+       * @default false
+       */
+      effects_enabled: boolean;
+      /**
+       * Effects Policy
+       * @default 1
+       */
+      effects_policy: number;
       /** Key */
       key: string;
       /**
@@ -14344,6 +14539,29 @@ export interface operations {
       };
     };
   };
+  get_admin_theme_import_effects_preview_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        operation_id: string;
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
+        };
+      };
+    };
+  };
   post_admin_theme_install_route: {
     parameters: {
       query?: never;
@@ -14444,6 +14662,57 @@ export interface operations {
             /** @constant */
             ok: true;
           } & components["schemas"]["MutationOut"];
+        };
+      };
+    };
+  };
+  put_admin_theme_effects_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EffectsRequest"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["MutationOut"];
+        };
+      };
+    };
+  };
+  get_admin_theme_effects_preview_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
         };
       };
     };
@@ -18262,6 +18531,53 @@ export interface operations {
             traffic_percent?: number;
             warning_levels?: number[];
           };
+        };
+      };
+    };
+  };
+  get_theme_effects_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["ThemeEffectsOut"];
+        };
+      };
+    };
+  };
+  get_theme_effect_asset_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        key: string;
+        digest: string;
+        path: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/octet-stream": string;
         };
       };
     };

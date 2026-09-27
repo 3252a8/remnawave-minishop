@@ -18,6 +18,7 @@ export async function mockApi(
   } = context;
   await new Promise((resolve) => window.setTimeout(resolve, 120));
   const cleanPath = String(path || "").split("?")[0];
+  if (cleanPath === "/theme-effects") return { ok: true, effect: null };
   const giftsResponse = giftsDemoResponse(cleanPath, options, path);
   if (giftsResponse !== undefined) return giftsResponse;
   const resolvedContext: MockApiContext = { clone, currentLang, normalizeLangCode };

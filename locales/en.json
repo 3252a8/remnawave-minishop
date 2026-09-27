@@ -5353,5 +5353,18 @@
   "log_user_telegram_id_line": "📨 Telegram ID: <code>{value}</code>",
   "log_user_email_line": "📧 Email: <code>{value}</code>",
   "log_user_name_line": "👤 Name: {value}",
-  "log_open_user_card_button": "📋 User card"
+  "log_open_user_card_button": "📋 User card",
+  "admin_theme_effects_title": "JavaScript effects",
+  "admin_theme_effects_warning": "Theme code can read page data and act as the visitor. Only allow code from a source you trust. You can install the theme without JavaScript. Updates require consent again; disabling effects reloads the open storefront.",
+  "admin_theme_effects_accept": "I trust this source and allow this version of JavaScript for store visitors.",
+  "admin_theme_effects_enabled": "JavaScript enabled",
+  "admin_theme_effects_disabled": "JavaScript disabled",
+  "admin_theme_effects_close": "Close",
+  "admin_theme_effects_enable": "Allow effects",
+  "admin_theme_effects_disable": "Disable effects",
+  "admin_theme_effects_preview": "Preview effects",
+  "admin_theme_effects_preview_notice": "Theme code will run on a sample card without your data. The preview stops after one minute. It does not establish code safety or compatibility with every browser.",
+  "admin_theme_effects_preview_run": "Run on sample card",
+  "wa_theme_effects_enable": "Enable theme effects",
+  "wa_theme_effects_disable": "Disable theme effects"
 }

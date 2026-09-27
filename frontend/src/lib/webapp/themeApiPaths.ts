@@ -15,6 +15,11 @@ export function buildThemeLibraryItemPath(key: string) {
     `/admin/themes/library/${encodeURIComponent(key)}`
   );
 }
+export function buildThemeEffectsPath(key: string) {
+  return builtApiPath<"/api/admin/themes/library/{key}/effects">(
+    `/admin/themes/library/${encodeURIComponent(key)}/effects`
+  );
+}
 export function buildThemeRollbackPath(key: string) {
   return builtApiPath<"/api/admin/themes/library/{key}/rollback">(
     `/admin/themes/library/${encodeURIComponent(key)}/rollback`

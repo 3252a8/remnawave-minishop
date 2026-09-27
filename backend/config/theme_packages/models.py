@@ -5,7 +5,15 @@ from __future__ import annotations
 import re
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, StringConstraints, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    JsonValue,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from config.webapp_themes_models import WebappTheme
 
@@ -43,8 +51,27 @@ class Compatibility(StrictModel):
     theme_api: int = Field(default=THEME_API, ge=1)
 
 
+class ThemeEffectsManifest(StrictModel):
+    api_version: Literal[1] = 1
+    runtime: Literal["trusted-dom"] = "trusted-dom"
+    entry: str = Field(min_length=1, max_length=180)
+    styles: list[str] = Field(default_factory=list, max_length=8)
+    assets: list[str] = Field(default_factory=list, max_length=32)
+    targets: list[Literal["shell.background", "home.header.surface", "home.card.surface"]] = Field(
+        min_length=1, max_length=3
+    )
+    description: dict[str, str] = Field(default_factory=dict, max_length=12)
+
+    @field_validator("description")
+    @classmethod
+    def bounded_description(cls, value: dict[str, str]) -> dict[str, str]:
+        if any(len(key) > 20 or len(text) > 500 for key, text in value.items()):
+            raise ValueError("description_too_long")
+        return value
+
+
 class PackageMetadata(StrictModel):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     version: str = Field(default="", max_length=64)
     description: dict[str, str] = Field(default_factory=dict, max_length=12)
     author: Author | None = None
@@ -52,6 +79,13 @@ class PackageMetadata(StrictModel):
     homepage: str = Field(default="", max_length=500)
     preview: str = Field(default="", max_length=180)
     compatibility: Compatibility = Field(default_factory=Compatibility)
+    effects: ThemeEffectsManifest | None = None
+
+    @model_validator(mode="after")
+    def effects_version(self) -> PackageMetadata:
+        if self.effects and self.schema_version != 2:
+            raise ValueError("effects_require_schema_v2")
+        return self
 
     @field_validator("description")
     @classmethod
@@ -103,6 +137,7 @@ class Candidate(StrictModel):
     theme: WebappTheme | None = None
     metadata: PackageMetadata = Field(default_factory=PackageMetadata)
     digest: str = ""
+    effects_digest: str = ""
     size: int = 0
     files: int = 0
     error: str = ""
@@ -116,6 +151,19 @@ class InstalledVersion(StrictModel):
     source: ThemeSource = Field(default_factory=ThemeSource)
     installed_at: float
     original: WebappTheme
+    effects_digest: str = ""
+
+
+class EffectsGrant(StrictModel):
+    fingerprint: Digest
+    actor: int
+    accepted_at: float
+    policy_version: Literal[1] = 1
+
+
+class EffectsPermission(StrictModel):
+    enabled: bool = False
+    grants: list[EffectsGrant] = Field(default_factory=list, max_length=8)
 
 
 class InstalledTheme(InstalledVersion):
@@ -126,7 +174,7 @@ class InstalledTheme(InstalledVersion):
 
 
 class Registry(StrictModel):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 2
     generation: int = 0
     entries: dict[str, InstalledTheme] = Field(default_factory=dict)
     preferences: dict[str, WebappTheme] = Field(default_factory=dict)
@@ -134,6 +182,7 @@ class Registry(StrictModel):
     removed: list[str] = Field(default_factory=list)
     retired: dict[str, dict[str, float]] = Field(default_factory=dict)
     completed: dict[str, list[str]] = Field(default_factory=dict)
+    effects: dict[str, EffectsPermission] = Field(default_factory=dict)
 
 
 class ImportRecord(StrictModel):
@@ -161,6 +210,9 @@ class RepositoryRequest(StrictModel):
 class InstallChoice(StrictModel):
     key: ThemeKey
     action: Literal["install", "update", "adopt"] = "install"
+    effects: Literal["disabled", "allow"] = "disabled"
+    effects_digest: str = ""
+    effects_policy: int = 0
 
 
 class InstallRequest(StrictModel):
@@ -171,6 +223,27 @@ class InstallRequest(StrictModel):
 
 class MutationRequest(StrictModel):
     expected_generation: int = Field(ge=0)
+
+
+class EffectsRequest(MutationRequest):
+    enabled: bool
+    effects_digest: str = ""
+    effects_policy: int = 0
+
+
+class ThemeEffectsDescriptor(StrictModel):
+    key: ThemeKey
+    digest: Digest
+    effects_digest: Digest
+    manifest: ThemeEffectsManifest
+    entry: str
+    styles: list[str]
+    assets: dict[str, str]
+    lease_seconds: int = 60
+
+
+class ThemeEffectsOut(StrictModel):
+    effect: ThemeEffectsDescriptor | None = None
 
 
 class ExportRequest(StrictModel):
@@ -190,6 +263,9 @@ class ThemeInstallation(StrictModel):
     can_rollback: bool = False
     modified: bool = False
     preview_url: str = ""
+    effects_digest: str = ""
+    effects_enabled: bool = False
+    effects_policy: int = 1
 
 
 class PreviewUploadOut(StrictModel):

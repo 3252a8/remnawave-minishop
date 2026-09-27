@@ -74,6 +74,9 @@ def test_authentication_and_admin_role_precede_import_processing(
                 ("/api/admin/themes/library/ocean", "DELETE"),
                 ("/api/admin/themes/library/ocean/rollback", "POST"),
                 ("/api/admin/themes/library/ocean/preview", "GET"),
+                ("/api/admin/themes/library/ocean/effects-preview", "GET"),
+                ("/api/admin/themes/library/ocean/effects", "PUT"),
+                ("/api/admin/themes/imports/missing/effects-preview/ocean", "GET"),
             ]:
                 response = await client.request(method, path)
                 assert response.status == 401

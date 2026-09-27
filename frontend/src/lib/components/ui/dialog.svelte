@@ -1,5 +1,6 @@
 <script lang="ts">
   import { X } from "$components/ui/icons.js";
+  import { Portal } from "bits-ui";
   import { cn } from "$lib/utils.js";
   import {
     focusFirstDialogControl,
@@ -28,6 +29,8 @@
     showCloseButton?: boolean;
     /** Hosts with an async first control can defer focus until that control mounts. */
     focusOnOpen?: boolean;
+    /** Escape transformed/scrolling ancestors when a dialog is nested in a card or dialog. */
+    portal?: boolean;
     titleIcon?: Snippet;
     headerContent?: Snippet;
     children?: Snippet;
@@ -43,6 +46,7 @@
     scrollType = "auto",
     showCloseButton = true,
     focusOnOpen = true,
+    portal = false,
     titleIcon,
     headerContent,
     children,
@@ -102,65 +106,71 @@
 </script>
 
 {#if open}
-  <div
-    bind:this={overlay}
-    class="dialog"
-    role="dialog"
-    aria-modal="true"
-    aria-label={title}
-    tabindex="-1"
-    onwheel={stopScrollPropagation}
-    onkeydown={handleKeydown}
-  >
-    <button
-      class="dialog-backdrop"
-      type="button"
-      aria-label={closeLabel}
-      onclick={onclose}
-      in:fade={backdropTransition()}
-      out:fade={backdropTransition()}
-    ></button>
-    <section
-      bind:this={card}
-      class={cn("dialog-card", className)}
-      in:fly={cardIn()}
-      out:fly={cardOut()}
+  <Portal disabled={!portal}>
+    <div
+      bind:this={overlay}
+      class="dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      tabindex="-1"
+      onwheel={stopScrollPropagation}
+      onkeydown={handleKeydown}
     >
-      <div
-        class:dialog-head-custom={headerContent}
-        class:dialog-head-no-close={!showCloseButton}
-        class="dialog-head"
+      <button
+        class="dialog-backdrop"
+        type="button"
+        aria-label={closeLabel}
+        onclick={onclose}
+        in:fade={backdropTransition()}
+        out:fade={backdropTransition()}
+      ></button>
+      <section
+        bind:this={card}
+        class={cn("dialog-card", className)}
+        in:fly={cardIn()}
+        out:fly={cardOut()}
       >
-        <div class:dialog-title-with-icon={titleIcon} class="dialog-title-block">
-          {#if headerContent}
-            {@render headerContent()}
-          {:else}
-            {#if titleIcon}
-              <span class="dialog-title-icon" aria-hidden="true">
-                {@render titleIcon()}
-              </span>
+        <div
+          class:dialog-head-custom={headerContent}
+          class:dialog-head-no-close={!showCloseButton}
+          class="dialog-head"
+        >
+          <div class:dialog-title-with-icon={titleIcon} class="dialog-title-block">
+            {#if headerContent}
+              {@render headerContent()}
+            {:else}
+              {#if titleIcon}
+                <span class="dialog-title-icon" aria-hidden="true">
+                  {@render titleIcon()}
+                </span>
+              {/if}
+              <div class="dialog-title-copy">
+                {#if title}<h2>{title}</h2>{/if}
+                {#if description}<p>{description}</p>{/if}
+              </div>
             {/if}
-            <div class="dialog-title-copy">
-              {#if title}<h2>{title}</h2>{/if}
-              {#if description}<p>{description}</p>{/if}
-            </div>
+          </div>
+          {#if showCloseButton}
+            <Button
+              class="dialog-close-button"
+              variant="icon"
+              size="icon"
+              onclick={onclose}
+              aria-label={closeLabel}
+            >
+              <X size={18} />
+            </Button>
           {/if}
         </div>
-        {#if showCloseButton}
-          <Button
-            class="dialog-close-button"
-            variant="icon"
-            size="icon"
-            onclick={onclose}
-            aria-label={closeLabel}
-          >
-            <X size={18} />
-          </Button>
-        {/if}
-      </div>
-      <ScrollArea class="dialog-body-scroll scroll-area--dialog" maxHeight="none" type={scrollType}>
-        {@render children?.()}
-      </ScrollArea>
-    </section>
-  </div>
+        <ScrollArea
+          class="dialog-body-scroll scroll-area--dialog"
+          maxHeight="none"
+          type={scrollType}
+        >
+          {@render children?.()}
+        </ScrollArea>
+      </section>
+    </div>
+  </Portal>
 {/if}

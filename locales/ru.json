@@ -5353,5 +5353,18 @@
   "log_user_telegram_id_line": "📨 Telegram ID: <code>{value}</code>",
   "log_user_email_line": "📧 Email: <code>{value}</code>",
   "log_user_name_line": "👤 Имя: {value}",
-  "log_open_user_card_button": "📋 Карточка пользователя"
+  "log_open_user_card_button": "📋 Карточка пользователя",
+  "admin_theme_effects_title": "Эффекты JavaScript",
+  "admin_theme_effects_warning": "Код темы может читать данные страницы и выполнять действия от имени посетителя. Включайте его только из доверенного источника. Тему можно установить без JavaScript. При обновлении разрешение нужно подтвердить снова; после отключения открытая витрина перезагрузится.",
+  "admin_theme_effects_accept": "Я доверяю источнику и разрешаю эту версию JavaScript для посетителей магазина.",
+  "admin_theme_effects_enabled": "JavaScript включён",
+  "admin_theme_effects_disabled": "JavaScript выключен",
+  "admin_theme_effects_close": "Закрыть",
+  "admin_theme_effects_enable": "Разрешить эффекты",
+  "admin_theme_effects_disable": "Отключить эффекты",
+  "admin_theme_effects_preview": "Проверить эффекты",
+  "admin_theme_effects_preview_notice": "Будет запущен код темы на тестовой карточке без ваших данных. Предпросмотр остановится через минуту. Он не подтверждает безопасность кода или работу во всех браузерах.",
+  "admin_theme_effects_preview_run": "Запустить на тестовой карточке",
+  "wa_theme_effects_enable": "Включить эффекты темы",
+  "wa_theme_effects_disable": "Отключить эффекты темы"
 }

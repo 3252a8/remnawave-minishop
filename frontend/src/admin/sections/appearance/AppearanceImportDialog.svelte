@@ -15,6 +15,8 @@
   import { Checkbox, Dialog } from "$components/ui/index.js";
   import { ArrowLeft, Check, Eye, FileText, TriangleAlert, Upload } from "$components/ui/icons.js";
   import AppearanceThemePreview from "./AppearanceThemePreview.svelte";
+  import AppearanceEffectsConsent from "./AppearanceEffectsConsent.svelte";
+  import AppearanceEffectsPreview from "./AppearanceEffectsPreview.svelte";
   let {
     at,
     open,
@@ -42,6 +44,7 @@
   let subdir = $state("");
   let error = $state("");
   let selected = $state<string[]>([]);
+  let effectsAccepted = $state<string[]>([]);
   let conflict = $state("skip");
   let adoption = $state(false);
   let previewUrl = $state("");
@@ -75,6 +78,9 @@
       })
       .map((key) => ({
         key,
+        effects: effectsAccepted.includes(key) ? ("allow" as const) : ("disabled" as const),
+        effects_digest: candidates.find((item) => item.key === key)?.effects_digest || "",
+        effects_policy: 1,
         action: installedKeys.includes(key)
           ? library.installations.find((item) => item.key === key)?.managed
             ? ("update" as const)
@@ -116,6 +122,7 @@
   });
   $effect(() => {
     selected = candidates.filter((item) => !item.error && item.key).map((item) => item.key || "");
+    effectsAccepted = [];
   });
   $effect(() => {
     void review;
@@ -316,6 +323,21 @@
                   (theme.key || index)}
                 onclick={() => preview(theme, index)}><Eye size={14} /></AdminButton
               >{/if}
+            {#if theme.metadata?.effects && !theme.error}
+              <div class="candidate-effects">
+                <AppearanceEffectsPreview themeKey={theme.key} importId={operation?.id} {at} />
+                <AppearanceEffectsConsent
+                  {at}
+                  checked={effectsAccepted.includes(theme.key)}
+                  disabled={library.busy}
+                  onchange={(accepted) => {
+                    effectsAccepted = accepted
+                      ? [...effectsAccepted, theme.key]
+                      : effectsAccepted.filter((key) => key !== theme.key);
+                  }}
+                />
+              </div>
+            {/if}
           </div>
         {/each}
       </div>
@@ -431,6 +453,11 @@
 </Dialog>
 
 <style>
+  .candidate-effects {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: 0.75rem;
+  }
   :global(.appearance-import-dialog) {
     width: min(620px, calc(100vw - 24px));
   }

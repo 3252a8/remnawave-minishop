@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ThemeEffectSurface from "../ThemeEffectSurface.svelte";
   import UserExtensionPoint from "../extensions/UserExtensionPoint.svelte";
   import { onMount } from "svelte";
   import { slide } from "svelte/transition";
@@ -441,7 +442,8 @@
 </script>
 
 <main class="home-layout">
-  <div class="login-brand home-brand">
+  <div class="login-brand home-brand" style="position:relative;isolation:isolate">
+    <ThemeEffectSurface name="home.header.surface" />
     <BrandMark {brand} size="xl" />
     <h1>{brandTitle}</h1>
   </div>
@@ -497,7 +499,8 @@
       {/if}
 
       <UserExtensionPoint target="user.home.subscription">
-        <Card class={statusCardClass}>
+        <Card class={statusCardClass} style="position:relative;isolation:isolate">
+          <ThemeEffectSurface name="home.card.surface" />
           {#if subscription.active}
             <div class="sub-status">
               <CheckCircle2 class="sub-status-icon" size={23} />

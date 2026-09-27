@@ -4,6 +4,7 @@
   import { Tooltip } from "$components/ui/primitives.js";
 
   import AppModeContent from "./webapp/AppModeContent.svelte";
+  import ThemeEffectsHost from "./webapp/ThemeEffectsHost.svelte";
 
   import {
     MANUAL_LOGOUT_FLAG_KEY,
@@ -798,3 +799,21 @@
     {/if}
   {/key}
 </Tooltip.Provider>
+
+<ThemeEffectsHost
+  client={dataClient.apiClient}
+  enabled={mode === "app" && !isAdmin && Boolean(user?.user_id)}
+  identity={String(user?.user_id || "")}
+  themeKey={resolvedThemeKey}
+  {t}
+  context={{
+    variant: effectiveThemeEntry?.active_variant === "light" ? "light" : "dark",
+    colors: Object.fromEntries(
+      Object.entries(effectiveThemeEntry?.tokens || {}).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string"
+      )
+    ),
+    language: currentLang,
+    reducedMotion: false,
+  }}
+/>

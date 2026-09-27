@@ -124,6 +124,7 @@ export default defineConfig({
             { label: 'Работа без Telegram', slug: 'features/telegram-optional' },
             { label: 'Темы и внешний вид', slug: 'features/webapp-themes' },
             { label: 'Создание и публикация тем', slug: 'features/theme-packages' },
+            { label: 'JavaScript-эффекты тем', slug: 'features/theme-effects' },
             { label: 'Уведомления', slug: 'features/notifications' },
             { label: 'Поддержка/тикеты', slug: 'features/support' },
             { label: 'Статус серверов', slug: 'features/server-status' },

@@ -23,6 +23,7 @@ from bot.app.web.route_contracts import (
 from bot.app.web.webapp.cache_helpers import refresh_webapp_runtime_after_settings_change
 from config.theme_packages.models import (
     MAX_ARCHIVE,
+    EffectsRequest,
     ExportRequest,
     ImportOut,
     InstallRequest,
@@ -330,7 +331,59 @@ async def cleanup_jobs(app: web.Application) -> None:
         await asyncio.gather(*jobs, return_exceptions=True)
 
 
+@package_route
+async def admin_theme_effects_route(request: web.Request) -> web.Response:
+    from config.theme_packages.effects_runtime import change_effects
+
+    body = await parse_body_or_400(request, EffectsRequest)
+    result = await asyncio.to_thread(
+        change_effects,
+        root_for(request),
+        request.match_info["key"],
+        _require_admin_user_id(request),
+        body,
+    )
+    return await refreshed(request, result)
+
+
+@package_route
+async def admin_theme_effects_preview_route(request: web.Request) -> web.Response:
+    from config.theme_packages.effects_preview import effects_preview
+
+    page = await asyncio.to_thread(
+        effects_preview,
+        root_for(request),
+        request.match_info["key"],
+        _require_admin_user_id(request),
+        request.match_info.get("operation_id", ""),
+    )
+    return web.Response(
+        text=page,
+        content_type="text/html",
+        headers={
+            "Content-Security-Policy": (
+                "sandbox allow-scripts; frame-ancestors 'self' https://web.telegram.org https://t.me"
+            ),
+            "Cache-Control": "private, no-store",
+            "Referrer-Policy": "no-referrer",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+async def admin_theme_import_effects_preview_route(request: web.Request) -> web.Response:
+    return await admin_theme_effects_preview_route(request)
+
+
 def setup_theme_library(router: web.UrlDispatcher) -> None:
+    router.add_get(
+        "/api/admin/themes/library/{key}/effects-preview", admin_theme_effects_preview_route
+    )
+    router.add_get(
+        "/api/admin/themes/imports/{operation_id}/effects-preview/{key}",
+        admin_theme_import_effects_preview_route,
+    )
+    router.add_put("/api/admin/themes/library/{key}/effects", admin_theme_effects_route)
     router.add_get("/api/admin/themes/library", admin_theme_library_route)
     router.add_post("/api/admin/themes/imports", admin_theme_import_route)
     router.add_get("/api/admin/themes/imports/{operation_id}", admin_theme_import_status_route)
@@ -366,6 +419,18 @@ def contract(
 
 
 contract(admin_theme_library_route, LibraryOut)
+register_contract(
+    "admin_theme_import_effects_preview_route",
+    RouteContract(response_schema={"type": "string"}, response_content_type="text/html"),
+)
+register_contract(
+    "admin_theme_effects_preview_route",
+    RouteContract(
+        response_schema={"type": "string"},
+        response_content_type="text/html",
+    ),
+)
+contract(admin_theme_effects_route, MutationOut, EffectsRequest)
 contract(admin_theme_import_status_route, ImportOut)
 contract(admin_theme_import_cancel_route, ImportOut)
 contract(admin_theme_install_route, MutationOut, InstallRequest)

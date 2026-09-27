@@ -1,0 +1,17 @@
+{
+  "key": "tilt",
+  "names": {
+    "en": "Tilt",
+    "ru": "Tilt"
+  },
+  "enabled": true,
+  "default": false,
+  "use_in_admin": false,
+  "tokens": {
+    "bg": "#10141d",
+    "card": "#17202b",
+    "text": "#f3f6fc",
+    "accent": "#38a4c8"
+  },
+  "css_file": "theme.css"
+}

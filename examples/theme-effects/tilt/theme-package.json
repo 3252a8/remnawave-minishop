@@ -1,0 +1,22 @@
+{
+  "schema_version": 2,
+  "version": "1.0.0",
+  "license": "MIT",
+  "author": {
+    "name": "3252a8"
+  },
+  "description": {
+    "en": "Bundled decorative effect with a CSS fallback."
+  },
+  "compatibility": {
+    "theme_api": 1
+  },
+  "effects": {
+    "api_version": 1,
+    "runtime": "trusted-dom",
+    "entry": "effects/main.js",
+    "targets": [
+      "home.header.surface"
+    ]
+  }
+}

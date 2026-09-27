@@ -13,6 +13,7 @@ from pydantic import JsonValue, ValidationError
 from config.webapp_themes_models import WebappTheme, WebappThemesConfig
 
 from .archive import content_digest
+from .effects import effects_allowed
 from .models import (
     BUILTINS,
     MAX_STORAGE,
@@ -41,6 +42,14 @@ def read_registry(root: Path) -> Registry:
 
 
 def write_registry(root: Path, state: Registry) -> None:
+    if state.schema_version == 1:
+        original = confined(root, "_registry/current.json")
+        backup = confined(root, "_registry/before-effects-v2.json")
+        if original.is_file() and not backup.exists():
+            from .paths import atomic_bytes
+
+            atomic_bytes(backup, original.read_bytes())
+        state.schema_version = 2
     state.retired = {
         key: {digest: until for digest, until in versions.items() if until > time.time()}
         for key, versions in state.retired.items()
@@ -89,6 +98,9 @@ def managed_themes(root: Path) -> list[WebappTheme]:
 
 
 def asset_path(root: Path, relative: Path) -> tuple[Path, str, str, str]:
+    # Executable files are served only by the authenticated active-effect route.
+    if relative.suffix.lower() in {".js", ".mjs", ".html"}:
+        raise PackageError("theme_asset_not_found", status=404)
     parts = relative.parts
     state = read_registry(root)
     if (
@@ -270,6 +282,8 @@ def library(root: Path, catalog: WebappThemesConfig) -> LibraryOut:
             item.digest = entry.digest
             item.source = entry.source
             item.metadata = entry.metadata
+            item.effects_digest = entry.effects_digest
+            item.effects_enabled = effects_allowed(state, theme.key, entry)
             item.can_rollback = bool(entry.history)
             item.modified = (
                 content_digest(confined(root, f"_packages/{entry.digest}")) != entry.digest

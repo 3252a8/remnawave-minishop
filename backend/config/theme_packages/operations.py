@@ -34,6 +34,7 @@ from .models import (
     InstallRequest,
     MutationOut,
     PackageError,
+    PackageMetadata,
     ThemeSource,
 )
 from .paths import atomic_model, confined, registry_lock
@@ -171,6 +172,8 @@ def cancel_import(root: Path, operation_id: str, actor: int) -> ImportRecord:
 def install_import(
     root: Path, operation_id: str, actor: int, request: InstallRequest
 ) -> MutationOut:
+    from .effects import set_permission
+
     with registry_lock(root):
         record = get_import(root, operation_id, actor)
         state = read_registry(root)
@@ -210,6 +213,7 @@ def install_import(
                 raise PackageError("theme_requires_adoption", choice.key, 409)
             entry = InstalledTheme(
                 digest=candidate.digest,
+                effects_digest=candidate.effects_digest,
                 metadata=candidate.metadata,
                 source=record.source,
                 installed_at=time.time(),
@@ -254,6 +258,15 @@ def install_import(
                     }
                 ).overrides
                 entry.adopted_digest = content_digest(legacy)
+            set_permission(
+                state,
+                candidate.key,
+                entry,
+                enabled=choice.effects == "allow",
+                digest=choice.effects_digest,
+                policy=choice.effects_policy,
+                actor=actor,
+            )
             choices.append((candidate, entry))
         require_capacity(root, sum(item.size for item, _entry in choices))
         for candidate, entry in choices:
@@ -304,6 +317,7 @@ def remove_theme(root: Path, key: str, generation: int, active_key: str) -> Muta
         }
         state.removed.append(key)
         state.preferences.pop(key, None)
+        state.effects.pop(key, None)
         del state.entries[key]
         preview_file(root, key).unlink(missing_ok=True)
         write_registry(root, state)
@@ -354,10 +368,24 @@ def export_themes(root: Path, request: ExportRequest) -> bytes:
             if not folder.is_dir():
                 raise PackageError("theme_not_found", key, 404)
             new_key = request.new_key or key
+            package_metadata_path = folder / "theme-package.json"
+            package_metadata = (
+                entry.metadata
+                if entry
+                else (
+                    PackageMetadata.model_validate_json(package_metadata_path.read_bytes())
+                    if package_metadata_path.is_file()
+                    else PackageMetadata()
+                )
+            )
             for path in sorted(folder.rglob("*")):
                 if path.is_symlink():
                     raise PackageError("unsafe_path", path.name)
-                if not path.is_file() or not allowed_file(path):
+                declared_script = bool(
+                    package_metadata.effects
+                    and path.relative_to(folder).as_posix() == package_metadata.effects.entry
+                )
+                if not path.is_file() or not (allowed_file(path) or declared_script):
                     continue
                 name = path.relative_to(folder).as_posix()
                 content = path.read_bytes()

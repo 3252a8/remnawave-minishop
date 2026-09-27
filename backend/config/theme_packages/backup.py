@@ -98,4 +98,5 @@ def restore_themes(prepared: Path, target: Path) -> None:
         incoming.removed = sorted(set(incoming.removed) | (old_keys - restored_keys))
         incoming.generation = max(current.generation, incoming.generation)
         incoming.completed.clear()
+        incoming.effects.clear()
         write_registry(target, incoming)

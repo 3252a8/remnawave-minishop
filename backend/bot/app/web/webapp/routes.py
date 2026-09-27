@@ -175,6 +175,7 @@ from .support import (
 from .telegram_notifications import (
     account_telegram_notifications_probe_route,
 )
+from .theme_effects import theme_effect_asset_route, theme_effects_route
 
 register_webapp_route_contracts()
 
@@ -194,6 +195,10 @@ async def plugin_admin_index_route(request: web.Request) -> web.Response:
 
 
 def setup_subscription_webapp_routes(app: web.Application) -> None:
+    app.router.add_get("/api/theme-effects", theme_effects_route)
+    app.router.add_get(
+        "/api/theme-effects/assets/{key}/{digest}/{path:.+}", theme_effect_asset_route
+    )
     app.router.add_get("/robots.txt", robots_txt_route)
     app.router.add_get("/", index_route)
     app.router.add_get("/login/password", index_route)

@@ -27,6 +27,7 @@
   import type { ThemeInstallation } from "$lib/admin/stores/themeLibraryStore.svelte";
   import AppearanceThemePreview from "./AppearanceThemePreview.svelte";
   import AppearanceImportDialog from "./AppearanceImportDialog.svelte";
+  import AppearanceEffectsSettings from "./AppearanceEffectsSettings.svelte";
   import "./AppearanceLibrary.css";
   type LibraryTheme = {
     entry: ThemeEntry;
@@ -305,6 +306,9 @@
                         ))}
             </p>
             <small class="theme-source" title={theme.source}>{theme.source}</small>
+            {#if theme.installation?.metadata?.effects}
+              <AppearanceEffectsSettings item={theme.installation} {at} />
+            {/if}
             <div class="theme-card-actions">
               <AdminButton
                 size="sm"

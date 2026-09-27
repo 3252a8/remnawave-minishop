@@ -1,6 +1,7 @@
 import type { components } from "../../api/openapi.generated";
 import {
   buildThemeImportPath,
+  buildThemeEffectsPath,
   buildThemeInstallPath,
   buildThemeLibraryItemPath,
   buildThemeRollbackPath,
@@ -198,10 +199,32 @@ export function createThemeLibraryStore(options: {
       setTimeout(() => URL.revokeObjectURL(url), 30_000);
     });
   }
+  async function setEffects(item: ThemeInstallation, enabled: boolean) {
+    await run(async () => {
+      const result = await api(buildThemeEffectsPath(item.key), {
+        method: "PUT",
+        body: JSON.stringify({
+          expected_generation: generation,
+          enabled,
+          effects_digest: item.effects_digest,
+          effects_policy: item.effects_policy,
+        }),
+      });
+      if (!result?.ok) throw result;
+      await refresh();
+    });
+  }
   async function preview(key: string, variant: "light" | "dark", importId?: string) {
     if (!apiBlob) throw { error: "theme_preview_unavailable" };
     const blob = await apiBlob(buildThemePreviewPath(key, variant, importId));
     return URL.createObjectURL(blob);
+  }
+  async function previewEffects(key: string, importId?: string) {
+    if (!apiBlob) throw { error: "theme_preview_unavailable" };
+    const path = importId
+      ? `/admin/themes/imports/${encodeURIComponent(importId)}/effects-preview/${encodeURIComponent(key)}`
+      : `/admin/themes/library/${encodeURIComponent(key)}/effects-preview`;
+    return (await apiBlob(path)).text();
   }
   async function uploadPreview(key: string, file: Blob): Promise<string> {
     const body = new FormData();
@@ -243,9 +266,11 @@ export function createThemeLibraryStore(options: {
     inspect,
     cancel,
     install,
+    setEffects,
     mutate,
     exportThemes,
     preview,
+    previewEffects,
     uploadPreview,
     message,
     notify: flash,

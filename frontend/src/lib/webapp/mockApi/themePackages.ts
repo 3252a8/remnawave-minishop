@@ -119,8 +119,6 @@ export function readDemoZip(bytes: Uint8Array): DemoPackage[] {
         .filter(([file]) => file.startsWith(prefix))
         .map(([file, content]) => [file.slice(prefix.length), content])
     );
-    if (Object.keys(themeFiles).some((file) => /\.(?:js|html|exe|sh)$/i.test(file)))
-      throw { error: "unsupported_theme_file" };
     for (const [file, content] of Object.entries(themeFiles)) {
       if (/\.svg$/i.test(file)) assertSafeSvg(content);
     }
@@ -129,12 +127,25 @@ export function readDemoZip(bytes: Uint8Array): DemoPackage[] {
       ? (json(themeFiles["theme-package.json"]) as components["schemas"]["PackageMetadata"])
       : {
           author: null,
+          effects: null,
           homepage: "",
           license: "",
           preview: "",
           schema_version: 1 as const,
           version: "",
         };
+    if (
+      Object.keys(themeFiles).some(
+        (file) =>
+          /\.(?:js|html|exe|sh)$/i.test(file) &&
+          !(
+            metadata.schema_version === 2 &&
+            file === metadata.effects?.entry &&
+            file.endsWith(".js")
+          )
+      )
+    )
+      throw { error: "unsupported_theme_file" };
     return { theme, files: themeFiles, metadata };
   });
 }
@@ -149,6 +160,7 @@ async function builtinPackage(key: string): Promise<DemoPackage> {
         schema_version: 1,
         version: "",
         author: null,
+        effects: null,
         homepage: "",
         license: "",
         preview: "",
@@ -171,6 +183,8 @@ function samePackage(left: DemoPackage, right: DemoPackage): boolean {
     })
   );
 }
+// The public docs demo models consent UI, but never executes uploaded JavaScript.
+const effectsEnabled = new Set<string>();
 function installation(theme: Theme): Installation {
   const item = packages.get(theme.key);
   return {
@@ -180,6 +194,9 @@ function installation(theme: Theme): Installation {
     version: item?.metadata.version || "",
     metadata: item?.metadata || null,
     digest: "",
+    effects_digest: "",
+    effects_enabled: effectsEnabled.has(theme.key),
+    effects_policy: 1,
     modified: false,
     can_rollback: Boolean(history.get(theme.key)?.length),
     source:
@@ -268,6 +285,7 @@ async function handle(path: string, options: RequestInit): Promise<unknown> {
     const candidates: Candidate[] = items.map((item) => ({
       detail: "",
       digest: "",
+      effects_digest: "",
       size: Object.values(item.files).reduce((total, bytes) => total + bytes.length, 0),
       key: item.theme.key,
       path: item.theme.key,
@@ -300,6 +318,7 @@ async function handle(path: string, options: RequestInit): Promise<unknown> {
     const operation = operations.get(parts[4]);
     if (!operation) throw { error: "import_not_found" };
     if (Date.now() / 1000 - operation.record.created_at > 1800) throw { error: "import_expired" };
+    if (parts[5] === "effects-preview") throw { error: "theme_preview_unavailable" };
     if (parts[5] === "preview") {
       const item = operation.packages.find((item) => item.theme.key === parts[6]);
       if (!item || operation.record.state !== "ready") throw { error: "import_not_ready" };
@@ -332,6 +351,8 @@ async function handle(path: string, options: RequestInit): Promise<unknown> {
       for (const choice of choices) {
         const item = operation.packages.find((item) => item.theme.key === choice.key);
         if (!item) continue;
+        if (item.metadata.effects && choice.effects === "allow") effectsEnabled.add(choice.key);
+        else effectsEnabled.delete(choice.key);
         const previous = packages.get(choice.key);
         if (previous && !samePackage(previous, item))
           history.set(choice.key, [previous, ...(history.get(choice.key) || [])].slice(0, 5));
@@ -356,6 +377,7 @@ async function handle(path: string, options: RequestInit): Promise<unknown> {
   }
   if (parts[3] === "library" && parts[4]) {
     const key = decodeURIComponent(parts[4]);
+    if (parts[5] === "effects-preview") throw { error: "theme_preview_unavailable" };
     if (parts[5] === "preview") {
       if (method === "POST") {
         previewUrls.set(key, "/demo/runtime/themes/" + key + "/preview.webp?custom=1");
@@ -372,11 +394,19 @@ async function handle(path: string, options: RequestInit): Promise<unknown> {
     const body = payload(options);
     if (body.expected_generation !== generation) throw { error: "catalog_changed" };
     if (protectedKeys.has(key)) throw { error: "protected_theme" };
+    if (parts[5] === "effects") {
+      if (body.enabled === true) effectsEnabled.add(key);
+      else effectsEnabled.delete(key);
+      generation++;
+      return { ok: true, generation, keys: [key] };
+    }
     if (method === "DELETE") {
       if (DEV_MOCK.config.themesCatalog?.default_theme === key) throw { error: "active_theme" };
       packages.delete(key);
+      effectsEnabled.delete(key);
       save(themes().filter((theme) => theme.key !== key));
     } else if (parts[5] === "rollback") {
+      effectsEnabled.delete(key);
       const previous = history.get(key)?.shift();
       if (!previous) throw { error: "no_previous_version" };
       const current = packages.get(key);
