@@ -111,9 +111,7 @@ class LogUserContextTests(IsolatedAsyncioTestCase):
                             self.assertEqual(len(matching), 1, (method, field, lines))
                         keyboard = call.kwargs["reply_markup"]
                         urls = [button.url for row in keyboard.inline_keyboard for button in row]
-                        self.assertIn(
-                            f"https://t.me/shop_bot?startapp=admin_user_{PUBLIC_ID}", urls
-                        )
+                        self.assertIn(f"https://t.me/shop_bot?start=admin_user_{PUBLIC_ID}", urls)
                         self.assertIn("tg://user?id=123456", urls)
 
     async def test_email_only_user_has_card_without_fabricated_telegram_fields(self):
@@ -129,7 +127,7 @@ class LogUserContextTests(IsolatedAsyncioTestCase):
         self.assertEqual(len(keyboard.inline_keyboard), 1)
         self.assertEqual(
             keyboard.inline_keyboard[0][0].url,
-            f"https://t.me/shop_bot?startapp=admin_user_{PUBLIC_ID}",
+            f"https://t.me/shop_bot?start=admin_user_{PUBLIC_ID}",
         )
 
     async def test_registration_logs_identify_partner_for_telegram_email_and_oauth(self):
@@ -174,12 +172,24 @@ class LogUserContextTests(IsolatedAsyncioTestCase):
         self.assertEqual(len(fallback.inline_keyboard), 1)
         self.assertEqual(
             fallback.inline_keyboard[0][0].url,
-            f"https://t.me/shop_bot?startapp=admin_user_{PUBLIC_ID}",
+            f"https://t.me/shop_bot?start=admin_user_{PUBLIC_ID}",
         )
 
-    async def test_unresolved_bot_username_uses_card_callback(self):
+    async def test_unresolved_bot_username_uses_web_card_link(self):
         service = _service()
         service.bot_username = "YOUR_BOT_USERNAME"
+        keyboard = service._build_profile_keyboard(
+            lambda key: key, None, user_id=42, minishop_id=PUBLIC_ID
+        )
+        self.assertEqual(
+            keyboard.inline_keyboard[0][0].url,
+            f"https://app.example.test/app/admin/users/{PUBLIC_ID}",
+        )
+
+    async def test_no_bot_or_web_url_preserves_card_callback(self):
+        service = _service()
+        service.bot_username = ""
+        service.settings.SUBSCRIPTION_MINI_APP_URL = ""
         keyboard = service._build_profile_keyboard(
             lambda key: key, None, user_id=42, minishop_id=PUBLIC_ID
         )

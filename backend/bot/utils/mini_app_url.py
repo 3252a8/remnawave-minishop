@@ -92,6 +92,19 @@ def subscription_main_mini_app_deep_link(
     return f"https://t.me/{username}?startapp={parameter}"
 
 
+def bot_start_deep_link(bot_username: str | None, start_param: str) -> str | None:
+    """Open a bot private chat with a validated /start payload."""
+    username = str(bot_username or "").strip().lstrip("@")
+    parameter = str(start_param or "").strip()
+    if username.casefold() == "your_bot_username" or not _TELEGRAM_BOT_USERNAME_RE.fullmatch(
+        username
+    ):
+        return None
+    if not _MINI_APP_START_PARAM_RE.fullmatch(parameter):
+        return None
+    return f"https://t.me/{username}?start={parameter}"
+
+
 def subscription_mini_app_install_url(settings: Settings) -> str | None:
     """Return the personal embedded install guide URL."""
     return subscription_mini_app_path_url(settings, "/install")
