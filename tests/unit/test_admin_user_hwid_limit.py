@@ -504,12 +504,15 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertTrue(session.committed)
 
-    async def test_change_tariff_route_reports_active_tribute_recurrence(self):
+    async def test_change_tariff_route_allows_admin_tribute_override(self):
         session = FakeSession()
         active = SimpleNamespace(
             subscription_id=1, tariff_key="standard", provider="tribute", auto_renew_enabled=True
         )
-        subscription_service = SimpleNamespace(switch_tariff_without_payment=AsyncMock())
+        changed = SimpleNamespace(subscription_id=1, tariff_key="plus")
+        subscription_service = SimpleNamespace(
+            switch_tariff_without_payment=AsyncMock(return_value={"subscription_id": 1})
+        )
         settings = SimpleNamespace(
             tariffs_config=FakeTariffsConfig([SimpleNamespace(key="plus", billing_model="period")])
         )
@@ -525,18 +528,20 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
             patch.object(
                 admin_users.subscription_dal,
                 "get_active_subscription_by_user_id",
-                AsyncMock(return_value=active),
+                AsyncMock(side_effect=[active, changed]),
             ),
             patch.object(admin_users.message_log_dal, "create_message_log", AsyncMock()) as log,
+            patch.object(users_actions, "_invalidate_after_admin_user_mutation", AsyncMock()),
+            patch.object(
+                users_actions, "_serialize_subscription", return_value={"tariff_key": "plus"}
+            ),
         ):
             response = await admin_users.admin_user_tariff_route(request)
 
-        self.assertEqual(response.status, 409)
-        self.assertEqual(json.loads(response.text)["error"], "tribute_recurring_conflict")
-        self.assertTrue(session.rolled_back)
-        self.assertFalse(session.committed)
-        subscription_service.switch_tariff_without_payment.assert_not_awaited()
-        log.assert_not_awaited()
+        self.assertEqual(response.status, 200)
+        self.assertTrue(session.committed)
+        subscription_service.switch_tariff_without_payment.assert_awaited_once()
+        log.assert_awaited_once()
 
     async def test_change_tariff_route_rejects_switch_to_a_different_subscription(self):
         session = FakeSession()

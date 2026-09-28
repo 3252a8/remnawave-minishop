@@ -291,6 +291,13 @@ class TributeService(
             return False
         return shop_cancelled
 
+    async def cancel_shop_recurrence_for_user(self, session: AsyncSession, *, user_id: int) -> bool:
+        """Stop the Shop schedule before an administrator replaces its tariff."""
+        order_uuid = await tribute_dal.get_other_active_shop_order_uuid(
+            session, user_id=int(user_id)
+        )
+        return order_uuid is None or await self._cancel_shop_order(order_uuid)
+
     async def create_shop_order(
         self,
         *,

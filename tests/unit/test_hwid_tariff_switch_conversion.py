@@ -210,7 +210,7 @@ class HwidTariffSwitchConversionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(change_payload["converted_hwid_value_rub"], 50)
         self.assertEqual(change_payload["converted_hwid_days"], 7)
 
-    async def test_active_tribute_recurrence_blocks_every_tariff_switch_mode(self):
+    async def test_active_tribute_recurrence_blocks_customer_tariff_switch_modes(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             service = _service(_settings(tmpdir))
             user = SimpleNamespace(
@@ -242,7 +242,7 @@ class HwidTariffSwitchConversionTests(unittest.IsolatedAsyncioTestCase):
                     calculate,
                 ),
             ):
-                for mode in ("recalc_days", "paid_diff", "admin_assign"):
+                for mode in ("recalc_days", "paid_diff"):
                     with self.subTest(mode=mode):
                         result = await service.switch_tariff_without_payment(
                             AsyncMock(),
@@ -254,6 +254,51 @@ class HwidTariffSwitchConversionTests(unittest.IsolatedAsyncioTestCase):
                         self.assertIsNone(result)
 
             calculate.assert_not_awaited()
+
+    async def test_admin_tribute_switch_keeps_renewal_when_shop_cancellation_fails(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            service = _service(_settings(tmpdir))
+            user = SimpleNamespace(user_id=42, panel_user_uuid="panel-user")
+            sub = SimpleNamespace(
+                subscription_id=11,
+                user_id=42,
+                panel_user_uuid="panel-user",
+                tariff_key="basic",
+                provider="tribute",
+                auto_renew_enabled=True,
+            )
+            tribute_service = SimpleNamespace(
+                cancel_shop_recurrence_for_user=AsyncMock(return_value=False)
+            )
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.user_dal.get_user_by_id",
+                    AsyncMock(return_value=user),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.get_active_subscription_by_user_id",
+                    AsyncMock(return_value=sub),
+                ),
+                patch(
+                    "db.dal.tribute_dal.get_other_active_shop_order_uuid",
+                    AsyncMock(return_value="shop-order"),
+                ),
+                patch(
+                    "bot.infra.auto_renew.managed_recurring_service_for",
+                    return_value=tribute_service,
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.set_auto_renew",
+                    AsyncMock(),
+                ) as set_auto_renew,
+            ):
+                result = await service.switch_tariff_without_payment(
+                    AsyncMock(), 42, "pro", "admin_assign"
+                )
+
+            self.assertIsNone(result)
+            tribute_service.cancel_shop_recurrence_for_user.assert_awaited_once()
+            set_auto_renew.assert_not_awaited()
 
     async def test_active_wata_recurrence_must_stop_before_tariff_switch(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -383,7 +428,7 @@ class HwidTariffSwitchConversionTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(update_data["skip_notifications"])
         self.assertFalse(update_data["suppress_early_expiry_notifications"])
 
-    async def test_admin_assign_can_apply_target_tariff_hwid_limit(self):
+    async def test_admin_assign_overrides_creator_renewal_and_applies_hwid_limit(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _settings(tmpdir)
             service = _service(settings)
@@ -414,6 +459,8 @@ class HwidTariffSwitchConversionTests(unittest.IsolatedAsyncioTestCase):
                 traffic_used_bytes=0,
                 extra_hwid_devices=1,
                 hwid_device_limit=0,
+                provider="tribute",
+                auto_renew_enabled=True,
             )
             updated = SimpleNamespace(**{**sub.__dict__, "tariff_key": "pro"})
             updated.hwid_device_limit = 5
@@ -447,6 +494,14 @@ class HwidTariffSwitchConversionTests(unittest.IsolatedAsyncioTestCase):
                     "bot.services.subscription_service_impl.lifecycle.tariff_dal.create_tariff_change",
                     AsyncMock(),
                 ),
+                patch(
+                    "db.dal.tribute_dal.get_other_active_shop_order_uuid",
+                    AsyncMock(return_value=None),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.set_auto_renew",
+                    AsyncMock(),
+                ) as set_auto_renew,
             ):
                 result = await service.switch_tariff_without_payment(
                     AsyncMock(),
@@ -457,6 +512,7 @@ class HwidTariffSwitchConversionTests(unittest.IsolatedAsyncioTestCase):
                 )
 
         self.assertEqual(result["tariff_key"], "pro")
+        set_auto_renew.assert_awaited_once()
         update_data = update_subscription.await_args.args[2]
         self.assertEqual(update_data["hwid_device_limit"], 5)
         panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]

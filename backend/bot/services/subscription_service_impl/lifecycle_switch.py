@@ -232,11 +232,37 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
         if str(getattr(sub, "provider", "") or "").strip().lower() == "tribute" and bool(
             getattr(sub, "auto_renew_enabled", False)
         ):
-            logger.warning(
-                "Rejecting tariff switch for user %s while Tribute recurrence is active",
-                user_id,
+            if mode != "admin_assign":
+                logger.warning(
+                    "Rejecting tariff switch for user %s while Tribute recurrence is active",
+                    user_id,
+                )
+                return None
+            from bot.infra.auto_renew import managed_recurring_service_for
+            from db.dal import tribute_dal
+
+            tribute_service = managed_recurring_service_for(self, "tribute")
+            shop_order = await tribute_dal.get_other_active_shop_order_uuid(
+                session, user_id=user_id
             )
-            return None
+            if shop_order is not None and (
+                tribute_service is None
+                or not await tribute_service.cancel_shop_recurrence_for_user(
+                    session, user_id=user_id
+                )
+            ):
+                logger.warning(
+                    "Rejecting admin tariff switch for user %s: "
+                    "Tribute Shop recurrence could not stop",
+                    user_id,
+                )
+                return None
+            await subscription_dal.set_auto_renew(
+                session,
+                int(sub.subscription_id),
+                False,
+                stop_reason="admin_tariff_change",
+            )
         if str(getattr(sub, "provider", "") or "").strip().lower() == "wata" and bool(
             getattr(sub, "auto_renew_enabled", False)
         ):
