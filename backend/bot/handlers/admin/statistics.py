@@ -13,6 +13,7 @@ from bot.middlewares.i18n import JsonI18n
 from bot.payment_providers import pending_statuses
 from bot.services.panel_api_service import PanelApiService
 from bot.utils.callback_answer import callback_bot, callback_message
+from bot.utils.mini_app_url import subscription_main_mini_app_deep_link
 from config.settings import Settings
 from config.tariffs_config import default_payment_currency_code_for_settings
 from db.dal import panel_sync_dal, payment_dal, user_dal
@@ -23,20 +24,21 @@ logger = logging.getLogger(__name__)
 router = Router(name="admin_statistics_router")
 
 
-def _format_rating_user_label(user_row: dict[str, object], bot_username: str | None = None) -> str:
+def _format_rating_user_label(
+    user_row: dict[str, object], settings: Settings, bot_username: str | None = None
+) -> str:
     user_id = int(str(user_row.get("user_id", 0) or 0))
     public_id = str(user_row.get("minishop_id") or "—")
     username = user_row.get("username")
     first_name = user_row.get("first_name")
-    user_id_text = str(user_id)
     user_id_html = html.escape(public_id)
 
-    if bot_username:
-        safe_bot_username = html.escape(bot_username)
-        user_id_html = (
-            f'<a href="https://t.me/{safe_bot_username}?start=admin_user_{user_id_text}">'
-            f"{user_id_html}</a>"
-        )
+    reference = public_id if public_id != "—" else str(user_id)
+    mini_app_link = subscription_main_mini_app_deep_link(
+        settings, bot_username, f"admin_user_{reference}"
+    )
+    if mini_app_link:
+        user_id_html = f'<a href="{html.escape(mini_app_link, quote=True)}">{user_id_html}</a>'
 
     parts: list[str] = []
     if username:
@@ -362,7 +364,7 @@ async def show_user_ratings_handler(
                 _(
                     "admin_user_ratings_traffic_item",
                     rank=idx,
-                    user=_format_rating_user_label(row, bot_username),
+                    user=_format_rating_user_label(row, settings, bot_username),
                     traffic_gb=f"{traffic_gb:.2f}",
                 )
             )
@@ -377,7 +379,7 @@ async def show_user_ratings_handler(
                 _(
                     "admin_user_ratings_traffic_item",
                     rank=idx,
-                    user=_format_rating_user_label(row, bot_username),
+                    user=_format_rating_user_label(row, settings, bot_username),
                     traffic_gb=f"{traffic_gb:.2f}",
                 )
             )
@@ -391,7 +393,7 @@ async def show_user_ratings_handler(
                 _(
                     "admin_user_ratings_invited_item",
                     rank=idx,
-                    user=_format_rating_user_label(row, bot_username),
+                    user=_format_rating_user_label(row, settings, bot_username),
                     invited_count=int(row.get("invited_count") or 0),
                 )
             )
@@ -405,7 +407,7 @@ async def show_user_ratings_handler(
                 _(
                     "admin_user_ratings_revenue_item",
                     rank=idx,
-                    user=_format_rating_user_label(row, bot_username),
+                    user=_format_rating_user_label(row, settings, bot_username),
                     revenue=f"{float(row.get('referral_revenue') or 0):.2f}",
                 )
             )
