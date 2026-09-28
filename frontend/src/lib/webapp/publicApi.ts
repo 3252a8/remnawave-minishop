@@ -611,6 +611,13 @@ export function buildAdminBackupsPath(): AdminBackupsPath {
   return "/admin/backups";
 }
 
+export type AdminBackupDetailPath = BuiltApiPath<"/api/admin/backup-archives/{archive_name}">;
+export function buildAdminBackupDetailPath(name: string): AdminBackupDetailPath {
+  return builtApiPath<"/api/admin/backup-archives/{archive_name}">(
+    `/admin/backup-archives/${encodeURIComponent(name)}`
+  );
+}
+
 export type AdminBackupsCreatePath = "/admin/backups/create";
 export function buildAdminBackupsCreatePath(): AdminBackupsCreatePath {
   return "/admin/backups/create";

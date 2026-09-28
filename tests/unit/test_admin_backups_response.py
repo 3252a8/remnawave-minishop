@@ -1,8 +1,11 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
-from bot.app.web.admin_api_impl.response_schemas import AdminBackupArchiveOut
-from bot.services.backup_restore_service import BackupArchiveInfo
+from bot.app.web.admin_api_impl.response_schemas import (
+    AdminBackupArchiveOut,
+    AdminBackupArchiveSummaryOut,
+)
+from bot.services.backup_restore_service import BackupArchiveInfo, BackupArchiveSummary
 
 
 def test_backup_archive_response_omits_internal_integrity_records() -> None:
@@ -31,3 +34,17 @@ def test_backup_archive_response_omits_internal_integrity_records() -> None:
         "format_version": 1,
     }
     assert archive.manifest["archive"] == {"files": file_records}
+
+
+def test_backup_archive_summary_response_contains_only_file_metadata() -> None:
+    summary = BackupArchiveSummary(
+        name="minishop-backup.zip",
+        size_bytes=4096,
+        modified_at=datetime(2026, 9, 2, tzinfo=UTC),
+    )
+
+    assert AdminBackupArchiveSummaryOut.from_summary(summary).model_dump(mode="json") == {
+        "name": "minishop-backup.zip",
+        "size_bytes": 4096,
+        "modified_at": "2026-09-02T00:00:00+00:00",
+    }

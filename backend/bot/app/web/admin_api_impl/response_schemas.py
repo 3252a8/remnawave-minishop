@@ -8,7 +8,11 @@ from typing import Any, cast
 from pydantic import ConfigDict, Field
 
 from bot.app.web.http_contracts import HttpResponseModel
-from bot.services.backup_restore_service import BackupArchiveInfo, BackupRestoreResult
+from bot.services.backup_restore_service import (
+    BackupArchiveInfo,
+    BackupArchiveSummary,
+    BackupRestoreResult,
+)
 from bot.services.backup_worker import BackupResult
 from config.webapp_themes_config import WebappThemesConfig
 
@@ -35,6 +39,20 @@ class AdminBackupArchiveOut(HttpResponseModel):
             key: value for key, value in archive.manifest.items() if key != "archive"
         }
         return cls.model_validate(payload)
+
+
+class AdminBackupArchiveSummaryOut(HttpResponseModel):
+    name: str
+    size_bytes: int
+    modified_at: str
+
+    @classmethod
+    def from_summary(cls, summary: BackupArchiveSummary) -> AdminBackupArchiveSummaryOut:
+        return cls(
+            name=summary.name,
+            size_bytes=summary.size_bytes,
+            modified_at=summary.modified_at.isoformat(),
+        )
 
 
 class AdminBackupCreateResultOut(HttpResponseModel):
@@ -72,7 +90,11 @@ class AdminBackupRestoreResultOut(HttpResponseModel):
 
 class AdminBackupsListOut(HttpResponseModel):
     backup_dir: str
-    archives: list[AdminBackupArchiveOut]
+    archives: list[AdminBackupArchiveSummaryOut]
+
+
+class AdminBackupDetailOut(HttpResponseModel):
+    archive: AdminBackupArchiveOut
 
 
 class AdminBackupCreateOut(HttpResponseModel):

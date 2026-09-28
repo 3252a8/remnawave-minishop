@@ -559,7 +559,22 @@ export function demoApiResponse(
     return { ok: true, campaign: clone(campaign) };
   }
 
-  if (cleanPath === "/admin/backups") return clone(DATASET.backups);
+  if (cleanPath === "/admin/backups") {
+    const backups = clone(DATASET.backups);
+    return {
+      ...backups,
+      archives: backups?.archives?.map((archive) => ({
+        name: archive.name,
+        size_bytes: archive.size_bytes,
+        modified_at: archive.modified_at || archive.created_at,
+      })),
+    };
+  }
+  if (cleanPath.startsWith("/admin/backup-archives/")) {
+    const name = decodeURIComponent(cleanPath.slice("/admin/backup-archives/".length));
+    const archive = DATASET.backups?.archives?.find((item) => item.name === name);
+    return archive ? { ok: true, archive: clone(archive) } : { ok: false, error: "not_found" };
+  }
   if (cleanPath === "/admin/backups/create") {
     const archive = clone(DATASET.backups?.archives?.[0] || {}) as DemoRecord;
     archive.name = `minishop-demo-${Date.now()}.zip`;

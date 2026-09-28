@@ -2229,7 +2229,6 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   const errors = trackErrors(page, () => phase);
 
   // Exercise the separately mounted admin bundle with a warning-bearing archive.
-  // A warning-free listing never creates Tooltip.Root and hides missing context.
   await page.addInitScript(() => {
     type AdminProps = Record<string, unknown> & {
       api: (path: string, options?: RequestInit) => Promise<Record<string, unknown>>;
@@ -2248,13 +2247,10 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
             ...props,
             api: async (path, options) => {
               const response = await props.api(path, options);
-              if (path === "/admin/backups" && Array.isArray(response.archives)) {
+              if (path.startsWith("/admin/backup-archives/") && response.archive) {
                 return {
                   ...response,
-                  archives: response.archives.map((archive, index) => ({
-                    ...archive,
-                    warnings: index === 0 ? ["Archive warning fixture"] : [],
-                  })),
+                  archive: { ...response.archive, warnings: ["Archive warning fixture"] },
                 };
               }
               return response;
@@ -2390,19 +2386,16 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
 
   setPhase("admin-backups:archive-contents");
   const backupsStage = await openAdminSection(page, "backups");
+  await expect(backupsStage.getByRole("checkbox", { name: "БД" })).toBeDisabled();
+  await expect(backupsStage.locator(".backups-badges")).toHaveCount(0);
+  await expect(backupsStage.getByRole("radio")).toHaveCount(2);
+  await backupsStage.getByRole("radio").first().click();
   await expect(backupsStage.getByRole("checkbox", { name: "БД" })).toBeEnabled();
   await expect(backupsStage.getByRole("checkbox", { name: "compose-папка" })).toBeEnabled();
   await expect(backupsStage.locator(".backups-badges").first()).toContainText("БД");
   await expect(backupsStage.locator(".backups-badges").first()).toContainText("Compose");
-  const backupWarning = backupsStage.getByRole("button", { name: "Archive warning fixture" });
-  await backupWarning.press("Shift+Tab");
-  await page.keyboard.press("Tab");
-  await expect(backupWarning).toBeFocused();
-  const backupTooltip = page.locator(".backups-warning-tooltip");
-  await expect(backupTooltip).toBeVisible();
-  await expect(backupTooltip).toContainText("Archive warning fixture");
-  await page.keyboard.press("Escape");
-  await expect(backupTooltip).toHaveCount(0);
+  const backupWarning = backupsStage.getByText("Archive warning fixture");
+  await expect(backupWarning).toBeVisible();
   await backupsStage.getByRole("button", { name: "Обновить", exact: true }).click();
   await expect(backupWarning).toBeVisible();
   await expect(backupsStage.getByRole("radio")).toHaveCount(2);

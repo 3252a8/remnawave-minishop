@@ -105,6 +105,26 @@ def test_backup_restore_service_lists_archives_with_contents(tmp_path):
     assert archives[0].compose_files_count == 2
 
 
+def test_backup_archive_summary_does_not_open_archives(tmp_path, monkeypatch):
+    compose_dir = tmp_path / "compose"
+    compose_dir.mkdir()
+    settings = _settings(tmp_path, compose_dir)
+    backup_dir = Path(settings.BACKUP_DIR)
+    backup_dir.mkdir()
+    archive_path = backup_dir / "minishop-20260928-20-00.zip"
+    archive_path.write_bytes(b"not a zip")
+    (backup_dir / "other.txt").write_text("ignore", encoding="utf-8")
+    monkeypatch.setattr(
+        "bot.services.backup_restore_service.zipfile.ZipFile",
+        lambda *_args, **_kwargs: pytest.fail("listing opened an archive"),
+    )
+
+    summaries = BackupRestoreService(settings).list_archive_summaries()
+
+    assert [item.name for item in summaries] == [archive_path.name]
+    assert summaries[0].size_bytes == archive_path.stat().st_size
+
+
 def test_backup_restore_service_rejects_path_traversal_archive_name(tmp_path):
     settings = _settings(tmp_path, tmp_path / "compose")
     service = BackupRestoreService(settings)

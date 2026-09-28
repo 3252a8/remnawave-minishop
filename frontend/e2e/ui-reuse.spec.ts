@@ -178,8 +178,10 @@ for (const [device, viewport] of [
         const radios = page.getByRole("radio");
         const choices = page.locator(".backups-archive-choice");
         await expect(radios).toHaveCount(2);
+        await expect(page.getByRole("checkbox", { name: "БД" })).toBeDisabled();
         await choices.nth(1).locator("span").last().click();
         await expect(radios.nth(1)).toBeChecked();
+        await expect(page.getByRole("checkbox", { name: "БД" })).toBeEnabled();
         await expect(page.locator(".backups-selected-name")).toHaveText(
           await choices.nth(1).innerText()
         );
@@ -190,7 +192,7 @@ for (const [device, viewport] of [
         await expect(confirmation).toHaveValue("");
         await noOverflow(page.locator(".backups-table"));
         if (device === "mobile") {
-          await expect(page.locator(".backups-warnings.is-empty").first()).toBeHidden();
+          await expect(page.locator(".backups-table thead th")).toHaveCount(3);
           const target = await choices.first().boundingBox();
           expect(target?.height).toBeGreaterThanOrEqual(44);
         }

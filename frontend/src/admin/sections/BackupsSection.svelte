@@ -21,9 +21,13 @@
     TriangleAlert,
     Upload,
   } from "$components/ui/icons.js";
-  import { Label, Tooltip } from "$components/ui/primitives.js";
+  import { Label } from "$components/ui/primitives.js";
   import { TableHandler } from "@vincjo/datatables";
-  import type { BackupArchive, BackupRestoreResult } from "../../lib/admin/stores/backupsStore";
+  import type {
+    BackupArchive,
+    BackupArchiveSummary,
+    BackupRestoreResult,
+  } from "../../lib/admin/stores/backupsStore";
   import { sortAdminRows, type AdminSortColumn } from "$lib/admin/tableSort.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -37,24 +41,29 @@
   } = $props();
 
   const BACKUPS_PAGE_SIZE = 10;
-  const backupsTable = new TableHandler<BackupArchive>([], { rowsPerPage: BACKUPS_PAGE_SIZE });
+  const backupsTable = new TableHandler<BackupArchiveSummary>([], {
+    rowsPerPage: BACKUPS_PAGE_SIZE,
+  });
   const backupsStore = getBackupsStore();
   let backupsSort = $state("created_desc");
 
   let selectedName = $state("");
+  let selectedDetails = $state<BackupArchive | null>(null);
+  let detailsLoading = $state(false);
+  let inspectionToken = 0;
   let restoreDatabase = $state(false);
   let restoreCompose = $state(false);
   let restoreConfirmation = $state("");
   let fileInput = $state<HTMLInputElement | null>(null);
 
-  const archives = $derived((backupsStore.archives || []) as BackupArchive[]);
+  const archives = $derived((backupsStore.archives || []) as BackupArchiveSummary[]);
   const backupDir = $derived(String(backupsStore.backupDir || ""));
   const backupsCreating = $derived(Boolean(backupsStore.backupsCreating));
   const backupsLoading = $derived(Boolean(backupsStore.backupsLoading));
   const backupsUploading = $derived(Boolean(backupsStore.backupsUploading));
   const backupsRestoring = $derived(Boolean(backupsStore.backupsRestoring));
   const lastRestore = $derived(backupsStore.lastRestore as BackupRestoreResult | null);
-  const totalArchives = $derived(archives?.length || 0);
+  const totalArchives = $derived(archives.length);
   const backupSortColumns = [
     {
       asc: "archive_asc",
@@ -66,8 +75,7 @@
       asc: "created_asc",
       desc: "created_desc",
       defaultDirection: "desc",
-      value: (archive) =>
-        archive.created_at || archive.modified_at || archive.created_at_local || "",
+      value: (archive) => archive.modified_at || "",
     },
     {
       asc: "size_asc",
@@ -75,19 +83,7 @@
       defaultDirection: "desc",
       value: (archive) => archive.size_bytes,
     },
-    {
-      asc: "contents_asc",
-      desc: "contents_desc",
-      defaultDirection: "desc",
-      value: (archive) => [archive.has_database, archive.has_compose],
-    },
-    {
-      asc: "warnings_asc",
-      desc: "warnings_desc",
-      defaultDirection: "desc",
-      value: (archive) => archive.warnings?.length || 0,
-    },
-  ] satisfies AdminSortColumn<BackupArchive>[];
+  ] satisfies AdminSortColumn<BackupArchiveSummary>[];
   const sortedArchives = $derived(sortAdminRows(archives, backupsSort, backupSortColumns));
 
   $effect(() => {
@@ -104,19 +100,13 @@
     );
   });
   $effect(() => {
-    if (selectedName || !archives?.length) return;
-    selectedName = archives[0].name;
-    backupsTable.setPage(1);
-  });
-  $effect(() => {
-    if (!selectedName || !archives?.length) return;
+    if (!selectedName) return;
     if (archives.some((item) => item.name === selectedName)) return;
-    selectedName = archives[0].name;
+    selectedName = "";
+    selectedDetails = null;
     backupsTable.setPage(1);
   });
-  const selectedArchive = $derived(
-    (archives || []).find((item) => item.name === selectedName) || null
-  );
+  const selectedArchive = $derived(selectedDetails?.name === selectedName ? selectedDetails : null);
   $effect(() => {
     if (!selectedArchive) return;
     if (restoreDatabase && !selectedArchive.has_database) restoreDatabase = false;
@@ -139,8 +129,6 @@
     at("backups_col_archive", {}, "Archive"),
     at("backups_col_created", {}, "Created"),
     at("backups_col_size", {}, "Size"),
-    at("backups_col_contents", {}, "Contents"),
-    at("backups_col_warnings", {}, "Warnings"),
   ]);
 
   function formatSize(sizeBytes: number): string {
@@ -154,13 +142,26 @@
     return unit === "B" ? `${Math.round(value)} ${unit}` : `${value.toFixed(1)} ${unit}`;
   }
 
-  function archiveDate(archive: BackupArchive | null | undefined): string {
-    return archive?.created_at_local || archive?.created_at || archive?.modified_at || "";
+  function archiveDate(archive: BackupArchiveSummary | null | undefined): string {
+    return archive?.modified_at || "";
   }
 
-  function selectArchive(name: string): void {
+  function selectArchive(name: string, details: BackupArchive | null = null): void {
     selectedName = name;
+    selectedDetails = details;
+    restoreDatabase = false;
+    restoreCompose = false;
     restoreConfirmation = "";
+    const token = ++inspectionToken;
+    detailsLoading = !details;
+    if (!details) void inspectSelectedArchive(name, token);
+  }
+
+  async function inspectSelectedArchive(name: string, token: number): Promise<void> {
+    const details = await backupsStore.inspectArchive(name);
+    if (token !== inspectionToken || name !== selectedName) return;
+    selectedDetails = details;
+    detailsLoading = false;
   }
 
   function focusArchivePage(name: string): void {
@@ -173,17 +174,13 @@
     backupsTable.setPage(1);
   }
 
-  function warningsText(warnings: string[]): string {
-    return (warnings || []).filter(Boolean).join("\n");
-  }
-
   async function uploadSelectedFile(event: Event): Promise<void> {
     const input = event.currentTarget as HTMLInputElement | null;
     const file = input?.files?.[0];
     if (!file) return;
     const archive = await backupsStore.uploadArchive(file);
     if (archive?.name) {
-      selectedName = archive.name;
+      selectArchive(archive.name, archive);
       focusArchivePage(archive.name);
     }
     input.value = "";
@@ -192,7 +189,7 @@
   async function createManualBackup(): Promise<void> {
     const archive = await backupsStore.createBackup();
     if (archive?.name) {
-      selectedName = archive.name;
+      selectArchive(archive.name, archive);
       focusArchivePage(archive.name);
     }
   }
@@ -255,8 +252,8 @@
     <header class="admin-card-head">
       <div>
         <h3>{at("backups_restore_title", {}, "Restore")}</h3>
-        {#if selectedArchive}
-          <small class="backups-selected-name">{selectedArchive.name}</small>
+        {#if selectedName}
+          <small class="backups-selected-name">{selectedName}</small>
         {/if}
       </div>
       {#if lastRestore}
@@ -266,6 +263,31 @@
         </AdminBadge>
       {/if}
     </header>
+    {#if detailsLoading}
+      <div class="backups-restore-note" role="status">
+        {at("backups_inspecting", {}, "Inspecting selected archive...")}
+      </div>
+    {:else if selectedName && !selectedArchive}
+      <div class="backups-restore-note" role="status">
+        <AdminButton onclick={() => selectArchive(selectedName)}>
+          {at("backups_inspect_retry", {}, "Retry archive inspection")}
+        </AdminButton>
+      </div>
+    {:else if selectedArchive}
+      <div class="backups-restore-note">
+        <span class="backups-badges">
+          {#if selectedArchive.has_database}
+            <AdminBadge variant="success">{at("backups_badge_db", {}, "DB")}</AdminBadge>
+          {/if}
+          {#if selectedArchive.has_compose}
+            <AdminBadge variant="muted">{at("backups_badge_compose", {}, "Compose")}</AdminBadge>
+          {/if}
+        </span>
+        {#each selectedArchive.warnings as warning}
+          <p><TriangleAlert size={12} /> {warning}</p>
+        {/each}
+      </div>
+    {/if}
     <div class="admin-card-body backups-restore-body">
       <label class="backups-check" class:is-disabled={!selectedArchive?.has_database}>
         <Checkbox
@@ -345,7 +367,7 @@
         rows={6}
         rowHeight={62}
         class="backups-table"
-        widths={["minmax(220px, 1fr)", "150px", "80px", "150px", "120px"]}
+        widths={["minmax(220px, 1fr)", "150px", "80px"]}
       />
     {:else if !archives?.length}
       <AdminEmptyState tone="card">
@@ -382,20 +404,6 @@
                 {at}
                 onSort={setBackupsSort}
               />
-              <AdminSortableHeader
-                label={at("backups_col_contents", {}, "Contents")}
-                column={backupSortColumns[3]}
-                currentSort={backupsSort}
-                {at}
-                onSort={setBackupsSort}
-              />
-              <AdminSortableHeader
-                label={at("backups_col_warnings", {}, "Warnings")}
-                column={backupSortColumns[4]}
-                currentSort={backupsSort}
-                {at}
-                onSort={setBackupsSort}
-              />
             </tr>
           </thead>
           <tbody>
@@ -416,47 +424,6 @@
                 <td class="backups-meta" data-label={at("backups_col_size", {}, "Size")}
                   >{formatSize(archive.size_bytes)}</td
                 >
-                <td
-                  class="backups-contents"
-                  data-label={at("backups_col_contents", {}, "Contents")}
-                >
-                  <span class="backups-badges">
-                    {#if archive.has_database}
-                      <AdminBadge variant="success">{at("backups_badge_db", {}, "DB")}</AdminBadge>
-                    {/if}
-                    {#if archive.has_compose}
-                      <AdminBadge variant="muted">
-                        {at("backups_badge_compose", {}, "Compose")}
-                      </AdminBadge>
-                    {/if}
-                  </span>
-                </td>
-                <td
-                  class="backups-warnings"
-                  class:is-empty={!archive.warnings?.length}
-                  data-label={at("backups_col_warnings", {}, "Warnings")}
-                >
-                  {#if archive.warnings?.length}
-                    <Tooltip.Root>
-                      <Tooltip.Trigger
-                        class="backups-warning-trigger"
-                        aria-label={warningsText(archive.warnings)}
-                      >
-                        <TriangleAlert size={12} />
-                        {archive.warnings.length}
-                      </Tooltip.Trigger>
-                      <Tooltip.Portal>
-                        <Tooltip.Content class="backups-warning-tooltip" side="top" align="end">
-                          {#each archive.warnings as warning, index}
-                            <p>{index + 1}. {warning}</p>
-                          {/each}
-                        </Tooltip.Content>
-                      </Tooltip.Portal>
-                    </Tooltip.Root>
-                  {:else}
-                    <span class="admin-muted">-</span>
-                  {/if}
-                </td>
               </tr>
             {/each}
           </tbody>
@@ -565,6 +532,14 @@
     font-size: 12px;
   }
 
+  .backups-restore-note p {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 6px 0 0;
+    overflow-wrap: anywhere;
+  }
+
   :global(.backups-table tbody tr.is-selected) {
     background: color-mix(in srgb, var(--accent) 12%, transparent);
   }
@@ -590,48 +565,6 @@
 
   :global(.backups-archive-choice > span) {
     min-width: 0;
-    overflow-wrap: anywhere;
-  }
-
-  :global(.backups-warning-trigger) {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    min-height: 24px;
-    padding: 2px 7px;
-    border: 1px solid var(--warning-border);
-    border-radius: 999px;
-    background: var(--warning-soft);
-    color: var(--warning-text);
-    font: inherit;
-    font-size: 11px;
-    font-weight: 600;
-    cursor: help;
-    outline: none;
-  }
-
-  :global(.backups-warning-trigger:focus-visible) {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 22%, transparent);
-  }
-
-  :global(.backups-warning-tooltip) {
-    z-index: 120;
-    display: grid;
-    gap: 6px;
-    max-width: min(440px, calc(100vw - 32px));
-    padding: 10px 12px;
-    border: 1px solid var(--admin-border);
-    border-radius: 10px;
-    background: var(--admin-surface);
-    color: var(--admin-text);
-    box-shadow: var(--shadow-popover);
-    font-size: 12px;
-    line-height: 1.4;
-  }
-
-  :global(.backups-warning-tooltip) p {
-    margin: 0;
-    white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
 
@@ -672,14 +605,6 @@
 
     :global(.backups-archive-choice) {
       font-size: 13px;
-    }
-
-    .backups-layout :global(.backups-table .backups-row .backups-warnings.is-empty) {
-      display: none;
-    }
-
-    :global(.backups-warning-trigger) {
-      justify-self: start;
     }
   }
 </style>

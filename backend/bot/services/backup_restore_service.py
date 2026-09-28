@@ -101,6 +101,13 @@ class BackupArchiveInfo:
         }
 
 
+@dataclass(frozen=True)
+class BackupArchiveSummary:
+    name: str
+    size_bytes: int
+    modified_at: datetime
+
+
 @dataclass
 class BackupRestoreResult:
     archive_name: str
@@ -140,6 +147,28 @@ class BackupRestoreService:
         path = Path(self.settings.BACKUP_DIR).expanduser()
         path.mkdir(parents=True, exist_ok=True)
         return path
+
+    def list_archive_summaries(self) -> list[BackupArchiveSummary]:
+        """List file metadata without opening every archive in the directory."""
+        summaries = []
+        with os.scandir(self.backup_dir()) as entries:
+            for entry in entries:
+                if not SAFE_ARCHIVE_NAME_RE.fullmatch(entry.name) or not entry.is_file(
+                    follow_symlinks=False
+                ):
+                    continue
+                try:
+                    stat = entry.stat(follow_symlinks=False)
+                except FileNotFoundError:
+                    continue
+                summaries.append(
+                    BackupArchiveSummary(
+                        name=entry.name,
+                        size_bytes=stat.st_size,
+                        modified_at=datetime.fromtimestamp(stat.st_mtime, tz=UTC),
+                    )
+                )
+        return sorted(summaries, key=lambda item: item.modified_at, reverse=True)
 
     def list_archives(self) -> list[BackupArchiveInfo]:
         backup_dir = self.backup_dir()

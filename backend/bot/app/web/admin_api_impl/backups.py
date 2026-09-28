@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import secrets
 import subprocess
@@ -40,8 +41,10 @@ from .common import (
 )
 from .response_schemas import (
     AdminBackupArchiveOut,
+    AdminBackupArchiveSummaryOut,
     AdminBackupCreateOut,
     AdminBackupCreateResultOut,
+    AdminBackupDetailOut,
     AdminBackupRestoreOut,
     AdminBackupRestoreResultOut,
     AdminBackupsListOut,
@@ -61,6 +64,13 @@ register_contract(
     RouteContract(
         response_schema=ok_envelope_for(AdminBackupsListOut),
         models=(AdminBackupsListOut,),
+    ),
+)
+register_contract(
+    "admin_backup_detail_route",
+    RouteContract(
+        response_schema=ok_envelope_for(AdminBackupDetailOut),
+        models=(AdminBackupDetailOut,),
     ),
 )
 register_contract(
@@ -155,16 +165,33 @@ async def admin_backups_list_route(request: web.Request) -> web.Response:
     settings: Settings = get_settings(request)
     try:
         service = BackupRestoreService(settings)
-        archives = service.list_archives()
+        archives = await asyncio.to_thread(service.list_archive_summaries)
     except OSError as exc:
         logger.exception("Failed to list backup archives")
         return _error(500, "backup_list_failed", str(exc))
     return _ok(
         {
             "backup_dir": str(service.backup_dir()),
-            "archives": [_backup_archive_payload(archive) for archive in archives],
+            "archives": [
+                AdminBackupArchiveSummaryOut.from_summary(archive).model_dump(mode="json")
+                for archive in archives
+            ],
         }
     )
+
+
+async def admin_backup_detail_route(request: web.Request) -> web.Response:
+    _require_admin_user_id(request)
+    service = BackupRestoreService(get_settings(request))
+    try:
+        path = service.archive_path_for_name(request.match_info["archive_name"])
+        archive = await asyncio.to_thread(service.inspect_archive, path)
+    except BackupArchiveError as exc:
+        return _error(400, "invalid_backup_archive", str(exc))
+    except OSError as exc:
+        logger.exception("Failed to inspect backup archive")
+        return _error(500, "backup_list_failed", str(exc))
+    return _ok({"archive": _backup_archive_payload(archive)})
 
 
 async def admin_backups_upload_route(request: web.Request) -> web.Response:

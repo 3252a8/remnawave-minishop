@@ -430,6 +430,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/backup-archives/{archive_name}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Backup Detail */
+    get: operations["get_admin_backup_detail_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/backups": {
     parameters: {
       query?: never;
@@ -3888,6 +3905,15 @@ export interface components {
       /** Warnings */
       warnings?: string[];
     };
+    /** AdminBackupArchiveSummaryOut */
+    AdminBackupArchiveSummaryOut: {
+      /** Modified At */
+      modified_at: string;
+      /** Name */
+      name: string;
+      /** Size Bytes */
+      size_bytes: number;
+    };
     /** AdminBackupCreateOut */
     AdminBackupCreateOut: {
       archive: components["schemas"]["AdminBackupArchiveOut"];
@@ -3911,6 +3937,10 @@ export interface components {
       started_at: string;
       /** Warnings */
       warnings?: string[];
+    };
+    /** AdminBackupDetailOut */
+    AdminBackupDetailOut: {
+      archive: components["schemas"]["AdminBackupArchiveOut"];
     };
     /** AdminBackupRestoreBody */
     AdminBackupRestoreBody: {
@@ -3985,7 +4015,7 @@ export interface components {
     /** AdminBackupsListOut */
     AdminBackupsListOut: {
       /** Archives */
-      archives: components["schemas"]["AdminBackupArchiveOut"][];
+      archives: components["schemas"]["AdminBackupArchiveSummaryOut"][];
       /** Backup Dir */
       backup_dir: string;
     };
@@ -11530,6 +11560,31 @@ export interface operations {
             ok: true;
             persisted: boolean;
           };
+        };
+      };
+    };
+  };
+  get_admin_backup_detail_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        archive_name: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminBackupDetailOut"];
         };
       };
     };

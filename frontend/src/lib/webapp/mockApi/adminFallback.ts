@@ -276,8 +276,17 @@ export function adminFallbackResponse(
     return {
       ok: true,
       backup_dir: "data/backups",
-      archives: clone(mockBackups),
+      archives: mockBackups.map(({ name, size_bytes, modified_at }) => ({
+        name,
+        size_bytes,
+        modified_at,
+      })),
     };
+  }
+  if (cleanPath.startsWith("/admin/backup-archives/")) {
+    const name = decodeURIComponent(cleanPath.slice("/admin/backup-archives/".length));
+    const archive = mockBackups.find((item) => item.name === name);
+    return archive ? { ok: true, archive: clone(archive) } : { ok: false, error: "not_found" };
   }
   if (path === "/admin/backups/create") {
     const createdAt = new Date();

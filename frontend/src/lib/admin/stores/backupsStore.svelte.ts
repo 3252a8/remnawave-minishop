@@ -3,6 +3,7 @@ import {
   unwrap,
   type ApiClient,
   type PostPayload,
+  buildAdminBackupDetailPath,
   buildAdminBackupsCreatePath,
   buildAdminBackupsPath,
   buildAdminBackupsRestorePath,
@@ -15,12 +16,14 @@ type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type BackupRestorePayload = PostPayload<"/api/admin/backups/restore">;
 
-export type BackupArchive = {
+export type BackupArchiveSummary = {
   name: string;
   size_bytes: number;
+  modified_at?: string;
+};
+export type BackupArchive = BackupArchiveSummary & {
   created_at?: string;
   created_at_local?: string;
-  modified_at?: string;
   has_database: boolean;
   has_compose: boolean;
   warnings: string[];
@@ -30,7 +33,7 @@ export type BackupRestoreResult = Record<string, unknown> & {
   database_pre_restore_archive?: string;
 };
 export type BackupsState = {
-  archives: BackupArchive[];
+  archives: BackupArchiveSummary[];
   backupDir: string;
   backupsLoading: boolean;
   backupsCreating: boolean;
@@ -46,6 +49,7 @@ type BackupsStoreOptions = {
 };
 export type BackupsStore = BackupsState & {
   loadArchives: () => Promise<void>;
+  inspectArchive: (name: string) => Promise<BackupArchive | null>;
   createBackup: () => Promise<BackupArchive | null>;
   uploadArchive: (file: File | null | undefined) => Promise<BackupArchive | null>;
   restoreArchive: (options: {
@@ -66,26 +70,36 @@ function asStringArray(value: unknown): string[] {
     : [];
 }
 
-function normalizeArchive(value: unknown): BackupArchive | null {
+function normalizeArchiveSummary(value: unknown): BackupArchiveSummary | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const archive = value as Record<string, unknown>;
+  if (typeof archive.name !== "string" || !archive.name) return null;
   return {
-    name: typeof archive.name === "string" ? archive.name : "",
+    name: archive.name,
     size_bytes: typeof archive.size_bytes === "number" ? archive.size_bytes : 0,
+    modified_at: typeof archive.modified_at === "string" ? archive.modified_at : undefined,
+  };
+}
+
+function normalizeArchive(value: unknown): BackupArchive | null {
+  const summary = normalizeArchiveSummary(value);
+  if (!summary || !value || typeof value !== "object" || Array.isArray(value)) return null;
+  const archive = value as Record<string, unknown>;
+  return {
+    ...summary,
     created_at: typeof archive.created_at === "string" ? archive.created_at : undefined,
     created_at_local:
       typeof archive.created_at_local === "string" ? archive.created_at_local : undefined,
-    modified_at: typeof archive.modified_at === "string" ? archive.modified_at : undefined,
     has_database: Boolean(archive.has_database ?? archive.contains_database),
     has_compose: Boolean(archive.has_compose ?? archive.contains_compose),
     warnings: asStringArray(archive.warnings),
   };
 }
 
-function normalizeArchives(archives: unknown): BackupArchive[] {
+function normalizeArchives(archives: unknown): BackupArchiveSummary[] {
   return Array.isArray(archives)
     ? archives.flatMap((archive) => {
-        const normalized = normalizeArchive(archive);
+        const normalized = normalizeArchiveSummary(archive);
         return normalized ? [normalized] : [];
       })
     : [];
@@ -107,6 +121,7 @@ export function createBackupsStore({ api, onToast, at }: BackupsStoreOptions): B
     lastCreated: null,
     lastRestore: null,
     loadArchives,
+    inspectArchive,
     createBackup,
     uploadArchive,
     restoreArchive,
@@ -136,6 +151,20 @@ export function createBackupsStore({ api, onToast, at }: BackupsStoreOptions): B
       }
     } finally {
       updateState((s) => ({ ...s, backupsLoading: false }));
+    }
+  }
+
+  async function inspectArchive(name: string): Promise<BackupArchive | null> {
+    try {
+      const data = await api(buildAdminBackupDetailPath(name));
+      if (isOkResponse(data)) return normalizeArchive(unwrap(data).archive);
+      onToast(
+        adminErrorMessage(data, at, at("backups_inspect_failed", {}, "Failed to inspect backup"))
+      );
+      return null;
+    } catch {
+      onToast(at("backups_inspect_failed", {}, "Failed to inspect backup"));
+      return null;
     }
   }
 
