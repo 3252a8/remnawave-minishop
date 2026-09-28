@@ -29,7 +29,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install ruff
-        run: pip install "ruff==0.16.0"
+        run: pip install "ruff==0.16.9"
 
       - name: Ruff lint (Python)
         run: ruff check .
@@ -152,7 +152,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17.6
+        image: postgres:17.11
         env:
           POSTGRES_USER: app_user
           POSTGRES_PASSWORD: app_password

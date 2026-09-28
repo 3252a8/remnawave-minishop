@@ -73,7 +73,7 @@ services:
         condition: service_healthy
 
   remnawave-db:
-    image: postgres:17.6
+    image: postgres:17.11
     container_name: remnawave-dev-db
     hostname: remnawave-db
     restart: unless-stopped
@@ -139,7 +139,7 @@ services:
         required: false
 
   remnawave-dev-seed:
-    image: postgres:17.6
+    image: postgres:17.11
     container_name: remnawave-dev-seed
     profiles:
       - seed
@@ -159,7 +159,7 @@ services:
         condition: service_healthy
 
   dev-seed:
-    image: postgres:17.6
+    image: postgres:17.11
     container_name: remnawave-minishop-dev-seed
     profiles:
       - seed
@@ -181,7 +181,7 @@ services:
         condition: service_completed_successfully
 
   dev-mock-data:
-    image: postgres:17.6
+    image: postgres:17.11
     container_name: remnawave-minishop-dev-mock-data
     profiles:
       - mock-data

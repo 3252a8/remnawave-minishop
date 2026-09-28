@@ -30,7 +30,7 @@ function npmVersionFrom(packageJson, projectName) {
   const match = /^npm@(\d+\.\d+\.\d+)$/.exec(packageJson.packageManager ?? "");
   if (!match) {
     throw new Error(
-      `${projectName}/package.json must declare an exact packageManager such as npm@10.9.8`,
+      `${projectName}/package.json must declare an exact packageManager such as npm@10.9.9`,
     );
   }
   return match[1];

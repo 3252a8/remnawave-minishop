@@ -1,7 +1,7 @@
 {
   "private": true,
   "type": "module",
-  "packageManager": "npm@10.9.8",
+  "packageManager": "npm@10.9.9",
   "scripts": {
     "sync:docs": "node ./scripts/sync-docs.mjs",
     "check:openapi-sync": "node ./scripts/check-openapi-sync.mjs",
@@ -13,8 +13,8 @@
     "preview": "astro preview"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.42.2",
-    "astro": "^7.3.3",
+    "@astrojs/starlight": "^0.42.4",
+    "astro": "^7.3.5",
     "starlight-theme-nova": "^0.12.3",
     "swagger-ui-dist": "^5.33.0",
     "typescript": "^6.0.3"

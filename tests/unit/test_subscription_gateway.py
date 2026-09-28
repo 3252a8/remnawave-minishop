@@ -154,17 +154,20 @@ class SubscriptionGatewayTests(unittest.IsolatedAsyncioTestCase):
                 ),
                 patch.object(subscription_gateway, "_rate_limited", AsyncMock(return_value=False)),
             ):
-                async with TestServer(shop_app) as shop_server, ClientSession() as client:
-                    async with client.get(
+                async with (
+                    TestServer(shop_app) as shop_server,
+                    ClientSession() as client,
+                    client.get(
                         shop_server.make_url("/s/" + "a" * 32),
                         headers={
                             "User-Agent": "Happ/4.2.1/Windows/2609041405606",
                             "Accept": "text/html, */*",
                         },
-                    ) as response:
-                        self.assertEqual(response.status, 200)
-                        self.assertEqual(response.content_type, "text/plain")
-                        self.assertEqual(await response.read(), subscription_body)
+                    ) as response,
+                ):
+                    self.assertEqual(response.status, 200)
+                    self.assertEqual(response.content_type, "text/plain")
+                    self.assertEqual(await response.read(), subscription_body)
         self.assertEqual(upstream_user_agents, ["Happ/4.2.1/Windows/2609041405606"])
 
     def test_header_filter_removes_secrets_and_connection_fields(self) -> None:

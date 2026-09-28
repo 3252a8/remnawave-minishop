@@ -95,7 +95,7 @@ npm run test:e2e     # Playwright docs-demo smoke: webapp+админка, окн
 | demo settings manifest | `python scripts/export_settings_manifest.py` (+ prettier) | `tests/contracts/test_settings_manifest_demo_sync.py` |
 | `docs/remnawave-minishop.webp` | `npm run generate:readme-screenshot` | визуальная проверка README |
 | `backend/requirements.txt` | `python -m piptools compile --resolver=backtracking --no-emit-index-url --no-emit-trusted-host -o backend/requirements.txt backend/requirements.in` (Python 3.12) | CI install + `pip-audit` |
-| `frontend/package-lock.json`, `docs-site/package-lock.json` | `cd <каталог> && npx --yes npm@10.9.8 install --package-lock-only --ignore-scripts --no-audit --no-fund` | `npm run check:lockfiles`, pre-commit, CI до Docker matrix |
+| `frontend/package-lock.json`, `docs-site/package-lock.json` | `cd <каталог> && npx --yes npm@10.9.9 install --package-lock-only --ignore-scripts --no-audit --no-fund` | `npm run check:lockfiles`, pre-commit, CI до Docker matrix |
 
 Меняешь контракт API — регенерируй `openapi.json` **и** `openapi.generated.ts`.
 
