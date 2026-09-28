@@ -9925,6 +9925,11 @@ export interface components {
     };
     /** WebAppAutoRenewPayload */
     WebAppAutoRenewPayload: {
+      /**
+       * Creator Cancellation Confirmed
+       * @default false
+       */
+      creator_cancellation_confirmed: boolean;
       /** Enabled */
       enabled: boolean;
     };

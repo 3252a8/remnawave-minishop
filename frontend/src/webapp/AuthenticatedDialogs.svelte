@@ -10,6 +10,7 @@
   import type { DevicesStore } from "../lib/webapp/stores/devicesStore.js";
   import PaymentDialogs from "./PaymentDialogs.svelte";
   import SubscriptionReissueDialog from "./payment-dialogs/SubscriptionReissueDialog.svelte";
+  import TributeCreatorCancelDialog from "./payment-dialogs/TributeCreatorCancelDialog.svelte";
   import QaPaymentDialog from "./payment-dialogs/QaPaymentDialog.svelte";
   import TariffDialogs from "./TariffDialogs.svelte";
   import type {
@@ -41,6 +42,13 @@
     checkoutAddonValueAnimationEnabled?: boolean;
     checkoutAddonEditorExpandedByDefault?: boolean;
     subscriptionReissueDialogOpen?: boolean;
+    creatorCancelStep?: 0 | 1 | 2;
+    autoRenewBusy?: boolean;
+    closeCreatorCancelDialog?: VoidAction;
+    openCreatorCancellationLink?: VoidAction;
+    openCreatorCancelConfirmation?: VoidAction;
+    confirmCreatorCancellation?: VoidAction;
+    backToCreatorCancelOptions?: VoidAction;
     subscriptionReissueBusy?: boolean;
     confirmSubscriptionReissue?: VoidAction;
     closeSubscriptionReissueDialog?: VoidAction;
@@ -81,6 +89,13 @@
     checkoutAddonValueAnimationEnabled = true,
     checkoutAddonEditorExpandedByDefault = false,
     subscriptionReissueDialogOpen = false,
+    creatorCancelStep = 0,
+    autoRenewBusy = false,
+    closeCreatorCancelDialog = () => {},
+    openCreatorCancellationLink = () => {},
+    openCreatorCancelConfirmation = () => {},
+    confirmCreatorCancellation = () => {},
+    backToCreatorCancelOptions = () => {},
     subscriptionReissueBusy = false,
     confirmSubscriptionReissue = () => {},
     closeSubscriptionReissueDialog = () => {},
@@ -208,6 +223,17 @@
   {subscriptionReissueBusy}
   {confirmSubscriptionReissue}
   {closeSubscriptionReissueDialog}
+  {t}
+/>
+
+<TributeCreatorCancelDialog
+  step={creatorCancelStep}
+  busy={autoRenewBusy}
+  onClose={closeCreatorCancelDialog}
+  onOpenTribute={openCreatorCancellationLink}
+  onAlreadyCancelled={openCreatorCancelConfirmation}
+  onConfirm={confirmCreatorCancellation}
+  onBack={backToCreatorCancelOptions}
   {t}
 />
 

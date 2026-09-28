@@ -14,6 +14,7 @@ function makeAction(overrides: TestOverrides = {}) {
     getBusy: () => busy,
     loadData: vi.fn(async () => null),
     openExternalLink: vi.fn(),
+    setCreatorCancelStep: vi.fn(),
     setBusy: vi.fn((nextBusy: boolean) => {
       busy = nextBusy;
       busyUpdates.push(nextBusy);
@@ -30,7 +31,7 @@ function makeAction(overrides: TestOverrides = {}) {
 }
 
 describe("createAutoRenewAction", () => {
-  it("opens Tribute for Creator cancellation without reporting disabled renewal", async () => {
+  it("opens the Creator cancellation dialog without reporting disabled renewal", async () => {
     const { action, deps, busyUpdates } = makeAction({
       deps: {
         billing: {
@@ -42,11 +43,35 @@ describe("createAutoRenewAction", () => {
       },
     });
     await action.toggleAutoRenew(false);
-    expect(deps.openExternalLink).toHaveBeenCalledWith("https://t.me/tribute");
-    expect(deps.showToast).toHaveBeenCalledWith("wa_auto_renew_tribute_cancel_required");
+    expect(deps.setCreatorCancelStep).toHaveBeenCalledWith(1);
+    expect(deps.openExternalLink).not.toHaveBeenCalled();
     expect(deps.showToast).not.toHaveBeenCalledWith("wa_auto_renew_disabled");
     expect(deps.loadData).not.toHaveBeenCalled();
     expect(busyUpdates).toEqual([true, false]);
+  });
+
+  it("requires a second confirmation before disabling local Creator renewal", async () => {
+    const { action, deps } = makeAction({
+      deps: {
+        billing: {
+          postAutoRenew: vi
+            .fn()
+            .mockResolvedValueOnce({ ok: false, error: "auto_renew_tribute_cancel_required" })
+            .mockResolvedValueOnce({ ok: true, auto_renew_enabled: false }),
+        },
+      },
+    });
+    await action.toggleAutoRenew(false);
+    action.openCreatorCancellationLink();
+    action.openCreatorCancelConfirmation();
+    expect(deps.openExternalLink).toHaveBeenCalledWith("https://t.me/tribute");
+    expect(deps.setCreatorCancelStep).toHaveBeenLastCalledWith(2);
+    expect(deps.billing.postAutoRenew).toHaveBeenCalledTimes(1);
+
+    await action.confirmCreatorCancellation();
+    expect(deps.billing.postAutoRenew).toHaveBeenLastCalledWith(false, true);
+    expect(deps.setCreatorCancelStep).toHaveBeenLastCalledWith(0);
+    expect(deps.loadData).toHaveBeenCalledWith({ fresh: true, preserveView: true });
   });
 
   it("keeps a Shop cancellation failure in the app", async () => {

@@ -18,6 +18,7 @@ export type ShellState = {
   publicInstallSubscription: ShellRecord | null;
   publicInstallToken: string;
   autoRenewBusy: boolean;
+  creatorCancelStep: 0 | 1 | 2;
   subscriptionReissueDialogOpen: boolean;
   subscriptionReissueBusy: boolean;
   activationSuccessDialogOpen: boolean;
@@ -60,6 +61,7 @@ export function createInitialShellState(overrides: ShellStateInit = {}): ShellSt
     publicInstallSubscription: null,
     publicInstallToken: "",
     autoRenewBusy: false,
+    creatorCancelStep: 0,
     subscriptionReissueDialogOpen: false,
     subscriptionReissueBusy: false,
     activationSuccessDialogOpen: false,

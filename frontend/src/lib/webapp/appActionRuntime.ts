@@ -296,6 +296,9 @@ export function createAppActionRuntime({
     ...createAutoRenewAction({
       billing,
       openExternalLink: externalLinkActions.openExternalLink,
+      setCreatorCancelStep: (step) => {
+        shellState.creatorCancelStep = step;
+      },
       getBusy: () => shellState.autoRenewBusy,
       loadData,
       setBusy: (busy) => {

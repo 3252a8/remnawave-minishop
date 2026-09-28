@@ -67,7 +67,10 @@ export type BillingActions = {
   postTariffChangePayment(
     body: PostPayload<"/api/tariffs/change-payment">
   ): Promise<TariffChangePaymentResponse>;
-  postAutoRenew(enabled: boolean): Promise<SubscriptionAutoRenewResponse>;
+  postAutoRenew(
+    enabled: boolean,
+    creatorCancellationConfirmed?: boolean
+  ): Promise<SubscriptionAutoRenewResponse>;
   postSubscriptionReissue(): Promise<SubscriptionReissueResponse>;
   planPaymentBody(
     plan: BillingPlan,
@@ -162,10 +165,16 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
     return api(buildTariffChangePaymentPath(), { method: "POST", body: JSON.stringify(body) });
   }
 
-  async function postAutoRenew(enabled: boolean): Promise<SubscriptionAutoRenewResponse> {
+  async function postAutoRenew(
+    enabled: boolean,
+    creatorCancellationConfirmed = false
+  ): Promise<SubscriptionAutoRenewResponse> {
     return api(buildSubscriptionAutoRenewPath(), {
       method: "POST",
-      body: JSON.stringify({ enabled: Boolean(enabled) }),
+      body: JSON.stringify({
+        enabled: Boolean(enabled),
+        ...(creatorCancellationConfirmed ? { creator_cancellation_confirmed: true } : {}),
+      }),
     });
   }
 

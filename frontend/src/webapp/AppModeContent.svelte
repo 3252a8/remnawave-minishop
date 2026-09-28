@@ -65,6 +65,7 @@
     adminBundleError: string;
     appLaunchTarget: string;
     autoRenewBusy: boolean;
+    creatorCancelStep: 0 | 1 | 2;
     subscriptionReissueDialogOpen: boolean;
     subscriptionReissueBusy: boolean;
     cfg: WebappConfig;
@@ -140,6 +141,7 @@
   const adminBundleError = $derived(viewState.adminBundleError);
   const appLaunchTarget = $derived(viewState.appLaunchTarget);
   const autoRenewBusy = $derived(viewState.autoRenewBusy);
+  const creatorCancelStep = $derived(viewState.creatorCancelStep);
   const subscriptionReissueDialogOpen = $derived(viewState.subscriptionReissueDialogOpen);
   const subscriptionReissueBusy = $derived(viewState.subscriptionReissueBusy);
   const cfg = $derived(viewState.cfg);
@@ -725,6 +727,13 @@
       {disconnectDevice}
       {emailAuthEnabled}
       {subscriptionReissueDialogOpen}
+      {creatorCancelStep}
+      {autoRenewBusy}
+      closeCreatorCancelDialog={appActions.closeCreatorCancelDialog}
+      openCreatorCancellationLink={appActions.openCreatorCancellationLink}
+      openCreatorCancelConfirmation={appActions.openCreatorCancelConfirmation}
+      confirmCreatorCancellation={appActions.confirmCreatorCancellation}
+      backToCreatorCancelOptions={appActions.backToCreatorCancelOptions}
       {subscriptionReissueBusy}
       {confirmSubscriptionReissue}
       {closeSubscriptionReissueDialog}

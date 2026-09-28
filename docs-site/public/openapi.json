@@ -13915,6 +13915,11 @@
       },
       "WebAppAutoRenewPayload": {
         "properties": {
+          "creator_cancellation_confirmed": {
+            "default": false,
+            "title": "Creator Cancellation Confirmed",
+            "type": "boolean"
+          },
           "enabled": {
             "title": "Enabled",
             "type": "boolean"

@@ -26,6 +26,7 @@ from bot.app.web.webapp.payloads import (
 from bot.infra.auto_renew import (
     auto_renew_toggle_allowed,
     auto_renew_user_lock_name,
+    managed_recurring_service_for,
     stop_provider_managed_recurrence,
 )
 from bot.infra.redis import redis_lock
@@ -243,19 +244,22 @@ async def subscription_auto_renew_route(request: web.Request) -> web.Response:
                         "A saved payment method is required",
                     )
 
+            creator_subscription_id = (
+                await tribute_dal.get_other_active_creator_subscription_id(session, user_id=user_id)
+                if not enabled and provider == "tribute"
+                else None
+            )
             if (
                 not enabled
                 and provider == "tribute"
-                and await tribute_dal.get_other_active_creator_subscription_id(
-                    session, user_id=user_id
-                )
-                is not None
+                and creator_subscription_id is not None
+                and not auto_renew_payload.creator_cancellation_confirmed
             ):
                 await session.rollback()
                 return _json_error(
                     409,
                     "auto_renew_tribute_cancel_required",
-                    "Cancel the subscription in @tribute and wait for confirmation",
+                    "Confirm cancellation in @tribute before disabling local auto-renew",
                 )
 
             async with redis_lock(
@@ -270,12 +274,27 @@ async def subscription_auto_renew_route(request: web.Request) -> web.Response:
                         "auto_renew_busy",
                         "Auto-renew is being processed; please try again",
                     )
-                if not enabled and not await stop_provider_managed_recurrence(
-                    subscription_service,
-                    session,
-                    user_id=user_id,
-                    provider=provider,
-                ):
+                if not enabled and creator_subscription_id is not None:
+                    tribute_service = managed_recurring_service_for(subscription_service, "tribute")
+                    shop_order = await tribute_dal.get_other_active_shop_order_uuid(
+                        session, user_id=user_id
+                    )
+                    provider_stopped = shop_order is None or (
+                        tribute_service is not None
+                        and await tribute_service.cancel_shop_recurrence_for_user(
+                            session, user_id=user_id
+                        )
+                    )
+                elif not enabled:
+                    provider_stopped = await stop_provider_managed_recurrence(
+                        subscription_service,
+                        session,
+                        user_id=user_id,
+                        provider=provider,
+                    )
+                else:
+                    provider_stopped = True
+                if not provider_stopped:
                     # Reporting "off" while the provider keeps debiting the
                     # customer would be the worst possible outcome here.
                     await session.rollback()

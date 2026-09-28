@@ -63,6 +63,51 @@ class WebAppAutoRenewRouteTests(IsolatedAsyncioTestCase):
         session.commit.assert_not_awaited()
         session.rollback.assert_awaited_once()
 
+    async def test_tribute_creator_confirmation_disables_only_local_renewal(self):
+        paid_until = "2099-01-01"
+        sub = SimpleNamespace(
+            subscription_id=7,
+            user_id=42,
+            provider="tribute",
+            auto_renew_enabled=True,
+            end_date=paid_until,
+        )
+        request, session, user = self._request(
+            {"enabled": False, "creator_cancellation_confirmed": True}, sub=sub
+        )
+        with (
+            patch.object(billing_subscription, "_require_user_id", return_value=42),
+            patch.object(billing_module.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
+            patch.object(
+                billing_module.subscription_dal,
+                "get_active_subscription_by_user_id",
+                AsyncMock(return_value=sub),
+            ),
+            patch.object(
+                billing_subscription.tribute_dal,
+                "get_other_active_creator_subscription_id",
+                AsyncMock(return_value=123),
+            ),
+            patch.object(
+                billing_subscription.tribute_dal,
+                "get_other_active_shop_order_uuid",
+                AsyncMock(return_value=None),
+            ),
+            patch.object(billing_module.subscription_dal, "set_auto_renew", AsyncMock()) as update,
+            patch.object(
+                billing_subscription, "stop_provider_managed_recurrence", AsyncMock()
+            ) as cancel,
+            patch.object(billing_subscription, "_invalidate_webapp_user_caches", AsyncMock()),
+        ):
+            response = await billing_module.subscription_auto_renew_route(request)
+
+        self.assertEqual(response.status, 200)
+        self.assertFalse(json.loads(response.text)["auto_renew_enabled"])
+        update.assert_awaited_once_with(session, 7, False, stop_reason="customer_disabled")
+        cancel.assert_not_awaited()
+        self.assertEqual(sub.end_date, paid_until)
+        session.commit.assert_awaited_once()
+
     async def test_tribute_shop_can_still_cancel_in_app(self):
         sub = SimpleNamespace(
             subscription_id=7, user_id=42, provider="tribute", auto_renew_enabled=True

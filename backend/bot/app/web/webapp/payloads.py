@@ -193,6 +193,7 @@ class WebAppAutoRenewPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     enabled: bool
+    creator_cancellation_confirmed: bool = False
 
 
 class WebAppSubscriptionReissuePayload(BaseModel):
