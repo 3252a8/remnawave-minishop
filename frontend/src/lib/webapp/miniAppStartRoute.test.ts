@@ -7,6 +7,10 @@ describe("Mini App start routes", () => {
     ["admin_ticket_42", "/admin/support/42"],
     ["admin_user_100200300", "/admin/users/100200300"],
     ["admin_user_-42", "/admin/users/-42"],
+    [
+      "admin_user_ms_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "/admin/users/ms_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    ],
     ["ticket_7", "/support/7"],
     ["plan_standard__months_3__traffic_200", "/checkout"],
     ["plans", "/plans"],
@@ -23,6 +27,7 @@ describe("Mini App start routes", () => {
   it("ignores unrelated and malformed start parameters", () => {
     expect(miniAppPathFromStartParam("promo_SAVE20")).toBeNull();
     expect(miniAppPathFromStartParam("admin_ticket_bad")).toBeNull();
+    expect(miniAppPathFromStartParam("admin_user_ms_bad")).toBeNull();
   });
 
   it("never routes a bare section into the admin panel", () => {

@@ -82,7 +82,7 @@ TORRENT_BLOCKER_RUNTIME_SETTING_KEYS = {
 
 async def _build_worker_context(settings: Settings) -> PluginContext:
     runtime = await build_runtime_bootstrap(settings)
-    bot_username = "your_bot_username"
+    bot_username = ""
     if runtime.bot is not None:
         configure_message_log_notifier(settings, runtime.bot)
         try:

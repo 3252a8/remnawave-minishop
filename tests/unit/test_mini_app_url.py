@@ -155,6 +155,9 @@ class MiniAppUrlTests(unittest.TestCase):
         self.assertIsNone(subscription_main_mini_app_deep_link(s, "demo_bot", "admin_ticket_42"))
         s.SUBSCRIPTION_MINI_APP_URL = "https://app.example.com"
         self.assertIsNone(subscription_main_mini_app_deep_link(s, "demo_bot", "bad value"))
+        self.assertIsNone(
+            subscription_main_mini_app_deep_link(s, "YOUR_BOT_USERNAME", "admin_user_42")
+        )
 
     def test_subscription_public_install_url_uses_origin(self):
         s = Settings(

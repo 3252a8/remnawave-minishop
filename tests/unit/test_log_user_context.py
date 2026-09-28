@@ -17,6 +17,7 @@ def _service(language: str = "en") -> NotificationService:
         bot=SimpleNamespace(send_message=AsyncMock()),
         settings=settings_stub(
             DEFAULT_LANGUAGE=language,
+            SUBSCRIPTION_MINI_APP_URL="https://app.example.test/app",
             LOG_NEW_USERS=True,
             LOG_PAYMENTS=True,
             LOG_PROMO_ACTIVATIONS=True,
@@ -110,7 +111,9 @@ class LogUserContextTests(IsolatedAsyncioTestCase):
                             self.assertEqual(len(matching), 1, (method, field, lines))
                         keyboard = call.kwargs["reply_markup"]
                         urls = [button.url for row in keyboard.inline_keyboard for button in row]
-                        self.assertIn(f"https://t.me/shop_bot?start=admin_user_{PUBLIC_ID}", urls)
+                        self.assertIn(
+                            f"https://t.me/shop_bot?startapp=admin_user_{PUBLIC_ID}", urls
+                        )
                         self.assertIn("tg://user?id=123456", urls)
 
     async def test_email_only_user_has_card_without_fabricated_telegram_fields(self):
@@ -126,7 +129,7 @@ class LogUserContextTests(IsolatedAsyncioTestCase):
         self.assertEqual(len(keyboard.inline_keyboard), 1)
         self.assertEqual(
             keyboard.inline_keyboard[0][0].url,
-            f"https://t.me/shop_bot?start=admin_user_{PUBLIC_ID}",
+            f"https://t.me/shop_bot?startapp=admin_user_{PUBLIC_ID}",
         )
 
     async def test_rejected_profile_link_fallback_preserves_user_card(self):
@@ -140,5 +143,16 @@ class LogUserContextTests(IsolatedAsyncioTestCase):
         self.assertEqual(len(fallback.inline_keyboard), 1)
         self.assertEqual(
             fallback.inline_keyboard[0][0].url,
-            f"https://t.me/shop_bot?start=admin_user_{PUBLIC_ID}",
+            f"https://t.me/shop_bot?startapp=admin_user_{PUBLIC_ID}",
+        )
+
+    async def test_unresolved_bot_username_uses_card_callback(self):
+        service = _service()
+        service.bot_username = "YOUR_BOT_USERNAME"
+        keyboard = service._build_profile_keyboard(
+            lambda key: key, None, user_id=42, minishop_id=PUBLIC_ID
+        )
+        self.assertEqual(
+            keyboard.inline_keyboard[0][0].callback_data,
+            "admin_user_card_from_list:42:0",
         )

@@ -134,7 +134,7 @@ def test_admin_support_keyboard_can_use_group_safe_urls():
     assert ticket_button.url == "https://t.me/demo_bot?startapp=admin_ticket_42"
     assert keyboard.inline_keyboard[1][0].url == "tg://user?id=100200300"
     assert user_card_button.web_app is None
-    assert user_card_button.url == ("https://t.me/demo_bot?start=admin_user_ms_" + "a" * 32)
+    assert user_card_button.url == ("https://t.me/demo_bot?startapp=admin_user_ms_" + "a" * 32)
 
 
 def test_admin_support_keyboard_group_urls_fall_back_without_bot_username():
@@ -491,7 +491,7 @@ def test_support_topic_suppresses_admin_dm_and_uses_url_buttons():
     buttons = _keyboard_buttons(markup)
     assert all(button.web_app is None for button in buttons)
     assert buttons[0].url == "https://t.me/demo_bot?startapp=admin_ticket_7"
-    assert buttons[2].url == "https://t.me/demo_bot?start=admin_user_100200300"
+    assert buttons[2].url == "https://t.me/demo_bot?startapp=admin_user_100200300"
 
 
 def test_support_user_reply_topic_suppresses_admin_dm_and_uses_url_buttons():

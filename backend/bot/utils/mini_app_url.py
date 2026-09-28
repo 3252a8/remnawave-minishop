@@ -83,7 +83,9 @@ def subscription_main_mini_app_deep_link(
         return None
     username = str(bot_username or "").strip().lstrip("@")
     parameter = str(start_param or "").strip()
-    if username == "your_bot_username" or not _TELEGRAM_BOT_USERNAME_RE.fullmatch(username):
+    if username.casefold() == "your_bot_username" or not _TELEGRAM_BOT_USERNAME_RE.fullmatch(
+        username
+    ):
         return None
     if not _MINI_APP_START_PARAM_RE.fullmatch(parameter):
         return None

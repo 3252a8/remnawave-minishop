@@ -36,7 +36,7 @@ export function miniAppPathFromStartParam(value: unknown): string | null {
   const adminTicket = startParam.match(/^admin_ticket_(\d+)$/i);
   if (adminTicket) return `/admin/support/${adminTicket[1]}`;
 
-  const adminUser = startParam.match(/^admin_user_(-?\d+)$/i);
+  const adminUser = startParam.match(/^admin_user_(-?\d+|ms_[0-9a-f]{32})$/i);
   if (adminUser) return `/admin/users/${adminUser[1]}`;
 
   const supportTicket = startParam.match(/^ticket_(\d+)$/i);
