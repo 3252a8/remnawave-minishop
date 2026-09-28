@@ -92,6 +92,25 @@ class SendUserNotificationEmailTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(sent)
         self.assertEqual(_FakeEmailService.instances, [])
 
+    async def test_skips_banned_user(self):
+        user = SimpleNamespace(
+            email="user@example.com",
+            language_code="en",
+            is_banned=True,
+        )
+
+        with patch.object(module, "EmailAuthService", _FakeEmailService):
+            sent = await module.send_user_notification_email(
+                settings=_settings(),
+                i18n=_FakeI18n(),
+                user=user,
+                subject_key="email_payment_failed_subject",
+                message_text="Payment failed",
+            )
+
+        self.assertFalse(sent)
+        self.assertEqual(_FakeEmailService.instances, [])
+
     async def test_prefers_explicit_notification_email_over_primary_login_email(self):
         user = SimpleNamespace(
             email="primary@example.com",

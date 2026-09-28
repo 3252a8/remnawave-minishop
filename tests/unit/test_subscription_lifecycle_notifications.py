@@ -180,6 +180,44 @@ def test_send_stage_records_telegram_and_email_channel_keys(monkeypatch):
     assert status_changes[0]["checked_at"] is not None
 
 
+def test_banned_user_receives_no_subscription_reminder(monkeypatch):
+    async def unexpected_history_lookup(*_args, **_kwargs):
+        raise AssertionError("Banned user must not reach delivery history lookup")
+
+    monkeypatch.setattr(
+        lifecycle.subscription_dal,
+        "has_subscription_notification",
+        unexpected_history_lookup,
+    )
+
+    bot = FakeBot()
+    email_service = FakeEmailService()
+    service = SubscriptionLifecycleNotificationService(
+        _settings(),
+        bot,
+        FakeI18n(),
+        email_service=email_service,
+    )
+
+    async def run():
+        return await service.send_stage(
+            object(),
+            _subscription(),
+            SubscriptionNotificationStage(
+                key="before_3d",
+                message_key="subscription_72h_notification",
+                days_left=3,
+            ),
+            user=_user(is_banned=True),
+        )
+
+    delivery = asyncio.run(run())
+
+    assert not delivery.any_sent
+    assert bot.messages == []
+    assert email_service.messages == []
+
+
 def test_legacy_stage_key_suppresses_only_telegram(monkeypatch):
     recorded = ["before_3d"]
 

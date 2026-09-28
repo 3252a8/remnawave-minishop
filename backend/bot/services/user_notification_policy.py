@@ -148,6 +148,12 @@ def email_recipient(settings: Any, user: Any) -> str:
     )
 
 
+def user_notifications_blocked(user: Any) -> bool:
+    """Do not deliver automatic notifications to banned accounts."""
+
+    return bool(getattr(user, "is_banned", False))
+
+
 def user_notification_delivery_plan(
     settings: Any,
     category: UserNotificationCategory,
@@ -161,6 +167,9 @@ def user_notification_delivery_plan(
     Fallback is intentionally based on recipient availability, not a transient
     send failure. When both preferences are disabled, no fallback is possible.
     """
+
+    if user_notifications_blocked(user):
+        return UserNotificationDeliveryPlan()
 
     telegram_selected = user_notification_channel_selected(settings, category, "telegram")
     email_selected = user_notification_channel_selected(settings, category, "email")

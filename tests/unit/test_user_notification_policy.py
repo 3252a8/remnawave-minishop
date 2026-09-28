@@ -145,3 +145,19 @@ def test_support_replies_are_not_suppressed_by_system_opt_out():
     )
 
     assert (plan.telegram, plan.email) == (True, True)
+
+
+@pytest.mark.parametrize(
+    "category",
+    [UserNotificationCategory.SUBSCRIPTIONS, UserNotificationCategory.SUPPORT],
+)
+def test_banned_user_has_no_notification_channels_even_when_both_are_available(category):
+    plan = user_notification_delivery_plan(
+        _settings(),
+        category,
+        _user(is_banned=True),
+        telegram_available=True,
+        email_available=True,
+    )
+
+    assert not plan.any_enabled
