@@ -249,6 +249,7 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(invite.status, RegistrationInviteStatus.VALID)
         self.assertIsNone(invite.referrer_user_id)
         self.assertEqual(invite.partner_id, 11)
+        self.assertEqual(invite.partner_user_id, 7)
         self.assertEqual(invite.partner_code, "partner-code")
 
     async def test_paused_partner_referral_link_cannot_bypass_partner_status(self):

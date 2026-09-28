@@ -123,7 +123,7 @@ export function buildExternalOAuthStartUrl(
   provider: "discord" | "google" | "yandex",
   purpose: "login" | "link",
   language: string,
-  referral = "",
+  referral = purpose === "login" ? readReferralParam() : "",
   tariffAccessCode = ""
 ): string {
   const params = new URLSearchParams({ purpose, lang: language });

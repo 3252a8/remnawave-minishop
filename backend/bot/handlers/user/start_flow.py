@@ -205,6 +205,7 @@ async def start_command_handler(
 
     referred_by_user_id: int | None = None
     partner_code: str | None = None
+    partner_user_id: int | None = None
     raw_ref_value: str | None = None
     promo_code_to_apply: str | None = None
     should_open_referral_from_start = False
@@ -258,6 +259,7 @@ async def start_command_handler(
             return
         referred_by_user_id = invite_check.referrer_user_id
         partner_code = invite_check.partner_code
+        partner_user_id = invite_check.partner_user_id
 
     if ticket_match:
         ticket_id = int(ticket_match.group(1))
@@ -306,7 +308,9 @@ async def start_command_handler(
             "telegram_notifications_blocked_at": None,
         }
         try:
-            db_user, created = await user_dal.create_user(session, user_data_to_create)
+            db_user, created = await user_dal.create_user(
+                session, user_data_to_create, partner_user_id=partner_user_id
+            )
             user_id = int(db_user.user_id)
 
             if created:

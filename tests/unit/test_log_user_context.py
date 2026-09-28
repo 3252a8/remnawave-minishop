@@ -132,6 +132,37 @@ class LogUserContextTests(IsolatedAsyncioTestCase):
             f"https://t.me/shop_bot?startapp=admin_user_{PUBLIC_ID}",
         )
 
+    async def test_registration_logs_identify_partner_for_telegram_email_and_oauth(self):
+        cases = [
+            ("notify_new_user_registration", {}),
+            ("notify_new_email_user_registration", {"email": "user@example.test"}),
+            (
+                "notify_new_external_user_registration",
+                {"provider": "google", "email": "user@example.test"},
+            ),
+        ]
+        partner_public_id = "ms_" + "b" * 32
+        for language in ("ru", "en"):
+            service = _service(language)
+            public_user_id = AsyncMock(
+                side_effect=lambda user_id, minishop_id=None: (
+                    partner_public_id if user_id == 7 else PUBLIC_ID
+                )
+            )
+            with patch.object(service, "_public_user_id", public_user_id):
+                for method, kwargs in cases:
+                    with self.subTest(language=language, method=method):
+                        await getattr(service, method)(
+                            user_id=42,
+                            minishop_id=PUBLIC_ID,
+                            referred_by_id=None,
+                            partner_user_id=7,
+                            **kwargs,
+                        )
+                        message = service._send_to_log_channel.await_args.args[0]
+                        self.assertIn(partner_public_id, message)
+                        self.assertIn("партнёром" if language == "ru" else "partner", message)
+
     async def test_rejected_profile_link_fallback_preserves_user_card(self):
         service = _service()
         keyboard = service._build_profile_keyboard(

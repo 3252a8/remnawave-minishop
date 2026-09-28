@@ -321,6 +321,7 @@ async def _ensure_user_from_telegram(
                 "referred_by_id": invite_check.referrer_user_id,
                 "registration_date": datetime.now(UTC),
             },
+            partner_user_id=invite_check.partner_user_id,
         )
         if created and invite_check.partner_code:
             await PartnerProgramService(settings).attribute_user(

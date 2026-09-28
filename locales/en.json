@@ -511,6 +511,7 @@
   "inline_system_stats_message": "🖥 <b>Panel Statistics</b>\n\n🟢 Online: <b>{online}</b>\n📊 Active: <b>{active}</b>\n🔴 Disabled: <b>{disabled}</b>\n⏰ Expired: <b>{expired}</b>\n⚠️ Limited: <b>{limited}</b>\n👥 Total users: <b>{total}</b>\n💾 RAM Usage: <b>{memory:.1f}%</b>\n📊 Week traffic: <b>{week_traffic}</b>\n📊 Month traffic: <b>{month_traffic}</b>\n🔗 Active nodes: <b>{active_nodes}/{total_nodes}</b>",
   "inline_admin_system_stats_title": "🖥 System Statistics",
   "log_referral_suffix": " (referral from {referrer_link})",
+  "log_partner_suffix": " (invited by partner {partner_link})",
   "log_open_profile_link": "👤 Open profile",
   "log_open_referrer_profile_button": "👤 Referrer profile",
   "log_new_user_registration": "👤 <b>New User</b>\n\n{user_display}{referral_text}\n📅 Time: {timestamp}",

@@ -178,6 +178,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
                     "first_name": "Alice",
                     "email": "alice@example.test",
                     "referred_by_id": 7,
+                    "partner_user_id": 8,
                 },
             )
             await events.emit(
@@ -228,11 +229,13 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
             first_name="Alice",
             email="alice@example.test",
             referred_by_id=7,
+            partner_user_id=8,
         )
         notification_service.notify_new_email_user_registration.assert_awaited_once_with(
             user_id=43,
             email="email@example.test",
             referred_by_id=None,
+            partner_user_id=None,
         )
         assert notification_service.notify_new_external_user_registration.await_args_list == [
             call(
@@ -240,18 +243,21 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
                 provider="google",
                 email="google@example.test",
                 referred_by_id=7,
+                partner_user_id=None,
             ),
             call(
                 user_id=-46,
                 provider="yandex",
                 email="yandex@example.test",
                 referred_by_id=None,
+                partner_user_id=None,
             ),
             call(
                 user_id=-47,
                 provider="discord",
                 email="discord@example.test",
                 referred_by_id=7,
+                partner_user_id=None,
             ),
         ]
 

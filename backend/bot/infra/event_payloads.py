@@ -193,6 +193,7 @@ class UserRegisteredPayload(EventPayload):
     email: str | None = None
     language: str | None = None
     referred_by_id: int | None = None
+    partner_user_id: int | None = None
     registered_via: Literal[
         "telegram",
         "email",
@@ -213,6 +214,8 @@ class UserRegisteredPayload(EventPayload):
         for field in ("account_id", "minishop_id"):
             if payload.get(field) is None:
                 payload.pop(field, None)
+        if payload.get("partner_user_id") is None:
+            payload.pop("partner_user_id", None)
         return payload
 
 

@@ -226,6 +226,7 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
                     language_code=_normalize_language(settings.DEFAULT_LANGUAGE),
                     email_verified_at=datetime.now(UTC),
                     referred_by_id=invite_check.referrer_user_id,
+                    partner_user_id=invite_check.partner_user_id,
                 )
                 created_user = True
                 if invite_check.partner_code:
@@ -328,6 +329,7 @@ async def email_auth_magic_route(request: web.Request) -> web.Response:
                     language_code=_normalize_language(settings.DEFAULT_LANGUAGE),
                     email_verified_at=datetime.now(UTC),
                     referred_by_id=invite_check.referrer_user_id,
+                    partner_user_id=invite_check.partner_user_id,
                 )
                 created_user = True
                 if invite_check.partner_code:

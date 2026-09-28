@@ -395,6 +395,7 @@ class CoreEventReactions(PartnerEventReactionsMixin):
             return
 
         referred_by_id = payload.get("referred_by_id")
+        partner_user_id = payload.get("partner_user_id")
         email = payload.get("email") or getattr(user, "email", None)
         minishop_id = payload.get("minishop_id") or getattr(user, "minishop_id", None)
         public_identity = {"minishop_id": str(minishop_id)} if minishop_id else {}
@@ -410,6 +411,7 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                     provider=external_provider,
                     email=str(email),
                     referred_by_id=referred_by_id,
+                    partner_user_id=partner_user_id,
                 )
             elif registered_via == "email":
                 if not email:
@@ -419,6 +421,7 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                     **public_identity,
                     email=str(email),
                     referred_by_id=referred_by_id,
+                    partner_user_id=partner_user_id,
                 )
             else:
                 await service.notify_new_user_registration(
@@ -429,6 +432,7 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                     first_name=payload.get("first_name") or getattr(user, "first_name", None),
                     email=email,
                     referred_by_id=referred_by_id,
+                    partner_user_id=partner_user_id,
                 )
         except Exception:
             logger.exception("Failed to react to user registration for user %s.", user_id)

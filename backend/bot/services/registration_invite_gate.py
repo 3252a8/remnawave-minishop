@@ -33,6 +33,7 @@ class RegistrationInviteCheck:
     status: RegistrationInviteStatus
     referrer_user_id: int | None = None
     partner_id: int | None = None
+    partner_user_id: int | None = None
     partner_code: str | None = None
 
     @property
@@ -49,6 +50,7 @@ class _ReferralLookupResult:
     status: RegistrationInviteStatus
     referrer_user_id: int | None = None
     partner_id: int | None = None
+    partner_user_id: int | None = None
     partner_code: str | None = None
 
 
@@ -113,6 +115,7 @@ async def _resolved_referrer_result(
     return _ReferralLookupResult(
         RegistrationInviteStatus.VALID,
         partner_id=int(profile.partner_id),
+        partner_user_id=int(profile.user_id),
         partner_code=str(profile.partner_code),
     )
 
@@ -371,6 +374,7 @@ async def evaluate_registration_invite(
         if partner_enabled and re.fullmatch(r"[A-Za-z0-9_-]{8,64}", code):
             profile = await partner_dal.get_profile_by_code(session, code)
         partner_id: int | None = None
+        partner_user_id: int | None = None
         partner_code: str | None = None
         if not profile or profile.status != "active" or profile.user_id is None:
             status = RegistrationInviteStatus.INVALID
@@ -379,11 +383,13 @@ async def evaluate_registration_invite(
         else:
             status = RegistrationInviteStatus.VALID
             partner_id = int(profile.partner_id)
+            partner_user_id = int(profile.user_id)
             partner_code = str(profile.partner_code)
         return RegistrationInviteCheck(
             enabled=registration_invite_only_enabled(settings),
             status=status,
             partner_id=partner_id,
+            partner_user_id=partner_user_id,
             partner_code=partner_code,
         )
     lookup = await _lookup_referrer(
@@ -398,5 +404,6 @@ async def evaluate_registration_invite(
         status=lookup.status,
         referrer_user_id=lookup.referrer_user_id,
         partner_id=lookup.partner_id,
+        partner_user_id=lookup.partner_user_id,
         partner_code=lookup.partner_code,
     )

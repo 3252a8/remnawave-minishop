@@ -58,11 +58,24 @@ describe("auth referral helpers", () => {
     );
   });
 
+  it("carries a partner web link into Google registration", () => {
+    const code = "TestPartner_123";
+    installBrowser(`?partner=${code}`);
+
+    expect(buildExternalOAuthStartUrl("google", "login", "ru")).toBe(
+      `/auth/google/start?purpose=login&lang=ru&ref=p_${code}`
+    );
+    expect(buildExternalOAuthStartUrl("google", "link", "ru")).toBe(
+      "/auth/google/start?purpose=link&lang=ru"
+    );
+  });
+
   it("reads referral params from supported query names", () => {
     for (const [search, expected] of [
       ["?ref=ABC123", "ABC123"],
       ["?start=START123", "START123"],
       ["?start_param=MINI123", "MINI123"],
+      ["?partner=PARTNER123", "p_PARTNER123"],
     ]) {
       vi.unstubAllGlobals();
       const { storage } = installBrowser(search);

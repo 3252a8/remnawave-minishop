@@ -584,4 +584,5 @@
 | `email` | `str | None` | `None` |
 | `language` | `str | None` | `None` |
 | `referred_by_id` | `int | None` | `None` |
+| `partner_user_id` | `int | None` | `None` |
 | `registered_via` | `'telegram' | 'email' | 'discord_oauth' | 'google_oauth' | 'yandex_oauth' | 'panel_sync' | 'unknown'` | обязательно |

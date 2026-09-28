@@ -511,6 +511,7 @@
   "inline_system_stats_message": "🖥 <b>Статистика панели</b>\n\n🟢 Онлайн: <b>{online}</b>\n📊 Активных: <b>{active}</b>\n🔴 Отключенных: <b>{disabled}</b>\n⏰ Истекшие: <b>{expired}</b>\n⚠️ Ограниченные: <b>{limited}</b>\n👥 Всего пользователей: <b>{total}</b>\n💾 Использование RAM: <b>{memory:.1f}%</b>\n📊 Трафик за неделю: <b>{week_traffic}</b>\n📊 Трафик за месяц: <b>{month_traffic}</b>\n🔗 Активных нод: <b>{active_nodes}/{total_nodes}</b>",
   "inline_admin_system_stats_title": "🖥 Системная статистика",
   "log_referral_suffix": " (реферал от {referrer_link})",
+  "log_partner_suffix": " (приглашён партнёром {partner_link})",
   "log_open_profile_link": "👤 Открыть профиль",
   "log_open_referrer_profile_button": "👤 Профиль пригласившего",
   "log_new_user_registration": "👤 <b>Новый пользователь</b>\n\n{user_display}{referral_text}\n📅 Время: {timestamp}",

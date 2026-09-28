@@ -434,6 +434,7 @@ async def _new_oidc_registration_emits_provider_registration_after_commit() -> N
                     return_value=SimpleNamespace(
                         requires_invite=False,
                         referrer_user_id=7,
+                        partner_user_id=None,
                         partner_code=None,
                     )
                 ),

@@ -156,6 +156,7 @@ async def create_user(
     user_data: dict[str, Any],
     *,
     registered_via: str | None = "auto",
+    partner_user_id: int | None = None,
 ) -> tuple[User, bool]:
     """Create a user if not exists in a race-safe way.
 
@@ -217,6 +218,7 @@ async def create_user(
                 user_id=int(user.user_id),
                 language=user_data.get("language_code"),
                 referred_by_id=user_data.get("referred_by_id"),
+                partner_user_id=partner_user_id,
                 registered_via=registered_via,
                 telegram_id=user_data.get("telegram_id"),
                 username=user_data.get("username"),
@@ -250,6 +252,7 @@ async def create_email_user(
     language_code: str,
     email_verified_at: datetime | None = None,
     referred_by_id: int | None = None,
+    partner_user_id: int | None = None,
     registered_via: str | None = "email",
     email_source: str = "email",
 ) -> tuple[User, bool]:
@@ -266,6 +269,7 @@ async def create_email_user(
             "registration_date": datetime.now(UTC),
         },
         registered_via=registered_via,
+        partner_user_id=partner_user_id,
     )
     await upsert_user_email_address(
         session,

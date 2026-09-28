@@ -167,8 +167,7 @@
   }
 
   function openProvider(provider: "discord" | "google" | "yandex"): void {
-    const referral = new URLSearchParams(window.location.search).get("ref") || "";
-    window.location.assign(buildExternalOAuthStartUrl(provider, "login", currentLang, referral));
+    window.location.assign(buildExternalOAuthStartUrl(provider, "login", currentLang));
   }
 
   async function openPasskeyLogin(): Promise<void> {

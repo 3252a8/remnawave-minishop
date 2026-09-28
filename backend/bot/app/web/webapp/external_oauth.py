@@ -367,6 +367,7 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
     async_session_factory: sessionmaker = get_session_factory(request)
     user_id: int | None = None
     created_user = False
+    registration_partner_user_id: int | None = None
     identity_link_source: Literal["settings", "provider_verified_email"] | None = None
     merged_source_user_ids: list[int] = []
     merged_source_panel_uuids: list[str] = []
@@ -513,6 +514,7 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
                     )
                     if invite.requires_invite:
                         return finish("invite_required")
+                    registration_partner_user_id = invite.partner_user_id
                     if not email:
                         return finish("email_required")
                     user, _ = await user_dal.create_email_user(
@@ -599,6 +601,7 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
                     user_id=int(user.user_id),
                     language=getattr(user, "language_code", None),
                     referred_by_id=getattr(user, "referred_by_id", None),
+                    partner_user_id=registration_partner_user_id,
                     registered_via=_REGISTRATION_SOURCE_BY_PROVIDER[provider.key],
                     telegram_id=getattr(user, "telegram_id", None),
                     username=getattr(user, "username", None),
