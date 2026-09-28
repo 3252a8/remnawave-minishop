@@ -119,4 +119,28 @@ describe("accountStore", () => {
     expect(deps.publicApi).toHaveBeenCalledWith("/auth/logout", { keepalive: true });
     expect(deps.showLogin).toHaveBeenCalled();
   });
+
+  it("offers explicit merge after a proven Telegram identity belongs to another account", async () => {
+    const { store, deps } = makeAccountStore({
+      api: vi.fn().mockRejectedValue({ error: "account_merge_required" }),
+    });
+
+    await store.linkTelegramAccount(() => "verified-mini-app-init-data");
+
+    expect(deps.api).toHaveBeenCalledWith("/account/telegram/link", {
+      method: "POST",
+      body: JSON.stringify({ init_data: "verified-mini-app-init-data" }),
+    });
+    expect(store.telegramMergeOpen).toBe(true);
+    expect(deps.showToast).not.toHaveBeenCalled();
+  });
+
+  it("refreshes the retained email account after explicit merge", async () => {
+    const { store, deps } = makeAccountStore();
+
+    await store.completeTelegramMerge({ token: "session", csrf_token: "csrf" });
+
+    expect(deps.setToken).toHaveBeenCalledWith("session", "csrf");
+    expect(deps.loadData).toHaveBeenCalledWith({ fresh: true, preserveView: true });
+  });
 });

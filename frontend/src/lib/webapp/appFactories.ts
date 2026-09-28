@@ -498,6 +498,7 @@ export function createAppFactories({
       }),
     setAuthStatus: (message, isError = false) => authStore.setAuthStatus(message, isError),
     showToast,
+    onTelegramMergeRequired: () => accountStore.openTelegramMergeDialog(),
     t,
     readTelegramMiniAppInitDataFromLocation,
     continueTelegramLinkPendingAction: () => getAppActions().continueTelegramLinkPendingAction(),

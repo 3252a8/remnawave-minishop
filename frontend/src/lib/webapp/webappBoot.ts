@@ -66,6 +66,7 @@ export type WebappBootDeps = {
   restorePendingExternalOauth: () => Promise<boolean> | boolean;
   setAuthStatus: (message: string, isError?: boolean) => void;
   showAccountLinkStatus?: ((message: string) => void) | null;
+  onTelegramMergeRequired?: (() => void) | null;
   t: (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   getInitDataForBoot: () => string | null | undefined;
   getToken: () => string | null | undefined;
@@ -168,6 +169,7 @@ async function runWebappBootSequence({
   restorePendingExternalOauth,
   setAuthStatus,
   showAccountLinkStatus,
+  onTelegramMergeRequired,
   t,
   getInitDataForBoot,
   getToken,
@@ -179,6 +181,10 @@ async function runWebappBootSequence({
 
   if (MOCK) {
     await loadData();
+    if (readTelegramAuthStatus() === "account_merge_required") {
+      clearAuthQuery();
+      onTelegramMergeRequired?.();
+    }
     return;
   }
 
@@ -245,6 +251,17 @@ async function runWebappBootSequence({
     clearAuthQuery();
     try {
       await loadData();
+      return;
+    } catch (error) {
+      if (!isInvalidSession(error)) throw error;
+      clearToken();
+    }
+  } else if (telegramAuthStatus === "account_merge_required") {
+    clearAuthQuery();
+    try {
+      await loadData();
+      if (onTelegramMergeRequired) onTelegramMergeRequired();
+      else showAccountLinkStatus?.(t("wa_telegram_merge_required"));
       return;
     } catch (error) {
       if (!isInvalidSession(error)) throw error;

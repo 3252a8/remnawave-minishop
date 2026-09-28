@@ -22,6 +22,10 @@ from .auth import (
     _sync_merged_panel_identity_for_user,
     _validate_telegram_auth_payload,
 )
+from .auth_common import (
+    _clear_telegram_merge_proof_cookie,
+    _read_telegram_merge_proof_cookie,
+)
 from .common import (
     _invalidate_webapp_user_caches,
     _json_error,
@@ -73,12 +77,14 @@ async def account_telegram_merge_confirm_route(request: web.Request) -> web.Resp
         return _json_error(409, "email_auth_not_configured", "Email auth is required")
 
     merge_payload = await _parse_model_payload(request, WebAppTelegramMergePayload)
-    telegram_user = await _validate_telegram_auth_payload(
-        request, merge_payload.model_dump(mode="json", exclude_none=True)
-    )
-    if not telegram_user:
+    payload = merge_payload.model_dump(mode="json", exclude_none=True)
+    if any(payload.get(key) for key in ("init_data", "id_token", "auth_data")):
+        telegram_user = await _validate_telegram_auth_payload(request, payload)
+        telegram_id = int(telegram_user["id"]) if telegram_user else None
+    else:
+        telegram_id = _read_telegram_merge_proof_cookie(request, current_user_id)
+    if telegram_id is None:
         return _json_error(401, "invalid_auth", "Invalid Telegram auth data")
-    telegram_id = int(telegram_user["id"])
 
     async_session_factory: sessionmaker = get_session_factory(request)
     email_service = get_email_auth_service(request)
@@ -167,7 +173,7 @@ async def account_telegram_merge_confirm_route(request: web.Request) -> web.Resp
         )
     )
     token = create_webapp_session_token(settings, current_user_id)
-    return _build_webapp_auth_response(
+    response = _build_webapp_auth_response(
         settings,
         {
             "ok": True,
@@ -177,3 +183,5 @@ async def account_telegram_merge_confirm_route(request: web.Request) -> web.Resp
         },
         token=token,
     )
+    _clear_telegram_merge_proof_cookie(response)
+    return response

@@ -4,9 +4,13 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
+from aiohttp import web
+
 from bot.app.web import subscription_webapp  # noqa: F401
 from bot.app.web.webapp import account as account_routes
+from bot.app.web.webapp import account_merge as merge_routes
 from bot.app.web.webapp import auth as auth_routes
+from bot.app.web.webapp import auth_oauth as oauth_routes
 from bot.app.web.webapp.auth import (
     _apply_telegram_profile_to_user,
     _build_account_merge_notice,
@@ -16,6 +20,10 @@ from bot.app.web.webapp.auth import (
     _panel_description_for_user,
     _sync_merged_panel_identity_for_user,
     _sync_panel_identity_for_user,
+)
+from bot.app.web.webapp.auth_common import (
+    _read_telegram_merge_proof_cookie,
+    _set_telegram_merge_proof_cookie,
 )
 
 
@@ -594,9 +602,204 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status, 409)
         payload = json.loads(response.text)
         self.assertFalse(payload["ok"])
-        self.assertEqual(payload["error"], "account_merge_conflict")
+        self.assertEqual(payload["error"], "account_merge_required")
+        proof_cookie = response.cookies["rw_tg_merge_proof"]
+        self.assertEqual(proof_cookie["httponly"], True)
+        self.assertEqual(proof_cookie["secure"], True)
+        proof_request = SimpleNamespace(
+            app=request.app,
+            cookies={"rw_tg_merge_proof": proof_cookie.value},
+        )
+        self.assertEqual(_read_telegram_merge_proof_cookie(proof_request, -100), 42)
+        self.assertIsNone(_read_telegram_merge_proof_cookie(proof_request, 42))
+        proof_request.cookies["rw_tg_merge_proof"] = proof_cookie.value + "tampered"
+        self.assertIsNone(_read_telegram_merge_proof_cookie(proof_request, -100))
         merge_users.assert_not_awaited()
         probe_telegram_notifications.assert_not_awaited()
         grant_deferred_welcome_bonus.assert_not_awaited()
         self.assertEqual(panel_calls, [])
         self.assertNotIn("rw_webapp_session", response.cookies)
+
+    async def test_explicit_merge_accepts_recent_proof_for_the_email_account(self):
+        settings = SimpleNamespace(
+            TELEGRAM_ENABLED=True,
+            email_auth_configured=True,
+            WEBAPP_SESSION_SECRET="session-secret",
+        )
+        cookie_response = web.Response()
+        _set_telegram_merge_proof_cookie(
+            cookie_response,
+            settings,
+            user_id=-100,
+            telegram_id=42,
+        )
+        request = SimpleNamespace(
+            app={"settings": settings},
+            cookies={"rw_tg_merge_proof": cookie_response.cookies["rw_tg_merge_proof"].value},
+        )
+        get_user = AsyncMock(return_value=None)
+        validate_telegram = AsyncMock()
+        with (
+            patch.object(merge_routes, "_require_user_id", return_value=-100),
+            patch.object(
+                merge_routes,
+                "_parse_model_payload",
+                AsyncMock(
+                    return_value=SimpleNamespace(model_dump=lambda **_: {"email_code": "123456"})
+                ),
+            ),
+            patch.object(merge_routes, "_validate_telegram_auth_payload", validate_telegram),
+            patch.object(
+                merge_routes, "get_session_factory", return_value=self._AsyncSessionFactory()
+            ),
+            patch.object(merge_routes, "get_email_auth_service", return_value=SimpleNamespace()),
+            patch.object(merge_routes.user_dal, "get_user_by_id", get_user),
+        ):
+            response = await merge_routes.account_telegram_merge_confirm_route(request)
+            self.assertEqual(response.status, 403)
+            get_user.assert_awaited_once()
+            validate_telegram.assert_not_awaited()
+
+            request.cookies["rw_tg_merge_proof"] += "tampered"
+            rejected = await merge_routes.account_telegram_merge_confirm_route(request)
+            self.assertEqual(rejected.status, 401)
+            get_user.assert_awaited_once()
+
+    async def test_telegram_oauth_conflict_preserves_proof_for_explicit_merge(self):
+        settings = SimpleNamespace(
+            TELEGRAM_ENABLED=True,
+            TELEGRAM_LOGIN_ENABLED=True,
+            WEBAPP_AUTH_MAX_AGE_SECONDS=3600,
+            WEBAPP_SESSION_SECRET="session-secret",
+        )
+        request = SimpleNamespace(
+            app={"settings": settings},
+            query={"code": "oauth-code", "state": "state"},
+        )
+        state = {
+            "purpose": "link",
+            "user_id": -100,
+            "nonce": "nonce",
+            "code_verifier": "verifier",
+        }
+        conflict = account_routes.UserMergeConflictError(
+            "Explicit merge required", code="account_merge_required"
+        )
+        with (
+            patch.object(oauth_routes, "_read_telegram_oauth_state_payload", return_value=state),
+            patch.object(
+                oauth_routes,
+                "_telegram_oauth_callback_url",
+                return_value="https://app.example.test/auth/telegram/callback",
+            ),
+            patch.object(oauth_routes, "_resolve_telegram_oauth_client_id", return_value=42),
+            patch.object(
+                oauth_routes,
+                "_exchange_telegram_oauth_code",
+                AsyncMock(return_value={"id_token": "id-token"}),
+            ),
+            patch.object(
+                oauth_routes,
+                "validate_telegram_oauth_id_token",
+                AsyncMock(return_value={"id": 42}),
+            ),
+            patch.object(
+                oauth_routes, "get_session_factory", return_value=self._AsyncSessionFactory()
+            ),
+            patch.object(
+                oauth_routes.user_dal,
+                "get_user_by_id",
+                AsyncMock(return_value=SimpleNamespace(panel_user_uuid=None)),
+            ),
+            patch.object(oauth_routes, "_link_telegram_to_user", AsyncMock(side_effect=conflict)),
+            self.assertRaises(web.HTTPFound) as raised,
+        ):
+            await oauth_routes.telegram_oauth_callback_route(request)
+
+        redirect = raised.exception
+        self.assertIn("telegram_auth=account_merge_required", redirect.location)
+        proof_request = SimpleNamespace(
+            app=request.app,
+            cookies={"rw_tg_merge_proof": redirect.cookies["rw_tg_merge_proof"].value},
+        )
+        self.assertEqual(_read_telegram_merge_proof_cookie(proof_request, -100), 42)
+
+    async def test_explicit_merge_uses_email_code_and_oauth_proof(self):
+        settings = SimpleNamespace(
+            TELEGRAM_ENABLED=True,
+            email_auth_configured=True,
+            WEBAPP_SESSION_SECRET="session-secret",
+        )
+        cookie_response = web.Response()
+        _set_telegram_merge_proof_cookie(cookie_response, settings, user_id=-100, telegram_id=42)
+        request = SimpleNamespace(
+            app={"settings": settings},
+            cookies={"rw_tg_merge_proof": cookie_response.cookies["rw_tg_merge_proof"].value},
+        )
+        current = SimpleNamespace(
+            user_id=-100,
+            email="verified@example.test",
+            email_verified_at=datetime.now(UTC),
+            is_banned=False,
+        )
+        source = SimpleNamespace(user_id=42, panel_user_uuid="panel-telegram")
+        merged = SimpleNamespace(
+            user_id=-100,
+            email=current.email,
+            username=None,
+            first_name=None,
+            panel_user_uuid="panel-email",
+        )
+        email_service = SimpleNamespace(
+            verify_code=AsyncMock(return_value=SimpleNamespace(ok=True))
+        )
+        merge_users = AsyncMock(return_value=merged)
+        with (
+            patch.object(merge_routes, "_require_user_id", return_value=-100),
+            patch.object(
+                merge_routes,
+                "_parse_model_payload",
+                AsyncMock(
+                    return_value=SimpleNamespace(
+                        model_dump=lambda **_: {"email_code": "123456"}, email_code="123456"
+                    )
+                ),
+            ),
+            patch.object(
+                merge_routes, "get_session_factory", return_value=self._AsyncSessionFactory()
+            ),
+            patch.object(merge_routes, "get_email_auth_service", return_value=email_service),
+            patch.object(merge_routes.user_dal, "get_user_by_id", AsyncMock(return_value=current)),
+            patch.object(
+                merge_routes.user_dal,
+                "get_user_by_telegram_id",
+                AsyncMock(return_value=source),
+            ),
+            patch.object(merge_routes, "_merge_users_for_web", merge_users),
+            patch.object(
+                merge_routes,
+                "_build_account_merge_notice",
+                AsyncMock(return_value={"merged": True}),
+            ),
+            patch.object(
+                merge_routes,
+                "_sync_merged_panel_identity_for_user",
+                AsyncMock(return_value=True),
+            ),
+            patch.object(merge_routes, "_invalidate_webapp_user_caches", AsyncMock()),
+            patch.object(merge_routes.events, "emit_model", AsyncMock()),
+            patch.object(merge_routes, "create_webapp_session_token", return_value="session"),
+            patch.object(
+                merge_routes,
+                "_build_webapp_auth_response",
+                return_value=web.json_response({"ok": True}),
+            ),
+        ):
+            response = await merge_routes.account_telegram_merge_confirm_route(request)
+
+        self.assertEqual(response.status, 200)
+        email_service.verify_code.assert_awaited_once()
+        merge_users.assert_awaited_once()
+        self.assertEqual(merge_users.await_args.kwargs["source_user_id"], 42)
+        self.assertEqual(merge_users.await_args.kwargs["target_user_id"], -100)
+        self.assertEqual(response.cookies["rw_tg_merge_proof"]["max-age"], "0")

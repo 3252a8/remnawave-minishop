@@ -34,6 +34,7 @@ type AppBootRuntimeDeps = {
   restorePendingExternalOauth: () => Promise<boolean> | boolean;
   setAuthStatus: (message: string, isError?: boolean) => void;
   showToast: (message: unknown) => void;
+  onTelegramMergeRequired: () => void;
   t: Translate;
   readTelegramMiniAppInitDataFromLocation: () => string;
   // Post-boot activation handoff.
@@ -100,6 +101,7 @@ export function createAppBootRuntime(deps: AppBootRuntimeDeps) {
       restorePendingExternalOauth: deps.restorePendingExternalOauth,
       setAuthStatus: deps.setAuthStatus,
       showAccountLinkStatus: deps.showToast,
+      onTelegramMergeRequired: deps.onTelegramMergeRequired,
       t: deps.t,
       getInitDataForBoot: () =>
         shellState.telegramMiniAppInitData ||

@@ -10,6 +10,7 @@
   import type { DevicesStore } from "../lib/webapp/stores/devicesStore.js";
   import PaymentDialogs from "./PaymentDialogs.svelte";
   import SubscriptionReissueDialog from "./payment-dialogs/SubscriptionReissueDialog.svelte";
+  import TelegramMergeDialog from "./security/TelegramMergeDialog.svelte";
   import TributeCreatorCancelDialog from "./payment-dialogs/TributeCreatorCancelDialog.svelte";
   import QaPaymentDialog from "./payment-dialogs/QaPaymentDialog.svelte";
   import TariffDialogs from "./TariffDialogs.svelte";
@@ -139,6 +140,14 @@
 </script>
 
 <QaPaymentDialog {api} {loadData} {t} />
+<TelegramMergeDialog
+  {api}
+  email={user?.email || ""}
+  open={emailAuthEnabled && accountStore.telegramMergeOpen}
+  onclose={accountStore.closeTelegramMergeDialog}
+  onmerged={accountStore.completeTelegramMerge}
+  {t}
+/>
 
 <PaymentDialogs
   {api}

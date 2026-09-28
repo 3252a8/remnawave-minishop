@@ -36,6 +36,7 @@ from .auth_common import (
     _clear_telegram_oauth_state_cookie,
     _clear_webapp_auth_cookies,
     _read_telegram_oauth_state_payload,
+    _set_telegram_merge_proof_cookie,
     _set_telegram_oauth_state_cookie,
     _set_webapp_auth_cookies,
     _telegram_oauth_callback_url,
@@ -335,7 +336,15 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
             raise redirect(status="invite_required") from None
         except UserMergeConflictError as exc:
             await session.rollback()
-            raise redirect(redirect_path, exc.code) from None
+            response = redirect(redirect_path, exc.code)
+            if purpose == "link" and exc.code == "account_merge_required":
+                _set_telegram_merge_proof_cookie(
+                    response,
+                    settings,
+                    user_id=int(state.get("user_id") or 0),
+                    telegram_id=int(telegram_user["id"]),
+                )
+            raise response from None
         except Exception:
             await session.rollback()
             logger.exception("Telegram OAuth callback failed")

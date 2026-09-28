@@ -407,7 +407,7 @@ async def _telegram_link_rejects_existing_identity_without_merging() -> None:
             AsyncMock(return_value=existing),
         ),
         patch("bot.app.web.webapp.auth_panel.user_dal.merge_users", merge_users),
-        pytest.raises(UserMergeConflictError),
+        pytest.raises(UserMergeConflictError) as raised,
     ):
         await _link_telegram_to_user(
             SimpleNamespace(app={}),
@@ -418,6 +418,7 @@ async def _telegram_link_rejects_existing_identity_without_merging() -> None:
         )
 
     merge_users.assert_not_awaited()
+    assert raised.value.code == "account_merge_required"
 
 
 def test_telegram_link_rejects_existing_identity_without_merging() -> None:

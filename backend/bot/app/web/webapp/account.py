@@ -35,6 +35,7 @@ from .auth import (
     _sync_panel_identity_for_user,
     _validate_telegram_auth_payload,
 )
+from .auth_common import _set_telegram_merge_proof_cookie
 from .auth_referral import _grant_deferred_referral_welcome_bonus_after_telegram_link
 from .billing_tariff_access import request_tariff_access_code
 from .common import (
@@ -424,11 +425,19 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
 
         except UserMergeConflictError as exc:
             await session.rollback()
-            return _json_error(
+            response = _json_error(
                 409,
-                "account_merge_conflict",
+                exc.code,
                 _merge_conflict_message(request, settings, exc, conflict_language),
             )
+            if exc.code == "account_merge_required":
+                _set_telegram_merge_proof_cookie(
+                    response,
+                    settings,
+                    user_id=user_id,
+                    telegram_id=int(telegram_user["id"]),
+                )
+            return response
         except Exception:
             await session.rollback()
             logger.exception("Telegram account link failed")

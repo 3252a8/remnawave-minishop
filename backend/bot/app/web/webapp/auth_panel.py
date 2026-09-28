@@ -282,19 +282,19 @@ async def _link_telegram_to_user(
     if not current_user:
         raise ValueError("Current user not found.")
 
-    existing_telegram_user = await user_dal.get_user_by_telegram_id(session, telegram_id)
-    if existing_telegram_user and existing_telegram_user.user_id != current_user.user_id:
-        raise UserMergeConflictError(
-            "Telegram identity belongs to another account; explicit merge is required.",
-            message_key="account_merge_telegram_conflict",
-            code="account_merge_telegram_conflict",
-        )
-
     if current_user.telegram_id and int(current_user.telegram_id) != telegram_id:
         raise UserMergeConflictError(
             "Current account is already linked to Telegram.",
             message_key="account_merge_telegram_conflict",
             code="account_merge_telegram_conflict",
+        )
+
+    existing_telegram_user = await user_dal.get_user_by_telegram_id(session, telegram_id)
+    if existing_telegram_user and existing_telegram_user.user_id != current_user.user_id:
+        raise UserMergeConflictError(
+            "Telegram identity belongs to another account; explicit merge is required.",
+            message_key="account_merge_required",
+            code="account_merge_required",
         )
 
     _apply_telegram_profile_to_user(current_user, telegram_user, settings)

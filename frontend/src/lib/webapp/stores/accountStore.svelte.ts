@@ -53,6 +53,7 @@ export type AccountState = {
   linkEmailOpen: boolean;
   linkEmailBusy: boolean;
   linkTelegramBusy: boolean;
+  telegramMergeOpen: boolean;
   linkEmailValue: string;
   linkEmailPending: string;
   linkEmailCode: string;
@@ -82,6 +83,9 @@ export type AccountStore = AccountState & {
   confirmSetPassword(): Promise<void>;
   linkTelegramAccount(getTelegramMiniAppInitData?: () => string): Promise<void>;
   linkTelegramFromSettings(): Promise<void>;
+  openTelegramMergeDialog(): void;
+  closeTelegramMergeDialog(): void;
+  completeTelegramMerge(response: unknown): Promise<void>;
   continueTelegramLinkPendingAction(): Promise<boolean>;
   linkTelegramAndActivateTrial(): Promise<void>;
   linkTelegramAndClaimReferralWelcome(): Promise<void>;
@@ -141,6 +145,7 @@ export function createAccountStore({
     linkEmailOpen: false,
     linkEmailBusy: false,
     linkTelegramBusy: false,
+    telegramMergeOpen: false,
     linkEmailValue: "",
     linkEmailPending: "",
     linkEmailCode: "",
@@ -168,6 +173,9 @@ export function createAccountStore({
     confirmSetPassword,
     linkTelegramAccount,
     linkTelegramFromSettings,
+    openTelegramMergeDialog,
+    closeTelegramMergeDialog,
+    completeTelegramMerge,
     continueTelegramLinkPendingAction,
     linkTelegramAndActivateTrial,
     linkTelegramAndClaimReferralWelcome,
@@ -549,6 +557,21 @@ export function createAccountStore({
     }
   }
 
+  function openTelegramMergeDialog() {
+    updateState((s) => ({ ...s, telegramMergeOpen: true }));
+  }
+
+  function closeTelegramMergeDialog() {
+    updateState((s) => ({ ...s, telegramMergeOpen: false }));
+    clearTelegramLinkPendingAction();
+  }
+
+  async function completeTelegramMerge(response: unknown) {
+    setSessionFromAuthResponse(asRecord(response), setToken);
+    await loadData({ fresh: true, preserveView: true });
+    await continueTelegramLinkPendingAction();
+  }
+
   async function linkTelegramAccountWithPayload(
     payload: PostPayload<"/api/account/telegram/link">
   ) {
@@ -563,7 +586,11 @@ export function createAccountStore({
       await loadData();
       showToast(t("wa_settings_linked"));
     } catch (error: unknown) {
-      showToast(stringField(asRecord(error).message) || t("wa_auth_telegram_not_confirmed"));
+      if (stringField(asRecord(error).error) === "account_merge_required") {
+        openTelegramMergeDialog();
+      } else {
+        showToast(stringField(asRecord(error).message) || t("wa_auth_telegram_not_confirmed"));
+      }
     } finally {
       updateState((s) => ({ ...s, linkTelegramBusy: false }));
     }
@@ -612,7 +639,11 @@ export function createAccountStore({
       await loadData({ fresh: true, preserveView: true });
       showToast(t("wa_settings_linked"));
     } catch (error: unknown) {
-      showToast(stringField(asRecord(error).message) || t("wa_auth_telegram_not_confirmed"));
+      if (stringField(asRecord(error).error) === "account_merge_required") {
+        openTelegramMergeDialog();
+      } else {
+        showToast(stringField(asRecord(error).message) || t("wa_auth_telegram_not_confirmed"));
+      }
     } finally {
       updateState((s) => ({ ...s, linkTelegramBusy: false }));
     }
@@ -651,8 +682,12 @@ export function createAccountStore({
         showToast(t("wa_settings_linked"));
       }
     } catch (error: unknown) {
-      clearTelegramLinkPendingAction();
-      showToast(stringField(asRecord(error).message) || t("wa_auth_telegram_not_confirmed"));
+      if (stringField(asRecord(error).error) === "account_merge_required") {
+        openTelegramMergeDialog();
+      } else {
+        clearTelegramLinkPendingAction();
+        showToast(stringField(asRecord(error).message) || t("wa_auth_telegram_not_confirmed"));
+      }
     } finally {
       updateState((s) => ({ ...s, linkTelegramBusy: false }));
     }

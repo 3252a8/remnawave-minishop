@@ -32,6 +32,7 @@ from db.models import User
 from .constants import (
     WEBAPP_CSRF_COOKIE_NAME,
     WEBAPP_SESSION_COOKIE_NAME,
+    WEBAPP_TELEGRAM_MERGE_PROOF_COOKIE_NAME,
     WEBAPP_TELEGRAM_OAUTH_STATE_COOKIE_NAME,
 )
 from .response_helpers import json_response
@@ -135,6 +136,55 @@ def _read_telegram_oauth_state_payload(
     if not expected_state or not hmac.compare_digest(expected_state, state_token):
         return None
     return payload
+
+
+def _set_telegram_merge_proof_cookie(
+    response: web.StreamResponse,
+    settings: Settings,
+    *,
+    user_id: int,
+    telegram_id: int,
+) -> None:
+    response.set_cookie(
+        WEBAPP_TELEGRAM_MERGE_PROOF_COOKIE_NAME,
+        create_signed_telegram_oauth_state(
+            settings,
+            {"purpose": "telegram_merge_proof", "user_id": user_id, "telegram_id": telegram_id},
+            ttl_seconds=600,
+        ),
+        httponly=True,
+        secure=True,
+        samesite="Lax",
+        path="/api/account/telegram/merge",
+        max_age=600,
+    )
+
+
+def _read_telegram_merge_proof_cookie(request: web.Request, user_id: int) -> int | None:
+    payload = verify_signed_telegram_oauth_state(
+        get_settings(request), request.cookies.get(WEBAPP_TELEGRAM_MERGE_PROOF_COOKIE_NAME, "")
+    )
+    if not payload or payload.get("purpose") != "telegram_merge_proof":
+        return None
+    try:
+        if int(payload.get("user_id")) != user_id:
+            return None
+        telegram_id = int(payload.get("telegram_id"))
+        return telegram_id if telegram_id > 0 else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _clear_telegram_merge_proof_cookie(response: web.StreamResponse) -> None:
+    response.set_cookie(
+        WEBAPP_TELEGRAM_MERGE_PROOF_COOKIE_NAME,
+        "",
+        httponly=True,
+        secure=True,
+        samesite="Lax",
+        path="/api/account/telegram/merge",
+        max_age=0,
+    )
 
 
 def _urlsafe_sha256(value: str) -> str:

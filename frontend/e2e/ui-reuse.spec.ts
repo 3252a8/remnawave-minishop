@@ -47,6 +47,22 @@ for (const [device, viewport] of [
   ["desktop", { width: 1440, height: 900 }],
   ["mobile", { width: 390, height: 844 }],
 ] as const) {
+  test(`Telegram merge confirmation fits on ${device}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto(
+      "/demo/runtime/app/?mock=checkout-addons&theme_preview=dark&telegram_auth=account_merge_required"
+    );
+    const dialog = page.locator(".telegram-merge-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "Объединение аккаунтов" })).toBeVisible();
+    await expect(dialog.locator(".telegram-merge-form input")).toBeVisible();
+    await noOverflow(dialog);
+    const bounds = await dialog.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width);
+  });
+
   test(`gift navigation initializes from the profile on ${device}`, async ({ page }) => {
     await page.setViewportSize(viewport);
     const errors: string[] = [];

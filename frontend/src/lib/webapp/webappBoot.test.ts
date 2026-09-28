@@ -35,6 +35,7 @@ function makeDeps(overrides: TestOverrides = {}) {
     restorePendingExternalOauth: vi.fn(async () => true),
     setAuthStatus: vi.fn(),
     showAccountLinkStatus: vi.fn(),
+    onTelegramMergeRequired: vi.fn(),
     t: (key: string) => key,
     getInitDataForBoot: vi.fn(() => ""),
     getToken: vi.fn(() => ""),
@@ -153,6 +154,17 @@ describe("runWebappBoot", () => {
     expect(deps.showAccountLinkStatus).toHaveBeenCalledWith("account_merge_google_conflict");
     expect(deps.finalizeTelegramAuth).not.toHaveBeenCalled();
     expect(deps.showLogin).not.toHaveBeenCalled();
+  });
+
+  it("opens explicit merge confirmation after Telegram OAuth finds another account", async () => {
+    installBrowser("?telegram_auth=account_merge_required");
+    const deps = makeDeps();
+
+    await runWebappBoot(deps);
+
+    expect(deps.loadData).toHaveBeenCalledOnce();
+    expect(deps.onTelegramMergeRequired).toHaveBeenCalledOnce();
+    expect(deps.showAccountLinkStatus).not.toHaveBeenCalled();
   });
 
   it("maps invite-required Telegram OAuth status to the dedicated auth copy", async () => {
