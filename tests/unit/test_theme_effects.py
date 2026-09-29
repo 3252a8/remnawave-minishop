@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import io
 import json
+import re
 import zipfile
+from base64 import b64decode
 from pathlib import Path
 
 import pytest
@@ -148,13 +150,37 @@ def test_export_reimport_restore_and_preview_do_not_transfer_consent(tmp_path: P
     preview = effects_preview(root, "ocean", 7)
     assert "data:text/javascript;base64," in preview
     assert "connect-src &#x27;none&#x27;" in preview
-    assert "Example card" in preview
+    # The preview shows Core's real mock home with the adapter layered on it.
+    assert "theme-key-ocean" in preview
+    assert "data-theme-effect-target" in preview
     saved = tmp_path / "backup"
     snapshot_themes(root, saved)
     restored = tmp_path / "restored"
     restore_themes(saved, restored)
     assert active(restored) is None
     assert not read_registry(restored).effects
+
+
+def test_import_effect_preview_includes_styles_assets_and_real_surfaces(tmp_path: Path) -> None:
+    files = executable()
+    metadata = json.loads(files["ocean/theme-package.json"])
+    metadata["effects"]["styles"] = ["effects/main.css"]
+    metadata["effects"]["assets"] = ["effects/dot.svg"]
+    files["ocean/theme-package.json"] = json.dumps(metadata).encode()
+    files["ocean/effects/main.css"] = b".theme-effect-surface{background:url(dot.svg)}"
+    files["ocean/effects/dot.svg"] = b'<svg xmlns="http://www.w3.org/2000/svg"/>'
+    record = ready(tmp_path, files)
+    assert not record.candidates[0].error
+
+    preview = effects_preview(tmp_path, "ocean", 7, record.id)
+    match = re.search(r'data:text/css;base64,([^"<]+)', preview)
+    assert match
+    css = b64decode(match.group(1)).decode()
+    assert "data:image/svg+xml;base64," in css
+    assert "querySelector('.home-brand')" in preview
+    assert "querySelector('.status-card')" in preview
+    assert ".theme-effect-surface{position:absolute;inset:0" in preview
+    assert not read_registry(tmp_path).entries
 
 
 @pytest.mark.parametrize("change", ["v1", "extra_script", "missing", "unsafe", "runtime"])

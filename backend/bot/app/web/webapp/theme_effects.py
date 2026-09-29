@@ -1,4 +1,10 @@
-"""Authenticated theme runtime; privileged sessions never receive an executable theme."""
+"""Authenticated theme runtime.
+
+Storefront traffic runs the active theme's effect for ordinary users. An
+administrator receives an effect descriptor only while explicitly previewing
+an installed theme (`?theme_preview=<key>`). Staged packages use the separate
+opaque-origin mock preview in the theme library.
+"""
 
 import asyncio
 from pathlib import Path
@@ -17,30 +23,52 @@ from .contract_schemas import user_contract
 from .response_helpers import json_response
 
 
-async def eligible(request: web.Request) -> bool:
+async def viewer(request: web.Request) -> tuple[bool, bool]:
+    """Return ``(allowed, is_admin)`` for the authenticated viewer.
+
+    ``allowed`` is false for missing or banned accounts. The admin flag lets
+    the descriptor route require an explicit preview target.
+    """
     user_id = _require_user_id(request)
     async with get_session_factory(request)() as session:
         user = await user_dal.get_user_by_id(session, user_id)
-        return bool(user and not user.is_banned and not await is_admin(session, user_id))
+        if not user or user.is_banned:
+            return False, False
+        return True, await is_admin(session, user_id)
 
 
 def theme_root(request: web.Request) -> Path:
     return Path(get_settings(request).WEBAPP_THEMES_DIR).expanduser()
 
 
-async def theme_effects_route(request: web.Request) -> web.Response:
+def preview_key(request: web.Request) -> str:
+    """Theme key requested through the ``theme_preview`` query parameter."""
+    return str(request.query.get("theme_preview", "")).strip()
+
+
+def _theme_defaults(request: web.Request) -> tuple[str | None, str]:
     settings = get_settings(request)
+    return settings.WEBAPP_DEFAULT_THEME, settings.WEBAPP_PRIMARY_COLOR or "#00fe7a"
+
+
+async def theme_effects_route(request: web.Request) -> web.Response:
+    allowed, admin = await viewer(request)
     effect = None
-    if await eligible(request):
-        try:
-            effect = await asyncio.to_thread(
-                active_effect,
-                theme_root(request),
-                settings.WEBAPP_DEFAULT_THEME,
-                settings.WEBAPP_PRIMARY_COLOR or "#00fe7a",
-            )
-        except (PackageError, OSError, ValueError):
-            effect = None
+    if allowed:
+        requested = preview_key(request) if admin else ""
+        # Without a preview target a privileged session stays inert.
+        if not admin or requested:
+            default_theme, accent = _theme_defaults(request)
+            try:
+                effect = await asyncio.to_thread(
+                    active_effect,
+                    theme_root(request),
+                    default_theme,
+                    accent,
+                    requested or None,
+                )
+            except (PackageError, OSError, ValueError):
+                effect = None
     return json_response(
         {"ok": True, **ThemeEffectsOut(effect=effect).model_dump(mode="json")},
         headers={"Cache-Control": "private, no-store"},
@@ -48,16 +76,21 @@ async def theme_effects_route(request: web.Request) -> web.Response:
 
 
 async def theme_effect_asset_route(request: web.Request) -> web.Response:
-    if not await eligible(request):
+    allowed, admin = await viewer(request)
+    if not allowed:
         raise web.HTTPForbidden()
     settings = get_settings(request)
     root = theme_root(request)
+    key = request.match_info["key"]
     try:
         effect = await asyncio.to_thread(
             active_effect,
             root,
             settings.WEBAPP_DEFAULT_THEME,
             settings.WEBAPP_PRIMARY_COLOR or "#00fe7a",
+            # An administrator may load the adapter of any installed theme for
+            # the preview; ordinary users are limited to the active theme.
+            key if admin else None,
         )
         if effect is None:
             raise web.HTTPNotFound()
@@ -65,7 +98,7 @@ async def theme_effect_asset_route(request: web.Request) -> web.Response:
             effect_asset,
             root,
             effect,
-            request.match_info["key"],
+            key,
             request.match_info["digest"],
             request.match_info["path"],
         )

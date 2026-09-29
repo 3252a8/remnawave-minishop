@@ -16,7 +16,7 @@ from tests.unit.test_theme_effects import install_effect, permit
 from tests.unit.test_theme_package_api import client_context
 
 
-def test_user_asset_requires_current_consent_and_rejects_admins(
+def test_user_asset_requires_current_consent_and_admins_preview_only(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     digest = install_effect(tmp_path, allow=True)
@@ -57,18 +57,31 @@ def test_user_asset_requires_current_consent_and_rejects_admins(
         path = f"/api/theme-effects/assets/ocean/{digest}/effects/main.js"
         async with TestClient(TestServer(app)) as client:
             assert (await client.get(path)).status == 401
-            assert (await client.get(path, headers={"Authorization": "Bearer admin"})).status == 403
-            response = await client.get(
-                "/api/theme-effects", headers={"Authorization": "Bearer admin"}
-            )
-            assert (await response.json())["effect"] is None
+            # An ordinary user runs the active theme's adapter.
             response = await client.get(path, headers={"Authorization": "Bearer user"})
             assert response.status == 200
             assert response.content_type == "text/javascript"
             assert response.headers["X-Content-Type-Options"] == "nosniff"
             assert "no-store" in response.headers["Cache-Control"]
+            # A privileged session stays inert until it explicitly previews a theme.
+            response = await client.get(
+                "/api/theme-effects", headers={"Authorization": "Bearer admin"}
+            )
+            assert (await response.json())["effect"] is None
+            response = await client.get(
+                "/api/theme-effects?theme_preview=ocean",
+                headers={"Authorization": "Bearer admin"},
+            )
+            effect = (await response.json())["effect"]
+            assert effect and effect["key"] == "ocean"
+            assert (await client.get(path, headers={"Authorization": "Bearer admin"})).status == 200
+            # An ordinary user can never pull another theme's adapter.
+            other = f"/api/theme-effects/assets/dark/{digest}/effects/main.js"
+            assert (await client.get(other, headers={"Authorization": "Bearer user"})).status == 404
+            # Revoking consent disables the adapter for previews too.
             permit(tmp_path, False)
             assert (await client.get(path, headers={"Authorization": "Bearer user"})).status == 404
+            assert (await client.get(path, headers={"Authorization": "Bearer admin"})).status == 404
 
     asyncio.run(scenario())
 

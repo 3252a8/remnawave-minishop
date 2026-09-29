@@ -430,6 +430,7 @@
   const telegramOAuthClientId = $derived(shellView.telegramOAuthClientId);
   const effectiveThemeEntry = $derived(shellView.themeView.effectiveThemeEntry);
   const resolvedThemeKey = $derived(shellView.themeView.resolvedThemeKey);
+  const previewThemeKey = $derived(shellView.themeView.previewThemeKey);
   const shellStyle = $derived(shellView.themeView.shellStyle);
   const shellThemeClass = $derived(shellView.themeView.shellThemeClass);
   const shellThemeCssHref = $derived(shellView.themeView.shellThemeCssHref);
@@ -802,9 +803,10 @@
 
 <ThemeEffectsHost
   client={dataClient.apiClient}
-  enabled={mode === "app" && !isAdmin && Boolean(user?.user_id)}
+  enabled={mode === "app" && Boolean(user?.user_id) && (!isAdmin || Boolean(previewThemeKey))}
   identity={String(user?.user_id || "")}
   themeKey={resolvedThemeKey}
+  previewKey={previewThemeKey}
   {t}
   context={{
     variant: effectiveThemeEntry?.active_variant === "light" ? "light" : "dark",

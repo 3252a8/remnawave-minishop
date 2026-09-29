@@ -32,6 +32,8 @@ export interface ThemeView {
   themesCatalog: ThemeData;
   userThemeModeEnabled: boolean;
   resolvedThemeKey: string;
+  /** Key currently forced through `?theme_preview=` (empty when not previewing). */
+  previewThemeKey: string;
   effectiveThemeEntry: ThemeEntry;
   shellStyle: string;
   shellToneClass: string;
@@ -112,6 +114,7 @@ export function computeThemeView({
     themesCatalog,
     userThemeModeEnabled: Boolean(userThemeModeEnabled),
     resolvedThemeKey,
+    previewThemeKey: previewThemeEntry?.key || "",
     effectiveThemeEntry,
     shellStyle: themeEntryToInlineStyle(effectiveThemeEntry, primaryColor),
     shellToneClass: colorScheme === "light" ? "theme-light" : "theme-dark",

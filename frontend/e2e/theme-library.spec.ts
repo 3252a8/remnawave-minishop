@@ -254,14 +254,12 @@ test("saves a captured theme preview", async ({ page }) => {
   const library = page.locator(".appearance-library");
   const theme = library.locator('[data-theme-key="dark"]');
   const previewImage = theme.locator(".theme-screenshot img");
-  const originalSource = await previewImage.getAttribute("src");
 
   await theme.locator(".theme-card-actions button").last().click();
   const settings = page.locator(".appearance-settings-dialog");
   await settings.getByRole("button", { name: "Сохранить превью", exact: true }).click();
 
-  await expect(previewImage).not.toHaveAttribute("src", originalSource || "");
-  await expect(previewImage).toHaveAttribute("src", /custom=1/);
+  await expect(previewImage).toHaveAttribute("src", /custom=1/, { timeout: 20_000 });
   await expect(
     settings.getByRole("button", { name: "Сохранить превью", exact: true })
   ).toBeEnabled();

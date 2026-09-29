@@ -41,7 +41,10 @@ def change_effects(root: Path, key: str, actor: int, request: EffectsRequest) ->
 
 
 def active_effect(
-    root: Path, default_theme: str | None, accent: str
+    root: Path,
+    default_theme: str | None,
+    accent: str,
+    theme_key: str | None = None,
 ) -> ThemeEffectsDescriptor | None:
     # An operator can create this file without starting the UI or executing theme code.
     if (root / "_registry/effects-disabled").exists():
@@ -50,7 +53,9 @@ def active_effect(
     catalog = resolved_webapp_themes_catalog(
         primary_accent=accent, env_default_theme=default_theme, theme_dir=str(root)
     )
-    key = catalog.default_theme
+    # Storefront traffic runs the active theme; an explicit key is only used by
+    # the administrator's live preview of an installed theme.
+    key = (theme_key or "").strip() or catalog.default_theme
     entry = state.entries.get(key)
     if not entry or not effects_allowed(state, key, entry) or not entry.metadata.effects:
         return None

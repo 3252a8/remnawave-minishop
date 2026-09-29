@@ -109,6 +109,14 @@ export function buildMePath(fresh: boolean = false): MePath {
   return fresh ? "/me?fresh=1" : "/me";
 }
 
+export type ThemeEffectsPath = "/theme-effects" | `/theme-effects?${string}`;
+
+/** Adds the administrator's live-preview target so the adapter is exposed. */
+export function buildThemeEffectsPath(previewKey?: string | null): ThemeEffectsPath {
+  const key = String(previewKey || "").trim();
+  return key ? `/theme-effects?theme_preview=${encodeURIComponent(key)}` : "/theme-effects";
+}
+
 export function buildPartnerWithdrawalCancelPath(id: string | number): PartnerWithdrawalCancelPath {
   return builtApiPath<"/api/partner/withdrawals/{id}/cancel">(
     `/partner/withdrawals/${encodeURIComponent(String(id))}/cancel`

@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { Button } from "$components/ui/index.js";
   import type { ApiClient } from "$lib/webapp/publicApi";
-  import { unwrap } from "$lib/webapp/publicApi";
+  import { buildThemeEffectsPath, unwrap } from "$lib/webapp/publicApi";
   import {
     createThemeEffectsRuntime,
     themeEffectsDisabled,
@@ -14,6 +14,7 @@
     enabled,
     identity,
     themeKey,
+    previewKey,
     context,
     t,
   }: {
@@ -21,6 +22,7 @@
     enabled: boolean;
     identity: string;
     themeKey: string;
+    previewKey: string;
     context: ThemeEffectContext;
     t: (key: string) => string;
   } = $props();
@@ -53,6 +55,7 @@
     void enabled;
     void identity;
     void themeKey;
+    void previewKey;
     if (!enabled || (runtime.executed && lastIdentity !== identity)) void stop(true);
     else void refresh();
   });
@@ -87,7 +90,9 @@
       request = controller;
       const timeout = setTimeout(() => controller.abort(), 10_000);
       try {
-        const result = unwrap(await client.api("/theme-effects", { signal: controller.signal }));
+        const result = unwrap(
+          await client.api(buildThemeEffectsPath(previewKey), { signal: controller.signal })
+        );
         if (
           disposed ||
           current !== revision ||
