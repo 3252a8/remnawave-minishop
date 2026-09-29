@@ -444,7 +444,9 @@
 <main class="home-layout">
   <div class="login-brand home-brand" style="position:relative;isolation:isolate">
     <ThemeEffectSurface name="home.header.surface" />
-    <BrandMark {brand} size="xl" />
+    <div class="home-logo-slot">
+      <BrandMark {brand} size="xl" />
+    </div>
     <h1>{brandTitle}</h1>
   </div>
 

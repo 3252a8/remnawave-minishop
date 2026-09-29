@@ -204,10 +204,10 @@
     flex-wrap: wrap;
     gap: 0.5rem;
   }
-  .extension-cards:empty {
+  .extension-cards:not(:has(> *)) {
     display: none;
   }
-  :global(.phone-screen:has(> .extension-cards:not(:empty)) > main.content.with-nav) {
+  :global(.phone-screen:has(> .extension-cards > *) > main.content.with-nav) {
     padding-bottom: 0;
   }
 </style>

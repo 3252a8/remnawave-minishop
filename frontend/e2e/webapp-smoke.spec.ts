@@ -1121,6 +1121,46 @@ test("optional home widgets stay disabled by default and use dedicated presets",
   await expect(page.locator(".home-balance-card")).toHaveCount(0);
 });
 
+test("home actions stay at the viewport bottom when the logo changes size", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  for (const viewport of [{ width: 1280, height: 752 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto(`${APP_URL}?path=/home&mock=compact`);
+
+    const shell = page.locator(".app-shell");
+    const logo = page.locator(".home-brand .brand-mark");
+    const logoSlot = page.locator(".home-logo-slot");
+    const title = page.locator(".home-brand h1");
+    const actions = page.locator(".home-bottom");
+    await expect(actions).toBeVisible();
+
+    const bottomEdges: number[] = [];
+    for (const scale of [0.75, 1.25, 3]) {
+      await shell.evaluate((element, value) => {
+        (element as HTMLElement).style.setProperty("--home-logo-scale-desktop", String(value));
+        (element as HTMLElement).style.setProperty("--home-logo-scale-mobile", String(value));
+      }, scale);
+      const logoBox = (await logo.boundingBox())!;
+      const slotBox = (await logoSlot.boundingBox())!;
+      const titleBox = (await title.boundingBox())!;
+      const actionsBox = (await actions.boundingBox())!;
+      expect(logoBox.y).toBeGreaterThanOrEqual(slotBox.y - 1);
+      expect(logoBox.y + logoBox.height).toBeLessThanOrEqual(slotBox.y + slotBox.height + 1);
+      expect(titleBox.y + titleBox.height).toBeLessThan(actionsBox.y);
+      expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(
+        viewport.height + 1
+      );
+      bottomEdges.push(actionsBox.y + actionsBox.height);
+    }
+
+    expect(Math.max(...bottomEdges) - Math.min(...bottomEdges)).toBeLessThanOrEqual(1);
+    expect(bottomEdges[0]).toBeGreaterThan(viewport.height * 0.75);
+    expect(bottomEdges[0]).toBeLessThan(viewport.height);
+  }
+});
+
 test("device traffic bonuses stay legible on mobile", async ({ page }) => {
   await page.setViewportSize(MOBILE_VIEWPORT);
   await page.goto(`${APP_URL}?mock=devices`);

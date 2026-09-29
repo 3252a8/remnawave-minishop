@@ -3499,22 +3499,41 @@ a {
 
 .home-layout {
   display: grid;
-  min-height: calc(100dvh - 34px);
-  grid-template-rows: minmax(min-content, 1fr) auto;
+  height: calc(100dvh - 34px);
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: 18px;
   padding-bottom: var(--bottom-nav-clearance);
   animation: section-enter 0.24s ease-out both;
 }
 
-.home-brand {
-  align-self: safe center;
+.login-brand.home-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  align-self: stretch;
   padding-top: 0;
 }
 
-.app-shell .home-brand .brand-mark.brand-mark-xl {
-  width: calc(6rem * var(--home-logo-scale-effective, 1));
+.home-logo-slot {
+  display: grid;
+  flex: 0 1 auto;
+  place-items: center;
+  width: 100%;
   height: calc(6rem * var(--home-logo-scale-effective, 1));
-  font-size: calc(4.375rem * var(--home-logo-scale-effective, 1));
+  min-height: 0;
+  container-type: size;
+}
+
+.home-brand h1 {
+  flex: 0 0 auto;
+}
+
+.app-shell .home-brand .brand-mark.brand-mark-xl {
+  width: min(calc(6rem * var(--home-logo-scale-effective, 1)), 100cqh, 100cqw);
+  height: min(calc(6rem * var(--home-logo-scale-effective, 1)), 100cqh, 100cqw);
+  font-size: min(calc(4.375rem * var(--home-logo-scale-effective, 1)), 70cqh, 70cqw);
 }
 
 .app-shell .login-brand-auth .brand-mark.brand-mark-xl {
@@ -4183,6 +4202,7 @@ a {
 }
 
 .preview-phone .home-layout {
+  height: auto;
   min-height: 300px;
   gap: 12px;
   padding-bottom: 58px;
@@ -4409,9 +4429,9 @@ a {
      right-hand desktop area and let the action block sit on the bottom. */
   .home-layout {
     width: min(100%, 680px);
-    min-height: calc(100dvh - 74px);
+    height: calc(100dvh - 74px);
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(280px, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr) auto;
     justify-self: center;
     gap: clamp(24px, 4vh, 52px);
     max-width: none;
@@ -4422,10 +4442,14 @@ a {
 
   .home-layout > .home-brand {
     grid-column: auto;
-    align-self: center;
+    align-self: stretch;
     justify-items: center;
     text-align: center;
     gap: 22px;
+  }
+
+  .home-logo-slot {
+    height: calc(clamp(180px, 18vw, 260px) * var(--home-logo-scale-effective, 1));
   }
 
   .home-brand h1 {
@@ -4439,9 +4463,9 @@ a {
   .app-shell .home-brand .brand-mark,
   .app-shell .home-brand .brand-mark.brand-mark-lg,
   .app-shell .home-brand .brand-mark.brand-mark-xl {
-    width: calc(clamp(180px, 18vw, 260px) * var(--home-logo-scale-effective, 1));
-    height: calc(clamp(180px, 18vw, 260px) * var(--home-logo-scale-effective, 1));
-    font-size: calc(clamp(124px, 13vw, 184px) * var(--home-logo-scale-effective, 1));
+    width: min(calc(clamp(180px, 18vw, 260px) * var(--home-logo-scale-effective, 1)), 100cqh, 100cqw);
+    height: min(calc(clamp(180px, 18vw, 260px) * var(--home-logo-scale-effective, 1)), 100cqh, 100cqw);
+    font-size: min(calc(clamp(124px, 13vw, 184px) * var(--home-logo-scale-effective, 1)), 70cqh, 70cqw);
   }
 
   .home-bottom {
