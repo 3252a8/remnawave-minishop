@@ -1,7 +1,10 @@
 import asyncio
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from bot.handlers.admin.sync_admin import (
     _absorb_duplicate_panel_identity,
@@ -571,6 +574,230 @@ def test_sync_failure_status_is_committed_after_rollback():
     session.rollback.assert_awaited_once()
     update_status.assert_awaited_once()
     session.commit.assert_awaited_once()
+
+
+@pytest.mark.parametrize(
+    "identity",
+    [{"email": "new@example.test"}, {"telegramId": 123456789}],
+    ids=["email", "telegram"],
+)
+def test_panel_sync_imports_new_user_and_subscription_without_verifying_email(identity):
+    panel_uuid = "new-panel-user"
+    panel_user = {
+        "uuid": panel_uuid,
+        "shortUuid": "new-subscription",
+        **identity,
+        "status": "ACTIVE",
+        "expireAt": "2027-01-01T00:00:00Z",
+    }
+    panel_service = SimpleNamespace(get_all_panel_users=AsyncMock(return_value=[panel_user]))
+    user = SimpleNamespace(
+        user_id=1_000_000_000_050,
+        panel_user_uuid=panel_uuid,
+        panel_origin=None,
+        panel_username=None,
+        minishop_id="ms_new",
+        telegram_id=identity.get("telegramId"),
+        email=identity.get("email"),
+        email_verified_at=None,
+        username=None,
+        first_name=None,
+        last_name=None,
+        lifetime_used_traffic_bytes=None,
+    )
+    created_sub = SimpleNamespace(
+        subscription_id=1,
+        user_id=user.user_id,
+        panel_user_uuid=panel_uuid,
+        is_active=True,
+        end_date=datetime(2027, 1, 1, tzinfo=UTC),
+    )
+
+    @asynccontextmanager
+    async def nested_transaction():
+        yield
+
+    session = SimpleNamespace(
+        begin_nested=nested_transaction,
+        execute=AsyncMock(),
+        scalar=AsyncMock(return_value=None),
+        commit=AsyncMock(),
+        rollback=AsyncMock(),
+    )
+
+    async def create_user_result(_session, user_data, *, registered_via):
+        user.panel_origin = user_data["panel_origin"]
+        return user, True
+
+    create_user = AsyncMock(side_effect=create_user_result)
+    upsert_subscription = AsyncMock(return_value=created_sub)
+    sync_indexes = {
+        "users_by_telegram_id": {},
+        "users_by_user_id": {},
+        "users_by_panel_uuid": {},
+        "users_by_email": {},
+        "subscriptions_by_panel_uuid": {},
+        "active_subscriptions_by_user_panel": {},
+        "subscriptions_by_user_panel": {},
+    }
+
+    with (
+        patch(
+            "bot.handlers.admin.sync_admin_runner.capture_subscription_snapshot",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "bot.handlers.admin.sync_admin_runner.acquire_subscription_background_sync_lock",
+            AsyncMock(),
+        ),
+        patch(
+            "bot.handlers.admin.sync_admin_runner._prefetch_sync_indexes",
+            AsyncMock(return_value=sync_indexes),
+        ),
+        patch("bot.handlers.admin.sync_admin_identity.user_dal.create_user", create_user),
+        patch(
+            "bot.handlers.admin.sync_admin_runner._panel_identity_view_for_comparison",
+            AsyncMock(return_value=(panel_user, True)),
+        ),
+        patch(
+            "bot.handlers.admin.sync_admin_runner._panel_identity_matches_user",
+            return_value=True,
+        ),
+        patch(
+            "bot.handlers.admin.sync_admin_runner.subscription_dal.upsert_subscription",
+            upsert_subscription,
+        ),
+        patch(
+            "bot.handlers.admin.sync_admin_runner.panel_sync_dal.update_panel_sync_status",
+            AsyncMock(),
+        ),
+    ):
+        result = asyncio.run(
+            _perform_sync_impl(
+                panel_service=panel_service,
+                session=session,
+                settings=SimpleNamespace(
+                    PANEL_API_URL="https://panel.example.test/api",
+                    DEFAULT_LANGUAGE="ru",
+                    user_traffic_limit_bytes=0,
+                ),
+                i18n_instance=JsonI18n("locales", default="ru"),
+            )
+        )
+
+    assert result["status"] == "completed", result["errors"]
+    assert result["users_created"] == 1
+    assert result["subs_synced"] == 1
+    assert create_user.await_args.kwargs["registered_via"] == "panel_sync"
+    imported = create_user.await_args.args[1]
+    assert imported["email"] == identity.get("email")
+    assert imported["telegram_id"] == identity.get("telegramId")
+    assert "email_verified_at" not in imported
+    assert imported["panel_user_uuid"] == panel_uuid
+    assert upsert_subscription.await_args.args[1]["user_id"] == user.user_id
+    assert upsert_subscription.await_args.args[1]["panel_subscription_uuid"] == "new-subscription"
+
+
+def test_panel_sync_does_not_import_panel_user_claiming_existing_email():
+    panel_service = SimpleNamespace(
+        get_all_panel_users=AsyncMock(
+            return_value=[{"uuid": "other-panel-user", "email": "owner@example.test"}]
+        )
+    )
+    session = SimpleNamespace(commit=AsyncMock(), rollback=AsyncMock())
+    sync_indexes = {
+        "users_by_telegram_id": {},
+        "users_by_user_id": {},
+        "users_by_panel_uuid": {},
+        "users_by_email": {"owner@example.test": SimpleNamespace(user_id=42)},
+        "subscriptions_by_panel_uuid": {},
+        "active_subscriptions_by_user_panel": {},
+        "subscriptions_by_user_panel": {},
+    }
+    create_user = AsyncMock()
+    with (
+        patch(
+            "bot.handlers.admin.sync_admin_runner.capture_subscription_snapshot",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "bot.handlers.admin.sync_admin_runner.acquire_subscription_background_sync_lock",
+            AsyncMock(),
+        ),
+        patch(
+            "bot.handlers.admin.sync_admin_runner._prefetch_sync_indexes",
+            AsyncMock(return_value=sync_indexes),
+        ),
+        patch("bot.handlers.admin.sync_admin_identity.user_dal.create_user", create_user),
+        patch(
+            "bot.handlers.admin.sync_admin_runner.panel_sync_dal.update_panel_sync_status",
+            AsyncMock(),
+        ),
+    ):
+        result = asyncio.run(
+            _perform_sync_impl(
+                panel_service=panel_service,
+                session=session,
+                settings=SimpleNamespace(DEFAULT_LANGUAGE="ru"),
+                i18n_instance=JsonI18n("locales", default="ru"),
+            )
+        )
+
+    assert result["status"] == "completed_with_errors"
+    assert "manual review required" in result["errors"][0]
+    create_user.assert_not_awaited()
+
+
+def test_panel_sync_does_not_import_panel_user_claiming_existing_email_alias():
+    panel_service = SimpleNamespace(
+        get_all_panel_users=AsyncMock(
+            return_value=[{"uuid": "other-panel-user", "email": "alias@example.test"}]
+        )
+    )
+    session = SimpleNamespace(
+        scalar=AsyncMock(return_value=42), commit=AsyncMock(), rollback=AsyncMock()
+    )
+    sync_indexes = {
+        "users_by_telegram_id": {},
+        "users_by_user_id": {},
+        "users_by_panel_uuid": {},
+        "users_by_email": {},
+        "subscriptions_by_panel_uuid": {},
+        "active_subscriptions_by_user_panel": {},
+        "subscriptions_by_user_panel": {},
+    }
+    create_user = AsyncMock()
+    with (
+        patch(
+            "bot.handlers.admin.sync_admin_runner.capture_subscription_snapshot",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "bot.handlers.admin.sync_admin_runner.acquire_subscription_background_sync_lock",
+            AsyncMock(),
+        ),
+        patch(
+            "bot.handlers.admin.sync_admin_runner._prefetch_sync_indexes",
+            AsyncMock(return_value=sync_indexes),
+        ),
+        patch("bot.handlers.admin.sync_admin_identity.user_dal.create_user", create_user),
+        patch(
+            "bot.handlers.admin.sync_admin_runner.panel_sync_dal.update_panel_sync_status",
+            AsyncMock(),
+        ),
+    ):
+        result = asyncio.run(
+            _perform_sync_impl(
+                panel_service=panel_service,
+                session=session,
+                settings=SimpleNamespace(DEFAULT_LANGUAGE="ru"),
+                i18n_instance=JsonI18n("locales", default="ru"),
+            )
+        )
+
+    assert result["status"] == "completed_with_errors"
+    assert "manual review required" in result["errors"][0]
+    create_user.assert_not_awaited()
 
 
 def test_panel_sync_commits_between_bounded_user_batches():

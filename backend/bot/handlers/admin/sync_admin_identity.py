@@ -24,6 +24,31 @@ from .sync_admin_common import (
 logger = logging.getLogger(__name__)
 
 
+async def _create_panel_user(
+    session: AsyncSession,
+    *,
+    panel_uuid: str,
+    panel_username: str | None,
+    panel_origin: str | None,
+    telegram_id: int | None,
+    email: str | None,
+    language_code: str,
+) -> tuple[User, bool]:
+    """Import a new panel account without treating panel email as verified."""
+    user_data = {
+        "panel_user_uuid": panel_uuid,
+        "panel_username": panel_username,
+        "panel_origin": panel_origin,
+        "telegram_id": telegram_id,
+        "email": email,
+        "language_code": language_code,
+    }
+    # A concurrent registration can win a unique email/Telegram constraint.
+    # Keep that failure local to this panel record instead of aborting the batch.
+    async with session.begin_nested():
+        return await user_dal.create_user(session, user_data, registered_via="panel_sync")
+
+
 async def _prefetch_sync_indexes(
     session: AsyncSession, panel_users_data: list[dict[str, Any]]
 ) -> dict[str, Any]:

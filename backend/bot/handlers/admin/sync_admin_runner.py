@@ -4,7 +4,7 @@ from collections import Counter
 from datetime import UTC, datetime
 from typing import cast
 
-from sqlalchemy import or_, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra.performance import performance_operation
@@ -28,7 +28,7 @@ from db.dal import (
     subscription_dal,
     user_panel_squad_override_dal,
 )
-from db.models import Subscription, User
+from db.models import Subscription, User, UserEmailAddress
 
 from .sync_admin_common import (
     _append_unique,
@@ -52,6 +52,7 @@ from .sync_admin_common import (
 from .sync_admin_identity import (
     _absorb_duplicate_panel_identity,
     _bind_panel_email_to_user,
+    _create_panel_user,
     _extract_lifetime_used_traffic_bytes,
     _merge_local_duplicate_panel_user_if_needed,
     _prefetch_sync_indexes,
@@ -252,17 +253,67 @@ async def _perform_sync_impl(
 
                 if not existing_user:
                     users_not_found_in_db += 1
-                    sync_errors.append(
-                        f"Panel user {panel_uuid} has no confirmed local identity; "
-                        "manual import required"
+                    if not telegram_id_from_panel and not email_from_panel:
+                        sync_errors.append(
+                            f"Panel user {panel_uuid} has no login identity; manual import required"
+                        )
+                        continue
+                    email_is_owned = bool(
+                        email_from_panel
+                        and (
+                            email_from_panel in users_by_email
+                            or await session.scalar(
+                                select(UserEmailAddress.user_id).where(
+                                    UserEmailAddress.email == email_from_panel
+                                )
+                            )
+                        )
                     )
-                    continue
+                    if email_is_owned:
+                        sync_errors.append(
+                            f"Panel user {panel_uuid} claims an email belonging to another "
+                            "local account; manual review required"
+                        )
+                        continue
+                    existing_user, was_created = await _create_panel_user(
+                        session,
+                        panel_uuid=panel_uuid,
+                        panel_username=str(panel_user_dict.get("username") or "").strip() or None,
+                        panel_origin=panel_origin_fingerprint(settings.PANEL_API_URL),
+                        telegram_id=telegram_id_from_panel,
+                        email=email_from_panel,
+                        language_code=settings.DEFAULT_LANGUAGE,
+                    )
+                    if not was_created or existing_user.panel_user_uuid != panel_uuid:
+                        sync_errors.append(
+                            f"Panel user {panel_uuid} collided with an existing local "
+                            "account; manual review required"
+                        )
+                        continue
+                    users_created += 1
+                    users_by_user_id[int(existing_user.user_id)] = existing_user
+                    users_by_panel_uuid[panel_uuid] = existing_user
+                    if telegram_id_from_panel:
+                        users_by_telegram_id[telegram_id_from_panel] = existing_user
+                    if email_from_panel:
+                        users_by_email[email_from_panel] = existing_user
+                    logger.info(
+                        "Created local user %s from panel UUID %s",
+                        existing_user.user_id,
+                        panel_uuid,
+                    )
 
                 current_panel_origin = panel_origin_fingerprint(settings.PANEL_API_URL)
                 if (
                     getattr(existing_user, "panel_origin", None)
                     and existing_user.panel_origin != current_panel_origin
-                ) or not panel_candidate_matches_account(existing_user, panel_user_dict):
+                ) or (
+                    (
+                        existing_user.panel_user_uuid != panel_uuid
+                        or not getattr(existing_user, "panel_origin", None)
+                    )
+                    and not panel_candidate_matches_account(existing_user, panel_user_dict)
+                ):
                     sync_errors.append(
                         f"Panel user {panel_uuid} does not prove ownership of local account; "
                         "manual review required"
