@@ -366,6 +366,7 @@ class AdminTranslationGroupOut(HttpResponseModel):
     description_key: str
     plugin: str | None = None
     path: list[str] = Field(default_factory=list)
+    path_keys: list[str] = Field(default_factory=list)
     items: list[AdminTranslationItemOut]
 
 

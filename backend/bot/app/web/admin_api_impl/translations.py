@@ -1,3 +1,5 @@
+import json
+import time
 from typing import Any, cast
 from weakref import WeakKeyDictionary
 
@@ -46,6 +48,10 @@ TranslationCacheEntry = tuple[TranslationCacheSignature, dict[str, Any]]
 _TRANSLATIONS_PAYLOAD_CACHE: WeakKeyDictionary[JsonI18n, TranslationCacheEntry] = (
     WeakKeyDictionary()
 )
+_TRANSLATIONS_FILE_SYNC_CACHE: WeakKeyDictionary[JsonI18n, tuple[int, int, float]] = (
+    WeakKeyDictionary()
+)
+_FILE_SYNC_INTERVAL_SECONDS = 30.0
 
 register_contract(
     "admin_translations_get_route",
@@ -98,15 +104,15 @@ def _locale_override_meta_map(overrides: list[dict[str, Any]]) -> dict[tuple[str
     return result
 
 
-def _plugin_group_for_key(i18n: JsonI18n, plugin: str, key: str) -> tuple[str, ...]:
+def _plugin_group_for_key(i18n: JsonI18n, plugin: str, key: str) -> PluginLocaleGroup | None:
     matches = (
-        (len(prefix), group.path)
+        (len(prefix), group)
         for group in i18n.plugin_locale_groups.get(plugin, ())
         if isinstance(group, PluginLocaleGroup) and group.path
         for prefix in group.prefixes
         if prefix and key.startswith(prefix)
     )
-    return max(matches, default=(0, ()))[1]
+    return max(matches, key=lambda match: match[0], default=(0, None))[1]
 
 
 def _admin_translations_payload(
@@ -146,7 +152,8 @@ def _admin_translations_payload(
                 "updated_by": meta.get("updated_by") if meta else None,
             }
         plugin = i18n.plugin_locale_sources.get(key)
-        path = _plugin_group_for_key(i18n, plugin, key) if plugin else ()
+        plugin_group = _plugin_group_for_key(i18n, plugin, key) if plugin else None
+        path = plugin_group.path if plugin_group else ()
         group_id = f"plugin:{plugin}:{path!r}" if plugin else group_id_for_locale_key(key)
         groups_by_id.setdefault(
             group_id,
@@ -159,6 +166,7 @@ def _admin_translations_payload(
                 "audience": "user",
                 "plugin": plugin,
                 "path": list(path),
+                "path_keys": list(plugin_group.path_keys) if plugin_group else [],
                 "items": [],
             },
         )
@@ -215,6 +223,42 @@ def _cached_admin_translations_payload(
     return payload
 
 
+def _overrides_file_fingerprint() -> tuple[int, int] | None:
+    try:
+        stat = LOCALE_OVERRIDES_PATH.stat()
+    except OSError:
+        return None
+    return stat.st_mtime_ns, stat.st_size
+
+
+async def _ensure_locale_overrides_loaded(
+    i18n: JsonI18n, async_session_factory: sessionmaker
+) -> None:
+    """Reconcile the file with DB only when it changes or the sync lease expires."""
+
+    fingerprint = _overrides_file_fingerprint()
+    previous = _TRANSLATIONS_FILE_SYNC_CACHE.get(i18n)
+    if (
+        fingerprint is not None
+        and previous is not None
+        and fingerprint == previous[:2]
+        and time.monotonic() - previous[2] < _FILE_SYNC_INTERVAL_SECONDS
+    ):
+        return
+
+    await load_locale_overrides(i18n, async_session_factory)
+    if fingerprint is None:
+        _TRANSLATIONS_FILE_SYNC_CACHE.pop(i18n, None)
+        return
+    try:
+        json.loads(LOCALE_OVERRIDES_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        _TRANSLATIONS_FILE_SYNC_CACHE.pop(i18n, None)
+        return
+    if _overrides_file_fingerprint() == fingerprint:
+        _TRANSLATIONS_FILE_SYNC_CACHE[i18n] = (*fingerprint, time.monotonic())
+
+
 async def admin_translations_get_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     i18n: JsonI18n | None = get_i18n(request)
@@ -222,7 +266,7 @@ async def admin_translations_get_route(request: web.Request) -> web.Response:
         return _error(503, "i18n_unavailable")
     async_session_factory: sessionmaker = get_session_factory(request)
 
-    await load_locale_overrides(i18n, async_session_factory)
+    await _ensure_locale_overrides_loaded(i18n, async_session_factory)
     async with async_session_factory() as session:
         overrides = await locale_overrides_dal.get_overrides_with_meta(session)
 
@@ -257,6 +301,8 @@ async def admin_translations_patch_route(request: web.Request) -> web.Response:
             errors=result.get("errors", {}),
             message=result.get("message", "Validation failed"),
         )
+
+    _TRANSLATIONS_FILE_SYNC_CACHE.pop(i18n, None)
 
     return _ok(
         {

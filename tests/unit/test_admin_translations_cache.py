@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
+
+from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.admin_api_impl import translations
 from bot.middlewares.i18n import JsonI18n
@@ -55,6 +58,38 @@ def test_admin_translations_payload_cache_tracks_override_snapshot(
     assert calls == 2
 
 
+def test_translations_file_reconciliation_skips_unchanged_file(tmp_path: Path, monkeypatch) -> None:
+    locales = tmp_path / "locales"
+    locales.mkdir()
+    _write_locale(locales, "en", {"welcome": "Hello"})
+    i18n = JsonI18n(str(locales))
+    overrides = tmp_path / "overrides.json"
+    overrides.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(translations, "LOCALE_OVERRIDES_PATH", overrides)
+    calls = 0
+
+    async def load_stub(_i18n, _session_factory) -> None:
+        nonlocal calls
+        calls += 1
+
+    monkeypatch.setattr(translations, "load_locale_overrides", load_stub)
+    session_factory = sessionmaker()
+
+    async def check() -> None:
+        await translations._ensure_locale_overrides_loaded(i18n, session_factory)
+        await translations._ensure_locale_overrides_loaded(i18n, session_factory)
+        assert calls == 1
+        overrides.write_text('{"en": {"welcome": "Hi"}}', encoding="utf-8")
+        await translations._ensure_locale_overrides_loaded(i18n, session_factory)
+        assert calls == 2
+        overrides.write_text("{invalid", encoding="utf-8")
+        await translations._ensure_locale_overrides_loaded(i18n, session_factory)
+        await translations._ensure_locale_overrides_loaded(i18n, session_factory)
+        assert calls == 4
+
+    asyncio.run(check())
+
+
 def test_plugin_keys_have_separate_nested_editor_groups(tmp_path: Path) -> None:
     locales = tmp_path / "locales"
     locales.mkdir()
@@ -63,7 +98,11 @@ def test_plugin_keys_have_separate_nested_editor_groups(tmp_path: Path) -> None:
     i18n = JsonI18n(str(locales), default="en")
     i18n.plugin_locale_groups["sample"] = (
         PluginLocaleGroup(("Billing",), ("sample_billing_",)),
-        PluginLocaleGroup(("Billing", "Renewals"), ("sample_billing_renewal_",)),
+        PluginLocaleGroup(
+            ("Billing", "Renewals"),
+            ("sample_billing_renewal_",),
+            ("sample_billing", "sample_renewals"),
+        ),
     )
     i18n.merge_base_locales(
         {
@@ -81,6 +120,10 @@ def test_plugin_keys_have_separate_nested_editor_groups(tmp_path: Path) -> None:
         (("Billing", "Renewals"), ("sample_billing_renewal_title",)),
         ((), ("sample_misc",)),
     }
+    assert next(group for group in plugin_groups if group["path"])["path_keys"] == [
+        "sample_billing",
+        "sample_renewals",
+    ]
     assert (
         next(group for group in payload["groups"] if group["id"] == "common")["items"][0]["key"]
         == "shared"

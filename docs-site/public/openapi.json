@@ -5429,6 +5429,13 @@
             "title": "Path",
             "type": "array"
           },
+          "path_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Path Keys",
+            "type": "array"
+          },
           "plugin": {
             "anyOf": [
               {

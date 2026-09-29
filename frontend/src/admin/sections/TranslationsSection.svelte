@@ -34,6 +34,7 @@
 
   const translationsStore = getTranslationsStore();
   const AUDIENCE_ORDER = ["user", "internal"];
+  const PAGE_SIZE = 80;
   const AUDIENCE_FILTERS = ["all", ...AUDIENCE_ORDER];
   const translationGroups = $derived(translationsStore.translationGroups as TranslationGroup[]);
   const translationLanguages = $derived(
@@ -49,6 +50,7 @@
   let readyGroups = $state<string[]>([]);
   let openLocaleEditors = $state<string[]>([]);
   let closedLocaleEditors = $state<string[]>([]);
+  let renderedItemCounts = $state<Record<string, number>>({});
   let search = $state("");
   let audienceFilter = $state("all");
   let scopeFilter = $state<"core" | "plugins">("core");
@@ -410,7 +412,12 @@
   }
 
   function groupTitle(group: TranslationGroup): string {
-    if (group.plugin && group.path?.length) return group.path.join(" / ");
+    if (group.plugin && group.path?.length)
+      return group.path
+        .map((label, index) =>
+          group.path_keys?.[index] ? at(group.path_keys[index], {}, label) : label
+        )
+        .join(" / ");
     return group.title_key ? at(group.title_key, {}, group.title) : group.title;
   }
 
@@ -751,6 +758,7 @@
                   translationLanguages
                 )}
                 {@const panelId = groupPanelId(section.id, group.id)}
+                {@const visibleCount = renderedItemCounts[panelId] || PAGE_SIZE}
                 {@const groupOpen = openGroupSet.has(panelId)}
                 {@const groupReady = readyGroupSet.has(panelId)}
                 <div
@@ -808,10 +816,27 @@
                           </p>
                         {/if}
                         <div class="admin-translation-list">
-                          {#each group.items as item (item.key)}
+                          {#each group.items.slice(0, visibleCount) as item (item.key)}
                             {@render renderTranslationItem(item, group)}
                           {/each}
                         </div>
+                        {#if group.items.length > visibleCount}
+                          <AdminButton
+                            size="sm"
+                            variant="ghost"
+                            onclick={() =>
+                              (renderedItemCounts = {
+                                ...renderedItemCounts,
+                                [panelId]: visibleCount + PAGE_SIZE,
+                              })}
+                          >
+                            {at(
+                              "translations_show_more",
+                              { count: Math.min(PAGE_SIZE, group.items.length - visibleCount) },
+                              "Show {count} more"
+                            )}
+                          </AdminButton>
+                        {/if}
                       {:else}
                         {@render renderGroupSkeleton(group)}
                       {/if}

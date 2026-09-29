@@ -3235,6 +3235,7 @@
   "admin_translations_search_placeholder": "Search keys and text",
   "admin_translations_hint": "Overrides are stored in DB and mirrored to {path}.",
   "admin_translations_keys_count": "Keys: {count}",
+  "admin_translations_show_more": "Show {count} more",
   "admin_translations_no_matches": "No matching strings",
   "admin_translations_scope_core": "Core",
   "admin_translations_scope_plugins": "Plugins",

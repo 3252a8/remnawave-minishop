@@ -228,11 +228,13 @@ class PluginLocaleGroup:
     """Editor group for locale keys matching any prefix, within one plugin.
 
     ``path`` is a hierarchy of display labels, such as ("Billing", "Renewals").
+    ``path_keys`` optionally supplies an admin translation key for each label.
     The longest matching prefix wins when groups overlap.
     """
 
     path: tuple[str, ...]
     prefixes: tuple[str, ...]
+    path_keys: tuple[str, ...] = ()
 
 
 class Plugin:

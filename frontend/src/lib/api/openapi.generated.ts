@@ -6171,6 +6171,8 @@ export interface components {
       items: components["schemas"]["AdminTranslationItemOut"][];
       /** Path */
       path?: string[];
+      /** Path Keys */
+      path_keys?: string[];
       /**
        * Plugin
        * @default null
