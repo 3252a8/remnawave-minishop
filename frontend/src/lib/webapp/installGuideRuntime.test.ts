@@ -123,7 +123,7 @@ describe("install guide runtime helpers", () => {
     ).toEqual({ kind: "open", value: "https://shop.test/s/token" });
   });
 
-  it("uses the selected subscription button action for the QR link", () => {
+  it("uses the HTTP subscription resource for QR and copy, independent of app buttons", () => {
     const context = { subscription: { http_url: "https://shop.test/s/token" } };
     const blocks = [
       {
@@ -147,10 +147,14 @@ describe("install guide runtime helpers", () => {
     const actions = blocks.map((block) =>
       block.buttons.map((button) => resolveInstallButtonAction(button, context))
     );
-    const qrLink = resolveInstallQrLink(blocks, actions);
-
-    expect(qrLink).toBe(actions[0][1].value);
-    expect(decryptLink(qrLink)).toEqual({ url: context.subscription.http_url });
-    expect(resolveInstallQrLink([{ buttons: [blocks[0].buttons[0]] }], [actions[0]])).toBe("");
+    expect(decryptLink(actions[0][1].value)).toEqual({ url: context.subscription.http_url });
+    expect(resolveInstallQrLink(context.subscription)).toBe(context.subscription.http_url);
+    expect(
+      resolveInstallQrLink({ http_url: "https://shop.test/s/token", config_link: "happ://add/" })
+    ).toBe(context.subscription.http_url);
+    expect(resolveInstallQrLink({ http_url: "", config_link: "https://sub.test/s/token" })).toBe(
+      "https://sub.test/s/token"
+    );
+    expect(resolveInstallQrLink({ config_link: "incy://add/https://sub.test/s/token" })).toBe("");
   });
 });

@@ -16,7 +16,6 @@ type InstallGuideButton = InstallGuideRecord & {
   type?: unknown;
   action?: unknown;
 };
-type InstallGuideBlock = InstallGuideRecord & { buttons?: InstallGuideButton[] };
 export type InstallGuideButtonAction =
   { kind: "copy"; value: string } | { kind: "open"; value: string };
 
@@ -183,15 +182,19 @@ export function resolveInstallButtonAction(
   return button?.type === "copyButton" ? { kind: "copy", value } : { kind: "open", value };
 }
 
-export function resolveInstallQrLink(
-  blocks: InstallGuideBlock[],
-  actions: InstallGuideButtonAction[][]
-): string {
-  for (const [blockIndex, block] of blocks.entries()) {
-    for (const [buttonIndex, button] of (block.buttons || []).entries()) {
-      if (button.type !== "subscriptionLink") continue;
-      const link = actions[blockIndex]?.[buttonIndex]?.value || "";
-      if (!isUnsafeInstallUrl(link)) return link;
+export function resolveInstallQrLink(subscription: InstallGuideRecord): string {
+  for (const candidate of [
+    subscription.http_url,
+    subscription.config_link,
+    subscription.connect_url,
+  ]) {
+    const link = stringValue(candidate).trim();
+    if (isUnsafeInstallUrl(link)) continue;
+    try {
+      const url = new URL(link);
+      if ((url.protocol === "http:" || url.protocol === "https:") && url.hostname) return link;
+    } catch (_error) {
+      continue;
     }
   }
   return "";

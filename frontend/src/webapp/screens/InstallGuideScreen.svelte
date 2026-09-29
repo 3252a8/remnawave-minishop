@@ -163,7 +163,7 @@
       )
     )
   );
-  const selectedConnectionLink = $derived(resolveInstallQrLink(selectedBlocks, buttonActions));
+  const selectedConnectionLink = $derived(resolveInstallQrLink(guideSubscription));
   const shareUrl = $derived(
     asString(guideSubscription.share_url) || asString(subscription?.install_share_url)
   );
