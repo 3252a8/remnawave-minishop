@@ -5422,6 +5422,25 @@
             "title": "Items",
             "type": "array"
           },
+          "path": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Path",
+            "type": "array"
+          },
+          "plugin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Plugin"
+          },
           "title": {
             "title": "Title",
             "type": "string"

@@ -6169,6 +6169,13 @@ export interface components {
       id: string;
       /** Items */
       items: components["schemas"]["AdminTranslationItemOut"][];
+      /** Path */
+      path?: string[];
+      /**
+       * Plugin
+       * @default null
+       */
+      plugin: string | null;
       /** Title */
       title: string;
       /** Title Key */

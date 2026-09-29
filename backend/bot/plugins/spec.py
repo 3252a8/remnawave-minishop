@@ -223,6 +223,18 @@ class PluginContext:
         return service
 
 
+@dataclass(frozen=True)
+class PluginLocaleGroup:
+    """Editor group for locale keys matching any prefix, within one plugin.
+
+    ``path`` is a hierarchy of display labels, such as ("Billing", "Renewals").
+    The longest matching prefix wins when groups overlap.
+    """
+
+    path: tuple[str, ...]
+    prefixes: tuple[str, ...]
+
+
 class Plugin:
     """Base class for application plugins; override any subset of hooks."""
 
@@ -295,8 +307,12 @@ class Plugin:
     def locales_dir(self) -> Path | None:
         """Return a directory with extra locale JSON files (same layout as
         the core ``locales/`` directory). Plugin keys never override keys
-        already defined by the core locales."""
+        already defined by the core or an earlier plugin for the same language."""
         return None
+
+    def locale_groups(self) -> list[PluginLocaleGroup]:
+        """Optionally group this plugin's locale keys in the admin editor."""
+        return []
 
     def entitlements_provider(self) -> EntitlementsProvider | None:
         """Return a feature entitlement provider for this process.

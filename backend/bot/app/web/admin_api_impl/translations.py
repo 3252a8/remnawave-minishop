@@ -18,6 +18,7 @@ from bot.app.web.route_contracts import (
     register_contract,
 )
 from bot.middlewares.i18n import JsonI18n, locale_language_options, resolve_locale_key
+from bot.plugins.spec import PluginLocaleGroup
 from bot.services.locale_override_service import (
     LOCALE_OVERRIDES_PATH,
     audience_for_locale_key,
@@ -39,7 +40,7 @@ from .common import (
 from .response_schemas import AdminTranslationsOut
 from .schemas import AdminTranslationsPatchBody
 
-TranslationCacheSignature = tuple[tuple[str, str, str, str, str], ...]
+TranslationCacheSignature = tuple[int, tuple[tuple[str, str, str, str, str], ...]]
 TranslationCacheEntry = tuple[TranslationCacheSignature, dict[str, Any]]
 
 _TRANSLATIONS_PAYLOAD_CACHE: WeakKeyDictionary[JsonI18n, TranslationCacheEntry] = (
@@ -97,6 +98,17 @@ def _locale_override_meta_map(overrides: list[dict[str, Any]]) -> dict[tuple[str
     return result
 
 
+def _plugin_group_for_key(i18n: JsonI18n, plugin: str, key: str) -> tuple[str, ...]:
+    matches = (
+        (len(prefix), group.path)
+        for group in i18n.plugin_locale_groups.get(plugin, ())
+        if isinstance(group, PluginLocaleGroup) and group.path
+        for prefix in group.prefixes
+        if prefix and key.startswith(prefix)
+    )
+    return max(matches, default=(0, ()))[1]
+
+
 def _admin_translations_payload(
     i18n: JsonI18n,
     overrides: list[dict[str, Any]],
@@ -133,10 +145,22 @@ def _admin_translations_payload(
                 "updated_at": meta.get("updated_at") if meta else None,
                 "updated_by": meta.get("updated_by") if meta else None,
             }
-        group_id = group_id_for_locale_key(key)
+        plugin = i18n.plugin_locale_sources.get(key)
+        path = _plugin_group_for_key(i18n, plugin, key) if plugin else ()
+        group_id = f"plugin:{plugin}:{path!r}" if plugin else group_id_for_locale_key(key)
         groups_by_id.setdefault(
             group_id,
-            {"id": group_id, "title": group_id, "description": "", "items": []},
+            {
+                "id": group_id,
+                "title": path[-1] if path else "Other",
+                "title_key": "" if path else "translations_plugin_other",
+                "description": "",
+                "description_key": "",
+                "audience": "user",
+                "plugin": plugin,
+                "path": list(path),
+                "items": [],
+            },
         )
         groups_by_id[group_id]["items"].append(
             {
@@ -155,8 +179,10 @@ def _admin_translations_payload(
     }
 
 
-def _translations_cache_signature(overrides: list[dict[str, Any]]) -> TranslationCacheSignature:
-    return tuple(
+def _translations_cache_signature(
+    i18n: JsonI18n, overrides: list[dict[str, Any]]
+) -> TranslationCacheSignature:
+    return i18n.catalog_version, tuple(
         (
             str(entry.get("lang") or ""),
             str(entry.get("key") or ""),
@@ -174,7 +200,7 @@ def _cached_admin_translations_payload(
 ) -> dict[str, Any]:
     """Reuse the validated multi-megabyte editor payload until overrides change."""
 
-    signature = _translations_cache_signature(overrides)
+    signature = _translations_cache_signature(i18n, overrides)
     cached = _TRANSLATIONS_PAYLOAD_CACHE.get(i18n)
     if cached is not None and cached[0] == signature:
         return cached[1]

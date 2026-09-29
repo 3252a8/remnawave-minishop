@@ -21,6 +21,7 @@ compatibility-breaking релиза.
 - `queue_handlers(ctx)` — обработчики webhook-очереди;
 - `migrations()` — цепочка миграций плагина;
 - `locales_dir()` — дополнительные JSON-каталоги локалей;
+- `locale_groups()` — необязательная иерархия групп для переводов плагина в админке;
 - `entitlements_provider()` — интеграция feature flags.
 
 `entitlements_provider()` — авторитетный источник: может быть только один. Несколько плагинов,

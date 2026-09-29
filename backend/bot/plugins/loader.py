@@ -336,6 +336,7 @@ def apply_plugin_locales(settings: Settings, i18n: JsonI18n) -> None:
                 continue
             additions = _read_locales_dir(locales_dir)
             if additions:
+                i18n.plugin_locale_groups[plugin.name] = tuple(plugin.locale_groups())
                 i18n.merge_base_locales(additions, source=plugin.name)
         except Exception:
             logger.exception("Plugin %r failed in locales_dir; skipping it", plugin.name)

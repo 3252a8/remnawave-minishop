@@ -364,6 +364,8 @@ class AdminTranslationGroupOut(HttpResponseModel):
     audience: str
     title_key: str
     description_key: str
+    plugin: str | None = None
+    path: list[str] = Field(default_factory=list)
     items: list[AdminTranslationItemOut]
 
 

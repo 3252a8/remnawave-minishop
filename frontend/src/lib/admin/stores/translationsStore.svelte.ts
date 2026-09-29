@@ -52,6 +52,8 @@ export type TranslationGroup = {
   description?: string;
   description_key?: string;
   audience?: string;
+  plugin?: string | null;
+  path?: string[];
   items?: TranslationItem[];
 };
 export type TranslationDirtyEntry = {

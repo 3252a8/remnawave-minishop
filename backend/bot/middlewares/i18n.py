@@ -305,6 +305,10 @@ class JsonI18n:
         self.path = path
         self.default_lang = default
         self.base_locales_data: dict[str, dict[str, str]] = {}
+        self.core_locale_keys: set[str] = set()
+        self.plugin_locale_sources: dict[str, str] = {}
+        self.plugin_locale_groups: dict[str, tuple[object, ...]] = {}
+        self.catalog_version = 0
         self.locale_overrides: LocaleOverrides = {}
         self.locales_data: dict[str, dict[str, str]] = {}
         self._overrides_path: Path | None = None
@@ -358,6 +362,8 @@ class JsonI18n:
                         "Error loading locale %s from %s: %s", lang_code, file_path, e_load
                     )
         self.base_locales_data = loaded
+        self.core_locale_keys = {key for messages in loaded.values() for key in messages}
+        self.catalog_version += 1
         self._rebuild_effective_locales()
 
     def _rebuild_effective_locales(self) -> None:
@@ -415,14 +421,17 @@ class JsonI18n:
                     skipped.append(f"{lang_code}.{key}")
                     continue
                 bucket[key] = value
+                if key not in self.core_locale_keys:
+                    self.plugin_locale_sources.setdefault(key, source)
                 added += 1
         if skipped:
             logger.warning(
-                "Locale keys from %s already defined by the core and were skipped: %s",
+                "Locale keys from %s already defined in the base catalog and were skipped: %s",
                 source,
                 ", ".join(sorted(skipped)),
             )
         if added:
+            self.catalog_version += 1
             self._rebuild_effective_locales()
         return skipped
 

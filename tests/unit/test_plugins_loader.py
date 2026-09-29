@@ -376,6 +376,8 @@ def test_apply_plugin_locales_merges_without_overriding_core(tmp_path):
 
     assert i18n.gettext("en", "plugin_only_key") == "Plugin value"
     assert i18n.gettext("en", "yes_button") == core_value
+    assert i18n.plugin_locale_sources["plugin_only_key"] == "localized"
+    assert "yes_button" not in i18n.plugin_locale_sources
 
 
 # --- Built-in plugins ---------------------------------------------------------

@@ -22,6 +22,7 @@
     title: string;
     hint: string;
     groups: TranslationGroupWithItems[];
+    plugin?: boolean;
   };
 
   type TranslationsSectionProps = {
@@ -44,11 +45,13 @@
   const translationsPath = $derived(String(translationsStore.translationsPath || ""));
 
   let openGroups = $state<string[]>([]);
+  let openPlugins = $state<string[]>([]);
   let readyGroups = $state<string[]>([]);
   let openLocaleEditors = $state<string[]>([]);
   let closedLocaleEditors = $state<string[]>([]);
   let search = $state("");
   let audienceFilter = $state("all");
+  let scopeFilter = $state<"core" | "plugins">("core");
   let newLanguageCode = $state("");
   const readyTimers = new Map<string, number>();
 
@@ -60,7 +63,9 @@
     filteredGroups(translationGroups, search, translationLanguages)
   );
   const audienceSections = $derived(
-    buildAudienceSections(filteredTranslationGroups, audienceFilter)
+    scopeFilter === "core"
+      ? buildAudienceSections(filteredTranslationGroups, audienceFilter)
+      : buildPluginSections(filteredTranslationGroups, audienceFilter)
   );
   const visibleGroupKeys = $derived(
     audienceSections.flatMap((section) =>
@@ -68,7 +73,10 @@
     )
   );
   const allOpen = $derived(
-    visibleGroupKeys.length > 0 && visibleGroupKeys.every((key) => openGroups.includes(key))
+    visibleGroupKeys.length > 0 &&
+      visibleGroupKeys.every((key) => openGroups.includes(key)) &&
+      (scopeFilter === "core" ||
+        audienceSections.every((section) => openPlugins.includes(section.id)))
   );
 
   $effect(() => {
@@ -270,7 +278,11 @@
     return (groups || [])
       .map((group) => ({
         ...group,
-        items: (group.items || []).filter((item) => itemMatches(item, group, needle, languages)),
+        items:
+          group.plugin &&
+          [group.plugin, ...(group.path || [])].some((part) => part.toLowerCase().includes(needle))
+            ? group.items || []
+            : (group.items || []).filter((item) => itemMatches(item, group, needle, languages)),
       }))
       .filter((group) => group.items.length);
   }
@@ -305,6 +317,7 @@
       title: audienceLabel(audience),
       hint: audienceHint(audience),
       groups: (groups || [])
+        .filter((group) => !group.plugin)
         .map((group) => ({
           ...group,
           audience,
@@ -314,8 +327,45 @@
     })).filter((section) => (filter === "all" || section.id === filter) && section.groups.length);
   }
 
+  function buildPluginSections(
+    groups: TranslationGroupWithItems[],
+    filter: string
+  ): AudienceSection[] {
+    const plugins = new Map<string, TranslationGroupWithItems[]>();
+    for (const group of groups) {
+      if (!group.plugin) continue;
+      const items = group.items.filter(
+        (item) => filter === "all" || itemAudience(item, group) === filter
+      );
+      if (!items.length) continue;
+      const pluginGroups = plugins.get(group.plugin) || [];
+      pluginGroups.push({ ...group, items });
+      plugins.set(group.plugin, pluginGroups);
+    }
+    return [...plugins.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([plugin, pluginGroups]) => ({
+        id: `plugin:${plugin}`,
+        title: plugin,
+        hint: at("translations_plugin_hint", {}, "Plugin strings"),
+        groups: pluginGroups.sort((left, right) => {
+          if (!left.path?.length && !right.path?.length) return 0;
+          if (!left.path?.length) return 1;
+          if (!right.path?.length) return -1;
+          return left.path.join("/").localeCompare(right.path.join("/"));
+        }),
+        plugin: true,
+      }));
+  }
+
   function toggleAllGroups(): void {
-    openGroups = allOpen ? [] : visibleGroupKeys;
+    if (allOpen) {
+      openGroups = [];
+      openPlugins = [];
+      return;
+    }
+    openGroups = visibleGroupKeys;
+    openPlugins = audienceSections.filter((section) => section.plugin).map((section) => section.id);
   }
 
   function isGroupOpen(id: string): boolean {
@@ -360,6 +410,7 @@
   }
 
   function groupTitle(group: TranslationGroup): string {
+    if (group.plugin && group.path?.length) return group.path.join(" / ");
     return group.title_key ? at(group.title_key, {}, group.title) : group.title;
   }
 
@@ -592,9 +643,44 @@
   </div>
 
   <div class="admin-translations-audience-tabs" role="tablist">
+    <button
+      type="button"
+      role="tab"
+      aria-selected={scopeFilter === "core"}
+      class:is-active={scopeFilter === "core"}
+      data-admin-translation-scope="core"
+      onclick={() => {
+        scopeFilter = "core";
+        audienceFilter = "all";
+        openGroups = [];
+        openPlugins = [];
+      }}
+    >
+      {at("translations_scope_core", {}, "Core")}
+    </button>
+    <button
+      type="button"
+      role="tab"
+      aria-selected={scopeFilter === "plugins"}
+      class:is-active={scopeFilter === "plugins"}
+      data-admin-translation-scope="plugins"
+      onclick={() => {
+        scopeFilter = "plugins";
+        audienceFilter = "all";
+        openGroups = [];
+        openPlugins = [];
+      }}
+    >
+      {at("translations_scope_plugins", {}, "Plugins")}
+    </button>
+  </div>
+
+  <div class="admin-translations-audience-tabs" role="tablist">
     {#each AUDIENCE_FILTERS as option (option)}
       <button
         type="button"
+        role="tab"
+        aria-selected={audienceFilter === option}
         class:is-active={audienceFilter === option}
         data-admin-translation-audience={option}
         onclick={() => {
@@ -619,91 +705,122 @@
     <div class="admin-translations-accordion-root">
       {#each audienceSections as section (section.id)}
         <section class="admin-translations-audience-section">
-          <div class="admin-translations-audience-head">
-            <span>
-              <strong>{section.title}</strong>
-              <small>{section.hint}</small>
-            </span>
-            <AdminBadge variant={section.id === "internal" ? "warning" : "success"}>
-              {section.groups.reduce((count, group) => count + group.items.length, 0)}
-            </AdminBadge>
-          </div>
-          <div class="admin-accordion">
-            {#each section.groups as group (groupPanelId(section.id, group.id))}
-              {@const dirtyCount = groupDirtyCount(group, translationsDirty, translationLanguages)}
-              {@const overrideCount = groupOverrideCount(
-                group,
-                translationsDirty,
-                translationLanguages
-              )}
-              {@const panelId = groupPanelId(section.id, group.id)}
-              {@const groupOpen = openGroupSet.has(panelId)}
-              {@const groupReady = readyGroupSet.has(panelId)}
-              <div
-                class="admin-accordion-item admin-card"
-                data-state={groupOpen ? "open" : "closed"}
-              >
-                <div class="admin-accordion-header">
-                  <button
-                    type="button"
-                    class="admin-accordion-trigger"
-                    data-admin-translation-group={panelId}
-                    data-state={groupOpen ? "open" : "closed"}
-                    aria-expanded={groupOpen}
-                    onclick={() => toggleGroup(panelId)}
-                  >
-                    <span class="admin-accordion-title admin-translation-title-line">
-                      {groupTitle(group)}
-                      <AdminBadge variant={section.id === "internal" ? "warning" : "success"}>
-                        {section.title}
-                      </AdminBadge>
-                    </span>
-                    <span class="admin-accordion-meta">
-                      {at(
-                        "translations_keys_count",
-                        { count: group.items.length },
-                        `${group.items.length} keys`
-                      )}{#if overrideCount}
-                        / {at(
-                          "settings_overridden_count",
-                          { count: overrideCount },
-                          `${overrideCount} override`
-                        )}{/if}{#if dirtyCount}
-                        / {at(
-                          "settings_dirty_count",
-                          { count: dirtyCount },
-                          `${dirtyCount} changed`
-                        )}
-                      {/if}
-                    </span>
-                    <ChevronRight size={16} class="admin-accordion-chev" />
-                  </button>
-                </div>
-                {#if groupOpen}
-                  <div
-                    class="admin-accordion-content"
-                    data-state="open"
-                    transition:slide={{ duration: 140 }}
-                  >
-                    {#if groupReady}
-                      {#if groupDescription(group)}
-                        <p class="admin-muted admin-translation-group-description">
-                          {groupDescription(group)}
-                        </p>
-                      {/if}
-                      <div class="admin-translation-list">
-                        {#each group.items as item (item.key)}
-                          {@render renderTranslationItem(item, group)}
-                        {/each}
-                      </div>
-                    {:else}
-                      {@render renderGroupSkeleton(group)}
-                    {/if}
+          {#if section.plugin}
+            <button
+              type="button"
+              class="admin-translations-audience-head admin-plugin-translation-head admin-card"
+              data-admin-translation-plugin={section.id}
+              data-state={openPlugins.includes(section.id) ? "open" : "closed"}
+              aria-expanded={openPlugins.includes(section.id)}
+              onclick={() =>
+                (openPlugins = openPlugins.includes(section.id)
+                  ? openPlugins.filter((id) => id !== section.id)
+                  : [...openPlugins, section.id])}
+            >
+              <span>
+                <strong>{section.title}</strong>
+                <small>{section.hint}</small>
+              </span>
+              <AdminBadge variant="success">
+                {section.groups.reduce((count, group) => count + group.items.length, 0)}
+              </AdminBadge>
+              <ChevronRight size={16} class="admin-accordion-chev" />
+            </button>
+          {:else}
+            <div class="admin-translations-audience-head">
+              <span>
+                <strong>{section.title}</strong>
+                <small>{section.hint}</small>
+              </span>
+              <AdminBadge variant={section.id === "internal" ? "warning" : "success"}>
+                {section.groups.reduce((count, group) => count + group.items.length, 0)}
+              </AdminBadge>
+            </div>
+          {/if}
+          {#if !section.plugin || openPlugins.includes(section.id)}
+            <div class="admin-accordion">
+              {#each section.groups as group (groupPanelId(section.id, group.id))}
+                {@const dirtyCount = groupDirtyCount(
+                  group,
+                  translationsDirty,
+                  translationLanguages
+                )}
+                {@const overrideCount = groupOverrideCount(
+                  group,
+                  translationsDirty,
+                  translationLanguages
+                )}
+                {@const panelId = groupPanelId(section.id, group.id)}
+                {@const groupOpen = openGroupSet.has(panelId)}
+                {@const groupReady = readyGroupSet.has(panelId)}
+                <div
+                  class="admin-accordion-item admin-card"
+                  data-state={groupOpen ? "open" : "closed"}
+                >
+                  <div class="admin-accordion-header">
+                    <button
+                      type="button"
+                      class="admin-accordion-trigger"
+                      data-admin-translation-group={panelId}
+                      data-state={groupOpen ? "open" : "closed"}
+                      aria-expanded={groupOpen}
+                      onclick={() => toggleGroup(panelId)}
+                    >
+                      <span class="admin-accordion-title admin-translation-title-line">
+                        {groupTitle(group)}
+                        {#if !section.plugin}
+                          <AdminBadge variant={section.id === "internal" ? "warning" : "success"}>
+                            {section.title}
+                          </AdminBadge>
+                        {/if}
+                      </span>
+                      <span class="admin-accordion-meta">
+                        {at(
+                          "translations_keys_count",
+                          { count: group.items.length },
+                          `${group.items.length} keys`
+                        )}{#if overrideCount}
+                          / {at(
+                            "settings_overridden_count",
+                            { count: overrideCount },
+                            `${overrideCount} override`
+                          )}{/if}{#if dirtyCount}
+                          / {at(
+                            "settings_dirty_count",
+                            { count: dirtyCount },
+                            `${dirtyCount} changed`
+                          )}
+                        {/if}
+                      </span>
+                      <ChevronRight size={16} class="admin-accordion-chev" />
+                    </button>
                   </div>
-                {/if}
-              </div>
-            {/each}
-          </div>
+                  {#if groupOpen}
+                    <div
+                      class="admin-accordion-content"
+                      data-state="open"
+                      transition:slide={{ duration: 140 }}
+                    >
+                      {#if groupReady}
+                        {#if groupDescription(group)}
+                          <p class="admin-muted admin-translation-group-description">
+                            {groupDescription(group)}
+                          </p>
+                        {/if}
+                        <div class="admin-translation-list">
+                          {#each group.items as item (item.key)}
+                            {@render renderTranslationItem(item, group)}
+                          {/each}
+                        </div>
+                      {:else}
+                        {@render renderGroupSkeleton(group)}
+                      {/if}
+                    </div>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          {/if}
         </section>
       {/each}
     </div>

@@ -185,6 +185,30 @@ class ExamplePlugin(Plugin):
 ядра. Runtime overrides из слоя настроек админки применяются после слияния
 базовых каталогов.
 
+В редакторе переводов админки ключи из `locales_dir()` отображаются в отдельном
+подразделе «Плагины», под именем плагина. Ключи, уже определённые ядром хотя бы
+на одном языке, остаются в разделе ядра. Плагин может дополнительно задать
+вложенные группы через `locale_groups()`:
+
+```python
+from bot.plugins import Plugin, PluginLocaleGroup
+
+
+class ExamplePlugin(Plugin):
+    name = "example"
+
+    def locale_groups(self) -> list[PluginLocaleGroup]:
+        return [
+            PluginLocaleGroup(path=("Billing", "Renewals"), prefixes=("example_renewal_",)),
+            PluginLocaleGroup(path=("Billing", "Invoices"), prefixes=("example_invoice_",)),
+        ]
+```
+
+Для каждого ключа выбирается группа с самым длинным подходящим префиксом.
+Ключи без совпадения попадают в «Прочие строки» своего плагина. `path` задаёт
+иерархию отображаемых заголовков; сами ключи и механизм сохранения переводов
+от этого не меняются. Названия групп задаёт плагин.
+
 Для новых ключей используйте префикс плагина, например `example_title` или
 `admin_example_section_title`.
 
@@ -302,7 +326,7 @@ await outbound_messaging.send_text(session, user_id=uid, text=text, buttons=butt
 
 Именованный экспорт `sectionTabs` добавляет вкладку в **уже существующий** раздел админки —
 свой или базовый (`promos`, `users`, `payments`, …). Так расширение дополняет базовый экран, не
-патча его исходники: ядро знает только о том, что раздел *может* нести вкладки, но не о том, что
+патча его исходники: ядро знает только о том, что раздел _может_ нести вкладки, но не о том, что
 именно в них лежит.
 
 ```ts
@@ -396,7 +420,12 @@ backend не могут использовать этот режим. Профи
 Публичный GitHub/GitLab-репозиторий может содержать в корне `minishop-plugin.json`:
 
 ```json
-{"schema_version":1,"artifact":"dist/example-plugin.zip","sha256":"<64 lowercase hex characters>","version":"1.2.3"}
+{
+  "schema_version": 1,
+  "artifact": "dist/example-plugin.zip",
+  "sha256": "<64 lowercase hex characters>",
+  "version": "1.2.3"
+}
 ```
 
 Менеджер разрешает branch/tag в точный commit, скачивает только готовый ZIP, сверяет хеш и
