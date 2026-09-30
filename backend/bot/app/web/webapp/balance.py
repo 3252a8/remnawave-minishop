@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import logging
+from decimal import Decimal
 
 from aiohttp import web
 
 from bot.app.web.context import get_session_factory, get_settings
+from bot.services.partner_common import currency_scale
 from bot.services.user_balance_service import UserBalanceService
 from db.dal import user_dal
 
@@ -44,6 +46,9 @@ async def balance_topup_route(request: web.Request) -> web.Response:
         return _json_error(403, "user_balance_disabled", "User balance is disabled")
     payload = await _parse_model_payload(request, WebAppBalanceTopupPayload)
     amount = float(payload.amount)
+    minor_amount = Decimal(str(amount)) * 10 ** currency_scale(config.currency)
+    if minor_amount != minor_amount.to_integral_value():
+        return _json_error(400, "balance_topup_invalid_precision", "Invalid amount precision")
     if amount < config.topup_min_amount:
         return _json_error(400, "balance_topup_below_minimum", "Top-up amount is too small")
     if amount > config.topup_max_amount:

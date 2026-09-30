@@ -10,6 +10,13 @@ from bot.app.web.webapp.payloads import WebAppBalanceTopupPayload
 
 
 class BalanceRequestValidationTests(TestCase):
+    def test_topup_requires_a_numeric_json_value(self) -> None:
+        cases: tuple[object, ...] = (True, "1e2", "abc", {}, [], float("nan"))
+        for amount in cases:
+            with self.subTest(amount=amount), self.assertRaises(ValidationError):
+                WebAppBalanceTopupPayload.model_validate({"method": "qa", "amount": amount})
+        self.assertEqual(WebAppBalanceTopupPayload(method="qa", amount=100).amount, 100)
+
     def test_admin_adjustment_defaults_to_main_balance_and_validates_target(self) -> None:
         body = AdminUserBalanceAdjustmentBody(mode="add", amount=10)
         self.assertEqual(body.target, "user")

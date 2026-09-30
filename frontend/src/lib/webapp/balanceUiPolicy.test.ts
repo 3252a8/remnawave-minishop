@@ -1,8 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import { availableBalanceTopupMethods, shouldShowUserBalance } from "./balanceUiPolicy.js";
+import {
+  availableBalanceTopupMethods,
+  shouldShowUserBalance,
+  decimalTopupAmount,
+} from "./balanceUiPolicy.js";
 
 describe("user balance UI policy", () => {
+  it("accepts ordinary decimal amounts at currency precision", () => {
+    expect(decimalTopupAmount("100,12", 2)).toBe(100.12);
+    expect(decimalTopupAmount("100.125", 3)).toBe(100.125);
+    for (const value of ["1e2", "abc", "Infinity", "100.125", "1.", "0", "-1"])
+      expect(decimalTopupAmount(value, 2)).toBeNull();
+    expect(decimalTopupAmount("100.1", 0)).toBeNull();
+  });
   it("shows a positive balance even when top-ups are disabled", () => {
     expect(shouldShowUserBalance({ enabled: false, amount_minor: 1_000 })).toBe(true);
   });

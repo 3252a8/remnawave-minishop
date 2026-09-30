@@ -3,7 +3,7 @@
 export const nativeFieldBaseline = [
   {
     file: "src/webapp/payment-dialogs/BalanceTopupDialog.svelte",
-    control: "input:number",
+    control: "input:text",
     count: 1,
     reason: "Animated amount field with overlaid digits",
   },

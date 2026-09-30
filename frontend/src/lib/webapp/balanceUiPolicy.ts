@@ -3,6 +3,14 @@ export type BalanceUiState = {
   amount_minor?: number | null;
 };
 
+export function decimalTopupAmount(value: string, scale: number): number | null {
+  const precision = Math.max(0, Math.min(3, Math.trunc(scale)));
+  const pattern = precision ? new RegExp(`^\\d+(?:[.,]\\d{1,${precision}})?$`) : /^\d+$/;
+  if (!pattern.test(value)) return null;
+  const amount = Number(value.replace(",", "."));
+  return Number.isFinite(amount) && amount > 0 ? amount : null;
+}
+
 export function shouldShowUserBalance(balance: BalanceUiState): boolean {
   return Boolean(balance.enabled) || Number(balance.amount_minor || 0) > 0;
 }

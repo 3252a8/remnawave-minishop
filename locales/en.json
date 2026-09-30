@@ -4452,6 +4452,7 @@
   "wa_balance_topup_amount": "Top-up amount",
   "wa_balance_topup_limits": "From {min} to {max}",
   "wa_balance_topup_failed": "Could not create a top-up payment",
+  "wa_balance_topup_invalid_amount": "Enter a decimal amount using the currency's precision, without letters or exponents",
   "wa_balance_checkout_prefix": "Pay from",
   "wa_balance_checkout_aria": "Use balance for this payment",
   "wa_balance_checkout_available": "Available: {balance}",

@@ -4452,6 +4452,7 @@
   "wa_balance_topup_amount": "Сумма пополнения",
   "wa_balance_topup_limits": "От {min} до {max}",
   "wa_balance_topup_failed": "Не удалось создать платёж для пополнения",
+  "wa_balance_topup_invalid_amount": "Введите десятичную сумму с точностью валюты, без букв и экспоненты",
   "wa_balance_checkout_prefix": "Оплатить с",
   "wa_balance_checkout_aria": "Использовать баланс для оплаты",
   "wa_balance_checkout_available": "Доступно: {balance}",

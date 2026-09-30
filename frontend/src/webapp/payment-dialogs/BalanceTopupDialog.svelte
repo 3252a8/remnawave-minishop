@@ -14,7 +14,7 @@
   } from "$lib/webapp/types.js";
   import type { ApiClient } from "$lib/webapp/publicApi.js";
   import { formatMoney } from "$lib/webapp/formatters.js";
-  import { availableBalanceTopupMethods } from "$lib/webapp/balanceUiPolicy.js";
+  import { availableBalanceTopupMethods, decimalTopupAmount } from "$lib/webapp/balanceUiPolicy.js";
 
   let {
     api,
@@ -36,7 +36,7 @@
 
   const MANUAL_AMOUNT_DEBOUNCE_MS = 180;
 
-  let amount = $state<number | undefined>(0);
+  let amount = $state("0");
   let selectedMethod = $state("");
   let busy = $state(false);
   let error = $state("");
@@ -53,9 +53,14 @@
       .map(Number)
       .filter((value) => Number.isFinite(value) && value >= minimum && value <= maximum)
   );
-  const numericAmount = $derived(Number(amount || 0));
+  const parsedAmount = $derived(decimalTopupAmount(amount, Number(balance.currency_scale || 0)));
+  const numericAmount = $derived(parsedAmount ?? 0);
   const valid = $derived(
-    numericAmount >= minimum && numericAmount <= maximum && !!selectedMethod && !busy
+    parsedAmount !== null &&
+      numericAmount >= minimum &&
+      numericAmount <= maximum &&
+      !!selectedMethod &&
+      !busy
   );
   const currencySymbol = $derived(
     String(balance.currency || "")
@@ -75,7 +80,7 @@
 
   function selectPreset(value: number): void {
     window.clearTimeout(manualAmountTimer);
-    amount = value;
+    amount = String(value);
     buttonAnimatedAmount = value;
     inputAnimatedAmount = value;
     inputAnimationVisible = true;
@@ -89,13 +94,15 @@
   function handleManualAmountInput(event: Event): void {
     stopInputAnimation();
     window.clearTimeout(manualAmountTimer);
-    const nextValue = (event.currentTarget as HTMLInputElement).valueAsNumber;
-    const safeValue = Number.isFinite(nextValue) ? nextValue : 0;
+    const input = event.currentTarget as HTMLInputElement;
+    amount = input.value;
+    const nextValue = decimalTopupAmount(amount, Number(balance.currency_scale || 0));
+    const safeValue = nextValue ?? 0;
     manualAmountTimer = window.setTimeout(() => {
       buttonAnimatedAmount = safeValue;
       manualAmountTimer = undefined;
     }, MANUAL_AMOUNT_DEBOUNCE_MS);
-    error = "";
+    error = amount && nextValue === null ? t("wa_balance_topup_invalid_amount") : "";
   }
 
   async function submit(): Promise<void> {
@@ -142,7 +149,7 @@
       return;
     }
     const initialAmount = presets[0] || minimum || 0;
-    amount = initialAmount;
+    amount = String(initialAmount);
     buttonAnimatedAmount = initialAmount;
     inputAnimatedAmount = initialAmount;
     inputAnimationVisible = false;
@@ -184,11 +191,9 @@
       <span>{t("wa_balance_topup_amount", {}, "Top-up amount")}</span>
       <div>
         <input
-          type="number"
-          bind:value={amount}
-          min={minimum}
-          max={maximum}
-          step={1 / 10 ** Number(balance.currency_scale || 0)}
+          type="text"
+          value={amount}
+          maxlength={24}
           inputmode="decimal"
           class:amount-input-animating={inputAnimationVisible}
           oninput={handleManualAmountInput}
@@ -216,7 +221,7 @@
         {#each presets as preset}
           <button
             type="button"
-            class:active={amount === preset}
+            class:active={numericAmount === preset}
             onclick={() => selectPreset(preset)}
           >
             +{formatMoney(preset, balance.currency)}
