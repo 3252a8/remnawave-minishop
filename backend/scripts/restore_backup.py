@@ -7,12 +7,14 @@ import logging
 import shutil
 import tempfile
 import uuid
+import zipfile
 from pathlib import Path
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection, create_async_engine
 
 from bot.services.backup_restore_service import BackupRestoreService
+from bot.services.panel_identity_match import panel_origin_fingerprint
 from config.settings import Settings, get_settings
 
 logger = logging.getLogger(__name__)
@@ -28,7 +30,29 @@ async def assert_disconnected(connection: AsyncConnection, database: str) -> Non
         raise RuntimeError("Stop backend, worker, migrate and all other database clients first")
 
 
-async def restore(settings: Settings, archive_name: str) -> dict[str, object]:
+async def reset_moved_panel_origins(settings: Settings) -> int:
+    """Require the normal identity checks to rebind users after a panel URL change."""
+    current_origin = panel_origin_fingerprint(settings.PANEL_API_URL)
+    if not current_origin:
+        raise ValueError("PANEL_API_URL must be configured before resetting panel origins")
+    engine = create_async_engine(settings.DATABASE_URL)
+    try:
+        async with engine.begin() as connection:
+            result = await connection.execute(
+                text(
+                    "UPDATE users SET panel_origin = NULL "
+                    "WHERE panel_origin IS NOT NULL AND panel_origin <> :current_origin"
+                ),
+                {"current_origin": current_origin},
+            )
+            return result.rowcount or 0
+    finally:
+        await engine.dispose()
+
+
+async def _restore_database(
+    settings: Settings, archive_name: str, suffix: str, *, reset_panel_origin: bool = False
+) -> dict[str, object]:
     from bot.plugins.extensions.backups import (
         initialize_backup_extensions,
         restore_archive_extensions,
@@ -43,7 +67,6 @@ async def restore(settings: Settings, archive_name: str) -> dict[str, object]:
     original = settings.POSTGRES_DB
     if original in {"postgres", "template0", "template1"}:
         raise ValueError("System databases cannot be restore targets")
-    suffix = uuid.uuid4().hex[:16]
     candidate = f"minishop_restore_{suffix}"
     previous = f"minishop_previous_{suffix}"
     admin_settings = settings.model_copy(update={"POSTGRES_DB": "postgres"})
@@ -119,6 +142,8 @@ async def restore(settings: Settings, archive_name: str) -> dict[str, object]:
                         restore_extension_files=False,
                     )
                     journal["migrations_applied"] = result.database_migrations_applied
+                    if reset_panel_origin:
+                        journal["panel_origins_reset"] = await reset_moved_panel_origins(target)
                     save_state("validated")
                     # Prepare the file on its destination filesystem for an atomic replace.
                     if staged_tariffs.is_file():
@@ -184,10 +209,74 @@ async def restore(settings: Settings, archive_name: str) -> dict[str, object]:
     return {**journal, "journal": str(journal_path)}
 
 
+async def restore(
+    settings: Settings,
+    archive_name: str,
+    *,
+    operation_id: str | None = None,
+    reset_panel_origin: bool = False,
+) -> dict[str, object]:
+    """Stage signed packages before migrations, then restore or roll them back."""
+    from bot.plugins.package_backup import prepare_package_restore
+    from bot.plugins.packages import package_root
+
+    suffix = operation_id or uuid.uuid4().hex[:16]
+    if not suffix.isalnum() or len(suffix) > 32:
+        raise ValueError("Invalid restore operation ID")
+    service = BackupRestoreService(settings)
+    archive_path = service.archive_path_for_name(archive_name)
+    service._validate_archive_for_restore(archive_path)
+    backup_dir = service.backup_dir()
+    root = package_root()
+    previous_store = backup_dir / f"restore-{suffix}-plugin-store"
+    installed = False
+    with tempfile.TemporaryDirectory(prefix="restore-packages-", dir=backup_dir) as staging_name:
+        with zipfile.ZipFile(archive_path) as archive:
+            prepared = prepare_package_restore(archive, Path(staging_name))
+        if prepared is not None:
+            if previous_store.exists():
+                raise RuntimeError("Previous plugin store snapshot already exists")
+            root.parent.mkdir(parents=True, exist_ok=True)
+            if root.exists():
+                root.rename(previous_store)
+            try:
+                prepared.rename(root)
+                installed = True
+            except BaseException:
+                if previous_store.exists():
+                    previous_store.rename(root)
+                raise
+        try:
+            result = await _restore_database(
+                settings, archive_name, suffix, reset_panel_origin=reset_panel_origin
+            )
+        except BaseException:
+            journal_path = backup_dir / f"restore-{suffix}.json"
+            recovery_required = False
+            if journal_path.exists():
+                try:
+                    recovery_required = (
+                        json.loads(journal_path.read_text(encoding="utf-8")).get("state")
+                        == "recovery_required"
+                    )
+                except (OSError, ValueError):
+                    recovery_required = True
+            if installed and not recovery_required:
+                shutil.rmtree(root)
+                if previous_store.exists():
+                    previous_store.rename(root)
+            raise
+    if installed:
+        result["previous_plugin_store"] = str(previous_store) if previous_store.exists() else None
+    return result
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("archive", help="Archive filename in BACKUP_DIR")
     parser.add_argument("--check", action="store_true", help="Validate archive without changes")
+    parser.add_argument("--operation-id", help="Hexadecimal ID for the restore journal")
+    parser.add_argument("--reset-panel-origin", action="store_true")
     args = parser.parse_args()
     settings = get_settings()
     if args.check:
@@ -198,7 +287,19 @@ def main() -> None:
             raise ValueError("Archive does not contain a database dump")
         print("Archive integrity verified")
     else:
-        print(json.dumps(asyncio.run(restore(settings, args.archive)), indent=2))
+        print(
+            json.dumps(
+                asyncio.run(
+                    restore(
+                        settings,
+                        args.archive,
+                        operation_id=args.operation_id,
+                        reset_panel_origin=args.reset_panel_origin,
+                    )
+                ),
+                indent=2,
+            )
+        )
 
 
 if __name__ == "__main__":

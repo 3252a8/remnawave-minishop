@@ -25,14 +25,23 @@ class AdminBackupArchiveOut(HttpResponseModel):
     created_at_local: str | None = None
     has_database: bool
     has_compose: bool
+    source_panel_api_url: str | None = None
+    current_panel_api_url: str | None = None
     database_name: str | None = None
     compose_files_count: int
     warnings: list[str] = Field(default_factory=list)
     manifest: dict[str, Any] = Field(default_factory=dict)
 
     @classmethod
-    def from_archive(cls, archive: BackupArchiveInfo) -> AdminBackupArchiveOut:
+    def from_archive(
+        cls, archive: BackupArchiveInfo, current_panel_api_url: str | None = None
+    ) -> AdminBackupArchiveOut:
         payload = archive.to_payload()
+        source_panel_api_url = archive.manifest.get("panel_origin_url")
+        payload["source_panel_api_url"] = (
+            source_panel_api_url if isinstance(source_panel_api_url, str) else None
+        )
+        payload["current_panel_api_url"] = current_panel_api_url
         # Per-file checksums are only needed while validating a restore and make
         # the archive listing grow with every file stored in every backup.
         payload["manifest"] = {
@@ -106,8 +115,21 @@ class AdminBackupUploadOut(HttpResponseModel):
     archive: AdminBackupArchiveOut
 
 
+class AdminBackupRestoreJobOut(HttpResponseModel):
+    id: str
+    archive_name: str
+    status: str
+    error: str | None = None
+
+
 class AdminBackupRestoreOut(HttpResponseModel):
-    result: AdminBackupRestoreResultOut
+    result: AdminBackupRestoreResultOut | None = None
+    job: AdminBackupRestoreJobOut | None = None
+    status_token: str | None = None
+
+
+class AdminBackupRestoreStatusOut(HttpResponseModel):
+    job: AdminBackupRestoreJobOut
 
 
 class AdminBroadcastAudienceOut(HttpResponseModel):

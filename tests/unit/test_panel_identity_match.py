@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from bot.services.panel_identity_match import (
     panel_candidate_matches_account,
     panel_origin_fingerprint,
+    panel_origin_url,
 )
 
 
@@ -46,3 +47,10 @@ def test_panel_origin_pin_changes_when_panel_changes() -> None:
     first = panel_origin_fingerprint("https://panel.example.test/api/")
     assert first == panel_origin_fingerprint("https://panel.example.test/api")
     assert first != panel_origin_fingerprint("https://other.example.test/api")
+
+
+def test_panel_origin_url_for_backup_excludes_credentials_and_query() -> None:
+    assert (
+        panel_origin_url("https://user:secret@panel.example.test:8443/api/?token=secret#section")
+        == "https://panel.example.test:8443/api"
+    )

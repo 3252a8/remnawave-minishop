@@ -626,6 +626,21 @@ export function buildAdminBackupDetailPath(name: string): AdminBackupDetailPath 
   );
 }
 
+export type AdminBackupDownloadPath =
+  BuiltApiPath<"/api/admin/backup-archives/{archive_name}/download">;
+export function buildAdminBackupDownloadPath(name: string): AdminBackupDownloadPath {
+  return builtApiPath<"/api/admin/backup-archives/{archive_name}/download">(
+    `/admin/backup-archives/${encodeURIComponent(name)}/download`
+  );
+}
+
+export type BackupRestoreStatusPath = BuiltApiPath<"/api/backup-restore-status/{job_id}">;
+export function buildBackupRestoreStatusPath(id: string): BackupRestoreStatusPath {
+  return builtApiPath<"/api/backup-restore-status/{job_id}">(
+    `/backup-restore-status/${encodeURIComponent(id)}`
+  );
+}
+
 export type AdminBackupsCreatePath = "/admin/backups/create";
 export function buildAdminBackupsCreatePath(): AdminBackupsCreatePath {
   return "/admin/backups/create";

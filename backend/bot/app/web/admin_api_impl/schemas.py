@@ -368,6 +368,7 @@ class AdminBackupRestoreBody(HttpBodyModel):
     restore_compose: Any = False
     confirm: Any = False
     confirmation: Any = ""
+    reset_panel_origin: Any = False
 
 
 class AdminBroadcastButtonBody(HttpBodyModel):

@@ -8,10 +8,12 @@ from .ads import (
 )
 from .backups import (
     admin_backup_detail_route,
+    admin_backup_download_route,
     admin_backups_create_route,
     admin_backups_list_route,
     admin_backups_restore_route,
     admin_backups_upload_route,
+    backup_restore_status_route,
 )
 from .broadcast import (
     admin_broadcast_audience_counts_route,
@@ -419,7 +421,11 @@ def setup_admin_routes(app: web.Application) -> None:
     router.add_post("/api/admin/appearance/favicon", admin_appearance_favicon_upload_route)
     router.add_get("/api/admin/backups", admin_backups_list_route)
     router.add_get("/api/admin/backup-archives/{archive_name}", admin_backup_detail_route)
+    router.add_get(
+        "/api/admin/backup-archives/{archive_name}/download", admin_backup_download_route
+    )
     router.add_post("/api/admin/backups/create", admin_backups_create_route)
     router.add_post("/api/admin/backups/upload", admin_backups_upload_route)
     router.add_post("/api/admin/backups/restore", admin_backups_restore_route)
+    router.add_get("/api/backup-restore-status/{job_id}", backup_restore_status_route)
     router.add_get("/api/admin/panel/internal-squads", admin_panel_internal_squads_route)

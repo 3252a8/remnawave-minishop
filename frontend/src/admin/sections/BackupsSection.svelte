@@ -15,13 +15,13 @@
   import {
     CheckCircle2,
     Database,
+    Download,
     Plus,
     RefreshCw,
     Server,
     TriangleAlert,
     Upload,
   } from "$components/ui/icons.js";
-  import { Label } from "$components/ui/primitives.js";
   import { TableHandler } from "@vincjo/datatables";
   import type {
     BackupArchive,
@@ -53,6 +53,7 @@
   let inspectionToken = 0;
   let restoreDatabase = $state(false);
   let restoreCompose = $state(false);
+  let panelBindingChoice = $state<"" | "keep" | "rebind">("");
   let restoreConfirmation = $state("");
   let fileInput = $state<HTMLInputElement | null>(null);
 
@@ -63,6 +64,8 @@
   const backupsUploading = $derived(Boolean(backupsStore.backupsUploading));
   const backupsRestoring = $derived(Boolean(backupsStore.backupsRestoring));
   const lastRestore = $derived(backupsStore.lastRestore as BackupRestoreResult | null);
+  const restoreStatus = $derived(backupsStore.restoreStatus);
+  const restoreError = $derived(backupsStore.restoreError);
   const totalArchives = $derived(archives.length);
   const backupSortColumns = [
     {
@@ -107,6 +110,13 @@
     backupsTable.setPage(1);
   });
   const selectedArchive = $derived(selectedDetails?.name === selectedName ? selectedDetails : null);
+  const panelUrlChanged = $derived(
+    Boolean(
+      restoreDatabase &&
+      selectedArchive?.current_panel_api_url &&
+      selectedArchive.source_panel_api_url !== selectedArchive.current_panel_api_url
+    )
+  );
   $effect(() => {
     if (!selectedArchive) return;
     if (restoreDatabase && !selectedArchive.has_database) restoreDatabase = false;
@@ -118,8 +128,8 @@
   const canRestore = $derived(
     Boolean(
       selectedArchive &&
-      restoreCompose &&
-      !restoreDatabase &&
+      restoreDatabase !== restoreCompose &&
+      (!panelUrlChanged || panelBindingChoice !== "") &&
       restoreConfirmationMatches &&
       !backupsRestoring &&
       !backupsCreating
@@ -151,6 +161,7 @@
     selectedDetails = details;
     restoreDatabase = false;
     restoreCompose = false;
+    panelBindingChoice = "";
     restoreConfirmation = "";
     const token = ++inspectionToken;
     detailsLoading = !details;
@@ -200,6 +211,7 @@
       archiveName: selectedName,
       restoreDatabase,
       restoreCompose,
+      resetPanelOrigin: panelBindingChoice === "rebind",
       confirmation: restoreConfirmation.trim(),
     });
     if (ok) {
@@ -210,6 +222,7 @@
 
   onMount(() => {
     backupsStore.loadArchives();
+    void backupsStore.resumeRestore();
   });
 </script>
 
@@ -231,6 +244,13 @@
         {backupsUploading
           ? at("backups_uploading", {}, "Uploading...")
           : at("backups_upload", {}, "Upload archive")}
+      </AdminButton>
+      <AdminButton
+        onclick={() => backupsStore.downloadArchive(selectedName)}
+        disabled={!selectedArchive || backupsRestoring}
+      >
+        <Download size={14} />
+        {at("backups_download", {}, "Download archive")}
       </AdminButton>
       <FileInput
         bind:element={fileInput}
@@ -307,6 +327,62 @@
         <Server size={16} />
         <span>{at("backups_target_compose", {}, "compose folder")}</span>
       </label>
+      {#if panelUrlChanged}
+        <div class="backups-panel-move" role="group" aria-label={at("backups_panel_move_title")}>
+          <strong>{at("backups_panel_move_title", {}, "Panel address changed")}</strong>
+          <div class="backups-panel-url">
+            <span>{at("backups_panel_source_url", {}, "In the backup")}</span>
+            <code
+              >{selectedArchive?.source_panel_api_url ||
+                at("backups_panel_unknown", {}, "Not recorded")}</code
+            >
+          </div>
+          <div class="backups-panel-url">
+            <span>{at("backups_panel_current_url", {}, "On this server")}</span>
+            <code>{selectedArchive?.current_panel_api_url}</code>
+          </div>
+          <p>
+            {at(
+              "backups_panel_move_hint",
+              {},
+              "Choose how to handle saved panel links before restoring."
+            )}
+          </p>
+          <RadioGroup
+            value={panelBindingChoice}
+            onValueChange={(value) => (panelBindingChoice = value as "keep" | "rebind")}
+            aria-label={at("backups_panel_move_title")}
+          >
+            <div class="backups-panel-choice">
+              <RadioGroupItem
+                id="backup-panel-keep"
+                value="keep"
+                ariaLabel={at("backups_panel_keep")}
+              />
+              <label for="backup-panel-keep"
+                >{at("backups_panel_keep", {}, "Keep existing links for manual review")}</label
+              >
+            </div>
+            <div class="backups-panel-choice">
+              <RadioGroupItem
+                id="backup-panel-rebind"
+                value="rebind"
+                ariaLabel={at("backups_panel_rebind")}
+              />
+              <label for="backup-panel-rebind"
+                >{at("backups_panel_rebind", {}, "Verify links against the current panel")}</label
+              >
+            </div>
+          </RadioGroup>
+          <p>
+            {at(
+              "backups_panel_rebind_hint",
+              {},
+              "Verification keeps user IDs and checks account identity before reconnecting. Choose this only when you trust the current panel."
+            )}
+          </p>
+        </div>
+      {/if}
       <label class="backups-confirmation">
         <span>
           {at(
@@ -331,14 +407,32 @@
           : at("backups_restore_run", {}, "Restore from backup")}
       </AdminButton>
     </div>
-    {#if restoreDatabase}
+    {#if restoreDatabase && restoreCompose}
       <div class="backups-restore-note" role="status">
         {at(
-          "error_backup_restore_requires_maintenance",
+          "backups_restore_separate_targets",
           {},
-          "Database restore requires the maintenance command on the server. See the backup documentation."
+          "Restore the database and compose files separately so server settings can be reviewed."
         )}
       </div>
+    {:else if restoreDatabase}
+      <div class="backups-restore-note" role="status">
+        {at(
+          "backups_database_restart_note",
+          {},
+          "Backend and worker will restart automatically. The admin page may be briefly unavailable."
+        )}
+      </div>
+    {/if}
+    {#if backupsRestoring && restoreStatus}
+      <div class="backups-restore-note" role="status">
+        {restoreStatus === "queued"
+          ? at("backups_restore_queued", {}, "Preparing restore...")
+          : at("backups_restore_running", {}, "Restoring database and restarting services...")}
+      </div>
+    {/if}
+    {#if restoreError}
+      <div class="backups-restore-note" role="alert">{restoreError}</div>
     {/if}
     {#if lastRestore?.compose_pre_restore_archive}
       <div class="backups-restore-note">
@@ -375,10 +469,10 @@
       </AdminEmptyState>
     {:else}
       <RadioGroup
-        class="backups-archive-radio-group"
-        name="backup-archive"
         value={selectedName}
         onValueChange={selectArchive}
+        class="backups-archive-radio-group"
+        aria-label="Backup archive"
       >
         <AdminTable class="backups-table">
           <thead>
@@ -413,10 +507,14 @@
                   class="admin-cell-primary admin-cell-wrap backups-name"
                   data-label={at("backups_col_archive", {}, "Archive")}
                 >
-                  <Label.Root class="backups-archive-choice">
-                    <RadioGroupItem value={archive.name} ariaLabel={archive.name} />
-                    <span>{archive.name}</span>
-                  </Label.Root>
+                  <div class="backups-archive-choice">
+                    <RadioGroupItem
+                      id={`backup-${archive.name}`}
+                      value={archive.name}
+                      ariaLabel={archive.name}
+                    />
+                    <label for={`backup-${archive.name}`}>{archive.name}</label>
+                  </div>
                 </td>
                 <td class="backups-meta" data-label={at("backups_col_created", {}, "Created")}
                   >{fmtDate(archiveDate(archive))}</td
@@ -512,6 +610,45 @@
     opacity: 0.55;
   }
 
+  .backups-panel-move {
+    display: grid;
+    grid-column: 1 / -1;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--admin-ring, var(--accent));
+    border-radius: 8px;
+    background: var(--admin-surface-2);
+    font-size: 12px;
+  }
+
+  .backups-panel-move p {
+    margin: 0;
+    color: var(--admin-muted);
+  }
+
+  .backups-panel-url {
+    display: grid;
+    gap: 3px;
+  }
+
+  .backups-panel-url > span {
+    color: var(--admin-muted);
+  }
+
+  .backups-panel-url code {
+    overflow-wrap: anywhere;
+  }
+
+  .backups-panel-choice {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .backups-panel-choice label {
+    cursor: pointer;
+  }
+
   .backups-confirmation {
     display: grid;
     grid-column: 1 / -1;
@@ -550,7 +687,7 @@
     gap: 6px;
   }
 
-  :global(.backups-archive-radio-group.ui-radio-group) {
+  :global(.backups-archive-radio-group) {
     display: block;
   }
 
@@ -563,7 +700,7 @@
     line-height: 1.45;
   }
 
-  :global(.backups-archive-choice > span) {
+  :global(.backups-archive-choice > label) {
     min-width: 0;
     overflow-wrap: anywhere;
   }
