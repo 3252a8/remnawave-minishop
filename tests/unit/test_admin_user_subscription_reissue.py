@@ -67,7 +67,17 @@ class AdminUserSubscriptionReissueRouteTests(unittest.IsolatedAsyncioTestCase):
         active_subscription=None,
         email_result=True,
     ):
+        async def rotate(session, panel, **kwargs):
+            await admin_users.subscription_dal.revoke_install_share_tokens_for_panel_user(
+                session, kwargs["panel_user_uuid"]
+            )
+            await session.commit()
+            return await panel.revoke_user_subscription(kwargs["panel_user_uuid"]), None
+
         patches = {
+            "rotation": patch.object(
+                users_actions, "reissue_subscription_access", side_effect=rotate
+            ),
             "require_admin": patch.object(
                 users_actions, "_require_admin_user_id", return_value=100
             ),

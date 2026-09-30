@@ -953,6 +953,7 @@ from db import legacy_import_models as legacy_import_models  # noqa: E402
 from db import message_image_models as message_image_models  # noqa: E402
 from db import partner_models as partner_models  # noqa: E402
 from db import referral_accrual_models as referral_accrual_models  # noqa: E402
+from db import subscription_access_rotation_models as access_rotation_models  # noqa: E402
 from db import wata_models as wata_models  # noqa: E402
 
 AdAttribution = activity_models.AdAttribution
@@ -975,5 +976,6 @@ AdminBroadcastDelivery = broadcast_models.AdminBroadcastDelivery
 MessageImage = message_image_models.MessageImage
 LegacyReferralCode = legacy_import_models.LegacyReferralCode
 LegacyImportMapping = legacy_import_models.LegacyImportMapping
+SubscriptionAccessRotation = access_rotation_models.SubscriptionAccessRotation
 UserBalanceLedgerEntry = balance_models.UserBalanceLedgerEntry
 WataSubscription = wata_models.WataSubscription

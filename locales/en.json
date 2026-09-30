@@ -3222,7 +3222,7 @@
   "admin_settings_field_subscription_guides_bot_menu_enabled_label": "Open install guides from bot",
   "admin_settings_field_subscription_guides_bot_menu_enabled_description": "Use the Telegram Mini App install screen for bot connect buttons and show public install guide links.",
   "admin_settings_field_subscription_reissue_enabled_label": "Subscription link reissue",
-  "admin_settings_field_subscription_reissue_enabled_description": "Let users reissue (revoke and regenerate) their subscription link from the Web App. The new link and connection instructions are delivered by email, so configured email auth is required.",
+  "admin_settings_field_subscription_reissue_enabled_description": "Let users reissue their subscription link from the Web App. The new link is delivered by email, Telegram, or the application when external delivery is unavailable.",
   "admin_settings_field_telegram_bot_menu_disabled_label": "Disable bot menu",
   "admin_settings_field_telegram_bot_menu_disabled_description": "Hide the in-bot user interface and /tg command. Renewal prompts open the Mini App.",
   "admin_settings_field_subscription_page_config_panel_enabled_label": "Use Remnawave Panel config",

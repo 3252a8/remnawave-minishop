@@ -79,7 +79,11 @@ class WebAppSubscriptionReissueRouteTests(IsolatedAsyncioTestCase):
         db_user,
         rate_limited=False,
     ):
+        async def rotate(_session, panel_service, **kwargs):
+            return await panel_service.revoke_user_subscription(kwargs["panel_user_uuid"]), None
+
         patches = [
+            patch.object(reissue_module, "reissue_subscription_access", side_effect=rotate),
             patch.object(reissue_module, "get_settings", return_value=settings),
             patch.object(reissue_module, "get_session_factory", return_value=_SessionFactory()),
             patch.object(

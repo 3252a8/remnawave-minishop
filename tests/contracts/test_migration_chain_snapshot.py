@@ -110,6 +110,7 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0092_user_id_sequence",
     "0093_panel_origin",
     "0094_referral_accruals",
+    "0095_access_rotations",
 ]
 
 

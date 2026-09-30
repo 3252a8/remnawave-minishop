@@ -781,8 +781,8 @@ class Settings(
         default=False,
         description=(
             "Allow users to reissue (revoke and regenerate) their subscription link "
-            "from the Mini App. Requires configured email auth: the new link and "
-            "connection instructions are delivered to the user's linked email."
+            "from the Mini App. The new link is delivered by email, Telegram, "
+            "or the application when external delivery is unavailable."
         ),
     )
     USER_HWID_DEVICE_LIMIT: int | None = Field(

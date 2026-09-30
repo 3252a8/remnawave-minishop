@@ -13,7 +13,7 @@ from bot.app.web.context import (
 )
 from bot.app.web.request_parsing import parse_body_or_400
 from bot.app.web.webapp.subscription_reissue import send_subscription_reissue_email
-from bot.services.subscription_reissue_access import reissue_subscription_access
+from bot.services.subscription_reissue_access import AccessRotationBusy, reissue_subscription_access
 from config.settings import Settings
 from config.traffic_strategy import canonical_traffic_limit_strategy
 from db.dal import message_log_dal, subscription_dal, user_dal
@@ -206,6 +206,12 @@ async def admin_user_subscription_reissue_route(request: web.Request) -> web.Res
                 panel_user_uuid=panel_user_uuid,
                 settings=settings,
             )
+        except AccessRotationBusy:
+            response = _error(
+                409, "subscription_reissue_in_progress", "Subscription reissue is in progress"
+            )
+            response.headers["Retry-After"] = "2"
+            return response
         except Exception as exc:
             logger.warning(
                 "Admin webapp failed to reissue subscription for user %s: %s",

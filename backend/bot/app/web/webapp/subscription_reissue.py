@@ -25,7 +25,7 @@ from bot.app.web.context import (
 from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
 from bot.middlewares.i18n import JsonI18n
 from bot.services.outbound_messaging import OutboundMessagingService
-from bot.services.subscription_reissue_access import reissue_subscription_access
+from bot.services.subscription_reissue_access import AccessRotationBusy, reissue_subscription_access
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.user_email_notifications import send_user_notification_email
 from bot.services.user_notification_policy import email_recipient, telegram_recipient
@@ -99,6 +99,12 @@ async def subscription_reissue_route(request: web.Request) -> web.Response:
                 panel_user_uuid=panel_user_uuid,
                 settings=settings,
             )
+        except AccessRotationBusy:
+            response = _json_error(
+                409, "subscription_reissue_in_progress", "Subscription reissue is in progress"
+            )
+            response.headers["Retry-After"] = "2"
+            return response
         except Exception:
             logger.exception("Failed to reissue subscription for user %s", user_id)
             updated_panel_user = None
