@@ -7,10 +7,12 @@ belongs to the ordinary backend/worker images and watches their shared store.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 from bot.plugins.packages import (
     bootstrap_image_package,
@@ -19,6 +21,13 @@ from bot.plugins.packages import (
     package_root,
     read_state,
 )
+from bot.services.backup_restore_job import (
+    ACTIVE_STATES,
+    read_job,
+    stopped_marker,
+    write_job,
+)
+from config.settings import get_settings
 
 POLL_SECONDS = 0.5
 STOP_TIMEOUT_SECONDS = 30
@@ -57,10 +66,70 @@ def _roles_stopped(state: dict[str, object], generation: int) -> bool:
     return worker == {"generation": generation, "status": "stopped"}
 
 
+def _handle_restore_job(
+    role: str, child: subprocess.Popen[bytes] | None, backup_dir: Path
+) -> tuple[bool, subprocess.Popen[bytes] | None]:
+    job = read_job(backup_dir)
+    if not job or job.get("status") not in ACTIVE_STATES | {"recovery_required"}:
+        return False, child
+    if job.get("status") == "queued" and time.time() < float(job["execute_after"]):
+        return False, child
+    _stop(child)
+    child = None
+    job_id = str(job["id"])
+    marker = stopped_marker(backup_dir, job_id)
+    if role == "worker":
+        marker.touch()
+        return True, None
+    if job["status"] == "recovery_required":
+        return True, None
+    if job["status"] == "running":
+        # A supervisor restart during an uncertain database switch needs manual review.
+        job["status"] = "recovery_required"
+        job["error"] = "Restore supervisor restarted during database restore"
+        write_job(backup_dir, job)
+        return True, None
+    if not marker.exists():
+        if time.time() - float(job["created_at"]) > 90:
+            job["status"] = "failed"
+            job["error"] = "Worker did not stop for restore; check the shared backup volume"
+            write_job(backup_dir, job)
+            return False, None
+        return True, None
+    job["status"] = "running"
+    write_job(backup_dir, job)
+    command = [
+        sys.executable,
+        "-m",
+        "scripts.restore_backup",
+        str(job["archive_name"]),
+        "--operation-id",
+        job_id,
+    ]
+    if job.get("reset_panel_origin"):
+        command.append("--reset-panel-origin")
+    result = subprocess.run(command, check=False, capture_output=True, text=True)
+    if result.returncode == 0:
+        job["status"] = "completed"
+    else:
+        journal = backup_dir / f"restore-{job_id}.json"
+        try:
+            recovery = json.loads(journal.read_text(encoding="utf-8")) if journal.exists() else {}
+        except (OSError, ValueError):
+            recovery = {"state": "recovery_required"}
+        job["status"] = (
+            "recovery_required" if recovery.get("state") == "recovery_required" else "failed"
+        )
+        job["error"] = (result.stderr or result.stdout).strip()[-1000:]
+    write_job(backup_dir, job)
+    return job["status"] == "recovery_required", None
+
+
 def run(role: str) -> int:
     if role not in ROLE_COMMANDS:
         raise ValueError("unknown launcher role")
     root = package_root()
+    backup_dir = Path(get_settings().BACKUP_DIR).expanduser()
     bootstrap_image_package(root, role)
     child: subprocess.Popen[bytes] | None = None
     running_generation = -1
@@ -68,6 +137,10 @@ def run(role: str) -> int:
     crash_count = 0
     try:
         while True:
+            held, child = _handle_restore_job(role, child, backup_dir)
+            if held:
+                time.sleep(POLL_SECONDS)
+                continue
             state = read_state(root)
             desired = int(state["generation"])
             if (

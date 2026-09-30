@@ -447,6 +447,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/backup-archives/{archive_name}/download": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Backup Download */
+    get: operations["get_admin_backup_download_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/backups": {
     parameters: {
       query?: never;
@@ -2781,6 +2798,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/backup-restore-status/{job_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Backup Restore Status */
+    get: operations["get_backup_restore_status_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/balance": {
     parameters: {
       query?: never;
@@ -3884,6 +3918,11 @@ export interface components {
        */
       created_at_local: string | null;
       /**
+       * Current Panel Api Url
+       * @default null
+       */
+      current_panel_api_url: string | null;
+      /**
        * Database Name
        * @default null
        */
@@ -3902,6 +3941,11 @@ export interface components {
       name: string;
       /** Size Bytes */
       size_bytes: number;
+      /**
+       * Source Panel Api Url
+       * @default null
+       */
+      source_panel_api_url: string | null;
       /** Warnings */
       warnings?: string[];
     };
@@ -3960,6 +4004,11 @@ export interface components {
        */
       confirmation: unknown;
       /**
+       * Reset Panel Origin
+       * @default false
+       */
+      reset_panel_origin: unknown;
+      /**
        * Restore Compose
        * @default false
        */
@@ -3970,9 +4019,31 @@ export interface components {
        */
       restore_database: unknown;
     };
+    /** AdminBackupRestoreJobOut */
+    AdminBackupRestoreJobOut: {
+      /** Archive Name */
+      archive_name: string;
+      /**
+       * Error
+       * @default null
+       */
+      error: string | null;
+      /** Id */
+      id: string;
+      /** Status */
+      status: string;
+    };
     /** AdminBackupRestoreOut */
     AdminBackupRestoreOut: {
-      result: components["schemas"]["AdminBackupRestoreResultOut"];
+      /** @default null */
+      job: components["schemas"]["AdminBackupRestoreJobOut"] | null;
+      /** @default null */
+      result: components["schemas"]["AdminBackupRestoreResultOut"] | null;
+      /**
+       * Status Token
+       * @default null
+       */
+      status_token: string | null;
     };
     /** AdminBackupRestoreResultOut */
     AdminBackupRestoreResultOut: {
@@ -4007,6 +4078,10 @@ export interface components {
       started_at: string;
       /** Warnings */
       warnings?: string[];
+    };
+    /** AdminBackupRestoreStatusOut */
+    AdminBackupRestoreStatusOut: {
+      job: components["schemas"]["AdminBackupRestoreJobOut"];
     };
     /** AdminBackupUploadOut */
     AdminBackupUploadOut: {
@@ -11603,6 +11678,28 @@ export interface operations {
       };
     };
   };
+  get_admin_backup_download_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        archive_name: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/zip": string;
+        };
+      };
+    };
+  };
   get_admin_backups_list_route: {
     parameters: {
       query?: never;
@@ -16176,6 +16273,31 @@ export interface operations {
             token: string;
             user_id?: number | null;
           };
+        };
+      };
+    };
+  };
+  get_backup_restore_status_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        job_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminBackupRestoreStatusOut"];
         };
       };
     };

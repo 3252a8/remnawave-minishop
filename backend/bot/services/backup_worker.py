@@ -198,8 +198,17 @@ class BackupWorker:
                 Path(self.settings.WEBAPP_THEMES_DIR),
                 staging_dir / "config/themes",
             )
+            from bot.plugins.package_backup import snapshot_packages
+            from bot.plugins.packages import package_root
+
+            plugin_packages_included = await asyncio.to_thread(
+                snapshot_packages,
+                package_root(),
+                staging_dir / "config/plugin-store",
+            )
             completed_at = datetime.now(UTC)
             from bot.plugins.extensions.backups import snapshot_extensions
+            from bot.services.panel_identity_match import panel_origin_url
 
             extension_snapshot = await asyncio.to_thread(snapshot_extensions, staging_dir)
             manifest = {
@@ -209,6 +218,7 @@ class BackupWorker:
                 "type": str(backup_type or "scheduled"),
                 "minishop_version": resolve_app_version(),
                 "database_metadata": database_metadata,
+                "panel_origin_url": panel_origin_url(self.settings.PANEL_API_URL),
                 "created_at": completed_at.isoformat(),
                 "created_at_local": completed_at.astimezone().isoformat(),
                 "postgres": {
@@ -230,6 +240,10 @@ class BackupWorker:
                     "included": tariffs_config_included,
                 },
                 "themes": {"included": themes_included, "archive_path": "config/themes"},
+                "plugin_packages": {
+                    "included": plugin_packages_included,
+                    "archive_path": "config/plugin-store",
+                },
                 "warnings": warnings,
             }
             attach_archive_integrity(

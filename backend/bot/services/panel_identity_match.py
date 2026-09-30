@@ -5,17 +5,24 @@ from typing import Any
 from urllib.parse import urlsplit
 
 
-def panel_origin_fingerprint(panel_api_url: str | None) -> str | None:
+def panel_origin_url(panel_api_url: str | None) -> str | None:
+    """Return the panel API origin without credentials, query, or fragment."""
     if not panel_api_url:
         return None
     parsed = urlsplit(panel_api_url.strip())
     if not parsed.scheme or not parsed.hostname:
         return None
-    origin = (
+    return (
         f"{parsed.scheme.lower()}://{parsed.hostname.lower()}"
         f"{':' + str(parsed.port) if parsed.port else ''}"
         f"{parsed.path.rstrip('/')}"
     )
+
+
+def panel_origin_fingerprint(panel_api_url: str | None) -> str | None:
+    origin = panel_origin_url(panel_api_url)
+    if origin is None:
+        return None
     return hashlib.sha256(origin.encode("utf-8")).hexdigest()
 
 

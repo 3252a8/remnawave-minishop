@@ -175,6 +175,10 @@ def get_app_bot(app: object) -> Bot:
     return _required_value(app, BOT, "bot")
 
 
+def get_optional_app_bot(app: object) -> Bot | None:
+    return _optional_value(app, BOT, "bot")
+
+
 def get_app_i18n(app: object) -> JsonI18n | None:
     return _optional_value(app, I18N, "i18n")
 
@@ -193,6 +197,10 @@ def get_session_factory(request: web.Request) -> sessionmaker:
 
 def get_bot(request: web.Request) -> Bot:
     return _required_value(request.app, BOT, "bot")
+
+
+def get_optional_bot(request: web.Request) -> Bot | None:
+    return get_optional_app_bot(request.app)
 
 
 def get_i18n(request: web.Request) -> JsonI18n | None:

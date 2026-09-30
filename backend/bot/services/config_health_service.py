@@ -20,7 +20,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from bot.app.web.context import get_app_bot, get_app_panel_service, get_app_settings
+from bot.app.web.context import get_app_panel_service, get_app_settings, get_optional_app_bot
 from bot.infra.redis import cache_get_json, redis_key
 from bot.services.compose_data_mounts import (
     app_data_mounts_are_aligned,
@@ -635,7 +635,7 @@ async def network_alerts(app: Any, settings: Any, *, refresh: bool = False) -> l
                 return cached[1]
 
         results = await asyncio.gather(
-            telegram_alerts(get_app_bot(app), settings),
+            telegram_alerts(get_optional_app_bot(app), settings),
             panel_alerts(get_app_panel_service(app), settings),
             premium_enforcement_alerts(settings),
             panel_limit_drift_alerts(settings),
