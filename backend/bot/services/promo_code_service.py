@@ -71,6 +71,7 @@ class PromoCodeStatus:
     traffic_multiplier: float | None = None
     activated_at: datetime | None = None
     subscription_end_date: datetime | None = None
+    retry_after: int | None = None
 
 
 class PromoCodeService:
@@ -245,6 +246,7 @@ class PromoCodeService:
         if throttle.locked:
             return PromoCodeStatus(
                 status=PROMO_STATUS_THROTTLED,
+                retry_after=throttle.retry_after,
                 code=lookup_code,
                 message=_(
                     "promo_code_too_many_attempts",
@@ -280,6 +282,7 @@ class PromoCodeService:
             if throttle_result.locked:
                 return PromoCodeStatus(
                     status=PROMO_STATUS_THROTTLED,
+                    retry_after=throttle_result.retry_after,
                     code=lookup_code,
                     message=_(
                         "promo_code_too_many_attempts",
@@ -420,11 +423,6 @@ class PromoCodeService:
 
         effects = PromoEffects.from_model(promo_data)
         if not effects.can_apply_standalone:
-            await security_dal.clear_throttle_state(
-                session,
-                scope=security_dal.PROMO_CODE_APPLY_SCOPE,
-                identifier=throttle_identifier,
-            )
             return True, PromoCheckoutRequired(
                 code=applied_code,
                 effect_summary=summarize_effects(effects),
@@ -523,11 +521,6 @@ class PromoCodeService:
             )
             return False, _("error_applying_promo_bonus")
 
-        await security_dal.clear_throttle_state(
-            session,
-            scope=security_dal.PROMO_CODE_APPLY_SCOPE,
-            identifier=throttle_identifier,
-        )
         await events.emit_model(
             PromoCodeAppliedPayload(
                 user_id=user_id,

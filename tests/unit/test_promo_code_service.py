@@ -433,7 +433,7 @@ class PromoCodeServiceTests(IsolatedAsyncioTestCase):
         self.assertEqual(result.bonus_days, 7)
         subscription_service.extend_active_subscription_days.assert_not_awaited()
         consume_activation.assert_not_awaited()
-        clear_throttle.assert_awaited_once()
+        clear_throttle.assert_not_awaited()
 
 
 class PromoCodeStatusTests(IsolatedAsyncioTestCase):

@@ -30,6 +30,7 @@ from bot.infra.auto_renew import (
     stop_provider_managed_recurrence,
 )
 from bot.infra.redis import redis_lock
+from bot.services.code_attempts import check_code_attempt
 from bot.services.promo_code_service import PromoCheckoutRequired, PromoCodeService
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.utils.config_link import prepare_config_links
@@ -85,6 +86,10 @@ async def promo_status_route(request: web.Request) -> web.Response:
             )
             # Throttle bookkeeping for unknown codes must persist.
             await session.commit()
+            if status.status == "throttled":
+                from .rate_limits import rate_error
+
+                return rate_error(status.retry_after or settings.BRUTE_FORCE_LOCK_SECONDS)
             return json_response(
                 {
                     "ok": True,
@@ -142,7 +147,12 @@ async def apply_promo_route(request: web.Request) -> web.Response:
                 lang,
             )
             if not success:
+                throttle = await check_code_attempt(session, settings, user_id)
                 await session.commit()
+                if throttle.locked:
+                    from .rate_limits import rate_error
+
+                    return rate_error(throttle.retry_after or settings.BRUTE_FORCE_LOCK_SECONDS)
                 return _json_error(400, "promo_apply_failed", _plain_text_message(result))
             await session.commit()
             if isinstance(result, PromoCheckoutRequired):
