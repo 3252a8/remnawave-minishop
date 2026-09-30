@@ -16,7 +16,7 @@ email-validator==2.3.0
 sqlalchemy[asyncio]==2.0.51
 asyncpg==0.31.0
 certifi>=2024.7.4
-PyJWT[crypto]==2.13.0
+PyJWT[crypto]==2.14.0
 webauthn>=2.7,<3
 cryptography>=50.0.0
 Pillow==12.3.0
