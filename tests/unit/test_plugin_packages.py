@@ -90,6 +90,22 @@ def _trust(root: Path, private: Ed25519PrivateKey) -> None:
     )
 
 
+@pytest.mark.parametrize("ref", ["", "release/stable", "a" * 40])
+def test_activation_preserves_tracking_ref_and_snapshot(tmp_path: Path, ref: str) -> None:
+    private = Ed25519PrivateKey.generate()
+    _trust(tmp_path, private)
+    source = {
+        "kind": "github",
+        "url": "https://github.com/example/plugin",
+        "ref": ref,
+        "requested_ref": ref,
+        "commit": "a" * 40,
+    }
+    staged = stage_archive(tmp_path, _archive(private), actor=7, source=source)
+    state = activate_staged(tmp_path, staged["operation_id"], staged["digest"], 7, 0)
+    assert state["installations"]["sample-plugin"]["source"] == source
+
+
 def test_signed_package_requires_trust_then_activates_exact_generation(tmp_path: Path) -> None:
     private = Ed25519PrivateKey.generate()
     body = _archive(private)

@@ -189,7 +189,11 @@
       } else {
         staged = await api("/admin/plugins/repository/stage", {
           method: "POST",
-          body: JSON.stringify({ url: candidate?.source?.url, ref: candidate?.source?.commit }),
+          body: JSON.stringify({
+            url: candidate?.source?.url,
+            ref: candidate?.source?.ref,
+            commit: candidate?.source?.commit,
+          }),
         });
       }
       if (!staged || typeof staged !== "object" || !("ok" in staged) || !staged.ok)

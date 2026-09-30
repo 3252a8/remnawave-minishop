@@ -37,7 +37,12 @@ from bot.plugins.packages import (
     stage_archive,
     trust_publisher,
 )
-from bot.plugins.sources import check_ready_package_release, fetch_ready_package, release_version
+from bot.plugins.sources import (
+    check_ready_package_release,
+    fetch_ready_package,
+    release_version,
+    repository_tracking_ref,
+)
 
 from .auth import _require_admin_user_id
 from .common import _error, _ok
@@ -101,6 +106,9 @@ async def admin_plugin_packages_route(request: web.Request) -> web.Response:
     installations = {}
     for plugin_id, installation in state["installations"].items():
         summary = dict(installation)
+        source = summary.get("source")
+        if isinstance(source, dict) and source.get("kind") in {"github", "gitlab"}:
+            summary["source"] = {**source, "ref": repository_tracking_ref(source)}
         try:
             release = root / "releases" / plugin_id / installation["digest"]
             manifest = json.loads((release / "plugin.json").read_text(encoding="utf-8"))
@@ -154,14 +162,13 @@ async def admin_plugin_updates_route(request: web.Request) -> web.Response:
             return plugin_id, False
         url, ref, installed_digest = (
             source.get("url"),
-            source.get("ref"),
+            repository_tracking_ref(source),
             source.get("sha256"),
         )
         if not (
             isinstance(url, str)
             and url
             and isinstance(ref, str)
-            and ref
             and isinstance(installed_digest, str)
             and installed_digest
         ):
@@ -209,13 +216,16 @@ async def admin_plugin_stage_route(request: web.Request) -> web.Response:
     return _ok(result)
 
 
-async def _repository_candidate(request: web.Request) -> tuple[bytes, dict[str, str]]:
+async def _repository_candidate(
+    request: web.Request, *, pinned: bool = False
+) -> tuple[bytes, dict[str, str]]:
     body = await _json(request)
     url = body.get("url")
     ref = body.get("ref", "")
-    if not isinstance(url, str) or not isinstance(ref, str):
+    commit = body.get("commit", "") if pinned else ""
+    if not isinstance(url, str) or not isinstance(ref, str) or not isinstance(commit, str):
         raise PluginPackageError("invalid_request")
-    return await fetch_ready_package(url, ref)
+    return await fetch_ready_package(url, ref, commit=commit)
 
 
 @guarded
@@ -227,7 +237,7 @@ async def admin_plugin_repository_preview_route(request: web.Request) -> web.Res
 
 @guarded
 async def admin_plugin_repository_stage_route(request: web.Request) -> web.Response:
-    archive, source = await _repository_candidate(request)
+    archive, source = await _repository_candidate(request, pinned=True)
     result = await asyncio.to_thread(
         stage_archive, package_root(), archive, request["plugin_actor"], source
     )
@@ -472,7 +482,15 @@ for _name in ("admin_plugin_repository_preview_route", "admin_plugin_repository_
         RouteContract(
             request_schema={
                 "type": "object",
-                "properties": {"url": {"type": "string"}, "ref": {"type": "string"}},
+                "properties": {
+                    "url": {"type": "string"},
+                    "ref": {"type": "string"},
+                    **(
+                        {"commit": {"type": "string", "pattern": "^([0-9a-f]{40})?$"}}
+                        if _name == "admin_plugin_repository_stage_route"
+                        else {}
+                    ),
+                },
                 "required": ["url"],
                 "additionalProperties": False,
             },

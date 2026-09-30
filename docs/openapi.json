@@ -21699,6 +21699,10 @@
               "schema": {
                 "additionalProperties": false,
                 "properties": {
+                  "commit": {
+                    "pattern": "^([0-9a-f]{40})?$",
+                    "type": "string"
+                  },
                   "ref": {
                     "type": "string"
                   },

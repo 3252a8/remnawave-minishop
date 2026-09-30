@@ -11,6 +11,7 @@ import ipaddress
 import json
 import re
 import socket
+from collections.abc import Mapping
 from pathlib import PurePosixPath
 from urllib.parse import quote, urlsplit
 
@@ -104,11 +105,16 @@ async def _json(session: ClientSession, url: str) -> dict[str, object]:
     return value
 
 
-async def fetch_ready_package(url: str, ref: str = "") -> tuple[bytes, dict[str, str]]:
+async def fetch_ready_package(
+    url: str, ref: str = "", *, commit: str = ""
+) -> tuple[bytes, dict[str, str]]:
     """Resolve a public ref to a commit, then fetch its ready artifact index."""
     host, project = _repository(url)
     if len(ref) > 160 or any(char in ref for char in "\\\r\n?&#"):
         raise PluginPackageError("invalid_repository_ref")
+    if commit and not _SHA.fullmatch(commit):
+        raise PluginPackageError("invalid_repository_commit")
+    pinned_commit = commit
     connector = TCPConnector(resolver=_PublicResolver(), ttl_dns_cache=0, limit=2)
     try:
         async with ClientSession(
@@ -121,7 +127,11 @@ async def fetch_ready_package(url: str, ref: str = "") -> tuple[bytes, dict[str,
         ) as session:
             if host == "github.com":
                 base = f"https://api.github.com/repos/{quote(project, safe='/')}"
-                chosen_ref = ref or str((await _json(session, base)).get("default_branch") or "")
+                chosen_ref = (
+                    pinned_commit
+                    or ref
+                    or str((await _json(session, base)).get("default_branch") or "")
+                )
                 commit = str(
                     (await _json(session, f"{base}/commits/{quote(chosen_ref, safe='')}")).get(
                         "sha"
@@ -130,12 +140,18 @@ async def fetch_ready_package(url: str, ref: str = "") -> tuple[bytes, dict[str,
                 )
                 if not _SHA.fullmatch(commit):
                     raise PluginPackageError("invalid_repository_commit", status=502)
+                if pinned_commit and commit != pinned_commit:
+                    raise PluginPackageError("candidate_changed", status=409)
                 raw = f"https://raw.githubusercontent.com/{project}/{commit}"
                 index = await _json(session, f"{raw}/minishop-plugin.json")
                 artifact_url_base = raw
             else:
                 base = f"https://gitlab.com/api/v4/projects/{quote(project, safe='')}"
-                chosen_ref = ref or str((await _json(session, base)).get("default_branch") or "")
+                chosen_ref = (
+                    pinned_commit
+                    or ref
+                    or str((await _json(session, base)).get("default_branch") or "")
+                )
                 commit = str(
                     (
                         await _json(
@@ -146,6 +162,8 @@ async def fetch_ready_package(url: str, ref: str = "") -> tuple[bytes, dict[str,
                 )
                 if not _SHA.fullmatch(commit):
                     raise PluginPackageError("invalid_repository_commit", status=502)
+                if pinned_commit and commit != pinned_commit:
+                    raise PluginPackageError("candidate_changed", status=409)
                 index = await _json(
                     session,
                     f"{base}/repository/files/minishop-plugin.json/raw?ref={commit}",
@@ -179,13 +197,27 @@ async def fetch_ready_package(url: str, ref: str = "") -> tuple[bytes, dict[str,
             return body, {
                 "kind": "github" if host == "github.com" else "gitlab",
                 "url": f"https://{host}/{project}",
-                "ref": chosen_ref,
+                "ref": ref,
+                "requested_ref": ref,
                 "commit": commit,
                 "artifact": artifact,
                 "sha256": digest,
             }
     except (ClientError, TimeoutError, OSError) as exc:
         raise PluginPackageError("repository_unavailable", status=502) from exc
+
+
+def repository_tracking_ref(source: Mapping[str, object]) -> str:
+    """Keep explicit pins; old automatic SHA pins have no recoverable tracking ref."""
+    requested = source.get("requested_ref")
+    if isinstance(requested, str):
+        return requested
+    ref = source.get("ref")
+    if not isinstance(ref, str):
+        return ""
+    if _SHA.fullmatch(ref) and ref == source.get("commit"):
+        return ""
+    return ref
 
 
 def release_version(value: object) -> tuple[int, int, int] | None:
@@ -200,7 +232,7 @@ async def check_ready_package_release(
 ) -> tuple[str, tuple[int, int, int] | None]:
     """Read only the ready-package index; never fetch an archive during an update check."""
     host, project = _repository(url)
-    if not ref or len(ref) > 160 or any(char in ref for char in "\\\r\n?&#"):
+    if len(ref) > 160 or any(char in ref for char in "\\\r\n?&#"):
         raise PluginPackageError("invalid_repository_ref")
     connector = TCPConnector(resolver=_PublicResolver(), ttl_dns_cache=0, limit=2)
     try:
@@ -214,9 +246,19 @@ async def check_ready_package_release(
         ) as session:
             if host == "github.com":
                 raw = f"https://raw.githubusercontent.com/{project}/{quote(ref, safe='')}"
+                if not ref:
+                    base = f"https://api.github.com/repos/{quote(project, safe='/')}"
+                    ref = str((await _json(session, base)).get("default_branch") or "")
+                    if not ref:
+                        raise PluginPackageError("invalid_repository_ref")
+                    raw = f"https://raw.githubusercontent.com/{project}/{quote(ref, safe='')}"
                 index = await _json(session, f"{raw}/minishop-plugin.json")
             else:
                 base = f"https://gitlab.com/api/v4/projects/{quote(project, safe='')}"
+                if not ref:
+                    ref = str((await _json(session, base)).get("default_branch") or "")
+                    if not ref:
+                        raise PluginPackageError("invalid_repository_ref")
                 index = await _json(
                     session,
                     f"{base}/repository/files/minishop-plugin.json/raw?ref={quote(ref, safe='')}",

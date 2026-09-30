@@ -13626,6 +13626,7 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
+          commit?: string;
           ref?: string;
           url: string;
         };
