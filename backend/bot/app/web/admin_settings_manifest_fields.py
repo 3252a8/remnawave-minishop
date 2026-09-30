@@ -258,6 +258,14 @@ SETTINGS_MANIFEST: list[SettingField] = [
         optional=False,
     ),
     SettingField(
+        "WEBAPP_ADMIN_THEME_EFFECTS_ENABLED",
+        "bool",
+        "appearance",
+        "Theme JavaScript for administrators",
+        "Run consented theme effects for administrators in the Mini App, outside the admin panel.",
+        optional=False,
+    ),
+    SettingField(
         "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED",
         "bool",
         "appearance",

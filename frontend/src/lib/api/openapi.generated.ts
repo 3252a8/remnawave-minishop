@@ -10586,6 +10586,11 @@ export interface components {
       adminCssAsset: string;
       /** Adminjsasset */
       adminJsAsset: string;
+      /**
+       * Adminthemeeffectsenabled
+       * @default false
+       */
+      adminThemeEffectsEnabled: boolean;
       /** Apibase */
       apiBase: string;
       /** Apprepositoryurl */

@@ -38,6 +38,14 @@ class SettingsTests(unittest.TestCase):
             self._settings(WEBAPP_COMPACT_HOME_ENABLED=True).webapp_settings.compact_home_enabled
         )
 
+    def test_admin_theme_effects_default_off_and_can_be_enabled(self):
+        self.assertFalse(self._settings().webapp_settings.admin_theme_effects_enabled)
+        self.assertTrue(
+            self._settings(
+                WEBAPP_ADMIN_THEME_EFFECTS_ENABLED=True
+            ).webapp_settings.admin_theme_effects_enabled
+        )
+
     def test_compact_login_defaults_on_and_wide_buttons_only_include_available_providers(self):
         self.assertTrue(self._settings().webapp_settings.compact_login_enabled)
         self.assertFalse(

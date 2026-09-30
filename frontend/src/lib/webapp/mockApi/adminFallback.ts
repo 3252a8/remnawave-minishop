@@ -353,6 +353,11 @@ export function adminFallbackResponse(
       if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_COMPACT_HOME_ENABLED")) {
         DEV_MOCK.config.compactHomeEnabled = Boolean(updates.WEBAPP_COMPACT_HOME_ENABLED);
       }
+      if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_ADMIN_THEME_EFFECTS_ENABLED")) {
+        DEV_MOCK.config.adminThemeEffectsEnabled = Boolean(
+          updates.WEBAPP_ADMIN_THEME_EFFECTS_ENABLED
+        );
+      }
       if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_COMPACT_LOGIN_ENABLED")) {
         DEV_MOCK.config.compactLoginEnabled = Boolean(updates.WEBAPP_COMPACT_LOGIN_ENABLED);
       }
@@ -591,6 +596,13 @@ export function adminFallbackResponse(
           id: "appearance",
           order: 2,
           fields: [
+            {
+              key: "WEBAPP_ADMIN_THEME_EFFECTS_ENABLED",
+              type: "bool",
+              section: "appearance",
+              label: "Theme JavaScript for administrators",
+              value: Boolean(DEV_MOCK.config.adminThemeEffectsEnabled),
+            },
             {
               key: "WEBAPP_USER_THEME_MODE_ENABLED",
               type: "bool",

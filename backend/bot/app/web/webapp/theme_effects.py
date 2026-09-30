@@ -1,9 +1,9 @@
 """Authenticated theme runtime.
 
-Storefront traffic runs the active theme's effect for ordinary users. An
-administrator receives an effect descriptor only while explicitly previewing
-an installed theme (`?theme_preview=<key>`). Staged packages use the separate
-opaque-origin mock preview in the theme library.
+Storefront traffic runs the active theme's effect for ordinary users. Administrators
+can opt into that runtime through appearance settings or explicitly preview an
+installed theme (`?theme_preview=<key>`). Staged packages use the separate
+opaque-origin mock preview in the theme library. All paths require current consent.
 """
 
 import asyncio
@@ -27,7 +27,7 @@ async def viewer(request: web.Request) -> tuple[bool, bool]:
     """Return ``(allowed, is_admin)`` for the authenticated viewer.
 
     ``allowed`` is false for missing or banned accounts. The admin flag lets
-    the descriptor route require an explicit preview target.
+    the descriptor route enforce the appearance setting or an explicit preview target.
     """
     user_id = _require_user_id(request)
     async with get_session_factory(request)() as session:
@@ -56,8 +56,7 @@ async def theme_effects_route(request: web.Request) -> web.Response:
     effect = None
     if allowed:
         requested = preview_key(request) if admin else ""
-        # Without a preview target a privileged session stays inert.
-        if not admin or requested:
+        if not admin or requested or get_settings(request).WEBAPP_ADMIN_THEME_EFFECTS_ENABLED:
             default_theme, accent = _theme_defaults(request)
             try:
                 effect = await asyncio.to_thread(

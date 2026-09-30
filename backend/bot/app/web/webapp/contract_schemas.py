@@ -45,6 +45,7 @@ class WebappBootstrapConfigOut(HttpResponseModel):
     title: str
     primary_color: str | None = Field(default=None, alias="primaryColor")
     user_theme_mode_enabled: bool = Field(alias="userThemeModeEnabled")
+    admin_theme_effects_enabled: bool = Field(default=False, alias="adminThemeEffectsEnabled")
     compact_home_enabled: bool = Field(alias="compactHomeEnabled")
     compact_login_enabled: bool = Field(alias="compactLoginEnabled")
     checkout_addon_value_animation_enabled: bool = Field(alias="checkoutAddonValueAnimationEnabled")

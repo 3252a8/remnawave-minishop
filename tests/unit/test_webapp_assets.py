@@ -541,6 +541,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             SERVER_STATUS_URL="https://status.example.com",
             SERVER_STATUS_SHOW_ON_HOME=True,
             WEBAPP_COMPACT_HOME_ENABLED=True,
+            WEBAPP_ADMIN_THEME_EFFECTS_ENABLED=True,
             WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED=False,
             WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT=True,
             SUPPORT_LINK="https://t.me/support",
@@ -583,6 +584,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["config"]["apiBase"], "/api")
         self.assertTrue(payload["config"]["userThemeModeEnabled"])
         self.assertTrue(payload["config"]["compactHomeEnabled"])
+        self.assertTrue(payload["config"]["adminThemeEffectsEnabled"])
         self.assertFalse(payload["config"]["checkoutAddonValueAnimationEnabled"])
         self.assertTrue(payload["config"]["checkoutAddonEditorExpandedByDefault"])
         self.assertEqual(

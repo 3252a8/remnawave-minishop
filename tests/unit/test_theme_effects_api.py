@@ -16,14 +16,16 @@ from tests.unit.test_theme_effects import install_effect, permit
 from tests.unit.test_theme_package_api import client_context
 
 
-def test_user_asset_requires_current_consent_and_admins_preview_only(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("admin_effects_enabled", [False, True])
+def test_user_asset_requires_current_consent_and_admin_runtime_setting(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, admin_effects_enabled: bool
 ) -> None:
     digest = install_effect(tmp_path, allow=True)
     settings = settings_stub(
         WEBAPP_THEMES_DIR=str(tmp_path),
         WEBAPP_DEFAULT_THEME="ocean",
         WEBAPP_PRIMARY_COLOR="#00fe7a",
+        WEBAPP_ADMIN_THEME_EFFECTS_ENABLED=admin_effects_enabled,
     )
     monkeypatch.setattr(theme_effects, "get_settings", lambda _request: settings)
     monkeypatch.setattr(web_session, "get_settings", lambda _request: settings)
@@ -63,11 +65,22 @@ def test_user_asset_requires_current_consent_and_admins_preview_only(
             assert response.content_type == "text/javascript"
             assert response.headers["X-Content-Type-Options"] == "nosniff"
             assert "no-store" in response.headers["Cache-Control"]
-            # A privileged session stays inert until it explicitly previews a theme.
+            # The appearance setting controls normal privileged storefront sessions.
             response = await client.get(
                 "/api/theme-effects", headers={"Authorization": "Bearer admin"}
             )
-            assert (await response.json())["effect"] is None
+            effect = (await response.json())["effect"]
+            if admin_effects_enabled:
+                assert effect and effect["key"] == "ocean"
+            else:
+                assert effect is None
+            # Users cannot turn this setting on via a preview query parameter.
+            response = await client.get(
+                "/api/theme-effects?theme_preview=dark",
+                headers={"Authorization": "Bearer user"},
+            )
+            assert (await response.json())["effect"]["key"] == "ocean"
+            # Explicit admin preview remains available with the setting off.
             response = await client.get(
                 "/api/theme-effects?theme_preview=ocean",
                 headers={"Authorization": "Bearer admin"},
@@ -80,6 +93,11 @@ def test_user_asset_requires_current_consent_and_admins_preview_only(
             assert (await client.get(other, headers={"Authorization": "Bearer user"})).status == 404
             # Revoking consent disables the adapter for previews too.
             permit(tmp_path, False)
+            for token in ("user", "admin"):
+                response = await client.get(
+                    "/api/theme-effects", headers={"Authorization": f"Bearer {token}"}
+                )
+                assert (await response.json())["effect"] is None
             assert (await client.get(path, headers={"Authorization": "Bearer user"})).status == 404
             assert (await client.get(path, headers={"Authorization": "Bearer admin"})).status == 404
 

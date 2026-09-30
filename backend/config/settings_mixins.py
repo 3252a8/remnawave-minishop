@@ -90,6 +90,7 @@ if TYPE_CHECKING:
         WEBAPP_TITLE: str
         WEBAPP_PRIMARY_COLOR: str
         WEBAPP_USER_THEME_MODE_ENABLED: bool
+        WEBAPP_ADMIN_THEME_EFFECTS_ENABLED: bool
         WEBAPP_COMPACT_HOME_ENABLED: bool
         WEBAPP_COMPACT_LOGIN_ENABLED: bool
         WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED: bool
@@ -315,6 +316,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             title=self.WEBAPP_TITLE,
             primary_color=self.WEBAPP_PRIMARY_COLOR,
             user_theme_mode_enabled=self.WEBAPP_USER_THEME_MODE_ENABLED,
+            admin_theme_effects_enabled=self.WEBAPP_ADMIN_THEME_EFFECTS_ENABLED,
             compact_home_enabled=self.WEBAPP_COMPACT_HOME_ENABLED,
             compact_login_enabled=self.WEBAPP_COMPACT_LOGIN_ENABLED,
             checkout_addon_value_animation_enabled=(

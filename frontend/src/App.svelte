@@ -803,7 +803,10 @@
 
 <ThemeEffectsHost
   client={dataClient.apiClient}
-  enabled={mode === "app" && Boolean(user?.user_id) && (!isAdmin || Boolean(previewThemeKey))}
+  enabled={mode === "app" &&
+    screen !== "admin" &&
+    Boolean(user?.user_id) &&
+    (!isAdmin || Boolean(previewThemeKey) || Boolean(CFG.adminThemeEffectsEnabled))}
   identity={String(user?.user_id || "")}
   themeKey={resolvedThemeKey}
   previewKey={previewThemeKey}

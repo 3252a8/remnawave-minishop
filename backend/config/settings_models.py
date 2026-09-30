@@ -34,6 +34,7 @@ class WebAppSettings(BaseModel):
     title: str
     primary_color: str
     user_theme_mode_enabled: bool
+    admin_theme_effects_enabled: bool = False
     compact_home_enabled: bool
     compact_login_enabled: bool
     checkout_addon_value_animation_enabled: bool

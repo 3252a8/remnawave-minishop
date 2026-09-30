@@ -559,6 +559,10 @@ class Settings(
         ),
     )
     WEBAPP_COMPACT_LOGIN_ENABLED: bool = Field(default=True)
+    WEBAPP_ADMIN_THEME_EFFECTS_ENABLED: bool = Field(
+        default=False,
+        description="Run consented theme JavaScript for administrators in the Mini App.",
+    )
     WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED: bool = Field(default=True)
     WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT: bool = Field(default=False)
     WEBAPP_THEMES_DIR: str = Field(

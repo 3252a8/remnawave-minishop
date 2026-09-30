@@ -145,6 +145,7 @@ export const DEV_MOCK: PreviewMock = {
     serverStatusShowOnHome: false,
     serverStatusUrl: "https://status.example.com",
     compactHomeEnabled: false,
+    adminThemeEffectsEnabled: false,
     compactLoginEnabled: true,
     wideAuthProviders: ["email"],
     checkoutAddonValueAnimationEnabled: true,

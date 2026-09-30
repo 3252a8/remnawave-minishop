@@ -70,6 +70,7 @@
     "SUBSCRIPTION_MINI_APP_URL",
     "WEBAPP_PRIMARY_COLOR",
     "WEBAPP_USER_THEME_MODE_ENABLED",
+    "WEBAPP_ADMIN_THEME_EFFECTS_ENABLED",
     "WEBAPP_COMPACT_HOME_ENABLED",
     "WEBAPP_COMPACT_LOGIN_ENABLED",
     "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED",
@@ -132,6 +133,9 @@
   const compactLoginEnabled = $derived(
     boolAppearanceSettingValue("WEBAPP_COMPACT_LOGIN_ENABLED", true)
   );
+  const adminThemeEffectsEnabled = $derived(
+    boolAppearanceSettingValue("WEBAPP_ADMIN_THEME_EFFECTS_ENABLED", false)
+  );
   const checkoutAddonValueAnimationEnabled = $derived(
     boolAppearanceSettingValue("WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED", true)
   );
@@ -140,6 +144,16 @@
   );
 
   const behaviorSettings = $derived([
+    {
+      key: "admin-theme-effects",
+      labelKey: "settings_field_webapp_admin_theme_effects_enabled_label",
+      labelFallback: "Theme JavaScript for administrators",
+      descriptionKey: "settings_field_webapp_admin_theme_effects_enabled_description",
+      descriptionFallback:
+        "Run consented theme effects for administrators in the Mini App, outside the admin panel.",
+      enabled: adminThemeEffectsEnabled,
+      onChange: setAdminThemeEffectsEnabled,
+    },
     {
       key: "theme-mode",
       labelKey: "appearance_user_theme_mode_title",
@@ -216,6 +230,10 @@
 
   function setCompactHomeEnabled(enabled: boolean): void {
     settingsStore.markDirty("WEBAPP_COMPACT_HOME_ENABLED", Boolean(enabled));
+  }
+
+  function setAdminThemeEffectsEnabled(enabled: boolean): void {
+    settingsStore.markDirty("WEBAPP_ADMIN_THEME_EFFECTS_ENABLED", Boolean(enabled));
   }
 
   function setCompactLoginEnabled(enabled: boolean): void {

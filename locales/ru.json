@@ -2822,6 +2822,8 @@
   "admin_settings_field_webapp_user_theme_mode_enabled_label": "Выбор режима темы пользователем",
   "admin_settings_field_webapp_compact_home_enabled_description": "Объединяет статус подписки, использование трафика и баланс в одну компактную карточку.",
   "admin_settings_field_webapp_compact_home_enabled_label": "Компактная главная ЛК",
+  "admin_settings_field_webapp_admin_theme_effects_enabled_description": "Запускает эффекты темы с действующим разрешением JavaScript для администраторов в Mini App вне админ-панели. По умолчанию выключено; код получает доступ к странице и API от имени администратора.",
+  "admin_settings_field_webapp_admin_theme_effects_enabled_label": "JavaScript темы для администраторов",
   "admin_settings_field_webapp_checkout_addon_value_animation_enabled_description": "Анимирует числовые значения при изменении параметров тарифа во время оформления.",
   "admin_settings_field_webapp_checkout_addon_value_animation_enabled_label": "Анимация значений параметров тарифа",
   "admin_settings_field_webapp_checkout_addon_editor_expanded_by_default_description": "Открывает редактор параметров тарифа сразу при показе оформления.",

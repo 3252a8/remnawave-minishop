@@ -627,6 +627,7 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
             "primaryColor": webapp_settings.primary_color,
             "userThemeModeEnabled": bool(webapp_settings.user_theme_mode_enabled),
             "compactHomeEnabled": bool(webapp_settings.compact_home_enabled),
+            "adminThemeEffectsEnabled": bool(webapp_settings.admin_theme_effects_enabled),
             "compactLoginEnabled": bool(webapp_settings.compact_login_enabled),
             "checkoutAddonValueAnimationEnabled": bool(
                 webapp_settings.checkout_addon_value_animation_enabled

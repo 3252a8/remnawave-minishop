@@ -15310,6 +15310,11 @@
             "title": "Adminjsasset",
             "type": "string"
           },
+          "adminThemeEffectsEnabled": {
+            "default": false,
+            "title": "Adminthemeeffectsenabled",
+            "type": "boolean"
+          },
           "apiBase": {
             "title": "Apibase",
             "type": "string"

@@ -22,6 +22,7 @@ function demoRuntimeSettingValue(key: string): unknown {
   const values: DemoRecord = {
     GIFTS_ENABLED: DEV_MOCK.config.giftsEnabled ?? true,
     WEBAPP_USER_THEME_MODE_ENABLED: DEV_MOCK.config.userThemeModeEnabled ?? true,
+    WEBAPP_ADMIN_THEME_EFFECTS_ENABLED: DEV_MOCK.config.adminThemeEffectsEnabled ?? false,
     WEBAPP_COMPACT_HOME_ENABLED: DEV_MOCK.config.compactHomeEnabled ?? false,
     WEBAPP_COMPACT_LOGIN_ENABLED: DEV_MOCK.config.compactLoginEnabled ?? true,
     WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED:
@@ -99,6 +100,9 @@ export function demoSettingsSections(clone: CloneFn): ManifestSection[] {
 }
 
 function applyDemoSettingToMock(key: string, value: unknown): void {
+  if (key === "WEBAPP_ADMIN_THEME_EFFECTS_ENABLED") {
+    DEV_MOCK.config.adminThemeEffectsEnabled = Boolean(value);
+  }
   if (key === "GIFTS_ENABLED") DEV_MOCK.config.giftsEnabled = Boolean(value);
   if (key === "WEBAPP_TITLE") DEV_MOCK.config.title = value || "";
   if (key === "WEBAPP_USER_THEME_MODE_ENABLED") {

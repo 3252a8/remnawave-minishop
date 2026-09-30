@@ -2822,6 +2822,8 @@
   "admin_settings_field_webapp_user_theme_mode_enabled_label": "User theme mode selection",
   "admin_settings_field_webapp_compact_home_enabled_description": "Combine subscription status, traffic usage, and balance into one compact summary card.",
   "admin_settings_field_webapp_compact_home_enabled_label": "Compact Home screen",
+  "admin_settings_field_webapp_admin_theme_effects_enabled_description": "Run theme effects with current JavaScript consent for administrators in the Mini App, outside the admin panel. Disabled by default; the code can access the page and APIs as the administrator.",
+  "admin_settings_field_webapp_admin_theme_effects_enabled_label": "Theme JavaScript for administrators",
   "admin_settings_field_webapp_checkout_addon_value_animation_enabled_description": "Animate numeric values while tariff parameters change in checkout.",
   "admin_settings_field_webapp_checkout_addon_value_animation_enabled_label": "Animate tariff parameter values",
   "admin_settings_field_webapp_checkout_addon_editor_expanded_by_default_description": "Open the tariff parameter editor when checkout is shown.",

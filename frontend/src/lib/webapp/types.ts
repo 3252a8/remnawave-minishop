@@ -85,6 +85,7 @@ export type WebappConfig = BootstrapResponse["config"] &
   };
 export const FALLBACK_WEBAPP_CONFIG: WebappConfig = {
   adminCssAsset: "",
+  adminThemeEffectsEnabled: false,
   adminJsAsset: "",
   apiBase: "/api",
   appRepositoryUrl: "",

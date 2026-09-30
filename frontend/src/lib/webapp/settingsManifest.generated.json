@@ -1116,6 +1116,25 @@
         "updated_at": null
       },
       {
+        "key": "WEBAPP_ADMIN_THEME_EFFECTS_ENABLED",
+        "type": "bool",
+        "section": "appearance",
+        "section_order": 2,
+        "subsection": null,
+        "label": "Theme JavaScript for administrators",
+        "description": "Run consented theme effects for administrators in the Mini App, outside the admin panel.",
+        "i18n_label_key": "admin_settings_field_webapp_admin_theme_effects_enabled_label",
+        "i18n_description_key": "admin_settings_field_webapp_admin_theme_effects_enabled_description",
+        "i18n_subsection_key": null,
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": false,
+        "secret": false,
+        "value": "",
+        "overridden": false,
+        "updated_at": null
+      },
+      {
         "key": "WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED",
         "type": "bool",
         "section": "appearance",

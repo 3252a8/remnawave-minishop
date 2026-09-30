@@ -348,6 +348,18 @@ def test_compact_home_toggle_is_an_appearance_setting():
         assert field["i18n_description_key"] in messages
 
 
+def test_admin_theme_effects_toggle_is_a_localized_appearance_setting():
+    field = _manifest_by_key()["WEBAPP_ADMIN_THEME_EFFECTS_ENABLED"]
+
+    assert field["type"] == "bool"
+    assert field["section"] == "appearance"
+    assert field["optional"] is False
+    for language in ("ru", "en"):
+        messages = _locale(language)
+        assert field["i18n_label_key"] in messages
+        assert field["i18n_description_key"] in messages
+
+
 def test_compact_login_toggles_are_localized():
     manifest = _manifest_by_key()
     global_field = manifest["WEBAPP_COMPACT_LOGIN_ENABLED"]

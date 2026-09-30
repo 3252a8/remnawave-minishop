@@ -102,6 +102,38 @@ test("runtime disposes listeners, RAF, nodes, styles and late mounts", async ({ 
 });
 
 for (const width of [1280, 390]) {
+  test(`administrator theme effects setting persists at ${width}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto("/demo/runtime/app/?screen=admin&admin_section=appearance");
+    await page.locator(".appearance-preferences-trigger").click();
+    const toggle = page.getByRole("switch", {
+      name: "JavaScript темы для администраторов",
+      exact: true,
+    });
+    const save = page
+      .locator(".appearance-action-bar")
+      .getByRole("button", { name: "Сохранить", exact: true });
+    await expect(toggle).not.toBeChecked();
+    await toggle.click();
+    await save.click();
+    await expect(page.locator(".appearance-unsaved-note")).toBeHidden();
+    await page.reload();
+    await page.locator(".appearance-preferences-trigger").click();
+    await expect(toggle).toBeChecked();
+    await toggle.scrollIntoViewIfNeeded();
+    await expect(toggle).toBeInViewport();
+    await page.screenshot({
+      path: testInfo.outputPath(`admin-effects-${width}.png`),
+      fullPage: true,
+    });
+    await toggle.click();
+    await save.click();
+    await expect(page.locator(".appearance-unsaved-note")).toBeHidden();
+    await page.reload();
+    await page.locator(".appearance-preferences-trigger").click();
+    await expect(toggle).not.toBeChecked();
+  });
+
   test(`theme consent dialogs at ${width}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 844 });
     await page.goto("/demo/runtime/app/?screen=admin&admin_section=appearance");
