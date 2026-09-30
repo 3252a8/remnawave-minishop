@@ -250,7 +250,7 @@ test("an enabled package is removed with one request and visible restart progres
   expect(addBox && removeBox && Math.abs(addBox.y - removeBox.y)).toBeLessThan(1);
   await remove.click();
   const dialog = page.locator(".plugin-remove-dialog");
-  await expect(dialog.getByText("Перезапустить сервер и фоновый процесс")).toBeVisible();
+  await expect(dialog.getByText("Перезапуск сервера и фонового процесса")).toBeVisible();
   await dialog.getByRole("button", { name: "Удалить пакет" }).click();
   await expect(dialog.getByText("Плагин удалён. Приложение готово к работе.")).toBeVisible();
   expect(
