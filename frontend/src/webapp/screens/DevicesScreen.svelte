@@ -196,26 +196,28 @@
           <div class="device-card-head">
             <div class="device-icon"><DeviceGlyph {device} size={24} /></div>
             <span>
-              <strong
-                >{device.display_name ||
-                  t("wa_device_fallback_name", { index: device.index })}{#if clientLabel}<span
-                    class="device-client-label">{clientLabel}</span
-                  >{/if}</strong
-              >
+              <span class="device-name-row">
+                <strong
+                  >{device.display_name ||
+                    t("wa_device_fallback_name", { index: device.index })}{#if clientLabel}<span
+                      class="device-client-label">{clientLabel}</span
+                    >{/if}</strong
+                >
+                {#if device.token}
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    data-webapp-action="open-device-rename"
+                    onclick={() => openDeviceRenameDialog(device)}
+                    aria-label={t("wa_devices_rename")}
+                    title={t("wa_devices_rename")}
+                  >
+                    <Pencil size={15} />
+                  </Button>
+                {/if}
+              </span>
               <small>{deviceSubtitle(device)}</small>
             </span>
-            {#if device.token}
-              <Button
-                variant="icon"
-                size="icon"
-                data-webapp-action="open-device-rename"
-                onclick={() => openDeviceRenameDialog(device)}
-                aria-label={t("wa_devices_rename")}
-                title={t("wa_devices_rename")}
-              >
-                <Pencil size={16} />
-              </Button>
-            {/if}
           </div>
           <div class="device-meta">
             {#if device.last_connected_at_text || device.created_at_text}

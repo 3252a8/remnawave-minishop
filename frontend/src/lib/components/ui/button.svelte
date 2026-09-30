@@ -5,7 +5,7 @@
   import type { HTMLAnchorAttributes, HTMLButtonAttributes } from "svelte/elements";
 
   type ButtonVariant = "default" | "ghost" | "icon" | "outline" | "secondary" | "telegram";
-  type ButtonSize = "default" | "icon" | "lg" | "sm";
+  type ButtonSize = "default" | "icon" | "icon-sm" | "lg" | "sm";
   type ClickHandler = ((event: MouseEvent) => void) | ((value?: string) => void) | (() => void);
   type Props = Omit<HTMLButtonAttributes, "children" | "class" | "disabled" | "onclick" | "type"> &
     Omit<HTMLAnchorAttributes, "children" | "class" | "href" | "onclick"> & {
@@ -46,6 +46,7 @@
         sm: "btn-sm",
         lg: "btn-lg",
         icon: "btn-square",
+        "icon-sm": "btn-square-sm",
       },
     },
     defaultVariants: {

@@ -946,6 +946,17 @@ a {
   font-size: 14px;
 }
 
+.device-card-head .device-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.device-card-head .device-name-row strong {
+  min-width: 0;
+}
+
 .device-card-head .device-client-label {
   display: inline;
   color: var(--muted);
