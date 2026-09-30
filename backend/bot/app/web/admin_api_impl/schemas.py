@@ -26,6 +26,7 @@ from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from bot.app.web.http_contracts import HttpBodyModel, HttpResponseModel
 from bot.payment_providers.base import PaymentProviderPresentation, PaymentProviderSpec
+from bot.services.activation_code_input import IssuedCodeString
 from bot.services.promo_effects import (
     PROMO_TRAFFIC_GRANT_MAX_GB,
     PromoEffects,
@@ -101,7 +102,7 @@ from .user_schemas import (
 
 
 class PromoCreateBody(HttpBodyModel):
-    code: str | None = None
+    code: IssuedCodeString | None = None
     bonus_days: int = Field(default=0, ge=0)
     regular_traffic_gb: float = Field(default=0, ge=0, le=PROMO_TRAFFIC_GRANT_MAX_GB)
     premium_traffic_gb: float = Field(default=0, ge=0, le=PROMO_TRAFFIC_GRANT_MAX_GB)
@@ -120,7 +121,11 @@ class PromoCreateBody(HttpBodyModel):
     @field_validator("code", mode="before")
     @classmethod
     def _normalize_code(cls, value: Any) -> str | None:
-        code = str(value or "").strip().upper()
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError("invalid_activation_code")
+        code = value.strip()
         return code or None
 
     @field_validator("applies_to", "origin", mode="before")

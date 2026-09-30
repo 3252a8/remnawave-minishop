@@ -58,6 +58,7 @@
       <Tooltip.Root open={Boolean(promoFieldError)}>
         <Input
           value={promoCode}
+          maxlength={100}
           placeholder="PROMO2026"
           readonly={Boolean(promoEffectStatus)}
           class={[

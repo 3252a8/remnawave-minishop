@@ -56,6 +56,8 @@ async def parse_body[BodyModelT: BaseModel](
     """Parse and validate a JSON object body for a typed endpoint."""
     try:
         raw_payload = await request.json()
+    except web.HTTPRequestEntityTooLarge:
+        return None, _error(413, "payload_too_large")
     except Exception:
         return None, _error(400, "invalid_payload", "Invalid JSON payload")
 
@@ -77,6 +79,13 @@ async def parse_body_or_400[BodyModelT: BaseModel](
     """Parse a typed JSON body or raise the existing JSON 400 envelope."""
     try:
         raw_payload = await request.json()
+    except web.HTTPRequestEntityTooLarge:
+        raise web.HTTPRequestEntityTooLarge(
+            max_size=request.client_max_size,
+            actual_size=request.client_max_size + 1,
+            text=json.dumps({"ok": False, "error": "payload_too_large"}),
+            content_type="application/json",
+        ) from None
     except Exception:
         _raise_response(_error(400, "invalid_payload", "Invalid JSON payload"))
 

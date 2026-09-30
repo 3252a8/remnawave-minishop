@@ -10373,11 +10373,8 @@ export interface components {
     };
     /** WebAppPromoApplyPayload */
     WebAppPromoApplyPayload: {
-      /**
-       * Code
-       * @default
-       */
-      code: unknown;
+      /** Code */
+      code: string;
     };
     /** WebAppPromoQuotePayload */
     WebAppPromoQuotePayload: {

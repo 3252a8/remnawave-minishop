@@ -2,6 +2,7 @@ from typing import Annotated, Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, field_validator
 
+from bot.services.activation_code_input import ActivationCodeString
 from bot.services.email_auth_service import normalize_email
 
 PasswordAuthString = Annotated[str, StringConstraints(min_length=1, max_length=128)]
@@ -128,7 +129,7 @@ class WebAppEmailChangeConfirmPayload(WebAppEmailChangeNewPayload):
 class WebAppPromoApplyPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    code: Any = ""
+    code: ActivationCodeString
 
 
 class WebAppCheckoutAddonsPayload(BaseModel):
@@ -159,7 +160,7 @@ class WebAppPaymentCreatePayload(BaseModel):
     checkout_addons: WebAppCheckoutAddonsPayload | None = None
     balance_source: Literal["user", "partner"] | None = None
     use_partner_balance: bool = False
-    promo_code: ShortCodeString | None = None
+    promo_code: ActivationCodeString | None = None
     description: LongTextString | None = None
     comment: LongTextString | None = None
     note: LongTextString | None = None
@@ -182,7 +183,7 @@ class WebAppPlansViewedPayload(BaseModel):
 class WebAppPromoQuotePayload(WebAppPaymentCreatePayload):
     model_config = ConfigDict(extra="ignore")
 
-    promo_code: ShortCodeString
+    promo_code: ActivationCodeString
 
 
 class WebAppSubscriptionQuotePayload(WebAppPaymentCreatePayload):

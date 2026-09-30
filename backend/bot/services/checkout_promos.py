@@ -13,6 +13,7 @@ from bot.infra.promo_policies import (
     evaluate_promo_access,
     evaluate_promo_redemption,
 )
+from bot.services.activation_code_input import validate_code_input
 from bot.services.code_attempts import check_code_attempt
 from bot.services.promo_effects import PromoEffects, summarize_effects, validate_effects
 from config.settings import Settings
@@ -83,7 +84,10 @@ async def _promo_model(
             return None
         return promo
 
-    code = str(code_input or "").strip()
+    try:
+        code = validate_code_input(code_input)
+    except ValueError:
+        return None
     if not code:
         return None
     preserve_case = bool(settings.MIGRATION_REMNASHOP_PROMO_CODE_COMPAT_ENABLED)
@@ -111,7 +115,10 @@ async def resolve_checkout_promo(
     promo_code_id: int | None = None,
     lock_for_checkout: bool = False,
 ) -> tuple[CheckoutPromoResult | None, CheckoutPromoError | None]:
-    code = str(code_input or "").strip()
+    try:
+        code = validate_code_input(code_input) if code_input not in (None, "") else ""
+    except ValueError:
+        return None, CheckoutPromoError(400, "invalid_activation_code", "Invalid activation code")
     if not code and promo_code_id is None:
         return None, None
     throttle = await check_code_attempt(session, settings, user_id)

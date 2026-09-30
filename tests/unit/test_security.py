@@ -47,6 +47,30 @@ from tests.support.settings_stub import settings_stub
 
 
 class RequestSecurityTests(unittest.IsolatedAsyncioTestCase):
+    async def test_activation_input_contract_preserves_bounded_imported_codes(self):
+        from pydantic import ValidationError
+
+        from bot.app.web.admin_api_impl.schemas import PromoCreateBody
+        from bot.app.web.webapp.payloads import WebAppPromoApplyPayload, WebAppPromoQuotePayload
+
+        for model, field in (
+            (WebAppPromoApplyPayload, "code"),
+            (WebAppPromoQuotePayload, "promo_code"),
+        ):
+            for invalid in (True, 123, {}, [], "x" * 101, "abc\u0000", "abc\n"):
+                with (
+                    self.subTest(model=model.__name__, invalid=invalid),
+                    self.assertRaises(ValidationError),
+                ):
+                    model.model_validate({field: invalid})
+            self.assertEqual(
+                model.model_validate({field: "CaseSensitive.Импорт"}).model_dump()[field],
+                "CaseSensitive.Импорт",
+            )
+            model.model_validate({field: "x" * 100})
+        with self.assertRaises(ValidationError):
+            PromoCreateBody.model_validate({"code": "invalid.code"})
+
     async def test_local_action_quota_respects_settings_across_ips(self):
         from bot.app.web.webapp import rate_limits
 

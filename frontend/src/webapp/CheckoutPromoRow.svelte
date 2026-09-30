@@ -51,6 +51,7 @@
     <Input
       id={inputId}
       name={inputName}
+      maxlength={100}
       class="checkout-promo-input"
       {value}
       readonly={hasAppliedCode}

@@ -14,6 +14,7 @@ from bot.infra import events
 from bot.infra.event_payloads import PromoCodeAppliedPayload
 from bot.infra.promo_policies import PromoRedemptionContext, evaluate_promo_access
 from bot.middlewares.i18n import JsonI18n
+from bot.services.activation_code_input import validate_code_input, validate_issued_code
 from bot.services.promo_effects import PromoEffects, summarize_effects, validate_effects
 from config.settings import Settings
 from db.dal import promo_code_dal, security_dal, subscription_dal
@@ -124,7 +125,7 @@ class PromoCodeService:
             not re.fullmatch(r"[a-z][a-z0-9-]{1,63}", owner_plugin_id) or user_id is None
         ):
             raise ValueError("invalid_plugin_code_owner")
-        normalized_code = PromoCodeService._normalize_code(code or "")
+        normalized_code = validate_issued_code(code) if code is not None else ""
         if normalized_code:
             existing = await promo_code_dal.get_promo_code_by_code(session, normalized_code)
             if existing is not None and getattr(existing, "archived_at", None) is not None:
@@ -233,7 +234,12 @@ class PromoCodeService:
         preserve_case = bool(
             getattr(self.settings, "MIGRATION_REMNASHOP_PROMO_CODE_COMPAT_ENABLED", False)
         )
-        code_input_clean = (code_input or "").strip()[:100]
+        try:
+            code_input_clean = validate_code_input(code_input)
+        except (ValueError, TypeError, AttributeError):
+            return PromoCodeStatus(
+                status=PROMO_STATUS_NOT_FOUND, message=_("promo_code_not_found", code="")
+            )
         lookup_code = code_input_clean if preserve_case else code_input_clean.upper()
         code_display = html_escape(lookup_code[:100], quote=False)
         throttle_identifier = self._throttle_identifier(user_id)
@@ -357,7 +363,10 @@ class PromoCodeService:
         preserve_case = bool(
             getattr(self.settings, "MIGRATION_REMNASHOP_PROMO_CODE_COMPAT_ENABLED", False)
         )
-        code_input_clean = (code_input or "").strip()[:100]
+        try:
+            code_input_clean = validate_code_input(code_input)
+        except (ValueError, TypeError, AttributeError):
+            return False, _("promo_code_not_found", code="")
         lookup_code = code_input_clean if preserve_case else code_input_clean.upper()
         code_display = html_escape(lookup_code[:100], quote=False)
         throttle_identifier = self._throttle_identifier(user_id)
