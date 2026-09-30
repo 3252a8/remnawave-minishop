@@ -23,6 +23,7 @@ class _SessionFactory:
 class WebappActionAuditTests(IsolatedAsyncioTestCase):
     async def test_successful_webapp_mutation_is_written_to_user_log(self) -> None:
         request = SimpleNamespace(
+            get=lambda _key: False,
             method="POST",
             path="/api/devices/disconnect",
             match_info=SimpleNamespace(
@@ -65,7 +66,9 @@ class WebappActionAuditTests(IsolatedAsyncioTestCase):
             patch.object(action_audit.message_log_dal, "create_message_log", create_log),
         ):
             for path, response in requests_and_responses:
-                request = SimpleNamespace(method="POST", path=path, match_info={})
+                request = SimpleNamespace(
+                    method="POST", path=path, match_info={}, get=lambda _key: False
+                )
                 await action_audit.webapp_action_audit_middleware(
                     request, AsyncMock(return_value=response)
                 )

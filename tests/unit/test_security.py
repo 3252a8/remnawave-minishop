@@ -47,6 +47,41 @@ from tests.support.settings_stub import settings_stub
 
 
 class RequestSecurityTests(unittest.IsolatedAsyncioTestCase):
+    async def test_http_code_routes_share_quota_before_handler_work(self):
+        from aiohttp.test_utils import TestClient, TestServer
+
+        from bot.app.web.webapp import rate_limits, resource_middleware
+
+        calls = []
+
+        async def handler(request):
+            calls.append(request.path)
+            return web.json_response({"ok": True})
+
+        settings = settings_stub(
+            REDIS_URL="",
+            WEBAPP_RATE_LIMIT_MAX_REQUESTS=1,
+            WEBAPP_RATE_LIMIT_TTL_SECONDS=60,
+            trusted_proxies=[],
+        )
+        app = web.Application(middlewares=[resource_middleware.checkout_resource_middleware])
+        app.router.add_post("/api/subscription/quote", handler)
+        app.router.add_post("/api/promo/apply", handler)
+        with (
+            patch.object(resource_middleware, "extract_authenticated_user_id", return_value=42),
+            patch.object(rate_limits, "get_settings", return_value=settings),
+            patch.object(rate_limits, "get_redis", AsyncMock(return_value=None)),
+            patch.object(rate_limits, "get_webapp_rate_limit_buckets", return_value={}),
+            patch.object(rate_limits, "get_webapp_rate_limit_lock", return_value=asyncio.Lock()),
+        ):
+            async with TestClient(TestServer(app)) as client:
+                first = await client.post("/api/subscription/quote", json={})
+                second = await client.post("/api/promo/apply", json={"code": "KNOWN"})
+                self.assertEqual(first.status, 200)
+                self.assertEqual(second.status, 429)
+                self.assertEqual(second.headers["Retry-After"], "60")
+        self.assertEqual(calls, ["/api/subscription/quote"])
+
     async def test_activation_input_contract_preserves_bounded_imported_codes(self):
         from pydantic import ValidationError
 

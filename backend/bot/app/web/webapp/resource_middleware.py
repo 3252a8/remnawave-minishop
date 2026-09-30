@@ -3,9 +3,10 @@
 from aiohttp import web
 from aiohttp.typedefs import Handler
 
+from bot.app.web.context import get_settings
 from bot.app.web.session import extract_authenticated_user_id
 
-from .rate_limits import enforce_action_limit
+from .rate_limits import check_request_limits, client_ip, enforce_action_limit
 from .response_helpers import json_response
 
 _CODE_ROUTES = {
@@ -16,6 +17,37 @@ _CODE_ROUTES = {
     "/api/payments",
     "/api/tariffs/change-payment",
 }
+
+
+@web.middleware
+async def api_resource_middleware(request: web.Request, handler: Handler) -> web.StreamResponse:
+    if request.path.startswith("/api/"):
+        settings = get_settings(request)
+        maximum = max(1, settings.WEBAPP_RATE_LIMIT_MAX_REQUESTS)
+        limits = [(f"api:ip:{client_ip(request)}", maximum * 8)]
+        user_id = extract_authenticated_user_id(request)
+        if user_id is not None:
+            limits.append((f"api:user:{user_id}", maximum * 4))
+        blocked = await check_request_limits(
+            request, limits, window_seconds=settings.WEBAPP_RATE_LIMIT_TTL_SECONDS
+        )
+        if blocked is not None:
+            return blocked
+        if user_id is not None:
+            action = None
+            if request.path in {"/api/tariffs/change", "/api/tariffs/change-payment"}:
+                action = (
+                    "payments_create"
+                    if request.path.endswith("change-payment")
+                    else "tariff_change"
+                )
+            elif request.path.startswith("/api/payments/"):
+                action = "payment_status"
+            if action:
+                blocked = await enforce_action_limit(request, user_id=user_id, action=action)
+                if blocked is not None:
+                    return blocked
+    return await handler(request)
 
 
 @web.middleware

@@ -535,6 +535,9 @@ async def account_language_route(request: web.Request) -> web.Response:
         if _normalize_language(db_user.language_code or "") != language:
             db_user.language_code = language
             await session.flush()
+        else:
+            request["webapp_action_noop"] = True
+            return json_response({"ok": True, "language": language})
         await session.commit()
 
     await _invalidate_webapp_user_caches(settings, user_id)

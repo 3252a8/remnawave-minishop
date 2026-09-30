@@ -59,7 +59,7 @@ def _route_canonical(request: web.Request) -> str:
 
 
 async def _audit_successful_mutation(request: web.Request, response: web.StreamResponse) -> None:
-    if request.method != "POST" or response.status >= 400:
+    if request.method != "POST" or response.status >= 400 or request.get("webapp_action_noop"):
         return
     canonical = _route_canonical(request)
     action = _AUDITED_MUTATIONS.get(canonical)
