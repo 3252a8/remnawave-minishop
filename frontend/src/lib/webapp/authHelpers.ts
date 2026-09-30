@@ -1,5 +1,5 @@
 import { rememberReferral, readReferral } from "./session.js";
-import { isCheckoutStartParam } from "./deeplinks.js";
+import { referralStartParam } from "./launchParams.js";
 
 type TelegramWebAppLike = {
   initDataUnsafe?: { start_param?: string | null } | null;
@@ -25,7 +25,10 @@ type TranslateFn = (key: string, params?: Record<string, unknown>) => string;
 function readReferralParamFromLocation(): string {
   if (typeof window === "undefined") return "";
   const params = new URLSearchParams(window.location.search);
-  const referral = params.get("ref") || params.get("start") || params.get("start_param") || "";
+  const referral =
+    ["ref", "start", "start_param", "startapp", "tgWebAppStartParam"]
+      .map((key) => referralStartParam(params.get(key)))
+      .find(Boolean) || "";
   const partner = String(params.get("partner") || "").trim();
   if (partner && referral) return "ambiguous_invite";
   return partner ? `p_${partner}` : referral;
@@ -35,12 +38,7 @@ export function readReferralParam(tg: unknown = null): string {
   const fromQuery = readReferralParamFromLocation();
   const fromTelegram = asTelegramWebApp(tg)?.initDataUnsafe?.start_param || "";
   const candidates = [fromTelegram, fromQuery, readReferral()];
-  const value = String(
-    candidates.find((candidate) => {
-      const normalized = String(candidate || "").trim();
-      return normalized && !isCheckoutStartParam(normalized);
-    }) || ""
-  ).trim();
+  const value = candidates.map(referralStartParam).find(Boolean) || "";
   return value ? rememberReferral(value) : readReferral();
 }
 

@@ -303,7 +303,11 @@ export function stripCheckoutPromoQueryFromUrl() {
   const keys = ["promo", "promo_code", "startapp", "start_param", "tgWebAppStartParam"];
   const changed = keys.some((key) => url.searchParams.has(key));
   if (!changed) return;
-  for (const key of keys) url.searchParams.delete(key);
+  for (const key of keys) {
+    if (key === "promo" || key === "promo_code" || startParamPromoCode(url.searchParams.get(key))) {
+      url.searchParams.delete(key);
+    }
+  }
   const search = url.searchParams.toString();
   window.history.replaceState(null, "", `${url.pathname}${search ? `?${search}` : ""}${url.hash}`);
 }

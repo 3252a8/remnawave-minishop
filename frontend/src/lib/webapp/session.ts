@@ -1,3 +1,5 @@
+import { referralStartParam } from "./launchParams.js";
+
 export const TOKEN_STORAGE_KEY = "rw_webapp_token";
 export const CSRF_COOKIE_NAME = "rw_webapp_csrf";
 export const REFERRAL_STORAGE_KEY = "rw_webapp_referral";
@@ -43,7 +45,7 @@ export function isManuallyLoggedOut(flagKey: string): boolean {
 }
 
 export function rememberReferral(value: unknown): string {
-  const normalized = String(value || "").trim();
+  const normalized = referralStartParam(value);
   if (!normalized) return readReferral();
   try {
     localStorage.setItem(REFERRAL_STORAGE_KEY, normalized);
@@ -55,7 +57,10 @@ export function rememberReferral(value: unknown): string {
 
 export function readReferral(): string {
   try {
-    return localStorage.getItem(REFERRAL_STORAGE_KEY) || "";
+    const stored = localStorage.getItem(REFERRAL_STORAGE_KEY) || "";
+    const referral = referralStartParam(stored);
+    if (stored && !referral) localStorage.removeItem(REFERRAL_STORAGE_KEY);
+    return referral;
   } catch {
     return "";
   }

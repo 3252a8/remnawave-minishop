@@ -92,6 +92,30 @@ describe("auth referral helpers", () => {
     expect(storage.get(REFERRAL_STORAGE_KEY)).toBe("TG123");
   });
 
+  it("preserves attribution when an action arrives through Telegram", () => {
+    for (const action of [
+      "promo_SAVE10",
+      "plan_standard",
+      "gift_token",
+      "ticket_7",
+      "plans",
+      "admin_user_5",
+    ]) {
+      const { storage } = installBrowser("?ref=ref_FRIEND");
+      expect(readReferralParam({ initDataUnsafe: { start_param: action } })).toBe("ref_FRIEND");
+      expect(storage.get(REFERRAL_STORAGE_KEY)).toBe("ref_FRIEND");
+      window.location.search = "";
+      expect(readReferralParam()).toBe("ref_FRIEND");
+    }
+  });
+
+  it("discards action values left in referral storage by older clients", () => {
+    const { storage } = installBrowser("");
+    storage.set(REFERRAL_STORAGE_KEY, "promo_SAVE10");
+    expect(readReferralParam()).toBe("");
+    expect(storage.has(REFERRAL_STORAGE_KEY)).toBe(false);
+  });
+
   it("does not treat a Telegram plan checkout payload as a referral", () => {
     const { storage } = installBrowser("");
 
