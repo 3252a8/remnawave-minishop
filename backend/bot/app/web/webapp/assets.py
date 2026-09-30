@@ -1,4 +1,3 @@
-import asyncio
 import hashlib
 import hmac
 import html
@@ -8,7 +7,6 @@ import re
 import secrets
 import subprocess
 import time
-from collections import deque
 from typing import Any
 from urllib.parse import quote
 
@@ -19,19 +17,15 @@ from bot.app.web.context import (
     get_bot_username,
     get_i18n,
     get_settings,
-    get_webapp_rate_limit_buckets,
-    get_webapp_rate_limit_lock,
     get_webapp_settings_cache,
 )
 from bot.app.web.webapp_auth import verify_webapp_session_token
-from bot.infra.redis import get_redis, redis_key
 from bot.middlewares.i18n import (
     is_valid_locale_language_code,
     locale_language_options,
     normalize_locale_language_code,
 )
 from bot.services.legal_document_links import legal_document_links
-from bot.utils.request_security import request_client_ip
 from config.settings import Settings
 from config.webapp_themes_config import (
     public_theme_payload,
@@ -145,8 +139,6 @@ from .constants import (
     WEBAPP_CSRF_HEADER_NAME,
     WEBAPP_I18N_PLACEHOLDER,
     WEBAPP_JS_PLACEHOLDER,
-    WEBAPP_RATE_LIMIT_MAX_REQUESTS,
-    WEBAPP_RATE_LIMIT_WINDOW_SECONDS,
     WEBAPP_SESSION_COOKIE_NAME,
     WEBAPP_STATE_CHANGING_METHODS,
 )
@@ -384,70 +376,9 @@ async def _enforce_webapp_rate_limit(
     user_id: int,
     action: str,
 ) -> web.Response | None:
-    settings: Settings = get_settings(request)
-    ip_address = (
-        request_client_ip(request, trusted_proxies=settings.trusted_proxies)
-        or request.remote
-        or "unknown"
-    )
-    key = f"{action}:{ip_address}:{int(user_id)}"
-    try:
-        redis = await get_redis(settings)
-        if redis is not None:
-            redis_rate_key = redis_key(settings, "rate-limit", "webapp", key)
-            current = await redis.incr(redis_rate_key)
-            if current == 1:
-                await redis.expire(redis_rate_key, settings.WEBAPP_RATE_LIMIT_TTL_SECONDS)
-            if current > settings.WEBAPP_RATE_LIMIT_MAX_REQUESTS:
-                ttl = await redis.ttl(redis_rate_key)
-                retry_after = max(
-                    1, int(ttl if ttl and ttl > 0 else WEBAPP_RATE_LIMIT_WINDOW_SECONDS)
-                )
-                return json_response(
-                    {
-                        "ok": False,
-                        "error": "rate_limited",
-                        "retry_after": retry_after,
-                    },
-                    status=429,
-                    headers={"Retry-After": str(retry_after)},
-                )
-            return None
-    except Exception as exc:
-        logger.warning("Redis webapp rate limiter unavailable; using local fallback: %s", exc)
+    from .rate_limits import enforce_action_limit
 
-    buckets: dict[str, deque[float]] = get_webapp_rate_limit_buckets(request)
-    lock: asyncio.Lock = get_webapp_rate_limit_lock(request)
-    now = time.monotonic()
-
-    async with lock:
-        bucket = buckets.setdefault(key, deque())
-        while bucket and now - bucket[0] >= WEBAPP_RATE_LIMIT_WINDOW_SECONDS:
-            bucket.popleft()
-        if not bucket:
-            buckets.pop(key, None)
-            bucket = buckets.setdefault(key, deque())
-        if len(bucket) >= WEBAPP_RATE_LIMIT_MAX_REQUESTS:
-            retry_after = (
-                max(
-                    1,
-                    int(WEBAPP_RATE_LIMIT_WINDOW_SECONDS - (now - bucket[0])),
-                )
-                if bucket
-                else WEBAPP_RATE_LIMIT_WINDOW_SECONDS
-            )
-            return json_response(
-                {
-                    "ok": False,
-                    "error": "rate_limited",
-                    "retry_after": retry_after,
-                },
-                status=429,
-                headers={"Retry-After": str(retry_after)},
-            )
-        bucket.append(now)
-
-    return None
+    return await enforce_action_limit(request, user_id=user_id, action=action)
 
 
 def _is_webapp_bootstrap_i18n_key(key: str) -> bool:

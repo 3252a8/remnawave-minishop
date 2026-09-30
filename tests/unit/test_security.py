@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import hmac
 import json
@@ -46,6 +47,46 @@ from tests.support.settings_stub import settings_stub
 
 
 class RequestSecurityTests(unittest.IsolatedAsyncioTestCase):
+    async def test_local_action_quota_respects_settings_across_ips(self):
+        from bot.app.web.webapp import rate_limits
+
+        buckets = {}
+        lock = asyncio.Lock()
+        settings = settings_stub(
+            REDIS_URL="",
+            WEBAPP_RATE_LIMIT_MAX_REQUESTS=1,
+            WEBAPP_RATE_LIMIT_TTL_SECONDS=7,
+            trusted_proxies=[],
+        )
+        request = SimpleNamespace(remote="192.0.2.1", headers={})
+        with (
+            patch.object(rate_limits, "get_settings", return_value=settings),
+            patch.object(rate_limits, "get_redis", AsyncMock(return_value=None)),
+            patch.object(rate_limits, "get_webapp_rate_limit_buckets", return_value=buckets),
+            patch.object(rate_limits, "get_webapp_rate_limit_lock", return_value=lock),
+        ):
+            self.assertIsNone(
+                await rate_limits.enforce_action_limit(request, user_id=42, action="code")
+            )
+            request.remote = "192.0.2.2"
+            blocked = await rate_limits.enforce_action_limit(request, user_id=42, action="code")
+        self.assertEqual(blocked.status, 429)
+        self.assertEqual(blocked.headers["Retry-After"], "7")
+
+    async def test_configured_redis_outage_fails_closed(self):
+        from bot.app.web.webapp import rate_limits
+
+        with (
+            patch.object(
+                rate_limits, "get_settings", return_value=settings_stub(REDIS_URL="redis://test")
+            ),
+            patch.object(rate_limits, "get_redis", AsyncMock(side_effect=ConnectionError)),
+        ):
+            blocked = await rate_limits.check_request_limits(
+                object(), [("user:42", 1)], window_seconds=60
+            )
+        self.assertEqual(blocked.status, 503)
+
     async def test_request_client_ip_uses_rightmost_untrusted_forwarded_ip(self):
         request = SimpleNamespace(
             remote="127.0.0.1",
